@@ -1,44 +1,47 @@
-From: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch v2] net/mlx5: missing error code in
- esw_create_offloads_fdb_table()
-Date: Wed, 13 Jul 2016 16:17:05 +0300
-Message-ID: <83288161-1577-4092-6d6d-125b219cedf9@mellanox.com>
-References: <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
- <20160713100825.GD29468@mwanda> <20160713130459.GF10079@leon.nu>
+From: Bob Copeland <me@bobcopeland.com>
+Subject: Re: [PATCH 1/4] mac80211: mesh: flush stations before beacons are
+ stopped
+Date: Wed, 13 Jul 2016 09:33:38 -0400
+Message-ID: <20160713133338.GD7819@localhost>
+References: <20160628111307.8784-1-yanivma@ti.com>
+ <20160628111307.8784-2-yanivma@ti.com>
+ <1467184459.2461.1.camel@sipsolutions.net>
+ <AE1C82FB3D0EC64DB1F752C81CBD1101391FC38C@DFRE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160713130459.GF10079-2ukJVAZIZ/Y@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Hahn, Maital" <maitalm@ti.com>
+To: "Machani, Yaniv" <yanivma@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f50.google.com ([209.85.214.50]:37529 "EHLO
+	mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751305AbcGMNe7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 09:34:59 -0400
+Received: by mail-it0-f50.google.com with SMTP id f6so43137699ith.0
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 06:34:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <AE1C82FB3D0EC64DB1F752C81CBD1101391FC38C@DFRE01.ent.ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/07/2016 16:04, Leon Romanovsky wrote:
-> On Wed, Jul 13, 2016 at 02:48:44PM +0300, Dan Carpenter wrote:
->> We accidentally return success when we had intended to return an error
->> code.
->>
->> Fixes: 69697b6e2086 ('net/mlx5: E-Switch, Add support for the sriov offloads mode')
->> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->> ---
->> v2: return -ENOTSUPP instead --EINVAL
->
-> I'm a little bit confused. Why did you prefer ENOTSUPP over EOPNOTSUPP?
+On Wed, Jul 13, 2016 at 10:11:25AM +0000, Machani, Yaniv wrote:
+> > > Some drivers (e.g. wl18xx) expect that the last stage in the 
+> > > de-initialization process will be stopping the beacons, similar to ap.
+> > > Update ieee80211_stop_mesh() flow accordingly.
+> > >
+> > How well have you tested that with other drivers?
+> > 
+> 
+> Sorry for the delayed response (I've been out) and thanks for your comments,
+> I have tested it with RT3572 as well, and didn't see any issue.
+> I'll update the comment to reflect that.
 
-According to [1], it fits our case better - operation is valid and make 
-sense, but isn't supported.
+I'll give this a test on ath10k and wcn36xx as they are the ones most
+likely to care about ordering.
 
-[1] https://lists.gnu.org/archive/html/bug-glibc/2002-08/msg00017.html
-
->
-> Thanks.
->
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Bob Copeland %% http://bobcopeland.com/
