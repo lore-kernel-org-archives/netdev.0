@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vrf: Documentation update
-Date: Wed, 13 Jul 2016 11:36:42 -0700 (PDT)
-Message-ID: <20160713.113642.1307611231041274774.davem@davemloft.net>
-References: <1468357463-8526-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net 0/2] mlx5 tx timeout watchdog fixes
+Date: Wed, 13 Jul 2016 11:38:31 -0700 (PDT)
+Message-ID: <20160713.113831.1005946278876914442.davem@davemloft.net>
+References: <1468357620-27831-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38484 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38502 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbcGMSgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 14:36:46 -0400
-In-Reply-To: <1468357463-8526-1-git-send-email-dsa@cumulusnetworks.com>
+	with ESMTP id S1750923AbcGMSi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 14:38:56 -0400
+In-Reply-To: <1468357620-27831-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 12 Jul 2016 15:04:23 -0600
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Wed, 13 Jul 2016 00:06:58 +0300
 
-> Update vrf documentation for changes made to 4.4 - 4.8 kernels
-> and iproute2 support for vrf keyword.
+> This patch set provides two trivial fixes for the tx timeout series lately 
+> applied into net 4.7.
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> From Daniel, detect stuck queues due to BQL
+> From Mohamad, fix tx timeout watchdog false alarm
+> 
+> Hopefully those two fixes will make it to -stable, assuming 
+> 3947ca185999 ('net/mlx5e: Implement ndo_tx_timeout callback') was also backported to -stable.
 
-Applied, thanks David.
+Series applied.
