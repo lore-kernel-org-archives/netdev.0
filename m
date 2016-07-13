@@ -1,81 +1,127 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] dt: bindings: Add a generic ethernet device binding
-Date: Wed, 13 Jul 2016 12:20:04 +0200
-Message-ID: <1468405204-5845-1-git-send-email-hdegoede@redhat.com>
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless
+ ucode is loaded
+Date: Wed, 13 Jul 2016 06:20:31 -0400
+Message-ID: <578615EF.9010305@redhat.com>
+References: <1468250301-10357-1-git-send-email-prarit@redhat.com>		<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>		<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>		<57840214.8000904@redhat.com> <87eg6yav5e.fsf@purkki.adurom.net> <1468394693.25088.138.camel@coelho.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxwifi <linuxwifi@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"Ivgi, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sharon, Sara" <sara.sharon@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: Luca Coelho <luca@coelho.fi>, Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468394693.25088.138.camel@coelho.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On some boards (android tablets) different batches use different sdio
-wifi modules. This is not a problem since sdio is a discoverable bus,
-so we only need to describe and activate the mmc controller in dt and
-then the kernel will automatically load the right driver.
 
-But sometimes it is useful to specify certain ethernet properties for
-these "unknown" sdio devices, specifically we want the boot-loader
-to be able to set "local-mac-address" as some of these sdio wifi
-modules come without an eeprom / without a factory programmed mac
-address.
 
-Since the exact device is unknown (differs per batch) we cannot use
-a wifi-chip specific compatible. This commit adds a new
-"generic,ethernet" binding for use in dt-nodes describing such an
-unknown ethernet device.
+On 07/13/2016 03:24 AM, Luca Coelho wrote:
+> On Wed, 2016-07-13 at 09:50 +0300, Kalle Valo wrote:
+>> Prarit Bhargava <prarit@redhat.com> writes:
+>>
+>>>> We implement thermal zone because we do support it, but the
+>>>> problem is
+>>>> that we need the firmware to be loaded for that. So you can argue
+>>>> that
+>>>> we should register *later* when the firmware is loaded. But this
+>>>> is
+>>>> really not helping all that much because the firmware can also be
+>>>> stopped at any time. So you'd want us to register / unregister
+>>>> the
+>>>> thermal zone anytime the firmware is loaded / unloaded?
+>>>
+>>> You might have to do that.  I think that if the firmware enables a
+>>> feature then
+>>> the act of loading the firmware should run the code that enables
+>>> the feature.
+>>> IMO of course.
+>>
+>> But I suspect that the iwlwifi firmware is loaded during interface up
+>> (and unloaded during interface down) and in that case
+>> register/unregister would be happening all the time. That doesn't
+>> sound
+>> like a good idea. I would rather try to fix the thermal interface to
+>> handle the cases when the measurement is not available.
+> 
+> I totally agree with Emmanuel and Kalle.  We should not change this.
+>  It is a design decision to return an error when the interface is down,
+> this is very common with other subsystems as well.  
 
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- Documentation/devicetree/bindings/net/generic.txt | 30 +++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/generic.txt
+Please show me another subsystem or driver that does this.  I've looked around
+the kernel but cannot find one that updates the firmware and implements new
+features on the fly like this.  I have come across several drivers that allow
+for an update, but they do not implement new features based on the firmware.
 
-diff --git a/Documentation/devicetree/bindings/net/generic.txt b/Documentation/devicetree/bindings/net/generic.txt
-new file mode 100644
-index 0000000..2325709
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/generic.txt
-@@ -0,0 +1,30 @@
-+* Generic ethernet controller
-+
-+This binding is for ethernet devices which need a dt node so that certain
-+standard properties, e.g. a mac-address can be specified via dt, but
-+otherwise can be detected automatically as they are on a discoverable bus.
-+
-+Required properties:
-+- compatible: should be "generic,ethernet"
-+
-+Optional properties:
-+- See bindings/ethernet.txt
-+
-+Example:
-+
-+/ {
-+	aliases {
-+		/* Make u-boot set mac-address for the sdio-wifi (no eeprom) */
-+		ethernet0 = &sdio_wifi;
-+	};
-+};
-+
-+&mmc1 {
-+	non-removable;
-+	status = "okay";
-+
-+	sdio_wifi: sdio_wifi@1 {
-+		compatible = "generic,ethernet"
-+		reg = <1>;
-+	};
-+};
--- 
-2.7.4
+Additionally, what happens when someone back revs firmware versions (which
+happens far more than you and I would expect)?  Does that mean I now go from a
+functional system to a non-functional system wrt to userspace?
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The userspace
+> should be able to handle errors and report something like "unavailable"
+> when this kind of error is returned.
+> 
+
+I myself have made the same arguments wrt to cpufreq code & bad userspace
+choices.  I just went through this a few months back with what went from a
+simple patch and turned out to be a hideous patch in cpufreq.  You cannot break
+userspace like this.
+
+See commit 51443fbf3d2c ("cpufreq: intel_pstate: Fix intel_pstate powersave
+min_perf_pct value").  What should have been a trivial change resulted in a
+massive change because of broken userspace.
+
+> I'm not sure EIO is the best we can have, but for me that's exactly
+> what it is.  The thermal zone *is* there, but cannot be accessed
+> because the firmware is not available.  I'm okay to change it to EBUSY,
+> if that would help userspace, but I think that's a bit misleading.  The
+> device is not busy, on the contrary, it's not even running at all.
+> 
+
+I understand that, but by returning -EIO we end up with an error.
+
+> Furthermore, I don't think this is "breaking userspace" in the sense of
+> being a regression.  
+
+I run (let's say 4.5 kernel).  sensors works.  I update to 4.7.  sensors doesn't
+work.  How is that not a regression?  That's _exactly_ what it should be
+reported as.
+
+The userspace API has always been implemented with
+> the possibility of returning errors.  It's not a good design if a
+> single device returning an error causes all the other devices to also
+> fail.
+> 
+
+If that were the case we would never have to worry about "breaking userspace"?
+For any kernel change I could just say that the userspace design was bad and be
+done with it.  Why fix anything then?
+
+I don't see any harm in waiting to register the sysfs files for hwmon until the
+firmware has been validated.  IIUC, the up/down'ing of the device doesn't happen
+that often (during initial boot, and suspend/resume, switching wifi connections,
+shutdown?).  This would make the iwlwifi community happy (IMO) and sensors would
+still work.  At the same time I could write a patch for lm-sensors to fix this
+issue if it comes up in future versions.  [Aside: I'm going to have the
+reproducing system available today and will test this out.  It looks like just
+moving some code around.]
+
+The bottom line is that lm-sensors is currently broken with this change in
+iwlwifi.  AFAICT, no other thermal device returns an error this way, and IMO
+that means the iwlwifi driver is doing something new and unexpected wrt to
+userspace.
+
+P.
+
+
+> --
+> Cheers,
+> Luca.
+> 
