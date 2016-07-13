@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] Mellanox 100G mlx5 Bulk flow statistics
- and SRIOV TC offloads
-Date: Wed, 13 Jul 2016 11:46:25 -0700 (PDT)
-Message-ID: <20160713.114625.345817834403177179.davem@davemloft.net>
-References: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, hadarh@mellanox.com,
-	jiri@mellanox.com, gospo@cumulusnetworks.com,
-	jesse.brandeburg@intel.com, john.r.fastabend@intel.com,
-	amir@vadai.me
-To: saeedm@mellanox.com
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v4 5/5] Makefile: Allow to override CC
+Date: Wed, 13 Jul 2016 20:47:19 +0200
+Message-ID: <1468435639-6892-6-git-send-email-phil@nwl.cc>
+References: <1468435639-6892-1-git-send-email-phil@nwl.cc>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38608 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbcGMSqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 14:46:51 -0400
-In-Reply-To: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:54461 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751507AbcGMSrd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2016 14:47:33 -0400
+In-Reply-To: <1468435639-6892-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Wed, 13 Jul 2016 00:28:56 +0300
+This makes it easier to build iproute2 with a custom compiler.
 
-> This series from Amir and Or deals with two enhancements for the mlx5 TC offloads.
-> 
-> The 1st two patches add bulk reading of flow counters. Few bulk counter queries are
-> used instead of issuing thousands firmware commands per second to get statistics of all
-> flows set to HW.
-> 
-> The next patches add TC based SRIOV offloading to mlx5, as a follow up for the e-switch
-> offloads mode and the VF representors. When the e-switch is set to the (new) "offloads"
-> mode, we can now offload TC/flower drop and forward rules, the forward action we offload
-> is TC mirred/redirect.
-> 
-> The above is done by the VF representor netdevices exporting the setup_tc ndo where from
-> there we're re-using and enhancing the existing mlx5 TC offloads sub-module which now
-> works for both the NIC and the SRIOV cases.
-> 
-> The series is applied on top d3fc0353f7c7 ('ipv4: af_inet: make it explicitly non-modular')
-> and it has no merge issues with the on-going net submission ('mlx5 tx timeout watchdog fixes')
+While at it, make HOSTCC default to the value of CC if not explicitly
+set elsewhere.
 
-Series applied, thanks.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 15c81ecfdca3a..fa200ddb76679 100644
+--- a/Makefile
++++ b/Makefile
+@@ -34,8 +34,8 @@ ADDLIB+=ipx_ntop.o ipx_pton.o
+ #options for mpls
+ ADDLIB+=mpls_ntop.o mpls_pton.o
+ 
+-CC = gcc
+-HOSTCC = gcc
++CC := gcc
++HOSTCC ?= $(CC)
+ DEFINES += -D_GNU_SOURCE
+ # Turn on transparent support for LFS
+ DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+-- 
+2.8.2
