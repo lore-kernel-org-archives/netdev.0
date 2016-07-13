@@ -1,66 +1,127 @@
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch v2] net/mlx5: missing error code in
- esw_create_offloads_fdb_table()
-Date: Wed, 13 Jul 2016 16:04:59 +0300
-Message-ID: <20160713130459.GF10079@leon.nu>
-References: <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
- <20160713100825.GD29468@mwanda>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 1/3] perf, events: add non-linear data support
+ for raw records
+Date: Wed, 13 Jul 2016 15:42:31 +0200
+Message-ID: <20160713134231.GT30154@twins.programming.kicks-ass.net>
+References: <cover.1468362046.git.daniel@iogearbox.net>
+ <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="i3lJ51RuaGWuFYNw"
-Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160713100825.GD29468@mwanda>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---i3lJ51RuaGWuFYNw
 Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:42414 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635AbcGMNnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 09:43:03 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 13, 2016 at 02:48:44PM +0300, Dan Carpenter wrote:
-> We accidentally return success when we had intended to return an error
-> code.
->=20
-> Fixes: 69697b6e2086 ('net/mlx5: E-Switch, Add support for the sriov offlo=
-ads mode')
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
-> v2: return -ENOTSUPP instead --EINVAL
 
-I'm a little bit confused. Why did you prefer ENOTSUPP over EOPNOTSUPP?
+Ok so the nonlinear thing was it doing _two_ copies, one the regular
+__output_copy() on raw->data and second the optional fragment thingy
+using __output_custom().
 
-Thanks.
+Would something like this work instead?
 
---i3lJ51RuaGWuFYNw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+It does the nonlinear thing and the custom copy function thing but
+allows more than 2 fragments and allows each fragment to have a custom
+copy.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+It doesn't look obviously more expensive; it has the one ->copy branch
+extra, but then it doesn't recompute the sizes.
 
-iQIcBAEBAgAGBQJXhjx6AAoJEORje4g2clinGqcQAKGkCXG61tY3QnItlxxRxTbH
-U9hwfs+Rh8GhFRfV/tQXQfpBXqtUFzl+ZFGFXYqn2rD4jTf0TIsJ5G0EiZ35g8Gq
-QJbdpkoLSKdYX3ywzxWFESg14IRgyYtFYza3dddD8tR5gwo6QDj+L8qJx3CY4Osd
-PQVSorCBc3IPsPKxf3G1KYTWRGbq9JI6ml8TZWoAojmb8BXHcRQndyMtfV3EcgPC
-Q1028HkODG932Ux5KrxBPRPo5tuvd8Nvto384eKxJ01Go7OpNlsFiQD2Mn0WKnLr
-aMD3HQvHUxTF4nO1M6ubMVspkzB854o0syneoKgS+WvxhwkJqFlTYOkGiReN76To
-oXwNWZUQlpgJMJ8Xwz2jD+1EQ023UI91y6A/SXt7K9VY5hhSwGDQFERtAqiSJfif
-6jbLBNKwlMzvQBwMuvBjfRz4sg9I9rOr42igGJnvwm3xgZjg52NFj4yEmltAhQzK
-UO/uNYRntlKihol+hhA0tuL7x3eR+2VMza7HlHNdl+a6HCG336/1/cGoszeS8Q5X
-sXZyw+9sWPydGe54T5kxDm3lH51XLj/enLj5P/QFHAZ7TOucICHPRIJj/Y4PP8cJ
-yevKWTS8y1Me/D80PsmA1ifqwZAjFEpLz9BicTGfD58co7/0XHbsWC+HQxvnu5+Z
-d04eU4BqpAcC9Dnf8Aag
-=QilC
------END PGP SIGNATURE-----
+---
 
---i3lJ51RuaGWuFYNw--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 1fe22032f228..83e2a83e8db3 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -69,9 +69,18 @@ struct perf_callchain_entry_ctx {
+ 	bool			    contexts_maxed;
+ };
+ 
++typedef unsigned long (*perf_copy_f)(void *dst, const void *src, unsigned long len);
++
++struct perf_raw_frag {
++	struct perf_raw_frag		*next;
++	perf_copy_f			copy;
++	void				*data;
++	u32				size;
++} __packed;
++
+ struct perf_raw_record {
++	struct perf_raw_frag		frag;
+ 	u32				size;
+-	void				*data;
+ };
+ 
+ /*
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index fe8d49a56322..f7ad7d65317d 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -5617,16 +5617,21 @@ void perf_output_sample(struct perf_output_handle *handle,
+ 	}
+ 
+ 	if (sample_type & PERF_SAMPLE_RAW) {
+-		if (data->raw) {
+-			u32 raw_size = data->raw->size;
+-			u32 real_size = round_up(raw_size + sizeof(u32),
+-						 sizeof(u64)) - sizeof(u32);
+-			u64 zero = 0;
+-
+-			perf_output_put(handle, real_size);
+-			__output_copy(handle, data->raw->data, raw_size);
+-			if (real_size - raw_size)
+-				__output_copy(handle, &zero, real_size - raw_size);
++		struct perf_raw_record *raw = data->raw;
++
++		if (raw) {
++			struct perf_raw_frag *frag = &raw->frag;
++
++			perf_output_put(handle, raw->size);
++			do {
++				if (frag->copy) {
++					__output_custom(handle, frag->copy,
++							frag->data, frag->size);
++				} else {
++					__output_copy(handle, frag->data, frag->size);
++				}
++				frag = frag->next;
++			} while (frag);
+ 		} else {
+ 			struct {
+ 				u32	size;
+@@ -5751,14 +5756,22 @@ void perf_prepare_sample(struct perf_event_header *header,
+ 	}
+ 
+ 	if (sample_type & PERF_SAMPLE_RAW) {
+-		int size = sizeof(u32);
++		struct perf_raw_record *raw = data->raw;
++		int size = sizeof(u64);
+ 
+-		if (data->raw)
+-			size += data->raw->size;
+-		else
+-			size += sizeof(u32);
++		if (raw) {
++			struct perf_raw_frag *frag = &raw->frag;
+ 
+-		header->size += round_up(size, sizeof(u64));
++			size = sizeof(u32);
++			do {
++				size += frag->size;
++				frag = frag->next;
++			} while (frag)
++			size = round_up(size, sizeof(u64));
++			raw->size = size;
++		}
++
++		header->size += size;
+ 	}
+ 
+ 	if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
