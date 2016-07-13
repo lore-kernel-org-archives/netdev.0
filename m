@@ -1,83 +1,48 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH] rndis_host: Set random MAC for ZTE MF910
-Date: Thu, 14 Jul 2016 00:23:06 +0200
-Message-ID: <87k2gpnpo5.fsf@miraculix.mork.no>
-References: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH 2/3] pktgen: add sample script
+ pktgen_sample05_flow_per_thread.sh
+Date: Wed, 13 Jul 2016 15:38:25 -0700
+Message-ID: <20160713223823.GA80904@ast-mbp.thefacebook.com>
+References: <20160713200525.21875.21960.stgit@firesoul>
+ <20160713200609.21875.32584.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1468427945-11600-1-git-send-email-kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-	(Kristian Evensen's message of "Wed, 13 Jul 2016 18:39:05 +0200")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:35779 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbcGMWia (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 18:38:30 -0400
+Received: by mail-pa0-f67.google.com with SMTP id dx3so3666479pab.2
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 15:38:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160713200609.21875.32584.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
-
-> From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
-> All ZTE MF910 mifis, at least on some revisions, export the same MAC
-> address (36:4b:50:b7:ef:da). Check for this MAC address and set a ran=
-dom
-> MAC if detected.
->
-> Also, changed the memcpy() to ether_addr_copy(), as pointed out by
-> checkpatch.
->
-> Signed-off-by: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Wed, Jul 13, 2016 at 10:06:10PM +0200, Jesper Dangaard Brouer wrote:
+> This pktgen sample script is useful for scalability testing a
+> receiver.  The script will simply generate one flow per
+> thread (option -t N) using the thread number as part of the
+> source IP-address.
+> 
+> The single flow sample (pktgen_sample03_burst_single_flow.sh)
+> have become quite popular, but it is important that developers
+> also make sure to benchmark scalability of multiple receive
+> queues.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > ---
->  drivers/net/usb/rndis_host.c | 9 ++++++++-
->  1 file changed, 8 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_hos=
-t.c
-> index 524a47a281..85bdbdf 100644
-> --- a/drivers/net/usb/rndis_host.c
-> +++ b/drivers/net/usb/rndis_host.c
-> @@ -295,6 +295,9 @@ static const struct net_device_ops rndis_netdev_o=
-ps =3D {
->  	.ndo_validate_addr	=3D eth_validate_addr,
->  };
-> =20
-> +/* well-known buggy ZTE MF910 MAC address */
-> +static const u8 buggy_zte_addr[ETH_ALEN] =3D {0x36, 0x4b, 0x50, 0xb7=
-, 0xef, 0xda};
-> +
->  int
->  generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, i=
-nt flags)
->  {
-> @@ -428,7 +431,11 @@ generic_rndis_bind(struct usbnet *dev, struct us=
-b_interface *intf, int flags)
->  		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
->  		goto halt_fail_and_release;
->  	}
-> -	memcpy(net->dev_addr, bp, ETH_ALEN);
-> +
-> +	if (ether_addr_equal(bp, buggy_zte_addr))
-> +		eth_hw_addr_random(net);
-> +	else
-> +		ether_addr_copy(net->dev_addr, bp);
-> =20
->  	/* set a nonzero filter to enable data transfers */
->  	memset(u.set, 0, sizeof *u.set);
+>  samples/pktgen/pktgen_sample05_flow_per_thread.sh |   81 +++++++++++++++++++++
+>  1 file changed, 81 insertions(+)
+...
+> +    # Setup source IP-addresses based on thread number
+> +    pg_set $dev "src_min 198.18.$((thread+1)).1"
+> +    pg_set $dev "src_max 198.18.$((thread+1)).1"
 
-
-Or how about the more generic?:
-
-        if (bp[0] & 0x02)
-   		eth_hw_addr_random(net);
-	else
-		ether_addr_copy(net->dev_addr, bp);
-
-That would catch similar screwups from other vendors too.
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have similar script that uses udp_src_min/max to change
+port number, since port is easier to match on the target host
+and we don't use ipv4 ;)
+but this script is also good improvement. Thanks!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
