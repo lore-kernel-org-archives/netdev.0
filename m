@@ -1,51 +1,44 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless ucode is loaded
-Date: Wed, 13 Jul 2016 09:50:53 +0300
-Message-ID: <87eg6yav5e.fsf@purkki.adurom.net>
-References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
-	<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>
-	<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>
-	<57840214.8000904@redhat.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH net-next v11 3/6] openvswitch: set skb
+ protocol and mac_len when receiving on internal device
+Date: Wed, 13 Jul 2016 16:17:36 +0900
+Message-ID: <20160713071734.GA29661@penelope.isobedori.kobe.vergenet.net>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+ <1467827996-32547-4-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_B2VDPcEe0B471J+XjmviAbTO0JRPTHiS7jHzF5V8uHZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Grumbach\, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linuxwifi <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Coelho\, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Berg\, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Ivgi\, Chaya Rachel" <chaya.rachel.ivgi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Sharon\, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Prarit Bhargava <prarit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <57840214.8000904-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (Prarit Bhargava's message of "Mon,
-	11 Jul 2016 16:31:16 -0400")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAOrHB_B2VDPcEe0B471J+XjmviAbTO0JRPTHiS7jHzF5V8uHZg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Prarit Bhargava <prarit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
-
->> We implement thermal zone because we do support it, but the problem is
->> that we need the firmware to be loaded for that. So you can argue that
->> we should register *later* when the firmware is loaded. But this is
->> really not helping all that much because the firmware can also be
->> stopped at any time. So you'd want us to register / unregister the
->> thermal zone anytime the firmware is loaded / unloaded?
->
-> You might have to do that.  I think that if the firmware enables a feature then
-> the act of loading the firmware should run the code that enables the feature.
-> IMO of course.
-
-But I suspect that the iwlwifi firmware is loaded during interface up
-(and unloaded during interface down) and in that case
-register/unregister would be happening all the time. That doesn't sound
-like a good idea. I would rather try to fix the thermal interface to
-handle the cases when the measurement is not available.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+T24gVGh1LCBKdWwgMDcsIDIwMTYgYXQgMDE6NTI6MjVQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3
+cm90ZToKPiBPbiBXZWQsIEp1bCA2LCAyMDE2IGF0IDEwOjU5IEFNLCBTaW1vbiBIb3JtYW4KPiA8
+c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+ID4gKiBTZXQgc2tiIHByb3RvY29s
+IGJhc2VkIG9uIGNvbnRlbnRzIG9mIHBhY2tldC4gSSBoYXZlIG9ic2VydmVkIHRoaXMgaXMKPiA+
+ICAgbmVjZXNzYXJ5IHRvIGdldCBhY3R1YWwgcHJvdG9jb2wgb2YgYSBwYWNrZXQgd2hlbiBpdCBp
+cyBpbmplY3RlZCBpbnRvIGFuCj4gPiAgIGludGVybmFsIGRldmljZSBlLmcuIGJ5IGxpYm5ldCBp
+biB3aGljaCBjYXNlIHNrYiBwcm90b2NvbCB3aWxsIGJlIHNldCB0bwo+ID4gICBFVEhfQUxMLgo+
+ID4KPiBJIGFtIG5vdCBzdXJlIHdoYXQgZG8geW8gbWVhbiBieSBFVEhfQUxMLiBJIGNvdWxkIG5v
+dCBmaW5kIGl0IGluIHRoZSBrZXJuZWwuCj4gYW55d2F5cywgQ2FuIHdlIGZpeCBsaWJuZXQgdG8g
+c2V0IHNrYi0+cHJvdG9jb2wgZmllbGQgY29ycmVjdGx5PyBUaGUKPiBjaGFuZ2UgaXMgaW50cm9k
+dWNpbmcgb3ZlcmhlYWQgZm9yIGV2ZXJ5IHBhY2tldCByZWNlaXZlZCBvbiBpbnRlcm5hbAo+IHBv
+cnQuCgpJdCB3YXMgcXVpdGUgYSB3aGlsZSBhZ28gc2luY2UgSSB3cm90ZSB0aGlzIHBhdGNoIGFu
+ZCBJIGRvbid0IHJlY2FsbCB3aGF0CkkgbWVhbnQgYnkgRVRIX0FMTC4KCkkgbm93IHBsYW4gdG8g
+ZHJvcCB0aGlzIHBhdGNoLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
+c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
