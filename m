@@ -1,94 +1,80 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v5 10/11] Documentation: dtb: xgene: Add MDIO node
-Date: Wed, 13 Jul 2016 08:10:32 -0500
-Message-ID: <20160713131010.GA15972@rob-hp-laptop>
-References: <1467932579-14320-1-git-send-email-isubramanian@apm.com>
- <1467932579-14320-11-git-send-email-isubramanian@apm.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] perf, events: add non-linear data support
+ for raw records
+Date: Wed, 13 Jul 2016 15:16:37 +0200
+Message-ID: <57863F35.2060501@iogearbox.net>
+References: <cover.1468362046.git.daniel@iogearbox.net> <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net> <20160713075209.GQ30154@twins.programming.kicks-ass.net> <578608BD.4080102@iogearbox.net> <20160713121036.GS30154@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, andrew@lunn.ch, netdev@vger.kernel.org,
- patches@apm.com, linux@armlinux.org.uk, matthias.bgg@gmail.com,
- davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1467932579-14320-11-git-send-email-isubramanian@apm.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160713121036.GS30154@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 07, 2016 at 04:02:58PM -0700, Iyappan Subramanian wrote:
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> Tested-by: Fushen Chen <fchen@apm.com>
-> Tested-by: Toan Le <toanle@apm.com>
-> Tested-by: Matthias Brugger <mbrugger@suse.com>
-> ---
->  .../devicetree/bindings/net/apm-xgene-mdio.txt     | 37 ++++++++++++++++++++++
->  1 file changed, 37 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-mdio.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-mdio.txt b/Documentation/devicetree/bindings/net/apm-xgene-mdio.txt
-> new file mode 100644
-> index 0000000..0247e70
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/apm-xgene-mdio.txt
-> @@ -0,0 +1,37 @@
-> +APM X-Gene SoC MDIO node
-> +
-> +MDIO node is defined to describe on-chip MDIO controller.
-> +
-> +Required properties:
-> +	- compatible: Must be "apm,xgene-mdio-rgmii"
-> +	- #address-cells: Must be <1>.
-> +	- #size-cells: Must be <0>.
-> +	- reg: Address and length of the register set
-> +	- clocks: Reference to the clock entry
-> +
-> +For the phys on the mdio bus, there must be a node with the following fields:
-> +	- compatible: PHY identifier.  Please refer ./phy.txt for the format.
-> +	- reg: The ID number for the phy.
-> +
-> +Example:
-> +
-> +	mdio: mdio@0x17020000 {
+On 07/13/2016 02:10 PM, Peter Zijlstra wrote:
+> On Wed, Jul 13, 2016 at 11:24:13AM +0200, Daniel Borkmann wrote:
+>> On 07/13/2016 09:52 AM, Peter Zijlstra wrote:
+>>> On Wed, Jul 13, 2016 at 12:36:17AM +0200, Daniel Borkmann wrote:
+>>>> This patch adds support for non-linear data on raw records. It means
+>>>> that for such data, the newly introduced __output_custom() helper will
+>>>> be used instead of __output_copy(). __output_custom() will invoke
+>>>> whatever custom callback is passed in via struct perf_raw_record_frag
+>>>> to extract the data into the ring buffer slot.
+>>>>
+>>>> To keep changes in perf_prepare_sample() and in perf_output_sample()
+>>>> minimal, size/size_head split was added to perf_raw_record that call
+>>>> sites fill out, so that two extra tests in fast-path can be avoided.
+>>>>
+>>>> The few users of raw records are adapted to initialize their size_head
+>>>> and frag data; no change in behavior for them. Later patch will extend
+>>>> BPF side with a first user and callback for this facility, future users
+>>>> could be things like XDP BPF programs (that work on different context
+>>>> though and would thus have a different callback), etc.
+>>>
+>>> Why? What problem are we solving?
+>>
+>> I've tried to summarize it in patch 3/3,
+>
+> Which is pretty useless if you're staring at this patch.
+>
+>> This currently has 3 issues we'd like to resolve:
+>
+>> i) We need two copies instead of just a single one for the skb data.
+>> The data can be non-linear, see also skb_copy_bits() as an example for
+>> walking/extracting it,
+>
+> I'm not familiar enough with the network gunk to be able to read that.
+> But upto skb_walk_frags() it looks entirely linear to me.
 
-Drop the '0x'
+Hm, fair enough, there are three parts, skb can have a linear part
+which is taken via skb->data, either in its entirety or there can be a
+non-linear part appended to that which can consist of pages that are in
+shared info section (skb_shinfo(skb) -> frags[], nr_frags members), that
+will be linearized, and in addition to that, appended after the frags[]
+data there can be further skbs to the 'root' skb that contain fragmented
+data, which is all what skb_copy_bits() copies linearized into 'to' buffer.
+So depending on the origin of the skb, its structure can be quite different
+and skb_copy_bits() covers all the cases generically. Maybe [1] summarizes
+it better if you want to familiarize yourself with how skbs work,
+although some parts are not up to date anymore.
 
-With that,
+   [1] http://vger.kernel.org/~davem/skb_data.html
 
-Acked-by: Rob Herring <robh@kernel.org>
-
-> +		compatible = "apm,xgene-mdio-rgmii";
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		reg = <0x0 0x17020000 0x0 0xd100>;
-> +		clocks = <&menetclk 0>;
-> +	};
-> +
-> +	/* Board-specific peripheral configurations */
-> +	&mdio {
-> +		menetphy: phy@3 {
-> +			reg = <0x3>;
-> +		};
-> +		sgenet0phy: phy@4 {
-> +			reg = <0x4>;
-> +		};
-> +		sgenet1phy: phy@5 {
-> +			reg = <0x5>;
-> +		};
-> +	};
-> -- 
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe devicetree" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> ii) for static verification reasons, the bpf_skb_load_bytes() helper
+>> needs to see a constant size on the passed buffer to make sure BPF
+>> verifier can do its sanity checks on it during verification time, so
+>> just passing in skb->len (or any other non-constant value) wouldn't
+>> work, but changing bpf_skb_load_bytes() is also not the real solution
+>> since we still have two copies we'd like to avoid as well, and
+>
+>> iii) bpf_skb_load_bytes() is just for rather smaller buffers (e.g.
+>> headers) since they need to sit on the limited eBPF stack anyway. The
+>> set would improve the BPF helper to address all 3 at once.
+>
+> Humm, maybe. Lemme go try and reverse engineer that patch, because I'm
+> not at all sure wth it's supposed to do, nor am I entirely sure this
+> clarified things :/
