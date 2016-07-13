@@ -1,51 +1,70 @@
-From: Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v2] mac80211: rx: frames received out of order
-Date: Wed, 13 Jul 2016 14:57:56 +0300
-Message-ID: <20160713115758.25395-1-yanivma@ti.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 1/3] perf, events: add non-linear data support
+ for raw records
+Date: Wed, 13 Jul 2016 14:10:36 +0200
+Message-ID: <20160713121036.GS30154@twins.programming.kicks-ass.net>
+References: <cover.1468362046.git.daniel@iogearbox.net>
+ <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net>
+ <20160713075209.GQ30154@twins.programming.kicks-ass.net>
+ <578608BD.4080102@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>, Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <578608BD.4080102@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>
+On Wed, Jul 13, 2016 at 11:24:13AM +0200, Daniel Borkmann wrote:
+> Hi Peter,
+> 
+> On 07/13/2016 09:52 AM, Peter Zijlstra wrote:
+> >On Wed, Jul 13, 2016 at 12:36:17AM +0200, Daniel Borkmann wrote:
+> >>This patch adds support for non-linear data on raw records. It means
+> >>that for such data, the newly introduced __output_custom() helper will
+> >>be used instead of __output_copy(). __output_custom() will invoke
+> >>whatever custom callback is passed in via struct perf_raw_record_frag
+> >>to extract the data into the ring buffer slot.
+> >>
+> >>To keep changes in perf_prepare_sample() and in perf_output_sample()
+> >>minimal, size/size_head split was added to perf_raw_record that call
+> >>sites fill out, so that two extra tests in fast-path can be avoided.
+> >>
+> >>The few users of raw records are adapted to initialize their size_head
+> >>and frag data; no change in behavior for them. Later patch will extend
+> >>BPF side with a first user and callback for this facility, future users
+> >>could be things like XDP BPF programs (that work on different context
+> >>though and would thus have a different callback), etc.
+> >
+> >Why? What problem are we solving?
+> 
+> I've tried to summarize it in patch 3/3,
 
-Upon forwarding frames from Rx to Tx in mesh, driver clones the skb.
-It zeros the tx_info and doesn't set hw_queue correctly. It then enqueues
-the frame in queue 0 (VOICE) instead of the correct queue.
-Upon re-queue of this frame, driver inserts it to the correct queue (e.g. BE).
-After that, driver dequeue frames from 2 different queues and sends them out of order.
-To fix this, driver will set the tx_info->hw_queue to the correct queue when cloning the skb.
+Which is pretty useless if you're staring at this patch.
 
-Signed-off-by: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>
-Signed-off-by: Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>
----
-V2 - Revised comment
+> This currently has 3 issues we'd like to resolve:
 
- net/mac80211/rx.c | 1 +
- 1 file changed, 1 insertion(+)
+> i) We need two copies instead of just a single one for the skb data.
+> The data can be non-linear, see also skb_copy_bits() as an example for
+> walking/extracting it,
 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 9a1eb70..88dc744 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -2392,6 +2392,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 	info->flags |= IEEE80211_TX_INTFL_NEED_TXPROCESSING;
- 	info->control.vif = &rx->sdata->vif;
- 	info->control.jiffies = jiffies;
-+	info->hw_queue = q;
- 	if (is_multicast_ether_addr(fwd_hdr->addr1)) {
- 		IEEE80211_IFSTA_MESH_CTR_INC(ifmsh, fwded_mcast);
- 		memcpy(fwd_hdr->addr2, sdata->vif.addr, ETH_ALEN);
--- 
-2.9.0
+I'm not familiar enough with the network gunk to be able to read that.
+But upto skb_walk_frags() it looks entirely linear to me.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ii) for static verification reasons, the bpf_skb_load_bytes() helper
+> needs to see a constant size on the passed buffer to make sure BPF
+> verifier can do its sanity checks on it during verification time, so
+> just passing in skb->len (or any other non-constant value) wouldn't
+> work, but changing bpf_skb_load_bytes() is also not the real solution
+> since we still have two copies we'd like to avoid as well, and
+
+> iii) bpf_skb_load_bytes() is just for rather smaller buffers (e.g.
+> headers) since they need to sit on the limited eBPF stack anyway. The
+> set would improve the BPF helper to address all 3 at once.
+
+Humm, maybe. Lemme go try and reverse engineer that patch, because I'm
+not at all sure wth it's supposed to do, nor am I entirely sure this
+clarified things :/
