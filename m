@@ -1,57 +1,88 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Wed, 13 Jul 2016 11:27:23 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4F6ED7@AcuExch.aculab.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
- <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v16 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+Date: Wed, 13 Jul 2016 11:38:45 +0000
+Message-ID: <CO2PR03MB2182331D3CC1FBD4BD6E4FBABF310@CO2PR03MB2182.namprd03.prod.outlook.com>
+References: <CO2PR03MB2182A5A246AFF6E8FC0E2E64BF3F0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160713073048.GD27436@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	"Jesper Dangaard Brouer" <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: 'Brenden Blanco' <bblanco@plumgrid.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:62248 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbcGMLbe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 07:31:34 -0400
-In-Reply-To: <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	Vitaly Kuznetsov <vkuznets@redhat.com>,
+	Cathy Avery <cavery@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"joe@perches.com" <joe@perches.com>,
+	Rolf Neugebauer <rolf.neugebauer@docker.com>,
+	"Haiyang Zhang" <haiyangz@microsoft.com>,
+	Dave Scott <dave.scott@docker.com>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160713073048.GD27436@unicorn.suse.cz>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brenden Blanco
-> Sent: 12 July 2016 08:51
-> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+> From: Michal Kubecek [mailto:mkubecek@suse.cz]
+> > ......
+> > However, though Hyper-V Sockets may seem conceptually similar to
+> > AF_VOSCK, there are differences in the transportation layer, and IMO these
+> > make the direct code reusing impractical:
+> >
+> > 1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+> > AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+> > is 128-bit.
 > 
-> In tc/socket bpf programs, helpers linearize skb fragments as needed
-> when the program touches the packet data. However, in the pursuit of
-> speed, XDP programs will not be allowed to use these slower functions,
-> especially if it involves allocating an skb.
+> OK, this could be a problem.
 > 
-> Therefore, disallow MTU settings that would produce a multi-fragment
-> packet that XDP programs would fail to access. Future enhancements could
-> be done to increase the allowable MTU.
+> > 2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+> >
+> > 3. AF_VSOCK supports some special sock opts, like
+> SO_VM_SOCKETS_BUFFER_SIZE,
+> > SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and
+> SO_VM_SOCKETS_CONNECT_TIMEOUT.
+> > These are meaningless to AF_HYPERV.
+> >
+> > 4. Some AF_VSOCK's VMCI transportation ops are meanless to
+> AF_HYPERV/VMBus,
+> > like .notify_recv_init
+> > .notify_recv_pre_block
+> > .notify_recv_pre_dequeue
+> > .notify_recv_post_dequeue
+> > .notify_send_init
+> > .notify_send_pre_block
+> > .notify_send_pre_enqueue
+> > .notify_send_post_enqueue
+> > etc.
+> >
+> > So I think we'd better introduce a new address family: AF_HYPERV.
+> 
+> I don't quite understand the logic here. All these sound like "AF_VSOCK
+> has this feature we don't need so (rather than not using the feature) we
+> are not going to use AF_VSOCK". I would understand if you pointed out
+> features important for you that are missing in AF_VSOCK but this kind of
+> reasoning sounds strange to me.
+> 
+> Michal Kubecek
 
-Maybe I'm misunderstanding what is going on here...
-But what has the MTU to do with how skb are fragmented?
+Hi Michal,
+Sorry, I might not have made me clear.
+I didn't mean "AF_VSOCK has this feature we don't need". I didn't mean
+"features important for me that are missing in AF_VSOCK", either.
 
-If the skb come from a reasonably written USB ethernet interface they could
-easily have arbitrary fragment boundaries (the frames get packed into USB
-buffers).
+I just wanted to say that I need a new protocol number and I should
+have a separate directory in net/, i.e., net/hv_sock/. 
 
-Outbound skb can also have fragments depending on how they are generated.
+Because AF_VSOCK and AF_HYPERV are conceptually similar, some
+people asked why I didn't fit my code into net/vmw_vsock/ and I wrote the
+text to explain why that wasn't a good idea: the implementation details
+are different and I can't directly reuse the vsock code.
 
-	David
+Thanks,
+-- Dexuan
