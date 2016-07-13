@@ -1,59 +1,60 @@
-From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] rndis_host: Set random MAC for ZTE MF910
-Date: Wed, 13 Jul 2016 18:39:05 +0200
-Message-ID: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 1/3] perf, events: add non-linear data support
+ for raw records
+Date: Wed, 13 Jul 2016 18:40:07 +0200
+Message-ID: <20160713164007.GV30154@twins.programming.kicks-ass.net>
+References: <cover.1468362046.git.daniel@iogearbox.net>
+ <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net>
+ <20160713134231.GT30154@twins.programming.kicks-ass.net>
+ <57864B77.9090105@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <57864B77.9090105@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Wed, Jul 13, 2016 at 04:08:55PM +0200, Daniel Borkmann wrote:
+> Hi Peter,
+> 
+> On 07/13/2016 03:42 PM, Peter Zijlstra wrote:
+> >
+> >Ok so the nonlinear thing was it doing _two_ copies, one the regular
+> >__output_copy() on raw->data and second the optional fragment thingy
+> >using __output_custom().
+> >
+> >Would something like this work instead?
+> >
+> >It does the nonlinear thing and the custom copy function thing but
+> >allows more than 2 fragments and allows each fragment to have a custom
+> >copy.
+> >
+> >It doesn't look obviously more expensive; it has the one ->copy branch
+> >extra, but then it doesn't recompute the sizes.
+> 
+> Yes, that would work as well on a quick glance with diff just a bit
+> bigger, but more generic this way. Do you want me to adapt this into
+> the first patch?
 
-All ZTE MF910 mifis, at least on some revisions, export the same MAC
-address (36:4b:50:b7:ef:da). Check for this MAC address and set a random
-MAC if detected.
+Please.
 
-Also, changed the memcpy() to ether_addr_copy(), as pointed out by
-checkpatch.
+> One question below:
+> 
 
-Signed-off-by: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- drivers/net/usb/rndis_host.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+> >-			u64 zero = 0;
 
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 524a47a281..85bdbdf 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -295,6 +295,9 @@ static const struct net_device_ops rndis_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
-+/* well-known buggy ZTE MF910 MAC address */
-+static const u8 buggy_zte_addr[ETH_ALEN] = {0x36, 0x4b, 0x50, 0xb7, 0xef, 0xda};
-+
- int
- generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- {
-@@ -428,7 +431,11 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
- 		goto halt_fail_and_release;
- 	}
--	memcpy(net->dev_addr, bp, ETH_ALEN);
-+
-+	if (ether_addr_equal(bp, buggy_zte_addr))
-+		eth_hw_addr_random(net);
-+	else
-+		ether_addr_copy(net->dev_addr, bp);
- 
- 	/* set a nonzero filter to enable data transfers */
- 	memset(u.set, 0, sizeof *u.set);
--- 
-2.5.0
+> >-			if (real_size - raw_size)
+> >-				__output_copy(handle, &zero, real_size - raw_size);
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> We still need the zero padding here from above with the computed
+> raw->size, right?
+
+Ah, yes, we need some __output*() in order to advance the handle offset.
+We don't _need_ to copy the 0s, but I doubt __output_skip() is much
+cheaper for these 1-3 bytes worth of data; we've already touched that
+line anyway.
