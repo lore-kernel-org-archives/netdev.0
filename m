@@ -1,57 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/3] perf, events: add non-linear data support
- for raw records
-Date: Wed, 13 Jul 2016 18:53:27 +0200
-Message-ID: <57867207.3010706@iogearbox.net>
-References: <cover.1468362046.git.daniel@iogearbox.net> <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net> <20160713134231.GT30154@twins.programming.kicks-ass.net> <57864B77.9090105@iogearbox.net> <20160713164007.GV30154@twins.programming.kicks-ass.net>
+From: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [patch] net/mlx5: missing error code in
+ esw_create_offloads_fdb_table()
+Date: Wed, 13 Jul 2016 14:19:06 +0300
+Message-ID: <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
+References: <20160713100825.GD29468@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160713164007.GV30154@twins.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160713100825.GD29468@mwanda>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 07/13/2016 06:40 PM, Peter Zijlstra wrote:
-> On Wed, Jul 13, 2016 at 04:08:55PM +0200, Daniel Borkmann wrote:
->> On 07/13/2016 03:42 PM, Peter Zijlstra wrote:
->>>
->>> Ok so the nonlinear thing was it doing _two_ copies, one the regular
->>> __output_copy() on raw->data and second the optional fragment thingy
->>> using __output_custom().
->>>
->>> Would something like this work instead?
->>>
->>> It does the nonlinear thing and the custom copy function thing but
->>> allows more than 2 fragments and allows each fragment to have a custom
->>> copy.
->>>
->>> It doesn't look obviously more expensive; it has the one ->copy branch
->>> extra, but then it doesn't recompute the sizes.
->>
->> Yes, that would work as well on a quick glance with diff just a bit
->> bigger, but more generic this way. Do you want me to adapt this into
->> the first patch?
+On 13/07/2016 13:08, Dan Carpenter wrote:
+> We accidentally return success when we had intended to return an error
+> code.
 >
-> Please.
+> Fixes: 69697b6e2086 ('net/mlx5: E-Switch, Add support for the sriov offloads mode')
+> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 >
->> One question below:
->>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> index 1842dfb..7d982cf 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> @@ -183,6 +183,7 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
 >
->>> -			u64 zero = 0;
+>  	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
+>  	if (!root_ns) {
+> +		err = -EINVAL;
+>  		esw_warn(dev, "Failed to get FDB flow namespace\n");
+>  		goto ns_err;
+>  	}
 >
->>> -			if (real_size - raw_size)
->>> -				__output_copy(handle, &zero, real_size - raw_size);
->
->> We still need the zero padding here from above with the computed
->> raw->size, right?
->
-> Ah, yes, we need some __output*() in order to advance the handle offset.
-> We don't _need_ to copy the 0s, but I doubt __output_skip() is much
-> cheaper for these 1-3 bytes worth of data; we've already touched that
-> line anyway.
 
-Okay, thanks for your input! I'll respin then.
+Hi,
+
+Thanks for the patch.
+I'm not sure EINVAL is the right error here though.
+Maybe -ENOTSUPP is a bit more appropriate here.
+
+Regards,
+Matan
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
