@@ -1,62 +1,92 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net-next 1/2] devlink: fix build error for CONFIG_MODULES=n
-Date: Wed, 13 Jul 2016 23:03:37 +0200
-Message-ID: <20160713210338.1647521-1-arnd@arndb.de>
-Cc: netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>
-To: Jiri Pirko <jiri@mellanox.com>
+From: Kevin Hilman <khilman@baylibre.com>
+Subject: Re: [PATCH RFC 3/3] ARM64: dts: meson-gxbb: use the new meson8b DWMAC glue
+Date: Wed, 13 Jul 2016 14:22:33 -0700
+Message-ID: <m2shvd5j3a.fsf@baylibre.com>
+References: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
+	<20160625165013.15917-4-martin.blumenstingl@googlemail.com>
+	<20160627092448.GA3275@localhost>
+	<CAFBinCB6i2-ZUDupAXUZkQO9y93rtCvguD_avdY=Ze72wxQKpw@mail.gmail.com>
+	<CAFBinCBcv+4MHe9sFeGLRRRvb7hjX4=XYOtxN_rO1yzVFZisaQ@mail.gmail.com>
+	<146844367410.73491.117379762912178421@resonance>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+	"Carlo Caione" <carlo@caione.org>,
+	linux-amlogic@lists.infradead.org, mark.rutland@arm.com,
+	robh+dt@kernel.org, netdev@vger.kernel.org, peppe.cavallaro@st.com
+To: Michael Turquette <mturquette@baylibre.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.24]:51079 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960AbcGMVEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 17:04:49 -0400
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36018 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751088AbcGMVWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 17:22:36 -0400
+Received: by mail-pa0-f53.google.com with SMTP id pp5so14477920pac.3
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 14:22:35 -0700 (PDT)
+In-Reply-To: <146844367410.73491.117379762912178421@resonance> (Michael
+	Turquette's message of "Wed, 13 Jul 2016 14:01:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A driver calling trace_devlink_hwmsg cannot be built when modules are disabled:
+Michael Turquette <mturquette@baylibre.com> writes:
 
-include/trace/events/devlink.h: In function 'trace_event_get_offsets_devlink_hwmsg':
-include/trace/events/devlink.h:25:51: error: dereferencing pointer to incomplete type 'struct module'
-   __string(owner_name, devlink->dev->driver->owner->name)
+> Hi Martin,
+>
+> Quoting Martin Blumenstingl (2016-06-27 04:33:49)
+>> On Mon, Jun 27, 2016 at 12:44 PM, Martin Blumenstingl
+>> <martin.blumenstingl@googlemail.com> wrote:
+>> > On Mon, Jun 27, 2016 at 11:24 AM, Carlo Caione <carlo@caione.org> wrote:
+>> >> A syscon is a region containing a set of miscellaneous registers used
+>> >> for several reasons by several devices [1]. It this case there is really
+>> >> no need to define a new syscon node since those two registers are only
+>> >> used by your driver.
+>> > I can easily change it back if that's the way to go.
+>> > Before I do that: could you please confirm that "mp2_clk_out" (which
+>> > is controlled by PRG_ETH0/offset 0x0 bits 7-9) is not something which
+>> > has to be available through the common clk framework?
+>> there was just an IRC discussion with Carlo on this topic:
+>> We tried to find whether PRG_ETH0 is used to actually configure
+>> "mp2_clk_out". Carlo brought up that it could also be the case that
+>> the ethernet block simply needs to be informed about the rate of the
+>> mp2_clk_out (which is *probably* the "mpll2" clock).
+>> 
+>> I'm adding Michael Turquette to this mail, maybe you can comment on this topic.
+>> 
+>> If it turns out that the etthernet block just has to know about the
+>> clock rate then we have two tasks:
+>> 1. identify why the mpll2 rate returns 0 on my GXBB device
+>
+> This is in progress, but turns out it doesn't matter for Ethernet. Bit 4
+> in PRG_ETHERNET_ADDR0 control a mux clock inside of the Ethernet
+> controller.
+>
+> A value of 0x0 selects fclk_div2 and a value of 0x1 selects mp2_clk_out.
+> The bootloader programs in sets the mux to zero, or fclk_div2 as the
+> input clock (which runs at 1GHz).
+>
+>> 2. change my patch so the new DWMAC glue gets a reference to the mpll2
+>> clock and then use "clk_get_rate(mpll2) / (250 * 1000000)" to
+>> configure the PRG_ETH0_MP2_CLK bits.
+>
+> Hmm, I'm not sure about that part. Bits 7-9 is a divider that further
+> divides the clock signal selected by bit 4. This is set to 0x4, which
+> means we divide the 1GHz fclk_div2 down to 250MHz, which seems to be the
+> expected value coming out of this divider.
+>
+> I haven't looked further to see if there is a further programmable
+> divider to divide 250MHz down to 50MHz, or (more likely) there is simply
+> a fixed-factor divide-by-5 that results in the 50MHz rate consumed by
+> the PHY.
+>
+> Modeling this all in the mmc driver makes sense. So we would have:
+>
+> struct clk_mux clk_m250_sel ->
+> 	struct clk_divider clk_m250_div ->
+> 		struct clk_fixed_factor enet_phy_clk
 
-This changes the code to only print the module name when modules are actually
-enabled, otherwise we hardcode the string "built-in".
+There's also bit 10: "Generate 25MHz clock for PHY" (which is set to 1
+by the bootloaders on P200 and odroidc2)
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: e5224f0fe2ac ("devlink: add hardware messages tracing facility")
----
- include/trace/events/devlink.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+This suggests that it might not be a fixed-factor divide-by-5 but a
+choice between a divide-by-5 and a divide-by-10 for the PHY clock.
 
-diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
-index 333c32ac9bfa..26f92d3c7e9c 100644
---- a/include/trace/events/devlink.h
-+++ b/include/trace/events/devlink.h
-@@ -22,7 +22,11 @@ TRACE_EVENT(devlink_hwmsg,
- 	TP_STRUCT__entry(
- 		__string(bus_name, devlink->dev->bus->name)
- 		__string(dev_name, dev_name(devlink->dev))
-+#ifdef CONFIG_MODULES
- 		__string(owner_name, devlink->dev->driver->owner->name)
-+#else
-+		__string(owner_name, "built-in")
-+#endif
- 		__field(bool, incoming)
- 		__field(unsigned long, type)
- 		__dynamic_array(u8, buf, len)
-@@ -32,7 +36,11 @@ TRACE_EVENT(devlink_hwmsg,
- 	TP_fast_assign(
- 		__assign_str(bus_name, devlink->dev->bus->name);
- 		__assign_str(dev_name, dev_name(devlink->dev));
-+#ifdef CONFIG_MODULES
- 		__assign_str(owner_name, devlink->dev->driver->owner->name);
-+#else
-+		__assign_str(owner_name, "built-in");
-+#endif
- 		__entry->incoming = incoming;
- 		__entry->type = type;
- 		memcpy(__get_dynamic_array(buf), buf, len);
--- 
-2.9.0
+Kevin
