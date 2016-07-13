@@ -1,51 +1,81 @@
-From: "Machani, Yaniv" <yanivma-l0cyMroinI0@public.gmane.org>
-Subject: RE: [PATCH 1/4] mac80211: mesh: flush stations before beacons are
- stopped
-Date: Wed, 13 Jul 2016 10:11:25 +0000
-Message-ID: <AE1C82FB3D0EC64DB1F752C81CBD1101391FC38C@DFRE01.ent.ti.com>
-References: <20160628111307.8784-1-yanivma@ti.com>
-	 <20160628111307.8784-2-yanivma@ti.com>
-	 (sfid-20160628_131058_738638_5F9A964D)
- <1467184459.2461.1.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Hahn, Maital" <maitalm-l0cyMroinI0@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467184459.2461.1.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] dt: bindings: Add a generic ethernet device binding
+Date: Wed, 13 Jul 2016 12:20:04 +0200
+Message-ID: <1468405204-5845-1-git-send-email-hdegoede@redhat.com>
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBKdW4gMjksIDIwMTYgYXQgMTA6MTQ6MTksIEpvaGFubmVzIEJlcmcgd3JvdGU6DQo+
-IENjOiBIYWhuLCBNYWl0YWwNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAxLzRdIG1hYzgwMjExOiBt
-ZXNoOiBmbHVzaCBzdGF0aW9ucyBiZWZvcmUgYmVhY29ucyANCj4gYXJlIHN0b3BwZWQNCj4gDQo+
-IE9uIFR1ZSwgMjAxNi0wNi0yOCBhdCAxNDoxMyArMDMwMCwgWWFuaXYgTWFjaGFuaSB3cm90ZToN
-Cj4gPiBGcm9tOiBNYWl0YWwgSGFobiA8bWFpdGFsbUB0aS5jb20+DQo+ID4NCj4gPiBTb21lIGRy
-aXZlcnMgKGUuZy4gd2wxOHh4KSBleHBlY3QgdGhhdCB0aGUgbGFzdCBzdGFnZSBpbiB0aGUgDQo+
-ID4gZGUtaW5pdGlhbGl6YXRpb24gcHJvY2VzcyB3aWxsIGJlIHN0b3BwaW5nIHRoZSBiZWFjb25z
-LCBzaW1pbGFyIHRvIGFwLg0KPiA+IFVwZGF0ZSBpZWVlODAyMTFfc3RvcF9tZXNoKCkgZmxvdyBh
-Y2NvcmRpbmdseS4NCj4gPg0KPiBIb3cgd2VsbCBoYXZlIHlvdSB0ZXN0ZWQgdGhhdCB3aXRoIG90
-aGVyIGRyaXZlcnM/DQo+IA0KDQpTb3JyeSBmb3IgdGhlIGRlbGF5ZWQgcmVzcG9uc2UgKEkndmUg
-YmVlbiBvdXQpIGFuZCB0aGFua3MgZm9yIHlvdXIgY29tbWVudHMsDQpJIGhhdmUgdGVzdGVkIGl0
-IHdpdGggUlQzNTcyIGFzIHdlbGwsIGFuZCBkaWRuJ3Qgc2VlIGFueSBpc3N1ZS4NCkknbGwgdXBk
-YXRlIHRoZSBjb21tZW50IHRvIHJlZmxlY3QgdGhhdC4NCg0KVGhhbmtzLA0KWWFuaXYNCg0KPiBD
-aGFuZ2luZyBiZWhhdmlvdXIgdG8gc29tZXRoaW5nIGEgc2luZ2xlIGRyaXZlciBkZXNpcmVzIGlz
-bid0IA0KPiBuZWNlc3NhcmlseSB0aGUgYmVzdCB0aGluZyB0byBkbywgc2luY2UgdGhlcmUgYWx3
-YXlzIGFyZSBtdWx0aXBsZSBkcml2ZXJzLg0KPiANCj4gSWYgeW91J3JlIGFibGUgdG8gZGVtb25z
-dHJhdGUgdGhhdCBpdCB3b3JrcyB3aXRoIHRoZSBvdGhlciBkcml2ZXJzIEknbSANCj4gd2lsbGlu
-ZyB0byB0YWtlIHRoYXQgLSB0aGUgY2hhbmdlIG1ha2VzIHNlbnNlIGFmdGVyIGFsbCwgYW5kIGl0
-IHNlZW1zIA0KPiBkcml2ZXJzIG11c3Qgc3VwcG9ydCB0aGlzIG9yZGVyaW5nIHNpbmNlIHBlZXJz
-IGFyZSBhbHNvIHJlbW92ZWQgDQo+IGR5bmFtaWNhbGx5Li4uIEJ1dCBzdGlsbC4gRG9uJ3QganVz
-dCBtYWtlIGEgY2hhbmdlIGxpa2UgdGhhdCB3aXRob3V0IA0KPiBldmVuIGdpdmluZyBhbnkgaW5k
-aWNhdGlvbiB3aHkgeW91IHRoaW5rIGl0J3MgZmluZSBmb3Igb3RoZXIgZHJpdmVycyENCj4gDQo+
-IGpvaGFubmVzDQoNCg0K
+On some boards (android tablets) different batches use different sdio
+wifi modules. This is not a problem since sdio is a discoverable bus,
+so we only need to describe and activate the mmc controller in dt and
+then the kernel will automatically load the right driver.
+
+But sometimes it is useful to specify certain ethernet properties for
+these "unknown" sdio devices, specifically we want the boot-loader
+to be able to set "local-mac-address" as some of these sdio wifi
+modules come without an eeprom / without a factory programmed mac
+address.
+
+Since the exact device is unknown (differs per batch) we cannot use
+a wifi-chip specific compatible. This commit adds a new
+"generic,ethernet" binding for use in dt-nodes describing such an
+unknown ethernet device.
+
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ Documentation/devicetree/bindings/net/generic.txt | 30 +++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/generic.txt
+
+diff --git a/Documentation/devicetree/bindings/net/generic.txt b/Documentation/devicetree/bindings/net/generic.txt
+new file mode 100644
+index 0000000..2325709
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/generic.txt
+@@ -0,0 +1,30 @@
++* Generic ethernet controller
++
++This binding is for ethernet devices which need a dt node so that certain
++standard properties, e.g. a mac-address can be specified via dt, but
++otherwise can be detected automatically as they are on a discoverable bus.
++
++Required properties:
++- compatible: should be "generic,ethernet"
++
++Optional properties:
++- See bindings/ethernet.txt
++
++Example:
++
++/ {
++	aliases {
++		/* Make u-boot set mac-address for the sdio-wifi (no eeprom) */
++		ethernet0 = &sdio_wifi;
++	};
++};
++
++&mmc1 {
++	non-removable;
++	status = "okay";
++
++	sdio_wifi: sdio_wifi@1 {
++		compatible = "generic,ethernet"
++		reg = <1>;
++	};
++};
+-- 
+2.7.4
+
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
