@@ -1,127 +1,56 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless
- ucode is loaded
-Date: Wed, 13 Jul 2016 06:20:31 -0400
-Message-ID: <578615EF.9010305@redhat.com>
-References: <1468250301-10357-1-git-send-email-prarit@redhat.com>		<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>		<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>		<57840214.8000904@redhat.com> <87eg6yav5e.fsf@purkki.adurom.net> <1468394693.25088.138.camel@coelho.fi>
+From: "Machani, Yaniv" <yanivma-l0cyMroinI0@public.gmane.org>
+Subject: RE: [PATCH 3/4] mac80211: mesh: fixed HT ies in beacon template
+Date: Wed, 13 Jul 2016 11:15:35 +0000
+Message-ID: <AE1C82FB3D0EC64DB1F752C81CBD1101391FC50F@DFRE01.ent.ti.com>
+References: <20160628111307.8784-1-yanivma@ti.com>
+	 <20160628111307.8784-2-yanivma@ti.com>
+	 <20160628111307.8784-3-yanivma@ti.com>
+	 <20160628111307.8784-4-yanivma@ti.com>
+	 (sfid-20160628_131116_981554_64C22D92)
+ <1467184655.2461.2.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"Ivgi, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sharon, Sara" <sara.sharon@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Luca Coelho <luca@coelho.fi>, Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468394693.25088.138.camel@coelho.fi>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kama, Meirav" <meiravk-l0cyMroinI0@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467184655.2461.2.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 07/13/2016 03:24 AM, Luca Coelho wrote:
-> On Wed, 2016-07-13 at 09:50 +0300, Kalle Valo wrote:
->> Prarit Bhargava <prarit@redhat.com> writes:
->>
->>>> We implement thermal zone because we do support it, but the
->>>> problem is
->>>> that we need the firmware to be loaded for that. So you can argue
->>>> that
->>>> we should register *later* when the firmware is loaded. But this
->>>> is
->>>> really not helping all that much because the firmware can also be
->>>> stopped at any time. So you'd want us to register / unregister
->>>> the
->>>> thermal zone anytime the firmware is loaded / unloaded?
->>>
->>> You might have to do that.  I think that if the firmware enables a
->>> feature then
->>> the act of loading the firmware should run the code that enables
->>> the feature.
->>> IMO of course.
->>
->> But I suspect that the iwlwifi firmware is loaded during interface up
->> (and unloaded during interface down) and in that case
->> register/unregister would be happening all the time. That doesn't
->> sound
->> like a good idea. I would rather try to fix the thermal interface to
->> handle the cases when the measurement is not available.
-> 
-> I totally agree with Emmanuel and Kalle.  We should not change this.
->  It is a design decision to return an error when the interface is down,
-> this is very common with other subsystems as well.  
-
-Please show me another subsystem or driver that does this.  I've looked around
-the kernel but cannot find one that updates the firmware and implements new
-features on the fly like this.  I have come across several drivers that allow
-for an update, but they do not implement new features based on the firmware.
-
-Additionally, what happens when someone back revs firmware versions (which
-happens far more than you and I would expect)?  Does that mean I now go from a
-functional system to a non-functional system wrt to userspace?
-
-The userspace
-> should be able to handle errors and report something like "unavailable"
-> when this kind of error is returned.
-> 
-
-I myself have made the same arguments wrt to cpufreq code & bad userspace
-choices.  I just went through this a few months back with what went from a
-simple patch and turned out to be a hideous patch in cpufreq.  You cannot break
-userspace like this.
-
-See commit 51443fbf3d2c ("cpufreq: intel_pstate: Fix intel_pstate powersave
-min_perf_pct value").  What should have been a trivial change resulted in a
-massive change because of broken userspace.
-
-> I'm not sure EIO is the best we can have, but for me that's exactly
-> what it is.  The thermal zone *is* there, but cannot be accessed
-> because the firmware is not available.  I'm okay to change it to EBUSY,
-> if that would help userspace, but I think that's a bit misleading.  The
-> device is not busy, on the contrary, it's not even running at all.
-> 
-
-I understand that, but by returning -EIO we end up with an error.
-
-> Furthermore, I don't think this is "breaking userspace" in the sense of
-> being a regression.  
-
-I run (let's say 4.5 kernel).  sensors works.  I update to 4.7.  sensors doesn't
-work.  How is that not a regression?  That's _exactly_ what it should be
-reported as.
-
-The userspace API has always been implemented with
-> the possibility of returning errors.  It's not a good design if a
-> single device returning an error causes all the other devices to also
-> fail.
-> 
-
-If that were the case we would never have to worry about "breaking userspace"?
-For any kernel change I could just say that the userspace design was bad and be
-done with it.  Why fix anything then?
-
-I don't see any harm in waiting to register the sysfs files for hwmon until the
-firmware has been validated.  IIUC, the up/down'ing of the device doesn't happen
-that often (during initial boot, and suspend/resume, switching wifi connections,
-shutdown?).  This would make the iwlwifi community happy (IMO) and sensors would
-still work.  At the same time I could write a patch for lm-sensors to fix this
-issue if it comes up in future versions.  [Aside: I'm going to have the
-reproducing system available today and will test this out.  It looks like just
-moving some code around.]
-
-The bottom line is that lm-sensors is currently broken with this change in
-iwlwifi.  AFAICT, no other thermal device returns an error this way, and IMO
-that means the iwlwifi driver is doing something new and unexpected wrt to
-userspace.
-
-P.
-
-
-> --
-> Cheers,
-> Luca.
-> 
+T24gV2VkLCBKdW4gMjksIDIwMTYgYXQgMTA6MTc6MzUsIEpvaGFubmVzIEJlcmcgd3JvdGU6DQo+
+IENjOiBLYW1hLCBNZWlyYXYNCj4gU3ViamVjdDogUmU6IFtQQVRDSCAzLzRdIG1hYzgwMjExOiBt
+ZXNoOiBmaXhlZCBIVCBpZXMgaW4gYmVhY29uIA0KPiB0ZW1wbGF0ZQ0KPiANCj4gT24gVHVlLCAy
+MDE2LTA2LTI4IGF0IDE0OjEzICswMzAwLCBZYW5pdiBNYWNoYW5pIHdyb3RlOg0KPiA+DQo+ID4g
+wqBuZXQvbWFjODAyMTEvbWVzaC5jIHwgMzMgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KystDQo+ID4gwqBuZXQvbWFjODAyMTEvdXRpbC5jIHzCoMKgMyAtLS0NCj4gPiDCoG5ldC93aXJl
+bGVzcy9tZXNoLmMgfMKgwqAyICstDQo+IA0KPiBUaGF0J3Mgbm90IGEgZ29vZCBwYXRjaCAtIG9u
+ZSBjaGFuZ2UgaXMgbWFjODAyMTEgYW5kIHRoZSBvdGhlciBjZmc4MDIxMS4NCj4gDQo+ID4gLQku
+aHRfb3Btb2RlID0NCj4gSUVFRTgwMjExX0hUX09QX01PREVfUFJPVEVDVElPTl9OT05IVF9NSVhF
+RCwNCj4gPiArCS5odF9vcG1vZGUgPSBJRUVFODAyMTFfSFRfT1BfTU9ERV9QUk9URUNUSU9OX05P
+TkUsDQo+ID4NCj4gSG93IGFyZSB5b3UgcGxhbm5pbmcgdG8gY29tcGx5IHdpdGggODAyLjExIG5v
+dz8NCg0KR29vZCBwb2ludCwgdGhpcyBjaGFuZ2VkIHNob3VsZCBiZSByZW1vdmVkLg0KVGhlIHJl
+YXNvbiBmb3IgdGhpcyBjaGFuZ2Ugd2FzIHRoYXQgd2UndmUgbm90aWNlZCBhIGRpZmZlcmVuY2Ug
+YmV0d2VlbiBtZXNoIGJlYWNvbiAoYnVpbHQgYnkgdGhlIG1hYzgwMjExKSBhbmQgbWVzaCBhY3Rp
+b25zIChidWlsdCBieSB0aGUgc3VwcGxpY2FudCkgaW4gdGhlIEhUIGluZm9ybWF0aW9uIElFLg0K
+SW4gYmVhY29ucyB0aGUgSFQgb3BlcmF0aW9uYWwgbW9kZSBpcyBNaXhlZCBNb2RlICgweDExKSAg
+d2hpbGUgaW4gYWN0aW9ucyBpdCBpcyBOb25lICgweDAwKS4gDQpBZnRlciBhIHNlY29uZCBsb29r
+LCBpdCBzZWVtcyB0aGF0IGl0J3MgdGhlIFN1cHBsaWNhbnQgdGhhdCBkb2Vzbid0IHNldCB0aGUg
+ZGVmYXVsdCB2YWx1ZSBjb3JyZWN0bHkuDQoNCldlJ2xsIHNlbmQgYW4gdXBkYXRlZCBwYXRjaCBm
+b3IgaXQuDQpUaGFua3MsDQpZYW5pdg0KDQo+IA0KPiBUaGUgSFQgUHJvdGVjdGlvbiBmaWVsZCBp
+biBhIG1lc2ggU1RBIG1heSBiZSBzZXQgdG8gbm8gcHJvdGVjdGlvbiBtb2RlIA0KPiBvbmx5IGlm
+IOKAlCBBbGwgU1RBcyBkZXRlY3RlZCBpbiB0aGUgcHJpbWFyeSBvciB0aGUgc2Vjb25kYXJ5IGNo
+YW5uZWwgDQo+IGFyZSBIVA0KPiDCoCBTVEFzLCBhbmQNCj4g4oCUIEFsbCBtZXNoIFNUQSBtZW1i
+ZXJzIG9mIHRoaXMgTUJTUyB0aGF0IGFyZSBvbmUtaG9wIG5laWdoYm9ycyBvZiB0aGUNCj4gwqAg
+dHJhbnNtaXR0aW5nIG1lc2ggU1RBIGFyZSBlaXRoZXI6DQo+IMKgIOKAlCAyMC80MCBNSHogSFQg
+bWVzaCBTVEFzIGluIGEgMjAvNDAgTUh6IE1CU1MsIG9yDQo+IMKgIOKAlCAyMCBNSHogSFQgbWVz
+aCBTVEFzIGluIGEgMjAgTUh6IE1CU1MuDQo+IA0KPiBqb2hhbm5lcw0KDQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
