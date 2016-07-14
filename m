@@ -1,7 +1,7 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next v2 1/3] perf, events: add non-linear data support for raw records
-Date: Thu, 14 Jul 2016 18:08:03 +0200
-Message-ID: <a84a04cb6c6f14f2a8332e89308e354d76e8f7c6.1468511632.git.daniel@iogearbox.net>
+Subject: [PATCH net-next v2 3/3] bpf: avoid stack copy and use skb ctx for event output
+Date: Thu, 14 Jul 2016 18:08:05 +0200
+Message-ID: <866a4913c877ddec6c16058fa71d2a3e596033b6.1468511633.git.daniel@iogearbox.net>
 References: <cover.1468511632.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, peterz@infradead.org, tgraf@suug.ch,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -14,289 +14,202 @@ References: <cover.1468511632.git.daniel@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for non-linear data on raw records. It
-extends raw records to have one or multiple fragments that will
-be written linearly into the ring slot, where each fragment can
-optionally have a custom callback handler to walk and extract
-complex, possibly non-linear data.
+This work addresses a couple of issues bpf_skb_event_output()
+helper currently has: i) We need two copies instead of just a
+single one for the skb data when it should be part of a sample.
+The data can be non-linear and thus needs to be extracted via
+bpf_skb_load_bytes() helper first, and then copied once again
+into the ring buffer slot. ii) Since bpf_skb_load_bytes()
+currently needs to be used first, the helper needs to see a
+constant size on the passed stack buffer to make sure BPF
+verifier can do sanity checks on it during verification time.
+Thus, just passing skb->len (or any other non-constant value)
+wouldn't work, but changing bpf_skb_load_bytes() is also not
+the proper solution, since the two copies are generally still
+needed. iii) bpf_skb_load_bytes() is just for rather small
+buffers like headers, since they need to sit on the limited
+BPF stack anyway. Instead of working around in bpf_skb_load_bytes(),
+this work improves the bpf_skb_event_output() helper to address
+all 3 at once.
 
-If a callback handler is provided for a fragment, then the new
-__output_custom() will be used instead of __output_copy() for
-the perf_output_sample() part. perf_prepare_sample() does all
-the size calculation only once, so perf_output_sample() doesn't
-need to redo the same work anymore, meaning real_size and padding
-will be cached in the raw record. The raw record becomes 32 bytes
-in size without holes; to not increase it further and to avoid
-doing unnecessary recalculations in fast-path, we can reuse
-next pointer of the last fragment, idea here is borrowed from
-ZERO_OR_NULL_PTR(), which should keep the perf_output_sample()
-path for PERF_SAMPLE_RAW minimal.
+We can make use of the passed in skb context that we have in
+the helper anyway, and use some of the reserved flag bits as
+a length argument. The helper will use the new __output_custom()
+facility from perf side with bpf_skb_copy() as callback helper
+to walk and extract the data. It will pass the data for setup
+to bpf_event_output(), which generates and pushes the raw record
+with an additional frag part. The linear data used in the first
+frag of the record serves as programmatically defined meta data
+passed along with the appended sample.
 
-This facility is needed for BPF's event output helper as a first
-user that will, in a follow-up, add an additional perf_raw_frag
-to its perf_raw_record in order to be able to more efficiently
-dump skb context after a linear head meta data related to it.
-skbs can be non-linear and thus need a custom output function to
-dump buffers. Currently, the skb data needs to be copied twice;
-with the help of __output_custom() this work only needs to be
-done once. Future users could be things like XDP/BPF programs
-that work on different context though and would thus also have
-a different callback function.
-
-The few users of raw records are adapted to initialize their frag
-data from the raw record itself, no change in behavior for them.
-The code is based upon a PoC diff provided by Peter Zijlstra [1].
-
-  [1] http://thread.gmane.org/gmane.linux.network/421294
-
-Suggested-by: Peter Zijlstra <peterz@infradead.org>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- Hi Peter, I've adapted the patch to your suggestion and also
- added the padding; all size calculation is only done once at
- perf_prepare_sample() time as well to avoid unnecessary work.
- Please let me know if you're good with this. Thanks a lot!
+ include/linux/bpf.h      |  7 ++++++-
+ include/uapi/linux/bpf.h |  2 ++
+ kernel/bpf/core.c        |  6 ++++--
+ kernel/trace/bpf_trace.c | 33 +++++++++++++++------------------
+ net/core/filter.c        | 43 ++++++++++++++++++++++++++++++++++++++++++-
+ 5 files changed, 69 insertions(+), 22 deletions(-)
 
- arch/s390/kernel/perf_cpum_sf.c |  9 ++++--
- arch/x86/events/amd/ibs.c       |  8 +++--
- include/linux/perf_event.h      | 20 ++++++++++++-
- kernel/events/core.c            | 66 ++++++++++++++++++++++++++++-------------
- kernel/events/internal.h        | 16 +++++++---
- kernel/trace/bpf_trace.c        |  6 ++--
- 6 files changed, 93 insertions(+), 32 deletions(-)
-
-diff --git a/arch/s390/kernel/perf_cpum_sf.c b/arch/s390/kernel/perf_cpum_sf.c
-index a8e8321..92619cc 100644
---- a/arch/s390/kernel/perf_cpum_sf.c
-+++ b/arch/s390/kernel/perf_cpum_sf.c
-@@ -979,12 +979,15 @@ static int perf_push_sample(struct perf_event *event, struct sf_raw_sample *sfr)
- 	struct pt_regs regs;
- 	struct perf_sf_sde_regs *sde_regs;
- 	struct perf_sample_data data;
--	struct perf_raw_record raw;
-+	struct perf_raw_record raw = {
-+		.frag = {
-+			.size = sfr->size,
-+			.data = sfr,
-+		},
-+	};
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index b3336b4..c13e92b 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -209,7 +209,12 @@ u64 bpf_get_stackid(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
+ bool bpf_prog_array_compatible(struct bpf_array *array, const struct bpf_prog *fp);
  
- 	/* Setup perf sample */
- 	perf_sample_data_init(&data, 0, event->hw.last_period);
--	raw.size = sfr->size;
--	raw.data = sfr;
- 	data.raw = &raw;
- 
- 	/* Setup pt_regs to look like an CPU-measurement external interrupt
-diff --git a/arch/x86/events/amd/ibs.c b/arch/x86/events/amd/ibs.c
-index feb90f6..72dea2f 100644
---- a/arch/x86/events/amd/ibs.c
-+++ b/arch/x86/events/amd/ibs.c
-@@ -655,8 +655,12 @@ fail:
- 	}
- 
- 	if (event->attr.sample_type & PERF_SAMPLE_RAW) {
--		raw.size = sizeof(u32) + ibs_data.size;
--		raw.data = ibs_data.data;
-+		raw = (struct perf_raw_record){
-+			.frag = {
-+				.size = sizeof(u32) + ibs_data.size,
-+				.data = ibs_data.data,
-+			},
-+		};
- 		data.raw = &raw;
- 	}
- 
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 1a827ce..e79e6c6 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -69,9 +69,22 @@ struct perf_callchain_entry_ctx {
- 	bool			    contexts_maxed;
- };
- 
-+typedef unsigned long (*perf_copy_f)(void *dst, const void *src,
-+				     unsigned long len);
+ const struct bpf_func_proto *bpf_get_trace_printk_proto(void);
+-const struct bpf_func_proto *bpf_get_event_output_proto(void);
 +
-+struct perf_raw_frag {
-+	union {
-+		struct perf_raw_frag	*next;
-+		unsigned long		pad;
-+	};
-+	perf_copy_f			copy;
-+	void				*data;
-+	u32				size;
-+} __packed;
++typedef unsigned long (*bpf_ctx_copy_t)(void *dst, const void *src,
++					unsigned long len);
 +
- struct perf_raw_record {
-+	struct perf_raw_frag		frag;
- 	u32				size;
--	void				*data;
- };
++u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
++		     void *ctx, u64 ctx_size, bpf_ctx_copy_t ctx_copy);
  
- /*
-@@ -1283,6 +1296,11 @@ extern void perf_restore_debug_store(void);
- static inline void perf_restore_debug_store(void)			{ }
- #endif
+ #ifdef CONFIG_BPF_SYSCALL
+ DECLARE_PER_CPU(int, bpf_prog_active);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 262a7e8..c4d9224 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -401,6 +401,8 @@ enum bpf_func_id {
+ /* BPF_FUNC_perf_event_output and BPF_FUNC_perf_event_read flags. */
+ #define BPF_F_INDEX_MASK		0xffffffffULL
+ #define BPF_F_CURRENT_CPU		BPF_F_INDEX_MASK
++/* BPF_FUNC_perf_event_output for sk_buff input context. */
++#define BPF_F_CTXLEN_MASK		(0xfffffULL << 32)
  
-+static __always_inline bool perf_raw_frag_last(const struct perf_raw_frag *frag)
-+{
-+	return frag->pad < sizeof(u64);
-+}
-+
- #define perf_output_put(handle, x) perf_output_copy((handle), &(x), sizeof(x))
- 
- /*
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 9c51ec3..b1891b6 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -5553,16 +5553,26 @@ void perf_output_sample(struct perf_output_handle *handle,
- 	}
- 
- 	if (sample_type & PERF_SAMPLE_RAW) {
--		if (data->raw) {
--			u32 raw_size = data->raw->size;
--			u32 real_size = round_up(raw_size + sizeof(u32),
--						 sizeof(u64)) - sizeof(u32);
--			u64 zero = 0;
--
--			perf_output_put(handle, real_size);
--			__output_copy(handle, data->raw->data, raw_size);
--			if (real_size - raw_size)
--				__output_copy(handle, &zero, real_size - raw_size);
-+		struct perf_raw_record *raw = data->raw;
-+
-+		if (raw) {
-+			struct perf_raw_frag *frag = &raw->frag;
-+
-+			perf_output_put(handle, raw->size);
-+			do {
-+				if (frag->copy) {
-+					__output_custom(handle, frag->copy,
-+							frag->data, frag->size);
-+				} else {
-+					__output_copy(handle, frag->data,
-+						      frag->size);
-+				}
-+				if (perf_raw_frag_last(frag))
-+					break;
-+				frag = frag->next;
-+			} while (1);
-+			if (frag->pad)
-+				__output_skip(handle, NULL, frag->pad);
- 		} else {
- 			struct {
- 				u32	size;
-@@ -5687,14 +5697,28 @@ void perf_prepare_sample(struct perf_event_header *header,
- 	}
- 
- 	if (sample_type & PERF_SAMPLE_RAW) {
--		int size = sizeof(u32);
--
--		if (data->raw)
--			size += data->raw->size;
--		else
--			size += sizeof(u32);
-+		struct perf_raw_record *raw = data->raw;
-+		int size;
-+
-+		if (raw) {
-+			struct perf_raw_frag *frag = &raw->frag;
-+			u32 sum = 0;
-+
-+			do {
-+				sum += frag->size;
-+				if (perf_raw_frag_last(frag))
-+					break;
-+				frag = frag->next;
-+			} while (1);
-+
-+			size = round_up(sum + sizeof(u32), sizeof(u64));
-+			raw->size = size - sizeof(u32);
-+			frag->pad = raw->size - sum;
-+		} else {
-+			size = sizeof(u64);
-+		}
- 
--		header->size += round_up(size, sizeof(u64));
-+		header->size += size;
- 	}
- 
- 	if (sample_type & PERF_SAMPLE_BRANCH_STACK) {
-@@ -7331,7 +7355,7 @@ static struct pmu perf_swevent = {
- static int perf_tp_filter_match(struct perf_event *event,
- 				struct perf_sample_data *data)
- {
--	void *record = data->raw->data;
-+	void *record = data->raw->frag.data;
- 
- 	/* only top level events have filters set */
- 	if (event->parent)
-@@ -7387,8 +7411,10 @@ void perf_tp_event(u16 event_type, u64 count, void *record, int entry_size,
- 	struct perf_event *event;
- 
- 	struct perf_raw_record raw = {
--		.size = entry_size,
--		.data = record,
-+		.frag = {
-+			.size = entry_size,
-+			.data = record,
-+		},
- 	};
- 
- 	perf_sample_data_init(&data, 0, 0);
-diff --git a/kernel/events/internal.h b/kernel/events/internal.h
-index 05f9f6d..2417eb5 100644
---- a/kernel/events/internal.h
-+++ b/kernel/events/internal.h
-@@ -123,10 +123,7 @@ static inline unsigned long perf_aux_size(struct ring_buffer *rb)
- 	return rb->aux_nr_pages << PAGE_SHIFT;
+ /* user accessible mirror of in-kernel sk_buff.
+  * new fields can only be added to the end of this structure
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index d638062..03fd23d 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -1054,9 +1054,11 @@ const struct bpf_func_proto * __weak bpf_get_trace_printk_proto(void)
+ 	return NULL;
  }
  
--#define DEFINE_OUTPUT_COPY(func_name, memcpy_func)			\
--static inline unsigned long						\
--func_name(struct perf_output_handle *handle,				\
--	  const void *buf, unsigned long len)				\
-+#define __DEFINE_OUTPUT_COPY_BODY(memcpy_func)				\
- {									\
- 	unsigned long size, written;					\
- 									\
-@@ -152,6 +149,17 @@ func_name(struct perf_output_handle *handle,				\
- 	return len;							\
+-const struct bpf_func_proto * __weak bpf_get_event_output_proto(void)
++u64 __weak
++bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
++		 void *ctx, u64 ctx_size, bpf_ctx_copy_t ctx_copy)
+ {
+-	return NULL;
++	return -ENOTSUPP;
  }
  
-+#define DEFINE_OUTPUT_COPY(func_name, memcpy_func)			\
-+static inline unsigned long						\
-+func_name(struct perf_output_handle *handle,				\
-+	  const void *buf, unsigned long len)				\
-+__DEFINE_OUTPUT_COPY_BODY(memcpy_func)
-+
-+static inline unsigned long
-+__output_custom(struct perf_output_handle *handle, perf_copy_f copy_func,
-+		const void *buf, unsigned long len)
-+__DEFINE_OUTPUT_COPY_BODY(copy_func)
-+
- static inline unsigned long
- memcpy_common(void *dst, const void *src, unsigned long n)
- {
+ /* Always built-in helper functions. */
 diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 094c716..35ab1b2 100644
+index c35883a..ebfbb7d 100644
 --- a/kernel/trace/bpf_trace.c
 +++ b/kernel/trace/bpf_trace.c
-@@ -245,8 +245,10 @@ static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 flags, u64 r4, u64 size)
- 	struct bpf_event_entry *ee;
- 	struct perf_event *event;
- 	struct perf_raw_record raw = {
--		.size = size,
--		.data = data,
-+		.frag = {
-+			.size = size,
-+			.data = data,
-+		},
- 	};
+@@ -298,29 +298,26 @@ static const struct bpf_func_proto bpf_perf_event_output_proto = {
  
- 	if (unlikely(flags & ~(BPF_F_INDEX_MASK)))
+ static DEFINE_PER_CPU(struct pt_regs, bpf_pt_regs);
+ 
+-static u64 bpf_event_output(u64 r1, u64 r2, u64 flags, u64 r4, u64 size)
++u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
++		     void *ctx, u64 ctx_size, bpf_ctx_copy_t ctx_copy)
+ {
+ 	struct pt_regs *regs = this_cpu_ptr(&bpf_pt_regs);
++	struct perf_raw_frag frag = {
++		.copy		= ctx_copy,
++		.size		= ctx_size,
++		.data		= ctx,
++	};
++	struct perf_raw_record raw = {
++		.frag = {
++			.next	= ctx_size ? &frag : NULL,
++			.size	= meta_size,
++			.data	= meta,
++		},
++	};
+ 
+ 	perf_fetch_caller_regs(regs);
+ 
+-	return bpf_perf_event_output((long)regs, r2, flags, r4, size);
+-}
+-
+-static const struct bpf_func_proto bpf_event_output_proto = {
+-	.func		= bpf_event_output,
+-	.gpl_only	= true,
+-	.ret_type	= RET_INTEGER,
+-	.arg1_type	= ARG_PTR_TO_CTX,
+-	.arg2_type	= ARG_CONST_MAP_PTR,
+-	.arg3_type	= ARG_ANYTHING,
+-	.arg4_type	= ARG_PTR_TO_STACK,
+-	.arg5_type	= ARG_CONST_STACK_SIZE,
+-};
+-
+-const struct bpf_func_proto *bpf_get_event_output_proto(void)
+-{
+-	return &bpf_event_output_proto;
++	return __bpf_perf_event_output(regs, map, flags, &raw);
+ }
+ 
+ static u64 bpf_get_current_task(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 10c4a2f..22e3992 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2025,6 +2025,47 @@ bool bpf_helper_changes_skb_data(void *func)
+ 	return false;
+ }
+ 
++static unsigned long bpf_skb_copy(void *dst_buff, const void *skb,
++				  unsigned long len)
++{
++	void *ptr = skb_header_pointer(skb, 0, len, dst_buff);
++
++	if (unlikely(!ptr))
++		return len;
++	if (ptr != dst_buff)
++		memcpy(dst_buff, ptr, len);
++
++	return 0;
++}
++
++static u64 bpf_skb_event_output(u64 r1, u64 r2, u64 flags, u64 r4,
++				u64 meta_size)
++{
++	struct sk_buff *skb = (struct sk_buff *)(long) r1;
++	struct bpf_map *map = (struct bpf_map *)(long) r2;
++	u64 skb_size = (flags & BPF_F_CTXLEN_MASK) >> 32;
++	void *meta = (void *)(long) r4;
++
++	if (unlikely(flags & ~(BPF_F_CTXLEN_MASK | BPF_F_INDEX_MASK)))
++		return -EINVAL;
++	if (unlikely(skb_size > skb->len))
++		return -EFAULT;
++
++	return bpf_event_output(map, flags, meta, meta_size, skb, skb_size,
++				bpf_skb_copy);
++}
++
++static const struct bpf_func_proto bpf_skb_event_output_proto = {
++	.func		= bpf_skb_event_output,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_CONST_MAP_PTR,
++	.arg3_type	= ARG_ANYTHING,
++	.arg4_type	= ARG_PTR_TO_STACK,
++	.arg5_type	= ARG_CONST_STACK_SIZE,
++};
++
+ static unsigned short bpf_tunnel_key_af(u64 flags)
+ {
+ 	return flags & BPF_F_TUNINFO_IPV6 ? AF_INET6 : AF_INET;
+@@ -2357,7 +2398,7 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 	case BPF_FUNC_get_hash_recalc:
+ 		return &bpf_get_hash_recalc_proto;
+ 	case BPF_FUNC_perf_event_output:
+-		return bpf_get_event_output_proto();
++		return &bpf_skb_event_output_proto;
+ 	case BPF_FUNC_get_smp_processor_id:
+ 		return &bpf_get_smp_processor_id_proto;
+ #ifdef CONFIG_SOCK_CGROUP_DATA
 -- 
 1.9.3
