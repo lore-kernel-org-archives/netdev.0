@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 08/10] net/mlx5e: Add TC drop and mirred/redirect action parsing for SRIOV offloads
-Date: Thu, 14 Jul 2016 10:32:44 +0300
-Message-ID: <1468481566-29859-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 10/10] net/mlx5e: Add TC offload support for the VF representors netdevice
+Date: Thu, 14 Jul 2016 10:32:46 +0300
+Message-ID: <1468481566-29859-11-git-send-email-saeedm@mellanox.com>
 References: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,9 +13,9 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43389 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43396 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751121AbcGNHdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751136AbcGNHdU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 14 Jul 2016 03:33:20 -0400
 In-Reply-To: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,89 +23,97 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Add the setup code that parses the TC actions needed to support offloading drop
-and mirred/redirect for SRIOV e-switch. We can redirect between two devices if
-they belong to the same HW switch, compare the switchdev HW ID attribute to
-enforce that.
+The VF representors support only TC filter/action offloads
+(not mqprio) and this is enabled for them by default.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 53 +++++++++++++++++++++++++
- 1 file changed, 53 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c | 35 +++++++++++++++++++++++-
+ 1 file changed, 34 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 57b76f7..9a66441 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -37,8 +37,11 @@
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index fdaf2fa..1c7d8b8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -33,6 +33,7 @@
+ #include <generated/utsrelease.h>
  #include <linux/mlx5/fs.h>
- #include <linux/mlx5/device.h>
- #include <linux/rhashtable.h>
-+#include <net/switchdev.h>
-+#include <net/tc_act/tc_mirred.h>
- #include "en.h"
- #include "en_tc.h"
-+#include "eswitch.h"
+ #include <net/switchdev.h>
++#include <net/pkt_cls.h>
  
- struct mlx5e_tc_flow {
- 	struct rhash_head	node;
-@@ -339,6 +342,56 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ #include "eswitch.h"
+ #include "en.h"
+@@ -222,6 +223,29 @@ static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
  	return 0;
  }
  
-+static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
-+				u32 *action, u32 *dest_vport)
++static int mlx5e_rep_ndo_setup_tc(struct net_device *dev, u32 handle,
++				  __be16 proto, struct tc_to_netdev *tc)
 +{
-+	const struct tc_action *a;
++	struct mlx5e_priv *priv = netdev_priv(dev);
 +
-+	if (tc_no_actions(exts))
-+		return -EINVAL;
++	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
++		return -EOPNOTSUPP;
 +
-+	*action = 0;
-+
-+	tc_for_each_action(a, exts) {
-+		/* Only support a single action per rule */
-+		if (*action)
-+			return -EINVAL;
-+
-+		if (is_tcf_gact_shot(a)) {
-+			*action = MLX5_FLOW_CONTEXT_ACTION_DROP |
-+				  MLX5_FLOW_CONTEXT_ACTION_COUNT;
-+			continue;
++	switch (tc->type) {
++	case TC_SETUP_CLSFLOWER:
++		switch (tc->cls_flower->command) {
++		case TC_CLSFLOWER_REPLACE:
++			return mlx5e_configure_flower(priv, proto, tc->cls_flower);
++		case TC_CLSFLOWER_DESTROY:
++			return mlx5e_delete_flower(priv, tc->cls_flower);
++		case TC_CLSFLOWER_STATS:
++			return mlx5e_stats_flower(priv, tc->cls_flower);
 +		}
-+
-+		if (is_tcf_mirred_redirect(a)) {
-+			int ifindex = tcf_mirred_ifindex(a);
-+			struct net_device *out_dev;
-+			struct mlx5e_priv *out_priv;
-+			struct mlx5_eswitch_rep *out_rep;
-+
-+			out_dev = __dev_get_by_index(dev_net(priv->netdev), ifindex);
-+
-+			if (!switchdev_port_same_parent_id(priv->netdev, out_dev)) {
-+				pr_err("devices %s %s not on same switch HW, can't offload forwarding\n",
-+				       priv->netdev->name, out_dev->name);
-+				return -EINVAL;
-+			}
-+
-+			out_priv = netdev_priv(out_dev);
-+			out_rep  = out_priv->ppriv;
-+			if (out_rep->vport == 0)
-+				*dest_vport = FDB_UPLINK_VPORT;
-+			else
-+				*dest_vport = out_rep->vport;
-+			*action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+			continue;
-+		}
-+
-+		return -EINVAL;
++	default:
++		return -EOPNOTSUPP;
 +	}
-+	return 0;
 +}
 +
- int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 			   struct tc_cls_flower_offload *f)
- {
+ static const struct switchdev_ops mlx5e_rep_switchdev_ops = {
+ 	.switchdev_port_attr_get	= mlx5e_attr_get,
+ };
+@@ -231,6 +255,7 @@ static const struct net_device_ops mlx5e_netdev_ops_rep = {
+ 	.ndo_stop                = mlx5e_close,
+ 	.ndo_start_xmit          = mlx5e_xmit,
+ 	.ndo_get_phys_port_name  = mlx5e_rep_get_phys_port_name,
++	.ndo_setup_tc            = mlx5e_rep_ndo_setup_tc,
+ 	.ndo_get_stats64         = mlx5e_get_stats,
+ };
+ 
+@@ -284,7 +309,8 @@ static void mlx5e_build_rep_netdev(struct net_device *netdev)
+ 	netdev->switchdev_ops = &mlx5e_rep_switchdev_ops;
+ #endif
+ 
+-	netdev->features	 |= NETIF_F_VLAN_CHALLENGED;
++	netdev->features	 |= NETIF_F_VLAN_CHALLENGED | NETIF_F_HW_TC;
++	netdev->hw_features      |= NETIF_F_HW_TC;
+ 
+ 	eth_hw_addr_random(netdev);
+ }
+@@ -328,8 +354,14 @@ static int mlx5e_init_rep_rx(struct mlx5e_priv *priv)
+ 	}
+ 	rep->vport_rx_rule = flow_rule;
+ 
++	err = mlx5e_tc_init(priv);
++	if (err)
++		goto err_del_flow_rule;
++
+ 	return 0;
+ 
++err_del_flow_rule:
++	mlx5_del_flow_rule(rep->vport_rx_rule);
+ err_destroy_direct_tirs:
+ 	mlx5e_destroy_direct_tirs(priv);
+ err_destroy_direct_rqts:
+@@ -343,6 +375,7 @@ static void mlx5e_cleanup_rep_rx(struct mlx5e_priv *priv)
+ 	struct mlx5_eswitch_rep *rep = priv->ppriv;
+ 	int i;
+ 
++	mlx5e_tc_cleanup(priv);
+ 	mlx5_del_flow_rule(rep->vport_rx_rule);
+ 	mlx5e_destroy_direct_tirs(priv);
+ 	for (i = 0; i < priv->params.num_channels; i++)
 -- 
 2.8.0
