@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 02/10] net/mlx5: Introduce bulk reading of flow counters
-Date: Thu, 14 Jul 2016 10:32:38 +0300
-Message-ID: <1468481566-29859-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 01/10] net/mlx5: Store counters in rbtree instead of list
+Date: Thu, 14 Jul 2016 10:32:37 +0300
+Message-ID: <1468481566-29859-2-git-send-email-saeedm@mellanox.com>
 References: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,9 +13,9 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43300 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43302 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750739AbcGNHdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750843AbcGNHdI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 14 Jul 2016 03:33:08 -0400
 In-Reply-To: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -23,270 +23,168 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Amir Vadai <amir@vadai.me>
 
-This commit utilize the ability of ConnectX-4 to bulk read flow counters.
-Few bulk counter queries could be done instead of issuing thousands of
-firmware commands per second to get statistics of all flows set to HW,
-such as those programmed when we offload tc filters.
+In order to use bulk counters, we need to have counters sorted by id.
 
-Counters are stored sorted by hardware id, and queried in blocks (id +
-number of counters).
-
-Due to hardware requirement, start of block and number of counters in a
-block must be four aligned.
-
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Amir Vadai <amir@vadai.me>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   | 67 +++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   | 12 ++++
- .../net/ethernet/mellanox/mlx5/core/fs_counters.c  | 83 ++++++++++++++++------
- include/linux/mlx5/mlx5_ifc.h                      |  8 ++-
- 4 files changed, 146 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  1 +
+ .../net/ethernet/mellanox/mlx5/core/fs_counters.c  | 64 ++++++++++++++++++----
+ include/linux/mlx5/driver.h                        |  2 +-
+ 3 files changed, 56 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index a5bb6b6..9134010 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -413,3 +413,70 @@ int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u16 id,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index d7ba91a..9cffb6a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -111,6 +111,7 @@ struct mlx5_fc_cache {
+ };
  
- 	return 0;
- }
-+
-+struct mlx5_cmd_fc_bulk {
-+	u16 id;
-+	int num;
-+	int outlen;
-+	u32 out[0];
-+};
-+
-+struct mlx5_cmd_fc_bulk *
-+mlx5_cmd_fc_bulk_alloc(struct mlx5_core_dev *dev, u16 id, int num)
-+{
-+	struct mlx5_cmd_fc_bulk *b;
-+	int outlen = sizeof(*b) +
-+		MLX5_ST_SZ_BYTES(query_flow_counter_out) +
-+		MLX5_ST_SZ_BYTES(traffic_counter) * num;
-+
-+	b = kzalloc(outlen, GFP_KERNEL);
-+	if (!b)
-+		return NULL;
-+
-+	b->id = id;
-+	b->num = num;
-+	b->outlen = outlen;
-+
-+	return b;
-+}
-+
-+void mlx5_cmd_fc_bulk_free(struct mlx5_cmd_fc_bulk *b)
-+{
-+	kfree(b);
-+}
-+
-+int
-+mlx5_cmd_fc_bulk_query(struct mlx5_core_dev *dev, struct mlx5_cmd_fc_bulk *b)
-+{
-+	u32 in[MLX5_ST_SZ_DW(query_flow_counter_in)];
-+
-+	memset(in, 0, sizeof(in));
-+
-+	MLX5_SET(query_flow_counter_in, in, opcode,
-+		 MLX5_CMD_OP_QUERY_FLOW_COUNTER);
-+	MLX5_SET(query_flow_counter_in, in, op_mod, 0);
-+	MLX5_SET(query_flow_counter_in, in, flow_counter_id, b->id);
-+	MLX5_SET(query_flow_counter_in, in, num_of_counters, b->num);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in),
-+					  b->out, b->outlen);
-+}
-+
-+void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
-+			  struct mlx5_cmd_fc_bulk *b, u16 id,
-+			  u64 *packets, u64 *bytes)
-+{
-+	int index = id - b->id;
-+	void *stats;
-+
-+	if (index < 0 || index >= b->num) {
-+		mlx5_core_warn(dev, "Flow counter id (0x%x) out of range (0x%x..0x%x). Counter ignored.\n",
-+			       id, b->id, b->id + b->num - 1);
-+		return;
-+	}
-+
-+	stats = MLX5_ADDR_OF(query_flow_counter_out, b->out,
-+			     flow_statistics[index]);
-+	*packets = MLX5_GET64(traffic_counter, stats, packets);
-+	*bytes = MLX5_GET64(traffic_counter, stats, octets);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-index fc4f7b8..158844c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -76,4 +76,16 @@ int mlx5_cmd_fc_alloc(struct mlx5_core_dev *dev, u16 *id);
- int mlx5_cmd_fc_free(struct mlx5_core_dev *dev, u16 id);
- int mlx5_cmd_fc_query(struct mlx5_core_dev *dev, u16 id,
- 		      u64 *packets, u64 *bytes);
-+
-+struct mlx5_cmd_fc_bulk;
-+
-+struct mlx5_cmd_fc_bulk *
-+mlx5_cmd_fc_bulk_alloc(struct mlx5_core_dev *dev, u16 id, int num);
-+void mlx5_cmd_fc_bulk_free(struct mlx5_cmd_fc_bulk *b);
-+int
-+mlx5_cmd_fc_bulk_query(struct mlx5_core_dev *dev, struct mlx5_cmd_fc_bulk *b);
-+void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
-+			  struct mlx5_cmd_fc_bulk *b, u16 id,
-+			  u64 *packets, u64 *bytes);
-+
- #endif
+ struct mlx5_fc {
++	struct rb_node node;
+ 	struct list_head list;
+ 
+ 	/* last{packets,bytes} members are used when calculating the delta since
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-index aaf8fd1..c2877e9 100644
+index 164dc37..aaf8fd1 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-@@ -90,16 +90,66 @@ static void mlx5_fc_stats_insert(struct rb_root *root, struct mlx5_fc *counter)
- 	rb_insert_color(&counter->node, root);
- }
+@@ -32,6 +32,7 @@
  
-+static struct rb_node *mlx5_fc_stats_query(struct mlx5_core_dev *dev,
-+					   struct mlx5_fc *first,
-+					   u16 last_id)
+ #include <linux/mlx5/driver.h>
+ #include <linux/mlx5/fs.h>
++#include <linux/rbtree.h>
+ #include "mlx5_core.h"
+ #include "fs_core.h"
+ #include "fs_cmd.h"
+@@ -68,6 +69,27 @@
+  *   elapsed, the thread will actually query the hardware.
+  */
+ 
++static void mlx5_fc_stats_insert(struct rb_root *root, struct mlx5_fc *counter)
 +{
-+	struct mlx5_cmd_fc_bulk *b;
-+	struct rb_node *node = NULL;
-+	u16 afirst_id;
-+	int num;
-+	int err;
-+	int max_bulk = 1 << MLX5_CAP_GEN(dev, log_max_flow_counter_bulk);
++	struct rb_node **new = &root->rb_node;
++	struct rb_node *parent = NULL;
 +
-+	/* first id must be aligned to 4 when using bulk query */
-+	afirst_id = first->id & ~0x3;
++	while (*new) {
++		struct mlx5_fc *this = container_of(*new, struct mlx5_fc, node);
++		int result = counter->id - this->id;
 +
-+	/* number of counters to query inc. the last counter */
-+	num = ALIGN(last_id - afirst_id + 1, 4);
-+	if (num > max_bulk) {
-+		num = max_bulk;
-+		last_id = afirst_id + num - 1;
++		parent = *new;
++		if (result < 0)
++			new = &((*new)->rb_left);
++		else
++			new = &((*new)->rb_right);
 +	}
 +
-+	b = mlx5_cmd_fc_bulk_alloc(dev, afirst_id, num);
-+	if (!b) {
-+		mlx5_core_err(dev, "Error allocating resources for bulk query\n");
-+		return NULL;
-+	}
-+
-+	err = mlx5_cmd_fc_bulk_query(dev, b);
-+	if (err) {
-+		mlx5_core_err(dev, "Error doing bulk query: %d\n", err);
-+		goto out;
-+	}
-+
-+	for (node = &first->node; node; node = rb_next(node)) {
-+		struct mlx5_fc *counter = rb_entry(node, struct mlx5_fc, node);
-+		struct mlx5_fc_cache *c = &counter->cache;
-+
-+		if (counter->id > last_id)
-+			break;
-+
-+		mlx5_cmd_fc_bulk_get(dev, b,
-+				     counter->id, &c->packets, &c->bytes);
-+	}
-+
-+out:
-+	mlx5_cmd_fc_bulk_free(b);
-+
-+	return node;
++	/* Add new node and rebalance tree. */
++	rb_link_node(&counter->node, parent, new);
++	rb_insert_color(&counter->node, root);
 +}
 +
  static void mlx5_fc_stats_work(struct work_struct *work)
  {
  	struct mlx5_core_dev *dev = container_of(work, struct mlx5_core_dev,
- 						 priv.fc_stats.work.work);
+@@ -75,25 +97,35 @@ static void mlx5_fc_stats_work(struct work_struct *work)
  	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
  	unsigned long now = jiffies;
--	struct mlx5_fc *counter;
-+	struct mlx5_fc *counter = NULL;
-+	struct mlx5_fc *last = NULL;
- 	struct rb_node *node;
- 	LIST_HEAD(tmplist);
--	int err = 0;
+ 	struct mlx5_fc *counter;
+-	struct mlx5_fc *tmp;
++	struct rb_node *node;
++	LIST_HEAD(tmplist);
+ 	int err = 0;
  
  	spin_lock(&fc_stats->addlist_lock);
  
-@@ -115,12 +165,7 @@ static void mlx5_fc_stats_work(struct work_struct *work)
+-	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
++	list_splice_tail_init(&fc_stats->addlist, &tmplist);
  
- 	node = rb_first(&fc_stats->counters);
- 	while (node) {
--		struct mlx5_fc_cache *c;
--		u64 packets;
--		u64 bytes;
+-	if (!list_empty(&fc_stats->list))
++	if (!list_empty(&tmplist) || !RB_EMPTY_ROOT(&fc_stats->counters))
+ 		queue_delayed_work(fc_stats->wq, &fc_stats->work, MLX5_FC_STATS_PERIOD);
+ 
+ 	spin_unlock(&fc_stats->addlist_lock);
+ 
+-	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
+-		struct mlx5_fc_cache *c = &counter->cache;
++	list_for_each_entry(counter, &tmplist, list)
++		mlx5_fc_stats_insert(&fc_stats->counters, counter);
++
++	node = rb_first(&fc_stats->counters);
++	while (node) {
++		struct mlx5_fc_cache *c;
+ 		u64 packets;
+ 		u64 bytes;
+ 
++		counter = rb_entry(node, struct mlx5_fc, node);
++		c = &counter->cache;
++
++		node = rb_next(node);
++
+ 		if (counter->deleted) {
+-			list_del(&counter->list);
++			rb_erase(&counter->node, &fc_stats->counters);
+ 
+ 			mlx5_cmd_fc_free(dev, counter->id);
+ 
+@@ -176,7 +208,7 @@ int mlx5_init_fc_stats(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
+ 
+-	INIT_LIST_HEAD(&fc_stats->list);
++	fc_stats->counters = RB_ROOT;
+ 	INIT_LIST_HEAD(&fc_stats->addlist);
+ 	spin_lock_init(&fc_stats->addlist_lock);
+ 
+@@ -194,20 +226,32 @@ void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev)
+ 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
+ 	struct mlx5_fc *counter;
+ 	struct mlx5_fc *tmp;
++	struct rb_node *node;
+ 
+ 	cancel_delayed_work_sync(&dev->priv.fc_stats.work);
+ 	destroy_workqueue(dev->priv.fc_stats.wq);
+ 	dev->priv.fc_stats.wq = NULL;
+ 
+-	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
 -
- 		counter = rb_entry(node, struct mlx5_fc, node);
--		c = &counter->cache;
+-	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
++	list_for_each_entry_safe(counter, tmp, &fc_stats->addlist, list) {
+ 		list_del(&counter->list);
  
- 		node = rb_next(node);
+ 		mlx5_cmd_fc_free(dev, counter->id);
  
-@@ -133,26 +178,20 @@ static void mlx5_fc_stats_work(struct work_struct *work)
- 			continue;
- 		}
- 
--		if (time_before(now, fc_stats->next_query))
--			continue;
-+		last = counter;
-+	}
- 
--		err = mlx5_cmd_fc_query(dev, counter->id, &packets, &bytes);
--		if (err) {
--			pr_err("Error querying stats for counter id %d\n",
--			       counter->id);
--			continue;
--		}
-+	if (time_before(now, fc_stats->next_query) || !last)
-+		return;
- 
--		if (packets == c->packets)
--			continue;
+ 		kfree(counter);
+ 	}
++
 +	node = rb_first(&fc_stats->counters);
 +	while (node) {
 +		counter = rb_entry(node, struct mlx5_fc, node);
- 
--		c->lastuse = jiffies;
--		c->packets = packets;
--		c->bytes   = bytes;
-+		node = mlx5_fc_stats_query(dev, counter, last->id);
- 	}
- 
--	if (time_after_eq(now, fc_stats->next_query))
--		fc_stats->next_query = now + MLX5_FC_STATS_PERIOD;
-+	fc_stats->next_query = now + MLX5_FC_STATS_PERIOD;
++
++		node = rb_next(node);
++
++		rb_erase(&counter->node, &fc_stats->counters);
++
++		mlx5_cmd_fc_free(dev, counter->id);
++
++		kfree(counter);
++	}
  }
  
- struct mlx5_fc *mlx5_fc_create(struct mlx5_core_dev *dev, bool aging)
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 152421c..d671e4e 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -893,7 +893,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         reserved_at_330[0xb];
- 	u8         log_max_xrcd[0x5];
- 
--	u8         reserved_at_340[0x20];
-+	u8         reserved_at_340[0x8];
-+	u8         log_max_flow_counter_bulk[0x8];
-+	u8         max_flow_counter[0x10];
-+
- 
- 	u8         reserved_at_360[0x3];
- 	u8         log_max_rq[0x5];
-@@ -980,7 +983,8 @@ struct mlx5_ifc_dest_format_struct_bits {
+ void mlx5_fc_query_cached(struct mlx5_fc *counter,
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 81e8396..a041b99 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -469,7 +469,7 @@ struct mlx5_irq_info {
  };
  
- struct mlx5_ifc_flow_counter_list_bits {
--	u8         reserved_at_0[0x10];
-+	u8         clear[0x1];
-+	u8         num_of_counters[0xf];
- 	u8         flow_counter_id[0x10];
- 
- 	u8         reserved_at_20[0x20];
+ struct mlx5_fc_stats {
+-	struct list_head list;
++	struct rb_root counters;
+ 	struct list_head addlist;
+ 	/* protect addlist add/splice operations */
+ 	spinlock_t addlist_lock;
 -- 
 2.8.0
