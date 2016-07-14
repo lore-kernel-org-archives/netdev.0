@@ -1,99 +1,132 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
-Date: Thu, 14 Jul 2016 08:25:48 +0300
-Message-ID: <20160714052548.GI10079@leon.nu>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v11 21/22] IB/hns: Kconfig and Makefile for RoCE module
+Date: Thu, 14 Jul 2016 08:35:31 +0300
+Message-ID: <20160714053530.GJ10079@leon.nu>
 References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
- <57870A7F.6080901@huawei.com>
+ <1467452364-66522-22-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="PWfwoUCx3AFJRUBq"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+	protocol="application/pgp-signature"; boundary="pMCBjikF2xGw87uL"
+Cc: dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
+	ogerlitz@mellanox.com, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gongyangming@huawei.com, xiaokun@huawei.com,
+	tangchaofei@huawei.com, haifeng.wei@huawei.com,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	charles.chenxin@huawei.com, linuxarm@huawei.com
+To: Lijun Ou <oulijun@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <57870A7F.6080901-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1467452364-66522-22-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---PWfwoUCx3AFJRUBq
-Content-Type: text/plain; charset=utf-8
+--pMCBjikF2xGw87uL
+Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, Jul 14, 2016 at 11:43:59AM +0800, oulijun wrote:
-> =E5=9C=A8 2016/7/2 17:39, Lijun Ou =E5=86=99=E9=81=93:
-> >=20
-> Hi, Doug & Sean Hefty & Hal Rosenstock
-> "Hello, I understand that maintainer is dealing with lots of patches not =
-just mine. Also, I could not see any further review comments from the commu=
-nity.
->  I also understand that I should not resend the patch-set again unless I =
-am sure my patch-set is lost.
->  I was just wondering what should I do in the current circumstance where =
-my PATCH<please mention the patch name here or Link from LKML>" has not act=
-ivity.
->  I am not sure if this has been accepted or how much I need to wait to re=
-send it (if ever). Please guide, I am new to open-source and learning from =
-people like you. Thanks a lot :)
-
-You was asked numerous times to clean the mess in your TO/CC fields.
-Most of the people have nothing to do with your submission.
-Understanding who is the RDMA maintainer will help you a lot (hint: it
-is one of three in your opening sentence). Another request from you which
-you successfully ignored, was to stop reply with whole email,
-but reply with relevant part only.
-
-Ignoring community rules is a good way to be ignored back.
-
-BTW, you don't need to resend patches, please follow after patchwork status
-https://patchwork.kernel.org/project/linux-rdma/list/?submitter=3D157841&st=
-ate=3D1
-
+On Sat, Jul 02, 2016 at 05:39:23PM +0800, Lijun Ou wrote:
+> This patch added Kconfig and Makefile for building RoCE module.
 >=20
-> Thanks
-> Lijun Ou
+> Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+> Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+> Signed-off-by: Lijun Ou <oulijun@huawei.com>
+> ---
+> PATCH v11:
+> hns_roce_icm.o -> hns_roce_hem.o
 >=20
+> PATCH v10/v9/v8/v7/v6/v5:
+> - No change over the PATCH v4
 >=20
+> PATCH v4:
+> This fixes the comments given by Christoph Hellwig over the PATCH v3:
+>   Link: https://lkml.org/lkml/2016/3/22/609
 >=20
+> PATCH V3:
+> This fixes the comments given by Leon Romanovsky over the PATCH v2:
+>   Link: https://lkml.org/lkml/2016/3/20/5
 >=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> PATCH v2:
+> This fixes the comments given by Leon Romanovsky over the PATCH v1:
+>   Link: https://lkml.org/lkml/2016/3/6/94
+> Fixes the error tested by kbuild test robot over the PATCH v1:
+>   Link: https://lkml.org/lkml/2016/3/4/343
+>=20
+> PATCH v1:
+> - The initial patch
+> ---
+> ---
+>  drivers/infiniband/Kconfig         |  1 +
+>  drivers/infiniband/hw/Makefile     |  1 +
+>  drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
+>  drivers/infiniband/hw/hns/Makefile |  8 ++++++++
+>  4 files changed, 20 insertions(+)
+>  create mode 100644 drivers/infiniband/hw/hns/Kconfig
+>  create mode 100644 drivers/infiniband/hw/hns/Makefile
+>=20
+> diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+> index 2137adf..767f92b 100644
+> --- a/drivers/infiniband/Kconfig
+> +++ b/drivers/infiniband/Kconfig
+> @@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+>  source "drivers/infiniband/hw/nes/Kconfig"
+>  source "drivers/infiniband/hw/ocrdma/Kconfig"
+>  source "drivers/infiniband/hw/usnic/Kconfig"
+> +source "drivers/infiniband/hw/hns/Kconfig"
+> =20
+>  source "drivers/infiniband/ulp/ipoib/Kconfig"
+> =20
+> diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makef=
+ile
+> index c0c7cf8..2ad851d 100644
+> --- a/drivers/infiniband/hw/Makefile
+> +++ b/drivers/infiniband/hw/Makefile
+> @@ -9,3 +9,4 @@ obj-$(CONFIG_INFINIBAND_NES)		+=3D nes/
+>  obj-$(CONFIG_INFINIBAND_OCRDMA)		+=3D ocrdma/
+>  obj-$(CONFIG_INFINIBAND_USNIC)		+=3D usnic/
+>  obj-$(CONFIG_INFINIBAND_HFI1)		+=3D hfi1/
+> +obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+=3D hns/
 
---PWfwoUCx3AFJRUBq
+--------------------------^^^^^^^--
+There is no need in HISILICON word here.
+
+> diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hn=
+s/Kconfig
+> new file mode 100644
+> index 0000000..c47c168
+> --- /dev/null
+> +++ b/drivers/infiniband/hw/hns/Kconfig
+> @@ -0,0 +1,10 @@
+> +config INFINIBAND_HISILICON_HNS
+> +	tristate "Hisilicon Hns ROCE Driver"
+
+And you are still inconsistent with the names
+Hisilicon/HiSilicon/hisilicon/HISILICON/e.t.c., ROCE/roce/RoCE/e.t.c.
+
+--pMCBjikF2xGw87uL
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJXhyJcAAoJEORje4g2clinys8QALbBPCh4/jWhmbfo9YX5OR+A
-ezbNL8lav8pudvaGzvtsjOXnI8CU1h5v+gt7ScCIQjiYGv8LPoPnrIpVWRwXVxjF
-f0mNbb+1W7a0Yi9SKwJe/RlCjjEwJgN3JvEJ+XKa+evasi/WLjTAcTGDU8J0FcJc
-t+3RyfjgJf0ufuAjm4+ePM9y8LuTk0txnrBBh2pHcaZ4aoTBBmR29R8azbtk1kCR
-5R+XeZCSB0kVdZFhO06pkXjO3vAw5mgKt5QJQlv8r0Vp4vZ9MBcLaPuPjsmpB0Fs
-2jFI+4+h2zGa6tpsO1VVN0TZIV5REYREcoEKhiGLof9FGhzR/Jyy3fQKGq9pfDPg
-S1cBBtKTQ9/26xkyzfTU+vWBYSVfm73qmuhzi1abaZGHoNUiI5oI/hAahV2oMxeF
-ADSLsBcG8RIQKZr+7NL8SImQBzrc3001v2orldY/yweDePzsfX03YuU7FN6ALl1Y
-XGf2r32L9qWEALv0Bw1teYUJ+3XSxZKj8pa8ix44+Kf6JQnJ0AXDyPi4MbOHfL09
-PpOnsSBOReHq4k0UXD0zFF5HZrnuIovmPtRPskZzWnzisWagXZvbpnfdOIiS6RsP
-GP+giDHNBD2bDXSvPWfk3ryeTatMozGGuSibLerShABmSj0i6f54o5ZgFtayaOuV
-WA01YPNFQBuDINfoALiR
-=uhII
+iQIcBAEBAgAGBQJXhySiAAoJEORje4g2clinj4IP+wRq+hEbjDzVuQCr+xGIltsk
+q3LgjZsEUnn2+KclRycnhANvYJhZ4+hfMyhjtba17lJASLwezrO4XuKiNmFiookf
+ofSmKKOoSWalilVhzYgHCOBIbvxLmmYHw12LVEkmUJtv6SqbkbxJfhxD3gYO2xpR
+P4xXCBG65bXOMOcxfRwtAPA68RpD9KdUzit7oJZxWmQT3IPieXC015DuQQZSMnqA
+D+Y5SBIfIpUP/iI6E+c6O+/TRnFLCkWNTj5pMrXYQBpuFSrNZ/sisutRVkRsV9XX
+Qf9EQzSuTAdhvkeQfFA2sChM3AYTbVXte1ReZU5acBKm0nGj3lhnq0XmiMTf8WjX
+tislGkYN4XTXCmSTBr3PThqO4k/gXUWDTd2aBCmjhurAPsJZ+psjqNw3gJjG2x0W
+/rhavfxrcY08z96C2fm4QkYMeHKHtx1mTB8h3PI58YuU2gws5lWwOoNXJbBBfWyw
+VWTF75kga8rlw3xKiK/gSqGGR5faVIkFIw9NLUHzaUn8zIfVMYRLEFPtWi0ak+eR
+yQ4UUofEOqR+ara1xpCrPqlV7vFbHr1G3qUPfzG1zS7rom2gPXxzj3H48immV3ow
+wrt6uqHKPBNab3sTgdTwz/tRur3UhoCGqUcGfVY7DP6GK8boMcMmgvb1hrhfc0gY
+udK+CCXFmiYocm/m0gwt
+=nhZK
 -----END PGP SIGNATURE-----
 
---PWfwoUCx3AFJRUBq--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--pMCBjikF2xGw87uL--
