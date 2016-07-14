@@ -1,94 +1,78 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH v2 03/10] net: sched: provide per cpu qstat helpers
-Date: Wed, 13 Jul 2016 23:20:49 -0700
-Message-ID: <20160714062049.8270.67051.stgit@john-Precision-Tower-5810>
-References: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/2] devlink: fix build error for
+ CONFIG_MODULES=n
+Date: Thu, 14 Jul 2016 08:21:11 +0200
+Message-ID: <20160714062111.GA2228@nanopsycho.orion>
+References: <20160713210338.1647521-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de, jhs@mojatatu.com, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com, brouer@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34274 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751327AbcGNGVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:21:12 -0400
-Received: by mail-pa0-f68.google.com with SMTP id hh10so4129853pac.1
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:21:12 -0700 (PDT)
-In-Reply-To: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33713 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456AbcGNGVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:21:14 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o80so8302376wme.0
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:21:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160713210338.1647521-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The per cpu qstats support was added with per cpu bstat support which
-is currently used by the ingress qdisc. This patch adds a set of
-helpers needed to make other qdiscs that use qstats per cpu as well.
+Wed, Jul 13, 2016 at 11:03:37PM CEST, arnd@arndb.de wrote:
+>A driver calling trace_devlink_hwmsg cannot be built when modules are disabled:
+>
+>include/trace/events/devlink.h: In function 'trace_event_get_offsets_devlink_hwmsg':
+>include/trace/events/devlink.h:25:51: error: dereferencing pointer to incomplete type 'struct module'
+>   __string(owner_name, devlink->dev->driver->owner->name)
+>
+>This changes the code to only print the module name when modules are actually
+>enabled, otherwise we hardcode the string "built-in".
+>
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>Fixes: e5224f0fe2ac ("devlink: add hardware messages tracing facility")
+>---
+> include/trace/events/devlink.h | 8 ++++++++
+> 1 file changed, 8 insertions(+)
+>
+>diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
+>index 333c32ac9bfa..26f92d3c7e9c 100644
+>--- a/include/trace/events/devlink.h
+>+++ b/include/trace/events/devlink.h
+>@@ -22,7 +22,11 @@ TRACE_EVENT(devlink_hwmsg,
+> 	TP_STRUCT__entry(
+> 		__string(bus_name, devlink->dev->bus->name)
+> 		__string(dev_name, dev_name(devlink->dev))
+>+#ifdef CONFIG_MODULES
+> 		__string(owner_name, devlink->dev->driver->owner->name)
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- include/net/sch_generic.h |   39 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+I think would be better to use driver->name. I looks like it is always
+present. I will do some tests and send a patch.
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 354951d..f69da4b 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -573,12 +573,43 @@ static inline void qdisc_qstats_backlog_dec(struct Qdisc *sch,
- 	sch->qstats.backlog -= qdisc_pkt_len(skb);
- }
- 
-+static inline void qdisc_qstats_cpu_backlog_dec(struct Qdisc *sch,
-+						const struct sk_buff *skb)
-+{
-+	struct gnet_stats_queue *q = this_cpu_ptr(sch->cpu_qstats);
-+
-+	q->backlog -= qdisc_pkt_len(skb);
-+}
-+
- static inline void qdisc_qstats_backlog_inc(struct Qdisc *sch,
- 					    const struct sk_buff *skb)
- {
- 	sch->qstats.backlog += qdisc_pkt_len(skb);
- }
- 
-+static inline void qdisc_qstats_cpu_backlog_inc(struct Qdisc *sch,
-+						const struct sk_buff *skb)
-+{
-+	struct gnet_stats_queue *q = this_cpu_ptr(sch->cpu_qstats);
-+
-+	q->backlog += qdisc_pkt_len(skb);
-+}
-+
-+static inline void qdisc_qstats_cpu_qlen_inc(struct Qdisc *sch)
-+{
-+	this_cpu_ptr(sch->cpu_qstats)->qlen++;
-+}
-+
-+static inline void qdisc_qstats_cpu_qlen_dec(struct Qdisc *sch)
-+{
-+	this_cpu_ptr(sch->cpu_qstats)->qlen--;
-+}
-+
-+static inline void qdisc_qstats_cpu_requeues_inc(struct Qdisc *sch)
-+{
-+	this_cpu_ptr(sch->cpu_qstats)->requeues++;
-+}
-+
- static inline void __qdisc_qstats_drop(struct Qdisc *sch, int count)
- {
- 	sch->qstats.drops += count;
-@@ -751,6 +782,14 @@ static inline void rtnl_qdisc_drop(struct sk_buff *skb, struct Qdisc *sch)
- 	qdisc_qstats_drop(sch);
- }
- 
-+static inline int qdisc_drop_cpu(struct sk_buff *skb, struct Qdisc *sch,
-+				 struct sk_buff **to_free)
-+{
-+	__qdisc_drop(skb, to_free);
-+	qdisc_qstats_cpu_drop(sch);
-+
-+	return NET_XMIT_DROP;
-+}
- 
- static inline int qdisc_drop(struct sk_buff *skb, struct Qdisc *sch,
- 			     struct sk_buff **to_free)
+
+>+#else
+>+		__string(owner_name, "built-in")
+>+#endif
+> 		__field(bool, incoming)
+> 		__field(unsigned long, type)
+> 		__dynamic_array(u8, buf, len)
+>@@ -32,7 +36,11 @@ TRACE_EVENT(devlink_hwmsg,
+> 	TP_fast_assign(
+> 		__assign_str(bus_name, devlink->dev->bus->name);
+> 		__assign_str(dev_name, dev_name(devlink->dev));
+>+#ifdef CONFIG_MODULES
+> 		__assign_str(owner_name, devlink->dev->driver->owner->name);
+>+#else
+>+		__assign_str(owner_name, "built-in");
+>+#endif
+> 		__entry->incoming = incoming;
+> 		__entry->type = type;
+> 		memcpy(__get_dynamic_array(buf), buf, len);
+>-- 
+>2.9.0
+>
