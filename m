@@ -1,79 +1,40 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 00/10] Mellanox 100G mlx5 Bulk flow statistics and SRIOV TC offloads
-Date: Thu, 14 Jul 2016 10:32:36 +0300
-Message-ID: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amir@vadai.me>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43312 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750950AbcGNHdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 03:33:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] rndis_host: Set random MAC for ZTE MF910
+Date: Thu, 14 Jul 2016 09:54:33 +0200
+Message-ID: <CAKfDRXiP=LpNqPi5nSoMM2BK510edvCoatRWQhnQ8Z66N40_iw@mail.gmail.com>
+References: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com> <87k2gpnpo5.fsf@miraculix.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87k2gpnpo5.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Hi Bj=C3=B8rn,
 
-This series from Amir and Or deals with two enhancements for the mlx5 TC offloads.
+On Thu, Jul 14, 2016 at 12:23 AM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wrote=
+:
+>
+> Or how about the more generic?:
+>
+>         if (bp[0] & 0x02)
+>                 eth_hw_addr_random(net);
+>         else
+>                 ether_addr_copy(net->dev_addr, bp);
+>
+> That would catch similar screwups from other vendors too.
 
-The 1st two patches add bulk reading of flow counters. Few bulk counter queries are
-used instead of issuing thousands firmware commands per second to get statistics of all
-flows set to HW.
+Great idea, thanks. After submitting the patch I found some other
+devices with a similar bug, and there are probably even more out
+there. I will update patch and resubmit.
 
-The next patches add TC based SRIOV offloading to mlx5, as a follow up for the e-switch
-offloads mode and the VF representors. When the e-switch is set to the (new) "offloads"
-mode, we can now offload TC/flower drop and forward rules, the forward action we offload
-is TC mirred/redirect.
-
-The above is done by the VF representor netdevices exporting the setup_tc ndo where from
-there we're re-using and enhancing the existing mlx5 TC offloads sub-module which now
-works for both the NIC and the SRIOV cases.
-
-The series is applied on top b38a75d2d324 ('mlxsw: core: Trace EMAD messages')
-and it has no merge issues with the on-going net submission ('mlx5 tx timeout watchdog fixes')
-
-V2:
-    - Fixed compilation warning.
-
-Thanks,
-Saeed.
-
-Amir Vadai (2):
-  net/mlx5: Store counters in rbtree instead of list
-  net/mlx5: Introduce bulk reading of flow counters
-
-Or Gerlitz (8):
-  net/mlx5e: Offload TC flow counters only when supported
-  net/mlx5: E-Switch, Use two priorities for SRIOV offloads mode
-  net/mlx5: E-Switch, Add API to configure rules for the offloaded mode
-  net/mlx5e: Adjustments in the TC offload code towards reuse for SRIOV
-  net/switchdev: Export the same parent ID service function
-  net/mlx5e: Add TC drop and mirred/redirect action parsing for SRIOV
-    offloads
-  net/mlx5e: Add TC HW support for FDB (SRIOV e-switch) offloads
-  net/mlx5e: Add TC offload support for the VF representors netdevice
-
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  40 +++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    | 116 ++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |   7 +
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  77 ++++++++++-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  67 ++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |  12 ++
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  22 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |   1 +
- .../net/ethernet/mellanox/mlx5/core/fs_counters.c  | 141 ++++++++++++++++-----
- include/linux/mlx5/driver.h                        |   2 +-
- include/linux/mlx5/mlx5_ifc.h                      |   8 +-
- include/net/switchdev.h                            |   8 ++
- net/switchdev/switchdev.c                          |   5 +-
- 13 files changed, 436 insertions(+), 70 deletions(-)
-
--- 
-2.8.0
+-Kristian
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
