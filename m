@@ -1,31 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/3] pktgen samples: new scripts and removing
- older samples
-Date: Thu, 14 Jul 2016 15:20:06 -0700 (PDT)
-Message-ID: <20160714.152006.144983095928948755.davem@davemloft.net>
-References: <20160713200525.21875.21960.stgit@firesoul>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 3/9] net: dsa: mv88e6xxx: extract device mapping
+Date: Thu, 14 Jul 2016 18:24:14 -0400
+Message-ID: <871t2vvoxd.fsf@ketchup.mtl.sfl>
+References: <201607072220.IpnBB4FC%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
-To: brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35302 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbcGNWUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 18:20:10 -0400
-In-Reply-To: <20160713200525.21875.21960.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: kbuild-all@01.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: kbuild test robot <lkp@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201607072220.IpnBB4FC%fengguang.wu@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Wed, 13 Jul 2016 22:05:59 +0200
+Hi David, all,
 
-> This patchset is adding some pktgen sample scripts that I've been
-> using for a while[1], and they seams to relevant for more people.
-> 
-> Patchset also remove some of the older style pktgen samples.
-> 
-> [1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
+kbuild test robot <lkp@intel.com> writes:
 
-Series applied, thanks Jesper.
+> [auto build test ERROR on net-next/master]
+>
+> url:    https://github.com/0day-ci/linux/commits/Vivien-Didelot/net-dsa-mv88e6xxx-STP-and-Global-2-cleanup/20160707-210537
+> config: i386-allmodconfig (attached as .config)
+> compiler: gcc-6 (Debian 6.1.1-1) 6.1.1 20160430
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=i386 
+>
+> All errors (new ones prefixed by >>):
+>
+>    drivers/net/dsa/mv88e6xxx/chip.c: In function 'mv88e6xxx_g2_set_device_mapping':
+>>> drivers/net/dsa/mv88e6xxx/chip.c:3116:16: error: 'DSA_RTABLE_NONE' undeclared (first use in this function)
+>        if (port == DSA_RTABLE_NONE)
+>                    ^~~~~~~~~~~~~~~
+>    drivers/net/dsa/mv88e6xxx/chip.c:3116:16: note: each undeclared identifier is reported only once for each function it appears in
+
+Note that this error is no longer valid since the merged commit
+d390238c4fba ("net: dsa: initialize the routing table") introduces the
+DSA_RTABLE_NONE symbol.
+
+Thanks,
+
+        Vivien
