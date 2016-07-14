@@ -1,42 +1,57 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next 1/2] devlink: fix build error for CONFIG_MODULES=n
-Date: Thu, 14 Jul 2016 10:12:43 +0200
-Message-ID: <4442123.LuHpPd1R94@wuerfel>
-References: <20160713210338.1647521-1-arnd@arndb.de> <20160714062111.GA2228@nanopsycho.orion>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATCH net-next] rndis_host: Set valid random MAC on buggy devices
+Date: Thu, 14 Jul 2016 10:23:03 +0200
+Message-ID: <1468484583-12620-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+To: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.74]:53213 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbcGNINU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 04:13:20 -0400
-In-Reply-To: <20160714062111.GA2228@nanopsycho.orion>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:33963 "EHLO
+	mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbcGNIXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 04:23:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 14, 2016 8:21:11 AM CEST Jiri Pirko wrote:
-> >diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
-> >index 333c32ac9bfa..26f92d3c7e9c 100644
-> >--- a/include/trace/events/devlink.h
-> >+++ b/include/trace/events/devlink.h
-> >@@ -22,7 +22,11 @@ TRACE_EVENT(devlink_hwmsg,
-> >       TP_STRUCT__entry(
-> >               __string(bus_name, devlink->dev->bus->name)
-> >               __string(dev_name, dev_name(devlink->dev))
-> >+#ifdef CONFIG_MODULES
-> >               __string(owner_name, devlink->dev->driver->owner->name)
-> 
-> I think would be better to use driver->name. I looks like it is always
-> present. I will do some tests and send a patch.
-> 
+=46rom: Kristian Evensen <kristian.evensen@gmail.com>
 
-Yes, good idea.
+Some devices of the same type all export the same, random MAC address. =
+This
+behavior has been seen on the ZTE MF910, MF823 and MF831, and there are
+probably more devices out there. Fix this by generating a valid random =
+MAC
+address if we read a random MAC from device.
 
-	Arnd
+Also, changed the memcpy() to ether_addr_copy(), as pointed out by
+checkpatch.
+
+Suggested-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+---
+ drivers/net/usb/rndis_host.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.=
+c
+index 524a47a281..4f4f71b 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -428,7 +428,11 @@ generic_rndis_bind(struct usbnet *dev, struct usb_=
+interface *intf, int flags)
+ 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
+ 		goto halt_fail_and_release;
+ 	}
+-	memcpy(net->dev_addr, bp, ETH_ALEN);
++
++	if (bp[0] & 0x02)
++		eth_hw_addr_random(net);
++	else
++		ether_addr_copy(net->dev_addr, bp);
+=20
+ 	/* set a nonzero filter to enable data transfers */
+ 	memset(u.set, 0, sizeof *u.set);
+--=20
+2.5.0
