@@ -1,40 +1,55 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: [PATCH nf-next v2 1/3] netfilter: bridge: add and use br_nf_hook_thresh
-Date: Thu, 14 Jul 2016 14:01:44 -0400
-Message-ID: <f7teg6w3xpz.fsf@redhat.com>
-References: <1468337541-23930-1-git-send-email-aconole@bytheb.org>
-	<1468337541-23930-2-git-send-email-aconole@bytheb.org>
-	<20160714171727.GA1244@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Florian Westphal <fw@strlen.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160714171727.GA1244@salvia> (Pablo Neira Ayuso's message of
-	"Thu, 14 Jul 2016 19:17:27 +0200")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next 0/4] net: bridge: simplify receive path and consolidate forwarding paths
+Date: Thu, 14 Jul 2016 06:09:58 +0300
+Message-ID: <1468465802-4571-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org,
+	davem@davemloft.net, bridge@lists.linux-foundation.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34239 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbcGNSDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 14:03:52 -0400
+Received: by mail-pf0-f177.google.com with SMTP id h14so32058354pfe.1
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 11:03:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> writes:
+Hi all,
+This set tries to simplify the receive and forwarding paths. Patch 01 is
+a trivial style adjustment, patch 02 removes one conditional from the
+unicast fast path, patch 03 removes another conditional and more imporantly
+removes the skb0/skb2 ambiguity about locally receiving the skb and
+switches to a boolean called "local_rcv".
+Patch 04 is the most important change which consolidates the forwarding
+paths for locally originated and forwarded packets into __br_forward. This
+allows us to remove the function pointers giving a minor performance boost,
+more importantly it makes it much easier to reason about the forwarding
+path and reduces the code duplication that was needed when making changes.
+Also it allows the receive path to fully setup the environment prior to
+calling any forwarding functions (i.e. to properly set unicast, local_rcv
+and search for unicast/mcast dst).
+Functionally everything should stay the same after this set.
 
-> On Tue, Jul 12, 2016 at 11:32:19AM -0400, Aaron Conole wrote:
->> +/* recursively invokes nf_hook_slow (again), skipping already-called
->> + * hooks (< NF_BR_PRI_BRNF).
->> + *
->> + * Called with rcu read lock held.
->> + */
->> +int br_nf_hook_thresh(unsigned int hook, struct net *net,
->> +		      struct sock *sk, struct sk_buff *skb,
->> +		      struct net_device *indev,
->> +		      struct net_device *outdev,
->> +		      int (*okfn)(struct net *, struct sock *,
->> +				  struct sk_buf *))
->                                          ^^^^^^
->
-> This doesn't compile. Please, make sure patches compile independently
-> so we make sure git bisectability doesn't break. Thanks.
+I've done basic tests with unicast/multicast/broadcast Tx/Rx. Please
+review carefully.
 
-Okay, I will make sure to do this for all the patches.  Apologies.
+Thank you,
+ Nik
 
-Thanks for the review.
+Nikolay Aleksandrov (4):
+  net: bridge: minor style adjustments in br_handle_frame_finish
+  net: bridge: rearrange flood vs unicast receive paths
+  net: bridge: drop skb2/skb0 variables and use a local_rcv boolean
+  net: bridge: remove _deliver functions and consolidate forward code
+
+ net/bridge/br_device.c                   |  22 ++--
+ net/bridge/br_forward.c                  | 195 +++++++++++--------------------
+ net/bridge/br_input.c                    |  62 +++++-----
+ net/bridge/br_private.h                  |  29 ++---
+ net/bridge/netfilter/nft_reject_bridge.c |   8 +-
+ 5 files changed, 125 insertions(+), 191 deletions(-)
+
+-- 
+2.4.3
