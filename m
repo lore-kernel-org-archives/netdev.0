@@ -1,7 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH v2 06/10] net: sched: support qdisc_reset on NOLOCK qdisc
-Date: Wed, 13 Jul 2016 23:22:17 -0700
-Message-ID: <20160714062216.8270.58758.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH v2 07/10] net: sched: support skb_bad_tx with lockless
+ qdisc
+Date: Wed, 13 Jul 2016 23:22:43 -0700
+Message-ID: <20160714062242.8270.64008.stgit@john-Precision-Tower-5810>
 References: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,156 +11,222 @@ Cc: netdev@vger.kernel.org
 To: fw@strlen.de, jhs@mojatatu.com, alexei.starovoitov@gmail.com,
 	eric.dumazet@gmail.com, brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:33201 "EHLO
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34636 "EHLO
 	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377AbcGNGWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:22:37 -0400
-Received: by mail-pa0-f67.google.com with SMTP id q2so4132663pap.0
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:22:36 -0700 (PDT)
+	with ESMTP id S1751396AbcGNGXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:23:06 -0400
+Received: by mail-pa0-f67.google.com with SMTP id hh10so4132139pac.1
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:23:06 -0700 (PDT)
 In-Reply-To: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The qdisc_reset operation depends on the qdisc lock at the moment
-to halt any additions to gso_skb and statistics while the list is
-free'd and the stats zeroed.
-
-Without the qdisc lock we can not guarantee another cpu is not in
-the process of adding a skb to one of the "cells". Here are the
-two cases we have to handle.
-
- case 1: qdisc_graft operation. In this case a "new" qdisc is attached
-	 and the 'qdisc_destroy' operation is called on the old qdisc.
-	 The destroy operation will wait a rcu grace period and call
-	 qdisc_rcu_free(). At which point gso_cpu_skb is free'd along
-	 with all stats so no need to zero stats and gso_cpu_skb from
-	 the reset operation itself.
-
-	 Because we can not continue to call qdisc_reset before waiting
-	 an rcu grace period so that the qdisc is detached from all
-	 cpus simply do not call qdisc_reset() at all and let the
-	 qdisc_destroy operation clean up the qdisc. Note, a refcnt
-	 greater than 1 would cause the destroy operation to be
-	 aborted however if this ever happened the reference to the
-	 qdisc would be lost and we would have a memory leak.
-
- case 2: dev_deactivate sequence. This can come from a user bringing
-	 the interface down which causes the gso_skb list to be flushed
-	 and the qlen zero'd. At the moment this is protected by the
-	 qdisc lock so while we clear the qlen/gso_skb fields we are
-	 guaranteed no new skbs are added. For the lockless case
-	 though this is not true. To resolve this move the qdisc_reset
-	 call after the new qdisc is assigned and a grace period is
-	 exercised to ensure no new skbs can be enqueued. Further
-	 the RTNL lock is held so we can not get another call to
-	 activate the qdisc while the skb lists are being free'd.
-
-	 Finally, fix qdisc_reset to handle the per cpu stats and
-	 skb lists.
+Similar to how gso is handled skb_bad_tx needs to be per cpu to handle
+lockless qdisc with multiple writer/producers.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- net/sched/sch_generic.c |   45 +++++++++++++++++++++++++++++++++++----------
- 1 file changed, 35 insertions(+), 10 deletions(-)
+ include/net/sch_generic.h |    7 +++
+ net/sched/sch_api.c       |    5 ++
+ net/sched/sch_generic.c   |   94 +++++++++++++++++++++++++++++++++++++++++----
+ 3 files changed, 97 insertions(+), 9 deletions(-)
 
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 7b140e2..149f079 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -40,6 +40,10 @@ struct gso_cell {
+ 	struct sk_buff *skb;
+ };
+ 
++struct bad_txq_cell {
++	struct sk_buff *skb;
++};
++
+ struct Qdisc {
+ 	int 			(*enqueue)(struct sk_buff *skb,
+ 					   struct Qdisc *sch,
+@@ -77,7 +81,8 @@ struct Qdisc {
+ 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+ 	struct gnet_stats_queue	__percpu *cpu_qstats;
+ 
+-	struct gso_cell __percpu *gso_cpu_skb;
++	struct gso_cell     __percpu *gso_cpu_skb;
++	struct bad_txq_cell __percpu *skb_bad_txq_cpu;
+ 
+ 	/*
+ 	 * For performance sake on SMP, we put highly modified fields at the end
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index d713052..50088e2 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -970,6 +970,10 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 			sch->gso_cpu_skb = alloc_percpu(struct gso_cell);
+ 			if (!sch->gso_cpu_skb)
+ 				goto err_out4;
++
++			sch->skb_bad_txq_cpu = alloc_percpu(struct bad_txq_cell);
++			if (!sch->skb_bad_txq_cpu)
++				goto err_out4;
+ 		}
+ 
+ 		if (tca[TCA_STAB]) {
+@@ -1021,6 +1025,7 @@ err_out4:
+ 	free_percpu(sch->cpu_bstats);
+ 	free_percpu(sch->cpu_qstats);
+ 	free_percpu(sch->gso_cpu_skb);
++	free_percpu(sch->skb_bad_txq_cpu);
+ 	/*
+ 	 * Any broken qdiscs that would require a ops->reset() here?
+ 	 * The qdisc was never in action so it shouldn't be necessary.
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f903093..8a665dc 100644
+index 8a665dc..7dcd066 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -739,6 +739,20 @@ void qdisc_reset(struct Qdisc *qdisc)
- 	kfree_skb(qdisc->skb_bad_txq);
- 	qdisc->skb_bad_txq = NULL;
+@@ -44,6 +44,42 @@ EXPORT_SYMBOL(default_qdisc_ops);
+  * - ingress filtering is also serialized via qdisc root lock
+  * - updates to tree and tree walking are only done under the rtnl mutex.
+  */
++static inline struct sk_buff *qdisc_dequeue_skb_bad_txq(struct Qdisc *sch)
++{
++	if (sch->skb_bad_txq_cpu) {
++		struct bad_txq_cell *cell = this_cpu_ptr(sch->skb_bad_txq_cpu);
++
++		return cell->skb;
++	}
++
++	return sch->skb_bad_txq;
++}
++
++static inline void qdisc_enqueue_skb_bad_txq(struct Qdisc *sch,
++					     struct sk_buff *skb)
++{
++	if (sch->skb_bad_txq_cpu) {
++		struct bad_txq_cell *cell = this_cpu_ptr(sch->skb_bad_txq_cpu);
++
++		cell->skb = skb;
++		return;
++	}
++
++	sch->skb_bad_txq = skb;
++}
++
++static inline void qdisc_null_skb_bad_txq(struct Qdisc *sch)
++{
++	if (sch->skb_bad_txq_cpu) {
++		struct bad_txq_cell *cell = this_cpu_ptr(sch->skb_bad_txq_cpu);
++
++		cell->skb = NULL;
++		return;
++	}
++
++	sch->skb_bad_txq = NULL;
++}
++
+ static inline struct sk_buff *qdisc_dequeue_gso_skb(struct Qdisc *sch)
+ {
+ 	if (sch->gso_cpu_skb)
+@@ -129,9 +165,15 @@ static void try_bulk_dequeue_skb_slow(struct Qdisc *q,
+ 		if (!nskb)
+ 			break;
+ 		if (unlikely(skb_get_queue_mapping(nskb) != mapping)) {
+-			q->skb_bad_txq = nskb;
+-			qdisc_qstats_backlog_inc(q, nskb);
+-			q->q.qlen++;
++			qdisc_enqueue_skb_bad_txq(q, nskb);
++
++			if (qdisc_is_percpu_stats(q)) {
++				qdisc_qstats_cpu_backlog_inc(q, nskb);
++				qdisc_qstats_cpu_qlen_inc(q);
++			} else {
++				qdisc_qstats_backlog_inc(q, nskb);
++				q->q.qlen++;
++			}
+ 			break;
+ 		}
+ 		skb->next = nskb;
+@@ -160,7 +202,7 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
+ 			qdisc_null_gso_skb(q);
  
-+	if (qdisc->gso_cpu_skb) {
-+		int i;
+ 			if (qdisc_is_percpu_stats(q)) {
+-				qdisc_qstats_cpu_backlog_inc(q, skb);
++				qdisc_qstats_cpu_backlog_dec(q, skb);
+ 				qdisc_qstats_cpu_qlen_dec(q);
+ 			} else {
+ 				qdisc_qstats_backlog_dec(q, skb);
+@@ -171,14 +213,19 @@ static struct sk_buff *dequeue_skb(struct Qdisc *q, bool *validate,
+ 		return skb;
+ 	}
+ 	*validate = true;
+-	skb = q->skb_bad_txq;
++	skb = qdisc_dequeue_skb_bad_txq(q);
+ 	if (unlikely(skb)) {
+ 		/* check the reason of requeuing without tx lock first */
+ 		txq = skb_get_tx_queue(txq->dev, skb);
+ 		if (!netif_xmit_frozen_or_stopped(txq)) {
+-			q->skb_bad_txq = NULL;
+-			qdisc_qstats_backlog_dec(q, skb);
+-			q->q.qlen--;
++			qdisc_null_skb_bad_txq(q);
++			if (qdisc_is_percpu_stats(q)) {
++				qdisc_qstats_cpu_backlog_dec(q, skb);
++				qdisc_qstats_cpu_qlen_dec(q);
++			} else {
++				qdisc_qstats_backlog_dec(q, skb);
++				q->q.qlen--;
++			}
+ 			goto bulk;
+ 		}
+ 		return NULL;
+@@ -718,6 +765,10 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+ 		sch->gso_cpu_skb = alloc_percpu(struct gso_cell);
+ 		if (!sch->gso_cpu_skb)
+ 			goto errout;
 +
-+		for_each_possible_cpu(i) {
-+			struct gso_cell *cell;
-+
-+			cell = per_cpu_ptr(qdisc->gso_cpu_skb, i);
-+			if (cell) {
-+				kfree_skb_list(cell->skb);
-+				cell = NULL;
++		sch->skb_bad_txq_cpu = alloc_percpu(struct bad_txq_cell);
++		if (!sch->skb_bad_txq_cpu)
++			goto errout;
+ 	}
+ 
+ 	return sch;
+@@ -748,6 +799,20 @@ void qdisc_reset(struct Qdisc *qdisc)
+ 			cell = per_cpu_ptr(qdisc->gso_cpu_skb, i);
+ 			if (cell) {
+ 				kfree_skb_list(cell->skb);
++				cell->skb = NULL;
 +			}
 +		}
 +	}
 +
- 	if (qdisc->gso_skb) {
- 		kfree_skb_list(qdisc->gso_skb);
- 		qdisc->gso_skb = NULL;
-@@ -814,10 +828,6 @@ struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
- 	root_lock = qdisc_lock(oqdisc);
- 	spin_lock_bh(root_lock);
- 
--	/* Prune old scheduler */
--	if (oqdisc && atomic_read(&oqdisc->refcnt) <= 1)
--		qdisc_reset(oqdisc);
--
- 	/* ... and graft new one */
- 	if (qdisc == NULL)
- 		qdisc = &noop_qdisc;
-@@ -931,7 +941,6 @@ static void dev_deactivate_queue(struct net_device *dev,
- 			set_bit(__QDISC_STATE_DEACTIVATED, &qdisc->state);
- 
- 		rcu_assign_pointer(dev_queue->qdisc, qdisc_default);
--		qdisc_reset(qdisc);
- 
- 		spin_unlock_bh(qdisc_lock(qdisc));
- 	}
-@@ -968,6 +977,16 @@ static bool some_qdisc_is_busy(struct net_device *dev)
- 	return false;
- }
- 
-+static void dev_qdisc_reset(struct net_device *dev,
-+			    struct netdev_queue *dev_queue,
-+			    void *none)
-+{
-+	struct Qdisc *qdisc = dev_queue->qdisc_sleeping;
++	if (qdisc->skb_bad_txq_cpu) {
++		int i;
 +
-+	if (qdisc)
-+		qdisc_reset(qdisc);
-+}
++		for_each_possible_cpu(i) {
++			struct bad_txq_cell *cell;
 +
- /**
-  * 	dev_deactivate_many - deactivate transmissions on several devices
-  * 	@head: list of devices to deactivate
-@@ -978,7 +997,6 @@ static bool some_qdisc_is_busy(struct net_device *dev)
- void dev_deactivate_many(struct list_head *head)
- {
- 	struct net_device *dev;
--	bool sync_needed = false;
- 
- 	list_for_each_entry(dev, head, close_list) {
- 		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
-@@ -988,20 +1006,27 @@ void dev_deactivate_many(struct list_head *head)
- 					     &noop_qdisc);
- 
- 		dev_watchdog_down(dev);
--		sync_needed |= !dev->dismantle;
++			cell = per_cpu_ptr(qdisc->skb_bad_txq_cpu, i);
++			if (cell) {
++				kfree_skb(cell->skb);
+ 				cell = NULL;
+ 			}
+ 		}
+@@ -783,6 +848,19 @@ static void qdisc_rcu_free(struct rcu_head *head)
+ 		free_percpu(qdisc->gso_cpu_skb);
  	}
  
- 	/* Wait for outstanding qdisc-less dev_queue_xmit calls.
- 	 * This is avoided if all devices are in dismantle phase :
- 	 * Caller will call synchronize_net() for us
- 	 */
--	if (sync_needed)
--		synchronize_net();
-+	synchronize_net();
- 
- 	/* Wait for outstanding qdisc_run calls. */
--	list_for_each_entry(dev, head, close_list)
-+	list_for_each_entry(dev, head, close_list) {
- 		while (some_qdisc_is_busy(dev))
- 			yield();
++	if (qdisc->skb_bad_txq_cpu) {
++		int i;
 +
-+		/* The new qdisc is assigned at this point so we can safely
-+		 * unwind stale skb lists and qdisc statistics
-+		 */
-+		netdev_for_each_tx_queue(dev, dev_qdisc_reset, NULL);
-+		if (dev_ingress_queue(dev))
-+			dev_qdisc_reset(dev, dev_ingress_queue(dev), NULL);
++		for_each_possible_cpu(i) {
++			struct bad_txq_cell *cell;
++
++			cell = per_cpu_ptr(qdisc->skb_bad_txq_cpu, i);
++			kfree_skb(cell->skb);
++		}
++
++		free_percpu(qdisc->skb_bad_txq_cpu);
 +	}
 +
+ 	kfree((char *) qdisc - qdisc->padded);
  }
  
- void dev_deactivate(struct net_device *dev)
