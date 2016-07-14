@@ -1,92 +1,72 @@
-From: Guodong Xu <guodong.xu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/2] Bluetooth: Add LED triggers for HCI frames tx and rx
-Date: Thu, 14 Jul 2016 15:08:20 +0800
-Message-ID: <CAFGCpxzYLgJu6NWOHHTAQRmPEA5xz3GUpO4Ru1dKgRdMxyCU1A@mail.gmail.com>
-References: <1466657923-5776-1-git-send-email-guodong.xu@linaro.org> <D2545F6D-7100-4B59-A19D-7CF878902BAA@holtmann.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless ucode is loaded
+Date: Thu, 14 Jul 2016 10:13:04 +0300
+Message-ID: <87shvcy9of.fsf@kamboji.qca.qualcomm.com>
+References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
+	<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>
+	<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>
+	<57840214.8000904@redhat.com> <87eg6yav5e.fsf@purkki.adurom.net>
+	<57861172.30103@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Xu Wei <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Haojian Zhuang <haojian.zhuang-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-	"open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <D2545F6D-7100-4B59-A19D-7CF878902BAA-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Grumbach\, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linuxwifi <linuxwifi@intel.com>,
+	"Coelho\, Luciano" <luciano.coelho@intel.com>,
+	"Berg\, Johannes" <johannes.berg@intel.com>,
+	"Ivgi\, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sharon\, Sara" <sara.sharon@intel.com>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>
+To: Prarit Bhargava <prarit@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:48614 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750739AbcGNHNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 03:13:12 -0400
+In-Reply-To: <57861172.30103@redhat.com> (Prarit Bhargava's message of "Wed,
+	13 Jul 2016 06:01:22 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13 July 2016 at 16:07, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wrote:
-> Hi Guodong,
->
->> Two LED triggers are defined: tx_led and rx_led. Upon frames
->> available in HCI core layer, for tx or for rx, the combined LED
->> can blink.
->>
->> Verified on HiKey, 96boards. It uses hi6220 SoC and TI WL1835 combo
->> chip.
->>
->> Signed-off-by: Guodong Xu <guodong.xu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
->> ---
->> include/net/bluetooth/hci_core.h |  1 +
->> net/bluetooth/hci_core.c         |  3 +++
->> net/bluetooth/leds.c             | 15 +++++++++++++++
->> net/bluetooth/leds.h             |  2 ++
->> 4 files changed, 21 insertions(+)
->>
->> diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
->> index dc71473..37b8dd9 100644
->> --- a/include/net/bluetooth/hci_core.h
->> +++ b/include/net/bluetooth/hci_core.h
->> @@ -398,6 +398,7 @@ struct hci_dev {
->>       bdaddr_t                rpa;
->>
->>       struct led_trigger      *power_led;
->> +     struct led_trigger      *tx_led, *rx_led;
->>
->>       int (*open)(struct hci_dev *hdev);
->>       int (*close)(struct hci_dev *hdev);
->> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
->> index 45a9fc6..c6e1210 100644
->> --- a/net/bluetooth/hci_core.c
->> +++ b/net/bluetooth/hci_core.c
->> @@ -3248,6 +3248,7 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
->>       skb_queue_tail(&hdev->rx_q, skb);
->>       queue_work(hdev->workqueue, &hdev->rx_work);
->>
->> +     hci_leds_blink_oneshot(hdev->rx_led);
->>       return 0;
->> }
->> EXPORT_SYMBOL(hci_recv_frame);
->> @@ -3325,6 +3326,8 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
->>               BT_ERR("%s sending frame failed (%d)", hdev->name, err);
->>               kfree_skb(skb);
->>       }
->> +
->> +     hci_leds_blink_oneshot(hdev->tx_led);
->> }
->
-> so I am not convinced that this is the right way of doing TX/RX activity leds. This would have them purely based on HCI traffic and this would include control frames. I think that we want activity leds for actual radio activity. Meaning that when we have an active connection and ACL packets are exchanged or when we are scanning.
->
+Prarit Bhargava <prarit@redhat.com> writes:
 
-Thanks. I got your point. I will revise the code and submit again.
+> On 07/13/2016 02:50 AM, Kalle Valo wrote:
+>> Prarit Bhargava <prarit@redhat.com> writes:
+>> 
+>>>> We implement thermal zone because we do support it, but the problem is
+>>>> that we need the firmware to be loaded for that. So you can argue that
+>>>> we should register *later* when the firmware is loaded. But this is
+>>>> really not helping all that much because the firmware can also be
+>>>> stopped at any time. So you'd want us to register / unregister the
+>>>> thermal zone anytime the firmware is loaded / unloaded?
+>>>
+>>> You might have to do that.  I think that if the firmware enables a feature then
+>>> the act of loading the firmware should run the code that enables the feature.
+>>> IMO of course.
+>> 
+>> But I suspect that the iwlwifi firmware is loaded during interface up
+>> (and unloaded during interface down) and in that case
+>> register/unregister would be happening all the time. 
+>
+> You make it sound like the interface is coming and going a 1000 times a second.
+>  Maybe this happens once during runtime & during suspend/resume
+>  cycles?
 
-> Regards
->
-> Marcel
->
+Of course it doesn't happen 1000 times a second but it depends on user
+space behaviour. In some cases, when the wlan interface is always up,
+the firmware is loaded only once. But in some cases the user space might
+change the interface state more frequently.
+
+More so registering services like thermal zone should happen during
+driver probe time, not during interface up event.
+
+> What about the cases when the firmware isn't present (and that's what
+> lead me to this bug)?
+
+In that case the kernel could return a predefined error value like
+-EGAIN or -ENOTDOWN so that the user space knows that a value is not
+available at this time (but might be available later).
+
+-- 
+Kalle Valo
