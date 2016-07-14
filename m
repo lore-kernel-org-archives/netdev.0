@@ -1,67 +1,68 @@
-From: ayuj <ayuj.verma@gmail.com>
-Subject: Re: Configure traffic class to bringup DCB in back-to-back setup
-Date: Thu, 14 Jul 2016 09:35:33 +0000 (UTC)
-Message-ID: <loom.20160714T112300-449@post.gmane.org>
-References: <loom.20160713T110657-740@post.gmane.org> <57867E13.3040708@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/2] tracing: change owner name to driver name for devlink hwmsg tracepoint
+Date: Thu, 14 Jul 2016 11:37:28 +0200
+Message-ID: <1468489049-6326-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, arnd@arndb.de, rdunlap@infradead.org,
+	linux-kernel@vger.kernel.org, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, rostedt@goodmis.org,
+	mingo@redhat.com, jolsa@kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:40214 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750930AbcGNJfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 05:35:44 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1bNd3V-0005Dg-R3
-	for netdev@vger.kernel.org; Thu, 14 Jul 2016 11:35:41 +0200
-Received: from static-67.218.93.111-tataidc.co.in ([static-67.218.93.111-tataidc.co.in])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 11:35:41 +0200
-Received: from ayuj.verma by static-67.218.93.111-tataidc.co.in with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 11:35:41 +0200
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36313 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbcGNJhc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 05:37:32 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x83so8734239wma.3
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 02:37:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Fastabend <john.fastabend <at> gmail.com> writes:
+From: Jiri Pirko <jiri@mellanox.com>
 
-> So at the moment it appears to be configured to use 802.1QAZ spec which
-> superseded the older spec even though lldpad supports both. Note the
-> tool itself really requires some spec knowledge to use correctly. The
-> spec to read is 802.1Q.
-> 
-> To configure it back-to-back (typical scenario is connected to a DCB
-> enabled switch where your administrator would setup the switch and this
-> would autoneg just fine) the servers need to be setup manually.
-> 
-> Perhaps reading if you haven't already the man page for lldptool and
-> lldptool-ets, lldptool-pfc would help. From the ets man page this
-> should kick things off,
-> 
-> #lldptool -T -i eth2 -V ETS-CFG \
->           tsa=0:ets,1:ets,2:ets,3:ets,4:ets,5:ets,6:ets,7:ets \
->           up2tc=0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7 \
->           tcbw=12,12,12,12,13,13,13,13
-> 
-> #lldptool -T -i eth2 -V ETS-REC \
->            tsa=0:ets,1:ets,2:ets,3:ets,4:ets,5:ets,6:ets,7:ets \
->            up2tc=0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7 \
->            tcbw=12,12,12,12,13,13,13,13
-> 
-> Thanks,
-> John
-> 
-> 
-Hi John,
+Turned on that driver->owner which is struct module is not available when
+modules are disabled. Better to depend on a driver name which is
+always available.
+
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Fixes: e5224f0fe2 ("devlink: add hardware messages tracing facility")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/trace/events/devlink.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
+index 333c32a..77dce71 100644
+--- a/include/trace/events/devlink.h
++++ b/include/trace/events/devlink.h
+@@ -22,7 +22,7 @@ TRACE_EVENT(devlink_hwmsg,
+ 	TP_STRUCT__entry(
+ 		__string(bus_name, devlink->dev->bus->name)
+ 		__string(dev_name, dev_name(devlink->dev))
+-		__string(owner_name, devlink->dev->driver->owner->name)
++		__string(driver_name, devlink->dev->driver->name)
+ 		__field(bool, incoming)
+ 		__field(unsigned long, type)
+ 		__dynamic_array(u8, buf, len)
+@@ -32,16 +32,16 @@ TRACE_EVENT(devlink_hwmsg,
+ 	TP_fast_assign(
+ 		__assign_str(bus_name, devlink->dev->bus->name);
+ 		__assign_str(dev_name, dev_name(devlink->dev));
+-		__assign_str(owner_name, devlink->dev->driver->owner->name);
++		__assign_str(driver_name, devlink->dev->driver->name);
+ 		__entry->incoming = incoming;
+ 		__entry->type = type;
+ 		memcpy(__get_dynamic_array(buf), buf, len);
+ 		__entry->len = len;
+ 	),
  
-I have gone through  lldptool and lldptool-ets man pages. My query is how to
-categorize traffic. 
-
-My aim is to allocate bandwidth to different type of traffic(may be based on
-port or protocol) using DCB( ETS/PFC) functionality.
-
-Thanks
--Ayuj
+-	TP_printk("bus_name=%s dev_name=%s owner_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
++	TP_printk("bus_name=%s dev_name=%s driver_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
+ 		  __get_str(bus_name), __get_str(dev_name),
+-		  __get_str(owner_name), __entry->incoming, __entry->type,
++		  __get_str(driver_name), __entry->incoming, __entry->type,
+ 		  (int) __entry->len, __get_dynamic_array(buf), __entry->len)
+ );
+ 
+-- 
+2.5.5
