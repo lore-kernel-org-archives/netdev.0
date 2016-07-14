@@ -1,158 +1,95 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Thu, 14 Jul 2016 09:25:43 +0200
-Message-ID: <20160714092543.776f8d8c@redhat.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
-	<1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+From: Leon Romanovsky <leonro@mellanox.com>
+Subject: Re: [patch v2] net/mlx5: missing error code in
+ esw_create_offloads_fdb_table()
+Date: Thu, 14 Jul 2016 08:56:37 +0300
+Message-ID: <20160714055637.GK10079@leon.nu>
+References: <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
+ <20160713100825.GD29468@mwanda>
+ <20160713175454.GF19657@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
-To: Brenden Blanco <bblanco@plumgrid.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZG5hGh9V5E9QzVHS"
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Matan Barak <matanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
+	<linux-rdma@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45386 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750739AbcGNHZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 03:25:51 -0400
-In-Reply-To: <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+Received: from mail-db5eur01on0080.outbound.protection.outlook.com ([104.47.2.80]:25056
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750739AbcGNH30 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 03:29:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20160713175454.GF19657@obsidianresearch.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--ZG5hGh9V5E9QzVHS
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I would really really like to see the XDP program associated with the
-RX ring queues, instead of a single XDP program covering the entire NIC.
-(Just move the bpf_prog pointer to struct mlx4_en_rx_ring)
+On Wed, Jul 13, 2016 at 11:54:54AM -0600, Jason Gunthorpe wrote:
+> On Wed, Jul 13, 2016 at 02:48:44PM +0300, Dan Carpenter wrote:
+> > We accidentally return success when we had intended to return an error
+> > code.
+> >=20
+> > Fixes: 69697b6e2086 ('net/mlx5: E-Switch, Add support for the sriov off=
+loads mode')
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > v2: return -ENOTSUPP instead --EINVAL
+> >=20
+> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c=
+ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> > index 1842dfb..7d982cf 100644
+> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> > @@ -183,6 +183,7 @@ static int esw_create_offloads_fdb_table(struct mlx=
+5_eswitch *esw, int nvports)
+> > =20
+> >  	root_ns =3D mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
+> >  	if (!root_ns) {
+> > +		err =3D -ENOTSUPP;
+>=20
+> Did you mean ENOTSUP?
+>=20
+> I thought ENOTSUPP was not to be used outside NFS, and isn't properly
+> exported to userspace..
+>=20
+> $ find /usr/include -name "*errno*" | xargs grep 524
 
-So, why is this so important? It is a fundamental architectural choice.
+I asked similar question [1] with different return value in reply
+to this patch.
 
-With a single XDP program per NIC, then we are not better than DPDK,
-where a single application monopolize the entire NIC.  Recently netmap
-added support for running on a single specific queue[1].  This is the
-number one argument our customers give, for not wanting to run DPDK,
-because they need to dedicate an entire NIC per high speed application.
+[1] http://marc.info/?l=3Dlinux-netdev&m=3D146843171508230&w=3D2
 
-As John Fastabend says, his NICs have thousands of queues, and he want
-to bind applications to the queues.  This idea of binding queues to
-applications, goes all the way back to Van Jacobson's 2006
-netchannels[2].  Where creating an application channel allow for lock
-free single producer single consumer (SPSC) queue directly into the
-application.  A XDP program "locked" to a single RX queue can make
-these optimizations, a global XDP programm cannot.
+>=20
+> Jason
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
+--ZG5hGh9V5E9QzVHS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-Why this change now, why can't this wait?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-I'm starting to see more and more code assuming that a single global
-XDP program owns the NIC.  This will be harder and harder to cleanup.
-I'm fine with the first patch iteration only supports setting the XDP
-program on all RX queue (e.g. returns ENOSUPPORT on specific
-queues). Only requesting that this is moved to struct mlx4_en_rx_ring,
-and appropriate refcnt handling is done.
+iQIcBAEBAgAGBQJXhymVAAoJEORje4g2clinr/kP/jlzDnz5hvIKtZXYGoBbsoHK
+IY2H93jg9SL+4JGx+/AVn55Q2HJ3iJCfLIsHOeLqt5V9bslMb/b9B+Y3rlYyxBBM
+fNLujlM3MYUgRIcoJg86tLFmm3cALCfxzsGZBlhbU/QzEDKsFcQe6zR0mjpx0GTO
+Mo7s9vdQwL1wnoLI4+SWQP8y3QxG8OVWA6J2NgaamHBtn3zGGgsf8DDov5N1OoTz
+S2HUHAn91rGollL+ow0D+n36df2fPPQ800Qb+APOey2tbzNCs9QvonkGDj3YAkeF
+Avka4Gs1kmjphIP8ur7rvaSBVIuLA03gMGe0rKBtr9Je7Hj6OIPVyTOo0BvgMY/e
+VlZQ/OchN7MF3qiUBA7xo7YHtlVBIeLjLuH9iEcbdGp04cxLJIuU+jZktTd0mIEV
+3ABrwYracxEo46WKUjND9B0VY9m+TCg+r2UKaWeeuUnxEjarBQnEW2l4E0ga07Db
+Tz9XuYKGmFkmLrpLcyIn6bhqva9ZGg8yz76aMFyPf7l7K2m6Zr9e7xZEFg/rJEvw
+3xxx+IzsL6khTEG22Y37+zVUAiCsgr98XxUQSqk1NMdqRWbOKGIMallbPdCjpS9l
+3CQdhWR2BTq8Kuatl/2e5WZAcibiCaHARkux1jV7GmH7KQQwjEXhv3a05d8EzDig
+bBK+T8HMetW5AcOcGBIO
+=/+TP
+-----END PGP SIGNATURE-----
 
-
-
-On Tue, 12 Jul 2016 00:51:27 -0700
-Brenden Blanco <bblanco@plumgrid.com> wrote:
-
-> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
-> 
-> In tc/socket bpf programs, helpers linearize skb fragments as needed
-> when the program touches the packet data. However, in the pursuit of
-> speed, XDP programs will not be allowed to use these slower functions,
-> especially if it involves allocating an skb.
-> 
-[...]
-> 
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 51 ++++++++++++++++++++++++++
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 37 +++++++++++++++++--
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  5 +++
->  3 files changed, 89 insertions(+), 4 deletions(-)
-> 
-[...]
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index c1b3a9c..adfa123 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -743,6 +743,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
->  	struct mlx4_en_rx_alloc *frags;
->  	struct mlx4_en_rx_desc *rx_desc;
-> +	struct bpf_prog *prog;
->  	struct sk_buff *skb;
->  	int index;
->  	int nr;
-> @@ -759,6 +760,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  	if (budget <= 0)
->  		return polled;
->  
-> +	prog = READ_ONCE(priv->prog);
-
-prog = READ_ONCE(ring->prog);
-
->  	/* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
->  	 * descriptor offset can be deduced from the CQE index instead of
->  	 * reading 'cqe->index' */
-> @@ -835,6 +838,35 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
->  			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
->  
-> +		/* A bpf program gets first chance to drop the packet. It may
-> +		 * read bytes but not past the end of the frag.
-> +		 */
-> +		if (prog) {
-> +			struct xdp_buff xdp;
-> +			dma_addr_t dma;
-> +			u32 act;
-> +
-> +			dma = be64_to_cpu(rx_desc->data[0].addr);
-> +			dma_sync_single_for_cpu(priv->ddev, dma,
-> +						priv->frag_info[0].frag_size,
-> +						DMA_FROM_DEVICE);
-> +
-> +			xdp.data = page_address(frags[0].page) +
-> +							frags[0].page_offset;
-> +			xdp.data_end = xdp.data + length;
-> +
-> +			act = bpf_prog_run_xdp(prog, &xdp);
-> +			switch (act) {
-> +			case XDP_PASS:
-> +				break;
-> +			default:
-> +				bpf_warn_invalid_xdp_action(act);
-> +			case XDP_ABORTED:
-> +			case XDP_DROP:
-> +				goto next;
-> +			}
-> +		}
-[...]
-
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> index d39bf59..35ecfa2 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-[...]
-> @@ -590,6 +594,7 @@ struct mlx4_en_priv {
->  	struct hlist_head mac_hash[MLX4_EN_MAC_HASH_SIZE];
->  	struct hwtstamp_config hwtstamp_config;
->  	u32 counter_index;
-> +	struct bpf_prog *prog;
-
-Move to struct mlx4_en_rx_ring.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+--ZG5hGh9V5E9QzVHS--
