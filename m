@@ -1,31 +1,32 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [patch] net/mlx5: missing error code in
- esw_create_offloads_fdb_table()
-Date: Wed, 13 Jul 2016 14:40:26 +0300
-Message-ID: <24af412f-7fa5-fa2e-c605-21ea5d45f5ff@mellanox.com>
-References: <20160713100825.GD29468@mwanda>
- <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Leon Romanovsky <leonro@mellanox.com>, <netdev@vger.kernel.org>,
-	<linux-rdma@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Matan Barak <matanb@mellanox.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10041.outbound.protection.outlook.com ([40.107.1.41]:3107
-	"EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751098AbcGNSOH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 14:14:07 -0400
-In-Reply-To: <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Grundler <grundler@chromium.org>
+Subject: [PATCH] r8152: add MODULE_VERSION
+Date: Thu, 14 Jul 2016 11:27:16 -0700
+Message-ID: <1468520836-9060-1-git-send-email-grundler@chromium.org>
+Cc: Peter Wu <peter@lekensteyn.nl>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	Grant Grundler <grundler@chromium.org>
+To: "David S . Miller" <davem@davemloft.net>,
+	Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/13/2016 2:19 PM, Matan Barak wrote:
-> I'm not sure EINVAL is the right error here though.
-> Maybe -ENOTSUPP is a bit more appropriate here. 
+ethtool -i provides a driver version that is hard coded.
+Export the same value via "modinfo".
 
-I agree, Dan, can you please change to be along Matan's suggestion?
+Signed-off-by: Grant Grundler <grundler@chromium.org>
+---
+ drivers/net/usb/r8152.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Or.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 0da72d3..1c01ed5 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -4359,3 +4359,4 @@ module_usb_driver(rtl8152_driver);
+ MODULE_AUTHOR(DRIVER_AUTHOR);
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_LICENSE("GPL");
++MODULE_VERSION(DRIVER_VERSION);
+-- 
+2.8.0.rc3.226.g39d4020
