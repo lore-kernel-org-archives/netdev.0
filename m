@@ -1,113 +1,66 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen exceeds
- MTU, do segmentation even for non IPSKB_FORWARDED skbs
-Date: Fri, 15 Jul 2016 01:32:01 +0200
-Message-ID: <1468539121.2866484.666731033.397EB5F5@webmail.messagingengine.com>
-References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
- <20160705130327.GA10737@breakpoint.cc> <20160705170541.3f210675@pixies>
- <20160709090020.GB2067@breakpoint.cc> <20160709153017.791f2607@halley>
- <20160709132230.GD2067@breakpoint.cc> <20160712085656.79f1c5fc@halley>
- <20160713170038.1d02eb2b@halley>
- <1468501927.1817077.666165049.62D074FE@webmail.messagingengine.com>
- <20160714171333.00657367@pixies>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC PATCH v2 08/10] net: sched: pfifo_fast use alf_queue
+Date: Thu, 14 Jul 2016 16:42:08 -0700
+Message-ID: <20160714234207.GA93671@ast-mbp.thefacebook.com>
+References: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
+ <20160714062312.8270.65942.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, shmulik.ladkani@gmail.com,
-	netdev@vger.kernel.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>,
-	Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, jhs@mojatatu.com, eric.dumazet@gmail.com,
+	brouer@redhat.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:46284 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751133AbcGNXcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 19:32:03 -0400
-In-Reply-To: <20160714171333.00657367@pixies>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33383 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751170AbcGNXmN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 19:42:13 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i6so5134902pfe.0
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 16:42:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160714062312.8270.65942.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Thu, Jul 14, 2016, at 16:13, Shmulik Ladkani wrote:
-> Hi,
+On Wed, Jul 13, 2016 at 11:23:12PM -0700, John Fastabend wrote:
+> This converts the pfifo_fast qdisc to use the alf_queue enqueue and
+> dequeue routines then sets the NOLOCK bit.
 > 
-> On Thu, 14 Jul 2016 15:12:07 +0200, hannes@stressinduktion.org wrote:
-> > I liked the fact that setting IPSKB_FORWARDED was only contained in
-> > vxlan and as such wouldn't have as much impact. It was more logically
-> > easy to review for me actually.
+> This also removes the logic used to pick the next band to dequeue from
+> and instead just checks each alf_queue for packets from top priority
+> to lowest. This might need to be a bit more clever but seems to work
+> for now.
 > 
-> I agree here. It is rather safe and to the point.
-> 
-> I'm trying to exaust other alternatives because it has one potential
-> drawback: the name IPSKB_FORWARDED suggests ipv4 forwarding had
-> happened. Indeed, current setters of IPSKB_FORWARDED are ip_forward and
-> ip_mr_forward.
-> 
-> If we set IPSKB_FORWARDED in iptunnel_xmit, with packet not being ipv4
-> forwarded (e.g. bridged from some ingress device to a tunnel device), it
-> presents a nuance whose impact is yet to be determined.
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  net/sched/sch_generic.c |  131 +++++++++++++++++++++++++++--------------------
 
-The reason why I rather don't want to see a general solution is that
-currently gre and ipip are pmtu-safe and I rather would like to keep the
-old behavior that gre and ipip packets don't get treated alike. I
-couldn't check the current throughly but it seems they would also be
-affected by this change.
+>  static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
+>  			      struct sk_buff **to_free)
+>  {
+> -	return qdisc_drop(skb, qdisc, to_free);
+> +	err = skb_array_produce_bh(q, skb);
+..
+>  static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
+>  {
+> +		skb = skb_array_consume_bh(q);
 
-My idea was to put those IPSKB_FORWARD just into the vxlan and geneve
-endpoints which could be seen as UDP endpoints and don't forward and
-care about pmtu events.
+For this particular qdisc the performance gain should come from
+granularityof spin_lock, right?
+Before we were taking the lock much earlier. Here we keep the lock,
+but for the very short time.
+        original pps        lockless        diff
+        1       1418168             1269450         -148718
+        2       1587390             1553408         -33982
+        4       1084961             1683639         +598678
+        8       989636              1522723         +533087
+        12      1014018             1348172         +334154
+so perf for 1 cpu case is mainly due to array vs list,
+since number of locks is still the same and there is no collision ?
+but then why shorter lock give higher overhead in multi cpu cases?
+That would have been the main target for performance improvement?
 
-> For example, what about a packet that gets encapsulated and sent to a
-> multicast destination? The condition controlling mc loop-back in
-> ip_mc_output is affected by the flag.
-
-I have to look at that more closely after my trip.
-
-What about adding a new flag with a proper name. It shouldn't affect
-performance in any way if you check for two bits instead of just the
-FORWARDED one.
-
-> > > Which ensures only the following conditions go to the expensive
-> > > skb_gso_validate_mtu:
-> > > 
-> > > 1. IPSKB_FORWARDED is on
-> > > 2. IPSKB_FORWARDED is off, but sk exists and gso_size is untrusted.
-> > >    Meaning: we have a packet arriving from higher layers (sk is set)
-> > >    with a gso_size out of host's control.
-> > 
-> > When can this really happen? In general we don't want to refragment gso
-> > skb's and I think we can only make an exception for vxlan or udp.
-> 
-> When IPSKB_FORWARDED is off, we'll get SKB_GSO_DODGY if packet
-> originally arrived from tap/macvtap/packet and it did NOT pass ipv4
-> forwarding (e.g bridges: tap0 to eth0 bridge, or tap0 to vxlan0 bridge).
-> 
-> The rationale: in the SKB_GSO_DODGY cases, the gso_size is given by
-> the user's virtio-net header, which is not in kernel's control.
-
-But we can assume it being correct based on the mtu of the interface
-which is not in control of the current namespace instance or in another
-vm. We should act accordingly to normal ethernet bridging here, IMHO.
-
-> This exactly resembles the usecase: tap0 gives packets with gso_size
-> unsuitable for encapsulation and segmentation. I have no control on
-> the source that gives those packets.
-
-My argumentation is that vxlan and geneve can be seen as endpoints and
-don't have proper pmtu handling. Thus I would be fine with adding hacks
-to just make it working. For GRE I would like to keep strict internet
-pmtu handling and also keep the normal ethernet semantics in place, that
-we should drop packets if another interface did transmit on an ethernet
-bridge with a too big frame size.
-
-> If (1) it does not make sense, or (2) considered too broad-spectrum to
-> asses, then we can go with the safer IPSKB_FORWARDED approach.
-
-Please have a look at my reasoning. I probably can follow-up more deeply
-from Sunday on.
-
-Thanks,
-Hannes
+Looks like mq gets the most benefit, because it's lockless internally
+which makes sense.
+In general I think this is the right direction where tc infra should move to.
+I'm only not sure whether it's worth converting pfifo to skb_array.
+Probably alf queue would have been a better alternative.
