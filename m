@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 05/10] net/mlx5: E-Switch, Add API to configure rules for the offloaded mode
-Date: Thu, 14 Jul 2016 10:32:41 +0300
-Message-ID: <1468481566-29859-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 06/10] net/mlx5e: Adjustments in the TC offload code towards reuse for SRIOV
+Date: Thu, 14 Jul 2016 10:32:42 +0300
+Message-ID: <1468481566-29859-7-git-send-email-saeedm@mellanox.com>
 References: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,97 +13,102 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43330 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43354 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750947AbcGNHdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 03:33:12 -0400
+	id S1750980AbcGNHdP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 03:33:15 -0400
 In-Reply-To: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-This allows for upper levels in the driver, e.g the TC offload code to add
-e-switch offloaded steering rules. The caller provides the rule spec for
-matching, action, source and destination vports.
+Towards reusing the TC offloads code for an SRIOV use-case, change some of the
+helper functions to have _nic in their names so it's clear what's NIC unique
+and what's general. Also group together the NIC related helpers so we can easily
+branch per the use-case in downstream patch.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  6 +++
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 43 ++++++++++++++++++++++
- 2 files changed, 49 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 32 ++++++++++++-------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 035e536..c0b0560 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -222,6 +222,12 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
- 				 int vport,
- 				 struct ifla_vf_stats *vf_stats);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index cd58fc8..57b76f7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -49,9 +49,9 @@ struct mlx5e_tc_flow {
+ #define MLX5E_TC_TABLE_NUM_ENTRIES 1024
+ #define MLX5E_TC_TABLE_NUM_GROUPS 4
  
-+struct mlx5_flow_spec;
-+
-+struct mlx5_flow_rule *
-+mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
-+				struct mlx5_flow_spec *spec,
-+				u32 action, u32 src_vport, u32 dst_vport);
- struct mlx5_flow_rule *
- mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 27122c0..a357e8e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -43,6 +43,49 @@ enum {
- 	FDB_SLOW_PATH
- };
- 
-+struct mlx5_flow_rule *
-+mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
-+				struct mlx5_flow_spec *spec,
-+				u32 action, u32 src_vport, u32 dst_vport)
-+{
-+	struct mlx5_flow_destination dest = { 0 };
-+	struct mlx5_fc *counter = NULL;
-+	struct mlx5_flow_rule *rule;
-+	void *misc;
-+
-+	if (esw->mode != SRIOV_OFFLOADS)
-+		return ERR_PTR(-EOPNOTSUPP);
-+
-+	if (action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
-+		dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
-+		dest.vport_num = dst_vport;
-+		action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+	} else if (action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
-+		counter = mlx5_fc_create(esw->dev, true);
-+		if (IS_ERR(counter))
-+			return ERR_CAST(counter);
-+		dest.type = MLX5_FLOW_DESTINATION_TYPE_COUNTER;
-+		dest.counter = counter;
-+	}
-+
-+	misc = MLX5_ADDR_OF(fte_match_param, spec->match_value, misc_parameters);
-+	MLX5_SET(fte_match_set_misc, misc, source_port, src_vport);
-+
-+	misc = MLX5_ADDR_OF(fte_match_param, spec->match_criteria, misc_parameters);
-+	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
-+
-+	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS |
-+				      MLX5_MATCH_MISC_PARAMETERS;
-+
-+	rule = mlx5_add_flow_rule((struct mlx5_flow_table *)esw->fdb_table.fdb,
-+				  spec, action, 0, &dest);
-+
-+	if (IS_ERR(rule))
-+		mlx5_fc_destroy(esw->dev, counter);
-+
-+	return rule;
-+}
-+
- static struct mlx5_flow_rule *
- mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
+-static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+-						struct mlx5_flow_spec *spec,
+-						u32 action, u32 flow_tag)
++static struct mlx5_flow_rule *mlx5e_tc_add_nic_flow(struct mlx5e_priv *priv,
++						    struct mlx5_flow_spec *spec,
++						    u32 action, u32 flow_tag)
  {
+ 	struct mlx5_core_dev *dev = priv->mdev;
+ 	struct mlx5_flow_destination dest = { 0 };
+@@ -120,7 +120,7 @@ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
+ 
+ 	mlx5_fc_destroy(priv->mdev, counter);
+ 
+-	if (!mlx5e_tc_num_filters(priv)) {
++	if (!mlx5e_tc_num_filters(priv) && (priv->fs.tc.t)) {
+ 		mlx5_destroy_flow_table(priv->fs.tc.t);
+ 		priv->fs.tc.t = NULL;
+ 	}
+@@ -295,8 +295,8 @@ static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec
+ 	return 0;
+ }
+ 
+-static int parse_tc_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+-			    u32 *action, u32 *flow_tag)
++static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
++				u32 *action, u32 *flow_tag)
+ {
+ 	const struct tc_action *a;
+ 
+@@ -369,28 +369,28 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	if (err < 0)
+ 		goto err_free;
+ 
+-	err = parse_tc_actions(priv, f->exts, &action, &flow_tag);
++	err = parse_tc_nic_actions(priv, f->exts, &action, &flow_tag);
+ 	if (err < 0)
+ 		goto err_free;
+ 
+-	err = rhashtable_insert_fast(&tc->ht, &flow->node,
+-				     tc->ht_params);
+-	if (err)
+-		goto err_free;
+-
+-	flow->rule = mlx5e_tc_add_flow(priv, spec, action, flow_tag);
++	flow->rule = mlx5e_tc_add_nic_flow(priv, spec, action, flow_tag);
+ 	if (IS_ERR(flow->rule)) {
+ 		err = PTR_ERR(flow->rule);
+-		goto err_hash_del;
++		goto err_free;
+ 	}
+ 
++	err = rhashtable_insert_fast(&tc->ht, &flow->node,
++				     tc->ht_params);
++	if (err)
++		goto err_del_rule;
++
+ 	if (old)
+ 		mlx5e_tc_del_flow(priv, old);
+ 
+ 	goto out;
+ 
+-err_hash_del:
+-	rhashtable_remove_fast(&tc->ht, &flow->node, tc->ht_params);
++err_del_rule:
++	mlx5_del_flow_rule(flow->rule);
+ 
+ err_free:
+ 	if (!old)
 -- 
 2.8.0
