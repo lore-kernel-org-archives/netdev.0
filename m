@@ -1,112 +1,102 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH net] tcp: enable per-socket rate limiting of all 'challenge acks'
-Date: Thu, 14 Jul 2016 11:38:40 -0400
-Message-ID: <1468510720-322-1-git-send-email-jbaron@akamai.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>, Yue Cao <ycao009@ucr.edu>
-To: edumazet@google.com, davem@davemloft.net
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] vlan: use a valid default mtu value for vlan over macsec
+Date: Thu, 14 Jul 2016 18:00:10 +0200
+Message-ID: <909348fc51775dc7070b528a7492632e53400412.1468511497.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:13398 "EHLO
-	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751113AbcGNPjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 11:39:44 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:44744 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751115AbcGNQBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 12:01:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@akamai.com>
+macsec can't cope with mtu frames which need vlan tag insertion, and
+vlan device set the default mtu equal to the underlying dev's one.
+By default vlan over macsec devices use invalid mtu, dropping
+all the large packets.
+This patch adds a netif helper to check if an upper vlan device
+needs mtu reduction. The helper is used during vlan devices
+initialization to set a valid default and during mtu updating to
+forbid invalid, too bit, mtu values.
+The helper currently only check if the lower dev is a macsec device,
+if we get more users, we need to update only the helper (possibly
+reserving an additional IFF bit).
 
-The per-socket rate limit for 'challenge acks' was introduced in the
-context of limiting ack loops:
-
-commit f2b2c582e824 ("tcp: mitigate ACK loops for connections as tcp_sock")
-
-And I think it can be extended to rate limit all 'challenge acks' on a
-per-socket basis.
-
-Since we have the global tcp_challenge_ack_limit, this patch allows for
-tcp_challenge_ack_limit to be set to a large value and effectively rely on
-the per-socket limit, or set tcp_challenge_ack_limit to a lower value and
-still prevents a single connections from consuming the entire challenge ack
-quota.
-
-It further moves in the direction of eliminating the global limit at some
-point, as Eric Dumazet has suggested. This a follow-up to:
-Subject: tcp: make challenge acks less predictable
-
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Yue Cao <ycao009@ucr.edu>
-Signed-off-by: Jason Baron <jbaron@akamai.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- net/ipv4/tcp_input.c | 39 ++++++++++++++++++++++-----------------
- 1 file changed, 22 insertions(+), 17 deletions(-)
+ include/linux/netdevice.h |  7 +++++++
+ net/8021q/vlan_dev.c      | 10 ++++++----
+ net/8021q/vlan_netlink.c  |  7 +++++--
+ 3 files changed, 18 insertions(+), 6 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index fda084462ed9..f9f9e375d7de 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3424,6 +3424,23 @@ static int tcp_ack_update_window(struct sock *sk, const struct sk_buff *skb, u32
- 	return flag;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 49736a3..8b24952 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4175,6 +4175,13 @@ static inline void netif_keep_dst(struct net_device *dev)
+ 	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM);
  }
  
-+static bool __tcp_oow_rate_limited(struct net *net, int mib_idx,
-+				   u32 *last_oow_ack_time)
++/* return true if dev can't cope with mtu frames that need vlan tag insertion */
++static inline bool netif_reduces_vlan_mtu(struct net_device *dev)
 +{
-+	if (*last_oow_ack_time) {
-+		s32 elapsed = (s32)(tcp_time_stamp - *last_oow_ack_time);
-+
-+		if (0 <= elapsed && elapsed < sysctl_tcp_invalid_ratelimit) {
-+			NET_INC_STATS(net, mib_idx);
-+			return true;	/* rate-limited: don't send yet! */
-+		}
-+	}
-+
-+	*last_oow_ack_time = tcp_time_stamp;
-+
-+	return false;	/* not rate-limited: go ahead, send dupack now! */
++	/* TODO: reserve and use an additional IFF bit, if we get more users */
++	return dev->priv_flags & IFF_MACSEC;
 +}
 +
- /* Return true if we're currently rate-limiting out-of-window ACKs and
-  * thus shouldn't send a dupack right now. We rate-limit dupacks in
-  * response to out-of-window SYNs or ACKs to mitigate ACK loops or DoS
-@@ -3437,21 +3454,9 @@ bool tcp_oow_rate_limited(struct net *net, const struct sk_buff *skb,
- 	/* Data packets without SYNs are not likely part of an ACK loop. */
- 	if ((TCP_SKB_CB(skb)->seq != TCP_SKB_CB(skb)->end_seq) &&
- 	    !tcp_hdr(skb)->syn)
--		goto not_rate_limited;
--
--	if (*last_oow_ack_time) {
--		s32 elapsed = (s32)(tcp_time_stamp - *last_oow_ack_time);
--
--		if (0 <= elapsed && elapsed < sysctl_tcp_invalid_ratelimit) {
--			NET_INC_STATS(net, mib_idx);
--			return true;	/* rate-limited: don't send yet! */
--		}
--	}
--
--	*last_oow_ack_time = tcp_time_stamp;
-+		return false;
+ extern struct pernet_operations __net_initdata loopback_net_ops;
  
--not_rate_limited:
--	return false;	/* not rate-limited: go ahead, send dupack now! */
-+	return __tcp_oow_rate_limited(net, mib_idx, last_oow_ack_time);
- }
+ /* Logging, debugging and troubleshooting/diagnostic helpers. */
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index c8f422c..fbfacd5 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -146,10 +146,12 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct sk_buff *skb,
  
- /* RFC 5961 7 [ACK Throttling] */
-@@ -3464,9 +3469,9 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
- 	u32 count, now;
+ static int vlan_dev_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	/* TODO: gotta make sure the underlying layer can handle it,
+-	 * maybe an IFF_VLAN_CAPABLE flag for devices?
+-	 */
+-	if (vlan_dev_priv(dev)->real_dev->mtu < new_mtu)
++	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
++	unsigned int max_mtu = real_dev->mtu;
++
++	if (netif_reduces_vlan_mtu(real_dev))
++		max_mtu -= VLAN_HLEN;
++	if (max_mtu < new_mtu)
+ 		return -ERANGE;
  
- 	/* First check our per-socket dupack rate limit. */
--	if (tcp_oow_rate_limited(sock_net(sk), skb,
--				 LINUX_MIB_TCPACKSKIPPEDCHALLENGE,
--				 &tp->last_oow_ack_time))
-+	if (__tcp_oow_rate_limited(sock_net(sk),
-+				   LINUX_MIB_TCPACKSKIPPEDCHALLENGE,
-+				   &tp->last_oow_ack_time))
- 		return;
+ 	dev->mtu = new_mtu;
+diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+index c92b52f..1270207 100644
+--- a/net/8021q/vlan_netlink.c
++++ b/net/8021q/vlan_netlink.c
+@@ -118,6 +118,7 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
+ {
+ 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+ 	struct net_device *real_dev;
++	unsigned int max_mtu;
+ 	__be16 proto;
+ 	int err;
  
- 	/* Then check host-wide RFC 5961 rate limit. */
+@@ -144,9 +145,11 @@ static int vlan_newlink(struct net *src_net, struct net_device *dev,
+ 	if (err < 0)
+ 		return err;
+ 
++	max_mtu = netif_reduces_vlan_mtu(real_dev) ? real_dev->mtu - VLAN_HLEN :
++						     real_dev->mtu;
+ 	if (!tb[IFLA_MTU])
+-		dev->mtu = real_dev->mtu;
+-	else if (dev->mtu > real_dev->mtu)
++		dev->mtu = max_mtu;
++	else if (dev->mtu > max_mtu)
+ 		return -EINVAL;
+ 
+ 	err = vlan_changelink(dev, tb, data);
 -- 
-2.6.1
+1.8.3.1
