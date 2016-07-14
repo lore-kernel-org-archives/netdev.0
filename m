@@ -1,72 +1,145 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [patch] net/mlx5: missing error code in
- esw_create_offloads_fdb_table()
-Date: Thu, 14 Jul 2016 23:09:38 +0300
-Message-ID: <20160714200938.GB30603@leon.nu>
-References: <20160713100825.GD29468@mwanda>
- <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
- <24af412f-7fa5-fa2e-c605-21ea5d45f5ff@mellanox.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LpQ9ahxlCli8rRTG"
-Cc: Matan Barak <matanb@mellanox.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	<netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
-	<kernel-janitors@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <24af412f-7fa5-fa2e-c605-21ea5d45f5ff@mellanox.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: pasemi_mac: use phydev from struct net_device
+Date: Thu, 14 Jul 2016 23:44:52 +0200
+Message-ID: <1468532693-456-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: olof@lixom.net, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33752 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876AbcGNVpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 17:45:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---LpQ9ahxlCli8rRTG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-On Wed, Jul 13, 2016 at 02:40:26PM +0300, Or Gerlitz wrote:
-> On 7/13/2016 2:19 PM, Matan Barak wrote:
-> >I'm not sure EINVAL is the right error here though.
-> >Maybe -ENOTSUPP is a bit more appropriate here.
->=20
-> I agree, Dan, can you please change to be along Matan's suggestion?
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/pasemi/pasemi_mac.c         |   28 ++++++++++-----------
+ drivers/net/ethernet/pasemi/pasemi_mac.h         |    1 -
+ drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c |    6 +---
+ 3 files changed, 15 insertions(+), 20 deletions(-)
 
-Or,
-Dan already did it before Matan's response and we have very vivid discussio=
-n about it [1].
-
-[1] http://marc.info/?t=3D146841063000002&r=3D1&w=3D2
-
-
->=20
-> Or.
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---LpQ9ahxlCli8rRTG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXh/GCAAoJEORje4g2clinaosP/0MTZ7lmSza7yuR3+sz0uzsL
-5WQtQg7U8drKjhmSJdHIZtFTIuQezhuY4dWv+jcrHJdEF7woT6zofSadDZQKe3q5
-KyWyQnA74DbKMG5+TQORhzvhDTYu+Jq30JyJni1AOzE4E4B/qRiNBhdOHuETe/xq
-MYMEW/gE7IK4WcLOaCJneFmGy0WUuSDtY1DkFnPv8NKdUmWRcIisiZwMLqo+JH6E
-CAbL35r/31nvpWJxI4iZygI+U1gQDGCckYIbe3SGSJgsVVD9ntnX0xTTZ/S8Su6w
-vuLDK2YNlw/XoncABNCBvAyrb9K3QWx1+/R8WQ2F0pumtscFcZ7UX8vFgOOk5jqH
-5RzPYkLhvKlL4QarV/tD1rOLv5PvqQi9jQi5bMNiuPiwH5c6UM/S3+PtsyyMe8CE
-aUtDOQ2wBzQw/HVNY3X0cGKVFNIy398ipxqyN4kIor+CNz3A2UzLHCaO7eWjWUrU
-WZvP2ABH4/Bkn6RmHUOIkJGqakLTdKEKep3gFwKiiLTzRbeY+pHlsRinRhA3eAzm
-Y5IL25eYneg/ZsTNwIOEqw5ZIib3WknjodkG1VCcXSypNe/fAZKPrbTBiNUySIOi
-67hBZoXW56CSy1Opn9zlOqDQ5mn5tOe2IGZYxOdvLLaLR/JxvsVABVaOKbxCEhhR
-ZySNjb8RBWpOOnf1oF9Z
-=gkxV
------END PGP SIGNATURE-----
-
---LpQ9ahxlCli8rRTG--
+diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
+index af54df5..2f4a837 100644
+--- a/drivers/net/ethernet/pasemi/pasemi_mac.c
++++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
+@@ -989,7 +989,7 @@ static void pasemi_adjust_link(struct net_device *dev)
+ 	unsigned int flags;
+ 	unsigned int new_flags;
+ 
+-	if (!mac->phydev->link) {
++	if (!dev->phydev->link) {
+ 		/* If no link, MAC speed settings don't matter. Just report
+ 		 * link down and return.
+ 		 */
+@@ -1010,10 +1010,10 @@ static void pasemi_adjust_link(struct net_device *dev)
+ 	new_flags = flags & ~(PAS_MAC_CFG_PCFG_HD | PAS_MAC_CFG_PCFG_SPD_M |
+ 			      PAS_MAC_CFG_PCFG_TSR_M);
+ 
+-	if (!mac->phydev->duplex)
++	if (!dev->phydev->duplex)
+ 		new_flags |= PAS_MAC_CFG_PCFG_HD;
+ 
+-	switch (mac->phydev->speed) {
++	switch (dev->phydev->speed) {
+ 	case 1000:
+ 		new_flags |= PAS_MAC_CFG_PCFG_SPD_1G |
+ 			     PAS_MAC_CFG_PCFG_TSR_1G;
+@@ -1027,15 +1027,15 @@ static void pasemi_adjust_link(struct net_device *dev)
+ 			     PAS_MAC_CFG_PCFG_TSR_10M;
+ 		break;
+ 	default:
+-		printk("Unsupported speed %d\n", mac->phydev->speed);
++		printk("Unsupported speed %d\n", dev->phydev->speed);
+ 	}
+ 
+ 	/* Print on link or speed/duplex change */
+-	msg = mac->link != mac->phydev->link || flags != new_flags;
++	msg = mac->link != dev->phydev->link || flags != new_flags;
+ 
+-	mac->duplex = mac->phydev->duplex;
+-	mac->speed = mac->phydev->speed;
+-	mac->link = mac->phydev->link;
++	mac->duplex = dev->phydev->duplex;
++	mac->speed = dev->phydev->speed;
++	mac->link = dev->phydev->link;
+ 
+ 	if (new_flags != flags)
+ 		write_mac_reg(mac, PAS_MAC_CFG_PCFG, new_flags);
+@@ -1067,8 +1067,6 @@ static int pasemi_mac_phy_init(struct net_device *dev)
+ 		return -ENODEV;
+ 	}
+ 
+-	mac->phydev = phydev;
+-
+ 	return 0;
+ }
+ 
+@@ -1198,8 +1196,8 @@ static int pasemi_mac_open(struct net_device *dev)
+ 		goto out_rx_int;
+ 	}
+ 
+-	if (mac->phydev)
+-		phy_start(mac->phydev);
++	if (dev->phydev)
++		phy_start(dev->phydev);
+ 
+ 	setup_timer(&mac->tx->clean_timer, pasemi_mac_tx_timer,
+ 		    (unsigned long)mac->tx);
+@@ -1293,9 +1291,9 @@ static int pasemi_mac_close(struct net_device *dev)
+ 	rxch = rx_ring(mac)->chan.chno;
+ 	txch = tx_ring(mac)->chan.chno;
+ 
+-	if (mac->phydev) {
+-		phy_stop(mac->phydev);
+-		phy_disconnect(mac->phydev);
++	if (dev->phydev) {
++		phy_stop(dev->phydev);
++		phy_disconnect(dev->phydev);
+ 	}
+ 
+ 	del_timer_sync(&mac->tx->clean_timer);
+diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.h b/drivers/net/ethernet/pasemi/pasemi_mac.h
+index 161c99a..7c47e26 100644
+--- a/drivers/net/ethernet/pasemi/pasemi_mac.h
++++ b/drivers/net/ethernet/pasemi/pasemi_mac.h
+@@ -70,7 +70,6 @@ struct pasemi_mac {
+ 	struct pci_dev *pdev;
+ 	struct pci_dev *dma_pdev;
+ 	struct pci_dev *iob_pdev;
+-	struct phy_device *phydev;
+ 	struct napi_struct napi;
+ 
+ 	int		bufsz; /* RX ring buffer size */
+diff --git a/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c b/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
+index f046bfc..e99cf42 100644
+--- a/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
++++ b/drivers/net/ethernet/pasemi/pasemi_mac_ethtool.c
+@@ -66,8 +66,7 @@ static int
+ pasemi_mac_ethtool_get_settings(struct net_device *netdev,
+ 			       struct ethtool_cmd *cmd)
+ {
+-	struct pasemi_mac *mac = netdev_priv(netdev);
+-	struct phy_device *phydev = mac->phydev;
++	struct phy_device *phydev = netdev->phydev;
+ 
+ 	if (!phydev)
+ 		return -EOPNOTSUPP;
+@@ -79,8 +78,7 @@ static int
+ pasemi_mac_ethtool_set_settings(struct net_device *netdev,
+ 			       struct ethtool_cmd *cmd)
+ {
+-	struct pasemi_mac *mac = netdev_priv(netdev);
+-	struct phy_device *phydev = mac->phydev;
++	struct phy_device *phydev = netdev->phydev;
+ 
+ 	if (!phydev)
+ 		return -EOPNOTSUPP;
+-- 
+1.7.4.4
