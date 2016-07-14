@@ -1,64 +1,51 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: ll_temac: use phy_ethtool_{get|set}_link_ksettings
-Date: Thu, 14 Jul 2016 01:48:52 +0200
-Message-ID: <1468453732-7370-2-git-send-email-tremyfr@gmail.com>
-References: <1468453732-7370-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-	andrew@lunn.ch, davem@davemloft.net, f.fainelli@gmail.com,
-	mugunthanvnm@ti.com, a@unstable.cc, fw@strlen.de,
-	felipe.balbi@linux.intel.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: vrf: Address comments from last documentation update
+Date: Wed, 13 Jul 2016 18:28:16 -0600
+Message-ID: <1468456096-11495-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35990 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751411AbcGMXtM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 19:49:12 -0400
-In-Reply-To: <1468453732-7370-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:33695 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492AbcGNA2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 20:28:20 -0400
+Received: by mail-pa0-f52.google.com with SMTP id ks6so22513182pab.0
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 17:28:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+Comments from Frank Kellerman on last doc update:
+- extra whitespace in front of a neigh show command
+- convert the brief link example to 'vrf red'
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/ethernet/xilinx/ll_temac_main.c |   14 ++------------
- 1 files changed, 2 insertions(+), 12 deletions(-)
+ Documentation/networking/vrf.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 8d6a178..a9bd665 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -967,27 +967,17 @@ static const struct attribute_group temac_attr_group = {
- };
+diff --git a/Documentation/networking/vrf.txt b/Documentation/networking/vrf.txt
+index 11a2b99bdbb9..755dab856392 100644
+--- a/Documentation/networking/vrf.txt
++++ b/Documentation/networking/vrf.txt
+@@ -189,7 +189,7 @@ older form without it.
  
- /* ethtool support */
--static int temac_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
--{
--	return phy_ethtool_gset(ndev->phydev, cmd);
--}
--
--static int temac_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
--{
--	return phy_ethtool_sset(ndev->phydev, cmd);
--}
--
- static int temac_nway_reset(struct net_device *ndev)
- {
- 	return phy_start_aneg(ndev->phydev);
- }
  
- static const struct ethtool_ops temac_ethtool_ops = {
--	.get_settings = temac_get_settings,
--	.set_settings = temac_set_settings,
- 	.nway_reset = temac_nway_reset,
- 	.get_link = ethtool_op_get_link,
- 	.get_ts_info = ethtool_op_get_ts_info,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
+    Or using the brief output:
+-   $ ip -br link show master red
++   $ ip -br link show vrf red
+    eth1             UP             02:00:00:00:02:02 <BROADCAST,MULTICAST,UP,LOWER_UP>
+    eth2             UP             02:00:00:00:02:03 <BROADCAST,MULTICAST,UP,LOWER_UP>
+    eth5             DOWN           02:00:00:00:02:06 <BROADCAST,MULTICAST>
+@@ -207,8 +207,8 @@ older form without it.
+    10.2.1.254 dev eth1 lladdr a6:d9:c7:4f:06:23 REACHABLE
+    10.2.2.254 dev eth2 lladdr 5e:54:01:6a:ee:80 REACHABLE
  
- static int temac_of_probe(struct platform_device *op)
+-    $ ip -6 neigh show vrf red
+-    2002:1::64 dev eth1 lladdr a6:d9:c7:4f:06:23 REACHABLE
++   $ ip -6 neigh show vrf red
++   2002:1::64 dev eth1 lladdr a6:d9:c7:4f:06:23 REACHABLE
+ 
+ 
+ 6. Show Addresses for a VRF
 -- 
-1.7.4.4
+2.7.4 (Apple Git-66)
