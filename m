@@ -1,97 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Fourth draft of the Y2038 design document
-Date: Thu, 14 Jul 2016 13:39:13 +0200
-Message-ID: <6410260.Js2exyRRNi@wuerfel>
-References: <20160622005838.60a95c44.albert.aribaud@3adev.fr>
- <CABeXuvr0cAgP4hqRnskV8+oTozEtLz9dNO-9_Lw6-r3XnThVFQ@mail.gmail.com>
- <CABeXuvqTyXmFL_-2HiB6BZnj=EfXc5bNLB=sQ36m8-ouyWH0Zw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Albert ARIBAUD <albert.aribaud@3adev.fr>, netdev@vger.kernel.org,
- libc-alpha@sourceware.org, Deepa Dinamani <deepa.kernel@gmail.com>,
- David Miller <davem@davemloft.net>
-To: y2038@lists.linaro.org
-Return-path: <y2038-bounces@lists.linaro.org>
-In-Reply-To: <CABeXuvqTyXmFL_-2HiB6BZnj=EfXc5bNLB=sQ36m8-ouyWH0Zw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] ixgbe: remove redundant check on ret_val
+Date: Thu, 14 Jul 2016 12:47:09 +0100
+Message-ID: <1468496829-18912-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkbmVzZGF5LCBKdWx5IDEzLCAyMDE2IDc6Mzg6MjUgUE0gQ0VTVCBEZWVwYSBEaW5hbWFu
-aSB3cm90ZToKPiBPbiBXZWQsIEp1bCAxMywgMjAxNiBhdCAxOjQwIFBNLCBEZWVwYSBEaW5hbWFu
-aSA8ZGVlcGEua2VybmVsQGdtYWlsLmNvbT4gd3JvdGU6Cgo+ID4+PiA9PSBTb2NrZXQgb3B0aW9u
-cyA9PQo+ID4+Pgo+ID4+PiBMaWtlIGlvY3RsKCksIHNldHNvY2tvcHQoKS9nZXRzb2Nrb3B0KCkg
-aGFzIGEgZmV3IGludGVyZmFjZXMgdGhhdCBhcmUKPiA+Pj4gcGFzc2luZyB0aW1lIGRhdGE6Cj4g
-Pj4+Cj4gPj4+IFNPX1RJTUVTVEFNUC9TT19USU1FU1RBTVBOUy9TT19USU1FU1RBTVBJTkc6IFRo
-ZXNlIGVuYWJsZSB0aGUKPiA+Pj4gdGltZXN0YW1waW5nIGluZnJhc3RydWN0dXJlIGZvciBhIHNv
-Y2tldCwgd2hpY2ggd2lsbCBjb25zZWN1dGl2ZWx5Cj4gPj4+IHJldHVybiBkYXRhIHRvIHVzZXIg
-c3BhY2UgdXNpbmcgImNtc2ciIGRhdGEgb24gdGhlIHNvY2tldC4gVGhlIGtlcm5lbAo+ID4+PiBk
-b2VzIG5vdCBrbm93IHRoZSBsYXlvdXQgb2YgJ3N0cnVjdCB0aW1lc3BlYycgYW5kICdzdHJ1Y3Qg
-dGltZXZhbCcKPiA+Pj4gd2hlbiBmaWxsaW5nIHRoZSBjbXNnIGRhdGEsIHNvIHdlIG5lZWQgdG8g
-ZGVmaW5lIG5ldyBiaW5hcnkgdmFsdWVzCj4gPj4+IGZvciB0aGUgdGhyZWUgZmxhZ3MsIHdoaWNo
-IHRoZW4gZ2V0IHVzZWQgaWYgX19VU0VfVElNRV9CSVRTNjQKPiA+Pj4gaXMgc2V0Lgo+ID4+Cj4g
-Pj4gSU9XLCBpbnRyb2R1Y2UgdGhyZWUgbmV3IG9wdG5hbWUgdmFsdWVzIChzYXkgNTEsIDUyLCBh
-bmQgNTMgYXMgb24gbXkKPiA+PiBtYWNoaW5lLCAvdXNyL2luY2x1ZGUvYXNtLWdlbmVyaWMvc29j
-a2V0Lmggc3RvcHMgYXQgNTAgcmlnaHQgbm93KSB0aGF0Cj4gPj4gd291bGQgYmVoYXZlIHNpbWls
-YXIgdG8gb3B0aW9ucyAyOSwgMzUgYW5kIDM3IGJ1dCB3b3VsZCB1c2UgWTIwMzgtc2FmZQo+ID4+
-IHRpbWVzdGFtcHM7IGFuZCBkZWZpbmUgb3B0aW9uIG5hbWVzIFNPX1RJTUVTVEFNUCwgU09fVElN
-RVNUQU1QTlMgYW5kCj4gPj4gU09fVElNRVNUQU1QSU5HIHRvIGJlIGVpdGhlciAyOSwgMzUgYW5k
-IDM3ICh0aGUgWTIwMzgtdW5zYWZlIG9wdGlvbnMpIG9yCj4gPj4gNTEsIDUyIGFuZCA1MyAodGhl
-IFkyMDM4LXNhZmUgb25lcykgZGVwZW5kaW5nIG9uIF9fVVNFX1RJTUVfQklUUzY0Lgo+ID4+IFJp
-Z2h0Pwo+ID4KPiA+IEFub3RoZXIgd2F5IG9mIGhhbmRsaW5nIHRoaXMgd291bGQgYmUgdG8gdXNl
-IHRoZSBmbGFncyBpbiBzZW5kbXNnL3JlY3Ztc2cuCj4gPiBTaW5jZSBjbXNnIGlzIHNlbnQgdXNp
-bmcgdGhlc2UgY2FsbHMsIGF0IHRoZSB0aW1lIG9mIGNhbGwsIHNlbmRtc2cvcmVjdm1zZyBjYW4K
-PiA+IGluZGljYXRlIHdoZXRoZXIgNjQgYml0IHRpbWVfdCBvciAzMiBiaXQgdGltZV90IGlzIHVz
-ZWQuCj4gPiBUaGlzIHdpbGwgZWxpbWluYXRlIHRoZSBuZWVkIGZvciBuZXcgb3B0aW9ucyBhbmQg
-a2VybmVsIG5lZWQgbm90IGRlcGVuZCBvbgo+ID4gX19VU0VfVElNRV9CSVRTNjQuCgpHb29kIHBv
-aW50LCBJIGhhZCBmb3Jnb3R0ZW4gaG93IHdlIGRpc2N1c3NlZCB0aGF0IGEgd2hpbGUgYWdvLgoK
-PiA+Pj4gU09fUkNWVElNRU8vU09fU05UVElNRU86IFRoZXNlIHBhc3MgYSAnc3RydWN0IHRpbWV2
-YWwnIGFuZCBhIGxlbmd0aC4KPiA+Pj4gQXNzdW1pbmcgdGhhdCB0aGUgJ29wdGxlbicgYXJndW1l
-bnQgb2YgdGhlIHNldHNvY2tvcHQgc3lzY2FsbCBhbHdheXMKPiA+Pj4gbWF0Y2hlcyB0aGUgc2l6
-ZSBvZiAnc3RydWN0IHRpbWV2YWwnLCB0aGUga2VybmVsIHdpbGwgYmUgYWJsZSB0bwo+ID4+PiBh
-Y2Nlc3MgdGhlIGRhdGEgaW4gdGhlIHNhbWUgZm9ybWF0IHRoYXQgd2FzIHBhc3NlZCBieSBnbGli
-Yy4gW2FsdGVybmF0aXZlbHksCj4gPj4+IHdlIGNvdWxkIGhhbmRsZSB0aGlzIHRoZSBzYW1lIHdh
-eSBhcyBTT19USU1FU1RBTVAqLCB1c2luZyBuZXcgbnVtYmVycwo+ID4+PiBmb3IgdGhlIGZsYWdz
-XS4KPiA+Pgo+ID4+IEkgd291bGQgcHJlZmVyIG5ldyBudW1iZXJzLCB0aGF0J3MgbW9yZSBleHBs
-aWNpdCBhbmQgc2xpZ2h0bHkgc2FmZXIsCj4gPj4gYXMgaWYgd2UgcmVseSBvbiBvcHRsZW4sIE11
-cnBoeSdzIExhdyB3aWxsIHNlZSB0byBpdCB0aGF0IGluIHByYWN0aWNlCj4gPj4gaXQgd2lsbCBo
-YXZlIHRoZSB3cm9uZyB2YWx1ZS4KPiA+Cj4gPiBCdXQsIGlmIHdlIGFyZSBub3QgdXNpbmcgb3B0
-bGVuIGhlcmUsIHRoZW4gcHJvYmFibHkganVzdCB1c2luZyBuZXcgbnVtYmVycyBmb3IKPiA+IHRp
-bWVzdGFtcHMgYWxzbyBtYWtlcyBzZW5zZS4KPiAKPiBGb3Jnb3QgdG8gbm90ZSBvbmUgbW9yZSB0
-aGluZyBoZXJlLgo+IFNpbmNlIHdlIGFyZSBhbHJlYWR5IHVzaW5nIHN0cnVjdCBzaXplcyBmb3Ig
-aW9jdGxzLCBzaG91bGRuJ3QgdGhpcyBiZSBzaW1pbGFyLgo+IFNvIG9wdGxlbiBzaG91bGQgYWxz
-byBiZSBva2F5Pwo+IEp1c3QgYXMgaW4gdGhlIGV4YW1wbGUgQXJuZCBwb2ludGVkIG91dCBhYm92
-ZToKPiAKPiAvKiBTZXQgYW5kIGdldCBwb3J0IHRpbWVvdXQgKHN0cnVjdCB0aW1ldmFsJ3MpICov
-Cj4gI2RlZmluZSBQUEdFVFRJTUUgICAgICAgX0lPUihQUF9JT0NUTCwgMHg5NSwgc3RydWN0IHRp
-bWV2YWwpCj4gI2RlZmluZSBQUFNFVFRJTUUgICAgICAgX0lPVyhQUF9JT0NUTCwgMHg5Niwgc3Ry
-dWN0IHRpbWV2YWwpCgpJJ3ZlIGFkZGVkIHRoZSBuZXRkZXYgbGlzdCBhbmQgRGF2aWQgTWlsbGVy
-IHRvIENjIGhlcmUsIGl0IHNlZW1zCmVpdGhlciB3YXkgd291bGQgd29yaywgYW5kIEkgZG9uJ3Qg
-aGF2ZSBhIHN0cm9uZyBwcmVmZXJlbmNlLgoKYSkgYWRkIGEgZmxhZyB0byByZWN2bXNnKCkgdGhh
-dCBnbGliYyBhbHdheXMgcGFzc2VzIHdoZW4gY2FsbGVkCiAgIHVzaW5nIF9fVVNFX1RJTUVfQklU
-UzY0IHRvIGhhbmRsZSByZWFkaW5nIHRoZSB0aW1lc3RhbXBzLCBhbmQKICAgcmVseSBvbiB0aGUg
-b3B0bGVuIHZhbHVlIGZvciBTT19SQ1ZUSU1FTy9TT19TTlRUSU1FTyB0bwogICBkZWNpZGUgaG93
-IHRvIGludGVycHJldCB0aGUgZGF0YQoKYikgaGFuZGxlIGFsbCBmaXZlIHNvY2tvcHRzIHVzaW5n
-IGNvbmRpdGlvbmFsIG9wdGlvbiBudW1iZXJzCiAgIGFuZCBkb24ndCByZWx5IG9uIHRoZSByZWN2
-bXNnKCkgZmxhZyBvciBvcHRsZW4uCgpVc2luZyBlaXRoZXIgYSkgb3IgYikgaXMgcHJvYmFibHkg
-YmV0dGVyIHRoYW4gYSBjb21iaW5hdGlvbiBvZgp0aGVtLCBzbyBJJ3ZlIG5vdCBsaXN0ZWQgdGhh
-dCBhcyBhbm90aGVyIGFsdGVybmF0aXZlLgoKVG8gd29yayBhcm91bmQgdGhlIGhlYWRlciBpbmNs
-dXNpb24gb3JkZXIgcHJvYmxlbSB3ZSBkaXNjdXNzZWQKZWFybGllciBmb3IgYXBwcm9hY2ggYiks
-IEkgc3VwcG9zZSB3ZSBjYW4gZG8gdGhpcyB1c2luZwpzb21ldGhpbmcgbGlrZQoKCiNkZWZpbmUg
-U09fUkNWVElNRU9fVElNRTMyCTIxCiNkZWZpbmUgU09fUkNWVElNRU9fVElNRTY0CTUzCgojZGVm
-aW5lIFNPX1JDVlRJTUVPIChfX1VTRV9USU1FX0JJVFM9PTY0ID8gU09fUkNWVElNRU9fVElNRTY0
-IDogU09fUkNWVElNRU9fVElNRTMyKQoKd2hlcmUgX19VU0VfVElNRV9CSVRTIGlzIGEgbWFjcm8g
-ZGVmaW5lZCBieSB0aGUgbGliYy4gV2UgY2Fubm90IGVhc2lseQpjaGVjayBmb3Igd2hldGhlciBh
-IG1hY3JvIGlzIGRlZmluZWQgaW4gYSBjb25kaXRpb25hbCBleHByZXNzaW9uLApidXQgSSB0aGlu
-ayB0aGUgYWJvdmUgc2hvdWxkIHdvcmssIGFzIGxvbmcgYXMgd2UgZG9uJ3QgbmVlZCB1c2UgdGhl
-CnZhbHVlIGZyb20gYXNzZW1ibGVyIGNvZGUuCgoJQXJuZApfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMu
-bGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1hbi9saXN0aW5mby95MjAz
-OAo=
+From: Colin Ian King <colin.king@canonical.com>
+
+The last check on ret_val is redundant since ret_val has not changed
+since the previous check, so remove it as it is extraneous.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 47afed7..63b2500 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -1813,9 +1813,6 @@ static s32 ixgbe_start_hw_82599(struct ixgbe_hw *hw)
+ 	/* We need to run link autotry after the driver loads */
+ 	hw->mac.autotry_restart = true;
+ 
+-	if (ret_val)
+-		return ret_val;
+-
+ 	return ixgbe_verify_fw_version_82599(hw);
+ }
+ 
+-- 
+2.8.1
