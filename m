@@ -1,57 +1,95 @@
-From: Philipp Zabel <p.zabel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH] net: phy: micrel: Add KSZ8041FTL fiber mode support
-Date: Thu, 14 Jul 2016 16:46:30 +0200
-Message-ID: <1468507590.2260.49.camel@pengutronix.de>
-References: <1468506583-27299-1-git-send-email-p.zabel@pengutronix.de>
-	 <7346758.UKW3x0KYDY@wuerfel>
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Subject: RE: [PATCH v3 5/8] thunderbolt: Communication with the ICM
+ (firmware)
+Date: Thu, 14 Jul 2016 14:49:52 +0000
+Message-ID: <E607265CB020454880711A6F96C05A03893CD38E@hasmsx107.ger.corp.intel.com>
+References: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com>
+ <1468495702-7467-6-git-send-email-amir.jer.levy@intel.com>
+ <5B8DA87D05A7694D9FA63FD143655C1B54294E4A@hasmsx108.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <7346758.UKW3x0KYDY@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	thunderbolt-linux <thunderbolt-linux@intel.com>,
+	"Westerberg, Mika" <mika.westerberg@intel.com>
+To: "Winkler, Tomas" <tomas.winkler@intel.com>,
+	"andreas.noever@gmail.com" <andreas.noever@gmail.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5B8DA87D05A7694D9FA63FD143655C1B54294E4A@hasmsx108.ger.corp.intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Donnerstag, den 14.07.2016, 16:33 +0200 schrieb Arnd Bergmann:
-> On Thursday, July 14, 2016 4:29:43 PM CEST Philipp Zabel wrote:
-> > +
-> > + - micrel,fiber-mode: If present the PHY is configured to operate in fiber mode
-> > +
-> > +       Some PHYs, such as the KSZ8041FTL variant, support fiber mode, enabled
-> > +       by the FXEN boot strapping pin. It can't be determined from the PHY
-> > +       registers whether the PHY is in fiber mode, so this boolean device tree
-> > +       property can be used to describe it.
-> > +
-> > +       In fiber mode, auto-negotiation is disabled and the PHY can only work in
-> > +       100base-fx (full and half duplex) modes.
-> > 
+Hi Tomas,
+Thanks for your comments.
+
+On Thu, Jul 14 2016, 03:44 PM, Winkler, Tomas wrote:
+> > +/* NHI genetlink commands */
+> > +enum {
+> > +	NHI_CMD_UNSPEC,
+> > +	NHI_CMD_SUBSCRIBE,
+> > +	NHI_CMD_UNSUBSCRIBE,
+> > +	NHI_CMD_QUERY_INFORMATION,
+> > +	NHI_CMD_MSG_TO_ICM,
+> > +	NHI_CMD_MSG_FROM_ICM,
+> > +	NHI_CMD_MAILBOX,
+> > +	NHI_CMD_APPROVE_TBT_NETWORKING,
+> > +	NHI_CMD_ICM_IN_SAFE_MODE,
+> > +	__NHI_CMD_MAX,
+> > +};
+> > +#define NHI_CMD_MAX (__NHI_CMD_MAX - 1)
+> NHI_CMD_MAX  = NHI_CMD_ICM_IN_SAFE_MODE ?
 > 
-> Could the generic "phy-mode" property used for this, to avoid the need for
-> definingn a custom property?
 
-According to ethernet.txt, that property currently describes the
-internal interface:
+This template is used a lot with (generic) netlink. 
+Few examples:
+http://lxr.free-electrons.com/source/drivers/acpi/event.c#L62
+http://lxr.free-electrons.com/source/include/uapi/linux/irda.h#L224
+It is easier to maintain - adding entry in the list will automatically update MAX.
 
-  - phy-mode: string, operation mode of the PHY interface; supported values are                                                                 
-    "mii", "gmii", "sgmii", "qsgmii", "tbi", "rev-mii", "rmii", "rgmii", "rgmii-id",
-    "rgmii-rxid", "rgmii-txid", "rtbi", "smii", "xgmii"; this is now a de-facto
-    standard property;
+[...]
 
-In this case I have a phy-mode = "rmii" on the MAC. Wouldn't setting
-phy-mode = "fiber" on the phy be confusing since for the internal
-interface it should be "rmii"?
+> > +		u32 status;
+> > +
+> > +		status = ioread32(nhi_ctxt->iobase + REG_FW_STS);
+> > +
+> > +		if (status & REG_FW_STS_NVM_AUTH_DONE)
+> > +			break;
+> > +		msleep(30);
+> 
+> 30 is  big number, for polling, what is behind this?
+> 
 
-regards
-Philipp
+The NVM authentication can take time for ICM.
+This number comes from experiments.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[...]
+
+> > +static struct tbt_nhi_ctxt *nhi_search_ctxt(u32 id)
+> > +{
+> > +	struct tbt_nhi_ctxt *nhi_ctxt;
+> > +
+> > +	list_for_each_entry(nhi_ctxt, &controllers_list, node)
+> > +		if (nhi_ctxt->id == id)
+> > +			return nhi_ctxt;
+> 
+> Don't you need to lock this list with the controllers_list_rwsem ?
+> 
+
+This is a helper function for searching the list.
+The callers take and release the lock.
+
+[...]
+
+> > +	bool nvm_auth_on_boot : 1;
+> Don't use bool with bit fields use u32 
+
+What is the concern here?
+If it is size of bool, it doesn't matter for this struct.
+It is more readable that the expected value is bool,
+and it is used a lot in kernel, for example:
+http://lxr.free-electrons.com/source/include/linux/pm.h#L558
