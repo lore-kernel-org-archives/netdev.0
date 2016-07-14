@@ -1,37 +1,55 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH] virtio-net: Remove more stack DMA
-Date: Thu, 14 Jul 2016 13:21:46 -0700
-Message-ID: <CALCETrUUwBdjoznrot7+ufmbzzsC2SZL2g2zy_HjT82Q_AwM1Q@mail.gmail.com>
-References: <1ff8c3e69b8d4f1ad717affa073b279a74ee4309.1468272497.git.luto@kernel.org>
- <20160712.104030.1596691470300748311.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Lutomirski <luto@kernel.org>, X86 ML <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f47.google.com ([209.85.213.47]:34410 "EHLO
-	mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752178AbcGNUWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 16:22:07 -0400
-Received: by mail-vk0-f47.google.com with SMTP id o63so127929691vkg.1
-        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 13:22:06 -0700 (PDT)
-In-Reply-To: <20160712.104030.1596691470300748311.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v5 01/32] bluetooth: Switch SMP to crypto_cipher_encrypt_one()
+Date: Thu, 14 Jul 2016 21:30:15 +0100
+Message-ID: <4AED1BFF-7BBD-465C-B9F6-532B1B864346@holtmann.org>
+References: <cover.1468270393.git.luto@kernel.org> <264af59a3060c2bc2a725cfc66a8fa68219d1c4a.1468270393.git.luto@kernel.org> <CALCETrXYNM_b41J30eSuuhKtPRUANFpTh6bfuHM4-_RYGuZbZw@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: Andy Lutomirski <luto@kernel.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ X86 ML <x86@kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ linux-arch <linux-arch@vger.kernel.org>,
+ Borislav Petkov <bp@alien8.de>,
+ Nadav Amit <nadav.amit@gmail.com>,
+ Kees Cook <keescook@chromium.org>,
+ Brian Gerst <brgerst@gmail.com>,
+ "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ Josh Poimboeuf <jpoimboe@redhat.com>,
+ Jann Horn <jann@thejh.net>,
+ Heiko Carstens <heiko.carstens@de.ibm.com>,
+ "Gustavo F. Padovan" <gustavo@padovan.org>,
+ Johan Hedberg <johan.hedberg@gmail.com>,
+ linux-bluetooth@vger.kernel.org,
+ Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <kernel-hardening-return-3982-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CALCETrXYNM_b41J30eSuuhKtPRUANFpTh6bfuHM4-_RYGuZbZw@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 12, 2016 at 10:40 AM, David Miller <davem@davemloft.net> wrote:
-> From: Andy Lutomirski <luto@kernel.org>
-> Date: Mon, 11 Jul 2016 14:30:28 -0700
->
->> DaveM, is it okay for this to go in via -tip?
->
-> Sure.
+Hi Andy,
 
-Looks like the series that depends on this is getting delayed to 4.9.
-Could you queue this patch for net-next instead?
+>> SMP does ECB crypto on stack buffers.  This is complicated and
+>> fragile, and it will not work if the stack is virtually allocated.
+>>=20
+>> Switch to the crypto_cipher interface, which is simpler and safer.
+>=20
+> Hi Dave-
+>=20
+> It looks like we're delaying virtually mapped stacks to 4.9.  That
+> means that there's time for this to go in through net-next.  Could you
+> queue it up?
 
-Thanks,
-Andy
+it is actually already in net-next since we decided to let git handle =
+any potential merge issue.
+
+Regards
+
+Marcel
