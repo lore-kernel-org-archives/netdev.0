@@ -1,78 +1,75 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/2] devlink: fix build error for
- CONFIG_MODULES=n
-Date: Thu, 14 Jul 2016 08:21:11 +0200
-Message-ID: <20160714062111.GA2228@nanopsycho.orion>
-References: <20160713210338.1647521-1-arnd@arndb.de>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH v2 04/10] net: sched: a dflt qdisc may be used with per
+ cpu stats
+Date: Wed, 13 Jul 2016 23:21:18 -0700
+Message-ID: <20160714062117.8270.16275.stgit@john-Precision-Tower-5810>
+References: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de, jhs@mojatatu.com, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com, brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33713 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456AbcGNGVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:21:14 -0400
-Received: by mail-wm0-f67.google.com with SMTP id o80so8302376wme.0
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:21:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160713210338.1647521-1-arnd@arndb.de>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35072 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662AbcGNGVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:21:41 -0400
+Received: by mail-pf0-f195.google.com with SMTP id t190so4295679pfb.2
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:21:41 -0700 (PDT)
+In-Reply-To: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jul 13, 2016 at 11:03:37PM CEST, arnd@arndb.de wrote:
->A driver calling trace_devlink_hwmsg cannot be built when modules are disabled:
->
->include/trace/events/devlink.h: In function 'trace_event_get_offsets_devlink_hwmsg':
->include/trace/events/devlink.h:25:51: error: dereferencing pointer to incomplete type 'struct module'
->   __string(owner_name, devlink->dev->driver->owner->name)
->
->This changes the code to only print the module name when modules are actually
->enabled, otherwise we hardcode the string "built-in".
->
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->Fixes: e5224f0fe2ac ("devlink: add hardware messages tracing facility")
->---
-> include/trace/events/devlink.h | 8 ++++++++
-> 1 file changed, 8 insertions(+)
->
->diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
->index 333c32ac9bfa..26f92d3c7e9c 100644
->--- a/include/trace/events/devlink.h
->+++ b/include/trace/events/devlink.h
->@@ -22,7 +22,11 @@ TRACE_EVENT(devlink_hwmsg,
-> 	TP_STRUCT__entry(
-> 		__string(bus_name, devlink->dev->bus->name)
-> 		__string(dev_name, dev_name(devlink->dev))
->+#ifdef CONFIG_MODULES
-> 		__string(owner_name, devlink->dev->driver->owner->name)
+Enable dflt qdisc support for per cpu stats before this patch a
+dflt qdisc was required to use the global statistics qstats and
+bstats.
 
-I think would be better to use driver->name. I looks like it is always
-present. I will do some tests and send a patch.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/sch_generic.c |   24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-
->+#else
->+		__string(owner_name, "built-in")
->+#endif
-> 		__field(bool, incoming)
-> 		__field(unsigned long, type)
-> 		__dynamic_array(u8, buf, len)
->@@ -32,7 +36,11 @@ TRACE_EVENT(devlink_hwmsg,
-> 	TP_fast_assign(
-> 		__assign_str(bus_name, devlink->dev->bus->name);
-> 		__assign_str(dev_name, dev_name(devlink->dev));
->+#ifdef CONFIG_MODULES
-> 		__assign_str(owner_name, devlink->dev->driver->owner->name);
->+#else
->+		__assign_str(owner_name, "built-in");
->+#endif
-> 		__entry->incoming = incoming;
-> 		__entry->type = type;
-> 		memcpy(__get_dynamic_array(buf), buf, len);
->-- 
->2.9.0
->
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 2c3e23b..fc70204 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -647,18 +647,34 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+ 	struct Qdisc *sch;
+ 
+ 	if (!try_module_get(ops->owner))
+-		goto errout;
++		return NULL;
+ 
+ 	sch = qdisc_alloc(dev_queue, ops);
+ 	if (IS_ERR(sch))
+-		goto errout;
++		return NULL;
+ 	sch->parent = parentid;
+ 
+-	if (!ops->init || ops->init(sch, NULL) == 0)
++	if (!ops->init)
+ 		return sch;
+ 
+-	qdisc_destroy(sch);
++	if (ops->init(sch, NULL))
++		goto errout;
++
++	/* init() may have set percpu flags so init data structures */
++	if (qdisc_is_percpu_stats(sch)) {
++		sch->cpu_bstats =
++			netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
++		if (!sch->cpu_bstats)
++			goto errout;
++
++		sch->cpu_qstats = alloc_percpu(struct gnet_stats_queue);
++		if (!sch->cpu_qstats)
++			goto errout;
++	}
++
++	return sch;
+ errout:
++	qdisc_destroy(sch);
+ 	return NULL;
+ }
+ EXPORT_SYMBOL(qdisc_create_dflt);
