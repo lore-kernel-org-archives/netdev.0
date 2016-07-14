@@ -1,52 +1,35 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [RFC PATCH v3] net: sched: convert qdisc linked list to
- hashtable
-Date: Thu, 14 Jul 2016 16:14:58 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm>
-References: <201607120341.UDv5wy6R%fengguang.wu@intel.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH -next] rxrpc: Fix error handling in af_rxrpc_init()
+Date: Thu, 14 Jul 2016 15:19:40 +0100
+Message-ID: <16935.1468505980@warthog.procyon.org.uk>
+References: <20160712.110813.1349096182644249319.davem@davemloft.net> <1468322477-32616-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201607120341.UDv5wy6R%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, weiyj_lk@163.com, netdev@vger.kernel.org,
+	yongjun_wei@trendmicro.com.cn, linux-afs@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37685 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751051AbcGNOTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 10:19:45 -0400
+In-Reply-To: <20160712.110813.1349096182644249319.davem@davemloft.net>
+Content-ID: <16934.1468505980.1@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+David Miller <davem@davemloft.net> wrote:
 
-[ added CCs ]
-
-On Tue, 12 Jul 2016, kbuild test robot wrote:
-
-> Hi,
+> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> > 
+> > security initialized after alloc workqueue, so we should exit security
+> > before destroy workqueue in the error handing.
+> > 
+> > Fixes: 648af7fca159 ("rxrpc: Absorb the rxkad security module")
+> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> [auto build test ERROR on net/master]
-> [also build test ERROR on v4.7-rc7 next-20160711]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Jiri-Kosina/net-sched-convert-qdisc-linked-list-to-hashtable/20160711-220527
-> config: arm-tct_hammer_defconfig (attached as .config)
-> compiler: arm-linux-gnueabi-gcc (Debian 5.3.1-8) 5.3.1 20160205
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=arm 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    net/built-in.o: In function `dev_activate':
-> >> wext-proc.c:(.text+0x38544): undefined reference to `qdisc_hash_add'
+> Applied.
 
-This issue is be there even without my patch (but with qdisc_list_add 
-instead), isn't it?
+Thanks.
 
-The problem is that sch_generic.c (where dev_activate() is) is being 
-compiled everytime CONFIG_NET is set, but sch_api.c (where 
-qdisc_list_add() is defined) only when CONFIG_NET_SCHED is set (and there 
-is no stub for !CONFIG_NET_SCHED case).
-
--- 
-Jiri Kosina
-SUSE Labs
+David
