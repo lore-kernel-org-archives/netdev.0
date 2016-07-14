@@ -1,116 +1,67 @@
-From: Guodong Xu <guodong.xu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/2] Bluetooth: Add LED triggers for HCI frames tx and rx
-Date: Thu, 14 Jul 2016 17:30:56 +0800
-Message-ID: <CAFGCpxwuOH83hdPc-c0DV5A_cKMp-0rjxg+3tMwOPTukHGd6vA@mail.gmail.com>
-References: <1466657923-5776-1-git-send-email-guodong.xu@linaro.org> <D2545F6D-7100-4B59-A19D-7CF878902BAA@holtmann.org>
+From: ayuj <ayuj.verma@gmail.com>
+Subject: Re: Configure traffic class to bringup DCB in back-to-back setup
+Date: Thu, 14 Jul 2016 09:35:33 +0000 (UTC)
+Message-ID: <loom.20160714T112300-449@post.gmane.org>
+References: <loom.20160713T110657-740@post.gmane.org> <57867E13.3040708@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Xu Wei <xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-	Haojian Zhuang <haojian.zhuang-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-	"open list:BLUETOOTH DRIVERS" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <D2545F6D-7100-4B59-A19D-7CF878902BAA-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:40214 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750930AbcGNJfo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 05:35:44 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1bNd3V-0005Dg-R3
+	for netdev@vger.kernel.org; Thu, 14 Jul 2016 11:35:41 +0200
+Received: from static-67.218.93.111-tataidc.co.in ([static-67.218.93.111-tataidc.co.in])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 11:35:41 +0200
+Received: from ayuj.verma by static-67.218.93.111-tataidc.co.in with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 11:35:41 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13 July 2016 at 16:07, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wrote:
-> Hi Guodong,
->
->> Two LED triggers are defined: tx_led and rx_led. Upon frames
->> available in HCI core layer, for tx or for rx, the combined LED
->> can blink.
->>
->> Verified on HiKey, 96boards. It uses hi6220 SoC and TI WL1835 combo
->> chip.
->>
->> Signed-off-by: Guodong Xu <guodong.xu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
->> ---
->> include/net/bluetooth/hci_core.h |  1 +
->> net/bluetooth/hci_core.c         |  3 +++
->> net/bluetooth/leds.c             | 15 +++++++++++++++
->> net/bluetooth/leds.h             |  2 ++
->> 4 files changed, 21 insertions(+)
->>
->> diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
->> index dc71473..37b8dd9 100644
->> --- a/include/net/bluetooth/hci_core.h
->> +++ b/include/net/bluetooth/hci_core.h
->> @@ -398,6 +398,7 @@ struct hci_dev {
->>       bdaddr_t                rpa;
->>
->>       struct led_trigger      *power_led;
->> +     struct led_trigger      *tx_led, *rx_led;
->>
->>       int (*open)(struct hci_dev *hdev);
->>       int (*close)(struct hci_dev *hdev);
->> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
->> index 45a9fc6..c6e1210 100644
->> --- a/net/bluetooth/hci_core.c
->> +++ b/net/bluetooth/hci_core.c
->> @@ -3248,6 +3248,7 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
->>       skb_queue_tail(&hdev->rx_q, skb);
->>       queue_work(hdev->workqueue, &hdev->rx_work);
->>
->> +     hci_leds_blink_oneshot(hdev->rx_led);
->>       return 0;
->> }
->> EXPORT_SYMBOL(hci_recv_frame);
->> @@ -3325,6 +3326,8 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
->>               BT_ERR("%s sending frame failed (%d)", hdev->name, err);
->>               kfree_skb(skb);
->>       }
->> +
->> +     hci_leds_blink_oneshot(hdev->tx_led);
->> }
->
-> so I am not convinced that this is the right way of doing TX/RX activity leds. This would have them purely based on HCI traffic and this would include control frames.
->
+John Fastabend <john.fastabend <at> gmail.com> writes:
 
-Hi, Marcel
+> So at the moment it appears to be configured to use 802.1QAZ spec which
+> superseded the older spec even though lldpad supports both. Note the
+> tool itself really requires some spec knowledge to use correctly. The
+> spec to read is 802.1Q.
+> 
+> To configure it back-to-back (typical scenario is connected to a DCB
+> enabled switch where your administrator would setup the switch and this
+> would autoneg just fine) the servers need to be setup manually.
+> 
+> Perhaps reading if you haven't already the man page for lldptool and
+> lldptool-ets, lldptool-pfc would help. From the ets man page this
+> should kick things off,
+> 
+> #lldptool -T -i eth2 -V ETS-CFG \
+>           tsa=0:ets,1:ets,2:ets,3:ets,4:ets,5:ets,6:ets,7:ets \
+>           up2tc=0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7 \
+>           tcbw=12,12,12,12,13,13,13,13
+> 
+> #lldptool -T -i eth2 -V ETS-REC \
+>            tsa=0:ets,1:ets,2:ets,3:ets,4:ets,5:ets,6:ets,7:ets \
+>            up2tc=0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7 \
+>            tcbw=12,12,12,12,13,13,13,13
+> 
+> Thanks,
+> John
+> 
+> 
+Hi John,
+ 
+I have gone through  lldptool and lldptool-ets man pages. My query is how to
+categorize traffic. 
 
-+       if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT ||
-+           hci_skb_pkt_type(skb) == HCI_SCODATA_PKT)
-+               hci_leds_blink_oneshot(hdev->rx_led);
-+
+My aim is to allocate bandwidth to different type of traffic(may be based on
+port or protocol) using DCB( ETS/PFC) functionality.
 
-By adding pkt_type checks, we can limit LED blinks only at ACL/SCO
-DATA_PKT. Similar checks can be added for tx_led too.
-
-Does this look good to you? If you agree, I can send v2 to include this change.
-
-> I think that we want activity leds for actual radio activity. Meaning that when we have an active connection and ACL packets are exchanged or when we are scanning.
->
-
-Radio is controlled in Bluetooth module side, not Host. So I'm afraid
-actual radio activity cannot be captured in its exact form in Host
-side. The purpose of this patch is not for radio, it is for
-incoming/outgoing data. For example, it can give user a blinking
-indicator on RX frames after a Bluetooth mouse is connected. Another
-example, it can blink at bluetooth streamed audio (TX).
-
-Would that make sense?
-
--Guodong
-
->
-> Regards
->
-> Marcel
->
+Thanks
+-Ayuj
