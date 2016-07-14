@@ -1,8 +1,8 @@
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+From: "Rosen, Rami" <rami.rosen@intel.com>
 Subject: RE: [PATCH v3 5/8] thunderbolt: Communication with the ICM
  (firmware)
-Date: Thu, 14 Jul 2016 14:49:52 +0000
-Message-ID: <E607265CB020454880711A6F96C05A03893CD38E@hasmsx107.ger.corp.intel.com>
+Date: Thu, 14 Jul 2016 15:08:10 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F92CD7D05F@HASMSX110.ger.corp.intel.com>
 References: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com>
  <1468495702-7467-6-git-send-email-amir.jer.levy@intel.com>
  <5B8DA87D05A7694D9FA63FD143655C1B54294E4A@hasmsx108.ger.corp.intel.com>
@@ -13,8 +13,10 @@ Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	thunderbolt-linux <thunderbolt-linux@intel.com>,
-	"Westerberg, Mika" <mika.westerberg@intel.com>
+	"Westerberg, Mika" <mika.westerberg@intel.com>,
+	"Rosen, Rami" <rami.rosen@intel.com>
 To: "Winkler, Tomas" <tomas.winkler@intel.com>,
+	"Levy, Amir (Jer)" <amir.jer.levy@intel.com>,
 	"andreas.noever@gmail.com" <andreas.noever@gmail.com>,
 	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
 	"bhelgaas@google.com" <bhelgaas@google.com>
@@ -24,72 +26,227 @@ Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tomas,
-Thanks for your comments.
+Hi Amir,
+Here are my 2 cents:
 
-On Thu, Jul 14 2016, 03:44 PM, Winkler, Tomas wrote:
-> > +/* NHI genetlink commands */
-> > +enum {
-> > +	NHI_CMD_UNSPEC,
-> > +	NHI_CMD_SUBSCRIBE,
-> > +	NHI_CMD_UNSUBSCRIBE,
-> > +	NHI_CMD_QUERY_INFORMATION,
-> > +	NHI_CMD_MSG_TO_ICM,
-> > +	NHI_CMD_MSG_FROM_ICM,
-> > +	NHI_CMD_MAILBOX,
-> > +	NHI_CMD_APPROVE_TBT_NETWORKING,
-> > +	NHI_CMD_ICM_IN_SAFE_MODE,
-> > +	__NHI_CMD_MAX,
-> > +};
-> > +#define NHI_CMD_MAX (__NHI_CMD_MAX - 1)
-> NHI_CMD_MAX  = NHI_CMD_ICM_IN_SAFE_MODE ?
-> 
+This method always returns true, should be void (unless you will change PDF_ERROR_NOTIFICATION  or other pdf values to return false), and  likewise its invocation should not check return value.
 
-This template is used a lot with (generic) netlink. 
-Few examples:
-http://lxr.free-electrons.com/source/drivers/acpi/event.c#L62
-http://lxr.free-electrons.com/source/include/uapi/linux/irda.h#L224
-It is easier to maintain - adding entry in the list will automatically update MAX.
+> +static bool nhi_msg_from_icm_analysis(struct tbt_nhi_ctxt *nhi_ctxt,
+> +					enum pdf_value pdf,
+> +					const u8 *msg, u32 msg_len)
+> +{
+> +	/*
+> +	 * preparation for messages that won't be sent,
+> +	 * currently unused in this patch.
+> +	 */
+> +	bool send_event = true;
+> +
+> +	switch (pdf) {
+> +	case PDF_ERROR_NOTIFICATION:
+> +		dev_err(&nhi_ctxt->pdev->dev,
+> +			"controller id %#x PDF_ERROR_NOTIFICATION %hhu
+> msg len %u\n",
+> +			nhi_ctxt->id, msg[11], msg_len);
+> +		/* fallthrough */
+> +	case PDF_WRITE_CONFIGURATION_REGISTERS:
+> +		/* fallthrough */
+> +	case PDF_READ_CONFIGURATION_REGISTERS:
+> +		if (nhi_ctxt->wait_for_icm_resp) {
+> +			nhi_ctxt->wait_for_icm_resp = false;
+> +			up(&nhi_ctxt->send_sem);
+> +		}
+> +		break;
+> +
+> +	case PDF_FW_TO_SW_RESPONSE:
+> +		if (nhi_ctxt->wait_for_icm_resp) {
+> +			nhi_ctxt->wait_for_icm_resp = false;
+> +			up(&nhi_ctxt->send_sem);
+> +		}
+> +		break;
+> +
+> +	default:
+> +		dev_warn(&nhi_ctxt->pdev->dev,
+> +			 "controller id %#x pdf %u isn't handled/expected\n",
+> +			 nhi_ctxt->id, pdf);
+> +		break;
+> +	}
+> +
+> +	return send_event;
+> +}
+> +
 
-[...]
+This methods always returns 0, should be void.
 
-> > +		u32 status;
-> > +
-> > +		status = ioread32(nhi_ctxt->iobase + REG_FW_STS);
-> > +
-> > +		if (status & REG_FW_STS_NVM_AUTH_DONE)
-> > +			break;
-> > +		msleep(30);
-> 
-> 30 is  big number, for polling, what is behind this?
-> 
+> +static int nhi_suspend(struct device *dev) __releases(&nhi_ctxt-
+> >send_sem)
+> +{
+> +	struct tbt_nhi_ctxt *nhi_ctxt = pci_get_drvdata(to_pci_dev(dev));
+> +	void __iomem *rx_reg, *tx_reg;
+> +	u32 rx_reg_val, tx_reg_val;
+> +
+> +	/* must be after negotiation_events, since messages might be sent
+> */
+> +	nhi_ctxt->d0_exit = true;
+> +
+> +	rx_reg = nhi_ctxt->iobase + REG_RX_OPTIONS_BASE +
+> +		 (TBT_ICM_RING_NUM * REG_OPTS_STEP);
+> +	rx_reg_val = ioread32(rx_reg) & ~REG_OPTS_E2E_EN;
+> +	tx_reg = nhi_ctxt->iobase + REG_TX_OPTIONS_BASE +
+> +		 (TBT_ICM_RING_NUM * REG_OPTS_STEP);
+> +	tx_reg_val = ioread32(tx_reg) & ~REG_OPTS_E2E_EN;
+> +	/* disable RX flow control  */
+> +	iowrite32(rx_reg_val, rx_reg);
+> +	/* disable TX flow control  */
+> +	iowrite32(tx_reg_val, tx_reg);
+> +	/* disable RX ring  */
+> +	iowrite32(rx_reg_val & ~REG_OPTS_VALID, rx_reg);
+> +
+> +	mutex_lock(&nhi_ctxt->d0_exit_mailbox_mutex);
+> +	mutex_lock(&nhi_ctxt->d0_exit_send_mutex);
+> +
+> +	cancel_work_sync(&nhi_ctxt->icm_msgs_work);
+> +
+> +	if (nhi_ctxt->wait_for_icm_resp) {
+> +		nhi_ctxt->wait_for_icm_resp = false;
+> +		nhi_ctxt->ignore_icm_resp = false;
+> +		/*
+> +		 * if there is response, it is lost, so unlock the send
+> +		 * for the next resume.
+> +		 */
+> +		up(&nhi_ctxt->send_sem);
+> +	}
+> +
+> +	mutex_unlock(&nhi_ctxt->d0_exit_send_mutex);
+> +	mutex_unlock(&nhi_ctxt->d0_exit_mailbox_mutex);
+> +
+> +	/* wait for all TX to finish  */
+> +	usleep_range(5 * USEC_PER_MSEC, 7 * USEC_PER_MSEC);
+> +
+> +	/* disable all interrupts */
+> +	iowrite32(0, nhi_ctxt->iobase + REG_RING_INTERRUPT_BASE);
+> +	/* disable TX ring  */
+> +	iowrite32(tx_reg_val & ~REG_OPTS_VALID, tx_reg);
+> +
+> +	return 0;
+> +}
+> +
 
-The NVM authentication can take time for ICM.
-This number comes from experiments.
+This methods also always returns 0, should be void.
 
-[...]
+> +static int nhi_resume(struct device *dev) __acquires(&nhi_ctxt-
+> >send_sem)
+> +{
+> +	dma_addr_t phys;
+> +	struct tbt_nhi_ctxt *nhi_ctxt = pci_get_drvdata(to_pci_dev(dev));
+> +	struct tbt_buf_desc *desc;
+> +	void __iomem *iobase = nhi_ctxt->iobase;
+> +	void __iomem *reg;
+> +	int i;
+> +
+> +	if (nhi_ctxt->msix_entries) {
+> +		iowrite32(ioread32(iobase + REG_DMA_MISC) |
+> +
+> 	REG_DMA_MISC_INT_AUTO_CLEAR,
+> +			  iobase + REG_DMA_MISC);
+> +		/*
+> +		 * Vector #0, which is TX complete to ICM,
+> +		 * isn't been used currently.
+> +		 */
+> +		nhi_set_int_vec(nhi_ctxt, 0, 1);
+> +
+> +		for (i = 2; i < nhi_ctxt->num_vectors; i++)
+> +			nhi_set_int_vec(nhi_ctxt, nhi_ctxt->num_paths -
+> (i/2),
+> +					i);
+> +	}
+> +
+> +	/* configure TX descriptors */
+> +	for (i = 0, phys = nhi_ctxt->icm_ring_shared_mem_dma_addr;
+> +	     i < TBT_ICM_RING_NUM_TX_BUFS;
+> +	     i++, phys += TBT_ICM_RING_MAX_FRAME_SIZE) {
+> +		desc = &nhi_ctxt->icm_ring_shared_mem->tx_buf_desc[i];
+> +		desc->phys = cpu_to_le64(phys);
+> +		desc->attributes = cpu_to_le32(DESC_ATTR_REQ_STS);
+> +	}
+> +	/* configure RX descriptors */
+> +	for (i = 0;
+> +	     i < TBT_ICM_RING_NUM_RX_BUFS;
+> +	     i++, phys += TBT_ICM_RING_MAX_FRAME_SIZE) {
+> +		desc = &nhi_ctxt->icm_ring_shared_mem->rx_buf_desc[i];
+> +		desc->phys = cpu_to_le64(phys);
+> +		desc->attributes = cpu_to_le32(DESC_ATTR_REQ_STS |
+> +					       DESC_ATTR_INT_EN);
+> +	}
+> +
+> +	/* configure throttling rate for interrupts */
+> +	for (i = 0, reg = iobase + REG_INT_THROTTLING_RATE;
+> +	     i < NUM_INT_VECTORS;
+> +	     i++, reg += REG_INT_THROTTLING_RATE_STEP) {
+> +		iowrite32(USEC_TO_256_NSECS(128), reg);
+> +	}
+> +
+> +	/* configure TX for ICM ring */
+> +	reg = iobase + REG_TX_RING_BASE + (TBT_ICM_RING_NUM *
+> REG_RING_STEP);
+> +	phys = nhi_ctxt->icm_ring_shared_mem_dma_addr +
+> +		offsetof(struct tbt_icm_ring_shared_memory, tx_buf_desc);
+> +	iowrite32(lower_32_bits(phys), reg + REG_RING_PHYS_LO_OFFSET);
+> +	iowrite32(upper_32_bits(phys), reg + REG_RING_PHYS_HI_OFFSET);
+> +	iowrite32((TBT_ICM_RING_NUM_TX_BUFS <<
+> REG_RING_SIZE_SHIFT) &
+> +			REG_RING_SIZE_MASK,
+> +		  reg + REG_RING_SIZE_OFFSET);
+> +
+> +	reg = iobase + REG_TX_OPTIONS_BASE +
+> (TBT_ICM_RING_NUM*REG_OPTS_STEP);
+> +	iowrite32(REG_OPTS_RAW | REG_OPTS_VALID, reg);
+> +
+> +	/* configure RX for ICM ring */
+> +	reg = iobase + REG_RX_RING_BASE + (TBT_ICM_RING_NUM *
+> REG_RING_STEP);
+> +	phys = nhi_ctxt->icm_ring_shared_mem_dma_addr +
+> +		offsetof(struct tbt_icm_ring_shared_memory, rx_buf_desc);
+> +	iowrite32(lower_32_bits(phys), reg + REG_RING_PHYS_LO_OFFSET);
+> +	iowrite32(upper_32_bits(phys), reg + REG_RING_PHYS_HI_OFFSET);
+> +	iowrite32(((TBT_ICM_RING_NUM_RX_BUFS <<
+> REG_RING_SIZE_SHIFT) &
+> +			REG_RING_SIZE_MASK) |
+> +		  ((TBT_ICM_RING_MAX_FRAME_SIZE <<
+> REG_RING_BUF_SIZE_SHIFT) &
+> +			REG_RING_BUF_SIZE_MASK),
+> +		  reg + REG_RING_SIZE_OFFSET);
+> +	iowrite32(((TBT_ICM_RING_NUM_RX_BUFS - 1) <<
+> REG_RING_CONS_SHIFT) &
+> +			REG_RING_CONS_MASK,
+> +		  reg + REG_RING_CONS_PROD_OFFSET);
+> +
+> +	reg = iobase + REG_RX_OPTIONS_BASE +
+> (TBT_ICM_RING_NUM*REG_OPTS_STEP);
+> +	iowrite32(REG_OPTS_RAW | REG_OPTS_VALID, reg);
+> +
+> +	/* enable RX interrupt */
+> +	RING_INT_ENABLE_RX(iobase, TBT_ICM_RING_NUM, nhi_ctxt-
+> >num_paths);
+> +
+> +	if (likely((atomic_read(&subscribers) > 0) &&
+> +		   nhi_nvm_authenticated(nhi_ctxt))) {
+> +		down(&nhi_ctxt->send_sem);
+> +		nhi_ctxt->d0_exit = false;
+> +		mutex_lock(&nhi_ctxt->d0_exit_send_mutex);
+> +		/*
+> +		 * interrupts are enabled here before send due to
+> +		 * implicit barrier in mutex
+> +		 */
+> +		nhi_send_driver_ready_command(nhi_ctxt);
+> +		mutex_unlock(&nhi_ctxt->d0_exit_send_mutex);
+> +	} else {
+> +		nhi_ctxt->d0_exit = false;
+> +	}
+> +
+> +	return 0;
+> +}
 
-> > +static struct tbt_nhi_ctxt *nhi_search_ctxt(u32 id)
-> > +{
-> > +	struct tbt_nhi_ctxt *nhi_ctxt;
-> > +
-> > +	list_for_each_entry(nhi_ctxt, &controllers_list, node)
-> > +		if (nhi_ctxt->id == id)
-> > +			return nhi_ctxt;
-> 
-> Don't you need to lock this list with the controllers_list_rwsem ?
-> 
 
-This is a helper function for searching the list.
-The callers take and release the lock.
-
-[...]
-
-> > +	bool nvm_auth_on_boot : 1;
-> Don't use bool with bit fields use u32 
-
-What is the concern here?
-If it is size of bool, it doesn't matter for this struct.
-It is more readable that the expected value is bool,
-and it is used a lot in kernel, for example:
-http://lxr.free-electrons.com/source/include/linux/pm.h#L558
+Regards,
+Rami Rosen
+Intel Corporation
