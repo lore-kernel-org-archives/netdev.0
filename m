@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 04/10] net/mlx5: E-Switch, Use two priorities for SRIOV offloads mode
-Date: Thu, 14 Jul 2016 10:32:40 +0300
-Message-ID: <1468481566-29859-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 09/10] net/mlx5e: Add TC HW support for FDB (SRIOV e-switch) offloads
+Date: Thu, 14 Jul 2016 10:32:45 +0300
+Message-ID: <1468481566-29859-10-git-send-email-saeedm@mellanox.com>
 References: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,165 +13,113 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43345 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43373 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750975AbcGNHdO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 03:33:14 -0400
+	id S1751103AbcGNHdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 03:33:17 -0400
 In-Reply-To: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-In the offloads mode, some slow path rules are added by the driver (e.g
-send-to-vport), while offloaded rules are to be added from upper layers.
-
-The slow path rules have lower priority and we don't want matching on
-offloaded rules to suffer from extra steering hops related to the slow
-path rules.
-
-We use two priorities, one for offloaded rules (fast path), and one for
-the control rules (slow path). To allow for that, we enable two priorities
-for the FDB namespace in the FS core code.
+Enhance the TC offload code such that when the eswitch exists and it's
+mode being SRIOV offloads, we do TC actions parsing and setup targeted
+for eswitch. Next, we add the offloaded flow to the HW e-switch (fdb).
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  1 +
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 34 +++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 22 +++++++++-----
- 3 files changed, 42 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c |  5 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c  | 35 ++++++++++++++++++++----
+ 2 files changed, 34 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 7b45e6a..035e536 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -145,6 +145,7 @@ struct mlx5_eswitch_fdb {
- 		} legacy;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 5ef02f0..fdaf2fa 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -36,6 +36,7 @@
  
- 		struct offloads_fdb {
-+			struct mlx5_flow_table *fdb;
- 			struct mlx5_flow_group *send_to_vport_grp;
- 			struct mlx5_flow_group *miss_grp;
- 			struct mlx5_flow_rule  *miss_rule;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 1842dfb..27122c0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -38,6 +38,11 @@
- #include "mlx5_core.h"
  #include "eswitch.h"
+ #include "en.h"
++#include "en_tc.h"
  
-+enum {
-+	FDB_FAST_PATH = 0,
-+	FDB_SLOW_PATH
-+};
+ static const char mlx5e_rep_driver_name[] = "mlx5e_rep";
+ 
+@@ -201,6 +202,10 @@ void mlx5e_nic_rep_unload(struct mlx5_eswitch *esw,
+ 
+ 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+ 		mlx5e_remove_sqs_fwd_rules(priv);
 +
- static struct mlx5_flow_rule *
- mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
- {
-@@ -149,7 +154,7 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
- 	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
- 	dest.vport_num = 0;
- 
--	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, spec,
-+	flow_rule = mlx5_add_flow_rule(esw->fdb_table.offloads.fdb, spec,
- 				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
- 				       0, &dest);
- 	if (IS_ERR(flow_rule)) {
-@@ -165,6 +170,8 @@ out:
++	/* clean (and re-init) existing uplink offloaded TC rules */
++	mlx5e_tc_cleanup(priv);
++	mlx5e_tc_init(priv);
  }
  
- #define MAX_PF_SQ 256
-+#define ESW_OFFLOADS_NUM_ENTRIES (1 << 13) /* 8K */
-+#define ESW_OFFLOADS_NUM_GROUPS  4
+ static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 9a66441..0f19b01 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -112,6 +112,22 @@ err_create_ft:
+ 	return rule;
+ }
  
- static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
++static struct mlx5_flow_rule *mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
++						    struct mlx5_flow_spec *spec,
++						    u32 action, u32 dst_vport)
++{
++	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
++	struct mlx5_eswitch_rep *rep = priv->ppriv;
++	u32 src_vport;
++
++	if (rep->vport) /* set source vport for the flow */
++		src_vport = rep->vport;
++	else
++		src_vport = FDB_UPLINK_VPORT;
++
++	return mlx5_eswitch_add_offloaded_rule(esw, spec, action, src_vport, dst_vport);
++}
++
+ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
+ 			      struct mlx5_flow_rule *rule)
  {
-@@ -190,15 +197,25 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
- 	esw_debug(dev, "Create offloads FDB table, log_max_size(%d)\n",
- 		  MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+@@ -397,11 +413,11 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ {
+ 	struct mlx5e_tc_table *tc = &priv->fs.tc;
+ 	int err = 0;
+-	u32 flow_tag;
+-	u32 action;
++	u32 flow_tag, action, dest_vport = 0;
+ 	struct mlx5e_tc_flow *flow;
+ 	struct mlx5_flow_spec *spec;
+ 	struct mlx5_flow_rule *old = NULL;
++	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
  
--	table_size = nvports + MAX_PF_SQ + 1;
--	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0);
-+	fdb = mlx5_create_auto_grouped_flow_table(root_ns, FDB_FAST_PATH,
-+						  ESW_OFFLOADS_NUM_ENTRIES,
-+						  ESW_OFFLOADS_NUM_GROUPS, 0);
- 	if (IS_ERR(fdb)) {
- 		err = PTR_ERR(fdb);
--		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
--		goto fdb_err;
-+		esw_warn(dev, "Failed to create Fast path FDB Table err %d\n", err);
-+		goto fast_fdb_err;
- 	}
- 	esw->fdb_table.fdb = fdb;
+ 	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
+ 				      tc->ht_params);
+@@ -422,11 +438,18 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	if (err < 0)
+ 		goto err_free;
  
-+	table_size = nvports + MAX_PF_SQ + 1;
-+	fdb = mlx5_create_flow_table(root_ns, FDB_SLOW_PATH, table_size, 0);
-+	if (IS_ERR(fdb)) {
-+		err = PTR_ERR(fdb);
-+		esw_warn(dev, "Failed to create slow path FDB Table err %d\n", err);
-+		goto slow_fdb_err;
+-	err = parse_tc_nic_actions(priv, f->exts, &action, &flow_tag);
+-	if (err < 0)
+-		goto err_free;
++	if (esw && esw->mode == SRIOV_OFFLOADS) {
++		err = parse_tc_fdb_actions(priv, f->exts, &action, &dest_vport);
++		if (err < 0)
++			goto err_free;
++		flow->rule = mlx5e_tc_add_fdb_flow(priv, spec, action, dest_vport);
++	} else {
++		err = parse_tc_nic_actions(priv, f->exts, &action, &flow_tag);
++		if (err < 0)
++			goto err_free;
++		flow->rule = mlx5e_tc_add_nic_flow(priv, spec, action, flow_tag);
 +	}
-+	esw->fdb_table.offloads.fdb = fdb;
-+
- 	/* create send-to-vport group */
- 	memset(flow_group_in, 0, inlen);
- 	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable,
-@@ -247,8 +264,10 @@ miss_rule_err:
- miss_err:
- 	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
- send_vport_err:
--	mlx5_destroy_flow_table(fdb);
--fdb_err:
-+	mlx5_destroy_flow_table(esw->fdb_table.offloads.fdb);
-+slow_fdb_err:
-+	mlx5_destroy_flow_table(esw->fdb_table.fdb);
-+fast_fdb_err:
- ns_err:
- 	kvfree(flow_group_in);
- 	return err;
-@@ -264,6 +283,7 @@ static void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
- 	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
- 	mlx5_destroy_flow_group(esw->fdb_table.offloads.miss_grp);
  
-+	mlx5_destroy_flow_table(esw->fdb_table.offloads.fdb);
- 	mlx5_destroy_flow_table(esw->fdb_table.fdb);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index b0a1304..1a377b4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1712,15 +1712,21 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
- 	if (!steering->fdb_root_ns)
- 		return -ENOMEM;
- 
--	/* Create single prio */
- 	prio = fs_create_prio(&steering->fdb_root_ns->ns, 0, 1);
--	if (IS_ERR(prio)) {
--		cleanup_root_ns(steering->fdb_root_ns);
--		steering->fdb_root_ns = NULL;
--		return PTR_ERR(prio);
--	} else {
--		return 0;
--	}
-+	if (IS_ERR(prio))
-+		goto out_err;
-+
-+	prio = fs_create_prio(&steering->fdb_root_ns->ns, 1, 1);
-+	if (IS_ERR(prio))
-+		goto out_err;
-+
-+	set_prio_attrs(steering->fdb_root_ns);
-+	return 0;
-+
-+out_err:
-+	cleanup_root_ns(steering->fdb_root_ns);
-+	steering->fdb_root_ns = NULL;
-+	return PTR_ERR(prio);
- }
- 
- static int init_ingress_acl_root_ns(struct mlx5_flow_steering *steering)
+-	flow->rule = mlx5e_tc_add_nic_flow(priv, spec, action, flow_tag);
+ 	if (IS_ERR(flow->rule)) {
+ 		err = PTR_ERR(flow->rule);
+ 		goto err_free;
 -- 
 2.8.0
