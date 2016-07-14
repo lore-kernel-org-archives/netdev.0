@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] stmmac: dwmac-socfpga: remove redundant dev_err
- call in socfpga_dwmac_parse_data()
-Date: Wed, 13 Jul 2016 18:08:25 -0700 (PDT)
-Message-ID: <20160713.180825.16150764525787936.davem@davemloft.net>
-References: <1468414000-2860-1-git-send-email-weiyj_lk@163.com>
+Subject: Re: [PATCH net-next 0/6] sctp: allow GSO frags to access the chunk
+ too
+Date: Wed, 13 Jul 2016 18:10:29 -0700 (PDT)
+Message-ID: <20160713.181029.300582272500283553.davem@davemloft.net>
+References: <cover.1468432819.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: weiyj_lk@163.com
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43310 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43328 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbcGNBI0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 21:08:26 -0400
-In-Reply-To: <1468414000-2860-1-git-send-email-weiyj_lk@163.com>
+	with ESMTP id S1751678AbcGNBKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 21:10:30 -0400
+In-Reply-To: <cover.1468432819.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: weiyj_lk@163.com
-Date: Wed, 13 Jul 2016 12:46:40 +0000
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Wed, 13 Jul 2016 15:08:54 -0300
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Patchset is named after the most important fix in it. First two patches
+> are preparing the grounds for the 3rd patch.
 > 
-> There is a error message within devm_ioremap_resource
-> already, so remove the dev_err call to avoid redundant
-> error message.
+> After the 3rd, they are not strictly logically related to the patchset,
+> but I kept them together as they depend on each other.
 > 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> More details on patch changelogs.
 
-Applied.
+Series applied, thanks.
