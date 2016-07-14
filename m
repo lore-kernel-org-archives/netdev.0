@@ -1,80 +1,72 @@
-From: Amir Levy <amir.jer.levy@intel.com>
-Subject: [PATCH v3 2/8] thunderbolt: Updating device IDs
-Date: Thu, 14 Jul 2016 14:28:16 +0300
-Message-ID: <1468495702-7467-3-git-send-email-amir.jer.levy@intel.com>
-References: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, thunderbolt-linux@intel.com,
-	mika.westerberg@intel.com, tomas.winkler@intel.com,
-	Amir Levy <amir.jer.levy@intel.com>
-To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
-	bhelgaas@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: phy: micrel: Add KSZ8041FTL fiber mode support
+Date: Thu, 14 Jul 2016 14:35:59 +0300
+Message-ID: <d7474fed-89cb-1089-5b52-f8964cd7f840@cogentembedded.com>
+References: <1468491528-17515-1-git-send-email-p.zabel@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh+dt@kernel.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	devicetree@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Philipp Zabel <p.zabel@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:33589 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966AbcGNLgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 07:36:03 -0400
+Received: by mail-lf0-f50.google.com with SMTP id b199so61147087lfe.0
+        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 04:36:02 -0700 (PDT)
+In-Reply-To: <1468491528-17515-1-git-send-email-p.zabel@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adding the new Thunderbolt(TM) device IDs to the list.
+Hello.
 
-Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
----
- include/linux/pci_ids.h | 44 ++++++++++++++++++++++++++------------------
- 1 file changed, 26 insertions(+), 18 deletions(-)
+On 7/14/2016 1:18 PM, Philipp Zabel wrote:
 
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index c58752f..2d4cc50 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -2604,24 +2604,32 @@
- #define PCI_DEVICE_ID_INTEL_82441	0x1237
- #define PCI_DEVICE_ID_INTEL_82380FB	0x124b
- #define PCI_DEVICE_ID_INTEL_82439	0x1250
--#define PCI_DEVICE_ID_INTEL_LIGHT_RIDGE             0x1513 /* Tbt 1 Gen 1 */
--#define PCI_DEVICE_ID_INTEL_EAGLE_RIDGE             0x151a
--#define PCI_DEVICE_ID_INTEL_LIGHT_PEAK              0x151b
--#define PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_4C         0x1547 /* Tbt 1 Gen 2 */
--#define PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_2C         0x1548
--#define PCI_DEVICE_ID_INTEL_PORT_RIDGE              0x1549
--#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_2C_NHI    0x1566 /* Tbt 1 Gen 3 */
--#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_2C_BRIDGE 0x1567
--#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_4C_NHI    0x1568
--#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_4C_BRIDGE 0x1569
--#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_2C_NHI     0x156a /* Thunderbolt 2 */
--#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_2C_BRIDGE  0x156b
--#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_4C_NHI     0x156c
--#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_4C_BRIDGE  0x156d
--#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_2C_NHI     0x1575 /* Thunderbolt 3 */
--#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_2C_BRIDGE  0x1576
--#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_4C_NHI     0x1577
--#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_4C_BRIDGE  0x1578
-+#define PCI_DEVICE_ID_INTEL_LIGHT_RIDGE              0x1513 /* Tbt 1 Gen 1 */
-+#define PCI_DEVICE_ID_INTEL_EAGLE_RIDGE              0x151a
-+#define PCI_DEVICE_ID_INTEL_LIGHT_PEAK               0x151b
-+#define PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_4C          0x1547 /* Tbt 1 Gen 2 */
-+#define PCI_DEVICE_ID_INTEL_CACTUS_RIDGE_2C          0x1548
-+#define PCI_DEVICE_ID_INTEL_PORT_RIDGE               0x1549
-+#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_2C_NHI     0x1566 /* Tbt 1 Gen 3 */
-+#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_2C_BRIDGE  0x1567
-+#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_4C_NHI     0x1568
-+#define PCI_DEVICE_ID_INTEL_REDWOOD_RIDGE_4C_BRIDGE  0x1569
-+#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_2C_NHI      0x156a /* Thunderbolt 2 */
-+#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_2C_BRIDGE   0x156b
-+#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_4C_NHI      0x156c
-+#define PCI_DEVICE_ID_INTEL_FALCON_RIDGE_4C_BRIDGE   0x156d
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_2C_NHI      0x1575 /* Thunderbolt 3 */
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_2C_BRIDGE   0x1576
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_4C_NHI      0x1577
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_4C_BRIDGE   0x1578
-+#define PCI_DEVICE_ID_INTEL_WIN_RIDGE_2C_NHI         0x157d /* Tbt 2 Low Pwr */
-+#define PCI_DEVICE_ID_INTEL_WIN_RIDGE_2C_BRIDGE      0x157e
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_LP_NHI      0x15bf /* Tbt 3 Low Pwr */
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_LP_BRIDGE   0x15c0
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_C_4C_NHI    0x15d2 /* Thunderbolt 3 */
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_C_4C_BRIDGE 0x15d3
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_C_2C_NHI    0x15d9
-+#define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_C_2C_BRIDGE 0x15da
- #define PCI_DEVICE_ID_INTEL_80960_RP	0x1960
- #define PCI_DEVICE_ID_INTEL_82840_HB	0x1a21
- #define PCI_DEVICE_ID_INTEL_82845_HB	0x1a30
--- 
-2.7.4
+> We can't detect the FXEN (fiber mode) bootstrap pin, so configure
+> it via a boolean device tree property "fxen". If it is enabled,
+> auto-negotiation is not supported. The only available modes are
+> 100base-fx (full duplex and half duplex).
+>
+> Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
+> ---
+> I didn't see a way to reliably detect whether the PHY is set to fiber
+> mode in the datasheet [1], so this patch adds a device tree property
+> to enforce fiber mode (disable auto-negotiation, set speed to 100).
+>
+> [1] http://ww1.microchip.com/downloads/en/DeviceDoc/ksz8041tl-ftl-mll.pdf
+> ---
+>  .../devicetree/bindings/net/micrel-ksz8041.txt     | 24 ++++++++++++++++
+>  drivers/net/phy/micrel.c                           | 32 ++++++++++++++++++++--
+>  include/linux/micrel_phy.h                         |  1 +
+>  3 files changed, 55 insertions(+), 2 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz8041.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/micrel-ksz8041.txt b/Documentation/devicetree/bindings/net/micrel-ksz8041.txt
+> new file mode 100644
+> index 0000000..4bce38d2
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/micrel-ksz8041.txt
+
+    I think your text should be added to micrel.txt instead.
+
+> @@ -0,0 +1,24 @@
+> +Micrel KSZ8041 Gigabit Ethernet PHY
+> +
+> +The KSZ8041FTL variant supports fiber mode, enabled by the FXEN boot
+> +strapping pin. It can't be determined from the PHY registers whether
+> +the PHY is in fiber mode, so a boolean device tree property can be
+> +used to describe this.
+> +
+> +Optional properties:
+> + - fxen : KSZ8041FTL is strapped to fiber mode. Auto-negotiation is disabled
+
+    It should be named micrel,fxen.
+
+[...]
+
+MBR, Sergei
