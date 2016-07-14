@@ -1,21 +1,53 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH 0 / 5] move the common CDC parser
-Date: Thu, 14 Jul 2016 15:41:29 +0200
-Message-ID: <1468503694-9482-1-git-send-email-oneukum@suse.com>
-To: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, gregKH@linuxfoundation.org, bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:37001 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751464AbcGNNp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 09:45:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: [PATCH 3/5] cdc-acm: cleanup error handling
+Date: Thu, 14 Jul 2016 15:41:32 +0200
+Message-ID: <1468503694-9482-4-git-send-email-oneukum@suse.com>
+References: <1468503694-9482-1-git-send-email-oneukum@suse.com>
+Cc: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>, Oliver Neukum <ONeukum-IBi9RG/b67k@public.gmane.org>
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregKH-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1468503694-9482-1-git-send-email-oneukum-IBi9RG/b67k@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Experience has shown that making all CDC drivers depend on usbnet
-is not practical, because some of them are not network drivers.
-So this patch moves the common parser from usbnet into the messages
-helpers of usbcore.
-The rest of the series applies it to the non-network CDC drivers.
+A small update to unify error handling during probe().
 
-I hope it can go through Greg's tree although it touches usbnet.
+Signed-off-by: Oliver Neukum <ONeukum-IBi9RG/b67k@public.gmane.org>
+---
+ drivers/usb/class/cdc-acm.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/class/cdc-acm.c b/drivers/usb/class/cdc-acm.c
+index 70bd642..1857fad 100644
+--- a/drivers/usb/class/cdc-acm.c
++++ b/drivers/usb/class/cdc-acm.c
+@@ -1328,11 +1328,8 @@ made_compressed_probe:
+ 		goto alloc_fail;
+ 
+ 	minor = acm_alloc_minor(acm);
+-	if (minor < 0) {
+-		dev_err(&intf->dev, "no more free acm devices\n");
+-		kfree(acm);
+-		return -ENODEV;
+-	}
++	if (minor < 0)
++		goto alloc_fail1;
+ 
+ 	ctrlsize = usb_endpoint_maxp(epctrl);
+ 	readsize = usb_endpoint_maxp(epread) *
+@@ -1523,6 +1520,7 @@ alloc_fail4:
+ 	usb_free_coherent(usb_dev, ctrlsize, acm->ctrl_buffer, acm->ctrl_dma);
+ alloc_fail2:
+ 	acm_release_minor(acm);
++alloc_fail1:
+ 	kfree(acm);
+ alloc_fail:
+ 	return rv;
+-- 
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
