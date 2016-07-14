@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 01/10] net/mlx5: Store counters in rbtree instead of list
-Date: Thu, 14 Jul 2016 10:32:37 +0300
-Message-ID: <1468481566-29859-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 05/10] net/mlx5: E-Switch, Add API to configure rules for the offloaded mode
+Date: Thu, 14 Jul 2016 10:32:41 +0300
+Message-ID: <1468481566-29859-6-git-send-email-saeedm@mellanox.com>
 References: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,178 +13,97 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43302 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:43330 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750843AbcGNHdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Jul 2016 03:33:08 -0400
+	id S1750947AbcGNHdM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Jul 2016 03:33:12 -0400
 In-Reply-To: <1468481566-29859-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amir@vadai.me>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-In order to use bulk counters, we need to have counters sorted by id.
+This allows for upper levels in the driver, e.g the TC offload code to add
+e-switch offloaded steering rules. The caller provides the rule spec for
+matching, action, source and destination vports.
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  1 +
- .../net/ethernet/mellanox/mlx5/core/fs_counters.c  | 64 ++++++++++++++++++----
- include/linux/mlx5/driver.h                        |  2 +-
- 3 files changed, 56 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  6 +++
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 43 ++++++++++++++++++++++
+ 2 files changed, 49 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index d7ba91a..9cffb6a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -111,6 +111,7 @@ struct mlx5_fc_cache {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 035e536..c0b0560 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -222,6 +222,12 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+ 				 int vport,
+ 				 struct ifla_vf_stats *vf_stats);
+ 
++struct mlx5_flow_spec;
++
++struct mlx5_flow_rule *
++mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
++				struct mlx5_flow_spec *spec,
++				u32 action, u32 src_vport, u32 dst_vport);
+ struct mlx5_flow_rule *
+ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 27122c0..a357e8e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -43,6 +43,49 @@ enum {
+ 	FDB_SLOW_PATH
  };
  
- struct mlx5_fc {
-+	struct rb_node node;
- 	struct list_head list;
- 
- 	/* last{packets,bytes} members are used when calculating the delta since
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-index 164dc37..aaf8fd1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/mlx5/driver.h>
- #include <linux/mlx5/fs.h>
-+#include <linux/rbtree.h>
- #include "mlx5_core.h"
- #include "fs_core.h"
- #include "fs_cmd.h"
-@@ -68,6 +69,27 @@
-  *   elapsed, the thread will actually query the hardware.
-  */
- 
-+static void mlx5_fc_stats_insert(struct rb_root *root, struct mlx5_fc *counter)
++struct mlx5_flow_rule *
++mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
++				struct mlx5_flow_spec *spec,
++				u32 action, u32 src_vport, u32 dst_vport)
 +{
-+	struct rb_node **new = &root->rb_node;
-+	struct rb_node *parent = NULL;
++	struct mlx5_flow_destination dest = { 0 };
++	struct mlx5_fc *counter = NULL;
++	struct mlx5_flow_rule *rule;
++	void *misc;
 +
-+	while (*new) {
-+		struct mlx5_fc *this = container_of(*new, struct mlx5_fc, node);
-+		int result = counter->id - this->id;
++	if (esw->mode != SRIOV_OFFLOADS)
++		return ERR_PTR(-EOPNOTSUPP);
 +
-+		parent = *new;
-+		if (result < 0)
-+			new = &((*new)->rb_left);
-+		else
-+			new = &((*new)->rb_right);
++	if (action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
++		dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
++		dest.vport_num = dst_vport;
++		action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
++	} else if (action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
++		counter = mlx5_fc_create(esw->dev, true);
++		if (IS_ERR(counter))
++			return ERR_CAST(counter);
++		dest.type = MLX5_FLOW_DESTINATION_TYPE_COUNTER;
++		dest.counter = counter;
 +	}
 +
-+	/* Add new node and rebalance tree. */
-+	rb_link_node(&counter->node, parent, new);
-+	rb_insert_color(&counter->node, root);
++	misc = MLX5_ADDR_OF(fte_match_param, spec->match_value, misc_parameters);
++	MLX5_SET(fte_match_set_misc, misc, source_port, src_vport);
++
++	misc = MLX5_ADDR_OF(fte_match_param, spec->match_criteria, misc_parameters);
++	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
++
++	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS |
++				      MLX5_MATCH_MISC_PARAMETERS;
++
++	rule = mlx5_add_flow_rule((struct mlx5_flow_table *)esw->fdb_table.fdb,
++				  spec, action, 0, &dest);
++
++	if (IS_ERR(rule))
++		mlx5_fc_destroy(esw->dev, counter);
++
++	return rule;
 +}
 +
- static void mlx5_fc_stats_work(struct work_struct *work)
+ static struct mlx5_flow_rule *
+ mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
  {
- 	struct mlx5_core_dev *dev = container_of(work, struct mlx5_core_dev,
-@@ -75,25 +97,35 @@ static void mlx5_fc_stats_work(struct work_struct *work)
- 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
- 	unsigned long now = jiffies;
- 	struct mlx5_fc *counter;
--	struct mlx5_fc *tmp;
-+	struct rb_node *node;
-+	LIST_HEAD(tmplist);
- 	int err = 0;
- 
- 	spin_lock(&fc_stats->addlist_lock);
- 
--	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
-+	list_splice_tail_init(&fc_stats->addlist, &tmplist);
- 
--	if (!list_empty(&fc_stats->list))
-+	if (!list_empty(&tmplist) || !RB_EMPTY_ROOT(&fc_stats->counters))
- 		queue_delayed_work(fc_stats->wq, &fc_stats->work, MLX5_FC_STATS_PERIOD);
- 
- 	spin_unlock(&fc_stats->addlist_lock);
- 
--	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
--		struct mlx5_fc_cache *c = &counter->cache;
-+	list_for_each_entry(counter, &tmplist, list)
-+		mlx5_fc_stats_insert(&fc_stats->counters, counter);
-+
-+	node = rb_first(&fc_stats->counters);
-+	while (node) {
-+		struct mlx5_fc_cache *c;
- 		u64 packets;
- 		u64 bytes;
- 
-+		counter = rb_entry(node, struct mlx5_fc, node);
-+		c = &counter->cache;
-+
-+		node = rb_next(node);
-+
- 		if (counter->deleted) {
--			list_del(&counter->list);
-+			rb_erase(&counter->node, &fc_stats->counters);
- 
- 			mlx5_cmd_fc_free(dev, counter->id);
- 
-@@ -176,7 +208,7 @@ int mlx5_init_fc_stats(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
- 
--	INIT_LIST_HEAD(&fc_stats->list);
-+	fc_stats->counters = RB_ROOT;
- 	INIT_LIST_HEAD(&fc_stats->addlist);
- 	spin_lock_init(&fc_stats->addlist_lock);
- 
-@@ -194,20 +226,32 @@ void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev)
- 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
- 	struct mlx5_fc *counter;
- 	struct mlx5_fc *tmp;
-+	struct rb_node *node;
- 
- 	cancel_delayed_work_sync(&dev->priv.fc_stats.work);
- 	destroy_workqueue(dev->priv.fc_stats.wq);
- 	dev->priv.fc_stats.wq = NULL;
- 
--	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
--
--	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
-+	list_for_each_entry_safe(counter, tmp, &fc_stats->addlist, list) {
- 		list_del(&counter->list);
- 
- 		mlx5_cmd_fc_free(dev, counter->id);
- 
- 		kfree(counter);
- 	}
-+
-+	node = rb_first(&fc_stats->counters);
-+	while (node) {
-+		counter = rb_entry(node, struct mlx5_fc, node);
-+
-+		node = rb_next(node);
-+
-+		rb_erase(&counter->node, &fc_stats->counters);
-+
-+		mlx5_cmd_fc_free(dev, counter->id);
-+
-+		kfree(counter);
-+	}
- }
- 
- void mlx5_fc_query_cached(struct mlx5_fc *counter,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 81e8396..a041b99 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -469,7 +469,7 @@ struct mlx5_irq_info {
- };
- 
- struct mlx5_fc_stats {
--	struct list_head list;
-+	struct rb_root counters;
- 	struct list_head addlist;
- 	/* protect addlist add/splice operations */
- 	spinlock_t addlist_lock;
 -- 
 2.8.0
