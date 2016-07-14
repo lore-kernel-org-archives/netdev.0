@@ -1,54 +1,102 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] mlxsw: spectrum_router: Return -ENOENT in case of error
-Date: Thu, 14 Jul 2016 08:18:45 +0200
-Message-ID: <1468477125-3153-1-git-send-email-christophe.jaillet@wanadoo.fr>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH v2 00/10] running qdiscs without qdisc_lock
+Date: Wed, 13 Jul 2016 23:19:37 -0700
+Message-ID: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: jiri@mellanox.com, idosch@mellanox.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de, jhs@mojatatu.com, alexei.starovoitov@gmail.com,
+	eric.dumazet@gmail.com, brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33965 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbcGNGTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 02:19:51 -0400
+Received: by mail-pf0-f176.google.com with SMTP id h14so26447193pfe.1
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 23:19:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-'vr' should be a valid pointer here, so returning 'PTR_ERR(vr)' is wron=
-g.
-Return an explicit error code (-ENOENT) instead.
+Hi,
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+I thought I should go ahead and send this series out for comments.
+Here I allow qdiscs to be run without taking the qdisc lock. As a
+result statistics, gso skb, tx bad skb and a few other things need
+to be "safe" to run without locks. It _should_ all be covered here.
+Although I just noticed I must be missing a dec on the backlog
+counter somewhere as one of my tests just ended with 0packets but
+a nonzero bytes counter.
+
+Also of note in this series I used the skb_array implementation
+already in net-next for the tun/tap devices. With this implementation
+for cases where lots of threads are hitting the same qdisc I see
+a modest improvement but for cases like mq with pktgen where
+everything is lined up nicely I see a fairly unpleasant regression.
+
+I have a few thoughts on how to resolve this. First if we support
+bulk_dequeue as an operation on the skb_array this should help
+vs getting the consumer lock repeatedly. Also we really don't need
+the HARD_TX_LOCK if we have a core per queue and XPS setup like many
+multiqueue nics default to. And I need to go back and look at the
+original alf ring implementation as well to see how it compares I
+don't recall seeing the mq regression there.
+
+Also after the above it might be nice to make all qdiscs support
+the per cpu statistics and drop non per cpu cases just to simplify
+the code and all the if/else branching where its not needed.
+
+As usual any thoughts, comments, etc are welcome.
+
+And I wasn't going to add these numbers just because they come from
+an untuned system but why not.
+
+Here are some initial numbers from pktgen on my development which
+is a reasonable system (E5-2695) but I didn't do any work to tweak
+the config so there is still a bunch of debug/hacking options still
+running.
+
+The pktgen command is
+
+./samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh -i eth3  -t X -s 64
+
+pfifo_fast
+
+        original pps        lockless        diff
+1       1418168             1269450         -148718
+2       1587390             1553408         -33982
+4       1084961             1683639         +598678
+8       989636              1522723         +533087
+12      1014018             1348172         +334154
+
+mq
+       original pps        lockless        diff
+1      1442018             1205180        -236838 
+2      2646069             2266095        -379974
+4      5136200             4269470        -866730
+8      
+12     13275671            10810909       -2464762
+
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/dr=
-ivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index e084ea5..81418d6 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1803,7 +1803,7 @@ int mlxsw_sp_router_fib4_del(struct mlxsw_sp_port=
- *mlxsw_sp_port,
- 					      sizeof(fib4->dst), fib4->dst_len);
- 	if (!fib_entry) {
- 		dev_warn(mlxsw_sp->bus_info->dev, "Failed to find FIB4 entry being r=
-emoved.\n");
--		return PTR_ERR(vr);
-+		return -ENOENT;
- 	}
- 	mlxsw_sp_fib_entry_del(mlxsw_sp_port->mlxsw_sp, fib_entry);
- 	mlxsw_sp_fib_entry_remove(vr->fib, fib_entry);
---=20
-2.7.4
+John Fastabend (10):
+      net: sched: allow qdiscs to handle locking
+      net: sched: qdisc_qlen for per cpu logic
+      net: sched: provide per cpu qstat helpers
+      net: sched: a dflt qdisc may be used with per cpu stats
+      net: sched: per cpu gso handlers
+      net: sched: support qdisc_reset on NOLOCK qdisc
+      net: sched: support skb_bad_tx with lockless qdisc
+      net: sched: pfifo_fast use alf_queue
+      net: sched: helper to sum qlen
+      net: sched: add support for TCQ_F_NOLOCK subqueues to sch_mq
 
 
----
-L'absence de virus dans ce courrier =C3=A9lectronique a =C3=A9t=C3=A9 v=
-=C3=A9rifi=C3=A9e par le logiciel antivirus Avast.
-https://www.avast.com/antivirus
-
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ include/net/gen_stats.h   |    3 
+ include/net/sch_generic.h |  105 ++++++++++++
+ net/core/dev.c            |   32 +++-
+ net/core/gen_stats.c      |    9 +
+ net/sched/sch_api.c       |   12 +
+ net/sched/sch_generic.c   |  385 +++++++++++++++++++++++++++++++++++----------
+ net/sched/sch_mq.c        |   25 ++-
+ 7 files changed, 467 insertions(+), 104 deletions(-)
