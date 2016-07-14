@@ -1,104 +1,61 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2 3/3] netfilter: replace list_head with single linked
- list
-Date: Thu, 14 Jul 2016 21:19:03 +0200
-Message-ID: <20160714191903.GA4149@breakpoint.cc>
-References: <1468337541-23930-1-git-send-email-aconole@bytheb.org>
- <1468337541-23930-4-git-send-email-aconole@bytheb.org>
- <20160714175812.GA1021@salvia>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH iproute 0/5] iproute: ila and fou additions
+Date: Thu, 14 Jul 2016 12:22:11 -0700
+Message-ID: <1468524136-3389846-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Aaron Conole <aconole@bytheb.org>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, <haoxuany@fb.com>,
+	Tom Herbert <tom@herbertland.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:46105 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751153AbcGNTTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 15:19:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20160714175812.GA1021@salvia>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:50981 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751160AbcGNTW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 15:22:26 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u6EJJFDV015597
+	for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 12:22:25 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 246grf0108-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 12:22:25 -0700
+Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
+ mx-out.facebook.com (10.223.100.97) with ESMTP	id
+ 4a652fc449f811e6974124be0593f280-a51fdaf0 for <netdev@vger.kernel.org>;	Thu,
+ 14 Jul 2016 12:22:23 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Tue, Jul 12, 2016 at 11:32:21AM -0400, Aaron Conole wrote:
-> > The netfilter hook list never uses the prev pointer, and so can be
-> > trimmed to be a smaller singly-linked list.
-> > 
- 	struct list_head list;
-> >  
-> > @@ -161,8 +167,6 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
-> >  				 int (*okfn)(struct net *, struct sock *, struct sk_buff *),
-> >  				 int thresh)
-> >  {
-> > -	struct list_head *hook_list;
-> > -
-> >  #ifdef HAVE_JUMP_LABEL
-> >  	if (__builtin_constant_p(pf) &&
-> >  	    __builtin_constant_p(hook) &&
-> > @@ -170,14 +174,14 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
-> >  		return 1;
-> >  #endif
-> >  
-> > -	hook_list = &net->nf.hooks[pf][hook];
-> > -
-> 
-> You have to place rcu_read_lock() here, see below.
+Patch set includes:
 
-Not necessarily, rcu_access_pointer does not need it.
+- Allow configuring checksum mode for ila LWT (e.g. configure
+  checksum neutral
+- Configuration for performing ila translations using netfilter hook
+- fou encapsulation for ip6tnl and gre6
+- fou listener for IPv6
 
-> > -	if (!list_empty(hook_list)) {
-> > +	if (rcu_access_pointer(net->nf.hooks[pf][hook])) {
-> 
-> This check above is out of the rcu read-side section, here this may
-> evaluate true...
+*** SUBJECT HERE ***
 
-Yes.
+*** BLURB HERE ***
 
-> >  		/* We may already have this, but read-locks nest anyway */
-> >  		rcu_read_lock();
-> > +		hook_list = rcu_dereference(net->nf.hooks[pf][hook]);
-> 
-> ... but then, net->nf.hooks[pf][hook]) may have become NULL, I guess
-> this race will result in a crash.
+Tom Herbert (5):
+  ila: Support for checksum neutral translation
+  ila: Support for configuring ila to use netfilter hook
+  ip6tnl: Support for fou encapsulation
+  gre6: Support for fou encapsulation
+  fou: Allowing configuring IPv6 listener
 
-Right, the hook_list needs to be checked vs. NULL again.
+ ip/Makefile           |   2 +-
+ ip/ip.c               |   3 +-
+ ip/ip_common.h        |   1 +
+ ip/ipfou.c            |   8 +-
+ ip/ipila.c            | 259 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ ip/iproute_lwtunnel.c |  57 ++++++++++-
+ ip/link_gre6.c        | 101 ++++++++++++++++++++
+ ip/link_ip6tnl.c      |  92 +++++++++++++++++-
+ 8 files changed, 516 insertions(+), 7 deletions(-)
+ create mode 100644 ip/ipila.c
 
-Alternatively of course just place rcu_read_lock above and replace
-the acccess_pointer with hook_list = rcu_dereference().
-
-> General note on this patchset: With linked-lists, it was always true
-> that net->nf.hooks[pf][hook] is non-NULL since this was pointing to
-> the list head. After this patch this no longer true, that means we
-> have to be more careful ;).
-
-Right.
-
-> > @@ -310,8 +345,10 @@ next_hook:
-> >  		if (ret == 0)
-> >  			ret = -EPERM;
-> >  	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
-> > -		int err = nf_queue(skb, elem, state,
-> > -				   verdict >> NF_VERDICT_QBITS);
-> > +		int err;
-> > +
-> > +		state->hook_list = elem;
-> 
-> Will this work in terms of escapability? Scenario: 1) packet is
-> enqueued, 2) hook is gone and 3) userspace reinjects the packet. In
-> that case we hold a reference to an entry that doesn't exist anymore.
-
-Nowadays we zap entries that have a hook owner that we are
-unregistering, this is also why we don't have owner refcounting
-of the hooks anymore.  So this *should* be fine.
-
-> Ok, I'm stopping here, I think this needs another spin.
-
-My fault.
-
-These patches originate from a garbage pile of an old working
-branch of mine and it never was in a shape where each patch
-was building on its own, and it was also never checkpatch-clean.
-
-I also never got around splitting it into smaller bites.
+-- 
+2.8.0.rc2
