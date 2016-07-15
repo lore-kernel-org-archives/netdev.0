@@ -1,156 +1,356 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH net-next v2 00/10] NCSI Support
-Date: Fri, 15 Jul 2016 20:44:10 +1000
-Message-ID: <1468579460-13768-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH net-next v2 05/10] net/ncsi: NCSI AEN packet handler
+Date: Fri, 15 Jul 2016 20:44:15 +1000
+Message-ID: <1468579460-13768-6-git-send-email-gwshan@linux.vnet.ibm.com>
+References: <1468579460-13768-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: davem@davemloft.net, benh@kernel.crashing.org, joel@jms.id.au,
 	gerlitz.or@gmail.com, weixue@trustnetic.com, yuvali@mellanox.com,
 	alexei.starovoitov@gmail.com, f.fainelli@gmail.com,
 	Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:37844 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:51058 "EHLO
 	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932610AbcGOKvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 06:51:11 -0400
-Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6FAnG3H126332
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 06:51:10 -0400
-Received: from e23smtp04.au.ibm.com (e23smtp04.au.ibm.com [202.81.31.146])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 246k0ujwyn-1
+	by vger.kernel.org with ESMTP id S932665AbcGOKvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 06:51:21 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6FAnEuL102987
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 06:51:20 -0400
+Received: from e28smtp02.in.ibm.com (e28smtp02.in.ibm.com [125.16.236.2])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 246kcjtfck-1
 	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 06:51:10 -0400
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 06:51:20 -0400
 Received: from localhost
-	by e23smtp04.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e28smtp02.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Fri, 15 Jul 2016 20:51:07 +1000
-Received: from d23relay06.au.ibm.com (d23relay06.au.ibm.com [9.185.63.219])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id 95B373578058
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 20:51:04 +1000 (EST)
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-	by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6FAp4k127000878
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 20:51:04 +1000
-Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
-	by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6FAp3RB027490
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 20:51:04 +1000
+	Fri, 15 Jul 2016 16:21:16 +0530
+Received: from d28relay09.in.ibm.com (d28relay09.in.ibm.com [9.184.220.160])
+	by d28dlp03.in.ibm.com (Postfix) with ESMTP id 0923D125805E
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:24:06 +0530 (IST)
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay09.in.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6FApDPB38535362
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:21:14 +0530
+Received: from d28av03.in.ibm.com (localhost [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6FAp9Rj025399
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:21:13 +0530
+In-Reply-To: <1468579460-13768-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series rebases on David's linux-net git repo ("master" branch). It's
-to support NCSI stack on drivers/net/ethernet/faraday/ftgmac100.c. The
-implementation is based on NCSI spec (version: 1.1.0):
-https://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.1.0.pdf
+This introduces NCSI AEN packet handlers that result in (A) the
+currently active channel is reconfigured; (B) Currently active
+channel is deconfigured and disabled, another channel is chosen
+as active one and configured. Case (B) won't happen if hardware
+arbitration has been enabled, the channel that was in active
+state is suspended simply.
 
-As the following figure shows and defined in NCSI spec:
-
- * The NC-SI (aka NCSI) is defined as the interface between a (Base)
-   Management Controller (BMC) and one or multiple Network Interface
-   Controlers (NIC) on host side. The interface is responsible for providing
-   external network connectivity for BMC.
- * Each BMC can connect to multiple packages, up to 8. Each package can have
-   multiple channels, up to 32. Every package and channel are identified by
-   3-bits and 5-bits in NCSI packet.
- * NCSI packet, encapsulated in ethernet frame, has 0x88F8 in the protocol
-   field. The destination MAC address should be 0xFF's while the source MAC
-   address can be arbitrary one.
- * NCSI packets are classified to command, response, AEN (Asynchronous Event Notification).
-   Commands are sent from BMC to host (NIC) for configuration and
-   information retrival. Responses, corresponding to commands, are sent from
-   host to BMC for confirmation and requested information. One command should
-   have one and only one response. AEN is sent from host to BMC for notification
-   (e.g. link down on active channel) so that BMC can take appropriate action.
-
-   +------------------+        +----------------------------------------------+
-   |                  |        |                     Host                     |
-   |        BMC       |        |                                              |
-   |                  |        | +-------------------+  +-------------------+ |
-   |    +---------+   |        | |     Package-A     |  |     Package-B     | |
-   |    |         |   |        | +---------+---------+  +-------------------+ |
-   |    |ftgmac100|   |        | | Channel | Channel |  | Channel | Channel | |
-   +----+----+----+---+        +-+---------+---------+--+---------+---------+-+
-             |                             |                      |
-             |                             |                      |
-             +-----------------------------+----------------------+
-
-The series of patches is highlighted as:
-
-The design for the patchset is highlighted as below:
-
- * The network driver uses 3 interfaces exported from NCSI stack:
-   ncsi_register_dev() - Register (create) a associated NCSI device.
-   ncsi_start_dev() - Bring up the NCSI device.
-   ncsi_unregister_dev() - Destroy the registered NCSI device.
- * There are several data structures introduced for different objects:
-   struct ncsi_dev - NCSI device seen by network device driver.
-   struct ncsi_dev_priv - NCSI device seen by NCSI stack.
-   struct ncsi_package - NCSI package which can have multiple channels.
-   struct ncsi_channel - NCSI channel.
- * The NCSI stack is driven by workqueue and state machine internally.
- * The all available NCSI packages and channels are enumerated (probed) on
-   the first call to ncsi_start_dev(). The NCSI topology won't change until
-   the NCSI device is destroyed.
- * All available channels will be brought up When the hardware arbitration
-   is enabled. Otherwise, only one channel is selected as active one. The
-   NCSI internal is driven by state machine with help of a workqueue. In
-   the meanwhile, there are 3 states for each channel which can be put into
-   a queue requesting for configuration or suspending. Channels in the queue
-   with inactive state set will be configured (bringup) while channels in
-   the queue with active state will be suspended (teardown). The request
-   configuration or suspending is being applied on the channel if it's in
-   invisible state.
- * Failover, another inactive channel is selected as active, can happen when
-   the hardware arbitration is disabled. The failover can be caused by timeout
-   on link monitor and AEN.
- * NCSI stack should be configurable through netlink or another mechanism, it's
-   not implemented in this patchset. It's something TBD.
- * The first NIC driver that is aware of NCSI: drivers/net/ethernet/faraday/ftgmac100.c
-
-Changelog
-=========
-v1 -> v2:
- * Support NCSI spec v1.1.0 (3 more commands and 4 hardware arbitration
-   modes added).
- * Enable AEN packets according to the supported list.
- * Introduce NCSI channel states and processing queue in order to support
-   the hardware arbitration.
- * The hardware arbitration is supported (tested with emulated environment).
- * Introduce link monitor with GLS (Get Link Status) command/response as part
-   of the error handling defined in NCSI spec.
- * Support IPv6 address discovery when CONFIG_IPV6 is enabled.
-
-Gavin Shan (10):
-  net/ncsi: Resource management
-  net/ncsi: NCSI command packet handler
-  net/ncsi: NCSI response packet handler
-  net/ncsi: Package and channel management
-  net/ncsi: NCSI AEN packet handler
-  net/faraday: Helper functions to create or destroy MDIO interface
-  net/faraday: Read MAC address from chip
-  net/faraday: Support NCSI mode
-  net/faraday: Match driver according to compatible property
-  net/faraday: Mask PHY interrupt with NCSI mode
-
- drivers/net/ethernet/faraday/ftgmac100.c |  280 +++++--
- include/net/ncsi.h                       |   52 ++
- net/Kconfig                              |    1 +
- net/Makefile                             |    1 +
- net/ncsi/Kconfig                         |   12 +
- net/ncsi/Makefile                        |    4 +
- net/ncsi/internal.h                      |  328 ++++++++
- net/ncsi/ncsi-aen.c                      |  193 +++++
- net/ncsi/ncsi-cmd.c                      |  367 +++++++++
- net/ncsi/ncsi-manage.c                   | 1199 ++++++++++++++++++++++++++++++
- net/ncsi/ncsi-pkt.h                      |  415 +++++++++++
- net/ncsi/ncsi-rsp.c                      | 1035 ++++++++++++++++++++++++++
- 12 files changed, 3824 insertions(+), 63 deletions(-)
- create mode 100644 include/net/ncsi.h
- create mode 100644 net/ncsi/Kconfig
- create mode 100644 net/ncsi/Makefile
- create mode 100644 net/ncsi/internal.h
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Acked-by: Joel Stanley <joel@jms.id.au>
+---
+ net/ncsi/Makefile   |   2 +-
+ net/ncsi/internal.h |   1 +
+ net/ncsi/ncsi-aen.c | 193 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ncsi/ncsi-pkt.h |  36 ++++++++++
+ net/ncsi/ncsi-rsp.c |   6 +-
+ 5 files changed, 236 insertions(+), 2 deletions(-)
  create mode 100644 net/ncsi/ncsi-aen.c
- create mode 100644 net/ncsi/ncsi-cmd.c
- create mode 100644 net/ncsi/ncsi-manage.c
- create mode 100644 net/ncsi/ncsi-pkt.h
- create mode 100644 net/ncsi/ncsi-rsp.c
 
+diff --git a/net/ncsi/Makefile b/net/ncsi/Makefile
+index 4751819..dd12b56 100644
+--- a/net/ncsi/Makefile
++++ b/net/ncsi/Makefile
+@@ -1,4 +1,4 @@
+ #
+ # Makefile for NCSI API
+ #
+-obj-$(CONFIG_NET_NCSI) += ncsi-cmd.o ncsi-rsp.o ncsi-manage.o
++obj-$(CONFIG_NET_NCSI) += ncsi-cmd.o ncsi-rsp.o ncsi-aen.o ncsi-manage.o
+diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
+index 38fc95a..33738c0 100644
+--- a/net/ncsi/internal.h
++++ b/net/ncsi/internal.h
+@@ -323,5 +323,6 @@ u32 ncsi_calculate_checksum(unsigned char *data, int len);
+ int ncsi_xmit_cmd(struct ncsi_cmd_arg *nca);
+ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 		 struct packet_type *pt, struct net_device *orig_dev);
++int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb);
+ 
+ #endif /* __NCSI_INTERNAL_H__ */
+diff --git a/net/ncsi/ncsi-aen.c b/net/ncsi/ncsi-aen.c
+new file mode 100644
+index 0000000..d463468
+--- /dev/null
++++ b/net/ncsi/ncsi-aen.c
+@@ -0,0 +1,193 @@
++/*
++ * Copyright Gavin Shan, IBM Corporation 2016.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++
++#include <net/ncsi.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
++
++#include "internal.h"
++#include "ncsi-pkt.h"
++
++static int ncsi_validate_aen_pkt(struct ncsi_aen_pkt_hdr *h,
++				 const unsigned short payload)
++{
++	u32 checksum;
++	__be32 *pchecksum;
++
++	if (h->common.revision != NCSI_PKT_REVISION)
++		return -EINVAL;
++	if (ntohs(h->common.length) != payload)
++		return -EINVAL;
++
++	/* Validate checksum, which might be zeroes if the
++	 * sender doesn't support checksum according to NCSI
++	 * specification.
++	 */
++	pchecksum = (__be32 *)((void *)(h + 1) + payload - 4);
++	if (ntohl(*pchecksum) == 0)
++		return 0;
++
++	checksum = ncsi_calculate_checksum((unsigned char *)h,
++					   sizeof(*h) + payload - 4);
++	if (*pchecksum != htonl(checksum))
++		return -EINVAL;
++
++	return 0;
++}
++
++static int ncsi_aen_handler_lsc(struct ncsi_dev_priv *ndp,
++				struct ncsi_aen_pkt_hdr *h)
++{
++	struct ncsi_aen_lsc_pkt *lsc;
++	struct ncsi_channel *nc;
++	struct ncsi_channel_mode *ncm;
++	unsigned long old_data;
++	unsigned long flags;
++
++	/* Find the NCSI channel */
++	ncsi_find_package_and_channel(ndp, h->common.channel, NULL, &nc);
++	if (!nc)
++		return -ENODEV;
++
++	/* Update the link status */
++	ncm = &nc->modes[NCSI_MODE_LINK];
++	lsc = (struct ncsi_aen_lsc_pkt *)h;
++	old_data = ncm->data[2];
++	ncm->data[2] = ntohl(lsc->status);
++	ncm->data[4] = ntohl(lsc->oem_status);
++	if (!((old_data ^ ncm->data[2]) & 0x1) ||
++	    !list_empty(&nc->link))
++		return 0;
++	if (!(nc->state == NCSI_CHANNEL_INACTIVE && (ncm->data[2] & 0x1)) &&
++	    !(nc->state == NCSI_CHANNEL_ACTIVE && !(ncm->data[2] & 0x1)))
++		return 0;
++
++	if (!(ndp->flags & NCSI_DEV_HWA) &&
++	    nc->state == NCSI_CHANNEL_ACTIVE)
++		ndp->flags |= NCSI_DEV_RESHUFFLE;
++
++	ncsi_stop_channel_monitor(nc);
++	spin_lock_irqsave(&ndp->lock, flags);
++	list_add_tail_rcu(&nc->link, &ndp->channel_queue);
++	spin_unlock_irqrestore(&ndp->lock, flags);
++
++	return ncsi_process_next_channel(ndp);
++}
++
++static int ncsi_aen_handler_cr(struct ncsi_dev_priv *ndp,
++			       struct ncsi_aen_pkt_hdr *h)
++{
++	struct ncsi_channel *nc;
++	unsigned long flags;
++
++	/* Find the NCSI channel */
++	ncsi_find_package_and_channel(ndp, h->common.channel, NULL, &nc);
++	if (!nc)
++		return -ENODEV;
++
++	if (!list_empty(&nc->link) ||
++	    nc->state != NCSI_CHANNEL_ACTIVE)
++		return 0;
++
++	ncsi_stop_channel_monitor(nc);
++	spin_lock_irqsave(&ndp->lock, flags);
++	xchg(&nc->state, NCSI_CHANNEL_INACTIVE);
++	list_add_tail_rcu(&nc->link, &ndp->channel_queue);
++	spin_unlock_irqrestore(&ndp->lock, flags);
++
++	return ncsi_process_next_channel(ndp);
++}
++
++static int ncsi_aen_handler_hncdsc(struct ncsi_dev_priv *ndp,
++				   struct ncsi_aen_pkt_hdr *h)
++{
++	struct ncsi_channel *nc;
++	struct ncsi_channel_mode *ncm;
++	struct ncsi_aen_hncdsc_pkt *hncdsc;
++	unsigned long flags;
++
++	/* Find the NCSI channel */
++	ncsi_find_package_and_channel(ndp, h->common.channel, NULL, &nc);
++	if (!nc)
++		return -ENODEV;
++
++	/* If the channel is active one, we need reconfigure it */
++	ncm = &nc->modes[NCSI_MODE_LINK];
++	hncdsc = (struct ncsi_aen_hncdsc_pkt *)h;
++	ncm->data[3] = ntohl(hncdsc->status);
++	if (!list_empty(&nc->link) ||
++	    nc->state != NCSI_CHANNEL_ACTIVE ||
++	    (ncm->data[3] & 0x1))
++		return 0;
++
++	if (ndp->flags & NCSI_DEV_HWA)
++		ndp->flags |= NCSI_DEV_RESHUFFLE;
++
++	/* If this channel is the active one and the link doesn't
++	 * work, we have to choose another channel to be active one.
++	 * The logic here is exactly similar to what we do when link
++	 * is down on the active channel.
++	 */
++	ncsi_stop_channel_monitor(nc);
++	spin_lock_irqsave(&ndp->lock, flags);
++	list_add_tail_rcu(&nc->link, &ndp->channel_queue);
++	spin_unlock_irqrestore(&ndp->lock, flags);
++
++	ncsi_process_next_channel(ndp);
++
++	return 0;
++}
++
++static struct ncsi_aen_handler {
++	unsigned char type;
++	int           payload;
++	int           (*handler)(struct ncsi_dev_priv *ndp,
++				 struct ncsi_aen_pkt_hdr *h);
++} ncsi_aen_handlers[] = {
++	{ NCSI_PKT_AEN_LSC,    12, ncsi_aen_handler_lsc    },
++	{ NCSI_PKT_AEN_CR,      4, ncsi_aen_handler_cr     },
++	{ NCSI_PKT_AEN_HNCDSC,  4, ncsi_aen_handler_hncdsc }
++};
++
++int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb)
++{
++	struct ncsi_aen_pkt_hdr *h;
++	struct ncsi_aen_handler *nah = NULL;
++	int i, ret;
++
++	/* Find the handler */
++	h = (struct ncsi_aen_pkt_hdr *)skb_network_header(skb);
++	for (i = 0; i < ARRAY_SIZE(ncsi_aen_handlers); i++) {
++		if (ncsi_aen_handlers[i].type == h->type) {
++			nah = &ncsi_aen_handlers[i];
++			break;
++		}
++	}
++
++	if (!nah) {
++		netdev_warn(ndp->ndev.dev, "Invalid AEN (0x%x) received\n",
++			    h->type);
++		return -ENOENT;
++	}
++
++	ret = ncsi_validate_aen_pkt(h, nah->payload);
++	if (ret)
++		goto out;
++
++	ret = nah->handler(ndp, h);
++out:
++	consume_skb(skb);
++	return ret;
++}
+diff --git a/net/ncsi/ncsi-pkt.h b/net/ncsi/ncsi-pkt.h
+index 4bdefd9..3ea49ed 100644
+--- a/net/ncsi/ncsi-pkt.h
++++ b/net/ncsi/ncsi-pkt.h
+@@ -31,6 +31,12 @@ struct ncsi_rsp_pkt_hdr {
+ 	__be16              reason; /* Response reason           */
+ };
+ 
++struct ncsi_aen_pkt_hdr {
++	struct ncsi_pkt_hdr common;       /* Common NCSI packet header */
++	unsigned char       reserved2[3]; /* Reserved                  */
++	unsigned char       type;         /* AEN packet type           */
++};
++
+ /* NCSI common command packet */
+ struct ncsi_cmd_pkt {
+ 	struct ncsi_cmd_pkt_hdr cmd;      /* Command header */
+@@ -296,6 +302,30 @@ struct ncsi_rsp_gpuuid_pkt {
+ 	__be32                  checksum;
+ };
+ 
++/* AEN: Link State Change */
++struct ncsi_aen_lsc_pkt {
++	struct ncsi_aen_pkt_hdr aen;        /* AEN header      */
++	__be32                  status;     /* Link status     */
++	__be32                  oem_status; /* OEM link status */
++	__be32                  checksum;   /* Checksum        */
++	unsigned char           pad[14];
++};
++
++/* AEN: Configuration Required */
++struct ncsi_aen_cr_pkt {
++	struct ncsi_aen_pkt_hdr aen;      /* AEN header */
++	__be32                  checksum; /* Checksum   */
++	unsigned char           pad[22];
++};
++
++/* AEN: Host Network Controller Driver Status Change */
++struct ncsi_aen_hncdsc_pkt {
++	struct ncsi_aen_pkt_hdr aen;      /* AEN header */
++	__be32                  status;   /* Status     */
++	__be32                  checksum; /* Checksum   */
++	unsigned char           pad[18];
++};
++
+ /* NCSI packet revision */
+ #define NCSI_PKT_REVISION	0x01
+ 
+@@ -376,4 +406,10 @@ struct ncsi_rsp_gpuuid_pkt {
+ #define NCSI_PKT_RSP_R_LENGTH		0x0005 /* Invalid payload length   */
+ #define NCSI_PKT_RSP_R_UNKNOWN		0x7fff /* Command type unsupported */
+ 
++/* NCSI AEN packet type */
++#define NCSI_PKT_AEN		0xFF /* AEN Packet               */
++#define NCSI_PKT_AEN_LSC	0x00 /* Link status change       */
++#define NCSI_PKT_AEN_CR		0x01 /* Configuration required   */
++#define NCSI_PKT_AEN_HNCDSC	0x02 /* HNC driver status change */
++
+ #endif /* __NCSI_PKT_H__ */
+diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
+index a21af88..af84389 100644
+--- a/net/ncsi/ncsi-rsp.c
++++ b/net/ncsi/ncsi-rsp.c
+@@ -980,8 +980,12 @@ int ncsi_rcv_rsp(struct sk_buff *skb, struct net_device *dev,
+ 	if (!ndp)
+ 		return -ENODEV;
+ 
+-	/* Find the handler */
++	/* Check if it is AEN packet */
+ 	hdr = (struct ncsi_pkt_hdr *)skb_network_header(skb);
++	if (hdr->type == NCSI_PKT_AEN)
++		return ncsi_aen_handler(ndp, skb);
++
++	/* Find the handler */
+ 	for (i = 0; i < ARRAY_SIZE(ncsi_rsp_handlers); i++) {
+ 		if (ncsi_rsp_handlers[i].type == hdr->type) {
+ 			if (ncsi_rsp_handlers[i].handler)
 -- 
 2.1.0
