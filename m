@@ -1,62 +1,56 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: enable per-socket rate limiting of all
- 'challenge acks'
-Date: Fri, 15 Jul 2016 09:39:43 -0400
-Message-ID: <CADVnQymN+jE2875ZFGOpe1W7wham6a-UuX2ZVytRhxKL8r3fMg@mail.gmail.com>
-References: <1468510720-322-1-git-send-email-jbaron@akamai.com>
+From: Topi Miettinen <toiwoton@gmail.com>
+Subject: Re: [PATCH 00/14] Present useful limits to user (v2)
+Date: Fri, 15 Jul 2016 13:52:48 +0000
+Message-ID: <28b4b919-4f50-d9f6-c5e1-d1e92ea1ba1c@gmail.com>
+References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
+ <20160715124330.GR30154@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>, Yue Cao <ycao009@ucr.edu>
-To: Jason Baron <jbaron@akamai.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:36234 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498AbcGONkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 09:40:14 -0400
-Received: by mail-oi0-f52.google.com with SMTP id w18so163592503oiw.3
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 06:40:13 -0700 (PDT)
-In-Reply-To: <1468510720-322-1-git-send-email-jbaron@akamai.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+ Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>,
+ Alexander Graf <agraf@suse.com>, Paolo Bonzini <pbonzini@redhat.com>,
+ =?UTF-8?B?UmFkaW0gS3LEjW3DocWZ?= <rkrcmar@redhat.com>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
+ Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
+ "H. Peter Anvin" <hpa@zytor.com>,
+ "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>,
+ Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
+ Hal Rosenstock <hal.rosenstock@gmail.com>,
+ Mike Marciniszyn <mike.marciniszyn@intel.com>,
+ Dennis Dalessandro <dennis.dalessandro@intel.com>,
+ Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>,
+ Sudeep Dutt <sudeep.dutt@intel.com>,
+ Ashu
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160715124330.GR30154@twins.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 14, 2016 at 11:38 AM, Jason Baron <jbaron@akamai.com> wrote:
->
-> From: Jason Baron <jbaron@akamai.com>
->
-> The per-socket rate limit for 'challenge acks' was introduced in the
-> context of limiting ack loops:
->
-> commit f2b2c582e824 ("tcp: mitigate ACK loops for connections as tcp_sock")
->
-> And I think it can be extended to rate limit all 'challenge acks' on a
-> per-socket basis.
->
-> Since we have the global tcp_challenge_ack_limit, this patch allows for
-> tcp_challenge_ack_limit to be set to a large value and effectively rely on
-> the per-socket limit, or set tcp_challenge_ack_limit to a lower value and
-> still prevents a single connections from consuming the entire challenge ack
-> quota.
->
-> It further moves in the direction of eliminating the global limit at some
-> point, as Eric Dumazet has suggested. This a follow-up to:
-> Subject: tcp: make challenge acks less predictable
->
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Yue Cao <ycao009@ucr.edu>
-> Signed-off-by: Jason Baron <jbaron@akamai.com>
-> ---
->  net/ipv4/tcp_input.c | 39 ++++++++++++++++++++++-----------------
->  1 file changed, 22 insertions(+), 17 deletions(-)
+On 07/15/16 12:43, Peter Zijlstra wrote:
+> On Fri, Jul 15, 2016 at 01:35:47PM +0300, Topi Miettinen wrote:
+>> Hello,
+>>
+>> There are many basic ways to control processes, including capabilities,
+>> cgroups and resource limits. However, there are far fewer ways to find out
+>> useful values for the limits, except blind trial and error.
+>>
+>> This patch series attempts to fix that by giving at least a nice starting
+>> point from the highwater mark values of the resources in question.
+>> I looked where each limit is checked and added a call to update the mark
+>> nearby.
+> 
+> And how is that useful? Setting things to the high watermark is
+> basically the same as not setting the limit at all.
 
-Sounds good to me.
+What else would you use, too small limits?
 
- Acked-by: Neal Cardwell <ncardwell@google.com>
+-Topi
 
-thanks,
-neal
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
