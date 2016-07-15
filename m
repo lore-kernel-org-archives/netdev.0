@@ -1,115 +1,129 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
- Network Adapters (ENA)
-Date: Fri, 15 Jul 2016 18:47:48 +0300
-Message-ID: <20160715154748.GA10556@leon.nu>
-References: <1468478774-19942-1-git-send-email-netanel@annapurnalabs.com>
- <20160715050005.GD30603@leon.nu>
- <20160715151759.lfsncj62gi2b7mas@f1.synalogic.ca>
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Subject: [PATCH 4/4 v4] Marvell phy: add functions to suspend and resume both,
+ interfaces: fiber and copper links.
+Date: Fri, 15 Jul 2016 12:13:10 +0200
+Message-ID: <1d7ec528-7d58-d35c-b585-69657fe8d517@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NzB8fVQJ5HfG6fxh"
-Cc: Netanel Belgazal <netanel@annapurnalabs.com>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
-	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
-	aliguori@amazon.com, ben@decadent.org.uk, romieu@fr.zoreil.com,
-	rami.rosen@intel.com, antoine.tenart@free-electrons.com
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160715151759.lfsncj62gi2b7mas@f1.synalogic.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 14.mo3.mail-out.ovh.net ([188.165.43.98]:59563 "EHLO
+	14.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751000AbcGOQIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 12:08:49 -0400
+Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
+	by mo3.mail-out.ovh.net (Postfix) with ESMTP id 93A1B1030687
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 12:13:10 +0200 (CEST)
+Received: from [192.168.1.29] (LFbn-1-1866-70.w90-73.abo.wanadoo.fr [90.73.165.70])
+	(Authenticated sender: charles-antoine.couret@nexvision.fr)
+	by player734.ha.ovh.net (Postfix) with ESMTPSA id 84255280073
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 12:13:10 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---NzB8fVQJ5HfG6fxh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>From 95a2a268629ee2778f0ad65a273d70bcf912c4b0 Mon Sep 17 00:00:00 2001
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Date: Fri, 15 Jul 2016 11:58:09 +0200
+Subject: [PATCH 4/4] Marvell phy: add functions to suspend and resume both
+ interfaces: fiber and copper links.
 
-On Fri, Jul 15, 2016 at 08:17:59AM -0700, Benjamin Poirier wrote:
-> On 2016/07/15 08:00, Leon Romanovsky wrote:
-> > On Thu, Jul 14, 2016 at 09:46:14AM +0300, Netanel Belgazal wrote:
-> > > This is a driver for the ENA family of networking devices.
-> > >=20
-> > > Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
-> > > ---
-> > >=20
-> > > Notes:
-> >=20
-> > ...
-> >=20
-> > >     - Increase driver version to 1.0.2
-> >=20
-> > ...
-> >=20
-> > > +static void ena_get_drvinfo(struct net_device *dev,
-> > > +			    struct ethtool_drvinfo *info)
-> > > +{
-> > > +	struct ena_adapter *adapter =3D netdev_priv(dev);
-> > > +
-> > > +	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
-> > > +	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
-> >=20
-> > Does module version give anything valuable in real life usage?
-> > Do you plan to bump version after every patch?
-> >=20
-> > Hint, NO.
-> >=20
-> [...]
-> > > +
-> > > +#define DRV_MODULE_VER_MAJOR	1
-> > > +#define DRV_MODULE_VER_MINOR	0
-> > > +#define DRV_MODULE_VER_SUBMINOR 1
-> > > +
-> > > +#define DRV_MODULE_NAME		"ena"
-> > > +#ifndef DRV_MODULE_VERSION
-> > > +#define DRV_MODULE_VERSION \
-> > > +	__stringify(DRV_MODULE_VER_MAJOR) "."	\
-> > > +	__stringify(DRV_MODULE_VER_MINOR) "."	\
-> > > +	__stringify(DRV_MODULE_VER_SUBMINOR)
-> > > +#endif
-> > > +#define DRV_MODULE_RELDATE      "22-JUNE-2016"
-> >=20
-> > Please remove it, driver version is useless in real life kernel usage.
-> >=20
->=20
-> The release date might be a bit overkill but the driver version is
-> useful in the context of distribution kernels where users sometimes mix
-> and match newer drivers (ex: the intel sf.net drivers) with older
-> kernels. When a bug is reported, a quick look at the module version can
-> help indicate the provenance of the driver.
+Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+---
+ drivers/net/phy/marvell.c | 73 +++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 71 insertions(+), 2 deletions(-)
 
-We already discussed it in a number of occasions, for example this is
-response of Greg Kroah-Hartman to similar attempt to bump driver version
-[1].
-
-And as I said before, mostly this driver will change without any
-reflection in driver version.
-
-[1] http://www.spinics.net/lists/linux-rdma/msg29855.html
-
---NzB8fVQJ5HfG6fxh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXiQWkAAoJEORje4g2clin+dEQAMIndaPREeg3MOTisDMNJwAG
-pR5Ai2O8E9JaMod3a0Erq9EEmkHtX3F9E8l2mU3OAEKIeIfSW0v9czmtCWqoK5MD
-3CkHl5OPlHq7xYmJFSGCltwjJeRVR29PiRI80e/n8g5KUbpZ4s8ySxQ22bhLsJKq
-eeizkDITaIqnYDGyyyqvHigjvyRzuBiwf4cvvqIgipzZ6oBvl9iP1Vo0tRoqTTeR
-7jNi6/UjfsAle7SM9Rt9HCNcVwLZxNkmRJwLn8iK4ZrOkjUvUGouudfjlIpWQyTZ
-O+GIeh7+pd3t2YrzbZ9F6YZPttbt81cihP8OA6MKv0Oe9F8f/JB/r68A5IpwmPIU
-rc88wuMKPrg+6tJE57HUgDyWjYzsyw28DSC7V5pdEIA9GVj8Z2F0OFvwpQRow6Uf
-cfjyZVNB3xm0i4FbEviSSZhVX39h+xHchhXe7UzSfexfUrw1iAzHsy6h3tB3Eh+i
-+aX9iyNVDtdb/MekcmTe6cff+jELoTd6TP7a3SW0x3WyUoMloJ5ZSirDoOHsdgHw
-HAt6Znw8Dble9Y49Qos06SsbuPcaPyQ6XHzRknXFglLs7Q4fHpkaTTAXj7EvPZzB
-ZvAifdlgUJ69OqH+HcqpXu+YhZYKkMg94GiQ7h8D7boaSi7XHaokW/u9j5QZpHet
-rlzJzVD/kv7lTQ61yReb
-=yUuo
------END PGP SIGNATURE-----
-
---NzB8fVQJ5HfG6fxh--
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index e05209b..ddb413a 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -1224,6 +1224,75 @@ error:
+ 	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
+ 	return err;
+ }
++
++/* marvell_suspend
++ *
++ * Some Marvell's phys have two modes: fiber and copper.
++ * Both need to be suspended
++ */
++static int marvell_suspend(struct phy_device *phydev)
++{
++	int err;
++
++	/* Suspend the fiber mode first */
++	if (!(phydev->supported & SUPPORTED_FIBRE)) {
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
++		if (err < 0)
++			goto error;
++
++		/* With the page set, use the generic suspend */
++		err = genphy_suspend(phydev);
++		if (err < 0)
++			goto error;
++
++		/* Then, the copper link */
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++		if (err < 0)
++			goto error;
++	}
++
++	/* With the page set, use the generic suspend */
++	return genphy_suspend(phydev);
++
++error:
++	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++	return err;
++}
++
++/* marvell_resume
++ *
++ * Some Marvell's phys have two modes: fiber and copper.
++ * Both need to be resumed
++ */
++static int marvell_resume(struct phy_device *phydev)
++{
++	int err;
++
++	/* Resume the fiber mode first */
++	if (!(phydev->supported & SUPPORTED_FIBRE)) {
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
++		if (err < 0)
++			goto error;
++
++		/* With the page set, use the generic resume */
++		err = genphy_resume(phydev);
++		if (err < 0)
++			goto error;
++
++		/* Then, the copper link */
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++		if (err < 0)
++			goto error;
++	}
++
++	/* With the page set, use the generic resume */
++	return genphy_resume(phydev);
++
++error:
++	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++	return err;
++}
++
+ static int marvell_aneg_done(struct phy_device *phydev)
+ {
+ 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
+@@ -1611,8 +1680,8 @@ static struct phy_driver marvell_drivers[] = {
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+ 		.did_interrupt = &m88e1121_did_interrupt,
+-		.resume = &genphy_resume,
+-		.suspend = &genphy_suspend,
++		.resume = &marvell_resume,
++		.suspend = &marvell_suspend,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+-- 
+2.7.4
