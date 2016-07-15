@@ -1,73 +1,63 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] dt: bindings: Add a generic ethernet device binding
-Date: Fri, 15 Jul 2016 08:44:37 +0200
-Message-ID: <ef2d70ca-ee49-9052-952d-f6a4daad92f9@redhat.com>
-References: <1468405204-5845-1-git-send-email-hdegoede@redhat.com>
- <20160714.161707.2089949241813985527.davem@davemloft.net>
- <47a052a1-cc8b-0f75-e44a-450c4a0ac075@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <47a052a1-cc8b-0f75-e44a-450c4a0ac075-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/4][pull request] Intel Wired LAN Driver Updates 2016-07-14
+Date: Fri, 15 Jul 2016 00:02:00 -0700
+Message-ID: <1468566124-63101-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	guru.anbalagane@oracle.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:56902 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751756AbcGOHCr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2016 03:02:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This series contains fixes to i40e and ixgbe.
 
-On 15-07-16 08:40, Hans de Goede wrote:
-> Hi,
->
-> On 15-07-16 01:17, David Miller wrote:
->> From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> Date: Wed, 13 Jul 2016 12:20:04 +0200
->>
->>> On some boards (android tablets) different batches use different sdio
->>> wifi modules. This is not a problem since sdio is a discoverable bus,
->>> so we only need to describe and activate the mmc controller in dt and
->>> then the kernel will automatically load the right driver.
->>>
->>> But sometimes it is useful to specify certain ethernet properties for
->>> these "unknown" sdio devices, specifically we want the boot-loader
->>> to be able to set "local-mac-address" as some of these sdio wifi
->>> modules come without an eeprom / without a factory programmed mac
->>> address.
->>>
->>> Since the exact device is unknown (differs per batch) we cannot use
->>> a wifi-chip specific compatible. This commit adds a new
->>> "generic,ethernet" binding for use in dt-nodes describing such an
->>> unknown ethernet device.
->>>
->>> Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
->>> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>
->> Precedence exists for a "system ethernet address" as far back as the
->> original sparc device tree implementation, so please just specify it
->> that way rather than trying to force having to make an alias or
->> reference to it from a specific device.
->
-> Some boards where this is applicable have both a wired and a wireless
-> ethernet, so one global setting will not work.
+Alex fixes issues found in i40e_rx_checksum() which was broken, where the
+checksum was being returned valid when it was not.
 
-And besides that, everything used in this binding already exists, it
-just adds a new "generic,ethernet" compatible, because e.g. the mmc
-bindings specify that the node describing a sdio function _must_
-have a compatible, and as explained in some cases we cannot use
-a compatible for a specific wifi chip since different batches use
-different wifi modules.
+Kiran fixes a bug which was found when we abruptly remove a cable which
+caused a panic.  Set the VSI broadcast promiscuous mode during VSI add
+sequence and prevents adding MAC filter if specified MAC address is
+broadcast.
 
-About the use of "generic,ethernet" looking at the simple-framebuffer
-binding I guess it should be just "ethernet".
+Paolo Abeni fixes a bug by returning the actual work done, capped to
+weight - 1, since the core doesn't allow to return the full budget when
+the driver modifies the NAPI status.
 
-Regards,
+Guilherme Piccoli fixes an issue where the q_vector initialization
+routine sets the affinity _mask of a q_vector based on v_idx value.
+This means a loop iterates on v_idx, which is an incremental value, and
+the cpumask is created based on this value.  This is a problem in
+systems with multiple logical CPUs per core (like in SMT scenarios).
+Changed the way q_vector's affinity_mask is created to resolve the issue.
 
-Hans
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The following are changes since commit 005db31d5f5f7c31cfdc43505d77eb3ca5cf8ec6:
+  bonding: set carrier off for devices created through netlink
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue master
+
+Alexander Duyck (1):
+  i40e/i40evf: Fix i40e_rx_checksum
+
+Guilherme G. Piccoli (1):
+  i40e: use valid online CPU on q_vector initialization
+
+Kiran Patil (1):
+  i40e: enable VSI broadcast promiscuous mode instead of adding
+    broadcast filter
+
+Paolo Abeni (1):
+  ixgbe: napi_poll must return the work done
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c   | 48 +++++++++++++++++----------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 30 +++++++++--------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 30 +++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  2 +-
+ 4 files changed, 66 insertions(+), 44 deletions(-)
+
+-- 
+2.5.5
