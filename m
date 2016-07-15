@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v9 01/11] bpf: add XDP prog type for early driver filter
-Date: Fri, 15 Jul 2016 16:28:48 -0700
-Message-ID: <1468625338-32391-2-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v9 11/11] bpf: add sample for xdp forwarding and rewrite
+Date: Fri, 15 Jul 2016 16:28:58 -0700
+Message-ID: <1468625338-32391-12-git-send-email-bblanco@plumgrid.com>
 References: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -16,248 +16,186 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33603 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751762AbcGOX32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:29:28 -0400
-Received: by mail-pf0-f176.google.com with SMTP id y134so19354305pfg.0
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:29:27 -0700 (PDT)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35412 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbcGOX3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:29:40 -0400
+Received: by mail-pf0-f175.google.com with SMTP id c2so45563843pfa.2
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:29:40 -0700 (PDT)
 In-Reply-To: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new bpf prog type that is intended to run in early stages of the
-packet rx path. Only minimal packet metadata will be available, hence a
-new context type, struct xdp_md, is exposed to userspace. So far only
-expose the packet start and end pointers, and only in read mode.
+Add a sample that rewrites and forwards packets out on the same
+interface. Observed single core forwarding performance of ~10Mpps.
 
-An XDP program must return one of the well known enum values, all other
-return codes are reserved for future use. Unfortunately, this
-restriction is hard to enforce at verification time, so take the
-approach of warning at runtime when such programs are encountered. Out
-of bounds return codes should alias to XDP_ABORTED.
+Since the mlx4 driver under test recycles every single packet page, the
+perf output shows almost exclusively just the ring management and bpf
+program work. Slowdowns are likely occurring due to cache misses.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- include/linux/filter.h   | 18 +++++++++++
- include/uapi/linux/bpf.h | 20 ++++++++++++
- kernel/bpf/verifier.c    |  1 +
- net/core/filter.c        | 79 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 118 insertions(+)
+ samples/bpf/Makefile    |   5 +++
+ samples/bpf/xdp2_kern.c | 114 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 119 insertions(+)
+ create mode 100644 samples/bpf/xdp2_kern.c
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 6fc31ef..15d816a 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -368,6 +368,11 @@ struct bpf_skb_data_end {
- 	void *data_end;
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 0e4ab3a..d2d2b35 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -22,6 +22,7 @@ hostprogs-y += map_perf_test
+ hostprogs-y += test_overhead
+ hostprogs-y += test_cgrp2_array_pin
+ hostprogs-y += xdp1
++hostprogs-y += xdp2
  
-+struct xdp_buff {
-+	void *data;
-+	void *data_end;
-+};
-+
- /* compute the linear packet data range [data, data_end) which
-  * will be accessed by cls_bpf and act_bpf programs
-  */
-@@ -429,6 +434,18 @@ static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
- 	return BPF_PROG_RUN(prog, skb);
- }
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -44,6 +45,8 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
+ test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+ xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
++# reuse xdp1 source intentionally
++xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
  
-+static inline u32 bpf_prog_run_xdp(const struct bpf_prog *prog,
-+				   struct xdp_buff *xdp)
-+{
-+	u32 ret;
-+
-+	rcu_read_lock();
-+	ret = BPF_PROG_RUN(prog, (void *)xdp);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
- static inline unsigned int bpf_prog_size(unsigned int proglen)
- {
- 	return max(sizeof(struct bpf_prog),
-@@ -509,6 +526,7 @@ bool bpf_helper_changes_skb_data(void *func);
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -67,6 +70,7 @@ always += test_overhead_kprobe_kern.o
+ always += parse_varlen.o parse_simple.o parse_ldabs.o
+ always += test_cgrp2_tc_kern.o
+ always += xdp1_kern.o
++always += xdp2_kern.o
  
- struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
- 				       const struct bpf_insn *patch, u32 len);
-+void bpf_warn_invalid_xdp_action(u32 act);
+ HOSTCFLAGS += -I$(objtree)/usr/include
  
- #ifdef CONFIG_BPF_JIT
- extern int bpf_jit_enable;
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 262a7e8..4282d44 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -94,6 +94,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_CLS,
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
-+	BPF_PROG_TYPE_XDP,
- };
+@@ -88,6 +92,7 @@ HOSTLOADLIBES_spintest += -lelf
+ HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ HOSTLOADLIBES_test_overhead += -lelf -lrt
+ HOSTLOADLIBES_xdp1 += -lelf
++HOSTLOADLIBES_xdp2 += -lelf
  
- #define BPF_PSEUDO_MAP_FD	1
-@@ -437,4 +438,23 @@ struct bpf_tunnel_key {
- 	__u32 tunnel_label;
- };
- 
-+/* User return codes for XDP prog type.
-+ * A valid XDP program must return one of these defined values. All other
-+ * return codes are reserved for future use. Unknown return codes will result
-+ * in packet drop.
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+diff --git a/samples/bpf/xdp2_kern.c b/samples/bpf/xdp2_kern.c
+new file mode 100644
+index 0000000..38fe7e1
+--- /dev/null
++++ b/samples/bpf/xdp2_kern.c
+@@ -0,0 +1,114 @@
++/* Copyright (c) 2016 PLUMgrid
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
 + */
-+enum xdp_action {
-+	XDP_ABORTED = 0,
-+	XDP_DROP,
-+	XDP_PASS,
++#define KBUILD_MODNAME "foo"
++#include <uapi/linux/bpf.h>
++#include <linux/in.h>
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++#include <linux/if_vlan.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include "bpf_helpers.h"
++
++struct bpf_map_def SEC("maps") dropcnt = {
++	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 256,
 +};
 +
-+/* user accessible metadata for XDP packet hook
-+ * new fields must be added to the end of this structure
-+ */
-+struct xdp_md {
-+	__u32 data;
-+	__u32 data_end;
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index e206c21..a8d67d0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -713,6 +713,7 @@ static int check_ptr_alignment(struct verifier_env *env, struct reg_state *reg,
- 	switch (env->prog->type) {
- 	case BPF_PROG_TYPE_SCHED_CLS:
- 	case BPF_PROG_TYPE_SCHED_ACT:
-+	case BPF_PROG_TYPE_XDP:
- 		break;
- 	default:
- 		verbose("verifier is misconfigured\n");
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 10c4a2f..2d770f5 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2369,6 +2369,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 	}
- }
- 
-+static const struct bpf_func_proto *
-+xdp_func_proto(enum bpf_func_id func_id)
++static void swap_src_dst_mac(void *data)
 +{
-+	return sk_filter_func_proto(func_id);
++	unsigned short *p = data;
++	unsigned short dst[3];
++
++	dst[0] = p[0];
++	dst[1] = p[1];
++	dst[2] = p[2];
++	p[0] = p[3];
++	p[1] = p[4];
++	p[2] = p[5];
++	p[3] = dst[0];
++	p[4] = dst[1];
++	p[5] = dst[2];
 +}
 +
- static bool __is_valid_access(int off, int size, enum bpf_access_type type)
- {
- 	if (off < 0 || off >= sizeof(struct __sk_buff))
-@@ -2436,6 +2442,44 @@ static bool tc_cls_act_is_valid_access(int off, int size,
- 	return __is_valid_access(off, size, type);
- }
- 
-+static bool __is_valid_xdp_access(int off, int size,
-+				  enum bpf_access_type type)
++static int parse_ipv4(void *data, u64 nh_off, void *data_end)
 +{
-+	if (off < 0 || off >= sizeof(struct xdp_md))
-+		return false;
-+	if (off % size != 0)
-+		return false;
-+	if (size != 4)
-+		return false;
++	struct iphdr *iph = data + nh_off;
 +
-+	return true;
++	if (iph + 1 > data_end)
++		return 0;
++	return iph->protocol;
 +}
 +
-+static bool xdp_is_valid_access(int off, int size,
-+				enum bpf_access_type type,
-+				enum bpf_reg_type *reg_type)
++static int parse_ipv6(void *data, u64 nh_off, void *data_end)
 +{
-+	if (type == BPF_WRITE)
-+		return false;
++	struct ipv6hdr *ip6h = data + nh_off;
 +
-+	switch (off) {
-+	case offsetof(struct xdp_md, data):
-+		*reg_type = PTR_TO_PACKET;
-+		break;
-+	case offsetof(struct xdp_md, data_end):
-+		*reg_type = PTR_TO_PACKET_END;
-+		break;
++	if (ip6h + 1 > data_end)
++		return 0;
++	return ip6h->nexthdr;
++}
++
++SEC("xdp1")
++int xdp_prog1(struct xdp_md *ctx)
++{
++	void *data_end = (void *)(long)ctx->data_end;
++	void *data = (void *)(long)ctx->data;
++	struct ethhdr *eth = data;
++	int rc = XDP_DROP;
++	long *value;
++	u16 h_proto;
++	u64 nh_off;
++	u32 index;
++
++	nh_off = sizeof(*eth);
++	if (data + nh_off > data_end)
++		return rc;
++
++	h_proto = eth->h_proto;
++
++	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
++		struct vlan_hdr *vhdr;
++
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return rc;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
++	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
++		struct vlan_hdr *vhdr;
++
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return rc;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
 +	}
 +
-+	return __is_valid_xdp_access(off, size, type);
-+}
++	if (h_proto == htons(ETH_P_IP))
++		index = parse_ipv4(data, nh_off, data_end);
++	else if (h_proto == htons(ETH_P_IPV6))
++		index = parse_ipv6(data, nh_off, data_end);
++	else
++		index = 0;
 +
-+void bpf_warn_invalid_xdp_action(u32 act)
-+{
-+	WARN_ONCE(1, "Illegal XDP return value %u, expect packet loss\n", act);
-+}
-+EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
++	value = bpf_map_lookup_elem(&dropcnt, &index);
++	if (value)
++		*value += 1;
 +
- static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 				      int src_reg, int ctx_off,
- 				      struct bpf_insn *insn_buf,
-@@ -2587,6 +2631,29 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 	return insn - insn_buf;
- }
- 
-+static u32 xdp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-+				  int src_reg, int ctx_off,
-+				  struct bpf_insn *insn_buf,
-+				  struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	switch (ctx_off) {
-+	case offsetof(struct xdp_md, data):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct xdp_buff, data));
-+		break;
-+	case offsetof(struct xdp_md, data_end):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data_end)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct xdp_buff, data_end));
-+		break;
++	if (index == 17) {
++		swap_src_dst_mac(data);
++		rc = XDP_TX;
 +	}
 +
-+	return insn - insn_buf;
++	return rc;
 +}
 +
- static const struct bpf_verifier_ops sk_filter_ops = {
- 	.get_func_proto		= sk_filter_func_proto,
- 	.is_valid_access	= sk_filter_is_valid_access,
-@@ -2599,6 +2666,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
- 	.convert_ctx_access	= bpf_net_convert_ctx_access,
- };
- 
-+static const struct bpf_verifier_ops xdp_ops = {
-+	.get_func_proto		= xdp_func_proto,
-+	.is_valid_access	= xdp_is_valid_access,
-+	.convert_ctx_access	= xdp_convert_ctx_access,
-+};
-+
- static struct bpf_prog_type_list sk_filter_type __read_mostly = {
- 	.ops	= &sk_filter_ops,
- 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
-@@ -2614,11 +2687,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
- 	.type	= BPF_PROG_TYPE_SCHED_ACT,
- };
- 
-+static struct bpf_prog_type_list xdp_type __read_mostly = {
-+	.ops	= &xdp_ops,
-+	.type	= BPF_PROG_TYPE_XDP,
-+};
-+
- static int __init register_sk_filter_ops(void)
- {
- 	bpf_register_prog_type(&sk_filter_type);
- 	bpf_register_prog_type(&sched_cls_type);
- 	bpf_register_prog_type(&sched_act_type);
-+	bpf_register_prog_type(&xdp_type);
- 
- 	return 0;
- }
++char _license[] SEC("license") = "GPL";
 -- 
 2.8.2
