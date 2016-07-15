@@ -1,32 +1,55 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH v2 2/2] net: ethernet: ethoc: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Fri, 15 Jul 2016 10:41:01 +0200
-Message-ID: <20160715084101.GF28466@distanz.ch>
-References: <1468569552-24824-1-git-send-email-tremyfr@gmail.com>
- <1468569552-24824-2-git-send-email-tremyfr@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v1 0/3] Add Hisilicon MDIO bus driver and FEMAC driver
+Date: Fri, 15 Jul 2016 10:41:07 +0200
+Message-ID: <20917223.X0KrqBAbxT@wuerfel>
+References: <1468571195-59763-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, andrew@lunn.ch, colin.king@canonical.com,
-	f.fainelli@gmail.com, jcmvbkbc@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:48462 "EHLO sym2.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbcGOIlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2016 04:41:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1468569552-24824-2-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+	frowand.list@gmail.com, davem@davemloft.net, andrew@lunn.ch,
+	xuejiancheng@hisilicon.com, benjamin.chenhao@hisilicon.com,
+	howell.yang@hisilicon.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468571195-59763-1-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2016-07-15 at 09:59:12 +0200, Philippe Reynes <tremyfr@gmail.com> wrote:
-> There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-> so we can use them instead of defining the same code in the driver.
+On Friday, July 15, 2016 4:26:32 PM CEST Dongpo Li wrote:
+> This patch set adds a Hisilicon MDIO bus driver and
+> a Fast Ethernet MAC(FEMAC) driver.
+> We also abstract a general interface "of_phy_get_and_connect"
+> for PHY connect. User will have no bother with getting
+> "phy-mode" and "phy-handle" any more.
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Changes in v1:
+> - Pass private data structure instead of struct mii_bus
+>   in MDIO read and write operation.
+> - Return the error which devm_clk_get() gives when MDIO probe.
+> - Leave the clock unprepared and disabled on error when MDIO probe.
+> - Abstract a general interface "of_phy_get_and_connect" for PHY connect.
+> - Remove the "_reset" suffixes in "reset-names" property.
+> - Enable tx per-packet interrupt when tx fifo full.
+> - Remove pointless compatible and add SoC specific compatible.
+> - Declare only one clock in MAC dts documentation.
+> - Add standard unit suffixes for "phy-reset-delays".
+> - Use a smaller NAPI poll weight 16 for our Fast Ethernet MAC.
+> - Use phy_ethtool_{get|set}_link_ksettings for ethtool ops.
+> - Use phydev from struct net_device in MAC driver.
+> 
 
-Reviewed-by: Tobias Klauser <tklauser@distanz.ch>
+Looks all good to me now,
 
-Thanks
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+
+One comment on the submission format: we normally count the initial
+submission as "v1", so after [PATCH 0/3], the following version is
+[PATCH v2 0/3], not [PATCH v1 0/3].
+
+No need to re-send for this now, and if you end up having to make
+other changes, just continue with "v2" for this driver, just follow
+the normal scheme if you send another driver.
+
+	Arnd
