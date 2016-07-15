@@ -1,32 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] macvtap: switch to use skb array
-Date: Fri, 15 Jul 2016 14:41:04 -0700 (PDT)
-Message-ID: <20160715.144104.184679049933030447.davem@davemloft.net>
-References: <1468568791-30024-1-git-send-email-jasowang@redhat.com>
-	<1468568791-30024-2-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net] tcp: enable per-socket rate limiting of all
+ 'challenge acks'
+Date: Fri, 15 Jul 2016 14:18:42 -0700 (PDT)
+Message-ID: <20160715.141842.54072741247152503.davem@davemloft.net>
+References: <1468510720-322-1-git-send-email-jbaron@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468568791-30024-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, netdev@vger.kernel.org, ncardwell@google.com,
+	ycheng@google.com, ycao009@ucr.edu
+To: jbaron@akamai.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54368 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751430AbcGOVSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 17:18:43 -0400
+In-Reply-To: <1468510720-322-1-git-send-email-jbaron@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Fri, 15 Jul 2016 03:46:31 -0400
+From: Jason Baron <jbaron@akamai.com>
+Date: Thu, 14 Jul 2016 11:38:40 -0400
 
-> This patch switch to use skb array instead of sk_receive_queue to
-> avoid spinlock contentions. Tests shows about 21% improvements for
-> guest rx pps:
+> From: Jason Baron <jbaron@akamai.com>
 > 
-> Before: 1472731 pkts/s
-> After:  1786289 pkts/s
+> The per-socket rate limit for 'challenge acks' was introduced in the
+> context of limiting ack loops:
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> commit f2b2c582e824 ("tcp: mitigate ACK loops for connections as tcp_sock")
+> 
+> And I think it can be extended to rate limit all 'challenge acks' on a
+> per-socket basis.
+> 
+> Since we have the global tcp_challenge_ack_limit, this patch allows for
+> tcp_challenge_ack_limit to be set to a large value and effectively rely on
+> the per-socket limit, or set tcp_challenge_ack_limit to a lower value and
+> still prevents a single connections from consuming the entire challenge ack
+> quota.
+> 
+> It further moves in the direction of eliminating the global limit at some
+> point, as Eric Dumazet has suggested. This a follow-up to:
+> Subject: tcp: make challenge acks less predictable
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Yue Cao <ycao009@ucr.edu>
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
 
-Looks great, nice work.
-
-Applied, thanks Jason.
+Applied, thanks.
