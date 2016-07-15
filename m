@@ -1,46 +1,127 @@
 From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: Re: [PATCH 3/4] Marvell phy: add configuration of autonegociation for
- fiber link.
-Date: Fri, 15 Jul 2016 16:10:03 +0200
-Message-ID: <b5c76156-723f-232a-cf5e-7feb934669ba@nexvision.fr>
-References: <5dcd193f-b060-8b85-a1d9-8f6031b991d1@nexvision.fr>
- <20160715140804.GT6667@lunn.ch>
+Subject: [PATCH 4/4] Marvell phy: add functions to suspend and resume both
+ interfaces
+Date: Fri, 15 Jul 2016 16:11:17 +0200
+Message-ID: <ec31b1f2-57f3-347b-e5b5-b1aa940d49cc@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 10.mo3.mail-out.ovh.net ([87.98.165.232]:49185 "EHLO
-	10.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbcGOOKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 10:10:10 -0400
+Received: from 14.mo3.mail-out.ovh.net ([188.165.43.98]:49991 "EHLO
+	14.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162AbcGOOLU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 10:11:20 -0400
 Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
-	by mo3.mail-out.ovh.net (Postfix) with ESMTP id 05CEE102CAAB
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:10:06 +0200 (CEST)
-In-Reply-To: <20160715140804.GT6667@lunn.ch>
+	by mo3.mail-out.ovh.net (Postfix) with ESMTP id 3DBCC102CA71
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:11:18 +0200 (CEST)
+Received: from [192.168.1.29] (LFbn-1-1866-70.w90-73.abo.wanadoo.fr [90.73.165.70])
+	(Authenticated sender: charles-antoine.couret@nexvision.fr)
+	by player734.ha.ovh.net (Postfix) with ESMTPSA id 5DEE128007C
+	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:11:17 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 15/07/2016 =E0 16:08, Andrew Lunn a =E9crit :
-> On Fri, Jul 15, 2016 at 12:12:39PM +0200, Charles-Antoine Couret wrot=
-e:
->> >From 5be52efa3f1c034c21f80850b651193d1f51a313 Mon Sep 17 00:00:00 2=
-001
->> From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
->> Date: Fri, 15 Jul 2016 11:57:25 +0200
->> Subject: [PATCH 3/4] Marvell phy: add configuration of autonegociati=
-on for
->>  fiber link.
->=20
-> It looks like [4/4] did not make it to the list?
->=20
->    Andrew
+>From 95a2a268629ee2778f0ad65a273d70bcf912c4b0 Mon Sep 17 00:00:00 2001
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Date: Fri, 15 Jul 2016 11:58:09 +0200
+Subject: [PATCH 4/4] Marvell phy: add functions to suspend and resume both
+ interfaces: fiber and copper links.
 
-It's strange, I sent it with others...
+Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+---
+ drivers/net/phy/marvell.c | 73 +++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 71 insertions(+), 2 deletions(-)
 
-I will resend it.
-Thanks for your previous comments.
-
-Regards.
-Charles-Antoine Couret
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index e05209b..ddb413a 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -1224,6 +1224,75 @@ error:
+ 	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
+ 	return err;
+ }
++
++/* marvell_suspend
++ *
++ * Some Marvell's phys have two modes: fiber and copper.
++ * Both need to be suspended
++ */
++static int marvell_suspend(struct phy_device *phydev)
++{
++	int err;
++
++	/* Suspend the fiber mode first */
++	if (!(phydev->supported & SUPPORTED_FIBRE)) {
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
++		if (err < 0)
++			goto error;
++
++		/* With the page set, use the generic suspend */
++		err = genphy_suspend(phydev);
++		if (err < 0)
++			goto error;
++
++		/* Then, the copper link */
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++		if (err < 0)
++			goto error;
++	}
++
++	/* With the page set, use the generic suspend */
++	return genphy_suspend(phydev);
++
++error:
++	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++	return err;
++}
++
++/* marvell_resume
++ *
++ * Some Marvell's phys have two modes: fiber and copper.
++ * Both need to be resumed
++ */
++static int marvell_resume(struct phy_device *phydev)
++{
++	int err;
++
++	/* Resume the fiber mode first */
++	if (!(phydev->supported & SUPPORTED_FIBRE)) {
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
++		if (err < 0)
++			goto error;
++
++		/* With the page set, use the generic resume */
++		err = genphy_resume(phydev);
++		if (err < 0)
++			goto error;
++
++		/* Then, the copper link */
++		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++		if (err < 0)
++			goto error;
++	}
++
++	/* With the page set, use the generic resume */
++	return genphy_resume(phydev);
++
++error:
++	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
++	return err;
++}
++
+ static int marvell_aneg_done(struct phy_device *phydev)
+ {
+ 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
+@@ -1611,8 +1680,8 @@ static struct phy_driver marvell_drivers[] = {
+ 		.ack_interrupt = &marvell_ack_interrupt,
+ 		.config_intr = &marvell_config_intr,
+ 		.did_interrupt = &m88e1121_did_interrupt,
+-		.resume = &genphy_resume,
+-		.suspend = &genphy_suspend,
++		.resume = &marvell_resume,
++		.suspend = &marvell_suspend,
+ 		.get_sset_count = marvell_get_sset_count,
+ 		.get_strings = marvell_get_strings,
+ 		.get_stats = marvell_get_stats,
+-- 
