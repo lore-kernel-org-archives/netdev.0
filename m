@@ -1,38 +1,30 @@
-From: "Steve Wise" <swise@opengridcomputing.com>
-Subject: RE: [net-next 2/6] cxgb3i,cxgb4i,libcxgbi: remove iSCSI DDP support
-Date: Fri, 15 Jul 2016 09:05:32 -0500
-Message-ID: <099301d1dea1$f36ec980$da4c5c80$@opengridcomputing.com>
-References: <cover.1467998292.git.varun@chelsio.com> <73c3770a7b69e10c80b3f3a690c5819f735b1a28.1467998292.git.varun@chelsio.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/4] Marvell phy: add configuration of autonegociation
+ for fiber link.
+Date: Fri, 15 Jul 2016 16:08:04 +0200
+Message-ID: <20160715140804.GT6667@lunn.ch>
+References: <5dcd193f-b060-8b85-a1d9-8f6031b991d1@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-scsi@vger.kernel.org>,
-	<target-devel@vger.kernel.org>, <nab@linux-iscsi.org>,
-	<gerlitz.or@gmail.com>, <james.bottomley@hansenpartnership.com>,
-	<indranil@chelsio.com>
-To: "'Varun Prakash'" <varun@chelsio.com>, <davem@davemloft.net>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <73c3770a7b69e10c80b3f3a690c5819f735b1a28.1467998292.git.varun@chelsio.com>
-Content-Language: en-us
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:43308 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752162AbcGOOIG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2016 10:08:06 -0400
+Content-Disposition: inline
+In-Reply-To: <5dcd193f-b060-8b85-a1d9-8f6031b991d1@nexvision.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Remove old ddp code from cxgb3i,cxgb4i,libcxgbi.
-> 
-> Next two commits adds DDP support using
-> common iSCSI DDP Page Pod Manager.
-> 
-> Signed-off-by: Varun Prakash <varun@chelsio.com>
-> ---
->  drivers/scsi/cxgbi/cxgb3i/cxgb3i.c | 128 --------
->  drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 142 ---------
->  drivers/scsi/cxgbi/libcxgbi.c      | 578
--------------------------------------
->  drivers/scsi/cxgbi/libcxgbi.h      | 161 -----------
->  4 files changed, 1009 deletions(-)
+On Fri, Jul 15, 2016 at 12:12:39PM +0200, Charles-Antoine Couret wrote:
+> >From 5be52efa3f1c034c21f80850b651193d1f51a313 Mon Sep 17 00:00:00 2001
+> From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+> Date: Fri, 15 Jul 2016 11:57:25 +0200
+> Subject: [PATCH 3/4] Marvell phy: add configuration of autonegociation for
+>  fiber link.
 
-Looks good.  I guess this series needs to be squashed or we'll have bisect
-compile problems?
+It looks like [4/4] did not make it to the list?
 
-Reviewed-by: Steve Wise <swise@opengridcomputing.com>
+   Andrew
