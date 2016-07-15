@@ -1,62 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute 0/5] iproute: ila and fou additions
-Date: Fri, 15 Jul 2016 11:23:26 -0700
-Message-ID: <20160715112326.1520599e@xeon-e3>
-References: <1468524136-3389846-1-git-send-email-tom@herbertland.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Fri, 15 Jul 2016 11:29:51 -0700 (PDT)
+Message-ID: <20160715.112951.865048162043566247.davem@davemloft.net>
+References: <20160714152215.GA24590@u54ee753d2d1854bda401.ant.amazon.com>
+	<20160714160803.egrmos7soc6qvrry@f1.synalogic.ca>
+	<20160714161511.GA30697@u54ee753d2d1854bda401.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<shemming@brocade.com>, <kernel-team@fb.com>, <haoxuany@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+Cc: benjamin.poirier@gmail.com, netanel@annapurnalabs.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	zorik@annapurnalabs.com, saeed@annapurnalabs.com,
+	alex@annapurnalabs.com, aliguori@amazon.com, ben@decadent.org.uk,
+	romieu@fr.zoreil.com, rami.rosen@intel.com,
+	antoine.tenart@free-electrons.com, linville@tuxdriver.com
+To: msw@amzn.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36490 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996AbcGOSXK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:23:10 -0400
-Received: by mail-pa0-f44.google.com with SMTP id pp5so34774661pac.3
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:23:10 -0700 (PDT)
-In-Reply-To: <1468524136-3389846-1-git-send-email-tom@herbertland.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51150 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbcGOS3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:29:55 -0400
+In-Reply-To: <20160714161511.GA30697@u54ee753d2d1854bda401.ant.amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Jul 2016 12:22:11 -0700
-Tom Herbert <tom@herbertland.com> wrote:
+From: Matt Wilson <msw@amzn.com>
+Date: Thu, 14 Jul 2016 09:15:11 -0700
 
-> Patch set includes:
+> On Thu, Jul 14, 2016 at 09:08:03AM -0700, Benjamin Poirier wrote:
+>> On 2016/07/14 08:22, Matt Wilson wrote:
+>> [...]
+>> > 
+>> > Dave and Benjamin,
+>> > 
+>> > Do you want to see the interrupt moderation extensions to ethtool and
+>> > the sysfs nodes removed before this lands in net-next? Or should
+>> > Netanel remove the sysfs bits until we can extend the ethtool
+>> > interfaces to cover the parameters that ena uses?
+>> 
+>> I couldn't say what's acceptable or not. A few other drivers (qlcnic,
+>> sfc, ...) already have sysfs tunables. Maybe John, as the new ethtool
+>> maintainer, can weight in too about the changes required to ethtool.
 > 
-> - Allow configuring checksum mode for ila LWT (e.g. configure
->   checksum neutral
-> - Configuration for performing ila translations using netfilter hook
-> - fou encapsulation for ip6tnl and gre6
-> - fou listener for IPv6
-> 
-> *** SUBJECT HERE ***
-> 
-> *** BLURB HERE ***
-> 
-> Tom Herbert (5):
->   ila: Support for checksum neutral translation
->   ila: Support for configuring ila to use netfilter hook
->   ip6tnl: Support for fou encapsulation
->   gre6: Support for fou encapsulation
->   fou: Allowing configuring IPv6 listener
-> 
->  ip/Makefile           |   2 +-
->  ip/ip.c               |   3 +-
->  ip/ip_common.h        |   1 +
->  ip/ipfou.c            |   8 +-
->  ip/ipila.c            | 259 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  ip/iproute_lwtunnel.c |  57 ++++++++++-
->  ip/link_gre6.c        | 101 ++++++++++++++++++++
->  ip/link_ip6tnl.c      |  92 +++++++++++++++++-
->  8 files changed, 516 insertions(+), 7 deletions(-)
->  create mode 100644 ip/ipila.c
-> 
+> We definitely want ethtool to handle all the settings, it's just a
+> question of when. We also want to address and resolve all the great
+> feedback so far, and since you originally raised the point about
+> extending ethtool I wanted to see if you have any major objection.
 
-I am okay with the content of these patches, but they have have lots of style issues.
+If you add the sysfs stuff you're stuck with it forever, so I definitely
+do not want to see that.
 
-1. Bad indentation in several spots
-2. Lines are too long
-3. Use rta_getattr_u64, look for places that access RTA_DATA() directly
-5. Run checkpatch
+You guys should start simple, a basic driver that supports what is
+possible with no core kernel changes or non-portable driver private
+sysfs knobx.  Only then should you think about adding new things.
