@@ -1,138 +1,135 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v2] net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs
-Date: Fri, 15 Jul 2016 14:43:07 +0300
-Message-ID: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: shmulik.ladkani@ravellosystems.com,
-	Eric Dumazet <edumazet@google.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Guodong Xu <guodong.xu@linaro.org>
+Subject: Re: [PATCH 1/2] Bluetooth: Add LED triggers for HCI frames tx and rx
+Date: Fri, 15 Jul 2016 20:08:43 +0800
+Message-ID: <CAFGCpxxbmgmbadE5oGctOzu33hhoiOf29DeEqZWCFYAiVBFLdA@mail.gmail.com>
+References: <1466657923-5776-1-git-send-email-guodong.xu@linaro.org>
+ <D2545F6D-7100-4B59-A19D-7CF878902BAA@holtmann.org> <CAFGCpxwuOH83hdPc-c0DV5A_cKMp-0rjxg+3tMwOPTukHGd6vA@mail.gmail.com>
+ <3C106ED5-5F2C-4EAC-8E60-D915D2AD027A@holtmann.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Xu Wei <xuwei5@hisilicon.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Haojian Zhuang <haojian.zhuang@linaro.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Tony Lindgren <tony@atomide.com>,
+	"open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>,
+	devicetree@vger.kernel.org,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34250 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932735AbcGOLn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 07:43:56 -0400
-Received: by mail-wm0-f66.google.com with SMTP id q128so1906690wma.1
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 04:43:55 -0700 (PDT)
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:35470 "EHLO
+	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932897AbcGOMIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 08:08:50 -0400
+Received: by mail-yw0-f180.google.com with SMTP id l125so99625624ywb.2
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 05:08:44 -0700 (PDT)
+In-Reply-To: <3C106ED5-5F2C-4EAC-8E60-D915D2AD027A@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Given:
- - tap0 and vxlan0 are bridged
- - vxlan0 stacked on eth0, eth0 having small mtu (e.g. 1400)
+On 14 July 2016 at 17:42, Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi Guodong,
+>
+>>>> Two LED triggers are defined: tx_led and rx_led. Upon frames
+>>>> available in HCI core layer, for tx or for rx, the combined LED
+>>>> can blink.
+>>>>
+>>>> Verified on HiKey, 96boards. It uses hi6220 SoC and TI WL1835 combo
+>>>> chip.
+>>>>
+>>>> Signed-off-by: Guodong Xu <guodong.xu@linaro.org>
+>>>> ---
+>>>> include/net/bluetooth/hci_core.h |  1 +
+>>>> net/bluetooth/hci_core.c         |  3 +++
+>>>> net/bluetooth/leds.c             | 15 +++++++++++++++
+>>>> net/bluetooth/leds.h             |  2 ++
+>>>> 4 files changed, 21 insertions(+)
+>>>>
+>>>> diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
+>>>> index dc71473..37b8dd9 100644
+>>>> --- a/include/net/bluetooth/hci_core.h
+>>>> +++ b/include/net/bluetooth/hci_core.h
+>>>> @@ -398,6 +398,7 @@ struct hci_dev {
+>>>>      bdaddr_t                rpa;
+>>>>
+>>>>      struct led_trigger      *power_led;
+>>>> +     struct led_trigger      *tx_led, *rx_led;
+>>>>
+>>>>      int (*open)(struct hci_dev *hdev);
+>>>>      int (*close)(struct hci_dev *hdev);
+>>>> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+>>>> index 45a9fc6..c6e1210 100644
+>>>> --- a/net/bluetooth/hci_core.c
+>>>> +++ b/net/bluetooth/hci_core.c
+>>>> @@ -3248,6 +3248,7 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
+>>>>      skb_queue_tail(&hdev->rx_q, skb);
+>>>>      queue_work(hdev->workqueue, &hdev->rx_work);
+>>>>
+>>>> +     hci_leds_blink_oneshot(hdev->rx_led);
+>>>>      return 0;
+>>>> }
+>>>> EXPORT_SYMBOL(hci_recv_frame);
+>>>> @@ -3325,6 +3326,8 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
+>>>>              BT_ERR("%s sending frame failed (%d)", hdev->name, err);
+>>>>              kfree_skb(skb);
+>>>>      }
+>>>> +
+>>>> +     hci_leds_blink_oneshot(hdev->tx_led);
+>>>> }
+>>>
+>>> so I am not convinced that this is the right way of doing TX/RX activity leds. This would have them purely based on HCI traffic and this would include control frames.
+>>>
+>>
+>> Hi, Marcel
+>>
+>> +       if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT ||
+>> +           hci_skb_pkt_type(skb) == HCI_SCODATA_PKT)
+>> +               hci_leds_blink_oneshot(hdev->rx_led);
+>> +
+>>
+>> By adding pkt_type checks, we can limit LED blinks only at ACL/SCO
+>> DATA_PKT. Similar checks can be added for tx_led too.
+>>
+>> Does this look good to you? If you agree, I can send v2 to include this change.
+>
+> we are not going to keep comparing packet types over and over again. The code is already doing that. So functions like hci_sched_acl and hci_acldata_packet are already present in the code.
+>
+>>> I think that we want activity leds for actual radio activity. Meaning that when we have an active connection and ACL packets are exchanged or when we are scanning.
+>>>
+>>
+>> Radio is controlled in Bluetooth module side, not Host. So I'm afraid
+>> actual radio activity cannot be captured in its exact form in Host
+>> side. The purpose of this patch is not for radio, it is for
+>> incoming/outgoing data. For example, it can give user a blinking
+>> indicator on RX frames after a Bluetooth mouse is connected. Another
+>> example, it can blink at bluetooth streamed audio (TX).
+>
+> So radio activity is caused by RX/TX meaning ACL/SCO packets for sure. There is also other radio activity caused by scanning, inquiry, create connection etc. And the question is if this should be there as well.
+>
 
-Assume GSO skbs arriving from tap0 having a gso_size as determined by
-user-provided virtio_net_hdr (e.g. 1460 corresponding to VM mtu of 1500).
+I wouldn't suggest to cover scanning, inquiry, etc. Scanning, for
+example, Host sends a scan command to Bluetooth module (in an
+asynchronous way). After a given interval, Host receives inquiry
+results. Over this period, at host side, we don't know what kind of
+radio activity is happening in BT module side.
 
-After encapsulation these skbs have skb_gso_network_seglen that exceed
-eth0's ip_skb_dst_mtu.
+Let's say this patch provide LED indicators to only data packets
+activity (ACL and SCO). Can we?
 
-These skbs are accidentally passed to ip_finish_output2 AS IS.
-Alas, each final segment (segmented either by validate_xmit_skb or by
-hardware UFO) would be larger than eth0 mtu.
-As a result, those above-mtu segments get dropped on certain networks.
+-Guodong
 
-This behavior is not aligned with the NON-GSO case:
-Assume a non-gso 1500-sized IP packet arrives from tap0. After
-encapsulation, the vxlan datagram is fragmented normally at the
-ip_finish_output-->ip_fragment code path.
-
-The expected behavior for the GSO case would be segmenting the
-"gso-oversized" skb first, then fragmenting each segment according to
-dst mtu, and finally passing the resulting fragments to ip_finish_output2.
-
-'ip_finish_output_gso' already supports this "Slowpath" behavior,
-but it is only considered if IPSKB_FORWARDED is set (which is not set in
-the bridged case).
-
-In order to support the bridged case, we'll mark skbs arriving from an
-ingress interface that get udp-encaspulated as "allowed to be fragmented".
-
-This mark (as well as the original IPSKB_FORWARDED mark) gets tested in
-'ip_finish_output_gso', in order to determine whether validating the
-network seglen is needed.
-
-Note the TUNNEL_DONT_FRAGMENT tun_flag is still honoured (both in the
-gso and non-gso cases), which serves users wishing to forbid
-fragmentation at the udp tunnel endpoint.
-
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Florian Westphal <fw@strlen.de>
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
-
-v2: Instead of completely removing the IPSKB_FORWARDED condition of
-    'ip_finish_output_gso' (forcing an expensive 'skb_gso_validate_mtu'
-    on all local traffic), augment the condition to the tunneled
-    usecase, as suggested by Florian and Hannes.
-
- include/net/ip.h          |  1 +
- net/ipv4/ip_output.c      | 10 +++++++---
- net/ipv4/ip_tunnel_core.c |  9 +++++++++
- 3 files changed, 17 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 08f36cd2b8..9742b92dc9 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -47,6 +47,7 @@ struct inet_skb_parm {
- #define IPSKB_REROUTED		BIT(4)
- #define IPSKB_DOREDIRECT	BIT(5)
- #define IPSKB_FRAG_PMTU		BIT(6)
-+#define IPSKB_FRAG_SEGS		BIT(7)
- 
- 	u16			frag_max_size;
- };
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index e23f141c9b..18bb7639dd 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -221,11 +221,15 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
- {
- 	netdev_features_t features;
- 	struct sk_buff *segs;
-+	int allow_frag;
- 	int ret = 0;
- 
--	/* common case: locally created skb or seglen is <= mtu */
--	if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
--	      skb_gso_validate_mtu(skb, mtu))
-+	allow_frag = IPCB(skb)->flags & (IPSKB_FORWARDED | IPSKB_FRAG_SEGS);
-+
-+	/* common case: locally created skb and fragmentation of segments is
-+	 * not allowed, or seglen is <= mtu
-+	 */
-+	if (!allow_frag || skb_gso_validate_mtu(skb, mtu))
- 		return ip_finish_output2(net, sk, skb);
- 
- 	/* Slowpath -  GSO segment length is exceeding the dst MTU.
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index afd6b5968c..9d847c3025 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -63,6 +63,7 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	int pkt_len = skb->len - skb_inner_network_offset(skb);
- 	struct net *net = dev_net(rt->dst.dev);
- 	struct net_device *dev = skb->dev;
-+	int skb_iif = skb->skb_iif;
- 	struct iphdr *iph;
- 	int err;
- 
-@@ -72,6 +73,14 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	skb_dst_set(skb, &rt->dst);
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 
-+	if (skb_iif && proto == IPPROTO_UDP) {
-+		/* Arrived from an ingress interface and got udp encapuslated.
-+		 * The encapsulated network segment length may exceed dst mtu.
-+		 * Allow IP Fragmentation of segments.
-+		 */
-+		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
-+	}
-+
- 	/* Push down and install the IP header. */
- 	skb_push(skb, sizeof(struct iphdr));
- 	skb_reset_network_header(skb);
--- 
-2.7.4
+> Regards
+>
+> Marcel
+>
