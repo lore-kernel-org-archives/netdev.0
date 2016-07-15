@@ -1,45 +1,62 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf program
-Date: Fri, 15 Jul 2016 11:08:06 -0700
-Message-ID: <CALx6S36xCmzOEtyVm54Z4kJm+rFf+NppWa5WbPcdyEJuQ_Op5A@mail.gmail.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
- <1468309894-26258-5-git-send-email-bblanco@plumgrid.com> <20160714092543.776f8d8c@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute 0/5] iproute: ila and fou additions
+Date: Fri, 15 Jul 2016 11:23:26 -0700
+Message-ID: <20160715112326.1520599e@xeon-e3>
+References: <1468524136-3389846-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<shemming@brocade.com>, <kernel-team@fb.com>, <haoxuany@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:38727 "EHLO
-	mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbcGOSIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:08:07 -0400
-Received: by mail-it0-f50.google.com with SMTP id h190so25875725ith.1
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:08:07 -0700 (PDT)
-In-Reply-To: <20160714092543.776f8d8c@redhat.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36490 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996AbcGOSXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:23:10 -0400
+Received: by mail-pa0-f44.google.com with SMTP id pp5so34774661pac.3
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:23:10 -0700 (PDT)
+In-Reply-To: <1468524136-3389846-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 14, 2016 at 12:25 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
->
-> I would really really like to see the XDP program associated with the
-> RX ring queues, instead of a single XDP program covering the entire NIC.
-> (Just move the bpf_prog pointer to struct mlx4_en_rx_ring)
->
-I think it would be helpful to have some concrete implementation to
-look at for this. Jesper, can you code up some patches, taking into
-account Alexei's concerns about the atomic program update problem?.
+On Thu, 14 Jul 2016 12:22:11 -0700
+Tom Herbert <tom@herbertland.com> wrote:
 
-Thanks,
-Tom
+> Patch set includes:
+> 
+> - Allow configuring checksum mode for ila LWT (e.g. configure
+>   checksum neutral
+> - Configuration for performing ila translations using netfilter hook
+> - fou encapsulation for ip6tnl and gre6
+> - fou listener for IPv6
+> 
+> *** SUBJECT HERE ***
+> 
+> *** BLURB HERE ***
+> 
+> Tom Herbert (5):
+>   ila: Support for checksum neutral translation
+>   ila: Support for configuring ila to use netfilter hook
+>   ip6tnl: Support for fou encapsulation
+>   gre6: Support for fou encapsulation
+>   fou: Allowing configuring IPv6 listener
+> 
+>  ip/Makefile           |   2 +-
+>  ip/ip.c               |   3 +-
+>  ip/ip_common.h        |   1 +
+>  ip/ipfou.c            |   8 +-
+>  ip/ipila.c            | 259 ++++++++++++++++++++++++++++++++++++++++++++++++++
+>  ip/iproute_lwtunnel.c |  57 ++++++++++-
+>  ip/link_gre6.c        | 101 ++++++++++++++++++++
+>  ip/link_ip6tnl.c      |  92 +++++++++++++++++-
+>  8 files changed, 516 insertions(+), 7 deletions(-)
+>  create mode 100644 ip/ipila.c
+> 
+
+I am okay with the content of these patches, but they have have lots of style issues.
+
+1. Bad indentation in several spots
+2. Lines are too long
+3. Use rta_getattr_u64, look for places that access RTA_DATA() directly
+5. Run checkpatch
