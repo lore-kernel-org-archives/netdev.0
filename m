@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net 0/4][pull request] Intel Wired LAN Driver Updates
- 2016-07-14
-Date: Fri, 15 Jul 2016 14:27:59 -0700 (PDT)
-Message-ID: <20160715.142759.1168782721313600177.davem@davemloft.net>
-References: <1468566124-63101-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: avoid hash calculating for
+ single queue
+Date: Fri, 15 Jul 2016 14:40:54 -0700 (PDT)
+Message-ID: <20160715.144054.1758876801096882335.davem@davemloft.net>
+References: <1468568791-30024-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, guru.anbalagane@oracle.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54486 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbcGOV2B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 17:28:01 -0400
-In-Reply-To: <1468566124-63101-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468568791-30024-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 15 Jul 2016 00:02:00 -0700
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 15 Jul 2016 03:46:30 -0400
 
-> This series contains fixes to i40e and ixgbe.
+> We decide the rxq through calculating its hash which is not necessary
+> if we only have one rx queue. So this patch skip this and just return
+> queue 0. Test shows 22% improving on guest rx pps.
+> 
+> Before: 1201504 pkts/s
+> After:  1472731 pkts/s
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Pulled, thanks Jeff.
+Applied.
