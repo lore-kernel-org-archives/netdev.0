@@ -1,79 +1,180 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Fri, 15 Jul 2016 21:09:52 +0200
-Message-ID: <20160715210952.089a793e@redhat.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
-	<1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
-	<20160714092543.776f8d8c@redhat.com>
-	<20160715033057.GA98180@ast-mbp.thefacebook.com>
-	<CALx6S34e73N6YA8AP67DAHEjcE-q5nO9q0Bk9motfbBKpB9T4g@mail.gmail.com>
-	<20160715164744.GA3693@ast-mbp.thefacebook.com>
+From: Scott Wood <oss@buserror.net>
+Subject: Re: [v10, 3/7] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Fri, 15 Jul 2016 14:12:57 -0500
+Message-ID: <1468609977.25630.5.camel@buserror.net>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+	 <1462417950-46796-4-git-send-email-yangbo.lu@nxp.com>
+	 <CAP=VYLqsV_M=8CM47k4kzdULCp_y0yP9t8Sq9=jFp6W593QJgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48266 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751577AbcGOTKA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2016 15:10:00 -0400
-In-Reply-To: <20160715164744.GA3693@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-mmc@vger.kernel.org,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	devicetree@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, linux-clk@vger.kernel.org,
+	linux-i2c@vger.kernel.org, iommu@lists.linux-foundation.org,
+	netdev <netdev@vger.kernel.org>, ulf.hansson@linaro.org,
+	Mark Rutland <mark.rutland@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Qiang Zhao <qiang.zhao@nxp.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
+	xiaobo.xie@nxp.com
+To: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Yangbo Lu <yangbo.lu@nxp.com>
+Return-path: <linux-clk-owner@vger.kernel.org>
+In-Reply-To: <CAP=VYLqsV_M=8CM47k4kzdULCp_y0yP9t8Sq9=jFp6W593QJgw@mail.gmail.com>
+Sender: linux-clk-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Fri, 2016-07-15 at 12:43 -0400, Paul Gortmaker wrote:
+> On Wed, May 4, 2016 at 11:12 PM, Yangbo Lu <yangbo.lu@nxp.com> wrote:
+> >=20
+> > The global utilities block controls power management, I/O device
+> > enabling, power-onreset(POR) configuration monitoring, alternate
+> > function selection for multiplexed signals,and clock control.
+> >=20
+> > This patch adds GUTS driver to manage and access global utilities
+> > block.
+> >=20
+> > Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+> > Acked-by: Scott Wood <oss@buserror.net>
+> > ---
+> > Changes for v4:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Added this patch
+> > Changes for v5:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Modified copyrigh=
+t info
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Changed MODULE_LI=
+CENSE to GPL
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Changed EXPORT_SY=
+MBOL_GPL to EXPORT_SYMBOL
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Made FSL_GUTS use=
+r-invisible
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Added a complete =
+compatible list for GUTS
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Stored guts info =
+in file-scope variable
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Added mfspr() get=
+ting SVR
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Redefined GUTS AP=
+Is
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Called fsl_guts_i=
+nit rather than using platform driver
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Removed useless p=
+arentheses
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Removed useless '=
+extern' key words
+> > Changes for v6:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Made guts thread =
+safe in fsl_guts_init
+> > Changes for v7:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Removed 'ifdef' f=
+or function declaration in guts.h
+> > Changes for v8:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Fixes lines longe=
+r than 80 characters checkpatch issue
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Added 'Acked-by: =
+Scott Wood'
+> > Changes for v9:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- None
+> > Changes for v10:
+> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- None
+> > ---
+> > =C2=A0drivers/soc/Kconfig=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0|=C2=A0=
+=C2=A0=C2=A02 +-
+> > =C2=A0drivers/soc/fsl/Kconfig=C2=A0=C2=A0|=C2=A0=C2=A0=C2=A08 +++
+> > =C2=A0drivers/soc/fsl/Makefile |=C2=A0=C2=A0=C2=A01 +
+> > =C2=A0drivers/soc/fsl/guts.c=C2=A0=C2=A0=C2=A0| 119
+> > ++++++++++++++++++++++++++++++++++++++++++++
+> > =C2=A0include/linux/fsl/guts.h | 126 +++++++++++++++++++++++++++++-=
+------------
+> > -----
+> > =C2=A05 files changed, 207 insertions(+), 49 deletions(-)
+> > =C2=A0create mode 100644 drivers/soc/fsl/Kconfig
+> > =C2=A0create mode 100644 drivers/soc/fsl/guts.c
+> >=20
+> > diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
+> > index cb58ef0..7106463 100644
+> > --- a/drivers/soc/Kconfig
+> > +++ b/drivers/soc/Kconfig
+> > @@ -2,7 +2,7 @@ menu "SOC (System On Chip) specific Drivers"
+> >=20
+> > =C2=A0source "drivers/soc/bcm/Kconfig"
+> > =C2=A0source "drivers/soc/brcmstb/Kconfig"
+> > -source "drivers/soc/fsl/qe/Kconfig"
+> > +source "drivers/soc/fsl/Kconfig"
+> > =C2=A0source "drivers/soc/mediatek/Kconfig"
+> > =C2=A0source "drivers/soc/qcom/Kconfig"
+> > =C2=A0source "drivers/soc/rockchip/Kconfig"
+> > diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
+> > new file mode 100644
+> > index 0000000..b313759
+> > --- /dev/null
+> > +++ b/drivers/soc/fsl/Kconfig
+> > @@ -0,0 +1,8 @@
+> > +#
+> > +# Freescale SOC drivers
+> > +#
+> > +
+> > +source "drivers/soc/fsl/qe/Kconfig"
+> > +
+> > +config FSL_GUTS
+> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0bool
+> > diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
+> > index 203307f..02afb7f 100644
+> > --- a/drivers/soc/fsl/Makefile
+> > +++ b/drivers/soc/fsl/Makefile
+> > @@ -4,3 +4,4 @@
+> >=20
+> > =C2=A0obj-$(CONFIG_QUICC_ENGINE)=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0+=3D qe/
+> > =C2=A0obj-$(CONFIG_CPM)=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0+=3D qe/
+> > +obj-$(CONFIG_FSL_GUTS)=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0+=3D guts.o
+> > diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c
+> > new file mode 100644
+> > index 0000000..fa155e6
+> > --- /dev/null
+> > +++ b/drivers/soc/fsl/guts.c
+> > @@ -0,0 +1,119 @@
+> > +/*
+> > + * Freescale QorIQ Platforms GUTS Driver
+> > + *
+> > + * Copyright (C) 2016 Freescale Semiconductor, Inc.
+> > + *
+> > + * This program is free software; you can redistribute it and/or m=
+odify
+> > + * it under the terms of the GNU General Public License as publish=
+ed by
+> > + * the Free Software Foundation; either version 2 of the License, =
+or
+> > + * (at your option) any later version.
+> > + */
+> > +
+> > +#include <linux/io.h>
+> > +#include <linux/module.h>
+> Seems there was lots of discussion on this.=C2=A0=C2=A0If it does end=
+ up being
+> resent, it would be nice to get the module.h and other modular stuff
+> gone since it is a bool Kconfig.
+
+I plan to resend just the GUTS driver portion and send it through the P=
+PC
+tree.
+
+I don't see any modular stuff in there besides the linux/module.h inclu=
+de.
+
+-Scott
 
 
-On Fri, 15 Jul 2016 09:47:46 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> On Fri, Jul 15, 2016 at 09:18:13AM -0700, Tom Herbert wrote:
-[..]
-> > > We don't need extra comlexity of figuring out number of rings and
-> > > struggling with lack of atomicity.  
-> > 
-> > We already have this problem with other per ring configuration.  
-> 
-> not really. without atomicity of the program change, the user space
-> daemon that controls it will struggle to adjust. Consider the case
-> where we're pushing new update for loadbalancer. In such case we
-> want to reuse the established bpf map, since we cannot atomically
-> move it from old to new, but we want to swap the program that uses
-> in one go, otherwise two different programs will be accessing
-> the same map. Technically it's valid, but difference in the programs
-> may cause issues. Lack of atomicity is not intractable problem,
-> it just makes user space quite a bit more complex for no reason.
-
-I don't think you have a problem with updating the program per queue
-basis, as they will be updated atomically per RX queue (thus a CPU can
-only see one program).
- Today, you already have to handle that multiple CPUs running the same
-program, need to access the same map.
-
-You mention that, there might be a problem, if the program differs too
-much to share the map.  But that is the same problem as today.  If you
-need to load a program that e.g. change the map layout, then you
-obviously cannot allow it inherit the old map, but must feed the new
-program a new map (with the new layout).
-
-
-There is actually a performance advantage of knowing that a program is
-only attached to a single RX queue. As only a single CPU can process a
-RX ring. Thus, when e.g. accessing a map (or other lookup table) you can
-avoid any locking.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
