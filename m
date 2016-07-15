@@ -1,75 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: ipmr/ip6mr: add support for keeping an entry age
-Date: Fri, 15 Jul 2016 16:19:15 -0700
-Message-ID: <5C88DC97-D16D-4E0F-9846-BFE9DA4625E3@cumulusnetworks.com>
-References: <1468508930-32720-1-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Satish Ashok <sashok@cumulusnetworks.com>,
-	Donald Sharp <sharpd@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf: bpf_event_entry_gen's alloc needs to be in atomic context
+Date: Sat, 16 Jul 2016 01:15:55 +0200
+Message-ID: <3a4cacd7ebd8b246325c48b46d25d67669428198.1468624006.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:36214 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751303AbcGOXTU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:19:20 -0400
-Received: by mail-pf0-f182.google.com with SMTP id t190so45154467pfb.3
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:19:19 -0700 (PDT)
-In-Reply-To: <1468508930-32720-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from www62.your-server.de ([213.133.104.62]:32773 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbcGOXQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:16:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Should have been obvious, only called from bpf() syscall via map_update_elem()
+that calls bpf_fd_array_map_update_elem() under RCU read lock and thus this
+must also be in GFP_ATOMIC, of course.
 
-> On Jul 14, 2016, at 8:08 AM, Nikolay Aleksandrov <nikolay@cumulusnetw=
-orks.com> wrote:
->=20
-> In preparation for hardware offloading of ipmr/ip6mr we need an
-> interface that allows to check (and later update) the age of entries.
-> Relying on stats alone can show activity but not actual age of the en=
-try,
-> furthermore when there're tens of thousands of entries a lot of the
-> hardware implementations only support "hit" bits which are cleared on
-> read to denote that the entry was active and shouldn't be aged out,
-> these can then be naturally translated into age timestamp and will be
-> compatible with the software forwarding age. Using a lastuse entry do=
-esn't
-> affect performance because the entries in that cache line are written=
- to
-> along with the age. Once an entry goes above the member size (32 bits=
-) we
-> keep it at UINT_MAX as we cannot afford to wrap it which will falsely=
- show
-> that it was used recently. This is not supposed to happen as entries =
-should
-> be aged out in matter of minutes or seconds.
-> Since all new users are encouraged to use ipmr via netlink, this is
-> exported via the RTA_CACHEINFO attribute which has rta_lastuse entry.
->=20
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> CC: Roopa Prabhu <roopa@cumulusnetworks.com>
-> CC: Shrijeet Mukherjee <shm@cumulusnetworks.com>
-> CC: Satish Ashok <sashok@cumulusnetworks.com>
-> CC: Donald Sharp <sharpd@cumulusnetworks.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> CC: James Morris <jmorris@namei.org>
-> CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> CC: Patrick McHardy <kaber@trash.net>
-> =E2=80=94
+Fixes: 3b1efb196eee ("bpf, maps: flush own entries on perf map release")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ Sorry for missing this typo, sigh.
 
-Self-NAK, I=E2=80=99ll send a revised v2 version using a single u32 att=
-ribute (RTA_EXPIRES), no need to waste the space
-right now. We=E2=80=99ll add more as we need them.
+ kernel/bpf/arraymap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Sorry for the noise.
-
-Cheers,
- Nik
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index db1a743..633a650 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -430,7 +430,7 @@ static struct bpf_event_entry *bpf_event_entry_gen(struct file *perf_file,
+ {
+ 	struct bpf_event_entry *ee;
+ 
+-	ee = kzalloc(sizeof(*ee), GFP_KERNEL);
++	ee = kzalloc(sizeof(*ee), GFP_ATOMIC);
+ 	if (ee) {
+ 		ee->event = perf_file->private_data;
+ 		ee->perf_file = perf_file;
+-- 
+1.9.3
