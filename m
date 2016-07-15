@@ -1,35 +1,62 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v1 1/3] net: Add MDIO bus driver for the Hisilicon FEMAC
-Date: Fri, 15 Jul 2016 16:42:22 +0200
-Message-ID: <20160715144222.GY6667@lunn.ch>
-References: <1468571195-59763-1-git-send-email-lidongpo@hisilicon.com>
- <1468571195-59763-2-git-send-email-lidongpo@hisilicon.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH 09/14] resource limits: track highwater mark of locked
+	memory
+Date: Fri, 15 Jul 2016 17:14:08 +0200
+Message-ID: <20160715151408.GA32317@redhat.com>
+References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com> <1468578983-28229-10-git-send-email-toiwoton@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-	frowand.list@gmail.com, davem@davemloft.net, arnd@arndb.de,
-	xuejiancheng@hisilicon.com, benjamin.chenhao@hisilicon.com,
-	howell.yang@hisilicon.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dongpo Li <lidongpo@hisilicon.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43349 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751071AbcGOOmc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2016 10:42:32 -0400
+Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
+        Fenghua Yu <fenghua.yu@intel.com>, Paolo Bonzini <pbonzini@redhat.com>,
+        Radim =?utf-8?B?S3LEjW3DocWZ?= <rkrcmar@redhat.com>,
+        Alexander Graf <agraf@suse.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Paul Mackerras <paulus@samba.org>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        Mike Marciniszyn <mike.marciniszyn@intel.com>,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Christian Benvenuti <benve@cisco.com>,
+        Dave Goodell <dgoodell@cisco.com>, Sudeep Dutt <sudeep.dutt@intel.com>,
+        Ashutosh Dixit <ashutosh.dixit@intel.com>,
+        Alex Williamson <alex.williamson@redhat.com>,
+        Alexei Starovoitov
+To: Topi Miettinen <toiwoton@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <1468571195-59763-2-git-send-email-lidongpo@hisilicon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1468578983-28229-10-git-send-email-toiwoton@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 15, 2016 at 04:26:33PM +0800, Dongpo Li wrote:
-> This patch adds a separate driver for the MDIO interface of the
-> Hisilicon Fast Ethernet MAC.
-> 
-> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
-> Reviewed-by: Jiancheng Xue <xuejiancheng@hisilicon.com>
-> Acked-by: Rob Herring <robh@kernel.org>
+On 07/15, Topi Miettinen wrote:
+>
+> Track maximum size of locked memory, to be able to configure
+> RLIMIT_MEMLOCK resource limits. The information is available
+> with taskstats and cgroupstats netlink socket.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+So I personally still dislike the very idea of this series... but I won't
+argue if you convince maintainers.
 
-    Andrew
+> @@ -2020,6 +2020,10 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
+>  		return -ENOMEM;
+>  
+>  	update_resource_highwatermark(RLIMIT_STACK, actual_size);
+> +	if (vma->vm_flags & VM_LOCKED)
+> +		update_resource_highwatermark(RLIMIT_MEMLOCK,
+> +					      (mm->locked_vm + grow) <<
+> +					      PAGE_SHIFT);
+
+Btw this is not right. The same for the previous patch which tracks
+RLIMIT_STACK. The "current" task can debugger/etc.
+
+Yes, yes, this just reminds that the whole rlimit logic in this path
+is broken but still...
+
+Oleg.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
