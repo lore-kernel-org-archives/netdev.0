@@ -1,114 +1,145 @@
-From: Topi Miettinen <toiwoton@gmail.com>
-Subject: Re: [PATCH 00/14] Present useful limits to user (v2)
-Date: Fri, 15 Jul 2016 16:35:33 +0000
-Message-ID: <41b6ca51-1358-0fd7-b45a-dc29a1344865@gmail.com>
-References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
- <20160715130458.GB21685@350D>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [v10, 3/7] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Fri, 15 Jul 2016 12:43:41 -0400
+Message-ID: <CAP=VYLqsV_M=8CM47k4kzdULCp_y0yP9t8Sq9=jFp6W593QJgw@mail.gmail.com>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com> <1462417950-46796-4-git-send-email-yangbo.lu@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
- Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>,
- Alexander Graf <agraf@suse.com>, Paolo Bonzini <pbonzini@redhat.com>,
- =?UTF-8?B?UmFkaW0gS3LEjW3DocWZ?= <rkrcmar@redhat.com>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
- Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
- "H. Peter Anvin" <hpa@zytor.com>,
- "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>,
- Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
- Hal Rosenstock <hal.rosenstock@gmail.com>,
- Mike Marciniszyn <mike.marciniszyn@intel.com>,
- Dennis Dalessandro <dennis.dalessandro@intel.com>,
- Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>,
- Sudeep Dutt <sudeep.dutt@intel.com>,
- Ashu
-To: bsingharora@gmail.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160715130458.GB21685@350D>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-mmc@vger.kernel.org,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	devicetree@vger.kernel.org,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, linux-clk@vger.kernel.org,
+	linux-i2c@vger.kernel.org, iommu@lists.linux-foundation.org,
+	netdev <netdev@vger.kernel.org>, ulf.hansson@linaro.org,
+	Scott Wood <oss@buserror.net>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jochen Friedrich <jochen@scram.de>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Qiang Zhao <qiang.zhao@nxp.com>,
+	Kumar Gala <galak@codeaurora.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>, leoyang.li@nxp.com,
+	xiaobo.xie@nxp.com
+To: Yangbo Lu <yangbo.lu@nxp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35234 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054AbcGOQoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 12:44:13 -0400
+In-Reply-To: <1462417950-46796-4-git-send-email-yangbo.lu@nxp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/15/16 13:04, Balbir Singh wrote:
-> On Fri, Jul 15, 2016 at 01:35:47PM +0300, Topi Miettinen wrote:
->> Hello,
->>
->> There are many basic ways to control processes, including capabilities,
->> cgroups and resource limits. However, there are far fewer ways to find out
->> useful values for the limits, except blind trial and error.
->>
->> This patch series attempts to fix that by giving at least a nice starting
->> point from the highwater mark values of the resources in question.
->> I looked where each limit is checked and added a call to update the mark
->> nearby.
->>
->> Example run of program from Documentation/accounting/getdelauys.c:
->>
->> ./getdelays -R -p `pidof smartd`
->> printing resource accounting
->> RLIMIT_CPU=0
->> RLIMIT_FSIZE=0
->> RLIMIT_DATA=18198528
->> RLIMIT_STACK=135168
->> RLIMIT_CORE=0
->> RLIMIT_RSS=0
->> RLIMIT_NPROC=1
->> RLIMIT_NOFILE=55
->> RLIMIT_MEMLOCK=0
->> RLIMIT_AS=130879488
->> RLIMIT_LOCKS=0
->> RLIMIT_SIGPENDING=0
->> RLIMIT_MSGQUEUE=0
->> RLIMIT_NICE=0
->> RLIMIT_RTPRIO=0
->> RLIMIT_RTTIME=0
->>
->> ./getdelays -R -C /sys/fs/cgroup/systemd/system.slice/smartd.service/
->> printing resource accounting
->> sleeping 1, blocked 0, running 0, stopped 0, uninterruptible 0
->> RLIMIT_CPU=0
->> RLIMIT_FSIZE=0
->> RLIMIT_DATA=18198528
->> RLIMIT_STACK=135168
->> RLIMIT_CORE=0
->> RLIMIT_RSS=0
->> RLIMIT_NPROC=1
->> RLIMIT_NOFILE=55
->> RLIMIT_MEMLOCK=0
->> RLIMIT_AS=130879488
->> RLIMIT_LOCKS=0
->> RLIMIT_SIGPENDING=0
->> RLIMIT_MSGQUEUE=0
->> RLIMIT_NICE=0
->> RLIMIT_RTPRIO=0
->> RLIMIT_RTTIME=0
-> 
-> Does this mean that rlimit_data and rlimit_stack should be set to the
-> values as specified by the data above?
+On Wed, May 4, 2016 at 11:12 PM, Yangbo Lu <yangbo.lu@nxp.com> wrote:
+> The global utilities block controls power management, I/O device
+> enabling, power-onreset(POR) configuration monitoring, alternate
+> function selection for multiplexed signals,and clock control.
+>
+> This patch adds GUTS driver to manage and access global utilities
+> block.
+>
+> Signed-off-by: Yangbo Lu <yangbo.lu@nxp.com>
+> Acked-by: Scott Wood <oss@buserror.net>
+> ---
+> Changes for v4:
+>         - Added this patch
+> Changes for v5:
+>         - Modified copyright info
+>         - Changed MODULE_LICENSE to GPL
+>         - Changed EXPORT_SYMBOL_GPL to EXPORT_SYMBOL
+>         - Made FSL_GUTS user-invisible
+>         - Added a complete compatible list for GUTS
+>         - Stored guts info in file-scope variable
+>         - Added mfspr() getting SVR
+>         - Redefined GUTS APIs
+>         - Called fsl_guts_init rather than using platform driver
+>         - Removed useless parentheses
+>         - Removed useless 'extern' key words
+> Changes for v6:
+>         - Made guts thread safe in fsl_guts_init
+> Changes for v7:
+>         - Removed 'ifdef' for function declaration in guts.h
+> Changes for v8:
+>         - Fixes lines longer than 80 characters checkpatch issue
+>         - Added 'Acked-by: Scott Wood'
+> Changes for v9:
+>         - None
+> Changes for v10:
+>         - None
+> ---
+>  drivers/soc/Kconfig      |   2 +-
+>  drivers/soc/fsl/Kconfig  |   8 +++
+>  drivers/soc/fsl/Makefile |   1 +
+>  drivers/soc/fsl/guts.c   | 119 ++++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/fsl/guts.h | 126 +++++++++++++++++++++++++++++------------------
+>  5 files changed, 207 insertions(+), 49 deletions(-)
+>  create mode 100644 drivers/soc/fsl/Kconfig
+>  create mode 100644 drivers/soc/fsl/guts.c
+>
+> diff --git a/drivers/soc/Kconfig b/drivers/soc/Kconfig
+> index cb58ef0..7106463 100644
+> --- a/drivers/soc/Kconfig
+> +++ b/drivers/soc/Kconfig
+> @@ -2,7 +2,7 @@ menu "SOC (System On Chip) specific Drivers"
+>
+>  source "drivers/soc/bcm/Kconfig"
+>  source "drivers/soc/brcmstb/Kconfig"
+> -source "drivers/soc/fsl/qe/Kconfig"
+> +source "drivers/soc/fsl/Kconfig"
+>  source "drivers/soc/mediatek/Kconfig"
+>  source "drivers/soc/qcom/Kconfig"
+>  source "drivers/soc/rockchip/Kconfig"
+> diff --git a/drivers/soc/fsl/Kconfig b/drivers/soc/fsl/Kconfig
+> new file mode 100644
+> index 0000000..b313759
+> --- /dev/null
+> +++ b/drivers/soc/fsl/Kconfig
+> @@ -0,0 +1,8 @@
+> +#
+> +# Freescale SOC drivers
+> +#
+> +
+> +source "drivers/soc/fsl/qe/Kconfig"
+> +
+> +config FSL_GUTS
+> +       bool
+> diff --git a/drivers/soc/fsl/Makefile b/drivers/soc/fsl/Makefile
+> index 203307f..02afb7f 100644
+> --- a/drivers/soc/fsl/Makefile
+> +++ b/drivers/soc/fsl/Makefile
+> @@ -4,3 +4,4 @@
+>
+>  obj-$(CONFIG_QUICC_ENGINE)             += qe/
+>  obj-$(CONFIG_CPM)                      += qe/
+> +obj-$(CONFIG_FSL_GUTS)                 += guts.o
+> diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c
+> new file mode 100644
+> index 0000000..fa155e6
+> --- /dev/null
+> +++ b/drivers/soc/fsl/guts.c
+> @@ -0,0 +1,119 @@
+> +/*
+> + * Freescale QorIQ Platforms GUTS Driver
+> + *
+> + * Copyright (C) 2016 Freescale Semiconductor, Inc.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + */
+> +
+> +#include <linux/io.h>
+> +#include <linux/module.h>
 
-My plan is that either system administrator, distro maintainer or even
-upstream developer can get reasonable values for the limits. They may
-still be wrong, but things would be better than without any help to
-configure the system.
+Seems there was lots of discussion on this.  If it does end up being
+resent, it would be nice to get the module.h and other modular stuff
+gone since it is a bool Kconfig.
 
-> 
-> Do we expect a smart user space daemon to then tweak the RLIMIT values?
-
-Someone could write an autotuning daemon that checks if the system has
-changed (for example due to upgrade) and then run some tests to
-reconfigure the system. But the limits are a bit too fragile, or rather,
-applications can't handle failure, so I don't know if that would really
-work.
-
--Topi
-
-
-> 
-> Balbir Singh.
-> 
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks,
+Paul.
