@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v9 09/11] net/mlx4_en: add xdp forwarding and data write support
-Date: Fri, 15 Jul 2016 16:28:56 -0700
-Message-ID: <1468625338-32391-10-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v9 05/11] Add sample for adding simple drop program to link
+Date: Fri, 15 Jul 2016 16:28:52 -0700
+Message-ID: <1468625338-32391-6-git-send-email-bblanco@plumgrid.com>
 References: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -16,473 +16,449 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:35409 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbcGOX3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:29:38 -0400
-Received: by mail-pf0-f180.google.com with SMTP id c2so45563649pfa.2
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:29:38 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35732 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751799AbcGOX3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:29:33 -0400
+Received: by mail-pa0-f41.google.com with SMTP id dx3so43383357pab.2
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 16:29:33 -0700 (PDT)
 In-Reply-To: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A user will now be able to loop packets back out of the same port using
-a bpf program attached to xdp hook. Updates to the packet contents from
-the bpf program is also supported.
+Add a sample program that only drops packets at the BPF_PROG_TYPE_XDP_RX
+hook of a link. With the drop-only program, observed single core rate is
+~20Mpps.
 
-For the packet write feature to work, the rx buffers are now mapped as
-bidirectional when the page is allocated. This occurs only when the xdp
-hook is active.
+Other tests were run, for instance without the dropcnt increment or
+without reading from the packet header, the packet rate was mostly
+unchanged.
 
-When the program returns a TX action, enqueue the packet directly to a
-dedicated tx ring, so as to avoid completely any locking. This requires
-the tx ring to be allocated 1:1 for each rx ring, as well as the tx
-completion running in the same softirq.
+$ perf record -a samples/bpf/xdp1 $(</sys/class/net/eth0/ifindex)
+proto 17:   20403027 drops/s
 
-Upon tx completion, this dedicated tx ring recycles pages without
-unmapping directly back to the original rx ring. In steady state tx/drop
-workload, effectively 0 page allocs/frees will occur.
+./pktgen_sample03_burst_single_flow.sh -i $DEV -d $IP -m $MAC -t 4
+Running... ctrl^C to stop
+Device: eth4@0
+Result: OK: 11791017(c11788327+d2689) usec, 59622913 (60byte,0frags)
+  5056638pps 2427Mb/sec (2427186240bps) errors: 0
+Device: eth4@1
+Result: OK: 11791012(c11787906+d3106) usec, 60526944 (60byte,0frags)
+  5133311pps 2463Mb/sec (2463989280bps) errors: 0
+Device: eth4@2
+Result: OK: 11791019(c11788249+d2769) usec, 59868091 (60byte,0frags)
+  5077431pps 2437Mb/sec (2437166880bps) errors: 0
+Device: eth4@3
+Result: OK: 11795039(c11792403+d2636) usec, 59483181 (60byte,0frags)
+  5043067pps 2420Mb/sec (2420672160bps) errors: 0
 
-In order to separate out the paths between free and recycle, a
-free_tx_desc func pointer is introduced that is optionally updated
-whenever recycle_ring is activated. By default the original free
-function is always initialized.
+perf report --no-children:
+ 26.05%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
+ 17.84%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_alloc_frags
+  5.52%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_frag
+  4.90%  swapper      [kernel.vmlinux]  [k] poll_idle
+  4.14%  ksoftirqd/0  [kernel.vmlinux]  [k] get_page_from_freelist
+  2.78%  ksoftirqd/0  [kernel.vmlinux]  [k] __free_pages_ok
+  2.57%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
+  2.51%  swapper      [mlx4_en]         [k] mlx4_en_process_rx_cq
+  1.94%  ksoftirqd/0  [kernel.vmlinux]  [k] percpu_array_map_lookup_elem
+  1.45%  swapper      [mlx4_en]         [k] mlx4_en_alloc_frags
+  1.35%  ksoftirqd/0  [kernel.vmlinux]  [k] free_one_page
+  1.33%  swapper      [kernel.vmlinux]  [k] intel_idle
+  1.04%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c5c5
+  0.96%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c58d
+  0.93%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c6ee
+  0.92%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c6b9
+  0.89%  ksoftirqd/0  [kernel.vmlinux]  [k] __alloc_pages_nodemask
+  0.83%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c686
+  0.83%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c5d5
+  0.78%  ksoftirqd/0  [mlx4_en]         [k] mlx4_alloc_pages.isra.23
+  0.77%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c5b4
+  0.77%  ksoftirqd/0  [kernel.vmlinux]  [k] net_rx_action
+
+machine specs:
+ receiver - Intel E5-1630 v3 @ 3.70GHz
+ sender - Intel E5645 @ 2.40GHz
+ Mellanox ConnectX-3 @40G
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   9 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  34 ++++++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  14 +++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 140 +++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  28 ++++-
- 5 files changed, 217 insertions(+), 8 deletions(-)
+ samples/bpf/Makefile    |   4 ++
+ samples/bpf/bpf_load.c  |   8 +++
+ samples/bpf/xdp1_kern.c |  93 +++++++++++++++++++++++++
+ samples/bpf/xdp1_user.c | 181 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 286 insertions(+)
+ create mode 100644 samples/bpf/xdp1_kern.c
+ create mode 100644 samples/bpf/xdp1_user.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 51a2e82..f6c2625 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1722,6 +1722,12 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	    !channel->tx_count || !channel->rx_count)
- 		return -EINVAL;
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index a98b780..0e4ab3a 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -21,6 +21,7 @@ hostprogs-y += spintest
+ hostprogs-y += map_perf_test
+ hostprogs-y += test_overhead
+ hostprogs-y += test_cgrp2_array_pin
++hostprogs-y += xdp1
  
-+	if (channel->tx_count * MLX4_EN_NUM_UP <= priv->rsv_tx_rings) {
-+		en_err(priv, "Minimum %d tx channels required with XDP on\n",
-+		       priv->rsv_tx_rings / MLX4_EN_NUM_UP + 1);
-+		return -EINVAL;
-+	}
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -42,6 +43,7 @@ spintest-objs := bpf_load.o libbpf.o spintest_user.o
+ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
+ test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
++xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -64,6 +66,7 @@ always += test_overhead_tp_kern.o
+ always += test_overhead_kprobe_kern.o
+ always += parse_varlen.o parse_simple.o parse_ldabs.o
+ always += test_cgrp2_tc_kern.o
++always += xdp1_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+@@ -84,6 +87,7 @@ HOSTLOADLIBES_offwaketime += -lelf
+ HOSTLOADLIBES_spintest += -lelf
+ HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ HOSTLOADLIBES_test_overhead += -lelf -lrt
++HOSTLOADLIBES_xdp1 += -lelf
+ 
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index 022af71..0cfda23 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -50,6 +50,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	bool is_kprobe = strncmp(event, "kprobe/", 7) == 0;
+ 	bool is_kretprobe = strncmp(event, "kretprobe/", 10) == 0;
+ 	bool is_tracepoint = strncmp(event, "tracepoint/", 11) == 0;
++	bool is_xdp = strncmp(event, "xdp", 3) == 0;
+ 	enum bpf_prog_type prog_type;
+ 	char buf[256];
+ 	int fd, efd, err, id;
+@@ -66,6 +67,8 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		prog_type = BPF_PROG_TYPE_KPROBE;
+ 	} else if (is_tracepoint) {
+ 		prog_type = BPF_PROG_TYPE_TRACEPOINT;
++	} else if (is_xdp) {
++		prog_type = BPF_PROG_TYPE_XDP;
+ 	} else {
+ 		printf("Unknown event '%s'\n", event);
+ 		return -1;
+@@ -79,6 +82,9 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 
+ 	prog_fd[prog_cnt++] = fd;
+ 
++	if (is_xdp)
++		return 0;
 +
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		port_up = 1;
-@@ -1740,7 +1746,8 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 		goto out;
- 	}
- 
--	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
-+	netif_set_real_num_tx_queues(dev, priv->tx_ring_num -
-+							priv->rsv_tx_rings);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
- 	if (dev->num_tc)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index e54541e..a1542a1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1522,6 +1522,24 @@ static void mlx4_en_free_affinity_hint(struct mlx4_en_priv *priv, int ring_idx)
- 	free_cpumask_var(priv->rx_ring[ring_idx]->affinity_mask);
- }
- 
-+static void mlx4_en_init_recycle_ring(struct mlx4_en_priv *priv,
-+				      int tx_ring_idx)
-+{
-+	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[tx_ring_idx];
-+	int rr_index;
-+
-+	rr_index = (priv->rsv_tx_rings - priv->tx_ring_num) + tx_ring_idx;
-+	if (rr_index >= 0) {
-+		tx_ring->free_tx_desc = mlx4_en_recycle_tx_desc;
-+		tx_ring->recycle_ring = priv->rx_ring[rr_index];
-+		en_dbg(DRV, priv,
-+		       "Set tx_ring[%d]->recycle_ring = rx_ring[%d]\n",
-+		       tx_ring_idx, rr_index);
-+	} else {
-+		tx_ring->recycle_ring = NULL;
-+	}
-+}
-+
- int mlx4_en_start_port(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1644,6 +1662,8 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	if (is_socket) {
+ 		event += 6;
+ 		if (*event != '/')
+@@ -319,6 +325,7 @@ int load_bpf_file(char *path)
+ 			if (memcmp(shname_prog, "kprobe/", 7) == 0 ||
+ 			    memcmp(shname_prog, "kretprobe/", 10) == 0 ||
+ 			    memcmp(shname_prog, "tracepoint/", 11) == 0 ||
++			    memcmp(shname_prog, "xdp", 3) == 0 ||
+ 			    memcmp(shname_prog, "socket", 6) == 0)
+ 				load_and_attach(shname_prog, insns, data_prog->d_size);
  		}
- 		tx_ring->tx_queue = netdev_get_tx_queue(dev, i);
- 
-+		mlx4_en_init_recycle_ring(priv, i);
-+
- 		/* Arm CQ for TX completions */
- 		mlx4_en_arm_cq(priv, cq);
- 
-@@ -2534,9 +2554,12 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct bpf_prog *old_prog;
-+	int rsv_tx_rings;
- 	int port_up = 0;
- 	int err;
- 
-+	rsv_tx_rings = prog ? ALIGN(priv->rx_ring_num, MLX4_EN_NUM_UP) : 0;
-+
- 	/* No need to reconfigure buffers when simply swapping the
- 	 * program for a new one.
- 	 */
-@@ -2555,12 +2578,23 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		return -EOPNOTSUPP;
+@@ -336,6 +343,7 @@ int load_bpf_file(char *path)
+ 		if (memcmp(shname, "kprobe/", 7) == 0 ||
+ 		    memcmp(shname, "kretprobe/", 10) == 0 ||
+ 		    memcmp(shname, "tracepoint/", 11) == 0 ||
++		    memcmp(shname, "xdp", 3) == 0 ||
+ 		    memcmp(shname, "socket", 6) == 0)
+ 			load_and_attach(shname, data->d_buf, data->d_size);
  	}
- 
-+	if (priv->tx_ring_num < rsv_tx_rings + MLX4_EN_NUM_UP) {
-+		en_err(priv,
-+		       "Minimum %d tx channels required to run XDP\n",
-+		       (rsv_tx_rings + MLX4_EN_NUM_UP) / MLX4_EN_NUM_UP);
-+		return -EINVAL;
-+	}
+diff --git a/samples/bpf/xdp1_kern.c b/samples/bpf/xdp1_kern.c
+new file mode 100644
+index 0000000..e7dd8ac
+--- /dev/null
++++ b/samples/bpf/xdp1_kern.c
+@@ -0,0 +1,93 @@
++/* Copyright (c) 2016 PLUMgrid
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#define KBUILD_MODNAME "foo"
++#include <uapi/linux/bpf.h>
++#include <linux/in.h>
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++#include <linux/if_vlan.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include "bpf_helpers.h"
 +
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		port_up = 1;
- 		mlx4_en_stop_port(dev, 1);
- 	}
- 
-+	priv->rsv_tx_rings = rsv_tx_rings;
-+	netif_set_real_num_tx_queues(dev, priv->tx_ring_num -
-+							priv->rsv_tx_rings);
++struct bpf_map_def SEC("maps") dropcnt = {
++	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 256,
++};
 +
- 	old_prog = xchg(&priv->prog, prog);
- 	if (old_prog)
- 		bpf_prog_put(old_prog);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 6020c37..64b5bc7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -780,7 +780,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	struct mlx4_en_rx_alloc *frags;
- 	struct mlx4_en_rx_desc *rx_desc;
- 	struct bpf_prog *prog;
-+	int doorbell_pending;
- 	struct sk_buff *skb;
-+	int tx_index;
- 	int index;
- 	int nr;
- 	unsigned int length;
-@@ -797,6 +799,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		return polled;
- 
- 	prog = READ_ONCE(priv->prog);
-+	doorbell_pending = 0;
-+	tx_index = (priv->tx_ring_num - priv->rsv_tx_rings) + cq->ring;
- 
- 	/* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
- 	 * descriptor offset can be deduced from the CQE index instead of
-@@ -895,6 +899,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			switch (act) {
- 			case XDP_PASS:
- 				break;
-+			case XDP_TX:
-+				if (!mlx4_en_xmit_frame(frags, dev,
-+							length, tx_index,
-+							&doorbell_pending))
-+					goto consumed;
-+				break;
- 			default:
- 				bpf_warn_invalid_xdp_action(act);
- 			case XDP_ABORTED:
-@@ -1065,6 +1075,9 @@ consumed:
- 	}
- 
- out:
-+	if (doorbell_pending)
-+		mlx4_en_xmit_doorbell(priv->tx_ring[tx_index]);
-+
- 	AVG_PERF_COUNTER(priv->pstats.rx_coal_avg, polled);
- 	mlx4_cq_set_ci(&cq->mcq);
- 	wmb(); /* ensure HW sees CQ consumer before we post new buffers */
-@@ -1144,6 +1157,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	 * This only works when num_frags == 1.
- 	 */
- 	if (priv->prog) {
-+		dma_dir = PCI_DMA_BIDIRECTIONAL;
- 		/* This will gain efficient xdp frame recycling at the expense
- 		 * of more costly truesize accounting
- 		 */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index c29191e..5d8452d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -196,6 +196,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 	ring->last_nr_txbb = 1;
- 	memset(ring->tx_info, 0, ring->size * sizeof(struct mlx4_en_tx_info));
- 	memset(ring->buf, 0, ring->buf_size);
-+	ring->free_tx_desc = mlx4_en_free_tx_desc;
- 
- 	ring->qp_state = MLX4_QP_STATE_RST;
- 	ring->doorbell_qpn = cpu_to_be32(ring->qp.qpn << 8);
-@@ -265,10 +266,10 @@ static void mlx4_en_stamp_wqe(struct mlx4_en_priv *priv,
- }
- 
- 
--static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
--				struct mlx4_en_tx_ring *ring,
--				int index, u8 owner, u64 timestamp,
--				int napi_mode)
-+u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
-+			 struct mlx4_en_tx_ring *ring,
-+			 int index, u8 owner, u64 timestamp,
-+			 int napi_mode)
- {
- 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
- 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
-@@ -344,6 +345,27 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 	return tx_info->nr_txbb;
- }
- 
-+u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
-+			    struct mlx4_en_tx_ring *ring,
-+			    int index, u8 owner, u64 timestamp,
-+			    int napi_mode)
++static int parse_ipv4(void *data, u64 nh_off, void *data_end)
 +{
-+	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
-+	struct mlx4_en_rx_alloc frame = {
-+		.page = tx_info->page,
-+		.dma = tx_info->map0_dma,
-+		.page_offset = 0,
-+		.page_size = PAGE_SIZE,
-+	};
++	struct iphdr *iph = data + nh_off;
 +
-+	if (!mlx4_en_rx_recycle(ring->recycle_ring, &frame)) {
-+		dma_unmap_page(priv->ddev, tx_info->map0_dma,
-+			       PAGE_SIZE, priv->frag_info[0].dma_dir);
-+		put_page(tx_info->page);
-+	}
-+
-+	return tx_info->nr_txbb;
++	if (iph + 1 > data_end)
++		return 0;
++	return iph->protocol;
 +}
- 
- int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
- {
-@@ -362,7 +384,7 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
- 	}
- 
- 	while (ring->cons != ring->prod) {
--		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
-+		ring->last_nr_txbb = ring->free_tx_desc(priv, ring,
- 						ring->cons & ring->size_mask,
- 						!!(ring->cons & ring->size), 0,
- 						0 /* Non-NAPI caller */);
-@@ -444,7 +466,7 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
- 				timestamp = mlx4_en_get_cqe_ts(cqe);
- 
- 			/* free next descriptor */
--			last_nr_txbb = mlx4_en_free_tx_desc(
-+			last_nr_txbb = ring->free_tx_desc(
- 					priv, ring, ring_index,
- 					!!((ring_cons + txbbs_skipped) &
- 					ring->size), timestamp, napi_budget);
-@@ -476,6 +498,9 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
- 	ACCESS_ONCE(ring->last_nr_txbb) = last_nr_txbb;
- 	ACCESS_ONCE(ring->cons) = ring_cons + txbbs_skipped;
- 
-+	if (ring->free_tx_desc == mlx4_en_recycle_tx_desc)
-+		return done < budget;
 +
- 	netdev_tx_completed_queue(ring->tx_queue, packets, bytes);
- 
- 	/* Wakeup Tx queue if this stopped, and ring is not full.
-@@ -1055,3 +1080,106 @@ tx_drop:
- 	return NETDEV_TX_OK;
- }
- 
-+netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_alloc *frame,
-+			       struct net_device *dev, unsigned int length,
-+			       int tx_ind, int *doorbell_pending)
++static int parse_ipv6(void *data, u64 nh_off, void *data_end)
 +{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	union mlx4_wqe_qpn_vlan	qpn_vlan = {};
-+	struct mlx4_en_tx_ring *ring;
-+	struct mlx4_en_tx_desc *tx_desc;
-+	struct mlx4_wqe_data_seg *data;
-+	struct mlx4_en_tx_info *tx_info;
-+	int index, bf_index;
-+	bool send_doorbell;
-+	int nr_txbb = 1;
-+	bool stop_queue;
-+	dma_addr_t dma;
-+	int real_size;
-+	__be32 op_own;
-+	u32 ring_cons;
-+	bool bf_ok;
++	struct ipv6hdr *ip6h = data + nh_off;
 +
-+	BUILD_BUG_ON_MSG(ALIGN(CTRL_SIZE + DS_SIZE, TXBB_SIZE) != TXBB_SIZE,
-+			 "mlx4_en_xmit_frame requires minimum size tx desc");
++	if (ip6h + 1 > data_end)
++		return 0;
++	return ip6h->nexthdr;
++}
 +
-+	ring = priv->tx_ring[tx_ind];
++SEC("xdp1")
++int xdp_prog1(struct xdp_md *ctx)
++{
++	void *data_end = (void *)(long)ctx->data_end;
++	void *data = (void *)(long)ctx->data;
++	struct ethhdr *eth = data;
++	int rc = XDP_DROP;
++	long *value;
++	u16 h_proto;
++	u64 nh_off;
++	u32 index;
 +
-+	if (!priv->port_up)
-+		goto tx_drop;
++	nh_off = sizeof(*eth);
++	if (data + nh_off > data_end)
++		return rc;
 +
-+	if (mlx4_en_is_tx_ring_full(ring))
-+		goto tx_drop;
++	h_proto = eth->h_proto;
 +
-+	/* fetch ring->cons far ahead before needing it to avoid stall */
-+	ring_cons = READ_ONCE(ring->cons);
++	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
++		struct vlan_hdr *vhdr;
 +
-+	index = ring->prod & ring->size_mask;
-+	tx_info = &ring->tx_info[index];
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return rc;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
++	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
++		struct vlan_hdr *vhdr;
 +
-+	bf_ok = ring->bf_enabled;
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return rc;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
 +
-+	/* Track current inflight packets for performance analysis */
-+	AVG_PERF_COUNTER(priv->pstats.inflight_avg,
-+			 (u32)(ring->prod - ring_cons - 1));
-+
-+	bf_index = ring->prod;
-+	tx_desc = ring->buf + index * TXBB_SIZE;
-+	data = &tx_desc->data;
-+
-+	dma = frame->dma;
-+
-+	tx_info->page = frame->page;
-+	frame->page = NULL;
-+	tx_info->map0_dma = dma;
-+	tx_info->map0_byte_count = length;
-+	tx_info->nr_txbb = nr_txbb;
-+	tx_info->nr_bytes = max_t(unsigned int, length, ETH_ZLEN);
-+	tx_info->data_offset = (void *)data - (void *)tx_desc;
-+	tx_info->ts_requested = 0;
-+	tx_info->nr_maps = 1;
-+	tx_info->linear = 1;
-+	tx_info->inl = 0;
-+
-+	dma_sync_single_for_device(priv->ddev, dma, length, PCI_DMA_TODEVICE);
-+
-+	data->addr = cpu_to_be64(dma);
-+	data->lkey = ring->mr_key;
-+	dma_wmb();
-+	data->byte_count = cpu_to_be32(length);
-+
-+	/* tx completion can avoid cache line miss for common cases */
-+	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
-+
-+	op_own = cpu_to_be32(MLX4_OPCODE_SEND) |
-+		((ring->prod & ring->size) ?
-+		 cpu_to_be32(MLX4_EN_BIT_DESC_OWN) : 0);
-+
-+	ring->packets++;
-+	ring->bytes += tx_info->nr_bytes;
-+	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, length);
-+
-+	ring->prod += nr_txbb;
-+
-+	stop_queue = mlx4_en_is_tx_ring_full(ring);
-+	send_doorbell = stop_queue ||
-+				*doorbell_pending > MLX4_EN_DOORBELL_BUDGET;
-+	bf_ok &= send_doorbell;
-+
-+	real_size = ((CTRL_SIZE + nr_txbb * DS_SIZE) / 16) & 0x3f;
-+
-+	if (bf_ok)
-+		qpn_vlan.bf_qpn = ring->doorbell_qpn | cpu_to_be32(real_size);
++	if (h_proto == htons(ETH_P_IP))
++		index = parse_ipv4(data, nh_off, data_end);
++	else if (h_proto == htons(ETH_P_IPV6))
++		index = parse_ipv6(data, nh_off, data_end);
 +	else
-+		qpn_vlan.fence_size = real_size;
++		index = 0;
 +
-+	mlx4_en_tx_write_desc(ring, tx_desc, qpn_vlan, TXBB_SIZE, bf_index,
-+			      op_own, bf_ok, send_doorbell);
-+	*doorbell_pending = send_doorbell ? 0 : *doorbell_pending + 1;
++	value = bpf_map_lookup_elem(&dropcnt, &index);
++	if (value)
++		*value += 1;
 +
-+	return NETDEV_TX_OK;
-+
-+tx_drop:
-+	ring->tx_dropped++;
-+	return NETDEV_TX_BUSY;
++	return rc;
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 948d7a1..31c6e7d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -132,6 +132,7 @@ enum {
- 					 MLX4_EN_NUM_UP)
- 
- #define MLX4_EN_DEFAULT_TX_WORK		256
-+#define MLX4_EN_DOORBELL_BUDGET		8
- 
- /* Target number of packets to coalesce with interrupt moderation */
- #define MLX4_EN_RX_COAL_TARGET	44
-@@ -219,7 +220,10 @@ enum cq_type {
- 
- 
- struct mlx4_en_tx_info {
--	struct sk_buff *skb;
-+	union {
-+		struct sk_buff *skb;
-+		struct page *page;
-+	};
- 	dma_addr_t	map0_dma;
- 	u32		map0_byte_count;
- 	u32		nr_txbb;
-@@ -265,6 +269,8 @@ struct mlx4_en_page_cache {
- 	struct mlx4_en_rx_alloc buf[MLX4_EN_CACHE_SIZE];
- };
- 
-+struct mlx4_en_priv;
 +
- struct mlx4_en_tx_ring {
- 	/* cache line used and dirtied in tx completion
- 	 * (mlx4_en_free_tx_buf())
-@@ -298,6 +304,11 @@ struct mlx4_en_tx_ring {
- 	__be32			mr_key;
- 	void			*buf;
- 	struct mlx4_en_tx_info	*tx_info;
-+	struct mlx4_en_rx_ring	*recycle_ring;
-+	u32			(*free_tx_desc)(struct mlx4_en_priv *priv,
-+						struct mlx4_en_tx_ring *ring,
-+						int index, u8 owner,
-+						u64 timestamp, int napi_mode);
- 	u8			*bounce_buf;
- 	struct mlx4_qp_context	context;
- 	int			qpn;
-@@ -604,6 +615,7 @@ struct mlx4_en_priv {
- 	struct hwtstamp_config hwtstamp_config;
- 	u32 counter_index;
- 	struct bpf_prog *prog;
-+	int rsv_tx_rings;
- 
- #ifdef CONFIG_MLX4_EN_DCB
- #define MLX4_EN_DCB_ENABLED	0x3
-@@ -677,6 +689,12 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq);
- u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
- 			 void *accel_priv, select_queue_fallback_t fallback);
- netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
-+netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_alloc *frame,
-+			       struct net_device *dev, unsigned int length,
-+			       int tx_ind, int *doorbell_pending);
-+void mlx4_en_xmit_doorbell(struct mlx4_en_tx_ring *ring);
-+bool mlx4_en_rx_recycle(struct mlx4_en_rx_ring *ring,
-+			struct mlx4_en_rx_alloc *frame);
- 
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring,
-@@ -705,6 +723,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
- 			  int budget);
- int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
- int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget);
-+u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
-+			 struct mlx4_en_tx_ring *ring,
-+			 int index, u8 owner, u64 timestamp,
-+			 int napi_mode);
-+u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
-+			    struct mlx4_en_tx_ring *ring,
-+			    int index, u8 owner, u64 timestamp,
-+			    int napi_mode);
- void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 		int is_tx, int rss, int qpn, int cqn, int user_prio,
- 		struct mlx4_qp_context *context);
++char _license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/xdp1_user.c b/samples/bpf/xdp1_user.c
+new file mode 100644
+index 0000000..a5e109e
+--- /dev/null
++++ b/samples/bpf/xdp1_user.c
+@@ -0,0 +1,181 @@
++/* Copyright (c) 2016 PLUMgrid
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/bpf.h>
++#include <linux/netlink.h>
++#include <linux/rtnetlink.h>
++#include <assert.h>
++#include <errno.h>
++#include <signal.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/socket.h>
++#include <unistd.h>
++#include "bpf_load.h"
++#include "libbpf.h"
++
++static int set_link_xdp_fd(int ifindex, int fd)
++{
++	struct sockaddr_nl sa;
++	int sock, seq = 0, len, ret = -1;
++	char buf[4096];
++	struct nlattr *nla, *nla_xdp;
++	struct {
++		struct nlmsghdr  nh;
++		struct ifinfomsg ifinfo;
++		char             attrbuf[64];
++	} req;
++	struct nlmsghdr *nh;
++	struct nlmsgerr *err;
++
++	memset(&sa, 0, sizeof(sa));
++	sa.nl_family = AF_NETLINK;
++
++	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
++	if (sock < 0) {
++		printf("open netlink socket: %s\n", strerror(errno));
++		return -1;
++	}
++
++	if (bind(sock, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
++		printf("bind to netlink: %s\n", strerror(errno));
++		goto cleanup;
++	}
++
++	memset(&req, 0, sizeof(req));
++	req.nh.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.nh.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
++	req.nh.nlmsg_type = RTM_SETLINK;
++	req.nh.nlmsg_pid = 0;
++	req.nh.nlmsg_seq = ++seq;
++	req.ifinfo.ifi_family = AF_UNSPEC;
++	req.ifinfo.ifi_index = ifindex;
++	nla = (struct nlattr *)(((char *)&req)
++				+ NLMSG_ALIGN(req.nh.nlmsg_len));
++	nla->nla_type = NLA_F_NESTED | 43/*IFLA_XDP*/;
++
++	nla_xdp = (struct nlattr *)((char *)nla + NLA_HDRLEN);
++	nla_xdp->nla_type = 1/*IFLA_XDP_FD*/;
++	nla_xdp->nla_len = NLA_HDRLEN + sizeof(int);
++	memcpy((char *)nla_xdp + NLA_HDRLEN, &fd, sizeof(fd));
++	nla->nla_len = NLA_HDRLEN + nla_xdp->nla_len;
++
++	req.nh.nlmsg_len += NLA_ALIGN(nla->nla_len);
++
++	if (send(sock, &req, req.nh.nlmsg_len, 0) < 0) {
++		printf("send to netlink: %s\n", strerror(errno));
++		goto cleanup;
++	}
++
++	len = recv(sock, buf, sizeof(buf), 0);
++	if (len < 0) {
++		printf("recv from netlink: %s\n", strerror(errno));
++		goto cleanup;
++	}
++
++	for (nh = (struct nlmsghdr *)buf; NLMSG_OK(nh, len);
++	     nh = NLMSG_NEXT(nh, len)) {
++		if (nh->nlmsg_pid != getpid()) {
++			printf("Wrong pid %d, expected %d\n",
++			       nh->nlmsg_pid, getpid());
++			goto cleanup;
++		}
++		if (nh->nlmsg_seq != seq) {
++			printf("Wrong seq %d, expected %d\n",
++			       nh->nlmsg_seq, seq);
++			goto cleanup;
++		}
++		switch (nh->nlmsg_type) {
++		case NLMSG_ERROR:
++			err = (struct nlmsgerr *)NLMSG_DATA(nh);
++			if (!err->error)
++				continue;
++			printf("nlmsg error %s\n", strerror(-err->error));
++			goto cleanup;
++		case NLMSG_DONE:
++			break;
++		}
++	}
++
++	ret = 0;
++
++cleanup:
++	close(sock);
++	return ret;
++}
++
++static int ifindex;
++
++static void int_exit(int sig)
++{
++	set_link_xdp_fd(ifindex, -1);
++	exit(0);
++}
++
++/* simple per-protocol drop counter
++ */
++static void poll_stats(int interval)
++{
++	unsigned int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
++	const unsigned int nr_keys = 256;
++	__u64 values[nr_cpus], prev[nr_keys][nr_cpus];
++	__u32 key;
++	int i;
++
++	memset(prev, 0, sizeof(prev));
++
++	while (1) {
++		sleep(interval);
++
++		for (key = 0; key < nr_keys; key++) {
++			__u64 sum = 0;
++
++			assert(bpf_lookup_elem(map_fd[0], &key, values) == 0);
++			for (i = 0; i < nr_cpus; i++)
++				sum += (values[i] - prev[key][i]);
++			if (sum)
++				printf("proto %u: %10llu pkt/s\n",
++				       key, sum / interval);
++			memcpy(prev[key], values, sizeof(values));
++		}
++	}
++}
++
++int main(int ac, char **argv)
++{
++	char filename[256];
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (ac != 2) {
++		printf("usage: %s IFINDEX\n", argv[0]);
++		return 1;
++	}
++
++	ifindex = strtoul(argv[1], NULL, 0);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	if (!prog_fd[0]) {
++		printf("load_bpf_file: %s\n", strerror(errno));
++		return 1;
++	}
++
++	signal(SIGINT, int_exit);
++
++	if (set_link_xdp_fd(ifindex, prog_fd[0]) < 0) {
++		printf("link set xdp fd failed\n");
++		return 1;
++	}
++
++	poll_stats(2);
++
++	return 0;
++}
 -- 
 2.8.2
