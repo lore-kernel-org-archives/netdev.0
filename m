@@ -1,34 +1,60 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] Add support for configuring Infiniband GUIDs
-Date: Fri, 15 Jul 2016 11:31:59 -0700
-Message-ID: <20160715113159.703f9e82@xeon-e3>
-References: <20160707210903.24260-1-eli@mellanox.com>
+Subject: Re: [PATCH iproute2] ip route: restore route entries in correct
+ order
+Date: Fri, 15 Jul 2016 11:35:38 -0700
+Message-ID: <20160715113538.6cd8391b@xeon-e3>
+References: <db0478737a916791e56b8a5f4c6307143ea44c25.1468330678.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: david.laight@aculab.com, netdev@vger.kernel.org
-To: Eli Cohen <eli@mellanox.com>
+Cc: network dev <netdev@vger.kernel.org>, phil@nwl.cc
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33407 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311AbcGOSfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:35:39 -0400
-Received: by mail-pf0-f177.google.com with SMTP id y134so17612370pfg.0
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:35:39 -0700 (PDT)
-In-Reply-To: <20160707210903.24260-1-eli@mellanox.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35951 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518AbcGOSfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:35:22 -0400
+Received: by mail-pa0-f47.google.com with SMTP id pp5so34851469pac.3
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:35:22 -0700 (PDT)
+In-Reply-To: <db0478737a916791e56b8a5f4c6307143ea44c25.1468330678.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  7 Jul 2016 16:09:03 -0500
-Eli Cohen <eli@mellanox.com> wrote:
+On Tue, 12 Jul 2016 21:37:58 +0800
+Xin Long <lucien.xin@gmail.com> wrote:
 
-> Add two NLA's that allow configuration of Infiniband node or port GUIDs
-> by referencing the IPoIB net device set over the physical function. The
-> format to be used is as follows:
+> Sometimes we cannot restore route entries, because in kernel
+>   [1] fib_check_nh()
+>   [2] fib_valid_prefsrc()
+> cause some routes to depend on existence of others while adding.
 > 
-> ip link set dev ib0 vf 0 node_guid 00:02:c9:03:00:21:6e:70
-> ip link set dev ib0 vf 0 port_guid 00:02:c9:03:00:21:6e:78
+> For example, we saved all the routes, and flushed all tables
+>   [a] default via 192.168.122.1 dev eth0
+>   [b] 192.168.122.0/24 dev eth0 src 192.168.122.21
+>   [c] broadcast 127.0.0.0 dev lo table local src 127.0.0.1
+>   [d] local 127.0.0.0/8 dev lo table local  src 127.0.0.1
+>   [e] local 127.0.0.1 dev lo table local src 127.0.0.1
+>   [f] broadcast 127.255.255.255 dev lo table local src 127.0.0.1
+>   [g] broadcast 192.168.122.0 dev eth0 table local src 192.168.122.21
+>   [h] local 192.168.122.21 dev eth0 table local src 192.168.122.21
+>   [i] broadcast 192.168.122.255 dev eth0 table local src 192.168.122.21
 > 
-> Signed-off-by: Eli Cohen <eli@mellanox.com>
+>   Now start to restore them:
+>     If we want to add [a], we have to add [b] first, as [1] and
+>     'via 192.168.122.1' in [a].
+>     If we want to add [b], we have to add [h] first, as [2] and
+>     'src 192.168.122.21' in [b].
+> 
+>   So the correct order to restore should be like:
+>     [e][h] -> [b][c][d][f][g][i] -> [a]
+> 
+> This patch fixes it by traversing the file 3 times, it only restores
+> part of them in each run according to the following conditions, to
+> make sure every entry can be restored successfully.
+>   1. !gw && (!fib_prefsrc || fib_prefsrc == cfg->fc_dst)
+>   2. !gw && (fib_prefsrc != cfg->fc_dst)
+>   3. gw
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks
+Applied, then I changed rtattr_cmp() to have const args.
