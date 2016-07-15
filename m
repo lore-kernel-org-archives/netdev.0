@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bgmac: Fix infinite loop in bgmac_dma_tx_add()
-Date: Fri, 15 Jul 2016 16:04:29 -0700 (PDT)
-Message-ID: <20160715.160429.706188117972117187.davem@davemloft.net>
-References: <1468622572-15443-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 2/8] thunderbolt: Updating device IDs
+Date: Fri, 15 Jul 2016 14:53:45 -0700 (PDT)
+Message-ID: <20160715.145345.1714630247405044715.davem@davemloft.net>
+References: <1468495702-7467-3-git-send-email-amir.jer.levy@intel.com>
+	<20160715.114902.1149848183971707484.davem@davemloft.net>
+	<E607265CB020454880711A6F96C05A03893CE285@hasmsx107.ger.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zajec5@gmail.com, hauke@hauke-m.de,
-	jon.mason@broadcom.com, bcm-kernel-feedback-list@broadcom.com,
-	nbd@nbd.name
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55944 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325AbcGOXEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 19:04:31 -0400
-In-Reply-To: <1468622572-15443-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
+	bhelgaas@google.com, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	thunderbolt-linux@intel.com, mika.westerberg@intel.com,
+	tomas.winkler@intel.com
+To: amir.jer.levy@intel.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <E607265CB020454880711A6F96C05A03893CE285@hasmsx107.ger.corp.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 15 Jul 2016 15:42:52 -0700
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Date: Fri, 15 Jul 2016 18:56:39 +0000
 
-> Nothing is decrementing the index "i" while we are cleaning up the
-> fragments we could not successful transmit.
+> On Fri, Jul 15 2016, 09:49 PM, David Miller wrote:
+>> From: Amir Levy <amir.jer.levy@intel.com>
+>> Date: Thu, 14 Jul 2016 14:28:16 +0300
+>> 
+>> > Adding the new Thunderbolt(TM) device IDs to the list.
+>> >
+>> > Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+>> 
+>> Unless these PCI-IDs, all of them, are going to be used in multiple spots in the
+>> kernel, it is not appropriate to add them here.
+>> 
+>> They belong as private macros in the drivers themselves, instead.
 > 
-> Fixes: 9cde94506eacf ("bgmac: implement scatter/gather support")
-> Reported-by: coverity (CID 1352048)
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> They might be used: http://www.spinics.net/lists/linux-pci/msg51331.html
 
-Applied and queued up for -stable, thanks.
+Then move them to the common location when this "might" thing actually
+happens.
