@@ -1,115 +1,464 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH v2 08/10] net: sched: pfifo_fast use alf_queue
-Date: Thu, 14 Jul 2016 17:09:43 -0700
-Message-ID: <578829C7.8060604@gmail.com>
-References: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
- <20160714062312.8270.65942.stgit@john-Precision-Tower-5810>
- <20160714171148.3bb7b47b@redhat.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH v3 6/8] thunderbolt: Networking state machine
+Date: Thu, 14 Jul 2016 20:25:15 -0400
+Message-ID: <CAP=VYLoAUw+8B7BwzopBTeZjMYbZpOnUOE9tEnYH6718TjW_pQ@mail.gmail.com>
+References: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com> <1468495702-7467-7-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, jhs@mojatatu.com, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: andreas.noever@gmail.com,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	bhelgaas@google.com, linux-pci@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, thunderbolt-linux@intel.com,
+	mika.westerberg@intel.com, tomas.winkler@intel.com
+To: Amir Levy <amir.jer.levy@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34144 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751247AbcGOAJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 20:09:56 -0400
-Received: by mail-pa0-f68.google.com with SMTP id hh10so5277950pac.1
-        for <netdev@vger.kernel.org>; Thu, 14 Jul 2016 17:09:56 -0700 (PDT)
-In-Reply-To: <20160714171148.3bb7b47b@redhat.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36675 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247AbcGOAZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 20:25:47 -0400
+In-Reply-To: <1468495702-7467-7-git-send-email-amir.jer.levy@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-07-14 08:11 AM, Jesper Dangaard Brouer wrote:
-> On Wed, 13 Jul 2016 23:23:12 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
-> 
->> This converts the pfifo_fast qdisc to use the alf_queue enqueue and
->> dequeue routines then sets the NOLOCK bit.
-> 
-> Should have said skb_array, not alf_queue ;-)
+On Thu, Jul 14, 2016 at 7:28 AM, Amir Levy <amir.jer.levy@intel.com> wrote:
+> Negotiation states that a peer goes through in order to establish
+> the communication with the second peer.
+> This includes communication with upper layer and additional
+> infrastructure support to communicate with the second peer through ICM.
+>
+> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+> ---
+>  drivers/thunderbolt/icm/Makefile  |   2 +-
+>  drivers/thunderbolt/icm/icm_nhi.c | 304 ++++++++++++++-
+>  drivers/thunderbolt/icm/net.c     | 802 ++++++++++++++++++++++++++++++++++++++
+>  drivers/thunderbolt/icm/net.h     |  74 ++++
+>  4 files changed, 1171 insertions(+), 11 deletions(-)
+>  create mode 100644 drivers/thunderbolt/icm/net.c
+>
+> diff --git a/drivers/thunderbolt/icm/Makefile b/drivers/thunderbolt/icm/Makefile
+> index 3adfc35..624ee31 100644
+> --- a/drivers/thunderbolt/icm/Makefile
+> +++ b/drivers/thunderbolt/icm/Makefile
+> @@ -25,4 +25,4 @@
+>  ################################################################################
+>
+>  obj-${CONFIG_THUNDERBOLT_ICM} += thunderbolt-icm.o
+> -thunderbolt-icm-objs := icm_nhi.o
+> +thunderbolt-icm-objs := icm_nhi.o net.o
+> diff --git a/drivers/thunderbolt/icm/icm_nhi.c b/drivers/thunderbolt/icm/icm_nhi.c
+> index 9d178a5..060bb38 100644
+> --- a/drivers/thunderbolt/icm/icm_nhi.c
+> +++ b/drivers/thunderbolt/icm/icm_nhi.c
+> @@ -101,6 +101,12 @@ static const struct nla_policy nhi_genl_policy[NHI_ATTR_MAX + 1] = {
+>                                         .len = TBT_ICM_RING_MAX_FRAME_SIZE },
+>         [NHI_ATTR_MSG_FROM_ICM]         = { .type = NLA_BINARY,
+>                                         .len = TBT_ICM_RING_MAX_FRAME_SIZE },
+> +       [NHI_ATTR_LOCAL_ROUTE_STRING]   = {.len = sizeof(struct route_string)},
+> +       [NHI_ATTR_LOCAL_UNIQUE_ID]      = { .len = sizeof(unique_id) },
+> +       [NHI_ATTR_REMOTE_UNIQUE_ID]     = { .len = sizeof(unique_id) },
+> +       [NHI_ATTR_LOCAL_DEPTH]          = { .type = NLA_U8, },
+> +       [NHI_ATTR_ENABLE_FULL_E2E]      = { .type = NLA_FLAG, },
+> +       [NHI_ATTR_MATCH_FRAME_ID]       = { .type = NLA_FLAG, },
+>  };
+>
+>  /* NHI genetlink family */
+> @@ -531,6 +537,29 @@ int nhi_mailbox(struct tbt_nhi_ctxt *nhi_ctxt, u32 cmd, u32 data, bool deinit)
+>         return 0;
+>  }
+>
+> +static inline bool nhi_is_path_disconnected(u32 cmd, u8 num_ports)
+> +{
+> +       return (cmd >= DISCONNECT_PORT_A_INTER_DOMAIN_PATH &&
+> +               cmd < (DISCONNECT_PORT_A_INTER_DOMAIN_PATH + num_ports));
+> +}
+> +
+> +static int nhi_mailbox_disconn_path(struct tbt_nhi_ctxt *nhi_ctxt, u32 cmd)
+> +       __releases(&controllers_list_rwsem)
+> +{
+> +       struct port_net_dev *port;
+> +       u32 port_num = cmd - DISCONNECT_PORT_A_INTER_DOMAIN_PATH;
+> +
+> +       port = &(nhi_ctxt->net_devices[port_num]);
+> +       mutex_lock(&port->state_mutex);
+> +
+> +       up_read(&controllers_list_rwsem);
+> +       port->medium_sts = MEDIUM_READY_FOR_APPROVAL;
+> +       if (port->net_dev)
+> +               negotiation_events(port->net_dev, MEDIUM_DISCONNECTED);
+> +       mutex_unlock(&port->state_mutex);
+> +       return  0;
+> +}
+> +
+>  static int nhi_mailbox_generic(struct tbt_nhi_ctxt *nhi_ctxt, u32 mb_cmd)
+>         __releases(&controllers_list_rwsem)
+>  {
+> @@ -579,13 +608,93 @@ static int nhi_genl_mailbox(__always_unused struct sk_buff *u_skb,
+>         down_read(&controllers_list_rwsem);
+>
+>         nhi_ctxt = nhi_search_ctxt(*(u32 *)info->userhdr);
+> -       if (nhi_ctxt && !nhi_ctxt->d0_exit)
+> -               return nhi_mailbox_generic(nhi_ctxt, mb_cmd);
+> +       if (nhi_ctxt && !nhi_ctxt->d0_exit) {
+> +
+> +               /* rwsem is released later by the below functions */
+> +               if (nhi_is_path_disconnected(cmd, nhi_ctxt->num_ports))
+> +                       return nhi_mailbox_disconn_path(nhi_ctxt, cmd);
+> +               else
+> +                       return nhi_mailbox_generic(nhi_ctxt, mb_cmd);
+> +
+> +       }
+>
+>         up_read(&controllers_list_rwsem);
+>         return -ENODEV;
+>  }
+>
+> +static int nhi_genl_approve_networking(__always_unused struct sk_buff *u_skb,
+> +                                      struct genl_info *info)
+> +{
+> +       struct tbt_nhi_ctxt *nhi_ctxt;
+> +       struct route_string *route_str;
+> +       int res = -ENODEV;
+> +       u8 port_num;
+> +
+> +       if (!info || !info->userhdr || !info->attrs ||
+> +           !info->attrs[NHI_ATTR_LOCAL_ROUTE_STRING] ||
+> +           !info->attrs[NHI_ATTR_LOCAL_UNIQUE_ID] ||
+> +           !info->attrs[NHI_ATTR_REMOTE_UNIQUE_ID] ||
+> +           !info->attrs[NHI_ATTR_LOCAL_DEPTH])
+> +               return -EINVAL;
+> +
+> +       /*
+> +        * route_str is an unique topological address
+> +        * used for approving remote controller
+> +        */
+> +       route_str = nla_data(info->attrs[NHI_ATTR_LOCAL_ROUTE_STRING]);
+> +       /* extracts the port we're connected to */
+> +       port_num = PORT_NUM_FROM_LINK(L0_PORT_NUM(route_str->lo));
+> +
+> +       down_read(&controllers_list_rwsem);
+> +
+> +       nhi_ctxt = nhi_search_ctxt(*(u32 *)info->userhdr);
+> +       if (nhi_ctxt && !nhi_ctxt->d0_exit) {
+> +               struct port_net_dev *port;
+> +
+> +               if (port_num >= nhi_ctxt->num_ports) {
+> +                       res = -EINVAL;
+> +                       goto free_ctl_list;
+> +               }
+> +
+> +               port = &(nhi_ctxt->net_devices[port_num]);
+> +
+> +               mutex_lock(&port->state_mutex);
+> +               up_read(&controllers_list_rwsem);
+> +
+> +               if (port->medium_sts != MEDIUM_READY_FOR_APPROVAL) {
+> +                       dev_info(&nhi_ctxt->pdev->dev,
+> +                               "%s: controller id %#x in state %u <> MEDIUM_READY_FOR_APPROVAL\n",
+> +                               __func__, nhi_ctxt->id, port->medium_sts);
+> +                       goto unlock;
+> +               }
+> +
+> +               port->medium_sts = MEDIUM_READY_FOR_CONNECTION;
+> +
+> +               if (!port->net_dev) {
+> +                       port->net_dev = nhi_alloc_etherdev(nhi_ctxt, port_num,
+> +                                                          info);
+> +                       if (!port->net_dev) {
+> +                               mutex_unlock(&port->state_mutex);
+> +                               return -ENOMEM;
+> +                       }
+> +               } else {
+> +                       nhi_update_etherdev(nhi_ctxt, port->net_dev, info);
+> +
+> +                       negotiation_events(port->net_dev,
+> +                                          MEDIUM_READY_FOR_CONNECTION);
+> +               }
+> +
+> +unlock:
+> +               mutex_unlock(&port->state_mutex);
+> +
+> +               return 0;
+> +       }
+> +
+> +free_ctl_list:
+> +       up_read(&controllers_list_rwsem);
+> +
+> +       return res;
+> +}
+>
+>  static int nhi_genl_send_msg(struct tbt_nhi_ctxt *nhi_ctxt, enum pdf_value pdf,
+>                              const u8 *msg, u32 msg_len)
+> @@ -635,17 +744,169 @@ genl_put_reply_failure:
+>         return res;
+>  }
+>
+> +static bool nhi_handle_inter_domain_msg(struct tbt_nhi_ctxt *nhi_ctxt,
+> +                                       struct thunderbolt_ip_header *hdr)
+> +{
+> +       struct port_net_dev *port;
+> +       u8 port_num;
+> +
+> +       const unique_id_be proto_uuid = APPLE_THUNDERBOLT_IP_PROTOCOL_UUID;
+> +
+> +       if (memcmp(proto_uuid, hdr->apple_tbt_ip_proto_uuid,
+> +                  sizeof(proto_uuid)) != 0) {
+> +               dev_dbg(&nhi_ctxt->pdev->dev,
+> +                       "controller id %#x XDomain discovery message\n",
+> +                       nhi_ctxt->id);
+> +               return true;
+> +       }
+> +
+> +       dev_dbg(&nhi_ctxt->pdev->dev,
+> +               "controller id %#x ThunderboltIP %u\n",
+> +               nhi_ctxt->id, be32_to_cpu(hdr->packet_type));
+> +
+> +       port_num = PORT_NUM_FROM_LINK(
+> +                               L0_PORT_NUM(be32_to_cpu(hdr->route_str.lo)));
+> +
+> +       if (unlikely(port_num >= nhi_ctxt->num_ports)) {
+> +               dev_err(&nhi_ctxt->pdev->dev,
+> +                       "controller id %#x invalid port %u in ThunderboltIP message\n",
+> +                       nhi_ctxt->id, port_num);
+> +               return false;
+> +       }
+> +
+> +       port = &(nhi_ctxt->net_devices[port_num]);
+> +       mutex_lock(&port->state_mutex);
+> +       if (likely(port->net_dev != NULL))
+> +               negotiation_messages(port->net_dev, hdr);
+> +       else
+> +               dev_notice(&nhi_ctxt->pdev->dev,
+> +                          "controller id %#x port %u in ThunderboltIP message was not initialized\n",
+> +                          nhi_ctxt->id, port_num);
+> +       mutex_unlock(&port->state_mutex);
+> +
+> +       return false;
+> +}
+> +
+> +static void nhi_handle_notification_msg(struct tbt_nhi_ctxt *nhi_ctxt,
+> +                                       const u8 *msg)
+> +{
+> +       struct port_net_dev *port;
+> +       u8 port_num;
+> +
+> +#define INTER_DOMAIN_LINK_SHIFT 0
+> +#define INTER_DOMAIN_LINK_MASK GENMASK(2, INTER_DOMAIN_LINK_SHIFT)
+> +       switch (msg[3]) {
+> +
+> +       case NC_INTER_DOMAIN_CONNECTED:
+> +               port_num = PORT_NUM_FROM_MSG(msg[5]);
+> +#define INTER_DOMAIN_APPROVED BIT(3)
+> +               if (likely(port_num < nhi_ctxt->num_ports)) {
+> +                       if (!(msg[5] & INTER_DOMAIN_APPROVED))
+> +                               nhi_ctxt->net_devices[
+> +                                       port_num].medium_sts =
+> +                                    MEDIUM_READY_FOR_APPROVAL;
+> +               } else {
+> +                       dev_err(&nhi_ctxt->pdev->dev,
+> +                               "controller id %#x invalid port %u in inter domain connected message\n",
+> +                               nhi_ctxt->id, port_num);
+> +               }
+> +               break;
+> +
+> +       case NC_INTER_DOMAIN_DISCONNECTED:
+> +               port_num = PORT_NUM_FROM_MSG(msg[5]);
+> +
+> +               if (unlikely(port_num >= nhi_ctxt->num_ports)) {
+> +                       dev_err(&nhi_ctxt->pdev->dev,
+> +                               "controller id %#x invalid port %u in inter domain disconnected message\n",
+> +                               nhi_ctxt->id, port_num);
+> +                       break;
+> +               }
+> +
+> +               port = &(nhi_ctxt->net_devices[port_num]);
+> +               mutex_lock(&port->state_mutex);
+> +               port->medium_sts = MEDIUM_DISCONNECTED;
+> +
+> +               if (likely(port->net_dev != NULL))
+> +                       negotiation_events(port->net_dev,
+> +                                          MEDIUM_DISCONNECTED);
+> +               else
+> +                       dev_notice(&nhi_ctxt->pdev->dev,
+> +                                  "controller id %#x port %u in inter domain disconnected message was not initialized\n",
+> +                                  nhi_ctxt->id, port_num);
+> +               mutex_unlock(&port->state_mutex);
+> +               break;
+> +       }
+> +}
+> +
+> +static bool nhi_handle_icm_response_msg(struct tbt_nhi_ctxt *nhi_ctxt,
+> +                                       const u8 *msg)
+> +{
+> +       struct port_net_dev *port;
+> +       bool send_event = true;
+> +       u8 port_num;
+> +
+> +       if (nhi_ctxt->ignore_icm_resp &&
+> +           msg[3] == RC_INTER_DOMAIN_PKT_SENT) {
+> +               nhi_ctxt->ignore_icm_resp = false;
+> +               send_event = false;
+> +       }
+> +       if (nhi_ctxt->wait_for_icm_resp) {
+> +               nhi_ctxt->wait_for_icm_resp = false;
+> +               up(&nhi_ctxt->send_sem);
+> +       }
+> +
+> +       if (msg[3] == RC_APPROVE_INTER_DOMAIN_CONNEXION) {
+> +#define APPROVE_INTER_DOMAIN_ERROR BIT(0)
+> +               if (unlikely(msg[2] & APPROVE_INTER_DOMAIN_ERROR)) {
+> +                       dev_err(&nhi_ctxt->pdev->dev,
+> +                               "controller id %#x inter domain approve error\n",
+> +                               nhi_ctxt->id);
+> +                       return send_event;
+> +               }
+> +               port_num = PORT_NUM_FROM_LINK((msg[5]&INTER_DOMAIN_LINK_MASK)>>
+> +                                              INTER_DOMAIN_LINK_SHIFT);
+> +
+> +               if (unlikely(port_num >= nhi_ctxt->num_ports)) {
+> +                       dev_err(&nhi_ctxt->pdev->dev,
+> +                               "controller id %#x invalid port %u in inter domain approve message\n",
+> +                               nhi_ctxt->id, port_num);
+> +                       return send_event;
+> +               }
+> +
+> +               port = &(nhi_ctxt->net_devices[port_num]);
+> +               mutex_lock(&port->state_mutex);
+> +               port->medium_sts = MEDIUM_CONNECTED;
+> +
+> +               if (likely(port->net_dev != NULL))
+> +                       negotiation_events(port->net_dev, MEDIUM_CONNECTED);
+> +               else
+> +                       dev_err(&nhi_ctxt->pdev->dev,
+> +                               "controller id %#x port %u in inter domain approve message was not initialized\n",
+> +                               nhi_ctxt->id, port_num);
+> +               mutex_unlock(&port->state_mutex);
+> +       }
+> +
+> +       return send_event;
+> +}
+> +
+>  static bool nhi_msg_from_icm_analysis(struct tbt_nhi_ctxt *nhi_ctxt,
+>                                         enum pdf_value pdf,
+>                                         const u8 *msg, u32 msg_len)
+>  {
+> -       /*
+> -        * preparation for messages that won't be sent,
+> -        * currently unused in this patch.
+> -        */
+>         bool send_event = true;
+>
+>         switch (pdf) {
+> +       case PDF_INTER_DOMAIN_REQUEST:
+> +       case PDF_INTER_DOMAIN_RESPONSE:
+> +               send_event = nhi_handle_inter_domain_msg(
+> +                                       nhi_ctxt,
+> +                                       (struct thunderbolt_ip_header *)msg);
+> +               break;
+> +
+> +       case PDF_FW_TO_SW_NOTIFICATION:
+> +               nhi_handle_notification_msg(nhi_ctxt, msg);
+> +               break;
+> +
+>         case PDF_ERROR_NOTIFICATION:
+>                 dev_err(&nhi_ctxt->pdev->dev,
+>                         "controller id %#x PDF_ERROR_NOTIFICATION %hhu msg len %u\n",
+> @@ -661,10 +922,7 @@ static bool nhi_msg_from_icm_analysis(struct tbt_nhi_ctxt *nhi_ctxt,
+>                 break;
+>
+>         case PDF_FW_TO_SW_RESPONSE:
+> -               if (nhi_ctxt->wait_for_icm_resp) {
+> -                       nhi_ctxt->wait_for_icm_resp = false;
+> -                       up(&nhi_ctxt->send_sem);
+> -               }
+> +               send_event = nhi_handle_icm_response_msg(nhi_ctxt, msg);
+>                 break;
+>
+>         default:
+> @@ -869,6 +1127,12 @@ static const struct genl_ops nhi_ops[] = {
+>                 .doit = nhi_genl_mailbox,
+>                 .flags = GENL_ADMIN_PERM,
+>         },
+> +       {
+> +               .cmd = NHI_CMD_APPROVE_TBT_NETWORKING,
+> +               .policy = nhi_genl_policy,
+> +               .doit = nhi_genl_approve_networking,
+> +               .flags = GENL_ADMIN_PERM,
+> +       },
+>  };
+>
+>  static int nhi_suspend(struct device *dev) __releases(&nhi_ctxt->send_sem)
+> @@ -876,6 +1140,17 @@ static int nhi_suspend(struct device *dev) __releases(&nhi_ctxt->send_sem)
+>         struct tbt_nhi_ctxt *nhi_ctxt = pci_get_drvdata(to_pci_dev(dev));
+>         void __iomem *rx_reg, *tx_reg;
+>         u32 rx_reg_val, tx_reg_val;
+> +       int i;
+> +
+> +       for (i = 0; i < nhi_ctxt->num_ports; i++) {
+> +               struct port_net_dev *port = &nhi_ctxt->net_devices[i];
+> +
+> +               mutex_lock(&port->state_mutex);
+> +               port->medium_sts = MEDIUM_DISCONNECTED;
+> +               if (port->net_dev)
+> +                       negotiation_events(port->net_dev, MEDIUM_DISCONNECTED);
+> +               mutex_unlock(&port->state_mutex);
+> +       }
+>
+>         /* must be after negotiation_events, since messages might be sent */
+>         nhi_ctxt->d0_exit = true;
+> @@ -1035,6 +1310,15 @@ static void icm_nhi_remove(struct pci_dev *pdev)
+>
+>         nhi_suspend(&pdev->dev);
+>
+> +       for (i = 0; i < nhi_ctxt->num_ports; i++) {
+> +               mutex_lock(&nhi_ctxt->net_devices[i].state_mutex);
+> +               if (nhi_ctxt->net_devices[i].net_dev) {
+> +                       nhi_dealloc_etherdev(nhi_ctxt->net_devices[i].net_dev);
+> +                       nhi_ctxt->net_devices[i].net_dev = NULL;
+> +               }
+> +               mutex_unlock(&nhi_ctxt->net_devices[i].state_mutex);
+> +       }
+> +
+>         if (nhi_ctxt->net_workqueue)
+>                 destroy_workqueue(nhi_ctxt->net_workqueue);
+>
+> diff --git a/drivers/thunderbolt/icm/net.c b/drivers/thunderbolt/icm/net.c
+> new file mode 100644
+> index 0000000..e983dfb
+> --- /dev/null
+> +++ b/drivers/thunderbolt/icm/net.c
+> @@ -0,0 +1,802 @@
+> +/*******************************************************************************
+> + *
+> + * Intel Thunderbolt(TM) driver
+> + * Copyright(c) 2014 - 2016 Intel Corporation.
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + *
+> + * This program is distributed in the hope it will be useful, but WITHOUT
+> + * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> + * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> + * more details.
+> + *
+> + * You should have received a copy of the GNU General Public License along
+> + * with this program.  If not, see <http://www.gnu.org/licenses/>.
+> + *
+> + * The full GNU General Public License is included in this distribution in
+> + * the file called "COPYING".
+> + *
+> + * Contact Information:
+> + * Intel Thunderbolt Mailing List <thunderbolt-software@lists.01.org>
+> + * Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+> + *
+> + ******************************************************************************/
+> +
+> +#include <linux/module.h>
 
-I think I'll get numbers for the alf_queue to so we can compare them
-as well. On the todo list for tomorrow.
+I did not see anything like module_init in this driver;  I think it
+seems like you
+want linux/moduleparam.h here.
 
-> 
->  > This also removes the logic used to pick the next band to dequeue from
->> and instead just checks each alf_queue for packets from top priority
->> to lowest. This might need to be a bit more clever but seems to work
->> for now.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>  net/sched/sch_generic.c |  131 +++++++++++++++++++++++++++--------------------
->>  1 file changed, 75 insertions(+), 56 deletions(-)
->>
->> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
->> index 7dcd066..2ac3eb9 100644
->> --- a/net/sched/sch_generic.c
->> +++ b/net/sched/sch_generic.c
->> @@ -26,6 +26,7 @@
->>  #include <linux/list.h>
->>  #include <linux/slab.h>
->>  #include <linux/if_vlan.h>
->> +#include <linux/skb_array.h>
->>  #include <net/sch_generic.h>
->>  #include <net/pkt_sched.h>
->>  #include <net/dst.h>
->> @@ -555,88 +556,79 @@ static const u8 prio2band[TC_PRIO_MAX + 1] = {
->>  
->>  /*
->>   * Private data for a pfifo_fast scheduler containing:
->> - * 	- queues for the three band
->> - * 	- bitmap indicating which of the bands contain skbs
->> + *	- rings for priority bands
->>   */
->>  struct pfifo_fast_priv {
->> -	u32 bitmap;
->> -	struct sk_buff_head q[PFIFO_FAST_BANDS];
->> +	struct skb_array q[PFIFO_FAST_BANDS];
->>  };
->>  
->> -/*
->> - * Convert a bitmap to the first band number where an skb is queued, where:
->> - * 	bitmap=0 means there are no skbs on any band.
->> - * 	bitmap=1 means there is an skb on band 0.
->> - *	bitmap=7 means there are skbs on all 3 bands, etc.
->> - */
->> -static const int bitmap2band[] = {-1, 0, 1, 0, 2, 0, 1, 0};
->> -
->> -static inline struct sk_buff_head *band2list(struct pfifo_fast_priv *priv,
->> -					     int band)
->> +static inline struct skb_array *band2list(struct pfifo_fast_priv *priv,
->> +					  int band)
->>  {
->> -	return priv->q + band;
->> +	return &priv->q[band];
->>  }
->>  
->>  static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
->>  			      struct sk_buff **to_free)
->>  {
->> -	if (skb_queue_len(&qdisc->q) < qdisc_dev(qdisc)->tx_queue_len) {
->> -		int band = prio2band[skb->priority & TC_PRIO_MAX];
->> -		struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
->> -		struct sk_buff_head *list = band2list(priv, band);
->> -
->> -		priv->bitmap |= (1 << band);
->> -		qdisc->q.qlen++;
->> -		return __qdisc_enqueue_tail(skb, qdisc, list);
->> -	}
->> +	int band = prio2band[skb->priority & TC_PRIO_MAX];
->> +	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
->> +	struct skb_array *q = band2list(priv, band);
->> +	int err;
->>  
->> -	return qdisc_drop(skb, qdisc, to_free);
->> +	err = skb_array_produce_bh(q, skb);
-> 
-> Do you need the _bh variant here?  (Doesn't the qdisc run with BH disabled?)
-> 
-> 
-
-Yep its inside rcu_read_lock_bh().
+Thanks,
+Paul.
