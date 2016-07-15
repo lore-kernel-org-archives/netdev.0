@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rxrpc: checking for IS_ERR() instead of NULL
-Date: Fri, 15 Jul 2016 14:16:41 -0700 (PDT)
-Message-ID: <20160715.141641.2297591667441294954.davem@davemloft.net>
-References: <146850762158.24833.7534163896673339680.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net-next 2/2] macvtap: switch to use skb array
+Date: Fri, 15 Jul 2016 14:41:04 -0700 (PDT)
+Message-ID: <20160715.144104.184679049933030447.davem@davemloft.net>
+References: <1468568791-30024-1-git-send-email-jasowang@redhat.com>
+	<1468568791-30024-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-	dan.carpenter@oracle.com, linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mst@redhat.com
+To: jasowang@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146850762158.24833.7534163896673339680.stgit@warthog.procyon.org.uk>
+In-Reply-To: <1468568791-30024-2-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 14 Jul 2016 15:47:01 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Fri, 15 Jul 2016 03:46:31 -0400
 
-> From: Dan Carpenter <dan.carpenter@oracle.com>
+> This patch switch to use skb array instead of sk_receive_queue to
+> avoid spinlock contentions. Tests shows about 21% improvements for
+> guest rx pps:
 > 
-> The rxrpc_lookup_peer() function returns NULL on error, it never returns
-> error pointers.
+> Before: 1472731 pkts/s
+> After:  1786289 pkts/s
 > 
-> Fixes: 8496af50eb38 ('rxrpc: Use RCU to access a peer's service connection tree')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied.
+Looks great, nice work.
+
+Applied, thanks Jason.
