@@ -1,50 +1,42 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+From: Kalle Valo <kvalo@codeaurora.org>
 Subject: Re: pull-request: wireless-drivers-next 2016-07-13
-Date: Fri, 15 Jul 2016 10:21:23 +0300
-Message-ID: <87furbxt70.fsf@kamboji.qca.qualcomm.com>
-References: <201607151143.oxJDgbga%fengguang.wu@intel.com>
+Date: Fri, 15 Jul 2016 10:22:28 +0300
+Message-ID: <87bn1zxt57.fsf@kamboji.qca.qualcomm.com>
+References: <87a8hlz91i.fsf@kamboji.qca.qualcomm.com>
+	<20160714.174155.39693398036427861.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all-JC7UmRfGjtg@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201607151143.oxJDgbga%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> (kbuild test
-	robot's message of "Fri, 15 Jul 2016 11:09:52 +0800")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160714.174155.39693398036427861.davem@davemloft.net> (David
+	Miller's message of "Thu, 14 Jul 2016 17:41:55 -0700 (PDT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
+David Miller <davem@davemloft.net> writes:
 
-> Hi,
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Wed, 13 Jul 2016 21:29:13 +0300
 >
-> [auto build test ERROR on wireless-drivers-next/master]
-> [cannot apply to v4.7-rc7 next-20160714]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+>> here's a pull request for net-next. This time there are few conflicts
+>> due to the cfg80211 scan API changes, and one of them is easy to miss,
+>> so please pay extra attention to them. Otherwise there's not nothing
+>> really out of ordinary. Please note that I also pulled wireless-drivers
+>> to wireless-drivers-next to reduce the amount of conflicts.
+>> 
+>> So about the conflicts, the obvious are notified by git:
+>  ...
+>> I have attached the output from git diff as an example how to resolve
+>> this, hopefully that helps. Please let me know if there are any problems
+>> or if you want to handle these differently.
 >
-> url:    https://github.com/0day-ci/linux/commits/Kalle-Valo/pull-request-wireless-drivers-next-2016-07-13/20160714-023750
-> base:   https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git master
-> config: sparc64-allmodconfig (attached as .config)
-> compiler: sparc64-linux-gnu-gcc (Debian 5.3.1-8) 5.3.1 20160205
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=sparc64 
+> Thanks for all of the conflict resolution info, it really helped.
 >
-> All error/warnings (new ones prefixed by >>):
->
->    drivers/net/wireless/marvell/mwifiex/scan.c: In function 'mwifiex_cancel_scan':
->>> drivers/net/wireless/marvell/mwifiex/scan.c:2024:12: error: variable 'info' has initializer but incomplete type
->         struct cfg80211_scan_info info = {
+> I pushed this all out, please double check my work.
 
-The diff was just an example to help Dave fix few conflicts in my pull
-request, it was not meant to be applied directly.
+Looks good, thanks!
 
 -- 
 Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
