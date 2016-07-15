@@ -1,67 +1,76 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH v2 08/10] net: sched: pfifo_fast use alf_queue
-Date: Fri, 15 Jul 2016 10:29:52 -0700
-Message-ID: <57891D90.5020906@gmail.com>
-References: <20160714061852.8270.66271.stgit@john-Precision-Tower-5810>
- <20160714062312.8270.65942.stgit@john-Precision-Tower-5810>
- <20160714171148.3bb7b47b@redhat.com> <578829C7.8060604@gmail.com>
- <20160715120936.0b339b2a@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 2/4] net: bridge: rearrange flood vs
+ unicast receive paths
+Date: Fri, 15 Jul 2016 10:35:16 -0700
+Message-ID: <CAM_iQpXXoprcz48c-AYgOridkQWSv+5+7v4V5pT1rUu4_FoXMQ@mail.gmail.com>
+References: <1468465802-4571-1-git-send-email-nikolay@cumulusnetworks.com>
+	<1468465802-4571-3-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, jhs@mojatatu.com, alexei.starovoitov@gmail.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35154 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996AbcGORaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 13:30:09 -0400
-Received: by mail-pa0-f68.google.com with SMTP id dx3so6462161pab.2
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 10:30:08 -0700 (PDT)
-In-Reply-To: <20160715120936.0b339b2a@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1468465802-4571-3-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 16-07-15 03:09 AM, Jesper Dangaard Brouer wrote:
-> On Thu, 14 Jul 2016 17:09:43 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
-> 
->>>>  static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
->>>>  			      struct sk_buff **to_free)
->>>>  {
->>>> -	if (skb_queue_len(&qdisc->q) < qdisc_dev(qdisc)->tx_queue_len) {
->>>> -		int band = prio2band[skb->priority & TC_PRIO_MAX];
->>>> -		struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
->>>> -		struct sk_buff_head *list = band2list(priv, band);
->>>> -
->>>> -		priv->bitmap |= (1 << band);
->>>> -		qdisc->q.qlen++;
->>>> -		return __qdisc_enqueue_tail(skb, qdisc, list);
->>>> -	}
->>>> +	int band = prio2band[skb->priority & TC_PRIO_MAX];
->>>> +	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
->>>> +	struct skb_array *q = band2list(priv, band);
->>>> +	int err;
->>>>  
->>>> -	return qdisc_drop(skb, qdisc, to_free);
->>>> +	err = skb_array_produce_bh(q, skb);  
->>>
->>> Do you need the _bh variant here?  (Doesn't the qdisc run with BH disabled?)
->>>
->>>   
->>
->> Yep its inside rcu_read_lock_bh().
-> 
-> The call rcu_read_lock_bh() already disabled BH (local_bh_disable()).
-> Thus, you can use the normal variants of skb_array_produce(), it is
-> (approx 20 cycles) faster than the _bh variant...
-> 
+On Wed, Jul 13, 2016 at 8:10 PM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> This patch removes one conditional from the unicast path by using the fact
+> that skb is NULL only when the packet is multicast or is local.
+>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> ---
+>  net/bridge/br_input.c | 29 ++++++++++++++---------------
+>  1 file changed, 14 insertions(+), 15 deletions(-)
+>
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> index 0b6d32619468..c20c5be6fc22 100644
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -134,10 +134,10 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
+>         struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+>         const unsigned char *dest = eth_hdr(skb)->h_dest;
+>         struct net_bridge_fdb_entry *dst = NULL;
+> +       bool mcast_hit = false, unicast = true;
+>         struct net_bridge_mdb_entry *mdst;
+>         struct net_bridge *br;
+>         struct sk_buff *skb2;
+> -       bool unicast = true;
+>         u16 vid = 0;
+>
+>         if (!p || p->state == BR_STATE_DISABLED)
+> @@ -177,30 +177,29 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
+>                 if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
+>                     br_multicast_querier_exists(br, eth_hdr(skb))) {
+>                         if ((mdst && mdst->mglist) ||
+> -                           br_multicast_is_router(br))
+> +                           br_multicast_is_router(br)) {
+>                                 skb2 = skb;
+> -                       br_multicast_forward(mdst, skb, skb2);
+> -                       skb = NULL;
+> -                       if (!skb2)
+> -                               goto out;
+> +                               br->dev->stats.multicast++;
+> +                       }
+> +                       mcast_hit = true;
+>                 } else {
+>                         skb2 = skb;
+> +                       br->dev->stats.multicast++;
+>                 }
+>                 unicast = false;
+> -               br->dev->stats.multicast++;
 
-hah I was agreeing with you as in yep no need for the _bh variant :)
-I must have been low on coffee or something when I wrote that response
-because when I read it now it sounds like I really think the _bh is
-needed.
 
-At any rate _bh removed thanks!
+Looks like you change the unconditional increment of this counter,
+is this intended?
