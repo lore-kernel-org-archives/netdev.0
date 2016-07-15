@@ -1,19 +1,16 @@
 From: Topi Miettinen <toiwoton@gmail.com>
 Subject: Re: [PATCH 00/14] Present useful limits to user (v2)
-Date: Fri, 15 Jul 2016 16:57:00 +0000
-Message-ID: <485128c4-61c6-45ac-7ae2-2d4819697ec4@gmail.com>
+Date: Fri, 15 Jul 2016 17:19:14 +0000
+Message-ID: <cf28b6b8-6d0d-8ce2-f3dc-953b9bee12d1@gmail.com>
 References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
- <20160715124330.GR30154@twins.programming.kicks-ass.net>
- <28b4b919-4f50-d9f6-c5e1-d1e92ea1ba1c@gmail.com>
- <20160715135956.GA3115@twins.programming.kicks-ass.net>
+ <5788F0E1.8090203@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=iso-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
- Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>,
- Alexander Graf <agraf@suse.com>, Paolo Bonzini <pbonzini@redhat.com>,
- Radim Kr??m???? <rkrcmar@redhat.com>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+Cc: Jonathan Corbet <corbet@lwn.net>, Tony Luck <tony.luck@intel.com>,
+ Fenghua Yu <fenghua.yu@intel.com>, Alexander Graf <agraf@suse.com>,
+ Paolo Bonzini <pbonzini@redhat.com>, =?UTF-8?B?UmFkaW0gS3LEjW3DocWZ?=
+ <rkrcmar@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>,
  Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
  Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
  "H. Peter Anvin" <hpa@zytor.com>,
@@ -24,58 +21,86 @@ Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
  Dennis Dalessandro <dennis.dalessandro@intel.com>,
  Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>,
  Sudeep Dutt <sudeep.dutt@intel.com>,
- Ashutosh Dixit <ashut
-To: Peter Zijlstra <peterz@infradead.org>
+ Ashutosh Dixit <ashutosh.dixit@inte
+To: Richard Weinberger <richard@nod.at>, linux-kernel@vger.kernel.org
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160715135956.GA3115@twins.programming.kicks-ass.net>
+In-Reply-To: <5788F0E1.8090203@nod.at>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 07/15/16 13:59, Peter Zijlstra wrote:
-> On Fri, Jul 15, 2016 at 01:52:48PM +0000, Topi Miettinen wrote:
->> On 07/15/16 12:43, Peter Zijlstra wrote:
->>> On Fri, Jul 15, 2016 at 01:35:47PM +0300, Topi Miettinen wrote:
->>>> Hello,
->>>>
->>>> There are many basic ways to control processes, including capabilities,
->>>> cgroups and resource limits. However, there are far fewer ways to find out
->>>> useful values for the limits, except blind trial and error.
->>>>
->>>> This patch series attempts to fix that by giving at least a nice starting
->>>> point from the highwater mark values of the resources in question.
->>>> I looked where each limit is checked and added a call to update the mark
->>>> nearby.
->>>
->>> And how is that useful? Setting things to the high watermark is
->>> basically the same as not setting the limit at all.
+On 07/15/16 14:19, Richard Weinberger wrote:
+> Hi!
+> 
+> Am 15.07.2016 um 12:35 schrieb Topi Miettinen:
+>> Hello,
 >>
->> What else would you use, too small limits?
+>> There are many basic ways to control processes, including capabilities,
+>> cgroups and resource limits. However, there are far fewer ways to find out
+>> useful values for the limits, except blind trial and error.
+>>
+>> This patch series attempts to fix that by giving at least a nice starting
+>> point from the highwater mark values of the resources in question.
+>> I looked where each limit is checked and added a call to update the mark
+>> nearby.
+>>
+>> Example run of program from Documentation/accounting/getdelauys.c:
+>>
+>> ./getdelays -R -p `pidof smartd`
+>> printing resource accounting
+>> RLIMIT_CPU=0
+>> RLIMIT_FSIZE=0
+>> RLIMIT_DATA=18198528
+>> RLIMIT_STACK=135168
+>> RLIMIT_CORE=0
+>> RLIMIT_RSS=0
+>> RLIMIT_NPROC=1
+>> RLIMIT_NOFILE=55
+>> RLIMIT_MEMLOCK=0
+>> RLIMIT_AS=130879488
+>> RLIMIT_LOCKS=0
+>> RLIMIT_SIGPENDING=0
+>> RLIMIT_MSGQUEUE=0
+>> RLIMIT_NICE=0
+>> RLIMIT_RTPRIO=0
+>> RLIMIT_RTTIME=0
+>>
+>> ./getdelays -R -C /sys/fs/cgroup/systemd/system.slice/smartd.service/
+>> printing resource accounting
+>> sleeping 1, blocked 0, running 0, stopped 0, uninterruptible 0
+>> RLIMIT_CPU=0
+>> RLIMIT_FSIZE=0
+>> RLIMIT_DATA=18198528
+>> RLIMIT_STACK=135168
+>> RLIMIT_CORE=0
+>> RLIMIT_RSS=0
+>> RLIMIT_NPROC=1
+>> RLIMIT_NOFILE=55
+>> RLIMIT_MEMLOCK=0
+>> RLIMIT_AS=130879488
+>> RLIMIT_LOCKS=0
+>> RLIMIT_SIGPENDING=0
+>> RLIMIT_MSGQUEUE=0
+>> RLIMIT_NICE=0
+>> RLIMIT_RTPRIO=0
+>> RLIMIT_RTTIME=0
+>>
+>> In this example, smartd is running as a non-root user. The presented
+>> values can be used as a starting point for giving new limits to the
+>> service.
 > 
-> That question doesn't make sense.
+> I don't think it is worth sprinkling the kernel with update_resource_highwatermark()
+> calls just to get these metrics.
 > 
-> What's the point of setting a limit if it ends up being the same as
-> no-limit (aka unlimited).
+> Can't we teach the existing perf infrastructure to collect these highwatermarks for us?
 
-Having a limit is not the same as not having any limits at all. You're
-in a way right that good limits don't affect the program normally. But
-they can make a difference if the flow is not normal. For example a
-successful exploit or a memory leak bug could cause RLIMIT_AS to trigger.
-
-> 
-> If you cannot explain; and you have not so far; what use these values
-> are, why would we look at the patches.
-> 
-
-The use case is to allow system administrators, distro maintainers and
-developers to configure systems to use the resource limits. The limits
-are not very useful right now, as there is no way to figure out what
-values to use. There are a few /proc files to look, for example current
-number of file descriptors (for RLIMIT_NOFILE) could be counted via
-/proc/pid/fd. But now there is no way to know if there were more in use
-at some point. Likewise, a program can use more address space when you
-are not looking. The source code does not tell these things explicitly.
+I don't know. What kind of changes do you think would be needed?
 
 -Topi
+
+> 
+> Thanks,
+> //richard
+> 
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
