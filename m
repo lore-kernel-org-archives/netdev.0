@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0 / 5] move the common CDC parser
-Date: Fri, 15 Jul 2016 11:51:47 -0700 (PDT)
-Message-ID: <20160715.115147.1896139966807241395.davem@davemloft.net>
-References: <1468503694-9482-1-git-send-email-oneukum@suse.com>
+Subject: Re: [PATCH] net: phy: micrel: Add KSZ8041FTL fiber mode support
+Date: Fri, 15 Jul 2016 11:53:38 -0700 (PDT)
+Message-ID: <20160715.115338.807171123778788554.davem@davemloft.net>
+References: <1468506583-27299-1-git-send-email-p.zabel@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	gregKH@linuxfoundation.org, bjorn@mork.no
-To: oneukum@suse.com
+Cc: netdev@vger.kernel.org, robh+dt@kernel.org, mark.rutland@arm.com,
+	f.fainelli@gmail.com, devicetree@vger.kernel.org,
+	sergei.shtylyov@cogentembedded.com, geert@linux-m68k.org
+To: p.zabel@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51440 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51552 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448AbcGOSvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:51:49 -0400
-In-Reply-To: <1468503694-9482-1-git-send-email-oneukum@suse.com>
+	with ESMTP id S1751413AbcGOSxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:53:40 -0400
+In-Reply-To: <1468506583-27299-1-git-send-email-p.zabel@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum@suse.com>
-Date: Thu, 14 Jul 2016 15:41:29 +0200
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Date: Thu, 14 Jul 2016 16:29:43 +0200
 
-> Experience has shown that making all CDC drivers depend on usbnet
-> is not practical, because some of them are not network drivers.
-> So this patch moves the common parser from usbnet into the messages
-> helpers of usbcore.
-> The rest of the series applies it to the non-network CDC drivers.
+> We can't detect the FXEN (fiber mode) bootstrap pin, so configure
+> it via a boolean device tree property "micrel,fiber-mode".
+> If it is enabled, auto-negotiation is not supported.
+> The only available modes are 100base-fx (full duplex and half duplex).
 > 
-> I hope it can go through Greg's tree although it touches usbnet.
+> Signed-off-by: Philipp Zabel <p.zabel@pengutronix.de>
 
-I'm fine with Greg taking this series, sure.
+Applied to net-next, thanks.
