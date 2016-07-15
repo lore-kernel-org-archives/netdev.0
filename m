@@ -1,263 +1,317 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: [PATCH 1/4 v4] Marvell phy: check link status in case of fiber link.
-Date: Fri, 15 Jul 2016 12:11:30 +0200
-Message-ID: <9e170b8a-cfd7-42ef-0beb-29161d283b00@nexvision.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 17.mo3.mail-out.ovh.net ([87.98.178.58]:36831 "EHLO
-	17.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932284AbcGOKTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 06:19:04 -0400
-Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
-	by mo3.mail-out.ovh.net (Postfix) with ESMTP id C5F6F1030679
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 12:11:30 +0200 (CEST)
-Received: from [192.168.1.29] (LFbn-1-1866-70.w90-73.abo.wanadoo.fr [90.73.165.70])
-	(Authenticated sender: charles-antoine.couret@nexvision.fr)
-	by player734.ha.ovh.net (Postfix) with ESMTPSA id 762B1280073
-	for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 12:11:30 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Topi Miettinen <toiwoton@gmail.com>
+Subject: [PATCH 00/14] Present useful limits to user (v2)
+Date: Fri, 15 Jul 2016 13:35:47 +0300
+Message-ID: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
+Cc: Topi Miettinen <toiwoton@gmail.com>,
+	Jonathan Corbet <corbet@lwn.net>,
+	Tony Luck <tony.luck@intel.com>,
+	Fenghua Yu <fenghua.yu@intel.com>,
+	Alexander Graf <agraf@suse.com>,
+	Paolo Bonzini <pbonzini@redhat.com>,
+	=?UTF-8?q?Radim=20Kr=C4=8Dm=C3=A1=C5=99?= <rkrcmar@redhat.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	x86@kernel.org (maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)),
+	Doug Ledford <dledford@redhat.com>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Mike Marciniszyn <mike.marciniszyn@intel.com>,
+	Dennis Dalessandro <dennis.dalessandro@intel.com>,
+	Christian Benvenuti <benve@cisco.com>,
+	Dave Goodell <dgoodell@cisco.com>,
+	Sudeep Dutt <sudeep.d
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
 Hello,
 
-It's my 4rd patch set for this feature.
-Thanks to comment my work. :)
+There are many basic ways to control processes, including capabilities,
+cgroups and resource limits. However, there are far fewer ways to find out
+useful values for the limits, except blind trial and error.
 
->From 354c25b138f8da9a1f4f451698b3a9122f41717c Mon Sep 17 00:00:00 2001
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Date: Fri, 15 Jul 2016 11:51:48 +0200
-Subject: [PATCH 1/4] Marvell phy: check link status in case of fiber link.
+This patch series attempts to fix that by giving at least a nice starting
+point from the highwater mark values of the resources in question.
+I looked where each limit is checked and added a call to update the mark
+nearby.
 
-For concerned phy, the fiber link is checked before the copper link.
-According to datasheet, the link which is up is enabled.
+Example run of program from Documentation/accounting/getdelauys.c:
 
-If both links are down, copper link would be used.
-To detect fiber link status, we used the real time status
-because of troubles with the copper method.
+./getdelays -R -p `pidof smartd`
+printing resource accounting
+RLIMIT_CPU=0
+RLIMIT_FSIZE=0
+RLIMIT_DATA=18198528
+RLIMIT_STACK=135168
+RLIMIT_CORE=0
+RLIMIT_RSS=0
+RLIMIT_NPROC=1
+RLIMIT_NOFILE=55
+RLIMIT_MEMLOCK=0
+RLIMIT_AS=130879488
+RLIMIT_LOCKS=0
+RLIMIT_SIGPENDING=0
+RLIMIT_MSGQUEUE=0
+RLIMIT_NICE=0
+RLIMIT_RTPRIO=0
+RLIMIT_RTTIME=0
 
-Tested with Marvell 88E1512.
+./getdelays -R -C /sys/fs/cgroup/systemd/system.slice/smartd.service/
+printing resource accounting
+sleeping 1, blocked 0, running 0, stopped 0, uninterruptible 0
+RLIMIT_CPU=0
+RLIMIT_FSIZE=0
+RLIMIT_DATA=18198528
+RLIMIT_STACK=135168
+RLIMIT_CORE=0
+RLIMIT_RSS=0
+RLIMIT_NPROC=1
+RLIMIT_NOFILE=55
+RLIMIT_MEMLOCK=0
+RLIMIT_AS=130879488
+RLIMIT_LOCKS=0
+RLIMIT_SIGPENDING=0
+RLIMIT_MSGQUEUE=0
+RLIMIT_NICE=0
+RLIMIT_RTPRIO=0
+RLIMIT_RTTIME=0
 
-Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
----
- drivers/net/phy/marvell.c | 152 ++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 141 insertions(+), 11 deletions(-)
+In this example, smartd is running as a non-root user. The presented
+values can be used as a starting point for giving new limits to the
+service.
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index ec2c1ee..97b9148 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -138,6 +138,21 @@
- #define MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII	0x1	/* SGMII to copper */
- #define MII_88E1510_GEN_CTRL_REG_1_RESET	0x8000	/* Soft reset */
- 
-+#define LPA_FIBER_1000HALF	0x40
-+#define LPA_FIBER_1000FULL	0x20
-+
-+#define LPA_PAUSE_FIBER	0x180
-+#define LPA_PAUSE_ASYM_FIBER	0x100
-+
-+#define ADVERTISE_FIBER_1000HALF	0x40
-+#define ADVERTISE_FIBER_1000FULL	0x20
-+
-+#define ADVERTISE_PAUSE_FIBER		0x180
-+#define ADVERTISE_PAUSE_ASYM_FIBER	0x100
-+
-+#define REGISTER_LINK_STATUS	0x400
-+#define NB_FIBER_STATS	1
-+
- MODULE_DESCRIPTION("Marvell PHY driver");
- MODULE_AUTHOR("Andy Fleming");
- MODULE_LICENSE("GPL");
-@@ -890,26 +905,79 @@ static int m88e1145_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
-+/**
-+ * fiber_lpa_to_ethtool_lpa_t
-+ * @lpa: value of the MII_LPA register for fiber link
-+ *
-+ * A small helper function that translates MII_LPA
-+ * bits to ethtool LP advertisement settings.
-+ */
-+static u32 fiber_lpa_to_ethtool_lpa_t(u32 lpa)
-+{
-+	u32 result = 0;
-+
-+	if (lpa & LPA_FIBER_1000HALF)
-+		result |= ADVERTISED_1000baseT_Half;
-+	if (lpa & LPA_FIBER_1000FULL)
-+		result |= ADVERTISED_1000baseT_Full;
-+
-+	return result;
-+}
-+
-+/**
-+ * marvell_update_link - update link status in real time in @phydev
-+ * @phydev: target phy_device struct
-+ *
-+ * Description: Update the value in phydev->link to reflect the
-+ *   current link value.
-+ */
-+static int marvell_update_link(struct phy_device *phydev, int fiber)
-+{
-+	int status;
-+
-+	/* Use the generic register for copper link, or specific
-+	 * register for fiber case */
-+	if (fiber) {
-+		status = phy_read(phydev, MII_M1011_PHY_STATUS);
-+		if (status < 0)
-+			return status;
-+
-+		if ((status & REGISTER_LINK_STATUS) == 0)
-+			phydev->link = 0;
-+		else
-+			phydev->link = 1;
-+	} else {
-+		return genphy_update_link(phydev);
-+	}
-+
-+	return 0;
-+}
-+
- /* marvell_read_status
-  *
-- * Generic status code does not detect Fiber correctly!
-  * Description:
-  *   Check the link, then figure out the current state
-  *   by comparing what we advertise with what the link partner
-  *   advertises.  Start by checking the gigabit possibilities,
-  *   then move on to 10/100.
-  */
--static int marvell_read_status(struct phy_device *phydev)
-+static int marvell_read_status_page(struct phy_device *phydev, int page)
- {
- 	int adv;
- 	int err;
- 	int lpa;
- 	int lpagb;
- 	int status = 0;
-+	int fiber;
- 
--	/* Update the link, but return if there
-+	/* Detect and update the link, but return if there
- 	 * was an error */
--	err = genphy_update_link(phydev);
-+	if (page == MII_M1111_FIBER)
-+		fiber = 1;
-+	else
-+		fiber = 0;
-+
-+	err = marvell_update_link(phydev, fiber);
- 	if (err)
- 		return err;
- 
-@@ -930,9 +998,6 @@ static int marvell_read_status(struct phy_device *phydev)
- 		if (adv < 0)
- 			return adv;
- 
--		phydev->lp_advertising = mii_stat1000_to_ethtool_lpa_t(lpagb) |
--					 mii_lpa_to_ethtool_lpa_t(lpa);
--
- 		lpa &= adv;
- 
- 		if (status & MII_M1011_PHY_STATUS_FULLDUPLEX)
-@@ -957,9 +1022,30 @@ static int marvell_read_status(struct phy_device *phydev)
- 			break;
- 		}
- 
--		if (phydev->duplex == DUPLEX_FULL) {
--			phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
--			phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
-+		if (!fiber) {
-+			phydev->lp_advertising = mii_stat1000_to_ethtool_lpa_t(lpagb) |
-+					 mii_lpa_to_ethtool_lpa_t(lpa);
-+
-+			if (phydev->duplex == DUPLEX_FULL) {
-+				phydev->pause = lpa & LPA_PAUSE_CAP ? 1 : 0;
-+				phydev->asym_pause = lpa & LPA_PAUSE_ASYM ? 1 : 0;
-+			}
-+		} else {
-+			/* The fiber link is only 1000M capable */
-+			phydev->lp_advertising = fiber_lpa_to_ethtool_lpa_t(lpa);
-+
-+			if (phydev->duplex == DUPLEX_FULL) {
-+				if (!(lpa & LPA_PAUSE_FIBER)) {
-+					phydev->pause = 0;
-+					phydev->asym_pause = 0;
-+				} else if ((lpa & LPA_PAUSE_ASYM_FIBER)) {
-+					phydev->pause = 1;
-+					phydev->asym_pause = 1;
-+				} else {
-+					phydev->pause = 1;
-+					phydev->asym_pause = 0;
-+				}
-+			}
- 		}
- 	} else {
- 		int bmcr = phy_read(phydev, MII_BMCR);
-@@ -986,6 +1072,50 @@ static int marvell_read_status(struct phy_device *phydev)
- 	return 0;
- }
- 
-+/* marvell_read_status
-+ *
-+ * Some Marvell's phys have two modes: fiber and copper.
-+ * Both need status checked.
-+ * Description:
-+ *   First, check the fiber link and status.
-+ *   If the fiber link is down, check the copper link and status which
-+ *   will be the default value if both link are down.
-+ */
-+static int marvell_read_status(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Check the fiber mode first */
-+	if (phydev->supported & SUPPORTED_FIBRE) {
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-+		if (err < 0)
-+			goto error;
-+
-+		err = marvell_read_status_page(phydev, MII_M1111_FIBER);
-+		if (err < 0)
-+			goto error;
-+
-+		/* If the fiber link is up, it is the selected and used link.
-+		 * In this case, we need to stay in the fiber page.
-+		 * Please to be careful about that, avoid to restore Copper page
-+		 * in other functions which could break the behaviour
-+		 * for some fiber phy like 88E1512.
-+		 * */
-+		if (phydev->link)
-+			return 0;
-+
-+		/* If fiber link is down, check and save copper mode state */
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+		if (err < 0)
-+			goto error;
-+	}
-+
-+	return marvell_read_status_page(phydev, MII_M1111_COPPER);
-+
-+error:
-+	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	return err;
-+}
- static int marvell_aneg_done(struct phy_device *phydev)
- {
- 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
-@@ -1361,7 +1491,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.phy_id = MARVELL_PHY_ID_88E1510,
- 		.phy_id_mask = MARVELL_PHY_ID_MASK,
- 		.name = "Marvell 88E1510",
--		.features = PHY_GBIT_FEATURES,
-+		.features = PHY_GBIT_FEATURES | SUPPORTED_FIBRE,
- 		.flags = PHY_HAS_INTERRUPT,
- 		.probe = marvell_probe,
- 		.config_init = &m88e1510_config_init,
+There's one problem with the patch 07/13, kernel initialization calls
+create_worker() which seems to use different locking model or something:
+
+[    0.145410] =========================================================
+[    0.148000] [ INFO: possible irq lock inversion dependency detected ]
+[    0.148000] 4.7.0-rc7+ #155 Not tainted
+[    0.148000] ---------------------------------------------------------
+[    0.148000] swapper/0/1 just changed the state of lock:
+[    0.148000]  (&(&(&sig->stats_lock)->lock)->rlock){+.....}, at: [<ffffffff810bf769>] __sched_setscheduler+0x339/0xbd0
+[    0.148000] but this lock was taken by another, HARDIRQ-safe lock in the past:
+[    0.148000]  (&rq->lock){-.....}
+
+and interrupts could create inverse lock ordering between them.
+
+[    0.148000] 
+[    0.148000] other info that might help us debug this:
+[    0.148000]  Possible interrupt unsafe locking scenario:
+[    0.148000] 
+[    0.148000]        CPU0                    CPU1
+[    0.148000]        ----                    ----
+[    0.148000]   lock(&(&(&sig->stats_lock)->lock)->rlock);
+[    0.148000]                                local_irq_disable();
+[    0.148000]                                lock(&rq->lock);
+[    0.148000]                                lock(&(&(&sig->stats_lock)->lock)->rlock);
+[    0.148000]   <Interrupt>
+[    0.148000]     lock(&rq->lock);
+[    0.148000] 
+[    0.148000]  *** DEADLOCK ***
+[    0.148000] 
+[    0.148000] 2 locks held by swapper/0/1:
+[    0.148000]  #0:  (cpu_hotplug.lock){.+.+.+}, at: [<ffffffff81092824>] get_online_cpus+0x24/0x70
+[    0.148000]  #1:  (smpboot_threads_lock){+.+.+.}, at: [<ffffffff810ba517>] smpboot_register_percpu_thread_cpumask+0x37/0xf0
+[    0.148000] 
+[    0.148000] the shortest dependencies between 2nd lock and 1st lock:
+[    0.148000]  -> (&rq->lock){-.....} ops: 181 {
+[    0.148000]     IN-HARDIRQ-W at:
+[    0.148000]                       [<ffffffff810e8439>] __lock_acquire+0x6e9/0x1440
+[    0.148000]                       [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]                       [<ffffffff818cf661>] _raw_spin_lock+0x31/0x40
+[    0.148000]                       [<ffffffff810c3a41>] scheduler_tick+0x41/0xd0
+[    0.148000]                       [<ffffffff81110471>] update_process_times+0x51/0x60
+[    0.148000]                       [<ffffffff8111fa4f>] tick_periodic+0x2f/0xc0
+[    0.148000]                       [<ffffffff8111fb05>] tick_handle_periodic+0x25/0x70
+[    0.148000]                       [<ffffffff8101ebf5>] timer_interrupt+0x15/0x20
+[    0.148000]                       [<ffffffff810fc731>] handle_irq_event_percpu+0x41/0x320
+[    0.148000]                       [<ffffffff810fca49>] handle_irq_event+0x39/0x60
+[    0.148000]                       [<ffffffff810ffe08>] handle_level_irq+0x88/0x110
+[    0.148000]                       [<ffffffff8101e58a>] handle_irq+0x1a/0x30
+[    0.148000]                       [<ffffffff818d2281>] do_IRQ+0x61/0x120
+[    0.148000]                       [<ffffffff818d0949>] ret_from_intr+0x0/0x19
+[    0.148000]                       [<ffffffff810fe969>] __setup_irq+0x3f9/0x5e0
+[    0.148000]                       [<ffffffff810feb96>] setup_irq+0x46/0xa0
+[    0.148000]                       [<ffffffff821878e2>] setup_default_timer_irq+0x1e/0x20
+[    0.148000]                       [<ffffffff821878fb>] hpet_time_init+0x17/0x19
+[    0.148000]                       [<ffffffff821878bd>] x86_late_time_init+0xa/0x11
+[    0.148000]                       [<ffffffff82181ef9>] start_kernel+0x39d/0x465
+[    0.148000]                       [<ffffffff82181294>] x86_64_start_reservations+0x2f/0x31
+[    0.148000]                       [<ffffffff8218140e>] x86_64_start_kernel+0x178/0x18b
+[    0.148000]     INITIAL USE at:
+[    0.148000]                      [<ffffffff810e7f90>] __lock_acquire+0x240/0x1440
+[    0.148000]                      [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]                      [<ffffffff818cf82c>] _raw_spin_lock_irqsave+0x3c/0x50
+[    0.148000]                      [<ffffffff810bdc9d>] rq_attach_root+0x1d/0x100
+[    0.148000]                      [<ffffffff8219deab>] sched_init+0x2f5/0x44c
+[    0.148000]                      [<ffffffff82181d9d>] start_kernel+0x241/0x465
+[    0.148000]                      [<ffffffff82181294>] x86_64_start_reservations+0x2f/0x31
+[    0.148000]                      [<ffffffff8218140e>] x86_64_start_kernel+0x178/0x18b
+[    0.148000]   }
+[    0.148000]   ... key      at: [<ffffffff822f3ad0>] __key.60059+0x0/0x8
+[    0.148000]   ... acquired at:
+[    0.148000]    [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]    [<ffffffff818cf661>] _raw_spin_lock+0x31/0x40
+[    0.148000]    [<ffffffff810c0514>] set_user_nice.part.92+0xf4/0x270
+[    0.148000]    [<ffffffff810c06b6>] set_user_nice+0x26/0x30
+[    0.148000]    [<ffffffff810aee10>] create_worker+0xf0/0x1a0
+[    0.148000]    [<ffffffff8219c195>] init_workqueues+0x317/0x51e
+[    0.148000]    [<ffffffff81000450>] do_one_initcall+0x50/0x180
+[    0.148000]    [<ffffffff821820d2>] kernel_init_freeable+0x111/0x25d
+[    0.148000]    [<ffffffff818c206e>] kernel_init+0xe/0x100
+[    0.148000]    [<ffffffff818d01ff>] ret_from_fork+0x1f/0x40
+[    0.148000] 
+[    0.148000] -> (&(&(&sig->stats_lock)->lock)->rlock){+.....} ops: 2 {
+[    0.148000]    HARDIRQ-ON-W at:
+[    0.148000]                     [<ffffffff810e82e0>] __lock_acquire+0x590/0x1440
+[    0.148000]                     [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]                     [<ffffffff818cf661>] _raw_spin_lock+0x31/0x40
+[    0.148000]                     [<ffffffff810bf769>] __sched_setscheduler+0x339/0xbd0
+[    0.148000]                     [<ffffffff810c0076>] _sched_setscheduler+0x76/0x90
+[    0.148000]                     [<ffffffff810c1012>] sched_set_stop_task+0x62/0xb0
+[    0.148000]                     [<ffffffff81143983>] cpu_stop_create+0x23/0x30
+[    0.148000]                     [<ffffffff810ba48d>] __smpboot_create_thread.part.2+0xad/0x100
+[    0.148000]                     [<ffffffff810ba57f>] smpboot_register_percpu_thread_cpumask+0x9f/0xf0
+[    0.148000]                     [<ffffffff821a1708>] cpu_stop_init+0x7d/0xb8
+[    0.148000]                     [<ffffffff81000450>] do_one_initcall+0x50/0x180
+[    0.148000]                     [<ffffffff821820d2>] kernel_init_freeable+0x111/0x25d
+[    0.148000]                     [<ffffffff818c206e>] kernel_init+0xe/0x100
+[    0.148000]                     [<ffffffff818d01ff>] ret_from_fork+0x1f/0x40
+[    0.148000]    INITIAL USE at:
+[    0.148000]                    [<ffffffff810e7f90>] __lock_acquire+0x240/0x1440
+[    0.148000]                    [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]                    [<ffffffff818cf661>] _raw_spin_lock+0x31/0x40
+[    0.148000]                    [<ffffffff810c0514>] set_user_nice.part.92+0xf4/0x270
+[    0.148000]                    [<ffffffff810c06b6>] set_user_nice+0x26/0x30
+[    0.148000]                    [<ffffffff810aee10>] create_worker+0xf0/0x1a0
+[    0.148000]                    [<ffffffff8219c195>] init_workqueues+0x317/0x51e
+[    0.148000]                    [<ffffffff81000450>] do_one_initcall+0x50/0x180
+[    0.148000]                    [<ffffffff821820d2>] kernel_init_freeable+0x111/0x25d
+[    0.148000]                    [<ffffffff818c206e>] kernel_init+0xe/0x100
+[    0.148000]                    [<ffffffff818d01ff>] ret_from_fork+0x1f/0x40
+[    0.148000]  }
+[    0.148000]  ... key      at: [<ffffffff822f2190>] __key.55894+0x0/0x8
+[    0.148000]  ... acquired at:
+[    0.148000]    [<ffffffff810e6885>] check_usage_backwards+0x155/0x160
+[    0.148000]    [<ffffffff810e7533>] mark_lock+0x333/0x610
+[    0.148000]    [<ffffffff810e82e0>] __lock_acquire+0x590/0x1440
+[    0.148000]    [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]    [<ffffffff818cf661>] _raw_spin_lock+0x31/0x40
+[    0.148000]    [<ffffffff810bf769>] __sched_setscheduler+0x339/0xbd0
+[    0.148000]    [<ffffffff810c0076>] _sched_setscheduler+0x76/0x90
+[    0.148000]    [<ffffffff810c1012>] sched_set_stop_task+0x62/0xb0
+[    0.148000]    [<ffffffff81143983>] cpu_stop_create+0x23/0x30
+[    0.148000]    [<ffffffff810ba48d>] __smpboot_create_thread.part.2+0xad/0x100
+[    0.148000]    [<ffffffff810ba57f>] smpboot_register_percpu_thread_cpumask+0x9f/0xf0
+[    0.148000]    [<ffffffff821a1708>] cpu_stop_init+0x7d/0xb8
+[    0.148000]    [<ffffffff81000450>] do_one_initcall+0x50/0x180
+[    0.148000]    [<ffffffff821820d2>] kernel_init_freeable+0x111/0x25d
+[    0.148000]    [<ffffffff818c206e>] kernel_init+0xe/0x100
+[    0.148000]    [<ffffffff818d01ff>] ret_from_fork+0x1f/0x40
+[    0.148000] 
+[    0.148000] 
+[    0.148000] stack backtrace:
+[    0.148000] CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.7.0-rc7+ #155
+[    0.148000] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
+[    0.148000]  0000000000000086 00000000aea03eae ffff88003de6ba60 ffffffff813cb2d5
+[    0.148000]  ffffffff82d48e60 ffff88003de6bac0 ffff88003de6baa0 ffffffff811a6b05
+[    0.148000]  ffff88003de647d8 ffff88003de647d8 ffff88003de64040 ffffffff81d531a7
+[    0.148000] Call Trace:
+[    0.148000]  [<ffffffff813cb2d5>] dump_stack+0x67/0x92
+[    0.148000]  [<ffffffff811a6b05>] print_irq_inversion_bug.part.38+0x1a4/0x1b0
+[    0.148000]  [<ffffffff810e6885>] check_usage_backwards+0x155/0x160
+[    0.148000]  [<ffffffff810e7533>] mark_lock+0x333/0x610
+[    0.148000]  [<ffffffff810e6730>] ? check_usage_forwards+0x160/0x160
+[    0.148000]  [<ffffffff810e82e0>] __lock_acquire+0x590/0x1440
+[    0.148000]  [<ffffffff810e7a6d>] ? trace_hardirqs_on+0xd/0x10
+[    0.148000]  [<ffffffff81104aad>] ? debug_lockdep_rcu_enabled+0x1d/0x20
+[    0.148000]  [<ffffffff810e95d3>] lock_acquire+0xe3/0x1c0
+[    0.148000]  [<ffffffff810bf769>] ? __sched_setscheduler+0x339/0xbd0
+[    0.148000]  [<ffffffff818cf661>] _raw_spin_lock+0x31/0x40
+[    0.148000]  [<ffffffff810bf769>] ? __sched_setscheduler+0x339/0xbd0
+[    0.148000]  [<ffffffff810bf769>] __sched_setscheduler+0x339/0xbd0
+[    0.148000]  [<ffffffff810c0076>] _sched_setscheduler+0x76/0x90
+[    0.148000]  [<ffffffff810c1012>] sched_set_stop_task+0x62/0xb0
+[    0.148000]  [<ffffffff81143983>] cpu_stop_create+0x23/0x30
+[    0.148000]  [<ffffffff810ba48d>] __smpboot_create_thread.part.2+0xad/0x100
+[    0.148000]  [<ffffffff810ba57f>] smpboot_register_percpu_thread_cpumask+0x9f/0xf0
+[    0.148000]  [<ffffffff821a1708>] cpu_stop_init+0x7d/0xb8
+[    0.148000]  [<ffffffff821a168b>] ? pid_namespaces_init+0x40/0x40
+[    0.148000]  [<ffffffff81000450>] do_one_initcall+0x50/0x180
+[    0.148000]  [<ffffffff8102c24d>] ? print_cpu_info+0x7d/0xe0
+[    0.148000]  [<ffffffff821820d2>] kernel_init_freeable+0x111/0x25d
+[    0.148000]  [<ffffffff818c206e>] kernel_init+0xe/0x100
+[    0.148000]  [<ffffffff818d01ff>] ret_from_fork+0x1f/0x40
+[    0.148000]  [<ffffffff818c2060>] ? rest_init+0x130/0x130
+
+In this v2, I tried to address all comments, thanks for reviews.
+
+-Topi
+
+Topi Miettinen (14):
+  resource limits: foundation for resource highwater tracking
+  resource limits: aggregate task highwater marks to cgroup level
+  resource limits: track highwater mark of file sizes
+  resource limits: track highwater mark of VM data segment
+  resource limits: track highwater mark of stack size
+  resource limits: track highwater mark of cores dumped
+  resource limits: track highwater mark of user processes
+  resource limits: track highwater mark of number of files
+  resource limits: track highwater mark of locked memory
+  resource limits: track highwater mark of address space size
+  resource limits: track highwater mark of number of pending signals
+  resource limits: track highwater mark of size of message queues
+  resource limits: track highwater mark of niceness
+  resource limits: track highwater mark of RT priority
+
+ Documentation/accounting/getdelays.c       | 62 ++++++++++++++++++++++--
+ arch/ia64/kernel/perfmon.c                 |  1 +
+ arch/powerpc/kvm/book3s_64_vio.c           |  2 +
+ arch/powerpc/mm/mmu_context_iommu.c        |  2 +
+ arch/x86/ia32/ia32_aout.c                  |  2 +
+ drivers/infiniband/core/umem.c             |  1 +
+ drivers/infiniband/hw/hfi1/user_pages.c    |  2 +
+ drivers/infiniband/hw/qib/qib_user_pages.c |  2 +
+ drivers/infiniband/hw/usnic/usnic_uiom.c   |  2 +
+ drivers/misc/mic/scif/scif_rma.c           |  1 +
+ drivers/vfio/vfio_iommu_spapr_tce.c        |  2 +
+ drivers/vfio/vfio_iommu_type1.c            |  5 ++
+ fs/attr.c                                  |  2 +
+ fs/binfmt_aout.c                           |  2 +
+ fs/binfmt_flat.c                           |  2 +
+ fs/coredump.c                              | 11 +++--
+ fs/file.c                                  |  4 ++
+ include/linux/cgroup-defs.h                |  5 ++
+ include/linux/sched.h                      | 61 +++++++++++++++++++++++
+ include/linux/tsacct_kern.h                |  3 ++
+ include/uapi/linux/cgroupstats.h           |  3 ++
+ include/uapi/linux/taskstats.h             | 10 +++-
+ ipc/mqueue.c                               |  1 +
+ kernel/bpf/syscall.c                       |  8 +++
+ kernel/cgroup.c                            | 78 ++++++++++++++++++++++++++++++
+ kernel/cred.c                              |  1 +
+ kernel/events/core.c                       |  1 +
+ kernel/fork.c                              |  2 +
+ kernel/sched/core.c                        |  6 +++
+ kernel/signal.c                            |  2 +
+ kernel/sys.c                               |  5 ++
+ kernel/taskstats.c                         |  4 ++
+ kernel/tsacct.c                            | 47 ++++++++++++++++++
+ mm/mlock.c                                 |  8 +++
+ mm/mmap.c                                  | 17 ++++++-
+ mm/mremap.c                                |  7 +++
+ 36 files changed, 365 insertions(+), 9 deletions(-)
+
 -- 
-2.7.4
+2.8.1
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
