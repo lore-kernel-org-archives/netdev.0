@@ -1,79 +1,75 @@
-From: Topi Miettinen <toiwoton@gmail.com>
-Subject: Re: [PATCH 09/14] resource limits: track highwater mark of locked
- memory
-Date: Fri, 15 Jul 2016 17:39:26 +0000
-Message-ID: <5c43bc33-6625-ceb7-e96e-adf7df5b642c@gmail.com>
-References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
- <1468578983-28229-10-git-send-email-toiwoton@gmail.com>
- <20160715151408.GA32317@redhat.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] rndis_host: Set random MAC for ZTE MF910
+Date: Fri, 15 Jul 2016 19:42:28 +0200
+Message-ID: <877fcmlrwb.fsf@miraculix.mork.no>
+References: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com>
+	<87k2gpnpo5.fsf@miraculix.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D5F4F921C@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
- Fenghua Yu <fenghua.yu@intel.com>, Paolo Bonzini <pbonzini@redhat.com>,
- =?UTF-8?B?UmFkaW0gS3LEjW3DocWZ?= <rkrcmar@redhat.com>,
- Alexander Graf <agraf@suse.com>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
- Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
- Hal Rosenstock <hal.rosenstock@gmail.com>,
- Mike Marciniszyn <mike.marciniszyn@intel.com>,
- Dennis Dalessandro <dennis.dalessandro@intel.com>,
- Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>,
- Sudeep Dutt <sudeep.dutt@intel.com>,
- Ashutosh Dixit <ashutosh.dixit@intel.com>,
- Alex Williamson <alex.williamson@redhat.com>,
- Alexei Starovoitov <ast@kernel.org>, Peter Zijlstra <peterz@infradead.org>,
- Ingo Molnar <mingo@redhat.com>, Arnaldo Carva
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160715151408.GA32317@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kristian Evensen <kristian.evensen@gmail.com>,
+	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4F921C@AcuExch.aculab.com>
+	(David Laight's message of "Fri, 15 Jul 2016 16:42:02 +0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/15/16 15:14, Oleg Nesterov wrote:
-> On 07/15, Topi Miettinen wrote:
->>
->> Track maximum size of locked memory, to be able to configure
->> RLIMIT_MEMLOCK resource limits. The information is available
->> with taskstats and cgroupstats netlink socket.
-> 
-> So I personally still dislike the very idea of this series... but I won't
-> argue if you convince maintainers.
-> 
->> @@ -2020,6 +2020,10 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
->>  		return -ENOMEM;
->>  
->>  	update_resource_highwatermark(RLIMIT_STACK, actual_size);
->> +	if (vma->vm_flags & VM_LOCKED)
->> +		update_resource_highwatermark(RLIMIT_MEMLOCK,
->> +					      (mm->locked_vm + grow) <<
->> +					      PAGE_SHIFT);
-> 
-> Btw this is not right. The same for the previous patch which tracks
-> RLIMIT_STACK. The "current" task can debugger/etc.
+David Laight <David.Laight@ACULAB.COM> writes:
+> From: Bj=C3=B8rn Mork
+>> Sent: 13 July 2016 23:23
+> ...
+>> Or how about the more generic?:
+>>=20
+>>         if (bp[0] & 0x02)
+>>    		eth_hw_addr_random(net);
+>> 	else
+>> 		ether_addr_copy(net->dev_addr, bp);
+>>=20
+>> That would catch similar screwups from other vendors too.
+>
+> Not really, that disables 'locally administered' addresses.
 
-acct_stack_growth() is called from expand_upwards() and
-expand_downwards(). They call security_mmap_addr() and the various LSM
-implementations also use current task in the checks. Are these also not
-right?
+=2E.. when the 'locally administered' addresses comes from firmeare, ye=
+s.
+That was the idea.  We are better off using our own random locally
+administered address if some vendor has been cheap/stupid enough to
+program that into firmware.
 
-> 
-> Yes, yes, this just reminds that the whole rlimit logic in this path
-> is broken but still...
+The aminstrator is of course still free to set any address, 'locally
+administered' or whatever.  This is not the question here.
 
-I'd be happy to fix the logic with a separate prerequisite patch and
-then use the right logic for this patch, but I'm not sure I know how.
-Could you elaborate a bit?
+> If a vendor has used the same address on lots of cards it could easil=
+y
+> be a 'real' address.
 
--Topi
+Sure.  We cannot easily detect that.  The only way is to keep a
+blacklist of such  'real' addresses, the way Kristian initially
+proposed.
 
-> 
-> Oleg.
-> 
+But I thought that we could simplify this particular screwup since the
+address in question had the local bit set, and catch every other simila=
+r
+abuse at the same time. If you get the local bit from formware, then yo=
+u
+know for sure that there is something wrong.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> Not only that, there certainly used to be manufacturers that used 'lo=
+cally
+> administered' addresses on all their cards (as well as those that use=
+d unallocated
+> address blocks).
+
+Sure. But is there any reason to care about those addresses?
+
+> Not to mention the bit-revered addresses....
+
+Listing all the ways vendors have screwed is going to be a long and
+rather boring thread ;)
+
+
+Bj=C3=B8rn
