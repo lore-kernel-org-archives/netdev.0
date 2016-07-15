@@ -1,75 +1,86 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] rndis_host: Set random MAC for ZTE MF910
-Date: Fri, 15 Jul 2016 19:42:28 +0200
-Message-ID: <877fcmlrwb.fsf@miraculix.mork.no>
-References: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com>
-	<87k2gpnpo5.fsf@miraculix.mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D5F4F921C@AcuExch.aculab.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf program
+Date: Fri, 15 Jul 2016 10:49:52 -0700
+Message-ID: <CALx6S37hihFayCBJcrr61WjER11=fDk_S_sGXaRSoC3Ukw93eA@mail.gmail.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-5-git-send-email-bblanco@plumgrid.com> <20160714092543.776f8d8c@redhat.com>
+ <20160715033057.GA98180@ast-mbp.thefacebook.com> <CALx6S34e73N6YA8AP67DAHEjcE-q5nO9q0Bk9motfbBKpB9T4g@mail.gmail.com>
+ <20160715164744.GA3693@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kristian Evensen <kristian.evensen@gmail.com>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4F921C@AcuExch.aculab.com>
-	(David Laight's message of "Fri, 15 Jul 2016 16:42:02 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:37391 "EHLO
+	mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751241AbcGORtx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 13:49:53 -0400
+Received: by mail-it0-f54.google.com with SMTP id f6so25245371ith.0
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 10:49:53 -0700 (PDT)
+In-Reply-To: <20160715164744.GA3693@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> writes:
-> From: Bj=C3=B8rn Mork
->> Sent: 13 July 2016 23:23
-> ...
->> Or how about the more generic?:
->>=20
->>         if (bp[0] & 0x02)
->>    		eth_hw_addr_random(net);
->> 	else
->> 		ether_addr_copy(net->dev_addr, bp);
->>=20
->> That would catch similar screwups from other vendors too.
+On Fri, Jul 15, 2016 at 9:47 AM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Jul 15, 2016 at 09:18:13AM -0700, Tom Herbert wrote:
+>> > attaching program to all rings at once is a fundamental part for correct
+>> > operation. As was pointed out in the past the bpf_prog pointer
+>> > in the ring design loses atomicity of the update. While the new program is
+>> > being attached the old program is still running on other rings.
+>> > That is not something user space can compensate for.
+>> > So for current 'one prog for all rings' we cannot do what you're suggesting,
+>> > yet it doesn't mean we won't do prog per ring tomorrow. To do that the other
+>> > aspects need to be agreed upon before we jump into implementation:
+>> > - what is the way for the program to know which ring it's running on?
+>> >   if there is no such way, then attaching the same prog to multiple
+>> >   ring is meaningless.
+>>
+>> Why would it need to know? If the user can say run this program on
+>> this ring that should be sufficient.
 >
-> Not really, that disables 'locally administered' addresses.
+> and the program would have to be recompiled with #define for every ring?
 
-=2E.. when the 'locally administered' addresses comes from firmeare, ye=
-s.
-That was the idea.  We are better off using our own random locally
-administered address if some vendor has been cheap/stupid enough to
-program that into firmware.
+Why would we need to recompile? We should be able to run the same
+program on different rings, this just a matter of associating each
+ring with a program.
 
-The aminstrator is of course still free to set any address, 'locally
-administered' or whatever.  This is not the question here.
+>> We already have this problem with other per ring configuration.
+>
+> not really. without atomicity of the program change, the user space
+> daemon that controls it will struggle to adjust. Consider the case
+> where we're pushing new update for loadbalancer. In such case we
+> want to reuse the established bpf map, since we cannot atomically
+> move it from old to new, but we want to swap the program that uses
+> in one go, otherwise two different programs will be accessing
+> the same map. Technically it's valid, but difference in the programs
+> may cause issues. Lack of atomicity is not intractable problem,
+> it just makes user space quite a bit more complex for no reason.
+>
 
-> If a vendor has used the same address on lots of cards it could easil=
-y
-> be a 'real' address.
+I'm really missing why having a program pointer per ring could be so
+complicated. This should just a matter of maintaining a pointer to the
+BPF program program in each RX queue. If we want to latch together all
+the rings to run the same program then just have an API that does
+that-- walk all the queues and set the pointer to the program.  if
+necessary this can be done atomically by taking the device down for
+the operation.
 
-Sure.  We cannot easily detect that.  The only way is to keep a
-blacklist of such  'real' addresses, the way Kristian initially
-proposed.
+To me, an XDP program is just another attribute of an RX queue, it's
+really not special!. We already have a very good infrastructure for
+managing multiqueue and pretty much everything in the receive path
+operates at the queue level not the device level-- we should follow
+that model.
 
-But I thought that we could simplify this particular screwup since the
-address in question had the local bit set, and catch every other simila=
-r
-abuse at the same time. If you get the local bit from formware, then yo=
-u
-know for sure that there is something wrong.
-
-> Not only that, there certainly used to be manufacturers that used 'lo=
-cally
-> administered' addresses on all their cards (as well as those that use=
-d unallocated
-> address blocks).
-
-Sure. But is there any reason to care about those addresses?
-
-> Not to mention the bit-revered addresses....
-
-Listing all the ways vendors have screwed is going to be a long and
-rather boring thread ;)
-
-
-Bj=C3=B8rn
+Tom
