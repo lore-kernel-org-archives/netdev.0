@@ -1,41 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/8] thunderbolt: Updating device IDs
-Date: Fri, 15 Jul 2016 14:53:45 -0700 (PDT)
-Message-ID: <20160715.145345.1714630247405044715.davem@davemloft.net>
-References: <1468495702-7467-3-git-send-email-amir.jer.levy@intel.com>
-	<20160715.114902.1149848183971707484.davem@davemloft.net>
-	<E607265CB020454880711A6F96C05A03893CE285@hasmsx107.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
-	bhelgaas@google.com, linux-pci@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	thunderbolt-linux@intel.com, mika.westerberg@intel.com,
-	tomas.winkler@intel.com
-To: amir.jer.levy@intel.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <E607265CB020454880711A6F96C05A03893CE285@hasmsx107.ger.corp.intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] ss: Fix support for device filter by index
+Date: Fri, 15 Jul 2016 15:41:35 -0700
+Message-ID: <1468622495-24968-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34408 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751684AbcGOWlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 18:41:45 -0400
+Received: by mail-pa0-f44.google.com with SMTP id fi15so42863809pac.1
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 15:41:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Date: Fri, 15 Jul 2016 18:56:39 +0000
+Support was recently added for device filters. The intent was to allow
+the device to be specified by name or index, and using the if%u format
+(dev == if5) or the simpler and more intuitive index alone (dev == 5).
+The latter case is broken since the index is not saved to the filter
+after the strtoul conversion. Further, the tmp variable used for the
+conversion shadows another variable used in the function. Fix both.
 
-> On Fri, Jul 15 2016, 09:49 PM, David Miller wrote:
->> From: Amir Levy <amir.jer.levy@intel.com>
->> Date: Thu, 14 Jul 2016 14:28:16 +0300
->> 
->> > Adding the new Thunderbolt(TM) device IDs to the list.
->> >
->> > Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
->> 
->> Unless these PCI-IDs, all of them, are going to be used in multiple spots in the
->> kernel, it is not appropriate to add them here.
->> 
->> They belong as private macros in the drivers themselves, instead.
-> 
-> They might be used: http://www.spinics.net/lists/linux-pci/msg51331.html
+With this change all 3 variants work as expected:
+$ ss -t 'dev == 62'
+State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
+ESTAB       0      224         10.0.1.3%mgmt:ssh   192.168.0.50:58442
 
-Then move them to the common location when this "might" thing actually
-happens.
+$ ss -t 'dev == mgmt'
+State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
+ESTAB       0      224         10.0.1.3%mgmt:ssh   192.168.0.50:58442
+
+$ ss -t 'dev == if62'
+State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
+ESTAB       0      36          10.0.1.3%mgmt:ssh   192.168.0.50:58442
+
+Fixes: 2d2932125616 ("ss: Add support to filter on device")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+No changes since last version. Applies cleanly to master branch.
+
+ misc/ss.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index a0f9c6b9623c..abece96c0946 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1435,11 +1435,13 @@ void *parse_devcond(char *name)
+ 	a.iface = xll_name_to_index(name);
+ 	if (a.iface == 0) {
+ 		char *end;
+-		unsigned long res;
++		unsigned long n;
+ 
+-		res = strtoul(name, &end, 0);
+-		if (!end || end == name || *end || res > UINT_MAX)
++		n = strtoul(name, &end, 0);
++		if (!end || end == name || *end || n > UINT_MAX)
+ 			return NULL;
++
++		a.iface = n;
+ 	}
+ 
+ 	res = malloc(sizeof(*res));
+-- 
+2.1.4
