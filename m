@@ -1,87 +1,84 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Fri, 15 Jul 2016 09:56:53 -0700
-Message-ID: <20160715165651.GB3693@ast-mbp.thefacebook.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
- <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
- <20160714092543.776f8d8c@redhat.com>
- <20160715033057.GA98180@ast-mbp.thefacebook.com>
- <20160715102123.28efb815@redhat.com>
+From: Topi Miettinen <toiwoton@gmail.com>
+Subject: Re: [PATCH 00/14] Present useful limits to user (v2)
+Date: Fri, 15 Jul 2016 16:57:00 +0000
+Message-ID: <485128c4-61c6-45ac-7ae2-2d4819697ec4@gmail.com>
+References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
+ <20160715124330.GR30154@twins.programming.kicks-ass.net>
+ <28b4b919-4f50-d9f6-c5e1-d1e92ea1ba1c@gmail.com>
+ <20160715135956.GA3115@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36364 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbcGOQ47 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 12:56:59 -0400
-Received: by mail-pa0-f67.google.com with SMTP id ez1so2981585pab.3
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 09:56:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160715102123.28efb815@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+ Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>,
+ Alexander Graf <agraf@suse.com>, Paolo Bonzini <pbonzini@redhat.com>,
+ Radim Kr??m???? <rkrcmar@redhat.com>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
+ Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
+ "H. Peter Anvin" <hpa@zytor.com>,
+ "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>,
+ Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
+ Hal Rosenstock <hal.rosenstock@gmail.com>,
+ Mike Marciniszyn <mike.marciniszyn@intel.com>,
+ Dennis Dalessandro <dennis.dalessandro@intel.com>,
+ Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>,
+ Sudeep Dutt <sudeep.dutt@intel.com>,
+ Ashutosh Dixit <ashut
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160715135956.GA3115@twins.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 15, 2016 at 10:21:23AM +0200, Jesper Dangaard Brouer wrote:
-> > 
-> > attaching program to all rings at once is a fundamental part for correct
-> > operation. As was pointed out in the past the bpf_prog pointer
-> > in the ring design loses atomicity of the update. While the new program is
-> > being attached the old program is still running on other rings.
-> > That is not something user space can compensate for.
+On 07/15/16 13:59, Peter Zijlstra wrote:
+> On Fri, Jul 15, 2016 at 01:52:48PM +0000, Topi Miettinen wrote:
+>> On 07/15/16 12:43, Peter Zijlstra wrote:
+>>> On Fri, Jul 15, 2016 at 01:35:47PM +0300, Topi Miettinen wrote:
+>>>> Hello,
+>>>>
+>>>> There are many basic ways to control processes, including capabilities,
+>>>> cgroups and resource limits. However, there are far fewer ways to find out
+>>>> useful values for the limits, except blind trial and error.
+>>>>
+>>>> This patch series attempts to fix that by giving at least a nice starting
+>>>> point from the highwater mark values of the resources in question.
+>>>> I looked where each limit is checked and added a call to update the mark
+>>>> nearby.
+>>>
+>>> And how is that useful? Setting things to the high watermark is
+>>> basically the same as not setting the limit at all.
+>>
+>> What else would you use, too small limits?
 > 
-> I don't see a problem with this.  This is how iptables have been
-> working for years.  The iptables ruleset exchange is atomic, but only
-> atomic per CPU.  It's been working fine for iptables.
-
-And how is that a good thing?
-
-> > So for current 'one prog for all rings' we cannot do what you're suggesting,
-> > yet it doesn't mean we won't do prog per ring tomorrow. To do that the other
-> > aspects need to be agreed upon before we jump into implementation:
-> > - what is the way for the program to know which ring it's running on?
-> >   if there is no such way, then attaching the same prog to multiple
-> >   ring is meaningless.
-> >   we can easily extend 'struct xdp_md' in the future if we decide
-> >   that it's worth doing.
+> That question doesn't make sense.
 > 
-> Not sure we need to extend 'struct xdp_md' with a ring number. If we
-> allow assigning the program to a specific queue (if not we might need to).
-> 
-> The setup sequence would be:
-> 1. userspace setup ntuple filter into a queue number
-> 2. userspace register XDP program on this queue number
-> 3. kernel XDP program queue packets into SPSC queue (like netmap)
->    (no locking, single RX queue, single producer)
-> 4. userspace reads packets from SPSC queue (like netmap)
-> 
-> For step 2, the XDP program should return some identifier for the SPSC
-> queue.  And step 3, is of cause a new XDP feature.
+> What's the point of setting a limit if it ends up being the same as
+> no-limit (aka unlimited).
 
-so you want 2 now while having zero code for 3 and 4 ?
-Frankly I thought with all the talk about zero copy the goal was
-to improve networking performance of VM traffic, but above sounds
-like that you want to build a new kernel bypass (like netmap).
-In such case there is no need for bpf or xdp at all.
-Building kernel bypass looks like separatere problem to me with
-its own headaches. We can certainly discuss it, but let's keep
-xdp out of the picture then, since the goals are not aligned.
+Having a limit is not the same as not having any limits at all. You're
+in a way right that good limits don't affect the program normally. But
+they can make a difference if the flow is not normal. For example a
+successful exploit or a memory leak bug could cause RLIMIT_AS to trigger.
 
-> > - should we allow different programs to attach to different rings?
 > 
-> Yes, that is one of my main points.  You assume that a single program
-> own the entire NIC.  John's proposal was that he can create 1000's of
-> queues, and wanted to bind this to (e.g. 1000) different applications.
+> If you cannot explain; and you have not so far; what use these values
+> are, why would we look at the patches.
+> 
 
-reserving rx queues for different applications is yet another very
-different problem. I think it would quite cool to do that, but
-I don't see how it's related to what we want to achieve with xdp.
+The use case is to allow system administrators, distro maintainers and
+developers to configure systems to use the resource limits. The limits
+are not very useful right now, as there is no way to figure out what
+values to use. There are a few /proc files to look, for example current
+number of file descriptors (for RLIMIT_NOFILE) could be counted via
+/proc/pid/fd. But now there is no way to know if there were more in use
+at some point. Likewise, a program can use more address space when you
+are not looking. The source code does not tell these things explicitly.
+
+-Topi
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
