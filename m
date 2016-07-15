@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2 -next] wan/fsl_ucc_hdlc: info leak in uhdlc_ioctl()
-Date: Fri, 15 Jul 2016 11:43:08 -0700 (PDT)
-Message-ID: <20160715.114308.1901247006216834380.davem@davemloft.net>
-References: <57876EE0.10603@bfs.de>
-	<20160714111653.GA30452@mwanda>
+Subject: Re: [PATCH 0 / 5] move the common CDC parser
+Date: Fri, 15 Jul 2016 11:51:47 -0700 (PDT)
+Message-ID: <20160715.115147.1896139966807241395.davem@davemloft.net>
+References: <1468503694-9482-1-git-send-email-oneukum@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org, wharms@bfs.de,
- linuxppc-dev@lists.ozlabs.org, qiang.zhao@nxp.com
-To: dan.carpenter@oracle.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20160714111653.GA30452@mwanda>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	gregKH@linuxfoundation.org, bjorn@mork.no
+To: oneukum@suse.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51440 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751448AbcGOSvt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:51:49 -0400
+In-Reply-To: <1468503694-9482-1-git-send-email-oneukum@suse.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGFuIENhcnBlbnRlciA8ZGFuLmNhcnBlbnRlckBvcmFjbGUuY29tPgpEYXRlOiBUaHUs
-IDE0IEp1bCAyMDE2IDE0OjE2OjUzICswMzAwCgo+IFRoZXJlIGlzIGEgMiBieXRlIHN0cnVjdCB3
-aG9sZSBhZnRlciBsaW5lLmxvb3BiYWNrIHNvIHdlIG5lZWQgdG8gY2xlYXIKPiB0aGF0IG91dCB0
-byBhdm9pZCBkaXNjbG9zaW5nIHN0YWNrIGluZm9ybWF0aW9uLgo+IAo+IEZpeGVzOiBjMTliNmQy
-NDZhMzUgKCdkcml2ZXJzL25ldDogc3VwcG9ydCBoZGxjIGZ1bmN0aW9uIGZvciBRRS1VQ0MnKQo+
-IFNpZ25lZC1vZmYtYnk6IERhbiBDYXJwZW50ZXIgPGRhbi5jYXJwZW50ZXJAb3JhY2xlLmNvbT4K
-PiAtLS0KPiB2MjogcmVtb3ZlIHRoZSBvdGhlciBpbml0aWFsaXphdGlvbiB0byB6ZXJvCgpBcHBs
-aWVkLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51
-eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBz
-Oi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+From: Oliver Neukum <oneukum@suse.com>
+Date: Thu, 14 Jul 2016 15:41:29 +0200
+
+> Experience has shown that making all CDC drivers depend on usbnet
+> is not practical, because some of them are not network drivers.
+> So this patch moves the common parser from usbnet into the messages
+> helpers of usbcore.
+> The rest of the series applies it to the non-network CDC drivers.
+> 
+> I hope it can go through Greg's tree although it touches usbnet.
+
+I'm fine with Greg taking this series, sure.
