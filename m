@@ -1,57 +1,48 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH/RFC] packet: fix sock_tx_timestamp() in packet_snd() via
- sendto syscall
-Date: Fri, 15 Jul 2016 11:31:08 -0400
-Message-ID: <CAF=yD-K5aqcjPw4T1_+YXFg-gPBzGwxC5hAFwT6Otda7nhNxag@mail.gmail.com>
-References: <1468550944-4584-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute PATCH v4 1/5] tc: m_action: Improve conversion to C99
+ style initializers
+Date: Fri, 15 Jul 2016 09:32:41 -0600
+Message-ID: <228202dc-508f-2dd5-136f-bf04b271235c@cumulusnetworks.com>
+References: <1468435639-6892-1-git-send-email-phil@nwl.cc>
+ <1468435639-6892-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, fruggeri@aristanetworks.com,
-	Network Development <netdev@vger.kernel.org>,
-	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:34797 "EHLO
-	mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667AbcGOPbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 11:31:49 -0400
-Received: by mail-vk0-f65.google.com with SMTP id w127so4427175vkh.1
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 08:31:48 -0700 (PDT)
-In-Reply-To: <1468550944-4584-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+Received: from mail-it0-f43.google.com ([209.85.214.43]:38076 "EHLO
+	mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbcGOPcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 11:32:43 -0400
+Received: by mail-it0-f43.google.com with SMTP id h190so22274373ith.1
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 08:32:43 -0700 (PDT)
+In-Reply-To: <1468435639-6892-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 14, 2016 at 10:49 PM, Yoshihiro Shimoda
-<yoshihiro.shimoda.uh@renesas.com> wrote:
-> Since the sendto syscall doesn't have msg_control buffer,
-> the sock_tx_timestamp() in packet_snd() cannot work correctly because
-> the socks.fsflags is set to 0.
+On 7/13/16 12:47 PM, Phil Sutter wrote:
+> This improves my initial change in the following points:
+>
+> - Flatten embedded struct's initializers.
+> - No need to initialize variables to zero as the key feature of C99
+>   initializers is to do this implicitly.
+> - By relocating the declaration of struct rtattr *tail, it can be
+>   initialized at the same time.
+>
+> Fixes: a0a73b298a579 ("tc: m_action: Use C99 style initializers for struct req")
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+> Changes since v2:
+> - Don't drop the "superfluous" comma.
+> - Flatten initializers.
+> Changes since v1:
+> - Created this patch.
+> ---
+>  tc/m_action.c | 23 +++++++----------------
+>  1 file changed, 7 insertions(+), 16 deletions(-)
 
-You're right. __sock_tx_timestamp used to take sk->sk_tsflags as
-input, now it relies solely on this parameter tsflags. All callsites
-must either pass sk->sk_tsflags directly or initialize sockc.tsflags
-to this value.
-
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 9f0983f..d76fd41 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -2887,6 +2887,11 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
->                 err = sock_cmsg_send(sk, msg, &sockc);
->                 if (unlikely(err))
->                         goto out_unlock;
-> +       } else {
-> +               /* Set tsflags from sk because a syscall (e.g. sendto) doesn't
-> +                * have msg_control buffer.
-> +                */
-> +               sockc.tsflags = sk->sk_tsflags;
->         }
-
-Better to follow the example of other protocols. In all three packet
-variants, make the following initialization change:
-
--       sockc.tsflags = 0;
-+       sockc.tsflags = sk->sk_tsflags;
-
-(I had to remove some recipients, because my reply was marked as spam
-and dropped otherwise..)
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
