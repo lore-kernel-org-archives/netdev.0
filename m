@@ -1,62 +1,104 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH 09/14] resource limits: track highwater mark of locked
-	memory
-Date: Fri, 15 Jul 2016 17:14:08 +0200
-Message-ID: <20160715151408.GA32317@redhat.com>
-References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com> <1468578983-28229-10-git-send-email-toiwoton@gmail.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Fri, 15 Jul 2016 08:17:59 -0700
+Message-ID: <20160715151759.lfsncj62gi2b7mas@f1.synalogic.ca>
+References: <1468478774-19942-1-git-send-email-netanel@annapurnalabs.com>
+ <20160715050005.GD30603@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
-        Fenghua Yu <fenghua.yu@intel.com>, Paolo Bonzini <pbonzini@redhat.com>,
-        Radim =?utf-8?B?S3LEjW3DocWZ?= <rkrcmar@redhat.com>,
-        Alexander Graf <agraf@suse.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Christian Benvenuti <benve@cisco.com>,
-        Dave Goodell <dgoodell@cisco.com>, Sudeep Dutt <sudeep.dutt@intel.com>,
-        Ashutosh Dixit <ashutosh.dixit@intel.com>,
-        Alex Williamson <alex.williamson@redhat.com>,
-        Alexei Starovoitov
-To: Topi Miettinen <toiwoton@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="25jznh7lf2seda6u"
+Cc: Netanel Belgazal <netanel@annapurnalabs.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
+	aliguori@amazon.com, ben@decadent.org.uk, romieu@fr.zoreil.com,
+	rami.rosen@intel.com, antoine.tenart@free-electrons.com
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1468578983-28229-10-git-send-email-toiwoton@gmail.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20160715050005.GD30603@leon.nu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/15, Topi Miettinen wrote:
->
-> Track maximum size of locked memory, to be able to configure
-> RLIMIT_MEMLOCK resource limits. The information is available
-> with taskstats and cgroupstats netlink socket.
 
-So I personally still dislike the very idea of this series... but I won't
-argue if you convince maintainers.
+--25jznh7lf2seda6u
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> @@ -2020,6 +2020,10 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
->  		return -ENOMEM;
->  
->  	update_resource_highwatermark(RLIMIT_STACK, actual_size);
-> +	if (vma->vm_flags & VM_LOCKED)
-> +		update_resource_highwatermark(RLIMIT_MEMLOCK,
-> +					      (mm->locked_vm + grow) <<
-> +					      PAGE_SHIFT);
+On 2016/07/15 08:00, Leon Romanovsky wrote:
+> On Thu, Jul 14, 2016 at 09:46:14AM +0300, Netanel Belgazal wrote:
+> > This is a driver for the ENA family of networking devices.
+> >=20
+> > Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+> > ---
+> >=20
+> > Notes:
+>=20
+> ...
+>=20
+> >     - Increase driver version to 1.0.2
+>=20
+> ...
+>=20
+> > +static void ena_get_drvinfo(struct net_device *dev,
+> > +			    struct ethtool_drvinfo *info)
+> > +{
+> > +	struct ena_adapter *adapter =3D netdev_priv(dev);
+> > +
+> > +	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
+> > +	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+>=20
+> Does module version give anything valuable in real life usage?
+> Do you plan to bump version after every patch?
+>=20
+> Hint, NO.
+>=20
+[...]
+> > +
+> > +#define DRV_MODULE_VER_MAJOR	1
+> > +#define DRV_MODULE_VER_MINOR	0
+> > +#define DRV_MODULE_VER_SUBMINOR 1
+> > +
+> > +#define DRV_MODULE_NAME		"ena"
+> > +#ifndef DRV_MODULE_VERSION
+> > +#define DRV_MODULE_VERSION \
+> > +	__stringify(DRV_MODULE_VER_MAJOR) "."	\
+> > +	__stringify(DRV_MODULE_VER_MINOR) "."	\
+> > +	__stringify(DRV_MODULE_VER_SUBMINOR)
+> > +#endif
+> > +#define DRV_MODULE_RELDATE      "22-JUNE-2016"
+>=20
+> Please remove it, driver version is useless in real life kernel usage.
+>=20
 
-Btw this is not right. The same for the previous patch which tracks
-RLIMIT_STACK. The "current" task can debugger/etc.
+The release date might be a bit overkill but the driver version is
+useful in the context of distribution kernels where users sometimes mix
+and match newer drivers (ex: the intel sf.net drivers) with older
+kernels. When a bug is reported, a quick look at the module version can
+help indicate the provenance of the driver.
 
-Yes, yes, this just reminds that the whole rlimit logic in this path
-is broken but still...
+--25jznh7lf2seda6u
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-Oleg.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+iQIcBAEBCAAGBQJXiP6iAAoJEGiQW0t92FktA0AQAI+Erx1zeoEKR/IO/oVEvWfS
+Qm14NlLPQtYWBN4sMgmTcPz4MpaTXE55N4oh9Cq0Fag169bIYE7uMw3c+ylOkQro
+D2ZQK6gPdS/45SZem5jmrSlKCqin1wdn/8LxXOl/yq8wfngpgGllHObIgbHcOQcR
+KsioNxDPDMbWVxyDzVSPAV7BCbJHYo8ju4gJagKfKQC/23xNmrjH7hms9KfJPhju
+JT3FiBEsGvcIk+CgXaq6kqzjG7HfZSY9CdD/m2OWJmc3nxb2UYL0zQxx2bso76lm
+yUptSzl0JKXQfs7hmpM178psxMojWXIeEWhzySMGfu/ClL+yagVbUSc4mMYTvhF0
+av+9q3eNs9YJrj/sBqGvRwvfXIzMCveKlnRCbTpZaCdgC/uBBHM9tTClWthPSC6x
+n7aVhRRbtKdoyYFb4lg3FbymxY1civGEWD/RY0/Unqk142WeqYiQWRj4+cn24d9q
+KrCKYEydSOEQuIaG8GDWPdbJpccEM+8oEXEZAoWrmoUo8mmQC5Nl0io+yAKBZpfd
+M9E2E0nEYw6XJ7tNOqcKoGty5JJhYbEE5jd85r7iLssQvcepWketBv6KhRYdFoy3
+TpeXKUVP4drQ0EFwrdCh/wpfSobsqpZ+RirH5ecZca/4/zdeWbiirT/js1iGbfLB
+rOiSjHmwz7lGMRSAHDjw
+=6UAv
+-----END PGP SIGNATURE-----
+
+--25jznh7lf2seda6u--
