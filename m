@@ -1,46 +1,47 @@
-From: Andreas Werner <andreas.werner@men.de>
-Subject: Re: [PATCH] net: can: Introduce MEN 16Z192-00 CAN controller driver
-Date: Fri, 15 Jul 2016 10:02:03 +0200
-Message-ID: <20160715080202.GA5183@awelinux>
-References: <20160628134412.GA25172@awelinux>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net: cpsw: make TI_CPSW_PHY_SEL invisible
+Date: Fri, 15 Jul 2016 10:12:15 +0200
+Message-ID: <1468570335-16305-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <mkl@pengutronix.de>, <linux-can@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<morbidrsa@gmail.com>, <andy@wernerandy.de>
-To: <wg@grandegger.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160628134412.GA25172@awelinux>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:51274 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751103AbcGOIMT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 04:12:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-just want to send a ping.
+TI_CPSW_PHY_SEL depended on TI_CPSW and was selected by the latter. So
+there is no reason to have this symbol visible.
 
-Does anybody have comments on this driver?
+A further optimisation would be to put the code for both symbols into a
+single module which would allow to not export at least cpsw_phy_sel()
+and simplify the module load process.
 
-Regards
-Andy
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ drivers/net/ethernet/ti/Kconfig | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> This CAN Controller is found on MEN Chameleon FPGAs.
-> 
-> The driver/device supports the CAN2.0 specification.
-> There are 255 RX and 255 Tx buffer within the IP. The
-> pointer for the buffer are handled by HW to make the
-> access from within the driver as simple as possible.
->
-> The driver also supports parameters to configure the
-> buffer level interrupt for RX/TX as well as a RX timeout
-> interrupt.
-> 
-> With this configuration options, the driver/device
-> provides flexibility for different types of usecases.
-> 
-> Signed-off-by: Andreas Werner <andreas.werner@men.de>
-> ---
->  drivers/net/can/Kconfig        |  10 +
->  drivers/net/can/Makefile       |   1 +
->  drivers/net/can/men_z192_can.c | 990 +++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 1001 insertions(+)
->  create mode 100644 drivers/net/can/men_z192_can.c
+diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/=
+Kconfig
+index e7f0b7d95b65..9904d740d528 100644
+--- a/drivers/net/ethernet/ti/Kconfig
++++ b/drivers/net/ethernet/ti/Kconfig
+@@ -48,8 +48,7 @@ config TI_DAVINCI_CPDMA
+ 	  will be called davinci_cpdma.  This is recommended.
+=20
+ config TI_CPSW_PHY_SEL
+-	bool "TI CPSW Switch Phy sel Support"
+-	depends on TI_CPSW
++	bool
+ 	---help---
+ 	  This driver supports configuring of the phy mode connected to
+ 	  the CPSW.
+--=20
+2.8.1
