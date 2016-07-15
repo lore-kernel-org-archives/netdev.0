@@ -1,63 +1,62 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: usb: ax88172x: use phy_ethtool_{get|set}_link_ksettings
-Date: Fri, 15 Jul 2016 15:25:36 +0200
-Message-ID: <1468589136-765-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: andrew@lunn.ch, davem@davemloft.net, colin.king@canonical.com,
-	f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: enable per-socket rate limiting of all
+ 'challenge acks'
+Date: Fri, 15 Jul 2016 09:39:43 -0400
+Message-ID: <CADVnQymN+jE2875ZFGOpe1W7wham6a-UuX2ZVytRhxKL8r3fMg@mail.gmail.com>
+References: <1468510720-322-1-git-send-email-jbaron@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>, Yue Cao <ycao009@ucr.edu>
+To: Jason Baron <jbaron@akamai.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:36234 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751498AbcGONkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 09:40:14 -0400
+Received: by mail-oi0-f52.google.com with SMTP id w18so163592503oiw.3
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 06:40:13 -0700 (PDT)
+In-Reply-To: <1468510720-322-1-git-send-email-jbaron@akamai.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+On Thu, Jul 14, 2016 at 11:38 AM, Jason Baron <jbaron@akamai.com> wrote:
+>
+> From: Jason Baron <jbaron@akamai.com>
+>
+> The per-socket rate limit for 'challenge acks' was introduced in the
+> context of limiting ack loops:
+>
+> commit f2b2c582e824 ("tcp: mitigate ACK loops for connections as tcp_sock")
+>
+> And I think it can be extended to rate limit all 'challenge acks' on a
+> per-socket basis.
+>
+> Since we have the global tcp_challenge_ack_limit, this patch allows for
+> tcp_challenge_ack_limit to be set to a large value and effectively rely on
+> the per-socket limit, or set tcp_challenge_ack_limit to a lower value and
+> still prevents a single connections from consuming the entire challenge ack
+> quota.
+>
+> It further moves in the direction of eliminating the global limit at some
+> point, as Eric Dumazet has suggested. This a follow-up to:
+> Subject: tcp: make challenge acks less predictable
+>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Yue Cao <ycao009@ucr.edu>
+> Signed-off-by: Jason Baron <jbaron@akamai.com>
+> ---
+>  net/ipv4/tcp_input.c | 39 ++++++++++++++++++++++-----------------
+>  1 file changed, 22 insertions(+), 17 deletions(-)
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/usb/ax88172a.c |   22 ++--------------------
- 1 files changed, 2 insertions(+), 20 deletions(-)
+Sounds good to me.
 
-diff --git a/drivers/net/usb/ax88172a.c b/drivers/net/usb/ax88172a.c
-index cf77f2d..163a2c5 100644
---- a/drivers/net/usb/ax88172a.c
-+++ b/drivers/net/usb/ax88172a.c
-@@ -149,24 +149,6 @@ static const struct net_device_ops ax88172a_netdev_ops = {
- 	.ndo_set_rx_mode        = asix_set_multicast,
- };
- 
--static int ax88172a_get_settings(struct net_device *net,
--				 struct ethtool_cmd *cmd)
--{
--	if (!net->phydev)
--		return -ENODEV;
--
--	return phy_ethtool_gset(net->phydev, cmd);
--}
--
--static int ax88172a_set_settings(struct net_device *net,
--				 struct ethtool_cmd *cmd)
--{
--	if (!net->phydev)
--		return -ENODEV;
--
--	return phy_ethtool_sset(net->phydev, cmd);
--}
--
- static int ax88172a_nway_reset(struct net_device *net)
- {
- 	if (!net->phydev)
-@@ -185,9 +167,9 @@ static const struct ethtool_ops ax88172a_ethtool_ops = {
- 	.get_eeprom_len		= asix_get_eeprom_len,
- 	.get_eeprom		= asix_get_eeprom,
- 	.set_eeprom		= asix_set_eeprom,
--	.get_settings		= ax88172a_get_settings,
--	.set_settings		= ax88172a_set_settings,
- 	.nway_reset		= ax88172a_nway_reset,
-+	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings	= phy_ethtool_set_link_ksettings,
- };
- 
- static int ax88172a_reset_phy(struct usbnet *dev, int embd_phy)
--- 
-1.7.4.4
+ Acked-by: Neal Cardwell <ncardwell@google.com>
+
+thanks,
+neal
