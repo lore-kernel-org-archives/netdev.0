@@ -1,8 +1,9 @@
-From: Peter Zijlstra <peterz@infradead.org>
+From: Balbir Singh <bsingharora@gmail.com>
 Subject: Re: [PATCH 00/14] Present useful limits to user (v2)
-Date: Fri, 15 Jul 2016 14:43:30 +0200
-Message-ID: <20160715124330.GR30154@twins.programming.kicks-ass.net>
+Date: Fri, 15 Jul 2016 23:04:58 +1000
+Message-ID: <20160715130458.GB21685@350D>
 References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
+Reply-To: bsingharora@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
@@ -43,10 +44,54 @@ On Fri, Jul 15, 2016 at 01:35:47PM +0300, Topi Miettinen wrote:
 > point from the highwater mark values of the resources in question.
 > I looked where each limit is checked and added a call to update the mark
 > nearby.
+> 
+> Example run of program from Documentation/accounting/getdelauys.c:
+> 
+> ./getdelays -R -p `pidof smartd`
+> printing resource accounting
+> RLIMIT_CPU=0
+> RLIMIT_FSIZE=0
+> RLIMIT_DATA=18198528
+> RLIMIT_STACK=135168
+> RLIMIT_CORE=0
+> RLIMIT_RSS=0
+> RLIMIT_NPROC=1
+> RLIMIT_NOFILE=55
+> RLIMIT_MEMLOCK=0
+> RLIMIT_AS=130879488
+> RLIMIT_LOCKS=0
+> RLIMIT_SIGPENDING=0
+> RLIMIT_MSGQUEUE=0
+> RLIMIT_NICE=0
+> RLIMIT_RTPRIO=0
+> RLIMIT_RTTIME=0
+> 
+> ./getdelays -R -C /sys/fs/cgroup/systemd/system.slice/smartd.service/
+> printing resource accounting
+> sleeping 1, blocked 0, running 0, stopped 0, uninterruptible 0
+> RLIMIT_CPU=0
+> RLIMIT_FSIZE=0
+> RLIMIT_DATA=18198528
+> RLIMIT_STACK=135168
+> RLIMIT_CORE=0
+> RLIMIT_RSS=0
+> RLIMIT_NPROC=1
+> RLIMIT_NOFILE=55
+> RLIMIT_MEMLOCK=0
+> RLIMIT_AS=130879488
+> RLIMIT_LOCKS=0
+> RLIMIT_SIGPENDING=0
+> RLIMIT_MSGQUEUE=0
+> RLIMIT_NICE=0
+> RLIMIT_RTPRIO=0
+> RLIMIT_RTTIME=0
 
-And how is that useful? Setting things to the high watermark is
-basically the same as not setting the limit at all.
+Does this mean that rlimit_data and rlimit_stack should be set to the
+values as specified by the data above?
 
+Do we expect a smart user space daemon to then tweak the RLIMIT values?
+
+Balbir Singh.
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
