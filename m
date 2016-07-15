@@ -1,67 +1,79 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/3] net: smsc911x: augment device tree bindings
-Date: Fri, 15 Jul 2016 14:03:41 -0500
-Message-ID: <20160715190341.GA12624@rob-hp-laptop>
-References: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
+ program
+Date: Fri, 15 Jul 2016 21:09:52 +0200
+Message-ID: <20160715210952.089a793e@redhat.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+	<1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+	<20160714092543.776f8d8c@redhat.com>
+	<20160715033057.GA98180@ast-mbp.thefacebook.com>
+	<CALx6S34e73N6YA8AP67DAHEjcE-q5nO9q0Bk9motfbBKpB9T4g@mail.gmail.com>
+	<20160715164744.GA3693@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Jeremy Linton <jeremy.linton@arm.com>,
-	Kamlakant Patel <kamlakant.patel@broadcom.com>,
-	Pavel Fedin <p.fedin@samsung.com>, devicetree@vger.kernel.org
-To: Linus Walleij <linus.walleij@linaro.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35899 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238AbcGOTDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 15:03:44 -0400
-Content-Disposition: inline
-In-Reply-To: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48266 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751577AbcGOTKA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2016 15:10:00 -0400
+In-Reply-To: <20160715164744.GA3693@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 08, 2016 at 11:07:30AM +0200, Linus Walleij wrote:
-> This adds device tree bindings for:
-> 
-> - An optional GPIO line for releasing the RESET signal to the
->   SMSC911x devices
-> 
-> - An optional PME (power management event) interrupt line that
->   can be utilized to wake up the system on network activity.
->   This signal exist on all the SMSC911x devices, it is just not
->   very often routed.
-> 
-> Both these lines are routed to the SoC on the Qualcomm APQ8060
-> Dragonboard and thus needs to be bound in the device tree.
-> 
-> Cc: devicetree@vger.kernel.org
-> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
-> ---
->  Documentation/devicetree/bindings/net/smsc911x.txt | 16 ++++++++++++----
->  1 file changed, 12 insertions(+), 4 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
-> index 3fed3c124411..7b01c37272c1 100644
-> --- a/Documentation/devicetree/bindings/net/smsc911x.txt
-> +++ b/Documentation/devicetree/bindings/net/smsc911x.txt
-> @@ -3,9 +3,12 @@
->  Required properties:
->  - compatible : Should be "smsc,lan<model>", "smsc,lan9115"
->  - reg : Address and length of the io space for SMSC LAN
-> -- interrupts : Should contain SMSC LAN interrupt line
-> -- interrupt-parent : Should be the phandle for the interrupt controller
-> -  that services interrupts for this device
-> +- interrupts/extended-interrupts : Should contain the SMSC LAN
 
-It's interrupts-extended. Documentation-wise both are always supported, 
-so we just document 'interrupts' unless interrupts-extended is only ever 
-valid which would not be the case here.
+On Fri, 15 Jul 2016 09:47:46 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> On Fri, Jul 15, 2016 at 09:18:13AM -0700, Tom Herbert wrote:
+[..]
+> > > We don't need extra comlexity of figuring out number of rings and
+> > > struggling with lack of atomicity.  
+> > 
+> > We already have this problem with other per ring configuration.  
+> 
+> not really. without atomicity of the program change, the user space
+> daemon that controls it will struggle to adjust. Consider the case
+> where we're pushing new update for loadbalancer. In such case we
+> want to reuse the established bpf map, since we cannot atomically
+> move it from old to new, but we want to swap the program that uses
+> in one go, otherwise two different programs will be accessing
+> the same map. Technically it's valid, but difference in the programs
+> may cause issues. Lack of atomicity is not intractable problem,
+> it just makes user space quite a bit more complex for no reason.
 
-> +  interrupt line as cell 0, cell 1 is an OPTIONAL PME (power
-> +  management event) interrupt that is able to wake up the host
-> +  system with a 50ms pulse on network activity
-> +  For generic bindings for interrupt controller parents, refer to
-> +  interrupt-controller/interrupts.txt
->  - phy-mode : See ethernet.txt file in the same directory
+I don't think you have a problem with updating the program per queue
+basis, as they will be updated atomically per RX queue (thus a CPU can
+only see one program).
+ Today, you already have to handle that multiple CPUs running the same
+program, need to access the same map.
+
+You mention that, there might be a problem, if the program differs too
+much to share the map.  But that is the same problem as today.  If you
+need to load a program that e.g. change the map layout, then you
+obviously cannot allow it inherit the old map, but must feed the new
+program a new map (with the new layout).
+
+
+There is actually a performance advantage of knowing that a program is
+only attached to a single RX queue. As only a single CPU can process a
+RX ring. Thus, when e.g. accessing a map (or other lookup table) you can
+avoid any locking.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
