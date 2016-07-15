@@ -1,49 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2-master 1/2] man: Add devlink man pages to
- Makefile
-Date: Fri, 15 Jul 2016 11:47:39 -0700
-Message-ID: <20160715114739.5f6fa627@xeon-e3>
-References: <1468392834-5096-1-git-send-email-idosch@mellanox.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
+ program
+Date: Fri, 15 Jul 2016 20:45:10 +0200
+Message-ID: <20160715204510.19a12bd3@redhat.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+	<1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+	<20160714092543.776f8d8c@redhat.com>
+	<CALx6S36xCmzOEtyVm54Z4kJm+rFf+NppWa5WbPcdyEJuQ_Op5A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jiri@mellanox.com>,
-	<eladr@mellanox.com>, <yotamg@mellanox.com>, <nogahf@mellanox.com>,
-	<ogerlitz@mellanox.com>
-To: Ido Schimmel <idosch@mellanox.com>
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35700 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322AbcGOSrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:47:23 -0400
-Received: by mail-pf0-f173.google.com with SMTP id c2so43902913pfa.2
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:47:23 -0700 (PDT)
-In-Reply-To: <1468392834-5096-1-git-send-email-idosch@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58340 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751340AbcGOSpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2016 14:45:18 -0400
+In-Reply-To: <CALx6S36xCmzOEtyVm54Z4kJm+rFf+NppWa5WbPcdyEJuQ_Op5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Jul 2016 09:53:53 +0300
-Ido Schimmel <idosch@mellanox.com> wrote:
+On Fri, 15 Jul 2016 11:08:06 -0700
+Tom Herbert <tom@herbertland.com> wrote:
 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> ---
->  man/man8/Makefile | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/man/man8/Makefile b/man/man8/Makefile
-> index 929826e..9badbed 100644
-> --- a/man/man8/Makefile
-> +++ b/man/man8/Makefile
-> @@ -16,7 +16,8 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
->  	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
->  	tc-tcindex.8 tc-u32.8 \
->  	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
-> -	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8
-> +	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 \
-> +	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
->  
->  all: $(TARGETS)
->  
+> On Thu, Jul 14, 2016 at 12:25 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> >
+> > I would really really like to see the XDP program associated with the
+> > RX ring queues, instead of a single XDP program covering the entire NIC.
+> > (Just move the bpf_prog pointer to struct mlx4_en_rx_ring)
+> >  
+> I think it would be helpful to have some concrete implementation to
+> look at for this. Jesper, can you code up some patches, taking into
+> account Alexei's concerns about the atomic program update problem?.
 
-Both applied thanks
+Bad timing, as I'm going on 3 weeks vacation from today.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
