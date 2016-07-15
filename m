@@ -1,66 +1,35 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next] sctp: fix GSO for IPv6
-Date: Fri, 15 Jul 2016 16:40:02 -0300
-Message-ID: <cc3fc851d2ff9abfe104807381cc21280648410d.1468609983.git.marcelo.leitner@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Petri Gynther <pgynther@google.com>
+Subject: Question on IPv6 default route metrics
+Date: Fri, 15 Jul 2016 13:42:27 -0700
+Message-ID: <CAGXr9JGHh3zMW2+tE_Hrddkz=Z3+UqN3XXUQqQZ80yWmuj+q=w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48775 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751359AbcGOTkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2016 15:40:13 -0400
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:35054 "EHLO
+	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751161AbcGOUm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 16:42:29 -0400
+Received: by mail-vk0-f42.google.com with SMTP id w127so112390496vkh.2
+        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 13:42:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 90017accff61 ("sctp: Add GSO support") didn't register SCTP GSO
-offloading for IPv6 and yet didn't put any restrictions on generating
-GSO packets while in IPv6, which causes all IPv6 GSO'ed packets to be
-silently dropped.
+netdev:
 
-The fix is to properly register the offload this time.
+I have the same question as Jan in his original thread:
+http://lkml.iu.edu/hypermail/linux/kernel/1108.3/01897.html
 
-Fixes: 90017accff61 ("sctp: Add GSO support")
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
-I guess sctp multi-homing outsmarted myself during testing, ugh.
+If a Linux device has multiple IPv6 default routes (e.g. via eth0 and
+wlan0), they all currently have the same metric 1024.
 
- net/sctp/offload.c | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
+But, wired route is normally preferred. So, it should have a lower metric.
 
-diff --git a/net/sctp/offload.c b/net/sctp/offload.c
-index a37887b373a75524a54a1443f7df2d45ecf6cef7..7e869d0cca69826ee3e892e389bacdc9a58a1637 100644
---- a/net/sctp/offload.c
-+++ b/net/sctp/offload.c
-@@ -92,7 +92,28 @@ static const struct net_offload sctp_offload = {
- 	},
- };
- 
-+static const struct net_offload sctp6_offload = {
-+	.callbacks = {
-+		.gso_segment = sctp_gso_segment,
-+	},
-+};
-+
- int __init sctp_offload_init(void)
- {
--	return inet_add_offload(&sctp_offload, IPPROTO_SCTP);
-+	int ret;
-+
-+	ret = inet_add_offload(&sctp_offload, IPPROTO_SCTP);
-+	if (ret)
-+		goto out;
-+
-+	ret = inet6_add_offload(&sctp6_offload, IPPROTO_SCTP);
-+	if (ret)
-+		goto ipv4;
-+
-+	return ret;
-+
-+ipv4:
-+	inet_del_offload(&sctp_offload, IPPROTO_SCTP);
-+out:
-+	return ret;
- }
--- 
-2.7.4
+It is my understanding that the kernel currently sets this default
+route metric to 1024 when it receives a IPv6 router advertisement on a
+link.
+
+Is there any way to control the default route metric value on a
+per-interface basis, i.e. router advertisements received on eth0 will
+get metric 1024, and router advertisements received on wlan0 will get
+metric, say, 1028?
