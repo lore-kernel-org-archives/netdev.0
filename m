@@ -1,151 +1,99 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/4] i40e/i40evf: Fix i40e_rx_checksum
-Date: Fri, 15 Jul 2016 00:02:01 -0700
-Message-ID: <1468566124-63101-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/4] i40e: enable VSI broadcast promiscuous mode instead of adding broadcast filter
+Date: Fri, 15 Jul 2016 00:02:02 -0700
+Message-ID: <1468566124-63101-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1468566124-63101-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
+Cc: Kiran Patil <kiran.patil@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	guru.anbalagane@oracle.com,
+	guru.anbalagane@oracle.com, stable@kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:56902 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752533AbcGOHCr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2016 03:02:47 -0400
+	id S1752622AbcGOHCs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Jul 2016 03:02:48 -0400
 In-Reply-To: <1468566124-63101-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
+From: Kiran Patil <kiran.patil@intel.com>
 
-There are a couple of issues I found in i40e_rx_checksum while doing some
-recent testing.  As a result I have found the Rx checksum logic is pretty
-much broken and returning that the checksum is valid for tunnels in cases
-where it is not.
+This patch sets VSI broadcast promiscuous mode during VSI add sequence
+and prevents adding MAC filter if specified MAC address is broadcast.
 
-First the inner types are not the correct values to use to test for if a
-tunnel is present or not.  In addition the inner protocol types are not a
-bitmask as such performing an OR of the values doesn't make sense.  I have
-instead changed the code so that the inner protocol types are used to
-determine if we report CHECKSUM_UNNECESSARY or not.  For anything that does
-not end in UDP, TCP, or SCTP it doesn't make much sense to report a
-checksum offload since it won't contain a checksum anyway.
-
-This leaves us with the need to set the csum_level based on some value.
-For that purpose I am using the tunnel_type field.  If the tunnel type is
-GRENAT or greater then this means we have a GRE or UDP tunnel with an inner
-header.  In the case of GRE or UDP we will have a possible checksum present
-so for this reason it should be safe to set the csum_level to 1 to indicate
-that we are reporting the state of the inner header.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Change-ID: Ia62251fca095bc449d0497fc44bec3a5a0136773
+CC: stable@kernel.org
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 30 +++++++++++++++------------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 30 +++++++++++++++------------
- 2 files changed, 34 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 32 ++++++++++++++++++-----------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 55f151f..a8868e1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1280,8 +1280,8 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				    union i40e_rx_desc *rx_desc)
- {
- 	struct i40e_rx_ptype_decoded decoded;
--	bool ipv4, ipv6, tunnel = false;
- 	u32 rx_error, rx_status;
-+	bool ipv4, ipv6;
- 	u8 ptype;
- 	u64 qword;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 5ea2200..1592dcb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1344,6 +1344,13 @@ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
+ 	if (!vsi || !macaddr)
+ 		return NULL;
  
-@@ -1336,19 +1336,23 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 	if (rx_error & BIT(I40E_RX_DESC_ERROR_PPRS_SHIFT))
- 		return;
- 
--	/* The hardware supported by this driver does not validate outer
--	 * checksums for tunneled VXLAN or GENEVE frames.  I don't agree
--	 * with it but the specification states that you "MAY validate", it
--	 * doesn't make it a hard requirement so if we have validated the
--	 * inner checksum report CHECKSUM_UNNECESSARY.
-+	/* If there is an outer header present that might contain a checksum
-+	 * we need to bump the checksum level by 1 to reflect the fact that
-+	 * we are indicating we validated the inner checksum.
- 	 */
--	if (decoded.inner_prot & (I40E_RX_PTYPE_INNER_PROT_TCP |
--				  I40E_RX_PTYPE_INNER_PROT_UDP |
--				  I40E_RX_PTYPE_INNER_PROT_SCTP))
--		tunnel = true;
--
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
--	skb->csum_level = tunnel ? 1 : 0;
-+	if (decoded.tunnel_type >= I40E_RX_PTYPE_TUNNEL_IP_GRENAT)
-+		skb->csum_level = 1;
++	/* Do not allow broadcast filter to be added since broadcast filter
++	 * is added as part of add VSI for any newly created VSI except
++	 * FDIR VSI
++	 */
++	if (is_broadcast_ether_addr(macaddr))
++		return NULL;
 +
-+	/* Only report checksum unnecessary for TCP, UDP, or SCTP */
-+	switch (decoded.inner_prot) {
-+	case I40E_RX_PTYPE_INNER_PROT_TCP:
-+	case I40E_RX_PTYPE_INNER_PROT_UDP:
-+	case I40E_RX_PTYPE_INNER_PROT_SCTP:
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		/* fall though */
-+	default:
-+		break;
+ 	f = i40e_find_filter(vsi, macaddr, vlan, is_vf, is_netdev);
+ 	if (!f) {
+ 		f = kzalloc(sizeof(*f), GFP_ATOMIC);
+@@ -2151,18 +2158,6 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 					 aq_ret, pf->hw.aq.asq_last_status);
+ 			}
+ 		}
+-		aq_ret = i40e_aq_set_vsi_broadcast(&vsi->back->hw,
+-						   vsi->seid,
+-						   cur_promisc, NULL);
+-		if (aq_ret) {
+-			retval = i40e_aq_rc_to_posix(aq_ret,
+-						     pf->hw.aq.asq_last_status);
+-			dev_info(&pf->pdev->dev,
+-				 "set brdcast promisc failed, err %s, aq_err %s\n",
+-				 i40e_stat_str(&pf->hw, aq_ret),
+-				 i40e_aq_str(&pf->hw,
+-					     pf->hw.aq.asq_last_status));
+-		}
+ 	}
+ out:
+ 	/* if something went wrong then set the changed flag so we try again */
+@@ -9224,6 +9219,7 @@ int i40e_is_vsi_uplink_mode_veb(struct i40e_vsi *vsi)
+ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ {
+ 	int ret = -ENODEV;
++	i40e_status aq_ret = 0;
+ 	u8 laa_macaddr[ETH_ALEN];
+ 	bool found_laa_mac_filter = false;
+ 	struct i40e_pf *pf = vsi->back;
+@@ -9413,6 +9409,18 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 		vsi->seid = ctxt.seid;
+ 		vsi->id = ctxt.vsi_number;
+ 	}
++	/* Except FDIR VSI, for all othet VSI set the broadcast filter */
++	if (vsi->type != I40E_VSI_FDIR) {
++		aq_ret = i40e_aq_set_vsi_broadcast(hw, vsi->seid, true, NULL);
++		if (aq_ret) {
++			ret = i40e_aq_rc_to_posix(aq_ret,
++						  hw->aq.asq_last_status);
++			dev_info(&pf->pdev->dev,
++				 "set brdcast promisc failed, err %s, aq_err %s\n",
++				 i40e_stat_str(hw, aq_ret),
++				 i40e_aq_str(hw, hw->aq.asq_last_status));
++		}
 +	}
  
- 	return;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index be99189..79d99cd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -752,8 +752,8 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				    union i40e_rx_desc *rx_desc)
- {
- 	struct i40e_rx_ptype_decoded decoded;
--	bool ipv4, ipv6, tunnel = false;
- 	u32 rx_error, rx_status;
-+	bool ipv4, ipv6;
- 	u8 ptype;
- 	u64 qword;
- 
-@@ -808,19 +808,23 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 	if (rx_error & BIT(I40E_RX_DESC_ERROR_PPRS_SHIFT))
- 		return;
- 
--	/* The hardware supported by this driver does not validate outer
--	 * checksums for tunneled VXLAN or GENEVE frames.  I don't agree
--	 * with it but the specification states that you "MAY validate", it
--	 * doesn't make it a hard requirement so if we have validated the
--	 * inner checksum report CHECKSUM_UNNECESSARY.
-+	/* If there is an outer header present that might contain a checksum
-+	 * we need to bump the checksum level by 1 to reflect the fact that
-+	 * we are indicating we validated the inner checksum.
- 	 */
--	if (decoded.inner_prot & (I40E_RX_PTYPE_INNER_PROT_TCP |
--				  I40E_RX_PTYPE_INNER_PROT_UDP |
--				  I40E_RX_PTYPE_INNER_PROT_SCTP))
--		tunnel = true;
--
--	skb->ip_summed = CHECKSUM_UNNECESSARY;
--	skb->csum_level = tunnel ? 1 : 0;
-+	if (decoded.tunnel_type >= I40E_RX_PTYPE_TUNNEL_IP_GRENAT)
-+		skb->csum_level = 1;
-+
-+	/* Only report checksum unnecessary for TCP, UDP, or SCTP */
-+	switch (decoded.inner_prot) {
-+	case I40E_RX_PTYPE_INNER_PROT_TCP:
-+	case I40E_RX_PTYPE_INNER_PROT_UDP:
-+	case I40E_RX_PTYPE_INNER_PROT_SCTP:
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		/* fall though */
-+	default:
-+		break;
-+	}
- 
- 	return;
- 
+ 	spin_lock_bh(&vsi->mac_filter_list_lock);
+ 	/* If macvlan filters already exist, force them to get loaded */
 -- 
 2.5.5
