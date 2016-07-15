@@ -1,135 +1,115 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH v4 2/5] Use C99 style initializers everywhere
-Date: Fri, 15 Jul 2016 17:36:02 +0200
-Message-ID: <20160715153602.GG15034@orbyte.nwl.cc>
-References: <1468435639-6892-1-git-send-email-phil@nwl.cc>
- <1468435639-6892-3-git-send-email-phil@nwl.cc>
- <2cd2d490-addc-e864-bce9-4526b409b908@cumulusnetworks.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Fri, 15 Jul 2016 18:47:48 +0300
+Message-ID: <20160715154748.GA10556@leon.nu>
+References: <1468478774-19942-1-git-send-email-netanel@annapurnalabs.com>
+ <20160715050005.GD30603@leon.nu>
+ <20160715151759.lfsncj62gi2b7mas@f1.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>,
-	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:54155 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751082AbcGOPgF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Jul 2016 11:36:05 -0400
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="NzB8fVQJ5HfG6fxh"
+Cc: Netanel Belgazal <netanel@annapurnalabs.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
+	aliguori@amazon.com, ben@decadent.org.uk, romieu@fr.zoreil.com,
+	rami.rosen@intel.com, antoine.tenart@free-electrons.com
+To: Benjamin Poirier <benjamin.poirier@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <2cd2d490-addc-e864-bce9-4526b409b908@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160715151759.lfsncj62gi2b7mas@f1.synalogic.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 15, 2016 at 09:33:24AM -0600, David Ahern wrote:
-> On 7/13/16 12:47 PM, Phil Sutter wrote:
-> > This big patch was compiled by vimgrepping for memset calls and changing
-> > to C99 initializer if applicable. One notable exception is the
-> > initialization of union bpf_attr in tc/tc_bpf.c: changing it would break
-> > for older gcc versions (at least <=3.4.6).
-> >
-> > Calls to memset for struct rtattr pointer fields for parse_rtattr*()
-> > were just dropped since they are not needed.
-> >
-> > The changes here allowed the compiler to discover some unused variables,
-> > so get rid of them, too.
-> >
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > ---
-> > Changes since v3:
-> > - Use empty instead of zero initializer.
-> > Changes since v2:
-> > - Flatten initializers.
-> > - Leave a final comma in place.
-> > - Fix checkpatch warnings.
-> > - Initialize nlmsg_seq in the declaration, too.
-> > - Use C99-style init in tc_bpf.c to get rid of the memset().
-> > Changes since v1:
-> > - Dropped former changes to tc/tc_bpf.c as they are incompatible to older
-> >   gcc versions (at least <=3.4.6).
-> > ---
-> >  bridge/fdb.c     |  25 ++++++-------
-> >  bridge/link.c    |  14 +++----
-> >  bridge/mdb.c     |  17 ++++-----
-> >  bridge/vlan.c    |  17 ++++-----
-> >  genl/ctrl.c      |  44 +++++++++-------------
-> >  ip/ip6tunnel.c   |  10 ++---
-> >  ip/ipaddress.c   |  31 +++++++---------
-> >  ip/ipaddrlabel.c |  21 ++++-------
-> >  ip/iplink.c      |  61 +++++++++++++-----------------
-> >  ip/iplink_can.c  |   4 +-
-> >  ip/ipmaddr.c     |  25 ++++---------
-> >  ip/ipmroute.c    |   8 +---
-> >  ip/ipneigh.c     |  30 ++++++---------
-> >  ip/ipnetconf.c   |  10 ++---
-> >  ip/ipnetns.c     |  39 +++++++++-----------
-> >  ip/ipntable.c    |  25 ++++---------
-> >  ip/iproute.c     |  78 ++++++++++++++-------------------------
-> >  ip/iprule.c      |  22 +++++------
-> >  ip/iptoken.c     |  19 ++++------
-> >  ip/iptunnel.c    |  31 +++++-----------
-> >  ip/ipxfrm.c      |  26 ++++---------
-> >  ip/link_gre.c    |  18 ++++-----
-> >  ip/link_gre6.c   |  18 ++++-----
-> >  ip/link_ip6tnl.c |  25 +++++--------
-> >  ip/link_iptnl.c  |  22 +++++------
-> >  ip/link_vti.c    |  18 ++++-----
-> >  ip/link_vti6.c   |  18 ++++-----
-> >  ip/xfrm_policy.c |  99 ++++++++++++++++++++-----------------------------
-> >  ip/xfrm_state.c  | 110 +++++++++++++++++++++++--------------------------------
-> >  lib/libnetlink.c |  77 ++++++++++++++------------------------
-> >  lib/ll_map.c     |   1 -
-> >  misc/arpd.c      |  64 ++++++++++++++------------------
-> >  misc/ss.c        |  37 +++++++------------
-> >  tc/e_bpf.c       |   7 +---
-> >  tc/em_cmp.c      |   4 +-
-> >  tc/em_ipset.c    |   4 +-
-> >  tc/em_meta.c     |   4 +-
-> >  tc/em_nbyte.c    |   4 +-
-> >  tc/em_u32.c      |   4 +-
-> >  tc/f_flow.c      |   3 --
-> >  tc/f_flower.c    |   3 +-
-> >  tc/f_fw.c        |   6 +--
-> >  tc/f_route.c     |   3 --
-> >  tc/f_rsvp.c      |   6 +--
-> >  tc/f_u32.c       |  12 ++----
-> >  tc/m_bpf.c       |   5 +--
-> >  tc/m_csum.c      |   4 +-
-> >  tc/m_ematch.c    |   4 +-
-> >  tc/m_gact.c      |   5 +--
-> >  tc/m_ife.c       |   5 +--
-> >  tc/m_mirred.c    |   7 +---
-> >  tc/m_nat.c       |   4 +-
-> >  tc/m_pedit.c     |   8 +---
-> >  tc/m_police.c    |   5 +--
-> >  tc/q_atm.c       |   3 +-
-> >  tc/q_cbq.c       |  22 +++--------
-> >  tc/q_choke.c     |   4 +-
-> >  tc/q_codel.c     |   3 +-
-> >  tc/q_dsmark.c    |   1 -
-> >  tc/q_fifo.c      |   4 +-
-> >  tc/q_fq_codel.c  |   3 +-
-> >  tc/q_hfsc.c      |  13 ++-----
-> >  tc/q_htb.c       |  15 +++-----
-> >  tc/q_netem.c     |  16 +++-----
-> >  tc/q_red.c       |   4 +-
-> >  tc/q_sfb.c       |  17 ++++-----
-> >  tc/q_sfq.c       |   4 +-
-> >  tc/q_tbf.c       |   4 +-
-> >  tc/tc_bpf.c      |  54 ++++++++++-----------------
-> >  tc/tc_class.c    |  31 ++++++----------
-> >  tc/tc_exec.c     |   3 +-
-> >  tc/tc_filter.c   |  33 ++++++-----------
-> >  tc/tc_qdisc.c    |  33 ++++++-----------
-> >  tc/tc_stab.c     |   4 +-
-> >  tc/tc_util.c     |   3 +-
-> >  75 files changed, 532 insertions(+), 913 deletions(-)
-> 
-> 
-> Really good cleanup. Thanks for taking the time to do it.
 
-Thanks! And thanks for reviewing it.
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Cheers, Phil
+On Fri, Jul 15, 2016 at 08:17:59AM -0700, Benjamin Poirier wrote:
+> On 2016/07/15 08:00, Leon Romanovsky wrote:
+> > On Thu, Jul 14, 2016 at 09:46:14AM +0300, Netanel Belgazal wrote:
+> > > This is a driver for the ENA family of networking devices.
+> > >=20
+> > > Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+> > > ---
+> > >=20
+> > > Notes:
+> >=20
+> > ...
+> >=20
+> > >     - Increase driver version to 1.0.2
+> >=20
+> > ...
+> >=20
+> > > +static void ena_get_drvinfo(struct net_device *dev,
+> > > +			    struct ethtool_drvinfo *info)
+> > > +{
+> > > +	struct ena_adapter *adapter =3D netdev_priv(dev);
+> > > +
+> > > +	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
+> > > +	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+> >=20
+> > Does module version give anything valuable in real life usage?
+> > Do you plan to bump version after every patch?
+> >=20
+> > Hint, NO.
+> >=20
+> [...]
+> > > +
+> > > +#define DRV_MODULE_VER_MAJOR	1
+> > > +#define DRV_MODULE_VER_MINOR	0
+> > > +#define DRV_MODULE_VER_SUBMINOR 1
+> > > +
+> > > +#define DRV_MODULE_NAME		"ena"
+> > > +#ifndef DRV_MODULE_VERSION
+> > > +#define DRV_MODULE_VERSION \
+> > > +	__stringify(DRV_MODULE_VER_MAJOR) "."	\
+> > > +	__stringify(DRV_MODULE_VER_MINOR) "."	\
+> > > +	__stringify(DRV_MODULE_VER_SUBMINOR)
+> > > +#endif
+> > > +#define DRV_MODULE_RELDATE      "22-JUNE-2016"
+> >=20
+> > Please remove it, driver version is useless in real life kernel usage.
+> >=20
+>=20
+> The release date might be a bit overkill but the driver version is
+> useful in the context of distribution kernels where users sometimes mix
+> and match newer drivers (ex: the intel sf.net drivers) with older
+> kernels. When a bug is reported, a quick look at the module version can
+> help indicate the provenance of the driver.
+
+We already discussed it in a number of occasions, for example this is
+response of Greg Kroah-Hartman to similar attempt to bump driver version
+[1].
+
+And as I said before, mostly this driver will change without any
+reflection in driver version.
+
+[1] http://www.spinics.net/lists/linux-rdma/msg29855.html
+
+--NzB8fVQJ5HfG6fxh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXiQWkAAoJEORje4g2clin+dEQAMIndaPREeg3MOTisDMNJwAG
+pR5Ai2O8E9JaMod3a0Erq9EEmkHtX3F9E8l2mU3OAEKIeIfSW0v9czmtCWqoK5MD
+3CkHl5OPlHq7xYmJFSGCltwjJeRVR29PiRI80e/n8g5KUbpZ4s8ySxQ22bhLsJKq
+eeizkDITaIqnYDGyyyqvHigjvyRzuBiwf4cvvqIgipzZ6oBvl9iP1Vo0tRoqTTeR
+7jNi6/UjfsAle7SM9Rt9HCNcVwLZxNkmRJwLn8iK4ZrOkjUvUGouudfjlIpWQyTZ
+O+GIeh7+pd3t2YrzbZ9F6YZPttbt81cihP8OA6MKv0Oe9F8f/JB/r68A5IpwmPIU
+rc88wuMKPrg+6tJE57HUgDyWjYzsyw28DSC7V5pdEIA9GVj8Z2F0OFvwpQRow6Uf
+cfjyZVNB3xm0i4FbEviSSZhVX39h+xHchhXe7UzSfexfUrw1iAzHsy6h3tB3Eh+i
++aX9iyNVDtdb/MekcmTe6cff+jELoTd6TP7a3SW0x3WyUoMloJ5ZSirDoOHsdgHw
+HAt6Znw8Dble9Y49Qos06SsbuPcaPyQ6XHzRknXFglLs7Q4fHpkaTTAXj7EvPZzB
+ZvAifdlgUJ69OqH+HcqpXu+YhZYKkMg94GiQ7h8D7boaSi7XHaokW/u9j5QZpHet
+rlzJzVD/kv7lTQ61yReb
+=yUuo
+-----END PGP SIGNATURE-----
+
+--NzB8fVQJ5HfG6fxh--
