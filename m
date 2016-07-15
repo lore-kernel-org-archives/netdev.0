@@ -1,49 +1,31 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: Fix support for device filter by index
-Date: Fri, 15 Jul 2016 11:53:24 -0700
-Message-ID: <20160715115324.4993f886@xeon-e3>
-References: <1468600168-731-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 2/8] thunderbolt: Updating device IDs
+Date: Fri, 15 Jul 2016 11:49:02 -0700 (PDT)
+Message-ID: <20160715.114902.1149848183971707484.davem@davemloft.net>
+References: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com>
+	<1468495702-7467-3-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33976 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751586AbcGOSxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 14:53:08 -0400
-Received: by mail-pf0-f175.google.com with SMTP id p64so10047194pfb.1
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 11:53:07 -0700 (PDT)
-In-Reply-To: <1468600168-731-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
+	bhelgaas@google.com, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	thunderbolt-linux@intel.com, mika.westerberg@intel.com,
+	tomas.winkler@intel.com
+To: amir.jer.levy@intel.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1468495702-7467-3-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Jul 2016 09:29:28 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+From: Amir Levy <amir.jer.levy@intel.com>
+Date: Thu, 14 Jul 2016 14:28:16 +0300
 
-> Support was recently added for device filters. The intent was to allow
-> the device to be specified by name or index, and using the if%u format
-> (dev == if5) or the simpler and more intuitive index alone (dev == 5).
-> The latter case is broken since the index is not saved to the filter
-> after the strtoul conversion. Further, the tmp variable used for the
-> conversion shadows another variable used in the function. Fix both.
+> Adding the new Thunderbolt(TM) device IDs to the list.
 > 
-> With this change all 3 variants work as expected:
-> $ ss -t 'dev == 62'
-> State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
-> ESTAB       0      224         10.0.1.3%mgmt:ssh   192.168.0.50:58442
-> 
-> $ ss -t 'dev == mgmt'
-> State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
-> ESTAB       0      224         10.0.1.3%mgmt:ssh   192.168.0.50:58442
-> 
-> $ ss -t 'dev == if62'
-> State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
-> ESTAB       0      36          10.0.1.3%mgmt:ssh   192.168.0.50:58442
-> 
-> Fixes: 2d2932125616 ("ss: Add support to filter on device")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
 
-Won't apply to current code.
-Please rebase.
+Unless these PCI-IDs, all of them, are going to be used in multiple
+spots in the kernel, it is not appropriate to add them here.
+
+They belong as private macros in the drivers themselves, instead.
