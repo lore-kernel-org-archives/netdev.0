@@ -1,35 +1,46 @@
-From: Petri Gynther <pgynther@google.com>
-Subject: Question on IPv6 default route metrics
-Date: Fri, 15 Jul 2016 13:42:27 -0700
-Message-ID: <CAGXr9JGHh3zMW2+tE_Hrddkz=Z3+UqN3XXUQqQZ80yWmuj+q=w@mail.gmail.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH] dt: bindings: Add a generic ethernet device binding
+Date: Fri, 15 Jul 2016 22:42:54 +0200
+Message-ID: <1788846.r3134d1VMR@wuerfel>
+References: <1468405204-5845-1-git-send-email-hdegoede@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f42.google.com ([209.85.213.42]:35054 "EHLO
-	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbcGOUm3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 16:42:29 -0400
-Received: by mail-vk0-f42.google.com with SMTP id w127so112390496vkh.2
-        for <netdev@vger.kernel.org>; Fri, 15 Jul 2016 13:42:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1468405204-5845-1-git-send-email-hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-netdev:
+On Wednesday, July 13, 2016 12:20:04 PM CEST Hans de Goede wrote:
+> +&mmc1 {
+> +       non-removable;
+> +       status = "okay";
+> +
+> +       sdio_wifi: sdio_wifi@1 {
+> +               compatible = "generic,ethernet"
+> +               reg = <1>;
+> +       };
+> +};
 
-I have the same question as Jan in his original thread:
-http://lkml.iu.edu/hypermail/linux/kernel/1108.3/01897.html
+For discoverable buses, we normally use a compatible property that
+reflects the device ID on that bus, e.g. on PCI we have "pci1A2B:3C4D",
+and I think that makes more sense than having to come up with strings
+for sdio devices.
 
-If a Linux device has multiple IPv6 default routes (e.g. via eth0 and
-wlan0), they all currently have the same metric 1024.
+In fact, Linux completely ignores the compatible strings on those
+buses (pci, usb, sdio, ...), so I think we can just do the same thing
+using no compatible string at all.
 
-But, wired route is normally preferred. So, it should have a lower metric.
+	Arnd
 
-It is my understanding that the kernel currently sets this default
-route metric to 1024 when it receives a IPv6 router advertisement on a
-link.
-
-Is there any way to control the default route metric value on a
-per-interface basis, i.e. router advertisements received on eth0 will
-get metric 1024, and router advertisements received on wlan0 will get
-metric, say, 1028?
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
