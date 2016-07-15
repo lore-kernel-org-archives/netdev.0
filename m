@@ -1,25 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152: add MODULE_VERSION
-Date: Fri, 15 Jul 2016 14:25:55 -0700 (PDT)
-Message-ID: <20160715.142555.1193736550101992811.davem@davemloft.net>
-References: <1468520836-9060-1-git-send-email-grundler@chromium.org>
+Subject: Re: [PATCH net-next v2 0/3] BPF event output helper improvements
+Date: Fri, 15 Jul 2016 14:24:11 -0700 (PDT)
+Message-ID: <20160715.142411.2204537177029129115.davem@davemloft.net>
+References: <cover.1468511632.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, peter@lekensteyn.nl, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: grundler@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468520836-9060-1-git-send-email-grundler@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, peterz@infradead.org, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54430 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751430AbcGOVYM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Jul 2016 17:24:12 -0400
+In-Reply-To: <cover.1468511632.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Grundler <grundler@chromium.org>
-Date: Thu, 14 Jul 2016 11:27:16 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 14 Jul 2016 18:08:02 +0200
 
-> ethtool -i provides a driver version that is hard coded.
-> Export the same value via "modinfo".
+> This set adds improvements to the BPF event output helper to
+> support non-linear data sampling, here specifically, for skb
+> context. For details please see individual patches. The set
+> is based against net-next tree.
 > 
-> Signed-off-by: Grant Grundler <grundler@chromium.org>
+> v1 -> v2:
+>   - Integrated and adapted Peter's diff into patch 1, updated
+>     the remaining ones accordingly. Thanks Peter!
+> 
+> Thanks a lot!
 
-Applied.
+Series applied, thanks Daniel.
