@@ -1,302 +1,155 @@
-From: Topi Miettinen <toiwoton@gmail.com>
-Subject: [PATCH 09/14] resource limits: track highwater mark of locked memory
-Date: Fri, 15 Jul 2016 13:35:56 +0300
-Message-ID: <1468578983-28229-10-git-send-email-toiwoton@gmail.com>
-References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
-Cc: Topi Miettinen <toiwoton@gmail.com>,
-	Tony Luck <tony.luck@intel.com>,
-	Fenghua Yu <fenghua.yu@intel.com>,
-	Paolo Bonzini <pbonzini@redhat.com>,
-	=?UTF-8?q?Radim=20Kr=C4=8Dm=C3=A1=C5=99?= <rkrcmar@redhat.com>,
-	Alexander Graf <agraf@suse.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	Doug Ledford <dledford@redhat.com>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Mike Marciniszyn <mike.marciniszyn@intel.com>,
-	Dennis Dalessandro <dennis.dalessandro@intel.com>,
-	Christian Benvenuti <benve@cisco.com>,
-	Dave Goodell <dgoodell@cisco.com>,
-	Sudeep Dutt <sudeep.dutt@intel.com>,
-	Ashutosh Dixit <ashutosh.dixit@intel.com>,
-	Alex Williamson <alex.williamson@redhat.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redh
-To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1468578983-28229-1-git-send-email-toiwoton@gmail.com>
-Sender: owner-linux-mm@kvack.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: ti: cpmac: use phydev from struct net_device
+Date: Fri, 15 Jul 2016 12:39:01 +0200
+Message-ID: <1468579142-14138-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: florian@openwrt.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Track maximum size of locked memory, to be able to configure
-RLIMIT_MEMLOCK resource limits. The information is available
-with taskstats and cgroupstats netlink socket.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-Signed-off-by: Topi Miettinen <toiwoton@gmail.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- arch/ia64/kernel/perfmon.c                 | 1 +
- arch/powerpc/kvm/book3s_64_vio.c           | 2 ++
- arch/powerpc/mm/mmu_context_iommu.c        | 2 ++
- drivers/infiniband/core/umem.c             | 1 +
- drivers/infiniband/hw/hfi1/user_pages.c    | 2 ++
- drivers/infiniband/hw/qib/qib_user_pages.c | 2 ++
- drivers/infiniband/hw/usnic/usnic_uiom.c   | 2 ++
- drivers/misc/mic/scif/scif_rma.c           | 1 +
- drivers/vfio/vfio_iommu_spapr_tce.c        | 2 ++
- drivers/vfio/vfio_iommu_type1.c            | 5 +++++
- kernel/bpf/syscall.c                       | 8 ++++++++
- kernel/events/core.c                       | 1 +
- mm/mlock.c                                 | 8 ++++++++
- mm/mmap.c                                  | 4 ++++
- mm/mremap.c                                | 4 ++++
- 15 files changed, 45 insertions(+)
+ drivers/net/ethernet/ti/cpmac.c |   46 +++++++++++++++++----------------------
+ 1 files changed, 20 insertions(+), 26 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 2436ad5..7c6ae72 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2341,6 +2341,7 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
- 	ctx->ctx_smpl_vaddr = (void *)vma->vm_start;
- 	*(unsigned long *)user_vaddr = vma->vm_start;
+diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+index 7eef45e..f48e43b 100644
+--- a/drivers/net/ethernet/ti/cpmac.c
++++ b/drivers/net/ethernet/ti/cpmac.c
+@@ -205,7 +205,6 @@ struct cpmac_priv {
+ 	dma_addr_t dma_ring;
+ 	void __iomem *regs;
+ 	struct mii_bus *mii_bus;
+-	struct phy_device *phy;
+ 	char phy_name[MII_BUS_ID_SIZE + 3];
+ 	int oldlink, oldspeed, oldduplex;
+ 	u32 msg_enable;
+@@ -830,35 +829,29 @@ static void cpmac_tx_timeout(struct net_device *dev)
  
-+	task_update_resource_highwatermark(task, RLIMIT_MEMLOCK, size);
- 	return 0;
+ static int cpmac_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+-	struct cpmac_priv *priv = netdev_priv(dev);
+-
+ 	if (!(netif_running(dev)))
+ 		return -EINVAL;
+-	if (!priv->phy)
++	if (!dev->phydev)
+ 		return -EINVAL;
  
- error:
-diff --git a/arch/powerpc/kvm/book3s_64_vio.c b/arch/powerpc/kvm/book3s_64_vio.c
-index 18cf6d1..40ea177 100644
---- a/arch/powerpc/kvm/book3s_64_vio.c
-+++ b/arch/powerpc/kvm/book3s_64_vio.c
-@@ -71,6 +71,8 @@ static long kvmppc_account_memlimit(unsigned long stt_pages, bool inc)
- 			ret = -ENOMEM;
- 		else
- 			current->mm->locked_vm += stt_pages;
-+		update_resource_highwatermark(RLIMIT_MEMLOCK,
-+					      locked << PAGE_SHIFT);
- 	} else {
- 		if (WARN_ON_ONCE(stt_pages > current->mm->locked_vm))
- 			stt_pages = current->mm->locked_vm;
-diff --git a/arch/powerpc/mm/mmu_context_iommu.c b/arch/powerpc/mm/mmu_context_iommu.c
-index da6a216..8c6bcbf 100644
---- a/arch/powerpc/mm/mmu_context_iommu.c
-+++ b/arch/powerpc/mm/mmu_context_iommu.c
-@@ -46,6 +46,8 @@ static long mm_iommu_adjust_locked_vm(struct mm_struct *mm,
- 			ret = -ENOMEM;
- 		else
- 			mm->locked_vm += npages;
-+		update_resource_highwatermark(RLIMIT_MEMLOCK,
-+					      locked << PAGE_SHIFT);
- 	} else {
- 		if (WARN_ON_ONCE(npages > mm->locked_vm))
- 			npages = mm->locked_vm;
-diff --git a/drivers/infiniband/core/umem.c b/drivers/infiniband/core/umem.c
-index fe4d2e1..3c454eb 100644
---- a/drivers/infiniband/core/umem.c
-+++ b/drivers/infiniband/core/umem.c
-@@ -224,6 +224,7 @@ struct ib_umem *ib_umem_get(struct ib_ucontext *context, unsigned long addr,
- 
- 	ret = 0;
- 
-+	update_resource_highwatermark(RLIMIT_MEMLOCK, locked << PAGE_SHIFT);
- out:
- 	if (ret < 0) {
- 		if (need_release)
-diff --git a/drivers/infiniband/hw/hfi1/user_pages.c b/drivers/infiniband/hw/hfi1/user_pages.c
-index 88e10b5f..ca55f8c 100644
---- a/drivers/infiniband/hw/hfi1/user_pages.c
-+++ b/drivers/infiniband/hw/hfi1/user_pages.c
-@@ -111,6 +111,8 @@ int hfi1_acquire_user_pages(unsigned long vaddr, size_t npages, bool writable,
- 
- 	down_write(&current->mm->mmap_sem);
- 	current->mm->pinned_vm += ret;
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      current->mm->pinned_vm << PAGE_SHIFT);
- 	up_write(&current->mm->mmap_sem);
- 
- 	return ret;
-diff --git a/drivers/infiniband/hw/qib/qib_user_pages.c b/drivers/infiniband/hw/qib/qib_user_pages.c
-index 2d2b94f..3a103c4 100644
---- a/drivers/infiniband/hw/qib/qib_user_pages.c
-+++ b/drivers/infiniband/hw/qib/qib_user_pages.c
-@@ -74,6 +74,8 @@ static int __qib_get_user_pages(unsigned long start_page, size_t num_pages,
- 	}
- 
- 	current->mm->pinned_vm += num_pages;
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      current->mm->pinned_vm << PAGE_SHIFT);
- 
- 	ret = 0;
- 	goto bail;
-diff --git a/drivers/infiniband/hw/usnic/usnic_uiom.c b/drivers/infiniband/hw/usnic/usnic_uiom.c
-index a0b6ebe..6180654 100644
---- a/drivers/infiniband/hw/usnic/usnic_uiom.c
-+++ b/drivers/infiniband/hw/usnic/usnic_uiom.c
-@@ -178,6 +178,8 @@ static int usnic_uiom_get_pages(unsigned long addr, size_t size, int writable,
- 		ret = 0;
- 	}
- 
-+	update_resource_highwatermark(RLIMIT_MEMLOCK, locked << PAGE_SHIFT);
-+
- out:
- 	if (ret < 0)
- 		usnic_uiom_put_pages(chunk_list, 0);
-diff --git a/drivers/misc/mic/scif/scif_rma.c b/drivers/misc/mic/scif/scif_rma.c
-index e0203b1..acb970a 100644
---- a/drivers/misc/mic/scif/scif_rma.c
-+++ b/drivers/misc/mic/scif/scif_rma.c
-@@ -306,6 +306,7 @@ static inline int __scif_check_inc_pinned_vm(struct mm_struct *mm,
- 		return -ENOMEM;
- 	}
- 	mm->pinned_vm = locked;
-+	update_resource_highwatermark(RLIMIT_MEMLOCK, locked << PAGE_SHIFT);
- 	return 0;
+-	return phy_mii_ioctl(priv->phy, ifr, cmd);
++	return phy_mii_ioctl(dev->phydev, ifr, cmd);
  }
  
-diff --git a/drivers/vfio/vfio_iommu_spapr_tce.c b/drivers/vfio/vfio_iommu_spapr_tce.c
-index 80378dd..13ee9e9 100644
---- a/drivers/vfio/vfio_iommu_spapr_tce.c
-+++ b/drivers/vfio/vfio_iommu_spapr_tce.c
-@@ -55,6 +55,8 @@ static long try_increment_locked_vm(long npages)
- 			rlimit(RLIMIT_MEMLOCK),
- 			ret ? " - exceeded" : "");
+ static int cpmac_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct cpmac_priv *priv = netdev_priv(dev);
+-
+-	if (priv->phy)
+-		return phy_ethtool_gset(priv->phy, cmd);
++	if (dev->phydev)
++		return phy_ethtool_gset(dev->phydev, cmd);
  
-+	update_resource_highwatermark(RLIMIT_MEMLOCK, locked << PAGE_SHIFT);
-+
- 	up_write(&current->mm->mmap_sem);
+ 	return -EINVAL;
+ }
  
- 	return ret;
-diff --git a/drivers/vfio/vfio_iommu_type1.c b/drivers/vfio/vfio_iommu_type1.c
-index 2ba1942..e868ae5 100644
---- a/drivers/vfio/vfio_iommu_type1.c
-+++ b/drivers/vfio/vfio_iommu_type1.c
-@@ -145,6 +145,8 @@ static void vfio_lock_acct_bg(struct work_struct *work)
- 	mm = vwork->mm;
- 	down_write(&mm->mmap_sem);
- 	mm->locked_vm += vwork->npage;
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      current->mm->locked_vm << PAGE_SHIFT);
- 	up_write(&mm->mmap_sem);
- 	mmput(mm);
- 	kfree(vwork);
-@@ -160,6 +162,9 @@ static void vfio_lock_acct(long npage)
- 
- 	if (down_write_trylock(&current->mm->mmap_sem)) {
- 		current->mm->locked_vm += npage;
-+		update_resource_highwatermark(RLIMIT_MEMLOCK,
-+					      current->mm->locked_vm <<
-+					      PAGE_SHIFT);
- 		up_write(&current->mm->mmap_sem);
- 		return;
- 	}
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 46ecce4..0efa1c3 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -76,6 +76,10 @@ static int bpf_map_charge_memlock(struct bpf_map *map)
+ static int cpmac_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct cpmac_priv *priv = netdev_priv(dev);
+-
+ 	if (!capable(CAP_NET_ADMIN))
  		return -EPERM;
- 	}
- 	map->user = user;
-+
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      atomic_long_read(&user->locked_vm) <<
-+				      PAGE_SHIFT);
- 	return 0;
+ 
+-	if (priv->phy)
+-		return phy_ethtool_sset(priv->phy, cmd);
++	if (dev->phydev)
++		return phy_ethtool_sset(dev->phydev, cmd);
+ 
+ 	return -EINVAL;
  }
+@@ -914,16 +907,16 @@ static void cpmac_adjust_link(struct net_device *dev)
+ 	int new_state = 0;
  
-@@ -601,6 +605,10 @@ static int bpf_prog_charge_memlock(struct bpf_prog *prog)
- 		return -EPERM;
+ 	spin_lock(&priv->lock);
+-	if (priv->phy->link) {
++	if (dev->phydev->link) {
+ 		netif_tx_start_all_queues(dev);
+-		if (priv->phy->duplex != priv->oldduplex) {
++		if (dev->phydev->duplex != priv->oldduplex) {
+ 			new_state = 1;
+-			priv->oldduplex = priv->phy->duplex;
++			priv->oldduplex = dev->phydev->duplex;
+ 		}
+ 
+-		if (priv->phy->speed != priv->oldspeed) {
++		if (dev->phydev->speed != priv->oldspeed) {
+ 			new_state = 1;
+-			priv->oldspeed = priv->phy->speed;
++			priv->oldspeed = dev->phydev->speed;
+ 		}
+ 
+ 		if (!priv->oldlink) {
+@@ -938,7 +931,7 @@ static void cpmac_adjust_link(struct net_device *dev)
  	}
- 	prog->aux->user = user;
-+
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      atomic_long_read(&user->locked_vm) <<
-+				      PAGE_SHIFT);
- 	return 0;
+ 
+ 	if (new_state && netif_msg_link(priv) && net_ratelimit())
+-		phy_print_status(priv->phy);
++		phy_print_status(dev->phydev);
+ 
+ 	spin_unlock(&priv->lock);
  }
+@@ -1016,8 +1009,8 @@ static int cpmac_open(struct net_device *dev)
+ 	cpmac_hw_start(dev);
  
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 43d43a2d..4b8b143 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -5096,6 +5096,7 @@ accounting:
- 		if (!ret)
- 			rb->aux_mmap_locked = extra;
- 	}
-+	update_resource_highwatermark(RLIMIT_MEMLOCK, locked << PAGE_SHIFT);
- 
- unlock:
- 	if (!ret) {
-diff --git a/mm/mlock.c b/mm/mlock.c
-index ef8dc9f..eb45857 100644
---- a/mm/mlock.c
-+++ b/mm/mlock.c
-@@ -648,6 +648,8 @@ static __must_check int do_mlock(unsigned long start, size_t len, vm_flags_t fla
- 	if (error)
- 		return error;
- 
-+	update_resource_highwatermark(RLIMIT_MEMLOCK, locked << PAGE_SHIFT);
-+
- 	error = __mm_populate(start, len, 0);
- 	if (error)
- 		return __mlock_posix_error_return(error);
-@@ -761,6 +763,9 @@ SYSCALL_DEFINE1(mlockall, int, flags)
- 	if (!ret && (flags & MCL_CURRENT))
- 		mm_populate(0, TASK_SIZE);
- 
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      current->mm->total_vm << PAGE_SHIFT);
-+
- 	return ret;
- }
- 
-@@ -798,6 +803,9 @@ int user_shm_lock(size_t size, struct user_struct *user)
- 	get_uid(user);
- 	user->locked_shm += locked;
- 	allowed = 1;
-+
-+	update_resource_highwatermark(RLIMIT_MEMLOCK,
-+				      user->locked_shm << PAGE_SHIFT);
- out:
- 	spin_unlock(&shmlock_user_lock);
- 	return allowed;
-diff --git a/mm/mmap.c b/mm/mmap.c
-index 305c456..c37f599 100644
---- a/mm/mmap.c
-+++ b/mm/mmap.c
-@@ -2020,6 +2020,10 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
- 		return -ENOMEM;
- 
- 	update_resource_highwatermark(RLIMIT_STACK, actual_size);
-+	if (vma->vm_flags & VM_LOCKED)
-+		update_resource_highwatermark(RLIMIT_MEMLOCK,
-+					      (mm->locked_vm + grow) <<
-+					      PAGE_SHIFT);
+ 	napi_enable(&priv->napi);
+-	priv->phy->state = PHY_CHANGELINK;
+-	phy_start(priv->phy);
++	dev->phydev->state = PHY_CHANGELINK;
++	phy_start(dev->phydev);
  
  	return 0;
- }
-diff --git a/mm/mremap.c b/mm/mremap.c
-index 1f157ad..f1821335 100644
---- a/mm/mremap.c
-+++ b/mm/mremap.c
-@@ -394,6 +394,10 @@ static struct vm_area_struct *vma_to_resize(unsigned long addr,
- 		*p = charged;
- 	}
  
-+	if (vma->vm_flags & VM_LOCKED)
-+		update_resource_highwatermark(RLIMIT_MEMLOCK,
-+					      (mm->locked_vm << PAGE_SHIFT) +
-+					      new_len - old_len);
- 	return vma;
- }
+@@ -1053,7 +1046,7 @@ static int cpmac_stop(struct net_device *dev)
+ 
+ 	cancel_work_sync(&priv->reset_work);
+ 	napi_disable(&priv->napi);
+-	phy_stop(priv->phy);
++	phy_stop(dev->phydev);
+ 
+ 	cpmac_hw_stop(dev);
+ 
+@@ -1106,6 +1099,7 @@ static int cpmac_probe(struct platform_device *pdev)
+ 	struct cpmac_priv *priv;
+ 	struct net_device *dev;
+ 	struct plat_cpmac_data *pdata;
++	struct phy_device *phydev = NULL;
+ 
+ 	pdata = dev_get_platdata(&pdev->dev);
+ 
+@@ -1162,14 +1156,14 @@ static int cpmac_probe(struct platform_device *pdev)
+ 	snprintf(priv->phy_name, MII_BUS_ID_SIZE, PHY_ID_FMT,
+ 						mdio_bus_id, phy_id);
+ 
+-	priv->phy = phy_connect(dev, priv->phy_name, cpmac_adjust_link,
+-				PHY_INTERFACE_MODE_MII);
++	phydev = phy_connect(dev, priv->phy_name, cpmac_adjust_link,
++			     PHY_INTERFACE_MODE_MII);
+ 
+-	if (IS_ERR(priv->phy)) {
++	if (IS_ERR(phydev)) {
+ 		if (netif_msg_drv(priv))
+ 			dev_err(&pdev->dev, "Could not attach to PHY\n");
+ 
+-		rc = PTR_ERR(priv->phy);
++		rc = PTR_ERR(phydev);
+ 		goto out;
+ 	}
  
 -- 
-2.8.1
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+1.7.4.4
