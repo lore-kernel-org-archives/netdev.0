@@ -1,8 +1,7 @@
 From: Richard Stearn <richard@rns-stearn.demon.co.uk>
-Subject: [PATCH 3/6]NET:AX25:ROSE Traps calls to rose_route_frame with a
- NULL ax25 callback
-Date: Sat, 16 Jul 2016 10:43:59 +0100
-Message-ID: <201607160943.u6G9hx4i014901@ux4.g1sog>
+Subject: [PATCH 5/6]NET:AX25:ROSE Adds the log priority to a printk
+Date: Sat, 16 Jul 2016 10:45:59 +0100
+Message-ID: <201607160945.u6G9jxXE015213@ux4.g1sog>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,33 +10,24 @@ Return-path: <linux-hams-owner@vger.kernel.org>
 Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Subject: [PATCH 3/6]NET:AX25:ROSE Traps calls to rose_route_frame with a NULL ax25 callback
-Traps calls to rose_route_frame with a NULL ax25 callback to
-prevent a kernel crash.
-
-Calling rose_route_frame with a NULL ax25 callback parameter indicates a
-locally generated frame.  The existing code does not handle the NULL value
-and the kernel hard crashes in an interrupt, resulting in the system stopping
-processing.
+Subject: [PATCH 5/6]NET:AX25:ROSE Adds the log priority to a printk
+Adds the log priority to a printk.
 
 Signed-off-by: Richard Stearn <richard@rns-stearn.demon.co.uk>
 ---
- net/rose/rose_route.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ net/rose/rose_route.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
-index 23e0fbd..96ed06c 100644
+index 56e53d5..9f256ed 100644
 --- a/net/rose/rose_route.c
 +++ b/net/rose/rose_route.c
-@@ -877,6 +877,11 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
- 	src_addr  = (rose_address *)(skb->data + ROSE_CALL_REQ_SRC_ADDR_OFF);
- 	dest_addr = (rose_address *)(skb->data + ROSE_CALL_REQ_DEST_ADDR_OFF);
+@@ -903,7 +903,7 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 	}
  
-+	if (ax25 == NULL) {
-+		printk(KERN_ERR "rose_route_frame : called with ax25 callback == NULL\n");
-+		return res;
-+	}
-+
- 	spin_lock_bh(&rose_neigh_list_lock);
- 	spin_lock_bh(&rose_route_list_lock);
- 
+ 	if (rose_neigh == NULL) {
+-		printk("rose_route : unknown neighbour or device %s\n",
++		printk(KERN_ERR "rose_route_frame: unknown neighbour or device %s\n",
+ 		       ax2asc(buf, &ax25->dest_addr));
+ 		goto out;
+ 	}
