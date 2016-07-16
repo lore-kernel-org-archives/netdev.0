@@ -1,78 +1,43 @@
 From: Richard Stearn <richard@rns-stearn.demon.co.uk>
-Subject: [PATCH 1/6]NET:AX25:ROSE Add device use count
-Date: Sat, 16 Jul 2016 10:41:59 +0100
-Message-ID: <201607160941.u6G9fxHG014608@ux4.g1sog>
+Subject: [PATCH 3/6]NET:AX25:ROSE Traps calls to rose_route_frame with a
+ NULL ax25 callback
+Date: Sat, 16 Jul 2016 10:43:59 +0100
+Message-ID: <201607160943.u6G9hx4i014901@ux4.g1sog>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, linux-hams@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mdfmta005.mxout.tch.inty.net ([91.221.169.46]:37799 "EHLO
-	smtp.demon.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751430AbcGPJxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 05:53:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Subject: [PATCH 1/6]NET:AX25:ROSE Add device use count
-Adds device use count for core of protocol.
-Prevents kernel crash on device shutdown.
+Subject: [PATCH 3/6]NET:AX25:ROSE Traps calls to rose_route_frame with a NULL ax25 callback
+Traps calls to rose_route_frame with a NULL ax25 callback to
+prevent a kernel crash.
+
+Calling rose_route_frame with a NULL ax25 callback parameter indicates a
+locally generated frame.  The existing code does not handle the NULL value
+and the kernel hard crashes in an interrupt, resulting in the system stopping
+processing.
 
 Signed-off-by: Richard Stearn <richard@rns-stearn.demon.co.uk>
 ---
- net/rose/af_rose.c       |    7 ++++++-
- net/rose/rose_loopback.c |    1 +
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ net/rose/rose_route.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 36dbc2d..89745aa 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -687,8 +687,10 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		rose->source_call = user->call;
- 		ax25_uid_put(user);
- 	} else {
--		if (ax25_uid_policy && !capable(CAP_NET_BIND_SERVICE))
-+		if (ax25_uid_policy && !capable(CAP_NET_BIND_SERVICE)) {
-+			dev_put(dev);
- 			return -EACCES;
-+		}
- 		rose->source_call   = *source;
- 	}
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index 23e0fbd..96ed06c 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -877,6 +877,11 @@ int rose_route_frame(struct sk_buff *skb, ax25_cb *ax25)
+ 	src_addr  = (rose_address *)(skb->data + ROSE_CALL_REQ_SRC_ADDR_OFF);
+ 	dest_addr = (rose_address *)(skb->data + ROSE_CALL_REQ_DEST_ADDR_OFF);
  
-@@ -709,6 +711,7 @@ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	rose_insert_socket(sk);
++	if (ax25 == NULL) {
++		printk(KERN_ERR "rose_route_frame : called with ax25 callback == NULL\n");
++		return res;
++	}
++
+ 	spin_lock_bh(&rose_neigh_list_lock);
+ 	spin_lock_bh(&rose_route_list_lock);
  
- 	sock_reset_flag(sk, SOCK_ZAPPED);
-+	dev_put(dev);
- 
- 	return 0;
- }
-@@ -785,6 +788,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
- 
- 		user = ax25_findbyuid(current_euid());
- 		if (!user) {
-+			dev_put(dev);
- 			err = -EINVAL;
- 			goto out_release;
- 		}
-@@ -794,6 +798,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
- 		rose->device      = dev;
- 		ax25_uid_put(user);
- 
-+		dev_put(dev);
- 		rose_insert_socket(sk);		/* Finish the bind */
- 	}
- 	rose->dest_addr   = addr->srose_addr;
-diff --git a/net/rose/rose_loopback.c b/net/rose/rose_loopback.c
-index 3444562..ea48cee 100644
---- a/net/rose/rose_loopback.c
-+++ b/net/rose/rose_loopback.c
-@@ -102,6 +102,7 @@ static void rose_loopback_timer(unsigned long param)
- 			if ((dev = rose_dev_get(dest)) != NULL) {
- 				if (rose_rx_call_request(skb, dev, rose_loopback_neigh, lci_o) == 0)
- 					kfree_skb(skb);
-+				dev_put(dev);
- 			} else {
- 				kfree_skb(skb);
- 			}
