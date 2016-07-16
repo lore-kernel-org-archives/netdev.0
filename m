@@ -1,72 +1,75 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+From: Hans de Goede <hdegoede@redhat.com>
 Subject: Re: [PATCH] dt: bindings: Add a generic ethernet device binding
-Date: Sat, 16 Jul 2016 12:12:37 +0200
-Message-ID: <888927c4-0987-ccfb-e2de-d03f6d4ab319@redhat.com>
+Date: Sat, 16 Jul 2016 12:18:40 +0200
+Message-ID: <289d5b2e-6232-2c91-f11d-774265e05125@redhat.com>
 References: <1468405204-5845-1-git-send-email-hdegoede@redhat.com>
- <20160714.161707.2089949241813985527.davem@davemloft.net>
- <47a052a1-cc8b-0f75-e44a-450c4a0ac075@redhat.com>
- <20160715.105158.2028840258568316933.davem@davemloft.net>
+ <1788846.r3134d1VMR@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160715.105158.2028840258568316933.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Rob Herring <robh+dt@kernel.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	devicetree <devicetree@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56651 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751434AbcGPKSq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Jul 2016 06:18:46 -0400
+In-Reply-To: <1788846.r3134d1VMR@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-On 15-07-16 19:51, David Miller wrote:
-> From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Date: Fri, 15 Jul 2016 08:40:00 +0200
+On 15-07-16 22:42, Arnd Bergmann wrote:
+> On Wednesday, July 13, 2016 12:20:04 PM CEST Hans de Goede wrote:
+>> +&mmc1 {
+>> +       non-removable;
+>> +       status = "okay";
+>> +
+>> +       sdio_wifi: sdio_wifi@1 {
+>> +               compatible = "generic,ethernet"
+>> +               reg = <1>;
+>> +       };
+>> +};
 >
->> Hi,
->>
->> On 15-07-16 01:17, David Miller wrote:
->>> From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>> Date: Wed, 13 Jul 2016 12:20:04 +0200
->>>
->>>> On some boards (android tablets) different batches use different sdio
->>>> wifi modules. This is not a problem since sdio is a discoverable bus,
->>>> so we only need to describe and activate the mmc controller in dt and
->>>> then the kernel will automatically load the right driver.
->>>>
->>>> But sometimes it is useful to specify certain ethernet properties for
->>>> these "unknown" sdio devices, specifically we want the boot-loader
->>>> to be able to set "local-mac-address" as some of these sdio wifi
->>>> modules come without an eeprom / without a factory programmed mac
->>>> address.
->>>>
->>>> Since the exact device is unknown (differs per batch) we cannot use
->>>> a wifi-chip specific compatible. This commit adds a new
->>>> "generic,ethernet" binding for use in dt-nodes describing such an
->>>> unknown ethernet device.
->>>>
->>>> Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
->>>> Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>>
->>> Precedence exists for a "system ethernet address" as far back as the
->>> original sparc device tree implementation, so please just specify it
->>> that way rather than trying to force having to make an alias or
->>> reference to it from a specific device.
->>
->> Some boards where this is applicable have both a wired and a wireless
->> ethernet, so one global setting will not work.
->
-> Then call it "eth:local-mac-address" and "wifi:local-mac-address"
+> For discoverable buses, we normally use a compatible property that
+> reflects the device ID on that bus, e.g. on PCI we have "pci1A2B:3C4D"
+> and I think that makes more sense than having to come up with strings
+> for sdio devices.
 
-Until we get a board with 2 ethernet interfaces, really the alias thing
-is working fine here, that is not the problem.
+2 things:
+
+1) The problem here is that different batches of the same board
+(cheap chinese tablet) have different sdio wifi modules, so we
+actually cannot specify a vendor / product id as in your example.
+
+2) In some cases we do want an actual compatible because some devices
+have some oob (out-of-band) going with e.g. gpio-s which cannot be
+handled by mmc-pwrseq.
+
+> In fact, Linux completely ignores the compatible strings on those
+> buses (pci, usb, sdio, ...),
+
+You're mostly right, but at least the brcmfmac driver looks for a
+compatible in the mmc-host child node describing its sdio function
+to see if it should check for oob irq information there.
+
+> so I think we can just do the same thing
+> using no compatible string at all.
+
+I'm all for not using any compatible string at all, actually I submitted
+a patch for a sunxi dt file which did that and Maxime pointed out that
+the compatible is listed as Required in:
+Documentation/devicetree/bindings/mmc/mmc-card.txt
+
+If we can agree to make it optional, then I'll happily submit a patch
+with that change and Maxime can take my sunxi dts patch as is :)
 
 Regards,
 
 Hans
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
