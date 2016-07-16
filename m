@@ -1,47 +1,55 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH] net/sched/sch_htb: clamp xstats tokens to fit into 32-bit
- int
-Date: Sat, 16 Jul 2016 17:08:56 +0300
-Message-ID: <146867813621.23552.6234170020058724059.stgit@buzz>
+From: Jamie Lentin <jm@lentin.co.uk>
+Subject: [PATCH v0 01/10] arm: orion5x: Add required properties for orion-wdt
+ to DT node
+Date: Sat, 16 Jul 2016 15:28:59 +0100
+Message-ID: <1468679348-10522-2-git-send-email-jm@lentin.co.uk>
+References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devicetree@vger.kernel.org, Jamie Lentin <jm@lentin.co.uk>,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org
+To: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Imre Kaloz <kaloz@openwrt.org>, Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-In kernel HTB keeps tokens in signed 64-bit in nanoseconds. In netlink
-protocol these values are converted into pshed ticks (64ns for now) and
-truncated to 32-bit. In struct tc_htb_xstats fields "tokens" and "ctokens"
-are declared as unsigned 32-bit but they could be negative thus tool 'tc'
-prints them as signed. Big values loose higher bits and/or become negative.
+orion-wdt refuses to start without these properties defined, so lift
+definitions out of kirkwood/dove.dtsi
 
-This patch clamps tokens in xstat into range from INT_MIN to INT_MAX.
-In this way it's easier to understand what's going on here.
-
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
 ---
- net/sched/sch_htb.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ arch/arm/boot/dts/orion5x.dtsi | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 62f9d8100c6e..052f84d6cc23 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1140,8 +1140,10 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
+index e1b6d2a..fbccfbb 100644
+--- a/arch/arm/boot/dts/orion5x.dtsi
++++ b/arch/arm/boot/dts/orion5x.dtsi
+@@ -144,9 +144,10 @@
  
- 	if (!cl->level && cl->un.leaf.q)
- 		qlen = cl->un.leaf.q->q.qlen;
--	cl->xstats.tokens = PSCHED_NS2TICKS(cl->tokens);
--	cl->xstats.ctokens = PSCHED_NS2TICKS(cl->ctokens);
-+	cl->xstats.tokens = clamp_t(s64, PSCHED_NS2TICKS(cl->tokens),
-+				    INT_MIN, INT_MAX);
-+	cl->xstats.ctokens = clamp_t(s64, PSCHED_NS2TICKS(cl->ctokens),
-+				     INT_MIN, INT_MAX);
+ 			wdt: wdt@20300 {
+ 				compatible = "marvell,orion-wdt";
+-				reg = <0x20300 0x28>;
++				reg = <0x20300 0x28>, <0x20108 0x4>;
+ 				interrupt-parent = <&bridge_intc>;
+ 				interrupts = <3>;
++				clocks = <&core_clk 0>;
+ 				status = "okay";
+ 			};
  
- 	if (gnet_stats_copy_basic(d, NULL, &cl->bstats) < 0 ||
- 	    gnet_stats_copy_rate_est(d, NULL, &cl->rate_est) < 0 ||
+-- 
+2.8.1
