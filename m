@@ -1,8 +1,7 @@
 From: Jamie Lentin <jm@lentin.co.uk>
-Subject: [PATCH v0 04/10] arm: orion5x: Generalise mv88f5181l pinctrl support
- for 88f5181
-Date: Sat, 16 Jul 2016 15:29:02 +0100
-Message-ID: <1468679348-10522-5-git-send-email-jm@lentin.co.uk>
+Subject: [PATCH v0 07/10] arm: orion5x: Remove old non-DT-based WNR854T support
+Date: Sat, 16 Jul 2016 15:29:05 +0100
+Message-ID: <1468679348-10522-8-git-send-email-jm@lentin.co.uk>
 References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,102 +26,215 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-As far as I'm aware the mv88f5181-b1 and mv88f5181l are the same at the
-pinctrl level, so re-use the definitions for both.
-
 Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
 ---
- .../bindings/pinctrl/marvell,orion-pinctrl.txt     |  4 ++--
- drivers/pinctrl/mvebu/pinctrl-orion.c              | 23 +++++++++++-----------
- 2 files changed, 14 insertions(+), 13 deletions(-)
+ arch/arm/mach-orion5x/Makefile        |   1 -
+ arch/arm/mach-orion5x/wnr854t-setup.c | 185 ----------------------------------
+ 2 files changed, 186 deletions(-)
+ delete mode 100644 arch/arm/mach-orion5x/wnr854t-setup.c
 
-diff --git a/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt b/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt
-index 27570a3..5a79bad 100644
---- a/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt
-+++ b/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt
-@@ -4,8 +4,8 @@ Please refer to marvell,mvebu-pinctrl.txt in this directory for common binding
- part and usage.
- 
- Required properties:
--- compatible: "marvell,88f5181l-pinctrl", "marvell,88f5182-pinctrl",
--              "marvell,88f5281-pinctrl"
-+- compatible: "marvell,88f5181-pinctrl", "marvell,88f5181l-pinctrl",
-+              "marvell,88f5182-pinctrl", "marvell,88f5281-pinctrl"
- 
- - reg: two register areas, the first one describing the first two
-   contiguous MPP registers, and the second one describing the single
-diff --git a/drivers/pinctrl/mvebu/pinctrl-orion.c b/drivers/pinctrl/mvebu/pinctrl-orion.c
-index 3b7122d..6f9c8ee 100644
---- a/drivers/pinctrl/mvebu/pinctrl-orion.c
-+++ b/drivers/pinctrl/mvebu/pinctrl-orion.c
-@@ -64,11 +64,11 @@ static int orion_mpp_ctrl_set(unsigned pid, unsigned long config)
- 	return 0;
- }
- 
--#define V(f5181l, f5182, f5281) \
--	((f5181l << 0) | (f5182 << 1) | (f5281 << 2))
-+#define V(f5181, f5182, f5281) \
-+	((f5181 << 0) | (f5182 << 1) | (f5281 << 2))
- 
- enum orion_variant {
--	V_5181L = V(1, 0, 0),
-+	V_5181  = V(1, 0, 0),
- 	V_5182  = V(0, 1, 0),
- 	V_5281  = V(0, 0, 1),
- 	V_ALL   = V(1, 1, 1),
-@@ -103,13 +103,13 @@ static struct mvebu_mpp_mode orion_mpp_modes[] = {
- 		 MPP_VAR_FUNCTION(0x0, "gpio", NULL,        V_ALL),
- 		 MPP_VAR_FUNCTION(0x2, "pci", "req5",       V_ALL),
- 		 MPP_VAR_FUNCTION(0x4, "nand", "re0",       V_5182 | V_5281),
--		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181L),
-+		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181),
- 		 MPP_VAR_FUNCTION(0x5, "sata0", "act",      V_5182)),
- 	MPP_MODE(7,
- 		 MPP_VAR_FUNCTION(0x0, "gpio", NULL,        V_ALL),
- 		 MPP_VAR_FUNCTION(0x2, "pci", "gnt5",       V_ALL),
- 		 MPP_VAR_FUNCTION(0x4, "nand", "we0",       V_5182 | V_5281),
--		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181L),
-+		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181),
- 		 MPP_VAR_FUNCTION(0x5, "sata1", "act",      V_5182)),
- 	MPP_MODE(8,
- 		 MPP_VAR_FUNCTION(0x0, "gpio", NULL,        V_ALL),
-@@ -165,7 +165,7 @@ static struct mvebu_mpp_ctrl orion_mpp_controls[] = {
- 	MPP_FUNC_CTRL(0, 19, NULL, orion_mpp_ctrl),
- };
- 
--static struct pinctrl_gpio_range mv88f5181l_gpio_ranges[] = {
-+static struct pinctrl_gpio_range mv88f5181_gpio_ranges[] = {
- 	MPP_GPIO_RANGE(0, 0, 0, 16),
- };
- 
-@@ -177,14 +177,14 @@ static struct pinctrl_gpio_range mv88f5281_gpio_ranges[] = {
- 	MPP_GPIO_RANGE(0, 0, 0, 16),
- };
- 
--static struct mvebu_pinctrl_soc_info mv88f5181l_info = {
--	.variant = V_5181L,
-+static struct mvebu_pinctrl_soc_info mv88f5181_info = {
-+	.variant = V_5181,
- 	.controls = orion_mpp_controls,
- 	.ncontrols = ARRAY_SIZE(orion_mpp_controls),
- 	.modes = orion_mpp_modes,
- 	.nmodes = ARRAY_SIZE(orion_mpp_modes),
--	.gpioranges = mv88f5181l_gpio_ranges,
--	.ngpioranges = ARRAY_SIZE(mv88f5181l_gpio_ranges),
-+	.gpioranges = mv88f5181_gpio_ranges,
-+	.ngpioranges = ARRAY_SIZE(mv88f5181_gpio_ranges),
- };
- 
- static struct mvebu_pinctrl_soc_info mv88f5182_info = {
-@@ -212,7 +212,8 @@ static struct mvebu_pinctrl_soc_info mv88f5281_info = {
-  * muxing, they are identical.
-  */
- static const struct of_device_id orion_pinctrl_of_match[] = {
--	{ .compatible = "marvell,88f5181l-pinctrl", .data = &mv88f5181l_info },
-+	{ .compatible = "marvell,88f5181-pinctrl", .data = &mv88f5181_info },
-+	{ .compatible = "marvell,88f5181l-pinctrl", .data = &mv88f5181_info },
- 	{ .compatible = "marvell,88f5182-pinctrl", .data = &mv88f5182_info },
- 	{ .compatible = "marvell,88f5281-pinctrl", .data = &mv88f5281_info },
- 	{ }
+diff --git a/arch/arm/mach-orion5x/Makefile b/arch/arm/mach-orion5x/Makefile
+index 9dff2d3..a2c9ebc 100644
+--- a/arch/arm/mach-orion5x/Makefile
++++ b/arch/arm/mach-orion5x/Makefile
+@@ -14,7 +14,6 @@ obj-$(CONFIG_MACH_WRT350N_V2)	+= wrt350n-v2-setup.o
+ obj-$(CONFIG_MACH_TS78XX)	+= ts78xx-setup.o
+ obj-$(CONFIG_MACH_MV2120)	+= mv2120-setup.o
+ obj-$(CONFIG_MACH_NET2BIG)	+= net2big-setup.o
+-obj-$(CONFIG_MACH_WNR854T)	+= wnr854t-setup.o
+ obj-$(CONFIG_MACH_RD88F5181L_GE)	+= rd88f5181l-ge-setup.o
+ obj-$(CONFIG_MACH_RD88F5181L_FXO)	+= rd88f5181l-fxo-setup.o
+ obj-$(CONFIG_MACH_RD88F6183AP_GE)	+= rd88f6183ap-ge-setup.o
+diff --git a/arch/arm/mach-orion5x/wnr854t-setup.c b/arch/arm/mach-orion5x/wnr854t-setup.c
+deleted file mode 100644
+index 4e1e5c8..0000000
+--- a/arch/arm/mach-orion5x/wnr854t-setup.c
++++ /dev/null
+@@ -1,185 +0,0 @@
+-/*
+- * arch/arm/mach-orion5x/wnr854t-setup.c
+- *
+- * This file is licensed under the terms of the GNU General Public
+- * License version 2.  This program is licensed "as is" without any
+- * warranty of any kind, whether express or implied.
+- */
+-#include <linux/gpio.h>
+-#include <linux/kernel.h>
+-#include <linux/init.h>
+-#include <linux/platform_device.h>
+-#include <linux/pci.h>
+-#include <linux/irq.h>
+-#include <linux/delay.h>
+-#include <linux/mtd/physmap.h>
+-#include <linux/mv643xx_eth.h>
+-#include <linux/ethtool.h>
+-#include <net/dsa.h>
+-#include <asm/mach-types.h>
+-#include <asm/mach/arch.h>
+-#include <asm/mach/pci.h>
+-#include "orion5x.h"
+-#include "common.h"
+-#include "mpp.h"
+-
+-static unsigned int wnr854t_mpp_modes[] __initdata = {
+-	MPP0_GPIO,		/* Power LED green (0=on) */
+-	MPP1_GPIO,		/* Reset Button (0=off) */
+-	MPP2_GPIO,		/* Power LED blink (0=off) */
+-	MPP3_GPIO,		/* WAN Status LED amber (0=off) */
+-	MPP4_GPIO,		/* PCI int */
+-	MPP5_GPIO,		/* ??? */
+-	MPP6_GPIO,		/* ??? */
+-	MPP7_GPIO,		/* ??? */
+-	MPP8_UNUSED,		/* ??? */
+-	MPP9_GIGE,		/* GE_RXERR */
+-	MPP10_UNUSED,		/* ??? */
+-	MPP11_UNUSED,		/* ??? */
+-	MPP12_GIGE,		/* GE_TXD[4] */
+-	MPP13_GIGE,		/* GE_TXD[5] */
+-	MPP14_GIGE,		/* GE_TXD[6] */
+-	MPP15_GIGE,		/* GE_TXD[7] */
+-	MPP16_GIGE,		/* GE_RXD[4] */
+-	MPP17_GIGE,		/* GE_RXD[5] */
+-	MPP18_GIGE,		/* GE_RXD[6] */
+-	MPP19_GIGE,		/* GE_RXD[7] */
+-	0,
+-};
+-
+-/*
+- * 8M NOR flash Device bus boot chip select
+- */
+-#define WNR854T_NOR_BOOT_BASE	0xf4000000
+-#define WNR854T_NOR_BOOT_SIZE	SZ_8M
+-
+-static struct mtd_partition wnr854t_nor_flash_partitions[] = {
+-	{
+-		.name		= "kernel",
+-		.offset		= 0x00000000,
+-		.size		= 0x00100000,
+-	}, {
+-		.name		= "rootfs",
+-		.offset		= 0x00100000,
+-		.size		= 0x00660000,
+-	}, {
+-		.name		= "uboot",
+-		.offset		= 0x00760000,
+-		.size		= 0x00040000,
+-	},
+-};
+-
+-static struct physmap_flash_data wnr854t_nor_flash_data = {
+-	.width		= 2,
+-	.parts		= wnr854t_nor_flash_partitions,
+-	.nr_parts	= ARRAY_SIZE(wnr854t_nor_flash_partitions),
+-};
+-
+-static struct resource wnr854t_nor_flash_resource = {
+-	.flags		= IORESOURCE_MEM,
+-	.start		= WNR854T_NOR_BOOT_BASE,
+-	.end		= WNR854T_NOR_BOOT_BASE + WNR854T_NOR_BOOT_SIZE - 1,
+-};
+-
+-static struct platform_device wnr854t_nor_flash = {
+-	.name			= "physmap-flash",
+-	.id			= 0,
+-	.dev		= {
+-		.platform_data	= &wnr854t_nor_flash_data,
+-	},
+-	.num_resources		= 1,
+-	.resource		= &wnr854t_nor_flash_resource,
+-};
+-
+-static struct mv643xx_eth_platform_data wnr854t_eth_data = {
+-	.phy_addr	= MV643XX_ETH_PHY_NONE,
+-	.speed		= SPEED_1000,
+-	.duplex		= DUPLEX_FULL,
+-};
+-
+-static struct dsa_chip_data wnr854t_switch_chip_data = {
+-	.port_names[0] = "lan3",
+-	.port_names[1] = "lan4",
+-	.port_names[2] = "wan",
+-	.port_names[3] = "cpu",
+-	.port_names[5] = "lan1",
+-	.port_names[7] = "lan2",
+-};
+-
+-static struct dsa_platform_data wnr854t_switch_plat_data = {
+-	.nr_chips	= 1,
+-	.chip		= &wnr854t_switch_chip_data,
+-};
+-
+-static void __init wnr854t_init(void)
+-{
+-	/*
+-	 * Setup basic Orion functions. Need to be called early.
+-	 */
+-	orion5x_init();
+-
+-	orion5x_mpp_conf(wnr854t_mpp_modes);
+-
+-	/*
+-	 * Configure peripherals.
+-	 */
+-	orion5x_eth_init(&wnr854t_eth_data);
+-	orion5x_eth_switch_init(&wnr854t_switch_plat_data, NO_IRQ);
+-	orion5x_uart0_init();
+-
+-	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
+-				    ORION_MBUS_DEVBUS_BOOT_ATTR,
+-				    WNR854T_NOR_BOOT_BASE,
+-				    WNR854T_NOR_BOOT_SIZE);
+-	platform_device_register(&wnr854t_nor_flash);
+-}
+-
+-static int __init wnr854t_pci_map_irq(const struct pci_dev *dev, u8 slot,
+-	u8 pin)
+-{
+-	int irq;
+-
+-	/*
+-	 * Check for devices with hard-wired IRQs.
+-	 */
+-	irq = orion5x_pci_map_irq(dev, slot, pin);
+-	if (irq != -1)
+-		return irq;
+-
+-	/*
+-	 * Mini-PCI slot.
+-	 */
+-	if (slot == 7)
+-		return gpio_to_irq(4);
+-
+-	return -1;
+-}
+-
+-static struct hw_pci wnr854t_pci __initdata = {
+-	.nr_controllers	= 2,
+-	.setup		= orion5x_pci_sys_setup,
+-	.scan		= orion5x_pci_sys_scan_bus,
+-	.map_irq	= wnr854t_pci_map_irq,
+-};
+-
+-static int __init wnr854t_pci_init(void)
+-{
+-	if (machine_is_wnr854t())
+-		pci_common_init(&wnr854t_pci);
+-
+-	return 0;
+-}
+-subsys_initcall(wnr854t_pci_init);
+-
+-MACHINE_START(WNR854T, "Netgear WNR854T")
+-	/* Maintainer: Imre Kaloz <kaloz@openwrt.org> */
+-	.atag_offset	= 0x100,
+-	.nr_irqs	= ORION5X_NR_IRQS,
+-	.init_machine	= wnr854t_init,
+-	.map_io		= orion5x_map_io,
+-	.init_early	= orion5x_init_early,
+-	.init_irq	= orion5x_init_irq,
+-	.init_time	= orion5x_timer_init,
+-	.fixup		= tag_fixup_mem32,
+-	.restart	= orion5x_restart,
+-MACHINE_END
 -- 
 2.8.1
