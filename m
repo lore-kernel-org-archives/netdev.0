@@ -1,109 +1,82 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v0 03/10] arm: orion5x: Add clk support for mv88f5181
-Date: Sat, 16 Jul 2016 20:34:43 +0300
-Message-ID: <ed490090-c127-3f4f-d923-2d04918d00cb@cogentembedded.com>
-References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
- <1468679348-10522-4-git-send-email-jm@lentin.co.uk>
+From: Magnus Bergroth <bergroth@nordu.net>
+Subject: iproute2 mpls max labels
+Date: Sat, 16 Jul 2016 20:24:48 +0200
+Message-ID: <578A7BF0.2020107@nordu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jamie Lentin <jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org>,
-	Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Imre Kaloz <kaloz-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1468679348-10522-4-git-send-email-jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e-mailfilter02.sunet.se ([192.36.171.202]:52144 "EHLO
+	e-mailfilter02.sunet.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751629AbcGPSec (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 14:34:32 -0400
+Received: from smtp1.nordu.net (smtp1.nordu.net [IPv6:2001:948:4:6::32])
+	by e-mailfilter02.sunet.se (8.14.4/8.14.4/Debian-4) with ESMTP id u6GIOsWV031722
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sat, 16 Jul 2016 20:24:54 +0200
+Received: from Hugo2-204.local (h-20-185.a259.priv.bahnhof.se [79.136.20.185])
+	(authenticated bits=0)
+	by smtp1.nordu.net (8.14.7/8.14.7) with ESMTP id u6GIOojh002851
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Sat, 16 Jul 2016 18:24:54 GMT
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 7/16/2016 5:29 PM, Jamie Lentin wrote:
+Wanted to use more than the default maximum of 8 mpls labels. Max labels
+seems to be hardcode to 8 in two places.
 
-> Referring to values in the u-boot port, add support for the mv88f5181
->
-> Signed-off-by: Jamie Lentin <jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org>
+--- iproute2-4.6.0/lib/utils.c    2016-05-18 20:56:02.000000000 +0200
++++ iproute2-4.6.0-bergroth/lib/utils.c    2016-07-16 20:12:10.714958071
++0200
+@@ -476,7 +476,7 @@
+         addr->bytelen = 4;
+         addr->bitlen = 20;
+         /* How many bytes do I need? */
+-        for (i = 0; i < 8; i++) {
++        for (i = 0; i < MPLS_MAX_LABELS; i++) {
+             if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
+                 addr->bytelen = (i + 1)*4;
+                 break;
 
-[...]
-> diff --git a/drivers/clk/mvebu/orion.c b/drivers/clk/mvebu/orion.c
-> index fd12956..a6e5bee 100644
-> --- a/drivers/clk/mvebu/orion.c
-> +++ b/drivers/clk/mvebu/orion.c
-> @@ -21,6 +21,76 @@ static const struct coreclk_ratio orion_coreclk_ratios[] __initconst = {
->  };
->
->  /*
-> + * Orion 5181
-> + */
-> +
-> +#define SAR_MV88F5181_TCLK_FREQ      8
-> +#define SAR_MV88F5181_TCLK_FREQ_MASK 0x3
-> +
-> +static u32 __init mv88f5181_get_tclk_freq(void __iomem *sar)
-> +{
-> +	u32 opt = (readl(sar) >> SAR_MV88F5181_TCLK_FREQ) &
-> +		SAR_MV88F5181_TCLK_FREQ_MASK;
-> +	if (opt == 0)
-> +		return 133333333;
-> +	else if (opt == 1)
-> +		return 150000000;
-> +	else if (opt == 2)
-> +		return 166666667;
 
-    Do you know about the *switch* statement? :-)
+--- iproute2-4.6.0/include/utils.h    2016-05-18 20:56:02.000000000 +0200
++++ iproute2-4.6.0-bergroth/include/utils.h    2016-07-15
+11:55:57.297681742 +0200
+@@ -54,6 +54,9 @@
+ #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
+ #define PREV_ARG() do { argv--; argc++; } while(0)
 
-> +	else
-> +		return 0;
-> +}
-> +
-> +#define SAR_MV88F5181_CPU_FREQ       4
-> +#define SAR_MV88F5181_CPU_FREQ_MASK  0xf
-> +
-> +static u32 __init mv88f5181_get_cpu_freq(void __iomem *sar)
-> +{
-> +	u32 opt = (readl(sar) >> SAR_MV88F5181_CPU_FREQ) &
-> +		SAR_MV88F5181_CPU_FREQ_MASK;
-> +	if (opt == 0)
-> +		return 333333333;
-> +	else if (opt == 1 || opt == 2)
-> +		return 400000000;
-> +	else if (opt == 3)
-> +		return 500000000;
++/* Maximum number of labels the mpls helpers support */
++#define MPLS_MAX_LABELS 8
++
+ typedef struct
+ {
+     __u16 flags;
+@@ -61,7 +64,7 @@
+     __s16 bitlen;
+     /* These next two fields match rtvia */
+     __u16 family;
+-    __u32 data[8];
++    __u32 data[MPLS_MAX_LABELS];
+ } inet_prefix;
 
-    Asks to be a *switch* as well...
+ #define PREFIXLEN_SPECIFIED 1
+@@ -88,9 +91,6 @@
+ # define AF_MPLS 28
+ #endif
 
-> +	else
-> +		return 0;
-> +}
-> +
-> +static void __init mv88f5181_get_clk_ratio(void __iomem *sar, int id,
-> +					   int *mult, int *div)
-> +{
-> +	u32 opt = (readl(sar) >> SAR_MV88F5181_CPU_FREQ) &
-> +		SAR_MV88F5181_CPU_FREQ_MASK;
-> +	if (opt == 0 || opt == 1) {
-> +		*mult = 1;
-> +		*div  = 2;
-> +	} else if (opt == 2 || opt == 3) {
-> +		*mult = 1;
-> +		*div  = 3;
-> +	} else {
-> +		*mult = 0;
-> +		*div  = 1;
-> +	}
+-/* Maximum number of labels the mpls helpers support */
+-#define MPLS_MAX_LABELS 8
+-
+ __u32 get_addr32(const char *name);
+ int get_addr_1(inet_prefix *dst, const char *arg, int family);
+ int get_prefix_1(inet_prefix *dst, char *arg, int family);
 
-     This one too...
 
-[...]
 
-MBR, Sergei
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Kindly
+
+Magnus Bergroth
