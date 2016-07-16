@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnxt_en: Fix potential race condition in
- bnxt_tx_enable()
-Date: Fri, 15 Jul 2016 23:20:48 -0700 (PDT)
-Message-ID: <20160715.232048.1780795244111833927.davem@davemloft.net>
-References: <1468626125-31732-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2] net: ipmr/ip6mr: add support for keeping
+ an entry age
+Date: Fri, 15 Jul 2016 23:21:19 -0700 (PDT)
+Message-ID: <20160715.232119.482968425152214884.davem@davemloft.net>
+References: <1468513707-19016-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20160715.225608.440125257853766623.davem@davemloft.net>
+	<8FE06EF5-DBAA-4915-938B-A7B7736E5E35@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
-	huangjw@broadcom.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	shm@cumulusnetworks.com, sashok@cumulusnetworks.com,
+	sharpd@cumulusnetworks.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60176 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60194 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331AbcGPGUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 02:20:49 -0400
-In-Reply-To: <1468626125-31732-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1751351AbcGPGVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 02:21:21 -0400
+In-Reply-To: <8FE06EF5-DBAA-4915-938B-A7B7736E5E35@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 15 Jul 2016 16:42:01 -0700
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Fri, 15 Jul 2016 23:11:15 -0700
 
-> @@ -4599,7 +4599,9 @@ static void bnxt_tx_enable(struct bnxt *bp)
->  	for (i = 0; i < bp->tx_nr_rings; i++) {
->  		txr = &bp->tx_ring[i];
->  		txq = netdev_get_tx_queue(bp->dev, i);
-> +		__netif_tx_lock(txq, smp_processor_id());
->  		txr->dev_state = 0;
-> +		__netif_tx_unlock(txq);
+> Sorry about that, would you like me to resubmit the patch ?
 
-You're going to have to explain how this could possibly cause a
-problem, because I'm pretty sure it can't.
-
-Either the reader sees 0, or non-zero, in this value.
-
-And adding locking around this assignment does not change that at all.
+That's not necessary.
