@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v0 07/10] arm: orion5x: Remove old non-DT-based WNR854T
- support
-Date: Sat, 16 Jul 2016 18:36:59 +0200
-Message-ID: <20160716163659.GH1777@lunn.ch>
+Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear
+ WNR854T
+Date: Sat, 16 Jul 2016 18:39:13 +0200
+Message-ID: <20160716163913.GI1777@lunn.ch>
 References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
- <1468679348-10522-8-git-send-email-jm@lentin.co.uk>
+ <1468679348-10522-7-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jason Cooper <jason@lakedaemon.net>,
@@ -15,21 +15,20 @@ Cc: Jason Cooper <jason@lakedaemon.net>,
 	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Jamie Lentin <jm@lentin.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43980 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751573AbcGPQhI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Jul 2016 12:37:08 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1468679348-10522-8-git-send-email-jm@lentin.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1468679348-10522-7-git-send-email-jm@lentin.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 16, 2016 at 03:29:05PM +0100, Jamie Lentin wrote:
+> +	pmx_reset_switch: pmx-reset-switch {
+> +		marvell,pins = "mpp1";
+> +		marvell,function = "gpio";
+> +	};
 
-Again, you need a commit log. It could be something like:
+Ah! I think i interpreted that wrong. This does not reset the Ethernet
+switch. It is actually a switch on the front to reset the whole box?
 
-The setup file for the wnr854t has bit rotted to such an extent it no
-longer works. Replace it with a working device tree description.
+How about calling it button, not switch?
 
-       Andrew
+    Andrew
