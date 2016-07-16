@@ -1,54 +1,42 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: [PATCH net] net: nb8800: Fix SKB leak in nb8800_receive()
-Date: Sat, 16 Jul 2016 12:01:03 +0100
-Message-ID: <yw1xd1mdg840.fsf@unicorn.mansr.com>
-References: <1468626084-31618-1-git-send-email-f.fainelli@gmail.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v5] wlcore: spi: add wl18xx support
+Date: Sat, 16 Jul 2016 08:42:27 -0500
+Message-ID: <20160716134227.GA327@rob-hp-laptop>
+References: <8665E2433BC68541A24DFFCA87B70F5B36156367@DFRE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Sebastian Frias <sf84@laposte.net>,
-	Arnd Bergmann <arnd@arndb.de>,
-	linux-kernel@vger.kernel.org (open list)
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-spi@vger.kernel.org" <linux-spi@vger.kernel.org>
+To: "Reizer, Eyal" <eyalr@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468626084-31618-1-git-send-email-f.fainelli@gmail.com> (Florian
-	Fainelli's message of "Fri, 15 Jul 2016 16:41:16 -0700")
+Content-Disposition: inline
+In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B36156367@DFRE01.ent.ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46lorian Fainelli <f.fainelli@gmail.com> writes:
-
-> In case nb8800_receive() fails to allocate a fragment, we would leak =
-the
-> SKB freshly allocated and just return, instead, free it.
->
-> Reported-by: coverity (CID 1341750)
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Acked-by: Mans Rullgard <mans@mansr.com>
-
+On Sun, Jul 10, 2016 at 08:32:40AM +0000, Reizer, Eyal wrote:
+> Add support for using with both wl12xx and wl18xx.
+> 
+> - all wilink family needs special init command for entering wspi mode.
+>   extra clock cycles should be sent after the spi init command while the
+>   cs pin is high.
+> - Use inverted chip select for sending a dummy 4 bytes command that
+>   completes the init stage.
+> 
+> Signed-off-by: Eyal Reizer <eyalr@ti.com>
 > ---
->  drivers/net/ethernet/aurora/nb8800.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ether=
-net/aurora/nb8800.c
-> index 08a23e6b60e9..1a3555d03a96 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -259,6 +259,7 @@ static void nb8800_receive(struct net_device *dev=
-, unsigned int i,
->  		if (err) {
->  			netdev_err(dev, "rx buffer allocation failed\n");
->  			dev->stats.rx_dropped++;
-> +			dev_kfree_skb(skb);
->  			return;
->  		}
->
-> --=20
-> 2.7.4
->
+> v1->v2:update device tree bindings configuration
+> v2->v3:revert from manual gpio manipulation. use inverted chip select instead
+> for sending the extra init cycle which, achieves the same hardware purpose.
+> update device tree bindings docucmentation accordingly
+> v3->v4: Remove redundant data form binding documentation and fix chip select
+> number mismatch in wl1271 example
+> v4->v5: Rebase on top of head of wireless-drivers-next
 
---=20
-M=E5ns Rullg=E5rd
+Please add acks when reposting.
+
+Rob
