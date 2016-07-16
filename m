@@ -1,7 +1,7 @@
 From: Varun Prakash <varun@chelsio.com>
-Subject: [net-next v2 4/6] cxgb3i: add iSCSI DDP support
-Date: Sat, 16 Jul 2016 22:49:18 +0530
-Message-ID: <f7ca4bcf9b19c4bf59a931f39740628222c30388.1468689125.git.varun@chelsio.com>
+Subject: [net-next v2 5/6] libcxgb: export ppm release and tagmask set api
+Date: Sat, 16 Jul 2016 22:49:19 +0530
+Message-ID: <cf7a242eb9b5e844b263e36e411030792273ea3e.1468689125.git.varun@chelsio.com>
 References: <cover.1468689125.git.varun@chelsio.com>
 Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	target-devel@vger.kernel.org, nab@linux-iscsi.org,
@@ -10,167 +10,85 @@ Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
 	hariprasad@chelsio.com, varun@chelsio.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [12.32.117.8] ([12.32.117.8]:24362 "EHLO
+Received: from [12.32.117.8] ([12.32.117.8]:30103 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751744AbcGPRWX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 13:22:23 -0400
+	by vger.kernel.org with ESMTP id S1751918AbcGPRWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 13:22:25 -0400
 In-Reply-To: <cover.1468689125.git.varun@chelsio.com>
 In-Reply-To: <cover.1468689125.git.varun@chelsio.com>
 References: <cover.1468689125.git.varun@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add iSCSI DDP support in cxgb3i driver
-using common iSCSI DDP Page Pod Manager.
+Export cxgbi_ppm_release() to release
+ppod manager and cxgbi_tagmask_set() to
+set tag mask, they are used by cxgb3i, cxgb4i
+and cxgbit.
 
 Signed-off-by: Varun Prakash <varun@chelsio.com>
 Reviewed-by: Steve Wise <swise@opengridcomputing.com>
 ---
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.c | 119 ++++++++++++++++++++++++++++++++++++-
- 1 file changed, 118 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c | 2 ++
+ drivers/scsi/cxgbi/cxgb3i/cxgb3i.c                 | 1 +
+ drivers/scsi/cxgbi/libcxgbi.c                      | 1 +
+ drivers/target/iscsi/cxgbit/cxgbit_main.c          | 2 ++
+ 4 files changed, 6 insertions(+)
 
+diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
+index 4cd1072..96c9651 100644
+--- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
++++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
+@@ -337,6 +337,7 @@ int cxgbi_ppm_release(struct cxgbi_ppm *ppm)
+ 	}
+ 	return 1;
+ }
++EXPORT_SYMBOL(cxgbi_ppm_release);
+ 
+ static struct cxgbi_ppm_pool *ppm_alloc_cpu_pool(unsigned int *total,
+ 						 unsigned int *pcpu_ppmax)
+@@ -490,6 +491,7 @@ unsigned int cxgbi_tagmask_set(unsigned int ppmax)
+ 
+ 	return 1 << (bits + PPOD_IDX_SHIFT);
+ }
++EXPORT_SYMBOL(cxgbi_tagmask_set);
+ 
+ static int __init libcxgb_init(void)
+ {
 diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-index fda0234..bb25ebb 100644
+index bb25ebb..61f16a2 100644
 --- a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
 +++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-@@ -1076,6 +1076,70 @@ static inline void ulp_mem_io_set_hdr(struct sk_buff *skb, unsigned int addr)
- 	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_BYPASS));
- 	req->cmd_lock_addr = htonl(V_ULP_MEMIO_ADDR(addr >> 5) |
- 				   V_ULPTX_CMD(ULP_MEM_WRITE));
-+	req->len = htonl(V_ULP_MEMIO_DATA_LEN(IPPOD_SIZE >> 5) |
-+			 V_ULPTX_NFLITS((IPPOD_SIZE >> 3) + 1));
-+}
-+
-+static struct cxgbi_ppm *cdev2ppm(struct cxgbi_device *cdev)
-+{
-+	return ((struct t3cdev *)cdev->lldev)->ulp_iscsi;
-+}
-+
-+static int ddp_set_map(struct cxgbi_ppm *ppm, struct cxgbi_sock *csk,
-+		       struct cxgbi_task_tag_info *ttinfo)
-+{
-+	unsigned int idx = ttinfo->idx;
-+	unsigned int npods = ttinfo->npods;
-+	struct scatterlist *sg = ttinfo->sgl;
-+	struct cxgbi_pagepod *ppod;
-+	struct ulp_mem_io *req;
-+	unsigned int sg_off;
-+	unsigned int pm_addr = (idx << PPOD_SIZE_SHIFT) + ppm->llimit;
-+	int i;
-+
-+	for (i = 0; i < npods; i++, idx++, pm_addr += IPPOD_SIZE) {
-+		struct sk_buff *skb = alloc_wr(sizeof(struct ulp_mem_io) +
-+					       IPPOD_SIZE, 0, GFP_ATOMIC);
-+
-+		if (!skb)
-+			return -ENOMEM;
-+		ulp_mem_io_set_hdr(skb, pm_addr);
-+		req = (struct ulp_mem_io *)skb->head;
-+		ppod = (struct cxgbi_pagepod *)(req + 1);
-+		sg_off = i * PPOD_PAGES_MAX;
-+		cxgbi_ddp_set_one_ppod(ppod, ttinfo, &sg,
-+				       &sg_off);
-+		skb->priority = CPL_PRIORITY_CONTROL;
-+		cxgb3_ofld_send(ppm->lldev, skb);
-+	}
-+	return 0;
-+}
-+
-+static void ddp_clear_map(struct cxgbi_device *cdev, struct cxgbi_ppm *ppm,
-+			  struct cxgbi_task_tag_info *ttinfo)
-+{
-+	unsigned int idx = ttinfo->idx;
-+	unsigned int pm_addr = (idx << PPOD_SIZE_SHIFT) + ppm->llimit;
-+	unsigned int npods = ttinfo->npods;
-+	int i;
-+
-+	log_debug(1 << CXGBI_DBG_DDP,
-+		  "cdev 0x%p, clear idx %u, npods %u.\n",
-+		  cdev, idx, npods);
-+
-+	for (i = 0; i < npods; i++, idx++, pm_addr += IPPOD_SIZE) {
-+		struct sk_buff *skb = alloc_wr(sizeof(struct ulp_mem_io) +
-+					       IPPOD_SIZE, 0, GFP_ATOMIC);
-+
-+		if (!skb) {
-+			pr_err("cdev 0x%p, clear ddp, %u,%d/%u, skb OOM.\n",
-+			       cdev, idx, i, npods);
-+			continue;
-+		}
-+		ulp_mem_io_set_hdr(skb, pm_addr);
-+		skb->priority = CPL_PRIORITY_CONTROL;
-+		cxgb3_ofld_send(ppm->lldev, skb);
-+	}
- }
+@@ -1234,6 +1234,7 @@ static int cxgb3i_ddp_init(struct cxgbi_device *cdev)
+ 	}
  
- static int ddp_setup_conn_pgidx(struct cxgbi_sock *csk,
-@@ -1144,14 +1208,67 @@ static int ddp_setup_conn_digest(struct cxgbi_sock *csk, unsigned int tid,
- }
+ 	ppmax = (uinfo.ulimit - uinfo.llimit + 1) >> PPOD_SIZE_SHIFT;
++	tagmask = cxgbi_tagmask_set(ppmax);
  
- /**
-- * ddp_init - initialize the cxgb3 adapter's ddp resource
-+ * cxgb3i_ddp_init - initialize the cxgb3 adapter's ddp resource
-  * @cdev: cxgb3i adapter
-  * initialize the ddp pagepod manager for a given adapter
-  */
- static int cxgb3i_ddp_init(struct cxgbi_device *cdev)
- {
-+	struct t3cdev *tdev = (struct t3cdev *)cdev->lldev;
-+	struct net_device *ndev = cdev->ports[0];
-+	struct cxgbi_tag_format tformat;
-+	unsigned int ppmax, tagmask = 0;
-+	struct ulp_iscsi_info uinfo;
-+	int i, err;
+ 	pr_info("T3 %s: 0x%x~0x%x, 0x%x, tagmask 0x%x -> 0x%x.\n",
+ 		ndev->name, uinfo.llimit, uinfo.ulimit, ppmax, uinfo.tagmask,
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index 9d425a7..d142113 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -121,6 +121,7 @@ static inline void cxgbi_device_destroy(struct cxgbi_device *cdev)
+ 		"cdev 0x%p, p# %u.\n", cdev, cdev->nports);
+ 	cxgbi_hbas_remove(cdev);
+ 	cxgbi_device_portmap_cleanup(cdev);
++	cxgbi_ppm_release(cdev->cdev2ppm(cdev));
+ 	if (cdev->pmap.max_connect)
+ 		cxgbi_free_big_mem(cdev->pmap.port_csk);
+ 	kfree(cdev);
+diff --git a/drivers/target/iscsi/cxgbit/cxgbit_main.c b/drivers/target/iscsi/cxgbit/cxgbit_main.c
+index 60dccd0..27dd11a 100644
+--- a/drivers/target/iscsi/cxgbit/cxgbit_main.c
++++ b/drivers/target/iscsi/cxgbit/cxgbit_main.c
+@@ -26,6 +26,8 @@ void _cxgbit_free_cdev(struct kref *kref)
+ 	struct cxgbit_device *cdev;
+ 
+ 	cdev = container_of(kref, struct cxgbit_device, kref);
 +
-+	err = tdev->ctl(tdev, ULP_ISCSI_GET_PARAMS, &uinfo);
-+	if (err < 0) {
-+		pr_err("%s, failed to get iscsi param %d.\n",
-+		       ndev->name, err);
-+		return err;
-+	}
-+	if (uinfo.llimit >= uinfo.ulimit) {
-+		pr_warn("T3 %s, iscsi NOT enabled %u ~ %u!\n",
-+			ndev->name, uinfo.llimit, uinfo.ulimit);
-+		return -EACCES;
-+	}
-+
-+	ppmax = (uinfo.ulimit - uinfo.llimit + 1) >> PPOD_SIZE_SHIFT;
-+
-+	pr_info("T3 %s: 0x%x~0x%x, 0x%x, tagmask 0x%x -> 0x%x.\n",
-+		ndev->name, uinfo.llimit, uinfo.ulimit, ppmax, uinfo.tagmask,
-+		tagmask);
-+
-+	memset(&tformat, 0, sizeof(struct cxgbi_tag_format));
-+	for (i = 0; i < 4; i++)
-+		tformat.pgsz_order[i] = uinfo.pgsz_factor[i];
-+	cxgbi_tagmask_check(tagmask, &tformat);
-+
-+	cxgbi_ddp_ppm_setup(&tdev->ulp_iscsi, cdev, &tformat, ppmax,
-+			    uinfo.llimit, uinfo.llimit, 0);
-+	if (!(cdev->flags & CXGBI_FLAG_DDP_OFF)) {
-+		uinfo.tagmask = tagmask;
-+		uinfo.ulimit = uinfo.llimit + (ppmax << PPOD_SIZE_SHIFT);
-+
-+		err = tdev->ctl(tdev, ULP_ISCSI_SET_PARAMS, &uinfo);
-+		if (err < 0) {
-+			pr_err("T3 %s fail to set iscsi param %d.\n",
-+			       ndev->name, err);
-+			cdev->flags |= CXGBI_FLAG_DDP_OFF;
-+		}
-+		err = 0;
-+	}
-+
- 	cdev->csk_ddp_setup_digest = ddp_setup_conn_digest;
- 	cdev->csk_ddp_setup_pgidx = ddp_setup_conn_pgidx;
-+	cdev->csk_ddp_set_map = ddp_set_map;
-+	cdev->csk_ddp_clear_map = ddp_clear_map;
-+	cdev->cdev2ppm = cdev2ppm;
-+	cdev->tx_max_size = min_t(unsigned int, ULP2_MAX_PDU_PAYLOAD,
-+				  uinfo.max_txsz - ISCSI_PDU_NONPAYLOAD_LEN);
-+	cdev->rx_max_size = min_t(unsigned int, ULP2_MAX_PDU_PAYLOAD,
-+				  uinfo.max_rxsz - ISCSI_PDU_NONPAYLOAD_LEN);
-+
- 	return 0;
++	cxgbi_ppm_release(cdev2ppm(cdev));
+ 	kfree(cdev);
  }
  
 -- 
