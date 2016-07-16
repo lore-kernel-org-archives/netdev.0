@@ -1,42 +1,47 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v5] wlcore: spi: add wl18xx support
-Date: Sat, 16 Jul 2016 08:42:27 -0500
-Message-ID: <20160716134227.GA327@rob-hp-laptop>
-References: <8665E2433BC68541A24DFFCA87B70F5B36156367@DFRE01.ent.ti.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: [PATCH] net/sched/sch_htb: clamp xstats tokens to fit into 32-bit
+ int
+Date: Sat, 16 Jul 2016 17:08:56 +0300
+Message-ID: <146867813621.23552.6234170020058724059.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-spi@vger.kernel.org" <linux-spi@vger.kernel.org>
-To: "Reizer, Eyal" <eyalr@ti.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B36156367@DFRE01.ent.ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 10, 2016 at 08:32:40AM +0000, Reizer, Eyal wrote:
-> Add support for using with both wl12xx and wl18xx.
-> 
-> - all wilink family needs special init command for entering wspi mode.
->   extra clock cycles should be sent after the spi init command while the
->   cs pin is high.
-> - Use inverted chip select for sending a dummy 4 bytes command that
->   completes the init stage.
-> 
-> Signed-off-by: Eyal Reizer <eyalr@ti.com>
-> ---
-> v1->v2:update device tree bindings configuration
-> v2->v3:revert from manual gpio manipulation. use inverted chip select instead
-> for sending the extra init cycle which, achieves the same hardware purpose.
-> update device tree bindings docucmentation accordingly
-> v3->v4: Remove redundant data form binding documentation and fix chip select
-> number mismatch in wl1271 example
-> v4->v5: Rebase on top of head of wireless-drivers-next
+In kernel HTB keeps tokens in signed 64-bit in nanoseconds. In netlink
+protocol these values are converted into pshed ticks (64ns for now) and
+truncated to 32-bit. In struct tc_htb_xstats fields "tokens" and "ctokens"
+are declared as unsigned 32-bit but they could be negative thus tool 'tc'
+prints them as signed. Big values loose higher bits and/or become negative.
 
-Please add acks when reposting.
+This patch clamps tokens in xstat into range from INT_MIN to INT_MAX.
+In this way it's easier to understand what's going on here.
 
-Rob
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+---
+ net/sched/sch_htb.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 62f9d8100c6e..052f84d6cc23 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1140,8 +1140,10 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+ 
+ 	if (!cl->level && cl->un.leaf.q)
+ 		qlen = cl->un.leaf.q->q.qlen;
+-	cl->xstats.tokens = PSCHED_NS2TICKS(cl->tokens);
+-	cl->xstats.ctokens = PSCHED_NS2TICKS(cl->ctokens);
++	cl->xstats.tokens = clamp_t(s64, PSCHED_NS2TICKS(cl->tokens),
++				    INT_MIN, INT_MAX);
++	cl->xstats.ctokens = clamp_t(s64, PSCHED_NS2TICKS(cl->ctokens),
++				     INT_MIN, INT_MAX);
+ 
+ 	if (gnet_stats_copy_basic(d, NULL, &cl->bstats) < 0 ||
+ 	    gnet_stats_copy_rate_est(d, NULL, &cl->rate_est) < 0 ||
