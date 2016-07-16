@@ -1,82 +1,83 @@
-From: Magnus Bergroth <bergroth@nordu.net>
-Subject: iproute2 mpls max labels
-Date: Sat, 16 Jul 2016 20:24:48 +0200
-Message-ID: <578A7BF0.2020107@nordu.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear WNR854T
+Date: Sat, 16 Jul 2016 21:10:38 +0200
+Message-ID: <4290281.AD5Bhg23o6@wuerfel>
+References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk> <1468679348-10522-7-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jamie Lentin <jm@lentin.co.uk>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Imre Kaloz <kaloz@openwrt.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e-mailfilter02.sunet.se ([192.36.171.202]:52144 "EHLO
-	e-mailfilter02.sunet.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751629AbcGPSec (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 14:34:32 -0400
-Received: from smtp1.nordu.net (smtp1.nordu.net [IPv6:2001:948:4:6::32])
-	by e-mailfilter02.sunet.se (8.14.4/8.14.4/Debian-4) with ESMTP id u6GIOsWV031722
-	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 16 Jul 2016 20:24:54 +0200
-Received: from Hugo2-204.local (h-20-185.a259.priv.bahnhof.se [79.136.20.185])
-	(authenticated bits=0)
-	by smtp1.nordu.net (8.14.7/8.14.7) with ESMTP id u6GIOojh002851
-	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Sat, 16 Jul 2016 18:24:54 GMT
+Received: from mout.kundenserver.de ([212.227.17.24]:49474 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751685AbcGPTLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 15:11:43 -0400
+In-Reply-To: <1468679348-10522-7-git-send-email-jm@lentin.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Saturday, July 16, 2016 3:29:04 PM CEST Jamie Lentin wrote:
+> +
+> +#define WNR854T_PCI_SLOT0_OFFS	7
+> +#define WNR854T_PCI_SLOT0_IRQ_PIN	4
+> +
+> +static void __init wnr854t_pci_preinit(void)
+> +{
+> +	int pin;
+> +
+> +	/*
+> +	 * Configure PCI GPIO IRQ pins
+> +	 */
+> +	pin = WNR854T_PCI_SLOT0_IRQ_PIN;
+> +	if (gpio_request(pin, "PCI Int") == 0) {
+> +		if (gpio_direction_input(pin) == 0) {
+> +			irq_set_irq_type(gpio_to_irq(pin), IRQ_TYPE_LEVEL_LOW);
+> +		} else {
+> +			pr_err("wnr854t_pci_preinit failed to set_irq_type pin %d\n",
+> +				pin);
+> +			gpio_free(pin);
+> +		}
+> +	} else {
+> +		pr_err("wnr854t_pci_preinit failed to request gpio %d\n", pin);
+> +	}
+> +}
+> +
+> +static int __init wnr854t_pci_map_irq(const struct pci_dev *dev, u8 slot,
+> +	u8 pin)
+> +{
+> +	int irq;
+> +
+> +	/*
+> +	 * Check for devices with hard-wired IRQs.
+> +	 */
+> +	irq = orion5x_pci_map_irq(dev, slot, pin);
+> +	if (irq != -1)
+> +		return irq;
+> +
+> +	/*
+> +	 * PCI IRQs are connected via GPIOs
+> +	 */
+> +	switch (slot - WNR854T_PCI_SLOT0_OFFS) {
+> +	case 0:
+> +		return gpio_to_irq(WNR854T_PCI_SLOT0_IRQ_PIN);
+> +	default:
+> +		return -1;
+> +	}
+> +}
 
-Wanted to use more than the default maximum of 8 mpls labels. Max labels
-seems to be hardcode to 8 in two places.
+The other patches all appear good to me, but I find this one suspicious.
 
---- iproute2-4.6.0/lib/utils.c    2016-05-18 20:56:02.000000000 +0200
-+++ iproute2-4.6.0-bergroth/lib/utils.c    2016-07-16 20:12:10.714958071
-+0200
-@@ -476,7 +476,7 @@
-         addr->bytelen = 4;
-         addr->bitlen = 20;
-         /* How many bytes do I need? */
--        for (i = 0; i < 8; i++) {
-+        for (i = 0; i < MPLS_MAX_LABELS; i++) {
-             if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
-                 addr->bytelen = (i + 1)*4;
-                 break;
+Why are you not using the device tree for probing PCI? Is there anything
+missing in drivers/pci/host/pci-mvebu.c, or do you just need help
+describing it in DT?
 
-
---- iproute2-4.6.0/include/utils.h    2016-05-18 20:56:02.000000000 +0200
-+++ iproute2-4.6.0-bergroth/include/utils.h    2016-07-15
-11:55:57.297681742 +0200
-@@ -54,6 +54,9 @@
- #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
- #define PREV_ARG() do { argv--; argc++; } while(0)
-
-+/* Maximum number of labels the mpls helpers support */
-+#define MPLS_MAX_LABELS 8
-+
- typedef struct
- {
-     __u16 flags;
-@@ -61,7 +64,7 @@
-     __s16 bitlen;
-     /* These next two fields match rtvia */
-     __u16 family;
--    __u32 data[8];
-+    __u32 data[MPLS_MAX_LABELS];
- } inet_prefix;
-
- #define PREFIXLEN_SPECIFIED 1
-@@ -88,9 +91,6 @@
- # define AF_MPLS 28
- #endif
-
--/* Maximum number of labels the mpls helpers support */
--#define MPLS_MAX_LABELS 8
--
- __u32 get_addr32(const char *name);
- int get_addr_1(inet_prefix *dst, const char *arg, int family);
- int get_prefix_1(inet_prefix *dst, char *arg, int family);
-
-
-
-
-Kindly
-
-Magnus Bergroth
+	Arnd
