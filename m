@@ -1,8 +1,8 @@
 From: Jamie Lentin <jm@lentin.co.uk>
-Subject: [PATCH v0 01/10] arm: orion5x: Add required properties for orion-wdt
- to DT node
-Date: Sat, 16 Jul 2016 15:28:59 +0100
-Message-ID: <1468679348-10522-2-git-send-email-jm@lentin.co.uk>
+Subject: [PATCH v0 09/10] net: phy: Re-attempt custom DT configuration after
+ configuration
+Date: Sat, 16 Jul 2016 15:29:07 +0100
+Message-ID: <1468679348-10522-10-git-send-email-jm@lentin.co.uk>
 References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,29 +27,30 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-orion-wdt refuses to start without these properties defined, so lift
-definitions out of kirkwood/dove.dtsi
+marvell,reg-init is generally used to apply a custom LED configuration
+on boot. However this is then blatted in m88e1121_config_aneg when the
+interface is brought up. Re-apply any custom configuration afterwards,
+to keep custom LED configuration.
 
 Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
 ---
- arch/arm/boot/dts/orion5x.dtsi | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/phy/marvell.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
-index e1b6d2a..fbccfbb 100644
---- a/arch/arm/boot/dts/orion5x.dtsi
-+++ b/arch/arm/boot/dts/orion5x.dtsi
-@@ -144,9 +144,10 @@
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index c2ca347..b55e4e0 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -424,6 +424,10 @@ static int m88e1121_config_aneg(struct phy_device *phydev)
+ 	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
  
- 			wdt: wdt@20300 {
- 				compatible = "marvell,orion-wdt";
--				reg = <0x20300 0x28>;
-+				reg = <0x20300 0x28>, <0x20108 0x4>;
- 				interrupt-parent = <&bridge_intc>;
- 				interrupts = <3>;
-+				clocks = <&core_clk 0>;
- 				status = "okay";
- 			};
+ 	err = genphy_config_aneg(phydev);
++	if (err < 0)
++		return err;
++
++	err = marvell_of_reg_init(phydev);
  
+ 	return err;
+ }
 -- 
 2.8.1
