@@ -1,41 +1,42 @@
 From: Richard Stearn <richard@rns-stearn.demon.co.uk>
-Subject: [PATCH 1/1]NET:AX25:NETROM Corrects the returned added header
- length.
-Date: Sat, 16 Jul 2016 10:50:06 +0100
-Message-ID: <201607160950.u6G9o6qr015904@ux4.g1sog>
+Subject: [PATCH 6/6]NET:AX25:ROSE Removes a conditional return and
+ corrects the return value.
+Date: Sat, 16 Jul 2016 10:46:59 +0100
+Message-ID: <201607160946.u6G9kxnD015432@ux4.g1sog>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, linux-hams@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mdfmta005.mxout.tch.inty.net ([91.221.169.46]:38014 "EHLO
-	smtp.demon.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751374AbcGPJ5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 05:57:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Subject: [PATCH 1/1]NET:AX25:NETROM Corrects the returned added header length.
-Corrects the returned added header length.
+Subject: [PATCH 6/6]NET:AX25:ROSE Removes a conditional return and corrects the return value.
+Removes a conditional return and corrects the return value.
+
+The ROSE header is always finished (as it is not dependant on daddr) so
+the test for daddr is not required.
+
+Return value fixed as positive added header length.
 
 Signed-off-by: Richard Stearn <richard@rns-stearn.demon.co.uk>
 ---
- net/netrom/nr_dev.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/rose/rose_dev.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/net/netrom/nr_dev.c b/net/netrom/nr_dev.c
-index 988f542..07b9fe4 100644
---- a/net/netrom/nr_dev.c
-+++ b/net/netrom/nr_dev.c
-@@ -93,9 +93,9 @@ static int nr_header(struct sk_buff *skb, struct net_device *dev,
- 	*buff++ = NR_PROTOEXT;
+diff --git a/net/rose/rose_dev.c b/net/rose/rose_dev.c
+index 44eca10..dc38608 100644
+--- a/net/rose/rose_dev.c
++++ b/net/rose/rose_dev.c
+@@ -47,10 +47,7 @@ static int rose_header(struct sk_buff *skb, struct net_device *dev,
+ 	*buff++ = 0x7F;				/* magic marker */
+ 	*buff++ = AX25_P_IP;			/* this is an IP packet */
  
- 	if (daddr != NULL)
+-	if (daddr != NULL)
 -		return 37;
-+		return NR_NETWORK_LEN + NR_TRANSPORT_LEN;
- 
+-
 -	return -37;
-+	return -(NR_NETWORK_LEN + NR_TRANSPORT_LEN);
++	return ROSE_MIN_LEN + 2;	/* always creates a finished header */
  }
  
- static int __must_check nr_set_mac_address(struct net_device *dev, void *addr)
+ static int rose_set_mac_address(struct net_device *dev, void *addr)
