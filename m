@@ -1,57 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v0 01/10] arm: orion5x: Add required properties for
- orion-wdt to DT node
-Date: Sat, 16 Jul 2016 18:03:51 +0200
-Message-ID: <20160716160351.GB1777@lunn.ch>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v0 02/10] arm: orion5x: Add documentation for SoC and
+ board bindings
+Date: Sat, 16 Jul 2016 18:05:23 +0200
+Message-ID: <20160716160523.GC1777@lunn.ch>
 References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
- <1468679348-10522-2-git-send-email-jm@lentin.co.uk>
+ <1468679348-10522-3-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jason Cooper <jason@lakedaemon.net>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Imre Kaloz <kaloz@openwrt.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jamie Lentin <jm@lentin.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Imre Kaloz <kaloz-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jamie Lentin <jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1468679348-10522-2-git-send-email-jm@lentin.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1468679348-10522-3-git-send-email-jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 16, 2016 at 03:28:59PM +0100, Jamie Lentin wrote:
-> orion-wdt refuses to start without these properties defined, so lift
-> definitions out of kirkwood/dove.dtsi
+On Sat, Jul 16, 2016 at 03:29:00PM +0100, Jamie Lentin wrote:
+> Copy the format for kirkwood/dove to orion5x
 > 
-> Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
+> Signed-off-by: Jamie Lentin <jm-Pj/HzkgeCk7QXOPxS62xeg@public.gmane.org>
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 
     Andrew
-
-
-> ---
->  arch/arm/boot/dts/orion5x.dtsi | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
-> index e1b6d2a..fbccfbb 100644
-> --- a/arch/arm/boot/dts/orion5x.dtsi
-> +++ b/arch/arm/boot/dts/orion5x.dtsi
-> @@ -144,9 +144,10 @@
->  
->  			wdt: wdt@20300 {
->  				compatible = "marvell,orion-wdt";
-> -				reg = <0x20300 0x28>;
-> +				reg = <0x20300 0x28>, <0x20108 0x4>;
->  				interrupt-parent = <&bridge_intc>;
->  				interrupts = <3>;
-> +				clocks = <&core_clk 0>;
->  				status = "okay";
->  			};
->  
-> -- 
-> 2.8.1
-> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
