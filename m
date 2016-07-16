@@ -1,7 +1,8 @@
 From: Jamie Lentin <jm@lentin.co.uk>
-Subject: [PATCH v0 03/10] arm: orion5x: Add clk support for mv88f5181
-Date: Sat, 16 Jul 2016 15:29:01 +0100
-Message-ID: <1468679348-10522-4-git-send-email-jm@lentin.co.uk>
+Subject: [PATCH v0 04/10] arm: orion5x: Generalise mv88f5181l pinctrl support
+ for 88f5181
+Date: Sat, 16 Jul 2016 15:29:02 +0100
+Message-ID: <1468679348-10522-5-git-send-email-jm@lentin.co.uk>
 References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,106 +27,102 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Referring to values in the u-boot port, add support for the mv88f5181
+As far as I'm aware the mv88f5181-b1 and mv88f5181l are the same at the
+pinctrl level, so re-use the definitions for both.
 
 Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
 ---
- .../devicetree/bindings/clock/mvebu-core-clock.txt |  1 +
- drivers/clk/mvebu/orion.c                          | 70 ++++++++++++++++++++++
- 2 files changed, 71 insertions(+)
+ .../bindings/pinctrl/marvell,orion-pinctrl.txt     |  4 ++--
+ drivers/pinctrl/mvebu/pinctrl-orion.c              | 23 +++++++++++-----------
+ 2 files changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/clock/mvebu-core-clock.txt b/Documentation/devicetree/bindings/clock/mvebu-core-clock.txt
-index 670c2af..eb985a6 100644
---- a/Documentation/devicetree/bindings/clock/mvebu-core-clock.txt
-+++ b/Documentation/devicetree/bindings/clock/mvebu-core-clock.txt
-@@ -52,6 +52,7 @@ Required properties:
- 	"marvell,dove-core-clock" - for Dove SoC core clocks
- 	"marvell,kirkwood-core-clock" - for Kirkwood SoC (except mv88f6180)
- 	"marvell,mv88f6180-core-clock" - for Kirkwood MV88f6180 SoC
-+	"marvell,mv88f5181-core-clock" - for Orion MV88F5181 SoC
- 	"marvell,mv88f5182-core-clock" - for Orion MV88F5182 SoC
- 	"marvell,mv88f5281-core-clock" - for Orion MV88F5281 SoC
- 	"marvell,mv88f6183-core-clock" - for Orion MV88F6183 SoC
-diff --git a/drivers/clk/mvebu/orion.c b/drivers/clk/mvebu/orion.c
-index fd12956..a6e5bee 100644
---- a/drivers/clk/mvebu/orion.c
-+++ b/drivers/clk/mvebu/orion.c
-@@ -21,6 +21,76 @@ static const struct coreclk_ratio orion_coreclk_ratios[] __initconst = {
+diff --git a/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt b/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt
+index 27570a3..5a79bad 100644
+--- a/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt
++++ b/Documentation/devicetree/bindings/pinctrl/marvell,orion-pinctrl.txt
+@@ -4,8 +4,8 @@ Please refer to marvell,mvebu-pinctrl.txt in this directory for common binding
+ part and usage.
+ 
+ Required properties:
+-- compatible: "marvell,88f5181l-pinctrl", "marvell,88f5182-pinctrl",
+-              "marvell,88f5281-pinctrl"
++- compatible: "marvell,88f5181-pinctrl", "marvell,88f5181l-pinctrl",
++              "marvell,88f5182-pinctrl", "marvell,88f5281-pinctrl"
+ 
+ - reg: two register areas, the first one describing the first two
+   contiguous MPP registers, and the second one describing the single
+diff --git a/drivers/pinctrl/mvebu/pinctrl-orion.c b/drivers/pinctrl/mvebu/pinctrl-orion.c
+index 3b7122d..6f9c8ee 100644
+--- a/drivers/pinctrl/mvebu/pinctrl-orion.c
++++ b/drivers/pinctrl/mvebu/pinctrl-orion.c
+@@ -64,11 +64,11 @@ static int orion_mpp_ctrl_set(unsigned pid, unsigned long config)
+ 	return 0;
+ }
+ 
+-#define V(f5181l, f5182, f5281) \
+-	((f5181l << 0) | (f5182 << 1) | (f5281 << 2))
++#define V(f5181, f5182, f5281) \
++	((f5181 << 0) | (f5182 << 1) | (f5281 << 2))
+ 
+ enum orion_variant {
+-	V_5181L = V(1, 0, 0),
++	V_5181  = V(1, 0, 0),
+ 	V_5182  = V(0, 1, 0),
+ 	V_5281  = V(0, 0, 1),
+ 	V_ALL   = V(1, 1, 1),
+@@ -103,13 +103,13 @@ static struct mvebu_mpp_mode orion_mpp_modes[] = {
+ 		 MPP_VAR_FUNCTION(0x0, "gpio", NULL,        V_ALL),
+ 		 MPP_VAR_FUNCTION(0x2, "pci", "req5",       V_ALL),
+ 		 MPP_VAR_FUNCTION(0x4, "nand", "re0",       V_5182 | V_5281),
+-		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181L),
++		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181),
+ 		 MPP_VAR_FUNCTION(0x5, "sata0", "act",      V_5182)),
+ 	MPP_MODE(7,
+ 		 MPP_VAR_FUNCTION(0x0, "gpio", NULL,        V_ALL),
+ 		 MPP_VAR_FUNCTION(0x2, "pci", "gnt5",       V_ALL),
+ 		 MPP_VAR_FUNCTION(0x4, "nand", "we0",       V_5182 | V_5281),
+-		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181L),
++		 MPP_VAR_FUNCTION(0x5, "pci-1", "clk",      V_5181),
+ 		 MPP_VAR_FUNCTION(0x5, "sata1", "act",      V_5182)),
+ 	MPP_MODE(8,
+ 		 MPP_VAR_FUNCTION(0x0, "gpio", NULL,        V_ALL),
+@@ -165,7 +165,7 @@ static struct mvebu_mpp_ctrl orion_mpp_controls[] = {
+ 	MPP_FUNC_CTRL(0, 19, NULL, orion_mpp_ctrl),
  };
  
- /*
-+ * Orion 5181
-+ */
-+
-+#define SAR_MV88F5181_TCLK_FREQ      8
-+#define SAR_MV88F5181_TCLK_FREQ_MASK 0x3
-+
-+static u32 __init mv88f5181_get_tclk_freq(void __iomem *sar)
-+{
-+	u32 opt = (readl(sar) >> SAR_MV88F5181_TCLK_FREQ) &
-+		SAR_MV88F5181_TCLK_FREQ_MASK;
-+	if (opt == 0)
-+		return 133333333;
-+	else if (opt == 1)
-+		return 150000000;
-+	else if (opt == 2)
-+		return 166666667;
-+	else
-+		return 0;
-+}
-+
-+#define SAR_MV88F5181_CPU_FREQ       4
-+#define SAR_MV88F5181_CPU_FREQ_MASK  0xf
-+
-+static u32 __init mv88f5181_get_cpu_freq(void __iomem *sar)
-+{
-+	u32 opt = (readl(sar) >> SAR_MV88F5181_CPU_FREQ) &
-+		SAR_MV88F5181_CPU_FREQ_MASK;
-+	if (opt == 0)
-+		return 333333333;
-+	else if (opt == 1 || opt == 2)
-+		return 400000000;
-+	else if (opt == 3)
-+		return 500000000;
-+	else
-+		return 0;
-+}
-+
-+static void __init mv88f5181_get_clk_ratio(void __iomem *sar, int id,
-+					   int *mult, int *div)
-+{
-+	u32 opt = (readl(sar) >> SAR_MV88F5181_CPU_FREQ) &
-+		SAR_MV88F5181_CPU_FREQ_MASK;
-+	if (opt == 0 || opt == 1) {
-+		*mult = 1;
-+		*div  = 2;
-+	} else if (opt == 2 || opt == 3) {
-+		*mult = 1;
-+		*div  = 3;
-+	} else {
-+		*mult = 0;
-+		*div  = 1;
-+	}
-+}
-+
-+static const struct coreclk_soc_desc mv88f5181_coreclks = {
-+	.get_tclk_freq = mv88f5181_get_tclk_freq,
-+	.get_cpu_freq = mv88f5181_get_cpu_freq,
-+	.get_clk_ratio = mv88f5181_get_clk_ratio,
-+	.ratios = orion_coreclk_ratios,
-+	.num_ratios = ARRAY_SIZE(orion_coreclk_ratios),
-+};
-+
-+static void __init mv88f5181_clk_init(struct device_node *np)
-+{
-+	return mvebu_coreclk_setup(np, &mv88f5181_coreclks);
-+}
-+
-+CLK_OF_DECLARE(mv88f5181_clk, "marvell,mv88f5181-core-clock", mv88f5181_clk_init);
-+
-+/*
-  * Orion 5182
-  */
+-static struct pinctrl_gpio_range mv88f5181l_gpio_ranges[] = {
++static struct pinctrl_gpio_range mv88f5181_gpio_ranges[] = {
+ 	MPP_GPIO_RANGE(0, 0, 0, 16),
+ };
  
+@@ -177,14 +177,14 @@ static struct pinctrl_gpio_range mv88f5281_gpio_ranges[] = {
+ 	MPP_GPIO_RANGE(0, 0, 0, 16),
+ };
+ 
+-static struct mvebu_pinctrl_soc_info mv88f5181l_info = {
+-	.variant = V_5181L,
++static struct mvebu_pinctrl_soc_info mv88f5181_info = {
++	.variant = V_5181,
+ 	.controls = orion_mpp_controls,
+ 	.ncontrols = ARRAY_SIZE(orion_mpp_controls),
+ 	.modes = orion_mpp_modes,
+ 	.nmodes = ARRAY_SIZE(orion_mpp_modes),
+-	.gpioranges = mv88f5181l_gpio_ranges,
+-	.ngpioranges = ARRAY_SIZE(mv88f5181l_gpio_ranges),
++	.gpioranges = mv88f5181_gpio_ranges,
++	.ngpioranges = ARRAY_SIZE(mv88f5181_gpio_ranges),
+ };
+ 
+ static struct mvebu_pinctrl_soc_info mv88f5182_info = {
+@@ -212,7 +212,8 @@ static struct mvebu_pinctrl_soc_info mv88f5281_info = {
+  * muxing, they are identical.
+  */
+ static const struct of_device_id orion_pinctrl_of_match[] = {
+-	{ .compatible = "marvell,88f5181l-pinctrl", .data = &mv88f5181l_info },
++	{ .compatible = "marvell,88f5181-pinctrl", .data = &mv88f5181_info },
++	{ .compatible = "marvell,88f5181l-pinctrl", .data = &mv88f5181_info },
+ 	{ .compatible = "marvell,88f5182-pinctrl", .data = &mv88f5182_info },
+ 	{ .compatible = "marvell,88f5281-pinctrl", .data = &mv88f5281_info },
+ 	{ }
 -- 
 2.8.1
