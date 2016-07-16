@@ -1,104 +1,81 @@
-From: Kshitiz Gupta <kshitiz.gupta@ni.com>
-Subject: [PATCH] igb: fix adjusting ptp timestamps for tx/rx latency
-Date: Sat, 16 Jul 2016 02:23:45 -0500
-Message-ID: <1468653825-806-1-git-send-email-kshitiz.gupta@ni.com>
-References: <1468620496-7849-1-git-send-email-kshitiz.gupta@ni.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	Kshitiz Gupta <kshitiz.gupta@ni.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Nathan Sullivan <nathan.sullivan@ni.com>,
-	Aaron Brown <aaron.f.brown@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from skprod2.natinst.com ([130.164.80.23]:49187 "EHLO ni.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751312AbcGPHXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Jul 2016 03:23:51 -0400
-In-Reply-To: <1468620496-7849-1-git-send-email-kshitiz.gupta@ni.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net/mlx5_core/health: Remove deprecated
+ create_singlethread_workqueue
+Date: Sat, 16 Jul 2016 13:29:20 +0530
+Message-ID: <20160716075920.GA4547@Karyakshetra>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fix PHY delay compensation math in igb_ptp_tx_hwtstamp() and
-igb_ptp_rx_rgtstamp. Add PHY delay compensation in
-igb_ptp_rx_pktstamp().
+The workqueue health->wq was used as per device private health thread.
+This was done so that system error handling could be processed
+concurrently. The workqueue has a single workitem(&health->work) and
+hence doesn't require ordering. It is involved in handling the health of
+the deviceand is not being used on a memory reclaim path.
+Hence, the singlethreaded workqueue has been replaced with the use of
+system_wq.
 
-In the IGB driver, there are two functions that retrieve timestamps
-received by the PHY - igb_ptp_rx_rgtstamp() and igb_ptp_rx_pktstamp().
-The previous commit only changed igb_ptp_rx_rgtstamp(), and the change
-was incorrect.
+System workqueues have been able to handle high level of concurrency
+for a long time now and hence it's not required to have a singlethreaded
+workqueue just to gain concurrency. Unlike a dedicated per-cpu workqueue
+created with create_singlethread_workqueue(), system_wq allows multiple
+work items to overlap executions even on the same CPU; however, a
+per-cpu workqueue doesn't have any CPU locality or global ordering
+guarantee unless the target CPU is explicitly specified and thus the
+increase of local concurrency shouldn't make any difference.
 
-There are two instances in which PHY delay compensations should be
-made:
+Work item has been flushed in mlx5_health_cleanup() to ensure that
+there are no pending tasks while disconnecting the driver.
 
-- Before the packet transmission over the PHY, the latency between
-  when the packet is timestamped and transmission of the packets,
-  should be an add operation, but it is currently a subtract.
-
-- After the packets are received from the PHY, the latency between
-  the receiving and timestamping of the packets should be a subtract
-  operation, but it is currently an add.
-
-Signed-off-by: Kshitiz Gupta <kshitiz.gupta@ni.com>
-Fixes: 3f544d2 (igb: adjust ptp timestamps for tx/rx latency)
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index f097c5a..3c7bcdf 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -743,7 +743,8 @@ static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
- 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 42d16b9..9acbccf 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -267,7 +267,7 @@ static void poll_health(unsigned long data)
+ 	if (in_fatal(dev) && !health->sick) {
+ 		health->sick = true;
+ 		print_health_info(dev);
+-		queue_work(health->wq, &health->work);
++		schedule_work(&health->work);
  	}
- 
--	shhwtstamps.hwtstamp = ktime_sub_ns(shhwtstamps.hwtstamp, adjust);
-+	shhwtstamps.hwtstamp =
-+		ktime_add_ns(shhwtstamps.hwtstamp, adjust);
- 
- 	skb_tstamp_tx(adapter->ptp_tx_skb, &shhwtstamps);
- 	dev_kfree_skb_any(adapter->ptp_tx_skb);
-@@ -766,13 +767,32 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector,
- 			 struct sk_buff *skb)
- {
- 	__le64 *regval = (__le64 *)va;
-+	struct igb_adapter *adapter = q_vector->adapter;
-+	int adjust = 0;
- 
- 	/* The timestamp is recorded in little endian format.
- 	 * DWORD: 0        1        2        3
- 	 * Field: Reserved Reserved SYSTIML  SYSTIMH
- 	 */
--	igb_ptp_systim_to_hwtstamp(q_vector->adapter, skb_hwtstamps(skb),
-+	igb_ptp_systim_to_hwtstamp(adapter, skb_hwtstamps(skb),
- 				   le64_to_cpu(regval[1]));
-+
-+	/* adjust timestamp for the RX latency based on link speed */
-+	if (adapter->hw.mac.type == e1000_i210) {
-+		switch (adapter->link_speed) {
-+		case SPEED_10:
-+			adjust = IGB_I210_RX_LATENCY_10;
-+			break;
-+		case SPEED_100:
-+			adjust = IGB_I210_RX_LATENCY_100;
-+			break;
-+		case SPEED_1000:
-+			adjust = IGB_I210_RX_LATENCY_1000;
-+			break;
-+		}
-+	}
-+	skb_hwtstamps(skb)->hwtstamp =
-+		ktime_sub_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
  }
- 
- /**
-@@ -824,7 +844,7 @@ void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
- 		}
- 	}
- 	skb_hwtstamps(skb)->hwtstamp =
--		ktime_add_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
-+		ktime_sub_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
- 
- 	/* Update the last_rx_timestamp timer in order to enable watchdog check
- 	 * for error case of latched timestamp on a dropped packet.
--- 
-2.7.4
+
+@@ -296,7 +296,7 @@ void mlx5_health_cleanup(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_core_health *health = &dev->priv.health;
+
+-	destroy_workqueue(health->wq);
++	flush_work(&health->work);
+ }
+
+ int mlx5_health_init(struct mlx5_core_dev *dev)
+@@ -311,10 +311,7 @@ int mlx5_health_init(struct mlx5_core_dev *dev)
+
+ 	strcpy(name, "mlx5_health");
+ 	strcat(name, dev_name(&dev->pdev->dev));
+-	health->wq = create_singlethread_workqueue(name);
+ 	kfree(name);
+-	if (!health->wq)
+-		return -ENOMEM;
+
+ 	INIT_WORK(&health->work, health_care);
+
+--
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
