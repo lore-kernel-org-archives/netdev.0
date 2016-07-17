@@ -1,35 +1,33 @@
-From: MICROSOFT LOTERY PROMOTION AWARD 2106 <mp0810203940@gmail.com>
+From: MICROSOFT LOTERY PROMOTION AWARD 2106 <zzongo347@gmail.com>
 Subject: GOOD NEWS CONTACT MRS REBECCA SOLOMON VIEW ATTACHED  FILE
-Date: Sun, 17 Jul 2016 20:52:58 +0000 (UTC)
-Message-ID: <1252981146.504502.1468788779074.JavaMail.yahoo@mail.yahoo.com>
-References: <738322481.3611358.1468500450034.JavaMail.yahoo.ref@mail.yahoo.com> <738322481.3611358.1468500450034.JavaMail.yahoo@mail.yahoo.com> <1947651376.3932153.1468569443849.JavaMail.yahoo@mail.yahoo.com> <1982251007.4249248.1468569483796.JavaMail.yahoo@mail.yahoo.com> <1467483157.3971224.1468569590529.JavaMail.yahoo@mail.yahoo.com> <1695157204.4098844.1468569614066.JavaMail.yahoo@mail.yahoo.com> <224043998.3986440.1468569627889.JavaMail.yahoo@mail.yahoo.com> <1668728532.4389791.1468603167784.JavaMail.yahoo@mail.yahoo.com> <30769875.4151781.1468603186430.JavaMail.yahoo@mail.yahoo.com> <811818795.4262896.1468603704267.JavaMail.yahoo@mail.yahoo.com> <772562442.4316889.1468603812703.JavaMail.yahoo@mail.yahoo.com> <1441002629.272668.1468698380610.JavaMail.yahoo@mail.yahoo.com> <743943788.2
- 71992.1468698399890.JavaMail.yahoo@mail.yahoo.com> <1685387660.253344.1468698434619.JavaMail.yahoo@mail.yahoo.com> <1286277601.537941.1468788654507.JavaMail.yahoo@mail.yahoo.com> <1264676748.510391.1468788731715.JavaMail.yahoo@mail.yahoo.com>
+Date: Sun, 17 Jul 2016 20:54:44 +0000 (UTC)
+Message-ID: <347530043.534025.1468788884946.JavaMail.yahoo@mail.yahoo.com>
+References: <1920660917.3462852.1468500738429.JavaMail.yahoo.ref@mail.yahoo.com> <1920660917.3462852.1468500738429.JavaMail.yahoo@mail.yahoo.com> <262715898.4105710.1468570523690.JavaMail.yahoo@mail.yahoo.com> <776089945.4095605.1468570570753.JavaMail.yahoo@mail.yahoo.com> <685875476.477293.1468570587819.JavaMail.yahoo@mail.yahoo.com> <1990182802.4062372.1468570634047.JavaMail.yahoo@mail.yahoo.com> <1223109595.4182960.1468603893214.JavaMail.yahoo@mail.yahoo.com> <638522290.4114304.1468603927308.JavaMail.yahoo@mail.yahoo.com> <110324346.4309045.1468603983064.JavaMail.yahoo@mail.yahoo.com> <1384184826.267493.1468698250675.JavaMail.yahoo@mail.yahoo.com> <1329459210.279180.1468698286839.JavaMail.yahoo@mail.yahoo.com> <1193216832.248155.1468698335485.JavaMail.yahoo@mail.yahoo.com>
 Reply-To: MICROSOFT LOTERY PROMOTION AWARD 2106
 	  <agentmrssolomon@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="----=_Part_504501_728665447.1468788779073"
+	boundary="----=_Part_534024_1373041583.1468788884946"
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm41-vm3.bullet.mail.ne1.yahoo.com ([98.138.120.219]:51907 "EHLO
-	nm41-vm3.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751215AbcGQVCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 17:02:33 -0400
-In-Reply-To: <1264676748.510391.1468788731715.JavaMail.yahoo@mail.yahoo.com>
+Received: from nm40-vm7.bullet.mail.ne1.yahoo.com ([98.138.229.183]:55520 "EHLO
+	nm40-vm7.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751188AbcGQVJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 17:09:31 -0400
+In-Reply-To: <1193216832.248155.1468698335485.JavaMail.yahoo@mail.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_Part_504501_728665447.1468788779073
+------=_Part_534024_1373041583.1468788884946
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 
 
-
-------=_Part_504501_728665447.1468788779073
+------=_Part_534024_1373041583.1468788884946
 Content-Type: application/pdf
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="2016 GOOD NEWS LUCKY-2.pdf"
-Content-ID: <WpZ46q2ihnOXCwuuRLlS>
+Content-ID: <JpkOXTPaofgEpvfu6aYk>
 
 JVBERi0xLjMKJcfsj6IKNSAwIG9iago8PC9MZW5ndGggNiAwIFIvRmlsdGVyIC9GbGF0ZURlY29k
 ZT4+CnN0cmVhbQp4nO1deXwV1b2/IRtZTFhDWISLiOQiucyZfXyWEBYLFlnCJoUqCIj2sQZEKEsQ
@@ -4464,11 +4462,11 @@ PCAvU2l6ZSA2MCAvUm9vdCAxIDAgUiAvSW5mbyAyIDAgUgovSUQgWzwyMUZCQkYzQzhGOEZBNzJE
 MTc1RDhFQUFGMjFDQjQxNz48MjFGQkJGM0M4RjhGQTcyRDE3NUQ4RUFBRjIxQ0I0MTc+XQo+Pgpz
 dGFydHhyZWYKMjUxMjM0CiUlRU9GCg==
 
-------=_Part_504501_728665447.1468788779073
+------=_Part_534024_1373041583.1468788884946
 Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="2016 GOOD NEWS LUCKY-2.docx"
-Content-ID: <b613a3e0-8b84-2617-5ebc-1baa9cd41325@yahoo.com>
+Content-ID: <21127736-3185-46d5-09e8-929e42b4a6d2@yahoo.com>
 
 UEsDBBQABgAIAAAAIQDRc3GAigEAALgFAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -9401,4 +9399,4 @@ RgAADwAAAAAAAAAAAAAAAABNOAQAd29yZC9zdHlsZXMueG1sUEsBAi0AFAAGAAgAAAAhANKCW/Re
 AQAAqgIAABEAAAAAAAAAAAAAAAAAskEEAGRvY1Byb3BzL2NvcmUueG1sUEsFBgAAAAAUABQAIwUA
 AEdEBAAAAA==
 
-------=_Part_504501_728665447.1468788779073--
+------=_Part_534024_1373041583.1468788884946--
