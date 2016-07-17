@@ -1,34 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cpsw: make TI_CPSW_PHY_SEL invisible
-Date: Sat, 16 Jul 2016 21:27:55 -0700 (PDT)
-Message-ID: <20160716.212755.368973319345221513.davem@davemloft.net>
-References: <1468570335-16305-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v1 0/3] Add Hisilicon MDIO bus driver and FEMAC driver
+Date: Sat, 16 Jul 2016 21:44:08 -0700 (PDT)
+Message-ID: <20160716.214408.902572525107892568.davem@davemloft.net>
+References: <1468571195-59763-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de
-To: u.kleine-koenig@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44800 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750802AbcGQE17 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 00:27:59 -0400
-In-Reply-To: <1468570335-16305-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, benjamin.chenhao-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
+	howell.yang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1468571195-59763-1-git-send-email-lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Fri, 15 Jul 2016 10:12:15 +0200
+From: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Date: Fri, 15 Jul 2016 16:26:32 +0800
 
-> TI_CPSW_PHY_SEL depended on TI_CPSW and was selected by the latter. S=
-o
-> there is no reason to have this symbol visible.
->=20
-> A further optimisation would be to put the code for both symbols into=
- a
-> single module which would allow to not export at least cpsw_phy_sel()
-> and simplify the module load process.
->=20
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> This patch set adds a Hisilicon MDIO bus driver and
+> a Fast Ethernet MAC(FEMAC) driver.
+> We also abstract a general interface "of_phy_get_and_connect"
+> for PHY connect. User will have no bother with getting
+> "phy-mode" and "phy-handle" any more.
+> 
+> Changes in v1:
+> - Pass private data structure instead of struct mii_bus
+>   in MDIO read and write operation.
+> - Return the error which devm_clk_get() gives when MDIO probe.
+> - Leave the clock unprepared and disabled on error when MDIO probe.
+> - Abstract a general interface "of_phy_get_and_connect" for PHY connect.
+> - Remove the "_reset" suffixes in "reset-names" property.
+> - Enable tx per-packet interrupt when tx fifo full.
+> - Remove pointless compatible and add SoC specific compatible.
+> - Declare only one clock in MAC dts documentation.
+> - Add standard unit suffixes for "phy-reset-delays".
+> - Use a smaller NAPI poll weight 16 for our Fast Ethernet MAC.
+> - Use phy_ethtool_{get|set}_link_ksettings for ethtool ops.
+> - Use phydev from struct net_device in MAC driver.
 
-Applied to net-next, thanks.
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
