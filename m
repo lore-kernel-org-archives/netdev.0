@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: bpf_event_entry_gen's alloc needs to be
- in atomic context
-Date: Sat, 16 Jul 2016 22:04:35 -0700 (PDT)
-Message-ID: <20160716.220435.333365058859593808.davem@davemloft.net>
-References: <3a4cacd7ebd8b246325c48b46d25d67669428198.1468624006.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net] et131x: Fix logical vs bitwise check in
+ et131x_tx_timeout()
+Date: Sat, 16 Jul 2016 22:04:44 -0700 (PDT)
+Message-ID: <20160716.220444.1385583329528724015.davem@davemloft.net>
+References: <1468626024-31534-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45204 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921AbcGQFEh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 01:04:37 -0400
-In-Reply-To: <3a4cacd7ebd8b246325c48b46d25d67669428198.1468624006.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, mark.einon@gmail.com, andrew@lunn.ch,
+	a@unstable.cc, felipe.balbi@linux.intel.com, fw@strlen.de,
+	wuninsu@gmail.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468626024-31534-1-git-send-email-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sat, 16 Jul 2016 01:15:55 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri, 15 Jul 2016 16:40:22 -0700
 
-> Should have been obvious, only called from bpf() syscall via map_update_elem()
-> that calls bpf_fd_array_map_update_elem() under RCU read lock and thus this
-> must also be in GFP_ATOMIC, of course.
+> We should be using a logical check here instead of a bitwise operation
+> to check if the device is closed already in et131x_tx_timeout().
 > 
-> Fixes: 3b1efb196eee ("bpf, maps: flush own entries on perf map release")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Reported-by: coverity (CID 146498)
+> Fixes: 38df6492eb511 ("et131x: Add PCIe gigabit ethernet driver et131x to drivers/net")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
 Applied.
