@@ -1,40 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] rndis_host: Set random MAC for ZTE MF910
-Date: Sat, 16 Jul 2016 20:02:48 -0700 (PDT)
-Message-ID: <20160716.200248.806604407055802626.davem@davemloft.net>
-References: <87k2gpnpo5.fsf@miraculix.mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D5F4F921C@AcuExch.aculab.com>
-	<877fcmlrwb.fsf@miraculix.mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vlan: use a valid default mtu value for vlan over
+ macsec
+Date: Sat, 16 Jul 2016 20:16:19 -0700 (PDT)
+Message-ID: <20160716.201619.847436342805437808.davem@davemloft.net>
+References: <909348fc51775dc7070b528a7492632e53400412.1468511497.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org, kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <877fcmlrwb.fsf-3F4PFWf5pNjpjLOzFPqGjWGXanvQGlWp@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, sd@queasysnail.net
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44250 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751909AbcGQDQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 23:16:21 -0400
+In-Reply-To: <909348fc51775dc7070b528a7492632e53400412.1468511497.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Fri, 15 Jul 2016 19:42:28 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Thu, 14 Jul 2016 18:00:10 +0200
 
-> David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> writes:
->> From: Bj=F8rn Mork
->> Not only that, there certainly used to be manufacturers that used 'l=
-ocally
->> administered' addresses on all their cards (as well as those that us=
-ed unallocated
->> address blocks).
->=20
-> Sure. But is there any reason to care about those addresses?
+> macsec can't cope with mtu frames which need vlan tag insertion, and
+> vlan device set the default mtu equal to the underlying dev's one.
+> By default vlan over macsec devices use invalid mtu, dropping
+> all the large packets.
+> This patch adds a netif helper to check if an upper vlan device
+> needs mtu reduction. The helper is used during vlan devices
+> initialization to set a valid default and during mtu updating to
+> forbid invalid, too bit, mtu values.
+> The helper currently only check if the lower dev is a macsec device,
+> if we get more users, we need to update only the helper (possibly
+> reserving an additional IFF bit).
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-And for that case, this patch we are discussing would be a bug fix.
-
-I'm going to apply the "bp[0] & 0x02" patch.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable.
