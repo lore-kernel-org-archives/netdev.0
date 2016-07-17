@@ -1,65 +1,303 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear WNR854T
-Date: Sun, 17 Jul 2016 22:41:35 +0200
-Message-ID: <6404488.GyOP57DJrV@wuerfel>
-References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk> <4290281.AD5Bhg23o6@wuerfel> <alpine.DEB.2.11.1607170959090.19980@marmot.wormnet.eu>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear
+ WNR854T
+Date: Sun, 17 Jul 2016 15:51:24 -0500
+Message-ID: <20160717205124.GA18838@rob-hp-laptop>
+References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
+ <1468679348-10522-7-git-send-email-jm@lentin.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
 	Imre Kaloz <kaloz@openwrt.org>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 To: Jamie Lentin <jm@lentin.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1607170959090.19980@marmot.wormnet.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33092 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbcGQUv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 16:51:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1468679348-10522-7-git-send-email-jm@lentin.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday, July 17, 2016 10:39:01 AM CEST Jamie Lentin wrote:
-> On Sat, 16 Jul 2016, Arnd Bergmann wrote:
-
-> > The other patches all appear good to me, but I find this one suspicious.
-> >
-> > Why are you not using the device tree for probing PCI? Is there anything
-> > missing in drivers/pci/host/pci-mvebu.c, or do you just need help
-> > describing it in DT?
+On Sat, Jul 16, 2016 at 03:29:04PM +0100, Jamie Lentin wrote:
+> This is a router based on the mv88f5181 chipset.
 > 
-> Unlike the other SoC's supported by pci-mvebu.c, orion5x has one PCI port 
-> as well as a PCIe port. Given no other orion5x boards seem to use 
-> pci-mvebu, I'm assuming there's work to be done before the PCI port can be 
-> used via. pci-mvebu.c
+> http://www.netgear.com/support/product/WNR854T.aspx
+> http://wiki.openwrt.org/toh/netgear/wnr854t
 > 
-> This is something I can look into if there aren't patches out there, but 
-> wanted to get the rest into a reasonable state first.
+> Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
+> ---
+>  .../bindings/arm/marvell/marvell,orion5x.txt       |   1 +
+>  arch/arm/boot/dts/Makefile                         |   1 +
+>  arch/arm/boot/dts/orion5x-netgear-wnr854t.dts      | 200 +++++++++++++++++++++
+>  arch/arm/mach-orion5x/Kconfig                      |   6 +
+>  arch/arm/mach-orion5x/Makefile                     |   1 +
+>  arch/arm/mach-orion5x/board-wnr854t.c              |  78 ++++++++
+>  6 files changed, 287 insertions(+)
+>  create mode 100644 arch/arm/boot/dts/orion5x-netgear-wnr854t.dts
+>  create mode 100644 arch/arm/mach-orion5x/board-wnr854t.c
+> 
+> diff --git a/Documentation/devicetree/bindings/arm/marvell/marvell,orion5x.txt b/Documentation/devicetree/bindings/arm/marvell/marvell,orion5x.txt
+> index ff3c120..748a8f2 100644
+> --- a/Documentation/devicetree/bindings/arm/marvell/marvell,orion5x.txt
+> +++ b/Documentation/devicetree/bindings/arm/marvell/marvell,orion5x.txt
+> @@ -22,3 +22,4 @@ board. Currently known boards are:
+>  "lacie,d2-network"
+>  "marvell,rd-88f5182-nas"
+>  "maxtor,shared-storage-2"
+> +"netgear,wnr854t"
+> diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+> index 95c1923..63b9202 100644
+> --- a/arch/arm/boot/dts/Makefile
+> +++ b/arch/arm/boot/dts/Makefile
+> @@ -535,6 +535,7 @@ dtb-$(CONFIG_ARCH_ORION5X) += \
+>  	orion5x-linkstation-lswtgl.dtb \
+>  	orion5x-lswsgl.dtb \
+>  	orion5x-maxtor-shared-storage-2.dtb \
+> +	orion5x-netgear-wnr854t.dtb \
+>  	orion5x-rd88f5182-nas.dtb
+>  dtb-$(CONFIG_ARCH_PRIMA2) += \
+>  	prima2-evb.dtb
+> diff --git a/arch/arm/boot/dts/orion5x-netgear-wnr854t.dts b/arch/arm/boot/dts/orion5x-netgear-wnr854t.dts
+> new file mode 100644
+> index 0000000..a8e89d8
+> --- /dev/null
+> +++ b/arch/arm/boot/dts/orion5x-netgear-wnr854t.dts
+> @@ -0,0 +1,200 @@
+> +/*
+> + * Copyright (C) 2014 Jamie Lentin <jm@lentin.co.uk>
 
-Ok, I see your point. However, we also don't have any other Orion5x machines
-using DT that rely on old probe method, and I this is something that
-is particularly hard to retrofit later.
+It's 2016 now.
 
-I would assume that the PCIe port should work out of the box with the driver
-we have, but the PCI controller does not, and it will require some work.
-Looking at https://wiki.openwrt.org/toh/netgear/wnr854t, I assume that
-you want only PCI but not PCIe, correct?
+> + *
+> + * This file is licensed under the terms of the GNU General Public
+> + * License version 2. This program is licensed "as is" without any
+> + * warranty of any kind, whether express or implied.
+> + */
+> +
+> +/dts-v1/;
+> +
+> +#include <dt-bindings/gpio/gpio.h>
+> +#include <dt-bindings/input/input.h>
+> +#include "orion5x-mv88f5181.dtsi"
+> +
+> +/ {
+> +	model = "Netgear WNR854-t";
+> +	compatible = "netgear,wnr854t", "marvell,orion5x-88f5181",
+> +			"marvell,orion5x";
+> +
+> +	memory {
+> +		reg = <0x00000000 0x2000000>; /* 32 MB */
+> +	};
+> +
+> +	chosen {
+> +		bootargs = "console=ttyS0,115200n8 earlyprintk";
+> +		linux,stdout-path = &uart0;
 
-The good news is that we can completely separate the two, we just have two
-different PCI domains if both are enabled, so we just need to add a new
-driver for the PCI port to drivers/pci/host. The pci_ops can be copied
-from the existing driver, although a couple of minor cleanups would be
-possible. The special handling of bus numbers and the rc_pci_fixup()
-can probably just go away, and the latter part is particularly
-important, because building a kernel with the fixup included might
-break any system with a Marvell host bridge.
+As kind of mentioned, drop the linux prefix here.
 
-We also don't seem to need any MBUS window setup for the I/O and
-memory spaces, which greatly simplifies the driver compared to the
-pci-mvebu one, it would be a fairly straightforward implementation
-based on pci-host-generic.c (which unfortunately just got way
-more complicated and might need to go on a diet).
+> +	};
+> +
+> +	soc {
+> +		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000>,
+> +			<MBUS_ID(0x09, 0x00) 0 0xf2200000 0x800>,
+> +			<MBUS_ID(0x01, 0x0f) 0 0xf4000000 0x800000>;
+> +	};
+> +
+> +	gpio-keys {
+> +		compatible = "gpio-keys";
+> +		pinctrl-0 = <&pmx_reset_switch>;
+> +		pinctrl-names = "default";
+> +
+> +		reset {
+> +			label = "Reset Button";
+> +			linux,code = <KEY_RESTART>;
+> +			gpios = <&gpio0 1 GPIO_ACTIVE_LOW>;
+> +		};
+> +	};
+> +
+> +	gpio-leds {
+> +		compatible = "gpio-leds";
+> +		pinctrl-0 = <&pmx_power_led &pmx_power_led_blink &pmx_wan_led>;
+> +		pinctrl-names = "default";
+> +
+> +		led@0 {
+> +			label = "power:green";
+> +			gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
+> +		};
+> +
+> +		led@1 {
+> +			label = "power:blink";
+> +			gpios = <&gpio0 2 GPIO_ACTIVE_LOW>;
+> +		};
+> +
+> +		led@2 {
+> +			label = "wan:green";
+> +			gpios = <&gpio0 3 GPIO_ACTIVE_LOW>;
+> +		};
+> +	};
+> +
+> +	dsa@0 {
+> +		compatible = "marvell,dsa";
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		dsa,ethernet = <&ethport>;
+> +		dsa,mii-bus = <&mdio>;
+> +
+> +		switch@0 {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			reg = <0 0>;	/* MDIO address 0, switch 0 in tree */
+> +
+> +			port@0 {
+> +				reg = <0>;
+> +				label = "lan3";
+> +			};
+> +
+> +			port@1 {
+> +				reg = <1>;
+> +				label = "lan4";
+> +			};
+> +
+> +			port@2 {
+> +				reg = <2>;
+> +				label = "wan";
+> +			};
+> +
+> +			port@3 {
+> +				reg = <3>;
+> +				label = "cpu";
+> +			};
+> +
+> +			port@5 {
+> +				reg = <5>;
+> +				label = "lan1";
+> +			};
+> +
+> +			port@7 {
+> +				reg = <7>;
+> +				label = "lan2";
+> +			};
+> +		};
+> +	};
+> +};
+> +
+> +&devbus_bootcs {
+> +	status = "okay";
+> +
+> +	devbus,keep-config;
+> +
+> +	flash@0 {
+> +		compatible = "cfi-flash";
+> +		reg = <0 0x800000>;
+> +		bank-width = <1>;
+> +		#address-cells = <1>;
+> +		#size-cells = <1>;
+> +
+> +		partition@0 {
 
-	Arnd
+The new recommended style adds a level here with a partitions node and 
+the type of partitioning.
+
+> +			label = "kernel";
+> +			reg = <0x0 0x100000>;
+> +		};
+> +
+> +		partition@100000 {
+> +			label = "rootfs";
+> +			reg = <0x100000 0x660000>;
+> +		};
+> +
+> +		partition@760000 {
+> +			label = "uboot_env";
+> +			reg = <0x760000 0x20000>;
+> +		};
+> +
+> +		partition@780000 {
+> +			label = "uboot";
+> +			reg = <0x780000 0x80000>;
+> +			read-only;
+> +		};
+> +	};
+> +};
+> +
+> +&mdio {
+> +	status = "okay";
+> +};
+> +
+> +&eth {
+> +	status = "okay";
+> +	ethernet-port@0 {
+> +		speed = <1000>;
+> +		duplex = <1>;
+> +	};
+> +};
+> +
+> +&pinctrl {
+> +	pinctrl-0 = <&pmx_pci_gpios &pmx_ge>;
+> +	pinctrl-names = "default";
+> +
+> +	pmx_power_led: pmx-power-led {
+> +		marvell,pins = "mpp0";
+> +		marvell,function = "gpio";
+> +	};
+> +
+> +	pmx_reset_switch: pmx-reset-switch {
+> +		marvell,pins = "mpp1";
+> +		marvell,function = "gpio";
+> +	};
+> +
+> +	pmx_power_led_blink: pmx-power-led-blink {
+> +		marvell,pins = "mpp2";
+> +		marvell,function = "gpio";
+> +	};
+> +
+> +	pmx_wan_led: pmx-wan-led {
+> +		marvell,pins = "mpp3";
+> +		marvell,function = "gpio";
+> +	};
+> +
+> +	pmx_pci_gpios: pmx-pci-gpios {
+> +		marvell,pins = "mpp4";
+> +		marvell,function = "gpio";
+> +	};
+> +
+> +	pmx_ge: pmx-ge {
+> +		marvell,pins = "mpp9", "mpp12",	"mpp13", "mpp14", "mpp15",
+> +				"mpp16", "mpp17", "mpp18", "mpp19";
+> +		marvell,function = "ge";
+> +	};
+> +};
+> +
+> +&uart0 {
+> +	/* Pin 1: Tx, Pin 7: Rx, Pin 8: Gnd */
+> +	status = "okay";
+> +};
+> diff --git a/arch/arm/mach-orion5x/Kconfig b/arch/arm/mach-orion5x/Kconfig
+> index a2af158..1fdb95d 100644
+> --- a/arch/arm/mach-orion5x/Kconfig
+> +++ b/arch/arm/mach-orion5x/Kconfig
+> @@ -151,6 +151,12 @@ config MACH_MSS2_DT
+>  	  Say 'Y' here if you want your kernel to support the
+>  	  Maxtor Shared Storage II platform.
+>  
+> +config MACH_WNR854T_DT
+
+There should only be at most 1 kconfig entry for all orion5x DT based 
+platforms.
+
+> +	bool "Netgear WNR854T (Flattened Device Tree)"
+> +	help
+> +	  Say 'Y' here if you want your kernel to support the
+> +	  Netgear WNR854T platform.
+> +
+>  config MACH_WNR854T
+>  	bool "Netgear WNR854T"
+>  	help
