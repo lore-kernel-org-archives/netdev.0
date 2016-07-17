@@ -1,83 +1,73 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: adi: bfin_mac: use phy_ethtool_{get|set}_link_ksettings
-Date: Sun, 17 Jul 2016 01:10:15 +0200
-Message-ID: <1468710615-31951-2-git-send-email-tremyfr@gmail.com>
-References: <1468710615-31951-1-git-send-email-tremyfr@gmail.com>
-Cc: adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, andrew@lunn.ch, sudipm.mukherjee@gmail.com,
-	mugunthanvnm@ti.com, felipe.balbi@linux.intel.com,
-	treding@nvidia.com, fw@strlen.de, linux@roeck-us.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] dt: bindings: Add a generic ethernet device binding
+Date: Sat, 16 Jul 2016 18:02:45 -0700 (PDT)
+Message-ID: <20160716.180245.1523267216987842392.davem@davemloft.net>
+References: <47a052a1-cc8b-0f75-e44a-450c4a0ac075@redhat.com>
+	<20160715.105158.2028840258568316933.davem@davemloft.net>
+	<888927c4-0987-ccfb-e2de-d03f6d4ab319@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+	maxime.ripard@free-electrons.com, wens@csie.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree@vger.kernel.org
+To: hdegoede@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35699 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751812AbcGPXK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 19:10:26 -0400
-In-Reply-To: <1468710615-31951-1-git-send-email-tremyfr@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42856 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848AbcGQBCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Jul 2016 21:02:49 -0400
+In-Reply-To: <888927c4-0987-ccfb-e2de-d03f6d4ab319@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+From: Hans de Goede <hdegoede@redhat.com>
+Date: Sat, 16 Jul 2016 12:12:37 +0200
 
-There was a check on CAP_NET_ADMIN in bfin_mac_ethtool_setsettings,
-but this check is already done in dev_ethtool, so no need to repeat
-it before calling the generic function.
+> Hi,
+> 
+> On 15-07-16 19:51, David Miller wrote:
+>> From: Hans de Goede <hdegoede@redhat.com>
+>> Date: Fri, 15 Jul 2016 08:40:00 +0200
+>>
+>>> Hi,
+>>>
+>>> On 15-07-16 01:17, David Miller wrote:
+>>>> From: Hans de Goede <hdegoede@redhat.com>
+>>>> Date: Wed, 13 Jul 2016 12:20:04 +0200
+>>>>
+>>>>> On some boards (android tablets) different batches use different sdio
+>>>>> wifi modules. This is not a problem since sdio is a discoverable bus,
+>>>>> so we only need to describe and activate the mmc controller in dt and
+>>>>> then the kernel will automatically load the right driver.
+>>>>>
+>>>>> But sometimes it is useful to specify certain ethernet properties for
+>>>>> these "unknown" sdio devices, specifically we want the boot-loader
+>>>>> to be able to set "local-mac-address" as some of these sdio wifi
+>>>>> modules come without an eeprom / without a factory programmed mac
+>>>>> address.
+>>>>>
+>>>>> Since the exact device is unknown (differs per batch) we cannot use
+>>>>> a wifi-chip specific compatible. This commit adds a new
+>>>>> "generic,ethernet" binding for use in dt-nodes describing such an
+>>>>> unknown ethernet device.
+>>>>>
+>>>>> Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+>>>>> Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+>>>>
+>>>> Precedence exists for a "system ethernet address" as far back as the
+>>>> original sparc device tree implementation, so please just specify it
+>>>> that way rather than trying to force having to make an alias or
+>>>> reference to it from a specific device.
+>>>
+>>> Some boards where this is applicable have both a wired and a wireless
+>>> ethernet, so one global setting will not work.
+>>
+>> Then call it "eth:local-mac-address" and "wifi:local-mac-address"
+> 
+> Until we get a board with 2 ethernet interfaces, really the alias
+> thing
+> is working fine here, that is not the problem.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/adi/bfin_mac.c |   25 ++-----------------------
- 1 files changed, 2 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index 32af9d2..38eaea1 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -449,27 +449,6 @@ static irqreturn_t bfin_mac_wake_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
--static int
--bfin_mac_ethtool_getsettings(struct net_device *dev, struct ethtool_cmd *cmd)
--{
--	if (dev->phydev)
--		return phy_ethtool_gset(dev->phydev, cmd);
--
--	return -EINVAL;
--}
--
--static int
--bfin_mac_ethtool_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
--{
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
--	if (dev->phydev)
--		return phy_ethtool_sset(dev->phydev, cmd);
--
--	return -EINVAL;
--}
--
- static void bfin_mac_ethtool_getdrvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *info)
- {
-@@ -547,8 +526,6 @@ static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
- #endif
- 
- static const struct ethtool_ops bfin_mac_ethtool_ops = {
--	.get_settings = bfin_mac_ethtool_getsettings,
--	.set_settings = bfin_mac_ethtool_setsettings,
- 	.get_link = ethtool_op_get_link,
- 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
- 	.get_wol = bfin_mac_ethtool_getwol,
-@@ -556,6 +533,8 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
- #ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
- 	.get_ts_info = bfin_mac_ethtool_get_ts_info,
- #endif
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- /**************************************************************************/
--- 
-1.7.4.4
+Fair enough.
