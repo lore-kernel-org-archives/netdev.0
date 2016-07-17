@@ -1,478 +1,196 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [PATCH 1/1] tracing, bpf: Implement function bpf_probe_write
-Date: Sun, 17 Jul 2016 03:19:13 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1607161729010.12799@ircssh.c.rugged-nimbus-611.internal>
-References: <CAMp4zn8ygXFg7kvjShm77zmK2dYVMY2zS8i2mUKwhbfXcyVyig@mail.gmail.com> <20160713170849.GA76615@ast-mbp.thefacebook.com> <alpine.DEB.2.02.1607131230210.19550@ircssh.c.rugged-nimbus-611.internal> <20160715054025.GA99435@ast-mbp>
- <alpine.DEB.2.02.1607151552400.24930@ircssh.c.rugged-nimbus-611.internal> <20160716023035.GA19373@ast-mbp.thefacebook.com>
+From: Jamie Lentin <jm@lentin.co.uk>
+Subject: Re: [PATCH v0 00/10] Convert Netgear WNR854T to devicetree
+Date: Sun, 17 Jul 2016 13:52:15 +0100 (BST)
+Message-ID: <alpine.DEB.2.11.1607171043100.19980@marmot.wormnet.eu>
+References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk> <20160716205304.GA5075@lunn.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jason Cooper <jason@lakedaemon.net>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Imre Kaloz <kaloz@openwrt.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:36492 "EHLO
-	mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750922AbcGQKTP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 06:19:15 -0400
-Received: by mail-it0-f52.google.com with SMTP id f6so49909467ith.1
-        for <netdev@vger.kernel.org>; Sun, 17 Jul 2016 03:19:14 -0700 (PDT)
-In-Reply-To: <20160716023035.GA19373@ast-mbp.thefacebook.com>
+Received: from marmot.wormnet.eu ([188.246.204.87]:38860 "EHLO
+	marmot.wormnet.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751071AbcGQMw0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 08:52:26 -0400
+In-Reply-To: <20160716205304.GA5075@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 16 Jul 2016, Andrew Lunn wrote:
 
-
-On Fri, 15 Jul 2016, Alexei Starovoitov wrote:
-
-> On Fri, Jul 15, 2016 at 07:16:01PM -0700, Sargun Dhillon wrote:
->>
->>
->> On Thu, 14 Jul 2016, Alexei Starovoitov wrote:
->>
->>> On Wed, Jul 13, 2016 at 01:31:57PM -0700, Sargun Dhillon wrote:
->>>>
->>>>
->>>> On Wed, 13 Jul 2016, Alexei Starovoitov wrote:
->>>>
->>>>> On Wed, Jul 13, 2016 at 03:36:11AM -0700, Sargun Dhillon wrote:
->>>>>> Provides BPF programs, attached to kprobes a safe way to write to
->>>>>> memory referenced by probes. This is done by making probe_kernel_write
->>>>>> accessible to bpf functions via the bpf_probe_write helper.
->>>>>
->>>>> not quite :)
->>>>>
->>>>>> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
->>>>>> ---
->>>>>> include/uapi/linux/bpf.h  |  3 +++
->>>>>> kernel/trace/bpf_trace.c  | 20 ++++++++++++++++++++
->>>>>> samples/bpf/bpf_helpers.h |  2 ++
->>>>>> 3 files changed, 25 insertions(+)
->>>>>>
->>>>>> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->>>>>> index 406459b..355b565 100644
->>>>>> --- a/include/uapi/linux/bpf.h
->>>>>> +++ b/include/uapi/linux/bpf.h
->>>>>> @@ -313,6 +313,9 @@ enum bpf_func_id {
->>>>>>  */
->>>>>>  BPF_FUNC_skb_get_tunnel_opt,
->>>>>>  BPF_FUNC_skb_set_tunnel_opt,
->>>>>> +
->>>>>> + BPF_FUNC_probe_write, /* int bpf_probe_write(void *dst, void *src,
->>>>>> int size) */
->>>>>> +
->>>>>
->>>>> the patch is against some old kernel.
->>>>> Please always make the patch against net-next tree and cc netdev list.
->>>>>
->>>> Sorry, I did this against Linus's tree, not net-next. Will fix.
->>>>
->>>>>> +static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
->>>>>> +{
->>>>>> + void *dst = (void *) (long) r1;
->>>>>> + void *unsafe_ptr = (void *) (long) r2;
->>>>>> + int  size = (int) r3;
->>>>>> +
->>>>>> + return probe_kernel_write(dst, unsafe_ptr, size);
->>>>>> +}
->>>>>
->>>>> the patch is whitepsace mangled. Please see Documentation/networking/netdev-FAQ.txt
->>>> Also will fix.
->>>>
->>>>>
->>>>> the main issue though that we cannot simply allow bpf to do probe_write,
->>>>> since it may crash the kernel.
->>>>> What might be ok is to allow writing into memory of current
->>>>> user space process only. This way bpf prog will keep kernel safety guarantees,
->>>>> yet it will be able to modify user process memory when necessary.
->>>>> Since bpf+tracing is root only, it doesn't pose security risk.
->>>>>
->>>>>
->>>>
->>>> Doesn't probe_write prevent you from writing to protected memory and
->>>> generate an EFAULT? Or are you worried about the situation where a bpf
->>>> program writes to some other chunk of kernel memory, or writes bad data
->>>> to said kernel memory?
->>>>
->>>> I guess when I meant "safe" -- it's safer than allowing arbitrary memcpy.
->>>> I don't see a good way to ensure safety otherwise as we don't know
->>>> which registers point to memory that it's reasonable for probes to
->>>> manipulate. It's not like skb_store_bytes where we can check the pointer
->>>> going in is the same pointer that's referenced, and with a super
->>>> restricted datatype.
->>>
->>> exactly. probe_write can write anywhere in the kernel and that
->>> will cause crashes. If we allow that bpf becomes no different than
->>> kernel module.
->>>
->>>> Perhaps, it would be a good idea to describe an example where I used this:
->>>> #include <uapi/linux/ptrace.h>
->>>> #include <net/sock.h>
->>>> #include <bcc/proto.h>
->>>>
->>>>
->>>> int trace_inet_stream_connect(struct pt_regs *ctx)
->>>> {
->>>> 	if (!PT_REGS_PARM2(ctx)) {
->>>> 		return 0;
->>>> 	}
->>>> 	struct sockaddr uaddr = {};
->>>> 	struct sockaddr_in *addr_in;
->>>> 	bpf_probe_read(&uaddr, sizeof(struct sockaddr), (void *)PT_REGS_PARM2(ctx));
->>>> 	if (uaddr.sa_family == AF_INET) {
->>>> 		// Simple cast causes LLVM weirdness
->>>> 		addr_in = &uaddr;
->>>> 		char fmt[] = "Connecting on port: %d\n";
->>>> 		bpf_trace_printk(fmt, sizeof(fmt), ntohs(addr_in->sin_port));
->>>> 		if (ntohs(addr_in->sin_port) == 80) {
->>>> 			addr_in->sin_port = htons(443);
->>>> 			bpf_probe_write((void *)PT_REGS_PARM2(ctx), &uaddr, sizeof(uaddr));
->>>> 		}
->>>> 	}
->>>>        return 0;
->>>> };
->>>>
->>>> There are two reasons I want to do this:
->>>> 1) Debugging - sometimes, it makes sense to divert a program's syscalls in
->>>> order to allow for better debugging
->>>> 2) Network Functions - I wrote a load balancer which intercepts
->>>> inet_stream_connect & tcp_set_state. We can manipulate the destination
->>>> address as neccessary at connect time. This also has the nice side effect
->>>> that getpeername() returns the real IP that a server is connected to, and
->>>> the performance is far better than doing "network load balancing"
->>>>
->>>> (I realize this is a total hack, better approaches would be appreciated)
->>>
->>> nice. interesting idea.
->>> Have you considered ld_preload hack to do port rewrite?
->>>
->> We've thought about it. It wont really work for us, because we're doing this
->> to manipulate 3rd party runtimes, many of which are written in languages
->> that don't play nice with LD_PRELOAD. Go is the primary problem child in
->> this case. We also looked at using SECCOMP + ptrace, but again, not all
->> runtimes play nice with ptrace.
+>> There's one major flaw; unicast traffic is never received on any port.
+>> Broadcast traffic is received however, and on the correct port. Thus
+>> an external machine can make an ARP request and get a response, for
+>> example. With a manually-entered ARP entry, the router can send pings
+>> out to a remote machine which responds, and the response is lost in the
+>> DSA switch. "ethtool -S" reports pings received on "in_unicast" but
+>> nothing makes it through the switch. This thread[0] seems very similar.
+>> I've run out of ideas here and can't find any switch datasheets to give
+>> me pointers so any suggestions greatly appreciated.
 >
-> interesting!
-> I was about to suggest to hack write support into seccomp, since few
-> folks were interested in it as well. Why seccomp won't work?
-> You cannot have a centralized daemon that launches all the processes?
+> Hi Jamie
 >
->>>> If we allowed manipulation of the current task's user memory by exposing
->>>> copy_to_user, that could also work if I attach the probe to sys_connect,
->>>> I could overwrite the address there before it gets copied into
->>>> kernel space, but that could lead to its own weirdness.
->>>
->>> we cannot simply call copy_to_user from the bpf either,
->>> but yeah, something semantically equivalent to copy_to_user should
->>> solve your port rewriting case, right?
->>> Could you explain little bit more on 'syscall divert' ideas?
->>>
->>>
->> If we had a "safe" copy_to_user which checked if BPF programs were running
->> in the user context, that would work right? I mean, you could still make
->> user programs crash, but that's better than making the kernel fall over. We
->> would need both copy_from_user, and copy_to_user. If you look at the example
->> program, it first checks what the user is connecting to -- so it'd have to
->> check the address the user is passing to the syscall.
+> So it is 6131? So part of the 6185 family.
+
+Yes, that's what's detected and the OpenWRT page says 88E6131-LAR1. And my 
+test setup looks like:
+
+88e6131
+   |- lan1:10.100.1.55 <-- switch --> eth0:10.100.1.41 -|
+   |- lan4:10.100.4.55 <-- cable  --> enp0:10.100.4.41 -|
+                                                     laptop
+enp0 is a 100M USB network card, the switch is gigabit and on the rest of 
+my network here, so there's assorted background broadcast chatter. If the 
+noise is confusing matters then can disconnect it.
+
+Firstly I've tried to to rebase against net-next[0], but after adding 6131 
+to mv88e6xxx_of_match, &chip->ppu_work seems to be causing a NULL pointer 
+ooops. I'll assume it's not done yet and ignore net-next for now.
+
+> I see you have NET_TAG_DSA, but not NET_TAG_EDSA in your
+> configuration. Try swapping to EDSA. I even removed support for
+> TAG_DSA in one of the recent patches.
+
+Okay, back to my original wnr854t-support-v0a branch based on 4.6, 
+switched to .tag_protocol = DSA_TAG_PROTO_EDSA and reconfig'ed to 
+add support, but there's no traffic in/out of any port. tcpdump on the 
+underlying ethernet port shows encapsulated broadcast traffic, e.g. this 
+ARP request from enp0:10.100.4.41:
+
+00:15:31.173399 1a:ff:0f:fe:10:22 (oui Unknown) > Broadcast, ethertype 
+Unknown (0xc008), length 64:
+         0x0000:  0000 0806 0001 0800 0604 0001 1aff 0ffe  ................
+         0x0010:  1022 0a64 0429 0000 0000 0000 0a64 0437  .".d.).......d.7
+         0x0020:  0000 0000 0000 0000 0000 0000 0000 0000  ................
+         0x0030:  0000                                     ..
+
+...but no unicast traffic.
+
+> Please also can you get https://github.com/vivien/linux.git commit
+> 323321875671dfe95b6b91ce051a74d415c7158c which will give you some
+> extra debug files /sys/kernel/debug/mv88e6xxx.
 >
-> yep. imo 'safe' copy_to_user is no different in user impact from seccomp.
-> Both can make user process inoperable if there is a bug in bpf program,
-> but both are always safe from kernel point of view.
-> there is no need in copy_from_user. bpf_probe_read can read user memory just
-> fine or you actually want to make even safer version of probe_read that
-> can only read current task memory instead of any memory?
-> Makes sense to me.
+> The reg, stats, and atu would be interesting.
+
+Okay, I rebased 4.7-rc7, ignoring my ropey attempts to configure the LEDs, 
+cherry-picked the above commit. Pushed the result if it's useful[1]. The 
+debugfs code wouldn't patch cleanly onto 4.6 or net-next.
+
+On boot up I get:
+
+mdio_bus f1072004.mdio-bu: switch 0x106 probed: Marvell 88E6131, revision 6
+mv643xx_eth_port mv643xx_eth_port.0 eth0: [0]: detected a Marvell 88E6131 switch
+libphy: dsa slave smi: probed
+Marvell 88E1121R dsa-0:00:00: attached PHY driver [Marvell 88E1121R]  (mii_bus:phy_addr=dsa-0:00:00, irq=-1)
+Marvell 88E1121R dsa-0:00:01: attached PHY driver [Marvell 88E1121R] (mii_bus:phy_addr=dsa-0:00:01, irq=-1)
+Marvell 88E1121R dsa-0:00:02: attached PHY driver [Marvell 88E1121R] (mii_bus:phy_addr=dsa-0:00:02, irq=-1)
+Marvell 88E1112 dsa-0:00:05: attached PHY driver [Marvell 88E1112] (mii_bus:phy_addr=dsa-0:00:05, irq=-1)
+Marvell 88E1112 dsa-0:00:07: attached PHY driver [Marvell 88E1112] (mii_bus:phy_addr=dsa-0:00:07, irq=-1)
+
+Like above (since 4.7 seems to use DSA_TAG_PROTO_EDSA), there's no 
+traffic visible with tcpdump on lan1/4 (broadcast or unicast), only 
+broadcast traffic on the backing port, eth0.
+
+# cat /sys/kernel/debug/mv88e6xxx.0/regs
+     GLOBAL GLOBAL2 SERDES     0    1    2    3    4    5    6    7
+  0:  c800       0       0  7080 7d80 7080 6e88 6086 7e86 6086 7086
+  1:    1b       0       0     3    3    3   3e  403  403  403  403
+  2:  2fd5       0       0     0    0    0    0    0    0    0    0
+  3:  9df4    ffff       0  1066 1066 1066 1066 1066 1066 1066 1066
+  4:  4000     191       0   433  433  433 3533  433  433  433  433
+  5:  1000      ff       0     0    0    0    0    0    0    0    0
+  6:  c000    1f0f       0   708  708  708  7f7  708  708  708  708
+  7:     0    70ff       0     0    0    0    0    0    0    0    0
+  8:     0    7800       0    83   83   83   c3   83   83   83   83
+  9:     0       0       0     1    1    1    1    1    1    1    1
+  a:  f148       0       0     0    0    0    0    0    0    0    0
+  b:  400f       0       0     1    2    4    0   10   20   40   80
+  c:     0       0       0     0    0    0    0    0    0    0    0
+  d:  ffff       0       0     0    0    0    0    0    0    0    0
+  e:  ffff       0       0     0    0    0    0    0    0    0    0
+  f:  ffff      77       0     0    0    0    0    0    0    0    0
+10:     0       0       0     0    0    0    0    0    0    0    0
+11:     0       0       0     0    0    0    0    0    0    0    0
+12:  5555       0       0     0    0    0   12    0    0    0    0
+13:  5555       0       0     0    0    0    0    0    0    0    0
+14:  aaaa       0       0   403  403  403 8403  403  403  403  403
+15:  aaaa       0       0     0    0    0    0    0    0    0    0
+16:  ffff       0       0   700  70d  700  700  f41  f0e  f41  f02
+17:  ffff       0       0     0    0    0    0    0    0    0    0
+18:  fa41       0       0  3210 3210 3210 3210 3210 3210 3210 3210
+19:  8100       0       0  7654 7654 7654 7654 7654 7654 7654 7654
+1a:  3330       0       0     -    -    -    -    -    -    -    -
+1b:    f4       0       0     -    -    -    -    -    -    -    -
+1c:  f000       0       0     -    -    -    -    -    -    -    -
+1d:  5c07       0       0     -    -    -    -    -    -    -    -
+1e:     0      f0       0     -    -    -    -    -    -    -    -
+1f:     0       0       0     -    -    -    -    -    -    -    -
+
+# cat /sys/kernel/debug/mv88e6xxx.0/stats
+                                (lan4)             (cpu)             (lan1)
+           Statistic   Port  0  Port  1  Port  2  Port  3  Port  4  Port  5  Port  6  Port  7
+      in_good_octets:        0     1064        0     1152        0   112155        0        0
+       in_bad_octets:        0        0        0        0        0        0        0        0
+          in_unicast:        0        0        0        0        0        0        0        0
+       in_broadcasts:        0        6        0       18        0      335        0        0
+       in_multicasts:        0        8        0        0        0      490        0        0
+            in_pause:        0        0        0        0        0        0        0        0
+        in_undersize:        0        0        0        0        0        0        0        0
+        in_fragments:        0        0        0        0        0        0        0        0
+         in_oversize:        0        0        0        0        0        0        0        0
+           in_jabber:        0        0        0        0        0        0        0        0
+         in_rx_error:        0        0        0        0        0        0        0        0
+        in_fcs_error:        0        0        0        0        0        0        0        0
+          out_octets:        0        0        0   131331        0        0        0        0
+         out_unicast:        0        0        0        0        0        0        0        0
+      out_broadcasts:        0        0        0      558        0        0        0        0
+      out_multicasts:        0        0        0      498        0        0        0        0
+           out_pause:        0        0        0        0        0        0        0        0
+           excessive:        0        0        0        0        0        0        0        0
+          collisions:        0        0        0        0        0        0        0        0
+            deferred:        0        0        0        0        0        0        0        0
+              single:        0        0        0        0        0        0        0        0
+            multiple:        0        0        0        0        0        0        0        0
+       out_fcs_error:        0        0        0        0        0        0        0        0
+                late:        0        0        0        0        0        0        0        0
+        hist_64bytes:        0        6        0       18        0      188        0        0
+    hist_65_127bytes:        0        8        0      440        0       69        0        0
+   hist_128_255bytes:        0        0        0      376        0      376        0        0
+   hist_256_511bytes:        0        0        0        0        0        0        0        0
+  hist_512_1023bytes:        0        0        0        0        0        0        0        0
+hist_1024_max_bytes:        0        0        0        0        0        0        0        0
+      sw_in_discards:        0        0        0        0        0        0        0        0
+      sw_in_filtered:        0        0        0       18        0        0        0        0
+     sw_out_filtered:        0        0        0        0        0        0        0        0
+
+# cat /sys/kernel/debug/mv88e6xxx.0/atu
+  FID  MAC Addr                  State         Trunk?  DPV/Trunk ID
+    0  (dhcp server)                    Age 6       n  - - - - - 5 - -
+    0  (access point)          Age 7 (newest)       n  - - - - - 5 - -
+    0  (laptop enp0)                    Age 4       n  - 1 - - - - - -
+    0  (android phone)                  Age 2       n  - - - - - 5 - -
+    0  (android phone)                  Age 5       n  - - - - - 5 - -
+    0  (openelec box w/kodi)   Age 7 (newest)       n  - - - - - 5 - -
+    0  (android phone)         Age 7 (newest)       n  - - - - - 5 - -
+    0  (laptop eth0)                    Age 5       n  - - - - - 5 - -
+    0  (android phone)                  Age 3       n  - - - - - 5 - -
+
+Apart from (laptop enp0), everything is on lan1/port 5. Let me know if 
+it's useful to shed the background noise and/or try something in 
+particular. Thanks for the help!
+
 >
->> Syscall Divert:
->> The idea here is to try to "lie" to the program about the environment. A
->> specific example is where I want to bypass certain calls like prctl during
->> debugging, to allow certain instructions to execute. I don't always have
->> access to the source of the containerizer I'm running, and it's nice to turn
->> them off during debugging.
+>    Andrew
 >
-> makes sense too.
-> so seccomp with write support is also not option here, because you actually
-> want to divert seccomp itself?
->
->
-Yeah, the only difference with seccomp is that the impact is isolated to a 
-group of processes versus the entire system. Though, kprobes require root, 
-whereas seccomp is accessible to others. It would be really nice to be 
-able to call bpf_probe_read from seccomp filters, and be able to filter on 
-things like the endpoint that people are connecting to. As it stands right 
-now, it would open up seccomp to a TOCTOU attack. I'm not sure
 
+[0] https://github.com/lentinj/linux/tree/wnr854t-support-v0b-net-next-experiment
+[1] https://github.com/lentinj/linux/tree/wnr854t-support-v0a-rebase-4.7-rc7
 
-If seccomp had full eBPF, and write support that'd solve most of my use 
-cases. As far as diverting diverting future syscall behaviour, if I could 
-just intercept those, and rewrite seccomp filters that'd solve the problem 
-too.
-
-I'm thinking of submitting something along the lines of the following 
-patch [WIP]. What do you think?
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index c4d9224..d435f7c 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -364,6 +364,17 @@ enum bpf_func_id {
-  	 */
-  	BPF_FUNC_get_current_task,
-
-+	/**
-+	 * copy_to_user(to, from, len) - Copy a block of data into user 
-space.
-+	 * @to: destination address in userspace
-+	 * @from: source address on stack
-+	 * @len: number of bytes to copy
-+	 * Return:
-+	 *   Returns number of bytes that could not be copied.
-+	 *   On success, this will be zero
-+	 */
-+	BPF_FUNC_copy_to_user,
-+
-  	__BPF_FUNC_MAX_ID,
-  };
-
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index ebfbb7d..be89c148 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -81,6 +81,30 @@ static const struct bpf_func_proto bpf_probe_read_proto 
-= {
-  	.arg3_type	= ARG_ANYTHING,
-  };
-
-+static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	void *to = (void *) (long) r1;
-+	void *from = (void *) (long) r2;
-+	int  size = (int) r3;
-+
-+	/* check if we're in a user context */
-+	if (unlikely(in_interrupt()))
-+		return -EINVAL;
-+	if (unlikely(!current->pid))
-+		return -EINVAL;
-+
-+	return copy_to_user(to, from, size);
-+}
-+
-+static const struct bpf_func_proto bpf_copy_to_user_proto = {
-+	.func = bpf_copy_to_user,
-+	.gpl_only = false,
-+	.ret_type = RET_INTEGER,
-+	.arg1_type = ARG_ANYTHING,
-+	.arg2_type = ARG_PTR_TO_RAW_STACK,
-+	.arg3_type = ARG_CONST_STACK_SIZE,
-+};
-+
-  /*
-   * limited trace_printk()
-   * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers 
-allowed
-@@ -360,6 +384,8 @@ static const struct bpf_func_proto 
-*tracing_func_proto(enum bpf_func_id func_id)
-  		return &bpf_get_smp_processor_id_proto;
-  	case BPF_FUNC_perf_event_read:
-  		return &bpf_perf_event_read_proto;
-+	case BPF_FUNC_copy_to_user:
-+		return &bpf_copy_to_user_proto;
-  	default:
-  		return NULL;
-  	}
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index a98b780..be2bab9 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -14,6 +14,7 @@ hostprogs-y += tracex3
-  hostprogs-y += tracex4
-  hostprogs-y += tracex5
-  hostprogs-y += tracex6
-+hostprogs-y += tracex7
-  hostprogs-y += trace_output
-  hostprogs-y += lathist
-  hostprogs-y += offwaketime
-@@ -35,6 +36,7 @@ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
-  tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
-  tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
-  tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
-+tracex7-objs := bpf_load.o libbpf.o tracex7_user.o
-  trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
-  lathist-objs := bpf_load.o libbpf.o lathist_user.o
-  offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
-@@ -54,6 +56,7 @@ always += tracex3_kern.o
-  always += tracex4_kern.o
-  always += tracex5_kern.o
-  always += tracex6_kern.o
-+always += tracex7_kern.o
-  always += trace_output_kern.o
-  always += tcbpf1_kern.o
-  always += lathist_kern.o
-@@ -78,6 +81,7 @@ HOSTLOADLIBES_tracex3 += -lelf
-  HOSTLOADLIBES_tracex4 += -lelf -lrt
-  HOSTLOADLIBES_tracex5 += -lelf
-  HOSTLOADLIBES_tracex6 += -lelf
-+HOSTLOADLIBES_tracex7 += -lelf
-  HOSTLOADLIBES_trace_output += -lelf -lrt
-  HOSTLOADLIBES_lathist += -lelf
-  HOSTLOADLIBES_offwaketime += -lelf
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 84e3fd9..a54a26c 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -41,6 +41,8 @@ static int (*bpf_perf_event_output)(void *ctx, void 
-*map, int index, void *data,
-  	(void *) BPF_FUNC_perf_event_output;
-  static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
-  	(void *) BPF_FUNC_get_stackid;
-+static int (*bpf_copy_to_user)(void *to, void *from, int size) =
-+	(void *) BPF_FUNC_copy_to_user;
-
-  /* llvm builtin functions that eBPF C program may use to
-   * emit BPF_LD_ABS and BPF_LD_IND instructions
-diff --git a/samples/bpf/tracex7_kern.c b/samples/bpf/tracex7_kern.c
-new file mode 100644
-index 0000000..c341a0a
---- /dev/null
-+++ b/samples/bpf/tracex7_kern.c
-@@ -0,0 +1,53 @@
-+/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <uapi/linux/bpf.h>
-+#include <linux/version.h>
-+#include "bpf_helpers.h"
-+
-+
-+struct bpf_map_def SEC("maps") dnat_map = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(struct sockaddr_in),
-+	.value_size = sizeof(struct sockaddr_in),
-+	.max_entries = 256,
-+};
-+
-+
-+/* kprobe is NOT a stable ABI
-+ * kernel functions can be removed, renamed or completely change 
-semantics.
-+ * Number of arguments and their positions can change, etc.
-+ * In such case this bpf+kprobe example will no longer be meaningful
-+ *
-+ * This example sits on a syscall, and the syscall ABI is relatively 
-stable
-+ * of course, across platforms, and over time, the ABI may change.
-+ */
-+SEC("kprobe/sys_connect")
-+int bpf_prog1(struct pt_regs *ctx)
-+{
-+	struct sockaddr_in new_addr, orig_addr = {};
-+	struct sockaddr_in *mapped_addr;
-+	void *sockaddr_arg = (void *)PT_REGS_PARM2(ctx);
-+	int sockaddr_len = (int)PT_REGS_PARM3(ctx);
-+
-+	if (sockaddr_len > sizeof(orig_addr))
-+		return 0;
-+
-+	if (bpf_probe_read(&orig_addr, sizeof(orig_addr), sockaddr_arg) != 
-0)
-+		return 0;
-+
-+	mapped_addr = bpf_map_lookup_elem(&dnat_map, &orig_addr);
-+	if (mapped_addr != NULL) {
-+		memcpy(&new_addr, mapped_addr, sizeof(new_addr));
-+		bpf_copy_to_user(sockaddr_arg, &new_addr, 
-sizeof(new_addr));
-+	}
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-+u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/tracex7_user.c b/samples/bpf/tracex7_user.c
-new file mode 100644
-index 0000000..167ee40
---- /dev/null
-+++ b/samples/bpf/tracex7_user.c
-@@ -0,0 +1,76 @@
-+#include <stdio.h>
-+#include <assert.h>
-+#include <linux/bpf.h>
-+#include <unistd.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+#include <sys/socket.h>
-+#include <string.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+
-+int main(int ac, char **argv)
-+{
-+	int serverfd, serverconnfd, clientfd;
-+	socklen_t sockaddr_len;
-+	struct sockaddr serv_addr, mapped_addr, tmp_addr;
-+	struct sockaddr_in *serv_addr_in, *mapped_addr_in, *tmp_addr_in;
-+	char filename[256];
-+	char *ip;
-+
-+	serv_addr_in = (struct sockaddr_in *)&serv_addr;
-+	mapped_addr_in = (struct sockaddr_in *)&mapped_addr;
-+	tmp_addr_in = (struct sockaddr_in *)&tmp_addr;
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	assert((serverfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
-+	assert((clientfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
-+
-+	/* Bind server to ephemeral port on lo */
-+	memset(&serv_addr, 0, sizeof(serv_addr));
-+	serv_addr_in->sin_family = AF_INET;
-+	serv_addr_in->sin_port = 0;
-+	serv_addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-+
-+	assert(bind(serverfd, &serv_addr, sizeof(serv_addr)) == 0);
-+
-+	sockaddr_len = sizeof(serv_addr);
-+	assert(getsockname(serverfd, &serv_addr, &sockaddr_len) == 0);
-+	ip = inet_ntoa(serv_addr_in->sin_addr);
-+	printf("Server bound to: %s:%d\n", ip, 
-ntohs(serv_addr_in->sin_port));
-+
-+	memset(&mapped_addr, 0, sizeof(mapped_addr));
-+	mapped_addr_in->sin_family = AF_INET;
-+	mapped_addr_in->sin_port = htons(5555);
-+	mapped_addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-+
-+	assert(bpf_update_elem(map_fd[0], &mapped_addr, &serv_addr,
-+		BPF_ANY) == 0);
-+
-+	assert(listen(serverfd, 5) == 0);
-+
-+	ip = inet_ntoa(mapped_addr_in->sin_addr);
-+	printf("Client connecting to: %s:%d\n", ip,
-+		ntohs(mapped_addr_in->sin_port));
-+	assert(connect(clientfd, &mapped_addr, sizeof(mapped_addr)) == 0);
-+
-+	sockaddr_len = sizeof(tmp_addr);
-+	ip = inet_ntoa(tmp_addr_in->sin_addr);
-+	assert((serverconnfd = accept(serverfd, &tmp_addr, &sockaddr_len)) 
-> 0);
-+	printf("Server received connection from: %s:%d\n", ip,
-+		ntohs(tmp_addr_in->sin_port));
-+
-+	sockaddr_len = sizeof(tmp_addr);
-+	assert(getpeername(clientfd, &tmp_addr, &sockaddr_len) == 0);
-+	ip = inet_ntoa(tmp_addr_in->sin_addr);
-+	printf("Client's peer address: %s:%d\n", ip,
-+		ntohs(tmp_addr_in->sin_port));
-+
-+	return 0;
-+}
+-- 
+Jamie Lentin
