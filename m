@@ -1,64 +1,439 @@
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Subject: RE: [PATCH v3 6/8] thunderbolt: Networking state machine
-Date: Sun, 17 Jul 2016 07:04:04 +0000
-Message-ID: <E607265CB020454880711A6F96C05A03893CEE28@hasmsx107.ger.corp.intel.com>
-References: <1468495702-7467-1-git-send-email-amir.jer.levy@intel.com>
- <1468495702-7467-7-git-send-email-amir.jer.levy@intel.com>
- <CAP=VYLoAUw+8B7BwzopBTeZjMYbZpOnUOE9tEnYH6718TjW_pQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	thunderbolt-linux <thunderbolt-linux@intel.com>,
-	"Westerberg, Mika" <mika.westerberg@intel.com>,
-	"Winkler, Tomas" <tomas.winkler@intel.com>
-To: "Gortmaker, Paul (Wind River)" <paul.gortmaker@windriver.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next 1/1] net_sched: Introduce skbmod action
+Date: Sun, 17 Jul 2016 04:41:24 -0400
+Message-ID: <1468744884-8246-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+	xiyou.wangcong@gmail.com, nikolay@cumulusnetworks.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10058 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751742AbcGQHEM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Jul 2016 03:04:12 -0400
-In-Reply-To: <CAP=VYLoAUw+8B7BwzopBTeZjMYbZpOnUOE9tEnYH6718TjW_pQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33637 "EHLO
+	mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbcGQIlv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 04:41:51 -0400
+Received: by mail-qt0-f194.google.com with SMTP id j37so5739091qta.0
+        for <netdev@vger.kernel.org>; Sun, 17 Jul 2016 01:41:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBKdWwgMTUgMjAxNiwgMDM6MjUgQU0sIFBhdWwgR29ydG1ha2VyIHdyb3RlOg0KPiA+
-IGRpZmYgLS1naXQgYS9kcml2ZXJzL3RodW5kZXJib2x0L2ljbS9uZXQuYw0KPiA+IGIvZHJpdmVy
-cy90aHVuZGVyYm9sdC9pY20vbmV0LmMgbmV3IGZpbGUgbW9kZSAxMDA2NDQgaW5kZXgNCj4gPiAw
-MDAwMDAwLi5lOTgzZGZiDQo+ID4gLS0tIC9kZXYvbnVsbA0KPiA+ICsrKyBiL2RyaXZlcnMvdGh1
-bmRlcmJvbHQvaWNtL25ldC5jDQo+ID4gQEAgLTAsMCArMSw4MDIgQEANCj4gPg0KPiArLyoqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KPiAq
-KioqKioqKioqKg0KPiA+ICsqKioqKioqKioqKg0KPiA+ICsgKg0KPiA+ICsgKiBJbnRlbCBUaHVu
-ZGVyYm9sdChUTSkgZHJpdmVyDQo+ID4gKyAqIENvcHlyaWdodChjKSAyMDE0IC0gMjAxNiBJbnRl
-bCBDb3Jwb3JhdGlvbi4NCj4gPiArICoNCj4gPiArICogVGhpcyBwcm9ncmFtIGlzIGZyZWUgc29m
-dHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vcg0KPiA+ICttb2RpZnkgaXQNCj4g
-PiArICogdW5kZXIgdGhlIHRlcm1zIGFuZCBjb25kaXRpb25zIG9mIHRoZSBHTlUgR2VuZXJhbCBQ
-dWJsaWMgTGljZW5zZSwNCj4gPiArICogdmVyc2lvbiAyLCBhcyBwdWJsaXNoZWQgYnkgdGhlIEZy
-ZWUgU29mdHdhcmUgRm91bmRhdGlvbi4NCj4gPiArICoNCj4gPiArICogVGhpcyBwcm9ncmFtIGlz
-IGRpc3RyaWJ1dGVkIGluIHRoZSBob3BlIGl0IHdpbGwgYmUgdXNlZnVsLCBidXQNCj4gPiArV0lU
-SE9VVA0KPiA+ICsgKiBBTlkgV0FSUkFOVFk7IHdpdGhvdXQgZXZlbiB0aGUgaW1wbGllZCB3YXJy
-YW50eSBvZg0KPiBNRVJDSEFOVEFCSUxJVFkNCj4gPiArb3INCj4gPiArICogRklUTkVTUyBGT1Ig
-QSBQQVJUSUNVTEFSIFBVUlBPU0UuICBTZWUgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYw0KPiA+ICtM
-aWNlbnNlIGZvcg0KPiA+ICsgKiBtb3JlIGRldGFpbHMuDQo+ID4gKyAqDQo+ID4gKyAqIFlvdSBz
-aG91bGQgaGF2ZSByZWNlaXZlZCBhIGNvcHkgb2YgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNl
-bnNlDQo+ID4gK2Fsb25nDQo+ID4gKyAqIHdpdGggdGhpcyBwcm9ncmFtLiAgSWYgbm90LCBzZWUg
-PGh0dHA6Ly93d3cuZ251Lm9yZy9saWNlbnNlcy8+Lg0KPiA+ICsgKg0KPiA+ICsgKiBUaGUgZnVs
-bCBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSBpcyBpbmNsdWRlZCBpbiB0aGlzDQo+ID4gK2Rp
-c3RyaWJ1dGlvbiBpbg0KPiA+ICsgKiB0aGUgZmlsZSBjYWxsZWQgIkNPUFlJTkciLg0KPiA+ICsg
-Kg0KPiA+ICsgKiBDb250YWN0IEluZm9ybWF0aW9uOg0KPiA+ICsgKiBJbnRlbCBUaHVuZGVyYm9s
-dCBNYWlsaW5nIExpc3QgPHRodW5kZXJib2x0LXNvZnR3YXJlQGxpc3RzLjAxLm9yZz4NCj4gPiAr
-ICogSW50ZWwgQ29ycG9yYXRpb24sIDUyMDAgTi5FLiBFbGFtIFlvdW5nIFBhcmt3YXksIEhpbGxz
-Ym9ybywgT1INCj4gPiArOTcxMjQtNjQ5Nw0KPiA+ICsgKg0KPiA+ICsNCj4gPg0KPiArKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqDQo+ICoq
-KioqKioqKioqKg0KPiA+ICsqKioqKioqKiovDQo+ID4gKw0KPiA+ICsjaW5jbHVkZSA8bGludXgv
-bW9kdWxlLmg+DQo+IA0KPiBJIGRpZCBub3Qgc2VlIGFueXRoaW5nIGxpa2UgbW9kdWxlX2luaXQg
-aW4gdGhpcyBkcml2ZXI7ICBJIHRoaW5rIGl0IHNlZW1zIGxpa2UgeW91DQo+IHdhbnQgbGludXgv
-bW9kdWxlcGFyYW0uaCBoZXJlLg0KPiANCg0KSGkgUGF1bCwNCkl0IGxvb2tzIGxpa2UgbGVmdG92
-ZXIgZnJvbSB0aGUgZWFybHkgZGV2ZWxvcG1lbnQgc3RhZ2VzLg0KSSdsbCByZW1vdmUgaXQuDQpU
-aGUgbW9kdWxlX2luaXQgaXMgaW4gaWNtX25oaS5jLg0KDQpUaGFua3MsDQpBbWlyDQo=
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+
+This action is intended to be an upgrade from a usability perspective
+from pedit (as well as operational debugability).
+Compare this:
+
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action pedit munge offset -14 u8 set 0x02 \
+    munge offset -13 u8 set 0x15 \
+    munge offset -12 u8 set 0x15 \
+    munge offset -11 u8 set 0x15 \
+    munge offset -10 u16 set 0x1515 \
+    pipe
+
+to:
+
+sudo tc filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action skbmod dmac 02:15:15:15:15:15
+
+Or worse, try to debug a policy with destination mac, source mac and
+etherype. Then make that a hundred rules and you'll get my point.
+
+In the future common use cases on pedit can be migrated to this action
+(as an example different fields in ip v4/6, transports like tcp/udp/sctp
+etc). For this first cut, this allows modifying basic ethernet header.
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/tc_act/tc_skbmod.h        |  35 +++++
+ include/uapi/linux/tc_act/tc_skbmod.h |  47 +++++++
+ net/sched/Kconfig                     |  11 ++
+ net/sched/Makefile                    |   1 +
+ net/sched/act_skbmod.c                | 245 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 339 insertions(+)
+ create mode 100644 include/net/tc_act/tc_skbmod.h
+ create mode 100644 include/uapi/linux/tc_act/tc_skbmod.h
+ create mode 100644 net/sched/act_skbmod.c
+
+diff --git a/include/net/tc_act/tc_skbmod.h b/include/net/tc_act/tc_skbmod.h
+new file mode 100644
+index 0000000..661a107
+--- /dev/null
++++ b/include/net/tc_act/tc_skbmod.h
+@@ -0,0 +1,35 @@
++/*
++ * Copyright (c) 2016, Jamal Hadi Salim
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, see <http://www.gnu.org/licenses/>.
++ *
++ * Author: Jamal Hadi Salim <jhs@mojatatu.com>
++ */
++
++#ifndef __NET_TC_SKBMOD_H
++#define __NET_TC_SKBMOD_H
++
++#include <net/act_api.h>
++#include <linux/tc_act/tc_skbmod.h>
++
++struct tcf_skbmod {
++	struct tcf_common	common;
++	u32	flags;
++	u8	eth_dst[ETH_ALEN];
++	u16	eth_type;
++	u8	eth_src[ETH_ALEN];
++};
++#define to_skbmod(a) \
++	container_of(a->priv, struct tcf_skbmod, common)
++
++#endif /* __NET_TC_SKBMOD_H */
+diff --git a/include/uapi/linux/tc_act/tc_skbmod.h b/include/uapi/linux/tc_act/tc_skbmod.h
+new file mode 100644
+index 0000000..c268b94
+--- /dev/null
++++ b/include/uapi/linux/tc_act/tc_skbmod.h
+@@ -0,0 +1,47 @@
++/*
++ * Copyright (c) 2016, Jamal Hadi Salim
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
++ * Place - Suite 330, Boston, MA 02111-1307 USA.
++ *
++ * Author: Jamal Hadi Salim
++ */
++
++#ifndef __LINUX_TC_SKBMOD_H
++#define __LINUX_TC_SKBMOD_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_SKBMOD 15
++
++#define SKBMOD_F_DMAC	0x1
++#define SKBMOD_F_SMAC	0x2
++#define SKBMOD_F_ETYPE	0x4
++
++struct tc_skbmod {
++	tc_gen;
++};
++
++enum {
++	TCA_SKBMOD_UNSPEC,
++	TCA_SKBMOD_TM,
++	TCA_SKBMOD_PARMS,
++	TCA_SKBMOD_DMAC,
++	TCA_SKBMOD_SMAC,
++	TCA_SKBMOD_ETYPE,
++	TCA_SKBMOD_PAD,
++	__TCA_SKBMOD_MAX
++};
++#define TCA_SKBMOD_MAX (__TCA_SKBMOD_MAX - 1)
++
++#endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index b148302..ca0386c 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -739,6 +739,17 @@ config NET_ACT_CONNMARK
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called act_connmark.
+ 
++config NET_ACT_SKBMOD
++        tristate "skb data modification action"
++        depends on NET_CLS_ACT
++        ---help---
++	  Say Y here to allow modification of skb data
++
++	  If unsure, say N.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called act_skbmod.
++
+ config NET_ACT_IFE
+         tristate "Inter-FE action based on IETF ForCES InterFE LFB"
+         depends on NET_CLS_ACT
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 84bddb3..edead66 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -19,6 +19,7 @@ obj-$(CONFIG_NET_ACT_CSUM)	+= act_csum.o
+ obj-$(CONFIG_NET_ACT_VLAN)	+= act_vlan.o
+ obj-$(CONFIG_NET_ACT_BPF)	+= act_bpf.o
+ obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
++obj-$(CONFIG_NET_ACT_SKBMOD)	+= act_skbmod.o
+ obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
+ obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
+ obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
+diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
+new file mode 100644
+index 0000000..b8e88091
+--- /dev/null
++++ b/net/sched/act_skbmod.c
+@@ -0,0 +1,245 @@
++/*
++ * copyright Jamal Hadi Salim (2016)
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, see <http://www.gnu.org/licenses/>.
++ *
++ * Author: Jamal Hadi Salim <jhs@mojatatu.com>
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <net/netlink.h>
++#include <net/pkt_sched.h>
++
++#include <linux/tc_act/tc_skbmod.h>
++#include <net/tc_act/tc_skbmod.h>
++
++#define SKBMOD_TAB_MASK     15
++
++static int skbmod_net_id;
++
++static int tcf_skbmod_run(struct sk_buff *skb, const struct tc_action *a,
++			  struct tcf_result *res)
++{
++	struct tcf_skbmod *d = a->priv;
++
++	spin_lock(&d->tcf_lock);
++	tcf_lastuse_update(&d->tcf_tm);
++	bstats_update(&d->tcf_bstats, skb);
++
++	if (d->flags & SKBMOD_F_DMAC)
++		ether_addr_copy(eth_hdr(skb)->h_dest, d->eth_dst);
++	if (d->flags & SKBMOD_F_SMAC)
++		ether_addr_copy(eth_hdr(skb)->h_source, d->eth_src);
++	if (d->flags & SKBMOD_F_ETYPE)
++		eth_hdr(skb)->h_proto = d->eth_type;
++
++	spin_unlock(&d->tcf_lock);
++	return d->tcf_action;
++}
++
++static const struct nla_policy skbmod_policy[TCA_SKBMOD_MAX + 1] = {
++	[TCA_SKBMOD_PARMS]		= { .len = sizeof(struct tc_skbmod) },
++	[TCA_SKBMOD_DMAC]		= { .len = ETH_ALEN },
++	[TCA_SKBMOD_SMAC]		= { .len = ETH_ALEN },
++	[TCA_SKBMOD_ETYPE]		= { .type = NLA_U16 },
++};
++
++static int tcf_skbmod_init(struct net *net, struct nlattr *nla,
++			    struct nlattr *est, struct tc_action *a,
++			    int ovr, int bind)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++	struct nlattr *tb[TCA_SKBMOD_MAX + 1];
++	struct tc_skbmod *parm;
++	struct tcf_skbmod *d;
++	u32 flags = 0;
++	u8 *daddr = NULL;
++	u8 *saddr = NULL;
++	u16 eth_type = 0;
++
++	bool exists = false;
++	int ret = 0, err;
++
++	if (nla == NULL)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_SKBMOD_MAX, nla, skbmod_policy);
++	if (err < 0)
++		return err;
++
++	if (tb[TCA_SKBMOD_PARMS] == NULL)
++		return -EINVAL;
++
++	/*Allow zero valued mac */
++	if (tb[TCA_SKBMOD_DMAC]) {
++		daddr = nla_data(tb[TCA_SKBMOD_DMAC]);
++		flags |= SKBMOD_F_DMAC;
++	}
++
++	if (tb[TCA_SKBMOD_SMAC]) {
++		saddr = nla_data(tb[TCA_SKBMOD_SMAC]);
++		flags |= SKBMOD_F_SMAC;
++	}
++
++	if (tb[TCA_SKBMOD_ETYPE]) {
++		eth_type = nla_get_u16(tb[TCA_SKBMOD_ETYPE]);
++		flags |= SKBMOD_F_ETYPE;
++	}
++
++	if (!flags) {
++		return -EINVAL;
++	}
++
++	parm = nla_data(tb[TCA_SKBMOD_PARMS]);
++
++	exists = tcf_hash_check(tn, parm->index, a, bind);
++	if (exists && bind)
++		return 0;
++
++	if (!exists) {
++		ret = tcf_hash_create(tn, parm->index, est, a,
++				      sizeof(*d), bind, false);
++		if (ret)
++			return ret;
++
++		d = to_skbmod(a);
++		ret = ACT_P_CREATED;
++	} else {
++		d = to_skbmod(a);
++		tcf_hash_release(a, bind);
++		if (!ovr)
++			return -EEXIST;
++	}
++
++	spin_lock_bh(&d->tcf_lock);
++
++	d->flags = flags;
++	if (flags & SKBMOD_F_DMAC)
++		ether_addr_copy(d->eth_dst, daddr);
++	if (flags & SKBMOD_F_SMAC)
++		ether_addr_copy(d->eth_src, saddr);
++	if (flags & SKBMOD_F_ETYPE)
++		d->eth_type = htons(eth_type);
++
++	d->tcf_action = parm->action;
++
++	spin_unlock_bh(&d->tcf_lock);
++
++	if (ret == ACT_P_CREATED)
++		tcf_hash_insert(tn, a);
++	return ret;
++}
++
++static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
++			    int bind, int ref)
++{
++	unsigned char *b = skb_tail_pointer(skb);
++	struct tcf_skbmod *d = a->priv;
++	struct tc_skbmod opt = {
++		.index   = d->tcf_index,
++		.refcnt  = d->tcf_refcnt - ref,
++		.bindcnt = d->tcf_bindcnt - bind,
++		.action  = d->tcf_action,
++	};
++	struct tcf_t t;
++
++	if (nla_put(skb, TCA_SKBMOD_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++	if ((d->flags & SKBMOD_F_DMAC) &&
++	    nla_put(skb, TCA_SKBMOD_DMAC, ETH_ALEN, d->eth_dst))
++		goto nla_put_failure;
++	if ((d->flags & SKBMOD_F_SMAC) &&
++	    nla_put(skb, TCA_SKBMOD_SMAC, ETH_ALEN, d->eth_src))
++		goto nla_put_failure;
++	if ((d->flags & SKBMOD_F_ETYPE) &&
++	    nla_put_u16(skb, TCA_SKBMOD_ETYPE, ntohs(d->eth_type)))
++		goto nla_put_failure;
++
++	tcf_tm_dump(&t, &d->tcf_tm);
++	if (nla_put_64bit(skb, TCA_SKBMOD_TM, sizeof(t), &t, TCA_SKBMOD_PAD))
++		goto nla_put_failure;
++	return skb->len;
++
++nla_put_failure:
++	nlmsg_trim(skb, b);
++	return -1;
++}
++
++static int tcf_skbmod_walker(struct net *net, struct sk_buff *skb,
++			      struct netlink_callback *cb, int type,
++			      struct tc_action *a)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	return tcf_generic_walker(tn, skb, cb, type, a);
++}
++
++static int tcf_skbmod_search(struct net *net, struct tc_action *a, u32 index)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	return tcf_hash_search(tn, a, index);
++}
++
++static struct tc_action_ops act_skbmod_ops = {
++	.kind		=	"skbmod",
++	.type		=	TCA_ACT_SKBMOD,
++	.owner		=	THIS_MODULE,
++	.act		=	tcf_skbmod_run,
++	.dump		=	tcf_skbmod_dump,
++	.init		=	tcf_skbmod_init,
++	.walk		=	tcf_skbmod_walker,
++	.lookup		=	tcf_skbmod_search,
++};
++
++static __net_init int skbmod_init_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	return tc_action_net_init(tn, &act_skbmod_ops, SKBMOD_TAB_MASK);
++}
++
++static void __net_exit skbmod_exit_net(struct net *net)
++{
++	struct tc_action_net *tn = net_generic(net, skbmod_net_id);
++
++	tc_action_net_exit(tn);
++}
++
++static struct pernet_operations skbmod_net_ops = {
++	.init = skbmod_init_net,
++	.exit = skbmod_exit_net,
++	.id   = &skbmod_net_id,
++	.size = sizeof(struct tc_action_net),
++};
++
++MODULE_AUTHOR("Jamal Hadi Salim, <jhs@mojatatu.com>");
++MODULE_DESCRIPTION("SKB data mod-ing");
++MODULE_LICENSE("GPL");
++
++static int __init skbmod_init_module(void)
++{
++	return tcf_register_action(&act_skbmod_ops, &skbmod_net_ops);
++}
++
++static void __exit skbmod_cleanup_module(void)
++{
++	tcf_unregister_action(&act_skbmod_ops, &skbmod_net_ops);
++}
++
++module_init(skbmod_init_module);
++module_exit(skbmod_cleanup_module);
+-- 
+1.9.1
