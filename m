@@ -1,61 +1,41 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 1/1] net_sched: Introduce skbmod action
-Date: Mon, 18 Jul 2016 06:26:00 -0400
-Message-ID: <578CAEB8.9070805@mojatatu.com>
-References: <1468744884-8246-1-git-send-email-jhs@emojatatu.com>
- <20160718041933.GB36253@ast-mbp.thefacebook.com>
- <578C7C5C.2070804@mojatatu.com> <578CA4EB.7060703@iogearbox.net>
- <20160718100717.GB30532@pox.localdomain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, allow segmentation for local udp tunneled skbs
+Date: Mon, 18 Jul 2016 12:48:59 +0200
+Message-ID: <abb3f2be-e2bb-5683-d152-ff30fc53a306@stressinduktion.org>
+References: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
+ <27e9a6c3-1648-892c-bcaa-254e5332a42e@stressinduktion.org>
+ <20160718131111.6d4c0540@pixies>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, nikolay@cumulusnetworks.com
-To: Thomas Graf <tgraf@suug.ch>, Daniel Borkmann <daniel@iogearbox.net>
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	shmulik.ladkani@ravellosystems.com,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Westphal <fw@strlen.de>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:36310 "EHLO
-	mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751441AbcGRK0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 06:26:14 -0400
-Received: by mail-qk0-f196.google.com with SMTP id q8so10715192qke.3
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 03:26:14 -0700 (PDT)
-In-Reply-To: <20160718100717.GB30532@pox.localdomain>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57215 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750994AbcGRKtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 06:49:03 -0400
+In-Reply-To: <20160718131111.6d4c0540@pixies>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-07-18 06:07 AM, Thomas Graf wrote:
+On 18.07.2016 12:11, Shmulik Ladkani wrote:
+> On Mon, 18 Jul 2016 12:06:00 +0200, hannes@stressinduktion.org wrote:
+>>> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+>>
+>> I think this is reasonable, thanks!
+>>
+>> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> 
+> Thanks for the feedback and assistance.
+> 
+> I'll spin a v3 with a tiny coding change.
 
->
-> Right. I was at the same point as Jamal and it is nasty to try and
-> reverse engineer the dumps without any further hints. I assume that's
-> what he is referring to with difficulties.
->
+Ah, then you can make allow_frag bool, please.
 
-That +: if you get me a field which says "dstmac" i dont have to go
-and start aggregating 32bit chunks to create a 48bit MAC (or worse
-look at the offset and figure where they come from).
-
-> Looking back, I would simply calculate a SHA hash over the original
-> filter in text form, pass the hash together with the tc filter and then
-> associate the hash with the filter text stored in user space. This
-> would not only benefit pedit but also u32 and possibly others.
->
-
-A "cookie" tag that is sent to the kernel would serve the purpose.
-We would need to standardize what the meaning of such a cookie is.
-
-> It also has the advantage that extending the kernel once now will allow
-> to add additional higher level abstractions later on without requiring
-> users to rebase their kernels.
->
-
-Yes - and btw it works well with hardware offloads. It is a good free
-form "assembler" level. But i dont think it serves well when we have
-known often-used cases such as these.
-It is like doing tcp over raw sockets - at some point it becomes more
-efficient and more usable to just introduce tcp sockets. Thats all I
-am asking for.
-
-cheers,
-jamal
+Thanks,
+Hannes
