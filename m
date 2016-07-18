@@ -1,62 +1,44 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH 09/14] resource limits: track highwater mark of locked
-	memory
-Date: Mon, 18 Jul 2016 17:38:03 +0200
-Message-ID: <20160718153802.GA31174@redhat.com>
-References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com> <1468578983-28229-10-git-send-email-toiwoton@gmail.com> <20160715151408.GA32317@redhat.com> <5c43bc33-6625-ceb7-e96e-adf7df5b642c@gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 08:45:12 -0700
+Message-ID: <20160718154512.GK5871@two.firstfloor.org>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
+ <20160718151841.GA19066@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
-        Fenghua Yu <fenghua.yu@intel.com>, Paolo Bonzini <pbonzini@redhat.com>,
-        Radim =?utf-8?B?S3LEjW3DocWZ?= <rkrcmar@redhat.com>,
-        Alexander Graf <agraf@suse.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Christian Benvenuti <benve@cisco.com>,
-        Dave Goodell <dgoodell@cisco.com>, Sudeep Dutt <sudeep.dutt@intel.com>,
-        Ashutosh Dixit <ashutosh.dixit@intel.com>,
-        Alex Williamson <alex.williamson@redhat.com>,
-        Alexei Starovoitov
-To: Topi Miettinen <toiwoton@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: kan.liang@intel.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, jesse.brandeburg@intel.com, andi@firstfloor.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([193.170.194.197]:45780 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbcGRPpX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 11:45:23 -0400
 Content-Disposition: inline
-In-Reply-To: <5c43bc33-6625-ceb7-e96e-adf7df5b642c@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160718151841.GA19066@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/15, Topi Miettinen wrote:
->
-> On 07/15/16 15:14, Oleg Nesterov wrote:
-> >
-> > Btw this is not right. The same for the previous patch which tracks
-> > RLIMIT_STACK. The "current" task can debugger/etc.
->
-> acct_stack_growth() is called from expand_upwards() and
-> expand_downwards(). They call security_mmap_addr() and the various LSM
-> implementations also use current task in the checks. Are these also not
-> right?
+> It seems strange to me to add such policies to the kernel.
+> Addmittingly, documentation of some settings is non-existent and one needs
+> various different tools to set this (sysctl, procfs, sysfs, ethtool, etc).
 
-Just suppose that the stack grows because you read/write to /proc/pid/mem.
+The problem is that different applications need different policies.
 
-> > Yes, yes, this just reminds that the whole rlimit logic in this path
-> > is broken but still...
->
-> I'd be happy to fix the logic with a separate prerequisite patch and
-> then use the right logic for this patch, but I'm not sure I know how.
-> Could you elaborate a bit?
+The only entity which can efficiently negotiate between different
+applications' conflicting requests is the kernel. And that is pretty 
+much the basic job description of a kernel: multiplex hardware
+efficiently between different users.
 
-If only I Knew how to fix this ;) I mean, if only I could suggest a
-simple fix. Because IMHO we do not really care, rlimts are obsolete.
+So yes the user space tuning approach works for simple cases
+("only run workloads that require the same tuning"), but is ultimately not
+very interesting nor scalable.
 
-Oleg.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-Andi
