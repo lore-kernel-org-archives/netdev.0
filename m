@@ -1,41 +1,84 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, allow segmentation for local udp tunneled skbs
-Date: Mon, 18 Jul 2016 12:48:59 +0200
-Message-ID: <abb3f2be-e2bb-5683-d152-ff30fc53a306@stressinduktion.org>
-References: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
- <27e9a6c3-1648-892c-bcaa-254e5332a42e@stressinduktion.org>
- <20160718131111.6d4c0540@pixies>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: [PATCH 1/1] tracing, bpf: Implement function bpf_probe_write
+Date: Mon, 18 Jul 2016 03:57:17 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1607180330330.5362@ircssh.c.rugged-nimbus-611.internal>
+References: <CAMp4zn8ygXFg7kvjShm77zmK2dYVMY2zS8i2mUKwhbfXcyVyig@mail.gmail.com> <20160713170849.GA76615@ast-mbp.thefacebook.com> <alpine.DEB.2.02.1607131230210.19550@ircssh.c.rugged-nimbus-611.internal> <20160715054025.GA99435@ast-mbp>
+ <alpine.DEB.2.02.1607151552400.24930@ircssh.c.rugged-nimbus-611.internal> <20160716023035.GA19373@ast-mbp.thefacebook.com> <alpine.DEB.2.02.1607161729010.12799@ircssh.c.rugged-nimbus-611.internal> <20160718041105.GA36253@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	shmulik.ladkani@ravellosystems.com,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:57215 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750994AbcGRKtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 06:49:03 -0400
-In-Reply-To: <20160718131111.6d4c0540@pixies>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160718041105.GA36253@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18.07.2016 12:11, Shmulik Ladkani wrote:
-> On Mon, 18 Jul 2016 12:06:00 +0200, hannes@stressinduktion.org wrote:
->>> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+
+
+On Sun, 17 Jul 2016, Alexei Starovoitov wrote:
+
+> On Sun, Jul 17, 2016 at 03:19:13AM -0700, Sargun Dhillon wrote:
 >>
->> I think this is reasonable, thanks!
->>
->> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> Thanks for the feedback and assistance.
-> 
-> I'll spin a v3 with a tiny coding change.
+>> +static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+>> +{
+>> +	void *to = (void *) (long) r1;
+>> +	void *from = (void *) (long) r2;
+>> +	int  size = (int) r3;
+>> +
+>> +	/* check if we're in a user context */
+>> +	if (unlikely(in_interrupt()))
+>> +		return -EINVAL;
+>> +	if (unlikely(!current->pid))
+>> +		return -EINVAL;
+>> +
+>> +	return copy_to_user(to, from, size);
+>> +}
+>
+> thanks for the patch, unfortunately it's not that straightforward.
+> copy_to_user might fault. Try enabling CONFIG_DEBUG_ATOMIC_SLEEP and
+> you'll see the splat since bpf programs are protected by rcu.
+> Also 'current' can be null and I'm not sure what current->pid does.
+> So the writing to user memory either has to be verified to avoid
+> sleeping and faults or we need to use something like task_work_add
+> mechanism. Ideas are certainly welcome.
+>
+>
+>From casual inspection, I can't find where current can be null when 
+in_interrupt() is false. Although, we can check before dereferencing it. 
+When not in a user context, the pid of the task struct returns 0.
 
-Ah, then you can make allow_frag bool, please.
+As far as preventing sleep, would the following alteration do? Or do we 
+actually need something more sophisticated?
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index be89c148..45878f3 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -86,14 +86,19 @@ static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, 
+u64 r4, u64 r5)
+         void *to = (void *) (long) r1;
+         void *from = (void *) (long) r2;
+         int  size = (int) r3;
++       struct task_struct *task = current;
 
-Thanks,
-Hannes
+         /* check if we're in a user context */
+         if (unlikely(in_interrupt()))
+                 return -EINVAL;
+-       if (unlikely(!current->pid))
++       if (unlikely(!task || !task->pid))
+                 return -EINVAL;
+
+-       return copy_to_user(to, from, size);
++       /* Is this a user address, or a kernel address? */
++       if (!access_ok(VERIFY_WRITE, to, size))
++               return -EINVAL;
++
++       return probe_kernel_write(to, from, size);
+  }
+
+  static const struct bpf_func_proto bpf_copy_to_user_proto = {
+
+
+probe_kernel_write doesn't block, and this will disallow BPF programs to 
+write to kernel memory. This turns off the pagefault handler under the 
+hood, unblocking us.
