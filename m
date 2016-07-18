@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC PATCH 30/30] Documentation/networking: Document net policy
-Date: Sun, 17 Jul 2016 23:56:24 -0700
-Message-ID: <1468824984-65318-31-git-send-email-kan.liang@intel.com>
+Subject: [RFC PATCH 28/30] net/netpolicy: optimize for queue pair
+Date: Sun, 17 Jul 2016 23:56:22 -0700
+Message-ID: <1468824984-65318-29-git-send-email-kan.liang@intel.com>
 References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -13,182 +13,67 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	andi@firstfloor.org, Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:18996 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752082AbcGROXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 10:23:36 -0400
 In-Reply-To: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
+Some drivers like i40e driver does not support separate tx and rx queues
+as channels. Using rx queue to stand for the channels, if queue_pair is
+set by driver.
+
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- Documentation/networking/netpolicy.txt | 158 +++++++++++++++++++++++++++++++++
- 1 file changed, 158 insertions(+)
- create mode 100644 Documentation/networking/netpolicy.txt
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 +++
+ include/linux/netpolicy.h                   | 1 +
+ net/core/netpolicy.c                        | 3 +++
+ 3 files changed, 7 insertions(+)
 
-diff --git a/Documentation/networking/netpolicy.txt b/Documentation/networking/netpolicy.txt
-new file mode 100644
-index 0000000..2ce938e
---- /dev/null
-+++ b/Documentation/networking/netpolicy.txt
-@@ -0,0 +1,158 @@
-+What is Linux Net Policy?
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d3f087d..f03d9f6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9009,6 +9009,9 @@ static int i40e_ndo_netpolicy_init(struct net_device *dev,
+ 	/* support MIX policy */
+ 	info->has_mix_policy = true;
+ 
++	/* support queue pair */
++	info->queue_pair = true;
 +
-+It is a big challenge to get good network performance. First, the network
-+performance is not good with default system settings. Second, it is too
-+difficult to do automatic tuning for all possible workloads, since workloads
-+have different requirements. Some workloads may want high throughput. Some may
-+need low latency. Last but not least, there are lots of manual configurations.
-+Fine grained configuration is too difficult for users.
+ 	return 0;
+ }
+ 
+diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
+index fa740b5..2de59a6 100644
+--- a/include/linux/netpolicy.h
++++ b/include/linux/netpolicy.h
+@@ -75,6 +75,7 @@ struct netpolicy_info {
+ 	enum netpolicy_name	cur_policy;
+ 	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
+ 	bool	has_mix_policy;
++	bool	queue_pair;
+ 	/* cpu and queue mapping information */
+ 	struct netpolicy_sys_info	sys_info;
+ 	/* List of policy objects 0 rx 1 tx */
+diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
+index a63ccd4..83242d3 100644
+--- a/net/core/netpolicy.c
++++ b/net/core/netpolicy.c
+@@ -398,6 +398,9 @@ int netpolicy_pick_queue(struct netpolicy_reg *reg, bool is_rx)
+ 	    (current->task_netpolicy.policy != reg->policy))
+ 		return -EINVAL;
+ 
++	if (dev->netpolicy->queue_pair)
++		is_rx = true;
 +
-+"NET policy" intends to simplify the network configuration and get a
-+good network performance according to the hints(policy) which is applied by
-+user. It provides some typical "policies" for user which can be set
-+per-socket, per-task or per-device. The kernel will automatically figures out
-+how to merge different requests to get good network performance.
-+
-+"Net policy" is designed for multiqueue network devices. This document
-+describes the concepts and APIs of "net policy" support.
-+
-+NET POLICY CONCEPTS
-+
-+Scope of Net Policies
-+
-+    Device net policy: this policy applies to the whole device. Once the
-+    device net policy is set, it automatically configures the system
-+    according to the applied policy. The configuration usually includes irq
-+    affinity, irq balance disable, interrupt moderation, and so on. But the
-+    device net policy does not change the packet direction.
-+
-+    Task net policy: this is a per-task policy. When it is applied to specific
-+    task, all packets transmissions of the task will be redirect to the
-+    assigned queues accordingly. If a task does not define a task policy,
-+    it "falls back" to the system default way to direct the packets. The
-+    per-task policy must be compatible with device net policy.
-+
-+    Socket net policy: this is a per-socket policy. When it is applied to
-+    specific socket, all packets transmissions of the socket will be redirect
-+    to the assigned queues accordingly. If a socket does not define a socket
-+    policy, it "falls back" to the system default way to direct the packets.
-+    The per-socket policy must be compatible with both device net policy and
-+    per-task policy.
-+
-+Components of Net Policies
-+
-+    Net policy object: it is a combination of cpu and queue. The queue irq has
-+    to set affinity with the cpu. It can be shared between sockets and tasks.
-+    A reference counter is used to track the sharing number.
-+
-+    Net policy object list: each device policy has an object list. Once the
-+    device policy is determined, the net policy object will be inserted into
-+    the net policy object list. The net policy object list does not change
-+    unless the cpu/queue number is changed, the netpolicy is disabled or
-+    the device policy is changed.
-+    The network performance for objects could be different because of the
-+    queue/cpu topology and dev location. The objects which can bring high
-+    performance are in the front of the list.
-+
-+    RCU hash table: a RCU hash table to maintain the relationship between
-+    the task/socket and the assigned object. The task/socket can get the
-+    assigned object by searching the table.
-+    If it is the first time, there is no assigned object in the table. It will
-+    go through the object list to find the available object based on position
-+    and reference number.
-+    If the net policy object list changes, all the assigned object will become
-+    invalid.
-+
-+NET POLICY APIs
-+
-+Interfaces between net policy and device driver
-+
-+    int (*ndo_netpolicy_init)(struct net_device *dev,
-+                              struct netpolicy_info *info);
-+
-+    The device driver who has NET policy support must implement this interface.
-+    In this interface, the device driver do necessory initialization, and fill
-+    the info for net policy module. The information could inlcude supported
-+    policy, MIX policy support, queue pair support and so on.
-+
-+    int (*ndo_get_irq_info)(struct net_device *dev,
-+                            struct netpolicy_dev_info *info);
-+
-+    This interface is used to get more accurate device irq information.
-+
-+    int (*ndo_set_net_policy)(struct net_device *dev,
-+                              enum netpolicy_name name);
-+
-+    This interface is used to set device net policy by name
-+
-+Interfaces between net policy and kernel
-+
-+    int netpolicy_register(struct netpolicy_reg *reg);
-+    void netpolicy_unregister(struct netpolicy_reg *reg);
-+
-+    This interface is used to register per task/socket net policy.
-+    If it's the first time to register, an record will be created and inserted
-+    into RCU hash table. The record includes ptr, policy and object
-+    information. There is only one user for each record. The record cannot be
-+    share.
-+
-+
-+    int netpolicy_pick_queue(struct netpolicy_reg *reg, bool is_rx);
-+
-+    This interface is used to find the proper queue(object) for packet
-+    receiving and transmitting. The proper queue is picked from object list
-+    according to policy, reference, location and so on.
-+
-+
-+    int netpolicy_set_rules(struct netpolicy_reg *reg,
-+                            u32 queue_index,
-+                            struct netpolicy_flow_spec *flow);
-+
-+    This interface is used to add device specific rules. Once the rule is
-+    applied, the packet from specific IP and port will be redirect to the
-+    given queue. This interface usually be used in receive side.
-+
-+NET POLICY INTERFACE
-+
-+Device net policy setting
-+
-+    /proc/net/netpolicy/$DEV/policy
-+
-+    Concatenating(cat) the "policy" file can show the available device
-+    policies, if there is no device policy applied. Otherwise, the device
-+    policy name will be print out. If it is MIX policy, the policy for each
-+    queue will also be print out.
-+    User can set device net policy by writing policy name.
-+
-+Task policy setting
-+
-+    /proc/$PID/net_policy
-+
-+    Concatenating(cat) the "net_policy" file can show the applied per task
-+    policy.
-+    User can set per task net policy by writing policy name.
-+
-+    OR
-+
-+    prctl(PR_SET_NETPOLICY, POLICY_NAME, NULL, NULL, NULL)
-+
-+    "prctl" is an alternative way to set/get per task policy.
-+
-+Socket policy setting
-+
-+    setsockopt(sockfd,SOL_SOCKET,SO_NETPOLICY,&policy,sizeof(int))
-+
-+    The socket net policy can be set by option SO_NETPOLICY of setsockopt
-+
-+AVAILABLE NET POLICIES
-+
-+    The available net policies are defined as below:
-+    - CPU: intends to get higher throughput and lower CPU%. This policy can be
-+           applied as either device net policy or task/socket net policy.
-+    - BULK: intends to get highest throughput. This policy can be applied as
-+            either device net policy or task/socket net policy.
-+    - LATENCY: intends to get lowest latency. This policy can be applied as
-+               either device net policy or task/socket net policy.
-+    - MIX: combination of other policies, which allows each queue has
-+           different policy. This policy can only be set as device net policy.
-+
+ 	/* fast path */
+ 	read_lock(&np_sys_map_lock);
+ 	if (netpolicy_sys_map_version == reg->sys_map_version) {
 -- 
 2.5.5
