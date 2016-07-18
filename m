@@ -1,9 +1,9 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [iproute PATCH v5 3/5] Replace malloc && memset by calloc
-Date: Mon, 18 Jul 2016 10:10:09 -0600
-Message-ID: <abf02ad6-e20e-380d-8358-1c1d5c6a848c@cumulusnetworks.com>
+Subject: Re: [iproute PATCH v5 5/5] Makefile: Allow to override CC
+Date: Mon, 18 Jul 2016 10:10:42 -0600
+Message-ID: <9e98dfb1-c5a3-e43f-8b38-2e842e48fd4b@cumulusnetworks.com>
 References: <1468853325-9260-1-git-send-email-phil@nwl.cc>
- <1468853325-9260-4-git-send-email-phil@nwl.cc>
+ <1468853325-9260-6-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,38 +13,25 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
 To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:33360 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751590AbcGRQKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:10:13 -0400
-Received: by mail-io0-f173.google.com with SMTP id 38so163922867iol.0
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 09:10:13 -0700 (PDT)
-In-Reply-To: <1468853325-9260-4-git-send-email-phil@nwl.cc>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:36226 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441AbcGRQKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:10:45 -0400
+Received: by mail-io0-f179.google.com with SMTP id b62so163821694iod.3
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 09:10:44 -0700 (PDT)
+In-Reply-To: <1468853325-9260-6-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 7/18/16 8:48 AM, Phil Sutter wrote:
-> This only replaces occurrences where the newly allocated memory is
-> cleared completely afterwards, as in other cases it is a theoretical
-> performance hit although code would be cleaner this way.
+> This makes it easier to build iproute2 with a custom compiler.
+>
+> While at it, make HOSTCC default to the value of CC if not explicitly
+> set elsewhere.
 >
 > Signed-off-by: Phil Sutter <phil@nwl.cc>
 > ---
-> Changes since v2:
-> - Fix checkpatch errors.
-> ---
->  genl/genl.c        |  3 +--
->  lib/names.c        |  7 ++-----
->  misc/lnstat.c      |  6 ++----
->  misc/lnstat_util.c |  4 +---
->  tc/em_canid.c      |  4 ++--
->  tc/m_action.c      |  3 +--
->  tc/m_ipt.c         | 13 ++++---------
->  tc/m_pedit.c       |  3 +--
->  tc/tc.c            |  9 +++------
->  tc/tc_bpf.c        |  4 +---
->  tc/tc_class.c      |  3 +--
->  tc/tc_exec.c       |  3 +--
->  12 files changed, 20 insertions(+), 42 deletions(-)
+>  Makefile | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
 Acked-by: David Ahern <dsa@cumulusnetworks.com>
