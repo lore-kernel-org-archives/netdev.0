@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next v2 11/12] net: dsa: mv88e6xxx: add G1 helper for ageing time
-Date: Mon, 18 Jul 2016 14:46:27 -0400
-Message-ID: <20160718184628.13103-12-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2 net-next v2 10/12] net: dsa: support switchdev ageing time attr
+Date: Mon, 18 Jul 2016 14:46:26 -0400
+Message-ID: <20160718184628.13103-11-vivien.didelot@savoirfairelinux.com>
 References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,235 +14,68 @@ In-Reply-To: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All Marvell switch chips from (88E6060 to 88E6390) have a ATU Control
-register containing bits 11:4 to configure an ATU Age Time quotient.
+Add a new function for DSA drivers to implement to handle the switchdev
+SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
 
-However the coefficient used to calculate the ATU Age Time vary with the
-models. E.g. 88E6060, 88E6352 and 88E6390 use respectively 16, 15 and
-3.75 seconds.
-
-Add a age_time_coeff to the info structure to handle this and a Global 1
-helper to set the default age time of 5 minutes in the setup code.
+The ageing time is passed as milliseconds.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 58 ++++++++++++++++++++++++++++++++---
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
- 2 files changed, 54 insertions(+), 5 deletions(-)
+ include/net/dsa.h |  1 +
+ net/dsa/slave.c   | 22 ++++++++++++++++++++++
+ 2 files changed, 23 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index bc8d9a7..e2627a8 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2975,6 +2975,33 @@ static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
- 			       (addr[4] << 8) | addr[5]);
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 52ab18b..238fad9 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -329,6 +329,7 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Bridge integration
+ 	 */
++	int	(*set_ageing_time)(struct dsa_switch *ds, unsigned int msecs);
+ 	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
+ 				    struct net_device *bridge);
+ 	void	(*port_bridge_leave)(struct dsa_switch *ds, int port);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 7236eb2..1074cb6 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -333,6 +333,25 @@ static int dsa_slave_vlan_filtering(struct net_device *dev,
+ 	return 0;
  }
  
-+static int mv88e6xxx_g1_set_age_time(struct mv88e6xxx_chip *chip,
-+				     unsigned int msecs)
++static int dsa_slave_ageing_time(struct net_device *dev,
++				 const struct switchdev_attr *attr,
++				 struct switchdev_trans *trans)
 +{
-+	const unsigned int coeff = chip->info->age_time_coeff;
-+	const unsigned int min = 0x01 * coeff;
-+	const unsigned int max = 0xff * coeff;
-+	u8 age_time;
-+	u16 val;
-+	int err;
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	unsigned long ageing_jiffies = clock_t_to_jiffies(attr->u.ageing_time);
++	unsigned int ageing_time = jiffies_to_msecs(ageing_jiffies);
 +
-+	if (msecs < min || msecs > max)
-+		return -ERANGE;
++	/* bridge skips -EOPNOTSUPP, so skip the prepare phase */
++	if (switchdev_trans_ph_prepare(trans))
++		return 0;
 +
-+	/* Round to nearest multiple of coeff */
-+	age_time = (msecs + coeff / 2) / coeff;
++	if (ds->drv->set_ageing_time)
++		return ds->drv->set_ageing_time(ds, ageing_time);
 +
-+	err = mv88e6xxx_read(chip, REG_GLOBAL, GLOBAL_ATU_CONTROL, &val);
-+	if (err)
-+		return err;
-+
-+	/* AgeTime is 11:4 bits */
-+	val &= ~0xff0;
-+	val |= age_time << 4;
-+
-+	return mv88e6xxx_write(chip, REG_GLOBAL, GLOBAL_ATU_CONTROL, val);
++	return 0;
 +}
 +
- static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- {
- 	struct dsa_switch *ds = chip->ds;
-@@ -3012,18 +3039,22 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
-+	/* Clear all the VTU and STU entries */
-+	err = _mv88e6xxx_vtu_stu_flush(chip);
-+	if (err < 0)
-+		return err;
-+
- 	/* Set the default address aging time to 5 minutes, and
- 	 * enable address learn messages to be sent to all message
- 	 * ports.
- 	 */
--	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_ATU_CONTROL,
--				   0x0140 | GLOBAL_ATU_CONTROL_LEARN2ALL);
-+	err = mv88e6xxx_write(chip, REG_GLOBAL, GLOBAL_ATU_CONTROL,
-+			      GLOBAL_ATU_CONTROL_LEARN2ALL);
- 	if (err)
- 		return err;
- 
--	/* Clear all the VTU and STU entries */
--	err = _mv88e6xxx_vtu_stu_flush(chip);
--	if (err < 0)
-+	err = mv88e6xxx_g1_set_age_time(chip, 300000);
-+	if (err)
- 		return err;
- 
- 	/* Clear all ATU entries */
-@@ -3639,6 +3670,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 10,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
- 	},
- 
-@@ -3649,6 +3681,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 256,
- 		.num_ports = 11,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6095,
- 	},
- 
-@@ -3659,6 +3692,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 3,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	},
- 
-@@ -3669,6 +3703,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 256,
- 		.num_ports = 8,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
- 	},
- 
-@@ -3679,6 +3714,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 6,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	},
- 
-@@ -3689,6 +3725,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 6,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	},
- 
-@@ -3699,6 +3736,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
- 
-@@ -3709,6 +3747,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
- 
-@@ -3719,6 +3758,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
- 
-@@ -3729,6 +3769,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
- 
-@@ -3739,6 +3780,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 256,
- 		.num_ports = 10,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
- 	},
- 
-@@ -3749,6 +3791,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
- 
-@@ -3759,6 +3802,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 	},
- 
-@@ -3769,6 +3813,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 	},
- 
-@@ -3779,6 +3824,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
- 
-@@ -3789,6 +3835,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
- 
-@@ -3799,6 +3846,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.num_databases = 4096,
- 		.num_ports = 7,
- 		.port_base_addr = 0x10,
-+		.age_time_coeff = 15000,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
- };
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 9ea5363..899ca1d 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -568,6 +568,7 @@ struct mv88e6xxx_info {
- 	unsigned int num_databases;
- 	unsigned int num_ports;
- 	unsigned int port_base_addr;
-+	unsigned int age_time_coeff;
- 	unsigned long flags;
- };
- 
+ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 				   const struct switchdev_attr *attr,
+ 				   struct switchdev_trans *trans)
+@@ -346,6 +365,9 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
+ 		ret = dsa_slave_vlan_filtering(dev, attr, trans);
+ 		break;
++	case SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME:
++		ret = dsa_slave_ageing_time(dev, attr, trans);
++		break;
+ 	default:
+ 		ret = -EOPNOTSUPP;
+ 		break;
 -- 
 2.9.0
