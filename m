@@ -1,77 +1,85 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC PATCH 00/30] Kernel NET policy
-Date: Mon, 18 Jul 2016 23:51:14 +0200
-Message-ID: <1468878674.1778899.669950273.69750E32@webmail.messagingengine.com>
-References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
- <20160718151841.GA19066@breakpoint.cc>
- <20160718154512.GK5871@two.firstfloor.org>
- <7a03a353-4c1e-2bb4-2550-f84fc4cc79ac@stressinduktion.org>
- <20160718194357.GL5871@two.firstfloor.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: Re: [PATCH 1/2] net: ethernet: marvell: pxa168_eth: use phydev from
+ struct net_device
+Date: Tue, 19 Jul 2016 00:00:27 +0200
+Message-ID: <578D517B.8090003@gmail.com>
+References: <1468791046-19567-1-git-send-email-tremyfr@gmail.com> <f1706f95-8135-d8ec-c65f-edc7d2d63e5e@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, kan.liang@intel.com,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, mingo@redhat.com,
-	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	akpm@linux-foundation.org, keescook@chromium.org,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
-	decot@googlers.com, jesse.brandeburg@intel.com
-To: Andi Kleen <andi@firstfloor.org>
+Cc: davem@davemloft.net, jszhang@marvell.com, mugunthanvnm@ti.com,
+	a@unstable.cc, fw@strlen.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:48737 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752099AbcGRVvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 17:51:16 -0400
-In-Reply-To: <20160718194357.GL5871@two.firstfloor.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34472 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbcGRWAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 18:00:34 -0400
+In-Reply-To: <f1706f95-8135-d8ec-c65f-edc7d2d63e5e@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi,
 
-On Mon, Jul 18, 2016, at 21:43, Andi Kleen wrote:
-> > I wonder if this can be attacked from a different angle. What would be
-> > missing to add support for this in user space? The first possibility
-> > that came to my mind is to just multiplex those hints in the kernel.
-> 
-> "just" is the handwaving part here -- you're proposing a micro kernel
-> approach where part of the multiplexing job that the kernel is doing
-> is farmed out to a message passing user space component.
-> 
-> I suspect this would be far more complicated to get right and
-> perform well than a straight forward monolithic kernel subsystem --
-> which is traditionally how Linux has approached things.
+On 18/07/16 12:14, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 7/18/2016 12:30 AM, Philippe Reynes wrote:
+>
+>> The private structure contain a pointer to phydev, but the structure
+>> net_device already contain such pointer. So we can remove the pointer
+>> phydev in the private structure, and update the driver to use the
+>> one contained in struct net_device.
+>>
+>> Signed-off-by: Philippe Reynes<tremyfr@gmail.com>
+>> ---
+>>   drivers/net/ethernet/marvell/pxa168_eth.c |   36 +++++++++++++----------------
+>>   1 files changed, 16 insertions(+), 20 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+>> index 54d5154..d466326 100644
+>> --- a/drivers/net/ethernet/marvell/pxa168_eth.c
+>> +++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+> [...]
+>> @@ -973,16 +972,17 @@ static int pxa168_init_phy(struct net_device *dev)
+>>   {
+>>   	struct pxa168_eth_private *pep = netdev_priv(dev);
+>>   	struct ethtool_cmd cmd;
+>> +	struct phy_device *phy = NULL;
+>
+>     Initializer not really needed.
 
-At the same time having any kind of policy in the kernel was also always
-avoided.
+You're right, the first line using phy is an assign, so it's not really usefull.
+  
+>>   	int err;
+>>
+>> -	if (pep->phy)
+>> +	if (dev->phydev)
+>>   		return 0;
+>>
+>> -	pep->phy = mdiobus_scan(pep->smi_bus, pep->phy_addr);
+>> -	if (IS_ERR(pep->phy))
+>> -		return PTR_ERR(pep->phy);
+>> +	phy = mdiobus_scan(pep->smi_bus, pep->phy_addr);
+>> +	if (IS_ERR(phy))
+>> +		return PTR_ERR(phy);
+>>
+>> -	err = phy_connect_direct(dev, pep->phy, pxa168_eth_adjust_link,
+>> +	err = phy_connect_direct(dev, phy, pxa168_eth_adjust_link,
+>>   				 pep->phy_intf);
+>>   	if (err)
+>>   		return err;
+>
+>      Hm, where do you assign 'dev->phydev'?
 
-> The daemon would always need to work with out of date state
-> compared to the latest, because it cannot do any locking with the
-> kernel state.  So you end up with a complex distributed system with
-> multiple
-> agents "fighting" with each other, and the tuning agent
-> never being able to keep up with the actual work.
+dev-> phydev is assigned in phy_connect_direct. In fact, phy_connect_direct call
+phy_attach_direct, and this last function assign phydev to dev->phydev.
 
-But you don't want to have the tuning agents in the fast path? If you
-really try to synchronously update all queue mappings/irqs during socket
-creation or connect time this would add rtnl lock to basically socket
-creation, as drivers require that. This would slow down basic socket
-operations a lot and synchronize them with the management interface.
+> [...]
+>
+> MBR, Sergei
+>
 
-Even dst_entries are not synchronously updated anymore nowadays as that
-would require too much locking overhead in the kernel.
-
-> Also of course it would be fundamentally less efficient than
-> kernel code doing that, just because of the additional context
-> switches needed.
-
-Synchronizing or configuring any kind of queues already requires
-rtnl_mutex. I didn't test it but acquiring rtnl mutex in inet_recvmsg is
-unlikely to fly performance wise and might even be very dangerous under
-DoS attacks (like I see in 24/30).
-
-Bye,
-Hannes
+Regards,
+Philippe
