@@ -1,70 +1,90 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [E1000-devel] [PATCH 1/1] ixgbevf: avoid checking hang when
-	performing hardware reset
-Date: Mon, 18 Jul 2016 22:30:29 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF2228664696ACAA19@ORSMSX116.amr.corp.intel.com>
-References: <1468849489-8407-1-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "zyjzyj2000@gmail.com" <zyjzyj2000@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: [PATCH resend] virtio-net: Remove more stack DMA
+Date: Mon, 18 Jul 2016 15:34:49 -0700
+Message-ID: <c2ebc30cc66aeccba56f6c49527c8a9fa04332cf.1468881101.git.luto@kernel.org>
+Cc: x86@kernel.org, Borislav Petkov <bp@alien8.de>,
+	linux-kernel@vger.kernel.org, Andy Lutomirski <luto@kernel.org>,
+	"Michael S . Tsirkin" <mst@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57618 "EHLO mga02.intel.com"
+Received: from mail.kernel.org ([198.145.29.136]:41794 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751290AbcGRWab convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 18:30:31 -0400
-In-Reply-To: <1468849489-8407-1-git-send-email-zyjzyj2000@gmail.com>
-Content-Language: en-US
+	id S1751290AbcGRWey (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 18:34:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: zyjzyj2000@gmail.com [mailto:zyjzyj2000@gmail.com]
-> Sent: Monday, July 18, 2016 6:45 AM
-> To: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org; Kirsher,
-> Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Subject: [E1000-devel] [PATCH 1/1] ixgbevf: avoid checking hang when
-> performing hardware reset
-> 
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
-> 
-> When performing hardware reset, it is not necessary to check hang.
-> Or else, the call trace will appear.
-> 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
-> ---
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index acc2401..d563d24 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> @@ -2792,9 +2792,14 @@ static void ixgbevf_reset_subtask(struct
-> ixgbevf_adapter *adapter)  static void ixgbevf_check_hang_subtask(struct
-> ixgbevf_adapter *adapter)  {
->  	struct ixgbe_hw *hw = &adapter->hw;
-> +	struct ixgbe_mbx_info *mbx = &hw->mbx;
->  	u32 eics = 0;
->  	int i;
-> 
-> +	/* When performing hardware reset, unnecessary to check hang. */
-> +	if (mbx->ops.check_for_rst(hw))
-> +		return;
-> +
->  	/* If we're down or resetting, just bail */
->  	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
->  	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
-> --
-> 2.7.4
-> 
-> 
+VLAN and MQ control was doing DMA from the stack.  Fix it.
 
-My concern with this patch is that the check_for_rst does a read to clear on the RSTD and RSTI bits.  So reading it in the service task may mean we miss this transition in the mailbox protocol.  Likewise it is possible they may have already been cleared and you won't even catch the state your looking for.
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Signed-off-by: Andy Lutomirski <luto@kernel.org>
+---
 
--Don Skidmore <donald.c.skidmore@intel.com>
+I tested VLAN addition and removal with CONFIG_VMAP_STACK=y,
+CONFIG_DEBUG_SG=y and it got rid of the warnings I saw.  I haven't
+tested the MQ part because I don't know how to enable it in the first
+place (I'm guessing it needs me to enable some QEMU feature I don't
+know about.)
+
+DaveM, contrary to what I thought last time I sent this, I think this
+should go through net-next as long as it makes it in time for 4.8.
+
+ drivers/net/virtio_net.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index e0638e556fe7..5044ca37d725 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -144,8 +144,10 @@ struct virtnet_info {
+ 	/* Control VQ buffers: protected by the rtnl lock */
+ 	struct virtio_net_ctrl_hdr ctrl_hdr;
+ 	virtio_net_ctrl_ack ctrl_status;
++	struct virtio_net_ctrl_mq ctrl_mq;
+ 	u8 ctrl_promisc;
+ 	u8 ctrl_allmulti;
++	u16 ctrl_vid;
+ 
+ 	/* Ethtool settings */
+ 	u8 duplex;
+@@ -1116,14 +1118,13 @@ static void virtnet_ack_link_announce(struct virtnet_info *vi)
+ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+ {
+ 	struct scatterlist sg;
+-	struct virtio_net_ctrl_mq s;
+ 	struct net_device *dev = vi->dev;
+ 
+ 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+ 		return 0;
+ 
+-	s.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
+-	sg_init_one(&sg, &s, sizeof(s));
++	vi->ctrl_mq.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
++	sg_init_one(&sg, &vi->ctrl_mq, sizeof(vi->ctrl_mq));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
+ 				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg)) {
+@@ -1230,7 +1231,8 @@ static int virtnet_vlan_rx_add_vid(struct net_device *dev,
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct scatterlist sg;
+ 
+-	sg_init_one(&sg, &vid, sizeof(vid));
++	vi->ctrl_vid = vid;
++	sg_init_one(&sg, &vi->ctrl_vid, sizeof(vi->ctrl_vid));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+ 				  VIRTIO_NET_CTRL_VLAN_ADD, &sg))
+@@ -1244,7 +1246,8 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev,
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct scatterlist sg;
+ 
+-	sg_init_one(&sg, &vid, sizeof(vid));
++	vi->ctrl_vid = vid;
++	sg_init_one(&sg, &vi->ctrl_vid, sizeof(vi->ctrl_vid));
+ 
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
+ 				  VIRTIO_NET_CTRL_VLAN_DEL, &sg))
+-- 
+2.7.4
