@@ -1,45 +1,38 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [RFC PATCH 00/30] Kernel NET policy
-Date: Mon, 18 Jul 2016 12:49:52 -0700
-Message-ID: <20160718194952.GM5871@two.firstfloor.org>
-References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
- <CAKgT0UfA6ShdVta615ZqH8WvedgxSd3SjA5nZ+5EZGROWYa_sg@mail.gmail.com>
- <37D7C6CF3E00A74B8858931C1DB2F07712C19831@SHSMSX103.ccr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Fix DMA channel misreporting for the Renesas
+ Ethernet drivers
+Date: Mon, 18 Jul 2016 12:57:33 -0700 (PDT)
+Message-ID: <20160718.125733.1494576785457064943.davem@davemloft.net>
+References: <8592210.gMERdmUlCp@wasted.cogentembedded.com>
+	<20160717.232451.295029329698830463.davem@davemloft.net>
+	<3244a329-1b48-4e09-7fe5-96d80b8a3d54@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Netdev <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"keescook@chromium.org" <keescook@chromium.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"gorcunov@openvz.org" <gorcunov@openvz.org>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"decot@googlers.com" <decot@googlers.com>,
-	"Brandeburg, J
-To: "Liang, Kan" <kan.liang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F07712C19831@SHSMSX103.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <3244a329-1b48-4e09-7fe5-96d80b8a3d54@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > So where is your policy for power saving?  From past experience I can tell you
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 18 Jul 2016 17:13:02 +0300
+
+> Hello.
 > 
-> There is no policy for power saving yet. I will add it to my todo list.
+> On 07/18/2016 09:24 AM, David Miller wrote:
+> 
+>>>    Here's a set of 2 patches against DaveM's 'net.git' repo fixing
+>>> up the DMA channel reporting by 'ifconfig'...
+>>
+>> Is some fixing some ifconfig output that is effectively meaningless
+>> appropriate for 'net'?
+> 
+>    I just don't know any more users of SIOCGIFMAP ioctl... ip?
+>    It seems to  also be used in net/core/rtnetlink.c...
 
-Yes it's interesting to consider. The main goal here is to maximize CPU
-idle residency? I wonder if that's that much different from the CPU policy.
+Who cares who uses it.  The important thing to ask is what in the
+world could they do with the value?
 
--Andi
+DMA masks have no meaning or usage since ISA times.
