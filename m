@@ -1,10 +1,12 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next v2 02/12] net: dsa: mv88e6xxx: split setup of
- Global 1 and 2
-Date: Mon, 18 Jul 2016 21:27:36 +0200
-Message-ID: <20160718192736.GI31103@lunn.ch>
+Subject: Re: [PATCH v2 net-next v2 12/12] net: dsa: mv88e6xxx: add support
+ for DSA ageing time
+Date: Mon, 18 Jul 2016 21:32:53 +0200
+Message-ID: <20160718193253.GJ31103@lunn.ch>
 References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
- <20160718184628.13103-3-vivien.didelot@savoirfairelinux.com>
+ <20160718184628.13103-13-vivien.didelot@savoirfairelinux.com>
+ <20160718191644.GG31103@lunn.ch>
+ <87d1malpcd.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -13,19 +15,19 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44937 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:44942 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751847AbcGRT1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 15:27:38 -0400
+	id S1751568AbcGRTc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 15:32:56 -0400
 Content-Disposition: inline
-In-Reply-To: <20160718184628.13103-3-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <87d1malpcd.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 18, 2016 at 02:46:18PM -0400, Vivien Didelot wrote:
-> Separate the setup of Global 1 and Global 2 internal SMI devices and add
-> a flag to describe the presence of this second registers set.
+> Nope, the bridge ageing time is not per-port, even though switchdev ops
+> are per-port by design. This is a switch-wide attribute.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+So you are saying the core is doing all the reference counting, etc,
+when swapping between fast and slow ageing?
 
-    Andrew
+     Andrew
