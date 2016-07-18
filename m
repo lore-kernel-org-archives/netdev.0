@@ -1,90 +1,106 @@
-From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH resend] virtio-net: Remove more stack DMA
-Date: Mon, 18 Jul 2016 15:34:49 -0700
-Message-ID: <c2ebc30cc66aeccba56f6c49527c8a9fa04332cf.1468881101.git.luto@kernel.org>
-Cc: x86@kernel.org, Borislav Petkov <bp@alien8.de>,
-	linux-kernel@vger.kernel.org, Andy Lutomirski <luto@kernel.org>,
-	"Michael S . Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [ovs-dev] [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Mon, 18 Jul 2016 15:34:52 -0700
+Message-ID: <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+ <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
+ <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com> <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>, Jiri Benc <jbenc@redhat.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:41794 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751290AbcGRWey (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 18:34:54 -0400
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:47193 "EHLO
+	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751993AbcGRWe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 18:34:58 -0400
+Received: from mfilter27-d.gandi.net (mfilter27-d.gandi.net [217.70.178.155])
+	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 1107BC5A55
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 00:34:56 +0200 (CEST)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+	by mfilter27-d.gandi.net (mfilter27-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id KExHF7dfzEyH for <netdev@vger.kernel.org>;
+	Tue, 19 Jul 2016 00:34:54 +0200 (CEST)
+Received: from mail-it0-f54.google.com (mail-it0-f54.google.com [209.85.214.54])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 65541C5A43
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 00:34:54 +0200 (CEST)
+Received: by mail-it0-f54.google.com with SMTP id j124so4062902ith.1
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 15:34:54 -0700 (PDT)
+In-Reply-To: <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VLAN and MQ control was doing DMA from the stack.  Fix it.
+On Sun, Jul 17, 2016 at 9:50 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> [CC Jiri Benc for portion regarding GRE]
+>
+> Hi Pravin,
+>
+> On Fri, Jul 15, 2016 at 02:07:37PM -0700, pravin shelar wrote:
+>> On Wed, Jul 13, 2016 at 12:31 AM, Simon Horman
+>> <simon.horman@netronome.com> wrote:
+>> > Hi Pravin,
+>> >
+>> > On Thu, Jul 07, 2016 at 01:54:15PM -0700, pravin shelar wrote:
+>> >> On Wed, Jul 6, 2016 at 10:59 AM, Simon Horman
+>> >> <simon.horman@netronome.com> wrote:
+>> >
+>> > ...
+>>
+>> >
+>> >> > diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+>> >> > index 0ea128eeeab2..86f2cfb19de3 100644
+>> >> > --- a/net/openvswitch/flow.c
+>> >> > +++ b/net/openvswitch/flow.c
+>> >> ...
+>> >>
+>> >> > @@ -723,9 +729,17 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
+>> >> >         key->phy.skb_mark = skb->mark;
+>> >> >         ovs_ct_fill_key(skb, key);
+>> >> >         key->ovs_flow_hash = 0;
+>> >> > +       key->phy.is_layer3 = skb->mac_len == 0;
+>> >>
+>> >> I do not think mac_len can be used. mac_header needs to be checked.
+>> >> ...
+>> >
+>> > Yes, indeed. The update to use skb_mac_header_was_set() here accidently
+>> > slipped into the following patch, sorry about that.
+>> >
+>> > With that change in place I believe that this patch is internally
+>> > consistent because mac_header and mac_len are set correctly by the
+>> > call to key_extract() which is called by ovs_flow_key_extract() just
+>> > after where the excerpt above ends.
+>> >
+>> > That said, I do think that it is possible to rely on skb_mac_header_was_set
+>> > throughout the datapath, including action processing etc... I have provided
+>> > an incremental patch - which I created on top of this entire series - at
+>> > the end of this email. If you prefer that approach I am happy to take it,
+>> > though I do feel that using mac_len leads to slightly cleaner code. Let me
+>> > know what you think.
+>> >
+>>
+>>
+>> I am not sure if you can use only mac_len to detect L3 packet. This
+>> does not work with MPLS packets, mac_len is used to account MPLS
+>> headers pushed on skb. Therefore in case of a MPLS header on L3
+>> packet, mac_len would be non zero and we have to look at either
+>> mac_header or some other metadata like is_layer3 flag from key to
+>> check for L3 packet.
+>
+> At least within OvS mac_len does not include the length of the MPLS label
+> stack. Rather, the MPLS label stack length is the difference between the
+> end of (mac_header + mac_len) and network_header.
+>
+> So I think that the scheme does work as mac_len is 0 if there is no L2
+> header regardless of if an MPLS label stack is present or not.
+>
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Signed-off-by: Andy Lutomirski <luto@kernel.org>
----
-
-I tested VLAN addition and removal with CONFIG_VMAP_STACK=y,
-CONFIG_DEBUG_SG=y and it got rid of the warnings I saw.  I haven't
-tested the MQ part because I don't know how to enable it in the first
-place (I'm guessing it needs me to enable some QEMU feature I don't
-know about.)
-
-DaveM, contrary to what I thought last time I sent this, I think this
-should go through net-next as long as it makes it in time for 4.8.
-
- drivers/net/virtio_net.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e0638e556fe7..5044ca37d725 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -144,8 +144,10 @@ struct virtnet_info {
- 	/* Control VQ buffers: protected by the rtnl lock */
- 	struct virtio_net_ctrl_hdr ctrl_hdr;
- 	virtio_net_ctrl_ack ctrl_status;
-+	struct virtio_net_ctrl_mq ctrl_mq;
- 	u8 ctrl_promisc;
- 	u8 ctrl_allmulti;
-+	u16 ctrl_vid;
- 
- 	/* Ethtool settings */
- 	u8 duplex;
-@@ -1116,14 +1118,13 @@ static void virtnet_ack_link_announce(struct virtnet_info *vi)
- static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
- {
- 	struct scatterlist sg;
--	struct virtio_net_ctrl_mq s;
- 	struct net_device *dev = vi->dev;
- 
- 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
- 		return 0;
- 
--	s.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
--	sg_init_one(&sg, &s, sizeof(s));
-+	vi->ctrl_mq.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
-+	sg_init_one(&sg, &vi->ctrl_mq, sizeof(vi->ctrl_mq));
- 
- 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
- 				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg)) {
-@@ -1230,7 +1231,8 @@ static int virtnet_vlan_rx_add_vid(struct net_device *dev,
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct scatterlist sg;
- 
--	sg_init_one(&sg, &vid, sizeof(vid));
-+	vi->ctrl_vid = vid;
-+	sg_init_one(&sg, &vi->ctrl_vid, sizeof(vi->ctrl_vid));
- 
- 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
- 				  VIRTIO_NET_CTRL_VLAN_ADD, &sg))
-@@ -1244,7 +1246,8 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev,
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct scatterlist sg;
- 
--	sg_init_one(&sg, &vid, sizeof(vid));
-+	vi->ctrl_vid = vid;
-+	sg_init_one(&sg, &vi->ctrl_vid, sizeof(vi->ctrl_vid));
- 
- 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
- 				  VIRTIO_NET_CTRL_VLAN_DEL, &sg))
--- 
-2.7.4
+I was thinking in overall networking stack rather than just ovs
+datapath. I think we should have consistent method of detecting L3
+packet. As commented in previous mail it could be achieved using
+skb-protocol and device type.
