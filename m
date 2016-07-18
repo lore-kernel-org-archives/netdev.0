@@ -1,30 +1,35 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
-Date: Mon, 18 Jul 2016 16:10:31 +0200
-Message-ID: <CAKfDRXjaSz25_b8Na46DJEDvGUsZ-Xye+Rn2+o6Hy0EcuOopkA@mail.gmail.com>
-References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com>
- <1468846886.2280.6.camel@suse.com> <CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
- <1468849802.2280.11.camel@suse.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 0/2] Fix DMA channel misreporting for the Renesas Ethernet
+ drivers
+Date: Mon, 18 Jul 2016 17:13:02 +0300
+Message-ID: <3244a329-1b48-4e09-7fe5-96d80b8a3d54@cogentembedded.com>
+References: <8592210.gMERdmUlCp@wasted.cogentembedded.com>
+ <20160717.232451.295029329698830463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468849802.2280.11.camel@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20160717.232451.295029329698830463.davem@davemloft.net>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 18, 2016 at 3:50 PM, Oliver Neukum <oneukum@suse.com> wrote:
-> No, you misunderstand me. I don't want quirks if we can avoid it.
-> But if you need to do this for rndis_host and cdc_ether and maybe other
-> drivers you should not be touching drivers. This belongs into the core
-> ethernet code. Your code is good, but you are putting it in the wrong
-> places.
+Hello.
 
-Ok, sounds good. So far, I have only seen the random MAC issue with
-the three previously mentioned devices, but who knows how many else is
-out there with the same error ... I don't think it should be in the
-core ethernet code, at least not yet, but I agree it would make sense
-to move it to for example usbnet_core(). If you agree, I can prepare a
-patch for it.
+On 07/18/2016 09:24 AM, David Miller wrote:
+
+>>    Here's a set of 2 patches against DaveM's 'net.git' repo fixing
+>> up the DMA channel reporting by 'ifconfig'...
+>
+> Is some fixing some ifconfig output that is effectively meaningless
+> appropriate for 'net'?
+
+    I just don't know any more users of SIOCGIFMAP ioctl... ip?
+    It seems to  also be used in net/core/rtnetlink.c...
+
+> Sounds like 'net-next' material to me.
+
+    Up to you, of course.
+
+MBR, Sergei
