@@ -1,74 +1,70 @@
-From: Amir Levy <amir.jer.levy@intel.com>
-Subject: [PATCH v4 3/7] thunderbolt: Kconfig for Thunderbolt(TM) networking
-Date: Mon, 18 Jul 2016 13:00:36 +0300
-Message-ID: <1468836040-28043-4-git-send-email-amir.jer.levy@intel.com>
-References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, thunderbolt-linux@intel.com,
-	mika.westerberg@intel.com, tomas.winkler@intel.com,
-	Amir Levy <amir.jer.levy@intel.com>
-To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
-	bhelgaas@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, allow segmentation for local udp tunneled skbs
+Date: Mon, 18 Jul 2016 12:06:00 +0200
+Message-ID: <27e9a6c3-1648-892c-bcaa-254e5332a42e@stressinduktion.org>
+References: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: shmulik.ladkani@ravellosystems.com,
+	Eric Dumazet <edumazet@google.com>,
+	Florian Westphal <fw@strlen.de>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:40198 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751490AbcGRKGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 06:06:03 -0400
+In-Reply-To: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Updating the Kconfig Thunderbolt(TM) description.
+On 15.07.2016 13:43, Shmulik Ladkani wrote:
+> Given:
+>  - tap0 and vxlan0 are bridged
+>  - vxlan0 stacked on eth0, eth0 having small mtu (e.g. 1400)
+> 
+> Assume GSO skbs arriving from tap0 having a gso_size as determined by
+> user-provided virtio_net_hdr (e.g. 1460 corresponding to VM mtu of 1500).
+> 
+> After encapsulation these skbs have skb_gso_network_seglen that exceed
+> eth0's ip_skb_dst_mtu.
+> 
+> These skbs are accidentally passed to ip_finish_output2 AS IS.
+> Alas, each final segment (segmented either by validate_xmit_skb or by
+> hardware UFO) would be larger than eth0 mtu.
+> As a result, those above-mtu segments get dropped on certain networks.
+> 
+> This behavior is not aligned with the NON-GSO case:
+> Assume a non-gso 1500-sized IP packet arrives from tap0. After
+> encapsulation, the vxlan datagram is fragmented normally at the
+> ip_finish_output-->ip_fragment code path.
+> 
+> The expected behavior for the GSO case would be segmenting the
+> "gso-oversized" skb first, then fragmenting each segment according to
+> dst mtu, and finally passing the resulting fragments to ip_finish_output2.
+> 
+> 'ip_finish_output_gso' already supports this "Slowpath" behavior,
+> but it is only considered if IPSKB_FORWARDED is set (which is not set in
+> the bridged case).
+> 
+> In order to support the bridged case, we'll mark skbs arriving from an
+> ingress interface that get udp-encaspulated as "allowed to be fragmented".
+> 
+> This mark (as well as the original IPSKB_FORWARDED mark) gets tested in
+> 'ip_finish_output_gso', in order to determine whether validating the
+> network seglen is needed.
+> 
+> Note the TUNNEL_DONT_FRAGMENT tun_flag is still honoured (both in the
+> gso and non-gso cases), which serves users wishing to forbid
+> fragmentation at the udp tunnel endpoint.
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
----
- drivers/thunderbolt/Kconfig  | 25 +++++++++++++++++++++----
- drivers/thunderbolt/Makefile |  2 +-
- 2 files changed, 22 insertions(+), 5 deletions(-)
+I think this is reasonable, thanks!
 
-diff --git a/drivers/thunderbolt/Kconfig b/drivers/thunderbolt/Kconfig
-index c121acc..d34b0f5 100644
---- a/drivers/thunderbolt/Kconfig
-+++ b/drivers/thunderbolt/Kconfig
-@@ -1,13 +1,30 @@
--menuconfig THUNDERBOLT
--	tristate "Thunderbolt support for Apple devices"
-+config THUNDERBOLT
-+	tristate "Thunderbolt(TM) support"
- 	depends on PCI
- 	select CRC32
- 	help
--	  Cactus Ridge Thunderbolt Controller driver
-+	  Thunderbolt(TM) Controller driver
-+
-+if THUNDERBOLT
-+
-+config THUNDERBOLT_APPLE
-+	tristate "Apple hardware support"
-+	help
- 	  This driver is required if you want to hotplug Thunderbolt devices on
- 	  Apple hardware.
- 
- 	  Device chaining is currently not supported.
- 
--	  To compile this driver a module, choose M here. The module will be
-+	  To compile this driver as a module, choose M here. The module will be
- 	  called thunderbolt.
-+
-+config THUNDERBOLT_ICM
-+	tristate "Thunderbolt(TM) Networking"
-+	help
-+	  This driver is required if you want Thunderbolt(TM) Networking on
-+	  non-Apple hardware.
-+
-+	  To compile this driver as a module, choose M here. The module will be
-+	  called thunderbolt_icm.
-+
-+endif
-diff --git a/drivers/thunderbolt/Makefile b/drivers/thunderbolt/Makefile
-index 5d1053c..7a85bd1 100644
---- a/drivers/thunderbolt/Makefile
-+++ b/drivers/thunderbolt/Makefile
-@@ -1,3 +1,3 @@
--obj-${CONFIG_THUNDERBOLT} := thunderbolt.o
-+obj-${CONFIG_THUNDERBOLT_APPLE} := thunderbolt.o
- thunderbolt-objs := nhi.o ctl.o tb.o switch.o cap.o path.o tunnel_pci.o eeprom.o
- 
--- 
-2.7.4
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
