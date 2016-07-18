@@ -1,62 +1,60 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
-Date: Mon, 18 Jul 2016 15:23:44 +0200
-Message-ID: <CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
-References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com> <1468846886.2280.6.camel@suse.com>
+From: Bob Copeland <me@bobcopeland.com>
+Subject: Re: [PATCH 3/3] mac80211: mesh: fixed HT ies in beacon template
+Date: Mon, 18 Jul 2016 09:38:24 -0400
+Message-ID: <20160718133824.GA11996@localhost>
+References: <20160713114542.24937-1-yanivma@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-usb@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468846886.2280.6.camel@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Meirav Kama <meiravk@ti.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Yaniv Machani <yanivma@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35471 "EHLO
+	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676AbcGRNic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 09:38:32 -0400
+Received: by mail-qk0-f194.google.com with SMTP id q62so12048631qkf.2
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 06:38:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160713114542.24937-1-yanivma@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jul 13, 2016 at 02:45:40PM +0300, Yaniv Machani wrote:
+> The HT capab info field inside the HT capab IE of the mesh beacon
+> is incorrect (in the case of 20MHz channel width).
+> To fix this driver will check configuration from cfg and
+> will build it accordingly.
 
-On Mon, Jul 18, 2016 at 3:01 PM, Oliver Neukum <oneukum@suse.com> wrote:
-> On Mon, 2016-07-18 at 14:24 +0200, Kristian Evensen wrote:
->> The firmware in the ZTE MF823/831/910 modems/mifis use OS fingerprinting to
->> determine which type of device to export. In addition, these devices export
->> a REST API which can also be used to control the type of device. So far, on
->> Linux, the devices have been seen as RNDIS or CDC Ether.
->>
->> When CDC Ether is used, devices of the same type are, as with RNDIS,
->> exported with the same, bogus random MAC address. In addition, the devices
->
-> Please explain. If the MAC is random, I fail to see why the host would
-> be any better at making up a MAC.
+> +    /* determine capability flags */
+> +	cap = sband->ht_cap.cap;
+> +
+> +    /* if channel width is 20MHz - configure HT capab accordingly*/
+> +	if (sdata->vif.bss_conf.chandef.width == NL80211_CHAN_WIDTH_20) {
+> +		cap &= ~IEEE80211_HT_CAP_SUP_WIDTH_20_40;
+> +		cap &= ~IEEE80211_HT_CAP_DSSSCCK40;
+> +	}
 
-Sorry for not explaining this properly. The problem is that all
-devices of the same type store the same value in iMACAddress. On all
-MF831/MF910s (that I have seen) 36:4b:50:b7:ef:da is stored in this
-value, while 36:4b:50:b7:ef:38 is stored on MF823. In order to ensure
-that all devices on a host has a unique MAC-address, I think it is
-better to generate a new random MAC on the host than to trust the
-value returned from the device.
+Is it required that HT capability match the HT operation in this case?
 
->> * If a random MAC is read from device, then generate a new random MAC
->> address. This fix will apply to all devices using cdc_ether, but that
->> should be ok as we will also fix similar mistakes from other
->> manufacturers.
->
-> I am not really happy with this.
->
-> If this is specific to the device a quirk should be used. If it is a
-> truly generic misdesign, it does not belong into cdc-ether. It should go
-> into the generic layer.
+> diff --git a/net/mac80211/util.c b/net/mac80211/util.c
+> index 42bf0b6..5375a82 100644
+> --- a/net/mac80211/util.c
+> +++ b/net/mac80211/util.c
+> @@ -2349,10 +2349,7 @@ u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
+>  	ht_oper->operation_mode = cpu_to_le16(prot_mode);
+>  	ht_oper->stbc_param = 0x0000;
+>  
+> -	/* It seems that Basic MCS set and Supported MCS set
+> -	   are identical for the first 10 bytes */
+>  	memset(&ht_oper->basic_set, 0, 16);
+> -	memcpy(&ht_oper->basic_set, &ht_cap->mcs, 10);
 
-We saw the same behaviour when these devices are exposed as RNDIS and
-decided to apply a generic fix instead of limiting ourself to for
-example the two, known bogus MAC address. See commit
-a5a18bdf7453d505783e40e47ebb84bfdd35f93b and the thread "[PATCH]
-rndis_host: Set random MAC for ZTE MF910"
-(http://www.spinics.net/lists/linux-usb/msg143727.html) for the
-discussion.
+This change doesn't look right (basic mcs set will be all zeroes) but
+then, neither does the original code.  Basic MCS set for a mesh STA should
+be the mandatory MCSes according to 9.7.4.
 
-However, I have no strong objections towards for example checking
-against the two bad MAC addresses before generating a random MAC.
-
--Kristian
+-- 
+Bob Copeland %% http://bobcopeland.com/
