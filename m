@@ -1,124 +1,78 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: marvell: pxa168_eth: use phy_ethtool_{get|set}_link_ksettings
-Date: Sun, 17 Jul 2016 23:30:46 +0200
-Message-ID: <1468791046-19567-2-git-send-email-tremyfr@gmail.com>
-References: <1468791046-19567-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jszhang@marvell.com,
-	sergei.shtylyov@cogentembedded.com, mugunthanvnm@ti.com,
-	a@unstable.cc, fw@strlen.de
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2 02/10] net/ncsi: NCSI command packet handler
+Date: Mon, 18 Jul 2016 10:15:21 +1000
+Message-ID: <20160718001521.GA18521@gwshan>
+References: <1468579460-13768-3-git-send-email-gwshan@linux.vnet.ibm.com>
+ <201607152216.y8YtsYou%fengguang.wu@intel.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, kbuild-all@01.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	benh@kernel.crashing.org, joel@jms.id.au, gerlitz.or@gmail.com,
+	weixue@trustnetic.com, yuvali@mellanox.com,
+	alexei.starovoitov@gmail.com, f.fainelli@gmail.com
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33472 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751198AbcGQVa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 17:30:56 -0400
-In-Reply-To: <1468791046-19567-1-git-send-email-tremyfr@gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:56602 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751319AbcGRAP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Jul 2016 20:15:29 -0400
+Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6I0EIWZ089783
+	for <netdev@vger.kernel.org>; Sun, 17 Jul 2016 20:15:28 -0400
+Received: from e23smtp02.au.ibm.com (e23smtp02.au.ibm.com [202.81.31.144])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 24827e3vgk-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 17 Jul 2016 20:15:27 -0400
+Received: from localhost
+	by e23smtp02.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+	Mon, 18 Jul 2016 10:15:25 +1000
+Received: from d23relay06.au.ibm.com (d23relay06.au.ibm.com [9.185.63.219])
+	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 135382CE8046
+	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 10:15:24 +1000 (EST)
+Received: from d23av05.au.ibm.com (d23av05.au.ibm.com [9.190.234.119])
+	by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6I0FO3w27852828
+	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 10:15:24 +1000
+Received: from d23av05.au.ibm.com (localhost [127.0.0.1])
+	by d23av05.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6I0FMZW031783
+	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 10:15:23 +1000
+Content-Disposition: inline
+In-Reply-To: <201607152216.y8YtsYou%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+On Fri, Jul 15, 2016 at 10:08:23PM +0800, kbuild test robot wrote:
+>[auto build test ERROR on net-next/master]
+>
+>url:    https://github.com/0day-ci/linux/commits/Gavin-Shan/NCSI-Support/20160715-190549
+>config: i386-allmodconfig (attached as .config)
+>compiler: gcc-6 (Debian 6.1.1-1) 6.1.1 20160430
+>reproduce:
+>        # save the attached .config to linux build tree
+>        make ARCH=i386 
+>
+>All error/warnings (new ones prefixed by >>):
+>
+>   In file included from include/linux/swab.h:4:0,
+>                    from include/uapi/linux/byteorder/little_endian.h:12,
+>                    from include/linux/byteorder/little_endian.h:4,
+>                    from arch/x86/include/uapi/asm/byteorder.h:4,
+>                    from include/asm-generic/bitops/le.h:5,
+>                    from arch/x86/include/asm/bitops.h:504,
+>                    from include/linux/bitops.h:36,
+>                    from include/linux/kernel.h:10,
+>                    from include/linux/list.h:8,
+>                    from include/linux/module.h:9,
+>                    from net/ncsi/ncsi-cmd.c:10:
+>   net/ncsi/ncsi-cmd.c: In function 'ncsi_alloc_command':
+>>> net/ncsi/ncsi-cmd.c:301:24: error: 'ETH_P_NCSI' undeclared (first use in this function)
+>     skb->protocol = htons(ETH_P_NCSI);
+>                           ^
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/marvell/pxa168_eth.c |   39 +++++++++++++---------------
- 1 files changed, 18 insertions(+), 21 deletions(-)
+The ETH_P_NCSI definition in include/uapi/linux/if_ether.h was missed from this series. I
+will fix it in next respin to address comments received from this series.
 
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index d466326..aeeb2e7 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -274,8 +274,8 @@ enum hash_table_entry {
- 	HASH_ENTRY_RECEIVE_DISCARD_BIT = 2
- };
- 
--static int pxa168_get_settings(struct net_device *dev, struct ethtool_cmd *cmd);
--static int pxa168_set_settings(struct net_device *dev, struct ethtool_cmd *cmd);
-+static int pxa168_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd);
- static int pxa168_init_hw(struct pxa168_eth_private *pep);
- static int pxa168_init_phy(struct net_device *dev);
- static void eth_port_reset(struct net_device *dev);
-@@ -971,7 +971,7 @@ static void pxa168_eth_adjust_link(struct net_device *dev)
- static int pxa168_init_phy(struct net_device *dev)
- {
- 	struct pxa168_eth_private *pep = netdev_priv(dev);
--	struct ethtool_cmd cmd;
-+	struct ethtool_link_ksettings cmd;
- 	struct phy_device *phy = NULL;
- 	int err;
- 
-@@ -987,20 +987,21 @@ static int pxa168_init_phy(struct net_device *dev)
- 	if (err)
- 		return err;
- 
--	err = pxa168_get_settings(dev, &cmd);
-+	err = pxa168_get_link_ksettings(dev, &cmd);
- 	if (err)
- 		return err;
- 
--	cmd.phy_address = pep->phy_addr;
--	cmd.speed = pep->phy_speed;
--	cmd.duplex = pep->phy_duplex;
--	cmd.advertising = PHY_BASIC_FEATURES;
--	cmd.autoneg = AUTONEG_ENABLE;
-+	cmd.base.phy_address = pep->phy_addr;
-+	cmd.base.speed = pep->phy_speed;
-+	cmd.base.duplex = pep->phy_duplex;
-+	ethtool_convert_legacy_u32_to_link_mode(cmd.link_modes.advertising,
-+						PHY_BASIC_FEATURES);
-+	cmd.base.autoneg = AUTONEG_ENABLE;
- 
--	if (cmd.speed != 0)
--		cmd.autoneg = AUTONEG_DISABLE;
-+	if (cmd.base.speed != 0)
-+		cmd.base.autoneg = AUTONEG_DISABLE;
- 
--	return pxa168_set_settings(dev, &cmd);
-+	return phy_ethtool_set_link_ksettings(dev, &cmd);
- }
- 
- static int pxa168_init_hw(struct pxa168_eth_private *pep)
-@@ -1372,22 +1373,18 @@ static int pxa168_eth_do_ioctl(struct net_device *dev, struct ifreq *ifr,
- 	return -EOPNOTSUPP;
- }
- 
--static int pxa168_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int pxa168_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	int err;
- 
- 	err = phy_read_status(dev->phydev);
- 	if (err == 0)
--		err = phy_ethtool_gset(dev->phydev, cmd);
-+		err = phy_ethtool_ksettings_get(dev->phydev, cmd);
- 
- 	return err;
- }
- 
--static int pxa168_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
--{
--	return phy_ethtool_sset(dev->phydev, cmd);
--}
--
- static void pxa168_get_drvinfo(struct net_device *dev,
- 			       struct ethtool_drvinfo *info)
- {
-@@ -1398,11 +1395,11 @@ static void pxa168_get_drvinfo(struct net_device *dev,
- }
- 
- static const struct ethtool_ops pxa168_ethtool_ops = {
--	.get_settings	= pxa168_get_settings,
--	.set_settings	= pxa168_set_settings,
- 	.get_drvinfo	= pxa168_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
- 	.get_ts_info	= ethtool_op_get_ts_info,
-+	.get_link_ksettings = pxa168_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- static const struct net_device_ops pxa168_eth_netdev_ops = {
--- 
-1.7.4.4
+Thanks,
+Gavin
