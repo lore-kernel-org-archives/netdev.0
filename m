@@ -1,88 +1,59 @@
-From: Shiraz Saleem <shiraz.saleem@intel.com>
-Subject: [PATCH V2] Add flow control to the portmapper
-Date: Mon, 18 Jul 2016 14:23:30 -0500
-Message-ID: <1468869810-64420-1-git-send-email-shiraz.saleem@intel.com>
-Cc: linux-rdma@vger.kernel.org, swise@opengridcomputing.com,
-	e1000-rdma@lists.sourceforge.net, netdev@vger.kernel.org,
-	Mustafa Ismail <mustafa.ismail@intel.com>,
-	Shiraz Saleem <shiraz.saleem@intel.com>
-To: dledford@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:49800 "EHLO mga04.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751789AbcGRT0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 15:26:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 net-next v2 12/12] net: dsa: mv88e6xxx: add support for DSA ageing time
+Date: Mon, 18 Jul 2016 15:26:42 -0400
+Message-ID: <87d1malpcd.fsf@ketchup.mtl.sfl>
+References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com> <20160718184628.13103-13-vivien.didelot@savoirfairelinux.com> <20160718191644.GG31103@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160718191644.GG31103@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mustafa Ismail <mustafa.ismail@intel.com>
+Hi Andrew,
 
-During connection establishment with a large number of connections,
-it is possible that the connection requests might fail. Adding flow
-control prevents this failure. Change ibnl unicast to use netlink
-messaging with blocking to enable flow control.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Signed-off-by: Faisal Latif <faisal.latif@intel.com>
-Signed-off-by: Mustafa Ismail <mustafa.ismail@intel.com>
-Signed-off-by: Shiraz Saleem <shiraz.saleem@intel.com>
----
+> This is way too simplistic.
+>
+> The switchdev call is per port. This manipulates the whole switch. We
+> need to somehow handle the difference.
+>
+> I've not look at the bridge code, but i assume it initially sets each
+> port to a long age time, probably 5 minutes. When there is a topology
+> change, it enables fast ageing by setting a shorter age time in each
+> port. After a while it will return to the default age time. Although
+> the switchdev call is per port, i think the age time is a property of
+> the bridge, not a port.
+>
+> For the Marvell devices, we only have a global setting. It will apply
+> to all bridges we create on the switch. So if one bridge requests fast
+> ageing, we need to apply it to all bridges. We should only go back to
+> slow ageing when all bridges are out of fast ageing. That is, we need
+> some sort of reference counting.
+>
+> I'm not sure we have enough information to know why the bridge changed
+> the age timing. Did the use change the forwarding delay, or have we
+> entered fast ageing? So i think for Marvell devices, we need an
+> additional property passed down. Is this a fast or a slow age time?
+> We can then determine what is the fastest fast ageing, and the fastest
+> slow ageing is, perform reference counting as appropriate, and set the
+> global setting as needed.
 
-V2: update commit message with justification for flow control. CC'ing
-linux-netdev mailing list.
- 
- drivers/infiniband/core/netlink.c |  4 ++--
- include/net/netlink.h             | 17 +++++++++++++++++
- 2 files changed, 19 insertions(+), 2 deletions(-)
+Nope, the bridge ageing time is not per-port, even though switchdev ops
+are per-port by design. This is a switch-wide attribute.
 
-diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
-index 9b8c20c..6b09580 100644
---- a/drivers/infiniband/core/netlink.c
-+++ b/drivers/infiniband/core/netlink.c
-@@ -229,7 +229,7 @@ static void ibnl_rcv(struct sk_buff *skb)
- int ibnl_unicast(struct sk_buff *skb, struct nlmsghdr *nlh,
- 			__u32 pid)
- {
--	return nlmsg_unicast(nls, skb, pid);
-+	return nlmsg_unicast_block(nls, skb, pid);
- }
- EXPORT_SYMBOL(ibnl_unicast);
- 
-@@ -251,7 +251,7 @@ int __init ibnl_init(void)
- 		pr_warn("Failed to create netlink socket\n");
- 		return -ENOMEM;
- 	}
--
-+	nls->sk_sndtimeo = 10 * HZ;
- 	return 0;
- }
- 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index 254a0fc..5434279 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -598,6 +598,23 @@ static inline int nlmsg_unicast(struct sock *sk, struct sk_buff *skb, u32 portid
- }
- 
- /**
-+ * nlmsg_unicast_block - unicast a netlink message with blocking
-+ * @sk: netlink socket to spread message to
-+ * @skb: netlink message as socket buffer
-+ * @portid: netlink portid of the destination socket
-+ */
-+static inline int nlmsg_unicast_block(struct sock *sk, struct sk_buff *skb, u32 portid)
-+{
-+	int err;
-+
-+	err = netlink_unicast(sk, skb, portid, 0);
-+	if (err > 0)
-+		err = 0;
-+
-+	return err;
-+}
-+
-+/**
-  * nlmsg_for_each_msg - iterate over a stream of messages
-  * @pos: loop counter, set to current message
-  * @head: head of message stream
--- 
-2.1.3
+See f55ac58ae64c ("switchdev: add bridge ageing_time attribute") [1]
+
+Rocker and mlxsw implement AGEING_TIME switch-wide too.
+
+[1] https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=f55ac58ae64c
+
+Thanks,
+
+        Vivien
