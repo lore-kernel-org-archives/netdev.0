@@ -1,59 +1,46 @@
 From: Amir Levy <amir.jer.levy@intel.com>
-Subject: [PATCH v4 0/7] thunderbolt: Introducing Thunderbolt(TM) networking
-Date: Mon, 18 Jul 2016 13:00:33 +0300
-Message-ID: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
+Subject: [PATCH v4 1/7] thunderbolt: Macro rename
+Date: Mon, 18 Jul 2016 13:00:34 +0300
+Message-ID: <1468836040-28043-2-git-send-email-amir.jer.levy@intel.com>
+References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
 Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, thunderbolt-linux@intel.com,
 	mika.westerberg@intel.com, tomas.winkler@intel.com,
 	Amir Levy <amir.jer.levy@intel.com>
 To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
 	bhelgaas@google.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is version 4 of Thunderbolt(TM) driver for non-Apple hardware.
+This first patch updates the registers file to
+reflect that it isn't only for Cactus Ridge.
+No functional change intended.
 
-Changes since v3:
- - Moved new Thunderbolt device IDs from pci_ids.h to icm_nhi.h.
- - Cleanup and added some comments in code.
+Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+---
+ drivers/thunderbolt/nhi_regs.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-These patches were pushed to GitHub where they can be reviewed more
-comfortably with green/red highlighting:
-	https://github.com/01org/thunderbolt-software-kernel-tree
-
-Daemon code:
-	https://github.com/01org/thunderbolt-software-daemon
-
-For reference, here's a link to version 3:
-[v3]:	https://lkml.org/lkml/2016/7/14/311
-
-Amir Levy (7):
-  thunderbolt: Macro rename
-  thunderbolt: Updating the register definitions
-  thunderbolt: Kconfig for Thunderbolt(TM) networking
-  thunderbolt: Communication with the ICM (firmware)
-  thunderbolt: Networking state machine
-  thunderbolt: Networking transmit and receive
-  thunderbolt: Networking doc
-
- Documentation/00-INDEX                   |    2 +
- Documentation/thunderbolt-networking.txt |  135 ++
- drivers/thunderbolt/Kconfig              |   25 +-
- drivers/thunderbolt/Makefile             |    3 +-
- drivers/thunderbolt/icm/Makefile         |   28 +
- drivers/thunderbolt/icm/icm_nhi.c        | 1642 +++++++++++++++++++++
- drivers/thunderbolt/icm/icm_nhi.h        |   93 ++
- drivers/thunderbolt/icm/net.c            | 2276 ++++++++++++++++++++++++++++++
- drivers/thunderbolt/icm/net.h            |  274 ++++
- drivers/thunderbolt/nhi_regs.h           |  115 +-
- 10 files changed, 4585 insertions(+), 8 deletions(-)
- create mode 100644 Documentation/thunderbolt-networking.txt
- create mode 100644 drivers/thunderbolt/icm/Makefile
- create mode 100644 drivers/thunderbolt/icm/icm_nhi.c
- create mode 100644 drivers/thunderbolt/icm/icm_nhi.h
- create mode 100644 drivers/thunderbolt/icm/net.c
- create mode 100644 drivers/thunderbolt/icm/net.h
-
+diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+index 86b996c..75cf069 100644
+--- a/drivers/thunderbolt/nhi_regs.h
++++ b/drivers/thunderbolt/nhi_regs.h
+@@ -1,11 +1,11 @@
+ /*
+- * Thunderbolt Cactus Ridge driver - NHI registers
++ * Thunderbolt driver - NHI registers
+  *
+  * Copyright (c) 2014 Andreas Noever <andreas.noever@gmail.com>
+  */
+ 
+-#ifndef DSL3510_REGS_H_
+-#define DSL3510_REGS_H_
++#ifndef NHI_REGS_H_
++#define NHI_REGS_H_
+ 
+ #include <linux/types.h>
+ 
 -- 
 2.7.4
