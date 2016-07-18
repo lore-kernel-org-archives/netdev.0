@@ -1,40 +1,46 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH v9 00/11] Add driver bpf hook for early packet drop and
- forwarding
-Date: Mon, 18 Jul 2016 16:39:38 +0300
-Message-ID: <f94302fd-da02-c03d-e9ab-5292e6594b10@gmail.com>
-References: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] ixgbevf: avoid checking hang when performing hardware reset
+Date: Mon, 18 Jul 2016 21:44:49 +0800
+Message-ID: <1468849489-8407-1-git-send-email-zyjzyj2000@gmail.com>
+Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:36986 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751490AbcGRNjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 09:39:43 -0400
-Received: by mail-wm0-f51.google.com with SMTP id i5so117308843wmg.0
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 06:39:43 -0700 (PDT)
-In-Reply-To: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
+Received: from [111.193.68.65] ([111.193.68.65]:45270 "EHLO mail.zhuyj.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751251AbcGRNuc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 09:50:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After applying the patchset, I get no ping between two VLAN interfaces 
-(w/o activating any BPF program).
-I'm debugging it, and will update once I find the bug.
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-Brenden, please check if you can repro the issue.
+When performing hardware reset, it is not necessary to check hang.
+Or else, the call trace will appear.
 
-Regards,
-Tariq
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index acc2401..d563d24 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -2792,9 +2792,14 @@ static void ixgbevf_reset_subtask(struct ixgbevf_adapter *adapter)
+ static void ixgbevf_check_hang_subtask(struct ixgbevf_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
++	struct ixgbe_mbx_info *mbx = &hw->mbx;
+ 	u32 eics = 0;
+ 	int i;
+ 
++	/* When performing hardware reset, unnecessary to check hang. */
++	if (mbx->ops.check_for_rst(hw))
++		return;
++
+ 	/* If we're down or resetting, just bail */
+ 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
+ 	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
+-- 
+2.7.4
