@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC PATCH 08/30] net/netpolicy: set and remove irq affinity
-Date: Sun, 17 Jul 2016 23:56:02 -0700
-Message-ID: <1468824984-65318-9-git-send-email-kan.liang@intel.com>
+Subject: [RFC PATCH 07/30] net/netpolicy: create CPU and queue mapping
+Date: Sun, 17 Jul 2016 23:56:01 -0700
+Message-ID: <1468824984-65318-8-git-send-email-kan.liang@intel.com>
 References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -13,74 +13,141 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	andi@firstfloor.org, Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18624 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751844AbcGROXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 10:23:21 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-This patches introduces functions to set and remove irq affinity
-according to cpu and queue mapping.
-The functions will not record the previous affinity status. After a
-set/remove cycles, it will set the affinity on all online cpu with irq
-balance enabling.
+Current implementation forces CPU and queue 1:1 mapping. This patch
+introduces the function netpolicy_update_sys_map to create this mapping.
+The result is stored in netpolicy_sys_info.
+If the CPU count and queue count are different, the remaining
+CPUs/queues are not used.
+CPU hotplug, device hotplug or ethtool may change the CPU count or
+queue count. For these cases, this function can also be called to
+reconstruct the mapping. These cases will be handled later in this
+series.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- net/core/netpolicy.c | 33 +++++++++++++++++++++++++++++++++
- 1 file changed, 33 insertions(+)
+ include/linux/netpolicy.h | 18 ++++++++++++
+ net/core/netpolicy.c      | 74 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 92 insertions(+)
 
+diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
+index fc87d9b..a946b75c 100644
+--- a/include/linux/netpolicy.h
++++ b/include/linux/netpolicy.h
+@@ -30,9 +30,27 @@ struct netpolicy_dev_info {
+ 	u32	*tx_irq;
+ };
+ 
++struct netpolicy_sys_map {
++	u32	cpu;
++	u32	queue;
++	u32	irq;
++};
++
++struct netpolicy_sys_info {
++	/*
++	 * Record the cpu and queue 1:1 mapping
++	 */
++	u32				avail_rx_num;
++	struct netpolicy_sys_map	*rx;
++	u32				avail_tx_num;
++	struct netpolicy_sys_map	*tx;
++};
++
+ struct netpolicy_info {
+ 	enum netpolicy_name	cur_policy;
+ 	unsigned long avail_policy[BITS_TO_LONGS(NET_POLICY_MAX)];
++	/* cpu and queue mapping information */
++	struct netpolicy_sys_info	sys_info;
+ };
+ 
+ #endif /*__LINUX_NETPOLICY_H*/
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index ff7fc04..c44818d 100644
+index 075aaca..ff7fc04 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -29,6 +29,7 @@
- #include <linux/kernel.h>
- #include <linux/errno.h>
- #include <linux/init.h>
-+#include <linux/irq.h>
- #include <linux/seq_file.h>
- #include <linux/proc_fs.h>
- #include <linux/uaccess.h>
-@@ -128,6 +129,38 @@ err:
- 	return -ENOMEM;
+@@ -54,6 +54,80 @@ static u32 netpolicy_get_cpu_information(void)
+ 	return num_online_cpus();
  }
  
-+static void netpolicy_clear_affinity(struct net_device *dev)
++static void netpolicy_free_sys_map(struct net_device *dev)
 +{
 +	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
-+	u32 i;
 +
-+	for (i = 0; i < s_info->avail_rx_num; i++) {
-+		irq_clear_status_flags(s_info->rx[i].irq, IRQ_NO_BALANCING);
-+		irq_set_affinity_hint(s_info->rx[i].irq, cpu_online_mask);
-+	}
-+
-+	for (i = 0; i < s_info->avail_tx_num; i++) {
-+		irq_clear_status_flags(s_info->tx[i].irq, IRQ_NO_BALANCING);
-+		irq_set_affinity_hint(s_info->tx[i].irq, cpu_online_mask);
-+	}
++	kfree(s_info->rx);
++	s_info->rx = NULL;
++	s_info->avail_rx_num = 0;
++	kfree(s_info->tx);
++	s_info->tx = NULL;
++	s_info->avail_tx_num = 0;
 +}
 +
-+static void netpolicy_set_affinity(struct net_device *dev)
++static int netpolicy_update_sys_map(struct net_device *dev,
++				    struct netpolicy_dev_info *d_info,
++				    u32 cpu)
 +{
 +	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
-+	u32 i;
++	u32 num, i, online_cpu;
++	cpumask_var_t cpumask;
 +
-+	for (i = 0; i < s_info->avail_rx_num; i++) {
-+		irq_set_status_flags(s_info->rx[i].irq, IRQ_NO_BALANCING);
-+		irq_set_affinity_hint(s_info->rx[i].irq, cpumask_of(s_info->rx[i].cpu));
++	if (!alloc_cpumask_var(&cpumask, GFP_ATOMIC))
++		return -ENOMEM;
++
++	/* update rx cpu map */
++	if (cpu > d_info->rx_num)
++		num = d_info->rx_num;
++	else
++		num = cpu;
++
++	s_info->avail_rx_num = num;
++	s_info->rx = kcalloc(num, sizeof(*s_info->rx), GFP_ATOMIC);
++	if (!s_info->rx)
++		goto err;
++	cpumask_copy(cpumask, cpu_online_mask);
++
++	i = 0;
++	for_each_cpu(online_cpu, cpumask) {
++		if (i == num)
++			break;
++		s_info->rx[i].cpu = online_cpu;
++		s_info->rx[i].queue = i;
++		s_info->rx[i].irq = d_info->rx_irq[i];
++		i++;
 +	}
 +
-+	for (i = 0; i < s_info->avail_tx_num; i++) {
-+		irq_set_status_flags(s_info->tx[i].irq, IRQ_NO_BALANCING);
-+		irq_set_affinity_hint(s_info->tx[i].irq, cpumask_of(s_info->tx[i].cpu));
++	/* update tx cpu map */
++	if (cpu >= d_info->tx_num)
++		num = d_info->tx_num;
++	else
++		num = cpu;
++
++	s_info->avail_tx_num = num;
++	s_info->tx = kcalloc(num, sizeof(*s_info->tx), GFP_ATOMIC);
++	if (!s_info->tx)
++		goto err;
++
++	i = 0;
++	for_each_cpu(online_cpu, cpumask) {
++		if (i == num)
++			break;
++		s_info->tx[i].cpu = online_cpu;
++		s_info->tx[i].queue = i;
++		s_info->tx[i].irq = d_info->tx_irq[i];
++		i++;
 +	}
++
++	free_cpumask_var(cpumask);
++	return 0;
++err:
++	netpolicy_free_sys_map(dev);
++	free_cpumask_var(cpumask);
++	return -ENOMEM;
 +}
 +
  const char *policy_name[NET_POLICY_MAX] = {
