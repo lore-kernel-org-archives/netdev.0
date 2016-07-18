@@ -1,60 +1,40 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: [PATCH 3/3] mac80211: mesh: fixed HT ies in beacon template
-Date: Mon, 18 Jul 2016 09:38:24 -0400
-Message-ID: <20160718133824.GA11996@localhost>
-References: <20160713114542.24937-1-yanivma@ti.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH v9 00/11] Add driver bpf hook for early packet drop and
+ forwarding
+Date: Mon, 18 Jul 2016 16:39:38 +0300
+Message-ID: <f94302fd-da02-c03d-e9ab-5292e6594b10@gmail.com>
+References: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Meirav Kama <meiravk@ti.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Yaniv Machani <yanivma@ti.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35471 "EHLO
-	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676AbcGRNic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 09:38:32 -0400
-Received: by mail-qk0-f194.google.com with SMTP id q62so12048631qkf.2
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 06:38:32 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160713114542.24937-1-yanivma@ti.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36986 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490AbcGRNjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 09:39:43 -0400
+Received: by mail-wm0-f51.google.com with SMTP id i5so117308843wmg.0
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 06:39:43 -0700 (PDT)
+In-Reply-To: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 13, 2016 at 02:45:40PM +0300, Yaniv Machani wrote:
-> The HT capab info field inside the HT capab IE of the mesh beacon
-> is incorrect (in the case of 20MHz channel width).
-> To fix this driver will check configuration from cfg and
-> will build it accordingly.
+After applying the patchset, I get no ping between two VLAN interfaces 
+(w/o activating any BPF program).
+I'm debugging it, and will update once I find the bug.
 
-> +    /* determine capability flags */
-> +	cap = sband->ht_cap.cap;
-> +
-> +    /* if channel width is 20MHz - configure HT capab accordingly*/
-> +	if (sdata->vif.bss_conf.chandef.width == NL80211_CHAN_WIDTH_20) {
-> +		cap &= ~IEEE80211_HT_CAP_SUP_WIDTH_20_40;
-> +		cap &= ~IEEE80211_HT_CAP_DSSSCCK40;
-> +	}
+Brenden, please check if you can repro the issue.
 
-Is it required that HT capability match the HT operation in this case?
-
-> diff --git a/net/mac80211/util.c b/net/mac80211/util.c
-> index 42bf0b6..5375a82 100644
-> --- a/net/mac80211/util.c
-> +++ b/net/mac80211/util.c
-> @@ -2349,10 +2349,7 @@ u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
->  	ht_oper->operation_mode = cpu_to_le16(prot_mode);
->  	ht_oper->stbc_param = 0x0000;
->  
-> -	/* It seems that Basic MCS set and Supported MCS set
-> -	   are identical for the first 10 bytes */
->  	memset(&ht_oper->basic_set, 0, 16);
-> -	memcpy(&ht_oper->basic_set, &ht_cap->mcs, 10);
-
-This change doesn't look right (basic mcs set will be all zeroes) but
-then, neither does the original code.  Basic MCS set for a mesh STA should
-be the mandatory MCSes according to 9.7.4.
-
--- 
-Bob Copeland %% http://bobcopeland.com/
+Regards,
+Tariq
