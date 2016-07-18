@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next v2 10/12] net: dsa: support switchdev ageing time attr
-Date: Mon, 18 Jul 2016 14:46:26 -0400
-Message-ID: <20160718184628.13103-11-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2 net-next v2 08/12] net: dsa: mv88e6xxx: add cap for Priority Override
+Date: Mon, 18 Jul 2016 14:46:24 -0400
+Message-ID: <20160718184628.13103-9-vivien.didelot@savoirfairelinux.com>
 References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,68 +14,130 @@ In-Reply-To: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a new function for DSA drivers to implement to handle the switchdev
-SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
-
-The ageing time is passed as milliseconds.
+Add flags and helpers to describe the presence of Priority Override
+Table (POT) related registers and simplify the setup of Global 2.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h |  1 +
- net/dsa/slave.c   | 22 ++++++++++++++++++++++
- 2 files changed, 23 insertions(+)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 37 +++++++++++++++++++++++++----------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  7 +++++++
+ 2 files changed, 34 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 52ab18b..238fad9 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -329,6 +329,7 @@ struct dsa_switch_driver {
- 	/*
- 	 * Bridge integration
- 	 */
-+	int	(*set_ageing_time)(struct dsa_switch *ds, unsigned int msecs);
- 	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
- 				    struct net_device *bridge);
- 	void	(*port_bridge_leave)(struct dsa_switch *ds, int port);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 7236eb2..1074cb6 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -333,6 +333,25 @@ static int dsa_slave_vlan_filtering(struct net_device *dev,
- 	return 0;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 4e8bdc5..0864a78 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -3176,6 +3176,29 @@ static int mv88e6xxx_g2_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
+ 	return err;
  }
  
-+static int dsa_slave_ageing_time(struct net_device *dev,
-+				 const struct switchdev_attr *attr,
-+				 struct switchdev_trans *trans)
++static int mv88e6xxx_g2_pot_write(struct mv88e6xxx_chip *chip, int pointer,
++				  u8 data)
 +{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
-+	unsigned long ageing_jiffies = clock_t_to_jiffies(attr->u.ageing_time);
-+	unsigned int ageing_time = jiffies_to_msecs(ageing_jiffies);
++	u16 val = (pointer << 8) | (data & 0x7);
 +
-+	/* bridge skips -EOPNOTSUPP, so skip the prepare phase */
-+	if (switchdev_trans_ph_prepare(trans))
-+		return 0;
-+
-+	if (ds->drv->set_ageing_time)
-+		return ds->drv->set_ageing_time(ds, ageing_time);
-+
-+	return 0;
++	return mv88e6xxx_update_write(chip, REG_GLOBAL2, GLOBAL2_PRIO_OVERRIDE,
++				      val);
 +}
 +
- static int dsa_slave_port_attr_set(struct net_device *dev,
- 				   const struct switchdev_attr *attr,
- 				   struct switchdev_trans *trans)
-@@ -346,6 +365,9 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
- 	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
- 		ret = dsa_slave_vlan_filtering(dev, attr, trans);
- 		break;
-+	case SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME:
-+		ret = dsa_slave_ageing_time(dev, attr, trans);
-+		break;
- 	default:
- 		ret = -EOPNOTSUPP;
- 		break;
++static int mv88e6xxx_g2_clear_pot(struct mv88e6xxx_chip *chip)
++{
++	int i, err;
++
++	/* Clear all sixteen possible Priority Override entries */
++	for (i = 0; i < 16; i++) {
++		err = mv88e6xxx_g2_pot_write(chip, i, 0);
++		if (err)
++			break;
++	}
++
++	return err;
++}
++
+ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ {
+ 	u16 reg;
+@@ -3233,17 +3256,11 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 			return err;
+ 	}
+ 
+-	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+-	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+-	    mv88e6xxx_6320_family(chip)) {
++	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_POT)) {
+ 		/* Clear the priority override table. */
+-		for (i = 0; i < 16; i++) {
+-			err = _mv88e6xxx_reg_write(chip, REG_GLOBAL2,
+-						   GLOBAL2_PRIO_OVERRIDE,
+-						   0x8000 | (i << 8));
+-			if (err)
+-				return err;
+-		}
++		err = mv88e6xxx_g2_clear_pot(chip);
++		if (err)
++			return err;
+ 	}
+ 
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 4e03650..06b11fb 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -396,6 +396,7 @@ enum mv88e6xxx_cap {
+ 	MV88E6XXX_CAP_G2_PVT_ADDR,	/* (0x0b) Cross Chip Port VLAN Addr */
+ 	MV88E6XXX_CAP_G2_PVT_DATA,	/* (0x0c) Cross Chip Port VLAN Data */
+ 	MV88E6XXX_CAP_G2_SWITCH_MAC,	/* (0x0d) Switch MAC/WoL/WoF */
++	MV88E6XXX_CAP_G2_POT,		/* (0x0f) Priority Override Table */
+ 
+ 	/* Multi-chip Addressing Mode.
+ 	 * Some chips require an indirect SMI access when their SMI device
+@@ -442,6 +443,7 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT(MV88E6XXX_CAP_G2_PVT_ADDR)
+ #define MV88E6XXX_FLAG_G2_PVT_DATA	BIT(MV88E6XXX_CAP_G2_PVT_DATA)
+ #define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT(MV88E6XXX_CAP_G2_SWITCH_MAC)
++#define MV88E6XXX_FLAG_G2_POT		BIT(MV88E6XXX_CAP_G2_POT)
+ #define MV88E6XXX_FLAG_MULTI_CHIP	BIT(MV88E6XXX_CAP_MULTI_CHIP)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
+@@ -467,6 +469,7 @@ enum mv88e6xxx_cap {
+ 	(MV88E6XXX_FLAG_GLOBAL2 |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
++	 MV88E6XXX_FLAG_G2_POT |	\
+ 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_STU |		\
+@@ -478,6 +481,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
++	 MV88E6XXX_FLAG_G2_POT |	\
+ 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+@@ -498,6 +502,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
++	 MV88E6XXX_FLAG_G2_POT |	\
+ 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+@@ -511,6 +516,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
++	 MV88E6XXX_FLAG_G2_POT |	\
+ 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+@@ -526,6 +532,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
++	 MV88E6XXX_FLAG_G2_POT |	\
+ 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
 -- 
 2.9.0
