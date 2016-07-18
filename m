@@ -1,37 +1,73 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [iproute PATCH v5 4/5] No need to initialize rtattr fields before
- parsing
-Date: Mon, 18 Jul 2016 10:10:30 -0600
-Message-ID: <fc5e64e2-d016-35a0-3630-ccc4838acd5c@cumulusnetworks.com>
-References: <1468853325-9260-1-git-send-email-phil@nwl.cc>
- <1468853325-9260-5-git-send-email-phil@nwl.cc>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 18:17:28 +0200
+Message-ID: <20160718161728.GB19066@breakpoint.cc>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
+ <20160718151841.GA19066@breakpoint.cc>
+ <37D7C6CF3E00A74B8858931C1DB2F07712C1968E@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>,
-	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"keescook@chromium.org" <keescook@chromium.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"gorcunov@openvz.org" <gorcunov@openvz.org>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"aduyck@mirantis.com" <aduyck@mirantis.com>,
+To: "Liang, Kan" <kan.liang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:33587 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751773AbcGRQKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:10:52 -0400
-Received: by mail-io0-f181.google.com with SMTP id 38so163933666iol.0
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 09:10:33 -0700 (PDT)
-In-Reply-To: <1468853325-9260-5-git-send-email-phil@nwl.cc>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51358 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751451AbcGRQRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:17:41 -0400
+Content-Disposition: inline
+In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F07712C1968E@SHSMSX103.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/18/16 8:48 AM, Phil Sutter wrote:
-> Since parse_rtattr_flags() calls memset already, there is no need for
-> callers to do so themselves.
->
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  ip/ipaddress.c | 2 +-
->  tc/tc_class.c  | 4 ++--
->  2 files changed, 3 insertions(+), 3 deletions(-)
+Liang, Kan <kan.liang@intel.com> wrote:
+> > What is missing in the kernel UAPI so userspace could do these settings on its
+> > own, without adding this policy stuff to the kernel?
+> 
+> The main purpose of the proposal is to simplify the configuration. Too many
+> options will let them confuse. 
+> For normal users, they just need to tell the kernel that they want high throughput
+> for the application. The kernel will take care of the rest.
+> So, I don't think we need an interface for user to set their own policy settings.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+I don't (yet) agree that the kernel is the right place for this.
+I agree that current (bare) kernel config interface(s) for this are
+hard to use.
+
+> > It seems strange to me to add such policies to the kernel.
+> 
+> But kernel is the only place which can merge all user's requests.
+
+I don't think so.
+
+If different requests conflict in a way that is possible to do something
+meaningful the I don't see why userspace tool cannot do the same
+thing...
+
+> > Addmittingly, documentation of some settings is non-existent and one needs
+> > various different tools to set this (sysctl, procfs, sysfs, ethtool, etc).
+> > 
+> > But all of these details could be hidden from user.
+> > Have you looked at tuna for instance?
+> 
+> Not yet. Is there similar settings for network?
+
+Last time I checked tuna could only set a few network-related sysctls
+and handle irq settings/affinity, but not e.g. tune irq coalescening
+or any other network interface specific settings.
