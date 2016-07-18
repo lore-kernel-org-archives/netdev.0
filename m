@@ -1,77 +1,64 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear
- WNR854T
-Date: Mon, 18 Jul 2016 11:44:24 +0200
-Message-ID: <20160718114424.14a28889@free-electrons.com>
-References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
-	<4290281.AD5Bhg23o6@wuerfel>
-	<alpine.DEB.2.11.1607170959090.19980@marmot.wormnet.eu>
-	<6404488.GyOP57DJrV@wuerfel>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/1] net_sched: Introduce skbmod action
+Date: Mon, 18 Jul 2016 11:44:11 +0200
+Message-ID: <578CA4EB.7060703@iogearbox.net>
+References: <1468744884-8246-1-git-send-email-jhs@emojatatu.com> <20160718041933.GB36253@ast-mbp.thefacebook.com> <578C7C5C.2070804@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jamie Lentin <jm@lentin.co.uk>, Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jason Cooper <jason@lakedaemon.net>,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Imre Kaloz <kaloz@openwrt.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com, nikolay@cumulusnetworks.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from down.free-electrons.com ([37.187.137.238]:36801 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751725AbcGRJo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 05:44:27 -0400
-In-Reply-To: <6404488.GyOP57DJrV@wuerfel>
+Received: from www62.your-server.de ([213.133.104.62]:45783 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725AbcGRJoV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 05:44:21 -0400
+In-Reply-To: <578C7C5C.2070804@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 07/18/2016 08:51 AM, Jamal Hadi Salim wrote:
+> On 16-07-18 12:19 AM, Alexei Starovoitov wrote:
+>> On Sun, Jul 17, 2016 at 04:41:24AM -0400, Jamal Hadi Salim wrote:
+>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+[...]
+>> I can imagine new tc command 'action skbmod dmac 02:15:15:15:15:15' that
+>> uses kernel pedit action undercover, so from user space point of view
+>> the same effect can be achieved by extending iproute2.
+>
+> Of course - and i pointed to Cong it has been tried before. I should
+> know because i wrote that code (just look at the pedit code in
+> iproute2 for udp/icmp/ip type overlays).
 
-On Sun, 17 Jul 2016 22:41:35 +0200, Arnd Bergmann wrote:
+Looking at that just out of curiosity on how complex it could look
+for src/dst mac, is it actually functional in iproute2 upstream tree?
 
-> I would assume that the PCIe port should work out of the box with the driver
+All I see is that pedit can look up 3rd party modules via get_pedit_kind(),
+so it will pick p_%s.so, if built as such, and there's code for p_ip,
+p_tcp, p_udp, p_icmp. But then, for example, all I see in p_udp.c is
+since initial iproute2 import in 2005, apart from some cleanups by
+Stephen:
 
-Unfortunately, no. The PCIe on Orion5x requires a workaround for
-reading/writing the PCI configuration space. Instead of doing MMIO
-accesses to PCIE_CONF_ADDR_OFF / PCIE_CONF_DATA_OFF, you must map a
-MBus window, which provides a memory-mapped view of the PCI
-configuration space.
+static int
+parse_udp(int *argc_p, char ***argv_p, struct tc_pedit_sel *sel, struct tc_pedit_key *tkey)
+{
+	int res = -1;
+	return res;
+}
 
-Definitely not impossible to implement, but the driver doesn't work
-as-is.
+struct m_pedit_util p_pedit_udp = {
+	NULL,
+	"udp",
+	parse_udp,
+};
 
-> We also don't seem to need any MBUS window setup for the I/O and
-> memory spaces, which greatly simplifies the driver compared to the
-> pci-mvebu one, it would be a fairly straightforward implementation
-> based on pci-host-generic.c (which unfortunately just got way
-> more complicated and might need to go on a diet).
+Same for tcp, icmp, ipv6 bits code ... :/ Is it still planned to eventually
+complete these? I agree that from a usability PoV, it might be nice to
+have some kind of 'pretty printer' for it besides the existing config
+parser there (e.g. when we know that a loaded instance was done with a
+high-level module, we could annotate that for retrieval on dump or such).
 
-MBus windows are needed. See:
-
-        mvebu_mbus_add_window_remap_by_id(ORION_MBUS_PCI_IO_TARGET,
-                                          ORION_MBUS_PCI_IO_ATTR,
-                                          ORION5X_PCI_IO_PHYS_BASE,
-                                          ORION5X_PCI_IO_SIZE,
-                                          ORION5X_PCI_IO_BUS_BASE);
-        mvebu_mbus_add_window_by_id(ORION_MBUS_PCI_MEM_TARGET,
-                                    ORION_MBUS_PCI_MEM_ATTR,
-                                    ORION5X_PCI_MEM_PHYS_BASE,
-                                    ORION5X_PCI_MEM_SIZE);
-
-in orion5x_setup_wins().
-
-Note that we already have some Orion5x converted to DT, and that use
-PCI: board-rd88f5182.c is an example. So we could very well take Jamie
-patches as-is, and move later to a DT-representation for PCI/PCIe.
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Thanks,
+Daniel
