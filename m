@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC PATCH 22/30] net/netpolicy: set tx queues according to policy
-Date: Sun, 17 Jul 2016 23:56:16 -0700
-Message-ID: <1468824984-65318-23-git-send-email-kan.liang@intel.com>
+Subject: [RFC PATCH 23/30] i40e/ethtool: support RX_CLS_LOC_ANY
+Date: Sun, 17 Jul 2016 23:56:17 -0700
+Message-ID: <1468824984-65318-24-git-send-email-kan.liang@intel.com>
 References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -13,63 +13,81 @@ Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	andi@firstfloor.org, Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:18996 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752024AbcGROXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 10:23:31 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-When the device tries to transmit a buffer, netdev_pick_tx is called to
-find the available tx queues. This patch checks the per socket net
-policy of the binding socket of the buffer. If net policy is set, it
-picks up the assigned tx queue from net policy module, and redirect the
-traffic to the assigned queue.
+The existing special location RX_CLS_LOC_ANY flag is designed for the
+case which the caller does not know/care about the location. Now, this
+flag is only handled in ethtool user space. If the kernel directly calls
+the ETHTOOL_SRXCLSRLINS interface with RX_CLS_LOC_ANY flag set, it will
+error out.
+This patch implements the RX_CLS_LOC_ANY support for i40e driver. It
+finds the available location from the end of the list.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- net/core/dev.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 38 ++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7894e40..6108e3b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3266,6 +3266,7 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
- 				    void *accel_priv)
- {
- 	int queue_index = 0;
-+	struct sock *sk = skb->sk;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 1f3537e..4276ed7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2552,6 +2552,32 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+ 	return ret;
+ }
  
- #ifdef CONFIG_XPS
- 	u32 sender_cpu = skb->sender_cpu - 1;
-@@ -3279,8 +3280,21 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
- 		if (ops->ndo_select_queue)
- 			queue_index = ops->ndo_select_queue(dev, skb, accel_priv,
- 							    __netdev_pick_tx);
--		else
--			queue_index = __netdev_pick_tx(dev, skb);
-+		else {
-+#ifdef CONFIG_NETPOLICY
-+			queue_index = -1;
-+			if (sk && (sk->sk_netpolicy.policy > NET_POLICY_NONE)) {
-+				/* There is no device bind to socket when setting policy
-+				 * Assign the dev now.
-+				 */
-+				if (!sk->sk_netpolicy.dev)
-+					sk->sk_netpolicy.dev = dev;
-+				queue_index = netpolicy_pick_queue(&sk->sk_netpolicy, false);
-+			}
-+			if (queue_index < 0)
-+#endif
-+				queue_index = __netdev_pick_tx(dev, skb);
++static int find_empty_slot(struct i40e_pf *pf)
++{
++	struct i40e_fdir_filter *rule;
++	struct hlist_node *node2;
++	__u32 data = i40e_get_fd_cnt_all(pf);
++	unsigned long *slot;
++	int i;
++
++	slot = kzalloc(BITS_TO_LONGS(data) * sizeof(long), GFP_KERNEL);
++	if (!slot)
++		return -ENOMEM;
++
++	hlist_for_each_entry_safe(rule, node2,
++				  &pf->fdir_filter_list, fdir_node) {
++		set_bit(rule->fd_id, slot);
++	}
++
++	for (i = data - 1; i > 0; i--) {
++		if (!test_bit(i, slot))
++			break;
++	}
++	kfree(slot);
++
++	return i;
++}
++
+ /**
+  * i40e_add_fdir_ethtool - Add/Remove Flow Director filters
+  * @vsi: pointer to the targeted VSI
+@@ -2588,9 +2614,15 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 
+ 	fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
+ 
+-	if (fsp->location >= (pf->hw.func_caps.fd_filters_best_effort +
+-			      pf->hw.func_caps.fd_filters_guaranteed)) {
+-		return -EINVAL;
++	if (fsp->location != RX_CLS_LOC_ANY) {
++		if (fsp->location >= (pf->hw.func_caps.fd_filters_best_effort +
++				      pf->hw.func_caps.fd_filters_guaranteed)) {
++			return -EINVAL;
 +		}
++	} else {
++		fsp->location = find_empty_slot(pf);
++		if (fsp->location < 0)
++			return -ENOSPC;
+ 	}
  
- 		if (!accel_priv)
- 			queue_index = netdev_cap_txqueue(dev, queue_index);
+ 	if ((fsp->ring_cookie != RX_CLS_FLOW_DISC) &&
 -- 
 2.5.5
