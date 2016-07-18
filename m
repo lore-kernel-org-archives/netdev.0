@@ -1,59 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next v2 12/12] net: dsa: mv88e6xxx: add support
- for DSA ageing time
-Date: Mon, 18 Jul 2016 22:13:34 +0200
-Message-ID: <20160718201334.GS31103@lunn.ch>
-References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
- <20160718184628.13103-13-vivien.didelot@savoirfairelinux.com>
- <20160718191644.GG31103@lunn.ch>
- <87d1malpcd.fsf@ketchup.mtl.sfl>
- <20160718193253.GJ31103@lunn.ch>
- <87eg6q3efp.fsf@ketchup.mtl.sfl>
+From: "Liang, Kan" <kan.liang@intel.com>
+Subject: RE: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 20:14:15 +0000
+Message-ID: <37D7C6CF3E00A74B8858931C1DB2F07712C19852@SHSMSX103.ccr.corp.intel.com>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
+ <20160718151841.GA19066@breakpoint.cc>
+ <20160718154512.GK5871@two.firstfloor.org>
+ <CAM_iQpVRfoC0e43Pbsw8Q3RsyDDnMZeGu=oS0iVvAfMNwz6DeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45015 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751906AbcGRUNh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 16:13:37 -0400
-Content-Disposition: inline
-In-Reply-To: <87eg6q3efp.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	John Stultz <john.stultz@linaro.org>,
+	Alex Duyck <aduyck@mirantis.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"decot@googlers.com" <decot@googlers.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpVRfoC0e43Pbsw8Q3RsyDDnMZeGu=oS0iVvAfMNwz6DeA@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 18, 2016 at 03:59:38PM -0400, Vivien Didelot wrote:
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> >> Nope, the bridge ageing time is not per-port, even though switchdev ops
-> >> are per-port by design. This is a switch-wide attribute.
-> >
-> > So you are saying the core is doing all the reference counting, etc,
-> > when swapping between fast and slow ageing?
-> 
-> I don't see how checking for the fastest ageing time would fix support
-> for multiple bridges...
-
-The bridge should switch to fast ageing after a topology change to
-flush out entries which are now wrong. Using the short age time for
-too long results in a bit more inefficiency, in that entries time out
-faster than they need to. But if we go back to slow ageing too
-quickly, e.g. because of another bridge, we get wrong operation, in
-that bad entries can get stuck in the table for up to 5 minutes.
-
-So either we need to keep fast ageing as long as there is one bridge
-fast ageing, or we need to flush the whole MAC cache for a bridge on
-topology change and don't bother with fast ageing at all.
-
-> Maybe we can keep it simple for the moment with this switch-wide
-> set_ageing_time operation, and later add a patch for the DSA layer to
-> cache and elect the ageing time per-port or per-bridge.
-
-I don't think it can be done at the DSA layer. It does not have the
-information needed.
-
-	    Andrew
+DQoNCj4gDQo+IE9uIE1vbiwgSnVsIDE4LCAyMDE2IGF0IDg6NDUgQU0sIEFuZGkgS2xlZW4gPGFu
+ZGlAZmlyc3RmbG9vci5vcmc+IHdyb3RlOg0KPiA+PiBJdCBzZWVtcyBzdHJhbmdlIHRvIG1lIHRv
+IGFkZCBzdWNoIHBvbGljaWVzIHRvIHRoZSBrZXJuZWwuDQo+ID4+IEFkZG1pdHRpbmdseSwgZG9j
+dW1lbnRhdGlvbiBvZiBzb21lIHNldHRpbmdzIGlzIG5vbi1leGlzdGVudCBhbmQgb25lDQo+ID4+
+IG5lZWRzIHZhcmlvdXMgZGlmZmVyZW50IHRvb2xzIHRvIHNldCB0aGlzIChzeXNjdGwsIHByb2Nm
+cywgc3lzZnMsIGV0aHRvb2wsIGV0YykuDQo+ID4NCj4gPiBUaGUgcHJvYmxlbSBpcyB0aGF0IGRp
+ZmZlcmVudCBhcHBsaWNhdGlvbnMgbmVlZCBkaWZmZXJlbnQgcG9saWNpZXMuDQo+ID4NCj4gPiBU
+aGUgb25seSBlbnRpdHkgd2hpY2ggY2FuIGVmZmljaWVudGx5IG5lZ290aWF0ZSBiZXR3ZWVuIGRp
+ZmZlcmVudA0KPiA+IGFwcGxpY2F0aW9ucycgY29uZmxpY3RpbmcgcmVxdWVzdHMgaXMgdGhlIGtl
+cm5lbC4gQW5kIHRoYXQgaXMgcHJldHR5DQo+ID4gbXVjaCB0aGUgYmFzaWMgam9iIGRlc2NyaXB0
+aW9uIG9mIGEga2VybmVsOiBtdWx0aXBsZXggaGFyZHdhcmUNCj4gPiBlZmZpY2llbnRseSBiZXR3
+ZWVuIGRpZmZlcmVudCB1c2Vycy4NCj4gPg0KPiA+IFNvIHllcyB0aGUgdXNlciBzcGFjZSB0dW5p
+bmcgYXBwcm9hY2ggd29ya3MgZm9yIHNpbXBsZSBjYXNlcyAoIm9ubHkNCj4gPiBydW4gd29ya2xv
+YWRzIHRoYXQgcmVxdWlyZSB0aGUgc2FtZSB0dW5pbmciKSwgYnV0IGlzIHVsdGltYXRlbHkgbm90
+DQo+ID4gdmVyeSBpbnRlcmVzdGluZyBub3Igc2NhbGFibGUuDQo+IA0KPiBJIGRvbid0IHJlYWQg
+dGhlIGNvZGUgeWV0LCBqdXN0IHRoZSBjb3ZlciBsZXR0ZXIuDQo+IA0KPiBXZSBoYXZlIGdsb2Jh
+bCB0dW5pbmdzLCBwZXItbmV0d29yay1uYW1lc3BhY2UgdHVuaW5ncywgcGVyLXNvY2tldCB0dW5p
+bmdzLg0KPiBJdCBpcyBzdGlsbCB1bmNsZWFyIHdoeSB5b3UgY2FuJ3QganVzdCBwdXQgZGlmZmVy
+ZW50IGFwcGxpY2F0aW9ucyBpbnRvIGRpZmZlcmVudA0KPiBuYW1lc3BhY2VzL2NvbnRhaW5lcnMg
+dG8gZ2V0IGRpZmZlcmVudCBwb2xpY2llcy4NCg0KSW4gTkVUIHBvbGljeSwgd2UgZG8gcGVyIHF1
+ZXVlIHR1bmluZ3MuDQoNCg0KVGhhbmtzLA0KS2FuDQo=
