@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Fix DMA channel misreporting for the Renesas
- Ethernet drivers
-Date: Mon, 18 Jul 2016 12:57:33 -0700 (PDT)
-Message-ID: <20160718.125733.1494576785457064943.davem@davemloft.net>
-References: <8592210.gMERdmUlCp@wasted.cogentembedded.com>
-	<20160717.232451.295029329698830463.davem@davemloft.net>
-	<3244a329-1b48-4e09-7fe5-96d80b8a3d54@cogentembedded.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 net-next v2 12/12] net: dsa: mv88e6xxx: add support for DSA ageing time
+Date: Mon, 18 Jul 2016 15:59:38 -0400
+Message-ID: <87eg6q3efp.fsf@ketchup.mtl.sfl>
+References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com> <20160718184628.13103-13-vivien.didelot@savoirfairelinux.com> <20160718191644.GG31103@lunn.ch> <87d1malpcd.fsf@ketchup.mtl.sfl> <20160718193253.GJ31103@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <3244a329-1b48-4e09-7fe5-96d80b8a3d54@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160718193253.GJ31103@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 18 Jul 2016 17:13:02 +0300
+Andrew Lunn <andrew@lunn.ch> writes:
 
-> Hello.
-> 
-> On 07/18/2016 09:24 AM, David Miller wrote:
-> 
->>>    Here's a set of 2 patches against DaveM's 'net.git' repo fixing
->>> up the DMA channel reporting by 'ifconfig'...
->>
->> Is some fixing some ifconfig output that is effectively meaningless
->> appropriate for 'net'?
-> 
->    I just don't know any more users of SIOCGIFMAP ioctl... ip?
->    It seems to  also be used in net/core/rtnetlink.c...
+>> Nope, the bridge ageing time is not per-port, even though switchdev ops
+>> are per-port by design. This is a switch-wide attribute.
+>
+> So you are saying the core is doing all the reference counting, etc,
+> when swapping between fast and slow ageing?
 
-Who cares who uses it.  The important thing to ask is what in the
-world could they do with the value?
+I don't see how checking for the fastest ageing time would fix support
+for multiple bridges... I think that would make the code much more
+complex for a small value. Multiple logical bridges on top of a single
+physical switch is still a tricky topic.
 
-DMA masks have no meaning or usage since ISA times.
+Maybe we can keep it simple for the moment with this switch-wide
+set_ageing_time operation, and later add a patch for the DSA layer to
+cache and elect the ageing time per-port or per-bridge.
+
+Thanks,
+
+        Vivien
