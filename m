@@ -1,76 +1,49 @@
-From: "Liang, Kan" <kan.liang@intel.com>
-Subject: RE: [RFC PATCH 00/30] Kernel NET policy
-Date: Mon, 18 Jul 2016 15:51:22 +0000
-Message-ID: <37D7C6CF3E00A74B8858931C1DB2F07712C1968E@SHSMSX103.ccr.corp.intel.com>
-References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
- <20160718151841.GA19066@breakpoint.cc>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute PATCH v5 1/5] tc: m_action: Improve conversion to C99
+ style initializers
+Date: Mon, 18 Jul 2016 10:09:07 -0600
+Message-ID: <2078697f-5750-122a-7815-1208ba841160@cumulusnetworks.com>
+References: <1468853325-9260-1-git-send-email-phil@nwl.cc>
+ <1468853325-9260-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"keescook@chromium.org" <keescook@chromium.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"gorcunov@openvz.org" <gorcunov@openvz.org>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"aduyck@mirantis.com" <aduyck@mirantis.com>,
-	"ben@decadent.org.uk" <ben@decade
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:10488 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751320AbcGRPv0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 11:51:26 -0400
-In-Reply-To: <20160718151841.GA19066@breakpoint.cc>
-Content-Language: en-US
+Received: from mail-it0-f42.google.com ([209.85.214.42]:37537 "EHLO
+	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441AbcGRQJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:09:33 -0400
+Received: by mail-it0-f42.google.com with SMTP id f6so78260463ith.0
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 09:09:15 -0700 (PDT)
+In-Reply-To: <1468853325-9260-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 7/18/16 8:48 AM, Phil Sutter wrote:
+> This improves my initial change in the following points:
+>
+> - Flatten embedded struct's initializers.
+> - No need to initialize variables to zero as the key feature of C99
+>   initializers is to do this implicitly.
+> - By relocating the declaration of struct rtattr *tail, it can be
+>   initialized at the same time.
+>
+> Fixes: a0a73b298a579 ("tc: m_action: Use C99 style initializers for struct req")
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+> Changes since v2:
+> - Don't drop the "superfluous" comma.
+> - Flatten initializers.
+> Changes since v1:
+> - Created this patch.
+> ---
+>  tc/m_action.c | 23 +++++++----------------
+>  1 file changed, 7 insertions(+), 16 deletions(-)
+>
 
-
-> >
-> > It is a big challenge to get good network performance. First, the
-> > network performance is not good with default system settings. Second,
-> > it is too difficult to do automatic tuning for all possible workloads,
-> > since workloads have different requirements. Some workloads may want
-> high throughput.
-> 
-> Seems you did lots of tests to find optimal settings for a given base policy.
-> 
-Yes. Current test only base on Intel i40e driver. The optimal settings should
-vary for other devices. But adding settings for new device is not hard.
-
-> What is missing in the kernel UAPI so userspace could do these settings on its
-> own, without adding this policy stuff to the kernel?
-
-The main purpose of the proposal is to simplify the configuration. Too many
-options will let them confuse. 
-For normal users, they just need to tell the kernel that they want high throughput
-for the application. The kernel will take care of the rest.
-So, I don't think we need an interface for user to set their own policy settings.
-
-> 
-> It seems strange to me to add such policies to the kernel.
-
-But kernel is the only place which can merge all user's requests.
-
-> Addmittingly, documentation of some settings is non-existent and one needs
-> various different tools to set this (sysctl, procfs, sysfs, ethtool, etc).
-> 
-> But all of these details could be hidden from user.
-> Have you looked at tuna for instance?
-
-Not yet. Is there similar settings for network?
-
-Thanks,
-Kan
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
