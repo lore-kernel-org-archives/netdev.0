@@ -1,84 +1,75 @@
-From: "Eggert, Lars" <lars@netapp.com>
-Subject: Re: [CRIU] TCP_REPAIR MSS issue
-Date: Mon, 18 Jul 2016 09:06:05 +0000
-Message-ID: <6B535C6E-88BF-4613-816D-7898DB21044C@netapp.com>
-References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
- <575FEA4B.2000603@virtuozzo.com>
- <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
- <20160614171528.GA14276@outlook.office365.com>
- <EE75D5F9-7243-4DE0-94FE-F6279939C231@netapp.com>
- <20160614205741.GB20722@outlook.office365.com>
- <5A6E3EFB-2B69-4C3C-BC67-CAFEC5B2DB2C@netapp.com>
- <20160616210902.GB6010@outlook.office365.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
+ program
+Date: Mon, 18 Jul 2016 11:10:23 +0200
+Message-ID: <20160718091023.GA29198@pox.localdomain>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+ <20160714092543.776f8d8c@redhat.com>
+ <20160715033057.GA98180@ast-mbp.thefacebook.com>
+ <CALx6S34e73N6YA8AP67DAHEjcE-q5nO9q0Bk9motfbBKpB9T4g@mail.gmail.com>
+ <20160715164744.GA3693@ast-mbp.thefacebook.com>
+ <CALx6S37hihFayCBJcrr61WjER11=fDk_S_sGXaRSoC3Ukw93eA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>,
-	"Honda, Michio" <michio@netapp.com>
-To: Andrey Vagin <avagin@virtuozzo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx144.netapp.com ([216.240.21.25]:20045 "EHLO mx144.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751459AbcGRJGH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 05:06:07 -0400
-In-Reply-To: <20160616210902.GB6010@outlook.office365.com>
-Content-Language: en-US
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:37965 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880AbcGRJK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 05:10:27 -0400
+Received: by mail-wm0-f44.google.com with SMTP id o80so106666544wme.1
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 02:10:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S37hihFayCBJcrr61WjER11=fDk_S_sGXaRSoC3Ukw93eA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+On 07/15/16 at 10:49am, Tom Herbert wrote:
+> I'm really missing why having a program pointer per ring could be so
+> complicated. This should just a matter of maintaining a pointer to the
+> BPF program program in each RX queue. If we want to latch together all
+> the rings to run the same program then just have an API that does
+> that-- walk all the queues and set the pointer to the program.  if
+> necessary this can be done atomically by taking the device down for
+> the operation.
 
-Hi,
+I think two different use cases are being discussed here. Running
+individual programs on different rings vs providing guarantees for the
+straight forward solo program use case.
 
+Implementing the program per ring doesn't sound complicated and it
+looks like we are only debating on whether to add it now or as a second
+step.
 
-On 2016-06-16, at 23:09, Andrey Vagin <avagin@virtuozzo.com> wrote:
-> I can't reproduce this issue, now I'm trying to understand why it =
-works
-> for me and doesn't work for you.
+For the solo program use case: an excellent property of BPF with cls_bpf
+right now is that it is possible to atomically replace a BPF program
+without disruption or dropping any packets (thanks to the properties of
+tc). This makes updating BPF programs simple and reliable. Even map
+layout updates can be managed relatively easily right now.
 
-just to conclude this thread for the list:
+It should be a goal to preserve that property in XDP. As a user, I
+will not expect the same guarantees when I add different programs to
+different rings whereas when I add a program on net_device level I will
+expect an atomic update without taking down the device.
 
-Andrey and me debugged this off-list. The issue arose, because my code =
-did a bind() to 0.0.0.0 in TCP_REPAIR mode. When turning off TCP_REPAIR =
-and sending into the socket, this caused minimum-MSS-sized segments to =
-be transmitted. The issue goes away when I bind() to the local IP =
-address of my local egress interface.
+> To me, an XDP program is just another attribute of an RX queue, it's
+> really not special!. We already have a very good infrastructure for
+> managing multiqueue and pretty much everything in the receive path
+> operates at the queue level not the device level-- we should follow
+> that model.
 
-To me at least, this is a POLA violation (excuse the FreeBSD terminology =
-:-) Either binding to 0.0.0.0 should fail, or it should succeed and =
-full-sized segments should be sent. But at least I have a work-around =
-now.
-
-Thanks,
-Lars
-
---Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJXjJv7AAoJEFS1wwm/cMFXCL0QAMY0T7DyrbNB4VXG4bsvFnjd
-geZc1SM2YtKBqTc1/8M6Oki0YDr4HFka7BKzIMjCzy9gy0Jn20NEojXyEjdeh/OY
-uleHqTiVXvNh83MVMstWQta1bKcyCMd9a6NiRXpj4Ot4VdL6J7G7BoB9NwhJdykt
-Z0QEn+Dmo126QXgVysn3U5OmSxah5v1qSpprp50Fx4o5tT2V0B54doDWqcG03NPq
-MSw5Dh7k9+3n8jqmumdzYIXXqfTqF8CoBhc4rJMfCK5fyNlAmNnmhISDDNnRjADW
-s2vRG4c9eZtdXvCWOs7mc09OHz9JpNb107C8Pcf7RmL1ojGL1ipL46DQArH8zeKH
-9w50RN5te3RUONVSPwdi3ZhRumvfVuZcKhLymFKjYpnMk/odSr5Fxzf1i4yHB/6u
-7L6mvfDpUdYPdCfQ+8/QO+Sj7bQtY2aLDqA592meAb0z/nnXLqy8otYrYkGaETx9
-HorLtx1Pwyw0OFnJ0ixiQThOrg6kRr6POlPsypDfaybsmYRwhJrcZJxRbNPUIYTE
-yExokf2CIqTmUW/E3+Il+KGSqzgXtUGZuOcfsp0qwdUxfd/7p+Ezeqo04Yi2Xm7/
-xYS2IdcxjsJHqrDqdElK9HFsX7agQB5tfamgF2qN0+AqbfhcWww75d5bGgVe2AK1
-SOiTnRvIGz0SclKy8MZ1
-=uWKT
------END PGP SIGNATURE-----
-
---Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E--
+I agree with that but I would like to keep the current per net_device
+atomic properties.
