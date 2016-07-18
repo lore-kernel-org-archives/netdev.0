@@ -1,39 +1,44 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: brcmfmac: respect hidden_ssid for AP interfaces
-Date: Mon, 18 Jul 2016 19:34:22 +0000 (UTC)
-Message-ID: <20160718193422.5BCE26034D@smtp.codeaurora.org>
-References: <1467800585-10678-1-git-send-email-zajec5@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 net-next v2 03/12] net: dsa: mv88e6xxx: extract device
+ mapping
+Date: Mon, 18 Jul 2016 21:35:58 +0200
+Message-ID: <20160718193558.GK31103@lunn.ch>
+References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com>
+ <20160718184628.13103-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Arend van Spriel <arend.vanspriel@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	Hante Meuleman <hante.meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467800585-10678-1-git-send-email-zajec5@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:44949 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751847AbcGRTgA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 15:36:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20160718184628.13103-4-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafa=C5=82 Mi=C5=82ecki wrote:
-> This was succesfully tested with 4366B1. A small workaround is needed
-> for the main interface otherwise it would stuck at the hidden state.
->=20
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> +/* Indirect write to single pointer-data register with an Update bit */
+> +static int mv88e6xxx_update_write(struct mv88e6xxx_chip *chip,
+> +				  int addr, int reg, u16 update)
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+Hi Vivien
 
-c940de10d45e brcmfmac: respect hidden_ssid for AP interfaces
+I don't think mv88e6xxx_update_read() makes any sense? Can we just
+infer write? Call it mv88e6xxx_update().
 
---=20
-Sent by pwcli
-https://patchwork.kernel.org/patch/9216049/
+> +static int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip,
+> +					     int target, int port)
+> +{
+> +	u16 val = (target << 8) | (port & 0xf);
+> +
+> +	return mv88e6xxx_update_write(chip, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING,
+> +				      val);
+
+This would then all be on one line and look a better.
+
+     Andrew
