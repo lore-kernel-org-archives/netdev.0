@@ -1,63 +1,62 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH v5] wlcore: spi: add wl18xx support
-Date: Mon, 18 Jul 2016 20:04:19 +0300
-Message-ID: <87vb02x4h8.fsf@kamboji.qca.qualcomm.com>
-References: <8665E2433BC68541A24DFFCA87B70F5B36156367@DFRE01.ent.ti.com>
-	<8665E2433BC68541A24DFFCA87B70F5B3615D8AA@DFRE01.ent.ti.com>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: [PATCH v9 00/11] Add driver bpf hook for early packet drop and
+ forwarding
+Date: Mon, 18 Jul 2016 10:16:37 -0700
+Message-ID: <20160718171635.GB29243@gmail.com>
+References: <1468625338-32391-1-git-send-email-bblanco@plumgrid.com>
+ <f94302fd-da02-c03d-e9ab-5292e6594b10@gmail.com>
+ <20160718163827.GA29243@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree\@vger.kernel.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi\@vger.kernel.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Reizer\, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B3615D8AA-1tpBd5JUCm6IQmiDNMet8wC/G2K4zDHf@public.gmane.org>
-	(Eyal Reizer's message of "Sun, 17 Jul 2016 06:36:11 +0000")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Tariq Toukan <ttoukan.linux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:33800 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254AbcGRRQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 13:16:43 -0400
+Received: by mail-pf0-f173.google.com with SMTP id p64so33720670pfb.1
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 10:16:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160718163827.GA29243@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org> writes:
+On Mon, Jul 18, 2016 at 09:38:28AM -0700, Brenden Blanco wrote:
+> On Mon, Jul 18, 2016 at 04:39:38PM +0300, Tariq Toukan wrote:
+> > After applying the patchset, I get no ping between two VLAN
+> > interfaces (w/o activating any BPF program).
+> > I'm debugging it, and will update once I find the bug.
+> > 
+> > Brenden, please check if you can repro the issue.
+> I was able to reproduce it also. I suspect a bug in patch 8/11.
+I clearly didn't test vlans, sorry for that! The fix is pretty obvious, see
+below if you want to double check. I will fix up 8/11 in the next iteration.
+> > 
+> > Regards,
+> > Tariq
+> > 
 
-> Add support for using with both wl12xx and wl18xx.
->
-> - all wilink family needs special init command for entering wspi mode.
->   extra clock cycles should be sent after the spi init command while the
->   cs pin is high.
-> - Use inverted chip select for sending a dummy 4 bytes command that
->   completes the init stage.
->
-> Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> ---
-> v1->v2:update device tree bindings configuration
-> v2->v3:revert from manual gpio manipulation. use inverted chip select 
-> instead for sending the extra init cycle which, achieves the same hardware 
-> purpose.
-> update device tree bindings docucmentation accordingly
-> v3->v4: Remove redundant data form binding documentation and fix chip 
-> select number mismatch in wl1271 example
-> v4->v5: Rebase on top of head of wireless-drivers-next
-
-You now sent me two patches with v5 which is just confusing. To make the
-life of maintainers easier ALWAYS increase the revision number, no
-matter how small the change is.
-
-But the "latter" v5 is corrupted somehow in patchwork:
-
-https://patchwork.kernel.org/patch/9233597/
-
-The "former" v5 again looks ok:
-
-https://patchwork.kernel.org/patch/9222403/
-
-I can't immeaditely see why that happened, but please resend.
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 5d8452d..9df87ca 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -833,7 +831,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	bf_ok = ring->bf_enabled;
+ 	if (skb_vlan_tag_present(skb)) {
+-		qpn_vlan.vlan_tag = skb_vlan_tag_get(skb);
++		qpn_vlan.vlan_tag = cpu_to_be16(skb_vlan_tag_get(skb));
+ 		vlan_proto = be16_to_cpu(skb->vlan_proto);
+ 		if (vlan_proto == ETH_P_8021AD)
+ 			qpn_vlan.ins_vlan = MLX4_WQE_CTRL_INS_SVLAN;
