@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC PATCH 17/30] net/netpolicy: support CPU hotplug
-Date: Sun, 17 Jul 2016 23:56:11 -0700
-Message-ID: <1468824984-65318-18-git-send-email-kan.liang@intel.com>
+Subject: [RFC PATCH 15/30] i40e/netpolicy: add MIX policy support
+Date: Sun, 17 Jul 2016 23:56:09 -0700
+Message-ID: <1468824984-65318-16-git-send-email-kan.liang@intel.com>
 References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
 Cc: jeffrey.t.kirsher@intel.com, mingo@redhat.com,
 	peterz@infradead.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
@@ -20,123 +20,137 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-For CPU hotplug, the net policy module will rebuild the sys map and
-object list.
+Enable i40e MIX policy support. Based on the test, the MIX policy has
+better performance if increasing rx interrupt moderation a little bit.
+
+For evaluating the MIX policy performance, mixed workloads are tested.
+The mixed workloads are combination of throughput-first workload and
+latency-first workload. Five different types of combinations are
+evaluated.
+(pure throughput-first workload, pure latency-first workloads,
+ 2/3 throughput-first workload + 1/3 latency-first workloads,
+ 1/3 throughput-first workload + 2/3 latency-first workloads and
+ 1/2 throughput-first workload + 1/2 latency-first workloads).
+
+For caculating the performance of mixed workloads, a weighted sum system
+is also introduced. Here is the formula.
+
+Score = normalized_latency * Weight + normalized_throughput * (1 -
+Weight).
+
+If we assume that the user has an equal interest in latency and
+throughput performance, the Score for "MIX" policy is on average ~1.52X
+than baseline.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- net/core/netpolicy.c | 78 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 78 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 71 +++++++++++++++++++++--------
+ 1 file changed, 51 insertions(+), 20 deletions(-)
 
-diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 2a04fcf..46af407 100644
---- a/net/core/netpolicy.c
-+++ b/net/core/netpolicy.c
-@@ -37,6 +37,7 @@
- #include <net/net_namespace.h>
- #include <linux/sort.h>
- #include <linux/ctype.h>
-+#include <linux/cpu.h>
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 11b921b..d3f087d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8966,6 +8966,8 @@ static netdev_features_t i40e_features_check(struct sk_buff *skb,
+ #define NET_POLICY_CPU_TX	250
+ #define NET_POLICY_BULK_RX	50
+ #define NET_POLICY_BULK_TX	125
++#define NET_POLICY_MIX_BULK_RX	62
++#define NET_POLICY_MIX_BULK_TX	122
+ #define NET_POLICY_LATENCY_RX	5
+ #define NET_POLICY_LATENCY_TX	10
  
- static int netpolicy_get_dev_info(struct net_device *dev,
- 				  struct netpolicy_dev_info *d_info)
-@@ -838,6 +839,75 @@ static struct notifier_block netpolicy_dev_notf = {
- 	.notifier_call = netpolicy_notify,
- };
+@@ -9004,6 +9006,9 @@ static int i40e_ndo_netpolicy_init(struct net_device *dev,
+ 			set_bit(i, info->avail_policy);
+ 	}
  
-+/**
-+ * update_netpolicy_sys_map() - rebuild the sys map and object list
-+ *
-+ * This function go through all the available net policy supported device,
-+ * and rebuild sys map and object list.
-+ *
-+ */
-+void update_netpolicy_sys_map(void)
++	/* support MIX policy */
++	info->has_mix_policy = true;
++
+ 	return 0;
+ }
+ 
+@@ -9046,6 +9051,30 @@ static int i40e_ndo_get_irq_info(struct net_device *dev,
+ 	return 0;
+ }
+ 
++static int i40e_fill_coalesce_for_policy(struct ethtool_coalesce *ec,
++					 enum netpolicy_name name)
 +{
-+	struct net *net;
-+	struct net_device *dev, *aux;
-+	enum netpolicy_name cur_policy;
++	if (policy_param[name][NETPOLICY_RX] > 0) {
++		ec->rx_coalesce_usecs = policy_param[name][NETPOLICY_RX];
++		ec->use_adaptive_rx_coalesce = 0;
++	} else if (policy_param[name][NETPOLICY_RX] == 0) {
++		ec->use_adaptive_rx_coalesce = 1;
++	} else {
++		return -EINVAL;
++	}
 +
-+	for_each_net(net) {
-+		for_each_netdev_safe(net, dev, aux) {
-+			spin_lock(&dev->np_lock);
-+			if (!dev->netpolicy)
-+				goto unlock;
-+			cur_policy = dev->netpolicy->cur_policy;
-+			if (cur_policy == NET_POLICY_NONE)
-+				goto unlock;
++	if (policy_param[name][NETPOLICY_TX] > 0) {
++		ec->tx_coalesce_usecs = policy_param[name][NETPOLICY_TX];
++		ec->use_adaptive_tx_coalesce = 0;
++	} else if (policy_param[name][NETPOLICY_TX] == 0) {
++		ec->use_adaptive_tx_coalesce = 1;
++	} else {
++		return -EINVAL;
++	}
 +
-+			dev->netpolicy->cur_policy = NET_POLICY_NONE;
++	return 0;
++}
 +
-+			/* rebuild everything */
-+			netpolicy_disable(dev);
-+			netpolicy_enable(dev);
-+			if (netpolicy_gen_obj_list(dev, cur_policy)) {
-+				pr_warn("NETPOLICY: Failed to generate "
-+					"netpolicy object list for dev %s\n",
-+					dev->name);
-+				netpolicy_disable(dev);
-+				goto unlock;
+ /**
+  * i40e_set_net_policy
+  * @dev: the net device pointer
+@@ -9061,28 +9090,30 @@ static int i40e_set_net_policy(struct net_device *dev,
+ 	struct i40e_vsi *vsi = np->vsi;
+ 	struct netpolicy_object *obj;
+ 	struct ethtool_coalesce ec;
+-
+-	if (policy_param[name][NETPOLICY_RX] > 0) {
+-		ec.rx_coalesce_usecs = policy_param[name][NETPOLICY_RX];
+-		ec.use_adaptive_rx_coalesce = 0;
+-	} else if (policy_param[name][NETPOLICY_RX] == 0) {
+-		ec.use_adaptive_rx_coalesce = 1;
+-	} else {
+-		return -EINVAL;
+-	}
+-
+-	if (policy_param[name][NETPOLICY_TX] > 0) {
+-		ec.tx_coalesce_usecs = policy_param[name][NETPOLICY_TX];
+-		ec.use_adaptive_tx_coalesce = 0;
+-	} else if (policy_param[name][NETPOLICY_TX] == 0) {
+-		ec.use_adaptive_tx_coalesce = 1;
+-	} else {
+-		return -EINVAL;
+-	}
++	int i, ret;
+ 
+ 	/*For i40e driver, tx and rx are always in pair */
+-	list_for_each_entry(obj, &dev->netpolicy->obj_list[NETPOLICY_RX][name], list) {
+-		i40e_set_itr_per_queue(vsi, &ec, obj->queue);
++	if (name == NET_POLICY_MIX) {
++		/* Under MIX policy, the paramers for BULK object are different */
++		policy_param[NET_POLICY_BULK][NETPOLICY_RX] = NET_POLICY_MIX_BULK_RX;
++		policy_param[NET_POLICY_BULK][NETPOLICY_TX] = NET_POLICY_MIX_BULK_TX;
++		for (i = NET_POLICY_NONE; i < NET_POLICY_MAX; i++) {
++			ret = i40e_fill_coalesce_for_policy(&ec, i);
++			if (ret)
++				return ret;
++			list_for_each_entry(obj, &dev->netpolicy->obj_list[NETPOLICY_RX][i], list) {
++				i40e_set_itr_per_queue(vsi, &ec, obj->queue);
 +			}
-+			if (dev->netdev_ops->ndo_set_net_policy(dev, cur_policy)) {
-+				pr_warn("NETPOLICY: Failed to set "
-+					"netpolicy for dev %s\n",
-+					dev->name);
-+				netpolicy_disable(dev);
-+				goto unlock;
-+			}
-+
-+			dev->netpolicy->cur_policy = cur_policy;
-+unlock:
-+			spin_unlock(&dev->np_lock);
 +		}
-+	}
-+}
-+
-+static int netpolicy_cpu_callback(struct notifier_block *nfb,
-+				  unsigned long action, void *hcpu)
-+{
-+	switch (action & ~CPU_TASKS_FROZEN) {
-+	case CPU_ONLINE:
-+		update_netpolicy_sys_map();
-+		break;
-+	case CPU_DYING:
-+		update_netpolicy_sys_map();
-+		break;
-+	}
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block netpolicy_cpu_notifier = {
-+	&netpolicy_cpu_callback,
-+	NULL,
-+	0
-+};
-+
- static int __init netpolicy_init(void)
- {
- 	int ret;
-@@ -846,6 +916,10 @@ static int __init netpolicy_init(void)
- 	if (!ret)
- 		register_netdevice_notifier(&netpolicy_dev_notf);
++	} else {
++		policy_param[NET_POLICY_BULK][NETPOLICY_RX] = NET_POLICY_BULK_RX;
++		policy_param[NET_POLICY_BULK][NETPOLICY_TX] = NET_POLICY_BULK_TX;
++		ret = i40e_fill_coalesce_for_policy(&ec, name);
++		if (ret)
++			return ret;
++		list_for_each_entry(obj, &dev->netpolicy->obj_list[NETPOLICY_RX][name], list) {
++			i40e_set_itr_per_queue(vsi, &ec, obj->queue);
++		}
+ 	}
  
-+	cpu_notifier_register_begin();
-+	__register_cpu_notifier(&netpolicy_cpu_notifier);
-+	cpu_notifier_register_done();
-+
- 	return ret;
- }
- 
-@@ -853,6 +927,10 @@ static void __exit netpolicy_exit(void)
- {
- 	unregister_netdevice_notifier(&netpolicy_dev_notf);
- 	unregister_pernet_subsys(&netpolicy_net_ops);
-+
-+	cpu_notifier_register_begin();
-+	__unregister_cpu_notifier(&netpolicy_cpu_notifier);
-+	cpu_notifier_register_done();
- }
- 
- subsys_initcall(netpolicy_init);
+ 	return 0;
 -- 
 2.5.5
