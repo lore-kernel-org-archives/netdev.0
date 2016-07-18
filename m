@@ -1,33 +1,69 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Getting IP address and port of a file descriptor
-Date: Mon, 18 Jul 2016 13:14:26 -0700
-Message-ID: <CAM_iQpXAA-W+1BCQ+evCt_-ENy-n4wsdvxaNSmNNih+F29+HWw@mail.gmail.com>
-References: <CAMGYKAfWNm2d5n_3Tnxbwo2C1Ms+gNLp4C35BHmy-+Xwat0b+w@mail.gmail.com>
+Subject: Re: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 13:19:08 -0700
+Message-ID: <CAM_iQpXWVGh6dsj5jSasi-Oy7w7dzB_z-vxT_Ot363_BXZpM2A@mail.gmail.com>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
+ <20160718151841.GA19066@breakpoint.cc> <20160718154512.GK5871@two.firstfloor.org>
+ <CAM_iQpVRfoC0e43Pbsw8Q3RsyDDnMZeGu=oS0iVvAfMNwz6DeA@mail.gmail.com> <37D7C6CF3E00A74B8858931C1DB2F07712C19852@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Peter Chen <peter.feifan.chen@gmail.com>
+Cc: Andi Kleen <andi@firstfloor.org>, Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Cyrill Gorcunov <gorcunov@openvz.org>,
+	John Stultz <john.stultz@linaro.org>,
+	Alex Duyck <aduyck@mirantis.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"decot@googlers.com" <decot@googlers.com>,
+	"Brandeburg, Jesse" <jesse.brandebur
+To: "Liang, Kan" <kan.liang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:33923 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488AbcGRUOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 16:14:46 -0400
-Received: by mail-io0-f169.google.com with SMTP id q83so980931iod.1
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 13:14:46 -0700 (PDT)
-In-Reply-To: <CAMGYKAfWNm2d5n_3Tnxbwo2C1Ms+gNLp4C35BHmy-+Xwat0b+w@mail.gmail.com>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35916 "EHLO
+	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662AbcGRUTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 16:19:41 -0400
+In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F07712C19852@SHSMSX103.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 18, 2016 at 12:09 PM, Peter Chen
-<peter.feifan.chen@gmail.com> wrote:
-> Hi,
+On Mon, Jul 18, 2016 at 1:14 PM, Liang, Kan <kan.liang@intel.com> wrote:
 >
->    I was wondering, if I was in the kernel, and I intercepted a system
-> call such as read(). Would I be able, from the fd, determine the
-> whether the fd is (1) a network socket? (2) the IP address and port of
-> this socket? What are the kernel data structures and functions that
-> can get these information for me in the kernel? Thanks.
+>
+>>
+>> On Mon, Jul 18, 2016 at 8:45 AM, Andi Kleen <andi@firstfloor.org> wrote:
+>> >> It seems strange to me to add such policies to the kernel.
+>> >> Addmittingly, documentation of some settings is non-existent and one
+>> >> needs various different tools to set this (sysctl, procfs, sysfs, ethtool, etc).
+>> >
+>> > The problem is that different applications need different policies.
+>> >
+>> > The only entity which can efficiently negotiate between different
+>> > applications' conflicting requests is the kernel. And that is pretty
+>> > much the basic job description of a kernel: multiplex hardware
+>> > efficiently between different users.
+>> >
+>> > So yes the user space tuning approach works for simple cases ("only
+>> > run workloads that require the same tuning"), but is ultimately not
+>> > very interesting nor scalable.
+>>
+>> I don't read the code yet, just the cover letter.
+>>
+>> We have global tunings, per-network-namespace tunings, per-socket tunings.
+>> It is still unclear why you can't just put different applications into different
+>> namespaces/containers to get different policies.
+>
+> In NET policy, we do per queue tunings.
 
-You can use sockfd_lookup() to read the sock structure from a given fd,
-after than you can call, for example, sock->ops->getname() to read
-local IP address etc.
+Is it possible to isolate NIC queues for containers?
