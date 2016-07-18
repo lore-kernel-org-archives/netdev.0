@@ -1,66 +1,77 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: [PATCH 2/4] Marvell phy: add field to get errors from fiber link.
-Date: Mon, 18 Jul 2016 11:03:41 +0200
-Message-ID: <1468832623-1792-3-git-send-email-charles-antoine.couret@nexvision.fr>
-References: <1468832623-1792-1-git-send-email-charles-antoine.couret@nexvision.fr>
-Cc: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-To: cacouret.renault@gmail.com, netdev@vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear
+ WNR854T
+Date: Mon, 18 Jul 2016 11:44:24 +0200
+Message-ID: <20160718114424.14a28889@free-electrons.com>
+References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
+	<4290281.AD5Bhg23o6@wuerfel>
+	<alpine.DEB.2.11.1607170959090.19980@marmot.wormnet.eu>
+	<6404488.GyOP57DJrV@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jamie Lentin <jm@lentin.co.uk>, Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	devicetree@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Imre Kaloz <kaloz@openwrt.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 9.mo3.mail-out.ovh.net ([87.98.184.141]:54129 "EHLO
-	9.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653AbcGRJnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 05:43:51 -0400
-Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
-	by mo3.mail-out.ovh.net (Postfix) with ESMTP id DF8111020899
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 11:04:42 +0200 (CEST)
-In-Reply-To: <1468832623-1792-1-git-send-email-charles-antoine.couret@nexvision.fr>
+Received: from down.free-electrons.com ([37.187.137.238]:36801 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751725AbcGRJo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 05:44:27 -0400
+In-Reply-To: <6404488.GyOP57DJrV@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the fiber receiver error counter in the
-statistics. Rename the current counter which is for copper errors to
-phy_receive_errors_copper, so it is easy to distinguish copper from
-fiber.
+Hello,
 
-Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
----
- drivers/net/phy/marvell.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+On Sun, 17 Jul 2016 22:41:35 +0200, Arnd Bergmann wrote:
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index f2ca0d9..13a93d8 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -151,6 +151,7 @@
- #define ADVERTISE_PAUSE_ASYM_FIBER	0x100
- 
- #define REGISTER_LINK_STATUS	0x400
-+#define NB_FIBER_STATS	1
- 
- MODULE_DESCRIPTION("Marvell PHY driver");
- MODULE_AUTHOR("Andy Fleming");
-@@ -164,8 +165,9 @@ struct marvell_hw_stat {
- };
- 
- static struct marvell_hw_stat marvell_hw_stats[] = {
--	{ "phy_receive_errors", 0, 21, 16},
-+	{ "phy_receive_errors_copper", 0, 21, 16},
- 	{ "phy_idle_errors", 0, 10, 8 },
-+	{ "phy_receive_errors_fiber", 1, 21, 16},
- };
- 
- struct marvell_priv {
-@@ -1236,7 +1238,10 @@ static int m88e1318_set_wol(struct phy_device *phydev, struct ethtool_wolinfo *w
- 
- static int marvell_get_sset_count(struct phy_device *phydev)
- {
--	return ARRAY_SIZE(marvell_hw_stats);
-+	if (phydev->supported & SUPPORTED_FIBRE)
-+		return ARRAY_SIZE(marvell_hw_stats);
-+	else
-+		return ARRAY_SIZE(marvell_hw_stats) - NB_FIBER_STATS;
- }
- 
- static void marvell_get_strings(struct phy_device *phydev, u8 *data)
+> I would assume that the PCIe port should work out of the box with the driver
+
+Unfortunately, no. The PCIe on Orion5x requires a workaround for
+reading/writing the PCI configuration space. Instead of doing MMIO
+accesses to PCIE_CONF_ADDR_OFF / PCIE_CONF_DATA_OFF, you must map a
+MBus window, which provides a memory-mapped view of the PCI
+configuration space.
+
+Definitely not impossible to implement, but the driver doesn't work
+as-is.
+
+> We also don't seem to need any MBUS window setup for the I/O and
+> memory spaces, which greatly simplifies the driver compared to the
+> pci-mvebu one, it would be a fairly straightforward implementation
+> based on pci-host-generic.c (which unfortunately just got way
+> more complicated and might need to go on a diet).
+
+MBus windows are needed. See:
+
+        mvebu_mbus_add_window_remap_by_id(ORION_MBUS_PCI_IO_TARGET,
+                                          ORION_MBUS_PCI_IO_ATTR,
+                                          ORION5X_PCI_IO_PHYS_BASE,
+                                          ORION5X_PCI_IO_SIZE,
+                                          ORION5X_PCI_IO_BUS_BASE);
+        mvebu_mbus_add_window_by_id(ORION_MBUS_PCI_MEM_TARGET,
+                                    ORION_MBUS_PCI_MEM_ATTR,
+                                    ORION5X_PCI_MEM_PHYS_BASE,
+                                    ORION5X_PCI_MEM_SIZE);
+
+in orion5x_setup_wins().
+
+Note that we already have some Orion5x converted to DT, and that use
+PCI: board-rd88f5182.c is an example. So we could very well take Jamie
+patches as-is, and move later to a DT-representation for PCI/PCIe.
+
+Best regards,
+
+Thomas
 -- 
-2.7.4
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
