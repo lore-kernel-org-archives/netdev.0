@@ -1,139 +1,145 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 4/6] bnxt_en: Workaround Nitro A0 hardware RX bug (part 3).
-Date: Mon, 18 Jul 2016 07:15:23 -0400
-Message-ID: <1468840525-340-5-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 5/6] bnxt_en: Workaround Nitro A0 RX hardware bug (part 4).
+Date: Mon, 18 Jul 2016 07:15:24 -0400
+Message-ID: <1468840525-340-6-git-send-email-michael.chan@broadcom.com>
 References: <1468840525-340-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:35836 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937AbcGRLPj (ORCPT
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:35999 "EHLO
+	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751747AbcGRLPj (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 07:15:39 -0400
-Received: by mail-oi0-f53.google.com with SMTP id l72so101068223oig.2
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 04:15:38 -0700 (PDT)
+Received: by mail-oi0-f46.google.com with SMTP id w18so247276765oiw.3
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 04:15:39 -0700 (PDT)
 In-Reply-To: <1468840525-340-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Prashant Sreedharan <prashant.sreedharan@broadcom.com>
 
-Allocate napi for special vnic, packets arriving on this
-napi will simply be dropped and the buffers will be replenished back
-to the HW.
+Allocate special vnic for dropping packets not matching the RX filters.
+First vnic is for normal RX packets and the driver will drop all
+packets on the 2nd vnic.
 
 Signed-off-by: Prashant Sreedharan <prashant.sreedharan@broadcom.com>
-Signed-off-by: Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 81 ++++++++++++++++++++++++++++++-
- 1 file changed, 80 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 64 +++++++++++++++++++++++++------
+ 1 file changed, 53 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 75a8b30..f0aa582 100644
+index f0aa582..fd6a174 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1668,6 +1668,76 @@ static int bnxt_poll_work(struct bnxt *bp, struct bnxt_napi *bnapi, int budget)
- 	return rx_pkts;
+@@ -2410,6 +2410,9 @@ static int bnxt_alloc_vnics(struct bnxt *bp)
+ 		num_vnics += bp->rx_nr_rings;
+ #endif
+ 
++	if (BNXT_CHIP_TYPE_NITRO_A0(bp))
++		num_vnics++;
++
+ 	bp->vnic_info = kcalloc(num_vnics, sizeof(struct bnxt_vnic_info),
+ 				GFP_KERNEL);
+ 	if (!bp->vnic_info)
+@@ -3271,8 +3274,10 @@ static int bnxt_hwrm_set_vnic_filter(struct bnxt *bp, u16 vnic_id, u16 idx,
+ 	struct hwrm_cfa_l2_filter_alloc_output *resp = bp->hwrm_cmd_resp_addr;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_L2_FILTER_ALLOC, -1, -1);
+-	req.flags = cpu_to_le32(CFA_L2_FILTER_ALLOC_REQ_FLAGS_PATH_RX |
+-				CFA_L2_FILTER_ALLOC_REQ_FLAGS_OUTERMOST);
++	req.flags = cpu_to_le32(CFA_L2_FILTER_ALLOC_REQ_FLAGS_PATH_RX);
++	if (!BNXT_CHIP_TYPE_NITRO_A0(bp))
++		req.flags |=
++			cpu_to_le32(CFA_L2_FILTER_ALLOC_REQ_FLAGS_OUTERMOST);
+ 	req.dst_id = cpu_to_le16(bp->vnic_info[vnic_id].fw_vnic_id);
+ 	req.enables =
+ 		cpu_to_le32(CFA_L2_FILTER_ALLOC_REQ_ENABLES_L2_ADDR |
+@@ -3391,10 +3396,14 @@ static int bnxt_hwrm_vnic_set_rss(struct bnxt *bp, u16 vnic_id, bool set_rss)
+ 
+ 		req.hash_type = cpu_to_le32(vnic->hash_type);
+ 
+-		if (vnic->flags & BNXT_VNIC_RSS_FLAG)
+-			max_rings = bp->rx_nr_rings;
+-		else
++		if (vnic->flags & BNXT_VNIC_RSS_FLAG) {
++			if (BNXT_CHIP_TYPE_NITRO_A0(bp))
++				max_rings = bp->rx_nr_rings - 1;
++			else
++				max_rings = bp->rx_nr_rings;
++		} else {
+ 			max_rings = 1;
++		}
+ 
+ 		/* Fill the RSS indirection table with ring group ids */
+ 		for (i = 0, j = 0; i < HW_HASH_INDEX_SIZE; i++, j++) {
+@@ -3486,13 +3495,19 @@ static int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id)
+ 	u16 def_vlan = 0;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_VNIC_CFG, -1, -1);
++
++	req.enables = cpu_to_le32(VNIC_CFG_REQ_ENABLES_DFLT_RING_GRP);
+ 	/* Only RSS support for now TBD: COS & LB */
+-	req.enables = cpu_to_le32(VNIC_CFG_REQ_ENABLES_DFLT_RING_GRP |
+-				  VNIC_CFG_REQ_ENABLES_RSS_RULE |
+-				  VNIC_CFG_REQ_ENABLES_MRU);
+-	req.rss_rule = cpu_to_le16(vnic->fw_rss_cos_lb_ctx[0]);
++	if (vnic->fw_rss_cos_lb_ctx[0] != INVALID_HW_RING_ID) {
++		req.rss_rule = cpu_to_le16(vnic->fw_rss_cos_lb_ctx[0]);
++		req.enables |= cpu_to_le32(VNIC_CFG_REQ_ENABLES_RSS_RULE |
++					   VNIC_CFG_REQ_ENABLES_MRU);
++	} else {
++		req.rss_rule = cpu_to_le16(0xffff);
++	}
+ 
+-	if (BNXT_CHIP_TYPE_NITRO_A0(bp)) {
++	if (BNXT_CHIP_TYPE_NITRO_A0(bp) &&
++	    (vnic->fw_rss_cos_lb_ctx[0] != INVALID_HW_RING_ID)) {
+ 		req.cos_rule = cpu_to_le16(vnic->fw_rss_cos_lb_ctx[1]);
+ 		req.enables |= cpu_to_le32(VNIC_CFG_REQ_ENABLES_COS_RULE);
+ 	} else {
+@@ -4430,6 +4445,26 @@ static bool bnxt_promisc_ok(struct bnxt *bp)
+ 	return true;
  }
  
-+static int bnxt_poll_nitroa0(struct napi_struct *napi, int budget)
++static int bnxt_setup_nitroa0_vnic(struct bnxt *bp)
 +{
-+	struct bnxt_napi *bnapi = container_of(napi, struct bnxt_napi, napi);
-+	struct bnxt *bp = bnapi->bp;
-+	struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
-+	struct bnxt_rx_ring_info *rxr = bnapi->rx_ring;
-+	struct tx_cmp *txcmp;
-+	struct rx_cmp_ext *rxcmp1;
-+	u32 cp_cons, tmp_raw_cons;
-+	u32 raw_cons = cpr->cp_raw_cons;
-+	u32 rx_pkts = 0;
-+	bool agg_event = false;
++	unsigned int rc = 0;
 +
-+	while (1) {
-+		int rc;
-+
-+		cp_cons = RING_CMP(raw_cons);
-+		txcmp = &cpr->cp_desc_ring[CP_RING(cp_cons)][CP_IDX(cp_cons)];
-+
-+		if (!TX_CMP_VALID(txcmp, raw_cons))
-+			break;
-+
-+		if ((TX_CMP_TYPE(txcmp) & 0x30) == 0x10) {
-+			tmp_raw_cons = NEXT_RAW_CMP(raw_cons);
-+			cp_cons = RING_CMP(tmp_raw_cons);
-+			rxcmp1 = (struct rx_cmp_ext *)
-+			  &cpr->cp_desc_ring[CP_RING(cp_cons)][CP_IDX(cp_cons)];
-+
-+			if (!RX_CMP_VALID(rxcmp1, tmp_raw_cons))
-+				break;
-+
-+			/* force an error to recycle the buffer */
-+			rxcmp1->rx_cmp_cfa_code_errors_v2 |=
-+				cpu_to_le32(RX_CMPL_ERRORS_CRC_ERROR);
-+
-+			rc = bnxt_rx_pkt(bp, bnapi, &raw_cons, &agg_event);
-+			if (likely(rc == -EIO))
-+				rx_pkts++;
-+			else if (rc == -EBUSY)	/* partial completion */
-+				break;
-+		} else if (unlikely(TX_CMP_TYPE(txcmp) ==
-+				    CMPL_BASE_TYPE_HWRM_DONE)) {
-+			bnxt_hwrm_handler(bp, txcmp);
-+		} else {
-+			netdev_err(bp->dev,
-+				   "Invalid completion received on special ring\n");
-+		}
-+		raw_cons = NEXT_RAW_CMP(raw_cons);
-+
-+		if (rx_pkts == budget)
-+			break;
++	rc = bnxt_hwrm_vnic_alloc(bp, 1, bp->rx_nr_rings - 1, 1);
++	if (rc) {
++		netdev_err(bp->dev, "Cannot allocate special vnic for NS2 A0: %x\n",
++			   rc);
++		return rc;
 +	}
 +
-+	cpr->cp_raw_cons = raw_cons;
-+	BNXT_CP_DB(cpr->cp_doorbell, cpr->cp_raw_cons);
-+	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
-+	writel(DB_KEY_RX | rxr->rx_prod, rxr->rx_doorbell);
-+
-+	if (agg_event) {
-+		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
-+		writel(DB_KEY_RX | rxr->rx_agg_prod, rxr->rx_agg_doorbell);
++	rc = bnxt_hwrm_vnic_cfg(bp, 1);
++	if (rc) {
++		netdev_err(bp->dev, "Cannot allocate special vnic for NS2 A0: %x\n",
++			   rc);
++		return rc;
 +	}
-+
-+	if (!bnxt_has_work(bp, cpr) && rx_pkts < budget) {
-+		napi_complete(napi);
-+		BNXT_CP_DB_REARM(cpr->cp_doorbell, cpr->cp_raw_cons);
-+	}
-+	return rx_pkts;
++	return rc;
 +}
 +
- static int bnxt_poll(struct napi_struct *napi, int budget)
- {
- 	struct bnxt_napi *bnapi = container_of(napi, struct bnxt_napi, napi);
-@@ -4758,14 +4828,23 @@ static void bnxt_del_napi(struct bnxt *bp)
- static void bnxt_init_napi(struct bnxt *bp)
- {
- 	int i;
-+	unsigned int cp_nr_rings = bp->cp_nr_rings;
- 	struct bnxt_napi *bnapi;
+ static int bnxt_cfg_rx_mode(struct bnxt *);
+ static bool bnxt_mc_list_updated(struct bnxt *, u32 *);
  
- 	if (bp->flags & BNXT_FLAG_USING_MSIX) {
--		for (i = 0; i < bp->cp_nr_rings; i++) {
-+		if (BNXT_CHIP_TYPE_NITRO_A0(bp))
-+			cp_nr_rings--;
-+		for (i = 0; i < cp_nr_rings; i++) {
- 			bnapi = bp->bnapi[i];
- 			netif_napi_add(bp->dev, &bnapi->napi,
- 				       bnxt_poll, 64);
- 		}
-+		if (BNXT_CHIP_TYPE_NITRO_A0(bp)) {
-+			bnapi = bp->bnapi[cp_nr_rings];
-+			netif_napi_add(bp->dev, &bnapi->napi,
-+				       bnxt_poll_nitroa0, 64);
-+			napi_hash_add(&bnapi->napi);
-+		}
- 	} else {
- 		bnapi = bp->bnapi[0];
- 		netif_napi_add(bp->dev, &bnapi->napi, bnxt_poll, 64);
+@@ -4519,7 +4554,14 @@ static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
+ 	rc = bnxt_hwrm_set_coal(bp);
+ 	if (rc)
+ 		netdev_warn(bp->dev, "HWRM set coalescing failure rc: %x\n",
+-			    rc);
++				rc);
++
++	if (BNXT_CHIP_TYPE_NITRO_A0(bp)) {
++		rc = bnxt_setup_nitroa0_vnic(bp);
++		if (rc)
++			netdev_err(bp->dev, "Special vnic setup failure for NS2 A0 rc: %x\n",
++				   rc);
++	}
+ 
+ 	if (BNXT_VF(bp)) {
+ 		bnxt_hwrm_func_qcfg(bp);
 -- 
 1.8.3.1
