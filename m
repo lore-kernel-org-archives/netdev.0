@@ -1,70 +1,85 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, allow segmentation for local udp tunneled skbs
-Date: Mon, 18 Jul 2016 12:06:00 +0200
-Message-ID: <27e9a6c3-1648-892c-bcaa-254e5332a42e@stressinduktion.org>
-References: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v0 06/10] arm: orion5x: Add DT-based support for Netgear
+ WNR854T
+Date: Mon, 18 Jul 2016 12:06:26 +0200
+Message-ID: <1792384.6N9lHjmBFc@wuerfel>
+References: <1468679348-10522-1-git-send-email-jm@lentin.co.uk>
+ <6404488.GyOP57DJrV@wuerfel> <20160718114424.14a28889@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shmulik.ladkani@ravellosystems.com,
-	Eric Dumazet <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:40198 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751490AbcGRKGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 06:06:03 -0400
-In-Reply-To: <1468582987-18990-1-git-send-email-shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>, devicetree@vger.kernel.org,
+ netdev@vger.kernel.org, Jamie Lentin <jm@lentin.co.uk>,
+ linux-kernel@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Imre Kaloz <kaloz@openwrt.org>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20160718114424.14a28889@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 15.07.2016 13:43, Shmulik Ladkani wrote:
-> Given:
->  - tap0 and vxlan0 are bridged
->  - vxlan0 stacked on eth0, eth0 having small mtu (e.g. 1400)
+On Monday, July 18, 2016 11:44:24 AM CEST Thomas Petazzoni wrote:
 > 
-> Assume GSO skbs arriving from tap0 having a gso_size as determined by
-> user-provided virtio_net_hdr (e.g. 1460 corresponding to VM mtu of 1500).
+> On Sun, 17 Jul 2016 22:41:35 +0200, Arnd Bergmann wrote:
 > 
-> After encapsulation these skbs have skb_gso_network_seglen that exceed
-> eth0's ip_skb_dst_mtu.
+> > I would assume that the PCIe port should work out of the box with the driver
 > 
-> These skbs are accidentally passed to ip_finish_output2 AS IS.
-> Alas, each final segment (segmented either by validate_xmit_skb or by
-> hardware UFO) would be larger than eth0 mtu.
-> As a result, those above-mtu segments get dropped on certain networks.
+> Unfortunately, no. The PCIe on Orion5x requires a workaround for
+> reading/writing the PCI configuration space. Instead of doing MMIO
+> accesses to PCIE_CONF_ADDR_OFF / PCIE_CONF_DATA_OFF, you must map a
+> MBus window, which provides a memory-mapped view of the PCI
+> configuration space.
 > 
-> This behavior is not aligned with the NON-GSO case:
-> Assume a non-gso 1500-sized IP packet arrives from tap0. After
-> encapsulation, the vxlan datagram is fragmented normally at the
-> ip_finish_output-->ip_fragment code path.
-> 
-> The expected behavior for the GSO case would be segmenting the
-> "gso-oversized" skb first, then fragmenting each segment according to
-> dst mtu, and finally passing the resulting fragments to ip_finish_output2.
-> 
-> 'ip_finish_output_gso' already supports this "Slowpath" behavior,
-> but it is only considered if IPSKB_FORWARDED is set (which is not set in
-> the bridged case).
-> 
-> In order to support the bridged case, we'll mark skbs arriving from an
-> ingress interface that get udp-encaspulated as "allowed to be fragmented".
-> 
-> This mark (as well as the original IPSKB_FORWARDED mark) gets tested in
-> 'ip_finish_output_gso', in order to determine whether validating the
-> network seglen is needed.
-> 
-> Note the TUNNEL_DONT_FRAGMENT tun_flag is still honoured (both in the
-> gso and non-gso cases), which serves users wishing to forbid
-> fragmentation at the udp tunnel endpoint.
-> 
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Definitely not impossible to implement, but the driver doesn't work
+> as-is.
 
-I think this is reasonable, thanks!
+Ok.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > We also don't seem to need any MBUS window setup for the I/O and
+> > memory spaces, which greatly simplifies the driver compared to the
+> > pci-mvebu one, it would be a fairly straightforward implementation
+> > based on pci-host-generic.c (which unfortunately just got way
+> > more complicated and might need to go on a diet).
+> 
+> MBus windows are needed. See:
+> 
+>         mvebu_mbus_add_window_remap_by_id(ORION_MBUS_PCI_IO_TARGET,
+>                                           ORION_MBUS_PCI_IO_ATTR,
+>                                           ORION5X_PCI_IO_PHYS_BASE,
+>                                           ORION5X_PCI_IO_SIZE,
+>                                           ORION5X_PCI_IO_BUS_BASE);
+>         mvebu_mbus_add_window_by_id(ORION_MBUS_PCI_MEM_TARGET,
+>                                     ORION_MBUS_PCI_MEM_ATTR,
+>                                     ORION5X_PCI_MEM_PHYS_BASE,
+>                                     ORION5X_PCI_MEM_SIZE);
+> 
+> in orion5x_setup_wins().
+
+Ok, I was just looking at the wrong file, as they are set up from
+common.c, not pci.c.
+
+> Note that we already have some Orion5x converted to DT, and that use
+> PCI: board-rd88f5182.c is an example. So we could very well take Jamie
+> patches as-is, and move later to a DT-representation for PCI/PCIe.
+
+Ah, I thought all the DT users were moved to mach-mvebu. I agree
+this new patch isn't introducing anything we don't already have then,
+so we can just take it, but the conversion will not be nice when
+we do that.
+
+I was also hoping that we could get to the point where pci_common_init()
+is only used for legacy machines without DT and without multiplatform,
+it seems I missed a couple of users here.
+
+	Arnd
