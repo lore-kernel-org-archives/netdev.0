@@ -1,90 +1,69 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Mon, 18 Jul 2016 12:03:25 -0700
-Message-ID: <20160718190323.GB9198@gmail.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
- <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
- <20160714092543.776f8d8c@redhat.com>
- <20160715033057.GA98180@ast-mbp.thefacebook.com>
- <CALx6S34e73N6YA8AP67DAHEjcE-q5nO9q0Bk9motfbBKpB9T4g@mail.gmail.com>
- <20160715164744.GA3693@ast-mbp.thefacebook.com>
- <CALx6S37hihFayCBJcrr61WjER11=fDk_S_sGXaRSoC3Ukw93eA@mail.gmail.com>
- <20160718091023.GA29198@pox.localdomain>
- <CALx6S35a5jEbSLbDCMQ9Q7ngf2sAShsDdLZj+o-43ocOPb3N_A@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 21:04:30 +0200
+Message-ID: <7a03a353-4c1e-2bb4-2550-f84fc4cc79ac@stressinduktion.org>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
+ <20160718151841.GA19066@breakpoint.cc>
+ <20160718154512.GK5871@two.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33568 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013AbcGRTD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 15:03:29 -0400
-Received: by mail-pf0-f177.google.com with SMTP id y134so42445288pfg.0
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 12:03:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S35a5jEbSLbDCMQ9Q7ngf2sAShsDdLZj+o-43ocOPb3N_A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kan.liang@intel.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, jesse.brandeburg@intel.com
+To: Andi Kleen <andi@firstfloor.org>, Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160718154512.GK5871@two.firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 18, 2016 at 01:39:02PM +0200, Tom Herbert wrote:
-> On Mon, Jul 18, 2016 at 11:10 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> > On 07/15/16 at 10:49am, Tom Herbert wrote:
-[...]
-> >> To me, an XDP program is just another attribute of an RX queue, it's
-> >> really not special!. We already have a very good infrastructure for
-> >> managing multiqueue and pretty much everything in the receive path
-> >> operates at the queue level not the device level-- we should follow
-> >> that model.
-> >
-> > I agree with that but I would like to keep the current per net_device
-> > atomic properties.
+On 18.07.2016 17:45, Andi Kleen wrote:
+>> It seems strange to me to add such policies to the kernel.
+>> Addmittingly, documentation of some settings is non-existent and one needs
+>> various different tools to set this (sysctl, procfs, sysfs, ethtool, etc).
 > 
-> I don't see that see that there is any synchronization guarantees
-> using xchg. For instance, if the pointer is set right after being read
-> by a thread for one queue and right before being read by a thread for
-> another queue, this could result in the old and new program running
-> concurrently or old one running after new. If we need to synchronize
-> the operation across all queues then sequence
-> ifdown,modify-config,ifup will work.
-The case you mentioned is a valid criticism. The reason I wanted to keep this
-fast xchg around is because the full stop/start operation on mlx4 is a second
-or longer of downtime. I think something like the following should suffice to
-have a clean cut between programs without bringing the whole port down, buffers
-and all:
+> The problem is that different applications need different policies.
 
-{
-        struct bpf_prog *old_prog;
-        bool port_up;
-        int i;
+I fear that if those policies get changed in future, people will rely on
+some of their side-effects, causing us to add more and more policies
+which basically just differ in those side-effects.
 
-        mutex_lock(&mdev->state_lock);
-        port_up = priv->port_up;
-        priv->port_up = false;
-        for (i = 0; i < priv->rx_ring_num; i++)
-                napi_synchronize(&priv->rx_cq[i]->napi);
+If you compare your policies to madvise or fadvise options, they seem a
+have a much more strict and narrower effects, which can be reasoned much
+more easily about.
 
-        old_prog = xchg(&priv->prog, prog);
-        if (old_prog)
-                bpf_prog_put(old_prog);
+> The only entity which can efficiently negotiate between different
+> applications' conflicting requests is the kernel. And that is pretty 
+> much the basic job description of a kernel: multiplex hardware
+> efficiently between different users.
 
-        priv->port_up = port_up;
-        mutex_unlock(&mdev->state_lock);
-}
+The multiplexing part seems to be not really relevant for the per-device
+settings, thus being controllable from current user space just fine.
+Per-task setting could be conflicting with per-socket settings which
+could lead to non-deterministic behavior. Probably semantically it
+should be made clear what overrides what here (here == cover letter).
+Things like indeterminate allocation of sockets in a threaded
+environment come to my mind. Also allocation strategy could very much
+depend on the installed rss key.
 
-Thoughts?
+> So yes the user space tuning approach works for simple cases
+> ("only run workloads that require the same tuning"), but is ultimately not
+> very interesting nor scalable.
 
-> 
-> Tom
+I wonder if this can be attacked from a different angle. What would be
+missing to add support for this in user space? The first possibility
+that came to my mind is to just multiplex those hints in the kernel.
+Implement a generic way to add metadata to sockets and allow tuning
+daemons to retrieve them via sockdiag? I could imagine that if the
+SO_INCOMING_CPU information would be visible in sockdiag, one could
+already do more automatic tuning and basically allow to implement your
+policy in user space.
+
+Bye,
+Hannes
