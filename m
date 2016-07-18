@@ -1,49 +1,54 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2 net-next v2 03/12] net: dsa: mv88e6xxx: extract device mapping
-Date: Mon, 18 Jul 2016 15:42:28 -0400
-Message-ID: <87h9bm3f8b.fsf@ketchup.mtl.sfl>
-References: <20160718184628.13103-1-vivien.didelot@savoirfairelinux.com> <20160718184628.13103-4-vivien.didelot@savoirfairelinux.com> <20160718193558.GK31103@lunn.ch>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 12:43:57 -0700
+Message-ID: <20160718194357.GL5871@two.firstfloor.org>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
+ <20160718151841.GA19066@breakpoint.cc>
+ <20160718154512.GK5871@two.firstfloor.org>
+ <7a03a353-4c1e-2bb4-2550-f84fc4cc79ac@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160718193558.GK31103@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, Florian Westphal <fw@strlen.de>,
+	kan.liang@intel.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, jesse.brandeburg@intel.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([193.170.194.197]:46621 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbcGRToB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 15:44:01 -0400
+Content-Disposition: inline
+In-Reply-To: <7a03a353-4c1e-2bb4-2550-f84fc4cc79ac@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+> I wonder if this can be attacked from a different angle. What would be
+> missing to add support for this in user space? The first possibility
+> that came to my mind is to just multiplex those hints in the kernel.
 
-Andrew Lunn <andrew@lunn.ch> writes:
+"just" is the handwaving part here -- you're proposing a micro kernel
+approach where part of the multiplexing job that the kernel is doing
+is farmed out to a message passing user space component.
 
->> +/* Indirect write to single pointer-data register with an Update bit */
->> +static int mv88e6xxx_update_write(struct mv88e6xxx_chip *chip,
->> +				  int addr, int reg, u16 update)
->
-> Hi Vivien
->
-> I don't think mv88e6xxx_update_read() makes any sense? Can we just
-> infer write? Call it mv88e6xxx_update().
+I suspect this would be far more complicated to get right and
+perform well than a straight forward monolithic kernel subsystem --
+which is traditionally how Linux has approached things.
 
-Yes it does, a read operation in such register consists of write+read
-(first write the pointer to read, then read the actual value.)
+The daemon would always need to work with out of date state
+compared to the latest, because it cannot do any locking with the
+kernel state.  So you end up with a complex distributed system with multiple
+agents "fighting" with each other, and the tuning agent
+never being able to keep up with the actual work.
 
->> +static int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip,
->> +					     int target, int port)
->> +{
->> +	u16 val = (target << 8) | (port & 0xf);
->> +
->> +	return mv88e6xxx_update_write(chip, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING,
->> +				      val);
->
-> This would then all be on one line and look a better.
+Also of course it would be fundamentally less efficient than
+kernel code doing that, just because of the additional context
+switches needed.
 
-I plan to add more cleanup for register description later, such as
-s/REG_GLOBAL2/ADDR_G2/ and s/GLOBAL2_/G2/. But that'll be a future patch.
-
-Thanks,
-
-        Vivien
+-Andi
