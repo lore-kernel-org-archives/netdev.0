@@ -1,73 +1,127 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH 00/30] Kernel NET policy
-Date: Mon, 18 Jul 2016 18:17:28 +0200
-Message-ID: <20160718161728.GB19066@breakpoint.cc>
-References: <1468824984-65318-1-git-send-email-kan.liang@intel.com>
- <20160718151841.GA19066@breakpoint.cc>
- <37D7C6CF3E00A74B8858931C1DB2F07712C1968E@SHSMSX103.ccr.corp.intel.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 23/30] i40e/ethtool: support RX_CLS_LOC_ANY
+Date: Mon, 18 Jul 2016 09:21:22 -0700
+Message-ID: <CAKgT0UeLeZOj2Z3Zhi_t+2D8xpvtu4WdQPO1zALC5DJ=zsGXEw@mail.gmail.com>
+References: <1468824984-65318-1-git-send-email-kan.liang@intel.com> <1468824984-65318-24-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"peterz@infradead.org" <peterz@infradead.org>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"keescook@chromium.org" <keescook@chromium.org>,
-	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
-	"gorcunov@openvz.org" <gorcunov@openvz.org>,
-	"john.stultz@linaro.org" <john.stultz@linaro.org>,
-	"aduyck@mirantis.com" <aduyck@mirantis.com>,
-To: "Liang, Kan" <kan.liang@intel.com>
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	keescook@chromium.org, viro@zeniv.linux.org.uk,
+	gorcunov@openvz.org, john.stultz@linaro.org,
+	Alex Duyck <aduyck@mirantis.com>,
+	Ben Hutchings <ben@decadent.org.uk>, decot@googlers.com,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Andi Kleen <andi@firstfloor.org>
+To: kan.liang@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51358 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751451AbcGRQRl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:17:41 -0400
-Content-Disposition: inline
-In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F07712C1968E@SHSMSX103.ccr.corp.intel.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:36177 "EHLO
+	mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822AbcGRQVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 12:21:24 -0400
+In-Reply-To: <1468824984-65318-24-git-send-email-kan.liang@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Liang, Kan <kan.liang@intel.com> wrote:
-> > What is missing in the kernel UAPI so userspace could do these settings on its
-> > own, without adding this policy stuff to the kernel?
-> 
-> The main purpose of the proposal is to simplify the configuration. Too many
-> options will let them confuse. 
-> For normal users, they just need to tell the kernel that they want high throughput
-> for the application. The kernel will take care of the rest.
-> So, I don't think we need an interface for user to set their own policy settings.
+On Sun, Jul 17, 2016 at 11:56 PM,  <kan.liang@intel.com> wrote:
+> From: Kan Liang <kan.liang@intel.com>
+>
+> The existing special location RX_CLS_LOC_ANY flag is designed for the
+> case which the caller does not know/care about the location. Now, this
+> flag is only handled in ethtool user space. If the kernel directly calls
+> the ETHTOOL_SRXCLSRLINS interface with RX_CLS_LOC_ANY flag set, it will
+> error out.
+> This patch implements the RX_CLS_LOC_ANY support for i40e driver. It
+> finds the available location from the end of the list.
+>
+> Signed-off-by: Kan Liang <kan.liang@intel.com>
 
-I don't (yet) agree that the kernel is the right place for this.
-I agree that current (bare) kernel config interface(s) for this are
-hard to use.
+Instead of reinventing the wheel you may wan to take a look at using
+ndo_rx_flow_steer instead.  It was basically meant to be used for
+kernel space applications to be able to add flow director rules.
 
-> > It seems strange to me to add such policies to the kernel.
-> 
-> But kernel is the only place which can merge all user's requests.
+> ---
+>  drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 38 ++++++++++++++++++++++++--
+>  1 file changed, 35 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> index 1f3537e..4276ed7 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> @@ -2552,6 +2552,32 @@ static int i40e_del_fdir_entry(struct i40e_vsi *vsi,
+>         return ret;
+>  }
+>
+> +static int find_empty_slot(struct i40e_pf *pf)
+> +{
+> +       struct i40e_fdir_filter *rule;
+> +       struct hlist_node *node2;
+> +       __u32 data = i40e_get_fd_cnt_all(pf);
+> +       unsigned long *slot;
+> +       int i;
+> +
+> +       slot = kzalloc(BITS_TO_LONGS(data) * sizeof(long), GFP_KERNEL);
+> +       if (!slot)
+> +               return -ENOMEM;
+> +
+> +       hlist_for_each_entry_safe(rule, node2,
+> +                                 &pf->fdir_filter_list, fdir_node) {
+> +               set_bit(rule->fd_id, slot);
+> +       }
+> +
+> +       for (i = data - 1; i > 0; i--) {
+> +               if (!test_bit(i, slot))
+> +                       break;
+> +       }
+> +       kfree(slot);
+> +
+> +       return i;
+> +}
+> +
 
-I don't think so.
+This doesn't seem like a very efficient way to find free slots.  If
+you are wanting to make this efficient you might just want to keep the
+bitmap always allocated.  In addition if you rewrite this so that it
+keeps a variable that you can do a simple increment and test with you
+will probably find that more often then not you will be able to find a
+free slot on your first try.
 
-If different requests conflict in a way that is possible to do something
-meaningful the I don't see why userspace tool cannot do the same
-thing...
+>  /**
+>   * i40e_add_fdir_ethtool - Add/Remove Flow Director filters
+>   * @vsi: pointer to the targeted VSI
+> @@ -2588,9 +2614,15 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+>
+>         fsp = (struct ethtool_rx_flow_spec *)&cmd->fs;
+>
+> -       if (fsp->location >= (pf->hw.func_caps.fd_filters_best_effort +
+> -                             pf->hw.func_caps.fd_filters_guaranteed)) {
+> -               return -EINVAL;
+> +       if (fsp->location != RX_CLS_LOC_ANY) {
+> +               if (fsp->location >= (pf->hw.func_caps.fd_filters_best_effort +
+> +                                     pf->hw.func_caps.fd_filters_guaranteed)) {
+> +                       return -EINVAL;
+> +               }
+> +       } else {
+> +               fsp->location = find_empty_slot(pf);
+> +               if (fsp->location < 0)
+> +                       return -ENOSPC;
+>         }
+>
+>         if ((fsp->ring_cookie != RX_CLS_FLOW_DISC) &&
 
-> > Addmittingly, documentation of some settings is non-existent and one needs
-> > various different tools to set this (sysctl, procfs, sysfs, ethtool, etc).
-> > 
-> > But all of these details could be hidden from user.
-> > Have you looked at tuna for instance?
-> 
-> Not yet. Is there similar settings for network?
+The ethtool interface isn't really meant to be used for writing rules
+from kernel space.  You would likely be much better off just using
+ndo_rx_flow_steer instead.  Then it will even give you information
+back on where the rule you created now resides.
 
-Last time I checked tuna could only set a few network-related sysctls
-and handle irq settings/affinity, but not e.g. tune irq coalescening
-or any other network interface specific settings.
+- Alex
