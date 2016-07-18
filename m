@@ -1,155 +1,84 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: [PATCH 3/4] Marvell phy: add configuration of autonegociation for fiber link.
-Date: Mon, 18 Jul 2016 11:03:42 +0200
-Message-ID: <1468832623-1792-4-git-send-email-charles-antoine.couret@nexvision.fr>
-References: <1468832623-1792-1-git-send-email-charles-antoine.couret@nexvision.fr>
-Cc: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-To: cacouret.renault@gmail.com, netdev@vger.kernel.org
+From: "Eggert, Lars" <lars@netapp.com>
+Subject: Re: [CRIU] TCP_REPAIR MSS issue
+Date: Mon, 18 Jul 2016 09:06:05 +0000
+Message-ID: <6B535C6E-88BF-4613-816D-7898DB21044C@netapp.com>
+References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+ <575FEA4B.2000603@virtuozzo.com>
+ <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
+ <20160614171528.GA14276@outlook.office365.com>
+ <EE75D5F9-7243-4DE0-94FE-F6279939C231@netapp.com>
+ <20160614205741.GB20722@outlook.office365.com>
+ <5A6E3EFB-2B69-4C3C-BC67-CAFEC5B2DB2C@netapp.com>
+ <20160616210902.GB6010@outlook.office365.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"criu@openvz.org" <criu@openvz.org>,
+	"Honda, Michio" <michio@netapp.com>
+To: Andrey Vagin <avagin@virtuozzo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 8.mo3.mail-out.ovh.net ([87.98.172.249]:52304 "EHLO
-	8.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752013AbcGRJEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 05:04:48 -0400
-Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
-	by mo3.mail-out.ovh.net (Postfix) with ESMTP id 06C6F1020DB4
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 11:04:46 +0200 (CEST)
-In-Reply-To: <1468832623-1792-1-git-send-email-charles-antoine.couret@nexvision.fr>
+Received: from mx144.netapp.com ([216.240.21.25]:20045 "EHLO mx144.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751459AbcGRJGH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 05:06:07 -0400
+In-Reply-To: <20160616210902.GB6010@outlook.office365.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
----
- drivers/net/phy/marvell.c | 111 +++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 109 insertions(+), 2 deletions(-)
+--Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 13a93d8..e05209b 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -493,15 +493,122 @@ static int m88e1318_config_aneg(struct phy_device *phydev)
- 	return m88e1121_config_aneg(phydev);
- }
- 
-+/**
-+ * ethtool_adv_to_fiber_adv_t
-+ * @ethadv: the ethtool advertisement settings
-+ *
-+ * A small helper function that translates ethtool advertisement
-+ * settings to phy autonegotiation advertisements for the
-+ * MII_ADV register for fiber link.
-+ */
-+static inline u32 ethtool_adv_to_fiber_adv_t(u32 ethadv)
-+{
-+	u32 result = 0;
-+
-+	if (ethadv & ADVERTISED_1000baseT_Half)
-+		result |= ADVERTISE_FIBER_1000HALF;
-+	if (ethadv & ADVERTISED_1000baseT_Full)
-+		result |= ADVERTISE_FIBER_1000FULL;
-+
-+	if ((ethadv & ADVERTISE_PAUSE_ASYM) && (ethadv & ADVERTISE_PAUSE_CAP))
-+		result |= LPA_PAUSE_ASYM_FIBER;
-+	else if (ethadv & ADVERTISE_PAUSE_CAP)
-+		result |= (ADVERTISE_PAUSE_FIBER
-+			   & (~ADVERTISE_PAUSE_ASYM_FIBER));
-+
-+	return result;
-+}
-+
-+/**
-+ * marvell_config_aneg_fiber - restart auto-negotiation or write BMCR
-+ * @phydev: target phy_device struct
-+ *
-+ * Description: If auto-negotiation is enabled, we configure the
-+ *   advertising, and then restart auto-negotiation.  If it is not
-+ *   enabled, then we write the BMCR. Adapted for fiber link in
-+ *   some Marvell's devices.
-+ */
-+static int marvell_config_aneg_fiber(struct phy_device *phydev)
-+{
-+	int changed = 0;
-+	int err;
-+	int adv, oldadv;
-+	u32 advertise;
-+
-+	if (phydev->autoneg != AUTONEG_ENABLE)
-+		return genphy_setup_forced(phydev);
-+
-+	/* Only allow advertising what this PHY supports */
-+	phydev->advertising &= phydev->supported;
-+	advertise = phydev->advertising;
-+
-+	/* Setup fiber advertisement */
-+	adv = phy_read(phydev, MII_ADVERTISE);
-+	if (adv < 0)
-+		return adv;
-+
-+	oldadv = adv;
-+	adv &= ~(ADVERTISE_FIBER_1000HALF | ADVERTISE_FIBER_1000FULL
-+		| LPA_PAUSE_FIBER);
-+	adv |= ethtool_adv_to_fiber_adv_t(advertise);
-+
-+	if (adv != oldadv) {
-+		err = phy_write(phydev, MII_ADVERTISE, adv);
-+		if (err < 0)
-+			return err;
-+
-+		changed = 1;
-+	}
-+
-+	if (changed == 0) {
-+		/* Advertisement hasn't changed, but maybe aneg was never on to
-+		 * begin with?  Or maybe phy was isolated?
-+		 */
-+		int ctl = phy_read(phydev, MII_BMCR);
-+
-+		if (ctl < 0)
-+			return ctl;
-+
-+		if (!(ctl & BMCR_ANENABLE) || (ctl & BMCR_ISOLATE))
-+			changed = 1; /* do restart aneg */
-+	}
-+
-+	/* Only restart aneg if we are advertising something different
-+	 * than we were before.
-+	 */
-+	if (changed > 0)
-+		changed = genphy_restart_aneg(phydev);
-+
-+	return changed;
-+}
-+
- static int m88e1510_config_aneg(struct phy_device *phydev)
- {
- 	int err;
- 
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	if (err < 0)
-+		goto error;
-+
-+	/* Configure the copper link first */
- 	err = m88e1318_config_aneg(phydev);
- 	if (err < 0)
--		return err;
-+		goto error;
- 
--	return 0;
-+	/* Then the fiber link */
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-+	if (err < 0)
-+		goto error;
-+
-+	err = marvell_config_aneg_fiber(phydev);
-+	if (err < 0)
-+		goto error;
-+
-+	return phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+
-+error:
-+	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	return err;
- }
- 
- static int marvell_config_init(struct phy_device *phydev)
--- 
-2.7.4
+Hi,
+
+
+On 2016-06-16, at 23:09, Andrey Vagin <avagin@virtuozzo.com> wrote:
+> I can't reproduce this issue, now I'm trying to understand why it =
+works
+> for me and doesn't work for you.
+
+just to conclude this thread for the list:
+
+Andrey and me debugged this off-list. The issue arose, because my code =
+did a bind() to 0.0.0.0 in TCP_REPAIR mode. When turning off TCP_REPAIR =
+and sending into the socket, this caused minimum-MSS-sized segments to =
+be transmitted. The issue goes away when I bind() to the local IP =
+address of my local egress interface.
+
+To me at least, this is a POLA violation (excuse the FreeBSD terminology =
+:-) Either binding to 0.0.0.0 should fail, or it should succeed and =
+full-sized segments should be sent. But at least I have a work-around =
+now.
+
+Thanks,
+Lars
+
+--Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJXjJv7AAoJEFS1wwm/cMFXCL0QAMY0T7DyrbNB4VXG4bsvFnjd
+geZc1SM2YtKBqTc1/8M6Oki0YDr4HFka7BKzIMjCzy9gy0Jn20NEojXyEjdeh/OY
+uleHqTiVXvNh83MVMstWQta1bKcyCMd9a6NiRXpj4Ot4VdL6J7G7BoB9NwhJdykt
+Z0QEn+Dmo126QXgVysn3U5OmSxah5v1qSpprp50Fx4o5tT2V0B54doDWqcG03NPq
+MSw5Dh7k9+3n8jqmumdzYIXXqfTqF8CoBhc4rJMfCK5fyNlAmNnmhISDDNnRjADW
+s2vRG4c9eZtdXvCWOs7mc09OHz9JpNb107C8Pcf7RmL1ojGL1ipL46DQArH8zeKH
+9w50RN5te3RUONVSPwdi3ZhRumvfVuZcKhLymFKjYpnMk/odSr5Fxzf1i4yHB/6u
+7L6mvfDpUdYPdCfQ+8/QO+Sj7bQtY2aLDqA592meAb0z/nnXLqy8otYrYkGaETx9
+HorLtx1Pwyw0OFnJ0ixiQThOrg6kRr6POlPsypDfaybsmYRwhJrcZJxRbNPUIYTE
+yExokf2CIqTmUW/E3+Il+KGSqzgXtUGZuOcfsp0qwdUxfd/7p+Ezeqo04Yi2Xm7/
+xYS2IdcxjsJHqrDqdElK9HFsX7agQB5tfamgF2qN0+AqbfhcWww75d5bGgVe2AK1
+SOiTnRvIGz0SclKy8MZ1
+=uWKT
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_F2E2929C-DC12-4524-8A9F-5C1E7DE2054E--
