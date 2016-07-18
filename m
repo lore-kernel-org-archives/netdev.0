@@ -1,7 +1,7 @@
 From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH 1/2] net/ipv4: Introduce IPSKB_FRAG_SEGS bit to inet_skb_parm.flags
-Date: Mon, 18 Jul 2016 14:49:33 +0300
-Message-ID: <1468842574-1243-2-git-send-email-shmulik.ladkani@gmail.com>
+Subject: [PATCH 2/2] net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs
+Date: Mon, 18 Jul 2016 14:49:34 +0300
+Message-ID: <1468842574-1243-3-git-send-email-shmulik.ladkani@gmail.com>
 References: <1468842574-1243-1-git-send-email-shmulik.ladkani@gmail.com>
 Cc: shmulik.ladkani@ravellosystems.com,
 	Eric Dumazet <edumazet@google.com>, shmulik.ladkani@gmail.com,
@@ -9,83 +9,84 @@ Cc: shmulik.ladkani@ravellosystems.com,
 	Florian Westphal <fw@strlen.de>
 To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31911 "EHLO
+Received: from userp1040.oracle.com ([156.151.31.81]:32063 "EHLO
 	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751560AbcGRLup (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 07:50:45 -0400
+	with ESMTP id S1751398AbcGRLvA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 07:51:00 -0400
 In-Reply-To: <1468842574-1243-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This flag indicates whether fragmentation of segments is allowed.
+Given:
+ - tap0 and vxlan0 are bridged
+ - vxlan0 stacked on eth0, eth0 having small mtu (e.g. 1400)
 
-Formerly this policy was hardcoded according to IPSKB_FORWARDED (set by
-either ip_forward or ipmr_forward).
+Assume GSO skbs arriving from tap0 having a gso_size as determined by
+user-provided virtio_net_hdr (e.g. 1460 corresponding to VM mtu of 1500).
+
+After encapsulation these skbs have skb_gso_network_seglen that exceed
+eth0's ip_skb_dst_mtu.
+
+These skbs are accidentally passed to ip_finish_output2 AS IS.
+Alas, each final segment (segmented either by validate_xmit_skb or by
+hardware UFO) would be larger than eth0 mtu.
+As a result, those above-mtu segments get dropped on certain networks.
+
+This behavior is not aligned with the NON-GSO case:
+Assume a non-gso 1500-sized IP packet arrives from tap0. After
+encapsulation, the vxlan datagram is fragmented normally at the
+ip_finish_output-->ip_fragment code path.
+
+The expected behavior for the GSO case would be segmenting the
+"gso-oversized" skb first, then fragmenting each segment according to
+dst mtu, and finally passing the resulting fragments to ip_finish_output2.
+
+'ip_finish_output_gso' already supports this "Slowpath" behavior,
+according to the IPSKB_FRAG_SEGS flag, which is only set during ipv4
+forwarding (not set in the bridged case).
+
+In order to support the bridged case, we'll mark skbs arriving from an
+ingress interface that get udp-encaspulated as "allowed to be fragmented",
+causing their network_seglen to be validated by 'ip_finish_output_gso'
+(and fragment if needed).
+
+Note the TUNNEL_DONT_FRAGMENT tun_flag is still honoured (both in the
+gso and non-gso cases), which serves users wishing to forbid
+fragmentation at the udp tunnel endpoint.
 
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Florian Westphal <fw@strlen.de>
 Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 ---
- include/net/ip.h      | 1 +
- net/ipv4/ip_forward.c | 2 +-
- net/ipv4/ip_output.c  | 6 ++++--
- net/ipv4/ipmr.c       | 2 +-
- 4 files changed, 7 insertions(+), 4 deletions(-)
+ net/ipv4/ip_tunnel_core.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 08f36cd..9742b92 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -47,6 +47,7 @@ struct inet_skb_parm {
- #define IPSKB_REROUTED		BIT(4)
- #define IPSKB_DOREDIRECT	BIT(5)
- #define IPSKB_FRAG_PMTU		BIT(6)
-+#define IPSKB_FRAG_SEGS		BIT(7)
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+index afd6b59..9d847c3 100644
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -63,6 +63,7 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	int pkt_len = skb->len - skb_inner_network_offset(skb);
+ 	struct net *net = dev_net(rt->dst.dev);
+ 	struct net_device *dev = skb->dev;
++	int skb_iif = skb->skb_iif;
+ 	struct iphdr *iph;
+ 	int err;
  
- 	u16			frag_max_size;
- };
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 9f0a7b9..8b4ffd2 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -117,7 +117,7 @@ int ip_forward(struct sk_buff *skb)
- 	if (opt->is_strictroute && rt->rt_uses_gateway)
- 		goto sr_failed;
+@@ -72,6 +73,14 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	skb_dst_set(skb, &rt->dst);
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
  
--	IPCB(skb)->flags |= IPSKB_FORWARDED;
-+	IPCB(skb)->flags |= IPSKB_FORWARDED | IPSKB_FRAG_SEGS;
- 	mtu = ip_dst_mtu_maybe_forward(&rt->dst, true);
- 	if (ip_exceeds_mtu(skb, mtu)) {
- 		IP_INC_STATS(net, IPSTATS_MIB_FRAGFAILS);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index e23f141..dde37fb 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -223,8 +223,10 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
- 	struct sk_buff *segs;
- 	int ret = 0;
- 
--	/* common case: locally created skb or seglen is <= mtu */
--	if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
-+	/* common case: fragmentation of segments is not allowed,
-+	 * or seglen is <= mtu
-+	 */
-+	if (((IPCB(skb)->flags & IPSKB_FRAG_SEGS) == 0) ||
- 	      skb_gso_validate_mtu(skb, mtu))
- 		return ip_finish_output2(net, sk, skb);
- 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index e0d76f5..eec2341 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1749,7 +1749,7 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 		vif->dev->stats.tx_bytes += skb->len;
- 	}
- 
--	IPCB(skb)->flags |= IPSKB_FORWARDED;
-+	IPCB(skb)->flags |= IPSKB_FORWARDED | IPSKB_FRAG_SEGS;
- 
- 	/* RFC1584 teaches, that DVMRP/PIM router must deliver packets locally
- 	 * not only before forwarding, but after forwarding on all output
++	if (skb_iif && proto == IPPROTO_UDP) {
++		/* Arrived from an ingress interface and got udp encapuslated.
++		 * The encapsulated network segment length may exceed dst mtu.
++		 * Allow IP Fragmentation of segments.
++		 */
++		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
++	}
++
+ 	/* Push down and install the IP header. */
+ 	skb_push(skb, sizeof(struct iphdr));
+ 	skb_reset_network_header(skb);
 -- 
 1.9.1
