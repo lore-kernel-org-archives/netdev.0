@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v10 10/12] net/mlx4_en: add xdp forwarding and data write support
-Date: Tue, 19 Jul 2016 12:16:55 -0700
-Message-ID: <1468955817-10604-11-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v10 09/12] net/mlx4_en: break out tx_desc write into separate function
+Date: Tue, 19 Jul 2016 12:16:54 -0700
+Message-ID: <1468955817-10604-10-git-send-email-bblanco@plumgrid.com>
 References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -17,451 +17,301 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Tariq Toukan <ttoukan.linux@gmail.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:34543 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751923AbcGSTRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 15:17:35 -0400
-Received: by mail-pf0-f170.google.com with SMTP id p64so10203584pfb.1
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 12:17:35 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36320 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864AbcGSTRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 15:17:34 -0400
+Received: by mail-pf0-f179.google.com with SMTP id h186so10142585pfg.3
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 12:17:34 -0700 (PDT)
 In-Reply-To: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A user will now be able to loop packets back out of the same port using
-a bpf program attached to xdp hook. Updates to the packet contents from
-the bpf program is also supported.
-
-For the packet write feature to work, the rx buffers are now mapped as
-bidirectional when the page is allocated. This occurs only when the xdp
-hook is active.
-
-When the program returns a TX action, enqueue the packet directly to a
-dedicated tx ring, so as to avoid completely any locking. This requires
-the tx ring to be allocated 1:1 for each rx ring, as well as the tx
-completion running in the same softirq.
-
-Upon tx completion, this dedicated tx ring recycles pages without
-unmapping directly back to the original rx ring. In steady state tx/drop
-workload, effectively 0 page allocs/frees will occur.
-
-In order to separate out the paths between free and recycle, a
-free_tx_desc func pointer is introduced that is optionally updated
-whenever recycle_ring is activated. By default the original free
-function is always initialized.
+In preparation for writing the tx descriptor from multiple functions,
+create a helper for both normal and blueflame access.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   9 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  29 +++++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  14 +++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 140 +++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  27 ++++-
- 5 files changed, 211 insertions(+), 8 deletions(-)
+ drivers/infiniband/hw/mlx4/qp.c            |  11 +--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 134 ++++++++++++++++-------------
+ include/linux/mlx4/qp.h                    |  18 ++--
+ 3 files changed, 92 insertions(+), 71 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 51a2e82..f32e272 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1722,6 +1722,12 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	    !channel->tx_count || !channel->rx_count)
- 		return -EINVAL;
- 
-+	if (channel->tx_count * MLX4_EN_NUM_UP <= priv->xdp_ring_num) {
-+		en_err(priv, "Minimum %d tx channels required with XDP on\n",
-+		       priv->xdp_ring_num / MLX4_EN_NUM_UP + 1);
-+		return -EINVAL;
-+	}
-+
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		port_up = 1;
-@@ -1740,7 +1746,8 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 		goto out;
- 	}
- 
--	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
-+	netif_set_real_num_tx_queues(dev, priv->tx_ring_num -
-+							priv->xdp_ring_num);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
- 	if (dev->num_tc)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 47ae2a2..9abbba6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1522,6 +1522,24 @@ static void mlx4_en_free_affinity_hint(struct mlx4_en_priv *priv, int ring_idx)
- 	free_cpumask_var(priv->rx_ring[ring_idx]->affinity_mask);
- }
- 
-+static void mlx4_en_init_recycle_ring(struct mlx4_en_priv *priv,
-+				      int tx_ring_idx)
-+{
-+	struct mlx4_en_tx_ring *tx_ring = priv->tx_ring[tx_ring_idx];
-+	int rr_index;
-+
-+	rr_index = (priv->xdp_ring_num - priv->tx_ring_num) + tx_ring_idx;
-+	if (rr_index >= 0) {
-+		tx_ring->free_tx_desc = mlx4_en_recycle_tx_desc;
-+		tx_ring->recycle_ring = priv->rx_ring[rr_index];
-+		en_dbg(DRV, priv,
-+		       "Set tx_ring[%d]->recycle_ring = rx_ring[%d]\n",
-+		       tx_ring_idx, rr_index);
-+	} else {
-+		tx_ring->recycle_ring = NULL;
-+	}
-+}
-+
- int mlx4_en_start_port(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -1644,6 +1662,8 @@ int mlx4_en_start_port(struct net_device *dev)
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index 8db8405..768085f 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -232,7 +232,7 @@ static void stamp_send_wqe(struct mlx4_ib_qp *qp, int n, int size)
  		}
- 		tx_ring->tx_queue = netdev_get_tx_queue(dev, i);
- 
-+		mlx4_en_init_recycle_ring(priv, i);
-+
- 		/* Arm CQ for TX completions */
- 		mlx4_en_arm_cq(priv, cq);
- 
-@@ -2561,6 +2581,13 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 		return -EOPNOTSUPP;
+ 	} else {
+ 		ctrl = buf = get_send_wqe(qp, n & (qp->sq.wqe_cnt - 1));
+-		s = (ctrl->fence_size & 0x3f) << 4;
++		s = (ctrl->qpn_vlan.fence_size & 0x3f) << 4;
+ 		for (i = 64; i < s; i += 64) {
+ 			wqe = buf + i;
+ 			*wqe = cpu_to_be32(0xffffffff);
+@@ -264,7 +264,7 @@ static void post_nop_wqe(struct mlx4_ib_qp *qp, int n, int size)
+ 		inl->byte_count = cpu_to_be32(1 << 31 | (size - s - sizeof *inl));
  	}
+ 	ctrl->srcrb_flags = 0;
+-	ctrl->fence_size = size / 16;
++	ctrl->qpn_vlan.fence_size = size / 16;
+ 	/*
+ 	 * Make sure descriptor is fully written before setting ownership bit
+ 	 * (because HW can start executing as soon as we do).
+@@ -1992,7 +1992,8 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 			ctrl = get_send_wqe(qp, i);
+ 			ctrl->owner_opcode = cpu_to_be32(1 << 31);
+ 			if (qp->sq_max_wqes_per_wr == 1)
+-				ctrl->fence_size = 1 << (qp->sq.wqe_shift - 4);
++				ctrl->qpn_vlan.fence_size =
++						1 << (qp->sq.wqe_shift - 4);
  
-+	if (priv->tx_ring_num < xdp_ring_num + MLX4_EN_NUM_UP) {
-+		en_err(priv,
-+		       "Minimum %d tx channels required to run XDP\n",
-+		       (xdp_ring_num + MLX4_EN_NUM_UP) / MLX4_EN_NUM_UP);
-+		return -EINVAL;
-+	}
-+
- 	if (prog) {
- 		prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
- 		if (IS_ERR(prog))
-@@ -2574,6 +2601,8 @@ static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- 	}
+ 			stamp_send_wqe(qp, i, 1 << qp->sq.wqe_shift);
+ 		}
+@@ -3169,8 +3170,8 @@ int mlx4_ib_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 		wmb();
+ 		*lso_wqe = lso_hdr_sz;
  
- 	priv->xdp_ring_num = xdp_ring_num;
-+	netif_set_real_num_tx_queues(dev, priv->tx_ring_num -
-+							priv->xdp_ring_num);
+-		ctrl->fence_size = (wr->send_flags & IB_SEND_FENCE ?
+-				    MLX4_WQE_CTRL_FENCE : 0) | size;
++		ctrl->qpn_vlan.fence_size = (wr->send_flags & IB_SEND_FENCE ?
++					     MLX4_WQE_CTRL_FENCE : 0) | size;
  
- 	for (i = 0; i < priv->rx_ring_num; i++) {
- 		old_prog = xchg(&priv->rx_ring[i]->xdp_prog, prog);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 9dd5dc1..11d88c8 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -783,7 +783,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	struct mlx4_en_rx_alloc *frags;
- 	struct mlx4_en_rx_desc *rx_desc;
- 	struct bpf_prog *xdp_prog;
-+	int doorbell_pending;
- 	struct sk_buff *skb;
-+	int tx_index;
- 	int index;
- 	int nr;
- 	unsigned int length;
-@@ -800,6 +802,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		return polled;
- 
- 	xdp_prog = READ_ONCE(ring->xdp_prog);
-+	doorbell_pending = 0;
-+	tx_index = (priv->tx_ring_num - priv->xdp_ring_num) + cq->ring;
- 
- 	/* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
- 	 * descriptor offset can be deduced from the CQE index instead of
-@@ -898,6 +902,12 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			switch (act) {
- 			case XDP_PASS:
- 				break;
-+			case XDP_TX:
-+				if (!mlx4_en_xmit_frame(frags, dev,
-+							length, tx_index,
-+							&doorbell_pending))
-+					goto consumed;
-+				break;
- 			default:
- 				bpf_warn_invalid_xdp_action(act);
- 			case XDP_ABORTED:
-@@ -1068,6 +1078,9 @@ consumed:
- 	}
- 
- out:
-+	if (doorbell_pending)
-+		mlx4_en_xmit_doorbell(priv->tx_ring[tx_index]);
-+
- 	AVG_PERF_COUNTER(priv->pstats.rx_coal_avg, polled);
- 	mlx4_cq_set_ci(&cq->mcq);
- 	wmb(); /* ensure HW sees CQ consumer before we post new buffers */
-@@ -1147,6 +1160,7 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	 * This only works when num_frags == 1.
- 	 */
- 	if (priv->xdp_ring_num) {
-+		dma_dir = PCI_DMA_BIDIRECTIONAL;
- 		/* This will gain efficient xdp frame recycling at the expense
- 		 * of more costly truesize accounting
- 		 */
+ 		/*
+ 		 * Make sure descriptor is fully written before
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 2f56018..9df87ca 100644
+index 76aa4d2..2f56018 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -196,6 +196,7 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
- 	ring->last_nr_txbb = 1;
- 	memset(ring->tx_info, 0, ring->size * sizeof(struct mlx4_en_tx_info));
- 	memset(ring->buf, 0, ring->buf_size);
-+	ring->free_tx_desc = mlx4_en_free_tx_desc;
- 
- 	ring->qp_state = MLX4_QP_STATE_RST;
- 	ring->doorbell_qpn = cpu_to_be32(ring->qp.qpn << 8);
-@@ -265,10 +266,10 @@ static void mlx4_en_stamp_wqe(struct mlx4_en_priv *priv,
- }
- 
- 
--static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
--				struct mlx4_en_tx_ring *ring,
--				int index, u8 owner, u64 timestamp,
--				int napi_mode)
-+u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
-+			 struct mlx4_en_tx_ring *ring,
-+			 int index, u8 owner, u64 timestamp,
-+			 int napi_mode)
+@@ -631,8 +631,7 @@ static int get_real_size(const struct sk_buff *skb,
+ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc,
+ 			     const struct sk_buff *skb,
+ 			     const struct skb_shared_info *shinfo,
+-			     int real_size, u16 *vlan_tag,
+-			     int tx_ind, void *fragptr)
++			     void *fragptr)
  {
- 	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
- 	struct mlx4_en_tx_desc *tx_desc = ring->buf + index * TXBB_SIZE;
-@@ -344,6 +345,27 @@ static u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
- 	return tx_info->nr_txbb;
+ 	struct mlx4_wqe_inline_seg *inl = &tx_desc->inl;
+ 	int spc = MLX4_INLINE_ALIGN - CTRL_SIZE - sizeof *inl;
+@@ -700,10 +699,66 @@ static void mlx4_bf_copy(void __iomem *dst, const void *src,
+ 	__iowrite64_copy(dst, src, bytecnt / 8);
  }
  
-+u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
-+			    struct mlx4_en_tx_ring *ring,
-+			    int index, u8 owner, u64 timestamp,
-+			    int napi_mode)
++void mlx4_en_xmit_doorbell(struct mlx4_en_tx_ring *ring)
 +{
-+	struct mlx4_en_tx_info *tx_info = &ring->tx_info[index];
-+	struct mlx4_en_rx_alloc frame = {
-+		.page = tx_info->page,
-+		.dma = tx_info->map0_dma,
-+		.page_offset = 0,
-+		.page_size = PAGE_SIZE,
-+	};
-+
-+	if (!mlx4_en_rx_recycle(ring->recycle_ring, &frame)) {
-+		dma_unmap_page(priv->ddev, tx_info->map0_dma,
-+			       PAGE_SIZE, priv->frag_info[0].dma_dir);
-+		put_page(tx_info->page);
-+	}
-+
-+	return tx_info->nr_txbb;
++	wmb();
++	/* Since there is no iowrite*_native() that writes the
++	 * value as is, without byteswapping - using the one
++	 * the doesn't do byteswapping in the relevant arch
++	 * endianness.
++	 */
++#if defined(__LITTLE_ENDIAN)
++	iowrite32(
++#else
++	iowrite32be(
++#endif
++		  ring->doorbell_qpn,
++		  ring->bf.uar->map + MLX4_SEND_DOORBELL);
 +}
- 
- int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
++
++static void mlx4_en_tx_write_desc(struct mlx4_en_tx_ring *ring,
++				  struct mlx4_en_tx_desc *tx_desc,
++				  union mlx4_wqe_qpn_vlan qpn_vlan,
++				  int desc_size, int bf_index,
++				  __be32 op_own, bool bf_ok,
++				  bool send_doorbell)
++{
++	tx_desc->ctrl.qpn_vlan = qpn_vlan;
++
++	if (bf_ok) {
++		op_own |= htonl((bf_index & 0xffff) << 8);
++		/* Ensure new descriptor hits memory
++		 * before setting ownership of this descriptor to HW
++		 */
++		dma_wmb();
++		tx_desc->ctrl.owner_opcode = op_own;
++
++		wmb();
++
++		mlx4_bf_copy(ring->bf.reg + ring->bf.offset, &tx_desc->ctrl,
++			     desc_size);
++
++		wmb();
++
++		ring->bf.offset ^= ring->bf.buf_size;
++	} else {
++		/* Ensure new descriptor hits memory
++		 * before setting ownership of this descriptor to HW
++		 */
++		dma_wmb();
++		tx_desc->ctrl.owner_opcode = op_own;
++		if (send_doorbell)
++			mlx4_en_xmit_doorbell(ring);
++		else
++			ring->xmit_more++;
++	}
++}
++
+ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
  {
-@@ -362,7 +384,7 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
++	union mlx4_wqe_qpn_vlan	qpn_vlan = {};
+ 	struct device *ddev = priv->ddev;
+ 	struct mlx4_en_tx_ring *ring;
+ 	struct mlx4_en_tx_desc *tx_desc;
+@@ -715,7 +770,6 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	int real_size;
+ 	u32 index, bf_index;
+ 	__be32 op_own;
+-	u16 vlan_tag = 0;
+ 	u16 vlan_proto = 0;
+ 	int i_frag;
+ 	int lso_header_size;
+@@ -725,6 +779,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	bool stop_queue;
+ 	bool inline_ok;
+ 	u32 ring_cons;
++	bool bf_ok;
+ 
+ 	tx_ind = skb_get_queue_mapping(skb);
+ 	ring = priv->tx_ring[tx_ind];
+@@ -749,9 +804,17 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto tx_drop;
  	}
  
- 	while (ring->cons != ring->prod) {
--		ring->last_nr_txbb = mlx4_en_free_tx_desc(priv, ring,
-+		ring->last_nr_txbb = ring->free_tx_desc(priv, ring,
- 						ring->cons & ring->size_mask,
- 						!!(ring->cons & ring->size), 0,
- 						0 /* Non-NAPI caller */);
-@@ -444,7 +466,7 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
- 				timestamp = mlx4_en_get_cqe_ts(cqe);
- 
- 			/* free next descriptor */
--			last_nr_txbb = mlx4_en_free_tx_desc(
-+			last_nr_txbb = ring->free_tx_desc(
- 					priv, ring, ring_index,
- 					!!((ring_cons + txbbs_skipped) &
- 					ring->size), timestamp, napi_budget);
-@@ -476,6 +498,9 @@ static bool mlx4_en_process_tx_cq(struct net_device *dev,
- 	ACCESS_ONCE(ring->last_nr_txbb) = last_nr_txbb;
- 	ACCESS_ONCE(ring->cons) = ring_cons + txbbs_skipped;
- 
-+	if (ring->free_tx_desc == mlx4_en_recycle_tx_desc)
-+		return done < budget;
-+
- 	netdev_tx_completed_queue(ring->tx_queue, packets, bytes);
- 
- 	/* Wakeup Tx queue if this stopped, and ring is not full.
-@@ -1052,3 +1077,106 @@ tx_drop:
- 	return NETDEV_TX_OK;
- }
- 
-+netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_alloc *frame,
-+			       struct net_device *dev, unsigned int length,
-+			       int tx_ind, int *doorbell_pending)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	union mlx4_wqe_qpn_vlan	qpn_vlan = {};
-+	struct mlx4_en_tx_ring *ring;
-+	struct mlx4_en_tx_desc *tx_desc;
-+	struct mlx4_wqe_data_seg *data;
-+	struct mlx4_en_tx_info *tx_info;
-+	int index, bf_index;
-+	bool send_doorbell;
-+	int nr_txbb = 1;
-+	bool stop_queue;
-+	dma_addr_t dma;
-+	int real_size;
-+	__be32 op_own;
-+	u32 ring_cons;
-+	bool bf_ok;
-+
-+	BUILD_BUG_ON_MSG(ALIGN(CTRL_SIZE + DS_SIZE, TXBB_SIZE) != TXBB_SIZE,
-+			 "mlx4_en_xmit_frame requires minimum size tx desc");
-+
-+	ring = priv->tx_ring[tx_ind];
-+
-+	if (!priv->port_up)
-+		goto tx_drop;
-+
-+	if (mlx4_en_is_tx_ring_full(ring))
-+		goto tx_drop;
-+
-+	/* fetch ring->cons far ahead before needing it to avoid stall */
-+	ring_cons = READ_ONCE(ring->cons);
-+
-+	index = ring->prod & ring->size_mask;
-+	tx_info = &ring->tx_info[index];
-+
 +	bf_ok = ring->bf_enabled;
-+
-+	/* Track current inflight packets for performance analysis */
-+	AVG_PERF_COUNTER(priv->pstats.inflight_avg,
-+			 (u32)(ring->prod - ring_cons - 1));
-+
-+	bf_index = ring->prod;
-+	tx_desc = ring->buf + index * TXBB_SIZE;
-+	data = &tx_desc->data;
-+
-+	dma = frame->dma;
-+
-+	tx_info->page = frame->page;
-+	frame->page = NULL;
-+	tx_info->map0_dma = dma;
-+	tx_info->map0_byte_count = length;
-+	tx_info->nr_txbb = nr_txbb;
-+	tx_info->nr_bytes = max_t(unsigned int, length, ETH_ZLEN);
-+	tx_info->data_offset = (void *)data - (void *)tx_desc;
-+	tx_info->ts_requested = 0;
-+	tx_info->nr_maps = 1;
-+	tx_info->linear = 1;
-+	tx_info->inl = 0;
-+
-+	dma_sync_single_for_device(priv->ddev, dma, length, PCI_DMA_TODEVICE);
-+
-+	data->addr = cpu_to_be64(dma);
-+	data->lkey = ring->mr_key;
-+	dma_wmb();
-+	data->byte_count = cpu_to_be32(length);
-+
-+	/* tx completion can avoid cache line miss for common cases */
-+	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
-+
-+	op_own = cpu_to_be32(MLX4_OPCODE_SEND) |
-+		((ring->prod & ring->size) ?
-+		 cpu_to_be32(MLX4_EN_BIT_DESC_OWN) : 0);
-+
-+	ring->packets++;
-+	ring->bytes += tx_info->nr_bytes;
-+	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, length);
-+
-+	ring->prod += nr_txbb;
-+
-+	stop_queue = mlx4_en_is_tx_ring_full(ring);
-+	send_doorbell = stop_queue ||
-+				*doorbell_pending > MLX4_EN_DOORBELL_BUDGET;
-+	bf_ok &= send_doorbell;
-+
-+	real_size = ((CTRL_SIZE + nr_txbb * DS_SIZE) / 16) & 0x3f;
-+
+ 	if (skb_vlan_tag_present(skb)) {
+-		vlan_tag = skb_vlan_tag_get(skb);
++		qpn_vlan.vlan_tag = cpu_to_be16(skb_vlan_tag_get(skb));
+ 		vlan_proto = be16_to_cpu(skb->vlan_proto);
++		if (vlan_proto == ETH_P_8021AD)
++			qpn_vlan.ins_vlan = MLX4_WQE_CTRL_INS_SVLAN;
++		else if (vlan_proto == ETH_P_8021Q)
++			qpn_vlan.ins_vlan = MLX4_WQE_CTRL_INS_CVLAN;
++		else
++			qpn_vlan.ins_vlan = 0;
++		bf_ok = false;
+ 	}
+ 
+ 	netdev_txq_bql_enqueue_prefetchw(ring->tx_queue);
+@@ -771,6 +834,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	else {
+ 		tx_desc = (struct mlx4_en_tx_desc *) ring->bounce_buf;
+ 		bounce = true;
++		bf_ok = false;
+ 	}
+ 
+ 	/* Save skb in tx_info ring */
+@@ -907,8 +971,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	AVG_PERF_COUNTER(priv->pstats.tx_pktsz_avg, skb->len);
+ 
+ 	if (tx_info->inl)
+-		build_inline_wqe(tx_desc, skb, shinfo, real_size, &vlan_tag,
+-				 tx_ind, fragptr);
++		build_inline_wqe(tx_desc, skb, shinfo, fragptr);
+ 
+ 	if (skb->encapsulation) {
+ 		union {
+@@ -946,60 +1009,15 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	real_size = (real_size / 16) & 0x3f;
+ 
+-	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+-	    !skb_vlan_tag_present(skb) && send_doorbell) {
+-		tx_desc->ctrl.bf_qpn = ring->doorbell_qpn |
+-				       cpu_to_be32(real_size);
+-
+-		op_own |= htonl((bf_index & 0xffff) << 8);
+-		/* Ensure new descriptor hits memory
+-		 * before setting ownership of this descriptor to HW
+-		 */
+-		dma_wmb();
+-		tx_desc->ctrl.owner_opcode = op_own;
+-
+-		wmb();
+-
+-		mlx4_bf_copy(ring->bf.reg + ring->bf.offset, &tx_desc->ctrl,
+-			     desc_size);
+-
+-		wmb();
+-
+-		ring->bf.offset ^= ring->bf.buf_size;
+-	} else {
+-		tx_desc->ctrl.vlan_tag = cpu_to_be16(vlan_tag);
+-		if (vlan_proto == ETH_P_8021AD)
+-			tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_SVLAN;
+-		else if (vlan_proto == ETH_P_8021Q)
+-			tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_CVLAN;
+-		else
+-			tx_desc->ctrl.ins_vlan = 0;
++	bf_ok &= desc_size <= MAX_BF && send_doorbell;
+ 
+-		tx_desc->ctrl.fence_size = real_size;
 +	if (bf_ok)
 +		qpn_vlan.bf_qpn = ring->doorbell_qpn | cpu_to_be32(real_size);
 +	else
 +		qpn_vlan.fence_size = real_size;
-+
-+	mlx4_en_tx_write_desc(ring, tx_desc, qpn_vlan, TXBB_SIZE, bf_index,
+ 
+-		/* Ensure new descriptor hits memory
+-		 * before setting ownership of this descriptor to HW
+-		 */
+-		dma_wmb();
+-		tx_desc->ctrl.owner_opcode = op_own;
+-		if (send_doorbell) {
+-			wmb();
+-			/* Since there is no iowrite*_native() that writes the
+-			 * value as is, without byteswapping - using the one
+-			 * the doesn't do byteswapping in the relevant arch
+-			 * endianness.
+-			 */
+-#if defined(__LITTLE_ENDIAN)
+-			iowrite32(
+-#else
+-			iowrite32be(
+-#endif
+-				  ring->doorbell_qpn,
+-				  ring->bf.uar->map + MLX4_SEND_DOORBELL);
+-		} else {
+-			ring->xmit_more++;
+-		}
+-	}
++	mlx4_en_tx_write_desc(ring, tx_desc, qpn_vlan, desc_size, bf_index,
 +			      op_own, bf_ok, send_doorbell);
-+	*doorbell_pending = send_doorbell ? 0 : *doorbell_pending + 1;
-+
-+	return NETDEV_TX_OK;
-+
-+tx_drop:
-+	ring->tx_dropped++;
-+	return NETDEV_TX_BUSY;
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index eff4be0..29c81d2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -132,6 +132,7 @@ enum {
- 					 MLX4_EN_NUM_UP)
  
- #define MLX4_EN_DEFAULT_TX_WORK		256
-+#define MLX4_EN_DOORBELL_BUDGET		8
- 
- /* Target number of packets to coalesce with interrupt moderation */
- #define MLX4_EN_RX_COAL_TARGET	44
-@@ -219,7 +220,10 @@ enum cq_type {
- 
- 
- struct mlx4_en_tx_info {
--	struct sk_buff *skb;
-+	union {
-+		struct sk_buff *skb;
-+		struct page *page;
-+	};
- 	dma_addr_t	map0_dma;
- 	u32		map0_byte_count;
- 	u32		nr_txbb;
-@@ -265,6 +269,8 @@ struct mlx4_en_page_cache {
- 	struct mlx4_en_rx_alloc buf[MLX4_EN_CACHE_SIZE];
+ 	if (unlikely(stop_queue)) {
+ 		/* If queue was emptied after the if (stop_queue) , and before
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 587cdf9..deaa221 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -291,16 +291,18 @@ enum {
+ 	MLX4_WQE_CTRL_FORCE_LOOPBACK	= 1 << 0,
  };
  
-+struct mlx4_en_priv;
++union mlx4_wqe_qpn_vlan {
++	struct {
++		__be16	vlan_tag;
++		u8	ins_vlan;
++		u8	fence_size;
++	};
++	__be32		bf_qpn;
++};
 +
- struct mlx4_en_tx_ring {
- 	/* cache line used and dirtied in tx completion
- 	 * (mlx4_en_free_tx_buf())
-@@ -298,6 +304,11 @@ struct mlx4_en_tx_ring {
- 	__be32			mr_key;
- 	void			*buf;
- 	struct mlx4_en_tx_info	*tx_info;
-+	struct mlx4_en_rx_ring	*recycle_ring;
-+	u32			(*free_tx_desc)(struct mlx4_en_priv *priv,
-+						struct mlx4_en_tx_ring *ring,
-+						int index, u8 owner,
-+						u64 timestamp, int napi_mode);
- 	u8			*bounce_buf;
- 	struct mlx4_qp_context	context;
- 	int			qpn;
-@@ -678,6 +689,12 @@ void mlx4_en_tx_irq(struct mlx4_cq *mcq);
- u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
- 			 void *accel_priv, select_queue_fallback_t fallback);
- netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev);
-+netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_alloc *frame,
-+			       struct net_device *dev, unsigned int length,
-+			       int tx_ind, int *doorbell_pending);
-+void mlx4_en_xmit_doorbell(struct mlx4_en_tx_ring *ring);
-+bool mlx4_en_rx_recycle(struct mlx4_en_rx_ring *ring,
-+			struct mlx4_en_rx_alloc *frame);
- 
- int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 			   struct mlx4_en_tx_ring **pring,
-@@ -706,6 +723,14 @@ int mlx4_en_process_rx_cq(struct net_device *dev,
- 			  int budget);
- int mlx4_en_poll_rx_cq(struct napi_struct *napi, int budget);
- int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget);
-+u32 mlx4_en_free_tx_desc(struct mlx4_en_priv *priv,
-+			 struct mlx4_en_tx_ring *ring,
-+			 int index, u8 owner, u64 timestamp,
-+			 int napi_mode);
-+u32 mlx4_en_recycle_tx_desc(struct mlx4_en_priv *priv,
-+			    struct mlx4_en_tx_ring *ring,
-+			    int index, u8 owner, u64 timestamp,
-+			    int napi_mode);
- void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 		int is_tx, int rss, int qpn, int cqn, int user_prio,
- 		struct mlx4_qp_context *context);
+ struct mlx4_wqe_ctrl_seg {
+ 	__be32			owner_opcode;
+-	union {
+-		struct {
+-			__be16			vlan_tag;
+-			u8			ins_vlan;
+-			u8			fence_size;
+-		};
+-		__be32			bf_qpn;
+-	};
++	union mlx4_wqe_qpn_vlan	qpn_vlan;
+ 	/*
+ 	 * High 24 bits are SRC remote buffer; low 8 bits are flags:
+ 	 * [7]   SO (strong ordering)
 -- 
 2.8.2
