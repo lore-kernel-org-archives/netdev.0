@@ -1,7 +1,7 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH net-next v3 08/10] net/faraday: Support NCSI mode
-Date: Tue, 19 Jul 2016 11:54:23 +1000
-Message-ID: <1468893265-10635-9-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH net-next v3 10/10] net/faraday: Mask PHY interrupt with NCSI mode
+Date: Tue, 19 Jul 2016 11:54:25 +1000
+Message-ID: <1468893265-10635-11-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1468893265-10635-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: davem@davemloft.net, benh@kernel.crashing.org, joel@jms.id.au,
 	gerlitz.or@gmail.com, weixue@trustnetic.com, yuvali@mellanox.com,
@@ -9,233 +9,123 @@ Cc: davem@davemloft.net, benh@kernel.crashing.org, joel@jms.id.au,
 	Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:42449 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752320AbcGSByh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 21:54:37 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6J1sK0V019920
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 21:54:36 -0400
-Received: from e23smtp03.au.ibm.com (e23smtp03.au.ibm.com [202.81.31.145])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 2495r8g117-1
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48624 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752496AbcGSBy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 21:54:58 -0400
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6J1sHaA129380
+	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 21:54:57 -0400
+Received: from e23smtp05.au.ibm.com (e23smtp05.au.ibm.com [202.81.31.147])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 2496h5pf98-1
 	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 21:54:36 -0400
+	for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 21:54:57 -0400
 Received: from localhost
-	by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Tue, 19 Jul 2016 11:54:34 +1000
-Received: from d23relay10.au.ibm.com (d23relay10.au.ibm.com [9.190.26.77])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 530002BB0057
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:54:32 +1000 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay10.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6J1sWlV22282458
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:54:32 +1000
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6J1sUmV020323
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:54:32 +1000
+	Tue, 19 Jul 2016 11:54:53 +1000
+Received: from d23relay08.au.ibm.com (d23relay08.au.ibm.com [9.185.71.33])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 6B3662BB005D
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:54:33 +1000 (EST)
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay08.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6J1sXu126214540
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:54:33 +1000
+Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6J1sWGY001604
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:54:33 +1000
 In-Reply-To: <1468893265-10635-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This makes ftgmac100 driver support NCSI mode. The NCSI is enabled
-on the interface if property "use-nc-si" or "use-ncsi" is found from
-the device node in device tree.
-
-   * No PHY device is used when NCSI mode is enabled.
-   * The NCSI device (struct ncsi_dev) is created when probing the
-     device while it's enabled/started when the interface is brought
-     up.
-   * Hardware IP checksum dosn't work when NCSI mode is enabled. It
-     is disabled on enabled NCSI.
+Bogus PHY interrupts are observed. This masks the PHY interrupt
+when the interface works in NCSI mode as there is no attached
+PHY under the circumstance.
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Acked-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 85 ++++++++++++++++++++++++++++----
- 1 file changed, 75 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 27 +++++++++++++++------------
+ 1 file changed, 15 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 2c3f656..1cd4975 100644
+index d8afa2d..2d4c7ea 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -31,6 +31,7 @@
- #include <linux/phy.h>
- #include <linux/platform_device.h>
- #include <net/ip.h>
-+#include <net/ncsi.h>
- 
- #include "ftgmac100.h"
- 
-@@ -68,10 +69,13 @@ struct ftgmac100 {
- 
- 	struct net_device *netdev;
- 	struct device *dev;
-+	struct ncsi_dev *ndev;
- 	struct napi_struct napi;
+@@ -74,6 +74,7 @@ struct ftgmac100 {
  
  	struct mii_bus *mii_bus;
  	int old_speed;
-+	bool use_ncsi;
-+	bool enabled;
++	int int_mask_all;
+ 	bool use_ncsi;
+ 	bool enabled;
  };
- 
- static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
-@@ -1010,7 +1014,10 @@ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
- 	struct net_device *netdev = dev_id;
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 
--	if (likely(netif_running(netdev))) {
-+	/* When running in NCSI mode, the interface should be ready for
-+	 * receiving or transmitting NCSI packets before it's opened.
-+	 */
-+	if (likely(priv->use_ncsi || netif_running(netdev))) {
- 		/* Disable interrupts for polling */
- 		iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- 		napi_schedule(&priv->napi);
-@@ -1123,17 +1130,33 @@ static int ftgmac100_open(struct net_device *netdev)
- 		goto err_hw;
- 
- 	ftgmac100_init_hw(priv);
--	ftgmac100_start_hw(priv, 10);
+@@ -84,14 +85,6 @@ static int ftgmac100_alloc_rx_page(struct ftgmac100 *priv,
+ /******************************************************************************
+  * internal functions (hardware register access)
+  *****************************************************************************/
+-#define INT_MASK_ALL_ENABLED	(FTGMAC100_INT_RPKT_LOST	| \
+-				 FTGMAC100_INT_XPKT_ETH		| \
+-				 FTGMAC100_INT_XPKT_LOST	| \
+-				 FTGMAC100_INT_AHB_ERR		| \
+-				 FTGMAC100_INT_PHYSTS_CHG	| \
+-				 FTGMAC100_INT_RPKT_BUF		| \
+-				 FTGMAC100_INT_NO_RXBUF)
 -
--	phy_start(netdev->phydev);
-+	ftgmac100_start_hw(priv, priv->use_ncsi ? 100 : 10);
-+	if (netdev->phydev)
-+		phy_start(netdev->phydev);
-+	else if (priv->use_ncsi)
-+		netif_carrier_on(netdev);
+ static void ftgmac100_set_rx_ring_base(struct ftgmac100 *priv, dma_addr_t addr)
+ {
+ 	iowrite32(addr, priv->base + FTGMAC100_OFFSET_RXR_BADR);
+@@ -1070,8 +1063,9 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
+ 		ftgmac100_tx_complete(priv);
+ 	}
  
- 	napi_enable(&priv->napi);
+-	if (status & (FTGMAC100_INT_NO_RXBUF | FTGMAC100_INT_RPKT_LOST |
+-		      FTGMAC100_INT_AHB_ERR | FTGMAC100_INT_PHYSTS_CHG)) {
++	if (status & priv->int_mask_all & (FTGMAC100_INT_NO_RXBUF |
++			FTGMAC100_INT_RPKT_LOST | FTGMAC100_INT_AHB_ERR |
++			FTGMAC100_INT_PHYSTS_CHG)) {
+ 		if (net_ratelimit())
+ 			netdev_info(netdev, "[ISR] = 0x%x: %s%s%s%s\n", status,
+ 				    status & FTGMAC100_INT_NO_RXBUF ? "NO_RXBUF " : "",
+@@ -1094,7 +1088,8 @@ static int ftgmac100_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
+ 
+ 		/* enable all interrupts */
+-		iowrite32(INT_MASK_ALL_ENABLED, priv->base + FTGMAC100_OFFSET_IER);
++		iowrite32(priv->int_mask_all,
++			  priv->base + FTGMAC100_OFFSET_IER);
+ 	}
+ 
+ 	return rx;
+@@ -1140,7 +1135,7 @@ static int ftgmac100_open(struct net_device *netdev)
  	netif_start_queue(netdev);
  
  	/* enable all interrupts */
- 	iowrite32(INT_MASK_ALL_ENABLED, priv->base + FTGMAC100_OFFSET_IER);
-+
-+	/* Start the NCSI device */
-+	if (priv->use_ncsi) {
-+		err = ncsi_start_dev(priv->ndev);
-+		if (err)
-+			goto err_ncsi;
-+	}
-+
-+	priv->enabled = true;
-+
- 	return 0;
+-	iowrite32(INT_MASK_ALL_ENABLED, priv->base + FTGMAC100_OFFSET_IER);
++	iowrite32(priv->int_mask_all, priv->base + FTGMAC100_OFFSET_IER);
  
-+err_ncsi:
-+	napi_disable(&priv->napi);
-+	netif_stop_queue(netdev);
-+	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- err_hw:
- 	free_irq(priv->irq, netdev);
- err_irq:
-@@ -1146,12 +1169,17 @@ static int ftgmac100_stop(struct net_device *netdev)
- {
- 	struct ftgmac100 *priv = netdev_priv(netdev);
- 
-+	if (!priv->enabled)
-+		return 0;
-+
- 	/* disable all interrupts */
-+	priv->enabled = false;
- 	iowrite32(0, priv->base + FTGMAC100_OFFSET_IER);
- 
- 	netif_stop_queue(netdev);
- 	napi_disable(&priv->napi);
--	phy_stop(netdev->phydev);
-+	if (netdev->phydev)
-+		phy_stop(netdev->phydev);
- 
- 	ftgmac100_stop_hw(priv);
- 	free_irq(priv->irq, netdev);
-@@ -1192,6 +1220,9 @@ static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
- /* optional */
- static int ftgmac100_do_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
-+	if (!netdev->phydev)
-+		return -ENXIO;
-+
- 	return phy_mii_ioctl(netdev->phydev, ifr, cmd);
- }
- 
-@@ -1258,6 +1289,15 @@ static void ftgmac100_destroy_mdio(struct net_device *netdev)
- 	mdiobus_free(priv->mii_bus);
- }
- 
-+static void ftgmac100_ncsi_handler(struct ncsi_dev *nd)
-+{
-+	if (unlikely(nd->state != ncsi_dev_state_functional))
-+		return;
-+
-+	netdev_info(nd->dev, "NCSI interface %s\n",
-+		    nd->link_up ? "up" : "down");
-+}
-+
- /******************************************************************************
-  * struct platform_driver functions
-  *****************************************************************************/
-@@ -1267,7 +1307,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 	int irq;
- 	struct net_device *netdev;
- 	struct ftgmac100 *priv;
--	int err;
-+	int err = 0;
- 
- 	if (!pdev)
- 		return -ENODEV;
-@@ -1291,7 +1331,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 
- 	netdev->ethtool_ops = &ftgmac100_ethtool_ops;
- 	netdev->netdev_ops = &ftgmac100_netdev_ops;
--	netdev->features = NETIF_F_IP_CSUM | NETIF_F_GRO;
- 
- 	platform_set_drvdata(pdev, netdev);
- 
-@@ -1326,9 +1365,34 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	/* Start the NCSI device */
+ 	if (priv->use_ncsi) {
+@@ -1365,6 +1360,13 @@ static int ftgmac100_probe(struct platform_device *pdev)
  	/* MAC address from chip or random one */
  	ftgmac100_setup_mac(priv);
  
--	err = ftgmac100_setup_mdio(netdev);
--	if (err)
--		goto err_setup_mdio;
-+	if (pdev->dev.of_node &&
-+	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
-+		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
-+			dev_err(&pdev->dev, "NCSI stack not enabled\n");
-+			goto err_ncsi_dev;
-+		}
-+
-+		dev_info(&pdev->dev, "Using NCSI interface\n");
-+		priv->use_ncsi = true;
-+		priv->ndev = ncsi_register_dev(netdev, ftgmac100_ncsi_handler);
-+		if (!priv->ndev)
-+			goto err_ncsi_dev;
-+	} else {
-+		priv->use_ncsi = false;
-+		err = ftgmac100_setup_mdio(netdev);
-+		if (err)
-+			goto err_setup_mdio;
-+	}
-+
-+	/* We have to disable on-chip IP checksum functionality
-+	 * when NCSI is enabled on the interface. It doesn't work
-+	 * in that case.
-+	 */
-+	netdev->features = NETIF_F_IP_CSUM | NETIF_F_GRO;
-+	if (priv->use_ncsi &&
-+	    of_get_property(pdev->dev.of_node, "no-hw-checksum", NULL))
-+		netdev->features &= ~NETIF_F_IP_CSUM;
-+
++	priv->int_mask_all = (FTGMAC100_INT_RPKT_LOST |
++			      FTGMAC100_INT_XPKT_ETH |
++			      FTGMAC100_INT_XPKT_LOST |
++			      FTGMAC100_INT_AHB_ERR |
++			      FTGMAC100_INT_PHYSTS_CHG |
++			      FTGMAC100_INT_RPKT_BUF |
++			      FTGMAC100_INT_NO_RXBUF);
+ 	if (pdev->dev.of_node &&
+ 	    of_get_property(pdev->dev.of_node, "use-ncsi", NULL)) {
+ 		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
+@@ -1374,6 +1376,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
  
- 	/* register network device */
- 	err = register_netdev(netdev);
-@@ -1341,6 +1405,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
-+err_ncsi_dev:
- err_register_netdev:
- 	ftgmac100_destroy_mdio(netdev);
- err_setup_mdio:
+ 		dev_info(&pdev->dev, "Using NCSI interface\n");
+ 		priv->use_ncsi = true;
++		priv->int_mask_all &= ~FTGMAC100_INT_PHYSTS_CHG;
+ 		priv->ndev = ncsi_register_dev(netdev, ftgmac100_ncsi_handler);
+ 		if (!priv->ndev)
+ 			goto err_ncsi_dev;
 -- 
 2.1.0
