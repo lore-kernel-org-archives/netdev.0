@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 02/12] net: dsa: mv88e6xxx: split setup of Global 1 and 2
-Date: Mon, 18 Jul 2016 20:45:30 -0400
-Message-ID: <20160719004540.1066-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 04/12] net: dsa: mv88e6xxx: extract trunk mapping
+Date: Mon, 18 Jul 2016 20:45:32 -0400
+Message-ID: <20160719004540.1066-5-vivien.didelot@savoirfairelinux.com>
 References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,218 +14,115 @@ In-Reply-To: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Separate the setup of Global 1 and Global 2 internal SMI devices and add
-a flag to describe the presence of this second registers set.
+The Trunk Mask and Trunk Mapping registers are two Global 2 indirect
+accesses to trunking configuration.
 
-Also rearrange the G1 setup in the registers order.
+Add helpers for these tables and simplify the Global 2 setup.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 71 ++++++++++++++++++++++-------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 23 +++++++++---
- 2 files changed, 62 insertions(+), 32 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 68 ++++++++++++++++++++++++-----------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
+ 2 files changed, 48 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 3feb842..1e39fa6 100644
+index 9b2525a..d18e5c8 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2993,13 +2993,12 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 	return 0;
+@@ -3151,6 +3151,49 @@ static int mv88e6xxx_g2_set_device_mapping(struct mv88e6xxx_chip *chip)
+ 	return err;
  }
  
--static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
-+static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- {
- 	struct dsa_switch *ds = chip->ds;
- 	u32 upstream_port = dsa_upstream_port(ds);
- 	u16 reg;
- 	int err;
--	int i;
- 
- 	/* Enable the PHY Polling Unit if present, don't discard any packets,
- 	 * and mask all interrupt sources.
-@@ -3040,6 +3039,16 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
-+	/* Clear all the VTU and STU entries */
-+	err = _mv88e6xxx_vtu_stu_flush(chip);
-+	if (err < 0)
-+		return err;
++static int mv88e6xxx_g2_trunk_mask_write(struct mv88e6xxx_chip *chip, int num,
++					 bool hask, u16 mask)
++{
++	const u16 port_mask = BIT(chip->info->num_ports) - 1;
++	u16 val = (num << 12) | (mask & port_mask);
 +
-+	/* Clear all ATU entries */
-+	err = _mv88e6xxx_atu_flush(chip, 0, true);
-+	if (err)
-+		return err;
++	if (hask)
++		val |= GLOBAL2_TRUNK_MASK_HASK;
 +
- 	/* Configure the IP ToS mapping registers. */
- 	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_IP_PRI_0, 0x0000);
- 	if (err)
-@@ -3071,6 +3080,26 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
-+	/* Clear the statistics counters for all ports */
-+	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_STATS_OP,
-+				   GLOBAL_STATS_OP_FLUSH_ALL);
-+	if (err)
-+		return err;
++	return mv88e6xxx_update(chip, REG_GLOBAL2, GLOBAL2_TRUNK_MASK, val);
++}
 +
-+	/* Wait for the flush to complete. */
-+	err = _mv88e6xxx_stats_wait(chip);
-+	if (err)
-+		return err;
++static int mv88e6xxx_g2_trunk_mapping_write(struct mv88e6xxx_chip *chip, int id,
++					    u16 map)
++{
++	const u16 port_mask = BIT(chip->info->num_ports) - 1;
++	u16 val = (id << 11) | (map & port_mask);
++
++	return mv88e6xxx_update(chip, REG_GLOBAL2, GLOBAL2_TRUNK_MAPPING, val);
++}
++
++static int mv88e6xxx_g2_clear_trunk(struct mv88e6xxx_chip *chip)
++{
++	const u16 port_mask = BIT(chip->info->num_ports) - 1;
++	int i, err;
++
++	/* Clear all eight possible Trunk Mask vectors */
++	for (i = 0; i < 8; ++i) {
++		err = mv88e6xxx_g2_trunk_mask_write(chip, i, false, port_mask);
++		if (err)
++			return err;
++	}
++
++	/* Clear all sixteen possible Trunk ID routing vectors */
++	for (i = 0; i < 16; ++i) {
++		err = mv88e6xxx_g2_trunk_mapping_write(chip, i, 0);
++		if (err)
++			return err;
++	}
 +
 +	return 0;
 +}
 +
-+static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
-+{
-+	struct dsa_switch *ds = chip->ds;
-+	int err;
-+	int i;
-+
- 	/* Send all frames with destination addresses matching
- 	 * 01:80:c2:00:00:0x to the CPU port.
- 	 */
-@@ -3174,28 +3203,7 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
- 		}
- 	}
- 
--	/* Clear the statistics counters for all ports */
--	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_STATS_OP,
--				   GLOBAL_STATS_OP_FLUSH_ALL);
--	if (err)
--		return err;
--
--	/* Wait for the flush to complete. */
--	err = _mv88e6xxx_stats_wait(chip);
--	if (err)
--		return err;
--
--	/* Clear all ATU entries */
--	err = _mv88e6xxx_atu_flush(chip, 0, true);
--	if (err)
--		return err;
--
--	/* Clear all the VTU and STU entries */
--	err = _mv88e6xxx_vtu_stu_flush(chip);
--	if (err < 0)
--		return err;
--
--	return err;
-+	return 0;
- }
- 
- static int mv88e6xxx_setup(struct dsa_switch *ds)
-@@ -3216,12 +3224,21 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ {
+ 	int err;
+@@ -3180,27 +3223,10 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
  	if (err)
- 		goto unlock;
+ 		return err;
  
--	err = mv88e6xxx_setup_global(chip);
-+	/* Setup Switch Port Registers */
-+	for (i = 0; i < chip->info->num_ports; i++) {
-+		err = mv88e6xxx_setup_port(chip, i);
-+		if (err)
-+			goto unlock;
-+	}
-+
-+	/* Setup Switch Global 1 Registers */
-+	err = mv88e6xxx_g1_setup(chip);
- 	if (err)
- 		goto unlock;
+-	/* Clear all trunk masks. */
+-	for (i = 0; i < 8; i++) {
+-		err = _mv88e6xxx_reg_write(chip, REG_GLOBAL2,
+-					   GLOBAL2_TRUNK_MASK,
+-					   0x8000 |
+-					   (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
+-					   ((1 << chip->info->num_ports) - 1));
+-		if (err)
+-			return err;
+-	}
+-
+-	/* Clear all trunk mappings. */
+-	for (i = 0; i < 16; i++) {
+-		err = _mv88e6xxx_reg_write(
+-			chip, REG_GLOBAL2,
+-			GLOBAL2_TRUNK_MAPPING,
+-			GLOBAL2_TRUNK_MAPPING_UPDATE |
+-			(i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
+-		if (err)
+-			return err;
+-	}
++	/* Clear all trunk masks and mapping. */
++	err = mv88e6xxx_g2_clear_trunk(chip);
++	if (err)
++		return err;
  
--	for (i = 0; i < chip->info->num_ports; i++) {
--		err = mv88e6xxx_setup_port(chip, i);
-+	/* Setup Switch Global 2 Registers */
-+	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_GLOBAL2)) {
-+		err = mv88e6xxx_g2_setup(chip);
- 		if (err)
- 			goto unlock;
- 	}
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 2ff62f4..390dac5 100644
+index 390dac5..876d9ea 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -383,6 +383,11 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_EEPROM,
- 
-+	/* Switch Global 2 Registers.
-+	 * The device contains a second set of global 16-bit registers.
-+	 */
-+	MV88E6XXX_CAP_GLOBAL2,
-+
- 	/* Multi-chip Addressing Mode.
- 	 * Some chips require an indirect SMI access when their SMI device
- 	 * address is not zero. See SMI_CMD and SMI_DATA.
-@@ -429,6 +434,7 @@ enum mv88e6xxx_cap {
- /* Bitmask of capabilities */
- #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
- #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
-+#define MV88E6XXX_FLAG_GLOBAL2		BIT(MV88E6XXX_CAP_GLOBAL2)
- #define MV88E6XXX_FLAG_MULTI_CHIP	BIT(MV88E6XXX_CAP_MULTI_CHIP)
- #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
-@@ -440,31 +446,36 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6095	\
--	(MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU |		\
- 	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6097	\
--	(MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU |		\
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6165	\
--	(MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6185	\
--	(MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU |		\
- 	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6320	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_EEPROM |	\
-+	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
-@@ -474,7 +485,8 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_VTU)
- 
- #define MV88E6XXX_FLAGS_FAMILY_6351	\
--	(MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_STU |		\
-@@ -485,6 +497,7 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAGS_FAMILY_6352	\
- 	(MV88E6XXX_FLAG_EEE |		\
- 	 MV88E6XXX_FLAG_EEPROM |	\
-+	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
+@@ -294,6 +294,7 @@
+ #define GLOBAL2_TRUNK_MASK	0x07
+ #define GLOBAL2_TRUNK_MASK_UPDATE		BIT(15)
+ #define GLOBAL2_TRUNK_MASK_NUM_SHIFT		12
++#define GLOBAL2_TRUNK_MASK_HASK			BIT(11)
+ #define GLOBAL2_TRUNK_MAPPING	0x08
+ #define GLOBAL2_TRUNK_MAPPING_UPDATE		BIT(15)
+ #define GLOBAL2_TRUNK_MAPPING_ID_SHIFT		11
 -- 
 2.9.0
