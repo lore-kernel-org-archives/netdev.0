@@ -1,54 +1,41 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH iproute2 -master] bpf: also check elf for official e_machine value
-Date: Tue, 19 Jul 2016 01:09:52 +0200
-Message-ID: <a5dbe0907854c72832f0b0d745eaace921bf879e.1468882622.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: stephen@networkplumber.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [patch 1/1] kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon
+ union initialization bug
+Date: Mon, 18 Jul 2016 17:33:07 -0700
+Message-ID: <20160719003305.GA45296@ast-mbp.thefacebook.com>
+References: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ast@kernel.org,
+	daniel@iogearbox.net, Fengguang Wu <fengguang.wu@intel.com>
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35871 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407AbcGRXJ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 19:09:58 -0400
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33964 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930AbcGSAdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 20:33:11 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hh10so202563pac.1
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 17:33:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the official BPF ELF e_machine value that was assigned recently [1]
-and will be propagated to glibc, libelf et al. LLVM will switch to it
-in 3.9 release, therefore we need to prepare tc to check for EM_ELF as
-well, older version still have the EM_NONE.
+On Mon, Jul 18, 2016 at 03:50:58PM -0700, akpm@linux-foundation.org wrote:
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Subject: kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon union initialization bug
+> 
+> kernel/trace/bpf_trace.c: In function 'bpf_event_output':
+> kernel/trace/bpf_trace.c:312: error: unknown field 'next' specified in initializer
+> kernel/trace/bpf_trace.c:312: warning: missing braces around initializer
+> kernel/trace/bpf_trace.c:312: warning: (near initialization for 'raw.frag.<anonymous>')
+> 
+> Fixes: 555c8a8623a3a87 ("bpf: avoid stack copy and use skb ctx for event output")
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-  [1] https://github.com/llvm-mirror/llvm/commit/36b9c09330bfb5e771914cfe307588f30d5510d2
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tc/tc_bpf.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-index 86c6069..7eb1cd7 100644
---- a/tc/tc_bpf.c
-+++ b/tc/tc_bpf.c
-@@ -54,6 +54,10 @@
- #define AF_ALG 38
- #endif
- 
-+#ifndef EM_BPF
-+#define EM_BPF 247
-+#endif
-+
- #ifdef HAVE_ELF
- static int bpf_obj_open(const char *path, enum bpf_prog_type type,
- 			const char *sec, bool verbose);
-@@ -1690,7 +1694,8 @@ static void bpf_hash_destroy(struct bpf_elf_ctx *ctx)
- static int bpf_elf_check_ehdr(const struct bpf_elf_ctx *ctx)
- {
- 	if (ctx->elf_hdr.e_type != ET_REL ||
--	    ctx->elf_hdr.e_machine != 0 ||
-+	    (ctx->elf_hdr.e_machine != EM_NONE &&
-+	     ctx->elf_hdr.e_machine != EM_BPF) ||
- 	    ctx->elf_hdr.e_version != EV_CURRENT) {
- 		fprintf(stderr, "ELF format error, ELF file not for eBPF?\n");
- 		return -EINVAL;
--- 
-1.9.3
+Fengguang can you add gcc-4.4 to buildbot. Thanks!
