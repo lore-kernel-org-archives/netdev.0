@@ -1,7 +1,7 @@
 From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
-Subject: [Patch-V2 2/3] chcr: Support for Chelsio's Crypto Hardware
-Date: Mon, 18 Jul 2016 22:42:14 -0700
-Message-ID: <1468906935-6770-3-git-send-email-yeshaswi@chelsio.com>
+Subject: [Patch-V2 1/3] cxgb4: Add Chelsio LLD support Chelsio Crypto ULD
+Date: Mon, 18 Jul 2016 22:42:13 -0700
+Message-ID: <1468906935-6770-2-git-send-email-yeshaswi@chelsio.com>
 References: <1468906935-6770-1-git-send-email-yeshaswi@chelsio.com>
 Cc: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
 To: hariprasad@chelsio.com, netdev@vger.kernel.org,
@@ -10,2681 +10,1194 @@ To: hariprasad@chelsio.com, netdev@vger.kernel.org,
 	harsh@chelsio.com, atul.gupta@chelsio.com,
 	herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [12.32.117.8] ([12.32.117.8]:20186 "EHLO
+Received: from [12.32.117.8] ([12.32.117.8]:52462 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752258AbcGSFnz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:43:55 -0400
+	by vger.kernel.org with ESMTP id S1752195AbcGSFny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:43:54 -0400
 In-Reply-To: <1468906935-6770-1-git-send-email-yeshaswi@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Chelsio's Crypto Hardware can perform the following operations:
-SHA1, SHA224, SHA256, SHA384 and SHA512, HMAC(SHA1), HMAC(SHA224),
-HMAC(SHA256), HMAC(SHA384), HAMC(SHA512), AES-128-CBC, AES-192-CBC,
-AES-256-CBC, AES-128-XTS, AES-256-XTS
+The Chelsio crypto driver is an Upper Layer Driver (ULD), making use
+of the Chelsio Lower Layer Driver (LLD - cxgb4). The LLD facilitates
+the basic infrastructure services of the ULD. These services include
+queue allocation, deallocation and registration with LLD. The queues
+are used for sending the crypto requests to the Chelsio's hardware
+and for receiving the responses from the hardware.
 
-This patch implements the driver for above mentioned features. This
-driver is an Upper Layer Driver which is attached to Chelsio's LLD
-(cxgb4) and uses the queue allocated by the LLD for sending the crypto
-requests to the Hardware and receiving the responses from it.
-
-The crypto operations can be performed by Chelsio's hardware from the
-userspace applications and/or from within the kernel space using the
-kernel's crypto API.
-
-The above mentioned crypto features have been tested using kernel's
-tests mentioned in testmgr.h. They also have been tested from user
-space using libkcapi and Openssl.
+This patch enables the services mentioned for the Chelsio's crypto
+driver.
 
 Signed-off-by: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
 ---
- drivers/crypto/chelsio/Kconfig       |   21 +
- drivers/crypto/chelsio/Makefile      |    4 +
- drivers/crypto/chelsio/chcr_algo.c   | 1509 ++++++++++++++++++++++++++++++++++
- drivers/crypto/chelsio/chcr_algo.h   |  503 ++++++++++++
- drivers/crypto/chelsio/chcr_core.c   |  268 ++++++
- drivers/crypto/chelsio/chcr_core.h   |   80 ++
- drivers/crypto/chelsio/chcr_crypto.h |  204 +++++
- 7 files changed, 2589 insertions(+)
- create mode 100644 drivers/crypto/chelsio/Kconfig
- create mode 100644 drivers/crypto/chelsio/Makefile
- create mode 100644 drivers/crypto/chelsio/chcr_algo.c
- create mode 100644 drivers/crypto/chelsio/chcr_algo.h
- create mode 100644 drivers/crypto/chelsio/chcr_core.c
- create mode 100644 drivers/crypto/chelsio/chcr_core.h
- create mode 100644 drivers/crypto/chelsio/chcr_crypto.h
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   18 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   41 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   80 +++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   10 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   64 +++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |  437 ++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  131 +++++-
+ 7 files changed, 770 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/crypto/chelsio/Kconfig b/drivers/crypto/chelsio/Kconfig
-new file mode 100644
-index 0000000..4266cb2
---- /dev/null
-+++ b/drivers/crypto/chelsio/Kconfig
-@@ -0,0 +1,21 @@
-+config CRYPTO_DEV_CHELSIO
-+	tristate "Chelsio Crypto Co-processor Driver"
-+	depends on PCI && NETDEVICES && ETHERNET
-+	select CRYPTO_SHA1
-+	select CRYPTO_SHA256
-+	select CRYPTO_SHA512
-+	select NET_VENDOR_CHELSIO
-+	select CHELSIO_T4
-+	---help---
-+	  The Chelsio Crypto Co-processor driver for T6 adapters.
-+
-+	  For general information about Chelsio and our products, visit
-+	  our website at <http://www.chelsio.com>.
-+
-+	  For customer support, please visit our customer support page at
-+	  <http://www.chelsio.com/support.html>.
-+
-+	  Please send feedback to <linux-bugs@chelsio.com>.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called chcr.
-diff --git a/drivers/crypto/chelsio/Makefile b/drivers/crypto/chelsio/Makefile
-new file mode 100644
-index 0000000..7e4fda5
---- /dev/null
-+++ b/drivers/crypto/chelsio/Makefile
-@@ -0,0 +1,4 @@
-+ ccflags-y := -Idrivers/net/ethernet/chelsio/cxgb4
-+
-+ obj-$(CONFIG_CRYPTO_DEV_CHELSIO) += chcr.o
-+ chcr-objs :=  chcr_core.o chcr_algo.o
-\ No newline at end of file
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-new file mode 100644
-index 0000000..a327b53
---- /dev/null
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -0,0 +1,1509 @@
-+/*
-+ * This file is part of the Chelsio T6 Crypto driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ * Written and Maintained by:
-+ *	Manoj Malviya (manojmalviya@chelsio.com)
-+ *	Atul Gupta (atul.gupta@chelsio.com)
-+ *	Jitendra Lulla (jlulla@chelsio.com)
-+ *	Yeshaswi M R Gowda (yeshaswi@chelsio.com)
-+ *	Harsh Jain (harsh@chelsio.com)
-+ */
-+
-+#define pr_fmt(fmt) "chcr:" fmt
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/crypto.h>
-+#include <linux/cryptohash.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/highmem.h>
-+#include <linux/scatterlist.h>
-+
-+#include <crypto/aes.h>
-+#include <crypto/algapi.h>
-+#include <crypto/hash.h>
-+#include <crypto/sha.h>
-+#include <crypto/internal/hash.h>
-+
-+#include "t4fw_api.h"
-+#include "t4_msg.h"
-+#include "chcr_core.h"
-+#include "chcr_algo.h"
-+#include "chcr_crypto.h"
-+
-+static inline struct ablk_ctx *ABLK_CTX(struct chcr_context *ctx)
-+{
-+	return ctx->crypto_ctx->ablkctx;
-+}
-+
-+static inline struct hmac_ctx *HMAC_CTX(struct chcr_context *ctx)
-+{
-+	return ctx->crypto_ctx->hmacctx;
-+}
-+
-+static inline struct uld_ctx *ULD_CTX(struct chcr_context *ctx)
-+{
-+	return ctx->dev->u_ctx;
-+}
-+
-+static inline int is_ofld_imm(const struct sk_buff *skb)
-+{
-+	return (skb->len <= CRYPTO_MAX_IMM_TX_PKT_LEN);
-+}
-+
-+/*
-+ *	sgl_len - calculates the size of an SGL of the given capacity
-+ *	@n: the number of SGL entries
-+ *	Calculates the number of flits needed for a scatter/gather list that
-+ *	can hold the given number of entries.
-+ */
-+static inline unsigned int sgl_len(unsigned int n)
-+{
-+	n--;
-+	return (3 * n) / 2 + (n & 1) + 2;
-+}
-+
-+/*
-+ *	chcr_handle_resp - Unmap the DMA buffers associated with the request
-+ *	@req: crypto request
-+ */
-+int chcr_handle_resp(struct crypto_async_request *req, unsigned char *input,
-+		     int error_status)
-+{
-+	struct crypto_tfm *tfm = req->tfm;
-+	struct chcr_context *ctx = crypto_tfm_ctx(tfm);
-+	struct uld_ctx *u_ctx = ULD_CTX(ctx);
-+	struct chcr_req_ctx ctx_req;
-+	struct cpl_fw6_pld *fw6_pld;
-+	unsigned int digestsize, updated_digestsize;
-+
-+	switch (tfm->__crt_alg->cra_flags & CRYPTO_ALG_TYPE_MASK) {
-+	case CRYPTO_ALG_TYPE_BLKCIPHER:
-+		ctx_req.req.ablk_req = (struct ablkcipher_request *)req;
-+		ctx_req.ctx.ablk_ctx =
-+			ablkcipher_request_ctx(ctx_req.req.ablk_req);
-+		if (!error_status) {
-+			fw6_pld = (struct cpl_fw6_pld *)input;
-+			memcpy(ctx_req.req.ablk_req->info, &fw6_pld->data[2],
-+			       AES_BLOCK_SIZE);
-+		}
-+		dma_unmap_sg(&u_ctx->lldi.pdev->dev, ctx_req.req.ablk_req->dst,
-+			     ABLK_CTX(ctx)->dst_nents, DMA_FROM_DEVICE);
-+		if (ctx_req.ctx.ablk_ctx->skb) {
-+			kfree_skb(ctx_req.ctx.ablk_ctx->skb);
-+			ctx_req.ctx.ablk_ctx->skb = NULL;
-+		}
-+		break;
-+
-+	case CRYPTO_ALG_TYPE_AHASH:
-+		ctx_req.req.ahash_req = (struct ahash_request *)req;
-+		ctx_req.ctx.ahash_ctx =
-+			ahash_request_ctx(ctx_req.req.ahash_req);
-+		digestsize =
-+			crypto_ahash_digestsize(crypto_ahash_reqtfm(
-+							ctx_req.req.ahash_req));
-+		updated_digestsize = digestsize;
-+		if (digestsize == SHA224_DIGEST_SIZE)
-+			updated_digestsize = SHA256_DIGEST_SIZE;
-+		else if (digestsize == SHA384_DIGEST_SIZE)
-+			updated_digestsize = SHA512_DIGEST_SIZE;
-+		if (ctx_req.ctx.ahash_ctx->skb)
-+			ctx_req.ctx.ahash_ctx->skb = NULL;
-+		if (ctx_req.ctx.ahash_ctx->result == 1) {
-+			ctx_req.ctx.ahash_ctx->result = 0;
-+			memcpy(ctx_req.req.ahash_req->result, input +
-+			       sizeof(struct cpl_fw6_pld),
-+			       digestsize);
-+		} else {
-+			memcpy(ctx_req.ctx.ahash_ctx->partial_hash, input +
-+			       sizeof(struct cpl_fw6_pld),
-+			       updated_digestsize);
-+		}
-+		kfree(ctx_req.ctx.ahash_ctx->dummy_payload_ptr);
-+		ctx_req.ctx.ahash_ctx->dummy_payload_ptr = NULL;
-+		break;
-+	}
-+	return 0;
-+}
-+
-+/*
-+ *	calc_tx_flits_ofld - calculate # of flits for an offload packet
-+ *	@skb: the packet
-+ *	Returns the number of flits needed for the given offload packet.
-+ *	These packets are already fully constructed and no additional headers
-+ *	will be added.
-+ */
-+static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
-+{
-+	unsigned int flits, cnt;
-+
-+	if (is_ofld_imm(skb))
-+		return DIV_ROUND_UP(skb->len, 8);
-+
-+	flits = skb_transport_offset(skb) / 8;   /* headers */
-+	cnt = skb_shinfo(skb)->nr_frags;
-+	if (skb_tail_pointer(skb) != skb_transport_header(skb))
-+		cnt++;
-+	return flits + sgl_len(cnt);
-+}
-+
-+static struct shash_desc *chcr_alloc_shash(unsigned int ds)
-+{
-+	struct crypto_shash *base_hash = NULL;
-+	struct shash_desc *desc;
-+
-+	switch (ds) {
-+	case SHA1_DIGEST_SIZE:
-+		base_hash = crypto_alloc_shash("sha1-generic", 0, 0);
-+		break;
-+	case SHA224_DIGEST_SIZE:
-+		base_hash = crypto_alloc_shash("sha224-generic", 0, 0);
-+		break;
-+	case SHA256_DIGEST_SIZE:
-+		base_hash = crypto_alloc_shash("sha256-generic", 0, 0);
-+		break;
-+	case SHA384_DIGEST_SIZE:
-+		base_hash = crypto_alloc_shash("sha384-generic", 0, 0);
-+		break;
-+	case SHA512_DIGEST_SIZE:
-+		base_hash = crypto_alloc_shash("sha512-generic", 0, 0);
-+		break;
-+	}
-+	if (IS_ERR(base_hash)) {
-+		pr_err("Can not allocate sha-generic algo.\n");
-+		return (void *)base_hash;
-+	}
-+
-+	desc = kmalloc(sizeof(*desc) + crypto_shash_descsize(base_hash),
-+		       GFP_KERNEL);
-+	if (!desc)
-+		return ERR_PTR(-ENOMEM);
-+	desc->tfm = base_hash;
-+	desc->flags = crypto_shash_get_flags(base_hash);
-+	return desc;
-+}
-+
-+static int chcr_compute_partial_hash(struct shash_desc *desc,
-+				     char *iopad, char *result_hash,
-+				     int digest_size)
-+{
-+	struct sha1_state sha1_st;
-+	struct sha256_state sha256_st;
-+	struct sha512_state sha512_st;
-+	int error;
-+
-+	if (digest_size == SHA1_DIGEST_SIZE) {
-+		error = crypto_shash_init(desc) ?:
-+			crypto_shash_update(desc, iopad, SHA1_BLOCK_SIZE) ?:
-+			crypto_shash_export(desc, (void *)&sha1_st);
-+		memcpy(result_hash, sha1_st.state, SHA1_DIGEST_SIZE);
-+	} else if (digest_size == SHA224_DIGEST_SIZE) {
-+		error = crypto_shash_init(desc) ?:
-+			crypto_shash_update(desc, iopad, SHA256_BLOCK_SIZE) ?:
-+			crypto_shash_export(desc, (void *)&sha256_st);
-+		memcpy(result_hash, sha256_st.state, SHA256_DIGEST_SIZE);
-+
-+	} else if (digest_size == SHA256_DIGEST_SIZE) {
-+		error = crypto_shash_init(desc) ?:
-+			crypto_shash_update(desc, iopad, SHA256_BLOCK_SIZE) ?:
-+			crypto_shash_export(desc, (void *)&sha256_st);
-+		memcpy(result_hash, sha256_st.state, SHA256_DIGEST_SIZE);
-+
-+	} else if (digest_size == SHA384_DIGEST_SIZE) {
-+		error = crypto_shash_init(desc) ?:
-+			crypto_shash_update(desc, iopad, SHA512_BLOCK_SIZE) ?:
-+			crypto_shash_export(desc, (void *)&sha512_st);
-+		memcpy(result_hash, sha512_st.state, SHA512_DIGEST_SIZE);
-+
-+	} else if (digest_size == SHA512_DIGEST_SIZE) {
-+		error = crypto_shash_init(desc) ?:
-+			crypto_shash_update(desc, iopad, SHA512_BLOCK_SIZE) ?:
-+			crypto_shash_export(desc, (void *)&sha512_st);
-+		memcpy(result_hash, sha512_st.state, SHA512_DIGEST_SIZE);
-+	} else {
-+		error = -EINVAL;
-+		pr_err("Unknown digest size %d\n", digest_size);
-+	}
-+	return error;
-+}
-+
-+static void chcr_change_order(char *buf, int ds)
-+{
-+	int i;
-+
-+	if (ds == SHA512_DIGEST_SIZE) {
-+		for (i = 0; i < (ds / sizeof(u64)); i++)
-+			*((__be64 *)buf + i) =
-+				cpu_to_be64(*((u64 *)buf + i));
-+	} else {
-+		for (i = 0; i < (ds / sizeof(u32)); i++)
-+			*((__be32 *)buf + i) =
-+				cpu_to_be32(*((u32 *)buf + i));
-+	}
-+}
-+
-+static inline int is_hmac(struct crypto_tfm *tfm)
-+{
-+	struct crypto_alg *alg = tfm->__crt_alg;
-+	struct chcr_alg_template *chcr_crypto_alg =
-+		container_of(__crypto_ahash_alg(alg), struct chcr_alg_template,
-+			     alg.hash);
-+	if ((chcr_crypto_alg->type & CRYPTO_ALG_SUB_TYPE_MASK) ==
-+	    CRYPTO_ALG_SUB_TYPE_HASH_HMAC)
-+		return 1;
-+	return 0;
-+}
-+
-+static inline unsigned int ch_nents(struct scatterlist *sg,
-+				    unsigned int *total_size)
-+{
-+	unsigned int nents;
-+
-+	for (nents = 0, *total_size = 0; sg; sg = sg_next(sg)) {
-+		nents++;
-+		*total_size += sg->length;
-+	}
-+	return nents;
-+}
-+
-+static void write_phys_cpl(struct cpl_rx_phys_dsgl *phys_cpl,
-+			   struct scatterlist *sg,
-+			   struct phys_sge_parm *sg_param)
-+{
-+	struct phys_sge_pairs *to;
-+	unsigned int out_buf_size = sg_param->obsize;
-+	unsigned int nents = sg_param->nents, i, j, tot_len = 0;
-+
-+	phys_cpl->op_to_tid = htonl(V_CPL_RX_PHYS_DSGL_OPCODE(CPL_RX_PHYS_DSGL)
-+				    | V_CPL_RX_PHYS_DSGL_ISRDMA(0));
-+	phys_cpl->pcirlxorder_to_noofsgentr =
-+		htonl(V_CPL_RX_PHYS_DSGL_PCIRLXORDER(0) |
-+		      V_CPL_RX_PHYS_DSGL_PCINOSNOOP(0) |
-+		      V_CPL_RX_PHYS_DSGL_PCITPHNTENB(0) |
-+		      V_CPL_RX_PHYS_DSGL_PCITPHNT(0) |
-+		      V_CPL_RX_PHYS_DSGL_DCAID(0) |
-+		      V_CPL_RX_PHYS_DSGL_NOOFSGENTR(nents));
-+	phys_cpl->rss_hdr_int.opcode = CPL_RX_PHYS_ADDR;
-+	phys_cpl->rss_hdr_int.qid = htons(sg_param->qid);
-+	phys_cpl->rss_hdr_int.hash_val = 0;
-+	to = (struct phys_sge_pairs *)((unsigned char *)phys_cpl +
-+				       sizeof(struct cpl_rx_phys_dsgl));
-+
-+	for (i = 0; nents; to++) {
-+		for (j = i; (nents && (j < (8 + i))); j++, nents--) {
-+			to->len[j] = htons(sg->length);
-+			to->addr[j] = cpu_to_be64(sg_dma_address(sg));
-+			if (out_buf_size) {
-+				if (tot_len + sg_dma_len(sg) >= out_buf_size) {
-+					to->len[j] = htons(out_buf_size -
-+							   tot_len);
-+					return;
-+				}
-+				tot_len += sg_dma_len(sg);
-+			}
-+			sg = sg_next(sg);
-+		}
-+	}
-+}
-+
-+static inline unsigned
-+int map_writesg_phys_cpl(struct device *dev, struct cpl_rx_phys_dsgl *phys_cpl,
-+			 struct scatterlist *sg, struct phys_sge_parm *sg_param)
-+{
-+	if (!sg || !sg_param->nents)
-+		return 0;
-+
-+	sg_param->nents = dma_map_sg(dev, sg, sg_param->nents, DMA_FROM_DEVICE);
-+	if (sg_param->nents == 0) {
-+		pr_err("CHCR : DMA mapping failed\n");
-+		return -EINVAL;
-+	}
-+	write_phys_cpl(phys_cpl, sg, sg_param);
-+	return 0;
-+}
-+
-+static inline int get_cryptoalg_subtype(struct crypto_tfm *tfm)
-+{
-+	struct crypto_alg *alg = tfm->__crt_alg;
-+	struct chcr_alg_template *chcr_crypto_alg =
-+		container_of(alg, struct chcr_alg_template, alg.crypto);
-+
-+	return chcr_crypto_alg->type & CRYPTO_ALG_SUB_TYPE_MASK;
-+}
-+
-+static inline void
-+write_sg_data_page_desc(struct sk_buff *skb, unsigned int *frags,
-+			struct scatterlist *sg, unsigned int count)
-+{
-+	struct page *spage;
-+	unsigned int page_len;
-+
-+	skb->len += count;
-+	skb->data_len += count;
-+	skb->truesize += count;
-+	while (count > 0) {
-+		if (sg && (!(sg->length)))
-+			break;
-+		spage = sg_page(sg);
-+		get_page(spage);
-+		page_len = min(sg->length, count);
-+		skb_fill_page_desc(skb, *frags, spage, sg->offset, page_len);
-+		(*frags)++;
-+		count -= page_len;
-+		sg = sg_next(sg);
-+	}
-+}
-+
-+static int generate_copy_rrkey(struct ablk_ctx *ablkctx,
-+			       struct _key_ctx *key_ctx)
-+{
-+	if (ablkctx->ciph_mode == CHCR_SCMD_CIPHER_MODE_AES_CBC) {
-+		get_aes_decrypt_key(key_ctx->key, ablkctx->key,
-+				    ablkctx->enckey_len << 3);
-+		memset(key_ctx->key + ablkctx->enckey_len, 0,
-+		       CHCR_AES_MAX_KEY_LEN - ablkctx->enckey_len);
-+	} else {
-+		memcpy(key_ctx->key,
-+		       ablkctx->key + (ablkctx->enckey_len >> 1),
-+		       ablkctx->enckey_len >> 1);
-+		get_aes_decrypt_key(key_ctx->key + (ablkctx->enckey_len >> 1),
-+				    ablkctx->key, ablkctx->enckey_len << 2);
-+	}
-+	return 0;
-+}
-+
-+static inline void create_wreq(struct chcr_context *ctx,
-+			       struct fw_crypto_lookaside_wr *wreq,
-+			       void *req, struct sk_buff *skb,
-+			       int kctx_len, int hash_sz,
-+			       unsigned int phys_dsgl)
-+{
-+	struct uld_ctx *u_ctx = ULD_CTX(ctx);
-+	struct ulp_txpkt *ulptx = (struct ulp_txpkt *)(wreq + 1);
-+	struct ulptx_idata *sc_imm = (struct ulptx_idata *)(ulptx + 1);
-+	int iv_loc = IV_DSGL;
-+	int qid = u_ctx->lldi.rxq_ids[ctx->tx_channel_id];
-+	unsigned int immdatalen = 0, nr_frags = 0;
-+
-+	if (is_ofld_imm(skb)) {
-+		immdatalen = skb->data_len;
-+		iv_loc = IV_IMMEDIATE;
-+	} else {
-+		nr_frags = skb_shinfo(skb)->nr_frags;
-+	}
-+
-+	wreq->op_to_cctx_size = FILL_WR_OP_CCTX_SIZE(immdatalen,
-+						     (kctx_len >> 4));
-+	wreq->pld_size_hash_size =
-+		htonl(V_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE(sgl_lengths[nr_frags]) |
-+		      V_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE(hash_sz));
-+	wreq->len16_pkd = htonl(V_FW_CRYPTO_LOOKASIDE_WR_LEN16(DIV_ROUND_UP(
-+				    (calc_tx_flits_ofld(skb) * 8), 16)));
-+	wreq->cookie = cpu_to_be64((uintptr_t)req);
-+	wreq->rx_chid_to_rx_q_id =
-+		FILL_WR_RX_Q_ID(ctx->dev->tx_channel_id, qid,
-+				(hash_sz) ? IV_NOP : iv_loc);
-+
-+	ulptx->cmd_dest = FILL_ULPTX_CMD_DEST(ctx->dev->tx_channel_id);
-+	ulptx->len = htonl((DIV_ROUND_UP((calc_tx_flits_ofld(skb) * 8),
-+					 16) - ((sizeof(*wreq)) >> 4)));
-+
-+	sc_imm->cmd_more = FILL_CMD_MORE(immdatalen);
-+	sc_imm->len = cpu_to_be32(sizeof(struct cpl_tx_sec_pdu) + kctx_len +
-+				  ((hash_sz) ? DUMMY_BYTES :
-+				  (sizeof(struct cpl_rx_phys_dsgl) +
-+				   phys_dsgl)) + immdatalen);
-+}
-+
-+/**
-+ *	create_cipher_wr - form the WR for cipher operations
-+ *	@req: cipher req.
-+ *	@ctx: crypto driver context of the request.
-+ *	@qid: ingress qid where response of this WR should be received.
-+ *	@op_type:	encryption or decryption
-+ */
-+static struct sk_buff
-+*create_cipher_wr(struct crypto_async_request *req_base,
-+		  struct chcr_context *ctx, unsigned short qid,
-+		  unsigned short op_type)
-+{
-+	struct ablkcipher_request *req = (struct ablkcipher_request *)req_base;
-+	struct crypto_ablkcipher *tfm = crypto_ablkcipher_reqtfm(req);
-+	struct uld_ctx *u_ctx = ULD_CTX(ctx);
-+	struct ablk_ctx *ablkctx = ABLK_CTX(ctx);
-+	struct sk_buff *skb = NULL;
-+	struct _key_ctx *key_ctx;
-+	struct fw_crypto_lookaside_wr *wreq;
-+	struct cpl_tx_sec_pdu *sec_cpl;
-+	struct cpl_rx_phys_dsgl *phys_cpl;
-+	struct chcr_blkcipher_req_ctx *req_ctx = ablkcipher_request_ctx(req);
-+	struct phys_sge_parm sg_param;
-+	unsigned int frags = 0, transhdr_len, phys_dsgl, dst_bufsize = 0;
-+	unsigned int ivsize = crypto_ablkcipher_ivsize(tfm), kctx_len;
-+
-+	if (!req->info)
-+		return ERR_PTR(-EINVAL);
-+	ablkctx->dst_nents = ch_nents(req->dst, &dst_bufsize);
-+	ablkctx->enc = op_type;
-+
-+	if ((ablkctx->enckey_len == 0) || (ivsize > AES_BLOCK_SIZE) ||
-+	    (req->nbytes <= 0) || (req->nbytes % AES_BLOCK_SIZE))
-+		return ERR_PTR(-EINVAL);
-+
-+	phys_dsgl = get_space_for_phys_dsgl(ablkctx->dst_nents);
-+
-+	kctx_len = sizeof(*key_ctx) +
-+		(DIV_ROUND_UP(ablkctx->enckey_len, 16) * 16);
-+	transhdr_len = CIPHER_TRANSHDR_SIZE(kctx_len, phys_dsgl);
-+	skb = alloc_skb((transhdr_len + sizeof(struct sge_opaque_hdr)),
-+			GFP_ATOMIC);
-+	if (!skb)
-+		return ERR_PTR(-ENOMEM);
-+	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
-+	wreq = (struct fw_crypto_lookaside_wr *)__skb_put(skb, transhdr_len);
-+
-+	sec_cpl = (struct cpl_tx_sec_pdu *)((u8 *)wreq + SEC_CPL_OFFSET);
-+	sec_cpl->op_ivinsrtofst =
-+		FILL_SEC_CPL_OP_IVINSR(ctx->dev->tx_channel_id, 2, 1, 1);
-+
-+	sec_cpl->pldlen = htonl(ivsize + req->nbytes);
-+	sec_cpl->aadstart_cipherstop_hi = FILL_SEC_CPL_CIPHERSTOP_HI(0, 0,
-+								ivsize + 1, 0);
-+
-+	sec_cpl->cipherstop_lo_authinsert =  FILL_SEC_CPL_AUTHINSERT(0, 0,
-+								     0, 0);
-+	sec_cpl->seqno_numivs = FILL_SEC_CPL_SCMD0_SEQNO(op_type, 0,
-+							 ablkctx->ciph_mode,
-+							 0, 0, ivsize >> 1, 1);
-+	sec_cpl->ivgen_hdrlen = FILL_SEC_CPL_IVGEN_HDRLEN(0, 0, 0,
-+							  0, 1, phys_dsgl);
-+
-+	key_ctx = (struct _key_ctx *)((u8 *)sec_cpl + sizeof(*sec_cpl));
-+	key_ctx->ctx_hdr = ablkctx->key_ctx_hdr;
-+	if (op_type == CHCR_DECRYPT_OP) {
-+		if (generate_copy_rrkey(ablkctx, key_ctx))
-+			goto map_fail1;
-+	} else {
-+		if (ablkctx->ciph_mode == CHCR_SCMD_CIPHER_MODE_AES_CBC) {
-+			memcpy(key_ctx->key, ablkctx->key, ablkctx->enckey_len);
-+		} else {
-+			memcpy(key_ctx->key, ablkctx->key +
-+			       (ablkctx->enckey_len >> 1),
-+			       ablkctx->enckey_len >> 1);
-+			memcpy(key_ctx->key +
-+			       (ablkctx->enckey_len >> 1),
-+			       ablkctx->key,
-+			       ablkctx->enckey_len >> 1);
-+		}
-+	}
-+	phys_cpl = (struct cpl_rx_phys_dsgl *)((u8 *)key_ctx + kctx_len);
-+
-+	memcpy(ablkctx->iv, req->info, ivsize);
-+	sg_init_table(&ablkctx->iv_sg, 1);
-+	sg_set_buf(&ablkctx->iv_sg, ablkctx->iv, ivsize);
-+	sg_param.nents = ablkctx->dst_nents;
-+	sg_param.obsize = dst_bufsize;
-+	sg_param.qid = qid;
-+	sg_param.align = 1;
-+	if (map_writesg_phys_cpl(&u_ctx->lldi.pdev->dev, phys_cpl, req->dst,
-+				 &sg_param))
-+		goto map_fail1;
-+
-+	skb_set_transport_header(skb, transhdr_len);
-+	write_sg_data_page_desc(skb, &frags, &ablkctx->iv_sg, ivsize);
-+	write_sg_data_page_desc(skb, &frags, req->src, req->nbytes);
-+	create_wreq(ctx, wreq, req, skb, kctx_len, 0, phys_dsgl);
-+	req_ctx->skb = skb;
-+	skb_get(skb);
-+	return skb;
-+map_fail1:
-+	kfree_skb(skb);
-+	return ERR_PTR(-ENOMEM);
-+}
-+
-+static int chcr_aes_cbc_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
-+			       unsigned int keylen)
-+{
-+	struct chcr_context *ctx = crypto_ablkcipher_ctx(tfm);
-+	struct ablk_ctx *ablkctx = ABLK_CTX(ctx);
-+	struct ablkcipher_alg *alg = crypto_ablkcipher_alg(tfm);
-+	unsigned int ck_size, context_size;
-+	u16 alignment = 0;
-+
-+	if ((keylen < alg->min_keysize) || (keylen > alg->max_keysize))
-+		goto badkey_err;
-+
-+	memcpy(ablkctx->key, key, keylen);
-+	ablkctx->enckey_len = keylen;
-+	if (keylen == AES_KEYSIZE_128) {
-+		ck_size = CHCR_KEYCTX_CIPHER_KEY_SIZE_128;
-+	} else if (keylen == AES_KEYSIZE_192) {
-+		alignment = 8;
-+		ck_size = CHCR_KEYCTX_CIPHER_KEY_SIZE_192;
-+	} else if (keylen == AES_KEYSIZE_256) {
-+		ck_size = CHCR_KEYCTX_CIPHER_KEY_SIZE_256;
-+	} else {
-+		goto badkey_err;
-+	}
-+
-+	context_size = (KEY_CONTEXT_HDR_SALT_AND_PAD +
-+			keylen + alignment) >> 4;
-+
-+	ablkctx->key_ctx_hdr = FILL_KEY_CTX_HDR(ck_size, CHCR_KEYCTX_NO_KEY,
-+						0, 0, context_size);
-+	ablkctx->ciph_mode = CHCR_SCMD_CIPHER_MODE_AES_CBC;
-+	return 0;
-+badkey_err:
-+	crypto_ablkcipher_set_flags(tfm, CRYPTO_TFM_RES_BAD_KEY_LEN);
-+	ablkctx->enckey_len = 0;
-+	return -EINVAL;
-+}
-+
-+static int chcr_aes_encrypt(struct ablkcipher_request *req)
-+{
-+	struct crypto_ablkcipher *tfm = crypto_ablkcipher_reqtfm(req);
-+	struct chcr_context *ctx = crypto_ablkcipher_ctx(tfm);
-+	struct crypto_async_request *req_base = &req->base;
-+	struct uld_ctx *u_ctx = ULD_CTX(ctx);
-+	struct sk_buff *skb;
-+
-+	if (unlikely(cxgb4_is_crypto_q_full(u_ctx->lldi.ports[0],
-+					    ctx->tx_channel_id))) {
-+		if (!(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+			return -EBUSY;
-+	}
-+
-+	skb = create_cipher_wr(req_base, ctx,
-+			       u_ctx->lldi.rxq_ids[ctx->tx_channel_id],
-+			       CHCR_ENCRYPT_OP);
-+	if (IS_ERR(skb)) {
-+		pr_err("chcr : %s : Failed to form WR. No memory\n", __func__);
-+		return  PTR_ERR(skb);
-+	}
-+	skb->dev = u_ctx->lldi.ports[0];
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, ctx->tx_channel_id);
-+	chcr_send_wr(skb);
-+	return -EINPROGRESS;
-+}
-+
-+static int chcr_aes_decrypt(struct ablkcipher_request *req)
-+{
-+	struct crypto_ablkcipher *tfm = crypto_ablkcipher_reqtfm(req);
-+	struct chcr_context *ctx = crypto_ablkcipher_ctx(tfm);
-+	struct crypto_async_request *req_base = &req->base;
-+	struct uld_ctx *u_ctx = ULD_CTX(ctx);
-+	struct sk_buff *skb;
-+
-+	if (unlikely(cxgb4_is_crypto_q_full(u_ctx->lldi.ports[0],
-+					    ctx->tx_channel_id))) {
-+		if (!(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+			return -EBUSY;
-+	}
-+
-+	skb = create_cipher_wr(req_base, ctx, u_ctx->lldi.rxq_ids[0],
-+			       CHCR_DECRYPT_OP);
-+	if (IS_ERR(skb)) {
-+		pr_err("chcr : %s : Failed to form WR. No memory\n", __func__);
-+		return PTR_ERR(skb);
-+	}
-+	skb->dev = u_ctx->lldi.ports[0];
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, ctx->tx_channel_id);
-+	chcr_send_wr(skb);
-+	return -EINPROGRESS;
-+}
-+
-+static int chcr_device_init(struct chcr_context *ctx)
-+{
-+	struct uld_ctx *u_ctx;
-+	unsigned int id;
-+	int err = 0, rxq_perchan, rxq_idx;
-+
-+	id = smp_processor_id();
-+	if (!ctx->dev) {
-+		err = assign_chcr_device(&ctx->dev);
-+		if (err) {
-+			pr_err("chcr device assignment fails\n");
-+			goto out;
-+		}
-+		u_ctx = ULD_CTX(ctx);
-+		rxq_perchan = u_ctx->lldi.nrxq / u_ctx->lldi.nchan;
-+		ctx->dev->tx_channel_id = 0;
-+		rxq_idx = ctx->dev->tx_channel_id * rxq_perchan;
-+		rxq_idx += id % rxq_perchan;
-+		spin_lock(&ctx->dev->lock_chcr_dev);
-+		ctx->tx_channel_id = rxq_idx;
-+		spin_unlock(&ctx->dev->lock_chcr_dev);
-+	}
-+out:
-+	return err;
-+}
-+
-+static int chcr_cra_init(struct crypto_tfm *tfm)
-+{
-+	tfm->crt_ablkcipher.reqsize =  sizeof(struct chcr_blkcipher_req_ctx);
-+	return chcr_device_init(crypto_tfm_ctx(tfm));
-+}
-+
-+static int get_alg_config(struct algo_param *params,
-+			  unsigned int auth_size)
-+{
-+	switch (auth_size) {
-+	case SHA1_DIGEST_SIZE:
-+		params->mk_size = CHCR_KEYCTX_MAC_KEY_SIZE_160;
-+		params->auth_mode = CHCR_SCMD_AUTH_MODE_SHA1;
-+		params->result_size = SHA1_DIGEST_SIZE;
-+		break;
-+	case SHA224_DIGEST_SIZE:
-+		params->mk_size = CHCR_KEYCTX_MAC_KEY_SIZE_256;
-+		params->auth_mode = CHCR_SCMD_AUTH_MODE_SHA224;
-+		params->result_size = SHA256_DIGEST_SIZE;
-+		break;
-+	case SHA256_DIGEST_SIZE:
-+		params->mk_size = CHCR_KEYCTX_MAC_KEY_SIZE_256;
-+		params->auth_mode = CHCR_SCMD_AUTH_MODE_SHA256;
-+		params->result_size = SHA256_DIGEST_SIZE;
-+		break;
-+	case SHA384_DIGEST_SIZE:
-+		params->mk_size = CHCR_KEYCTX_MAC_KEY_SIZE_512;
-+		params->auth_mode = CHCR_SCMD_AUTH_MODE_SHA512_384;
-+		params->result_size = SHA512_DIGEST_SIZE;
-+		break;
-+	case SHA512_DIGEST_SIZE:
-+		params->mk_size = CHCR_KEYCTX_MAC_KEY_SIZE_512;
-+		params->auth_mode = CHCR_SCMD_AUTH_MODE_SHA512_512;
-+		params->result_size = SHA512_DIGEST_SIZE;
-+		break;
-+	default:
-+		pr_err("chcr : ERROR, unsupported digest size\n");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static inline int
-+write_buffer_data_page_desc(struct chcr_ahash_req_ctx *req_ctx,
-+			    struct sk_buff *skb, unsigned int *frags, char *bfr,
-+			    u8 bfr_len)
-+{
-+	void *page_ptr = NULL;
-+
-+	skb->len += bfr_len;
-+	skb->data_len += bfr_len;
-+	skb->truesize += bfr_len;
-+	page_ptr = kmalloc(CHCR_HASH_MAX_BLOCK_SIZE_128, GFP_ATOMIC | GFP_DMA);
-+	if (!page_ptr)
-+		return -ENOMEM;
-+	get_page(virt_to_page(page_ptr));
-+	req_ctx->dummy_payload_ptr = page_ptr;
-+	memcpy(page_ptr, bfr, bfr_len);
-+	skb_fill_page_desc(skb, *frags, virt_to_page(page_ptr),
-+			   offset_in_page(page_ptr), bfr_len);
-+	(*frags)++;
-+	return 0;
-+}
-+
-+/**
-+ *	create_final_hash_wr - Create hash work request
-+ *	@req - Cipher req base
-+ */
-+static struct sk_buff *create_final_hash_wr(struct ahash_request *req,
-+					    struct hash_wr_param *param)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(req);
-+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(tfm));
-+	struct hmac_ctx *hmacctx = HMAC_CTX(ctx);
-+	struct sk_buff *skb = NULL;
-+	struct _key_ctx *key_ctx;
-+	struct fw_crypto_lookaside_wr *wreq;
-+	struct cpl_tx_sec_pdu *sec_cpl;
-+	unsigned int frags = 0, transhdr_len, iopad_alignment = 0;
-+	unsigned int digestsize = crypto_ahash_digestsize(tfm);
-+	unsigned int kctx_len = sizeof(*key_ctx);
-+	u8 hash_size_in_response = 0;
-+
-+	iopad_alignment = KEYCTX_ALIGN_PAD(digestsize);
-+	kctx_len += param->alg_prm.result_size + iopad_alignment;
-+	if (param->opad_needed)
-+		kctx_len += param->alg_prm.result_size + iopad_alignment;
-+
-+	if (req_ctx->result)
-+		hash_size_in_response = digestsize;
-+	else
-+		hash_size_in_response = param->alg_prm.result_size;
-+	transhdr_len = HASH_TRANSHDR_SIZE(kctx_len);
-+	skb = alloc_skb((transhdr_len + sizeof(struct sge_opaque_hdr)),
-+			GFP_ATOMIC);
-+	if (!skb)
-+		return skb;
-+
-+	skb_reserve(skb, sizeof(struct sge_opaque_hdr));
-+	wreq = (struct fw_crypto_lookaside_wr *)__skb_put(skb, transhdr_len);
-+	memset(wreq, 0, transhdr_len);
-+
-+	sec_cpl = (struct cpl_tx_sec_pdu *)((u8 *)wreq + SEC_CPL_OFFSET);
-+	sec_cpl->op_ivinsrtofst =
-+		FILL_SEC_CPL_OP_IVINSR(ctx->dev->tx_channel_id, 2, 0, 0);
-+	sec_cpl->pldlen = htonl(param->bfr_len + param->sg_len);
-+
-+	sec_cpl->aadstart_cipherstop_hi =
-+		FILL_SEC_CPL_CIPHERSTOP_HI(0, 0, 0, 0);
-+	sec_cpl->cipherstop_lo_authinsert =
-+		FILL_SEC_CPL_AUTHINSERT(0, 1, 0, 0);
-+	sec_cpl->seqno_numivs =
-+		FILL_SEC_CPL_SCMD0_SEQNO(0, 0, 0, param->alg_prm.auth_mode,
-+					 param->opad_needed, 0, 0);
-+
-+	sec_cpl->ivgen_hdrlen =
-+		FILL_SEC_CPL_IVGEN_HDRLEN(param->last, param->more, 0, 1, 0, 0);
-+
-+	key_ctx = (struct _key_ctx *)((u8 *)sec_cpl + sizeof(*sec_cpl));
-+	memcpy(key_ctx->key, req_ctx->partial_hash, param->alg_prm.result_size);
-+
-+	if (param->opad_needed)
-+		memcpy(key_ctx->key + ((param->alg_prm.result_size <= 32) ? 32 :
-+				       CHCR_HASH_MAX_DIGEST_SIZE),
-+		       hmacctx->opad, param->alg_prm.result_size);
-+
-+	key_ctx->ctx_hdr = FILL_KEY_CTX_HDR(CHCR_KEYCTX_NO_KEY,
-+					    param->alg_prm.mk_size, 0,
-+					    param->opad_needed,
-+					    (kctx_len >> 4));
-+	sec_cpl->scmd1 = cpu_to_be64((u64)param->scmd1);
-+
-+	skb_set_transport_header(skb, transhdr_len);
-+	if (param->bfr_len != 0)
-+		write_buffer_data_page_desc(req_ctx, skb, &frags, req_ctx->bfr,
-+					    param->bfr_len);
-+	if (param->sg_len != 0)
-+		write_sg_data_page_desc(skb, &frags, req->src, param->sg_len);
-+
-+	create_wreq(ctx, wreq, req, skb, kctx_len, hash_size_in_response,
-+		    0);
-+	req_ctx->skb = skb;
-+	skb_get(skb);
-+	return skb;
-+}
-+
-+static int chcr_ahash_update(struct ahash_request *req)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(req);
-+	struct crypto_ahash *rtfm = crypto_ahash_reqtfm(req);
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(rtfm));
-+	struct uld_ctx *u_ctx = NULL;
-+	struct sk_buff *skb;
-+	u8 remainder = 0, bs;
-+	unsigned int nbytes = req->nbytes;
-+	struct hash_wr_param params;
-+
-+	bs = crypto_tfm_alg_blocksize(crypto_ahash_tfm(rtfm));
-+
-+	u_ctx = ULD_CTX(ctx);
-+	if (unlikely(cxgb4_is_crypto_q_full(u_ctx->lldi.ports[0],
-+					    ctx->tx_channel_id))) {
-+		if (!(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+			return -EBUSY;
-+	}
-+
-+	if (nbytes + req_ctx->bfr_len >= bs) {
-+		remainder = (nbytes + req_ctx->bfr_len) % bs;
-+		nbytes = nbytes + req_ctx->bfr_len - remainder;
-+	} else {
-+		sg_pcopy_to_buffer(req->src, sg_nents(req->src), req_ctx->bfr +
-+				   req_ctx->bfr_len, nbytes, 0);
-+		req_ctx->bfr_len += nbytes;
-+		return 0;
-+	}
-+
-+	params.opad_needed = 0;
-+	params.more = 1;
-+	params.last = 0;
-+	params.sg_len = nbytes - req_ctx->bfr_len;
-+	params.bfr_len = req_ctx->bfr_len;
-+	params.scmd1 = 0;
-+	get_alg_config(&params.alg_prm, crypto_ahash_digestsize(rtfm));
-+	req_ctx->result = 0;
-+	req_ctx->data_len += params.sg_len + params.bfr_len;
-+	skb = create_final_hash_wr(req, &params);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	req_ctx->bfr_len = remainder;
-+	if (remainder)
-+		sg_pcopy_to_buffer(req->src, sg_nents(req->src),
-+				   req_ctx->bfr, remainder, req->nbytes -
-+				   remainder);
-+	skb->dev = u_ctx->lldi.ports[0];
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, ctx->tx_channel_id);
-+	chcr_send_wr(skb);
-+
-+	return -EINPROGRESS;
-+}
-+
-+static void create_last_hash_block(char *bfr_ptr, unsigned int bs, u64 scmd1)
-+{
-+	memset(bfr_ptr, 0, bs);
-+	*bfr_ptr = 0x80;
-+	if (bs == 64)
-+		*(__be64 *)(bfr_ptr + 56) = cpu_to_be64(scmd1  << 3);
-+	else
-+		*(__be64 *)(bfr_ptr + 120) =  cpu_to_be64(scmd1  << 3);
-+}
-+
-+static int chcr_ahash_final(struct ahash_request *req)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(req);
-+	struct crypto_ahash *rtfm = crypto_ahash_reqtfm(req);
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(rtfm));
-+	struct hash_wr_param params;
-+	struct sk_buff *skb;
-+	struct uld_ctx *u_ctx = NULL;
-+	u8 bs = crypto_tfm_alg_blocksize(crypto_ahash_tfm(rtfm));
-+
-+	u_ctx = ULD_CTX(ctx);
-+	if (is_hmac(crypto_ahash_tfm(rtfm)))
-+		params.opad_needed = 1;
-+	else
-+		params.opad_needed = 0;
-+	params.sg_len = 0;
-+	get_alg_config(&params.alg_prm, crypto_ahash_digestsize(rtfm));
-+	req_ctx->result = 1;
-+	params.bfr_len = req_ctx->bfr_len;
-+	req_ctx->data_len += params.bfr_len + params.sg_len;
-+	if (req_ctx->bfr && (req_ctx->bfr_len == 0)) {
-+		create_last_hash_block(req_ctx->bfr, bs, req_ctx->data_len);
-+		params.last = 0;
-+		params.more = 1;
-+		params.scmd1 = 0;
-+		params.bfr_len = bs;
-+
-+	} else {
-+		params.scmd1 = req_ctx->data_len;
-+		params.last = 1;
-+		params.more = 0;
-+	}
-+	skb = create_final_hash_wr(req, &params);
-+	skb->dev = u_ctx->lldi.ports[0];
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, ctx->tx_channel_id);
-+	chcr_send_wr(skb);
-+	return -EINPROGRESS;
-+}
-+
-+static int chcr_ahash_finup(struct ahash_request *req)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(req);
-+	struct crypto_ahash *rtfm = crypto_ahash_reqtfm(req);
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(rtfm));
-+	struct uld_ctx *u_ctx = NULL;
-+	struct sk_buff *skb;
-+	struct hash_wr_param params;
-+	u8  bs;
-+
-+	bs = crypto_tfm_alg_blocksize(crypto_ahash_tfm(rtfm));
-+	u_ctx = ULD_CTX(ctx);
-+
-+	if (unlikely(cxgb4_is_crypto_q_full(u_ctx->lldi.ports[0],
-+					    ctx->tx_channel_id))) {
-+		if (!(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+			return -EBUSY;
-+	}
-+
-+	if (is_hmac(crypto_ahash_tfm(rtfm)))
-+		params.opad_needed = 1;
-+	else
-+		params.opad_needed = 0;
-+
-+	params.sg_len = req->nbytes;
-+	params.bfr_len = req_ctx->bfr_len;
-+	get_alg_config(&params.alg_prm, crypto_ahash_digestsize(rtfm));
-+	req_ctx->data_len += params.bfr_len + params.sg_len;
-+	req_ctx->result = 1;
-+	if (req_ctx->bfr && (req_ctx->bfr_len + req->nbytes) == 0) {
-+		create_last_hash_block(req_ctx->bfr, bs, req_ctx->data_len);
-+		params.last = 0;
-+		params.more = 1;
-+		params.scmd1 = 0;
-+		params.bfr_len = bs;
-+	} else {
-+		params.scmd1 = req_ctx->data_len;
-+		params.last = 1;
-+		params.more = 0;
-+	}
-+
-+	skb = create_final_hash_wr(req, &params);
-+	if (!skb)
-+		return -ENOMEM;
-+	skb->dev = u_ctx->lldi.ports[0];
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, ctx->tx_channel_id);
-+	chcr_send_wr(skb);
-+
-+	return -EINPROGRESS;
-+}
-+
-+static int chcr_ahash_digest(struct ahash_request *req)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(req);
-+	struct crypto_ahash *rtfm = crypto_ahash_reqtfm(req);
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(rtfm));
-+	struct uld_ctx *u_ctx = NULL;
-+	struct sk_buff *skb;
-+	struct hash_wr_param params;
-+	u8  bs;
-+
-+	rtfm->init(req);
-+	bs = crypto_tfm_alg_blocksize(crypto_ahash_tfm(rtfm));
-+
-+	u_ctx = ULD_CTX(ctx);
-+	if (unlikely(cxgb4_is_crypto_q_full(u_ctx->lldi.ports[0],
-+					    ctx->tx_channel_id))) {
-+		if (!(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+			return -EBUSY;
-+	}
-+
-+	if (is_hmac(crypto_ahash_tfm(rtfm)))
-+		params.opad_needed = 1;
-+	else
-+		params.opad_needed = 0;
-+
-+	params.last = 0;
-+	params.more = 0;
-+	params.sg_len = req->nbytes;
-+	params.bfr_len = 0;
-+	params.scmd1 = 0;
-+	get_alg_config(&params.alg_prm, crypto_ahash_digestsize(rtfm));
-+	req_ctx->result = 1;
-+	req_ctx->data_len += params.bfr_len + params.sg_len;
-+
-+	if (req_ctx->bfr && req->nbytes == 0) {
-+		create_last_hash_block(req_ctx->bfr, bs, 0);
-+		params.more = 1;
-+		params.bfr_len = bs;
-+	}
-+
-+	skb = create_final_hash_wr(req, &params);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	skb->dev = u_ctx->lldi.ports[0];
-+	set_wr_txq(skb, CPL_PRIORITY_DATA, ctx->tx_channel_id);
-+	chcr_send_wr(skb);
-+	return -EINPROGRESS;
-+}
-+
-+static int chcr_ahash_export(struct ahash_request *areq, void *out)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(areq);
-+	struct chcr_ahash_req_ctx *state = out;
-+
-+	state->bfr_len = req_ctx->bfr_len;
-+	state->data_len = req_ctx->data_len;
-+	memcpy(state->bfr, req_ctx->bfr, CHCR_HASH_MAX_BLOCK_SIZE_128);
-+	memcpy(state->partial_hash, req_ctx->partial_hash,
-+	       CHCR_HASH_MAX_DIGEST_SIZE);
-+	return 0;
-+}
-+
-+static int chcr_ahash_import(struct ahash_request *areq, const void *in)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(areq);
-+	struct chcr_ahash_req_ctx *state = (struct chcr_ahash_req_ctx *)in;
-+
-+	req_ctx->bfr_len = state->bfr_len;
-+	req_ctx->data_len = state->data_len;
-+	req_ctx->dummy_payload_ptr = NULL;
-+	memcpy(req_ctx->bfr, state->bfr, CHCR_HASH_MAX_BLOCK_SIZE_128);
-+	memcpy(req_ctx->partial_hash, state->partial_hash,
-+	       CHCR_HASH_MAX_DIGEST_SIZE);
-+	return 0;
-+}
-+
-+static int chcr_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
-+			     unsigned int keylen)
-+{
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(tfm));
-+	struct hmac_ctx *hmacctx = HMAC_CTX(ctx);
-+	unsigned int digestsize = crypto_ahash_digestsize(tfm);
-+	unsigned int bs = crypto_tfm_alg_blocksize(crypto_ahash_tfm(tfm));
-+	unsigned int i, err = 0, updated_digestsize;
-+
-+	/*
-+	 * use the key to calculate the ipad and opad. ipad will sent with the
-+	 * first request's data. opad will be sent with the final hash result
-+	 * ipad in hmacctx->ipad and opad in hmacctx->opad location
-+	 */
-+	if (!hmacctx->desc)
-+		return -EINVAL;
-+	if (keylen > bs) {
-+		err = crypto_shash_digest(hmacctx->desc, key, keylen,
-+					  hmacctx->ipad);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index b4fceb9..4de1e39 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -346,6 +346,8 @@ struct adapter_params {
+ 
+ 	unsigned int max_ordird_qp;       /* Max read depth per RDMA QP */
+ 	unsigned int max_ird_adapter;     /* Max read depth per adapter */
++
++	unsigned char ulp_crypto_lookaside;     /* crypto lookaside support */
+ };
+ 
+ /* State needed to monitor the forward progress of SGE Ingress DMA activities
+@@ -435,7 +437,7 @@ enum {
+ 	MAX_CTRL_QUEUES = NCHAN,      /* # of control Tx queues */
+ 	MAX_RDMA_QUEUES = NCHAN,      /* # of streaming RDMA Rx queues */
+ 	MAX_RDMA_CIQS = 32,        /* # of  RDMA concentrator IQs */
+-
++	MAX_CRYPTO_QUEUES = 32,       /* # of crypto queues */
+ 	/* # of streaming iSCSIT Rx queues */
+ 	MAX_ISCSIT_QUEUES = MAX_OFLD_QSETS,
+ };
+@@ -455,7 +457,8 @@ enum {
+ 	INGQ_EXTRAS = 2,        /* firmware event queue and */
+ 				/*   forwarded interrupts */
+ 	MAX_INGQ = MAX_ETH_QSETS + MAX_OFLD_QSETS + MAX_RDMA_QUEUES +
+-		   MAX_RDMA_CIQS + MAX_ISCSIT_QUEUES + INGQ_EXTRAS,
++		   MAX_RDMA_CIQS + MAX_ISCSIT_QUEUES + INGQ_EXTRAS +
++		   MAX_CRYPTO_QUEUES,
+ };
+ 
+ struct adapter;
+@@ -509,6 +512,10 @@ enum {                                 /* adapter flags */
+ 	FW_OFLD_CONN       = (1 << 9),
+ };
+ 
++enum {
++	ULP_CRYPTO_LOOKASIDE = 1 << 0,
++};
++
+ struct rx_sw_desc;
+ 
+ struct sge_fl {                     /* SGE free-buffer queue state */
+@@ -682,10 +689,12 @@ struct sge_ctrl_txq {               /* state for an SGE control Tx queue */
+ struct sge {
+ 	struct sge_eth_txq ethtxq[MAX_ETH_QSETS];
+ 	struct sge_ofld_txq ofldtxq[MAX_OFLD_QSETS];
++	struct sge_ofld_txq cryptotxq[MAX_CRYPTO_QUEUES];
+ 	struct sge_ctrl_txq ctrlq[MAX_CTRL_QUEUES];
+ 
+ 	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
+ 	struct sge_ofld_rxq iscsirxq[MAX_OFLD_QSETS];
++	struct sge_ofld_rxq cryptorxq[MAX_CRYPTO_QUEUES];
+ 	struct sge_ofld_rxq iscsitrxq[MAX_ISCSIT_QUEUES];
+ 	struct sge_ofld_rxq rdmarxq[MAX_RDMA_QUEUES];
+ 	struct sge_ofld_rxq rdmaciq[MAX_RDMA_CIQS];
+@@ -699,10 +708,12 @@ struct sge {
+ 	u16 ethtxq_rover;           /* Tx queue to clean up next */
+ 	u16 iscsiqsets;              /* # of active iSCSI queue sets */
+ 	u16 niscsitq;               /* # of available iSCST Rx queues */
++	u16 ncryptoq;               /* # of available lookaside crypto queues */
+ 	u16 rdmaqs;                 /* # of available RDMA Rx queues */
+ 	u16 rdmaciqs;               /* # of available RDMA concentrator IQs */
+ 	u16 iscsi_rxq[MAX_OFLD_QSETS];
+ 	u16 iscsit_rxq[MAX_ISCSIT_QUEUES];
++	u16 crypto_rxq[MAX_CRYPTO_QUEUES];
+ 	u16 rdma_rxq[MAX_RDMA_QUEUES];
+ 	u16 rdma_ciq[MAX_RDMA_CIQS];
+ 	u16 timer_val[SGE_NTIMERS];
+@@ -732,6 +743,7 @@ struct sge {
+ #define for_each_iscsitrxq(sge, i) for (i = 0; i < (sge)->niscsitq; i++)
+ #define for_each_rdmarxq(sge, i) for (i = 0; i < (sge)->rdmaqs; i++)
+ #define for_each_rdmaciq(sge, i) for (i = 0; i < (sge)->rdmaciqs; i++)
++#define for_each_cryptorxq(sge, i) for (i = 0; i < (sge)->ncryptoq; i++)
+ 
+ struct l2t_data;
+ 
+@@ -1441,7 +1453,7 @@ int t4_fw_bye(struct adapter *adap, unsigned int mbox);
+ int t4_early_init(struct adapter *adap, unsigned int mbox);
+ int t4_fw_reset(struct adapter *adap, unsigned int mbox, int reset);
+ int t4_fixup_host_params(struct adapter *adap, unsigned int page_size,
+-			  unsigned int cache_line_size);
++			 unsigned int cache_line_size);
+ int t4_fw_initialize(struct adapter *adap, unsigned int mbox);
+ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ 		    unsigned int vf, unsigned int nparams, const u32 *params,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 91fb508..ade6eba 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -2436,13 +2436,15 @@ static int sge_qinfo_show(struct seq_file *seq, void *v)
+ 	int iscsit_entries = DIV_ROUND_UP(adap->sge.niscsitq, 4);
+ 	int rdma_entries = DIV_ROUND_UP(adap->sge.rdmaqs, 4);
+ 	int ciq_entries = DIV_ROUND_UP(adap->sge.rdmaciqs, 4);
++	int crypto_entries = DIV_ROUND_UP(adap->sge.ncryptoq, 4);
+ 	int ctrl_entries = DIV_ROUND_UP(MAX_CTRL_QUEUES, 4);
+ 	int i, r = (uintptr_t)v - 1;
+ 	int iscsi_idx = r - eth_entries;
+ 	int iscsit_idx = iscsi_idx - iscsi_entries;
+ 	int rdma_idx = iscsit_idx - iscsit_entries;
+ 	int ciq_idx = rdma_idx - rdma_entries;
+-	int ctrl_idx =  ciq_idx - ciq_entries;
++	int crypto_idx = ciq_idx - ciq_entries;
++	int ctrl_idx =  crypto_idx - crypto_entries;
+ 	int fq_idx =  ctrl_idx - ctrl_entries;
+ 
+ 	if (r)
+@@ -2632,6 +2634,42 @@ do { \
+ 		RL("RxAN:", stats.an);
+ 		RL("RxNoMem:", stats.nomem);
+ 
++	} else if (crypto_idx < crypto_entries) {
++		const struct sge_ofld_rxq *rx =
++			&adap->sge.cryptorxq[crypto_idx * 4];
++		const struct sge_ofld_txq *tx =
++			&adap->sge.cryptotxq[crypto_idx * 4];
++		int n = min(4, adap->sge.ncryptoq - 4 * crypto_idx);
++
++		S("QType:", "Crypto");
++		T("TxQ ID:", q.cntxt_id);
++		T("TxQ size:", q.size);
++		T("TxQ inuse:", q.in_use);
++		T("TxQ CIDX:", q.cidx);
++		T("TxQ PIDX:", q.pidx);
++		R("RspQ ID:", rspq.abs_id);
++		R("RspQ size:", rspq.size);
++		R("RspQE size:", rspq.iqe_len);
++		R("RspQ CIDX:", rspq.cidx);
++		R("RspQ Gen:", rspq.gen);
++		S3("u", "Intr delay:", qtimer_val(adap, &rx[i].rspq));
++		S3("u", "Intr pktcnt:",
++		   adap->sge.counter_val[rx[i].rspq.pktcnt_idx]);
++		R("FL ID:", fl.cntxt_id);
++		R("FL size:", fl.size - 8);
++		R("FL pend:", fl.pend_cred);
++		R("FL avail:", fl.avail);
++		R("FL PIDX:", fl.pidx);
++		R("FL CIDX:", fl.cidx);
++		RL("RxPackets:", stats.pkts);
++		RL("RxImmPkts:", stats.imm);
++		RL("RxNoMem:", stats.nomem);
++		RL("FLAllocErr:", fl.alloc_failed);
++		RL("FLLrgAlcErr:", fl.large_alloc_failed);
++		RL("FLMapErr:", fl.mapping_err);
++		RL("FLLow:", fl.low);
++		RL("FLStarving:", fl.starving);
++
+ 	} else if (ctrl_idx < ctrl_entries) {
+ 		const struct sge_ctrl_txq *tx = &adap->sge.ctrlq[ctrl_idx * 4];
+ 		int n = min(4, adap->params.nports - 4 * ctrl_idx);
+@@ -2676,6 +2714,7 @@ static int sge_queue_entries(const struct adapter *adap)
+ 	       DIV_ROUND_UP(adap->sge.niscsitq, 4) +
+ 	       DIV_ROUND_UP(adap->sge.rdmaqs, 4) +
+ 	       DIV_ROUND_UP(adap->sge.rdmaciqs, 4) +
++	       DIV_ROUND_UP(adap->sge.ncryptoq, 4) +
+ 	       DIV_ROUND_UP(MAX_CTRL_QUEUES, 4) + 1;
+ }
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 477db47..92d437c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -228,7 +228,7 @@ static DEFINE_MUTEX(uld_mutex);
+ static LIST_HEAD(adap_rcu_list);
+ static DEFINE_SPINLOCK(adap_rcu_lock);
+ static struct cxgb4_uld_info ulds[CXGB4_ULD_MAX];
+-static const char *const uld_str[] = { "RDMA", "iSCSI", "iSCSIT" };
++static const char *const uld_str[] = { "RDMA", "iSCSI", "iSCSIT", "CRYPTO" };
+ 
+ static void link_report(struct net_device *dev)
+ {
+@@ -797,13 +797,17 @@ static void name_msix_vecs(struct adapter *adap)
+ 	for_each_rdmaciq(&adap->sge, i)
+ 		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-rdma-ciq%d",
+ 			 adap->port[0]->name, i);
++
++	for_each_cryptorxq(&adap->sge, i)
++		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-crypto%d",
++			 adap->port[0]->name, i);
+ }
+ 
+ static int request_msix_queue_irqs(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+ 	int err, ethqidx, iscsiqidx = 0, rdmaqidx = 0, rdmaciqqidx = 0;
+-	int iscsitqidx = 0;
++	int iscsitqidx = 0, cryptoqidx = 0;
+ 	int msi_index = 2;
+ 
+ 	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
+@@ -856,9 +860,20 @@ static int request_msix_queue_irqs(struct adapter *adap)
+ 			goto unwind;
+ 		msi_index++;
+ 	}
++	for_each_cryptorxq(s, cryptoqidx) {
++		err = request_irq(adap->msix_info[msi_index].vec,
++				  t4_sge_intr_msix, 0,
++				  adap->msix_info[msi_index].desc,
++				  &s->cryptorxq[cryptoqidx].rspq);
 +		if (err)
-+			goto out;
-+		keylen = digestsize;
-+	} else {
-+		memcpy(hmacctx->ipad, key, keylen);
++			goto unwind;
++		msi_index++;
 +	}
-+	memset(hmacctx->ipad + keylen, 0, bs - keylen);
-+	memcpy(hmacctx->opad, hmacctx->ipad, bs);
+ 	return 0;
+-
+ unwind:
++	while (--cryptoqidx >= 0)
++		free_irq(adap->msix_info[--msi_index].vec,
++			 &s->cryptorxq[cryptoqidx].rspq);
+ 	while (--rdmaciqqidx >= 0)
+ 		free_irq(adap->msix_info[--msi_index].vec,
+ 			 &s->rdmaciq[rdmaciqqidx].rspq);
+@@ -882,7 +897,6 @@ static void free_msix_queue_irqs(struct adapter *adap)
+ {
+ 	int i, msi_index = 2;
+ 	struct sge *s = &adap->sge;
+-
+ 	free_irq(adap->msix_info[1].vec, &s->fw_evtq);
+ 	for_each_ethrxq(s, i)
+ 		free_irq(adap->msix_info[msi_index++].vec, &s->ethrxq[i].rspq);
+@@ -896,6 +910,9 @@ static void free_msix_queue_irqs(struct adapter *adap)
+ 		free_irq(adap->msix_info[msi_index++].vec, &s->rdmarxq[i].rspq);
+ 	for_each_rdmaciq(s, i)
+ 		free_irq(adap->msix_info[msi_index++].vec, &s->rdmaciq[i].rspq);
++	for_each_cryptorxq(s, i)
++		free_irq(adap->msix_info[msi_index++].vec,
++			 &s->cryptorxq[i].rspq);
+ }
+ 
+ /**
+@@ -1155,6 +1172,8 @@ freeout:	t4_free_sge_resources(adap);
+ 	ALLOC_OFLD_RXQS(s->rdmarxq, s->rdmaqs, 1, s->rdma_rxq, false);
+ 	j = s->rdmaciqs / adap->params.nports; /* rdmaq queues per channel */
+ 	ALLOC_OFLD_RXQS(s->rdmaciq, s->rdmaciqs, j, s->rdma_ciq, false);
++	j = s->ncryptoq / adap->params.nports;
++	ALLOC_OFLD_RXQS(s->cryptorxq, s->ncryptoq, j, s->crypto_rxq, 0);
+ 
+ #undef ALLOC_OFLD_RXQS
+ 
+@@ -1170,6 +1189,18 @@ freeout:	t4_free_sge_resources(adap);
+ 			goto freeout;
+ 	}
+ 
++	j = s->ncryptoq / adap->params.nports;
++	for_each_cryptorxq(s, i) {
++		struct sge_eth_txq *t;
 +
-+	for (i = 0; i < bs / sizeof(int); i++) {
-+		*((unsigned int *)(&hmacctx->ipad) + i) ^= IPAD_DATA;
-+		*((unsigned int *)(&hmacctx->opad) + i) ^= OPAD_DATA;
++		t = (struct sge_eth_txq *)&s->cryptotxq[i];
++		err = t4_sge_alloc_ofld_txq(adap, &s->cryptotxq[i],
++					    adap->port[i / j],
++					    s->fw_evtq.cntxt_id);
++		if (err)
++			goto freeout;
 +	}
 +
-+	updated_digestsize = digestsize;
-+	if (digestsize == SHA224_DIGEST_SIZE)
-+		updated_digestsize = SHA256_DIGEST_SIZE;
-+	else if (digestsize == SHA384_DIGEST_SIZE)
-+		updated_digestsize = SHA512_DIGEST_SIZE;
-+	err = chcr_compute_partial_hash(hmacctx->desc, hmacctx->ipad,
-+					hmacctx->ipad, digestsize);
-+	if (err)
-+		goto out;
-+	chcr_change_order(hmacctx->ipad, updated_digestsize);
-+
-+	err = chcr_compute_partial_hash(hmacctx->desc, hmacctx->opad,
-+					hmacctx->opad, digestsize);
-+	if (err)
-+		goto out;
-+	chcr_change_order(hmacctx->opad, updated_digestsize);
-+out:
-+	return err;
-+}
-+
-+static int chcr_aes_xts_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
-+			       unsigned int key_len)
-+{
-+	struct chcr_context *ctx = crypto_ablkcipher_ctx(tfm);
-+	struct ablk_ctx *ablkctx = ABLK_CTX(ctx);
-+	int status = 0;
-+	unsigned short context_size = 0;
-+
-+	if ((key_len == (AES_KEYSIZE_128 << 1)) ||
-+	    (key_len == (AES_KEYSIZE_256 << 1))) {
-+		memcpy(ablkctx->key, key, key_len);
-+		ablkctx->enckey_len = key_len;
-+		context_size = (KEY_CONTEXT_HDR_SALT_AND_PAD + key_len) >> 4;
-+		ablkctx->key_ctx_hdr =
-+			FILL_KEY_CTX_HDR((key_len == AES_KEYSIZE_256) ?
-+					 CHCR_KEYCTX_CIPHER_KEY_SIZE_128 :
-+					 CHCR_KEYCTX_CIPHER_KEY_SIZE_256,
-+					 CHCR_KEYCTX_NO_KEY, 1,
-+					 0, context_size);
-+		ablkctx->ciph_mode = CHCR_SCMD_CIPHER_MODE_AES_XTS;
-+	} else {
-+		crypto_tfm_set_flags((struct crypto_tfm *)tfm,
-+				     CRYPTO_TFM_RES_BAD_KEY_LEN);
-+		ablkctx->enckey_len = 0;
-+		status = -EINVAL;
+ 	t4_write_reg(adap, is_t4(adap->params.chip) ?
+ 				MPS_TRC_RSS_CONTROL_A :
+ 				MPS_T5_TRC_RSS_CONTROL_A,
+@@ -2489,6 +2520,9 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
+ 	} else if (uld == CXGB4_ULD_ISCSIT) {
+ 		lli.rxq_ids = adap->sge.iscsit_rxq;
+ 		lli.nrxq = adap->sge.niscsitq;
++	} else if (uld == CXGB4_ULD_CRYPTO) {
++		lli.rxq_ids = adap->sge.crypto_rxq;
++		lli.nrxq = adap->sge.ncryptoq;
+ 	}
+ 	lli.ntxq = adap->sge.iscsiqsets;
+ 	lli.nchan = adap->params.nports;
+@@ -2518,6 +2552,7 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
+ 	lli.max_ordird_qp = adap->params.max_ordird_qp;
+ 	lli.max_ird_adapter = adap->params.max_ird_adapter;
+ 	lli.ulptx_memwrite_dsgl = adap->params.ulptx_memwrite_dsgl;
++	lli.ulp_crypto = adap->params.ulp_crypto_lookaside;
+ 	lli.nodeid = dev_to_node(adap->pdev_dev);
+ 
+ 	handle = ulds[uld].add(&lli);
+@@ -2601,7 +2636,7 @@ static void notify_ulds(struct adapter *adap, enum cxgb4_state new_state)
+ int cxgb4_register_uld(enum cxgb4_uld type, const struct cxgb4_uld_info *p)
+ {
+ 	int ret = 0;
+-	struct adapter *adap;
++	struct adapter *adap = NULL;
+ 
+ 	if (type >= CXGB4_ULD_MAX)
+ 		return -EINVAL;
+@@ -4131,6 +4166,8 @@ static int adap_init0(struct adapter *adap)
+ 		adap->vres.iscsi.start = val[0];
+ 		adap->vres.iscsi.size = val[1] - val[0] + 1;
+ 	}
++	if (caps_cmd.cryptocaps)
++		adap->params.ulp_crypto_lookaside |= ULP_CRYPTO_LOOKASIDE;
+ #undef FW_PARAM_PFVF
+ #undef FW_PARAM_DEV
+ 
+@@ -4406,6 +4443,12 @@ static void cfg_queues(struct adapter *adap)
+ 		if (!is_t4(adap->params.chip))
+ 			s->niscsitq = s->iscsiqsets;
+ 	}
++	if (adap->params.ulp_crypto_lookaside & ULP_CRYPTO_LOOKASIDE) {
++		s->ncryptoq = min_t(int, MAX_CRYPTO_QUEUES, num_online_cpus());
++		s->ncryptoq = (s->ncryptoq / adap->params.nports) *
++			adap->params.nports;
++		s->ncryptoq = max_t(int, s->ncryptoq, adap->params.nports);
 +	}
-+	return status;
-+}
+ 
+ 	for (i = 0; i < ARRAY_SIZE(s->ethrxq); i++) {
+ 		struct sge_eth_rxq *r = &s->ethrxq[i];
+@@ -4420,6 +4463,9 @@ static void cfg_queues(struct adapter *adap)
+ 	for (i = 0; i < ARRAY_SIZE(s->ctrlq); i++)
+ 		s->ctrlq[i].q.size = 512;
+ 
++	for (i = 0; i < ARRAY_SIZE(s->cryptotxq); i++)
++		s->cryptotxq[i].q.size = 1024;
 +
-+static int chcr_sha_init(struct ahash_request *areq)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(areq);
-+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(areq);
-+	int digestsize =  crypto_ahash_digestsize(tfm);
+ 	for (i = 0; i < ARRAY_SIZE(s->ofldtxq); i++)
+ 		s->ofldtxq[i].q.size = 1024;
+ 
+@@ -4462,6 +4508,14 @@ static void cfg_queues(struct adapter *adap)
+ 		r->rspq.uld = CXGB4_ULD_RDMA;
+ 	}
+ 
++	for (i = 0; i < ARRAY_SIZE(s->cryptorxq); i++) {
++		struct sge_ofld_rxq *r = &s->cryptorxq[i];
 +
-+	req_ctx->data_len = 0;
-+	req_ctx->dummy_payload_ptr = NULL;
-+	req_ctx->bfr_len = 0;
-+	req_ctx->skb = NULL;
-+	req_ctx->result = 0;
-+	copy_hash_init_values(req_ctx->partial_hash, digestsize);
-+	return 0;
-+}
-+
-+static int chcr_sha_cra_init(struct crypto_tfm *tfm)
-+{
-+	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
-+				 sizeof(struct chcr_ahash_req_ctx));
-+	return chcr_device_init(crypto_tfm_ctx(tfm));
-+}
-+
-+static int chcr_hmac_init(struct ahash_request *areq)
-+{
-+	struct chcr_ahash_req_ctx *req_ctx = ahash_request_ctx(areq);
-+	struct crypto_ahash *rtfm = crypto_ahash_reqtfm(areq);
-+	struct chcr_context *ctx = crypto_tfm_ctx(crypto_ahash_tfm(rtfm));
-+	struct hmac_ctx *hmacctx = HMAC_CTX(ctx);
-+	unsigned int digestsize = crypto_ahash_digestsize(rtfm);
-+	unsigned int bs = crypto_tfm_alg_blocksize(crypto_ahash_tfm(rtfm));
-+
-+	chcr_sha_init(areq);
-+	req_ctx->data_len = bs;
-+	if (is_hmac(crypto_ahash_tfm(rtfm))) {
-+		if (digestsize == SHA224_DIGEST_SIZE)
-+			memcpy(req_ctx->partial_hash, hmacctx->ipad,
-+			       SHA256_DIGEST_SIZE);
-+		else if (digestsize == SHA384_DIGEST_SIZE)
-+			memcpy(req_ctx->partial_hash, hmacctx->ipad,
-+			       SHA512_DIGEST_SIZE);
-+		else
-+			memcpy(req_ctx->partial_hash, hmacctx->ipad,
-+			       digestsize);
++		init_rspq(adap, &r->rspq, 5, 1, 1024, 64);
++		r->rspq.uld = CXGB4_ULD_CRYPTO;
++		r->fl.size = 72;
 +	}
-+	return 0;
-+}
 +
-+static int chcr_hmac_cra_init(struct crypto_tfm *tfm)
-+{
-+	struct chcr_context *ctx = crypto_tfm_ctx(tfm);
-+	struct hmac_ctx *hmacctx = HMAC_CTX(ctx);
-+	unsigned int digestsize =
-+		crypto_ahash_digestsize(__crypto_ahash_cast(tfm));
+ 	init_rspq(adap, &s->fw_evtq, 0, 1, 1024, 64);
+ 	init_rspq(adap, &s->intrq, 0, 1, 2 * MAX_INGQ, 64);
+ }
+@@ -4520,9 +4574,14 @@ static int enable_msix(struct adapter *adap)
+ 		/* need nchan for each possible ULD */
+ 		if (is_t4(adap->params.chip))
+ 			ofld_need = 3 * nchan;
++		else if (is_t6(adap->params.chip))
++			ofld_need = 5 * nchan;
+ 		else
+ 			ofld_need = 4 * nchan;
+ 	}
++	if (adap->params.ulp_crypto_lookaside & ULP_CRYPTO_LOOKASIDE)
++		want += s->ncryptoq;
 +
-+	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
-+				 sizeof(struct chcr_ahash_req_ctx));
-+	hmacctx->desc = chcr_alloc_shash(digestsize);
-+	if (IS_ERR(hmacctx->desc))
-+		return PTR_ERR(hmacctx->desc);
-+	return chcr_device_init(crypto_tfm_ctx(tfm));
-+}
-+
-+static void chcr_free_shash(struct shash_desc *desc)
-+{
-+	crypto_free_shash(desc->tfm);
-+	kfree(desc);
-+}
-+
-+static void chcr_hmac_cra_exit(struct crypto_tfm *tfm)
-+{
-+	struct chcr_context *ctx = crypto_tfm_ctx(tfm);
-+	struct hmac_ctx *hmacctx = HMAC_CTX(ctx);
-+
-+	if (hmacctx->desc) {
-+		chcr_free_shash(hmacctx->desc);
-+		hmacctx->desc = NULL;
+ #ifdef CONFIG_CHELSIO_T4_DCB
+ 	/* For Data Center Bridging we need 8 Ethernet TX Priority Queues for
+ 	 * each port.
+@@ -4549,6 +4608,10 @@ static int enable_msix(struct adapter *adap)
+ 		if (i < s->ethqsets)
+ 			reduce_ethqs(adap, i);
+ 	}
++	if (adap->params.ulp_crypto_lookaside & ULP_CRYPTO_LOOKASIDE) {
++		if (allocated < want)
++			s->ncryptoq = nchan;
 +	}
-+}
+ 	if (is_offload(adap)) {
+ 		if (allocated < want) {
+ 			s->rdmaqs = nchan;
+@@ -4561,8 +4624,11 @@ static int enable_msix(struct adapter *adap)
+ 		/* leftovers go to OFLD */
+ 		i = allocated - EXTRA_VECS - s->max_ethqsets -
+ 		    s->rdmaqs - s->rdmaciqs - s->niscsitq;
+-		s->iscsiqsets = (i / nchan) * nchan;  /* round down */
+ 
++		if (adap->params.ulp_crypto_lookaside & ULP_CRYPTO_LOOKASIDE)
++			i -= s->ncryptoq;
 +
-+static struct chcr_alg_template driver_algs[] = {
-+	/* AES-CBC */
-+	{
-+		.type = CRYPTO_ALG_TYPE_ABLKCIPHER,
-+		.is_registered = 0,
-+		.alg.crypto = {
-+			.cra_name		= "cbc(aes)",
-+			.cra_driver_name	= "cbc(aes-chcr)",
-+			.cra_priority		= CHCR_CRA_PRIORITY,
-+			.cra_flags		= CRYPTO_ALG_TYPE_BLKCIPHER |
-+				CRYPTO_ALG_ASYNC,
-+			.cra_blocksize		= AES_BLOCK_SIZE,
-+			.cra_ctxsize		= sizeof(struct chcr_context)
-+				+ sizeof(struct ablk_ctx),
-+			.cra_alignmask		= 0,
-+			.cra_type		= &crypto_ablkcipher_type,
-+			.cra_module		= THIS_MODULE,
-+			.cra_init		= chcr_cra_init,
-+			.cra_exit		= NULL,
-+			.cra_u.ablkcipher	= {
-+				.min_keysize	= AES_MIN_KEY_SIZE,
-+				.max_keysize	= AES_MAX_KEY_SIZE,
-+				.ivsize		= AES_BLOCK_SIZE,
-+				.setkey			= chcr_aes_cbc_setkey,
-+				.encrypt		= chcr_aes_encrypt,
-+				.decrypt		= chcr_aes_decrypt,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_ABLKCIPHER,
-+		.is_registered = 0,
-+		.alg.crypto =   {
-+			.cra_name		= "xts(aes)",
-+			.cra_driver_name	= "xts(aes-chcr)",
-+			.cra_priority		= CHCR_CRA_PRIORITY,
-+			.cra_flags		= CRYPTO_ALG_TYPE_BLKCIPHER |
-+				CRYPTO_ALG_ASYNC,
-+			.cra_blocksize		= AES_BLOCK_SIZE,
-+			.cra_ctxsize		= sizeof(struct chcr_context) +
-+				sizeof(struct ablk_ctx),
-+			.cra_alignmask		= 0,
-+			.cra_type		= &crypto_ablkcipher_type,
-+			.cra_module		= THIS_MODULE,
-+			.cra_init		= chcr_cra_init,
-+			.cra_exit		= NULL,
-+			.cra_u = {
-+				.ablkcipher = {
-+					.min_keysize	= 2 * AES_MIN_KEY_SIZE,
-+					.max_keysize	= 2 * AES_MAX_KEY_SIZE,
-+					.ivsize		= AES_BLOCK_SIZE,
-+					.setkey		= chcr_aes_xts_setkey,
-+					.encrypt	= chcr_aes_encrypt,
-+					.decrypt	= chcr_aes_decrypt,
-+				}
-+			}
-+		}
-+	},
-+	/* SHA */
-+	{
-+		.type = CRYPTO_ALG_TYPE_AHASH,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA1_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "sha1",
-+				.cra_driver_name = "sha1-chcr",
-+				.cra_blocksize = SHA1_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_AHASH,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA256_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "sha256",
-+				.cra_driver_name = "sha256-chcr",
-+				.cra_blocksize = SHA256_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_AHASH,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA224_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "sha224",
-+				.cra_driver_name = "sha224-chcr",
-+				.cra_blocksize = SHA224_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_AHASH,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA384_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "sha384",
-+				.cra_driver_name = "sha384-chcr",
-+				.cra_blocksize = SHA384_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_AHASH,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA512_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "sha512",
-+				.cra_driver_name = "sha512-chcr",
-+				.cra_blocksize = SHA512_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	/* HMAC */
-+	{
-+		.type = CRYPTO_ALG_TYPE_HMAC,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA1_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "hmac(sha1)",
-+				.cra_driver_name = "hmac(sha1-chcr)",
-+				.cra_blocksize = SHA1_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_HMAC,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA224_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "hmac(sha224)",
-+				.cra_driver_name = "hmac(sha224-chcr)",
-+				.cra_blocksize = SHA224_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_HMAC,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA256_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "hmac(sha256)",
-+				.cra_driver_name = "hmac(sha256-chcr)",
-+				.cra_blocksize = SHA256_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_HMAC,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA384_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "hmac(sha384)",
-+				.cra_driver_name = "hmac(sha384-chcr)",
-+				.cra_blocksize = SHA384_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+	{
-+		.type = CRYPTO_ALG_TYPE_HMAC,
-+		.is_registered = 0,
-+		.alg.hash = {
-+			.halg.digestsize = SHA512_DIGEST_SIZE,
-+			.halg.base = {
-+				.cra_name = "hmac(sha512)",
-+				.cra_driver_name = "hmac(sha512-chcr)",
-+				.cra_blocksize = SHA512_BLOCK_SIZE,
-+			}
-+		}
-+	},
-+};
-+
-+/*
-+ *	chcr_unregister_alg - Deregister crypto algorithms with
-+ *	kernel framework.
-+ */
-+static int chcr_unregister_alg(void)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(driver_algs); i++) {
-+		switch (driver_algs[i].type & CRYPTO_ALG_TYPE_MASK) {
-+		case CRYPTO_ALG_TYPE_ABLKCIPHER:
-+			if (driver_algs[i].is_registered)
-+				crypto_unregister_alg(
-+						&driver_algs[i].alg.crypto);
-+			break;
-+		case CRYPTO_ALG_TYPE_AHASH:
-+			if (driver_algs[i].is_registered)
-+				crypto_unregister_ahash(
-+						&driver_algs[i].alg.hash);
-+			break;
-+		}
-+		driver_algs[i].is_registered = 0;
-+	}
-+	return 0;
-+}
-+
-+#define SZ_AHASH_CTX sizeof(struct chcr_context)
-+#define SZ_AHASH_H_CTX (sizeof(struct chcr_context) + sizeof(struct hmac_ctx))
-+#define SZ_AHASH_REQ_CTX sizeof(struct chcr_ahash_req_ctx)
-+#define AHASH_CRA_FLAGS (CRYPTO_ALG_TYPE_AHASH | CRYPTO_ALG_ASYNC)
-+
-+/*
-+ *	chcr_register_alg - Register crypto algorithms with kernel framework.
-+ */
-+static int chcr_register_alg(void)
-+{
-+	struct crypto_alg ai;
-+	struct ahash_alg *a_hash;
-+	int err = 0, i;
-+	char *name = NULL;
-+
-+	for (i = 0; i < ARRAY_SIZE(driver_algs); i++) {
-+		if (driver_algs[i].is_registered)
-+			continue;
-+		switch (driver_algs[i].type & CRYPTO_ALG_TYPE_MASK) {
-+		case CRYPTO_ALG_TYPE_ABLKCIPHER:
-+			err = crypto_register_alg(&driver_algs[i].alg.crypto);
-+			name = driver_algs[i].alg.crypto.cra_driver_name;
-+			break;
-+		case CRYPTO_ALG_TYPE_AHASH:
-+			a_hash = &driver_algs[i].alg.hash;
-+			a_hash->update = chcr_ahash_update;
-+			a_hash->final = chcr_ahash_final;
-+			a_hash->finup = chcr_ahash_finup;
-+			a_hash->digest = chcr_ahash_digest;
-+			a_hash->export = chcr_ahash_export;
-+			a_hash->import = chcr_ahash_import;
-+			a_hash->halg.statesize = SZ_AHASH_REQ_CTX;
-+			a_hash->halg.base.cra_priority = CHCR_CRA_PRIORITY;
-+			a_hash->halg.base.cra_module = THIS_MODULE;
-+			a_hash->halg.base.cra_flags = AHASH_CRA_FLAGS;
-+			a_hash->halg.base.cra_alignmask = 0;
-+			a_hash->halg.base.cra_exit = NULL;
-+			a_hash->halg.base.cra_type = &crypto_ahash_type;
-+
-+			if (driver_algs[i].type == CRYPTO_ALG_TYPE_HMAC) {
-+				a_hash->halg.base.cra_init = chcr_hmac_cra_init;
-+				a_hash->halg.base.cra_exit = chcr_hmac_cra_exit;
-+				a_hash->init = chcr_hmac_init;
-+				a_hash->setkey = chcr_ahash_setkey;
-+				a_hash->halg.base.cra_ctxsize = SZ_AHASH_H_CTX;
-+			} else {
-+				a_hash->init = chcr_sha_init;
-+				a_hash->halg.base.cra_ctxsize = SZ_AHASH_CTX;
-+				a_hash->halg.base.cra_init = chcr_sha_cra_init;
-+			}
-+			err = crypto_register_ahash(&driver_algs[i].alg.hash);
-+			ai = driver_algs[i].alg.hash.halg.base;
-+			name = ai.cra_driver_name;
-+			break;
-+		}
-+		if (err) {
-+			pr_err("chcr : %s : Algorithm registration failed\n",
-+			       name);
-+			goto register_err;
-+		} else {
-+			driver_algs[i].is_registered = 1;
-+		}
-+	}
-+	return 0;
-+
-+register_err:
-+	chcr_unregister_alg();
-+	return err;
-+}
-+
-+/*
-+ *	start_crypto - Register the crypto algorithms.
-+ *	This should called once when the first device comesup. After this
-+ *	kernel will start calling driver APIs for crypto operations.
-+ */
-+int start_crypto(void)
-+{
-+	return chcr_register_alg();
-+}
-+
-+/*
-+ *	stop_crypto - Deregister all the crypto algorithms with kernel.
-+ *	This should be called once when the last device goes down. After this
-+ *	kernel will not call the driver API for crypto operations.
-+ */
-+int stop_crypto(void)
-+{
-+	chcr_unregister_alg();
-+	return 0;
-+}
-diff --git a/drivers/crypto/chelsio/chcr_algo.h b/drivers/crypto/chelsio/chcr_algo.h
-new file mode 100644
-index 0000000..6f37796
---- /dev/null
-+++ b/drivers/crypto/chelsio/chcr_algo.h
-@@ -0,0 +1,503 @@
-+/*
-+ * This file is part of the Chelsio T6 Crypto driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef __CHCR_ALGO_H__
-+#define __CHCR_ALGO_H__
-+
-+/* Crypto key context */
-+#define S_KEY_CONTEXT_CTX_LEN           24
-+#define M_KEY_CONTEXT_CTX_LEN           0xff
-+#define V_KEY_CONTEXT_CTX_LEN(x)        ((x) << S_KEY_CONTEXT_CTX_LEN)
-+#define G_KEY_CONTEXT_CTX_LEN(x) \
-+	(((x) >> S_KEY_CONTEXT_CTX_LEN) & M_KEY_CONTEXT_CTX_LEN)
-+
-+#define S_KEY_CONTEXT_DUAL_CK      12
-+#define M_KEY_CONTEXT_DUAL_CK      0x1
-+#define V_KEY_CONTEXT_DUAL_CK(x)   ((x) << S_KEY_CONTEXT_DUAL_CK)
-+#define G_KEY_CONTEXT_DUAL_CK(x)   \
-+(((x) >> S_KEY_CONTEXT_DUAL_CK) & M_KEY_CONTEXT_DUAL_CK)
-+#define F_KEY_CONTEXT_DUAL_CK      V_KEY_CONTEXT_DUAL_CK(1U)
-+
-+#define S_KEY_CONTEXT_SALT_PRESENT      10
-+#define M_KEY_CONTEXT_SALT_PRESENT      0x1
-+#define V_KEY_CONTEXT_SALT_PRESENT(x)   ((x) << S_KEY_CONTEXT_SALT_PRESENT)
-+#define G_KEY_CONTEXT_SALT_PRESENT(x)   \
-+	(((x) >> S_KEY_CONTEXT_SALT_PRESENT) & \
-+	 M_KEY_CONTEXT_SALT_PRESENT)
-+#define F_KEY_CONTEXT_SALT_PRESENT      V_KEY_CONTEXT_SALT_PRESENT(1U)
-+
-+#define S_KEY_CONTEXT_VALID     0
-+#define M_KEY_CONTEXT_VALID     0x1
-+#define V_KEY_CONTEXT_VALID(x)  ((x) << S_KEY_CONTEXT_VALID)
-+#define G_KEY_CONTEXT_VALID(x)  \
-+	(((x) >> S_KEY_CONTEXT_VALID) & \
-+	 M_KEY_CONTEXT_VALID)
-+#define F_KEY_CONTEXT_VALID     V_KEY_CONTEXT_VALID(1U)
-+
-+#define S_KEY_CONTEXT_CK_SIZE           6
-+#define M_KEY_CONTEXT_CK_SIZE           0xf
-+#define V_KEY_CONTEXT_CK_SIZE(x)        ((x) << S_KEY_CONTEXT_CK_SIZE)
-+#define G_KEY_CONTEXT_CK_SIZE(x)        \
-+	(((x) >> S_KEY_CONTEXT_CK_SIZE) & M_KEY_CONTEXT_CK_SIZE)
-+
-+#define S_KEY_CONTEXT_MK_SIZE           2
-+#define M_KEY_CONTEXT_MK_SIZE           0xf
-+#define V_KEY_CONTEXT_MK_SIZE(x)        ((x) << S_KEY_CONTEXT_MK_SIZE)
-+#define G_KEY_CONTEXT_MK_SIZE(x)        \
-+	(((x) >> S_KEY_CONTEXT_MK_SIZE) & M_KEY_CONTEXT_MK_SIZE)
-+
-+#define S_KEY_CONTEXT_OPAD_PRESENT      11
-+#define M_KEY_CONTEXT_OPAD_PRESENT      0x1
-+#define V_KEY_CONTEXT_OPAD_PRESENT(x)   ((x) << S_KEY_CONTEXT_OPAD_PRESENT)
-+#define G_KEY_CONTEXT_OPAD_PRESENT(x)   \
-+	(((x) >> S_KEY_CONTEXT_OPAD_PRESENT) & \
-+	 M_KEY_CONTEXT_OPAD_PRESENT)
-+#define F_KEY_CONTEXT_OPAD_PRESENT      V_KEY_CONTEXT_OPAD_PRESENT(1U)
-+
-+#define CHCR_HASH_MAX_DIGEST_SIZE 64
-+#define CHCR_MAX_SHA_DIGEST_SIZE 64
-+
-+#define IPSEC_TRUNCATED_ICV_SIZE 12
-+#define TLS_TRUNCATED_HMAC_SIZE 10
-+#define CBCMAC_DIGEST_SIZE 16
-+#define MAX_HASH_NAME 20
-+
-+#define SHA1_INIT_STATE_5X4B    5
-+#define SHA256_INIT_STATE_8X4B  8
-+#define SHA512_INIT_STATE_8X8B  8
-+#define SHA1_INIT_STATE         SHA1_INIT_STATE_5X4B
-+#define SHA224_INIT_STATE       SHA256_INIT_STATE_8X4B
-+#define SHA256_INIT_STATE       SHA256_INIT_STATE_8X4B
-+#define SHA384_INIT_STATE       SHA512_INIT_STATE_8X8B
-+#define SHA512_INIT_STATE       SHA512_INIT_STATE_8X8B
-+
-+#define DUMMY_BYTES 16
-+
-+#define IPAD_DATA 0x36363636
-+#define OPAD_DATA 0x5c5c5c5c
-+
-+#define TRANSHDR_SIZE(alignedkctx_len)\
-+	(sizeof(struct ulptx_idata) +\
-+	 sizeof(struct ulp_txpkt) +\
-+	 sizeof(struct fw_crypto_lookaside_wr) +\
-+	 sizeof(struct cpl_tx_sec_pdu) +\
-+	 (alignedkctx_len))
-+#define CIPHER_TRANSHDR_SIZE(alignedkctx_len, sge_pairs) \
-+	(TRANSHDR_SIZE(alignedkctx_len) + sge_pairs +\
-+	 sizeof(struct cpl_rx_phys_dsgl))
-+#define HASH_TRANSHDR_SIZE(alignedkctx_len)\
-+	(TRANSHDR_SIZE(alignedkctx_len) + DUMMY_BYTES)
-+
-+#define SEC_CPL_OFFSET (sizeof(struct fw_crypto_lookaside_wr) + \
-+			sizeof(struct ulp_txpkt) + \
-+			sizeof(struct ulptx_idata))
-+
-+#define FILL_SEC_CPL_OP_IVINSR(id, len, hldr, ofst)      \
-+	htonl( \
-+	       V_CPL_TX_SEC_PDU_OPCODE(CPL_TX_SEC_PDU) | \
-+	       V_CPL_TX_SEC_PDU_RXCHID((id)) | \
-+	       V_CPL_TX_SEC_PDU_ACKFOLLOWS(0) | \
-+	       V_CPL_TX_SEC_PDU_ULPTXLPBK(1) | \
-+	       V_CPL_TX_SEC_PDU_CPLLEN((len)) | \
-+	       V_CPL_TX_SEC_PDU_PLACEHOLDER((hldr)) | \
-+	       V_CPL_TX_SEC_PDU_IVINSRTOFST((ofst)))
-+
-+#define  FILL_SEC_CPL_CIPHERSTOP_HI(a_start, a_stop, c_start, c_stop_hi) \
-+	htonl( \
-+	       V_CPL_TX_SEC_PDU_AADSTART((a_start)) | \
-+	       V_CPL_TX_SEC_PDU_AADSTOP((a_stop)) | \
-+	       V_CPL_TX_SEC_PDU_CIPHERSTART((c_start)) | \
-+	       V_CPL_TX_SEC_PDU_CIPHERSTOP_HI((c_stop_hi)))
-+
-+#define  FILL_SEC_CPL_AUTHINSERT(c_stop_lo, a_start, a_stop, a_inst) \
-+	htonl( \
-+	       V_CPL_TX_SEC_PDU_CIPHERSTOP_LO((c_stop_lo)) | \
-+		V_CPL_TX_SEC_PDU_AUTHSTART((a_start)) | \
-+		V_CPL_TX_SEC_PDU_AUTHSTOP((a_stop)) | \
-+		V_CPL_TX_SEC_PDU_AUTHINSERT((a_inst)))
-+
-+#define  FILL_SEC_CPL_SCMD0_SEQNO(ctrl, seq, cmode, amode, opad, size, nivs)  \
-+		htonl( \
-+		V_SCMD_SEQ_NO_CTRL(0) | \
-+		V_SCMD_STATUS_PRESENT(0) | \
-+		V_SCMD_PROTO_VERSION(CHCR_SCMD_PROTO_VERSION_GENERIC) | \
-+		V_SCMD_ENC_DEC_CTRL((ctrl)) | \
-+		V_SCMD_CIPH_AUTH_SEQ_CTRL((seq)) | \
-+		V_SCMD_CIPH_MODE((cmode)) | \
-+		V_SCMD_AUTH_MODE((amode)) | \
-+		V_SCMD_HMAC_CTRL((opad)) | \
-+		V_SCMD_IV_SIZE((size)) | \
-+		V_SCMD_NUM_IVS((nivs)))
-+
-+#define FILL_SEC_CPL_IVGEN_HDRLEN(last, more, ctx_in, mac, ivdrop, len) htonl( \
-+		V_SCMD_ENB_DBGID(0) | \
-+		V_SCMD_IV_GEN_CTRL(0) | \
-+		V_SCMD_LAST_FRAG((last)) | \
-+		V_SCMD_MORE_FRAGS((more)) | \
-+		V_SCMD_TLS_COMPPDU(0) | \
-+		V_SCMD_KEY_CTX_INLINE((ctx_in)) | \
-+		V_SCMD_TLS_FRAG_ENABLE(0) | \
-+		V_SCMD_MAC_ONLY((mac)) |  \
-+		V_SCMD_AADIVDROP((ivdrop)) | \
-+		V_SCMD_HDR_LEN((len)))
-+
-+#define  FILL_KEY_CTX_HDR(ck_size, mk_size, d_ck, opad, ctx_len) \
-+		htonl(V_KEY_CONTEXT_VALID(1) | \
-+		      V_KEY_CONTEXT_CK_SIZE((ck_size)) | \
-+		      V_KEY_CONTEXT_MK_SIZE(mk_size) | \
-+		      V_KEY_CONTEXT_DUAL_CK((d_ck)) | \
-+		      V_KEY_CONTEXT_OPAD_PRESENT((opad)) | \
-+		      V_KEY_CONTEXT_SALT_PRESENT(1) | \
-+		      V_KEY_CONTEXT_CTX_LEN((ctx_len)))
-+
-+#define FILL_WR_OP_CCTX_SIZE(len, ctx_len) \
-+		htonl( \
-+			V_FW_CRYPTO_LOOKASIDE_WR_OPCODE( \
-+			FW_CRYPTO_LOOKASIDE_WR) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_COMPL(0) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN((len)) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC(1) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE((ctx_len)))
-+
-+#define FILL_WR_RX_Q_ID(cid, qid, wr_iv) \
-+		htonl( \
-+			V_FW_CRYPTO_LOOKASIDE_WR_RX_CHID((cid)) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID((qid)) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_LCB(0) | \
-+			V_FW_CRYPTO_LOOKASIDE_WR_IV((wr_iv)))
-+
-+#define FILL_ULPTX_CMD_DEST(cid) \
-+	htonl(V_ULPTX_CMD(ULP_TX_PKT) | \
-+	      V_ULP_TXPKT_DEST(0) | \
-+	      V_ULP_TXPKT_DATAMODIFY(0) | \
-+	      V_ULP_TXPKT_CHANNELID((cid)) | \
-+	      V_ULP_TXPKT_RO(1) | \
-+	      V_ULP_TXPKT_FID(0))
-+
-+#define KEYCTX_ALIGN_PAD(bs) ({unsigned int _bs = (bs);\
-+			      _bs == SHA1_DIGEST_SIZE ? 12 : 0; })
-+
-+#define FILL_PLD_SIZE_HASH_SIZE(payload_sgl_len, sgl_lengths, total_frags) \
-+	htonl(V_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE(payload_sgl_len ? \
-+						sgl_lengths[total_frags] : 0) |\
-+	      V_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE(0))
-+
-+#define FILL_LEN_PKD(calc_tx_flits_ofld, skb) \
-+	htonl(V_FW_CRYPTO_LOOKASIDE_WR_LEN16(DIV_ROUND_UP((\
-+					   calc_tx_flits_ofld(skb) * 8), 16)))
-+
-+#define FILL_CMD_MORE(immdatalen) htonl(V_ULPTX_CMD(ULP_TX_SC_IMM) |\
-+					V_ULP_TX_SC_MORE((immdatalen) ? 0 : 1))
-+
-+#define MAX_NK 8
-+#define CRYPTO_MAX_IMM_TX_PKT_LEN 256
-+
-+struct algo_param {
-+	unsigned int auth_mode;
-+	unsigned int mk_size;
-+	unsigned int result_size;
-+};
-+
-+struct hash_wr_param {
-+	unsigned int opad_needed;
-+	unsigned int more;
-+	unsigned int last;
-+	struct algo_param alg_prm;
-+	unsigned int sg_len;
-+	unsigned int bfr_len;
-+	u64 scmd1;
++		s->iscsiqsets = (i / nchan) * nchan;  /* round down */
+ 	}
+ 	for (i = 0; i < allocated; ++i)
+ 		adap->msix_info[i].vec = entries[i].vector;
+@@ -4570,6 +4636,8 @@ static int enable_msix(struct adapter *adap)
+ 		 "nic %d iscsi %d rdma cpl %d rdma ciq %d\n",
+ 		 allocated, s->max_ethqsets, s->iscsiqsets, s->rdmaqs,
+ 		 s->rdmaciqs);
++	if (adap->params.ulp_crypto_lookaside & ULP_CRYPTO_LOOKASIDE)
++		dev_info(adap->pdev_dev, " crypto %d\n", s->ncryptoq);
+ 
+ 	kfree(entries);
+ 	return 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index f3c58aa..963e03b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -40,6 +40,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/inetdevice.h>
+ #include <linux/atomic.h>
++#include <linux/pci.h>
+ #include "cxgb4.h"
+ 
+ /* CPL message priority levels */
+@@ -192,6 +193,7 @@ enum cxgb4_uld {
+ 	CXGB4_ULD_RDMA,
+ 	CXGB4_ULD_ISCSI,
+ 	CXGB4_ULD_ISCSIT,
++	CXGB4_ULD_CRYPTO,
+ 	CXGB4_ULD_MAX
+ };
+ 
+@@ -280,6 +282,11 @@ struct cxgb4_lld_info {
+ 	unsigned int iscsi_llimit;	     /* chip's iscsi region llimit */
+ 	void **iscsi_ppm;		     /* iscsi page pod manager */
+ 	int nodeid;			     /* device numa node id */
++	unsigned int ulp_crypto;	     /* crypto lookaside support */
 +};
 +
 +enum {
-+	AES_KEYLENGTH_128BIT = 128,
-+	AES_KEYLENGTH_192BIT = 192,
-+	AES_KEYLENGTH_256BIT = 256
-+};
++	ULD_CRYPTO_LOOKASIDE = 1 << 0,
+ };
+ 
+ struct cxgb4_uld_info {
+@@ -322,6 +329,9 @@ int cxgb4_flush_eq_cache(struct net_device *dev);
+ int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte);
+ u64 cxgb4_read_sge_timestamp(struct net_device *dev);
+ 
++int cxgb4_is_crypto_q_full(struct net_device *dev, unsigned int idx);
++int cxgb4_crypto_send(struct net_device *dev, struct sk_buff *skb);
 +
-+enum {
-+	KEYLENGTH_3BYTES = 3,
-+	KEYLENGTH_4BYTES = 4,
-+	KEYLENGTH_6BYTES = 6,
-+	KEYLENGTH_8BYTES = 8
-+};
-+
-+enum {
-+	NUMBER_OF_ROUNDS_10 = 10,
-+	NUMBER_OF_ROUNDS_12 = 12,
-+	NUMBER_OF_ROUNDS_14 = 14,
-+};
-+
-+/*
-+ * CCM defines values of 4, 6, 8, 10, 12, 14, and 16 octets,
-+ * where they indicate the size of the integrity check value (ICV)
-+ */
-+enum {
-+	AES_CCM_ICV_4   = 4,
-+	AES_CCM_ICV_6   = 6,
-+	AES_CCM_ICV_8   = 8,
-+	AES_CCM_ICV_10  = 10,
-+	AES_CCM_ICV_12  = 12,
-+	AES_CCM_ICV_14  = 14,
-+	AES_CCM_ICV_16 = 16
-+};
-+
-+struct hash_op_params {
-+	unsigned char mk_size;
-+	unsigned char pad_align;
-+	unsigned char auth_mode;
-+	char hash_name[MAX_HASH_NAME];
-+	unsigned short block_size;
-+	unsigned short word_size;
-+	unsigned short ipad_size;
-+};
-+
-+struct phys_sge_pairs {
-+	__be16 len[8];
-+	__be64 addr[8];
-+};
-+
-+struct phys_sge_parm {
-+	unsigned int nents;
-+	unsigned int obsize;
-+	unsigned short qid;
-+	unsigned char align;
-+};
-+
-+struct crypto_result {
-+	struct completion completion;
-+	int err;
-+};
-+
-+static const u32 sha1_init[SHA1_DIGEST_SIZE / 4] = {
-+		SHA1_H0, SHA1_H1, SHA1_H2, SHA1_H3, SHA1_H4,
-+};
-+
-+static const u32 sha224_init[SHA256_DIGEST_SIZE / 4] = {
-+		SHA224_H0, SHA224_H1, SHA224_H2, SHA224_H3,
-+		SHA224_H4, SHA224_H5, SHA224_H6, SHA224_H7,
-+};
-+
-+static const u32 sha256_init[SHA256_DIGEST_SIZE / 4] = {
-+		SHA256_H0, SHA256_H1, SHA256_H2, SHA256_H3,
-+		SHA256_H4, SHA256_H5, SHA256_H6, SHA256_H7,
-+};
-+
-+static const u64 sha384_init[SHA512_DIGEST_SIZE / 8] = {
-+		SHA384_H0, SHA384_H1, SHA384_H2, SHA384_H3,
-+		SHA384_H4, SHA384_H5, SHA384_H6, SHA384_H7,
-+};
-+
-+static const u64 sha512_init[SHA512_DIGEST_SIZE / 8] = {
-+		SHA512_H0, SHA512_H1, SHA512_H2, SHA512_H3,
-+		SHA512_H4, SHA512_H5, SHA512_H6, SHA512_H7,
-+};
-+
-+static inline void copy_hash_init_values(char *key, int digestsize)
+ enum cxgb4_bar2_qtype { CXGB4_BAR2_QTYPE_EGRESS, CXGB4_BAR2_QTYPE_INGRESS };
+ int cxgb4_bar2_sge_qregs(struct net_device *dev,
+ 			 unsigned int qid,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index bad253b..6ce1362 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1813,6 +1813,48 @@ int cxgb4_ofld_send(struct net_device *dev, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(cxgb4_ofld_send);
+ 
++static inline int crypto_send(struct adapter *adap, struct sk_buff *skb)
 +{
-+	u8 i;
-+	__be32 *dkey = (__be32 *)key;
-+	u64 *ldkey = (u64 *)key;
-+	__be64 *sha384 = (__be64 *)sha384_init;
-+	__be64 *sha512 = (__be64 *)sha512_init;
++	unsigned int idx = skb_txq(skb);
 +
-+	switch (digestsize) {
-+	case SHA1_DIGEST_SIZE:
-+		for (i = 0; i < SHA1_INIT_STATE; i++)
-+			dkey[i] = cpu_to_be32(sha1_init[i]);
-+		break;
-+	case SHA224_DIGEST_SIZE:
-+		for (i = 0; i < SHA224_INIT_STATE; i++)
-+			dkey[i] = cpu_to_be32(sha224_init[i]);
-+		break;
-+	case SHA256_DIGEST_SIZE:
-+		for (i = 0; i < SHA256_INIT_STATE; i++)
-+			dkey[i] = cpu_to_be32(sha256_init[i]);
-+		break;
-+	case SHA384_DIGEST_SIZE:
-+		for (i = 0; i < SHA384_INIT_STATE; i++)
-+			ldkey[i] = be64_to_cpu(sha384[i]);
-+		break;
-+	case SHA512_DIGEST_SIZE:
-+		for (i = 0; i < SHA512_INIT_STATE; i++)
-+			ldkey[i] = be64_to_cpu(sha512[i]);
-+		break;
-+	}
++	if (unlikely(is_ctrl_pkt(skb)))
++		return ctrl_xmit(&adap->sge.ctrlq[idx], skb);
++	return ofld_xmit(&adap->sge.cryptotxq[idx], skb);
 +}
 +
-+static const u8 sgl_lengths[20] = {
-+	0, 1, 2, 3, 4, 4, 5, 6, 7, 7, 8, 9, 10, 10, 11, 12, 13, 13, 14, 15
-+};
-+
-+/* Number of len fields(8) * size of one addr field */
-+#define PHYSDSGL_MAX_LEN_SIZE 16
-+
-+static inline u16 get_space_for_phys_dsgl(unsigned int sgl_entr)
++int t4_crypto_send(struct adapter *adap, struct sk_buff *skb)
 +{
-+	/* len field size + addr field size */
-+	return ((sgl_entr >> 3) + ((sgl_entr % 8) ?
-+				   1 : 0)) * PHYSDSGL_MAX_LEN_SIZE +
-+		(sgl_entr << 3) + ((sgl_entr % 2 ? 1 : 0) << 3);
-+}
++	int ret;
 +
-+/* The AES s-transform matrix (s-box). */
-+static const u8 aes_sbox[256] = {
-+	99,  124, 119, 123, 242, 107, 111, 197, 48,  1,   103, 43,  254, 215,
-+	171, 118, 202, 130, 201, 125, 250, 89,  71,  240, 173, 212, 162, 175,
-+	156, 164, 114, 192, 183, 253, 147, 38,  54,  63,  247, 204, 52,  165,
-+	229, 241, 113, 216, 49,  21, 4,   199, 35,  195, 24,  150, 5, 154, 7,
-+	18,  128, 226, 235, 39,  178, 117, 9,   131, 44,  26,  27,  110, 90,
-+	160, 82,  59,  214, 179, 41,  227, 47,  132, 83,  209, 0,   237, 32,
-+	252, 177, 91,  106, 203, 190, 57,  74,  76,  88,  207, 208, 239, 170,
-+	251, 67,  77,  51,  133, 69,  249, 2,   127, 80,  60,  159, 168, 81,
-+	163, 64,  143, 146, 157, 56,  245, 188, 182, 218, 33,  16,  255, 243,
-+	210, 205, 12,  19,  236, 95,  151, 68,  23,  196, 167, 126, 61,  100,
-+	93,  25,  115, 96,  129, 79,  220, 34,  42,  144, 136, 70,  238, 184,
-+	20,  222, 94,  11,  219, 224, 50,  58,  10,  73,  6,   36,  92,  194,
-+	211, 172, 98,  145, 149, 228, 121, 231, 200, 55,  109, 141, 213, 78,
-+	169, 108, 86,  244, 234, 101, 122, 174, 8, 186, 120, 37,  46,  28, 166,
-+	180, 198, 232, 221, 116, 31,  75,  189, 139, 138, 112, 62,  181, 102,
-+	72,  3,   246, 14,  97,  53,  87,  185, 134, 193, 29,  158, 225, 248,
-+	152, 17,  105, 217, 142, 148, 155, 30,  135, 233, 206, 85,  40,  223,
-+	140, 161, 137, 13,  191, 230, 66,  104, 65,  153, 45,  15,  176, 84,
-+	187, 22
-+};
-+
-+static u32 aes_ks_subword(const u32 w)
-+{
-+	u8 bytes[4];
-+
-+	*(u32 *)(&bytes[0]) = w;
-+	bytes[0] = aes_sbox[bytes[0]];
-+	bytes[1] = aes_sbox[bytes[1]];
-+	bytes[2] = aes_sbox[bytes[2]];
-+	bytes[3] = aes_sbox[bytes[3]];
-+	return *(u32 *)(&bytes[0]);
-+}
-+
-+static u32 round_constant[11] = {
-+	0x01000000, 0x02000000, 0x04000000, 0x08000000,
-+	0x10000000, 0x20000000, 0x40000000, 0x80000000,
-+	0x1B000000, 0x36000000, 0x6C000000
-+};
-+
-+/* dec_key - OUTPUT - Reverse round key
-+ * key - INPUT - key
-+ * keylength - INPUT - length of the key in number of bits
-+ */
-+static inline void get_aes_decrypt_key(unsigned char *dec_key,
-+				       const unsigned char *key,
-+				       unsigned int keylength)
-+{
-+	u32 temp;
-+	__be32 val;
-+	u32 w_ring[MAX_NK];
-+	u8  w_last_ix;
-+	int i, j, k = 0, flag = 0, start = 1, t1 = 0;
-+	u8  nr, nk;
-+
-+	switch (keylength) {
-+	case AES_KEYLENGTH_128BIT:
-+		nk = KEYLENGTH_4BYTES;
-+		nr = NUMBER_OF_ROUNDS_10;
-+		start = 4;
-+		break;
-+
-+	case AES_KEYLENGTH_192BIT:
-+		nk = KEYLENGTH_6BYTES;
-+		nr = NUMBER_OF_ROUNDS_12;
-+		start = 2;
-+		break;
-+	case AES_KEYLENGTH_256BIT:
-+		nk = KEYLENGTH_8BYTES;
-+		nr = NUMBER_OF_ROUNDS_14;
-+		start = 0;
-+		break;
-+	default:
-+		return;
-+	}
-+
-+	j = keylength >> KEYLENGTH_3BYTES;
-+
-+	/*
-+	 * Need to do host byte order correction here since key is byte
-+	 * oriented and the kx algorithm is word (u32) oriented.
-+	 */
-+	for (i = 0; i < nk; i += 1)
-+		w_ring[i] = be32_to_cpu(*((__be32 *)&key[4 * i]));
-+
-+	i = (int)nk;
-+	w_last_ix = i - 1;
-+
-+	while (i < (4 * (nr + 2))) {
-+		temp = w_ring[w_last_ix];
-+		if (!(i % nk)) {
-+			temp = (temp << 8) | (temp >> 24);
-+			temp = aes_ks_subword(temp);
-+			temp ^= round_constant[i / nk - 1];
-+		} else if ((nk > 6) && ((i % nk) == 4)) {
-+			temp = aes_ks_subword(temp);
-+		}
-+		w_last_ix = (w_last_ix + 1) % nk;
-+		temp ^= w_ring[w_last_ix];
-+		w_ring[w_last_ix] = temp;
-+		/* We need the round keys for round Nr+1 and Nr+2 (round key
-+		 * Nr+2 is the round key beyond the last one used when
-+		 * encrypting).  Rounds are numbered starting from 0, Nr=10
-+		 * implies 11 rounds are used in encryption/decryption.
-+		 */
-+		if (i >= (4 * (nr - 1))) {
-+			if (t1 >= start) {
-+				if (j >= 0)
-+					j -= 4;
-+				if ((j < 0) && !flag) {
-+					k = (keylength >> KEYLENGTH_3BYTES) - 4;
-+					flag = 1;
-+				}
-+				if (k && flag)
-+					k += 4;
-+				if (j < 0)
-+					j = 0;
-+				val = cpu_to_be32(temp);
-+				memcpy(dec_key + j + k,  (void *)&val,
-+				       sizeof(u32));
-+			} else {
-+				t1++;
-+			}
-+		}
-+		++i;
-+	}
-+}
-+
-+#endif /* __CHCR_ALGO_H__ */
-diff --git a/drivers/crypto/chelsio/chcr_core.c b/drivers/crypto/chelsio/chcr_core.c
-new file mode 100644
-index 0000000..cdb745a
---- /dev/null
-+++ b/drivers/crypto/chelsio/chcr_core.c
-@@ -0,0 +1,268 @@
-+/*
-+ * This file is part of the Chelsio T6 Crypto driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ * Written and Maintained by:
-+ *	Manoj Malviya (manojmalviya@chelsio.com)
-+ *	Atul Gupta (atul.gupta@chelsio.com)
-+ *	Jitendra Lulla (jlulla@chelsio.com)
-+ *	Yeshaswi M R Gowda (yeshaswi@chelsio.com)
-+ *	Harsh Jain (harsh@chelsio.com)
-+ */
-+
-+#define pr_fmt(fmt) "chcr:" fmt
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+
-+#include <crypto/aes.h>
-+#include <crypto/hash.h>
-+
-+#include "t4_msg.h"
-+#include "chcr_core.h"
-+
-+static LIST_HEAD(uld_ctx_list);
-+static DEFINE_MUTEX(dev_mutex);
-+static atomic_t dev_count;
-+
-+typedef int (*chcr_handler_func)(struct chcr_dev *dev, unsigned char *input);
-+static int cpl_fw6_pld_handler(struct chcr_dev *dev, unsigned char *input);
-+static int chcr_uld_state_change(void *handle, enum cxgb4_state	state);
-+static void *chcr_uld_add(const struct cxgb4_lld_info *lld);
-+static int chcr_uld_control(void *handle, enum cxgb4_control control, ...);
-+
-+static chcr_handler_func work_handlers[NUM_CPL_CMDS] = {
-+	[CPL_FW6_PLD] = cpl_fw6_pld_handler,
-+};
-+
-+static const struct cxgb4_uld_info chcr_uld_info = {
-+	.name = DRV_MODULE_NAME,
-+	.add = chcr_uld_add,
-+	.rx_handler = chcr_uld_rx_handler,
-+	.state_change = chcr_uld_state_change,
-+	.control = chcr_uld_control,
-+};
-+
-+int assign_chcr_device(struct chcr_dev **dev)
-+{
-+	struct uld_ctx *u_ctx;
-+
-+	/*
-+	 * Which device to use if multiple devices are available TODO
-+	 * May be select the device based on round robin. One session
-+	 * must go to the same device to maintain the ordering.
-+	 */
-+	mutex_lock(&dev_mutex); /* TODO ? */
-+	u_ctx = list_first_entry(&uld_ctx_list, struct uld_ctx, entry);
-+	if (!u_ctx) {
-+		mutex_unlock(&dev_mutex);
-+		return -ENXIO;
-+	}
-+
-+	*dev = u_ctx->dev;
-+	mutex_unlock(&dev_mutex);
-+	return 0;
-+}
-+
-+static int chcr_dev_add(struct uld_ctx *u_ctx)
-+{
-+	struct chcr_dev *dev;
-+
-+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-+	if (!dev)
-+		return -ENXIO;
-+
-+	spin_lock_init(&dev->lock_chcr_dev);
-+	u_ctx->dev = dev;
-+	dev->u_ctx = u_ctx;
-+	atomic_inc(&dev_count);
-+	return 0;
-+}
-+
-+static int chcr_dev_remove(struct uld_ctx *u_ctx)
-+{
-+	kfree(u_ctx->dev);
-+	u_ctx->dev = NULL;
-+	atomic_dec(&dev_count);
-+	return 0;
-+}
-+
-+static int cpl_fw6_pld_handler(struct chcr_dev *dev, unsigned char *input)
-+{
-+	struct crypto_async_request *req;
-+	struct cpl_fw6_pld *fw6_pld;
-+	u32 ack_err_status = 0;
-+	int error_status = 0;
-+
-+	fw6_pld = (struct cpl_fw6_pld *)(unsigned char *)input;
-+	req = (struct crypto_async_request *)(uintptr_t)be64_to_cpu(
-+							fw6_pld->data[1]);
-+
-+	ack_err_status =
-+		ntohl(*(__be32 *)((unsigned char *)&fw6_pld->data[0] + 4));
-+	if (ack_err_status) {
-+		if (CHK_MAC_ERR_BIT(ack_err_status) ||
-+		    CHK_PAD_ERR_BIT(ack_err_status))
-+			error_status = -EINVAL;
-+	}
-+	/* call completion callback with failure status */
-+	if (req) {
-+		if (!chcr_handle_resp(req, input, error_status))
-+			req->complete(req, error_status);
-+		else
-+			return -EINVAL;
-+	} else {
-+		pr_err("Incorrect request address from the firmware\n");
-+		return -EFAULT;
-+	}
-+	return 0;
-+}
-+
-+int chcr_send_wr(struct sk_buff *skb)
-+{
-+	return cxgb4_crypto_send(skb->dev, skb);
-+}
-+
-+static void *chcr_uld_add(const struct cxgb4_lld_info *lld)
-+{
-+	struct uld_ctx *u_ctx;
-+
-+	/* Create the device and add it in the device list */
-+	u_ctx = kzalloc(sizeof(*u_ctx), GFP_KERNEL);
-+	if (!u_ctx) {
-+		u_ctx = ERR_PTR(-ENOMEM);
-+		goto out;
-+	}
-+	if (!(lld->ulp_crypto & ULP_CRYPTO_LOOKASIDE)) {
-+		u_ctx = ERR_PTR(-ENOMEM);
-+		goto out;
-+	}
-+	u_ctx->lldi = *lld;
-+	mutex_lock(&dev_mutex);
-+	list_add_tail(&u_ctx->entry, &uld_ctx_list);
-+	mutex_unlock(&dev_mutex);
-+out:
-+	return u_ctx;
-+}
-+
-+int chcr_uld_rx_handler(void *handle, const __be64 *rsp,
-+			const struct pkt_gl *pgl)
-+{
-+	struct uld_ctx *u_ctx = (struct uld_ctx *)handle;
-+	struct chcr_dev *dev = u_ctx->dev;
-+	const struct cpl_act_establish *rpl = (struct cpl_act_establish *)rsp;
-+
-+	if (rpl->ot.opcode != CPL_FW6_PLD) {
-+		pr_err("Unsupported opcode\n");
-+		return 0;
-+	}
-+
-+	if (!pgl)
-+		work_handlers[rpl->ot.opcode](dev, (unsigned char *)&rsp[1]);
-+	else
-+		work_handlers[rpl->ot.opcode](dev, pgl->va);
-+	return 0;
-+}
-+
-+static int chcr_uld_state_change(void *handle, enum cxgb4_state state)
-+{
-+	struct uld_ctx *u_ctx = handle;
-+	int ret = 0;
-+
-+	switch (state) {
-+	case CXGB4_STATE_UP:
-+		if (!u_ctx->dev) {
-+			ret = chcr_dev_add(u_ctx);
-+			if (ret != 0)
-+				return ret;
-+		}
-+		if (atomic_read(&dev_count) == 1)
-+			ret = start_crypto();
-+		break;
-+
-+	case CXGB4_STATE_DETACH:
-+		if (u_ctx->dev) {
-+			mutex_lock(&dev_mutex);
-+			chcr_dev_remove(u_ctx);
-+			mutex_unlock(&dev_mutex);
-+		}
-+		if (!atomic_read(&dev_count))
-+			stop_crypto();
-+		break;
-+
-+	case CXGB4_STATE_START_RECOVERY:
-+	case CXGB4_STATE_DOWN:
-+	default:
-+		break;
-+	}
++	local_bh_disable();
++	ret = crypto_send(adap, skb);
++	local_bh_enable();
 +	return ret;
 +}
 +
-+static int chcr_uld_control(void *handle, enum cxgb4_control control, ...)
++int cxgb4_crypto_send(struct net_device *dev, struct sk_buff *skb)
 +{
-+	return -EINVAL;
++	return t4_crypto_send(netdev2adap(dev), skb);
 +}
++EXPORT_SYMBOL(cxgb4_crypto_send);
 +
-+static int __init chcr_crypto_init(void)
++int cxgb4_is_crypto_q_full(struct net_device *dev, unsigned int idx)
 +{
-+	if (cxgb4_register_uld(CXGB4_ULD_CRYPTO, &chcr_uld_info))
-+		pr_err("ULD register fail: No chcr crypto support in cxgb4");
++	int ret = 0;
++	struct sge_ofld_txq *q;
++	struct adapter *adap = netdev2adap(dev);
 +
-+	return 0;
++	local_bh_disable();
++	q = &adap->sge.cryptotxq[idx];
++	spin_lock(&q->sendq.lock);
++	if (q->full)
++		ret = -1;
++	spin_unlock(&q->sendq.lock);
++	local_bh_enable();
++	return ret;
 +}
++EXPORT_SYMBOL(cxgb4_is_crypto_q_full);
 +
-+static void __exit chcr_crypto_exit(void)
-+{
-+	struct uld_ctx *u_ctx, *tmp;
+ static inline void copy_frags(struct sk_buff *skb,
+ 			      const struct pkt_gl *gl, unsigned int offset)
+ {
+@@ -3019,6 +3061,7 @@ void t4_free_sge_resources(struct adapter *adap)
+ 	t4_free_ofld_rxqs(adap, adap->sge.niscsitq, adap->sge.iscsitrxq);
+ 	t4_free_ofld_rxqs(adap, adap->sge.rdmaqs, adap->sge.rdmarxq);
+ 	t4_free_ofld_rxqs(adap, adap->sge.rdmaciqs, adap->sge.rdmaciq);
++	t4_free_ofld_rxqs(adap, adap->sge.ncryptoq, adap->sge.cryptorxq);
+ 
+ 	/* clean up offload Tx queues */
+ 	for (i = 0; i < ARRAY_SIZE(adap->sge.ofldtxq); i++) {
+@@ -3035,6 +3078,21 @@ void t4_free_sge_resources(struct adapter *adap)
+ 		}
+ 	}
+ 
++	/* clean up crypto queues */
++	for (i = 0; i < ARRAY_SIZE(adap->sge.cryptotxq); i++) {
++		struct sge_ofld_txq *q = &adap->sge.cryptotxq[i];
 +
-+	if (atomic_read(&dev_count))
-+		stop_crypto();
-+
-+	/* Remove all devices from list */
-+	mutex_lock(&dev_mutex);
-+	list_for_each_entry_safe(u_ctx, tmp, &uld_ctx_list, entry) {
-+		if (u_ctx->dev)
-+			chcr_dev_remove(u_ctx);
-+		kfree(u_ctx);
++		if (q->q.desc) {
++			tasklet_kill(&q->qresume_tsk);
++			t4_ctrl_eq_free(adap, adap->mbox, adap->pf,
++					0, q->q.cntxt_id);
++			free_tx_desc(adap, &q->q, q->q.in_use, false);
++			kfree(q->q.sdesc);
++			__skb_queue_purge(&q->sendq);
++			free_txq(adap, &q->q);
++		}
 +	}
-+	mutex_unlock(&dev_mutex);
-+	cxgb4_unregister_uld(CXGB4_ULD_CRYPTO);
-+}
 +
-+module_init(chcr_crypto_init);
-+module_exit(chcr_crypto_exit);
+ 	/* clean up control Tx queues */
+ 	for (i = 0; i < ARRAY_SIZE(adap->sge.ctrlq); i++) {
+ 		struct sge_ctrl_txq *cq = &adap->sge.ctrlq[i];
+@@ -3093,6 +3151,12 @@ void t4_sge_stop(struct adapter *adap)
+ 		if (q->q.desc)
+ 			tasklet_kill(&q->qresume_tsk);
+ 	}
++	for (i = 0; i < ARRAY_SIZE(s->cryptotxq); i++)  {
++		struct sge_ofld_txq *q = &s->cryptotxq[i];
 +
-+MODULE_DESCRIPTION("Crypto Co-processor for Chelsio Terminator cards.");
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Chelsio Communications");
-+MODULE_VERSION(DRV_VERSION);
-diff --git a/drivers/crypto/chelsio/chcr_core.h b/drivers/crypto/chelsio/chcr_core.h
-new file mode 100644
-index 0000000..2a5c671
---- /dev/null
-+++ b/drivers/crypto/chelsio/chcr_core.h
-@@ -0,0 +1,80 @@
-+/*
-+ * This file is part of the Chelsio T6 Crypto driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
++		if (q->q.desc)
++			tasklet_kill(&q->qresume_tsk);
++	}
+ 	for (i = 0; i < ARRAY_SIZE(s->ctrlq); i++) {
+ 		struct sge_ctrl_txq *cq = &s->ctrlq[i];
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 4705e2d..cf0cc6c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -61,6 +61,7 @@ enum {
+ 	CPL_ABORT_REQ_RSS     = 0x2B,
+ 	CPL_ABORT_RPL_RSS     = 0x2D,
+ 
++	CPL_RX_PHYS_ADDR      = 0x30,
+ 	CPL_CLOSE_CON_RPL     = 0x32,
+ 	CPL_ISCSI_HDR         = 0x33,
+ 	CPL_RDMA_CQE          = 0x35,
+@@ -83,6 +84,10 @@ enum {
+ 	CPL_PASS_OPEN_REQ6    = 0x81,
+ 	CPL_ACT_OPEN_REQ6     = 0x83,
+ 
++	CPL_TX_TLS_PDU     =    0x88,
++	CPL_TX_SEC_PDU        = 0x8A,
++	CPL_TX_TLS_ACK        = 0x8B,
++
+ 	CPL_RDMA_TERMINATE    = 0xA2,
+ 	CPL_RDMA_WRITE        = 0xA4,
+ 	CPL_SGE_EGR_UPDATE    = 0xA5,
+@@ -94,6 +99,8 @@ enum {
+ 	CPL_FW4_PLD           = 0xC1,
+ 	CPL_FW4_ACK           = 0xC3,
+ 
++	CPL_RX_PHYS_DSGL      = 0xD0,
++
+ 	CPL_FW6_MSG           = 0xE0,
+ 	CPL_FW6_PLD           = 0xE1,
+ 	CPL_TX_PKT_LSO        = 0xED,
+@@ -1360,6 +1367,15 @@ struct ulptx_idata {
+ 	__be32 len;
+ };
+ 
++struct ulp_txpkt {
++	__be32 cmd_dest;
++	__be32 len;
++};
++
++#define S_ULPTX_CMD    24
++#define M_ULPTX_CMD    0xFF
++#define V_ULPTX_CMD(x) ((x) << S_ULPTX_CMD)
++
+ #define ULPTX_NSGE_S    0
+ #define ULPTX_NSGE_V(x) ((x) << ULPTX_NSGE_S)
+ 
+@@ -1367,6 +1383,22 @@ struct ulptx_idata {
+ #define ULPTX_MORE_V(x)	((x) << ULPTX_MORE_S)
+ #define ULPTX_MORE_F	ULPTX_MORE_V(1U)
+ 
++#define S_ULP_TXPKT_DEST    16
++#define M_ULP_TXPKT_DEST    0x3
++#define V_ULP_TXPKT_DEST(x) ((x) << S_ULP_TXPKT_DEST)
++
++#define S_ULP_TXPKT_FID     4
++#define M_ULP_TXPKT_FID     0x7ff
++#define V_ULP_TXPKT_FID(x)  ((x) << S_ULP_TXPKT_FID)
++
++#define S_ULP_TXPKT_RO      3
++#define V_ULP_TXPKT_RO(x) ((x) << S_ULP_TXPKT_RO)
++#define F_ULP_TXPKT_RO V_ULP_TXPKT_RO(1U)
++
++#define S_ULP_TX_SC_MORE 23
++#define V_ULP_TX_SC_MORE(x) ((x) << S_ULP_TX_SC_MORE)
++#define F_ULP_TX_SC_MORE  V_ULP_TX_SC_MORE(1U)
++
+ struct ulp_mem_io {
+ 	WR_HDR;
+ 	__be32 cmd;
+@@ -1404,4 +1436,409 @@ struct ulp_mem_io {
+ #define ULP_MEMIO_DATA_LEN_S    0
+ #define ULP_MEMIO_DATA_LEN_V(x) ((x) << ULP_MEMIO_DATA_LEN_S)
+ 
++#define S_ULPTX_NSGE    0
++#define M_ULPTX_NSGE    0xFFFF
++#define V_ULPTX_NSGE(x) ((x) << S_ULPTX_NSGE)
++#define G_ULPTX_NSGE(x) (((x) >> S_ULPTX_NSGE) & M_ULPTX_NSGE)
++
++struct ulptx_sc_memrd {
++	__be32 cmd_to_len;
++	__be32 addr;
++};
++
++#define S_ULP_TXPKT_DATAMODIFY       23
++#define M_ULP_TXPKT_DATAMODIFY       0x1
++#define V_ULP_TXPKT_DATAMODIFY(x)    ((x) << S_ULP_TXPKT_DATAMODIFY)
++#define G_ULP_TXPKT_DATAMODIFY(x)    \
++	(((x) >> S_ULP_TXPKT_DATAMODIFY) & M_ULP_TXPKT_DATAMODIFY_)
++#define F_ULP_TXPKT_DATAMODIFY       V_ULP_TXPKT_DATAMODIFY(1U)
++
++#define S_ULP_TXPKT_CHANNELID        22
++#define M_ULP_TXPKT_CHANNELID        0x1
++#define V_ULP_TXPKT_CHANNELID(x)     ((x) << S_ULP_TXPKT_CHANNELID)
++#define G_ULP_TXPKT_CHANNELID(x)     \
++	(((x) >> S_ULP_TXPKT_CHANNELID) & M_ULP_TXPKT_CHANNELID)
++#define F_ULP_TXPKT_CHANNELID        V_ULP_TXPKT_CHANNELID(1U)
++
++#define S_SCMD_SEQ_NO_CTRL      29
++#define M_SCMD_SEQ_NO_CTRL      0x3
++#define V_SCMD_SEQ_NO_CTRL(x)   ((x) << S_SCMD_SEQ_NO_CTRL)
++#define G_SCMD_SEQ_NO_CTRL(x)   \
++	(((x) >> S_SCMD_SEQ_NO_CTRL) & M_SCMD_SEQ_NO_CTRL)
++
++/* StsFieldPrsnt- Status field at the end of the TLS PDU */
++#define S_SCMD_STATUS_PRESENT   28
++#define M_SCMD_STATUS_PRESENT   0x1
++#define V_SCMD_STATUS_PRESENT(x)    ((x) << S_SCMD_STATUS_PRESENT)
++#define G_SCMD_STATUS_PRESENT(x)    \
++	(((x) >> S_SCMD_STATUS_PRESENT) & M_SCMD_STATUS_PRESENT)
++#define F_SCMD_STATUS_PRESENT   V_SCMD_STATUS_PRESENT(1U)
++
++/* ProtoVersion - Protocol Version 0: 1.2, 1:1.1, 2:DTLS, 3:Generic,
++ * 3-15: Reserved.
 + */
++#define S_SCMD_PROTO_VERSION    24
++#define M_SCMD_PROTO_VERSION    0xf
++#define V_SCMD_PROTO_VERSION(x) ((x) << S_SCMD_PROTO_VERSION)
++#define G_SCMD_PROTO_VERSION(x) \
++	(((x) >> S_SCMD_PROTO_VERSION) & M_SCMD_PROTO_VERSION)
 +
-+#ifndef __CHCR_CORE_H__
-+#define __CHCR_CORE_H__
++/* EncDecCtrl - Encryption/Decryption Control. 0: Encrypt, 1: Decrypt */
++#define S_SCMD_ENC_DEC_CTRL     23
++#define M_SCMD_ENC_DEC_CTRL     0x1
++#define V_SCMD_ENC_DEC_CTRL(x)  ((x) << S_SCMD_ENC_DEC_CTRL)
++#define G_SCMD_ENC_DEC_CTRL(x)  \
++	(((x) >> S_SCMD_ENC_DEC_CTRL) & M_SCMD_ENC_DEC_CTRL)
++#define F_SCMD_ENC_DEC_CTRL V_SCMD_ENC_DEC_CTRL(1U)
 +
-+#include <crypto/algapi.h>
-+#include "t4_hw.h"
-+#include "cxgb4.h"
-+#include "cxgb4_uld.h"
++/* CipherAuthSeqCtrl - Cipher Authentication Sequence Control. */
++#define S_SCMD_CIPH_AUTH_SEQ_CTRL       22
++#define M_SCMD_CIPH_AUTH_SEQ_CTRL       0x1
++#define V_SCMD_CIPH_AUTH_SEQ_CTRL(x)    \
++	((x) << S_SCMD_CIPH_AUTH_SEQ_CTRL)
++#define G_SCMD_CIPH_AUTH_SEQ_CTRL(x)    \
++	(((x) >> S_SCMD_CIPH_AUTH_SEQ_CTRL) & M_SCMD_CIPH_AUTH_SEQ_CTRL)
++#define F_SCMD_CIPH_AUTH_SEQ_CTRL   V_SCMD_CIPH_AUTH_SEQ_CTRL(1U)
 +
-+#define DRV_MODULE_NAME "chcr"
-+#define DRV_VERSION "1.0.0.0"
-+
-+#define MAX_PENDING_REQ_TO_HW 20
-+#define CHCR_TEST_RESPONSE_TIMEOUT 1000
-+
-+#define PAD_ERROR_BIT		1
-+#define CHK_PAD_ERR_BIT(x)	(((x) >> PAD_ERROR_BIT) & 1)
-+
-+#define MAC_ERROR_BIT		0
-+#define CHK_MAC_ERR_BIT(x)	(((x) >> MAC_ERROR_BIT) & 1)
-+
-+struct uld_ctx;
-+
-+struct chcr_dev {
-+	/* Request submited to h/w and waiting for response. */
-+	spinlock_t lock_chcr_dev;
-+	struct crypto_queue pending_queue;
-+	struct uld_ctx *u_ctx;
-+	unsigned char tx_channel_id;
-+};
-+
-+struct uld_ctx {
-+	struct list_head entry;
-+	struct cxgb4_lld_info lldi;
-+	struct chcr_dev *dev;
-+};
-+
-+int assign_chcr_device(struct chcr_dev **dev);
-+int chcr_send_wr(struct sk_buff *skb);
-+int start_crypto(void);
-+int stop_crypto(void);
-+int chcr_uld_rx_handler(void *handle, const __be64 *rsp,
-+			const struct pkt_gl *pgl);
-+int chcr_handle_resp(struct crypto_async_request *req, unsigned char *input,
-+		     int err);
-+#endif /* __CHCR_CORE_H__ */
-diff --git a/drivers/crypto/chelsio/chcr_crypto.h b/drivers/crypto/chelsio/chcr_crypto.h
-new file mode 100644
-index 0000000..41fcd10
---- /dev/null
-+++ b/drivers/crypto/chelsio/chcr_crypto.h
-@@ -0,0 +1,204 @@
-+/*
-+ * This file is part of the Chelsio T6 Crypto driver for Linux.
-+ *
-+ * Copyright (c) 2003-2016 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
++/* CiphMode -  Cipher Mode. 0: NOP, 1:AES-CBC, 2:AES-GCM, 3:AES-CTR,
++ * 4:Generic-AES, 5-15: Reserved.
 + */
++#define S_SCMD_CIPH_MODE    18
++#define M_SCMD_CIPH_MODE    0xf
++#define V_SCMD_CIPH_MODE(x) ((x) << S_SCMD_CIPH_MODE)
++#define G_SCMD_CIPH_MODE(x) \
++	(((x) >> S_SCMD_CIPH_MODE) & M_SCMD_CIPH_MODE)
 +
-+#ifndef __CHCR_CRYPTO_H__
-+#define __CHCR_CRYPTO_H__
-+
-+/* Define following if h/w is not dropping the AAD and IV data before
-+ * giving the processed data
++/* AuthMode - Auth Mode. 0: NOP, 1:SHA1, 2:SHA2-224, 3:SHA2-256
++ * 4-15: Reserved
 + */
++#define S_SCMD_AUTH_MODE    14
++#define M_SCMD_AUTH_MODE    0xf
++#define V_SCMD_AUTH_MODE(x) ((x) << S_SCMD_AUTH_MODE)
++#define G_SCMD_AUTH_MODE(x) \
++	(((x) >> S_SCMD_AUTH_MODE) & M_SCMD_AUTH_MODE)
 +
-+#define CHCR_CRA_PRIORITY 300
-+
-+#define CHCR_AES_MAX_KEY_LEN  (2 * (AES_MAX_KEY_SIZE)) /* consider xts */
-+#define CHCR_MAX_CRYPTO_IV_LEN 16 /* AES IV len */
-+
-+#define CHCR_MAX_AUTHENC_AES_KEY_LEN 32 /* max aes key length*/
-+#define CHCR_MAX_AUTHENC_SHA_KEY_LEN 128 /* max sha key length*/
-+
-+#define CHCR_GIVENCRYPT_OP 2
-+/* CPL/SCMD parameters */
-+
-+#define CHCR_ENCRYPT_OP 0
-+#define CHCR_DECRYPT_OP 1
-+
-+#define CHCR_SCMD_SEQ_NO_CTRL_32BIT     1
-+#define CHCR_SCMD_SEQ_NO_CTRL_48BIT     2
-+#define CHCR_SCMD_SEQ_NO_CTRL_64BIT     3
-+
-+#define CHCR_SCMD_PROTO_VERSION_GENERIC 4
-+
-+#define CHCR_SCMD_AUTH_CTRL_AUTH_CIPHER 0
-+#define CHCR_SCMD_AUTH_CTRL_CIPHER_AUTH 1
-+
-+#define CHCR_SCMD_CIPHER_MODE_NOP           0
-+#define CHCR_SCMD_CIPHER_MODE_AES_CBC       1
-+#define CHCR_SCMD_CIPHER_MODE_GENERIC_AES   4
-+#define CHCR_SCMD_CIPHER_MODE_AES_XTS       6
-+
-+#define CHCR_SCMD_AUTH_MODE_NOP             0
-+#define CHCR_SCMD_AUTH_MODE_SHA1            1
-+#define CHCR_SCMD_AUTH_MODE_SHA224          2
-+#define CHCR_SCMD_AUTH_MODE_SHA256          3
-+#define CHCR_SCMD_AUTH_MODE_SHA512_224      5
-+#define CHCR_SCMD_AUTH_MODE_SHA512_256      6
-+#define CHCR_SCMD_AUTH_MODE_SHA512_384      7
-+#define CHCR_SCMD_AUTH_MODE_SHA512_512      8
-+
-+#define CHCR_SCMD_HMAC_CTRL_NOP             0
-+#define CHCR_SCMD_HMAC_CTRL_NO_TRUNC        1
-+
-+#define CHCR_SCMD_IVGEN_CTRL_HW             0
-+#define CHCR_SCMD_IVGEN_CTRL_SW             1
-+/* This are not really mac key size. They are intermediate values
-+ * of sha engine and its size
++/* HmacCtrl - HMAC Control. 0:NOP, 1:No truncation, 2:Support HMAC Truncation
++ * per RFC 4366, 3:IPSec 96 bits, 4-7:Reserved
 + */
-+#define CHCR_KEYCTX_MAC_KEY_SIZE_128        0
-+#define CHCR_KEYCTX_MAC_KEY_SIZE_160        1
-+#define CHCR_KEYCTX_MAC_KEY_SIZE_192        2
-+#define CHCR_KEYCTX_MAC_KEY_SIZE_256        3
-+#define CHCR_KEYCTX_MAC_KEY_SIZE_512        4
-+#define CHCR_KEYCTX_CIPHER_KEY_SIZE_128     0
-+#define CHCR_KEYCTX_CIPHER_KEY_SIZE_192     1
-+#define CHCR_KEYCTX_CIPHER_KEY_SIZE_256     2
-+#define CHCR_KEYCTX_NO_KEY                  15
++#define S_SCMD_HMAC_CTRL    11
++#define M_SCMD_HMAC_CTRL    0x7
++#define V_SCMD_HMAC_CTRL(x) ((x) << S_SCMD_HMAC_CTRL)
++#define G_SCMD_HMAC_CTRL(x) \
++	(((x) >> S_SCMD_HMAC_CTRL) & M_SCMD_HMAC_CTRL)
 +
-+#define CHCR_CPL_FW4_PLD_IV_OFFSET          (5 * 64) /* bytes. flt #5 and #6 */
-+#define CHCR_CPL_FW4_PLD_HASH_RESULT_OFFSET (7 * 64) /* bytes. flt #7 */
-+#define CHCR_CPL_FW4_PLD_DATA_SIZE          (4 * 64) /* bytes. flt #4 to #7 */
++/* IvSize - IV size in units of 2 bytes */
++#define S_SCMD_IV_SIZE  7
++#define M_SCMD_IV_SIZE  0xf
++#define V_SCMD_IV_SIZE(x)   ((x) << S_SCMD_IV_SIZE)
++#define G_SCMD_IV_SIZE(x)   \
++	(((x) >> S_SCMD_IV_SIZE) & M_SCMD_IV_SIZE)
 +
-+#define KEY_CONTEXT_HDR_SALT_AND_PAD	    16
-+#define flits_to_bytes(x)  (x * 8)
++/* NumIVs - Number of IVs */
++#define S_SCMD_NUM_IVS  0
++#define M_SCMD_NUM_IVS  0x7f
++#define V_SCMD_NUM_IVS(x)   ((x) << S_SCMD_NUM_IVS)
++#define G_SCMD_NUM_IVS(x)   \
++	(((x) >> S_SCMD_NUM_IVS) & M_SCMD_NUM_IVS)
 +
-+#define IV_NOP                  0
-+#define IV_IMMEDIATE            1
-+#define IV_DSGL			2
++/* EnbDbgId - If this is enabled upper 20 (63:44) bits if SeqNumber
++ * (below) are used as Cid (connection id for debug status), these
++ * bits are padded to zero for forming the 64 bit
++ * sequence number for TLS
++ */
++#define S_SCMD_ENB_DBGID  31
++#define M_SCMD_ENB_DBGID  0x1
++#define V_SCMD_ENB_DBGID(x)   ((x) << S_SCMD_ENB_DBGID)
++#define G_SCMD_ENB_DBGID(x)   \
++	(((x) >> S_SCMD_ENB_DBGID) & M_SCMD_ENB_DBGID)
 +
-+#define CRYPTO_ALG_SUB_TYPE_MASK            0x0f000000
-+#define CRYPTO_ALG_SUB_TYPE_HASH_HMAC       0x01000000
-+#define CRYPTO_ALG_TYPE_HMAC (CRYPTO_ALG_TYPE_AHASH |\
-+			      CRYPTO_ALG_SUB_TYPE_HASH_HMAC)
++/* IV generation in SW. */
++#define S_SCMD_IV_GEN_CTRL      30
++#define M_SCMD_IV_GEN_CTRL      0x1
++#define V_SCMD_IV_GEN_CTRL(x)   ((x) << S_SCMD_IV_GEN_CTRL)
++#define G_SCMD_IV_GEN_CTRL(x)   \
++	(((x) >> S_SCMD_IV_GEN_CTRL) & M_SCMD_IV_GEN_CTRL)
++#define F_SCMD_IV_GEN_CTRL  V_SCMD_IV_GEN_CTRL(1U)
 +
-+#define MAX_SALT                4
-+#define MAX_SCRATCH_PAD_SIZE    32
++/* More frags */
++#define S_SCMD_MORE_FRAGS   20
++#define M_SCMD_MORE_FRAGS   0x1
++#define V_SCMD_MORE_FRAGS(x)    ((x) << S_SCMD_MORE_FRAGS)
++#define G_SCMD_MORE_FRAGS(x)    (((x) >> S_SCMD_MORE_FRAGS) & M_SCMD_MORE_FRAGS)
 +
-+#define CHCR_HASH_MAX_BLOCK_SIZE_64  64
-+#define CHCR_HASH_MAX_BLOCK_SIZE_128 128
++/*last frag */
++#define S_SCMD_LAST_FRAG    19
++#define M_SCMD_LAST_FRAG    0x1
++#define V_SCMD_LAST_FRAG(x) ((x) << S_SCMD_LAST_FRAG)
++#define G_SCMD_LAST_FRAG(x) (((x) >> S_SCMD_LAST_FRAG) & M_SCMD_LAST_FRAG)
 +
-+/* Aligned to 128 bit boundary */
-+struct _key_ctx {
-+	__be32 ctx_hdr;
-+	u8 salt[MAX_SALT];
-+	__be64 reserverd;
-+	unsigned char key[0];
++/* TlsCompPdu */
++#define S_SCMD_TLS_COMPPDU    18
++#define M_SCMD_TLS_COMPPDU    0x1
++#define V_SCMD_TLS_COMPPDU(x) ((x) << S_SCMD_TLS_COMPPDU)
++#define G_SCMD_TLS_COMPPDU(x) (((x) >> S_SCMD_TLS_COMPPDU) & M_SCMD_TLS_COMPPDU)
++
++/* KeyCntxtInline - Key context inline after the scmd  OR PayloadOnly*/
++#define S_SCMD_KEY_CTX_INLINE   17
++#define M_SCMD_KEY_CTX_INLINE   0x1
++#define V_SCMD_KEY_CTX_INLINE(x)    ((x) << S_SCMD_KEY_CTX_INLINE)
++#define G_SCMD_KEY_CTX_INLINE(x)    \
++	(((x) >> S_SCMD_KEY_CTX_INLINE) & M_SCMD_KEY_CTX_INLINE)
++#define F_SCMD_KEY_CTX_INLINE   V_SCMD_KEY_CTX_INLINE(1U)
++
++/* TLSFragEnable - 0: Host created TLS PDUs, 1: TLS Framgmentation in ASIC */
++#define S_SCMD_TLS_FRAG_ENABLE  16
++#define M_SCMD_TLS_FRAG_ENABLE  0x1
++#define V_SCMD_TLS_FRAG_ENABLE(x)   ((x) << S_SCMD_TLS_FRAG_ENABLE)
++#define G_SCMD_TLS_FRAG_ENABLE(x)   \
++	(((x) >> S_SCMD_TLS_FRAG_ENABLE) & M_SCMD_TLS_FRAG_ENABLE)
++#define F_SCMD_TLS_FRAG_ENABLE  V_SCMD_TLS_FRAG_ENABLE(1U)
++
++/* MacOnly - Only send the MAC and discard PDU. This is valid for hash only
++ * modes, in this case TLS_TX  will drop the PDU and only
++ * send back the MAC bytes.
++ */
++#define S_SCMD_MAC_ONLY 15
++#define M_SCMD_MAC_ONLY 0x1
++#define V_SCMD_MAC_ONLY(x)  ((x) << S_SCMD_MAC_ONLY)
++#define G_SCMD_MAC_ONLY(x)  \
++	(((x) >> S_SCMD_MAC_ONLY) & M_SCMD_MAC_ONLY)
++#define F_SCMD_MAC_ONLY V_SCMD_MAC_ONLY(1U)
++
++/* AadIVDrop - Drop the AAD and IV fields. Useful in protocols
++ * which have complex AAD and IV formations Eg:AES-CCM
++ */
++#define S_SCMD_AADIVDROP 14
++#define M_SCMD_AADIVDROP 0x1
++#define V_SCMD_AADIVDROP(x)  ((x) << S_SCMD_AADIVDROP)
++#define G_SCMD_AADIVDROP(x)  \
++	(((x) >> S_SCMD_AADIVDROP) & M_SCMD_AADIVDROP)
++#define F_SCMD_AADIVDROP V_SCMD_AADIVDROP(1U)
++
++/* HdrLength - Length of all headers excluding TLS header
++ * present before start of crypto PDU/payload.
++ */
++#define S_SCMD_HDR_LEN  0
++#define M_SCMD_HDR_LEN  0x3fff
++#define V_SCMD_HDR_LEN(x)   ((x) << S_SCMD_HDR_LEN)
++#define G_SCMD_HDR_LEN(x)   \
++	(((x) >> S_SCMD_HDR_LEN) & M_SCMD_HDR_LEN)
++
++struct cpl_tx_sec_pdu {
++	__be32 op_ivinsrtofst;
++	__be32 pldlen;
++	__be32 aadstart_cipherstop_hi;
++	__be32 cipherstop_lo_authinsert;
++	__be32 seqno_numivs;
++	__be32 ivgen_hdrlen;
++	__be64 scmd1;
 +};
 +
-+struct ablk_ctx {
-+	u8 enc;
-+	unsigned int processed_len;
-+	__be32 key_ctx_hdr;
-+	unsigned int enckey_len;
-+	unsigned int dst_nents;
-+	struct scatterlist iv_sg;
-+	u8 key[CHCR_AES_MAX_KEY_LEN];
-+	u8 iv[CHCR_MAX_CRYPTO_IV_LEN];
-+	unsigned char ciph_mode;
++#define S_CPL_TX_SEC_PDU_OPCODE     24
++#define M_CPL_TX_SEC_PDU_OPCODE     0xff
++#define V_CPL_TX_SEC_PDU_OPCODE(x)  ((x) << S_CPL_TX_SEC_PDU_OPCODE)
++#define G_CPL_TX_SEC_PDU_OPCODE(x)  \
++	(((x) >> S_CPL_TX_SEC_PDU_OPCODE) & M_CPL_TX_SEC_PDU_OPCODE)
++
++/* RX Channel Id */
++#define S_CPL_TX_SEC_PDU_RXCHID  22
++#define M_CPL_TX_SEC_PDU_RXCHID  0x1
++#define V_CPL_TX_SEC_PDU_RXCHID(x)   ((x) << S_CPL_TX_SEC_PDU_RXCHID)
++#define G_CPL_TX_SEC_PDU_RXCHID(x)   \
++	(((x) >> S_CPL_TX_SEC_PDU_RXCHID) & M_CPL_TX_SEC_PDU_RXCHID)
++#define F_CPL_TX_SEC_PDU_RXCHID  V_CPL_TX_SEC_PDU_RXCHID(1U)
++
++/* Ack Follows */
++#define S_CPL_TX_SEC_PDU_ACKFOLLOWS  21
++#define M_CPL_TX_SEC_PDU_ACKFOLLOWS  0x1
++#define V_CPL_TX_SEC_PDU_ACKFOLLOWS(x)   ((x) << S_CPL_TX_SEC_PDU_ACKFOLLOWS)
++#define G_CPL_TX_SEC_PDU_ACKFOLLOWS(x)   \
++	(((x) >> S_CPL_TX_SEC_PDU_ACKFOLLOWS) & M_CPL_TX_SEC_PDU_ACKFOLLOWS)
++#define F_CPL_TX_SEC_PDU_ACKFOLLOWS  V_CPL_TX_SEC_PDU_ACKFOLLOWS(1U)
++
++/* Loopback bit in cpl_tx_sec_pdu */
++#define S_CPL_TX_SEC_PDU_ULPTXLPBK  20
++#define M_CPL_TX_SEC_PDU_ULPTXLPBK  0x1
++#define V_CPL_TX_SEC_PDU_ULPTXLPBK(x)   ((x) << S_CPL_TX_SEC_PDU_ULPTXLPBK)
++#define G_CPL_TX_SEC_PDU_ULPTXLPBK(x)   \
++	(((x) >> S_CPL_TX_SEC_PDU_ULPTXLPBK) & M_CPL_TX_SEC_PDU_ULPTXLPBK)
++#define F_CPL_TX_SEC_PDU_ULPTXLPBK  V_CPL_TX_SEC_PDU_ULPTXLPBK(1U)
++
++/* Length of cpl header encapsulated */
++#define S_CPL_TX_SEC_PDU_CPLLEN     16
++#define M_CPL_TX_SEC_PDU_CPLLEN     0xf
++#define V_CPL_TX_SEC_PDU_CPLLEN(x)  ((x) << S_CPL_TX_SEC_PDU_CPLLEN)
++#define G_CPL_TX_SEC_PDU_CPLLEN(x)  \
++	(((x) >> S_CPL_TX_SEC_PDU_CPLLEN) & M_CPL_TX_SEC_PDU_CPLLEN)
++
++/* PlaceHolder */
++#define S_CPL_TX_SEC_PDU_PLACEHOLDER    10
++#define M_CPL_TX_SEC_PDU_PLACEHOLDER    0x1
++#define V_CPL_TX_SEC_PDU_PLACEHOLDER(x) ((x) << S_CPL_TX_SEC_PDU_PLACEHOLDER)
++#define G_CPL_TX_SEC_PDU_PLACEHOLDER(x) \
++	(((x) >> S_CPL_TX_SEC_PDU_PLACEHOLDER) & \
++	 M_CPL_TX_SEC_PDU_PLACEHOLDER)
++
++/* IvInsrtOffset: Insertion location for IV */
++#define S_CPL_TX_SEC_PDU_IVINSRTOFST    0
++#define M_CPL_TX_SEC_PDU_IVINSRTOFST    0x3ff
++#define V_CPL_TX_SEC_PDU_IVINSRTOFST(x) ((x) << S_CPL_TX_SEC_PDU_IVINSRTOFST)
++#define G_CPL_TX_SEC_PDU_IVINSRTOFST(x) \
++	(((x) >> S_CPL_TX_SEC_PDU_IVINSRTOFST) & \
++	 M_CPL_TX_SEC_PDU_IVINSRTOFST)
++
++/* AadStartOffset: Offset in bytes for AAD start from
++ * the first byte following the pkt headers (0-255 bytes)
++ */
++#define S_CPL_TX_SEC_PDU_AADSTART   24
++#define M_CPL_TX_SEC_PDU_AADSTART   0xff
++#define V_CPL_TX_SEC_PDU_AADSTART(x)    ((x) << S_CPL_TX_SEC_PDU_AADSTART)
++#define G_CPL_TX_SEC_PDU_AADSTART(x)    \
++	(((x) >> S_CPL_TX_SEC_PDU_AADSTART) & \
++	 M_CPL_TX_SEC_PDU_AADSTART)
++
++/* AadStopOffset: offset in bytes for AAD stop/end from the first byte following
++ * the pkt headers (0-511 bytes)
++ */
++#define S_CPL_TX_SEC_PDU_AADSTOP    15
++#define M_CPL_TX_SEC_PDU_AADSTOP    0x1ff
++#define V_CPL_TX_SEC_PDU_AADSTOP(x) ((x) << S_CPL_TX_SEC_PDU_AADSTOP)
++#define G_CPL_TX_SEC_PDU_AADSTOP(x) \
++	(((x) >> S_CPL_TX_SEC_PDU_AADSTOP) & M_CPL_TX_SEC_PDU_AADSTOP)
++
++/* CipherStartOffset: offset in bytes for encryption/decryption start from the
++ * first byte following the pkt headers (0-1023 bytes)
++ */
++#define S_CPL_TX_SEC_PDU_CIPHERSTART    5
++#define M_CPL_TX_SEC_PDU_CIPHERSTART    0x3ff
++#define V_CPL_TX_SEC_PDU_CIPHERSTART(x) ((x) << S_CPL_TX_SEC_PDU_CIPHERSTART)
++#define G_CPL_TX_SEC_PDU_CIPHERSTART(x) \
++	(((x) >> S_CPL_TX_SEC_PDU_CIPHERSTART) & \
++	 M_CPL_TX_SEC_PDU_CIPHERSTART)
++
++/* CipherStopOffset: offset in bytes for encryption/decryption end
++ * from end of the payload of this command (0-511 bytes)
++ */
++#define S_CPL_TX_SEC_PDU_CIPHERSTOP_HI      0
++#define M_CPL_TX_SEC_PDU_CIPHERSTOP_HI      0x1f
++#define V_CPL_TX_SEC_PDU_CIPHERSTOP_HI(x)   \
++	((x) << S_CPL_TX_SEC_PDU_CIPHERSTOP_HI)
++#define G_CPL_TX_SEC_PDU_CIPHERSTOP_HI(x)   \
++	(((x) >> S_CPL_TX_SEC_PDU_CIPHERSTOP_HI) & \
++	 M_CPL_TX_SEC_PDU_CIPHERSTOP_HI)
++
++#define S_CPL_TX_SEC_PDU_CIPHERSTOP_LO      28
++#define M_CPL_TX_SEC_PDU_CIPHERSTOP_LO      0xf
++#define V_CPL_TX_SEC_PDU_CIPHERSTOP_LO(x)   \
++	((x) << S_CPL_TX_SEC_PDU_CIPHERSTOP_LO)
++#define G_CPL_TX_SEC_PDU_CIPHERSTOP_LO(x)   \
++	(((x) >> S_CPL_TX_SEC_PDU_CIPHERSTOP_LO) & \
++	 M_CPL_TX_SEC_PDU_CIPHERSTOP_LO)
++
++/* AuthStartOffset: offset in bytes for authentication start from
++ * the first byte following the pkt headers (0-1023)
++ */
++#define S_CPL_TX_SEC_PDU_AUTHSTART  18
++#define M_CPL_TX_SEC_PDU_AUTHSTART  0x3ff
++#define V_CPL_TX_SEC_PDU_AUTHSTART(x)   ((x) << S_CPL_TX_SEC_PDU_AUTHSTART)
++#define G_CPL_TX_SEC_PDU_AUTHSTART(x)   \
++	(((x) >> S_CPL_TX_SEC_PDU_AUTHSTART) & \
++	 M_CPL_TX_SEC_PDU_AUTHSTART)
++
++/* AuthStopOffset: offset in bytes for authentication
++ * end from end of the payload of this command (0-511 Bytes)
++ */
++#define S_CPL_TX_SEC_PDU_AUTHSTOP   9
++#define M_CPL_TX_SEC_PDU_AUTHSTOP   0x1ff
++#define V_CPL_TX_SEC_PDU_AUTHSTOP(x)    ((x) << S_CPL_TX_SEC_PDU_AUTHSTOP)
++#define G_CPL_TX_SEC_PDU_AUTHSTOP(x)    \
++	(((x) >> S_CPL_TX_SEC_PDU_AUTHSTOP) & \
++	 M_CPL_TX_SEC_PDU_AUTHSTOP)
++
++/* AuthInsrtOffset: offset in bytes for authentication insertion
++ * from end of the payload of this command (0-511 bytes)
++ */
++#define S_CPL_TX_SEC_PDU_AUTHINSERT 0
++#define M_CPL_TX_SEC_PDU_AUTHINSERT 0x1ff
++#define V_CPL_TX_SEC_PDU_AUTHINSERT(x)  ((x) << S_CPL_TX_SEC_PDU_AUTHINSERT)
++#define G_CPL_TX_SEC_PDU_AUTHINSERT(x)  \
++	(((x) >> S_CPL_TX_SEC_PDU_AUTHINSERT) & \
++	 M_CPL_TX_SEC_PDU_AUTHINSERT)
++
++struct cpl_rx_phys_dsgl {
++	__be32 op_to_tid;
++	__be32 pcirlxorder_to_noofsgentr;
++	struct rss_header rss_hdr_int;
 +};
 +
-+struct hmac_ctx {
-+	struct shash_desc *desc;
-+	u8 ipad[CHCR_HASH_MAX_BLOCK_SIZE_128];
-+	u8 opad[CHCR_HASH_MAX_BLOCK_SIZE_128];
++#define S_CPL_RX_PHYS_DSGL_OPCODE       24
++#define M_CPL_RX_PHYS_DSGL_OPCODE       0xff
++#define V_CPL_RX_PHYS_DSGL_OPCODE(x)    ((x) << S_CPL_RX_PHYS_DSGL_OPCODE)
++#define G_CPL_RX_PHYS_DSGL_OPCODE(x)    \
++	(((x) >> S_CPL_RX_PHYS_DSGL_OPCODE) & M_CPL_RX_PHYS_DSGL_OPCODE)
++
++#define S_CPL_RX_PHYS_DSGL_ISRDMA       23
++#define M_CPL_RX_PHYS_DSGL_ISRDMA       0x1
++#define V_CPL_RX_PHYS_DSGL_ISRDMA(x)    ((x) << S_CPL_RX_PHYS_DSGL_ISRDMA)
++#define G_CPL_RX_PHYS_DSGL_ISRDMA(x)    \
++	(((x) >> S_CPL_RX_PHYS_DSGL_ISRDMA) & M_CPL_RX_PHYS_DSGL_ISRDMA)
++#define F_CPL_RX_PHYS_DSGL_ISRDMA       V_CPL_RX_PHYS_DSGL_ISRDMA(1U)
++
++#define S_CPL_RX_PHYS_DSGL_RSVD1        20
++#define M_CPL_RX_PHYS_DSGL_RSVD1        0x7
++#define V_CPL_RX_PHYS_DSGL_RSVD1(x)     ((x) << S_CPL_RX_PHYS_DSGL_RSVD1)
++#define G_CPL_RX_PHYS_DSGL_RSVD1(x)     \
++	(((x) >> S_CPL_RX_PHYS_DSGL_RSVD1) & \
++	 M_CPL_RX_PHYS_DSGL_RSVD1)
++
++#define S_CPL_RX_PHYS_DSGL_PCIRLXORDER          31
++#define M_CPL_RX_PHYS_DSGL_PCIRLXORDER          0x1
++#define V_CPL_RX_PHYS_DSGL_PCIRLXORDER(x)       \
++	((x) << S_CPL_RX_PHYS_DSGL_PCIRLXORDER)
++#define G_CPL_RX_PHYS_DSGL_PCIRLXORDER(x)       \
++	(((x) >> S_CPL_RX_PHYS_DSGL_PCIRLXORDER) & \
++	 M_CPL_RX_PHYS_DSGL_PCIRLXORDER)
++#define F_CPL_RX_PHYS_DSGL_PCIRLXORDER  V_CPL_RX_PHYS_DSGL_PCIRLXORDER(1U)
++
++#define S_CPL_RX_PHYS_DSGL_PCINOSNOOP           30
++#define M_CPL_RX_PHYS_DSGL_PCINOSNOOP           0x1
++#define V_CPL_RX_PHYS_DSGL_PCINOSNOOP(x)        \
++	((x) << S_CPL_RX_PHYS_DSGL_PCINOSNOOP)
++#define G_CPL_RX_PHYS_DSGL_PCINOSNOOP(x)        \
++	(((x) >> S_CPL_RX_PHYS_DSGL_PCINOSNOOP) & \
++	 M_CPL_RX_PHYS_DSGL_PCINOSNOOP)
++
++#define F_CPL_RX_PHYS_DSGL_PCINOSNOOP   V_CPL_RX_PHYS_DSGL_PCINOSNOOP(1U)
++
++#define S_CPL_RX_PHYS_DSGL_PCITPHNTENB          29
++#define M_CPL_RX_PHYS_DSGL_PCITPHNTENB          0x1
++#define V_CPL_RX_PHYS_DSGL_PCITPHNTENB(x)       \
++	((x) << S_CPL_RX_PHYS_DSGL_PCITPHNTENB)
++#define G_CPL_RX_PHYS_DSGL_PCITPHNTENB(x)       \
++	(((x) >> S_CPL_RX_PHYS_DSGL_PCITPHNTENB) & \
++	 M_CPL_RX_PHYS_DSGL_PCITPHNTENB)
++#define F_CPL_RX_PHYS_DSGL_PCITPHNTENB  V_CPL_RX_PHYS_DSGL_PCITPHNTENB(1U)
++
++#define S_CPL_RX_PHYS_DSGL_PCITPHNT     27
++#define M_CPL_RX_PHYS_DSGL_PCITPHNT     0x3
++#define V_CPL_RX_PHYS_DSGL_PCITPHNT(x)  ((x) << S_CPL_RX_PHYS_DSGL_PCITPHNT)
++#define G_CPL_RX_PHYS_DSGL_PCITPHNT(x)  \
++	(((x) >> S_CPL_RX_PHYS_DSGL_PCITPHNT) & \
++	 M_CPL_RX_PHYS_DSGL_PCITPHNT)
++
++#define S_CPL_RX_PHYS_DSGL_DCAID        16
++#define M_CPL_RX_PHYS_DSGL_DCAID        0x7ff
++#define V_CPL_RX_PHYS_DSGL_DCAID(x)     ((x) << S_CPL_RX_PHYS_DSGL_DCAID)
++#define G_CPL_RX_PHYS_DSGL_DCAID(x)     \
++	(((x) >> S_CPL_RX_PHYS_DSGL_DCAID) & \
++	 M_CPL_RX_PHYS_DSGL_DCAID)
++
++#define S_CPL_RX_PHYS_DSGL_NOOFSGENTR           0
++#define M_CPL_RX_PHYS_DSGL_NOOFSGENTR           0xffff
++#define V_CPL_RX_PHYS_DSGL_NOOFSGENTR(x)        \
++	((x) << S_CPL_RX_PHYS_DSGL_NOOFSGENTR)
++#define G_CPL_RX_PHYS_DSGL_NOOFSGENTR(x)        \
++	(((x) >> S_CPL_RX_PHYS_DSGL_NOOFSGENTR) & \
++	 M_CPL_RX_PHYS_DSGL_NOOFSGENTR)
++
+ #endif  /* __T4_MSG_H */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 392d664..76008f3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -102,6 +102,7 @@ enum fw_wr_opcodes {
+ 	FW_RI_FR_NSMR_WR               = 0x19,
+ 	FW_RI_INV_LSTAG_WR             = 0x1a,
+ 	FW_ISCSI_TX_DATA_WR	       = 0x45,
++	FW_CRYPTO_LOOKASIDE_WR         = 0X6d,
+ 	FW_LASTC2E_WR                  = 0x70
+ };
+ 
+@@ -1033,6 +1034,11 @@ enum fw_caps_config_iscsi {
+ 	FW_CAPS_CONFIG_ISCSI_TARGET_CNXOFLD = 0x00000008,
+ };
+ 
++enum fw_caps_config_crypto {
++	FW_CAPS_CONFIG_CRYPTO_LOOKASIDE = 0x00000001,
++	FW_CAPS_CONFIG_TLSKEYS = 0x00000002,
 +};
 +
-+struct __crypto_ctx {
-+	struct hmac_ctx hmacctx[0];
-+	struct ablk_ctx ablkctx[0];
+ enum fw_caps_config_fcoe {
+ 	FW_CAPS_CONFIG_FCOE_INITIATOR	= 0x00000001,
+ 	FW_CAPS_CONFIG_FCOE_TARGET	= 0x00000002,
+@@ -1060,7 +1066,7 @@ struct fw_caps_config_cmd {
+ 	__be16 niccaps;
+ 	__be16 ofldcaps;
+ 	__be16 rdmacaps;
+-	__be16 r4;
++	__be16 cryptocaps;
+ 	__be16 iscsicaps;
+ 	__be16 fcoecaps;
+ 	__be32 cfcsum;
+@@ -3243,4 +3249,127 @@ struct fw_devlog_cmd {
+ #define PCIE_FW_PF_DEVLOG_MEMTYPE_G(x) \
+ 	(((x) >> PCIE_FW_PF_DEVLOG_MEMTYPE_S) & PCIE_FW_PF_DEVLOG_MEMTYPE_M)
+ 
++#define MAX_IMM_OFLD_TX_DATA_WR_LEN (0xff + sizeof(struct fw_ofld_tx_data_wr))
++
++struct fw_crypto_lookaside_wr {
++	__be32 op_to_cctx_size;
++	__be32 len16_pkd;
++	__be32 session_id;
++	__be32 rx_chid_to_rx_q_id;
++	__be32 key_addr;
++	__be32 pld_size_hash_size;
++	__be64 cookie;
 +};
 +
-+struct chcr_context {
-+	struct chcr_dev *dev;
-+	unsigned char tx_channel_id;
-+	struct __crypto_ctx crypto_ctx[0];
-+};
++#define S_FW_CRYPTO_LOOKASIDE_WR_OPCODE 24
++#define M_FW_CRYPTO_LOOKASIDE_WR_OPCODE 0xff
++#define V_FW_CRYPTO_LOOKASIDE_WR_OPCODE(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_OPCODE)
++#define G_FW_CRYPTO_LOOKASIDE_WR_OPCODE(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_OPCODE) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_OPCODE)
 +
-+struct chcr_ahash_req_ctx {
-+	u32 result;
-+	char bfr[CHCR_HASH_MAX_BLOCK_SIZE_128];
-+	u8 bfr_len;
-+	/* DMA the partial hash in it */
-+	u8 partial_hash[CHCR_HASH_MAX_DIGEST_SIZE];
-+	u64 data_len;  /* Data len till time */
-+	void *dummy_payload_ptr;
-+	/* SKB which is being sent to the hardware for processing */
-+	struct sk_buff *skb;
-+};
++#define S_FW_CRYPTO_LOOKASIDE_WR_COMPL 23
++#define M_FW_CRYPTO_LOOKASIDE_WR_COMPL 0x1
++#define V_FW_CRYPTO_LOOKASIDE_WR_COMPL(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_COMPL)
++#define G_FW_CRYPTO_LOOKASIDE_WR_COMPL(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_COMPL) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_COMPL)
++#define F_FW_CRYPTO_LOOKASIDE_WR_COMPL V_FW_CRYPTO_LOOKASIDE_WR_COMPL(1U)
 +
-+struct chcr_blkcipher_req_ctx {
-+	struct sk_buff *skb;
-+};
++#define S_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN 15
++#define M_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN 0xff
++#define V_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN)
++#define G_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_IMM_LEN)
 +
-+struct chcr_alg_template {
-+	u32 type;
-+	u32 is_registered;
-+	union {
-+		struct crypto_alg crypto;
-+		struct ahash_alg hash;
-+	} alg;
-+};
++#define S_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC 5
++#define M_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC 0x3
++#define V_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC)
++#define G_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC)
 +
-+struct chcr_req_ctx {
-+	union {
-+		struct ahash_request *ahash_req;
-+		struct ablkcipher_request *ablk_req;
-+	} req;
-+	union {
-+		struct chcr_ahash_req_ctx *ahash_ctx;
-+		struct chcr_blkcipher_req_ctx *ablk_ctx;
-+	} ctx;
-+};
++#define S_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE 0
++#define M_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE 0x1f
++#define V_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE)
++#define G_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE)
 +
-+struct sge_opaque_hdr {
-+	void *dev;
-+	dma_addr_t addr[MAX_SKB_FRAGS + 1];
-+};
++#define S_FW_CRYPTO_LOOKASIDE_WR_LEN16 0
++#define M_FW_CRYPTO_LOOKASIDE_WR_LEN16 0xff
++#define V_FW_CRYPTO_LOOKASIDE_WR_LEN16(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_LEN16)
++#define G_FW_CRYPTO_LOOKASIDE_WR_LEN16(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_LEN16) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_LEN16)
 +
-+typedef struct sk_buff *(*create_wr_t)(struct crypto_async_request *req,
-+				       struct chcr_context *ctx,
-+				       unsigned short qid,
-+				       unsigned short op_type);
++#define S_FW_CRYPTO_LOOKASIDE_WR_RX_CHID 29
++#define M_FW_CRYPTO_LOOKASIDE_WR_RX_CHID 0x3
++#define V_FW_CRYPTO_LOOKASIDE_WR_RX_CHID(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_RX_CHID)
++#define G_FW_CRYPTO_LOOKASIDE_WR_RX_CHID(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_RX_CHID) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_RX_CHID)
 +
-+#endif /* __CHCR_CRYPTO_H__ */
++#define S_FW_CRYPTO_LOOKASIDE_WR_LCB  27
++#define M_FW_CRYPTO_LOOKASIDE_WR_LCB  0x3
++#define V_FW_CRYPTO_LOOKASIDE_WR_LCB(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_LCB)
++#define G_FW_CRYPTO_LOOKASIDE_WR_LCB(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_LCB) & M_FW_CRYPTO_LOOKASIDE_WR_LCB)
 +
++#define S_FW_CRYPTO_LOOKASIDE_WR_PHASH 25
++#define M_FW_CRYPTO_LOOKASIDE_WR_PHASH 0x3
++#define V_FW_CRYPTO_LOOKASIDE_WR_PHASH(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_PHASH)
++#define G_FW_CRYPTO_LOOKASIDE_WR_PHASH(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_PHASH) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_PHASH)
++
++#define S_FW_CRYPTO_LOOKASIDE_WR_IV   23
++#define M_FW_CRYPTO_LOOKASIDE_WR_IV   0x3
++#define V_FW_CRYPTO_LOOKASIDE_WR_IV(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_IV)
++#define G_FW_CRYPTO_LOOKASIDE_WR_IV(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_IV) & M_FW_CRYPTO_LOOKASIDE_WR_IV)
++
++#define S_FW_CRYPTO_LOOKASIDE_WR_TX_CH 10
++#define M_FW_CRYPTO_LOOKASIDE_WR_TX_CH 0x3
++#define V_FW_CRYPTO_LOOKASIDE_WR_TX_CH(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_TX_CH)
++#define G_FW_CRYPTO_LOOKASIDE_WR_TX_CH(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_TX_CH) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_TX_CH)
++
++#define S_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID 0
++#define M_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID 0x3ff
++#define V_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID)
++#define G_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID)
++
++#define S_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE 24
++#define M_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE 0xff
++#define V_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE)
++#define G_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE)
++
++#define S_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE 17
++#define M_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE 0x7f
++#define V_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE(x) \
++	((x) << S_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE)
++#define G_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE(x) \
++	(((x) >> S_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE) & \
++	 M_FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE)
++
+ #endif /* _T4FW_INTERFACE_H_ */
 -- 
 1.7.10.1
