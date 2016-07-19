@@ -1,57 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 10/12] net: dsa: support switchdev ageing time
- attr
-Date: Mon, 18 Jul 2016 21:26:00 -0700
-Message-ID: <ec4db799-a764-d029-80fb-9a56338f7bc5@gmail.com>
-References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
- <20160719004540.1066-11-vivien.didelot@savoirfairelinux.com>
- <20160719032415.GD9111@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 00/30] Kernel NET policy
+Date: Mon, 18 Jul 2016 22:03:42 -0700 (PDT)
+Message-ID: <20160718.220342.805963245855552246.davem@davemloft.net>
+References: <20160718194357.GL5871@two.firstfloor.org>
+	<1468878674.1778899.669950273.69750E32@webmail.messagingengine.com>
+	<37D7C6CF3E00A74B8858931C1DB2F07712C19A4A@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160719032415.GD9111@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, andi@firstfloor.org, fw@strlen.de,
+	linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, jesse.brandeburg@intel.com
+To: kan.liang@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53368 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280AbcGSFDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:03:46 -0400
+In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F07712C19A4A@SHSMSX103.ccr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 18/07/2016 =C3=A0 20:24, Andrew Lunn a =C3=A9crit :
-> On Mon, Jul 18, 2016 at 08:45:38PM -0400, Vivien Didelot wrote:
->> Add a new function for DSA drivers to handle the switchdev
->> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
->>
->> The ageing time is passed as milliseconds.
->>
->> Also because we can have multiple logical bridges on top of a physic=
-al
->> switch and ageing time are switch-wide, call the driver function wit=
-h
->> the fastest ageing time in use on the chip instead of the requested =
-one.
->>
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->>  include/net/dsa.h |  2 ++
->>  net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
->=20
+From: "Liang, Kan" <kan.liang@intel.com>
+Date: Tue, 19 Jul 2016 01:49:41 +0000
 
-Hi Andrew,
+> Yes, rtnl will bring some overheads. But the configuration is one
+> time thing for application or socket. It only happens on receiving
+> first packet.
 
-> Hi Florian
->=20
-> It looks like the SF2 can do fast ageing per port. What i don't see i=
-f
-> what configuration options you have. Can you get the fast and the
-> normal age time per port? Or is it global?
+Thanks for destroying our connection rates.
 
-The normal ageing is global and the value needs to be programmed in
-seconds, can can range from 10 to 1,048,575 (encoded on 20 bits). The
-fast-ageing can actually be per-port, per-VLAN id, for just dynamic or
-static entries etc. and is just a poor name for a flush based on any of
-these criteria.
---=20
-=46lorian
+This kind of overhead is simply unacceptable.
