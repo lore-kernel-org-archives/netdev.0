@@ -1,106 +1,51 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth-next 2016-07-19
-Date: Tue, 19 Jul 2016 09:14:52 +0300
-Message-ID: <20160719061452.GA21654@t440s.P-661HNU-F1>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
+Date: Tue, 19 Jul 2016 08:20:09 +0200
+Message-ID: <1468909209.2178.0.camel@suse.com>
+References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com>
+	 <1468846886.2280.6.camel@suse.com>
+	 <CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
+	 <1468849802.2280.11.camel@suse.com>
+	 <CAKfDRXjaSz25_b8Na46DJEDvGUsZ-Xye+Rn2+o6Hy0EcuOopkA@mail.gmail.com>
+	 <1468851242.2280.14.camel@suse.com>
+	 <CAKfDRXiK82ULw7RnRGdFwzad8NOfnwZN0vqv=08Tf+cNSdyd2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YZ5djTAD1cGYuMQK"
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mchehab-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKfDRXiK82ULw7RnRGdFwzad8NOfnwZN0vqv=08Tf+cNSdyd2g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2016-07-18 at 17:04 +0200, Kristian Evensen wrote:
+> On Mon, Jul 18, 2016 at 4:14 PM, Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org> wrote:
+> >> Ok, sounds good. So far, I have only seen the random MAC issue with
+> >> the three previously mentioned devices, but who knows how many else is
+> >> out there with the same error ... I don't think it should be in the
+> >> core ethernet code, at least not yet, but I agree it would make sense
+> >> to move it to for example usbnet_core(). If you agree, I can prepare a
+> >> patch for it.
+> >
+> > I don't see how it would be specific for a subsystem. If the patch
+> > is correct, it belongs into the networking core.
+> 
+> I had a look at some other drivers, and I think we need to be very
+> careful about making setting a random MAC too generic. For example, we
+> might be unlucky and break the possibly_iphdr()-code/assumption in
+> qmi_wwan.c. And there is probably more code/assumptions like that in
+> the network stack.
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In this case please use special cases for usbnet, too.
+We need a quirk.
 
-Hi Dave,
+	Regards
+		Oliver
 
-Here's likely the last bluetooth-next pull request for the 4.8 kernel:
 
- - Fix for L2CAP setsockopt
- - Fix for is_suspending flag handling in btmrvl driver
- - Addition of Bluetooth HW & FW info fields to debugfs
- - Fix to use int instead of char for callback status.
-
-The last one (from Geert Uytterhoeven) is actually not purely a
-Bluetooth (or 802.15.4) patch, but it was agreed with other maintainers
-that we take it through the bluetooth-next tree.
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
----
-The following changes since commit 858d68f10238fdd1ebdd0096f912f063e97c6766:
-
-  bpf: bpf_event_entry_gen's alloc needs to be in atomic context (2016-07-1=
-6 22:03:39 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.gi=
-t for-upstream
-
-for you to fetch changes up to e7acf43024e95faa7460e77fe7e0fec2a3de582a:
-
-  Bluetooth: btmrvl: reset is_suspending flag in failure path (2016-07-18 1=
-0:13:02 +0200)
-
-----------------------------------------------------------------
-Amadeusz S=C5=82awi=C5=84ski (1):
-      Bluetooth: Fix l2cap_sock_setsockopt() with optname BT_RCVMTU
-
-Amitkumar Karwar (1):
-      Bluetooth: btmrvl: reset is_suspending flag in failure path
-
-Geert Uytterhoeven (1):
-      drivers: misc: ti-st: Use int instead of fuzzy char for callback stat=
-us
-
-Marcel Holtmann (3):
-      Bluetooth: Move hci_recv_frame and hci_recv_diag prototypes
-      Bluetooth: Add debugfs fields for hardware and firmware info
-      Bluetooth: bpa10x: Add support for hci_set_fw_info
-
- drivers/bluetooth/bpa10x.c                |  2 ++
- drivers/bluetooth/btmrvl_sdio.c           |  1 +
- drivers/bluetooth/btwilink.c              |  4 ++--
- drivers/media/radio/wl128x/fmdrv_common.c |  2 +-
- drivers/misc/ti-st/st_core.c              |  2 +-
- drivers/nfc/nfcwilink.c                   |  4 ++--
- include/linux/ti_wilink_st.h              |  2 +-
- include/net/bluetooth/hci_core.h          |  9 +++++---
- net/bluetooth/hci_core.c                  | 24 ++++++++++++++++++++
- net/bluetooth/hci_debugfs.c               | 35 +++++++++++++++++++++++++++=
-++
- net/bluetooth/l2cap_sock.c                |  2 +-
- 11 files changed, 76 insertions(+), 11 deletions(-)
-
---YZ5djTAD1cGYuMQK
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXjcVbAAoJECQj9vv5qNQS8yAQALzTdSLNo9h9AI7ORLU7Nonc
-8iVqxjSSpXeHJujFnp2bN4GfWL5N9O+eMpHLnyRoOL42diyGlqWk5525kmIe8jol
-VmjvfoDJSMkb01j3vIbABM9Rdl0Na/CihpeDV+44BUDG4dM7Dlmp5Dxr6j0JNXZw
-uatoxcCgbSCF8si1RGa9+5d9ugHGMLF15DkFelXGd4VPpGdlLE8793+OFTB48Y76
-hozh29gzl9CnBjKQC3jAGFKK2KsjfbXNQZqLBxxol5fX20Jt+7hAd/g+fbh2cFeB
-jK14ajDFUyH4Y1AvkAUAk5EGKVCxcdKlwNG/7lpEODeiFPHe0wjNrOtbXgGLiGur
-E7abg13XyxJe3rrpwkASFUe2cmBVvE5rYwMT0gcYyFo2/sw0QY0mc2WEG0lnKiXk
-A8WLZ1Yh6FW3AXGpvr5wo9wZB15dZ+NJ/zW/H4OGjCKHRNf7wUOakm9tg71mw+VB
-fONGVON1vngC+Myo7eczzubOUk0X1ht3wAMfs7XIpcf+qL+5ZyMWzMyaV8TdzzkA
-bj0g8YN5Rqu9YuxpgQqCxrEyTRJ0rCvtUgwPM2QIMBXw3S68+Hj9NAYCR4HUz099
-5uP1Y+1Xk5N6Crt5JQZ1Uy+xQV2HE+F5Eoi6BMr5JjafatLDDAUrrWhsEshYBU0Q
-b4skEPGNqR+0N4LsP5KT
-=OvTm
------END PGP SIGNATURE-----
-
---YZ5djTAD1cGYuMQK--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
