@@ -1,65 +1,117 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
-Date: Tue, 19 Jul 2016 13:06:36 +0200
-Message-ID: <CAKfDRXjmmT53Abm9TgXtOUgOThiQ9+MMVB6_DkL1M2upNJG1Rw@mail.gmail.com>
-References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com>
- <1468846886.2280.6.camel@suse.com> <CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
- <1468849802.2280.11.camel@suse.com> <CAKfDRXjaSz25_b8Na46DJEDvGUsZ-Xye+Rn2+o6Hy0EcuOopkA@mail.gmail.com>
- <1468851242.2280.14.camel@suse.com> <CAKfDRXiK82ULw7RnRGdFwzad8NOfnwZN0vqv=08Tf+cNSdyd2g@mail.gmail.com>
- <1468909209.2178.0.camel@suse.com> <CAKfDRXjzgd58kS-MzUsZAsD66VCa5=qyqaLr_eZSm-XphxA7Mw@mail.gmail.com>
- <52d1cd85-8bdc-c8ed-7a2c-460cefe7f0d5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Oliver Neukum <oneukum@suse.com>, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>
-To: Lars Melin <larsm17@gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH stable-4.1 v2] netfilter: x_tables: fix stable backport
+Date: Tue, 19 Jul 2016 13:07:16 +0200 (CEST)
+Message-ID: <20160719110716.C5910A0EB7@unicorn.suse.cz>
+References: <20160719063308.EDD42A0B22@unicorn.suse.cz>
+Cc: stable@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	Takashi Iwai <tiwai@suse.de>
+To: Sasha Levin <sasha.levin@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34507 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752698AbcGSLGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 07:06:39 -0400
-In-Reply-To: <52d1cd85-8bdc-c8ed-7a2c-460cefe7f0d5@gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:45010 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753061AbcGSLHT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2016 07:07:19 -0400
+In-Reply-To: <20160719063308.EDD42A0B22@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Lars,
+Stable-4.1 backport of mainline commit 364723410175 ("netfilter:
+x_tables: validate targets of jumps") doesn't handle correctly the fact
+that 4.1 kernel is missing commit 482cfc318559 ("netfilter: xtables:
+avoid percpu ruleset duplication") so that t->entries is still a per-cpu
+array in find_jump_target().
 
-On Tue, Jul 19, 2016 at 10:30 AM, Lars Melin <larsm17@gmail.com> wrote:
-> On 2016-07-19 13:40, Kristian Evensen wrote:
->
->> I guess I can match on the VID/PID in usbnet, but won't it be cleaner
->> to add a new bind() function (in cdc_ether) which matches the two PIDs
->> and leave usbnet as is? Or am I misunderstanding how to add this
->> functionality to usbnet?
->>
->
-> Matching on the usb id is probably not a great idea, there is more id's
-> than the two you have found and there is also more than two non-unique mac
-> addresses.
->
-> Example:
->
-> 0200FFAAAAAA  19d2:1589/1592/1595
-> 020CE70B0102  19d2:1040/1048/1405
->
-> You can easily find them by googling them, without colon separators you
-> will find them in verbose lsusb listings, with colons you will find them in
-> dmesg pastings.
->
-> I would probably have found more dupes if users had refrained from using the
-> stupid usbdevices cmd which removes almost all interesting info from device
-> listings in internet foras.
+Use the same fix as e.g. stable-3.14 backport.
 
-Thanks for letting me know. It seems that the static MAC behaviour is
-the default behaviour of ZTE-devices that use cdc_ether. Unless anyone
-objects, I will make the following changes for v2:
+Fixes: 8163327a3a92 ("netfilter: x_tables: validate targets of jumps")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/ipv4/netfilter/arp_tables.c | 5 +++--
+ net/ipv4/netfilter/ip_tables.c  | 5 +++--
+ net/ipv6/netfilter/ip6_tables.c | 5 +++--
+ 3 files changed, 9 insertions(+), 6 deletions(-)
 
-* Create a ZTE-specific bind method in cdc_ether that checks for a
-random MAC and generates a new MAC if found.
-* Use the ZTE-specific bind + rx fixup for all ZTE cdc_ether devices
-by default, and add exceptions if we find any devices not displaying
-this behaviour. I see there are already five ZTE devices with separate
-entries in the products-array in cdc_ether.
-
--Kristian
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 2953ee9e5fa0..49e145640ee7 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -363,11 +363,12 @@ static inline bool unconditional(const struct arpt_entry *e)
+ }
+ 
+ static bool find_jump_target(const struct xt_table_info *t,
++			     const void *entry0,
+ 			     const struct arpt_entry *target)
+ {
+ 	struct arpt_entry *iter;
+ 
+-	xt_entry_foreach(iter, t->entries, t->size) {
++	xt_entry_foreach(iter, entry0, t->size) {
+ 		 if (iter == target)
+ 			return true;
+ 	}
+@@ -469,7 +470,7 @@ static int mark_source_chains(const struct xt_table_info *newinfo,
+ 						 pos, newpos);
+ 					e = (struct arpt_entry *)
+ 						(entry0 + newpos);
+-					if (!find_jump_target(newinfo, e))
++					if (!find_jump_target(newinfo, entry0, e))
+ 						return 0;
+ 				} else {
+ 					/* ... this is a fallthru */
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 3bcf28bf1525..52a883645899 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -439,11 +439,12 @@ ipt_do_table(struct sk_buff *skb,
+ }
+ 
+ static bool find_jump_target(const struct xt_table_info *t,
++			     const void *entry0,
+ 			     const struct ipt_entry *target)
+ {
+ 	struct ipt_entry *iter;
+ 
+-	xt_entry_foreach(iter, t->entries, t->size) {
++	xt_entry_foreach(iter, entry0, t->size) {
+ 		 if (iter == target)
+ 			return true;
+ 	}
+@@ -549,7 +550,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 						 pos, newpos);
+ 					e = (struct ipt_entry *)
+ 						(entry0 + newpos);
+-					if (!find_jump_target(newinfo, e))
++					if (!find_jump_target(newinfo, entry0, e))
+ 						return 0;
+ 				} else {
+ 					/* ... this is a fallthru */
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 5254d76dfce8..b77bf6dab70c 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -452,11 +452,12 @@ ip6t_do_table(struct sk_buff *skb,
+ }
+ 
+ static bool find_jump_target(const struct xt_table_info *t,
++			     const void *entry0,
+ 			     const struct ip6t_entry *target)
+ {
+ 	struct ip6t_entry *iter;
+ 
+-	xt_entry_foreach(iter, t->entries, t->size) {
++	xt_entry_foreach(iter, entry0, t->size) {
+ 		 if (iter == target)
+ 			return true;
+ 	}
+@@ -562,7 +563,7 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 						 pos, newpos);
+ 					e = (struct ip6t_entry *)
+ 						(entry0 + newpos);
+-					if (!find_jump_target(newinfo, e))
++					if (!find_jump_target(newinfo, entry0, e))
+ 						return 0;
+ 				} else {
+ 					/* ... this is a fallthru */
+-- 
+2.9.2
