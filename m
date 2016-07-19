@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v10 12/12] bpf: add sample for xdp forwarding and rewrite
-Date: Tue, 19 Jul 2016 12:16:57 -0700
-Message-ID: <1468955817-10604-13-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v10 04/12] rtnl: add option for setting link xdp prog
+Date: Tue, 19 Jul 2016 12:16:49 -0700
+Message-ID: <1468955817-10604-5-git-send-email-bblanco@plumgrid.com>
 References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -17,186 +17,172 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Tariq Toukan <ttoukan.linux@gmail.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:32823 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751940AbcGSTRh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 15:17:37 -0400
-Received: by mail-pf0-f175.google.com with SMTP id y134so10190739pfg.0
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 12:17:37 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34518 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbcGSTR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 15:17:28 -0400
+Received: by mail-pf0-f181.google.com with SMTP id p64so10202624pfb.1
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 12:17:27 -0700 (PDT)
 In-Reply-To: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a sample that rewrites and forwards packets out on the same
-interface. Observed single core forwarding performance of ~10Mpps.
-
-Since the mlx4 driver under test recycles every single packet page, the
-perf output shows almost exclusively just the ring management and bpf
-program work. Slowdowns are likely occurring due to cache misses.
+Sets the bpf program represented by fd as an early filter in the rx path
+of the netdev. The fd must have been created as BPF_PROG_TYPE_XDP.
+Providing a negative value as fd clears the program. Getting the fd back
+via rtnl is not possible, therefore reading of this value merely
+provides a bool whether the program is valid on the link or not.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- samples/bpf/Makefile    |   5 +++
- samples/bpf/xdp2_kern.c | 114 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 119 insertions(+)
- create mode 100644 samples/bpf/xdp2_kern.c
+ include/uapi/linux/if_link.h | 12 +++++++++
+ net/core/rtnetlink.c         | 64 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 0e4ab3a..d2d2b35 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -22,6 +22,7 @@ hostprogs-y += map_perf_test
- hostprogs-y += test_overhead
- hostprogs-y += test_cgrp2_array_pin
- hostprogs-y += xdp1
-+hostprogs-y += xdp2
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 4285ac3..a1b5202 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -156,6 +156,7 @@ enum {
+ 	IFLA_GSO_MAX_SEGS,
+ 	IFLA_GSO_MAX_SIZE,
+ 	IFLA_PAD,
++	IFLA_XDP,
+ 	__IFLA_MAX
+ };
  
- test_verifier-objs := test_verifier.o libbpf.o
- test_maps-objs := test_maps.o libbpf.o
-@@ -44,6 +45,8 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
- test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
- test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
- xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
-+# reuse xdp1 source intentionally
-+xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
+@@ -843,4 +844,15 @@ enum {
+ };
+ #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
  
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -67,6 +70,7 @@ always += test_overhead_kprobe_kern.o
- always += parse_varlen.o parse_simple.o parse_ldabs.o
- always += test_cgrp2_tc_kern.o
- always += xdp1_kern.o
-+always += xdp2_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- 
-@@ -88,6 +92,7 @@ HOSTLOADLIBES_spintest += -lelf
- HOSTLOADLIBES_map_perf_test += -lelf -lrt
- HOSTLOADLIBES_test_overhead += -lelf -lrt
- HOSTLOADLIBES_xdp1 += -lelf
-+HOSTLOADLIBES_xdp2 += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/xdp2_kern.c b/samples/bpf/xdp2_kern.c
-new file mode 100644
-index 0000000..38fe7e1
---- /dev/null
-+++ b/samples/bpf/xdp2_kern.c
-@@ -0,0 +1,114 @@
-+/* Copyright (c) 2016 PLUMgrid
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#define KBUILD_MODNAME "foo"
-+#include <uapi/linux/bpf.h>
-+#include <linux/in.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_packet.h>
-+#include <linux/if_vlan.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include "bpf_helpers.h"
++/* XDP section */
 +
-+struct bpf_map_def SEC("maps") dropcnt = {
-+	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(long),
-+	.max_entries = 256,
++enum {
++	IFLA_XDP_UNSPEC,
++	IFLA_XDP_FD,
++	IFLA_XDP_ATTACHED,
++	__IFLA_XDP_MAX,
 +};
 +
-+static void swap_src_dst_mac(void *data)
++#define IFLA_XDP_MAX (__IFLA_XDP_MAX - 1)
++
+ #endif /* _UAPI_LINUX_IF_LINK_H */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a9e3805..eba2b82 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -891,6 +891,16 @@ static size_t rtnl_port_size(const struct net_device *dev,
+ 		return port_self_size;
+ }
+ 
++static size_t rtnl_xdp_size(const struct net_device *dev)
 +{
-+	unsigned short *p = data;
-+	unsigned short dst[3];
++	size_t xdp_size = nla_total_size(1);	/* XDP_ATTACHED */
 +
-+	dst[0] = p[0];
-+	dst[1] = p[1];
-+	dst[2] = p[2];
-+	p[0] = p[3];
-+	p[1] = p[4];
-+	p[2] = p[5];
-+	p[3] = dst[0];
-+	p[4] = dst[1];
-+	p[5] = dst[2];
-+}
-+
-+static int parse_ipv4(void *data, u64 nh_off, void *data_end)
-+{
-+	struct iphdr *iph = data + nh_off;
-+
-+	if (iph + 1 > data_end)
++	if (!dev->netdev_ops->ndo_xdp)
 +		return 0;
-+	return iph->protocol;
-+}
-+
-+static int parse_ipv6(void *data, u64 nh_off, void *data_end)
-+{
-+	struct ipv6hdr *ip6h = data + nh_off;
-+
-+	if (ip6h + 1 > data_end)
-+		return 0;
-+	return ip6h->nexthdr;
-+}
-+
-+SEC("xdp1")
-+int xdp_prog1(struct xdp_md *ctx)
-+{
-+	void *data_end = (void *)(long)ctx->data_end;
-+	void *data = (void *)(long)ctx->data;
-+	struct ethhdr *eth = data;
-+	int rc = XDP_DROP;
-+	long *value;
-+	u16 h_proto;
-+	u64 nh_off;
-+	u32 index;
-+
-+	nh_off = sizeof(*eth);
-+	if (data + nh_off > data_end)
-+		return rc;
-+
-+	h_proto = eth->h_proto;
-+
-+	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
-+		struct vlan_hdr *vhdr;
-+
-+		vhdr = data + nh_off;
-+		nh_off += sizeof(struct vlan_hdr);
-+		if (data + nh_off > data_end)
-+			return rc;
-+		h_proto = vhdr->h_vlan_encapsulated_proto;
-+	}
-+	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
-+		struct vlan_hdr *vhdr;
-+
-+		vhdr = data + nh_off;
-+		nh_off += sizeof(struct vlan_hdr);
-+		if (data + nh_off > data_end)
-+			return rc;
-+		h_proto = vhdr->h_vlan_encapsulated_proto;
-+	}
-+
-+	if (h_proto == htons(ETH_P_IP))
-+		index = parse_ipv4(data, nh_off, data_end);
-+	else if (h_proto == htons(ETH_P_IPV6))
-+		index = parse_ipv6(data, nh_off, data_end);
 +	else
-+		index = 0;
-+
-+	value = bpf_map_lookup_elem(&dropcnt, &index);
-+	if (value)
-+		*value += 1;
-+
-+	if (index == 17) {
-+		swap_src_dst_mac(data);
-+		rc = XDP_TX;
-+	}
-+
-+	return rc;
++		return xdp_size;
 +}
 +
-+char _license[] SEC("license") = "GPL";
+ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 				     u32 ext_filter_mask)
+ {
+@@ -927,6 +937,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
++	       + rtnl_xdp_size(dev) /* IFLA_XDP */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+ 
+ }
+@@ -1211,6 +1222,33 @@ static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
++{
++	struct netdev_xdp xdp_op = {};
++	struct nlattr *xdp;
++	int err;
++
++	if (!dev->netdev_ops->ndo_xdp)
++		return 0;
++	xdp = nla_nest_start(skb, IFLA_XDP);
++	if (!xdp)
++		return -EMSGSIZE;
++	xdp_op.command = XDP_QUERY_PROG;
++	err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
++	if (err)
++		goto err_cancel;
++	err = nla_put_u8(skb, IFLA_XDP_ATTACHED, xdp_op.prog_attached);
++	if (err)
++		goto err_cancel;
++
++	nla_nest_end(skb, xdp);
++	return 0;
++
++err_cancel:
++	nla_nest_cancel(skb, xdp);
++	return err;
++}
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -1307,6 +1345,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_port_fill(skb, dev, ext_filter_mask))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_xdp_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	if (dev->rtnl_link_ops || rtnl_have_link_slave_info(dev)) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+ 			goto nla_put_failure;
+@@ -1392,6 +1433,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
+ 	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
++	[IFLA_XDP]		= { .type = NLA_NESTED },
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+@@ -1429,6 +1471,11 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+ 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+ };
+ 
++static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
++	[IFLA_XDP_FD]		= { .type = NLA_S32 },
++	[IFLA_XDP_ATTACHED]	= { .type = NLA_U8 },
++};
++
+ static const struct rtnl_link_ops *linkinfo_to_kind_ops(const struct nlattr *nla)
+ {
+ 	const struct rtnl_link_ops *ops = NULL;
+@@ -2054,6 +2101,23 @@ static int do_setlink(const struct sk_buff *skb,
+ 		status |= DO_SETLINK_NOTIFY;
+ 	}
+ 
++	if (tb[IFLA_XDP]) {
++		struct nlattr *xdp[IFLA_XDP_MAX + 1];
++
++		err = nla_parse_nested(xdp, IFLA_XDP_MAX, tb[IFLA_XDP],
++				       ifla_xdp_policy);
++		if (err < 0)
++			goto errout;
++
++		if (xdp[IFLA_XDP_FD]) {
++			err = dev_change_xdp_fd(dev,
++						nla_get_s32(xdp[IFLA_XDP_FD]));
++			if (err)
++				goto errout;
++			status |= DO_SETLINK_NOTIFY;
++		}
++	}
++
+ errout:
+ 	if (status & DO_SETLINK_MODIFIED) {
+ 		if (status & DO_SETLINK_NOTIFY)
 -- 
 2.8.2
