@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 03/12] net: dsa: mv88e6xxx: extract device mapping
-Date: Mon, 18 Jul 2016 20:45:31 -0400
-Message-ID: <20160719004540.1066-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 10/12] net: dsa: support switchdev ageing time attr
+Date: Mon, 18 Jul 2016 20:45:38 -0400
+Message-ID: <20160719004540.1066-11-vivien.didelot@savoirfairelinux.com>
 References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -10,125 +10,107 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:34930 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:34981 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263AbcGSAps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 20:45:48 -0400
+	with ESMTP id S1752318AbcGSApz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 20:45:55 -0400
 In-Reply-To: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Device Mapping register is an indirect table access.
+Add a new function for DSA drivers to handle the switchdev
+SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
 
-Provide helpers to access this table and explicit the checking of the
-new DSA_RTABLE_NONE routing table value.
+The ageing time is passed as milliseconds.
+
+Also because we can have multiple logical bridges on top of a physical
+switch and ageing time are switch-wide, call the driver function with
+the fastest ageing time in use on the chip instead of the requested one.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 75 ++++++++++++++++++++++++++++++++--------
- 1 file changed, 60 insertions(+), 15 deletions(-)
+ include/net/dsa.h |  2 ++
+ net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 1e39fa6..9b2525a 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -216,6 +216,32 @@ static int mv88e6xxx_write(struct mv88e6xxx_chip *chip,
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 52ab18b..2217a3f 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -141,6 +141,7 @@ struct dsa_switch_tree {
+ struct dsa_port {
+ 	struct net_device	*netdev;
+ 	struct device_node	*dn;
++	unsigned int		ageing_time;
+ };
+ 
+ struct dsa_switch {
+@@ -329,6 +330,7 @@ struct dsa_switch_driver {
+ 	/*
+ 	 * Bridge integration
+ 	 */
++	int	(*set_ageing_time)(struct dsa_switch *ds, unsigned int msecs);
+ 	int	(*port_bridge_join)(struct dsa_switch *ds, int port,
+ 				    struct net_device *bridge);
+ 	void	(*port_bridge_leave)(struct dsa_switch *ds, int port);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 7236eb2..fc91967 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -333,6 +333,44 @@ static int dsa_slave_vlan_filtering(struct net_device *dev,
  	return 0;
  }
  
-+/* Indirect write to single pointer-data register with an Update bit */
-+static int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg,
-+			    u16 update)
++static int dsa_fastest_ageing_time(struct dsa_switch *ds,
++				   unsigned int ageing_time)
 +{
-+	u16 val;
-+	int i, err;
++	int i;
 +
-+	/* Wait until the previous operation is completed */
-+	for (i = 0; i < 16; ++i) {
-+		err = mv88e6xxx_read(chip, addr, reg, &val);
-+		if (err)
-+			return err;
++	for (i = 0; i < DSA_MAX_PORTS; ++i) {
++		struct dsa_port *dp = &ds->ports[i];
 +
-+		if (!(val & BIT(15)))
-+			break;
++		if (dp && dp->ageing_time && dp->ageing_time < ageing_time)
++			ageing_time = dp->ageing_time;
 +	}
 +
-+	if (i == 16)
-+		return -ETIMEDOUT;
-+
-+	/* Set the Update bit to trigger a write operation */
-+	val = BIT(15) | update;
-+
-+	return mv88e6xxx_write(chip, addr, reg, val);
++	return ageing_time;
 +}
 +
- static int _mv88e6xxx_reg_read(struct mv88e6xxx_chip *chip, int addr, int reg)
- {
- 	u16 val;
-@@ -3094,9 +3120,39 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	return 0;
- }
- 
-+static int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip,
-+					     int target, int port)
++static int dsa_slave_ageing_time(struct net_device *dev,
++				 const struct switchdev_attr *attr,
++				 struct switchdev_trans *trans)
 +{
-+	u16 val = (target << 8) | (port & 0xf);
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++	unsigned long ageing_jiffies = clock_t_to_jiffies(attr->u.ageing_time);
++	unsigned int ageing_time = jiffies_to_msecs(ageing_jiffies);
 +
-+	return mv88e6xxx_update(chip, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING, val);
++	/* bridge skips -EOPNOTSUPP, so skip the prepare phase */
++	if (switchdev_trans_ph_prepare(trans))
++		return 0;
++
++	/* Keep the fastest ageing time in case of multiple bridges */
++	ds->ports[p->port].ageing_time = ageing_time;
++	ageing_time = dsa_fastest_ageing_time(ds, ageing_time);
++
++	if (ds->drv->set_ageing_time)
++		return ds->drv->set_ageing_time(ds, ageing_time);
++
++	return 0;
 +}
 +
-+static int mv88e6xxx_g2_set_device_mapping(struct mv88e6xxx_chip *chip)
-+{
-+	int target, port;
-+	int err;
-+
-+	/* Initialize the routing port to the 32 possible target devices */
-+	for (target = 0; target < 32; ++target) {
-+		port = 0xf;
-+
-+		if (target < DSA_MAX_SWITCHES) {
-+			port = chip->ds->rtable[target];
-+			if (port == DSA_RTABLE_NONE)
-+				port = 0xf;
-+		}
-+
-+		err = mv88e6xxx_g2_device_mapping_write(chip, target, port);
-+		if (err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+
- static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
- {
--	struct dsa_switch *ds = chip->ds;
- 	int err;
- 	int i;
- 
-@@ -3120,20 +3176,9 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
- 		return err;
- 
- 	/* Program the DSA routing table. */
--	for (i = 0; i < 32; i++) {
--		int nexthop = 0x1f;
--
--		if (i != ds->index && i < DSA_MAX_SWITCHES)
--			nexthop = ds->rtable[i] & 0x1f;
--
--		err = _mv88e6xxx_reg_write(
--			chip, REG_GLOBAL2,
--			GLOBAL2_DEVICE_MAPPING,
--			GLOBAL2_DEVICE_MAPPING_UPDATE |
--			(i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) | nexthop);
--		if (err)
--			return err;
--	}
-+	err = mv88e6xxx_g2_set_device_mapping(chip);
-+	if (err)
-+		return err;
- 
- 	/* Clear all trunk masks. */
- 	for (i = 0; i < 8; i++) {
+ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 				   const struct switchdev_attr *attr,
+ 				   struct switchdev_trans *trans)
+@@ -346,6 +384,9 @@ static int dsa_slave_port_attr_set(struct net_device *dev,
+ 	case SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING:
+ 		ret = dsa_slave_vlan_filtering(dev, attr, trans);
+ 		break;
++	case SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME:
++		ret = dsa_slave_ageing_time(dev, attr, trans);
++		break;
+ 	default:
+ 		ret = -EOPNOTSUPP;
+ 		break;
 -- 
 2.9.0
