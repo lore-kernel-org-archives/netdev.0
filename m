@@ -1,51 +1,28 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v2 05/11] Kbuild: don't add obj tree in additional includes
-Date: Tue, 19 Jul 2016 21:07:42 +0300
-Message-ID: <8760s1v6vl.fsf@kamboji.qca.qualcomm.com>
-References: <20160615154553.3177021-1-arnd@arndb.de>
-	<21521763.EfAflxWUP8@wuerfel> <87a8hdae9j.fsf@purkki.adurom.net>
-	<3906958.MrNt71DzrU@wuerfel>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] netfilter: Add helper array register/unregister
+ functions
+Date: Tue, 19 Jul 2016 20:12:50 +0200
+Message-ID: <20160719181250.GA6116@salvia>
+References: <1468813163-18139-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-arm-kernel@lists.infradead.org,
-	Michal Marek <mmarek@suse.com>, netdev@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
-	linux-kbuild@vger.kernel.org, akpm <akpm@linux-foundation.org>,
-	linux-wireless@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3906958.MrNt71DzrU@wuerfel> (Arnd Bergmann's message of "Tue, 19
-	Jul 2016 17:38:51 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1468813163-18139-1-git-send-email-fgao@ikuai8.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
+On Mon, Jul 18, 2016 at 11:39:23AM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> Add nf_ct_helper_init, nf_conntrack_helpers_register/unregister
+> functions to enhance the conntrack helper codes.
 
->> > I think that's fine, a couple were already picked up, and what I have
->> > left now is
->> >
->> > a281bfa5713a [SUBMITTED 20160615] [EXPERIMENTAL] Kbuild: enable -Wmissing-include-dirs by default
->> > 83934921e68e [SUBMITTED 20160615] rtlwifi: don't add include path for rtl8188ee
->> 
->> Apparently[1] you didn't CC linux-wireless and that's why I didn't see
->> the rtlwifi patch in wireless patchwork. Care to resend?
->> 
->> [1] https://patchwork.kernel.org/patch/9178861/
->> 
->
-> Done.
+Applied, thanks.
 
-Thanks.
-
-> I've also thrown in two patches for drivers/staging/rtl8*/ that I
-> submitted a while ago, but I'm not sure if they should get merged
-> through the staging tree or the wireless tree. I had previously
-> submitted those two as a combined patch along with a third one that
-> turned out to be unnecessary.
-
-Greg applies drivers/staging patches to his staging tree, but I'll take
-the rtlwifi patch.
-
--- 
-Kalle Valo
+I have manually updated indentations to make it fit to our coding
+style, btw.
