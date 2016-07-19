@@ -1,41 +1,34 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [patch 1/1] kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon
- union initialization bug
-Date: Mon, 18 Jul 2016 17:33:07 -0700
-Message-ID: <20160719003305.GA45296@ast-mbp.thefacebook.com>
-References: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
+Subject: Re: [PATCH iproute2 -master] bpf: also check elf for official
+ e_machine value
+Date: Mon, 18 Jul 2016 17:36:45 -0700
+Message-ID: <20160719003642.GB45296@ast-mbp.thefacebook.com>
+References: <a5dbe0907854c72832f0b0d745eaace921bf879e.1468882622.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ast@kernel.org,
-	daniel@iogearbox.net, Fengguang Wu <fengguang.wu@intel.com>
-To: akpm@linux-foundation.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33964 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930AbcGSAdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 20:33:11 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hh10so202563pac.1
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 17:33:11 -0700 (PDT)
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36863 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930AbcGSAgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 20:36:49 -0400
+Received: by mail-pa0-f67.google.com with SMTP id ez1so202283pab.3
+        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 17:36:49 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
+In-Reply-To: <a5dbe0907854c72832f0b0d745eaace921bf879e.1468882622.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 18, 2016 at 03:50:58PM -0700, akpm@linux-foundation.org wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Subject: kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon union initialization bug
+On Tue, Jul 19, 2016 at 01:09:52AM +0200, Daniel Borkmann wrote:
+> Use the official BPF ELF e_machine value that was assigned recently [1]
+> and will be propagated to glibc, libelf et al. LLVM will switch to it
+> in 3.9 release, therefore we need to prepare tc to check for EM_ELF as
+> well, older version still have the EM_NONE.
 > 
-> kernel/trace/bpf_trace.c: In function 'bpf_event_output':
-> kernel/trace/bpf_trace.c:312: error: unknown field 'next' specified in initializer
-> kernel/trace/bpf_trace.c:312: warning: missing braces around initializer
-> kernel/trace/bpf_trace.c:312: warning: (near initialization for 'raw.frag.<anonymous>')
+>   [1] https://github.com/llvm-mirror/llvm/commit/36b9c09330bfb5e771914cfe307588f30d5510d2
 > 
-> Fixes: 555c8a8623a3a87 ("bpf: avoid stack copy and use skb ctx for event output")
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
+Thank you for fixing it.
 Acked-by: Alexei Starovoitov <ast@kernel.org>
-
-Fengguang can you add gcc-4.4 to buildbot. Thanks!
