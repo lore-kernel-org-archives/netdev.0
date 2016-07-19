@@ -1,10 +1,10 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v10 07/12] net/mlx4_en: add page recycle to prepare rx
- ring for tx support
-Date: Tue, 19 Jul 2016 14:49:37 -0700
-Message-ID: <20160719214935.GE64618@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH v10 08/12] bpf: add XDP_TX xdp_action for direct
+ forwarding
+Date: Tue, 19 Jul 2016 14:53:12 -0700
+Message-ID: <20160719215310.GF64618@ast-mbp.thefacebook.com>
 References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-9-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
@@ -19,61 +19,34 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Tariq Toukan <ttoukan.linux@gmail.com>
 To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36771 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751811AbcGSVtn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 17:49:43 -0400
-Received: by mail-pf0-f196.google.com with SMTP id y134so2078800pfg.3
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 14:49:43 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33420 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751742AbcGSVxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 17:53:17 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i6so2087996pfe.0
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 14:53:17 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+In-Reply-To: <1468955817-10604-9-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2016 at 12:16:52PM -0700, Brenden Blanco wrote:
-> The mlx4 driver by default allocates order-3 pages for the ring to
-> consume in multiple fragments. When the device has an xdp program, this
-> behavior will prevent tx actions since the page must be re-mapped in
-> TODEVICE mode, which cannot be done if the page is still shared.
-> 
-> Start by making the allocator configurable based on whether xdp is
-> running, such that order-0 pages are always used and never shared.
-> 
-> Since this will stress the page allocator, add a simple page cache to
-> each rx ring. Pages in the cache are left dma-mapped, and in drop-only
-> stress tests the page allocator is eliminated from the perf report.
-> 
-> Note that setting an xdp program will now require the rings to be
-> reconfigured.
-> 
-> Before:
->  26.91%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
->  17.88%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_alloc_frags
->   6.00%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_frag
->   4.49%  ksoftirqd/0  [kernel.vmlinux]  [k] get_page_from_freelist
->   3.21%  swapper      [kernel.vmlinux]  [k] intel_idle
->   2.73%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
->   2.57%  swapper      [mlx4_en]         [k] mlx4_en_process_rx_cq
-> 
-> After:
->  31.72%  swapper      [kernel.vmlinux]       [k] intel_idle
->   8.79%  swapper      [mlx4_en]              [k] mlx4_en_process_rx_cq
->   7.54%  swapper      [kernel.vmlinux]       [k] poll_idle
->   6.36%  swapper      [mlx4_core]            [k] mlx4_eq_int
->   4.21%  swapper      [kernel.vmlinux]       [k] tasklet_action
->   4.03%  swapper      [kernel.vmlinux]       [k] cpuidle_enter_state
->   3.43%  swapper      [mlx4_en]              [k] mlx4_en_prepare_rx_desc
->   2.18%  swapper      [kernel.vmlinux]       [k] native_irq_return_iret
->   1.37%  swapper      [kernel.vmlinux]       [k] menu_select
->   1.09%  swapper      [kernel.vmlinux]       [k] bpf_map_lookup_elem
+On Tue, Jul 19, 2016 at 12:16:53PM -0700, Brenden Blanco wrote:
+> XDP enabled drivers must transmit received packets back out on the same
+> port they were received on when a program returns this action.
 > 
 > Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-...
-> +#define MLX4_EN_CACHE_SIZE (2 * NAPI_POLL_WEIGHT)
-> +struct mlx4_en_page_cache {
-> +	u32 index;
-> +	struct mlx4_en_rx_alloc buf[MLX4_EN_CACHE_SIZE];
-> +};
+> ---
+>  include/uapi/linux/bpf.h | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index a517865..2b7076f 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -449,6 +449,7 @@ enum xdp_action {
+>  	XDP_ABORTED = 0,
+>  	XDP_DROP,
+>  	XDP_PASS,
+> +	XDP_TX,
 
-amazing that this tiny recycling pool makes such a huge difference.
 Acked-by: Alexei Starovoitov <ast@kernel.org>
