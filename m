@@ -1,31 +1,35 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: 4.4 Backport request 4d06dd537f95 cdc_ncm: do not call
- usbnet_link_change from cdc_ncm_bind
-Date: Tue, 19 Jul 2016 14:41:27 -0400
-Message-ID: <1468953687.5676.5.camel@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v3 10/12] net: dsa: support switchdev ageing
+ time attr
+Date: Tue, 19 Jul 2016 20:50:22 +0200
+Message-ID: <20160719185022.GG31103@lunn.ch>
+References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
+ <20160719004540.1066-11-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f178.google.com ([209.85.216.178]:33543 "EHLO
-	mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753386AbcGSSla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 14:41:30 -0400
-Received: by mail-qt0-f178.google.com with SMTP id w38so14231022qtb.0
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:41:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160719004540.1066-11-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Can
+On Mon, Jul 18, 2016 at 08:45:38PM -0400, Vivien Didelot wrote:
+> Add a new function for DSA drivers to handle the switchdev
+> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
+> 
+> The ageing time is passed as milliseconds.
+> 
+> Also because we can have multiple logical bridges on top of a physical
+> switch and ageing time are switch-wide, call the driver function with
+> the fastest ageing time in use on the chip instead of the requested one.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-4d06dd537f95 cdc_ncm: do not call usbnet_link_change from cdc_ncm_bind
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-be added to 4.4 stable? =C2=A0This fixes=C2=A0CVE-2016-3951 [The second=
- half
-necessary for a complete fix, 666984c8625 ("usbnet: cleanup after bind(=
-)
-in probe()"), is already present in 4.4.]
-
-Thanks!
+    Andrew
