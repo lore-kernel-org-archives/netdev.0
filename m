@@ -1,71 +1,62 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 1/1] net_sched: Introduce skbmod action
-Date: Tue, 19 Jul 2016 06:28:11 -0400
-Message-ID: <578E00BB.1050806@mojatatu.com>
-References: <1468744884-8246-1-git-send-email-jhs@emojatatu.com>
- <20160718041933.GB36253@ast-mbp.thefacebook.com>
- <578C7C5C.2070804@mojatatu.com> <578CA4EB.7060703@iogearbox.net>
- <20160718100717.GB30532@pox.localdomain> <578CAEB8.9070805@mojatatu.com>
- <CAM_iQpWo4YyVjoHdDdKLCXu_XO7=H8-2yet3qq6g3BUPtUbW4w@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 07/10] net/faraday: Read MAC address from
+ chip
+Date: Tue, 19 Jul 2016 10:50:44 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4FC97F@AcuExch.aculab.com>
+References: <1468579460-13768-1-git-send-email-gwshan@linux.vnet.ibm.com>
+ <1468579460-13768-8-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"benh@kernel.crashing.org" <benh@kernel.crashing.org>,
+	"joel@jms.id.au" <joel@jms.id.au>,
+	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
+	"weixue@trustnetic.com" <weixue@trustnetic.com>,
+	"yuvali@mellanox.com" <yuvali@mellanox.com>,
+	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
+To: 'Gavin Shan' <gwshan@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:35051 "EHLO
-	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348AbcGSK2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 06:28:15 -0400
-Received: by mail-lf0-f65.google.com with SMTP id l89so880282lfi.2
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 03:28:14 -0700 (PDT)
-In-Reply-To: <CAM_iQpWo4YyVjoHdDdKLCXu_XO7=H8-2yet3qq6g3BUPtUbW4w@mail.gmail.com>
+Received: from smtp-out4.electric.net ([192.162.216.183]:52973 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753028AbcGSKwk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 06:52:40 -0400
+In-Reply-To: <1468579460-13768-8-git-send-email-gwshan@linux.vnet.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-07-18 01:38 PM, Cong Wang wrote:
-> On Mon, Jul 18, 2016 at 3:26 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 16-07-18 06:07 AM, Thomas Graf wrote:
->>
->>>
->>> Right. I was at the same point as Jamal and it is nasty to try and
->>> reverse engineer the dumps without any further hints. I assume that's
->>> what he is referring to with difficulties.
->>>
->>
->> That +: if you get me a field which says "dstmac" i dont have to go
->> and start aggregating 32bit chunks to create a 48bit MAC (or worse
->> look at the offset and figure where they come from).
->>
->
-> Been there, done that. I debugged u32 filter dumps too, I understand
-> your concern.
->
-> But this still looks like solvable to me, although it is definitely not easy,
-> probably even harder than the parsing logic. I will try to write some
-> code for iproute2 to see how far I can go.
->
+From: Gavin Shan
+> Sent: 15 July 2016 11:44
+> The device is assigned with random MAC address. It isn't reasonable.
+> An valid MAC address might have been provided by (uboot) firmware by
+> device-tree or in chip. It's reasonable to use it to maintain consistency.
+> 
+> This uses the MAC address from device-tree or that in the chip if it's
+> valid. Otherwise, a random MAC address is given as before.
+...
+> +	m = ioread32(priv->base + FTGMAC100_OFFSET_MAC_MADR);
+> +	l = ioread32(priv->base + FTGMAC100_OFFSET_MAC_LADR);
+> +
+> +	mac[0] = (m >> 8) & 0xff;
+> +	mac[1] = m & 0xff;
+> +	mac[2] = (l >> 24) & 0xff;
+> +	mac[3] = (l >> 16) & 0xff;
+> +	mac[4] = (l >> 8) & 0xff;
+> +	mac[5] = l & 0xff;
+> +
+> +	if (!is_valid_ether_addr(mac)) {
+> +		mac[5] = (m >> 8) & 0xff;
+> +		mac[4] = m & 0xff;
+> +		mac[3] = (l >> 24) & 0xff;
+> +		mac[2] = (l >> 16) & 0xff;
+> +		mac[1] = (l >>  8) & 0xff;
+> +		mac[0] = l & 0xff;
+> +	}
+...
 
-I am sure that will be useful for someone - just not me.
+That is horrid, not all byte reversed addresses will be invalid.
 
-> Adding a new type of action/filter in kernel just for convenience seems
-> overkill. At very least I think we should just extend the existing ones,
-> for example, allowing pedit to accept and dump DST_MAC etc. Does this
-> sound good to you?
->
-
-Not for me Cong - but i have no doubt it would improve pedit's
-usability. Besides that is fixing one app (tc).
-What i am trying to do is a common use case. It is an
-optimization that has become necessary; your effort could be parallel
-to this. Look at how much time we are spending arm chair lawyering this;
-please go ahead and do that with iproute2 and let this patch go in. Like
-I said this comes from deployment experience and need.
-
-cheers,
-jamal
+	David
