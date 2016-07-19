@@ -1,27 +1,41 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Aw: BUG: Wrong dma queue handling in ixp4 driver
-Date: Tue, 19 Jul 2016 13:31:49 +0200
-Message-ID: <trinity-28228d79-2b64-4d9c-89c2-6ce288a8ed49-1468927909503@3capp-gmx-bs21>
-References: <trinity-275fae16-c9c8-4503-85fe-5585fb014c7a-1468926357992@3capp-gmx-bs21>
+From: Wei Yongjun <weiyj_lk@163.com>
+Subject: [PATCH -next] net: ethernet: nb8800: fix error handling of nb8800_probe()
+Date: Tue, 19 Jul 2016 11:33:10 +0000
+Message-ID: <1468927990-3041-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: khalasa@piap.pl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <trinity-275fae16-c9c8-4503-85fe-5585fb014c7a-1468926357992@3capp-gmx-bs21>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: f.fainelli@gmail.com, davem@davemloft.net, mans@mansr.com,
+	tremyfr@gmail.com, arnd@arndb.de, sf84@laposte.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-17.163.com ([220.181.12.17]:34080 "EHLO m12-17.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752866AbcGSLd7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2016 07:33:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> Hi,
-> 
-> maybe I miss something, but the ixp4 ethernet driver seems to handle dma pools 
-> in a wrong way: In init_queues() it creates a dma pool for descriptors and then
->  only allocates a single descriptor from this pool. The author seems to assume the whole
-> table has been allocated already, since after that the complete pool size is zeroed:
-> 
+In ops->reset() error handling case, clk_disable_unprepare() is missed
+before return from this function.
 
-Sorry, I indeed missed something. The allocation is correct. A pool is not required, though,
-since only one chunk is allocated.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/aurora/nb8800.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Lino
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index 2dcb8c7..0d4ea92 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -1419,7 +1419,7 @@ static int nb8800_probe(struct platform_device *pdev)
+ 	if (ops && ops->reset) {
+ 		ret = ops->reset(dev);
+ 		if (ret)
+-			goto err_free_dev;
++			goto err_disable_clk;
+ 	}
+ 
+ 	bus = devm_mdiobus_alloc(&pdev->dev);
