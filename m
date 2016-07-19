@@ -1,101 +1,91 @@
-From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-Subject: Re: PROBLEM: MTU of ipsec tunnel drops continuously until traffic
- stops
-Date: Tue, 19 Jul 2016 05:49:06 +0000
-Message-ID: <bba4a160385c4a36aecdd8d385e01c69@svr-chch-ex1.atlnz.lc>
-References: <1467598059395.19100@alliedtelesis.co.nz>
- <1467604370799.64629@alliedtelesis.co.nz>
- <20160704111202.GI12335@gauss.secunet.com>
- <c22799c2751348b8b2e5caddc9d13ece@svr-chch-ex1.atlnz.lc>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 1/1] tracing, bpf: Implement function bpf_probe_write
+Date: Mon, 18 Jul 2016 23:13:54 -0700
+Message-ID: <20160719061352.GA55865@ast-mbp.thefacebook.com>
+References: <CAMp4zn8ygXFg7kvjShm77zmK2dYVMY2zS8i2mUKwhbfXcyVyig@mail.gmail.com>
+ <20160713170849.GA76615@ast-mbp.thefacebook.com>
+ <alpine.DEB.2.02.1607131230210.19550@ircssh.c.rugged-nimbus-611.internal>
+ <20160715054025.GA99435@ast-mbp>
+ <alpine.DEB.2.02.1607151552400.24930@ircssh.c.rugged-nimbus-611.internal>
+ <20160716023035.GA19373@ast-mbp.thefacebook.com>
+ <alpine.DEB.2.02.1607161729010.12799@ircssh.c.rugged-nimbus-611.internal>
+ <20160718041105.GA36253@ast-mbp.thefacebook.com>
+ <alpine.DEB.2.02.1607180330330.5362@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:53038 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752049AbcGSFtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:49:13 -0400
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 3C1038604B
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 17:49:09 +1200 (NZST)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1607180330330.5362@ircssh.c.rugged-nimbus-611.internal>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gMDcvMDUvMjAxNiAwMzo1NSBQTSwgTWF0dCBCZW5uZXR0IHdyb3RlOgo+IE9uIDA3LzA0LzIw
-MTYgMTE6MTIgUE0sIFN0ZWZmZW4gS2xhc3NlcnQgd3JvdGU6Cj4+IE9uIE1vbiwgSnVsIDA0LCAy
-MDE2IGF0IDAzOjUyOjUwQU0gKzAwMDAsIE1hdHQgQmVubmV0dCB3cm90ZToKPj4+ICpSZXNlbmRp
-bmcgYXMgcGxhaW4gdGV4dCBzbyB0aGUgbWFpbGluZyBsaXN0IGFjY2VwdHMgaXQuLiBTb3JyeSBT
-dGVmZmVuIGFuZCBIZXJiZXJ0Kgo+Pj4KPj4+IOKAi0hpLAo+Pj4KPj4+IER1cmluZyBsb25nIHJ1
-biB0ZXN0aW5nIG9mIGFuIGlwc2VjIHR1bm5lbCBvdmVyIGEgUFBQIGxpbmsgaXQgd2FzIGZvdW5k
-IHRoYXQgb2NjYXNpb25hbGx5IHRyYWZmaWMgd291bGQgc3RvcCBmbG93aW5nIG92ZXIgdGhlIHR1
-bm5lbC4gRXZlbnR1YWxseSB0aGUgdHJhZmZpYyB3b3VsZCBzdGFydCBhZ2FpbiwgaG93ZXZlciB1
-c2luZyB0aGUgY29tbWFuZCAiaXAgcm91dGUgZmx1c2ggY2FjaGUiIGNhdXNlcyB0cmFmZmljIHRv
-IHN0YXJ0IGZsb3dpbmcgIGFnYWluIGltbWVkaWF0ZWx5Lgo+Pj4KPj4+IE5vdGUsIEkgYW0gdXNp
-bmcgYSA0LjQuNiBiYXNlZCBrZXJuZWwsIGhvd2V2ZXIgSSBzZWUgbm8gbWFqb3IgZGlmZmVyZW5j
-ZXMgYmV0d2VlbiA0LjQuNiBhbmQgNC40LjE0IChjdXJyZW50IExUUykgaW4gYW55IG9mIHRoZSBj
-b2RlIEkgYW0gZGVidWdnaW5nLiBJICBoYXZlIG1hbnVhbGx5IGRlYnVnZ2VkIHRoZSBjb2RlIGFz
-IGZhciBhcyBJIGNhbiwgaG93ZXZlciBJIGRvbid0IGtub3cgdGhlIGNvZGUgd2VsbCBlbm91Z2gg
-dG8gbWFrZSBmdXJ0aGVyIHByb2dyZXNzLiBXaGF0IEkgaGF2ZSB1bmNvdmVyZWQgaXMgb3V0bGlu
-ZWQgYmVsb3c6Cj4+Pgo+Pj4gQnkgcGluZ2luZyB0aGUgb3RoZXIgZW5kIG9mIHRoZSB0dW5uZWwg
-d2hlbiB0aGUgdHJhZmZpYyBzdG9wcyBmbG93aW5nIEkgZ2V0IG1lc3NhZ2VzIGxpa2UgdGhlIGZv
-bGxvd2luZzoKPj4+Cj4+PiAxMC1BUjQwNTAjcGluZyAxNzIuMTYuMC41Cj4+PiBQSU5HIDE3Mi4x
-Ni4wLjUgKDE3Mi4xNi4wLjUpIDU2KDg0KSBieXRlcyBvZiBkYXRhLgo+Pj4gICBGcm9tIDE3Mi4x
-Ni4wLjYgaWNtcF9zZXE9MSBGcmFnIG5lZWRlZCBhbmQgREYgc2V0IChtdHUgPSA0NikKPj4+ICAg
-RnJvbSAxNzIuMTYuMC42IGljbXBfc2VxPTIgRnJhZyBuZWVkZWQgYW5kIERGIHNldCAobXR1ID0g
-NDYpCj4+Pgo+Pj4gYnV0IHRoaXMgaXMgd2VpcmQgY29uc2lkZXJpbmcgKG5vdGUgdGhlIG10dSB2
-YWx1ZXMpOgo+Pj4KPj4+IFtyb290QDEwLUFSNDA1MCAvZmxhc2hdIyBpcCBsaW5rCj4+PiAxNjc3
-ODI0MDogcHBwMDogPFBPSU5UT1BPSU5ULE1VTFRJQ0FTVCxOT0FSUCxVUCxMT1dFUl9VUD4gbXR1
-IDE0OTIgcWRpc2MgaHRiIHN0YXRlIFVQIG1vZGUgREVGQVVMVCBncm91cCBkZWZhdWx0IHFsZW4g
-Mwo+Pj4gICAgICAgbGluay9wcHAKPj4+IDE0OiB0dW5uZWw2NEBOT05FOiA8UE9JTlRPUE9JTlQs
-TVVMVElDQVNULFVQLExPV0VSX1VQPiBtdHUgMTIwMCBxZGlzYyBodGIgc3RhdGUgVU5LTk9XTiBt
-b2RlIERFRkFVTFQgZ3JvdXAgZGVmYXVsdCBxbGVuIDEKPj4+ICAgICAgIGxpbmsvaXBpcCAyMDMu
-MC4xMTMuMTAgcGVlciAyMDMuMC4xMTMuNQo+Pj4KPj4+IFRoZSBjb2RlIHRoYXQgZ2VuZXJhdGVz
-IHRoZSBJQ01QX0ZSQUdfTkVFREVEIHBhY2tldCBpcyB2dGlfeG1pdCgpIChpcF92dGkuYykgd2hl
-cmUgdGhlcmUgaXMgYSBjaGVjayBvZiBza2IgbGVuZ3RoIGFnYWluc3QgdGhlIG10dSBvZiBkc3Qg
-ZW50cnkuIFNpbmNlIHRoZSBtdHUgaXMgbG93ZXIgdGhhbiB0aGUgcGFja2V0IChkZWJ1ZyBzaG93
-cyB0aGUgbXR1IGlzIDQ2IGFzIGV4cGVjdGVkIGZyb20gdGhlIHBpbmcgb3V0cHV0KSB0aGUgSUNN
-UCAgZXJyb3IgaXMgZ2VuZXJhdGVkLgo+Pgo+PiBTZW1tcyBsaWtlIHlvdSB1c2UgdnRpIHR1bm5l
-bHMuIElzIHR1bm5lbDY0QE5PTkUgYSB2dGkgZGV2aWNlLCBhbmQKPj4gaWYgc28gZGlkIHlvdSBz
-ZXQgdGhlIG10dSB0byAxMjAwPwo+IFllcyBpdCBpcyBhIHZ0aSBkZXZpY2Ugd2l0aCBtdHUgbWFu
-dWFsbHkgc2V0IHRvIDEyMDAuIFNpbWlsYXJseSB0aGUKPiBvdGhlciBlbmQgb2YgdGhlIHR1bm5l
-bCBpcyBhIHZ0aSB3aXRoIG10dSBtYW51YWxseSBzZXQgdG8gMTIwMC4gVGhlcmUgaXMKPiB0cmFm
-ZmljIGZsb3dpbmcgYWNyb3NzIHRoZSB0dW5uZWwgb2YgcmFuZG9tIHNpemUgYmV0d2VlbiA1MTIg
-dG8gMTUwMCBieXRlcy4KPj4KPj4gTm90IHN1cmUgaWYgaXQgaXMgcmVsYXRlZCB0byB5b3VyIHBy
-b2JsZW0sIGJ1dCB0aGVyZSB3YXMgYSByZWNlbnQKPj4gZml4IGZvciB2dGkgcG10dSBoYW5kbGlu
-Zy4gSXQgd2FzIGNvbW1pdCBkNmFmMWEzMSAoInZ0aTogQWRkIHBtdHUKPj4gaGFuZGxpbmcgdG8g
-dnRpX3htaXQuIikgRG8geW91IGhhdmUgdGhpcyBvbiB5b3VyIGJyYW5jaD8KPiBZZXMsIHRoYXQg
-cHJvYmxlbSB3YXMgcmVwb3J0ZWQgZnJvbSBhbm90aGVyIG9uZSBvZiBvdXIgdGVzdHMuIFRoYXQg
-cGF0Y2gKPiBpcyBhcHBsaWVkIHRvIG91ciBicmFuY2guIEl0IGlzIHRoZSBjb2RlIGFkZGVkIGZy
-b20gdGhhdCBwYXRjaCB0aGF0Cj4gZXhwbGljaXRseSBzZW5kcyB0aGUgSUNNUF9GUkFHX05FRURF
-RCBwYWNrZXQuIEJlZm9yZSB0aGlzIHBhdGNoIEkKPiBwcmVzdW1lIHRoZSBwYWNrZXRzIHdvdWxk
-IGhhdmUgc2ltcGx5IGJlZW4gc2VudCAoZXZlbiB0aG91Z2ggdGhlIGNhY2hlZAo+IG10dSB2YWx1
-ZXMgd2VyZSBidWdneSkuCj4+Cj4+Pgo+Pj4gRGlnZ2luZyBmdXJ0aGVyIEkgZmluZCB0aGF0IHdo
-ZW4gdGhlIGlzc3VlIG9jY3VycyB0aGUgbXR1IHZhbHVlIGlzIGJlaW5nIHVwZGF0ZWQgaW4gd2hh
-dCBhcHBlYXJzIHRvIGJlIGFuIGVycm9yIGNhc2UgaW4geGZybV9idW5kbGVfb2sgKHhmcm1fcG9s
-aWN5LmMpLiBTcGVjaWZpY2FsbHkgdGhlIGJsb2NrIG9mIGNvZGU6Cj4+Pgo+Pj4gaWYgKGxpa2Vs
-eSghbGFzdCkpCj4+PiAgICAgICAgICAgcmV0dXJuIDE7Cj4+Pgo+Pj4gaXMgbm90IGhpdCBtZWFu
-aW5nIHRoZXJlIGlzIGEgZGlmZmVyZW5jZSBiZXR3ZWVuIHRoZSBjYWNoZWQgbXR1IHZhbHVlIGFu
-ZCB0aGUgdmFsdWUganVzdCBjYWxjdWxhdGVkLiBJIHRoZW4gc2VlIHRoaXMgY29kZSBiZWluZyBo
-aXQgY29udGludW91c2x5IGFuZCBlYWNoIHRpbWUgdGhlIG10dSBrZWVwcyBnZXR0aW5nIGxvd2Vy
-ZWQuIGkuZS4gKEkgZG9uJ3Qga25vdyBpZiB0aGUgZHJvcCBieSA4MCBieXRlcyBpcyBzaWduaWZp
-Y2FudCkKPj4+Cj4+PiAxMjAwCj4+PiAxMTE4Cj4+PiAxMDM4Cj4+PiA5NTgKPj4+IDg3OAo+Pj4g
-ICAgLi4uLgo+Pj4gNDYKPj4KPj4gSSByZW1lbWJlciB0aGF0IHdlIGhhZCBhIHNpbWlsYXIgcHJv
-YmxlbSB3aXRoIElQc2VjIHdoZW4gbm8KPj4gdnRpIHdhcyB1c2VkIHNvbWUgeWVhcnMgYWdvLi4u
-Cj4+Cj4+IFVuZm9ydHVuYXRlbHksIHRvZGF5IGlzIG15IGxhc3Qgb2ZmaWNlIGRheSBiZWZvcmUg
-bXkgdmFjYXRpb24sCj4+IHNvIG5vIGZpeCBmcm9tIG1lIGZvciB0aGUgbmV4dCB0d28gd2Vla3Mu
-Cj4+Cj4KPgpIaSBTdGVmZmVuLAoKSSBmaWd1cmVkIHlvdSBtdXN0IGJlIGJhY2sgZnJvbSB5b3Vy
-IGhvbGlkYXkgc29vbi4gSSBoYXZlbid0IGJlZW4gYWJsZSB0byBtYWtlIG11Y2ggcHJvZ3Jlc3Mg
-b24gdGhpcyBpc3N1ZSwgaG93ZXZlciBJIGhhdmUgZm91bmQgYW4gaW50ZXJlc3RpbmcgcGF0Y2gg
-dGhhdCBhcHBlYXJzIGxpa2UgaXQgYWRkcmVzc2VzIGEgc2ltaWxhciBpc3N1ZSB0byB3aGF0IEkg
-aGF2ZSByZXBvcnRlZCAoYWxiZWl0IGZvciB0aGUgaXB2NiBjYXNlKS4KCkNvbW1pdCAwMGJjMGVm
-NTg4MGRjN2I4MmY5YzMyMGRlYWQ0YWZhYWQ0OGU0N2JlICJpcHY2OiBTa2lwIFhGUk0gbG9va3Vw
-IGlmIGRzdF9lbnRyeSBpbiBzb2NrZXQgY2FjaGUgaXMgdmFsaWQiIG1lbnRpb25zICIuLi4gVG8g
-cHV0IGl0IGFub3RoZXIgd2F5LCB0aGUgcGF0aCBNVFUgc2hyaW5rcyBlYWNoIHRpbWUgd2UgbWlz
-cyB0aGUgZmxvdyBjYWNoZSwgd2hpY2ggbGF0ZXIgb24gbGVhZHMgdG8gaW5jb3JyZWN0bHkgZnJh
-Z21lbnRlZCBwYXlsb2FkLiIK
+On Mon, Jul 18, 2016 at 03:57:17AM -0700, Sargun Dhillon wrote:
+> 
+> 
+> On Sun, 17 Jul 2016, Alexei Starovoitov wrote:
+> 
+> >On Sun, Jul 17, 2016 at 03:19:13AM -0700, Sargun Dhillon wrote:
+> >>
+> >>+static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> >>+{
+> >>+	void *to = (void *) (long) r1;
+> >>+	void *from = (void *) (long) r2;
+> >>+	int  size = (int) r3;
+> >>+
+> >>+	/* check if we're in a user context */
+> >>+	if (unlikely(in_interrupt()))
+> >>+		return -EINVAL;
+> >>+	if (unlikely(!current->pid))
+> >>+		return -EINVAL;
+> >>+
+> >>+	return copy_to_user(to, from, size);
+> >>+}
+> >
+> >thanks for the patch, unfortunately it's not that straightforward.
+> >copy_to_user might fault. Try enabling CONFIG_DEBUG_ATOMIC_SLEEP and
+> >you'll see the splat since bpf programs are protected by rcu.
+> >Also 'current' can be null and I'm not sure what current->pid does.
+> >So the writing to user memory either has to be verified to avoid
+> >sleeping and faults or we need to use something like task_work_add
+> >mechanism. Ideas are certainly welcome.
+> >
+> >
+> From casual inspection, I can't find where current can be null when
+> in_interrupt() is false. Although, we can check before dereferencing it.
+> When not in a user context, the pid of the task struct returns 0.
+> 
+> As far as preventing sleep, would the following alteration do? Or do we
+> actually need something more sophisticated?
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index be89c148..45878f3 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -86,14 +86,19 @@ static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, u64
+> r4, u64 r5)
+>         void *to = (void *) (long) r1;
+>         void *from = (void *) (long) r2;
+>         int  size = (int) r3;
+> +       struct task_struct *task = current;
+> 
+>         /* check if we're in a user context */
+>         if (unlikely(in_interrupt()))
+>                 return -EINVAL;
+> -       if (unlikely(!current->pid))
+> +       if (unlikely(!task || !task->pid))
+>                 return -EINVAL;
+> 
+> -       return copy_to_user(to, from, size);
+> +       /* Is this a user address, or a kernel address? */
+> +       if (!access_ok(VERIFY_WRITE, to, size))
+> +               return -EINVAL;
+> +
+> +       return probe_kernel_write(to, from, size);
+>  }
+
+I think it can actually work. The only concern is that comment
+in access_ok() says that it may sleep whereas I couldn't find
+any arch where that would be the case.
+Could you please send an official patch with detailed commit log?
