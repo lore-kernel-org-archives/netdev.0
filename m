@@ -1,88 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 05/11] Kbuild: don't add obj tree in additional includes
-Date: Tue, 19 Jul 2016 10:31:26 +0200
-Message-ID: <21521763.EfAflxWUP8@wuerfel>
-References: <20160615154553.3177021-1-arnd@arndb.de>
- <20160615154553.3177021-6-arnd@arndb.de>
- <20160718201439.GA9053@sepie.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kbuild@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
- Michal Marek <mmarek@suse.com>, akpm <akpm@linux-foundation.org>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <20160718201439.GA9053@sepie.suse.cz>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Subject: [PATCH v6 0/4] Marvell phy: fiber interface configuration
+Date: Tue, 19 Jul 2016 11:13:09 +0200
+Message-ID: <1468919593-27602-1-git-send-email-charles-antoine.couret@nexvision.fr>
+Cc: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 7.mo3.mail-out.ovh.net ([46.105.57.200]:47781 "EHLO
+	7.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752335AbcGSJOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 05:14:22 -0400
+Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
+	by mo3.mail-out.ovh.net (Postfix) with ESMTP id B0ABDFFCCCD
+	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:14:20 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uZGF5LCBKdWx5IDE4LCAyMDE2IDEwOjE0OjM5IFBNIENFU1QgTWljaGFsIE1hcmVrIHdy
-b3RlOgo+IE9uIFdlZCwgSnVuIDE1LCAyMDE2IGF0IDA1OjQ1OjQ3UE0gKzAyMDAsIEFybmQgQmVy
-Z21hbm4gd3JvdGU6Cj4gPiBXaGVuIGJ1aWxkaW5nIHdpdGggc2VwYXJhdGUgb2JqZWN0IGRpcmVj
-dG9yaWVzIGFuZCBkcml2ZXIgc3BlY2lmaWMKPiA+IE1ha2VmaWxlcyB0aGF0IGFkZCBhZGRpdGlv
-bmFsIGhlYWRlciBpbmNsdWRlIHBhdGhzLCBLYnVpbGQgYWRqdXN0cwo+ID4gdGhlIGdjYyBmbGFn
-cyBzbyB0aGF0IHdlIGluY2x1ZGUgYm90aCB0aGUgZGlyZWN0b3J5IGluIHRoZSBzb3VyY2UKPiA+
-IHRyZWUgYW5kIGluIHRoZSBvYmplY3QgdHJlZS4KPiA+IAo+ID4gSG93ZXZlciwgZHVlIHRvIGFu
-b3RoZXIgYnVnIEkgZml4ZWQgZWFybGllciwgdGhpcyBkaWQgbm90IGFjdHVhbGx5Cj4gPiBpbmNs
-dWRlIHRoZSBjb3JyZWN0IGRpcmVjdG9yeSBpbiB0aGUgb2JqZWN0IHRyZWUsIHNvIHdlIGtub3cg
-dGhhdAo+ID4gd2Ugb25seSByZWFsbHkgbmVlZCB0aGUgc291cmNlIHRyZWUgaGVyZS4gQWxzbywg
-aW5jbHVkaW5nIHRoZQo+ID4gb2JqZWN0IHRyZWUgc29tZXRpbWVzIGNhdXNlcyB3YXJuaW5ncyBh
-Ym91dCBub25leGlzdGluZyBkaXJlY3Rvcmllcwo+ID4gd2hlbiB0aGUgaW5jbHVkZSBwYXRoIG9u
-bHkgZXhpc3RzIGluIHRoZSBzb3VyY2UuCj4gPiAKPiA+IFRoaXMgY2hhbmdlcyB0aGUgbG9naWMg
-dG8gb25seSBlbWl0IHRoZSAtSSBhcmd1bWVudCBmb3IgdGhlIHNyY3RyZWUsCj4gPiBub3QgZm9y
-IG9iamVjdHMuIFdlIHN0aWxsIG5lZWQgYm90aCAkKHNyY3RyZWUpLyQoc3JjKSBhbmQgJChvYmop
-Cj4gPiB0aG91Z2gsIHNvIEknbSBhZGRpbmcgdGhlbSBtYW51YWxseS4KPiA+IAo+ID4gU2lnbmVk
-LW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KPiAKPiBIaSBBcm5kLAo+IAo+
-IEkgYXBwbGllZCB0aGUgc2VyaWVzIHVwIHRvIHRoaXMgcGF0Y2ggdG8ga2J1aWxkLmdpdCNrYnVp
-bGQuIFRoZSByZXN0Cj4gc2VlbSB0byBiZSByZWxhdGVkIGJ1dCBub3QgZGVwZW5kZW50IHBhdGNo
-ZXMsIHNvIEknbGwgbGVhdmUgaXQgdXAgdG8gdGhlCj4gcmVzcGVjdGl2ZSBtYWludGFpbmVycyB0
-byBwaWNrIHRoZW0gdXAuIElzIHRoYXQgT0sgd2l0aCB5b3U/CgpJIHRoaW5rIHRoYXQncyBmaW5l
-LCBhIGNvdXBsZSB3ZXJlIGFscmVhZHkgcGlja2VkIHVwLCBhbmQgd2hhdCBJIGhhdmUKbGVmdCBu
-b3cgaXMKCmEyODFiZmE1NzEzYSBbU1VCTUlUVEVEIDIwMTYwNjE1XSBbRVhQRVJJTUVOVEFMXSBL
-YnVpbGQ6IGVuYWJsZSAtV21pc3NpbmctaW5jbHVkZS1kaXJzIGJ5IGRlZmF1bHQKODM5MzQ5MjFl
-NjhlIFtTVUJNSVRURUQgMjAxNjA2MTVdIHJ0bHdpZmk6IGRvbid0IGFkZCBpbmNsdWRlIHBhdGgg
-Zm9yIHJ0bDgxODhlZQo1NjY0ZTdiYjg4YTggW1NVQk1JVFRFRCAyMDE2MDYxNV0gZHJtOiBhbWQ6
-IHJlbW92ZSBicm9rZW4gaW5jbHVkZSBwYXRoCmU2ZDNjZjc2ZjlmOCBbU1VCTUlUVEVEIDIwMTYw
-NjE1XSBBUk06IGhpZGUgbWFjaC0qLyBpbmNsdWRlIGZvciBBUk1fU0lOR0xFX0FSTVY3TQpiMjE5
-NDdkYmQ3OTIgW1NVQk1JVFRFRCAyMDE2MDYxNV0gQVJNOiBkb24ndCBpbmNsdWRlIHJlbW92ZWQg
-ZGlyZWN0b3JpZXMKCkkgY2FuIHByb2JhYmx5IHB1dCB0aGUgbGFzdCB0d28gaW50byBhcm0tc29j
-IGRpcmVjdGx5LiBBZnRlciB0aGF0LCB3ZSdkCmJlIGxlZnQgd2l0aCBhIHZlcnkgc21hbGwgZGlm
-ZiBmb3IgdGhlIHNlcmllczoKCmRpZmYgLS1naXQgYS9NYWtlZmlsZSBiL01ha2VmaWxlCmluZGV4
-IGNhYTMzZTAwN2E4Yy4uNTMwNzRkYmU4NjE5IDEwMDY0NAotLS0gYS9NYWtlZmlsZQorKysgYi9N
-YWtlZmlsZQpAQCAtNzU0LDYgKzc1NCw5IEBAIGVuZGlmCiBOT1NURElOQ19GTEFHUyArPSAtbm9z
-dGRpbmMgLWlzeXN0ZW0gJChzaGVsbCAkKENDKSAtcHJpbnQtZmlsZS1uYW1lPWluY2x1ZGUpCiBD
-SEVDS0ZMQUdTICAgICArPSAkKE5PU1RESU5DX0ZMQUdTKQogCisjIHdhcm4gYWJvdXQgaW5jb3Jy
-ZWN0IC1JIGluY2x1ZGUgcGF0aHMKK0tCVUlMRF9DRkxBR1MgKz0gLVdtaXNzaW5nLWluY2x1ZGUt
-ZGlycworCiAjIHdhcm4gYWJvdXQgQzk5IGRlY2xhcmF0aW9uIGFmdGVyIHN0YXRlbWVudAogS0JV
-SUxEX0NGTEFHUyArPSAkKGNhbGwgY2Mtb3B0aW9uLC1XZGVjbGFyYXRpb24tYWZ0ZXItc3RhdGVt
-ZW50LCkKIApkaWZmIC0tZ2l0IGEvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUgYi9k
-cml2ZXJzL2dwdS9kcm0vYW1kL2FjcC9NYWtlZmlsZQppbmRleCA4MzYzY2I1NzkxNWIuLjhhMDhl
-ODFlZTkwZCAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUKKysr
-IGIvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUKQEAgLTMsNiArMyw0IEBACiAjIG9m
-IEFNRFNPQy9BTURHUFUgZHJtIGRyaXZlci4KICMgSXQgcHJvdmlkZXMgdGhlIEhXIGNvbnRyb2wg
-Zm9yIEFDUCByZWxhdGVkIGZ1bmN0aW9uYWxpdGllcy4KIAotc3ViZGlyLWNjZmxhZ3MteSArPSAt
-SSQoQU1EQUNQUEFUSCkvIC1JJChBTURBQ1BQQVRIKS9pbmNsdWRlCi0KIEFNRF9BQ1BfRklMRVMg
-Oj0gJChBTURBQ1BQQVRIKS9hY3BfaHcubwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxl
-c3MvcmVhbHRlay9ydGx3aWZpL3J0bDgxODhlZS9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL3JlYWx0ZWsvcnRsd2lmaS9ydGw4MTg4ZWUvTWFrZWZpbGUKaW5kZXggYTg1NDE5YTM3NjUx
-Li42NzZlN2RlMjdmMjcgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsv
-cnRsd2lmaS9ydGw4MTg4ZWUvTWFrZWZpbGUKKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvcmVh
-bHRlay9ydGx3aWZpL3J0bDgxODhlZS9NYWtlZmlsZQpAQCAtMTIsNCArMTIsNCBAQCBydGw4MTg4
-ZWUtb2JqcyA6PQkJXAogCiBvYmotJChDT05GSUdfUlRMODE4OEVFKSArPSBydGw4MTg4ZWUubwog
-Ci1jY2ZsYWdzLXkgKz0gLUlkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpIC1EX19DSEVDS19F
-TkRJQU5fXworY2NmbGFncy15ICs9IC1EX19DSEVDS19FTkRJQU5fXwoKCgpJIGhhdmUgb25seSB0
-ZXN0ZWQgdGhpcyBvbiBhcm0sIGFybTY0IGFuZCB4ODYsIHNvIEkgZG9uJ3Qga25vdyBpZiB0aGF0
-CmludHJvZHVjZXMgbmV3IHdhcm5pbmdzLCBidXQgd2UgY291bGQgYXNrIEFuZHJldyBpZiBoZSB3
-YW50cyB0byBhZGQgdGhhdAp0byBsaW51eC1tbSBhZnRlciB0aGUgbWVyZ2Ugd2luZG93LgoKCUFy
-bmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRl
-dmVsIG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8v
-bGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
+Another patchset to manage correctly the fiber link for some concerned Marvell's
+phy like 88E1512.
+
+This patchset fixed the commit log for the third and last commits and a comment
+in the first commit.
+
+Charles-Antoine Couret (4):
+  Marvell phy: check link status in case of fiber link.
+  Marvell phy: add field to get errors from fiber link.
+  Marvell phy: add configuration of autonegociation for fiber link.
+  Marvell phy: add functions to suspend and resume both interfaces:    
+    fiber and copper links.
+
+ drivers/net/phy/marvell.c | 346 +++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 328 insertions(+), 18 deletions(-)
+
+-- 
+2.7.4
