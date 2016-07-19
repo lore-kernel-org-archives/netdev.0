@@ -1,9 +1,10 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v10 01/12] bpf: add bpf_prog_add api for bulk prog refcnt
-Date: Tue, 19 Jul 2016 14:46:09 -0700
-Message-ID: <20160719214608.GD64618@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH v10 07/12] net/mlx4_en: add page recycle to prepare rx
+ ring for tx support
+Date: Tue, 19 Jul 2016 14:49:37 -0700
+Message-ID: <20160719214935.GE64618@ast-mbp.thefacebook.com>
 References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-2-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
@@ -18,66 +19,61 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Tariq Toukan <ttoukan.linux@gmail.com>
 To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35808 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751720AbcGSVqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 17:46:14 -0400
-Received: by mail-pa0-f65.google.com with SMTP id cf3so1981142pad.2
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 14:46:13 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36771 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751811AbcGSVtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 17:49:43 -0400
+Received: by mail-pf0-f196.google.com with SMTP id y134so2078800pfg.3
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 14:49:43 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1468955817-10604-2-git-send-email-bblanco@plumgrid.com>
+In-Reply-To: <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2016 at 12:16:46PM -0700, Brenden Blanco wrote:
-> A subsystem may need to store many copies of a bpf program, each
-> deserving its own reference. Rather than requiring the caller to loop
-> one by one (with possible mid-loop failure), add a bulk bpf_prog_add
-> api.
+On Tue, Jul 19, 2016 at 12:16:52PM -0700, Brenden Blanco wrote:
+> The mlx4 driver by default allocates order-3 pages for the ring to
+> consume in multiple fragments. When the device has an xdp program, this
+> behavior will prevent tx actions since the page must be re-mapped in
+> TODEVICE mode, which cannot be done if the page is still shared.
+> 
+> Start by making the allocator configurable based on whether xdp is
+> running, such that order-0 pages are always used and never shared.
+> 
+> Since this will stress the page allocator, add a simple page cache to
+> each rx ring. Pages in the cache are left dma-mapped, and in drop-only
+> stress tests the page allocator is eliminated from the perf report.
+> 
+> Note that setting an xdp program will now require the rings to be
+> reconfigured.
+> 
+> Before:
+>  26.91%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
+>  17.88%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_alloc_frags
+>   6.00%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_frag
+>   4.49%  ksoftirqd/0  [kernel.vmlinux]  [k] get_page_from_freelist
+>   3.21%  swapper      [kernel.vmlinux]  [k] intel_idle
+>   2.73%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
+>   2.57%  swapper      [mlx4_en]         [k] mlx4_en_process_rx_cq
+> 
+> After:
+>  31.72%  swapper      [kernel.vmlinux]       [k] intel_idle
+>   8.79%  swapper      [mlx4_en]              [k] mlx4_en_process_rx_cq
+>   7.54%  swapper      [kernel.vmlinux]       [k] poll_idle
+>   6.36%  swapper      [mlx4_core]            [k] mlx4_eq_int
+>   4.21%  swapper      [kernel.vmlinux]       [k] tasklet_action
+>   4.03%  swapper      [kernel.vmlinux]       [k] cpuidle_enter_state
+>   3.43%  swapper      [mlx4_en]              [k] mlx4_en_prepare_rx_desc
+>   2.18%  swapper      [kernel.vmlinux]       [k] native_irq_return_iret
+>   1.37%  swapper      [kernel.vmlinux]       [k] menu_select
+>   1.09%  swapper      [kernel.vmlinux]       [k] bpf_map_lookup_elem
 > 
 > Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-> ---
->  include/linux/bpf.h  |  1 +
->  kernel/bpf/syscall.c | 12 +++++++++---
->  2 files changed, 10 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> index c13e92b..75a5ae6 100644
-> --- a/include/linux/bpf.h
-> +++ b/include/linux/bpf.h
-> @@ -224,6 +224,7 @@ void bpf_register_map_type(struct bpf_map_type_list *tl);
->  
->  struct bpf_prog *bpf_prog_get(u32 ufd);
->  struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
-> +struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i);
->  struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
->  void bpf_prog_put(struct bpf_prog *prog);
->  
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 96d938a..228f962 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -670,14 +670,20 @@ static struct bpf_prog *____bpf_prog_get(struct fd f)
->  	return f.file->private_data;
->  }
->  
-> -struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
-> +struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
->  {
-> -	if (atomic_inc_return(&prog->aux->refcnt) > BPF_MAX_REFCNT) {
-> -		atomic_dec(&prog->aux->refcnt);
-> +	if (atomic_add_return(i, &prog->aux->refcnt) > BPF_MAX_REFCNT) {
-> +		atomic_sub(i, &prog->aux->refcnt);
->  		return ERR_PTR(-EBUSY);
->  	}
->  	return prog;
->  }
-> +EXPORT_SYMBOL_GPL(bpf_prog_add);
-> +
-> +struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
-> +{
-> +	return bpf_prog_add(prog, 1);
-> +}
+...
+> +#define MLX4_EN_CACHE_SIZE (2 * NAPI_POLL_WEIGHT)
+> +struct mlx4_en_page_cache {
+> +	u32 index;
+> +	struct mlx4_en_rx_alloc buf[MLX4_EN_CACHE_SIZE];
+> +};
 
-that extension turned out to be smaller than I thought :)
+amazing that this tiny recycling pool makes such a huge difference.
 Acked-by: Alexei Starovoitov <ast@kernel.org>
