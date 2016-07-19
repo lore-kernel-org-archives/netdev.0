@@ -1,88 +1,133 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 10/12] net: dsa: support switchdev ageing time
- attr
-Date: Tue, 19 Jul 2016 10:24:39 -0700
-Message-ID: <578E6257.6080904@gmail.com>
-References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
- <20160719004540.1066-11-vivien.didelot@savoirfairelinux.com>
- <20160719032415.GD9111@lunn.ch>
- <ec4db799-a764-d029-80fb-9a56338f7bc5@gmail.com>
- <20160719142009.GA31103@lunn.ch>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Tue, 19 Jul 2016 20:26:44 +0300
+Message-ID: <20160719172644.GK20674@leon.nu>
+References: <1468478774-19942-1-git-send-email-netanel@annapurnalabs.com>
+ <20160715050005.GD30603@leon.nu>
+ <578E0A65.1020105@annapurnalabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35458 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752916AbcGSRYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 13:24:43 -0400
-In-Reply-To: <20160719142009.GA31103@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="hl1kWnBARzJiTscN"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
+	aliguori@amazon.com, benjamin.poirier@gmail.com,
+	ben@decadent.org.uk, romieu@fr.zoreil.com, rami.rosen@intel.com,
+	antoine.tenart@free-electrons.com
+To: Netanel Belgazal <netanel@annapurnalabs.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <578E0A65.1020105@annapurnalabs.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/19/2016 07:20 AM, Andrew Lunn wrote:
-> On Mon, Jul 18, 2016 at 09:26:00PM -0700, Florian Fainelli wrote:
->> Le 18/07/2016 =C3=A0 20:24, Andrew Lunn a =C3=A9crit :
->>> On Mon, Jul 18, 2016 at 08:45:38PM -0400, Vivien Didelot wrote:
->>>> Add a new function for DSA drivers to handle the switchdev
->>>> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
->>>>
->>>> The ageing time is passed as milliseconds.
->>>>
->>>> Also because we can have multiple logical bridges on top of a phys=
-ical
->>>> switch and ageing time are switch-wide, call the driver function w=
-ith
->>>> the fastest ageing time in use on the chip instead of the requeste=
-d one.
->>>>
->>>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com=
->
->>>> ---
->>>>  include/net/dsa.h |  2 ++
->>>>  net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
->>>
->>
->> Hi Andrew,
->>
->>> Hi Florian
->>>
->>> It looks like the SF2 can do fast ageing per port. What i don't see=
- if
->>> what configuration options you have. Can you get the fast and the
->>> normal age time per port? Or is it global?
->>
->> The normal ageing is global and the value needs to be programmed in
->> seconds, can can range from 10 to 1,048,575 (encoded on 20 bits). Th=
-e
->> fast-ageing can actually be per-port, per-VLAN id, for just dynamic =
-or
->> static entries etc. and is just a poor name for a flush based on any=
- of
->> these criteria.
->=20
-> Hi Florian
->=20
-> So fast ageing does not have a timer value associated to it? It is
-> just a flush?
 
-Correct, it's a flush operation which is internally implemented/named a=
-s
-a fast aging, as in fast enough it is almost instantenous from the
-programmer's perspective.
+--hl1kWnBARzJiTscN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Jul 19, 2016 at 02:09:25PM +0300, Netanel Belgazal wrote:
+>=20
+>=20
+> On 07/15/2016 08:00 AM, Leon Romanovsky wrote:
+> > On Thu, Jul 14, 2016 at 09:46:14AM +0300, Netanel Belgazal wrote:
+> >> This is a driver for the ENA family of networking devices.
+> >>
+> >> Signed-off-by: Netanel Belgazal <netanel@annapurnalabs.com>
+> >> ---
+> >>
+> >> Notes:
+> > ...
+> >
+> >>     - Increase driver version to 1.0.2
+> > ...
+> >
+> >> +static void ena_get_drvinfo(struct net_device *dev,
+> >> +			    struct ethtool_drvinfo *info)
+> >> +{
+> >> +	struct ena_adapter *adapter =3D netdev_priv(dev);
+> >> +
+> >> +	strlcpy(info->driver, DRV_MODULE_NAME, sizeof(info->driver));
+> >> +	strlcpy(info->version, DRV_MODULE_VERSION, sizeof(info->version));
+> > Does module version give anything valuable in real life usage?
+> > Do you plan to bump version after every patch?
+> >
+> > Hint, NO.
+>=20
+> I think it is appropriate to expose driver version to ethtool, and itis a=
+ppropriate to be able to version a driver in upstream (mainly for debug pur=
+pose)
+> I don't think there is upstream agreementthat no driver should be allowed=
+ to maintain a versionnumber.
+
+You didn't answer on my questions, so I suppose that this version
+interface will be forgotten and won't be relevant after first major
+rework.
+
+You have kernel version to know which driver you are running, mixing
+different versions of driver with other kernels are seeing as
+not-supported by the community.
 
 >=20
-> If so, the code Vivien is proposing in DSA slave is O.K. If however
-> there was a per port timer, Vivien's code is too high in the stack,
-> blocking SF2 from being able to use per-port timers. That is what i'm
-> trying to get at.
+> >> +	strlcpy(info->bus_info, pci_name(adapter->pdev),
+> >> +		sizeof(info->bus_info));
+> >> +}
+> >> +
+> >> +
+> > ...
+> >
+> >> +
+> >> +static char version[] =3D
+> >> +		DEVICE_NAME " v"
+> >> +		DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
+> >> +
+> >> +MODULE_AUTHOR("Amazon.com, Inc. or its affiliates");
+> >> +MODULE_DESCRIPTION(DEVICE_NAME);
+> >> +MODULE_LICENSE("GPL");
+> >> +MODULE_VERSION(DRV_MODULE_VERSION);
+> >> +
+> >> +/* Time in jiffies before concluding the transmitter is hung. */
+> >> +#define TX_TIMEOUT  (5 * HZ)
+> >> +
+> >> +#define ENA_NAPI_BUDGET 64
+> >> +
+> >> +#define DEFAULT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_M=
+SG_IFUP | \
+> >> +		NETIF_MSG_TX_DONE | NETIF_MSG_TX_ERR | NETIF_MSG_RX_ERR)
+> >> +static int debug =3D -1;
+> >> +module_param(debug, int, 0);
+> >> +MODULE_PARM_DESC(debug, "Debug level (0=3Dnone,...,16=3Dall)");
+> > What is it?
+>=20
+> This is the debugging message interface.
+> https://www.kernel.org/doc/Documentation/networking/netif-msg.txt
 
-Browsing through all the generations, there does not seem to be any
-per-port aging, it's always global.
---=20
-=46lorian
+This document was updated last time in 2006 and I doubt that it is
+relevant in 2016. You have dynamic debug prints infrastructure for it,
+use it.
+
+--hl1kWnBARzJiTscN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXjmLUAAoJEORje4g2clinz6wQAIuw5LnH5lWpib+O1R/4q5Mj
+7BPR6wOZW6PlYbvurYip1ospIeUHT6Gu09a0puvy1o9sbjrjLbhC08NCczaeutyu
+LiNYQfFlDVlb+Yfm8GJQ62GSB7uaoES29MZ6J/36Q6rzUX+w84JClYTmbp63P/t2
+y6sNUdtez9nbyti2WGIQSshrxiuC0PnTw8NaIJjNvmyQjqYipg7kSjJmPlQVZn7h
+S1NScf69ghp9ytwfWWhwenNiFmnfCBl2ucJDbYm9ypqruf6yEOzuWdmp95i7PhJh
+sHx/567qcGG6KSkCieT5ZCBfYegvHo0HxxYtN/6Bzsxlyf11x2tqAkntXgP0MGgi
+mAiTQygH8Mkfm7171WtKQIArVK6iT9vkYkuLxaUP12LQh67HaRZlv3HBG3EFUifw
+Eg4pfeaEkXvWSMXUKme4VOKTYNsKgvdbwu6JnJXO4X8ZpACNXQw6GRrhHqC14AgK
+BLRgXjx9oyHs/7+s9hjm0ekjpBZyqYYA5IzDw4Job0QphXpEKzl96f6eeVxuNV7s
+/vuhSb2R7TfS8PTZbrlMo3OD6LPuT5IgswZvg0hOWkg63Azdg7RNCySgTkjc7pzc
+LmmtdO0WOx2XqESmKF7FhNzvaZm35yP36te7RV4LbkkT7KJ/8IAOWFrykjIYki23
+4ciTq0R9LGUdALLQ0Xmf
+=zETv
+-----END PGP SIGNATURE-----
+
+--hl1kWnBARzJiTscN--
