@@ -1,31 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v3 03/12] net: dsa: mv88e6xxx: extract device
- mapping
-Date: Tue, 19 Jul 2016 04:48:15 +0200
-Message-ID: <20160719024815.GB9111@lunn.ch>
-References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
- <20160719004540.1066-4-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next] macvtap: correctly free skb during socket destruction
+Date: Tue, 19 Jul 2016 11:02:59 +0800
+Message-ID: <1468897379-4373-1-git-send-email-jasowang@redhat.com>
+Cc: dan.carpenter@oracle.com, Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160719004540.1066-4-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 18, 2016 at 08:45:31PM -0400, Vivien Didelot wrote:
-> The Device Mapping register is an indirect table access.
-> 
-> Provide helpers to access this table and explicit the checking of the
-> new DSA_RTABLE_NONE routing table value.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+We should use kfree_skb() instead of kfree() to free an skb.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Fixes: 362899b8725b ("macvtap: switch to use skb array")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-    Andrew
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 9204d19..a38c0da 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -536,7 +536,7 @@ static void macvtap_sock_destruct(struct sock *sk)
+ 	struct sk_buff *skb;
+ 
+ 	while ((skb = skb_array_consume(&q->skb_array)) != NULL)
+-		kfree(skb);
++		kfree_skb(skb);
+ }
+ 
+ static int macvtap_open(struct inode *inode, struct file *file)
+-- 
+2.7.4
