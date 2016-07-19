@@ -1,34 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: switchdev: change ageing_time type to clock_t
-Date: Tue, 19 Jul 2016 16:49:36 -0700 (PDT)
-Message-ID: <20160719.164936.636648029845762035.davem@davemloft.net>
-References: <20160718190206.18620-1-vivien.didelot@savoirfairelinux.com>
+From: zyjzyj2000@gmail.com
+Subject: [V2 PATCH 1/1] ixgbevf: avoid checking hang when
+	performing hardware
+Date: Wed, 20 Jul 2016 07:23:41 +0800
+Message-ID: <1468970622-1882-1-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, jiri@mellanox.com, sfeldma@gmail.com,
-	idosch@mellanox.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40828 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334AbcGSXth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 19:49:37 -0400
-In-Reply-To: <20160718190206.18620-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, donald.c.skidmore@intel.com,
+	intel-wired-lan@lists.osuosl.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Mon, 18 Jul 2016 15:02:06 -0400
 
-> The switchdev value for the SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME
-> attribute is a clock_t and requires to use helpers such as
-> clock_t_to_jiffies() to convert to milliseconds.
-> 
-> Change ageing_time type from u32 to clock_t to make it explicit.
-> 
-> Fixes: f55ac58ae64c ("switchdev: add bridge ageing_time attribute")
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+v1->v2:
+Follow the advice from Donald, replacing read directly from RSTD and RSTI register with a state variable __IXGBEVF_HW_RESETTING;
 
-Applied.
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity planning
+reports.http://sdm.link/zohodev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
