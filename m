@@ -1,149 +1,51 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [PATCH net-next v3 1/2] bpf: Add bpf_copy_to_user BPF helper to
- be called in tracers (kprobes)
-Date: Tue, 19 Jul 2016 10:13:16 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1607190950470.29512@ircssh.c.rugged-nimbus-611.internal>
-References: <20160719093242.GA23753@ircssh.c.rugged-nimbus-611.internal> <578E0C61.6070705@iogearbox.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v4 0/7] thunderbolt: Introducing Thunderbolt(TM)
+ networking
+Date: Tue, 19 Jul 2016 10:14:05 -0700
+Message-ID: <1468948445.1900.53.camel@perches.com>
+References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, thunderbolt-linux@intel.com,
+	mika.westerberg@intel.com, tomas.winkler@intel.com
+To: Amir Levy <amir.jer.levy@intel.com>, andreas.noever@gmail.com,
+	gregkh@linuxfoundation.org, bhelgaas@google.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <578E0C61.6070705@iogearbox.net>
+In-Reply-To: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2016-07-18 at 13:00 +0300, Amir Levy wrote:
+> This is version 4 of Thunderbolt(TM) driver for non-Apple hardware.
+[]
+> =A0Documentation/00-INDEX=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0|=A0=A0=A0=A02 +
+> =A0Documentation/thunderbolt-networking.txt |=A0=A0135 ++
+> =A0drivers/thunderbolt/Kconfig=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0|=A0=A0=A025 +-
+> =A0drivers/thunderbolt/Makefile=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+|=A0=A0=A0=A03 +-
+> =A0drivers/thunderbolt/icm/Makefile=A0=A0=A0=A0=A0=A0=A0=A0=A0|=A0=A0=
+=A028 +
+> =A0drivers/thunderbolt/icm/icm_nhi.c=A0=A0=A0=A0=A0=A0=A0=A0| 1642 ++=
++++++++++++++++++++
+> =A0drivers/thunderbolt/icm/icm_nhi.h=A0=A0=A0=A0=A0=A0=A0=A0|=A0=A0=A0=
+93 ++
+> =A0drivers/thunderbolt/icm/net.c=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0|=
+ 2276 ++++++++++++++++++++++++++++++
+> =A0drivers/thunderbolt/icm/net.h=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0|=
+=A0=A0274 ++++
+> =A0drivers/thunderbolt/nhi_regs.h=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0|=A0=
+=A0115 +-
+> =A010 files changed, 4585 insertions(+), 8 deletions(-)
+> =A0create mode 100644 Documentation/thunderbolt-networking.txt
+> =A0create mode 100644 drivers/thunderbolt/icm/Makefile
+> =A0create mode 100644 drivers/thunderbolt/icm/icm_nhi.c
+> =A0create mode 100644 drivers/thunderbolt/icm/icm_nhi.h
+> =A0create mode 100644 drivers/thunderbolt/icm/net.c
+> =A0create mode 100644 drivers/thunderbolt/icm/net.h
 
-
-On Tue, 19 Jul 2016, Daniel Borkmann wrote:
-
-> Hi Sargun,
->
-> On 07/19/2016 11:32 AM, Sargun Dhillon wrote:
->> This allows user memory to be written to during the course of a kprobe.
->> It shouldn't be used to implement any kind of security mechanism
->> because of TOC-TOU attacks, but rather to debug, divert, and
->> manipulate execution of semi-cooperative processes.
->> 
->> Although it uses probe_kernel_write, we limit the address space
->> the probe can write into by checking the space with access_ok.
->> This call shouldn't sleep on any architectures based on review.
->> 
->> It was tested with the tracex7 program on x86-64.
->> 
->> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
->> Cc: Alexei Starovoitov <ast@kernel.org>
-> [...]
->> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
->> index ebfbb7d..45878f3 100644
->> --- a/kernel/trace/bpf_trace.c
->> +++ b/kernel/trace/bpf_trace.c
->> @@ -81,6 +81,35 @@ static const struct bpf_func_proto bpf_probe_read_proto 
->> = {
->>   	.arg3_type	= ARG_ANYTHING,
->>   };
->> 
->> +static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
->> +{
->> +	void *to = (void *) (long) r1;
->> +	void *from = (void *) (long) r2;
->> +	int  size = (int) r3;
->
-> Nit: you have two spaces here?
->
->> +	struct task_struct *task = current;
->> +
->> +	/* check if we're in a user context */
->> +	if (unlikely(in_interrupt()))
->> +		return -EINVAL;
->> +	if (unlikely(!task || !task->pid))
->
-> Why !task->pid is needed? Can you point to the code where this is
-> set up as such? I'd assume if that's the case, there's a generic
-> helper for it to determine that the task_struct is a kernel task?
->
-
-One example of precedent:
-http://lxr.free-electrons.com/source/arch/x86/kernel/process.c#L270
-
-Also, while testing this out, I instrumented ip_route_output_flow,
-and I found that there were cases that were invoked from the kernel
-there current was not NULL, but task->pid was reliably 0.
-
->> +		return -EINVAL;
->> +
->> +	/* Is this a user address, or a kernel address? */
->> +	if (!access_ok(VERIFY_WRITE, to, size))
->> +		return -EINVAL;
->> +
->> +	return probe_kernel_write(to, from, size);
->
-> I'm still worried that this can lead to all kind of hard to find
-> bugs or races for user processes, if you make this writable to entire
-> user address space (which is the only thing that access_ok() checks
-> for). What if the BPF program has bugs and writes to wrong addresses
-> for example, introducing bugs in some other, non-intended processes
-> elsewhere? Can this be limited to syscalls only? And if so, to the
-> passed memory only?
->
-> Have you played around with ptrace() to check whether you could
-> achieve similar functionality (was thinking about things like [1],
-> PTRACE_PEEK{TEXT,DATA} / PTRACE_POKE{TEXT,DATA}). If not, why can't
-> this be limited to a similar functionality for only the current task.
-> ptrace() utilizes helpers like access_process_vm(), maybe this can
-> similarly be adapted here, too (under the circumstances that sleeping
-> is not allowed)?
->
->  [1] https://code.google.com/archive/p/ptrace-parasite/
->
-I agree that this can get really complicated if it clashes with memory
-that a task is currently manipulating while we do the copy_to_user.
-I highlighted that in one of the commit messages not to rely on this
-behaviour for anything "real" because TOC-TOU.
-
-We could limit the use to be within syscalls and uprobes if you think
-that's the best idea. Is there an easy way to find out, but I think
-it's somewhat difficult to restrict it to passed memory only. In the
-example app there's only one level of indirection that occurs,
-and without some new rules in the verifier, I don't how to handle
-this. A simple, problematic example is dealing with iovecs, and 
-process_vm_readv, and process_vm_writev, where to find the actual buffer 
-content I need to dereference once to get the list of iovecs, and then 
-again, to find the buffer the iovec points to.
-
-We looked at using ptrace, but our software is often working with blackbox 
-code that sometimes does not like to ptrace'd. ptrace is kinda also a pain 
-to work with, and has the same potential for data races you highlighted 
-earlier. In fact, we have a demo of tracex7 that uses ptrace + 
-process_vm_writev + seccomp, and it's much more complicated and fragile.
-
-Just casually poking around, it looks like access_process_vm sleeps, 
-resulting in a whole new set of complexities that Alexei highlighted 
-earlier.
-
->> +}
->> +
->> +static const struct bpf_func_proto bpf_copy_to_user_proto = {
->> +	.func = bpf_copy_to_user,
->> +	.gpl_only = false,
->> +	.ret_type = RET_INTEGER,
->> +	.arg1_type = ARG_ANYTHING,
->> +	.arg2_type = ARG_PTR_TO_RAW_STACK,
->> +	.arg3_type = ARG_CONST_STACK_SIZE,
->
-> Nit: please tab-align '=' like we have in the other *_proto cases in
-> bpf_trace.
->
->> +};
->> +
->>   /*
->>    * limited trace_printk()
->>    * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers 
->> allowed
->
-> Thanks,
-> Daniel
->
-Thanks for the review. Unless there's any other input, I'll go ahead and 
-resubmit the patchset with the formatting nits fixed.
+Is a MAINTAINERS update necessary or is Andreas going to
+be the maintainer?
