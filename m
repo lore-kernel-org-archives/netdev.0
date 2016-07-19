@@ -1,79 +1,125 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH V2] Add flow control to the portmapper
-Date: Tue, 19 Jul 2016 20:32:53 +0300
-Message-ID: <20160719173253.GL20674@leon.nu>
-References: <1468869810-64420-1-git-send-email-shiraz.saleem@intel.com>
- <20160719054006.GF20674@leon.nu>
- <20160719145024.GA69464@ssaleem-MOBL4.amr.corp.intel.com>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: [PATCH v8 06/11] net/mlx4_en: add page recycle to prepare rx
+ ring for tx support
+Date: Tue, 19 Jul 2016 10:41:32 -0700
+Message-ID: <20160719174130.GA19547@gmail.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-7-git-send-email-bblanco@plumgrid.com>
+ <20160712.141832.634796503160544753.davem@davemloft.net>
+ <20160713005424.GB13865@gmail.com>
+ <3d0c7f78-0647-e927-94dd-76cbe4ddcb28@gmail.com>
+ <20160713154058.GA3320@gmail.com>
+ <20160715215242.GA980@gmail.com>
+ <6d638467-eea6-d3e1-6984-88a1198ef303@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="OGLMwEELQbPC02lM"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mustafa Ismail <mustafa.ismail-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Shiraz Saleem <shiraz.saleem-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jhs@mojatatu.com, saeedm@dev.mellanox.co.il, kafai@fb.com,
+	brouer@redhat.com, as754m@att.com, alexei.starovoitov@gmail.com,
+	gerlitz.or@gmail.com, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, tgraf@suug.ch, tom@herbertland.com,
+	daniel@iogearbox.net
+To: Tariq Toukan <ttoukan.linux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35346 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752951AbcGSRlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 13:41:37 -0400
+Received: by mail-pf0-f174.google.com with SMTP id x72so9426671pfd.2
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 10:41:37 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160719145024.GA69464-GOXS9JX10wfOxmVO0tvppfooFf0ArEBIu+b9c/7xato@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <6d638467-eea6-d3e1-6984-88a1198ef303@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---OGLMwEELQbPC02lM
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Jul 19, 2016 at 09:50:24AM -0500, Shiraz Saleem wrote:
-> On Tue, Jul 19, 2016 at 08:40:06AM +0300, Leon Romanovsky wrote:
-> >=20
-> > You are the one user of this new inline function.
-> > Why don't you directly call to netlink_unicast() in your ibnl_unicast()
-> > without messing with widely visible header file?
->=20
-> Since there is a non-blocking version of nlmsg_unicast(), the idea is=20
-> to make a blocking version available to others as well as maintain=20
-> consistency of existing code.
->=20
-
-In such way, please provide patch series which will convert all other
-users to this new call.
-
-=E2=9E=9C  linux-rdma git:(master) grep -rI netlink_unicast * | grep -I 0
-kernel/audit.c: err =3D netlink_unicast(audit_sock, skb, audit_nlk_portid, =
-0);
-kernel/audit.c:         netlink_unicast(aunet->nlsk, skb, dest->portid, 0);
-kernel/audit.c: netlink_unicast(aunet->nlsk , reply->skb, reply->portid, 0);
-kernel/audit.c: return netlink_unicast(audit_sock, skb, audit_nlk_portid, 0=
-);
-samples/connector/cn_test.c:    netlink_unicast(nls, skb, 0, 0);
-
+On Tue, Jul 19, 2016 at 04:33:28PM +0300, Tariq Toukan wrote:
+[...]
+> >So, I took Dave's suggestion to heart, and spent the last 2 days seeing
+> >what was possible to implement with just xdp as the focus, rather than
+> >an overall cleanup which Tariq will be looking at.
+> >
+> >Unfortunately, this turned out to a be a bit of a rat hole.
+> >
+> >What I wanted to do was to pre-allocate all the required pages before
+> >reaching the point of no return. Doing this isn't all that hard, since
+> >it should just be a few loops. However, I ended with a bit more
+> >duplicated code than one would like, since I had to tease out the
+> >various sections that assume exclusive access to hardware.
+> >
+> >But, more than that, is that I don't see a way to fill these pages into
+> >the rings safely while hardware still has ability to write into the old
+> >ones. There was no "pause" API that I could find besides
+> >mlx4_en_stop_port(). That function is fairly destructive and requires
+> >the resource allocation in mlx4_en_start_port() to succeed to recover
+> >the port status.
+> >
+> >One option that I considered would be to drain buffers from the rx ring,
+> >and just let mlx4_en_recover_from_oom() do its job once we update the
+> >page template in frag_info[]. This, however, also requires the queues to
+> >be paused safely, so we again have to rely on mlx4_en_stop_port().
+> >
+> >One change I can make is to avoid allocating additional tx rings, which
+> >means that we can skip the calls to mlx4_en_free/alloc_resources().
+> I think it's more natural to manage the two types of tx rings
+> without converting one type to the other dynamically, just to avoid
+> re-allocation.
+> I don't see the re-allocation of resources as a serious issue here,
+> especially after I submitted patches that add resiliency and make it
+> more safe (see them in [1]).
+Yes, I saw those, it would be helpful for the v8 version but with v9
+onwards I guess it is not conflicting, since no reallocation is done.
+> We just need to make sure we don't end up with an inoperative port,
+> I will take care of it once net and net-next are merged.
 Thanks
-
---OGLMwEELQbPC02lM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXjmRFAAoJEORje4g2clinaQwQALZueTQ3825wIPHFPq+tnDWn
-4lRBcf7uT+IHsm+G9n9s6HNFWfV4bzGz/rd2yX7h30CWgXHttgwtji3pN3esZcOj
-VFR9joQ7Fq9nxrDl1V4lqNjv0kt1ZFCo85hpyy8nkAemn0/cAAo4eVYQFkRhoW1e
-XWVropuZv/UtQ6QGMbK2i2+s94RASx0b6w7PdiLOQLg+VRrBG/+NSEMDd2lP/IeM
-EcgT9AISZ7vjaOTkejDXy/BAfNcTqrigStAz2K8BUc4g8S3QBUyq0a4q/MlmL/Bv
-PnWYpgLRFFbr/U+WhUlTg3qzkqYDB6Jfv+rWjO9xcC7YdyKhAyXV4CqbIKKmW9/6
-ZYnm+Nt2dO/p/GgZ8y3PbRymj7YWdq+eTY+l7v83Us1uvR2RQhFnHhjjTEcYvBWI
-eJiyK8Gnp3lrWjxeBhyZ6QiPnSmdwk7m3yr/TdZy5OX2cM23lx81vEn2kAV79LVD
-/VoJI2lniN66BJzgRLNFJ+iUpVoL5L/RM+sY31a4ZO9gpE1lRhbS9EZRcE/vtEYs
-sF7HxsqgIE4qRrC5HF9PgFEG7TCA+fJoP9+zR/JIebiMbbm6fjVZ7TACX4LQNheO
-uXsX0BYzu4gP55+5lFc/Xgqf/zUez5ucNyh7CO987h3cKYZFvdtGLRh6Czvf4JJ0
-o5QiGAOZbm+AXbcojJBO
-=DKmi
------END PGP SIGNATURE-----
-
---OGLMwEELQbPC02lM--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> I'd like to keep the tx rings separation, also when it comes to
+> resource allocation, so that we allocate xdp rings when needed, and
+> not borrow them from the other type.
+> I have two possible solutions in mind:
+> 1) Based on the suggestion you have in v8, in which rsv tx rings
+> grow beyond to the regular tx array, while maintaining the
+> accounting.
+> One improvement to make the code more clear and readable is to
+> explicitly define two fields for accounting the number of tx rings:
+> - rename rsv_tx_rings to xdp_tx_rings.
+I'll incorporate this one, since anyway the code is changing a bit to
+accommodate prog-per-ring.
+> - have a new priv->netdev_num_tx_rings = priv->num_tx_rings - xdp_tx_rings.
+> and then modify driver rings iterators accordingly.
+The ring iteration is sprinkled in too many places to incorporate
+easily, so this makes sense as its own cleanup, with either (1) or (2)
+from your proposal.
+> 
+> 2) Another solution I have in mind goes as follows.
+> Expand the current tx_ring array to be two dimensional, where
+> tx_ring[0] points to the regular tx array, and tx_ring[1] points to
+> the xdp rings.
+> We look to keep using the same napi handlers and not get into code
+> duplication, and make minimal adjustments that do not harm
+> performance.
+> The idea is to mark CQ's types in creation time, so that we know for
+> each CQ whether it's for a regular TX ring or an XDP tx ring.
+> When we get a completion, we can just read the CQ type, and then
+> choose the correct tx_ring according to cq type and cq->ring,
+> something like tx_ring[cq->cq_type][cq->ring]; (we can do it so that
+> we avoid using an if statement).
+> It is possible to use the existing enum cq_type field "cq->is_tx",
+> rename it (say to 'type'), and expand the enum cq_type with an
+> additional value for TX_XDP.
+> In addition, similarly to the previous suggestion, also here we
+> would want to use two separate fields for the number of tx rings,
+> one for netdev and one for xdp, and modify the rings iterators
+> accordingly.
+I think (2) makes sense, but the proof will be in the code, depending on
+how easy to review it is.
+> 
+> [1]:
+> https://patchwork.ozlabs.org/patch/649620/
+> https://patchwork.ozlabs.org/patch/649619/
+> 
+> Another (not related) nit, as you're already working on the next V,
+> I suggest we rename priv->prog to priv->bpf_prog.
+I think xdp_prog is better, but point taken. Will update.
+> 
+> Regards,
+> Tariq
