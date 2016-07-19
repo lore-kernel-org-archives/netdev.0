@@ -1,51 +1,88 @@
-From: Lars Melin <larsm17@gmail.com>
-Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
-Date: Tue, 19 Jul 2016 15:30:07 +0700
-Message-ID: <52d1cd85-8bdc-c8ed-7a2c-460cefe7f0d5@gmail.com>
-References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com>
- <1468846886.2280.6.camel@suse.com>
- <CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
- <1468849802.2280.11.camel@suse.com>
- <CAKfDRXjaSz25_b8Na46DJEDvGUsZ-Xye+Rn2+o6Hy0EcuOopkA@mail.gmail.com>
- <1468851242.2280.14.camel@suse.com>
- <CAKfDRXiK82ULw7RnRGdFwzad8NOfnwZN0vqv=08Tf+cNSdyd2g@mail.gmail.com>
- <1468909209.2178.0.camel@suse.com>
- <CAKfDRXjzgd58kS-MzUsZAsD66VCa5=qyqaLr_eZSm-XphxA7Mw@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 05/11] Kbuild: don't add obj tree in additional includes
+Date: Tue, 19 Jul 2016 10:31:26 +0200
+Message-ID: <21521763.EfAflxWUP8@wuerfel>
+References: <20160615154553.3177021-1-arnd@arndb.de>
+ <20160615154553.3177021-6-arnd@arndb.de>
+ <20160718201439.GA9053@sepie.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>
-To: Kristian Evensen <kristian.evensen@gmail.com>,
-	Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKfDRXjzgd58kS-MzUsZAsD66VCa5=qyqaLr_eZSm-XphxA7Mw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-kbuild@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ Michal Marek <mmarek@suse.com>, akpm <akpm@linux-foundation.org>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20160718201439.GA9053@sepie.suse.cz>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
 List-Id: netdev.vger.kernel.org
 
-On 2016-07-19 13:40, Kristian Evensen wrote:
-
-> I guess I can match on the VID/PID in usbnet, but won't it be cleaner
-> to add a new bind() function (in cdc_ether) which matches the two PIDs
-> and leave usbnet as is? Or am I misunderstanding how to add this
-> functionality to usbnet?
->
-
-Matching on the usb id is probably not a great idea, there is more id's
-than the two you have found and there is also more than two non-unique 
-mac addresses.
-
-Example:
-
-0200FFAAAAAA  19d2:1589/1592/1595
-020CE70B0102  19d2:1040/1048/1405
-
-You can easily find them by googling them, without colon separators you
-will find them in verbose lsusb listings, with colons you will find them 
-in dmesg pastings.
-
-I would probably have found more dupes if users had refrained from using 
-the stupid usbdevices cmd which removes almost all interesting info from 
-device listings in internet foras.
-
-/Lars
+T24gTW9uZGF5LCBKdWx5IDE4LCAyMDE2IDEwOjE0OjM5IFBNIENFU1QgTWljaGFsIE1hcmVrIHdy
+b3RlOgo+IE9uIFdlZCwgSnVuIDE1LCAyMDE2IGF0IDA1OjQ1OjQ3UE0gKzAyMDAsIEFybmQgQmVy
+Z21hbm4gd3JvdGU6Cj4gPiBXaGVuIGJ1aWxkaW5nIHdpdGggc2VwYXJhdGUgb2JqZWN0IGRpcmVj
+dG9yaWVzIGFuZCBkcml2ZXIgc3BlY2lmaWMKPiA+IE1ha2VmaWxlcyB0aGF0IGFkZCBhZGRpdGlv
+bmFsIGhlYWRlciBpbmNsdWRlIHBhdGhzLCBLYnVpbGQgYWRqdXN0cwo+ID4gdGhlIGdjYyBmbGFn
+cyBzbyB0aGF0IHdlIGluY2x1ZGUgYm90aCB0aGUgZGlyZWN0b3J5IGluIHRoZSBzb3VyY2UKPiA+
+IHRyZWUgYW5kIGluIHRoZSBvYmplY3QgdHJlZS4KPiA+IAo+ID4gSG93ZXZlciwgZHVlIHRvIGFu
+b3RoZXIgYnVnIEkgZml4ZWQgZWFybGllciwgdGhpcyBkaWQgbm90IGFjdHVhbGx5Cj4gPiBpbmNs
+dWRlIHRoZSBjb3JyZWN0IGRpcmVjdG9yeSBpbiB0aGUgb2JqZWN0IHRyZWUsIHNvIHdlIGtub3cg
+dGhhdAo+ID4gd2Ugb25seSByZWFsbHkgbmVlZCB0aGUgc291cmNlIHRyZWUgaGVyZS4gQWxzbywg
+aW5jbHVkaW5nIHRoZQo+ID4gb2JqZWN0IHRyZWUgc29tZXRpbWVzIGNhdXNlcyB3YXJuaW5ncyBh
+Ym91dCBub25leGlzdGluZyBkaXJlY3Rvcmllcwo+ID4gd2hlbiB0aGUgaW5jbHVkZSBwYXRoIG9u
+bHkgZXhpc3RzIGluIHRoZSBzb3VyY2UuCj4gPiAKPiA+IFRoaXMgY2hhbmdlcyB0aGUgbG9naWMg
+dG8gb25seSBlbWl0IHRoZSAtSSBhcmd1bWVudCBmb3IgdGhlIHNyY3RyZWUsCj4gPiBub3QgZm9y
+IG9iamVjdHMuIFdlIHN0aWxsIG5lZWQgYm90aCAkKHNyY3RyZWUpLyQoc3JjKSBhbmQgJChvYmop
+Cj4gPiB0aG91Z2gsIHNvIEknbSBhZGRpbmcgdGhlbSBtYW51YWxseS4KPiA+IAo+ID4gU2lnbmVk
+LW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KPiAKPiBIaSBBcm5kLAo+IAo+
+IEkgYXBwbGllZCB0aGUgc2VyaWVzIHVwIHRvIHRoaXMgcGF0Y2ggdG8ga2J1aWxkLmdpdCNrYnVp
+bGQuIFRoZSByZXN0Cj4gc2VlbSB0byBiZSByZWxhdGVkIGJ1dCBub3QgZGVwZW5kZW50IHBhdGNo
+ZXMsIHNvIEknbGwgbGVhdmUgaXQgdXAgdG8gdGhlCj4gcmVzcGVjdGl2ZSBtYWludGFpbmVycyB0
+byBwaWNrIHRoZW0gdXAuIElzIHRoYXQgT0sgd2l0aCB5b3U/CgpJIHRoaW5rIHRoYXQncyBmaW5l
+LCBhIGNvdXBsZSB3ZXJlIGFscmVhZHkgcGlja2VkIHVwLCBhbmQgd2hhdCBJIGhhdmUKbGVmdCBu
+b3cgaXMKCmEyODFiZmE1NzEzYSBbU1VCTUlUVEVEIDIwMTYwNjE1XSBbRVhQRVJJTUVOVEFMXSBL
+YnVpbGQ6IGVuYWJsZSAtV21pc3NpbmctaW5jbHVkZS1kaXJzIGJ5IGRlZmF1bHQKODM5MzQ5MjFl
+NjhlIFtTVUJNSVRURUQgMjAxNjA2MTVdIHJ0bHdpZmk6IGRvbid0IGFkZCBpbmNsdWRlIHBhdGgg
+Zm9yIHJ0bDgxODhlZQo1NjY0ZTdiYjg4YTggW1NVQk1JVFRFRCAyMDE2MDYxNV0gZHJtOiBhbWQ6
+IHJlbW92ZSBicm9rZW4gaW5jbHVkZSBwYXRoCmU2ZDNjZjc2ZjlmOCBbU1VCTUlUVEVEIDIwMTYw
+NjE1XSBBUk06IGhpZGUgbWFjaC0qLyBpbmNsdWRlIGZvciBBUk1fU0lOR0xFX0FSTVY3TQpiMjE5
+NDdkYmQ3OTIgW1NVQk1JVFRFRCAyMDE2MDYxNV0gQVJNOiBkb24ndCBpbmNsdWRlIHJlbW92ZWQg
+ZGlyZWN0b3JpZXMKCkkgY2FuIHByb2JhYmx5IHB1dCB0aGUgbGFzdCB0d28gaW50byBhcm0tc29j
+IGRpcmVjdGx5LiBBZnRlciB0aGF0LCB3ZSdkCmJlIGxlZnQgd2l0aCBhIHZlcnkgc21hbGwgZGlm
+ZiBmb3IgdGhlIHNlcmllczoKCmRpZmYgLS1naXQgYS9NYWtlZmlsZSBiL01ha2VmaWxlCmluZGV4
+IGNhYTMzZTAwN2E4Yy4uNTMwNzRkYmU4NjE5IDEwMDY0NAotLS0gYS9NYWtlZmlsZQorKysgYi9N
+YWtlZmlsZQpAQCAtNzU0LDYgKzc1NCw5IEBAIGVuZGlmCiBOT1NURElOQ19GTEFHUyArPSAtbm9z
+dGRpbmMgLWlzeXN0ZW0gJChzaGVsbCAkKENDKSAtcHJpbnQtZmlsZS1uYW1lPWluY2x1ZGUpCiBD
+SEVDS0ZMQUdTICAgICArPSAkKE5PU1RESU5DX0ZMQUdTKQogCisjIHdhcm4gYWJvdXQgaW5jb3Jy
+ZWN0IC1JIGluY2x1ZGUgcGF0aHMKK0tCVUlMRF9DRkxBR1MgKz0gLVdtaXNzaW5nLWluY2x1ZGUt
+ZGlycworCiAjIHdhcm4gYWJvdXQgQzk5IGRlY2xhcmF0aW9uIGFmdGVyIHN0YXRlbWVudAogS0JV
+SUxEX0NGTEFHUyArPSAkKGNhbGwgY2Mtb3B0aW9uLC1XZGVjbGFyYXRpb24tYWZ0ZXItc3RhdGVt
+ZW50LCkKIApkaWZmIC0tZ2l0IGEvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUgYi9k
+cml2ZXJzL2dwdS9kcm0vYW1kL2FjcC9NYWtlZmlsZQppbmRleCA4MzYzY2I1NzkxNWIuLjhhMDhl
+ODFlZTkwZCAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUKKysr
+IGIvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUKQEAgLTMsNiArMyw0IEBACiAjIG9m
+IEFNRFNPQy9BTURHUFUgZHJtIGRyaXZlci4KICMgSXQgcHJvdmlkZXMgdGhlIEhXIGNvbnRyb2wg
+Zm9yIEFDUCByZWxhdGVkIGZ1bmN0aW9uYWxpdGllcy4KIAotc3ViZGlyLWNjZmxhZ3MteSArPSAt
+SSQoQU1EQUNQUEFUSCkvIC1JJChBTURBQ1BQQVRIKS9pbmNsdWRlCi0KIEFNRF9BQ1BfRklMRVMg
+Oj0gJChBTURBQ1BQQVRIKS9hY3BfaHcubwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxl
+c3MvcmVhbHRlay9ydGx3aWZpL3J0bDgxODhlZS9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L3dpcmVs
+ZXNzL3JlYWx0ZWsvcnRsd2lmaS9ydGw4MTg4ZWUvTWFrZWZpbGUKaW5kZXggYTg1NDE5YTM3NjUx
+Li42NzZlN2RlMjdmMjcgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsv
+cnRsd2lmaS9ydGw4MTg4ZWUvTWFrZWZpbGUKKysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvcmVh
+bHRlay9ydGx3aWZpL3J0bDgxODhlZS9NYWtlZmlsZQpAQCAtMTIsNCArMTIsNCBAQCBydGw4MTg4
+ZWUtb2JqcyA6PQkJXAogCiBvYmotJChDT05GSUdfUlRMODE4OEVFKSArPSBydGw4MTg4ZWUubwog
+Ci1jY2ZsYWdzLXkgKz0gLUlkcml2ZXJzL25ldC93aXJlbGVzcy9ydGx3aWZpIC1EX19DSEVDS19F
+TkRJQU5fXworY2NmbGFncy15ICs9IC1EX19DSEVDS19FTkRJQU5fXwoKCgpJIGhhdmUgb25seSB0
+ZXN0ZWQgdGhpcyBvbiBhcm0sIGFybTY0IGFuZCB4ODYsIHNvIEkgZG9uJ3Qga25vdyBpZiB0aGF0
+CmludHJvZHVjZXMgbmV3IHdhcm5pbmdzLCBidXQgd2UgY291bGQgYXNrIEFuZHJldyBpZiBoZSB3
+YW50cyB0byBhZGQgdGhhdAp0byBsaW51eC1tbSBhZnRlciB0aGUgbWVyZ2Ugd2luZG93LgoKCUFy
+bmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRl
+dmVsIG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8v
+bGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlzdGluZm8vZHJpLWRldmVsCg==
