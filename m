@@ -1,34 +1,56 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH iproute2 -master] bpf: also check elf for official
- e_machine value
-Date: Mon, 18 Jul 2016 17:36:45 -0700
-Message-ID: <20160719003642.GB45296@ast-mbp.thefacebook.com>
-References: <a5dbe0907854c72832f0b0d745eaace921bf879e.1468882622.git.daniel@iogearbox.net>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [patch 1/1] kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon
+ union initialization bug
+Date: Tue, 19 Jul 2016 08:38:02 +0800
+Message-ID: <20160719003802.GA20768@wfg-t540p.sh.intel.com>
+References: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
+ <20160719003305.GA45296@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: akpm@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36863 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930AbcGSAgt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Jul 2016 20:36:49 -0400
-Received: by mail-pa0-f67.google.com with SMTP id ez1so202283pab.3
-        for <netdev@vger.kernel.org>; Mon, 18 Jul 2016 17:36:49 -0700 (PDT)
+Received: from mga11.intel.com ([192.55.52.93]:1511 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752011AbcGSAiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Jul 2016 20:38:06 -0400
 Content-Disposition: inline
-In-Reply-To: <a5dbe0907854c72832f0b0d745eaace921bf879e.1468882622.git.daniel@iogearbox.net>
+In-Reply-To: <20160719003305.GA45296@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2016 at 01:09:52AM +0200, Daniel Borkmann wrote:
-> Use the official BPF ELF e_machine value that was assigned recently [1]
-> and will be propagated to glibc, libelf et al. LLVM will switch to it
-> in 3.9 release, therefore we need to prepare tc to check for EM_ELF as
-> well, older version still have the EM_NONE.
-> 
->   [1] https://github.com/llvm-mirror/llvm/commit/36b9c09330bfb5e771914cfe307588f30d5510d2
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Hi Alexei,
 
-Thank you for fixing it.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+On Mon, Jul 18, 2016 at 05:33:07PM -0700, Alexei Starovoitov wrote:
+>On Mon, Jul 18, 2016 at 03:50:58PM -0700, akpm@linux-foundation.org wrote:
+>> From: Andrew Morton <akpm@linux-foundation.org>
+>> Subject: kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon union initialization bug
+>>
+>> kernel/trace/bpf_trace.c: In function 'bpf_event_output':
+>> kernel/trace/bpf_trace.c:312: error: unknown field 'next' specified in initializer
+>> kernel/trace/bpf_trace.c:312: warning: missing braces around initializer
+>> kernel/trace/bpf_trace.c:312: warning: (near initialization for 'raw.frag.<anonymous>')
+>>
+>> Fixes: 555c8a8623a3a87 ("bpf: avoid stack copy and use skb ctx for event output")
+>> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>> Cc: Alexei Starovoitov <ast@kernel.org>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+>
+>Acked-by: Alexei Starovoitov <ast@kernel.org>
+>
+>Fengguang can you add gcc-4.4 to buildbot. Thanks!
+
+Sure. Currently we only test gcc-6. It'd be easy to test more versions
+concurrently, like
+
+gcc-4.4
+gcc-4.6
+gcc-4.8
+gcc-4.9
+gcc-5
+gcc-6
+
+Thanks,
+Fengguang
