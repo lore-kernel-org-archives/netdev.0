@@ -1,45 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 1/6] libcxgb: add library module for Chelsio
- drivers
-Date: Tue, 19 Jul 2016 10:43:11 -0700 (PDT)
-Message-ID: <20160719.104311.2236254119909398910.davem@davemloft.net>
-References: <cover.1468689125.git.varun@chelsio.com>
-	<cover.1468689125.git.varun@chelsio.com>
-	<c7109ba4c9c00f0580b8e603a3c9ac53e5750ad4.1468689125.git.varun@chelsio.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Tue, 19 Jul 2016 10:49:57 -0700
+Message-ID: <1468950597.1900.56.camel@perches.com>
+References: <1468478774-19942-1-git-send-email-netanel@annapurnalabs.com>
+	 <20160715050005.GD30603@leon.nu> <578E0A65.1020105@annapurnalabs.com>
+	 <20160719172644.GK20674@leon.nu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	target-devel@vger.kernel.org, nab@linux-iscsi.org,
-	gerlitz.or@gmail.com, swise@opengridcomputing.com,
-	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
-	hariprasad@chelsio.com
-To: varun@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36502 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752419AbcGSRnP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 13:43:15 -0400
-In-Reply-To: <c7109ba4c9c00f0580b8e603a3c9ac53e5750ad4.1468689125.git.varun@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
+	aliguori@amazon.com, benjamin.poirier@gmail.com,
+	ben@decadent.org.uk, romieu@fr.zoreil.com, rami.rosen@intel.com,
+	antoine.tenart@free-electrons.com
+To: Leon Romanovsky <leon@kernel.org>,
+	Netanel Belgazal <netanel@annapurnalabs.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160719172644.GK20674@leon.nu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Varun Prakash <varun@chelsio.com>
-Date: Sat, 16 Jul 2016 22:49:15 +0530
+On Tue, 2016-07-19 at 20:26 +0300, Leon Romanovsky wrote:
+> On Tue, Jul 19, 2016 at 02:09:25PM +0300, Netanel Belgazal wrote:
+> > This is the debugging message interface.
+> > https://www.kernel.org/doc/Documentation/networking/netif-msg.txt
+> This document was updated last time in 2006 and I doubt that it is
+> relevant in 2016. You have dynamic debug prints infrastructure for it,
+> use it.
 
->  }
-> +
-> +static int __init libcxgb_init(void)
-> +{
-> +	return 0;
-> +}
-> +
-> +static void __exit libcxgb_exit(void)
-> +{
-> +}
-> +
-> +module_init(libcxgb_init);
-> +module_exit(libcxgb_exit);
+I think this is uninformed.
 
-If these functions don't have to do anything, you can remove this
-entire sequence entirely.
+netif_<level> works well, is compatible with dynamic debug,
+and is commonly used with new networking drivers.
