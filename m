@@ -1,93 +1,369 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/1] net_sched: Introduce skbmod action
-Date: Tue, 19 Jul 2016 15:21:36 +0200
-Message-ID: <578E2960.7080709@iogearbox.net>
-References: <1468744884-8246-1-git-send-email-jhs@emojatatu.com> <20160718041933.GB36253@ast-mbp.thefacebook.com> <578C7C5C.2070804@mojatatu.com> <578CA4EB.7060703@iogearbox.net> <578CAA96.2090501@mojatatu.com>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 2/4] net: ethernet: ti: cpsw: add multi queue support
+Date: Tue, 19 Jul 2016 16:24:41 +0300
+Message-ID: <578E2A19.1000508@linaro.org>
+References: <1467313478-22919-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <1467313478-22919-3-git-send-email-ivan.khoronzhuk@linaro.org>
+ <577FA6CA.508@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	xiyou.wangcong@gmail.com, nikolay@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	nsekhar@ti.com
+To: Grygorii Strashko <grygorii.strashko@ti.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48755 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752987AbcGSNVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 09:21:40 -0400
-In-Reply-To: <578CAA96.2090501@mojatatu.com>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:33849 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753271AbcGSNYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 09:24:44 -0400
+Received: by mail-lf0-f47.google.com with SMTP id l69so14219602lfg.1
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 06:24:43 -0700 (PDT)
+In-Reply-To: <577FA6CA.508@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/18/2016 12:08 PM, Jamal Hadi Salim wrote:
-> On 16-07-18 05:44 AM, Daniel Borkmann wrote:
->> On 07/18/2016 08:51 AM, Jamal Hadi Salim wrote:
->>> On 16-07-18 12:19 AM, Alexei Starovoitov wrote:
->
->> Looking at that just out of curiosity on how complex it could look
->> for src/dst mac, is it actually functional in iproute2 upstream tree?
->
-> No it is a bunch of bash script wrapping we did on top of pedit (which
-> should be no different than adding it to m_pedit as an extension).
-> We started there then decided that this feature is mostly used with
-> mirred all the time - so modified  mirred.
->
->> All I see is that pedit can look up 3rd party modules via get_pedit_kind(),
->> so it will pick p_%s.so, if built as such, and there's code for p_ip,
->> p_tcp, p_udp, p_icmp. But then, for example, all I see in p_udp.c is
->> since initial iproute2 import in 2005, apart from some cleanups by
->> Stephen:
->
-> Yes, IP and tcp should be fine. Others were place holders.
 
-Well, kind of, also TCP is a place holder here:
 
-static int
-parse_tcp(int *argc_p, char ***argv_p, struct tc_pedit_sel *sel, struct tc_pedit_key *tkey)
-{
-	int res = -1;
-	return res;
-}
-struct m_pedit_util p_pedit_tcp = {
-	NULL,
-	"tcp",
-	parse_tcp,
-};
-
-Ohh well, and the IP module implements couple of ICMP stuff and source/dest port
-editing ... so only some parts of the IPv4 bits are usable it seems.
-
->> Same for tcp, icmp, ipv6 bits code ... :/ Is it still planned to eventually
->> complete these?
+On 08.07.16 16:12, Grygorii Strashko wrote:
+> On 06/30/2016 10:04 PM, Ivan Khoronzhuk wrote:
+>> The cpsw h/w supports up to 8 tx and 8 rx channels.This patch adds
+>> multi-queue support to the driver. An ability to configure h/w
+>> shaper will be added with separate patch. Default shaper mode, as
+>> before, priority mode.
+>>
+>> The poll function handles all unprocessed channels, till all of
+>> them are free, beginning from hi priority channel.
+>>
+>> The statistic for every channel can be read with:
+>> ethtool -S ethX
+>>
+>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+>> ---
+>>    drivers/net/ethernet/ti/cpsw.c          | 334 +++++++++++++++++++++-----------
+>>    drivers/net/ethernet/ti/davinci_cpdma.c |  12 ++
+>>    drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
+>>    3 files changed, 237 insertions(+), 111 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index a713336..14d53eb 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -140,6 +140,8 @@ do {								\
+>>    #define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
+>>    #define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
+>>
+>> +#define CPSW_MAX_QUEUES		8
+>> +
+>>    #define cpsw_slave_index(priv)				\
+>>    		((priv->data.dual_emac) ? priv->emac_port :	\
+>>    		priv->data.active_slave)
+>> @@ -383,7 +385,8 @@ struct cpsw_priv {
+>>    	u8				mac_addr[ETH_ALEN];
+>>    	struct cpsw_slave		*slaves;
+>>    	struct cpdma_ctlr		*dma;
+>> -	struct cpdma_chan		*txch, *rxch;
+>> +	struct cpdma_chan		*txch[CPSW_MAX_QUEUES];
+>> +	struct cpdma_chan		*rxch[CPSW_MAX_QUEUES];
+>>    	struct cpsw_ale			*ale;
+>>    	bool				rx_pause;
+>>    	bool				tx_pause;
+>> @@ -395,6 +398,7 @@ struct cpsw_priv {
+>>    	u32 num_irqs;
+>>    	struct cpts *cpts;
+>>    	u32 emac_port;
+>> +	int rx_ch_num, tx_ch_num;
+>>    };
+>>
 >
-> someone else could run with it; at the moment i think this was ok at
-> small scale but it hasnt worked well in a larger scale. When you write
-
-I believe no-one really bothered to seriously use these p_* modules in
-large (maybe even small) scale given their state. Maybe it would have been
-different if this functionality was more complete from the beginning (analog
-to u32 cls). True that script wrappers might do the same, but would have more
-work once you'd add some 'pretty printer' to it.
-
-> other apps (other than tc) to use these APIs parsing all the 32 bit
-> chunks is more cumbersome then getting a struct which gives me precise
-> info.
-
-True, the 32 bit chunks are more generic and as such you need to put more
-effort in user space to handle them, but at the same time gain more flexibility
-w/o having to have a module for each and every proto. But apart from this,
-neither pedit nor tcf_skbmod_run() here handle checksum complete, so you'll
-potentially get false positives wrt csum corruption and drops as a result
-when using either of the two.
-
-[...]
-> If i could tag the structure with something the kernel then returns to
-> me when i dump, I could add nice pretty printers (same arguement applies
-> to u32).
-> But that doesnt solve the programmability issue as being a good cause.
+> [...]
 >
-> cheers,
-> jamal
+>>
+>> @@ -989,26 +1024,50 @@ update_return:
+>>
+>>    static int cpsw_get_sset_count(struct net_device *ndev, int sset)
+>>    {
+>> +	struct cpsw_priv *priv = netdev_priv(ndev);
+>> +
+>>    	switch (sset) {
+>>    	case ETH_SS_STATS:
+>> -		return CPSW_STATS_LEN;
+>> +		return (CPSW_STATS_COMMON_LEN +
+>> +		       (priv->rx_ch_num + priv->tx_ch_num) *
+>> +		       CPSW_STATS_CH_LEN);
+>>    	default:
+>>    		return -EOPNOTSUPP;
+>>    	}
+>>    }
+>>
+>> +static void cpsw_add_ch_strings(u8 **p, int ch_num, int rx_dir)
+>> +{
+>> +	int ch_stats_len;
+>> +	int line;
+>> +	int i;
+>> +
+>> +	ch_stats_len = CPSW_STATS_CH_LEN * ch_num;
+>> +	for (i = 0; i < ch_stats_len; i++) {
+>> +		line = i % CPSW_STATS_CH_LEN;
+>> +		sprintf(*p, "%s DMA chan %d: %s", rx_dir ? "Rx" : "Tx",
+>> +			i / CPSW_STATS_CH_LEN,
+>
+> snprintf(,ETH_GSTRING_LEN,) ?
+It's number of channel.
+
+>
+>> +			cpsw_gstrings_ch_stats[line].stat_string);
+>> +		*p += ETH_GSTRING_LEN;
+>> +	}
+>> +}
+>> +
+>>    static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
+>>    {
+>> +	struct cpsw_priv *priv = netdev_priv(ndev);
+>>    	u8 *p = data;
+>>    	int i;
+>>
+>>    	switch (stringset) {
+>>    	case ETH_SS_STATS:
+>> -		for (i = 0; i < CPSW_STATS_LEN; i++) {
+>> +		for (i = 0; i < CPSW_STATS_COMMON_LEN; i++) {
+>>    			memcpy(p, cpsw_gstrings_stats[i].stat_string,
+>>    			       ETH_GSTRING_LEN);
+>>    			p += ETH_GSTRING_LEN;
+>>    		}
+>> +
+>> +		cpsw_add_ch_strings(&p, priv->rx_ch_num, 1);
+>> +		cpsw_add_ch_strings(&p, priv->tx_ch_num, 0);
+>>    		break;
+>>    	}
+>>    }
+>> @@ -1017,35 +1076,38 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+>>    				    struct ethtool_stats *stats, u64 *data)
+>>    {
+>>    	struct cpsw_priv *priv = netdev_priv(ndev);
+>> -	struct cpdma_chan_stats rx_stats;
+>> -	struct cpdma_chan_stats tx_stats;
+>> -	u32 val;
+>> +	struct cpdma_chan_stats ch_stats;
+>> +	int i, l, ch, ret;
+>>    	u8 *p;
+>> -	int i;
+>> +
+>> +	ret = pm_runtime_get_sync(&priv->pdev->dev);
+>> +	if (ret < 0) {
+>> +		pm_runtime_put_noidle(&priv->pdev->dev);
+>> +		return;
+>> +	}
+>
+> You probably need to base you work on top of net-next.git
+Yep. Will correct.
+
+>
+>>
+>>    	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
+>> -	cpdma_chan_get_stats(priv->rxch, &rx_stats);
+>> -	cpdma_chan_get_stats(priv->txch, &tx_stats);
+>> -
+>> -	for (i = 0; i < CPSW_STATS_LEN; i++) {
+>> -		switch (cpsw_gstrings_stats[i].type) {
+>> -		case CPSW_STATS:
+>> -			val = readl(priv->hw_stats +
+>> -				    cpsw_gstrings_stats[i].stat_offset);
+>> -			data[i] = val;
+>> -			break;
+>> +	for (l = 0; l < CPSW_STATS_COMMON_LEN; l++)
+>> +		data[l] = readl(priv->hw_stats +
+>> +				cpsw_gstrings_stats[l].stat_offset);
+>>
+>> -		case CPDMA_RX_STATS:
+>> -			p = (u8 *)&rx_stats +
+>> -				cpsw_gstrings_stats[i].stat_offset;
+>> -			data[i] = *(u32 *)p;
+>> -			break;
+>> +	pm_runtime_put(&priv->pdev->dev);
+>>
+>> -		case CPDMA_TX_STATS:
+>> -			p = (u8 *)&tx_stats +
+>> -				cpsw_gstrings_stats[i].stat_offset;
+>> -			data[i] = *(u32 *)p;
+>> -			break;
+>> +	for (ch = 0; ch < priv->rx_ch_num; ch++) {
+>> +		cpdma_chan_get_stats(priv->rxch[ch], &ch_stats);
+>> +		for (i = 0; i < CPSW_STATS_CH_LEN; i++, l++) {
+>> +			p = (u8 *)&ch_stats +
+>> +				cpsw_gstrings_ch_stats[i].stat_offset;
+>> +			data[l] = *(u32 *)p;
+>> +		}
+>> +	}
+>> +
+>> +	for (ch = 0; ch < priv->tx_ch_num; ch++) {
+>> +		cpdma_chan_get_stats(priv->txch[ch], &ch_stats);
+>> +		for (i = 0; i < CPSW_STATS_CH_LEN; i++, l++) {
+>> +			p = (u8 *)&ch_stats +
+>> +				cpsw_gstrings_ch_stats[i].stat_offset;
+>> +			data[l] = *(u32 *)p;
+>>    		}
+>>    	}
+>
+> I think, it's better to do pm_runtime_put() here even if now cpdma does'n access
+> HW from cpdma_chan_get_stats it may change in fufture.
+> And it's not critical from PM point of view
+This part is not going to access h/w.
+The function is ethtool op, and after adding pm_runtime in begin/end ops no need in it.
+Will correct it in next version.
+
+>
+>>    }
+>> @@ -1065,19 +1127,29 @@ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
+>>    	return usage_count;
+>>    }
+>>
+>> +static inline struct cpdma_chan *
+>> +cpsw_tx_queue_mapping(struct cpsw_priv *priv, struct sk_buff *skb)
+>> +{
+>> +	unsigned int q_idx = skb_get_queue_mapping(skb);
+>> +
+>> +	if (q_idx >= priv->tx_ch_num)
+>> +		q_idx = q_idx % priv->tx_ch_num;
+>> +
+>> +	return priv->txch[q_idx];
+>> +}
+>> +
+>>    static inline int cpsw_tx_packet_submit(struct net_device *ndev,
+>> -			struct cpsw_priv *priv, struct sk_buff *skb)
+>> +					struct cpsw_priv *priv,
+>> +					struct sk_buff *skb,
+>> +					struct cpdma_chan *txch)
+>>    {
+>>    	if (!priv->data.dual_emac)
+>> -		return cpdma_chan_submit(priv->txch, skb, skb->data,
+>> -				  skb->len, 0);
+>> +		return cpdma_chan_submit(txch, skb, skb->data, skb->len, 0);
+>>
+>>    	if (ndev == cpsw_get_slave_ndev(priv, 0))
+>> -		return cpdma_chan_submit(priv->txch, skb, skb->data,
+>> -				  skb->len, 1);
+>> +		return cpdma_chan_submit(txch, skb, skb->data, skb->len, 1);
+>>    	else
+>> -		return cpdma_chan_submit(priv->txch, skb, skb->data,
+>> -				  skb->len, 2);
+>> +		return cpdma_chan_submit(txch, skb, skb->data, skb->len, 2);
+>>    }
+>>
+>>    static inline void cpsw_add_dual_emac_def_ale_entries(
+>
+> [...]
+>
+>>
+>> @@ -1614,12 +1713,16 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+>>    static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+>>    {
+>>    	struct cpsw_priv *priv = netdev_priv(ndev);
+>> +	int ch;
+>>
+>>    	cpsw_err(priv, tx_err, "transmit timeout, restarting dma\n");
+>>    	ndev->stats.tx_errors++;
+>>    	cpsw_intr_disable(priv);
+>> -	cpdma_chan_stop(priv->txch);
+>> -	cpdma_chan_start(priv->txch);
+>> +	for (ch = 0; ch < priv->tx_ch_num; ch++) {
+>> +		cpdma_chan_stop(priv->txch[ch]);
+>> +		cpdma_chan_start(priv->txch[ch]);
+>> +	}
+>> +
+>>    	cpsw_intr_enable(priv);
+>>    }
+>>
+>> @@ -1833,7 +1936,7 @@ static void cpsw_get_drvinfo(struct net_device *ndev,
+>>    	struct cpsw_priv *priv = netdev_priv(ndev);
+>>
+>>    	strlcpy(info->driver, "cpsw", sizeof(info->driver));
+>> -	strlcpy(info->version, "1.0", sizeof(info->version));
+>> +	strlcpy(info->version, "1.1", sizeof(info->version));
+>
+> Not sure about this change, at least not as part of this patch.
+The possibilities of the driver are changed. Now it's multichannel.
+If you think it's not needed I can drop it otherwise will send it with separate patch.
+
+>
+>>    	strlcpy(info->bus_info, priv->pdev->name, sizeof(info->bus_info));
+>>    }
+>>
+>> @@ -2181,7 +2284,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+>>    	struct cpsw_priv		*priv_sl2;
+>>    	int ret = 0, i;
+>>
+>> -	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
+>> +	ndev = alloc_etherdev_mq(sizeof(struct cpsw_priv), CPSW_MAX_QUEUES);
+>>    	if (!ndev) {
+>>    		dev_err(&pdev->dev, "cpsw: error allocating net_device\n");
+>>    		return -ENOMEM;
+>> @@ -2216,8 +2319,15 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+>>    	priv_sl2->wr_regs = priv->wr_regs;
+>>    	priv_sl2->hw_stats = priv->hw_stats;
+>>    	priv_sl2->dma = priv->dma;
+>> -	priv_sl2->txch = priv->txch;
+>> -	priv_sl2->rxch = priv->rxch;
+>
+> [...]
+>
+>>
+>> -	if (WARN_ON(!priv->txch || !priv->rxch)) {
+>> +	if (WARN_ON(!priv->rxch[0] || !priv->txch[0])) {
+>>    		dev_err(priv->dev, "error initializing dma channels\n");
+>>    		ret = -ENOMEM;
+>>    		goto clean_dma_ret;
+>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+>> index 2f4b571..a4b299d 100644
+>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+>> @@ -481,6 +481,18 @@ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value)
+>>    }
+>>    EXPORT_SYMBOL_GPL(cpdma_ctlr_eoi);
+>>
+>> +u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr)
+>> +{
+>> +	return dma_reg_read(ctlr, CPDMA_RXINTSTATMASKED);
+>> +}
+>> +EXPORT_SYMBOL_GPL(cpdma_ctrl_rxchs_state);
+>> +
+>> +u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr)
+>> +{
+>> +	return dma_reg_read(ctlr, CPDMA_TXINTSTATMASKED);
+>
+> TRM: CPDMA_INT TX INTERRUPT STATUS REGISTER (MASKED VALUE)
+>
+>> +}
+>> +EXPORT_SYMBOL_GPL(cpdma_ctrl_txchs_state);
+>
+> This is interrupt status, so may be cpdma_ctrl_tx[rx]chs_intr_status() name
+> will be more appropriate?
+Not sure. It's not exacly interrupt status as can give status of channel even if the intertupt was disabled.
+And it can be used w/o interrupt at all, just polling. The interrupt status can be read with another register.
+This one continue to mirror descriptors presence for channels till they are all correctly handled.
+
+>
+>> +
+>>    /**
+>>     * cpdma_chan_split_pool - Splits ctrl pool between all channels.
+>>     * Has to be called under ctlr lock
+>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+>> index 0308b67..3ce91a1 100644
+>> --- a/drivers/net/ethernet/ti/davinci_cpdma.h
+>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+>> @@ -96,6 +96,8 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
+>>    int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
+>>    void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value);
+>>    int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
+>> +u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr);
+>> +u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr);
+>>    bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
+>>
+>>    enum cpdma_control {
+>>
 >
 >
->
+
+-- 
+Regards,
+Ivan Khoronzhuk
