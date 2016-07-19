@@ -1,60 +1,50 @@
-From: Wei Yongjun <weiyj_lk@163.com>
-Subject: [PATCH -next] net: cpmac: fix error handling of cpmac_probe()
-Date: Tue, 19 Jul 2016 12:37:53 +0000
-Message-ID: <1468931873-19614-1-git-send-email-weiyj_lk@163.com>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: Re: [PATCH net-next v2] cdc_ether: Improve ZTE MF823/831/910 handling
+Date: Tue, 19 Jul 2016 14:43:04 +0200
+Message-ID: <CAKfDRXg6aU3Ht=50b6HMJixycXv98cLOaz1Ty8oyr-Nktc6BBg@mail.gmail.com>
+References: <1468928961-26495-1-git-send-email-kristian.evensen@gmail.com> <1468931616.2429.3.camel@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>,
-	Varka Bhadram <varkab@cdac.in>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-18.163.com ([220.181.12.18]:59949 "EHLO m12-18.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752963AbcGSMid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2016 08:38:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-usb@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468931616.2429.3.camel@neukum.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Tue, Jul 19, 2016 at 2:33 PM, Oliver Neukum <oliver@neukum.org> wrote:
+> On Tue, 2016-07-19 at 13:49 +0200, Kristian Evensen wrote:
+>> @@ -428,10 +434,47 @@ int usbnet_cdc_bind(struct usbnet *dev, struct
+>> usb_interface *intf)
+>>                 return status;
+>>         }
+>>
+>> +       if (dev->net->dev_addr[0] & 0x02)
+>> +               eth_hw_addr_random(dev->net);
+>> +
+>>         return 0;
+>>  }
+>>  EXPORT_SYMBOL_GPL(usbnet_cdc_bind);
+>>
+>> +static int usbnet_cdc_zte_bind(struct usbnet *dev, struct
+>> usb_interface *intf)
+>> +{
+>> +       int status = usbnet_cdc_bind(dev, intf);
+>> +
+>> +       if (status)
+>> +               return status;
+>> +
+>> +       if (dev->net->dev_addr[0] & 0x02)
+>> +               eth_hw_addr_random(dev->net);
+>> +
+>> +       return 0;
+>> +}
+>
+> That really makes no sense.
 
-Add the missing free_netdev() before return from function
-cpmac_probe() in the error handling case.
-This patch revert commit 0465be8f4f1d ("net: cpmac: fix in
-releasing resources"), which changed to only free_netdev
-while register_netdev failed.
+Ops, my bad. Thanks for catching it. The check for random hw_addr
+should only be in the zte_bind() function.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/ti/cpmac.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
-index f86497c..cecfdaa 100644
---- a/drivers/net/ethernet/ti/cpmac.c
-+++ b/drivers/net/ethernet/ti/cpmac.c
-@@ -1117,7 +1117,7 @@ static int cpmac_probe(struct platform_device *pdev)
- 	mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
- 	if (!mem) {
- 		rc = -ENODEV;
--		goto out;
-+		goto fail;
- 	}
- 
- 	dev->irq = platform_get_irq_byname(pdev, "irq");
-@@ -1145,7 +1145,7 @@ static int cpmac_probe(struct platform_device *pdev)
- 			dev_err(&pdev->dev, "Could not attach to PHY\n");
- 
- 		rc = PTR_ERR(phydev);
--		goto out;
-+		goto fail;
- 	}
- 
- 	rc = register_netdev(dev);
-@@ -1164,7 +1164,6 @@ static int cpmac_probe(struct platform_device *pdev)
- 
- fail:
- 	free_netdev(dev);
--out:
- 	return rc;
- }
+-Kristian
