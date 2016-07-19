@@ -1,56 +1,41 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
-Date: Tue, 19 Jul 2016 12:05:00 -0400
-Message-ID: <wrfjlh0xvck3.fsf@redhat.com>
-References: <20160719153403.2967812-1-arnd@arndb.de>
-	<20160719153403.2967812-2-arnd@arndb.de> <wrfjy44xvdfn.fsf@redhat.com>
-	<3858062.NGQDOLnTj0@wuerfel>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v3] packet: fix second argument of sock_tx_timestamp()
+Date: Tue, 19 Jul 2016 12:31:34 -0400
+Message-ID: <CAF=yD-L0qPdm-rNDz_KtkQQwUx1L8okwXH8457yrazfxwA=esA@mail.gmail.com>
+References: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+ <CACSApvYj5X166euM2Qy+ubvLYdfYg65itMYiVeTf5SUuiA+gog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
-	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3858062.NGQDOLnTj0@wuerfel> (Arnd Bergmann's message of "Tue, 19
-	Jul 2016 17:53:38 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>,
+	David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f65.google.com ([209.85.213.65]:36359 "EHLO
+	mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752983AbcGSQcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 12:32:15 -0400
+Received: by mail-vk0-f65.google.com with SMTP id r135so1937156vkf.3
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 09:32:15 -0700 (PDT)
+In-Reply-To: <CACSApvYj5X166euM2Qy+ubvLYdfYg65itMYiVeTf5SUuiA+gog@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> writes:
-> On Tuesday, July 19, 2016 11:46:04 AM CEST Jes Sorensen wrote:
->> > diff --git a/drivers/staging/rtl8192e/rtl819x_TSProc.c b/drivers/staging/rtl8192e/rtl819x_TSProc.c
->> > index 2c8a526773ed..e0a2fe5e6148 100644
->> > --- a/drivers/staging/rtl8192e/rtl819x_TSProc.c
->> > +++ b/drivers/staging/rtl8192e/rtl819x_TSProc.c
->> > @@ -323,7 +323,7 @@ bool GetTs(struct rtllib_device *ieee, struct ts_common_info **ppTS,
->> >       if (ieee->current_network.qos_data.supported == 0) {
->> >               UP = 0;
->> >       } else {
->> > -             if (!IsACValid(TID)) {
->> > +             if (!IsACValid((s8)TID)) {
->> >                       netdev_warn(ieee->dev, "%s(): TID(%d) is not valid\n",
->> >                                   __func__, TID);
->> >                       return false;
->> 
->> TID is a 4-bit field, it should never go negative. The cast to s8 seems
->> wrong to me, if anything it should be using u8. I do realize the macro
->> IsACValid checks against negative too, but that just looks silly to me.
->
-> Ok, I'll remove the extra comparison then to avoid the warning:
->
-> staging/rtl8192e/rtl819x_TSProc.c:326:14: error: comparison is always
-> true due to limited range of data type [-Werror=type-limits]
->
-> I guess it should be a separate patch. I had just stumbled over the
-> same thing before resending the patch but decided not to change it
-> to keep the patch simple.
+On Tue, Jul 19, 2016 at 8:34 AM, Soheil Hassas Yeganeh
+<soheil@google.com> wrote:
+> On Tue, Jul 19, 2016 at 1:40 AM, Yoshihiro Shimoda
+> <yoshihiro.shimoda.uh@renesas.com> wrote:
+>> This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
+>> work correctly. Since the sendto syscall doesn't have msg_control buffer,
+>> the sock_tx_timestamp() in packet_snd() cannot work correctly because
+>> the socks.tsflags is set to 0.
+>> So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
+>>
+>> Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
+>> Cc: <stable@vger.kernel.org>
+>> Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+>> Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
+>> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
-I think that would be better, albeit not a big issue. I'd like to get
-rid of all the drivers/staging/rtl* drivers eventually :)
-
-Cheers,
-Jes
+Acked-by: Willem de Bruijn <willemb@google.com>
