@@ -1,49 +1,50 @@
-From: "Reizer, Eyal" <eyalr@ti.com>
-Subject: RE: [PATCH v7] wlcore: spi: add wl18xx support
-Date: Tue, 19 Jul 2016 07:25:00 +0000
-Message-ID: <8665E2433BC68541A24DFFCA87B70F5B36160503@DFRE01.ent.ti.com>
-References: <1468911482-32560-1-git-send-email-eyalr@ti.com>
- <87poqaum6t.fsf@kamboji.qca.qualcomm.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: fix crash in XFRM_MSG_GETSA netlink handler
+Date: Tue, 19 Jul 2016 09:35:06 +0200
+Message-ID: <20160719073506.GQ12335@gauss.secunet.com>
+References: <1467706688-3631-1-git-send-email-vegard.nossum@oracle.com>
+ <20160705.121303.399318377900246102.davem@davemloft.net>
+ <20160706022729.GA12971@gondor.apana.org.au>
+ <20160710122113.GA24022@gauss.secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-spi@vger.kernel.org" <linux-spi@vger.kernel.org>,
-	"robh@kernel.org" <robh@kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>,
-	Eyal Reizer <eyalreizer@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87poqaum6t.fsf@kamboji.qca.qualcomm.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <vegard.nossum@oracle.com>,
+	<nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:59047 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752463AbcGSHfL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2016 03:35:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20160710122113.GA24022@gauss.secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > From: Eyal Reizer <eyalreizer@gmail.com>
-> >
-> > Add support for using with both wl12xx and wl18xx.
-> >
-> > - all wilink family needs special init command for entering wspi mode.
-> >   extra clock cycles should be sent after the spi init command while the
-> >   cs pin is high.
-> > - Use inverted chip select for sending a dummy 4 bytes command that
-> >   completes the init stage.
-> >
-> > Signed-off-by: Eyal Reizer <eyalr@ti.com>
-> > Acked-by: Rob Herring <robh@kernel.org>
+On Sun, Jul 10, 2016 at 02:21:13PM +0200, Steffen Klassert wrote:
+> On Wed, Jul 06, 2016 at 10:27:29AM +0800, Herbert Xu wrote:
+> > On Tue, Jul 05, 2016 at 12:13:03PM -0700, David Miller wrote:
+> > > From: Vegard Nossum <vegard.nossum@oracle.com>
+> > > Date: Tue,  5 Jul 2016 10:18:08 +0200
+> > > 
+> > > > If we hit any of the error conditions inside xfrm_dump_sa(), then
+> > > > xfrm_state_walk_init() never gets called. However, we still call
+> > > > xfrm_state_walk_done() from xfrm_dump_sa_done(), which will crash
+> > > > because the state walk was never initialized properly.
+> > > > 
+> > > > We can fix this by setting cb->args[0] only after we've processed the
+> > > > first element and checking this before calling xfrm_state_walk_done().
+> > > > 
+> > > > Fixes: d3623099d3 ("ipsec: add support of limited SA dump")
+> > > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> > > > Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> > > 
+> > > I assume Steffen will pick this up.
+> > 
+> > I think Steffen said that he is going to be on vacation for two
+> > weeks starting this week.
 > 
-> This looks ok in patchwork:
-> 
-> https://patchwork.kernel.org/patch/9235983/
-> 
-> Because you used ti.com in S-o-b I assume From should also use ti.com. I can
-> fix that before I apply but please confirm that's really the case?
-> 
+> Right, I'll take care of it as soon as I'm back.
 
-Yes, S-o-b is eyalr@ti.com. 
-Thank you!
-
---
-Eyal Reizer
+Now applied to the ipsec tree, thanks a lot!
