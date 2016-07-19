@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 01/12] net: dsa: mv88e6xxx: remove basic function flags
-Date: Mon, 18 Jul 2016 20:45:29 -0400
-Message-ID: <20160719004540.1066-2-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 02/12] net: dsa: mv88e6xxx: split setup of Global 1 and 2
+Date: Mon, 18 Jul 2016 20:45:30 -0400
+Message-ID: <20160719004540.1066-3-vivien.didelot@savoirfairelinux.com>
 References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,231 +14,218 @@ In-Reply-To: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-All 88E6xxx Marvell switches (even the old not supported yet 88E6060)
-have at least an ATU, per-port STP states and VLAN map, to run basic
-switch functions such as Spanning Tree and port based VLANs.
+Separate the setup of Global 1 and Global 2 internal SMI devices and add
+a flag to describe the presence of this second registers set.
 
-Get rid of the related MV88E6XXX_FLAG_{ATU,PORTSTATE,VLANTABLE} flags,
-as they are defaults to every chip.
-
-This enables STP on 6185 and removes many inconsistencies on others.
+Also rearrange the G1 setup in the registers order.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 23 ------------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 46 +++++------------------------------
- 2 files changed, 6 insertions(+), 63 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 71 ++++++++++++++++++++++-------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 23 +++++++++---
+ 2 files changed, 62 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 5cb06f7..3feb842 100644
+index 3feb842..1e39fa6 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1460,9 +1460,6 @@ static void mv88e6xxx_port_stp_state_set(struct dsa_switch *ds, int port,
- 	int stp_state;
- 	int err;
+@@ -2993,13 +2993,12 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+ 	return 0;
+ }
  
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_PORTSTATE))
--		return;
--
- 	switch (state) {
- 	case BR_STATE_DISABLED:
- 		stp_state = PORT_CONTROL_STATE_DISABLED;
-@@ -2398,11 +2395,6 @@ static int mv88e6xxx_port_fdb_prepare(struct dsa_switch *ds, int port,
- 				      const struct switchdev_obj_port_fdb *fdb,
- 				      struct switchdev_trans *trans)
+-static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
++static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
  {
--	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
--
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_ATU))
--		return -EOPNOTSUPP;
--
- 	/* We don't need any dynamic resource from the kernel (yet),
- 	 * so skip the prepare phase.
- 	 */
-@@ -2418,9 +2410,6 @@ static void mv88e6xxx_port_fdb_add(struct dsa_switch *ds, int port,
- 		GLOBAL_ATU_DATA_STATE_UC_STATIC;
- 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_ATU))
--		return;
--
- 	mutex_lock(&chip->reg_lock);
- 	if (_mv88e6xxx_port_fdb_load(chip, port, fdb->addr, fdb->vid, state))
- 		netdev_err(ds->ports[port].netdev,
-@@ -2434,9 +2423,6 @@ static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
- 	int ret;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_ATU))
--		return -EOPNOTSUPP;
--
- 	mutex_lock(&chip->reg_lock);
- 	ret = _mv88e6xxx_port_fdb_load(chip, port, fdb->addr, fdb->vid,
- 				       GLOBAL_ATU_DATA_STATE_UNUSED);
-@@ -2542,9 +2528,6 @@ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
- 	u16 fid;
+ 	struct dsa_switch *ds = chip->ds;
+ 	u32 upstream_port = dsa_upstream_port(ds);
+ 	u16 reg;
  	int err;
+-	int i;
  
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_ATU))
--		return -EOPNOTSUPP;
+ 	/* Enable the PHY Polling Unit if present, don't discard any packets,
+ 	 * and mask all interrupt sources.
+@@ -3040,6 +3039,16 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
+ 	if (err)
+ 		return err;
+ 
++	/* Clear all the VTU and STU entries */
++	err = _mv88e6xxx_vtu_stu_flush(chip);
++	if (err < 0)
++		return err;
++
++	/* Clear all ATU entries */
++	err = _mv88e6xxx_atu_flush(chip, 0, true);
++	if (err)
++		return err;
++
+ 	/* Configure the IP ToS mapping registers. */
+ 	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_IP_PRI_0, 0x0000);
+ 	if (err)
+@@ -3071,6 +3080,26 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
+ 	if (err)
+ 		return err;
+ 
++	/* Clear the statistics counters for all ports */
++	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_STATS_OP,
++				   GLOBAL_STATS_OP_FLUSH_ALL);
++	if (err)
++		return err;
++
++	/* Wait for the flush to complete. */
++	err = _mv88e6xxx_stats_wait(chip);
++	if (err)
++		return err;
++
++	return 0;
++}
++
++static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
++{
++	struct dsa_switch *ds = chip->ds;
++	int err;
++	int i;
++
+ 	/* Send all frames with destination addresses matching
+ 	 * 01:80:c2:00:00:0x to the CPU port.
+ 	 */
+@@ -3174,28 +3203,7 @@ static int mv88e6xxx_setup_global(struct mv88e6xxx_chip *chip)
+ 		}
+ 	}
+ 
+-	/* Clear the statistics counters for all ports */
+-	err = _mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_STATS_OP,
+-				   GLOBAL_STATS_OP_FLUSH_ALL);
+-	if (err)
+-		return err;
 -
- 	mutex_lock(&chip->reg_lock);
- 
- 	/* Dump port's default Filtering Information Database (VLAN ID 0) */
-@@ -2587,9 +2570,6 @@ static int mv88e6xxx_port_bridge_join(struct dsa_switch *ds, int port,
- 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
- 	int i, err = 0;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VLANTABLE))
--		return -EOPNOTSUPP;
+-	/* Wait for the flush to complete. */
+-	err = _mv88e6xxx_stats_wait(chip);
+-	if (err)
+-		return err;
 -
- 	mutex_lock(&chip->reg_lock);
- 
- 	/* Assign the bridge and remap each port's VLANTable */
-@@ -2614,9 +2594,6 @@ static void mv88e6xxx_port_bridge_leave(struct dsa_switch *ds, int port)
- 	struct net_device *bridge = chip->ports[port].bridge_dev;
- 	int i;
- 
--	if (!mv88e6xxx_has(chip, MV88E6XXX_FLAG_VLANTABLE))
--		return;
+-	/* Clear all ATU entries */
+-	err = _mv88e6xxx_atu_flush(chip, 0, true);
+-	if (err)
+-		return err;
 -
- 	mutex_lock(&chip->reg_lock);
+-	/* Clear all the VTU and STU entries */
+-	err = _mv88e6xxx_vtu_stu_flush(chip);
+-	if (err < 0)
+-		return err;
+-
+-	return err;
++	return 0;
+ }
  
- 	/* Unassign the bridge and remap each port's VLANTable */
+ static int mv88e6xxx_setup(struct dsa_switch *ds)
+@@ -3216,12 +3224,21 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 	if (err)
+ 		goto unlock;
+ 
+-	err = mv88e6xxx_setup_global(chip);
++	/* Setup Switch Port Registers */
++	for (i = 0; i < chip->info->num_ports; i++) {
++		err = mv88e6xxx_setup_port(chip, i);
++		if (err)
++			goto unlock;
++	}
++
++	/* Setup Switch Global 1 Registers */
++	err = mv88e6xxx_g1_setup(chip);
+ 	if (err)
+ 		goto unlock;
+ 
+-	for (i = 0; i < chip->info->num_ports; i++) {
+-		err = mv88e6xxx_setup_port(chip, i);
++	/* Setup Switch Global 2 Registers */
++	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_GLOBAL2)) {
++		err = mv88e6xxx_g2_setup(chip);
+ 		if (err)
+ 			goto unlock;
+ 	}
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 83f0662..2ff62f4 100644
+index 2ff62f4..390dac5 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -374,11 +374,6 @@ enum mv88e6xxx_family {
- };
- 
- enum mv88e6xxx_cap {
--	/* Address Translation Unit.
--	 * The ATU is used to lookup and learn MAC addresses. See GLOBAL_ATU_OP.
--	 */
--	MV88E6XXX_CAP_ATU,
--
- 	/* Energy Efficient Ethernet.
+@@ -383,6 +383,11 @@ enum mv88e6xxx_cap {
  	 */
- 	MV88E6XXX_CAP_EEE,
-@@ -394,11 +389,6 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_MULTI_CHIP,
+ 	MV88E6XXX_CAP_EEPROM,
  
--	/* Port State Filtering for 802.1D Spanning Tree.
--	 * See PORT_CONTROL_STATE_* values in the PORT_CONTROL register.
--	 */
--	MV88E6XXX_CAP_PORTSTATE,
--
- 	/* PHY Polling Unit.
- 	 * See GLOBAL_CONTROL_PPU_ENABLE and GLOBAL_STATUS_PPU_POLLING.
- 	 */
-@@ -430,12 +420,6 @@ enum mv88e6xxx_cap {
- 	MV88E6XXX_CAP_TEMP,
- 	MV88E6XXX_CAP_TEMP_LIMIT,
- 
--	/* In-chip Port Based VLANs.
--	 * Each port VLANTable register (see PORT_BASE_VLAN) is used to restrict
--	 * the output (or egress) ports to which it is allowed to send frames.
--	 */
--	MV88E6XXX_CAP_VLANTABLE,
--
- 	/* VLAN Table Unit.
- 	 * The VTU is used to program 802.1Q VLANs. See GLOBAL_VTU_OP.
- 	 */
-@@ -443,11 +427,9 @@ enum mv88e6xxx_cap {
- };
- 
++	/* Switch Global 2 Registers.
++	 * The device contains a second set of global 16-bit registers.
++	 */
++	MV88E6XXX_CAP_GLOBAL2,
++
+ 	/* Multi-chip Addressing Mode.
+ 	 * Some chips require an indirect SMI access when their SMI device
+ 	 * address is not zero. See SMI_CMD and SMI_DATA.
+@@ -429,6 +434,7 @@ enum mv88e6xxx_cap {
  /* Bitmask of capabilities */
--#define MV88E6XXX_FLAG_ATU		BIT(MV88E6XXX_CAP_ATU)
  #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
  #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
++#define MV88E6XXX_FLAG_GLOBAL2		BIT(MV88E6XXX_CAP_GLOBAL2)
  #define MV88E6XXX_FLAG_MULTI_CHIP	BIT(MV88E6XXX_CAP_MULTI_CHIP)
--#define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
  #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
  #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
- #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
-@@ -455,22 +437,17 @@ enum mv88e6xxx_cap {
- #define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
- #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
--#define MV88E6XXX_FLAG_VLANTABLE	BIT(MV88E6XXX_CAP_VLANTABLE)
+@@ -440,31 +446,36 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6095	\
--	(MV88E6XXX_FLAG_ATU |		\
--	 MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_MULTI_CHIP |	\
+-	(MV88E6XXX_FLAG_MULTI_CHIP |	\
++	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
  	 MV88E6XXX_FLAG_PPU |		\
--	 MV88E6XXX_FLAG_VLANTABLE |	\
  	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6097	\
--	(MV88E6XXX_FLAG_ATU |		\
--	 MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_MULTI_CHIP |	\
+-	(MV88E6XXX_FLAG_MULTI_CHIP |	\
++	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
  	 MV88E6XXX_FLAG_PPU |		\
  	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_VLANTABLE |	\
  	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6165	\
-@@ -481,51 +458,40 @@ enum mv88e6xxx_cap {
+-	(MV88E6XXX_FLAG_MULTI_CHIP |	\
++	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
  	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6185	\
--	(MV88E6XXX_FLAG_ATU |		\
--	 MV88E6XXX_FLAG_MULTI_CHIP |	\
-+	(MV88E6XXX_FLAG_MULTI_CHIP |	\
+-	(MV88E6XXX_FLAG_MULTI_CHIP |	\
++	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
  	 MV88E6XXX_FLAG_PPU |		\
--	 MV88E6XXX_FLAG_VLANTABLE |	\
  	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6320	\
--	(MV88E6XXX_FLAG_ATU |		\
--	 MV88E6XXX_FLAG_EEE |		\
-+	(MV88E6XXX_FLAG_EEE |		\
+ 	(MV88E6XXX_FLAG_EEE |		\
  	 MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_GLOBAL2 |	\
  	 MV88E6XXX_FLAG_MULTI_CHIP |	\
--	 MV88E6XXX_FLAG_PORTSTATE |	\
  	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
  	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
--	 MV88E6XXX_FLAG_VLANTABLE |	\
+@@ -474,7 +485,8 @@ enum mv88e6xxx_cap {
  	 MV88E6XXX_FLAG_VTU)
  
  #define MV88E6XXX_FLAGS_FAMILY_6351	\
--	(MV88E6XXX_FLAG_ATU |		\
--	 MV88E6XXX_FLAG_MULTI_CHIP |	\
--	 MV88E6XXX_FLAG_PORTSTATE |	\
-+	(MV88E6XXX_FLAG_MULTI_CHIP |	\
+-	(MV88E6XXX_FLAG_MULTI_CHIP |	\
++	(MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
  	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
  	 MV88E6XXX_FLAG_SMI_PHY |	\
  	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
--	 MV88E6XXX_FLAG_VLANTABLE |	\
- 	 MV88E6XXX_FLAG_VTU)
- 
+@@ -485,6 +497,7 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAGS_FAMILY_6352	\
--	(MV88E6XXX_FLAG_ATU |		\
--	 MV88E6XXX_FLAG_EEE |		\
-+	(MV88E6XXX_FLAG_EEE |		\
+ 	(MV88E6XXX_FLAG_EEE |		\
  	 MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_GLOBAL2 |	\
  	 MV88E6XXX_FLAG_MULTI_CHIP |	\
--	 MV88E6XXX_FLAG_PORTSTATE |	\
  	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
  	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_STU |		\
- 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
--	 MV88E6XXX_FLAG_VLANTABLE |	\
- 	 MV88E6XXX_FLAG_VTU)
- 
- struct mv88e6xxx_info {
 -- 
 2.9.0
