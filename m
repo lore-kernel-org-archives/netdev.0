@@ -1,56 +1,57 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [patch 1/1] kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon
- union initialization bug
-Date: Tue, 19 Jul 2016 08:38:02 +0800
-Message-ID: <20160719003802.GA20768@wfg-t540p.sh.intel.com>
-References: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
- <20160719003305.GA45296@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:1511 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752011AbcGSAiG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Jul 2016 20:38:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20160719003305.GA45296@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 00/12] net: dsa: mv88e6xxx: Global2 cleanup and STP
+Date: Mon, 18 Jul 2016 20:45:28 -0400
+Message-ID: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Alexei,
+The Marvell switches registers are organized in distinct internal SMI
+devices, such as PHY, Port, Global 1 or Global 2 registers sets.
 
-On Mon, Jul 18, 2016 at 05:33:07PM -0700, Alexei Starovoitov wrote:
->On Mon, Jul 18, 2016 at 03:50:58PM -0700, akpm@linux-foundation.org wrote:
->> From: Andrew Morton <akpm@linux-foundation.org>
->> Subject: kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon union initialization bug
->>
->> kernel/trace/bpf_trace.c: In function 'bpf_event_output':
->> kernel/trace/bpf_trace.c:312: error: unknown field 'next' specified in initializer
->> kernel/trace/bpf_trace.c:312: warning: missing braces around initializer
->> kernel/trace/bpf_trace.c:312: warning: (near initialization for 'raw.frag.<anonymous>')
->>
->> Fixes: 555c8a8623a3a87 ("bpf: avoid stack copy and use skb ctx for event output")
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Alexei Starovoitov <ast@kernel.org>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
->
->Acked-by: Alexei Starovoitov <ast@kernel.org>
->
->Fengguang can you add gcc-4.4 to buildbot. Thanks!
+Since not all chips support every registers sets or have slightly
+differences in them (such as old 88E6060 or new 88E6390 likely to be
+supported soon), make the setup code clearer now by removing a few
+family checks and adding flags to describe the Global 2 registers map.
 
-Sure. Currently we only test gcc-6. It'd be easy to test more versions
-concurrently, like
+This patchset enables basic STP support and bridging on most chips when
+getting rid of a few inconsistencies in chip descriptions (patch 1) and
+add bridge Ageing Time support to DSA and the mv88e6xxx driver.
 
-gcc-4.4
-gcc-4.6
-gcc-4.8
-gcc-4.9
-gcc-5
-gcc-6
+Changes v2 -> v3:
+  - rename mv88e6xxx_update_write to mv88e6xxx_update
+  - set fastest ageing time in use in the chip for multiple bridges,
+    tested with a few printk
 
-Thanks,
-Fengguang
+Changes v1 -> v2:
+  - add a write helper for pointer-data Update registers
+  - add ageing time support
+
+Vivien Didelot (12):
+  net: dsa: mv88e6xxx: remove basic function flags
+  net: dsa: mv88e6xxx: split setup of Global 1 and 2
+  net: dsa: mv88e6xxx: extract device mapping
+  net: dsa: mv88e6xxx: extract trunk mapping
+  net: dsa: mv88e6xxx: add cap for MGMT Enables bits
+  net: dsa: mv88e6xxx: rework Switch MAC setter
+  net: dsa: mv88e6xxx: add cap for PVT
+  net: dsa: mv88e6xxx: add cap for Priority Override
+  net: dsa: mv88e6xxx: add cap for IRL
+  net: dsa: support switchdev ageing time attr
+  net: dsa: mv88e6xxx: add G1 helper for ageing time
+  net: dsa: mv88e6xxx: add support for DSA ageing time
+
+ drivers/net/dsa/mv88e6xxx/chip.c      | 516 ++++++++++++++++++++++------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 148 ++++++----
+ include/net/dsa.h                     |   2 +
+ net/dsa/slave.c                       |  41 +++
+ 4 files changed, 472 insertions(+), 235 deletions(-)
+
+-- 
+2.9.0
