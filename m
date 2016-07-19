@@ -1,31 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvtap: correctly free skb during socket
- destruction
-Date: Mon, 18 Jul 2016 22:11:39 -0700 (PDT)
-Message-ID: <20160718.221139.864060644759685855.davem@davemloft.net>
-References: <1468897379-4373-1-git-send-email-jasowang@redhat.com>
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH] packet: fix second argument of sock_tx_timestamp()
+Date: Tue, 19 Jul 2016 14:15:20 +0900
+Message-ID: <1468905320-8132-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dan.carpenter@oracle.com
-To: jasowang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53438 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752004AbcGSFLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:11:42 -0400
-In-Reply-To: <1468897379-4373-1-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <daniel@iogearbox.net>, <willemb@google.com>, <ast@plumgrid.com>,
+	<tklauser@distanz.ch>, <fruggeri@aristanetworks.com>,
+	<netdev@vger.kernel.org>, <linux-renesas-soc@vger.kernel.org>,
+	"Yoshihiro Shimoda" <yoshihiro.shimoda.uh@renesas.com>,
+	<stable@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Tue, 19 Jul 2016 11:02:59 +0800
+This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
+work correctly. Since the sendto syscall doesn't have msg_control buffer,
+the sock_tx_timestamp() in packet_snd() cannot work correctly because
+the socks.tsflags is set to 0.
+So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
 
-> We should use kfree_skb() instead of kfree() to free an skb.
-> 
-> Fixes: 362899b8725b ("macvtap: switch to use skb array")
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
+Cc: <stable@vger.kernel.org>
+Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ Changes from v1:
+  - Set socks.tsflags to sk->sk_tsflags as default instead of a condition.
+  - Fix other socks.tsflags values in the af_packet.c.
+  - Revise the commit log.
 
-Applied, thanks Jason.
+ About v1 (as RFC):
+  - http://thread.gmane.org/gmane.linux.kernel.renesas-soc/5646
+
+
+ net/packet/af_packet.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 9f0983f..50ea97e 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1927,7 +1927,7 @@ retry:
+ 		goto out_unlock;
+ 	}
+ 
+-	sockc.tsflags = 0;
++	sockc.tsflags = sk->sk_tsflags;
+ 	if (msg->msg_controllen) {
+ 		err = sock_cmsg_send(sk, msg, &sockc);
+ 		if (unlikely(err)) {
+@@ -2678,7 +2678,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+ 		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+ 	}
+ 
+-	sockc.tsflags = 0;
++	sockc.tsflags = sk->sk_tsflags;
+ 	if (msg->msg_controllen) {
+ 		err = sock_cmsg_send(&po->sk, msg, &sockc);
+ 		if (unlikely(err))
+@@ -2881,7 +2881,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	if (unlikely(!(dev->flags & IFF_UP)))
+ 		goto out_unlock;
+ 
+-	sockc.tsflags = 0;
++	sockc.tsflags = sk->sk_tsflags;
+ 	sockc.mark = sk->sk_mark;
+ 	if (msg->msg_controllen) {
+ 		err = sock_cmsg_send(sk, msg, &sockc);
+-- 
+1.9.1
