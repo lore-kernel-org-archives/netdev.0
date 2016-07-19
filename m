@@ -1,10 +1,9 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v10 06/12] Add sample for adding simple drop program to
- link
-Date: Tue, 19 Jul 2016 14:44:18 -0700
-Message-ID: <20160719214417.GC64618@ast-mbp.thefacebook.com>
+Subject: Re: [PATCH v10 01/12] bpf: add bpf_prog_add api for bulk prog refcnt
+Date: Tue, 19 Jul 2016 14:46:09 -0700
+Message-ID: <20160719214608.GD64618@ast-mbp.thefacebook.com>
 References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-7-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-2-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
@@ -19,88 +18,66 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	Tariq Toukan <ttoukan.linux@gmail.com>
 To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35438 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751720AbcGSVoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 17:44:23 -0400
-Received: by mail-pa0-f67.google.com with SMTP id cf3so1978815pad.2
-        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 14:44:23 -0700 (PDT)
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35808 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751720AbcGSVqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 17:46:14 -0400
+Received: by mail-pa0-f65.google.com with SMTP id cf3so1981142pad.2
+        for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 14:46:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1468955817-10604-7-git-send-email-bblanco@plumgrid.com>
+In-Reply-To: <1468955817-10604-2-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2016 at 12:16:51PM -0700, Brenden Blanco wrote:
-> Add a sample program that only drops packets at the BPF_PROG_TYPE_XDP_RX
-> hook of a link. With the drop-only program, observed single core rate is
-> ~20Mpps.
-> 
-> Other tests were run, for instance without the dropcnt increment or
-> without reading from the packet header, the packet rate was mostly
-> unchanged.
-> 
-> $ perf record -a samples/bpf/xdp1 $(</sys/class/net/eth0/ifindex)
-> proto 17:   20403027 drops/s
-> 
-> ./pktgen_sample03_burst_single_flow.sh -i $DEV -d $IP -m $MAC -t 4
-> Running... ctrl^C to stop
-> Device: eth4@0
-> Result: OK: 11791017(c11788327+d2689) usec, 59622913 (60byte,0frags)
->   5056638pps 2427Mb/sec (2427186240bps) errors: 0
-> Device: eth4@1
-> Result: OK: 11791012(c11787906+d3106) usec, 60526944 (60byte,0frags)
->   5133311pps 2463Mb/sec (2463989280bps) errors: 0
-> Device: eth4@2
-> Result: OK: 11791019(c11788249+d2769) usec, 59868091 (60byte,0frags)
->   5077431pps 2437Mb/sec (2437166880bps) errors: 0
-> Device: eth4@3
-> Result: OK: 11795039(c11792403+d2636) usec, 59483181 (60byte,0frags)
->   5043067pps 2420Mb/sec (2420672160bps) errors: 0
-> 
-> perf report --no-children:
->  26.05%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
->  17.84%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_alloc_frags
->   5.52%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_frag
->   4.90%  swapper      [kernel.vmlinux]  [k] poll_idle
->   4.14%  ksoftirqd/0  [kernel.vmlinux]  [k] get_page_from_freelist
->   2.78%  ksoftirqd/0  [kernel.vmlinux]  [k] __free_pages_ok
->   2.57%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
->   2.51%  swapper      [mlx4_en]         [k] mlx4_en_process_rx_cq
->   1.94%  ksoftirqd/0  [kernel.vmlinux]  [k] percpu_array_map_lookup_elem
->   1.45%  swapper      [mlx4_en]         [k] mlx4_en_alloc_frags
->   1.35%  ksoftirqd/0  [kernel.vmlinux]  [k] free_one_page
->   1.33%  swapper      [kernel.vmlinux]  [k] intel_idle
->   1.04%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c5c5
->   0.96%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c58d
->   0.93%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c6ee
->   0.92%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c6b9
->   0.89%  ksoftirqd/0  [kernel.vmlinux]  [k] __alloc_pages_nodemask
->   0.83%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c686
->   0.83%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c5d5
->   0.78%  ksoftirqd/0  [mlx4_en]         [k] mlx4_alloc_pages.isra.23
->   0.77%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001c5b4
->   0.77%  ksoftirqd/0  [kernel.vmlinux]  [k] net_rx_action
-> 
-> machine specs:
->  receiver - Intel E5-1630 v3 @ 3.70GHz
->  sender - Intel E5645 @ 2.40GHz
->  Mellanox ConnectX-3 @40G
+On Tue, Jul 19, 2016 at 12:16:46PM -0700, Brenden Blanco wrote:
+> A subsystem may need to store many copies of a bpf program, each
+> deserving its own reference. Rather than requiring the caller to loop
+> one by one (with possible mid-loop failure), add a bulk bpf_prog_add
+> api.
 > 
 > Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-...
-> +int main(int ac, char **argv)
+> ---
+>  include/linux/bpf.h  |  1 +
+>  kernel/bpf/syscall.c | 12 +++++++++---
+>  2 files changed, 10 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+> index c13e92b..75a5ae6 100644
+> --- a/include/linux/bpf.h
+> +++ b/include/linux/bpf.h
+> @@ -224,6 +224,7 @@ void bpf_register_map_type(struct bpf_map_type_list *tl);
+>  
+>  struct bpf_prog *bpf_prog_get(u32 ufd);
+>  struct bpf_prog *bpf_prog_get_type(u32 ufd, enum bpf_prog_type type);
+> +struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i);
+>  struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
+>  void bpf_prog_put(struct bpf_prog *prog);
+>  
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index 96d938a..228f962 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -670,14 +670,20 @@ static struct bpf_prog *____bpf_prog_get(struct fd f)
+>  	return f.file->private_data;
+>  }
+>  
+> -struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
+> +struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
+>  {
+> -	if (atomic_inc_return(&prog->aux->refcnt) > BPF_MAX_REFCNT) {
+> -		atomic_dec(&prog->aux->refcnt);
+> +	if (atomic_add_return(i, &prog->aux->refcnt) > BPF_MAX_REFCNT) {
+> +		atomic_sub(i, &prog->aux->refcnt);
+>  		return ERR_PTR(-EBUSY);
+>  	}
+>  	return prog;
+>  }
+> +EXPORT_SYMBOL_GPL(bpf_prog_add);
+> +
+> +struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog)
 > +{
-> +	char filename[256];
-> +
-> +	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-> +
-> +	if (ac != 2) {
-> +		printf("usage: %s IFINDEX\n", argv[0]);
-> +		return 1;
-> +	}
-> +
-> +	ifindex = strtoul(argv[1], NULL, 0);
+> +	return bpf_prog_add(prog, 1);
+> +}
 
-great test. some future extension could be to use dev name instead of id.
-
+that extension turned out to be smaller than I thought :)
 Acked-by: Alexei Starovoitov <ast@kernel.org>
