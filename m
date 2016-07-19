@@ -1,169 +1,83 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATCH net-next v2] cdc_ether: Improve ZTE MF823/831/910 handling
-Date: Tue, 19 Jul 2016 13:49:21 +0200
-Message-ID: <1468928961-26495-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: oliver@neukum.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH v3] packet: fix second argument of sock_tx_timestamp()
+Date: Tue, 19 Jul 2016 08:34:20 -0400
+Message-ID: <CACSApvYj5X166euM2Qy+ubvLYdfYg65itMYiVeTf5SUuiA+gog@mail.gmail.com>
+References: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, daniel@iogearbox.net,
+	Willem de Bruijn <willemb@google.com>, ast@plumgrid.com,
+	tklauser@distanz.ch, fruggeri@aristanetworks.com,
+	netdev <netdev@vger.kernel.org>,
+	linux-renesas-soc@vger.kernel.org, stable@vger.kernel.org
+To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The firmware in several ZTE devices (at least the MF823/831/910
-modems/mifis) use OS fingerprinting to determine which type of device to
-export. In addition, these devices export a REST API which can be used to
-control the type of device. So far, on Linux, the devices have been seen as
-RNDIS or CDC Ether.
+On Tue, Jul 19, 2016 at 1:40 AM, Yoshihiro Shimoda
+<yoshihiro.shimoda.uh@renesas.com> wrote:
+> This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
+> work correctly. Since the sendto syscall doesn't have msg_control buffer,
+> the sock_tx_timestamp() in packet_snd() cannot work correctly because
+> the socks.tsflags is set to 0.
+> So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
+>
+> Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
+> Cc: <stable@vger.kernel.org>
+> Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+> ---
+>  Changes from v2:
+>   - Fix build error...
+>
+>  Changes from v1:
+>   - Set socks.tsflags to sk->sk_tsflags as default instead of a condition.
+>   - Fix other socks.tsflags values in the af_packet.c.
+>   - Revise the commit log.
+>
+>  About v1 (as RFC):
+>   - http://thread.gmane.org/gmane.linux.kernel.renesas-soc/5646
+>
+>  net/packet/af_packet.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index 9f0983f..53e87ce 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1927,7 +1927,7 @@ retry:
+>                 goto out_unlock;
+>         }
+>
+> -       sockc.tsflags = 0;
+> +       sockc.tsflags = sk->sk_tsflags;
+>         if (msg->msg_controllen) {
+>                 err = sock_cmsg_send(sk, msg, &sockc);
+>                 if (unlikely(err)) {
+> @@ -2678,7 +2678,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
+>                 dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
+>         }
+>
+> -       sockc.tsflags = 0;
+> +       sockc.tsflags = po->sk.sk_tsflags;
+>         if (msg->msg_controllen) {
+>                 err = sock_cmsg_send(&po->sk, msg, &sockc);
+>                 if (unlikely(err))
+> @@ -2881,7 +2881,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+>         if (unlikely(!(dev->flags & IFF_UP)))
+>                 goto out_unlock;
+>
+> -       sockc.tsflags = 0;
+> +       sockc.tsflags = sk->sk_tsflags;
+>         sockc.mark = sk->sk_mark;
+>         if (msg->msg_controllen) {
+>                 err = sock_cmsg_send(sk, msg, &sockc);
+> --
+> 1.9.1
+>
 
-When CDC Ether is used, devices of the same type are, as with RNDIS,
-exported with the same, bogus random MAC address. In addition, the devices
-(at least on all firmware revisions I have found) use the bogus MAC when
-sending traffic routed from external networks. And as a final feature, the
-devices sometimes export the link state incorrectly. There are also
-references online to several other ZTE devices displaying this behavior,
-with several different PIDs and MAC addresses.
-
-This patch tries to improve the handling of ZTE devices by doing the
-following:
-
-* Create a new driver_info-struct that is used by ZTE devices that do not
-have an explicit entry in the product table. This struct is the same as the
-default cdc_ether driver info, but a new bind- and an rx_fixup-function
-have been added.
-
-* In the new bind function, we check if we have read a random MAC from the
-device. If we have, then we generate a new random MAC address. This will
-ensure that all devices get a unique MAC.
-
-* The rx_fixup-function replaces the destination MAC address in the skb
-with that of the device. I have not seen a revision of these devices that
-behaves correctly (i.e., sets the right destination MAC), so I chose not to
-do any comparison with for example the known, bogus addresses.
-
-* The MF823/MF832/MF910 sometimes export cdc carrier on twice on connect
-(the correct behavior is off then on). Work around this by manually setting
-carrier to off if an on-notification is received and the NOCARRIER-bit is
-not set.
-
-This change will affect all devices, but it should take care of similar
-mistakes made by other manufacturers. I tried to think of/look/test for
-problems/regressions that could be introduced by this behavior, but could
-not find any. However, my familiarity with this code path is not that
-great, so there could be something I have overlooked.
-
-I have tested this patch with multiple revisions of all three devices, and
-they behave as expected. In other words, they all got a valid, random MAC,
-the correct operational state and I can receive/sent traffic without
-problems. I also tested with some other cdc_ether devices I have and did
-not find any problems/regressions caused by the two general changes.
-
-v1->v2:
-* Only generate random MAC for ZTE devices (thanks Oliver Neukum).
-* Set random MAC and do RX fixup for all ZTE devices that do not have a
-product-entry, as the bogus MAC have been seen on devices with several
-different PIDs/MAC addresses. In other words, it seems to be the default
-behavior of ZTE CDC Ether devices (thanks Lars Melin).
-
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
----
- drivers/net/usb/cdc_ether.c | 60 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 60 insertions(+)
-
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 7cba2c3..49c2a4c 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -388,6 +388,12 @@ void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
- 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
- 		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
- 			  event->wValue ? "on" : "off");
-+
-+		/* Work-around for devices with broken off-notifications */
-+		if (event->wValue &&
-+		    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
-+			usbnet_link_change(dev, 0, 0);
-+
- 		usbnet_link_change(dev, !!event->wValue, 0);
- 		break;
- 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
-@@ -428,10 +434,47 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
- 		return status;
- 	}
- 
-+	if (dev->net->dev_addr[0] & 0x02)
-+		eth_hw_addr_random(dev->net);
-+
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(usbnet_cdc_bind);
- 
-+static int usbnet_cdc_zte_bind(struct usbnet *dev, struct usb_interface *intf)
-+{
-+	int status = usbnet_cdc_bind(dev, intf);
-+
-+	if (status)
-+		return status;
-+
-+	if (dev->net->dev_addr[0] & 0x02)
-+		eth_hw_addr_random(dev->net);
-+
-+	return 0;
-+}
-+
-+/* Make sure packets have correct destination MAC address
-+ *
-+ * A firmware bug observed on some devices (ZTE MF823/831/910) is that the
-+ * device sends packets with a static, bogus, random MAC address (event if
-+ * device MAC address has been updated). Always set MAC address to that of the
-+ * device.
-+ */
-+static int usbnet_cdc_zte_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
-+{
-+	u8 num_buggy_hwaddrs;
-+	u8 buggy_hwaddrs_idx = 0;
-+
-+	if (skb->len < ETH_HLEN || !(skb->data[0] & 0x02))
-+		return 1;
-+
-+	skb_reset_mac_header(skb);
-+	ether_addr_copy(eth_hdr(skb)->h_dest, dev->net->dev_addr);
-+
-+	return 1;
-+}
-+
- static const struct driver_info	cdc_info = {
- 	.description =	"CDC Ethernet Device",
- 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
-@@ -442,6 +485,17 @@ static const struct driver_info	cdc_info = {
- 	.manage_power =	usbnet_manage_power,
- };
- 
-+static const struct driver_info	zte_cdc_info = {
-+	.description =	"ZTE CDC Ethernet Device",
-+	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
-+	.bind =		usbnet_cdc_zte_bind,
-+	.unbind =	usbnet_cdc_unbind,
-+	.status =	usbnet_cdc_status,
-+	.set_rx_mode =	usbnet_cdc_update_filter,
-+	.manage_power =	usbnet_manage_power,
-+	.rx_fixup = usbnet_cdc_zte_rx_fixup,
-+};
-+
- static const struct driver_info wwan_info = {
- 	.description =	"Mobile Broadband Network Device",
- 	.flags =	FLAG_WWAN,
-@@ -707,6 +761,12 @@ static const struct usb_device_id	products[] = {
- 			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
- 	.driver_info = (kernel_ulong_t)&wwan_info,
- }, {
-+	/* ZTE modules */
-+	USB_VENDOR_AND_INTERFACE_INFO(ZTE_VENDOR_ID, USB_CLASS_COMM,
-+				      USB_CDC_SUBCLASS_ETHERNET,
-+				      USB_CDC_PROTO_NONE),
-+	.driver_info = (unsigned long)&zte_cdc_info,
-+}, {
- 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
- 			USB_CDC_PROTO_NONE),
- 	.driver_info = (unsigned long) &cdc_info,
--- 
-2.5.0
+Thanks for the fix.
