@@ -1,41 +1,48 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH 3/3] staging/rtl8192u: use s8 instead of char
-Date: Tue, 19 Jul 2016 11:47:10 -0400
-Message-ID: <wrfjtwflvddt.fsf@redhat.com>
-References: <20160719153403.2967812-1-arnd@arndb.de>
-	<20160719153403.2967812-3-arnd@arndb.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
+Date: Tue, 19 Jul 2016 17:53:38 +0200
+Message-ID: <3858062.NGQDOLnTj0@wuerfel>
+References: <20160719153403.2967812-1-arnd@arndb.de> <20160719153403.2967812-2-arnd@arndb.de> <wrfjy44xvdfn.fsf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
 Cc: linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
 	Larry Finger <Larry.Finger@lwfinger.net>,
 	netdev@vger.kernel.org,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	=?utf-8?Q?Rapha=C3=ABl?= Beamonte <raphael.beamonte@gmail.com>,
+	Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
 	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+To: Jes Sorensen <Jes.Sorensen@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160719153403.2967812-3-arnd@arndb.de> (Arnd Bergmann's message
-	of "Tue, 19 Jul 2016 17:33:02 +0200")
+In-Reply-To: <wrfjy44xvdfn.fsf@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
-> Compiling the rtlwifi drivers for ARM with gcc -Wextra warns about lots of
-> incorrect code that results from 'char' being unsigned here, e.g.
->
-> staging/rtl8192u/r8192U_core.c:4150:16: error: comparison is always false due to limited range of data type [-Werror=type-limits]
-> staging/rtl8192u/r8192U_dm.c:646:50: error: comparison is always false due to limited range of data type [-Werror=type-limits]
->
-> This patch changes all uses of 'char' in this driver that refer to
-> 8-bit integers to use 's8' instead, which is signed on all architectures.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/staging/rtl8192u/ieee80211/ieee80211.h |  4 ++--
->  drivers/staging/rtl8192u/r8192U.h              |  4 ++--
->  drivers/staging/rtl8192u/r8192U_core.c         | 14 +++++++-------
->  3 files changed, 11 insertions(+), 11 deletions(-)
+On Tuesday, July 19, 2016 11:46:04 AM CEST Jes Sorensen wrote:
+> > diff --git a/drivers/staging/rtl8192e/rtl819x_TSProc.c b/drivers/staging/rtl8192e/rtl819x_TSProc.c
+> > index 2c8a526773ed..e0a2fe5e6148 100644
+> > --- a/drivers/staging/rtl8192e/rtl819x_TSProc.c
+> > +++ b/drivers/staging/rtl8192e/rtl819x_TSProc.c
+> > @@ -323,7 +323,7 @@ bool GetTs(struct rtllib_device *ieee, struct ts_common_info **ppTS,
+> >       if (ieee->current_network.qos_data.supported == 0) {
+> >               UP = 0;
+> >       } else {
+> > -             if (!IsACValid(TID)) {
+> > +             if (!IsACValid((s8)TID)) {
+> >                       netdev_warn(ieee->dev, "%s(): TID(%d) is not valid\n",
+> >                                   __func__, TID);
+> >                       return false;
+> 
+> TID is a 4-bit field, it should never go negative. The cast to s8 seems
+> wrong to me, if anything it should be using u8. I do realize the macro
+> IsACValid checks against negative too, but that just looks silly to me.
 
-Looks good to me
+Ok, I'll remove the extra comparison then to avoid the warning:
 
-Acked-by: Jes Sorensen <Jes.Sorensen@redhat.com>
+staging/rtl8192e/rtl819x_TSProc.c:326:14: error: comparison is always true due to limited range of data type [-Werror=type-limits]
+
+I guess it should be a separate patch. I had just stumbled over the
+same thing before resending the patch but decided not to change it
+to keep the patch simple.
+
+	Arnd
