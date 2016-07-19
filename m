@@ -1,55 +1,60 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: [PATCH v2 2/3] mac80211: mesh: improve path resolving time
-Date: Tue, 19 Jul 2016 08:36:48 -0400
-Message-ID: <20160719123648.GC11996@localhost>
-References: <20160713114528.24835-1-yanivma@ti.com>
+From: Wei Yongjun <weiyj_lk@163.com>
+Subject: [PATCH -next] net: cpmac: fix error handling of cpmac_probe()
+Date: Tue, 19 Jul 2016 12:37:53 +0000
+Message-ID: <1468931873-19614-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Maital Hahn <maitalm@ti.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Yaniv Machani <yanivma@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160713114528.24835-1-yanivma@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>,
+	Varka Bhadram <varkab@cdac.in>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-18.163.com ([220.181.12.18]:59949 "EHLO m12-18.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752963AbcGSMid (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2016 08:38:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 13, 2016 at 02:45:25PM +0300, Yaniv Machani wrote:
-> When a packet is received for transmission,
-> a PREQ frame is sent to resolve the appropriate path to the desired destination.
-> After path was established, any sequential PREQ will be sent only after
-> dot11MeshHWMPpreqMinInterval, which usually set to few seconds.
-> 
-> This implementation has an impact in cases where we would like to
-> resolve the path quickly.
-> A clear example is when a peer was disconnected from us,
-> while he acted as a hop to our destination.
-> Although the path table will be cleared, the next PREQ frame will be sent only after reaching the MinInterval.
-> This will cause unwanted delay, possibly of few seconds until the traffic will resume.
-> 
->  	if (!(mpath->flags & MESH_PATH_RESOLVING))
-> -		mesh_queue_preq(mpath, PREQ_Q_F_START);
-> +		mesh_queue_preq(mpath, PREQ_Q_F_START, true);
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-What about something like this here instead:
+Add the missing free_netdev() before return from function
+cpmac_probe() in the error handling case.
+This patch revert commit 0465be8f4f1d ("net: cpmac: fix in
+releasing resources"), which changed to only free_netdev
+while register_netdev failed.
 
-    if (!(mpath->flags & MESH_PATH_RESOLVING)) {
-        /* force next preq to be sent without delay */
-        ifmsh->last_preq = jiffies - min_preq_int_jiff(sdata) - 1;
-        mesh_queue_preq(mpath, PREQ_Q_F_START);
-    }
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/ti/cpmac.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Maybe a little more magic, but it has a comment explaining it and doesn't
-add a bool parameter everywhere.  Or, maybe even just do it inside
-mesh_queue_preq() based on having PREQ_Q_F_START && !PREQ_Q_F_REFRESH (if
-those are the only cases where "true" is passed).
-
-Generally I try to avoid bool parameters where possible because when you
-look at a callsite, you don't know immediately what "true" and "false"
-mean, and also each one you add doubles the code paths through a given
-function.
-
--- 
-Bob Copeland %% http://bobcopeland.com/
+diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+index f86497c..cecfdaa 100644
+--- a/drivers/net/ethernet/ti/cpmac.c
++++ b/drivers/net/ethernet/ti/cpmac.c
+@@ -1117,7 +1117,7 @@ static int cpmac_probe(struct platform_device *pdev)
+ 	mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
+ 	if (!mem) {
+ 		rc = -ENODEV;
+-		goto out;
++		goto fail;
+ 	}
+ 
+ 	dev->irq = platform_get_irq_byname(pdev, "irq");
+@@ -1145,7 +1145,7 @@ static int cpmac_probe(struct platform_device *pdev)
+ 			dev_err(&pdev->dev, "Could not attach to PHY\n");
+ 
+ 		rc = PTR_ERR(phydev);
+-		goto out;
++		goto fail;
+ 	}
+ 
+ 	rc = register_netdev(dev);
+@@ -1164,7 +1164,6 @@ static int cpmac_probe(struct platform_device *pdev)
+ 
+ fail:
+ 	free_netdev(dev);
+-out:
+ 	return rc;
+ }
