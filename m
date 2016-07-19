@@ -1,35 +1,28 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/3] rtlwifi: don't add include path for rtl8188ee
-Date: Tue, 19 Jul 2016 18:17:59 +0000 (UTC)
-Message-ID: <20160719181759.1AEB860239@smtp.codeaurora.org>
-References: <20160719153403.2967812-1-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers: atm: nicstar: Use the correct function to
+ free some resources
+Date: Tue, 19 Jul 2016 11:31:02 -0700 (PDT)
+Message-ID: <20160719.113102.423760723208563634.davem@davemloft.net>
+References: <1468739004-3471-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Jes Sorensen <Jes.Sorensen@redhat.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160719153403.2967812-1-arnd@arndb.de>
+In-Reply-To: <1468739004-3471-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> For rtl8188ee, we pass -Idrivers/net/wireless/rtlwifi/ to gcc,
-> however that directy no longer exists, so evidently this option
-> is no longer required here and can be removed to avoid a warning
-> when building with 'make W=1' or 'gcc -Wmissing-include-dirs'
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sun, 17 Jul 2016 09:03:24 +0200
+
+> In 'get_scq', 'dma_alloc_coherent' has been used to allocate some
+> resources, so we need to free them using 'dma_free_coherent' instead
+> of 'kfree'.
 > 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
-
-944c07a7aac9 rtlwifi: don't add include path for rtl8188ee
-
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9237723/
+Applied.
