@@ -1,76 +1,65 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: RE: [PATCH] packet: fix second argument of sock_tx_timestamp()
-Date: Tue, 19 Jul 2016 05:24:21 +0000
-Message-ID: <HK2PR06MB0548A6D3B4C8D547E11A8C7DD8370@HK2PR06MB0548.apcprd06.prod.outlook.com>
-References: <1468905320-8132-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V2] Add flow control to the portmapper
+Date: Tue, 19 Jul 2016 08:40:06 +0300
+Message-ID: <20160719054006.GF20674@leon.nu>
+References: <1468869810-64420-1-git-send-email-shiraz.saleem@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "daniel@iogearbox.net" <daniel@iogearbox.net>,
-	"willemb@google.com" <willemb@google.com>,
-	"ast@plumgrid.com" <ast@plumgrid.com>,
-	"tklauser@distanz.ch" <tklauser@distanz.ch>,
-	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1468905320-8132-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
-Content-Language: ja-JP
-Sender: stable-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="L2Brqb15TUChFOBK"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mustafa Ismail <mustafa.ismail-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Shiraz Saleem <shiraz.saleem-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1468869810-64420-1-git-send-email-shiraz.saleem-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Yoshihiro Shimoda
-> Sent: Tuesday, July 19, 2016 2:15 PM
-> 
-> This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
-> work correctly. Since the sendto syscall doesn't have msg_control buffer,
-> the sock_tx_timestamp() in packet_snd() cannot work correctly because
-> the socks.tsflags is set to 0.
-> So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
-> 
-> Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
-> Cc: <stable@vger.kernel.org>
-> Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-> ---
->  Changes from v1:
->   - Set socks.tsflags to sk->sk_tsflags as default instead of a condition.
->   - Fix other socks.tsflags values in the af_packet.c.
->   - Revise the commit log.
-> 
->  About v1 (as RFC):
->   - http://thread.gmane.org/gmane.linux.kernel.renesas-soc/5646
-> 
-> 
->  net/packet/af_packet.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 9f0983f..50ea97e 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1927,7 +1927,7 @@ retry:
->  		goto out_unlock;
->  	}
-> 
-> -	sockc.tsflags = 0;
-> +	sockc.tsflags = sk->sk_tsflags;
->  	if (msg->msg_controllen) {
->  		err = sock_cmsg_send(sk, msg, &sockc);
->  		if (unlikely(err)) {
-> @@ -2678,7 +2678,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
->  		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
->  	}
-> 
-> -	sockc.tsflags = 0;
-> +	sockc.tsflags = sk->sk_tsflags;
 
-Oops! I mistook this. I will resubmit a fixed patch
+--L2Brqb15TUChFOBK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Best regards,
-Yoshihiro Shimoda
+On Mon, Jul 18, 2016 at 02:23:30PM -0500, Shiraz Saleem wrote:
+> From: Mustafa Ismail <mustafa.ismail-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+>=20
+> During connection establishment with a large number of connections,
+> it is possible that the connection requests might fail. Adding flow
+> control prevents this failure. Change ibnl unicast to use netlink
+> messaging with blocking to enable flow control.
+
+You are the one user of this new inline function.
+Why don't you directly call to netlink_unicast() in your ibnl_unicast()
+without messing with widely visible header file?
+
+Thanks
+
+--L2Brqb15TUChFOBK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXjb02AAoJEORje4g2clinbtYP/0SqzBcNMfeyoycc/6gai7nV
+xd65jCRERBPCgUTI1JcYZVDodLMzIb/uMqDoq5SANzdCVa+ROPo+s22weajMdXBu
+77dcaBL7C+p8Q8J6oSZMNdjumNu9ckaPzqbiRlWwxRvCJatik+mK/9svxB58e73g
+FFIZ5IMsN8zfYGAtnXWARH4onwYpod60ei90TTpZ3Mbpu5qrC0grb0iiztE+1bom
+JrnNeWKdy8Z+l8+7WhMnRMifqWDWqcVt2FnDuwK8JmwunmzLlU0Inc79CvDZ5Vsd
+Aa6c3GnQSOnZZark3TVJvj4Jzj0jtTCSGOmSEB6LddjRHrDwrzxJ6IohNIoVxAqD
+tL2bxdZqb5H8CidCn/LPJjDXUCe1cvoGZVCl8r9cXSqVRq6pyJ92U6NqxqebkDcN
+sDIQJ8UxnIUtXgoKsB95ipbhNiP8jxGzh0ha8gQ7Lzf7txd5aHVXI23YidPn337H
+NBZVYFqCCqfNVtu+7Nr5rQoh045BXCMiOaBY+nBQsMIn7sjsN6l2bCxkso5SnSy0
+lHB5ehUV961yB0irDrkt4iXauwPxTb/RQXUwA2nSZodQ0jg58QVpjvj0iu9AJR+e
+lHz5FashujDLn2pDkMwiCTf1klX4gfNNvBQoBXpnaTE7MvUFjDwPLPGSUqrvqdsN
+QGzLZ3bg5sWqqm/oGvP0
+=D4Yv
+-----END PGP SIGNATURE-----
+
+--L2Brqb15TUChFOBK--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
