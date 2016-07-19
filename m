@@ -1,121 +1,40 @@
-From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-Subject: [PATCH v6 4/4] Marvell phy: add functions to suspend and resume both interfaces: fiber and copper links.
-Date: Tue, 19 Jul 2016 11:13:13 +0200
-Message-ID: <1468919593-27602-5-git-send-email-charles-antoine.couret@nexvision.fr>
-References: <1468919593-27602-1-git-send-email-charles-antoine.couret@nexvision.fr>
-Cc: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5.mo3.mail-out.ovh.net ([87.98.178.36]:55195 "EHLO
-	5.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753134AbcGSJO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 05:14:56 -0400
-Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
-	by mo3.mail-out.ovh.net (Postfix) with ESMTP id 6E92610205C7
-	for <netdev@vger.kernel.org>; Tue, 19 Jul 2016 11:14:54 +0200 (CEST)
-In-Reply-To: <1468919593-27602-1-git-send-email-charles-antoine.couret@nexvision.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: [PATCH net-next v3 0/2] bpf: add copy_to_user helper & example
+Date: Tue, 19 Jul 2016 02:32:16 -0700
+Message-ID: <20160719093214.GA23733@ircssh.c.rugged-nimbus-611.internal>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These functions used standards registers in a different page
-for both interfaces: copper and fiber.
+This patch series contains two patches that add support for a copy_to_user
+helper to BPF programs. This allows them to manipulate user memory during
+the course of tracing. The second patch in the series has an example that
+uses it, in one the intended ways to divert execution.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Thanks to Alexei Starovoitov for review, I've made changes based on his
+recommendations.
 ---
- drivers/net/phy/marvell.c | 73 +++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 71 insertions(+), 2 deletions(-)
+v1->v2: restrict writing to user space, as opposed to globally
+v2->v3: Fixed formatting issues
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index fb4d402..c2dcf02 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -1224,6 +1224,75 @@ error:
- 	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
- 	return err;
- }
-+
-+/* marvell_suspend
-+ *
-+ * Some Marvell's phys have two modes: fiber and copper.
-+ * Both need to be suspended
-+ */
-+static int marvell_suspend(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Suspend the fiber mode first */
-+	if (!(phydev->supported & SUPPORTED_FIBRE)) {
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-+		if (err < 0)
-+			goto error;
-+
-+		/* With the page set, use the generic suspend */
-+		err = genphy_suspend(phydev);
-+		if (err < 0)
-+			goto error;
-+
-+		/* Then, the copper link */
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+		if (err < 0)
-+			goto error;
-+	}
-+
-+	/* With the page set, use the generic suspend */
-+	return genphy_suspend(phydev);
-+
-+error:
-+	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	return err;
-+}
-+
-+/* marvell_resume
-+ *
-+ * Some Marvell's phys have two modes: fiber and copper.
-+ * Both need to be resumed
-+ */
-+static int marvell_resume(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Resume the fiber mode first */
-+	if (!(phydev->supported & SUPPORTED_FIBRE)) {
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
-+		if (err < 0)
-+			goto error;
-+
-+		/* With the page set, use the generic resume */
-+		err = genphy_resume(phydev);
-+		if (err < 0)
-+			goto error;
-+
-+		/* Then, the copper link */
-+		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+		if (err < 0)
-+			goto error;
-+	}
-+
-+	/* With the page set, use the generic resume */
-+	return genphy_resume(phydev);
-+
-+error:
-+	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_COPPER);
-+	return err;
-+}
-+
- static int marvell_aneg_done(struct phy_device *phydev)
- {
- 	int retval = phy_read(phydev, MII_M1011_PHY_STATUS);
-@@ -1611,8 +1680,8 @@ static struct phy_driver marvell_drivers[] = {
- 		.ack_interrupt = &marvell_ack_interrupt,
- 		.config_intr = &marvell_config_intr,
- 		.did_interrupt = &m88e1121_did_interrupt,
--		.resume = &genphy_resume,
--		.suspend = &genphy_suspend,
-+		.resume = &marvell_resume,
-+		.suspend = &marvell_suspend,
- 		.get_sset_count = marvell_get_sset_count,
- 		.get_strings = marvell_get_strings,
- 		.get_stats = marvell_get_stats,
+Sargun Dhillon (2):
+  bpf: Add bpf_copy_to_user BPF helper to be called in tracers (kprobes)
+  samples/bpf: Add example of using bpf_copy_to_user in bpf kprobes
+
+ include/uapi/linux/bpf.h   | 11 +++++++
+ kernel/trace/bpf_trace.c   | 31 +++++++++++++++++++
+ samples/bpf/Makefile       |  4 +++
+ samples/bpf/bpf_helpers.h  |  2 ++
+ samples/bpf/tracex7_kern.c | 51 +++++++++++++++++++++++++++++++
+ samples/bpf/tracex7_user.c | 75 ++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 174 insertions(+)
+ create mode 100644 samples/bpf/tracex7_kern.c
+ create mode 100644 samples/bpf/tracex7_user.c
+
 -- 
 2.7.4
