@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 06/12] net: dsa: mv88e6xxx: rework Switch MAC setter
-Date: Mon, 18 Jul 2016 20:45:34 -0400
-Message-ID: <20160719004540.1066-7-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 09/12] net: dsa: mv88e6xxx: add cap for IRL
+Date: Mon, 18 Jul 2016 20:45:37 -0400
+Message-ID: <20160719004540.1066-10-vivien.didelot@savoirfairelinux.com>
 References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,141 +14,45 @@ In-Reply-To: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switches such as 88E6185 as 3 Switch MAC registers in Global 1. Newer
-chips such as 88E6352 have freed these registers in favor of an indirect
-access in a Switch MAC/WoL/WoF register in Global 2.
+Add capability flags to describe the presence of Ingress Rate Limit unit
+registers and an helper function to clear it.
 
-Explicit this difference with G1 and G2 helpers and flags.
+In the meantime, fix a few harmless issues:
 
-Also, note that this indirect access is a single-register which doesn't
-require to wait for the operation to complete (like Switch MAC, Trunk
-Mapping, etc.), in contrary to multi-registers indirect accesses with
-several operations and a busy bit.
+  - 6185 and 6095 don't have such registers (reserved)
+  - the previous code didn't wait for the IRL operation to complete
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 120 ++++++++++++++++------------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  19 ++----
- 2 files changed, 64 insertions(+), 75 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 50 ++++++++++++++++++++++-------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 23 ++++++++++++++--
+ 2 files changed, 53 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index cf98884..d1b4a7a 100644
+index 3422792..bc26b4f 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -283,68 +283,6 @@ static int mv88e6xxx_reg_write(struct mv88e6xxx_chip *chip, int addr,
- 	return ret;
- }
- 
--static int mv88e6xxx_set_addr_direct(struct dsa_switch *ds, u8 *addr)
--{
--	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
--	int err;
--
--	err = mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_MAC_01,
--				  (addr[0] << 8) | addr[1]);
--	if (err)
--		return err;
--
--	err = mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_MAC_23,
--				  (addr[2] << 8) | addr[3]);
--	if (err)
--		return err;
--
--	return mv88e6xxx_reg_write(chip, REG_GLOBAL, GLOBAL_MAC_45,
--				   (addr[4] << 8) | addr[5]);
--}
--
--static int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
--{
--	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
--	int ret;
--	int i;
--
--	for (i = 0; i < 6; i++) {
--		int j;
--
--		/* Write the MAC address byte. */
--		ret = mv88e6xxx_reg_write(chip, REG_GLOBAL2, GLOBAL2_SWITCH_MAC,
--					  GLOBAL2_SWITCH_MAC_BUSY |
--					  (i << 8) | addr[i]);
--		if (ret)
--			return ret;
--
--		/* Wait for the write to complete. */
--		for (j = 0; j < 16; j++) {
--			ret = mv88e6xxx_reg_read(chip, REG_GLOBAL2,
--						 GLOBAL2_SWITCH_MAC);
--			if (ret < 0)
--				return ret;
--
--			if ((ret & GLOBAL2_SWITCH_MAC_BUSY) == 0)
--				break;
--		}
--		if (j == 16)
--			return -ETIMEDOUT;
--	}
--
--	return 0;
--}
--
--static int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
--{
--	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
--
--	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_SWITCH_MAC))
--		return mv88e6xxx_set_addr_indirect(ds, addr);
--	else
--		return mv88e6xxx_set_addr_direct(ds, addr);
--}
--
- static int mv88e6xxx_mdio_read_direct(struct mv88e6xxx_chip *chip,
- 				      int addr, int regnum)
- {
-@@ -3019,6 +2957,24 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
+@@ -3150,6 +3150,29 @@ static int mv88e6xxx_g2_clear_trunk(struct mv88e6xxx_chip *chip)
  	return 0;
  }
  
-+static int mv88e6xxx_g1_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
++static int mv88e6xxx_g2_clear_irl(struct mv88e6xxx_chip *chip)
 +{
-+	int err;
++	int port, err;
 +
-+	err = mv88e6xxx_write(chip, REG_GLOBAL, GLOBAL_MAC_01,
-+			      (addr[0] << 8) | addr[1]);
-+	if (err)
-+		return err;
++	/* Init all Ingress Rate Limit resources of all ports */
++	for (port = 0; port < chip->info->num_ports; ++port) {
++		/* XXX newer chips (like 88E6390) have different 2-bit ops */
++		err = mv88e6xxx_write(chip, REG_GLOBAL2, GLOBAL2_IRL_CMD,
++				      GLOBAL2_IRL_CMD_OP_INIT_ALL |
++				      (port << 8));
++		if (err)
++			break;
 +
-+	err = mv88e6xxx_write(chip, REG_GLOBAL, GLOBAL_MAC_23,
-+			      (addr[2] << 8) | addr[3]);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_write(chip, REG_GLOBAL, GLOBAL_MAC_45,
-+			       (addr[4] << 8) | addr[5]);
-+}
-+
- static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- {
- 	struct dsa_switch *ds = chip->ds;
-@@ -3194,6 +3150,28 @@ static int mv88e6xxx_g2_clear_trunk(struct mv88e6xxx_chip *chip)
- 	return 0;
- }
- 
-+/* Indirect write to the Switch MAC/WoL/WoF register */
-+static int mv88e6xxx_g2_switch_mac_write(struct mv88e6xxx_chip *chip,
-+					 unsigned int pointer, u8 data)
-+{
-+	u16 val = (pointer << 8) | data;
-+
-+	return mv88e6xxx_update(chip, REG_GLOBAL2, GLOBAL2_SWITCH_MAC, val);
-+}
-+
-+static int mv88e6xxx_g2_set_switch_mac(struct mv88e6xxx_chip *chip, u8 *addr)
-+{
-+	int i, err;
-+
-+	for (i = 0; i < 6; i++) {
-+		err = mv88e6xxx_g2_switch_mac_write(chip, i, addr[i]);
++		/* Wait for the operation to complete */
++		err = _mv88e6xxx_wait(chip, REG_GLOBAL2, GLOBAL2_IRL_CMD,
++				      GLOBAL2_IRL_CMD_BUSY);
 +		if (err)
 +			break;
 +	}
@@ -156,130 +60,146 @@ index cf98884..d1b4a7a 100644
 +	return err;
 +}
 +
- static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ /* Indirect write to the Switch MAC/WoL/WoF register */
+ static int mv88e6xxx_g2_switch_mac_write(struct mv88e6xxx_chip *chip,
+ 					 unsigned int pointer, u8 data)
+@@ -3198,7 +3221,6 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
  {
  	u16 reg;
-@@ -3327,6 +3305,24 @@ unlock:
- 	return err;
+ 	int err;
+-	int i;
+ 
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_MGMT_EN_2X)) {
+ 		/* Consider the frames with reserved multicast destination
+@@ -3243,6 +3265,15 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 	if (err)
+ 		return err;
+ 
++	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_IRL)) {
++		/* Disable ingress rate limiting by resetting all per port
++		 * ingress rate limit resources to their initial state.
++		 */
++		err = mv88e6xxx_g2_clear_irl(chip);
++			if (err)
++				return err;
++	}
++
+ 	if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_PVT)) {
+ 		/* Initialize Cross-chip Port VLAN Table to reset defaults */
+ 		err = mv88e6xxx_write(chip, REG_GLOBAL2, GLOBAL2_PVT_ADDR,
+@@ -3258,23 +3289,6 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 			return err;
+ 	}
+ 
+-	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+-	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+-	    mv88e6xxx_6185_family(chip) || mv88e6xxx_6095_family(chip) ||
+-	    mv88e6xxx_6320_family(chip)) {
+-		/* Disable ingress rate limiting by resetting all
+-		 * ingress rate limit registers to their initial
+-		 * state.
+-		 */
+-		for (i = 0; i < chip->info->num_ports; i++) {
+-			err = _mv88e6xxx_reg_write(chip, REG_GLOBAL2,
+-						   GLOBAL2_INGRESS_OP,
+-						   0x9000 | (i << 8));
+-			if (err)
+-				return err;
+-		}
+-	}
+-
+ 	return 0;
  }
  
-+static int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
-+{
-+	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
-+	int err;
-+
-+	mutex_lock(&chip->reg_lock);
-+
-+	/* Has an indirect Switch MAC/WoL/WoF register in Global 2? */
-+	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_G2_SWITCH_MAC))
-+		err = mv88e6xxx_g2_set_switch_mac(chip, addr);
-+	else
-+		err = mv88e6xxx_g1_set_switch_mac(chip, addr);
-+
-+	mutex_unlock(&chip->reg_lock);
-+
-+	return err;
-+}
-+
- static int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page,
- 				    int reg)
- {
 diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index d13b0b5..da61db4 100644
+index 06b11fb..9ea5363 100644
 --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
 +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -303,7 +303,6 @@
+@@ -298,8 +298,13 @@
+ #define GLOBAL2_TRUNK_MAPPING	0x08
+ #define GLOBAL2_TRUNK_MAPPING_UPDATE		BIT(15)
+ #define GLOBAL2_TRUNK_MAPPING_ID_SHIFT		11
+-#define GLOBAL2_INGRESS_OP	0x09
+-#define GLOBAL2_INGRESS_DATA	0x0a
++#define GLOBAL2_IRL_CMD		0x09
++#define GLOBAL2_IRL_CMD_BUSY	BIT(15)
++#define GLOBAL2_IRL_CMD_OP_INIT_ALL	((0x001 << 12) | GLOBAL2_IRL_CMD_BUSY)
++#define GLOBAL2_IRL_CMD_OP_INIT_SEL	((0x010 << 12) | GLOBAL2_IRL_CMD_BUSY)
++#define GLOBAL2_IRL_CMD_OP_WRITE_SEL	((0x011 << 12) | GLOBAL2_IRL_CMD_BUSY)
++#define GLOBAL2_IRL_CMD_OP_READ_SEL	((0x100 << 12) | GLOBAL2_IRL_CMD_BUSY)
++#define GLOBAL2_IRL_DATA	0x0a
  #define GLOBAL2_PVT_ADDR	0x0b
- #define GLOBAL2_PVT_DATA	0x0c
- #define GLOBAL2_SWITCH_MAC	0x0d
--#define GLOBAL2_SWITCH_MAC_BUSY BIT(15)
- #define GLOBAL2_ATU_STATS	0x0e
- #define GLOBAL2_PRIO_OVERRIDE	0x0f
- #define GLOBAL2_PRIO_OVERRIDE_FORCE_SNOOP	BIT(7)
-@@ -390,6 +389,7 @@ enum mv88e6xxx_cap {
+ #define GLOBAL2_PVT_ADDR_BUSY	BIT(15)
+ #define GLOBAL2_PVT_ADDR_OP_INIT_ONES	((0x01 << 12) | GLOBAL2_PVT_ADDR_BUSY)
+@@ -393,6 +398,8 @@ enum mv88e6xxx_cap {
  	MV88E6XXX_CAP_GLOBAL2,
  	MV88E6XXX_CAP_G2_MGMT_EN_2X,	/* (0x02) MGMT Enable Register 2x */
  	MV88E6XXX_CAP_G2_MGMT_EN_0X,	/* (0x03) MGMT Enable Register 0x */
-+	MV88E6XXX_CAP_G2_SWITCH_MAC,	/* (0x0d) Switch MAC/WoL/WoF */
- 
- 	/* Multi-chip Addressing Mode.
- 	 * Some chips require an indirect SMI access when their SMI device
-@@ -415,13 +415,6 @@ enum mv88e6xxx_cap {
- 	 */
- 	MV88E6XXX_CAP_STU,
- 
--	/* Switch MAC/WoL/WoF register.
--	 * This requires an indirect access to set the switch MAC address
--	 * through GLOBAL2_SWITCH_MAC, otherwise GLOBAL_MAC_01, GLOBAL_MAC_23,
--	 * and GLOBAL_MAC_45 are used with a direct access.
--	 */
--	MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF,
--
- 	/* Internal temperature sensor.
- 	 * Available from any enabled port's PHY register 26, page 6.
- 	 */
-@@ -440,12 +433,12 @@ enum mv88e6xxx_cap {
++	MV88E6XXX_CAP_G2_IRL_CMD,	/* (0x09) Ingress Rate Command */
++	MV88E6XXX_CAP_G2_IRL_DATA,	/* (0x0a) Ingress Rate Data */
+ 	MV88E6XXX_CAP_G2_PVT_ADDR,	/* (0x0b) Cross Chip Port VLAN Addr */
+ 	MV88E6XXX_CAP_G2_PVT_DATA,	/* (0x0c) Cross Chip Port VLAN Data */
+ 	MV88E6XXX_CAP_G2_SWITCH_MAC,	/* (0x0d) Switch MAC/WoL/WoF */
+@@ -440,6 +447,8 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAG_GLOBAL2		BIT(MV88E6XXX_CAP_GLOBAL2)
  #define MV88E6XXX_FLAG_G2_MGMT_EN_2X	BIT(MV88E6XXX_CAP_G2_MGMT_EN_2X)
  #define MV88E6XXX_FLAG_G2_MGMT_EN_0X	BIT(MV88E6XXX_CAP_G2_MGMT_EN_0X)
-+#define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT(MV88E6XXX_CAP_G2_SWITCH_MAC)
- #define MV88E6XXX_FLAG_MULTI_CHIP	BIT(MV88E6XXX_CAP_MULTI_CHIP)
- #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
- #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
- #define MV88E6XXX_FLAG_SMI_PHY		BIT(MV88E6XXX_CAP_SMI_PHY)
- #define MV88E6XXX_FLAG_STU		BIT(MV88E6XXX_CAP_STU)
--#define MV88E6XXX_FLAG_SWITCH_MAC	BIT(MV88E6XXX_CAP_SWITCH_MAC_WOL_WOF)
- #define MV88E6XXX_FLAG_TEMP		BIT(MV88E6XXX_CAP_TEMP)
++#define MV88E6XXX_FLAG_G2_IRL_CMD	BIT(MV88E6XXX_CAP_G2_IRL_CMD)
++#define MV88E6XXX_FLAG_G2_IRL_DATA	BIT(MV88E6XXX_CAP_G2_IRL_DATA)
+ #define MV88E6XXX_FLAG_G2_PVT_ADDR	BIT(MV88E6XXX_CAP_G2_PVT_ADDR)
+ #define MV88E6XXX_FLAG_G2_PVT_DATA	BIT(MV88E6XXX_CAP_G2_PVT_DATA)
+ #define MV88E6XXX_FLAG_G2_SWITCH_MAC	BIT(MV88E6XXX_CAP_G2_SWITCH_MAC)
+@@ -453,6 +462,11 @@ enum mv88e6xxx_cap {
  #define MV88E6XXX_FLAG_TEMP_LIMIT	BIT(MV88E6XXX_CAP_TEMP_LIMIT)
  #define MV88E6XXX_FLAG_VTU		BIT(MV88E6XXX_CAP_VTU)
-@@ -470,9 +463,9 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-+	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_VTU)
  
-@@ -489,10 +482,10 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-+	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
--	 MV88E6XXX_FLAG_SWITCH_MAC |	\
++/* Ingress Rate Limit unit */
++#define MV88E6XXX_FLAGS_IRL		\
++	(MV88E6XXX_FLAG_G2_IRL_CMD |	\
++	 MV88E6XXX_FLAG_G2_IRL_DATA)
++
+ /* Cross-chip Port VLAN Table */
+ #define MV88E6XXX_FLAGS_PVT		\
+ 	(MV88E6XXX_FLAG_G2_PVT_ADDR |	\
+@@ -474,6 +488,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_VTU |		\
++	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_PVT)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+@@ -486,6 +501,7 @@ enum mv88e6xxx_cap {
+ 	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_VTU |		\
++	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_PVT)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+@@ -509,6 +525,7 @@ enum mv88e6xxx_cap {
  	 MV88E6XXX_FLAG_TEMP |		\
  	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
- 	 MV88E6XXX_FLAG_VTU)
-@@ -501,11 +494,11 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-+	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
- 	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_TEMP |		\
- 	 MV88E6XXX_FLAG_VTU)
+ 	 MV88E6XXX_FLAG_VTU |		\
++	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_PVT)
  
-@@ -515,11 +508,11 @@ enum mv88e6xxx_cap {
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
-+	 MV88E6XXX_FLAG_G2_SWITCH_MAC |	\
- 	 MV88E6XXX_FLAG_MULTI_CHIP |	\
- 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
- 	 MV88E6XXX_FLAG_SMI_PHY |	\
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+@@ -523,6 +540,7 @@ enum mv88e6xxx_cap {
  	 MV88E6XXX_FLAG_STU |		\
--	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_VTU |		\
++	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_PVT)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6352	\
+@@ -540,6 +558,7 @@ enum mv88e6xxx_cap {
  	 MV88E6XXX_FLAG_TEMP |		\
  	 MV88E6XXX_FLAG_TEMP_LIMIT |	\
- 	 MV88E6XXX_FLAG_VTU)
+ 	 MV88E6XXX_FLAG_VTU |		\
++	 MV88E6XXX_FLAGS_IRL |		\
+ 	 MV88E6XXX_FLAGS_PVT)
+ 
+ struct mv88e6xxx_info {
 -- 
 2.9.0
