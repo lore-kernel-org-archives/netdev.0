@@ -1,54 +1,40 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next v2 07/10] net/faraday: Read MAC address from
- chip
-Date: Tue, 19 Jul 2016 20:57:53 +1000
-Message-ID: <1468925873.8568.47.camel@kernel.crashing.org>
-References: <1468579460-13768-1-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <1468579460-13768-8-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D5F4FC97F@AcuExch.aculab.com>
+From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+Subject: BUG: Wrong dma queue handling in ixp4 driver
+Date: Tue, 19 Jul 2016 13:05:58 +0200
+Message-ID: <trinity-275fae16-c9c8-4503-85fe-5585fb014c7a-1468926357992@3capp-gmx-bs21>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"joel@jms.id.au" <joel@jms.id.au>,
-	"gerlitz.or@gmail.com" <gerlitz.or@gmail.com>,
-	"weixue@trustnetic.com" <weixue@trustnetic.com>,
-	"yuvali@mellanox.com" <yuvali@mellanox.com>,
-	"alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"'Gavin Shan'" <gwshan@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:43339 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752665AbcGSK6p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Jul 2016 06:58:45 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4FC97F@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: khalasa@piap.pl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-07-19 at 10:50 +0000, David Laight wrote:
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0if (!is_valid_ether_addr(mac)) {
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0mac[5] =3D (m >> 8) & 0xff;
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0mac[4] =3D m & 0xff;
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0mac[3] =3D (l >> 24) & 0xff;
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0mac[2] =3D (l >> 16) & 0xff;
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0mac[1] =3D (l >>=C2=A0 8) & 0xff;
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0mac[0] =3D l & 0xff;
-> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0}
-> ...
->=20
-> That is horrid, not all byte reversed addresses will be invalid.
 
-Right, that's just a hack for a broken vendor uboot we had here, Gavin,
-drop that part of the patch please.
+Hi,
 
-Cheers,
-Ben.
+maybe I miss something, but the ixp4 ethernet driver seems to handle dma pools 
+in a wrong way: In init_queues() it creates a dma pool for descriptors and then
+ only allocates a single descriptor from this pool. The author seems to assume the whole
+table has been allocated already, since after that the complete pool size is zeroed:
+
+<snip> 
+static int init_queues(struct port *port)
+{
+	int i;
+
+	if (!ports_open) {
+		dma_pool = dma_pool_create(DRV_NAME, &port->netdev->dev,
+					   POOL_ALLOC_SIZE, 32, 0);
+		if (!dma_pool)
+			return -ENOMEM;
+	}
+
+	if (!(port->desc_tab = dma_pool_alloc(dma_pool, GFP_KERNEL,
+					      &port->desc_tab_phys)))
+		return -ENOMEM;
+	memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
+<snap>
+
+Regards,
+Lino
