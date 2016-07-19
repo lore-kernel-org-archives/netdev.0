@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 04/12] net: dsa: mv88e6xxx: extract trunk mapping
-Date: Mon, 18 Jul 2016 20:45:32 -0400
-Message-ID: <20160719004540.1066-5-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 12/12] net: dsa: mv88e6xxx: add support for DSA ageing time
+Date: Mon, 18 Jul 2016 20:45:40 -0400
+Message-ID: <20160719004540.1066-13-vivien.didelot@savoirfairelinux.com>
 References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,115 +14,44 @@ In-Reply-To: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Trunk Mask and Trunk Mapping registers are two Global 2 indirect
-accesses to trunking configuration.
-
-Add helpers for these tables and simplify the Global 2 setup.
+Implement the DSA driver function to configure the bridge ageing time.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c      | 68 ++++++++++++++++++++++++-----------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
- 2 files changed, 48 insertions(+), 21 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 9b2525a..d18e5c8 100644
+index 8e24c65..9ba2173 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3151,6 +3151,49 @@ static int mv88e6xxx_g2_set_device_mapping(struct mv88e6xxx_chip *chip)
- 	return err;
+@@ -3002,6 +3002,19 @@ static int mv88e6xxx_g1_set_age_time(struct mv88e6xxx_chip *chip,
+ 	return mv88e6xxx_write(chip, REG_GLOBAL, GLOBAL_ATU_CONTROL, val);
  }
  
-+static int mv88e6xxx_g2_trunk_mask_write(struct mv88e6xxx_chip *chip, int num,
-+					 bool hask, u16 mask)
++static int mv88e6xxx_set_ageing_time(struct dsa_switch *ds,
++				     unsigned int ageing_time)
 +{
-+	const u16 port_mask = BIT(chip->info->num_ports) - 1;
-+	u16 val = (num << 12) | (mask & port_mask);
++	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
++	int err;
 +
-+	if (hask)
-+		val |= GLOBAL2_TRUNK_MASK_HASK;
++	mutex_lock(&chip->reg_lock);
++	err = mv88e6xxx_g1_set_age_time(chip, ageing_time);
++	mutex_unlock(&chip->reg_lock);
 +
-+	return mv88e6xxx_update(chip, REG_GLOBAL2, GLOBAL2_TRUNK_MASK, val);
++	return err;
 +}
 +
-+static int mv88e6xxx_g2_trunk_mapping_write(struct mv88e6xxx_chip *chip, int id,
-+					    u16 map)
-+{
-+	const u16 port_mask = BIT(chip->info->num_ports) - 1;
-+	u16 val = (id << 11) | (map & port_mask);
-+
-+	return mv88e6xxx_update(chip, REG_GLOBAL2, GLOBAL2_TRUNK_MAPPING, val);
-+}
-+
-+static int mv88e6xxx_g2_clear_trunk(struct mv88e6xxx_chip *chip)
-+{
-+	const u16 port_mask = BIT(chip->info->num_ports) - 1;
-+	int i, err;
-+
-+	/* Clear all eight possible Trunk Mask vectors */
-+	for (i = 0; i < 8; ++i) {
-+		err = mv88e6xxx_g2_trunk_mask_write(chip, i, false, port_mask);
-+		if (err)
-+			return err;
-+	}
-+
-+	/* Clear all sixteen possible Trunk ID routing vectors */
-+	for (i = 0; i < 16; ++i) {
-+		err = mv88e6xxx_g2_trunk_mapping_write(chip, i, 0);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
  {
- 	int err;
-@@ -3180,27 +3223,10 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
- 	if (err)
- 		return err;
- 
--	/* Clear all trunk masks. */
--	for (i = 0; i < 8; i++) {
--		err = _mv88e6xxx_reg_write(chip, REG_GLOBAL2,
--					   GLOBAL2_TRUNK_MASK,
--					   0x8000 |
--					   (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
--					   ((1 << chip->info->num_ports) - 1));
--		if (err)
--			return err;
--	}
--
--	/* Clear all trunk mappings. */
--	for (i = 0; i < 16; i++) {
--		err = _mv88e6xxx_reg_write(
--			chip, REG_GLOBAL2,
--			GLOBAL2_TRUNK_MAPPING,
--			GLOBAL2_TRUNK_MAPPING_UPDATE |
--			(i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
--		if (err)
--			return err;
--	}
-+	/* Clear all trunk masks and mapping. */
-+	err = mv88e6xxx_g2_clear_trunk(chip);
-+	if (err)
-+		return err;
- 
- 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
- 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 390dac5..876d9ea 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -294,6 +294,7 @@
- #define GLOBAL2_TRUNK_MASK	0x07
- #define GLOBAL2_TRUNK_MASK_UPDATE		BIT(15)
- #define GLOBAL2_TRUNK_MASK_NUM_SHIFT		12
-+#define GLOBAL2_TRUNK_MASK_HASK			BIT(11)
- #define GLOBAL2_TRUNK_MAPPING	0x08
- #define GLOBAL2_TRUNK_MAPPING_UPDATE		BIT(15)
- #define GLOBAL2_TRUNK_MAPPING_ID_SHIFT		11
+ 	struct dsa_switch *ds = chip->ds;
+@@ -3980,6 +3993,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.set_eeprom		= mv88e6xxx_set_eeprom,
+ 	.get_regs_len		= mv88e6xxx_get_regs_len,
+ 	.get_regs		= mv88e6xxx_get_regs,
++	.set_ageing_time	= mv88e6xxx_set_ageing_time,
+ 	.port_bridge_join	= mv88e6xxx_port_bridge_join,
+ 	.port_bridge_leave	= mv88e6xxx_port_bridge_leave,
+ 	.port_stp_state_set	= mv88e6xxx_port_stp_state_set,
 -- 
 2.9.0
