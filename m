@@ -1,68 +1,58 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [PATCH] WiMAX-i2400m: Delete an unnecessary check before the
- function call "kfree_skb"
-Date: Tue, 19 Jul 2016 22:11:20 +0200
-Message-ID: <b54b9abe-8271-ddc2-5346-7b63d5030189@users.sourceforge.net>
-References: <5307CAA2.8060406@users.sourceforge.net>
- <alpine.DEB.2.02.1402212321410.2043@localhost6.localdomain6>
- <530A086E.8010901@users.sourceforge.net>
- <alpine.DEB.2.02.1402231635510.1985@localhost6.localdomain6>
- <530A72AA.3000601@users.sourceforge.net>
- <alpine.DEB.2.02.1402240658210.2090@localhost6.localdomain6>
- <530B5FB6.6010207@users.sourceforge.net>
- <alpine.DEB.2.10.1402241710370.2074@hadrien>
- <530C5E18.1020800@users.sourceforge.net>
- <alpine.DEB.2.10.1402251014170.2080@hadrien>
- <530CD2C4.4050903@users.sourceforge.net>
- <alpine.DEB.2.10.1402251840450.7035@hadrien>
- <530CF8FF.8080600@users.sourceforge.net>
- <alpine.DEB.2.02.1402252117150.2047@localhost6.localdomain6>
- <530DD06F.4090703@users.sourceforge.net>
- <alpine.DEB.2.02.1402262129250.2221@localhost6.localdomain6>
- <5317A59D.4@users.sourceforge.net> <5649AE81.6070809@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5649AE81.6070809@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net] e1000e: fix PTP on e1000_pch_lpt variants
+Date: Tue, 19 Jul 2016 16:25:02 -0400
+Message-ID: <1468959902-25071-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58820 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751743AbcGSUZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2016 16:25:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Mon, 16 Nov 2015 11:17:55 +0100
-> 
-> The kfree_skb() function tests whether its argument is NULL and then
-> returns immediately. Thus the test around the call is not needed.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
->  drivers/net/wimax/i2400m/control.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wimax/i2400m/control.c b/drivers/net/wimax/i2400m/control.c
-> index 4c41790..4de22b7 100644
-> --- a/drivers/net/wimax/i2400m/control.c
-> +++ b/drivers/net/wimax/i2400m/control.c
-> @@ -644,7 +644,7 @@ void i2400m_msg_to_dev_cancel_wait(struct i2400m *i2400m, int code)
->  
->  	spin_lock_irqsave(&i2400m->rx_lock, flags);
->  	ack_skb = i2400m->ack_skb;
-> -	if (ack_skb && !IS_ERR(ack_skb))
-> +	if (!IS_ERR(ack_skb))
->  		kfree_skb(ack_skb);
->  	i2400m->ack_skb = ERR_PTR(code);
->  	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
-> 
+I've got reports that the Intel I-218V NIC in Intel NUC5i5RYH systems used
+as a PTP slave experiences random ~10 hour clock jumps, which are resolved
+if the same workaround for the 82574 and 82583 is employed. Switching from
+an if to a select, because the list of NIC types could well grow further
+and we'd already have to wrap the conditionals.
 
-How do you think about to integrate this update suggestion
-into another source code repository?
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Regards,
-Markus
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 2b2e2f8..866fea0 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4335,7 +4335,10 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 	systim = (cycle_t)systimel;
+ 	systim |= (cycle_t)systimeh << 32;
+ 
+-	if ((hw->mac.type == e1000_82574) || (hw->mac.type == e1000_82583)) {
++	switch (hw->mac.type) {
++	case e1000_82574:
++	case e1000_82583:
++	case e1000_pch_lpt:
+ 		u64 time_delta, rem, temp;
+ 		u32 incvalue;
+ 		int i;
+@@ -4360,6 +4363,9 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 			    (rem == 0))
+ 				break;
+ 		}
++		break;
++	default:
++		break;
+ 	}
+ 	return systim;
+ }
+-- 
+1.8.3.1
