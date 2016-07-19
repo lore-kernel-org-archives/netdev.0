@@ -1,55 +1,81 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: RE: [PATCH/RFC] packet: fix sock_tx_timestamp() in packet_snd() via
- sendto syscall
-Date: Tue, 19 Jul 2016 05:42:57 +0000
-Message-ID: <HK2PR06MB0548453237EEC531D4B0A180D8370@HK2PR06MB0548.apcprd06.prod.outlook.com>
-References: <1468550944-4584-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
- <CAF=yD-K5aqcjPw4T1_+YXFg-gPBzGwxC5hAFwT6Otda7nhNxag@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor2.renesas.com ([210.160.252.172]:50367 "EHLO
-	relmlie1.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751959AbcGSFnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:43:06 -0400
-In-Reply-To: <CAF=yD-K5aqcjPw4T1_+YXFg-gPBzGwxC5hAFwT6Otda7nhNxag@mail.gmail.com>
-Content-Language: ja-JP
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
+Subject: [Patch-V2 0/3] crypto/chcr: Add Chelsio Crypto Driver
+Date: Mon, 18 Jul 2016 22:42:12 -0700
+Message-ID: <1468906935-6770-1-git-send-email-yeshaswi@chelsio.com>
+Cc: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
+To: hariprasad@chelsio.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	linux-crypto@vger.kernel.org, jlulla@chelsio.ccom,
+	harsh@chelsio.com, atul.gupta@chelsio.com,
+	herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNCj4gRnJvbTogV2lsbGVtIGRlIEJydWlqbg0KPiBTZW50OiBTYXR1cmRheSwgSnVseSAx
-NiwgMjAxNiAxMjozMSBBTQ0KPiANCj4gT24gVGh1LCBKdWwgMTQsIDIwMTYgYXQgMTA6NDkgUE0s
-IFlvc2hpaGlybyBTaGltb2RhDQo+IDx5b3NoaWhpcm8uc2hpbW9kYS51aEByZW5lc2FzLmNvbT4g
-d3JvdGU6DQo+ID4gU2luY2UgdGhlIHNlbmR0byBzeXNjYWxsIGRvZXNuJ3QgaGF2ZSBtc2dfY29u
-dHJvbCBidWZmZXIsDQo+ID4gdGhlIHNvY2tfdHhfdGltZXN0YW1wKCkgaW4gcGFja2V0X3NuZCgp
-IGNhbm5vdCB3b3JrIGNvcnJlY3RseSBiZWNhdXNlDQo+ID4gdGhlIHNvY2tzLmZzZmxhZ3MgaXMg
-c2V0IHRvIDAuDQo+IA0KPiBZb3UncmUgcmlnaHQuIF9fc29ja190eF90aW1lc3RhbXAgdXNlZCB0
-byB0YWtlIHNrLT5za190c2ZsYWdzIGFzDQo+IGlucHV0LCBub3cgaXQgcmVsaWVzIHNvbGVseSBv
-biB0aGlzIHBhcmFtZXRlciB0c2ZsYWdzLiBBbGwgY2FsbHNpdGVzDQo+IG11c3QgZWl0aGVyIHBh
-c3Mgc2stPnNrX3RzZmxhZ3MgZGlyZWN0bHkgb3IgaW5pdGlhbGl6ZSBzb2NrYy50c2ZsYWdzDQo+
-IHRvIHRoaXMgdmFsdWUuDQoNClRoYW5rIHlvdSB2ZXJ5IG11Y2ggZm9yIHRoZSBjb21tZW50IQ0K
-DQo+ID4gZGlmZiAtLWdpdCBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMgYi9uZXQvcGFja2V0L2Fm
-X3BhY2tldC5jDQo+ID4gaW5kZXggOWYwOTgzZi4uZDc2ZmQ0MSAxMDA2NDQNCj4gPiAtLS0gYS9u
-ZXQvcGFja2V0L2FmX3BhY2tldC5jDQo+ID4gKysrIGIvbmV0L3BhY2tldC9hZl9wYWNrZXQuYw0K
-PiA+IEBAIC0yODg3LDYgKzI4ODcsMTEgQEAgc3RhdGljIGludCBwYWNrZXRfc25kKHN0cnVjdCBz
-b2NrZXQgKnNvY2ssIHN0cnVjdCBtc2doZHIgKm1zZywgc2l6ZV90IGxlbikNCj4gPiAgICAgICAg
-ICAgICAgICAgZXJyID0gc29ja19jbXNnX3NlbmQoc2ssIG1zZywgJnNvY2tjKTsNCj4gPiAgICAg
-ICAgICAgICAgICAgaWYgKHVubGlrZWx5KGVycikpDQo+ID4gICAgICAgICAgICAgICAgICAgICAg
-ICAgZ290byBvdXRfdW5sb2NrOw0KPiA+ICsgICAgICAgfSBlbHNlIHsNCj4gPiArICAgICAgICAg
-ICAgICAgLyogU2V0IHRzZmxhZ3MgZnJvbSBzayBiZWNhdXNlIGEgc3lzY2FsbCAoZS5nLiBzZW5k
-dG8pIGRvZXNuJ3QNCj4gPiArICAgICAgICAgICAgICAgICogaGF2ZSBtc2dfY29udHJvbCBidWZm
-ZXIuDQo+ID4gKyAgICAgICAgICAgICAgICAqLw0KPiA+ICsgICAgICAgICAgICAgICBzb2NrYy50
-c2ZsYWdzID0gc2stPnNrX3RzZmxhZ3M7DQo+ID4gICAgICAgICB9DQo+IA0KPiBCZXR0ZXIgdG8g
-Zm9sbG93IHRoZSBleGFtcGxlIG9mIG90aGVyIHByb3RvY29scy4gSW4gYWxsIHRocmVlIHBhY2tl
-dA0KPiB2YXJpYW50cywgbWFrZSB0aGUgZm9sbG93aW5nIGluaXRpYWxpemF0aW9uIGNoYW5nZToN
-Cj4gDQo+IC0gICAgICAgc29ja2MudHNmbGFncyA9IDA7DQo+ICsgICAgICAgc29ja2MudHNmbGFn
-cyA9IHNrLT5za190c2ZsYWdzOw0KDQpUaGFuayB5b3UgZm9yIHRoZSBzdWdnZXN0aW9uLiBJIHN1
-Ym1pdHRlZCBhIGZpeGVkIHBhdGNoIG5vdy4NCg0KQmVzdCByZWdhcmRzLA0KWW9zaGloaXJvIFNo
-aW1vZGENCg0KPiAoSSBoYWQgdG8gcmVtb3ZlIHNvbWUgcmVjaXBpZW50cywgYmVjYXVzZSBteSBy
-ZXBseSB3YXMgbWFya2VkIGFzIHNwYW0NCj4gYW5kIGRyb3BwZWQgb3RoZXJ3aXNlLi4pDQo=
+Hi Herbert,
+
+This patch series contains 3 patches that add support for Chelsio's
+Crypto Hardware.
+
+The patch series has been created against Herbert Xu's tree (crypto-2.6).
+It includes patches for Chelsio Low Level Driver(cxgb4) and adds the new
+crypto Upper Layer Driver(chcr) under a new directory drivers/crypto/chelsio.
+
+The first of the patch series implements necessary changes in the Chelsio
+LLD for queue allocation, deallocation and registration of the ULD.
+
+The second patch implements the Chelsio crypto driver.
+
+The third patch contains the changes to the driver/crypto/Kconfig and
+drivers/crypto/Makefile to enable the Chelsio Crypto driver.
+
+We have included all the maintainers of respective drivers. Kindly
+review the changes and provide feedback on the same.
+
+Thank you Joe Perches and Herbert Xu for your review, I have made appropriate
+changes based on them.
+
+[V1 -> V2]
+
+1. Some residual code cleanup
+2. Adds pr_fmt with chcr (KBUILD_MODNAME) added
+3. Changes var name to accomodate them <80 columns in the chcr_register_alg
+4. Support for printing the crypto queue stats
+5. Fix compile warnings reported by kbuild bot for certain architectures
+6. Dependency fix in Kconfig.
+7. If the request has the MAY_BACKLOG bit set and hardware queue is full the request
+   is queued up else -EBUSY is returned to throttle the user. The queue when executed
+   and processed returns -EINPROGRESS in completion.
+
+Yeshaswi M R Gowda (3):
+  cxgb4: Add Chelsio LLD support Chelsio Crypto ULD
+  chcr: Support for Chelsio's Crypto Hardware
+  crypto: Added Chelsio Menu to the Kconfig file
+
+ drivers/crypto/Kconfig                             |    2 +
+ drivers/crypto/Makefile                            |    1 +
+ drivers/crypto/chelsio/Kconfig                     |   21 +
+ drivers/crypto/chelsio/Makefile                    |    4 +
+ drivers/crypto/chelsio/chcr_algo.c                 | 1509 ++++++++++++++++++++
+ drivers/crypto/chelsio/chcr_algo.h                 |  503 +++++++
+ drivers/crypto/chelsio/chcr_core.c                 |  268 ++++
+ drivers/crypto/chelsio/chcr_core.h                 |   80 ++
+ drivers/crypto/chelsio/chcr_crypto.h               |  204 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   18 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |   41 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   80 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   10 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c           |   64 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |  437 ++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  131 +-
+ 16 files changed, 3362 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/crypto/chelsio/Kconfig
+ create mode 100644 drivers/crypto/chelsio/Makefile
+ create mode 100644 drivers/crypto/chelsio/chcr_algo.c
+ create mode 100644 drivers/crypto/chelsio/chcr_algo.h
+ create mode 100644 drivers/crypto/chelsio/chcr_core.c
+ create mode 100644 drivers/crypto/chelsio/chcr_core.h
+ create mode 100644 drivers/crypto/chelsio/chcr_crypto.h
+
+-- 
+1.7.10.1
