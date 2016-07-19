@@ -1,73 +1,61 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v3 10/12] net: dsa: support switchdev ageing
- time attr
-Date: Tue, 19 Jul 2016 16:20:09 +0200
-Message-ID: <20160719142009.GA31103@lunn.ch>
-References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
- <20160719004540.1066-11-vivien.didelot@savoirfairelinux.com>
- <20160719032415.GD9111@lunn.ch>
- <ec4db799-a764-d029-80fb-9a56338f7bc5@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH v2 05/11] Kbuild: don't add obj tree in additional includes
+Date: Tue, 19 Jul 2016 17:33:44 +0300
+Message-ID: <87a8hdae9j.fsf@purkki.adurom.net>
+References: <20160615154553.3177021-1-arnd@arndb.de>
+	<20160615154553.3177021-6-arnd@arndb.de>
+	<20160718201439.GA9053@sepie.suse.cz> <21521763.EfAflxWUP8@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ec4db799-a764-d029-80fb-9a56338f7bc5@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+	Michal Marek <mmarek@suse.com>, netdev@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+	linux-kbuild@vger.kernel.org, akpm <akpm@linux-foundation.org>,
+	linux-wireless@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <21521763.EfAflxWUP8@wuerfel> (Arnd Bergmann's message of "Tue,
+	19 Jul 2016 10:31:26 +0200")
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 18, 2016 at 09:26:00PM -0700, Florian Fainelli wrote:
-> Le 18/07/2016 =E0 20:24, Andrew Lunn a =E9crit :
-> > On Mon, Jul 18, 2016 at 08:45:38PM -0400, Vivien Didelot wrote:
-> >> Add a new function for DSA drivers to handle the switchdev
-> >> SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME attribute.
-> >>
-> >> The ageing time is passed as milliseconds.
-> >>
-> >> Also because we can have multiple logical bridges on top of a phys=
-ical
-> >> switch and ageing time are switch-wide, call the driver function w=
-ith
-> >> the fastest ageing time in use on the chip instead of the requeste=
-d one.
-> >>
-> >> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com=
+Arnd Bergmann <arnd@arndb.de> writes:
+
+> On Monday, July 18, 2016 10:14:39 PM CEST Michal Marek wrote:
+>> On Wed, Jun 15, 2016 at 05:45:47PM +0200, Arnd Bergmann wrote:
+>> > When building with separate object directories and driver specific
+>> > Makefiles that add additional header include paths, Kbuild adjusts
+>> > the gcc flags so that we include both the directory in the source
+>> > tree and in the object tree.
+>> > 
+>> > However, due to another bug I fixed earlier, this did not actually
+>> > include the correct directory in the object tree, so we know that
+>> > we only really need the source tree here. Also, including the
+>> > object tree sometimes causes warnings about nonexisting directories
+>> > when the include path only exists in the source.
+>> > 
+>> > This changes the logic to only emit the -I argument for the srctree,
+>> > not for objects. We still need both $(srctree)/$(src) and $(obj)
+>> > though, so I'm adding them manually.
+>> > 
+>> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> 
+>> Hi Arnd,
+>> 
+>> I applied the series up to this patch to kbuild.git#kbuild. The rest
+>> seem to be related but not dependent patches, so I'll leave it up to the
+>> respective maintainers to pick them up. Is that OK with you?
 >
-> >> ---
-> >>  include/net/dsa.h |  2 ++
-> >>  net/dsa/slave.c   | 41 +++++++++++++++++++++++++++++++++++++++++
-> >=20
->=20
-> Hi Andrew,
->=20
-> > Hi Florian
-> >=20
-> > It looks like the SF2 can do fast ageing per port. What i don't see=
- if
-> > what configuration options you have. Can you get the fast and the
-> > normal age time per port? Or is it global?
->=20
-> The normal ageing is global and the value needs to be programmed in
-> seconds, can can range from 10 to 1,048,575 (encoded on 20 bits). The
-> fast-ageing can actually be per-port, per-VLAN id, for just dynamic o=
-r
-> static entries etc. and is just a poor name for a flush based on any =
-of
-> these criteria.
+> I think that's fine, a couple were already picked up, and what I have
+> left now is
+>
+> a281bfa5713a [SUBMITTED 20160615] [EXPERIMENTAL] Kbuild: enable -Wmissing-include-dirs by default
+> 83934921e68e [SUBMITTED 20160615] rtlwifi: don't add include path for rtl8188ee
 
-Hi Florian
+Apparently[1] you didn't CC linux-wireless and that's why I didn't see
+the rtlwifi patch in wireless patchwork. Care to resend?
 
-So fast ageing does not have a timer value associated to it? It is
-just a flush?
+[1] https://patchwork.kernel.org/patch/9178861/
 
-If so, the code Vivien is proposing in DSA slave is O.K. If however
-there was a per port timer, Vivien's code is too high in the stack,
-blocking SF2 from being able to use per-port timers. That is what i'm
-trying to get at.
-
-	 Andrew
+-- 
+Kalle Valo
