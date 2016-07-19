@@ -1,60 +1,39 @@
-From: "Reizer, Eyal" <eyalr@ti.com>
-Subject: RE: [PATCHv8] wlcore: spi: add wl18xx support
-Date: Wed, 20 Jul 2016 07:04:45 +0000
-Message-ID: <8665E2433BC68541A24DFFCA87B70F5B36161A17@DFRE01.ent.ti.com>
-References: <1468994768-23609-1-git-send-email-eyalr@ti.com>
-	<8665E2433BC68541A24DFFCA87B70F5B36161990@DFRE01.ent.ti.com>
- <871t2ovll6.fsf@kamboji.qca.qualcomm.com>
+From: Ilan Tayari <ilant@mellanox.com>
+Subject: RE: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18 (and
+ probably later)
+Date: Tue, 19 Jul 2016 15:03:33 +0000
+Message-ID: <AM4PR0501MB19408B7B4BBFDE17EB980F74DB370@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+References: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEB52@ExMbx1.iabg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-spi@vger.kernel.org" <linux-spi@vger.kernel.org>,
-	Rob Herring <robh@kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: =?iso-8859-1?Q?Pommnitz_J=F6rg?= <Pommnitz@iabg.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([198.47.19.11]:42904 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751119AbcGTHEv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 03:04:51 -0400
-In-Reply-To: <871t2ovll6.fsf@kamboji.qca.qualcomm.com>
+Received: from mail-db5eur01on0056.outbound.protection.outlook.com ([104.47.2.56]:37896
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752217AbcGTHLW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 03:11:22 -0400
+In-Reply-To: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEB52@ExMbx1.iabg.de>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> > Add support for using with both wl12xx and wl18xx.
-> >
-> > - all wilink family needs special init command for entering wspi mode.
-> >   extra clock cycles should be sent after the spi init command while the
-> >   cs pin is high.
-> > - Use inverted chip select for sending a dummy 4 bytes command that
-> >   completes the init stage.
-> >
-> > Signed-off-by: Eyal Reizer <eyalr@ti.com>
-> > Acked-by: Rob Herring <robh@kernel.org>
-> > ---
-> > v1->v2:update device tree bindings configuration
-> > v2->v3:revert from manual gpio manipulation. use inverted chip select
-> instead
-> > for sending the extra init cycle which, achieves the same hardware purpose.
-> > update device tree bindings docucmentation accordingly
-> > v3->v4: Remove redundant data form binding documentation and fix chip
-> select
-> > number mismatch in wl1271 example
-> > v4->v5: Rebase on top of head of wireless-drivers-next
-> > v5->v6: Add ACKs
-> > v6->v7: Mail format issues
-> > v7->v8: Remove redundant varaible from wlcore_probe_of
-> 
-> I have already applied this patch, it's too late to send a new version.
-> Now you need to send a new patch, on top of wireless-drivers-next, which
-> removes the redundant variable.
-> 
-Understood. Will submit shortly
+ > On the receiving side (e.g. fd01:1b10:1000::1) I see the decrypted packets with
+> the 2.6.23 kernel:
+> but NOT with the newer kernel:
 
-Best Regards,
-Eyal
+Hi Joerg,
+
+First steps to debug this would be:
+cat /proc/net/xfrm_stat
+ip -s xfrm state
+ip -s xfrm policy
+
+First command will show some error accounting, which can point to the culprit code.
+Second and third command will show existing objects, and some statistics like when the last packet was used with them.
+
+Last thing - for your safety you should keep those session keys private.
+
+Ilan.
