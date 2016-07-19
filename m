@@ -1,83 +1,55 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH v3] packet: fix second argument of sock_tx_timestamp()
-Date: Tue, 19 Jul 2016 08:34:20 -0400
-Message-ID: <CACSApvYj5X166euM2Qy+ubvLYdfYg65itMYiVeTf5SUuiA+gog@mail.gmail.com>
-References: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+From: Bob Copeland <me@bobcopeland.com>
+Subject: Re: [PATCH v2 2/3] mac80211: mesh: improve path resolving time
+Date: Tue, 19 Jul 2016 08:36:48 -0400
+Message-ID: <20160719123648.GC11996@localhost>
+References: <20160713114528.24835-1-yanivma@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, daniel@iogearbox.net,
-	Willem de Bruijn <willemb@google.com>, ast@plumgrid.com,
-	tklauser@distanz.ch, fruggeri@aristanetworks.com,
-	netdev <netdev@vger.kernel.org>,
-	linux-renesas-soc@vger.kernel.org, stable@vger.kernel.org
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Maital Hahn <maitalm@ti.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Yaniv Machani <yanivma@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160713114528.24835-1-yanivma@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 19, 2016 at 1:40 AM, Yoshihiro Shimoda
-<yoshihiro.shimoda.uh@renesas.com> wrote:
-> This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
-> work correctly. Since the sendto syscall doesn't have msg_control buffer,
-> the sock_tx_timestamp() in packet_snd() cannot work correctly because
-> the socks.tsflags is set to 0.
-> So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
->
-> Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
-> Cc: <stable@vger.kernel.org>
-> Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
-> ---
->  Changes from v2:
->   - Fix build error...
->
->  Changes from v1:
->   - Set socks.tsflags to sk->sk_tsflags as default instead of a condition.
->   - Fix other socks.tsflags values in the af_packet.c.
->   - Revise the commit log.
->
->  About v1 (as RFC):
->   - http://thread.gmane.org/gmane.linux.kernel.renesas-soc/5646
->
->  net/packet/af_packet.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 9f0983f..53e87ce 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1927,7 +1927,7 @@ retry:
->                 goto out_unlock;
->         }
->
-> -       sockc.tsflags = 0;
-> +       sockc.tsflags = sk->sk_tsflags;
->         if (msg->msg_controllen) {
->                 err = sock_cmsg_send(sk, msg, &sockc);
->                 if (unlikely(err)) {
-> @@ -2678,7 +2678,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
->                 dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
->         }
->
-> -       sockc.tsflags = 0;
-> +       sockc.tsflags = po->sk.sk_tsflags;
->         if (msg->msg_controllen) {
->                 err = sock_cmsg_send(&po->sk, msg, &sockc);
->                 if (unlikely(err))
-> @@ -2881,7 +2881,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
->         if (unlikely(!(dev->flags & IFF_UP)))
->                 goto out_unlock;
->
-> -       sockc.tsflags = 0;
-> +       sockc.tsflags = sk->sk_tsflags;
->         sockc.mark = sk->sk_mark;
->         if (msg->msg_controllen) {
->                 err = sock_cmsg_send(sk, msg, &sockc);
-> --
-> 1.9.1
->
+On Wed, Jul 13, 2016 at 02:45:25PM +0300, Yaniv Machani wrote:
+> When a packet is received for transmission,
+> a PREQ frame is sent to resolve the appropriate path to the desired destination.
+> After path was established, any sequential PREQ will be sent only after
+> dot11MeshHWMPpreqMinInterval, which usually set to few seconds.
+> 
+> This implementation has an impact in cases where we would like to
+> resolve the path quickly.
+> A clear example is when a peer was disconnected from us,
+> while he acted as a hop to our destination.
+> Although the path table will be cleared, the next PREQ frame will be sent only after reaching the MinInterval.
+> This will cause unwanted delay, possibly of few seconds until the traffic will resume.
+> 
+>  	if (!(mpath->flags & MESH_PATH_RESOLVING))
+> -		mesh_queue_preq(mpath, PREQ_Q_F_START);
+> +		mesh_queue_preq(mpath, PREQ_Q_F_START, true);
 
-Thanks for the fix.
+What about something like this here instead:
+
+    if (!(mpath->flags & MESH_PATH_RESOLVING)) {
+        /* force next preq to be sent without delay */
+        ifmsh->last_preq = jiffies - min_preq_int_jiff(sdata) - 1;
+        mesh_queue_preq(mpath, PREQ_Q_F_START);
+    }
+
+Maybe a little more magic, but it has a comment explaining it and doesn't
+add a bool parameter everywhere.  Or, maybe even just do it inside
+mesh_queue_preq() based on having PREQ_Q_F_START && !PREQ_Q_F_REFRESH (if
+those are the only cases where "true" is passed).
+
+Generally I try to avoid bool parameters where possible because when you
+look at a callsite, you don't know immediately what "true" and "false"
+mean, and also each one you add doubles the code paths through a given
+function.
+
+-- 
+Bob Copeland %% http://bobcopeland.com/
