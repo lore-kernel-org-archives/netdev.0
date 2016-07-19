@@ -1,75 +1,55 @@
 From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH v3] packet: fix second argument of sock_tx_timestamp()
-Date: Tue, 19 Jul 2016 14:40:51 +0900
-Message-ID: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+Subject: RE: [PATCH/RFC] packet: fix sock_tx_timestamp() in packet_snd() via
+ sendto syscall
+Date: Tue, 19 Jul 2016 05:42:57 +0000
+Message-ID: <HK2PR06MB0548453237EEC531D4B0A180D8370@HK2PR06MB0548.apcprd06.prod.outlook.com>
+References: <1468550944-4584-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+ <CAF=yD-K5aqcjPw4T1_+YXFg-gPBzGwxC5hAFwT6Otda7nhNxag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <daniel@iogearbox.net>, <willemb@google.com>, <ast@plumgrid.com>,
-	<tklauser@distanz.ch>, <fruggeri@aristanetworks.com>,
-	<netdev@vger.kernel.org>, <linux-renesas-soc@vger.kernel.org>,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	<stable@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	"fruggeri@aristanetworks.com" <fruggeri@aristanetworks.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor2.renesas.com ([210.160.252.172]:50367 "EHLO
+	relmlie1.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751959AbcGSFnG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 01:43:06 -0400
+In-Reply-To: <CAF=yD-K5aqcjPw4T1_+YXFg-gPBzGwxC5hAFwT6Otda7nhNxag@mail.gmail.com>
+Content-Language: ja-JP
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
-work correctly. Since the sendto syscall doesn't have msg_control buffer,
-the sock_tx_timestamp() in packet_snd() cannot work correctly because
-the socks.tsflags is set to 0.
-So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
-
-Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
-Cc: <stable@vger.kernel.org>
-Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- Changes from v2:
-  - Fix build error...
-
- Changes from v1:
-  - Set socks.tsflags to sk->sk_tsflags as default instead of a condition.
-  - Fix other socks.tsflags values in the af_packet.c.
-  - Revise the commit log.
-
- About v1 (as RFC):
-  - http://thread.gmane.org/gmane.linux.kernel.renesas-soc/5646
-
- net/packet/af_packet.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 9f0983f..53e87ce 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1927,7 +1927,7 @@ retry:
- 		goto out_unlock;
- 	}
- 
--	sockc.tsflags = 0;
-+	sockc.tsflags = sk->sk_tsflags;
- 	if (msg->msg_controllen) {
- 		err = sock_cmsg_send(sk, msg, &sockc);
- 		if (unlikely(err)) {
-@@ -2678,7 +2678,7 @@ static int tpacket_snd(struct packet_sock *po, struct msghdr *msg)
- 		dev = dev_get_by_index(sock_net(&po->sk), saddr->sll_ifindex);
- 	}
- 
--	sockc.tsflags = 0;
-+	sockc.tsflags = po->sk.sk_tsflags;
- 	if (msg->msg_controllen) {
- 		err = sock_cmsg_send(&po->sk, msg, &sockc);
- 		if (unlikely(err))
-@@ -2881,7 +2881,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
- 	if (unlikely(!(dev->flags & IFF_UP)))
- 		goto out_unlock;
- 
--	sockc.tsflags = 0;
-+	sockc.tsflags = sk->sk_tsflags;
- 	sockc.mark = sk->sk_mark;
- 	if (msg->msg_controllen) {
- 		err = sock_cmsg_send(sk, msg, &sockc);
--- 
-1.9.1
+SGksDQoNCj4gRnJvbTogV2lsbGVtIGRlIEJydWlqbg0KPiBTZW50OiBTYXR1cmRheSwgSnVseSAx
+NiwgMjAxNiAxMjozMSBBTQ0KPiANCj4gT24gVGh1LCBKdWwgMTQsIDIwMTYgYXQgMTA6NDkgUE0s
+IFlvc2hpaGlybyBTaGltb2RhDQo+IDx5b3NoaWhpcm8uc2hpbW9kYS51aEByZW5lc2FzLmNvbT4g
+d3JvdGU6DQo+ID4gU2luY2UgdGhlIHNlbmR0byBzeXNjYWxsIGRvZXNuJ3QgaGF2ZSBtc2dfY29u
+dHJvbCBidWZmZXIsDQo+ID4gdGhlIHNvY2tfdHhfdGltZXN0YW1wKCkgaW4gcGFja2V0X3NuZCgp
+IGNhbm5vdCB3b3JrIGNvcnJlY3RseSBiZWNhdXNlDQo+ID4gdGhlIHNvY2tzLmZzZmxhZ3MgaXMg
+c2V0IHRvIDAuDQo+IA0KPiBZb3UncmUgcmlnaHQuIF9fc29ja190eF90aW1lc3RhbXAgdXNlZCB0
+byB0YWtlIHNrLT5za190c2ZsYWdzIGFzDQo+IGlucHV0LCBub3cgaXQgcmVsaWVzIHNvbGVseSBv
+biB0aGlzIHBhcmFtZXRlciB0c2ZsYWdzLiBBbGwgY2FsbHNpdGVzDQo+IG11c3QgZWl0aGVyIHBh
+c3Mgc2stPnNrX3RzZmxhZ3MgZGlyZWN0bHkgb3IgaW5pdGlhbGl6ZSBzb2NrYy50c2ZsYWdzDQo+
+IHRvIHRoaXMgdmFsdWUuDQoNClRoYW5rIHlvdSB2ZXJ5IG11Y2ggZm9yIHRoZSBjb21tZW50IQ0K
+DQo+ID4gZGlmZiAtLWdpdCBhL25ldC9wYWNrZXQvYWZfcGFja2V0LmMgYi9uZXQvcGFja2V0L2Fm
+X3BhY2tldC5jDQo+ID4gaW5kZXggOWYwOTgzZi4uZDc2ZmQ0MSAxMDA2NDQNCj4gPiAtLS0gYS9u
+ZXQvcGFja2V0L2FmX3BhY2tldC5jDQo+ID4gKysrIGIvbmV0L3BhY2tldC9hZl9wYWNrZXQuYw0K
+PiA+IEBAIC0yODg3LDYgKzI4ODcsMTEgQEAgc3RhdGljIGludCBwYWNrZXRfc25kKHN0cnVjdCBz
+b2NrZXQgKnNvY2ssIHN0cnVjdCBtc2doZHIgKm1zZywgc2l6ZV90IGxlbikNCj4gPiAgICAgICAg
+ICAgICAgICAgZXJyID0gc29ja19jbXNnX3NlbmQoc2ssIG1zZywgJnNvY2tjKTsNCj4gPiAgICAg
+ICAgICAgICAgICAgaWYgKHVubGlrZWx5KGVycikpDQo+ID4gICAgICAgICAgICAgICAgICAgICAg
+ICAgZ290byBvdXRfdW5sb2NrOw0KPiA+ICsgICAgICAgfSBlbHNlIHsNCj4gPiArICAgICAgICAg
+ICAgICAgLyogU2V0IHRzZmxhZ3MgZnJvbSBzayBiZWNhdXNlIGEgc3lzY2FsbCAoZS5nLiBzZW5k
+dG8pIGRvZXNuJ3QNCj4gPiArICAgICAgICAgICAgICAgICogaGF2ZSBtc2dfY29udHJvbCBidWZm
+ZXIuDQo+ID4gKyAgICAgICAgICAgICAgICAqLw0KPiA+ICsgICAgICAgICAgICAgICBzb2NrYy50
+c2ZsYWdzID0gc2stPnNrX3RzZmxhZ3M7DQo+ID4gICAgICAgICB9DQo+IA0KPiBCZXR0ZXIgdG8g
+Zm9sbG93IHRoZSBleGFtcGxlIG9mIG90aGVyIHByb3RvY29scy4gSW4gYWxsIHRocmVlIHBhY2tl
+dA0KPiB2YXJpYW50cywgbWFrZSB0aGUgZm9sbG93aW5nIGluaXRpYWxpemF0aW9uIGNoYW5nZToN
+Cj4gDQo+IC0gICAgICAgc29ja2MudHNmbGFncyA9IDA7DQo+ICsgICAgICAgc29ja2MudHNmbGFn
+cyA9IHNrLT5za190c2ZsYWdzOw0KDQpUaGFuayB5b3UgZm9yIHRoZSBzdWdnZXN0aW9uLiBJIHN1
+Ym1pdHRlZCBhIGZpeGVkIHBhdGNoIG5vdy4NCg0KQmVzdCByZWdhcmRzLA0KWW9zaGloaXJvIFNo
+aW1vZGENCg0KPiAoSSBoYWQgdG8gcmVtb3ZlIHNvbWUgcmVjaXBpZW50cywgYmVjYXVzZSBteSBy
+ZXBseSB3YXMgbWFya2VkIGFzIHNwYW0NCj4gYW5kIGRyb3BwZWQgb3RoZXJ3aXNlLi4pDQo=
