@@ -1,44 +1,35 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [v7] wlcore: spi: add wl18xx support
-Date: Tue, 19 Jul 2016 18:16:36 +0000 (UTC)
-Message-ID: <20160719181636.B13A660239@smtp.codeaurora.org>
-References: <1468911482-32560-1-git-send-email-eyalr@ti.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [1/3] rtlwifi: don't add include path for rtl8188ee
+Date: Tue, 19 Jul 2016 18:17:59 +0000 (UTC)
+Message-ID: <20160719181759.1AEB860239@smtp.codeaurora.org>
+References: <20160719153403.2967812-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
-To: Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1468911482-32560-1-git-send-email-eyalr-l0cyMroinI0@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Jes Sorensen <Jes.Sorensen@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160719153403.2967812-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eyal Reizer <eyalreizer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> From: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
+Arnd Bergmann <arnd@arndb.de> wrote:
+> For rtl8188ee, we pass -Idrivers/net/wireless/rtlwifi/ to gcc,
+> however that directy no longer exists, so evidently this option
+> is no longer required here and can be removed to avoid a warning
+> when building with 'make W=1' or 'gcc -Wmissing-include-dirs'
 > 
-> Add support for using with both wl12xx and wl18xx.
-> 
-> - all wilink family needs special init command for entering wspi mode.
->   extra clock cycles should be sent after the spi init command while the
->   cs pin is high.
-> - Use inverted chip select for sending a dummy 4 bytes command that
->   completes the init stage.
-> 
-> Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-01efe65aba65 wlcore: spi: add wl18xx support
+944c07a7aac9 rtlwifi: don't add include path for rtl8188ee
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9235983/
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://patchwork.kernel.org/patch/9237723/
