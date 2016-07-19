@@ -1,47 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch 1/1] kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon
- union initialization bug
-Date: Tue, 19 Jul 2016 10:19:06 +0200
-Message-ID: <578DE27A.2090906@iogearbox.net>
-References: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org> <20160719003305.GA45296@ast-mbp.thefacebook.com> <20160719003802.GA20768@wfg-t540p.sh.intel.com> <20160719023825.GA49474@ast-mbp.thefacebook.com> <20160719030756.GA28828@wfg-t540p.sh.intel.com>
+From: Lars Melin <larsm17@gmail.com>
+Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
+Date: Tue, 19 Jul 2016 15:30:07 +0700
+Message-ID: <52d1cd85-8bdc-c8ed-7a2c-460cefe7f0d5@gmail.com>
+References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com>
+ <1468846886.2280.6.camel@suse.com>
+ <CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
+ <1468849802.2280.11.camel@suse.com>
+ <CAKfDRXjaSz25_b8Na46DJEDvGUsZ-Xye+Rn2+o6Hy0EcuOopkA@mail.gmail.com>
+ <1468851242.2280.14.camel@suse.com>
+ <CAKfDRXiK82ULw7RnRGdFwzad8NOfnwZN0vqv=08Tf+cNSdyd2g@mail.gmail.com>
+ <1468909209.2178.0.camel@suse.com>
+ <CAKfDRXjzgd58kS-MzUsZAsD66VCa5=qyqaLr_eZSm-XphxA7Mw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, ast@kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33041 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286AbcGSITQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 04:19:16 -0400
-In-Reply-To: <20160719030756.GA28828@wfg-t540p.sh.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>
+To: Kristian Evensen <kristian.evensen@gmail.com>,
+	Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKfDRXjzgd58kS-MzUsZAsD66VCa5=qyqaLr_eZSm-XphxA7Mw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/19/2016 05:07 AM, Fengguang Wu wrote:
-> On Mon, Jul 18, 2016 at 07:38:27PM -0700, Alexei Starovoitov wrote:
->> On Tue, Jul 19, 2016 at 08:38:02AM +0800, Fengguang Wu wrote:
->>> On Mon, Jul 18, 2016 at 05:33:07PM -0700, Alexei Starovoitov wrote:
-[...]
->>> >Fengguang can you add gcc-4.4 to buildbot. Thanks!
->>>
->>> Sure. Currently we only test gcc-6. It'd be easy to test more versions
->>> concurrently, like
->>>
->>> gcc-4.4
->>> gcc-4.6
->>> gcc-4.8
->>> gcc-4.9
->>> gcc-5
->>> gcc-6
->>
->> thanks! If you need to reduce the test matrix I don't see a concern
->> of dropping 4.6 and 4.8.
->> 4.4 is good for old stuff, 4.9 is the most stable and 5/6 are good
->> for new warnings.
+On 2016-07-19 13:40, Kristian Evensen wrote:
+
+> I guess I can match on the VID/PID in usbnet, but won't it be cleaner
+> to add a new bind() function (in cdc_ether) which matches the two PIDs
+> and leave usbnet as is? Or am I misunderstanding how to add this
+> functionality to usbnet?
 >
-> Not a burden at all. I've enabled them all. :)
 
-Nice, thanks a lot Fengguang!
+Matching on the usb id is probably not a great idea, there is more id's
+than the two you have found and there is also more than two non-unique 
+mac addresses.
+
+Example:
+
+0200FFAAAAAA  19d2:1589/1592/1595
+020CE70B0102  19d2:1040/1048/1405
+
+You can easily find them by googling them, without colon separators you
+will find them in verbose lsusb listings, with colons you will find them 
+in dmesg pastings.
+
+I would probably have found more dupes if users had refrained from using 
+the stupid usbdevices cmd which removes almost all interesting info from 
+device listings in internet foras.
+
+/Lars
