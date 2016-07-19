@@ -1,69 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH v2 05/11] Kbuild: don't add obj tree in additional includes
-Date: Tue, 19 Jul 2016 17:38:51 +0200
-Message-ID: <3906958.MrNt71DzrU@wuerfel>
-References: <20160615154553.3177021-1-arnd@arndb.de>
- <21521763.EfAflxWUP8@wuerfel> <87a8hdae9j.fsf@purkki.adurom.net>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
+Date: Tue, 19 Jul 2016 11:46:04 -0400
+Message-ID: <wrfjy44xvdfn.fsf@redhat.com>
+References: <20160719153403.2967812-1-arnd@arndb.de>
+	<20160719153403.2967812-2-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-kbuild@vger.kernel.org, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, Michal Marek <mmarek@suse.com>,
- akpm <akpm@linux-foundation.org>, linux-arm-kernel@lists.infradead.org
-To: Kalle Valo <kvalo@codeaurora.org>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <87a8hdae9j.fsf@purkki.adurom.net>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
+	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39092 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753219AbcGSPqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 19 Jul 2016 11:46:06 -0400
+In-Reply-To: <20160719153403.2967812-2-arnd@arndb.de> (Arnd Bergmann's message
+	of "Tue, 19 Jul 2016 17:33:01 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlc2RheSwgSnVseSAxOSwgMjAxNiA1OjMzOjQ0IFBNIENFU1QgS2FsbGUgVmFsbyB3cm90
-ZToKPiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPiB3cml0ZXM6Cj4gCj4gPiBPbiBNb25k
-YXksIEp1bHkgMTgsIDIwMTYgMTA6MTQ6MzkgUE0gQ0VTVCBNaWNoYWwgTWFyZWsgd3JvdGU6Cj4g
-Pj4gT24gV2VkLCBKdW4gMTUsIDIwMTYgYXQgMDU6NDU6NDdQTSArMDIwMCwgQXJuZCBCZXJnbWFu
-biB3cm90ZToKPiA+PiA+IFdoZW4gYnVpbGRpbmcgd2l0aCBzZXBhcmF0ZSBvYmplY3QgZGlyZWN0
-b3JpZXMgYW5kIGRyaXZlciBzcGVjaWZpYwo+ID4+ID4gTWFrZWZpbGVzIHRoYXQgYWRkIGFkZGl0
-aW9uYWwgaGVhZGVyIGluY2x1ZGUgcGF0aHMsIEtidWlsZCBhZGp1c3RzCj4gPj4gPiB0aGUgZ2Nj
-IGZsYWdzIHNvIHRoYXQgd2UgaW5jbHVkZSBib3RoIHRoZSBkaXJlY3RvcnkgaW4gdGhlIHNvdXJj
-ZQo+ID4+ID4gdHJlZSBhbmQgaW4gdGhlIG9iamVjdCB0cmVlLgo+ID4+ID4gCj4gPj4gPiBIb3dl
-dmVyLCBkdWUgdG8gYW5vdGhlciBidWcgSSBmaXhlZCBlYXJsaWVyLCB0aGlzIGRpZCBub3QgYWN0
-dWFsbHkKPiA+PiA+IGluY2x1ZGUgdGhlIGNvcnJlY3QgZGlyZWN0b3J5IGluIHRoZSBvYmplY3Qg
-dHJlZSwgc28gd2Uga25vdyB0aGF0Cj4gPj4gPiB3ZSBvbmx5IHJlYWxseSBuZWVkIHRoZSBzb3Vy
-Y2UgdHJlZSBoZXJlLiBBbHNvLCBpbmNsdWRpbmcgdGhlCj4gPj4gPiBvYmplY3QgdHJlZSBzb21l
-dGltZXMgY2F1c2VzIHdhcm5pbmdzIGFib3V0IG5vbmV4aXN0aW5nIGRpcmVjdG9yaWVzCj4gPj4g
-PiB3aGVuIHRoZSBpbmNsdWRlIHBhdGggb25seSBleGlzdHMgaW4gdGhlIHNvdXJjZS4KPiA+PiA+
-IAo+ID4+ID4gVGhpcyBjaGFuZ2VzIHRoZSBsb2dpYyB0byBvbmx5IGVtaXQgdGhlIC1JIGFyZ3Vt
-ZW50IGZvciB0aGUgc3JjdHJlZSwKPiA+PiA+IG5vdCBmb3Igb2JqZWN0cy4gV2Ugc3RpbGwgbmVl
-ZCBib3RoICQoc3JjdHJlZSkvJChzcmMpIGFuZCAkKG9iaikKPiA+PiA+IHRob3VnaCwgc28gSSdt
-IGFkZGluZyB0aGVtIG1hbnVhbGx5Lgo+ID4+ID4gCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBBcm5k
-IEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPgo+ID4+IAo+ID4+IEhpIEFybmQsCj4gPj4gCj4gPj4g
-SSBhcHBsaWVkIHRoZSBzZXJpZXMgdXAgdG8gdGhpcyBwYXRjaCB0byBrYnVpbGQuZ2l0I2tidWls
-ZC4gVGhlIHJlc3QKPiA+PiBzZWVtIHRvIGJlIHJlbGF0ZWQgYnV0IG5vdCBkZXBlbmRlbnQgcGF0
-Y2hlcywgc28gSSdsbCBsZWF2ZSBpdCB1cCB0byB0aGUKPiA+PiByZXNwZWN0aXZlIG1haW50YWlu
-ZXJzIHRvIHBpY2sgdGhlbSB1cC4gSXMgdGhhdCBPSyB3aXRoIHlvdT8KPiA+Cj4gPiBJIHRoaW5r
-IHRoYXQncyBmaW5lLCBhIGNvdXBsZSB3ZXJlIGFscmVhZHkgcGlja2VkIHVwLCBhbmQgd2hhdCBJ
-IGhhdmUKPiA+IGxlZnQgbm93IGlzCj4gPgo+ID4gYTI4MWJmYTU3MTNhIFtTVUJNSVRURUQgMjAx
-NjA2MTVdIFtFWFBFUklNRU5UQUxdIEtidWlsZDogZW5hYmxlIC1XbWlzc2luZy1pbmNsdWRlLWRp
-cnMgYnkgZGVmYXVsdAo+ID4gODM5MzQ5MjFlNjhlIFtTVUJNSVRURUQgMjAxNjA2MTVdIHJ0bHdp
-Zmk6IGRvbid0IGFkZCBpbmNsdWRlIHBhdGggZm9yIHJ0bDgxODhlZQo+IAo+IEFwcGFyZW50bHlb
-MV0geW91IGRpZG4ndCBDQyBsaW51eC13aXJlbGVzcyBhbmQgdGhhdCdzIHdoeSBJIGRpZG4ndCBz
-ZWUKPiB0aGUgcnRsd2lmaSBwYXRjaCBpbiB3aXJlbGVzcyBwYXRjaHdvcmsuIENhcmUgdG8gcmVz
-ZW5kPwo+IAo+IFsxXSBodHRwczovL3BhdGNod29yay5rZXJuZWwub3JnL3BhdGNoLzkxNzg4NjEv
-Cj4gCgpEb25lLiBJJ3ZlIGFsc28gdGhyb3duIGluIHR3byBwYXRjaGVzIGZvciBkcml2ZXJzL3N0
-YWdpbmcvcnRsOCovIHRoYXQgSSBzdWJtaXR0ZWQKYSB3aGlsZSBhZ28sIGJ1dCBJJ20gbm90IHN1
-cmUgaWYgdGhleSBzaG91bGQgZ2V0IG1lcmdlZCB0aHJvdWdoIHRoZSBzdGFnaW5nCnRyZWUgb3Ig
-dGhlIHdpcmVsZXNzIHRyZWUuIEkgaGFkIHByZXZpb3VzbHkgc3VibWl0dGVkIHRob3NlIHR3byBh
-cyBhIGNvbWJpbmVkCnBhdGNoIGFsb25nIHdpdGggYSB0aGlyZCBvbmUgdGhhdCB0dXJuZWQgb3V0
-IHRvIGJlIHVubmVjZXNzYXJ5LgoKCUFybmQKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxpbmcgbGlzdApkcmktZGV2ZWxAbGlzdHMu
-ZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxtYW4vbGlz
-dGluZm8vZHJpLWRldmVsCg==
+Arnd Bergmann <arnd@arndb.de> writes:
+> Compiling the rtlwifi drivers for ARM with gcc -Wextra warns about lots of
+> incorrect code that results from 'char' being unsigned here, e.g.
+>
+> staging/rtl8192e/rtl8192e/r8192E_phy.c:1072:36: error: comparison is always false due to limited range of data type [-Werror=type-limits]
+> staging/rtl8192e/rtl8192e/r8192E_phy.c:1104:36: error: comparison is always false due to limited range of data type [-Werror=type-limits]
+> staging/rtl8192e/rtl8192e/rtl_core.c:1987:16: error: comparison is always false due to limited range of data type [-Werror=type-limits]
+> staging/rtl8192e/rtl8192e/rtl_dm.c:782:37: error: comparison is always false due to limited range of data type [-Werror=type-limits]
+> staging/rtl8192e/rtl819x_TSProc.c:326:14: error: comparison is always true due to limited range of data type [-Werror=type-limits]
+> staging/rtl8192e/rtllib_softmac_wx.c:465:16: error: comparison is always false due to limited range of data type [-Werror=type-limits]
+>
+> This patch changes all uses of 'char' in this driver that refer to
+> 8-bit integers to use 's8' instead, which is signed on all architectures.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  drivers/staging/rtl8192e/rtl8192e/r8192E_dev.c | 8 ++++----
+>  drivers/staging/rtl8192e/rtl8192e/r8192E_phy.c | 2 +-
+>  drivers/staging/rtl8192e/rtl8192e/rtl_core.c   | 6 +++---
+>  drivers/staging/rtl8192e/rtl8192e/rtl_core.h   | 8 ++++----
+>  drivers/staging/rtl8192e/rtl819x_TSProc.c      | 2 +-
+>  5 files changed, 13 insertions(+), 13 deletions(-)
+>
+
+Most of this looks fine to me. One issue stands out which I don't think
+is right:
+
+> diff --git a/drivers/staging/rtl8192e/rtl819x_TSProc.c b/drivers/staging/rtl8192e/rtl819x_TSProc.c
+> index 2c8a526773ed..e0a2fe5e6148 100644
+> --- a/drivers/staging/rtl8192e/rtl819x_TSProc.c
+> +++ b/drivers/staging/rtl8192e/rtl819x_TSProc.c
+> @@ -323,7 +323,7 @@ bool GetTs(struct rtllib_device *ieee, struct ts_common_info **ppTS,
+>  	if (ieee->current_network.qos_data.supported == 0) {
+>  		UP = 0;
+>  	} else {
+> -		if (!IsACValid(TID)) {
+> +		if (!IsACValid((s8)TID)) {
+>  			netdev_warn(ieee->dev, "%s(): TID(%d) is not valid\n",
+>  				    __func__, TID);
+>  			return false;
+
+TID is a 4-bit field, it should never go negative. The cast to s8 seems
+wrong to me, if anything it should be using u8. I do realize the macro
+IsACValid checks against negative too, but that just looks silly to me.
+
+Cheers,
+Jes
