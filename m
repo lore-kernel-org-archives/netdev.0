@@ -1,95 +1,41 @@
-From: =?utf-8?B?6auY5bOw?= <fgao@ikuai8.com>
-Subject: =?utf-8?Q?=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=5BPATCH_1/1=5D_netfilt?=
-	=?utf-8?Q?er:_Add_helper_array_register/un?=
-	=?utf-8?Q?register_functions?=
-Date: Wed, 20 Jul 2016 16:57:32 +0800
-Message-ID: <016801d1e264$c194b390$44be1ab0$@ikuai8.com>
-References: <1468813163-18139-1-git-send-email-fgao@ikuai8.com> <20160719181250.GA6116@salvia> <014e01d1e21e$062884b0$12798e10$@ikuai8.com> <20160720085018.GD1336@salvia>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH v2 1/5] ethernet: add sun8i-emac driver
+Date: Wed, 20 Jul 2016 11:56:12 +0200
+Message-ID: <4697175.RMdFEWr9V5@wuerfel>
+References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com> <1469001800-11615-2-git-send-email-clabbe.montjoie@gmail.com>
+Reply-To: arnd-r2nGTMty4D4@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <kaber@trash.net>, <netfilter-devel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<gfree.wind@gmail.com>
-To: "'Pablo Neira Ayuso'" <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160720085018.GD1336@salvia>
-Content-Language: zh-cn
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Return-path: <linux-sunxi+bncBDEKVJM7XAHRBSEVXW6AKGQEDG4YYMY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <1469001800-11615-2-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Ok, I get it.=20
-Thanks Pablo.
+On Wednesday, July 20, 2016 10:03:16 AM CEST LABBE Corentin wrote:
+> +
+> +       /* Benched on OPIPC with 100M, setting more than 256 does not give any
+> +        * perf boost
+> +        */
+> +       priv->nbdesc_rx = 128;
+> +       priv->nbdesc_tx = 256;
+> +
+> 
 
-Another question, Liping found the port style of sip, irc, and tftp was=
- different with ftp.
-It should be use iterator "i" to generate name for them.
-Then should I update the original patch or create another one to correc=
-t it?
+256 tx descriptors can introduce a significant latency. Can you add
+support for BQL (netdev_sent_queue/netdev_completed_queue) to limit
+the queue size to the minimum?
 
-BTW, I am sorry about that. I didn't notice there are two port styles.
+I also noticed that your tx_lock() prevents you from concurrently
+running sun8i_emac_complete_xmit() and sun8i_emac_xmit(). Is that
+necessary? I'd think that you can find a way to make them work
+concurrently.
 
------=E9=82=AE=E4=BB=B6=E5=8E=9F=E4=BB=B6-----
-=E5=8F=91=E4=BB=B6=E4=BA=BA: Pablo Neira Ayuso [mailto:pablo@netfilter.=
-org]=20
-=E5=8F=91=E9=80=81=E6=97=B6=E9=97=B4: 2016=E5=B9=B47=E6=9C=8820=E6=97=A5=
- 16:50
-=E6=94=B6=E4=BB=B6=E4=BA=BA: =E9=AB=98=E5=B3=B0 <fgao@ikuai8.com>
-=E6=8A=84=E9=80=81: kaber@trash.net; netfilter-devel@vger.kernel.org; n=
-etdev@vger.kernel.org; linux-kernel@vger.kernel.org; gfree.wind@gmail.c=
-om
-=E4=B8=BB=E9=A2=98: Re: =E7=AD=94=E5=A4=8D: [PATCH 1/1] netfilter: Add =
-helper array register/unregister functions
-
-On Wed, Jul 20, 2016 at 08:31:13AM +0800, =E9=AB=98=E5=B3=B0 wrote:
-> Thanks Pablo.
->=20
-> I had used the script "checkpatch.pl" to check the patch file.
-> There was no indentation error reported.
->=20
-> So could you give me more tails please or point one indentation error=
-?
-> Then I could correct it by myself next time.
-
-I'm refering to this specifically:
-
-static int function(int parameter1, struct another_structure *blah,
-                    int parameter2, unsigned int parameter3);
-                    ^
-
-It is just a comestic issue, but we consistently align function paramet=
-ers to the initial parens.
-
-As I said, I have just manually fixed this here, so no problem, just ke=
-ep this in mind for the next time.
-
-Another observation: You should bump patch version numbering in each re=
-vision and keep some history on its evolution.
-
-The area after the patch separator --- and before diff stats is good to=
- place volatile information that is only meaningful to the review proce=
-ss, I mean something like this:
-
-  subsystem: Patch title.
-
-  Patch description...
-
-  Signed-off-by: Lucas Skywalker <trotacielos@blackstar.org>
-  ---
-  v3: Address comments from Chebakia on possible backward compatibility
-      issues.
-  v2: New parameter to control something.
-  v1: Initial patch.
-
-  include/net/netfilter/nf_tables.h |  25 ++-
-  ...
-  diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilte=
-r/nf_tables.h
-
-Thanks.
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
