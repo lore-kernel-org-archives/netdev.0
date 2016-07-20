@@ -1,27 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/3] net: dsa: mv88e6xxx: remove unused
- phy_mutex
-Date: Wed, 20 Jul 2016 14:57:25 -0700 (PDT)
-Message-ID: <20160720.145725.2139832992930753072.davem@davemloft.net>
-References: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
-	<20160720160547.30133-2-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160720160547.30133-2-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net] packet: propagate sock_cmsg_send() error
+Date: Wed, 20 Jul 2016 18:01:18 -0400
+Message-ID: <1469052078-31269-1-git-send-email-soheil.kdev@gmail.com>
+Cc: willemb@google.com, Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:36050 "EHLO
+	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754033AbcGTWBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 18:01:25 -0400
+Received: by mail-qk0-f194.google.com with SMTP id q8so5009740qke.3
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 15:01:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 20 Jul 2016 12:05:45 -0400
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-> Only reg_lock is necessary now and phy_mutex is dead. Remove it.
-> ---
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 6 ------
->  1 file changed, 6 deletions(-)
+sock_cmsg_send() can return different error codes and not only
+-EINVAL, and we should properly propagate them.
 
-Missing a proper Signoff.
+Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 53e87ce..b43c401 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1930,10 +1930,8 @@ retry:
+ 	sockc.tsflags = sk->sk_tsflags;
+ 	if (msg->msg_controllen) {
+ 		err = sock_cmsg_send(sk, msg, &sockc);
+-		if (unlikely(err)) {
+-			err = -EINVAL;
++		if (unlikely(err))
+ 			goto out_unlock;
+-		}
+ 	}
+ 
+ 	skb->protocol = proto;
+-- 
+2.8.0.rc3.226.g39d4020
