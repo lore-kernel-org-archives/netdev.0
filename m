@@ -1,53 +1,50 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH] bpf: fix implicit declaration of bpf_prog_add
-Date: Wed, 20 Jul 2016 07:55:52 -0700
-Message-ID: <1469026552-8975-1-git-send-email-bblanco@plumgrid.com>
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35874 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754371AbcGTO42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 10:56:28 -0400
-Received: by mail-pa0-f51.google.com with SMTP id pp5so19072608pac.3
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 07:56:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: [net-next PATCH 3/3] ARM: dts: dra72-evm-revc: fix non-working cpsw second ethernet
+Date: Wed, 20 Jul 2016 20:26:14 +0530
+Message-ID: <20160720145614.13132-4-mugunthanvnm@ti.com>
+References: <20160720145614.13132-1-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160720145614.13132-1-mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For the ifndef case of CONFIG_BPF_SYSCALL, an inline version of
-bpf_prog_add needs to exist otherwise the build breaks on some configs.
+Second ethernet of cpsw is not working, make it work by adding
+impedance configuration.
 
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c:2544:10: error: implicit declaration of function 'bpf_prog_add'
-       prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
-
-The function is introduced in
-59d3656d5bf50 ("bpf: add bpf_prog_add api for bulk prog refcnt")
-and first used in
-47f1afdba2b87 ("net/mlx4_en: add support for fast rx drop bpf program").
-
-Fixes: 47f1afdba2b87 ("net/mlx4_en: add support for fast rx drop bpf program")
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Reported-by: Tariq Toukan <ttoukan.linux@gmail.com>
-Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
 ---
- include/linux/bpf.h | 4 ++++
- 1 file changed, 4 insertions(+)
+ arch/arm/boot/dts/dra72-evm-revc.dts | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 75a5ae6..36da074 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -289,6 +289,10 @@ static inline struct bpf_prog *bpf_prog_get_type(u32 ufd,
- {
- 	return ERR_PTR(-EOPNOTSUPP);
- }
-+static inline struct bpf_prog *bpf_prog_add(struct bpf_prog *prog, int i)
-+{
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
- 
- static inline void bpf_prog_put(struct bpf_prog *prog)
- {
+diff --git a/arch/arm/boot/dts/dra72-evm-revc.dts b/arch/arm/boot/dts/dra72-evm-revc.dts
+index f9cfd3b..4313de5 100644
+--- a/arch/arm/boot/dts/dra72-evm-revc.dts
++++ b/arch/arm/boot/dts/dra72-evm-revc.dts
+@@ -69,5 +69,7 @@
+ 		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
+ 		ti,tx-internal-delay = <DP83867_RGMIIDCTL_1_NS>;
+ 		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
++		ti,impedance-control = <0x1f>;
+ 	};
+ };
++
 -- 
-2.8.2
+2.9.2.368.g08bb350
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
