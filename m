@@ -1,19 +1,21 @@
-From: a.victima.lara@cpnb.gob.ve
-Subject: BUSINESS PROPOSAL!!!
-Date: Wed, 20 Jul 2016 02:53:36 -0700
-Message-ID: <20160720101549.488B482551B@correo.cpnb.gob.ve>
-Reply-To: saeedbin88@qq.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <a.victima.lara@cpnb.gob.ve>
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] ixgbevf: replace enum with MACROs
+Date: Wed, 20 Jul 2016 18:41:52 +0800
+Message-ID: <1469011313-30044-1-git-send-email-zyjzyj2000@gmail.com>
+To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.cpnb.gob.ve ([190.202.84.13]:53687 "EHLO
-	correo.cpnb.gob.ve" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550AbcGTKPZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 06:15:25 -0400
-Content-Description: Mail message body
+Received: from [123.119.179.77] ([123.119.179.77]:38272 "EHLO mail.zhuyj.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754013AbcGTKmD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2016 06:42:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am Mr.Saeed Bin Salem Executive Director and Chief Financial Officer of the National Commercial Bank Libya.I have a secured business suggestion for you reply me on my email: saeedbin88@qq.com
+
+Sorry. Please ignore the last mail because there are some typos
+in the patch.
+
+In this patch, these typos are corrected.
+
+Zhu Yanjun
