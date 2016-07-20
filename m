@@ -1,44 +1,33 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net V2] net/mlx5e: Fix del vxlan port command buffer memset
-Date: Thu, 21 Jul 2016 00:39:53 +0300
-Message-ID: <1469050793-29235-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Matthew Finlay <matt@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43020 "EHLO
-	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754151AbcGTVkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 17:40:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: bluetooth-next 2016-07-19
+Date: Wed, 20 Jul 2016 14:44:43 -0700 (PDT)
+Message-ID: <20160720.144443.401615378058083843.davem@davemloft.net>
+References: <20160719061452.GA21654@t440s.P-661HNU-F1>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	mchehab-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160719061452.GA21654-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-memset the command buffers rather than the pointers to them.
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 19 Jul 2016 09:14:52 +0300
 
-Fixes: b3f63c3d5e2c ("net/mlx5e: Add netdev support for VXLAN tunneling")
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
+> Here's likely the last bluetooth-next pull request for the 4.8 kernel:
+> 
+>  - Fix for L2CAP setsockopt
+>  - Fix for is_suspending flag handling in btmrvl driver
+>  - Addition of Bluetooth HW & FW info fields to debugfs
+>  - Fix to use int instead of char for callback status.
+> 
+> The last one (from Geert Uytterhoeven) is actually not purely a
+> Bluetooth (or 802.15.4) patch, but it was agreed with other maintainers
+> that we take it through the bluetooth-next tree.
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-V2:
- - Improved log message.
-
- drivers/net/ethernet/mellanox/mlx5/core/vxlan.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
-index 05de772..e25a73ed 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
-@@ -72,8 +72,8 @@ static int mlx5e_vxlan_core_del_port_cmd(struct mlx5_core_dev *mdev, u16 port)
- 	u32 in[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_in)];
- 	u32 out[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_out)];
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
- 
- 	MLX5_SET(delete_vxlan_udp_dport_in, in, opcode,
- 		 MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT);
--- 
-2.8.0
+Pulled, thanks.
