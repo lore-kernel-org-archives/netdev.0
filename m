@@ -1,103 +1,99 @@
-From: zyjzyj2000@gmail.com
-Subject: [PATCH 1/1] ixgbevf: avoid checking hang when
-	performing hardware reset
-Date: Wed, 20 Jul 2016 07:23:42 +0800
-Message-ID: <1468970622-1882-2-git-send-email-zyjzyj2000@gmail.com>
-References: <1468970622-1882-1-git-send-email-zyjzyj2000@gmail.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Wed, 20 Jul 2016 09:02:45 +0900
+Message-ID: <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+ <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
+ <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
+ <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, donald.c.skidmore@intel.com,
-	intel-wired-lan@lists.osuosl.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1468970622-1882-1-git-send-email-zyjzyj2000@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
-
-When performing hardware reset, it is not necessary to check hang.
-Or else, the call trace will appear.
-
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 5 +++--
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 5 +++++
- 3 files changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index d5944c3..60fc63b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -446,6 +446,7 @@ enum ixbgevf_state_t {
- 	__IXGBEVF_SERVICE_INITED,
- 	__IXGBEVF_RESET_REQUESTED,
- 	__IXGBEVF_QUEUE_RESET_REQUESTED,
-+	__IXGBEVF_HW_RESETTING,
- };
- 
- enum ixgbevf_boards {
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index acc2401..530005b 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -2795,9 +2795,10 @@ static void ixgbevf_check_hang_subtask(struct ixgbevf_adapter *adapter)
- 	u32 eics = 0;
- 	int i;
- 
--	/* If we're down or resetting, just bail */
-+	/* If we're down, resetting or hw resetting, just bail */
- 	if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
--	    test_bit(__IXGBEVF_RESETTING, &adapter->state))
-+	    test_bit(__IXGBEVF_RESETTING, &adapter->state) ||
-+	    test_bit(__IXGBEVF_HW_RESETTING, &adapter->state))
- 		return;
- 
- 	/* Force detection of hung controller */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index e670d3b..4ec4484 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -80,6 +80,9 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
- 	s32 ret_val = IXGBE_ERR_INVALID_MAC_ADDR;
- 	u32 msgbuf[IXGBE_VF_PERMADDR_MSG_LEN];
- 	u8 *addr = (u8 *)(&msgbuf[1]);
-+	struct ixgbevf_adapter *adapter = hw->back;
-+
-+	set_bit(__IXGBEVF_HW_RESETTING, &adapter->state);
- 
- 	/* Call adapter stop to disable tx/rx and clear interrupts */
- 	hw->mac.ops.stop_adapter(hw);
-@@ -128,6 +131,8 @@ static s32 ixgbevf_reset_hw_vf(struct ixgbe_hw *hw)
- 
- 	hw->mac.mc_filter_type = msgbuf[IXGBE_VF_MC_TYPE_WORD];
- 
-+	clear_bit(__IXGBEVF_HW_RESETTING, &adapter->state);
-+
- 	return 0;
- }
- 
--- 
-2.7.4
-
-
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity planning
-reports.http://sdm.link/zohodev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+T24gTW9uLCBKdWwgMTgsIDIwMTYgYXQgMDM6MzQ6NTJQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3
+cm90ZToKPiBPbiBTdW4sIEp1bCAxNywgMjAxNiBhdCA5OjUwIFBNLCBTaW1vbiBIb3JtYW4KPiA8
+c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+ID4gW0NDIEppcmkgQmVuYyBmb3Ig
+cG9ydGlvbiByZWdhcmRpbmcgR1JFXQo+ID4KPiA+IEhpIFByYXZpbiwKPiA+Cj4gPiBPbiBGcmks
+IEp1bCAxNSwgMjAxNiBhdCAwMjowNzozN1BNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+
+ID4+IE9uIFdlZCwgSnVsIDEzLCAyMDE2IGF0IDEyOjMxIEFNLCBTaW1vbiBIb3JtYW4KPiA+PiA8
+c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+ID4+ID4gSGkgUHJhdmluLAo+ID4+
+ID4KPiA+PiA+IE9uIFRodSwgSnVsIDA3LCAyMDE2IGF0IDAxOjU0OjE1UE0gLTA3MDAsIHByYXZp
+biBzaGVsYXIgd3JvdGU6Cj4gPj4gPj4gT24gV2VkLCBKdWwgNiwgMjAxNiBhdCAxMDo1OSBBTSwg
+U2ltb24gSG9ybWFuCj4gPj4gPj4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPiB3cm90ZToK
+PiA+PiA+Cj4gPj4gPiAuLi4KPiA+Pgo+ID4+ID4KPiA+PiA+PiA+IGRpZmYgLS1naXQgYS9uZXQv
+b3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+ID4+ID4+ID4gaW5k
+ZXggMGVhMTI4ZWVlYWIyLi44NmYyY2ZiMTlkZTMgMTAwNjQ0Cj4gPj4gPj4gPiAtLS0gYS9uZXQv
+b3BlbnZzd2l0Y2gvZmxvdy5jCj4gPj4gPj4gPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5j
+Cj4gPj4gPj4gLi4uCj4gPj4gPj4KPiA+PiA+PiA+IEBAIC03MjMsOSArNzI5LDE3IEBAIGludCBv
+dnNfZmxvd19rZXlfZXh0cmFjdChjb25zdCBzdHJ1Y3QgaXBfdHVubmVsX2luZm8gKnR1bl9pbmZv
+LAo+ID4+ID4+ID4gICAgICAgICBrZXktPnBoeS5za2JfbWFyayA9IHNrYi0+bWFyazsKPiA+PiA+
+PiA+ICAgICAgICAgb3ZzX2N0X2ZpbGxfa2V5KHNrYiwga2V5KTsKPiA+PiA+PiA+ICAgICAgICAg
+a2V5LT5vdnNfZmxvd19oYXNoID0gMDsKPiA+PiA+PiA+ICsgICAgICAga2V5LT5waHkuaXNfbGF5
+ZXIzID0gc2tiLT5tYWNfbGVuID09IDA7Cj4gPj4gPj4KPiA+PiA+PiBJIGRvIG5vdCB0aGluayBt
+YWNfbGVuIGNhbiBiZSB1c2VkLiBtYWNfaGVhZGVyIG5lZWRzIHRvIGJlIGNoZWNrZWQuCj4gPj4g
+Pj4gLi4uCj4gPj4gPgo+ID4+ID4gWWVzLCBpbmRlZWQuIFRoZSB1cGRhdGUgdG8gdXNlIHNrYl9t
+YWNfaGVhZGVyX3dhc19zZXQoKSBoZXJlIGFjY2lkZW50bHkKPiA+PiA+IHNsaXBwZWQgaW50byB0
+aGUgZm9sbG93aW5nIHBhdGNoLCBzb3JyeSBhYm91dCB0aGF0Lgo+ID4+ID4KPiA+PiA+IFdpdGgg
+dGhhdCBjaGFuZ2UgaW4gcGxhY2UgSSBiZWxpZXZlIHRoYXQgdGhpcyBwYXRjaCBpcyBpbnRlcm5h
+bGx5Cj4gPj4gPiBjb25zaXN0ZW50IGJlY2F1c2UgbWFjX2hlYWRlciBhbmQgbWFjX2xlbiBhcmUg
+c2V0IGNvcnJlY3RseSBieSB0aGUKPiA+PiA+IGNhbGwgdG8ga2V5X2V4dHJhY3QoKSB3aGljaCBp
+cyBjYWxsZWQgYnkgb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBqdXN0Cj4gPj4gPiBhZnRlciB3aGVy
+ZSB0aGUgZXhjZXJwdCBhYm92ZSBlbmRzLgo+ID4+ID4KPiA+PiA+IFRoYXQgc2FpZCwgSSBkbyB0
+aGluayB0aGF0IGl0IGlzIHBvc3NpYmxlIHRvIHJlbHkgb24gc2tiX21hY19oZWFkZXJfd2FzX3Nl
+dAo+ID4+ID4gdGhyb3VnaG91dCB0aGUgZGF0YXBhdGgsIGluY2x1ZGluZyBhY3Rpb24gcHJvY2Vz
+c2luZyBldGMuLi4gSSBoYXZlIHByb3ZpZGVkCj4gPj4gPiBhbiBpbmNyZW1lbnRhbCBwYXRjaCAt
+IHdoaWNoIEkgY3JlYXRlZCBvbiB0b3Agb2YgdGhpcyBlbnRpcmUgc2VyaWVzIC0gYXQKPiA+PiA+
+IHRoZSBlbmQgb2YgdGhpcyBlbWFpbC4gSWYgeW91IHByZWZlciB0aGF0IGFwcHJvYWNoIEkgYW0g
+aGFwcHkgdG8gdGFrZSBpdCwKPiA+PiA+IHRob3VnaCBJIGRvIGZlZWwgdGhhdCB1c2luZyBtYWNf
+bGVuIGxlYWRzIHRvIHNsaWdodGx5IGNsZWFuZXIgY29kZS4gTGV0IG1lCj4gPj4gPiBrbm93IHdo
+YXQgeW91IHRoaW5rLgo+ID4+ID4KPiA+Pgo+ID4+Cj4gPj4gSSBhbSBub3Qgc3VyZSBpZiB5b3Ug
+Y2FuIHVzZSBvbmx5IG1hY19sZW4gdG8gZGV0ZWN0IEwzIHBhY2tldC4gVGhpcwo+ID4+IGRvZXMg
+bm90IHdvcmsgd2l0aCBNUExTIHBhY2tldHMsIG1hY19sZW4gaXMgdXNlZCB0byBhY2NvdW50IE1Q
+TFMKPiA+PiBoZWFkZXJzIHB1c2hlZCBvbiBza2IuIFRoZXJlZm9yZSBpbiBjYXNlIG9mIGEgTVBM
+UyBoZWFkZXIgb24gTDMKPiA+PiBwYWNrZXQsIG1hY19sZW4gd291bGQgYmUgbm9uIHplcm8gYW5k
+IHdlIGhhdmUgdG8gbG9vayBhdCBlaXRoZXIKPiA+PiBtYWNfaGVhZGVyIG9yIHNvbWUgb3RoZXIg
+bWV0YWRhdGEgbGlrZSBpc19sYXllcjMgZmxhZyBmcm9tIGtleSB0bwo+ID4+IGNoZWNrIGZvciBM
+MyBwYWNrZXQuCj4gPgo+ID4gQXQgbGVhc3Qgd2l0aGluIE92UyBtYWNfbGVuIGRvZXMgbm90IGlu
+Y2x1ZGUgdGhlIGxlbmd0aCBvZiB0aGUgTVBMUyBsYWJlbAo+ID4gc3RhY2suIFJhdGhlciwgdGhl
+IE1QTFMgbGFiZWwgc3RhY2sgbGVuZ3RoIGlzIHRoZSBkaWZmZXJlbmNlIGJldHdlZW4gdGhlCj4g
+PiBlbmQgb2YgKG1hY19oZWFkZXIgKyBtYWNfbGVuKSBhbmQgbmV0d29ya19oZWFkZXIuCj4gPgo+
+ID4gU28gSSB0aGluayB0aGF0IHRoZSBzY2hlbWUgZG9lcyB3b3JrIGFzIG1hY19sZW4gaXMgMCBp
+ZiB0aGVyZSBpcyBubyBMMgo+ID4gaGVhZGVyIHJlZ2FyZGxlc3Mgb2YgaWYgYW4gTVBMUyBsYWJl
+bCBzdGFjayBpcyBwcmVzZW50IG9yIG5vdC4KPiA+Cj4gCj4gSSB3YXMgdGhpbmtpbmcgaW4gb3Zl
+cmFsbCBuZXR3b3JraW5nIHN0YWNrIHJhdGhlciB0aGFuIGp1c3Qgb3ZzCj4gZGF0YXBhdGguIEkg
+dGhpbmsgd2Ugc2hvdWxkIGhhdmUgY29uc2lzdGVudCBtZXRob2Qgb2YgZGV0ZWN0aW5nIEwzCj4g
+cGFja2V0LiBBcyBjb21tZW50ZWQgaW4gcHJldmlvdXMgbWFpbCBpdCBjb3VsZCBiZSBhY2hpZXZl
+ZCB1c2luZwo+IHNrYi1wcm90b2NvbCBhbmQgZGV2aWNlIHR5cGUuCgpUaGlzIGlzIHNvbWV3aGF0
+IG9mIGEgc3VycHJpc2UgdG8gbWUuIEFzIGZhciBhcyBJIHJlY2FsbCB3aGVuIE1QTFMgc3VwcG9y
+dAp3YXMgYWRkZWQgdG8gT3ZTIGl0IGFuZCB0aGUgYWNjb21wYW55aW5nIHN1cHBvcnQgZm9yIE1Q
+TFMgR1NPIHdhcyB0aGUgb25seQpNUExTIHN1cHBvcnQgcHJlc2VudCBpbiB0aGUga2VybmVsLiBB
+bmQgYXQgdGhlIHRpbWUgdGhlIHNjaGVtZSBkZXZlbG9wZWQgYnkKSmVzc2UgR3Jvc3MsIG15c2Vs
+ZiBhbmQgb3RoZXJzIHdhcyBhcyBJIGRlc2NyaWJlIGFib3ZlLgoKSW50ZXJuYWxseSBPdlMgcmVs
+aWVzIG9uIHRoaXMgc2NoZW1lIGFuZCBpbiBwYXJ0aWN1bGFyIGl0IGlzIHVzZWQKYnkgc2tiX21w
+bHNfaGVhZGVyKCkgdG8gY2FsY3VsYXRlIHRoZSBiZWdpbm5pbmcgb2YgdGhlIE1QTFMgbGFiZWwg
+c3RhY2sKYWNjdXJhdGVseSBpbiB0aGUgcHJlc2VuY2Ugb2YgVkxBTiB0YWdzLgoKSXMgaXQgbXBs
+c19nc29fc2VnbWVudCgpIHRoYXQgeW91IGFyZSBjb25jZXJuZWQgYWJvdXQ/CklmIHNvLCBwZXJo
+YXBzIHRoZSBwcm9ibGVtIGNvdWxkIGJlIGFkZHJlc3NlZCB0aGVyZS4KX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
+bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
