@@ -1,80 +1,47 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
-Date: Wed, 20 Jul 2016 10:25:21 +0200
-Message-ID: <4806848.QL77nxBrs4@wuerfel>
-References: <20160719153403.2967812-1-arnd@arndb.de> <3858062.NGQDOLnTj0@wuerfel> <wrfjlh0xvck3.fsf@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Mateusz Kulikowski <mateusz.kulikowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <wrfjlh0xvck3.fsf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] xfrm: use printk instead of WARN for bad policy reporting
+Date: Wed, 20 Jul 2016 10:32:35 +0200
+Message-ID: <1469003555-30599-1-git-send-email-vegard.nossum@oracle.com>
+Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:38916 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753070AbcGTIfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 04:35:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, July 19, 2016 12:05:00 PM CEST Jes Sorensen wrote:
-> Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
-> > On Tuesday, July 19, 2016 11:46:04 AM CEST Jes Sorensen wrote:
-> >> > diff --git a/drivers/staging/rtl8192e/rtl819x_TSProc.c b/drivers/staging/rtl8192e/rtl819x_TSProc.c
-> >> > index 2c8a526773ed..e0a2fe5e6148 100644
-> >> > --- a/drivers/staging/rtl8192e/rtl819x_TSProc.c
-> >> > +++ b/drivers/staging/rtl8192e/rtl819x_TSProc.c
-> >> > @@ -323,7 +323,7 @@ bool GetTs(struct rtllib_device *ieee, struct ts_common_info **ppTS,
-> >> >       if (ieee->current_network.qos_data.supported == 0) {
-> >> >               UP = 0;
-> >> >       } else {
-> >> > -             if (!IsACValid(TID)) {
-> >> > +             if (!IsACValid((s8)TID)) {
-> >> >                       netdev_warn(ieee->dev, "%s(): TID(%d) is not valid\n",
-> >> >                                   __func__, TID);
-> >> >                       return false;
-> >> 
-> >> TID is a 4-bit field, it should never go negative. The cast to s8 seems
-> >> wrong to me, if anything it should be using u8. I do realize the macro
-> >> IsACValid checks against negative too, but that just looks silly to me.
-> >
-> > Ok, I'll remove the extra comparison then to avoid the warning:
-> >
-> > staging/rtl8192e/rtl819x_TSProc.c:326:14: error: comparison is always
-> > true due to limited range of data type [-Werror=type-limits]
-> >
-> > I guess it should be a separate patch. I had just stumbled over the
-> > same thing before resending the patch but decided not to change it
-> > to keep the patch simple.
-> 
-> I think that would be better, albeit not a big issue. 
+AFAICT this message is just printed whenever input validation fails.
+This is a normal failure and we shouldn't be dumping the stack over it.
 
-Ok, and since Kalle applied the first patch to his tree, I'm now sending
-a series of three patches that are all for Greg, which also avoids some
-possible confusion.
+Looks like it was originally a printk that was maybe incorrectly
+upgraded to a WARN:
 
-> I'd like to get rid of all the drivers/staging/rtl* drivers eventually 
+commit 62db5cfd70b1ef53aa21f144a806fe3b78c84fab
+Author: stephen hemminger <shemminger@vyatta.com>
+Date:   Wed May 12 06:37:06 2010 +0000
 
-That would be great, yes.
+    xfrm: add severity to printk
 
-Can you clarify what the long-term plan is? I see that
-drivers/net/wireless/realtek/rtlwifi/ has most of the PCIe parts
-and one USB device (rtl8192cu/rtl8188cus) while
-drivers/net/wireless/rtl8xxx has all the USB parts including
-that one.
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+---
+ net/xfrm/xfrm_user.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Does that mean we want the staging drivers for PCIe devices
-to get merged into rtlwifi, and the remaining USB drivers to get
-replaced by r8xxxu?
-
-As one data point that I can provide (but you are probably
-aware of), I could never get my rtl8188cus stick to work with
-rtlwifi, but I found the older r8712u device to work fine with
-the staging/rtl8712 driver.
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 4fb04ce..0b81bfc 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2150,7 +2150,7 @@ static int xfrm_add_acquire(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	return 0;
+ 
+ bad_policy:
+-	WARN(1, "BAD policy passed\n");
++	printk(KERN_WARNING "xfrm_user: bad policy passed\n");
+ free_state:
+ 	kfree(x);
+ nomem:
+-- 
+1.9.1
