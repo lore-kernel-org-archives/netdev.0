@@ -1,56 +1,43 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 net-next 0/5] bridge: json support for fdb and
- vlan show
-Date: Wed, 20 Jul 2016 12:07:11 -0700
-Message-ID: <20160720120711.3a00a73e@xeon-e3>
-References: <1464410236-65044-1-git-send-email-roopa@cumulusnetworks.com>
+Subject: Re: [iproute PATCH 0/6] iplink: Improve documentation
+Date: Wed, 20 Jul 2016 12:13:07 -0700
+Message-ID: <20160720121307.20b6cbc6@xeon-e3>
+References: <1468056170-6056-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anuradhak@cumulusnetworks.com,
-	nikolay@cumulusnetworks.com, julien@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33662 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754666AbcGTTHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:07:14 -0400
-Received: by mail-pa0-f42.google.com with SMTP id ks6so20975211pab.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 12:07:14 -0700 (PDT)
-In-Reply-To: <1464410236-65044-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35492 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751427AbcGTTMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:12:52 -0400
+Received: by mail-pa0-f53.google.com with SMTP id iw10so20895043pac.2
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 12:12:51 -0700 (PDT)
+In-Reply-To: <1468056170-6056-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 27 May 2016 21:37:11 -0700
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+On Sat,  9 Jul 2016 11:22:44 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> This series improves documentation around the feature of 'ip link set'
+> to configure device type specific parameters. While doing so, I reviewed
+> used fonts in ip-link.8 and fixed a few bugs/inconsistencies.
 > 
-> This patch series adds json support for a few bridge show commands.
-> We plan to follow up with json support for additional commands soon.
+> Phil Sutter (6):
+>   iplink: List valid 'type' argument in ip link help text
+>   iplink: bond_slave: Add missing help functions
+>   ip-link.8: Extend type list in synopsis
+>   ip-link.8: Place 'ip link set' warning more prominently
+>   ip-link.8: Add slave type option descriptions
+>   ip-link.8: Fix font choices
 > 
-> Anuradha Karuppiah (3):
->   json_writer: allow base json data type to be array or object
->   bridge: add json support for bridge fdb show
->   bridge: add json schema for bridge fdb show
-> 
-> Roopa Prabhu (2):
->   bridge: add json support for bridge vlan show
->   bridge: update man page
-> 
->  bridge/br_common.h            |   1 +
->  bridge/bridge.c               |   3 +
->  bridge/fdb.c                  | 201 +++++++++++++++++++++++++++++++++---------
->  bridge/vlan.c                 |  93 ++++++++++++++++++-
->  include/json_writer.h         |   5 +-
->  lib/json_writer.c             |  39 +++++++-
->  man/man8/bridge.8             |   9 +-
->  misc/ifstat.c                 |   6 +-
->  misc/lnstat.c                 |   2 +-
->  misc/nstat.c                  |   4 +-
->  schema/bridge_fdb_schema.json |  62 +++++++++++++
->  11 files changed, 365 insertions(+), 60 deletions(-)
->  create mode 100644 schema/bridge_fdb_schema.json
+>  ip/iplink.c            |   4 +-
+>  ip/iplink_bond_slave.c |  24 ++++
+>  man/man8/ip-link.8.in  | 314 +++++++++++++++++++++++++++++++++++--------------
+>  3 files changed, 254 insertions(+), 88 deletions(-)
 > 
 
-Applied these for current release
+Applied thanks
