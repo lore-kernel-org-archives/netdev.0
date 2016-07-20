@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 00/10] NCSI Support
-Date: Tue, 19 Jul 2016 20:49:35 -0700 (PDT)
-Message-ID: <20160719.204935.206931978456558712.davem@davemloft.net>
-References: <1468893265-10635-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH v3] packet: fix second argument of sock_tx_timestamp()
+Date: Tue, 19 Jul 2016 21:01:14 -0700 (PDT)
+Message-ID: <20160719.210114.348102018460162904.davem@davemloft.net>
+References: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org, joel@jms.id.au,
-	gerlitz.or@gmail.com, weixue@trustnetic.com, yuvali@mellanox.com,
-	alexei.starovoitov@gmail.com, f.fainelli@gmail.com
-To: gwshan@linux.vnet.ibm.com
+Cc: daniel@iogearbox.net, willemb@google.com, ast@plumgrid.com,
+	tklauser@distanz.ch, fruggeri@aristanetworks.com,
+	netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+	stable@vger.kernel.org
+To: yoshihiro.shimoda.uh@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42514 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42586 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750715AbcGTDtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 23:49:39 -0400
-In-Reply-To: <1468893265-10635-1-git-send-email-gwshan@linux.vnet.ibm.com>
+	with ESMTP id S1750703AbcGTEBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 00:01:16 -0400
+In-Reply-To: <1468906851-8424-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Date: Tue, 19 Jul 2016 11:54:15 +1000
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Date: Tue, 19 Jul 2016 14:40:51 +0900
 
-> This series rebases on David's linux-net git repo ("master" branch). It's
-> to support NCSI stack on drivers/net/ethernet/faraday/ftgmac100.c. The
-> implementation is based on NCSI spec (version: 1.1.0):
-> https://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.1.0.pdf
+> This patch fixes an issue that a syscall (e.g. sendto syscall) cannot
+> work correctly. Since the sendto syscall doesn't have msg_control buffer,
+> the sock_tx_timestamp() in packet_snd() cannot work correctly because
+> the socks.tsflags is set to 0.
+> So, this patch sets the socks.tsflags to sk->sk_tsflags as default.
+> 
+> Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
+> Cc: <stable@vger.kernel.org>
+> Reported-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+> Reported-by: Keita Kobayashi <keita.kobayashi.ym@renesas.com>
+> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-Series applied, thanks.
+Applied.
