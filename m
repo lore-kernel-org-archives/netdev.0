@@ -1,58 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v10 00/12] Add driver bpf hook for early packet drop
- and forwarding
-Date: Wed, 20 Jul 2016 12:14:16 -0700 (PDT)
-Message-ID: <20160720.121416.1466060476760134617.davem@davemloft.net>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
-	<20160719.220959.1735534229001351021.davem@davemloft.net>
-	<6a09ce5d-f902-a576-e44e-8e1e111ae26b@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH v5 1/5] tc: m_action: Improve conversion to C99
+ style initializers
+Date: Wed, 20 Jul 2016 12:15:06 -0700
+Message-ID: <20160720121506.1a2ef09a@xeon-e3>
+References: <1468853325-9260-1-git-send-email-phil@nwl.cc>
+	<b5628e0db415424485e9cb6975d1f576@HQ1WP-EXMB11.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bblanco@plumgrid.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-	saeedm@dev.mellanox.co.il, kafai@fb.com, brouer@redhat.com,
-	as754m@att.com, alexei.starovoitov@gmail.com, gerlitz.or@gmail.com,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	tgraf@suug.ch, tom@herbertland.com, daniel@iogearbox.net
-To: ttoukan.linux@gmail.com
+Cc: Stephen Hemminger <shemming@Brocade.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53588 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751427AbcGTTOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:14:18 -0400
-In-Reply-To: <6a09ce5d-f902-a576-e44e-8e1e111ae26b@gmail.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34468 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753300AbcGTTOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:14:50 -0400
+Received: by mail-pf0-f182.google.com with SMTP id p64so21910112pfb.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 12:14:50 -0700 (PDT)
+In-Reply-To: <b5628e0db415424485e9cb6975d1f576@HQ1WP-EXMB11.corp.brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Date: Wed, 20 Jul 2016 12:18:49 +0300
+On Mon, 18 Jul 2016 14:48:41 +0000
+Phil Sutter <phil@nwl.cc> wrote:
 
+> This improves my initial change in the following points:
 > 
-> On 20/07/2016 8:09 AM, David Miller wrote:
->> From: Brenden Blanco <bblanco@plumgrid.com>
->> Date: Tue, 19 Jul 2016 12:16:45 -0700
->>
->>> This patch set introduces new infrastructure for programmatically
->>> processing packets in the earliest stages of rx, as part of an effort
->>> others are calling eXpress Data Path (XDP) [1]. Start this effort by
->>> introducing a new bpf program type for early packet filtering, before
->>> even an skb has been allocated.
->>>
->>> Extend on this with the ability to modify packet data and send back
->>> out
->>> on the same port.
->> Series applied, thanks.
+> - Flatten embedded struct's initializers.
+> - No need to initialize variables to zero as the key feature of C99
+>   initializers is to do this implicitly.
+> - By relocating the declaration of struct rtattr *tail, it can be
+>   initialized at the same time.
 > 
-> Hi Dave,
-> 
-> The series causes compilation errors in our driver (and warnings).
-> Please revert it.
+> Fixes: a0a73b298a579 ("tc: m_action: Use C99 style initializers for struct req")
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-Asking for a revert in such a knee-jerk reaction like this is not
-appropriate.
-
-Never ask me to do this.
-
-Why don't you try to figure out what the simple fix is instead?
-
-Meanwhile I've already pushed out the appropriate fix.
+Series applied
