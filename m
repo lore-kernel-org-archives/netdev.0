@@ -1,81 +1,218 @@
-From: Jes Sorensen <Jes.Sorensen@redhat.com>
-Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
-Date: Wed, 20 Jul 2016 07:25:19 -0400
-Message-ID: <wrfjlh0wsg9s.fsf@redhat.com>
-References: <20160719153403.2967812-1-arnd@arndb.de>
-	<3858062.NGQDOLnTj0@wuerfel> <wrfjlh0xvck3.fsf@redhat.com>
-	<4806848.QL77nxBrs4@wuerfel>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] Add timer to handle OOM situations
+Date: Wed, 20 Jul 2016 10:36:45 +0100
+Message-ID: <20160720093645.GG13233@stefanha-x1.localdomain>
+References: <20160718151103.15076-1-ggarcia@deic.uab.cat>
+ <20160718151103.15076-2-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
-	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
-	Andrea Merello <andrea.merello@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4806848.QL77nxBrs4@wuerfel> (Arnd Bergmann's message of "Wed, 20
-	Jul 2016 10:25:21 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="KR/qxknboQ7+Tpez"
+Cc: netdev@vger.kernel.org
+To: ggarcia@abra.uab.cat
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37291 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753157AbcGTLcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2016 07:32:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20160718151103.15076-2-ggarcia@deic.uab.cat>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> writes:
-> On Tuesday, July 19, 2016 12:05:00 PM CEST Jes Sorensen wrote:
->> Arnd Bergmann <arnd@arndb.de> writes:
->> I think that would be better, albeit not a big issue. 
->
-> Ok, and since Kalle applied the first patch to his tree, I'm now sending
-> a series of three patches that are all for Greg, which also avoids some
-> possible confusion.
 
-Awesome!
+--KR/qxknboQ7+Tpez
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->> I'd like to get rid of all the drivers/staging/rtl* drivers eventually 
->
-> That would be great, yes.
->
-> Can you clarify what the long-term plan is? I see that
-> drivers/net/wireless/realtek/rtlwifi/ has most of the PCIe parts
-> and one USB device (rtl8192cu/rtl8188cus) while
-> drivers/net/wireless/rtl8xxx has all the USB parts including
-> that one.
->
-> Does that mean we want the staging drivers for PCIe devices
-> to get merged into rtlwifi, and the remaining USB drivers to get
-> replaced by r8xxxu?
+On Mon, Jul 18, 2016 at 05:11:03PM +0200, ggarcia@abra.uab.cat wrote:
+> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>=20
+> Better testing support files
+>=20
+> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> ---
+>  drivers/vhost/vsock.c | 52 +++++++++++++++++++++++++++++++++++++++++++++=
++-----
+>  1 file changed, 47 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+> index 17bfe4e..d746454 100644
+> --- a/drivers/vhost/vsock.c
+> +++ b/drivers/vhost/vsock.c
+> @@ -14,11 +14,13 @@
+>  #include <net/sock.h>
+>  #include <linux/virtio_vsock.h>
+>  #include <linux/vhost.h>
+> +#include <linux/timer.h>
+> =20
+>  #include <net/af_vsock.h>
+>  #include "vhost.h"
+> =20
+>  #define VHOST_VSOCK_DEFAULT_HOST_CID	2
+> +#define OOM_RETRY_MS	100
+> =20
+>  enum {
+>  	VHOST_VSOCK_FEATURES =3D VHOST_FEATURES,
+> @@ -43,8 +45,12 @@ struct vhost_vsock {
+>  	u32 total_tx_buf;
+> =20
+>  	u32 guest_cid;
+> +
+> +	struct timer_list tx_kick;
+>  };
+> =20
+> +
+> +
+>  static u32 vhost_transport_get_local_cid(void)
+>  {
+>  	return VHOST_VSOCK_DEFAULT_HOST_CID;
+> @@ -273,7 +279,8 @@ vhost_transport_send_pkt(struct vsock_sock *vsk,
+> =20
+>  static struct virtio_vsock_pkt *
+>  vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+> -		      unsigned int out, unsigned int in)
+> +		      unsigned int out, unsigned int in,
+> +		      int *error)
 
-Well it really all depends on how much time I have and how much others
-step up and help contribute to the code. For rtl8xxxu my plans are as
-follows:
+You can use <linux/err.h> ERR_PTR(errno) and IS_ERR(ptr)/PTR_ERR()
+instead of adding int *error.
 
-1) rtl8188eu support, since this is the most widely distributed USB
-dongle which isn't currently supported by a non staging driver. I am
-currently working on this together with Andrea Merello.
+>  {
+>  	struct virtio_vsock_pkt *pkt;
+>  	struct iov_iter iov_iter;
+> @@ -282,12 +289,15 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+> =20
+>  	if (in !=3D 0) {
+>  		vq_err(vq, "Expected 0 input buffers, got %u\n", in);
+> +		*error =3D -EINVAL;
+>  		return NULL;
+>  	}
+> =20
+>  	pkt =3D kzalloc(sizeof(*pkt), GFP_KERNEL);
+> -	if (!pkt)
+> +	if (!pkt){
+> +		*error =3D -ENOMEM;
+>  		return NULL;
+> +	}
+> =20
+>  	len =3D iov_length(vq->iov, out);
+>  	iov_iter_init(&iov_iter, WRITE, vq->iov, out, len);
+> @@ -297,6 +307,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+>  		vq_err(vq, "Expected %zu bytes for pkt->hdr, got %zu bytes\n",
+>  		       sizeof(pkt->hdr), nbytes);
+>  		kfree(pkt);
+> +		*error =3D -EINVAL;
+>  		return NULL;
+>  	}
+> =20
+> @@ -310,12 +321,14 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+>  	/* The pkt is too big */
+>  	if (pkt->len > VIRTIO_VSOCK_MAX_PKT_BUF_SIZE) {
+>  		kfree(pkt);
+> +		*error =3D -EINVAL;
+>  		return NULL;
+>  	}
+> =20
+>  	pkt->buf =3D kmalloc(pkt->len, GFP_KERNEL);
+>  	if (!pkt->buf) {
+>  		kfree(pkt);
+> +		*error =3D -ENOMEM;
+>  		return NULL;
+>  	}
+> =20
+> @@ -324,6 +337,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+>  		vq_err(vq, "Expected %u byte payload, got %zu bytes\n",
+>  		       pkt->len, nbytes);
+>  		virtio_transport_free_pkt(pkt);
+> +		*error =3D -EINVAL;
+>  		return NULL;
+>  	}
+> =20
+> @@ -340,6 +354,7 @@ static void vhost_vsock_handle_tx_kick(struct vhost_w=
+ork *work)
+>  	int head;
+>  	unsigned int out, in;
+>  	bool added =3D false;
+> +	int error;
+> =20
+>  	mutex_lock(&vq->mutex);
+> =20
+> @@ -361,10 +376,27 @@ static void vhost_vsock_handle_tx_kick(struct vhost=
+_work *work)
+>  			break;
+>  		}
+> =20
+> -		pkt =3D vhost_vsock_alloc_pkt(vq, out, in);
+> +		pkt =3D vhost_vsock_alloc_pkt(vq, out, in, &error);
+> +
+>  		if (!pkt) {
+> -			vq_err(vq, "Faulted on pkt\n");
+> -			continue;
+> +			if (error =3D=3D -ENOMEM) {
+> +				vhost_discard_vq_desc(vq, 1);
+> +
+> +				if (!timer_pending(&vsock->tx_kick)) {
+> +					vsock->tx_kick.data =3D
+> +						(unsigned long) vq;
+> +					vsock->tx_kick.expires =3D
+> +						jiffies + msecs_to_jiffies(OOM_RETRY_MS);
+> +					add_timer(&vsock->tx_kick);
+> +				}
+> +
+> +				break;
+> +			} else {
+> +				vq_err(vq, "Faulted on pkt\n");
+> +				continue;
 
-2) Beacon support for IBSS and AP mode - hopefully this should make it
-possible to default rtl8xxxu for rtl8192cu/rtl8188cu devices and disable
-them in rtlwifi.
+Please change continue to break (like drivers/vhost/net.c).  Let's not
+process packets after an invalid one.
 
-3) SDIO device support
+> +			}
+> +		} else if (unlikely(timer_pending(&vsock->tx_kick))) {
+> +			del_timer(&vsock->tx_kick);
+>  		}
+> =20
+>  		/* Only accept correctly addressed packets */
+> @@ -383,6 +415,13 @@ out:
+>  	mutex_unlock(&vq->mutex);
+>  }
+> =20
+> +static void vhost_vsock_rehandle_tx_kick(unsigned long data)
+> +{
+> +	struct vhost_virtqueue *vq =3D (struct vhost_virtqueue *) data;
+> +
+> +	vhost_poll_queue(&vq->poll);
+> +}
+> +
+>  static void vhost_vsock_handle_rx_kick(struct vhost_work *work)
+>  {
+>  	struct vhost_virtqueue *vq =3D container_of(work, struct vhost_virtqueu=
+e,
+> @@ -493,6 +532,9 @@ static int vhost_vsock_dev_open(struct inode *inode, =
+struct file *file)
+>  		goto out;
+>  	}
+> =20
+> +	setup_timer(&vsock->tx_kick,
+> +		    vhost_vsock_rehandle_tx_kick, (unsigned long) NULL);
+> +
 
-4) PCI device support
+Where is the timer deleted when the vhost_vsock instance is released?
 
-5) 802.11ac device support
+--KR/qxknboQ7+Tpez
+Content-Type: application/pgp-signature; name="signature.asc"
 
-3/4/5 not necessarily in that order. There really is no reason why
-rtl8xxxu shouldn't have SDIO and PCI device support added so the core
-code can be shared.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-> As one data point that I can provide (but you are probably
-> aware of), I could never get my rtl8188cus stick to work with
-> rtlwifi, but I found the older r8712u device to work fine with
-> the staging/rtl8712 driver.
+iQEcBAEBAgAGBQJXj0YtAAoJEJykq7OBq3PIY6EIAKHd1Y116Jd3sWn6xp+uD6eH
+xLgewbdNX5IvJNXRsrQqcxTzhu1EUtGwa3pgBzBkEKYU1X0CNqvIWdCm19cKAWm4
+h4wwpbE783iQC9U1tZWWGyMKrlV0h5Nia76YIcZAJUOxpdnu4XWfUUPDnvYR4YST
+ptM0WvORfXvwJ6QYBUK2Ra0wAb8uwJmHX3UowtM3AqQuPd1Tzbnp2uFzYoXFomRo
+CBxP5EyI7XebGFcIySYdEj7pQJTZypOKpSEfzB+Gpm+jlSEB1Wn+t1uyPw3aCQFS
+WZ/lzF+MliLp3v2inZwNJ3YhoBxVVHvYtl59M4BFH/mN91A3MOwZA/oqlQTHbjM=
+=CC5m
+-----END PGP SIGNATURE-----
 
-I'd love to hear if the rtl8188cus works better with rtl8xxxu. For the
-rtl8712 device, rtl8192su?, then potentially that could be added to
-rtl8xxxu as well, but it's not a top priority on my list right now.
-
-Cheers,
-Jes
+--KR/qxknboQ7+Tpez--
