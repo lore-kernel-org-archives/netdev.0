@@ -1,105 +1,42 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Wed, 20 Jul 2016 11:06:37 -0700
-Message-ID: <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
- <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
- <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
- <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
- <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
- <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160720000243.GA4688-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, elf: add official ELF machine define for eBPF
+Date: Wed, 20 Jul 2016 20:17:47 +0200
+Message-ID: <d7fb256f1011ef948809f1447f745da42da970a3.1469038166.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:33543 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752189AbcGTSSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 14:18:11 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBKdWwgMTksIDIwMTYgYXQgNTowMiBQTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
-YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gT24gTW9uLCBKdWwgMTgsIDIwMTYgYXQgMDM6MzQ6
-NTJQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3cm90ZToKPj4gT24gU3VuLCBKdWwgMTcsIDIwMTYg
-YXQgOTo1MCBQTSwgU2ltb24gSG9ybWFuCj4+IDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4g
-d3JvdGU6Cj4+ID4gW0NDIEppcmkgQmVuYyBmb3IgcG9ydGlvbiByZWdhcmRpbmcgR1JFXQo+PiA+
-Cj4+ID4gSGkgUHJhdmluLAo+PiA+Cj4+ID4gT24gRnJpLCBKdWwgMTUsIDIwMTYgYXQgMDI6MDc6
-MzdQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3cm90ZToKPj4gPj4gT24gV2VkLCBKdWwgMTMsIDIw
-MTYgYXQgMTI6MzEgQU0sIFNpbW9uIEhvcm1hbgo+PiA+PiA8c2ltb24uaG9ybWFuQG5ldHJvbm9t
-ZS5jb20+IHdyb3RlOgo+PiA+PiA+IEhpIFByYXZpbiwKPj4gPj4gPgo+PiA+PiA+IE9uIFRodSwg
-SnVsIDA3LCAyMDE2IGF0IDAxOjU0OjE1UE0gLTA3MDAsIHByYXZpbiBzaGVsYXIgd3JvdGU6Cj4+
-ID4+ID4+IE9uIFdlZCwgSnVsIDYsIDIwMTYgYXQgMTA6NTkgQU0sIFNpbW9uIEhvcm1hbgo+PiA+
-PiA+PiA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+PiA+PiA+Cj4+ID4+ID4g
-Li4uCj4+ID4+Cj4+ID4+ID4KPj4gPj4gPj4gPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNo
-L2Zsb3cuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKPj4gPj4gPj4gPiBpbmRleCAwZWExMjhl
-ZWVhYjIuLjg2ZjJjZmIxOWRlMyAxMDA2NDQKPj4gPj4gPj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0
-Y2gvZmxvdy5jCj4+ID4+ID4+ID4gKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+PiA+PiA+
-PiAuLi4KPj4gPj4gPj4KPj4gPj4gPj4gPiBAQCAtNzIzLDkgKzcyOSwxNyBAQCBpbnQgb3ZzX2Zs
-b3dfa2V5X2V4dHJhY3QoY29uc3Qgc3RydWN0IGlwX3R1bm5lbF9pbmZvICp0dW5faW5mbywKPj4g
-Pj4gPj4gPiAgICAgICAgIGtleS0+cGh5LnNrYl9tYXJrID0gc2tiLT5tYXJrOwo+PiA+PiA+PiA+
-ICAgICAgICAgb3ZzX2N0X2ZpbGxfa2V5KHNrYiwga2V5KTsKPj4gPj4gPj4gPiAgICAgICAgIGtl
-eS0+b3ZzX2Zsb3dfaGFzaCA9IDA7Cj4+ID4+ID4+ID4gKyAgICAgICBrZXktPnBoeS5pc19sYXll
-cjMgPSBza2ItPm1hY19sZW4gPT0gMDsKPj4gPj4gPj4KPj4gPj4gPj4gSSBkbyBub3QgdGhpbmsg
-bWFjX2xlbiBjYW4gYmUgdXNlZC4gbWFjX2hlYWRlciBuZWVkcyB0byBiZSBjaGVja2VkLgo+PiA+
-PiA+PiAuLi4KPj4gPj4gPgo+PiA+PiA+IFllcywgaW5kZWVkLiBUaGUgdXBkYXRlIHRvIHVzZSBz
-a2JfbWFjX2hlYWRlcl93YXNfc2V0KCkgaGVyZSBhY2NpZGVudGx5Cj4+ID4+ID4gc2xpcHBlZCBp
-bnRvIHRoZSBmb2xsb3dpbmcgcGF0Y2gsIHNvcnJ5IGFib3V0IHRoYXQuCj4+ID4+ID4KPj4gPj4g
-PiBXaXRoIHRoYXQgY2hhbmdlIGluIHBsYWNlIEkgYmVsaWV2ZSB0aGF0IHRoaXMgcGF0Y2ggaXMg
-aW50ZXJuYWxseQo+PiA+PiA+IGNvbnNpc3RlbnQgYmVjYXVzZSBtYWNfaGVhZGVyIGFuZCBtYWNf
-bGVuIGFyZSBzZXQgY29ycmVjdGx5IGJ5IHRoZQo+PiA+PiA+IGNhbGwgdG8ga2V5X2V4dHJhY3Qo
-KSB3aGljaCBpcyBjYWxsZWQgYnkgb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBqdXN0Cj4+ID4+ID4g
-YWZ0ZXIgd2hlcmUgdGhlIGV4Y2VycHQgYWJvdmUgZW5kcy4KPj4gPj4gPgo+PiA+PiA+IFRoYXQg
-c2FpZCwgSSBkbyB0aGluayB0aGF0IGl0IGlzIHBvc3NpYmxlIHRvIHJlbHkgb24gc2tiX21hY19o
-ZWFkZXJfd2FzX3NldAo+PiA+PiA+IHRocm91Z2hvdXQgdGhlIGRhdGFwYXRoLCBpbmNsdWRpbmcg
-YWN0aW9uIHByb2Nlc3NpbmcgZXRjLi4uIEkgaGF2ZSBwcm92aWRlZAo+PiA+PiA+IGFuIGluY3Jl
-bWVudGFsIHBhdGNoIC0gd2hpY2ggSSBjcmVhdGVkIG9uIHRvcCBvZiB0aGlzIGVudGlyZSBzZXJp
-ZXMgLSBhdAo+PiA+PiA+IHRoZSBlbmQgb2YgdGhpcyBlbWFpbC4gSWYgeW91IHByZWZlciB0aGF0
-IGFwcHJvYWNoIEkgYW0gaGFwcHkgdG8gdGFrZSBpdCwKPj4gPj4gPiB0aG91Z2ggSSBkbyBmZWVs
-IHRoYXQgdXNpbmcgbWFjX2xlbiBsZWFkcyB0byBzbGlnaHRseSBjbGVhbmVyIGNvZGUuIExldCBt
-ZQo+PiA+PiA+IGtub3cgd2hhdCB5b3UgdGhpbmsuCj4+ID4+ID4KPj4gPj4KPj4gPj4KPj4gPj4g
-SSBhbSBub3Qgc3VyZSBpZiB5b3UgY2FuIHVzZSBvbmx5IG1hY19sZW4gdG8gZGV0ZWN0IEwzIHBh
-Y2tldC4gVGhpcwo+PiA+PiBkb2VzIG5vdCB3b3JrIHdpdGggTVBMUyBwYWNrZXRzLCBtYWNfbGVu
-IGlzIHVzZWQgdG8gYWNjb3VudCBNUExTCj4+ID4+IGhlYWRlcnMgcHVzaGVkIG9uIHNrYi4gVGhl
-cmVmb3JlIGluIGNhc2Ugb2YgYSBNUExTIGhlYWRlciBvbiBMMwo+PiA+PiBwYWNrZXQsIG1hY19s
-ZW4gd291bGQgYmUgbm9uIHplcm8gYW5kIHdlIGhhdmUgdG8gbG9vayBhdCBlaXRoZXIKPj4gPj4g
-bWFjX2hlYWRlciBvciBzb21lIG90aGVyIG1ldGFkYXRhIGxpa2UgaXNfbGF5ZXIzIGZsYWcgZnJv
-bSBrZXkgdG8KPj4gPj4gY2hlY2sgZm9yIEwzIHBhY2tldC4KPj4gPgo+PiA+IEF0IGxlYXN0IHdp
-dGhpbiBPdlMgbWFjX2xlbiBkb2VzIG5vdCBpbmNsdWRlIHRoZSBsZW5ndGggb2YgdGhlIE1QTFMg
-bGFiZWwKPj4gPiBzdGFjay4gUmF0aGVyLCB0aGUgTVBMUyBsYWJlbCBzdGFjayBsZW5ndGggaXMg
-dGhlIGRpZmZlcmVuY2UgYmV0d2VlbiB0aGUKPj4gPiBlbmQgb2YgKG1hY19oZWFkZXIgKyBtYWNf
-bGVuKSBhbmQgbmV0d29ya19oZWFkZXIuCj4+ID4KPj4gPiBTbyBJIHRoaW5rIHRoYXQgdGhlIHNj
-aGVtZSBkb2VzIHdvcmsgYXMgbWFjX2xlbiBpcyAwIGlmIHRoZXJlIGlzIG5vIEwyCj4+ID4gaGVh
-ZGVyIHJlZ2FyZGxlc3Mgb2YgaWYgYW4gTVBMUyBsYWJlbCBzdGFjayBpcyBwcmVzZW50IG9yIG5v
-dC4KPj4gPgo+Pgo+PiBJIHdhcyB0aGlua2luZyBpbiBvdmVyYWxsIG5ldHdvcmtpbmcgc3RhY2sg
-cmF0aGVyIHRoYW4ganVzdCBvdnMKPj4gZGF0YXBhdGguIEkgdGhpbmsgd2Ugc2hvdWxkIGhhdmUg
-Y29uc2lzdGVudCBtZXRob2Qgb2YgZGV0ZWN0aW5nIEwzCj4+IHBhY2tldC4gQXMgY29tbWVudGVk
-IGluIHByZXZpb3VzIG1haWwgaXQgY291bGQgYmUgYWNoaWV2ZWQgdXNpbmcKPj4gc2tiLXByb3Rv
-Y29sIGFuZCBkZXZpY2UgdHlwZS4KPgo+IFRoaXMgaXMgc29tZXdoYXQgb2YgYSBzdXJwcmlzZSB0
-byBtZS4gQXMgZmFyIGFzIEkgcmVjYWxsIHdoZW4gTVBMUyBzdXBwb3J0Cj4gd2FzIGFkZGVkIHRv
-IE92UyBpdCBhbmQgdGhlIGFjY29tcGFueWluZyBzdXBwb3J0IGZvciBNUExTIEdTTyB3YXMgdGhl
-IG9ubHkKPiBNUExTIHN1cHBvcnQgcHJlc2VudCBpbiB0aGUga2VybmVsLiBBbmQgYXQgdGhlIHRp
-bWUgdGhlIHNjaGVtZSBkZXZlbG9wZWQgYnkKPiBKZXNzZSBHcm9zcywgbXlzZWxmIGFuZCBvdGhl
-cnMgd2FzIGFzIEkgZGVzY3JpYmUgYWJvdmUuCj4KPiBJbnRlcm5hbGx5IE92UyByZWxpZXMgb24g
-dGhpcyBzY2hlbWUgYW5kIGluIHBhcnRpY3VsYXIgaXQgaXMgdXNlZAo+IGJ5IHNrYl9tcGxzX2hl
-YWRlcigpIHRvIGNhbGN1bGF0ZSB0aGUgYmVnaW5uaW5nIG9mIHRoZSBNUExTIGxhYmVsIHN0YWNr
-Cj4gYWNjdXJhdGVseSBpbiB0aGUgcHJlc2VuY2Ugb2YgVkxBTiB0YWdzLgo+Cj4gSXMgaXQgbXBs
-c19nc29fc2VnbWVudCgpIHRoYXQgeW91IGFyZSBjb25jZXJuZWQgYWJvdXQ/Cj4gSWYgc28sIHBl
-cmhhcHMgdGhlIHByb2JsZW0gY291bGQgYmUgYWRkcmVzc2VkIHRoZXJlLgoKWWVzLgpDYW4geW91
-IHJlYWQgdGhlIGNvbW1lbnQgSSBtYWRlIGluIHByZXZpb3VzIG1haW4gaW4gY29udGV4dCBvZgpm
-dW5jdGlvbiBza2JfbXBsc19oZWFkZXIoKS4gSSBoYXZlIGdpdmVuIHJhdGlvbmFsIGZvciByZXF1
-ZXN0ZWQKY2hhbmdlLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dp
-dGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Add the official BPF ELF e_machine value that was assigned recently [1,2]
+and will be propagated to glibc, et al. LLVM is switching to it in 3.9
+release.
+
+  [1] https://github.com/llvm-mirror/llvm/commit/36b9c09330bfb5e771914cfe307588f30d5510d2
+  [2] http://lists.iovisor.org/pipermail/iovisor-dev/2016-June/000266.html
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/uapi/linux/elf-em.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/uapi/linux/elf-em.h b/include/uapi/linux/elf-em.h
+index c3fdfe7..cb5d1a5 100644
+--- a/include/uapi/linux/elf-em.h
++++ b/include/uapi/linux/elf-em.h
+@@ -40,6 +40,7 @@
+ #define EM_TILEPRO	188	/* Tilera TILEPro */
+ #define EM_MICROBLAZE	189	/* Xilinx MicroBlaze */
+ #define EM_TILEGX	191	/* Tilera TILE-Gx */
++#define EM_BPF		247	/* Linux BPF - in-kernel virtual machine */
+ #define EM_FRV		0x5441	/* Fujitsu FR-V */
+ #define EM_AVR32	0x18ad	/* Atmel AVR32 */
+ 
+-- 
+1.9.3
