@@ -1,109 +1,85 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
-Date: Wed, 20 Jul 2016 09:25:59 -0500
-Message-ID: <29c970ef-0bd5-38f2-48fd-91adb01fc8a9@lwfinger.net>
-References: <20160719153403.2967812-1-arnd@arndb.de>
- <3858062.NGQDOLnTj0@wuerfel> <wrfjlh0xvck3.fsf@redhat.com>
- <4806848.QL77nxBrs4@wuerfel> <wrfjlh0wsg9s.fsf@redhat.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/1] ixgbevf: replace enum with MACROs
+Date: Wed, 20 Jul 2016 07:29:18 -0700
+Message-ID: <CAKgT0UefaX0aqV+mC77zrpWZAQWBKygDCG0Bpq0x2sVyeMpyYw@mail.gmail.com>
+References: <1469011313-30044-1-git-send-email-zyjzyj2000@gmail.com> <1469011313-30044-2-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Mateusz Kulikowski <mateusz.kulikowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrea Merello <andrea.merello-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <wrfjlh0wsg9s.fsf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Netdev <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34469 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754156AbcGTO3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 10:29:19 -0400
+Received: by mail-io0-f196.google.com with SMTP id g86so3577904ioj.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 07:29:19 -0700 (PDT)
+In-Reply-To: <1469011313-30044-2-git-send-email-zyjzyj2000@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2016 06:25 AM, Jes Sorensen wrote:
-> Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
->> On Tuesday, July 19, 2016 12:05:00 PM CEST Jes Sorensen wrote:
->>> Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> writes:
->>> I think that would be better, albeit not a big issue.
->>
->> Ok, and since Kalle applied the first patch to his tree, I'm now sending
->> a series of three patches that are all for Greg, which also avoids some
->> possible confusion.
+On Wed, Jul 20, 2016 at 3:41 AM,  <zyjzyj2000@gmail.com> wrote:
+> From: Zhu Yanjun <zyjzyj2000@gmail.com>
 >
-> Awesome!
+> With the original enum, when a several bits state is set, it is
+> possible that the wrong test occurs.
 >
->>> I'd like to get rid of all the drivers/staging/rtl* drivers eventually
->>
->> That would be great, yes.
->>
->> Can you clarify what the long-term plan is? I see that
->> drivers/net/wireless/realtek/rtlwifi/ has most of the PCIe parts
->> and one USB device (rtl8192cu/rtl8188cus) while
->> drivers/net/wireless/rtl8xxx has all the USB parts including
->> that one.
->>
->> Does that mean we want the staging drivers for PCIe devices
->> to get merged into rtlwifi, and the remaining USB drivers to get
->> replaced by r8xxxu?
+> For example,
 >
-> Well it really all depends on how much time I have and how much others
-> step up and help contribute to the code. For rtl8xxxu my plans are as
-> follows:
+> a state is 0x3, its bits are 11. When testing a state 0x2 whose
+> bits are 10, it is difficult to confirm that state 0x2 is set or
+> not.
 >
-> 1) rtl8188eu support, since this is the most widely distributed USB
-> dongle which isn't currently supported by a non staging driver. I am
-> currently working on this together with Andrea Merello.
+> As such, the MACROs are defined to avoid the above error.
 >
-> 2) Beacon support for IBSS and AP mode - hopefully this should make it
-> possible to default rtl8xxxu for rtl8192cu/rtl8188cu devices and disable
-> them in rtlwifi.
+> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbevf/ixgbevf.h | 22 ++++++++++------------
+>  1 file changed, 10 insertions(+), 12 deletions(-)
 >
-> 3) SDIO device support
+> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+> index 60fc63b..d37b910 100644
+> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+> @@ -436,18 +436,16 @@ struct ixgbevf_adapter {
+>         u8 rss_indir_tbl[IXGBEVF_X550_VFRETA_SIZE];
+>  };
 >
-> 4) PCI device support
+> -enum ixbgevf_state_t {
+> -       __IXGBEVF_TESTING,
+> -       __IXGBEVF_RESETTING,
+> -       __IXGBEVF_DOWN,
+> -       __IXGBEVF_DISABLED,
+> -       __IXGBEVF_REMOVING,
+> -       __IXGBEVF_SERVICE_SCHED,
+> -       __IXGBEVF_SERVICE_INITED,
+> -       __IXGBEVF_RESET_REQUESTED,
+> -       __IXGBEVF_QUEUE_RESET_REQUESTED,
+> -       __IXGBEVF_HW_RESETTING,
+> -};
+> +#define        __IXGBEVF_TESTING               0x0001
+> +#define        __IXGBEVF_RESETTING             0x0002
+> +#define        __IXGBEVF_DOWN                  0x0004
+> +#define        __IXGBEVF_DISABLED              0x0008
+> +#define        __IXGBEVF_REMOVING              0x0010
+> +#define        __IXGBEVF_SERVICE_SCHED         0x0020
+> +#define        __IXGBEVF_SERVICE_INITED        0x0040
+> +#define        __IXGBEVF_RESET_REQUESTED       0x0080
+> +#define        __IXGBEVF_QUEUE_RESET_REQUESTED 0x0100
+> +#define        __IXGBEVF_HW_RESETTING          0x0200
 >
-> 5) 802.11ac device support
->
-> 3/4/5 not necessarily in that order. There really is no reason why
-> rtl8xxxu shouldn't have SDIO and PCI device support added so the core
-> code can be shared.
->
->> As one data point that I can provide (but you are probably
->> aware of), I could never get my rtl8188cus stick to work with
->> rtlwifi, but I found the older r8712u device to work fine with
->> the staging/rtl8712 driver.
->
-> I'd love to hear if the rtl8188cus works better with rtl8xxxu. For the
-> rtl8712 device, rtl8192su?, then potentially that could be added to
-> rtl8xxxu as well, but it's not a top priority on my list right now.
+>  enum ixgbevf_boards {
+>         board_82599_vf,
 
-I would be very pleased to eliminate all the rtl* drivers from staging, 
-particularly the USB varieties. I have been very disappointed with the USB group 
-at Realtek. They dropped rtl8192cu on me, and then have provided no support. As 
-I know nothing of the chip internals, there has been little I could do to 
-improve the driver. In addition, they have never implemented any of the code 
-improvements in any new USB drivers. Jes has done a wonderful job of making 
-sense of the crap drivers from Realtek, and rtl8xxxu is a very good start. 
-Adding SDIO support for the RTL8723BS would be a plus. At the moment, there is 
-only an out-of-tree driver at GitHub, which I refuse to submit to staging. At 
-the moment, it appears that every tablet with this chip needs special treatment. 
-In addition, the SDIO support seems to be buggy.
+You cannot replace a bit offset with a mask without also having to
+update all the spots where the bit offset is used.
 
-The drivers in question and my comments are as follows:
+There isn't much point to replacing the enum with a macro anyway.
+Using multiple test_bit expressions should be valid for testing
+multiple bits.
 
-rtl8712u and rtl8188eu - replaced by new code in rtl8xxxu.
-rtl8723au - already in rtl8xxxu
-rtl8192e - This chip is so rarely used that it does not make much difference 
-what we do. If someone wants to integrate it into rtlwifi, I would have no 
-objection, but I do not expect to contribute to the effort.
-rtl8192u - This one is even rarer. I have no sample, thus I would be unable to test.
-rtl8192cu - Replace with rtl8xxxu as soon as the new driver supports beacons. 
-Good riddance.
-
-Larry
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+- Alex
