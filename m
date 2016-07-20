@@ -1,39 +1,47 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next v3 00/10] NCSI Support
-Date: Wed, 20 Jul 2016 14:08:58 +1000
-Message-ID: <1468987738.8568.92.camel@kernel.crashing.org>
-References: <1468893265-10635-1-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <20160719.204935.206931978456558712.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch-V2 2/3] chcr: Support for Chelsio's Crypto Hardware
+Date: Tue, 19 Jul 2016 21:15:22 -0700 (PDT)
+Message-ID: <20160719.211522.465417746785662817.davem@davemloft.net>
+References: <1468906935-6770-1-git-send-email-yeshaswi@chelsio.com>
+	<1468906935-6770-3-git-send-email-yeshaswi@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, gwshan@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:53336 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751140AbcGTEJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2016 00:09:10 -0400
-In-Reply-To: <20160719.204935.206931978456558712.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+	jlulla@chelsio.ccom, harsh@chelsio.com, atul.gupta@chelsio.com,
+	herbert@gondor.apana.org.au
+To: yeshaswi@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468906935-6770-3-git-send-email-yeshaswi@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-07-19 at 20:49 -0700, David Miller wrote:
-> From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-> Date: Tue, 19 Jul 2016 11:54:15 +1000
-> 
-> > This series rebases on David's linux-net git repo ("master"
-> branch). It's
-> > to support NCSI stack on drivers/net/ethernet/faraday/ftgmac100.c.
-> The
-> > implementation is based on NCSI spec (version: 1.1.0):
-> > https://www.dmtf.org/sites/default/files/standards/documents/DSP022
-> 2_1.1.0.pdf
-> 
-> Series applied, thanks.
+From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
+Date: Mon, 18 Jul 2016 22:42:14 -0700
 
-Thanks Dave. There was one little nit left in the Faraday driver but we
-will send a follow up patch to fix it.
+> +config CRYPTO_DEV_CHELSIO
+> +	tristate "Chelsio Crypto Co-processor Driver"
+> +	depends on PCI && NETDEVICES && ETHERNET
+> +	select CRYPTO_SHA1
+> +	select CRYPTO_SHA256
+> +	select CRYPTO_SHA512
+> +	select NET_VENDOR_CHELSIO
+> +	select CHELSIO_T4
 
-Cheers,
-Ben.
+The user shouldn't have to know about the technical details about
+how this chip is physically implemented.
+
+It's therefore not reasonable to require an ethernet driver to be
+enabled to use the crypto engine.
+
+Also, selecting Kconfig symbol X does not recursively enable the
+"select" statement(s) of symbol X nor does it check symbol X's
+dependencies.
+
+This is really one big huge dependency mess, and I think you have
+to split out the core of the T4 driver into a driver subtype
+agnostic library or similar to make this work properly.
+
+Don't just shoehorn this stuff into the ethernet driver.  Round
+peg, square hole.
