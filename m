@@ -1,34 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH v2] ip-address.8: Document autojoin flag
-Date: Wed, 20 Jul 2016 12:22:56 -0700
-Message-ID: <20160720122256.0b7a48a7@xeon-e3>
-References: <1468059262-14591-1-git-send-email-phil@nwl.cc>
-	<7a471e4823c94189afee7f60c1cba183@HQ1WP-EXMB11.corp.brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bpf, elf: add official ELF machine define for
+ eBPF
+Date: Wed, 20 Jul 2016 12:37:49 -0700 (PDT)
+Message-ID: <20160720.123749.1466220963632605263.davem@davemloft.net>
+References: <d7fb256f1011ef948809f1447f745da42da970a3.1469038166.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemming@Brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:32915 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753854AbcGTTWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:22:41 -0400
-Received: by mail-pf0-f182.google.com with SMTP id y134so21949139pfg.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 12:22:41 -0700 (PDT)
-In-Reply-To: <7a471e4823c94189afee7f60c1cba183@HQ1WP-EXMB11.corp.brocade.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53974 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804AbcGTThu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:37:50 -0400
+In-Reply-To: <d7fb256f1011ef948809f1447f745da42da970a3.1469038166.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Jul 2016 07:56:16 +0000
-Phil Sutter <phil@nwl.cc> wrote:
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 20 Jul 2016 20:17:47 +0200
 
-> Description copied from related kernel support commit message with a
-> little tailoring to fit.
+> Add the official BPF ELF e_machine value that was assigned recently [1,2]
+> and will be propagated to glibc, et al. LLVM is switching to it in 3.9
+> release.
 > 
-> While at it, fix font of non-terminal CONFFLAG-LIST in synopsis.
+>   [1] https://github.com/llvm-mirror/llvm/commit/36b9c09330bfb5e771914cfe307588f30d5510d2
+>   [2] http://lists.iovisor.org/pipermail/iovisor-dev/2016-June/000266.html
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied
+Applied, thanks.
