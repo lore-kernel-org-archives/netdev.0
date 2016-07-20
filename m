@@ -1,39 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: fix implicit declaration of bpf_prog_add
-Date: Wed, 20 Jul 2016 11:59:32 -0700 (PDT)
-Message-ID: <20160720.115932.1415271861583397757.davem@davemloft.net>
-References: <1469026552-8975-1-git-send-email-bblanco@plumgrid.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: Fix support for device filter by index
+Date: Wed, 20 Jul 2016 11:58:46 -0700
+Message-ID: <20160720115846.2e194813@xeon-e3>
+References: <1468622495-24968-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ttoukan.linux@gmail.com
-To: bblanco@plumgrid.com
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53286 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbcGTS7f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 14:59:35 -0400
-In-Reply-To: <1469026552-8975-1-git-send-email-bblanco@plumgrid.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36225 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753542AbcGTTAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 15:00:54 -0400
+Received: by mail-pf0-f182.google.com with SMTP id h186so21748455pfg.3
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 12:00:54 -0700 (PDT)
+In-Reply-To: <1468622495-24968-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brenden Blanco <bblanco@plumgrid.com>
-Date: Wed, 20 Jul 2016 07:55:52 -0700
+On Fri, 15 Jul 2016 15:41:35 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-> For the ifndef case of CONFIG_BPF_SYSCALL, an inline version of
-> bpf_prog_add needs to exist otherwise the build breaks on some configs.
+> Support was recently added for device filters. The intent was to allow
+> the device to be specified by name or index, and using the if%u format
+> (dev == if5) or the simpler and more intuitive index alone (dev == 5).
+> The latter case is broken since the index is not saved to the filter
+> after the strtoul conversion. Further, the tmp variable used for the
+> conversion shadows another variable used in the function. Fix both.
 > 
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c:2544:10: error: implicit declaration of function 'bpf_prog_add'
->        prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
+> With this change all 3 variants work as expected:
+> $ ss -t 'dev == 62'
+> State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
+> ESTAB       0      224         10.0.1.3%mgmt:ssh   192.168.0.50:58442
 > 
-> The function is introduced in
-> 59d3656d5bf50 ("bpf: add bpf_prog_add api for bulk prog refcnt")
-> and first used in
-> 47f1afdba2b87 ("net/mlx4_en: add support for fast rx drop bpf program").
+> $ ss -t 'dev == mgmt'
+> State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
+> ESTAB       0      224         10.0.1.3%mgmt:ssh   192.168.0.50:58442
 > 
-> Fixes: 47f1afdba2b87 ("net/mlx4_en: add support for fast rx drop bpf program")
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Reported-by: Tariq Toukan <ttoukan.linux@gmail.com>
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+> $ ss -t 'dev == if62'
+> State   Recv-Q Send-Q         Local Address:Port    Peer Address:Port
+> ESTAB       0      36          10.0.1.3%mgmt:ssh   192.168.0.50:58442
+> 
+> Fixes: 2d2932125616 ("ss: Add support to filter on device")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied.
+Both applied
