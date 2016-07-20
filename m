@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] kernel/trace/bpf_trace.c: work around gcc-4.4.4
- anon union initialization bug
-Date: Tue, 19 Jul 2016 19:28:01 -0700 (PDT)
-Message-ID: <20160719.192801.35741043299529276.davem@davemloft.net>
-References: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
+Subject: Re: [PATCH net-next v3 00/12] net: dsa: mv88e6xxx: Global2 cleanup
+ and STP
+Date: Tue, 19 Jul 2016 19:42:20 -0700 (PDT)
+Message-ID: <20160719.194220.1605569742108600970.davem@davemloft.net>
+References: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41952 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752204AbcGTC2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 22:28:02 -0400
-In-Reply-To: <578d5d52.lh08e3GTSq3vxxIL%akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160719004540.1066-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Mon, 18 Jul 2016 15:50:58 -0700
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon, 18 Jul 2016 20:45:28 -0400
 
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Subject: kernel/trace/bpf_trace.c: work around gcc-4.4.4 anon union initialization bug
+> The Marvell switches registers are organized in distinct internal SMI
+> devices, such as PHY, Port, Global 1 or Global 2 registers sets.
 > 
-> kernel/trace/bpf_trace.c: In function 'bpf_event_output':
-> kernel/trace/bpf_trace.c:312: error: unknown field 'next' specified in initializer
-> kernel/trace/bpf_trace.c:312: warning: missing braces around initializer
-> kernel/trace/bpf_trace.c:312: warning: (near initialization for 'raw.frag.<anonymous>')
+> Since not all chips support every registers sets or have slightly
+> differences in them (such as old 88E6060 or new 88E6390 likely to be
+> supported soon), make the setup code clearer now by removing a few
+> family checks and adding flags to describe the Global 2 registers map.
 > 
-> Fixes: 555c8a8623a3a87 ("bpf: avoid stack copy and use skb ctx for event output")
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> This patchset enables basic STP support and bridging on most chips when
+> getting rid of a few inconsistencies in chip descriptions (patch 1) and
+> add bridge Ageing Time support to DSA and the mv88e6xxx driver.
 
-Applied.
+Series applied.
