@@ -1,31 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/2] mlxsw: Add per-{Prio,TC} counters
-Date: Wed, 20 Jul 2016 14:55:03 -0700 (PDT)
-Message-ID: <20160720.145503.523162233354543523.davem@davemloft.net>
-References: <1468935354-7008-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3] cdc_ether: Improve ZTE MF823/831/910
+ handling
+Date: Wed, 20 Jul 2016 14:55:22 -0700 (PDT)
+Message-ID: <20160720.145522.1781498396880526212.davem@davemloft.net>
+References: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55704 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751641AbcGTVzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 17:55:05 -0400
-In-Reply-To: <1468935354-7008-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: oliver@neukum.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kristian.evensen@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 19 Jul 2016 15:35:52 +0200
-
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido says:
-> 
-> Add per-priority and per-tc counters, which are very useful for debugging
-> purposes and fine-tuning.
-
-Series applied.
+RnJvbTogS3Jpc3RpYW4gRXZlbnNlbiA8a3Jpc3RpYW4uZXZlbnNlbkBnbWFpbC5jb20+DQpEYXRl
+OiBUdWUsIDE5IEp1bCAyMDE2IDE2OjU0OjExICswMjAwDQoNCj4gVGhlIGZpcm13YXJlIGluIHNl
+dmVyYWwgWlRFIGRldmljZXMgKGF0IGxlYXN0IHRoZSBNRjgyMy84MzEvOTEwDQo+IG1vZGVtcy9t
+aWZpcykgdXNlIE9TIGZpbmdlcnByaW50aW5nIHRvIGRldGVybWluZSB3aGljaCB0eXBlIG9mIGRl
+dmljZSB0bw0KPiBleHBvcnQuIEluIGFkZGl0aW9uLCB0aGVzZSBkZXZpY2VzIGV4cG9ydCBhIFJF
+U1QgQVBJIHdoaWNoIGNhbiBiZSB1c2VkIHRvDQo+IGNvbnRyb2wgdGhlIHR5cGUgb2YgZGV2aWNl
+LiBTbyBmYXIsIG9uIExpbnV4LCB0aGUgZGV2aWNlcyBoYXZlIGJlZW4gc2VlbiBhcw0KPiBSTkRJ
+UyBvciBDREMgRXRoZXIuDQo+IA0KPiBXaGVuIENEQyBFdGhlciBpcyB1c2VkLCBkZXZpY2VzIG9m
+IHRoZSBzYW1lIHR5cGUgYXJlLCBhcyB3aXRoIFJORElTLA0KPiBleHBvcnRlZCB3aXRoIHRoZSBz
+YW1lLCBib2d1cyByYW5kb20gTUFDIGFkZHJlc3MuIEluIGFkZGl0aW9uLCB0aGUgZGV2aWNlcw0K
+PiAoYXQgbGVhc3Qgb24gYWxsIGZpcm13YXJlIHJldmlzaW9ucyBJIGhhdmUgZm91bmQpIHVzZSB0
+aGUgYm9ndXMgTUFDIHdoZW4NCj4gc2VuZGluZyB0cmFmZmljIHJvdXRlZCBmcm9tIGV4dGVybmFs
+IG5ldHdvcmtzLiBBbmQgYXMgYSBmaW5hbCBmZWF0dXJlLCB0aGUNCj4gZGV2aWNlcyBzb21ldGlt
+ZXMgZXhwb3J0IHRoZSBsaW5rIHN0YXRlIGluY29ycmVjdGx5LiBUaGVyZSBhcmUgYWxzbw0KPiBy
+ZWZlcmVuY2VzIG9ubGluZSB0byBzZXZlcmFsIG90aGVyIFpURSBkZXZpY2VzIGRpc3BsYXlpbmcg
+dGhpcyBiZWhhdmlvciwNCj4gd2l0aCBzZXZlcmFsIGRpZmZlcmVudCBQSURzIGFuZCBNQUMgYWRk
+cmVzc2VzLg0KPiANCj4gVGhpcyBwYXRjaCB0cmllcyB0byBpbXByb3ZlIHRoZSBoYW5kbGluZyBv
+ZiBaVEUgZGV2aWNlcyBieSBkb2luZyB0aGUNCj4gZm9sbG93aW5nOg0KDQpQbGVhc2UgZml4IHRo
+ZXNlIHdhcm5pbmdzIGFuZCByZXN1Ym1pdDoNCg0KICBDQyBbTV0gIGRyaXZlcnMvbmV0L3VzYi9j
+ZGNfZXRoZXIubw0KZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jOiBJbiBmdW5jdGlvbiChdXNi
+bmV0X2NkY196dGVfcnhfZml4dXCiOg0KZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jOjQ2MTo1
+OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoWJ1Z2d5X2h3YWRkcnNfaWR4oiBbLVd1bnVzZWQt
+dmFyaWFibGVdDQogIHU4IGJ1Z2d5X2h3YWRkcnNfaWR4ID0gMDsNCiAgICAgXg0KZHJpdmVycy9u
+ZXQvdXNiL2NkY19ldGhlci5jOjQ2MDo1OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoW51bV9i
+dWdneV9od2FkZHJzoiBbLVd1bnVzZWQtdmFyaWFibGVdDQogIHU4IG51bV9idWdneV9od2FkZHJz
+Ow0KICAgICBeDQo=
