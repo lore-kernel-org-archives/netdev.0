@@ -1,47 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch-V2 2/3] chcr: Support for Chelsio's Crypto Hardware
-Date: Tue, 19 Jul 2016 21:15:22 -0700 (PDT)
-Message-ID: <20160719.211522.465417746785662817.davem@davemloft.net>
-References: <1468906935-6770-1-git-send-email-yeshaswi@chelsio.com>
-	<1468906935-6770-3-git-send-email-yeshaswi@chelsio.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-	jlulla@chelsio.ccom, harsh@chelsio.com, atul.gupta@chelsio.com,
-	herbert@gondor.apana.org.au
-To: yeshaswi@chelsio.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468906935-6770-3-git-send-email-yeshaswi@chelsio.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] ixgbevf: replace num with macro
+Date: Wed, 20 Jul 2016 12:36:41 +0800
+Message-ID: <1468989401-28529-1-git-send-email-zyjzyj2000@gmail.com>
+Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
+To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [123.119.179.77] ([123.119.179.77]:37450 "EHLO mail.zhuyj.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751304AbcGTEgr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2016 00:36:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
-Date: Mon, 18 Jul 2016 22:42:14 -0700
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-> +config CRYPTO_DEV_CHELSIO
-> +	tristate "Chelsio Crypto Co-processor Driver"
-> +	depends on PCI && NETDEVICES && ETHERNET
-> +	select CRYPTO_SHA1
-> +	select CRYPTO_SHA256
-> +	select CRYPTO_SHA512
-> +	select NET_VENDOR_CHELSIO
-> +	select CHELSIO_T4
+With the original num, when a several bits state is set, it is
+possible that the wrong test occurs.
 
-The user shouldn't have to know about the technical details about
-how this chip is physically implemented.
+For example,
 
-It's therefore not reasonable to require an ethernet driver to be
-enabled to use the crypto engine.
+a state is 0x3, its bits are 11. When testing a state 0x2 whose
+bits are 10, it is difficult to confirm that state 0x2 is set or
+not.
 
-Also, selecting Kconfig symbol X does not recursively enable the
-"select" statement(s) of symbol X nor does it check symbol X's
-dependencies.
+As such, the MACROs are defined to avoid the above error.
 
-This is really one big huge dependency mess, and I think you have
-to split out the core of the T4 driver into a driver subtype
-agnostic library or similar to make this work properly.
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h | 22 ++++++++++------------
+ 1 file changed, 10 insertions(+), 12 deletions(-)
 
-Don't just shoehorn this stuff into the ethernet driver.  Round
-peg, square hole.
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 60fc63b..d37b910 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -436,18 +436,16 @@ struct ixgbevf_adapter {
+ 	u8 rss_indir_tbl[IXGBEVF_X550_VFRETA_SIZE];
+ };
+ 
+-enum ixbgevf_state_t {
+-	__IXGBEVF_TESTING,
+-	__IXGBEVF_RESETTING,
+-	__IXGBEVF_DOWN,
+-	__IXGBEVF_DISABLED,
+-	__IXGBEVF_REMOVING,
+-	__IXGBEVF_SERVICE_SCHED,
+-	__IXGBEVF_SERVICE_INITED,
+-	__IXGBEVF_RESET_REQUESTED,
+-	__IXGBEVF_QUEUE_RESET_REQUESTED,
+-	__IXGBEVF_HW_RESETTING,
+-};
++#define	__IXGBEVF_TESTING		0x0001
++#define	__IXGBEVF_RESETTING		0x0002
++#define	__IXGBEVF_DOWN			0x0004
++#define	__IXGBEVF_DISABLED		0x0008
++#define	__IXGBEVF_REMOVING		0x0010
++#define	__IXGBEVF_SERVICE_SCHED		0x0020
++#define	__IXGBEVF_SERVICE_INITED	0x0040
++#define	__IXGBEVF_RESET_REQUESTED	0x0080
++#define	__IXGBEVF_QUEUE_RESET_REQUESTED	0x0100
++#define	__IXGBEVF_HW_RESETTING		0x0200
+ 
+ enum ixgbevf_boards {
+ 	board_82599_vf,
+-- 
+2.7.4
