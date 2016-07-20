@@ -1,64 +1,50 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/20] fm10k: avoid possible null pointer dereference in fm10k_update_stats
-Date: Wed, 20 Jul 2016 15:23:40 -0700
-Message-ID: <1469053438-85381-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1469053438-85381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	guru.anbalagane@oracle.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: b53: use module_mdio_driver
+Date: Wed, 20 Jul 2016 18:26:01 -0400
+Message-ID: <20160720222601.30701-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:21457 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755239AbcGTWYA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2016 18:24:00 -0400
-In-Reply-To: <1469053438-85381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:52384 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932173AbcGTW0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 18:26:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+Reduce boilerplate for module declaration with module_mdio_driver.
 
-It's currently possible for fm10k_update_stats to be called during the
-window when we go down and the rings are removed. This can result in
-a null pointer dereference. In fm10k_get_stats64 we work around this by
-using ACCESS_ONCE and a null pointer check inside the loop. Use this
-same flow in the fm10k_update_stats to avoid the potential null pointer.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/dsa/b53/b53_mdio.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 610c313..be0b7de 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -377,7 +377,10 @@ void fm10k_update_stats(struct fm10k_intfc *interface)
+diff --git a/drivers/net/dsa/b53/b53_mdio.c b/drivers/net/dsa/b53/b53_mdio.c
+index aa87c3f..87265c8 100644
+--- a/drivers/net/dsa/b53/b53_mdio.c
++++ b/drivers/net/dsa/b53/b53_mdio.c
+@@ -376,17 +376,7 @@ static struct mdio_driver b53_mdio_driver = {
+ 	},
+ };
  
- 	/* gather some stats to the interface struct that are per queue */
- 	for (bytes = 0, pkts = 0, i = 0; i < interface->num_tx_queues; i++) {
--		struct fm10k_ring *tx_ring = interface->tx_ring[i];
-+		struct fm10k_ring *tx_ring = READ_ONCE(interface->tx_ring[i]);
-+
-+		if (!tx_ring)
-+			continue;
+-static int __init b53_mdio_driver_register(void)
+-{
+-	return mdio_driver_register(&b53_mdio_driver);
+-}
+-module_init(b53_mdio_driver_register);
+-
+-static void __exit b53_mdio_driver_unregister(void)
+-{
+-	mdio_driver_unregister(&b53_mdio_driver);
+-}
+-module_exit(b53_mdio_driver_unregister);
++mdio_module_driver(b53_mdio_driver);
  
- 		restart_queue += tx_ring->tx_stats.restart_queue;
- 		tx_busy += tx_ring->tx_stats.tx_busy;
-@@ -396,7 +399,10 @@ void fm10k_update_stats(struct fm10k_intfc *interface)
- 
- 	/* gather some stats to the interface struct that are per queue */
- 	for (bytes = 0, pkts = 0, i = 0; i < interface->num_rx_queues; i++) {
--		struct fm10k_ring *rx_ring = interface->rx_ring[i];
-+		struct fm10k_ring *rx_ring = READ_ONCE(interface->rx_ring[i]);
-+
-+		if (!rx_ring)
-+			continue;
- 
- 		bytes += rx_ring->stats.bytes;
- 		pkts += rx_ring->stats.packets;
+ MODULE_DESCRIPTION("B53 MDIO access driver");
+ MODULE_LICENSE("Dual BSD/GPL");
 -- 
-2.5.5
+2.9.0
