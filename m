@@ -1,70 +1,43 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net] net/bonding: Enforce active-backup policy for IPoIB bonds
-Date: Wed, 20 Jul 2016 17:44:20 +0300
-Message-ID: <1469025860-15690-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Mark Bloch <markb@mellanox.com>,
+Subject: [PATCH net] net/mlx5e: Fix del vxlan port command
+Date: Wed, 20 Jul 2016 17:48:48 +0300
+Message-ID: <1469026128-15975-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Matthew Finlay <matt@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34222 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34742 "EHLO
 	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754415AbcGTOo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 10:44:59 -0400
+	with ESMTP id S1754201AbcGTOtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 10:49:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Bloch <markb@mellanox.com>
+mlx5e_vxlan_core_del_port_cmd cleared the wrong address, the address of
+the pointer of the buffer rather than clearing the buffer itself.
 
-When using an IPoIB bond currently only active-backup mode is a valid
-use case and this commit strengthens it.
+This can lead to a serious stack corruption.
 
-Since commit 2ab82852a270 ("net/bonding: Enable bonding to enslave
-netdevices not supporting set_mac_address()") was introduced till
-4.7-rc1, IPoIB didn't support the set_mac_address ndo, and hence
-the fail over mac policy always applied to IPoIB bonds.
-
-With the introduction of commit 492a7e67ff83 ("IB/IPoIB: Allow setting
-the device address"), that doesn't hold and practically IPoIB bonds are
-broken as of that. To fix it, lets go to fail over mac if the device
-doesn't support the ndo OR this is IPoIB device.
-
-As a by-product, this commit also prevents a stack corruption which
-occurred when trying to copy 20 bytes (IPoIB) device address
-to a sockaddr struct that has only 16 bytes of storage.
-
-Signed-off-by: Mark Bloch <markb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Fixes: b3f63c3d5e2c ("net/mlx5e: Add netdev support for VXLAN tunneling")
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/bonding/bond_main.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index a2afa3b..ccd4003 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1422,7 +1422,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		return -EINVAL;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
+index 05de772..e25a73ed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
+@@ -72,8 +72,8 @@ static int mlx5e_vxlan_core_del_port_cmd(struct mlx5_core_dev *mdev, u16 port)
+ 	u32 in[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_in)];
+ 	u32 out[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_out)];
  
--	if (slave_ops->ndo_set_mac_address == NULL) {
-+	if (slave_dev->type == ARPHRD_INFINIBAND &&
-+	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
-+		netdev_warn(bond_dev, "Type (%d) supports only active-backup mode\n",
-+			    slave_dev->type);
-+		goto err_undo_flags;
-+	}
-+
-+	if (!slave_ops->ndo_set_mac_address ||
-+	    slave_dev->type == ARPHRD_INFINIBAND) {
- 		netdev_warn(bond_dev, "The slave device specified does not support setting the MAC address\n");
- 		if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP &&
- 		    bond->params.fail_over_mac != BOND_FOM_ACTIVE) {
+-	memset(&in, 0, sizeof(in));
+-	memset(&out, 0, sizeof(out));
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
+ 
+ 	MLX5_SET(delete_vxlan_udp_dport_in, in, opcode,
+ 		 MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT);
 -- 
 2.8.0
