@@ -1,107 +1,85 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH net-next v3] cdc_ether: Improve ZTE MF823/831/910
- handling
-Date: Wed, 20 Jul 2016 09:53:36 +0200
-Message-ID: <1469001216.29240.3.camel@suse.com>
-References: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
+From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 0/5] net-next: ethernet: add sun8i-emac driver
+Date: Wed, 20 Jul 2016 10:03:15 +0200
+Message-ID: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kristian Evensen <kristian.evensen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBXHAXS6AKGQENAGQWNQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-07-19 at 16:54 +0200, Kristian Evensen wrote:
-> The firmware in several ZTE devices (at least the MF823/831/910
-> modems/mifis) use OS fingerprinting to determine which type of device
-> to
-> export. In addition, these devices export a REST API which can be used
-> to
-> control the type of device. So far, on Linux, the devices have been
-> seen as
-> RNDIS or CDC Ether.
-> 
-> When CDC Ether is used, devices of the same type are, as with RNDIS,
-> exported with the same, bogus random MAC address. In addition, the
-> devices
-> (at least on all firmware revisions I have found) use the bogus MAC
-> when
-> sending traffic routed from external networks. And as a final feature,
-> the
-> devices sometimes export the link state incorrectly. There are also
-> references online to several other ZTE devices displaying this
-> behavior,
-> with several different PIDs and MAC addresses.
-> 
-> This patch tries to improve the handling of ZTE devices by doing the
-> following:
-> 
-> * Create a new driver_info-struct that is used by ZTE devices that do
-> not
-> have an explicit entry in the product table. This struct is the same
-> as the
-> default cdc_ether driver info, but a new bind- and an
-> rx_fixup-function
-> have been added.
-> 
-> * In the new bind function, we check if we have read a random MAC from
-> the
-> device. If we have, then we generate a new random MAC address. This
-> will
-> ensure that all devices get a unique MAC.
-> 
-> * The rx_fixup-function replaces the destination MAC address in the
-> skb
-> with that of the device. I have not seen a revision of these devices
-> that
-> behaves correctly (i.e., sets the right destination MAC), so I chose
-> not to
-> do any comparison with for example the known, bogus addresses.
-> 
-> * The MF823/MF832/MF910 sometimes export cdc carrier on twice on
-> connect
-> (the correct behavior is off then on). Work around this by manually
-> setting
-> carrier to off if an on-notification is received and the NOCARRIER-bit
-> is
-> not set.
-> 
-> This change will affect all devices, but it should take care of
-> similar
-> mistakes made by other manufacturers. I tried to think of/look/test
-> for
-> problems/regressions that could be introduced by this behavior, but
-> could
-> not find any. However, my familiarity with this code path is not that
-> great, so there could be something I have overlooked.
-> 
-> I have tested this patch with multiple revisions of all three devices,
-> and
-> they behave as expected. In other words, they all got a valid, random
-> MAC,
-> the correct operational state and I can receive/sent traffic without
-> problems. I also tested with some other cdc_ether devices I have and
-> did
-> not find any problems/regressions caused by the two general changes.
-> 
-> v2->v3:
-> * I had forgot to remove the random MAC generation from
-> usbnet_cdc_bind()
-> (thanks Olive).
-> * Rework logic in the ZTE bind-function a bit.
-> 
-> v1->v2:
-> * Only generate random MAC for ZTE devices (thanks Oliver Neukum).
-> * Set random MAC and do RX fixup for all ZTE devices that do not have
-> a
-> product-entry, as the bogus MAC have been seen on devices with several
-> different PIDs/MAC addresses. In other words, it seems to be the
-> default
-> behavior of ZTE CDC Ether devices (thanks Lars Melin).
-> 
-> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
-Acked-by: Oliver Neukum <oneukum@suse.com>
+Hello
+
+This patch series add the driver for sun8i-emac which handle the Ethernet MAC
+present on Allwinner H3/A83T/A64 SoCs.
+
+It supports 10/100/1000 Mbit/s speed with half/full duplex.
+It can use an internal PHY (MII 10/100) or an external PHY
+via RGMII/RMII.
+
+This patch series enable the driver only for the H3 SoC since A83T and A64
+doesn't have the necessary clocks present in mainline.
+
+This patch series enable the driver only for the OrangePiPC board since other
+board with H3 use external PHY which need optional regulators that will be
+supported later.
+
+The driver have been tested on the following boards:
+- H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
+- A64 Pine64
+- A83T BananaPI-M3
+
+I would like to thanks Chen-Yu Tsai for his help on developing this driver.
+
+Regards
+
+Changes since v1
+- Implement NAPI
+- Sorted and reworded all define
+- Reworked ethtools stats strings
+- Removed all unneeded __packked and __aligned
+- Added tuning of RX/TX ring size via ethtool
+- Corrected use of sk/skb naming
+- Added some wmb when needed
+- Moved irq claim/free to emac_open/close
+- Lots of code refactoring
+
+LABBE Corentin (5):
+  ethernet: add sun8i-emac driver
+  MAINTAINERS: Add myself as maintainers of sun8i-emac
+  ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
+  ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
+  ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
+
+ .../bindings/net/allwinner,sun8i-emac.txt          |   65 +
+ MAINTAINERS                                        |    6 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   11 +
+ arch/arm/boot/dts/sun8i-h3.dtsi                    |   14 +
+ drivers/net/ethernet/allwinner/Kconfig             |   13 +
+ drivers/net/ethernet/allwinner/Makefile            |    1 +
+ drivers/net/ethernet/allwinner/sun8i-emac.c        | 2127 ++++++++++++++++++++
+ 7 files changed, 2237 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+ create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
+
+-- 
+2.7.3
