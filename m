@@ -1,49 +1,107 @@
-From: "Reizer, Eyal" <eyalr-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH] wlcore: spi: fix build warning caused by redundant variable
-Date: Wed, 20 Jul 2016 07:30:20 +0000
-Message-ID: <8665E2433BC68541A24DFFCA87B70F5B36161A64@DFRE01.ent.ti.com>
-References: <1468999637-31006-1-git-send-email-eyalr@ti.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH net-next v3] cdc_ether: Improve ZTE MF823/831/910
+ handling
+Date: Wed, 20 Jul 2016 09:53:36 +0200
+Message-ID: <1469001216.29240.3.camel@suse.com>
+References: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-spi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1468999637-31006-1-git-send-email-eyalr-l0cyMroinI0@public.gmane.org>
-Content-Language: en-US
-Sender: linux-spi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kristian Evensen <kristian.evensen@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The ret variable is unused in wlcore_probe_of()
-Remove it for fixing build warning.
-
-Fixes: 01efe65aba65 ("wlcore: spi: add wl18xx support")
-Signed-off-by: Eyal Reizer <eyalr-l0cyMroinI0@public.gmane.org>
----
- drivers/net/wireless/ti/wlcore/spi.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index 73fbcf1..6d24040 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -454,7 +454,6 @@ static int wlcore_probe_of(struct spi_device *spi, struct wl12xx_spi_glue *glue,
- 			   struct wlcore_platdev_data *pdev_data)
- {
- 	struct device_node *dt_node = spi->dev.of_node;
--	int ret;
- 	const struct of_device_id *of_id;
- 
- 	of_id = of_match_node(wlcore_spi_of_match_table, dt_node);
--- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-spi" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Tue, 2016-07-19 at 16:54 +0200, Kristian Evensen wrote:
+> The firmware in several ZTE devices (at least the MF823/831/910
+> modems/mifis) use OS fingerprinting to determine which type of device
+> to
+> export. In addition, these devices export a REST API which can be used
+> to
+> control the type of device. So far, on Linux, the devices have been
+> seen as
+> RNDIS or CDC Ether.
+> 
+> When CDC Ether is used, devices of the same type are, as with RNDIS,
+> exported with the same, bogus random MAC address. In addition, the
+> devices
+> (at least on all firmware revisions I have found) use the bogus MAC
+> when
+> sending traffic routed from external networks. And as a final feature,
+> the
+> devices sometimes export the link state incorrectly. There are also
+> references online to several other ZTE devices displaying this
+> behavior,
+> with several different PIDs and MAC addresses.
+> 
+> This patch tries to improve the handling of ZTE devices by doing the
+> following:
+> 
+> * Create a new driver_info-struct that is used by ZTE devices that do
+> not
+> have an explicit entry in the product table. This struct is the same
+> as the
+> default cdc_ether driver info, but a new bind- and an
+> rx_fixup-function
+> have been added.
+> 
+> * In the new bind function, we check if we have read a random MAC from
+> the
+> device. If we have, then we generate a new random MAC address. This
+> will
+> ensure that all devices get a unique MAC.
+> 
+> * The rx_fixup-function replaces the destination MAC address in the
+> skb
+> with that of the device. I have not seen a revision of these devices
+> that
+> behaves correctly (i.e., sets the right destination MAC), so I chose
+> not to
+> do any comparison with for example the known, bogus addresses.
+> 
+> * The MF823/MF832/MF910 sometimes export cdc carrier on twice on
+> connect
+> (the correct behavior is off then on). Work around this by manually
+> setting
+> carrier to off if an on-notification is received and the NOCARRIER-bit
+> is
+> not set.
+> 
+> This change will affect all devices, but it should take care of
+> similar
+> mistakes made by other manufacturers. I tried to think of/look/test
+> for
+> problems/regressions that could be introduced by this behavior, but
+> could
+> not find any. However, my familiarity with this code path is not that
+> great, so there could be something I have overlooked.
+> 
+> I have tested this patch with multiple revisions of all three devices,
+> and
+> they behave as expected. In other words, they all got a valid, random
+> MAC,
+> the correct operational state and I can receive/sent traffic without
+> problems. I also tested with some other cdc_ether devices I have and
+> did
+> not find any problems/regressions caused by the two general changes.
+> 
+> v2->v3:
+> * I had forgot to remove the random MAC generation from
+> usbnet_cdc_bind()
+> (thanks Olive).
+> * Rework logic in the ZTE bind-function a bit.
+> 
+> v1->v2:
+> * Only generate random MAC for ZTE devices (thanks Oliver Neukum).
+> * Set random MAC and do RX fixup for all ZTE devices that do not have
+> a
+> product-entry, as the bogus MAC have been seen on devices with several
+> different PIDs/MAC addresses. In other words, it seems to be the
+> default
+> behavior of ZTE CDC Ether devices (thanks Lars Melin).
+> 
+> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+Acked-by: Oliver Neukum <oneukum@suse.com>
