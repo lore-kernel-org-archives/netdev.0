@@ -1,169 +1,136 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
-Date: Wed, 20 Jul 2016 17:12:09 +0200
-Message-ID: <3876342.AU5AfU16PB@wuerfel>
-References: <20160719153403.2967812-1-arnd@arndb.de>
- <4806848.QL77nxBrs4@wuerfel> <wrfjlh0wsg9s.fsf@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org,
- Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
- Andrea Merello <andrea.merello@gmail.com>, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Kalle Valo <kvalo@codeaurora.org>, Larry Finger <Larry.Finger@lwfinger.net>
-To: Jes Sorensen <Jes.Sorensen@redhat.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <wrfjlh0wsg9s.fsf@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH 1/3] staging/rtl8192u: use s8 instead of char
+Date: Wed, 20 Jul 2016 17:13:58 +0200
+Message-ID: <20160720151818.4142386-1-arnd@arndb.de>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, July 20, 2016 7:25:19 AM CEST Jes Sorensen wrote:
-> Arnd Bergmann <arnd@arndb.de> writes:
-> >> I'd like to get rid of all the drivers/staging/rtl* drivers eventually 
-> >
-> > That would be great, yes.
-> >
-> > Can you clarify what the long-term plan is? I see that
-> > drivers/net/wireless/realtek/rtlwifi/ has most of the PCIe parts
-> > and one USB device (rtl8192cu/rtl8188cus) while
-> > drivers/net/wireless/rtl8xxx has all the USB parts including
-> > that one.
-> >
-> > Does that mean we want the staging drivers for PCIe devices
-> > to get merged into rtlwifi, and the remaining USB drivers to get
-> > replaced by r8xxxu?
-> 
-> Well it really all depends on how much time I have and how much others
-> step up and help contribute to the code. For rtl8xxxu my plans are as
-> follows:
-> 
-> 1) rtl8188eu support, since this is the most widely distributed USB
-> dongle which isn't currently supported by a non staging driver. I am
-> currently working on this together with Andrea Merello.
+Compiling the rtlwifi drivers for ARM with gcc -Wextra warns about lots of
+incorrect code that results from 'char' being unsigned here, e.g.
 
-Ok, cool.
+staging/rtl8192u/r8192U_core.c:4150:16: error: comparison is always false due to limited range of data type [-Werror=type-limits]
+staging/rtl8192u/r8192U_dm.c:646:50: error: comparison is always false due to limited range of data type [-Werror=type-limits]
 
-> 2) Beacon support for IBSS and AP mode - hopefully this should make it
-> possible to default rtl8xxxu for rtl8192cu/rtl8188cu devices and disable
-> them in rtlwifi.
+This patch changes all uses of 'char' in this driver that refer to
+8-bit integers to use 's8' instead, which is signed on all architectures.
 
-Do we have any indication that those two actually work in rtlwifi at the
-moment? My experience seems to match the recommendations for all the
-raspberry pi users that use yet another (worse looking) driver:
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Acked-by: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/staging/rtl8192u/ieee80211/ieee80211.h |  4 ++--
+ drivers/staging/rtl8192u/r8192U.h              |  4 ++--
+ drivers/staging/rtl8192u/r8192U_core.c         | 14 +++++++-------
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
-https://github.com/raspberrypi/linux/commit/9ee31007a5032a3afe2fcb20c36b34f0ad57df56
+diff --git a/drivers/staging/rtl8192u/ieee80211/ieee80211.h b/drivers/staging/rtl8192u/ieee80211/ieee80211.h
+index 09e9499b7f9d..077ea13eb1e7 100644
+--- a/drivers/staging/rtl8192u/ieee80211/ieee80211.h
++++ b/drivers/staging/rtl8192u/ieee80211/ieee80211.h
+@@ -746,7 +746,7 @@ struct ieee80211_rx_stats {
+ 	bool		  bisrxaggrsubframe;
+ 	bool		  bPacketBeacon;	//cosa add for rssi
+ 	bool		  bToSelfBA;		//cosa add for rssi
+-	char	  cck_adc_pwdb[4];	//cosa add for rx path selection
++	s8		  cck_adc_pwdb[4];	//cosa add for rx path selection
+ 	u16		  Seq_Num;
+ 
+ };
+@@ -1814,7 +1814,7 @@ struct ieee80211_device {
+ 	u32 wpax_type_notify; //{added by David, 2006.9.26}
+ 
+ 	/* QoS related flag */
+-	char init_wmmparam_flag;
++	s8  init_wmmparam_flag;
+ 	/* set on initialization */
+ 	u8  qos_support;
+ 
+diff --git a/drivers/staging/rtl8192u/r8192U.h b/drivers/staging/rtl8192u/r8192U.h
+index 5dba6a28dd9b..b28bc7812caa 100644
+--- a/drivers/staging/rtl8192u/r8192U.h
++++ b/drivers/staging/rtl8192u/r8192U.h
+@@ -533,7 +533,7 @@ typedef struct _rt_9x_tx_rate_history {
+ 	u32             ht_mcs[4][16];
+ } rt_tx_rahis_t, *prt_tx_rahis_t;
+ typedef struct _RT_SMOOTH_DATA_4RF {
+-	char    elements[4][100]; /* array to store values */
++	s8    elements[4][100]; /* array to store values */
+ 	u32     index;            /* index to current array to store */
+ 	u32     TotalNum;         /* num of valid elements */
+ 	u32     TotalVal[4];      /* sum of valid elements */
+@@ -1031,7 +1031,7 @@ typedef struct r8192_priv {
+ 	s8 cck_present_attentuation;
+ 	u8 cck_present_attentuation_20Mdefault;
+ 	u8 cck_present_attentuation_40Mdefault;
+-	char cck_present_attentuation_difference;
++	s8 cck_present_attentuation_difference;
+ 	bool btxpower_tracking;
+ 	bool bcck_in_ch14;
+ 	bool btxpowerdata_readfromEEPORM;
+diff --git a/drivers/staging/rtl8192u/r8192U_core.c b/drivers/staging/rtl8192u/r8192U_core.c
+index dd0970facdf5..f36b2d3b1ee9 100644
+--- a/drivers/staging/rtl8192u/r8192U_core.c
++++ b/drivers/staging/rtl8192u/r8192U_core.c
+@@ -4209,7 +4209,7 @@ static void rtl8192_process_phyinfo(struct r8192_priv *priv, u8 *buffer,
+  *
+  * Return:		0-100 percentage
+  *---------------------------------------------------------------------------*/
+-static u8 rtl819x_query_rxpwrpercentage(char antpower)
++static u8 rtl819x_query_rxpwrpercentage(s8 antpower)
+ {
+ 	if ((antpower <= -100) || (antpower >= 20))
+ 		return	0;
+@@ -4220,9 +4220,9 @@ static u8 rtl819x_query_rxpwrpercentage(char antpower)
+ 
+ }	/* QueryRxPwrPercentage */
+ 
+-static u8 rtl819x_evm_dbtopercentage(char value)
++static u8 rtl819x_evm_dbtopercentage(s8 value)
+ {
+-	char ret_val;
++	s8 ret_val;
+ 
+ 	ret_val = value;
+ 
+@@ -4297,8 +4297,8 @@ static void rtl8192_query_rxphystatus(struct r8192_priv *priv,
+ 	phy_ofdm_rx_status_rxsc_sgien_exintfflag *prxsc;
+ 	u8	*prxpkt;
+ 	u8	i, max_spatial_stream, tmp_rxsnr, tmp_rxevm, rxsc_sgien_exflg;
+-	char	rx_pwr[4], rx_pwr_all = 0;
+-	char	rx_snrX, rx_evmX;
++	s8	rx_pwr[4], rx_pwr_all = 0;
++	s8	rx_snrX, rx_evmX;
+ 	u8	evm, pwdb_all;
+ 	u32	RSSI, total_rssi = 0;
+ 	u8	is_cck_rate = 0;
+@@ -4423,7 +4423,7 @@ static void rtl8192_query_rxphystatus(struct r8192_priv *priv,
+ 
+ 			/* Get Rx snr value in DB */
+ 			tmp_rxsnr =	pofdm_buf->rxsnr_X[i];
+-			rx_snrX = (char)(tmp_rxsnr);
++			rx_snrX = (s8)(tmp_rxsnr);
+ 			rx_snrX /= 2;
+ 			priv->stats.rxSNRdB[i] = (long)rx_snrX;
+ 
+@@ -4457,7 +4457,7 @@ static void rtl8192_query_rxphystatus(struct r8192_priv *priv,
+ 
+ 		for (i = 0; i < max_spatial_stream; i++) {
+ 			tmp_rxevm =	pofdm_buf->rxevm_X[i];
+-			rx_evmX = (char)(tmp_rxevm);
++			rx_evmX = (s8)(tmp_rxevm);
+ 
+ 			/* Do not use shift operation like "rx_evmX >>= 1"
+ 			 * because the compiler of free build environment will
+-- 
+2.9.0
 
-> 3) SDIO device support
-> 
-> 4) PCI device support
-> 
-> 5) 802.11ac device support
-> 
-> 3/4/5 not necessarily in that order. There really is no reason why
-> rtl8xxxu shouldn't have SDIO and PCI device support added so the core
-> code can be shared.
-
-Ok, got it.
-
-> > As one data point that I can provide (but you are probably
-> > aware of), I could never get my rtl8188cus stick to work with
-> > rtlwifi, but I found the older r8712u device to work fine with
-> > the staging/rtl8712 driver.
-> 
-> I'd love to hear if the rtl8188cus works better with rtl8xxxu.
-
-It took me far too long to get the driver running on my machine (all my fault),
-but I've tested it now. Unfortunately there is something very wrong
-with my home wireless network at the moment, so I can only confirm
-that it doesn't work any worse than my Intel Wireless card on 2.4GHz,
-but that isn't any good (5GHz devices are fine, but that doesn't
-help on a 2.4GHz-only device).
-
-This is what I see in the kernel log
-
-[  773.862848] usb 2-1.2: new high-speed USB device number 8 using ehci-pci
-[  773.957415] usb 2-1.2: New USB device found, idVendor=0bda, idProduct=8176
-[  773.957425] usb 2-1.2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
-[  773.957430] usb 2-1.2: Manufacturer: Realtek
-[  773.957433] usb 2-1.2: SerialNumber: 00e04c000001
-[  774.115182] usb 2-1.2: Vendor: Realtek
-[  774.115192] usb 2-1.2: Product: 
-[  774.115199] usb 2-1.2: rtl8192cu_parse_efuse: dumping efuse (0x80 bytes):
-[  774.115206] usb 2-1.2: 00: 29 81 00 74 ed 00 00 00
-[  774.115212] usb 2-1.2: 08: ff 00 da 0b 76 81 01 41
-[  774.115219] usb 2-1.2: 10: 32 00 85 62 7e ad 5c f3
-[  774.115225] usb 2-1.2: 18: 70 15 9c b1 0a 03 52 65
-[  774.115231] usb 2-1.2: 20: 61 6c 74 65 6b 00 02 03
-[  774.115237] usb 2-1.2: 28: 00 00 00 00 00 00 00 00
-[  774.115242] usb 2-1.2: 30: 00 00 00 00 00 00 00 00
-[  774.115248] usb 2-1.2: 38: 00 00 00 00 00 00 00 00
-[  774.115254] usb 2-1.2: 40: 00 00 00 00 00 00 00 00
-[  774.115260] usb 2-1.2: 48: 00 00 00 00 00 00 00 00
-[  774.115265] usb 2-1.2: 50: 00 00 00 00 00 00 00 00
-[  774.115271] usb 2-1.2: 58: 06 00 2a 2a 2a 00 00 00
-[  774.115277] usb 2-1.2: 60: 2a 2a 2a 00 00 00 00 00
-[  774.115283] usb 2-1.2: 68: 00 00 00 00 04 04 04 00
-[  774.115289] usb 2-1.2: 70: 00 00 00 00 00 00 05 00
-[  774.115295] usb 2-1.2: 78: 10 00 00 00 36 00 00 00
-[  774.115302] usb 2-1.2: RTL8188CU rev A (TSMC) 1T1R, TX queues 2, WiFi=1, BT=0, GPS=0, HI PA=0
-[  774.115308] usb 2-1.2: RTL8188CU MAC: 5c:f3:70:15:9c:b1
-[  774.115314] usb 2-1.2: rtl8xxxu: Loading firmware rtlwifi/rtl8192cufw_TMSC.bin
-[  774.115409] usb 2-1.2: Firmware revision 80.0 (signature 0x88c1)
-[  775.692344] rtl8xxxu 2-1.2:1.0 wlan1: renamed from wlan0
-[  775.721151] IPv6: ADDRCONF(NETDEV_UP): wlan1: link is not ready
-[  775.746653] IPv6: ADDRCONF(NETDEV_UP): wlan1: link is not ready
-[  775.798780] IPv6: ADDRCONF(NETDEV_UP): wlan1: link is not ready
-[  788.414618] wlan2: authenticate with 22:4e:7f:6f:5b:3c
-[  788.452485] wlan2: send auth to 22:4e:7f:6f:5b:3c (try 1/3)
-[  788.457926] wlan2: authenticated
-[  788.462261] wlan2: associate with 22:4e:7f:6f:5b:3c (try 1/3)
-[  788.475159] wlan2: RX AssocResp from 22:4e:7f:6f:5b:3c (capab=0x431 status=0 aid=1)
-[  788.504683] wlan2: associated
-
-throughput for me is 2mbit/s, compared to my intel 2x2 wireless that gets
-5mbit/s on the same network, but I guess that doesn't really mean much
-as long as I have problems with the infrastructure.
-
-rtl8xxxu  IEEE 802.11  ESSID:"openwrt24-ab"  
-          Mode:Managed  Frequency:2.462 GHz  Access Point: 22:4E:7F:6F:5B:3C   
-          Bit Rate=54 Mb/s   Tx-Power=20 dBm   
-          Retry short limit:7   RTS thr=2347 B   Fragment thr:off
-          Power Management:off
-          Link Quality=47/70  Signal level=-63 dBm  
-          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
-          Tx excessive retries:0  Invalid misc:38   Missed beacon:0
-
-iwlwifi   IEEE 802.11  ESSID:"openwrt24-ab"  
-          Mode:Managed  Frequency:2.462 GHz  Access Point: 22:4E:7F:6F:5B:3C   
-          Bit Rate=54 Mb/s   Tx-Power=15 dBm   
-          Retry short limit:7   RTS thr:off   Fragment thr:off
-          Power Management:on
-          Link Quality=65/70  Signal level=-45 dBm  
-          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
-          Tx excessive retries:90  Invalid misc:146   Missed beacon:0
-
-
-> For the rtl8712 device, rtl8192su?, then potentially that could be added to
-> rtl8xxxu as well, but it's not a top priority on my list right now.
-
-This one:
-Bus 001 Device 033: ID 0bda:8171 Realtek Semiconductor Corp. RTL8188SU 802.11n WLAN Adapter
-
-I bought the rtl8188su a while ago, while the rtl8188cus (0bda:8176)
-is from this year. According to https://wikidevi.com/wiki/Realtek, it
-seems to be one year older than the rtl8188cus and was almost as common
-in its day. Apparently everyone that used to make ...su device replaced it
-with a ...cu or the newer ...eu chips and that is all you can buy these days
-on the low end.
-
-	Arnd
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
