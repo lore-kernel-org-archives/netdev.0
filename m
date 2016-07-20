@@ -1,46 +1,36 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 0/3] add support for impedance control for TI dp83867
- phy and fix 2nd ethernet on dra72 rev C evm
-Date: Wed, 20 Jul 2016 20:26:11 +0530
-Message-ID: <20160720145614.13132-1-mugunthanvnm@ti.com>
+From: Xose Vazquez Perez <xose.vazquez@gmail.com>
+Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
+Date: Wed, 20 Jul 2016 17:06:27 +0200
+Message-ID: <74d0fd1d-8197-1e4a-1ab1-a879d6dcea4e@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>, Mugunthan V N <mugunthanvnm@ti.com>,
- Tony Lindgren <tony@atomide.com>, Sekhar Nori <nsekhar@ti.com>,
- Russell King <linux@armlinux.org.uk>, linux-kernel@vger.kernel.org,
- Rob Herring <robh+dt@kernel.org>, linux-omap@vger.kernel.org,
- "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: <netdev@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+To: linux-wireless <linux-wireless@vger.kernel.org>, netdev@vger.kernel.org,
+ LKML <linux-kernel@vger.kernel.org>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ Jes Sorensen <Jes.Sorensen@redhat.com>,
+ Christian Lamparter <chunkeey@googlemail.com>,
+ Larry Finger <Larry.Finger@lwfinger.net>, Arnd Bergmann <arnd@arndb.de>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Add support for configurable impedance control for TI dp83867
-phy via devicetree. More documentation in [1]
-CPSW second ethernet is not working, fix it by enabling
-impedance configuration on the phy.
+Arnd Bergmann <arnd@arndb.de> wrote:
 
-Public Datasheet - http://www.ti.com/lit/ds/symlink/dp83867ir.pdf
+> rtlwifi, but I found the older r8712u device to work fine with
+> the staging/rtl8712 driver.
 
-Mugunthan V N (3):
-  net: phy: dp83867: Add documentation for optional impedance control
-  net: phy: dp83867: add support for MAC impedance configuration
-  ARM: dts: dra72-evm-revc: fix non-working cpsw second ethernet
+A replacement for "staging/rtl8712", with MAC80211 support, is
+available at: https://github.com/chunkeey/rtl8192su
 
- .../devicetree/bindings/net/ti,dp83867.txt         |  7 +++++++
- arch/arm/boot/dts/dra72-evm-revc.dts               |  2 ++
- drivers/net/phy/dp83867.c                          | 22 ++++++++++++++++++++++
- 3 files changed, 31 insertions(+)
-
--- 
-2.9.2.368.g08bb350
+Also a fullmac/cfg80211 driver(r92su) is available at the
+same repository.
