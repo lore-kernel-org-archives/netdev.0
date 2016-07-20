@@ -1,129 +1,58 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbevf: avoid checking hang when
- performing hardware reset
-Date: Wed, 20 Jul 2016 10:42:33 +0800
-Message-ID: <CAD=hENd98UENTqauL4R2OWj3533PNOcFO3LC7xJtaoZJ7a0hkA@mail.gmail.com>
-References: <1468849489-8407-1-git-send-email-zyjzyj2000@gmail.com>
-	<F6FB0E698C9B3143BDF729DF2228664696ACAA19@ORSMSX116.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v17 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 19 Jul 2016 19:52:53 -0700 (PDT)
+Message-ID: <20160719.195253.2126109938824378508.davem@davemloft.net>
+References: <CO2PR03MB2182D860B8B31579770E3798BF330@CO2PR03MB2182.namprd03.prod.outlook.com>
+	<201607200149.0W6994tY%fengguang.wu@intel.com>
+	<CO2PR03MB218232E102F17C0E8B3B7764BF080@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3570601549025193937=="
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <F6FB0E698C9B3143BDF729DF2228664696ACAA19@ORSMSX116.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lkp@intel.com, kbuild-all@01.org, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+	jasowang@redhat.com, vkuznets@redhat.com, cavery@redhat.com,
+	kys@microsoft.com, joe@perches.com, rolf.neugebauer@docker.com,
+	mkubecek@suse.cz, haiyangz@microsoft.com, dave.scott@docker.com
+To: decui@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CO2PR03MB218232E102F17C0E8B3B7764BF080@CO2PR03MB2182.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============3570601549025193937==
-Content-Type: multipart/alternative; boundary=001a113ef3a25385d005380827b6
+From: Dexuan Cui <decui@microsoft.com>
+Date: Wed, 20 Jul 2016 01:48:18 +0000
 
---001a113ef3a25385d005380827b6
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+>> From: kbuild test robot [mailto:lkp@intel.com]
+>> Sent: Wednesday, July 20, 2016 1:10
+>> 
+>> Hi,
+>> 
+>> [auto build test WARNING on net-next/master]
+>> 
+>> url:    https://github.com/0day-ci/linux/commits/Dexuan-Cui/introduce-
+>> Hyper-V-VM-Sockets-hv_sock/20160715-223433
+>> config: x86_64-randconfig-a0-07191719 (attached as .config)
+>> compiler: gcc-4.4 (Debian 4.4.7-8) 4.4.7
+>> reproduce:
+>>         # save the attached .config to linux build tree
+>>         make ARCH=x86_64
+>> 
+>> All warnings (new ones prefixed by >>):
+>> 
+>>    net/hv_sock/af_hvsock.c: In function 'hvsock_open_connection':
+>>    net/hv_sock/af_hvsock.c:693: warning: 'hvsk' may be used uninitialized in
+>> this function
+>>    net/hv_sock/af_hvsock.c:693: warning: 'new_hvsk' may be used
+>> uninitialized in this function
+>>    net/hv_sock/af_hvsock.c:697: warning: 'new_sk' may be used uninitialized
+>> in this function
+>>    net/hv_sock/af_hvsock.c: In function 'hvsock_sendmsg_wait':
+>>    net/hv_sock/af_hvsock.c:1053: warning: 'ret' may be used uninitialized in
+>> this function
+>> >> net/hv_sock/af_hvsock.o: warning: objtool: hvsock_on_channel_cb()+0x1d:
+>> function has unreachable instruction
+> 
+> These warnings are all false alarms.
 
-Hi=EF=BC=8C Don
-
-I use a state variable to replace reading directly from the register. I
-hope it can alleviate your concern. Please  comment.
-Sorry. My mail service can not work well with netdev maillist. So I write
-this mail to make sure that you can read this patch.
-
-If any problem, please feel free to let me know.
-
-Zhu Yanjun
-
-On Tue, Jul 19, 2016 at 6:30 AM, Skidmore, Donald C <
-donald.c.skidmore@intel.com> wrote:
-
-> > -----Original Message-----
-> > From: zyjzyj2000@gmail.com [mailto:zyjzyj2000@gmail.com]
-> > Sent: Monday, July 18, 2016 6:45 AM
-> > To: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org; Kirsher,
-> > Jeffrey T <jeffrey.t.kirsher@intel.com>
-> > Subject: [E1000-devel] [PATCH 1/1] ixgbevf: avoid checking hang when
-> > performing hardware reset
-> >
-> > From: Zhu Yanjun <zyjzyj2000@gmail.com>
-> >
-> > When performing hardware reset, it is not necessary to check hang.
-> > Or else, the call trace will appear.
-> >
-> > Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 5 +++++
-> >  1 file changed, 5 insertions(+)
-> >
-> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > index acc2401..d563d24 100644
-> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > @@ -2792,9 +2792,14 @@ static void ixgbevf_reset_subtask(struct
-> > ixgbevf_adapter *adapter)  static void ixgbevf_check_hang_subtask(struc=
-t
-> > ixgbevf_adapter *adapter)  {
-> >       struct ixgbe_hw *hw =3D &adapter->hw;
-> > +     struct ixgbe_mbx_info *mbx =3D &hw->mbx;
-> >       u32 eics =3D 0;
-> >       int i;
-> >
-> > +     /* When performing hardware reset, unnecessary to check hang. */
-> > +     if (mbx->ops.check_for_rst(hw))
-> > +             return;
-> > +
-> >       /* If we're down or resetting, just bail */
-> >       if (test_bit(__IXGBEVF_DOWN, &adapter->state) ||
-> >           test_bit(__IXGBEVF_RESETTING, &adapter->state))
-> > --
-> > 2.7.4
-> >
-> >
->
-> My concern with this patch is that the check_for_rst does a read to clear
-> on the RSTD and RSTI bits.  So reading it in the service task may mean we
-> miss this transition in the mailbox protocol.  Likewise it is possible th=
-ey
-> may have already been cleared and you won't even catch the state your
-> looking for.
->
-> -Don Skidmore <donald.c.skidmore@intel.com>
->
->
->
-
---001a113ef3a25385d005380827b6--
-
-
---===============3570601549025193937==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity planning
-reports.http://sdm.link/zohodev2dev
---===============3570601549025193937==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============3570601549025193937==--
+But you still have to quiet them.
