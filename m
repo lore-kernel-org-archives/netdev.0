@@ -1,47 +1,73 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] xfrm: use printk instead of WARN for bad policy reporting
-Date: Wed, 20 Jul 2016 10:32:35 +0200
-Message-ID: <1469003555-30599-1-git-send-email-vegard.nossum@oracle.com>
-Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v10 04/12] rtnl: add option for setting link xdp prog
+Date: Wed, 20 Jul 2016 10:38:49 +0200
+Message-ID: <578F3899.2030605@iogearbox.net>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com> <1468955817-10604-5-git-send-email-bblanco@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38916 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753070AbcGTIfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 04:35:16 -0400
+Received: from www62.your-server.de ([213.133.104.62]:45946 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225AbcGTIiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 04:38:55 -0400
+In-Reply-To: <1468955817-10604-5-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-AFAICT this message is just printed whenever input validation fails.
-This is a normal failure and we shouldn't be dumping the stack over it.
+On 07/19/2016 09:16 PM, Brenden Blanco wrote:
+> Sets the bpf program represented by fd as an early filter in the rx path
+> of the netdev. The fd must have been created as BPF_PROG_TYPE_XDP.
+> Providing a negative value as fd clears the program. Getting the fd back
+> via rtnl is not possible, therefore reading of this value merely
+> provides a bool whether the program is valid on the link or not.
+>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+[...]
+> @@ -2054,6 +2101,23 @@ static int do_setlink(const struct sk_buff *skb,
+>   		status |= DO_SETLINK_NOTIFY;
+>   	}
+>
+> +	if (tb[IFLA_XDP]) {
+> +		struct nlattr *xdp[IFLA_XDP_MAX + 1];
+> +
+> +		err = nla_parse_nested(xdp, IFLA_XDP_MAX, tb[IFLA_XDP],
+> +				       ifla_xdp_policy);
+> +		if (err < 0)
+> +			goto errout;
+> +
+> +		if (xdp[IFLA_XDP_FD]) {
+> +			err = dev_change_xdp_fd(dev,
+> +						nla_get_s32(xdp[IFLA_XDP_FD]));
+> +			if (err)
+> +				goto errout;
+> +			status |= DO_SETLINK_NOTIFY;
+> +		}
 
-Looks like it was originally a printk that was maybe incorrectly
-upgraded to a WARN:
+For the setlink case IFLA_XDP_ATTACHED has no meaning currently, so I'd
+suggest it would be good to be strict and still add a:
 
-commit 62db5cfd70b1ef53aa21f144a806fe3b78c84fab
-Author: stephen hemminger <shemminger@vyatta.com>
-Date:   Wed May 12 06:37:06 2010 +0000
+		/* Only used in rtnl_fill_ifinfo currently. */
+		if (xdp[IFLA_XDP_ATTACHED]) {
+			err = -EINVAL;
+			goto errout;
+		}
 
-    xfrm: add severity to printk
-
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- net/xfrm/xfrm_user.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 4fb04ce..0b81bfc 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2150,7 +2150,7 @@ static int xfrm_add_acquire(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	return 0;
- 
- bad_policy:
--	WARN(1, "BAD policy passed\n");
-+	printk(KERN_WARNING "xfrm_user: bad policy passed\n");
- free_state:
- 	kfree(x);
- nomem:
--- 
-1.9.1
+> +	}
+> +
+>   errout:
+>   	if (status & DO_SETLINK_MODIFIED) {
+>   		if (status & DO_SETLINK_NOTIFY)
+>
