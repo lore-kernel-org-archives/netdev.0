@@ -1,99 +1,56 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Wed, 20 Jul 2016 09:02:45 +0900
-Message-ID: <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
- <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
- <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
- <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
- <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/1] net_sched: Introduce skbmod action
+Date: Wed, 20 Jul 2016 02:23:03 +0200
+Message-ID: <578EC467.2010808@iogearbox.net>
+References: <1468744884-8246-1-git-send-email-jhs@emojatatu.com> <20160718041933.GB36253@ast-mbp.thefacebook.com> <578C7C5C.2070804@mojatatu.com> <578CA4EB.7060703@iogearbox.net> <578CAA96.2090501@mojatatu.com> <578E2960.7080709@iogearbox.net> <578E3172.9020601@mojatatu.com> <578E414C.1080501@iogearbox.net> <CAM_iQpWX5HT_yF3guCbQLMo2GSVGA8BTcJ3_bucHrnBrMQbjqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57383 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbcGTAXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 20:23:07 -0400
+In-Reply-To: <CAM_iQpWX5HT_yF3guCbQLMo2GSVGA8BTcJ3_bucHrnBrMQbjqw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKdWwgMTgsIDIwMTYgYXQgMDM6MzQ6NTJQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3
-cm90ZToKPiBPbiBTdW4sIEp1bCAxNywgMjAxNiBhdCA5OjUwIFBNLCBTaW1vbiBIb3JtYW4KPiA8
-c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+ID4gW0NDIEppcmkgQmVuYyBmb3Ig
-cG9ydGlvbiByZWdhcmRpbmcgR1JFXQo+ID4KPiA+IEhpIFByYXZpbiwKPiA+Cj4gPiBPbiBGcmks
-IEp1bCAxNSwgMjAxNiBhdCAwMjowNzozN1BNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+
-ID4+IE9uIFdlZCwgSnVsIDEzLCAyMDE2IGF0IDEyOjMxIEFNLCBTaW1vbiBIb3JtYW4KPiA+PiA8
-c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+ID4+ID4gSGkgUHJhdmluLAo+ID4+
-ID4KPiA+PiA+IE9uIFRodSwgSnVsIDA3LCAyMDE2IGF0IDAxOjU0OjE1UE0gLTA3MDAsIHByYXZp
-biBzaGVsYXIgd3JvdGU6Cj4gPj4gPj4gT24gV2VkLCBKdWwgNiwgMjAxNiBhdCAxMDo1OSBBTSwg
-U2ltb24gSG9ybWFuCj4gPj4gPj4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPiB3cm90ZToK
-PiA+PiA+Cj4gPj4gPiAuLi4KPiA+Pgo+ID4+ID4KPiA+PiA+PiA+IGRpZmYgLS1naXQgYS9uZXQv
-b3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+ID4+ID4+ID4gaW5k
-ZXggMGVhMTI4ZWVlYWIyLi44NmYyY2ZiMTlkZTMgMTAwNjQ0Cj4gPj4gPj4gPiAtLS0gYS9uZXQv
-b3BlbnZzd2l0Y2gvZmxvdy5jCj4gPj4gPj4gPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5j
-Cj4gPj4gPj4gLi4uCj4gPj4gPj4KPiA+PiA+PiA+IEBAIC03MjMsOSArNzI5LDE3IEBAIGludCBv
-dnNfZmxvd19rZXlfZXh0cmFjdChjb25zdCBzdHJ1Y3QgaXBfdHVubmVsX2luZm8gKnR1bl9pbmZv
-LAo+ID4+ID4+ID4gICAgICAgICBrZXktPnBoeS5za2JfbWFyayA9IHNrYi0+bWFyazsKPiA+PiA+
-PiA+ICAgICAgICAgb3ZzX2N0X2ZpbGxfa2V5KHNrYiwga2V5KTsKPiA+PiA+PiA+ICAgICAgICAg
-a2V5LT5vdnNfZmxvd19oYXNoID0gMDsKPiA+PiA+PiA+ICsgICAgICAga2V5LT5waHkuaXNfbGF5
-ZXIzID0gc2tiLT5tYWNfbGVuID09IDA7Cj4gPj4gPj4KPiA+PiA+PiBJIGRvIG5vdCB0aGluayBt
-YWNfbGVuIGNhbiBiZSB1c2VkLiBtYWNfaGVhZGVyIG5lZWRzIHRvIGJlIGNoZWNrZWQuCj4gPj4g
-Pj4gLi4uCj4gPj4gPgo+ID4+ID4gWWVzLCBpbmRlZWQuIFRoZSB1cGRhdGUgdG8gdXNlIHNrYl9t
-YWNfaGVhZGVyX3dhc19zZXQoKSBoZXJlIGFjY2lkZW50bHkKPiA+PiA+IHNsaXBwZWQgaW50byB0
-aGUgZm9sbG93aW5nIHBhdGNoLCBzb3JyeSBhYm91dCB0aGF0Lgo+ID4+ID4KPiA+PiA+IFdpdGgg
-dGhhdCBjaGFuZ2UgaW4gcGxhY2UgSSBiZWxpZXZlIHRoYXQgdGhpcyBwYXRjaCBpcyBpbnRlcm5h
-bGx5Cj4gPj4gPiBjb25zaXN0ZW50IGJlY2F1c2UgbWFjX2hlYWRlciBhbmQgbWFjX2xlbiBhcmUg
-c2V0IGNvcnJlY3RseSBieSB0aGUKPiA+PiA+IGNhbGwgdG8ga2V5X2V4dHJhY3QoKSB3aGljaCBp
-cyBjYWxsZWQgYnkgb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoKSBqdXN0Cj4gPj4gPiBhZnRlciB3aGVy
-ZSB0aGUgZXhjZXJwdCBhYm92ZSBlbmRzLgo+ID4+ID4KPiA+PiA+IFRoYXQgc2FpZCwgSSBkbyB0
-aGluayB0aGF0IGl0IGlzIHBvc3NpYmxlIHRvIHJlbHkgb24gc2tiX21hY19oZWFkZXJfd2FzX3Nl
-dAo+ID4+ID4gdGhyb3VnaG91dCB0aGUgZGF0YXBhdGgsIGluY2x1ZGluZyBhY3Rpb24gcHJvY2Vz
-c2luZyBldGMuLi4gSSBoYXZlIHByb3ZpZGVkCj4gPj4gPiBhbiBpbmNyZW1lbnRhbCBwYXRjaCAt
-IHdoaWNoIEkgY3JlYXRlZCBvbiB0b3Agb2YgdGhpcyBlbnRpcmUgc2VyaWVzIC0gYXQKPiA+PiA+
-IHRoZSBlbmQgb2YgdGhpcyBlbWFpbC4gSWYgeW91IHByZWZlciB0aGF0IGFwcHJvYWNoIEkgYW0g
-aGFwcHkgdG8gdGFrZSBpdCwKPiA+PiA+IHRob3VnaCBJIGRvIGZlZWwgdGhhdCB1c2luZyBtYWNf
-bGVuIGxlYWRzIHRvIHNsaWdodGx5IGNsZWFuZXIgY29kZS4gTGV0IG1lCj4gPj4gPiBrbm93IHdo
-YXQgeW91IHRoaW5rLgo+ID4+ID4KPiA+Pgo+ID4+Cj4gPj4gSSBhbSBub3Qgc3VyZSBpZiB5b3Ug
-Y2FuIHVzZSBvbmx5IG1hY19sZW4gdG8gZGV0ZWN0IEwzIHBhY2tldC4gVGhpcwo+ID4+IGRvZXMg
-bm90IHdvcmsgd2l0aCBNUExTIHBhY2tldHMsIG1hY19sZW4gaXMgdXNlZCB0byBhY2NvdW50IE1Q
-TFMKPiA+PiBoZWFkZXJzIHB1c2hlZCBvbiBza2IuIFRoZXJlZm9yZSBpbiBjYXNlIG9mIGEgTVBM
-UyBoZWFkZXIgb24gTDMKPiA+PiBwYWNrZXQsIG1hY19sZW4gd291bGQgYmUgbm9uIHplcm8gYW5k
-IHdlIGhhdmUgdG8gbG9vayBhdCBlaXRoZXIKPiA+PiBtYWNfaGVhZGVyIG9yIHNvbWUgb3RoZXIg
-bWV0YWRhdGEgbGlrZSBpc19sYXllcjMgZmxhZyBmcm9tIGtleSB0bwo+ID4+IGNoZWNrIGZvciBM
-MyBwYWNrZXQuCj4gPgo+ID4gQXQgbGVhc3Qgd2l0aGluIE92UyBtYWNfbGVuIGRvZXMgbm90IGlu
-Y2x1ZGUgdGhlIGxlbmd0aCBvZiB0aGUgTVBMUyBsYWJlbAo+ID4gc3RhY2suIFJhdGhlciwgdGhl
-IE1QTFMgbGFiZWwgc3RhY2sgbGVuZ3RoIGlzIHRoZSBkaWZmZXJlbmNlIGJldHdlZW4gdGhlCj4g
-PiBlbmQgb2YgKG1hY19oZWFkZXIgKyBtYWNfbGVuKSBhbmQgbmV0d29ya19oZWFkZXIuCj4gPgo+
-ID4gU28gSSB0aGluayB0aGF0IHRoZSBzY2hlbWUgZG9lcyB3b3JrIGFzIG1hY19sZW4gaXMgMCBp
-ZiB0aGVyZSBpcyBubyBMMgo+ID4gaGVhZGVyIHJlZ2FyZGxlc3Mgb2YgaWYgYW4gTVBMUyBsYWJl
-bCBzdGFjayBpcyBwcmVzZW50IG9yIG5vdC4KPiA+Cj4gCj4gSSB3YXMgdGhpbmtpbmcgaW4gb3Zl
-cmFsbCBuZXR3b3JraW5nIHN0YWNrIHJhdGhlciB0aGFuIGp1c3Qgb3ZzCj4gZGF0YXBhdGguIEkg
-dGhpbmsgd2Ugc2hvdWxkIGhhdmUgY29uc2lzdGVudCBtZXRob2Qgb2YgZGV0ZWN0aW5nIEwzCj4g
-cGFja2V0LiBBcyBjb21tZW50ZWQgaW4gcHJldmlvdXMgbWFpbCBpdCBjb3VsZCBiZSBhY2hpZXZl
-ZCB1c2luZwo+IHNrYi1wcm90b2NvbCBhbmQgZGV2aWNlIHR5cGUuCgpUaGlzIGlzIHNvbWV3aGF0
-IG9mIGEgc3VycHJpc2UgdG8gbWUuIEFzIGZhciBhcyBJIHJlY2FsbCB3aGVuIE1QTFMgc3VwcG9y
-dAp3YXMgYWRkZWQgdG8gT3ZTIGl0IGFuZCB0aGUgYWNjb21wYW55aW5nIHN1cHBvcnQgZm9yIE1Q
-TFMgR1NPIHdhcyB0aGUgb25seQpNUExTIHN1cHBvcnQgcHJlc2VudCBpbiB0aGUga2VybmVsLiBB
-bmQgYXQgdGhlIHRpbWUgdGhlIHNjaGVtZSBkZXZlbG9wZWQgYnkKSmVzc2UgR3Jvc3MsIG15c2Vs
-ZiBhbmQgb3RoZXJzIHdhcyBhcyBJIGRlc2NyaWJlIGFib3ZlLgoKSW50ZXJuYWxseSBPdlMgcmVs
-aWVzIG9uIHRoaXMgc2NoZW1lIGFuZCBpbiBwYXJ0aWN1bGFyIGl0IGlzIHVzZWQKYnkgc2tiX21w
-bHNfaGVhZGVyKCkgdG8gY2FsY3VsYXRlIHRoZSBiZWdpbm5pbmcgb2YgdGhlIE1QTFMgbGFiZWwg
-c3RhY2sKYWNjdXJhdGVseSBpbiB0aGUgcHJlc2VuY2Ugb2YgVkxBTiB0YWdzLgoKSXMgaXQgbXBs
-c19nc29fc2VnbWVudCgpIHRoYXQgeW91IGFyZSBjb25jZXJuZWQgYWJvdXQ/CklmIHNvLCBwZXJo
-YXBzIHRoZSBwcm9ibGVtIGNvdWxkIGJlIGFkZHJlc3NlZCB0aGVyZS4KX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
-bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On 07/19/2016 08:04 PM, Cong Wang wrote:
+> On Tue, Jul 19, 2016 at 8:03 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 07/19/2016 03:56 PM, Jamal Hadi Salim wrote:
+>> [...]
+>>>>
+>>>> But apart from this,
+>>>> neither pedit nor tcf_skbmod_run() here handle checksum complete, so
+>>>> you'll
+>>>> potentially get false positives wrt csum corruption and drops as a result
+>>>> when using either of the two.
+>>>
+>>> pedit maybe tricky. Any suggestions?
+>>> On tcf_skbmod_run, mostly ignorance: while doing only ethernet updates;
+>>> is it still needed to do the checksum complete?
+>>
+>> Well, what Cong recently fixed with mirred was related to mac header ...
+>>
+>> You probably need skb_postpull_rcsum(), skb_postpush_rcsum() pair.
+>>
+>> Also, what about skb_try_make_writable()?
+>
+> I don't think so. 1) checksum is supposed to be done by csum action
+> rather than pedit (or skbmod if it matters), 2) csum action currently
+> already handles that correctly for both egress and ingress: 2a)
+> CHECKSUM_COMPLETE is meaningless on egress; 2b) it forces
+> CHECKSUM_COMPLETE to be CHECKSUM_NONE on ingress
+> and it is correctly respected.
+
+Ahh, right, so it redoes entire csums when worst-case changing one byte
+only, since it cannot know what other actions like pedit did previously.
+But it also means for your l2 mac addr changes to force a CHECKSUM_COMPLETE
+into CHECKSUM_NONE with csum action that you need to call into one of the
+l3/l4 helpers as far as I see.
