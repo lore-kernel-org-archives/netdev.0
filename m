@@ -1,84 +1,83 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH 1/2] ipaddress: Simplify vf_info parsing
-Date: Wed, 20 Jul 2016 22:10:41 +0200
-Message-ID: <20160720201041.GA17504@orbyte.nwl.cc>
-References: <1464811430-19415-1-git-send-email-phil@nwl.cc>
- <1464811430-19415-2-git-send-email-phil@nwl.cc>
- <CALgkqUq5nedx+wjEur9WVjvYr0pzvL7CMQmHiVtuuB_1PtOZ2Q@mail.gmail.com>
- <20160601220750.GC2729@orbyte.nwl.cc>
- <CALgkqUq8uDErRPMxyDx-M5UQB3v5+tHMyxXpAmK381W_z9KXPg@mail.gmail.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: Network hang after c3f1010b30f7fc611139cfb702a8685741aa6827 with
+ CIPSO & Smack
+Date: Wed, 20 Jul 2016 16:13:25 -0400
+Message-ID: <CAHC9VhQWBPA9qi_0=eY-xMTrqshujE5n7zP32ZjpDKLG5w7OuA@mail.gmail.com>
+References: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
+ <7d833f59-c68f-f779-4de4-15bc0b26ac7c@cumulusnetworks.com>
+ <66709b13-15a7-8d03-9e84-e4be9aab60b5@schaufler-ca.com> <9998a0da-b273-43d4-84ad-a0539e6a69ac@cumulusnetworks.com>
+ <5de95a23-fd64-d911-d4b0-88de51ab12a4@schaufler-ca.com> <9cb32128-176b-85cf-8ea8-465704f667e7@cumulusnetworks.com>
+ <6d1249a6-6176-414e-0df8-d7df8dac1cbd@schaufler-ca.com> <79be6a80-f8e4-c386-f877-2c0d52609892@cumulusnetworks.com>
+ <5f0df0df-8542-2938-9d19-0bf49f4b12b7@schaufler-ca.com> <c2101773-754f-df08-06e1-62652c416a44@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Greg Rose <gvrose8192@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	Linux-Netdev <netdev@vger.kernel.org>
+To: Casey Schaufler <casey@schaufler-ca.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51781 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753404AbcGTUKn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2016 16:10:43 -0400
-Content-Disposition: inline
-In-Reply-To: <CALgkqUq8uDErRPMxyDx-M5UQB3v5+tHMyxXpAmK381W_z9KXPg@mail.gmail.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:34420 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755058AbcGTUN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 16:13:27 -0400
+Received: by mail-oi0-f41.google.com with SMTP id l65so87707363oib.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 13:13:26 -0700 (PDT)
+In-Reply-To: <c2101773-754f-df08-06e1-62652c416a44@schaufler-ca.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2016 at 03:36:09PM -0700, Greg Rose wrote:
-> On Wed, Jun 1, 2016 at 3:07 PM, Phil Sutter <phil@nwl.cc> wrote:
-> > On Wed, Jun 01, 2016 at 03:00:08PM -0700, Greg Rose wrote:
-> >> On Wed, Jun 1, 2016 at 1:03 PM, Phil Sutter <phil@nwl.cc> wrote:
-> >> > Not sure whether I misinterpret commit 7b8179c780a1a, but it looks
-> >> > overly complicated. Instead rely upon parse_rtattr_nested() to assign
-> >> > the relevant pointer if requested rtattr fields are present.
-> >>
-> >> I'm not sure if newer iproute2 utilities are supposed to work on older
-> >> kernels but if it is you may want to check this against a 2.6.32
-> >> kernel.
-> >
-> > Yes, it is supposed to. Actually I tried, but the old RHEL6 kernel I
-> > used didn't export the VF list at all and then I lost motivation.
-> >
-> > I didn't check all earlier versions of 7b8179c780a1a, was there a stage
-> > when it looked like what I'm changing it to?
-> 
-> I don't think so but your patch looks correct - I mean it looks like
-> it should work.
-> 
-> It's been 5 years since I wrote that original patch and my memory
-> isn't so great as to why I didn't just do as your patch does but I
-> think it had something to do with not all drivers reporting a spoof
-> check value.  However, your patch should handle that case so I see no
-> reason not to accept it.  Unfortunately I don't have time or the
-> resources at the moment to check it on an older kernel.
+On Tue, Jul 19, 2016 at 7:37 PM, Casey Schaufler <casey@schaufler-ca.com> wrote:
+> Digging into this further I have determined that the
+> circumstances leading to this issue are somewhat complex.
+> The good news is that there seems to be a very limited
+> circumstances under which the problem manifests.
+>
+> I have a socket, and change the Smack attributes on the
+> socket (security_inode_setsecurity) before connecting to
+> a server.
 
-OK, I checked the code and your v1 patch again. Here it is for
-reference:
+This is a minty fresh, disconnected socket, yes?
 
-http://www.spinics.net/lists/netdev/msg175377.html
+> The connect succeeds. The client sends a packet,
+> also successfully. The response is received. Now here's
+> where it gets interesting. I instrumented the code to print
+> the Smack attributes on the socket both before and after
+> the Smack access check.
 
-The issue back then was related to the existence of struct ifla_vf_info
-which you extended and thus created and incompatibility with older
-kernel's headers. This potential problem went away with the introduction
-of uapi headers in kernel commit 607ca46e97a1b, as in
-include/uapi/linux/if_link.h named structure doesn't even exist anymore.
+I'm assuming that when you say "access check" you are talking about
+the smk_access() call in smack_socket_sock_rcv_skb(), yes?
 
-The netlink interface between kernel and userspace is safe in that
-regard: The returned message is merely a list of struct rtattr buffers,
-and parse_rtattr_nested() as used in print_vfinfo() iterates over this
-list and populates struct rtattr *vf[] with pointers into that buffer.
-So in case a given identifier (IFLA_VF_SPOOFCHK in this case) is not
-present in the message returned by the kernel, the respective field in
-'vf' will just remain a null pointer.
+(as a totally unrelated side note, you really went nuts on the cpp
+conditionals in there, was there a sale on #ifdefs that I missed? <g>)
 
-Please note that the above applies to recent kernels as well as older
-ones, so the procedure is backward-compatible.
+> Before the check is made the Smack
+> data reflects the initial values from when the socket was
+> created. After the check, they reflect the explicit change
+> made earlier.
 
-Furthermore, my patch eliminates a potential bug in iproute2 which is
-triggered when the kernel at some point decides to not send the
-IFLA_VF_SPOOFCHK buffer immediately after IFLA_VF_TX_RATE. This is
-perfectly valid in netlink, thus such assumption categorically wrong.
+It has been too long since I looked at how Smack handled network
+packets, I assume this is not the intended behavior?
 
-Stephen, please reconsider this patch as it merely aligns print_vfinfo()
-with all other places parsing rtnetlink messages, like e.g.
-print_linkinfo().
+> The check reports failure based on the initial
+> values. As a result, an attempt to notify the caller that
+> the action failed is made (netlbl_skbuff_err) which results
+> in a call to icmp_send that frees already freed memory.
 
-Thanks, Phil
+What memory is being double freed?  The original skb?  I don't believe
+netlbl_skbuff_err(), cipso_v4_error(), or icmp_send() frees the
+original skb ... or rather it shouldn't, perhaps I'm missing
+something.
+
+I'm not arguing, you saw what you saw, I'm just trying to understand
+and make sense of it.  Can you elaborate on what you saw, using very
+small words, and concrete descriptions (I'm much more stupider than
+everyone here so you have to make it easy for me to understand)?
+
+> If the Smack attributes in the sk_security blob are not
+> explicitly set the problem does not occur. I have the same
+> result if I change the Smack attributes within the socket
+> security blob as I do if I replace the security blob.
+
+-- 
+paul moore
+www.paul-moore.com
