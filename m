@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnxt_en: Remove locking around txr->dev_state
-Date: Tue, 19 Jul 2016 19:22:54 -0700 (PDT)
-Message-ID: <20160719.192254.1399232158462742537.davem@davemloft.net>
-References: <1468626125-31732-1-git-send-email-f.fainelli@gmail.com>
-	<1468872171-10009-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH resend] virtio-net: Remove more stack DMA
+Date: Tue, 19 Jul 2016 19:26:04 -0700 (PDT)
+Message-ID: <20160719.192604.333351511286408057.davem@davemloft.net>
+References: <c2ebc30cc66aeccba56f6c49527c8a9fa04332cf.1468881101.git.luto@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
-	huangjw@broadcom.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41908 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752398AbcGTCW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Jul 2016 22:22:57 -0400
-In-Reply-To: <1468872171-10009-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: x86@kernel.org, bp@alien8.de, linux-kernel@vger.kernel.org,
+	mst@redhat.com, netdev@vger.kernel.org
+To: luto@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c2ebc30cc66aeccba56f6c49527c8a9fa04332cf.1468881101.git.luto@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 18 Jul 2016 13:02:47 -0700
+From: Andy Lutomirski <luto@kernel.org>
+Date: Mon, 18 Jul 2016 15:34:49 -0700
 
-> txr->dev_state was not consistently manipulated with the acquisition of
-> the per-queue lock, after further inspection the lock does not seem
-> necessary, either the value is read as BNXT_DEV_STATE_CLOSING or 0.
+> VLAN and MQ control was doing DMA from the stack.  Fix it.
 > 
-> Reported-by: coverity (CID 1339583)
-> Fixes: c0c050c58d840 ("bnxt_en: New Broadcom ethernet driver.")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+> Signed-off-by: Andy Lutomirski <luto@kernel.org>
 > ---
-> Changes in v2:
 > 
-> - remove locking in bnxt_tx_disable() as recommended by Michael
+> I tested VLAN addition and removal with CONFIG_VMAP_STACK=y,
+> CONFIG_DEBUG_SG=y and it got rid of the warnings I saw.  I haven't
+> tested the MQ part because I don't know how to enable it in the first
+> place (I'm guessing it needs me to enable some QEMU feature I don't
+> know about.)
+> 
+> DaveM, contrary to what I thought last time I sent this, I think this
+> should go through net-next as long as it makes it in time for 4.8.
 
 Applied to net-next, thanks.
