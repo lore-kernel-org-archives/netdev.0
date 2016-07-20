@@ -1,89 +1,95 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v10 05/12] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Wed, 20 Jul 2016 11:07:57 +0200
-Message-ID: <578F3F6D.5000903@iogearbox.net>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com> <1468955817-10604-6-git-send-email-bblanco@plumgrid.com>
+From: =?utf-8?B?6auY5bOw?= <fgao@ikuai8.com>
+Subject: =?utf-8?Q?=E7=AD=94=E5=A4=8D:_=E7=AD=94=E5=A4=8D:_=5BPATCH_1/1=5D_netfilt?=
+	=?utf-8?Q?er:_Add_helper_array_register/un?=
+	=?utf-8?Q?register_functions?=
+Date: Wed, 20 Jul 2016 16:57:32 +0800
+Message-ID: <016801d1e264$c194b390$44be1ab0$@ikuai8.com>
+References: <1468813163-18139-1-git-send-email-fgao@ikuai8.com> <20160719181250.GA6116@salvia> <014e01d1e21e$062884b0$12798e10$@ikuai8.com> <20160720085018.GD1336@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>
-To: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49414 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752902AbcGTJIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 05:08:02 -0400
-In-Reply-To: <1468955817-10604-6-git-send-email-bblanco@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kaber@trash.net>, <netfilter-devel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<gfree.wind@gmail.com>
+To: "'Pablo Neira Ayuso'" <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160720085018.GD1336@salvia>
+Content-Language: zh-cn
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/19/2016 09:16 PM, Brenden Blanco wrote:
-> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
->
-> In tc/socket bpf programs, helpers linearize skb fragments as needed
-> when the program touches the packet data. However, in the pursuit of
-> speed, XDP programs will not be allowed to use these slower functions,
-> especially if it involves allocating an skb.
->
-> Therefore, disallow MTU settings that would produce a multi-fragment
-> packet that XDP programs would fail to access. Future enhancements could
-> be done to increase the allowable MTU.
->
-> The xdp program is present as a per-ring data structure, but as of yet
-> it is not possible to set at that granularity through any ndo.
->
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-[...]
->   struct mlx4_en_bond {
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index c1b3a9c..6729545 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -32,6 +32,7 @@
->    */
->
->   #include <net/busy_poll.h>
-> +#include <linux/bpf.h>
->   #include <linux/mlx4/cq.h>
->   #include <linux/slab.h>
->   #include <linux/mlx4/qp.h>
-> @@ -509,6 +510,8 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
->   	struct mlx4_en_dev *mdev = priv->mdev;
->   	struct mlx4_en_rx_ring *ring = *pring;
->
-> +	if (ring->xdp_prog)
-> +		bpf_prog_put(ring->xdp_prog);
+Ok, I get it.=20
+Thanks Pablo.
 
-Would be good if you also make this a READ_ONCE() here. I believe this is the
-only other spot in your set that has this 'direct' access (besides xchg() and
-READ_ONCE() from mlx4_en_process_rx_cq()). It would be mostly for consistency
-and to indicate that there's a more complex synchronization behind it. I'm mostly
-worried that if it's not consistently used, people might copy this and not use
-the READ_ONCE() also in other spots where it matters, and thus add hard to find
-bugs.
+Another question, Liping found the port style of sip, irc, and tftp was=
+ different with ftp.
+It should be use iterator "i" to generate name for them.
+Then should I update the original patch or create another one to correc=
+t it?
 
->   	mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
->   	vfree(ring->rx_info);
->   	ring->rx_info = NULL;
-> @@ -743,6 +746,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->   	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
->   	struct mlx4_en_rx_alloc *frags;
->   	struct mlx4_en_rx_desc *rx_desc;
-> +	struct bpf_prog *xdp_prog;
->   	struct sk_buff *skb;
->   	int index;
->   	int nr;
-> @@ -759,6 +763,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->   	if (budget <= 0)
->   		return polled;
+BTW, I am sorry about that. I didn't notice there are two port styles.
+
+-----=E9=82=AE=E4=BB=B6=E5=8E=9F=E4=BB=B6-----
+=E5=8F=91=E4=BB=B6=E4=BA=BA: Pablo Neira Ayuso [mailto:pablo@netfilter.=
+org]=20
+=E5=8F=91=E9=80=81=E6=97=B6=E9=97=B4: 2016=E5=B9=B47=E6=9C=8820=E6=97=A5=
+ 16:50
+=E6=94=B6=E4=BB=B6=E4=BA=BA: =E9=AB=98=E5=B3=B0 <fgao@ikuai8.com>
+=E6=8A=84=E9=80=81: kaber@trash.net; netfilter-devel@vger.kernel.org; n=
+etdev@vger.kernel.org; linux-kernel@vger.kernel.org; gfree.wind@gmail.c=
+om
+=E4=B8=BB=E9=A2=98: Re: =E7=AD=94=E5=A4=8D: [PATCH 1/1] netfilter: Add =
+helper array register/unregister functions
+
+On Wed, Jul 20, 2016 at 08:31:13AM +0800, =E9=AB=98=E5=B3=B0 wrote:
+> Thanks Pablo.
+>=20
+> I had used the script "checkpatch.pl" to check the patch file.
+> There was no indentation error reported.
+>=20
+> So could you give me more tails please or point one indentation error=
+?
+> Then I could correct it by myself next time.
+
+I'm refering to this specifically:
+
+static int function(int parameter1, struct another_structure *blah,
+                    int parameter2, unsigned int parameter3);
+                    ^
+
+It is just a comestic issue, but we consistently align function paramet=
+ers to the initial parens.
+
+As I said, I have just manually fixed this here, so no problem, just ke=
+ep this in mind for the next time.
+
+Another observation: You should bump patch version numbering in each re=
+vision and keep some history on its evolution.
+
+The area after the patch separator --- and before diff stats is good to=
+ place volatile information that is only meaningful to the review proce=
+ss, I mean something like this:
+
+  subsystem: Patch title.
+
+  Patch description...
+
+  Signed-off-by: Lucas Skywalker <trotacielos@blackstar.org>
+  ---
+  v3: Address comments from Chebakia on possible backward compatibility
+      issues.
+  v2: New parameter to control something.
+  v1: Initial patch.
+
+  include/net/netfilter/nf_tables.h |  25 ++-
+  ...
+  diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilte=
+r/nf_tables.h
+
+Thanks.
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
