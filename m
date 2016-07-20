@@ -1,94 +1,57 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 2/3] net: phy: dp83867: add support for MAC impedance configuration
-Date: Wed, 20 Jul 2016 20:26:13 +0530
-Message-ID: <20160720145614.13132-3-mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/3] net: phy: dp83867: Add documentation for
+ optional impedance control
+Date: Wed, 20 Jul 2016 20:26:12 +0530
+Message-ID: <20160720145614.13132-2-mugunthanvnm@ti.com>
 References: <20160720145614.13132-1-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rob Herring <robh+dt@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Tony Lindgren <tony@atomide.com>,
-	Russell King <linux@armlinux.org.uk>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Sekhar Nori <nsekhar@ti.com>, <devicetree@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>, Mugunthan V N <mugunthanvnm@ti.com>,
+ Tony Lindgren <tony@atomide.com>, Sekhar Nori <nsekhar@ti.com>,
+ Russell King <linux@armlinux.org.uk>, linux-kernel@vger.kernel.org,
+ Rob Herring <robh+dt@kernel.org>, linux-omap@vger.kernel.org,
+ "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([198.47.19.11]:60043 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754501AbcGTO5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2016 10:57:18 -0400
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20160720145614.13132-1-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Add support for programmable MAC impedance configuration
+Add documention of ti,impedance-control which can be used to
+correct MAC impedance mismatch using phy extended registers.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/phy/dp83867.c | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ Documentation/devicetree/bindings/net/ti,dp83867.txt | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index 91177a4..ace3558 100644
---- a/drivers/net/phy/dp83867.c
-+++ b/drivers/net/phy/dp83867.c
-@@ -33,6 +33,7 @@
- /* Extended Registers */
- #define DP83867_RGMIICTL	0x0032
- #define DP83867_RGMIIDCTL	0x0086
-+#define DP83867_IO_MUX_CFG	0x0170
+diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+index 5d21141..531ea3c5 100644
+--- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
++++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+@@ -9,6 +9,13 @@ Required properties:
+ 	- ti,fifo-depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp83867.h
+ 		for applicable values
  
- #define DP83867_SW_RESET	BIT(15)
- #define DP83867_SW_RESTART	BIT(14)
-@@ -62,10 +63,14 @@
- /* RGMIIDCTL bits */
- #define DP83867_RGMII_TX_CLK_DELAY_SHIFT	4
- 
-+/* IO_MUX_CFG bits */
-+#define DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL	0x1F
++Optional property:
++	- ti,impedance-control - MAC Interface Impedance control to vary the
++				 output impedance with an approximate range
++				 from 35-70 ohms in 32 steps. Value range can
++				 be 0x0 to 0x1f. Lowest impedance value is
++				 0x1f and highest impedance being 0x0.
 +
- struct dp83867_private {
- 	int rx_id_delay;
- 	int tx_id_delay;
- 	int fifo_depth;
-+	int io_impedance;
- };
+ Default child nodes are standard Ethernet PHY device
+ nodes as described in Documentation/devicetree/bindings/net/phy.txt
  
- static int dp83867_ack_interrupt(struct phy_device *phydev)
-@@ -111,6 +116,12 @@ static int dp83867_of_init(struct phy_device *phydev)
- 	if (!of_node)
- 		return -ENODEV;
- 
-+	dp83867->io_impedance = -EINVAL;
-+
-+	/* Optional configuration */
-+	of_property_read_u32(of_node, "ti,impedance-control",
-+			     &dp83867->io_impedance);
-+
- 	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
- 				   &dp83867->rx_id_delay);
- 	if (ret)
-@@ -184,6 +195,17 @@ static int dp83867_config_init(struct phy_device *phydev)
- 
- 		phy_write_mmd_indirect(phydev, DP83867_RGMIIDCTL,
- 				       DP83867_DEVADDR, delay);
-+
-+		if (dp83867->io_impedance >= 0) {
-+			val = phy_read_mmd_indirect(phydev,
-+						    DP83867_IO_MUX_CFG,
-+						    DP83867_DEVADDR);
-+			val &= ~DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
-+			val |= dp83867->io_impedance &
-+			       DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
-+			phy_write_mmd_indirect(phydev, DP83867_IO_MUX_CFG,
-+					       DP83867_DEVADDR, val);
-+		}
- 	}
- 
- 	return 0;
 -- 
 2.9.2.368.g08bb350
