@@ -1,68 +1,38 @@
-From: zyjzyj2000@gmail.com
-Subject: [PATCH 1/1] ixgbevf: replace num with macro
-Date: Wed, 20 Jul 2016 12:36:41 +0800
-Message-ID: <1468989401-28529-1-git-send-email-zyjzyj2000@gmail.com>
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
-To: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v10 00/12] Add driver bpf hook for early packet drop
+ and forwarding
+Date: Tue, 19 Jul 2016 22:09:59 -0700 (PDT)
+Message-ID: <20160719.220959.1735534229001351021.davem@davemloft.net>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+	saeedm@dev.mellanox.co.il, kafai@fb.com, brouer@redhat.com,
+	as754m@att.com, alexei.starovoitov@gmail.com, gerlitz.or@gmail.com,
+	john.fastabend@gmail.com, hannes@stressinduktion.org,
+	tgraf@suug.ch, tom@herbertland.com, daniel@iogearbox.net,
+	ttoukan.linux@gmail.com
+To: bblanco@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [123.119.179.77] ([123.119.179.77]:37450 "EHLO mail.zhuyj.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751304AbcGTEgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2016 00:36:47 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:42970 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbcGTFKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 01:10:05 -0400
+In-Reply-To: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Date: Tue, 19 Jul 2016 12:16:45 -0700
 
-With the original num, when a several bits state is set, it is
-possible that the wrong test occurs.
+> This patch set introduces new infrastructure for programmatically
+> processing packets in the earliest stages of rx, as part of an effort
+> others are calling eXpress Data Path (XDP) [1]. Start this effort by
+> introducing a new bpf program type for early packet filtering, before
+> even an skb has been allocated.
+> 
+> Extend on this with the ability to modify packet data and send back out
+> on the same port.
 
-For example,
-
-a state is 0x3, its bits are 11. When testing a state 0x2 whose
-bits are 10, it is difficult to confirm that state 0x2 is set or
-not.
-
-As such, the MACROs are defined to avoid the above error.
-
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h | 22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 60fc63b..d37b910 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -436,18 +436,16 @@ struct ixgbevf_adapter {
- 	u8 rss_indir_tbl[IXGBEVF_X550_VFRETA_SIZE];
- };
- 
--enum ixbgevf_state_t {
--	__IXGBEVF_TESTING,
--	__IXGBEVF_RESETTING,
--	__IXGBEVF_DOWN,
--	__IXGBEVF_DISABLED,
--	__IXGBEVF_REMOVING,
--	__IXGBEVF_SERVICE_SCHED,
--	__IXGBEVF_SERVICE_INITED,
--	__IXGBEVF_RESET_REQUESTED,
--	__IXGBEVF_QUEUE_RESET_REQUESTED,
--	__IXGBEVF_HW_RESETTING,
--};
-+#define	__IXGBEVF_TESTING		0x0001
-+#define	__IXGBEVF_RESETTING		0x0002
-+#define	__IXGBEVF_DOWN			0x0004
-+#define	__IXGBEVF_DISABLED		0x0008
-+#define	__IXGBEVF_REMOVING		0x0010
-+#define	__IXGBEVF_SERVICE_SCHED		0x0020
-+#define	__IXGBEVF_SERVICE_INITED	0x0040
-+#define	__IXGBEVF_RESET_REQUESTED	0x0080
-+#define	__IXGBEVF_QUEUE_RESET_REQUESTED	0x0100
-+#define	__IXGBEVF_HW_RESETTING		0x0200
- 
- enum ixgbevf_boards {
- 	board_82599_vf,
--- 
-2.7.4
+Series applied, thanks.
