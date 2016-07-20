@@ -1,43 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] cdc_ether: Improve ZTE MF823/831/910
- handling
-Date: Wed, 20 Jul 2016 14:55:22 -0700 (PDT)
-Message-ID: <20160720.145522.1781498396880526212.davem@davemloft.net>
-References: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net: dsa: mv88e6xxx: remove unused
+ phy_mutex
+Date: Wed, 20 Jul 2016 14:57:25 -0700 (PDT)
+Message-ID: <20160720.145725.2139832992930753072.davem@davemloft.net>
+References: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
+	<20160720160547.30133-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: oliver@neukum.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kristian.evensen@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468940051-24407-1-git-send-email-kristian.evensen@gmail.com>
+In-Reply-To: <20160720160547.30133-2-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogS3Jpc3RpYW4gRXZlbnNlbiA8a3Jpc3RpYW4uZXZlbnNlbkBnbWFpbC5jb20+DQpEYXRl
-OiBUdWUsIDE5IEp1bCAyMDE2IDE2OjU0OjExICswMjAwDQoNCj4gVGhlIGZpcm13YXJlIGluIHNl
-dmVyYWwgWlRFIGRldmljZXMgKGF0IGxlYXN0IHRoZSBNRjgyMy84MzEvOTEwDQo+IG1vZGVtcy9t
-aWZpcykgdXNlIE9TIGZpbmdlcnByaW50aW5nIHRvIGRldGVybWluZSB3aGljaCB0eXBlIG9mIGRl
-dmljZSB0bw0KPiBleHBvcnQuIEluIGFkZGl0aW9uLCB0aGVzZSBkZXZpY2VzIGV4cG9ydCBhIFJF
-U1QgQVBJIHdoaWNoIGNhbiBiZSB1c2VkIHRvDQo+IGNvbnRyb2wgdGhlIHR5cGUgb2YgZGV2aWNl
-LiBTbyBmYXIsIG9uIExpbnV4LCB0aGUgZGV2aWNlcyBoYXZlIGJlZW4gc2VlbiBhcw0KPiBSTkRJ
-UyBvciBDREMgRXRoZXIuDQo+IA0KPiBXaGVuIENEQyBFdGhlciBpcyB1c2VkLCBkZXZpY2VzIG9m
-IHRoZSBzYW1lIHR5cGUgYXJlLCBhcyB3aXRoIFJORElTLA0KPiBleHBvcnRlZCB3aXRoIHRoZSBz
-YW1lLCBib2d1cyByYW5kb20gTUFDIGFkZHJlc3MuIEluIGFkZGl0aW9uLCB0aGUgZGV2aWNlcw0K
-PiAoYXQgbGVhc3Qgb24gYWxsIGZpcm13YXJlIHJldmlzaW9ucyBJIGhhdmUgZm91bmQpIHVzZSB0
-aGUgYm9ndXMgTUFDIHdoZW4NCj4gc2VuZGluZyB0cmFmZmljIHJvdXRlZCBmcm9tIGV4dGVybmFs
-IG5ldHdvcmtzLiBBbmQgYXMgYSBmaW5hbCBmZWF0dXJlLCB0aGUNCj4gZGV2aWNlcyBzb21ldGlt
-ZXMgZXhwb3J0IHRoZSBsaW5rIHN0YXRlIGluY29ycmVjdGx5LiBUaGVyZSBhcmUgYWxzbw0KPiBy
-ZWZlcmVuY2VzIG9ubGluZSB0byBzZXZlcmFsIG90aGVyIFpURSBkZXZpY2VzIGRpc3BsYXlpbmcg
-dGhpcyBiZWhhdmlvciwNCj4gd2l0aCBzZXZlcmFsIGRpZmZlcmVudCBQSURzIGFuZCBNQUMgYWRk
-cmVzc2VzLg0KPiANCj4gVGhpcyBwYXRjaCB0cmllcyB0byBpbXByb3ZlIHRoZSBoYW5kbGluZyBv
-ZiBaVEUgZGV2aWNlcyBieSBkb2luZyB0aGUNCj4gZm9sbG93aW5nOg0KDQpQbGVhc2UgZml4IHRo
-ZXNlIHdhcm5pbmdzIGFuZCByZXN1Ym1pdDoNCg0KICBDQyBbTV0gIGRyaXZlcnMvbmV0L3VzYi9j
-ZGNfZXRoZXIubw0KZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jOiBJbiBmdW5jdGlvbiChdXNi
-bmV0X2NkY196dGVfcnhfZml4dXCiOg0KZHJpdmVycy9uZXQvdXNiL2NkY19ldGhlci5jOjQ2MTo1
-OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoWJ1Z2d5X2h3YWRkcnNfaWR4oiBbLVd1bnVzZWQt
-dmFyaWFibGVdDQogIHU4IGJ1Z2d5X2h3YWRkcnNfaWR4ID0gMDsNCiAgICAgXg0KZHJpdmVycy9u
-ZXQvdXNiL2NkY19ldGhlci5jOjQ2MDo1OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoW51bV9i
-dWdneV9od2FkZHJzoiBbLVd1bnVzZWQtdmFyaWFibGVdDQogIHU4IG51bV9idWdneV9od2FkZHJz
-Ow0KICAgICBeDQo=
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 20 Jul 2016 12:05:45 -0400
+
+> Only reg_lock is necessary now and phy_mutex is dead. Remove it.
+> ---
+>  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 6 ------
+>  1 file changed, 6 deletions(-)
+
+Missing a proper Signoff.
