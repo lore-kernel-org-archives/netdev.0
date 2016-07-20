@@ -1,83 +1,56 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: Network hang after c3f1010b30f7fc611139cfb702a8685741aa6827 with
- CIPSO & Smack
-Date: Wed, 20 Jul 2016 16:13:25 -0400
-Message-ID: <CAHC9VhQWBPA9qi_0=eY-xMTrqshujE5n7zP32ZjpDKLG5w7OuA@mail.gmail.com>
-References: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
- <7d833f59-c68f-f779-4de4-15bc0b26ac7c@cumulusnetworks.com>
- <66709b13-15a7-8d03-9e84-e4be9aab60b5@schaufler-ca.com> <9998a0da-b273-43d4-84ad-a0539e6a69ac@cumulusnetworks.com>
- <5de95a23-fd64-d911-d4b0-88de51ab12a4@schaufler-ca.com> <9cb32128-176b-85cf-8ea8-465704f667e7@cumulusnetworks.com>
- <6d1249a6-6176-414e-0df8-d7df8dac1cbd@schaufler-ca.com> <79be6a80-f8e4-c386-f877-2c0d52609892@cumulusnetworks.com>
- <5f0df0df-8542-2938-9d19-0bf49f4b12b7@schaufler-ca.com> <c2101773-754f-df08-06e1-62652c416a44@schaufler-ca.com>
+From: "Liang, Kan" <kan.liang@intel.com>
+Subject: RE: [RFC] ethtool bandwidth per-queue commands
+Date: Wed, 20 Jul 2016 20:51:01 +0000
+Message-ID: <37D7C6CF3E00A74B8858931C1DB2F07712C1AB5A@SHSMSX103.ccr.corp.intel.com>
+References: <578FD85F.7080508@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	Linux-Netdev <netdev@vger.kernel.org>
-To: Casey Schaufler <casey@schaufler-ca.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>
+To: ivan <khorivan@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f41.google.com ([209.85.218.41]:34420 "EHLO
-	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755058AbcGTUN1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 16:13:27 -0400
-Received: by mail-oi0-f41.google.com with SMTP id l65so87707363oib.1
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 13:13:26 -0700 (PDT)
-In-Reply-To: <c2101773-754f-df08-06e1-62652c416a44@schaufler-ca.com>
+Received: from mga02.intel.com ([134.134.136.20]:25990 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752722AbcGTUvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2016 16:51:05 -0400
+In-Reply-To: <578FD85F.7080508@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 19, 2016 at 7:37 PM, Casey Schaufler <casey@schaufler-ca.com> wrote:
-> Digging into this further I have determined that the
-> circumstances leading to this issue are somewhat complex.
-> The good news is that there seems to be a very limited
-> circumstances under which the problem manifests.
->
-> I have a socket, and change the Smack attributes on the
-> socket (security_inode_setsecurity) before connecting to
-> a server.
-
-This is a minty fresh, disconnected socket, yes?
-
-> The connect succeeds. The client sends a packet,
-> also successfully. The response is received. Now here's
-> where it gets interesting. I instrumented the code to print
-> the Smack attributes on the socket both before and after
-> the Smack access check.
-
-I'm assuming that when you say "access check" you are talking about
-the smk_access() call in smack_socket_sock_rcv_skb(), yes?
-
-(as a totally unrelated side note, you really went nuts on the cpp
-conditionals in there, was there a sale on #ifdefs that I missed? <g>)
-
-> Before the check is made the Smack
-> data reflects the initial values from when the socket was
-> created. After the check, they reflect the explicit change
-> made earlier.
-
-It has been too long since I looked at how Smack handled network
-packets, I assume this is not the intended behavior?
-
-> The check reports failure based on the initial
-> values. As a result, an attempt to notify the caller that
-> the action failed is made (netlbl_skbuff_err) which results
-> in a call to icmp_send that frees already freed memory.
-
-What memory is being double freed?  The original skb?  I don't believe
-netlbl_skbuff_err(), cipso_v4_error(), or icmp_send() frees the
-original skb ... or rather it shouldn't, perhaps I'm missing
-something.
-
-I'm not arguing, you saw what you saw, I'm just trying to understand
-and make sense of it.  Can you elaborate on what you saw, using very
-small words, and concrete descriptions (I'm much more stupider than
-everyone here so you have to make it easy for me to understand)?
-
-> If the Smack attributes in the sk_security blob are not
-> explicitly set the problem does not occur. I have the same
-> result if I change the Smack attributes within the socket
-> security blob as I do if I replace the security blob.
-
--- 
-paul moore
-www.paul-moore.com
+DQoNCj4gDQo+IEhpIGV2ZXJ5b25lLg0KPiANCj4gVGhlIGV0aHRvb2wgaW50ZXJmYWNlIGhhcyBF
+VEhUT09MX1BFUlFVRVVFIGNvbW1hbmQgdGhhdCBpcyB1c2VkIHRvDQo+IHJlYWQvc2V0IHBlci1x
+dWV1ZSBwYXJhbWV0ZXJzIGZvciBtdWx0aXF1ZXVlIEV0aGVybmV0IGRldmljZXMuDQo+IA0KPiBJ
+IHdhbnQgdG8gYXBwbHkgYWRkaXRpb25hbCBwZXItcXVldWUgY29tbWFuZHMgbGlrZSBwZXItcXVl
+dWUgYmFuZHdpZHRoDQo+IGFuZCBwZXItcXVldWUgbnVtYmVyIG9mIGRlc2NyaXB0b3JzIChsaWtl
+IG51bWJlciBvZiByaW5ncykuDQo+IA0KPiBDdXJyZW50bHkgb25seSBFVEhUT09MX0cvU0NPQUxF
+U0NFIHN1YiBjb21tYW5kcyBhcmUgYWRkZWQgZm9yIHBlci0NCj4gcXVldWUgaW50ZXJmYWNlIChi
+dXQgSSBoYXZlbid0IHNlZW4gY291bnRlcnBhcnQgZm9yIGV0aHRvb2wgdXRpbCkuDQo+IA0KPiBV
+c2luZyBFVEhUT09MX0cvU0NPQUxFU0NFIHBlci1xdWV1ZSBjb21tYW5kIGFzIGFuIGV4YW1wbGUs
+IEknbQ0KPiBnb2luZyB0byBhZGQgMiBhZGRpdGlvbmFsIGFuZCAyIGtub3duIGNvbW1hbmRzIGZv
+ciBldGh0b29sIHBlci1xdWV1ZQ0KPiBpbnRlcmZhY2U6DQo+IA0KPiBFVEhUT09MX0cvU0JBTkRX
+SURUSCAgICAgLyogR2V0L1NldCBldGh0b29sIHBlciBxdWV1ZSBiYW5kd2lkdGguDQo+IEJhbmR3
+aWR0aCBjYW4gYmUgc2V0IHdpdGggJSBvciBhYnNvbHV0ZSBpbiBNYi9zICovDQo+IA0KPiBFVEhU
+T09MX0cvU1JJTkdQQVJBTSAgICAgLyogaXMgZ29pbmcgdG8gYmUgdXNlZCB0byBjb250cm9sIG51
+bWJlciBvZg0KPiBkZXNjcmlwdG9ycyBwZXIgcXVldWUgaW4gbXkgZHJpdmVyICovDQo+IA0KPiBJ
+dCdzIG5vdCBjbGVhciBob3cgUEVSUVVFVUUgY29tbWFuZCBzcGxpdHMgcnggYW5kIHR4IHF1ZXVl
+cywgYXMgdGhleSBjYW4NCj4gaGF2ZSBkaWZmZXJlbnQgZW51bWVyYXRpb24gYW5kIGRpZmZlcmVu
+dCBwYXJhbWV0ZXJzLg0KPiANCj4gQWN0dWFsbHksIHRoZXJlIGFyZSBzZXZlcmFsIHF1ZXN0aW9u
+czoNCj4gLSBob3cgdG8gc3BsaXQgZW51bWVyYXRpb24gb2YgcnggLyB0eCBxdWV1ZXMgaW4gcGVy
+IHF1ZXVlIGNvbW1hbmQsDQo+ICAgIGFzIGl0IHVzZXMgbGluZWFyIGJpdG1hcCB0byBtaXJyb3Ig
+YWZmZWN0ZWQgY2hhbm5lbHMuDQo+IC0gd2hlcmUgaXMgZXRodG9vbCB1dGlsIGNvdW50ZXJwYXJ0
+IGZvciBwZXIgcXVldWUgY29tbWFuZD8NCj4gLSBpcyBpdCBjb3JyZWN0IHdheSB0byB1c2UgZXRo
+dG9vbCB0byBjb25maWd1cmUgaC93IHNoYXBlcj8NCj4gDQoNCkkgb25jZSBzdWJtaXR0ZWQgYSBw
+YXRjaCBzZXJpZXMgZm9yIGV0aHRvb2wgdG8gZG8gcGVyLXF1ZXVlIHNldHRpbmcuDQpodHRwczov
+L3d3dy5tYWlsLWFyY2hpdmUuY29tL25ldGRldiU0MHZnZXIua2VybmVsLm9yZy9tc2cxMTA3Mjcu
+aHRtbA0KQnV0IGl0J3Mgbm90IG1lcmdlZC4gQmVjYXVzZSBJIGRpZG4ndCBoYXZlIGEgY2hhbmNl
+IHRvIGFkZHJlc3MgQmVuJ3MNCmNvbW1lbnRzIHlldC4NCmh0dHBzOi8vd3d3Lm1haWwtYXJjaGl2
+ZS5jb20vbmV0ZGV2JTQwdmdlci5rZXJuZWwub3JnL21zZzExNjYzMC5odG1sDQoNCkkgZ3Vlc3Mg
+eW91IG1heSBleHRlbmQgdGhlIGV0aHRvb2wgcGF0Y2ggc2VyaWVzLCBhbmQgdXNlIGl0IHRvIHZl
+cmlmeSB5b3VyDQprZXJuZWwgY2hhbmdlcy4NCg0KS2FuDQoNCg0KPiBJbiBteSBjYXNlLCBieSBk
+ZWZhdWx0LCBtdWx0aSBxdWV1ZSBoL3cgc2hhcGVyIGlzIHdvcmtpbmcgaW4gcHJpb3JpdHkgbW9k
+ZS4NCj4gVGhlIHNldHRpbmcgb2YgYmFuZHdpZHRoIGZvciBxdWV1ZXMgY2FuIGJlIHVzZWQgdG8g
+c3dpdGNoIHNoYXBlciB0bw0KPiB0aHJvdWdocHV0IGF3YXJlIG1vZGUgd2hlbiBldmVyeSBxdWV1
+ZSBjYW4gYmUgYmFuZHdpZHRoIGxpbWl0ZWQuDQo+IA0KPiAtLQ0KPiBSZWdhcmRzLA0KPiBJdmFu
+IEtob3JvbnpodWsNCg==
