@@ -1,92 +1,139 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/3] net: dsa: mv88e6xxx: kill last locked reg_read
-Date: Wed, 20 Jul 2016 12:05:47 -0400
-Message-ID: <20160720160547.30133-4-vivien.didelot@savoirfairelinux.com>
-References: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 2/2] macsec: enable GRO and RPS on macsec devices
+Date: Wed, 20 Jul 2016 18:11:32 +0200
+Message-ID: <801ea10bbeb01dd455737e9d199974a3969507cf.1469030596.git.pabeni@redhat.com>
+References: <cover.1469030596.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:38143 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752777AbcGTQG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 12:06:28 -0400
-In-Reply-To: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37254 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755108AbcGTQMY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2016 12:12:24 -0400
+In-Reply-To: <cover.1469030596.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Get rid of the last usage of the locked mv88e6xxx_reg_read function with
-a new mv88e6xxx_port_read helper, useful later for chips with different
-port registers base address.
+Use gro_gells to trigger GRO and allow RPS on macsec traffic
+after decryption.
+Also, be sure to avoid clearing software offload features in
+macsec_fix_features().
+Overall this increase TCP tput by 30% on recent h/w.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 35 +++++++++++++++++++----------------
- 1 file changed, 19 insertions(+), 16 deletions(-)
+ drivers/net/macsec.c | 32 +++++++++++++++++++++++++-------
+ 1 file changed, 25 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index f95f1d4..4c6fc6d 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -254,17 +254,6 @@ static int _mv88e6xxx_reg_read(struct mv88e6xxx_chip *chip, int addr, int reg)
- 	return val;
- }
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 8bcd78f..0cbb935 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -18,6 +18,7 @@
+ #include <linux/rtnetlink.h>
+ #include <net/genetlink.h>
+ #include <net/sock.h>
++#include <net/gro_cells.h>
  
--static int mv88e6xxx_reg_read(struct mv88e6xxx_chip *chip, int addr, int reg)
--{
--	int ret;
--
--	mutex_lock(&chip->reg_lock);
--	ret = _mv88e6xxx_reg_read(chip, addr, reg);
--	mutex_unlock(&chip->reg_lock);
--
--	return ret;
--}
--
- static int _mv88e6xxx_reg_write(struct mv88e6xxx_chip *chip, int addr,
- 				int reg, u16 val)
- {
-@@ -2426,6 +2415,17 @@ static int mv88e6xxx_power_on_serdes(struct mv88e6xxx_chip *chip)
- 	return ret;
- }
+ #include <uapi/linux/if_macsec.h>
  
-+static int mv88e6xxx_port_read(struct mv88e6xxx_chip *chip, int port,
-+			       int reg, u16 *data)
-+{
-+	int addr = chip->info->port_base_addr + port;
+@@ -268,6 +269,7 @@ struct macsec_dev {
+ 	struct net_device *real_dev;
+ 	struct pcpu_secy_stats __percpu *stats;
+ 	struct list_head secys;
++	struct gro_cells gro_cells;
+ };
+ 
+ /**
+@@ -879,7 +881,7 @@ static void macsec_decrypt_done(struct crypto_async_request *base, int err)
+ 	macsec_reset_skb(skb, macsec->secy.netdev);
+ 
+ 	len = skb->len;
+-	ret = netif_rx(skb);
++	ret = gro_cells_receive(&macsec->gro_cells, skb);
+ 	if (ret == NET_RX_SUCCESS)
+ 		count_rx(dev, len);
+ 	else
+@@ -1052,6 +1054,7 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
+ 	struct pcpu_rx_sc_stats *rxsc_stats;
+ 	struct pcpu_secy_stats *secy_stats;
+ 	bool pulled_sci;
++	int ret;
+ 
+ 	if (skb_headroom(skb) < ETH_HLEN)
+ 		goto drop_direct;
+@@ -1193,12 +1196,17 @@ deliver:
+ 
+ 	if (rx_sa)
+ 		macsec_rxsa_put(rx_sa);
+-	count_rx(dev, skb->len);
 +
-+	if (port >= chip->info->num_ports)
-+		return -EINVAL;
-+
-+	return mv88e6xxx_read(chip, addr, reg, data);
-+}
-+
- static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
++	ret = gro_cells_receive(&macsec->gro_cells, skb);
++	if (ret == NET_RX_SUCCESS)
++		count_rx(dev, skb->len);
++	else
++		macsec->secy.netdev->stats.rx_dropped++;
+ 
+ 	rcu_read_unlock();
+ 
+-	*pskb = skb;
+-	return RX_HANDLER_ANOTHER;
++	*pskb = NULL;
++	return RX_HANDLER_CONSUMED;
+ 
+ drop:
+ 	macsec_rxsa_put(rx_sa);
+@@ -1218,7 +1226,6 @@ nosci:
+ 
+ 	list_for_each_entry_rcu(macsec, &rxd->secys, secys) {
+ 		struct sk_buff *nskb;
+-		int ret;
+ 
+ 		secy_stats = this_cpu_ptr(macsec->stats);
+ 
+@@ -2675,11 +2682,18 @@ static int macsec_dev_init(struct net_device *dev)
  {
- 	struct dsa_switch *ds = chip->ds;
-@@ -3830,12 +3830,15 @@ static const struct mv88e6xxx_info *mv88e6xxx_lookup_info(unsigned int prod_num)
- static int mv88e6xxx_detect(struct mv88e6xxx_chip *chip)
- {
- 	const struct mv88e6xxx_info *info;
--	int id, prod_num, rev;
-+	unsigned int prod_num, rev;
-+	u16 id;
+ 	struct macsec_dev *macsec = macsec_priv(dev);
+ 	struct net_device *real_dev = macsec->real_dev;
 +	int err;
  
--	id = mv88e6xxx_reg_read(chip, chip->info->port_base_addr,
--				PORT_SWITCH_ID);
--	if (id < 0)
--		return id;
-+	mutex_lock(&chip->reg_lock);
-+	err = mv88e6xxx_port_read(chip, 0, PORT_SWITCH_ID, &id);
-+	mutex_unlock(&chip->reg_lock);
-+	if (err)
-+		return err;
+ 	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
  
- 	prod_num = (id & 0xfff0) >> 4;
- 	rev = id & 0x000f;
++	err = gro_cells_init(&macsec->gro_cells, dev);
++	if (err) {
++		free_percpu(dev->tstats);
++		return err;
++	}
++
+ 	dev->features = real_dev->features & MACSEC_FEATURES;
+ 	dev->features |= NETIF_F_LLTX | NETIF_F_GSO_SOFTWARE;
+ 
+@@ -2698,6 +2712,9 @@ static int macsec_dev_init(struct net_device *dev)
+ 
+ static void macsec_dev_uninit(struct net_device *dev)
+ {
++	struct macsec_dev *macsec = macsec_priv(dev);
++
++	gro_cells_destroy(&macsec->gro_cells);
+ 	free_percpu(dev->tstats);
+ }
+ 
+@@ -2707,8 +2724,9 @@ static netdev_features_t macsec_fix_features(struct net_device *dev,
+ 	struct macsec_dev *macsec = macsec_priv(dev);
+ 	struct net_device *real_dev = macsec->real_dev;
+ 
+-	features &= real_dev->features & MACSEC_FEATURES;
+-	features |= NETIF_F_LLTX | NETIF_F_GSO_SOFTWARE;
++	features &= (real_dev->features & MACSEC_FEATURES) |
++		    NETIF_F_GSO_SOFTWARE | NETIF_F_SOFT_FEATURES;
++	features |= NETIF_F_LLTX;
+ 
+ 	return features;
+ }
 -- 
-2.9.0
+1.8.3.1
