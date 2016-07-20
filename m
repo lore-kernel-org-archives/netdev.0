@@ -1,30 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/6] common library for Chelsio drivers
-Date: Wed, 20 Jul 2016 14:38:45 -0700 (PDT)
-Message-ID: <20160720.143845.9656800367062337.davem@davemloft.net>
-References: <cover.1468689125.git.varun@chelsio.com>
-	<1469049235.13881.13.camel@haakon3.risingtidesystems.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: varun@chelsio.com, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org, target-devel@vger.kernel.org,
-	gerlitz.or@gmail.com, swise@opengridcomputing.com,
-	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
-	hariprasad@chelsio.com
-To: nab@linux-iscsi.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net V2] net/mlx5e: Fix del vxlan port command buffer memset
+Date: Thu, 21 Jul 2016 00:39:53 +0300
+Message-ID: <1469050793-29235-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Matthew Finlay <matt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55482 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754151AbcGTVit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 17:38:49 -0400
-In-Reply-To: <1469049235.13881.13.camel@haakon3.risingtidesystems.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43020 "EHLO
+	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754151AbcGTVkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 17:40:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Date: Wed, 20 Jul 2016 14:13:55 -0700
+memset the command buffers rather than the pointers to them.
 
-> DaveM, if you'd prefer to pick it up, I'm happy to drop it.
+Fixes: b3f63c3d5e2c ("net/mlx5e: Add netdev support for VXLAN tunneling")
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
 
-There were review comments and changes requested.
+V2:
+ - Improved log message.
+
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
+index 05de772..e25a73ed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vxlan.c
+@@ -72,8 +72,8 @@ static int mlx5e_vxlan_core_del_port_cmd(struct mlx5_core_dev *mdev, u16 port)
+ 	u32 in[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_in)];
+ 	u32 out[MLX5_ST_SZ_DW(delete_vxlan_udp_dport_out)];
+ 
+-	memset(&in, 0, sizeof(in));
+-	memset(&out, 0, sizeof(out));
++	memset(in, 0, sizeof(in));
++	memset(out, 0, sizeof(out));
+ 
+ 	MLX5_SET(delete_vxlan_udp_dport_in, in, opcode,
+ 		 MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT);
+-- 
+2.8.0
