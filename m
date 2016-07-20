@@ -1,35 +1,44 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/3] net: dsa: mv88e6xxx: rework EEPROM code
-Date: Wed, 20 Jul 2016 12:05:44 -0400
-Message-ID: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/3] net: dsa: mv88e6xxx: remove unused phy_mutex
+Date: Wed, 20 Jul 2016 12:05:45 -0400
+Message-ID: <20160720160547.30133-2-vivien.didelot@savoirfairelinux.com>
+References: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:38135 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276AbcGTQG1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 12:06:27 -0400
+In-Reply-To: <20160720160547.30133-1-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some switches can access an optional external EEPROM via its registers.
+Only reg_lock is necessary now and phy_mutex is dead. Remove it.
+---
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 6 ------
+ 1 file changed, 6 deletions(-)
 
-The 88E6352 family of switches have 8-bit address / 16-bit data access.
-The new 88E6390 family has 16-bit address / 8-bit data access.
-
-This patchset cleans up the EEPROM code with 16-suffixed Global2 helpers
-and makes it easy to add future support for 8-bit data EEPROM access.
-
-It also removes unnecessary mutexes and a few locked access functions.
-
-Vivien Didelot (3):
-  net: dsa: mv88e6xxx: remove unused phy_mutex
-  net: dsa: mv88e6xxx: rework EEPROM access
-  net: dsa: mv88e6xxx: kill last locked reg_read
-
- drivers/net/dsa/mv88e6xxx/chip.c      | 518 ++++++++++++++++------------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  45 ++-
- 2 files changed, 258 insertions(+), 305 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 899ca1d..99de41f 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -629,12 +629,6 @@ struct mv88e6xxx_chip {
+ 	 */
+ 	struct mutex	stats_mutex;
+ 
+-	/* This mutex serializes phy access for chips with
+-	 * indirect phy addressing. It is unused for chips
+-	 * with direct phy access.
+-	 */
+-	struct mutex	phy_mutex;
+-
+ 	/* This mutex serializes eeprom access for chips with
+ 	 * eeprom support.
+ 	 */
 -- 
 2.9.0
