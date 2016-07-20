@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/20] fm10k: split fm10k_reinit into two functions
-Date: Wed, 20 Jul 2016 15:23:48 -0700
-Message-ID: <1469053438-85381-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/20] fm10k: use common flow for suspend and resume
+Date: Wed, 20 Jul 2016 15:23:52 -0700
+Message-ID: <1469053438-85381-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1469053438-85381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,122 +9,122 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:21457 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:4181 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755371AbcGTWYE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Jul 2016 18:24:04 -0400
+	id S1755400AbcGTWYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Jul 2016 18:24:06 -0400
 In-Reply-To: <1469053438-85381-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-There are several flows in the driver which perform the similar function
-of tearing down software and restoring software to recover from certain
-errors or PCIe events, including:
-
-  * fm10k_reinit
-  * fm10k_suspend/resume
-  * fm10k_io_error_detected/fm10k_io_resume
-
-In addition, we want to implement a .reset_notify() handler as well
-which will also perform similar function.
-
-Rework how the driver codes reset and resume flows by separating out the
-reinit logic into two functions "fm10k_prepare_for_reset" and
-"fm10k_handle_reset". This first step will allow us to re-use this
-functionality in the similar blocks of code instead of re-coding the
-same sequence of events slightly different.
-
-The end result should be more maintainable and correct, fixing several
-inconsistencies with the work flow.
-
-The new functions expect to take the rtnl_lock() themselves, and it does
-have the unfortunate side effect of having the reinit flow take then
-release then take the rtnl_lock. However, this minor downside is
-out weighted by the benefits of code reduction and reducing needless
-difference between these flows.
+Continuing the effort to commonize the similar suspend/resume flows,
+finish up by using the new fm10k_handle_suspand and fm10k_handle_resume
+functions for the standard suspend/resume flow.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 33 +++++++++++++++++++++++-----
- 1 file changed, 28 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 73 ++--------------------------
+ 1 file changed, 3 insertions(+), 70 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 7c9b20c..2963b41 100644
+index c60c3b0..b02361c 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -136,11 +136,9 @@ static void fm10k_detach_subtask(struct fm10k_intfc *interface)
- 	rtnl_unlock();
- }
+@@ -2186,60 +2186,13 @@ static int fm10k_resume(struct pci_dev *pdev)
+ 	/* refresh hw_addr in case it was dropped */
+ 	hw->hw_addr = interface->uc_addr;
  
--static void fm10k_reinit(struct fm10k_intfc *interface)
-+static void fm10k_prepare_for_reset(struct fm10k_intfc *interface)
- {
- 	struct net_device *netdev = interface->netdev;
--	struct fm10k_hw *hw = &interface->hw;
--	int err;
- 
- 	WARN_ON(in_interrupt());
- 
-@@ -165,6 +163,17 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 	/* delay any future reset requests */
- 	interface->last_reset = jiffies + (10 * HZ);
- 
-+	rtnl_unlock();
-+}
-+
-+static int fm10k_handle_reset(struct fm10k_intfc *interface)
-+{
-+	struct net_device *netdev = interface->netdev;
-+	struct fm10k_hw *hw = &interface->hw;
-+	int err;
-+
-+	rtnl_lock();
-+
- 	/* reset and initialize the hardware so it is in a known state */
- 	err = hw->mac.ops.reset_hw(hw);
- 	if (err) {
-@@ -185,7 +194,7 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
- 		goto reinit_err;
- 	}
- 
--	/* reassociate interrupts */
-+	/* re-associate interrupts */
- 	err = fm10k_mbx_request_irq(interface);
+-	/* reset hardware to known state */
+-	err = hw->mac.ops.init_hw(&interface->hw);
+-	if (err) {
+-		dev_err(&pdev->dev, "init_hw failed: %d\n", err);
+-		return err;
+-	}
+-
+-	/* reset statistics starting values */
+-	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
+-
+-	rtnl_lock();
+-
+-	err = fm10k_init_queueing_scheme(interface);
+-	if (err)
+-		goto err_queueing_scheme;
+-
+-	err = fm10k_mbx_request_irq(interface);
+-	if (err)
+-		goto err_mbx_irq;
+-
+-	err = fm10k_hw_ready(interface);
+-	if (err)
+-		goto err_open;
+-
+-	err = netif_running(netdev) ? fm10k_open(netdev) : 0;
++	err = fm10k_handle_resume(interface);
  	if (err)
- 		goto err_mbx_irq;
-@@ -219,7 +228,7 @@ static void fm10k_reinit(struct fm10k_intfc *interface)
+-		goto err_open;
+-
+-	rtnl_unlock();
+-
+-	/* assume host is not ready, to prevent race with watchdog in case we
+-	 * actually don't have connection to the switch
+-	 */
+-	interface->host_ready = false;
+-	fm10k_watchdog_host_not_ready(interface);
+-
+-	/* clear the service task disable bit to allow service task to start */
+-	clear_bit(__FM10K_SERVICE_DISABLE, &interface->state);
+-	fm10k_service_event_schedule(interface);
+-
+-	/* restore SR-IOV interface */
+-	fm10k_iov_resume(pdev);
++		return err;
  
- 	clear_bit(__FM10K_RESETTING, &interface->state);
+ 	netif_device_attach(netdev);
  
--	return;
-+	return err;
- err_open:
- 	fm10k_mbx_free_irq(interface);
- err_mbx_irq:
-@@ -230,6 +239,20 @@ reinit_err:
- 	rtnl_unlock();
- 
- 	clear_bit(__FM10K_RESETTING, &interface->state);
-+
-+	return err;
-+}
-+
-+static void fm10k_reinit(struct fm10k_intfc *interface)
-+{
-+	int err;
-+
-+	fm10k_prepare_for_reset(interface);
-+
-+	err = fm10k_handle_reset(interface);
-+	if (err)
-+		dev_err(&interface->pdev->dev,
-+			"fm10k_handle_reset failed: %d\n", err);
+ 	return 0;
+-err_open:
+-	fm10k_mbx_free_irq(interface);
+-err_mbx_irq:
+-	fm10k_clear_queueing_scheme(interface);
+-err_queueing_scheme:
+-	rtnl_unlock();
+-
+-	return err;
  }
  
- static void fm10k_reset_subtask(struct fm10k_intfc *interface)
+ /**
+@@ -2259,27 +2212,7 @@ static int fm10k_suspend(struct pci_dev *pdev,
+ 
+ 	netif_device_detach(netdev);
+ 
+-	fm10k_iov_suspend(pdev);
+-
+-	/* the watchdog tasks may read registers, which will appear like a
+-	 * surprise-remove event once the PCI device is disabled. This will
+-	 * cause us to close the netdevice, so we don't retain the open/closed
+-	 * state post-resume. Prevent this by disabling the service task while
+-	 * suspended, until we actually resume.
+-	 */
+-	set_bit(__FM10K_SERVICE_DISABLE, &interface->state);
+-	cancel_work_sync(&interface->service_task);
+-
+-	rtnl_lock();
+-
+-	if (netif_running(netdev))
+-		fm10k_close(netdev);
+-
+-	fm10k_mbx_free_irq(interface);
+-
+-	fm10k_clear_queueing_scheme(interface);
+-
+-	rtnl_unlock();
++	fm10k_prepare_suspend(interface);
+ 
+ 	err = pci_save_state(pdev);
+ 	if (err)
 -- 
 2.5.5
