@@ -1,33 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: bluetooth-next 2016-07-19
-Date: Wed, 20 Jul 2016 14:44:43 -0700 (PDT)
-Message-ID: <20160720.144443.401615378058083843.davem@davemloft.net>
-References: <20160719061452.GA21654@t440s.P-661HNU-F1>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] net: axienet: Fix return value check in
+ axienet_probe()
+Date: Wed, 20 Jul 2016 14:47:51 -0700 (PDT)
+Message-ID: <20160720.144751.2198896469609054053.davem@davemloft.net>
+References: <1468927404-32270-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	mchehab-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
-To: johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160719061452.GA21654-ae+CCJ+dGXjCW7GOcxkI+ioyn5ZhHHrn@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: anirudh@xilinx.com, John.Linn@xilinx.com, michal.simek@xilinx.com,
+	soren.brinkmann@xilinx.com, srikanth.thokala@xilinx.com,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: weiyj_lk@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55596 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753440AbcGTVrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 17:47:53 -0400
+In-Reply-To: <1468927404-32270-1-git-send-email-weiyj_lk@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 19 Jul 2016 09:14:52 +0300
+From: Wei Yongjun <weiyj_lk@163.com>
+Date: Tue, 19 Jul 2016 11:23:24 +0000
 
-> Here's likely the last bluetooth-next pull request for the 4.8 kernel:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
->  - Fix for L2CAP setsockopt
->  - Fix for is_suspending flag handling in btmrvl driver
->  - Addition of Bluetooth HW & FW info fields to debugfs
->  - Fix to use int instead of char for callback status.
+> In case of error, the function of_parse_phandle() returns NULL
+> pointer not ERR_PTR(). The IS_ERR() test in the return value
+> check should be replaced with NULL test.
 > 
-> The last one (from Geert Uytterhoeven) is actually not purely a
-> Bluetooth (or 802.15.4) patch, but it was agreed with other maintainers
-> that we take it through the bluetooth-next tree.
-> 
-> Please let me know if there are any issues pulling. Thanks.
+> Fixes: 46aa27df8853 ('net: axienet: Use devm_* calls')
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Pulled, thanks.
+Applied.
