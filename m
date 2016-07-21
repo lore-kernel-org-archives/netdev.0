@@ -1,144 +1,33 @@
-From: =?utf-8?B?UG9tbW5pdHogSsO2cmc=?= <Pommnitz@iabg.de>
-Subject: AW: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18 (and
- probably later)
-Date: Thu, 21 Jul 2016 12:25:19 +0000
-Message-ID: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81@ExMbx1.iabg.de>
-References: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEB52@ExMbx1.iabg.de>
- <AM4PR0501MB19408B7B4BBFDE17EB980F74DB370@AM4PR0501MB1940.eurprd05.prod.outlook.com>
- <6AE3EF50-B524-4125-95D2-A4975961318C@gmail.com>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next 2/9] mlxsw: pci: Add max span resources to
+ resources query
+Date: Thu, 21 Jul 2016 11:26:24 +0300
+Message-ID: <20160721082624.GC11902@colbert.mtl.com>
+References: <1469089160-4239-1-git-send-email-jiri@resnulli.us>
+ <1469089160-4239-3-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_004_DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81ExMbx1iabgde_"
-Cc: Ilan Tayari <ilant@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shanker Wang <shankerwangmiao@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<yotamg@mellanox.com>, <eladr@mellanox.com>, <nogahf@mellanox.com>,
+	<ogerlitz@mellanox.com>, <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.iabg.de ([62.245.167.132]:56884 "EHLO mail2.iabg.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751462AbcGUMZX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 08:25:23 -0400
-In-Reply-To: <6AE3EF50-B524-4125-95D2-A4975961318C@gmail.com>
-Content-Language: de-DE
+Received: from mail-db5eur01on0048.outbound.protection.outlook.com ([104.47.2.48]:44064
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752175AbcGUNBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 09:01:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1469089160-4239-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_004_DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81ExMbx1iabgde_
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Thu, Jul 21, 2016 at 11:19:13AM IDT, jiri@resnulli.us wrote:
+>From: Nogah Frankel <nogahf@mellanox.com>
+>
+>Add max span resources to resources query.
+>
+>Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+>Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-U2hhbmtlciwNCmFzIHlvdSBzdWdnZXN0ZWQgSSBoYXZlIGNhcHR1cmVkIHRoZSBFU1AgcGFja2V0
-cyBmb3IgMi42LjIzLCAzLjYuMTggYW5kIDQuNi40Lg0KVGhlIGNhcHR1cmUgdG9vayBwbGFjZSBv
-biB0aGUgc2VuZGluZyBpbnRlcmZhY2UuIEkgY2FuJ3Qgc2VlIGFueXRoaW5nIHN1c3BpY2lvdXMN
-CmluIGFueSBvZiB0aGUgdGhyZWUgY2FwdHVyZXMuDQoNClJlZ2FyZHMNCiAgSm9lcmcNCg0KPiAt
-LS0tLVVyc3Byw7xuZ2xpY2hlIE5hY2hyaWNodC0tLS0tDQo+IFZvbjogU2hhbmtlciBXYW5nIFtt
-YWlsdG86c2hhbmtlcndhbmdtaWFvQGdtYWlsLmNvbV0NCj4gR2VzZW5kZXQ6IE1pdHR3b2NoLCAy
-MC4gSnVsaSAyMDE2IDA5OjI4DQo+IEFuOiBQb21tbml0eiBKw7ZyZw0KPiBDYzogSWxhbiBUYXlh
-cmk7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQmV0cmVmZjogUmU6IElQdjYgSVBTZWMgaW5j
-b21wYXRpYmlsaXRpZXMgYmV0d2VlbiAyLjYuMjMgYW5kIDMuNi4xOCAoYW5kDQo+IHByb2JhYmx5
-IGxhdGVyKQ0KPg0KPg0KPiA+IOWcqCAyMDE25bm0N+aciDE55pel77yMMjM6MDPvvIxJbGFuIFRh
-eWFyaSA8aWxhbnRAbWVsbGFub3guY29tPiDlhpnpgZPvvJoNCj4gPg0KPiA+PiBPbiB0aGUgcmVj
-ZWl2aW5nIHNpZGUgKGUuZy4gZmQwMToxYjEwOjEwMDA6OjEpIEkgc2VlIHRoZSBkZWNyeXB0ZWQN
-Cj4gPj4gcGFja2V0cyB3aXRoIHRoZSAyLjYuMjMga2VybmVsOg0KPiA+PiBidXQgTk9UIHdpdGgg
-dGhlIG5ld2VyIGtlcm5lbDoNCj4gPg0KPiA+IEhpIEpvZXJnLA0KPiA+DQo+ID4gRmlyc3Qgc3Rl
-cHMgdG8gZGVidWcgdGhpcyB3b3VsZCBiZToNCj4gPiBjYXQgL3Byb2MvbmV0L3hmcm1fc3RhdA0K
-PiA+IGlwIC1zIHhmcm0gc3RhdGUNCj4gPiBpcCAtcyB4ZnJtIHBvbGljeQ0KPiA+DQo+ID4gRmly
-c3QgY29tbWFuZCB3aWxsIHNob3cgc29tZSBlcnJvciBhY2NvdW50aW5nLCB3aGljaCBjYW4gcG9p
-bnQgdG8gdGhlDQo+IGN1bHByaXQgY29kZS4NCj4gPiBTZWNvbmQgYW5kIHRoaXJkIGNvbW1hbmQg
-d2lsbCBzaG93IGV4aXN0aW5nIG9iamVjdHMsIGFuZCBzb21lIHN0YXRpc3RpY3MNCj4gbGlrZSB3
-aGVuIHRoZSBsYXN0IHBhY2tldCB3YXMgdXNlZCB3aXRoIHRoZW0uDQo+ID4NCj4gPiBMYXN0IHRo
-aW5nIC0gZm9yIHlvdXIgc2FmZXR5IHlvdSBzaG91bGQga2VlcCB0aG9zZSBzZXNzaW9uIGtleXMg
-cHJpdmF0ZS4NCj4gPg0KPiA+IElsYW4uDQo+DQo+IEhpIEpvZXJnLA0KPg0KPiBJIHRoaW5rIG1h
-eWJlIHlvdSBjYW4gdHJ5IHRjcGR1bXAgLXcgdG8gd3JpdGUgdGhlIGNhcHR1cmVkIHBhY2tldHMg
-aW50byBhDQo+IGZpbGUNCj4gYW5kIHVzZSB0b29scyBsaWtlIFdpcmVzaGFyayB0byBhbmFseXpl
-IGFuZCBzZWUgd2hhdCBpcyBnb2luZyB3cm9uZy4NCg0KX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18NCkluZHVzdHJpZWFubGFnZW4tQmV0cmllYnNnZXNlbGxzY2hhZnQgbWJIDQoNClNp
-dHogZGVyIEdlc2VsbHNjaGFmdDogT3R0b2JydW5uLCBSZWdpc3RlcmdlcmljaHQ6IEFtdHNnZXJp
-Y2h0IE3DvG5jaGVuLCBIUkIgNTQ5OQ0KR2VzY2jDpGZ0c2bDvGhydW5nOiBQcm9mLiBEci4tSW5n
-LiBSdWRvbGYgRi4gU2Nod2Fyeg0KVm9yc2l0emVuZGVyIGRlcyBBdWZzaWNodHNyYXRzOiBSQSBF
-bmdlbGJlcnQgS3Vwa2EgTWRMIGEuRC4NCg==
-
---_004_DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81ExMbx1iabgde_
-Content-Type: application/octet-stream; name="outgoing-lan1-4.6.4.pcap"
-Content-Description: outgoing-lan1-4.6.4.pcap
-Content-Disposition: attachment; filename="outgoing-lan1-4.6.4.pcap";
-	size=1054; creation-date="Thu, 21 Jul 2016 12:24:33 GMT";
-	modification-date="Thu, 21 Jul 2016 12:35:34 GMT"
-Content-Transfer-Encoding: base64
-
-1MOyoQIABAAAAAAAAAAAANAHAAABAAAAsd2QV9QcCwC+AAAAvgAAADMzAAAAAQAWJwCQ3YbdYA24
-UgCIMkD9ARsQEAAAAAAAAAAAAAAB/w4AAAAAAAAAAAAAAAAAAQAAAAEAAAA8r8aOgKfnAjpcdJ+E
-MC29zppGB6JdMg6UYrVooFs2TcmfYc5cPMM/eUTMY5t6RUzMGk/GqNIndkPT69kKELqaMTEh7kCf
-EjxS4nYQzaANQzJnhqEsSW9+HiUqmFNDh+tElWMd/g8c6lD7FgRJzoe/qUWMCuMmKeU1ieUTN2qp
-fIyy3ZBXEx0LAL4AAAC+AAAAMzMAAAABABYnAJDdht1gDbhSAIgyQP0BGxAQAAAAAAAAAAAAAAH/
-DgAAAAAAAAAAAAAAAAABAAAAAQAAAD0uWgCifPZzqTjCgO8vKR8yHQY2IGPwO1MVrkc9rMnq+srJ
-GXOeHxlqrQGrczi0AWcy1SjVVHA6OXfR861UkzTGJk4rrkgY8Sc1D7EbZ9eZRE1H49R1XTnT9XM6
-NCxTzcH8NbTu131gdK+N+W6LAH195sG21inz/PyArD+PVgKTBbPdkFdRHQsAvgAAAL4AAAAzMwAA
-AAEAFicAkN2G3WANuFIAiDJA/QEbEBAAAAAAAAAAAAAAAf8OAAAAAAAAAAAAAAAAAAEAAAABAAAA
-PoMYUFVlhtONoa1rtuapYlkEScXzze7RgPOqj0X8Le1oGl4/qpDsZla1EMCY/qh3xjORXFuD9VxY
-9jTrqhjXL4Z8bCVO8Cp+MORCV4FnE0qfcjn/1P0g9SwQWCtyAqvdSkGN6AXt+yYBOPmDDrqe9oIP
-oMMI/nY/chXnxsaFQfmjtN2QV5AdCwC+AAAAvgAAADMzAAAAAQAWJwCQ3YbdYA24UgCIMkD9ARsQ
-EAAAAAAAAAAAAAAB/w4AAAAAAAAAAAAAAAAAAQAAAAEAAAA/tHwSRG7AjXY4PAwkBnENnhOiuCQd
-PC+2+t/gM3pqaYYVNiVoVAxNf+oEzTnAWfBfWgwP0cJWz5iJk5BNXk+/q91qjerIHzPew809bm0w
-+XnSY/jxmqEN5rk1/byE98B1eCUHWsLBiTeM5dz8JqK9snGDi2xBv7BKOt9rLBCQZTG13ZBXzh0L
-AL4AAAC+AAAAMzMAAAABABYnAJDdht1gDbhSAIgyQP0BGxAQAAAAAAAAAAAAAAH/DgAAAAAAAAAA
-AAAAAAABAAAAAQAAAEDRlir5RYo48nY8p59/Ltag1ewsv95GiDIqD00FosysE1t6MxAh6VlpDdr4
-+X6uHokngEYoadHnGWmpH80ZMLTRgIwWBA5m0ifADSf+ylnHJt2HQarFQ6s5wN5I5j5Vn2wYmJC4
-2CTzRy5NPbgmdfZgw34G0Zaj5cHNb6JQFUbxrQ==
-
---_004_DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81ExMbx1iabgde_
-Content-Type: application/octet-stream; name="outgoing-lan1-2.6.23.pcap"
-Content-Description: outgoing-lan1-2.6.23.pcap
-Content-Disposition: attachment; filename="outgoing-lan1-2.6.23.pcap";
-	size=1054; creation-date="Thu, 21 Jul 2016 12:24:42 GMT";
-	modification-date="Thu, 21 Jul 2016 12:28:18 GMT"
-Content-Transfer-Encoding: base64
-
-1MOyoQIABAAAAAAAAAAAANAHAAABAAAA3r+QV5keBQC+AAAAvgAAADMzAAAAAQAWJwCQz4bdYAAA
-AACIMv/9ARsQEAAAAAAAAAAAAAAC/w4AAAAAAAAAAAAAAAAAAQAAAAEAAABJ6Fc6aBZD9vcYqFTV
-2yOtoO9lsvhWVQGyeIdIwCIaiPN4iWuAmtO47QsDw70C5Zuf0avZeCLUdZ7MvnSMaYKpb/0fsOe+
-m/g3ZAuqkle12PaolOb53clvvnJ2LlMLYDDLGcwh9FpXkHGeIplwhUJGKwSwgPPPyWpOq8el/HEr
-F4Lfv5BXnh4FAL4AAAC+AAAAMzMAAAABABYnAJDPht1gAAAAAIgy//0BGxAQAAAAAAAAAAAAAAL/
-DgAAAAAAAAAAAAAAAAABAAAAAQAAAEoEsIDzz8lqTqvHpfxxKxeC4JoDMvyHtjhe/IisKRLvp8Do
-SXMSL43pdTtAfmXibC3Zx5uOXmZFG0+u+gdvqNJExXMkF4P8kgq2hS9jnDNTxSJA6OATkSVWuXL5
-j5YoSPS+c1f84ZkfXnKpxyiXzSyeXXJKfTcWt+SFSAj0qVfDpOC/kFfDHgUAvgAAAL4AAAAzMwAA
-AAEAFicAkM+G3WAAAAAAiDL//QEbEBAAAAAAAAAAAAAAAv8OAAAAAAAAAAAAAAAAAAEAAAABAAAA
-S11ySn03FrfkhUgI9KlXw6TItO70wP8V7YVcxJ/XwN1GjCwTNkIp57DMrs3rNjHWyBWsUzV4wmfE
-KrfpnJVV+OCdAyzgg0UCSyWAwrvcpMn8zvmqRZTCngM9eZTiHjSufRb5wgq91qEX8y8VAIKxbdbN
-HpGjCSjEwOFpYYw2MQqh4b+QV/UeBQC+AAAAvgAAADMzAAAAAQAWJwCQz4bdYAAAAACIMv/9ARsQ
-EAAAAAAAAAAAAAAC/w4AAAAAAAAAAAAAAAAAAQAAAAEAAABMzR6RowkoxMDhaWGMNjEKodHw0Y2S
-MhN8YMNwMBWF1QqejFQbLyPUW8xYVlIX318jL/xJhY3BIWBQ5Ej2Hai4a7dNeAWyUyz50QXw58vB
-K7VImabAHkz7Pf/LtGp4J9y3Gc4wbv1U0EgzNhw0SfryyWoTlAbteR0Pn43N43FqhQ7iv5BXGx8F
-AL4AAAC+AAAAMzMAAAABABYnAJDPht1gAAAAAIgy//0BGxAQAAAAAAAAAAAAAAL/DgAAAAAAAAAA
-AAAAAAABAAAAAQAAAE1qE5QG7XkdD5+NzeNxaoUOisHdY3hGawMlCbveYY33tqMej9jMEHaRimkV
-RBX3zNJsaP/WehuBK5nwFS/VqM4tWPtCOtaGZWSe8VvBUYG6NRqm13Ls6YAmNz9KbZNNwfiTY7p3
-OGwibjvVxsKD4RFCEB6eFAiH/wskgX74QhvrgA==
-
---_004_DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81ExMbx1iabgde_
-Content-Type: application/octet-stream; name="outgoing-lan1-3.6.18.pcap"
-Content-Description: outgoing-lan1-3.6.18.pcap
-Content-Disposition: attachment; filename="outgoing-lan1-3.6.18.pcap";
-	size=1054; creation-date="Thu, 21 Jul 2016 12:24:51 GMT";
-	modification-date="Thu, 21 Jul 2016 11:03:02 GMT"
-Content-Transfer-Encoding: base64
-
-1MOyoQIABAAAAAAAAAAAANAHAAABAAAAAsiQV8wPAQC+AAAAvgAAADMzAAAAAQAWJwCRBYbdYAAA
-AACIMkD9ARsQEAAAAAAAAAAAAAAD/w4AAAAAAAAAAAAAAAAAAQAAAAEAAAQSOobDB7Y0/M5aVHCp
-j1sWQQ9SdOmbckw80IEy/cAJfAGEZqCQmFwcvF17nBpm0lyprJJQP/iYHXrizG/fNx7zzFIaSJ/B
-C6JaSmCjt7GK6cm5R+7JdzLGWjtWM0lRR+C2CqqlA5yTH/pt9OPy1Wav4XYQ2M6oNKQPwq+BmV6K
-iV8DyJBXCxABAL4AAAC+AAAAMzMAAAABABYnAJEFht1gAAAAAIgyQP0BGxAQAAAAAAAAAAAAAAP/
-DgAAAAAAAAAAAAAAAAABAAAAAQAABBO9IBHEGPRqxkx7oqSqY555gcQsTqGR06MEGiZCDEafJIcJ
-QWH9Aw/KqQh1TyH0ctferTWrKrPAVp+bKYoscnL90eEzudhWIlJrS4GYKsKuu9jWYz5bHDqlhDq/
-sCSBJyARLBrjeERyo9gNDXSJzE5/k9kN+2qmLjwclduUgeRggwTIkFdJEAEAvgAAAL4AAAAzMwAA
-AAEAFicAkQWG3WAAAAAAiDJA/QEbEBAAAAAAAAAAAAAAA/8OAAAAAAAAAAAAAAAAAAEAAAABAAAE
-FIMQpvTH6kMIhh2bgvNxoCyOjke8bAVHGg+cGKDAJyzqEabp7iJ6J7AzKurLQgCN6KoXhwciaDDF
-8U3lx89VJ0gNxC94v1Ix+xFGgo6Tgk4Beft3KFuRyiyTjDoc8J9qMXvbfYyLw/w3bodGep8VlMqq
-pPGADiBdIf2WhP5Zr/AfBciQV4gQAQC+AAAAvgAAADMzAAAAAQAWJwCRBYbdYAAAAACIMkD9ARsQ
-EAAAAAAAAAAAAAAD/w4AAAAAAAAAAAAAAAAAAQAAAAEAAAQVK3niWWYzytdAQPhhXWbPACd9AK1c
-Fey3pEp42SeNdeCqcmo1aXmKhu+FRDAAwu63CMiW/51ZB796JgX4dEOOAObDV/TF24k2C8Jr188d
-iWFHCkt8+VhhaBbd/Y/HgkSSfok0+PAyy35T8kZri+llV/q7diL9kCHYVCeI5Bv2GXAGyJBXxhAB
-AL4AAAC+AAAAMzMAAAABABYnAJEFht1gAAAAAIgyQP0BGxAQAAAAAAAAAAAAAAP/DgAAAAAAAAAA
-AAAAAAABAAAAAQAABBZt8lz9TtzuQxtE1gfuz7PdAVoHy9qqDRp0zGmsdEMsXw6xCbSCthpnDffq
-yudfN7jAv4JOchEPAezon9wXZ5EWpqGYKl1cdXaKyH5wJ5qY4llP1+netYhLlDoTwY+EfRNoF2/d
-yh7gg8W4Xmshf5Lquxxx+Gr4kSduCi1ddGSPzg==
-
---_004_DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC81ExMbx1iabgde_--
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
