@@ -1,242 +1,274 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 4/9] net/sched: Add match-all classifier hw offloading.
-Date: Thu, 21 Jul 2016 12:03:12 +0200
-Message-ID: <1469095397-3837-5-git-send-email-jiri@resnulli.us>
-References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
-	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	jhs@mojatatu.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35544 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751870AbcGUKD0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:26 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i5so1954660wmg.2
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:25 -0700 (PDT)
-In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: [PATCH net-next v3 1/2] bpf: Add bpf_copy_to_user BPF helper to
+ be called in tracers (kprobes)
+Date: Thu, 21 Jul 2016 03:47:06 -0700
+Message-ID: <20160721104705.GA3446@ircssh.c.rugged-nimbus-611.internal>
+References: <20160719093242.GA23753@ircssh.c.rugged-nimbus-611.internal>
+ <578E0C61.6070705@iogearbox.net>
+ <20160719163443.GA57855@ast-mbp.thefacebook.com>
+ <578EB597.2080608@iogearbox.net>
+ <20160720030200.GA70500@ast-mbp.thefacebook.com>
+ <alpine.DEB.2.02.1607200133350.13397@ircssh.c.rugged-nimbus-611.internal>
+ <579002A3.3090406@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <579002A3.3090406@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+On Thu, Jul 21, 2016 at 01:00:51AM +0200, Daniel Borkmann wrote:
+> On 07/20/2016 11:58 AM, Sargun Dhillon wrote:
+> [...]
+> >So, with that, what about the following:
+> >It includes
+> >-Desupporting no MMU platforms as we've deemed them incapable of being
+> >  safe
+> >-Checking that we're not in a kthread
+> >-Checking that the active mm is the thread's mm
+> >-A log message indicating the experimental nature of this helper
+> >
+> >It does not include:
+> >-A heuristic to determine is access_ok is broken, or if the platform
+> >  didn't implement it. It seems all platforms with MMUs implement it today,
+> >  and it seems clear to make that platforms should do something better than
+> >  return 1, if they can
+> 
+> I don't really like couple of things, your ifdef CONFIG_MMU might not be
+> needed I think, couple of these checks seem redundant, (I'm not yet sure
+> about the task->mm != task->active_mm thingy), the helper should definitely
+> be gpl_only and ARG_PTR_TO_RAW_STACK is just buggy. Also, this should be
+> a bit analogue to bpf_probe_read we have. How about something roughly along
+> the lines of below diff (obviously needs extensive testing ...)? This
+> can still do all kind of ugly crap to the user process, but limited to
+> the cap_sys_admin to shoot himself in the foot.
+* You're right about CONFIG_MMU. We don't need it, all of the nommu platforms 
+properly deal with it from my research.
 
-Following the work that have been done on offloading classifiers like u32
-and flower, now the match-all classifier hw offloading is possible. if
-the interface supports tc offloading.
+It was always ARG_PTR_TO_STACK? Or are you saying ARG_PTR_TO_STACK is buggy and 
+we should make it ARG_PTR_TO_RAW_STACK?
 
-To control the offloading, two tc flags have been introduced: skip_sw and
-skip_hw. Typical usage:
+I originally named the function bpf_probe_write. Upon further thought I don't 
+think that makes sense. The reason is because bpf_probe_read is analogous to 
+probe_kernel_read. If we had bpf_probe_write, I think people might reason it to 
+be equivalent to probe_kernel_write, and be confused when they can't write to 
+kernel space.
 
-tc filter add dev eth25 parent ffff: 	\
-	matchall skip_sw		\
-	action mirred egress mirror	\
-	dev eth27
+I tried to make the external facing documentaion close to copy_to_user. That's 
+how people should use it, not like _write. Therefor I think it makes sense to 
+keep that the name.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/linux/netdevice.h    |  2 ++
- include/net/pkt_cls.h        | 11 +++++++
- include/uapi/linux/pkt_cls.h |  1 +
- net/sched/cls_matchall.c     | 76 ++++++++++++++++++++++++++++++++++++++++++--
- 4 files changed, 87 insertions(+), 3 deletions(-)
+I added a check for (!task) -- It seems to be spattered throughou the eBPF 
+helper code. Alexei mentioned earlier that it can be null, but I'm not sure of 
+the case
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fab9a1c..63e31a7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -787,6 +787,7 @@ enum {
- 	TC_SETUP_MQPRIO,
- 	TC_SETUP_CLSU32,
- 	TC_SETUP_CLSFLOWER,
-+	TC_SETUP_MATCHALL,
- };
+RE: task->mm != task->active_mm -- There are a couple scenarios where kthreads 
+do this, and the only user call that should hit this is execve. There's only a 
+brief period where this can be true and I don't think it's worth dealing with 
+that case -- I'm not really sure you can plant a kprobe at the right site either
+
+Did some minimal testing with tracex7 and others.
+
+I was able to copy memory into other process's space while certain 
+syscalls were going on. I don't think that there are a reasonable set of 
+protections.
+
+I'll do more testing. Any suggestions of what might break? I've looked at 
+writing to unitialized memory, Memory out of bounds, etc... Do you know of any 
+"weak spots"?
+
+The rest of the helpers return EINVAL on invalid state. I think it makes sense 
+to match them. ENOPERM makes sense for interacting with an illegal chunk of 
+memory, but ENOPERM just because you're in a kthread seems especially weird.
+
+> 
+>  include/uapi/linux/bpf.h |  3 +++
+>  kernel/trace/bpf_trace.c | 30 ++++++++++++++++++++++++++++++
+>  2 files changed, 33 insertions(+)
+> 
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 2b7076f..4d339c6 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -365,6 +365,9 @@ enum bpf_func_id {
+>  	 */
+>  	BPF_FUNC_get_current_task,
+> 
+> +	/* Doc goes here ... */
+> +	BPF_FUNC_probe_write,
+> +
+>  	__BPF_FUNC_MAX_ID,
+>  };
+> 
+> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> index a12bbd3..43a4386c 100644
+> --- a/kernel/trace/bpf_trace.c
+> +++ b/kernel/trace/bpf_trace.c
+> @@ -81,6 +81,34 @@ static const struct bpf_func_proto bpf_probe_read_proto = {
+>  	.arg3_type	= ARG_ANYTHING,
+>  };
+> 
+> +static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> +{
+> +	struct task_struct *task = current;
+> +	void *unsafe_ptr = (void *)(long) r1;
+> +	void *src = (void *)(long) r2;
+> +	int size = (int) r3;
+> +
+> +	if (unlikely(in_interrupt() || (task->flags & PF_KTHREAD)))
+> +		return -EPERM;
+> +	if (segment_eq(get_fs(), KERNEL_DS))
+> +		return -EPERM;
+> +	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
+> +		return -EPERM;
+> +
+> +	/* pr_warn_once() barks here ... */
+> +
+> +	return probe_kernel_write(unsafe_ptr, src, size);
+> +}
+> +
+> +static const struct bpf_func_proto bpf_probe_write_proto = {
+> +	.func           = bpf_probe_write,
+> +	.gpl_only       = true,
+> +	.ret_type       = RET_INTEGER,
+> +	.arg1_type      = ARG_ANYTHING,
+> +	.arg2_type      = ARG_PTR_TO_STACK,
+> +	.arg3_type      = ARG_CONST_STACK_SIZE,
+> +};
+> +
+>  /*
+>   * limited trace_printk()
+>   * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed
+> @@ -344,6 +372,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
+>  		return &bpf_map_delete_elem_proto;
+>  	case BPF_FUNC_probe_read:
+>  		return &bpf_probe_read_proto;
+> +	case BPF_FUNC_probe_write:
+> +		return &bpf_probe_write_proto;
+>  	case BPF_FUNC_ktime_get_ns:
+>  		return &bpf_ktime_get_ns_proto;
+>  	case BPF_FUNC_tail_call:
+> -- 
+> 1.9.3
+commit e95732cb75e256af621ecaf85fd48d51bf91da1b
+Author: Sargun Dhillon <sargun@sargun.me>
+Date:   Mon Jul 18 19:38:58 2016 -0700
+
+    bpf: Add bpf_copy_to_user BPF helper to be called in tracers (kprobes)
+    
+    This allows user memory to be written to during the course of a kprobe.
+    It shouldn't be used to implement any kind of security mechanism
+    because of TOC-TOU attacks, but rather to debug, divert, and
+    manipulate execution of semi-cooperative processes.
+    
+    Although it uses probe_kernel_write, we limit the address space
+    the probe can write into by checking the space with access_ok.
+    This call shouldn't sleep on any architectures based on review.
+    
+    It was tested with the tracex7 program on x86-64.
+    
+    Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+    Cc: Alexei Starovoitov <ast@kernel.org>
+    Cc: Daniel Borkmann <daniel@iogearbox.net>
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index c4d9224..d435f7c 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -364,6 +364,17 @@ enum bpf_func_id {
+ 	 */
+ 	BPF_FUNC_get_current_task,
  
- struct tc_cls_u32_offload;
-@@ -797,6 +798,7 @@ struct tc_to_netdev {
- 		u8 tc;
- 		struct tc_cls_u32_offload *cls_u32;
- 		struct tc_cls_flower_offload *cls_flower;
-+		struct tc_cls_matchall_offload *cls_mall;
- 	};
- };
- 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 3722dda..6f8d653 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -442,4 +442,15 @@ struct tc_cls_flower_offload {
- 	struct tcf_exts *exts;
- };
- 
-+enum tc_matchall_command {
-+	TC_CLSMATCHALL_REPLACE,
-+	TC_CLSMATCHALL_DESTROY,
-+};
++	/**
++	 * copy_to_user(to, from, len) - Copy a block of data into user space.
++	 * @to: destination address in userspace
++	 * @from: source address on stack
++	 * @len: number of bytes to copy
++	 * Return:
++	 *   Returns number of bytes that could not be copied.
++	 *   On success, this will be zero
++	 */
++	BPF_FUNC_copy_to_user,
 +
-+struct tc_cls_matchall_offload {
-+	enum tc_matchall_command command;
-+	struct tcf_exts *exts;
-+	unsigned long cookie;
-+};
-+
- #endif
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index a324948..d1c1cca 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -439,6 +439,7 @@ enum {
- 	TCA_MATCHALL_UNSPEC,
- 	TCA_MATCHALL_CLASSID,
- 	TCA_MATCHALL_ACT,
-+	TCA_MATCHALL_FLAGS,
- 	__TCA_MATCHALL_MAX,
+ 	__BPF_FUNC_MAX_ID,
  };
  
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 8a6b4de..25927b6 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -21,6 +21,7 @@ struct cls_mall_filter {
- 	struct tcf_result res;
- 	u32 handle;
- 	struct rcu_head	rcu;
-+	u32 flags;
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index ebfbb7d..b82b9e9 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -81,6 +81,48 @@ static const struct bpf_func_proto bpf_probe_read_proto = {
+ 	.arg3_type	= ARG_ANYTHING,
  };
  
- struct cls_mall_head {
-@@ -34,6 +35,9 @@ static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	struct cls_mall_head *head = rcu_dereference_bh(tp->root);
- 	struct cls_mall_filter *f = head->filter;
- 
-+	if (tc_skip_sw(f->flags))
-+		return -1;
-+
- 	return tcf_exts_exec(skb, &f->exts, res);
- }
- 
-@@ -55,18 +59,61 @@ static void mall_destroy_filter(struct rcu_head *head)
- 	struct cls_mall_filter *f = container_of(head, struct cls_mall_filter, rcu);
- 
- 	tcf_exts_destroy(&f->exts);
-+
- 	kfree(f);
- }
- 
-+static int mall_replace_hw_filter(struct tcf_proto *tp,
-+				  struct cls_mall_filter *f,
-+				  unsigned long cookie)
++static u64 bpf_copy_to_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 +{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_to_netdev offload;
-+	struct tc_cls_matchall_offload mall_offload = {0};
++	void *unsafe_ptr = (void *) (long) r1;
++	void *src = (void *) (long) r2;
++	int size = (int) r3;
++	struct task_struct *task = current;
 +
-+	offload.type = TC_SETUP_MATCHALL;
-+	offload.cls_mall = &mall_offload;
-+	offload.cls_mall->command = TC_CLSMATCHALL_REPLACE;
-+	offload.cls_mall->exts = &f->exts;
-+	offload.cls_mall->cookie = cookie;
++	/*
++	 * Ensure we're in a user context which it is safe for the helper
++	 * to run.
++	 * Also, this helper has no business in a kthread.
++	 * Although, access_ok should prevent writing to non-user memory
++	 * On some architectures (nommu, etc...) access_ok isn't enough
++	 * So we check get_fs()
++	 */
 +
-+	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
-+					     &offload);
++	if (unlikely(!task))
++		return -EINVAL;
++	if (unlikely(in_interrupt() || (task->flags & PF_KTHREAD)))
++		return -EINVAL;
++	if (unlikely(segment_eq(get_fs(), KERNEL_DS)))
++		return -EINVAL;
++	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
++		return -EPERM;
++
++	pr_warn_once("**************************************************\n");
++	pr_warn_once("* bpf_copy_to_user: Experimental Feature in use  *\n");
++	pr_warn_once("* bpf_copy_to_user: Feature may corrupt memory   *\n");
++	pr_warn_once("**************************************************\n");
++
++	return probe_kernel_write(unsafe_ptr, src, size);
 +}
 +
-+static void mall_destroy_hw_filter(struct tcf_proto *tp,
-+				   struct cls_mall_filter *f,
-+				   unsigned long cookie)
-+{
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tc_to_netdev offload;
-+	struct tc_cls_matchall_offload mall_offload = {0};
++static const struct bpf_func_proto bpf_copy_to_user_proto = {
++	.func		= bpf_copy_to_user,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_ANYTHING,
++	.arg2_type	= ARG_PTR_TO_STACK,
++	.arg3_type	= ARG_CONST_STACK_SIZE,
++};
 +
-+	offload.type = TC_SETUP_MATCHALL;
-+	offload.cls_mall = &mall_offload;
-+	offload.cls_mall->command = TC_CLSMATCHALL_DESTROY;
-+	offload.cls_mall->exts = NULL;
-+	offload.cls_mall->cookie = cookie;
-+
-+	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
-+					     &offload);
-+}
-+
- static bool mall_destroy(struct tcf_proto *tp, bool force)
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct cls_mall_filter *f = head->filter;
+ /*
+  * limited trace_printk()
+  * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed
+@@ -360,6 +402,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_get_smp_processor_id_proto;
+ 	case BPF_FUNC_perf_event_read:
+ 		return &bpf_perf_event_read_proto;
++	case BPF_FUNC_copy_to_user:
++		return &bpf_copy_to_user_proto;
+ 	default:
+ 		return NULL;
+ 	}
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 84e3fd9..a54a26c 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -41,6 +41,8 @@ static int (*bpf_perf_event_output)(void *ctx, void *map, int index, void *data,
+ 	(void *) BPF_FUNC_perf_event_output;
+ static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
+ 	(void *) BPF_FUNC_get_stackid;
++static int (*bpf_copy_to_user)(void *to, void *from, int size) =
++	(void *) BPF_FUNC_copy_to_user;
  
--	if (!force && head->filter)
-+	if (!force && f)
- 		return false;
- 
--	if (head->filter)
--		call_rcu(&head->filter->rcu, mall_destroy_filter);
-+	if (f) {
-+		if (tc_should_offload(dev, tp, f->flags))
-+			mall_destroy_hw_filter(tp, f, (unsigned long) f);
-+
-+		call_rcu(&f->rcu, mall_destroy_filter);
-+	}
- 	RCU_INIT_POINTER(tp->root, NULL);
- 	kfree_rcu(head, rcu);
- 	return true;
-@@ -117,8 +164,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
- 	struct cls_mall_filter *fold = (struct cls_mall_filter *) *arg;
-+	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct cls_mall_filter *f;
- 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
-+	u32 flags = 0;
- 	int err;
- 
- 	if (!tca[TCA_OPTIONS])
-@@ -135,6 +184,12 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	if (err < 0)
- 		return err;
- 
-+	if (tb[TCA_MATCHALL_FLAGS]) {
-+		flags = nla_get_u32(tb[TCA_MATCHALL_FLAGS]);
-+		if (!tc_flags_valid(flags))
-+			return -EINVAL;
-+	}
-+
- 	f = kzalloc(sizeof(*f), GFP_KERNEL);
- 	if (!f)
- 		return -ENOBUFS;
-@@ -144,11 +199,22 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	if (!handle)
- 		handle = 1;
- 	f->handle = handle;
-+	f->flags = flags;
- 
- 	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
- 	if (err)
- 		goto errout;
- 
-+	if (tc_should_offload(dev, tp, flags)) {
-+		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
-+		if (err) {
-+			if (tc_skip_sw(flags))
-+				goto errout;
-+			else
-+				err = 0;
-+		}
-+	}
-+
- 	*arg = (unsigned long) f;
- 	rcu_assign_pointer(head->filter, f);
- 
-@@ -163,6 +229,10 @@ static int mall_delete(struct tcf_proto *tp, unsigned long arg)
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
- 	struct cls_mall_filter *f = (struct cls_mall_filter *) arg;
-+	struct net_device *dev = tp->q->dev_queue->dev;
-+
-+	if (tc_should_offload(dev, tp, f->flags))
-+		mall_destroy_hw_filter(tp, f, (unsigned long) f);
- 
- 	RCU_INIT_POINTER(head->filter, NULL);
- 	tcf_unbind_filter(tp, &f->res);
--- 
-2.5.5
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
