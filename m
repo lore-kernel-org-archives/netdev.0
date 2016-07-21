@@ -1,51 +1,87 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Thu, 21 Jul 2016 17:39:51 +0200
-Message-ID: <20160721173951.225f9379@griffin>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
- <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
- <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
- <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
- <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
+From: =?iso-8859-1?Q?Pommnitz_J=F6rg?= <Pommnitz@iabg.de>
+Subject: AW: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18/4.6.4
+Date: Thu, 21 Jul 2016 16:00:24 +0000
+Message-ID: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC9A@ExMbx1.iabg.de>
+References: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC70@ExMbx1.iabg.de>
+ <AM4PR0501MB1940C0DFCF936A7957D88971DB090@AM4PR0501MB1940.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160718045025.GA2490-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ilan Tayari <ilant@mellanox.com>,
+	Shanker Wang <shankerwangmiao@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.iabg.de ([84.11.16.20]:39296 "EHLO mail1.iabg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751866AbcGUQGO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 12:06:14 -0400
+In-Reply-To: <AM4PR0501MB1940C0DFCF936A7957D88971DB090@AM4PR0501MB1940.eurprd05.prod.outlook.com>
+Content-Language: de-DE
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAxOCBKdWwgMjAxNiAxMzo1MDoyNyArMDkwMCwgU2ltb24gSG9ybWFuIHdyb3RlOgo+
-IE9uIEZyaSwgSnVsIDE1LCAyMDE2IGF0IDAyOjA3OjM3UE0gLTA3MDAsIHByYXZpbiBzaGVsYXIg
-d3JvdGU6Cj4gPiBJIHRoaW5rIHdlIHNob3VsZCBzZW5kIEwyIGhlYWRlciB3aXRoIGwyIGhlYWRl
-ciBwdXNoZWQgb24gc2tiLiBUaGlzIGlzCj4gPiB3aGF0IE9WUyBleHBlY3QuIFRoZSBza2ItcHVz
-aCBzaG91bGQgYmUgZG9uZSBmb3IgYWxsIGwyIHBhY2tldHMgcmF0aGVyCj4gPiB0aGFuIGZvciBw
-YXJ0aWN1bGFyIHR5cGUgb2YgZGV2aWNlLgo+IAo+IFRoZSBmb2xsb3dpbmcgc2VlbXMgdG8gYWNo
-aWV2ZSB0aGF0Lgo+IEppcmksIHdoYXQgZG8geW91IHRoaW5rPwo+IAo+IGRpZmYgLS1naXQgYS9u
-ZXQvaXB2NC9pcF9ncmUuYyBiL25ldC9pcHY0L2lwX2dyZS5jCj4gaW5kZXggYTIwMjQ4MzU1ZGEw
-Li5lZGJjMTA2OTBiNjAgMTAwNjQ0Cj4gLS0tIGEvbmV0L2lwdjQvaXBfZ3JlLmMKPiArKysgYi9u
-ZXQvaXB2NC9pcF9ncmUuYwo+IEBAIC0yODEsMTAgKzI4MSw5IEBAIHN0YXRpYyBpbnQgX19pcGdy
-ZV9yY3Yoc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IHRubF9wdGtfaW5mbyAqdHBp
-LAo+ICAJCQkJCSAgIHJhd19wcm90bywgZmFsc2UpIDwgMCkKPiAgCQkJZ290byBkcm9wOwo+ICAK
-PiAtCQlpZiAodHVubmVsLT5kZXYtPnR5cGUgIT0gQVJQSFJEX05PTkUpCj4gKwkJaWYgKHR1bm5l
-bC0+ZGV2LT50eXBlICE9IEFSUEhSRF9OT05FIHx8Cj4gKwkJICAgIHRwaS0+cHJvdG8gPT0gaHRv
-bnMoRVRIX1BfVEVCKSkKPiAgCQkJc2tiX3BvcF9tYWNfaGVhZGVyKHNrYik7CgpUaGlzIGlzIHdy
-b25nLiBUaGUgTUFDIGhlYWRlciBmb3IgQVJQSFJEX05PTkUgaW50ZXJmYWNlcyBpcyBudWxsLAp0
-aGF0J3MgdGhlIG1lYW5pbmcgb2YgQVJQSFJEX05PTkUuIG1hY19oZWFkZXIgY2Fubm90IHBvaW50
-IHRvIHRoZSBvdXRlcgpJUCBoZWFkZXIuIFRoYXQgd291bGQgYmUgQVJQSFJEX0lQR1JFLgoKIEpp
-cmkKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
-aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
-bG1hbi9saXN0aW5mby9kZXYK
+I'm tracking this down and I *think* I found it. I think it's not reall=
+y an IPsec issue.
+Something changed between 2.6.x and 3.x regarding the handling of multi=
+cast packets. If
+I call "iperf -s -u -V -B ff0e::1" and those join ff0e::1, things start=
+ to work.
+
+Regards
+  joerg
+
+> -----Urspr=FCngliche Nachricht-----
+> Von: Ilan Tayari [mailto:ilant@mellanox.com]
+> Gesendet: Donnerstag, 21. Juli 2016 16:41
+> An: Pommnitz J=F6rg; Shanker Wang
+> Cc: netdev@vger.kernel.org
+> Betreff: RE: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18/4=
+=2E6.4
+>
+> > Node 1: fd01:1b10:1000::1 is running 4.6.4
+> > 14:21:50.737092 IP6 fd01:1b10:1000::3 > ff0e::1:
+> > ESP(spi=3D0x00000001,seq=3D0x100), length 136
+> > 14:21:51.737155 IP6 fd01:1b10:1000::3 > ff0e::1:
+> > ESP(spi=3D0x00000001,seq=3D0x101), length 136
+> ...
+> > ip -s xfrm state
+> > src fd01:1b10:1000::1 dst ff0e::1
+> >         proto esp spi 0x00000001(1) reqid 0(0x00000000) mode tunnel
+> ...
+> >           add 2016-07-21 14:18:08 use -
+> ...
+> >         dir out ...
+> ...
+> >           add 2016-07-21 14:18:08 use -
+> ...
+> >         dir fwd ...
+> >           add 2016-07-21 14:18:08 use -
+> ...
+> >         dir in ...
+> >           add 2016-07-21 14:18:08 use -
+>
+> Hi Joerg,
+>
+> See the "use -" instead of a date/time of last usage (like in your ou=
+tput
+> from 2.6) Packets are received, but nothing is matched to your xfrm s=
+tates
+> and policies.
+>
+> Are you sure this is the full output of "ip -s xfrm policy"? I feel l=
+ike
+> something is missing.
+>
+> At first glance I'd say it looks like src+dst doesn't match the packe=
+ts.
+> Packet source-ip is ::3, while xfrm-state source ip matches::1
+>
+> Ilan.
+
+________________________________
+Industrieanlagen-Betriebsgesellschaft mbH
+
+Sitz der Gesellschaft: Ottobrunn, Registergericht: Amtsgericht M=FCnche=
+n, HRB 5499
+Gesch=E4ftsf=FChrung: Prof. Dr.-Ing. Rudolf F. Schwarz
+Vorsitzender des Aufsichtsrats: RA Engelbert Kupka MdL a.D.
