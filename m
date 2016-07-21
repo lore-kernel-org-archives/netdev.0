@@ -1,104 +1,589 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v3 1/2] bpf: Add bpf_copy_to_user BPF helper
- to be called in tracers (kprobes)
-Date: Thu, 21 Jul 2016 13:30:14 +0200
-Message-ID: <5790B246.6020905@iogearbox.net>
-References: <20160719093242.GA23753@ircssh.c.rugged-nimbus-611.internal> <578E0C61.6070705@iogearbox.net> <20160719163443.GA57855@ast-mbp.thefacebook.com> <578EB597.2080608@iogearbox.net> <20160720030200.GA70500@ast-mbp.thefacebook.com> <alpine.DEB.2.02.1607200133350.13397@ircssh.c.rugged-nimbus-611.internal> <579002A3.3090406@iogearbox.net> <20160721104705.GA3446@ircssh.c.rugged-nimbus-611.internal>
+From: =?iso-8859-1?Q?Pommnitz_J=F6rg?= <Pommnitz@iabg.de>
+Subject: Re: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18/4.6.4
+Date: Thu, 21 Jul 2016 11:48:05 +0000
+Message-ID: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC70@ExMbx1.iabg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160721104705.GA3446@ircssh.c.rugged-nimbus-611.internal>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ilan Tayari <ilant@mellanox.com>,
+	Shanker Wang <shankerwangmiao@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.iabg.de ([62.245.167.132]:43560 "EHLO mail2.iabg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751414AbcGULsM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 07:48:12 -0400
+Content-Language: de-DE
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/21/2016 12:47 PM, Sargun Dhillon wrote:
-> On Thu, Jul 21, 2016 at 01:00:51AM +0200, Daniel Borkmann wrote:
-[...]
->> I don't really like couple of things, your ifdef CONFIG_MMU might not be
->> needed I think, couple of these checks seem redundant, (I'm not yet sure
->> about the task->mm != task->active_mm thingy), the helper should definitely
->> be gpl_only and ARG_PTR_TO_RAW_STACK is just buggy. Also, this should be
->> a bit analogue to bpf_probe_read we have. How about something roughly along
->> the lines of below diff (obviously needs extensive testing ...)? This
->> can still do all kind of ugly crap to the user process, but limited to
->> the cap_sys_admin to shoot himself in the foot.
-> * You're right about CONFIG_MMU. We don't need it, all of the nommu platforms
-> properly deal with it from my research.
+Additionally I have now built and installed Linux-4.6.4 and run the deb=
+ug script.
+Setup is unchanged from the previous one, except that Node 1 is now run=
+ning Linux-4.6.4.
 
-The segment_eq() test should generically catch this from what I see.
+Node 1: fd01:1b10:1000::1 is running 4.6.4
 
-> It was always ARG_PTR_TO_STACK? Or are you saying ARG_PTR_TO_STACK is buggy and
-> we should make it ARG_PTR_TO_RAW_STACK?
+Debug log from Node 1, Receiver running 4.6.4:
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DBegin=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Linux node-0-001 4.6.4-node-test #2 Thu Jul 21 13:22:34 CEST 2016 i686 =
+i686 i686 GNU/Linux
+tcpdump -lni lan1 -c 5
+14:21:49.737030 IP6 fd01:1b10:1000::3 > ff0e::1: ESP(spi=3D0x00000001,s=
+eq=3D0xff), length 136
+14:21:50.737092 IP6 fd01:1b10:1000::3 > ff0e::1: ESP(spi=3D0x00000001,s=
+eq=3D0x100), length 136
+14:21:51.737155 IP6 fd01:1b10:1000::3 > ff0e::1: ESP(spi=3D0x00000001,s=
+eq=3D0x101), length 136
+14:21:52.737217 IP6 fd01:1b10:1000::3 > ff0e::1: ESP(spi=3D0x00000001,s=
+eq=3D0x102), length 136
+14:21:53.737280 IP6 fd01:1b10:1000::3 > ff0e::1: ESP(spi=3D0x00000001,s=
+eq=3D0x103), length 136
+cat /proc/net/xfrm_stat
+XfrmInError                     0
+XfrmInBufferError               0
+XfrmInHdrError                  0
+XfrmInNoStates                  0
+XfrmInStateProtoError           0
+XfrmInStateModeError            0
+XfrmInStateSeqError             0
+XfrmInStateExpired              0
+XfrmInStateMismatch             0
+XfrmInStateInvalid              0
+XfrmInTmplMismatch              0
+XfrmInNoPols                    0
+XfrmInPolBlock                  0
+XfrmInPolError                  0
+XfrmOutError                    0
+XfrmOutBundleGenError           0
+XfrmOutBundleCheckError         0
+XfrmOutNoStates                 0
+XfrmOutStateProtoError          0
+XfrmOutStateModeError           0
+XfrmOutStateSeqError            0
+XfrmOutStateExpired             0
+XfrmOutPolBlock                 0
+XfrmOutPolDead                  0
+XfrmOutPolError                 0
+XfrmFwdHdrError                 0
+XfrmOutStateInvalid             0
+XfrmAcquireError                0
+ip -s xfrm state
+src fd01:1b10:1000::1 dst ff0e::1
+        proto esp spi 0x00000001(1) reqid 0(0x00000000) mode tunnel
+        replay-window 0 seq 0x00000000 flag  (0x00000000)
+        enc cbc(aes) 0x7bef6ecaf06d29ef55b24aca6e19964b332e02e75be676a3=
+ (192 bits)
+        sel src ::/0 dst ::/0 uid 0
+        lifetime config:
+          limit: soft (INF)(bytes), hard (INF)(bytes)
+          limit: soft (INF)(packets), hard (INF)(packets)
+          expire add: soft 0(sec), hard 0(sec)
+          expire use: soft 0(sec), hard 0(sec)
+        lifetime current:
+          0(bytes), 0(packets)
+          add 2016-07-21 14:18:08 use -
+        stats:
+          replay-window 0 replay 0 failed 0
+ip -s xfrm policy
+src ::/0 dst ff0e::1/128 uid 0
+        dir out action allow index 17 priority 2147483648 share any fla=
+g  (0x00000000)
+        lifetime config:
+          limit: soft (INF)(bytes), hard (INF)(bytes)
+          limit: soft (INF)(packets), hard (INF)(packets)
+          expire add: soft 0(sec), hard 0(sec)
+          expire use: soft 0(sec), hard 0(sec)
+        lifetime current:
+          0(bytes), 0(packets)
+          add 2016-07-21 14:18:08 use -
+        tmpl src fd01:1b10:1000::1 dst ff0e::1
+                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+                level required share any
+                enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+src ::/0 dst ff0e::1/128 uid 0
+        dir fwd action allow index 10 priority 2147483648 share any fla=
+g  (0x00000000)
+        lifetime config:
+          limit: soft (INF)(bytes), hard (INF)(bytes)
+          limit: soft (INF)(packets), hard (INF)(packets)
+          expire add: soft 0(sec), hard 0(sec)
+          expire use: soft 0(sec), hard 0(sec)
+        lifetime current:
+          0(bytes), 0(packets)
+          add 2016-07-21 14:18:08 use -
+        tmpl src fd01:1b10:1000::1 dst ff0e::1
+                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+                level required share any
+                enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+src ::/0 dst ff0e::1/128 uid 0
+        dir in action allow index 8 priority 2147483648 share any flag =
+ (0x00000000)
+        lifetime config:
+          limit: soft (INF)(bytes), hard (INF)(bytes)
+          limit: soft (INF)(packets), hard (INF)(packets)
+          expire add: soft 0(sec), hard 0(sec)
+          expire use: soft 0(sec), hard 0(sec)
+        lifetime current:
+          0(bytes), 0(packets)
+          add 2016-07-21 14:18:08 use -
+        tmpl src fd01:1b10:1000::1 dst ff0e::1
+                proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+                level required share any
+                enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DEnd=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 
-No, in your patch, you had '+    .arg2_type    = ARG_PTR_TO_RAW_STACK,',
-which is not correct as it means you don't need to initialize the memory
-you pass in for your *src pointer. I believe you took this over from
-probe_read(), but there it's correct. ARG_PTR_TO_STACK means the verifier
-checks that it's initialized with data.
+Kind regards
+  Joerg
 
-> I originally named the function bpf_probe_write. Upon further thought I don't
-> think that makes sense. The reason is because bpf_probe_read is analogous to
-> probe_kernel_read. If we had bpf_probe_write, I think people might reason it to
-> be equivalent to probe_kernel_write, and be confused when they can't write to
-> kernel space.
+> -----Urspr=FCngliche Nachricht-----
+> Von: Pommnitz J=F6rg
+> Gesendet: Donnerstag, 21. Juli 2016 11:58
+> An: 'Ilan Tayari'; 'Shanker Wang'
+> Cc: netdev@vger.kernel.org
+> Betreff: AW: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18 (=
+and
+> probably later)
+>
+> Ilan and Shanker,
+> I did as you asked.
+> Setup: Three nodes all connected to the same Ethernet hub.
+> Node 1: fd01:1b10:1000::1 is running 3.18.36
+> Node 2: fd01:1b10:1000::2 is running 2.6.23.12
+> Node 3: fd01:1b10:1000::3 is running 3.18.36 and generates the traffi=
+c with
+> the command "ping6 -I lan1 ff0e::1"
+>
+> All three nodes are configured with the following script (IP6ADDR adj=
+usted
+> for every node):
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DBegin=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> #!/bin/bash
+>
+> IP6ANYADDR=3D::/0
+> IP6BCAST=3Dff0e::1
+> KEY=3D"0x7bef6ecaf06d29ef55b24aca6e19964b332e02e75be676a3"
+> #IFNAME=3Dradio
+> IFNAME=3Dlan1
+> IP6ADDR=3Dfd01:1b10:1000::X
+> PREFIX6=3D64
+> SPI=3D0x1
+>
+> ip link set dev ${IFNAME} up
+> ip addr add ${IP6ADDR}/${PREFIX6} dev ${IFNAME}
+> echo "flush; spdflush;" | setkey -c
+> echo "add ${IP6ADDR} ${IP6BCAST} esp ${SPI} -m tunnel -E aes-cbc ${KE=
+Y};" |
+> setkey -c
+> echo "spdadd ${IP6ANYADDR} ${IP6BCAST} any -P in ipsec
+> esp/tunnel/${IP6ADDR}-${IP6BCAST}/require;" | setkey -c
+> echo "spdadd ${IP6ANYADDR} ${IP6BCAST} any -P out ipsec
+> esp/tunnel/${IP6ADDR}-${IP6BCAST}/require;" | setkey -c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DEnd=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>
+> To capture the debug information I used the following script:
+>
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DBegin=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> uname -a
+> echo "tcpdump -lni lan1 -c 5"
+> tcpdump -lni lan1 -c 5
+> echo "cat /proc/net/xfrm_stat"
+> cat /proc/net/xfrm_stat
+> echo "ip -s xfrm state"
+> ip -s xfrm state
+> echo "ip -s xfrm policy"
+> ip -s xfrm policy
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DEnd=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>
+> Debug log from Node 1, Receiver running 3.6.18:
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DBegin=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> Linux node-0-001 3.18.36-node-5875 #1 Tue Jul 12 14:00:52 CEST 2016 i=
+686
+> i686 i686 GNU/Linux
+> tcpdump -lni lan1 -c 5
+> 12:03:09.580943 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x69), length 136
+> 12:03:10.581006 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x6a), length 136
+> 12:03:11.581068 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x6b), length 136
+> 12:03:12.581131 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x6c), length 136
+> 12:03:13.581193 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x6d), length 136
+> cat /proc/net/xfrm_stat
+> XfrmInError                   0
+> XfrmInBufferError             0
+> XfrmInHdrError                0
+> XfrmInNoStates                0
+> XfrmInStateProtoError         0
+> XfrmInStateModeError          0
+> XfrmInStateSeqError           0
+> XfrmInStateExpired            0
+> XfrmInStateMismatch           0
+> XfrmInStateInvalid            0
+> XfrmInTmplMismatch            0
+> XfrmInNoPols                  0
+> XfrmInPolBlock                0
+> XfrmInPolError                0
+> XfrmOutError                  0
+> XfrmOutBundleGenError         0
+> XfrmOutBundleCheckError       0
+> XfrmOutNoStates               0
+> XfrmOutStateProtoError        0
+> XfrmOutStateModeError         0
+> XfrmOutStateSeqError          0
+> XfrmOutStateExpired           0
+> XfrmOutPolBlock               0
+> XfrmOutPolDead                0
+> XfrmOutPolError               0
+> XfrmFwdHdrError               0
+> XfrmOutStateInvalid           0
+> XfrmAcquireError              0
+> ip -s xfrm state
+> src fd01:1b10:1000::1 dst ff0e::1
+>       proto esp spi 0x00000001(1) reqid 0(0x00000000) mode tunnel
+>       replay-window 0 seq 0x00000000 flag  (0x00000000)
+>       enc cbc(aes) 0x7bef6ecaf06d29ef55b24aca6e19964b332e02e75be676a3=
+ (192
+> bits)
+>       sel src ::/0 dst ::/0 uid 0
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 12:01:44 use -
+>       stats:
+>         replay-window 0 replay 0 failed 0
+> ip -s xfrm policy
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir out action allow index 41 priority 2147483648 share any fla=
+g
+> (0x00000000)
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 12:01:44 use -
+>       tmpl src fd01:1b10:1000::1 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir fwd action allow index 34 priority 2147483648 share any fla=
+g
+> (0x00000000)
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 12:01:44 use -
+>       tmpl src fd01:1b10:1000::1 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir in action allow index 24 priority 2147483648 share any flag
+> (0x00000000)
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 12:01:44 use -
+>       tmpl src fd01:1b10:1000::1 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DEnd=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>
+> Debug log from Node 2, Receiver running 2.6.23.12 (Note: 2.6.23 did n=
+ot have
+> /proc/net/xfrm_stat):
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DBegin=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> Linux node-0-001 2.6.23.12-node-4908 #3 Mon Dec 15 17:28:03 CET 2014 =
+i686
+> GNU/Linux
+> tcpdump -lni lan1 -c 5
+> 11:54:06.506723 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x75), length 136
+> 11:54:06.506723 IP6 fd01:1b10:1000::3 > ff0e::1: ICMP6, echo request,=
+ seq
+> 117, length 64
+> 11:54:07.506696 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x76), length 136
+> 11:54:07.506696 IP6 fd01:1b10:1000::3 > ff0e::1: ICMP6, echo request,=
+ seq
+> 118, length 64
+> 11:54:08.506731 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x77), length 136
+> cat /proc/net/xfrm_stat
+> ip -s xfrm state
+> src fd01:1b10:1000::2 dst ff0e::1
+>       proto esp spi 0x00000001(1) reqid 0(0x00000000) mode tunnel
+>       replay-window 0 seq 0x00000000 flag  (0x00000000)
+>       enc cbc(aes) 0x7bef6ecaf06d29ef55b24aca6e19964b332e02e75be676a3=
+ (192
+> bits)
+>       sel src ::/0 dst ::/0 uid 0
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         8320(bytes), 80(packets)
+>         add 2016-07-21 11:52:48 use 2016-07-21 11:52:49
+>       stats:
+>         replay-window 0 replay 0 failed 0
+> ip -s xfrm policy
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir in action allow index 24 priority 2147483648 share any flag
+> 0x00000000
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 11:52:48 use -
+>       tmpl src fd01:1b10:1000::2 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir out action allow index 41 priority 2147483648 share any fla=
+g
+> 0x00000000
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 11:52:48 use -
+>       tmpl src fd01:1b10:1000::2 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir fwd action allow index 34 priority 2147483648 share any fla=
+g
+> 0x00000000
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 11:52:48 use -
+>       tmpl src fd01:1b10:1000::2 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DEnd=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>
+> Debug log from Node 3, Sender running 3.6.18:
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DBegin=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> Linux node-0-005 3.18.36-node-5875 #1 Tue Jul 12 14:00:52 CEST 2016 i=
+686
+> i686 i686 GNU/Linux
+> tcpdump -lni lan1 -c 5
+> 10:27:07.369198 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x5b), length 136
+> 10:27:08.369261 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x5c), length 136
+> 10:27:09.369323 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x5d), length 136
+> 10:27:10.369386 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x5e), length 136
+> 10:27:11.369448 IP6 fd01:1b10:1000::3 > ff0e::1:
+> ESP(spi=3D0x00000001,seq=3D0x5f), length 136
+> cat /proc/net/xfrm_stat
+> XfrmInError                   0
+> XfrmInBufferError             0
+> XfrmInHdrError                0
+> XfrmInNoStates                0
+> XfrmInStateProtoError         0
+> XfrmInStateModeError          0
+> XfrmInStateSeqError           0
+> XfrmInStateExpired            0
+> XfrmInStateMismatch           0
+> XfrmInStateInvalid            0
+> XfrmInTmplMismatch            0
+> XfrmInNoPols                  0
+> XfrmInPolBlock                0
+> XfrmInPolError                0
+> XfrmOutError                  0
+> XfrmOutBundleGenError         0
+> XfrmOutBundleCheckError       0
+> XfrmOutNoStates               0
+> XfrmOutStateProtoError        0
+> XfrmOutStateModeError         0
+> XfrmOutStateSeqError          0
+> XfrmOutStateExpired           0
+> XfrmOutPolBlock               0
+> XfrmOutPolDead                0
+> XfrmOutPolError               0
+> XfrmFwdHdrError               0
+> XfrmOutStateInvalid           0
+> XfrmAcquireError              0
+> ip -s xfrm state
+> src fd01:1b10:1000::3 dst ff0e::1
+>       proto esp spi 0x00000001(1) reqid 0(0x00000000) mode tunnel
+>       replay-window 0 seq 0x00000000 flag  (0x00000000)
+>       enc cbc(aes) 0x7bef6ecaf06d29ef55b24aca6e19964b332e02e75be676a3=
+ (192
+> bits)
+>       sel src ::/0 dst ::/0 uid 0
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         9880(bytes), 95(packets)
+>         add 2016-07-21 10:25:32 use 2016-07-21 10:25:37
+>       stats:
+>         replay-window 0 replay 0 failed 0
+> ip -s xfrm policy
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir out action allow index 41 priority 2147483648 share any fla=
+g
+> (0x00000000)
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 10:25:32 use 2016-07-21 10:27:11
+>       tmpl src fd01:1b10:1000::3 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir fwd action allow index 34 priority 2147483648 share any fla=
+g
+> (0x00000000)
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 10:25:32 use -
+>       tmpl src fd01:1b10:1000::3 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+> src ::/0 dst ff0e::1/128 uid 0
+>       dir in action allow index 24 priority 2147483648 share any flag
+> (0x00000000)
+>       lifetime config:
+>         limit: soft (INF)(bytes), hard (INF)(bytes)
+>         limit: soft (INF)(packets), hard (INF)(packets)
+>         expire add: soft 0(sec), hard 0(sec)
+>         expire use: soft 0(sec), hard 0(sec)
+>       lifetime current:
+>         0(bytes), 0(packets)
+>         add 2016-07-21 10:25:32 use -
+>       tmpl src fd01:1b10:1000::3 dst ff0e::1
+>               proto esp spi 0x00000000(0) reqid 0(0x00000000) mode tu=
+nnel
+>               level required share any
+>               enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3DEnd=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>
+> A difference between 2.6.23 and 3.6.18 is the value of the Masks in t=
+he
+> policies:
+>
+> 2.6.23: enc-mask ffffffff auth-mask ffffffff comp-mask ffffffff
+> 3.6.18: enc-mask 00000000 auth-mask 00000000 comp-mask 00000000
+>
+> I have no idea, what these masks mean. Is this important?
+>
+> Regards
+>   Joerg
+>
+> > -----Urspr=FCngliche Nachricht-----
+> > Von: Ilan Tayari [mailto:ilant@mellanox.com]
+> > Gesendet: Dienstag, 19. Juli 2016 17:04
+> > An: Pommnitz J=F6rg
+> > Cc: netdev@vger.kernel.org
+> > Betreff: RE: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18=
+ (and
+> > probably later)
+> >
+> >  > On the receiving side (e.g. fd01:1b10:1000::1) I see the decrypt=
+ed
+> > packets with
+> > > the 2.6.23 kernel:
+> > > but NOT with the newer kernel:
+> >
+> > Hi Joerg,
+> >
+> > First steps to debug this would be:
+> > cat /proc/net/xfrm_stat
+> > ip -s xfrm state
+> > ip -s xfrm policy
+> >
+> > First command will show some error accounting, which can point to t=
+he
+> > culprit code.
+> > Second and third command will show existing objects, and some stati=
+stics
+> > like when the last packet was used with them.
+> >
+> > Last thing - for your safety you should keep those session keys pri=
+vate.
+> >
+> > Ilan.
 
-I still think that bpf_probe_write is the more appropriate name, and that
-the -EPERM are also better than -EINVAL. For user space, you'll have the
-bpf_probe_read() / bpf_probe_write() pair you can use, which is the more
-intuitive complement, also since people might already use bpf_probe_read(),
-so they kind of can infer its meaning. It's just that the kernel doesn't
-give you _permission_ to mess with kernel memory, hence due to not being
-allowed -EPERM to make this absolutely clear to the user that this is illegal.
--EINVAL usually means one of the function arguments might be wrong, I think
--EPERM is a better / more clear fit in this case, imho.
+________________________________
+Industrieanlagen-Betriebsgesellschaft mbH
 
-> I tried to make the external facing documentaion close to copy_to_user. That's
-> how people should use it, not like _write. Therefor I think it makes sense to
-> keep that the name.
-
-But still, you *probe* to write somewhere to the process' address space,
-so it can still fail with -EFAULT. Other than that, see comment above.
-
-> I added a check for (!task) -- It seems to be spattered throughou the eBPF
-> helper code. Alexei mentioned earlier that it can be null, but I'm not sure of
-> the case
-
-Well, the test of unlikely(in_interrupt() || (task->flags & PF_KTHREAD))
-will cover these cases. It makes sure that you're neither in hardirq (NULL
-here) nor softirq and that you're not in a kthread.
-
-> RE: task->mm != task->active_mm -- There are a couple scenarios where kthreads
-> do this, and the only user call that should hit this is execve. There's only a
-> brief period where this can be true and I don't think it's worth dealing with
-> that case -- I'm not really sure you can plant a kprobe at the right site either
-
-But if kthreads do this, wouldn't this already be covered by task->flags &
-PF_KTHREAD test for such case?
-
-> Did some minimal testing with tracex7 and others.
-
-Ok, great!
-
-> I was able to copy memory into other process's space while certain
-> syscalls were going on. I don't think that there are a reasonable set of
-> protections.
-
-Right, it doesn't prevent that syscalls going on in parallel.
-
-> I'll do more testing. Any suggestions of what might break? I've looked at
-> writing to unitialized memory, Memory out of bounds, etc... Do you know of any
-> "weak spots"?
-
-Well, you could write into text/data, stack, etc for the user process so
-quite a bit. ;) Or do you mean wrt kernel space? If someone runs some binary
-installing such a proglet, I think it would also make sense to print a message
-(rate-limited) to the klog with current->comm, task_pid_nr(current) for the
-process installing this, from verifier side I mean. Maybe makes more sense
-than the print-once from the helper side.
-
-Thanks,
-Daniel
+Sitz der Gesellschaft: Ottobrunn, Registergericht: Amtsgericht M=FCnche=
+n, HRB 5499
+Gesch=E4ftsf=FChrung: Prof. Dr.-Ing. Rudolf F. Schwarz
+Vorsitzender des Aufsichtsrats: RA Engelbert Kupka MdL a.D.
