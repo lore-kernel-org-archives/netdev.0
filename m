@@ -1,280 +1,126 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: [net-next v3 1/6] libcxgb: add library module for Chelsio drivers
-Date: Thu, 21 Jul 2016 22:57:14 +0530
-Message-ID: <851e72ce951b41c7d949897024b3e5b733e621bd.1469121308.git.varun@chelsio.com>
-References: <cover.1469121308.git.varun@chelsio.com>
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	target-devel@vger.kernel.org, nab@linux-iscsi.org,
-	gerlitz.or@gmail.com, swise@opengridcomputing.com,
-	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
-	hariprasad@chelsio.com, varun@chelsio.com
-To: davem@davemloft.net
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <cover.1469121308.git.varun@chelsio.com>
-In-Reply-To: <cover.1469121308.git.varun@chelsio.com>
-References: <cover.1469121308.git.varun@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V2] Add flow control to the portmapper
+Date: Thu, 21 Jul 2016 20:29:42 +0300
+Message-ID: <20160721172942.GW20674@leon.nu>
+References: <1468869810-64420-1-git-send-email-shiraz.saleem@intel.com>
+ <20160719054006.GF20674@leon.nu>
+ <20160719145024.GA69464@ssaleem-MOBL4.amr.corp.intel.com>
+ <20160719173253.GL20674@leon.nu>
+ <20160721024750.GA52712@ssaleem-MOBL4.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="cjVziHhGDpplWqiR"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mustafa Ismail <mustafa.ismail-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Shiraz Saleem <shiraz.saleem-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160721024750.GA52712-GOXS9JX10wfOxmVO0tvppfooFf0ArEBIu+b9c/7xato@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add common library module(libcxgb.ko) for
-Chelsio drivers to remove duplicate code.
 
-Code for iSCSI DDP Page Pod Manager is moved
-from cxgb4.ko to libcxgb.ko. Earlier only cxgbit.ko
-was using this code, now cxgb3i and cxgb4i will
-also use common Page Pod manager code.
+--cjVziHhGDpplWqiR
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-In future this module will have common connection
-management and hardware specific code that can be
-shared by multiple Chelsio drivers.
+On Wed, Jul 20, 2016 at 09:47:50PM -0500, Shiraz Saleem wrote:
+> On Tue, Jul 19, 2016 at 08:32:53PM +0300, Leon Romanovsky wrote:
+> > On Tue, Jul 19, 2016 at 09:50:24AM -0500, Shiraz Saleem wrote:
+> > > On Tue, Jul 19, 2016 at 08:40:06AM +0300, Leon Romanovsky wrote:
+> > > >=20
+> > > > You are the one user of this new inline function.
+> > > > Why don't you directly call to netlink_unicast() in your ibnl_unica=
+st()
+> > > > without messing with widely visible header file?
+> > >=20
+> > > Since there is a non-blocking version of nlmsg_unicast(), the idea is=
+=20
+> > > to make a blocking version available to others as well as maintain=20
+> > > consistency of existing code.
+> > >=20
+> >=20
+> > In such way, please provide patch series which will convert all other
+> > users to this new call.
+> >=20
+> > =E2=9E=9C  linux-rdma git:(master) grep -rI netlink_unicast * | grep -I=
+ 0
+> > kernel/audit.c: err =3D netlink_unicast(audit_sock, skb, audit_nlk_port=
+id, 0);
+> > kernel/audit.c:         netlink_unicast(aunet->nlsk, skb, dest->portid,=
+ 0);
+> > kernel/audit.c: netlink_unicast(aunet->nlsk , reply->skb, reply->portid=
+, 0);
+> > kernel/audit.c: return netlink_unicast(audit_sock, skb, audit_nlk_porti=
+d, 0);
+> > samples/connector/cn_test.c:    netlink_unicast(nls, skb, 0, 0);
+>=20
+> These usages of netlink_unicast() with blocking are not the same as the n=
+ew
+> nlmsg_unicast_block() function.=20
 
-Signed-off-by: Varun Prakash <varun@chelsio.com>
-Reviewed-by: Steve Wise <swise@opengridcomputing.com>
----
- drivers/net/ethernet/chelsio/Kconfig               | 16 +++-----
- drivers/net/ethernet/chelsio/Makefile              |  1 +
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |  1 -
- drivers/net/ethernet/chelsio/libcxgb/Makefile      |  3 ++
- .../{cxgb4/cxgb4_ppm.c => libcxgb/libcxgb_ppm.c}   | 43 +++++++++++++++++++---
- .../{cxgb4/cxgb4_ppm.h => libcxgb/libcxgb_ppm.h}   | 38 +++++++++++++++----
- drivers/target/iscsi/cxgbit/Kconfig                |  2 +-
- drivers/target/iscsi/cxgbit/Makefile               |  1 +
- drivers/target/iscsi/cxgbit/cxgbit.h               |  2 +-
- 9 files changed, 81 insertions(+), 26 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/libcxgb/Makefile
- rename drivers/net/ethernet/chelsio/{cxgb4/cxgb4_ppm.c => libcxgb/libcxgb_ppm.c} (86%)
- rename drivers/net/ethernet/chelsio/{cxgb4/cxgb4_ppm.h => libcxgb/libcxgb_ppm.h} (84%)
+Really?
+Did you look in the code?
+Let's take first function from that grep output
 
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index 4686a85..5713e83 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -96,17 +96,6 @@ config CHELSIO_T4_DCB
- 
- 	  If unsure, say N.
- 
--config CHELSIO_T4_UWIRE
--	bool "Unified Wire Support for Chelsio T5 cards"
--	default n
--	depends on CHELSIO_T4
--	---help---
--	  Enable unified-wire offload features.
--	  Say Y here if you want to enable unified-wire over Ethernet
--	  in the driver.
--
--	  If unsure, say N.
--
- config CHELSIO_T4_FCOE
- 	bool "Fibre Channel over Ethernet (FCoE) Support for Chelsio T5 cards"
- 	default n
-@@ -137,4 +126,9 @@ config CHELSIO_T4VF
- 	  To compile this driver as a module choose M here; the module
- 	  will be called cxgb4vf.
- 
-+config CHELSIO_LIB
-+	tristate
-+	---help---
-+	Common library for Chelsio drivers.
+414         err =3D netlink_unicast(audit_sock, skb, audit_nlk_portid, 0);
+415         if (err < 0) {
+			... do something ...
+437         } else
+			... do something else ...
+
+which fits nicely with your proposal.
+
++static inline int nlmsg_unicast_block(struct sock *sk, struct sk_buff *skb=
+, u32 portid)
++{
++       int err;
 +
- endif # NET_VENDOR_CHELSIO
-diff --git a/drivers/net/ethernet/chelsio/Makefile b/drivers/net/ethernet/chelsio/Makefile
-index 390510b..b6a5eec 100644
---- a/drivers/net/ethernet/chelsio/Makefile
-+++ b/drivers/net/ethernet/chelsio/Makefile
-@@ -6,3 +6,4 @@ obj-$(CONFIG_CHELSIO_T1) += cxgb/
- obj-$(CONFIG_CHELSIO_T3) += cxgb3/
- obj-$(CONFIG_CHELSIO_T4) += cxgb4/
- obj-$(CONFIG_CHELSIO_T4VF) += cxgb4vf/
-+obj-$(CONFIG_CHELSIO_LIB) += libcxgb/
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 85c9282..ace0ab9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -7,5 +7,4 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
--cxgb4-$(CONFIG_CHELSIO_T4_UWIRE) +=  cxgb4_ppm.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/libcxgb/Makefile b/drivers/net/ethernet/chelsio/libcxgb/Makefile
-new file mode 100644
-index 0000000..2362230
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/libcxgb/Makefile
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_CHELSIO_LIB) += libcxgb.o
++       err =3D netlink_unicast(sk, skb, portid, 0);
++       if (err > 0)
++               err =3D 0;
 +
-+libcxgb-y := libcxgb_ppm.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.c b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
-similarity index 86%
-rename from drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.c
-rename to drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
-index d88a7a7..01a4329 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.c
-+++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
-@@ -1,15 +1,43 @@
- /*
-- * cxgb4_ppm.c: Chelsio common library for T4/T5 iSCSI PagePod Manager
-+ * libcxgb_ppm.c: Chelsio common library for T3/T4/T5 iSCSI PagePod Manager
-  *
-  * Copyright (c) 2016 Chelsio Communications, Inc. All rights reserved.
-  *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  *
-  * Written by: Karen Xie (kxie@chelsio.com)
-  */
- 
-+#define DRV_NAME "libcxgb"
-+#define DRV_VERSION "1.0.0-ko"
-+#define pr_fmt(fmt) DRV_NAME ": " fmt
-+
- #include <linux/kernel.h>
- #include <linux/version.h>
- #include <linux/module.h>
-@@ -22,7 +50,7 @@
- #include <linux/pci.h>
- #include <linux/scatterlist.h>
- 
--#include "cxgb4_ppm.h"
-+#include "libcxgb_ppm.h"
- 
- /* Direct Data Placement -
-  * Directly place the iSCSI Data-In or Data-Out PDU's payload into
-@@ -462,3 +490,8 @@ unsigned int cxgbi_tagmask_set(unsigned int ppmax)
- 
- 	return 1 << (bits + PPOD_IDX_SHIFT);
- }
-+
-+MODULE_AUTHOR("Chelsio Communications");
-+MODULE_DESCRIPTION("Chelsio common library");
-+MODULE_VERSION(DRV_VERSION);
-+MODULE_LICENSE("Dual BSD/GPL");
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.h b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.h
-similarity index 84%
-rename from drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.h
-rename to drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.h
-index d487326..e995a1a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ppm.h
-+++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.h
-@@ -1,17 +1,41 @@
- /*
-- * cxgb4_ppm.h: Chelsio common library for T4/T5 iSCSI ddp operation
-+ * libcxgb_ppm.h: Chelsio common library for T3/T4/T5 iSCSI ddp operation
-  *
-  * Copyright (c) 2016 Chelsio Communications, Inc. All rights reserved.
-  *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  *
-  * Written by: Karen Xie (kxie@chelsio.com)
-  */
- 
--#ifndef	__CXGB4PPM_H__
--#define	__CXGB4PPM_H__
-+#ifndef	__LIBCXGB_PPM_H__
-+#define	__LIBCXGB_PPM_H__
- 
- #include <linux/kernel.h>
- #include <linux/errno.h>
-@@ -307,4 +331,4 @@ int cxgbi_ppm_release(struct cxgbi_ppm *ppm);
- void cxgbi_tagmask_check(unsigned int tagmask, struct cxgbi_tag_format *);
- unsigned int cxgbi_tagmask_set(unsigned int ppmax);
- 
--#endif	/*__CXGB4PPM_H__*/
-+#endif	/*__LIBCXGB_PPM_H__*/
-diff --git a/drivers/target/iscsi/cxgbit/Kconfig b/drivers/target/iscsi/cxgbit/Kconfig
-index c9b6a3c..bc6c1d5 100644
---- a/drivers/target/iscsi/cxgbit/Kconfig
-+++ b/drivers/target/iscsi/cxgbit/Kconfig
-@@ -1,7 +1,7 @@
- config ISCSI_TARGET_CXGB4
- 	tristate "Chelsio iSCSI target offload driver"
- 	depends on ISCSI_TARGET && CHELSIO_T4 && INET
--	select CHELSIO_T4_UWIRE
-+	select CHELSIO_LIB
- 	---help---
- 	To compile this driver as module, choose M here: the module
- 	will be called cxgbit.
-diff --git a/drivers/target/iscsi/cxgbit/Makefile b/drivers/target/iscsi/cxgbit/Makefile
-index bd56c07..4893ec2 100644
---- a/drivers/target/iscsi/cxgbit/Makefile
-+++ b/drivers/target/iscsi/cxgbit/Makefile
-@@ -1,4 +1,5 @@
- ccflags-y := -Idrivers/net/ethernet/chelsio/cxgb4
-+ccflags-y += -Idrivers/net/ethernet/chelsio/libcxgb
- ccflags-y += -Idrivers/target/iscsi
- 
- obj-$(CONFIG_ISCSI_TARGET_CXGB4)  += cxgbit.o
-diff --git a/drivers/target/iscsi/cxgbit/cxgbit.h b/drivers/target/iscsi/cxgbit/cxgbit.h
-index 625c7f6..9038869 100644
---- a/drivers/target/iscsi/cxgbit/cxgbit.h
-+++ b/drivers/target/iscsi/cxgbit/cxgbit.h
-@@ -37,7 +37,7 @@
- #include "cxgb4.h"
- #include "cxgb4_uld.h"
- #include "l2t.h"
--#include "cxgb4_ppm.h"
-+#include "libcxgb_ppm.h"
- #include "cxgbit_lro.h"
- 
- extern struct mutex cdev_list_lock;
--- 
-2.0.2
++       return err;
++}
 
+
+> You can't drop in nlmsg_unicast_block() in=20
+> place of netlink_unicast() in these places. I'm not going to introduce co=
+de=20
+> which modifies old behavior.
+
+Again, you aren't changing any behaviour.
+Anyway we are not adding general function to common include file just
+because one caller wants it.
+
+>=20
+
+--cjVziHhGDpplWqiR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXkQaGAAoJEORje4g2clinnVQP/jeWyWrh7lkSPitLxceV/2tc
+nFszwvKqVMOY+aDVOPLq8kPHUPNxuWcbjcidTKSZd6KRXwUfKddsh+UD7Xh6xWUC
+7RgjhcxYSCTSN41AdkUViJ7cABPocb3wOp9fpuwBrvbZuUzp3kNRlouivcUSaewS
+65aBBE5Swo8Xgp0Lgf9cTO/dzzyN92lqzjwryLzKqW724dJBx5phBsDmrDTyE1KO
+4E+vR3dQ3drfdkxtpsmxLdmzTFiEvY6lbQEGmn0qJnwqhWF1ETR1yMSTwJPY2yvw
+++N3mIBhqnvOaANCDkXaecEHfwRdAIP5lX6tZegXs2KfasHb/G3DO0pmLJhoscDq
+CqcRsuqvMjG5uy6S3vOM8Rx+CjI8KREtjgA1XfgFTbBM5qCpKhMxzV9MiHXoIwkU
+oCAUtfayvX0jwKyG1CgQa5+SJCn9zCf9VVwxBv2L20kZQSNS/GKfqz3KO1gdBnOv
+kibiwvjuxBu1CDuAETRFnEvNjTpk0Y8zZMGl9Gmw4mvtCwHRp3tOxOnpx75aVrmm
+kiaqnfYd/ivzDZsclpY4K8+fdIqEXAp/PpuVFAEd32BrOtvXDq28aklkhu0dSiIf
+aoNKUso3wor26XtmP3j0mF8pFiuX65d0OUHXYlQWCYcH5ivS4j5/EkDUcIiHyUBw
+dwjD2L6Y2mAeEHMNnKG0
+=B2jU
+-----END PGP SIGNATURE-----
+
+--cjVziHhGDpplWqiR--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
