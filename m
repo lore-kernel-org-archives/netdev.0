@@ -1,75 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Always leave subnet anycast group on link down
-Date: Thu, 21 Jul 2016 14:11:11 -0600
-Message-ID: <8246d7f6-49ba-408c-6a2e-f06ad8c7ae46@cumulusnetworks.com>
-References: <a457dbfa-4320-a9b0-2bba-1ac488a61e50@brocade.com>
- <c805a77e-f21d-754c-79fe-12be45262888@brocade.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: ~~
+Date: Thu, 21 Jul 2016 20:13:03 +0000
+Message-ID: <1469131981.6600.4.camel@intel.com>
+References: <1469053438-85381-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1469053438-85381-17-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <63e931a3-e447-5a1f-f998-578e1cb2eb8e@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Mike Manning <mmanning@brocade.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"jogreene@redhat.com" <jogreene@redhat.com>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:32964 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876AbcGUULN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 16:11:13 -0400
-Received: by mail-pf0-f170.google.com with SMTP id y134so33520056pfg.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 13:11:13 -0700 (PDT)
-In-Reply-To: <c805a77e-f21d-754c-79fe-12be45262888@brocade.com>
+Received: from mga01.intel.com ([192.55.52.88]:58653 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753926AbcGUUNK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 16:13:10 -0400
+In-Reply-To: <63e931a3-e447-5a1f-f998-578e1cb2eb8e@cogentembedded.com>
+Content-Language: en-US
+Content-ID: <6F98D2485C8BD546A688E4D6C7FB2DC6@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/21/16 7:44 AM, Mike Manning wrote:
->
-> Default kernel behavior is to delete IPv6 addresses on link
-> down, which entails deletion of the address-derived
-> subnet-router anycast address. The latter does not happen
-> with sysctl setting to keep global IPv6 addrs on link down,
-> so every link down/up causes an increment of the anycast
-> refcount, cf aca_users in __ipv6_dev_ac_inc(). This bogus
-> refcount stops the anycast being removed on subsequent
-> calls to delete the address. The solution is to leave the
-> group for this subnet anycast on link down also for the
-> callflow when global IPv6 addresses are kept.
->
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
-> ---
->  net/ipv6/addrconf.c |    2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 47f837a..3c69e56 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -3562,6 +3562,8 @@ restart:
->  		if (state != INET6_IFADDR_STATE_DEAD) {
->  			__ipv6_ifa_notify(RTM_DELADDR, ifa);
->  			inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
-> +		} else if (idev->cnf.forwarding) {
-> +			addrconf_leave_anycast(ifa);
->  		}
->
->  		write_lock_bh(&idev->lock);
->
-
-
-mcast has the same problem, so this should be:
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 24f1b0898e40..6287a8b9f428 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3636,6 +3636,10 @@ static int addrconf_ifdown(struct net_device 
-*dev, int how)
-                 if (state != INET6_IFADDR_STATE_DEAD) {
-                         __ipv6_ifa_notify(RTM_DELADDR, ifa);
-                         inet6addr_notifier_call_chain(NETDEV_DOWN, ifa);
-+               } else {
-+                       if (idev->cnf.forwarding)
-+                               addrconf_leave_anycast(ifa);
-+                       addrconf_leave_solict(ifa->idev, &ifa->addr);
-                 }
-
-                 write_lock_bh(&idev->lock);
+T24gVGh1LCAyMDE2LTA3LTIxIGF0IDEzOjUxICswMzAwLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
+DQo+IEhlbGxvLg0KPiANCj4gT24gNy8yMS8yMDE2IDE6MjMgQU0sIEplZmYgS2lyc2hlciB3cm90
+ZToNCj4gDQo+ID4gRnJvbTogSmFjb2IgS2VsbGVyIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+
+DQo+ID4gDQo+ID4gU29tZXRpbWVzLCBhIFZGIGRyaXZlciB3aWxsIGxvc2UgUENJZSBhZGRyZXNz
+IGFjY2Vzcywgc3VjaCBhcyBkdWUNCj4gPiB0bw0KPiA+IGEgUEYgRkxSIGV2ZW50LiBJbiBmbTEw
+a19kZXRhY2hfc3VidGFzaywgcG9sbCBhbmQgY2hlY2sgd2hldGhlciB0aGUNCj4gPiBQQ0llIHJl
+Z2lzdGVyIHNwYWNlIGlzIGFjdGl2ZSBhZ2FpbiBhbmQgcmVzdG9yZSB0aGUgZGV2aWNlIHdoZW4g
+aXQNCj4gPiBoYXMuDQo+ID4gDQo+ID4gU2lnbmVkLW9mZi1ieTogSmFjb2IgS2VsbGVyIDxqYWNv
+Yi5lLmtlbGxlckBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBLcmlzaG5laWwgU2luZ2ggPEty
+aXNobmVpbC5rLnNpbmdoQGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNo
+ZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiDCoGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX3BjaS5jIHwgMTMgKysrKysrKysrKysrKw0K
+PiA+IMKgMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKykNCj4gPiANCj4gPiBkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcGNpLmMNCj4gPiBi
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX3BjaS5jDQo+ID4gaW5kZXgg
+NWU0MDQ2MC4uZDRjY2IyYSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
+bnRlbC9mbTEway9mbTEwa19wY2kuYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2ZtMTBrL2ZtMTBrX3BjaS5jDQo+ID4gQEAgLTEyMywxMSArMTIzLDI0IEBAIHN0YXRpYyB2
+b2lkIGZtMTBrX3NlcnZpY2VfdGltZXIodW5zaWduZWQgbG9uZw0KPiA+IGRhdGEpDQo+ID4gwqBz
+dGF0aWMgdm9pZCBmbTEwa19kZXRhY2hfc3VidGFzayhzdHJ1Y3QgZm0xMGtfaW50ZmMgKmludGVy
+ZmFjZSkNCj4gPiDCoHsNCj4gPiDCoAlzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2ID0gaW50ZXJm
+YWNlLT5uZXRkZXY7DQo+ID4gKwl1MzIgX19pb21lbSAqaHdfYWRkcjsNCj4gPiArCXUzMiB2YWx1
+ZTsNCj4gPiANCj4gPiDCoAkvKiBkbyBub3RoaW5nIGlmIGRldmljZSBpcyBzdGlsbCBwcmVzZW50
+IG9yIGh3X2FkZHIgaXMgc2V0DQo+ID4gKi8NCj4gPiDCoAlpZiAobmV0aWZfZGV2aWNlX3ByZXNl
+bnQobmV0ZGV2KSB8fCBpbnRlcmZhY2UtPmh3Lmh3X2FkZHIpDQo+ID4gwqAJCXJldHVybjsNCj4g
+PiANCj4gPiArCS8qIGNoZWNrIHRoZSByZWFsIGFkZHJlc3Mgc3BhY2UgdG8gc2VlIGlmIHdlJ3Zl
+IHJlY292ZXJlZA0KPiA+ICovDQo+ID4gKwlod19hZGRyID0gUkVBRF9PTkNFKGludGVyZmFjZS0+
+dWNfYWRkcik7DQo+ID4gKwl2YWx1ZSA9IHJlYWRsKGh3X2FkZHIpOw0KPiA+ICsJaWYgKCh+dmFs
+dWUpKSB7DQo+IA0KPiDCoMKgwqDCoFdoeSB0aGVzZSBkb3VibGUgcGFyZW5zPw0KPiANCg0KWW91
+J3JlIHJpZ2h0IGl0IGRvZXNuJ3QgbmVlZCB0aGVtLiBJIHRoaW5rIGF0IG9uZSBwb2ludCB0aGUg
+Y2hlY2sgd2FzDQoiISh+dmFsdWUpIiBpbiBzb21lIG90aGVyIHBvcnRpb24gb2YgY29kZSwgYW5k
+IGxpa2VseSBnb3QgY29waWVkIGJ5DQptaXN0YWtlLg0KDQpUaGFua3MsDQpKYWtlDQoNCj4gWy4u
+Ll0NCj4gDQo+IE1CUiwgU2VyZ2VpDQo+IA0K
