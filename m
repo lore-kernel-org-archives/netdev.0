@@ -1,47 +1,38 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH net-next 2/3] rtnl: protect do_setlink from IFLA_XDP_ATTACHED
-Date: Wed, 20 Jul 2016 17:22:34 -0700
-Message-ID: <1469060555-20250-3-git-send-email-bblanco@plumgrid.com>
-References: <1469060555-20250-1-git-send-email-bblanco@plumgrid.com>
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Tariq Toukan <ttoukan.linux@gmail.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33240 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753660AbcGUAXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 20:23:08 -0400
-Received: by mail-pa0-f52.google.com with SMTP id ks6so23024294pab.0
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 17:23:08 -0700 (PDT)
-In-Reply-To: <1469060555-20250-1-git-send-email-bblanco@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: add CONFIG_NET_DSA_LEGACY
+Date: Thu, 21 Jul 2016 02:35:45 +0200
+Message-ID: <20160721003545.GB22834@lunn.ch>
+References: <20160720222641.30899-1-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160720222641.30899-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The IFLA_XDP_ATTACHED nested attribute is meant for read-only, and while
-do_setlink properly ignores it, it should be more paranoid and reject
-commands that try to set it.
+On Wed, Jul 20, 2016 at 06:26:41PM -0400, Vivien Didelot wrote:
+> This patch simply moves the legacy DSA code from dsa.c to legacy.c,
+> except the few shared symbols which remain in dsa.c.
 
-Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
----
- net/core/rtnetlink.c | 4 ++++
- 1 file changed, 4 insertions(+)
+I think it is a bit early for this. Lets convert all in kernel users
+to the new binding first.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index eba2b82..189cc78 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2109,6 +2109,10 @@ static int do_setlink(const struct sk_buff *skb,
- 		if (err < 0)
- 			goto errout;
- 
-+		if (xdp[IFLA_XDP_ATTACHED]) {
-+			err = -EINVAL;
-+			goto errout;
-+		}
- 		if (xdp[IFLA_XDP_FD]) {
- 			err = dev_change_xdp_fd(dev,
- 						nla_get_s32(xdp[IFLA_XDP_FD]));
--- 
-2.8.2
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/Kconfig          |    4 +-
+>  drivers/net/dsa/mv88e6xxx/chip.c |    8 +
+>  include/net/dsa.h                |    4 +
+>  net/dsa/Kconfig                  |    8 +
+>  net/dsa/Makefile                 |    1 +
+>  net/dsa/dsa.c                    |  985 ------------------------------------
+>  net/dsa/legacy.c                 | 1013 ++++++++++++++++++++++++++++++++++++++
+
+I'm surprised git did not notice this is a rename.
+
+    Andrew
