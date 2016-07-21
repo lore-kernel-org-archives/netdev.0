@@ -1,86 +1,348 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 0/9] mlxsw: implement port mirroring offload
-Date: Thu, 21 Jul 2016 12:03:08 +0200
-Message-ID: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 3/9] net/sched: introduce Match-all classifier
+Date: Thu, 21 Jul 2016 12:03:11 +0200
+Message-ID: <1469095397-3837-4-git-send-email-jiri@resnulli.us>
+References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
 	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	jhs@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33622 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463AbcGUKDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:20 -0400
-Received: by mail-wm0-f65.google.com with SMTP id o80so1964337wme.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:19 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35533 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882AbcGUKDY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:24 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i5so1954584wmg.2
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:23 -0700 (PDT)
+In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset introduces tc matchall classifier and its offload
-to Spectrum hardware. In combination with mirred action, defined port mirroring
-setup is offloaded by mlxsw/spectrum driver.
+The matchall classifier matches every packet and allows the user to apply
+actions on it. This filter is very useful in usecases where every packet
+should be matched, for example, packet mirroring (SPAN) can be setup very
+easily using that filter.
 
-The commands used for creating mirror ports:
-
-# ingress mirroring using matchall
-tc qdisc  add dev eth25 handle ffff: ingress
-tc filter add dev eth25 parent ffff:            \
-        matchall skip_sw                        \
-        action mirred egress mirror             \
-        dev eth27
-
-# egress mirroring using matchall
-tc qdisc add dev eth25 handle 1: root prio
-tc filter add dev eth25 parent 1:               \
-        matchall skip_sw                        \
-        action mirred egress mirror             \
-        dev eth27
-
-These patches contain:
- - Resource query implementation
- - Hardware port mirorring support for spectrum.
- - Definition of the matchall traffic classifier.
- - General support for hw-offloading for that classifier.
- - Specific spectrum implementaion for matchall offloading.
-
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 ---
-v1->v2:
- - couple of minor style fixes
-
-Jiri Pirko (1):
-  net/sched: introduce Match-all classifier
-
-Nogah Frankel (2):
-  mlxsw: pci: Add resources query implementation.
-  mlxsw: pci: Add max span resources to resources query
-
-Yotam Gigi (6):
-  net/sched: Add match-all classifier hw offloading.
-  mlxsw: reg: Add Shared Buffer Internal Buffer register
-  mlxsw: reg: Add Monitoring Port Analyzer Table register
-  mlxsw: reg: Add the Monitoring Port Analyzer register
-  net/sched: act_mirred: Add helper inlines to access tcf_mirred info.
-  mlxsw: spectrum: Add support in matchall mirror TC offloading
-
- drivers/net/ethernet/mellanox/mlxsw/cmd.h      |  32 ++
- drivers/net/ethernet/mellanox/mlxsw/core.c     |  10 +-
- drivers/net/ethernet/mellanox/mlxsw/core.h     |  11 +-
- drivers/net/ethernet/mellanox/mlxsw/pci.c      |  64 +++-
- drivers/net/ethernet/mellanox/mlxsw/reg.h      | 162 +++++++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 465 ++++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  44 +++
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c |   1 +
- include/linux/netdevice.h                      |   2 +
- include/net/pkt_cls.h                          |  11 +
- include/net/tc_act/tc_mirred.h                 |   9 +
- include/uapi/linux/pkt_cls.h                   |  12 +
- net/sched/Kconfig                              |  10 +
- net/sched/Makefile                             |   1 +
- net/sched/cls_matchall.c                       | 318 +++++++++++++++++
- 15 files changed, 1148 insertions(+), 4 deletions(-)
+ include/uapi/linux/pkt_cls.h |  11 ++
+ net/sched/Kconfig            |  10 ++
+ net/sched/Makefile           |   1 +
+ net/sched/cls_matchall.c     | 248 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 270 insertions(+)
  create mode 100644 net/sched/cls_matchall.c
 
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 5702e93..a324948 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -433,6 +433,17 @@ enum {
+ 
+ #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
+ 
++/* Match-all classifier */
++
++enum {
++	TCA_MATCHALL_UNSPEC,
++	TCA_MATCHALL_CLASSID,
++	TCA_MATCHALL_ACT,
++	__TCA_MATCHALL_MAX,
++};
++
++#define TCA_MATCHALL_MAX (__TCA_MATCHALL_MAX - 1)
++
+ /* Extended Matches */
+ 
+ struct tcf_ematch_tree_hdr {
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index b148302..ccf931b 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -494,6 +494,16 @@ config NET_CLS_FLOWER
+ 	  To compile this code as a module, choose M here: the module will
+ 	  be called cls_flower.
+ 
++config NET_CLS_MATCHALL
++	tristate "Match-all classifier"
++	select NET_CLS
++	---help---
++	  If you say Y here, you will be able to classify packets based on
++	  nothing. Every packet will match.
++
++	  To compile this code as a module, choose M here: the module will
++	  be called cls_matchall.
++
+ config NET_EMATCH
+ 	bool "Extended Matches"
+ 	select NET_CLS
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 84bddb3..ae088a5 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -60,6 +60,7 @@ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
+ obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
+ obj-$(CONFIG_NET_CLS_BPF)	+= cls_bpf.o
+ obj-$(CONFIG_NET_CLS_FLOWER)	+= cls_flower.o
++obj-$(CONFIG_NET_CLS_MATCHALL)	+= cls_matchall.o
+ obj-$(CONFIG_NET_EMATCH)	+= ematch.o
+ obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
+ obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+new file mode 100644
+index 0000000..8a6b4de
+--- /dev/null
++++ b/net/sched/cls_matchall.c
+@@ -0,0 +1,248 @@
++/*
++ * net/sched/cls_matchll.c		Match-all classifier
++ *
++ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++
++#include <net/sch_generic.h>
++#include <net/pkt_cls.h>
++
++struct cls_mall_filter {
++	struct tcf_exts exts;
++	struct tcf_result res;
++	u32 handle;
++	struct rcu_head	rcu;
++};
++
++struct cls_mall_head {
++	struct cls_mall_filter *filter;
++	struct rcu_head	rcu;
++};
++
++static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
++			 struct tcf_result *res)
++{
++	struct cls_mall_head *head = rcu_dereference_bh(tp->root);
++	struct cls_mall_filter *f = head->filter;
++
++	return tcf_exts_exec(skb, &f->exts, res);
++}
++
++static int mall_init(struct tcf_proto *tp)
++{
++	struct cls_mall_head *head;
++
++	head = kzalloc(sizeof(*head), GFP_KERNEL);
++	if (!head)
++		return -ENOBUFS;
++
++	rcu_assign_pointer(tp->root, head);
++
++	return 0;
++}
++
++static void mall_destroy_filter(struct rcu_head *head)
++{
++	struct cls_mall_filter *f = container_of(head, struct cls_mall_filter, rcu);
++
++	tcf_exts_destroy(&f->exts);
++	kfree(f);
++}
++
++static bool mall_destroy(struct tcf_proto *tp, bool force)
++{
++	struct cls_mall_head *head = rtnl_dereference(tp->root);
++
++	if (!force && head->filter)
++		return false;
++
++	if (head->filter)
++		call_rcu(&head->filter->rcu, mall_destroy_filter);
++	RCU_INIT_POINTER(tp->root, NULL);
++	kfree_rcu(head, rcu);
++	return true;
++}
++
++static unsigned long mall_get(struct tcf_proto *tp, u32 handle)
++{
++	struct cls_mall_head *head = rtnl_dereference(tp->root);
++	struct cls_mall_filter *f = head->filter;
++
++	if (f && f->handle == handle)
++		return (unsigned long) f;
++	return 0;
++}
++
++static const struct nla_policy mall_policy[TCA_MATCHALL_MAX + 1] = {
++	[TCA_MATCHALL_UNSPEC]		= { .type = NLA_UNSPEC },
++	[TCA_MATCHALL_CLASSID]		= { .type = NLA_U32 },
++};
++
++static int mall_set_parms(struct net *net, struct tcf_proto *tp,
++			  struct cls_mall_filter *f,
++			  unsigned long base, struct nlattr **tb,
++			  struct nlattr *est, bool ovr)
++{
++	struct tcf_exts e;
++	int err;
++
++	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
++	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
++	if (err < 0)
++		return err;
++
++	if (tb[TCA_MATCHALL_CLASSID]) {
++		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
++		tcf_bind_filter(tp, &f->res, base);
++	}
++
++	tcf_exts_change(tp, &f->exts, &e);
++
++	return 0;
++}
++
++static int mall_change(struct net *net, struct sk_buff *in_skb,
++		       struct tcf_proto *tp, unsigned long base,
++		       u32 handle, struct nlattr **tca,
++		       unsigned long *arg, bool ovr)
++{
++	struct cls_mall_head *head = rtnl_dereference(tp->root);
++	struct cls_mall_filter *fold = (struct cls_mall_filter *) *arg;
++	struct cls_mall_filter *f;
++	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
++	int err;
++
++	if (!tca[TCA_OPTIONS])
++		return -EINVAL;
++
++	if (head->filter)
++		return -EBUSY;
++
++	if (fold)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, TCA_MATCHALL_MAX,
++			       tca[TCA_OPTIONS], mall_policy);
++	if (err < 0)
++		return err;
++
++	f = kzalloc(sizeof(*f), GFP_KERNEL);
++	if (!f)
++		return -ENOBUFS;
++
++	tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
++
++	if (!handle)
++		handle = 1;
++	f->handle = handle;
++
++	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
++	if (err)
++		goto errout;
++
++	*arg = (unsigned long) f;
++	rcu_assign_pointer(head->filter, f);
++
++	return 0;
++
++errout:
++	kfree(f);
++	return err;
++}
++
++static int mall_delete(struct tcf_proto *tp, unsigned long arg)
++{
++	struct cls_mall_head *head = rtnl_dereference(tp->root);
++	struct cls_mall_filter *f = (struct cls_mall_filter *) arg;
++
++	RCU_INIT_POINTER(head->filter, NULL);
++	tcf_unbind_filter(tp, &f->res);
++	call_rcu(&f->rcu, mall_destroy_filter);
++	return 0;
++}
++
++static void mall_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++{
++	struct cls_mall_head *head = rtnl_dereference(tp->root);
++	struct cls_mall_filter *f = head->filter;
++
++	if (arg->count < arg->skip)
++		goto skip;
++	if (arg->fn(tp, (unsigned long) f, arg) < 0)
++		arg->stop = 1;
++skip:
++	arg->count++;
++}
++
++static int mall_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
++		     struct sk_buff *skb, struct tcmsg *t)
++{
++	struct cls_mall_filter *f = (struct cls_mall_filter *) fh;
++	struct nlattr *nest;
++
++	if (!f)
++		return skb->len;
++
++	t->tcm_handle = f->handle;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (!nest)
++		goto nla_put_failure;
++
++	if (f->res.classid &&
++	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, f->res.classid))
++		goto nla_put_failure;
++
++	if (tcf_exts_dump(skb, &f->exts))
++		goto nla_put_failure;
++
++	nla_nest_end(skb, nest);
++
++	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
++		goto nla_put_failure;
++
++	return skb->len;
++
++nla_put_failure:
++	nla_nest_cancel(skb, nest);
++	return -1;
++}
++
++static struct tcf_proto_ops cls_mall_ops __read_mostly = {
++	.kind		= "matchall",
++	.classify	= mall_classify,
++	.init		= mall_init,
++	.destroy	= mall_destroy,
++	.get		= mall_get,
++	.change		= mall_change,
++	.delete		= mall_delete,
++	.walk		= mall_walk,
++	.dump		= mall_dump,
++	.owner		= THIS_MODULE,
++};
++
++static int __init cls_mall_init(void)
++{
++	return register_tcf_proto_ops(&cls_mall_ops);
++}
++
++static void __exit cls_mall_exit(void)
++{
++	unregister_tcf_proto_ops(&cls_mall_ops);
++}
++
++module_init(cls_mall_init);
++module_exit(cls_mall_exit);
++
++MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
++MODULE_DESCRIPTION("Match-all classifier");
++MODULE_LICENSE("GPL v2");
 -- 
 2.5.5
