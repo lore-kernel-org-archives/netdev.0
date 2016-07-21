@@ -1,50 +1,67 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH] net: bridge: br_set_ageing_time takes a clock_t
-Date: Thu, 21 Jul 2016 12:42:19 -0400
-Message-ID: <20160721164219.26723-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] netfilter: Use IS_ERR_OR_NULL instead of IS_ERR and
+ NULl check to simplify the codes in ip_vs_genl_dump_dests and
+ resolve_normal_ct
+Date: Thu, 21 Jul 2016 18:45:53 +0200
+Message-ID: <20160721164553.GA10667@salvia>
+References: <1469110159-19200-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:33148 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753330AbcGUQp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 12:45:59 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 2A15221057E
+	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 18:45:58 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 1B59CFAB5E
+	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 18:45:58 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 94268FAB5C
+	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 18:45:54 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1469110159-19200-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change the ageing_time type in br_set_ageing_time() from u32 to what it
-is expected to be, i.e. a clock_t.
+This patch title is too long, no more than 80 chars please, when it
+goes over that boundary it becomes a description ;)
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/bridge/br_private.h | 2 +-
- net/bridge/br_stp.c     | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+More comments below.
 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 52edecf..b12447e 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -942,7 +942,7 @@ void __br_set_forward_delay(struct net_bridge *br, unsigned long t);
- int br_set_forward_delay(struct net_bridge *br, unsigned long x);
- int br_set_hello_time(struct net_bridge *br, unsigned long x);
- int br_set_max_age(struct net_bridge *br, unsigned long x);
--int br_set_ageing_time(struct net_bridge *br, u32 ageing_time);
-+int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time);
- 
- 
- /* br_stp_if.c */
-diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 9cb7044..9258b8e 100644
---- a/net/bridge/br_stp.c
-+++ b/net/bridge/br_stp.c
-@@ -570,7 +570,7 @@ int br_set_max_age(struct net_bridge *br, unsigned long val)
-  *
-  * Offloaded switch entries maybe more restrictive
-  */
--int br_set_ageing_time(struct net_bridge *br, u32 ageing_time)
-+int br_set_ageing_time(struct net_bridge *br, clock_t ageing_time)
- {
- 	struct switchdev_attr attr = {
- 		.orig_dev = br->dev,
--- 
-2.9.0
+On Thu, Jul 21, 2016 at 10:09:19PM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  v1: Initial Version
+> 
+>  net/netfilter/ipvs/ip_vs_ctl.c    | 2 +-
+>  net/netfilter/nf_conntrack_core.c | 6 ++----
+>  2 files changed, 3 insertions(+), 5 deletions(-)
+> 
+[...]
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 153e33f..634d592 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1108,10 +1108,8 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+>  	if (!h) {
+>  		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
+>  				   skb, dataoff, hash);
+> -		if (!h)
+> -			return NULL;
+> -		if (IS_ERR(h))
+> -			return (void *)h;
+> +		if (IS_ERR_OR_NULL(h))
+> +			return ERR_CAST(h);
+
+Interesting.
+
+I think we can actually simplify this patch, I'm sending a patch for
+this now.
