@@ -1,8 +1,7 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 08/10] cgroupns: Add a limit on the number of cgroup
-	namespaces
-Date: Thu, 21 Jul 2016 11:40:12 -0500
-Message-ID: <20160721164014.17534-8-ebiederm@xmission.com>
+Subject: [PATCH v2 09/10] netns: Add a limit on the number of net namespaces
+Date: Thu, 21 Jul 2016 11:40:13 -0500
+Message-ID: <20160721164014.17534-9-ebiederm@xmission.com>
 References: <87d1m754jc.fsf@x220.int.ebiederm.org>
 	<20160721164014.17534-1-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -32,80 +31,80 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
  include/linux/user_namespace.h |  1 +
- kernel/cgroup.c                | 15 +++++++++++++++
  kernel/user_namespace.c        |  1 +
+ net/core/net_namespace.c       | 15 +++++++++++++++
  3 files changed, 17 insertions(+)
 
 diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index 367cf08ff63d..1a3a9cb93277 100644
+index 1a3a9cb93277..f86afa536baf 100644
 --- a/include/linux/user_namespace.h
 +++ b/include/linux/user_namespace.h
 @@ -27,6 +27,7 @@ enum ucounts {
  	UCOUNT_PID_NAMESPACES,
  	UCOUNT_UTS_NAMESPACES,
  	UCOUNT_IPC_NAMESPACES,
-+	UCOUNT_CGROUP_NAMESPACES,
++	UCOUNT_NET_NAMESPACES,
+ 	UCOUNT_CGROUP_NAMESPACES,
  	UCOUNT_COUNTS,
  };
- 
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 86cb5c6e8932..240eec43390b 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -6260,6 +6260,16 @@ void cgroup_sk_free(struct sock_cgroup_data *skcd)
- 
- /* cgroup namespaces */
- 
-+static bool inc_cgroup_namespaces(struct user_namespace *ns)
-+{
-+	return inc_ucount(ns, UCOUNT_CGROUP_NAMESPACES);
-+}
-+
-+static void dec_cgroup_namespaces(struct user_namespace *ns)
-+{
-+	dec_ucount(ns, UCOUNT_CGROUP_NAMESPACES);
-+}
-+
- static struct cgroup_namespace *alloc_cgroup_ns(void)
- {
- 	struct cgroup_namespace *new_ns;
-@@ -6281,6 +6291,7 @@ static struct cgroup_namespace *alloc_cgroup_ns(void)
- void free_cgroup_ns(struct cgroup_namespace *ns)
- {
- 	put_css_set(ns->root_cset);
-+	dec_cgroup_namespaces(ns->user_ns);
- 	put_user_ns(ns->user_ns);
- 	ns_free_inum(&ns->ns);
- 	kfree(ns);
-@@ -6305,6 +6316,9 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
- 	if (!ns_capable(user_ns, CAP_SYS_ADMIN))
- 		return ERR_PTR(-EPERM);
- 
-+	if (!inc_cgroup_namespaces(user_ns))
-+		return ERR_PTR(-ENFILE);
-+
- 	mutex_lock(&cgroup_mutex);
- 	spin_lock_bh(&css_set_lock);
- 
-@@ -6317,6 +6331,7 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
- 	new_ns = alloc_cgroup_ns();
- 	if (IS_ERR(new_ns)) {
- 		put_css_set(cset);
-+		dec_cgroup_namespaces(user_ns);
- 		return new_ns;
- 	}
- 
 diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index 060d3e099f87..1cf074cb47e2 100644
+index 1cf074cb47e2..e326ca722ae0 100644
 --- a/kernel/user_namespace.c
 +++ b/kernel/user_namespace.c
 @@ -80,6 +80,7 @@ static struct ctl_table userns_table[] = {
  	UCOUNT_ENTRY("max_pid_namespaces"),
  	UCOUNT_ENTRY("max_uts_namespaces"),
  	UCOUNT_ENTRY("max_ipc_namespaces"),
-+	UCOUNT_ENTRY("max_cgroup_namespaces"),
++	UCOUNT_ENTRY("max_net_namespaces"),
+ 	UCOUNT_ENTRY("max_cgroup_namespaces"),
  	{ }
  };
- #endif /* CONFIG_SYSCTL */
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 2c2eb1b629b1..a489f192d619 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -266,6 +266,16 @@ struct net *get_net_ns_by_id(struct net *net, int id)
+ 	return peer;
+ }
+ 
++static bool inc_net_namespaces(struct user_namespace *ns)
++{
++	return inc_ucount(ns, UCOUNT_NET_NAMESPACES);
++}
++
++static void dec_net_namespaces(struct user_namespace *ns)
++{
++	dec_ucount(ns, UCOUNT_NET_NAMESPACES);
++}
++
+ /*
+  * setup_net runs the initializers for the network namespace object.
+  */
+@@ -276,6 +286,9 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
+ 	int error = 0;
+ 	LIST_HEAD(net_exit_list);
+ 
++	if (!inc_net_namespaces(user_ns))
++		return -ENFILE;
++
+ 	atomic_set(&net->count, 1);
+ 	atomic_set(&net->passive, 1);
+ 	net->dev_base_seq = 1;
+@@ -372,6 +385,7 @@ struct net *copy_net_ns(unsigned long flags,
+ 	}
+ 	mutex_unlock(&net_mutex);
+ 	if (rv < 0) {
++		dec_net_namespaces(user_ns);
+ 		put_user_ns(user_ns);
+ 		net_drop_ns(net);
+ 		return ERR_PTR(rv);
+@@ -444,6 +458,7 @@ static void cleanup_net(struct work_struct *work)
+ 	/* Finally it is safe to free my network namespace structure */
+ 	list_for_each_entry_safe(net, tmp, &net_exit_list, exit_list) {
+ 		list_del_init(&net->exit_list);
++		dec_net_namespaces(net->user_ns);
+ 		put_user_ns(net->user_ns);
+ 		net_drop_ns(net);
+ 	}
 -- 
 2.8.3
