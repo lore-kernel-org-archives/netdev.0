@@ -1,95 +1,137 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: Network hang after c3f1010b30f7fc611139cfb702a8685741aa6827 with
- CIPSO & Smack
-Date: Thu, 21 Jul 2016 15:55:13 -0700
-Message-ID: <47764af9-3518-74de-8177-b354be0cb8ef@schaufler-ca.com>
-References: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
- <7d833f59-c68f-f779-4de4-15bc0b26ac7c@cumulusnetworks.com>
- <66709b13-15a7-8d03-9e84-e4be9aab60b5@schaufler-ca.com>
- <9998a0da-b273-43d4-84ad-a0539e6a69ac@cumulusnetworks.com>
- <5de95a23-fd64-d911-d4b0-88de51ab12a4@schaufler-ca.com>
- <9cb32128-176b-85cf-8ea8-465704f667e7@cumulusnetworks.com>
- <6d1249a6-6176-414e-0df8-d7df8dac1cbd@schaufler-ca.com>
- <79be6a80-f8e4-c386-f877-2c0d52609892@cumulusnetworks.com>
- <5f0df0df-8542-2938-9d19-0bf49f4b12b7@schaufler-ca.com>
- <c2101773-754f-df08-06e1-62652c416a44@schaufler-ca.com>
- <CAHC9VhQWBPA9qi_0=eY-xMTrqshujE5n7zP32ZjpDKLG5w7OuA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	Linux-Netdev <netdev@vger.kernel.org>
-To: Paul Moore <paul@paul-moore.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, events: fix offset in skb copy handler
+Date: Fri, 22 Jul 2016 01:19:42 +0200
+Message-ID: <19c7fccabbd37bf413aaacb2bc1fc06b559e4791.1469142756.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm11-vm1.bullet.mail.bf1.yahoo.com ([98.139.213.152]:39006 "EHLO
-	nm11-vm1.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754589AbcGUWzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 18:55:20 -0400
-In-Reply-To: <CAHC9VhQWBPA9qi_0=eY-xMTrqshujE5n7zP32ZjpDKLG5w7OuA@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:35684 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751211AbcGUXT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 19:19:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/20/2016 1:13 PM, Paul Moore wrote:
-> On Tue, Jul 19, 2016 at 7:37 PM, Casey Schaufler <casey@schaufler-ca.com> wrote:
->> Digging into this further I have determined that the
->> circumstances leading to this issue are somewhat complex.
->> The good news is that there seems to be a very limited
->> circumstances under which the problem manifests.
->>
->> I have a socket, and change the Smack attributes on the
->> socket (security_inode_setsecurity) before connecting to
->> a server.
-> This is a minty fresh, disconnected socket, yes?
->
->> The connect succeeds. The client sends a packet,
->> also successfully. The response is received. Now here's
->> where it gets interesting. I instrumented the code to print
->> the Smack attributes on the socket both before and after
->> the Smack access check.
-> I'm assuming that when you say "access check" you are talking about
-> the smk_access() call in smack_socket_sock_rcv_skb(), yes?
+This patch fixes the __output_custom() routine we currently use with
+bpf_skb_copy(). I missed that when len is larger than the size of the
+current handle, we can issue multiple invocations of copy_func, and
+__output_custom() advances destination but also source buffer by the
+written amount of bytes. When we have __output_custom(), this is actually
+wrong since in that case the source buffer points to a non-linear object,
+in our case an skb, which the copy_func helper is supposed to walk.
+Therefore, since this is non-linear we thus need to pass the offset into
+the helper, so that copy_func can use it for extracting the data from
+the source object.
 
-I have been able to track this down to my careless
-use of netlbl_skbuff_err(). Because the socket started
-life as unlabeled, and changed to labeled, calling
-netlbl_skbuff_err() resulted in multiple frees of some
-netlabel data under some circumstances. I don't know
-why it worked before, but the code certainly shouldn't
-have been making that call. I have a patch in final test.
+Therefore, adjust the callback signatures properly and pass offset
+into the skb_header_pointer() invoked from bpf_skb_copy() callback. The
+__DEFINE_OUTPUT_COPY_BODY() is adjusted to accommodate for two things:
+i) to pass in whether we should advance source buffer or not; this is
+a compile-time constant condition, ii) to pass in the offset for
+__output_custom(), which we do with help of __VA_ARGS__, so everything
+can stay inlined as is currently. Both changes allow for adapting the
+__output_* fast-path helpers w/o extra overhead.
 
->
-> (as a totally unrelated side note, you really went nuts on the cpp
-> conditionals in there, was there a sale on #ifdefs that I missed? <g>)
+Fixes: 555c8a8623a3 ("bpf: avoid stack copy and use skb ctx for event output")
+Fixes: 7e3f977edd0b ("perf, events: add non-linear data support for raw records")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/linux/bpf.h        |  2 +-
+ include/linux/perf_event.h |  2 +-
+ kernel/events/internal.h   | 15 ++++++++++-----
+ net/core/filter.c          |  4 ++--
+ 4 files changed, 14 insertions(+), 9 deletions(-)
 
-I can't say that I'm happy about how that code ended up.
-I hope to do a clean up in association with switching away
-from CIPSO to secmark for local access controls. That's something
-I have to do for Extreme Security Module Stacking.
-
->
->> Before the check is made the Smack
->> data reflects the initial values from when the socket was
->> created. After the check, they reflect the explicit change
->> made earlier.
-> It has been too long since I looked at how Smack handled network
-> packets, I assume this is not the intended behavior?
->
->> The check reports failure based on the initial
->> values. As a result, an attempt to notify the caller that
->> the action failed is made (netlbl_skbuff_err) which results
->> in a call to icmp_send that frees already freed memory.
-> What memory is being double freed?  The original skb?  I don't believe
-> netlbl_skbuff_err(), cipso_v4_error(), or icmp_send() frees the
-> original skb ... or rather it shouldn't, perhaps I'm missing
-> something.
->
-> I'm not arguing, you saw what you saw, I'm just trying to understand
-> and make sense of it.  Can you elaborate on what you saw, using very
-> small words, and concrete descriptions (I'm much more stupider than
-> everyone here so you have to make it easy for me to understand)?
->
->> If the Smack attributes in the sk_security blob are not
->> explicitly set the problem does not occur. I have the same
->> result if I change the Smack attributes within the socket
->> security blob as I do if I replace the security blob.
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 36da074..1113423 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -211,7 +211,7 @@ bool bpf_prog_array_compatible(struct bpf_array *array, const struct bpf_prog *f
+ const struct bpf_func_proto *bpf_get_trace_printk_proto(void);
+ 
+ typedef unsigned long (*bpf_ctx_copy_t)(void *dst, const void *src,
+-					unsigned long len);
++					unsigned long off, unsigned long len);
+ 
+ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
+ 		     void *ctx, u64 ctx_size, bpf_ctx_copy_t ctx_copy);
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index e79e6c6..15e55b7 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -70,7 +70,7 @@ struct perf_callchain_entry_ctx {
+ };
+ 
+ typedef unsigned long (*perf_copy_f)(void *dst, const void *src,
+-				     unsigned long len);
++				     unsigned long off, unsigned long len);
+ 
+ struct perf_raw_frag {
+ 	union {
+diff --git a/kernel/events/internal.h b/kernel/events/internal.h
+index 2417eb5..486fd78 100644
+--- a/kernel/events/internal.h
++++ b/kernel/events/internal.h
+@@ -123,18 +123,19 @@ static inline unsigned long perf_aux_size(struct ring_buffer *rb)
+ 	return rb->aux_nr_pages << PAGE_SHIFT;
+ }
+ 
+-#define __DEFINE_OUTPUT_COPY_BODY(memcpy_func)				\
++#define __DEFINE_OUTPUT_COPY_BODY(advance_buf, memcpy_func, ...)	\
+ {									\
+ 	unsigned long size, written;					\
+ 									\
+ 	do {								\
+ 		size    = min(handle->size, len);			\
+-		written = memcpy_func(handle->addr, buf, size);		\
++		written = memcpy_func(__VA_ARGS__);			\
+ 		written = size - written;				\
+ 									\
+ 		len -= written;						\
+ 		handle->addr += written;				\
+-		buf += written;						\
++		if (advance_buf)					\
++			buf += written;					\
+ 		handle->size -= written;				\
+ 		if (!handle->size) {					\
+ 			struct ring_buffer *rb = handle->rb;		\
+@@ -153,12 +154,16 @@ static inline unsigned long perf_aux_size(struct ring_buffer *rb)
+ static inline unsigned long						\
+ func_name(struct perf_output_handle *handle,				\
+ 	  const void *buf, unsigned long len)				\
+-__DEFINE_OUTPUT_COPY_BODY(memcpy_func)
++__DEFINE_OUTPUT_COPY_BODY(true, memcpy_func, handle->addr, buf, size)
+ 
+ static inline unsigned long
+ __output_custom(struct perf_output_handle *handle, perf_copy_f copy_func,
+ 		const void *buf, unsigned long len)
+-__DEFINE_OUTPUT_COPY_BODY(copy_func)
++{
++	unsigned long orig_len = len;
++	__DEFINE_OUTPUT_COPY_BODY(false, copy_func, handle->addr, buf,
++				  orig_len - len, size)
++}
+ 
+ static inline unsigned long
+ memcpy_common(void *dst, const void *src, unsigned long n)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 6c627bc..d15d67a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2026,9 +2026,9 @@ bool bpf_helper_changes_skb_data(void *func)
+ }
+ 
+ static unsigned long bpf_skb_copy(void *dst_buff, const void *skb,
+-				  unsigned long len)
++				  unsigned long off, unsigned long len)
+ {
+-	void *ptr = skb_header_pointer(skb, 0, len, dst_buff);
++	void *ptr = skb_header_pointer(skb, off, len, dst_buff);
+ 
+ 	if (unlikely(!ptr))
+ 		return len;
+-- 
+1.9.3
