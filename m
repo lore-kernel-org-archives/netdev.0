@@ -1,122 +1,38 @@
-From: Magnus Bergroth <bergroth@nordu.net>
-Subject: Re: iproute2 mpls max labels
-Date: Thu, 21 Jul 2016 23:08:18 +0200
-Message-ID: <579139C2.1050804@nordu.net>
-References: <578A7BF0.2020107@nordu.net> <57911A26.3080203@cumulusnetworks.com> <8737n23goi.fsf@x220.int.ebiederm.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next 1/2] net_sched: move tc_action into tcf_common
+Date: Thu, 21 Jul 2016 14:12:06 -0700
+Message-ID: <CAM_iQpUMXAyAUH32tfN4gYShPmEMpJCk1H3beT9FtvhK4cFMaQ@mail.gmail.com>
+References: <1469078614-13540-2-git-send-email-xiyou.wangcong@gmail.com> <201607220208.iT8LJ0gi%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>, netdev@vger.kernel.org,
-	Robert Shearman <rshearma@brocade.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: kbuild-all@01.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e-mailfilter02.sunet.se ([192.36.171.202]:52576 "EHLO
-	e-mailfilter02.sunet.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754402AbcGUVIh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 17:08:37 -0400
-In-Reply-To: <8737n23goi.fsf@x220.int.ebiederm.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35458 "EHLO
+	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954AbcGUVM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 17:12:26 -0400
+Received: by mail-it0-f65.google.com with SMTP id f6so1930740ith.2
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 14:12:26 -0700 (PDT)
+In-Reply-To: <201607220208.iT8LJ0gi%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 21, 2016 at 11:35 AM, kbuild test robot <lkp@intel.com> wrote:
+> All warnings (new ones prefixed by >>):
+>
+>    In file included from include/net/act_api.h:8:0,
+>                     from net/sched/act_police.c:22:
+>    net/sched/act_police.c: In function 'tcf_act_police_init':
+>>> include/net/sch_generic.h:782:16: warning: 'police' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>      if (unlikely(r->linklayer == TC_LINKLAYER_ATM))
+>                    ^
+>    net/sched/act_police.c:125:21: note: 'police' was declared here
+>      struct tcf_police *police;
 
+Yeah, I need to move police = to_police(*a); down after the following
+goto label.
 
-> Eric W. Biederman <mailto:ebiederm@xmission.com>
-> 21 juli 2016 22:00
-> Roopa Prabhu <roopa@cumulusnetworks.com> writes:
->
->> On 7/16/16, 11:24 AM, Magnus Bergroth wrote:
->>> Wanted to use more than the default maximum of 8 mpls labels. Max labels
->>> seems to be hardcode to 8 in two places.
->>>
->>> --- iproute2-4.6.0/lib/utils.c    2016-05-18 20:56:02.000000000 +0200
->>> +++ iproute2-4.6.0-bergroth/lib/utils.c    2016-07-16 20:12:10.714958071
->>> +0200
->>> @@ -476,7 +476,7 @@
->>>          addr->bytelen = 4;
->>>          addr->bitlen = 20;
->>>          /* How many bytes do I need? */
->>> -        for (i = 0; i < 8; i++) {
->>> +        for (i = 0; i < MPLS_MAX_LABELS; i++) {
->>>              if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
->>>                  addr->bytelen = (i + 1)*4;
->>>                  break;
->>>
->>>
->>> --- iproute2-4.6.0/include/utils.h    2016-05-18 20:56:02.000000000 +0200
->>> +++ iproute2-4.6.0-bergroth/include/utils.h    2016-07-15
->>> 11:55:57.297681742 +0200
->>> @@ -54,6 +54,9 @@
->>>  #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
->>>  #define PREV_ARG() do { argv--; argc++; } while(0)
->>>
->>> +/* Maximum number of labels the mpls helpers support */
->>> +#define MPLS_MAX_LABELS 8
->>> +
->>>  typedef struct
->>>  {
->>>      __u16 flags;
->>> @@ -61,7 +64,7 @@
->>>      __s16 bitlen;
->>>      /* These next two fields match rtvia */
->>>      __u16 family;
->>> -    __u32 data[8];
->>> +    __u32 data[MPLS_MAX_LABELS];
->>>  } inet_prefix;
->>>
->
-> This structure is not MPLS specific so that is not appropriate to use
-> MPLS_MAX_LABELS when definiting the structure.  Likewise changing this
-> structure and limiting the changes to mpls parts of the code is not
-> appropriate.
->
->>>  #define PREFIXLEN_SPECIFIED 1
->>> @@ -88,9 +91,6 @@
->>>  # define AF_MPLS 28
->>>  #endif
->>>
->>> -/* Maximum number of labels the mpls helpers support */
->>> -#define MPLS_MAX_LABELS 8
->>> -
->>>  __u32 get_addr32(const char *name);
->>>  int get_addr_1(inet_prefix *dst, const char *arg, int family);
->>>  int get_prefix_1(inet_prefix *dst, char *arg, int family);
->>>
->>>
->> I did not realize it is hardcoded to 8 in iproute2. Because kernel has a hard coded limit of
->> 2.
->> I think we need to fix it in a few places:
->> a) we should move the kernel #define to a uapi header file which iproute2 can use
->> b) there has been a general ask to bump the kernel MAX_LABELS from 2 and I don't see
->> a problem with it yet. so, we could bump it to 8.
->>
->> Were you planning to post patches for one or both of the above ?.
->>
->> I can post them too. Let me know.
->
-> a) I just looked and the kernel netlink protocol does not have a limit.
->    The kernel does have a limit but the netlink protocol does not  so
->    there is no point in exporting a limit in a uapi header,  it will
->    just be out of date and wrong.
->
-> b) I can see in principle bumping up the kernels MAX_LABELS past two
->    although I haven't heard those requests, or understand the use cases.
->    I don't recall seeing any ducumentation on cases where it is
->    desirable to push a lot of labels at once.  (Do hardware
->    implementations support pushing a lot of labels at once?)
->
->    Bumping past 8 seems quite a lot.  That starts feeling like people
->    trying to break other peoples mpls stacks.  That is asking for more
->    packet space for labels than ipv6 uses for addresses and ipv6 is way
->    oversized.  The commonly agreed wisdom is the world only needs 40 to
->    48 bits to route on to reach the entire world.  
-I think that 8 would be more than enough for most use cases, even 6 or 4
-would be sufficient. I'm looking at doing MPLS source routing based on a
-label-stack. Each router in the network will get a set of static routes
-that pop the label and sends it out to the next router based on the
-label that gets poped.  I have no problem compiling a special build with
-the MAX_LABELS set to my need. I just noticed that changing only the
-MAX_LABELS wasn't enough to get more than 8 labels to work with iproute2
-after changing the kernel "MAX_NEW_LABELS 2" in
-include/net/mpls_iptunnel.h  and net/mpls/internal.h to a higher number.
-
-<<Magnus
+I will update this patch after waiting for comments from Jamal.
