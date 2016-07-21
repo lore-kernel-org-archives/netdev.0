@@ -1,99 +1,73 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH v2 10/10] mntns: Add a limit on the number of mount namespaces.
-Date: Thu, 21 Jul 2016 11:40:14 -0500
-Message-ID: <20160721164014.17534-10-ebiederm@xmission.com>
-References: <87d1m754jc.fsf@x220.int.ebiederm.org>
- <20160721164014.17534-1-ebiederm@xmission.com>
-Cc: Andy Lutomirski <luto@amacapital.net>, Jann Horn <jann@thejh.net>,
-	Kees Cook <keescook@chromium.org>,
-	Nikolay Borisov <kernel@kyup.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Linux Containers <containers@lists.linux-foundation.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20160721164014.17534-1-ebiederm@xmission.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/1] netfilter: Use IS_ERR_OR_NULL instead of IS_ERR and
+ NULl check to simplify the codes in ip_vs_genl_dump_dests and
+ resolve_normal_ct
+Date: Thu, 21 Jul 2016 18:54:55 +0200
+Message-ID: <20160721165455.GA11300@salvia>
+References: <1469110159-19200-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1469110159-19200-1-git-send-email-fgao@ikuai8.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- fs/namespace.c                 | 19 ++++++++++++++++++-
- include/linux/user_namespace.h |  1 +
- kernel/user_namespace.c        |  1 +
- 3 files changed, 20 insertions(+), 1 deletion(-)
+This patch title is too long, no more than 80 chars.
 
-diff --git a/fs/namespace.c b/fs/namespace.c
-index aabe8e397fc3..3942ae6c34f5 100644
---- a/fs/namespace.c
-+++ b/fs/namespace.c
-@@ -2718,9 +2718,20 @@ dput_out:
- 	return retval;
- }
- 
-+static bool inc_mnt_namespaces(struct user_namespace *ns)
-+{
-+	return inc_ucount(ns, UCOUNT_MNT_NAMESPACES);
-+}
-+
-+static void dec_mnt_namespaces(struct user_namespace *ns)
-+{
-+	dec_ucount(ns, UCOUNT_MNT_NAMESPACES);
-+}
-+
- static void free_mnt_ns(struct mnt_namespace *ns)
- {
- 	ns_free_inum(&ns->ns);
-+	dec_mnt_namespaces(ns->user_ns);
- 	put_user_ns(ns->user_ns);
- 	kfree(ns);
- }
-@@ -2739,12 +2750,18 @@ static struct mnt_namespace *alloc_mnt_ns(struct user_namespace *user_ns)
- 	struct mnt_namespace *new_ns;
- 	int ret;
- 
-+	if (!inc_mnt_namespaces(user_ns))
-+		return ERR_PTR(-ENFILE);
-+
- 	new_ns = kmalloc(sizeof(struct mnt_namespace), GFP_KERNEL);
--	if (!new_ns)
-+	if (!new_ns) {
-+		dec_mnt_namespaces(user_ns);
- 		return ERR_PTR(-ENOMEM);
-+	}
- 	ret = ns_alloc_inum(&new_ns->ns);
- 	if (ret) {
- 		kfree(new_ns);
-+		dec_mnt_namespaces(user_ns);
- 		return ERR_PTR(ret);
- 	}
- 	new_ns->ns.ops = &mntns_operations;
-diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index f86afa536baf..ee0e9d7b2e67 100644
---- a/include/linux/user_namespace.h
-+++ b/include/linux/user_namespace.h
-@@ -28,6 +28,7 @@ enum ucounts {
- 	UCOUNT_UTS_NAMESPACES,
- 	UCOUNT_IPC_NAMESPACES,
- 	UCOUNT_NET_NAMESPACES,
-+	UCOUNT_MNT_NAMESPACES,
- 	UCOUNT_CGROUP_NAMESPACES,
- 	UCOUNT_COUNTS,
- };
-diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index e326ca722ae0..f6702d84afab 100644
---- a/kernel/user_namespace.c
-+++ b/kernel/user_namespace.c
-@@ -81,6 +81,7 @@ static struct ctl_table userns_table[] = {
- 	UCOUNT_ENTRY("max_uts_namespaces"),
- 	UCOUNT_ENTRY("max_ipc_namespaces"),
- 	UCOUNT_ENTRY("max_net_namespaces"),
-+	UCOUNT_ENTRY("max_mnt_namespaces"),
- 	UCOUNT_ENTRY("max_cgroup_namespaces"),
- 	{ }
- };
--- 
-2.8.3
+On Thu, Jul 21, 2016 at 10:09:19PM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
 
+Please, include a description here.
+
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+
+More comments below.
+> ---
+>  v1: Initial Version
+> 
+>  net/netfilter/ipvs/ip_vs_ctl.c    | 2 +-
+>  net/netfilter/nf_conntrack_core.c | 6 ++----
+>  2 files changed, 3 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index c3c809b..6dc86cc 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -3267,7 +3267,7 @@ static int ip_vs_genl_dump_dests(struct sk_buff *skb,
+>  
+>  
+>  	svc = ip_vs_genl_find_service(ipvs, attrs[IPVS_CMD_ATTR_SERVICE]);
+> -	if (IS_ERR(svc) || svc == NULL)
+> +	if (IS_ERR_OR_NULL(svc))
+>  		goto out_err;
+>  
+>  	/* Dump the destinations */
+
+You have to send this chunk through ipvs-devel mailing list to request
+and Acked-by on this.
+
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index 153e33f..634d592 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1108,10 +1108,8 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+>  	if (!h) {
+>  		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
+>  				   skb, dataoff, hash);
+> -		if (!h)
+> -			return NULL;
+> -		if (IS_ERR(h))
+> -			return (void *)h;
+> +		if (IS_ERR_OR_NULL(h))
+> +			return ERR_CAST(h);
+>  	}
+>  	ct = nf_ct_tuplehash_to_ctrack(h);
+>  
+> -- 
+> 1.9.1
+> 
+> 
