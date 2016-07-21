@@ -1,130 +1,242 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 7/9] mlxsw: reg: Add the Monitoring Port Analyzer register
-Date: Thu, 21 Jul 2016 12:03:15 +0200
-Message-ID: <1469095397-3837-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 4/9] net/sched: Add match-all classifier hw offloading.
+Date: Thu, 21 Jul 2016 12:03:12 +0200
+Message-ID: <1469095397-3837-5-git-send-email-jiri@resnulli.us>
 References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
 	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	jhs@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33690 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35544 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752000AbcGUKDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:31 -0400
-Received: by mail-wm0-f67.google.com with SMTP id o80so1964794wme.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:31 -0700 (PDT)
+	with ESMTP id S1751870AbcGUKD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:26 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i5so1954660wmg.2
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:25 -0700 (PDT)
 In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-The MPAR register is used to bind ports to a SPAN entry (which was
-created using MPAT register) and thus mirror their traffic (ingress /
-egress) to a different port.
+Following the work that have been done on offloading classifiers like u32
+and flower, now the match-all classifier hw offloading is possible. if
+the interface supports tc offloading.
+
+To control the offloading, two tc flags have been introduced: skip_sw and
+skip_hw. Typical usage:
+
+tc filter add dev eth25 parent ffff: 	\
+	matchall skip_sw		\
+	action mirred egress mirror	\
+	dev eth27
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
- - fixed wrapping issue in function pointed out by Jamal
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 67 +++++++++++++++++++++++++++++++
- 1 file changed, 67 insertions(+)
+ include/linux/netdevice.h    |  2 ++
+ include/net/pkt_cls.h        | 11 +++++++
+ include/uapi/linux/pkt_cls.h |  1 +
+ net/sched/cls_matchall.c     | 76 ++++++++++++++++++++++++++++++++++++++++++--
+ 4 files changed, 87 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 341ee245..311b5c0 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4660,6 +4660,16 @@ MLXSW_ITEM32(reg, mpat, e, 0x04, 31, 1);
-  */
- MLXSW_ITEM32(reg, mpat, qos, 0x04, 26, 1);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fab9a1c..63e31a7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -787,6 +787,7 @@ enum {
+ 	TC_SETUP_MQPRIO,
+ 	TC_SETUP_CLSU32,
+ 	TC_SETUP_CLSFLOWER,
++	TC_SETUP_MATCHALL,
+ };
  
-+/* reg_mpat_be
-+ * Best effort mode. Indicates mirroring traffic should not cause packet
-+ * drop or back pressure, but will discard the mirrored packets. Mirrored
-+ * packets will be forwarded on a best effort manner.
-+ * 0: Do not discard mirrored packets
-+ * 1: Discard mirrored packets if causing congestion
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mpat, be, 0x04, 25, 1);
-+
- static inline void mlxsw_reg_mpat_pack(char *payload, u8 pa_id,
- 				       u16 system_port, bool e)
- {
-@@ -4668,6 +4678,61 @@ static inline void mlxsw_reg_mpat_pack(char *payload, u8 pa_id,
- 	mlxsw_reg_mpat_system_port_set(payload, system_port);
- 	mlxsw_reg_mpat_e_set(payload, e);
- 	mlxsw_reg_mpat_qos_set(payload, 1);
-+	mlxsw_reg_mpat_be_set(payload, 1);
-+}
-+
-+/* MPAR - Monitoring Port Analyzer Register
-+ * ----------------------------------------
-+ * MPAR register is used to query and configure the port analyzer port mirroring
-+ * properties.
-+ */
-+#define MLXSW_REG_MPAR_ID 0x901B
-+#define MLXSW_REG_MPAR_LEN 0x08
-+
-+static const struct mlxsw_reg_info mlxsw_reg_mpar = {
-+	.id = MLXSW_REG_MPAR_ID,
-+	.len = MLXSW_REG_MPAR_LEN,
+ struct tc_cls_u32_offload;
+@@ -797,6 +798,7 @@ struct tc_to_netdev {
+ 		u8 tc;
+ 		struct tc_cls_u32_offload *cls_u32;
+ 		struct tc_cls_flower_offload *cls_flower;
++		struct tc_cls_matchall_offload *cls_mall;
+ 	};
+ };
+ 
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 3722dda..6f8d653 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -442,4 +442,15 @@ struct tc_cls_flower_offload {
+ 	struct tcf_exts *exts;
+ };
+ 
++enum tc_matchall_command {
++	TC_CLSMATCHALL_REPLACE,
++	TC_CLSMATCHALL_DESTROY,
 +};
 +
-+/* reg_mpar_local_port
-+ * The local port to mirror the packets from.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mpar, local_port, 0x00, 16, 8);
-+
-+enum mlxsw_reg_mpar_i_e {
-+	MLXSW_REG_MPAR_TYPE_EGRESS,
-+	MLXSW_REG_MPAR_TYPE_INGRESS,
++struct tc_cls_matchall_offload {
++	enum tc_matchall_command command;
++	struct tcf_exts *exts;
++	unsigned long cookie;
 +};
 +
-+/* reg_mpar_i_e
-+ * Ingress/Egress
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, mpar, i_e, 0x00, 0, 4);
+ #endif
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index a324948..d1c1cca 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -439,6 +439,7 @@ enum {
+ 	TCA_MATCHALL_UNSPEC,
+ 	TCA_MATCHALL_CLASSID,
+ 	TCA_MATCHALL_ACT,
++	TCA_MATCHALL_FLAGS,
+ 	__TCA_MATCHALL_MAX,
+ };
+ 
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index 8a6b4de..25927b6 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -21,6 +21,7 @@ struct cls_mall_filter {
+ 	struct tcf_result res;
+ 	u32 handle;
+ 	struct rcu_head	rcu;
++	u32 flags;
+ };
+ 
+ struct cls_mall_head {
+@@ -34,6 +35,9 @@ static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 	struct cls_mall_head *head = rcu_dereference_bh(tp->root);
+ 	struct cls_mall_filter *f = head->filter;
+ 
++	if (tc_skip_sw(f->flags))
++		return -1;
 +
-+/* reg_mpar_enable
-+ * Enable mirroring
-+ * By default, port mirroring is disabled for all ports.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mpar, enable, 0x04, 31, 1);
-+
-+/* reg_mpar_pa_id
-+ * Port Analyzer ID.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, mpar, pa_id, 0x04, 0, 4);
-+
-+static inline void mlxsw_reg_mpar_pack(char *payload, u8 local_port,
-+				       enum mlxsw_reg_mpar_i_e i_e,
-+				       bool enable, u8 pa_id)
-+{
-+	MLXSW_REG_ZERO(mpar, payload);
-+	mlxsw_reg_mpar_local_port_set(payload, local_port);
-+	mlxsw_reg_mpar_enable_set(payload, enable);
-+	mlxsw_reg_mpar_i_e_set(payload, i_e);
-+	mlxsw_reg_mpar_pa_id_set(payload, pa_id);
+ 	return tcf_exts_exec(skb, &f->exts, res);
  }
  
- /* MLCR - Management LED Control Register
-@@ -5243,6 +5308,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "MTCAP";
- 	case MLXSW_REG_MPAT_ID:
- 		return "MPAT";
-+	case MLXSW_REG_MPAR_ID:
-+		return "MPAR";
- 	case MLXSW_REG_MTMP_ID:
- 		return "MTMP";
- 	case MLXSW_REG_MLCR_ID:
+@@ -55,18 +59,61 @@ static void mall_destroy_filter(struct rcu_head *head)
+ 	struct cls_mall_filter *f = container_of(head, struct cls_mall_filter, rcu);
+ 
+ 	tcf_exts_destroy(&f->exts);
++
+ 	kfree(f);
+ }
+ 
++static int mall_replace_hw_filter(struct tcf_proto *tp,
++				  struct cls_mall_filter *f,
++				  unsigned long cookie)
++{
++	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tc_to_netdev offload;
++	struct tc_cls_matchall_offload mall_offload = {0};
++
++	offload.type = TC_SETUP_MATCHALL;
++	offload.cls_mall = &mall_offload;
++	offload.cls_mall->command = TC_CLSMATCHALL_REPLACE;
++	offload.cls_mall->exts = &f->exts;
++	offload.cls_mall->cookie = cookie;
++
++	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
++					     &offload);
++}
++
++static void mall_destroy_hw_filter(struct tcf_proto *tp,
++				   struct cls_mall_filter *f,
++				   unsigned long cookie)
++{
++	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tc_to_netdev offload;
++	struct tc_cls_matchall_offload mall_offload = {0};
++
++	offload.type = TC_SETUP_MATCHALL;
++	offload.cls_mall = &mall_offload;
++	offload.cls_mall->command = TC_CLSMATCHALL_DESTROY;
++	offload.cls_mall->exts = NULL;
++	offload.cls_mall->cookie = cookie;
++
++	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol,
++					     &offload);
++}
++
+ static bool mall_destroy(struct tcf_proto *tp, bool force)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
++	struct net_device *dev = tp->q->dev_queue->dev;
++	struct cls_mall_filter *f = head->filter;
+ 
+-	if (!force && head->filter)
++	if (!force && f)
+ 		return false;
+ 
+-	if (head->filter)
+-		call_rcu(&head->filter->rcu, mall_destroy_filter);
++	if (f) {
++		if (tc_should_offload(dev, tp, f->flags))
++			mall_destroy_hw_filter(tp, f, (unsigned long) f);
++
++		call_rcu(&f->rcu, mall_destroy_filter);
++	}
+ 	RCU_INIT_POINTER(tp->root, NULL);
+ 	kfree_rcu(head, rcu);
+ 	return true;
+@@ -117,8 +164,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+ 	struct cls_mall_filter *fold = (struct cls_mall_filter *) *arg;
++	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct cls_mall_filter *f;
+ 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
++	u32 flags = 0;
+ 	int err;
+ 
+ 	if (!tca[TCA_OPTIONS])
+@@ -135,6 +184,12 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 	if (err < 0)
+ 		return err;
+ 
++	if (tb[TCA_MATCHALL_FLAGS]) {
++		flags = nla_get_u32(tb[TCA_MATCHALL_FLAGS]);
++		if (!tc_flags_valid(flags))
++			return -EINVAL;
++	}
++
+ 	f = kzalloc(sizeof(*f), GFP_KERNEL);
+ 	if (!f)
+ 		return -ENOBUFS;
+@@ -144,11 +199,22 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 	if (!handle)
+ 		handle = 1;
+ 	f->handle = handle;
++	f->flags = flags;
+ 
+ 	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ 	if (err)
+ 		goto errout;
+ 
++	if (tc_should_offload(dev, tp, flags)) {
++		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
++		if (err) {
++			if (tc_skip_sw(flags))
++				goto errout;
++			else
++				err = 0;
++		}
++	}
++
+ 	*arg = (unsigned long) f;
+ 	rcu_assign_pointer(head->filter, f);
+ 
+@@ -163,6 +229,10 @@ static int mall_delete(struct tcf_proto *tp, unsigned long arg)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+ 	struct cls_mall_filter *f = (struct cls_mall_filter *) arg;
++	struct net_device *dev = tp->q->dev_queue->dev;
++
++	if (tc_should_offload(dev, tp, f->flags))
++		mall_destroy_hw_filter(tp, f, (unsigned long) f);
+ 
+ 	RCU_INIT_POINTER(head->filter, NULL);
+ 	tcf_unbind_filter(tp, &f->res);
 -- 
 2.5.5
