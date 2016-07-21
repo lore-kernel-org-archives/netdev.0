@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net/faraday: Disallow using reversed MAC
- address from hardware
-Date: Wed, 20 Jul 2016 21:05:39 -0700 (PDT)
-Message-ID: <20160720.210539.1359336662914040693.davem@davemloft.net>
-References: <1469065374-9916-1-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2 0/3] net: dsa: mv88e6xxx: rework EEPROM code
+Date: Wed, 20 Jul 2016 21:11:08 -0700 (PDT)
+Message-ID: <20160720.211108.701593532642432199.davem@davemloft.net>
+References: <20160720221836.28218-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org,
-	David.Laight@ACULAB.COM
-To: gwshan@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60150 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbcGUEFm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 00:05:42 -0400
-In-Reply-To: <1469065374-9916-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, andrew@lunn.ch, f.fainelli@gmail.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160720221836.28218-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Date: Thu, 21 Jul 2016 11:42:54 +1000
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Wed, 20 Jul 2016 18:18:33 -0400
 
-> The initial MAC address is retrieved from hardware if it's not
-> provided by device-tree. The reserved MAC address from hardware
-> will be used if non-reserved MAC address is invalid. It will
-> cause mismatched MAC address seen by hardware and software.
+> Some switches can access an optional external EEPROM via its registers.
 > 
-> This disallows using the reserved hardware MAC address to avoid
-> the mismatched MAC address seen by hardware and software.
+> The 88E6352 family of switches have 8-bit address / 16-bit data access.
+> The new 88E6390 family has 16-bit address / 8-bit data access.
 > 
-> Fixes: 113ce107afe9 ("net/faraday: Read MAC address from chip")
-> Suggested-by: David Laight <David.Laight@ACULAB.COM>
-> Suggested-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
-> ---
-> v2: Add "net-next" in the subject
+> This patchset cleans up the EEPROM code with 16-suffixed Global2 helpers
+> and makes it easy to add future support for 8-bit data EEPROM access.
+> 
+> It also removes unnecessary mutexes and a few locked access functions.
+> 
+> Changes in v2:
+>   - add missing Signed-off-by tag
 
-Makes sense, applied, thanks.
+Series applied, thanks.
