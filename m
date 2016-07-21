@@ -1,55 +1,75 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] netfilter: Use IS_ERR_OR_NULL instead of IS_ERR and
- NULl check to simplify the codes in ip_vs_genl_dump_dests and
- resolve_normal_ct
-Date: Thu, 21 Jul 2016 19:01:00 +0200
-Message-ID: <20160721170100.GA11613@salvia>
-References: <1469110159-19200-1-git-send-email-fgao@ikuai8.com>
- <20160721164553.GA10667@salvia>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35086 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753412AbcGURBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 13:01:08 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 8C0DC21058A
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 19:01:07 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 7B43DFAB5A
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 19:01:07 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 5BBECFC61B
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 19:01:05 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20160721164553.GA10667@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varun Prakash <varun@chelsio.com>
+Subject: [net-next v3 0/6] common library for Chelsio drivers.
+Date: Thu, 21 Jul 2016 22:57:13 +0530
+Message-ID: <cover.1469121308.git.varun@chelsio.com>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	target-devel@vger.kernel.org, nab@linux-iscsi.org,
+	gerlitz.or@gmail.com, swise@opengridcomputing.com,
+	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
+	hariprasad@chelsio.com, varun@chelsio.com
+To: davem@davemloft.net
+Return-path: <target-devel-owner@vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 21, 2016 at 06:45:53PM +0200, Pablo Neira Ayuso wrote:
-> > diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> > index 153e33f..634d592 100644
-> > --- a/net/netfilter/nf_conntrack_core.c
-> > +++ b/net/netfilter/nf_conntrack_core.c
-> > @@ -1108,10 +1108,8 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
-> >  	if (!h) {
-> >  		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
-> >  				   skb, dataoff, hash);
-> > -		if (!h)
-> > -			return NULL;
-> > -		if (IS_ERR(h))
-> > -			return (void *)h;
-> > +		if (IS_ERR_OR_NULL(h))
-> > +			return ERR_CAST(h);
-> 
-> Interesting.
-> 
-> I think we can actually simplify this patch, I'm sending a patch for
-> this now.
+Hi,
 
-Forget this, I cannot actually achieve the simplification, we need the
-ENOMEM to drop packets when we're under stress.
+ This patch series adds common library module(libcxgb.ko)
+ for Chelsio drivers to remove duplicate code.
+
+ This series moves common iSCSI DDP Page Pod manager
+ code from cxgb4.ko to libcxgb.ko, earlier this code
+ was used by only cxgbit.ko now it is used by
+ three Chelsio iSCSI drivers cxgb3i, cxgb4i, cxgbit.
+
+ In future this module will have common connection
+ management and hardware specific code that can
+ be shared by multiple Chelsio drivers(cxgb4,
+ csiostor, iw_cxgb4, cxgb4i, cxgbit).
+
+ Please review.
+
+ Thanks
+
+-v3
+- removed unused module init and exit functions.
+
+-v2
+- updated CONFIG_CHELSIO_LIB to an invisible option
+- changed libcxgb.ko module license from GPL to Dual BSD/GPL
+
+
+Varun Prakash (6):
+  libcxgb: add library module for Chelsio drivers
+  cxgb3i,cxgb4i,libcxgbi: remove iSCSI DDP support
+  cxgb4i,libcxgbi: add iSCSI DDP support
+  cxgb3i: add iSCSI DDP support
+  libcxgb: export ppm release and tagmask set api
+  cxgb3i,cxgb4i: fix symbol not declared sparse warning
+
+ drivers/net/ethernet/chelsio/Kconfig               |  16 +-
+ drivers/net/ethernet/chelsio/Makefile              |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   1 -
+ drivers/net/ethernet/chelsio/libcxgb/Makefile      |   3 +
+ .../{cxgb4/cxgb4_ppm.c => libcxgb/libcxgb_ppm.c}   |  45 +-
+ .../{cxgb4/cxgb4_ppm.h => libcxgb/libcxgb_ppm.h}   |  38 +-
+ drivers/scsi/cxgbi/Makefile                        |   2 +
+ drivers/scsi/cxgbi/cxgb3i/Kbuild                   |   1 +
+ drivers/scsi/cxgbi/cxgb3i/Kconfig                  |   1 +
+ drivers/scsi/cxgbi/cxgb3i/cxgb3i.c                 | 164 +++--
+ drivers/scsi/cxgbi/cxgb4i/Kbuild                   |   1 +
+ drivers/scsi/cxgbi/cxgb4i/Kconfig                  |   1 +
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c                 | 203 +++---
+ drivers/scsi/cxgbi/libcxgbi.c                      | 734 +++++++--------------
+ drivers/scsi/cxgbi/libcxgbi.h                      | 188 +-----
+ drivers/target/iscsi/cxgbit/Kconfig                |   2 +-
+ drivers/target/iscsi/cxgbit/Makefile               |   1 +
+ drivers/target/iscsi/cxgbit/cxgbit.h               |   2 +-
+ drivers/target/iscsi/cxgbit/cxgbit_main.c          |   2 +
+ 19 files changed, 540 insertions(+), 866 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/libcxgb/Makefile
+ rename drivers/net/ethernet/chelsio/{cxgb4/cxgb4_ppm.c => libcxgb/libcxgb_ppm.c} (86%)
+ rename drivers/net/ethernet/chelsio/{cxgb4/cxgb4_ppm.h => libcxgb/libcxgb_ppm.h} (84%)
+
+-- 
+2.0.2
