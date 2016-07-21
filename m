@@ -1,131 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: iproute2 mpls max labels
-Date: Thu, 21 Jul 2016 15:00:13 -0500
-Message-ID: <8737n23goi.fsf@x220.int.ebiederm.org>
-References: <578A7BF0.2020107@nordu.net>
-	<57911A26.3080203@cumulusnetworks.com>
+From: "echo18" <echo18@a.mryLw.net>
+Subject: The global market so much, You'll only other foreign customers to
+ your door, do not open up new ways to do?
+Date: Fri, 22 Jul 2016 04:49:33 +0800
+Message-ID: <201607220449333477789@a.mryLw.net>
+Reply-To: 3183346925@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Magnus Bergroth <bergroth@nordu.net>, netdev@vger.kernel.org,
-	Robert Shearman <rshearma@brocade.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:35939 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754052AbcGUUNS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 16:13:18 -0400
-In-Reply-To: <57911A26.3080203@cumulusnetworks.com> (Roopa Prabhu's message of
-	"Thu, 21 Jul 2016 11:53:26 -0700")
+Received: from [112.213.127.64] ([112.213.127.64]:42676 "EHLO a.mryLw.net"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754257AbcGUU4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 16:56:37 -0400
+Received: from MXIBRO4ZONSE9EK (unknown [27.46.128.19])
+	by a.mryLw.net (Postfix) with ESMTPA id 2E2402268E
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 12:36:45 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roopa Prabhu <roopa@cumulusnetworks.com> writes:
-
-> On 7/16/16, 11:24 AM, Magnus Bergroth wrote:
->> Wanted to use more than the default maximum of 8 mpls labels. Max labels
->> seems to be hardcode to 8 in two places.
->>
->> --- iproute2-4.6.0/lib/utils.c    2016-05-18 20:56:02.000000000 +0200
->> +++ iproute2-4.6.0-bergroth/lib/utils.c    2016-07-16 20:12:10.714958071
->> +0200
->> @@ -476,7 +476,7 @@
->>          addr->bytelen = 4;
->>          addr->bitlen = 20;
->>          /* How many bytes do I need? */
->> -        for (i = 0; i < 8; i++) {
->> +        for (i = 0; i < MPLS_MAX_LABELS; i++) {
->>              if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
->>                  addr->bytelen = (i + 1)*4;
->>                  break;
->>
->>
->> --- iproute2-4.6.0/include/utils.h    2016-05-18 20:56:02.000000000 +0200
->> +++ iproute2-4.6.0-bergroth/include/utils.h    2016-07-15
->> 11:55:57.297681742 +0200
->> @@ -54,6 +54,9 @@
->>  #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
->>  #define PREV_ARG() do { argv--; argc++; } while(0)
->>
->> +/* Maximum number of labels the mpls helpers support */
->> +#define MPLS_MAX_LABELS 8
->> +
->>  typedef struct
->>  {
->>      __u16 flags;
->> @@ -61,7 +64,7 @@
->>      __s16 bitlen;
->>      /* These next two fields match rtvia */
->>      __u16 family;
->> -    __u32 data[8];
->> +    __u32 data[MPLS_MAX_LABELS];
->>  } inet_prefix;
->>
-
-This structure is not MPLS specific so that is not appropriate to use
-MPLS_MAX_LABELS when definiting the structure.  Likewise changing this
-structure and limiting the changes to mpls parts of the code is not
-appropriate.
-
->>  #define PREFIXLEN_SPECIFIED 1
->> @@ -88,9 +91,6 @@
->>  # define AF_MPLS 28
->>  #endif
->>
->> -/* Maximum number of labels the mpls helpers support */
->> -#define MPLS_MAX_LABELS 8
->> -
->>  __u32 get_addr32(const char *name);
->>  int get_addr_1(inet_prefix *dst, const char *arg, int family);
->>  int get_prefix_1(inet_prefix *dst, char *arg, int family);
->>
->>
-> I did not realize it is hardcoded to 8 in iproute2. Because kernel has a hard coded limit of
-> 2.
-> I think we need to fix it in a few places:
-> a) we should move the kernel #define to a uapi header file which iproute2 can use
-> b) there has been a general ask to bump the kernel MAX_LABELS from 2 and I don't see
-> a problem with it yet. so, we could bump it to 8.
->
-> Were you planning to post patches for one or both of the above ?.
->
-> I can post them too. Let me know.
-
-a) I just looked and the kernel netlink protocol does not have a limit.
-   The kernel does have a limit but the netlink protocol does not  so
-   there is no point in exporting a limit in a uapi header,  it will
-   just be out of date and wrong.
-
-b) I can see in principle bumping up the kernels MAX_LABELS past two
-   although I haven't heard those requests, or understand the use cases.
-   I don't recall seeing any ducumentation on cases where it is
-   desirable to push a lot of labels at once.  (Do hardware
-   implementations support pushing a lot of labels at once?)
-
-   Bumping past 8 seems quite a lot.  That starts feeling like people
-   trying to break other peoples mpls stacks.  That is asking for more
-   packet space for labels than ipv6 uses for addresses and ipv6 is way
-   oversized.  The commonly agreed wisdom is the world only needs 40 to
-   48 bits to route on to reach the entire world.  
-
-   I can completely understand a few specialty labels going beyond what
-   is needed for general purpose routing but pushing more that 8 at
-   once seems huge.  Especially since you can recirculate packets if
-   you really need to and push more labels that way.
-
-   Add to that for a software implementation we have these pesky things
-   called cache lines.  I can see in the kernel pushing struct
-   mpls_route towards the size of a full cacheline.  Today we are at 52
-   bytes not counting the via adress.  With the via address we are at 56
-   (ipv4), 58 (ethernet), and 60 (ipv6) bytes.  Which means in we have
-   to make the kernel data structures smarter or we risk messing up the
-   performance of the common case.
-
-   Also we do need some kind of limit in the kernel to protect against
-   insane inputs.
-   
-   So while I can imagine there are reasonable cases for bumping up the
-   maximum number of labels in the kernel I think we need to be smart if
-   we ware going to do that.  Which probably means we will want a
-   __mpls_nh_label helper function.
-
-Eric
+ztLDx8rHvMzGvcyo1bm74dauuvO12sj91tbW98H3tcTN4sOzv827p7+qt6LEo8q9o6wNCr/J0tTI
+w8T6v+zL2bXE1cbO1bW9yKvH8re2zqfE2rXEsrvNrMDg0M21xMS/seq/zbuno6zW97avsNGy+sa3
+zca547W9v827p7XEytbW0KOs1Pa807j8tuC1xNGvxcy7+rvho6wNCg0Kx+u80ytRUSAvLyAzMjQ2
+MDc1NzA3ICDBqs+1INTaz9/R3cq+1ve2r7+qt6LIq8fyv827p6Osu7bTrdHp1qTKx7fx1ebKtdPQ
+0KcNCtKyv8m8086i0MW6xaO6c3Vuc2Vzb2Z0c2FtDQoNCsjn09Cyu9Do0qq0y9DFz6KjrMfru9i4
+tKGwsrvQ6NKqobGjrM7Sw8e9q7vhvavE+rXE08rP5L340NDGwbHOo6yyu9TZuPjE+rei0MW1xKGj
+DQoNCg0K16Ojusn60uLQy8Kho6E=
