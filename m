@@ -1,87 +1,166 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/9] mlxsw: implement port mirroring offload
-Date: Thu, 21 Jul 2016 11:07:07 +0200
-Message-ID: <20160721090706.GA2171@nanopsycho.orion>
-References: <1469089160-4239-1-git-send-email-jiri@resnulli.us>
- <83af7d8a-5f9c-aa3e-53cd-641cb175f66d@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-	eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35511 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751140AbcGUJHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 05:07:11 -0400
-Received: by mail-wm0-f48.google.com with SMTP id f65so14795641wmi.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 02:07:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <83af7d8a-5f9c-aa3e-53cd-641cb175f66d@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATCH net-next v4] cdc_ether: Improve ZTE MF823/831/910 handling
+Date: Thu, 21 Jul 2016 11:10:06 +0200
+Message-ID: <1469092206-5749-1-git-send-email-kristian.evensen@gmail.com>
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+To: oliver@neukum.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Jul 21, 2016 at 11:00:33AM CEST, jhs@mojatatu.com wrote:
->On 16-07-21 04:19 AM, Jiri Pirko wrote:
->>From: Jiri Pirko <jiri@mellanox.com>
->>
->>This patchset introduces tc matchall classifier and its offload
->>to Spectrum hardware. In combination with mirred action, defined port mirroring
->>setup is offloaded by mlxsw/spectrum driver.
->>
->>The commands used for creating mirror ports:
->>
->># ingress mirroring using matchall
->>tc qdisc  add dev eth25 handle ffff: ingress
->>tc filter add dev eth25 parent ffff:            \
->>        matchall skip_sw                        \
->>        action mirred egress mirror             \
->>        dev eth27
->>
->># egress mirroring using matchall
->>tc qdisc add dev eth25 handle 1: root prio
->>tc filter add dev eth25 parent 1:               \
->>        matchall skip_sw                        \
->>        action mirred egress mirror             \
->>        dev eth27
->>
->
->
->Kudos to Mellanox for all this nice work!
->
->I am assuming the chip is capable as well of doing
->mirroring via the ACL infrastructure and you are adding
->this classifier because you are going via the SPAN
+The firmware in several ZTE devices (at least the MF823/831/910
+modems/mifis) use OS fingerprinting to determine which type of device to
+export. In addition, these devices export a REST API which can be used to
+control the type of device. So far, on Linux, the devices have been seen as
+RNDIS or CDC Ether.
 
-Yes, we are using span.
+When CDC Ether is used, devices of the same type are, as with RNDIS,
+exported with the same, bogus random MAC address. In addition, the devices
+(at least on all firmware revisions I have found) use the bogus MAC when
+sending traffic routed from external networks. And as a final feature, the
+devices sometimes export the link state incorrectly. There are also
+references online to several other ZTE devices displaying this behavior,
+with several different PIDs and MAC addresses.
 
->infrastructure. If answer is yes, thencould we have used
->a classifier like u32 here?
->i.e something like:
->tc filter add dev eth25 xxxx protocol all \
->u32 match u32 0 0 \
->action mirred ...
+This patch tries to improve the handling of ZTE devices by doing the
+following:
 
-That could be used. But I believe it is nicer to have explicit match-all
-classifier for this case. That puts nice limit to what could be matched.
+* Create a new driver_info-struct that is used by ZTE devices that do not
+have an explicit entry in the product table. This struct is the same as the
+default cdc_ether driver info, but a new bind- and an rx_fixup-function
+have been added.
 
+* In the new bind function, we check if we have read a random MAC from the
+device. If we have, then we generate a new random MAC address. This will
+ensure that all devices get a unique MAC.
 
->
->BTW: I am not a big styling lawyer on netdev (I am normally the
->victim) but would be useful to look at some of these patches with
->that coding style in in mind (I think some of the chip specific
->patches had some style issue in function definition).
+* The rx_fixup-function replaces the destination MAC address in the skb
+with that of the device. I have not seen a revision of these devices that
+behaves correctly (i.e., sets the right destination MAC), so I chose not to
+do any comparison with for example the known, bogus addresses.
 
-Could you point to that? checkpatch.pl does not say anything and I also
-don't see anything.
+* The MF823/MF832/MF910 sometimes export cdc carrier on twice on connect
+(the correct behavior is off then on). Work around this by manually setting
+carrier to off if an on-notification is received and the NOCARRIER-bit is
+not set.
 
+This change will affect all devices, but it should take care of similar
+mistakes made by other manufacturers. I tried to think of/look/test for
+problems/regressions that could be introduced by this behavior, but could
+not find any. However, my familiarity with this code path is not that
+great, so there could be something I have overlooked.
 
->
->again - kudos
+I have tested this patch with multiple revisions of all three devices, and
+they behave as expected. In other words, they all got a valid, random MAC,
+the correct operational state and I can receive/sent traffic without
+problems. I also tested with some other cdc_ether devices I have and did
+not find any problems/regressions caused by the two general changes.
 
-Thanks.
+v3->v4:
+* Forgot to remove unused variables, sorry about that (thanks David
+Miller).
 
->
->cheers,
->jamal
+v2->v3:
+* I had forgot to remove the random MAC generation from usbnet_cdc_bind()
+(thanks Oliver).
+* Rework logic in the ZTE bind-function a bit.
+
+v1->v2:
+* Only generate random MAC for ZTE devices (thanks Oliver Neukum).
+* Set random MAC and do RX fixup for all ZTE devices that do not have a
+product-entry, as the bogus MAC have been seen on devices with several
+different PIDs/MAC addresses. In other words, it seems to be the default
+behavior of ZTE CDC Ether devices (thanks Lars Melin).
+
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+Acked-by: Oliver Neukum <oneukum@suse.com>
+---
+ drivers/net/usb/cdc_ether.c | 51 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 51 insertions(+)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 7cba2c3..c47ec0a 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -388,6 +388,12 @@ void usbnet_cdc_status(struct usbnet *dev, struct urb *urb)
+ 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
+ 		netif_dbg(dev, timer, dev->net, "CDC: carrier %s\n",
+ 			  event->wValue ? "on" : "off");
++
++		/* Work-around for devices with broken off-notifications */
++		if (event->wValue &&
++		    !test_bit(__LINK_STATE_NOCARRIER, &dev->net->state))
++			usbnet_link_change(dev, 0, 0);
++
+ 		usbnet_link_change(dev, !!event->wValue, 0);
+ 		break;
+ 	case USB_CDC_NOTIFY_SPEED_CHANGE:	/* tx/rx rates */
+@@ -432,6 +438,34 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ }
+ EXPORT_SYMBOL_GPL(usbnet_cdc_bind);
+ 
++static int usbnet_cdc_zte_bind(struct usbnet *dev, struct usb_interface *intf)
++{
++	int status = usbnet_cdc_bind(dev, intf);
++
++	if (!status && (dev->net->dev_addr[0] & 0x02))
++		eth_hw_addr_random(dev->net);
++
++	return status;
++}
++
++/* Make sure packets have correct destination MAC address
++ *
++ * A firmware bug observed on some devices (ZTE MF823/831/910) is that the
++ * device sends packets with a static, bogus, random MAC address (event if
++ * device MAC address has been updated). Always set MAC address to that of the
++ * device.
++ */
++static int usbnet_cdc_zte_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
++{
++	if (skb->len < ETH_HLEN || !(skb->data[0] & 0x02))
++		return 1;
++
++	skb_reset_mac_header(skb);
++	ether_addr_copy(eth_hdr(skb)->h_dest, dev->net->dev_addr);
++
++	return 1;
++}
++
+ static const struct driver_info	cdc_info = {
+ 	.description =	"CDC Ethernet Device",
+ 	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
+@@ -442,6 +476,17 @@ static const struct driver_info	cdc_info = {
+ 	.manage_power =	usbnet_manage_power,
+ };
+ 
++static const struct driver_info	zte_cdc_info = {
++	.description =	"ZTE CDC Ethernet Device",
++	.flags =	FLAG_ETHER | FLAG_POINTTOPOINT,
++	.bind =		usbnet_cdc_zte_bind,
++	.unbind =	usbnet_cdc_unbind,
++	.status =	usbnet_cdc_status,
++	.set_rx_mode =	usbnet_cdc_update_filter,
++	.manage_power =	usbnet_manage_power,
++	.rx_fixup = usbnet_cdc_zte_rx_fixup,
++};
++
+ static const struct driver_info wwan_info = {
+ 	.description =	"Mobile Broadband Network Device",
+ 	.flags =	FLAG_WWAN,
+@@ -707,6 +752,12 @@ static const struct usb_device_id	products[] = {
+ 			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
+ 	.driver_info = (kernel_ulong_t)&wwan_info,
+ }, {
++	/* ZTE modules */
++	USB_VENDOR_AND_INTERFACE_INFO(ZTE_VENDOR_ID, USB_CLASS_COMM,
++				      USB_CDC_SUBCLASS_ETHERNET,
++				      USB_CDC_PROTO_NONE),
++	.driver_info = (unsigned long)&zte_cdc_info,
++}, {
+ 	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ETHERNET,
+ 			USB_CDC_PROTO_NONE),
+ 	.driver_info = (unsigned long) &cdc_info,
+-- 
+2.5.0
