@@ -1,35 +1,87 @@
-From: "oche9" <oche9@a.shhzf.net>
-Subject: The global market is so big, but you are waiting for the light B2B
- inquiry and exhibitors, it is better to take the initiative to develop a
- global audience! ! ! Advisory QQ: 3246075707
-Date: Fri, 22 Jul 2016 00:45:19 +0800
-Message-ID: <201607220045194003455@a.shhzf.net>
-Reply-To: 3183346925@qq.com
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: [PATCH v2 00/10] userns: sysctl limits for namespaces
+Date: Thu, 21 Jul 2016 11:39:35 -0500
+Message-ID: <87d1m754jc.fsf@x220.int.ebiederm.org>
+References: <8737n5dscy.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [115.47.41.87] ([115.47.41.87]:1183 "HELO a.shhzf.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
-	id S1753301AbcGUQus (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 12:50:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
+To: Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <8737n5dscy.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org> (Eric W. Biederman's
+	message of "Tue, 19 Jul 2016 20:13:17 -0500")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-zeLDs8Xz09HDxzoNCg0KxPq21NPaytbJz83iw7PXytS0wvrS4sLwo78NCg0KztLDx7eiz9bEv8ew
-uty24M3iw7PG89K10/a1vdLUz8LE0czio7oNCsa9zKjE0df2o7+/zbun09DQp9Gvxcy89cnZo7/V
-ubvhs8mxvsyruN+jv7/Nu6e3ts6nzKvVraO/IA0KDQrO0sPHxNzOqsT61/a1vcfhy8m/qreiv827
-p6Ostqm1pbK7ts+jrL+qt6Kz9sr009rX1Ly6tcS/zbunyLqhow0KztLDx8TczqrE+rXExvPStdbG
-tqjSu8zX16jStbXEv827p7+qt6K94r72t72wuLf+zvGjrLPQxbWw2bfWsNmz9tCnufujrM7e0KfI
-q7buzcu/7qGjDQoNCs7Sw8ey+sa3tcS5psTcvLDG5NPFysajuiANCjGhosD708PL0cv30v3H5tb3
-tq+/qreiyKvH8sS/seq/zbunoaMgDQoyoaK2zMqxvOTE2r7NxNzK1bW9tPPBv9Gvxcy6zbaptaWh
-oyANCjOhotb3tq+12NXStb3E47XExL+x6r/Nu6fIuszloaMgDQo0oaLW97avvavE+rXEsvrGt9PK
-vP7Iureizca547j4v827p6GjIA0KNaGisdzD4s3iw7O1rby+o6yx3MPi0a/FzLbgo6yzyb27ydmj
-rM3iw7O/qreizbbXyrjfo6xCMkLRr8XM1srBv7K7uN+1xMCnvtahoyANCjahos3iw7O/zbunv6q3
-orK71NnE0aOssrvU2dffzeTCt6OsyMPIq8fyv827p9b3tq/Bqs+1xPqhoyANCg0KyOe5+8T6ttTO
-0sPHtcSy+sa30tS8sLf+zvG40NDLyKSjrLu2063E+rvYuLTTyrz+u/K8087SUVHP6sy4oaMNCg0K
-z+vBy73iuPy24Nb3tq/Kvc3iw7O/qreiv827p6Osx+u80yBRUS0tLS0tLT4gMzI0NjA3NTcwNyAg
-1rG909Hp1qS/zbun0MXPoiDKx7fx1ebKtaGi09DQpyANCg0K0rK/ybzTzqLQxbrFo7pzdW5zZXNv
-ZnRzYW0=
+
+This patchset addresses two use cases:
+- Implement a sane upper bound on the number of namespaces.
+- Provide a way for sandboxes to limit the attack surface from
+  namespaces.
+
+The maximum sane case I can imagine is if every process is a fat
+process, so I set the maximum number of namespaces to the maximum
+number of threads.
+
+I make these limits recursive and per user namespace so that a
+usernamespace root can reduce the limits further.  If a user namespace
+root raises the limit the limit in the parent namespace will be honored.
+
+I have cut this implementation to the bare minimum needed to achieve
+these objectives.
+
+Does anyone know if there is a proper error code to return for resource
+limit exceeded?  I am currently using -EUSERS or -ENFILE but both of
+those feel a little wrong.
+
+Assuming nothing problematic shows up in the review I will add these to
+my user namespace tree.
+
+These patches are also available at:
+    git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-testing
+
+Changes since v1:
+- Compilation issues with !CONFIG_SYSCTL and !CONFIG_USER_NS have been addressed
+- Comment improvements.
+- A few names have been changed to be clearer.
+
+Eric W. Biederman (10):
+      sysctl: Stop implicitly passing current into sysctl_table_root.lookup
+      userns: Add per user namespace sysctls.
+      userns: Add a limit on the number of user namespaces
+      userns: Generalize the user namespace count into ucount
+      pidns: Add a limit on the number of pid namespaces
+      utsns: Add a limit on the number of uts namespaces
+      ipcns: Add a  limit on the number of ipc namespaces
+      cgroupns: Add a limit on the number of cgroup namespaces
+      netns: Add a limit on the number of net namespaces
+      mntns: Add a limit on the number of mount namespaces.
+
+ fs/namespace.c                 |  19 ++++-
+ fs/proc/proc_sysctl.c          |  14 +--
+ include/linux/sysctl.h         |   3 +-
+ include/linux/user_namespace.h |  40 +++++++++
+ ipc/namespace.c                |  42 ++++++---
+ kernel/cgroup.c                |  15 ++++
+ kernel/fork.c                  |   5 ++
+ kernel/pid_namespace.c         |  22 ++++-
+ kernel/user_namespace.c        | 188 ++++++++++++++++++++++++++++++++++++++---
+ kernel/utsname.c               |  31 +++++--
+ net/core/net_namespace.c       |  15 ++++
+ net/sysctl_net.c               |   4 +-
+ 12 files changed, 355 insertions(+), 43 deletions(-)
+
+Eric
