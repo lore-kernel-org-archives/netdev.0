@@ -1,39 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2] net/faraday: Disallow using reversed MAC
- address from hardware
-Date: Thu, 21 Jul 2016 16:01:09 +0200
-Message-ID: <20160721140109.GM11309@lunn.ch>
-References: <1469065374-9916-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	benh@kernel.crashing.org, David.Laight@ACULAB.COM
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: fgao@ikuai8.com
+Subject: [PATCH 1/1] netfilter: Use IS_ERR_OR_NULL instead of IS_ERR and NULl check to simplify the codes in ip_vs_genl_dump_dests and resolve_normal_ct
+Date: Thu, 21 Jul 2016 22:09:19 +0800
+Message-ID: <1469110159-19200-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: pablo@netfilter.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47591 "EHLO vps0.lunn.ch"
+Received: from SMTPBG351.QQ.COM ([183.57.50.165]:42456 "EHLO smtpbg351.qq.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750857AbcGUOBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 10:01:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1469065374-9916-1-git-send-email-gwshan@linux.vnet.ibm.com>
+	id S1751429AbcGUOXD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 10:23:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2016 at 11:42:54AM +1000, Gavin Shan wrote:
-> The initial MAC address is retrieved from hardware if it's not
-> provided by device-tree. The reserved MAC address from hardware
-> will be used if non-reserved MAC address is invalid. It will
-> cause mismatched MAC address seen by hardware and software.
-> 
-> This disallows using the reserved hardware MAC address to avoid
-> the mismatched MAC address seen by hardware and software.
-> 
-> Fixes: 113ce107afe9 ("net/faraday: Read MAC address from chip")
-> Suggested-by: David Laight <David.Laight@ACULAB.COM>
-> Suggested-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Gao Feng <fgao@ikuai8.com>
 
-Too late now, since it has been accepted, but the subject line says
-reversed, not reserved.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v1: Initial Version
 
-	  Andrew
+ net/netfilter/ipvs/ip_vs_ctl.c    | 2 +-
+ net/netfilter/nf_conntrack_core.c | 6 ++----
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c3c809b..6dc86cc 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3267,7 +3267,7 @@ static int ip_vs_genl_dump_dests(struct sk_buff *skb,
+ 
+ 
+ 	svc = ip_vs_genl_find_service(ipvs, attrs[IPVS_CMD_ATTR_SERVICE]);
+-	if (IS_ERR(svc) || svc == NULL)
++	if (IS_ERR_OR_NULL(svc))
+ 		goto out_err;
+ 
+ 	/* Dump the destinations */
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 153e33f..634d592 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1108,10 +1108,8 @@ resolve_normal_ct(struct net *net, struct nf_conn *tmpl,
+ 	if (!h) {
+ 		h = init_conntrack(net, tmpl, &tuple, l3proto, l4proto,
+ 				   skb, dataoff, hash);
+-		if (!h)
+-			return NULL;
+-		if (IS_ERR(h))
+-			return (void *)h;
++		if (IS_ERR_OR_NULL(h))
++			return ERR_CAST(h);
+ 	}
+ 	ct = nf_ct_tuplehash_to_ctrack(h);
+ 
+-- 
+1.9.1
