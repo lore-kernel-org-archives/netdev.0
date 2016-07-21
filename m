@@ -1,67 +1,113 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: [net-next v3 6/6] cxgb3i,cxgb4i: fix symbol not declared sparse warning
-Date: Thu, 21 Jul 2016 22:57:19 +0530
-Message-ID: <957b51f9fdd742e50ffcf954bf44422b6edab7dc.1469121308.git.varun@chelsio.com>
-References: <cover.1469121308.git.varun@chelsio.com>
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	target-devel@vger.kernel.org, nab@linux-iscsi.org,
-	gerlitz.or@gmail.com, swise@opengridcomputing.com,
-	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
-	hariprasad@chelsio.com, varun@chelsio.com
-To: davem@davemloft.net
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <cover.1469121308.git.varun@chelsio.com>
-In-Reply-To: <cover.1469121308.git.varun@chelsio.com>
-References: <cover.1469121308.git.varun@chelsio.com>
-Sender: target-devel-owner@vger.kernel.org
+From: "Steve Wise" <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: RE: [PATCH V2] Add flow control to the portmapper
+Date: Thu, 21 Jul 2016 12:42:42 -0500
+Message-ID: <04ea01d1e377$4824a6f0$d86df4d0$@opengridcomputing.com>
+References: <1468869810-64420-1-git-send-email-shiraz.saleem@intel.com> <20160719054006.GF20674@leon.nu> <20160719145024.GA69464@ssaleem-MOBL4.amr.corp.intel.com> <20160719173253.GL20674@leon.nu> <20160721024750.GA52712@ssaleem-MOBL4.amr.corp.intel.com> <20160721172942.GW20674@leon.nu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<e1000-rdma-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"'Mustafa Ismail'" <mustafa.ismail-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: "'Leon Romanovsky'" <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"'Shiraz Saleem'" <shiraz.saleem-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160721172942.GW20674-2ukJVAZIZ/Y@public.gmane.org>
+Content-Language: en-us
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fix following sparse warnings
-warning: symbol 'cxgb3i_ofld_init' was not declared. Should it be static?
-warning: symbol 'cxgb4i_cplhandlers' was not declared. Should it be static?
-warning: symbol 'cxgb4i_ofld_init' was not declared. Should it be static?
+>=20
+> On Wed, Jul 20, 2016 at 09:47:50PM -0500, Shiraz Saleem wrote:
+> > On Tue, Jul 19, 2016 at 08:32:53PM +0300, Leon Romanovsky wrote:
+> > > On Tue, Jul 19, 2016 at 09:50:24AM -0500, Shiraz Saleem wrote:
+> > > > On Tue, Jul 19, 2016 at 08:40:06AM +0300, Leon Romanovsky wrote=
+:
+> > > > >
+> > > > > You are the one user of this new inline function.
+> > > > > Why don't you directly call to netlink_unicast() in your ibnl=
+_unicast()
+> > > > > without messing with widely visible header file?
+> > > >
+> > > > Since there is a non-blocking version of nlmsg_unicast(), the i=
+dea is
+> > > > to make a blocking version available to others as well as maint=
+ain
+> > > > consistency of existing code.
+> > > >
+> > >
+> > > In such way, please provide patch series which will convert all o=
+ther
+> > > users to this new call.
+> > >
+> > > =E2=9E=9C  linux-rdma git:(master) grep -rI netlink_unicast * | g=
+rep -I 0
+> > > kernel/audit.c: err =3D netlink_unicast(audit_sock, skb, audit_nl=
+k_portid, 0);
+> > > kernel/audit.c:         netlink_unicast(aunet->nlsk, skb, dest->p=
+ortid, 0);
+> > > kernel/audit.c: netlink_unicast(aunet->nlsk , reply->skb, reply->=
+portid, 0);
+> > > kernel/audit.c: return netlink_unicast(audit_sock, skb, audit_nlk=
+_portid, 0);
+> > > samples/connector/cn_test.c:    netlink_unicast(nls, skb, 0, 0);
+> >
+> > These usages of netlink_unicast() with blocking are not the same as=
+ the new
+> > nlmsg_unicast_block() function.
+>=20
+> Really?
+> Did you look in the code?
+> Let's take first function from that grep output
+>=20
+> 414         err =3D netlink_unicast(audit_sock, skb, audit_nlk_portid=
+, 0);
+> 415         if (err < 0) {
+> 			... do something ...
+> 437         } else
+> 			... do something else ...
+>=20
+> which fits nicely with your proposal.
+>
 
-Signed-off-by: Varun Prakash <varun@chelsio.com>
-Reviewed-by: Steve Wise <swise@opengridcomputing.com>
----
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.c | 2 +-
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+The key is to ensure that places calling a blocking service are never c=
+alled in a non-blocking context.   Leon, do you know if the new sites a=
+re always safe to block? =20
 
-diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-index 61f16a2..33e8346 100644
---- a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-+++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-@@ -1028,7 +1028,7 @@ cxgb3_cpl_handler_func cxgb3i_cpl_handlers[NUM_CPL_CMDS] = {
-  * cxgb3i_ofld_init - allocate and initialize resources for each adapter found
-  * @cdev:	cxgbi adapter
-  */
--int cxgb3i_ofld_init(struct cxgbi_device *cdev)
-+static int cxgb3i_ofld_init(struct cxgbi_device *cdev)
- {
- 	struct t3cdev *t3dev = (struct t3cdev *)cdev->lldev;
- 	struct adap_ports port;
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 521f9e4..e4ba2d2 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1503,7 +1503,7 @@ rel_resource_without_clip:
- 	return -EINVAL;
- }
- 
--cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
-+static cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_ACT_ESTABLISH] = do_act_establish,
- 	[CPL_ACT_OPEN_RPL] = do_act_open_rpl,
- 	[CPL_PEER_CLOSE] = do_peer_close,
-@@ -1519,7 +1519,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_RX_DATA] = do_rx_data,
- };
- 
--int cxgb4i_ofld_init(struct cxgbi_device *cdev)
-+static int cxgb4i_ofld_init(struct cxgbi_device *cdev)
- {
- 	int rc;
- 
--- 
-2.0.2
+In general, I think blocking due to sockbuf flow control vs dropping or=
+ retrying is a good thing for all the users in the rdam core, assuming =
+they are safe to block.
+
+=20
+> +static inline int nlmsg_unicast_block(struct sock *sk, struct sk_buf=
+f *skb, u32
+> portid)
+> +{
+> +       int err;
+> +
+> +       err =3D netlink_unicast(sk, skb, portid, 0);
+> +       if (err > 0)
+> +               err =3D 0;
+> +
+> +       return err;
+> +}
+>=20
+>=20
+> > You can't drop in nlmsg_unicast_block() in
+> > place of netlink_unicast() in these places. I'm not going to introd=
+uce code
+> > which modifies old behavior.
+>=20
+> Again, you aren't changing any behaviour.
+
+Potential block/sleep is a change.  But if we can conclude that these a=
+dditional sites are safe to block, then probably its ok to just go ahea=
+d and use the blocking service everywhere.
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
