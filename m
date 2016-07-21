@@ -1,66 +1,50 @@
-From: Chunhui He <hchunhui@mail.ustc.edu.cn>
-Subject: [PATCH] net: neigh: disallow state transition DELAY->STALE in neigh_update()
-Date: Thu, 21 Jul 2016 17:58:10 +0000
-Message-ID: <1469123890-2715-1-git-send-email-hchunhui@mail.ustc.edu.cn>
-Cc: Chunhui He <hchunhui@mail.ustc.edu.cn>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Robert Shearman <rshearma@brocade.com>,
-	David Barroso <dbarroso@fastly.com>,
-	Martin Zhang <martinbj2008@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ustc.edu.cn ([202.38.64.46]:54946 "EHLO ustc.edu.cn"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750884AbcGUSHI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 14:07:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: bridge: br_set_ageing_time takes a clock_t
+Date: Thu, 21 Jul 2016 14:18:59 -0400
+Message-ID: <874m7ilur0.fsf@ketchup.mtl.sfl>
+References: <20160721164219.26723-1-vivien.didelot@savoirfairelinux.com> <CAM_iQpUzf6MiOqYNc-vX0A-mhZ_=URwVPoUD1TY7xC0amTZoww@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpUzf6MiOqYNc-vX0A-mhZ_=URwVPoUD1TY7xC0amTZoww@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If neigh entry was CONNECTED and address is not changed, and if new state is
-STALE, entry state will not change. Because DELAY is not in CONNECTED, it's
-possible to change state from DELAY to STALE.
+Hi Cong,
 
-That is bad. Consider a host in IPv4 nerwork, a neigh entry in STALE state
-is referenced to send packets, so goes to DELAY state. If the entry is not
-confirmed by upper layer, it goes to PROBE state, and sends ARP request.
-The neigh host sends ARP reply, then the entry goes to REACHABLE state.
-But the entry state may be reseted to STALE by broadcast ARP packets, before
-the entry goes to PROBE state. So it's possible that the entry will never go
-to REACHABLE state, without external confirmation.
+Cong Wang <xiyou.wangcong@gmail.com> writes:
 
-In my case, the gateway refuses to send unicast packets to me, before it sees
-my ARP request. So it's critical to enter REACHABLE state by sending ARP
-request, but not by external confirmation.
+> On Thu, Jul 21, 2016 at 9:42 AM, Vivien Didelot
+> <vivien.didelot@savoirfairelinux.com> wrote:
+>> Change the ageing_time type in br_set_ageing_time() from u32 to what it
+>> is expected to be, i.e. a clock_t.
+>
+> You also need to change struct switchdev_attr:
+>
+> struct switchdev_attr {
+>         struct net_device *orig_dev;
+>         enum switchdev_attr_id id;
+>         u32 flags;
+>         void *complete_priv;
+>         void (*complete)(struct net_device *dev, int err, void *priv);
+>         union {
+>                 struct netdev_phys_item_id ppid;        /* PORT_PARENT_ID */
+>                 u8 stp_state;                           /* PORT_STP_STATE */
+>                 unsigned long brport_flags;             /* PORT_BRIDGE_FLAGS */
+>                 u32 ageing_time;                        /* BRIDGE_AGEING_TIME */
+>                 bool vlan_filtering;                    /*
+> BRIDGE_VLAN_FILTERING */
+>         } u;
+> };
 
-This fixes neigh_update() not to change to STALE if old state is CONNECTED or
-DELAY.
+Already changed in net/master as of eabfdda93477
+("net: switchdev: change ageing_time type to clock_t").
 
-Signed-off-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
----
- net/core/neighbour.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks,
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 510cd62..29429eb 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1152,7 +1152,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 		} else {
- 			if (lladdr == neigh->ha && new == NUD_STALE &&
- 			    ((flags & NEIGH_UPDATE_F_WEAK_OVERRIDE) ||
--			     (old & NUD_CONNECTED))
-+			     (old & (NUD_CONNECTED | NUD_DELAY)))
- 			    )
- 				new = old;
- 		}
--- 
-2.1.4
+        Vivien
