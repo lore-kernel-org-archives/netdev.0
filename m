@@ -1,125 +1,104 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [net-next PATCH 1/3] net: phy: dp83867: Add documentation for
- optional impedance control
-Date: Thu, 21 Jul 2016 16:14:29 -0500
-Message-ID: <20160721211429.GA17696@rob-hp-laptop>
-References: <20160720145614.13132-1-mugunthanvnm@ti.com>
- <20160720145614.13132-2-mugunthanvnm@ti.com>
- <578F99D3.9090601@ti.com>
- <57906A2C.7010201@ti.com>
+From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Subject: Re: PROBLEM: MTU of ipsec tunnel drops continuously until traffic
+ stops
+Date: Thu, 21 Jul 2016 21:41:30 +0000
+Message-ID: <5ed871b8f02b40a8b7be29a5715d501d@svr-chch-ex1.atlnz.lc>
+References: <1467598059395.19100@alliedtelesis.co.nz>
+ <1467604370799.64629@alliedtelesis.co.nz>
+ <20160704111202.GI12335@gauss.secunet.com>
+ <c22799c2751348b8b2e5caddc9d13ece@svr-chch-ex1.atlnz.lc>
+ <bba4a160385c4a36aecdd8d385e01c69@svr-chch-ex1.atlnz.lc>
+ <20160721091256.GG3775@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nishanth Menon <nm@ti.com>, Mugunthan V N <mugunthanvnm@ti.com>,
-	netdev@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>,
-	Tony Lindgren <tony@atomide.com>,
-	Russell King <linux@armlinux.org.uk>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	devicetree@vger.kernel.org, linux-omap@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Sekhar Nori <nsekhar@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <57906A2C.7010201@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:58800 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754354AbcGUVlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 17:41:36 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 33E9186051
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 09:41:32 +1200 (NZST)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2016 at 11:52:36AM +0530, Sekhar Nori wrote:
-> Nishanth,
-> 
-> On Wednesday 20 July 2016 09:03 PM, Nishanth Menon wrote:
-> > On 07/20/2016 09:56 AM, Mugunthan V N wrote:
-> >> Add documention of ti,impedance-control which can be used to
-> >> correct MAC impedance mismatch using phy extended registers.
-> >>
-> >> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> >> ---
-> >>   Documentation/devicetree/bindings/net/ti,dp83867.txt | 7 +++++++
-> >>   1 file changed, 7 insertions(+)
-> >>
-> >> diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> >> b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> >> index 5d21141..531ea3c5 100644
-> >> --- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> >> +++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
-> >> @@ -9,6 +9,13 @@ Required properties:
-> >>       - ti,fifo-depth - Transmitt FIFO depth- see
-> >> dt-bindings/net/ti-dp83867.h
-> >>           for applicable values
-> >>
-> >> +Optional property:
-> >> +    - ti,impedance-control - MAC Interface Impedance control to vary the
-> >> +                 output impedance with an approximate range
-> >> +                 from 35-70 ohms in 32 steps. Value range can
-> >> +                 be 0x0 to 0x1f. Lowest impedance value is
-> >> +                 0x1f and highest impedance being 0x0.
-> >> +
-> > 
-> > Should'nt you be using the impedance values of 35 to 70 as the valid
-> > values here? that would be the hardware description, and the values to
-> > program corresponding to those are 0x00 to 0x1f. Right?
-> > 
-> > Rob: is'nt that the right way to do it?
-
-Normally, yes that is preferred. I don't have an issue with it here if 
-that is what makes sense.
-
-> Agree that that is usually the right way to do it. I believe this case
-> is bit peculiar though. Here is the extract from the datasheet[1] about
-> how the register in question works.
-> 
-> "
-> Output impedance approximate range from 35-70 ohms in 32 steps.
-> Lowest being 11110 and highest being 00000. Range and Step size
-> will vary with process.
-> 
-> Default is set to 50 ohms by trim. But the default register value can
-> vary by process. Non default values of MAC I/O impedance can be
-> used based on trace impedance. Mismatch between device and
-> trace impedance can cause voltage overshoot and undershoot.
-> "
-> 
-> So clearly, there is no easy correspondence that the hardware guarantees
-> between output impedance ohmage and the register value programmed. Only
-> couple of things are guaranteed.
-> 
-> 1) Programming a value of 0 gives approximately 35 ohms
-> 2) Programming a value of 0x1F gives approximately 70 ohms
-> 3) Default value of the register gives 50 ohms (the default value could
-> vary by device).
-> 4) Programming a value in between will give some ohmage in the
-> approximate range 35-70 (curve is unknown).
-> 
-> Given this, I am not sure how one can convert a given user supplied ohms
-> values to a reasonable register value. Clearly, the register is supposed
-> to be programmed by experimentation, not calculation.
-
-So your are going to change from a known value tuned for the individual 
-Si (50ohm) to the same value for all chips (at least for a given board). 
-Or does this get set by firmware at boot? If not, seems like you would 
-want to specify a delta from the default register value in this case.
-
-> That said, we could take another approach. At least for the current
-> issue we are trying to address, we only need to configure the register
-> to max value. And given the nature of the register, I am pretty sure
-> that is what most people will end up doing.
-
-How does the max value get determined? Possibly it should just be set in 
-the kernel.
- 
-> So, may be we have two properties:
-> 
-> ti,max-output-impedance
-> ti,min-output-imepdance
-
-Just define max if that's all you currently need.
-
-> which configure the impedance to maximum and minimum values
-> respectively. If, in future, someone needs to configure a value in
-> between, he can introduce a more granular property which when then
-> override whatever else is specified.
-> 
-> Regards,
-> Sekhar
-> 
-> [1] http://www.ti.com/lit/ds/symlink/dp83867ir.pdf
+T24gMDcvMjEvMjAxNiAwOToxMyBQTSwgU3RlZmZlbiBLbGFzc2VydCB3cm90ZToKPiBIaSBNYXR0
+LAo+Cj4gSSd2ZSBkaWQgc29tZSB2dGkgdGVzdHMgdGhlIGxhc3QgZGF5cywgYnV0IEkgd2FzIHVu
+YWJsZSB0bwo+IHJlcHJvZHVjZSBpdC4KPgo+IE9uIFR1ZSwgSnVsIDE5LCAyMDE2IGF0IDA1OjQ5
+OjA2QU0gKzAwMDAsIE1hdHQgQmVubmV0dCB3cm90ZToKPj4gT24gMDcvMDUvMjAxNiAwMzo1NSBQ
+TSwgTWF0dCBCZW5uZXR0IHdyb3RlOgo+Pj4gT24gMDcvMDQvMjAxNiAxMToxMiBQTSwgU3RlZmZl
+biBLbGFzc2VydCB3cm90ZToKPj4+PiBPbiBNb24sIEp1bCAwNCwgMjAxNiBhdCAwMzo1Mjo1MEFN
+ICswMDAwLCBNYXR0IEJlbm5ldHQgd3JvdGU6Cj4+Pj4+ICpSZXNlbmRpbmcgYXMgcGxhaW4gdGV4
+dCBzbyB0aGUgbWFpbGluZyBsaXN0IGFjY2VwdHMgaXQuLiBTb3JyeSBTdGVmZmVuIGFuZCBIZXJi
+ZXJ0Kgo+Pj4+Pgo+Pj4+PiDigItIaSwKPj4+Pj4KPj4+Pj4gRHVyaW5nIGxvbmcgcnVuIHRlc3Rp
+bmcgb2YgYW4gaXBzZWMgdHVubmVsIG92ZXIgYSBQUFAgbGluayBpdCB3YXMgZm91bmQgdGhhdCBv
+Y2Nhc2lvbmFsbHkgdHJhZmZpYyB3b3VsZCBzdG9wIGZsb3dpbmcgb3ZlciB0aGUgdHVubmVsLiBF
+dmVudHVhbGx5IHRoZSB0cmFmZmljIHdvdWxkIHN0YXJ0IGFnYWluLCBob3dldmVyIHVzaW5nIHRo
+ZSBjb21tYW5kICJpcCByb3V0ZSBmbHVzaCBjYWNoZSIgY2F1c2VzIHRyYWZmaWMgdG8gc3RhcnQg
+Zmxvd2luZyAgYWdhaW4gaW1tZWRpYXRlbHkuCj4KPiBEbyB5b3UgbmVlZCB0aGUgcHBwIGxpbmsg
+dG8gcmVwcm9kdWNlIGl0PyBIb3cgb2Z0ZW4gZG9lcyB0aGF0IGhhcHBlbj8KPiBJdCB3b3VsZCBi
+ZSBnb29kIHRvIGZpbmQgYSBtaW5pbWFsIHNldHVwIHdpdGggdGhhdCB0aGUgYnVnIGlzIHJlcHJv
+ZHVjaWJsZS4KPgo+Ck91ciBvcmlnaW5hbCB0ZXN0cyB3ZXJlIGxvbmcgcnVuLCBpLmUuIHdlIHNl
+dCB0cmFmZmljIGZsb3dpbmcgYWNyb3NzIHRoZSB0dW5uZWwgYW5kIG5vdGljZWQgb2NjYXNpb25h
+bGx5IHRoZSB0aHJvdWdocHV0IHdvdWxkIGRyb3Agc2lnbmlmaWNhbnRseS4gQmFzZWQgb24gbXkg
+cmVwcm9kdWN0aW9uIG1ldGhvZCBJIGJlbGlldmUgdGhlIHBwcCBsaW5rIG1heSBiZSByZXF1aXJl
+ZC4KClRvIHJlcHJvZHVjZSB0aGlzIEkgaGF2ZSAyIGRldmljZXM6CgpEZXZpY2UgMToKcHBwMCAt
+IDIwMy4wLjExMy4xMC8zMiAobXR1IDE0OTIpCjE2Nzc4MjQwOiBwcHAwOiA8UE9JTlRPUE9JTlQs
+TVVMVElDQVNULE5PQVJQLFVQLExPV0VSX1VQPiBtdHUgMTQ5MiBxZGlzYyBodGIgc3RhdGUgVVAg
+bW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQgcWxlbiAzCiAgICAgbGluay9wcHAKCnR1bm5lbDY0
+IC0gMTcyLjE2LjAuNi8zMCAobXR1IDEyMDApIC0gbm90ZSB0aGlzIGlzIGEgVlRJIHdpdGggSVBT
+RUMgcHJvdGVjdGlvbgoxNDogdHVubmVsNjRATk9ORTogPFBPSU5UT1BPSU5ULE1VTFRJQ0FTVCxV
+UCxMT1dFUl9VUD4gbXR1IDEyMDAgcWRpc2MgaHRiIHN0YXRlIFVOS05PV04gbW9kZSBERUZBVUxU
+IGdyb3VwIGRlZmF1bHQgcWxlbiAxCiAgICAgbGluay9pcGlwIDIwMy4wLjExMy4xMCBwZWVyIDIw
+My4wLjExMy41CgpEZXZpY2UgMjoKcHBwMSAtIDIwMy4wLjExMy41LzMyIChtdHUgMTQ5MikKMTY3
+NzgyNDE6IHBwcDE6IDxQT0lOVE9QT0lOVCxNVUxUSUNBU1QsTk9BUlAsVVAsTE9XRVJfVVA+IG10
+dSAxNDkyIHFkaXNjIHBmaWZvX2Zhc3Qgc3RhdGUgVVAgbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1
+bHQgcWxlbiAzCiAgICAgbGluay9wcHAKCnR1bm5lbDY0IC0gMTcyLjE2LjAuNS8zMCAobXR1IDEy
+MDApIC0gbm90ZSB0aGlzIGlzIGEgVlRJIHdpdGggSVBTRUMgcHJvdGVjdGlvbgoyMDogdHVubmVs
+NjRATk9ORTogPFBPSU5UT1BPSU5ULE1VTFRJQ0FTVCxVUCxMT1dFUl9VUD4gbXR1IDEyMDAgcWRp
+c2Mgbm9xdWV1ZSBzdGF0ZSBVTktOT1dOIG1vZGUgREVGQVVMVCBncm91cCBkZWZhdWx0IHFsZW4g
+MQogICAgIGxpbmsvaXBpcCAyMDMuMC4xMTMuNSBwZWVyIDIwMy4wLjExMy4xMAoKSSBydW4gZ2Vu
+ZXJhdGVkIHRyYWZmaWMgd2l0aCBzaXplIG9mIDEzMDAgYnl0ZXMgYWNyb3NzIHRoZSB0dW5uZWwg
+KHdoaWNoIG9idmlvdXNseSBmcmFnbWVudHMgdGhlIHBhY2tldHMpLiBUaGVuIEkgYnJpbmcgcHBw
+MSBvbiBkZXZpY2UgMiBET1dOIHRoZW4gYmFjayBVUC4KCkF0IHRoaXMgc3RhZ2Ugb24gZGV2aWNl
+IDEgSSBoYXZlIHByaW50ayBkZWJ1ZyBpbiB0aGUgZnVuY3Rpb24gaXBfZnJhZ21lbnQoKSwgdGhl
+IHVubGlrZWx5IGJsb2NrIGlzIGhpdDoKCmlmICh1bmxpa2VseSghc2tiLT5pZ25vcmVfZGYgfHwK
+CQkgICAgIChJUENCKHNrYiktPmZyYWdfbWF4X3NpemUgJiYKCQkgICAgICBJUENCKHNrYiktPmZy
+YWdfbWF4X3NpemUgPiBtdHUpKSkgewoJCQkJCXByaW50ayAoS0VSTl9FUlIgIm10dSA9ICV1LCBk
+ZXYgPSAlcywgc3JjID0gJXUsIGRzdCA9ICV1LCB0b3RfbGVuID0gJXVcbiIsIG10dSwgc2tiLT5k
+ZXYtPm5hbWUsIGlwaC0+c2FkZHIsIGlwaC0+ZGFkZHIsIGlwaC0+dG90X2xlbik7CgkJCQkJcHJp
+bnRrIChLRVJOX0VSUiAiIXNrYi0+aWdub3JlX2RmID0gJXUsIElQQ0Ioc2tiKS0+ZnJhZ19tYXhf
+c2l6ZSA9ICV1XG4iLCAhc2tiLT5pZ25vcmVfZGYsIElQQ0Ioc2tiKS0+ZnJhZ19tYXhfc2l6ZSk7
+CgkJCQkJaWNtcF9zZW5kKHNrYiwgSUNNUF9ERVNUX1VOUkVBQ0gsIElDTVBfRlJBR19ORUVERUQs
+CgkJCSAgCQkJaHRvbmwobXR1KSk7CgkJCQkJa2ZyZWVfc2tiKHNrYik7CgkJCQkJcmV0dXJuIC1F
+TVNHU0laRTsKCX0KCndoaWNoIHByaW50czoKbXR1ID0gMTIwMCwgZGV2ID0gdHVubmVsNjQsIHNy
+YyA9IDM0MDU4MDM3ODYsIGRzdCA9IDM0MDU4MDM3ODEsIHRvdF9sZW4gPSAxMjQ0CiFza2ItPmln
+bm9yZV9kZiA9IDEsIElQQ0Ioc2tiKS0+ZnJhZ19tYXhfc2l6ZSA9IDAKCk5vdGUgdGhlIHNyYyBh
+bmQgZHN0IElQIG9mIHRoZSBwYWNrZXQgaXM6IHNyYz0yMDMuMC4xMTMuMTAsIGRzdD0yMDMuMC4x
+MTMuNSAodGhlIHR1bm5lbCBpcyB0cnlpbmcgdG8gc2VuZCB0aGUgUFBQIHBhY2tldCA/Pz8pCgpJ
+bnRlcmVzdGluZ2x5IEkgYWxzbyBoYXZlIGRlYnVnIGluIGljbXBfdW5yZWFjaCgpLCB3aGljaCBh
+Y3Rpb25zIHRoZSBJQ01QX0RFU1RfVU5SRUFDSCBzZW50IGZyb20gdGhlIHR1bm5lbDoKCmNhc2Ug
+SUNNUF9GUkFHX05FRURFRDoKCQkJLyogZm9yIGRvY3VtZW50YXRpb24gb2YgdGhlIGlwX25vX3Bt
+dHVfZGlzYwoJCQkgKiB2YWx1ZXMgcGxlYXNlIHNlZQoJCQkgKiBEb2N1bWVudGF0aW9uL25ldHdv
+cmtpbmcvaXAtc3lzY3RsLnR4dAoJCQkgKi8KCQkJc3dpdGNoIChuZXQtPmlwdjQuc3lzY3RsX2lw
+X25vX3BtdHVfZGlzYykgewouLi4KCQkJY2FzZSAwOgoJCQkJaW5mbyA9IG50b2hzKGljbXBoLT51
+bi5mcmFnLm10dSk7CgkJCQlwcmludGsgKEtFUk5fRVJSICJtdHUgPSAldSwgZGV2ID0gJXMsIHNy
+YyA9ICV1LCBkc3QgPSAldSwgdG90X2xlbiA9ICV1XG4iLCBpbmZvLCBza2ItPmRldi0+bmFtZSwg
+aXBoLT5zYWRkciwgaXBoLT5kYWRkciwgaXBoLT50b3RfbGVuKTsKCQkJfQoKd2hpY2ggcHJpbnRz
+OgptdHUgPSAxMjAwLCBkZXYgPSBsbywgc3JjID0gMzQwNTgwMzc4NiwgZHN0ID0gMzQwNTgwMzc4
+MSwgdG90X2xlbiA9IDEyNDQKCkkgYW0gY29uZnVzZWQgYXQgdGhpcyBzdGFnZSAodGhlIHBhY2tl
+dCBpcyBzZW50IGZyb20gdGhlIGxvb3BiYWNrIGludGVyZmFjZSBhbmQgcm91dGVkIG91dCB0aGUg
+dHVubmVsNjQ/KQoKVGhlIGNvZGUgdGhlbiBldmVudHVhbGx5IHJlYWNoZXMgdnRpNF9lcnIoKSB3
+aGljaCB1cGRhdGVzIHRoZSBwbXR1IG9uIHRoZSBwcHAwIGludGVyZmFjZSB0byAxMjAwLgoKVGhl
+biB0aGUgY29kZSBpbiB4ZnJtX2J1bmRsZV9vaygpIHdoaWNoIEkgbWVudGlvbmVkIGluIGFuIGVh
+cmxpZXIgZW1haWwgaXMgaGl0IHdoaWNoIGNvbnRpbnVvdXNseSBkcm9wcyB0aGUgTVRVIG9uIHRo
+ZSB0dW5uZWwuIEhvd2V2ZXIgSSBiZWxpZXZlIHRoZSBiZWhhdmlvdXIgSSBvdXRsaW5lZCBhYm92
+ZSBpcyB0aGUgcm9vdCBjYXVzZSBhbmQgdGhpcyBpcyBqdXN0IGEgc2lkZSBlZmZlY3QuCgoKCgoK
+CgogICAKCgoK
