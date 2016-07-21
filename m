@@ -1,70 +1,94 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/9] mlxsw: pci: Add max span resources to resources query
-Date: Thu, 21 Jul 2016 12:03:10 +0200
-Message-ID: <1469095397-3837-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 5/9] mlxsw: reg: Add Shared Buffer Internal Buffer register
+Date: Thu, 21 Jul 2016 12:03:13 +0200
+Message-ID: <1469095397-3837-6-git-send-email-jiri@resnulli.us>
 References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
 	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	jhs@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33647 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33855 "EHLO
 	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751870AbcGUKDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:22 -0400
-Received: by mail-wm0-f66.google.com with SMTP id o80so1964436wme.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:22 -0700 (PDT)
+	with ESMTP id S1751960AbcGUKD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:27 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q128so1959055wma.1
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:26 -0700 (PDT)
 In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Add max span resources to resources query.
+The SBIB register configures per port buffer for internal use. This
+register is used to configure an egress mirror buffer on the egress port
+which does the mirroring.
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/core.h | 2 ++
- drivers/net/ethernet/mellanox/mlxsw/pci.c  | 5 +++++
- 2 files changed, 7 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 41 +++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index d57ad0d..d3476ea 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -268,6 +268,8 @@ struct mlxsw_driver {
- };
- 
- struct mlxsw_resources {
-+	u8	max_span_valid:1;
-+	u8      max_span;
- };
- 
- struct mlxsw_resources *mlxsw_core_resources_get(struct mlxsw_core *mlxsw_core);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index a724b66..1d1360c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1155,6 +1155,7 @@ mlxsw_pci_config_profile_swid_config(struct mlxsw_pci *mlxsw_pci,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index b669b04..495e524 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -5047,6 +5047,45 @@ static inline void mlxsw_reg_sbsr_rec_unpack(char *payload, int rec_index,
+ 		mlxsw_reg_sbsr_rec_max_buff_occupancy_get(payload, rec_index);
  }
  
- #define MLXSW_RESOURCES_TABLE_END_ID 0xffff
-+#define MLXSW_MAX_SPAN_ID 0x2420
- #define MLXSW_RESOURCES_QUERY_MAX_QUERIES 100
- #define MLXSW_RESOURCES_PER_QUERY 32
- 
-@@ -1162,6 +1163,10 @@ static void mlxsw_pci_resources_query_parse(int id, u64 val,
- 					    struct mlxsw_resources *resources)
++/* SBIB - Shared Buffer Internal Buffer Register
++ * ---------------------------------------------
++ * The SBIB register configures per port buffers for internal use. The internal
++ * buffers consume memory on the port buffers (note that the port buffers are
++ * used also by PBMC).
++ *
++ * For Spectrum this is used for egress mirroring.
++ */
++#define MLXSW_REG_SBIB_ID 0xB006
++#define MLXSW_REG_SBIB_LEN 0x10
++
++static const struct mlxsw_reg_info mlxsw_reg_sbib = {
++	.id = MLXSW_REG_SBIB_ID,
++	.len = MLXSW_REG_SBIB_LEN,
++};
++
++/* reg_sbib_local_port
++ * Local port number
++ * Not supported for CPU port and router port
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, sbib, local_port, 0x00, 16, 8);
++
++/* reg_sbib_buff_size
++ * Units represented in cells
++ * Allowed range is 0 to (cap_max_headroom_size - 1)
++ * Default is 0
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, sbib, buff_size, 0x08, 0, 24);
++
++static inline void mlxsw_reg_sbib_pack(char *payload, u8 local_port,
++				       u32 buff_size)
++{
++	MLXSW_REG_ZERO(sbib, payload);
++	mlxsw_reg_sbib_local_port_set(payload, local_port);
++	mlxsw_reg_sbib_buff_size_set(payload, buff_size);
++}
++
+ static inline const char *mlxsw_reg_id_str(u16 reg_id)
  {
- 	switch (id) {
-+	case MLXSW_MAX_SPAN_ID:
-+		resources->max_span = val;
-+		resources->max_span_valid = 1;
-+		break;
+ 	switch (reg_id) {
+@@ -5164,6 +5203,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "SBMM";
+ 	case MLXSW_REG_SBSR_ID:
+ 		return "SBSR";
++	case MLXSW_REG_SBIB_ID:
++		return "SBIB";
  	default:
- 		break;
+ 		return "*UNKNOWN*";
  	}
 -- 
 2.5.5
