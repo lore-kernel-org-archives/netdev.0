@@ -1,110 +1,99 @@
-From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 09/10] netns: Add a limit on the number of net namespaces
-Date: Thu, 21 Jul 2016 11:40:13 -0500
-Message-ID: <20160721164014.17534-9-ebiederm@xmission.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH v2 10/10] mntns: Add a limit on the number of mount namespaces.
+Date: Thu, 21 Jul 2016 11:40:14 -0500
+Message-ID: <20160721164014.17534-10-ebiederm@xmission.com>
 References: <87d1m754jc.fsf@x220.int.ebiederm.org>
-	<20160721164014.17534-1-ebiederm@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
-To: Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20160721164014.17534-1-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+ <20160721164014.17534-1-ebiederm@xmission.com>
+Cc: Andy Lutomirski <luto@amacapital.net>, Jann Horn <jann@thejh.net>,
+	Kees Cook <keescook@chromium.org>,
+	Nikolay Borisov <kernel@kyup.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Linux Containers <containers@lists.linux-foundation.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20160721164014.17534-1-ebiederm@xmission.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
+ fs/namespace.c                 | 19 ++++++++++++++++++-
  include/linux/user_namespace.h |  1 +
  kernel/user_namespace.c        |  1 +
- net/core/net_namespace.c       | 15 +++++++++++++++
- 3 files changed, 17 insertions(+)
+ 3 files changed, 20 insertions(+), 1 deletion(-)
 
+diff --git a/fs/namespace.c b/fs/namespace.c
+index aabe8e397fc3..3942ae6c34f5 100644
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -2718,9 +2718,20 @@ dput_out:
+ 	return retval;
+ }
+ 
++static bool inc_mnt_namespaces(struct user_namespace *ns)
++{
++	return inc_ucount(ns, UCOUNT_MNT_NAMESPACES);
++}
++
++static void dec_mnt_namespaces(struct user_namespace *ns)
++{
++	dec_ucount(ns, UCOUNT_MNT_NAMESPACES);
++}
++
+ static void free_mnt_ns(struct mnt_namespace *ns)
+ {
+ 	ns_free_inum(&ns->ns);
++	dec_mnt_namespaces(ns->user_ns);
+ 	put_user_ns(ns->user_ns);
+ 	kfree(ns);
+ }
+@@ -2739,12 +2750,18 @@ static struct mnt_namespace *alloc_mnt_ns(struct user_namespace *user_ns)
+ 	struct mnt_namespace *new_ns;
+ 	int ret;
+ 
++	if (!inc_mnt_namespaces(user_ns))
++		return ERR_PTR(-ENFILE);
++
+ 	new_ns = kmalloc(sizeof(struct mnt_namespace), GFP_KERNEL);
+-	if (!new_ns)
++	if (!new_ns) {
++		dec_mnt_namespaces(user_ns);
+ 		return ERR_PTR(-ENOMEM);
++	}
+ 	ret = ns_alloc_inum(&new_ns->ns);
+ 	if (ret) {
+ 		kfree(new_ns);
++		dec_mnt_namespaces(user_ns);
+ 		return ERR_PTR(ret);
+ 	}
+ 	new_ns->ns.ops = &mntns_operations;
 diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index 1a3a9cb93277..f86afa536baf 100644
+index f86afa536baf..ee0e9d7b2e67 100644
 --- a/include/linux/user_namespace.h
 +++ b/include/linux/user_namespace.h
-@@ -27,6 +27,7 @@ enum ucounts {
- 	UCOUNT_PID_NAMESPACES,
+@@ -28,6 +28,7 @@ enum ucounts {
  	UCOUNT_UTS_NAMESPACES,
  	UCOUNT_IPC_NAMESPACES,
-+	UCOUNT_NET_NAMESPACES,
+ 	UCOUNT_NET_NAMESPACES,
++	UCOUNT_MNT_NAMESPACES,
  	UCOUNT_CGROUP_NAMESPACES,
  	UCOUNT_COUNTS,
  };
 diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index 1cf074cb47e2..e326ca722ae0 100644
+index e326ca722ae0..f6702d84afab 100644
 --- a/kernel/user_namespace.c
 +++ b/kernel/user_namespace.c
-@@ -80,6 +80,7 @@ static struct ctl_table userns_table[] = {
- 	UCOUNT_ENTRY("max_pid_namespaces"),
+@@ -81,6 +81,7 @@ static struct ctl_table userns_table[] = {
  	UCOUNT_ENTRY("max_uts_namespaces"),
  	UCOUNT_ENTRY("max_ipc_namespaces"),
-+	UCOUNT_ENTRY("max_net_namespaces"),
+ 	UCOUNT_ENTRY("max_net_namespaces"),
++	UCOUNT_ENTRY("max_mnt_namespaces"),
  	UCOUNT_ENTRY("max_cgroup_namespaces"),
  	{ }
  };
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 2c2eb1b629b1..a489f192d619 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -266,6 +266,16 @@ struct net *get_net_ns_by_id(struct net *net, int id)
- 	return peer;
- }
- 
-+static bool inc_net_namespaces(struct user_namespace *ns)
-+{
-+	return inc_ucount(ns, UCOUNT_NET_NAMESPACES);
-+}
-+
-+static void dec_net_namespaces(struct user_namespace *ns)
-+{
-+	dec_ucount(ns, UCOUNT_NET_NAMESPACES);
-+}
-+
- /*
-  * setup_net runs the initializers for the network namespace object.
-  */
-@@ -276,6 +286,9 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
- 	int error = 0;
- 	LIST_HEAD(net_exit_list);
- 
-+	if (!inc_net_namespaces(user_ns))
-+		return -ENFILE;
-+
- 	atomic_set(&net->count, 1);
- 	atomic_set(&net->passive, 1);
- 	net->dev_base_seq = 1;
-@@ -372,6 +385,7 @@ struct net *copy_net_ns(unsigned long flags,
- 	}
- 	mutex_unlock(&net_mutex);
- 	if (rv < 0) {
-+		dec_net_namespaces(user_ns);
- 		put_user_ns(user_ns);
- 		net_drop_ns(net);
- 		return ERR_PTR(rv);
-@@ -444,6 +458,7 @@ static void cleanup_net(struct work_struct *work)
- 	/* Finally it is safe to free my network namespace structure */
- 	list_for_each_entry_safe(net, tmp, &net_exit_list, exit_list) {
- 		list_del_init(&net->exit_list);
-+		dec_net_namespaces(net->user_ns);
- 		put_user_ns(net->user_ns);
- 		net_drop_ns(net);
- 	}
 -- 
 2.8.3
+
