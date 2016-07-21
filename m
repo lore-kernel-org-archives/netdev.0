@@ -1,48 +1,55 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: PROBLEM: MTU of ipsec tunnel drops continuously until traffic
- stops
-Date: Thu, 21 Jul 2016 11:12:56 +0200
-Message-ID: <20160721091256.GG3775@gauss.secunet.com>
-References: <1467598059395.19100@alliedtelesis.co.nz>
- <1467604370799.64629@alliedtelesis.co.nz>
- <20160704111202.GI12335@gauss.secunet.com>
- <c22799c2751348b8b2e5caddc9d13ece@svr-chch-ex1.atlnz.lc>
- <bba4a160385c4a36aecdd8d385e01c69@svr-chch-ex1.atlnz.lc>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 0/9] mlxsw: implement port mirroring offload
+Date: Thu, 21 Jul 2016 05:24:10 -0400
+Message-ID: <468bb089-e263-47bb-eaf8-1a65b2575092@mojatatu.com>
+References: <1469089160-4239-1-git-send-email-jiri@resnulli.us>
+ <83af7d8a-5f9c-aa3e-53cd-641cb175f66d@mojatatu.com>
+ <20160721090706.GA2171@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
+	eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:44362 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751126AbcGUJM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 05:12:59 -0400
-Content-Disposition: inline
-In-Reply-To: <bba4a160385c4a36aecdd8d385e01c69@svr-chch-ex1.atlnz.lc>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:33985 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbcGUJYP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 05:24:15 -0400
+Received: by mail-lf0-f50.google.com with SMTP id l69so56212528lfg.1
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 02:24:15 -0700 (PDT)
+In-Reply-To: <20160721090706.GA2171@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Matt,
+On 16-07-21 05:07 AM, Jiri Pirko wrote:
+> Thu, Jul 21, 2016 at 11:00:33AM CEST, jhs@mojatatu.com wrote:
+>> On 16-07-21 04:19 AM, Jiri Pirko wrote:
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>
+[..]
+>
+>> infrastructure. If answer is yes, thencould we have used
+>> a classifier like u32 here?
+>> i.e something like:
+>> tc filter add dev eth25 xxxx protocol all \
+>> u32 match u32 0 0 \
+>> action mirred ...
+>
+> That could be used. But I believe it is nicer to have explicit match-all
+> classifier for this case. That puts nice limit to what could be matched.
+>
 
-I've did some vti tests the last days, but I was unable to
-reproduce it.
+Iam indifferent. If you are planning to use u32 for ACL then it would
+make sense to support span + ACL with the same classifier.
 
-On Tue, Jul 19, 2016 at 05:49:06AM +0000, Matt Bennett wrote:
-> On 07/05/2016 03:55 PM, Matt Bennett wrote:
-> > On 07/04/2016 11:12 PM, Steffen Klassert wrote:
-> >> On Mon, Jul 04, 2016 at 03:52:50AM +0000, Matt Bennett wrote:
-> >>> *Resending as plain text so the mailing list accepts it.. Sorry S=
-teffen and Herbert*
-> >>>
-> >>> =E2=80=8BHi,
-> >>>
-> >>> During long run testing of an ipsec tunnel over a PPP link it was=
- found that occasionally traffic would stop flowing over the tunnel. Ev=
-entually the traffic would start again, however using the command "ip r=
-oute flush cache" causes traffic to start flowing  again immediately.
+> Could you point to that? checkpatch.pl does not say anything and I also
+> don't see anything.
+>
 
-Do you need the ppp link to reproduce it? How often does that happen?
-It would be good to find a minimal setup with that the bug is reproduci=
-ble.
+scripts/Lindent (but you need to be a little careful with it)
+Generally the coding style guide in Documentation is sufficient.
+
+cheers,
+jamal
