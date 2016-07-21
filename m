@@ -1,348 +1,279 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/9] net/sched: introduce Match-all classifier
-Date: Thu, 21 Jul 2016 12:03:11 +0200
-Message-ID: <1469095397-3837-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 1/9] mlxsw: pci: Add resources query implementation.
+Date: Thu, 21 Jul 2016 12:03:09 +0200
+Message-ID: <1469095397-3837-2-git-send-email-jiri@resnulli.us>
 References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
 	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	jhs@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35533 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbcGUKDY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:24 -0400
-Received: by mail-wm0-f68.google.com with SMTP id i5so1954584wmg.2
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:23 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35518 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751619AbcGUKDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:21 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i5so1954492wmg.2
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:21 -0700 (PDT)
 In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Nogah Frankel <nogahf@mellanox.com>
 
-The matchall classifier matches every packet and allows the user to apply
-actions on it. This filter is very useful in usecases where every packet
-should be matched, for example, packet mirroring (SPAN) can be setup very
-easily using that filter.
+Add resources query implementation. If exists, query the HW for its
+builtin resources instead of having them as consts in the code.
 
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 ---
- include/uapi/linux/pkt_cls.h |  11 ++
- net/sched/Kconfig            |  10 ++
- net/sched/Makefile           |   1 +
- net/sched/cls_matchall.c     | 248 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 270 insertions(+)
- create mode 100644 net/sched/cls_matchall.c
+v1->v2:
+ - fixed function wrapping issues pointed out by Jamal
+---
+ drivers/net/ethernet/mellanox/mlxsw/cmd.h      | 32 ++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/core.c     | 10 ++++-
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |  9 +++-
+ drivers/net/ethernet/mellanox/mlxsw/pci.c      | 59 +++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  1 +
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c |  1 +
+ 6 files changed, 109 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 5702e93..a324948 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -433,6 +433,17 @@ enum {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+index f9cd6e3..28271be 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/cmd.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
+@@ -105,6 +105,7 @@ enum mlxsw_cmd_opcode {
+ 	MLXSW_CMD_OPCODE_SW2HW_EQ		= 0x013,
+ 	MLXSW_CMD_OPCODE_HW2SW_EQ		= 0x014,
+ 	MLXSW_CMD_OPCODE_QUERY_EQ		= 0x015,
++	MLXSW_CMD_OPCODE_QUERY_RESOURCES	= 0x101,
+ };
  
- #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
+ static inline const char *mlxsw_cmd_opcode_str(u16 opcode)
+@@ -144,6 +145,8 @@ static inline const char *mlxsw_cmd_opcode_str(u16 opcode)
+ 		return "HW2SW_EQ";
+ 	case MLXSW_CMD_OPCODE_QUERY_EQ:
+ 		return "QUERY_EQ";
++	case MLXSW_CMD_OPCODE_QUERY_RESOURCES:
++		return "QUERY_RESOURCES";
+ 	default:
+ 		return "*UNKNOWN*";
+ 	}
+@@ -500,6 +503,35 @@ static inline int mlxsw_cmd_unmap_fa(struct mlxsw_core *mlxsw_core)
+ 	return mlxsw_cmd_exec_none(mlxsw_core, MLXSW_CMD_OPCODE_UNMAP_FA, 0, 0);
+ }
  
-+/* Match-all classifier */
-+
-+enum {
-+	TCA_MATCHALL_UNSPEC,
-+	TCA_MATCHALL_CLASSID,
-+	TCA_MATCHALL_ACT,
-+	__TCA_MATCHALL_MAX,
-+};
-+
-+#define TCA_MATCHALL_MAX (__TCA_MATCHALL_MAX - 1)
-+
- /* Extended Matches */
- 
- struct tcf_ematch_tree_hdr {
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index b148302..ccf931b 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -494,6 +494,16 @@ config NET_CLS_FLOWER
- 	  To compile this code as a module, choose M here: the module will
- 	  be called cls_flower.
- 
-+config NET_CLS_MATCHALL
-+	tristate "Match-all classifier"
-+	select NET_CLS
-+	---help---
-+	  If you say Y here, you will be able to classify packets based on
-+	  nothing. Every packet will match.
-+
-+	  To compile this code as a module, choose M here: the module will
-+	  be called cls_matchall.
-+
- config NET_EMATCH
- 	bool "Extended Matches"
- 	select NET_CLS
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 84bddb3..ae088a5 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -60,6 +60,7 @@ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
- obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
- obj-$(CONFIG_NET_CLS_BPF)	+= cls_bpf.o
- obj-$(CONFIG_NET_CLS_FLOWER)	+= cls_flower.o
-+obj-$(CONFIG_NET_CLS_MATCHALL)	+= cls_matchall.o
- obj-$(CONFIG_NET_EMATCH)	+= ematch.o
- obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
- obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-new file mode 100644
-index 0000000..8a6b4de
---- /dev/null
-+++ b/net/sched/cls_matchall.c
-@@ -0,0 +1,248 @@
-+/*
-+ * net/sched/cls_matchll.c		Match-all classifier
-+ *
-+ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
++/* QUERY_RESOURCES - Query chip resources
++ * --------------------------------------
++ * OpMod == 0 (N/A) , INMmod is index
++ * ----------------------------------
++ * The QUERY_RESOURCES command retrieves information related to chip resources
++ * by resource ID. Every command returns 32 entries. INmod is being use as base.
++ * for example, index 1 will return entries 32-63. When the tables end and there
++ * are no more sources in the table, will return resource id 0xFFF to indicate
++ * it.
 + */
++static inline int mlxsw_cmd_query_resources(struct mlxsw_core *mlxsw_core,
++					    char *out_mbox, int index)
++{
++	return mlxsw_cmd_exec_out(mlxsw_core, MLXSW_CMD_OPCODE_QUERY_RESOURCES,
++				  0, index, false, out_mbox,
++				  MLXSW_CMD_MBOX_SIZE);
++}
 +
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
++/* cmd_mbox_query_resource_id
++ * The resource id. 0xFFFF indicates table's end.
++ */
++MLXSW_ITEM32_INDEXED(cmd_mbox, query_resource, id, 0x00, 16, 16, 0x8, 0, false);
 +
-+#include <net/sch_generic.h>
-+#include <net/pkt_cls.h>
++/* cmd_mbox_query_resource_data
++ * The resource
++ */
++MLXSW_ITEM64_INDEXED(cmd_mbox, query_resource, data,
++		     0x00, 0, 40, 0x8, 0, false);
 +
-+struct cls_mall_filter {
-+	struct tcf_exts exts;
-+	struct tcf_result res;
-+	u32 handle;
-+	struct rcu_head	rcu;
+ /* CONFIG_PROFILE (Set) - Configure Switch Profile
+  * ------------------------------
+  * OpMod == 1 (Set), INMmod == 0 (N/A)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 480a3ba..068ee65a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -111,6 +111,7 @@ struct mlxsw_core {
+ 	struct {
+ 		u8 *mapping; /* lag_id+port_index to local_port mapping */
+ 	} lag;
++	struct mlxsw_resources resources;
+ 	struct mlxsw_hwmon *hwmon;
+ 	unsigned long driver_priv[0];
+ 	/* driver_priv has to be always the last item */
+@@ -1110,7 +1111,8 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 		}
+ 	}
+ 
+-	err = mlxsw_bus->init(bus_priv, mlxsw_core, mlxsw_driver->profile);
++	err = mlxsw_bus->init(bus_priv, mlxsw_core, mlxsw_driver->profile,
++			      &mlxsw_core->resources);
+ 	if (err)
+ 		goto err_bus_init;
+ 
+@@ -1652,6 +1654,12 @@ void mlxsw_core_lag_mapping_clear(struct mlxsw_core *mlxsw_core,
+ }
+ EXPORT_SYMBOL(mlxsw_core_lag_mapping_clear);
+ 
++struct mlxsw_resources *mlxsw_core_resources_get(struct mlxsw_core *mlxsw_core)
++{
++	return &mlxsw_core->resources;
++}
++EXPORT_SYMBOL(mlxsw_core_resources_get);
++
+ int mlxsw_core_port_init(struct mlxsw_core *mlxsw_core,
+ 			 struct mlxsw_core_port *mlxsw_core_port, u8 local_port,
+ 			 struct net_device *dev, bool split, u32 split_group)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
+index 2fe385c..d57ad0d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
+@@ -215,6 +215,7 @@ struct mlxsw_config_profile {
+ 	u32	kvd_linear_size;
+ 	u32	kvd_hash_single_size;
+ 	u32	kvd_hash_double_size;
++	u8	resource_query_enable;
+ 	struct mlxsw_swid_config swid_config[MLXSW_CONFIG_PROFILE_SWID_COUNT];
+ };
+ 
+@@ -266,10 +267,16 @@ struct mlxsw_driver {
+ 	const struct mlxsw_config_profile *profile;
+ };
+ 
++struct mlxsw_resources {
 +};
 +
-+struct cls_mall_head {
-+	struct cls_mall_filter *filter;
-+	struct rcu_head	rcu;
-+};
++struct mlxsw_resources *mlxsw_core_resources_get(struct mlxsw_core *mlxsw_core);
 +
-+static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-+			 struct tcf_result *res)
+ struct mlxsw_bus {
+ 	const char *kind;
+ 	int (*init)(void *bus_priv, struct mlxsw_core *mlxsw_core,
+-		    const struct mlxsw_config_profile *profile);
++		    const struct mlxsw_config_profile *profile,
++		    struct mlxsw_resources *resources);
+ 	void (*fini)(void *bus_priv);
+ 	bool (*skb_transmit_busy)(void *bus_priv,
+ 				  const struct mlxsw_tx_info *tx_info);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+index ddbc9f2..a724b66 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
+@@ -1154,6 +1154,56 @@ mlxsw_pci_config_profile_swid_config(struct mlxsw_pci *mlxsw_pci,
+ 	mlxsw_cmd_mbox_config_profile_swid_config_mask_set(mbox, index, mask);
+ }
+ 
++#define MLXSW_RESOURCES_TABLE_END_ID 0xffff
++#define MLXSW_RESOURCES_QUERY_MAX_QUERIES 100
++#define MLXSW_RESOURCES_PER_QUERY 32
++
++static void mlxsw_pci_resources_query_parse(int id, u64 val,
++					    struct mlxsw_resources *resources)
 +{
-+	struct cls_mall_head *head = rcu_dereference_bh(tp->root);
-+	struct cls_mall_filter *f = head->filter;
-+
-+	return tcf_exts_exec(skb, &f->exts, res);
++	switch (id) {
++	default:
++		break;
++	}
 +}
 +
-+static int mall_init(struct tcf_proto *tp)
++static int mlxsw_pci_resources_query(struct mlxsw_pci *mlxsw_pci, char *mbox,
++				     struct mlxsw_resources *resources,
++				     u8 query_enabled)
 +{
-+	struct cls_mall_head *head;
-+
-+	head = kzalloc(sizeof(*head), GFP_KERNEL);
-+	if (!head)
-+		return -ENOBUFS;
-+
-+	rcu_assign_pointer(tp->root, head);
-+
-+	return 0;
-+}
-+
-+static void mall_destroy_filter(struct rcu_head *head)
-+{
-+	struct cls_mall_filter *f = container_of(head, struct cls_mall_filter, rcu);
-+
-+	tcf_exts_destroy(&f->exts);
-+	kfree(f);
-+}
-+
-+static bool mall_destroy(struct tcf_proto *tp, bool force)
-+{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+
-+	if (!force && head->filter)
-+		return false;
-+
-+	if (head->filter)
-+		call_rcu(&head->filter->rcu, mall_destroy_filter);
-+	RCU_INIT_POINTER(tp->root, NULL);
-+	kfree_rcu(head, rcu);
-+	return true;
-+}
-+
-+static unsigned long mall_get(struct tcf_proto *tp, u32 handle)
-+{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *f = head->filter;
-+
-+	if (f && f->handle == handle)
-+		return (unsigned long) f;
-+	return 0;
-+}
-+
-+static const struct nla_policy mall_policy[TCA_MATCHALL_MAX + 1] = {
-+	[TCA_MATCHALL_UNSPEC]		= { .type = NLA_UNSPEC },
-+	[TCA_MATCHALL_CLASSID]		= { .type = NLA_U32 },
-+};
-+
-+static int mall_set_parms(struct net *net, struct tcf_proto *tp,
-+			  struct cls_mall_filter *f,
-+			  unsigned long base, struct nlattr **tb,
-+			  struct nlattr *est, bool ovr)
-+{
-+	struct tcf_exts e;
++	int index, i;
++	u64 data;
++	u16 id;
 +	int err;
 +
-+	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
-+	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
-+	if (err < 0)
-+		return err;
++	/* Not all the versions support resources query */
++	if (!query_enabled)
++		return 0;
 +
-+	if (tb[TCA_MATCHALL_CLASSID]) {
-+		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
-+		tcf_bind_filter(tp, &f->res, base);
++	mlxsw_cmd_mbox_zero(mbox);
++
++	for (index = 0; index < MLXSW_RESOURCES_QUERY_MAX_QUERIES; index++) {
++		err = mlxsw_cmd_query_resources(mlxsw_pci->core, mbox, index);
++		if (err)
++			return err;
++
++		for (i = 0; i < MLXSW_RESOURCES_PER_QUERY; i++) {
++			id = mlxsw_cmd_mbox_query_resource_id_get(mbox, i);
++			data = mlxsw_cmd_mbox_query_resource_data_get(mbox, i);
++
++			if (id == MLXSW_RESOURCES_TABLE_END_ID)
++				return 0;
++
++			mlxsw_pci_resources_query_parse(id, data, resources);
++		}
 +	}
 +
-+	tcf_exts_change(tp, &f->exts, &e);
-+
-+	return 0;
++	/* If after MLXSW_RESOURCES_QUERY_MAX_QUERIES we still didn't get
++	 * MLXSW_RESOURCES_TABLE_END_ID, something went bad in the FW.
++	 */
++	return -EIO;
 +}
 +
-+static int mall_change(struct net *net, struct sk_buff *in_skb,
-+		       struct tcf_proto *tp, unsigned long base,
-+		       u32 handle, struct nlattr **tca,
-+		       unsigned long *arg, bool ovr)
-+{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *fold = (struct cls_mall_filter *) *arg;
-+	struct cls_mall_filter *f;
-+	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
-+	int err;
-+
-+	if (!tca[TCA_OPTIONS])
-+		return -EINVAL;
-+
-+	if (head->filter)
-+		return -EBUSY;
-+
-+	if (fold)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_MATCHALL_MAX,
-+			       tca[TCA_OPTIONS], mall_policy);
-+	if (err < 0)
-+		return err;
-+
-+	f = kzalloc(sizeof(*f), GFP_KERNEL);
-+	if (!f)
-+		return -ENOBUFS;
-+
-+	tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
-+
-+	if (!handle)
-+		handle = 1;
-+	f->handle = handle;
-+
-+	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ static int mlxsw_pci_config_profile(struct mlxsw_pci *mlxsw_pci, char *mbox,
+ 				    const struct mlxsw_config_profile *profile)
+ {
+@@ -1404,7 +1454,8 @@ static void mlxsw_pci_mbox_free(struct mlxsw_pci *mlxsw_pci,
+ }
+ 
+ static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
+-			  const struct mlxsw_config_profile *profile)
++			  const struct mlxsw_config_profile *profile,
++			  struct mlxsw_resources *resources)
+ {
+ 	struct mlxsw_pci *mlxsw_pci = bus_priv;
+ 	struct pci_dev *pdev = mlxsw_pci->pdev;
+@@ -1463,6 +1514,11 @@ static int mlxsw_pci_init(void *bus_priv, struct mlxsw_core *mlxsw_core,
+ 	if (err)
+ 		goto err_boardinfo;
+ 
++	err = mlxsw_pci_resources_query(mlxsw_pci, mbox, resources,
++					profile->resource_query_enable);
 +	if (err)
-+		goto errout;
++		goto err_query_resources;
 +
-+	*arg = (unsigned long) f;
-+	rcu_assign_pointer(head->filter, f);
-+
-+	return 0;
-+
-+errout:
-+	kfree(f);
-+	return err;
-+}
-+
-+static int mall_delete(struct tcf_proto *tp, unsigned long arg)
-+{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *f = (struct cls_mall_filter *) arg;
-+
-+	RCU_INIT_POINTER(head->filter, NULL);
-+	tcf_unbind_filter(tp, &f->res);
-+	call_rcu(&f->rcu, mall_destroy_filter);
-+	return 0;
-+}
-+
-+static void mall_walk(struct tcf_proto *tp, struct tcf_walker *arg)
-+{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *f = head->filter;
-+
-+	if (arg->count < arg->skip)
-+		goto skip;
-+	if (arg->fn(tp, (unsigned long) f, arg) < 0)
-+		arg->stop = 1;
-+skip:
-+	arg->count++;
-+}
-+
-+static int mall_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-+		     struct sk_buff *skb, struct tcmsg *t)
-+{
-+	struct cls_mall_filter *f = (struct cls_mall_filter *) fh;
-+	struct nlattr *nest;
-+
-+	if (!f)
-+		return skb->len;
-+
-+	t->tcm_handle = f->handle;
-+
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (!nest)
-+		goto nla_put_failure;
-+
-+	if (f->res.classid &&
-+	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, f->res.classid))
-+		goto nla_put_failure;
-+
-+	if (tcf_exts_dump(skb, &f->exts))
-+		goto nla_put_failure;
-+
-+	nla_nest_end(skb, nest);
-+
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
-+		goto nla_put_failure;
-+
-+	return skb->len;
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -1;
-+}
-+
-+static struct tcf_proto_ops cls_mall_ops __read_mostly = {
-+	.kind		= "matchall",
-+	.classify	= mall_classify,
-+	.init		= mall_init,
-+	.destroy	= mall_destroy,
-+	.get		= mall_get,
-+	.change		= mall_change,
-+	.delete		= mall_delete,
-+	.walk		= mall_walk,
-+	.dump		= mall_dump,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int __init cls_mall_init(void)
-+{
-+	return register_tcf_proto_ops(&cls_mall_ops);
-+}
-+
-+static void __exit cls_mall_exit(void)
-+{
-+	unregister_tcf_proto_ops(&cls_mall_ops);
-+}
-+
-+module_init(cls_mall_init);
-+module_exit(cls_mall_exit);
-+
-+MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
-+MODULE_DESCRIPTION("Match-all classifier");
-+MODULE_LICENSE("GPL v2");
+ 	err = mlxsw_pci_config_profile(mlxsw_pci, mbox, profile);
+ 	if (err)
+ 		goto err_config_profile;
+@@ -1485,6 +1541,7 @@ err_request_eq_irq:
+ 	mlxsw_pci_aqs_fini(mlxsw_pci);
+ err_aqs_init:
+ err_config_profile:
++err_query_resources:
+ err_boardinfo:
+ 	mlxsw_pci_fw_area_fini(mlxsw_pci);
+ err_fw_area_init:
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 3e7920b..417dbd7 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2510,6 +2510,7 @@ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 			.type		= MLXSW_PORT_SWID_TYPE_ETH,
+ 		}
+ 	},
++	.resource_query_enable		= 1,
+ };
+ 
+ static struct mlxsw_driver mlxsw_sp_driver = {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+index 25f658b..377daa4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
+@@ -1541,6 +1541,7 @@ static struct mlxsw_config_profile mlxsw_sx_config_profile = {
+ 			.type		= MLXSW_PORT_SWID_TYPE_ETH,
+ 		}
+ 	},
++	.resource_query_enable		= 0,
+ };
+ 
+ static struct mlxsw_driver mlxsw_sx_driver = {
 -- 
 2.5.5
