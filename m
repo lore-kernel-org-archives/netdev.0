@@ -1,121 +1,104 @@
-From: Shanker Wang <miao.wang@tuna.tsinghua.edu.cn>
-Subject: [PATCH] iproute2: ip: add udp_csum, udp6_csum_tx, udp6_csum_rx control flags to ip l2tp add tunnel
-Date: Thu, 21 Jul 2016 18:59:10 +0800
-Message-ID: <F9EDF03C-EBC6-468D-A917-ED5CF232C203@tuna.tsinghua.edu.cn>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org,
-	=?gb2312?B?zfXl4w==?= <shankerwangmiao@gmail.com>
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35238 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529AbcGUK7R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:59:17 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h186so5284894pfg.2
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:59:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v3 1/2] bpf: Add bpf_copy_to_user BPF helper
+ to be called in tracers (kprobes)
+Date: Thu, 21 Jul 2016 13:30:14 +0200
+Message-ID: <5790B246.6020905@iogearbox.net>
+References: <20160719093242.GA23753@ircssh.c.rugged-nimbus-611.internal> <578E0C61.6070705@iogearbox.net> <20160719163443.GA57855@ast-mbp.thefacebook.com> <578EB597.2080608@iogearbox.net> <20160720030200.GA70500@ast-mbp.thefacebook.com> <alpine.DEB.2.02.1607200133350.13397@ircssh.c.rugged-nimbus-611.internal> <579002A3.3090406@iogearbox.net> <20160721104705.GA3446@ircssh.c.rugged-nimbus-611.internal>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160721104705.GA3446@ircssh.c.rugged-nimbus-611.internal>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Three options are added for the user to control
-whether the checksum is enabled
+On 07/21/2016 12:47 PM, Sargun Dhillon wrote:
+> On Thu, Jul 21, 2016 at 01:00:51AM +0200, Daniel Borkmann wrote:
+[...]
+>> I don't really like couple of things, your ifdef CONFIG_MMU might not be
+>> needed I think, couple of these checks seem redundant, (I'm not yet sure
+>> about the task->mm != task->active_mm thingy), the helper should definitely
+>> be gpl_only and ARG_PTR_TO_RAW_STACK is just buggy. Also, this should be
+>> a bit analogue to bpf_probe_read we have. How about something roughly along
+>> the lines of below diff (obviously needs extensive testing ...)? This
+>> can still do all kind of ugly crap to the user process, but limited to
+>> the cap_sys_admin to shoot himself in the foot.
+> * You're right about CONFIG_MMU. We don't need it, all of the nommu platforms
+> properly deal with it from my research.
 
-Signed-off-by: Miao Wang <miao.wang@tuna.tsinghua.edu.cn>
----
- ip/ipl2tp.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 45 insertions(+)
+The segment_eq() test should generically catch this from what I see.
 
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index 1f84c61..9ebda13 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -56,6 +56,8 @@ struct l2tp_parm {
- 
- 	uint16_t pw_type;
- 	uint16_t mtu;
-+	int udp6_csum_tx:1;
-+	int udp6_csum_rx:1;
- 	int udp_csum:1;
- 	int recv_seq:1;
- 	int send_seq:1;
-@@ -117,6 +119,12 @@ static int create_tunnel(struct l2tp_parm *p)
- 	if (p->encap == L2TP_ENCAPTYPE_UDP) {
- 		addattr16(&req.n, 1024, L2TP_ATTR_UDP_SPORT, p->local_udp_port);
- 		addattr16(&req.n, 1024, L2TP_ATTR_UDP_DPORT, p->peer_udp_port);
-+		if (p->udp_csum)
-+			addattr(&req.n, 1024, L2TP_ATTR_UDP_CSUM);
-+		if (!p->udp6_csum_tx)
-+			addattr(&req.n, 1024, L2TP_ATTR_UDP_ZERO_CSUM6_TX);
-+		if (!p->udp6_csum_rx)
-+			addattr(&req.n, 1024, L2TP_ATTR_UDP_ZERO_CSUM6_RX);
- 	}
- 
- 	if (rtnl_talk(&genl_rth, &req.n, NULL, 0) < 0)
-@@ -282,6 +290,12 @@ static int get_response(struct nlmsghdr *n, void *arg)
- 		p->l2spec_len = rta_getattr_u8(attrs[L2TP_ATTR_L2SPEC_LEN]);
- 
- 	p->udp_csum = !!attrs[L2TP_ATTR_UDP_CSUM];
-+	/*
-+	 * Not fetching from L2TP_ATTR_UDP_ZERO_CSUM6_{T,R}X because the
-+	 * kernel doesn't send it so just leave it as default value.
-+	 */
-+	p->udp6_csum_tx = 1;
-+	p->udp6_csum_rx = 1;
- 	if (attrs[L2TP_ATTR_COOKIE])
- 		memcpy(p->cookie, RTA_DATA(attrs[L2TP_ATTR_COOKIE]),
- 		       p->cookie_len = RTA_PAYLOAD(attrs[L2TP_ATTR_COOKIE]));
-@@ -459,6 +473,9 @@ static void usage(void)
- 	fprintf(stderr, "          tunnel_id ID peer_tunnel_id ID\n");
- 	fprintf(stderr, "          [ encap { ip | udp } ]\n");
- 	fprintf(stderr, "          [ udp_sport PORT ] [ udp_dport PORT ]\n");
-+	fprintf(stderr, "          [ udp_csum { on | off } ]\n");
-+	fprintf(stderr, "          [ udp6_csum_tx { on | off } ]\n");
-+	fprintf(stderr, "          [ udp6_csum_rx { on | off } ]\n");
- 	fprintf(stderr, "Usage: ip l2tp add session [ name NAME ]\n");
- 	fprintf(stderr, "          tunnel_id ID\n");
- 	fprintf(stderr, "          session_id ID peer_session_id ID\n");
-@@ -489,6 +506,8 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
- 	/* Defaults */
- 	p->l2spec_type = L2TP_L2SPECTYPE_DEFAULT;
- 	p->l2spec_len = 4;
-+	p->udp6_csum_rx = 1;
-+	p->udp6_csum_tx = 1;
- 
- 	while (argc > 0) {
- 		if (strcmp(*argv, "encap") == 0) {
-@@ -558,6 +577,32 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
- 			if (get_u16(&uval, *argv, 0))
- 				invarg("invalid port\n", *argv);
- 			p->peer_udp_port = uval;
-+		} else if (strcmp(*argv, "udp_csum") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") == 0)
-+				p->udp_csum = 1;
-+			else if (strcmp(*argv, "off") == 0)
-+				p->udp_csum = 0;
-+			else
-+				invarg("invalid option for udp_csum\n", *argv);
-+		} else if (strcmp(*argv, "udp6_csum_rx") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") == 0)
-+				p->udp6_csum_rx = 1;
-+			else if (strcmp(*argv, "off") == 0)
-+				p->udp6_csum_rx = 0;
-+			else
-+				invarg("invalid option for udp6_csum_rx\n"
-+						, *argv);
-+		} else if (strcmp(*argv, "udp6_csum_tx") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "on") == 0)
-+				p->udp6_csum_tx = 1;
-+			else if (strcmp(*argv, "off") == 0)
-+				p->udp6_csum_tx = 0;
-+			else
-+				invarg("invalid option for udp6_csum_tx\n"
-+						, *argv);
- 		} else if (strcmp(*argv, "offset") == 0) {
- 			__u8 uval;
- 
--- 
-2.5.2
+> It was always ARG_PTR_TO_STACK? Or are you saying ARG_PTR_TO_STACK is buggy and
+> we should make it ARG_PTR_TO_RAW_STACK?
+
+No, in your patch, you had '+    .arg2_type    = ARG_PTR_TO_RAW_STACK,',
+which is not correct as it means you don't need to initialize the memory
+you pass in for your *src pointer. I believe you took this over from
+probe_read(), but there it's correct. ARG_PTR_TO_STACK means the verifier
+checks that it's initialized with data.
+
+> I originally named the function bpf_probe_write. Upon further thought I don't
+> think that makes sense. The reason is because bpf_probe_read is analogous to
+> probe_kernel_read. If we had bpf_probe_write, I think people might reason it to
+> be equivalent to probe_kernel_write, and be confused when they can't write to
+> kernel space.
+
+I still think that bpf_probe_write is the more appropriate name, and that
+the -EPERM are also better than -EINVAL. For user space, you'll have the
+bpf_probe_read() / bpf_probe_write() pair you can use, which is the more
+intuitive complement, also since people might already use bpf_probe_read(),
+so they kind of can infer its meaning. It's just that the kernel doesn't
+give you _permission_ to mess with kernel memory, hence due to not being
+allowed -EPERM to make this absolutely clear to the user that this is illegal.
+-EINVAL usually means one of the function arguments might be wrong, I think
+-EPERM is a better / more clear fit in this case, imho.
+
+> I tried to make the external facing documentaion close to copy_to_user. That's
+> how people should use it, not like _write. Therefor I think it makes sense to
+> keep that the name.
+
+But still, you *probe* to write somewhere to the process' address space,
+so it can still fail with -EFAULT. Other than that, see comment above.
+
+> I added a check for (!task) -- It seems to be spattered throughou the eBPF
+> helper code. Alexei mentioned earlier that it can be null, but I'm not sure of
+> the case
+
+Well, the test of unlikely(in_interrupt() || (task->flags & PF_KTHREAD))
+will cover these cases. It makes sure that you're neither in hardirq (NULL
+here) nor softirq and that you're not in a kthread.
+
+> RE: task->mm != task->active_mm -- There are a couple scenarios where kthreads
+> do this, and the only user call that should hit this is execve. There's only a
+> brief period where this can be true and I don't think it's worth dealing with
+> that case -- I'm not really sure you can plant a kprobe at the right site either
+
+But if kthreads do this, wouldn't this already be covered by task->flags &
+PF_KTHREAD test for such case?
+
+> Did some minimal testing with tracex7 and others.
+
+Ok, great!
+
+> I was able to copy memory into other process's space while certain
+> syscalls were going on. I don't think that there are a reasonable set of
+> protections.
+
+Right, it doesn't prevent that syscalls going on in parallel.
+
+> I'll do more testing. Any suggestions of what might break? I've looked at
+> writing to unitialized memory, Memory out of bounds, etc... Do you know of any
+> "weak spots"?
+
+Well, you could write into text/data, stack, etc for the user process so
+quite a bit. ;) Or do you mean wrt kernel space? If someone runs some binary
+installing such a proglet, I think it would also make sense to print a message
+(rate-limited) to the klog with current->comm, task_pid_nr(current) for the
+process installing this, from verifier side I mean. Maybe makes more sense
+than the print-once from the helper side.
+
+Thanks,
+Daniel
