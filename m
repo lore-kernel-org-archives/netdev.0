@@ -1,7 +1,8 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v2 07/10] ipcns: Add a  limit on the number of ipc namespaces
-Date: Thu, 21 Jul 2016 11:40:11 -0500
-Message-ID: <20160721164014.17534-7-ebiederm@xmission.com>
+Subject: [PATCH v2 08/10] cgroupns: Add a limit on the number of cgroup
+	namespaces
+Date: Thu, 21 Jul 2016 11:40:12 -0500
+Message-ID: <20160721164014.17534-8-ebiederm@xmission.com>
 References: <87d1m754jc.fsf@x220.int.ebiederm.org>
 	<20160721164014.17534-1-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -31,114 +32,78 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
  include/linux/user_namespace.h |  1 +
- ipc/namespace.c                | 42 +++++++++++++++++++++++++++++++-----------
+ kernel/cgroup.c                | 15 +++++++++++++++
  kernel/user_namespace.c        |  1 +
- 3 files changed, 33 insertions(+), 11 deletions(-)
+ 3 files changed, 17 insertions(+)
 
 diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index bed2506081fe..367cf08ff63d 100644
+index 367cf08ff63d..1a3a9cb93277 100644
 --- a/include/linux/user_namespace.h
 +++ b/include/linux/user_namespace.h
-@@ -26,6 +26,7 @@ enum ucounts {
- 	UCOUNT_USER_NAMESPACES,
+@@ -27,6 +27,7 @@ enum ucounts {
  	UCOUNT_PID_NAMESPACES,
  	UCOUNT_UTS_NAMESPACES,
-+	UCOUNT_IPC_NAMESPACES,
+ 	UCOUNT_IPC_NAMESPACES,
++	UCOUNT_CGROUP_NAMESPACES,
  	UCOUNT_COUNTS,
  };
  
-diff --git a/ipc/namespace.c b/ipc/namespace.c
-index 04cb07eb81f1..3996a1e41a1d 100644
---- a/ipc/namespace.c
-+++ b/ipc/namespace.c
-@@ -16,33 +16,42 @@
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index 86cb5c6e8932..240eec43390b 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -6260,6 +6260,16 @@ void cgroup_sk_free(struct sock_cgroup_data *skcd)
  
- #include "util.h"
+ /* cgroup namespaces */
  
-+static bool inc_ipc_namespaces(struct user_namespace *ns)
++static bool inc_cgroup_namespaces(struct user_namespace *ns)
 +{
-+	return inc_ucount(ns, UCOUNT_IPC_NAMESPACES);
++	return inc_ucount(ns, UCOUNT_CGROUP_NAMESPACES);
 +}
 +
-+static void dec_ipc_namespaces(struct user_namespace *ns)
++static void dec_cgroup_namespaces(struct user_namespace *ns)
 +{
-+	dec_ucount(ns, UCOUNT_IPC_NAMESPACES);
++	dec_ucount(ns, UCOUNT_CGROUP_NAMESPACES);
 +}
 +
- static struct ipc_namespace *create_ipc_ns(struct user_namespace *user_ns,
- 					   struct ipc_namespace *old_ns)
+ static struct cgroup_namespace *alloc_cgroup_ns(void)
  {
- 	struct ipc_namespace *ns;
- 	int err;
- 
-+	err = -ENFILE;
-+	if (!inc_ipc_namespaces(user_ns))
-+		goto fail;
-+
-+	err = -ENOMEM;
- 	ns = kmalloc(sizeof(struct ipc_namespace), GFP_KERNEL);
- 	if (ns == NULL)
--		return ERR_PTR(-ENOMEM);
-+		goto fail_dec;
- 
- 	err = ns_alloc_inum(&ns->ns);
--	if (err) {
--		kfree(ns);
--		return ERR_PTR(err);
--	}
-+	if (err)
-+		goto fail_free;
- 	ns->ns.ops = &ipcns_operations;
- 
- 	atomic_set(&ns->count, 1);
- 	ns->user_ns = get_user_ns(user_ns);
- 
- 	err = mq_init_ns(ns);
--	if (err) {
--		put_user_ns(ns->user_ns);
--		ns_free_inum(&ns->ns);
--		kfree(ns);
--		return ERR_PTR(err);
--	}
-+	if (err)
-+		goto fail_put;
- 	atomic_inc(&nr_ipc_ns);
- 
- 	sem_init_ns(ns);
-@@ -50,6 +59,16 @@ static struct ipc_namespace *create_ipc_ns(struct user_namespace *user_ns,
- 	shm_init_ns(ns);
- 
- 	return ns;
-+
-+fail_put:
-+	put_user_ns(ns->user_ns);
-+	ns_free_inum(&ns->ns);
-+fail_free:
-+	kfree(ns);
-+fail_dec:
-+	dec_ipc_namespaces(user_ns);
-+fail:
-+	return ERR_PTR(err);
- }
- 
- struct ipc_namespace *copy_ipcs(unsigned long flags,
-@@ -98,6 +117,7 @@ static void free_ipc_ns(struct ipc_namespace *ns)
- 	shm_exit_ns(ns);
- 	atomic_dec(&nr_ipc_ns);
- 
-+	dec_ipc_namespaces(ns->user_ns);
+ 	struct cgroup_namespace *new_ns;
+@@ -6281,6 +6291,7 @@ static struct cgroup_namespace *alloc_cgroup_ns(void)
+ void free_cgroup_ns(struct cgroup_namespace *ns)
+ {
+ 	put_css_set(ns->root_cset);
++	dec_cgroup_namespaces(ns->user_ns);
  	put_user_ns(ns->user_ns);
  	ns_free_inum(&ns->ns);
  	kfree(ns);
+@@ -6305,6 +6316,9 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
+ 	if (!ns_capable(user_ns, CAP_SYS_ADMIN))
+ 		return ERR_PTR(-EPERM);
+ 
++	if (!inc_cgroup_namespaces(user_ns))
++		return ERR_PTR(-ENFILE);
++
+ 	mutex_lock(&cgroup_mutex);
+ 	spin_lock_bh(&css_set_lock);
+ 
+@@ -6317,6 +6331,7 @@ struct cgroup_namespace *copy_cgroup_ns(unsigned long flags,
+ 	new_ns = alloc_cgroup_ns();
+ 	if (IS_ERR(new_ns)) {
+ 		put_css_set(cset);
++		dec_cgroup_namespaces(user_ns);
+ 		return new_ns;
+ 	}
+ 
 diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index 6b205c24e888..060d3e099f87 100644
+index 060d3e099f87..1cf074cb47e2 100644
 --- a/kernel/user_namespace.c
 +++ b/kernel/user_namespace.c
-@@ -79,6 +79,7 @@ static struct ctl_table userns_table[] = {
- 	UCOUNT_ENTRY("max_user_namespaces"),
+@@ -80,6 +80,7 @@ static struct ctl_table userns_table[] = {
  	UCOUNT_ENTRY("max_pid_namespaces"),
  	UCOUNT_ENTRY("max_uts_namespaces"),
-+	UCOUNT_ENTRY("max_ipc_namespaces"),
+ 	UCOUNT_ENTRY("max_ipc_namespaces"),
++	UCOUNT_ENTRY("max_cgroup_namespaces"),
  	{ }
  };
  #endif /* CONFIG_SYSCTL */
