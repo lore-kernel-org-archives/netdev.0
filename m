@@ -1,63 +1,131 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: ~~
-Date: Thu, 21 Jul 2016 20:13:03 +0000
-Message-ID: <1469131981.6600.4.camel@intel.com>
-References: <1469053438-85381-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1469053438-85381-17-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <63e931a3-e447-5a1f-f998-578e1cb2eb8e@cogentembedded.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: iproute2 mpls max labels
+Date: Thu, 21 Jul 2016 15:00:13 -0500
+Message-ID: <8737n23goi.fsf@x220.int.ebiederm.org>
+References: <578A7BF0.2020107@nordu.net>
+	<57911A26.3080203@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "nhorman@redhat.com" <nhorman@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"jogreene@redhat.com" <jogreene@redhat.com>
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain
+Cc: Magnus Bergroth <bergroth@nordu.net>, netdev@vger.kernel.org,
+	Robert Shearman <rshearma@brocade.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58653 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753926AbcGUUNK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Jul 2016 16:13:10 -0400
-In-Reply-To: <63e931a3-e447-5a1f-f998-578e1cb2eb8e@cogentembedded.com>
-Content-Language: en-US
-Content-ID: <6F98D2485C8BD546A688E4D6C7FB2DC6@intel.com>
+Received: from out01.mta.xmission.com ([166.70.13.231]:35939 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052AbcGUUNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 16:13:18 -0400
+In-Reply-To: <57911A26.3080203@cumulusnetworks.com> (Roopa Prabhu's message of
+	"Thu, 21 Jul 2016 11:53:26 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMDE2LTA3LTIxIGF0IDEzOjUxICswMzAwLCBTZXJnZWkgU2h0eWx5b3Ygd3JvdGU6
-DQo+IEhlbGxvLg0KPiANCj4gT24gNy8yMS8yMDE2IDE6MjMgQU0sIEplZmYgS2lyc2hlciB3cm90
-ZToNCj4gDQo+ID4gRnJvbTogSmFjb2IgS2VsbGVyIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+
-DQo+ID4gDQo+ID4gU29tZXRpbWVzLCBhIFZGIGRyaXZlciB3aWxsIGxvc2UgUENJZSBhZGRyZXNz
-IGFjY2Vzcywgc3VjaCBhcyBkdWUNCj4gPiB0bw0KPiA+IGEgUEYgRkxSIGV2ZW50LiBJbiBmbTEw
-a19kZXRhY2hfc3VidGFzaywgcG9sbCBhbmQgY2hlY2sgd2hldGhlciB0aGUNCj4gPiBQQ0llIHJl
-Z2lzdGVyIHNwYWNlIGlzIGFjdGl2ZSBhZ2FpbiBhbmQgcmVzdG9yZSB0aGUgZGV2aWNlIHdoZW4g
-aXQNCj4gPiBoYXMuDQo+ID4gDQo+ID4gU2lnbmVkLW9mZi1ieTogSmFjb2IgS2VsbGVyIDxqYWNv
-Yi5lLmtlbGxlckBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBLcmlzaG5laWwgU2luZ2ggPEty
-aXNobmVpbC5rLnNpbmdoQGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNo
-ZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiDCoGRyaXZlcnMv
-bmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX3BjaS5jIHwgMTMgKysrKysrKysrKysrKw0K
-PiA+IMKgMSBmaWxlIGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKykNCj4gPiANCj4gPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZm0xMGsvZm0xMGtfcGNpLmMNCj4gPiBi
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2ZtMTBrL2ZtMTBrX3BjaS5jDQo+ID4gaW5kZXgg
-NWU0MDQ2MC4uZDRjY2IyYSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9mbTEway9mbTEwa19wY2kuYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
-dGVsL2ZtMTBrL2ZtMTBrX3BjaS5jDQo+ID4gQEAgLTEyMywxMSArMTIzLDI0IEBAIHN0YXRpYyB2
-b2lkIGZtMTBrX3NlcnZpY2VfdGltZXIodW5zaWduZWQgbG9uZw0KPiA+IGRhdGEpDQo+ID4gwqBz
-dGF0aWMgdm9pZCBmbTEwa19kZXRhY2hfc3VidGFzayhzdHJ1Y3QgZm0xMGtfaW50ZmMgKmludGVy
-ZmFjZSkNCj4gPiDCoHsNCj4gPiDCoAlzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2ID0gaW50ZXJm
-YWNlLT5uZXRkZXY7DQo+ID4gKwl1MzIgX19pb21lbSAqaHdfYWRkcjsNCj4gPiArCXUzMiB2YWx1
-ZTsNCj4gPiANCj4gPiDCoAkvKiBkbyBub3RoaW5nIGlmIGRldmljZSBpcyBzdGlsbCBwcmVzZW50
-IG9yIGh3X2FkZHIgaXMgc2V0DQo+ID4gKi8NCj4gPiDCoAlpZiAobmV0aWZfZGV2aWNlX3ByZXNl
-bnQobmV0ZGV2KSB8fCBpbnRlcmZhY2UtPmh3Lmh3X2FkZHIpDQo+ID4gwqAJCXJldHVybjsNCj4g
-PiANCj4gPiArCS8qIGNoZWNrIHRoZSByZWFsIGFkZHJlc3Mgc3BhY2UgdG8gc2VlIGlmIHdlJ3Zl
-IHJlY292ZXJlZA0KPiA+ICovDQo+ID4gKwlod19hZGRyID0gUkVBRF9PTkNFKGludGVyZmFjZS0+
-dWNfYWRkcik7DQo+ID4gKwl2YWx1ZSA9IHJlYWRsKGh3X2FkZHIpOw0KPiA+ICsJaWYgKCh+dmFs
-dWUpKSB7DQo+IA0KPiDCoMKgwqDCoFdoeSB0aGVzZSBkb3VibGUgcGFyZW5zPw0KPiANCg0KWW91
-J3JlIHJpZ2h0IGl0IGRvZXNuJ3QgbmVlZCB0aGVtLiBJIHRoaW5rIGF0IG9uZSBwb2ludCB0aGUg
-Y2hlY2sgd2FzDQoiISh+dmFsdWUpIiBpbiBzb21lIG90aGVyIHBvcnRpb24gb2YgY29kZSwgYW5k
-IGxpa2VseSBnb3QgY29waWVkIGJ5DQptaXN0YWtlLg0KDQpUaGFua3MsDQpKYWtlDQoNCj4gWy4u
-Ll0NCj4gDQo+IE1CUiwgU2VyZ2VpDQo+IA0K
+Roopa Prabhu <roopa@cumulusnetworks.com> writes:
+
+> On 7/16/16, 11:24 AM, Magnus Bergroth wrote:
+>> Wanted to use more than the default maximum of 8 mpls labels. Max labels
+>> seems to be hardcode to 8 in two places.
+>>
+>> --- iproute2-4.6.0/lib/utils.c    2016-05-18 20:56:02.000000000 +0200
+>> +++ iproute2-4.6.0-bergroth/lib/utils.c    2016-07-16 20:12:10.714958071
+>> +0200
+>> @@ -476,7 +476,7 @@
+>>          addr->bytelen = 4;
+>>          addr->bitlen = 20;
+>>          /* How many bytes do I need? */
+>> -        for (i = 0; i < 8; i++) {
+>> +        for (i = 0; i < MPLS_MAX_LABELS; i++) {
+>>              if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
+>>                  addr->bytelen = (i + 1)*4;
+>>                  break;
+>>
+>>
+>> --- iproute2-4.6.0/include/utils.h    2016-05-18 20:56:02.000000000 +0200
+>> +++ iproute2-4.6.0-bergroth/include/utils.h    2016-07-15
+>> 11:55:57.297681742 +0200
+>> @@ -54,6 +54,9 @@
+>>  #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
+>>  #define PREV_ARG() do { argv--; argc++; } while(0)
+>>
+>> +/* Maximum number of labels the mpls helpers support */
+>> +#define MPLS_MAX_LABELS 8
+>> +
+>>  typedef struct
+>>  {
+>>      __u16 flags;
+>> @@ -61,7 +64,7 @@
+>>      __s16 bitlen;
+>>      /* These next two fields match rtvia */
+>>      __u16 family;
+>> -    __u32 data[8];
+>> +    __u32 data[MPLS_MAX_LABELS];
+>>  } inet_prefix;
+>>
+
+This structure is not MPLS specific so that is not appropriate to use
+MPLS_MAX_LABELS when definiting the structure.  Likewise changing this
+structure and limiting the changes to mpls parts of the code is not
+appropriate.
+
+>>  #define PREFIXLEN_SPECIFIED 1
+>> @@ -88,9 +91,6 @@
+>>  # define AF_MPLS 28
+>>  #endif
+>>
+>> -/* Maximum number of labels the mpls helpers support */
+>> -#define MPLS_MAX_LABELS 8
+>> -
+>>  __u32 get_addr32(const char *name);
+>>  int get_addr_1(inet_prefix *dst, const char *arg, int family);
+>>  int get_prefix_1(inet_prefix *dst, char *arg, int family);
+>>
+>>
+> I did not realize it is hardcoded to 8 in iproute2. Because kernel has a hard coded limit of
+> 2.
+> I think we need to fix it in a few places:
+> a) we should move the kernel #define to a uapi header file which iproute2 can use
+> b) there has been a general ask to bump the kernel MAX_LABELS from 2 and I don't see
+> a problem with it yet. so, we could bump it to 8.
+>
+> Were you planning to post patches for one or both of the above ?.
+>
+> I can post them too. Let me know.
+
+a) I just looked and the kernel netlink protocol does not have a limit.
+   The kernel does have a limit but the netlink protocol does not  so
+   there is no point in exporting a limit in a uapi header,  it will
+   just be out of date and wrong.
+
+b) I can see in principle bumping up the kernels MAX_LABELS past two
+   although I haven't heard those requests, or understand the use cases.
+   I don't recall seeing any ducumentation on cases where it is
+   desirable to push a lot of labels at once.  (Do hardware
+   implementations support pushing a lot of labels at once?)
+
+   Bumping past 8 seems quite a lot.  That starts feeling like people
+   trying to break other peoples mpls stacks.  That is asking for more
+   packet space for labels than ipv6 uses for addresses and ipv6 is way
+   oversized.  The commonly agreed wisdom is the world only needs 40 to
+   48 bits to route on to reach the entire world.  
+
+   I can completely understand a few specialty labels going beyond what
+   is needed for general purpose routing but pushing more that 8 at
+   once seems huge.  Especially since you can recirculate packets if
+   you really need to and push more labels that way.
+
+   Add to that for a software implementation we have these pesky things
+   called cache lines.  I can see in the kernel pushing struct
+   mpls_route towards the size of a full cacheline.  Today we are at 52
+   bytes not counting the via adress.  With the via address we are at 56
+   (ipv4), 58 (ethernet), and 60 (ipv6) bytes.  Which means in we have
+   to make the kernel data structures smarter or we risk messing up the
+   performance of the common case.
+
+   Also we do need some kind of limit in the kernel to protect against
+   insane inputs.
+   
+   So while I can imagine there are reasonable cases for bumping up the
+   maximum number of labels in the kernel I think we need to be smart if
+   we ware going to do that.  Which probably means we will want a
+   __mpls_nh_label helper function.
+
+Eric
