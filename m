@@ -1,55 +1,37 @@
-From: Ilan Tayari <ilant@mellanox.com>
-Subject: RE: IPv6 IPSec incompatibilities between 2.6.23 and 3.6.18/4.6.4
-Date: Thu, 21 Jul 2016 14:40:57 +0000
-Message-ID: <AM4PR0501MB1940C0DFCF936A7957D88971DB090@AM4PR0501MB1940.eurprd05.prod.outlook.com>
-References: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC70@ExMbx1.iabg.de>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: WAS ( Re: [PATCH net-next 1/1] net_sched: Introduce skbmod action
+Date: Thu, 21 Jul 2016 16:42:40 +0200
+Message-ID: <5790DF60.5010900@iogearbox.net>
+References: <1468744884-8246-1-git-send-email-jhs@emojatatu.com> <20160718041933.GB36253@ast-mbp.thefacebook.com> <578C7C5C.2070804@mojatatu.com> <578CA4EB.7060703@iogearbox.net> <578CAA96.2090501@mojatatu.com> <578E2960.7080709@iogearbox.net> <578E3172.9020601@mojatatu.com> <578E414C.1080501@iogearbox.net> <CAM_iQpWX5HT_yF3guCbQLMo2GSVGA8BTcJ3_bucHrnBrMQbjqw@mail.gmail.com> <578EC467.2010808@iogearbox.net> <742d87f4-b1af-ff02-93a9-bdcd369492af@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?iso-8859-1?Q?Pommnitz_J=F6rg?= <Pommnitz@iabg.de>,
-	Shanker Wang <shankerwangmiao@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0047.outbound.protection.outlook.com ([104.47.2.47]:5696
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751553AbcGUOlI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 10:41:08 -0400
-In-Reply-To: <DD56476BFBBCB94EA5C5CCFF543EBEC99A0DEC70@ExMbx1.iabg.de>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:53505 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752829AbcGUOmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 10:42:45 -0400
+In-Reply-To: <742d87f4-b1af-ff02-93a9-bdcd369492af@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Node 1: fd01:1b10:1000::1 is running 4.6.4
-> 14:21:50.737092 IP6 fd01:1b10:1000::3 > ff0e::1:
-> ESP(spi=0x00000001,seq=0x100), length 136
-> 14:21:51.737155 IP6 fd01:1b10:1000::3 > ff0e::1:
-> ESP(spi=0x00000001,seq=0x101), length 136
-...
-> ip -s xfrm state
-> src fd01:1b10:1000::1 dst ff0e::1
->         proto esp spi 0x00000001(1) reqid 0(0x00000000) mode tunnel
-...
->           add 2016-07-21 14:18:08 use -
-...
->         dir out ...
-...
->           add 2016-07-21 14:18:08 use -
-...
->         dir fwd ...
->           add 2016-07-21 14:18:08 use -
-...
->         dir in ...
->           add 2016-07-21 14:18:08 use -
+On 07/21/2016 09:27 AM, Jamal Hadi Salim wrote:
+[...]
+> Forgot about csum which would work with pedit - didnt quiet parse what
+> you are saying above though:
+> does changing MAC address require changing to CHECKSUM_NONE? If yes,
+> then seems like i need to send a patch for act_ife as well to make in
+> the spirit of mirred?
 
-Hi Joerg,
-
-See the "use -" instead of a date/time of last usage (like in your output from 2.6)
-Packets are received, but nothing is matched to your xfrm states and policies.
-
-Are you sure this is the full output of "ip -s xfrm policy"? I feel like something is missing.
-
-At first glance I'd say it looks like src+dst doesn't match the packets.
-Packet source-ip is ::3, while xfrm-state source ip matches::1
-
-Ilan.
+Hmm, seems fine actually up to ETH_HLEN. In cases like vlan or mpls
+modifications there's certainly a correction, but when going into rx
+path this is pulled out already of the calculation afaik (see f.e.
+dev_forward_skb()). So when mirred pushes this back in via skb_push_rcsum()
+and dev_forward_skb() back out, it should be okay if I see this correctly.
+But don't you still something like need skb_try_make_writable()?
