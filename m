@@ -1,58 +1,34 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC] ethtool bandwidth per-queue commands
-Date: Wed, 20 Jul 2016 18:06:19 -0700
-Message-ID: <5790200B.8000201@gmail.com>
-References: <578FD85F.7080508@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net/mlx4_en: use READ_ONCE when freeing
+ xdp_prog
+Date: Wed, 20 Jul 2016 18:20:37 -0700
+Message-ID: <20160721012036.GB86045@ast-mbp.thefacebook.com>
+References: <1469060555-20250-1-git-send-email-bblanco@plumgrid.com>
+ <1469060555-20250-2-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kan.liang@intel.com, David Miller <davem@davemloft.net>
-To: ivan <khorivan@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:34938 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751838AbcGUBGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 21:06:30 -0400
-Received: by mail-pf0-f172.google.com with SMTP id x72so24273243pfd.2
-        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 18:06:30 -0700 (PDT)
-In-Reply-To: <578FD85F.7080508@gmail.com>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:34457 "EHLO
+	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770AbcGUBUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 21:20:41 -0400
+Received: by mail-yw0-f171.google.com with SMTP id z8so39612676ywa.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 18:20:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1469060555-20250-2-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-07-20 01:00 PM, ivan wrote:
-> Hi everyone.
+On Wed, Jul 20, 2016 at 05:22:33PM -0700, Brenden Blanco wrote:
+> For consistency, and in order to hint at the synchronous nature of the
+> xdp_prog field, use READ_ONCE in the destroy path of the ring. All
+> occurrences should now use either READ_ONCE or xchg.
 > 
-> The ethtool interface has ETHTOOL_PERQUEUE command that is used to
-> read/set per-queue parameters for multiqueue Ethernet devices.
-> 
-> I want to apply additional per-queue commands like per-queue bandwidth
-> and per-queue number of descriptors (like number of rings).
-> 
-> Currently only ETHTOOL_G/SCOALESCE sub commands are added for
-> per-queue interface (but I haven't seen counterpart for ethtool util).
-> 
-> Using ETHTOOL_G/SCOALESCE per-queue command as an example,
-> I'm going to add 2 additional and 2 known commands for ethtool
-> per-queue interface:
-> 
-> ETHTOOL_G/SBANDWIDTH     /* Get/Set ethtool per queue bandwidth.
-> Bandwidth can be set with % or absolute in Mb/s */
-> 
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 
-For tx rate limiting we have an ndo op for this already,
-
-   ndo_set_tx_maxrate
-
-which can be tuned via sysfs at the moment. It would logically make
-sense to add an rx rate limit if you are looking for something more
-like a policer. Or do this via setup_tc() interface as we do with
-mqprio qdisc today.
-
-If you are interested in max and min rates per queue groups one such
-possibility being a queue group of one you may find the ./net/dcb
-stack interesting as well. Although the DCB spec has lots of bits
-about protocols and such the kernel interfaces do not care if the
-protocol is running at all. Unfortunately when this was done originally
-we didn't make this as clear as we should have.
-
-.John
+Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
