@@ -1,110 +1,118 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v3 1/2] bpf: Add bpf_copy_to_user BPF helper
- to be called in tracers (kprobes)
-Date: Thu, 21 Jul 2016 01:00:51 +0200
-Message-ID: <579002A3.3090406@iogearbox.net>
-References: <20160719093242.GA23753@ircssh.c.rugged-nimbus-611.internal> <578E0C61.6070705@iogearbox.net> <20160719163443.GA57855@ast-mbp.thefacebook.com> <578EB597.2080608@iogearbox.net> <20160720030200.GA70500@ast-mbp.thefacebook.com> <alpine.DEB.2.02.1607200133350.13397@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1607200133350.13397@ircssh.c.rugged-nimbus-611.internal>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: [PATCH net-next 3/3] bpf: make xdp sample variable names more meaningful
+Date: Wed, 20 Jul 2016 17:22:35 -0700
+Message-ID: <1469060555-20250-4-git-send-email-bblanco@plumgrid.com>
+References: <1469060555-20250-1-git-send-email-bblanco@plumgrid.com>
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:34676 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753695AbcGUAXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Jul 2016 20:23:09 -0400
+Received: by mail-pa0-f47.google.com with SMTP id fi15so22971347pac.1
+        for <netdev@vger.kernel.org>; Wed, 20 Jul 2016 17:23:09 -0700 (PDT)
+In-Reply-To: <1469060555-20250-1-git-send-email-bblanco@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2016 11:58 AM, Sargun Dhillon wrote:
-[...]
-> So, with that, what about the following:
-> It includes
-> -Desupporting no MMU platforms as we've deemed them incapable of being
->   safe
-> -Checking that we're not in a kthread
-> -Checking that the active mm is the thread's mm
-> -A log message indicating the experimental nature of this helper
->
-> It does not include:
-> -A heuristic to determine is access_ok is broken, or if the platform
->   didn't implement it. It seems all platforms with MMUs implement it today,
->   and it seems clear to make that platforms should do something better than
->   return 1, if they can
+The naming choice of index is not terribly descriptive, and dropcnt is
+in fact incorrect for xdp2. Pick better names for these: ipproto and
+rxcnt.
 
-I don't really like couple of things, your ifdef CONFIG_MMU might not be
-needed I think, couple of these checks seem redundant, (I'm not yet sure
-about the task->mm != task->active_mm thingy), the helper should definitely
-be gpl_only and ARG_PTR_TO_RAW_STACK is just buggy. Also, this should be
-a bit analogue to bpf_probe_read we have. How about something roughly along
-the lines of below diff (obviously needs extensive testing ...)? This
-can still do all kind of ugly crap to the user process, but limited to
-the cap_sys_admin to shoot himself in the foot.
+Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+---
+ samples/bpf/xdp1_kern.c | 12 ++++++------
+ samples/bpf/xdp2_kern.c | 14 +++++++-------
+ 2 files changed, 13 insertions(+), 13 deletions(-)
 
-  include/uapi/linux/bpf.h |  3 +++
-  kernel/trace/bpf_trace.c | 30 ++++++++++++++++++++++++++++++
-  2 files changed, 33 insertions(+)
-
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 2b7076f..4d339c6 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -365,6 +365,9 @@ enum bpf_func_id {
-  	 */
-  	BPF_FUNC_get_current_task,
-
-+	/* Doc goes here ... */
-+	BPF_FUNC_probe_write,
-+
-  	__BPF_FUNC_MAX_ID,
-  };
-
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index a12bbd3..43a4386c 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -81,6 +81,34 @@ static const struct bpf_func_proto bpf_probe_read_proto = {
-  	.arg3_type	= ARG_ANYTHING,
-  };
-
-+static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	struct task_struct *task = current;
-+	void *unsafe_ptr = (void *)(long) r1;
-+	void *src = (void *)(long) r2;
-+	int size = (int) r3;
-+
-+	if (unlikely(in_interrupt() || (task->flags & PF_KTHREAD)))
-+		return -EPERM;
-+	if (segment_eq(get_fs(), KERNEL_DS))
-+		return -EPERM;
-+	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
-+		return -EPERM;
-+
-+	/* pr_warn_once() barks here ... */
-+
-+	return probe_kernel_write(unsafe_ptr, src, size);
-+}
-+
-+static const struct bpf_func_proto bpf_probe_write_proto = {
-+	.func           = bpf_probe_write,
-+	.gpl_only       = true,
-+	.ret_type       = RET_INTEGER,
-+	.arg1_type      = ARG_ANYTHING,
-+	.arg2_type      = ARG_PTR_TO_STACK,
-+	.arg3_type      = ARG_CONST_STACK_SIZE,
-+};
-+
-  /*
-   * limited trace_printk()
-   * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed
-@@ -344,6 +372,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
-  		return &bpf_map_delete_elem_proto;
-  	case BPF_FUNC_probe_read:
-  		return &bpf_probe_read_proto;
-+	case BPF_FUNC_probe_write:
-+		return &bpf_probe_write_proto;
-  	case BPF_FUNC_ktime_get_ns:
-  		return &bpf_ktime_get_ns_proto;
-  	case BPF_FUNC_tail_call:
+diff --git a/samples/bpf/xdp1_kern.c b/samples/bpf/xdp1_kern.c
+index e7dd8ac..2197421 100644
+--- a/samples/bpf/xdp1_kern.c
++++ b/samples/bpf/xdp1_kern.c
+@@ -14,7 +14,7 @@
+ #include <linux/ipv6.h>
+ #include "bpf_helpers.h"
+ 
+-struct bpf_map_def SEC("maps") dropcnt = {
++struct bpf_map_def SEC("maps") rxcnt = {
+ 	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+ 	.key_size = sizeof(u32),
+ 	.value_size = sizeof(long),
+@@ -49,7 +49,7 @@ int xdp_prog1(struct xdp_md *ctx)
+ 	long *value;
+ 	u16 h_proto;
+ 	u64 nh_off;
+-	u32 index;
++	u32 ipproto;
+ 
+ 	nh_off = sizeof(*eth);
+ 	if (data + nh_off > data_end)
+@@ -77,13 +77,13 @@ int xdp_prog1(struct xdp_md *ctx)
+ 	}
+ 
+ 	if (h_proto == htons(ETH_P_IP))
+-		index = parse_ipv4(data, nh_off, data_end);
++		ipproto = parse_ipv4(data, nh_off, data_end);
+ 	else if (h_proto == htons(ETH_P_IPV6))
+-		index = parse_ipv6(data, nh_off, data_end);
++		ipproto = parse_ipv6(data, nh_off, data_end);
+ 	else
+-		index = 0;
++		ipproto = 0;
+ 
+-	value = bpf_map_lookup_elem(&dropcnt, &index);
++	value = bpf_map_lookup_elem(&rxcnt, &ipproto);
+ 	if (value)
+ 		*value += 1;
+ 
+diff --git a/samples/bpf/xdp2_kern.c b/samples/bpf/xdp2_kern.c
+index 38fe7e1..e012888 100644
+--- a/samples/bpf/xdp2_kern.c
++++ b/samples/bpf/xdp2_kern.c
+@@ -14,7 +14,7 @@
+ #include <linux/ipv6.h>
+ #include "bpf_helpers.h"
+ 
+-struct bpf_map_def SEC("maps") dropcnt = {
++struct bpf_map_def SEC("maps") rxcnt = {
+ 	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+ 	.key_size = sizeof(u32),
+ 	.value_size = sizeof(long),
+@@ -65,7 +65,7 @@ int xdp_prog1(struct xdp_md *ctx)
+ 	long *value;
+ 	u16 h_proto;
+ 	u64 nh_off;
+-	u32 index;
++	u32 ipproto;
+ 
+ 	nh_off = sizeof(*eth);
+ 	if (data + nh_off > data_end)
+@@ -93,17 +93,17 @@ int xdp_prog1(struct xdp_md *ctx)
+ 	}
+ 
+ 	if (h_proto == htons(ETH_P_IP))
+-		index = parse_ipv4(data, nh_off, data_end);
++		ipproto = parse_ipv4(data, nh_off, data_end);
+ 	else if (h_proto == htons(ETH_P_IPV6))
+-		index = parse_ipv6(data, nh_off, data_end);
++		ipproto = parse_ipv6(data, nh_off, data_end);
+ 	else
+-		index = 0;
++		ipproto = 0;
+ 
+-	value = bpf_map_lookup_elem(&dropcnt, &index);
++	value = bpf_map_lookup_elem(&rxcnt, &ipproto);
+ 	if (value)
+ 		*value += 1;
+ 
+-	if (index == 17) {
++	if (ipproto == IPPROTO_UDP) {
+ 		swap_src_dst_mac(data);
+ 		rc = XDP_TX;
+ 	}
 -- 
-1.9.3
+2.8.2
