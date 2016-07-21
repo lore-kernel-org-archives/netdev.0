@@ -1,53 +1,108 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 8/9] net/sched: act_mirred: Add helper inlines to access tcf_mirred info.
-Date: Thu, 21 Jul 2016 12:03:16 +0200
-Message-ID: <1469095397-3837-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 6/9] mlxsw: reg: Add Monitoring Port Analyzer Table register
+Date: Thu, 21 Jul 2016 12:03:14 +0200
+Message-ID: <1469095397-3837-7-git-send-email-jiri@resnulli.us>
 References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
 	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	jhs@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33702 "EHLO
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35558 "EHLO
 	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882AbcGUKDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:33 -0400
-Received: by mail-wm0-f68.google.com with SMTP id o80so1964897wme.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:32 -0700 (PDT)
+	with ESMTP id S1751882AbcGUKD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 06:03:28 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i5so1954793wmg.2
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 03:03:28 -0700 (PDT)
 In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-The helper function is_tcf_mirred_mirror helps finding whether an action
-struct is of type mirred and is configured to be of type mirror.
+The MPAT register is used to query and configure the Switch Port Analyzer
+(SPAN) table. This register is used to configure a port as a mirror output
+port, while after that a mirrored input port can be bound using MPAR
+register.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/tc_act/tc_mirred.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 54 +++++++++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
 
-diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
-index e891835..6a13a7c 100644
---- a/include/net/tc_act/tc_mirred.h
-+++ b/include/net/tc_act/tc_mirred.h
-@@ -24,6 +24,15 @@ static inline bool is_tcf_mirred_redirect(const struct tc_action *a)
- 	return false;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 495e524..341ee245 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -4618,6 +4618,58 @@ static inline void mlxsw_reg_mtmp_unpack(char *payload, unsigned int *p_temp,
+ 		mlxsw_reg_mtmp_sensor_name_memcpy_from(payload, sensor_name);
  }
  
-+static inline bool is_tcf_mirred_mirror(const struct tc_action *a)
++/* MPAT - Monitoring Port Analyzer Table
++ * -------------------------------------
++ * MPAT Register is used to query and configure the Switch PortAnalyzer Table.
++ * For an enabled analyzer, all fields except e (enable) cannot be modified.
++ */
++#define MLXSW_REG_MPAT_ID 0x901A
++#define MLXSW_REG_MPAT_LEN 0x78
++
++static const struct mlxsw_reg_info mlxsw_reg_mpat = {
++	.id = MLXSW_REG_MPAT_ID,
++	.len = MLXSW_REG_MPAT_LEN,
++};
++
++/* reg_mpat_pa_id
++ * Port Analyzer ID.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, mpat, pa_id, 0x00, 28, 4);
++
++/* reg_mpat_system_port
++ * A unique port identifier for the final destination of the packet.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpat, system_port, 0x00, 0, 16);
++
++/* reg_mpat_e
++ * Enable. Indicating the Port Analyzer is enabled.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpat, e, 0x04, 31, 1);
++
++/* reg_mpat_qos
++ * Quality Of Service Mode.
++ * 0: CONFIGURED - QoS parameters (Switch Priority, and encapsulation
++ * PCP, DEI, DSCP or VL) are configured.
++ * 1: MAINTAIN - QoS parameters (Switch Priority, Color) are the
++ * same as in the original packet that has triggered the mirroring. For
++ * SPAN also the pcp,dei are maintained.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, mpat, qos, 0x04, 26, 1);
++
++static inline void mlxsw_reg_mpat_pack(char *payload, u8 pa_id,
++				       u16 system_port, bool e)
 +{
-+#ifdef CONFIG_NET_CLS_ACT
-+	if (a->ops && a->ops->type == TCA_ACT_MIRRED)
-+		return to_mirred(a)->tcfm_eaction == TCA_EGRESS_MIRROR;
-+#endif
-+	return false;
++	MLXSW_REG_ZERO(mpat, payload);
++	mlxsw_reg_mpat_pa_id_set(payload, pa_id);
++	mlxsw_reg_mpat_system_port_set(payload, system_port);
++	mlxsw_reg_mpat_e_set(payload, e);
++	mlxsw_reg_mpat_qos_set(payload, 1);
 +}
 +
- static inline int tcf_mirred_ifindex(const struct tc_action *a)
- {
- 	return to_mirred(a)->tcfm_ifindex;
+ /* MLCR - Management LED Control Register
+  * --------------------------------------
+  * Controls the system LEDs.
+@@ -5189,6 +5241,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "MFSM";
+ 	case MLXSW_REG_MTCAP_ID:
+ 		return "MTCAP";
++	case MLXSW_REG_MPAT_ID:
++		return "MPAT";
+ 	case MLXSW_REG_MTMP_ID:
+ 		return "MTMP";
+ 	case MLXSW_REG_MLCR_ID:
 -- 
 2.5.5
