@@ -1,67 +1,42 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next v2] net/faraday: Disallow using reversed MAC
- address from hardware
-Date: Fri, 22 Jul 2016 10:01:48 +1000
-Message-ID: <20160722000148.GA5176@gwshan>
-References: <1469065374-9916-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <20160721140109.GM11309@lunn.ch>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, benh@kernel.crashing.org,
-	David.Laight@ACULAB.COM
-To: Andrew Lunn <andrew@lunn.ch>
+From: fgao@ikuai8.com
+Subject: [PATCH 1/1] lvs: Use IS_ERR_OR_NULL(svc) instead of IS_ERR(svc) || svc == NULL
+Date: Fri, 22 Jul 2016 07:55:41 +0800
+Message-ID: <1469145341-15488-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	netdev@vger.kernel.org, lvs-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:45474 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751637AbcGVAB5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 20:01:57 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6LNx1kN018510
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 20:01:57 -0400
-Received: from e23smtp09.au.ibm.com (e23smtp09.au.ibm.com [202.81.31.142])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 24athde5pv-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 20:01:56 -0400
-Received: from localhost
-	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Fri, 22 Jul 2016 10:01:54 +1000
-Received: from d23relay10.au.ibm.com (d23relay10.au.ibm.com [9.190.26.77])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id 441AC3578052
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 10:01:51 +1000 (EST)
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-	by d23relay10.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6M01psg22609986
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 10:01:51 +1000
-Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
-	by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6M01oX3003573
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 10:01:50 +1000
-Content-Disposition: inline
-In-Reply-To: <20160721140109.GM11309@lunn.ch>
+Received: from SMTPBG19.QQ.COM ([183.60.61.236]:37352 "EHLO smtpbg19.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751849AbcGVAEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 20:04:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2016 at 04:01:09PM +0200, Andrew Lunn wrote:
->On Thu, Jul 21, 2016 at 11:42:54AM +1000, Gavin Shan wrote:
->> The initial MAC address is retrieved from hardware if it's not
->> provided by device-tree. The reserved MAC address from hardware
->> will be used if non-reserved MAC address is invalid. It will
->> cause mismatched MAC address seen by hardware and software.
->> 
->> This disallows using the reserved hardware MAC address to avoid
->> the mismatched MAC address seen by hardware and software.
->> 
->> Fixes: 113ce107afe9 ("net/faraday: Read MAC address from chip")
->> Suggested-by: David Laight <David.Laight@ACULAB.COM>
->> Suggested-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->> Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
->
->Too late now, since it has been accepted, but the subject line says
->reversed, not reserved.
->
+From: Gao Feng <fgao@ikuai8.com>
 
-Yes, It should be reversed, not reserved in the commit log.
+This minor refactoring does not change the logic of function
+ip_vs_genl_dump_dests.
 
-Thanks,
-Gavin
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v1: Initial patch
+
+ net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c3c809b..6dc86cc 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3267,7 +3267,7 @@ static int ip_vs_genl_dump_dests(struct sk_buff *skb,
+ 
+ 
+ 	svc = ip_vs_genl_find_service(ipvs, attrs[IPVS_CMD_ATTR_SERVICE]);
+-	if (IS_ERR(svc) || svc == NULL)
++	if (IS_ERR_OR_NULL(svc))
+ 		goto out_err;
+ 
+ 	/* Dump the destinations */
+-- 
+1.9.1
