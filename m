@@ -1,348 +1,670 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/9] net/sched: introduce Match-all classifier
-Date: Thu, 21 Jul 2016 10:19:14 +0200
-Message-ID: <1469089160-4239-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 9/9] mlxsw: spectrum: Add support in matchall mirror TC offloading
+Date: Thu, 21 Jul 2016 10:19:20 +0200
+Message-ID: <1469089160-4239-10-git-send-email-jiri@resnulli.us>
 References: <1469089160-4239-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
 	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	jhs@mojatatu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32923 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288AbcGUIT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 04:19:27 -0400
-Received: by mail-wm0-f68.google.com with SMTP id o80so1650220wme.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 01:19:27 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32987 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738AbcGUITh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 04:19:37 -0400
+Received: by mail-wm0-f66.google.com with SMTP id o80so1650696wme.0
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 01:19:36 -0700 (PDT)
 In-Reply-To: <1469089160-4239-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-The matchall classifier matches every packet and allows the user to apply
-actions on it. This filter is very useful in usecases where every packet
-should be matched, for example, packet mirroring (SPAN) can be setup very
-easily using that filter.
+This patch offloads port mirroring directives to hw using the matchall TC
+with action mirror. It includes both the implementation of the
+ndo_setup_tc function for the spectrum driver and the spectrum hardware
+offload configuration code.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+The hardware offload code is basically two new functions which are capable
+of adding and removing a new mirror ports pair. It is done using the MPAT,
+MPAR and SBIB registers:
+ - A new Switch-Port Analyzer (SPAN) entry is added using MPAT to the 'to'
+   port.
+ - The 'to' port is bound to the SPAN entry using MPAR register.
+ - In case of egress SPAN, the 'to' port gets a new internal shared
+   buffer using SBIB register.
+
+In addition, a new database was added to the mlxsw_sp struct to store all
+the SPAN entries and their bound ports list. The number of supported SPAN
+entries is determined by resource query.
+
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/uapi/linux/pkt_cls.h |  11 ++
- net/sched/Kconfig            |  10 ++
- net/sched/Makefile           |   1 +
- net/sched/cls_matchall.c     | 248 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 270 insertions(+)
- create mode 100644 net/sched/cls_matchall.c
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 465 ++++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  44 +++
+ 2 files changed, 507 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 5702e93..a324948 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -433,6 +433,17 @@ enum {
- 
- #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
- 
-+/* Match-all classifier */
-+
-+enum {
-+	TCA_MATCHALL_UNSPEC,
-+	TCA_MATCHALL_CLASSID,
-+	TCA_MATCHALL_ACT,
-+	__TCA_MATCHALL_MAX,
-+};
-+
-+#define TCA_MATCHALL_MAX (__TCA_MATCHALL_MAX - 1)
-+
- /* Extended Matches */
- 
- struct tcf_ematch_tree_hdr {
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index b148302..ccf931b 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -494,6 +494,16 @@ config NET_CLS_FLOWER
- 	  To compile this code as a module, choose M here: the module will
- 	  be called cls_flower.
- 
-+config NET_CLS_MATCHALL
-+	tristate "Match-all classifier"
-+	select NET_CLS
-+	---help---
-+	  If you say Y here, you will be able to classify packets based on
-+	  nothing. Every packet will match.
-+
-+	  To compile this code as a module, choose M here: the module will
-+	  be called cls_matchall.
-+
- config NET_EMATCH
- 	bool "Extended Matches"
- 	select NET_CLS
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index 84bddb3..ae088a5 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -60,6 +60,7 @@ obj-$(CONFIG_NET_CLS_FLOW)	+= cls_flow.o
- obj-$(CONFIG_NET_CLS_CGROUP)	+= cls_cgroup.o
- obj-$(CONFIG_NET_CLS_BPF)	+= cls_bpf.o
- obj-$(CONFIG_NET_CLS_FLOWER)	+= cls_flower.o
-+obj-$(CONFIG_NET_CLS_MATCHALL)	+= cls_matchall.o
- obj-$(CONFIG_NET_EMATCH)	+= ematch.o
- obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
- obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-new file mode 100644
-index 0000000..8a6b4de
---- /dev/null
-+++ b/net/sched/cls_matchall.c
-@@ -0,0 +1,248 @@
-+/*
-+ * net/sched/cls_matchll.c		Match-all classifier
-+ *
-+ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+
-+#include <net/sch_generic.h>
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 417dbd7..2d88faf 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -54,6 +54,8 @@
+ #include <linux/inetdevice.h>
+ #include <net/switchdev.h>
+ #include <generated/utsrelease.h>
 +#include <net/pkt_cls.h>
++#include <net/tc_act/tc_mirred.h>
+ 
+ #include "spectrum.h"
+ #include "core.h"
+@@ -133,6 +135,8 @@ MLXSW_ITEM32(tx, hdr, fid, 0x08, 0, 16);
+  */
+ MLXSW_ITEM32(tx, hdr, type, 0x0C, 0, 4);
+ 
++static bool mlxsw_sp_port_dev_check(const struct net_device *dev);
 +
-+struct cls_mall_filter {
-+	struct tcf_exts exts;
-+	struct tcf_result res;
-+	u32 handle;
-+	struct rcu_head	rcu;
-+};
-+
-+struct cls_mall_head {
-+	struct cls_mall_filter *filter;
-+	struct rcu_head	rcu;
-+};
-+
-+static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-+			 struct tcf_result *res)
+ static void mlxsw_sp_txhdr_construct(struct sk_buff *skb,
+ 				     const struct mlxsw_tx_info *tx_info)
+ {
+@@ -161,6 +165,303 @@ static int mlxsw_sp_base_mac_get(struct mlxsw_sp *mlxsw_sp)
+ 	return 0;
+ }
+ 
++static int mlxsw_sp_span_init(struct mlxsw_sp *mlxsw_sp)
 +{
-+	struct cls_mall_head *head = rcu_dereference_bh(tp->root);
-+	struct cls_mall_filter *f = head->filter;
++	struct mlxsw_resources *resources;
++	int i;
 +
-+	return tcf_exts_exec(skb, &f->exts, res);
-+}
++	resources = mlxsw_core_resources_get(mlxsw_sp->core);
++	if (!resources->max_span_valid)
++		return -EIO;
 +
-+static int mall_init(struct tcf_proto *tp)
-+{
-+	struct cls_mall_head *head;
++	mlxsw_sp->span.entries_count = resources->max_span;
++	mlxsw_sp->span.entries = kcalloc(mlxsw_sp->span.entries_count,
++					 sizeof(struct mlxsw_sp_span_entry),
++					 GFP_KERNEL);
++	if (!mlxsw_sp->span.entries)
++		return -ENOMEM;
 +
-+	head = kzalloc(sizeof(*head), GFP_KERNEL);
-+	if (!head)
-+		return -ENOBUFS;
-+
-+	rcu_assign_pointer(tp->root, head);
++	for (i = 0; i < mlxsw_sp->span.entries_count; i++)
++		INIT_LIST_HEAD(&mlxsw_sp->span.entries[i].bound_ports_list);
 +
 +	return 0;
 +}
 +
-+static void mall_destroy_filter(struct rcu_head *head)
++static void mlxsw_sp_span_fini(struct mlxsw_sp *mlxsw_sp)
 +{
-+	struct cls_mall_filter *f = container_of(head, struct cls_mall_filter, rcu);
++	int i;
 +
-+	tcf_exts_destroy(&f->exts);
-+	kfree(f);
++	for (i = 0; i < mlxsw_sp->span.entries_count; i++) {
++		struct mlxsw_sp_span_entry *curr = &mlxsw_sp->span.entries[i];
++
++		WARN_ON_ONCE(!list_empty(&curr->bound_ports_list));
++	}
++	kfree(mlxsw_sp->span.entries);
 +}
 +
-+static bool mall_destroy(struct tcf_proto *tp, bool force)
++static struct mlxsw_sp_span_entry *
++mlxsw_sp_span_entry_create(struct mlxsw_sp_port *port)
 +{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+
-+	if (!force && head->filter)
-+		return false;
-+
-+	if (head->filter)
-+		call_rcu(&head->filter->rcu, mall_destroy_filter);
-+	RCU_INIT_POINTER(tp->root, NULL);
-+	kfree_rcu(head, rcu);
-+	return true;
-+}
-+
-+static unsigned long mall_get(struct tcf_proto *tp, u32 handle)
-+{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *f = head->filter;
-+
-+	if (f && f->handle == handle)
-+		return (unsigned long) f;
-+	return 0;
-+}
-+
-+static const struct nla_policy mall_policy[TCA_MATCHALL_MAX + 1] = {
-+	[TCA_MATCHALL_UNSPEC]		= { .type = NLA_UNSPEC },
-+	[TCA_MATCHALL_CLASSID]		= { .type = NLA_U32 },
-+};
-+
-+static int mall_set_parms(struct net *net, struct tcf_proto *tp,
-+			  struct cls_mall_filter *f,
-+			  unsigned long base, struct nlattr **tb,
-+			  struct nlattr *est, bool ovr)
-+{
-+	struct tcf_exts e;
++	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
++	struct mlxsw_sp_span_entry *span_entry;
++	char mpat_pl[MLXSW_REG_MPAT_LEN];
++	u8 local_port = port->local_port;
++	int index;
++	int i;
 +	int err;
 +
-+	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
-+	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
-+	if (err < 0)
-+		return err;
++	/* find a free entry to use */
++	index = -1;
++	for (i = 0; i < mlxsw_sp->span.entries_count; i++) {
++		if (!mlxsw_sp->span.entries[i].used) {
++			index = i;
++			span_entry = &mlxsw_sp->span.entries[i];
++			break;
++		}
++	}
++	if (index < 0)
++		return NULL;
 +
-+	if (tb[TCA_MATCHALL_CLASSID]) {
-+		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
-+		tcf_bind_filter(tp, &f->res, base);
++	/* create a new port analayzer entry for local_port */
++	mlxsw_reg_mpat_pack(mpat_pl, index, local_port, true);
++	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpat), mpat_pl);
++	if (err)
++		return NULL;
++
++	span_entry->used = true;
++	span_entry->id = index;
++	span_entry->ref_count = 0;
++	span_entry->local_port = local_port;
++	return span_entry;
++}
++
++static void mlxsw_sp_span_entry_destroy(struct mlxsw_sp *mlxsw_sp,
++					struct mlxsw_sp_span_entry *span_entry)
++{
++	u8 local_port = span_entry->local_port;
++	char mpat_pl[MLXSW_REG_MPAT_LEN];
++	int pa_id = span_entry->id;
++
++	mlxsw_reg_mpat_pack(mpat_pl, pa_id, local_port, false);
++	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpat), mpat_pl);
++	span_entry->used = false;
++}
++
++struct mlxsw_sp_span_entry *mlxsw_sp_span_entry_find(struct mlxsw_sp_port *port)
++{
++	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
++	int i;
++
++	for (i = 0; i < mlxsw_sp->span.entries_count; i++) {
++		struct mlxsw_sp_span_entry *curr = &mlxsw_sp->span.entries[i];
++
++		if (curr->used && curr->local_port == port->local_port)
++			return curr;
++	}
++	return NULL;
++}
++
++struct mlxsw_sp_span_entry *mlxsw_sp_span_entry_get(struct mlxsw_sp_port *port)
++{
++	struct mlxsw_sp_span_entry *span_entry;
++
++	span_entry = mlxsw_sp_span_entry_find(port);
++	if (span_entry) {
++		span_entry->ref_count++;
++		return span_entry;
 +	}
 +
-+	tcf_exts_change(tp, &f->exts, &e);
++	return mlxsw_sp_span_entry_create(port);
++}
++
++static int mlxsw_sp_span_entry_put(struct mlxsw_sp *mlxsw_sp,
++				   struct mlxsw_sp_span_entry *span_entry)
++{
++	if (--span_entry->ref_count == 0)
++		mlxsw_sp_span_entry_destroy(mlxsw_sp, span_entry);
++	return 0;
++}
++
++static bool mlxsw_sp_span_is_egress_mirror(struct mlxsw_sp_port *port)
++{
++	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
++	struct mlxsw_sp_span_inspected_port *p;
++	int i;
++
++	for (i = 0; i < mlxsw_sp->span.entries_count; i++) {
++		struct mlxsw_sp_span_entry *curr = &mlxsw_sp->span.entries[i];
++
++		list_for_each_entry(p, &curr->bound_ports_list, list)
++			if (p->local_port == port->local_port &&
++			    p->type == MLXSW_SP_SPAN_EGRESS)
++				return true;
++	}
++
++	return false;
++}
++
++static int mlxsw_sp_span_mtu_to_buffsize(int mtu)
++{
++	return MLXSW_SP_BYTES_TO_CELLS(mtu * 5 / 2) + 1;
++}
++
++static int mlxsw_sp_span_port_mtu_update(struct mlxsw_sp_port *port, u16 mtu)
++{
++	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
++	char sbib_pl[MLXSW_REG_SBIB_LEN];
++	int err;
++
++	/* If port is egress mirrored, the shared buffer size should be
++	 * updated according to the mtu value
++	 */
++	if (mlxsw_sp_span_is_egress_mirror(port)) {
++		mlxsw_reg_sbib_pack(sbib_pl, port->local_port,
++				    mlxsw_sp_span_mtu_to_buffsize(mtu));
++		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbib), sbib_pl);
++		if (err) {
++			netdev_err(port->dev, "Could not update shared buffer for mirroring\n");
++			return err;
++		}
++	}
 +
 +	return 0;
 +}
 +
-+static int mall_change(struct net *net, struct sk_buff *in_skb,
-+		       struct tcf_proto *tp, unsigned long base,
-+		       u32 handle, struct nlattr **tca,
-+		       unsigned long *arg, bool ovr)
++static struct mlxsw_sp_span_inspected_port *
++mlxsw_sp_span_entry_bound_port_find(struct mlxsw_sp_port *port,
++				    struct mlxsw_sp_span_entry *span_entry)
 +{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *fold = (struct cls_mall_filter *) *arg;
-+	struct cls_mall_filter *f;
-+	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
++	struct mlxsw_sp_span_inspected_port *p;
++
++	list_for_each_entry(p, &span_entry->bound_ports_list, list)
++		if (port->local_port == p->local_port)
++			return p;
++	return NULL;
++}
++
++static int
++mlxsw_sp_span_inspected_port_bind(struct mlxsw_sp_port *port,
++				  struct mlxsw_sp_span_entry *span_entry,
++				  enum mlxsw_sp_span_type type)
++{
++	struct mlxsw_sp_span_inspected_port *inspected_port;
++	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
++	char mpar_pl[MLXSW_REG_MPAR_LEN];
++	char sbib_pl[MLXSW_REG_SBIB_LEN];
++	int pa_id = span_entry->id;
 +	int err;
 +
-+	if (!tca[TCA_OPTIONS])
-+		return -EINVAL;
++	/* if it is an egress SPAN, bind a shared buffer to it */
++	if (type == MLXSW_SP_SPAN_EGRESS) {
++		mlxsw_reg_sbib_pack(sbib_pl, port->local_port,
++				    mlxsw_sp_span_mtu_to_buffsize(port->dev->mtu));
++		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbib), sbib_pl);
++		if (err) {
++			netdev_err(port->dev, "Could not create shared buffer for mirroring\n");
++			return err;
++		}
++	}
 +
-+	if (head->filter)
-+		return -EBUSY;
-+
-+	if (fold)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_MATCHALL_MAX,
-+			       tca[TCA_OPTIONS], mall_policy);
-+	if (err < 0)
-+		return err;
-+
-+	f = kzalloc(sizeof(*f), GFP_KERNEL);
-+	if (!f)
-+		return -ENOBUFS;
-+
-+	tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
-+
-+	if (!handle)
-+		handle = 1;
-+	f->handle = handle;
-+
-+	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
++	/* bind the port to the SPAN entry */
++	mlxsw_reg_mpar_pack(mpar_pl, port->local_port, type, true, pa_id);
++	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpar), mpar_pl);
 +	if (err)
-+		goto errout;
++		goto err_mpar_reg_write;
 +
-+	*arg = (unsigned long) f;
-+	rcu_assign_pointer(head->filter, f);
++	inspected_port = kzalloc(sizeof(*inspected_port), GFP_KERNEL);
++	if (!inspected_port) {
++		err = -ENOMEM;
++		goto err_inspected_port_alloc;
++	}
++	inspected_port->local_port = port->local_port;
++	inspected_port->type = type;
++	list_add_tail(&inspected_port->list, &span_entry->bound_ports_list);
 +
 +	return 0;
 +
-+errout:
-+	kfree(f);
++err_mpar_reg_write:
++err_inspected_port_alloc:
++	if (type == MLXSW_SP_SPAN_EGRESS) {
++		mlxsw_reg_sbib_pack(sbib_pl, port->local_port, 0);
++		mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbib), sbib_pl);
++	}
 +	return err;
 +}
 +
-+static int mall_delete(struct tcf_proto *tp, unsigned long arg)
++static void
++mlxsw_sp_span_inspected_port_unbind(struct mlxsw_sp_port *port,
++				    struct mlxsw_sp_span_entry *span_entry,
++				    enum mlxsw_sp_span_type type)
 +{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *f = (struct cls_mall_filter *) arg;
++	struct mlxsw_sp_span_inspected_port *inspected_port;
++	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
++	char mpar_pl[MLXSW_REG_MPAR_LEN];
++	char sbib_pl[MLXSW_REG_SBIB_LEN];
++	int pa_id = span_entry->id;
 +
-+	RCU_INIT_POINTER(head->filter, NULL);
-+	tcf_unbind_filter(tp, &f->res);
-+	call_rcu(&f->rcu, mall_destroy_filter);
++	inspected_port = mlxsw_sp_span_entry_bound_port_find(port, span_entry);
++	if (!inspected_port)
++		return;
++
++	/* remove the inspected port */
++	mlxsw_reg_mpar_pack(mpar_pl, port->local_port, type, false, pa_id);
++	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(mpar), mpar_pl);
++
++	/* remove the SBIB buffer if it was egress SPAN */
++	if (type == MLXSW_SP_SPAN_EGRESS) {
++		mlxsw_reg_sbib_pack(sbib_pl, port->local_port, 0);
++		mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sbib), sbib_pl);
++	}
++
++	mlxsw_sp_span_entry_put(mlxsw_sp, span_entry);
++
++	list_del(&inspected_port->list);
++	kfree(inspected_port);
++}
++
++static int mlxsw_sp_span_mirror_add(struct mlxsw_sp_port *from,
++				    struct mlxsw_sp_port *to,
++				    enum mlxsw_sp_span_type type)
++{
++	struct mlxsw_sp *mlxsw_sp = from->mlxsw_sp;
++	struct mlxsw_sp_span_entry *span_entry;
++	int err;
++
++	span_entry = mlxsw_sp_span_entry_get(to);
++	if (!span_entry)
++		return -ENOENT;
++
++	netdev_dbg(from->dev, "Adding inspected port to SPAN entry %d\n",
++		   span_entry->id);
++
++	err = mlxsw_sp_span_inspected_port_bind(from, span_entry, type);
++	if (err)
++		goto err_port_bind;
++
++	return 0;
++
++err_port_bind:
++	mlxsw_sp_span_entry_put(mlxsw_sp, span_entry);
++	return err;
++}
++
++static void mlxsw_sp_span_mirror_remove(struct mlxsw_sp_port *from,
++					struct mlxsw_sp_port *to,
++					enum mlxsw_sp_span_type type)
++{
++	struct mlxsw_sp_span_entry *span_entry;
++
++	span_entry = mlxsw_sp_span_entry_find(to);
++	if (!span_entry) {
++		netdev_err(from->dev, "no span entry found\n");
++		return;
++	}
++
++	netdev_dbg(from->dev, "removing inspected port from SPAN entry %d\n",
++		   span_entry->id);
++	mlxsw_sp_span_inspected_port_unbind(from, span_entry, type);
++}
++
+ static int mlxsw_sp_port_admin_status_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					  bool is_up)
+ {
+@@ -510,6 +811,9 @@ static int mlxsw_sp_port_change_mtu(struct net_device *dev, int mtu)
+ 	err = mlxsw_sp_port_headroom_set(mlxsw_sp_port, mtu, pause_en);
+ 	if (err)
+ 		return err;
++	err = mlxsw_sp_span_port_mtu_update(mlxsw_sp_port, mtu);
++	if (err)
++		goto err_span_port_mtu_update;
+ 	err = mlxsw_sp_port_mtu_set(mlxsw_sp_port, mtu);
+ 	if (err)
+ 		goto err_port_mtu_set;
+@@ -517,6 +821,8 @@ static int mlxsw_sp_port_change_mtu(struct net_device *dev, int mtu)
+ 	return 0;
+ 
+ err_port_mtu_set:
++	mlxsw_sp_span_port_mtu_update(mlxsw_sp_port, dev->mtu);
++err_span_port_mtu_update:
+ 	mlxsw_sp_port_headroom_set(mlxsw_sp_port, dev->mtu, pause_en);
+ 	return err;
+ }
+@@ -793,10 +1099,155 @@ static int mlxsw_sp_port_get_phys_port_name(struct net_device *dev, char *name,
+ 	return 0;
+ }
+ 
++static struct mlxsw_sp_port_mall_tc_entry *
++mlxsw_sp_port_mirror_entry_find(struct mlxsw_sp_port *port,
++				unsigned long cookie) {
++	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
++
++	list_for_each_entry(mall_tc_entry, &port->mall_tc_list, list)
++		if (mall_tc_entry->cookie == cookie)
++			return mall_tc_entry;
++
++	return NULL;
++}
++
++static int
++mlxsw_sp_port_add_cls_matchall_mirror(struct mlxsw_sp_port *mlxsw_sp_port,
++				      struct tc_cls_matchall_offload *cls,
++				      const struct tc_action *a,
++				      bool ingress)
++{
++	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
++	struct net *net = dev_net(mlxsw_sp_port->dev);
++	enum mlxsw_sp_span_type span_type;
++	struct mlxsw_sp_port *to_port;
++	struct net_device *to_dev;
++	int ifindex;
++	int err;
++
++	ifindex = tcf_mirred_ifindex(a);
++	to_dev = __dev_get_by_index(net, ifindex);
++	if (!to_dev) {
++		netdev_err(mlxsw_sp_port->dev, "Could not find requested device\n");
++		return -EINVAL;
++	}
++
++	if (!mlxsw_sp_port_dev_check(to_dev)) {
++		netdev_err(mlxsw_sp_port->dev, "Cannot mirror to a non-spectrum port");
++		return -ENOTSUPP;
++	}
++	to_port = netdev_priv(to_dev);
++
++	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
++	if (!mall_tc_entry)
++		return -ENOMEM;
++
++	mall_tc_entry->cookie = cls->cookie;
++	mall_tc_entry->type = MLXSW_SP_PORT_MALL_MIRROR;
++	mall_tc_entry->mirror.to_local_port = to_port->local_port;
++	mall_tc_entry->mirror.ingress = ingress;
++	list_add_tail(&mall_tc_entry->list, &mlxsw_sp_port->mall_tc_list);
++
++	span_type = ingress ? MLXSW_SP_SPAN_INGRESS : MLXSW_SP_SPAN_EGRESS;
++	err = mlxsw_sp_span_mirror_add(mlxsw_sp_port, to_port, span_type);
++	if (err)
++		goto err_mirror_add;
++	return 0;
++
++err_mirror_add:
++	list_del(&mall_tc_entry->list);
++	kfree(mall_tc_entry);
++	return err;
++}
++
++static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
++					  __be16 protocol,
++					  struct tc_cls_matchall_offload *cls,
++					  bool ingress)
++{
++	struct tcf_exts *exts = cls->exts;
++	const struct tc_action *a;
++	int err;
++
++	if (!list_is_singular(&exts->actions)) {
++		netdev_err(mlxsw_sp_port->dev, "only singular actions are supported\n");
++		return -ENOTSUPP;
++	}
++
++	a = list_first_entry(&exts->actions, struct tc_action, list);
++	if (is_tcf_mirred_mirror(a) && protocol == htons(ETH_P_ALL)) {
++		err = mlxsw_sp_port_add_cls_matchall_mirror(mlxsw_sp_port, cls,
++							    a, ingress);
++		if (err)
++			return err;
++	} else {
++		return -ENOTSUPP;
++	}
++
 +	return 0;
 +}
 +
-+static void mall_walk(struct tcf_proto *tp, struct tcf_walker *arg)
++static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
++					   struct tc_cls_matchall_offload *cls)
 +{
-+	struct cls_mall_head *head = rtnl_dereference(tp->root);
-+	struct cls_mall_filter *f = head->filter;
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_port_mall_tc_entry *mall_tc_entry;
++	enum mlxsw_sp_span_type span_type;
++	struct mlxsw_sp_port *to_port;
 +
-+	if (arg->count < arg->skip)
-+		goto skip;
-+	if (arg->fn(tp, (unsigned long) f, arg) < 0)
-+		arg->stop = 1;
-+skip:
-+	arg->count++;
++	mall_tc_entry = mlxsw_sp_port_mirror_entry_find(mlxsw_sp_port,
++							cls->cookie);
++	if (!mall_tc_entry) {
++		netdev_dbg(mlxsw_sp_port->dev, "tc entry not found on port\n");
++		return;
++	}
++
++	switch (mall_tc_entry->type) {
++	case MLXSW_SP_PORT_MALL_MIRROR:
++		to_port = mlxsw_sp->ports[mall_tc_entry->mirror.to_local_port];
++		span_type = mall_tc_entry->mirror.ingress ?
++				MLXSW_SP_SPAN_INGRESS : MLXSW_SP_SPAN_EGRESS;
++
++		mlxsw_sp_span_mirror_remove(mlxsw_sp_port, to_port, span_type);
++		break;
++	default:
++		WARN_ON(1);
++	}
++
++	list_del(&mall_tc_entry->list);
++	kfree(mall_tc_entry);
 +}
 +
-+static int mall_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
-+		     struct sk_buff *skb, struct tcmsg *t)
++static int mlxsw_sp_setup_tc(struct net_device *dev, u32 handle,
++			     __be16 proto, struct tc_to_netdev *tc)
 +{
-+	struct cls_mall_filter *f = (struct cls_mall_filter *) fh;
-+	struct nlattr *nest;
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	bool ingress = TC_H_MAJ(handle) == TC_H_MAJ(TC_H_INGRESS);
 +
-+	if (!f)
-+		return skb->len;
++	if (tc->type == TC_SETUP_MATCHALL) {
++		switch (tc->cls_mall->command) {
++		case TC_CLSMATCHALL_REPLACE:
++			return mlxsw_sp_port_add_cls_matchall(mlxsw_sp_port,
++							      proto,
++							      tc->cls_mall,
++							      ingress);
++		case TC_CLSMATCHALL_DESTROY:
++			mlxsw_sp_port_del_cls_matchall(mlxsw_sp_port,
++						       tc->cls_mall);
++			return 0;
++		default:
++			return -EINVAL;
++		}
++	}
 +
-+	t->tcm_handle = f->handle;
-+
-+	nest = nla_nest_start(skb, TCA_OPTIONS);
-+	if (!nest)
-+		goto nla_put_failure;
-+
-+	if (f->res.classid &&
-+	    nla_put_u32(skb, TCA_MATCHALL_CLASSID, f->res.classid))
-+		goto nla_put_failure;
-+
-+	if (tcf_exts_dump(skb, &f->exts))
-+		goto nla_put_failure;
-+
-+	nla_nest_end(skb, nest);
-+
-+	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
-+		goto nla_put_failure;
-+
-+	return skb->len;
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -1;
++	return -ENOTSUPP;
 +}
 +
-+static struct tcf_proto_ops cls_mall_ops __read_mostly = {
-+	.kind		= "matchall",
-+	.classify	= mall_classify,
-+	.init		= mall_init,
-+	.destroy	= mall_destroy,
-+	.get		= mall_get,
-+	.change		= mall_change,
-+	.delete		= mall_delete,
-+	.walk		= mall_walk,
-+	.dump		= mall_dump,
-+	.owner		= THIS_MODULE,
+ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_open		= mlxsw_sp_port_open,
+ 	.ndo_stop		= mlxsw_sp_port_stop,
+ 	.ndo_start_xmit		= mlxsw_sp_port_xmit,
++	.ndo_setup_tc           = mlxsw_sp_setup_tc,
+ 	.ndo_set_rx_mode	= mlxsw_sp_set_rx_mode,
+ 	.ndo_set_mac_address	= mlxsw_sp_port_set_mac_address,
+ 	.ndo_change_mtu		= mlxsw_sp_port_change_mtu,
+@@ -1679,6 +2130,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 		goto err_port_untagged_vlans_alloc;
+ 	}
+ 	INIT_LIST_HEAD(&mlxsw_sp_port->vports_list);
++	INIT_LIST_HEAD(&mlxsw_sp_port->mall_tc_list);
+ 
+ 	mlxsw_sp_port->pcpu_stats =
+ 		netdev_alloc_pcpu_stats(struct mlxsw_sp_port_pcpu_stats);
+@@ -1700,7 +2152,8 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 	netif_carrier_off(dev);
+ 
+ 	dev->features |= NETIF_F_NETNS_LOCAL | NETIF_F_LLTX | NETIF_F_SG |
+-			 NETIF_F_HW_VLAN_CTAG_FILTER;
++			 NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_TC;
++	dev->hw_features |= NETIF_F_HW_TC;
+ 
+ 	/* Each packet needs to have a Tx header (metadata) on top all other
+ 	 * headers.
+@@ -2432,15 +2885,22 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 		goto err_router_init;
+ 	}
+ 
++	err = mlxsw_sp_span_init(mlxsw_sp);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to init span system\n");
++		goto err_span_init;
++	}
++
+ 	err = mlxsw_sp_ports_create(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to create ports\n");
+ 		goto err_ports_create;
+ 	}
+-
+ 	return 0;
+ 
+ err_ports_create:
++	mlxsw_sp_span_fini(mlxsw_sp);
++err_span_init:
+ 	mlxsw_sp_router_fini(mlxsw_sp);
+ err_router_init:
+ 	mlxsw_sp_switchdev_fini(mlxsw_sp);
+@@ -2461,6 +2921,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	int i;
+ 
+ 	mlxsw_sp_ports_remove(mlxsw_sp);
++	mlxsw_sp_span_fini(mlxsw_sp);
+ 	mlxsw_sp_router_fini(mlxsw_sp);
+ 	mlxsw_sp_switchdev_fini(mlxsw_sp);
+ 	mlxsw_sp_buffers_fini(mlxsw_sp);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index ef4ac89..f69aa37 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -214,6 +214,43 @@ struct mlxsw_sp_vr {
+ 	struct mlxsw_sp_fib *fib;
+ };
+ 
++enum mlxsw_sp_span_type {
++	MLXSW_SP_SPAN_EGRESS,
++	MLXSW_SP_SPAN_INGRESS
 +};
 +
-+static int __init cls_mall_init(void)
-+{
-+	return register_tcf_proto_ops(&cls_mall_ops);
-+}
++struct mlxsw_sp_span_inspected_port {
++	struct list_head list;
++	enum mlxsw_sp_span_type type;
++	u8 local_port;
++};
 +
-+static void __exit cls_mall_exit(void)
-+{
-+	unregister_tcf_proto_ops(&cls_mall_ops);
-+}
++struct mlxsw_sp_span_entry {
++	u8 local_port;
++	bool used;
++	struct list_head bound_ports_list;
++	int ref_count;
++	int id;
++};
 +
-+module_init(cls_mall_init);
-+module_exit(cls_mall_exit);
++enum mlxsw_sp_port_mall_action_type {
++	MLXSW_SP_PORT_MALL_MIRROR,
++};
 +
-+MODULE_AUTHOR("Jiri Pirko <jiri@mellanox.com>");
-+MODULE_DESCRIPTION("Match-all classifier");
-+MODULE_LICENSE("GPL v2");
++struct mlxsw_sp_port_mall_mirror_tc_entry {
++	u8 to_local_port;
++	bool ingress;
++};
++
++struct mlxsw_sp_port_mall_tc_entry {
++	struct list_head list;
++	unsigned long cookie;
++	enum mlxsw_sp_port_mall_action_type type;
++	union {
++		struct mlxsw_sp_port_mall_mirror_tc_entry mirror;
++	};
++};
++
+ struct mlxsw_sp_router {
+ 	struct mlxsw_sp_lpm_tree lpm_trees[MLXSW_SP_LPM_TREE_COUNT];
+ 	struct mlxsw_sp_vr vrs[MLXSW_SP_VIRTUAL_ROUTER_MAX];
+@@ -260,6 +297,11 @@ struct mlxsw_sp {
+ 	struct {
+ 		DECLARE_BITMAP(usage, MLXSW_SP_KVD_LINEAR_SIZE);
+ 	} kvdl;
++
++	struct {
++		struct mlxsw_sp_span_entry *entries;
++		int entries_count;
++	} span;
+ };
+ 
+ static inline struct mlxsw_sp_upper *
+@@ -316,6 +358,8 @@ struct mlxsw_sp_port {
+ 	unsigned long *untagged_vlans;
+ 	/* VLAN interfaces */
+ 	struct list_head vports_list;
++	/* TC handles */
++	struct list_head mall_tc_list;
+ };
+ 
+ struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
 -- 
 2.5.5
