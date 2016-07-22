@@ -1,140 +1,36 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [net-next PATCH 1/3] net: phy: dp83867: Add documentation for
- optional impedance control
-Date: Fri, 22 Jul 2016 15:35:46 +0530
-Message-ID: <959bac39-ccd6-8338-a9f4-7f56f63b0478@ti.com>
-References: <20160720145614.13132-1-mugunthanvnm@ti.com>
- <20160720145614.13132-2-mugunthanvnm@ti.com> <578F99D3.9090601@ti.com>
- <57906A2C.7010201@ti.com> <20160721211429.GA17696@rob-hp-laptop>
+From: khalasa@piap.pl (Krzysztof =?utf-8?Q?Ha=C5=82asa?=)
+Subject: Re: Aw: BUG: Wrong dma queue handling in ixp4 driver
+Date: Fri, 22 Jul 2016 12:14:51 +0200
+Message-ID: <m3lh0urnc4.fsf@t19.piap.pl>
+References: <trinity-275fae16-c9c8-4503-85fe-5585fb014c7a-1468926357992@3capp-gmx-bs21>
+	<trinity-28228d79-2b64-4d9c-89c2-6ce288a8ed49-1468927909503@3capp-gmx-bs21>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Nishanth Menon <nm@ti.com>, <netdev@vger.kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Tony Lindgren <tony@atomide.com>,
-	Russell King <linux@armlinux.org.uk>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	<devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>
-To: Rob Herring <robh@kernel.org>, Sekhar Nori <nsekhar@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([198.47.19.11]:34146 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752452AbcGVKGj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 06:06:39 -0400
-In-Reply-To: <20160721211429.GA17696@rob-hp-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <trinity-28228d79-2b64-4d9c-89c2-6ce288a8ed49-1468927909503@3capp-gmx-bs21>
+	(Lino Sanfilippo's message of "Tue, 19 Jul 2016 13:31:49 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Rob,
+Hi Lino,
 
-On Friday 22 July 2016 02:44 AM, Rob Herring wrote:
-> On Thu, Jul 21, 2016 at 11:52:36AM +0530, Sekhar Nori wrote:
->> Nishanth,
->>
->> On Wednesday 20 July 2016 09:03 PM, Nishanth Menon wrote:
->>> On 07/20/2016 09:56 AM, Mugunthan V N wrote:
->>>> Add documention of ti,impedance-control which can be used to
->>>> correct MAC impedance mismatch using phy extended registers.
->>>>
->>>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->>>> ---
->>>>   Documentation/devicetree/bindings/net/ti,dp83867.txt | 7 +++++++
->>>>   1 file changed, 7 insertions(+)
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt
->>>> b/Documentation/devicetree/bindings/net/ti,dp83867.txt
->>>> index 5d21141..531ea3c5 100644
->>>> --- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
->>>> +++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
->>>> @@ -9,6 +9,13 @@ Required properties:
->>>>       - ti,fifo-depth - Transmitt FIFO depth- see
->>>> dt-bindings/net/ti-dp83867.h
->>>>           for applicable values
->>>>
->>>> +Optional property:
->>>> +    - ti,impedance-control - MAC Interface Impedance control to vary the
->>>> +                 output impedance with an approximate range
->>>> +                 from 35-70 ohms in 32 steps. Value range can
->>>> +                 be 0x0 to 0x1f. Lowest impedance value is
->>>> +                 0x1f and highest impedance being 0x0.
->>>> +
->>>
->>> Should'nt you be using the impedance values of 35 to 70 as the valid
->>> values here? that would be the hardware description, and the values to
->>> program corresponding to those are 0x00 to 0x1f. Right?
->>>
->>> Rob: is'nt that the right way to do it?
-> 
-> Normally, yes that is preferred. I don't have an issue with it here if 
-> that is what makes sense.
-> 
->> Agree that that is usually the right way to do it. I believe this case
->> is bit peculiar though. Here is the extract from the datasheet[1] about
->> how the register in question works.
->>
->> "
->> Output impedance approximate range from 35-70 ohms in 32 steps.
->> Lowest being 11110 and highest being 00000. Range and Step size
->> will vary with process.
->>
->> Default is set to 50 ohms by trim. But the default register value can
->> vary by process. Non default values of MAC I/O impedance can be
->> used based on trace impedance. Mismatch between device and
->> trace impedance can cause voltage overshoot and undershoot.
->> "
->>
->> So clearly, there is no easy correspondence that the hardware guarantees
->> between output impedance ohmage and the register value programmed. Only
->> couple of things are guaranteed.
->>
->> 1) Programming a value of 0 gives approximately 35 ohms
->> 2) Programming a value of 0x1F gives approximately 70 ohms
->> 3) Default value of the register gives 50 ohms (the default value could
->> vary by device).
->> 4) Programming a value in between will give some ohmage in the
->> approximate range 35-70 (curve is unknown).
+"Lino Sanfilippo" <LinoSanfilippo@gmx.de> writes:
 
-Sekhar got it wrong, programming 0x1F provides the minimum impedance of
-35 ohms and 0x0 provides the maximum impedance of 70 ohms.
+>> maybe I miss something, but the ixp4 ethernet driver seems to handle dma pools 
+>> in a wrong way: In init_queues() it creates a dma pool for descriptors and then
+>>  only allocates a single descriptor from this pool. The author seems to assume the whole
+>> table has been allocated already, since after that the complete pool size is zeroed:
+>> 
+>
+> Sorry, I indeed missed something. The allocation is correct. A pool is not required, though,
+> since only one chunk is allocated.
 
->>
->> Given this, I am not sure how one can convert a given user supplied ohms
->> values to a reasonable register value. Clearly, the register is supposed
->> to be programmed by experimentation, not calculation.
-> 
-> So your are going to change from a known value tuned for the individual 
-> Si (50ohm) to the same value for all chips (at least for a given board). 
-> Or does this get set by firmware at boot? If not, seems like you would 
-> want to specify a delta from the default register value in this case.
+Not really: there is one pool for all ports, but each port uses
+a separate desc_tab (allocated from that pool).
+-- 
+Krzysztof Halasa
 
-The delta will not be constant for each steps of the register content.
-So this approach cannot be taken.
-
-> 
->> That said, we could take another approach. At least for the current
->> issue we are trying to address, we only need to configure the register
->> to max value. And given the nature of the register, I am pretty sure
->> that is what most people will end up doing.
-> 
-> How does the max value get determined? Possibly it should just be set in 
-> the kernel.
-
-Yes, the min/max value will be determined in the kernel and the DT will
-have either of the properties below.
-
->  
->> So, may be we have two properties:
->>
->> ti,max-output-impedance
->> ti,min-output-imepdance
-> 
-> Just define max if that's all you currently need.
-
-Currently we care about only the min-output-impedance (register content
-0x1f). Will respin the patch using ti,min-output-impedance.
-
-Regards
-Mugunthan V N
+Industrial Research Institute for Automation and Measurements PIAP
+Al. Jerozolimskie 202, 02-486 Warsaw, Poland
