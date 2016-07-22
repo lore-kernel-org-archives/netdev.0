@@ -1,50 +1,51 @@
-From: Nikolay Borisov <kernel@kyup.com>
-Subject: ref count of ib_ipoib.ko not incremented when an ip address is set
-Date: Fri, 22 Jul 2016 11:16:02 +0300
-Message-ID: <5791D642.9050609@kyup.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, sean.hefty@intel.com,
-	dledford@redhat.com,
-	SiteGround Operations <operations@siteground.com>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: support ipv6 nonlocal bind
+Date: Fri, 22 Jul 2016 17:38:51 +0800
+Message-ID: <b3a6fd04f36bcfc5557d70ba79cddfc9c5d33b3c.1469180331.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:38286 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751441AbcGVIQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 04:16:08 -0400
-Received: by mail-wm0-f46.google.com with SMTP id o80so54330553wme.1
-        for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 01:16:05 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33989 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770AbcGVJi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 05:38:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, 
+This patch makes sctp support ipv6 nonlocal bind by adding
+sp->inet.freebind and net->ipv6.sysctl.ip_nonlocal_bind
+check in sctp_v6_available as what sctp did to support
+ipv4 nonlocal bind (commit cdac4e077489).
 
-I accidentally saw that even having an ip address on an 
-ipoib interface doesn't increment the usage count of the 
-ib_ipoib.ko module: 
+Reported-by: Shijoe George <spanjikk@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/ipv6.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-ip a l dev ib0
-14: ib0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 65520 qdisc pfifo_fast state UP qlen 256
-    link/infiniband 80:00:02:d4:fe:80:00:00:00:00:00:00:e4:1d:2d:03:00:00:f8:31 brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
-    inet 172.16.0.150/24 brd 172.16.0.255 scope global ib0
-       valid_lft forever preferred_lft forever
-
-lsmod | grep ib_ipoib
-ib_ipoib               79026  0 
-ib_cm                  34144  3 ib_ipoib,ib_ucm,rdma_cm
-ib_sa                  26598  5 ib_ipoib,rdma_ucm,rdma_cm,ib_cm,mlx4_ib
-ib_core                97620  10 ib_ipoib,ib_ucm,ib_uverbs,rdma_cm,iw_cm,ib_umad,ib_cm,mlx4_ib,ib_sa,ib_mad
-ipv6                  374806  259 ib_ipoib,rdma_cm,ib_addr,[permanent]
-
-
-In this case I can rmmod ib_ipoib.ko which would remove, 
-but in practice I've observed that when an ip address is set
-the underlying module providing the interface usually gets
-its ref count incremented. Is this normal or is a 
-refcount increment is amiss?
-
-Regards, 
-Nikolay 
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index ae6f1a2..660c4a4 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -560,6 +560,7 @@ static int sctp_v6_is_any(const union sctp_addr *addr)
+ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
+ {
+ 	int type;
++	struct net *net = sock_net(&sp->inet.sk);
+ 	const struct in6_addr *in6 = (const struct in6_addr *)&addr->v6.sin6_addr;
+ 
+ 	type = ipv6_addr_type(in6);
+@@ -574,7 +575,8 @@ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
+ 	if (!(type & IPV6_ADDR_UNICAST))
+ 		return 0;
+ 
+-	return ipv6_chk_addr(sock_net(&sp->inet.sk), in6, NULL, 0);
++	return sp->inet.freebind || net->ipv6.sysctl.ip_nonlocal_bind ||
++		ipv6_chk_addr(net, in6, NULL, 0);
+ }
+ 
+ /* This function checks if the address is a valid address to be used for
+-- 
+2.1.0
