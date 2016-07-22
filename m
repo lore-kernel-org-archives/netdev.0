@@ -1,70 +1,65 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Fri, 22 Jul 2016 14:46:52 -0700
-Message-ID: <CAGXu5j+X7eWggkwpBpABsFe4hqK5LN1mYJ2TH91qj3iSe6rtcQ@mail.gmail.com>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org> <87d1m754jc.fsf@x220.int.ebiederm.org>
- <1469194399.3817016.673814953.7581706C@webmail.messagingengine.com> <87poq5y0jw.fsf@x220.int.ebiederm.org>
+From: Doug Applegate <doug.applegate@gmail.com>
+Subject: [PATCH RFC 0/1] xfrm: dst lookup doesn't account for fwmark
+Date: Fri, 22 Jul 2016 15:50:30 -0600
+Message-ID: <CACwzwmXfY3rpWfaspveT3JvumhPXYrMCH3TUwM1WNgEFKZ_t4A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Colin Walters <walters@verbum.org>,
-	Linux Containers <containers@lists.linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Jann Horn <jann@thejh.net>, Nikolay Borisov <kernel@kyup.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux API <linux-api@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87poq5y0jw.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:36429 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751493AbcGVVuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 17:50:32 -0400
+Received: by mail-yw0-f196.google.com with SMTP id u134so8194581ywg.3
+        for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 14:50:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 22, 2016 at 11:45 AM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Colin Walters <walters@verbum.org> writes:
->
->> On Thu, Jul 21, 2016, at 12:39 PM, Eric W. Biederman wrote:
->>>
->>> This patchset addresses two use cases:
->>> - Implement a sane upper bound on the number of namespaces.
->>> - Provide a way for sandboxes to limit the attack surface from
->>>   namespaces.
->>
->> Perhaps this is obvious, but since you didn't quite explicitly state it;
->> do you see this as obsoleting the existing downstream patches
->> mentioned in:
->> https://lwn.net/Articles/673597/
->> It seems conceptually similar to Kees' original approach, right?
->
-> Similar yes, and I expect it fills the need.  My primary difference is
-> that I believe this approach makes sense from a perspective of assuming
-> that user namespaces or other namespaces are not any buggier than any
-> other piece of kernel code and that people will use them.
->
-> I don't see these limits making sense from a perspective that user
-> namespaces are flawed and distro kernels should not have enabled them in
-> the first place.  That was my perception right or wrong of Kees patches
-> and the related patches that landed in Ubuntu and Debian.
->
-> With Kees approach I could not see how to handle the case where some
-> applications on the system wanted user namespaces and others don't.
-> Which made it very nasty for future evolution and more deployment of
-> user namespaces.  Being per user namespace these limits can be used to
-> sandbox applications without affecting the rest of the system.
+I ran into an issue trying to route outgoing ipsec traffic from an
+ipsec responder hub that uses fwmark to route out a specific
+interface. The fwmark points to a route table that contains a default
+route out a specific interface.  The fwmark is applied based on
+incoming interface of incoming traffic. I noticed that the mark was
+not being used when doing a route lookup. Is there any reason why this
+is? If not does this patch look reasonable? I just followed similar
+logic to how TOS was being used before route-lookup. I've only tested
+on an earlier kernel (3.14) and it works. Thanks!
 
-While it certainly works for my use-case (init ns
-max_usernamespaces=0), I don't see how this helps the case of "let
-user foobar open 1 userns, but everyone else is 0", which is likely
-the middle ground between "just turn it off" and "everyone gets to
-create usernamespaces". I'm personally not interested in that level of
-granularity, but in earlier discussions it sounded like this was
-something you wanted?
+Here's an example:
 
--Kees
+The ipsec policy is simple, just a tunnel from 192.168.0.0/24 <-->
+192.168.1.0/24 the ipsec hub is at 35.0.0.1 but when traffic is being
+responded too, instead of the expected interface (eth2) we end it out
+a different interface (eth0)
 
--- 
-Kees Cook
-Chrome OS & Brillo Security
+route table:
+# ip rule list
+0: from all lookup local
+32766: from all lookup main
+32767: from all lookup default
+40000: from all fwmark 0x2 lookup 3
+40000: from all fwmark 0x4 lookup 4
+50000: from all lookup 3
+
+# ip route
+25.0.0.0/30 dev eth0  src 25.0.0.1
+35.0.0.0/30 dev eth2  src 35.0.0.1
+192.168.1.0/24 dev lan1  src 192.168.1.1
+
+# ip route list table 4
+default via 35.0.0.2 dev eth2 onlink
+# ip route list table 3
+default via 25.0.0.2 dev eth0 onlink
+
+I noticed this in netfilter trace, traffic matches the ipsec policy:
+[   85.910365] TRACE: mangle:PREROUTING:rule:4 IN=lan1 OUT=
+MAC=00:30:44:ff:b6:43:42:17:87:41:3c:eb:08:00 SRC=192.168.1.5
+DST=192.168.0.5 LEN=84 TOS=0x00 PREC=0x00 TTL=64 ID=35127 PROTO=ICMP
+TYPE=0 CODE=0 ID=15069 SEQ=1 MARK=0x4
+[   85.911895] TRACE: mangle:FORWARD:rule:2 IN=lan1 ***OUT=eth0***
+MAC=00:30:44:ff:b6:43:42:17:87:41:3c:eb:08:00 SRC=192.168.1.5
+DST=192.168.0.5 LEN=84 TOS=0x00 PREC=0x00 TTL=63 ID=35127 PROTO=ICMP
+TYPE=0 CODE=0 ID=15069 SEQ=1 MARK=0x4
