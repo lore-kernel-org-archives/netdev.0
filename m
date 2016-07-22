@@ -1,104 +1,83 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next v2 0/9] mlxsw: implement port mirroring offload
-Date: Fri, 22 Jul 2016 11:24:31 -0700
-Message-ID: <4304f9b7-a0ab-aee7-fdc7-1fe68cd9b250@gmail.com>
-References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
+Date: Fri, 22 Jul 2016 13:45:07 -0500
+Message-ID: <87poq5y0jw.fsf@x220.int.ebiederm.org>
+References: <8737n5dscy.fsf@x220.int.ebiederm.org>
+	<87d1m754jc.fsf@x220.int.ebiederm.org>
+	<1469194399.3817016.673814953.7581706C@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, eladr@mellanox.com,
-	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	jhs@mojatatu.com, Andrew Lunn <andrew@lunn.ch>
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34209 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752070AbcGVSYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 14:24:34 -0400
-Received: by mail-pa0-f68.google.com with SMTP id hh10so7369403pac.1
-        for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 11:24:34 -0700 (PDT)
-In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
+To: Colin Walters <walters-gPq2gbYjIk8dnm+yROfE0A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1469194399.3817016.673814953.7581706C-2RFepEojUI2N1INw9kWLP6GC3tUn3ZHUQQ4Iyu8u01E@public.gmane.org>
+	(Colin Walters's message of "Fri, 22 Jul 2016 09:33:19 -0400")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 07/21/2016 03:03 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> This patchset introduces tc matchall classifier and its offload
-> to Spectrum hardware. In combination with mirred action, defined port mirroring
-> setup is offloaded by mlxsw/spectrum driver.
-> 
-> The commands used for creating mirror ports:
-> 
-> # ingress mirroring using matchall
-> tc qdisc  add dev eth25 handle ffff: ingress
-> tc filter add dev eth25 parent ffff:            \
->         matchall skip_sw                        \
->         action mirred egress mirror             \
->         dev eth27
-> 
-> # egress mirroring using matchall
-> tc qdisc add dev eth25 handle 1: root prio
-> tc filter add dev eth25 parent 1:               \
->         matchall skip_sw                        \
->         action mirred egress mirror             \
->         dev eth27
+Colin Walters <walters-gPq2gbYjIk8dnm+yROfE0A@public.gmane.org> writes:
 
-Is there any logic that guards against the following cases where the
-target device is:
+> On Thu, Jul 21, 2016, at 12:39 PM, Eric W. Biederman wrote:
+>> 
+>> This patchset addresses two use cases:
+>> - Implement a sane upper bound on the number of namespaces.
+>> - Provide a way for sandboxes to limit the attack surface from
+>>   namespaces.
+>
+> Perhaps this is obvious, but since you didn't quite explicitly state it;
+> do you see this as obsoleting the existing downstream patches
+> mentioned in:
+> https://lwn.net/Articles/673597/
+> It seems conceptually similar to Kees' original approach, right?
 
-- outside of the switch hardware/cluster (which would imply going
-through software)?
-- has a downstream speed which is lower than the mirrored device?
+Similar yes, and I expect it fills the need.  My primary difference is
+that I believe this approach makes sense from a perspective of assuming
+that user namespaces or other namespaces are not any buggier than any
+other piece of kernel code and that people will use them.
 
-this might already be in place for 1), I just could not locate it, thanks!
+I don't see these limits making sense from a perspective that user
+namespaces are flawed and distro kernels should not have enabled them in
+the first place.  That was my perception right or wrong of Kees patches
+and the related patches that landed in Ubuntu and Debian.
 
-> 
-> These patches contain:
->  - Resource query implementation
->  - Hardware port mirorring support for spectrum.
->  - Definition of the matchall traffic classifier.
->  - General support for hw-offloading for that classifier.
->  - Specific spectrum implementaion for matchall offloading.
-> 
-> ---
-> v1->v2:
->  - couple of minor style fixes
-> 
-> Jiri Pirko (1):
->   net/sched: introduce Match-all classifier
-> 
-> Nogah Frankel (2):
->   mlxsw: pci: Add resources query implementation.
->   mlxsw: pci: Add max span resources to resources query
-> 
-> Yotam Gigi (6):
->   net/sched: Add match-all classifier hw offloading.
->   mlxsw: reg: Add Shared Buffer Internal Buffer register
->   mlxsw: reg: Add Monitoring Port Analyzer Table register
->   mlxsw: reg: Add the Monitoring Port Analyzer register
->   net/sched: act_mirred: Add helper inlines to access tcf_mirred info.
->   mlxsw: spectrum: Add support in matchall mirror TC offloading
-> 
->  drivers/net/ethernet/mellanox/mlxsw/cmd.h      |  32 ++
->  drivers/net/ethernet/mellanox/mlxsw/core.c     |  10 +-
->  drivers/net/ethernet/mellanox/mlxsw/core.h     |  11 +-
->  drivers/net/ethernet/mellanox/mlxsw/pci.c      |  64 +++-
->  drivers/net/ethernet/mellanox/mlxsw/reg.h      | 162 +++++++++
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 465 ++++++++++++++++++++++++-
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  44 +++
->  drivers/net/ethernet/mellanox/mlxsw/switchx2.c |   1 +
->  include/linux/netdevice.h                      |   2 +
->  include/net/pkt_cls.h                          |  11 +
->  include/net/tc_act/tc_mirred.h                 |   9 +
->  include/uapi/linux/pkt_cls.h                   |  12 +
->  net/sched/Kconfig                              |  10 +
->  net/sched/Makefile                             |   1 +
->  net/sched/cls_matchall.c                       | 318 +++++++++++++++++
->  15 files changed, 1148 insertions(+), 4 deletions(-)
->  create mode 100644 net/sched/cls_matchall.c
-> 
+With Kees approach I could not see how to handle the case where some
+applications on the system wanted user namespaces and others don't.
+Which made it very nasty for future evolution and more deployment of
+user namespaces.  Being per user namespace these limits can be used to
+sandbox applications without affecting the rest of the system.
 
+> The high level makes sense to me...most interesting is
+> per-userns sysctls.  I'll note most current container managers
+> mount /proc/sys read-only, and Docker specifically drops
+> CAP_SYS_RESOURCE by default, so they'd likely need to learn
+> how to undo that if one wanted to support recursive container usage.
+> We'd probably need to evaluate the safety of having /proc/sys
+> writable generally.  (Also it's rather common to filter out CLONE_NEWUSER
+> via seccomp, but that's easy to undo)
 
--- 
-Florian
+Just using a user namespace replaces most of those precautions.
+
+> But that's the flip side - if we're aiming primarily for an upstreamable
+> way to *limit* namespace usage, it seems sane to me.
+
+Yes.  The primary target is to stop applications that have gone buggy
+and allocated a crazy number of namespaces.  The secondary target
+is to allow sandboxes to disable creation of additional namespaces.
+Just set the limit to 0 and drop caps, or similarly set the limit
+to 1 and create another fresh set of nested namespaces.
+
+Eric
