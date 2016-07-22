@@ -1,146 +1,89 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v4 1/2] bpf: Add bpf_probe_write BPF helper to be called
- in tracers (kprobes)
-Date: Thu, 21 Jul 2016 19:14:55 -0700
-Message-ID: <20160722021454.GA135@ast-mbp.thefacebook.com>
-References: <20160722010915.GA22992@ircssh.c.rugged-nimbus-611.internal>
+From: Stefan Lippers-Hollmann <s.l-h@gmx.de>
+Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
+Date: Fri, 22 Jul 2016 04:39:22 +0200
+Message-ID: <20160722043922.0a878698@mir>
+References: <20160719153403.2967812-1-arnd@arndb.de>
+	<3876342.AU5AfU16PB@wuerfel>
+	<wrfjk2ggpbmw.fsf@redhat.com>
+	<8046944.AyQGVaNKWH@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	daniel@iogearbox.net
-To: Sargun Dhillon <sargun@sargun.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160722010915.GA22992@ircssh.c.rugged-nimbus-611.internal>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/L85adD7xhDL_cl8UJmadEcc"; protocol="application/pgp-signature"
+Cc: Jes Sorensen <Jes.Sorensen@redhat.com>,
+	linux-wireless@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
+	devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+	Andrea Merello <andrea.merello@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.19]:58045 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750884AbcGVCjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Jul 2016 22:39:45 -0400
+In-Reply-To: <8046944.AyQGVaNKWH@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2016 at 06:09:17PM -0700, Sargun Dhillon wrote:
-> This allows user memory to be written to during the course of a kprobe.
-> It shouldn't be used to implement any kind of security mechanism
-> because of TOC-TOU attacks, but rather to debug, divert, and
-> manipulate execution of semi-cooperative processes.
-> 
-> Although it uses probe_kernel_write, we limit the address space
-> the probe can write into by checking the space with access_ok.
-> This is so the call doesn't sleep.
-> 
-> Given this feature is experimental, and has the risk of crashing
-> the system, we print a warning on invocation.
-> 
-> It was tested with the tracex7 program on x86-64.
-> 
-> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  include/uapi/linux/bpf.h  | 12 ++++++++++++
->  kernel/bpf/verifier.c     |  9 +++++++++
->  kernel/trace/bpf_trace.c  | 37 +++++++++++++++++++++++++++++++++++++
->  samples/bpf/bpf_helpers.h |  2 ++
->  4 files changed, 60 insertions(+)
-> 
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 2b7076f..4536282 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -365,6 +365,18 @@ enum bpf_func_id {
->  	 */
->  	BPF_FUNC_get_current_task,
->  
-> +	/**
-> +	 * bpf_probe_write(void *dst, void *src, int len)
-> +	 * safely attempt to write to a location
-> +	 * @dst: destination address in userspace
-> +	 * @src: source address on stack
-> +	 * @len: number of bytes to copy
-> +	 * Return:
-> +	 *   Returns number of bytes that could not be copied.
-> +	 *   On success, this will be zero
+--Sig_/L85adD7xhDL_cl8UJmadEcc
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-that is odd comment.
-there are only three possible return values 0, -EFAULT, -EPERM
+Hi
 
-> +	 */
-> +	BPF_FUNC_probe_write,
-> +
->  	__BPF_FUNC_MAX_ID,
->  };
->  
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index f72f23b..6785008 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -1154,6 +1154,15 @@ static int check_call(struct verifier_env *env, int func_id)
->  		return -EINVAL;
->  	}
->  
-> +	if (func_id == BPF_FUNC_probe_write) {
-> +		pr_warn_once("************************************************\n");
-> +		pr_warn_once("* bpf_probe_write: Experimental Feature in use *\n");
-> +		pr_warn_once("* bpf_probe_write: Feature may corrupt memory  *\n");
-> +		pr_warn_once("************************************************\n");
-> +		pr_notice_ratelimited("bpf_probe_write in use by: %.16s-%d",
-> +				      current->comm, task_pid_nr(current));
-> +	}
+On 2016-07-20, Arnd Bergmann wrote:
+> On Wednesday, July 20, 2016 11:33:43 AM CEST Jes Sorensen wrote:
+> > Arnd Bergmann <arnd@arndb.de> writes: =20
+> > > On Wednesday, July 20, 2016 7:25:19 AM CEST Jes Sorensen wrote: =20
+> > >> Arnd Bergmann <arnd@arndb.de> writes:
+[...]
+> Yes, I was just agreeing here that it's not worth doing that one.
+> As far as I can see, the evolution of these devices is
+>=20
+> RTL81xxU (2008)
+> RTL81xxSU (2009)
+> RTL81xxCU (2010)
 
-I think single line pr_notice_ratelimited() with 'feature may corrupt user memory'
-will be enough.
-Also please move this to tracing specific part into bpf_trace.c
-similar to bpf_get_trace_printk_proto() instead of verifier.c
+There is also RTL81xxDU, apparently from 2011, a dualband device
+coming in several variants (single MAC + single PHY, double MAC +
+double PHY and double PHY); e.g. 0bda:8194 (single PHY + single MAC).
 
-> +static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> +{
-> +	void *unsafe_ptr = (void *) (long) r1;
-> +	void *src = (void *) (long) r2;
-> +	int size = (int) r3;
-> +	struct task_struct *task = current;
-> +
-> +	/*
+While probably not overly common, it was/ is (hardware-wise) a pretty
+interesting device due to its support for 5 GHz[1] - actually I hoped
+it to be a (supported-) RTL8192CU variant when I bought it.=20
+Unfortunately no driver[2] made it to staging or the proper kernel.
 
-bpf_trace.c follows non-net comment style, so it's good here.
-just distracting vs the rest of net style.
+> RTL81xxEU (2013)
 
-> +	 * Ensure we're in a user context which it is safe for the helper
-> +	 * to run. This helper has no business in a kthread
-> +	 *
-> +	 * access_ok should prevent writing to non-user memory, but on
-> +	 * some architectures (nommu, etc...) access_ok isn't enough
-> +	 * So we check the current segment
-> +	 */
-> +
-> +	if (unlikely(in_interrupt() || (task->flags & PF_KTHREAD)))
-> +		return -EPERM;
+Regards
+	Stefan Lippers-Hollmann
 
-Should we also add a check for !PF_EXITING ?
-Like signals are not delivered to such tasks and I'm not sure
-what would be the state of mm of it.
+[1]	apparently even concurrent operations for the double MAC +=20
+	double PHY variants
+[2]	https://github.com/lwfinger/rtl8192du
 
-> +	if (unlikely(segment_eq(get_fs(), KERNEL_DS)))
-> +		return -EPERM;
-> +	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
-> +		return -EPERM;
-> +
-> +	return probe_kernel_write(unsafe_ptr, src, size);
-> +}
-> +
-> +static const struct bpf_func_proto bpf_probe_write_proto = {
-> +	.func		= bpf_probe_write,
-> +	.gpl_only	= true,
-> +	.ret_type	= RET_INTEGER,
-> +	.arg1_type	= ARG_ANYTHING,
-> +	.arg2_type	= ARG_PTR_TO_STACK,
-> +	.arg3_type	= ARG_CONST_STACK_SIZE,
+--Sig_/L85adD7xhDL_cl8UJmadEcc
+Content-Type: application/pgp-signature
+Content-Description: Digitale Signatur von OpenPGP
 
-I have 2nd thoughts on naming.
-I think 'consistency' with probe_read is actually hurting here.
-People derive semantic of the helper mainly from the name.
-If we call it bpf_probe_read, it would mean that it's generic
-writing function, whereas bpf_copy_to_user has clear meaning
-that it's writing to user memory only.
-In other words bpf_probe_read and bpf_copy_to_user _are_ different
-functions with purpose that is easily seen in the name,
-whereas bpf_probe_read and bpf_probe_write look like a pair,
-but they're not. probe_read can read kernel and user memory,
-whereas probe_write only user.
-So bpf_copy_to_user is a more suitable name.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXkYdaAAoJEL/gLWWx0ULtJOAQALth9Ql/gy3Uokmf+DoVE5r0
+Dic6z2BA5lXA3yBGJ2y0CJePEvEJtQHkPON6iAmzw7YCVKbt20/p3KlYvGgdxvAb
+7CWgAvt9GzYEtx5hKg9W8ysY7bLakkYTgCA482yQFXEVxuemjg1M6p5xF8saJSaQ
+eopJu4pjGD/Zo1LA2qREx2qcPZrxCudnoWLpKMz0f5BVMBuTlJY2c6xehDKf7NJI
+XHicnrs2OpiHq9OC8I+pLjaaylZ4HRG24Y1n4sPEQG2z7UT7E0fIH3EXFZalVXKt
+TTP8LjT2p82iUevKUvV3X+xxF5BUWNlxRIIHJUB9CBgxGgRwEvS2bQc4NOyfn+no
+4Z74amAt0GG9/oIlIb5pnLr9QMRGxV7eVYmgodjZtzrppYS3Xe87KYg+AgPOGUxh
+N2+Znf9fjpcxcZ4m+3pwpu5h6Lk3yvzLtQg8SF0M/zKxSPaAh2gO1BFfjsY+Mi1i
+ZUEexeBHRgcN4MCAfb6Y3YMzkv+E/pLnp7SwOx7NdjiHuZ0rqnsSx2IBwCr331oM
+S9TPqFZL+Y3WicxLNftE1EBAFTsRqOmhglU1NiI6wxBHlWNBD0c7Zt+JfJm0OtGs
+N5VF6nQOdxiPDRdJIEaWKLm1tAYckqf0G8fgrKNqxQv6Yt++8rK3Wvt99002CiPC
+PZKGszcGQXsJaZMtoTlK
+=4sxX
+-----END PGP SIGNATURE-----
+
+--Sig_/L85adD7xhDL_cl8UJmadEcc--
