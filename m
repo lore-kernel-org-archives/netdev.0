@@ -1,38 +1,64 @@
-From: "Lino Sanfilippo" <LinoSanfilippo@gmx.de>
-Subject: Aw: Re:  BUG: Wrong dma queue handling in ixp4 driver
-Date: Fri, 22 Jul 2016 13:10:37 +0200
-Message-ID: <trinity-476a1417-ff29-42b6-8e14-6470cfbb788b-1469185837787@3capp-gmx-bs80>
-References: <trinity-275fae16-c9c8-4503-85fe-5585fb014c7a-1468926357992@3capp-gmx-bs21>
- <trinity-28228d79-2b64-4d9c-89c2-6ce288a8ed49-1468927909503@3capp-gmx-bs21>,
- <m3lh0urnc4.fsf@t19.piap.pl>
+From: Jes Sorensen <Jes.Sorensen@redhat.com>
+Subject: Re: [PATCH 2/3] staging/rtl8192e: use s8 instead of char
+Date: Fri, 22 Jul 2016 07:55:36 -0400
+Message-ID: <wrfjoa5phop3.fsf@redhat.com>
+References: <20160719153403.2967812-1-arnd@arndb.de>
+ <3876342.AU5AfU16PB@wuerfel> <wrfjk2ggpbmw.fsf@redhat.com>
+ <8046944.AyQGVaNKWH@wuerfel> <20160722043922.0a878698@mir>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?=22Krzysztof_Ha=C5=82asa=22?= <khalasa@piap.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:55099 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753329AbcGVLKk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 07:10:40 -0400
-In-Reply-To: <m3lh0urnc4.fsf@t19.piap.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org,
+ Mateusz Kulikowski <mateusz.kulikowski@gmail.com>,
+ Arnd Bergmann <arnd@arndb.de>, Andrea Merello <andrea.merello@gmail.com>,
+ netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Kalle Valo <kvalo@codeaurora.org>, Larry Finger <Larry.Finger@lwfinger.net>
+To: Stefan Lippers-Hollmann <s.l-h@gmx.de>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160722043922.0a878698@mir> (Stefan Lippers-Hollmann's message
+ of "Fri, 22 Jul 2016 04:39:22 +0200")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Krzysztof,
+Stefan Lippers-Hollmann <s.l-h@gmx.de> writes:
+> Hi
+>
+> On 2016-07-20, Arnd Bergmann wrote:
+>> On Wednesday, July 20, 2016 11:33:43 AM CEST Jes Sorensen wrote:
+>> > Arnd Bergmann <arnd@arndb.de> writes:  
+>> > > On Wednesday, July 20, 2016 7:25:19 AM CEST Jes Sorensen wrote:  
+>> > >> Arnd Bergmann <arnd@arndb.de> writes:
+> [...]
+>> Yes, I was just agreeing here that it's not worth doing that one.
+>> As far as I can see, the evolution of these devices is
+>> 
+>> RTL81xxU (2008)
+>> RTL81xxSU (2009)
+>> RTL81xxCU (2010)
+>
+> There is also RTL81xxDU, apparently from 2011, a dualband device
+> coming in several variants (single MAC + single PHY, double MAC +
+> double PHY and double PHY); e.g. 0bda:8194 (single PHY + single MAC).
+>
+> While probably not overly common, it was/ is (hardware-wise) a pretty
+> interesting device due to its support for 5 GHz[1] - actually I hoped
+> it to be a (supported-) RTL8192CU variant when I bought it. 
+> Unfortunately no driver[2] made it to staging or the proper kernel.
 
-> 
-> Not really: there is one pool for all ports, but each port uses
-> a separate desc_tab (allocated from that pool).
+I actually have one of those in my USB dongle box, but as you say, not
+overly common so not sure if/when I'll get to it.
 
-right, but even then using a dma pool seems to be a bit of overhead
-for only a few allocations. As far as I understood those pools are 
-meant for hundrets or thousands of rather small chunks.
- 
-I dont want to criticise it though, since the code at this place is surely
- not wrong. 
-My initial post was due to a misunderstanding of mine: I thought the 
-third parameter of dma_pool_create() is the total allocation size of all
-chunks (dont ask me how I came to this conclusion, I could not explain it now :/ ).
+Adding 8192du support for 2.4GHz to rtl8xxxu probably wouldn't be too
+complicated.
 
-Regards,
-Lino
+Cheers,
+Jes
