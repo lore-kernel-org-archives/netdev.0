@@ -1,132 +1,223 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next v2 0/9] mlxsw: implement port mirroring offload
-Date: Fri, 22 Jul 2016 12:26:30 -0700
-Message-ID: <b31ce9ad-3d64-5e4b-b616-8060e2e26b7c@gmail.com>
-References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
- <4304f9b7-a0ab-aee7-fdc7-1fe68cd9b250@gmail.com>
- <20160722192056.GB2050@nanopsycho.orion>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: iproute2 mpls max labels
+Date: Fri, 22 Jul 2016 14:20:31 -0500
+Message-ID: <87r3alv5s0.fsf@x220.int.ebiederm.org>
+References: <578A7BF0.2020107@nordu.net>
+	<57911A26.3080203@cumulusnetworks.com>
+	<8737n23goi.fsf@x220.int.ebiederm.org>
+	<5791BA22.7050309@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-	eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com, jhs@mojatatu.com,
-	Andrew Lunn <andrew@lunn.ch>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain
+Cc: Magnus Bergroth <bergroth@nordu.net>, netdev@vger.kernel.org,
+	Robert Shearman <rshearma@brocade.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35840 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752431AbcGVT0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 15:26:38 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y134so7704324pfg.3
-        for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 12:26:37 -0700 (PDT)
-In-Reply-To: <20160722192056.GB2050@nanopsycho.orion>
+Received: from out03.mta.xmission.com ([166.70.13.233]:48701 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751928AbcGVTdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 15:33:31 -0400
+In-Reply-To: <5791BA22.7050309@cumulusnetworks.com> (Roopa Prabhu's message of
+	"Thu, 21 Jul 2016 23:16:02 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2016 12:20 PM, Jiri Pirko wrote:
-> Fri, Jul 22, 2016 at 08:24:31PM CEST, f.fainelli@gmail.com wrote:
->> On 07/21/2016 03:03 AM, Jiri Pirko wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> This patchset introduces tc matchall classifier and its offload
->>> to Spectrum hardware. In combination with mirred action, defined port mirroring
->>> setup is offloaded by mlxsw/spectrum driver.
->>>
->>> The commands used for creating mirror ports:
->>>
->>> # ingress mirroring using matchall
->>> tc qdisc  add dev eth25 handle ffff: ingress
->>> tc filter add dev eth25 parent ffff:            \
->>>         matchall skip_sw                        \
->>>         action mirred egress mirror             \
->>>         dev eth27
->>>
->>> # egress mirroring using matchall
->>> tc qdisc add dev eth25 handle 1: root prio
->>> tc filter add dev eth25 parent 1:               \
->>>         matchall skip_sw                        \
->>>         action mirred egress mirror             \
->>>         dev eth27
->>
->> Is there any logic that guards against the following cases where the
->> target device is:
->>
->> - outside of the switch hardware/cluster (which would imply going
->> through software)?
-> 
-> In that case only kernel (slow) path can be used. Not possible to
-> offload of course.
+Roopa Prabhu <roopa@cumulusnetworks.com> writes:
 
-So then what happens if I target a device that is outside of the switch,
-do we get an error like -EOPNOTSUPP, or this just silently succeeed, but
-nothing happens?
-
-> 
-> 
->> - has a downstream speed which is lower than the mirrored device?
-> 
-> The default behaviour is "strict" which means that if the mirrored
-> packet can't be send, the packet is dropped. That is aligned with the
-> behaviour of act_mirred.
-
-What determines if the packet can be sent or not?
-
-> 
-> 
+> On 7/21/16, 1:00 PM, Eric W. Biederman wrote:
+>> Roopa Prabhu <roopa@cumulusnetworks.com> writes:
 >>
->> this might already be in place for 1), I just could not locate it, thanks!
+>>> On 7/16/16, 11:24 AM, Magnus Bergroth wrote:
+>>>> Wanted to use more than the default maximum of 8 mpls labels. Max labels
+>>>> seems to be hardcode to 8 in two places.
+>>>>
+>>>> --- iproute2-4.6.0/lib/utils.c    2016-05-18 20:56:02.000000000 +0200
+>>>> +++ iproute2-4.6.0-bergroth/lib/utils.c    2016-07-16 20:12:10.714958071
+>>>> +0200
+>>>> @@ -476,7 +476,7 @@
+>>>>          addr->bytelen = 4;
+>>>>          addr->bitlen = 20;
+>>>>          /* How many bytes do I need? */
+>>>> -        for (i = 0; i < 8; i++) {
+>>>> +        for (i = 0; i < MPLS_MAX_LABELS; i++) {
+>>>>              if (ntohl(addr->data[i]) & MPLS_LS_S_MASK) {
+>>>>                  addr->bytelen = (i + 1)*4;
+>>>>                  break;
+>>>>
+>>>>
+>>>> --- iproute2-4.6.0/include/utils.h    2016-05-18 20:56:02.000000000 +0200
+>>>> +++ iproute2-4.6.0-bergroth/include/utils.h    2016-07-15
+>>>> 11:55:57.297681742 +0200
+>>>> @@ -54,6 +54,9 @@
+>>>>  #define NEXT_ARG_FWD() do { argv++; argc--; } while(0)
+>>>>  #define PREV_ARG() do { argv--; argc++; } while(0)
+>>>>
+>>>> +/* Maximum number of labels the mpls helpers support */
+>>>> +#define MPLS_MAX_LABELS 8
+>>>> +
+>>>>  typedef struct
+>>>>  {
+>>>>      __u16 flags;
+>>>> @@ -61,7 +64,7 @@
+>>>>      __s16 bitlen;
+>>>>      /* These next two fields match rtvia */
+>>>>      __u16 family;
+>>>> -    __u32 data[8];
+>>>> +    __u32 data[MPLS_MAX_LABELS];
+>>>>  } inet_prefix;
+>>>>
+>> This structure is not MPLS specific so that is not appropriate to use
+>> MPLS_MAX_LABELS when definiting the structure.  Likewise changing this
+>> structure and limiting the changes to mpls parts of the code is not
+>> appropriate.
 >>
+>>>>  #define PREFIXLEN_SPECIFIED 1
+>>>> @@ -88,9 +91,6 @@
+>>>>  # define AF_MPLS 28
+>>>>  #endif
+>>>>
+>>>> -/* Maximum number of labels the mpls helpers support */
+>>>> -#define MPLS_MAX_LABELS 8
+>>>> -
+>>>>  __u32 get_addr32(const char *name);
+>>>>  int get_addr_1(inet_prefix *dst, const char *arg, int family);
+>>>>  int get_prefix_1(inet_prefix *dst, char *arg, int family);
+>>>>
+>>>>
+>>> I did not realize it is hardcoded to 8 in iproute2. Because kernel has a hard coded limit of
+>>> 2.
+>>> I think we need to fix it in a few places:
+>>> a) we should move the kernel #define to a uapi header file which iproute2 can use
+>>> b) there has been a general ask to bump the kernel MAX_LABELS from 2 and I don't see
+>>> a problem with it yet. so, we could bump it to 8.
 >>>
->>> These patches contain:
->>>  - Resource query implementation
->>>  - Hardware port mirorring support for spectrum.
->>>  - Definition of the matchall traffic classifier.
->>>  - General support for hw-offloading for that classifier.
->>>  - Specific spectrum implementaion for matchall offloading.
+>>> Were you planning to post patches for one or both of the above ?.
 >>>
->>> ---
->>> v1->v2:
->>>  - couple of minor style fixes
->>>
->>> Jiri Pirko (1):
->>>   net/sched: introduce Match-all classifier
->>>
->>> Nogah Frankel (2):
->>>   mlxsw: pci: Add resources query implementation.
->>>   mlxsw: pci: Add max span resources to resources query
->>>
->>> Yotam Gigi (6):
->>>   net/sched: Add match-all classifier hw offloading.
->>>   mlxsw: reg: Add Shared Buffer Internal Buffer register
->>>   mlxsw: reg: Add Monitoring Port Analyzer Table register
->>>   mlxsw: reg: Add the Monitoring Port Analyzer register
->>>   net/sched: act_mirred: Add helper inlines to access tcf_mirred info.
->>>   mlxsw: spectrum: Add support in matchall mirror TC offloading
->>>
->>>  drivers/net/ethernet/mellanox/mlxsw/cmd.h      |  32 ++
->>>  drivers/net/ethernet/mellanox/mlxsw/core.c     |  10 +-
->>>  drivers/net/ethernet/mellanox/mlxsw/core.h     |  11 +-
->>>  drivers/net/ethernet/mellanox/mlxsw/pci.c      |  64 +++-
->>>  drivers/net/ethernet/mellanox/mlxsw/reg.h      | 162 +++++++++
->>>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 465 ++++++++++++++++++++++++-
->>>  drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  44 +++
->>>  drivers/net/ethernet/mellanox/mlxsw/switchx2.c |   1 +
->>>  include/linux/netdevice.h                      |   2 +
->>>  include/net/pkt_cls.h                          |  11 +
->>>  include/net/tc_act/tc_mirred.h                 |   9 +
->>>  include/uapi/linux/pkt_cls.h                   |  12 +
->>>  net/sched/Kconfig                              |  10 +
->>>  net/sched/Makefile                             |   1 +
->>>  net/sched/cls_matchall.c                       | 318 +++++++++++++++++
->>>  15 files changed, 1148 insertions(+), 4 deletions(-)
->>>  create mode 100644 net/sched/cls_matchall.c
->>>
->>
->>
->> -- 
->> Florian
+>>> I can post them too. Let me know.
+>> a) I just looked and the kernel netlink protocol does not have a limit.
+>>    The kernel does have a limit but the netlink protocol does not  so
+>>    there is no point in exporting a limit in a uapi header,  it will
+>>    just be out of date and wrong.
+> sure, if you have concerns about making it part of uapi, we can
+> separately maintain the same limit in iproute2 and kernel.
 
+The different tools already have different limits and it is not
+a problem.  The important thing is for the userspace tool to have
+the larger limit.
 
--- 
-Florian
+>> b) I can see in principle bumping up the kernels MAX_LABELS past two
+>>    although I haven't heard those requests, or understand the use cases.
+>>    I don't recall seeing any ducumentation on cases where it is
+>>    desirable to push a lot of labels at once.  (Do hardware
+>>    implementations support pushing a lot of labels at once?)
+> I don't know of any use cases either. But i have received multiple requests
+> on bumping the current limit of two
+>>
+>>    Bumping past 8 seems quite a lot.  That starts feeling like people
+>>    trying to break other peoples mpls stacks.  That is asking for more
+>>    packet space for labels than ipv6 uses for addresses and ipv6 is way
+>>    oversized.  The commonly agreed wisdom is the world only needs 40 to
+>>    48 bits to route on to reach the entire world.  
+>>
+>>    I can completely understand a few specialty labels going beyond what
+>>    is needed for general purpose routing but pushing more that 8 at
+>>    once seems huge.  Especially since you can recirculate packets if
+>>    you really need to and push more labels that way.
+>
+> I don't think there is an ask for going more than 8. anything greater than
+> current 2 is good.
+
+Except the patch that got all of this started.
+
+>>    Add to that for a software implementation we have these pesky things
+>>    called cache lines.  I can see in the kernel pushing struct
+>>    mpls_route towards the size of a full cacheline.  Today we are at 52
+>>    bytes not counting the via adress.  With the via address we are at 56
+>>    (ipv4), 58 (ethernet), and 60 (ipv6) bytes.  Which means in we have
+>>    to make the kernel data structures smarter or we risk messing up the
+>>    performance of the common case.
+>>
+>>    Also we do need some kind of limit in the kernel to protect against
+>>    insane inputs.
+>>    
+>>    So while I can imagine there are reasonable cases for bumping up the
+>>    maximum number of labels in the kernel I think we need to be smart if
+>>    we ware going to do that.  Which probably means we will want a
+>>    __mpls_nh_label helper function.
+>>
+> sure, yes, the current static label array works well for the common case
+> of 2 labels. does it make sense for it to be configurable
+> with the default being 2 and max something like 8 ?
+
+We have two structures both with one byte holes:
+struct mpls_route { /* next hop label forwarding entry */
+	struct rcu_head		rt_rcu;
+	u8			rt_protocol;
+	u8			rt_payload_type;
+	u8			rt_max_alen;
+	unsigned int		rt_nhn;
+	unsigned int		rt_nhn_alive;
+	struct mpls_nh		rt_nh[0];
+};
+
+struct mpls_nh { /* next hop label forwarding entry */
+	struct net_device __rcu *nh_dev;
+	unsigned int		nh_flags;
+	u32			nh_label[MAX_NEW_LABELS];
+	u8			nh_labels;
+	u8			nh_via_alen;
+	u8			nh_via_table;
+};
+
+If we were to define them as:
+struct mpls_route { /* next hop label forwarding entry */
+	struct rcu_head		rt_rcu;
+	u8			rt_protocol;
+	u8			rt_payload_type;
+	u8			rt_max_alen;
+        u8			rt_max_labels;
+	unsigned int		rt_nhn;
+	unsigned int		rt_nhn_alive;
+	struct mpls_nh		rt_nh[0];
+};
+
+struct mpls_nh { /* next hop label forwarding entry */
+	struct net_device __rcu *nh_dev;
+	unsigned int		nh_flags;
+	u8			nh_labels;
+	u8			nh_via_alen;
+	u8			nh_via_table;
+};
+
+static 32 *__mpls_nh_labels(struct mpls_route *rt, struct mpls_nh *nh)
+{
+	u32 *nh0_labels = PTR_ALIGN((u32 *)&rt->rt_nh[rt->rt_nhn], sizeof(u32));
+	int nh_index = nh - rt->rt_nh;
+
+	return nh0_labels + rt->rt_max_labels * nh_index;
+}
+
+static u8 *__mpls_nh_via(struct mpls_route *rt, struct mpls_nh *nh)
+{
+	u8 *nh0_via = PTR_ALIGN((u8 *)(&rt->rt_nh[rt->rt_nhn] + (sizeof(u32) *rt->max_labels * rt->nhn)), VIA_ALEN_ALIGN);
+	int nh_index = nh - rt->rt_nh;
+
+	return nh0_via + rt->rt_max_alen * nh_index;
+}
+
+Ugh.  I just noticed we have a nasty 4 byte gap in the mpls_route by
+having both rt_nhn and rt_nhn_alive in there.  As rt_nh[0] has pointer
+alignment.
+
+Anyway something like the above should allow us to remove the limit
+of the number of labels from the implementation and still fit everything
+in a cache line in the common case, as the change above doesn't take up
+any extra space in struct mpls_route.
+
+Then we just pick a reasonable maximum and set MAX_NEW_LABELS to that.
+That will change struct mpls_route_config.  So we need a small enough
+value that putting struct mpls_route_config continues to make sense.
+I propose 8 for MAX_NEW_LABELS after such a change.
+
+It looks pretty straighforward on the kernel side.
+
+Eric
