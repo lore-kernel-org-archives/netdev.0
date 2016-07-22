@@ -1,52 +1,55 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next] net/ncsi: avoid maybe-uninitialized warning
-Date: Fri, 22 Jul 2016 10:11:40 +1000
-Message-ID: <20160722001140.GA9305@gwshan>
-References: <20160721192927.3182806-1-arnd@arndb.de>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: [PATCH v4 0/2] bpf: add bpf_probe_write helper & example
+Date: Thu, 21 Jul 2016 18:08:59 -0700
+Message-ID: <20160722010856.GA22966@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Joel Stanley <joel@jms.id.au>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:54015 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752790AbcGVALu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 20:11:50 -0400
-Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6M08gMi051336
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 20:11:49 -0400
-Received: from e23smtp06.au.ibm.com (e23smtp06.au.ibm.com [202.81.31.148])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 24aeh5u6pe-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 20:11:49 -0400
-Received: from localhost
-	by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Fri, 22 Jul 2016 10:11:44 +1000
+Received: from mail-it0-f48.google.com ([209.85.214.48]:37636 "EHLO
+	mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752814AbcGVBJC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 21:09:02 -0400
+Received: by mail-it0-f48.google.com with SMTP id f6so33431063ith.0
+        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 18:09:01 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160721192927.3182806-1-arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2016 at 09:28:34PM +0200, Arnd Bergmann wrote:
->gcc-4.9 and higher warn about the newly added NSCI code:
->
->net/ncsi/ncsi-manage.c: In function 'ncsi_process_next_channel':
->net/ncsi/ncsi-manage.c:1003:2: error: 'old_state' may be used uninitialized in this function [-Werror=maybe-uninitialized]
->
->The warning is a false positive and therefore harmless, but it would be good to
->avoid it anyway. I have determined that the barrier in the spin_unlock_irqsave()
->is what confuses gcc to the point that it cannot track whether the variable
->was unused or not.
->
->This rearranges the code in a way that makes it obvious to gcc that old_state
->is always initialized at the time of use, functionally this should not
->change anything.
->
->Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+This patch series contains two patches that add support for a probe_write
+helper to BPF programs. This allows them to manipulate user memory during
+the course of tracing. The second patch in the series has an example that
+uses it, in one the intended ways to divert execution.
 
-Acked-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Thanks to Alexei Starovoitov, and Daniel Borkmann for review, I've made 
+changes based on their recommendations.
+
+This helper should be considered experimental, so we print a warning
+to dmesg when it is first invoked. Subsequent invocations print the 
+command and pid
+
+---
+v1->v2: restrict writing to user space, as opposed to globally
+v2->v3: Fixed formatting issues
+v3->v4: Rename copy_to_user -> bpf_probe_write
+	Simplify checking of whether or not it's safe to write
+	Add warnings to dmesg
+
+Sargun Dhillon (2):
+  bpf: Add bpf_probe_write BPF helper to be called in tracers (kprobes)
+  samples/bpf: Add example of using bpf_probe_write in bpf kprobes
+
+ include/uapi/linux/bpf.h   | 12 ++++++++
+ kernel/bpf/verifier.c      |  9 ++++++
+ kernel/trace/bpf_trace.c   | 37 +++++++++++++++++++++++
+ samples/bpf/Makefile       |  4 +++
+ samples/bpf/bpf_helpers.h  |  2 ++
+ samples/bpf/tracex7_kern.c | 51 +++++++++++++++++++++++++++++++
+ samples/bpf/tracex7_user.c | 75 ++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 190 insertions(+)
+ create mode 100644 samples/bpf/tracex7_kern.c
+ create mode 100644 samples/bpf/tracex7_user.c
+
+-- 
+2.7.4
