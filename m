@@ -1,180 +1,252 @@
 From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: [PATCH 6/9] staging: slicoss: avoid PCI write posting
-Date: Fri, 22 Jul 2016 23:09:16 +0200
-Message-ID: <1469221759-17652-7-git-send-email-LinoSanfilippo@gmx.de>
+Subject: [PATCH 9/9] staging: slicoss: simplify struct for statistics
+Date: Fri, 22 Jul 2016 23:09:19 +0200
+Message-ID: <1469221759-17652-10-git-send-email-LinoSanfilippo@gmx.de>
 References: <1469221759-17652-1-git-send-email-LinoSanfilippo@gmx.de>
-Cc: devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Lino Sanfilippo <LinoSanfilippo@gmx.de>
-To: liodot@gmail.com, charrer@alacritech.com,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ Lino Sanfilippo <LinoSanfilippo@gmx.de>, linux-kernel@vger.kernel.org
+To: liodot@gmail.com,
+	charrer@alacritech.com,
 	gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1469221759-17652-1-git-send-email-LinoSanfilippo@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Introduce the function slic_flush_write() which reads from the HOSTID
-register and can be used to avoid PCI write posting. Use the function at
-several critical places in the code.
+Merge several structures for statistics to one structure and remove
+unnecessary union nesting.
 
 Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 ---
- drivers/staging/slicoss/slic.h    |  5 +++++
- drivers/staging/slicoss/slicoss.c | 19 ++++++++++++++++++-
- 2 files changed, 23 insertions(+), 1 deletion(-)
+ drivers/staging/slicoss/slic.h    | 18 +++++++++
+ drivers/staging/slicoss/slichw.h  | 79 ---------------------------------------
+ drivers/staging/slicoss/slicoss.c | 70 ++++++++++++++--------------------
+ 3 files changed, 47 insertions(+), 120 deletions(-)
 
 diff --git a/drivers/staging/slicoss/slic.h b/drivers/staging/slicoss/slic.h
-index 08d9f5b..230d30b 100644
+index 4ac1fd2..fe1d2ce 100644
 --- a/drivers/staging/slicoss/slic.h
 +++ b/drivers/staging/slicoss/slic.h
-@@ -511,6 +511,11 @@ static inline void slic_write64(struct adapter *adapter, unsigned int reg,
- 	spin_unlock_irqrestore(&adapter->bit64reglock, flags);
- }
+@@ -351,6 +351,24 @@ struct base_driver {
+ 	uint                 cardnuminuse[SLIC_MAX_CARDS];
+ };
  
-+static inline void slic_flush_write(struct adapter *adapter)
-+{
-+	ioread32(adapter->regs + SLIC_REG_HOSTID);
-+}
++struct slic_stats {
++	/* xmit stats */
++	u64 xmit_tcp_bytes;
++	u64 xmit_tcp_segs;
++	u64 xmit_bytes;
++	u64 xmit_collisions;
++	u64 xmit_unicasts;
++	u64 xmit_other_error;
++	u64 xmit_excess_collisions;
++	/* rcv stats */
++	u64 rcv_tcp_bytes;
++	u64 rcv_tcp_segs;
++	u64 rcv_bytes;
++	u64 rcv_unicasts;
++	u64 rcv_other_error;
++	u64 rcv_drops;
++};
 +
- #define UPDATE_STATS(largestat, newstat, oldstat)                        \
- {                                                                        \
- 	if ((newstat) < (oldstat))                                       \
+ struct slic_shmem_data {
+ 	u32 isr;
+ 	u32 lnkstatus;
+diff --git a/drivers/staging/slicoss/slichw.h b/drivers/staging/slicoss/slichw.h
+index ae04bf6..49cb91a 100644
+--- a/drivers/staging/slicoss/slichw.h
++++ b/drivers/staging/slicoss/slichw.h
+@@ -459,85 +459,6 @@ struct slic_pnp_capabilities {
+ 	struct slicpm_wakeup_capabilities wakeup_capabilities;
+ };
+ 
+-struct xmt_stats {
+-	u32 xmit_tcp_bytes;
+-	u32 xmit_tcp_segs;
+-	u32 xmit_bytes;
+-	u32 xmit_collisions;
+-	u32 xmit_unicasts;
+-	u32 xmit_other_error;
+-	u32 xmit_excess_collisions;
+-};
+-
+-struct rcv_stats {
+-	u32 rcv_tcp_bytes;
+-	u32 rcv_tcp_segs;
+-	u32 rcv_bytes;
+-	u32 rcv_unicasts;
+-	u32 rcv_other_error;
+-	u32 rcv_drops;
+-};
+-
+-struct xmt_statsgb {
+-	u64 xmit_tcp_bytes;
+-	u64 xmit_tcp_segs;
+-	u64 xmit_bytes;
+-	u64 xmit_collisions;
+-	u64 xmit_unicasts;
+-	u64 xmit_other_error;
+-	u64 xmit_excess_collisions;
+-};
+-
+-struct rcv_statsgb {
+-	u64 rcv_tcp_bytes;
+-	u64 rcv_tcp_segs;
+-	u64 rcv_bytes;
+-	u64 rcv_unicasts;
+-	u64 rcv_other_error;
+-	u64 rcv_drops;
+-};
+-
+-struct slic_stats {
+-	union {
+-		struct {
+-			struct xmt_stats xmt100;
+-			struct rcv_stats rcv100;
+-		} stats_100;
+-		struct {
+-			struct xmt_statsgb xmtGB;
+-			struct rcv_statsgb rcvGB;
+-		} stats_GB;
+-	} u;
+-};
+-
+-#define xmit_tcp_segs100		u.stats_100.xmt100.xmit_tcp_segs
+-#define xmit_tcp_bytes100		u.stats_100.xmt100.xmit_tcp_bytes
+-#define xmit_bytes100			u.stats_100.xmt100.xmit_bytes
+-#define xmit_collisions100		u.stats_100.xmt100.xmit_collisions
+-#define xmit_unicasts100		u.stats_100.xmt100.xmit_unicasts
+-#define xmit_other_error100		u.stats_100.xmt100.xmit_other_error
+-#define xmit_excess_collisions100	u.stats_100.xmt100.xmit_excess_collisions
+-#define rcv_tcp_segs100			u.stats_100.rcv100.rcv_tcp_segs
+-#define rcv_tcp_bytes100		u.stats_100.rcv100.rcv_tcp_bytes
+-#define rcv_bytes100			u.stats_100.rcv100.rcv_bytes
+-#define rcv_unicasts100			u.stats_100.rcv100.rcv_unicasts
+-#define rcv_other_error100		u.stats_100.rcv100.rcv_other_error
+-#define rcv_drops100			u.stats_100.rcv100.rcv_drops
+-#define xmit_tcp_segs_gb		u.stats_GB.xmtGB.xmit_tcp_segs
+-#define xmit_tcp_bytes_gb		u.stats_GB.xmtGB.xmit_tcp_bytes
+-#define xmit_bytes_gb			u.stats_GB.xmtGB.xmit_bytes
+-#define xmit_collisions_gb		u.stats_GB.xmtGB.xmit_collisions
+-#define xmit_unicasts_gb		u.stats_GB.xmtGB.xmit_unicasts
+-#define xmit_other_error_gb		u.stats_GB.xmtGB.xmit_other_error
+-#define xmit_excess_collisions_gb	u.stats_GB.xmtGB.xmit_excess_collisions
+-
+-#define rcv_tcp_segs_gb			u.stats_GB.rcvGB.rcv_tcp_segs
+-#define rcv_tcp_bytes_gb		u.stats_GB.rcvGB.rcv_tcp_bytes
+-#define rcv_bytes_gb			u.stats_GB.rcvGB.rcv_bytes
+-#define rcv_unicasts_gb			u.stats_GB.rcvGB.rcv_unicasts
+-#define rcv_other_error_gb		u.stats_GB.rcvGB.rcv_other_error
+-#define rcv_drops_gb			u.stats_GB.rcvGB.rcv_drops
+-
+ struct slic_config_mac {
+ 	u8 macaddrA[6];
+ };
 diff --git a/drivers/staging/slicoss/slicoss.c b/drivers/staging/slicoss/slicoss.c
-index edae0f7..0c2f86a0 100644
+index 9a8c6f9..7834bda 100644
 --- a/drivers/staging/slicoss/slicoss.c
 +++ b/drivers/staging/slicoss/slicoss.c
-@@ -268,6 +268,7 @@ static void slic_link_config(struct adapter *adapter,
- 				 */
- 				phy_config = (MIICR_REG_PCR | PCR_POWERDOWN);
- 				slic_reg32_write(wphy, phy_config, FLUSH);
-+				slic_flush_write(adapter);
- 				/*
- 				 * wait, Marvell says 1 sec,
- 				 * try to get away with 10 ms
-@@ -360,7 +361,7 @@ static void slic_link_config(struct adapter *adapter,
- 		/* power down phy to break link (this may not work)  */
- 		phy_config = (MIICR_REG_PCR | (PCR_POWERDOWN | speed | duplex));
- 		slic_reg32_write(wphy, phy_config, FLUSH);
--
-+		slic_flush_write(adapter);
- 		/* wait, Marvell says 1 sec, try to get away with 10 ms */
- 		mdelay(10);
+@@ -1015,61 +1015,49 @@ static void slic_upr_request_complete(struct adapter *adapter, u32 isr)
+ 			break;
+ 		}
  
-@@ -448,6 +449,8 @@ static int slic_card_download_gbrcv(struct adapter *adapter)
- 	/* download finished */
- 	release_firmware(fw);
- 	slic_reg32_write(&slic_regs->slic_rcv_wcs, SLIC_RCVWCS_FINISH, FLUSH);
-+	slic_flush_write(adapter);
-+
- 	return 0;
- }
+-		UPDATE_STATS_GB(stst->tcp.xmit_tcp_segs,
+-				stats->xmit_tcp_segs_gb,
+-				old->xmit_tcp_segs_gb);
++		UPDATE_STATS_GB(stst->tcp.xmit_tcp_segs, stats->xmit_tcp_segs,
++				old->xmit_tcp_segs);
  
-@@ -551,6 +554,7 @@ static int slic_card_download(struct adapter *adapter)
- 	/* Everything OK, kick off the card */
- 	mdelay(10);
- 	slic_reg32_write(&slic_regs->slic_wcs, SLIC_WCS_START, FLUSH);
-+	slic_flush_write(adapter);
+-		UPDATE_STATS_GB(stst->tcp.xmit_tcp_bytes,
+-				stats->xmit_tcp_bytes_gb,
+-				old->xmit_tcp_bytes_gb);
++		UPDATE_STATS_GB(stst->tcp.xmit_tcp_bytes, stats->xmit_tcp_bytes,
++				old->xmit_tcp_bytes);
  
- 	/*
- 	 * stall for 20 ms, long enough for ucode to init card
-@@ -591,11 +595,13 @@ static void slic_soft_reset(struct adapter *adapter)
- {
- 	if (adapter->card->state == CARD_UP) {
- 		slic_reg32_write(&adapter->slic_regs->slic_quiesce, 0, FLUSH);
-+		slic_flush_write(adapter);
- 		mdelay(1);
- 	}
+-		UPDATE_STATS_GB(stst->tcp.rcv_tcp_segs,
+-				stats->rcv_tcp_segs_gb,
+-				old->rcv_tcp_segs_gb);
++		UPDATE_STATS_GB(stst->tcp.rcv_tcp_segs, stats->rcv_tcp_segs,
++				old->rcv_tcp_segs);
  
- 	slic_reg32_write(&adapter->slic_regs->slic_reset, SLIC_RESET_MAGIC,
- 			 FLUSH);
-+	slic_flush_write(adapter);
- 	mdelay(1);
- }
+-		UPDATE_STATS_GB(stst->tcp.rcv_tcp_bytes,
+-				stats->rcv_tcp_bytes_gb,
+-				old->rcv_tcp_bytes_gb);
++		UPDATE_STATS_GB(stst->tcp.rcv_tcp_bytes, stats->rcv_tcp_bytes,
++				old->rcv_tcp_bytes);
  
-@@ -934,6 +940,7 @@ static void slic_upr_start(struct adapter *adapter)
- 		slic_reg32_write(&slic_regs->slic_ping, 1, FLUSH);
+-		UPDATE_STATS_GB(stst->iface.xmt_bytes,
+-				stats->xmit_bytes_gb,
+-				old->xmit_bytes_gb);
++		UPDATE_STATS_GB(stst->iface.xmt_bytes, stats->xmit_bytes,
++				old->xmit_bytes);
+ 
+-		UPDATE_STATS_GB(stst->iface.xmt_ucast,
+-				stats->xmit_unicasts_gb,
+-				old->xmit_unicasts_gb);
++		UPDATE_STATS_GB(stst->iface.xmt_ucast, stats->xmit_unicasts,
++				old->xmit_unicasts);
+ 
+-		UPDATE_STATS_GB(stst->iface.rcv_bytes,
+-				stats->rcv_bytes_gb,
+-				old->rcv_bytes_gb);
++		UPDATE_STATS_GB(stst->iface.rcv_bytes, stats->rcv_bytes,
++				old->rcv_bytes);
+ 
+-		UPDATE_STATS_GB(stst->iface.rcv_ucast,
+-				stats->rcv_unicasts_gb,
+-				old->rcv_unicasts_gb);
++		UPDATE_STATS_GB(stst->iface.rcv_ucast, stats->rcv_unicasts,
++				old->rcv_unicasts);
+ 
+-		UPDATE_STATS_GB(stst->iface.xmt_errors,
+-				stats->xmit_collisions_gb,
+-				old->xmit_collisions_gb);
++		UPDATE_STATS_GB(stst->iface.xmt_errors, stats->xmit_collisions,
++				old->xmit_collisions);
+ 
+ 		UPDATE_STATS_GB(stst->iface.xmt_errors,
+-				stats->xmit_excess_collisions_gb,
+-				old->xmit_excess_collisions_gb);
++				stats->xmit_excess_collisions,
++				old->xmit_excess_collisions);
+ 
+-		UPDATE_STATS_GB(stst->iface.xmt_errors,
+-				stats->xmit_other_error_gb,
+-				old->xmit_other_error_gb);
++		UPDATE_STATS_GB(stst->iface.xmt_errors, stats->xmit_other_error,
++				old->xmit_other_error);
+ 
+-		UPDATE_STATS_GB(stst->iface.rcv_errors,
+-				stats->rcv_other_error_gb,
+-				old->rcv_other_error_gb);
++		UPDATE_STATS_GB(stst->iface.rcv_errors, stats->rcv_other_error,
++				old->rcv_other_error);
+ 
+-		UPDATE_STATS_GB(stst->iface.rcv_discards,
+-				stats->rcv_drops_gb,
+-				old->rcv_drops_gb);
++		UPDATE_STATS_GB(stst->iface.rcv_discards, stats->rcv_drops,
++				old->rcv_drops);
+ 
+-		if (stats->rcv_drops_gb > old->rcv_drops_gb)
+-			adapter->rcv_drops += (stats->rcv_drops_gb -
+-					       old->rcv_drops_gb);
++		if (stats->rcv_drops > old->rcv_drops)
++			adapter->rcv_drops += (stats->rcv_drops -
++					       old->rcv_drops);
+ 		memcpy_fromio(old, stats, sizeof(*stats));
  		break;
  	}
-+	slic_flush_write(adapter);
- }
- 
- static int slic_upr_request(struct adapter *adapter,
-@@ -2153,6 +2160,7 @@ static irqreturn_t slic_interrupt(int irq, void *dev_id)
- 	if ((adapter->pshmem) && (adapter->pshmem->isr)) {
- 		slic_reg32_write(&adapter->slic_regs->slic_icr,
- 				 ICR_INT_MASK, FLUSH);
-+		slic_flush_write(adapter);
- 		isr = adapter->isrcopy = adapter->pshmem->isr;
- 		adapter->pshmem->isr = 0;
- 		adapter->num_isrs++;
-@@ -2337,6 +2345,7 @@ static int slic_if_init(struct adapter *adapter, unsigned long *flags)
- 	}
- 
- 	slic_reg32_write(&slic_regs->slic_icr, ICR_INT_OFF, FLUSH);
-+	slic_flush_write(adapter);
- 	mdelay(1);
- 
- 	if (!adapter->isp_initialized) {
-@@ -2390,11 +2399,13 @@ static int slic_if_init(struct adapter *adapter, unsigned long *flags)
- 	slic_reg32_write(&slic_regs->slic_icr, ICR_INT_ON, FLUSH);
- 
- 	slic_link_config(adapter, LINK_AUTOSPEED, LINK_AUTOD);
-+	slic_flush_write(adapter);
- 	rc = slic_link_event_handler(adapter);
- 	if (rc) {
- 		/* disable interrupts then clear pending events */
- 		slic_reg32_write(&slic_regs->slic_icr, ICR_INT_OFF, FLUSH);
- 		slic_reg32_write(&slic_regs->slic_isr, 0, FLUSH);
-+		slic_flush_write(adapter);
- 		if (adapter->pingtimerset) {
- 			del_timer(&adapter->pingtimer);
- 			adapter->pingtimerset = 0;
-@@ -2523,6 +2534,7 @@ static int slic_entry_halt(struct net_device *dev)
- #ifdef AUTOMATIC_RESET
- 	slic_reg32_write(&slic_regs->slic_reset_iface, 0, FLUSH);
- #endif
-+	slic_flush_write(adapter);
- 	/*
- 	 *  Reset the adapter's cmd queues
- 	 */
-@@ -2714,6 +2726,7 @@ static int slic_card_init(struct sliccard *card, struct adapter *adapter)
- 		memset(peeprom, 0, sizeof(struct slic_eeprom));
- 
- 		slic_reg32_write(&slic_regs->slic_icr, ICR_INT_OFF, FLUSH);
-+		slic_flush_write(adapter);
- 		mdelay(1);
- 		pshmem = (struct slic_shmem *)(unsigned long)
- 			 adapter->phys_shmem;
-@@ -2742,6 +2755,7 @@ static int slic_card_init(struct sliccard *card, struct adapter *adapter)
- 						0, FLUSH);
- 					slic_reg32_write(&slic_regs->slic_isr,
- 							 0, FLUSH);
-+					slic_flush_write(adapter);
- 
- 					slic_upr_request_complete(adapter, 0);
- 					break;
-@@ -2750,6 +2764,7 @@ static int slic_card_init(struct sliccard *card, struct adapter *adapter)
- 				adapter->pshmem->isr = 0;
- 				slic_reg32_write(&slic_regs->slic_isr,
- 						 0, FLUSH);
-+				slic_flush_write(adapter);
- 			} else {
- 				mdelay(1);
- 				i++;
-@@ -2760,6 +2775,7 @@ static int slic_card_init(struct sliccard *card, struct adapter *adapter)
- 						&slic_regs->slic_isp, 0,
- 						&slic_regs->slic_addr_upper,
- 						0, FLUSH);
-+					slic_flush_write(adapter);
- 					status = -EINVAL;
- 					goto card_init_err;
- 				}
-@@ -2840,6 +2856,7 @@ static int slic_card_init(struct sliccard *card, struct adapter *adapter)
- 			slic_reg64_write(adapter, &slic_regs->slic_isp, 0,
- 					 &slic_regs->slic_addr_upper,
- 					 0, FLUSH);
-+			slic_flush_write(adapter);
- 			dev_err(&adapter->pcidev->dev, "EEPROM invalid.\n");
- 			return -EINVAL;
- 		}
 -- 
 1.9.1
