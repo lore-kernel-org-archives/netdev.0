@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/11] i40e: Move the mutex lock in i40e_client_unregister
-Date: Fri, 22 Jul 2016 00:36:37 -0700
-Message-ID: <1469172999-8969-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] i40e: Remove device ID 0x37D4
+Date: Fri, 22 Jul 2016 00:36:32 -0700
+Message-ID: <1469172999-8969-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1469172999-8969-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
@@ -9,56 +9,89 @@ Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59075 "EHLO mga11.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:60535 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752708AbcGVHgt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 03:36:49 -0400
+	id S1752270AbcGVHgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jul 2016 03:36:48 -0400
 In-Reply-To: <1469172999-8969-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-We need to lock the client list around the i40e_client_release call to
-prevent the release from interrupting the client instances while they are
-being added.
+This device ID is not needed, so take it out.
 
-Change-Id: I99993f20179aaf8730207833e7d0869d2ccffa1d
+Change-ID: I148d29f68a1f58b03980ecd83047a1b440f4f74d
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_client.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c   | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_devids.h   | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_common.c | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_devids.h | 1 -
+ 5 files changed, 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index 0e6ac84..e1370c5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -980,13 +980,13 @@ int i40e_unregister_client(struct i40e_client *client)
- 	 * a close for each of the client instances that were opened.
- 	 * client_release function is called to handle this.
- 	 */
-+	mutex_lock(&i40e_client_mutex);
- 	if (!client || i40e_client_release(client)) {
- 		ret = -EIO;
- 		goto out;
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index bb63df8..2154a34 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -61,7 +61,6 @@ static i40e_status i40e_set_mac_type(struct i40e_hw *hw)
+ 		case I40E_DEV_ID_1G_BASE_T_X722:
+ 		case I40E_DEV_ID_10G_BASE_T_X722:
+ 		case I40E_DEV_ID_SFP_I_X722:
+-		case I40E_DEV_ID_QSFP_I_X722:
+ 			hw->mac.type = I40E_MAC_X722;
+ 			break;
+ 		default:
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_devids.h b/drivers/net/ethernet/intel/i40e/i40e_devids.h
+index d701861..dd4457d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_devids.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_devids.h
+@@ -45,7 +45,6 @@
+ #define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
+ #define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
+ #define I40E_DEV_ID_SFP_I_X722		0x37D3
+-#define I40E_DEV_ID_QSFP_I_X722		0x37D4
  
- 	/* TODO: check if device is in reset, or if that matters? */
--	mutex_lock(&i40e_client_mutex);
- 	if (!i40e_client_is_registered(client)) {
- 		pr_info("i40e: Client %s has not been registered\n",
- 			client->name);
-@@ -1005,8 +1005,8 @@ int i40e_unregister_client(struct i40e_client *client)
- 		       client->name);
- 	}
+ #define i40e_is_40G_device(d)		((d) == I40E_DEV_ID_QSFP_A  || \
+ 					 (d) == I40E_DEV_ID_QSFP_B  || \
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2b11405..28206da 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -86,7 +86,6 @@ static const struct pci_device_id i40e_pci_tbl[] = {
+ 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_1G_BASE_T_X722), 0},
+ 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_10G_BASE_T_X722), 0},
+ 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_SFP_I_X722), 0},
+-	{PCI_VDEVICE(INTEL, I40E_DEV_ID_QSFP_I_X722), 0},
+ 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_20G_KR2), 0},
+ 	{PCI_VDEVICE(INTEL, I40E_DEV_ID_20G_KR2_A), 0},
+ 	/* required last entry */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+index 8f64204..4db0c03 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
+@@ -59,7 +59,6 @@ i40e_status i40e_set_mac_type(struct i40e_hw *hw)
+ 		case I40E_DEV_ID_1G_BASE_T_X722:
+ 		case I40E_DEV_ID_10G_BASE_T_X722:
+ 		case I40E_DEV_ID_SFP_I_X722:
+-		case I40E_DEV_ID_QSFP_I_X722:
+ 			hw->mac.type = I40E_MAC_X722;
+ 			break;
+ 		case I40E_DEV_ID_X722_VF:
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_devids.h b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
+index d34972b..7023570 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_devids.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_devids.h
+@@ -45,7 +45,6 @@
+ #define I40E_DEV_ID_1G_BASE_T_X722	0x37D1
+ #define I40E_DEV_ID_10G_BASE_T_X722	0x37D2
+ #define I40E_DEV_ID_SFP_I_X722		0x37D3
+-#define I40E_DEV_ID_QSFP_I_X722		0x37D4
+ #define I40E_DEV_ID_X722_VF		0x37CD
+ #define I40E_DEV_ID_X722_VF_HV		0x37D9
  
--	mutex_unlock(&i40e_client_mutex);
- out:
-+	mutex_unlock(&i40e_client_mutex);
- 	return ret;
- }
- EXPORT_SYMBOL(i40e_unregister_client);
 -- 
 2.5.5
