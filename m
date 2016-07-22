@@ -1,63 +1,37 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 1/1] lvs: Use IS_ERR_OR_NULL(svc) instead of IS_ERR(svc)
- || svc == NULL
-Date: Fri, 22 Jul 2016 08:04:50 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1607220757100.1764@ja.home.ssi.bg>
-References: <1469145341-15488-1-git-send-email-fgao@ikuai8.com>
+From: Masashi Honma <masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 3/3] mac80211: mesh: fixed HT ies in beacon template
+Date: Fri, 22 Jul 2016 14:26:21 +0900
+Message-ID: <40a34537-486e-a466-5a7e-e253f19d81c3@gmail.com>
+References: <20160713200755.26839-1-yanivma@ti.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: wensong@linux-vs.org, horms@verge.net.au, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, gfree.wind@gmail.com
-To: Gao Feng <fgao@ikuai8.com.aqb.so>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:50889 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751152AbcGVFKC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 01:10:02 -0400
-In-Reply-To: <1469145341-15488-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-2022-jp; format=flowed; delsp=yes
+Content-Transfer-Encoding: 7bit
+Cc: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160713200755.26839-1-yanivma-l0cyMroinI0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On 2016年07月14日 05:07, Yaniv Machani wrote:
+> +
+> +	/* if channel width is 20MHz - configure HT capab accordingly*/
+> +	if (sdata->vif.bss_conf.chandef.width == NL80211_CHAN_WIDTH_20) {
+> +		cap &= ~IEEE80211_HT_CAP_SUP_WIDTH_20_40;
+> +		cap &= ~IEEE80211_HT_CAP_DSSSCCK40;
+> +	}
+
+I have tested this part of your patch and this works for me.
+
+Previouly, "Supported Channel Width Set bit" in HT Capabilities element
+was 1 even though disable_ht40=1 existed in wpa_supplicant.conf.
+After appllication of patch, the bit was 0.
 
 
-	Hello,
-
-On Fri, 22 Jul 2016, fgao@ikuai8.com.aqb.so wrote:
-
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> This minor refactoring does not change the logic of function
-> ip_vs_genl_dump_dests.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
-
-	Looks good to me,
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-	If there is a next version you can change above
-"lvs" with "ipvs" in the Subject, this is the name we use
-for the kernel part.
-
-> ---
->  v1: Initial patch
-> 
->  net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index c3c809b..6dc86cc 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -3267,7 +3267,7 @@ static int ip_vs_genl_dump_dests(struct sk_buff *skb,
->  
->  
->  	svc = ip_vs_genl_find_service(ipvs, attrs[IPVS_CMD_ATTR_SERVICE]);
-> -	if (IS_ERR(svc) || svc == NULL)
-> +	if (IS_ERR_OR_NULL(svc))
->  		goto out_err;
->  
->  	/* Dump the destinations */
-> -- 
-> 1.9.1
-
-Regards
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
