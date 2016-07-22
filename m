@@ -1,55 +1,206 @@
 From: Sargun Dhillon <sargun@sargun.me>
-Subject: [PATCH v4 0/2] bpf: add bpf_probe_write helper & example
-Date: Thu, 21 Jul 2016 18:08:59 -0700
-Message-ID: <20160722010856.GA22966@ircssh.c.rugged-nimbus-611.internal>
+Subject: [PATCH v4 2/2] samples/bpf: Add example of using bpf_probe_write in
+ bpf kprobes
+Date: Thu, 21 Jul 2016 18:09:33 -0700
+Message-ID: <20160722010932.GA22999@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f48.google.com ([209.85.214.48]:37636 "EHLO
-	mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752814AbcGVBJC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Jul 2016 21:09:02 -0400
-Received: by mail-it0-f48.google.com with SMTP id f6so33431063ith.0
-        for <netdev@vger.kernel.org>; Thu, 21 Jul 2016 18:09:01 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch series contains two patches that add support for a probe_write
-helper to BPF programs. This allows them to manipulate user memory during
-the course of tracing. The second patch in the series has an example that
-uses it, in one the intended ways to divert execution.
+This example shows using a kprobe to act as a dnat mechanism to divert
+traffic for arbitrary endpoints. It rewrite the arguments to a syscall
+while they're still in userspace, and before the syscall has a chance
+to copy the argument into kernel space.
 
-Thanks to Alexei Starovoitov, and Daniel Borkmann for review, I've made 
-changes based on their recommendations.
-
-This helper should be considered experimental, so we print a warning
-to dmesg when it is first invoked. Subsequent invocations print the 
-command and pid
-
+Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
 ---
-v1->v2: restrict writing to user space, as opposed to globally
-v2->v3: Fixed formatting issues
-v3->v4: Rename copy_to_user -> bpf_probe_write
-	Simplify checking of whether or not it's safe to write
-	Add warnings to dmesg
-
-Sargun Dhillon (2):
-  bpf: Add bpf_probe_write BPF helper to be called in tracers (kprobes)
-  samples/bpf: Add example of using bpf_probe_write in bpf kprobes
-
- include/uapi/linux/bpf.h   | 12 ++++++++
- kernel/bpf/verifier.c      |  9 ++++++
- kernel/trace/bpf_trace.c   | 37 +++++++++++++++++++++++
  samples/bpf/Makefile       |  4 +++
- samples/bpf/bpf_helpers.h  |  2 ++
  samples/bpf/tracex7_kern.c | 51 +++++++++++++++++++++++++++++++
  samples/bpf/tracex7_user.c | 75 ++++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 190 insertions(+)
+ 3 files changed, 130 insertions(+)
  create mode 100644 samples/bpf/tracex7_kern.c
  create mode 100644 samples/bpf/tracex7_user.c
 
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index d2d2b35..f1894ae 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -14,6 +14,7 @@ hostprogs-y += tracex3
+ hostprogs-y += tracex4
+ hostprogs-y += tracex5
+ hostprogs-y += tracex6
++hostprogs-y += tracex7
+ hostprogs-y += trace_output
+ hostprogs-y += lathist
+ hostprogs-y += offwaketime
+@@ -37,6 +38,7 @@ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
+ tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
+ tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
++tracex7-objs := bpf_load.o libbpf.o tracex7_user.o
+ trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
+@@ -59,6 +61,7 @@ always += tracex3_kern.o
+ always += tracex4_kern.o
+ always += tracex5_kern.o
+ always += tracex6_kern.o
++always += tracex7_kern.o
+ always += trace_output_kern.o
+ always += tcbpf1_kern.o
+ always += lathist_kern.o
+@@ -85,6 +88,7 @@ HOSTLOADLIBES_tracex3 += -lelf
+ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
++HOSTLOADLIBES_tracex7 += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+ HOSTLOADLIBES_offwaketime += -lelf
+diff --git a/samples/bpf/tracex7_kern.c b/samples/bpf/tracex7_kern.c
+new file mode 100644
+index 0000000..9ad1c4e
+--- /dev/null
++++ b/samples/bpf/tracex7_kern.c
+@@ -0,0 +1,51 @@
++/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <uapi/linux/bpf.h>
++#include <linux/version.h>
++#include "bpf_helpers.h"
++
++struct bpf_map_def SEC("maps") dnat_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(struct sockaddr_in),
++	.value_size = sizeof(struct sockaddr_in),
++	.max_entries = 256,
++};
++
++/* kprobe is NOT a stable ABI
++ * kernel functions can be removed, renamed or completely change semantics.
++ * Number of arguments and their positions can change, etc.
++ * In such case this bpf+kprobe example will no longer be meaningful
++ *
++ * This example sits on a syscall, and the syscall ABI is relatively stable
++ * of course, across platforms, and over time, the ABI may change.
++ */
++SEC("kprobe/sys_connect")
++int bpf_prog1(struct pt_regs *ctx)
++{
++	struct sockaddr_in new_addr, orig_addr = {};
++	struct sockaddr_in *mapped_addr;
++	void *sockaddr_arg = (void *)PT_REGS_PARM2(ctx);
++	int sockaddr_len = (int)PT_REGS_PARM3(ctx);
++
++	if (sockaddr_len > sizeof(orig_addr))
++		return 0;
++
++	if (bpf_probe_read(&orig_addr, sizeof(orig_addr), sockaddr_arg) != 0)
++		return 0;
++
++	mapped_addr = bpf_map_lookup_elem(&dnat_map, &orig_addr);
++	if (mapped_addr != NULL) {
++		memcpy(&new_addr, mapped_addr, sizeof(new_addr));
++		bpf_probe_write(sockaddr_arg, &new_addr, sizeof(new_addr));
++	}
++	return 0;
++}
++
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/tracex7_user.c b/samples/bpf/tracex7_user.c
+new file mode 100644
+index 0000000..351fc4f
+--- /dev/null
++++ b/samples/bpf/tracex7_user.c
+@@ -0,0 +1,75 @@
++#include <stdio.h>
++#include <assert.h>
++#include <linux/bpf.h>
++#include <unistd.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++#include <sys/socket.h>
++#include <string.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++
++int main(int ac, char **argv)
++{
++	int serverfd, serverconnfd, clientfd;
++	socklen_t sockaddr_len;
++	struct sockaddr serv_addr, mapped_addr, tmp_addr;
++	struct sockaddr_in *serv_addr_in, *mapped_addr_in, *tmp_addr_in;
++	char filename[256];
++	char *ip;
++
++	serv_addr_in = (struct sockaddr_in *)&serv_addr;
++	mapped_addr_in = (struct sockaddr_in *)&mapped_addr;
++	tmp_addr_in = (struct sockaddr_in *)&tmp_addr;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	assert((serverfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
++	assert((clientfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
++
++	/* Bind server to ephemeral port on lo */
++	memset(&serv_addr, 0, sizeof(serv_addr));
++	serv_addr_in->sin_family = AF_INET;
++	serv_addr_in->sin_port = 0;
++	serv_addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++
++	assert(bind(serverfd, &serv_addr, sizeof(serv_addr)) == 0);
++
++	sockaddr_len = sizeof(serv_addr);
++	assert(getsockname(serverfd, &serv_addr, &sockaddr_len) == 0);
++	ip = inet_ntoa(serv_addr_in->sin_addr);
++	printf("Server bound to: %s:%d\n", ip, ntohs(serv_addr_in->sin_port));
++
++	memset(&mapped_addr, 0, sizeof(mapped_addr));
++	mapped_addr_in->sin_family = AF_INET;
++	mapped_addr_in->sin_port = htons(5555);
++	mapped_addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++
++	assert(!bpf_update_elem(map_fd[0], &mapped_addr, &serv_addr, BPF_ANY));
++
++	assert(listen(serverfd, 5) == 0);
++
++	ip = inet_ntoa(mapped_addr_in->sin_addr);
++	printf("Client connecting to: %s:%d\n",
++	       ip, ntohs(mapped_addr_in->sin_port));
++	assert(connect(clientfd, &mapped_addr, sizeof(mapped_addr)) == 0);
++
++	sockaddr_len = sizeof(tmp_addr);
++	ip = inet_ntoa(tmp_addr_in->sin_addr);
++	assert((serverconnfd = accept(serverfd, &tmp_addr, &sockaddr_len)) > 0);
++	printf("Server received connection from: %s:%d\n",
++	       ip, ntohs(tmp_addr_in->sin_port));
++
++	sockaddr_len = sizeof(tmp_addr);
++	assert(getpeername(clientfd, &tmp_addr, &sockaddr_len) == 0);
++	ip = inet_ntoa(tmp_addr_in->sin_addr);
++	printf("Client's peer address: %s:%d\n",
++	       ip, ntohs(tmp_addr_in->sin_port));
++
++	return 0;
++}
 -- 
 2.7.4
