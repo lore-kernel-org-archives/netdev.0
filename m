@@ -1,47 +1,81 @@
-From: Colin Walters <walters@verbum.org>
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Fri, 22 Jul 2016 09:33:19 -0400
-Message-ID: <1469194399.3817016.673814953.7581706C@webmail.messagingengine.com>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org>
- <87d1m754jc.fsf@x220.int.ebiederm.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next] sctp: use inet_recvmsg to support sctp RFS well
+Date: Fri, 22 Jul 2016 10:34:04 -0300
+Message-ID: <20160722133404.GE9950@localhost.localdomain>
+References: <75f49fcd6f30e7ec41dc0f8e39983a9579386e49.1469193942.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>, Jann Horn <jann@thejh.net>,
-	Kees Cook <keescook@chromium.org>,
-	Nikolay Borisov <kernel@kyup.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d1m754jc.fsf@x220.int.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32828 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754124AbcGVNeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jul 2016 09:34:09 -0400
+Content-Disposition: inline
+In-Reply-To: <75f49fcd6f30e7ec41dc0f8e39983a9579386e49.1469193942.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 21, 2016, at 12:39 PM, Eric W. Biederman wrote:
+On Fri, Jul 22, 2016 at 09:25:42PM +0800, Xin Long wrote:
+> Commit 486bdee0134c ("sctp: add support for RPS and RFS")
+> saves skb->hash into sk->sk_rxhash so that the inet_* can
+> record it to flow table.
 > 
-> This patchset addresses two use cases:
-> - Implement a sane upper bound on the number of namespaces.
-> - Provide a way for sandboxes to limit the attack surface from
->   namespaces.
+> But sctp uses sock_common_recvmsg as .recvmsg instead
+> of inet_recvmsg, sock_common_recvmsg doesn't invoke
+> sock_rps_record_flow to record the flow. It may cause
+> that the receiver has no chances to record the flow if
+> it doesn't send msg or poll the socket.
+> 
+> So this patch fixes it by using inet_recvmsg as .recvmsg
+> in sctp.
+> 
+> Fixes: 486bdee0134c ("sctp: add support for RPS and RFS")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Perhaps this is obvious, but since you didn't quite explicitly state it;
-do you see this as obsoleting the existing downstream patches
-mentioned in:
-https://lwn.net/Articles/673597/
-It seems conceptually similar to Kees' original approach, right?
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-The high level makes sense to me...most interesting is
-per-userns sysctls.  I'll note most current container managers
-mount /proc/sys read-only, and Docker specifically drops
-CAP_SYS_RESOURCE by default, so they'd likely need to learn
-how to undo that if one wanted to support recursive container usage.
-We'd probably need to evaluate the safety of having /proc/sys
-writable generally.  (Also it's rather common to filter out CLONE_NEWUSER
-via seccomp, but that's easy to undo)
+Thanks
 
-But that's the flip side - if we're aiming primarily for an upstreamable
-way to *limit* namespace usage, it seems sane to me.
+> ---
+>  net/sctp/ipv6.c     | 2 +-
+>  net/sctp/protocol.c | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index ae6f1a2..98c383c 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -954,7 +954,7 @@ static const struct proto_ops inet6_seqpacket_ops = {
+>  	.setsockopt	   = sock_common_setsockopt,
+>  	.getsockopt	   = sock_common_getsockopt,
+>  	.sendmsg	   = inet_sendmsg,
+> -	.recvmsg	   = sock_common_recvmsg,
+> +	.recvmsg	   = inet_recvmsg,
+>  	.mmap		   = sock_no_mmap,
+>  #ifdef CONFIG_COMPAT
+>  	.compat_setsockopt = compat_sock_common_setsockopt,
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index 1adb927..7b523e3 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -1028,7 +1028,7 @@ static const struct proto_ops inet_seqpacket_ops = {
+>  	.setsockopt	   = sock_common_setsockopt, /* IP_SOL IP_OPTION is a problem */
+>  	.getsockopt	   = sock_common_getsockopt,
+>  	.sendmsg	   = inet_sendmsg,
+> -	.recvmsg	   = sock_common_recvmsg,
+> +	.recvmsg	   = inet_recvmsg,
+>  	.mmap		   = sock_no_mmap,
+>  	.sendpage	   = sock_no_sendpage,
+>  #ifdef CONFIG_COMPAT
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
