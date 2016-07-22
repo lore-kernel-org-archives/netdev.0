@@ -1,78 +1,147 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net] bridge: Fix incorrect re-injection of LLDP
-	packets
-Date: Fri, 22 Jul 2016 14:56:20 +0300
-Message-ID: <1469188580-12657-1-git-send-email-idosch@mellanox.com>
+From: Chunhui He <hchunhui@mail.ustc.edu.cn>
+Subject: Re: [PATCH] net: neigh: disallow state transition DELAY->STALE in
+ neigh_update()
+Date: Fri, 22 Jul 2016 12:47:57 +0000 (UTC)
+Message-ID: <20160722.124757.283248020246505940.hchunhui@mail.ustc.edu.cn>
+References: <1469123890-2715-1-git-send-email-hchunhui@mail.ustc.edu.cn>
+	<alpine.LFD.2.11.1607220954060.1764@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: John Fastabend <john.fastabend@gmail.com>, yotamg@mellanox.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Florian Westphal <fw@strlen.de>,
-	Ido Schimmel <idosch@mellanox.com>, jiri@mellanox.com,
-	nogahf@mellanox.com, eladr@mellanox.com, ogerlitz@mellanox.com
-To: <davem@davemloft.net>, <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, dsa@cumulusnetworks.com,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	rshearma@brocade.com, dbarroso@fastly.com, martinbj2008@gmail.com,
+	rick.jones2@hp.com, koct9i@gmail.com, edumazet@google.com,
+	tgraf@suug.ch, ebiederm@xmission.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ja@ssi.bg
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1607220954060.1764@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 8626c56c8279 ("bridge: fix potential use-after-free when hook
-returns QUEUE or STOLEN verdict") caused LLDP packets arriving through a
-bridge port to be re-injected to the Rx path with skb->dev set to the
-bridge device, but this breaks the lldpad daemon.
+Hi,
 
-The lldpad daemon opens a packet socket with protocol set to ETH_P_LLDP
-for any valid device on the system, which doesn't not include soft
-devices such as bridge and VLAN.
+On Fri, 22 Jul 2016 10:20:01 +0300 (EEST), Julian Anastasov <ja@ssi.bg> wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 21 Jul 2016, Chunhui He wrote:
+> 
+>> If neigh entry was CONNECTED and address is not changed, and if new state is
+>> STALE, entry state will not change. Because DELAY is not in CONNECTED, it's
+>> possible to change state from DELAY to STALE.
+>> 
+>> That is bad. Consider a host in IPv4 nerwork, a neigh entry in STALE state
+>> is referenced to send packets, so goes to DELAY state. If the entry is not
+>> confirmed by upper layer, it goes to PROBE state, and sends ARP request.
+>> The neigh host sends ARP reply, then the entry goes to REACHABLE state.
+>> But the entry state may be reseted to STALE by broadcast ARP packets, before
+>> the entry goes to PROBE state. So it's possible that the entry will never go
+>> to REACHABLE state, without external confirmation.
+>> 
+>> In my case, the gateway refuses to send unicast packets to me, before it sees
+>> my ARP request. So it's critical to enter REACHABLE state by sending ARP
+>> request, but not by external confirmation.
+>> 
+>> This fixes neigh_update() not to change to STALE if old state is CONNECTED or
+>> DELAY.
+>> 
+>> Signed-off-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
+>> ---
+>>  net/core/neighbour.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>> index 510cd62..29429eb 100644
+>> --- a/net/core/neighbour.c
+>> +++ b/net/core/neighbour.c
+>> @@ -1152,7 +1152,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>>  		} else {
+>>  			if (lladdr == neigh->ha && new == NUD_STALE &&
+>>  			    ((flags & NEIGH_UPDATE_F_WEAK_OVERRIDE) ||
+>> -			     (old & NUD_CONNECTED))
+>> +			     (old & (NUD_CONNECTED | NUD_DELAY)))
+>>  			    )
+>>  				new = old;
+>>  		}
+> 
+> 	You change looks correct to me. But this place
+> has more problems. There is no good reason to set NUD_STALE
+> for any state that is NUD_VALID if address is not changed.
+> This matches perfectly the comment above this code:
+> NUD_STALE should change a NUD_VALID state only when
+> address changes. It also means that IPv6 does not need
+> to provide NEIGH_UPDATE_F_WEAK_OVERRIDE anymore when
+> NEIGH_UPDATE_F_OVERRIDE is also present.
+>
 
-Since packet sockets (ptype_base) are processed in the Rx path after the
-Rx handler, LLDP packets with skb->dev set to the bridge device never
-reach the lldpad daemon.
+The NEIGH_UPDATE_F_WEAK_OVERRIDE is confusing to me, so I choose not to deal
+with the flag.
 
-Fix this by making the bridge's Rx handler re-inject LLDP packets with
-RX_HANDLER_PASS, which effectively restores the behaviour prior to the
-mentioned commit.
+> 	By this way the state machine can continue with
+> the resolving: NUD_STALE -> NUD_DELAY (traffic) ->
+> NUD_PROBE (retries) -> NUD_REACHABLE (unicast reply)
+> while the address is not changed. Your change covers only
+> NUD_DELAY, not NUD_PROBE, so it is better to allow more
+> retries to send. We should not give up until success (NUD_REACHABLE).
+>
 
-This means netfilter will never receive LLDP packets coming through a
-bridge port, as I don't see a way in which we can have okfn() consume
-the packet without breaking existing behaviour. I've already carried out
-a similar fix for STP packets in commit 56fae404fb2c ("bridge: Fix
-incorrect re-injection of STP packets").
+I have thought about this.
+The origin code allows NUD_DELAY -> NUD_STALE and NUD_PROBE -> NUD_STALE.
+This part was imported to kernel since v2.1.79, I don't know clearly why it
+allows that.
 
-Fixes: 8626c56c8279 ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: John Fastabend <john.fastabend@gmail.com>
----
- net/bridge/br_input.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+My analysis:
+(1) As shown in my previous mail, NUD_DELAY -> NUD_STALE may cause "dead loop",
+so it should be fixed.
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 43d2cd8..28d5ec2 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -288,6 +288,14 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 		case 0x01:	/* IEEE MAC (Pause) */
- 			goto drop;
- 
-+		case 0x0E:	/* 802.1AB LLDP */
-+			fwd_mask |= p->br->group_fwd_mask;
-+			if (fwd_mask & (1u << dest[5]))
-+				goto forward;
-+			*pskb = skb;
-+			__br_handle_local_finish(skb);
-+			return RX_HANDLER_PASS;
-+
- 		default:
- 			/* Allow selective forwarding for most other protocols */
- 			fwd_mask |= p->br->group_fwd_mask;
--- 
-2.8.2
+(2) But NUD_PROBE -> NUD_STALE is acceptable, because in NUD_PROBE, ARP request
+has been sent, it is sufficient to break the "dead loop".
+More attempts are accomplished by the following sequence:
+NUD_STALE --> NUD_DELAY -(sent req)-> NUD_PROBE -(reset by neigh_update())->
+NUD_STALE --> NUD_DELAY -(send req again)-> ... -->
+NUD_REACHABLE
+
+
+But I also agree your change.
+
+> 	Second problem: NEIGH_UPDATE_F_WEAK_OVERRIDE has no
+> priority over NEIGH_UPDATE_F_ADMIN. For example, now I can not
+> change from NUD_PERMANENT to NUD_STALE:
+>
+> # ip neigh add 192.168.168.111 lladdr 00:11:22:33:44:55 nud perm dev wlan0
+> # ip neigh show to 192.168.168.111
+> 192.168.168.111 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+> # ip neigh change 192.168.168.111 lladdr 00:11:22:33:44:55 nud stale dev wlan0
+> # ip neigh show to 192.168.168.111
+> 192.168.168.111 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+> 
+> 	IMHO, here is how this place should look:
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 5cdc62a..2b1cb91 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -1151,10 +1151,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  				goto out;
+>  		} else {
+>  			if (lladdr == neigh->ha && new == NUD_STALE &&
+> -			    ((flags & NEIGH_UPDATE_F_WEAK_OVERRIDE) ||
+> -			     (old & NUD_CONNECTED))
+> -			    )
+> -				new = old;
+> +			    !(flags & NEIGH_UPDATE_F_ADMIN))
+> +				goto out;
+>  		}
+>  	}
+> 
+> 	Any thoughts?
+>  
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+
+Regards,
+Chunhui He
