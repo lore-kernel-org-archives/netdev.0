@@ -1,75 +1,50 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/1] lvs: Use IS_ERR_OR_NULL(svc) instead of IS_ERR(svc)
- || svc == NULL
-Date: Fri, 22 Jul 2016 17:11:43 +0900
-Message-ID: <20160722081143.GB29153@verge.net.au>
-References: <1469145341-15488-1-git-send-email-fgao@ikuai8.com>
- <alpine.LFD.2.11.1607220757100.1764@ja.home.ssi.bg>
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: ref count of ib_ipoib.ko not incremented when an ip address is set
+Date: Fri, 22 Jul 2016 11:16:02 +0300
+Message-ID: <5791D642.9050609@kyup.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gao Feng <fgao@ikuai8.com.aqb.so>, wensong@linux-vs.org,
-	netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	gfree.wind@gmail.com
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, sean.hefty@intel.com,
+	dledford@redhat.com,
+	SiteGround Operations <operations@siteground.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43005 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751482AbcGVILs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 04:11:48 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1607220757100.1764@ja.home.ssi.bg>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38286 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441AbcGVIQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 04:16:08 -0400
+Received: by mail-wm0-f46.google.com with SMTP id o80so54330553wme.1
+        for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 01:16:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 22, 2016 at 08:04:50AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 22 Jul 2016, fgao@ikuai8.com.aqb.so wrote:
-> 
-> > From: Gao Feng <fgao@ikuai8.com>
-> > 
-> > This minor refactoring does not change the logic of function
-> > ip_vs_genl_dump_dests.
-> > 
-> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
-> 
-> 	Looks good to me,
-> 
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> 
-> 	If there is a next version you can change above
-> "lvs" with "ipvs" in the Subject, this is the name we use
-> for the kernel part.
+Hello, 
 
-No need to repost just to fix that,
-I can fix it up when queuing up the patch.
+I accidentally saw that even having an ip address on an 
+ipoib interface doesn't increment the usage count of the 
+ib_ipoib.ko module: 
 
-> 
-> > ---
-> >  v1: Initial patch
-> > 
-> >  net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> > index c3c809b..6dc86cc 100644
-> > --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> > +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> > @@ -3267,7 +3267,7 @@ static int ip_vs_genl_dump_dests(struct sk_buff *skb,
-> >  
-> >  
-> >  	svc = ip_vs_genl_find_service(ipvs, attrs[IPVS_CMD_ATTR_SERVICE]);
-> > -	if (IS_ERR(svc) || svc == NULL)
-> > +	if (IS_ERR_OR_NULL(svc))
-> >  		goto out_err;
-> >  
-> >  	/* Dump the destinations */
-> > -- 
-> > 1.9.1
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
+ip a l dev ib0
+14: ib0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 65520 qdisc pfifo_fast state UP qlen 256
+    link/infiniband 80:00:02:d4:fe:80:00:00:00:00:00:00:e4:1d:2d:03:00:00:f8:31 brd 00:ff:ff:ff:ff:12:40:1b:ff:ff:00:00:00:00:00:00:ff:ff:ff:ff
+    inet 172.16.0.150/24 brd 172.16.0.255 scope global ib0
+       valid_lft forever preferred_lft forever
+
+lsmod | grep ib_ipoib
+ib_ipoib               79026  0 
+ib_cm                  34144  3 ib_ipoib,ib_ucm,rdma_cm
+ib_sa                  26598  5 ib_ipoib,rdma_ucm,rdma_cm,ib_cm,mlx4_ib
+ib_core                97620  10 ib_ipoib,ib_ucm,ib_uverbs,rdma_cm,iw_cm,ib_umad,ib_cm,mlx4_ib,ib_sa,ib_mad
+ipv6                  374806  259 ib_ipoib,rdma_cm,ib_addr,[permanent]
+
+
+In this case I can rmmod ib_ipoib.ko which would remove, 
+but in practice I've observed that when an ip address is set
+the underlying module providing the interface usually gets
+its ref count incremented. Is this normal or is a 
+refcount increment is amiss?
+
+Regards, 
+Nikolay 
