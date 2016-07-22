@@ -1,58 +1,42 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 1/3] net: ethernet: ti: cpdma: fix lockup in cpdma_ctlr_destroy()
-Date: Fri, 22 Jul 2016 16:58:45 +0300
-Message-ID: <20160722135847.20557-2-grygorii.strashko@ti.com>
-References: <20160722135847.20557-1-grygorii.strashko@ti.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] libcxgb: remove unused including <linux/version.h>
+Date: Fri, 22 Jul 2016 14:05:32 +0000
+Message-ID: <1469196332-17472-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160722135847.20557-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Nicholas Bellinger <nab@linux-iscsi.org>,
+	Varun Prakash <varun@chelsio.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35781 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130AbcGVOFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 10:05:41 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so7023863pad.2
+        for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 07:05:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix deadlock in cpdma_ctlr_destroy() which is triggered now on
-cpsw module removal:
- cpsw_remove()
- - cpdma_ctlr_destroy()
-   - spin_lock_irqsave(&ctlr->lock, flags)
-   - cpdma_ctlr_stop()
-     - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
-   - cpdma_chan_destroy()
-     - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
+Remove including <linux/version.h> that don't need it.
 
-The issue has not been observed before because CPDMA channels have
-been destroyed manually by CPSW until commit d941ebe88a41 ("net:
-ethernet: ti: cpsw: use destroy ctlr to destroy channels") was merged.
-
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
 ---
- drivers/net/ethernet/ti/davinci_cpdma.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index a68652a..89242e9 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -436,7 +436,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
- 	if (!ctlr)
- 		return -EINVAL;
+diff --git a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
+index 96c9651..1074fdb 100644
+--- a/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
++++ b/drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c
+@@ -39,7 +39,6 @@
+ #define pr_fmt(fmt) DRV_NAME ": " fmt
  
--	spin_lock_irqsave(&ctlr->lock, flags);
- 	if (ctlr->state != CPDMA_STATE_IDLE)
- 		cpdma_ctlr_stop(ctlr);
- 
-@@ -444,7 +443,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
- 		cpdma_chan_destroy(ctlr->channels[i]);
- 
- 	cpdma_desc_pool_destroy(ctlr->pool);
--	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
--- 
-2.9.2
+ #include <linux/kernel.h>
+-#include <linux/version.h>
+ #include <linux/module.h>
+ #include <linux/errno.h>
+ #include <linux/types.h>
