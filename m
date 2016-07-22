@@ -1,7 +1,7 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 2/5] tipc: make cluster size threshold for monitoring configurable
-Date: Fri, 22 Jul 2016 08:42:45 +0200
-Message-ID: <1469169768-9214-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 3/5] tipc: get monitor threshold for the cluster
+Date: Fri, 22 Jul 2016 08:42:46 +0200
+Message-ID: <1469169768-9214-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1469169768-9214-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,190 +11,150 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from sessmg22.ericsson.net ([193.180.251.58]:61205 "EHLO
 	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752171AbcGVGnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 02:43:01 -0400
+	with ESMTP id S1752829AbcGVGnC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 02:43:02 -0400
 In-Reply-To: <1469169768-9214-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In this commit, we introduce support to configure the minimum
-threshold to activate the new link monitoring algorithm.
+In this commit, we add support to fetch the configured
+cluster monitoring threshold.
 
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- include/uapi/linux/tipc_netlink.h | 11 +++++++++++
- net/tipc/monitor.c                | 12 ++++++++++++
- net/tipc/monitor.h                |  1 +
- net/tipc/netlink.c                | 15 +++++++++++++--
- net/tipc/netlink.h                |  1 +
- net/tipc/node.c                   | 27 +++++++++++++++++++++++++++
+ include/uapi/linux/tipc_netlink.h |  1 +
+ net/tipc/monitor.c                |  7 ++++++
+ net/tipc/monitor.h                |  2 ++
+ net/tipc/netlink.c                |  5 ++++
+ net/tipc/node.c                   | 52 +++++++++++++++++++++++++++++++++++++++
  net/tipc/node.h                   |  1 +
- 7 files changed, 66 insertions(+), 2 deletions(-)
+ 6 files changed, 68 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index d4c8f142ba63..d387b65a0d97 100644
+index d387b65a0d97..d07c6ec76062 100644
 --- a/include/uapi/linux/tipc_netlink.h
 +++ b/include/uapi/linux/tipc_netlink.h
-@@ -56,6 +56,7 @@ enum {
- 	TIPC_NL_NET_GET,
+@@ -57,6 +57,7 @@ enum {
  	TIPC_NL_NET_SET,
  	TIPC_NL_NAME_TABLE_GET,
-+	TIPC_NL_MON_SET,
+ 	TIPC_NL_MON_SET,
++	TIPC_NL_MON_GET,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -72,6 +73,7 @@ enum {
- 	TIPC_NLA_NODE,			/* nest */
- 	TIPC_NLA_NET,			/* nest */
- 	TIPC_NLA_NAME_TABLE,		/* nest */
-+	TIPC_NLA_MON,			/* nest */
- 
- 	__TIPC_NLA_MAX,
- 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -166,6 +168,15 @@ enum {
- 	TIPC_NLA_NAME_TABLE_MAX = __TIPC_NLA_NAME_TABLE_MAX - 1
- };
- 
-+/* Monitor info */
-+enum {
-+	TIPC_NLA_MON_UNSPEC,
-+	TIPC_NLA_MON_ACTIVATION_THRESHOLD,	/* u32 */
-+
-+	__TIPC_NLA_MON_MAX,
-+	TIPC_NLA_MON_MAX = __TIPC_NLA_MON_MAX - 1
-+};
-+
- /* Publication info */
- enum {
- 	TIPC_NLA_PUBL_UNSPEC,
 diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
-index 0d489e81fcca..3892d05b8b45 100644
+index 3892d05b8b45..3579126e2ac8 100644
 --- a/net/tipc/monitor.c
 +++ b/net/tipc/monitor.c
-@@ -649,3 +649,15 @@ void tipc_mon_delete(struct net *net, int bearer_id)
- 	kfree(self);
- 	kfree(mon);
+@@ -661,3 +661,10 @@ int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size)
+ 
+ 	return 0;
  }
 +
-+int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size)
++int tipc_nl_monitor_get_threshold(struct net *net)
 +{
 +	struct tipc_net *tn = tipc_net(net);
 +
-+	if (cluster_size > TIPC_CLUSTER_SIZE)
-+		return -EINVAL;
-+
-+	tn->mon_threshold = cluster_size;
-+
-+	return 0;
++	return tn->mon_threshold;
 +}
 diff --git a/net/tipc/monitor.h b/net/tipc/monitor.h
-index 598459cbed5d..91f5dd09432b 100644
+index 91f5dd09432b..aedf62c60bd3 100644
 --- a/net/tipc/monitor.h
 +++ b/net/tipc/monitor.h
-@@ -69,5 +69,6 @@ void tipc_mon_get_state(struct net *net, u32 addr,
- 			int bearer_id);
+@@ -70,5 +70,7 @@ void tipc_mon_get_state(struct net *net, u32 addr,
  void tipc_mon_remove_peer(struct net *net, u32 addr, int bearer_id);
  
-+int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size);
+ int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size);
++int tipc_nl_monitor_get_threshold(struct net *net);
++
  extern const int tipc_max_domain_size;
  #endif
 diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 56935df2167a..1e43ac0200ed 100644
+index 1e43ac0200ed..2cfc5f7c6380 100644
 --- a/net/tipc/netlink.c
 +++ b/net/tipc/netlink.c
-@@ -52,7 +52,8 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
- 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
- 	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_NET]		= { .type = NLA_NESTED, },
--	[TIPC_NLA_NAME_TABLE]	= { .type = NLA_NESTED, }
-+	[TIPC_NLA_NAME_TABLE]	= { .type = NLA_NESTED, },
-+	[TIPC_NLA_MON]		= { .type = NLA_NESTED, },
- };
- 
- const struct nla_policy
-@@ -61,6 +62,11 @@ tipc_nl_name_table_policy[TIPC_NLA_NAME_TABLE_MAX + 1] = {
- 	[TIPC_NLA_NAME_TABLE_PUBL]	= { .type = NLA_NESTED }
- };
- 
-+const struct nla_policy tipc_nl_monitor_policy[TIPC_NLA_MON_MAX + 1] = {
-+	[TIPC_NLA_MON_UNSPEC]			= { .type = NLA_UNSPEC },
-+	[TIPC_NLA_MON_ACTIVATION_THRESHOLD]	= { .type = NLA_U32 },
-+};
-+
- const struct nla_policy tipc_nl_sock_policy[TIPC_NLA_SOCK_MAX + 1] = {
- 	[TIPC_NLA_SOCK_UNSPEC]		= { .type = NLA_UNSPEC },
- 	[TIPC_NLA_SOCK_ADDR]		= { .type = NLA_U32 },
-@@ -214,7 +220,12 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.cmd	= TIPC_NL_NAME_TABLE_GET,
- 		.dumpit	= tipc_nl_name_table_dump,
+@@ -226,6 +226,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 		.doit	= tipc_nl_node_set_monitor,
  		.policy = tipc_nl_policy,
--	}
-+	},
+ 	},
 +	{
-+		.cmd	= TIPC_NL_MON_SET,
-+		.doit	= tipc_nl_node_set_monitor,
++		.cmd	= TIPC_NL_MON_GET,
++		.doit	= tipc_nl_node_get_monitor,
 +		.policy = tipc_nl_policy,
 +	},
  };
  
  int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***attr)
-diff --git a/net/tipc/netlink.h b/net/tipc/netlink.h
-index ed1dbcb4afbd..4ba0ad422110 100644
---- a/net/tipc/netlink.h
-+++ b/net/tipc/netlink.h
-@@ -55,6 +55,7 @@ extern const struct nla_policy tipc_nl_prop_policy[];
- extern const struct nla_policy tipc_nl_bearer_policy[];
- extern const struct nla_policy tipc_nl_media_policy[];
- extern const struct nla_policy tipc_nl_udp_policy[];
-+extern const struct nla_policy tipc_nl_monitor_policy[];
- 
- int tipc_netlink_start(void);
- int tipc_netlink_compat_start(void);
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index a3fc0a3f4077..fa524d73b031 100644
+index fa524d73b031..4a817daa9f6f 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -1921,3 +1921,30 @@ out:
+@@ -1948,3 +1948,55 @@ int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info)
  
- 	return skb->len;
+ 	return 0;
  }
 +
-+int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info)
++static int __tipc_nl_add_monitor_prop(struct net *net, struct tipc_nl_msg *msg)
 +{
-+	struct nlattr *attrs[TIPC_NLA_MON_MAX + 1];
-+	struct net *net = sock_net(skb->sk);
-+	int err;
++	struct nlattr *attrs;
++	void *hdr;
++	u32 val;
 +
-+	if (!info->attrs[TIPC_NLA_MON])
-+		return -EINVAL;
++	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
++			  0, TIPC_NL_MON_GET);
++	if (!hdr)
++		return -EMSGSIZE;
 +
-+	err = nla_parse_nested(attrs, TIPC_NLA_MON_MAX,
-+			       info->attrs[TIPC_NLA_MON],
-+			       tipc_nl_monitor_policy);
-+	if (err)
-+		return err;
++	attrs = nla_nest_start(msg->skb, TIPC_NLA_MON);
++	if (!attrs)
++		goto msg_full;
 +
-+	if (attrs[TIPC_NLA_MON_ACTIVATION_THRESHOLD]) {
-+		u32 val;
++	val = tipc_nl_monitor_get_threshold(net);
 +
-+		val = nla_get_u32(attrs[TIPC_NLA_MON_ACTIVATION_THRESHOLD]);
-+		err = tipc_nl_monitor_set_threshold(net, val);
-+		if (err)
-+			return err;
-+	}
++	if (nla_put_u32(msg->skb, TIPC_NLA_MON_ACTIVATION_THRESHOLD, val))
++		goto attr_msg_full;
++
++	nla_nest_end(msg->skb, attrs);
++	genlmsg_end(msg->skb, hdr);
 +
 +	return 0;
++
++attr_msg_full:
++	nla_nest_cancel(msg->skb, attrs);
++msg_full:
++	genlmsg_cancel(msg->skb, hdr);
++
++	return -EMSGSIZE;
++}
++
++int tipc_nl_node_get_monitor(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net *net = sock_net(skb->sk);
++	struct tipc_nl_msg msg;
++	int err;
++
++	msg.skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	msg.portid = info->snd_portid;
++	msg.seq = info->snd_seq;
++
++	err = __tipc_nl_add_monitor_prop(net, &msg);
++	if (err) {
++		nlmsg_free(msg.skb);
++		return err;
++	}
++
++	return genlmsg_reply(msg.skb, info);
 +}
 diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 8264b3d97dc4..65aa12ede8a5 100644
+index 65aa12ede8a5..216f053b817f 100644
 --- a/net/tipc/node.h
 +++ b/net/tipc/node.h
-@@ -78,4 +78,5 @@ int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
+@@ -79,4 +79,5 @@ int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
  int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
  
-+int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info);
+ int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info);
++int tipc_nl_node_get_monitor(struct sk_buff *skb, struct genl_info *info);
  #endif
 -- 
 2.1.4
