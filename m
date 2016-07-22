@@ -1,73 +1,47 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net-next] sctp: support ipv6 nonlocal bind
-Date: Fri, 22 Jul 2016 10:31:56 -0300
-Message-ID: <20160722133156.GD9950@localhost.localdomain>
-References: <b3a6fd04f36bcfc5557d70ba79cddfc9c5d33b3c.1469180331.git.lucien.xin@gmail.com>
+From: Colin Walters <walters@verbum.org>
+Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
+Date: Fri, 22 Jul 2016 09:33:19 -0400
+Message-ID: <1469194399.3817016.673814953.7581706C@webmail.messagingengine.com>
+References: <8737n5dscy.fsf@x220.int.ebiederm.org>
+ <87d1m754jc.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40072 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753803AbcGVNcB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 09:32:01 -0400
-Content-Disposition: inline
-In-Reply-To: <b3a6fd04f36bcfc5557d70ba79cddfc9c5d33b3c.1469180331.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto@amacapital.net>, Jann Horn <jann@thejh.net>,
+	Kees Cook <keescook@chromium.org>,
+	Nikolay Borisov <kernel@kyup.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Containers <containers@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87d1m754jc.fsf@x220.int.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 22, 2016 at 05:38:51PM +0800, Xin Long wrote:
-> This patch makes sctp support ipv6 nonlocal bind by adding
-> sp->inet.freebind and net->ipv6.sysctl.ip_nonlocal_bind
-> check in sctp_v6_available as what sctp did to support
-> ipv4 nonlocal bind (commit cdac4e077489).
-
-Next time please mention the commit summary, e.g.
-cdac4e077489 ("[SCTP] Add support for ip_nonlocal_bind sysctl &
-IP_FREEBIND socket option")
-For now I think we can infer it from the changelog just fine, unless
-Dave thinks otherwise.
-
+On Thu, Jul 21, 2016, at 12:39 PM, Eric W. Biederman wrote:
 > 
-> Reported-by: Shijoe George <spanjikk@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> This patchset addresses two use cases:
+> - Implement a sane upper bound on the number of namespaces.
+> - Provide a way for sandboxes to limit the attack surface from
+>   namespaces.
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Perhaps this is obvious, but since you didn't quite explicitly state it;
+do you see this as obsoleting the existing downstream patches
+mentioned in:
+https://lwn.net/Articles/673597/
+It seems conceptually similar to Kees' original approach, right?
 
-> ---
->  net/sctp/ipv6.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index ae6f1a2..660c4a4 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -560,6 +560,7 @@ static int sctp_v6_is_any(const union sctp_addr *addr)
->  static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
->  {
->  	int type;
-> +	struct net *net = sock_net(&sp->inet.sk);
->  	const struct in6_addr *in6 = (const struct in6_addr *)&addr->v6.sin6_addr;
->  
->  	type = ipv6_addr_type(in6);
-> @@ -574,7 +575,8 @@ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
->  	if (!(type & IPV6_ADDR_UNICAST))
->  		return 0;
->  
-> -	return ipv6_chk_addr(sock_net(&sp->inet.sk), in6, NULL, 0);
-> +	return sp->inet.freebind || net->ipv6.sysctl.ip_nonlocal_bind ||
-> +		ipv6_chk_addr(net, in6, NULL, 0);
->  }
->  
->  /* This function checks if the address is a valid address to be used for
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+The high level makes sense to me...most interesting is
+per-userns sysctls.  I'll note most current container managers
+mount /proc/sys read-only, and Docker specifically drops
+CAP_SYS_RESOURCE by default, so they'd likely need to learn
+how to undo that if one wanted to support recursive container usage.
+We'd probably need to evaluate the safety of having /proc/sys
+writable generally.  (Also it's rather common to filter out CLONE_NEWUSER
+via seccomp, but that's easy to undo)
+
+But that's the flip side - if we're aiming primarily for an upstreamable
+way to *limit* namespace usage, it seems sane to me.
