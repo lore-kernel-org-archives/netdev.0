@@ -1,51 +1,129 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] sctp: support ipv6 nonlocal bind
-Date: Fri, 22 Jul 2016 17:38:51 +0800
-Message-ID: <b3a6fd04f36bcfc5557d70ba79cddfc9c5d33b3c.1469180331.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33989 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753770AbcGVJi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 05:38:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: neigh: disallow state transition DELAY->STALE in
+ neigh_update()
+Date: Fri, 22 Jul 2016 11:41:56 +0200
+Message-ID: <c072f2ea-3f5c-4a40-1a56-a04b820751ed@stressinduktion.org>
+References: <1469123890-2715-1-git-send-email-hchunhui@mail.ustc.edu.cn>
+ <alpine.LFD.2.11.1607220954060.1764@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>,
+	David Barroso <dbarroso@fastly.com>,
+	Martin Zhang <martinbj2008@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>,
+	Chunhui He <hchunhui@mail.ustc.edu.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1607220954060.1764@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch makes sctp support ipv6 nonlocal bind by adding
-sp->inet.freebind and net->ipv6.sysctl.ip_nonlocal_bind
-check in sctp_v6_available as what sctp did to support
-ipv4 nonlocal bind (commit cdac4e077489).
+On 22.07.2016 09:20, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 21 Jul 2016, Chunhui He wrote:
+> 
+>> If neigh entry was CONNECTED and address is not changed, and if new state is
+>> STALE, entry state will not change. Because DELAY is not in CONNECTED, it's
+>> possible to change state from DELAY to STALE.
+>>
+>> That is bad. Consider a host in IPv4 nerwork, a neigh entry in STALE state
+>> is referenced to send packets, so goes to DELAY state. If the entry is not
+>> confirmed by upper layer, it goes to PROBE state, and sends ARP request.
+>> The neigh host sends ARP reply, then the entry goes to REACHABLE state.
+>> But the entry state may be reseted to STALE by broadcast ARP packets, before
+>> the entry goes to PROBE state. So it's possible that the entry will never go
+>> to REACHABLE state, without external confirmation.
+>>
+>> In my case, the gateway refuses to send unicast packets to me, before it sees
+>> my ARP request. So it's critical to enter REACHABLE state by sending ARP
+>> request, but not by external confirmation.
+>>
+>> This fixes neigh_update() not to change to STALE if old state is CONNECTED or
+>> DELAY.
+>>
+>> Signed-off-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
+>> ---
+>>  net/core/neighbour.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>> index 510cd62..29429eb 100644
+>> --- a/net/core/neighbour.c
+>> +++ b/net/core/neighbour.c
+>> @@ -1152,7 +1152,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>>  		} else {
+>>  			if (lladdr == neigh->ha && new == NUD_STALE &&
+>>  			    ((flags & NEIGH_UPDATE_F_WEAK_OVERRIDE) ||
+>> -			     (old & NUD_CONNECTED))
+>> +			     (old & (NUD_CONNECTED | NUD_DELAY)))
+>>  			    )
+>>  				new = old;
+>>  		}
+> 
+> 	You change looks correct to me. But this place
+> has more problems. There is no good reason to set NUD_STALE
+> for any state that is NUD_VALID if address is not changed.
+> This matches perfectly the comment above this code:
+> NUD_STALE should change a NUD_VALID state only when
+> address changes. It also means that IPv6 does not need
+> to provide NEIGH_UPDATE_F_WEAK_OVERRIDE anymore when
+> NEIGH_UPDATE_F_OVERRIDE is also present.
+> 
+> 	By this way the state machine can continue with
+> the resolving: NUD_STALE -> NUD_DELAY (traffic) ->
+> NUD_PROBE (retries) -> NUD_REACHABLE (unicast reply)
+> while the address is not changed. Your change covers only
+> NUD_DELAY, not NUD_PROBE, so it is better to allow more
+> retries to send. We should not give up until success (NUD_REACHABLE).
+> 
+> 	Second problem: NEIGH_UPDATE_F_WEAK_OVERRIDE has no
+> priority over NEIGH_UPDATE_F_ADMIN. For example, now I can not
+> change from NUD_PERMANENT to NUD_STALE:
+> 
+> # ip neigh add 192.168.168.111 lladdr 00:11:22:33:44:55 nud perm dev wlan0
+> # ip neigh show to 192.168.168.111
+> 192.168.168.111 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+> # ip neigh change 192.168.168.111 lladdr 00:11:22:33:44:55 nud stale dev wlan0
+> # ip neigh show to 192.168.168.111
+> 192.168.168.111 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+> 
+> 	IMHO, here is how this place should look:
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 5cdc62a..2b1cb91 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -1151,10 +1151,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  				goto out;
+>  		} else {
+>  			if (lladdr == neigh->ha && new == NUD_STALE &&
+> -			    ((flags & NEIGH_UPDATE_F_WEAK_OVERRIDE) ||
+> -			     (old & NUD_CONNECTED))
+> -			    )
+> -				new = old;
+> +			    !(flags & NEIGH_UPDATE_F_ADMIN))
+> +				goto out;
+>  		}
+>  	}
+> 
+> 	Any thoughts?
 
-Reported-by: Shijoe George <spanjikk@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/ipv6.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+This change makes perfectly sense to me.
 
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index ae6f1a2..660c4a4 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -560,6 +560,7 @@ static int sctp_v6_is_any(const union sctp_addr *addr)
- static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
- {
- 	int type;
-+	struct net *net = sock_net(&sp->inet.sk);
- 	const struct in6_addr *in6 = (const struct in6_addr *)&addr->v6.sin6_addr;
- 
- 	type = ipv6_addr_type(in6);
-@@ -574,7 +575,8 @@ static int sctp_v6_available(union sctp_addr *addr, struct sctp_sock *sp)
- 	if (!(type & IPV6_ADDR_UNICAST))
- 		return 0;
- 
--	return ipv6_chk_addr(sock_net(&sp->inet.sk), in6, NULL, 0);
-+	return sp->inet.freebind || net->ipv6.sysctl.ip_nonlocal_bind ||
-+		ipv6_chk_addr(net, in6, NULL, 0);
- }
- 
- /* This function checks if the address is a valid address to be used for
--- 
-2.1.0
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks,
+Hannes
