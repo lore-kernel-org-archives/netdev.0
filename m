@@ -1,160 +1,147 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v1 3/5] tipc: get monitor threshold for the cluster
-Date: Fri, 22 Jul 2016 08:42:46 +0200
-Message-ID: <1469169768-9214-4-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v1 1/5] tipc: introduce constants
+	for tipc address validation
+Date: Fri, 22 Jul 2016 08:42:44 +0200
+Message-ID: <1469169768-9214-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1469169768-9214-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<maloy@donjonn.com>, <ying.xue@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:61205 "EHLO
-	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbcGVGnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 02:43:02 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1469169768-9214-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-In this commit, we add support to fetch the configured
-cluster monitoring threshold.
+In this commit, we introduce defines for tipc address size,
+offset and mask specification for Zone.Cluster.Node.
+There is no functional change in this commit.
 
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- include/uapi/linux/tipc_netlink.h |  1 +
- net/tipc/monitor.c                |  7 ++++++
- net/tipc/monitor.h                |  2 ++
- net/tipc/netlink.c                |  5 ++++
- net/tipc/node.c                   | 52 +++++++++++++++++++++++++++++++++++++++
- net/tipc/node.h                   |  1 +
- 6 files changed, 68 insertions(+)
+ include/uapi/linux/tipc.h | 30 ++++++++++++++++++++++++++----
+ net/tipc/addr.h           |  5 +----
+ net/tipc/bearer.c         |  4 ++--
+ 3 files changed, 29 insertions(+), 10 deletions(-)
 
-diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index d387b65a0d97..d07c6ec76062 100644
---- a/include/uapi/linux/tipc_netlink.h
-+++ b/include/uapi/linux/tipc_netlink.h
-@@ -57,6 +57,7 @@ enum {
- 	TIPC_NL_NET_SET,
- 	TIPC_NL_NAME_TABLE_GET,
- 	TIPC_NL_MON_SET,
-+	TIPC_NL_MON_GET,
- 
- 	__TIPC_NL_CMD_MAX,
- 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
-index 3892d05b8b45..3579126e2ac8 100644
---- a/net/tipc/monitor.c
-+++ b/net/tipc/monitor.c
-@@ -661,3 +661,10 @@ int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size)
- 
- 	return 0;
- }
-+
-+int tipc_nl_monitor_get_threshold(struct net *net)
-+{
-+	struct tipc_net *tn = tipc_net(net);
-+
-+	return tn->mon_threshold;
-+}
-diff --git a/net/tipc/monitor.h b/net/tipc/monitor.h
-index 91f5dd09432b..aedf62c60bd3 100644
---- a/net/tipc/monitor.h
-+++ b/net/tipc/monitor.h
-@@ -70,5 +70,7 @@ void tipc_mon_get_state(struct net *net, u32 addr,
- void tipc_mon_remove_peer(struct net *net, u32 addr, int bearer_id);
- 
- int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size);
-+int tipc_nl_monitor_get_threshold(struct net *net);
-+
- extern const int tipc_max_domain_size;
- #endif
-diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 1e43ac0200ed..2cfc5f7c6380 100644
---- a/net/tipc/netlink.c
-+++ b/net/tipc/netlink.c
-@@ -226,6 +226,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.doit	= tipc_nl_node_set_monitor,
- 		.policy = tipc_nl_policy,
- 	},
-+	{
-+		.cmd	= TIPC_NL_MON_GET,
-+		.doit	= tipc_nl_node_get_monitor,
-+		.policy = tipc_nl_policy,
-+	},
+diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+index 6f71b9b41595..bf049e8fe31b 100644
+--- a/include/uapi/linux/tipc.h
++++ b/include/uapi/linux/tipc.h
+@@ -60,26 +60,48 @@ struct tipc_name_seq {
+ 	__u32 upper;
  };
  
- int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***attr)
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index fa524d73b031..4a817daa9f6f 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1948,3 +1948,55 @@ int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info)
- 
- 	return 0;
++/* TIPC Address Size, Offset, Mask specification for Z.C.N
++ */
++#define TIPC_NODE_BITS          12
++#define TIPC_CLUSTER_BITS       12
++#define TIPC_ZONE_BITS          8
++
++#define TIPC_NODE_OFFSET        0
++#define TIPC_CLUSTER_OFFSET     TIPC_NODE_BITS
++#define TIPC_ZONE_OFFSET        (TIPC_CLUSTER_OFFSET + TIPC_CLUSTER_BITS)
++
++#define TIPC_NODE_SIZE          ((1UL << TIPC_NODE_BITS) - 1)
++#define TIPC_CLUSTER_SIZE       ((1UL << TIPC_CLUSTER_BITS) - 1)
++#define TIPC_ZONE_SIZE          ((1UL << TIPC_ZONE_BITS) - 1)
++
++#define TIPC_NODE_MASK		(TIPC_NODE_SIZE << TIPC_NODE_OFFSET)
++#define TIPC_CLUSTER_MASK	(TIPC_CLUSTER_SIZE << TIPC_CLUSTER_OFFSET)
++#define TIPC_ZONE_MASK		(TIPC_ZONE_SIZE << TIPC_ZONE_OFFSET)
++
++#define TIPC_ZONE_CLUSTER_MASK (TIPC_ZONE_MASK | TIPC_CLUSTER_MASK)
++
+ static inline __u32 tipc_addr(unsigned int zone,
+ 			      unsigned int cluster,
+ 			      unsigned int node)
+ {
+-	return (zone << 24) | (cluster << 12) | node;
++	return (zone << TIPC_ZONE_OFFSET) |
++		(cluster << TIPC_CLUSTER_OFFSET) |
++		node;
  }
-+
-+static int __tipc_nl_add_monitor_prop(struct net *net, struct tipc_nl_msg *msg)
-+{
-+	struct nlattr *attrs;
-+	void *hdr;
-+	u32 val;
-+
-+	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
-+			  0, TIPC_NL_MON_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	attrs = nla_nest_start(msg->skb, TIPC_NLA_MON);
-+	if (!attrs)
-+		goto msg_full;
-+
-+	val = tipc_nl_monitor_get_threshold(net);
-+
-+	if (nla_put_u32(msg->skb, TIPC_NLA_MON_ACTIVATION_THRESHOLD, val))
-+		goto attr_msg_full;
-+
-+	nla_nest_end(msg->skb, attrs);
-+	genlmsg_end(msg->skb, hdr);
-+
-+	return 0;
-+
-+attr_msg_full:
-+	nla_nest_cancel(msg->skb, attrs);
-+msg_full:
-+	genlmsg_cancel(msg->skb, hdr);
-+
-+	return -EMSGSIZE;
-+}
-+
-+int tipc_nl_node_get_monitor(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct tipc_nl_msg msg;
-+	int err;
-+
-+	msg.skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-+	msg.portid = info->snd_portid;
-+	msg.seq = info->snd_seq;
-+
-+	err = __tipc_nl_add_monitor_prop(net, &msg);
-+	if (err) {
-+		nlmsg_free(msg.skb);
-+		return err;
-+	}
-+
-+	return genlmsg_reply(msg.skb, info);
-+}
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 65aa12ede8a5..216f053b817f 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -79,4 +79,5 @@ int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
  
- int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_node_get_monitor(struct sk_buff *skb, struct genl_info *info);
- #endif
+ static inline unsigned int tipc_zone(__u32 addr)
+ {
+-	return addr >> 24;
++	return addr >> TIPC_ZONE_OFFSET;
+ }
+ 
+ static inline unsigned int tipc_cluster(__u32 addr)
+ {
+-	return (addr >> 12) & 0xfff;
++	return (addr & TIPC_CLUSTER_MASK) >> TIPC_CLUSTER_OFFSET;
+ }
+ 
+ static inline unsigned int tipc_node(__u32 addr)
+ {
+-	return addr & 0xfff;
++	return addr & TIPC_NODE_MASK;
+ }
+ 
+ /*
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index 64f4004a6fac..bebb347803ce 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -43,9 +43,6 @@
+ #include <net/netns/generic.h>
+ #include "core.h"
+ 
+-#define TIPC_ZONE_MASK		0xff000000u
+-#define TIPC_CLUSTER_MASK	0xfffff000u
+-
+ static inline u32 tipc_own_addr(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+@@ -60,7 +57,7 @@ static inline u32 tipc_zone_mask(u32 addr)
+ 
+ static inline u32 tipc_cluster_mask(u32 addr)
+ {
+-	return addr & TIPC_CLUSTER_MASK;
++	return addr & TIPC_ZONE_CLUSTER_MASK;
+ }
+ 
+ u32 tipc_own_addr(struct net *net);
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 8584cc48654c..e87731c8998c 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -225,7 +225,7 @@ static int tipc_enable_bearer(struct net *net, const char *name,
+ 	if (tipc_addr_domain_valid(disc_domain) &&
+ 	    (disc_domain != tn->own_addr)) {
+ 		if (tipc_in_scope(disc_domain, tn->own_addr)) {
+-			disc_domain = tn->own_addr & TIPC_CLUSTER_MASK;
++			disc_domain = tn->own_addr & TIPC_ZONE_CLUSTER_MASK;
+ 			res = 0;   /* accept any node in own cluster */
+ 		} else if (in_own_cluster_exact(net, disc_domain))
+ 			res = 0;   /* accept specified node in own cluster */
+@@ -817,7 +817,7 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
+ 	u32 prio;
+ 
+ 	prio = TIPC_MEDIA_LINK_PRI;
+-	domain = tn->own_addr & TIPC_CLUSTER_MASK;
++	domain = tn->own_addr & TIPC_ZONE_CLUSTER_MASK;
+ 
+ 	if (!info->attrs[TIPC_NLA_BEARER])
+ 		return -EINVAL;
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity planning
+reports.http://sdm.link/zohodev2dev
