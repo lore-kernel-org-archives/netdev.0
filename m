@@ -1,57 +1,64 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net 3/3] macsec: validate ICV length on link creation
-Date: Fri, 22 Jul 2016 15:07:58 +0200
-Message-ID: <2a7e1975d5613d733f7aa0f09584b2bbf9eb8a0c.1469191850.git.dcaratti@redhat.com>
-References: <cover.1469191850.git.dcaratti@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: use inet_recvmsg to support sctp RFS well
+Date: Fri, 22 Jul 2016 21:25:42 +0800
+Message-ID: <75f49fcd6f30e7ec41dc0f8e39983a9579386e49.1469193942.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61240 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754040AbcGVNJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 09:09:16 -0400
-In-Reply-To: <cover.1469191850.git.dcaratti@redhat.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34981 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753528AbcGVNZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 09:25:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Test the cipher suite initialization in case ICV length has a value
-different than its default. If this test fails, creation of a new macsec
-link will also fail. This avoids situations where further security
-associations can't be added due to failures of crypto_aead_setauthsize(),
-caused by unsupported user-provided values of the ICV length.
+Commit 486bdee0134c ("sctp: add support for RPS and RFS")
+saves skb->hash into sk->sk_rxhash so that the inet_* can
+record it to flow table.
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+But sctp uses sock_common_recvmsg as .recvmsg instead
+of inet_recvmsg, sock_common_recvmsg doesn't invoke
+sock_rps_record_flow to record the flow. It may cause
+that the receiver has no chances to record the flow if
+it doesn't send msg or poll the socket.
+
+So this patch fixes it by using inet_recvmsg as .recvmsg
+in sctp.
+
+Fixes: 486bdee0134c ("sctp: add support for RPS and RFS")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- drivers/net/macsec.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ net/sctp/ipv6.c     | 2 +-
+ net/sctp/protocol.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index 6d45ba6..5441517 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -3206,8 +3206,20 @@ static int macsec_validate_attr(struct nlattr *tb[], struct nlattr *data[])
- 	if (data[IFLA_MACSEC_CIPHER_SUITE])
- 		csid = nla_get_u64(data[IFLA_MACSEC_CIPHER_SUITE]);
- 
--	if (data[IFLA_MACSEC_ICV_LEN])
-+	if (data[IFLA_MACSEC_ICV_LEN]) {
- 		icv_len = nla_get_u8(data[IFLA_MACSEC_ICV_LEN]);
-+		if (icv_len != DEFAULT_ICV_LEN) {
-+			char dummy_key[DEFAULT_SAK_LEN] = { 0 };
-+			struct crypto_aead *dummy_tfm;
-+
-+			dummy_tfm = macsec_alloc_tfm(dummy_key,
-+						     DEFAULT_SAK_LEN,
-+						     icv_len);
-+			if (IS_ERR(dummy_tfm))
-+				return PTR_ERR(dummy_tfm);
-+			crypto_free_aead(dummy_tfm);
-+		}
-+	}
- 
- 	switch (csid) {
- 	case MACSEC_DEFAULT_CIPHER_ID:
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index ae6f1a2..98c383c 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -954,7 +954,7 @@ static const struct proto_ops inet6_seqpacket_ops = {
+ 	.setsockopt	   = sock_common_setsockopt,
+ 	.getsockopt	   = sock_common_getsockopt,
+ 	.sendmsg	   = inet_sendmsg,
+-	.recvmsg	   = sock_common_recvmsg,
++	.recvmsg	   = inet_recvmsg,
+ 	.mmap		   = sock_no_mmap,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 1adb927..7b523e3 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1028,7 +1028,7 @@ static const struct proto_ops inet_seqpacket_ops = {
+ 	.setsockopt	   = sock_common_setsockopt, /* IP_SOL IP_OPTION is a problem */
+ 	.getsockopt	   = sock_common_getsockopt,
+ 	.sendmsg	   = inet_sendmsg,
+-	.recvmsg	   = sock_common_recvmsg,
++	.recvmsg	   = inet_recvmsg,
+ 	.mmap		   = sock_no_mmap,
+ 	.sendpage	   = sock_no_sendpage,
+ #ifdef CONFIG_COMPAT
 -- 
-2.5.5
+2.1.0
