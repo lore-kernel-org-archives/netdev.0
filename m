@@ -1,52 +1,76 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next] sctp: also point GSO head_skb to the sk when it's available
-Date: Sat, 23 Jul 2016 00:33:44 -0300
-Message-ID: <aa37c8d65d8d304be73f6c237202760978ec124f.1469244494.git.marcelo.leitner@gmail.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56534 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750796AbcGWDeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 23:34:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] net/irda: fix NULL pointer dereference on memory allocation failure
+Date: Sat, 23 Jul 2016 07:43:50 +0200
+Message-ID: <1469252630-14008-1-git-send-email-vegard.nossum@oracle.com>
+Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	stable@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The head skb for GSO packets won't travel through the inner depths of
-SCTP stack as it doesn't contain any chunks on it. That means skb->sk
-doesn't get set and then when sctp_recvmsg() calls
-sctp_inet6_skb_msgname() on the head_skb it panics, as this last needs
-to check flags at the socket (sp->v4mapped).
+I ran into this:
 
-The fix is to initialize skb->sk for th head skb once we are able to do
-it. That is, when the first chunk is processed.
+    kasan: CONFIG_KASAN_INLINE enabled
+    kasan: GPF could be caused by NULL-ptr deref or user memory access
+    general protection fault: 0000 [#1] PREEMPT SMP KASAN
+    CPU: 2 PID: 2012 Comm: trinity-c3 Not tainted 4.7.0-rc7+ #19
+    Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Ubuntu-1.8.2-1ubuntu1 04/01/2014
+    task: ffff8800b745f2c0 ti: ffff880111740000 task.ti: ffff880111740000
+    RIP: 0010:[<ffffffff82bbf066>]  [<ffffffff82bbf066>] irttp_connect_request+0x36/0x710
+    RSP: 0018:ffff880111747bb8  EFLAGS: 00010286
+    RAX: dffffc0000000000 RBX: 0000000000000000 RCX: 0000000069dd8358
+    RDX: 0000000000000009 RSI: 0000000000000027 RDI: 0000000000000048
+    RBP: ffff880111747c00 R08: 0000000000000000 R09: 0000000000000000
+    R10: 0000000069dd8358 R11: 1ffffffff0759723 R12: 0000000000000000
+    R13: ffff88011a7e4780 R14: 0000000000000027 R15: 0000000000000000
+    FS:  00007fc738404700(0000) GS:ffff88011af00000(0000) knlGS:0000000000000000
+    CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+    CR2: 00007fc737fdfb10 CR3: 0000000118087000 CR4: 00000000000006e0
+    Stack:
+     0000000000000200 ffff880111747bd8 ffffffff810ee611 ffff880119f1f220
+     ffff880119f1f4f8 ffff880119f1f4f0 ffff88011a7e4780 ffff880119f1f232
+     ffff880119f1f220 ffff880111747d58 ffffffff82bca542 0000000000000000
+    Call Trace:
+     [<ffffffff82bca542>] irda_connect+0x562/0x1190
+     [<ffffffff825ae582>] SYSC_connect+0x202/0x2a0
+     [<ffffffff825b4489>] SyS_connect+0x9/0x10
+     [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
+     [<ffffffff83295ca5>] entry_SYSCALL64_slow_path+0x25/0x25
+    Code: 41 89 ca 48 89 e5 41 57 41 56 41 55 41 54 41 89 d7 53 48 89 fb 48 83 c7 48 48 89 fa 41 89 f6 48 c1 ea 03 48 83 ec 20 4c 8b 65 10 <0f> b6 04 02 84 c0 74 08 84 c0 0f 8e 4c 04 00 00 80 7b 48 00 74
+    RIP  [<ffffffff82bbf066>] irttp_connect_request+0x36/0x710
+     RSP <ffff880111747bb8>
+    ---[ end trace 4cda2588bc055b30 ]---
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+The problem is that irda_open_tsap() can fail and leave self->tsap = NULL,
+and then irttp_connect_request() almost immediately dereferences it.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 ---
- net/sctp/ulpevent.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/irda/af_irda.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index f6219b164b42c821c3e6f626731e97dd712c957c..1bc4f71aaba860776a0a6e4b664ef1c3a0f8af37 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -91,6 +91,7 @@ int sctp_ulpevent_is_notification(const struct sctp_ulpevent *event)
- static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
- 					   const struct sctp_association *asoc)
- {
-+	struct sctp_chunk *chunk = event->chunk;
- 	struct sk_buff *skb;
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index 923abd6..8d2f7c9 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -1024,8 +1024,11 @@ static int irda_connect(struct socket *sock, struct sockaddr *uaddr,
+ 	}
  
- 	/* Cast away the const, as we are just wanting to
-@@ -101,6 +102,8 @@ static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
- 	event->asoc = (struct sctp_association *)asoc;
- 	atomic_add(event->rmem_len, &event->asoc->rmem_alloc);
- 	sctp_skb_set_owner_r(skb, asoc->base.sk);
-+	if (chunk && chunk->head_skb && !chunk->head_skb->sk)
-+		chunk->head_skb->sk = asoc->base.sk;
- }
+ 	/* Check if we have opened a local TSAP */
+-	if (!self->tsap)
+-		irda_open_tsap(self, LSAP_ANY, addr->sir_name);
++	if (!self->tsap) {
++		err = irda_open_tsap(self, LSAP_ANY, addr->sir_name);
++		if (err)
++			goto out;
++	}
  
- /* A simple destructor to give up the reference to the association. */
+ 	/* Move to connecting socket, start sending Connect Requests */
+ 	sock->state = SS_CONNECTING;
 -- 
-2.7.4
+1.9.1
