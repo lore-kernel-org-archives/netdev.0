@@ -1,83 +1,244 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: [PATCH net-next 2/2] be2net: query temperature on probe and decrease its frequency on be_worker()
-Date: Fri, 22 Jul 2016 22:29:55 -0300
-Message-ID: <1469237395-11501-2-git-send-email-gpiccoli@linux.vnet.ibm.com>
-References: <1469237395-11501-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org
-To: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
-	padmanabh.ratnakar@broadcom.com,
-	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:57466 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751061AbcGWBaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 21:30:01 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6N1TFpf108185
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 21:30:00 -0400
-Received: from e24smtp03.br.ibm.com (e24smtp03.br.ibm.com [32.104.18.24])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 24bhvwt5wy-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 21:29:59 -0400
-Received: from localhost
-	by e24smtp03.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-	Fri, 22 Jul 2016 22:29:58 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 348C9352006C
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 21:29:37 -0400 (EDT)
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6N1TuqK28311970
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 22:29:56 -0300
-Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6N1TthR027906
-	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 22:29:55 -0300
-In-Reply-To: <1469237395-11501-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH v18 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+Date: Sat, 23 Jul 2016 01:34:21 +0000
+Message-ID: <CO2PR03MB2182044C36118740EB1F50E2BF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Haiyang Zhang <haiyangz@microsoft.com>,
+	Dave Scott <dave.scott@docker.com>
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	Vitaly Kuznetsov <vkuznets@redhat.com>,
+	Cathy Avery <cavery@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"joe@perches.com" <joe@perches.com>,
+	Rolf Neugebauer <rolf.neugebauer@docker.com>,
+	"Michal Kubecek" <mkubecek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently the be2net driver queries the temperature from fw in regular
-intervals on be_worker(), which is a delayed work procedure that
-reschedules itself to run in next second. The interval for temperature
-query is currently set to 64, meaning at each 64 seconds the query will
-happen on be_worker().
+Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
+mechanism between the host and the guest. It's somewhat like TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
 
-This patch adds a temperature fw query on be_probe() and increase the
-current query timeout of 64 to 128, lowering the frequency of the
-temperature fw queries in be_worker() by half. In our experiments, the
-probing time got increased by 8.7% (from 11.62s to 12.63s) for a
-4-function Lancer adapter (PCI Vid:Did == 10df:e220).
+With Hyper-V Sockets, applications between the host and the guest can talk
+to each other directly by the traditional BSD-style socket APIs.
 
-This aims to solve the problem of userspace temperature request right after
-be2net probing shows inconsistent values because be_worker() didn't perform
-the first temperature query yet. Besides, this patch aims to reduce the
-overhead of querying fw each minute for temperature information.
+Hyper-V Sockets is only available on new Windows hosts, like Windows Server
+2016. More info is in this article "Make your own integration services":
+https://msdn.microsoft.com/en-us/virtualization/hyperv_on_windows/develop/make_mgmt_service
 
-Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+The patch implements the necessary support in the guest side by
+introducing a new socket address family AF_HYPERV.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9f44a00..0e23ab2 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5232,7 +5232,7 @@ static int be_drv_init(struct be_adapter *adapter)
- 	adapter->tx_fc = true;
- 
- 	/* Must be a power of 2 or else MODULO will BUG_ON */
--	adapter->be_get_temp_freq = 64;
-+	adapter->be_get_temp_freq = 128;
- 
- 	return 0;
- 
-@@ -5445,6 +5445,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 							       adapter,
- 							       be_hwmon_groups);
- 		adapter->hwmon_info.be_on_die_temp = BE_INVALID_DIE_TEMP;
-+		be_cmd_get_die_temperature(adapter);
- 	}
- 
- 	dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
+You can also get the patch by (commit 84146dfb):
+https://github.com/dcui/linux/commits/decui/hv_sock/net-next/20160721_v18
+
+Note: the VMBus driver side's supporting patches have been in the mainline
+tree.
+
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://marc.info/?l=linux-netdev&m=145952064004765&w=2
+
+However, though Hyper-V Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
+
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
+
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
+
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like .notify_recv_init
+.notify_recv_pre_block
+.notify_recv_pre_dequeue
+.notify_recv_post_dequeue
+.notify_send_init
+.notify_send_pre_block
+.notify_send_pre_enqueue
+.notify_send_post_enqueue
+etc.
+
+So I think we'd better introduce a new address family: AF_HYPERV.
+
+Please review the patch.
+
+Looking forward to your comments, especially comments from David. :-)
+
+Changes since v1:
+- updated "[PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature"
+- added __init and __exit for the module init/exit functions
+- net/hv_sock/Kconfig: "default m" -> "default m if HYPERV"
+- MODULE_LICENSE: "Dual MIT/GPL" -> "Dual BSD/GPL"
+
+Changes since v2:
+- fixed various coding issue pointed out by David Miller
+- fixed indentation issues
+- removed pr_debug in net/hv_sock/af_hvsock.c
+- used reverse-Chrismas-tree style for local variables.
+- EXPORT_SYMBOL -> EXPORT_SYMBOL_GPL
+
+Changes since v3:
+- fixed a few coding issue pointed by Vitaly Kuznetsov and Dan Carpenter
+- fixed the ret value in vmbus_recvpacket_hvsock on error
+- fixed the style of multi-line comment: vmbus_get_hvsock_rw_status()
+
+Changes since v4 (https://lkml.org/lkml/2015/7/28/404):
+- addressed all the comments about V4.
+- treat the hvsock offers/channels as special VMBus devices
+- add a mechanism to pass hvsock events to the hvsock driver
+- fixed some corner cases with proper locking when a connection is closed
+- rebased to the latest Greg's tree
+
+Changes since v5 (https://lkml.org/lkml/2015/12/24/103):
+- addressed the coding style issues (Vitaly Kuznetsov & David Miller, thanks!)
+- used a better coding for the per-channel rescind callback (Thank Vitaly!)
+- avoided the introduction of new VMBUS driver APIs vmbus_sendpacket_hvsock()
+and vmbus_recvpacket_hvsock() and used vmbus_sendpacket()/vmbus_recvpacket()
+in the higher level (i.e., the vmsock driver). Thank Vitaly!
+
+Changes since v6 (http://lkml.iu.edu/hypermail/linux/kernel/1601.3/01813.html)
+- only a few minor changes of coding style and comments
+
+Changes since v7
+- a few minor changes of coding style: thanks, Joe Perches!
+- added some lines of comments about GUID/UUID before the struct sockaddr_hv.
+
+Changes since v8
+- removed the unnecessary __packed for some definitions: thanks, David!
+- hvsock_open_connection:  use offer.u.pipe.user_def[0] to know the connection
+and reorganized the function
+direction 
+- reorganized the code according to suggestions from Cathy Avery: split big
+functions into small ones, set .setsockopt and getsockopt to
+sock_no_setsockopt/sock_no_getsockopt
+- inline'd some small list helper functions
+
+Changes since v9
+- minimized struct hvsock_sock by making the send/recv buffers pointers.
+   the buffers are allocated by kmalloc() in __hvsock_create() now.
+- minimized the sizes of the send/recv buffers and the vmbus ringbuffers.
+
+Changes since v10
+
+1) add module params: send_ring_page, recv_ring_page. They can be used to
+enlarge the ringbuffer size to get better performance, e.g.,
+# modprobe hv_sock  recv_ring_page=16 send_ring_page=16
+By default, recv_ring_page is 3 and send_ring_page is 2.
+
+2) add module param max_socket_number (the default is 1024).
+A user can enlarge the number to create more than 1024 hv_sock sockets.
+By default, 1024 sockets take about 1024 * (3+2+1+1) * 4KB = 28M bytes.
+(Here 1+1 means 1 page for send/recv buffers per connection, respectively.)
+
+3) implement the TODO in hvsock_shutdown().
+
+4) fix a bug in hvsock_close_connection():
+   I remove "sk->sk_socket->state = SS_UNCONNECTED;" -- actually this line
+is not really useful. For a connection triggered by a host app's connect(),
+sk->sk_socket remains NULL before the connection is accepted by the server
+app (in Linux VM): see hvsock_accept() -> hvsock_accept_wait() ->
+sock_graft(connected, newsock). If the host app exits before the server
+app's accept() returns, the host can send a rescind-message to close the
+connection and later in the Linux VM's message handler 
+i.e. vmbus_onoffer_rescind()), Linux will get a NULL de-referencing crash. 
+
+5) fix a bug in hvsock_open_connection()
+  I move the vmbus_set_chn_rescind_callback() to a later place, because
+when vmbus_open() fails, hvsock_close_connection() can do nothing and we
+count on vmbus_onoffer_rescind() -> vmbus_device_unregister() to clean up
+the device.
+
+6) some stylistic modificiation.
+
+
+Changes since v11:
+1) remove the module params as David suggested.
+
+2) use 5 exact pages for VMBus send/recv rings, respectively.
+The host side's design of the feature requires 5 exact pages for recv/send
+rings respectively -- this is suboptimal considering memory consumption,
+however unluckily we have to live with it, before the host comes up with
+a new design in the future. :-(
+
+3) remove the per-connection static send/recv buffers
+Instead, we allocate and free the buffers dynamically only when we recv/send
+data. This means: when a connection is idle, no memory is consumed as
+recv/send buffers at all.
+Dexuan Cui (1):
+  hv_sock: introduce Hyper-V Sockets
+
+Changes since v12:
+return ENOMEM on buffer alllocation failure
+
+   Actually "man read/write" says "Other errors may occur, depending on the
+object connected to fd". "man send/recv" indeed lists ENOMEM.
+   Considering AF_HYPERV is a new socket type, ENOMEM seems OK here.
+   In the long run, I think we should add a new API in the VMBus driver,
+allowing data copy from VMBus ringbuffer into user mode buffer directly.
+This way, we can even eliminate this temporary buffer.
+
+Changes since v13:
+fix some coding style issues pointed out by David.
+
+Changes since v14:
+Just some stylistic changes addressing comments from Joe Perches and
+Olaf Hering -- thank you!
+- add a GPL blurb.
+- define a new macro PAGE_SIZE_4K and use it to replace PAGE_SIZE
+- change sk_to_hvsock/hvsock_to_sk() from macros to inline functions
+- remove a not-very-useful pr_err()
+- fix some typos in comment and coding style issues.
+
+Changes since v15:
+Made stylistic changes addressing comments from Vitaly Kuznetsov.
+Thank you very much for the detailed comments, Vitaly! 
+
+Changes since v16:
+- PAGE_SIZE -> PAGE_SIZE_4K
+- allow regular users to use the socket
+Thank you Michal Kubecek for the suggestions!
+
+Changes since v17:
+Just some tiny updates to address some spurious compiler warnings:
+"xxx may be used uninitialized in this function".
+
+
+Dexuan Cui (1):
+  hv_sock: introduce Hyper-V Sockets
+
+ MAINTAINERS                 |    2 +
+ include/linux/hyperv.h      |   13 +
+ include/linux/socket.h      |    4 +-
+ include/net/af_hvsock.h     |   78 +++
+ include/uapi/linux/hyperv.h |   23 +
+ net/Kconfig                 |    1 +
+ net/Makefile                |    1 +
+ net/hv_sock/Kconfig         |   10 +
+ net/hv_sock/Makefile        |    3 +
+ net/hv_sock/af_hvsock.c     | 1507 +++++++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 1641 insertions(+), 1 deletion(-)
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
 -- 
 2.1.0
