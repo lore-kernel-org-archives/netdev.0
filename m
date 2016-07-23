@@ -1,69 +1,103 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: Re: [PATCH] ieee802154: check device type
-Date: Sat, 23 Jul 2016 14:21:46 +0200
-Message-ID: <6daeeb69-fc93-24b3-8218-bc483df65b45@pengutronix.de>
-References: <1469004191-30920-1-git-send-email-vegard.nossum@oracle.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH] net/sctp: terminate rhashtable walk correctly
+Date: Sat, 23 Jul 2016 10:26:00 -0300
+Message-ID: <20160723132600.GF9950@localhost.localdomain>
+References: <1469259755-18079-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Alexander Aring <alex.aring@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Sergey Lapin <slapin@ossfans.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Xin Long <lucien.xin@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	stable@vger.kernel.org
 To: Vegard Nossum <vegard.nossum@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:38681 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751234AbcGWMVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 08:21:54 -0400
-In-Reply-To: <1469004191-30920-1-git-send-email-vegard.nossum@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1469259755-18079-1-git-send-email-vegard.nossum@oracle.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-Hi,
-
-On 07/20/2016 10:43 AM, Vegard Nossum wrote:
-> I've observed a NULL pointer dereference in ieee802154_del_iface() during
-> netlink fuzzing. It's the ->wpan_phy dereference here:
+On Sat, Jul 23, 2016 at 09:42:35AM +0200, Vegard Nossum wrote:
+> I was seeing a lot of these:
 > 
->         phy = dev->ieee802154_ptr->wpan_phy;
+>     BUG: sleeping function called from invalid context at mm/slab.h:388
+>     in_atomic(): 0, irqs_disabled(): 0, pid: 14971, name: trinity-c2
+>     Preemption disabled at:[<ffffffff819bcd46>] rhashtable_walk_start+0x46/0x150
 > 
-> My bet is that we're not checking that this is an IEEE802154 interface,
-> so let's do what ieee802154_nl_get_dev() is doing. (Maybe we should even
-> be calling this directly?)
+>      [<ffffffff81149abb>] preempt_count_add+0x1fb/0x280
+>      [<ffffffff83295722>] _raw_spin_lock+0x12/0x40
+>      [<ffffffff811aac87>] console_unlock+0x2f7/0x930
+>      [<ffffffff811ab5bb>] vprintk_emit+0x2fb/0x520
+>      [<ffffffff811aba6a>] vprintk_default+0x1a/0x20
+>      [<ffffffff812c171a>] printk+0x94/0xb0
+>      [<ffffffff811d6ed0>] print_stack_trace+0xe0/0x170
+>      [<ffffffff8115835e>] ___might_sleep+0x3be/0x460
+>      [<ffffffff81158490>] __might_sleep+0x90/0x1a0
+>      [<ffffffff8139b823>] kmem_cache_alloc+0x153/0x1e0
+>      [<ffffffff819bca1e>] rhashtable_walk_init+0xfe/0x2d0
+>      [<ffffffff82ec64de>] sctp_transport_walk_start+0x1e/0x60
+>      [<ffffffff82edd8ad>] sctp_transport_seq_start+0x4d/0x150
+>      [<ffffffff8143a82b>] seq_read+0x27b/0x1180
+>      [<ffffffff814f97fc>] proc_reg_read+0xbc/0x180
+>      [<ffffffff813d471b>] __vfs_read+0xdb/0x610
+>      [<ffffffff813d4d3a>] vfs_read+0xea/0x2d0
+>      [<ffffffff813d615b>] SyS_pread64+0x11b/0x150
+>      [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
+>      [<ffffffff832960a5>] return_from_SYSCALL_64+0x0/0x6a
+>      [<ffffffffffffffff>] 0xffffffffffffffff
 > 
-> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> Cc: Alexander Aring <alex.aring@gmail.com>
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> Cc: Sergey Lapin <slapin@ossfans.org>
+> Apparently we always need to call rhashtable_walk_stop(), even when
+> rhashtable_walk_start() fails:
+> 
+>  * rhashtable_walk_start - Start a hash table walk
+>  * @iter:       Hash table iterator
+>  *
+>  * Start a hash table walk.  Note that we take the RCU lock in all
+>  * cases including when we return an error.  So you must always call
+>  * rhashtable_walk_stop to clean up.
+> 
+> otherwise we never call rcu_read_unlock() and we get the splat above.
+> 
+> See-also: 53fa1036 ("sctp: fix some rhashtable functions using in sctp proc/diag")
+> See-also: f2dba9c6 ("rhashtable: Introduce rhashtable_walk_*")
+> Cc: Xin Long <lucien.xin@gmail.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: stable@vger.kernel.org
 > Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> ---
+>  net/sctp/socket.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 67154b8..7f5689a 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4301,6 +4301,7 @@ int sctp_transport_walk_start(struct rhashtable_iter *iter)
+>  
+>  	err = rhashtable_walk_start(iter);
+>  	if (err && err != -EAGAIN) {
+> +		rhashtable_walk_stop(iter);
+>  		rhashtable_walk_exit(iter);
 
-Acked-by: Alexander Aring <aar@pengutronix.de>
+I was doubt now if we shouldn't just call sctp_transport_walk_stop()
+instead, but maybe it's good to keep the two apart, error handling from
+actual stop.
 
-thanks for letting us known that this bug exists.
+I think this one deserves a Fixes tag because prior to 53fa1036 it was
+okay.
 
-Unfortunate I don't care much about this code. This code is part of the
-old UAPI for 802.15.4 subsystems and there are many bugs known.
+Fixes: 53fa1036 ("sctp: fix some rhashtable functions using in sctp proc/diag")
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Nevertheless I added my ack here and would like that Marcel apply this
-patch into his bluetooth tree repository.
-
-The new netlink api exists since 3.19 and highly recommended to don't
-use the old stuff. The ieee802154 never got out the experimental state,
-there was a patch [0] which globally remove the experimental Kconfig
-entry, but no maintainer ever said that this branch isn't in
-experimental state anymore.
-
-I will prepare a RFC series to remove all deprecated handling which we
-have replacements for it, these are:
-
- - old netlink api
- - af_802154 raw sockets, will replaced by AF_PACKET RAW
-
-- Alex
-
-[0] https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/net/ieee802154/Kconfig?id=f4671a90c418b5aae14b61a9fc9d79c629403ca0
+>  		return err;
+>  	}
+> -- 
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
