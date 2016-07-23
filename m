@@ -1,240 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] ixgbe: cleanup crosstalk fix
-Date: Fri, 22 Jul 2016 23:49:51 -0700
-Message-ID: <1469256591-109822-15-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 00/14][pull request] 10GbE Intel Wired LAN Driver Updates 2016-07-22
+Date: Fri, 22 Jul 2016 23:49:37 -0700
+Message-ID: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	guru.anbalagane@oracle.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	guru.anbalagane@oracle.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:62671 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55381 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252AbcGWGuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2016 02:50:14 -0400
-In-Reply-To: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750877AbcGWGuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2016 02:50:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+This series contains updates to ixgbe and ixgbevf only.
 
-This patch address a few issues with the initial crosstalk fix.  Most
-important of which is the SDP that indicates the presents of a SFP+
-module changes between HW types.  With this change that is taken in
-to consideration
+Emil fixes the NACK check in ixgbevf_set_uc_addr_vf() for instances where
+the index is not equal to zero.  Fixes an issue where mac->ops.setup_fc
+can be NULL for backplanes which can cause the driver to crash on load.
 
-It also moves the check closer to the base code that checks link.  This
-makes it so we only need to do the check in one spot.
+Don fixes the second parameter of the LED functions, which is the index to
+the LED we are interested in affecting.  Fixed variable to store register
+reads to unsigned integer.  Adds support for the new x553 hardware into
+ixgbevf.  Fixed a missing rtnl lock around ixgbevf_reinit_locked().
+Fixed an issue where in ixgbevf_reset_subtask() was not verifying that
+the port has been removed.  Cleans up the initial crosstalk fix, since
+the SFP that indicates the presence of a SFP+ module changes between
+hardware types.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |  2 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 71 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 39 --------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   |  1 +
- 4 files changed, 72 insertions(+), 41 deletions(-)
+Babu Moger fixes typo in freeing IRQ, since the array subscript increments
+after the execution of the statement.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 9f2db18..9475ff9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -804,8 +804,6 @@ struct ixgbe_adapter {
- 
- #define IXGBE_RSS_KEY_SIZE     40  /* size of RSS Hash Key in bytes */
- 	u32 rss_key[IXGBE_RSS_KEY_SIZE / sizeof(u32)];
--
--	bool need_crosstalk_fix;
- };
- 
- static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter *adapter)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index ce881a7..b4217f3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -277,6 +277,7 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- {
- 	s32 ret_val;
- 	u32 ctrl_ext;
-+	u16 device_caps;
- 
- 	/* Set the media type */
- 	hw->phy.media_type = hw->mac.ops.get_media_type(hw);
-@@ -301,6 +302,22 @@ s32 ixgbe_start_hw_generic(struct ixgbe_hw *hw)
- 	if (ret_val)
- 		return ret_val;
- 
-+	/* Cashe bit indicating need for crosstalk fix */
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X550EM_x:
-+	case ixgbe_mac_x550em_a:
-+		hw->mac.ops.get_device_caps(hw, &device_caps);
-+		if (device_caps & IXGBE_DEVICE_CAPS_NO_CROSSTALK_WR)
-+			hw->need_crosstalk_fix = false;
-+		else
-+			hw->need_crosstalk_fix = true;
-+		break;
-+	default:
-+		hw->need_crosstalk_fix = false;
-+		break;
-+	}
-+
- 	/* Clear adapter stopped flag */
- 	hw->adapter_stopped = false;
- 
-@@ -3200,6 +3217,31 @@ s32 ixgbe_clear_vfta_generic(struct ixgbe_hw *hw)
- }
- 
- /**
-+ *  ixgbe_need_crosstalk_fix - Determine if we need to do cross talk fix
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Contains the logic to identify if we need to verify link for the
-+ *  crosstalk fix
-+ **/
-+static bool ixgbe_need_crosstalk_fix(struct ixgbe_hw *hw)
-+{
-+	/* Does FW say we need the fix */
-+	if (!hw->need_crosstalk_fix)
-+		return false;
-+
-+	/* Only consider SFP+ PHYs i.e. media type fiber */
-+	switch (hw->mac.ops.get_media_type(hw)) {
-+	case ixgbe_media_type_fiber:
-+	case ixgbe_media_type_fiber_qsfp:
-+		break;
-+	default:
-+		return false;
-+	}
-+
-+	return true;
-+}
-+
-+/**
-  *  ixgbe_check_mac_link_generic - Determine link and speed status
-  *  @hw: pointer to hardware structure
-  *  @speed: pointer to link speed
-@@ -3214,6 +3256,35 @@ s32 ixgbe_check_mac_link_generic(struct ixgbe_hw *hw, ixgbe_link_speed *speed,
- 	u32 links_reg, links_orig;
- 	u32 i;
- 
-+	/* If Crosstalk fix enabled do the sanity check of making sure
-+	 * the SFP+ cage is full.
-+	 */
-+	if (ixgbe_need_crosstalk_fix(hw)) {
-+		u32 sfp_cage_full;
-+
-+		switch (hw->mac.type) {
-+		case ixgbe_mac_82599EB:
-+			sfp_cage_full = IXGBE_READ_REG(hw, IXGBE_ESDP) &
-+					IXGBE_ESDP_SDP2;
-+			break;
-+		case ixgbe_mac_X550EM_x:
-+		case ixgbe_mac_x550em_a:
-+			sfp_cage_full = IXGBE_READ_REG(hw, IXGBE_ESDP) &
-+					IXGBE_ESDP_SDP0;
-+			break;
-+		default:
-+			/* sanity check - No SFP+ devices here */
-+			sfp_cage_full = false;
-+			break;
-+		}
-+
-+		if (!sfp_cage_full) {
-+			*link_up = false;
-+			*speed = IXGBE_LINK_SPEED_UNKNOWN;
-+			return 0;
-+		}
-+	}
-+
- 	/* clear the old state */
- 	links_orig = IXGBE_READ_REG(hw, IXGBE_LINKS);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index b0039c0..4845c9f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5625,7 +5625,6 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	struct pci_dev *pdev = adapter->pdev;
- 	unsigned int rss, fdir;
- 	u32 fwsm;
--	u16 device_caps;
- 	int i;
- 
- 	/* PCI config space info */
-@@ -5771,22 +5770,6 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->tx_ring_count = IXGBE_DEFAULT_TXD;
- 	adapter->rx_ring_count = IXGBE_DEFAULT_RXD;
- 
--	/* Cache bit indicating need for crosstalk fix */
--	switch (hw->mac.type) {
--	case ixgbe_mac_82599EB:
--	case ixgbe_mac_X550EM_x:
--	case ixgbe_mac_x550em_a:
--		hw->mac.ops.get_device_caps(hw, &device_caps);
--		if (device_caps & IXGBE_DEVICE_CAPS_NO_CROSSTALK_WR)
--			adapter->need_crosstalk_fix = false;
--		else
--			adapter->need_crosstalk_fix = true;
--		break;
--	default:
--		adapter->need_crosstalk_fix = false;
--		break;
--	}
--
- 	/* set default work limits */
- 	adapter->tx_work_limit = IXGBE_DEFAULT_TX_WORK;
- 
-@@ -6707,18 +6690,6 @@ static void ixgbe_watchdog_update_link(struct ixgbe_adapter *adapter)
- 		link_up = true;
- 	}
- 
--	/* If Crosstalk fix enabled do the sanity check of making sure
--	 * the SFP+ cage is empty.
--	 */
--	if (adapter->need_crosstalk_fix) {
--		u32 sfp_cage_full;
--
--		sfp_cage_full = IXGBE_READ_REG(hw, IXGBE_ESDP) &
--				IXGBE_ESDP_SDP2;
--		if (ixgbe_is_sfp(hw) && link_up && !sfp_cage_full)
--			link_up = false;
--	}
--
- 	if (adapter->ixgbe_ieee_pfc)
- 		pfc_en |= !!(adapter->ixgbe_ieee_pfc->pfc_en);
- 
-@@ -7065,16 +7036,6 @@ static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	s32 err;
- 
--	/* If crosstalk fix enabled verify the SFP+ cage is full */
--	if (adapter->need_crosstalk_fix) {
--		u32 sfp_cage_full;
--
--		sfp_cage_full = IXGBE_READ_REG(hw, IXGBE_ESDP) &
--				IXGBE_ESDP_SDP2;
--		if (!sfp_cage_full)
--			return;
--	}
--
- 	/* not searching for SFP so there is nothing to do here */
- 	if (!(adapter->flags2 & IXGBE_FLAG2_SEARCH_FOR_SFP) &&
- 	    !(adapter->flags2 & IXGBE_FLAG2_SFP_NEEDS_RESET))
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index da3d835..1248a99 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3525,6 +3525,7 @@ struct ixgbe_hw {
- 	bool				force_full_reset;
- 	bool				allow_unsupported_sfp;
- 	bool				wol_enabled;
-+	bool				need_crosstalk_fix;
- };
- 
- struct ixgbe_info {
+Wei Yongjun adds the missing destroy_workqueue() before returning from
+ixgbe_init_module() in the error handling case.
+
+Tony adds range checking for setting the MTU from the VF, where the PF can
+return a NACK but this was not passed on to the VF, so propagate the
+results from the PF to the VF so errors can be reported.  Consolidates
+mailbox read and write functions, since the recent changes to
+ixgbevf_write_msg_read_ack(), other functions are performing the same
+operations done here.
+
+Colin Ian King removes a redundant check on ret_val, since ret_val has
+not changed since the previous check.
+
+The following are changes since commit d95a93a9b71677a43f967a1b7986decab84b7765:
+  Merge branch 'macsec-gro'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
+
+Babu Moger (1):
+  ixgbe: Fix minor typo while freeing irq
+
+Colin Ian King (1):
+  ixgbe: remove redundant check on ret_val
+
+Don Skidmore (7):
+  ixgbevf: Correct parameter sent to LED function
+  ixgbevf: bump version number
+  ixgbe: Change register variable to unsigned
+  ixgbevf: add VF support for new hardware
+  ixgbevf: Add lock around ixgbevf_reinit_locked call
+  ixgbevf: Protect ixgbevf_reset_subtask from remove event
+  ixgbe: cleanup crosstalk fix
+
+Emil Tantilov (2):
+  ixgbevf: fix NACK check in ixgbevf_set_uc_addr_vf()
+  ixgbe: fix setup_fc for x550em
+
+Tony Nguyen (2):
+  ixgbevf: Add range checking for setting MTU
+  ixgbevf: Commonize mailbox write/read
+
+Wei Yongjun (1):
+  ixgbe: Add missing destroy_workqueue() on error in ixgbe_init_module()
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  2 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |  3 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   | 85 +++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     | 42 +---------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     |  4 +-
+ drivers/net/ethernet/intel/ixgbevf/defines.h      |  1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  2 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 24 ++++--
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 96 +++++++++++------------
+ drivers/net/ethernet/intel/ixgbevf/vf.h           |  3 +-
+ 12 files changed, 160 insertions(+), 107 deletions(-)
+
 -- 
 2.5.5
