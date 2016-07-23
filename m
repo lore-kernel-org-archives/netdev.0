@@ -1,341 +1,208 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [PATCH v4 1/2] bpf: Add bpf_probe_write BPF helper to be called
- in tracers (kprobes)
-Date: Fri, 22 Jul 2016 17:05:27 -0700
-Message-ID: <20160723000526.GA11650@ircssh.c.rugged-nimbus-611.internal>
-References: <20160722010915.GA22992@ircssh.c.rugged-nimbus-611.internal>
- <20160722021454.GA135@ast-mbp.thefacebook.com>
- <5791ED30.3000409@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5791ED30.3000409@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Subject: [PATCH net-next 1/2] be2net: set temperature value for all adapter's functions
+Date: Fri, 22 Jul 2016 22:29:54 -0300
+Message-ID: <1469237395-11501-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org
+To: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+	padmanabh.ratnakar@broadcom.com,
+	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:13361 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751288AbcGWBaC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Jul 2016 21:30:02 -0400
+Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6N1TEHt072503
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 21:30:01 -0400
+Received: from e24smtp01.br.ibm.com (e24smtp01.br.ibm.com [32.104.18.85])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 24bhuvja5b-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 21:30:01 -0400
+Received: from localhost
+	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
+	Fri, 22 Jul 2016 22:29:58 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id 6C5181DC0051
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 21:29:47 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay01.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6N1Ttl84272332
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 22:29:55 -0300
+Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6N1Ttua022367
+	for <netdev@vger.kernel.org>; Fri, 22 Jul 2016 22:29:55 -0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 22, 2016 at 11:53:52AM +0200, Daniel Borkmann wrote:
-> On 07/22/2016 04:14 AM, Alexei Starovoitov wrote:
-> >On Thu, Jul 21, 2016 at 06:09:17PM -0700, Sargun Dhillon wrote:
-> >>This allows user memory to be written to during the course of a kprobe.
-> >>It shouldn't be used to implement any kind of security mechanism
-> >>because of TOC-TOU attacks, but rather to debug, divert, and
-> >>manipulate execution of semi-cooperative processes.
-> >>
-> >>Although it uses probe_kernel_write, we limit the address space
-> >>the probe can write into by checking the space with access_ok.
-> >>This is so the call doesn't sleep.
-> >>
-> >>Given this feature is experimental, and has the risk of crashing
-> >>the system, we print a warning on invocation.
-> >>
-> >>It was tested with the tracex7 program on x86-64.
-> >>
-> >>Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-> >>Cc: Alexei Starovoitov <ast@kernel.org>
-> >>Cc: Daniel Borkmann <daniel@iogearbox.net>
-> >>---
-> >>  include/uapi/linux/bpf.h  | 12 ++++++++++++
-> >>  kernel/bpf/verifier.c     |  9 +++++++++
-> >>  kernel/trace/bpf_trace.c  | 37 +++++++++++++++++++++++++++++++++++++
-> >>  samples/bpf/bpf_helpers.h |  2 ++
-> >>  4 files changed, 60 insertions(+)
-> >>
-> >>diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> >>index 2b7076f..4536282 100644
-> >>--- a/include/uapi/linux/bpf.h
-> >>+++ b/include/uapi/linux/bpf.h
-> >>@@ -365,6 +365,18 @@ enum bpf_func_id {
-> >>  	 */
-> >>  	BPF_FUNC_get_current_task,
-> >>
-> >>+	/**
-> >>+	 * bpf_probe_write(void *dst, void *src, int len)
-> >>+	 * safely attempt to write to a location
-> >>+	 * @dst: destination address in userspace
-> >>+	 * @src: source address on stack
-> >>+	 * @len: number of bytes to copy
-> >>+	 * Return:
-> >>+	 *   Returns number of bytes that could not be copied.
-> >>+	 *   On success, this will be zero
-> >
-> >that is odd comment.
-> >there are only three possible return values 0, -EFAULT, -EPERM
-> 
-> Agree.
-> 
-> >>+	 */
-> >>+	BPF_FUNC_probe_write,
-> >>+
-> >>  	__BPF_FUNC_MAX_ID,
-> >>  };
-> >>
-> >>diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> >>index f72f23b..6785008 100644
-> >>--- a/kernel/bpf/verifier.c
-> >>+++ b/kernel/bpf/verifier.c
-> >>@@ -1154,6 +1154,15 @@ static int check_call(struct verifier_env *env, int func_id)
-> >>  		return -EINVAL;
-> >>  	}
-> >>
-> >>+	if (func_id == BPF_FUNC_probe_write) {
-> >>+		pr_warn_once("************************************************\n");
-> >>+		pr_warn_once("* bpf_probe_write: Experimental Feature in use *\n");
-> >>+		pr_warn_once("* bpf_probe_write: Feature may corrupt memory  *\n");
-> >>+		pr_warn_once("************************************************\n");
-> >>+		pr_notice_ratelimited("bpf_probe_write in use by: %.16s-%d",
-> >>+				      current->comm, task_pid_nr(current));
-> >>+	}
-> >
-> >I think single line pr_notice_ratelimited() with 'feature may corrupt user memory'
-> >will be enough.
-> 
-> Agree.
-> 
-> >Also please move this to tracing specific part into bpf_trace.c
-> >similar to bpf_get_trace_printk_proto() instead of verifier.c
-> 
-> Yes, sorry for not being too clear about it, this spot will then be
-> called by the verifier to fetch it for every function call. Meaning that
-> this could get printed multiple times for loading a single program, but
-> I think it's okay. If single line, I'd make that pr_warn_ratelimited(),
-> and probably something like ...
-> 
->  "note: %s[%d] is installing a program with bpf_probe_write helper that may corrupt user memory!",
->  current->comm, task_pid_nr(current)
-> 
-> >>+static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> >>+{
-> >>+	void *unsafe_ptr = (void *) (long) r1;
-> >>+	void *src = (void *) (long) r2;
-> >>+	int size = (int) r3;
-> >>+	struct task_struct *task = current;
-> >>+
-> >>+	/*
-> >
-> >bpf_trace.c follows non-net comment style, so it's good here.
-> >just distracting vs the rest of net style.
-> >
-> >>+	 * Ensure we're in a user context which it is safe for the helper
-> >>+	 * to run. This helper has no business in a kthread
-> >>+	 *
-> >>+	 * access_ok should prevent writing to non-user memory, but on
-> >>+	 * some architectures (nommu, etc...) access_ok isn't enough
-> >>+	 * So we check the current segment
-> >>+	 */
-> >>+
-> >>+	if (unlikely(in_interrupt() || (task->flags & PF_KTHREAD)))
-> >>+		return -EPERM;
-> >
-> >Should we also add a check for !PF_EXITING ?
-> >Like signals are not delivered to such tasks and I'm not sure
-> >what would be the state of mm of it.
-> 
-> I agree, good point.
-> 
-> You can make that 'current->flags & (PF_KTHREAD | PF_EXITING)' and
-> we don't need the extra task var either.
-> 
-> >>+	if (unlikely(segment_eq(get_fs(), KERNEL_DS)))
-> >>+		return -EPERM;
-> >>+	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
-> >>+		return -EPERM;
-> >>+
-> >>+	return probe_kernel_write(unsafe_ptr, src, size);
-> >>+}
-> >>+
-> >>+static const struct bpf_func_proto bpf_probe_write_proto = {
-> >>+	.func		= bpf_probe_write,
-> >>+	.gpl_only	= true,
-> >>+	.ret_type	= RET_INTEGER,
-> >>+	.arg1_type	= ARG_ANYTHING,
-> >>+	.arg2_type	= ARG_PTR_TO_STACK,
-> >>+	.arg3_type	= ARG_CONST_STACK_SIZE,
-> >
-> >I have 2nd thoughts on naming.
-> >I think 'consistency' with probe_read is actually hurting here.
-> >People derive semantic of the helper mainly from the name.
-> >If we call it bpf_probe_read, it would mean that it's generic
-> >writing function, whereas bpf_copy_to_user has clear meaning
-> >that it's writing to user memory only.
-> >In other words bpf_probe_read and bpf_copy_to_user _are_ different
-> >functions with purpose that is easily seen in the name,
-> >whereas bpf_probe_read and bpf_probe_write look like a pair,
-> >but they're not. probe_read can read kernel and user memory,
-> >whereas probe_write only user.
-> 
-> Okay, but still I think that bpf_copy_to_user is a bit of a weird name
-> for that helper, I associate copy_to_user mostly with data buffers or
-> structures passed around with syscalls, but not necessarily with something
-> else, meaning it's not quite obvious to me deriving this from the name
-> to what this helper can achieve.
-> 
-> How about "bpf_probe_write_user"? It still keeps basic semantics of
-> bpf_probe_read, but for the writing part and "user" makes it pretty
-> clear that it's not for kernel memory, plus people familiar with
-> bpf_probe_read already will make sense on what bpf_probe_write_user
-> is about much faster.
-> 
-> Thanks,
-> Daniel
+Temperature values on be2net driver are made available to userspace via
+hwmon abstraction, so tools like lm-sensors can present them to the user.
+The driver provides hwmon structures for each adapter's function.
+Nevertheless, the temperature information come from fw queries performed by
+be_worker() with some frequency, and this procedure is called with a single
+function as argument; this means that the temperature value is updated only
+in the specific function that was passed to be_worker().
 
-Changes: 
--Renamed bpf_probe_write -> bpf_probe_write_user 
--Changed mechanism by  which usage information and warnings get presented
--Added some comments about why we took this approach to the commit message
--Check for PF_EXITING
--Formating / comments
+This can lead to incongruency in reported temperature by a function, or in
+a worse scenario, some functions might be unable to provide temperature
+info to userspace, if they weren't fed with this information from fw in
+be_worker() run.
 
-I did some more testing. And yeah, I was able to crash lots of user programs
-but I was never able to get the kernel to panic, or in an obviously 
-broken state. 
+This patch changes the way temperature is set in be2net driver. At anytime
+the fw query is performed, it will set the temperature value for all
+functions of the adapter, instead of only setting the temperature of the
+function passed to be_worker().
 
-The probe does fail when you're writing to creative locations (mmap'd to
-files for example), but I don't think we can prevent that and I don't think
-that is our target audience. 
-
->From be94a71a97ad39962c5ff0849d3a75edf1159fff Mon Sep 17 00:00:00 2001
-From: Sargun Dhillon <sargun@sargun.me>
-Date: Mon, 18 Jul 2016 19:38:58 -0700
-Subject: [PATCH net-next v4 1/2] bpf: Add bpf_probe_write_user BPF helper to
- be called in tracers
-To: linux-kernel@vger.kernel.org,
-    netdev@vger.kernel.org
-Cc: alexei.starovoitov@gmail.com,
-    daniel@iogearbox.net
-
-This allows user memory to be written to during the course of a kprobe.
-It shouldn't be used to implement any kind of security mechanism
-because of TOC-TOU attacks, but rather to debug, divert, and
-manipulate execution of semi-cooperative processes.
-
-Although it uses probe_kernel_write, we limit the address space
-the probe can write into by checking the space with access_ok.
-This is so the call doesn't sleep. In addition we ensure the threads's
-current fs / segment is USER_DS and the thread isn't exiting nor
-a kernel thread.
-
-Given this feature is experimental, and has the risk of crashing the
-system, we print a warning on first invocation, and the process name
-on subsequent invocations.
-
-It was tested with the tracex7 program on x86-64.
-
-Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
 ---
- include/uapi/linux/bpf.h  | 10 +++++++++
- kernel/trace/bpf_trace.c  | 52 +++++++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/bpf_helpers.h |  2 ++
- 3 files changed, 64 insertions(+)
+ drivers/net/ethernet/emulex/benet/be.h      |  1 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 13 +++---
+ drivers/net/ethernet/emulex/benet/be_main.c | 63 +++++++++++++++++++++++++++++
+ 3 files changed, 70 insertions(+), 7 deletions(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 2b7076f..da218fe 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -365,6 +365,16 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_get_current_task,
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index fe3763d..76f8fdb 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -851,6 +851,7 @@ u32 be_get_fw_log_level(struct be_adapter *adapter);
+ int be_update_queues(struct be_adapter *adapter);
+ int be_poll(struct napi_struct *napi, int budget);
+ void be_eqd_update(struct be_adapter *adapter, bool force_update);
++void be_set_adapters_temperature_value(struct be_adapter *adapter, u8 temp);
  
-+	/**
-+	 * bpf_probe_write_user(void *dst, void *src, int len)
-+	 * safely attempt to write to a location
-+	 * @dst: destination address in userspace
-+	 * @src: source address on stack
-+	 * @len: number of bytes to copy
-+	 * Return: 0 on success or negative error
-+	 */
-+	BPF_FUNC_probe_write_user,
+ /*
+  * internal function to initialize-cleanup roce device.
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 22402db..6c59351 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -221,13 +221,12 @@ static void be_async_cmd_process(struct be_adapter *adapter,
+ 		if (base_status == MCC_STATUS_SUCCESS) {
+ 			struct be_cmd_resp_get_cntl_addnl_attribs *resp =
+ 							(void *)resp_hdr;
+-			adapter->hwmon_info.be_on_die_temp =
+-						resp->on_die_temperature;
+-		} else {
+-			adapter->be_get_temp_freq = 0;
+-			adapter->hwmon_info.be_on_die_temp =
+-						BE_INVALID_DIE_TEMP;
+-		}
++			be_set_adapters_temperature_value(adapter,
++							  resp->on_die_temperature);
++		} else
++			be_set_adapters_temperature_value(adapter,
++							  BE_INVALID_DIE_TEMP);
 +
- 	__BPF_FUNC_MAX_ID,
+ 		return;
+ 	}
+ }
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index ed98ef1..9f44a00 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -53,6 +53,15 @@ static const struct pci_device_id be_dev_ids[] = {
+ 	{ 0 }
  };
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index a12bbd3..f9c13e0 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -81,6 +81,56 @@ static const struct bpf_func_proto bpf_probe_read_proto = {
- 	.arg3_type	= ARG_ANYTHING,
- };
- 
-+static u64 bpf_probe_write_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	void *unsafe_ptr = (void *) (long) r1;
-+	void *src = (void *) (long) r2;
-+	int size = (int) r3;
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
 +
-+	/*
-+	 * Ensure we're in a user context which it is safe for the helper
-+	 * to run. This helper has no business in a kthread.
-+	 *
-+	 * access_ok should prevent writing to non-user memory, but in some
-+	 * situations (nommu, temporary switch, etc...) access_ok does not
-+	 * provide enough validation.
-+	 *
-+	 * In order to avoid this we check the current segment to verify that
-+	 * it is USER_DS. This avoid odd architectures and user threads that
-+	 * temporarily switch to KERNEL_DS.
-+	 */
-+
-+	if (unlikely(in_interrupt() ||
-+		     current->flags & (PF_KTHREAD | PF_EXITING)))
-+		return -EPERM;
-+	if (unlikely(segment_eq(get_fs(), KERNEL_DS)))
-+		return -EPERM;
-+	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
-+		return -EPERM;
-+
-+	return probe_kernel_write(unsafe_ptr, src, size);
-+}
-+
-+static const struct bpf_func_proto bpf_probe_write_user_proto = {
-+	.func		= bpf_probe_write_user,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_ANYTHING,
-+	.arg2_type	= ARG_PTR_TO_STACK,
-+	.arg3_type	= ARG_CONST_STACK_SIZE,
++struct adapter_list_node {
++	struct be_adapter *adapter;
++	struct list_head node;
 +};
 +
-+static const struct bpf_func_proto *bpf_get_probe_write_proto(void) {
-+	pr_warn_once("*****************************************************\n");
-+	pr_warn_once("* bpf_probe_write_user: Experimental Feature in use *\n");
-+	pr_warn_once("* bpf_probe_write_user: Feature may corrupt memory  *\n");
-+	pr_warn_once("*****************************************************\n");
-+	pr_notice_ratelimited("bpf_probe_write_user: %s[%d] installing program with helper: it may corrupt user memory!",
-+	current->comm, task_pid_nr(current));
++static LIST_HEAD(adapters_list);
++static DEFINE_MUTEX(adapters_list_lock);
 +
-+	return &bpf_probe_write_user_proto;
+ /* UE Status Low CSR */
+ static const char * const ue_status_low_desc[] = {
+ 	"CEV",
+@@ -130,6 +139,40 @@ static const char * const ue_status_hi_desc[] = {
+ 				 BE_IF_FLAGS_MULTICAST | \
+ 				 BE_IF_FLAGS_PASS_L3L4_ERRORS)
+ 
++/* This procedure runs through adapters_list and sets the temperature for
++ * all functions of the same adapter. Since the temperature update is done
++ * by a single function in be_worker(), the other hwmon entries might remain
++ * with an invalid temperature.
++ */
++
++void be_set_adapters_temperature_value(struct be_adapter *adapter, u8 temp)
++{
++	struct adapter_list_node *adapter_lnode;
++	struct pci_bus *bus;
++	u8 bus_number, slot, dev;
++	u16 domain;
++
++	bus = adapter->pdev->bus;
++	domain = pci_domain_nr(bus);
++	bus_number = bus->number;
++	dev = PCI_SLOT(adapter->pdev->devfn);
++
++	mutex_lock(&adapters_list_lock);
++	list_for_each_entry(adapter_lnode, &adapters_list, node) {
++		bus = adapter_lnode->adapter->pdev->bus;
++		slot = PCI_SLOT(adapter_lnode->adapter->pdev->devfn);
++
++		if (pci_domain_nr(bus) == domain && bus->number == bus_number &&
++		    slot == dev) {
++			adapter_lnode->adapter->hwmon_info.be_on_die_temp
++								= temp;
++			if (unlikely(temp == BE_INVALID_DIE_TEMP))
++				adapter_lnode->adapter->be_get_temp_freq = 0;
++		}
++	}
++	mutex_unlock(&adapters_list_lock);
 +}
 +
- /*
-  * limited trace_printk()
-  * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed
-@@ -362,6 +412,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
- 		return &bpf_get_smp_processor_id_proto;
- 	case BPF_FUNC_perf_event_read:
- 		return &bpf_perf_event_read_proto;
-+	case BPF_FUNC_probe_write_user:
-+		return bpf_get_probe_write_proto();
- 	default:
- 		return NULL;
- 	}
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 84e3fd9..217c8d5 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -41,6 +41,8 @@ static int (*bpf_perf_event_output)(void *ctx, void *map, int index, void *data,
- 	(void *) BPF_FUNC_perf_event_output;
- static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
- 	(void *) BPF_FUNC_get_stackid;
-+static int (*bpf_probe_write_user)(void *dst, void *src, int size) =
-+	(void *) BPF_FUNC_probe_write_user;
+ static void be_queue_free(struct be_adapter *adapter, struct be_queue_info *q)
+ {
+ 	struct be_dma_mem *mem = &q->dma_mem;
+@@ -5204,6 +5247,7 @@ free_mbox:
+ static void be_remove(struct pci_dev *pdev)
+ {
+ 	struct be_adapter *adapter = pci_get_drvdata(pdev);
++	struct adapter_list_node *lnode, *tmp;
  
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
+ 	if (!adapter)
+ 		return;
+@@ -5215,6 +5259,15 @@ static void be_remove(struct pci_dev *pdev)
+ 
+ 	unregister_netdev(adapter->netdev);
+ 
++	mutex_lock(&adapters_list_lock);
++	list_for_each_entry_safe(lnode, tmp, &adapters_list, node)
++		if (lnode->adapter == adapter) {
++			list_del(&lnode->node);
++			kfree(lnode);
++			break;
++		}
++	mutex_unlock(&adapters_list_lock);
++
+ 	be_clear(adapter);
+ 
+ 	/* tell fw we're done with firing cmds */
+@@ -5314,6 +5367,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ {
+ 	struct be_adapter *adapter;
+ 	struct net_device *netdev;
++	struct adapter_list_node *adapter_lnode;
+ 	int status = 0;
+ 
+ 	dev_info(&pdev->dev, "%s version is %s\n", DRV_NAME, DRV_VER);
+@@ -5374,6 +5428,15 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ 
+ 	be_schedule_err_detection(adapter, ERR_DETECTION_DELAY);
+ 
++	adapter_lnode = kmalloc(sizeof(*adapter_lnode), GFP_KERNEL);
++	if (adapter_lnode) {
++		adapter_lnode->adapter = adapter;
++		mutex_lock(&adapters_list_lock);
++		list_add_tail(&adapter_lnode->node, &adapters_list);
++		mutex_unlock(&adapters_list_lock);
++	} else
++		dev_warn(&pdev->dev, "Couldn't be added to adapters_list\n");
++
+ 	/* On Die temperature not supported for VF. */
+ 	if (be_physfn(adapter) && IS_ENABLED(CONFIG_BE2NET_HWMON)) {
+ 		adapter->hwmon_info.hwmon_dev =
 -- 
-2.7.4
+2.1.0
