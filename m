@@ -1,173 +1,231 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/25] netfilter: conntrack: simplify early_drop
-Date: Sat, 23 Jul 2016 13:08:19 +0200
-Message-ID: <1469272119-29942-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/25] netfilter: move nat hlist_head to nf_conn
+Date: Sat, 23 Jul 2016 13:08:20 +0200
+Message-ID: <1469272119-29942-7-git-send-email-pablo@netfilter.org>
 References: <1469272119-29942-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35891 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35896 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751340AbcGWLJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2016 07:09:16 -0400
+	id S1751360AbcGWLJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2016 07:09:18 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 699DBE7DAA
-	for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 13:09:15 +0200 (CEST)
+	by mail.us.es (Postfix) with ESMTP id 860BCE7DAE
+	for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 13:09:16 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 5A4C4FAB56
-	for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 13:09:15 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 765AA6DB36
+	for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 13:09:16 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 0E9AEFAB56
-	for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 13:09:13 +0200 (CEST)
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 4CF686DB36
+	for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 13:09:14 +0200 (CEST)
 In-Reply-To: <1469272119-29942-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-We don't need to acquire the bucket lock during early drop, we can
-use lockless traveral just like ____nf_conntrack_find.
+The nat extension structure is 32bytes in size on x86_64:
 
-The timer deletion serves as synchronization point, if another cpu
-attempts to evict same entry, only one will succeed with timer deletion.
+struct nf_conn_nat {
+        struct hlist_node          bysource;             /*     0    16 */
+        struct nf_conn *           ct;                   /*    16     8 */
+        union nf_conntrack_nat_help help;                /*    24     4 */
+        int                        masq_index;           /*    28     4 */
+        /* size: 32, cachelines: 1, members: 4 */
+        /* last cacheline: 32 bytes */
+};
+
+The hlist is needed to quickly check for possible tuple collisions
+when installing a new nat binding. Storing this in the extension
+area has two drawbacks:
+
+1. We need ct backpointer to get the conntrack struct from the extension.
+2. When reallocation of extension area occurs we need to fixup the bysource
+   hash head via hlist_replace_rcu.
+
+We can avoid both by placing the hlist_head in nf_conn and place nf_conn in
+the bysource hash rather than the extenstion.
+
+We can also remove the ->move support; no other extension needs it.
+
+Moving the entire nat extension into nf_conn would be possible as well but
+then we have to add yet another callback for deletion from the bysource
+hash table rather than just using nat extension ->destroy hook for this.
+
+nf_conn size doesn't increase due to aligment, followup patch replaces
+hlist_node with single pointer.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h |  1 +
- net/netfilter/nf_conntrack_core.c    | 95 ++++++++++++++++++------------------
- 2 files changed, 48 insertions(+), 48 deletions(-)
+ include/net/netfilter/nf_conntrack.h        |  3 +++
+ include/net/netfilter/nf_conntrack_extend.h |  3 ---
+ include/net/netfilter/nf_nat.h              |  2 --
+ net/netfilter/nf_conntrack_extend.c         | 15 ++-----------
+ net/netfilter/nf_nat_core.c                 | 33 ++++++-----------------------
+ 5 files changed, 12 insertions(+), 44 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 5d3397f..2a5133e 100644
+index 2a5133e..e5135d8 100644
 --- a/include/net/netfilter/nf_conntrack.h
 +++ b/include/net/netfilter/nf_conntrack.h
-@@ -301,6 +301,7 @@ void nf_ct_tmpl_free(struct nf_conn *tmpl);
+@@ -117,6 +117,9 @@ struct nf_conn {
+ 	/* Extensions */
+ 	struct nf_ct_ext *ext;
  
- #define NF_CT_STAT_INC(net, count)	  __this_cpu_inc((net)->ct.stat->count)
- #define NF_CT_STAT_INC_ATOMIC(net, count) this_cpu_inc((net)->ct.stat->count)
-+#define NF_CT_STAT_ADD_ATOMIC(net, count, v) this_cpu_add((net)->ct.stat->count, (v))
++#if IS_ENABLED(CONFIG_NF_NAT)
++	struct hlist_node	nat_bysource;
++#endif
+ 	/* Storage reserved for other modules, must be the last member */
+ 	union nf_conntrack_proto proto;
+ };
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index b925395..1c3035d 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -99,9 +99,6 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+ struct nf_ct_ext_type {
+ 	/* Destroys relationships (can be NULL). */
+ 	void (*destroy)(struct nf_conn *ct);
+-	/* Called when realloacted (can be NULL).
+-	   Contents has already been moved. */
+-	void (*move)(void *new, void *old);
  
- #define MODULE_ALIAS_NFCT_HELPER(helper) \
-         MODULE_ALIAS("nfct-helper-" helper)
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 1289e7e..e0e9c9a 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -834,67 +834,66 @@ EXPORT_SYMBOL_GPL(nf_conntrack_tuple_taken);
+ 	enum nf_ct_ext_id id;
  
- /* There's a small race here where we may free a just-assured
-    connection.  Too bad: we're in trouble anyway. */
--static noinline int early_drop(struct net *net, unsigned int _hash)
-+static unsigned int early_drop_list(struct net *net,
-+				    struct hlist_nulls_head *head)
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index 344b1ab..02515f7 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -29,8 +29,6 @@ struct nf_conn;
+ 
+ /* The structure embedded in the conntrack structure. */
+ struct nf_conn_nat {
+-	struct hlist_node bysource;
+-	struct nf_conn *ct;
+ 	union nf_conntrack_nat_help help;
+ #if IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV4) || \
+     IS_ENABLED(CONFIG_NF_NAT_MASQUERADE_IPV6)
+diff --git a/net/netfilter/nf_conntrack_extend.c b/net/netfilter/nf_conntrack_extend.c
+index 1a95459..02bcf00 100644
+--- a/net/netfilter/nf_conntrack_extend.c
++++ b/net/netfilter/nf_conntrack_extend.c
+@@ -73,7 +73,7 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+ 			     size_t var_alloc_len, gfp_t gfp)
  {
--	/* Use oldest entry, which is roughly LRU */
- 	struct nf_conntrack_tuple_hash *h;
--	struct nf_conn *tmp;
- 	struct hlist_nulls_node *n;
--	unsigned int i, hash, sequence;
--	struct nf_conn *ct = NULL;
--	spinlock_t *lockp;
--	bool ret = false;
-+	unsigned int drops = 0;
-+	struct nf_conn *tmp;
+ 	struct nf_ct_ext *old, *new;
+-	int i, newlen, newoff;
++	int newlen, newoff;
+ 	struct nf_ct_ext_type *t;
  
--	i = 0;
-+	hlist_nulls_for_each_entry_rcu(h, n, head, hnnode) {
-+		tmp = nf_ct_tuplehash_to_ctrack(h);
+ 	/* Conntrack must not be confirmed to avoid races on reallocation. */
+@@ -99,19 +99,8 @@ void *__nf_ct_ext_add_length(struct nf_conn *ct, enum nf_ct_ext_id id,
+ 		return NULL;
  
--	local_bh_disable();
--restart:
--	sequence = read_seqcount_begin(&nf_conntrack_generation);
--	for (; i < NF_CT_EVICTION_RANGE; i++) {
--		hash = scale_hash(_hash++);
--		lockp = &nf_conntrack_locks[hash % CONNTRACK_LOCKS];
--		nf_conntrack_lock(lockp);
--		if (read_seqcount_retry(&nf_conntrack_generation, sequence)) {
--			spin_unlock(lockp);
--			goto restart;
--		}
--		hlist_nulls_for_each_entry_rcu(h, n, &nf_conntrack_hash[hash],
--					       hnnode) {
--			tmp = nf_ct_tuplehash_to_ctrack(h);
--
--			if (test_bit(IPS_ASSURED_BIT, &tmp->status) ||
--			    !net_eq(nf_ct_net(tmp), net) ||
--			    nf_ct_is_dying(tmp))
+ 	if (new != old) {
+-		for (i = 0; i < NF_CT_EXT_NUM; i++) {
+-			if (!__nf_ct_ext_exist(old, i))
 -				continue;
 -
--			if (atomic_inc_not_zero(&tmp->ct_general.use)) {
--				ct = tmp;
--				break;
--			}
+-			rcu_read_lock();
+-			t = rcu_dereference(nf_ct_ext_types[i]);
+-			if (t && t->move)
+-				t->move((void *)new + new->offset[i],
+-					(void *)old + old->offset[i]);
+-			rcu_read_unlock();
 -		}
-+		if (test_bit(IPS_ASSURED_BIT, &tmp->status) ||
-+		    !net_eq(nf_ct_net(tmp), net) ||
-+		    nf_ct_is_dying(tmp))
-+			continue;
- 
--		spin_unlock(lockp);
--		if (ct)
--			break;
-+		if (!atomic_inc_not_zero(&tmp->ct_general.use))
-+			continue;
-+
-+		/* kill only if still in same netns -- might have moved due to
-+		 * SLAB_DESTROY_BY_RCU rules.
-+		 *
-+		 * We steal the timer reference.  If that fails timer has
-+		 * already fired or someone else deleted it. Just drop ref
-+		 * and move to next entry.
-+		 */
-+		if (net_eq(nf_ct_net(tmp), net) &&
-+		    nf_ct_is_confirmed(tmp) &&
-+		    del_timer(&tmp->timeout) &&
-+		    nf_ct_delete(tmp, 0, 0))
-+			drops++;
-+
-+		nf_ct_put(tmp);
+ 		kfree_rcu(old, rcu);
+-		ct->ext = new;
++		rcu_assign_pointer(ct->ext, new);
  	}
  
--	local_bh_enable();
-+	return drops;
-+}
+ 	new->offset[id] = newoff;
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 6877a39..6925347 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -198,11 +198,9 @@ find_appropriate_src(struct net *net,
+ 		     const struct nf_nat_range *range)
+ {
+ 	unsigned int h = hash_by_src(net, tuple);
+-	const struct nf_conn_nat *nat;
+ 	const struct nf_conn *ct;
  
--	if (!ct)
--		return false;
-+static noinline int early_drop(struct net *net, unsigned int _hash)
-+{
-+	unsigned int i;
- 
--	/* kill only if in same netns -- might have moved due to
--	 * SLAB_DESTROY_BY_RCU rules
--	 */
--	if (net_eq(nf_ct_net(ct), net) && del_timer(&ct->timeout)) {
--		if (nf_ct_delete(ct, 0, 0)) {
--			NF_CT_STAT_INC_ATOMIC(net, early_drop);
--			ret = true;
-+	for (i = 0; i < NF_CT_EVICTION_RANGE; i++) {
-+		struct hlist_nulls_head *ct_hash;
-+		unsigned hash, sequence, drops;
-+
-+		do {
-+			sequence = read_seqcount_begin(&nf_conntrack_generation);
-+			hash = scale_hash(_hash++);
-+			ct_hash = nf_conntrack_hash;
-+		} while (read_seqcount_retry(&nf_conntrack_generation, sequence));
-+
-+		drops = early_drop_list(net, &ct_hash[hash]);
-+		if (drops) {
-+			NF_CT_STAT_ADD_ATOMIC(net, early_drop, drops);
-+			return true;
- 		}
+-	hlist_for_each_entry_rcu(nat, &nf_nat_bysource[h], bysource) {
+-		ct = nat->ct;
++	hlist_for_each_entry_rcu(ct, &nf_nat_bysource[h], nat_bysource) {
+ 		if (same_src(ct, tuple) &&
+ 		    net_eq(net, nf_ct_net(ct)) &&
+ 		    nf_ct_zone_equal(ct, zone, IP_CT_DIR_ORIGINAL)) {
+@@ -435,8 +433,7 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 		spin_lock_bh(&nf_nat_lock);
+ 		/* nf_conntrack_alter_reply might re-allocate extension aera */
+ 		nat = nfct_nat(ct);
+-		nat->ct = ct;
+-		hlist_add_head_rcu(&nat->bysource,
++		hlist_add_head_rcu(&ct->nat_bysource,
+ 				   &nf_nat_bysource[srchash]);
+ 		spin_unlock_bh(&nf_nat_lock);
  	}
+@@ -543,7 +540,7 @@ static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
+ 	if (nf_nat_proto_remove(ct, data))
+ 		return 1;
  
--	nf_ct_put(ct);
--	return ret;
-+	return false;
+-	if (!nat || !nat->ct)
++	if (!nat)
+ 		return 0;
+ 
+ 	/* This netns is being destroyed, and conntrack has nat null binding.
+@@ -556,9 +553,8 @@ static int nf_nat_proto_clean(struct nf_conn *ct, void *data)
+ 		return 1;
+ 
+ 	spin_lock_bh(&nf_nat_lock);
+-	hlist_del_rcu(&nat->bysource);
++	hlist_del_rcu(&ct->nat_bysource);
+ 	ct->status &= ~IPS_NAT_DONE_MASK;
+-	nat->ct = NULL;
+ 	spin_unlock_bh(&nf_nat_lock);
+ 
+ 	add_timer(&ct->timeout);
+@@ -688,27 +684,13 @@ static void nf_nat_cleanup_conntrack(struct nf_conn *ct)
+ {
+ 	struct nf_conn_nat *nat = nf_ct_ext_find(ct, NF_CT_EXT_NAT);
+ 
+-	if (nat == NULL || nat->ct == NULL)
++	if (!nat)
+ 		return;
+ 
+-	NF_CT_ASSERT(nat->ct->status & IPS_SRC_NAT_DONE);
+-
+-	spin_lock_bh(&nf_nat_lock);
+-	hlist_del_rcu(&nat->bysource);
+-	spin_unlock_bh(&nf_nat_lock);
+-}
+-
+-static void nf_nat_move_storage(void *new, void *old)
+-{
+-	struct nf_conn_nat *new_nat = new;
+-	struct nf_conn_nat *old_nat = old;
+-	struct nf_conn *ct = old_nat->ct;
+-
+-	if (!ct || !(ct->status & IPS_SRC_NAT_DONE))
+-		return;
++	NF_CT_ASSERT(ct->status & IPS_SRC_NAT_DONE);
+ 
+ 	spin_lock_bh(&nf_nat_lock);
+-	hlist_replace_rcu(&old_nat->bysource, &new_nat->bysource);
++	hlist_del_rcu(&ct->nat_bysource);
+ 	spin_unlock_bh(&nf_nat_lock);
  }
  
- static struct nf_conn *
+@@ -716,7 +698,6 @@ static struct nf_ct_ext_type nat_extend __read_mostly = {
+ 	.len		= sizeof(struct nf_conn_nat),
+ 	.align		= __alignof__(struct nf_conn_nat),
+ 	.destroy	= nf_nat_cleanup_conntrack,
+-	.move		= nf_nat_move_storage,
+ 	.id		= NF_CT_EXT_NAT,
+ 	.flags		= NF_CT_EXT_F_PREALLOC,
+ };
 -- 
 2.1.4
