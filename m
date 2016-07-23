@@ -1,147 +1,113 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/14] ixgbevf: Commonize mailbox write/read
-Date: Fri, 22 Jul 2016 23:49:49 -0700
-Message-ID: <1469256591-109822-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] ixgbevf: add VF support for new hardware
+Date: Fri, 22 Jul 2016 23:49:43 -0700
+Message-ID: <1469256591-109822-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	guru.anbalagane@oracle.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6141 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55381 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751244AbcGWGuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2016 02:50:14 -0400
+	id S1751082AbcGWGuL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2016 02:50:11 -0400
 In-Reply-To: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Nguyen <anthony.l.nguyen@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-With changes to ixgbevf_write_msg_read_ack(), other functions are
-performing the same operations done here; change those functions to
-utilize ixgbevf_write_msg_read_ack().
+This patch add VF support for the new X553 hardware.
 
-Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/vf.c | 35 ++++++---------------------------
- 1 file changed, 6 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/defines.h      | 1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 2 ++
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 ++
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 5 +++++
+ drivers/net/ethernet/intel/ixgbevf/vf.h           | 1 +
+ 5 files changed, 11 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/defines.h b/drivers/net/ethernet/intel/ixgbevf/defines.h
+index ae09d60..8617cae 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/defines.h
++++ b/drivers/net/ethernet/intel/ixgbevf/defines.h
+@@ -32,6 +32,7 @@
+ #define IXGBE_DEV_ID_X540_VF		0x1515
+ #define IXGBE_DEV_ID_X550_VF		0x1565
+ #define IXGBE_DEV_ID_X550EM_X_VF	0x15A8
++#define IXGBE_DEV_ID_X550EM_A_VF	0x15C5
+ 
+ #define IXGBE_DEV_ID_82599_VF_HV	0x152E
+ #define IXGBE_DEV_ID_X540_VF_HV		0x1530
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index d5944c3..be52f59 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -457,6 +457,7 @@ enum ixgbevf_boards {
+ 	board_X550_vf_hv,
+ 	board_X550EM_x_vf,
+ 	board_X550EM_x_vf_hv,
++	board_x550em_a_vf,
+ };
+ 
+ enum ixgbevf_xcast_modes {
+@@ -470,6 +471,7 @@ extern const struct ixgbevf_info ixgbevf_X540_vf_info;
+ extern const struct ixgbevf_info ixgbevf_X550_vf_info;
+ extern const struct ixgbevf_info ixgbevf_X550EM_x_vf_info;
+ extern const struct ixgbe_mbx_operations ixgbevf_mbx_ops;
++extern const struct ixgbevf_info ixgbevf_x550em_a_vf_info;
+ 
+ extern const struct ixgbevf_info ixgbevf_82599_vf_hv_info;
+ extern const struct ixgbevf_info ixgbevf_X540_vf_hv_info;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index a1c83c1..1bffac3 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -70,6 +70,7 @@ static const struct ixgbevf_info *ixgbevf_info_tbl[] = {
+ 	[board_X550_vf_hv]	= &ixgbevf_X550_vf_hv_info,
+ 	[board_X550EM_x_vf]	= &ixgbevf_X550EM_x_vf_info,
+ 	[board_X550EM_x_vf_hv]	= &ixgbevf_X550EM_x_vf_hv_info,
++	[board_x550em_a_vf]	= &ixgbevf_x550em_a_vf_info,
+ };
+ 
+ /* ixgbevf_pci_tbl - PCI Device ID Table
+@@ -89,6 +90,7 @@ static const struct pci_device_id ixgbevf_pci_tbl[] = {
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550_VF_HV), board_X550_vf_hv },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_VF), board_X550EM_x_vf },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_X_VF_HV), board_X550EM_x_vf_hv},
++	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_VF), board_x550em_a_vf },
+ 	/* required last entry */
+ 	{0, }
+ };
 diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index 4862bc2..a52f70e 100644
+index aa2b1e8..cb409b3 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/vf.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -267,7 +267,6 @@ static s32 ixgbevf_get_mac_addr_vf(struct ixgbe_hw *hw, u8 *mac_addr)
- 
- static s32 ixgbevf_set_uc_addr_vf(struct ixgbe_hw *hw, u32 index, u8 *addr)
- {
--	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[3], msgbuf_chk;
- 	u8 *msg_addr = (u8 *)(&msgbuf[1]);
- 	s32 ret_val;
-@@ -284,11 +283,8 @@ static s32 ixgbevf_set_uc_addr_vf(struct ixgbe_hw *hw, u32 index, u8 *addr)
- 
- 	if (addr)
- 		ether_addr_copy(msg_addr, addr);
--	ret_val = mbx->ops.write_posted(hw, msgbuf, 3);
--
--	if (!ret_val)
--		ret_val = mbx->ops.read_posted(hw, msgbuf, 3);
- 
-+	ret_val = ixgbevf_write_msg_read_ack(hw, msgbuf, msgbuf, 3);
- 	if (!ret_val) {
- 		msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
- 
-@@ -437,7 +433,6 @@ int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
- static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
- 			      u32 vmdq)
- {
--	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[3];
- 	u8 *msg_addr = (u8 *)(&msgbuf[1]);
- 	s32 ret_val;
-@@ -445,10 +440,8 @@ static s32 ixgbevf_set_rar_vf(struct ixgbe_hw *hw, u32 index, u8 *addr,
- 	memset(msgbuf, 0, sizeof(msgbuf));
- 	msgbuf[0] = IXGBE_VF_SET_MAC_ADDR;
- 	ether_addr_copy(msg_addr, addr);
--	ret_val = mbx->ops.write_posted(hw, msgbuf, 3);
- 
--	if (!ret_val)
--		ret_val = mbx->ops.read_posted(hw, msgbuf, 3);
-+	ret_val = ixgbevf_write_msg_read_ack(hw, msgbuf, msgbuf, 2);
- 
- 	msgbuf[0] &= ~IXGBE_VT_MSGTYPE_CTS;
- 
-@@ -545,7 +538,6 @@ static s32 ixgbevf_hv_update_mc_addr_list_vf(struct ixgbe_hw *hw,
-  **/
- static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw, int xcast_mode)
- {
--	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[2];
- 	s32 err;
- 
-@@ -559,11 +551,7 @@ static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw, int xcast_mode)
- 	msgbuf[0] = IXGBE_VF_UPDATE_XCAST_MODE;
- 	msgbuf[1] = xcast_mode;
- 
--	err = mbx->ops.write_posted(hw, msgbuf, 2);
--	if (err)
--		return err;
--
--	err = mbx->ops.read_posted(hw, msgbuf, 2);
-+	err = ixgbevf_write_msg_read_ack(hw, msgbuf, msgbuf, 2);
- 	if (err)
- 		return err;
- 
-@@ -592,7 +580,6 @@ static s32 ixgbevf_hv_update_xcast_mode(struct ixgbe_hw *hw, int xcast_mode)
- static s32 ixgbevf_set_vfta_vf(struct ixgbe_hw *hw, u32 vlan, u32 vind,
- 			       bool vlan_on)
- {
--	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	u32 msgbuf[2];
- 	s32 err;
- 
-@@ -601,11 +588,7 @@ static s32 ixgbevf_set_vfta_vf(struct ixgbe_hw *hw, u32 vlan, u32 vind,
- 	/* Setting the 8 bit field MSG INFO to TRUE indicates "add" */
- 	msgbuf[0] |= vlan_on << IXGBE_VT_MSGINFO_SHIFT;
- 
--	err = mbx->ops.write_posted(hw, msgbuf, 2);
--	if (err)
--		goto mbx_err;
--
--	err = mbx->ops.read_posted(hw, msgbuf, 2);
-+	err = ixgbevf_write_msg_read_ack(hw, msgbuf, msgbuf, 2);
- 	if (err)
- 		goto mbx_err;
- 
-@@ -853,11 +836,8 @@ static int ixgbevf_negotiate_api_version_vf(struct ixgbe_hw *hw, int api)
- 	msg[0] = IXGBE_VF_API_NEGOTIATE;
- 	msg[1] = api;
- 	msg[2] = 0;
--	err = hw->mbx.ops.write_posted(hw, msg, 3);
--
--	if (!err)
--		err = hw->mbx.ops.read_posted(hw, msg, 3);
- 
-+	err = ixgbevf_write_msg_read_ack(hw, msg, msg, 3);
- 	if (!err) {
- 		msg[0] &= ~IXGBE_VT_MSGTYPE_CTS;
- 
-@@ -906,11 +886,8 @@ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
- 	/* Fetch queue configuration from the PF */
- 	msg[0] = IXGBE_VF_GET_QUEUE;
- 	msg[1] = msg[2] = msg[3] = msg[4] = 0;
--	err = hw->mbx.ops.write_posted(hw, msg, 5);
--
--	if (!err)
--		err = hw->mbx.ops.read_posted(hw, msg, 5);
- 
-+	err = ixgbevf_write_msg_read_ack(hw, msg, msg, 5);
- 	if (!err) {
- 		msg[0] &= ~IXGBE_VT_MSGTYPE_CTS;
+@@ -1007,3 +1007,8 @@ const struct ixgbevf_info ixgbevf_X550EM_x_vf_hv_info = {
+ 	.mac = ixgbe_mac_X550EM_x_vf,
+ 	.mac_ops = &ixgbevf_hv_mac_ops,
+ };
++
++const struct ixgbevf_info ixgbevf_x550em_a_vf_info = {
++	.mac = ixgbe_mac_x550em_a_vf,
++	.mac_ops = &ixgbevf_mac_ops,
++};
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
+index 2cac610..e3a0dea 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
+@@ -78,6 +78,7 @@ enum ixgbe_mac_type {
+ 	ixgbe_mac_X540_vf,
+ 	ixgbe_mac_X550_vf,
+ 	ixgbe_mac_X550EM_x_vf,
++	ixgbe_mac_x550em_a_vf,
+ 	ixgbe_num_macs
+ };
  
 -- 
 2.5.5
