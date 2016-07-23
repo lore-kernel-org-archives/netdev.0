@@ -1,113 +1,201 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 2/4] tc: util: bore up action_a2n()
-Date: Sat, 23 Jul 2016 13:28:08 +0200
-Message-ID: <1469273290-18539-3-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH 1/4] tc: Reformat tc_util.h
+Date: Sat, 23 Jul 2016 13:28:07 +0200
+Message-ID: <1469273290-18539-2-git-send-email-phil@nwl.cc>
 References: <1469273290-18539-1-git-send-email-phil@nwl.cc>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:46854 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:39560 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751260AbcGWL2s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2016 07:28:48 -0400
+	id S1751260AbcGWL2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2016 07:28:42 -0400
 In-Reply-To: <1469273290-18539-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's a pitty this function is used nowhere, so let's polish it for use:
-
-* Loop over branch names, makes it clear that every former conditional
-  was exactly identical.
-* Support 'pipe' branch name, too.
-* Make number parsing optional.
+* Drop 'extern' keyword before function declarations.
+* Add parameter names where they were missing for matters of
+  consistency.
+* Drop fancy indenting (e.g. tab between type and name).
+* Break long lines to not exceed 80 columns.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- tc/tc_util.c | 56 +++++++++++++++++++++++++++++++++++---------------------
- tc/tc_util.h |  2 +-
- 2 files changed, 36 insertions(+), 22 deletions(-)
+ tc/tc_util.h | 149 +++++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 78 insertions(+), 71 deletions(-)
 
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index fd6669f281cc1..cd7b40b0afe48 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -435,29 +435,43 @@ char *action_n2a(int action, char *buf, int len)
- 	}
- }
- 
--int action_a2n(char *arg, int *result)
-+/* Convert action branch name into numeric format.
-+ *
-+ * Parameters:
-+ * @arg - string to parse
-+ * @result - pointer to output variable
-+ * @allow_num - whether @arg may be in numeric format already
-+ *
-+ * In error case, returns -1 and does not touch @result. Otherwise returns 0.
-+ */
-+int action_a2n(char *arg, int *result, bool allow_num)
- {
--	int res;
--
--	if (matches(arg, "continue") == 0)
--		res = -1;
--	else if (matches(arg, "drop") == 0)
--		res = TC_ACT_SHOT;
--	else if (matches(arg, "shot") == 0)
--		res = TC_ACT_SHOT;
--	else if (matches(arg, "pass") == 0)
--		res = TC_ACT_OK;
--	else if (strcmp(arg, "ok") == 0)
--		res = TC_ACT_OK;
--	else if (matches(arg, "reclassify") == 0)
--		res = TC_ACT_RECLASSIFY;
--	else {
--		char dummy;
--
--		if (sscanf(arg, "%d%c", &res, &dummy) != 1)
--			return -1;
-+	int n;
-+	char dummy;
-+	struct {
-+		const char *a;
-+		int n;
-+	} a2n[] = {
-+		{"continue", TC_ACT_UNSPEC},
-+		{"drop", TC_ACT_SHOT},
-+		{"shot", TC_ACT_SHOT},
-+		{"pass", TC_ACT_OK},
-+		{"ok", TC_ACT_OK},
-+		{"reclassify", TC_ACT_RECLASSIFY},
-+		{"pipe", TC_ACT_PIPE},
-+		{ NULL },
-+	}, *iter;
-+
-+	for (iter = a2n; iter->a; iter++) {
-+		if (matches(arg, iter->a) != 0)
-+			continue;
-+		*result = iter->n;
-+		return 0;
- 	}
--	*result = res;
-+	if (!allow_num || sscanf(arg, "%d%c", &n, &dummy) != 1)
-+		return -1;
-+
-+	*result = n;
- 	return 0;
- }
- 
 diff --git a/tc/tc_util.h b/tc/tc_util.h
-index 744f18fdd9117..e7613ab1bd496 100644
+index 61e60b1c55b70..744f18fdd9117 100644
 --- a/tc/tc_util.h
 +++ b/tc/tc_util.h
-@@ -100,7 +100,7 @@ int tc_print_police(FILE *f, struct rtattr *tb);
- int parse_police(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n);
+@@ -22,89 +22,96 @@ enum
+ struct qdisc_util {
+ 	struct  qdisc_util *next;
+ 	const char *id;
+-	int	(*parse_qopt)(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n);
+-	int	(*print_qopt)(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+-	int 	(*print_xstats)(struct qdisc_util *qu, FILE *f, struct rtattr *xstats);
+-
+-	int	(*parse_copt)(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n);
+-	int	(*print_copt)(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
++	int (*parse_qopt)(struct qdisc_util *qu, int argc,
++			  char **argv, struct nlmsghdr *n);
++	int (*print_qopt)(struct qdisc_util *qu,
++			  FILE *f, struct rtattr *opt);
++	int (*print_xstats)(struct qdisc_util *qu,
++			    FILE *f, struct rtattr *xstats);
++
++	int (*parse_copt)(struct qdisc_util *qu, int argc,
++			  char **argv, struct nlmsghdr *n);
++	int (*print_copt)(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+ };
  
- char *action_n2a(int action, char *buf, int len);
--int action_a2n(char *arg, int *result);
-+int action_a2n(char *arg, int *result, bool allow_num);
- int act_parse_police(struct action_util *a, int *argc_p,
- 		     char ***argv_p, int tca_id, struct nlmsghdr *n);
- int print_police(struct action_util *a, FILE *f, struct rtattr *tb);
+ extern __u16 f_proto;
+ struct filter_util {
+ 	struct filter_util *next;
+-	char	id[16];
+-	int	(*parse_fopt)(struct filter_util *qu, char *fhandle, int argc,
+-			      char **argv, struct nlmsghdr *n);
+-	int	(*print_fopt)(struct filter_util *qu, FILE *f, struct rtattr *opt, __u32 fhandle);
++	char id[16];
++	int (*parse_fopt)(struct filter_util *qu, char *fhandle,
++			  int argc, char **argv, struct nlmsghdr *n);
++	int (*print_fopt)(struct filter_util *qu,
++			  FILE *f, struct rtattr *opt, __u32 fhandle);
+ };
+ 
+ struct action_util {
+-	struct  action_util *next;
+-	char    id[16];
+-	int     (*parse_aopt)(struct action_util *a, int *argc, char ***argv,
+-			      int code, struct nlmsghdr *n);
+-	int     (*print_aopt)(struct action_util *au, FILE *f, struct rtattr *opt);
+-	int     (*print_xstats)(struct action_util *au, FILE *f, struct rtattr *xstats);
++	struct action_util *next;
++	char id[16];
++	int (*parse_aopt)(struct action_util *a, int *argc,
++			  char ***argv, int code, struct nlmsghdr *n);
++	int (*print_aopt)(struct action_util *au, FILE *f, struct rtattr *opt);
++	int (*print_xstats)(struct action_util *au,
++			    FILE *f, struct rtattr *xstats);
+ };
+ 
+ struct exec_util {
+-	struct	exec_util *next;
+-	char	id[16];
+-	int	(*parse_eopt)(struct exec_util *eu, int argc, char **argv);
++	struct exec_util *next;
++	char id[16];
++	int (*parse_eopt)(struct exec_util *eu, int argc, char **argv);
+ };
+ 
+-extern const char *get_tc_lib(void);
+-
+-extern struct qdisc_util *get_qdisc_kind(const char *str);
+-extern struct filter_util *get_filter_kind(const char *str);
+-
+-extern int get_qdisc_handle(__u32 *h, const char *str);
+-extern int get_rate(unsigned *rate, const char *str);
+-extern int get_rate64(__u64 *rate, const char *str);
+-extern int get_size(unsigned *size, const char *str);
+-extern int get_size_and_cell(unsigned *size, int *cell_log, char *str);
+-extern int get_time(unsigned *time, const char *str);
+-extern int get_linklayer(unsigned *val, const char *arg);
+-
+-extern void print_rate(char *buf, int len, __u64 rate);
+-extern void print_size(char *buf, int len, __u32 size);
+-extern void print_qdisc_handle(char *buf, int len, __u32 h);
+-extern void print_time(char *buf, int len, __u32 time);
+-extern void print_linklayer(char *buf, int len, unsigned linklayer);
+-
+-extern char * sprint_rate(__u64 rate, char *buf);
+-extern char * sprint_size(__u32 size, char *buf);
+-extern char * sprint_qdisc_handle(__u32 h, char *buf);
+-extern char * sprint_tc_classid(__u32 h, char *buf);
+-extern char * sprint_time(__u32 time, char *buf);
+-extern char * sprint_ticks(__u32 ticks, char *buf);
+-extern char * sprint_linklayer(unsigned linklayer, char *buf);
+-
+-extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
+-extern void print_tcstats2_attr(FILE *fp, struct rtattr *rta, char *prefix, struct rtattr **xstats);
+-
+-extern int get_tc_classid(__u32 *h, const char *str);
+-extern int print_tc_classid(char *buf, int len, __u32 h);
+-extern char * sprint_tc_classid(__u32 h, char *buf);
+-
+-extern int tc_print_police(FILE *f, struct rtattr *tb);
+-extern int parse_police(int *, char ***, int, struct nlmsghdr *);
+-
+-extern char *action_n2a(int action, char *buf, int len);
+-extern int  action_a2n(char *arg, int *result);
+-extern int  act_parse_police(struct action_util *a,int *, char ***, int, struct nlmsghdr *);
+-extern int  print_police(struct action_util *a, FILE *f,
+-			 struct rtattr *tb);
+-extern int  police_print_xstats(struct action_util *a,FILE *f,
+-				struct rtattr *tb);
+-extern int  tc_print_action(FILE *f, const struct rtattr *tb);
+-extern int  tc_print_ipt(FILE *f, const struct rtattr *tb);
+-extern int  parse_action(int *, char ***, int, struct nlmsghdr *);
+-extern void print_tm(FILE *f, const struct tcf_t *tm);
+-extern int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
+-
+-extern int cls_names_init(char *path);
+-extern void cls_names_uninit(void);
++const char *get_tc_lib(void);
++
++struct qdisc_util *get_qdisc_kind(const char *str);
++struct filter_util *get_filter_kind(const char *str);
++
++int get_qdisc_handle(__u32 *h, const char *str);
++int get_rate(unsigned int *rate, const char *str);
++int get_rate64(__u64 *rate, const char *str);
++int get_size(unsigned int *size, const char *str);
++int get_size_and_cell(unsigned int *size, int *cell_log, char *str);
++int get_time(unsigned int *time, const char *str);
++int get_linklayer(unsigned int *val, const char *arg);
++
++void print_rate(char *buf, int len, __u64 rate);
++void print_size(char *buf, int len, __u32 size);
++void print_qdisc_handle(char *buf, int len, __u32 h);
++void print_time(char *buf, int len, __u32 time);
++void print_linklayer(char *buf, int len, unsigned int linklayer);
++
++char *sprint_rate(__u64 rate, char *buf);
++char *sprint_size(__u32 size, char *buf);
++char *sprint_qdisc_handle(__u32 h, char *buf);
++char *sprint_tc_classid(__u32 h, char *buf);
++char *sprint_time(__u32 time, char *buf);
++char *sprint_ticks(__u32 ticks, char *buf);
++char *sprint_linklayer(unsigned int linklayer, char *buf);
++
++void print_tcstats_attr(FILE *fp, struct rtattr *tb[],
++			char *prefix, struct rtattr **xstats);
++void print_tcstats2_attr(FILE *fp, struct rtattr *rta,
++			 char *prefix, struct rtattr **xstats);
++
++int get_tc_classid(__u32 *h, const char *str);
++int print_tc_classid(char *buf, int len, __u32 h);
++char *sprint_tc_classid(__u32 h, char *buf);
++
++int tc_print_police(FILE *f, struct rtattr *tb);
++int parse_police(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n);
++
++char *action_n2a(int action, char *buf, int len);
++int action_a2n(char *arg, int *result);
++int act_parse_police(struct action_util *a, int *argc_p,
++		     char ***argv_p, int tca_id, struct nlmsghdr *n);
++int print_police(struct action_util *a, FILE *f, struct rtattr *tb);
++int police_print_xstats(struct action_util *a, FILE *f, struct rtattr *tb);
++int tc_print_action(FILE *f, const struct rtattr *tb);
++int tc_print_ipt(FILE *f, const struct rtattr *tb);
++int parse_action(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n);
++void print_tm(FILE *f, const struct tcf_t *tm);
++int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
++
++int cls_names_init(char *path);
++void cls_names_uninit(void);
+ 
+ #endif
 -- 
 2.8.2
