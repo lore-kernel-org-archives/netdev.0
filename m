@@ -1,116 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] net: neigh: disallow state transition DELAY->STALE in
- neigh_update()
-Date: Sat, 23 Jul 2016 22:09:43 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1607232039400.2032@ja.home.ssi.bg>
-References: <alpine.LFD.2.11.1607230654070.2032@ja.home.ssi.bg> <20160723.112447.1086885115572685589.hchunhui@mail.ustc.edu.cn> <alpine.LFD.2.11.1607231625130.2032@ja.home.ssi.bg> <20160723.165218.688680379367395677.hchunhui@mail.ustc.edu.cn>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v4 1/2] bpf: Add bpf_probe_write BPF helper to be called
+ in tracers (kprobes)
+Date: Sat, 23 Jul 2016 12:35:12 -0700
+Message-ID: <20160723193510.GA23128@ast-mbp>
+References: <20160722010915.GA22992@ircssh.c.rugged-nimbus-611.internal>
+ <20160722021454.GA135@ast-mbp.thefacebook.com>
+ <5791ED30.3000409@iogearbox.net>
+ <20160723000526.GA11650@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, dsa@cumulusnetworks.com,
-	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
-	rshearma@brocade.com, dbarroso@fastly.com, martinbj2008@gmail.com,
-	rick.jones2@hp.com, koct9i@gmail.com, edumazet@google.com,
-	tgraf@suug.ch, ebiederm@xmission.com, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chunhui He <hchunhui@mail.ustc.edu.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160723.165218.688680379367395677.hchunhui@mail.ustc.edu.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35150 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751234AbcGWThh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 15:37:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20160723000526.GA11650@ircssh.c.rugged-nimbus-611.internal>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jul 22, 2016 at 05:05:27PM -0700, Sargun Dhillon wrote:
+> It was tested with the tracex7 program on x86-64.
 
-	Hello,
+it's my fault to start tracexN tradition that turned out to be
+cumbersome, let's not continue it. Instead could you rename it
+to something meaningful? Like test_probe_write_user ?
+Right now it just prints client's peer address and human needs to
+visually verify that probe_write_user actually happened, if you can
+convert it into a test it will help a lot.
+We were planning to convert all of the samples/bpf/ into tests,
+so we can run them continuously.
 
-On Sat, 23 Jul 2016, Chunhui He wrote:
+btw, single patch re-submit will not be picked up. Please always
+re-submit the whole patch set together.
 
-> The neigh system is to reduce ARP traffic, that is good. The problem is it fails
-> to handle some coner cases.
-> 
-> The coner case is (let's forget my case above):
-> In NUD_DELAY, the neigh system is waiting for a proof of reachablity. If there
-> is no proof, the neigh system must prove by itself, so goes to NUD_PROBE and
-> sends request. But when some other part of kernel gives a non-proof by
-> neigh_update()(STALE is a *hint*, not a proof of reachablity), the neigh system
-> will leave NUD_DELAY, and will *"forget"* to prove by itself. So it's possiable
-> to send traffic to a non-reachable address. That's definitely wrong, even it
-> "saves" traffic.
-> 
-> And the fix is to disallow NUD_DELAY -> NUD_STALE.
+> +static const struct bpf_func_proto *bpf_get_probe_write_proto(void) {
+> +	pr_warn_once("*****************************************************\n");
+> +	pr_warn_once("* bpf_probe_write_user: Experimental Feature in use *\n");
+> +	pr_warn_once("* bpf_probe_write_user: Feature may corrupt memory  *\n");
+> +	pr_warn_once("*****************************************************\n");
+> +	pr_notice_ratelimited("bpf_probe_write_user: %s[%d] installing program with helper: it may corrupt user memory!",
+> +	current->comm, task_pid_nr(current));
 
-	But NUD_STALE event happens only for received
-packet, for the concerned remote IP address, for same or
-different hwaddr, for any kind of tip (target IP). Examples:
+I thought we were argeeing on single pr_warn_ratelimited without banner ?
 
-- Received ARP request who-has LOCAL_IP tell NEIGH_IP:
-	neigh_event_ns is called for the RTN_LOCAL case,
-	for sip/sha. Reply is sent.
-
-- Received ARP request who-has UNICAST_IP tell NEIGH_IP:
-	neigh_event_ns is called for the IN_DEV_FORWARD case,
-	for sip/sha, i.e. if we use proxy_arp. Deferred
-	or immediate reply is sent.
-
-- Received ARP request who-has UNICAST_IP tell NEIGH_IP:
-	neigh_update is called for existing entry when
-	proxy_arp=0, i.e. request not catched by above case.
-	No reply is sent.
-
-- Received Gratuitous ARP request who-has NEIGH_IP tell NEIGH_IP:
-	neigh_update is called for broadcast request when
-	arp_accept=1 or when arp_accept=0 while cache entry exists.
-	No reply is sent.
-
-- Received Gratuitous ARP reply NEIGH_IP is-at hwaddr:
-	neigh_update is called for the received broadcast reply
-
-	This was all for NUD_STALE. There is only one
-ARP case where NUD_REACHABLE is set, usually in response
-to our request:
-
-- Received unicast reply NEIGH_IP is-at hwaddr
-
-- the second non-ARP case for NUD_REACHABLE is from dst_confirm
-
-> > 	Can it learn from our unicast ARP replies that we
-> > should sent in response to its broadcast probes? Or it
-> > expects only ARP requests?
-> 
-> All the broadcast probes I have seen are not "who has <our ip>". they are about
-> other hosts, so we are not expected to answer.
-
-	May be that is the problem: we receive such packet,
-ip_route_input_noref detects that we allow such packet
-from NEIGH_IP on this interface, tip is not RTN_LOCAL (no
-ARP reply from us), tip is RTN_UNICAST but proxy_arp is not
-allowed, so we continue and reach __neigh_lookup which finds
-the existing cache entry because we talked to GW before that.
-As this is an ARP request, neigh_update is called with NUD_STALE.
-No reply is sent because request was not for us but we
-just learned that NEIGH_IP is alive because it lookups
-for someone else. This is common to observe with broadcasts,
-GW lookups for other hosts and has to expose its IP+hwaddr.
-More difficult to happen with unicast packets, you need hub,
-not switch, to detect such packets.
-
-	It is possible that you miss the packet that tries
-to set NUD_STALE. May be you can add some printk's to catch
-what kind of packet causes this. This can help too:
-
-tcpdump -lnnn -s0 arp and host GW_IP
-
-	If you see such packet, that is it. Our cache is
-updated with NUD_STALE.
-
-> So I'm not sure if it can learn from ARP reply.
-
-	See above, received broadcast GARP reply can set
-NUD_STALE. But the most trivial case of GW exposing its
-IP while looking for other hosts should be the culprit.
-It probably happens often, that is why we have no chance
-to send ARP requests, GW is more ARP-active than us and
-updates our cache and we are happy.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+The rest looks good.
+Thanks!
