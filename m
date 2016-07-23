@@ -1,84 +1,72 @@
-From: "Xue, Ying" <Ying.Xue@windriver.com>
-Subject: RE: [PATCH] tipc: fix NULL pointer dereference in shutdown()
-Date: Sat, 23 Jul 2016 09:49:43 +0000
-Message-ID: <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
-References: <1469254504-15347-1-git-send-email-vegard.nossum@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: Vegard Nossum <vegard.nossum@oracle.com>,
-	Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:62929 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057AbcGWJtx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 05:49:53 -0400
-In-Reply-To: <1469254504-15347-1-git-send-email-vegard.nossum@oracle.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] net/sctp: always initialise sctp_ht_iter::start_fail
+Date: Sat, 23 Jul 2016 11:52:23 +0200
+Message-ID: <1469267543-24650-1-git-send-email-vegard.nossum@oracle.com>
+Cc: linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	Xin Long <lucien.xin@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-QWNrZWQtYnk6IFlpbmcgWHVlIDx5aW5nLnh1ZUB3aW5kcml2ZXIuY29tPg0KDQotLS0tLU9yaWdp
-bmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogVmVnYXJkIE5vc3N1bSBbbWFpbHRvOnZlZ2FyZC5ub3Nz
-dW1Ab3JhY2xlLmNvbV0gDQpTZW50OiBTYXR1cmRheSwgSnVseSAyMywgMjAxNiAyOjE1IFBNDQpU
-bzogSm9uIE1hbG95OyBYdWUsIFlpbmcNCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBEYXZp
-ZCBTLiBNaWxsZXI7IE1pY2hhZWwgS2VycmlzazsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9y
-ZzsgVmVnYXJkIE5vc3N1bTsgc3RhYmxlQHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogW1BBVENI
-XSB0aXBjOiBmaXggTlVMTCBwb2ludGVyIGRlcmVmZXJlbmNlIGluIHNodXRkb3duKCkNCg0KdGlw
-Y19tc2dfY3JlYXRlKCkgY2FuIHJldHVybiBhIE5VTEwgc2tiIGFuZCBpZiBzbywgd2Ugc2hvdWxk
-bid0IHRyeSB0byBjYWxsIHRpcGNfbm9kZV94bWl0X3NrYigpIG9uIGl0Lg0KDQogICAgZ2VuZXJh
-bCBwcm90ZWN0aW9uIGZhdWx0OiAwMDAwIFsjMV0gUFJFRU1QVCBTTVAgS0FTQU4NCiAgICBDUFU6
-IDMgUElEOiAzMDI5OCBDb21tOiB0cmluaXR5LWMwIE5vdCB0YWludGVkIDQuNy4wLXJjNysgIzE5
-DQogICAgSGFyZHdhcmUgbmFtZTogUUVNVSBTdGFuZGFyZCBQQyAoaTQ0MEZYICsgUElJWCwgMTk5
-NiksIEJJT1MgVWJ1bnR1LTEuOC4yLTF1YnVudHUxIDA0LzAxLzIwMTQNCiAgICB0YXNrOiBmZmZm
-ODgwMGJhZjA5OTgwIHRpOiBmZmZmODgwMDU5NWI4MDAwIHRhc2sudGk6IGZmZmY4ODAwNTk1Yjgw
-MDANCiAgICBSSVA6IDAwMTA6WzxmZmZmZmZmZjgzMGJiNDZiPl0gIFs8ZmZmZmZmZmY4MzBiYjQ2
-Yj5dIHRpcGNfbm9kZV94bWl0X3NrYisweDZiLzB4MTQwDQogICAgUlNQOiAwMDE4OmZmZmY4ODAw
-NTk1YmZjZTggIEVGTEFHUzogMDAwMTAyNDYNCiAgICBSQVg6IDAwMDAwMDAwMDAwMDAwMDAgUkJY
-OiAwMDAwMDAwMDAwMDAwMDAwIFJDWDogMDAwMDAwMDAzMDIzYjBlMA0KICAgIFJEWDogMDAwMDAw
-MDAwMDAwMDAwMCBSU0k6IGRmZmZmYzAwMDAwMDAwMDAgUkRJOiBmZmZmZmZmZjgzZDEyNTgwDQog
-ICAgUkJQOiBmZmZmODgwMDU5NWJmZDc4IFIwODogZmZmZmVkMDAwYjJiN2YzMiBSMDk6IDAwMDAw
-MDAwMDAwMDAwMDANCiAgICBSMTA6IGZmZmZmYmZmZjA3NTk3MjUgUjExOiAwMDAwMDAwMDAwMDAw
-MDAwIFIxMjogMWZmZmYxMDAwYjJiN2Y5Zg0KICAgIFIxMzogZmZmZjg4MDA1OTViZmQ1OCBSMTQ6
-IGZmZmZmZmZmODNkMTI1ODAgUjE1OiBkZmZmZmMwMDAwMDAwMDAwDQogICAgRlM6ICAwMDAwN2Zj
-ZGRlMjQyNzAwKDAwMDApIEdTOmZmZmY4ODAxMWFmODAwMDAoMDAwMCkga25sR1M6MDAwMDAwMDAw
-MDAwMDAwMA0KICAgIENTOiAgMDAxMCBEUzogMDAwMCBFUzogMDAwMCBDUjA6IDAwMDAwMDAwODAw
-NTAwMzMNCiAgICBDUjI6IDAwMDA3ZmNkZGRlMWRiMTAgQ1IzOiAwMDAwMDAwMDY4NzRiMDAwIENS
-NDogMDAwMDAwMDAwMDAwMDZlMA0KICAgIERSMDogMDAwMDdmY2RkZTI0ODAwMCBEUjE6IDAwMDA3
-ZmNkZGQ3M2QwMDAgRFIyOiAwMDAwN2ZjZGRlMjQ4MDAwDQogICAgRFIzOiAwMDAwMDAwMDAwMDAw
-MDAwIERSNjogMDAwMDAwMDBmZmZmMGZmMCBEUjc6IDAwMDAwMDAwMDAwOTA2MDINCiAgICBTdGFj
-azoNCiAgICAgMDAwMDAwMDAwMDAwMDAxOCAwMDAwMDAwMDAwMDAwMDE4IDAwMDAwMDAwNDFiNThh
-YjMgZmZmZmZmZmY4Mzk1NDIwOA0KICAgICBmZmZmZmZmZjgzMGJiNDAwIGZmZmY4ODAwNTk1YmZk
-MzAgZmZmZmZmZmY4MzA5ZDc2NyAwMDAwMDAwMDAwMDAwMDE4DQogICAgIDAwMDAwMDAwMDAwMDAw
-MTggZmZmZjg4MDA1OTViZmQ3OCBmZmZmZmZmZjgzMDlkYTFhIDAwMDAwMDAwODEwZWU2MTENCiAg
-ICBDYWxsIFRyYWNlOg0KICAgICBbPGZmZmZmZmZmODMwYzg0YTM+XSB0aXBjX3NodXRkb3duKzB4
-NTUzLzB4ODgwDQogICAgIFs8ZmZmZmZmZmY4MjViNGEzYj5dIFN5U19zaHV0ZG93bisweDE0Yi8w
-eDE3MA0KICAgICBbPGZmZmZmZmZmODEwMDMzNGM+XSBkb19zeXNjYWxsXzY0KzB4MTljLzB4NDEw
-DQogICAgIFs8ZmZmZmZmZmY4MzI5NWNhNT5dIGVudHJ5X1NZU0NBTEw2NF9zbG93X3BhdGgrMHgy
-NS8weDI1DQogICAgQ29kZTogOTAgMDAgYjQgMGIgODMgYzcgMDAgZjEgZjEgZjEgZjEgNGMgOGQg
-NmQgZTAgYzcgNDAgMDQgMDAgMDAgMDAgZjQgYzcgNDAgMDggZjMgZjMgZjMgZjMgNDggODkgZDgg
-NDggYzEgZTggMDMgYzcgNDUgYjQgMDAgMDAgMDAgMDAgPDgwPiAzYyAzMCAwMCA3NSA3OCA0OCA4
-ZCA3YiAwOCA0OSA4ZCA3NSBjMCA0OCBiOCAwMCAwMCAwMCAwMCAwMA0KICAgIFJJUCAgWzxmZmZm
-ZmZmZjgzMGJiNDZiPl0gdGlwY19ub2RlX3htaXRfc2tiKzB4NmIvMHgxNDANCiAgICAgUlNQIDxm
-ZmZmODgwMDU5NWJmY2U4Pg0KICAgIC0tLVsgZW5kIHRyYWNlIDU3YjA0ODRlMzUxZTcxZjEgXS0t
-LQ0KDQpJIGZlZWwgbGlrZSB3ZSBzaG91bGQgbWF5YmUgcmV0dXJuIC1FTk9NRU0gb3IgLUVOT0JV
-RlMsIGJ1dCBJJ20gbm90IHN1cmUgdXNlcnNwYWNlIGlzIGVxdWlwcGVkIHRvIGhhbmRsZSB0aGF0
-LiBBbnl3YXksIHRoaXMgaXMgYmV0dGVyIHRoYW4gYSBHUEYgYW5kIGxvb2tzIHNvbWV3aGF0IGNv
-bnNpc3RlbnQgd2l0aCBvdGhlciB0aXBjX21zZ19jcmVhdGUoKSBjYWxsZXJzLg0KDQpDYzogc3Rh
-YmxlQHZnZXIua2VybmVsLm9yZw0KU2lnbmVkLW9mZi1ieTogVmVnYXJkIE5vc3N1bSA8dmVnYXJk
-Lm5vc3N1bUBvcmFjbGUuY29tPg0KLS0tDQogbmV0L3RpcGMvc29ja2V0LmMgfCAzICsrLQ0KIDEg
-ZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCg0KZGlmZiAtLWdp
-dCBhL25ldC90aXBjL3NvY2tldC5jIGIvbmV0L3RpcGMvc29ja2V0LmMgaW5kZXggYzQ5YjhkZi4u
-ZjlmNWYzYyAxMDA2NDQNCi0tLSBhL25ldC90aXBjL3NvY2tldC5jDQorKysgYi9uZXQvdGlwYy9z
-b2NrZXQuYw0KQEAgLTIxODAsNyArMjE4MCw4IEBAIHJlc3RhcnQ6DQogCQkJCQkgICAgICBUSVBD
-X0NPTk5fTVNHLCBTSE9SVF9IX1NJWkUsDQogCQkJCQkgICAgICAwLCBkbm9kZSwgb25vZGUsIGRw
-b3J0LCBvcG9ydCwNCiAJCQkJCSAgICAgIFRJUENfQ09OTl9TSFVURE9XTik7DQotCQkJdGlwY19u
-b2RlX3htaXRfc2tiKG5ldCwgc2tiLCBkbm9kZSwgdHNrLT5wb3J0aWQpOw0KKwkJCWlmIChza2Ip
-DQorCQkJCXRpcGNfbm9kZV94bWl0X3NrYihuZXQsIHNrYiwgZG5vZGUsIHRzay0+cG9ydGlkKTsN
-CiAJCX0NCiAJCXRzay0+Y29ubmVjdGVkID0gMDsNCiAJCXNvY2stPnN0YXRlID0gU1NfRElTQ09O
-TkVDVElORzsNCi0tDQoxLjkuMQ0KDQo=
+seq_read() can call ->start() twice on the same iterator more than once
+(e.g. once through traverse() and once in seq_read() itself).
+
+We should initialize sctp_ht_iter::start_fail to zero if ->start()
+succeeds, otherwise it's possible that we leave an old value of 1 there,
+which will cause ->stop() to not call sctp_transport_walk_stop(), which
+causes all sorts of problems like not calling rcu_read_unlock() (and
+preempt_enable()), eventually leading to more warnings like this:
+
+    BUG: sleeping function called from invalid context at mm/slab.h:388
+    in_atomic(): 0, irqs_disabled(): 0, pid: 16551, name: trinity-c2
+    Preemption disabled at:[<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
+
+     [<ffffffff81149abb>] preempt_count_add+0x1fb/0x280
+     [<ffffffff83295892>] _raw_spin_lock+0x12/0x40
+     [<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
+     [<ffffffff82ec665f>] sctp_transport_walk_start+0x2f/0x60
+     [<ffffffff82edda1d>] sctp_transport_seq_start+0x4d/0x150
+     [<ffffffff81439e50>] traverse+0x170/0x850
+     [<ffffffff8143aeec>] seq_read+0x7cc/0x1180
+     [<ffffffff814f996c>] proc_reg_read+0xbc/0x180
+     [<ffffffff813d0384>] do_loop_readv_writev+0x134/0x210
+     [<ffffffff813d2a95>] do_readv_writev+0x565/0x660
+     [<ffffffff813d6857>] vfs_readv+0x67/0xa0
+     [<ffffffff813d6c16>] do_preadv+0x126/0x170
+     [<ffffffff813d710c>] SyS_preadv+0xc/0x10
+     [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
+     [<ffffffff83296225>] return_from_SYSCALL_64+0x0/0x6a
+     [<ffffffffffffffff>] 0xffffffffffffffff
+
+(Notice that this is a subtly different stacktrace from the previous bug
+I reported.)
+
+Cc: Xin Long <lucien.xin@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+---
+ net/sctp/proc.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 4cb5aed..ef8ba77 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -293,6 +293,7 @@ static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
+ 		return ERR_PTR(err);
+ 	}
+ 
++	iter->start_fail = 0;
+ 	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
+ }
+ 
+-- 
+1.9.1
