@@ -1,71 +1,46 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 1/3] net: ethernet: ti: cpdma: fix lockup in
- cpdma_ctlr_destroy()
-Date: Sat, 23 Jul 2016 09:24:55 +0300
-Message-ID: <fcce1940-3ca2-f5ad-bc71-8ab902c14266@linaro.org>
-References: <20160722135847.20557-1-grygorii.strashko@ti.com>
- <20160722135847.20557-2-grygorii.strashko@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-	linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160722135847.20557-2-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] ixgbevf: bump version number
+Date: Fri, 22 Jul 2016 23:49:40 -0700
+Message-ID: <1469256591-109822-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	guru.anbalagane@oracle.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:55381 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751049AbcGWGuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2016 02:50:10 -0400
+In-Reply-To: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
+Bump the version number to more closely match the function included
+in the driver.
 
-On 22.07.16 16:58, Grygorii Strashko wrote:
-> Fix deadlock in cpdma_ctlr_destroy() which is triggered now on
-> cpsw module removal:
->  cpsw_remove()
->  - cpdma_ctlr_destroy()
->    - spin_lock_irqsave(&ctlr->lock, flags)
->    - cpdma_ctlr_stop()
->      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
->    - cpdma_chan_destroy()
->      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
->
-> The issue has not been observed before because CPDMA channels have
-> been destroyed manually by CPSW until commit d941ebe88a41 ("net:
-> ethernet: ti: cpsw: use destroy ctlr to destroy channels") was merged.
->
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index a68652a..89242e9 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -436,7 +436,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
->  	if (!ctlr)
->  		return -EINVAL;
->
-> -	spin_lock_irqsave(&ctlr->lock, flags);
-Should ctlr->state be checked under lock?
-Seems like here should be used unlocked static versions of
-cpdma_ctlr_stop() and cpdma_chan_destroy() instead.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->  	if (ctlr->state != CPDMA_STATE_IDLE)
->  		cpdma_ctlr_stop(ctlr);
->
-> @@ -444,7 +443,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
->  		cpdma_chan_destroy(ctlr->channels[i]);
->
->  	cpdma_desc_pool_destroy(ctlr->pool);
-> -	spin_unlock_irqrestore(&ctlr->lock, flags);
->  	return ret;
->  }
->  EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
->
-
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index acc2401..a1c83c1 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -56,7 +56,7 @@ const char ixgbevf_driver_name[] = "ixgbevf";
+ static const char ixgbevf_driver_string[] =
+ 	"Intel(R) 10 Gigabit PCI Express Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "2.12.1-k"
++#define DRV_VERSION "3.2.2-k"
+ const char ixgbevf_driver_version[] = DRV_VERSION;
+ static char ixgbevf_copyright[] =
+ 	"Copyright (c) 2009 - 2015 Intel Corporation.";
 -- 
-Regards,
-Ivan Khoronzhuk
+2.5.5
