@@ -1,47 +1,84 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] ixgbe: remove redundant check on ret_val
-Date: Fri, 22 Jul 2016 23:49:50 -0700
-Message-ID: <1469256591-109822-14-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Colin Ian King <colin.king@canonical.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	guru.anbalagane@oracle.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] net/sctp: terminate rhashtable walk correctly
+Date: Sat, 23 Jul 2016 09:42:35 +0200
+Message-ID: <1469259755-18079-1-git-send-email-vegard.nossum@oracle.com>
+Cc: linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	Xin Long <lucien.xin@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	stable@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55381 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751248AbcGWGuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 23 Jul 2016 02:50:14 -0400
-In-Reply-To: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:18010 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751248AbcGWHnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 03:43:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+I was seeing a lot of these:
 
-The last check on ret_val is redundant since ret_val has not changed
-since the previous check, so remove it as it is extraneous.
+    BUG: sleeping function called from invalid context at mm/slab.h:388
+    in_atomic(): 0, irqs_disabled(): 0, pid: 14971, name: trinity-c2
+    Preemption disabled at:[<ffffffff819bcd46>] rhashtable_walk_start+0x46/0x150
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+     [<ffffffff81149abb>] preempt_count_add+0x1fb/0x280
+     [<ffffffff83295722>] _raw_spin_lock+0x12/0x40
+     [<ffffffff811aac87>] console_unlock+0x2f7/0x930
+     [<ffffffff811ab5bb>] vprintk_emit+0x2fb/0x520
+     [<ffffffff811aba6a>] vprintk_default+0x1a/0x20
+     [<ffffffff812c171a>] printk+0x94/0xb0
+     [<ffffffff811d6ed0>] print_stack_trace+0xe0/0x170
+     [<ffffffff8115835e>] ___might_sleep+0x3be/0x460
+     [<ffffffff81158490>] __might_sleep+0x90/0x1a0
+     [<ffffffff8139b823>] kmem_cache_alloc+0x153/0x1e0
+     [<ffffffff819bca1e>] rhashtable_walk_init+0xfe/0x2d0
+     [<ffffffff82ec64de>] sctp_transport_walk_start+0x1e/0x60
+     [<ffffffff82edd8ad>] sctp_transport_seq_start+0x4d/0x150
+     [<ffffffff8143a82b>] seq_read+0x27b/0x1180
+     [<ffffffff814f97fc>] proc_reg_read+0xbc/0x180
+     [<ffffffff813d471b>] __vfs_read+0xdb/0x610
+     [<ffffffff813d4d3a>] vfs_read+0xea/0x2d0
+     [<ffffffff813d615b>] SyS_pread64+0x11b/0x150
+     [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
+     [<ffffffff832960a5>] return_from_SYSCALL_64+0x0/0x6a
+     [<ffffffffffffffff>] 0xffffffffffffffff
+
+Apparently we always need to call rhashtable_walk_stop(), even when
+rhashtable_walk_start() fails:
+
+ * rhashtable_walk_start - Start a hash table walk
+ * @iter:       Hash table iterator
+ *
+ * Start a hash table walk.  Note that we take the RCU lock in all
+ * cases including when we return an error.  So you must always call
+ * rhashtable_walk_stop to clean up.
+
+otherwise we never call rcu_read_unlock() and we get the splat above.
+
+See-also: 53fa1036 ("sctp: fix some rhashtable functions using in sctp proc/diag")
+See-also: f2dba9c6 ("rhashtable: Introduce rhashtable_walk_*")
+Cc: Xin Long <lucien.xin@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: stable@vger.kernel.org
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/sctp/socket.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 47afed7..63b2500 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1813,9 +1813,6 @@ static s32 ixgbe_start_hw_82599(struct ixgbe_hw *hw)
- 	/* We need to run link autotry after the driver loads */
- 	hw->mac.autotry_restart = true;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 67154b8..7f5689a 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4301,6 +4301,7 @@ int sctp_transport_walk_start(struct rhashtable_iter *iter)
  
--	if (ret_val)
--		return ret_val;
--
- 	return ixgbe_verify_fw_version_82599(hw);
- }
- 
+ 	err = rhashtable_walk_start(iter);
+ 	if (err && err != -EAGAIN) {
++		rhashtable_walk_stop(iter);
+ 		rhashtable_walk_exit(iter);
+ 		return err;
+ 	}
 -- 
-2.5.5
+1.9.1
