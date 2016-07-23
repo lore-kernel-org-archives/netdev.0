@@ -1,241 +1,116 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [v3] UCC_GETH/UCC_FAST: Use IS_ERR_VALUE_U32 API to avoid IS_ERR_VALUE abuses.
-Date: Sat, 23 Jul 2016 23:35:51 +0530
-Message-ID: <1469297151-9763-1-git-send-email-arvind.yadav.cs@gmail.com>
-Cc: qiang.zhao@freescale.com, scottwood@freescale.com,
-	viresh.kumar@linaro.org, akpm@linux-foundation.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux@roeck-us.net, arnd@arndb.de,
-	Arvind Yadav <arvind.yadav.cs@gmail.com>
-To: zajec5@gmail.com, leoli@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 51.19-broadband.acttv.in ([106.51.19.103]:31488 "EHLO
-	arvind-ThinkPad-Edge-E431" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751201AbcGWSOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 14:14:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] net: neigh: disallow state transition DELAY->STALE in
+ neigh_update()
+Date: Sat, 23 Jul 2016 22:09:43 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1607232039400.2032@ja.home.ssi.bg>
+References: <alpine.LFD.2.11.1607230654070.2032@ja.home.ssi.bg> <20160723.112447.1086885115572685589.hchunhui@mail.ustc.edu.cn> <alpine.LFD.2.11.1607231625130.2032@ja.home.ssi.bg> <20160723.165218.688680379367395677.hchunhui@mail.ustc.edu.cn>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, dsa@cumulusnetworks.com,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	rshearma@brocade.com, dbarroso@fastly.com, martinbj2008@gmail.com,
+	rick.jones2@hp.com, koct9i@gmail.com, edumazet@google.com,
+	tgraf@suug.ch, ebiederm@xmission.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chunhui He <hchunhui@mail.ustc.edu.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160723.165218.688680379367395677.hchunhui@mail.ustc.edu.cn>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IS_ERR_VALUE() assumes that its parameter is an unsigned long.
-It can not be used to check if an 'unsigned int' reflects an error.
-As they pass an 'unsigned int' into a function that takes an
-'unsigned long' argument. This happens to work because the type
-is sign-extended on 64-bit architectures before it gets converted
-into an unsigned type.
 
-However, anything that passes an 'unsigned short' or 'unsigned int'
-argument into IS_ERR_VALUE() is guaranteed to be broken, as are
-8-bit integers and types that are wider than 'unsigned long'.
+	Hello,
 
-It would be nice to any users that are not passing 'unsigned int'
-arguments.
+On Sat, 23 Jul 2016, Chunhui He wrote:
 
-Passing value in IS_ERR_VALUE() is wrong, as they pass an
-'unsigned int' into a function that takes an 'unsigned long'
-argument.This happens to work because the type is sign-extended
-on 64-bit architectures before it gets converted into an
-unsigned type.
+> The neigh system is to reduce ARP traffic, that is good. The problem is it fails
+> to handle some coner cases.
+> 
+> The coner case is (let's forget my case above):
+> In NUD_DELAY, the neigh system is waiting for a proof of reachablity. If there
+> is no proof, the neigh system must prove by itself, so goes to NUD_PROBE and
+> sends request. But when some other part of kernel gives a non-proof by
+> neigh_update()(STALE is a *hint*, not a proof of reachablity), the neigh system
+> will leave NUD_DELAY, and will *"forget"* to prove by itself. So it's possiable
+> to send traffic to a non-reachable address. That's definitely wrong, even it
+> "saves" traffic.
+> 
+> And the fix is to disallow NUD_DELAY -> NUD_STALE.
 
-Passing an 'unsigned short' or 'unsigned int'argument into
-IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
-and types that are wider than 'unsigned long'.
+	But NUD_STALE event happens only for received
+packet, for the concerned remote IP address, for same or
+different hwaddr, for any kind of tip (target IP). Examples:
 
-Any user will get compilation warning for that do not pass an
-unsigned long' argument.
+- Received ARP request who-has LOCAL_IP tell NEIGH_IP:
+	neigh_event_ns is called for the RTN_LOCAL case,
+	for sip/sha. Reply is sent.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/bcma/scan.c                       |  2 --
- drivers/net/ethernet/freescale/ucc_geth.c | 30 +++++++++++++++---------------
- drivers/soc/fsl/qe/ucc_fast.c             |  4 ++--
- include/linux/err.h                       |  1 +
- 4 files changed, 18 insertions(+), 19 deletions(-)
+- Received ARP request who-has UNICAST_IP tell NEIGH_IP:
+	neigh_event_ns is called for the IN_DEV_FORWARD case,
+	for sip/sha, i.e. if we use proxy_arp. Deferred
+	or immediate reply is sent.
 
-diff --git a/drivers/bcma/scan.c b/drivers/bcma/scan.c
-index 4a2d1b2..319d78e 100644
---- a/drivers/bcma/scan.c
-+++ b/drivers/bcma/scan.c
-@@ -272,8 +272,6 @@ static struct bcma_device *bcma_find_core_reverse(struct bcma_bus *bus, u16 core
- 	return NULL;
- }
- 
--#define IS_ERR_VALUE_U32(x) ((x) >= (u32)-MAX_ERRNO)
--
- static int bcma_get_next_core(struct bcma_bus *bus, u32 __iomem **eromptr,
- 			      struct bcma_device_id *match, int core_num,
- 			      struct bcma_device *core)
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 5bf1ade..d290dea 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -289,7 +289,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
- 		else {
- 			init_enet_offset =
- 			    qe_muram_alloc(thread_size, thread_alignment);
--			if (IS_ERR_VALUE(init_enet_offset)) {
-+			if (IS_ERR_VALUE_U32(init_enet_offset)) {
- 				if (netif_msg_ifup(ugeth))
- 					pr_err("Can not allocate DPRAM memory\n");
- 				qe_put_snum((u8) snum);
-@@ -2234,7 +2234,7 @@ static int ucc_geth_alloc_tx(struct ucc_geth_private *ugeth)
- 			ugeth->tx_bd_ring_offset[j] =
- 			    qe_muram_alloc(length,
- 					   UCC_GETH_TX_BD_RING_ALIGNMENT);
--			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
-+			if (!IS_ERR_VALUE_U32(ugeth->tx_bd_ring_offset[j]))
- 				ugeth->p_tx_bd_ring[j] =
- 				    (u8 __iomem *) qe_muram_addr(ugeth->
- 							 tx_bd_ring_offset[j]);
-@@ -2311,7 +2311,7 @@ static int ucc_geth_alloc_rx(struct ucc_geth_private *ugeth)
- 			ugeth->rx_bd_ring_offset[j] =
- 			    qe_muram_alloc(length,
- 					   UCC_GETH_RX_BD_RING_ALIGNMENT);
--			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
-+			if (!IS_ERR_VALUE_U32(ugeth->rx_bd_ring_offset[j]))
- 				ugeth->p_rx_bd_ring[j] =
- 				    (u8 __iomem *) qe_muram_addr(ugeth->
- 							 rx_bd_ring_offset[j]);
-@@ -2521,7 +2521,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	ugeth->tx_glbl_pram_offset =
- 	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
- 			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->tx_glbl_pram_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_tx_glbl_pram\n");
- 		return -ENOMEM;
-@@ -2541,7 +2541,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 			   sizeof(struct ucc_geth_thread_data_tx) +
- 			   32 * (numThreadsTxNumerical == 1),
- 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->thread_dat_tx_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_thread_data_tx\n");
- 		return -ENOMEM;
-@@ -2568,7 +2568,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	    qe_muram_alloc(ug_info->numQueuesTx *
- 			   sizeof(struct ucc_geth_send_queue_qd),
- 			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->send_q_mem_reg_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_send_q_mem_reg\n");
- 		return -ENOMEM;
-@@ -2609,7 +2609,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		ugeth->scheduler_offset =
- 		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
- 				   UCC_GETH_SCHEDULER_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
-+		if (IS_ERR_VALUE_U32(ugeth->scheduler_offset)) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_scheduler\n");
- 			return -ENOMEM;
-@@ -2656,7 +2656,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		    qe_muram_alloc(sizeof
- 				   (struct ucc_geth_tx_firmware_statistics_pram),
- 				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
-+		if (IS_ERR_VALUE_U32(ugeth->tx_fw_statistics_pram_offset)) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_tx_fw_statistics_pram\n");
- 			return -ENOMEM;
-@@ -2693,7 +2693,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	ugeth->rx_glbl_pram_offset =
- 	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
- 			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->rx_glbl_pram_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_rx_glbl_pram\n");
- 		return -ENOMEM;
-@@ -2712,7 +2712,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	    qe_muram_alloc(numThreadsRxNumerical *
- 			   sizeof(struct ucc_geth_thread_data_rx),
- 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->thread_dat_rx_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_thread_data_rx\n");
- 		return -ENOMEM;
-@@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		    qe_muram_alloc(sizeof
- 				   (struct ucc_geth_rx_firmware_statistics_pram),
- 				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
-+		if (IS_ERR_VALUE_U32(ugeth->rx_fw_statistics_pram_offset)) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_rx_fw_statistics_pram\n");
- 			return -ENOMEM;
-@@ -2753,7 +2753,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	    qe_muram_alloc(ug_info->numQueuesRx *
- 			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
- 			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->rx_irq_coalescing_tbl_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_rx_irq_coalescing_tbl\n");
- 		return -ENOMEM;
-@@ -2819,7 +2819,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
- 			    sizeof(struct ucc_geth_rx_prefetched_bds)),
- 			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
-+	if (IS_ERR_VALUE_U32(ugeth->rx_bd_qs_tbl_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_rx_bd_qs_tbl\n");
- 		return -ENOMEM;
-@@ -2905,7 +2905,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		ugeth->exf_glbl_param_offset =
- 		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
- 		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
-+		if (IS_ERR_VALUE_U32(ugeth->exf_glbl_param_offset)) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_exf_glbl_param\n");
- 			return -ENOMEM;
-@@ -3039,7 +3039,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 
- 	/* Allocate InitEnet command parameter structure */
- 	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
--	if (IS_ERR_VALUE(init_enet_pram_offset)) {
-+	if (IS_ERR_VALUE_U32(init_enet_pram_offset)) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_init_enet_pram\n");
- 		return -ENOMEM;
-diff --git a/drivers/soc/fsl/qe/ucc_fast.c b/drivers/soc/fsl/qe/ucc_fast.c
-index a768931..f7fa59f 100644
---- a/drivers/soc/fsl/qe/ucc_fast.c
-+++ b/drivers/soc/fsl/qe/ucc_fast.c
-@@ -268,7 +268,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
- 	/* Allocate memory for Tx Virtual Fifo */
- 	uccf->ucc_fast_tx_virtual_fifo_base_offset =
- 	    qe_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
--	if (IS_ERR_VALUE(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
-+	if (IS_ERR_VALUE_U32(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
- 		printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO\n",
- 			__func__);
- 		uccf->ucc_fast_tx_virtual_fifo_base_offset = 0;
-@@ -281,7 +281,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
- 		qe_muram_alloc(uf_info->urfs +
- 			   UCC_FAST_RECEIVE_VIRTUAL_FIFO_SIZE_FUDGE_FACTOR,
- 			   UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
--	if (IS_ERR_VALUE(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
-+	if (IS_ERR_VALUE_U32(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
- 		printk(KERN_ERR "%s: cannot allocate MURAM for RX FIFO\n",
- 			__func__);
- 		uccf->ucc_fast_rx_virtual_fifo_base_offset = 0;
-diff --git a/include/linux/err.h b/include/linux/err.h
-index 1e35588..a42f942 100644
---- a/include/linux/err.h
-+++ b/include/linux/err.h
-@@ -19,6 +19,7 @@
- #ifndef __ASSEMBLY__
- 
- #define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
-+#define IS_ERR_VALUE_U32(x) unlikely((unsigned int)(x) >= (unsigned int)-MAX_ERRNO)
- 
- static inline void * __must_check ERR_PTR(long error)
- {
--- 
-1.9.1
+- Received ARP request who-has UNICAST_IP tell NEIGH_IP:
+	neigh_update is called for existing entry when
+	proxy_arp=0, i.e. request not catched by above case.
+	No reply is sent.
+
+- Received Gratuitous ARP request who-has NEIGH_IP tell NEIGH_IP:
+	neigh_update is called for broadcast request when
+	arp_accept=1 or when arp_accept=0 while cache entry exists.
+	No reply is sent.
+
+- Received Gratuitous ARP reply NEIGH_IP is-at hwaddr:
+	neigh_update is called for the received broadcast reply
+
+	This was all for NUD_STALE. There is only one
+ARP case where NUD_REACHABLE is set, usually in response
+to our request:
+
+- Received unicast reply NEIGH_IP is-at hwaddr
+
+- the second non-ARP case for NUD_REACHABLE is from dst_confirm
+
+> > 	Can it learn from our unicast ARP replies that we
+> > should sent in response to its broadcast probes? Or it
+> > expects only ARP requests?
+> 
+> All the broadcast probes I have seen are not "who has <our ip>". they are about
+> other hosts, so we are not expected to answer.
+
+	May be that is the problem: we receive such packet,
+ip_route_input_noref detects that we allow such packet
+from NEIGH_IP on this interface, tip is not RTN_LOCAL (no
+ARP reply from us), tip is RTN_UNICAST but proxy_arp is not
+allowed, so we continue and reach __neigh_lookup which finds
+the existing cache entry because we talked to GW before that.
+As this is an ARP request, neigh_update is called with NUD_STALE.
+No reply is sent because request was not for us but we
+just learned that NEIGH_IP is alive because it lookups
+for someone else. This is common to observe with broadcasts,
+GW lookups for other hosts and has to expose its IP+hwaddr.
+More difficult to happen with unicast packets, you need hub,
+not switch, to detect such packets.
+
+	It is possible that you miss the packet that tries
+to set NUD_STALE. May be you can add some printk's to catch
+what kind of packet causes this. This can help too:
+
+tcpdump -lnnn -s0 arp and host GW_IP
+
+	If you see such packet, that is it. Our cache is
+updated with NUD_STALE.
+
+> So I'm not sure if it can learn from ARP reply.
+
+	See above, received broadcast GARP reply can set
+NUD_STALE. But the most trivial case of GW exposing its
+IP while looking for other hosts should be the culprit.
+It probably happens often, that is why we have no chance
+to send ARP requests, GW is more ARP-active than us and
+updates our cache and we are happy.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
