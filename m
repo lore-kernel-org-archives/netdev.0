@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] ixgbe: Change register variable to unsigned
-Date: Fri, 22 Jul 2016 23:49:41 -0700
-Message-ID: <1469256591-109822-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] ixgbe: fix setup_fc for x550em
+Date: Fri, 22 Jul 2016 23:49:44 -0700
+Message-ID: <1469256591-109822-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	guru.anbalagane@oracle.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,37 +11,53 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:6141 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939AbcGWGuL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751111AbcGWGuL (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 23 Jul 2016 02:50:11 -0400
 In-Reply-To: <1469256591-109822-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-I noticed this variable used for register reads wasn't an unsigned
-so this patch corrects that.  I don't believe this was causing any
-issue as is but this is more consistent with the rest of the driver.
+mac->ops.setup_fc can be null for backplanes which can cause the driver
+to crash on load.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Reported-by: Patrick McLean <patrickm@gaikai.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 0ffba44..ce881a7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -2663,7 +2663,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw)
-  **/
- s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 19b75cd..4716ca4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -1618,6 +1618,8 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
  {
--	int secrxreg;
-+	u32 secrxreg;
+ 	struct ixgbe_mac_info *mac = &hw->mac;
  
- 	secrxreg = IXGBE_READ_REG(hw, IXGBE_SECRXCTRL);
- 	secrxreg &= ~IXGBE_SECRXCTRL_RX_DIS;
++	mac->ops.setup_fc = ixgbe_setup_fc_x550em;
++
+ 	switch (mac->ops.get_media_type(hw)) {
+ 	case ixgbe_media_type_fiber:
+ 		/* CS4227 does not support autoneg, so disable the laser control
+@@ -1627,7 +1629,6 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+ 		mac->ops.enable_tx_laser = NULL;
+ 		mac->ops.flap_tx_laser = NULL;
+ 		mac->ops.setup_link = ixgbe_setup_mac_link_multispeed_fiber;
+-		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
+ 		switch (hw->device_id) {
+ 		case IXGBE_DEV_ID_X550EM_A_SFP_N:
+ 			mac->ops.setup_mac_link = ixgbe_setup_mac_link_sfp_n;
+@@ -1655,7 +1656,6 @@ static void ixgbe_init_mac_link_ops_X550em(struct ixgbe_hw *hw)
+ 			mac->ops.setup_link = ixgbe_setup_sgmii;
+ 		break;
+ 	default:
+-		mac->ops.setup_fc = ixgbe_setup_fc_x550em;
+ 		break;
+ 	}
+ }
 -- 
 2.5.5
