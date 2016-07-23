@@ -1,119 +1,52 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] sctp: fix BH handling on socket backlog
-Date: Sat, 23 Jul 2016 00:32:48 -0300
-Message-ID: <a19b6088999a30defbfce748bc178935156a18a3.1469244527.git.marcelo.leitner@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
+Subject: [PATCH net-next] sctp: also point GSO head_skb to the sk when it's available
+Date: Sat, 23 Jul 2016 00:33:44 -0300
+Message-ID: <aa37c8d65d8d304be73f6c237202760978ec124f.1469244494.git.marcelo.leitner@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
 	Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48606 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56534 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751195AbcGWDc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Jul 2016 23:32:57 -0400
+	id S1750796AbcGWDeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Jul 2016 23:34:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the backlog processing is called with BH enabled, we have to
-disable BH before taking the socket lock via bh_lock_sock() otherwise
-it may dead lock:
+The head skb for GSO packets won't travel through the inner depths of
+SCTP stack as it doesn't contain any chunks on it. That means skb->sk
+doesn't get set and then when sctp_recvmsg() calls
+sctp_inet6_skb_msgname() on the head_skb it panics, as this last needs
+to check flags at the socket (sp->v4mapped).
 
-sctp_backlog_rcv()
-                bh_lock_sock(sk);
+The fix is to initialize skb->sk for th head skb once we are able to do
+it. That is, when the first chunk is processed.
 
-                if (sock_owned_by_user(sk)) {
-                        if (sk_add_backlog(sk, skb, sk->sk_rcvbuf))
-                                sctp_chunk_free(chunk);
-                        else
-                                backloged = 1;
-                } else
-                        sctp_inq_push(inqueue, chunk);
-
-                bh_unlock_sock(sk);
-
-while sctp_inq_push() was disabling/enabling BH, but enabling BH
-triggers pending softirq, which then may try to re-lock the socket in
-sctp_rcv().
-
-[  219.187215]  <IRQ>
-[  219.187217]  [<ffffffff817ca3e0>] _raw_spin_lock+0x20/0x30
-[  219.187223]  [<ffffffffa041888c>] sctp_rcv+0x48c/0xba0 [sctp]
-[  219.187225]  [<ffffffff816e7db2>] ? nf_iterate+0x62/0x80
-[  219.187226]  [<ffffffff816f1b14>] ip_local_deliver_finish+0x94/0x1e0
-[  219.187228]  [<ffffffff816f1e1f>] ip_local_deliver+0x6f/0xf0
-[  219.187229]  [<ffffffff816f1a80>] ? ip_rcv_finish+0x3b0/0x3b0
-[  219.187230]  [<ffffffff816f17a8>] ip_rcv_finish+0xd8/0x3b0
-[  219.187232]  [<ffffffff816f2122>] ip_rcv+0x282/0x3a0
-[  219.187233]  [<ffffffff810d8bb6>] ? update_curr+0x66/0x180
-[  219.187235]  [<ffffffff816abac4>] __netif_receive_skb_core+0x524/0xa90
-[  219.187236]  [<ffffffff810d8e00>] ? update_cfs_shares+0x30/0xf0
-[  219.187237]  [<ffffffff810d557c>] ? __enqueue_entity+0x6c/0x70
-[  219.187239]  [<ffffffff810dc454>] ? enqueue_entity+0x204/0xdf0
-[  219.187240]  [<ffffffff816ac048>] __netif_receive_skb+0x18/0x60
-[  219.187242]  [<ffffffff816ad1ce>] process_backlog+0x9e/0x140
-[  219.187243]  [<ffffffff816ac8ec>] net_rx_action+0x22c/0x370
-[  219.187245]  [<ffffffff817cd352>] __do_softirq+0x112/0x2e7
-[  219.187247]  [<ffffffff817cc3bc>] do_softirq_own_stack+0x1c/0x30
-[  219.187247]  <EOI>
-[  219.187248]  [<ffffffff810aa1c8>] do_softirq.part.14+0x38/0x40
-[  219.187249]  [<ffffffff810aa24d>] __local_bh_enable_ip+0x7d/0x80
-[  219.187254]  [<ffffffffa0408428>] sctp_inq_push+0x68/0x80 [sctp]
-[  219.187258]  [<ffffffffa04190f1>] sctp_backlog_rcv+0x151/0x1c0 [sctp]
-[  219.187260]  [<ffffffff81692b07>] __release_sock+0x87/0xf0
-[  219.187261]  [<ffffffff81692ba0>] release_sock+0x30/0xa0
-[  219.187265]  [<ffffffffa040e46d>] sctp_accept+0x17d/0x210 [sctp]
-[  219.187266]  [<ffffffff810e7510>] ? prepare_to_wait_event+0xf0/0xf0
-[  219.187268]  [<ffffffff8172d52c>] inet_accept+0x3c/0x130
-[  219.187269]  [<ffffffff8168d7a3>] SYSC_accept4+0x103/0x210
-[  219.187271]  [<ffffffff817ca2ba>] ? _raw_spin_unlock_bh+0x1a/0x20
-[  219.187272]  [<ffffffff81692bfc>] ? release_sock+0x8c/0xa0
-[  219.187276]  [<ffffffffa0413e22>] ? sctp_inet_listen+0x62/0x1b0 [sctp]
-[  219.187277]  [<ffffffff8168f2d0>] SyS_accept+0x10/0x20
-
-Fixes: 860fbbc343bf ("sctp: prepare for socket backlog behavior change")
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- net/sctp/input.c   | 2 ++
- net/sctp/inqueue.c | 2 --
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/sctp/ulpevent.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 30d72f7707b6df5b41679bbfc5e595d5a11130ea..c182db7d691ff44a52923fb36c9170e49c141c04 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -328,6 +328,7 @@ int sctp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- 		 */
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index f6219b164b42c821c3e6f626731e97dd712c957c..1bc4f71aaba860776a0a6e4b664ef1c3a0f8af37 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -91,6 +91,7 @@ int sctp_ulpevent_is_notification(const struct sctp_ulpevent *event)
+ static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+ 					   const struct sctp_association *asoc)
+ {
++	struct sctp_chunk *chunk = event->chunk;
+ 	struct sk_buff *skb;
  
- 		sk = rcvr->sk;
-+		local_bh_disable();
- 		bh_lock_sock(sk);
- 
- 		if (sock_owned_by_user(sk)) {
-@@ -339,6 +340,7 @@ int sctp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- 			sctp_inq_push(inqueue, chunk);
- 
- 		bh_unlock_sock(sk);
-+		local_bh_enable();
- 
- 		/* If the chunk was backloged again, don't drop refs */
- 		if (backloged)
-diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
-index 942770675f4cc0efc9686f4e4038450f060f34ae..c30ddb0f31907f57c5ce85b00dbe04260ca1cb2e 100644
---- a/net/sctp/inqueue.c
-+++ b/net/sctp/inqueue.c
-@@ -89,12 +89,10 @@ void sctp_inq_push(struct sctp_inq *q, struct sctp_chunk *chunk)
- 	 * Eventually, we should clean up inqueue to not rely
- 	 * on the BH related data structures.
- 	 */
--	local_bh_disable();
- 	list_add_tail(&chunk->list, &q->in_chunk_list);
- 	if (chunk->asoc)
- 		chunk->asoc->stats.ipackets++;
- 	q->immediate.func(&q->immediate);
--	local_bh_enable();
+ 	/* Cast away the const, as we are just wanting to
+@@ -101,6 +102,8 @@ static inline void sctp_ulpevent_set_owner(struct sctp_ulpevent *event,
+ 	event->asoc = (struct sctp_association *)asoc;
+ 	atomic_add(event->rmem_len, &event->asoc->rmem_alloc);
+ 	sctp_skb_set_owner_r(skb, asoc->base.sk);
++	if (chunk && chunk->head_skb && !chunk->head_skb->sk)
++		chunk->head_skb->sk = asoc->base.sk;
  }
  
- /* Peek at the next chunk on the inqeue. */
+ /* A simple destructor to give up the reference to the association. */
 -- 
 2.7.4
