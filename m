@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 24/25] netfilter: nft_compat: put back match/target module if init fail
-Date: Sat, 23 Jul 2016 13:08:38 +0200
-Message-ID: <1469272119-29942-25-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/25] netfilter: nft_log: fix possible memory leak if log expr init fail
+Date: Sat, 23 Jul 2016 13:08:31 +0200
+Message-ID: <1469272119-29942-18-git-send-email-pablo@netfilter.org>
 References: <1469272119-29942-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -12,100 +12,67 @@ List-Id: netdev.vger.kernel.org
 
 From: Liping Zhang <liping.zhang@spreadtrum.com>
 
-If the user specify the invalid NFTA_MATCH_INFO/NFTA_TARGET_INFO attr
-or memory alloc fail, we should call module_put to the related match
-or target. Otherwise, we cannot remove the module even nobody use it.
+Suppose that we specify the NFTA_LOG_PREFIX, then NFTA_LOG_LEVEL
+and NFTA_LOG_GROUP are specified together or nf_logger_find_get
+call returns fail, i.e. expr init fail, memory leak will happen.
 
 Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_compat.c | 32 ++++++++++++++++++++++++--------
- 1 file changed, 24 insertions(+), 8 deletions(-)
+ net/netfilter/nft_log.c | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index 6228c42..2e07cec 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -634,6 +634,7 @@ nft_match_select_ops(const struct nft_ctx *ctx,
- 	struct xt_match *match;
- 	char *mt_name;
- 	u32 rev, family;
+diff --git a/net/netfilter/nft_log.c b/net/netfilter/nft_log.c
+index 713d668..e1b34ff 100644
+--- a/net/netfilter/nft_log.c
++++ b/net/netfilter/nft_log.c
+@@ -52,6 +52,14 @@ static int nft_log_init(const struct nft_ctx *ctx,
+ 	struct nft_log *priv = nft_expr_priv(expr);
+ 	struct nf_loginfo *li = &priv->loginfo;
+ 	const struct nlattr *nla;
 +	int err;
++
++	li->type = NF_LOG_TYPE_LOG;
++	if (tb[NFTA_LOG_LEVEL] != NULL &&
++	    tb[NFTA_LOG_GROUP] != NULL)
++		return -EINVAL;
++	if (tb[NFTA_LOG_GROUP] != NULL)
++		li->type = NF_LOG_TYPE_ULOG;
  
- 	if (tb[NFTA_MATCH_NAME] == NULL ||
- 	    tb[NFTA_MATCH_REV] == NULL ||
-@@ -660,13 +661,17 @@ nft_match_select_ops(const struct nft_ctx *ctx,
- 	if (IS_ERR(match))
- 		return ERR_PTR(-ENOENT);
+ 	nla = tb[NFTA_LOG_PREFIX];
+ 	if (nla != NULL) {
+@@ -63,13 +71,6 @@ static int nft_log_init(const struct nft_ctx *ctx,
+ 		priv->prefix = (char *)nft_log_null_prefix;
+ 	}
  
--	if (match->matchsize > nla_len(tb[NFTA_MATCH_INFO]))
--		return ERR_PTR(-EINVAL);
-+	if (match->matchsize > nla_len(tb[NFTA_MATCH_INFO])) {
-+		err = -EINVAL;
-+		goto err;
-+	}
+-	li->type = NF_LOG_TYPE_LOG;
+-	if (tb[NFTA_LOG_LEVEL] != NULL &&
+-	    tb[NFTA_LOG_GROUP] != NULL)
+-		return -EINVAL;
+-	if (tb[NFTA_LOG_GROUP] != NULL)
+-		li->type = NF_LOG_TYPE_ULOG;
+-
+ 	switch (li->type) {
+ 	case NF_LOG_TYPE_LOG:
+ 		if (tb[NFTA_LOG_LEVEL] != NULL) {
+@@ -96,7 +97,16 @@ static int nft_log_init(const struct nft_ctx *ctx,
+ 		break;
+ 	}
  
- 	/* This is the first time we use this match, allocate operations */
- 	nft_match = kzalloc(sizeof(struct nft_xt), GFP_KERNEL);
--	if (nft_match == NULL)
--		return ERR_PTR(-ENOMEM);
-+	if (nft_match == NULL) {
-+		err = -ENOMEM;
-+		goto err;
-+	}
- 
- 	nft_match->ops.type = &nft_match_type;
- 	nft_match->ops.size = NFT_EXPR_SIZE(XT_ALIGN(match->matchsize));
-@@ -680,6 +685,9 @@ nft_match_select_ops(const struct nft_ctx *ctx,
- 	list_add(&nft_match->head, &nft_match_list);
- 
- 	return &nft_match->ops;
-+err:
-+	module_put(match->me);
-+	return ERR_PTR(err);
+-	return nf_logger_find_get(ctx->afi->family, li->type);
++	err = nf_logger_find_get(ctx->afi->family, li->type);
++	if (err < 0)
++		goto err1;
++
++	return 0;
++
++err1:
++	if (priv->prefix != nft_log_null_prefix)
++		kfree(priv->prefix);
++	return err;
  }
  
- static void nft_match_release(void)
-@@ -717,6 +725,7 @@ nft_target_select_ops(const struct nft_ctx *ctx,
- 	struct xt_target *target;
- 	char *tg_name;
- 	u32 rev, family;
-+	int err;
- 
- 	if (tb[NFTA_TARGET_NAME] == NULL ||
- 	    tb[NFTA_TARGET_REV] == NULL ||
-@@ -743,13 +752,17 @@ nft_target_select_ops(const struct nft_ctx *ctx,
- 	if (IS_ERR(target))
- 		return ERR_PTR(-ENOENT);
- 
--	if (target->targetsize > nla_len(tb[NFTA_TARGET_INFO]))
--		return ERR_PTR(-EINVAL);
-+	if (target->targetsize > nla_len(tb[NFTA_TARGET_INFO])) {
-+		err = -EINVAL;
-+		goto err;
-+	}
- 
- 	/* This is the first time we use this target, allocate operations */
- 	nft_target = kzalloc(sizeof(struct nft_xt), GFP_KERNEL);
--	if (nft_target == NULL)
--		return ERR_PTR(-ENOMEM);
-+	if (nft_target == NULL) {
-+		err = -ENOMEM;
-+		goto err;
-+	}
- 
- 	nft_target->ops.type = &nft_target_type;
- 	nft_target->ops.size = NFT_EXPR_SIZE(XT_ALIGN(target->targetsize));
-@@ -767,6 +780,9 @@ nft_target_select_ops(const struct nft_ctx *ctx,
- 	list_add(&nft_target->head, &nft_target_list);
- 
- 	return &nft_target->ops;
-+err:
-+	module_put(target->me);
-+	return ERR_PTR(err);
- }
- 
- static void nft_target_release(void)
+ static void nft_log_destroy(const struct nft_ctx *ctx,
 -- 
 2.1.4
 
