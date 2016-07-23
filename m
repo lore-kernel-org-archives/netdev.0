@@ -1,82 +1,42 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH] net/sctp: always initialise sctp_ht_iter::start_fail
-Date: Sat, 23 Jul 2016 11:15:33 -0300
-Message-ID: <20160723141532.GH9950@localhost.localdomain>
-References: <1469267543-24650-1-git-send-email-vegard.nossum@oracle.com>
- <20160723133929.GG9950@localhost.localdomain>
- <57937887.6030204@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	linux-sctp@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Xin Long <lucien.xin@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
-To: Vegard Nossum <vegard.nossum@oracle.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <57937887.6030204@oracle.com>
-Sender: stable-owner@vger.kernel.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next 2/2] e1000e: fix PTP on e1000_pch_lpt variants
+Date: Sat, 23 Jul 2016 12:44:34 -0400
+Message-ID: <1469292274-59237-3-git-send-email-jarod@redhat.com>
+References: <1468959902-25071-1-git-send-email-jarod@redhat.com>
+ <1469292274-59237-1-git-send-email-jarod@redhat.com>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1469292274-59237-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 23, 2016 at 04:00:39PM +0200, Vegard Nossum wrote:
-> On 07/23/2016 03:39 PM, Marcelo Ricardo Leitner wrote:
-> > On Sat, Jul 23, 2016 at 11:52:23AM +0200, Vegard Nossum wrote:
-> > > seq_read() can call ->start() twice on the same iterator more than once
-> > > (e.g. once through traverse() and once in seq_read() itself).
-> > 
-> > But when traverse() returns the error, it goes to Done label, skipping
-> > the call to ->start() from seq_read(), or am I missing something?
-> 
-> I think you're right.
-> 
-> > Though yes, if sctp_ht_iter memory is actually re-used without
-> > initializting between seq_read()s, it triggers the issue you described.
-> 
-> The sctp_ht_iter is allocated in
-> sctp_assocs_seq_open()/sctp_remaddr_seq_open(), so I assume it's
-> allocated on open().
-> 
-> > How did you trigger this, reading after an error on the file descriptor?
-> 
-> I was using trinity, so I'm not quite sure a priori, but the problem was
-> 100% reproducible before I applied the patch and seeing that it gets
-> allocated on open() and is never cleared anywhere else, your suggestion
-> sounds like the most plausible explanation :-)
-> 
-> How about rewording the first paragraph as:
-> 
-> """
-> sctp_transport_seq_start() does not currently clear iter->start_fail on
-> success, but relies on it being zero when it is allocated (by
-> seq_open_net()).
-> 
-> This can be a problem in the following sequence:
-> 
-> open() -- allocates iter (and implicitly sets iter->start_fail = 0)
-> read()
->  iter->start() -- fails and sets iter->start_fail = 1
->  iter->stop() -- doesn't call sctp_transport_walk_stop() (correct)
-> read() again
->  iter->start() -- succeeds, but doesn't change iter->start_fail
->  iter->stop() -- doesn't call sctp_transport_walk_stop() (wrong)
-> """
-> 
-> Let me know how that sounds.
+I've got reports that the Intel I-218V NIC in Intel NUC5i5RYH systems used
+as a PTP slave experiences random ~10 hour clock jumps, which are resolved
+if the same workaround for the 82574 and 82583 is employed.
 
-LGTM, thanks!
+Reported-by: Rupesh Patel <rupatel@redhat.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-  Marcelo
-
-> 
-> Thanks for looking so closely at it!
-> 
-> 
-> Vegard
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 955b294..206bd6a 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4374,6 +4374,7 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 	switch (hw->mac.type) {
+ 	case e1000_82574:
+ 	case e1000_82583:
++	case e1000_pch_lpt:
+ 		systim = e1000e_sanitize_systim(hw, systim);
+ 		break;
+ 	default:
+-- 
+1.8.3.1
