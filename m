@@ -1,40 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: Relax kern_version constraints on bpf kprobes?
-Date: Sat, 23 Jul 2016 21:36:33 -0700
-Message-ID: <20160724043630.GA36109@ast-mbp.thefacebook.com>
-References: <20160724040139.GA2025@ircssh.c.rugged-nimbus-611.internal>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
+ support 25G/50G/100G
+Date: Sun, 24 Jul 2016 05:57:43 +0000
+Message-ID: <CO2PR11MB00889D2C55C1E4C86D831C59970C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160724040139.GA2025@ircssh.c.rugged-nimbus-611.internal>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "bkenward@solarflare.com" <bkenward@solarflare.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>,
+	"galp@mellanox.com" <galp@mellanox.com>,
+	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+	"dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>
+To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	netdev <netdev@vger.kernel.org>,
+	"bwh@kernel.org" <bwh@kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"decot@googlers.com" <decot@googlers.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam03on0138.outbound.protection.outlook.com ([104.47.42.138]:8055
+	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751539AbcGXGcJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 02:32:09 -0400
+In-Reply-To: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 23, 2016 at 09:01:39PM -0700, Sargun Dhillon wrote:
-> In kernel/bpf/syscall.c we restrict programs loading bpf kprobe programs so 
-> attr.kern_version must be exactly equal to what the user is running at the 
-> moment. This makes a lot of sense because kprobes can touch lots of
-> unstable bits of the kernel ABI. 
+> Enhancing link mode bits to support 25G/50G/100G for supported and
+> advertised speed mode bits
 > 
-> Unfortunately, this makes it really difficult to ship binary bpf programs
-> for debugging, and most customers don't want to go through all the steps
-> of preparing for compilation and installation of bpf programs for their 
-> specific kernel that was shipped by their vendor. 
-> 
-> This is especially problematic when the probe is touching only stable ABIs
-> (syscalls), or alternatively is just logging performance events. I realize
-> that we can change this section pretty easily by reading the version at
-> load time and modifying it, but it's kind of a pain.
-> 
-> For programs that we know are safe, is there a mechanism by which we can
-> bypass this check, and tell the loader that we know what we're doing
-> since these programs are only accessible to CAP_SYS_ADMIN?
+> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> ---
+>  ethtool.c | 27 +++++++++++++++++++++++++++
+>  1 file changed, 27 insertions(+)
 
-The proper alternative is to always compile programs on the fly
-for the given kernel like iovisor/bcc does. Integrated clang/llvm
-has other advantages, like being able to search/replace in bpf C program
-before installing it in the kernel. So different command line flags
-come with zero overhead when not in use.
+Hi Vidya,
+
+Are you re-trying your series one anytime soon?
+
+If not, can we simply push this [and ethtool-copy.h], as those are needed
+for querying/setting the recently added new speeds.
