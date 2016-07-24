@@ -1,46 +1,50 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: iproute2 mpls max labels
-Date: Sat, 23 Jul 2016 16:04:40 -0700
-Message-ID: <5793F808.6090309@cumulusnetworks.com>
-References: <578A7BF0.2020107@nordu.net> <57911A26.3080203@cumulusnetworks.com> <579125CB.3030201@nordu.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert Shearman <rshearma@brocade.com>,
-	"ebiederm@xmission.com" <ebiederm@xmission.com>
-To: Magnus Bergroth <bergroth@nordu.net>
+From: Michal Soltys <soltys@ziu.info>
+Subject: [iproute PATCH 1/1] man/man8/tc-flow.8: minor corrections
+Date: Sun, 24 Jul 2016 02:00:29 +0200
+Message-ID: <1469318429-19082-1-git-send-email-soltys@ziu.info>
+Cc: netdev@vger.kernel.org
+To: shemming@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34620 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751359AbcGWXEn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 19:04:43 -0400
-Received: by mail-pa0-f47.google.com with SMTP id fi15so49820819pac.1
-        for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 16:04:43 -0700 (PDT)
-In-Reply-To: <579125CB.3030201@nordu.net>
+Received: from drutsystem.com ([84.10.39.251]:33440 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751597AbcGXAAl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Jul 2016 20:00:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/21/16, 12:43 PM, Magnus Bergroth wrote:
->
->> Roopa Prabhu <mailto:roopa@cumulusnetworks.com>
->> 21 juli 2016 20:53
->> I did not realize it is hardcoded to 8 in iproute2. Because kernel has
->> a hard coded limit of
->> 2.
->> I think we need to fix it in a few places:
->> a) we should move the kernel #define to a uapi header file which
->> iproute2 can use
->> b) there has been a general ask to bump the kernel MAX_LABELS from 2
->> and I don't see
->> a problem with it yet. so, we could bump it to 8.
->>
->> Were you planning to post patches for one or both of the above ?.
->>
->> I can post them too. Let me know.
-> I would be happy if you could post them both as I very new to the kernel
-> development and I'm not entirely sure how to do it in the right way.
->
-ok, sure, will fix it.
+- baseclass: major handle must match that of class's, Y defaults to 1
+- flow map example: maps to 1-256, not 1-257
 
-thanks,
-Roopa
+Signed-off-by: Michal Soltys <soltys@ziu.info>
+---
+ man/man8/tc-flow.8 | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/man/man8/tc-flow.8 b/man/man8/tc-flow.8
+index f1b7e2a..54f6bf7 100644
+--- a/man/man8/tc-flow.8
++++ b/man/man8/tc-flow.8
+@@ -73,8 +73,10 @@ An offset for the resulting class ID.
+ .I ID
+ may be
+ .BR root ", " none
+-or a hexadecimal class ID in the form [\fIX\fB:\fR]\fIY\fR. If \fIX\fR is
+-omitted, it is assumed to be zero.
++or a hexadecimal class ID in the form [\fIX\fB:\fR]\fIY\fR. \fIX\fR must
++match qdisc's/class's major handle (if omitted, the correct value is chosen
++automatically). If the whole \fBbaseclass\fR is omitted, \fIY\fR defaults
++to 1.
+ .TP
+ .BI divisor " NUM"
+ Number of buckets to use for sorting into. Keys are calculated modulo
+@@ -239,7 +241,7 @@ tc filter add ... flow hash \\
+ 	divisor 1024
+ .EE
+ .TP
+-Map destination IPs of 192.168.0.0/24 to classids 1-257:
++Map destination IPs of 192.168.0.0/24 to classids 1-256:
+ 
+ .EX
+ tc filter add ... flow map \\
+-- 
+2.1.3
