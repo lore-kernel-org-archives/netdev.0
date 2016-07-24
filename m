@@ -1,9 +1,9 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v5 1/2] bpf: Add bpf_probe_write_user BPF helper
- to be called in tracers
-Date: Sat, 23 Jul 2016 18:13:52 -0700
-Message-ID: <20160724011350.GA33568@ast-mbp.thefacebook.com>
-References: <20160724004347.GA31776@ircssh.c.rugged-nimbus-611.internal>
+Subject: Re: [PATCH net-next v5 2/2] samples/bpf: Add test/example of using
+ bpf_probe_write_user bpf helper
+Date: Sat, 23 Jul 2016 18:17:58 -0700
+Message-ID: <20160724011757.GB33568@ast-mbp.thefacebook.com>
+References: <20160724004410.GA31798@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -11,37 +11,36 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 To: Sargun Dhillon <sargun@sargun.me>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160724004347.GA31776@ircssh.c.rugged-nimbus-611.internal>
+In-Reply-To: <20160724004410.GA31798@ircssh.c.rugged-nimbus-611.internal>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 23, 2016 at 05:43:48PM -0700, Sargun Dhillon wrote:
-> This allows user memory to be written to during the course of a kprobe.
-> It shouldn't be used to implement any kind of security mechanism
-> because of TOC-TOU attacks, but rather to debug, divert, and
-> manipulate execution of semi-cooperative processes.
+On Sat, Jul 23, 2016 at 05:44:11PM -0700, Sargun Dhillon wrote:
+> This example shows using a kprobe to act as a dnat mechanism to divert
+> traffic for arbitrary endpoints. It rewrite the arguments to a syscall
+> while they're still in userspace, and before the syscall has a chance
+> to copy the argument into kernel space.
 > 
-> Although it uses probe_kernel_write, we limit the address space
-> the probe can write into by checking the space with access_ok.
-> This is so the call doesn't sleep. In addition we ensure the threads's
-> current fs / segment is USER_DS and the thread isn't exiting nor
-> a kernel thread.
-> 
-> Given this feature is experimental, and has the risk of crashing the
-> system, we print a warning on first invocation, and the process name
-> on subsequent invocations.
-> 
-> It was tested with the tracex7 program on x86-64.
+> Although this is an example, it also acts as a test because the mapped
+> address is 255.255.255.255:555 -> real address, and that's not a legal
+> address to connect to. If the helper is broken, the example will fail.
 
-s/tracex7/test_probe_write_user form the next patch/
-or just drop this sentence.
+nice. makes sense.
 
-> +static const struct bpf_func_proto *bpf_get_probe_write_proto(void) {
-> +	pr_warn_ratelimited("bpf_probe_write_user: %s[%d] installing program with helper: it may corrupt user memory!",
-> +	current->comm, task_pid_nr(current));
+> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+...
+> +/* Copyright (c) 2013-2015 PLUMgrid, http://plumgrid.com
 
-I think checkpatch should have complained here.
-current->comm line should start under "
+hmm, not sure what to think about this line.
+plumgrid got a new employee? ;)
 
-No other nits for this patch :)
-Once fixed, feel free to add my Acked-by: Alexei Starovoitov <ast@kernel.org>
+> +	if (load_bpf_file(filename)) {
+> +		printf("%s", bpf_log_buf);
+> +		return 1;
+> +	}
+> +
+> +	/* Is the server's getsockname = the socket getpeername */
+> +	assert(memcmp(&serv_addr, &tmp_addr, sizeof(struct sockaddr_in)) == 0);
+
+thanks. so the $?==0 will indicate success, right?
+After respin feel free to add my ack.
