@@ -1,62 +1,57 @@
 From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [PATCH v4 1/2] bpf: Add bpf_probe_write BPF helper to be called
- in tracers (kprobes)
-Date: Sat, 23 Jul 2016 17:39:42 -0700
-Message-ID: <20160724003941.GA31582@ircssh.c.rugged-nimbus-611.internal>
-References: <20160722010915.GA22992@ircssh.c.rugged-nimbus-611.internal>
- <20160722021454.GA135@ast-mbp.thefacebook.com>
- <5791ED30.3000409@iogearbox.net>
- <20160723000526.GA11650@ircssh.c.rugged-nimbus-611.internal>
- <20160723193510.GA23128@ast-mbp>
+Subject: [PATCH net-next v5 0/2] bpf: add bpf_probe_write helper & example
+Date: Sat, 23 Jul 2016 17:43:34 -0700
+Message-ID: <20160724004332.GA31764@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:34646 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbcGXAng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 20:43:36 -0400
+Received: by mail-io0-f169.google.com with SMTP id q83so135032937iod.1
+        for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 17:43:36 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160723193510.GA23128@ast-mbp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 23, 2016 at 12:35:12PM -0700, Alexei Starovoitov wrote:
-> On Fri, Jul 22, 2016 at 05:05:27PM -0700, Sargun Dhillon wrote:
-> > It was tested with the tracex7 program on x86-64.
-> 
-> it's my fault to start tracexN tradition that turned out to be
-> cumbersome, let's not continue it. Instead could you rename it
-> to something meaningful? Like test_probe_write_user ?
-> Right now it just prints client's peer address and human needs to
-> visually verify that probe_write_user actually happened, if you can
-> convert it into a test it will help a lot.
-> We were planning to convert all of the samples/bpf/ into tests,
-> so we can run them continuously.
-The example has been modified to act like a test in the follow up set. It tests 
-for the positive case (Did the helper work or not) as opposed to the negative 
-case (is the helper able to violate the safety constraints we set forth)? I 
-could do that as well, in another patch by mprotecting those pages, or some 
-such. Should I add an additional negative test?
+This patch series contains two patches that add support for a probe_write
+helper to BPF programs. This allows them to manipulate user memory during
+the course of tracing. The second patch in the series has an example that
+uses it, in one the intended ways to divert execution.
 
-> 
-> btw, single patch re-submit will not be picked up. Please always
-> re-submit the whole patch set together.
-> 
-I'll resubmit the set on another thread. It's just easier doing the reviews 
-inline.
+Thanks to Alexei Starovoitov, and Daniel Borkmann for review, I've made
+changes based on their recommendations.
 
+This helper should be considered experimental, so we print a warning
+to dmesg when it is first invoked. Subsequent invocations print the
+command and pid
 
-> > +static const struct bpf_func_proto *bpf_get_probe_write_proto(void) {
-> > +	pr_warn_once("*****************************************************\n");
-> > +	pr_warn_once("* bpf_probe_write_user: Experimental Feature in use *\n");
-> > +	pr_warn_once("* bpf_probe_write_user: Feature may corrupt memory  *\n");
-> > +	pr_warn_once("*****************************************************\n");
-> > +	pr_notice_ratelimited("bpf_probe_write_user: %s[%d] installing program with helper: it may corrupt user memory!",
-> > +	current->comm, task_pid_nr(current));
-> 
-> I thought we were argeeing on single pr_warn_ratelimited without banner ?
-I'll switch to that.
+---
+v1->v2: restrict writing to user space, as opposed to globally
+v2->v3: Fixed formatting issues
+v3->v4: Rename copy_to_user -> bpf_probe_write
+	Simplify checking of whether or not it's safe to write
+	Add warnings to dmesg
+v4->v5:	Raise warning level
+	Cleanup location of warning code
+	Make test fail when helper is broken
 
-> 
-> The rest looks good.
-> Thanks!
-> 
+Sargun Dhillon (2):
+  bpf: Add bpf_probe_write_user BPF helper to be called in tracers
+  samples/bpf: Add test/example of using bpf_probe_write_user bpf helper
+
+ include/uapi/linux/bpf.h                 | 10 ++++
+ kernel/trace/bpf_trace.c                 | 48 ++++++++++++++++++++
+ samples/bpf/Makefile                     |  4 ++
+ samples/bpf/bpf_helpers.h                |  2 +
+ samples/bpf/test_probe_write_user_kern.c | 52 +++++++++++++++++++++
+ samples/bpf/test_probe_write_user_user.c | 78 ++++++++++++++++++++++++++++++++
+ 6 files changed, 194 insertions(+)
+ create mode 100644 samples/bpf/test_probe_write_user_kern.c
+ create mode 100644 samples/bpf/test_probe_write_user_user.c
+
+-- 
+2.7.4
