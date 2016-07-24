@@ -1,85 +1,145 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] netfilter: x_tables: fix kmemcheck warning.
-Date: Sun, 24 Jul 2016 13:19:47 +0300
-Message-ID: <f9ae7858-2796-9193-a01c-8129f92a31b0@cogentembedded.com>
-References: <1469327475-9028-1-git-send-email-penguin-kernel@I-love.SAKURA.ne.jp>
+From: "Paul Tsang" <haochenghk1987@163.com>
+Subject: =?utf-8?B?UmXvvJvkuLrlkITot6jlooPnlLXllYbmj5DkvpvnianmtYHmnI3liqE=?=
+Date: Sun, 24 Jul 2016 19:44:38 +0800
+Message-ID: <20160724194444667274@yun151.com>
+Reply-To: <haochenghk1987@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	pablo@netfilter.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:36413 "EHLO
-	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074AbcGXKTv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 06:19:51 -0400
-Received: by mail-lf0-f43.google.com with SMTP id g62so111187353lfe.3
-        for <netdev@vger.kernel.org>; Sun, 24 Jul 2016 03:19:50 -0700 (PDT)
-In-Reply-To: <1469327475-9028-1-git-send-email-penguin-kernel@I-love.SAKURA.ne.jp>
+Received: from [61.176.221.2] ([61.176.221.2]:3299 "EHLO mail.yun151.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752212AbcGXLqv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Jul 2016 07:46:51 -0400
+Received: from localhost by mail.yun151.com (MDaemon PRO v10.1.1)
+	with ESMTP id md50110196492.msg
+	for <netdev@vger.kernel.org>; Sun, 24 Jul 2016 19:45:08 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 7/24/2016 5:31 AM, Tetsuo Handa wrote:
-
-> kmemcheck complains that some of struct nf_hook_ops members allocated at
-> xt_hook_ops_alloc() are not initialized before nf_register_net_hook() is
-> called. Add __GFP_ZERO to initialize explicitly.
->
-> [  367.411936] nf_conntrack version 0.5.0 (6144 buckets, 24576 max)
-> [  367.458540] ip_tables: (C) 2000-2006 Netfilter Core Team
-> [  367.463977] WARNING: kmemcheck: Caught 64-bit read from uninitialized memory (ffff88003af7f300)
-> [  367.465633] 00000000000000000000000000000000303f5381ffffffff0000000000000000
-> [  367.468185]  u u u u u u u u u u u u u u u u i i i i i i i i u u u u u u u u
-> [  367.470687]  ^
-> [  367.471079] RIP: 0010:[<ffffffff814caa0f>]  [<ffffffff814caa0f>] nf_register_net_hook+0x2f/0x160
-> [  367.472846] RSP: 0018:ffff88003f5abcb0  EFLAGS: 00010286
-> [  367.473821] RAX: ffff88003adb73c0 RBX: ffff88003af7f300 RCX: 0000000000000000
-> [  367.475122] RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffff88003adb7400
-> [  367.476485] RBP: ffff88003f5abcc8 R08: 0000000000000067 R09: 0000000000000000
-> [  367.477764] R10: ffff88003adb83c0 R11: 0000000000000000 R12: ffffffff81876760
-> [  367.479053] R13: ffff88003adb73c0 R14: 0000000000000003 R15: ffff88003af7f300
-> [  367.480351] FS:  0000000000000000(0000) GS:ffffffff8182c000(0000) knlGS:0000000000000000
-> [  367.482018] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [  367.483069] CR2: ffff88003f404280 CR3: 000000003ad30000 CR4: 00000000001406f0
-> [  367.484357]  [<ffffffff814cadec>] nf_register_net_hooks+0x3c/0xa0
-> [  367.485617]  [<ffffffff8153328f>] ipt_register_table+0xef/0x130
-> [  367.486765]  [<ffffffff81533ec1>] iptable_filter_table_init.part.1+0x51/0x70
-> [  367.488125]  [<ffffffff81533f2a>] iptable_filter_net_init+0x2a/0x30
-> [  367.489375]  [<ffffffff8148f58c>] ops_init+0x3c/0x130
-> [  367.490410]  [<ffffffff8148f8c8>] register_pernet_operations+0x108/0x1c0
-> [  367.491746]  [<ffffffff8148f9a3>] register_pernet_subsys+0x23/0x40
-> [  367.492933]  [<ffffffff818d5e25>] iptable_filter_init+0x33/0x4b
-> [  367.494053]  [<ffffffff8100041a>] do_one_initcall+0x4a/0x180
-> [  367.495168]  [<ffffffff818981d0>] kernel_init_freeable+0x15b/0x201
-> [  367.496332]  [<ffffffff8159eff9>] kernel_init+0x9/0x100
-> [  367.497369]  [<ffffffff815a9c0f>] ret_from_fork+0x1f/0x40
-> [  367.498449]  [<ffffffffffffffff>] 0xffffffffffffffff
-> [  367.499523] Initializing XFRM netlink socket
-> [  367.500404] NET: Registered protocol family 10
-> [  367.501792] ip6_tables: (C) 2000-2006 Netfilter Core Team
-> [  367.502971] NET: Registered protocol family 17
->
-> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-> ---
->  net/netfilter/x_tables.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-
-> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> index e0aa7c1..fc261fe 100644
-> --- a/net/netfilter/x_tables.c
-> +++ b/net/netfilter/x_tables.c
-> @@ -1513,7 +1513,7 @@ xt_hook_ops_alloc(const struct xt_table *table, nf_hookfn *fn)
->  	if (!num_hooks)
->  		return ERR_PTR(-EINVAL);
->
-> -	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
-> +	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL | __GFP_ZERO);
-
-    Why not just use kzalloc() or even kcalloc()?
-
-[...]
-
-MBR, Sergei
+RGVhciBTaXIvTWlzcw0KVGhpcyBpcyB0aGUgZS1tYWlsIGZyb20gUGF1bCBvZiBIQU9DSElORyBJ
+TlQnTCBMT0dJU1RJQ1MgTFREIGluIENoaW5hLiBPdXIgY29tcGFueSBpcyBhIHdlbGwtc3RhZmZl
+ZCBmcmVpZ2h0IGZvcndhcmRpbmcgYW5kIGxvZ2lzdGljcyBzZXJ2aWNlIGNvbXBhbnkgDQpsb2Nh
+dGVkIGluIFNoZW56aGVuL0RvbmdndWFuL0d1YW5nemhvdS9IdWlaaG91L1pob25nc2hhbiBHdWFu
+Z0RvbmcgUHJvdmluY2UgY2hpbmHvvIxhbmQgcHJvdmlkZSBzYWZldHksIGNvbnZlbmllbnQgJiBz
+cGVlZHkgbG9naXN0aWMgc2VydmljZS4gDQpBcyBhIHlvdW5nIGFuZCB2aWJyYW50IGNvbXBhbnkg
+LHdlIGFyZSBhbGwgZnVsbCBvZiBlbnRodXNpYXNtIGFuZCBwb3dlci5TdXJlbHksaXQgaXMgZ3Vh
+cmFudGVlZCB3ZSB3aWxsIHByb3ZpZGUgdGhlIGJlc3Qgc2VydmljZSBmb3IgaW1wb3J0IGFuZCBl
+eHBvcnQgYm90aCBvZiBvY2VhbiBhbmQgYWlyIGZyZWlnaHQgLg0KVG8gbWVudGlvbiB3aXRoICxX
+ZSd2ZSBnb3Qgbm90IG9ubHkgYSBncmVhdCBhZHZhbnRhZ2UgaW4gdGhlIHNwZWNpYWwgY29udGFp
+bmVyIHRyYW5zcG9ydGF0aW9uIGluIGFsbCBsaW5lcyBvdmVyIHRoZSB3b3JsZCxidXQgd2UgYWxz
+byBoYXZlIHF1aXRlIGEgZmV3IHNoaXBwaW5nIGxpbmVzIGluY2x1ZGluZzpaSU0sQ1NDTCxFTUMs
+V0hMLE9PQ0wsS01UQyxZTUwsQU5MLEhNTSBhbmQgc28gb24gLg0KU3BlY2lmaWNhdGlvbnMNCjEu
+SW1wb3J0IGFuZCBleHBvcnQgc2VydmljZQ0KMi5XYXJlaG91c2luZyBhbmQgbG9naXN0aWNzDQoz
+Lk92ZXIgMTAgeWVhcnMgb2YgZXhwZXJpZW5jZQ0KNC50aGUgc3Ryb25nZXN0IGFiaWxpdHkgb2Yg
+Q3VzdG9tcyBDbGVhcmFuY2UNCjUuRG9vciB0byBEb29yIGRlbGl2ZXJ5IChmcm9tIGhvbmdrb25n
+IHRvIGNoaW5hbWFpbmxhbmQpLyhmcm9tIGNoaW5hbWFpbmxhbmQgdG8gaG9uZ2tvbmcgKQ0KNi4g
+cHJvZmVzc2lvbmFsIGltcG9ydCBsb2dpc3RpY3MNCjcuIENvbGxlY3RpbmctcGF5aW5nIHNlcnZp
+Y2U7DQpXZSBvZmZlcjoNCjEuQ3VzdG9tcyBjbGVhcmFuY2UNCjIuQ29tbW9kaXR5IGNvbnNvbGlk
+YXRpb24NCjMuRG9tZXN0aWMgdHJhbnNwb3J0YXRpb24NCjQuQ29uY2VhbCBpZGVudGl0eSBvZiB0
+cnVlIHNoaXBwZXIgb3IgcmVhbCBjb25zaWduZWUNCjUuRXhwb3J0IExpY2VuY2UNCjYuRnJlaWdo
+dCBjb2xsZWN0DQpJZiB5b3UgaGF2ZSBhbnkgcmVxdWlyZW1lbnQgd2UgY2FuIGRvIGZvciB5b3Us
+IHBsZWFzZSBjYWxsIG1lICh0ZWxsOiA4NTItOTc5NTkzNjUpIG9yIHNlbnQgZS1tYWlsICggSEFP
+Q0hFTkdIS0BZQUhPTy5DT00uSEspIGFzIHNvb24gYXMgcG9zc2libGUuIEhvcGluZyB3ZSBjYW4g
+ZXN0YWJsaXNoIHRoZSB3aW7igJV3aW4gY29vcGVyYXRpb24gbGF0ZXIgZm9yIGEgbG9uZyB0aW1l
+LiBUaGFuayBmb3IgcmVhZGluZyBteSBlLW1haWwuDQoNCuS7peS4i+WgseWDueeCuuW4uOimi+i/
+kOi+k+S6pOiyqOWgseWDue+8jOWmguaciemcgOimge+8jOatoei/juS+humbu+ipouWDuQ0KMe+8
+ieaVo+adguiyqOS4gOiIrOiyv+aYk+mAgOeoheWgsemXnO+8iEVESembu+WtkOWgsemXnO+8ieWH
+uuWPo+mmmea4r+WgseWDue+8mw0K77yI5LiA77yJ5Lit5riv6Ieq5o+Q5pS26LS577yaIFJNQjAu
+Ni9rZ++8iOacgOS9juaUtlJNQjE1MC/llq7vvIkNCu+8iOS6jO+8ieWgsemXnOi0ue+8mlJNQjI1
+MA0K77yI5LiJ77yJ5qOA55ar6LS55Y+K5YW25p2C6LS55Yet56Wo5o2u5a6e5oql5a6e6ZSA44CC
+77yI5peg5ZWG5qOA5YiZ5peg5q2k6LS555So77yJDQrvvIjlm5vvvInllYbmo4DmjaLor4Hlh63m
+naHotLnnlKjvvJpSTUIxMDAgIO+8iOaXoOWVhuajgOWImeaXoOatpOi0ueeUqO+8iQ0K77yI5LqU
+77yJ6aaZ5riv5rS+6YCBUk1CMjAw5ZCr6aaW6YeNNTAwS0fmiJbpppbmlrkz5pa577yM57ut6YeN
+Uk1CMC4zL0tH5oiW57ut5pa5Uk1CNTAvQ0JN77yI5p2C6LS55a6e5oql5a6e6ZSA77yJDQrvvIjl
+ha3vvInpppnmuK/lhaXku5NSTUIzMTDlkKvpppbph401MDBLR+aIlummluaWuTPmlrnvvIznu63p
+h41STUIwLjMvS0fmiJbnu63mlrlSTUI1MC9DQk3vvIjnmbvorrDotLnjgIHlgZzovabotLnnrYnm
+nYLotLnlrp7miqXlrp7plIDvvIkNCg0KMu+8ieaVo+iyqOmAn+mBnummmea4r+WgseWDuQ0K5LiA
+44CB5bm/5Lic5rGf6ZeoL+S9m+WxsS/kuK3lsbHmlaPvvIjmnYLvvInotKfvvIjosrfllq7vvInp
+gJ/pgJLpppnmuK/oh6rmj5Dlg7nvvJtSTUIwLjkvS0fmiJZSTUIyMDAvQ0JNDQogICAg5bm/5Lic
+5riF6L+cL+ays+a6kC/mg6Dlt57mlaPvvIjmnYLvvInotKfvvIjosrfllq7vvInpgJ/pgJLpppnm
+uK/oh6rmj5Dlg7nvvJtSTUIwLjkvS0fmiJZSTUIyMDAvQ0JNDQogICAg5bm/5Lic5rGV5aS05pWj
+77yI5p2C77yJ6LSn77yI6LK35Zau77yJ6YCf6YCS6aaZ5riv6Ieq5o+Q5YO577ybUk1CMS9LR+aI
+llJNQjIwMC9DQk0NCiAgICDmtZnmsZ8v5rGf6IuPL+S4iua1ty/npo/lu7rmlaPvvIjmnYLvvIno
+tKfvvIjosrfllq7vvInpgJ/pgJLpppnmuK/oh6rmj5Dlg7nvvJtSTUIxLjUvS0fmiJZSTUIyNTAv
+Q0JNDQrkuozjgIHpppnmuK/mtL7pgIFSTUIyMDDlkKvpppbph401MDBLR+aIlummluaWuTPmlrnv
+vIznu63ph41STUIwLjMvS0fmiJbnu63mlrlSTUI1MC9DQk3vvIjmnYLotLnlrp7miqXlrp7plIDv
+vIkNCuS4ieOAgemmmea4r+WFpeS7k1JNQjMxMOWQq+mmlumHjTUwMEtH5oiW6aaW5pa5M+aWue+8
+jOe7remHjVJNQjAuMy9LR+aIlue7reaWuVJNQjUwL0NCTe+8iOeZu+iusOi0ueOAgeWBnOi9pui0
+ueetieadgui0ueWunuaKpeWunumUgO+8iQ0K5rOo77yb5Lul5LiK5aCx5YO55YyF5aCx6Zec6LK7
+44CB5riF6Zec6LK744CB5rS+6YCB6LK744CB5YWl5YCJ6LK7LuaIkeWPuOWMheaJgOS7peaKpeWF
+s+WNleivgeaWh+S7tg0KDQoz77yJ5pWj6LKo6YCf6YGe5r6z6Zeo5aCx5YO5DQrkuIDjgIHmnIDk
+vY7mtojotLnvvJpSTUIyNTAv5ZauDQogICAg5Lit5r6z6Ieq5o+Q5Lu377yaUk1CMi41L0tHIOaI
+llJNQjI1MC9DQk0NCuS6jOOAgea+s+mXqOa0vumAgemmlumHjTUwMEtH5oiW6aaW5pa5M+aWue+8
+jFJNQjIwMO+8jOe7remHjVJNQjAuMy9LR+aIlue7reaWuVJNQjUwL0NCTe+8iOadgui0ueWunuaK
+peWunumUgO+8iQ0K5rOo77yb5Lul5LiK5aCx5YO55YyF5aCx6Zec6LK744CB5riF6Zec6LK744CB
+5rS+6YCB6LK744CB5YWl5YCJ6LK7LuWPiuaJgOS7peaKpeWFs+WNleivgeaWh+S7tg0KDQo077yJ
+5pWj77yI5p2C77yJ6LKo5Lqk5rex5Zyz55uQ55Sw5riv5YCJ44CB5Lit5aSW6YGL77yM5YWr6L6+
+5LuT44CB6YeR6L+Q6L6+562J5aSW6YGL5YCJ5aCx5YO577ybDQrkuIDjgIHmnIDkvY7mtojosrvv
+vJtSTUI4MDAv5ZauIO+8iOeZu+iusOi0ueetieS7k+W6k+adgui0ueWunuaKpeWunumUgO+8iQ0K
+5rOo77yb5oyJ5YWs5pak6KiI566X77yM5YyFNTAwS0fvvIzotoXlh7pSTUIwLjUvS0c75oyJ5pa5
+6KiI566X77yM5YyFM0NCTe+8jOi2heWHulJNQjY1L0NCTSjlj5blpKfkvJjlhYgpDQoNCjXvvInl
+m73lhoXov5DovpPmiqXku7fvvJsNCuePoOS4ieinkui/kOi+k+aKpeS7t++8mlJNQjcwL0NCTeaI
+llJNQjAuNC9LRyvpgIHotKfkuIrpl6jotLnnlKhSTUIyMDANCua3seWcsy/kuJzojp7liLDnpo/l
+u7rmiqXku7c6Uk1CMTIwL0NCTeaIllJNQjAuNi9LRyvpgIHotKfkuIrpl6jotLnnlKhSTUIyMDAN
+Cua3seWcsy/kuJzojp7liLDmtZnmsZ/miqXku7c6Uk1CMTYwL0NCTeaIllJNQjAuNy9LRyvpgIHo
+tKfkuIrpl6jotLnnlKhSTUIyMDANCua3seWcsy/kuJzojp7liLDmsZ/oi4/miqXku7c6Uk1CMTcw
+L0NCTeaIllJNQjAuOC9LRyvpgIHotKfkuIrpl6jotLnnlKhSTUIyMDANCua3seWcsy/kuJzojp7l
+iLDkuIrmtbfmiqXku7c6Uk1CMTcwL0NCTeaIllJNQjAuOC9LRyvpgIHotKfkuIrpl6jotLnnlKhS
+TUIyMDANCua3seWcsy/kuJzojp7liLDkuqzmtKXnv7zmiqXku7c6Uk1CMTgwL0NCTeaIllJNQjAu
+OS9LRyvpgIHotKfkuIrpl6jotLnnlKhSTUIyMDANCg0KNu+8iemmmea4r+aZruiyqO+8jOS4reaq
+lOiyqOWIsOWFp+WcsOWQhOecgeW4guWgseWDue+8m+acgOS9juaUtlJNQjgwMC/llq4NCuW/q+S7
+tuWMheeoheWgsemXnOWFpeWPo+eJuem7nuWmguS4iw0KQS7miYvnuoznsKHllq4s5rW36Zec55uj
+566h5qKd5Lu257Ch5ZauLOS4jeeUqOWWruitieS4jeeUqOaJueaWhyzkuIDkupvpm7vlrZDoqK3l
+gpnlj6/ku6XkuI3pnIAzQ+itieaYjuS5n+WPr+WFpeWPoy4gDQpCLumAn+W6puW/qyzmrKHml6Xl
+iLDosqgs6YCC5ZCI57eK5oCl6LKo54mp6YCa6ZecLg0KQy7lpoLmnpzosqjph4/ovIPlpKcs5Y+v
+5Lul6YeH55So5q+P5aSp5YiG5om55aCx6Zec5pa55byPLiANCkQu5b+r5Lu25YyF56iF5aCx6Zec
+5LiN5o+Q5L6b56iF56WoLOaykuazlemAsuihjOeoheelqOaKteaJoy4NCkEg57G7DQrmqpTvvIzn
+mb3nurjvvIznurjooovvvIznurjnrrHvvIznurjnm5LvvIzlkI3niYfvvIzml6XljobvvIzoibLl
+jaHvvIzlkIrniYzvvIzor7TmmI7kuabvvIznm67lvZXvvIzmoIfotLTvvIzmtbfmiqXvvIzog7bn
+urjvvIzotLTnurjvvIzog7bmnaHnrYkNCu+/pTkva2cNCkIg57G7DQrloZHmlpnmjqXlpLTvvIzp
+k4Hoiq/vvIzpk4HpkojvvIzno4Hpk4HvvIzlvLnnsKfvvIzplKHnur/vvIzpkqLnur/vvIzluIPm
+lpnvvIznurHnur/vvIznur/nkIPvvIzoirHovrnvvIzppbDmiaPvvIzmi4npk77vvIzog7bluIPv
+vIzmtbfnu7XnrYkNCu+/pTExL2tnDQpDIOexuw0K5Y2k6L2u77yM5rua6L2u77yM5ruR6L2u77yM
+55S157q/77yM6byT57q477yM56CC6L2u77yM55+z5p2Q77yM54Gv5aOz77yM54Gv572p77yM5Y+R
+6aWw5ZOB77yMIFBWQyDnmq7vvIzno6jnn7PvvIzolb7kuJ3vvIzno6jova7vvIzmvIbljIXnur/n
+rYkNCu+/pTEzL2tnDQpEIOexuw0K54mb55qu77yM576K55qu77yM5r+A5YWJ57q477yM55qu5YWJ
+57q477yM54Or6YeR57q477yM6L205b+D77yM6Imy57KJ77yM6aKc5paZ77yM6IO25rC077yM5paH
+5YW377yM57uS5q+b546p5YW377yM6IOM5YyF77yM5bC86b6Z6KKL562JDQrvv6UxNS9rZw0KRSDn
+sbsNCuS9juS7t+WAvOi/kOWKqOeUqOWTge+8jOeUteetku+8jOS9juS7t+WAvOeBr+mlsO+8jOih
+o+acje+8jOmei+agt++8jOaooeWFt++8jOeBr+WFt++8jOWcsOavr++8jOiuoeeul+acuuaOpee6
+v++8jOa7pOiViu+8jOeBr+euse+8jOa2pua7keayueetiQ0K77+lMTYva2cNCkYg57G7DQrliqDn
+g63mo5LvvIzkvY7lgLzlj5jljovlmajvvIznlLXooajvvIzogLPnrZLvvIzogLPmnLrphY3ku7bv
+vIzmsJTljovphY3ku7bvvIzms7XvvIznqbrljovooajvvIzmtLvloZ7njq/vvIznlLXng63nrqHv
+vIzkuJ3lt77vvIzpoobluKbnrYkNCu+/pTIxL2tnDQpHIOexuw0K5LqM5p6B566h77yM5LiJ5p6B
+566h77yM55S15a6577yM55S16Zi777yM55S15Yqo6LW35a2Q77yM5rip5bqm6K6hIO+8jOmjjuaJ
+h++8jOeis+eyie+8jOW5suaJi+acuu+8jOiAs+WSque6v++8jOaKleW4geWZqOmFjeS7tu+8jOa4
+uOaIj+acuuaOp+WItuadhuetiQ0K77+lMzYva2cNCkgg57G7DQrkvY7lgLzmtrLmmbbmmL7npLrn
+iYfvvIzmuKnmjqflmajvvIzng5/pm77mhJ/lupTlmajvvIzpn7PnrrHvvIzlrprml7blmajvvIzk
+vY7lgLznvJ3nuqvmnLrvvIzliqnlkKzlmajvvIzmjqLlpLTvvIzmhJ/lupTlmajvvIzlj5jpopHl
+majvvIzlj5jpgJ/lmajnrYkNCu+/pTQxL2tnDQpJIOexuw0K5omT5Y2w5py677yM5omr556E5Luq
+77yM6K6h566X5py65py6566x77yM5pi+56S65Zmo77yM6Lev55Sx5Zmo77yM6ZuG57q/5Zmo77yM
+5o6l57q/55uS77yM6L2s5o2i5Zmo77yM6YGl5o6n5Zmo77yM5Lyg55yf5py677yM6ZKu5omj55S1
+5rGg77yM6I+y55Cz562JDQrvv6U1My04My9rZw0K5rOo77yb5Lul5LiK5aCx5YO55pyA5L2O5pS2
+Uk1CODAwL+WWru+8jOWWruS7tuiyqOWAvOS4jeimgei2hemBjlJNQjUwMDAu5aaC5p6c5a6i5oi2
+6KyK5aCx6LOH5paZ5Ye654++5ZWP6aGM77yM55Sx5a6i5oi26Ieq6KGM5om/5pOU6LKs5Lu7Lg0K
+DQo377yJMjDlsLrmn5wvNDDlsLrmn5zosqjmtbfpgYvppqzkvobopb/kup7loLHlg7kNCua1t+mB
+i+iyu++8mlJNQjgwMA0KVEhD56CB5aS06KOF5Y246LS577yaUk1CUk1CMTMwMA0KRE9DIOaWh+S7
+tui0ue+8mlJNQjUwMC/npagNClNFQUwg5bCB5p2h6LS5OlJNQjU1L+elqA0KRUJTIOe0p+aApeeH
+g+ayuemZhOWKoOi0ue+8mlJNQjIxMC/npagNCg0KOO+8ieS6p+WcsOivgeaWh+S7tu+8m1JNQjIw
+MC/ljZUNCuS4gOiIrOWOn+S6p+WcsOivgUNPDQrmma7mg6DliLbkuqflnLDor4FGb3JtQQ0K5Lic
+55uf5Y6f5Lqn5Zyw6K+BRm9ybUUNCuaZuuWIqeS6p+WcsOivgUZvcm1GDQrkuK3np5jkuqflnLDo
+r4FGb3JtUg0K5Lit55Ge5Lqn5Zyw6K+BRm9ybVMNCuS6muWkquS6p+WcsOivgUZvcm1NDQrkuK3l
+t7Tljp/kuqflnLDor4FGVEENCuS4reWTpeS6p+WcsOivgUZPUk1MDQoNCjnvvInmlaPvvIjmnYLv
+vInotKfpgJ/pgJLvvIjnqbrpgYvvvInlj7DngaPloLHlg7nvvJsNCuS4gOOAgemmlumHjVJNQjMw
+77yM57qM6YeNUk1CMTANCuazqO+8m+S7peS4iuWgseWDueWMheWgsemXnOiyu+OAgea4hemXnOiy
+u+OAgea0vumAgeiyu+OAgeWFpeWAieiyuy7lj4rmiYDku6XmiqXlhbPljZXor4Hmlofku7YNCuac
+rOWFrOWPuOmChOaPkOS+m0RITOWbvemZheS7tuacjeWKoe+8mue7j+iQpee7j+mmmea4r0RITOS4
+rei9rOWIsOS4lueVjOWQhOWcsOeahOW/q+S7tu+8jOWFrOWPuOaLpeaciURITOaPkOS+m+eahOaT
+jeS9nOezu+e7n++8jOS4rei9rOaXtuaViOW/q++8jOafpeivouaWueS+v+OAgeWuieWFqOWPr+md
+oOOAgg0KDQpCRVNUIFJFR0FSRFMNClBhdWwgIA0KSEFPQ0hJTkcgSU5UJ0wgTE9HSVNUSUNTIExU
+RA0KTS5QOjg2LTEzNDMwODczMTE3DQpURUw6IDg1Mi0zMTc2Mzg5MQ0K5b6u5L+hOzEzNDMwODcz
+MTE3DQpRUe+8mzI1NDAzMTM4OTENClNLWVBF77yaSEFPQ0hFTkdISzE5ODcNCkUtTUFJTDogSEFP
+Q0hFTkdISzE5ODdAMTYzLkNPTQ0KIA==
