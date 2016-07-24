@@ -1,57 +1,142 @@
 From: Sargun Dhillon <sargun@sargun.me>
-Subject: [PATCH net-next v5 0/2] bpf: add bpf_probe_write helper & example
-Date: Sat, 23 Jul 2016 17:43:34 -0700
-Message-ID: <20160724004332.GA31764@ircssh.c.rugged-nimbus-611.internal>
+Subject: [PATCH net-next v5 1/2] bpf: Add bpf_probe_write_user BPF helper to
+ be called in tracers
+Date: Sat, 23 Jul 2016 17:43:48 -0700
+Message-ID: <20160724004347.GA31776@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:34646 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751499AbcGXAng (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Jul 2016 20:43:36 -0400
-Received: by mail-io0-f169.google.com with SMTP id q83so135032937iod.1
-        for <netdev@vger.kernel.org>; Sat, 23 Jul 2016 17:43:36 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch series contains two patches that add support for a probe_write
-helper to BPF programs. This allows them to manipulate user memory during
-the course of tracing. The second patch in the series has an example that
-uses it, in one the intended ways to divert execution.
+This allows user memory to be written to during the course of a kprobe.
+It shouldn't be used to implement any kind of security mechanism
+because of TOC-TOU attacks, but rather to debug, divert, and
+manipulate execution of semi-cooperative processes.
 
-Thanks to Alexei Starovoitov, and Daniel Borkmann for review, I've made
-changes based on their recommendations.
+Although it uses probe_kernel_write, we limit the address space
+the probe can write into by checking the space with access_ok.
+This is so the call doesn't sleep. In addition we ensure the threads's
+current fs / segment is USER_DS and the thread isn't exiting nor
+a kernel thread.
 
-This helper should be considered experimental, so we print a warning
-to dmesg when it is first invoked. Subsequent invocations print the
-command and pid
+Given this feature is experimental, and has the risk of crashing the
+system, we print a warning on first invocation, and the process name
+on subsequent invocations.
 
+It was tested with the tracex7 program on x86-64.
+
+Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
 ---
-v1->v2: restrict writing to user space, as opposed to globally
-v2->v3: Fixed formatting issues
-v3->v4: Rename copy_to_user -> bpf_probe_write
-	Simplify checking of whether or not it's safe to write
-	Add warnings to dmesg
-v4->v5:	Raise warning level
-	Cleanup location of warning code
-	Make test fail when helper is broken
+ include/uapi/linux/bpf.h  | 10 ++++++++++
+ kernel/trace/bpf_trace.c  | 48 +++++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/bpf_helpers.h |  2 ++
+ 3 files changed, 60 insertions(+)
 
-Sargun Dhillon (2):
-  bpf: Add bpf_probe_write_user BPF helper to be called in tracers
-  samples/bpf: Add test/example of using bpf_probe_write_user bpf helper
-
- include/uapi/linux/bpf.h                 | 10 ++++
- kernel/trace/bpf_trace.c                 | 48 ++++++++++++++++++++
- samples/bpf/Makefile                     |  4 ++
- samples/bpf/bpf_helpers.h                |  2 +
- samples/bpf/test_probe_write_user_kern.c | 52 +++++++++++++++++++++
- samples/bpf/test_probe_write_user_user.c | 78 ++++++++++++++++++++++++++++++++
- 6 files changed, 194 insertions(+)
- create mode 100644 samples/bpf/test_probe_write_user_kern.c
- create mode 100644 samples/bpf/test_probe_write_user_user.c
-
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 2b7076f..da218fe 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -365,6 +365,16 @@ enum bpf_func_id {
+ 	 */
+ 	BPF_FUNC_get_current_task,
+ 
++	/**
++	 * bpf_probe_write_user(void *dst, void *src, int len)
++	 * safely attempt to write to a location
++	 * @dst: destination address in userspace
++	 * @src: source address on stack
++	 * @len: number of bytes to copy
++	 * Return: 0 on success or negative error
++	 */
++	BPF_FUNC_probe_write_user,
++
+ 	__BPF_FUNC_MAX_ID,
+ };
+ 
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index a12bbd3..b69629b 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -81,6 +81,52 @@ static const struct bpf_func_proto bpf_probe_read_proto = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+ 
++static u64 bpf_probe_write_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	void *unsafe_ptr = (void *) (long) r1;
++	void *src = (void *) (long) r2;
++	int size = (int) r3;
++
++	/*
++	 * Ensure we're in a user context which it is safe for the helper
++	 * to run. This helper has no business in a kthread.
++	 *
++	 * access_ok should prevent writing to non-user memory, but in some
++	 * situations (nommu, temporary switch, etc...) access_ok does not
++	 * provide enough validation.
++	 *
++	 * In order to avoid this we check the current segment to verify that
++	 * it is USER_DS. This avoid odd architectures and user threads that
++	 * temporarily switch to KERNEL_DS.
++	 */
++
++	if (unlikely(in_interrupt() ||
++		     current->flags & (PF_KTHREAD | PF_EXITING)))
++		return -EPERM;
++	if (unlikely(segment_eq(get_fs(), KERNEL_DS)))
++		return -EPERM;
++	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
++		return -EPERM;
++
++	return probe_kernel_write(unsafe_ptr, src, size);
++}
++
++static const struct bpf_func_proto bpf_probe_write_user_proto = {
++	.func		= bpf_probe_write_user,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_ANYTHING,
++	.arg2_type	= ARG_PTR_TO_STACK,
++	.arg3_type	= ARG_CONST_STACK_SIZE,
++};
++
++static const struct bpf_func_proto *bpf_get_probe_write_proto(void) {
++	pr_warn_ratelimited("bpf_probe_write_user: %s[%d] installing program with helper: it may corrupt user memory!",
++	current->comm, task_pid_nr(current));
++
++	return &bpf_probe_write_user_proto;
++}
++
+ /*
+  * limited trace_printk()
+  * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed
+@@ -362,6 +408,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_get_smp_processor_id_proto;
+ 	case BPF_FUNC_perf_event_read:
+ 		return &bpf_perf_event_read_proto;
++	case BPF_FUNC_probe_write_user:
++		return bpf_get_probe_write_proto();
+ 	default:
+ 		return NULL;
+ 	}
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index 84e3fd9..217c8d5 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -41,6 +41,8 @@ static int (*bpf_perf_event_output)(void *ctx, void *map, int index, void *data,
+ 	(void *) BPF_FUNC_perf_event_output;
+ static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
+ 	(void *) BPF_FUNC_get_stackid;
++static int (*bpf_probe_write_user)(void *dst, void *src, int size) =
++	(void *) BPF_FUNC_probe_write_user;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
 -- 
 2.7.4
