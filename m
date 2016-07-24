@@ -1,283 +1,135 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v10 05/12] net/mlx4_en: add support for fast rx drop bpf program
-Date: Sun, 24 Jul 2016 11:57:54 -0500
-Message-ID: <CALx6S37TR90Af=-n=d0sfxxf_SvtwjRjyf_sds-Ne0UZn9i+AA@mail.gmail.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com> <1468955817-10604-6-git-send-email-bblanco@plumgrid.com>
+From: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Sun, 24 Jul 2016 19:45:13 +0200
+Message-ID: <1659922.nTqITfJpFk@debian64>
+References: <201607240335.u6O3ZE81014171@sdf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>
-To: Brenden Blanco <bblanco@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:33903 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbcGXQ5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 12:57:55 -0400
-Received: by mail-io0-f196.google.com with SMTP id g86so10499876ioj.1
-        for <netdev@vger.kernel.org>; Sun, 24 Jul 2016 09:57:55 -0700 (PDT)
-In-Reply-To: <1468955817-10604-6-git-send-email-bblanco@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, alexmcwhirter-O8/uFoRGvHWcqzYg7KEe8g@public.gmane.org
+To: Alan Curry <rlwinm-WF+c3Tt1nJM@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201607240335.u6O3ZE81014171-WF+c3Tt1nJM@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 19, 2016 at 2:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
->
-> In tc/socket bpf programs, helpers linearize skb fragments as needed
-> when the program touches the packet data. However, in the pursuit of
-> speed, XDP programs will not be allowed to use these slower functions,
-> especially if it involves allocating an skb.
->
-> Therefore, disallow MTU settings that would produce a multi-fragment
-> packet that XDP programs would fail to access. Future enhancements could
-> be done to increase the allowable MTU.
->
-> The xdp program is present as a per-ring data structure, but as of yet
-> it is not possible to set at that granularity through any ndo.
->
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 60 ++++++++++++++++++++++++++
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 40 +++++++++++++++--
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  6 +++
->  3 files changed, 102 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 6083775..c34a33d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -31,6 +31,7 @@
->   *
->   */
->
-> +#include <linux/bpf.h>
->  #include <linux/etherdevice.h>
->  #include <linux/tcp.h>
->  #include <linux/if_vlan.h>
-> @@ -2112,6 +2113,11 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
->                 en_err(priv, "Bad MTU size:%d.\n", new_mtu);
->                 return -EPERM;
->         }
-> +       if (priv->xdp_ring_num && MLX4_EN_EFF_MTU(new_mtu) > FRAG_SZ0) {
-> +               en_err(priv, "MTU size:%d requires frags but XDP running\n",
-> +                      new_mtu);
-> +               return -EOPNOTSUPP;
-> +       }
->         dev->mtu = new_mtu;
->
->         if (netif_running(dev)) {
-> @@ -2520,6 +2526,58 @@ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 m
->         return err;
->  }
->
-> +static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-> +{
-> +       struct mlx4_en_priv *priv = netdev_priv(dev);
-> +       struct bpf_prog *old_prog;
-> +       int xdp_ring_num;
-> +       int i;
-> +
-> +       xdp_ring_num = prog ? ALIGN(priv->rx_ring_num, MLX4_EN_NUM_UP) : 0;
-> +
-> +       if (priv->num_frags > 1) {
-> +               en_err(priv, "Cannot set XDP if MTU requires multiple frags\n");
-> +               return -EOPNOTSUPP;
-> +       }
-> +
-> +       if (prog) {
-> +               prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
-> +               if (IS_ERR(prog))
-> +                       return PTR_ERR(prog);
-> +       }
-> +
-> +       priv->xdp_ring_num = xdp_ring_num;
-> +
-> +       /* This xchg is paired with READ_ONCE in the fast path */
-> +       for (i = 0; i < priv->rx_ring_num; i++) {
-> +               old_prog = xchg(&priv->rx_ring[i]->xdp_prog, prog);
+Hello,
 
-This can be done under a lock instead of relying on xchg.
+I added Al Viro to the CC (probably not necessary...)
 
-> +               if (old_prog)
-> +                       bpf_prog_put(old_prog);
+On Sunday, July 24, 2016 3:35:14 AM CEST Alan Curry wrote:
+> [1.] One line summary of the problem:
+> network data corruption (bisected to e5a4b0bb803b)
+> 
+> [2.] Full description of the problem/report:
+> Note: although my bisect ended at a commit from before 3.19, I have the
+> same symptom in all newer kernels I've tried, up to 4.6.4.
+> 
+> The commit was:
+> 
+> >commit e5a4b0bb803b39a36478451eae53a880d2663d5b
+> >Author: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+> >Date:   Mon Nov 24 18:17:55 2014 -0500
+> >
+> >    switch memcpy_to_msg() and skb_copy{,_and_csum}_datagram_msg() to primitives
+> 
+> The symptom is that downloaded files (http, ftp, and probably other
+> protocols) have small corrupted segments (about 1-2 kilobytes long) in
+> random locations. Only downloads that sustain a high speed for at least a
+> few seconds are corrupted. Anything small enough to be received in less
+> than about 5 seconds is not affected.
+> 
+> If I download the same file twice in a row, the corruption is in different
+> places in each copy.
+> 
+> If I try to do a git clone, it fails a few seconds into the "Receiving
+> objects" stage with a deflate error.
 
-I don't see how this can work. Even after setting the new program, the
-old program might still be run (pointer dereferenced before xchg).
-Either rcu needs to be used or the queue should stopped and synced
-before setting the new program.
+Thanks for the detailed bug-report. I looked around the web to see if it
+was already reported or not. If found that this issue was reported before:
+[0], [1] and [2] by the same person (CC'ed). One difference is that the 
+reporter had this issue with rsync on multiple SPARC systems. I ran a
+git grep on a 4.7.0-rc7+ (wt-2016-07-21-15-g97bd3b0). But it didn't find
+any patches directly referencing the commit. I'm not sure if this issue
+has been fixed by now or not. I would greatly appreciate any comment
+about this from the "people of netdev" (Al Viro? Alex Mcwhirter?).
 
-> +       }
-> +
-> +       return 0;
-> +}
-> +
-> +static bool mlx4_xdp_attached(struct net_device *dev)
-> +{
-> +       struct mlx4_en_priv *priv = netdev_priv(dev);
-> +
-> +       return !!priv->xdp_ring_num;
-> +}
-> +
-> +static int mlx4_xdp(struct net_device *dev, struct netdev_xdp *xdp)
-> +{
-> +       switch (xdp->command) {
-> +       case XDP_SETUP_PROG:
-> +               return mlx4_xdp_set(dev, xdp->prog);
-> +       case XDP_QUERY_PROG:
-> +               xdp->prog_attached = mlx4_xdp_attached(dev);
-> +               return 0;
-> +       default:
-> +               return -EINVAL;
-> +       }
-> +}
-> +
->  static const struct net_device_ops mlx4_netdev_ops = {
->         .ndo_open               = mlx4_en_open,
->         .ndo_stop               = mlx4_en_close,
-> @@ -2548,6 +2606,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
->         .ndo_udp_tunnel_del     = mlx4_en_del_vxlan_port,
->         .ndo_features_check     = mlx4_en_features_check,
->         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
-> +       .ndo_xdp                = mlx4_xdp,
->  };
->
->  static const struct net_device_ops mlx4_netdev_ops_master = {
-> @@ -2584,6 +2643,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
->         .ndo_udp_tunnel_del     = mlx4_en_del_vxlan_port,
->         .ndo_features_check     = mlx4_en_features_check,
->         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
-> +       .ndo_xdp                = mlx4_xdp,
->  };
->
->  struct mlx4_en_bond {
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index c1b3a9c..6729545 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -32,6 +32,7 @@
->   */
->
->  #include <net/busy_poll.h>
-> +#include <linux/bpf.h>
->  #include <linux/mlx4/cq.h>
->  #include <linux/slab.h>
->  #include <linux/mlx4/qp.h>
-> @@ -509,6 +510,8 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
->         struct mlx4_en_dev *mdev = priv->mdev;
->         struct mlx4_en_rx_ring *ring = *pring;
->
-> +       if (ring->xdp_prog)
-> +               bpf_prog_put(ring->xdp_prog);
->         mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
->         vfree(ring->rx_info);
->         ring->rx_info = NULL;
-> @@ -743,6 +746,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->         struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
->         struct mlx4_en_rx_alloc *frags;
->         struct mlx4_en_rx_desc *rx_desc;
-> +       struct bpf_prog *xdp_prog;
->         struct sk_buff *skb;
->         int index;
->         int nr;
-> @@ -759,6 +763,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->         if (budget <= 0)
->                 return polled;
->
-> +       xdp_prog = READ_ONCE(ring->xdp_prog);
-> +
->         /* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
->          * descriptor offset can be deduced from the CQE index instead of
->          * reading 'cqe->index' */
-> @@ -835,6 +841,35 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->                 l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
->                         (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
->
-> +               /* A bpf program gets first chance to drop the packet. It may
-> +                * read bytes but not past the end of the frag.
-> +                */
-> +               if (xdp_prog) {
-> +                       struct xdp_buff xdp;
-> +                       dma_addr_t dma;
-> +                       u32 act;
-> +
-> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
-> +                       dma_sync_single_for_cpu(priv->ddev, dma,
-> +                                               priv->frag_info[0].frag_size,
-> +                                               DMA_FROM_DEVICE);
-> +
-> +                       xdp.data = page_address(frags[0].page) +
-> +                                                       frags[0].page_offset;
-> +                       xdp.data_end = xdp.data + length;
-> +
-> +                       act = bpf_prog_run_xdp(xdp_prog, &xdp);
-> +                       switch (act) {
-> +                       case XDP_PASS:
-> +                               break;
-> +                       default:
-> +                               bpf_warn_invalid_xdp_action(act);
-> +                       case XDP_ABORTED:
-> +                       case XDP_DROP:
-> +                               goto next;
-> +                       }
-> +               }
-> +
->                 if (likely(dev->features & NETIF_F_RXCSUM)) {
->                         if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
->                                                       MLX4_CQE_STATUS_UDP)) {
-> @@ -1062,10 +1097,7 @@ static const int frag_sizes[] = {
->  void mlx4_en_calc_rx_buf(struct net_device *dev)
->  {
->         struct mlx4_en_priv *priv = netdev_priv(dev);
-> -       /* VLAN_HLEN is added twice,to support skb vlan tagged with multiple
-> -        * headers. (For example: ETH_P_8021Q and ETH_P_8021AD).
-> -        */
-> -       int eff_mtu = dev->mtu + ETH_HLEN + (2 * VLAN_HLEN);
-> +       int eff_mtu = MLX4_EN_EFF_MTU(dev->mtu);
->         int buf_size = 0;
->         int i = 0;
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> index d39bf59..eb1238d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> @@ -164,6 +164,10 @@ enum {
->  #define MLX4_LOOPBACK_TEST_PAYLOAD (HEADER_COPY_SIZE - ETH_HLEN)
->
->  #define MLX4_EN_MIN_MTU                46
-> +/* VLAN_HLEN is added twice,to support skb vlan tagged with multiple
-> + * headers. (For example: ETH_P_8021Q and ETH_P_8021AD).
-> + */
-> +#define MLX4_EN_EFF_MTU(mtu)   ((mtu) + ETH_HLEN + (2 * VLAN_HLEN))
->  #define ETH_BCAST              0xffffffffffffULL
->
->  #define MLX4_EN_LOOPBACK_RETRIES       5
-> @@ -319,6 +323,7 @@ struct mlx4_en_rx_ring {
->         u8  fcs_del;
->         void *buf;
->         void *rx_info;
-> +       struct bpf_prog *xdp_prog;
->         unsigned long bytes;
->         unsigned long packets;
->         unsigned long csum_ok;
-> @@ -558,6 +563,7 @@ struct mlx4_en_priv {
->         struct mlx4_en_frag_info frag_info[MLX4_EN_MAX_RX_FRAGS];
->         u16 num_frags;
->         u16 log_rx_info;
-> +       int xdp_ring_num;
->
->         struct mlx4_en_tx_ring **tx_ring;
->         struct mlx4_en_rx_ring *rx_ring[MAX_RX_RINGS];
-> --
-> 2.8.2
->
+As for carl9170: I'm not sure what the driver or firmware can do about
+this at this time. You can try to disable the hardware crypto by setting
+nohwcrypt via the module option. However, this might not do anything at all.
+
+> [3.] Keywords: networking, carl9170
+> 
+> [4.] Kernel information
+> [4.1.] Kernel version (from /proc/version):
+> Multiple versions are known to be affected, from 3.19 to 4.6.4
+> 
+> [4.2.] Kernel .config file:
+> For testing I built with make x86_64_defconfig followed by enabling the
+> carl9170 driver, which adds these lines:
+> CONFIG_ATH_COMMON=m
+> CONFIG_ATH_CARDS=m
+> CONFIG_CARL9170=m
+> CONFIG_CARL9170_LEDS=y
+> CONFIG_CARL9170_WPC=y
+> 
+> [5.] Most recent kernel version which did not have the bug:
+> That would be the predecessor of e5a4b0bb803b39a36478451eae53a880d2663d5b
+> which is v3.18-rc6-1620-g17836394e578
+> 
+> [6.] no Oops
+> 
+> [7.] A small shell script or example program which triggers the
+>      problem (if possible)
+> 
+> This command fails reliably for me when running an affected kernel:
+> 
+> git clone git://git.kernel.org/pub/scm/git/git.git
+> 
+> (I'm including all the standard format stuff suggested by REPORTING-BUGS,
+> but I think you can skip from here to section 8.7 without missing anything
+> relevant)
+Yes, I removed it for the most part. If anyone is interested in the details:
+Here's a link to the original post @LKML [3].
+
+> 
+> [8.] Environment
+> [8.1.] Software (add the output of the ver_linux script here)
+> 
+> Mostly Debian 8.5 stable packages here.
+> 
+> [8.3.] Module information (from /proc/modules):
+> 
+> When I tested with the x86_64_defconfig + carl9170 kernel, there were
+> hardly any modules built, and I reproduced the problem after booting with
+> init=/bin/sh, so no unnecessary modules were loaded. Currently running a
+> normal 4.6.4 kernel which is showing the bug.
+> 
+> [...]
+> [8.7.] Other information that might be relevant to the problem
+>        (please look in /proc and include all information that you
+>        think to be relevant):
+> 
+> lsusb identifies my network device as:
+> 
+> Bus 005 Device 004: ID 0cf3:1002 Atheros Communications, Inc. TP-Link TL-WN821N v2 802.11n [Atheros AR9170]
+> 
+> I have version 1.9.9 of carl9170-1.fw in /lib/firmware
+Just one additional question: Is the TL-WN821N connected to a USB3 port?
+
+Regards,
+Christian
+
+[0] <https://lists.debian.org/debian-sparc/2016/06/msg00160.html>
+[1] <https://marc.info/?l=gentoo-sparc&m=145766845820114&w=2>
+[2] <http://permalink.gmane.org/gmane.linux.ports.sparc/22507>
+[3] <https://lkml.org/lkml/2016/7/23/184>
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
