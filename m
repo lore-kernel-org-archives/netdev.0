@@ -1,209 +1,283 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 2/2] net/mlx5e: Query minimum required header copy during xmit
-Date: Sun, 24 Jul 2016 16:12:40 +0300
-Message-ID: <1469365960-27100-3-git-send-email-saeedm@mellanox.com>
-References: <1469365960-27100-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v10 05/12] net/mlx4_en: add support for fast rx drop bpf program
+Date: Sun, 24 Jul 2016 11:57:54 -0500
+Message-ID: <CALx6S37TR90Af=-n=d0sfxxf_SvtwjRjyf_sds-Ne0UZn9i+AA@mail.gmail.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com> <1468955817-10604-6-git-send-email-bblanco@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33768 "EHLO
-	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751598AbcGXNTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 09:19:43 -0400
-In-Reply-To: <1469365960-27100-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:33903 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752354AbcGXQ5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 12:57:55 -0400
+Received: by mail-io0-f196.google.com with SMTP id g86so10499876ioj.1
+        for <netdev@vger.kernel.org>; Sun, 24 Jul 2016 09:57:55 -0700 (PDT)
+In-Reply-To: <1468955817-10604-6-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+On Tue, Jul 19, 2016 at 2:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+>
+> In tc/socket bpf programs, helpers linearize skb fragments as needed
+> when the program touches the packet data. However, in the pursuit of
+> speed, XDP programs will not be allowed to use these slower functions,
+> especially if it involves allocating an skb.
+>
+> Therefore, disallow MTU settings that would produce a multi-fragment
+> packet that XDP programs would fail to access. Future enhancements could
+> be done to increase the allowable MTU.
+>
+> The xdp program is present as a per-ring data structure, but as of yet
+> it is not possible to set at that granularity through any ndo.
+>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 60 ++++++++++++++++++++++++++
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 40 +++++++++++++++--
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  6 +++
+>  3 files changed, 102 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 6083775..c34a33d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -31,6 +31,7 @@
+>   *
+>   */
+>
+> +#include <linux/bpf.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/tcp.h>
+>  #include <linux/if_vlan.h>
+> @@ -2112,6 +2113,11 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+>                 en_err(priv, "Bad MTU size:%d.\n", new_mtu);
+>                 return -EPERM;
+>         }
+> +       if (priv->xdp_ring_num && MLX4_EN_EFF_MTU(new_mtu) > FRAG_SZ0) {
+> +               en_err(priv, "MTU size:%d requires frags but XDP running\n",
+> +                      new_mtu);
+> +               return -EOPNOTSUPP;
+> +       }
+>         dev->mtu = new_mtu;
+>
+>         if (netif_running(dev)) {
+> @@ -2520,6 +2526,58 @@ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 m
+>         return err;
+>  }
+>
+> +static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+> +{
+> +       struct mlx4_en_priv *priv = netdev_priv(dev);
+> +       struct bpf_prog *old_prog;
+> +       int xdp_ring_num;
+> +       int i;
+> +
+> +       xdp_ring_num = prog ? ALIGN(priv->rx_ring_num, MLX4_EN_NUM_UP) : 0;
+> +
+> +       if (priv->num_frags > 1) {
+> +               en_err(priv, "Cannot set XDP if MTU requires multiple frags\n");
+> +               return -EOPNOTSUPP;
+> +       }
+> +
+> +       if (prog) {
+> +               prog = bpf_prog_add(prog, priv->rx_ring_num - 1);
+> +               if (IS_ERR(prog))
+> +                       return PTR_ERR(prog);
+> +       }
+> +
+> +       priv->xdp_ring_num = xdp_ring_num;
+> +
+> +       /* This xchg is paired with READ_ONCE in the fast path */
+> +       for (i = 0; i < priv->rx_ring_num; i++) {
+> +               old_prog = xchg(&priv->rx_ring[i]->xdp_prog, prog);
 
-Add support for query the minimum inline mode from the Firmware.
-It is required for correct TX steering according to L3/L4 packet
-headers.
+This can be done under a lock instead of relying on xchg.
 
-Each send queue (SQ) has inline mode that defines the minimal required
-headers that needs to be copied into the SQ WQE.
-The driver asks the Firmware for the wqe_inline_mode device capability
-value.  In case the device capability defined as "vport context" the
-driver must check the reported min inline mode from the vport context
-before creating its SQs.
+> +               if (old_prog)
+> +                       bpf_prog_put(old_prog);
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  7 +++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 24 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/vport.c   | 12 ++++++++++++
- include/linux/mlx5/mlx5_ifc.h                     | 10 +++++++---
- include/linux/mlx5/vport.h                        |  2 ++
- 5 files changed, 52 insertions(+), 3 deletions(-)
+I don't see how this can work. Even after setting the new program, the
+old program might still be run (pointer dereferenced before xchg).
+Either rcu needs to be used or the queue should stopped and synced
+before setting the new program.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 2c20c7b..1b495ef 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -129,6 +129,12 @@ static inline int mlx5_max_log_rq_size(int wq_type)
- 	}
- }
- 
-+enum {
-+	MLX5E_INLINE_MODE_L2,
-+	MLX5E_INLINE_MODE_VPORT_CONTEXT,
-+	MLX5_INLINE_MODE_NOT_REQUIRED,
-+};
-+
- struct mlx5e_tx_wqe {
- 	struct mlx5_wqe_ctrl_seg ctrl;
- 	struct mlx5_wqe_eth_seg  eth;
-@@ -188,6 +194,7 @@ struct mlx5e_params {
- 	bool lro_en;
- 	u32 lro_wqe_sz;
- 	u16 tx_max_inline;
-+	u8  tx_min_inline_mode;
- 	u8  rss_hfunc;
- 	u8  toeplitz_hash_key[40];
- 	u32 indirection_rqt[MLX5E_INDIR_RQT_SIZE];
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 611ab55..ca7b1e3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -56,6 +56,7 @@ struct mlx5e_sq_param {
- 	u32                        sqc[MLX5_ST_SZ_DW(sqc)];
- 	struct mlx5_wq_param       wq;
- 	u16                        max_inline;
-+	u8                         min_inline_mode;
- 	bool                       icosq;
- };
- 
-@@ -649,6 +650,9 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
- 	}
- 	sq->bf_buf_size = (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) / 2;
- 	sq->max_inline  = param->max_inline;
-+	sq->min_inline_mode =
-+		MLX5_CAP_ETH(mdev, wqe_inline_mode) == MLX5E_INLINE_MODE_VPORT_CONTEXT ?
-+		param->min_inline_mode : 0;
- 
- 	err = mlx5e_alloc_sq_db(sq, cpu_to_node(c->cpu));
- 	if (err)
-@@ -731,6 +735,7 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
- 
- 	MLX5_SET(sqc,  sqc, tis_num_0, param->icosq ? 0 : priv->tisn[sq->tc]);
- 	MLX5_SET(sqc,  sqc, cqn,		sq->cq.mcq.cqn);
-+	MLX5_SET(sqc,  sqc, min_wqe_inline_mode, sq->min_inline_mode);
- 	MLX5_SET(sqc,  sqc, state,		MLX5_SQC_STATE_RST);
- 	MLX5_SET(sqc,  sqc, tis_lst_sz,		param->icosq ? 0 : 1);
- 	MLX5_SET(sqc,  sqc, flush_in_error_en,	1);
-@@ -1343,6 +1348,7 @@ static void mlx5e_build_sq_param(struct mlx5e_priv *priv,
- 	MLX5_SET(wq, wq, log_wq_sz,     priv->params.log_sq_size);
- 
- 	param->max_inline = priv->params.tx_max_inline;
-+	param->min_inline_mode = priv->params.tx_min_inline_mode;
- }
- 
- static void mlx5e_build_common_cq_param(struct mlx5e_priv *priv,
-@@ -2967,6 +2973,23 @@ void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params, u8 cq_period_mode)
- 			MLX5E_PARAMS_DEFAULT_RX_CQ_MODERATION_USEC_FROM_CQE;
- }
- 
-+static void mlx5e_query_min_inline(struct mlx5_core_dev *mdev,
-+				   u8 *min_inline_mode)
-+{
-+	switch (MLX5_CAP_ETH(mdev, wqe_inline_mode)) {
-+	case MLX5E_INLINE_MODE_L2:
-+		*min_inline_mode = MLX5_INLINE_MODE_L2;
-+		break;
-+	case MLX5E_INLINE_MODE_VPORT_CONTEXT:
-+		mlx5_query_nic_vport_min_inline(mdev,
-+						min_inline_mode);
-+		break;
-+	case MLX5_INLINE_MODE_NOT_REQUIRED:
-+		*min_inline_mode = MLX5_INLINE_MODE_NONE;
-+		break;
-+	}
-+}
-+
- static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 					struct net_device *netdev,
- 					const struct mlx5e_profile *profile,
-@@ -3032,6 +3055,7 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
- 	priv->params.tx_cq_moderation.pkts =
- 		MLX5E_PARAMS_DEFAULT_TX_CQ_MODERATION_PKTS;
- 	priv->params.tx_max_inline         = mlx5e_get_max_inline_cap(mdev);
-+	mlx5e_query_min_inline(mdev, &priv->params.tx_min_inline_mode);
- 	priv->params.num_tc                = 1;
- 	priv->params.rss_hfunc             = ETH_RSS_HASH_XOR;
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index 91846df..21365d0 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -135,6 +135,18 @@ static int mlx5_modify_nic_vport_context(struct mlx5_core_dev *mdev, void *in,
- 	return mlx5_cmd_exec_check_status(mdev, in, inlen, out, sizeof(out));
- }
- 
-+void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
-+				     u8 *min_inline_mode)
-+{
-+	u32 out[MLX5_ST_SZ_DW(query_nic_vport_context_out)] = {0};
-+
-+	mlx5_query_nic_vport_context(mdev, 0, out, sizeof(out));
-+
-+	*min_inline_mode = MLX5_GET(query_nic_vport_context_out, out,
-+				    nic_vport_context.min_wqe_inline_mode);
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
-+
- int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 				     u16 vport, u8 *addr)
- {
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index d671e4e..21bc455 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -536,7 +536,8 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
- 	u8         self_lb_en_modifiable[0x1];
- 	u8         reserved_at_9[0x2];
- 	u8         max_lso_cap[0x5];
--	u8         reserved_at_10[0x4];
-+	u8         reserved_at_10[0x2];
-+	u8	   wqe_inline_mode[0x2];
- 	u8         rss_ind_tbl_cap[0x4];
- 	u8         reg_umr_sq[0x1];
- 	u8         scatter_fcs[0x1];
-@@ -2270,7 +2271,8 @@ struct mlx5_ifc_sqc_bits {
- 	u8         cd_master[0x1];
- 	u8         fre[0x1];
- 	u8         flush_in_error_en[0x1];
--	u8         reserved_at_4[0x4];
-+	u8         reserved_at_4[0x1];
-+	u8	   min_wqe_inline_mode[0x3];
- 	u8         state[0x4];
- 	u8         reg_umr[0x1];
- 	u8         reserved_at_d[0x13];
-@@ -2367,7 +2369,9 @@ struct mlx5_ifc_rmpc_bits {
- };
- 
- struct mlx5_ifc_nic_vport_context_bits {
--	u8         reserved_at_0[0x1f];
-+	u8         reserved_at_0[0x5];
-+	u8         min_wqe_inline_mode[0x3];
-+	u8         reserved_at_8[0x17];
- 	u8         roce_en[0x1];
- 
- 	u8         arm_change_event[0x1];
-diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
-index 6c16c19..e087b7d 100644
---- a/include/linux/mlx5/vport.h
-+++ b/include/linux/mlx5/vport.h
-@@ -43,6 +43,8 @@ int mlx5_modify_vport_admin_state(struct mlx5_core_dev *mdev, u8 opmod,
- 				  u16 vport, u8 state);
- int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 				     u16 vport, u8 *addr);
-+void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
-+				     u8 *min_inline);
- int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
- 				      u16 vport, u8 *addr);
- int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
--- 
-2.8.0
+> +       }
+> +
+> +       return 0;
+> +}
+> +
+> +static bool mlx4_xdp_attached(struct net_device *dev)
+> +{
+> +       struct mlx4_en_priv *priv = netdev_priv(dev);
+> +
+> +       return !!priv->xdp_ring_num;
+> +}
+> +
+> +static int mlx4_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+> +{
+> +       switch (xdp->command) {
+> +       case XDP_SETUP_PROG:
+> +               return mlx4_xdp_set(dev, xdp->prog);
+> +       case XDP_QUERY_PROG:
+> +               xdp->prog_attached = mlx4_xdp_attached(dev);
+> +               return 0;
+> +       default:
+> +               return -EINVAL;
+> +       }
+> +}
+> +
+>  static const struct net_device_ops mlx4_netdev_ops = {
+>         .ndo_open               = mlx4_en_open,
+>         .ndo_stop               = mlx4_en_close,
+> @@ -2548,6 +2606,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+>         .ndo_udp_tunnel_del     = mlx4_en_del_vxlan_port,
+>         .ndo_features_check     = mlx4_en_features_check,
+>         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
+> +       .ndo_xdp                = mlx4_xdp,
+>  };
+>
+>  static const struct net_device_ops mlx4_netdev_ops_master = {
+> @@ -2584,6 +2643,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+>         .ndo_udp_tunnel_del     = mlx4_en_del_vxlan_port,
+>         .ndo_features_check     = mlx4_en_features_check,
+>         .ndo_set_tx_maxrate     = mlx4_en_set_tx_maxrate,
+> +       .ndo_xdp                = mlx4_xdp,
+>  };
+>
+>  struct mlx4_en_bond {
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index c1b3a9c..6729545 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -32,6 +32,7 @@
+>   */
+>
+>  #include <net/busy_poll.h>
+> +#include <linux/bpf.h>
+>  #include <linux/mlx4/cq.h>
+>  #include <linux/slab.h>
+>  #include <linux/mlx4/qp.h>
+> @@ -509,6 +510,8 @@ void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
+>         struct mlx4_en_dev *mdev = priv->mdev;
+>         struct mlx4_en_rx_ring *ring = *pring;
+>
+> +       if (ring->xdp_prog)
+> +               bpf_prog_put(ring->xdp_prog);
+>         mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
+>         vfree(ring->rx_info);
+>         ring->rx_info = NULL;
+> @@ -743,6 +746,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>         struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
+>         struct mlx4_en_rx_alloc *frags;
+>         struct mlx4_en_rx_desc *rx_desc;
+> +       struct bpf_prog *xdp_prog;
+>         struct sk_buff *skb;
+>         int index;
+>         int nr;
+> @@ -759,6 +763,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>         if (budget <= 0)
+>                 return polled;
+>
+> +       xdp_prog = READ_ONCE(ring->xdp_prog);
+> +
+>         /* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
+>          * descriptor offset can be deduced from the CQE index instead of
+>          * reading 'cqe->index' */
+> @@ -835,6 +841,35 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                 l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+>                         (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
+>
+> +               /* A bpf program gets first chance to drop the packet. It may
+> +                * read bytes but not past the end of the frag.
+> +                */
+> +               if (xdp_prog) {
+> +                       struct xdp_buff xdp;
+> +                       dma_addr_t dma;
+> +                       u32 act;
+> +
+> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
+> +                       dma_sync_single_for_cpu(priv->ddev, dma,
+> +                                               priv->frag_info[0].frag_size,
+> +                                               DMA_FROM_DEVICE);
+> +
+> +                       xdp.data = page_address(frags[0].page) +
+> +                                                       frags[0].page_offset;
+> +                       xdp.data_end = xdp.data + length;
+> +
+> +                       act = bpf_prog_run_xdp(xdp_prog, &xdp);
+> +                       switch (act) {
+> +                       case XDP_PASS:
+> +                               break;
+> +                       default:
+> +                               bpf_warn_invalid_xdp_action(act);
+> +                       case XDP_ABORTED:
+> +                       case XDP_DROP:
+> +                               goto next;
+> +                       }
+> +               }
+> +
+>                 if (likely(dev->features & NETIF_F_RXCSUM)) {
+>                         if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
+>                                                       MLX4_CQE_STATUS_UDP)) {
+> @@ -1062,10 +1097,7 @@ static const int frag_sizes[] = {
+>  void mlx4_en_calc_rx_buf(struct net_device *dev)
+>  {
+>         struct mlx4_en_priv *priv = netdev_priv(dev);
+> -       /* VLAN_HLEN is added twice,to support skb vlan tagged with multiple
+> -        * headers. (For example: ETH_P_8021Q and ETH_P_8021AD).
+> -        */
+> -       int eff_mtu = dev->mtu + ETH_HLEN + (2 * VLAN_HLEN);
+> +       int eff_mtu = MLX4_EN_EFF_MTU(dev->mtu);
+>         int buf_size = 0;
+>         int i = 0;
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index d39bf59..eb1238d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -164,6 +164,10 @@ enum {
+>  #define MLX4_LOOPBACK_TEST_PAYLOAD (HEADER_COPY_SIZE - ETH_HLEN)
+>
+>  #define MLX4_EN_MIN_MTU                46
+> +/* VLAN_HLEN is added twice,to support skb vlan tagged with multiple
+> + * headers. (For example: ETH_P_8021Q and ETH_P_8021AD).
+> + */
+> +#define MLX4_EN_EFF_MTU(mtu)   ((mtu) + ETH_HLEN + (2 * VLAN_HLEN))
+>  #define ETH_BCAST              0xffffffffffffULL
+>
+>  #define MLX4_EN_LOOPBACK_RETRIES       5
+> @@ -319,6 +323,7 @@ struct mlx4_en_rx_ring {
+>         u8  fcs_del;
+>         void *buf;
+>         void *rx_info;
+> +       struct bpf_prog *xdp_prog;
+>         unsigned long bytes;
+>         unsigned long packets;
+>         unsigned long csum_ok;
+> @@ -558,6 +563,7 @@ struct mlx4_en_priv {
+>         struct mlx4_en_frag_info frag_info[MLX4_EN_MAX_RX_FRAGS];
+>         u16 num_frags;
+>         u16 log_rx_info;
+> +       int xdp_ring_num;
+>
+>         struct mlx4_en_tx_ring **tx_ring;
+>         struct mlx4_en_rx_ring *rx_ring[MAX_RX_RINGS];
+> --
+> 2.8.2
+>
