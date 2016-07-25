@@ -1,355 +1,315 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next V2 5/5] net/mlx4: Add VST QinQ support
-Date: Mon, 25 Jul 2016 14:15:36 +0300
-Message-ID: <1469445336-21952-6-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next V2 2/5] net/mlx4_core: Preparation for VST QinQ
+Date: Mon, 25 Jul 2016 14:15:33 +0300
+Message-ID: <1469445336-21952-3-git-send-email-tariqt@mellanox.com>
 References: <1469445336-21952-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Moshe Shemesh <moshe@mellanox.com>,
 	Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36476 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36472 "EHLO
 	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751787AbcGYLQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 07:16:01 -0400
+	with ESMTP id S1751718AbcGYLQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 07:16:00 -0400
 In-Reply-To: <1469445336-21952-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Moshe Shemesh <moshe@mellanox.com>
 
-Move the vf to VST QinQ mode by setting vf vlan protocol to 802.1ad.
-Read current vlan protocol as part of the vf configuration state.
-Upon setting VST QinQ, we use a mechanism of handshake to verify that
-both the vf and the pf driver version support it.
+Check device capability to support VST QinQ mode.
+Add vport attribute vlan protocol.
+Init vport vlan protocol by default to 802.1Q.
+Add update QP support for VST QinQ.
+Add func capability vlan_offload_disable to disable all
+vlan HW acceleration on VF while the VF is set to VST QinQ mode.
 
 Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c       | 51 ++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  6 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c        | 91 ++++++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      |  1 +
- include/linux/mlx4/cmd.h                       |  3 +-
- 5 files changed, 140 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |  7 ++++
+ drivers/net/ethernet/mellanox/mlx4/fw.c            | 37 ++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  2 ++
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 40 ++++++++++++++++++----
+ include/linux/mlx4/device.h                        |  3 ++
+ include/linux/mlx4/qp.h                            |  2 ++
+ 6 files changed, 78 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 6ca4b2ce0875..76590f480c19 100644
+index f04a423ff79d..6ca4b2ce0875 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1989,6 +1989,8 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- 	int port, err;
- 	struct mlx4_vport_state *vp_admin;
- 	struct mlx4_vport_oper_state *vp_oper;
-+	struct mlx4_slave_state *slave_state =
-+		&priv->mfunc.master.slave_state[slave];
- 	struct mlx4_active_ports actv_ports = mlx4_get_active_ports(
- 			&priv->dev, slave);
- 	int min_port = find_first_bit(actv_ports.ports,
-@@ -2003,7 +2005,19 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- 			priv->mfunc.master.vf_admin[slave].enable_smi[port];
- 		vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
- 		vp_admin = &priv->mfunc.master.vf_admin[slave].vport[port];
--		vp_oper->state = *vp_admin;
-+		if (vp_admin->vlan_proto != htons(ETH_P_8021AD) ||
-+		    slave_state->vst_qinq_supported) {
-+			vp_oper->state.vlan_proto = vp_admin->vlan_proto;
-+			vp_oper->state.default_vlan = vp_admin->default_vlan;
-+			vp_oper->state.default_qos = vp_admin->default_qos;
-+		}
-+		vp_oper->state.link_state = vp_admin->link_state;
-+		vp_oper->state.mac = vp_admin->mac;
-+		vp_oper->state.spoofchk = vp_admin->spoofchk;
-+		vp_oper->state.tx_rate = vp_admin->tx_rate;
-+		vp_oper->state.qos_vport = vp_admin->qos_vport;
-+		vp_oper->state.guid = vp_admin->guid;
-+
- 		if (MLX4_VGT != vp_admin->default_vlan) {
- 			err = __mlx4_register_vlan(&priv->dev, port,
+@@ -1845,6 +1845,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+ 
+ 	if (vp_oper->state.default_vlan == vp_admin->default_vlan &&
+ 	    vp_oper->state.default_qos == vp_admin->default_qos &&
++	    vp_oper->state.vlan_proto == vp_admin->vlan_proto &&
+ 	    vp_oper->state.link_state == vp_admin->link_state &&
+ 	    vp_oper->state.qos_vport == vp_admin->qos_vport)
+ 		return 0;
+@@ -1903,6 +1904,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+ 
+ 	vp_oper->state.default_vlan = vp_admin->default_vlan;
+ 	vp_oper->state.default_qos = vp_admin->default_qos;
++	vp_oper->state.vlan_proto = vp_admin->vlan_proto;
+ 	vp_oper->state.link_state = vp_admin->link_state;
+ 	vp_oper->state.qos_vport = vp_admin->qos_vport;
+ 
+@@ -1916,6 +1918,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+ 	work->qos_vport = vp_oper->state.qos_vport;
+ 	work->vlan_id = vp_oper->state.default_vlan;
+ 	work->vlan_ix = vp_oper->vlan_idx;
++	work->vlan_proto = vp_oper->state.vlan_proto;
+ 	work->priv = priv;
+ 	INIT_WORK(&work->work, mlx4_vf_immed_vlan_work_handler);
+ 	queue_work(priv->mfunc.master.comm_wq, &work->work);
+@@ -2006,6 +2009,8 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
  						   vp_admin->default_vlan, &(vp_oper->vlan_idx));
-@@ -2091,6 +2105,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 		mlx4_warn(dev, "Received reset from slave:%d\n", slave);
- 		slave_state[slave].active = false;
- 		slave_state[slave].old_vlan_api = false;
-+		slave_state[slave].vst_qinq_supported = false;
- 		mlx4_master_deactivate_admin_state(priv, slave);
- 		for (i = 0; i < MLX4_EVENT_TYPES_NUM; ++i) {
- 				slave_state[slave].event_eq[i].eqn = -1;
-@@ -2358,6 +2373,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 			vf_oper = &priv->mfunc.master.vf_oper[i];
- 			s_state = &priv->mfunc.master.slave_state[i];
- 			s_state->last_cmd = MLX4_COMM_CMD_RESET;
-+			s_state->vst_qinq_supported = false;
- 			mutex_init(&priv->mfunc.master.gen_eqe_mutex[i]);
- 			for (j = 0; j < MLX4_EVENT_TYPES_NUM; ++j)
- 				s_state->event_eq[j].eqn = -1;
-@@ -2944,10 +2960,13 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
- EXPORT_SYMBOL_GPL(mlx4_set_vf_mac);
- 
- 
--int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
-+int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos,
-+		     __be16 proto)
- {
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_vport_state *vf_admin;
-+	struct mlx4_slave_state *slave_state;
-+	struct mlx4_vport_oper_state *vf_oper;
- 	int slave;
- 
- 	if ((!mlx4_is_master(dev)) ||
-@@ -2957,12 +2976,31 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
- 	if ((vlan > 4095) || (qos > 7))
- 		return -EINVAL;
- 
-+	if (proto == htons(ETH_P_8021AD) &&
-+	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP))
-+		return -EPROTONOSUPPORT;
-+
-+	if (proto != htons(ETH_P_8021Q) &&
-+	    proto != htons(ETH_P_8021AD))
-+		return -EINVAL;
-+
-+	if ((proto == htons(ETH_P_8021AD)) &&
-+	    ((vlan == 0) || (vlan == MLX4_VGT)))
-+		return -EINVAL;
-+
- 	slave = mlx4_get_slave_indx(dev, vf);
- 	if (slave < 0)
- 		return -EINVAL;
- 
-+	slave_state = &priv->mfunc.master.slave_state[slave];
-+	if ((proto == htons(ETH_P_8021AD)) && (slave_state->active) &&
-+	    (!slave_state->vst_qinq_supported)) {
-+		mlx4_err(dev, "vf %d does not support VST QinQ mode\n", vf);
-+		return -EPROTONOSUPPORT;
-+	}
- 	port = mlx4_slaves_closest_port(dev, slave, port);
- 	vf_admin = &priv->mfunc.master.vf_admin[slave].vport[port];
-+	vf_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
- 
- 	if (!mlx4_valid_vf_state_change(dev, port, vf_admin, vlan, qos))
- 		return -EPERM;
-@@ -2972,6 +3010,7 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
- 	else
- 		vf_admin->default_vlan = vlan;
- 	vf_admin->default_qos = qos;
-+	vf_admin->vlan_proto = proto;
- 
- 	/* If rate was configured prior to VST, we saved the configured rate
- 	 * in vf_admin->rate and now, if priority supported we enforce the QoS
-@@ -2980,7 +3019,12 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
- 	    vf_admin->tx_rate)
- 		vf_admin->qos_vport = slave;
- 
--	if (mlx4_master_immediate_activate_vlan_qos(priv, slave, port))
-+	/* Try to activate new vf state without restart,
-+	 * this option is not supported while moving to VST QinQ mode.
-+	 */
-+	if ((proto == htons(ETH_P_8021AD) &&
-+	     vf_oper->state.vlan_proto != proto) ||
-+	    mlx4_master_immediate_activate_vlan_qos(priv, slave, port))
- 		mlx4_info(dev,
- 			  "updating vf %d port %d config will take effect on next VF restart\n",
- 			  vf, port);
-@@ -3124,6 +3168,7 @@ int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_in
- 
- 	ivf->vlan		= s_info->default_vlan;
- 	ivf->qos		= s_info->default_qos;
-+	ivf->vlan_proto		= s_info->vlan_proto;
- 
- 	if (mlx4_is_vf_vst_and_prio_qos(dev, port, s_info))
- 		ivf->max_tx_rate = s_info->tx_rate;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index e0f05e63237c..bd7cd07d11ca 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2405,10 +2405,8 @@ static int mlx4_en_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos,
- 	struct mlx4_en_priv *en_priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = en_priv->mdev;
- 
--	if (vlan_proto != htons(ETH_P_8021Q))
--		return -EPROTONOSUPPORT;
--
--	return mlx4_set_vf_vlan(mdev->dev, en_priv->port, vf, vlan, qos);
-+	return mlx4_set_vf_vlan(mdev->dev, en_priv->port, vf, vlan, qos,
-+				vlan_proto);
- }
- 
- static int mlx4_en_set_vf_rate(struct net_device *dev, int vf, int min_tx_rate,
+ 			if (err) {
+ 				vp_oper->vlan_idx = NO_INDX;
++				vp_oper->state.default_vlan = MLX4_VGT;
++				vp_oper->state.vlan_proto = htons(ETH_P_8021Q);
+ 				mlx4_warn(&priv->dev,
+ 					  "No vlan resources slave %d, port %d\n",
+ 					  slave, port);
+@@ -2382,6 +2387,8 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
+ 				admin_vport->qos_vport =
+ 						MLX4_VPP_DEFAULT_VPORT;
+ 				oper_vport->qos_vport = MLX4_VPP_DEFAULT_VPORT;
++				admin_vport->vlan_proto = htons(ETH_P_8021Q);
++				oper_vport->vlan_proto = htons(ETH_P_8021Q);
+ 				vf_oper->vport[port].vlan_idx = NO_INDX;
+ 				vf_oper->vport[port].mac_idx = NO_INDX;
+ 				mlx4_set_random_admin_guid(dev, i, port);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 6a1012921710..1d37dc55f6bd 100644
+index 355f05ec3a2c..6a1012921710 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/fw.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -249,6 +249,74 @@ out:
- 	return err;
- }
+@@ -158,7 +158,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
+ 		[31] = "Modifying loopback source checks using UPDATE_QP support",
+ 		[32] = "Loopback source checks support",
+ 		[33] = "RoCEv2 support",
+-		[34] = "DMFS Sniffer support (UC & MC)"
++		[34] = "DMFS Sniffer support (UC & MC)",
++		[35] = "QinQ VST mode support",
+ 	};
+ 	int i;
  
-+static int mlx4_activate_vst_qinq(struct mlx4_priv *priv, int slave, int port)
-+{
-+	struct mlx4_vport_oper_state *vp_oper;
-+	struct mlx4_slave_state *slave_state;
-+	struct mlx4_vport_state *vp_admin;
-+	int err;
-+
-+	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
-+	vp_admin = &priv->mfunc.master.vf_admin[slave].vport[port];
-+	slave_state = &priv->mfunc.master.slave_state[slave];
-+
-+	if (vp_admin->default_vlan != vp_oper->state.default_vlan) {
-+		err = __mlx4_register_vlan(&priv->dev, port,
-+					   vp_admin->default_vlan,
-+					   &vp_oper->vlan_idx);
-+		if (err) {
-+			vp_oper->vlan_idx = NO_INDX;
-+			mlx4_warn(&priv->dev,
-+				  "No vlan resources slave %d, port %d\n",
-+				  slave, port);
-+			return err;
-+		}
-+		mlx4_dbg(&priv->dev, "alloc vlan %d idx  %d slave %d port %d\n",
-+			 (int)(vp_oper->state.default_vlan),
-+			 vp_oper->vlan_idx, slave, port);
-+	}
-+	vp_oper->state.vlan_proto = vp_admin->vlan_proto;
-+	vp_oper->state.default_vlan = vp_admin->default_vlan;
-+	vp_oper->state.default_qos = vp_admin->default_qos;
-+
-+	return 0;
-+}
-+
-+static int mlx4_handle_vst_qinq(struct mlx4_priv *priv, int slave, int port)
-+{
-+	struct mlx4_vport_oper_state *vp_oper;
-+	struct mlx4_slave_state *slave_state;
-+	struct mlx4_vport_state *vp_admin;
-+	int err;
-+
-+	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
-+	vp_admin = &priv->mfunc.master.vf_admin[slave].vport[port];
-+	slave_state = &priv->mfunc.master.slave_state[slave];
-+
-+	if ((vp_admin->vlan_proto != htons(ETH_P_8021AD)) ||
-+	    (!slave_state->active))
-+		return 0;
-+
-+	if (vp_oper->state.vlan_proto == vp_admin->vlan_proto &&
-+	    vp_oper->state.default_vlan == vp_admin->default_vlan &&
-+	    vp_oper->state.default_qos == vp_admin->default_qos)
-+		return 0;
-+
-+	if (!slave_state->vst_qinq_supported) {
-+		/* Warn and revert the request to set vst QinQ mode */
-+		vp_admin->vlan_proto = vp_oper->state.vlan_proto;
-+		vp_admin->default_vlan = vp_oper->state.default_vlan;
-+		vp_admin->default_qos = vp_oper->state.default_qos;
-+
-+		mlx4_warn(&priv->dev,
-+			  "Slave %d does not support VST QinQ mode\n", slave);
-+		return 0;
-+	}
-+
-+	err = mlx4_activate_vst_qinq(priv, slave, port);
-+	return err;
-+}
-+
- int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 				struct mlx4_vhcr *vhcr,
- 				struct mlx4_cmd_mailbox *inbox,
-@@ -312,17 +380,18 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- #define QUERY_FUNC_CAP_VF_ENABLE_QP0		0x08
- 
+@@ -313,12 +314,15 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
  #define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
--#define QUERY_FUNC_CAP_SUPPORTS_NON_POWER_OF_2_NUM_EQS (1 << 31)
+ #define QUERY_FUNC_CAP_SUPPORTS_NON_POWER_OF_2_NUM_EQS (1 << 31)
  #define QUERY_FUNC_CAP_PHV_BIT			0x40
- #define QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE	0x20
++#define QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE	0x20
  
-+#define QUERY_FUNC_CAP_SUPPORTS_VST_QINQ	BIT(30)
-+#define QUERY_FUNC_CAP_SUPPORTS_NON_POWER_OF_2_NUM_EQS BIT(31)
-+
  	if (vhcr->op_modifier == 1) {
  		struct mlx4_active_ports actv_ports =
  			mlx4_get_active_ports(dev, slave);
  		int converted_port = mlx4_slave_convert_port(
  				dev, slave, vhcr->in_modifier);
--		struct mlx4_vport_oper_state *vp_oper =
--			&priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier];
-+		struct mlx4_vport_oper_state *vp_oper;
++		struct mlx4_vport_oper_state *vp_oper =
++			&priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier];
  
  		if (converted_port < 0)
  			return -EINVAL;
-@@ -361,6 +430,11 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+@@ -357,11 +361,12 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
  		MLX4_PUT(outbox->buf, dev->caps.phys_port_id[vhcr->in_modifier],
  			 QUERY_FUNC_CAP_PHYS_PORT_ID);
  
-+		vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
-+		err = mlx4_handle_vst_qinq(priv, slave, port);
-+		if (err)
-+			return err;
-+
- 		field = 0;
- 		if (dev->caps.phv_bit[port])
- 			field |= QUERY_FUNC_CAP_PHV_BIT;
-@@ -371,6 +445,9 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
+-		if (dev->caps.phv_bit[port]) {
+-			field = QUERY_FUNC_CAP_PHV_BIT;
+-			MLX4_PUT(outbox->buf, field,
+-				 QUERY_FUNC_CAP_FLAGS0_OFFSET);
+-		}
++		field = 0;
++		if (dev->caps.phv_bit[port])
++			field |= QUERY_FUNC_CAP_PHV_BIT;
++		if (vp_oper->state.vlan_proto == htons(ETH_P_8021AD))
++			field |= QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE;
++		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS0_OFFSET);
+ 
  	} else if (vhcr->op_modifier == 0) {
  		struct mlx4_active_ports actv_ports =
- 			mlx4_get_active_ports(dev, slave);
-+		struct mlx4_slave_state *slave_state =
-+			&priv->mfunc.master.slave_state[slave];
+@@ -689,6 +694,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ #define QUERY_DEV_CAP_MAX_DESC_SZ_SQ_OFFSET	0x52
+ #define QUERY_DEV_CAP_MAX_SG_RQ_OFFSET		0x55
+ #define QUERY_DEV_CAP_MAX_DESC_SZ_RQ_OFFSET	0x56
++#define QUERY_DEV_CAP_SVLAN_BY_QP_OFFSET	0x5D
+ #define QUERY_DEV_CAP_MAX_QP_MCG_OFFSET		0x61
+ #define QUERY_DEV_CAP_RSVD_MCG_OFFSET		0x62
+ #define QUERY_DEV_CAP_MAX_MCG_OFFSET		0x63
+@@ -855,6 +861,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
+ 	MLX4_GET(size, outbox, QUERY_DEV_CAP_MAX_DESC_SZ_SQ_OFFSET);
+ 	dev_cap->max_sq_desc_sz = size;
+ 
++	MLX4_GET(field, outbox, QUERY_DEV_CAP_SVLAN_BY_QP_OFFSET);
++	if (field & 0x1)
++		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_QP_MCG_OFFSET);
+ 	dev_cap->max_qp_per_mcg = 1 << field;
+ 	MLX4_GET(field, outbox, QUERY_DEV_CAP_RSVD_MCG_OFFSET);
+@@ -2897,6 +2906,22 @@ int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val)
+ }
+ EXPORT_SYMBOL(set_phv_bit);
+ 
++int mlx4_get_is_vlan_offload_disabled(struct mlx4_dev *dev, u8 port,
++				      bool *vlan_offload_disabled)
++{
++	struct mlx4_func_cap func_cap;
++	int err;
 +
- 		/* enable rdma and ethernet interfaces, new quota locations,
- 		 * and reserved lkey
- 		 */
-@@ -444,6 +521,10 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 
- 		size = dev->caps.reserved_lkey + ((slave << 8) & 0xFF00);
- 		MLX4_PUT(outbox->buf, size, QUERY_FUNC_CAP_QP_RESD_LKEY_OFFSET);
++	memset(&func_cap, 0, sizeof(func_cap));
++	err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
++	if (!err)
++		*vlan_offload_disabled =
++			!!(func_cap.flags0 &
++			   QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE);
++	return err;
++}
++EXPORT_SYMBOL(mlx4_get_is_vlan_offload_disabled);
 +
-+		if (vhcr->in_modifier & QUERY_FUNC_CAP_SUPPORTS_VST_QINQ)
-+			slave_state->vst_qinq_supported = true;
-+
- 	} else
- 		err = -EINVAL;
- 
-@@ -459,10 +540,12 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
- 	u32			size, qkey;
- 	int			err = 0, quotas = 0;
- 	u32                     in_modifier;
-+	u32			slave_caps;
- 
- 	op_modifier = !!gen_or_port; /* 0 = general, 1 = logical port */
--	in_modifier = op_modifier ? gen_or_port :
-+	slave_caps = QUERY_FUNC_CAP_SUPPORTS_VST_QINQ |
- 		QUERY_FUNC_CAP_SUPPORTS_NON_POWER_OF_2_NUM_EQS;
-+	in_modifier = op_modifier ? gen_or_port : slave_caps;
- 
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox))
+ void mlx4_replace_zero_macs(struct mlx4_dev *dev)
+ {
+ 	int i;
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 74e58ef136bb..adfe38b2f639 100644
+index c9d7fc5159f2..74e58ef136bb 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -482,6 +482,7 @@ struct mlx4_slave_state {
- 	u8 init_port_mask;
- 	bool active;
- 	bool old_vlan_api;
-+	bool vst_qinq_supported;
- 	u8 function;
- 	dma_addr_t vhcr_dma;
- 	u16 mtu[MLX4_MAX_PORTS + 1];
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index 116b284bc4ce..1f3568694a57 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -309,7 +309,8 @@ int mlx4_get_vf_stats(struct mlx4_dev *dev, int port, int vf_idx,
- 		      struct ifla_vf_stats *vf_stats);
- u32 mlx4_comm_get_version(void);
- int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
--int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
-+int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan,
-+		     u8 qos, __be16 proto);
- int mlx4_set_vf_rate(struct mlx4_dev *dev, int port, int vf, int min_tx_rate,
- 		     int max_tx_rate);
- int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
+@@ -507,6 +507,7 @@ struct mlx4_vport_state {
+ 	u64 mac;
+ 	u16 default_vlan;
+ 	u8  default_qos;
++	__be16 vlan_proto;
+ 	u32 tx_rate;
+ 	bool spoofchk;
+ 	u32 link_state;
+@@ -655,6 +656,7 @@ struct mlx4_vf_immed_vlan_work {
+ 	u8                      qos_vport;
+ 	u16			vlan_id;
+ 	u16			orig_vlan_id;
++	__be16			vlan_proto;
+ };
+ 
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 8b81114bdc72..84d7857ccc27 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -790,10 +790,22 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 				MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED |
+ 				MLX4_VLAN_CTRL_ETH_RX_BLOCK_TAGGED;
+ 		} else if (0 != vp_oper->state.default_vlan) {
+-			qpc->pri_path.vlan_control |=
+-				MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
+-				MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
+-				MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
++			if (vp_oper->state.vlan_proto == htons(ETH_P_8021AD)) {
++				/* vst QinQ should block untagged on TX,
++				 * but cvlan is in payload and phv is set so
++				 * hw see it as untagged. Block tagged instead.
++				 */
++				qpc->pri_path.vlan_control |=
++					MLX4_VLAN_CTRL_ETH_TX_BLOCK_PRIO_TAGGED |
++					MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
++					MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
++					MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
++			} else { /* vst 802.1Q */
++				qpc->pri_path.vlan_control |=
++					MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
++					MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
++					MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
++			}
+ 		} else { /* priority tagged */
+ 			qpc->pri_path.vlan_control |=
+ 				MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
+@@ -802,7 +814,11 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
+ 
+ 		qpc->pri_path.fvl_rx |= MLX4_FVL_RX_FORCE_ETH_VLAN;
+ 		qpc->pri_path.vlan_index = vp_oper->vlan_idx;
+-		qpc->pri_path.fl |= MLX4_FL_CV | MLX4_FL_ETH_HIDE_CQE_VLAN;
++		qpc->pri_path.fl |= MLX4_FL_ETH_HIDE_CQE_VLAN;
++		if (vp_oper->state.vlan_proto == htons(ETH_P_8021AD))
++			qpc->pri_path.fl |= MLX4_FL_SV;
++		else
++			qpc->pri_path.fl |= MLX4_FL_CV;
+ 		qpc->pri_path.feup |= MLX4_FEUP_FORCE_ETH_UP | MLX4_FVL_FORCE_ETH_VLAN;
+ 		qpc->pri_path.sched_queue &= 0xC7;
+ 		qpc->pri_path.sched_queue |= (vp_oper->state.default_qos) << 3;
+@@ -5238,6 +5254,7 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
+ 	u64 qp_path_mask = ((1ULL << MLX4_UPD_QP_PATH_MASK_VLAN_INDEX) |
+ 		       (1ULL << MLX4_UPD_QP_PATH_MASK_FVL) |
+ 		       (1ULL << MLX4_UPD_QP_PATH_MASK_CV) |
++		       (1ULL << MLX4_UPD_QP_PATH_MASK_SV) |
+ 		       (1ULL << MLX4_UPD_QP_PATH_MASK_ETH_HIDE_CQE_VLAN) |
+ 		       (1ULL << MLX4_UPD_QP_PATH_MASK_FEUP) |
+ 		       (1ULL << MLX4_UPD_QP_PATH_MASK_FVL_RX) |
+@@ -5266,7 +5283,12 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
+ 	else if (!work->vlan_id)
+ 		vlan_control = MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
+ 			MLX4_VLAN_CTRL_ETH_RX_BLOCK_TAGGED;
+-	else
++	else if (work->vlan_proto == htons(ETH_P_8021AD))
++		vlan_control = MLX4_VLAN_CTRL_ETH_TX_BLOCK_PRIO_TAGGED |
++			MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
++			MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
++			MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
++	else  /* vst 802.1Q */
+ 		vlan_control = MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
+ 			MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
+ 			MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
+@@ -5311,7 +5333,11 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
+ 				upd_context->qp_context.pri_path.fvl_rx =
+ 					qp->fvl_rx | MLX4_FVL_RX_FORCE_ETH_VLAN;
+ 				upd_context->qp_context.pri_path.fl =
+-					qp->pri_path_fl | MLX4_FL_CV | MLX4_FL_ETH_HIDE_CQE_VLAN;
++					qp->pri_path_fl | MLX4_FL_ETH_HIDE_CQE_VLAN;
++				if (work->vlan_proto == htons(ETH_P_8021AD))
++					upd_context->qp_context.pri_path.fl |= MLX4_FL_SV;
++				else
++					upd_context->qp_context.pri_path.fl |= MLX4_FL_CV;
+ 				upd_context->qp_context.pri_path.feup =
+ 					qp->feup | MLX4_FEUP_FORCE_ETH_UP | MLX4_FVL_FORCE_ETH_VLAN;
+ 				upd_context->qp_context.pri_path.sched_queue =
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index e6f6910278f3..09218d15d132 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -220,6 +220,7 @@ enum {
+ 	MLX4_DEV_CAP_FLAG2_LB_SRC_CHK           = 1ULL << 32,
+ 	MLX4_DEV_CAP_FLAG2_ROCE_V1_V2		= 1ULL <<  33,
+ 	MLX4_DEV_CAP_FLAG2_DMFS_UC_MC_SNIFFER   = 1ULL <<  34,
++	MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP          = 1ULL <<  35,
+ };
+ 
+ enum {
+@@ -1367,6 +1368,8 @@ int mlx4_SET_PORT_fcs_check(struct mlx4_dev *dev, u8 port,
+ int mlx4_SET_PORT_VXLAN(struct mlx4_dev *dev, u8 port, u8 steering, int enable);
+ int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val);
+ int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv);
++int mlx4_get_is_vlan_offload_disabled(struct mlx4_dev *dev, u8 port,
++				      bool *vlan_offload_disabled);
+ int mlx4_find_cached_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *idx);
+ int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
+ int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index deaa2217214d..b4ee8f62ce8d 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -160,6 +160,7 @@ struct mlx4_qp_path {
+ 
+ enum { /* fl */
+ 	MLX4_FL_CV	= 1 << 6,
++	MLX4_FL_SV	= 1 << 5,
+ 	MLX4_FL_ETH_HIDE_CQE_VLAN	= 1 << 2,
+ 	MLX4_FL_ETH_SRC_CHECK_MC_LB	= 1 << 1,
+ 	MLX4_FL_ETH_SRC_CHECK_UC_LB	= 1 << 0,
+@@ -267,6 +268,7 @@ enum {
+ 	MLX4_UPD_QP_PATH_MASK_FVL_RX			= 16 + 32,
+ 	MLX4_UPD_QP_PATH_MASK_ETH_SRC_CHECK_UC_LB	= 18 + 32,
+ 	MLX4_UPD_QP_PATH_MASK_ETH_SRC_CHECK_MC_LB	= 19 + 32,
++	MLX4_UPD_QP_PATH_MASK_SV			= 22 + 32,
+ };
+ 
+ enum { /* param3 */
 -- 
 1.8.3.1
