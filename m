@@ -1,46 +1,62 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Check device state before unregistering it
-Date: Mon, 25 Jul 2016 15:42:13 +0300
-Message-ID: <1469450533-27494-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Alex Vesker <valex@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH] net: neigh: disallow state transition DELAY->STALE in neigh_update()
+Date: Mon, 25 Jul 2016 21:45:39 +0900
+Message-ID: <CAPA1RqD4Zf5k0HAZNbQCBcb36v6Rhj3PiQkMO+Dm_NUB=2d8Gw@mail.gmail.com>
+References: <alpine.LFD.2.11.1607220954060.1764@ja.home.ssi.bg>
+ <20160722.124757.283248020246505940.hchunhui@mail.ustc.edu.cn>
+ <e0d3e238-312e-a0e2-9501-29beb7e2ef27@miraclelinux.com> <20160725.081349.445701096084716570.hchunhui@mail.ustc.edu.cn>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: ja@ssi.bg, David Miller <davem@davemloft.net>,
+	dsa@cumulusnetworks.com, nicolas.dichtel@6wind.com,
+	roopa@cumulusnetworks.com, rshearma@brocade.com,
+	dbarroso@fastly.com, martinbj2008@gmail.com, rick.jones2@hp.com,
+	koct9i@gmail.com, edumazet@google.com, tgraf@suug.ch,
+	ebiederm@xmission.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	network dev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Chunhui He <hchunhui@mail.ustc.edu.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:47053 "EHLO
-	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751254AbcGYMmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 08:42:19 -0400
+Received: from mail-io0-f179.google.com ([209.85.223.179]:35914 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006AbcGYMpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 08:45:40 -0400
+Received: by mail-io0-f179.google.com with SMTP id b62so160004399iod.3
+        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 05:45:40 -0700 (PDT)
+In-Reply-To: <20160725.081349.445701096084716570.hchunhui@mail.ustc.edu.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Vesker <valex@mellanox.com>
+Hi,
 
-Verify that the device state is registered before un-registering it.
-This check is required to prevent an OOPS on flows that do
-re-registration of the device and its previous state was
-unregistered.
+2016-07-25 17:13 GMT+09:00 Chunhui He <hchunhui@mail.ustc.edu.cn>:
+>>> The NEIGH_UPDATE_F_WEAK_OVERRIDE is confusing to me, so I choose not to deal
+>>> with the flag.
+>>
+>> IPv6 depends on WEAK_OVERRIDE.  Please do not change.
+>>
+>
+> It seems like IPv6 always sets WEAK_OVERRIDE.
+>
 
-Fixes: 225c7b1feef1 ("IB/mlx4: Add a driver Mellanox ConnectX InfiniBand adapters")
-Signed-off-by: Alex Vesker <valex@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/intf.c | 3 +++
- 1 file changed, 3 insertions(+)
+Yes.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/intf.c b/drivers/net/ethernet/mellanox/mlx4/intf.c
-index dec77d6f0ac9..5aeb6027b70e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/intf.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/intf.c
-@@ -218,6 +218,9 @@ void mlx4_unregister_device(struct mlx4_dev *dev)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
- 	struct mlx4_interface *intf;
- 
-+	if (!(dev->persist->interface_state & MLX4_INTERFACE_STATE_UP))
-+		return;
-+
- 	mlx4_stop_catas_poll(dev);
- 	mutex_lock(&intf_mutex);
- 
--- 
-1.8.3.1
+> As Julian said, maybe there is no good reason to set NUD_STALE for any state
+> that is NUD_VALID if address is not changed, even WEAK_OVERRIDE is not set.
+> So we may eliminate WEAK_OVERRIDE in that branch.
+>
+> I think this change should not break IPv6.
+
+OK, following blocks are "no-op" and we will get same result.
+
+Well, please do not try changing several things at the same time and
+you could say:
+
+if (ladder == neigh->ha && new == NUD_STALE &&
+    !(flags & NUD_UPDATE_F_ADMIN))
+        new = old;
+
+I think I tried to maintain our traditional IPv4 behavior (e.g. as of
+2.2 era), BTW...
+
+--yoshfuji
