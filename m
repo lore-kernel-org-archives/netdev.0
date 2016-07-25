@@ -1,36 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/ncsi: avoid maybe-uninitialized warning
-Date: Mon, 25 Jul 2016 10:33:31 -0700 (PDT)
-Message-ID: <20160725.103331.1354056319823788243.davem@davemloft.net>
-References: <20160721192927.3182806-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next] bpf, events: fix offset in skb copy handler
+Date: Mon, 25 Jul 2016 10:35:19 -0700 (PDT)
+Message-ID: <20160725.103519.196023078266457070.davem@davemloft.net>
+References: <19c7fccabbd37bf413aaacb2bc1fc06b559e4791.1469142756.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gwshan@linux.vnet.ibm.com, joel@jms.id.au, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160721192927.3182806-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42616 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752916AbcGYRfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:35:20 -0400
+In-Reply-To: <19c7fccabbd37bf413aaacb2bc1fc06b559e4791.1469142756.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 21 Jul 2016 21:28:34 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 22 Jul 2016 01:19:42 +0200
 
-> gcc-4.9 and higher warn about the newly added NSCI code:
+> This patch fixes the __output_custom() routine we currently use with
+> bpf_skb_copy(). I missed that when len is larger than the size of the
+> current handle, we can issue multiple invocations of copy_func, and
+> __output_custom() advances destination but also source buffer by the
+> written amount of bytes. When we have __output_custom(), this is actually
+> wrong since in that case the source buffer points to a non-linear object,
+> in our case an skb, which the copy_func helper is supposed to walk.
+> Therefore, since this is non-linear we thus need to pass the offset into
+> the helper, so that copy_func can use it for extracting the data from
+> the source object.
 > 
-> net/ncsi/ncsi-manage.c: In function 'ncsi_process_next_channel':
-> net/ncsi/ncsi-manage.c:1003:2: error: 'old_state' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> Therefore, adjust the callback signatures properly and pass offset
+> into the skb_header_pointer() invoked from bpf_skb_copy() callback. The
+> __DEFINE_OUTPUT_COPY_BODY() is adjusted to accommodate for two things:
+> i) to pass in whether we should advance source buffer or not; this is
+> a compile-time constant condition, ii) to pass in the offset for
+> __output_custom(), which we do with help of __VA_ARGS__, so everything
+> can stay inlined as is currently. Both changes allow for adapting the
+> __output_* fast-path helpers w/o extra overhead.
 > 
-> The warning is a false positive and therefore harmless, but it would be good to
-> avoid it anyway. I have determined that the barrier in the spin_unlock_irqsave()
-> is what confuses gcc to the point that it cannot track whether the variable
-> was unused or not.
-> 
-> This rearranges the code in a way that makes it obvious to gcc that old_state
-> is always initialized at the time of use, functionally this should not
-> change anything.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 555c8a8623a3 ("bpf: avoid stack copy and use skb ctx for event output")
+> Fixes: 7e3f977edd0b ("perf, events: add non-linear data support for raw records")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
 Applied.
