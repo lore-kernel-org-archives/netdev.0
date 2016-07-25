@@ -1,29 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 0/9] mlxsw: implement port mirroring offload
-Date: Sun, 24 Jul 2016 23:12:28 -0700 (PDT)
-Message-ID: <20160724.231228.1328289977464867937.davem@davemloft.net>
-References: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v10 07/12] net/mlx4_en: add page recycle to prepare rx
+ ring for tx support
+Date: Mon, 25 Jul 2016 09:35:20 +0200
+Message-ID: <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+	 <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yotamg@mellanox.com, eladr@mellanox.com,
-	idosch@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	jhs@mojatatu.com
-To: jiri@resnulli.us
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59200 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750861AbcGYGMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 02:12:32 -0400
-In-Reply-To: <1469095397-3837-1-git-send-email-jiri@resnulli.us>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33893 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344AbcGYHfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 03:35:25 -0400
+Received: by mail-wm0-f68.google.com with SMTP id q128so15461016wma.1
+        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 00:35:24 -0700 (PDT)
+In-Reply-To: <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 21 Jul 2016 12:03:08 +0200
+On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
+> The mlx4 driver by default allocates order-3 pages for the ring to
+> consume in multiple fragments. When the device has an xdp program, this
+> behavior will prevent tx actions since the page must be re-mapped in
+> TODEVICE mode, which cannot be done if the page is still shared.
+> 
+> Start by making the allocator configurable based on whether xdp is
+> running, such that order-0 pages are always used and never shared.
+> 
+> Since this will stress the page allocator, add a simple page cache to
+> each rx ring. Pages in the cache are left dma-mapped, and in drop-only
+> stress tests the page allocator is eliminated from the perf report.
+> 
+> Note that setting an xdp program will now require the rings to be
+> reconfigured.
 
-> This patchset introduces tc matchall classifier and its offload to
-> Spectrum hardware. In combination with mirred action, defined port
-> mirroring setup is offloaded by mlxsw/spectrum driver.
+Again, this has nothing to do with XDP ?
 
-Series applied, thanks Jiri.
+Please submit a separate patch, switching this driver to order-0
+allocations.
+
+I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
+send a generic patch, but had been traveling lately, and currently in
+vacation.
+
+order-3 pages are problematic when dealing with hostile traffic anyway,
+so we should exclusively use order-0 pages, and page recycling like
+Intel drivers.
+
+http://lists.openwall.net/netdev/2016/04/11/88
