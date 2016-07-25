@@ -1,139 +1,223 @@
 From: Sargun Dhillon <sargun@sargun.me>
-Subject: [PATCH net-next v7 1/2] bpf: Add bpf_probe_write_user BPF helper to
- be called in tracers
-Date: Mon, 25 Jul 2016 05:54:46 -0700
-Message-ID: <20160725125444.GA15051@ircssh.c.rugged-nimbus-611.internal>
+Subject: [PATCH net-next v7 2/2] samples/bpf: Add test/example of using
+ bpf_probe_write_user bpf helper
+Date: Mon, 25 Jul 2016 05:55:02 -0700
+Message-ID: <20160725125501.GA15057@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:36447 "EHLO
+	mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752449AbcGYMzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 08:55:06 -0400
+Received: by mail-it0-f52.google.com with SMTP id f6so83418508ith.1
+        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 05:55:05 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This allows user memory to be written to during the course of a kprobe.
-It shouldn't be used to implement any kind of security mechanism
-because of TOC-TOU attacks, but rather to debug, divert, and
-manipulate execution of semi-cooperative processes.
+This example shows using a kprobe to act as a dnat mechanism to divert
+traffic for arbitrary endpoints. It rewrite the arguments to a syscall
+while they're still in userspace, and before the syscall has a chance
+to copy the argument into kernel space.
 
-Although it uses probe_kernel_write, we limit the address space
-the probe can write into by checking the space with access_ok.
-We do this as opposed to calling copy_to_user directly, in order
-to avoid sleeping. In addition we ensure the threads's current fs
-/ segment is USER_DS and the thread isn't exiting nor a kernel thread.
-
-Given this feature is meant for experiments, and it has a risk of
-crashing the system, and running programs, we print a warning on
-when a proglet that attempts to use this helper is installed,
-along with the pid and process name.
+Although this is an example, it also acts as a test because the mapped
+address is 255.255.255.255:555 -> real address, and that's not a legal
+address to connect to. If the helper is broken, the example will fail
+on the intermediate steps, as well as the final step to verify the
+rewrite of userspace memory succeeded.
 
 Signed-off-by: Sargun Dhillon <sargun@sargun.me>
 Cc: Alexei Starovoitov <ast@kernel.org>
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/uapi/linux/bpf.h  | 10 ++++++++++
- kernel/trace/bpf_trace.c  | 45 +++++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/bpf_helpers.h |  2 ++
- 3 files changed, 57 insertions(+)
+ samples/bpf/Makefile                     |  4 ++
+ samples/bpf/test_probe_write_user_kern.c | 52 +++++++++++++++++++++
+ samples/bpf/test_probe_write_user_user.c | 78 ++++++++++++++++++++++++++++++++
+ 3 files changed, 134 insertions(+)
+ create mode 100644 samples/bpf/test_probe_write_user_kern.c
+ create mode 100644 samples/bpf/test_probe_write_user_user.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 2b7076f..da218fe 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -365,6 +365,16 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_get_current_task,
- 
-+	/**
-+	 * bpf_probe_write_user(void *dst, void *src, int len)
-+	 * safely attempt to write to a location
-+	 * @dst: destination address in userspace
-+	 * @src: source address on stack
-+	 * @len: number of bytes to copy
-+	 * Return: 0 on success or negative error
-+	 */
-+	BPF_FUNC_probe_write_user,
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index d2d2b35..90ebf7d 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -14,6 +14,7 @@ hostprogs-y += tracex3
+ hostprogs-y += tracex4
+ hostprogs-y += tracex5
+ hostprogs-y += tracex6
++hostprogs-y += test_probe_write_user
+ hostprogs-y += trace_output
+ hostprogs-y += lathist
+ hostprogs-y += offwaketime
+@@ -37,6 +38,7 @@ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
+ tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+ tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
+ tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
++test_probe_write_user-objs := bpf_load.o libbpf.o test_probe_write_user_user.o
+ trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+ lathist-objs := bpf_load.o libbpf.o lathist_user.o
+ offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
+@@ -59,6 +61,7 @@ always += tracex3_kern.o
+ always += tracex4_kern.o
+ always += tracex5_kern.o
+ always += tracex6_kern.o
++always += test_probe_write_user_kern.o
+ always += trace_output_kern.o
+ always += tcbpf1_kern.o
+ always += lathist_kern.o
+@@ -85,6 +88,7 @@ HOSTLOADLIBES_tracex3 += -lelf
+ HOSTLOADLIBES_tracex4 += -lelf -lrt
+ HOSTLOADLIBES_tracex5 += -lelf
+ HOSTLOADLIBES_tracex6 += -lelf
++HOSTLOADLIBES_test_probe_write_user += -lelf
+ HOSTLOADLIBES_trace_output += -lelf -lrt
+ HOSTLOADLIBES_lathist += -lelf
+ HOSTLOADLIBES_offwaketime += -lelf
+diff --git a/samples/bpf/test_probe_write_user_kern.c b/samples/bpf/test_probe_write_user_kern.c
+new file mode 100644
+index 0000000..3a677c8
+--- /dev/null
++++ b/samples/bpf/test_probe_write_user_kern.c
+@@ -0,0 +1,52 @@
++/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <uapi/linux/bpf.h>
++#include <linux/version.h>
++#include "bpf_helpers.h"
 +
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index a12bbd3..b20438f 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -81,6 +81,49 @@ static const struct bpf_func_proto bpf_probe_read_proto = {
- 	.arg3_type	= ARG_ANYTHING,
- };
- 
-+static u64 bpf_probe_write_user(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	void *unsafe_ptr = (void *) (long) r1;
-+	void *src = (void *) (long) r2;
-+	int size = (int) r3;
-+
-+	/*
-+	 * Ensure we're in user context which is safe for the helper to
-+	 * run. This helper has no business in a kthread.
-+	 *
-+	 * access_ok() should prevent writing to non-user memory, but in
-+	 * some situations (nommu, temporary switch, etc) access_ok() does
-+	 * not provide enough validation, hence the check on KERNEL_DS.
-+	 */
-+
-+	if (unlikely(in_interrupt() ||
-+		     current->flags & (PF_KTHREAD | PF_EXITING)))
-+		return -EPERM;
-+	if (unlikely(segment_eq(get_fs(), KERNEL_DS)))
-+		return -EPERM;
-+	if (!access_ok(VERIFY_WRITE, unsafe_ptr, size))
-+		return -EPERM;
-+
-+	return probe_kernel_write(unsafe_ptr, src, size);
-+}
-+
-+static const struct bpf_func_proto bpf_probe_write_user_proto = {
-+	.func		= bpf_probe_write_user,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_ANYTHING,
-+	.arg2_type	= ARG_PTR_TO_STACK,
-+	.arg3_type	= ARG_CONST_STACK_SIZE,
++struct bpf_map_def SEC("maps") dnat_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(struct sockaddr_in),
++	.value_size = sizeof(struct sockaddr_in),
++	.max_entries = 256,
 +};
 +
-+static const struct bpf_func_proto *bpf_get_probe_write_proto(void)
++/* kprobe is NOT a stable ABI
++ * kernel functions can be removed, renamed or completely change semantics.
++ * Number of arguments and their positions can change, etc.
++ * In such case this bpf+kprobe example will no longer be meaningful
++ *
++ * This example sits on a syscall, and the syscall ABI is relatively stable
++ * of course, across platforms, and over time, the ABI may change.
++ */
++SEC("kprobe/sys_connect")
++int bpf_prog1(struct pt_regs *ctx)
 +{
-+	pr_warn_ratelimited("%s[%d] is installing a program with bpf_probe_write_user helper that may corrupt user memory!",
-+			    current->comm, task_pid_nr(current));
++	struct sockaddr_in new_addr, orig_addr = {};
++	struct sockaddr_in *mapped_addr;
++	void *sockaddr_arg = (void *)PT_REGS_PARM2(ctx);
++	int sockaddr_len = (int)PT_REGS_PARM3(ctx);
 +
-+	return &bpf_probe_write_user_proto;
++	if (sockaddr_len > sizeof(orig_addr))
++		return 0;
++
++	if (bpf_probe_read(&orig_addr, sizeof(orig_addr), sockaddr_arg) != 0)
++		return 0;
++
++	mapped_addr = bpf_map_lookup_elem(&dnat_map, &orig_addr);
++	if (mapped_addr != NULL) {
++		memcpy(&new_addr, mapped_addr, sizeof(new_addr));
++		bpf_probe_write_user(sockaddr_arg, &new_addr,
++				     sizeof(new_addr));
++	}
++	return 0;
 +}
 +
- /*
-  * limited trace_printk()
-  * only %d %u %x %ld %lu %lx %lld %llu %llx %p %s conversion specifiers allowed
-@@ -362,6 +405,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
- 		return &bpf_get_smp_processor_id_proto;
- 	case BPF_FUNC_perf_event_read:
- 		return &bpf_perf_event_read_proto;
-+	case BPF_FUNC_probe_write_user:
-+		return bpf_get_probe_write_proto();
- 	default:
- 		return NULL;
- 	}
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 84e3fd9..217c8d5 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -41,6 +41,8 @@ static int (*bpf_perf_event_output)(void *ctx, void *map, int index, void *data,
- 	(void *) BPF_FUNC_perf_event_output;
- static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
- 	(void *) BPF_FUNC_get_stackid;
-+static int (*bpf_probe_write_user)(void *dst, void *src, int size) =
-+	(void *) BPF_FUNC_probe_write_user;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/test_probe_write_user_user.c b/samples/bpf/test_probe_write_user_user.c
+new file mode 100644
+index 0000000..a44bf34
+--- /dev/null
++++ b/samples/bpf/test_probe_write_user_user.c
+@@ -0,0 +1,78 @@
++#include <stdio.h>
++#include <assert.h>
++#include <linux/bpf.h>
++#include <unistd.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++#include <sys/socket.h>
++#include <string.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++
++int main(int ac, char **argv)
++{
++	int serverfd, serverconnfd, clientfd;
++	socklen_t sockaddr_len;
++	struct sockaddr serv_addr, mapped_addr, tmp_addr;
++	struct sockaddr_in *serv_addr_in, *mapped_addr_in, *tmp_addr_in;
++	char filename[256];
++	char *ip;
++
++	serv_addr_in = (struct sockaddr_in *)&serv_addr;
++	mapped_addr_in = (struct sockaddr_in *)&mapped_addr;
++	tmp_addr_in = (struct sockaddr_in *)&tmp_addr;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	assert((serverfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
++	assert((clientfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
++
++	/* Bind server to ephemeral port on lo */
++	memset(&serv_addr, 0, sizeof(serv_addr));
++	serv_addr_in->sin_family = AF_INET;
++	serv_addr_in->sin_port = 0;
++	serv_addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++
++	assert(bind(serverfd, &serv_addr, sizeof(serv_addr)) == 0);
++
++	sockaddr_len = sizeof(serv_addr);
++	assert(getsockname(serverfd, &serv_addr, &sockaddr_len) == 0);
++	ip = inet_ntoa(serv_addr_in->sin_addr);
++	printf("Server bound to: %s:%d\n", ip, ntohs(serv_addr_in->sin_port));
++
++	memset(&mapped_addr, 0, sizeof(mapped_addr));
++	mapped_addr_in->sin_family = AF_INET;
++	mapped_addr_in->sin_port = htons(5555);
++	mapped_addr_in->sin_addr.s_addr = inet_addr("255.255.255.255");
++
++	assert(!bpf_update_elem(map_fd[0], &mapped_addr, &serv_addr, BPF_ANY));
++
++	assert(listen(serverfd, 5) == 0);
++
++	ip = inet_ntoa(mapped_addr_in->sin_addr);
++	printf("Client connecting to: %s:%d\n",
++	       ip, ntohs(mapped_addr_in->sin_port));
++	assert(connect(clientfd, &mapped_addr, sizeof(mapped_addr)) == 0);
++
++	sockaddr_len = sizeof(tmp_addr);
++	ip = inet_ntoa(tmp_addr_in->sin_addr);
++	assert((serverconnfd = accept(serverfd, &tmp_addr, &sockaddr_len)) > 0);
++	printf("Server received connection from: %s:%d\n",
++	       ip, ntohs(tmp_addr_in->sin_port));
++
++	sockaddr_len = sizeof(tmp_addr);
++	assert(getpeername(clientfd, &tmp_addr, &sockaddr_len) == 0);
++	ip = inet_ntoa(tmp_addr_in->sin_addr);
++	printf("Client's peer address: %s:%d\n",
++	       ip, ntohs(tmp_addr_in->sin_port));
++
++	/* Is the server's getsockname = the socket getpeername */
++	assert(memcmp(&serv_addr, &tmp_addr, sizeof(struct sockaddr_in)) == 0);
++
++	return 0;
++}
 -- 
 2.7.4
