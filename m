@@ -1,34 +1,118 @@
-From: "web27" <web27@a.shhzf.net>
-Subject: Active development of the global customers, so you will not worry
- about customer resources
-Date: Mon, 25 Jul 2016 10:22:15 +0800
-Message-ID: <201607251022154206778@a.shhzf.net>
-Reply-To: 3183346925@qq.com
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 1/3] bnxt_en: Improve ntuple filters by checking destination MAC address.
+Date: Sun, 24 Jul 2016 23:21:55 -0400
+Message-ID: <1469416917-29659-2-git-send-email-michael.chan@broadcom.com>
+References: <1469416917-29659-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [115.47.41.87] ([115.47.41.87]:3564 "HELO a.shhzf.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with SMTP
-	id S1752582AbcGYC1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Jul 2016 22:27:50 -0400
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:32773 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752621AbcGYDWH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 23:22:07 -0400
+Received: by mail-pf0-f181.google.com with SMTP id y134so59190023pfg.0
+        for <netdev@vger.kernel.org>; Sun, 24 Jul 2016 20:22:07 -0700 (PDT)
+In-Reply-To: <1469416917-29659-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1/C+tLXEzeLDs8Xz09Gjug0KICAgINXiwO/T0NK7v+7N4sOzv827p8vRy/fT67+qt6LPtc2zzca8
-9rj4xPqjrM7Sw8e1xMjtvP6/ydLUsO/W+s3iw7PP+srbyMvUsdTaysC957e2zqfL0cv3x7HU2sS/
-seq/zbuno6yx3L+qQjJCvKTB0rXEvNu48dW9us3VubvhsLq587XEvNu48aOs1rG908Gqz7W/qrei
-xPq1xLn6zeLW1bbLv827p6GjDQoNCsq508PA7dPJDQoxo7rPtc2zv8nL0cv3yKvH8jIyMLj2ufq8
-0rXEv827p9fKwc+jrNans9bDv7j2ufq80rXEtbG12NPv0dTL0cv3oaPNqLn9y9HL99L9x+a/ycvR
-y/e1vcirx/LIzrrO0ru49r3HwuS1xL/Nu6ejrLvxyKHSu7bU0ru439bKwb/Rr8XMoaMNCjKjus+1
-zbOyydPDtuDP37PM19S2r7mk1/e3vcq9o6zDv8zsv8nL0cv3yc/N8r/Nu6fXysHPo6yw2bG2zOG4
-37mk1/fQp8LKo6zS1MG/seTM4bjfv827p9GvxczCyqGjDQozo7rPtc2zyO28/s2ouf27pcGqzfi/
-qreiv827p6Osy+bXxbulwarN+LXEuPzQwrb4uPzQwqOsufrN4r/Nu6fK/cG/zt7H7s7evqGjrMjD
-w7+49s3iw7PStc7x1LHWu9KqtuDSu7fWstnX977Nv8m24NK7t93K1bvxoaMNCjSjurulwarN+Mqx
-tPqjrL7G1NnP49KyxcLP79fTye6jrNXSyc/DxbXEv827p9bKwb+1sci7usOjrL/JysfDu9PQyKvD
-5qGis6TG2rXEzca546Osv827p9PW1PXE3NXStb3O0sPHtcS5q8u+zfjVvqOswarPtc7Sw8fE2KGj
-DQoNCs/rwcu94rj8tuDW97avyr3N4sOzv6q3or/Nu6ejrMfrvNMgUVEtLS0tLS0+IDMyNDYwNzU3
-MDcgINaxvdPR6dakv827p9DFz6Igyse38dXmyrWhotPQ0KcgDQrSsr/JvNPOotDFusWjunN1bnNl
-c29mdHNhbQ==
+Include the destination MAC address in the ntuple filter structure.  The
+current code assumes that the destination MAC address is always the MAC
+address of the NIC.  This may not be true if there are macvlans, for
+example.  Add destination MAC address checking and configure the filter
+correctly using the correct index for the destination MAC address.
+
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 25 ++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 ++
+ 2 files changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 8a0165b..7de7d7a 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -3240,7 +3240,7 @@ static int bnxt_hwrm_cfa_ntuple_filter_alloc(struct bnxt *bp,
+ 	struct bnxt_vnic_info *vnic = &bp->vnic_info[fltr->rxq + 1];
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_NTUPLE_FILTER_ALLOC, -1, -1);
+-	req.l2_filter_id = bp->vnic_info[0].fw_l2_filter_id[0];
++	req.l2_filter_id = bp->vnic_info[0].fw_l2_filter_id[fltr->l2_fltr_idx];
+ 
+ 	req.enables = cpu_to_le32(BNXT_NTP_FLTR_FLAGS);
+ 
+@@ -6299,7 +6299,8 @@ static bool bnxt_fltr_match(struct bnxt_ntuple_filter *f1,
+ 	    keys1->ports.ports == keys2->ports.ports &&
+ 	    keys1->basic.ip_proto == keys2->basic.ip_proto &&
+ 	    keys1->basic.n_proto == keys2->basic.n_proto &&
+-	    ether_addr_equal(f1->src_mac_addr, f2->src_mac_addr))
++	    ether_addr_equal(f1->src_mac_addr, f2->src_mac_addr) &&
++	    ether_addr_equal(f1->dst_mac_addr, f2->dst_mac_addr))
+ 		return true;
+ 
+ 	return false;
+@@ -6312,12 +6313,28 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 	struct bnxt_ntuple_filter *fltr, *new_fltr;
+ 	struct flow_keys *fkeys;
+ 	struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
+-	int rc = 0, idx, bit_id;
++	int rc = 0, idx, bit_id, l2_idx = 0;
+ 	struct hlist_head *head;
+ 
+ 	if (skb->encapsulation)
+ 		return -EPROTONOSUPPORT;
+ 
++	if (!ether_addr_equal(dev->dev_addr, eth->h_dest)) {
++		struct bnxt_vnic_info *vnic = &bp->vnic_info[0];
++		int off = 0, j;
++
++		netif_addr_lock_bh(dev);
++		for (j = 0; j < vnic->uc_filter_count; j++, off += ETH_ALEN) {
++			if (ether_addr_equal(eth->h_dest,
++					     vnic->uc_list + off)) {
++				l2_idx = j + 1;
++				break;
++			}
++		}
++		netif_addr_unlock_bh(dev);
++		if (!l2_idx)
++			return -EINVAL;
++	}
+ 	new_fltr = kzalloc(sizeof(*new_fltr), GFP_ATOMIC);
+ 	if (!new_fltr)
+ 		return -ENOMEM;
+@@ -6335,6 +6352,7 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 		goto err_free;
+ 	}
+ 
++	memcpy(new_fltr->dst_mac_addr, eth->h_dest, ETH_ALEN);
+ 	memcpy(new_fltr->src_mac_addr, eth->h_source, ETH_ALEN);
+ 
+ 	idx = skb_get_hash_raw(skb) & BNXT_NTP_FLTR_HASH_MASK;
+@@ -6360,6 +6378,7 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 
+ 	new_fltr->sw_id = (u16)bit_id;
+ 	new_fltr->flow_id = flow_id;
++	new_fltr->l2_fltr_idx = l2_idx;
+ 	new_fltr->rxq = rxq_index;
+ 	hlist_add_head_rcu(&new_fltr->hash, head);
+ 	bp->ntp_fltr_count++;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 5307a2e..23e04a6 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -785,10 +785,12 @@ struct bnxt_pf_info {
+ 
+ struct bnxt_ntuple_filter {
+ 	struct hlist_node	hash;
++	u8			dst_mac_addr[ETH_ALEN];
+ 	u8			src_mac_addr[ETH_ALEN];
+ 	struct flow_keys	fkeys;
+ 	__le64			filter_id;
+ 	u16			sw_id;
++	u8			l2_fltr_idx;
+ 	u16			rxq;
+ 	u32			flow_id;
+ 	unsigned long		state;
+-- 
+1.8.3.1
