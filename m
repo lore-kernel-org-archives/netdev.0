@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf, events: fix offset in skb copy handler
-Date: Mon, 25 Jul 2016 10:35:19 -0700 (PDT)
-Message-ID: <20160725.103519.196023078266457070.davem@davemloft.net>
-References: <19c7fccabbd37bf413aaacb2bc1fc06b559e4791.1469142756.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v1 0/5] tipc: netlink updates for neighbour
+ monitor
+Date: Mon, 25 Jul 2016 10:36:27 -0700 (PDT)
+Message-ID: <20160725.103627.1955850625176476362.davem@davemloft.net>
+References: <1469169768-9214-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	jon.maloy@ericsson.com, maloy@donjonn.com, ying.xue@windriver.com
+To: parthasarathy.bhuvaragan@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42616 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42624 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752916AbcGYRfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:35:20 -0400
-In-Reply-To: <19c7fccabbd37bf413aaacb2bc1fc06b559e4791.1469142756.git.daniel@iogearbox.net>
+	with ESMTP id S1752611AbcGYRg2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:36:28 -0400
+In-Reply-To: <1469169768-9214-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 22 Jul 2016 01:19:42 +0200
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Date: Fri, 22 Jul 2016 08:42:43 +0200
 
-> This patch fixes the __output_custom() routine we currently use with
-> bpf_skb_copy(). I missed that when len is larger than the size of the
-> current handle, we can issue multiple invocations of copy_func, and
-> __output_custom() advances destination but also source buffer by the
-> written amount of bytes. When we have __output_custom(), this is actually
-> wrong since in that case the source buffer points to a non-linear object,
-> in our case an skb, which the copy_func helper is supposed to walk.
-> Therefore, since this is non-linear we thus need to pass the offset into
-> the helper, so that copy_func can use it for extracting the data from
-> the source object.
+> This series contains the updates to configure and read the attributes for
+> neighbour monitor.
 > 
-> Therefore, adjust the callback signatures properly and pass offset
-> into the skb_header_pointer() invoked from bpf_skb_copy() callback. The
-> __DEFINE_OUTPUT_COPY_BODY() is adjusted to accommodate for two things:
-> i) to pass in whether we should advance source buffer or not; this is
-> a compile-time constant condition, ii) to pass in the offset for
-> __output_custom(), which we do with help of __VA_ARGS__, so everything
-> can stay inlined as is currently. Both changes allow for adapting the
-> __output_* fast-path helpers w/o extra overhead.
-> 
-> Fixes: 555c8a8623a3 ("bpf: avoid stack copy and use skb ctx for event output")
-> Fixes: 7e3f977edd0b ("perf, events: add non-linear data support for raw records")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Parthasarathy Bhuvaragan (5):
+>   tipc: introduce constants for tipc address validation
+>   tipc: make cluster size threshold for monitoring configurable
+>   tipc: get monitor threshold for the cluster
+>   tipc: add a function to get the bearer name
+>   tipc: dump monitor attributes
 
-Applied.
+This series no longer applies cleanly to net-next, please respin.
+
+Thanks.
