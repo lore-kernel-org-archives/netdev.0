@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v3 0/6] common library for Chelsio drivers.
-Date: Mon, 25 Jul 2016 10:31:40 -0700 (PDT)
-Message-ID: <20160725.103140.102549831819762477.davem@davemloft.net>
-References: <cover.1469121308.git.varun@chelsio.com>
+Subject: Re: [PATCH net-next] net/ncsi: avoid maybe-uninitialized warning
+Date: Mon, 25 Jul 2016 10:33:31 -0700 (PDT)
+Message-ID: <20160725.103331.1354056319823788243.davem@davemloft.net>
+References: <20160721192927.3182806-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	target-devel@vger.kernel.org, nab@linux-iscsi.org,
-	gerlitz.or@gmail.com, swise@opengridcomputing.com,
-	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
-	hariprasad@chelsio.com
-To: varun@chelsio.com
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <cover.1469121308.git.varun@chelsio.com>
-Sender: target-devel-owner@vger.kernel.org
+Cc: gwshan@linux.vnet.ibm.com, joel@jms.id.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160721192927.3182806-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Varun Prakash <varun@chelsio.com>
-Date: Thu, 21 Jul 2016 22:57:13 +0530
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 21 Jul 2016 21:28:34 +0200
 
-> Hi,
+> gcc-4.9 and higher warn about the newly added NSCI code:
 > 
->  This patch series adds common library module(libcxgb.ko)
->  for Chelsio drivers to remove duplicate code.
+> net/ncsi/ncsi-manage.c: In function 'ncsi_process_next_channel':
+> net/ncsi/ncsi-manage.c:1003:2: error: 'old_state' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 > 
->  This series moves common iSCSI DDP Page Pod manager
->  code from cxgb4.ko to libcxgb.ko, earlier this code
->  was used by only cxgbit.ko now it is used by
->  three Chelsio iSCSI drivers cxgb3i, cxgb4i, cxgbit.
+> The warning is a false positive and therefore harmless, but it would be good to
+> avoid it anyway. I have determined that the barrier in the spin_unlock_irqsave()
+> is what confuses gcc to the point that it cannot track whether the variable
+> was unused or not.
 > 
->  In future this module will have common connection
->  management and hardware specific code that can
->  be shared by multiple Chelsio drivers(cxgb4,
->  csiostor, iw_cxgb4, cxgb4i, cxgbit).
+> This rearranges the code in a way that makes it obvious to gcc that old_state
+> is always initialized at the time of use, functionally this should not
+> change anything.
 > 
->  Please review.
-> 
->  Thanks
-> 
-> -v3
-> - removed unused module init and exit functions.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Series applied.
+Applied.
