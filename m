@@ -1,124 +1,75 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 3/3] bnxt_en: Add new NPAR and dual media device IDs.
-Date: Sun, 24 Jul 2016 23:21:57 -0400
-Message-ID: <1469416917-29659-4-git-send-email-michael.chan@broadcom.com>
-References: <1469416917-29659-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33588 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752650AbcGYDWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Jul 2016 23:22:09 -0400
-Received: by mail-pa0-f48.google.com with SMTP id ks6so56667813pab.0
-        for <netdev@vger.kernel.org>; Sun, 24 Jul 2016 20:22:09 -0700 (PDT)
-In-Reply-To: <1469416917-29659-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next V3] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Mon, 25 Jul 2016 08:06:49 +0300
+Message-ID: <20160725050649.GX20674@leon.nu>
+References: <1468478774-19942-1-git-send-email-netanel@annapurnalabs.com>
+ <20160715050005.GD30603@leon.nu>
+ <578E0A65.1020105@annapurnalabs.com>
+ <20160719172644.GK20674@leon.nu>
+ <1468950597.1900.56.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ofQ+NWZjH2FySEVi"
+Cc: Netanel Belgazal <netanel@annapurnalabs.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
+	aliguori@amazon.com, benjamin.poirier@gmail.com,
+	ben@decadent.org.uk, romieu@fr.zoreil.com, rami.rosen@intel.com,
+	antoine.tenart@free-electrons.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1468950597.1900.56.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add 5741X/5731X NPAR device IDs and dual media SFP/10GBase-T device IDs.
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 39 ++++++++++++++++++++++++++-----
- 1 file changed, 33 insertions(+), 6 deletions(-)
+--ofQ+NWZjH2FySEVi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 398ecba..1d5dd5b 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -73,19 +73,28 @@ enum board_idx {
- 	BCM57301,
- 	BCM57302,
- 	BCM57304,
-+	BCM57417_NPAR,
- 	BCM58700,
- 	BCM57311,
- 	BCM57312,
- 	BCM57402,
- 	BCM57404,
- 	BCM57406,
--	BCM57404_NPAR,
-+	BCM57402_NPAR,
-+	BCM57407,
- 	BCM57412,
- 	BCM57414,
- 	BCM57416,
- 	BCM57417,
--	BCM57414_NPAR,
-+	BCM57412_NPAR,
- 	BCM57314,
-+	BCM57417_SFP,
-+	BCM57416_SFP,
-+	BCM57404_NPAR,
-+	BCM57406_NPAR,
-+	BCM57407_SFP,
-+	BCM57414_NPAR,
-+	BCM57416_NPAR,
- 	BCM57304_VF,
- 	BCM57404_VF,
- 	BCM57414_VF,
-@@ -99,19 +108,28 @@ static const struct {
- 	{ "Broadcom BCM57301 NetXtreme-C Single-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57302 NetXtreme-C Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57304 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	{ "Broadcom BCM57417 NetXtreme-E Ethernet Partition" },
- 	{ "Broadcom BCM58700 Nitro 4-port 1Gb/2.5Gb/10Gb Ethernet" },
- 	{ "Broadcom BCM57311 NetXtreme-C Single-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57312 NetXtreme-C Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57402 NetXtreme-E Dual-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57404 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57406 NetXtreme-E Dual-port 10GBase-T Ethernet" },
--	{ "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57402 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57407 NetXtreme-E Dual-port 10GBase-T Ethernet" },
- 	{ "Broadcom BCM57412 NetXtreme-E Dual-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57414 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57416 NetXtreme-E Dual-port 10GBase-T Ethernet" },
- 	{ "Broadcom BCM57417 NetXtreme-E Dual-port 10GBase-T Ethernet" },
--	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57412 NetXtreme-E Ethernet Partition" },
- 	{ "Broadcom BCM57314 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	{ "Broadcom BCM57417 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
-+	{ "Broadcom BCM57416 NetXtreme-E Dual-port 10Gb Ethernet" },
-+	{ "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57406 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57407 NetXtreme-E Dual-port 25Gb Ethernet" },
-+	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57416 NetXtreme-E Ethernet Partition" },
- 	{ "Broadcom BCM57304 NetXtreme-C Ethernet Virtual Function" },
- 	{ "Broadcom BCM57404 NetXtreme-E Ethernet Virtual Function" },
- 	{ "Broadcom BCM57414 NetXtreme-E Ethernet Virtual Function" },
-@@ -122,19 +140,28 @@ static const struct pci_device_id bnxt_pci_tbl[] = {
- 	{ PCI_VDEVICE(BROADCOM, 0x16c8), .driver_data = BCM57301 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16c9), .driver_data = BCM57302 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16ca), .driver_data = BCM57304 },
-+	{ PCI_VDEVICE(BROADCOM, 0x16cc), .driver_data = BCM57417_NPAR },
- 	{ PCI_VDEVICE(BROADCOM, 0x16cd), .driver_data = BCM58700 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16ce), .driver_data = BCM57311 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16cf), .driver_data = BCM57312 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d0), .driver_data = BCM57402 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d1), .driver_data = BCM57404 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d2), .driver_data = BCM57406 },
--	{ PCI_VDEVICE(BROADCOM, 0x16d4), .driver_data = BCM57404_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16d4), .driver_data = BCM57402_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16d5), .driver_data = BCM57407 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d6), .driver_data = BCM57412 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d7), .driver_data = BCM57414 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d8), .driver_data = BCM57416 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d9), .driver_data = BCM57417 },
--	{ PCI_VDEVICE(BROADCOM, 0x16de), .driver_data = BCM57414_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16de), .driver_data = BCM57412_NPAR },
- 	{ PCI_VDEVICE(BROADCOM, 0x16df), .driver_data = BCM57314 },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e2), .driver_data = BCM57417_SFP },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e3), .driver_data = BCM57416_SFP },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e7), .driver_data = BCM57404_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e8), .driver_data = BCM57406_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e9), .driver_data = BCM57407_SFP },
-+	{ PCI_VDEVICE(BROADCOM, 0x16ec), .driver_data = BCM57414_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16ee), .driver_data = BCM57416_NPAR },
- #ifdef CONFIG_BNXT_SRIOV
- 	{ PCI_VDEVICE(BROADCOM, 0x16cb), .driver_data = BCM57304_VF },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d3), .driver_data = BCM57404_VF },
--- 
-1.8.3.1
+On Tue, Jul 19, 2016 at 10:49:57AM -0700, Joe Perches wrote:
+> On Tue, 2016-07-19 at 20:26 +0300, Leon Romanovsky wrote:
+> > On Tue, Jul 19, 2016 at 02:09:25PM +0300, Netanel Belgazal wrote:
+> > > This is the debugging message interface.
+> > > https://www.kernel.org/doc/Documentation/networking/netif-msg.txt
+> > This document was updated last time in 2006 and I doubt that it is
+> > relevant in 2016. You have dynamic debug prints infrastructure for it,
+> > use it.
+>=20
+> I think this is uninformed.
+>=20
+> netif_<level> works well, is compatible with dynamic debug,
+> and is commonly used with new networking drivers.
+>=20
+
+I have a very strong feeling that it is not "used in new drivers" by was
+influenced (copied) from "old drivers". The same goes for real life usage of
+module version which was introduced in this patch.
+
+--ofQ+NWZjH2FySEVi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXlZ5oAAoJEORje4g2clinXx8QAIDbNLOUpdO3ph6Rt+lZkKln
+kXWQp7AeFMZrUXKMhpYCj+rb/EJSIwlg+WD0vvRVzw9tGg1UGwUzhyyR6TO8anvr
++S4ttlB1dib1M6KPgi2kGttuKzT0DMotrnir6/gZpyO9RlPXc/ntv5DrMF+Lv7Uo
+S2+m+oE7L4hkLsM2iP4f07vExUiuCXzCdav8lAKojmoML4l+Q1DYgYtfOXMDoNzX
+CRmRc1oeArK2QHV9JYVxpz6fpwW9FQmMdXaXbe6gZeBWdMb1ga37u0V9EjqrGza0
+aQ/YFXoYpa+OdxXJBBnCrTRed2r9EzJYh8XUJMIPm57iENOwwyqIPttR97t87CRM
+kjxPmjSV7p0h6APF8mfqY7TIpcu+XKLNFJdOhhGYestJqqs1MIAaiIY47likO1lr
+MScuMiRTizMa61TtK5SMxMvkjjRUTIPWVS0vEsk/4wynWcaYJ8BkA88O71vpGrRI
+lnsx25nrWV0ZZEXSmE9d2Cz2vExOYpdvAAQxk6/gAl/KNklpXbbUFh+vUrRg8vnK
+SR5nfzwrnIOCNc+ui9G4eWcloi079ZpiwVjk+Cz/eANEtnFIZy0w1s9tSQf7uE+o
+fdsBgdmAmyMZBvLGn8y4rlpdMNJyrf/pGWMkvcdSQnklB+71Wn4ueOKQ1HpB/uQI
+oc5CCy4qS9mFKmUdgXZc
+=s+RE
+-----END PGP SIGNATURE-----
+
+--ofQ+NWZjH2FySEVi--
