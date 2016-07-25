@@ -1,106 +1,40 @@
-From: paulo@inutilfutil.com
-Subject: Re: [PATCH v2 0/5] net-next: ethernet: add sun8i-emac driver
-Date: Mon, 25 Jul 2016 06:16:45 -0700 (PDT)
-Message-ID: <668e8915-109e-431e-96d0-908b1c6553ad@googlegroups.com>
-References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/3] bnxt_en: Log a message, if enabling NTUPLE
+ filtering fails.
+Date: Mon, 25 Jul 2016 07:00:44 -0700
+Message-ID: <1469455244.1900.178.camel@perches.com>
+References: <1469416917-29659-1-git-send-email-michael.chan@broadcom.com>
+	 <1469416917-29659-3-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="----=_Part_257_1661378373.1469452605356"
-Cc: mark.rutland@arm.com, devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux@armlinux.org.uk, linux-kernel@vger.kernel.org, wens@csie.org,
- robh+dt@kernel.org, clabbe.montjoie@gmail.com,
- maxime.ripard@free-electrons.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: linux-sunxi <linux-sunxi@googlegroups.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Michael Chan <michael.chan@broadcom.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0228.hostedemail.com ([216.40.44.228]:35543 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751105AbcGYOAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 10:00:50 -0400
+In-Reply-To: <1469416917-29659-3-git-send-email-michael.chan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-------=_Part_257_1661378373.1469452605356
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+On Sun, 2016-07-24 at 23:21 -0400, Michael Chan wrote:
+> If there are not enough resources to enable ntuple filtering,
+> log a warning message.
+[]
+> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/=
+ethernet/broadcom/bnxt/bnxt.c
+[]
+> @@ -5790,8 +5790,14 @@ static bool bnxt_rfs_capable(struct bnxt *bp)
+> =A0		return false;
+> =A0
+> =A0	vnics =3D 1 + bp->rx_nr_rings;
+> -	if (vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics)
+> +	if (vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics) {
+> +		netdev_warn(bp->dev,
+> +			=A0=A0=A0=A0"Not enough resources to support NTUPLE filters");
+> +		netdev_warn(bp->dev,
+> +			=A0=A0=A0=A0"Enough NTUPLE resources for up to %d rx rings",
 
-On Wednesday, July 20, 2016 at 5:03:41 AM UTC-3, clabbe.montjoie wrote:
-> Hello
-> 
-> This patch series add the driver for sun8i-emac which handle the Ethernet MAC
-> present on Allwinner H3/A83T/A64 SoCs.
-> 
-> It supports 10/100/1000 Mbit/s speed with half/full duplex.
-> It can use an internal PHY (MII 10/100) or an external PHY
-> via RGMII/RMII.
-> 
-> This patch series enable the driver only for the H3 SoC since A83T and A64
-> doesn't have the necessary clocks present in mainline.
-> 
-> This patch series enable the driver only for the OrangePiPC board since other
-> board with H3 use external PHY which need optional regulators that will be
-> supported later.
-> 
-> The driver have been tested on the following boards:
-> - H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
-> - A64 Pine64
-> - A83T BananaPI-M3
-> 
-> I would like to thanks Chen-Yu Tsai for his help on developing this driver.
-> 
-> Regards
-> 
-> Changes since v1
-> - Implement NAPI
-> - Sorted and reworded all define
-> - Reworked ethtools stats strings
-> - Removed all unneeded __packked and __aligned
-> - Added tuning of RX/TX ring size via ethtool
-> - Corrected use of sk/skb naming
-> - Added some wmb when needed
-> - Moved irq claim/free to emac_open/close
-> - Lots of code refactoring
-> 
-> LABBE Corentin (5):
->   ethernet: add sun8i-emac driver
->   MAINTAINERS: Add myself as maintainers of sun8i-emac
->   ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
->   ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
->   ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
-> 
->  .../bindings/net/allwinner,sun8i-emac.txt          |   65 +
->  MAINTAINERS                                        |    6 +
->  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   11 +
->  arch/arm/boot/dts/sun8i-h3.dtsi                    |   14 +
->  drivers/net/ethernet/allwinner/Kconfig             |   13 +
->  drivers/net/ethernet/allwinner/Makefile            |    1 +
->  drivers/net/ethernet/allwinner/sun8i-emac.c        | 2127 ++++++++++++++++++++
->  7 files changed, 2237 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
->  create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
-> 
-> -- 
-> 2.7.3
-
-Works on my Orange Pi PC. Thank you!
-
-IMHO, we should enable this module on sunxi_defconfig.
-
-Paulo
-------=_Part_257_1661378373.1469452605356
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
-------=_Part_257_1661378373.1469452605356--
+Missing newline terminations and may be better as a single message
