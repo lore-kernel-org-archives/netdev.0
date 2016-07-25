@@ -1,29 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bridge: br_set_ageing_time takes a clock_t
-Date: Mon, 25 Jul 2016 10:31:32 -0700 (PDT)
-Message-ID: <20160725.103132.907319471508276481.davem@davemloft.net>
-References: <20160721164219.26723-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [net-next v3 0/6] common library for Chelsio drivers.
+Date: Mon, 25 Jul 2016 10:31:40 -0700 (PDT)
+Message-ID: <20160725.103140.102549831819762477.davem@davemloft.net>
+References: <cover.1469121308.git.varun@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com, stephen@networkplumber.org
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752882AbcGYRbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:31:33 -0400
-In-Reply-To: <20160721164219.26723-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	target-devel@vger.kernel.org, nab@linux-iscsi.org,
+	gerlitz.or@gmail.com, swise@opengridcomputing.com,
+	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
+	hariprasad@chelsio.com
+To: varun@chelsio.com
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <cover.1469121308.git.varun@chelsio.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Thu, 21 Jul 2016 12:42:19 -0400
+From: Varun Prakash <varun@chelsio.com>
+Date: Thu, 21 Jul 2016 22:57:13 +0530
 
-> Change the ageing_time type in br_set_ageing_time() from u32 to what it
-> is expected to be, i.e. a clock_t.
+> Hi,
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>  This patch series adds common library module(libcxgb.ko)
+>  for Chelsio drivers to remove duplicate code.
+> 
+>  This series moves common iSCSI DDP Page Pod manager
+>  code from cxgb4.ko to libcxgb.ko, earlier this code
+>  was used by only cxgbit.ko now it is used by
+>  three Chelsio iSCSI drivers cxgb3i, cxgb4i, cxgbit.
+> 
+>  In future this module will have common connection
+>  management and hardware specific code that can
+>  be shared by multiple Chelsio drivers(cxgb4,
+>  csiostor, iw_cxgb4, cxgb4i, cxgbit).
+> 
+>  Please review.
+> 
+>  Thanks
+> 
+> -v3
+> - removed unused module init and exit functions.
 
-Applied.
+Series applied.
