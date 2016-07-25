@@ -1,59 +1,32 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net] qed: Fix setting/clearing bit in completion bitmap
-Date: Mon, 25 Jul 2016 19:07:46 +0300
-Message-ID: <1469462866-14103-1-git-send-email-Yuval.Mintz@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Manish Chopra <manish.chopra@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next v2 0/3] bnxt_en: Improve ntuple filters and add new IDs.
+Date: Mon, 25 Jul 2016 12:33:34 -0400
+Message-ID: <1469464417-786-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:15841 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752476AbcGYQH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 12:07:58 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34935 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752463AbcGYQdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 12:33:53 -0400
+Received: by mail-pa0-f50.google.com with SMTP id iw10so62712920pac.2
+        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 09:33:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+Improve ntuple filters and add some new PCI device IDs.  Please review
+for net-next.
 
-Slowpath completion handling is incorrectly changing
-SPQ_RING_SIZE bits instead of a single one.
+Michael Chan (2):
+  bnxt_en: Improve ntuple filters by checking destination MAC address.
+  bnxt_en: Add new NPAR and dual media device IDs.
 
-Fixes: 76a9a3642a0b ("qed: fix handling of concurrent ramrods")
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
-Hi Dave,
+Vasundhara Volam (1):
+  bnxt_en: Log a message, if enabling NTUPLE filtering fails.
 
-Please consider applying this to 'net'.
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 74 ++++++++++++++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  2 +
+ 2 files changed, 65 insertions(+), 11 deletions(-)
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/qlogic/qed/qed_spq.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index b122f60..03601df 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -809,13 +809,12 @@ int qed_spq_completion(struct qed_hwfn *p_hwfn,
- 			 * in a bitmap and increasing the chain consumer only
- 			 * for the first successive completed entries.
- 			 */
--			bitmap_set(p_spq->p_comp_bitmap, pos, SPQ_RING_SIZE);
-+			__set_bit(pos, p_spq->p_comp_bitmap);
- 
- 			while (test_bit(p_spq->comp_bitmap_idx,
- 					p_spq->p_comp_bitmap)) {
--				bitmap_clear(p_spq->p_comp_bitmap,
--					     p_spq->comp_bitmap_idx,
--					     SPQ_RING_SIZE);
-+				__clear_bit(p_spq->comp_bitmap_idx,
-+					    p_spq->p_comp_bitmap);
- 				p_spq->comp_bitmap_idx++;
- 				qed_chain_return_produced(&p_spq->chain);
- 			}
 -- 
-2.7.2
+1.8.3.1
