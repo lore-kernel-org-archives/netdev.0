@@ -1,223 +1,57 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: [PATCH net-next v7 2/2] samples/bpf: Add test/example of using
- bpf_probe_write_user bpf helper
-Date: Mon, 25 Jul 2016 05:55:02 -0700
-Message-ID: <20160725125501.GA15057@ircssh.c.rugged-nimbus-611.internal>
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] caif-hsi: Remove deprecated create_singlethread_workqueue
+Date: Mon, 25 Jul 2016 18:40:57 +0530
+Message-ID: <20160725131057.GA751@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:36447 "EHLO
-	mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449AbcGYMzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 08:55:06 -0400
-Received: by mail-it0-f52.google.com with SMTP id f6so83418508ith.1
-        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 05:55:05 -0700 (PDT)
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tejun Heo <tj@kernel.org>
+To: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This example shows using a kprobe to act as a dnat mechanism to divert
-traffic for arbitrary endpoints. It rewrite the arguments to a syscall
-while they're still in userspace, and before the syscall has a chance
-to copy the argument into kernel space.
+alloc_workqueue replaces deprecated create_singlethread_workqueue().
 
-Although this is an example, it also acts as a test because the mapped
-address is 255.255.255.255:555 -> real address, and that's not a legal
-address to connect to. If the helper is broken, the example will fail
-on the intermediate steps, as well as the final step to verify the
-rewrite of userspace memory succeeded.
+A dedicated workqueue has been used since the workitems are being used
+on a packet tx/rx path. Hence, WQ_MEM_RECLAIM has been set to guarantee
+forward progress under memory pressure.
 
-Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+An ordered workqueue has been used since workitems &cfhsi->wake_up_work
+and &cfhsi->wake_down_work cannot be run concurrently.
+
+Calls to flush_workqueue() before destroy_workqueue() have been dropped
+since destroy_workqueue() itself calls drain_workqueue() which flushes
+repeatedly till the workqueue becomes empty.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 ---
- samples/bpf/Makefile                     |  4 ++
- samples/bpf/test_probe_write_user_kern.c | 52 +++++++++++++++++++++
- samples/bpf/test_probe_write_user_user.c | 78 ++++++++++++++++++++++++++++++++
- 3 files changed, 134 insertions(+)
- create mode 100644 samples/bpf/test_probe_write_user_kern.c
- create mode 100644 samples/bpf/test_probe_write_user_user.c
+ drivers/net/caif/caif_hsi.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index d2d2b35..90ebf7d 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -14,6 +14,7 @@ hostprogs-y += tracex3
- hostprogs-y += tracex4
- hostprogs-y += tracex5
- hostprogs-y += tracex6
-+hostprogs-y += test_probe_write_user
- hostprogs-y += trace_output
- hostprogs-y += lathist
- hostprogs-y += offwaketime
-@@ -37,6 +38,7 @@ tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
- tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
- tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
- tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
-+test_probe_write_user-objs := bpf_load.o libbpf.o test_probe_write_user_user.o
- trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
- lathist-objs := bpf_load.o libbpf.o lathist_user.o
- offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
-@@ -59,6 +61,7 @@ always += tracex3_kern.o
- always += tracex4_kern.o
- always += tracex5_kern.o
- always += tracex6_kern.o
-+always += test_probe_write_user_kern.o
- always += trace_output_kern.o
- always += tcbpf1_kern.o
- always += lathist_kern.o
-@@ -85,6 +88,7 @@ HOSTLOADLIBES_tracex3 += -lelf
- HOSTLOADLIBES_tracex4 += -lelf -lrt
- HOSTLOADLIBES_tracex5 += -lelf
- HOSTLOADLIBES_tracex6 += -lelf
-+HOSTLOADLIBES_test_probe_write_user += -lelf
- HOSTLOADLIBES_trace_output += -lelf -lrt
- HOSTLOADLIBES_lathist += -lelf
- HOSTLOADLIBES_offwaketime += -lelf
-diff --git a/samples/bpf/test_probe_write_user_kern.c b/samples/bpf/test_probe_write_user_kern.c
-new file mode 100644
-index 0000000..3a677c8
---- /dev/null
-+++ b/samples/bpf/test_probe_write_user_kern.c
-@@ -0,0 +1,52 @@
-+/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <uapi/linux/bpf.h>
-+#include <linux/version.h>
-+#include "bpf_helpers.h"
-+
-+struct bpf_map_def SEC("maps") dnat_map = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(struct sockaddr_in),
-+	.value_size = sizeof(struct sockaddr_in),
-+	.max_entries = 256,
-+};
-+
-+/* kprobe is NOT a stable ABI
-+ * kernel functions can be removed, renamed or completely change semantics.
-+ * Number of arguments and their positions can change, etc.
-+ * In such case this bpf+kprobe example will no longer be meaningful
-+ *
-+ * This example sits on a syscall, and the syscall ABI is relatively stable
-+ * of course, across platforms, and over time, the ABI may change.
-+ */
-+SEC("kprobe/sys_connect")
-+int bpf_prog1(struct pt_regs *ctx)
-+{
-+	struct sockaddr_in new_addr, orig_addr = {};
-+	struct sockaddr_in *mapped_addr;
-+	void *sockaddr_arg = (void *)PT_REGS_PARM2(ctx);
-+	int sockaddr_len = (int)PT_REGS_PARM3(ctx);
-+
-+	if (sockaddr_len > sizeof(orig_addr))
-+		return 0;
-+
-+	if (bpf_probe_read(&orig_addr, sizeof(orig_addr), sockaddr_arg) != 0)
-+		return 0;
-+
-+	mapped_addr = bpf_map_lookup_elem(&dnat_map, &orig_addr);
-+	if (mapped_addr != NULL) {
-+		memcpy(&new_addr, mapped_addr, sizeof(new_addr));
-+		bpf_probe_write_user(sockaddr_arg, &new_addr,
-+				     sizeof(new_addr));
-+	}
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-+u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/test_probe_write_user_user.c b/samples/bpf/test_probe_write_user_user.c
-new file mode 100644
-index 0000000..a44bf34
---- /dev/null
-+++ b/samples/bpf/test_probe_write_user_user.c
-@@ -0,0 +1,78 @@
-+#include <stdio.h>
-+#include <assert.h>
-+#include <linux/bpf.h>
-+#include <unistd.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+#include <sys/socket.h>
-+#include <string.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+
-+int main(int ac, char **argv)
-+{
-+	int serverfd, serverconnfd, clientfd;
-+	socklen_t sockaddr_len;
-+	struct sockaddr serv_addr, mapped_addr, tmp_addr;
-+	struct sockaddr_in *serv_addr_in, *mapped_addr_in, *tmp_addr_in;
-+	char filename[256];
-+	char *ip;
-+
-+	serv_addr_in = (struct sockaddr_in *)&serv_addr;
-+	mapped_addr_in = (struct sockaddr_in *)&mapped_addr;
-+	tmp_addr_in = (struct sockaddr_in *)&tmp_addr;
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	assert((serverfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
-+	assert((clientfd = socket(AF_INET, SOCK_STREAM, 0)) > 0);
-+
-+	/* Bind server to ephemeral port on lo */
-+	memset(&serv_addr, 0, sizeof(serv_addr));
-+	serv_addr_in->sin_family = AF_INET;
-+	serv_addr_in->sin_port = 0;
-+	serv_addr_in->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-+
-+	assert(bind(serverfd, &serv_addr, sizeof(serv_addr)) == 0);
-+
-+	sockaddr_len = sizeof(serv_addr);
-+	assert(getsockname(serverfd, &serv_addr, &sockaddr_len) == 0);
-+	ip = inet_ntoa(serv_addr_in->sin_addr);
-+	printf("Server bound to: %s:%d\n", ip, ntohs(serv_addr_in->sin_port));
-+
-+	memset(&mapped_addr, 0, sizeof(mapped_addr));
-+	mapped_addr_in->sin_family = AF_INET;
-+	mapped_addr_in->sin_port = htons(5555);
-+	mapped_addr_in->sin_addr.s_addr = inet_addr("255.255.255.255");
-+
-+	assert(!bpf_update_elem(map_fd[0], &mapped_addr, &serv_addr, BPF_ANY));
-+
-+	assert(listen(serverfd, 5) == 0);
-+
-+	ip = inet_ntoa(mapped_addr_in->sin_addr);
-+	printf("Client connecting to: %s:%d\n",
-+	       ip, ntohs(mapped_addr_in->sin_port));
-+	assert(connect(clientfd, &mapped_addr, sizeof(mapped_addr)) == 0);
-+
-+	sockaddr_len = sizeof(tmp_addr);
-+	ip = inet_ntoa(tmp_addr_in->sin_addr);
-+	assert((serverconnfd = accept(serverfd, &tmp_addr, &sockaddr_len)) > 0);
-+	printf("Server received connection from: %s:%d\n",
-+	       ip, ntohs(tmp_addr_in->sin_port));
-+
-+	sockaddr_len = sizeof(tmp_addr);
-+	assert(getpeername(clientfd, &tmp_addr, &sockaddr_len) == 0);
-+	ip = inet_ntoa(tmp_addr_in->sin_addr);
-+	printf("Client's peer address: %s:%d\n",
-+	       ip, ntohs(tmp_addr_in->sin_port));
-+
-+	/* Is the server's getsockname = the socket getpeername */
-+	assert(memcmp(&serv_addr, &tmp_addr, sizeof(struct sockaddr_in)) == 0);
-+
-+	return 0;
-+}
--- 
-2.7.4
+diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
+index 615c65d..ddabce7 100644
+--- a/drivers/net/caif/caif_hsi.c
++++ b/drivers/net/caif/caif_hsi.c
+@@ -1201,7 +1201,7 @@ static int cfhsi_open(struct net_device *ndev)
+ 	clear_bit(CFHSI_AWAKE, &cfhsi->bits);
+
+ 	/* Create work thread. */
+-	cfhsi->wq = create_singlethread_workqueue(cfhsi->ndev->name);
++	cfhsi->wq = alloc_ordered_workqueue(cfhsi->ndev->name, WQ_MEM_RECLAIM);
+ 	if (!cfhsi->wq) {
+ 		netdev_err(cfhsi->ndev, "%s: Failed to create work queue.\n",
+ 			__func__);
+@@ -1267,9 +1267,6 @@ static int cfhsi_close(struct net_device *ndev)
+ 	/* going to shutdown driver */
+ 	set_bit(CFHSI_SHUTDOWN, &cfhsi->bits);
+
+-	/* Flush workqueue */
+-	flush_workqueue(cfhsi->wq);
+-
+ 	/* Delete timers if pending */
+ 	del_timer_sync(&cfhsi->inactivity_timer);
+ 	del_timer_sync(&cfhsi->rx_slowpath_timer);
+--
+2.1.4
