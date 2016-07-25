@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/11][pull request] 40GbE Intel Wired LAN Driver
- Updates 2016-07-22
-Date: Mon, 25 Jul 2016 10:46:30 -0700 (PDT)
-Message-ID: <20160725.104630.1290548973594323560.davem@davemloft.net>
-References: <1469172999-8969-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] sctp: support ipv6 nonlocal bind
+Date: Mon, 25 Jul 2016 10:46:38 -0700 (PDT)
+Message-ID: <20160725.104638.747513236812194365.davem@davemloft.net>
+References: <b3a6fd04f36bcfc5557d70ba79cddfc9c5d33b3c.1469180331.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, guru.anbalagane@oracle.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43008 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43018 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752108AbcGYRqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:46:32 -0400
-In-Reply-To: <1469172999-8969-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1752108AbcGYRqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:46:39 -0400
+In-Reply-To: <b3a6fd04f36bcfc5557d70ba79cddfc9c5d33b3c.1469180331.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 22 Jul 2016 00:36:28 -0700
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 22 Jul 2016 17:38:51 +0800
 
-> This series contains updates to i40e and i40evf.
+> This patch makes sctp support ipv6 nonlocal bind by adding
+> sp->inet.freebind and net->ipv6.sysctl.ip_nonlocal_bind
+> check in sctp_v6_available as what sctp did to support
+> ipv4 nonlocal bind (commit cdac4e077489).
+> 
+> Reported-by: Shijoe George <spanjikk@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Pulled, thanks Jeff.
+Applied.
