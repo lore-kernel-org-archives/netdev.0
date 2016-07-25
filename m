@@ -1,124 +1,137 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next v2 3/3] bnxt_en: Add new NPAR and dual media device IDs.
-Date: Mon, 25 Jul 2016 12:33:37 -0400
-Message-ID: <1469464417-786-4-git-send-email-michael.chan@broadcom.com>
-References: <1469464417-786-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: problem with MPLS and TSO/GSO
+Date: Mon, 25 Jul 2016 19:39:15 +0300
+Message-ID: <20160725163915.GE10080@wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:32833 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752743AbcGYQd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 12:33:57 -0400
-Received: by mail-pa0-f53.google.com with SMTP id ks6so62926170pab.0
-        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 09:33:57 -0700 (PDT)
-In-Reply-To: <1469464417-786-1-git-send-email-michael.chan@broadcom.com>
+Received: from hmm.wantstofly.org ([138.201.34.84]:59186 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611AbcGYQjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 12:39:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add 5741X/5731X NPAR device IDs and dual media SFP/10GBase-T device IDs.
+Hi!
 
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 39 ++++++++++++++++++++++++++-----
- 1 file changed, 33 insertions(+), 6 deletions(-)
+I am seeing pretty horrible TCP transmit performance (anywhere between
+1 and 10 Mb/s, on a 10 Gb/s interface) when traffic is sent out over a
+route that involves MPLS labeling, and this seems to be due to an
+interaction between MPLS and TSO/GSO that causes all segmentable TCP
+frames that are MPLS-labeled to be dropped on egress.
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index eac0f2b..2cf7910 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -73,19 +73,28 @@ enum board_idx {
- 	BCM57301,
- 	BCM57302,
- 	BCM57304,
-+	BCM57417_NPAR,
- 	BCM58700,
- 	BCM57311,
- 	BCM57312,
- 	BCM57402,
- 	BCM57404,
- 	BCM57406,
--	BCM57404_NPAR,
-+	BCM57402_NPAR,
-+	BCM57407,
- 	BCM57412,
- 	BCM57414,
- 	BCM57416,
- 	BCM57417,
--	BCM57414_NPAR,
-+	BCM57412_NPAR,
- 	BCM57314,
-+	BCM57417_SFP,
-+	BCM57416_SFP,
-+	BCM57404_NPAR,
-+	BCM57406_NPAR,
-+	BCM57407_SFP,
-+	BCM57414_NPAR,
-+	BCM57416_NPAR,
- 	BCM57304_VF,
- 	BCM57404_VF,
- 	BCM57414_VF,
-@@ -99,19 +108,28 @@ static const struct {
- 	{ "Broadcom BCM57301 NetXtreme-C Single-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57302 NetXtreme-C Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57304 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	{ "Broadcom BCM57417 NetXtreme-E Ethernet Partition" },
- 	{ "Broadcom BCM58700 Nitro 4-port 1Gb/2.5Gb/10Gb Ethernet" },
- 	{ "Broadcom BCM57311 NetXtreme-C Single-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57312 NetXtreme-C Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57402 NetXtreme-E Dual-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57404 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57406 NetXtreme-E Dual-port 10GBase-T Ethernet" },
--	{ "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57402 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57407 NetXtreme-E Dual-port 10GBase-T Ethernet" },
- 	{ "Broadcom BCM57412 NetXtreme-E Dual-port 10Gb Ethernet" },
- 	{ "Broadcom BCM57414 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
- 	{ "Broadcom BCM57416 NetXtreme-E Dual-port 10GBase-T Ethernet" },
- 	{ "Broadcom BCM57417 NetXtreme-E Dual-port 10GBase-T Ethernet" },
--	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57412 NetXtreme-E Ethernet Partition" },
- 	{ "Broadcom BCM57314 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	{ "Broadcom BCM57417 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
-+	{ "Broadcom BCM57416 NetXtreme-E Dual-port 10Gb Ethernet" },
-+	{ "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57406 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57407 NetXtreme-E Dual-port 25Gb Ethernet" },
-+	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
-+	{ "Broadcom BCM57416 NetXtreme-E Ethernet Partition" },
- 	{ "Broadcom BCM57304 NetXtreme-C Ethernet Virtual Function" },
- 	{ "Broadcom BCM57404 NetXtreme-E Ethernet Virtual Function" },
- 	{ "Broadcom BCM57414 NetXtreme-E Ethernet Virtual Function" },
-@@ -122,19 +140,28 @@ static const struct pci_device_id bnxt_pci_tbl[] = {
- 	{ PCI_VDEVICE(BROADCOM, 0x16c8), .driver_data = BCM57301 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16c9), .driver_data = BCM57302 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16ca), .driver_data = BCM57304 },
-+	{ PCI_VDEVICE(BROADCOM, 0x16cc), .driver_data = BCM57417_NPAR },
- 	{ PCI_VDEVICE(BROADCOM, 0x16cd), .driver_data = BCM58700 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16ce), .driver_data = BCM57311 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16cf), .driver_data = BCM57312 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d0), .driver_data = BCM57402 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d1), .driver_data = BCM57404 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d2), .driver_data = BCM57406 },
--	{ PCI_VDEVICE(BROADCOM, 0x16d4), .driver_data = BCM57404_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16d4), .driver_data = BCM57402_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16d5), .driver_data = BCM57407 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d6), .driver_data = BCM57412 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d7), .driver_data = BCM57414 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d8), .driver_data = BCM57416 },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d9), .driver_data = BCM57417 },
--	{ PCI_VDEVICE(BROADCOM, 0x16de), .driver_data = BCM57414_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16de), .driver_data = BCM57412_NPAR },
- 	{ PCI_VDEVICE(BROADCOM, 0x16df), .driver_data = BCM57314 },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e2), .driver_data = BCM57417_SFP },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e3), .driver_data = BCM57416_SFP },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e7), .driver_data = BCM57404_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e8), .driver_data = BCM57406_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16e9), .driver_data = BCM57407_SFP },
-+	{ PCI_VDEVICE(BROADCOM, 0x16ec), .driver_data = BCM57414_NPAR },
-+	{ PCI_VDEVICE(BROADCOM, 0x16ee), .driver_data = BCM57416_NPAR },
- #ifdef CONFIG_BNXT_SRIOV
- 	{ PCI_VDEVICE(BROADCOM, 0x16cb), .driver_data = BCM57304_VF },
- 	{ PCI_VDEVICE(BROADCOM, 0x16d3), .driver_data = BCM57404_VF },
--- 
-1.8.3.1
+I initially ran into this issue with the ixgbe driver, but it is easily
+reproduced with veth interfaces, and the script attached below this
+email reproduces the issue.  The script configures three network
+namespaces: one that transmits TCP data (netperf) with MPLS labels,
+one that takes the MPLS traffic and pops the labels and forwards the
+traffic on, and one that receives the traffic (netserver).  When not
+using MPLS labeling, I get ~30000 Mb/s single-stream TCP performance
+in this setup on my test box, and with MPLS labeling, I get ~2 Mb/s.
+
+Some investigating shows that egress TCP frames that need to be
+segmented are being dropped in validate_xmit_skb(), which calls
+skb_gso_segment() which calls skb_mac_gso_segment() which returns
+-EPROTONOSUPPORT because we apparently didn't have the right kernel
+module (mpls_gso) loaded.
+
+(It's somewhat poor design, IMHO, to degrade network performance by
+15000x if someone didn't load a kernel module they didn't know they
+should have loaded, and in a way that doesn't log any warnings or
+errors and can only be diagnosed by adding printk calls to net/core/
+and recompiling your kernel.)
+
+(Also, I'm not sure why mpls_gso is needed when ixgbe seems to be
+able to natively do TSO on MPLS-labeled traffic, maybe because ixgbe
+doesn't advertise the necessary features in ->mpls_features?  But
+adding those bits doesn't seem to change much.)
+
+But, loading mpls_gso doesn't change much -- skb_gso_segment() then
+starts return -EINVAL instead, which is due to the
+skb_network_protocol() call in skb_mac_gso_segment() returning zero.
+And looking at skb_network_protocol(), I don't see how this is
+supposed to work -- skb->protocol is 0 at this point, and there is no
+way to figure out that what we are encapsulating is IP traffic, because
+unlike what is the case with VLAN tags, MPLS labels aren't followed by
+an inner ethertype that says what kind of traffic is in here, you have
+to have explicit knowledge of the payload type for MPLS.
+
+Any ideas?
+
+Thanks in advance!
+
+
+Cheers,
+Lennert
+
+
+
+=== problem.sh
+#!/bin/sh
+
+# ns0 sends out packets with mpls labels
+# ns1 receives the labelled packets, pops the labels, and forwards to ns2
+# ns2 receives the unlabelled packets and replies to ns0
+
+ip netns add ns0
+ip netns add ns1
+ip netns add ns2
+
+ip link add virt01 type veth peer name virt10
+ip link set virt01 netns ns0
+ip link set virt10 netns ns1
+
+ip link add virt12 type veth peer name virt21
+ip link set virt12 netns ns1
+ip link set virt21 netns ns2
+
+ip netns exec ns0 ip addr add 127.0.0.1/8 dev lo
+ip netns exec ns0 ip link set lo up
+ip netns exec ns0 ip addr add 172.16.20.20/24 dev virt01
+ip netns exec ns0 ip link set virt01 up
+
+ip netns exec ns1 ip addr add 127.0.0.1/8 dev lo
+ip netns exec ns1 ip link set lo up
+ip netns exec ns1 ip addr add 172.16.20.21/24 dev virt10
+ip netns exec ns1 ip link set virt10 up
+ip netns exec ns1 ip addr add 172.16.21.21/24 dev virt12
+ip netns exec ns1 ip link set virt12 up
+
+ip netns exec ns2 ip addr add 127.0.0.1/8 dev lo
+ip netns exec ns2 ip link set lo up
+ip netns exec ns2 ip addr add 172.16.21.22/24 dev virt21
+ip netns exec ns2 ip link set virt21 up
+
+modprobe mpls_iptunnel
+
+ip netns exec ns0 ip route add 10.10.10.10/32 encap mpls 100 via inet 172.16.20.21 mtu lock 1496
+#ip netns exec ns0 ip route add 172.16.21.0/24 via 172.16.20.21
+ip netns exec ns0 ip route add 172.16.21.0/24 via 172.16.20.21 mtu lock 1496
+
+ip netns exec ns1 sysctl -w net.ipv4.conf.all.rp_filter=0
+ip netns exec ns1 sysctl -w net.ipv4.conf.default.rp_filter=0
+ip netns exec ns1 sysctl -w net.ipv4.conf.lo.rp_filter=0
+ip netns exec ns1 sysctl -w net.ipv4.conf.virt10.rp_filter=0
+ip netns exec ns1 sysctl -w net.ipv4.conf.virt12.rp_filter=0
+ip netns exec ns1 sysctl -w net.ipv4.ip_forward=1
+ip netns exec ns1 sysctl -w net.mpls.conf.virt10.input=1
+ip netns exec ns1 sysctl -w net.mpls.platform_labels=1000
+ip netns exec ns1 ip -f mpls route add 100 via inet 172.16.21.22
+
+ip netns exec ns2 ip addr add 10.10.10.10/32 dev lo
+ip netns exec ns2 ip route add 172.16.20.0/24 via 172.16.21.21
+
+ip netns exec ns0 ping -c 1 10.10.10.10
+
+ip netns exec ns2 netserver
+
+# non-mpls
+ip netns exec ns0 netperf -c -C -H 172.16.21.22 -l 10 -t TCP_STREAM
+
+# mpls (retry this with mpls_gso loaded)
+ip netns exec ns0 netperf -c -C -H 10.10.10.10 -l 10 -t TCP_STREAM
