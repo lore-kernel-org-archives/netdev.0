@@ -1,64 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v10 07/12] net/mlx4_en: add page recycle to prepare rx
- ring for tx support
-Date: Mon, 25 Jul 2016 09:35:20 +0200
-Message-ID: <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
-	 <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+From: Chunhui He <hchunhui@mail.ustc.edu.cn>
+Subject: Re: [PATCH] net: neigh: disallow state transition DELAY->STALE in
+ neigh_update()
+Date: Mon, 25 Jul 2016 07:52:29 +0000 (UTC)
+Message-ID: <20160725.075229.794245205936957321.hchunhui@mail.ustc.edu.cn>
+References: <alpine.LFD.2.11.1607231625130.2032@ja.home.ssi.bg>
+	<20160723.165218.688680379367395677.hchunhui@mail.ustc.edu.cn>
+	<alpine.LFD.2.11.1607232039400.2032@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>
-To: Brenden Blanco <bblanco@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33893 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344AbcGYHfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 03:35:25 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q128so15461016wma.1
-        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 00:35:24 -0700 (PDT)
-In-Reply-To: <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, dsa@cumulusnetworks.com,
+	nicolas.dichtel@6wind.com, roopa@cumulusnetworks.com,
+	rshearma@brocade.com, dbarroso@fastly.com, martinbj2008@gmail.com,
+	rick.jones2@hp.com, koct9i@gmail.com, edumazet@google.com,
+	tgraf@suug.ch, ebiederm@xmission.com, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ja@ssi.bg
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1607232039400.2032@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
-> The mlx4 driver by default allocates order-3 pages for the ring to
-> consume in multiple fragments. When the device has an xdp program, this
-> behavior will prevent tx actions since the page must be re-mapped in
-> TODEVICE mode, which cannot be done if the page is still shared.
+
+Hello,
+
+On Sat, 23 Jul 2016 22:09:43 +0300 (EEST), Julian Anastasov <ja@ssi.bg> wrote:
 > 
-> Start by making the allocator configurable based on whether xdp is
-> running, such that order-0 pages are always used and never shared.
+> 	May be that is the problem: we receive such packet,
+> ip_route_input_noref detects that we allow such packet
+> from NEIGH_IP on this interface, tip is not RTN_LOCAL (no
+> ARP reply from us), tip is RTN_UNICAST but proxy_arp is not
+> allowed, so we continue and reach __neigh_lookup which finds
+> the existing cache entry because we talked to GW before that.
+> As this is an ARP request, neigh_update is called with NUD_STALE.
+> No reply is sent because request was not for us but we
+> just learned that NEIGH_IP is alive because it lookups
+> for someone else. This is common to observe with broadcasts,
+> GW lookups for other hosts and has to expose its IP+hwaddr.
+> More difficult to happen with unicast packets, you need hub,
+> not switch, to detect such packets.
 > 
-> Since this will stress the page allocator, add a simple page cache to
-> each rx ring. Pages in the cache are left dma-mapped, and in drop-only
-> stress tests the page allocator is eliminated from the perf report.
+> 	It is possible that you miss the packet that tries
+> to set NUD_STALE. May be you can add some printk's to catch
+> what kind of packet causes this. This can help too:
 > 
-> Note that setting an xdp program will now require the rings to be
-> reconfigured.
+> tcpdump -lnnn -s0 arp and host GW_IP
+> 
+> 	If you see such packet, that is it. Our cache is
+> updated with NUD_STALE.
+> 
+>> So I'm not sure if it can learn from ARP reply.
+> 
+> 	See above, received broadcast GARP reply can set
+> NUD_STALE. But the most trivial case of GW exposing its
+> IP while looking for other hosts should be the culprit.
+> It probably happens often, that is why we have no chance
+> to send ARP requests, GW is more ARP-active than us and
+> updates our cache and we are happy.
+>
 
-Again, this has nothing to do with XDP ?
+Thank you for your analysis.
+I think the same, except that I don't think GW can update
+our cache via broadcast ARP.
 
-Please submit a separate patch, switching this driver to order-0
-allocations.
+Please the comment in arp_process():
+>                int state = NUD_REACHABLE;
+...
+>                /* Broadcast replies and request packets
+>                   do not assert neighbour reachability.
+>                 */
+>                if (arp->ar_op != htons(ARPOP_REPLY) ||
+>                    skb->pkt_type != PACKET_HOST)
+>                        state = NUD_STALE;
+>                neigh_update(n, sha, state,
+...
 
-I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
-send a generic patch, but had been traveling lately, and currently in
-vacation.
+Broadcast packets do not assert reachability, so they
+should not interference our state machine. They are
+just a hint.
 
-order-3 pages are problematic when dealing with hostile traffic anyway,
-so we should exclusively use order-0 pages, and page recycling like
-Intel drivers.
-
-http://lists.openwall.net/netdev/2016/04/11/88
+Regards,
+Chunhui
