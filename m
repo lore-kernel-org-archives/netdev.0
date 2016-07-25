@@ -1,40 +1,32 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/3] bnxt_en: Log a message, if enabling NTUPLE
- filtering fails.
-Date: Mon, 25 Jul 2016 07:00:44 -0700
-Message-ID: <1469455244.1900.178.camel@perches.com>
-References: <1469416917-29659-1-git-send-email-michael.chan@broadcom.com>
-	 <1469416917-29659-3-git-send-email-michael.chan@broadcom.com>
+From: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCHv5 wl-drv-next 0/2] register-field manipulation macros
+Date: Mon, 25 Jul 2016 15:45:49 +0100
+Message-ID: <20160725154549.6492cac1@jkicinski-Precision-T1700>
+References: <1467821977-11777-1-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0228.hostedemail.com ([216.40.44.228]:35543 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751105AbcGYOAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 10:00:50 -0400
-In-Reply-To: <1469416917-29659-3-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467821977-11777-1-git-send-email-jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-07-24 at 23:21 -0400, Michael Chan wrote:
-> If there are not enough resources to enable ntuple filtering,
-> log a warning message.
-[]
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/=
-ethernet/broadcom/bnxt/bnxt.c
-[]
-> @@ -5790,8 +5790,14 @@ static bool bnxt_rfs_capable(struct bnxt *bp)
-> =A0		return false;
-> =A0
-> =A0	vnics =3D 1 + bp->rx_nr_rings;
-> -	if (vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics)
-> +	if (vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics) {
-> +		netdev_warn(bp->dev,
-> +			=A0=A0=A0=A0"Not enough resources to support NTUPLE filters");
-> +		netdev_warn(bp->dev,
-> +			=A0=A0=A0=A0"Enough NTUPLE resources for up to %d rx rings",
+On Wed,  6 Jul 2016 17:19:35 +0100, Jakub Kicinski wrote:
+> Hi!
+> 
+> I've added few lines about the compilation problems in 
+> the commit message of patch 1.  I would prefer the mass
+> rename of macros in mt7601u not to be part of this series
+> so patch 2 is left as it was and I'll follow up once this
+> is accepted.
 
-Missing newline terminations and may be better as a single message
+Hi Kalle,
+
+what's the status of this set?  It's marked as 'Deferred' in
+linux-wireless patchwork.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
