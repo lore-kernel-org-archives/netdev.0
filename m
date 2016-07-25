@@ -1,65 +1,82 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: RE: [PATCH net-next 1/2] be2net: set temperature value for all
- adapter's functions
-Date: Mon, 25 Jul 2016 16:18:13 +0530
-Message-ID: <a231dccbdf9d054819aca387db6533c4@mail.gmail.com>
-References: <1469237395-11501-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>,
-	Ajit Kumar Khaparde <ajit.khaparde@broadcom.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-	Somnath Kotur <somnath.kotur@broadcom.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net-next V2 0/5] mlx4 VST QinQ support
+Date: Mon, 25 Jul 2016 14:15:31 +0300
+Message-ID: <1469445336-21952-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:33892 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145AbcGYKsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 06:48:15 -0400
-Received: by mail-qk0-f174.google.com with SMTP id o67so152930678qke.1
-        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 03:48:14 -0700 (PDT)
-In-Reply-To: <1469237395-11501-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36427 "EHLO
+	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751139AbcGYLPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 07:15:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Guilherme G. Piccoli [mailto:gpiccoli@linux.vnet.ibm.com]
->
-> Temperature values on be2net driver are made available to userspace via
-hwmon abstraction, so tools like lm-
-> sensors can present them to the user.
-> The driver provides hwmon structures for each adapter's function.
-> Nevertheless, the temperature information come from fw queries performed
-by
-> be_worker() with some frequency, and this procedure is called with a
-single function as argument; this means
-> that the temperature value is updated only in the specific function that
-was passed to be_worker().
->
-> This can lead to incongruency in reported temperature by a function, or
-in a worse scenario, some functions
-> might be unable to provide temperature info to userspace, if they
-weren't fed with this information from fw in
-> be_worker() run.
+Hi Dave,
 
-Hi, I'm wondering if you are OK with the temperature value being 128s old
-(2/2 patch), then why is it a problem
-if two different functions report a temperature value that is queried a
-few seconds apart?
-Also, you'll not have a scenario where the FW cmd succeeds for one
-function and fails for other functions.
-It's a common FW for the entire adapter.
+This patchset adds VST QinQ support (VLAN protocol 802.1ad)
+to the mlx4 driver.
+We extended the VF VLAN API with an additional parameter
+for VLAN protocol, and kept 802.1Q as drivers' default.
 
->
-> This patch changes the way temperature is set in be2net driver. At
-anytime the fw query is performed, it will set
-> the temperature value for all functions of the adapter, instead of only
-setting the temperature of the function
-> passed to be_worker().
-If the possible inconsistency across functions is indeed a problem, then a
-simpler solution would be to
-issue the FW cmd synchronously when the sysfs attr is read, i.e., in
-be_hwmon_show_temp() routine itself.
+We prepared a userspace support, the patch will be submitted
+to the iproute2 mailing list.
 
-thanks!
--Sathya
+The iproute2 VLAN protocol parameter is optional (default: 802.1Q).
+A configuration command of VF VLAN that is used prior to this patchset
+will result in same functionality as today's (VST without QinQ).
+
+v2:
+  Dropped patch 4 ("net/mlx4_core: Add an option to configure SVLAN TPID").
+  Patch 1/5: Update commit log.
+  2-3/5: Splitted patch 2 into two patches, to separate between changes
+         done in mlx4_core and the ones done in mlx4_en.
+  4-5/5: Splitted patch 3 into two patches, to separate between the
+         addition of a protocol parameter and the actual implementation
+	 in mlx4_en.
+	 In addition, we implemented a handshake mechanism so PF and VF
+	 exchange their VST QinQ support capability.
+
+Moshe Shemesh (5):
+  net/mlx4_core: Fix QUERY FUNC CAP flags
+  net/mlx4_core: Preparation for VST QinQ
+  net/mlx4_en: Preparation for VST QinQ
+  net: Update API for VST QinQ support
+  net/mlx4: Add VST QinQ support
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   3 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |   9 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |   6 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h    |   2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c        |   6 +-
+ drivers/net/ethernet/intel/fm10k/fm10k.h           |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c       |   6 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  11 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   4 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          |   9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |  58 ++++++++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  23 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            | 129 +++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/fw.h            |   2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   3 +
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  40 +++++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   6 +-
+ drivers/net/ethernet/qlogic/qede/qede_main.c       |   6 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |   2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   5 +-
+ drivers/net/ethernet/sfc/sriov.c                   |   5 +-
+ drivers/net/ethernet/sfc/sriov.h                   |   2 +-
+ include/linux/if_link.h                            |   1 +
+ include/linux/mlx4/cmd.h                           |   3 +-
+ include/linux/mlx4/device.h                        |   3 +
+ include/linux/mlx4/qp.h                            |   2 +
+ include/linux/netdevice.h                          |   6 +-
+ include/uapi/linux/if_link.h                       |  10 +-
+ net/core/rtnetlink.c                               |  28 ++++-
+ 31 files changed, 346 insertions(+), 53 deletions(-)
+
+-- 
+1.8.3.1
