@@ -1,52 +1,49 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next V2 5/5] net/mlx4: Add VST QinQ support
-Date: Mon, 25 Jul 2016 10:12:46 -0700
-Message-ID: <5796488E.7080401@gmail.com>
-References: <1469445336-21952-1-git-send-email-tariqt@mellanox.com>
- <1469445336-21952-6-git-send-email-tariqt@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V2] net/bonding: Enforce active-backup policy for
+ IPoIB bonds
+Date: Mon, 25 Jul 2016 10:19:42 -0700 (PDT)
+Message-ID: <20160725.101942.47601532699202248.davem@davemloft.net>
+References: <1469091175-17143-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Moshe Shemesh <moshe@mellanox.com>
-To: Tariq Toukan <tariqt@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	gospo@cumulusnetworks.com, ogerlitz@mellanox.com,
+	jiri@mellanox.com, dledford@redhat.com, markb@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35731 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752657AbcGYRNF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:13:05 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h186so12261112pfg.2
-        for <netdev@vger.kernel.org>; Mon, 25 Jul 2016 10:13:04 -0700 (PDT)
-In-Reply-To: <1469445336-21952-6-git-send-email-tariqt@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42208 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488AbcGYRTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 13:19:45 -0400
+In-Reply-To: <1469091175-17143-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-07-25 04:15 AM, Tariq Toukan wrote:
-> From: Moshe Shemesh <moshe@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Thu, 21 Jul 2016 11:52:55 +0300
+
+> From: Mark Bloch <markb@mellanox.com>
 > 
-> Move the vf to VST QinQ mode by setting vf vlan protocol to 802.1ad.
-> Read current vlan protocol as part of the vf configuration state.
-> Upon setting VST QinQ, we use a mechanism of handshake to verify that
-> both the vf and the pf driver version support it.
+> When using an IPoIB bond currently only active-backup mode is a valid
+> use case and this commit strengthens it.
 > 
-> Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-> ---
+> Since commit 2ab82852a270 ("net/bonding: Enable bonding to enslave
+> netdevices not supporting set_mac_address()") was introduced till
+> 4.7-rc1, IPoIB didn't support the set_mac_address ndo, and hence the
+> fail over mac policy always applied to IPoIB bonds.
+> 
+> With the introduction of commit 492a7e67ff83 ("IB/IPoIB: Allow setting
+> the device address"), that doesn't hold and practically IPoIB bonds are
+> broken as of that. To fix it, lets go to fail over mac if the device
+> doesn't support the ndo OR this is IPoIB device.
+> 
+> As a by-product, this commit also prevents a stack corruption which
+> occurred when trying to copy 20 bytes (IPoIB) device address
+> to a sockaddr struct that has only 16 bytes of storage.
+> 
+> Signed-off-by: Mark Bloch <markb@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-A typical use case I would expect is the administrator on the PF wants
-to set both the outer tag (S-VLAN) and inner tag (C-VLAN) of a VM.
-
-It seems this only allows the administrator to set the outer tag but
-does allow select type of the tag.
-
-I am mostly interested because this is establishing a UAPI and we should
-be sure it can handle future use cases. What about making the
-ifla_vf_vlan struct handle multiple layers of headers, by passing a
-nested list of {qos + vlan + vlan_proto} tuples for each vf.
-
-Just curious does the hardware support the above S-VLAN + C-VLAN use
-case as well?
-
-Thanks,
-John
+Applied and queued up for -stable.
