@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] caif-hsi: Remove deprecated
- create_singlethread_workqueue
-Date: Mon, 25 Jul 2016 21:39:48 -0700 (PDT)
-Message-ID: <20160725.213948.1597000820762206692.davem@davemloft.net>
-References: <20160725131057.GA751@Karyakshetra>
+Subject: Re: [PATCH net-next] udp: use sk_filter_trim_cap for
+ udp{,6}_queue_rcv_skb
+Date: Mon, 25 Jul 2016 21:40:42 -0700 (PDT)
+Message-ID: <20160725.214042.2053568298270455930.davem@davemloft.net>
+References: <0a5ec5a7e99c314f5f5f56f37380b70f8a5bc4ad.1469462373.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tj@kernel.org
-To: bhaktipriya96@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160725131057.GA751@Karyakshetra>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, willemdebruijn.kernel@gmail.com,
+	alexei.starovoitov@gmail.com, willemb@google.com
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52226 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753714AbcGZEkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:40:43 -0400
+In-Reply-To: <0a5ec5a7e99c314f5f5f56f37380b70f8a5bc4ad.1469462373.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Date: Mon, 25 Jul 2016 18:40:57 +0530
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 25 Jul 2016 18:06:12 +0200
 
-> alloc_workqueue replaces deprecated create_singlethread_workqueue().
+> After a612769774a3 ("udp: prevent bugcheck if filter truncates packet
+> too much"), there followed various other fixes for similar cases such
+> as f4979fcea7fd ("rose: limit sk_filter trim to payload").
 > 
-> A dedicated workqueue has been used since the workitems are being used
-> on a packet tx/rx path. Hence, WQ_MEM_RECLAIM has been set to guarantee
-> forward progress under memory pressure.
+> Latter introduced a new helper sk_filter_trim_cap(), where we can pass
+> the trim limit directly to the socket filter handling. Make use of it
+> here as well with sizeof(struct udphdr) as lower cap limit and drop the
+> extra skb->len test in UDP's input path.
 > 
-> An ordered workqueue has been used since workitems &cfhsi->wake_up_work
-> and &cfhsi->wake_down_work cannot be run concurrently.
-> 
-> Calls to flush_workqueue() before destroy_workqueue() have been dropped
-> since destroy_workqueue() itself calls drain_workqueue() which flushes
-> repeatedly till the workqueue becomes empty.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
 Applied.
