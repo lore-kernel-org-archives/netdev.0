@@ -1,35 +1,65 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
- context at kernel/irq/manage.c:110
-Date: Tue, 26 Jul 2016 11:50:21 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1607261149570.19896@nanos>
-References: <20160726035003.GA15095@wfg-t540p.sh.intel.com> <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com> <20160726093224.GA10339@wfg-t540p.sh.intel.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 26 Jul 2016 11:56:37 +0200
+Message-ID: <20160726095637.GC8749@unicorn.suse.cz>
+References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160725.173701.1282720667210726281.davem@davemloft.net>
+ <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160725.213822.1745865660912873332.davem@davemloft.net>
+ <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Satyam Sharma <satyam@infradead.org>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ye Xiaolong <xiaolong.ye@intel.com>, cc:;
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:42886 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755630AbcGZJwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 05:52:35 -0400
-In-Reply-To: <20160726093224.GA10339@wfg-t540p.sh.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"dave.scott@docker.com" <dave.scott@docker.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"joe@perches.com" <joe@perches.com>,
+	"rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Jul 2016, Fengguang Wu wrote:
-> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> @@ -3797,7 +3797,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
-> 		hw->get_link_status = 1;
-> 		/* guard against interrupt when we're going down */
-> 		if (!test_bit(__E1000_DOWN, &adapter->flags))
-> -			schedule_delayed_work(&adapter->watchdog_task, 1);
-> +			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+On Tue, Jul 26, 2016 at 07:09:41AM +0000, Dexuan Cui wrote:
+> If you meant https://lkml.org/lkml/2016/7/13/382, I don't think Michal
+> Kubecek was suggesting I build my code using the existing AF_VSOCK
+> code(?)  I think he was only asking me to clarify the way I used to write
+> the text to explain why I can't fit my code into the existing AF_VSOCK
+> code. BTW, AF_VSOCK is not on S390, I think.
 
-ROTFL ....
+Actually, I believe building on top of existing AF_VSOCK should be the
+first thought and only if this way shows unfeasible, one should consider
+a completely new implementation from scratch. After all, when VMware was
+upstreaming vsock, IIRC they had to work hard on making it a generic
+solution rather than a one purpose tool tailored for their specific use
+case.
+
+What I wanted to say in that mail was that I didn't find the reasoning
+very convincing. The only point that wasn't like "AF_VSOCK has many
+features we don't need" was the incompatible addressing scheme. The
+cover letter text didn't convince me it was given as much thought as it
+deserved. I felt - and it still feel - that the option of building on
+top of vsock wasn't considered seriously enough.
+
+I must also admit I'm a bit confused by your response to the issue of
+socket lookup performance. I always thought the main reason to use
+special hypervisor sockets instead of TCP/IP over virtual network
+devices was efficiency (to avoid the overhead of network protocol
+processing). The fact that traversing a linear linked list under
+a global mutex for each socket lookup is not an issue as opening
+a connection is going to be slow anyway surprised me therefore. But
+maybe it's fine as the typical use case is going to be small number of
+long running connections and traffic performance is going to make for
+the connection latency. Or there are other advantages, I don't know.
+But if that is the case, it would IMHO deserve to be explained.
+
+                                                       Michal Kubecek
