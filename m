@@ -1,55 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [v3] UCC_GETH/UCC_FAST: Use IS_ERR_VALUE_U32 API to avoid IS_ERR_VALUE abuses.
-Date: Tue, 26 Jul 2016 13:39:15 +0200
-Message-ID: <4175803.I7CDUloLxQ@wuerfel>
-References: <1469297151-9763-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Microsemi VSC 8531/41 PHY Driver
+Date: Tue, 26 Jul 2016 13:55:56 +0200
+Message-ID: <20160726115556.GC11538@lunn.ch>
+References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Arvind Yadav <arvind.yadav.cs@gmail.com>, zajec5@gmail.com,
-	leoli@freescale.com, qiang.zhao@freescale.com,
-	viresh.kumar@linaro.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, scottwood@freescale.com,
-	akpm@linux-foundation.org, linux@roeck-us.net
-To: linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:57677 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbcGZLkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 07:40:14 -0400
-In-Reply-To: <1469297151-9763-1-git-send-email-arvind.yadav.cs@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:50944 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752723AbcGZLz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 07:55:58 -0400
+Content-Disposition: inline
+In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday, July 23, 2016 11:35:51 PM CEST Arvind Yadav wrote:
-> diff --git a/include/linux/err.h b/include/linux/err.h
-> index 1e35588..a42f942 100644
-> --- a/include/linux/err.h
-> +++ b/include/linux/err.h
-> @@ -19,6 +19,7 @@
->  #ifndef __ASSEMBLY__
->  
->  #define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
-> +#define IS_ERR_VALUE_U32(x) unlikely((unsigned int)(x) >= (unsigned int)-MAX_ERRNO)
->  
->  static inline void * __must_check ERR_PTR(long error)
->  {
+On Tue, Jul 26, 2016 at 09:49:53AM +0000, Raju Lakkaraju wrote:
+> Hello All,
+> 
+> I would like to introduce myself as Nagaraju Lakkaraju (Raju), is working in Microsemi Communications India Pvt. Ltd (Formerly known as Vitesse Semiconductors Limited) - Hyderabad as Sr. Staff Engineer.
+> I do work on Microsemi PHY drivers development.
+> Microsemi is developing the new Physical Layer (PHY) chips for Internet Of Things (IoT) products with 1 Gbps link speed. 
+> As part of the development, Microsemi would like to contribute the new PHYs (i.e. VSC 8531 / VSC 8541) chip drivers in Linux Kernel Open source.
+> VSC 8531 / 8541 PHYs will have the following features a part of the basic features like Auto-neg, Speed, Duplex etc.
+> 1. Wake on LAN 
+> 2. Auto MDIX/MDI 
+> 3. Link Speed Down shift
+> 4. Fast Link Failure-2
+> 5. Loopbacks (FAR-END, NEAR-END and Connector)
+> 6. Ethernet Packet Generator (EPG)
+> 7. Serial Management Interface (SMI) Interrupt
+> 8. Clock Squelch configuration (SyncE)
+> 9. Jumbo Frame Support
+> 10. In-line Power On Ethernet (PoE) status
+> 11. Acti PHY power Management 
+> 12. Energy Efficiency Ethenet (EEE)
+> 13. VeriPHY (Cable Diagnostics)
+> 14. LED configuration
+> 15. Ring Resiliency
+> 16. Start Of Frame Detection (SOF)
+> 17. COMA mode 
 
-This doesn't really look like something we want to have as a generic
-interface. The IS_ERR_VALUE() API is rather awkward already, and your
-use seems specific to the cpu_muram_alloc() function.
+Some interesting features. Is the datasheet publicly available?
+ 
+> As part of Initial submission of the Linux Kernel Open source drivers,
+> I developed the VSC 8531 driver basic features and built the Linux Kernel image for Beaglebone Black hardware.
+> Also developed Ethtool enhancement for VSC 8531 register access functionality to test the VSC 8531 
+> 
+> Test Setup:
+> -------------
+> Hardware Details: Beaglebone Black with VSC 8531 PHY
+> Software Linux Kernel version: 4.6.4
+> 
+> Microsemi VSC 8531 chip is mount on Beaglebone Black hardware (replaced the Microchip PHY) and tested the following features.
+> 1. Auto negotiation
+> 2. Speed change ( 10 Mbps, 100 Mbps and 1 Gbps)
+> 3. Full/Half Duplex
+> 4. Ping 
+> 5. Line rate traffic with Test center
+> 
+> I would like you to review my code and provide me the valuable comments.
+> Please find the attached git code diff patch.
 
-How about something like
+I would like to review your code, but please read the SubmittingPathes
+document and in particularly, the bit about attachments.
 
-int cpm_muram_error(unsigned long addr)
-{
-	if (addr >= (unsigned long)-MAX_ERRNO)
-		return addr;
-	else
-		return 0;
-}
-
-and then use that to check the value returned by the allocation
-that is still an 'unsigned long', before assigning it to a 'u32'.
-
-	Arnd
+	 Andrew
