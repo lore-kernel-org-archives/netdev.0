@@ -1,60 +1,47 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH v2] net: davinci_cpdma: remove excessive dump of register
- values to kernel log
-Date: Tue, 26 Jul 2016 17:26:39 +0300
-Message-ID: <4c8afcb9-f7a9-4db3-e923-48dca5cacc3c@ti.com>
-References: <1469440485-19889-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <20160725.175705.820422537273157170.davem@davemloft.net>
- <fd720b67-ca2b-fe28-c151-0a749fbba821@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <mugunthanvnm@ti.com>, <linux-omap@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <kernel@pengutronix.de>
-To: David Miller <davem@davemloft.net>,
-	<u.kleine-koenig@pengutronix.de>,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+From: ggarcia@abra.uab.cat
+Subject: [PATCH v2 0/1] virtio-vsock: Add timer to handle OOM situations
+Date: Tue, 26 Jul 2016 16:28:20 +0200
+Message-ID: <20160726142821.31770-1-ggarcia@deic.uab.cat>
+Content-Transfer-Encoding: 7BIT
+Cc: stefanha@redhat.com, Gerard Garcia <ggarcia@abra.uab.cat>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:41902 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552AbcGZO0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 10:26:52 -0400
-In-Reply-To: <fd720b67-ca2b-fe28-c151-0a749fbba821@ti.com>
+Received: from damascus.uab.es ([158.109.168.135]:49559 "EHLO damascus.uab.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754552AbcGZO2j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 10:28:39 -0400
+Received: from damascus.uab.es ([127.0.0.1])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OAX008NJEVOR610@damascus.uab.es> for
+ netdev@vger.kernel.org; Tue, 26 Jul 2016 16:28:37 +0200 (CEST)
+Received: from abra.uab.es ([158.109.79.4])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OAX00BHWEVOXHR2@damascus.uab.es> for
+ netdev@vger.kernel.org; Tue, 26 Jul 2016 16:28:36 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+ CC: Ivan
+From: Gerard Garcia <ggarcia@deic.uab.cat>
 
-On 07/26/2016 05:09 PM, Grygorii Strashko wrote:
-> On 07/26/2016 03:57 AM, David Miller wrote:
->> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->> Date: Mon, 25 Jul 2016 11:54:45 +0200
->>
->>> Such a big dump of register values is hardly useful on a production
->>> system.
->>>
->>> Another downside of the now removed functions is that calling
->>> emac_dump_regs resulted in at least 87 calls to dev_info while hold=
-ing a
->>> spinlock and having irqs off which is a big source of latency.
->>>
->>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->>
->> Applied.
->>
->
-> :( To be honest I was really enjoyed using cpdma_ctlr_dump()
-> for debug purposed during the past few weeks in cpsw where I've added
-> calls to this func manually. And I even thinking about adding debug_f=
-s
-> entry for the same :(
->
-> Pretty fast merge :(
->
->
+This patch applies over the stefanha/vsock-next repository:
+https://github.com/stefanha/linux/tree/vsock-next
 
+Once the guest puts a packet in the virtqueue it is guaranteed
+that it will be delivered. 
 
---=20
-regards,
--grygorii
+This patch addresses the problem of packets being discarded when 
+there is not available memory in the host.
+
+v2:
+* Use of ERR_PTR/PTR_ERR/IS_ERR
+* Timer cleaned on device release.
+* Do not process more packets on error.
+
+Gerard Garcia (1):
+  Add timer to handle OOM situations
+
+ drivers/vhost/vsock.c | 55 +++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 45 insertions(+), 10 deletions(-)
+
+-- 
+2.9.1
