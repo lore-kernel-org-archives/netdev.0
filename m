@@ -1,37 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 0/2] Mellanox 100G mlx5 minimum inline
- header mode
-Date: Tue, 26 Jul 2016 14:29:47 -0700 (PDT)
-Message-ID: <20160726.142947.1063145474373793503.davem@davemloft.net>
-References: <1469365960-27100-1-git-send-email-saeedm@mellanox.com>
-	<20160725.175436.969233393280158279.davem@davemloft.net>
-	<CAJL1qvFjWT4Bk_CdOdU7bECsh327nekVEFENmpU5vwFvNpMxLw@mail.gmail.com>
+From: Grant Grundler <grundler@chromium.org>
+Subject: Re: [PATCH 1/3] net: asix: Add in_pm parameter
+Date: Tue, 26 Jul 2016 14:54:32 -0700
+Message-ID: <CANEJEGtcEbd8Zw6p_Hwt2JX_D=WRYF4Yf-tQABivNhCqR4btoQ@mail.gmail.com>
+References: <1469468424-22685-1-git-send-email-robert.foss@collabora.com>
+ <CANEJEGsU97GQ9SzmXGJjdSd_fbTptttHJZb1g_GvNjwEgEzqHg@mail.gmail.com> <f7abc257-54ff-c453-6e7f-34a4103bf7a7@collabora.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	hadarh@mellanox.com
-To: hadarh@dev.mellanox.co.il
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757950AbcGZV3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 17:29:48 -0400
-In-Reply-To: <CAJL1qvFjWT4Bk_CdOdU7bECsh327nekVEFENmpU5vwFvNpMxLw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Grant Grundler <grundler@chromium.org>,
+	David Miller <davem@davemloft.net>, Mark_Craske@mentor.com,
+	Dean_Jenkins@mentor.com, Vincent Palatin <vpalatin@chromium.org>,
+	ivecera@redhat.com, linux@davidrobins.net,
+	WK TSAI <wk.tsai@nvidia.com>,
+	Chia-Sheng Chang <changchias@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	enric.balletbo@collabora.com,
+	Tomeu Vizoso <tomeu.vizoso@collabora.com>
+To: Robert Foss <robert.foss@collabora.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f7abc257-54ff-c453-6e7f-34a4103bf7a7@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Date: Tue, 26 Jul 2016 13:30:46 +0300
+On Tue, Jul 26, 2016 at 2:14 PM, Robert Foss <robert.foss@collabora.com> wrote:
+...
+> Thanks for the feedback (for this patch and the other ones)!
+> I'm preparing a v2 and will submit it withing a day or two.
 
-> In the default case eth_get_headlen() won't be called, it will happen
-> only if PF administrator changes the mode from default to L4.
-> 
-> In L4 mode, we need to copy all the packet headers including L4, do
-> you know of a better/cheaper way for doing that?
+Excellent! very welcome and thanks again for picking this up.
 
-You can just look straight at the ethernet header in this context.
+...
+>> FTR, current  drivers/net/usb/ax88179_178a.c uses "in_pm" as well.
+>
+> Ah! Would you like that to be noted in the commit message?
 
-eth_get_headlen() is expensive and has a complete header parser.  It
-is meant to be used when none of the SKB context state has been setup
-yet (early RX processing before SKB is allocated, for example).
+No - I generally do not muck with commit messages that I didn't write.
+It's part of the "finger print" of a patch (so one can trace origin
+across distro's and kernel versions).
+
+My comment was intended for reviewers and could be included in the
+"comments after the commit message". (ie below the "---" marker in the
+patch email).
+
+...
+>> BTW, I have two additional changes for AX88772x support sitting in my
+>> "needs more work" queue (for quite a while already):
+>>    https://chromium-review.googlesource.com/#/c/229620/
+>>    "asix: autoneg will set WRITE_MEDIUM reg"
+>>
+>>    https://chromium-review.googlesource.com/#/c/231162/
+>>    "net: asix: see 802.3 spec for phy reset"
+>>
+>> I would certainly approve if _anyone_ picked these up, tested them,
+>> and then submitted them to netdev.
+>
+> Unfortunately I am without appropriate hardware at the moment.
+
+That's a risky thing to point out for two reasons:
+
+1) I can send you more HW than you could possibly ever use. :)
+
+2) Reviewers of this patch series are already wondering how you
+verified the AX88772x patches work on current kernel.org (or
+netdev-next) branches.
+
+Please email me with your shipping address (OFFLIST!) and I'll try to
+send you some Asix HW to test with.  I'm located in "Silicon Valley"
+(USA) and can easily ship in the US. Other countries is a bit harder
+and in some cases not possible.
+
+cheers,
+grant
