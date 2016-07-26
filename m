@@ -1,224 +1,44 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next v2 1/3] virtio: whitespace cleanups
-Date: Tue, 26 Jul 2016 19:58:21 +0300
-Message-ID: <20160726195107-mutt-send-email-mst@kernel.org>
-References: <20160726163712.721213063@networkplumber.org>
- <20160726163744.515628758@networkplumber.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: patch for PCH_GBE rotten packet (Intel EG20T Platform Controller).
+Date: Tue, 26 Jul 2016 09:59:08 -0700
+Message-ID: <CAKgT0UeMvwrjyj9VvJu63JjYSWKWvDNg9YLerachV8wezQES_g@mail.gmail.com>
+References: <CAMSBNFsZKdptMGnZr4DzRyQj593Snerisyuj_3qb=ducOra1FQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: Tom Walsh <tomwalsh73@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50565 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752785AbcGZQ6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 12:58:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20160726163744.515628758@networkplumber.org>
+Received: from mail-io0-f175.google.com ([209.85.223.175]:36331 "EHLO
+	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757246AbcGZQ7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:59:10 -0400
+Received: by mail-io0-f175.google.com with SMTP id b62so30409355iod.3
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:59:09 -0700 (PDT)
+In-Reply-To: <CAMSBNFsZKdptMGnZr4DzRyQj593Snerisyuj_3qb=ducOra1FQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 26, 2016 at 09:37:13AM -0700, Stephen Hemminger wrote:
-> Adjust whitespace to match current favored style.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> --- a/drivers/net/virtio_net.c	2016-07-20 08:12:24.035656119 -0700
-> +++ b/drivers/net/virtio_net.c	2016-07-26 09:11:06.988788668 -0700
-> @@ -201,7 +201,9 @@ static void give_pages(struct receive_qu
->  	struct page *end;
->  
->  	/* Find end of list, sew whole thing into vi->rq.pages. */
-> -	for (end = page; end->private; end = (struct page *)end->private);
-> +	for (end = page; end->private; end = (struct page *)end->private)
-> +		continue;
-> +
->  	end->private = (unsigned long)rq->pages;
->  	rq->pages = page;
->  }
-> @@ -233,13 +235,13 @@ static void skb_xmit_done(struct virtque
->  static unsigned int mergeable_ctx_to_buf_truesize(unsigned long mrg_ctx)
->  {
->  	unsigned int truesize = mrg_ctx & (MERGEABLE_BUFFER_ALIGN - 1);
-> +
->  	return (truesize + 1) * MERGEABLE_BUFFER_ALIGN;
->  }
->  
->  static void *mergeable_ctx_to_buf_address(unsigned long mrg_ctx)
->  {
->  	return (void *)(mrg_ctx & -MERGEABLE_BUFFER_ALIGN);
-> -
->  }
->  
->  static unsigned long mergeable_buf_to_ctx(void *buf, unsigned int truesize)
-> @@ -310,6 +312,7 @@ static struct sk_buff *page_to_skb(struc
->  	BUG_ON(offset >= PAGE_SIZE);
->  	while (len) {
->  		unsigned int frag_size = min((unsigned)PAGE_SIZE - offset, len);
-> +
->  		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page, offset,
->  				frag_size, truesize);
->  		len -= frag_size;
-> @@ -323,9 +326,10 @@ static struct sk_buff *page_to_skb(struc
->  	return skb;
->  }
->  
-> -static struct sk_buff *receive_small(struct virtnet_info *vi, void *buf, unsigned int len)
-> +static struct sk_buff *receive_small(struct virtnet_info *vi,
-> +				     void *buf, unsigned int len)
->  {
-> -	struct sk_buff * skb = buf;
-> +	struct sk_buff *skb = buf;
->  
->  	len -= vi->hdr_len;
->  	skb_trim(skb, len);
-> @@ -455,6 +459,7 @@ static void receive_buf(struct virtnet_i
->  		if (vi->mergeable_rx_bufs) {
->  			unsigned long ctx = (unsigned long)buf;
->  			void *base = mergeable_ctx_to_buf_address(ctx);
-> +
->  			put_page(virt_to_head_page(base));
->  		} else if (vi->big_packets) {
->  			give_pages(rq, buf);
-> @@ -699,7 +704,7 @@ static void refill_work(struct work_stru
->  		 * we will *never* try to fill again.
->  		 */
->  		if (still_empty)
-> -			schedule_delayed_work(&vi->refill, HZ/2);
-> +			schedule_delayed_work(&vi->refill, HZ / 2);
->  	}
->  }
->  
-> @@ -901,12 +906,12 @@ static netdev_tx_t start_xmit(struct sk_
->  	 * Since most packets only take 1 or 2 ring slots, stopping the queue
->  	 * early means 16 slots are typically wasted.
->  	 */
-> -	if (sq->vq->num_free < 2+MAX_SKB_FRAGS) {
-> +	if (sq->vq->num_free < 2 + MAX_SKB_FRAGS) {
->  		netif_stop_subqueue(dev, qnum);
->  		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
->  			/* More just got used, free them then recheck. */
->  			free_old_xmit_skbs(sq);
-> -			if (sq->vq->num_free >= 2+MAX_SKB_FRAGS) {
-> +			if (sq->vq->num_free >= 2 + MAX_SKB_FRAGS) {
->  				netif_start_subqueue(dev, qnum);
->  				virtqueue_disable_cb(sq->vq);
->  			}
-> @@ -1238,11 +1243,11 @@ static void virtnet_set_affinity(struct
->  }
->  
->  static int virtnet_cpu_callback(struct notifier_block *nfb,
-> -			        unsigned long action, void *hcpu)
-> +				unsigned long action, void *hcpu)
->  {
->  	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
->  
-> -	switch(action & ~CPU_TASKS_FROZEN) {
-> +	switch (action & ~CPU_TASKS_FROZEN) {
->  	case CPU_ONLINE:
->  	case CPU_DOWN_FAILED:
->  	case CPU_DEAD:
-> @@ -1259,7 +1264,7 @@ static int virtnet_cpu_callback(struct n
->  }
->  
->  static void virtnet_get_ringparam(struct net_device *dev,
-> -				struct ethtool_ringparam *ring)
-> +				  struct ethtool_ringparam *ring)
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
->  
-> @@ -1269,7 +1274,6 @@ static void virtnet_get_ringparam(struct
->  	ring->tx_pending = ring->tx_max_pending;
->  }
->  
-> -
->  static void virtnet_get_drvinfo(struct net_device *dev,
->  				struct ethtool_drvinfo *info)
->  {
-> @@ -1279,7 +1283,6 @@ static void virtnet_get_drvinfo(struct n
->  	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
->  	strlcpy(info->version, VIRTNET_DRIVER_VERSION, sizeof(info->version));
->  	strlcpy(info->bus_info, virtio_bus_name(vdev), sizeof(info->bus_info));
-> -
->  }
->  
->  /* TODO: Eliminate OOO packets during switching */
-> @@ -1402,9 +1405,9 @@ static int virtnet_change_mtu(struct net
->  }
->  
->  static const struct net_device_ops virtnet_netdev = {
-> -	.ndo_open            = virtnet_open,
-> -	.ndo_stop   	     = virtnet_close,
-> -	.ndo_start_xmit      = start_xmit,
-> +	.ndo_open	     = virtnet_open,
-> +	.ndo_stop	     = virtnet_close,
-> +	.ndo_start_xmit	     = start_xmit,
->  	.ndo_validate_addr   = eth_validate_addr,
->  	.ndo_set_mac_address = virtnet_set_mac_address,
->  	.ndo_set_rx_mode     = virtnet_set_rx_mode,
-> @@ -1485,6 +1488,7 @@ static void free_receive_bufs(struct vir
->  static void free_receive_page_frags(struct virtnet_info *vi)
->  {
->  	int i;
-> +
->  	for (i = 0; i < vi->max_queue_pairs; i++)
->  		if (vi->rq[i].alloc_frag.page)
->  			put_page(vi->rq[i].alloc_frag.page);
-> @@ -1497,6 +1501,7 @@ static void free_unused_bufs(struct virt
->  
->  	for (i = 0; i < vi->max_queue_pairs; i++) {
->  		struct virtqueue *vq = vi->sq[i].vq;
-> +
->  		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL)
->  			dev_kfree_skb(buf);
->  	}
-> @@ -1508,6 +1513,7 @@ static void free_unused_bufs(struct virt
->  			if (vi->mergeable_rx_bufs) {
->  				unsigned long ctx = (unsigned long)buf;
->  				void *base = mergeable_ctx_to_buf_address(ctx);
-> +
->  				put_page(virt_to_head_page(base));
->  			} else if (vi->big_packets) {
->  				give_pages(&vi->rq[i], buf);
-> @@ -1660,7 +1666,8 @@ err:
->  
->  #ifdef CONFIG_SYSFS
->  static ssize_t mergeable_rx_buffer_size_show(struct netdev_rx_queue *queue,
-> -		struct rx_queue_attribute *attribute, char *buf)
-> +					     struct rx_queue_attribute *attribute,
-> +					     char *buf)
->  {
->  	struct virtnet_info *vi = netdev_priv(queue->dev);
->  	unsigned int queue_index = get_netdev_rx_queue_index(queue);
-> @@ -1784,7 +1791,8 @@ static int virtnet_probe(struct virtio_d
->  		dev->features |= NETIF_F_GSO_ROBUST;
->  
->  		if (gso)
-> -			dev->features |= dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO);
-> +			dev->features |= dev->hw_features
-> +				& (NETIF_F_ALL_TSO | NETIF_F_UFO);
+On Tue, Jul 26, 2016 at 9:00 AM, Tom Walsh <tomwalsh73@gmail.com> wrote:
+> Not sure how this goes, but, we found a race condition in
+> drivers/net/ethernet/oki-semi/pch_gbe/
+>
+> The attached patch corrects for this.
+>
+> TomW
 
-I'm sorry, I don't like continuations to start with an
-operator on the next line. I prefer & on the previous line instead.
+So a few minor changes are probably needed.
 
-Is this one a preferred style now? Any pointers?
+First we don't recommend the use of camel case for variable names.  So
+"resetStatus" should probably be renamed to "reset_status".  Second is
+the fact that you seemed to have removed a tab that didn't need to be
+removed before the read of the INT_EN register.  Third you need to add
+a "Signed-off-by" containing your name and email address.  Finally we
+usually require the patches to be emailed inline to avoid having the
+attachments stripped.
 
->  		/* (!csum && gso) case will be fixed by register_netdev() */
->  	}
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-> @@ -1811,8 +1819,9 @@ static int virtnet_probe(struct virtio_d
->  		goto free;
->  
->  	for_each_possible_cpu(i) {
-> -		struct virtnet_stats *virtnet_stats;
-> -		virtnet_stats = per_cpu_ptr(vi->stats, i);
-> +		struct virtnet_stats *virtnet_stats
-> +			= per_cpu_ptr(vi->stats, i);
-> +
+You might also wan to go through the steps called out in
+https://www.kernel.org/doc/Documentation/SubmittingPatches
 
+Hope this helps.
 
-Same here for =.
-
->  		u64_stats_init(&virtnet_stats->tx_syncp);
->  		u64_stats_init(&virtnet_stats->rx_syncp);
->  	}
+- Alex
