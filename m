@@ -1,12 +1,11 @@
 From: Andreas Noever <andreas.noever@gmail.com>
-Subject: Re: [PATCH v4 0/7] thunderbolt: Introducing Thunderbolt(TM) networking
-Date: Tue, 26 Jul 2016 09:35:01 +0200
-Message-ID: <CAMxnaaW6O9rcEyDiqR7mMb4iS6hfhg9Zq=Ep2NaOhTCg34em0g@mail.gmail.com>
-References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com> <20160719220236.GC18635@localhost>
+Subject: Re: [PATCH v4 2/7] thunderbolt: Updating the register definitions
+Date: Tue, 26 Jul 2016 09:39:22 +0200
+Message-ID: <CAMxnaaVrxFNAANGWXi===pZTrA7T3Tj+ccywGG9ZtT5tWcOo4Q@mail.gmail.com>
+References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com> <1468836040-28043-3-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Amir Levy <amir.jer.levy@intel.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
+Cc: Greg KH <gregkh@linuxfoundation.org>,
 	Bjorn Helgaas <bhelgaas@google.com>,
 	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
@@ -14,56 +13,185 @@ Cc: Amir Levy <amir.jer.levy@intel.com>,
 	thunderbolt-linux <thunderbolt-linux@intel.com>,
 	"Westerberg, Mika" <mika.westerberg@intel.com>,
 	"Winkler, Tomas" <tomas.winkler@intel.com>
-To: Bjorn Helgaas <helgaas@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20160719220236.GC18635@localhost>
-Sender: linux-pci-owner@vger.kernel.org
+To: Amir Levy <amir.jer.levy@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468836040-28043-3-git-send-email-amir.jer.levy@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 20, 2016 at 12:02 AM, Bjorn Helgaas <helgaas@kernel.org> wrote:
-> On Mon, Jul 18, 2016 at 01:00:33PM +0300, Amir Levy wrote:
->> This is version 4 of Thunderbolt(TM) driver for non-Apple hardware.
->>
->> Changes since v3:
->>  - Moved new Thunderbolt device IDs from pci_ids.h to icm_nhi.h.
->>  - Cleanup and added some comments in code.
->>
->> These patches were pushed to GitHub where they can be reviewed more
->> comfortably with green/red highlighting:
->>       https://github.com/01org/thunderbolt-software-kernel-tree
->>
->> Daemon code:
->>       https://github.com/01org/thunderbolt-software-daemon
->>
->> For reference, here's a link to version 3:
->> [v3]: https://lkml.org/lkml/2016/7/14/311
->>
->> Amir Levy (7):
->>   thunderbolt: Macro rename
->>   thunderbolt: Updating the register definitions
->>   thunderbolt: Kconfig for Thunderbolt(TM) networking
->>   thunderbolt: Communication with the ICM (firmware)
->>   thunderbolt: Networking state machine
->>   thunderbolt: Networking transmit and receive
->>   thunderbolt: Networking doc
->>
->>  Documentation/00-INDEX                   |    2 +
->>  Documentation/thunderbolt-networking.txt |  135 ++
->>  drivers/thunderbolt/Kconfig              |   25 +-
->>  drivers/thunderbolt/Makefile             |    3 +-
->>  drivers/thunderbolt/icm/Makefile         |   28 +
->>  drivers/thunderbolt/icm/icm_nhi.c        | 1642 +++++++++++++++++++++
->>  drivers/thunderbolt/icm/icm_nhi.h        |   93 ++
->>  drivers/thunderbolt/icm/net.c            | 2276 ++++++++++++++++++++++++++++++
->>  drivers/thunderbolt/icm/net.h            |  274 ++++
->>  drivers/thunderbolt/nhi_regs.h           |  115 +-
->>  10 files changed, 4585 insertions(+), 8 deletions(-)
->>  create mode 100644 Documentation/thunderbolt-networking.txt
->>  create mode 100644 drivers/thunderbolt/icm/Makefile
->>  create mode 100644 drivers/thunderbolt/icm/icm_nhi.c
->>  create mode 100644 drivers/thunderbolt/icm/icm_nhi.h
->>  create mode 100644 drivers/thunderbolt/icm/net.c
->>  create mode 100644 drivers/thunderbolt/icm/net.h
+On Mon, Jul 18, 2016 at 12:00 PM, Amir Levy <amir.jer.levy@intel.com> wrote:
+> Adding more Thunderbolt(TM) register definitions
+> and some helper macros.
 >
-> Andreas, I assume you'll handle this.
-No, this is a separate driver.
+> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+> ---
+>  drivers/thunderbolt/nhi_regs.h | 109 +++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 109 insertions(+)
+>
+> diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+> index 75cf069..b8e961f 100644
+> --- a/drivers/thunderbolt/nhi_regs.h
+> +++ b/drivers/thunderbolt/nhi_regs.h
+> @@ -9,6 +9,11 @@
+>
+>  #include <linux/types.h>
+>
+> +#define NHI_MMIO_BAR 0
+> +
+> +#define TBT_RING_MIN_NUM_BUFFERS       2
+> +#define TBT_RING_MAX_FRAME_SIZE                (4 * 1024)
+> +
+>  enum ring_flags {
+>         RING_FLAG_ISOCH_ENABLE = 1 << 27, /* TX only? */
+>         RING_FLAG_E2E_FLOW_CONTROL = 1 << 28,
+> @@ -39,6 +44,33 @@ struct ring_desc {
+>         u32 time; /* write zero */
+>  } __packed;
+>
+> +/**
+> + * struct tbt_buf_desc - TX/RX ring buffer descriptor.
+> + * This is same as struct ring_desc, but without the use of bitfields and
+> + * with explicit endianity.
+> + */
+> +struct tbt_buf_desc {
+> +       __le64 phys;
+> +       __le32 attributes;
+> +       __le32 time;
+> +};
+Does sharing this file make sense? The style seems to be quite
+different (structs with bitfields vs explicit bit-access). I think I
+would prefer separate register definitions, unless you are reusing a
+substantial amount (I have not checked).
+
+Andreas
+
+> +
+> +#define DESC_ATTR_LEN_SHIFT            0
+> +#define DESC_ATTR_LEN_MASK             GENMASK(11, DESC_ATTR_LEN_SHIFT)
+> +#define DESC_ATTR_EOF_SHIFT            12
+> +#define DESC_ATTR_EOF_MASK             GENMASK(15, DESC_ATTR_EOF_SHIFT)
+> +#define DESC_ATTR_SOF_SHIFT            16
+> +#define DESC_ATTR_SOF_MASK             GENMASK(19, DESC_ATTR_SOF_SHIFT)
+> +#define DESC_ATTR_TX_ISOCH_DMA_EN      BIT(20) /* TX */
+> +#define DESC_ATTR_RX_CRC_ERR           BIT(20) /* RX after use */
+> +#define DESC_ATTR_DESC_DONE            BIT(21)
+> +#define DESC_ATTR_REQ_STS              BIT(22) /* TX and RX before use */
+> +#define DESC_ATTR_RX_BUF_OVRN_ERR      BIT(22) /* RX after use */
+> +#define DESC_ATTR_INT_EN               BIT(23)
+> +#define DESC_ATTR_OFFSET_SHIFT         24
+> +#define DESC_ATTR_OFFSET_MASK          GENMASK(31, DESC_ATTR_OFFSET_SHIFT)
+> +
+> +
+>  /* NHI registers in bar 0 */
+>
+>  /*
+> @@ -60,6 +92,30 @@ struct ring_desc {
+>   */
+>  #define REG_RX_RING_BASE       0x08000
+>
+> +#define REG_RING_STEP                  16
+> +#define REG_RING_PHYS_LO_OFFSET                0
+> +#define REG_RING_PHYS_HI_OFFSET                4
+> +#define REG_RING_CONS_PROD_OFFSET      8       /* cons - RO, prod - RW */
+> +#define REG_RING_CONS_SHIFT            0
+> +#define REG_RING_CONS_MASK             GENMASK(15, REG_RING_CONS_SHIFT)
+> +#define REG_RING_PROD_SHIFT            16
+> +#define REG_RING_PROD_MASK             GENMASK(31, REG_RING_PROD_SHIFT)
+> +#define REG_RING_SIZE_OFFSET           12
+> +#define REG_RING_SIZE_SHIFT            0
+> +#define REG_RING_SIZE_MASK             GENMASK(15, REG_RING_SIZE_SHIFT)
+> +#define REG_RING_BUF_SIZE_SHIFT                16
+> +#define REG_RING_BUF_SIZE_MASK         GENMASK(27, REG_RING_BUF_SIZE_SHIFT)
+> +
+> +#define TBT_RING_CONS_PROD_REG(iobase, ringbase, ringnumber) \
+> +                             ((iobase) + (ringbase) + \
+> +                             ((ringnumber) * REG_RING_STEP) + \
+> +                             REG_RING_CONS_PROD_OFFSET)
+> +
+> +#define TBT_REG_RING_PROD_EXTRACT(val) (((val) & REG_RING_PROD_MASK) >> \
+> +                                      REG_RING_PROD_SHIFT)
+> +
+> +#define TBT_REG_RING_CONS_EXTRACT(val) (((val) & REG_RING_CONS_MASK) >> \
+> +                                      REG_RING_CONS_SHIFT)
+>  /*
+>   * 32 bytes per entry, one entry for every hop (REG_HOP_COUNT)
+>   * 00: enum_ring_flags
+> @@ -77,6 +133,19 @@ struct ring_desc {
+>   * ..: unknown
+>   */
+>  #define REG_RX_OPTIONS_BASE    0x29800
+> +#define REG_RX_OPTS_TX_E2E_HOP_ID_SHIFT        12
+> +#define REG_RX_OPTS_TX_E2E_HOP_ID_MASK \
+> +                               GENMASK(22, REG_RX_OPTS_TX_E2E_HOP_ID_SHIFT)
+> +#define REG_RX_OPTS_MASK_OFFSET                4
+> +#define REG_RX_OPTS_MASK_EOF_SHIFT     0
+> +#define REG_RX_OPTS_MASK_EOF_MASK      GENMASK(15, REG_RX_OPTS_MASK_EOF_SHIFT)
+> +#define REG_RX_OPTS_MASK_SOF_SHIFT     16
+> +#define REG_RX_OPTS_MASK_SOF_MASK      GENMASK(31, REG_RX_OPTS_MASK_SOF_SHIFT)
+> +
+> +#define REG_OPTS_STEP                  32
+> +#define REG_OPTS_E2E_EN                        BIT(28)
+> +#define REG_OPTS_RAW                   BIT(30)
+> +#define REG_OPTS_VALID                 BIT(31)
+>
+>  /*
+>   * three bitfields: tx, rx, rx overflow
+> @@ -86,6 +155,7 @@ struct ring_desc {
+>   */
+>  #define REG_RING_NOTIFY_BASE   0x37800
+>  #define RING_NOTIFY_REG_COUNT(nhi) ((31 + 3 * nhi->hop_count) / 32)
+> +#define REG_RING_NOTIFY_STEP   4
+>
+>  /*
+>   * two bitfields: rx, tx
+> @@ -94,8 +164,47 @@ struct ring_desc {
+>   */
+>  #define REG_RING_INTERRUPT_BASE        0x38200
+>  #define RING_INTERRUPT_REG_COUNT(nhi) ((31 + 2 * nhi->hop_count) / 32)
+> +#define REG_RING_INT_TX_PROCESSED(ring_num)            BIT(ring_num)
+> +#define REG_RING_INT_RX_PROCESSED(ring_num, num_paths) BIT((ring_num) + \
+> +                                                           (num_paths))
+> +#define RING_INT_DISABLE(base, val) iowrite32( \
+> +                       ioread32((base) + REG_RING_INTERRUPT_BASE) & ~(val), \
+> +                       (base) + REG_RING_INTERRUPT_BASE)
+> +#define RING_INT_ENABLE(base, val) iowrite32( \
+> +                       ioread32((base) + REG_RING_INTERRUPT_BASE) | (val), \
+> +                       (base) + REG_RING_INTERRUPT_BASE)
+> +#define RING_INT_DISABLE_TX(base, ring_num) \
+> +       RING_INT_DISABLE(base, REG_RING_INT_TX_PROCESSED(ring_num))
+> +#define RING_INT_DISABLE_RX(base, ring_num, num_paths) \
+> +       RING_INT_DISABLE(base, REG_RING_INT_RX_PROCESSED(ring_num, num_paths))
+> +#define RING_INT_ENABLE_TX(base, ring_num) \
+> +       RING_INT_ENABLE(base, REG_RING_INT_TX_PROCESSED(ring_num))
+> +#define RING_INT_ENABLE_RX(base, ring_num, num_paths) \
+> +       RING_INT_ENABLE(base, REG_RING_INT_RX_PROCESSED(ring_num, num_paths))
+> +#define RING_INT_DISABLE_TX_RX(base, ring_num, num_paths) \
+> +       RING_INT_DISABLE(base, REG_RING_INT_TX_PROCESSED(ring_num) | \
+> +                              REG_RING_INT_RX_PROCESSED(ring_num, num_paths))
+> +
+> +#define REG_RING_INTERRUPT_STEP        4
+> +
+> +#define REG_INT_THROTTLING_RATE        0x38c00
+> +#define REG_INT_THROTTLING_RATE_STEP   4
+> +#define NUM_INT_VECTORS                        16
+> +
+> +#define REG_INT_VEC_ALLOC_BASE 0x38c40
+> +#define REG_INT_VEC_ALLOC_STEP         4
+> +#define REG_INT_VEC_ALLOC_FIELD_BITS   4
+> +#define REG_INT_VEC_ALLOC_FIELD_MASK   (BIT(REG_INT_VEC_ALLOC_FIELD_BITS) - 1)
+> +#define REG_INT_VEC_ALLOC_PER_REG      ((BITS_PER_BYTE * sizeof(u32)) / \
+> +                                        REG_INT_VEC_ALLOC_FIELD_BITS)
+>
+>  /* The last 11 bits contain the number of hops supported by the NHI port. */
+>  #define REG_HOP_COUNT          0x39640
+> +#define REG_HOP_COUNT_TOTAL_PATHS_MASK GENMASK(10, 0)
+> +
+> +#define REG_HOST_INTERFACE_RST 0x39858
+> +
+> +#define REG_DMA_MISC           0x39864
+> +#define REG_DMA_MISC_INT_AUTO_CLEAR    BIT(2)
+>
+>  #endif
+> --
+> 2.7.4
+>
