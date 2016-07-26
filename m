@@ -1,80 +1,66 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: question: tg3 driver/nics and inconsistent RX ring count
-Date: Tue, 26 Jul 2016 15:55:26 -0700
-Message-ID: <CACKFLim9OToL6h0pR=-=dQaVwPgSRWzxZb+H4jYxfsDa08B26w@mail.gmail.com>
-References: <01ffefd8-8191-b423-0ccf-feb2d769d8d2@ziu.info>
- <CAKgT0UekBsSbtv-jZ5qB29rAVBE_OnK=BEmavFu5DxuZX_7v-g@mail.gmail.com> <11f7cf93-7763-c0e1-85fb-49d47314d904@ziu.info>
+From: "Santander Bank UK" <no-reply@mail.co.uk>
+Subject: Antworten.//..
+Date: Tue, 26 Jul 2016 19:34:01 -0400
+Message-ID: <20160726233751.863ED4F129@wjpcomm.wjp.de>
+Reply-To: derek.b.gibson@aol.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	mcarlson@broadcom.com
-To: Michal Soltys <soltys@ziu.info>,
-	Siva Reddy Kallam <siva.kallam@broadcom.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <no-reply@mail.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:36502 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755979AbcGZWz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 18:55:28 -0400
-Received: by mail-io0-f169.google.com with SMTP id b62so48346518iod.3
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 15:55:27 -0700 (PDT)
-In-Reply-To: <11f7cf93-7763-c0e1-85fb-49d47314d904@ziu.info>
+Received: from wjpcomm.wjp.de ([212.65.13.83]:56102 "EHLO wjpcomm.wjp.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161023AbcGZXl5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 19:41:57 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 26, 2016 at 1:32 PM, Michal Soltys <soltys@ziu.info> wrote:
-> On 2016-07-26 22:06, Alexander Duyck wrote:
->> On Tue, Jul 26, 2016 at 12:52 PM, Michal Soltys <soltys@ziu.info> wrote:
->>> Hi,
->>>
->>> I have a few of BCM5720 and BCM5719 kinds sitting in Dell R320 and R520
->>> servers - and all of them have certain peculiarity: they claim to have
->>> up to 4 TX and RX rings (and this can be set/verified just fine through
->>> ethtool -l/-L, with driver defaulting to 4 rings), indirection table
->>> (ethtool -x) looks fine as well:
->>>
->>> RX flow hash indirection table for eth1b with 3 RX ring(s):
->>>     0:      0     1     2     3     0     1     2     3
->>>     8:      0     1     2     3     0     1     2     3
->>> ......
->>>
->>> But this "3 RX ring(s)" is actually a real limit if I try to adjust
->>> anything, for example all those commands would fail:
->>>
->>> ethtool -X eth1b equal 4
->>> ethtool -X eth1b weight 1 1 1 1
->>>
->>> But would work fine for 3 and less rings. This was quickly tested with
->>> different kernel/ethtool combinations, from old 3.16 to 4.6.y with same
->>> exact results. Nothing fancier (-N/-U) is supported either.
->>>
->>> Any hints/comments about the cause of this and/or possible workarounds ?
->>
->> Well a quick look at the driver code makes it seem the problem lies in
->> tg3_get_rxnfc.  I suspect the bug is related to the following lines:
->>
->>                 /* The first interrupt vector only
->>                  * handles link interrupts.
->>                  */
->>                 info->data -= 1;
->>
->> I'm not sure what the number of interrupt vectors has to do with the
->> number of rings.  Perhaps someone more familiar with the driver can
->> point out why you would subtract 1 from tp->rxq_cnt to get the number
->> of queues when it seems like it should be tp->rxq_cnt.
->>
->> Hope that helps.
->>
->> - Alex
->>
->
-> Ah thanks, seems to be the case then. Quick git blame shows it's been
-> since the very introduction of RSS indirection configurability (ca.
-> 2011) in this driver, 90415477bf1356f72acc34063ff52441fc10a754.
->
-> I've CCed the author, maybe he will be able to shed some light.
+Derek Gibson,
+Betrieb / Regional Manager
+Santander Bank Plc,
+47-48 Piccadilly
+PICCADILLY
+W1J0DT
+London, Vereinigtes K=F6nigreich
+=20
+Hallo,
 
-Matt is no longer working here.  The driver should support up to 5
-MSIX vectors and 4 RSS rings.  It looks like the code to subtract 1 in
-tg3_get_rxnfc() is not correct.  Siva will look further into this.
-Thanks for reporting the issue.
+Ich bin Derek Gibson, von Harlesden North West London, Leiter Rechnungs=
+wesen und Revision formal Senior Programmierer-Manager bei der Deutsche=
+n Bank, hier in England (Santander Bank Plc). Ich arbeitete auch f=FCr =
+die neuesten Minister Bank Plc.
+=20
+Ich brauche Ihre dringend Hilfe in der Summe von (=A3 21,5) Mio. Britis=
+che Pfund auf Ihr Konto innerhalb von 11 oder 15 Bankarbeitstagen zu =FC=
+bertragen. Dieses Geld ist seit Jahren in unserer Bank ohne Anspruch ru=
+hend. Ich m=F6chte die Bank Ihnen das Geld zu l=F6sen, da die n=E4chste=
+ Person an unsere verstorbenen Kunden (der Besitzer des Accounts), die =
+leider auf sein Leben verloren Februar 2003 durch den S=FCden der Verei=
+nigten Staaten Space Shuttle Columbia, Er starb ein einziger Mann. Ich =
+will nicht das Geld in der Bank Treasury-Konto als einem verlassenen Fo=
+nds zu gehen. Das ist also der Grund, warum ich Sie kontaktieren, so da=
+ss die Bank das Geld an Sie als den vermeintlichen n=E4chsten Angeh=F6r=
+igen des Verstorbenen Kunden freigeben kann. (Late David McDowell Brown=
+) ein amerikanischer B=FCrger von Arlington Virginia.
+Bitte ich m=F6chte Ihnen diesen Vorschlag als streng geheim zu halten u=
+nd sie zu l=F6schen, wenn Sie nicht interessiert sind.
+=20
+Hier ist die gemeinsame Nutzung Verh=E4ltnis; 50% f=FCr mich und 40% f=FC=
+r Sie, w=E4hrend 10% f=FCr alle w=E4hrend der Transaktion entstanden si=
+nd. Wenn Sie interessiert sind, kontaktieren Sie mich bitte sofort =FCb=
+er meine private / direkte E-Mail: derek.b.gibson@aol.co.uk
+
+Geben Sie mir die unten folgenden, wie wir haben 7 Tage, es zu durchlau=
+fen. Dies ist sehr dringend.
+=20
+1. Vollst=E4ndiger Name:
+2. Direkte Mobil:
+3. Kontakt Adresse:
+4. Beruf:
+5. Alter:
+6. Geschlecht:
+7. Nationalit=E4t:
+=20
+=46reundliche Gr=FC=DFe,
+Derek Gibson.
