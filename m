@@ -1,65 +1,65 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 26 Jul 2016 11:56:37 +0200
-Message-ID: <20160726095637.GC8749@unicorn.suse.cz>
-References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160725.173701.1282720667210726281.davem@davemloft.net>
- <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160725.213822.1745865660912873332.davem@davemloft.net>
- <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 0/2] Mellanox 100G mlx5 minimum inline header mode
+Date: Tue, 26 Jul 2016 13:22:49 +0300
+Message-ID: <CAJL1qvHRkOGsLg0QnsBaWTECjAx-+gWZ8AGoo5TTnE95QBm-Ow@mail.gmail.com>
+References: <1469365960-27100-1-git-send-email-saeedm@mellanox.com> <20160725.175436.969233393280158279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"dave.scott@docker.com" <dave.scott@docker.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"joe@perches.com" <joe@perches.com>,
-	"rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: saeedm@mellanox.com, netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36310 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751646AbcGZKWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 06:22:50 -0400
+Received: by mail-io0-f196.google.com with SMTP id y34so741774ioi.3
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 03:22:50 -0700 (PDT)
+In-Reply-To: <20160725.175436.969233393280158279.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 26, 2016 at 07:09:41AM +0000, Dexuan Cui wrote:
-> If you meant https://lkml.org/lkml/2016/7/13/382, I don't think Michal
-> Kubecek was suggesting I build my code using the existing AF_VSOCK
-> code(?)  I think he was only asking me to clarify the way I used to write
-> the text to explain why I can't fit my code into the existing AF_VSOCK
-> code. BTW, AF_VSOCK is not on S390, I think.
+In the default case eth_get_headlen() won't be called, it will happen
+only if PF administrator changes the mode from default to L4.
 
-Actually, I believe building on top of existing AF_VSOCK should be the
-first thought and only if this way shows unfeasible, one should consider
-a completely new implementation from scratch. After all, when VMware was
-upstreaming vsock, IIRC they had to work hard on making it a generic
-solution rather than a one purpose tool tailored for their specific use
-case.
+In L4 mode, we need to copy all the packet headers including L4, do
+you know of a better/cheaper way for doing that?
 
-What I wanted to say in that mail was that I didn't find the reasoning
-very convincing. The only point that wasn't like "AF_VSOCK has many
-features we don't need" was the incompatible addressing scheme. The
-cover letter text didn't convince me it was given as much thought as it
-deserved. I felt - and it still feel - that the option of building on
-top of vsock wasn't considered seriously enough.
+Thanks,
+Hadar
 
-I must also admit I'm a bit confused by your response to the issue of
-socket lookup performance. I always thought the main reason to use
-special hypervisor sockets instead of TCP/IP over virtual network
-devices was efficiency (to avoid the overhead of network protocol
-processing). The fact that traversing a linear linked list under
-a global mutex for each socket lookup is not an issue as opening
-a connection is going to be slow anyway surprised me therefore. But
-maybe it's fine as the typical use case is going to be small number of
-long running connections and traffic performance is going to make for
-the connection latency. Or there are other advantages, I don't know.
-But if that is the case, it would IMHO deserve to be explained.
-
-                                                       Michal Kubecek
+On Tue, Jul 26, 2016 at 3:54 AM, David Miller <davem@davemloft.net> wrote:
+> From: Saeed Mahameed <saeedm@mellanox.com>
+> Date: Sun, 24 Jul 2016 16:12:38 +0300
+>
+>> This small series from Hadar adds the support for minimum inline
+>> header mode query in mlx5e NIC driver.
+>>
+>> Today on TX the driver copies to the HW descriptor only up to L2
+>> header which is the default required mode and sufficient for today's
+>> needs.
+>>
+>> The header in the HW descriptor is used for HW loopback steering
+>> decision, without it packets will go directly to the wire with no
+>> questions asked.
+>>
+>> For TX loopback steering according to L2/L3/L4 headers, ConnectX-4
+>> requires to copy the corresponding headers into the send queue(SQ)
+>> WQE HW descriptor so it can decide whether to loop it back or to
+>> forward to wire.
+>>
+>> For legacy E-Switch mode only L2 headers copy is required.  For
+>> advanced steering (E-Switch offloads) more header layers may be
+>> required to be copied, the required mode will be advertised by FW to
+>> each VF and PF according to the corresponding E-Switch
+>> configuration.
+>>
+>> Changes V2:
+>>  - Allocate query_nic_vport_context_out on the stack
+>
+> Applied, but even doing an eth_get_headlen() every transmitted packet
+> it really too expensive.
+>
+> You shouldn't be touching networking headers so much when forwarding
+> frames.
