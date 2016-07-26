@@ -1,34 +1,110 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 26 Jul 2016 10:44:35 -0700 (PDT)
-Message-ID: <20160726.104435.102819545292415024.davem@davemloft.net>
-References: <20160725.213822.1745865660912873332.davem@davemloft.net>
-	<CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
-	<CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+From: John Fastabend via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Tue, 26 Jul 2016 10:53:05 -0700
+Message-ID: <5797A381.90406@gmail.com>
+References: <20160707124245.6d95635a@redhat.com> <5785413D.4050901@gmail.com>
+	<20160712223231.202cd122@redhat.com> <1619174.FzfZHYFiS5@xps13>
+	<CALx6S35XjCsG5EmiYBpbGk9NckQbe4VbNSGLqV7h+d16PgNGKg@mail.gmail.com>
+Reply-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, olaf@aepfle.de, gregkh@linuxfoundation.org,
-	jasowang@redhat.com, dave.scott@docker.com,
-	linux-kernel@vger.kernel.org, joe@perches.com,
-	rolf.neugebauer@docker.com, netdev@vger.kernel.org,
-	apw@canonical.com, devel@linuxdriverproject.org,
-	haiyangz@microsoft.com
-To: decui@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>, adrien.mazarguil-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tom Herbert via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
+	Thomas Monjalon <thomas.monjalon-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <CALx6S35XjCsG5EmiYBpbGk9NckQbe4VbNSGLqV7h+d16PgNGKg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Tue, 26 Jul 2016 07:09:41 +0000
+On 16-07-26 09:08 AM, Tom Herbert wrote:
+> On Tue, Jul 26, 2016 at 6:31 AM, Thomas Monjalon
+> <thomas.monjalon-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
+>> Hi,
+>>
+>> About RX filtering, there is an ongoing effort in DPDK to write an API
+>> which could leverage most of the hardware capabilities of any NICs:
+>>         https://rawgit.com/6WIND/rte_flow/master/rte_flow.html
+>>         http://thread.gmane.org/gmane.comp.networking.dpdk.devel/43352
+>> I understand that XDP does not target to support every hardware features,
+>> though it may be an interesting approach to check.
+>>
+> Thomas,
+> 
+> A major goal of XDP is to leverage and in fact encourage innovation in
+> hardware features. But, we are asking that vendors design the APIs
+> with the community in mind. For instance, if XDP supports crypto
+> offload it should have one API that different companies, we don't want
+> every vendor coming up with their own.
 
-> I googled "S390 hypervisor socket" but didn't find anything related (I think).
+The work in those threads is to create a single API for users of DPDK
+to interact with their hardware. The equivalent interface in Linux
+kernel is ntuple filters from ethtool the effort here is to make a
+usable interface to manage this from an application and also expose
+all the hardware features. Ethtool does a fairly poor job on both
+fronts IMO.
 
-That would be net/iucv/
+If we evolve the mechanism to run per rx queue xdp programs this
+interface could easily be used to forward packets to specific rx
+queues and run targeted xdp programs.
 
-There's also VMWare's stuff under net/vmw_vsock
+Integrating this functionality into running XDP programs as ebpf code
+seems a bit challenging to me because there is no software equivalent.
+Once XDP ebpf program is running the pkt has already landed on the rx
+queue. To me the mechanism to bind XDP programs to rx queues and steer
+specific flows (e.g. match a flow label and forward to a queue) needs
+to be part of the runtime environment not part of the main ebpf program
+itself. The runtime environment could use the above linked API. I know
+we debated earlier including this in the ebpf program itself but that
+really doesn't seem feasible to me. Whether the steering is expresses
+as an ebpf program or an API like above seems like a reasonable
+discussion. Perhaps a section could be used to describe the per program
+filter for example which would be different from an API approach used
+in the proposal above or the JIT could translate it into the above
+API for devices without instruction based hardware.
 
-It's just absolutely rediculous to make a new hypervisor socket
-interface over and over again, so much code duplication and
-replication.
+Step 0 should be to show a set of compelling use cases that want to run
+per queue programs then we can talk about the runtime.
+
+
+> 
+>> 2016-07-12 22:32, Jesper Dangaard Brouer via iovisor-dev:
+>>> On Tue, 12 Jul 2016 12:13:01 -0700
+>>> John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>>>
+>>>> Another use case I have is to make a really high performance AF_PACKET
+>>>> interface. So if there was a way to say bind a queue to an AF_PACKET
+>>>> ring and run a policy XDP program before hitting the AF_PACKET
+>>>> descriptor bit that would be really interesting because it would solve
+>>>> some of my need for poll mode drivers in userspace.
+>>
+>> Have you started this work?
+>> Do you have an idea of how RX would perform through XDP + AF_PACKET + DPDK?
+>>
+> I don't understand why the AF_PACKET with DPDK. They should be
+> mutually exclusive. XDP over DPDK does make sense.
+> 
+
+Because DPDK is more than just a poll mode driver that binds to a
+device. AF_Packet could be used as a replacement for a specific poll
+mode driver but the application could still use the other libraries
+provided by DPDK to build ACLs for example or deep packet inspection.
+
+
+> Tom
+> 
