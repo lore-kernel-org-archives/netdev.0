@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: use sk_filter_trim_cap for
- udp{,6}_queue_rcv_skb
-Date: Mon, 25 Jul 2016 21:40:42 -0700 (PDT)
-Message-ID: <20160725.214042.2053568298270455930.davem@davemloft.net>
-References: <0a5ec5a7e99c314f5f5f56f37380b70f8a5bc4ad.1469462373.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net] qed: Fix setting/clearing bit in completion bitmap
+Date: Mon, 25 Jul 2016 21:41:41 -0700 (PDT)
+Message-ID: <20160725.214141.261775983205991097.davem@davemloft.net>
+References: <1469462866-14103-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemdebruijn.kernel@gmail.com,
-	alexei.starovoitov@gmail.com, willemb@google.com
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, manish.chopra@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52226 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52238 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753714AbcGZEkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:40:43 -0400
-In-Reply-To: <0a5ec5a7e99c314f5f5f56f37380b70f8a5bc4ad.1469462373.git.daniel@iogearbox.net>
+	with ESMTP id S1751403AbcGZElm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:41:42 -0400
+In-Reply-To: <1469462866-14103-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Mon, 25 Jul 2016 18:06:12 +0200
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 25 Jul 2016 19:07:46 +0300
 
-> After a612769774a3 ("udp: prevent bugcheck if filter truncates packet
-> too much"), there followed various other fixes for similar cases such
-> as f4979fcea7fd ("rose: limit sk_filter trim to payload").
+> From: Manish Chopra <manish.chopra@qlogic.com>
 > 
-> Latter introduced a new helper sk_filter_trim_cap(), where we can pass
-> the trim limit directly to the socket filter handling. Make use of it
-> here as well with sizeof(struct udphdr) as lower cap limit and drop the
-> extra skb->len test in UDP's input path.
+> Slowpath completion handling is incorrectly changing
+> SPQ_RING_SIZE bits instead of a single one.
 > 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Fixes: 76a9a3642a0b ("qed: fix handling of concurrent ramrods")
+> Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
 Applied.
