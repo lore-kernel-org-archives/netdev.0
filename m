@@ -1,79 +1,45 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
-Date: Tue, 26 Jul 2016 15:59:53 +0200
-Message-ID: <2589898.190WVraD7Z@debian64>
-References: <201607260457.u6Q4v3pM010082@sdf.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next v2 1/2] net_sched: move tc_action into tcf_common
+Date: Tue, 26 Jul 2016 10:00:12 -0400
+Message-ID: <a3955281-054c-03e2-15b0-c09f6d2b93d2@mojatatu.com>
+References: <1469488182-12296-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1469488182-12296-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Al Viro <viro@zeniv.linux.org.uk>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alexmcwhirter@triadic.us
-To: Alan Curry <rlwinm@sdf.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201607260457.u6Q4v3pM010082@sdf.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34617 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756652AbcGZOAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 10:00:15 -0400
+Received: by mail-io0-f193.google.com with SMTP id g86so1683076ioj.1
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 07:00:15 -0700 (PDT)
+In-Reply-To: <1469488182-12296-2-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, July 26, 2016 4:57:03 AM CEST Alan Curry wrote:
-> Al Viro wrote:
-> > On Sun, Jul 24, 2016 at 07:45:13PM +0200, Christian Lamparter wrote:
-> > 
-> > > > The symptom is that downloaded files (http, ftp, and probably other
-> > > > protocols) have small corrupted segments (about 1-2 kilobytes long) in
-> > > > random locations. Only downloads that sustain a high speed for at least a
-> > > > few seconds are corrupted. Anything small enough to be received in less
-> > > > than about 5 seconds is not affected.
-> > 
-> > Can that sucker be reproduced with netcat?  That would eliminate all issues
-> > with multi-iovec recvmsg(2), narrowing the things down quite bit.
-> 
-> netcat seems to be immune. Comparing strace results, I didn't see any
-> recvmsg() calls in the other programs that have had the problem, but there
-> is an interesting difference: netcat calls select() to wait for the socket
-> to be ready for reading, where my other test programs just call read() and
-> let it block until ready.
-> 
-> So I wrote a small test program to isolate that difference. It downloads
-> a file using only read() and write() and a hardcoded HTTP request. It has
-> a select mode (main loop alternates read() and select() on the TCP socket)
-> and a noselect mode (main loop just read()s the TCP socket).
-> 
-> The program is included at the bottom of this message.
-> 
-> I ran it several times in both modes and got corruption if and only if the
-> noselect mode was used.
-> 
-> > 
-> > Another thing (and if that works, it's *NOT* a proper fix - it would be
-> > papering over the problem, but at least it would show where to look for
-> > it) - try (on top of mainline) the following delta:
-> > 
-> > diff --git a/net/core/datagram.c b/net/core/datagram.c
-> 
-> Will try that patch soon. Meanwhile, here's my test:
-> 
-> /* Demonstration program "dlbug".
->    Usage: dlbug select > outfile
->           or
->           dlbug noselect > outfile
->    outfile will contain the full HTTP response. Edit out the HTTP headers
->    and what's left should be a valid gzip if the download worked. */
-> [...]
-Thanks, I gave the program a try with my WNDA3100 and a WN821N v2 devices.
-I did not see any corruptions in any of the tests though. Can you tell me
-something about your wireless network too? I would like to know what router
-and firmware are you using? Also important: what's your wireless configuration?
-(WPA?, CCMP or TKIP? HT40, HT20 or Legacy rates? ...)
+On 16-07-25 07:09 PM, Cong Wang wrote:
+> struct tc_action is confusing, currently we use it for two purposes:
+> 1) Pass in arguments and carry out results from helper functions
+> 2) A generic representation for tc actions
+>
+> The first one is error-prone, since we need to make sure we don't
+> miss anything. This patch aims to get rid of this use, by moving
+> tc_action into tcf_common, so that they are allocated together
+> in hashtable and can be cast'ed easily.
+>
+> And together with the following patch, we could really make
+> tc_action a generic representation for all tc actions and each
+> type of action can inherit from it.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Probably the quickest and easiest way to get that information is by running
-the following commands as root, when you are connected to your wifi network
-and post the results:
-# iw dev wlan0 link
-# iw dev wlan0 scan dump
 
-(You can of course remove your device's MACs, but please do it consistently).
+Cong - i need to stare at this longer than cursory
+to give feedback. I apologize,
+I am in travel mode but will get back to you.
 
-Regards,
-Christian
+cheers,
+jamal
