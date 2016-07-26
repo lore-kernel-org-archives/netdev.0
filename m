@@ -1,82 +1,69 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: [PATCH net] be2net: perform temperature query in adapter regardless of  its interface state
-Date: Tue, 26 Jul 2016 17:39:42 -0300
-Message-ID: <1469565582-5984-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org
-To: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
-	padmanabh.ratnakar@broadcom.com,
-	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46181 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758054AbcGZUjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 16:39:49 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u6QKdNen005578
-	for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 16:39:49 -0400
-Received: from e24smtp01.br.ibm.com (e24smtp01.br.ibm.com [32.104.18.85])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 24dnc6rryd-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 16:39:48 -0400
-Received: from localhost
-	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-	Tue, 26 Jul 2016 17:39:45 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id D54F73520070
-	for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 16:39:23 -0400 (EDT)
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u6QKdhOA16843226
-	for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 17:39:43 -0300
-Received: from d24av01.br.ibm.com (localhost [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u6QKdgkj024673
-	for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 17:39:42 -0300
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
+Date: Tue, 26 Jul 2016 13:44:21 -0700
+Message-ID: <CAGXu5jJiSwjTYpPbCUmKGDUNGvXt4GxML6T0b5sNeT03dvjNrg@mail.gmail.com>
+References: <8737n5dscy.fsf@x220.int.ebiederm.org> <87d1m754jc.fsf@x220.int.ebiederm.org>
+ <6be70177-a81d-7ed8-d2c9-a596d4d6a165@gmail.com> <87shuwtp4c.fsf@x220.int.ebiederm.org>
+ <CAGXu5j+ZtZAFpW0ajnnBTRZk17ez6XYF=meEJY_rF7wwgyZB5Q@mail.gmail.com> <CAKgNAkhCvb-WkBbwebbBw6cfhg0FJ-SSbvK=aS1WK+BQ55eO5Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Containers <containers@lists.linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Jann Horn <jann@thejh.net>, Nikolay Borisov <kernel@kyup.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux API <linux-api@vger.kernel.org>
+To: Michael Kerrisk-manpages <mtk.manpages@gmail.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <CAKgNAkhCvb-WkBbwebbBw6cfhg0FJ-SSbvK=aS1WK+BQ55eO5Q@mail.gmail.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The be2net driver performs fw temperature queries on be_worker() routine,
-which is executed each second for each be_adapter. There is a frequency
-threshold to avoid fw query to happens at each call to be_worker();
-instead, currently a fw query occurs once in 64 runs of the procedure.
+On Tue, Jul 26, 2016 at 10:29 AM, Michael Kerrisk (man-pages)
+<mtk.manpages@gmail.com> wrote:
+> On 26 July 2016 at 18:52, Kees Cook <keescook@chromium.org> wrote:
+>> On Tue, Jul 26, 2016 at 8:06 AM, Eric W. Biederman
+>> <ebiederm@xmission.com> wrote:
+>>> "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com> writes:
+>>>
+>>>> Hello Eric,
+>>>>
+>>>> I realized I had a question after the last mail.
+>>>>
+>>>> On 07/21/2016 06:39 PM, Eric W. Biederman wrote:
+>>>>>
+>>>>> This patchset addresses two use cases:
+>>>>> - Implement a sane upper bound on the number of namespaces.
+>>>>> - Provide a way for sandboxes to limit the attack surface from
+>>>>>   namespaces.
+>>>>
+>>>> Can you say more about the second point? What exactly is the
+>>>> problem that is being addressed, and how does the patch series
+>>>> address it? (It would be good to have those details in the
+>>>> revised commit message...)
+>>>
+>>> At some point it was reported that seccomp was not sufficient to disable
+>>> namespace creation.  I need to go back and look at that claim to see
+>>> which set of circumstances that was referring to.  Seccomp doesn't stack
+>>> so I can see why it is an issue.
+>>
+>> seccomp does stack. The trouble usually comes from a perception that
+>> seccomp overhead is not trivial, so setting a system-wide policy is a
+>> bit of a large hammer for such a limitiation. Also, at the time,
+>> seccomp could be bypasses with ptrace, but this (as of v4.8) is no
+>> longer true.
+>
+> Sounds like someone needs to send me a patch for the seccomp.2 man page?
 
-Nevertheless, this fw temperature query is invoked only for adapters which
-interface is up, so we can see I/O errors on read of hwmon counters from
-userspace (from tools like lm-sensors) in case we have adapters' functions
-which interface is down.
+It's on my TODO list, no worries. :) I'm waiting for it to land in
+Linus's tree first. It's only been in -next so far.
 
-This patch moves the fw query code to be invoked even if interface is down.
-No functional changes were introduced.
+-Kees
 
-Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index ed98ef1..706fdfa 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4996,6 +4996,10 @@ static void be_worker(struct work_struct *work)
- 	struct be_rx_obj *rxo;
- 	int i;
- 
-+	if (be_physfn(adapter) &&
-+	    MODULO(adapter->work_counter, adapter->be_get_temp_freq) == 0)
-+		be_cmd_get_die_temperature(adapter);
-+
- 	/* when interrupts are not yet enabled, just reap any pending
- 	 * mcc completions
- 	 */
-@@ -5014,10 +5018,6 @@ static void be_worker(struct work_struct *work)
- 			be_cmd_get_stats(adapter, &adapter->stats_cmd);
- 	}
- 
--	if (be_physfn(adapter) &&
--	    MODULO(adapter->work_counter, adapter->be_get_temp_freq) == 0)
--		be_cmd_get_die_temperature(adapter);
--
- 	for_all_rx_queues(adapter, rxo, i) {
- 		/* Replenish RX-queues starved due to memory
- 		 * allocation failures.
 -- 
-2.1.0
+Kees Cook
+Chrome OS & Brillo Security
