@@ -1,44 +1,78 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: patch for PCH_GBE rotten packet (Intel EG20T Platform Controller).
-Date: Tue, 26 Jul 2016 09:59:08 -0700
-Message-ID: <CAKgT0UeMvwrjyj9VvJu63JjYSWKWvDNg9YLerachV8wezQES_g@mail.gmail.com>
-References: <CAMSBNFsZKdptMGnZr4DzRyQj593Snerisyuj_3qb=ducOra1FQ@mail.gmail.com>
+From: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2] net/mlx5_core/health: Remove deprecated
+ create_singlethread_workqueue
+Date: Tue, 26 Jul 2016 22:38:24 +0530
+Message-ID: <20160726170824.GA10721@Karyakshetra>
+References: <20160717051327.GA20674@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Tom Walsh <tomwalsh73@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:36331 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757246AbcGZQ7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:59:10 -0400
-Received: by mail-io0-f175.google.com with SMTP id b62so30409355iod.3
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:59:09 -0700 (PDT)
-In-Reply-To: <CAMSBNFsZKdptMGnZr4DzRyQj593Snerisyuj_3qb=ducOra1FQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160717051327.GA20674-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 26, 2016 at 9:00 AM, Tom Walsh <tomwalsh73@gmail.com> wrote:
-> Not sure how this goes, but, we found a race condition in
-> drivers/net/ethernet/oki-semi/pch_gbe/
->
-> The attached patch corrects for this.
->
-> TomW
+The workqueue health->wq was used as per device private health thread.
+This was done to perform delayed work.
 
-So a few minor changes are probably needed.
+The workqueue has a single workitem(&health->work) and
+hence doesn't require ordering. It is involved in handling the health of
+the device and is not being used on a memory reclaim path.
+Hence, the singlethreaded workqueue has been replaced with the use of
+system_wq.
 
-First we don't recommend the use of camel case for variable names.  So
-"resetStatus" should probably be renamed to "reset_status".  Second is
-the fact that you seemed to have removed a tab that didn't need to be
-removed before the read of the INT_EN register.  Third you need to add
-a "Signed-off-by" containing your name and email address.  Finally we
-usually require the patches to be emailed inline to avoid having the
-attachments stripped.
+Work item has been flushed in mlx5_health_cleanup() to ensure that
+there are no pending tasks while disconnecting the driver.
 
-You might also wan to go through the steps called out in
-https://www.kernel.org/doc/Documentation/SubmittingPatches
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ Changes in v2:
+	-Updated commit description as per the feedback received.
 
-Hope this helps.
+ drivers/net/ethernet/mellanox/mlx5/core/health.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-- Alex
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/health.c b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+index 42d16b9..9acbccf 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/health.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/health.c
+@@ -267,7 +267,7 @@ static void poll_health(unsigned long data)
+ 	if (in_fatal(dev) && !health->sick) {
+ 		health->sick = true;
+ 		print_health_info(dev);
+-		queue_work(health->wq, &health->work);
++		schedule_work(&health->work);
+ 	}
+ }
+
+@@ -296,7 +296,7 @@ void mlx5_health_cleanup(struct mlx5_core_dev *dev)
+ {
+ 	struct mlx5_core_health *health = &dev->priv.health;
+
+-	destroy_workqueue(health->wq);
++	flush_work(&health->work);
+ }
+
+ int mlx5_health_init(struct mlx5_core_dev *dev)
+@@ -311,10 +311,7 @@ int mlx5_health_init(struct mlx5_core_dev *dev)
+
+ 	strcpy(name, "mlx5_health");
+ 	strcat(name, dev_name(&dev->pdev->dev));
+-	health->wq = create_singlethread_workqueue(name);
+ 	kfree(name);
+-	if (!health->wq)
+-		return -ENOMEM;
+
+ 	INIT_WORK(&health->work, health_care);
+
+--
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
