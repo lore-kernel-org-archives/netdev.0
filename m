@@ -1,110 +1,82 @@
-From: John Fastabend via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Tue, 26 Jul 2016 10:53:05 -0700
-Message-ID: <5797A381.90406@gmail.com>
-References: <20160707124245.6d95635a@redhat.com> <5785413D.4050901@gmail.com>
-	<20160712223231.202cd122@redhat.com> <1619174.FzfZHYFiS5@xps13>
-	<CALx6S35XjCsG5EmiYBpbGk9NckQbe4VbNSGLqV7h+d16PgNGKg@mail.gmail.com>
-Reply-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 3/2] e1000e: convert systim overflow check to
+ use flags2
+Date: Tue, 26 Jul 2016 10:53:55 -0700
+Message-ID: <1469555635.2851.10.camel@intel.com>
+References: <20160725105648.00000dda@unknown>
+	 <1469554746-410-1-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-YufOot3VoGvmoTFLpVHu"
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:5895 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756175AbcGZRyG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 13:54:06 -0400
+In-Reply-To: <1469554746-410-1-git-send-email-jarod@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-YufOot3VoGvmoTFLpVHu
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2016-07-26 at 13:39 -0400, Jarod Wilson wrote:
+> Per Jesse Brandeburg, e1000e should be using flags for this sort of
+> thing.
+>=20
+> Littering functional code with device-specific checks is much messier
+> than
+> simply checking a flag, and having device-specific init set flags as
+> needed.
+> There are probably a number of other cases in the e1000e code that
+> could/should be converted similarly.
+>=20
+> At present, this patch is a follow-up to the previously submitted 2
+> patches, but I can redo the series to omit the conversion to a switch
+> entirely, if so desired.
+>=20
+> Suggested-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> CC: intel-wired-lan@lists.osuosl.org
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> ---
+> =C2=A0drivers/net/ethernet/intel/e1000e/82571.c=C2=A0=C2=A0 |=C2=A0 6 +++=
++--
+> =C2=A0drivers/net/ethernet/intel/e1000e/e1000.h=C2=A0=C2=A0 |=C2=A0 1 +
+> =C2=A0drivers/net/ethernet/intel/e1000e/ich8lan.c |=C2=A0 3 ++-
+> =C2=A0drivers/net/ethernet/intel/e1000e/netdev.c=C2=A0 | 10 ++--------
+> =C2=A04 files changed, 9 insertions(+), 11 deletions(-)
+
+This generates a compile issue, so I will be dropping this patch and will
+await an update.
+--=-YufOot3VoGvmoTFLpVHu
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>, adrien.mazarguil-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tom Herbert via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>,
-	Thomas Monjalon <thomas.monjalon-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <CALx6S35XjCsG5EmiYBpbGk9NckQbe4VbNSGLqV7h+d16PgNGKg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On 16-07-26 09:08 AM, Tom Herbert wrote:
-> On Tue, Jul 26, 2016 at 6:31 AM, Thomas Monjalon
-> <thomas.monjalon-pdR9zngts4EAvxtiuMwx3w@public.gmane.org> wrote:
->> Hi,
->>
->> About RX filtering, there is an ongoing effort in DPDK to write an API
->> which could leverage most of the hardware capabilities of any NICs:
->>         https://rawgit.com/6WIND/rte_flow/master/rte_flow.html
->>         http://thread.gmane.org/gmane.comp.networking.dpdk.devel/43352
->> I understand that XDP does not target to support every hardware features,
->> though it may be an interesting approach to check.
->>
-> Thomas,
-> 
-> A major goal of XDP is to leverage and in fact encourage innovation in
-> hardware features. But, we are asking that vendors design the APIs
-> with the community in mind. For instance, if XDP supports crypto
-> offload it should have one API that different companies, we don't want
-> every vendor coming up with their own.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-The work in those threads is to create a single API for users of DPDK
-to interact with their hardware. The equivalent interface in Linux
-kernel is ntuple filters from ethtool the effort here is to make a
-usable interface to manage this from an application and also expose
-all the hardware features. Ethtool does a fairly poor job on both
-fronts IMO.
+iQIcBAABCgAGBQJXl6OzAAoJEOVv75VaS+3OCEcP/20PQSB/CPNaPE2V31R666Ju
+5Mo9LESDIz+NOe3uA73CjabAAi4KrrHJV8TVj9bXaL8KxzC2Ifr5nKOfhr9XIbXY
+ozcluBpKjFHe8FW2j6eAj3UVw27+U6rM17I47jVfD88J1xDMD1Bg5rAxXpw+xweC
+FiQ0OnmOWuV8lD4pYfXRgEsRbqYlZU9VRKzgCLG28DHI3oIm6cdqNwjRIsGVvTYo
+v+3MQiS3mRXWARMLrB92WZmzYHUfjoy8QHFngur8St/1+9n1jkrQAQ/0ojuI7YrE
+nrEhofaZdKJpZwFtrQBKruICrGChyzY479FqJPYvejUbuzXHs9caJshv0vSNHFKk
+Lzp144fqv27lMjYfA9d8m2BhUyKSfd+Kyr69RGxRNMQXtCPpiG638mBTvPyzi+mW
+K33p040+iUHFEpnoqtjeG6DKvxjjOBsGULij2BHp6log6LUEemmh3RWRbqect5qg
+HSCIw8CdetiBXkjMEmdigzG42ebgwk2DT4zm6kEgOyL57mV/CDDQmKEmdZ+xOWI1
+KogcQP4fEQkOoMm1VUApFh0cwP0fJGkKispMfp8CFCuC34XbPZSYViADehQHKnTA
+eDDHhZVPCR8qXm0fwyRhPppp8Et73oMmqi16pHkrowbj+NPuYmeHP83GbzMvmWn2
+W/CLYEzD9wQhI4Y+7MFT
+=zLpo
+-----END PGP SIGNATURE-----
 
-If we evolve the mechanism to run per rx queue xdp programs this
-interface could easily be used to forward packets to specific rx
-queues and run targeted xdp programs.
-
-Integrating this functionality into running XDP programs as ebpf code
-seems a bit challenging to me because there is no software equivalent.
-Once XDP ebpf program is running the pkt has already landed on the rx
-queue. To me the mechanism to bind XDP programs to rx queues and steer
-specific flows (e.g. match a flow label and forward to a queue) needs
-to be part of the runtime environment not part of the main ebpf program
-itself. The runtime environment could use the above linked API. I know
-we debated earlier including this in the ebpf program itself but that
-really doesn't seem feasible to me. Whether the steering is expresses
-as an ebpf program or an API like above seems like a reasonable
-discussion. Perhaps a section could be used to describe the per program
-filter for example which would be different from an API approach used
-in the proposal above or the JIT could translate it into the above
-API for devices without instruction based hardware.
-
-Step 0 should be to show a set of compelling use cases that want to run
-per queue programs then we can talk about the runtime.
-
-
-> 
->> 2016-07-12 22:32, Jesper Dangaard Brouer via iovisor-dev:
->>> On Tue, 12 Jul 2016 12:13:01 -0700
->>> John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>>>
->>>> Another use case I have is to make a really high performance AF_PACKET
->>>> interface. So if there was a way to say bind a queue to an AF_PACKET
->>>> ring and run a policy XDP program before hitting the AF_PACKET
->>>> descriptor bit that would be really interesting because it would solve
->>>> some of my need for poll mode drivers in userspace.
->>
->> Have you started this work?
->> Do you have an idea of how RX would perform through XDP + AF_PACKET + DPDK?
->>
-> I don't understand why the AF_PACKET with DPDK. They should be
-> mutually exclusive. XDP over DPDK does make sense.
-> 
-
-Because DPDK is more than just a poll mode driver that binds to a
-device. AF_Packet could be used as a replacement for a specific poll
-mode driver but the application could still use the other libraries
-provided by DPDK to build ACLs for example or deep packet inspection.
-
-
-> Tom
-> 
+--=-YufOot3VoGvmoTFLpVHu--
