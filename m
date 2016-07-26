@@ -1,58 +1,44 @@
-From: Phil Turnbull <phil.turnbull@oracle.com>
-Subject: [PATCH net] l2tp: Correctly return -EBADF from pppol2tp_getname.
-Date: Tue, 26 Jul 2016 15:14:35 -0400
-Message-ID: <20160726191435.31503-1-phil.turnbull@oracle.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	James Chapman <jchapman@katalix.com>,
-	Phil Turnbull <phil.turnbull@oracle.com>
-To: netdev@vger.kernel.org
+From: Michal Soltys <soltys@ziu.info>
+Subject: question: tg3 driver/nics and inconsistent RX ring count
+Date: Tue, 26 Jul 2016 21:52:50 +0200
+Message-ID: <01ffefd8-8191-b423-0ccf-feb2d769d8d2@ziu.info>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24291 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751328AbcGZTQr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 15:16:47 -0400
+Received: from drutsystem.com ([84.10.39.251]:36355 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757532AbcGZTxB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 15:53:01 -0400
+Received: from [10.0.0.2] (89-65-85-89.dynamic.chello.pl [89.65.85.89])
+	(Authenticated sender: nozo)
+	by drutsystem.com (Postfix) with ESMTPA id C15F49371F
+	for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 21:52:50 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If 'tunnel' is NULL we should return -EBADF but the 'end_put_sess' path
-unconditionally sets 'error' back to zero. Rework the error path so it
-more closely matches pppol2tp_sendmsg.
+Hi,
 
-Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
-Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
----
- net/l2tp/l2tp_ppp.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+I have a few of BCM5720 and BCM5719 kinds sitting in Dell R320 and R520
+servers - and all of them have certain peculiarity: they claim to have
+up to 4 TX and RX rings (and this can be set/verified just fine through
+ethtool -l/-L, with driver defaulting to 4 rings), indirection table
+(ethtool -x) looks fine as well:
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 652c250b9a3b..d9560aa2dba3 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -866,10 +866,8 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
- 
- 	pls = l2tp_session_priv(session);
- 	tunnel = l2tp_sock_to_tunnel(pls->tunnel_sock);
--	if (tunnel == NULL) {
--		error = -EBADF;
-+	if (tunnel == NULL)
- 		goto end_put_sess;
--	}
- 
- 	inet = inet_sk(tunnel->sock);
- 	if ((tunnel->version == 2) && (tunnel->sock->sk_family == AF_INET)) {
-@@ -947,12 +945,11 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
- 	}
- 
- 	*usockaddr_len = len;
-+	error = 0;
- 
- 	sock_put(pls->tunnel_sock);
- end_put_sess:
- 	sock_put(sk);
--	error = 0;
--
- end:
- 	return error;
- }
--- 
-2.9.0.rc2
+RX flow hash indirection table for eth1b with 3 RX ring(s):
+    0:      0     1     2     3     0     1     2     3
+    8:      0     1     2     3     0     1     2     3
+......
+
+But this "3 RX ring(s)" is actually a real limit if I try to adjust
+anything, for example all those commands would fail:
+
+ethtool -X eth1b equal 4
+ethtool -X eth1b weight 1 1 1 1
+
+But would work fine for 3 and less rings. This was quickly tested with
+different kernel/ethtool combinations, from old 3.16 to 4.6.y with same
+exact results. Nothing fancier (-N/-U) is supported either.
+
+Any hints/comments about the cause of this and/or possible workarounds ?
