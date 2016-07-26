@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next 2/3] virtio: cleanup sizeof usage
-Date: Tue, 26 Jul 2016 09:20:10 -0700
-Message-ID: <20160726162036.179433604@networkplumber.org>
+Subject: [PATCH net-next 3/3] virtio: use kcalloc and kmalloc_array
+Date: Tue, 26 Jul 2016 09:20:11 -0700
+Message-ID: <20160726162037.897138759@networkplumber.org>
 References: <20160726162008.310530368@networkplumber.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
@@ -9,29 +9,49 @@ Cc: netdev@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34425 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756983AbcGZQUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:20:21 -0400
-Received: by mail-pf0-f171.google.com with SMTP id p64so1279219pfb.1
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:20:21 -0700 (PDT)
-Content-Disposition: inline; filename=virtio-sizeof.patch
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33773 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756800AbcGZQUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:20:23 -0400
+Received: by mail-pf0-f170.google.com with SMTP id y134so1293426pfg.0
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:20:23 -0700 (PDT)
+Content-Disposition: inline; filename=virtio-kcalloc.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although sizeof is an operator in C. Preferred usage is to use
-it as a function.
+Preferred style is to use kcalloc and kmalloc_array.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
---- a/drivers/net/virtio_net.c	2016-07-26 09:13:16.173384238 -0700
-+++ b/drivers/net/virtio_net.c	2016-07-26 09:13:16.169384220 -0700
-@@ -272,7 +272,7 @@ static struct sk_buff *page_to_skb(struc
+--- a/drivers/net/virtio_net.c	2016-07-26 09:13:19.805400983 -0700
++++ b/drivers/net/virtio_net.c	2016-07-26 09:13:19.801400965 -0700
+@@ -1551,13 +1551,13 @@ static int virtnet_find_vqs(struct virtn
+ 		    virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ);
  
- 	hdr_len = vi->hdr_len;
- 	if (vi->mergeable_rx_bufs)
--		hdr_padded_len = sizeof *hdr;
-+		hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
- 	else
- 		hdr_padded_len = sizeof(struct padded_vnet_hdr);
+ 	/* Allocate space for find_vqs parameters */
+-	vqs = kzalloc(total_vqs * sizeof(*vqs), GFP_KERNEL);
++	vqs = kzalloc(total_vqs, sizeof(*vqs), GFP_KERNEL);
+ 	if (!vqs)
+ 		goto err_vq;
+-	callbacks = kmalloc(total_vqs * sizeof(*callbacks), GFP_KERNEL);
++	callbacks = kmalloc_array(total_vqs, sizeof(*callbacks), GFP_KERNEL);
+ 	if (!callbacks)
+ 		goto err_callback;
+-	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
++	names = kmalloc_array(total_vqs, sizeof(*names), GFP_KERNEL);
+ 	if (!names)
+ 		goto err_names;
+ 
+@@ -1613,10 +1613,10 @@ static int virtnet_alloc_queues(struct v
+ {
+ 	int i;
+ 
+-	vi->sq = kzalloc(sizeof(*vi->sq) * vi->max_queue_pairs, GFP_KERNEL);
++	vi->sq = kcalloc(vi->max_queue_pairs, sizeof(*vi->sq), GFP_KERNEL);
+ 	if (!vi->sq)
+ 		goto err_sq;
+-	vi->rq = kzalloc(sizeof(*vi->rq) * vi->max_queue_pairs, GFP_KERNEL);
++	vi->rq = kcalloc(vi->max_queue_pairs, sizeof(*vi->rq), GFP_KERNEL);
+ 	if (!vi->rq)
+ 		goto err_rq;
  
