@@ -1,76 +1,60 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 2/2] net: davinci_cpdma: reduce time holding chan->lock in
- cpdma_chan_submit
-Date: Tue, 26 Jul 2016 17:25:58 +0300
-Message-ID: <66d886a4-4852-096c-a3b3-3faec3eb167f@ti.com>
-References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <1469534545-14478-3-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v2] net: davinci_cpdma: remove excessive dump of register
+ values to kernel log
+Date: Tue, 26 Jul 2016 17:26:39 +0300
+Message-ID: <4c8afcb9-f7a9-4db3-e923-48dca5cacc3c@ti.com>
+References: <1469440485-19889-1-git-send-email-u.kleine-koenig@pengutronix.de>
+ <20160725.175705.820422537273157170.davem@davemloft.net>
+ <fd720b67-ca2b-fe28-c151-0a749fbba821@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<kernel@pengutronix.de>
-To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+Cc: <mugunthanvnm@ti.com>, <linux-omap@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <kernel@pengutronix.de>
+To: David Miller <davem@davemloft.net>,
+	<u.kleine-koenig@pengutronix.de>,
+	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([198.47.19.11]:51993 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752703AbcGZO0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 10:26:10 -0400
-In-Reply-To: <1469534545-14478-3-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from devils.ext.ti.com ([198.47.26.153]:41902 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754552AbcGZO0w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 10:26:52 -0400
+In-Reply-To: <fd720b67-ca2b-fe28-c151-0a749fbba821@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2016 03:02 PM, Uwe Kleine-K=C3=B6nig wrote:
-> Allocating and preparing a dma descriptor doesn't need to happen unde=
-r
-> the channel's lock. So do this before taking the channel's lock. The =
-only
-> down side is that the dma descriptor might be allocated even though t=
-he
-> channel is about to be stopped. This is unlikely though.
->=20
-> Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 38 +++++++++++++++++------=
-----------
->  1 file changed, 20 insertions(+), 18 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/et=
-hernet/ti/davinci_cpdma.c
-> index 5ffa04a306c6..ba3462707ae3 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -542,24 +542,10 @@ int cpdma_chan_submit(struct cpdma_chan *chan, =
-void *token, void *data,
->  	u32				mode;
->  	int				ret =3D 0;
-> =20
-> -	spin_lock_irqsave(&chan->lock, flags);
-> -
-> -	if (chan->state =3D=3D CPDMA_STATE_TEARDOWN) {
-> -		ret =3D -EINVAL;
-> -		goto unlock_ret;
-> -	}
-> -
-> -	if (chan->count >=3D chan->desc_num)	{
-> -		chan->stats.desc_alloc_fail++;
-> -		ret =3D -ENOMEM;
-> -		goto unlock_ret;
-> -	}
++ CC: Ivan
 
-I'm not sure this is right thing to do. This check is expected to be st=
-rict
-and means "channel has exhausted the available descriptors, so further =
-descs allocation does not allowed".
+On 07/26/2016 05:09 PM, Grygorii Strashko wrote:
+> On 07/26/2016 03:57 AM, David Miller wrote:
+>> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>> Date: Mon, 25 Jul 2016 11:54:45 +0200
+>>
+>>> Such a big dump of register values is hardly useful on a production
+>>> system.
+>>>
+>>> Another downside of the now removed functions is that calling
+>>> emac_dump_regs resulted in at least 87 calls to dev_info while hold=
+ing a
+>>> spinlock and having irqs off which is a big source of latency.
+>>>
+>>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+>>
+>> Applied.
+>>
+>
+> :( To be honest I was really enjoyed using cpdma_ctlr_dump()
+> for debug purposed during the past few weeks in cpsw where I've added
+> calls to this func manually. And I even thinking about adding debug_f=
+s
+> entry for the same :(
+>
+> Pretty fast merge :(
+>
+>
 
 
-This also might affect on Ivan's work [1] "[PATCH 0/4]  net: ethernet: =
-ti: cpsw: add multi-queue support"
-
-
-
-[1] https://lkml.org/lkml/2016/6/30/603
 --=20
 regards,
 -grygorii
