@@ -1,111 +1,47 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [RFC PATCH] xfrm: Add option to reset oif in xfrm lookup
-Date: Mon, 25 Jul 2016 18:34:32 -0600
-Message-ID: <1469493272-14894-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: dsa@cumulusnetworks.com, steffen.klassert@secunet.com,
-	netdev@vger.kernel.org, herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:45296 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396AbcGZAem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 20:34:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Mon, 25 Jul 2016 17:37:01 -0700 (PDT)
+Message-ID: <20160725.173701.1282720667210726281.davem@davemloft.net>
+References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mkubecek@suse.cz, olaf@aepfle.de, gregkh@linuxfoundation.org,
+ jasowang@redhat.com, dave.scott@docker.com, linux-kernel@vger.kernel.org,
+ joe@perches.com, rolf.neugebauer@docker.com, netdev@vger.kernel.org,
+ apw@canonical.com, devel@linuxdriverproject.org, haiyangz@microsoft.com
+To: decui@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-We are seeing incorrect routing when tunneling packets over an
-interface and sending it over another interface. This scenario
-worked on 3.18 (and earlier) and failed on 4.4 kernel. The rules
-/ routes / policies were the same across kernels.
+From: Dexuan Cui <decui@microsoft.com>
+Date: Sat, 23 Jul 2016 01:35:51 +0000
 
-Commit 42a7b32b73d6 ("xfrm: Add oif to dst lookups") allowed
-preservation of the oif from a raw packet to a transformed packet.
-This causes issues with forwarding scenarios where the
-existing oif causes an incorrect route lookup.
+> +static struct sock *hvsock_create(struct net *net, struct socket *sock,
+> +				  gfp_t priority, unsigned short type)
+> +{
+> +	struct hvsock_sock *hvsk;
+> +	struct sock *sk;
+> +
+> +	sk = sk_alloc(net, AF_HYPERV, priority, &hvsock_proto, 0);
+> +	if (!sk)
+> +		return NULL;
+ ...
+> +	/* Looks stream-based socket doesn't need this. */
+> +	sk->sk_backlog_rcv = NULL;
+> +
+> +	sk->sk_state = 0;
+> +	sock_reset_flag(sk, SOCK_DONE);
 
-Create a new sysctl which resets oif in xfrm policy. Default value
-is 0 which means that oif is preserved on transform.
-
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- include/net/netns/xfrm.h | 1 +
- net/ipv4/xfrm4_policy.c  | 3 ++-
- net/ipv6/xfrm6_policy.c  | 3 ++-
- net/xfrm/xfrm_sysctl.c   | 8 ++++++++
- 4 files changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 24cd394..2e1beca 100644
---- a/include/net/netns/xfrm.h
-+++ b/include/net/netns/xfrm.h
-@@ -64,6 +64,7 @@ struct netns_xfrm {
- 	u32			sysctl_aevent_rseqth;
- 	int			sysctl_larval_drop;
- 	u32			sysctl_acq_expires;
-+	int 			sysctl_reset_oif;
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	*sysctl_hdr;
- #endif
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 7b0edb3..4dc3733 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -29,7 +29,8 @@ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
- 	memset(fl4, 0, sizeof(*fl4));
- 	fl4->daddr = daddr->a4;
- 	fl4->flowi4_tos = tos;
--	fl4->flowi4_oif = oif;
-+	if (!net->xfrm.sysctl_reset_oif)
-+		fl4->flowi4_oif = oif;
- 	if (saddr)
- 		fl4->saddr = saddr->a4;
- 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index c074771..13e72d7 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -36,7 +36,8 @@ static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
- 	int err;
- 
- 	memset(&fl6, 0, sizeof(fl6));
--	fl6.flowi6_oif = oif;
-+	if (!net->xfrm.sysctl_reset_oif)
-+		fl6.flowi6_oif = oif;
- 	fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
- 	memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
- 	if (saddr)
-diff --git a/net/xfrm/xfrm_sysctl.c b/net/xfrm/xfrm_sysctl.c
-index 05a6e3d..c9d374b 100644
---- a/net/xfrm/xfrm_sysctl.c
-+++ b/net/xfrm/xfrm_sysctl.c
-@@ -9,6 +9,7 @@ static void __net_init __xfrm_sysctl_init(struct net *net)
- 	net->xfrm.sysctl_aevent_rseqth = XFRM_AE_SEQT_SIZE;
- 	net->xfrm.sysctl_larval_drop = 1;
- 	net->xfrm.sysctl_acq_expires = 30;
-+	net->xfrm.sysctl_reset_oif = 0;
- }
- 
- #ifdef CONFIG_SYSCTL
-@@ -37,6 +38,12 @@ static struct ctl_table xfrm_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "xfrm_reset_oif",
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- 	{}
- };
- 
-@@ -53,6 +60,7 @@ int __net_init xfrm_sysctl_init(struct net *net)
- 	table[1].data = &net->xfrm.sysctl_aevent_rseqth;
- 	table[2].data = &net->xfrm.sysctl_larval_drop;
- 	table[3].data = &net->xfrm.sysctl_acq_expires;
-+	table[4].data = &net->xfrm.sysctl_reset_oif;
- 
- 	/* Don't export sysctls to unprivileged users */
- 	if (net->user_ns != &init_user_ns)
--- 
-1.9.1
+All of these are unnecessary initializations, since sk_alloc() zeroes
+out the 'sk' object for you.
