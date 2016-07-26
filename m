@@ -1,402 +1,147 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 5/5] tipc: dump monitor attributes
-Date: Tue, 26 Jul 2016 08:47:22 +0200
-Message-ID: <1469515642-9498-6-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 1/5] tipc: introduce constants
+	for tipc address validation
+Date: Tue, 26 Jul 2016 08:47:18 +0200
+Message-ID: <1469515642-9498-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1469515642-9498-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<maloy@donjonn.com>, <ying.xue@windriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:49608 "EHLO
-	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754451AbcGZGrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 02:47:42 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1469515642-9498-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-In this commit, we dump the monitor attributes when queried.
-The link monitor attributes are separated into two kinds:
-1. general attributes per bearer
-2. specific attributes per node/peer
-This style resembles the socket attributes and the nametable
-publications per socket.
+In this commit, we introduce defines for tipc address size,
+offset and mask specification for Zone.Cluster.Node.
+There is no functional change in this commit.
 
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- include/uapi/linux/tipc_netlink.h |  25 +++++++
- net/tipc/monitor.c                | 133 ++++++++++++++++++++++++++++++++++++++
- net/tipc/monitor.h                |   6 ++
- net/tipc/netlink.c                |   7 ++
- net/tipc/node.c                   |  86 ++++++++++++++++++++++++
- net/tipc/node.h                   |   3 +
- 6 files changed, 260 insertions(+)
+ include/uapi/linux/tipc.h | 30 ++++++++++++++++++++++++++----
+ net/tipc/addr.h           |  5 +----
+ net/tipc/bearer.c         |  4 ++--
+ 3 files changed, 29 insertions(+), 10 deletions(-)
 
-diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index d07c6ec76062..5f3f6d09fb79 100644
---- a/include/uapi/linux/tipc_netlink.h
-+++ b/include/uapi/linux/tipc_netlink.h
-@@ -58,6 +58,7 @@ enum {
- 	TIPC_NL_NAME_TABLE_GET,
- 	TIPC_NL_MON_SET,
- 	TIPC_NL_MON_GET,
-+	TIPC_NL_MON_PEER_GET,
- 
- 	__TIPC_NL_CMD_MAX,
- 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -75,6 +76,7 @@ enum {
- 	TIPC_NLA_NET,			/* nest */
- 	TIPC_NLA_NAME_TABLE,		/* nest */
- 	TIPC_NLA_MON,			/* nest */
-+	TIPC_NLA_MON_PEER,		/* nest */
- 
- 	__TIPC_NLA_MAX,
- 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -173,6 +175,11 @@ enum {
- enum {
- 	TIPC_NLA_MON_UNSPEC,
- 	TIPC_NLA_MON_ACTIVATION_THRESHOLD,	/* u32 */
-+	TIPC_NLA_MON_REF,			/* u32 */
-+	TIPC_NLA_MON_ACTIVE,			/* flag */
-+	TIPC_NLA_MON_BEARER_NAME,		/* string */
-+	TIPC_NLA_MON_PEERCNT,			/* u32 */
-+	TIPC_NLA_MON_LISTGEN,			/* u32 */
- 
- 	__TIPC_NLA_MON_MAX,
- 	TIPC_NLA_MON_MAX = __TIPC_NLA_MON_MAX - 1
-@@ -194,6 +201,24 @@ enum {
- 	TIPC_NLA_PUBL_MAX = __TIPC_NLA_PUBL_MAX - 1
+diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+index 6f71b9b41595..bf049e8fe31b 100644
+--- a/include/uapi/linux/tipc.h
++++ b/include/uapi/linux/tipc.h
+@@ -60,26 +60,48 @@ struct tipc_name_seq {
+ 	__u32 upper;
  };
  
-+/* Monitor peer info */
-+enum {
-+	TIPC_NLA_MON_PEER_UNSPEC,
++/* TIPC Address Size, Offset, Mask specification for Z.C.N
++ */
++#define TIPC_NODE_BITS          12
++#define TIPC_CLUSTER_BITS       12
++#define TIPC_ZONE_BITS          8
 +
-+	TIPC_NLA_MON_PEER_ADDR,			/* u32 */
-+	TIPC_NLA_MON_PEER_DOMGEN,		/* u32 */
-+	TIPC_NLA_MON_PEER_APPLIED,		/* u32 */
-+	TIPC_NLA_MON_PEER_UPMAP,		/* u64 */
-+	TIPC_NLA_MON_PEER_MEMBERS,		/* tlv */
-+	TIPC_NLA_MON_PEER_UP,			/* flag */
-+	TIPC_NLA_MON_PEER_HEAD,			/* flag */
-+	TIPC_NLA_MON_PEER_LOCAL,		/* flag */
-+	TIPC_NLA_MON_PEER_PAD,			/* flag */
++#define TIPC_NODE_OFFSET        0
++#define TIPC_CLUSTER_OFFSET     TIPC_NODE_BITS
++#define TIPC_ZONE_OFFSET        (TIPC_CLUSTER_OFFSET + TIPC_CLUSTER_BITS)
 +
-+	__TIPC_NLA_MON_PEER_MAX,
-+	TIPC_NLA_MON_PEER_MAX = __TIPC_NLA_MON_PEER_MAX - 1
-+};
++#define TIPC_NODE_SIZE          ((1UL << TIPC_NODE_BITS) - 1)
++#define TIPC_CLUSTER_SIZE       ((1UL << TIPC_CLUSTER_BITS) - 1)
++#define TIPC_ZONE_SIZE          ((1UL << TIPC_ZONE_BITS) - 1)
 +
- /* Nest, connection info */
- enum {
- 	TIPC_NLA_CON_UNSPEC,
-diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
-index 3579126e2ac8..be70a57c1ff9 100644
---- a/net/tipc/monitor.c
-+++ b/net/tipc/monitor.c
-@@ -33,9 +33,11 @@
-  * POSSIBILITY OF SUCH DAMAGE.
-  */
++#define TIPC_NODE_MASK		(TIPC_NODE_SIZE << TIPC_NODE_OFFSET)
++#define TIPC_CLUSTER_MASK	(TIPC_CLUSTER_SIZE << TIPC_CLUSTER_OFFSET)
++#define TIPC_ZONE_MASK		(TIPC_ZONE_SIZE << TIPC_ZONE_OFFSET)
++
++#define TIPC_ZONE_CLUSTER_MASK (TIPC_ZONE_MASK | TIPC_CLUSTER_MASK)
++
+ static inline __u32 tipc_addr(unsigned int zone,
+ 			      unsigned int cluster,
+ 			      unsigned int node)
+ {
+-	return (zone << 24) | (cluster << 12) | node;
++	return (zone << TIPC_ZONE_OFFSET) |
++		(cluster << TIPC_CLUSTER_OFFSET) |
++		node;
+ }
  
-+#include <net/genetlink.h>
+ static inline unsigned int tipc_zone(__u32 addr)
+ {
+-	return addr >> 24;
++	return addr >> TIPC_ZONE_OFFSET;
+ }
+ 
+ static inline unsigned int tipc_cluster(__u32 addr)
+ {
+-	return (addr >> 12) & 0xfff;
++	return (addr & TIPC_CLUSTER_MASK) >> TIPC_CLUSTER_OFFSET;
+ }
+ 
+ static inline unsigned int tipc_node(__u32 addr)
+ {
+-	return addr & 0xfff;
++	return addr & TIPC_NODE_MASK;
+ }
+ 
+ /*
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index 64f4004a6fac..bebb347803ce 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -43,9 +43,6 @@
+ #include <net/netns/generic.h>
  #include "core.h"
- #include "addr.h"
- #include "monitor.h"
-+#include "bearer.h"
  
- #define MAX_MON_DOMAIN       64
- #define MON_TIMEOUT          120000
-@@ -668,3 +670,134 @@ int tipc_nl_monitor_get_threshold(struct net *net)
+-#define TIPC_ZONE_MASK		0xff000000u
+-#define TIPC_CLUSTER_MASK	0xfffff000u
+-
+ static inline u32 tipc_own_addr(struct net *net)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+@@ -60,7 +57,7 @@ static inline u32 tipc_zone_mask(u32 addr)
  
- 	return tn->mon_threshold;
+ static inline u32 tipc_cluster_mask(u32 addr)
+ {
+-	return addr & TIPC_CLUSTER_MASK;
++	return addr & TIPC_ZONE_CLUSTER_MASK;
  }
-+
-+int __tipc_nl_add_monitor_peer(struct tipc_peer *peer, struct tipc_nl_msg *msg)
-+{
-+	struct tipc_mon_domain *dom = peer->domain;
-+	struct nlattr *attrs;
-+	void *hdr;
-+
-+	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
-+			  NLM_F_MULTI, TIPC_NL_MON_PEER_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	attrs = nla_nest_start(msg->skb, TIPC_NLA_MON_PEER);
-+	if (!attrs)
-+		goto msg_full;
-+
-+	if (nla_put_u32(msg->skb, TIPC_NLA_MON_PEER_ADDR, peer->addr))
-+		goto attr_msg_full;
-+	if (nla_put_u32(msg->skb, TIPC_NLA_MON_PEER_APPLIED, peer->applied))
-+		goto attr_msg_full;
-+
-+	if (peer->is_up)
-+		if (nla_put_flag(msg->skb, TIPC_NLA_MON_PEER_UP))
-+			goto attr_msg_full;
-+	if (peer->is_local)
-+		if (nla_put_flag(msg->skb, TIPC_NLA_MON_PEER_LOCAL))
-+			goto attr_msg_full;
-+	if (peer->is_head)
-+		if (nla_put_flag(msg->skb, TIPC_NLA_MON_PEER_HEAD))
-+			goto attr_msg_full;
-+
-+	if (dom) {
-+		if (nla_put_u32(msg->skb, TIPC_NLA_MON_PEER_DOMGEN, dom->gen))
-+			goto attr_msg_full;
-+		if (nla_put_u64_64bit(msg->skb, TIPC_NLA_MON_PEER_UPMAP,
-+				      dom->up_map, TIPC_NLA_MON_PEER_PAD))
-+			goto attr_msg_full;
-+		if (nla_put(msg->skb, TIPC_NLA_MON_PEER_MEMBERS,
-+			    dom->member_cnt * sizeof(u32), &dom->members))
-+			goto attr_msg_full;
-+	}
-+
-+	nla_nest_end(msg->skb, attrs);
-+	genlmsg_end(msg->skb, hdr);
-+	return 0;
-+
-+attr_msg_full:
-+	nla_nest_cancel(msg->skb, attrs);
-+msg_full:
-+	genlmsg_cancel(msg->skb, hdr);
-+
-+	return -EMSGSIZE;
-+}
-+
-+int tipc_nl_add_monitor_peer(struct net *net, struct tipc_nl_msg *msg,
-+			     u32 bearer_id, u32 *prev_node)
-+{
-+	struct tipc_monitor *mon = tipc_monitor(net, bearer_id);
-+	struct tipc_peer *peer = mon->self;
-+
-+	if (!mon)
-+		return -EINVAL;
-+
-+	read_lock_bh(&mon->lock);
-+	do {
-+		if (*prev_node) {
-+			if (peer->addr == *prev_node)
-+				*prev_node = 0;
-+			else
-+				continue;
-+		}
-+		if (__tipc_nl_add_monitor_peer(peer, msg)) {
-+			*prev_node = peer->addr;
-+			read_unlock_bh(&mon->lock);
-+			return -EMSGSIZE;
-+		}
-+	} while ((peer = peer_nxt(peer)) != mon->self);
-+	read_unlock_bh(&mon->lock);
-+
-+	return 0;
-+}
-+
-+int __tipc_nl_add_monitor(struct net *net, struct tipc_nl_msg *msg,
-+			  u32 bearer_id)
-+{
-+	struct tipc_monitor *mon = tipc_monitor(net, bearer_id);
-+	char bearer_name[TIPC_MAX_BEARER_NAME];
-+	struct nlattr *attrs;
-+	void *hdr;
-+	int ret;
-+
-+	ret = tipc_bearer_get_name(net, bearer_name, bearer_id);
-+	if (ret || !mon)
-+		return -EINVAL;
-+
-+	hdr = genlmsg_put(msg->skb, msg->portid, msg->seq, &tipc_genl_family,
-+			  NLM_F_MULTI, TIPC_NL_MON_GET);
-+	if (!hdr)
-+		return -EMSGSIZE;
-+
-+	attrs = nla_nest_start(msg->skb, TIPC_NLA_MON);
-+	if (!attrs)
-+		goto msg_full;
-+
-+	read_lock_bh(&mon->lock);
-+	if (nla_put_u32(msg->skb, TIPC_NLA_MON_REF, bearer_id))
-+		goto attr_msg_full;
-+	if (tipc_mon_is_active(net, mon))
-+		if (nla_put_flag(msg->skb, TIPC_NLA_MON_ACTIVE))
-+			goto attr_msg_full;
-+	if (nla_put_string(msg->skb, TIPC_NLA_MON_BEARER_NAME, bearer_name))
-+		goto attr_msg_full;
-+	if (nla_put_u32(msg->skb, TIPC_NLA_MON_PEERCNT, mon->peer_cnt))
-+		goto attr_msg_full;
-+	if (nla_put_u32(msg->skb, TIPC_NLA_MON_LISTGEN, mon->list_gen))
-+		goto attr_msg_full;
-+
-+	read_unlock_bh(&mon->lock);
-+	nla_nest_end(msg->skb, attrs);
-+	genlmsg_end(msg->skb, hdr);
-+
-+	return 0;
-+
-+attr_msg_full:
-+	nla_nest_cancel(msg->skb, attrs);
-+msg_full:
-+	genlmsg_cancel(msg->skb, hdr);
-+	read_unlock_bh(&mon->lock);
-+
-+	return -EMSGSIZE;
-+}
-diff --git a/net/tipc/monitor.h b/net/tipc/monitor.h
-index aedf62c60bd3..2a21b93e0d04 100644
---- a/net/tipc/monitor.h
-+++ b/net/tipc/monitor.h
-@@ -36,6 +36,8 @@
- #ifndef _TIPC_MONITOR_H
- #define _TIPC_MONITOR_H
  
-+#include "netlink.h"
-+
- /* struct tipc_mon_state: link instance's cache of monitor list and domain state
-  * @list_gen: current generation of this node's monitor list
-  * @gen: current generation of this node's local domain
-@@ -71,6 +73,10 @@ void tipc_mon_remove_peer(struct net *net, u32 addr, int bearer_id);
+ u32 tipc_own_addr(struct net *net);
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 4131d5a86f55..65b0998a9bab 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -225,7 +225,7 @@ static int tipc_enable_bearer(struct net *net, const char *name,
+ 	if (tipc_addr_domain_valid(disc_domain) &&
+ 	    (disc_domain != tn->own_addr)) {
+ 		if (tipc_in_scope(disc_domain, tn->own_addr)) {
+-			disc_domain = tn->own_addr & TIPC_CLUSTER_MASK;
++			disc_domain = tn->own_addr & TIPC_ZONE_CLUSTER_MASK;
+ 			res = 0;   /* accept any node in own cluster */
+ 		} else if (in_own_cluster_exact(net, disc_domain))
+ 			res = 0;   /* accept specified node in own cluster */
+@@ -832,7 +832,7 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
+ 	u32 prio;
  
- int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size);
- int tipc_nl_monitor_get_threshold(struct net *net);
-+int __tipc_nl_add_monitor(struct net *net, struct tipc_nl_msg *msg,
-+			  u32 bearer_id);
-+int tipc_nl_add_monitor_peer(struct net *net, struct tipc_nl_msg *msg,
-+			     u32 bearer_id, u32 *prev_node);
+ 	prio = TIPC_MEDIA_LINK_PRI;
+-	domain = tn->own_addr & TIPC_CLUSTER_MASK;
++	domain = tn->own_addr & TIPC_ZONE_CLUSTER_MASK;
  
- extern const int tipc_max_domain_size;
- #endif
-diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 2cfc5f7c6380..a84daec0afe9 100644
---- a/net/tipc/netlink.c
-+++ b/net/tipc/netlink.c
-@@ -64,6 +64,7 @@ tipc_nl_name_table_policy[TIPC_NLA_NAME_TABLE_MAX + 1] = {
- 
- const struct nla_policy tipc_nl_monitor_policy[TIPC_NLA_MON_MAX + 1] = {
- 	[TIPC_NLA_MON_UNSPEC]			= { .type = NLA_UNSPEC },
-+	[TIPC_NLA_MON_REF]			= { .type = NLA_U32 },
- 	[TIPC_NLA_MON_ACTIVATION_THRESHOLD]	= { .type = NLA_U32 },
- };
- 
-@@ -229,6 +230,12 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 	{
- 		.cmd	= TIPC_NL_MON_GET,
- 		.doit	= tipc_nl_node_get_monitor,
-+		.dumpit	= tipc_nl_node_dump_monitor,
-+		.policy = tipc_nl_policy,
-+	},
-+	{
-+		.cmd	= TIPC_NL_MON_PEER_GET,
-+		.dumpit	= tipc_nl_node_dump_monitor_peer,
- 		.policy = tipc_nl_policy,
- 	},
- };
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 2a7e74753f9f..21974191e425 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -2007,3 +2007,89 @@ int tipc_nl_node_get_monitor(struct sk_buff *skb, struct genl_info *info)
- 
- 	return genlmsg_reply(msg.skb, info);
- }
-+
-+int tipc_nl_node_dump_monitor(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	u32 prev_bearer = cb->args[0];
-+	struct tipc_nl_msg msg;
-+	int err;
-+	int i;
-+
-+	if (prev_bearer == MAX_BEARERS)
-+		return 0;
-+
-+	msg.skb = skb;
-+	msg.portid = NETLINK_CB(cb->skb).portid;
-+	msg.seq = cb->nlh->nlmsg_seq;
-+
-+	rtnl_lock();
-+	for (i = prev_bearer; i < MAX_BEARERS; i++) {
-+		prev_bearer = i;
-+		err = __tipc_nl_add_monitor(net, &msg, prev_bearer);
-+		if (err)
-+			goto out;
-+	}
-+
-+out:
-+	rtnl_unlock();
-+	cb->args[0] = prev_bearer;
-+
-+	return skb->len;
-+}
-+
-+int tipc_nl_node_dump_monitor_peer(struct sk_buff *skb,
-+				   struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	u32 prev_node = cb->args[1];
-+	u32 bearer_id = cb->args[2];
-+	int done = cb->args[0];
-+	struct tipc_nl_msg msg;
-+	int err;
-+
-+	if (!prev_node) {
-+		struct nlattr **attrs;
-+		struct nlattr *mon[TIPC_NLA_MON_MAX + 1];
-+
-+		err = tipc_nlmsg_parse(cb->nlh, &attrs);
-+		if (err)
-+			return err;
-+
-+		if (!attrs[TIPC_NLA_MON])
-+			return -EINVAL;
-+
-+		err = nla_parse_nested(mon, TIPC_NLA_MON_MAX,
-+				       attrs[TIPC_NLA_MON],
-+				       tipc_nl_monitor_policy);
-+		if (err)
-+			return err;
-+
-+		if (!mon[TIPC_NLA_MON_REF])
-+			return -EINVAL;
-+
-+		bearer_id = nla_get_u32(mon[TIPC_NLA_MON_REF]);
-+
-+		if (bearer_id >= MAX_BEARERS)
-+			return -EINVAL;
-+	}
-+
-+	if (done)
-+		return 0;
-+
-+	msg.skb = skb;
-+	msg.portid = NETLINK_CB(cb->skb).portid;
-+	msg.seq = cb->nlh->nlmsg_seq;
-+
-+	rtnl_lock();
-+	err = tipc_nl_add_monitor_peer(net, &msg, bearer_id, &prev_node);
-+	if (!err)
-+		done = 1;
-+
-+	rtnl_unlock();
-+	cb->args[0] = done;
-+	cb->args[1] = prev_node;
-+	cb->args[2] = bearer_id;
-+
-+	return skb->len;
-+}
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 216f053b817f..d69fdfcc0ec9 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -80,4 +80,7 @@ int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
- 
- int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_node_get_monitor(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_node_dump_monitor(struct sk_buff *skb, struct netlink_callback *cb);
-+int tipc_nl_node_dump_monitor_peer(struct sk_buff *skb,
-+				   struct netlink_callback *cb);
- #endif
+ 	if (!info->attrs[TIPC_NLA_BEARER])
+ 		return -EINVAL;
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity planning
+reports.http://sdm.link/zohodev2dev
