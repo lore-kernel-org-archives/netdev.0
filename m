@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: ipmr/ip6mr: update lastuse on entry
- change
-Date: Tue, 26 Jul 2016 15:19:14 -0700 (PDT)
-Message-ID: <20160726.151914.1012145725428146096.davem@davemloft.net>
-References: <1469550861-13032-1-git-send-email-nikolay@cumulusnetworks.com>
-	<1469552092-16019-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH v2] net/mlx5_core/health: Remove deprecated
+ create_singlethread_workqueue
+Date: Tue, 26 Jul 2016 15:19:21 -0700 (PDT)
+Message-ID: <20160726.151921.304567441512097113.davem@davemloft.net>
+References: <20160717051327.GA20674@leon.nu>
+	<20160726170824.GA10721@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	sharpd@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41892 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753251AbcGZWTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 18:19:17 -0400
-In-Reply-To: <1469552092-16019-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: matanb@mellanox.com, leonro@mellanox.com, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tj@kernel.org
+To: bhaktipriya96@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160726170824.GA10721@Karyakshetra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Tue, 26 Jul 2016 18:54:52 +0200
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Date: Tue, 26 Jul 2016 22:38:24 +0530
 
-> Currently lastuse is updated on entry creation and cache hit, but it should
-> also be updated on entry change. Since both on add and update the ttl array
-> is updated we can simply update the lastuse in ipmr_update_thresholds.
+> The workqueue health->wq was used as per device private health thread.
+> This was done to perform delayed work.
 > 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> The workqueue has a single workitem(&health->work) and
+> hence doesn't require ordering. It is involved in handling the health of
+> the device and is not being used on a memory reclaim path.
+> Hence, the singlethreaded workqueue has been replaced with the use of
+> system_wq.
+> 
+> Work item has been flushed in mlx5_health_cleanup() to ensure that
+> there are no pending tasks while disconnecting the driver.
+> 
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
 Applied.
