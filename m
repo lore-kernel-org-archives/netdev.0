@@ -1,56 +1,102 @@
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Subject: RE: [PATCH v4 2/7] thunderbolt: Updating the register definitions
-Date: Tue, 26 Jul 2016 09:08:31 +0000
-Message-ID: <E607265CB020454880711A6F96C05A03926A9D7A@hasmsx107.ger.corp.intel.com>
-References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
- <1468836040-28043-3-git-send-email-amir.jer.levy@intel.com>
- <CAMxnaaVrxFNAANGWXi===pZTrA7T3Tj+ccywGG9ZtT5tWcOo4Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
+ context at kernel/irq/manage.c:110
+Date: Tue, 26 Jul 2016 11:14:52 +0200
+Message-ID: <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160726035003.GA15095@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	thunderbolt-linux <thunderbolt-linux@intel.com>,
-	"Westerberg, Mika" <mika.westerberg@intel.com>,
-	"Winkler, Tomas" <tomas.winkler@intel.com>
-To: Andreas Noever <andreas.noever@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Satyam Sharma <satyam@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ye Xiaolong <xiaolong.ye@intel.com>
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMxnaaVrxFNAANGWXi===pZTrA7T3Tj+ccywGG9ZtT5tWcOo4Q@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <20160726035003.GA15095@wfg-t540p.sh.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBKdWwgMjYgMjAxNiwgMTA6MzkgQU0sIEFuZHJlYXMgTm9ldmVyIHdyb3RlOg0KPiBP
-biBNb24sIEp1bCAxOCwgMjAxNiBhdCAxMjowMCBQTSwgQW1pciBMZXZ5IDxhbWlyLmplci5sZXZ5
-QGludGVsLmNvbT4NCj4gd3JvdGU6DQo+ID4gQWRkaW5nIG1vcmUgVGh1bmRlcmJvbHQoVE0pIHJl
-Z2lzdGVyIGRlZmluaXRpb25zIGFuZCBzb21lIGhlbHBlcg0KPiA+IG1hY3Jvcy4NCj4gPg0KPiA+
-IFNpZ25lZC1vZmYtYnk6IEFtaXIgTGV2eSA8YW1pci5qZXIubGV2eUBpbnRlbC5jb20+DQo+ID4g
-LS0tDQo+ID4gIGRyaXZlcnMvdGh1bmRlcmJvbHQvbmhpX3JlZ3MuaCB8IDEwOQ0KPiA+ICsrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrDQo+ID4gIDEgZmlsZSBjaGFuZ2Vk
-LCAxMDkgaW5zZXJ0aW9ucygrKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvdGh1bmRl
-cmJvbHQvbmhpX3JlZ3MuaA0KPiA+IGIvZHJpdmVycy90aHVuZGVyYm9sdC9uaGlfcmVncy5oIGlu
-ZGV4IDc1Y2YwNjkuLmI4ZTk2MWYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy90aHVuZGVyYm9s
-dC9uaGlfcmVncy5oDQo+ID4gKysrIGIvZHJpdmVycy90aHVuZGVyYm9sdC9uaGlfcmVncy5oDQo+
-ID4gQEAgLTksNiArOSwxMSBAQA0KPiA+DQo+ID4gICNpbmNsdWRlIDxsaW51eC90eXBlcy5oPg0K
-PiA+DQo+ID4gKyNkZWZpbmUgTkhJX01NSU9fQkFSIDANCj4gPiArDQo+ID4gKyNkZWZpbmUgVEJU
-X1JJTkdfTUlOX05VTV9CVUZGRVJTICAgICAgIDINCj4gPiArI2RlZmluZSBUQlRfUklOR19NQVhf
-RlJBTUVfU0laRSAgICAgICAgICAgICAgICAoNCAqIDEwMjQpDQo+ID4gKw0KPiA+ICBlbnVtIHJp
-bmdfZmxhZ3Mgew0KPiA+ICAgICAgICAgUklOR19GTEFHX0lTT0NIX0VOQUJMRSA9IDEgPDwgMjcs
-IC8qIFRYIG9ubHk/ICovDQo+ID4gICAgICAgICBSSU5HX0ZMQUdfRTJFX0ZMT1dfQ09OVFJPTCA9
-IDEgPDwgMjgsIEBAIC0zOSw2ICs0NCwzMyBAQA0KPiA+IHN0cnVjdCByaW5nX2Rlc2Mgew0KPiA+
-ICAgICAgICAgdTMyIHRpbWU7IC8qIHdyaXRlIHplcm8gKi8NCj4gPiAgfSBfX3BhY2tlZDsNCj4g
-Pg0KPiA+ICsvKioNCj4gPiArICogc3RydWN0IHRidF9idWZfZGVzYyAtIFRYL1JYIHJpbmcgYnVm
-ZmVyIGRlc2NyaXB0b3IuDQo+ID4gKyAqIFRoaXMgaXMgc2FtZSBhcyBzdHJ1Y3QgcmluZ19kZXNj
-LCBidXQgd2l0aG91dCB0aGUgdXNlIG9mIGJpdGZpZWxkcw0KPiA+ICthbmQNCj4gPiArICogd2l0
-aCBleHBsaWNpdCBlbmRpYW5pdHkuDQo+ID4gKyAqLw0KPiA+ICtzdHJ1Y3QgdGJ0X2J1Zl9kZXNj
-IHsNCj4gPiArICAgICAgIF9fbGU2NCBwaHlzOw0KPiA+ICsgICAgICAgX19sZTMyIGF0dHJpYnV0
-ZXM7DQo+ID4gKyAgICAgICBfX2xlMzIgdGltZTsNCj4gPiArfTsNCj4gRG9lcyBzaGFyaW5nIHRo
-aXMgZmlsZSBtYWtlIHNlbnNlPyBUaGUgc3R5bGUgc2VlbXMgdG8gYmUgcXVpdGUgZGlmZmVyZW50
-DQo+IChzdHJ1Y3RzIHdpdGggYml0ZmllbGRzIHZzIGV4cGxpY2l0IGJpdC1hY2Nlc3MpLiBJIHRo
-aW5rIEkgd291bGQgcHJlZmVyIHNlcGFyYXRlDQo+IHJlZ2lzdGVyIGRlZmluaXRpb25zLCB1bmxl
-c3MgeW91IGFyZSByZXVzaW5nIGEgc3Vic3RhbnRpYWwgYW1vdW50IChJIGhhdmUgbm90DQo+IGNo
-ZWNrZWQpLg0KPiANCg0KSSdtIHVzaW5nIGFsbCB0aGUgbWFjcm9zIGZyb20gdGhlIG9yaWdpbmFs
-IGZpbGUsIGV4Y2VwdCB0aGUgc3RydWN0IHdpdGggdGhlIGJpdGZpZWxkcy4NCg0KQW1pcg0K
+On Tue, 2016-07-26 at 11:50 +0800, Fengguang Wu wrote:
+> Greetings,
+> 
+> This BUG message can be found in recent kernels as well as v4.4 and
+> linux-stable. It happens when running
+> 
+>         modprobe netconsole netconsole=@/,$port@$server/ 
+> 
+> [   39.937534] 22 Jul 13:30:40 ntpdate[440]: step time server 192.168.1.1 offset -673.833841 sec
+> [   39.943285] netpoll: netconsole: local port 6665
+> [   39.943436] netpoll: netconsole: local IPv4 address 0.0.0.0
+> [   39.943609] netpoll: netconsole: interface 'eth0'
+> [   39.943756] netpoll: netconsole: remote port 6672
+> [   39.943913] netpoll: netconsole: remote IPv4 address 192.168.1.1
+> [   39.944099] netpoll: netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
+> [   39.944311] netpoll: netconsole: local IP 192.168.1.193
+> [   39.944514] BUG: sleeping function called from invalid context at kernel/irq/manage.c:110
+> [   39.944515] in_atomic(): 1, irqs_disabled(): 1, pid: 448, name: modprobe
+> [   39.944517] CPU: 6 PID: 448 Comm: modprobe Not tainted 4.7.0-rc7-wt-ath-10122-gf9b5ec2 #102
+> [   39.944518] Hardware name:                  /DZ77BH-55K, BIOS BHZ7710H.86A.0097.2012.1228.1346 12/28/2012
+> [   39.944522]  0000000000000000 ffffc90001f2f9e8 ffffffff813417d9 ffff88007faba5c0
+> [   39.944524]  000000000000006e ffffc90001f2fa00 ffffffff810aec03 ffffffff81a25948
+> [   39.944525]  ffffc90001f2fa28 ffffffff810aec9a ffff8803e5bd9400 ffff8803e50fbd68
+> [   39.944526] Call Trace:
+> [   39.944533]  [<ffffffff813417d9>] dump_stack+0x63/0x8a
+> [   39.944536]  [<ffffffff810aec03>] ___might_sleep+0xd3/0x120
+> [   39.944537]  [<ffffffff810aec9a>] __might_sleep+0x4a/0x80
+> [   39.944541]  [<ffffffff810e4638>] synchronize_irq+0x38/0xa0
+> [   39.944543]  [<ffffffff810e3c8e>] ? __irq_put_desc_unlock+0x1e/0x40
+> [   39.944545]  [<ffffffff810e48e3>] ? __disable_irq_nosync+0x43/0x60
+> [   39.944547]  [<ffffffff810e492c>] disable_irq+0x1c/0x20
+> [   39.944559]  [<ffffffffa0220932>] e1000_netpoll+0xf2/0x120 [e1000e]
+> [   39.944563]  [<ffffffff815f2bdc>] netpoll_poll_dev+0x5c/0x1a0
+> [   39.944567]  [<ffffffff815bb361>] ? __kmalloc_reserve+0x31/0x90
+> [   39.944569]  [<ffffffff815f2e8b>] netpoll_send_skb_on_dev+0x16b/0x250
+> [   39.944572]  [<ffffffff815f325c>] netpoll_send_udp+0x2ec/0x450
+> [   39.944576]  [<ffffffffa003cb62>] write_msg+0xb2/0xf0 [netconsole]
+> [   39.944578]  [<ffffffff810e04e5>] call_console_drivers+0x115/0x120
+> [   39.944580]  [<ffffffff810e1f13>] console_unlock+0x333/0x5c0
+> [   39.944583]  [<ffffffff810e2c74>] register_console+0x1c4/0x380
+> [   39.944586]  [<ffffffffa004f1c5>] init_netconsole+0x1c5/0x1000 [netconsole]
+> [   39.944588]  [<ffffffffa004f000>] ? 0xffffffffa004f000
+> [   39.944591]  [<ffffffff8100216d>] do_one_initcall+0x3d/0x150
+> [   39.944592]  [<ffffffff810aec9a>] ? __might_sleep+0x4a/0x80
+> [   39.944596]  [<ffffffff811f5098>] ? kmem_cache_alloc_trace+0x188/0x1e0
+> [   39.944598]  [<ffffffff8118f871>] do_init_module+0x5f/0x1d8
+> [   39.944602]  [<ffffffff81114009>] load_module+0x1429/0x1b40
+> [   39.944604]  [<ffffffff81110cd0>] ? __symbol_put+0x40/0x40
+> [   39.944607]  [<ffffffff8121f348>] ? kernel_read_file+0x178/0x1a0
+> [   39.944608]  [<ffffffff8121f429>] ? kernel_read_file_from_fd+0x49/0x80
+> [   39.944611]  [<ffffffff81114973>] SYSC_finit_module+0xc3/0xf0
+> [   39.944614]  [<ffffffff811149be>] SyS_finit_module+0xe/0x10
+> [   39.944617]  [<ffffffff816e5877>] entry_SYSCALL_64_fastpath+0x1a/0xa9
+> [   39.946384] console [netcon0] enabled
+> [   39.946514] netconsole: network logging started
+> 
+> Can this be possibly fixed?
+
+Could you try this ?
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index f42129d09e2c23ba9fdb5cde890d50ecb7166a42..a53c41c4c4f7d1fe52f95a2cab8784a938b3820b 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -5257,9 +5257,13 @@ static void e1000_netpoll(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 
+-	disable_irq(adapter->pdev->irq);
+-	e1000_intr(adapter->pdev->irq, netdev);
+-	enable_irq(adapter->pdev->irq);
++	if (napi_schedule_prep(&adapter->napi)) {
++		adapter->total_tx_bytes = 0;
++		adapter->total_tx_packets = 0;
++		adapter->total_rx_bytes = 0;
++		adapter->total_rx_packets = 0;
++		__napi_schedule(&adapter->napi);
++	}
+ }
+ #endif
+ 
