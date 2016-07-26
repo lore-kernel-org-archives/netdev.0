@@ -1,68 +1,113 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Tue, 26 Jul 2016 19:29:02 +0200
-Message-ID: <CAKgNAkhCvb-WkBbwebbBw6cfhg0FJ-SSbvK=aS1WK+BQ55eO5Q@mail.gmail.com>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org> <87d1m754jc.fsf@x220.int.ebiederm.org>
- <6be70177-a81d-7ed8-d2c9-a596d4d6a165@gmail.com> <87shuwtp4c.fsf@x220.int.ebiederm.org>
- <CAGXu5j+ZtZAFpW0ajnnBTRZk17ez6XYF=meEJY_rF7wwgyZB5Q@mail.gmail.com>
-Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>, Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>,
-	"Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAGXu5j+ZtZAFpW0ajnnBTRZk17ez6XYF=meEJY_rF7wwgyZB5Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jarod Wilson <jarod@redhat.com>
+Subject: [PATCH net-next 3/2] e1000e: convert systim overflow check to use flags2
+Date: Tue, 26 Jul 2016 13:39:06 -0400
+Message-ID: <1469554746-410-1-git-send-email-jarod@redhat.com>
+References: <20160725105648.00000dda@unknown>
+Cc: Jarod Wilson <jarod@redhat.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160725105648.00000dda@unknown>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26 July 2016 at 18:52, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
-> On Tue, Jul 26, 2016 at 8:06 AM, Eric W. Biederman
-> <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
->> "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->>
->>> Hello Eric,
->>>
->>> I realized I had a question after the last mail.
->>>
->>> On 07/21/2016 06:39 PM, Eric W. Biederman wrote:
->>>>
->>>> This patchset addresses two use cases:
->>>> - Implement a sane upper bound on the number of namespaces.
->>>> - Provide a way for sandboxes to limit the attack surface from
->>>>   namespaces.
->>>
->>> Can you say more about the second point? What exactly is the
->>> problem that is being addressed, and how does the patch series
->>> address it? (It would be good to have those details in the
->>> revised commit message...)
->>
->> At some point it was reported that seccomp was not sufficient to disable
->> namespace creation.  I need to go back and look at that claim to see
->> which set of circumstances that was referring to.  Seccomp doesn't stack
->> so I can see why it is an issue.
->
-> seccomp does stack. The trouble usually comes from a perception that
-> seccomp overhead is not trivial, so setting a system-wide policy is a
-> bit of a large hammer for such a limitiation. Also, at the time,
-> seccomp could be bypasses with ptrace, but this (as of v4.8) is no
-> longer true.
+Per Jesse Brandeburg, e1000e should be using flags for this sort of thing.
 
-Sounds like someone needs to send me a patch for the seccomp.2 man page?
+Littering functional code with device-specific checks is much messier than
+simply checking a flag, and having device-specific init set flags as needed.
+There are probably a number of other cases in the e1000e code that
+could/should be converted similarly.
 
-Cheers,
+At present, this patch is a follow-up to the previously submitted 2
+patches, but I can redo the series to omit the conversion to a switch
+entirely, if so desired.
 
-Michael
+Suggested-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/intel/e1000e/82571.c   |  6 ++++--
+ drivers/net/ethernet/intel/e1000e/e1000.h   |  1 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c |  3 ++-
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 10 ++--------
+ 4 files changed, 9 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 7fd4d54..6b03c85 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -2032,7 +2032,8 @@ const struct e1000_info e1000_82574_info = {
+ 				  | FLAG2_DISABLE_ASPM_L0S
+ 				  | FLAG2_DISABLE_ASPM_L1
+ 				  | FLAG2_NO_DISABLE_RX
+-				  | FLAG2_DMA_BURST,
++				  | FLAG2_DMA_BURST
++				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
+ 	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+@@ -2053,7 +2054,8 @@ const struct e1000_info e1000_82583_info = {
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+ 	.flags2			= FLAG2_DISABLE_ASPM_L0S
+ 				  | FLAG2_DISABLE_ASPM_L1
+-				  | FLAG2_NO_DISABLE_RX,
++				  | FLAG2_NO_DISABLE_RX
++				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
+ 	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index ef96cd1..879cca4 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -452,6 +452,7 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
+ #define FLAG2_PCIM2PCI_ARBITER_WA         BIT(11)
+ #define FLAG2_DFLT_CRC_STRIPPING          BIT(12)
+ #define FLAG2_CHECK_RX_HWTSTAMP           BIT(13)
++#define FLAG2_CHECK_SYSTIM_OVERFLOW       BIT(14)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 3e11322..395ca26 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -5885,7 +5885,8 @@ const struct e1000_info e1000_pch_lpt_info = {
+ 				  | FLAG_HAS_JUMBO_FRAMES
+ 				  | FLAG_APME_IN_WUC,
+ 	.flags2			= FLAG2_HAS_PHY_STATS
+-				  | FLAG2_HAS_EEE,
++				  | FLAG2_HAS_EEE
++				  | FLAGS2_CHECK_SYSTIM_OVERFLOW,
+ 	.pba			= 26,
+ 	.max_hw_frame_size	= 9022,
+ 	.get_variants		= e1000_get_variants_ich8lan,
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 206bd6a..1b2df11 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4371,15 +4371,9 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 	systim = (cycle_t)systimel;
+ 	systim |= (cycle_t)systimeh << 32;
+ 
+-	switch (hw->mac.type) {
+-	case e1000_82574:
+-	case e1000_82583:
+-	case e1000_pch_lpt:
++	if (adapter->flags2 & FLAG2_CHECK_SYSTIM_OVERFLOW)
+ 		systim = e1000e_sanitize_systim(hw, systim);
+-		break;
+-	default:
+-		break;
+-	}
++
+ 	return systim;
+ }
+ 
 -- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+1.8.3.1
