@@ -1,37 +1,57 @@
-From: Alan Curry <rlwinm@sdf.org>
-Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
-Date: Tue, 26 Jul 2016 04:32:13 +0000 (UTC)
-Message-ID: <201607260432.u6Q4WDae012275@sdf.org>
-References: <1659922.nTqITfJpFk@debian64>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Mon, 25 Jul 2016 21:38:22 -0700 (PDT)
+Message-ID: <20160725.213822.1745865660912873332.davem@davemloft.net>
+References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160725.173701.1282720667210726281.davem@davemloft.net>
+ <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	alexmcwhirter@triadic.us
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1659922.nTqITfJpFk@debian64>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mkubecek@suse.cz, olaf@aepfle.de, gregkh@linuxfoundation.org,
+ jasowang@redhat.com, dave.scott@docker.com, linux-kernel@vger.kernel.org,
+ joe@perches.com, rolf.neugebauer@docker.com, netdev@vger.kernel.org,
+ apw@canonical.com, devel@linuxdriverproject.org, haiyangz@microsoft.com
+To: decui@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Christian Lamparter wrote:
-> 
-> As for carl9170: I'm not sure what the driver or firmware can do about
-> this at this time. You can try to disable the hardware crypto by setting
-> nohwcrypt via the module option. However, this might not do anything at all.
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 26 Jul 2016 03:09:16 +0000
 
-The nohwcrypt parameter didn't make any difference.
+> BTW, during the past month, at least 7 other people also reviewed
+> the patch and gave me quite a few good comments, which have
+> been addressed.
 
-> > 
-> > lsusb identifies my network device as:
-> > 
-> > Bus 005 Device 004: ID 0cf3:1002 Atheros Communications, Inc. TP-Link TL-WN821N v2 802.11n [Atheros AR9170]
-> > 
-> > I have version 1.9.9 of carl9170-1.fw in /lib/firmware
-> Just one additional question: Is the TL-WN821N connected to a USB3 port?
+Correction: Several people gave coding style and simple corrections
+to your patch.
 
-It never has been before. I tried it today and it made no difference.
+Very few gave any review of the _SUBSTANCE_ of your changes.
 
--- 
-Alan Curry
+And the one of the few who did, and suggested you build your
+facilities using the existing S390 hypervisor socket infrastructure,
+you brushed off _IMMEDIATELY_.
+
+That drives me crazy.  The one person who gave you real feedback
+you basically didn't consider seriously at all.
+
+I know why you don't want to consider alternative implementations,
+and it's because you guys have so much invested in what you've
+implemented already.
+
+But that's tough and not our problem.
+
+And until this changes, yes, this submission will be stuck in the
+mud and continue slogging on like this.
+
+Sorry.
