@@ -1,147 +1,75 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 1/5] tipc: introduce constants
-	for tipc address validation
-Date: Tue, 26 Jul 2016 08:47:18 +0200
-Message-ID: <1469515642-9498-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net-next v2 4/5] tipc: add a function to get the bearer name
+Date: Tue, 26 Jul 2016 08:47:21 +0200
+Message-ID: <1469515642-9498-5-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1469515642-9498-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, tipc-discussion@lists.sourceforge.net
+Content-Type: text/plain
+Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
+	<maloy@donjonn.com>, <ying.xue@windriver.com>
 To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:50669 "EHLO
+	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754451AbcGZGri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 02:47:38 -0400
 In-Reply-To: <1469515642-9498-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In this commit, we introduce defines for tipc address size,
-offset and mask specification for Zone.Cluster.Node.
-There is no functional change in this commit.
+Introduce a new function to get the bearer name from
+its id. This is used in subsequent commit.
 
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 ---
- include/uapi/linux/tipc.h | 30 ++++++++++++++++++++++++++----
- net/tipc/addr.h           |  5 +----
- net/tipc/bearer.c         |  4 ++--
- 3 files changed, 29 insertions(+), 10 deletions(-)
+ net/tipc/bearer.c | 21 +++++++++++++++++++++
+ net/tipc/bearer.h |  1 +
+ 2 files changed, 22 insertions(+)
 
-diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
-index 6f71b9b41595..bf049e8fe31b 100644
---- a/include/uapi/linux/tipc.h
-+++ b/include/uapi/linux/tipc.h
-@@ -60,26 +60,48 @@ struct tipc_name_seq {
- 	__u32 upper;
- };
- 
-+/* TIPC Address Size, Offset, Mask specification for Z.C.N
-+ */
-+#define TIPC_NODE_BITS          12
-+#define TIPC_CLUSTER_BITS       12
-+#define TIPC_ZONE_BITS          8
-+
-+#define TIPC_NODE_OFFSET        0
-+#define TIPC_CLUSTER_OFFSET     TIPC_NODE_BITS
-+#define TIPC_ZONE_OFFSET        (TIPC_CLUSTER_OFFSET + TIPC_CLUSTER_BITS)
-+
-+#define TIPC_NODE_SIZE          ((1UL << TIPC_NODE_BITS) - 1)
-+#define TIPC_CLUSTER_SIZE       ((1UL << TIPC_CLUSTER_BITS) - 1)
-+#define TIPC_ZONE_SIZE          ((1UL << TIPC_ZONE_BITS) - 1)
-+
-+#define TIPC_NODE_MASK		(TIPC_NODE_SIZE << TIPC_NODE_OFFSET)
-+#define TIPC_CLUSTER_MASK	(TIPC_CLUSTER_SIZE << TIPC_CLUSTER_OFFSET)
-+#define TIPC_ZONE_MASK		(TIPC_ZONE_SIZE << TIPC_ZONE_OFFSET)
-+
-+#define TIPC_ZONE_CLUSTER_MASK (TIPC_ZONE_MASK | TIPC_CLUSTER_MASK)
-+
- static inline __u32 tipc_addr(unsigned int zone,
- 			      unsigned int cluster,
- 			      unsigned int node)
- {
--	return (zone << 24) | (cluster << 12) | node;
-+	return (zone << TIPC_ZONE_OFFSET) |
-+		(cluster << TIPC_CLUSTER_OFFSET) |
-+		node;
- }
- 
- static inline unsigned int tipc_zone(__u32 addr)
- {
--	return addr >> 24;
-+	return addr >> TIPC_ZONE_OFFSET;
- }
- 
- static inline unsigned int tipc_cluster(__u32 addr)
- {
--	return (addr >> 12) & 0xfff;
-+	return (addr & TIPC_CLUSTER_MASK) >> TIPC_CLUSTER_OFFSET;
- }
- 
- static inline unsigned int tipc_node(__u32 addr)
- {
--	return addr & 0xfff;
-+	return addr & TIPC_NODE_MASK;
- }
- 
- /*
-diff --git a/net/tipc/addr.h b/net/tipc/addr.h
-index 64f4004a6fac..bebb347803ce 100644
---- a/net/tipc/addr.h
-+++ b/net/tipc/addr.h
-@@ -43,9 +43,6 @@
- #include <net/netns/generic.h>
- #include "core.h"
- 
--#define TIPC_ZONE_MASK		0xff000000u
--#define TIPC_CLUSTER_MASK	0xfffff000u
--
- static inline u32 tipc_own_addr(struct net *net)
- {
- 	struct tipc_net *tn = net_generic(net, tipc_net_id);
-@@ -60,7 +57,7 @@ static inline u32 tipc_zone_mask(u32 addr)
- 
- static inline u32 tipc_cluster_mask(u32 addr)
- {
--	return addr & TIPC_CLUSTER_MASK;
-+	return addr & TIPC_ZONE_CLUSTER_MASK;
- }
- 
- u32 tipc_own_addr(struct net *net);
 diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 4131d5a86f55..65b0998a9bab 100644
+index 65b0998a9bab..65b1bbf133bd 100644
 --- a/net/tipc/bearer.c
 +++ b/net/tipc/bearer.c
-@@ -225,7 +225,7 @@ static int tipc_enable_bearer(struct net *net, const char *name,
- 	if (tipc_addr_domain_valid(disc_domain) &&
- 	    (disc_domain != tn->own_addr)) {
- 		if (tipc_in_scope(disc_domain, tn->own_addr)) {
--			disc_domain = tn->own_addr & TIPC_CLUSTER_MASK;
-+			disc_domain = tn->own_addr & TIPC_ZONE_CLUSTER_MASK;
- 			res = 0;   /* accept any node in own cluster */
- 		} else if (in_own_cluster_exact(net, disc_domain))
- 			res = 0;   /* accept specified node in own cluster */
-@@ -832,7 +832,7 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
- 	u32 prio;
+@@ -171,6 +171,27 @@ struct tipc_bearer *tipc_bearer_find(struct net *net, const char *name)
+ 	return NULL;
+ }
  
- 	prio = TIPC_MEDIA_LINK_PRI;
--	domain = tn->own_addr & TIPC_CLUSTER_MASK;
-+	domain = tn->own_addr & TIPC_ZONE_CLUSTER_MASK;
- 
- 	if (!info->attrs[TIPC_NLA_BEARER])
- 		return -EINVAL;
++/*     tipc_bearer_get_name - get the bearer name from its id.
++ *     @net: network namespace
++ *     @name: a pointer to the buffer where the name will be stored.
++ *     @bearer_id: the id to get the name from.
++ */
++int tipc_bearer_get_name(struct net *net, char *name, u32 bearer_id)
++{
++	struct tipc_net *tn = tipc_net(net);
++	struct tipc_bearer *b;
++
++	if (bearer_id >= MAX_BEARERS)
++		return -EINVAL;
++
++	b = rtnl_dereference(tn->bearer_list[bearer_id]);
++	if (!b)
++		return -EINVAL;
++
++	strcpy(name, b->name);
++	return 0;
++}
++
+ void tipc_bearer_add_dest(struct net *net, u32 bearer_id, u32 dest)
+ {
+ 	struct tipc_net *tn = net_generic(net, tipc_net_id);
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index f1e6db5e6345..43757f1f9cb3 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -197,6 +197,7 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *buf,
+ void tipc_bearer_add_dest(struct net *net, u32 bearer_id, u32 dest);
+ void tipc_bearer_remove_dest(struct net *net, u32 bearer_id, u32 dest);
+ struct tipc_bearer *tipc_bearer_find(struct net *net, const char *name);
++int tipc_bearer_get_name(struct net *net, char *name, u32 bearer_id);
+ struct tipc_media *tipc_media_find(const char *name);
+ void tipc_bearer_reset_all(struct net *net);
+ int tipc_bearer_setup(void);
 -- 
 2.1.4
-
-
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity planning
-reports.http://sdm.link/zohodev2dev
