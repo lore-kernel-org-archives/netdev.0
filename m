@@ -1,68 +1,57 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 3/3] virtio: use kcalloc and kmalloc_array
-Date: Tue, 26 Jul 2016 18:34:00 +0200
-Message-ID: <579790F8.2000409@cumulusnetworks.com>
-References: <20160726162008.310530368@networkplumber.org>
- <20160726162037.897138759@networkplumber.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net-next] net: ipmr/ip6mr: update lastuse on entry change
+Date: Tue, 26 Jul 2016 18:34:21 +0200
+Message-ID: <1469550861-13032-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Donald Sharp <sharpd@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35111 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753992AbcGZQeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:34:04 -0400
-Received: by mail-wm0-f51.google.com with SMTP id f65so181082418wmi.0
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:34:02 -0700 (PDT)
-In-Reply-To: <20160726162037.897138759@networkplumber.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:35994 "EHLO
+	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754485AbcGZQe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:34:28 -0400
+Received: by mail-wm0-f49.google.com with SMTP id q128so180473109wma.1
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:34:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26/07/16 18:20, Stephen Hemminger wrote:
-> Preferred style is to use kcalloc and kmalloc_array.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> --- a/drivers/net/virtio_net.c	2016-07-26 09:13:19.805400983 -0700
-> +++ b/drivers/net/virtio_net.c	2016-07-26 09:13:19.801400965 -0700
-> @@ -1551,13 +1551,13 @@ static int virtnet_find_vqs(struct virtn
->  		    virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ);
->  
->  	/* Allocate space for find_vqs parameters */
-> -	vqs = kzalloc(total_vqs * sizeof(*vqs), GFP_KERNEL);
-> +	vqs = kzalloc(total_vqs, sizeof(*vqs), GFP_KERNEL);
+Currently lastuse is updated on entry creation and cache hit, but it should
+also be updated on entry change.
 
-I don't think this patch will compile.
-Too much args for kzalloc, s/kzalloc/kcalloc/
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+CC: Donald Sharp <sharpd@cumulusnetworks.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ipmr.c  | 1 +
+ net/ipv6/ip6mr.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-Cheers,
- Nik
-
->  	if (!vqs)
->  		goto err_vq;
-> -	callbacks = kmalloc(total_vqs * sizeof(*callbacks), GFP_KERNEL);
-> +	callbacks = kmalloc_array(total_vqs, sizeof(*callbacks), GFP_KERNEL);
->  	if (!callbacks)
->  		goto err_callback;
-> -	names = kmalloc(total_vqs * sizeof(*names), GFP_KERNEL);
-> +	names = kmalloc_array(total_vqs, sizeof(*names), GFP_KERNEL);
->  	if (!names)
->  		goto err_names;
->  
-> @@ -1613,10 +1613,10 @@ static int virtnet_alloc_queues(struct v
->  {
->  	int i;
->  
-> -	vi->sq = kzalloc(sizeof(*vi->sq) * vi->max_queue_pairs, GFP_KERNEL);
-> +	vi->sq = kcalloc(vi->max_queue_pairs, sizeof(*vi->sq), GFP_KERNEL);
->  	if (!vi->sq)
->  		goto err_sq;
-> -	vi->rq = kzalloc(sizeof(*vi->rq) * vi->max_queue_pairs, GFP_KERNEL);
-> +	vi->rq = kcalloc(vi->max_queue_pairs, sizeof(*vi->rq), GFP_KERNEL);
->  	if (!vi->rq)
->  		goto err_rq;
->  
-> 
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index eec234161b89..8f032428c14c 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1135,6 +1135,7 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+ 		if (!mrtsock)
+ 			c->mfc_flags |= MFC_STATIC;
+ 		write_unlock_bh(&mrt_lock);
++		c->mfc_un.res.lastuse = jiffies;
+ 		mroute_netlink_event(mrt, c, RTM_NEWROUTE);
+ 		return 0;
+ 	}
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 7adce139d92a..45c5b30a3a8a 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1485,6 +1485,7 @@ static int ip6mr_mfc_add(struct net *net, struct mr6_table *mrt,
+ 		if (!mrtsock)
+ 			c->mfc_flags |= MFC_STATIC;
+ 		write_unlock_bh(&mrt_lock);
++		c->mfc_un.res.lastuse = jiffies;
+ 		mr6_netlink_event(mrt, c, RTM_NEWROUTE);
+ 		return 0;
+ 	}
+-- 
+2.1.4
