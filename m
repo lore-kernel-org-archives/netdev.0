@@ -1,33 +1,28 @@
-From: alexmcwhirter@triadic.us
-Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
-Date: Tue, 26 Jul 2016 00:38:51 -0400
-Message-ID: <5ad66efb31d2febc2a4fda0be591815b@triadic.us>
-References: <201607240335.u6O3ZE81014171@sdf.org>
- <1659922.nTqITfJpFk@debian64>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next v2 0/2] net_sched: refactor tc action
+ structures
+Date: Mon, 25 Jul 2016 21:49:35 -0700 (PDT)
+Message-ID: <20160725.214935.1694554725836014999.davem@davemloft.net>
+References: <1469488182-12296-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Alan Curry <rlwinm@sdf.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1659922.nTqITfJpFk@debian64>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52420 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbcGZEti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:49:38 -0400
+In-Reply-To: <1469488182-12296-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Thanks for the detailed bug-report. I looked around the web to see if 
-> it
-> was already reported or not. If found that this issue was reported 
-> before:
-> [0], [1] and [2] by the same person (CC'ed). One difference is that the
-> reporter had this issue with rsync on multiple SPARC systems. I ran a
-> git grep on a 4.7.0-rc7+ (wt-2016-07-21-15-g97bd3b0). But it didn't 
-> find
-> any patches directly referencing the commit. I'm not sure if this issue
-> has been fixed by now or not. I would greatly appreciate any comment
-> about this from the "people of netdev" (Al Viro? Alex Mcwhirter?).
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 25 Jul 2016 16:09:40 -0700
 
-I can confirm the issue i was having with this commit still exists on 
-sparc with the latest mainline kernel.
+> These two patches factor out the struct tcf_common.
+> 
+> v2: fix a compile warning
+
+Series applied.
