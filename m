@@ -1,56 +1,41 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 0/2] net: davinci_cpdma: reduce latency on -rt
-Date: Tue, 26 Jul 2016 17:36:49 +0300
-Message-ID: <f546b5f0-1da6-2c16-647a-33bb8692b753@ti.com>
-References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] i40e: Use list_move instead of list_del/list_add
+Date: Tue, 26 Jul 2016 14:58:30 +0000
+Message-ID: <1469545110-32553-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<kernel@pengutronix.de>
-To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>,
-	Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, intel-wired-lan@lists.osuosl.org,
+	netdev@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:42410 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756141AbcGZOhB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 10:37:01 -0400
-In-Reply-To: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33733 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756637AbcGZO6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 10:58:39 -0400
+Received: by mail-pa0-f67.google.com with SMTP id q2so115357pap.0
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 07:58:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2016 03:02 PM, Uwe Kleine-K=C3=B6nig wrote:
-> Hello,
->
-> these patches are based on next-20160726. I didn't check yet how late=
-ncy
-> improves by using these patches, but even if the improvment is small,
-> it's still a good idea to have them.
+Using list_move() instead of list_del() + list_add().
 
-Sry, but how this will affect on -RT? This is not a raw locks, so
-they will be converted to rt-mutexes which are sleepable.
-Or I've missed smth?
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
->
-> A second pair of eyes checking what I did would be great.
->
-> Best regards
-> Uwe
->
->
-> Uwe Kleine-K=C3=B6nig (2):
->   net: davinci_cpdma: reduce time holding ctlr->lock in
->     cpdma_control_set
->   net: davinci_cpdma: reduce time holding chan->lock in
->     cpdma_chan_submit
->
->  drivers/net/ethernet/ti/davinci_cpdma.c | 58 ++++++++++++++++-------=
-----------
->  1 file changed, 29 insertions(+), 29 deletions(-)
->
-
-
---=20
-regards,
--grygorii
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index e1370c5..e6b9263 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -662,8 +662,7 @@ static int i40e_client_release(struct i40e_client *client)
+ 				 client->name, pf->hw.pf_id);
+ 		}
+ 		/* delete the client instance from the list */
+-		list_del(&cdev->list);
+-		list_add(&cdev->list, &cdevs_tmp);
++		list_move(&cdev->list, &cdevs_tmp);
+ 		atomic_dec(&client->ref_cnt);
+ 		dev_info(&pf->pdev->dev, "Deleted client instance of Client %s\n",
+ 			 client->name);
