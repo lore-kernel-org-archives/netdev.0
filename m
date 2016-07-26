@@ -1,109 +1,109 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 26 Jul 2016 07:09:41 +0000
-Message-ID: <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
-References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160725.173701.1282720667210726281.davem@davemloft.net>
- <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160725.213822.1745865660912873332.davem@davemloft.net>
- <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2] net: neigh: disallow transition to NUD_STALE if lladdr
+ is unchanged in neigh_update()
+Date: Tue, 26 Jul 2016 10:15:26 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1607261012540.1802@ja.home.ssi.bg>
+References: <1469513812-10330-1-git-send-email-hchunhui@mail.ustc.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "mkubecek@suse.cz" <mkubecek@suse.cz>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"dave.scott@docker.com" <dave.scott@docker.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"joe@perches.com" <joe@perches.com>,
-	"rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	Haiyang Zhang <haiyangz@microsoft.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>,
+	David Barroso <dbarroso@fastly.com>,
+	Martin Zhang <martinbj2008@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Chunhui He <hchunhui@mail.ustc.edu.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:55113 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750806AbcGZHQW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 03:16:22 -0400
+In-Reply-To: <1469513812-10330-1-git-send-email-hchunhui@mail.ustc.edu.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On
-> Behalf Of Dexuan Cui
-> ...
-> > From: David Miller [mailto:davem@davemloft.net]
-> > ...
-> > From: Dexuan Cui <decui@microsoft.com>
-> > Date: Tue, 26 Jul 2016 03:09:16 +0000
-> >
-> > > BTW, during the past month, at least 7 other people also reviewed
-> > > the patch and gave me quite a few good comments, which have
-> > > been addressed.
-> >
-> > Correction: Several people gave coding style and simple corrections
-> > to your patch.
-> >
-> > Very few gave any review of the _SUBSTANCE_ of your changes.
-> >
-> > And the one of the few who did, and suggested you build your
-> > facilities using the existing S390 hypervisor socket infrastructure,
-> > you brushed off _IMMEDIATELY_.
-> >
-> > That drives me crazy.  The one person who gave you real feedback
-> > you basically didn't consider seriously at all.
->
-> Hi David,
-> I'm very sorry -- I guess I must have missed something here -- I don't
-> remember somebody replied with S390 hypervisor socket
-> infrastructure... I'm re-reading all the replies, trying to locate the
-> reply and I'll find out why I didn't take it seriously. Sorry in advance.
 
-Hi, David,
-I checked all the comments I received and all my replies (at least I really
-tried my best to check my Inbox) , but couldn't find the "S390 hypervisor
-socket infrastructure" mail.
+	Hello,
 
-I googled "S390 hypervisor socket" but didn't find anything related (I think).
+On Tue, 26 Jul 2016, Chunhui He wrote:
 
-I'm really sorry -- could you please give a little more info about it?
+> NUD_STALE is used when the caller(e.g. arp_process()) can't guarantee
+> neighbour reachability. If the entry was NUD_VALID and lladdr is unchanged,
+> the entry state should not be changed.
+> 
+> Currently the code puts an extra "NUD_CONNECTED" condition. So if old state
+> was NUD_DELAY or NUD_PROBE (they are NUD_VALID but not NUD_CONNECTED), the
+> state can be changed to NUD_STALE.
+> 
+> This may cause problem. Because NUD_STALE lladdr doesn't guarantee
+> reachability, when we send traffic, the state will be changed to
+> NUD_DELAY. In normal case, if we get no confirmation (by dst_confirm()),
+> we will change the state to NUD_PROBE and send probe traffic. But now the
+> state may be reset to NUD_STALE again(e.g. by broadcast ARP packets),
+> so the probe traffic will not be sent. This situation may happen again and
+> again, and packets will be sent to an non-reachable lladdr forever.
+> 
+> The fix is to remove the "NUD_CONNECTED" condition. After that the
+> "NEIGH_UPDATE_F_WEAK_OVERRIDE" condition (used by IPv6) in that branch will
+> be redundant, so remove it.
+> 
+> This change may increase probe traffic, but it's essential since NUD_STALE
+> lladdr is unreliable. To ensure correctness, we prefer to resolve lladdr,
+> when we can't get confirmation, even while remote packets try to set
+> NUD_STALE state.
+> 
+> Signed-off-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
 
-If you meant https://lkml.org/lkml/2016/7/13/382, I don't think Michal
-Kubecek was suggesting I build my code using the existing AF_VSOCK
-code(?)  I think he was only asking me to clarify the way I used to write
-the text to explain why I can't fit my code into the existing AF_VSOCK
-code. BTW, AF_VSOCK is not on S390, I think.
+	Looks good to me,
 
-If this is the case, I'm sorry I didn't explain the reason clearer.
-My replies last year explained the reason with more info:
-https://lkml.org/lkml/2015/7/7/1162
-https://lkml.org/lkml/2015/7/17/67
-And I thought people agreed that a new address family is justified.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Please let me excerpt the most related snippets in my old replies:
+> ---
+> v2:
+>  - change title from "net: neigh: disallow state transition DELAY->STALE in
+>    neigh_update()"
+>  - remove "NUD_CONNECTED" condition instead of "NUD_CONNECTED | NUD_DELAY"
+>  - remove "NEIGH_UPDATE_F_WEAK_OVERRIDE" condition
+> 
+> ---
+>  net/core/neighbour.c | 7 +------
+>  1 file changed, 1 insertion(+), 6 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 510cd62..ed8c317e 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -1060,8 +1060,6 @@ static void neigh_update_hhs(struct neighbour *neigh)
+>  	NEIGH_UPDATE_F_WEAK_OVERRIDE will suspect existing "connected"
+>  				lladdr instead of overriding it
+>  				if it is different.
+> -				It also allows to retain current state
+> -				if lladdr is unchanged.
+>  	NEIGH_UPDATE_F_ADMIN	means that the change is administrative.
+>  
+>  	NEIGH_UPDATE_F_OVERRIDE_ISROUTER allows to override existing
+> @@ -1150,10 +1148,7 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  			} else
+>  				goto out;
+>  		} else {
+> -			if (lladdr == neigh->ha && new == NUD_STALE &&
+> -			    ((flags & NEIGH_UPDATE_F_WEAK_OVERRIDE) ||
+> -			     (old & NUD_CONNECTED))
+> -			    )
+> +			if (lladdr == neigh->ha && new == NUD_STALE)
+>  				new = old;
+>  		}
+>  	}
+> -- 
+> 2.1.4
 
---------------------------------------
-The biggest difference is the size of the endpoint (u128 vs. u32):
-<u32 ContextID, u32 Port> in AF_VOSCK
-vs.
-<u128 GUID_VM_ID, u128 GUID_ServiceID> in AF_HYPERV.
-
-In the AF_VSOCK code and the related transport layer (the wrapper
-ops of VMware's VMCI), the size is widely used in kernel space
-(and user space application). If I have to fit my code to AF_VSOCK
-code, I would have to mess up the AF_VSOCK code in many places
-by adding ugly code like:
-
-IF the endpoint size is <u32, u32> THEN
-        use the existing logic;
-ELSE
-        use the new logic;
-
-And the user space application has to explicitly handle the
-different endpoint sizes too.
---------------------------------------
-
-Looking forward to your reply!
-
-Thanks,
--- Dexuan
+Regards
