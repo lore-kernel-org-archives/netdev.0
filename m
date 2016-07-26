@@ -1,117 +1,67 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: RE: [PATCH net-next 1/2] be2net: set temperature value for all
- adapter's functions
-Date: Tue, 26 Jul 2016 13:56:41 +0530
-Message-ID: <e9b62029547b138317654f80210d63c4@mail.gmail.com>
-References: <1469237395-11501-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
- <a231dccbdf9d054819aca387db6533c4@mail.gmail.com> <57960BAF.20004@linux.vnet.ibm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] net: neigh: disallow transition to NUD_STALE if lladdr
+ is unchanged in neigh_update()
+Date: Tue, 26 Jul 2016 11:00:51 +0200
+Message-ID: <29e635b1-a619-5abc-cbe9-836319410869@stressinduktion.org>
+References: <1469513812-10330-1-git-send-email-hchunhui@mail.ustc.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ajit Kumar Khaparde <ajit.khaparde@broadcom.com>,
-	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-	Somnath Kotur <somnath.kotur@broadcom.com>,
-	netdev@vger.kernel.org
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f172.google.com ([209.85.161.172]:34242 "EHLO
-	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754528AbcGZI0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 04:26:43 -0400
-Received: by mail-yw0-f172.google.com with SMTP id z8so169222300ywa.1
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 01:26:43 -0700 (PDT)
-In-Reply-To: <57960BAF.20004@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>,
+	David Barroso <dbarroso@fastly.com>,
+	Martin Zhang <martinbj2008@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Konstantin Khlebnikov <koct9i@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chunhui He <hchunhui@mail.ustc.edu.cn>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1469513812-10330-1-git-send-email-hchunhui@mail.ustc.edu.cn>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Guilherme G. Piccoli [mailto:gpiccoli@linux.vnet.ibm.com]
->
-> On 07/25/2016 07:48 AM, Sathya Perla wrote:
-> >> -----Original Message-----
-> >> From: Guilherme G. Piccoli [mailto:gpiccoli@linux.vnet.ibm.com]
-> >>
-> >> Temperature values on be2net driver are made available to userspace
-> >> via
-> > hwmon abstraction, so tools like lm-
-> >> sensors can present them to the user.
-> >> The driver provides hwmon structures for each adapter's function.
-> >> Nevertheless, the temperature information come from fw queries
-> >> performed
-> > by
-> >> be_worker() with some frequency, and this procedure is called with a
-> > single function as argument; this means
-> >> that the temperature value is updated only in the specific function
-> >> that
-> > was passed to be_worker().
-> >>
-> >> This can lead to incongruency in reported temperature by a function,
-> >> or
-> > in a worse scenario, some functions
-> >> might be unable to provide temperature info to userspace, if they
-> > weren't fed with this information from fw in
-> >> be_worker() run.
-> >
-> > Hi, I'm wondering if you are OK with the temperature value being 128s
-> > old
-> > (2/2 patch), then why is it a problem
-> > if two different functions report a temperature value that is queried
-> > a few seconds apart?
-> > Also, you'll not have a scenario where the FW cmd succeeds for one
-> > function and fails for other functions.
-> > It's a common FW for the entire adapter.
-> >
-> >>
-> >> This patch changes the way temperature is set in be2net driver. At
-> > anytime the fw query is performed, it will set
-> >> the temperature value for all functions of the adapter, instead of
-> >> only
-> > setting the temperature of the function
-> >> passed to be_worker().
-> > If the possible inconsistency across functions is indeed a problem,
-> > then a simpler solution would be to issue the FW cmd synchronously
-> > when the sysfs attr is read, i.e., in
-> > be_hwmon_show_temp() routine itself.
-> >
->
-> Hi Sathya, thanks very much for your quick reply. I agree with you that an
-> 1 or 2 sec inconsistency wouldn't
-> harm, but the main problem we're seeing is that be_worker() is being
-> called with a single function as a parameter
-> - in our case, the last function is being passed as argument to
-> be_worker() multiple times in a row, and then we
-> have its temperature updated but the other functions' temperature set as
-> invalid.
+On 26.07.2016 08:16, Chunhui He wrote:
+> NUD_STALE is used when the caller(e.g. arp_process()) can't guarantee
+> neighbour reachability. If the entry was NUD_VALID and lladdr is unchanged,
+> the entry state should not be changed.
+> 
+> Currently the code puts an extra "NUD_CONNECTED" condition. So if old state
+> was NUD_DELAY or NUD_PROBE (they are NUD_VALID but not NUD_CONNECTED), the
+> state can be changed to NUD_STALE.
+> 
+> This may cause problem. Because NUD_STALE lladdr doesn't guarantee
+> reachability, when we send traffic, the state will be changed to
+> NUD_DELAY. In normal case, if we get no confirmation (by dst_confirm()),
+> we will change the state to NUD_PROBE and send probe traffic. But now the
+> state may be reset to NUD_STALE again(e.g. by broadcast ARP packets),
+> so the probe traffic will not be sent. This situation may happen again and
+> again, and packets will be sent to an non-reachable lladdr forever.
+> 
+> The fix is to remove the "NUD_CONNECTED" condition. After that the
+> "NEIGH_UPDATE_F_WEAK_OVERRIDE" condition (used by IPv6) in that branch will
+> be redundant, so remove it.
+> 
+> This change may increase probe traffic, but it's essential since NUD_STALE
+> lladdr is unreliable. To ensure correctness, we prefer to resolve lladdr,
+> when we can't get confirmation, even while remote packets try to set
+> NUD_STALE state.
+> 
+> Signed-off-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
+> ---
+> v2:
+>  - change title from "net: neigh: disallow state transition DELAY->STALE in
+>    neigh_update()"
+>  - remove "NUD_CONNECTED" condition instead of "NUD_CONNECTED | NUD_DELAY"
+>  - remove "NEIGH_UPDATE_F_WEAK_OVERRIDE" condition
 
-Hi Guilherme, this doesn't sound right to me and is not expected. The
-be_worker() routine must execute for *each* function every second.
-Can you pls share the driver/fw version and any debug logs (with prints) you
-may have and also lspci output.
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
->
-> Regarding the temperature update run on be_hwmon_show_temp(), it was an
-> idea too, but I was afraid in delay
-> this output too much - imagine some userspace tool reads hwmon attributes
-> for all functions almost at "same
-> time", supposing the fw command can't run in parallel, the "last" read
-> would need to wait 4 fw commands to
-> complete before showing it's output.
-
-I don't see any issue even if the sensors program queries each function one
-after another. These calls would only be
-a few milli-seconds apart.
-
-> Besides, in a worse scenario, some "not-friendly" tool might issue lots of
-> reads to hwmon per second then
-> issuing lots of fw commands, which does not seem a good idea. Of course
-> this last case we can avoid by
-> implementing a counter or timer on be_hwmon_show_temp() to allow maximum
-> number of fw cmds in a time
-> frame.
-Yes, this is not an issue. If the hwmon read is issued with-in a few seconds
-of the previous read then you can just return the old temperature value.
-We are anyway querying this value only once in 64s now.
-But, I'd like to root-cause the issue you are seeing above before we "fix"
-anything.
-
-thanks,
--Sathya
+Thanks!
