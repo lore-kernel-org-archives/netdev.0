@@ -1,84 +1,84 @@
-From: Tom Walsh <tomwalsh73@gmail.com>
-Subject: patch for PCH_GBE rotten packet (Intel EG20T Platform Controller).
-Date: Tue, 26 Jul 2016 11:00:33 -0500
-Message-ID: <CAMSBNFsZKdptMGnZr4DzRyQj593Snerisyuj_3qb=ducOra1FQ@mail.gmail.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 1/3] net: ethernet: ti: cpdma: fix lockup in
+ cpdma_ctlr_destroy()
+Date: Tue, 26 Jul 2016 19:02:53 +0300
+Message-ID: <88f436f2-afe9-6a98-5887-95a1d910b57f@ti.com>
+References: <20160722135847.20557-1-grygorii.strashko@ti.com>
+ <20160722135847.20557-2-grygorii.strashko@ti.com>
+ <fcce1940-3ca2-f5ad-bc71-8ab902c14266@linaro.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1141279047c90605388c0030
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:33885 "EHLO
-	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112AbcGZQAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:00:40 -0400
-Received: by mail-lf0-f43.google.com with SMTP id l69so8434825lfg.1
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:00:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <fcce1940-3ca2-f5ad-bc71-8ab902c14266@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---001a1141279047c90605388c0030
-Content-Type: text/plain; charset=UTF-8
+On 07/23/2016 09:24 AM, Ivan Khoronzhuk wrote:
+> 
+> 
+> On 22.07.16 16:58, Grygorii Strashko wrote:
+>> Fix deadlock in cpdma_ctlr_destroy() which is triggered now on
+>> cpsw module removal:
+>>  cpsw_remove()
+>>  - cpdma_ctlr_destroy()
+>>    - spin_lock_irqsave(&ctlr->lock, flags)
+>>    - cpdma_ctlr_stop()
+>>      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
+>>    - cpdma_chan_destroy()
+>>      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
+>>
+>> The issue has not been observed before because CPDMA channels have
+>> been destroyed manually by CPSW until commit d941ebe88a41 ("net:
+>> ethernet: ti: cpsw: use destroy ctlr to destroy channels") was merged.
+>>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> ---
+>>  drivers/net/ethernet/ti/davinci_cpdma.c | 2 --
+>>  1 file changed, 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c
+>> b/drivers/net/ethernet/ti/davinci_cpdma.c
+>> index a68652a..89242e9 100644
+>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+>> @@ -436,7 +436,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+>>      if (!ctlr)
+>>          return -EINVAL;
+>>
+>> -    spin_lock_irqsave(&ctlr->lock, flags);
+> Should ctlr->state be checked under lock?
+> Seems like here should be used unlocked static versions of
+> cpdma_ctlr_stop() and cpdma_chan_destroy() instead.
 
-Not sure how this goes, but, we found a race condition in
-drivers/net/ethernet/oki-semi/pch_gbe/
+As per my understanding it's not expected the ctlr->state will be changed at this 
+moment as all net devices has been unregistered already.
 
-The attached patch corrects for this.
+> 
+>>      if (ctlr->state != CPDMA_STATE_IDLE)
 
-TomW
+May be I can move above check in cpdma_ctlr_stop() instead.
+What do you think?
+
+>>          cpdma_ctlr_stop(ctlr);
+>>
+>> @@ -444,7 +443,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+>>          cpdma_chan_destroy(ctlr->channels[i]);
+>>
+>>      cpdma_desc_pool_destroy(ctlr->pool);
+>> -    spin_unlock_irqrestore(&ctlr->lock, flags);
+>>      return ret;
+>>  }
+>>  EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
+>>
+> 
 
 
 -- 
-Tom Walsh - WN3L - Embedded Systems Consultant
-http://openhardware.net
-"Windows? No thanks, I have work to do..."
-----------------------------------------------------
-
---001a1141279047c90605388c0030
-Content-Type: application/octet-stream;
-	name="0004-oki-PCH_GBE-rotten_packet.patch"
-Content-Disposition: attachment;
-	filename="0004-oki-PCH_GBE-rotten_packet.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ir3nfg2y0
-
-Y29tbWl0IDc5NjJkNjlmMjY3M2RjNmQ4NjVjODZmOGUxMmZhZWY4MWFiYzBhMTIKQXV0aG9yOiBU
-b20gV2Fsc2ggPHRvbS53YWxzaEBjeWJlcmEubmV0PgpEYXRlOiAgIE1vbiBKdW4gMjAgMDg6NDg6
-NDQgMjAxNiAtMDUwMAoKICAgIFdlIGhhdmUgYSBwcm9ibGVtIHdpdGggYSByb3R0aW5nIHBhY2tl
-dC4gIFRoZSBwcm9ibGVtCiAgICBzaG93cyBpdHNlbGYgYXMgYSByYWNlLWNvbmRpdGlvbiBkdXJp
-bmcgdGhlIDMtc3RlcAogICAgU1lOL0FDSy9TWU4tQUNLIHNlcXVlbmNlLiBUaGUgcHJvYmxlbSBz
-aG93cyB1cCB3aGVuCiAgICB0aGUgbmV0d29yayBoYXMgYmVlbiBxdWlldCBmb3Igc29tZSB0aW1l
-IGFuZCBhIGRldmljZQogICAgYXR0ZW1wdHMgdG8gZXN0YWJsaXNoIGEgVENQIGNvbm5lY3Rpb24u
-CgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hf
-Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L29raS1zZW1pL3BjaF9nYmUvcGNoX2di
-ZV9tYWluLmMKaW5kZXggNDY0ZTkxMC4uODBhOWU2MSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvb2tpLXNlbWkvcGNoX2diZS9wY2hfZ2JlX21haW4uYworKysgYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9va2ktc2VtaS9wY2hfZ2JlL3BjaF9nYmVfbWFpbi5jCkBAIC04MTAsMjEgKzgx
-MCwyMyBAQCBzdGF0aWMgdm9pZCBwY2hfZ2JlX2lycV9kaXNhYmxlKHN0cnVjdCBwY2hfZ2JlX2Fk
-YXB0ZXIgKmFkYXB0ZXIpCiB9CiAKIC8qKgogICogcGNoX2diZV9pcnFfZW5hYmxlIC0gRW5hYmxl
-IGRlZmF1bHQgaW50ZXJydXB0IGdlbmVyYXRpb24gc2V0dGluZ3MKICAqIEBhZGFwdGVyOiAgQm9h
-cmQgcHJpdmF0ZSBzdHJ1Y3R1cmUKICAqLwotc3RhdGljIHZvaWQgcGNoX2diZV9pcnFfZW5hYmxl
-KHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFkYXB0ZXIpCitzdGF0aWMgdm9pZCBwY2hfZ2JlX2ly
-cV9lbmFibGUoc3RydWN0IHBjaF9nYmVfYWRhcHRlciAqYWRhcHRlciwgYm9vbCByZXNldFN0YXR1
-cykKIHsKIAlzdHJ1Y3QgcGNoX2diZV9odyAqaHcgPSAmYWRhcHRlci0+aHc7CiAKLQlpZiAobGlr
-ZWx5KGF0b21pY19kZWNfYW5kX3Rlc3QoJmFkYXB0ZXItPmlycV9zZW0pKSkKKwlpZiAobGlrZWx5
-KGF0b21pY19kZWNfYW5kX3Rlc3QoJmFkYXB0ZXItPmlycV9zZW0pKSkgewogCQlpb3dyaXRlMzIo
-UENIX0dCRV9JTlRfRU5BQkxFX01BU0ssICZody0+cmVnLT5JTlRfRU4pOwotCWlvcmVhZDMyKCZo
-dy0+cmVnLT5JTlRfU1QpOworCQlpZiAocmVzZXRTdGF0dXMpCisJCQlpb3JlYWQzMigmaHctPnJl
-Zy0+SU5UX1NUKTsKKwl9CiAJbmV0ZGV2X2RiZyhhZGFwdGVyLT5uZXRkZXYsICJJTlRfRU4gcmVn
-IDogMHglMDh4XG4iLAotCQkgICBpb3JlYWQzMigmaHctPnJlZy0+SU5UX0VOKSk7CisJICAgaW9y
-ZWFkMzIoJmh3LT5yZWctPklOVF9FTikpOwogfQogCiAKIAogLyoqCiAgKiBwY2hfZ2JlX3NldHVw
-X3RjdGwgLSBjb25maWd1cmUgdGhlIFRyYW5zbWl0IGNvbnRyb2wgcmVnaXN0ZXJzCkBAIC0xOTc4
-LDEzICsxOTgwLDEzIEBAIGludCBwY2hfZ2JlX3VwKHN0cnVjdCBwY2hfZ2JlX2FkYXB0ZXIgKmFk
-YXB0ZXIpCiAJcGNoX2diZV9lbmFibGVfZG1hX3J4KCZhZGFwdGVyLT5odyk7CiAJcGNoX2diZV9l
-bmFibGVfbWFjX3J4KCZhZGFwdGVyLT5odyk7CiAKIAltb2RfdGltZXIoJmFkYXB0ZXItPndhdGNo
-ZG9nX3RpbWVyLCBqaWZmaWVzKTsKIAogCW5hcGlfZW5hYmxlKCZhZGFwdGVyLT5uYXBpKTsKLQlw
-Y2hfZ2JlX2lycV9lbmFibGUoYWRhcHRlcik7CisJcGNoX2diZV9pcnFfZW5hYmxlKGFkYXB0ZXIs
-IHRydWUpOwogCW5ldGlmX3N0YXJ0X3F1ZXVlKGFkYXB0ZXItPm5ldGRldik7CiAKIAlyZXR1cm4g
-MDsKIAogZnJlZWlycToKIAlwY2hfZ2JlX2ZyZWVfaXJxKGFkYXB0ZXIpOwpAQCAtMjQwMSwxMyAr
-MjQwMywxMyBAQCBzdGF0aWMgaW50IHBjaF9nYmVfbmFwaV9wb2xsKHN0cnVjdCBuYXBpX3N0cnVj
-dCAqbmFwaSwgaW50IGJ1ZGdldCkKIAkgKi8KIAlpZiAod29ya19kb25lIDwgYnVkZ2V0KQogCQlw
-b2xsX2VuZF9mbGFnID0gdHJ1ZTsKIAogCWlmIChwb2xsX2VuZF9mbGFnKSB7CiAJCW5hcGlfY29t
-cGxldGUobmFwaSk7Ci0JCXBjaF9nYmVfaXJxX2VuYWJsZShhZGFwdGVyKTsKKwkJcGNoX2diZV9p
-cnFfZW5hYmxlKGFkYXB0ZXIsIGZhbHNlKTsKIAl9CiAKIAlpZiAoYWRhcHRlci0+cnhfc3RvcF9m
-bGFnKSB7CiAJCWFkYXB0ZXItPnJ4X3N0b3BfZmxhZyA9IGZhbHNlOwogCQlwY2hfZ2JlX2VuYWJs
-ZV9kbWFfcngoJmFkYXB0ZXItPmh3KTsKIAl9Cg==
---001a1141279047c90605388c0030--
+regards,
+-grygorii
