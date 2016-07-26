@@ -1,200 +1,109 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net-next v2 2/5] tipc: make cluster size threshold for monitoring configurable
-Date: Tue, 26 Jul 2016 08:47:19 +0200
-Message-ID: <1469515642-9498-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1469515642-9498-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 26 Jul 2016 07:09:41 +0000
+Message-ID: <CO2PR03MB218232A5C9AE5DBD2AB0374ABF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160725.173701.1282720667210726281.davem@davemloft.net>
+ <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160725.213822.1745865660912873332.davem@davemloft.net>
+ <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>, <jon.maloy@ericsson.com>,
-	<maloy@donjonn.com>, <ying.xue@windriver.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:49608 "EHLO
-	sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754843AbcGZGrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 02:47:40 -0400
-In-Reply-To: <1469515642-9498-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "mkubecek@suse.cz" <mkubecek@suse.cz>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"dave.scott@docker.com" <dave.scott@docker.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"joe@perches.com" <joe@perches.com>,
+	"rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	Haiyang Zhang <haiyangz@microsoft.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In this commit, we introduce support to configure the minimum
-threshold to activate the new link monitoring algorithm.
+> From: devel [mailto:driverdev-devel-bounces@linuxdriverproject.org] On
+> Behalf Of Dexuan Cui
+> ...
+> > From: David Miller [mailto:davem@davemloft.net]
+> > ...
+> > From: Dexuan Cui <decui@microsoft.com>
+> > Date: Tue, 26 Jul 2016 03:09:16 +0000
+> >
+> > > BTW, during the past month, at least 7 other people also reviewed
+> > > the patch and gave me quite a few good comments, which have
+> > > been addressed.
+> >
+> > Correction: Several people gave coding style and simple corrections
+> > to your patch.
+> >
+> > Very few gave any review of the _SUBSTANCE_ of your changes.
+> >
+> > And the one of the few who did, and suggested you build your
+> > facilities using the existing S390 hypervisor socket infrastructure,
+> > you brushed off _IMMEDIATELY_.
+> >
+> > That drives me crazy.  The one person who gave you real feedback
+> > you basically didn't consider seriously at all.
+>
+> Hi David,
+> I'm very sorry -- I guess I must have missed something here -- I don't
+> remember somebody replied with S390 hypervisor socket
+> infrastructure... I'm re-reading all the replies, trying to locate the
+> reply and I'll find out why I didn't take it seriously. Sorry in advance.
 
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
----
- include/uapi/linux/tipc_netlink.h | 11 +++++++++++
- net/tipc/monitor.c                | 12 ++++++++++++
- net/tipc/monitor.h                |  1 +
- net/tipc/netlink.c                | 15 +++++++++++++--
- net/tipc/netlink.h                |  1 +
- net/tipc/node.c                   | 27 +++++++++++++++++++++++++++
- net/tipc/node.h                   |  1 +
- 7 files changed, 66 insertions(+), 2 deletions(-)
+Hi, David,
+I checked all the comments I received and all my replies (at least I really
+tried my best to check my Inbox) , but couldn't find the "S390 hypervisor
+socket infrastructure" mail.
 
-diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index d4c8f142ba63..d387b65a0d97 100644
---- a/include/uapi/linux/tipc_netlink.h
-+++ b/include/uapi/linux/tipc_netlink.h
-@@ -56,6 +56,7 @@ enum {
- 	TIPC_NL_NET_GET,
- 	TIPC_NL_NET_SET,
- 	TIPC_NL_NAME_TABLE_GET,
-+	TIPC_NL_MON_SET,
- 
- 	__TIPC_NL_CMD_MAX,
- 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -72,6 +73,7 @@ enum {
- 	TIPC_NLA_NODE,			/* nest */
- 	TIPC_NLA_NET,			/* nest */
- 	TIPC_NLA_NAME_TABLE,		/* nest */
-+	TIPC_NLA_MON,			/* nest */
- 
- 	__TIPC_NLA_MAX,
- 	TIPC_NLA_MAX = __TIPC_NLA_MAX - 1
-@@ -166,6 +168,15 @@ enum {
- 	TIPC_NLA_NAME_TABLE_MAX = __TIPC_NLA_NAME_TABLE_MAX - 1
- };
- 
-+/* Monitor info */
-+enum {
-+	TIPC_NLA_MON_UNSPEC,
-+	TIPC_NLA_MON_ACTIVATION_THRESHOLD,	/* u32 */
-+
-+	__TIPC_NLA_MON_MAX,
-+	TIPC_NLA_MON_MAX = __TIPC_NLA_MON_MAX - 1
-+};
-+
- /* Publication info */
- enum {
- 	TIPC_NLA_PUBL_UNSPEC,
-diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
-index 0d489e81fcca..3892d05b8b45 100644
---- a/net/tipc/monitor.c
-+++ b/net/tipc/monitor.c
-@@ -649,3 +649,15 @@ void tipc_mon_delete(struct net *net, int bearer_id)
- 	kfree(self);
- 	kfree(mon);
- }
-+
-+int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size)
-+{
-+	struct tipc_net *tn = tipc_net(net);
-+
-+	if (cluster_size > TIPC_CLUSTER_SIZE)
-+		return -EINVAL;
-+
-+	tn->mon_threshold = cluster_size;
-+
-+	return 0;
-+}
-diff --git a/net/tipc/monitor.h b/net/tipc/monitor.h
-index 598459cbed5d..91f5dd09432b 100644
---- a/net/tipc/monitor.h
-+++ b/net/tipc/monitor.h
-@@ -69,5 +69,6 @@ void tipc_mon_get_state(struct net *net, u32 addr,
- 			int bearer_id);
- void tipc_mon_remove_peer(struct net *net, u32 addr, int bearer_id);
- 
-+int tipc_nl_monitor_set_threshold(struct net *net, u32 cluster_size);
- extern const int tipc_max_domain_size;
- #endif
-diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 56935df2167a..1e43ac0200ed 100644
---- a/net/tipc/netlink.c
-+++ b/net/tipc/netlink.c
-@@ -52,7 +52,8 @@ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
- 	[TIPC_NLA_MEDIA]	= { .type = NLA_NESTED, },
- 	[TIPC_NLA_NODE]		= { .type = NLA_NESTED, },
- 	[TIPC_NLA_NET]		= { .type = NLA_NESTED, },
--	[TIPC_NLA_NAME_TABLE]	= { .type = NLA_NESTED, }
-+	[TIPC_NLA_NAME_TABLE]	= { .type = NLA_NESTED, },
-+	[TIPC_NLA_MON]		= { .type = NLA_NESTED, },
- };
- 
- const struct nla_policy
-@@ -61,6 +62,11 @@ tipc_nl_name_table_policy[TIPC_NLA_NAME_TABLE_MAX + 1] = {
- 	[TIPC_NLA_NAME_TABLE_PUBL]	= { .type = NLA_NESTED }
- };
- 
-+const struct nla_policy tipc_nl_monitor_policy[TIPC_NLA_MON_MAX + 1] = {
-+	[TIPC_NLA_MON_UNSPEC]			= { .type = NLA_UNSPEC },
-+	[TIPC_NLA_MON_ACTIVATION_THRESHOLD]	= { .type = NLA_U32 },
-+};
-+
- const struct nla_policy tipc_nl_sock_policy[TIPC_NLA_SOCK_MAX + 1] = {
- 	[TIPC_NLA_SOCK_UNSPEC]		= { .type = NLA_UNSPEC },
- 	[TIPC_NLA_SOCK_ADDR]		= { .type = NLA_U32 },
-@@ -214,7 +220,12 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.cmd	= TIPC_NL_NAME_TABLE_GET,
- 		.dumpit	= tipc_nl_name_table_dump,
- 		.policy = tipc_nl_policy,
--	}
-+	},
-+	{
-+		.cmd	= TIPC_NL_MON_SET,
-+		.doit	= tipc_nl_node_set_monitor,
-+		.policy = tipc_nl_policy,
-+	},
- };
- 
- int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***attr)
-diff --git a/net/tipc/netlink.h b/net/tipc/netlink.h
-index ed1dbcb4afbd..4ba0ad422110 100644
---- a/net/tipc/netlink.h
-+++ b/net/tipc/netlink.h
-@@ -55,6 +55,7 @@ extern const struct nla_policy tipc_nl_prop_policy[];
- extern const struct nla_policy tipc_nl_bearer_policy[];
- extern const struct nla_policy tipc_nl_media_policy[];
- extern const struct nla_policy tipc_nl_udp_policy[];
-+extern const struct nla_policy tipc_nl_monitor_policy[];
- 
- int tipc_netlink_start(void);
- int tipc_netlink_compat_start(void);
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 95cc78b51532..0fc531d0f709 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -1928,3 +1928,30 @@ out:
- 
- 	return skb->len;
- }
-+
-+int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct nlattr *attrs[TIPC_NLA_MON_MAX + 1];
-+	struct net *net = sock_net(skb->sk);
-+	int err;
-+
-+	if (!info->attrs[TIPC_NLA_MON])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(attrs, TIPC_NLA_MON_MAX,
-+			       info->attrs[TIPC_NLA_MON],
-+			       tipc_nl_monitor_policy);
-+	if (err)
-+		return err;
-+
-+	if (attrs[TIPC_NLA_MON_ACTIVATION_THRESHOLD]) {
-+		u32 val;
-+
-+		val = nla_get_u32(attrs[TIPC_NLA_MON_ACTIVATION_THRESHOLD]);
-+		err = tipc_nl_monitor_set_threshold(net, val);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 8264b3d97dc4..65aa12ede8a5 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -78,4 +78,5 @@ int tipc_nl_node_reset_link_stats(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_node_get_link(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_node_set_link(struct sk_buff *skb, struct genl_info *info);
- 
-+int tipc_nl_node_set_monitor(struct sk_buff *skb, struct genl_info *info);
- #endif
--- 
-2.1.4
+I googled "S390 hypervisor socket" but didn't find anything related (I think).
+
+I'm really sorry -- could you please give a little more info about it?
+
+If you meant https://lkml.org/lkml/2016/7/13/382, I don't think Michal
+Kubecek was suggesting I build my code using the existing AF_VSOCK
+code(?)  I think he was only asking me to clarify the way I used to write
+the text to explain why I can't fit my code into the existing AF_VSOCK
+code. BTW, AF_VSOCK is not on S390, I think.
+
+If this is the case, I'm sorry I didn't explain the reason clearer.
+My replies last year explained the reason with more info:
+https://lkml.org/lkml/2015/7/7/1162
+https://lkml.org/lkml/2015/7/17/67
+And I thought people agreed that a new address family is justified.
+
+Please let me excerpt the most related snippets in my old replies:
+
+--------------------------------------
+The biggest difference is the size of the endpoint (u128 vs. u32):
+<u32 ContextID, u32 Port> in AF_VOSCK
+vs.
+<u128 GUID_VM_ID, u128 GUID_ServiceID> in AF_HYPERV.
+
+In the AF_VSOCK code and the related transport layer (the wrapper
+ops of VMware's VMCI), the size is widely used in kernel space
+(and user space application). If I have to fit my code to AF_VSOCK
+code, I would have to mess up the AF_VSOCK code in many places
+by adding ugly code like:
+
+IF the endpoint size is <u32, u32> THEN
+        use the existing logic;
+ELSE
+        use the new logic;
+
+And the user space application has to explicitly handle the
+different endpoint sizes too.
+--------------------------------------
+
+Looking forward to your reply!
+
+Thanks,
+-- Dexuan
