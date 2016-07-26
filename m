@@ -1,47 +1,183 @@
 From: ggarcia@abra.uab.cat
-Subject: [PATCH v2 0/1] virtio-vsock: Add timer to handle OOM situations
-Date: Tue, 26 Jul 2016 16:28:20 +0200
-Message-ID: <20160726142821.31770-1-ggarcia@deic.uab.cat>
+Subject: [PATCH v2 1/1] Add timer to handle OOM situations
+Date: Tue, 26 Jul 2016 16:28:21 +0200
+Message-ID: <20160726142821.31770-2-ggarcia@deic.uab.cat>
+References: <20160726142821.31770-1-ggarcia@deic.uab.cat>
 Content-Transfer-Encoding: 7BIT
 Cc: stefanha@redhat.com, Gerard Garcia <ggarcia@abra.uab.cat>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from damascus.uab.es ([158.109.168.135]:49559 "EHLO damascus.uab.es"
+Received: from damascus.uab.es ([158.109.168.135]:49593 "EHLO damascus.uab.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754552AbcGZO2j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 10:28:39 -0400
+	id S1754552AbcGZO2y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 10:28:54 -0400
 Received: from damascus.uab.es ([127.0.0.1])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OAX008NJEVOR610@damascus.uab.es> for
- netdev@vger.kernel.org; Tue, 26 Jul 2016 16:28:37 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0OAX008OLEW3RK10@damascus.uab.es> for
+ netdev@vger.kernel.org; Tue, 26 Jul 2016 16:28:51 +0200 (CEST)
 Received: from abra.uab.es ([158.109.79.4])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OAX00BHWEVOXHR2@damascus.uab.es> for
- netdev@vger.kernel.org; Tue, 26 Jul 2016 16:28:36 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0OAX00CHYEW3VC96@damascus.uab.es> for
+ netdev@vger.kernel.org; Tue, 26 Jul 2016 16:28:51 +0200 (CEST)
+In-reply-to: <20160726142821.31770-1-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerard Garcia <ggarcia@deic.uab.cat>
-
-This patch applies over the stefanha/vsock-next repository:
-https://github.com/stefanha/linux/tree/vsock-next
-
-Once the guest puts a packet in the virtqueue it is guaranteed
-that it will be delivered. 
-
-This patch addresses the problem of packets being discarded when 
-there is not available memory in the host.
 
 v2:
 * Use of ERR_PTR/PTR_ERR/IS_ERR
 * Timer cleaned on device release.
 * Do not process more packets on error.
 
-Gerard Garcia (1):
-  Add timer to handle OOM situations
-
+Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+---
  drivers/vhost/vsock.c | 55 +++++++++++++++++++++++++++++++++++++++++----------
  1 file changed, 45 insertions(+), 10 deletions(-)
 
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index 17bfe4e..5c6879d 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -14,11 +14,13 @@
+ #include <net/sock.h>
+ #include <linux/virtio_vsock.h>
+ #include <linux/vhost.h>
++#include <linux/timer.h>
+ 
+ #include <net/af_vsock.h>
+ #include "vhost.h"
+ 
+ #define VHOST_VSOCK_DEFAULT_HOST_CID	2
++#define OOM_RETRY_MS	100
+ 
+ enum {
+ 	VHOST_VSOCK_FEATURES = VHOST_FEATURES,
+@@ -43,8 +45,12 @@ struct vhost_vsock {
+ 	u32 total_tx_buf;
+ 
+ 	u32 guest_cid;
++
++	struct timer_list tx_kick;
+ };
+ 
++
++
+ static u32 vhost_transport_get_local_cid(void)
+ {
+ 	return VHOST_VSOCK_DEFAULT_HOST_CID;
+@@ -282,12 +288,13 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 
+ 	if (in != 0) {
+ 		vq_err(vq, "Expected 0 input buffers, got %u\n", in);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
+-	if (!pkt)
+-		return NULL;
++	if (!pkt){
++		return ERR_PTR(-ENOMEM);
++	}
+ 
+ 	len = iov_length(vq->iov, out);
+ 	iov_iter_init(&iov_iter, WRITE, vq->iov, out, len);
+@@ -297,7 +304,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Expected %zu bytes for pkt->hdr, got %zu bytes\n",
+ 		       sizeof(pkt->hdr), nbytes);
+ 		kfree(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	if (le16_to_cpu(pkt->hdr.type) == VIRTIO_VSOCK_TYPE_STREAM)
+@@ -310,13 +317,13 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 	/* The pkt is too big */
+ 	if (pkt->len > VIRTIO_VSOCK_MAX_PKT_BUF_SIZE) {
+ 		kfree(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	pkt->buf = kmalloc(pkt->len, GFP_KERNEL);
+ 	if (!pkt->buf) {
+ 		kfree(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	nbytes = copy_from_iter(pkt->buf, pkt->len, &iov_iter);
+@@ -324,7 +331,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Expected %u byte payload, got %zu bytes\n",
+ 		       pkt->len, nbytes);
+ 		virtio_transport_free_pkt(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	return pkt;
+@@ -362,9 +369,26 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+ 		}
+ 
+ 		pkt = vhost_vsock_alloc_pkt(vq, out, in);
+-		if (!pkt) {
+-			vq_err(vq, "Faulted on pkt\n");
+-			continue;
++
++		if (IS_ERR(pkt)) {
++			if (PTR_ERR(pkt) == -ENOMEM) {
++				vhost_discard_vq_desc(vq, 1);
++
++				if (!timer_pending(&vsock->tx_kick)) {
++					vsock->tx_kick.data =
++						(unsigned long) vq;
++					vsock->tx_kick.expires =
++						jiffies + msecs_to_jiffies(OOM_RETRY_MS);
++					add_timer(&vsock->tx_kick);
++				}
++
++				break;
++			} else {
++				vq_err(vq, "Faulted on pkt\n");
++				break;
++			}
++		} else if (unlikely(timer_pending(&vsock->tx_kick))) {
++			del_timer(&vsock->tx_kick);
+ 		}
+ 
+ 		/* Only accept correctly addressed packets */
+@@ -383,6 +407,13 @@ out:
+ 	mutex_unlock(&vq->mutex);
+ }
+ 
++static void vhost_vsock_rehandle_tx_kick(unsigned long data)
++{
++	struct vhost_virtqueue *vq = (struct vhost_virtqueue *) data;
++
++	vhost_poll_queue(&vq->poll);
++}
++
+ static void vhost_vsock_handle_rx_kick(struct vhost_work *work)
+ {
+ 	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
+@@ -493,6 +524,9 @@ static int vhost_vsock_dev_open(struct inode *inode, struct file *file)
+ 		goto out;
+ 	}
+ 
++	setup_timer(&vsock->tx_kick,
++		    vhost_vsock_rehandle_tx_kick, (unsigned long) NULL);
++
+ 	vqs[VSOCK_VQ_TX] = &vsock->vqs[VSOCK_VQ_TX];
+ 	vqs[VSOCK_VQ_RX] = &vsock->vqs[VSOCK_VQ_RX];
+ 	vsock->vqs[VSOCK_VQ_TX].handle_kick = vhost_vsock_handle_tx_kick;
+@@ -555,6 +589,7 @@ static int vhost_vsock_dev_release(struct inode *inode, struct file *file)
+ 	vhost_dev_stop(&vsock->dev);
+ 	vhost_dev_cleanup(&vsock->dev, false);
+ 	kfree(vsock->dev.vqs);
++	del_timer(&vsock->tx_kick);
+ 	vhost_vsock_free(vsock);
+ 	return 0;
+ }
 -- 
 2.9.1
