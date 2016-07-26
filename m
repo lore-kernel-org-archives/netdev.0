@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/mlx5_core/health: Remove deprecated
- create_singlethread_workqueue
-Date: Tue, 26 Jul 2016 15:19:21 -0700 (PDT)
-Message-ID: <20160726.151921.304567441512097113.davem@davemloft.net>
-References: <20160717051327.GA20674@leon.nu>
-	<20160726170824.GA10721@Karyakshetra>
+Subject: Re: [PATCH net] l2tp: Correctly return -EBADF from
+ pppol2tp_getname.
+Date: Tue, 26 Jul 2016 15:19:57 -0700 (PDT)
+Message-ID: <20160726.151957.1214443852703588578.davem@davemloft.net>
+References: <20160726191435.31503-1-phil.turnbull@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: matanb@mellanox.com, leonro@mellanox.com, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tj@kernel.org
-To: bhaktipriya96@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160726170824.GA10721@Karyakshetra>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: phil.turnbull@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41910 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757434AbcGZWT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 18:19:59 -0400
+In-Reply-To: <20160726191435.31503-1-phil.turnbull@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Date: Tue, 26 Jul 2016 22:38:24 +0530
+From: Phil Turnbull <phil.turnbull@oracle.com>
+Date: Tue, 26 Jul 2016 15:14:35 -0400
 
-> The workqueue health->wq was used as per device private health thread.
-> This was done to perform delayed work.
+> If 'tunnel' is NULL we should return -EBADF but the 'end_put_sess' path
+> unconditionally sets 'error' back to zero. Rework the error path so it
+> more closely matches pppol2tp_sendmsg.
 > 
-> The workqueue has a single workitem(&health->work) and
-> hence doesn't require ordering. It is involved in handling the health of
-> the device and is not being used on a memory reclaim path.
-> Hence, the singlethreaded workqueue has been replaced with the use of
-> system_wq.
-> 
-> Work item has been flushed in mlx5_health_cleanup() to ensure that
-> there are no pending tasks while disconnecting the driver.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
+> Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
 
 Applied.
