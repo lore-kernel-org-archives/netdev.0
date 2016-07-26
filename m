@@ -1,47 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Mon, 25 Jul 2016 17:37:01 -0700 (PDT)
-Message-ID: <20160725.173701.1282720667210726281.davem@davemloft.net>
-References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+Subject: Re: [PATCH] net/sctp: terminate rhashtable walk correctly
+Date: Mon, 25 Jul 2016 17:44:51 -0700 (PDT)
+Message-ID: <20160725.174451.328776654071356819.davem@davemloft.net>
+References: <1469259755-18079-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, olaf@aepfle.de, gregkh@linuxfoundation.org,
- jasowang@redhat.com, dave.scott@docker.com, linux-kernel@vger.kernel.org,
- joe@perches.com, rolf.neugebauer@docker.com, netdev@vger.kernel.org,
- apw@canonical.com, devel@linuxdriverproject.org, haiyangz@microsoft.com
-To: decui@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	lucien.xin@gmail.com, herbert@gondor.apana.org.au,
+	stable@vger.kernel.org
+To: vegard.nossum@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49280 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756958AbcGZAow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Jul 2016 20:44:52 -0400
+In-Reply-To: <1469259755-18079-1-git-send-email-vegard.nossum@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Sat, 23 Jul 2016 01:35:51 +0000
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Date: Sat, 23 Jul 2016 09:42:35 +0200
 
-> +static struct sock *hvsock_create(struct net *net, struct socket *sock,
-> +				  gfp_t priority, unsigned short type)
-> +{
-> +	struct hvsock_sock *hvsk;
-> +	struct sock *sk;
-> +
-> +	sk = sk_alloc(net, AF_HYPERV, priority, &hvsock_proto, 0);
-> +	if (!sk)
-> +		return NULL;
+> I was seeing a lot of these:
  ...
-> +	/* Looks stream-based socket doesn't need this. */
-> +	sk->sk_backlog_rcv = NULL;
-> +
-> +	sk->sk_state = 0;
-> +	sock_reset_flag(sk, SOCK_DONE);
+> Apparently we always need to call rhashtable_walk_stop(), even when
+> rhashtable_walk_start() fails:
+> 
+>  * rhashtable_walk_start - Start a hash table walk
+>  * @iter:       Hash table iterator
+>  *
+>  * Start a hash table walk.  Note that we take the RCU lock in all
+>  * cases including when we return an error.  So you must always call
+>  * rhashtable_walk_stop to clean up.
+> 
+> otherwise we never call rcu_read_unlock() and we get the splat above.
+> 
+> See-also: 53fa1036 ("sctp: fix some rhashtable functions using in sctp proc/diag")
+> See-also: f2dba9c6 ("rhashtable: Introduce rhashtable_walk_*")
+> Cc: Xin Long <lucien.xin@gmail.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 
-All of these are unnecessary initializations, since sk_alloc() zeroes
-out the 'sk' object for you.
+Applied and queued up for -stable, thanks.
