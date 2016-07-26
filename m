@@ -1,72 +1,79 @@
-From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Tue, 26 Jul 2016 09:52:43 -0700
-Message-ID: <CAGXu5j+ZtZAFpW0ajnnBTRZk17ez6XYF=meEJY_rF7wwgyZB5Q@mail.gmail.com>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org> <87d1m754jc.fsf@x220.int.ebiederm.org>
- <6be70177-a81d-7ed8-d2c9-a596d4d6a165@gmail.com> <87shuwtp4c.fsf@x220.int.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>, Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>,
-	"Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	"linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87shuwtp4c.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v2] net: ipmr/ip6mr: update lastuse on entry change
+Date: Tue, 26 Jul 2016 18:54:52 +0200
+Message-ID: <1469552092-16019-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <1469550861-13032-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Donald Sharp <sharpd@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:36358 "EHLO
+	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757170AbcGZQzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 12:55:02 -0400
+Received: by mail-wm0-f41.google.com with SMTP id q128so181141149wma.1
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 09:55:01 -0700 (PDT)
+In-Reply-To: <1469550861-13032-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 26, 2016 at 8:06 AM, Eric W. Biederman
-<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
-> "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->
->> Hello Eric,
->>
->> I realized I had a question after the last mail.
->>
->> On 07/21/2016 06:39 PM, Eric W. Biederman wrote:
->>>
->>> This patchset addresses two use cases:
->>> - Implement a sane upper bound on the number of namespaces.
->>> - Provide a way for sandboxes to limit the attack surface from
->>>   namespaces.
->>
->> Can you say more about the second point? What exactly is the
->> problem that is being addressed, and how does the patch series
->> address it? (It would be good to have those details in the
->> revised commit message...)
->
-> At some point it was reported that seccomp was not sufficient to disable
-> namespace creation.  I need to go back and look at that claim to see
-> which set of circumstances that was referring to.  Seccomp doesn't stack
-> so I can see why it is an issue.
+Currently lastuse is updated on entry creation and cache hit, but it should
+also be updated on entry change. Since both on add and update the ttl array
+is updated we can simply update the lastuse in ipmr_update_thresholds.
 
-seccomp does stack. The trouble usually comes from a perception that
-seccomp overhead is not trivial, so setting a system-wide policy is a
-bit of a large hammer for such a limitiation. Also, at the time,
-seccomp could be bypasses with ptrace, but this (as of v4.8) is no
-longer true.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+CC: Roopa Prabhu <roopa@cumulusnetworks.com>
+CC: Donald Sharp <sharpd@cumulusnetworks.com>
+CC: David S. Miller <davem@davemloft.net>
+---
+v2: instead of duplicating the lastuse update, do it while updating the
+thresholds which is shared by add/update
 
-> The general problem is that namespaces by their nature (and especially
-> in combination with the user namespaces) allow unprivileged users to use
-> more of the kernel than a user would have access to without them.  This
-> in turn allows malicious users more kernel calls they can use in attempt
-> to find an exploitable bug.
->
-> So if you are building a sandbox/chroot jail/chromium tab or anything
-> like that and you know you won't be needing a kernel feature having an
-> easy way to disable the feature is useful for making the kernel
-> marginally more secure, as certain attack vectors are no longer
-> possible.
+ net/ipv4/ipmr.c  | 2 +-
+ net/ipv6/ip6mr.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
--Kees
-
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index eec234161b89..26253328d227 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -722,6 +722,7 @@ static void ipmr_update_thresholds(struct mr_table *mrt, struct mfc_cache *cache
+ 				cache->mfc_un.res.maxvif = vifi + 1;
+ 		}
+ 	}
++	cache->mfc_un.res.lastuse = jiffies;
+ }
+ 
+ static int vif_add(struct net *net, struct mr_table *mrt,
+@@ -1150,7 +1151,6 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+ 	c->mfc_origin = mfc->mfcc_origin.s_addr;
+ 	c->mfc_mcastgrp = mfc->mfcc_mcastgrp.s_addr;
+ 	c->mfc_parent = mfc->mfcc_parent;
+-	c->mfc_un.res.lastuse = jiffies;
+ 	ipmr_update_thresholds(mrt, c, mfc->mfcc_ttls);
+ 	if (!mrtsock)
+ 		c->mfc_flags |= MFC_STATIC;
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 7adce139d92a..6122f9c5cc49 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -921,6 +921,7 @@ static void ip6mr_update_thresholds(struct mr6_table *mrt, struct mfc6_cache *ca
+ 				cache->mfc_un.res.maxvif = vifi + 1;
+ 		}
+ 	}
++	cache->mfc_un.res.lastuse = jiffies;
+ }
+ 
+ static int mif6_add(struct net *net, struct mr6_table *mrt,
+@@ -1500,7 +1501,6 @@ static int ip6mr_mfc_add(struct net *net, struct mr6_table *mrt,
+ 	c->mf6c_origin = mfc->mf6cc_origin.sin6_addr;
+ 	c->mf6c_mcastgrp = mfc->mf6cc_mcastgrp.sin6_addr;
+ 	c->mf6c_parent = mfc->mf6cc_parent;
+-	c->mfc_un.res.lastuse = jiffies;
+ 	ip6mr_update_thresholds(mrt, c, ttls);
+ 	if (!mrtsock)
+ 		c->mfc_flags |= MFC_STATIC;
 -- 
-Kees Cook
-Chrome OS & Brillo Security
+2.1.4
