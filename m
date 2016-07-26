@@ -1,81 +1,131 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 26 Jul 2016 05:10:08 +0000
-Message-ID: <CO2PR03MB218254B70CBD052069CDEB4FBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
-References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160725.173701.1282720667210726281.davem@davemloft.net>
- <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160725.213822.1745865660912873332.davem@davemloft.net>
+From: Andrei Vagin <avagin-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 09/10] netns: Add a limit on the number of net
+	namespaces
+Date: Mon, 25 Jul 2016 23:01:19 -0700
+Message-ID: <CANaxB-zfkvu9XYkuYB47tYFGLeVnWBhpgEUaSrGD4+-O8ThcNw@mail.gmail.com>
+References: <87d1m754jc.fsf@x220.int.ebiederm.org>
+	<20160721164014.17534-1-ebiederm@xmission.com>
+	<20160721164014.17534-9-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "mkubecek@suse.cz" <mkubecek@suse.cz>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "dave.scott@docker.com" <dave.scott@docker.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "joe@perches.com" <joe@perches.com>,
- "rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20160725.213822.1745865660912873332.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>, Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-fsdevel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20160721164014.17534-9-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> From: David Miller [mailto:davem@davemloft.net]
-> ...
-> From: Dexuan Cui <decui@microsoft.com>
-> Date: Tue, 26 Jul 2016 03:09:16 +0000
-> 
-> > BTW, during the past month, at least 7 other people also reviewed
-> > the patch and gave me quite a few good comments, which have
-> > been addressed.
-> 
-> Correction: Several people gave coding style and simple corrections
-> to your patch.
-> 
-> Very few gave any review of the _SUBSTANCE_ of your changes.
-> 
-> And the one of the few who did, and suggested you build your
-> facilities using the existing S390 hypervisor socket infrastructure,
-> you brushed off _IMMEDIATELY_.
+On Thu, Jul 21, 2016 at 9:40 AM, Eric W. Biederman
+<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
+> Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> ---
+>  include/linux/user_namespace.h |  1 +
+>  kernel/user_namespace.c        |  1 +
+>  net/core/net_namespace.c       | 15 +++++++++++++++
+>  3 files changed, 17 insertions(+)
 >
-> That drives me crazy.  The one person who gave you real feedback
-> you basically didn't consider seriously at all.
+> diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
+> index 1a3a9cb93277..f86afa536baf 100644
+> --- a/include/linux/user_namespace.h
+> +++ b/include/linux/user_namespace.h
+> @@ -27,6 +27,7 @@ enum ucounts {
+>         UCOUNT_PID_NAMESPACES,
+>         UCOUNT_UTS_NAMESPACES,
+>         UCOUNT_IPC_NAMESPACES,
+> +       UCOUNT_NET_NAMESPACES,
+>         UCOUNT_CGROUP_NAMESPACES,
+>         UCOUNT_COUNTS,
+>  };
+> diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
+> index 1cf074cb47e2..e326ca722ae0 100644
+> --- a/kernel/user_namespace.c
+> +++ b/kernel/user_namespace.c
+> @@ -80,6 +80,7 @@ static struct ctl_table userns_table[] = {
+>         UCOUNT_ENTRY("max_pid_namespaces"),
+>         UCOUNT_ENTRY("max_uts_namespaces"),
+>         UCOUNT_ENTRY("max_ipc_namespaces"),
+> +       UCOUNT_ENTRY("max_net_namespaces"),
+>         UCOUNT_ENTRY("max_cgroup_namespaces"),
+>         { }
+>  };
+> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+> index 2c2eb1b629b1..a489f192d619 100644
+> --- a/net/core/net_namespace.c
+> +++ b/net/core/net_namespace.c
+> @@ -266,6 +266,16 @@ struct net *get_net_ns_by_id(struct net *net, int id)
+>         return peer;
+>  }
+>
+> +static bool inc_net_namespaces(struct user_namespace *ns)
+> +{
+> +       return inc_ucount(ns, UCOUNT_NET_NAMESPACES);
+> +}
+> +
+> +static void dec_net_namespaces(struct user_namespace *ns)
+> +{
+> +       dec_ucount(ns, UCOUNT_NET_NAMESPACES);
+> +}
+> +
+>  /*
+>   * setup_net runs the initializers for the network namespace object.
+>   */
+> @@ -276,6 +286,9 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
+>         int error = 0;
+>         LIST_HEAD(net_exit_list);
+>
+> +       if (!inc_net_namespaces(user_ns))
+> +               return -ENFILE;
 
-Hi David,
-I'm very sorry -- I guess I must have missed something here -- I don't
-remember somebody replied with S390 hypervisor socket
-infrastructure... I'm re-reading all the replies, trying to locate the
-reply and I'll find out why I didn't take it seriously. Sorry in advance.
+I think you need to move this check after initilizing  net->passive.
+When setup_net returns an error, net_drop_ns is called:
 
-> I know why you don't want to consider alternative implementations,
-> and it's because you guys have so much invested in what you've
-> implemented already.
-This is not true. I'm absolutely open to any possibility to have an
-alternative better implementation.
-Please allow me to find the "S390 hypervisor socket infrastructure" reply
-first and I'll report back ASAP.
- 
-> But that's tough and not our problem.
-> 
-> And until this changes, yes, this submission will be stuck in the
-> mud and continue slogging on like this.
+void net_drop_ns(void *p)
+{
+        struct net *ns = p;
+        if (ns && atomic_dec_and_test(&ns->passive))
+                net_free(ns);
+}
 
-I definitely agree and understand.
+Actually, I think it would be better to make this check before net_alloc().
 
-Thanks,
--- Dexuan
+> +
+>         atomic_set(&net->count, 1);
+>         atomic_set(&net->passive, 1);
+>         net->dev_base_seq = 1;
+> @@ -372,6 +385,7 @@ struct net *copy_net_ns(unsigned long flags,
+>         }
+>         mutex_unlock(&net_mutex);
+>         if (rv < 0) {
+> +               dec_net_namespaces(user_ns);
+>                 put_user_ns(user_ns);
+>                 net_drop_ns(net);
+>                 return ERR_PTR(rv);
+> @@ -444,6 +458,7 @@ static void cleanup_net(struct work_struct *work)
+>         /* Finally it is safe to free my network namespace structure */
+>         list_for_each_entry_safe(net, tmp, &net_exit_list, exit_list) {
+>                 list_del_init(&net->exit_list);
+> +               dec_net_namespaces(net->user_ns);
+>                 put_user_ns(net->user_ns);
+>                 net_drop_ns(net);
+>         }
+> --
+> 2.8.3
+>
+> _______________________________________________
+> Containers mailing list
+> Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+> https://lists.linuxfoundation.org/mailman/listinfo/containers
