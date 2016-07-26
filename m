@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] ipvlan: Scrub skb before crossing the namespace
- boundry
-Date: Mon, 25 Jul 2016 21:48:47 -0700 (PDT)
-Message-ID: <20160725.214847.185245089974986608.davem@davemloft.net>
-References: <1469482696-32271-1-git-send-email-mahesh@bandewar.net>
+From: alexmcwhirter@triadic.us
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Tue, 26 Jul 2016 00:38:51 -0400
+Message-ID: <5ad66efb31d2febc2a4fda0be591815b@triadic.us>
+References: <201607240335.u6O3ZE81014171@sdf.org>
+ <1659922.nTqITfJpFk@debian64>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52410 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753109AbcGZEst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:48:49 -0400
-In-Reply-To: <1469482696-32271-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alan Curry <rlwinm@sdf.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Al Viro <viro@zeniv.linux.org.uk>
+To: Christian Lamparter <chunkeey@googlemail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1659922.nTqITfJpFk@debian64>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Mon, 25 Jul 2016 14:38:16 -0700
+> Thanks for the detailed bug-report. I looked around the web to see if 
+> it
+> was already reported or not. If found that this issue was reported 
+> before:
+> [0], [1] and [2] by the same person (CC'ed). One difference is that the
+> reporter had this issue with rsync on multiple SPARC systems. I ran a
+> git grep on a 4.7.0-rc7+ (wt-2016-07-21-15-g97bd3b0). But it didn't 
+> find
+> any patches directly referencing the commit. I'm not sure if this issue
+> has been fixed by now or not. I would greatly appreciate any comment
+> about this from the "people of netdev" (Al Viro? Alex Mcwhirter?).
 
-> From: Mahesh Bandewar <maheshb@google.com>
-> 
-> The earlier patch c3aaa06d5a63 (ipvlan: scrub skb before routing
-> in L3 mode.) did this but only for TX path in L3 mode. This
-> patch extends it for both the modes for TX/RX path.
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-
-Applied.
+I can confirm the issue i was having with this commit still exists on 
+sparc with the latest mainline kernel.
