@@ -1,43 +1,70 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 02/10] userns: Add per user namespace sysctls.
-Date: Mon, 25 Jul 2016 19:58:36 -0700 (PDT)
-Message-ID: <20160725.195836.1881375122073635224.davem@davemloft.net>
-References: <878twp6zd2.fsf@x220.int.ebiederm.org>
-	<20160725.172406.352408511647766870.davem@davemloft.net>
-	<87k2g95it9.fsf@x220.int.ebiederm.org>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v18 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 26 Jul 2016 03:09:16 +0000
+Message-ID: <CO2PR03MB2182D011056AA151CCEF4EFFBF0E0@CO2PR03MB2182.namprd03.prod.outlook.com>
+References: <CO2PR03MB2182FD2D8AED7FFC7608510FBF0B0@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160725.173701.1282720667210726281.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
-	seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, kernel-6AxghH7DbtA@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org
-To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87k2g95it9.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Transfer-Encoding: 8BIT
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"vkuznets@redhat.com" <vkuznets@redhat.com>,
+	"cavery@redhat.com" <cavery@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"joe@perches.com" <joe@perches.com>,
+	"rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
+	"mkubecek@suse.cz" <mkubecek@suse.cz>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"dave.scott@docker.com" <dave.scott@docker.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160725.173701.1282720667210726281.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Date: Mon, 25 Jul 2016 19:44:50 -0500
+> From: David Miller [mailto:davem@davemloft.net]
+> 
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Sat, 23 Jul 2016 01:35:51 +0000
+> 
+> > +static struct sock *hvsock_create(struct net *net, struct socket *sock,
+> > +				  gfp_t priority, unsigned short type)
+> > +{
+> > +	struct hvsock_sock *hvsk;
+> > +	struct sock *sk;
+> > +
+> > +	sk = sk_alloc(net, AF_HYPERV, priority, &hvsock_proto, 0);
+> > +	if (!sk)
+> > +		return NULL;
+>  ...
+> > +	/* Looks stream-based socket doesn't need this. */
+> > +	sk->sk_backlog_rcv = NULL;
+> > +
+> > +	sk->sk_state = 0;
+> > +	sock_reset_flag(sk, SOCK_DONE);
+> 
+> All of these are unnecessary initializations, since sk_alloc() zeroes
+> out the 'sk' object for you.
 
-> User namespaces have enabled unprivileged users access to a lot more
-> data structures and so to catch programs that go crazy we need a lot
-> more limits.  I believe some of those limits make sense per namespace.
-> As it is easy in some cases to say any more than Y number of those
-> per namespace is excessive.   For example a limit of 1,000,000 ipv4
-> routes per network namespaces is a sanity check as there are
-> currently 621,649 ipv4 prefixes advertized in bgp.
+Hi David,
+Thanks for the comment!  I'll remove the 3 lines.
 
-When we give a new namespace to unprivileged users, we honestly should
-make the sysctl settings we give to them become "limits".  They can
-further constrain the sysctl settings but may not raise them.
+May I know if you have more comments?
+
+BTW, during the past month, at least 7 other people also reviewed
+the patch and gave me quite a few good comments, which have
+been addressed. Though only one of them gave the Reviewed-by
+line for now, I guess I would get more if I ping them to have a look
+at the latest version of the patch, i.e., v19 -- I'm going to post it
+with the aforementioned 3 lines removed and if you've more 
+comments, I'm ready to address them too. :-)
+
+Thanks,
+-- Dexuan
