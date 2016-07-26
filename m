@@ -1,7 +1,7 @@
 From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Tue, 26 Jul 2016 12:27:59 +0200
-Message-ID: <94b608ae-1d06-5c41-cbd5-94e663a2163a@gmail.com>
+Date: Tue, 26 Jul 2016 12:30:10 +0200
+Message-ID: <6be70177-a81d-7ed8-d2c9-a596d4d6a165@gmail.com>
 References: <8737n5dscy.fsf@x220.int.ebiederm.org>
 	<87d1m754jc.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
@@ -30,33 +30,19 @@ List-Id: netdev.vger.kernel.org
 
 Hello Eric,
 
+I realized I had a question after the last mail.
+
 On 07/21/2016 06:39 PM, Eric W. Biederman wrote:
 >
 > This patchset addresses two use cases:
 > - Implement a sane upper bound on the number of namespaces.
 > - Provide a way for sandboxes to limit the attack surface from
 >   namespaces.
->
-> The maximum sane case I can imagine is if every process is a fat
-> process, so I set the maximum number of namespaces to the maximum
-> number of threads.
->
-> I make these limits recursive and per user namespace so that a
-> usernamespace root can reduce the limits further.  If a user namespace
-> root raises the limit the limit in the parent namespace will be honored.
->
-> I have cut this implementation to the bare minimum needed to achieve
-> these objectives.
->
-> Does anyone know if there is a proper error code to return for resource
-> limit exceeded?  I am currently using -EUSERS or -ENFILE but both of
-> those feel a little wrong.
 
-ENFILE certainly seems weird. I suppose my first question is: why two
-different errors?
-
-Some alternatives you might want to consider: E2BIG, EOVERFLOW,
-or (maybe) ERANGE.
+Can you say more about the second point? What exactly is the
+problem that is being addressed, and how does the patch series
+address it? (It would be good to have those details in the
+revised commit message...)
 
 Cheers,
 
