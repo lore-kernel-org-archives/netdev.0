@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2 0/2] net_sched: refactor tc action
- structures
-Date: Mon, 25 Jul 2016 21:49:35 -0700 (PDT)
-Message-ID: <20160725.214935.1694554725836014999.davem@davemloft.net>
-References: <1469488182-12296-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v7 00/12] drivers: net: xgene: Fix module
+ crash and 1G hot-plug
+Date: Mon, 25 Jul 2016 21:52:01 -0700 (PDT)
+Message-ID: <20160725.215201.293002281412965878.davem@davemloft.net>
+References: <1469491967-28627-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	linux@armlinux.org.uk
+To: isubramanian@apm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52420 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52432 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753109AbcGZEti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:49:38 -0400
-In-Reply-To: <1469488182-12296-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1753109AbcGZEwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 00:52:03 -0400
+In-Reply-To: <1469491967-28627-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 25 Jul 2016 16:09:40 -0700
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Mon, 25 Jul 2016 17:12:35 -0700
 
-> These two patches factor out the struct tcf_common.
+> This patchset addresses the following issues,
 > 
-> v2: fix a compile warning
+> 1. Fixes the kernel crash when the driver loaded as an kernel module
+> 	- by fixing hardware cleanups and rearrange kernel API calls
+> 
+> 2. Hot-plug issue on the SGMII 1G interface
+> 	- by adding a driver for MDIO management
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Tested-by: Fushen Chen <fchen@apm.com>
+> Tested-by: Toan Le <toanle@apm.com>
 
-Series applied.
+Series applied, thank you.
