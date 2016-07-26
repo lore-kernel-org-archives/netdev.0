@@ -1,214 +1,55 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: Microsemi VSC 8531/41 PHY Driver
-Date: Tue, 26 Jul 2016 09:49:53 +0000
-Message-ID: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [v3] UCC_GETH/UCC_FAST: Use IS_ERR_VALUE_U32 API to avoid IS_ERR_VALUE abuses.
+Date: Tue, 26 Jul 2016 13:39:15 +0200
+Message-ID: <4175803.I7CDUloLxQ@wuerfel>
+References: <1469297151-9763-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_646450A91FAED74E85C6E9C4D6E936A145329E4Aavsrvexchmbx1mi_"
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Arvind Yadav <arvind.yadav.cs@gmail.com>, zajec5@gmail.com,
+	leoli@freescale.com, qiang.zhao@freescale.com,
+	viresh.kumar@linaro.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, scottwood@freescale.com,
+	akpm@linux-foundation.org, linux@roeck-us.net
+To: linuxppc-dev@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0057.outbound.protection.outlook.com ([104.47.32.57]:40226
-	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753564AbcGZL0I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 07:26:08 -0400
-Content-Language: en-US
+Received: from mout.kundenserver.de ([212.227.17.13]:57677 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbcGZLkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 07:40:14 -0400
+In-Reply-To: <1469297151-9763-1-git-send-email-arvind.yadav.cs@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_646450A91FAED74E85C6E9C4D6E936A145329E4Aavsrvexchmbx1mi_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Saturday, July 23, 2016 11:35:51 PM CEST Arvind Yadav wrote:
+> diff --git a/include/linux/err.h b/include/linux/err.h
+> index 1e35588..a42f942 100644
+> --- a/include/linux/err.h
+> +++ b/include/linux/err.h
+> @@ -19,6 +19,7 @@
+>  #ifndef __ASSEMBLY__
+>  
+>  #define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
+> +#define IS_ERR_VALUE_U32(x) unlikely((unsigned int)(x) >= (unsigned int)-MAX_ERRNO)
+>  
+>  static inline void * __must_check ERR_PTR(long error)
+>  {
 
-Hello All,
+This doesn't really look like something we want to have as a generic
+interface. The IS_ERR_VALUE() API is rather awkward already, and your
+use seems specific to the cpu_muram_alloc() function.
 
-I would like to introduce myself as Nagaraju Lakkaraju (Raju), is working i=
-n Microsemi Communications India Pvt. Ltd (Formerly known as Vitesse Semico=
-nductors Limited) - Hyderabad as Sr. Staff Engineer.
-I do work on Microsemi PHY drivers development.
-Microsemi is developing the new Physical Layer (PHY) chips for Internet Of =
-Things (IoT) products with 1 Gbps link speed.=20
-As part of the development, Microsemi would like to contribute the new PHYs=
- (i.e. VSC 8531 / VSC 8541) chip drivers in Linux Kernel Open source.
-VSC 8531 / 8541 PHYs will have the following features a part of the basic f=
-eatures like Auto-neg, Speed, Duplex etc.
-1. Wake on LAN=20
-2. Auto MDIX/MDI=20
-3. Link Speed Down shift
-4. Fast Link Failure-2
-5. Loopbacks (FAR-END, NEAR-END and Connector)
-6. Ethernet Packet Generator (EPG)
-7. Serial Management Interface (SMI) Interrupt
-8. Clock Squelch configuration (SyncE)
-9. Jumbo Frame Support
-10. In-line Power On Ethernet (PoE) status
-11. Acti PHY power Management=20
-12. Energy Efficiency Ethenet (EEE)
-13. VeriPHY (Cable Diagnostics)
-14. LED configuration
-15. Ring Resiliency
-16. Start Of Frame Detection (SOF)
-17. COMA mode=20
+How about something like
 
-As part of Initial submission of the Linux Kernel Open source drivers,
-I developed the VSC 8531 driver basic features and built the Linux Kernel i=
-mage for Beaglebone Black hardware.
-Also developed Ethtool enhancement for VSC 8531 register access functionali=
-ty to test the VSC 8531=20
+int cpm_muram_error(unsigned long addr)
+{
+	if (addr >= (unsigned long)-MAX_ERRNO)
+		return addr;
+	else
+		return 0;
+}
 
-Test Setup:
--------------
-Hardware Details: Beaglebone Black with VSC 8531 PHY
-Software Linux Kernel version: 4.6.4
+and then use that to check the value returned by the allocation
+that is still an 'unsigned long', before assigning it to a 'u32'.
 
-Microsemi VSC 8531 chip is mount on Beaglebone Black hardware (replaced the=
- Microchip PHY) and tested the following features.
-1. Auto negotiation
-2. Speed change ( 10 Mbps, 100 Mbps and 1 Gbps)
-3. Full/Half Duplex
-4. Ping=20
-5. Line rate traffic with Test center
-
-I would like you to review my code and provide me the valuable comments.
-Please find the attached git code diff patch.
-
-Thanks and regards,
-Raju
-(Nagaraju Lakkaraju)
-Sr. Staff Engg.
-Microsemi Communications India Pvt Ltd.
-Ph: +91 040  6686 0132
-
-
---_002_646450A91FAED74E85C6E9C4D6E936A145329E4Aavsrvexchmbx1mi_
-Content-Type: application/octet-stream;
-	name="0001-net-phy-Add-drivers-for-Microsemi-PHYs.patch"
-Content-Description: 0001-net-phy-Add-drivers-for-Microsemi-PHYs.patch
-Content-Disposition: attachment;
-	filename="0001-net-phy-Add-drivers-for-Microsemi-PHYs.patch"; size=6722;
-	creation-date="Tue, 26 Jul 2016 09:06:12 GMT";
-	modification-date="Thu, 21 Jul 2016 12:31:33 GMT"
-Content-Transfer-Encoding: base64
-
-RnJvbSBkNzVkY2UwODJkMjI5NTk1MjExZThlNzEwNmExOWM5NjdlNWNlMDdmIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiAiTmFnYXJhanUgTGFra2FyYWp1IiA8cmFqdS5sYWtrYXJhanVA
-bWljcm9zZW1pLmNvbT4KRGF0ZTogVGh1LCAyMSBKdWwgMjAxNiAxMjo0Nzo1NCArMDIwMApTdWJq
-ZWN0OiBbUEFUQ0hdIG5ldDogcGh5OiBBZGQgZHJpdmVycyBmb3IgTWljcm9zZW1pIFBIWXMKCkFk
-ZGluZyBzdXBwb3J0IGZvciBNaWNyb3NlbWkgUEhZczogVlNDODUzMSBhbmQgVlNDODU0MS4KClNp
-Z25lZC1vZmYtYnk6IE5hZ2FyYWp1IExha2thcmFqdSA8cmFqdS5sYWtrYXJhanVAbWljcm9zZW1p
-LmNvbT4KLS0tCiBkcml2ZXJzL25ldC9waHkvS2NvbmZpZyAgfCAgIDUgKysKIGRyaXZlcnMvbmV0
-L3BoeS9NYWtlZmlsZSB8ICAgMSArCiBkcml2ZXJzL25ldC9waHkvbXNjYy5jICAgfCAxODMgKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKIDMgZmlsZXMgY2hh
-bmdlZCwgMTg5IGluc2VydGlvbnMoKykKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9w
-aHkvbXNjYy5jCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvcGh5L0tjb25maWcgYi9kcml2ZXJz
-L25ldC9waHkvS2NvbmZpZwppbmRleCA2ZGFkOWE5Li45ZDFiZDBlIDEwMDY0NAotLS0gYS9kcml2
-ZXJzL25ldC9waHkvS2NvbmZpZworKysgYi9kcml2ZXJzL25ldC9waHkvS2NvbmZpZwpAQCAtMjcx
-LDYgKzI3MSwxMSBAQCBjb25maWcgTURJT19CQ01fSVBST0MKIAkgIFRoaXMgbW9kdWxlIHByb3Zp
-ZGVzIGEgZHJpdmVyIGZvciB0aGUgTURJTyBidXNzZXMgZm91bmQgaW4gdGhlCiAJICBCcm9hZGNv
-bSBpUHJvYyBTb0Mncy4KIAorY29uZmlnIE1JQ1JPU0VNSV9QSFkKKyAgICAgICAgdHJpc3RhdGUg
-IkRyaXZlcnMgZm9yIHRoZSBNaWNyb3NlbWkgUEhZcyIKKyAgICAgICAgLS0taGVscC0tLQorICAg
-ICAgICAgIEN1cnJlbnRseSBzdXBwb3J0cyB0aGUgVlNDODUzMSBhbmQgVlNDODU0MSBQSFlzCisK
-IGVuZGlmICMgUEhZTElCCiAKIGNvbmZpZyBNSUNSRUxfS1M4OTk1TUEKZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L3BoeS9NYWtlZmlsZSBiL2RyaXZlcnMvbmV0L3BoeS9NYWtlZmlsZQppbmRleCBm
-Y2RiYjkyLi5mOThhYzkwIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9waHkvTWFrZWZpbGUKKysr
-IGIvZHJpdmVycy9uZXQvcGh5L01ha2VmaWxlCkBAIC0xMCw2ICsxMCw3IEBAIG9iai0kKENPTkZJ
-R19DSUNBREFfUEhZKQkrPSBjaWNhZGEubwogb2JqLSQoQ09ORklHX0xYVF9QSFkpCQkrPSBseHQu
-bwogb2JqLSQoQ09ORklHX1FTRU1JX1BIWSkJCSs9IHFzZW1pLm8KIG9iai0kKENPTkZJR19TTVND
-X1BIWSkJCSs9IHNtc2Mubworb2JqLSQoQ09ORklHX01JQ1JPU0VNSV9QSFkpICAgICArPSBtc2Nj
-Lm8KIG9iai0kKENPTkZJR19URVJBTkVUSUNTX1BIWSkJKz0gdGVyYW5ldGljcy5vCiBvYmotJChD
-T05GSUdfVklURVNTRV9QSFkpCSs9IHZpdGVzc2Uubwogb2JqLSQoQ09ORklHX0JDTV9ORVRfUEhZ
-TElCKQkrPSBiY20tcGh5LWxpYi5vCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9waHkvbXNjYy5j
-IGIvZHJpdmVycy9uZXQvcGh5L21zY2MuYwpuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAw
-MDAwLi42MDVlOTFjCi0tLSAvZGV2L251bGwKKysrIGIvZHJpdmVycy9uZXQvcGh5L21zY2MuYwpA
-QCAtMCwwICsxLDE4MyBAQAorLyoKKyAqIERyaXZlciBmb3IgTWljcm9zZW1pIFZTQzg1eHggUEhZ
-cworICoKKyAqIEF1dGhvcjogTmFnYXJhanUgTGFra2FyYWp1CisgKiBMaWNlbnNlOiBEdWFsIE1J
-VC9HUEwKKyAqIENvcHlyaWdodCAoYykgMjAxNiBNaWNyb3NlbWkgQ29ycG9yYXRpb24KKyAqLwor
-CisjaW5jbHVkZSA8bGludXgva2VybmVsLmg+CisjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+Cisj
-aW5jbHVkZSA8bGludXgvbWRpby5oPgorI2luY2x1ZGUgPGxpbnV4L21paS5oPgorI2luY2x1ZGUg
-PGxpbnV4L3BoeS5oPgorCitlbnVtIHJnbWlpX3J4X2Nsb2NrX2RlbGF5IHsKKwlSR01JSV9SWF9D
-TEtfREVMQVlfMF8yX05TID0gMCwKKwlSR01JSV9SWF9DTEtfREVMQVlfMF84X05TID0gMSwKKwlS
-R01JSV9SWF9DTEtfREVMQVlfMV8xX05TID0gMiwKKwlSR01JSV9SWF9DTEtfREVMQVlfMV83X05T
-ID0gMywKKwlSR01JSV9SWF9DTEtfREVMQVlfMl8wX05TID0gNCwKKwlSR01JSV9SWF9DTEtfREVM
-QVlfMl8zX05TID0gNSwKKwlSR01JSV9SWF9DTEtfREVMQVlfMl82X05TID0gNiwKKwlSR01JSV9S
-WF9DTEtfREVMQVlfM180X05TID0gNworfTsKKworI2RlZmluZSBNSUlfVlNDODVYWF9JTlRfTUFT
-SyAgICAgICAgICAgMjUKKyNkZWZpbmUgTUlJX1ZTQzg1WFhfSU5UX01BU0tfTUFTSyAgICAgIDB4
-YTAwMAorI2RlZmluZSBNSUlfVlNDODVYWF9JTlRfU1RBVFVTICAgICAgICAgMjYKKworI2RlZmlu
-ZSBNU0NDX0VYVF9QQUdFX0FDQ0VTUyAgICAgICAgICAgMzEKKyNkZWZpbmUgTVNDQ19QSFlfUEFH
-RV9TVEFOREFSRCAgICAgICAgIDB4MDAwMCAvKiBTdGFuZGFyZCByZWdpc3RlcnMgKi8KKyNkZWZp
-bmUgTVNDQ19QSFlfUEFHRV9FWFRFTkRFRF8yICAgICAgIDB4MDAwMiAvKiBFeHRlbmRlZCByZWdp
-c3RlcnMgLSBwYWdlIDIgKi8KKworLyogRXh0ZW5kZWQgUGFnZSAyIFJlZ2lzdGVycyAqLworI2Rl
-ZmluZSBNU0NDX1BIWV9SR01JSV9DTlRMICAgICAgICAgICAgMjAKKyNkZWZpbmUgUkdNSUlfUlhf
-Q0xLX0RFTEFZX01BU0sgICAgICAgIDB4MDA3MAorI2RlZmluZSBSR01JSV9SWF9DTEtfREVMQVlf
-UE9TICAgICAgICAgNAorCisvKiBNaWNyb3NlbWkgUEhZIElEJ3MgKi8KKyNkZWZpbmUgUEhZX0lE
-X1ZTQzg1MzEgICAgICAgICAgICAgICAgIDB4MDAwNzA1NzAKKyNkZWZpbmUgUEhZX0lEX1ZTQzg1
-NDEgICAgICAgICAgICAgICAgIDB4MDAwNzA3NzAKKworLyogUkdNSUkgUnggQ2xvY2sgZGVsYXkg
-dmFsdWUgY2hhbmdlIHdpdGggYm9hcmQgbGF5LW91dCAqLworc3RhdGljIHU4IHJnbWlpX3J4X2Ns
-a19kZWxheSA9IFJHTUlJX1JYX0NMS19ERUxBWV8xXzFfTlM7CisKK3N0YXRpYyBpbnQgdnNjODV4
-eF9waHlfcGFnZV9zZXQoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldiwgdTggcGFnZSkKK3sKKwlp
-bnQgcmMgPSAwOworCisJcmMgPSBwaHlfd3JpdGUocGh5ZGV2LCBNU0NDX0VYVF9QQUdFX0FDQ0VT
-UywgcGFnZSk7CisJcmV0dXJuIHJjOworfQorCitzdGF0aWMgaW50IHZzYzg1eHhfZGVmYXVsdF9j
-b25maWcoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikKK3sKKwlpbnQgcmMgPSAwOworCXUxNiBy
-ZWdfdmFsID0gMDsKKworCXBoeWRldi0+c3VwcG9ydGVkID0gKFNVUFBPUlRFRF8xMDAwYmFzZVRf
-RnVsbCB8CisJCQkgICAgIFNVUFBPUlRFRF8xMDAwYmFzZVRfSGFsZiB8CisJCQkgICAgIFNVUFBP
-UlRFRF8xMDBiYXNlVF9GdWxsICB8CisJCQkgICAgIFNVUFBPUlRFRF8xMDBiYXNlVF9IYWxmICB8
-CisJCQkgICAgIFNVUFBPUlRFRF8xMGJhc2VUX0Z1bGwgICB8CisJCQkgICAgIFNVUFBPUlRFRF8x
-MGJhc2VUX0hhbGYgICB8CisJCQkgICAgIFNVUFBPUlRFRF9BdXRvbmVnICAgICAgICB8CisJCQkg
-ICAgIFNVUFBPUlRFRF9QYXVzZSAgICAgICAgICB8CisJCQkgICAgIFNVUFBPUlRFRF9Bc3ltX1Bh
-dXNlICAgICB8CisJCQkgICAgIFNVUFBPUlRFRF9UUCk7CisKKwlwaHlkZXYtPnNwZWVkID0gU1BF
-RURfMTAwMDsKKwlwaHlkZXYtPmR1cGxleCA9IERVUExFWF9GVUxMOworCXBoeWRldi0+cGF1c2Ug
-PSAwOworCXBoeWRldi0+YXN5bV9wYXVzZSA9IDA7CisJcGh5ZGV2LT5pbnRlcmZhY2UgPSBQSFlf
-SU5URVJGQUNFX01PREVfUkdNSUk7CisJcGh5ZGV2LT5tZGl4ID0gRVRIX1RQX01ESV9BVVRPOwor
-CisJbXV0ZXhfbG9jaygmcGh5ZGV2LT5sb2NrKTsKKwlyYyA9IHZzYzg1eHhfcGh5X3BhZ2Vfc2V0
-KHBoeWRldiwgTVNDQ19QSFlfUEFHRV9FWFRFTkRFRF8yKTsKKwlpZiAocmMgIT0gMCkgeworCQly
-YyA9IC1FSU5WQUw7CisJCWdvdG8gb3V0X3VubG9jazsKKwl9CisJcmVnX3ZhbCA9IHBoeV9yZWFk
-KHBoeWRldiwgTVNDQ19QSFlfUkdNSUlfQ05UTCk7CisJcmVnX3ZhbCAmPSB+KFJHTUlJX1JYX0NM
-S19ERUxBWV9NQVNLKTsKKwlyZWdfdmFsIHw9IChyZ21paV9yeF9jbGtfZGVsYXkgPDwgUkdNSUlf
-UlhfQ0xLX0RFTEFZX1BPUyk7CisJcGh5X3dyaXRlKHBoeWRldiwgTVNDQ19QSFlfUkdNSUlfQ05U
-TCwgcmVnX3ZhbCk7CisJcmMgPSB2c2M4NXh4X3BoeV9wYWdlX3NldChwaHlkZXYsIE1TQ0NfUEhZ
-X1BBR0VfU1RBTkRBUkQpOworCWlmIChyYyAhPSAwKQorCQlyYyA9IC1FSU5WQUw7CisKK291dF91
-bmxvY2s6CisJbXV0ZXhfdW5sb2NrKCZwaHlkZXYtPmxvY2spOworCisJcmV0dXJuIHJjOworfQor
-CitzdGF0aWMgaW50IHZzYzg1eHhfY29uZmlnX2luaXQoc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRl
-dikKK3sKKwlpbnQgcmMgPSAwOworCisJcmMgPSB2c2M4NXh4X2RlZmF1bHRfY29uZmlnKHBoeWRl
-dik7CisJcmMgPSBnZW5waHlfY29uZmlnX2luaXQocGh5ZGV2KTsKKworCXJldHVybiByYzsKK30K
-Kworc3RhdGljIGludCB2c2M4NXh4X2Fja19pbnRlcnJ1cHQoc3RydWN0IHBoeV9kZXZpY2UgKnBo
-eWRldikKK3sKKwlpbnQgcmMgPSAwOworCisJaWYgKHBoeWRldi0+aW50ZXJydXB0cyA9PSBQSFlf
-SU5URVJSVVBUX0VOQUJMRUQpCisJCXJjID0gcGh5X3JlYWQocGh5ZGV2LCBNSUlfVlNDODVYWF9J
-TlRfU1RBVFVTKTsKKworCXJldHVybiAocmMgPCAwKSA/IHJjIDogMDsKK30KKworc3RhdGljIGlu
-dCB2c2M4NXh4X2NvbmZpZ19pbnRyKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYpCit7CisJaW50
-IHJjOworCisJaWYgKHBoeWRldi0+aW50ZXJydXB0cyA9PSBQSFlfSU5URVJSVVBUX0VOQUJMRUQp
-IHsKKwkJcmMgPSBwaHlfd3JpdGUocGh5ZGV2LCBNSUlfVlNDODVYWF9JTlRfTUFTSywKKwkJCSAg
-ICAgICBNSUlfVlNDODVYWF9JTlRfTUFTS19NQVNLKTsKKwl9IGVsc2UgeworCQlyYyA9IHBoeV9y
-ZWFkKHBoeWRldiwgTUlJX1ZTQzg1WFhfSU5UX1NUQVRVUyk7CisJCWlmIChyYyA8IDApCisJCQly
-ZXR1cm4gcmM7CisJCXJjID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJX1ZTQzg1WFhfSU5UX01BU0ss
-IDApOworCX0KKworCXJldHVybiByYzsKK30KKworLyogTWljcm9zZW1pIFZTQzg1eHggUEhZcyAq
-Lworc3RhdGljIHN0cnVjdCBwaHlfZHJpdmVyIHZzYzg1eHhfZHJpdmVyW10gPSB7Cit7CisJLnBo
-eV9pZCAgICAgICAgID0gUEhZX0lEX1ZTQzg1MzEsCisJLm5hbWUgICAgICAgICAgID0gIk1pY3Jv
-c2VtaSBWU0M4NTMxIiwKKwkucGh5X2lkX21hc2sgICAgPSAweGZmZmZmZmYwLAorCS5mZWF0dXJl
-cyAgICAgICA9IFBIWV9HQklUX0ZFQVRVUkVTLAorCS5mbGFncyAgICAgICAgICA9IFBIWV9IQVNf
-SU5URVJSVVBULAorCS5zb2Z0X3Jlc2V0ICAgICA9ICZnZW5waHlfc29mdF9yZXNldCwKKwkuY29u
-ZmlnX2luaXQgICAgPSAmdnNjODV4eF9jb25maWdfaW5pdCwKKwkuY29uZmlnX2FuZWcgICAgPSAm
-Z2VucGh5X2NvbmZpZ19hbmVnLAorCS5hbmVnX2RvbmUgICAgICA9ICZnZW5waHlfYW5lZ19kb25l
-LAorCS5yZWFkX3N0YXR1cyAgICA9ICZnZW5waHlfcmVhZF9zdGF0dXMsCisJLmFja19pbnRlcnJ1
-cHQgID0gJnZzYzg1eHhfYWNrX2ludGVycnVwdCwKKwkuY29uZmlnX2ludHIgICAgPSAmdnNjODV4
-eF9jb25maWdfaW50ciwKKwkuc3VzcGVuZCAgICAgICAgPSAmZ2VucGh5X3N1c3BlbmQsCisJLnJl
-c3VtZSAgICAgICAgID0gJmdlbnBoeV9yZXN1bWUsCit9LAoreworCS5waHlfaWQgICAgICAgICA9
-IFBIWV9JRF9WU0M4NTQxLAorCS5uYW1lICAgICAgICAgICA9ICJNaWNyb3NlbWkgVlNDODU0MSBT
-eW5jRSIsCisJLnBoeV9pZF9tYXNrICAgID0gMHhmZmZmZmZmMCwKKwkuZmVhdHVyZXMgICAgICAg
-PSBQSFlfR0JJVF9GRUFUVVJFUywKKwkuZmxhZ3MgICAgICAgICAgPSBQSFlfSEFTX0lOVEVSUlVQ
-VCwKKwkuc29mdF9yZXNldCAgICAgPSAmZ2VucGh5X3NvZnRfcmVzZXQsCisJLmNvbmZpZ19pbml0
-ICAgID0gJnZzYzg1eHhfY29uZmlnX2luaXQsCisJLmNvbmZpZ19hbmVnICAgID0gJmdlbnBoeV9j
-b25maWdfYW5lZywKKwkuYW5lZ19kb25lICAgICAgPSAmZ2VucGh5X2FuZWdfZG9uZSwKKwkucmVh
-ZF9zdGF0dXMgICAgPSAmZ2VucGh5X3JlYWRfc3RhdHVzLAorCS5hY2tfaW50ZXJydXB0ICA9ICZ2
-c2M4NXh4X2Fja19pbnRlcnJ1cHQsCisJLmNvbmZpZ19pbnRyICAgID0gJnZzYzg1eHhfY29uZmln
-X2ludHIsCisJLnN1c3BlbmQgICAgICAgID0gJmdlbnBoeV9zdXNwZW5kLAorCS5yZXN1bWUgICAg
-ICAgICA9ICZnZW5waHlfcmVzdW1lLAorfQorCit9OworCittb2R1bGVfcGh5X2RyaXZlcih2c2M4
-NXh4X2RyaXZlcik7CisKK3N0YXRpYyBzdHJ1Y3QgbWRpb19kZXZpY2VfaWQgX19tYXliZV91bnVz
-ZWQgdnNjODV4eF90YmxbXSA9IHsKKwl7IFBIWV9JRF9WU0M4NTMxLCAweGZmZmZmZmYwLCB9LAor
-CXsgUEhZX0lEX1ZTQzg1NDEsIDB4ZmZmZmZmZjAsIH0sCisJeyB9Cit9OworCitNT0RVTEVfREVW
-SUNFX1RBQkxFKG1kaW8sIHZzYzg1eHhfdGJsKTsKKworTU9EVUxFX0RFU0NSSVBUSU9OKCJNaWNy
-b3NlbWkgVlNDODV4eCBQSFkgZHJpdmVyIik7CitNT0RVTEVfQVVUSE9SKCJOYWdhcmFqdSBMYWtr
-YXJhanUiKTsKK01PRFVMRV9MSUNFTlNFKCJEdWFsIE1JVC9HUEwiKTsKLS0gCjIuNy4zCgo=
-
---_002_646450A91FAED74E85C6E9C4D6E936A145329E4Aavsrvexchmbx1mi_--
+	Arnd
