@@ -1,82 +1,47 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [e1000_netpoll] BUG: sleeping function called from invalid context
- at kernel/irq/manage.c:110
-Date: Tue, 26 Jul 2016 11:50:03 +0800
-Message-ID: <20160726035003.GA15095@wfg-t540p.sh.intel.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH v2 02/10] userns: Add per user namespace sysctls.
+Date: Mon, 25 Jul 2016 23:00:31 -0500
+Message-ID: <877fc92gm8.fsf@x220.int.ebiederm.org>
+References: <878twp6zd2.fsf@x220.int.ebiederm.org>
+	<20160725.172406.352408511647766870.davem@davemloft.net>
+	<87k2g95it9.fsf@x220.int.ebiederm.org>
+	<20160725.195836.1881375122073635224.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Satyam Sharma <satyam@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	Ye Xiaolong <xiaolong.ye@intel.com>
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3650 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751646AbcGZDuS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Jul 2016 23:50:18 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, kernel-6AxghH7DbtA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160725.195836.1881375122073635224.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+	Miller's message of "Mon, 25 Jul 2016 19:58:36 -0700 (PDT)")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Greetings,
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 
-This BUG message can be found in recent kernels as well as v4.4 and
-linux-stable. It happens when running
+> From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+> Date: Mon, 25 Jul 2016 19:44:50 -0500
+>
+>> User namespaces have enabled unprivileged users access to a lot more
+>> data structures and so to catch programs that go crazy we need a lot
+>> more limits.  I believe some of those limits make sense per namespace.
+>> As it is easy in some cases to say any more than Y number of those
+>> per namespace is excessive.   For example a limit of 1,000,000 ipv4
+>> routes per network namespaces is a sanity check as there are
+>> currently 621,649 ipv4 prefixes advertized in bgp.
+>
+> When we give a new namespace to unprivileged users, we honestly should
+> make the sysctl settings we give to them become "limits".  They can
+> further constrain the sysctl settings but may not raise them.
 
-        modprobe netconsole netconsole=@/,$port@$server/ 
+I won't disagree.  I was thinking in terms of global setting that
+hold the limits for per namespace counters.  As we are talking sanity
+check limits.
 
-[   39.937534] 22 Jul 13:30:40 ntpdate[440]: step time server 192.168.1.1 offset -673.833841 sec
-[   39.943285] netpoll: netconsole: local port 6665
-[   39.943436] netpoll: netconsole: local IPv4 address 0.0.0.0
-[   39.943609] netpoll: netconsole: interface 'eth0'
-[   39.943756] netpoll: netconsole: remote port 6672
-[   39.943913] netpoll: netconsole: remote IPv4 address 192.168.1.1
-[   39.944099] netpoll: netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
-[   39.944311] netpoll: netconsole: local IP 192.168.1.193
-[   39.944514] BUG: sleeping function called from invalid context at kernel/irq/manage.c:110
-[   39.944515] in_atomic(): 1, irqs_disabled(): 1, pid: 448, name: modprobe
-[   39.944517] CPU: 6 PID: 448 Comm: modprobe Not tainted 4.7.0-rc7-wt-ath-10122-gf9b5ec2 #102
-[   39.944518] Hardware name:                  /DZ77BH-55K, BIOS BHZ7710H.86A.0097.2012.1228.1346 12/28/2012
-[   39.944522]  0000000000000000 ffffc90001f2f9e8 ffffffff813417d9 ffff88007faba5c0
-[   39.944524]  000000000000006e ffffc90001f2fa00 ffffffff810aec03 ffffffff81a25948
-[   39.944525]  ffffc90001f2fa28 ffffffff810aec9a ffff8803e5bd9400 ffff8803e50fbd68
-[   39.944526] Call Trace:
-[   39.944533]  [<ffffffff813417d9>] dump_stack+0x63/0x8a
-[   39.944536]  [<ffffffff810aec03>] ___might_sleep+0xd3/0x120
-[   39.944537]  [<ffffffff810aec9a>] __might_sleep+0x4a/0x80
-[   39.944541]  [<ffffffff810e4638>] synchronize_irq+0x38/0xa0
-[   39.944543]  [<ffffffff810e3c8e>] ? __irq_put_desc_unlock+0x1e/0x40
-[   39.944545]  [<ffffffff810e48e3>] ? __disable_irq_nosync+0x43/0x60
-[   39.944547]  [<ffffffff810e492c>] disable_irq+0x1c/0x20
-[   39.944559]  [<ffffffffa0220932>] e1000_netpoll+0xf2/0x120 [e1000e]
-[   39.944563]  [<ffffffff815f2bdc>] netpoll_poll_dev+0x5c/0x1a0
-[   39.944567]  [<ffffffff815bb361>] ? __kmalloc_reserve+0x31/0x90
-[   39.944569]  [<ffffffff815f2e8b>] netpoll_send_skb_on_dev+0x16b/0x250
-[   39.944572]  [<ffffffff815f325c>] netpoll_send_udp+0x2ec/0x450
-[   39.944576]  [<ffffffffa003cb62>] write_msg+0xb2/0xf0 [netconsole]
-[   39.944578]  [<ffffffff810e04e5>] call_console_drivers+0x115/0x120
-[   39.944580]  [<ffffffff810e1f13>] console_unlock+0x333/0x5c0
-[   39.944583]  [<ffffffff810e2c74>] register_console+0x1c4/0x380
-[   39.944586]  [<ffffffffa004f1c5>] init_netconsole+0x1c5/0x1000 [netconsole]
-[   39.944588]  [<ffffffffa004f000>] ? 0xffffffffa004f000
-[   39.944591]  [<ffffffff8100216d>] do_one_initcall+0x3d/0x150
-[   39.944592]  [<ffffffff810aec9a>] ? __might_sleep+0x4a/0x80
-[   39.944596]  [<ffffffff811f5098>] ? kmem_cache_alloc_trace+0x188/0x1e0
-[   39.944598]  [<ffffffff8118f871>] do_init_module+0x5f/0x1d8
-[   39.944602]  [<ffffffff81114009>] load_module+0x1429/0x1b40
-[   39.944604]  [<ffffffff81110cd0>] ? __symbol_put+0x40/0x40
-[   39.944607]  [<ffffffff8121f348>] ? kernel_read_file+0x178/0x1a0
-[   39.944608]  [<ffffffff8121f429>] ? kernel_read_file_from_fd+0x49/0x80
-[   39.944611]  [<ffffffff81114973>] SYSC_finit_module+0xc3/0xf0
-[   39.944614]  [<ffffffff811149be>] SyS_finit_module+0xe/0x10
-[   39.944617]  [<ffffffff816e5877>] entry_SYSCALL_64_fastpath+0x1a/0xa9
-[   39.946384] console [netcon0] enabled
-[   39.946514] netconsole: network logging started
+Perhaps we could get sophisticated and do something more but the simpler
+we can make things and get the job done the better.
 
-Can this be possibly fixed?
-
-Thanks,
-Fengguang
+Eric
