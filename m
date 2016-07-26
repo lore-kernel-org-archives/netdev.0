@@ -1,82 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Jarod Wilson <jarod@redhat.com>
 Subject: Re: [PATCH net-next 3/2] e1000e: convert systim overflow check to
  use flags2
-Date: Tue, 26 Jul 2016 10:53:55 -0700
-Message-ID: <1469555635.2851.10.camel@intel.com>
+Date: Tue, 26 Jul 2016 13:58:45 -0400
+Message-ID: <20160726175845.GT36313@redhat.com>
 References: <20160725105648.00000dda@unknown>
-	 <1469554746-410-1-git-send-email-jarod@redhat.com>
+ <1469554746-410-1-git-send-email-jarod@redhat.com>
+ <1469555635.2851.10.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-YufOot3VoGvmoTFLpVHu"
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jarod Wilson <jarod@redhat.com>, linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5895 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756175AbcGZRyG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 13:54:06 -0400
-In-Reply-To: <1469554746-410-1-git-send-email-jarod@redhat.com>
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:33650 "EHLO
+	mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756511AbcGZR65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 13:58:57 -0400
+Received: by mail-qt0-f174.google.com with SMTP id w38so14727439qtb.0
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 10:58:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1469555635.2851.10.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-YufOot3VoGvmoTFLpVHu
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2016-07-26 at 13:39 -0400, Jarod Wilson wrote:
-> Per Jesse Brandeburg, e1000e should be using flags for this sort of
-> thing.
+On Tue, Jul 26, 2016 at 10:53:55AM -0700, Jeff Kirsher wrote:
+> On Tue, 2016-07-26 at 13:39 -0400, Jarod Wilson wrote:
+> > Per Jesse Brandeburg, e1000e should be using flags for this sort of
+> > thing.
+> >=20
+> > Littering functional code with device-specific checks is much messi=
+er
+> > than
+> > simply checking a flag, and having device-specific init set flags a=
+s
+> > needed.
+> > There are probably a number of other cases in the e1000e code that
+> > could/should be converted similarly.
+> >=20
+> > At present, this patch is a follow-up to the previously submitted 2
+> > patches, but I can redo the series to omit the conversion to a swit=
+ch
+> > entirely, if so desired.
+> >=20
+> > Suggested-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > CC: intel-wired-lan@lists.osuosl.org
+> > CC: netdev@vger.kernel.org
+> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> > ---
+> > =A0drivers/net/ethernet/intel/e1000e/82571.c=A0=A0 |=A0 6 ++++--
+> > =A0drivers/net/ethernet/intel/e1000e/e1000.h=A0=A0 |=A0 1 +
+> > =A0drivers/net/ethernet/intel/e1000e/ich8lan.c |=A0 3 ++-
+> > =A0drivers/net/ethernet/intel/e1000e/netdev.c=A0 | 10 ++--------
+> > =A04 files changed, 9 insertions(+), 11 deletions(-)
 >=20
-> Littering functional code with device-specific checks is much messier
-> than
-> simply checking a flag, and having device-specific init set flags as
-> needed.
-> There are probably a number of other cases in the e1000e code that
-> could/should be converted similarly.
->=20
-> At present, this patch is a follow-up to the previously submitted 2
-> patches, but I can redo the series to omit the conversion to a switch
-> entirely, if so desired.
->=20
-> Suggested-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: intel-wired-lan@lists.osuosl.org
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Jarod Wilson <jarod@redhat.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/e1000e/82571.c=C2=A0=C2=A0 |=C2=A0 6 +++=
-+--
-> =C2=A0drivers/net/ethernet/intel/e1000e/e1000.h=C2=A0=C2=A0 |=C2=A0 1 +
-> =C2=A0drivers/net/ethernet/intel/e1000e/ich8lan.c |=C2=A0 3 ++-
-> =C2=A0drivers/net/ethernet/intel/e1000e/netdev.c=C2=A0 | 10 ++--------
-> =C2=A04 files changed, 9 insertions(+), 11 deletions(-)
+> This generates a compile issue, so I will be dropping this patch and =
+will
+> await an update.
 
-This generates a compile issue, so I will be dropping this patch and will
-await an update.
---=-YufOot3VoGvmoTFLpVHu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Yeah, just sent a note off-list, I really shouldn't send patches while =
+on
+conference calls. It's a typo in ich8lan.c, where I put FLAGS2_ instead=
+ of
+=46LAG2_. I'll just redo the entire set omitting the switch conversion.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXl6OzAAoJEOVv75VaS+3OCEcP/20PQSB/CPNaPE2V31R666Ju
-5Mo9LESDIz+NOe3uA73CjabAAi4KrrHJV8TVj9bXaL8KxzC2Ifr5nKOfhr9XIbXY
-ozcluBpKjFHe8FW2j6eAj3UVw27+U6rM17I47jVfD88J1xDMD1Bg5rAxXpw+xweC
-FiQ0OnmOWuV8lD4pYfXRgEsRbqYlZU9VRKzgCLG28DHI3oIm6cdqNwjRIsGVvTYo
-v+3MQiS3mRXWARMLrB92WZmzYHUfjoy8QHFngur8St/1+9n1jkrQAQ/0ojuI7YrE
-nrEhofaZdKJpZwFtrQBKruICrGChyzY479FqJPYvejUbuzXHs9caJshv0vSNHFKk
-Lzp144fqv27lMjYfA9d8m2BhUyKSfd+Kyr69RGxRNMQXtCPpiG638mBTvPyzi+mW
-K33p040+iUHFEpnoqtjeG6DKvxjjOBsGULij2BHp6log6LUEemmh3RWRbqect5qg
-HSCIw8CdetiBXkjMEmdigzG42ebgwk2DT4zm6kEgOyL57mV/CDDQmKEmdZ+xOWI1
-KogcQP4fEQkOoMm1VUApFh0cwP0fJGkKispMfp8CFCuC34XbPZSYViADehQHKnTA
-eDDHhZVPCR8qXm0fwyRhPppp8Et73oMmqi16pHkrowbj+NPuYmeHP83GbzMvmWn2
-W/CLYEzD9wQhI4Y+7MFT
-=zLpo
------END PGP SIGNATURE-----
-
---=-YufOot3VoGvmoTFLpVHu--
+--=20
+Jarod Wilson
+jarod@redhat.com
