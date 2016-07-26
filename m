@@ -1,65 +1,47 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 0/2] Mellanox 100G mlx5 minimum inline header mode
-Date: Tue, 26 Jul 2016 13:22:49 +0300
-Message-ID: <CAJL1qvHRkOGsLg0QnsBaWTECjAx-+gWZ8AGoo5TTnE95QBm-Ow@mail.gmail.com>
-References: <1469365960-27100-1-git-send-email-saeedm@mellanox.com> <20160725.175436.969233393280158279.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: saeedm@mellanox.com, netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: David Miller <davem@davemloft.net>
+From: Beniamino Galvani <bgalvani@redhat.com>
+Subject: [PATCH] macsec: ensure rx_sa is set when validation is disabled
+Date: Tue, 26 Jul 2016 12:24:53 +0200
+Message-ID: <1469528693-6578-1-git-send-email-bgalvani@redhat.com>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36310 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646AbcGZKWu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 06:22:50 -0400
-Received: by mail-io0-f196.google.com with SMTP id y34so741774ioi.3
-        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 03:22:50 -0700 (PDT)
-In-Reply-To: <20160725.175436.969233393280158279.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:37391 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751646AbcGZKZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 06:25:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the default case eth_get_headlen() won't be called, it will happen
-only if PF administrator changes the mode from default to L4.
+macsec_decrypt() is not called when validation is disabled and so
+macsec_skb_cb(skb)->rx_sa is not set; but it is used later in
+macsec_post_decrypt(), ensure that it's always initialized.
 
-In L4 mode, we need to copy all the packet headers including L4, do
-you know of a better/cheaper way for doing that?
+Signed-off-by: Beniamino Galvani <bgalvani@redhat.com>
+---
+ drivers/net/macsec.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-Hadar
-
-On Tue, Jul 26, 2016 at 3:54 AM, David Miller <davem@davemloft.net> wrote:
-> From: Saeed Mahameed <saeedm@mellanox.com>
-> Date: Sun, 24 Jul 2016 16:12:38 +0300
->
->> This small series from Hadar adds the support for minimum inline
->> header mode query in mlx5e NIC driver.
->>
->> Today on TX the driver copies to the HW descriptor only up to L2
->> header which is the default required mode and sufficient for today's
->> needs.
->>
->> The header in the HW descriptor is used for HW loopback steering
->> decision, without it packets will go directly to the wire with no
->> questions asked.
->>
->> For TX loopback steering according to L2/L3/L4 headers, ConnectX-4
->> requires to copy the corresponding headers into the send queue(SQ)
->> WQE HW descriptor so it can decide whether to loop it back or to
->> forward to wire.
->>
->> For legacy E-Switch mode only L2 headers copy is required.  For
->> advanced steering (E-Switch offloads) more header layers may be
->> required to be copied, the required mode will be advertised by FW to
->> each VF and PF according to the corresponding E-Switch
->> configuration.
->>
->> Changes V2:
->>  - Allocate query_nic_vport_context_out on the stack
->
-> Applied, but even doing an eth_get_headlen() every transmitted packet
-> it really too expensive.
->
-> You shouldn't be touching networking headers so much when forwarding
-> frames.
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 8bcd78f..a70b6c4 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -942,7 +942,6 @@ static struct sk_buff *macsec_decrypt(struct sk_buff *skb,
+ 	}
+ 
+ 	macsec_skb_cb(skb)->req = req;
+-	macsec_skb_cb(skb)->rx_sa = rx_sa;
+ 	skb->dev = dev;
+ 	aead_request_set_callback(req, 0, macsec_decrypt_done, skb);
+ 
+@@ -1169,6 +1168,8 @@ static rx_handler_result_t macsec_handle_frame(struct sk_buff **pskb)
+ 		}
+ 	}
+ 
++	macsec_skb_cb(skb)->rx_sa = rx_sa;
++
+ 	/* Disabled && !changed text => skip validation */
+ 	if (hdr->tci_an & MACSEC_TCI_C ||
+ 	    secy->validate_frames != MACSEC_VALIDATE_DISABLED)
+-- 
+2.5.5
