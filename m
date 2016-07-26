@@ -1,49 +1,67 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Tue, 26 Jul 2016 12:30:10 +0200
-Message-ID: <6be70177-a81d-7ed8-d2c9-a596d4d6a165@gmail.com>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org>
-	<87d1m754jc.fsf@x220.int.ebiederm.org>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 0/2] Mellanox 100G mlx5 minimum inline header mode
+Date: Tue, 26 Jul 2016 13:30:46 +0300
+Message-ID: <CAJL1qvFjWT4Bk_CdOdU7bECsh327nekVEFENmpU5vwFvNpMxLw@mail.gmail.com>
+References: <1469365960-27100-1-git-send-email-saeedm@mellanox.com> <20160725.175436.969233393280158279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87d1m754jc.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: saeedm@mellanox.com, netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36244 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbcGZKar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Jul 2016 06:30:47 -0400
+Received: by mail-io0-f193.google.com with SMTP id y34so770105ioi.3
+        for <netdev@vger.kernel.org>; Tue, 26 Jul 2016 03:30:47 -0700 (PDT)
+In-Reply-To: <20160725.175436.969233393280158279.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
-
-I realized I had a question after the last mail.
-
-On 07/21/2016 06:39 PM, Eric W. Biederman wrote:
+On Tue, Jul 26, 2016 at 3:54 AM, David Miller <davem@davemloft.net> wrote:
+> From: Saeed Mahameed <saeedm@mellanox.com>
+> Date: Sun, 24 Jul 2016 16:12:38 +0300
 >
-> This patchset addresses two use cases:
-> - Implement a sane upper bound on the number of namespaces.
-> - Provide a way for sandboxes to limit the attack surface from
->   namespaces.
+>> This small series from Hadar adds the support for minimum inline
+>> header mode query in mlx5e NIC driver.
+>>
+>> Today on TX the driver copies to the HW descriptor only up to L2
+>> header which is the default required mode and sufficient for today's
+>> needs.
+>>
+>> The header in the HW descriptor is used for HW loopback steering
+>> decision, without it packets will go directly to the wire with no
+>> questions asked.
+>>
+>> For TX loopback steering according to L2/L3/L4 headers, ConnectX-4
+>> requires to copy the corresponding headers into the send queue(SQ)
+>> WQE HW descriptor so it can decide whether to loop it back or to
+>> forward to wire.
+>>
+>> For legacy E-Switch mode only L2 headers copy is required.  For
+>> advanced steering (E-Switch offloads) more header layers may be
+>> required to be copied, the required mode will be advertised by FW to
+>> each VF and PF according to the corresponding E-Switch
+>> configuration.
+>>
+>> Changes V2:
+>>  - Allocate query_nic_vport_context_out on the stack
+>
+> Applied, but even doing an eth_get_headlen() every transmitted packet
+> it really too expensive.
+>
+> You shouldn't be touching networking headers so much when forwarding
+> frames.
 
-Can you say more about the second point? What exactly is the
-problem that is being addressed, and how does the patch series
-address it? (It would be good to have those details in the
-revised commit message...)
+Sorry for re-sending, i had a problem before.
 
-Cheers,
+In the default case eth_get_headlen() won't be called, it will happen
+only if PF administrator changes the mode from default to L4.
 
-Michael
+In L4 mode, we need to copy all the packet headers including L4, do
+you know of a better/cheaper way for doing that?
+
+Thanks,
+Hadar
