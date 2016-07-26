@@ -1,132 +1,40 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Microsemi VSC 8531/41 PHY Driver
-Date: Tue, 26 Jul 2016 14:43:47 +0200
-Message-ID: <20160726124347.GD11538@lunn.ch>
-References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
- <20160726115556.GC11538@lunn.ch>
- <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCHv5 wl-drv-next 0/2] register-field manipulation macros
+Date: Tue, 26 Jul 2016 16:00:04 +0300
+Message-ID: <87y44od06j.fsf@kamboji.qca.qualcomm.com>
+References: <1467821977-11777-1-git-send-email-jakub.kicinski@netronome.com>
+	<20160725154549.6492cac1@jkicinski-Precision-T1700>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:50981 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754225AbcGZMnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 08:43:51 -0400
-Content-Disposition: inline
-In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160725154549.6492cac1@jkicinski-Precision-T1700> (Jakub
+	Kicinski's message of "Mon, 25 Jul 2016 15:45:49 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +/* RGMII Rx Clock delay value change with board lay-out */
-> +static u8 rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
+Jakub Kicinski <jakub.kicinski@netronome.com> writes:
 
-Doesn't this stop you from having a board with two PHYs with different
-layouts? You should be getting this value from the device tree.
+> On Wed,  6 Jul 2016 17:19:35 +0100, Jakub Kicinski wrote:
+>> Hi!
+>> 
+>> I've added few lines about the compilation problems in 
+>> the commit message of patch 1.  I would prefer the mass
+>> rename of macros in mt7601u not to be part of this series
+>> so patch 2 is left as it was and I'll follow up once this
+>> is accepted.
+>
+> Hi Kalle,
+>
+> what's the status of this set?  It's marked as 'Deferred' in
+> linux-wireless patchwork.
 
-> +	phydev->supported = (SUPPORTED_1000baseT_Full |
-> +			     SUPPORTED_1000baseT_Half |
-> +			     SUPPORTED_100baseT_Full  |
-> +			     SUPPORTED_100baseT_Half  |
-> +			     SUPPORTED_10baseT_Full   |
-> +			     SUPPORTED_10baseT_Half   |
-> +			     SUPPORTED_Autoneg        |
-> +			     SUPPORTED_Pause          |
-> +			     SUPPORTED_Asym_Pause     |
-> +			     SUPPORTED_TP);
-> +
-> +	phydev->speed = SPEED_1000;
-> +	phydev->duplex = DUPLEX_FULL;
-> +	phydev->pause = 0;
-> +	phydev->asym_pause = 0;
-> +	phydev->interface = PHY_INTERFACE_MODE_RGMII;
-> +	phydev->mdix = ETH_TP_MDI_AUTO;
+Like I said before, I would prefer to see an ack from someone else like
+Andrew Morton or Dave Miller. I don't feel comfortable adding new files
+to include/ without some sort of support from others. Or maybe Andrew
+could even take these directly to his tree?
 
-Why are you setting all these? This is not normal, if you look at
-other drivers.
-
-> +
-> +	mutex_lock(&phydev->lock);
-
-What are you locking against?
-
-> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
-> +	if (rc != 0) {
-> +		rc = -EINVAL;
-
-Why do you overwrite the error code vsc85xx_phy_page_set gives you?
-
-> +		goto out_unlock;
-> +	}
-> +	reg_val = phy_read(phydev, MSCC_PHY_RGMII_CNTL);
-> +	reg_val &= ~(RGMII_RX_CLK_DELAY_MASK);
-> +	reg_val |= (rgmii_rx_clk_delay << RGMII_RX_CLK_DELAY_POS);
-> +	phy_write(phydev, MSCC_PHY_RGMII_CNTL, reg_val);
-> +	rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-> +	if (rc != 0)
-> +		rc = -EINVAL;
-
-Same here.
-
-> +
-> +out_unlock:
-> +	mutex_unlock(&phydev->lock);
-> +
-> +	return rc;
-> +}
-> +
-> +static int vsc85xx_config_init(struct phy_device *phydev)
-> +{
-> +	int rc = 0;
-
-No need to initialise rc.
-
-> +	rc = vsc85xx_default_config(phydev);
-
-  	if (rc)
-    		return rc;
-
-> +	rc = genphy_config_init(phydev);
-> +
-> +	return rc;
-
-Or just 
-	return genphy_config_init(phydev);
-
-> +}
-> +
-> +static int vsc85xx_ack_interrupt(struct phy_device *phydev)
-> +{
-> +	int rc = 0;
-> +
-> +	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-> +		rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
-> +
-> +	return (rc < 0) ? rc : 0;
-> +}
-> +
-> +static int vsc85xx_config_intr(struct phy_device *phydev)
-> +{
-> +	int rc;
-> +
-> +	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
-> +		rc = phy_write(phydev, MII_VSC85XX_INT_MASK,
-> +			       MII_VSC85XX_INT_MASK_MASK);
-> +	} else {
-> +		rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
-> +		if (rc < 0)
-> +			return rc;
-
-And the purpose of this read is? I assume it clears an outstanding
-interrupt? If so, shouldn't you do it after disabling interrupts, not
-before? Otherwise you have a race condition.
-
-> +		rc = phy_write(phydev, MII_VSC85XX_INT_MASK, 0);
-> +	}
-> +
-> +	return rc;
-
-  Andrew
+-- 
+Kalle Valo
