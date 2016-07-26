@@ -1,69 +1,99 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Tue, 26 Jul 2016 13:44:21 -0700
-Message-ID: <CAGXu5jJiSwjTYpPbCUmKGDUNGvXt4GxML6T0b5sNeT03dvjNrg@mail.gmail.com>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org> <87d1m754jc.fsf@x220.int.ebiederm.org>
- <6be70177-a81d-7ed8-d2c9-a596d4d6a165@gmail.com> <87shuwtp4c.fsf@x220.int.ebiederm.org>
- <CAGXu5j+ZtZAFpW0ajnnBTRZk17ez6XYF=meEJY_rF7wwgyZB5Q@mail.gmail.com> <CAKgNAkhCvb-WkBbwebbBw6cfhg0FJ-SSbvK=aS1WK+BQ55eO5Q@mail.gmail.com>
+From: "ivan.khoronzhuk" <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 1/3] net: ethernet: ti: cpdma: fix lockup in
+ cpdma_ctlr_destroy()
+Date: Tue, 26 Jul 2016 23:54:01 +0300
+Message-ID: <c9f5497e-5bdf-cf25-d1bf-309cf41f7dab@globallogic.com>
+References: <20160722135847.20557-1-grygorii.strashko@ti.com>
+ <20160722135847.20557-2-grygorii.strashko@ti.com>
+ <fcce1940-3ca2-f5ad-bc71-8ab902c14266@linaro.org>
+ <88f436f2-afe9-6a98-5887-95a1d910b57f@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Containers <containers@lists.linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Jann Horn <jann@thejh.net>, Nikolay Borisov <kernel@kyup.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux API <linux-api@vger.kernel.org>
-To: Michael Kerrisk-manpages <mtk.manpages@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <CAKgNAkhCvb-WkBbwebbBw6cfhg0FJ-SSbvK=aS1WK+BQ55eO5Q@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+	linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <88f436f2-afe9-6a98-5887-95a1d910b57f@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 26, 2016 at 10:29 AM, Michael Kerrisk (man-pages)
-<mtk.manpages@gmail.com> wrote:
-> On 26 July 2016 at 18:52, Kees Cook <keescook@chromium.org> wrote:
->> On Tue, Jul 26, 2016 at 8:06 AM, Eric W. Biederman
->> <ebiederm@xmission.com> wrote:
->>> "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com> writes:
->>>
->>>> Hello Eric,
->>>>
->>>> I realized I had a question after the last mail.
->>>>
->>>> On 07/21/2016 06:39 PM, Eric W. Biederman wrote:
->>>>>
->>>>> This patchset addresses two use cases:
->>>>> - Implement a sane upper bound on the number of namespaces.
->>>>> - Provide a way for sandboxes to limit the attack surface from
->>>>>   namespaces.
->>>>
->>>> Can you say more about the second point? What exactly is the
->>>> problem that is being addressed, and how does the patch series
->>>> address it? (It would be good to have those details in the
->>>> revised commit message...)
->>>
->>> At some point it was reported that seccomp was not sufficient to disable
->>> namespace creation.  I need to go back and look at that claim to see
->>> which set of circumstances that was referring to.  Seccomp doesn't stack
->>> so I can see why it is an issue.
+
+
+On 26.07.16 19:02, Grygorii Strashko wrote:
+> On 07/23/2016 09:24 AM, Ivan Khoronzhuk wrote:
 >>
->> seccomp does stack. The trouble usually comes from a perception that
->> seccomp overhead is not trivial, so setting a system-wide policy is a
->> bit of a large hammer for such a limitiation. Also, at the time,
->> seccomp could be bypasses with ptrace, but this (as of v4.8) is no
->> longer true.
+>>
+>> On 22.07.16 16:58, Grygorii Strashko wrote:
+>>> Fix deadlock in cpdma_ctlr_destroy() which is triggered now on
+>>> cpsw module removal:
+>>>  cpsw_remove()
+>>>  - cpdma_ctlr_destroy()
+>>>    - spin_lock_irqsave(&ctlr->lock, flags)
+>>>    - cpdma_ctlr_stop()
+>>>      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
+>>>    - cpdma_chan_destroy()
+>>>      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
+>>>
+>>> The issue has not been observed before because CPDMA channels have
+>>> been destroyed manually by CPSW until commit d941ebe88a41 ("net:
+>>> ethernet: ti: cpsw: use destroy ctlr to destroy channels") was merged.
+>>>
+>>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>>> ---
+>>>  drivers/net/ethernet/ti/davinci_cpdma.c | 2 --
+>>>  1 file changed, 2 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c
+>>> b/drivers/net/ethernet/ti/davinci_cpdma.c
+>>> index a68652a..89242e9 100644
+>>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+>>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+>>> @@ -436,7 +436,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+>>>      if (!ctlr)
+>>>          return -EINVAL;
+>>>
+>>> -    spin_lock_irqsave(&ctlr->lock, flags);
+>> Should ctlr->state be checked under lock?
+>> Seems like here should be used unlocked static versions of
+>> cpdma_ctlr_stop() and cpdma_chan_destroy() instead.
 >
-> Sounds like someone needs to send me a patch for the seccomp.2 man page?
+> As per my understanding it's not expected the ctlr->state will be changed at this
+> moment as all net devices has been unregistered already.
+Seems yes, the race can be only in case of incorrect usage, stop while destroy,
+destroy while start...etc..all they are mostly unreal use-cases, you are right,
+but such check w/o lock always under eyes control, that always makes you think
+that smth wrong.
 
-It's on my TODO list, no worries. :) I'm waiting for it to land in
-Linus's tree first. It's only been in -next so far.
+>
+>>
+>>>      if (ctlr->state != CPDMA_STATE_IDLE)
+>
+> May be I can move above check in cpdma_ctlr_stop() instead.
+> What do you think?
+Yes, it be more clear.
+I was thinking about lock deletion also, as under this destroy function the
+ctlr destroys it's resources one by one, ok, the channels are destroyed under lock,
+but pool ....(it's good that it's destroyed after channels). I see that it should never
+happen, but ctrl is external structure, who knows as it can be used while destroying.
+That was my paranoiac point, so don't pay a lot attention to it. In case of normal usage,
+as it's currently is and should be, the lock can be removed.
 
--Kees
-
--- 
-Kees Cook
-Chrome OS & Brillo Security
+>
+>>>          cpdma_ctlr_stop(ctlr);
+>>>
+>>> @@ -444,7 +443,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+>>>          cpdma_chan_destroy(ctlr->channels[i]);
+>>>
+>>>      cpdma_desc_pool_destroy(ctlr->pool);
+>>> -    spin_unlock_irqrestore(&ctlr->lock, flags);
+>>>      return ret;
+>>>  }
+>>>  EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
+>>>
+>>
+>
+>
