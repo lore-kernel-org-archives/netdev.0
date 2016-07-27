@@ -1,48 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] qed: Add and use specific logging functions to reduce
- object size
-Date: Tue, 26 Jul 2016 18:24:02 -0700
-Message-ID: <1469582642.4159.4.camel@perches.com>
-References: <a0e0111217e9df2ae8dfd681b2810230e00f634e.1469568146.git.joe@perches.com>
+From: Peter Chen <peter.chen@nxp.com>
+Subject: [PATCH 00/15] ethernet: add missing of_node_put after calling of_parse_phandle
+Date: Wed, 27 Jul 2016 10:20:33 +0800
+Message-ID: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	everest-linux-l2@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a0e0111217e9df2ae8dfd681b2810230e00f634e.1469568146.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
+	<isubramanian@apm.com>, <kchudgar@apm.com>,
+	<yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+	<thomas.petazzoni@free-electrons.com>,
+	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
+	<alexandre.torgue@st.com>, <mugunthanvnm@ti.com>,
+	<tremyfr@gmail.com>, <wxt@rock-chips.com>, <arnd@arndb.de>,
+	<david.daney@cavium.com>, <huangdaode@hisilicon.com>,
+	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0066.outbound.protection.outlook.com ([104.47.36.66]:35168
+	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756109AbcG0Cn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 22:43:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-07-26 at 14:25 -0700, Joe Perches wrote:
-> Current DP_ macros generate a lot of code.
-> Using functions with vsprintf extension %pV helps reduce that size.
+Hi David,
 
-Yuval, I used the same KERN_<LEVEL> output types, but it
-is unusual that=A0DP_INFO outputs at KERN_NOTICE.
+This patch set fixes missing of_node_put issue at ethernet driver.
+of_node_put needs to be called when the device node which is got
+from of_parse_phandle has finished using.
 
-Was that a copy/paste defect or should it be emitted at
-KERN_INFO and DP_VERBOSE be emitted at KERN_DEBUG?
+Thanks.
 
-> define DP_INFO(cdev, fmt, ...)					=A0=A0=A0=A0=A0=A0\
-> -	do {							=A0=A0=A0=A0=A0=A0\
-> -		if (unlikely((cdev)->dp_level <=3D QED_LEVEL_INFO)) {=A0=A0=A0\
-> -			pr_notice("[%s:%d(%s)]" fmt,		=A0=A0=A0=A0=A0=A0\
-> -				=A0=A0__func__, __LINE__,		=A0=A0=A0=A0=A0=A0\
-> -				=A0=A0DP_NAME(cdev) ? DP_NAME(cdev) : "", \
-> -				=A0=A0## __VA_ARGS__);		=A0=A0=A0=A0=A0=A0\
-> -		}						=A0=A0=A0=A0=A0=A0\
-> -	} while (0)
-[]
-> -#define DP_VERBOSE(cdev, module, fmt, ...)				\
-> -	do {								\
-> -		if (unlikely(((cdev)->dp_level <=3D QED_LEVEL_VERBOSE) &&	\
-> -			=A0=A0=A0=A0=A0((cdev)->dp_module & module))) {		\
-> -			pr_notice("[%s:%d(%s)]" fmt,			\
-> -				=A0=A0__func__, __LINE__,			\
-> -				=A0=A0DP_NAME(cdev) ? DP_NAME(cdev) : "",	\
-> -				=A0=A0## __VA_ARGS__);			\
-> -		}							\
-> -	} while (0)
+Peter Chen (15):
+  ethernet: altera: add missing of_node_put
+  ethernet: apm: xgene: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: arc: emac_main: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: aurora: nb8800: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: cavium: octeon: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: hisilicon: hns: hns_dsaf_mac: add missing of_node_put after
+    calling of_parse_phandle
+  ethernet: hisilicon: hns: hns_dsaf_main: add missing of_node_put after
+    calling of_parse_phandle
+  ethernet: marvell: mvneta: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: marvell: mvpp2: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: marvell: pxa168_eth: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: renesas: ravb_main: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: renesas: sh_eth: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: stmicro: stmmac: dwmac-socfpga: add missing of_node_put
+    after calling of_parse_phandle
+  ethernet: stmicro: stmmac: stmmac_platform: add missing of_node_put
+    after calling of_parse_phandle
+  ethernet: ti: davinci_emac: add missing of_node_put after calling
+    of_parse_phandle
+
+ drivers/net/ethernet/altera/altera_tse_main.c      |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  1 +
+ drivers/net/ethernet/arc/emac_main.c               | 14 ++++++---
+ drivers/net/ethernet/aurora/nb8800.c               |  2 ++
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  9 ++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  7 +++--
+ drivers/net/ethernet/marvell/mvneta.c              |  1 +
+ drivers/net/ethernet/marvell/mvpp2.c               |  2 ++
+ drivers/net/ethernet/marvell/pxa168_eth.c          |  1 +
+ drivers/net/ethernet/renesas/ravb_main.c           |  1 +
+ drivers/net/ethernet/renesas/sh_eth.c              |  1 +
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 36 ++++++++++++++++------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  5 ++-
+ drivers/net/ethernet/ti/davinci_emac.c             |  1 +
+ 15 files changed, 62 insertions(+), 21 deletions(-)
+
+-- 
+1.9.1
