@@ -1,58 +1,56 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and
- rewrite
-Date: Wed, 27 Jul 2016 20:25:48 +0200
-Message-ID: <20160727202548.0dbe4117@redhat.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
-	<1468955817-10604-13-git-send-email-bblanco@plumgrid.com>
-	<20160719220536.GH64618@ast-mbp.thefacebook.com>
+From: Chunhao Lin <hau@realtek.com>
+Subject: [PATCH net] 8139too:fix system hang when there is a tx timeout event.
+Date: Thu, 28 Jul 2016 02:39:57 +0800
+Message-ID: <1469644797-13334-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>, brouer@redhat.com,
-	Rana Shahout <ranas@mellanox.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40746 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751772AbcG0S0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2016 14:26:00 -0400
-In-Reply-To: <20160719220536.GH64618@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	Chunhao Lin <hau@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Jul 2016 15:05:37 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+If tx timeout event occur, kernel will call rtl8139_tx_timeout_task() to reset
+hardware. But in this function, driver does not stop tx and rx function before
+reset hardware, that will cause system hang.
 
-> On Tue, Jul 19, 2016 at 12:16:57PM -0700, Brenden Blanco wrote:
-> > Add a sample that rewrites and forwards packets out on the same
-> > interface. Observed single core forwarding performance of ~10Mpps.
-> > 
-> > Since the mlx4 driver under test recycles every single packet page, the
-> > perf output shows almost exclusively just the ring management and bpf
-> > program work. Slowdowns are likely occurring due to cache misses.  
-> 
-> long term we need to resurrect your prefetch patch. sux to leave
-> so much performance on the table.
+In this patch, add stop tx and rx function before reset hardware.
 
-I will do some (more) attempts at getting prefetching working, also in
-a way that benefit the normal stack (when I'm back from vacation, and
-when net-next opens again).
+Signed-off-by: Chunhao Lin <hau@realtek.com>
+---
+ drivers/net/ethernet/realtek/8139too.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-I think Rana is also looking into this for the mlx5 driver (based on
-some patches I send to her).
-
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index ef668d3..0d77f3c 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -1667,6 +1667,10 @@ static void rtl8139_tx_timeout_task (struct work_struct *work)
+ 	int i;
+ 	u8 tmp8;
+ 
++	napi_disable(&tp->napi);
++	netif_stop_queue(dev);
++	synchronize_sched();
++
+ 	netdev_dbg(dev, "Transmit timeout, status %02x %04x %04x media %02x\n",
+ 		   RTL_R8(ChipCmd), RTL_R16(IntrStatus),
+ 		   RTL_R16(IntrMask), RTL_R8(MediaStatus));
+@@ -1696,10 +1700,10 @@ static void rtl8139_tx_timeout_task (struct work_struct *work)
+ 	spin_unlock_irq(&tp->lock);
+ 
+ 	/* ...and finally, reset everything */
+-	if (netif_running(dev)) {
+-		rtl8139_hw_start (dev);
+-		netif_wake_queue (dev);
+-	}
++	napi_enable(&tp->napi);
++	rtl8139_hw_start (dev);
++	netif_wake_queue (dev);
++
+ 	spin_unlock_bh(&tp->rx_lock);
+ }
+ 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.9.1
