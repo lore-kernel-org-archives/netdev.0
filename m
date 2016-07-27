@@ -1,48 +1,63 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net-next] neigh: allow admin to set NUD_STALE
-Date: Wed, 27 Jul 2016 09:56:50 +0300
-Message-ID: <1469602610-6934-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH 0/2] net: davinci_cpdma: reduce latency on -rt
+Date: Wed, 27 Jul 2016 09:03:02 +0200
+Message-ID: <20160727070302.GG5368@pengutronix.de>
+References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
+ <f546b5f0-1da6-2c16-647a-33bb8692b753@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:38804 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751723AbcG0G5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2016 02:57:18 -0400
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39944 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751504AbcG0HDH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 03:03:07 -0400
+Content-Disposition: inline
+In-Reply-To: <f546b5f0-1da6-2c16-647a-33bb8692b753@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Admin should be able to set any state. Currently, this fails
-when lladdr is not changed and state is changed from
-NUD_CONNECTED to NUD_STALE:
+On Tue, Jul 26, 2016 at 05:36:49PM +0300, Grygorii Strashko wrote:
+> On 07/26/2016 03:02 PM, Uwe Kleine-K=F6nig wrote:
+> >Hello,
+> >
+> >these patches are based on next-20160726. I didn't check yet how lat=
+ency
+> >improves by using these patches, but even if the improvment is small=
+,
+> >it's still a good idea to have them.
+>=20
+> Sry, but how this will affect on -RT? This is not a raw locks, so
+> they will be converted to rt-mutexes which are sleepable.
+> Or I've missed smth?
 
-ip neigh add 192.168.8.1 lladdr 00:11:22:33:44:55 nud perm dev wlan0
-ip neigh show to 192.168.8.1
-192.168.8.1 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
-ip neigh change 192.168.8.1 lladdr 00:11:22:33:44:55 nud stale dev wlan0
-ip neigh show to 192.168.8.1
-192.168.8.1 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+They are still locks after all. On -rt I saw for the relevant
+application:
 
-Problem may be from 2.1.X days.
+  send package         |
+    take lock          |
+    write pckt to hw   |
+                       | rcv irq
+		       |   take lock
+		       |     schedule
+    drop lock	       |=20
+      schedule         |
+                       |   get pckt from hw
+		       |   drop lock
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/core/neighbour.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+So reducing the time a lock is taken reduces the chances that the lock
+is contended for another thread which results in extra context switches=
+=2E
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index cf26e04c4..2ae929f 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1148,7 +1148,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
- 			} else
- 				goto out;
- 		} else {
--			if (lladdr == neigh->ha && new == NUD_STALE)
-+			if (lladdr == neigh->ha && new == NUD_STALE &&
-+			    !(flags & NEIGH_UPDATE_F_ADMIN))
- 				new = old;
- 		}
- 	}
--- 
-1.9.3
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
