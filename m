@@ -1,55 +1,20 @@
-From: Phil Turnbull <phil.turnbull@oracle.com>
-Subject: [PATCH net] sit: Correctly return -ENOMEM from SIOCGETPRL ioctl.
-Date: Wed, 27 Jul 2016 09:57:25 -0400
-Message-ID: <20160727135725.13559-1-phil.turnbull@oracle.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Phil Turnbull <phil.turnbull@oracle.com>
-To: netdev@vger.kernel.org
+From: Grace Bunyan <bambridgevaeajasmine23@gmail.com>
+Subject: (unknown)
+Date: Wed, 27 Jul 2016 16:02:38 +0200
+Message-ID: <CAKg_9GYj6bm+8ZFXOMJMWMryVo-NW8=8S78gxsBpUpMNbPNpWg@mail.gmail.com>
+Reply-To: alexybunyan223@hotmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44463 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754295AbcG0N6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 09:58:30 -0400
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35289 "EHLO
+	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755188AbcG0OCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 10:02:41 -0400
+Received: by mail-qk0-f194.google.com with SMTP id q62so2708004qkf.2
+        for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 07:02:40 -0700 (PDT)
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--ENOMEM is never returned because the 'out' path unconditionally sets
-'ret' to zero. Remove the 'out' path and return directly when the
-allocation fails.
-
-Fixes: 300aaeeaab5f ("[IPV6] SIT: Add SIOCGETPRL ioctl to get/dump PRL.")
-Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
----
- net/ipv6/sit.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 0619ac70836d..a71514040bb4 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -320,8 +320,8 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
- 		 */
- 		kp = kcalloc(ca, sizeof(*kp), GFP_ATOMIC);
- 		if (!kp) {
--			ret = -ENOMEM;
--			goto out;
-+			rcu_read_unlock();
-+			return -ENOMEM;
- 		}
- 	}
- 
-@@ -337,7 +337,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
- 		if (kprl.addr != htonl(INADDR_ANY))
- 			break;
- 	}
--out:
-+
- 	rcu_read_unlock();
- 
- 	len = sizeof(*kp) * c;
--- 
-2.9.0.rc2
+Greeting, Did you receive the fund letter i send you last? from Grace Bunyan
