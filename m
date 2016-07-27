@@ -1,55 +1,211 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
-Date: Wed, 27 Jul 2016 16:45:43 -0700 (PDT)
-Message-ID: <20160727.164543.1466564919313003461.davem@davemloft.net>
-References: <201607271032.u6RAWPcS008174@sdf.org>
-	<4dbfebe8136bc963b5b51463d6887db4@triadic.us>
-	<87c4ed555bcb4229f2334f6f2bb69bcb@triadic.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rlwinm@sdf.org, viro@zeniv.linux.org.uk, chunkeey@googlemail.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: alexmcwhirter@triadic.us
+From: fgao@ikuai8.com
+Subject: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
+Date: Thu, 28 Jul 2016 07:42:58 +0800
+Message-ID: <1469662978-19814-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, philipp@redfish-solutions.com,
+	stephen@networkplumber.org, pshelar@nicira.com,
+	tom@herbertland.com, aduyck@mirantis.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39420 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932335AbcG0Xpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 19:45:47 -0400
-In-Reply-To: <87c4ed555bcb4229f2334f6f2bb69bcb@triadic.us>
+Received: from smtpbg278.qq.com ([113.108.11.203]:59064 "EHLO smtpbg278.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758254AbcG0Xu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2016 19:50:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: alexmcwhirter@triadic.us
-Date: Wed, 27 Jul 2016 19:02:40 -0400
+From: Gao Feng <fgao@ikuai8.com>
 
-> On 2016-07-27 14:04, alexmcwhirter@triadic.us wrote:
->> Just to add some more information to this, the corruption seems to
->> effect ssh as well.
->> Using a sun hme interface, occasionally upon an ssh connection it will
->> refuse to authenticate a client with either password or cert
->> authentication. Using wireshark to capture and decrypt the packets
->> between the two machines, the data coming from the server seems good,
->> but the data received by the server from the client is essentially
->> garbage. Note that the client is sending valid data, but the server is
->> corrupting it upon receipt. Closing the connection and starting a new
->> one will remedy the login issue, but you do occasionally see
->> corruption on the server side sporadically.
->> So far this only seems to occur on incoming data, outgoing data seems
->> fine.
-> 
-> Also, there is another patch the references this commit on sparc64 at
-> least.
-> 
-> https://patchwork.kernel.org/patch/9221895/
-> 
-> I highly expect both my issue and OP's issue to revolve not around
-> commit e5a4b0bb803b specifically, but around other code that no longer
-> behaves as expected because of it.
+The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+must contain one. But current GRE RPS needs the GRE_VERSION must be
+zero. So RPS does not work for PPTP traffic.
 
-Indeed, and that fault address rounding bug occurs two other times
-in arch/sparc/lib/user_fixup.c
+In my test environment, there are four MIPS cores, and all traffic
+are passed through by PPTP. As a result, only one core is 100% busy
+while other three cores are very idle. After this patch, the usage
+of four cores are balanced well.
 
-The mentioned patchwork patch should fix the bug and I'll get that
-into my sparc tree, merged, and queued up for -stable ASAP.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v1: Initial patch
+
+ include/uapi/linux/if_tunnel.h |   5 +-
+ net/core/flow_dissector.c      | 138 ++++++++++++++++++++++++++---------------
+ 2 files changed, 92 insertions(+), 51 deletions(-)
+
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 1046f55..dda4e4b 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -24,9 +24,12 @@
+ #define GRE_SEQ		__cpu_to_be16(0x1000)
+ #define GRE_STRICT	__cpu_to_be16(0x0800)
+ #define GRE_REC		__cpu_to_be16(0x0700)
+-#define GRE_FLAGS	__cpu_to_be16(0x00F8)
++#define GRE_ACK		__cpu_to_be16(0x0080)
++#define GRE_FLAGS	__cpu_to_be16(0x0078)
+ #define GRE_VERSION	__cpu_to_be16(0x0007)
+ 
++#define GRE_PROTO_PPP	__cpu_to_be16(0x880b)
++
+ struct ip_tunnel_parm {
+ 	char			name[IFNAMSIZ];
+ 	int			link;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 61ad43f..d95e060 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -346,63 +346,101 @@ ip_proto_again:
+ 		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+ 		if (!hdr)
+ 			goto out_bad;
+-		/*
+-		 * Only look inside GRE if version zero and no
+-		 * routing
+-		 */
+-		if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+-			break;
+ 
+-		proto = hdr->proto;
+-		nhoff += 4;
+-		if (hdr->flags & GRE_CSUM)
++		/*
++		* Only look inside GRE if version zero and no
++		* routing
++		*/
++		if (!(hdr->flags & (GRE_VERSION | GRE_ROUTING))) {
++			proto = hdr->proto;
+ 			nhoff += 4;
+-		if (hdr->flags & GRE_KEY) {
+-			const __be32 *keyid;
+-			__be32 _keyid;
++			if (hdr->flags & GRE_CSUM)
++				nhoff += 4;
++			if (hdr->flags & GRE_KEY) {
++				const __be32 *keyid;
++				__be32 _keyid;
++
++				keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
++							     data, hlen, &_keyid);
++
++				if (!keyid)
++					goto out_bad;
++
++				if (dissector_uses_key(flow_dissector,
++						       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
++					key_keyid = skb_flow_dissector_target(flow_dissector,
++									      FLOW_DISSECTOR_KEY_GRE_KEYID,
++									      target_container);
++					key_keyid->keyid = *keyid;
++				}
++				nhoff += 4;
++			}
++			if (hdr->flags & GRE_SEQ)
++				nhoff += 4;
++			if (proto == htons(ETH_P_TEB)) {
++				const struct ethhdr *eth;
++				struct ethhdr _eth;
++
++				eth = __skb_header_pointer(skb, nhoff,
++							   sizeof(_eth),
++							   data, hlen, &_eth);
++				if (!eth)
++					goto out_bad;
++				proto = eth->h_proto;
++				nhoff += sizeof(*eth);
++
++				/* Cap headers that we access via pointers at the
++				 * end of the Ethernet header as our maximum alignment
++				 * at that point is only 2 bytes.
++				 */
++				if (NET_IP_ALIGN)
++					hlen = nhoff;
++			}
+ 
+-			keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+-						     data, hlen, &_keyid);
++			key_control->flags |= FLOW_DIS_ENCAPSULATION;
++			if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
++				goto out_good;
+ 
+-			if (!keyid)
++			goto again;
++		} else if (hdr->proto == GRE_PROTO_PPP && (hdr->flags & GRE_VERSION) &&
++			(hdr->flags & GRE_KEY) &&
++			!(hdr->flags & (GRE_CSUM | GRE_ROUTING | GRE_STRICT | GRE_REC | GRE_FLAGS))) {
++			/* It should be the PPTP in GRE
++			 * We have checked the flags according to the
++			 * RFC 2637
++			 */
++			struct ppp_frame {
++				/* address & control, just ignore it */
++				__be16 ignore;
++				__be16 proto;
++			} *frame, _frame;
++			int offset = 0;
++
++			/* Skip GRE header */
++			offset += 4;
++			/* Skip payload length and call id */
++			offset += 4;
++
++			if (hdr->flags & GRE_SEQ)
++				offset += 4;
++
++			if (hdr->flags & GRE_ACK)
++				offset += 4;
++
++			frame = skb_header_pointer(skb, nhoff + offset, sizeof(_frame), &_frame);
++			if (!frame)
+ 				goto out_bad;
+-
+-			if (dissector_uses_key(flow_dissector,
+-					       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+-				key_keyid = skb_flow_dissector_target(flow_dissector,
+-								      FLOW_DISSECTOR_KEY_GRE_KEYID,
+-								      target_container);
+-				key_keyid->keyid = *keyid;
++			if (frame->proto == __constant_htons(PPP_IP)) {
++				nhoff += (sizeof(*frame) + offset);
++				proto = __constant_htons(ETH_P_IP);
++				goto again;
++			} else if (frame->proto == __constant_htons(PPP_IPV6)) {
++				nhoff += (sizeof(*frame) + offset);
++				proto = __constant_htons(ETH_P_IPV6);
++				goto again;
+ 			}
+-			nhoff += 4;
+ 		}
+-		if (hdr->flags & GRE_SEQ)
+-			nhoff += 4;
+-		if (proto == htons(ETH_P_TEB)) {
+-			const struct ethhdr *eth;
+-			struct ethhdr _eth;
+-
+-			eth = __skb_header_pointer(skb, nhoff,
+-						   sizeof(_eth),
+-						   data, hlen, &_eth);
+-			if (!eth)
+-				goto out_bad;
+-			proto = eth->h_proto;
+-			nhoff += sizeof(*eth);
+-
+-			/* Cap headers that we access via pointers at the
+-			 * end of the Ethernet header as our maximum alignment
+-			 * at that point is only 2 bytes.
+-			 */
+-			if (NET_IP_ALIGN)
+-				hlen = nhoff;
+-		}
+-
+-		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+-		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+-			goto out_good;
+-
+-		goto again;
++		break;
+ 	}
+ 	case NEXTHDR_HOP:
+ 	case NEXTHDR_ROUTING:
+-- 
+1.9.1
