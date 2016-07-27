@@ -1,42 +1,64 @@
-From: "Woodford, Timothy W." <Timothy.Woodford@jhuapl.edu>
-Subject: RE: [Intel-wired-lan] [PATCH net-next v3 1/2] e1000e: factor out
- systim	sanitization
-Date: Wed, 27 Jul 2016 21:15:23 +0000
-Message-ID: <c79639cd5a4c4907b83e2f5df50bd2bc@APLEX07.dom1.jhuapl.edu>
-References: <1469292274-59237-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-2-git-send-email-jarod@redhat.com>
- <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH 05/15] ethernet: cavium: octeon: add missing of_node_put
+ after calling of_parse_phandle
+Date: Wed, 27 Jul 2016 13:56:16 -0700
+Message-ID: <57991FF0.1010606@caviumnetworks.com>
+References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com> <1469586048-15697-6-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Avargil, Raanan" <raanan.avargil@intel.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Hall, Christopher S" <christopher.s.hall@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<vbridger@opensource.altera.com>, <isubramanian@apm.com>,
+	<kchudgar@apm.com>, <yisen.zhuang@huawei.com>,
+	<salil.mehta@huawei.com>, <thomas.petazzoni@free-electrons.com>,
+	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
+	<alexandre.torgue@st.com>, <mugunthanvnm@ti.com>,
+	<tremyfr@gmail.com>, <wxt@rock-chips.com>, <arnd@arndb.de>,
+	<david.daney@cavium.com>, <huangdaode@hisilicon.com>,
+	<jszhang@marvell.com>
+To: Peter Chen <peter.chen@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pilot.jhuapl.edu ([128.244.251.36]:34564 "EHLO pilot.jhuapl.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932369AbcG0VZr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 17:25:47 -0400
-In-Reply-To: <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
-Content-Language: en-US
+Received: from mail-bl2nam02on0073.outbound.protection.outlook.com ([104.47.38.73]:52433
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751849AbcG0V3v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2016 17:29:51 -0400
+In-Reply-To: <1469586048-15697-6-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> This is prepatory work for an expanding list of adapter families that have occasional ~10 hour clock jumps when being used for PTP. Factor out the sanitization function and convert to using a feature (bug) flag, per suggestion from Jesse Brandeburg.
->> 
->> Littering functional code with device-specific checks is much messier than simply checking a flag, and having device-specific init set flags as needed.
->> There are probably a number of other cases in the e1000e code that could/should be converted similarly.
-> 
-> Looks ok to me.
-> Adding Chris who asked what happens if we reach the max retry counter (E1000_MAX_82574_SYSTIM_REREAD)?
-> This counter is set to 50. 
-> Can you, for testing purposes, decreased this value (or even set it to 0) and see what happens?
+On 07/26/2016 07:20 PM, Peter Chen wrote:
+> of_node_put needs to be called when the device node which is got
+> from of_parse_phandle has finished using.
+>
+> Signed-off-by: Peter Chen <peter.chen@nxp.com>
 
-I have one of the affected NICs.  I inserted some test code into the module to check the value of i after the for loop inside the sanitize function exits to check how many iterations of the loop were being run.  I ran a PTP test setup for a few hours with E1000_MAX_82574_SYSTIM_REREAD=50, and the maximum number was 5 iterations.
-It looks like setting E1000_MAX_82574_SYSTIM_REREAD to 0 will just disable the return value checking and will have the same results as disabling the sanitization function.  I'll set the max retry counter to 1 and run an overnight test to see what happens.
+NAK.
 
-Tim Woodford
+
+> ---
+>   drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 1 +
+>   1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+> index e8bc15b..5eb9d8c 100644
+> --- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+> +++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+> @@ -960,6 +960,7 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
+>   	phydev = of_phy_connect(netdev, p->phy_np,
+>   				octeon_mgmt_adjust_link, 0,
+>   				PHY_INTERFACE_MODE_MII);
+> +	of_node_put(p->phy_np);
+
+I don't think you can do this here.  octeon_mgmt_init_phy() may be 
+called multiple times in the life of the driver, so p->phy_np must 
+remain valid.
+
+It may be appropriate to do the  of_node_put() in the 
+octeon_mgmt_remove() function.
+
+
+>
+>   	if (!phydev)
+>   		return -ENODEV;
+>
