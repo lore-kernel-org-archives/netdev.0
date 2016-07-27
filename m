@@ -1,88 +1,71 @@
-From: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Subject: Re: [PATCH 1/2] SUNRPC: accept() may return sockets that are still in
- SYN_RECV
-Date: Wed, 27 Jul 2016 19:11:23 +0000
-Message-ID: <332ACE13-83D0-4516-9B2D-200250ED3437@primarydata.com>
-References: <1469541080-4184-1-git-send-email-trond.myklebust@primarydata.com>
- <20160726154354.GA6692@fieldses.org>
- <7C18520C-D486-4466-8D9D-FF2052B03F0E@primarydata.com>
- <20160727184806.GA19229@fieldses.org>
- <1469645951.17736.13.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Duc Dang <dhdang@apm.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the arm-soc tree
+Date: Wed, 27 Jul 2016 13:41:41 -0700
+Message-ID: <CADaLNDn_eqKtUhYUQPOBOxt__8FukZmcnKWZk4QxWJQF4N4s2A@mail.gmail.com>
+References: <20160727125342.1902ece1@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: Fields Bruce James <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	List Linux NFS Mailing <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	List Linux Network Devel Mailing <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Yuchung Cheng <ycheng-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1469645951.17736.13.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-Content-Language: en-US
-Content-ID: <279BA5072B21064191487AB3964E6512-Hry67jCOGbCcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Olof Johansson <olof@lixom.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	linux-arm <linux-arm-kernel@lists.infradead.org>,
+	linux-next@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Iyappan Subramanian <isubramanian@apm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160727125342.1902ece1@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRXJpYywNCg0KPiBPbiBKdWwgMjcsIDIwMTYsIGF0IDE0OjU5LCBFcmljIER1bWF6ZXQgPGVy
-aWMuZHVtYXpldEBnbWFpbC5jb20+IHdyb3RlOg0KPiANCj4gT24gV2VkLCAyMDE2LTA3LTI3IGF0
-IDE0OjQ4IC0wNDAwLCBGaWVsZHMgQnJ1Y2UgSmFtZXMgd3JvdGU6DQo+PiBPbiBUdWUsIEp1bCAy
-NiwgMjAxNiBhdCAwNDowODoyOVBNICswMDAwLCBUcm9uZCBNeWtsZWJ1c3Qgd3JvdGU6DQo+Pj4g
-DQo+Pj4+IE9uIEp1bCAyNiwgMjAxNiwgYXQgMTE6NDMsIEouIEJydWNlIEZpZWxkcyA8YmZpZWxk
-c0BmaWVsZHNlcy5vcmc+IHdyb3RlOg0KPj4+PiANCj4+Pj4gT24gVHVlLCBKdWwgMjYsIDIwMTYg
-YXQgMDk6NTE6MTlBTSAtMDQwMCwgVHJvbmQgTXlrbGVidXN0IHdyb3RlOg0KPj4+Pj4gV2UncmUg
-c2VlaW5nIHRyYWNlcyBvZiB0aGUgZm9sbG93aW5nIGZvcm06DQo+Pj4+PiANCj4+Pj4+IFsxMDk1
-Mi4zOTYzNDddIHN2YzogdHJhbnNwb3J0IGZmZmY4ODA0MmJhNGEgMDAwIGRlcXVldWVkLCBpbnVz
-ZT0yDQo+Pj4+PiBbMTA5NTIuMzk2MzUxXSBzdmM6IHRjcF9hY2NlcHQgZmZmZjg4MDQyYmE0IGEw
-MDAgc29jayBmZmZmODgwNDJhNmU0YzgwDQo+Pj4+PiBbMTA5NTIuMzk2MzYyXSBuZnNkOiBjb25u
-ZWN0IGZyb20gMTAuMi42LjEsIHBvcnQ9MTg3DQo+Pj4+PiBbMTA5NTIuMzk2MzY0XSBzdmM6IHN2
-Y19zZXR1cF9zb2NrZXQgZmZmZjg4MDBiOTliY2YwMA0KPj4+Pj4gWzEwOTUyLjM5NjM2OF0gc2V0
-dGluZyB1cCBUQ1Agc29ja2V0IGZvciByZWFkaW5nDQo+Pj4+PiBbMTA5NTIuMzk2MzcwXSBzdmM6
-IHN2Y19zZXR1cF9zb2NrZXQgY3JlYXRlZCBmZmZmODgwM2ViMTBhMDAwIChpbmV0IGZmZmY4ODA0
-MmI3NWI4MDApDQo+Pj4+PiBbMTA5NTIuMzk2MzczXSBzdmM6IHRyYW5zcG9ydCBmZmZmODgwM2Vi
-MTBhMDAwIHB1dCBpbnRvIHF1ZXVlDQo+Pj4+PiBbMTA5NTIuMzk2Mzc1XSBzdmM6IHRyYW5zcG9y
-dCBmZmZmODgwNDJiYTRhMDAwIHB1dCBpbnRvIHF1ZXVlDQo+Pj4+PiBbMTA5NTIuMzk2Mzc3XSBz
-dmM6IHNlcnZlciBmZmZmODgwMGJiMGVjMDAwIHdhaXRpbmcgZm9yIGRhdGEgKHRvID0gMzYwMDAw
-MCkNCj4+Pj4+IFsxMDk1Mi4zOTYzODBdIHN2YzogdHJhbnNwb3J0IGZmZmY4ODAzZWIxMGEwMDAg
-ZGVxdWV1ZWQsIGludXNlPTINCj4+Pj4+IFsxMDk1Mi4zOTYzODFdIHN2Y19yZWN2OiBmb3VuZCBY
-UFRfQ0xPU0UNCj4+Pj4+IFsxMDk1Mi4zOTYzOTddIHN2Yzogc3ZjX2RlbGV0ZV94cHJ0KGZmZmY4
-ODAzZWIxMGEwMDApDQo+Pj4+PiBbMTA5NTIuMzk2Mzk4XSBzdmM6IHN2Y190Y3Bfc29ja19kZXRh
-Y2goZmZmZjg4MDNlYjEwYTAwMCkNCj4+Pj4+IFsxMDk1Mi4zOTYzOTldIHN2Yzogc3ZjX3NvY2tf
-ZGV0YWNoKGZmZmY4ODAzZWIxMGEwMDApDQo+Pj4+PiBbMTA5NTIuMzk2NDEyXSBzdmM6IHN2Y19z
-b2NrX2ZyZWUoZmZmZjg4MDNlYjEwYTAwMCkNCj4+Pj4+IA0KPj4+Pj4gaS5lLiBhbiBpbW1lZGlh
-dGUgY2xvc2Ugb2YgdGhlIHNvY2tldCBhZnRlciBpbml0aWFsaXNhdGlvbi4NCj4+Pj4gDQo+Pj4+
-IEludGVyZXN0aW5nLCB0aGFua3MhDQo+Pj4+IA0KPj4+PiBTbyB0aGUgb25lIHRoaW5nIEkgZG9u
-J3QgdW5kZXJzdGFuZCBpcyB3aHkgdGhpcyBpcyBjb3JyZWN0IGJlaGF2aW9yIGZvcg0KPj4+PiBh
-Y2NlcHQtLUkgdGhvdWdodCBpdCB3YXNuJ3Qgc3VwcG9zZWQgdG8gcmV0dXJuIGEgc29ja2V0IHVu
-dGlsIGl0IHdhcw0KPj4+PiBmdWxseSBlc3RhYmxpc2hlZC4NCj4+PiANCj4+PiBpbmV0X2FjY2Vw
-dCgpIGFwcGVhcnMgdG8gYWxsb3cgU1lOX1JFQ1Y6DQo+PiANCj4+IE9LLiAgQ2MnaW5nIG5ldGRl
-diBqdXN0IHRvIG1ha2Ugc3VyZSB3ZSBkaWRuJ3Qgb3Zlcmxvb2sgYW55dGhpbmcuDQo+PiANCj4g
-DQo+IFNZTl9SRUNWIGFmdGVyIGFjY2VwdCgpIGlzIGEgVENQIEZhc3QgT3BlbiBwcm9wZXJ0eSBJ
-IHRoaW5rLg0KPiANCj4gTWF5YmUgeW91IGFyZSBwbGF5aW5nIHdpdGggc29tZSBnbG9iYWwgVENQ
-IEZhc3QgT3BlbiBzZXR0aW5ncyA/DQo+IA0KDQpUaGUgTGludXgga2VybmVsIGNsaWVudCBzaG91
-bGQgbm90IGJlIHVzaW5nIFRDUCBmYXN0IG9wZW4sIGJ1dCBpdCBpcyBwb3NzaWJsZSB0aGF0IHNv
-bWUgb2YgdGhlIG90aGVyIE5GU3YzIGNsaWVudHMgd2XigJlyZSB1c2luZyBhcmUuDQpXb3VsZCBh
-IHN0YW5kYXJkIGtuZnNkIGxpc3RlbmVyIHJlc3BvbmQgdG8gYSBUQ1AgZmFzdCBvcGVuIHJlcXVl
-c3QsIG9yIHdvdWxkIHRoZSBkZWZhdWx0IGJlaGF2aW91ciBiZSB0byBpZ25vcmUgaXQ/DQoNCklm
-IHRoZSBkZWZhdWx0IGJlaGF2aW91ciBmb3IgdGhlIHNlcnZlciBpcyB0byBhbGxvdyBmYXN0IG9w
-ZW4sIHRoZW4gd2UgZG8gbmVlZCB0aGVzZSBwYXRjaGVzLCBJTU8uDQoNCj4gDQo+PiAoQWxzbzog
-d2hhdCB3ZXJlIHVzZXItdmlzaWJsZSBzeW1wdG9tcz8gIE1vdW50cyBmYWlsaW5nLCBvciB1bmV4
-cGVjdGVkDQo+PiBkZWxheXM/KQ0KPj4gDQoNCkNvbm5lY3Rpb24gcmV0cnkgc3Rvcm1zIG9uIHRo
-ZSBzZXJ2ZXIuDQoNCj4+IC0tYi4NCj4+IA0KPj4+IA0KPj4+IGludCBpbmV0X2FjY2VwdChzdHJ1
-Y3Qgc29ja2V0ICpzb2NrLCBzdHJ1Y3Qgc29ja2V0ICpuZXdzb2NrLCBpbnQgZmxhZ3MpDQo+Pj4g
-ew0KPj4+ICAgICAgICBzdHJ1Y3Qgc29jayAqc2sxID0gc29jay0+c2s7DQo+Pj4gICAgICAgIGlu
-dCBlcnIgPSAtRUlOVkFMOw0KPj4+ICAgICAgICBzdHJ1Y3Qgc29jayAqc2syID0gc2sxLT5za19w
-cm90LT5hY2NlcHQoc2sxLCBmbGFncywgJmVycik7DQo+Pj4gDQo+Pj4gICAgICAgIGlmICghc2sy
-KQ0KPj4+ICAgICAgICAgICAgICAgIGdvdG8gZG9fZXJyOw0KPj4+IA0KPj4+ICAgICAgICBsb2Nr
-X3NvY2soc2syKTsNCj4+PiANCj4+PiAgICAgICAgc29ja19ycHNfcmVjb3JkX2Zsb3coc2syKTsN
-Cj4+PiAgICAgICAgV0FSTl9PTighKCgxIDw8IHNrMi0+c2tfc3RhdGUpICYNCj4+PiAgICAgICAg
-ICAgICAgICAgIChUQ1BGX0VTVEFCTElTSEVEIHwgVENQRl9TWU5fUkVDViB8DQo+Pj4gICAgICAg
-ICAgICAgICAgICBUQ1BGX0NMT1NFX1dBSVQgfCBUQ1BGX0NMT1NFKSkpOw0KPj4+IA0KPj4+ICAg
-ICAgICBzb2NrX2dyYWZ0KHNrMiwgbmV3c29jayk7DQo+Pj4gDQo+Pj4gICAgICAgIG5ld3NvY2st
-PnN0YXRlID0gU1NfQ09OTkVDVEVEOw0KPj4+ICAgICAgICBlcnIgPSAwOw0KPj4+ICAgICAgICBy
-ZWxlYXNlX3NvY2soc2syKTsNCj4+PiBkb19lcnI6DQo+Pj4gICAgICAgIHJldHVybiBlcnI7DQo+
-Pj4gfQ0KPiANCj4gDQoNCg==
+On Tue, Jul 26, 2016 at 7:53 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> Today's linux-next merge of the net-next tree got a conflict in:
+>
+>   arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
+>
+> between commit:
+>
+>   cafc4cd0c8b8 ("arm64: dts: apm: Use lowercase consistently for hex constants")
+>
+> from the arm-soc tree and commit:
+>
+>   8e694cd2762c ("dtb: xgene: Add MDIO node")
+>
+> from the net-next tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for taking care of this, Stephen. The fix looks fine.
+
+>
+> --
+> Cheers,
+> Stephen Rothwell
+>
+> diff --cc arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
+> index 21028b145d91,2e1e5daa1dc7..000000000000
+> --- a/arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
+> +++ b/arch/arm64/boot/dts/apm/apm-shadowcat.dtsi
+> @@@ -628,9 -636,9 +636,9 @@@
+>                 sgenet0: ethernet@1f610000 {
+>                         compatible = "apm,xgene2-sgenet";
+>                         status = "disabled";
+> -                       reg = <0x0 0x1f610000 0x0 0x10000>,
+> +                       reg = <0x0 0x1f610000 0x0 0xd100>,
+>  -                            <0x0 0x1f600000 0x0 0Xd100>,
+>  -                            <0x0 0x20000000 0x0 0X20000>;
+>  +                            <0x0 0x1f600000 0x0 0xd100>,
+>  +                            <0x0 0x20000000 0x0 0x20000>;
+>                         interrupts = <0 96 4>,
+>                                      <0 97 4>;
+>                         dma-coherent;
+Regards,
+Duc Dang.
