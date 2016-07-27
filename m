@@ -1,55 +1,55 @@
-From: Chunhui He <hchunhui@mail.ustc.edu.cn>
-Subject: Re: [net-next] neigh: allow admin to set NUD_STALE
-Date: Wed, 27 Jul 2016 12:25:13 +0000 (UTC)
-Message-ID: <20160727.122513.1619464990432480392.hchunhui@mail.ustc.edu.cn>
-References: <1469602610-6934-1-git-send-email-ja@ssi.bg>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: ja@ssi.bg
+From: Phil Turnbull <phil.turnbull@oracle.com>
+Subject: [PATCH net] sit: Correctly return -ENOMEM from SIOCGETPRL ioctl.
+Date: Wed, 27 Jul 2016 09:57:25 -0400
+Message-ID: <20160727135725.13559-1-phil.turnbull@oracle.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Phil Turnbull <phil.turnbull@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.ustc.edu.cn ([202.38.64.46]:54438 "EHLO ustc.edu.cn"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753991AbcG0MZf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2016 08:25:35 -0400
-In-Reply-To: <1469602610-6934-1-git-send-email-ja@ssi.bg>
+Received: from aserp1040.oracle.com ([141.146.126.69]:44463 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754295AbcG0N6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 09:58:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+-ENOMEM is never returned because the 'out' path unconditionally sets
+'ret' to zero. Remove the 'out' path and return directly when the
+allocation fails.
 
-On Wed, 27 Jul 2016 09:56:50 +0300, Julian Anastasov <ja@ssi.bg> wrote:
-> Admin should be able to set any state. Currently, this fails
-> when lladdr is not changed and state is changed from
-> NUD_CONNECTED to NUD_STALE:
-> 
-> ip neigh add 192.168.8.1 lladdr 00:11:22:33:44:55 nud perm dev wlan0
-> ip neigh show to 192.168.8.1
-> 192.168.8.1 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
-> ip neigh change 192.168.8.1 lladdr 00:11:22:33:44:55 nud stale dev wlan0
-> ip neigh show to 192.168.8.1
-> 192.168.8.1 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
-> 
-> Problem may be from 2.1.X days.
-> 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
->  net/core/neighbour.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index cf26e04c4..2ae929f 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -1148,7 +1148,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
->  			} else
->  				goto out;
->  		} else {
-> -			if (lladdr == neigh->ha && new == NUD_STALE)
-> +			if (lladdr == neigh->ha && new == NUD_STALE &&
-> +			    !(flags & NEIGH_UPDATE_F_ADMIN))
->  				new = old;
->  		}
->  	}
+Fixes: 300aaeeaab5f ("[IPV6] SIT: Add SIOCGETPRL ioctl to get/dump PRL.")
+Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
+---
+ net/ipv6/sit.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Reviewed-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 0619ac70836d..a71514040bb4 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -320,8 +320,8 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+ 		 */
+ 		kp = kcalloc(ca, sizeof(*kp), GFP_ATOMIC);
+ 		if (!kp) {
+-			ret = -ENOMEM;
+-			goto out;
++			rcu_read_unlock();
++			return -ENOMEM;
+ 		}
+ 	}
+ 
+@@ -337,7 +337,7 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+ 		if (kprl.addr != htonl(INADDR_ANY))
+ 			break;
+ 	}
+-out:
++
+ 	rcu_read_unlock();
+ 
+ 	len = sizeof(*kp) * c;
+-- 
+2.9.0.rc2
