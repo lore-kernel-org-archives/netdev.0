@@ -1,65 +1,46 @@
 From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: [net-next PATCH 0/4] be2net: patch set
-Date: Wed, 27 Jul 2016 05:26:14 -0400
-Message-ID: <1469611578-29665-1-git-send-email-sathya.perla@broadcom.com>
+Subject: [net-next PATCH 2/4] be2net: do not remove vids from driver table if be_vid_config() fails.
+Date: Wed, 27 Jul 2016 05:26:16 -0400
+Message-ID: <1469611578-29665-3-git-send-email-sathya.perla@broadcom.com>
+References: <1469611578-29665-1-git-send-email-sathya.perla@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from [192.19.245.250] ([192.19.245.250]:1984 "EHLO
 	CMRELAYP1.ad.emulex.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754204AbcG0J0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 05:26:36 -0400
+	by vger.kernel.org with ESMTP id S1754204AbcG0J0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 05:26:38 -0400
+In-Reply-To: <1469611578-29665-1-git-send-email-sathya.perla@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David, pls consider applying this patch-set to the net-next tree.
-
-Patch 1 fixes the driver to workaournd a bug in the Lancer FW in the
-vlan-config cmd processing. The FW in some cases clears the vlan-promisc
-setting even if it cannot apply the vlan filter. The driver has no means
-of knowing if the vlan-promisc setting has been cleared or not. This
-patch now explicitly clears the vlan-promisc setting via the RX-Filter cmd
-and then tries to program the vlan-list.
-
-Patch 2 fixes the failure path in the vlan vid add code. 
 The driver currently removes a new vid from the adapter->vids[] array if
 be_vid_config() returns an error, which occurs when there is an error in
 HW/FW. This is wrong. After the HW/FW error is recovered from, we need the
 complete vids[] array to re-program the vlan list.
 
-Patch 3 fixes the ndo_set_rx_mode() path to avoid unnecessary multicast
-list updates to the FW. Each time the ndo_set_rx_mode() routine is called,
-the driver programs the multicast list in the adapter without checking
-if there are any changes to the list. This leads to a flood of RX_FILTER
-cmds when a number of vlan interfaces are configured over the device,
-as the ndo_ gets called for each vlan interface. To avoid this, we now
-use __dev_mc_sync() and __dev_uc_sync() API, but only to detect if there
-is a change in the mc/uc lists. Now that we use this API, the code has to
-be-designed to issue these API calls for each invocation of the ndo_ call.
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-Patch 4 replaces polling with sleeping in the FW completion path.
-The ndo_set_rx_mode() and ndo_add/del_vxlan_port() calls may be called with
-BHs disabled. The driver currently issues the required cmds to the FW in
-these contexts and polls on completions from the FW, while BHs remain
-disabled.  This can cause either packet loss or packet reception to be
-delayed on that CPU.  This patch defers processing of the above cmds to a
-separate workqueue. With this change, FW cmds are now issued only in process
-context. Now that the FW cmds are issued only in process context, they can
-sleep waiting for a completion instead of polling.
-
-Sathya Perla (2):
-  be2net: do not remove vids from driver table if be_vid_config() fails.
-  be2net: replace polling with sleeping in the FW completion path
-
-Somnath Kotur (1):
-  be2net: clear vlan-promisc setting before programming the vlan list
-
-Sriharsha Basavapatna (1):
-  be2net: Avoid unnecessary firmware updates of multicast list
-
- drivers/net/ethernet/emulex/benet/be.h      |  21 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c | 202 ++++++-------
- drivers/net/ethernet/emulex/benet/be_main.c | 422 ++++++++++++++++++++++------
- 3 files changed, 450 insertions(+), 195 deletions(-)
-
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2782299..27fc1f0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1463,13 +1463,7 @@ static int be_vlan_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
+ 	set_bit(vid, adapter->vids);
+ 	adapter->vlans_added++;
+ 
+-	status = be_vid_config(adapter);
+-	if (status) {
+-		adapter->vlans_added--;
+-		clear_bit(vid, adapter->vids);
+-	}
+-
+-	return status;
++	return be_vid_config(adapter);
+ }
+ 
+ static int be_vlan_rem_vid(struct net_device *netdev, __be16 proto, u16 vid)
 -- 
 2.4.1
