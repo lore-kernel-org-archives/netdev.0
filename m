@@ -1,34 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net 1/3] r8169:fix kernel log spam when set or get
- hardware wol setting.
-Date: Thu, 28 Jul 2016 00:18:04 +0200
-Message-ID: <20160727221804.GA3564@electric-eye.fr.zoreil.com>
-References: <1469637668-8751-1-git-send-email-hau@realtek.com>
- <1469637668-8751-2-git-send-email-hau@realtek.com>
+From: alexmcwhirter@triadic.us
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Wed, 27 Jul 2016 19:02:40 -0400
+Message-ID: <87c4ed555bcb4229f2334f6f2bb69bcb@triadic.us>
+References: <201607271032.u6RAWPcS008174@sdf.org>
+ <4dbfebe8136bc963b5b51463d6887db4@triadic.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Al Viro <viro@zeniv.linux.org.uk>,
+	Christian Lamparter <chunkeey@googlemail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Chunhao Lin <hau@realtek.com>
+To: Alan Curry <rlwinm@sdf.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1469637668-8751-2-git-send-email-hau@realtek.com>
+In-Reply-To: <4dbfebe8136bc963b5b51463d6887db4@triadic.us>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chunhao Lin <hau@realtek.com> :
-[...]
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 0e62d74..f07604f 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -1749,13 +1749,21 @@ static u32 __rtl8169_get_wol(struct rtl8169_private *tp)
->  static void rtl8169_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
->  {
->  	struct rtl8169_private *tp = netdev_priv(dev);
-> +	struct pci_dev *pdev = tp->pci_dev;
+On 2016-07-27 14:04, alexmcwhirter@triadic.us wrote:
+> Just to add some more information to this, the corruption seems to
+> effect ssh as well.
+> 
+> Using a sun hme interface, occasionally upon an ssh connection it will
+> refuse to authenticate a client with either password or cert
+> authentication. Using wireshark to capture and decrypt the packets
+> between the two machines, the data coming from the server seems good,
+> but the data received by the server from the client is essentially
+> garbage. Note that the client is sending valid data, but the server is
+> corrupting it upon receipt. Closing the connection and starting a new
+> one will remedy the login issue, but you do occasionally see
+> corruption on the server side sporadically.
+> 
+> So far this only seems to occur on incoming data, outgoing data seems 
+> fine.
 
-Nit: you may directly use "struct device *d = &tp->pci_dev->dev;"
+Also, there is another patch the references this commit on sparc64 at 
+least.
 
--- 
-Ueimor
+https://patchwork.kernel.org/patch/9221895/
+
+I highly expect both my issue and OP's issue to revolve not around 
+commit e5a4b0bb803b specifically, but around other code that no longer 
+behaves as expected because of it.
