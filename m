@@ -1,42 +1,55 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 4/6] qede: Reset statistics on explicit down
-Date: Wed, 27 Jul 2016 14:45:22 +0300
-Message-ID: <1469619924-12806-5-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1469619924-12806-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Chunhui He <hchunhui@mail.ustc.edu.cn>
+Subject: Re: [net-next] neigh: allow admin to set NUD_STALE
+Date: Wed, 27 Jul 2016 12:25:13 +0000 (UTC)
+Message-ID: <20160727.122513.1619464990432480392.hchunhui@mail.ustc.edu.cn>
+References: <1469602610-6934-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:59990 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755310AbcG0Lpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 07:45:42 -0400
-In-Reply-To: <1469619924-12806-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from smtp2.ustc.edu.cn ([202.38.64.46]:54438 "EHLO ustc.edu.cn"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753991AbcG0MZf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Jul 2016 08:25:35 -0400
+In-Reply-To: <1469602610-6934-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding the necessary logic to prevet statistics reset
-on inner-reload introduced a bug, and now statistics
-are reset only when re-probing the driver.
 
-Fixes: a0d26d5a4fc8e ("qed*: Don't reset statistics on inner reload")
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qede/qede_main.c | 1 +
- 1 file changed, 1 insertion(+)
+On Wed, 27 Jul 2016 09:56:50 +0300, Julian Anastasov <ja@ssi.bg> wrote:
+> Admin should be able to set any state. Currently, this fails
+> when lladdr is not changed and state is changed from
+> NUD_CONNECTED to NUD_STALE:
+> 
+> ip neigh add 192.168.8.1 lladdr 00:11:22:33:44:55 nud perm dev wlan0
+> ip neigh show to 192.168.8.1
+> 192.168.8.1 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+> ip neigh change 192.168.8.1 lladdr 00:11:22:33:44:55 nud stale dev wlan0
+> ip neigh show to 192.168.8.1
+> 192.168.8.1 dev wlan0 lladdr 00:11:22:33:44:55 PERMANENT
+> 
+> Problem may be from 2.1.X days.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+>  net/core/neighbour.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index cf26e04c4..2ae929f 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -1148,7 +1148,8 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
+>  			} else
+>  				goto out;
+>  		} else {
+> -			if (lladdr == neigh->ha && new == NUD_STALE)
+> +			if (lladdr == neigh->ha && new == NUD_STALE &&
+> +			    !(flags & NEIGH_UPDATE_F_ADMIN))
+>  				new = old;
+>  		}
+>  	}
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 8fe3cc1..14f79c3 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -3256,6 +3256,7 @@ static int qede_start_queues(struct qede_dev *edev, bool clear_stats)
- 	start.vport_id = 0;
- 	start.drop_ttl0 = true;
- 	start.remove_inner_vlan = vlan_removal_en;
-+	start.clear_stats = clear_stats;
- 
- 	rc = edev->ops->vport_start(cdev, &start);
- 
--- 
-1.9.3
+Reviewed-by: Chunhui He <hchunhui@mail.ustc.edu.cn>
