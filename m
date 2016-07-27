@@ -1,80 +1,52 @@
-From: Patrick Schaaf <netdev@bof.de>
-Subject: CPU utilization with kvm / vhost, differences 3.14 / 4.4 / 4.6
-Date: Wed, 27 Jul 2016 18:04:27 +0200
-Message-ID: <14276407.TsEd2NX9sg@rofl>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] sit: Correctly return -ENOMEM from SIOCGETPRL ioctl.
+Date: Wed, 27 Jul 2016 09:28:29 -0700
+Message-ID: <CAM_iQpVx9_k6A+wT8RPusAsfNavi7Mo8kp3N+8NCytgmZ5+a8g@mail.gmail.com>
+References: <20160727135725.13559-1-phil.turnbull@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Phil Turnbull <phil.turnbull@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35239 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754200AbcG0Q2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 12:28:50 -0400
+Received: by mail-io0-f193.google.com with SMTP id q83so5799633iod.2
+        for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 09:28:49 -0700 (PDT)
+In-Reply-To: <20160727135725.13559-1-phil.turnbull@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jul 27, 2016 at 6:57 AM, Phil Turnbull <phil.turnbull@oracle.com> wrote:
+> -ENOMEM is never returned because the 'out' path unconditionally sets
+> 'ret' to zero. Remove the 'out' path and return directly when the
+> allocation fails.
+>
+> Fixes: 300aaeeaab5f ("[IPV6] SIT: Add SIOCGETPRL ioctl to get/dump PRL.")
+> Signed-off-by: Phil Turnbull <phil.turnbull@oracle.com>
+> ---
+>  net/ipv6/sit.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index 0619ac70836d..a71514040bb4 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -320,8 +320,8 @@ static int ipip6_tunnel_get_prl(struct ip_tunnel *t,
+>                  */
+>                 kp = kcalloc(ca, sizeof(*kp), GFP_ATOMIC);
+>                 if (!kp) {
+> -                       ret = -ENOMEM;
+> -                       goto out;
+> +                       rcu_read_unlock();
+> +                       return -ENOMEM;
+>                 }
 
-I'm stumped by a weird development in measured CPU utilization when testing an 
-upgrade path from 3.14.70 to 4.4.14.
-
-I'm running, on identical hardware (2 4-core Xeon E5420), a HA 
-(active/standby) pair of firewall/loadbalancer VMs. The OS on the host and the 
-VM is identical - openSUSE 13.1 userlevel, qemu 1.6.2 KVM, and kernels self-
-built from vanilla sources. Inside the VM I make pretty heavy use of ipset, 
-iptables, and ipvs. Traffic level is around 100 mbit/s, mostly ordinary web 
-traffic, translating to around 10 kpps.
-
-For the last X months I have been running this on 3.14.x kernels, currently 
-3.14.70. As that's nearing its end of support, I aim for an upgrade to 4.4.x, 
-testing with 4.4.14.
-
-For testing, I keep the kernel _within_ the VM stable - i.e. 3.14.70, and 
-upgrade only the host kernel of one of the two machines, to 4.4.14, and due to 
-the weirdness I'll describe next, to 4.6.4.
-
-What I see, and what is totally unexpected, is a severe variation in the 
-system and irq time measured on the host system, and less so inside the VM.
-
-The 3.14.70 running host shows 0.6 cores system and 0.4 cores IRQ time.
-
-The 4.4.14 running host shows 2.3 cores system and 0.4 cores IRQ time.
-
-The same host on 4.6.4, is again back at 0.6 cores system and 0.4 cores IRQ, 
-while the guest (showing as user outside) is down from the 1 core on the 
-previous to kernels, to about 0.6 cores (which I wouldn't complain about)
-
-But my desired target kernel, 4.4.14, clearly uses about 1 1/2 cores more on 
-the same load... (all other indicators and measurements I have show that the 
-load served is pretty much stable over the situations I tested).
-
-Some details on the networking setup (invariant over the tested kernels):
-* host bonds 4 NICs, half on on-board BNX2 BCM5708, other half on PCIe card 
-intel 82571EB hardware. The bond mode is LACP.
-* host lacp bond is then member of an ordinary software bridge interface,
-  which then also has the tap interface to the VM added. There is vlan
-  filtering active on the bridge.
-* two bridge vlans are separately broken out and member of a second layer 
-bridge with an extra tap interface to my VM. Don't ask why :) but one of these 
-carries about half of the traffic
-* within the VM, I have another bridge with the VLANs on top and macvlan 
-sprinkled in (keepalived VRRP setup on several legs)
-* host/vm network is virtio, of course
-* I had to disable (already some time ago, identical in all tests described 
-here) TSO / GSO / UFO on the tap interfaces to my VM, to alleviate severe 
-performance regressions. Different story, mentioning it just for completeness.
-
-Regarding the host hardware, I actually have a third system, software 
-identical, but with some more cores and purely on BNX2 BCM5719. The 4.4.14-
-needs-lots-more-systemtime symptoms were practically the same there.
-
-To end this tale, let me note that I have NO operational problems with the 
-test using the 4.4.14 kernel, as far as one can know that within some hours of 
-testing. All production metrics (and I have lots of them) are fine - except 
-for that system time usage on the host system...
-
-Anybody got a clue what may be happening?
-
-I'm a bit reluctant to jump to 4.6.x or newer kernels, as I like the concept 
-of long term stable kernels somehow... :)
-
-
-best regards
-  Patrick
+Or even better: we don't have to do the second kcalloc()
+within rcu read lock, we can move it before rcu_read_lock()?
