@@ -1,90 +1,47 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH 2/2] net: davinci_cpdma: reduce time holding chan->lock
- in cpdma_chan_submit
-Date: Wed, 27 Jul 2016 09:12:28 +0200
-Message-ID: <20160727071228.GH5368@pengutronix.de>
-References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <1469534545-14478-3-git-send-email-u.kleine-koenig@pengutronix.de>
- <66d886a4-4852-096c-a3b3-3faec3eb167f@ti.com>
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Subject: RE: [PATCH v4 5/7] thunderbolt: Networking state machine
+Date: Wed, 27 Jul 2016 07:30:36 +0000
+Message-ID: <E607265CB020454880711A6F96C05A03926AAEDC@hasmsx107.ger.corp.intel.com>
+References: <1468836040-28043-1-git-send-email-amir.jer.levy@intel.com>
+ <1468836040-28043-6-git-send-email-amir.jer.levy@intel.com>
+ <20160724223635.GA9516@wunner.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, kernel@pengutronix.de
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	thunderbolt-linux <thunderbolt-linux@intel.com>,
+	"Westerberg, Mika" <mika.westerberg@intel.com>,
+	"Winkler, Tomas" <tomas.winkler@intel.com>
+To: 'Lukas Wunner' <lukas@wunner.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:36989 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751289AbcG0HMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 03:12:33 -0400
-Content-Disposition: inline
-In-Reply-To: <66d886a4-4852-096c-a3b3-3faec3eb167f@ti.com>
+Received: from mga03.intel.com ([134.134.136.65]:53558 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751938AbcG0HbP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 03:31:15 -0400
+In-Reply-To: <20160724223635.GA9516@wunner.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Mon, Jul 25 2016, 01:36 AM, Lukas Wunner wrote:
+> On Mon, Jul 18, 2016 at 01:00:38PM +0300, Amir Levy wrote:
+> > +	const unique_id_be proto_uuid =
+> APPLE_THUNDERBOLT_IP_PROTOCOL_UUID;
+> > +
+> > +	if (memcmp(proto_uuid, hdr->apple_tbt_ip_proto_uuid,
+> > +		   sizeof(proto_uuid)) != 0) {
+> 
+> You may want to use the uuid_be data type provided by <linux/uuid.h>
+> instead of rolling your own, as well as the helper uuid_be_cmp() defined
+> ibidem.
+> 
 
-On Tue, Jul 26, 2016 at 05:25:58PM +0300, Grygorii Strashko wrote:
-> On 07/26/2016 03:02 PM, Uwe Kleine-K=F6nig wrote:
-> > Allocating and preparing a dma descriptor doesn't need to happen un=
-der
-> > the channel's lock. So do this before taking the channel's lock. Th=
-e only
-> > down side is that the dma descriptor might be allocated even though=
- the
-> > channel is about to be stopped. This is unlikely though.
-> >=20
-> > Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> > ---
-> >  drivers/net/ethernet/ti/davinci_cpdma.c | 38 +++++++++++++++++----=
-------------
-> >  1 file changed, 20 insertions(+), 18 deletions(-)
-> >=20
-> > diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/=
-ethernet/ti/davinci_cpdma.c
-> > index 5ffa04a306c6..ba3462707ae3 100644
-> > --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> > +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> > @@ -542,24 +542,10 @@ int cpdma_chan_submit(struct cpdma_chan *chan=
-, void *token, void *data,
-> >  	u32				mode;
-> >  	int				ret =3D 0;
-> > =20
-> > -	spin_lock_irqsave(&chan->lock, flags);
-> > -
-> > -	if (chan->state =3D=3D CPDMA_STATE_TEARDOWN) {
-> > -		ret =3D -EINVAL;
-> > -		goto unlock_ret;
-> > -	}
-> > -
-> > -	if (chan->count >=3D chan->desc_num)	{
-> > -		chan->stats.desc_alloc_fail++;
-> > -		ret =3D -ENOMEM;
-> > -		goto unlock_ret;
-> > -	}
->=20
-> I'm not sure this is right thing to do. This check is expected to be =
-strict
-> and means "channel has exhausted the available descriptors, so furthe=
-r descs allocation does not allowed".
-
-I developed this patch basing on a 4.4 kernel which doesn't have
-742fb20fd4c7 ("net: ethernet: ti: cpdma: switch to use genalloc"). Ther=
-e
-my patch is more obviously correct. As currently chan->count is
-protected by chan->lock we must hold the lock for this check. If a
-failing check means we must not call cpdma_desc_alloc in the first
-place, that's bad.
-
-But I'm not sure this is the case here. After all cpdma_desc_alloc
-doesn't do anything relevant for the hardware, right?
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+All the messages in Thunderbolt consist BE DWORDs.
+I didn't find uuid definition in the kernel that accurately describes the uuid structure in the messages, which is 4 BE DWORDs.
+But on the other hand, all the driver does is copy/compare of uuids, and it can treat uuids as byte array (i.e. uuid_be).
+I'll change it in the next patches.
