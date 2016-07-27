@@ -1,39 +1,107 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next v2 2/3] bnxt_en: Log a message, if enabling
- NTUPLE filtering fails.
-Date: Wed, 27 Jul 2016 01:04:25 -0700
-Message-ID: <CACKFLinix1aM_YbTMEhN6zX4fR80vKShDebBkTVxD-zk=cXaGg@mail.gmail.com>
-References: <1469464417-786-1-git-send-email-michael.chan@broadcom.com>
- <1469464417-786-3-git-send-email-michael.chan@broadcom.com> <CAD=hENeGisVP1Nx87_V5kW5y-YAaYF7Xj_aakEz0Cc6mswJqdA@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC PATCH v2 1/4] Documentation: DT: net: Add Xilinx
+ gmiitorgmii converter device tree binding documentation
+Date: Wed, 27 Jul 2016 10:05:26 +0200
+Message-ID: <20160727080526.GH11538@lunn.ch>
+References: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
+ <1467623084-15471-2-git-send-email-appanad@xilinx.com>
+ <20160704140458.GC3282@lunn.ch>
+ <03CA77BA8AF6F1469AEDFBDA1322A7B74A193913@XAP-PVEXMBX02.xlnx.xilinx.com>
+ <20160706142121.GI19800@lunn.ch>
+ <03CA77BA8AF6F1469AEDFBDA1322A7B74A19393B@XAP-PVEXMBX02.xlnx.xilinx.com>
+ <C246CAC1457055469EF09E3A7AC4E11A4A5C2387@XAP-PVEXMBX01.xlnx.xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: zhuyj <zyjzyj2000@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:36843 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752905AbcG0IE0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 04:04:26 -0400
-Received: by mail-oi0-f52.google.com with SMTP id w18so7074452oiw.3
-        for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 01:04:26 -0700 (PDT)
-In-Reply-To: <CAD=hENeGisVP1Nx87_V5kW5y-YAaYF7Xj_aakEz0Cc6mswJqdA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	Michal Simek <michals@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>
+To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <C246CAC1457055469EF09E3A7AC4E11A4A5C2387@XAP-PVEXMBX01.xlnx.xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 27, 2016 at 12:31 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
->  +       if (vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics) {
->    <-----Does this happen very rarely? If so,
->
-> if (unlikely(vnics > pf->max_rsscos_ctxs || vnics > pf->max_vnics) { is better?
+Hi Appana
 
-This is not in the fast path, so it doesn't matter.
+Here is roughly what i was thinking:
 
->
-> +               netdev_warn(bp->dev,
-> +                           "Not enough resources to support NTUPLE
-> filters, enough resources for up to %d rx rings\n",
-> +                           min(pf->max_rsscos_ctxs - 1, pf->max_vnics - 1));
->                 return false;
-> +       }
->
+struct priv {
+       phy_device *master;
+       phy_device *slave;
+       struct phy_driver *slave_drv;
+};
+
+phy_status_clone(phy_device *master, phy_device *slave)
+{
+	master->speed = slave->speed;
+	master->duplex = slave->duplex;
+	master->pause = slave->pause;
+}
+
+read_status(struct phy_device *phydev)
+{
+	struct priv *priv = phydev->priv;
+
+	/* Get the status from the slave, and duplicate in into the
+	 * master */
+	 slave_drv->read_status(priv->slave);
+	 phy_status_clone(priv->master, priv->slave);
+
+	 /* Update the gmiitorgmii with the current link parameters */
+	 update_link(master);
+}
+
+config_init(struct phy_device *phydev)
+{
+	struct priv *priv = phydev->priv;
+
+	/* Configure the slave, and duplicate in into the master */
+	slave_drv->config_init(priv->slave);
+	phy_status_clone(priv->master, priv->slave);
+}
+
+struct phy_driver master_drv = {
+       .read_status = read_status,
+       .config_init = config_init,
+       .soft_reset  = ...
+       .suspend = ...
+};
+
+probe(mdio_device *mdio)
+{
+	struct priv *priv = devm_alloc();
+
+	/* Use the phy-handle property to find the slave phy */
+	node_phy = of_parse_phandle(mdio->of_node, "phy", 0);
+	priv->slave = of_phy_find_device(node_phy);
+
+	/* Create the master phy on the control address. Use the phy
+	   ID from the slave. */
+	priv->master = phy_device_create(mdio->bus, mdio->addr,
+	  				 phy->slave->phy_id,
+					 phy->slave->is_c45,
+					 phy->slave->c45_ids);
+
+	slave_dev_drv = phydev->mdio.dev.driver;
+	priv->slave_drv = to_phy_driver(slave_dev_drv);
+	priv->master->mdio.dev.driver = master_drv;
+}
+
+It would however be nice to only have one phydev structure, so you are
+not copying status and settings backwards and forwards from one to the
+other all the time, and need a wrapper for every function in
+phy_driver. Studying the structures a bit, that might be possible. You
+would then only need to wrap the read_status(), so that when the link
+speed/duplex changes, you can configure the converter as appropriate.
+
+	     Andrew
