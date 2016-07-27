@@ -1,63 +1,32 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH 0/2] net: davinci_cpdma: reduce latency on -rt
-Date: Wed, 27 Jul 2016 09:03:02 +0200
-Message-ID: <20160727070302.GG5368@pengutronix.de>
-References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <f546b5f0-1da6-2c16-647a-33bb8692b753@ti.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: problem with MPLS and TSO/GSO
+Date: Wed, 27 Jul 2016 10:03:25 +0300
+Message-ID: <20160727070325.GB1397@wantstofly.org>
+References: <20160725163915.GE10080@wantstofly.org>
+ <CAD=hENdOy-d0v9BskuvfqF3qdbrWCy2b-Dc-LSSUcZBmHy-X1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, kernel@pengutronix.de
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	netdev <netdev@vger.kernel.org>
+To: zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:39944 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751504AbcG0HDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 03:03:07 -0400
+Received: from hmm.wantstofly.org ([138.201.34.84]:48592 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751472AbcG0HD1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 03:03:27 -0400
 Content-Disposition: inline
-In-Reply-To: <f546b5f0-1da6-2c16-647a-33bb8692b753@ti.com>
+In-Reply-To: <CAD=hENdOy-d0v9BskuvfqF3qdbrWCy2b-Dc-LSSUcZBmHy-X1A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 26, 2016 at 05:36:49PM +0300, Grygorii Strashko wrote:
-> On 07/26/2016 03:02 PM, Uwe Kleine-K=F6nig wrote:
-> >Hello,
-> >
-> >these patches are based on next-20160726. I didn't check yet how lat=
-ency
-> >improves by using these patches, but even if the improvment is small=
-,
-> >it's still a good idea to have them.
->=20
-> Sry, but how this will affect on -RT? This is not a raw locks, so
-> they will be converted to rt-mutexes which are sleepable.
-> Or I've missed smth?
+On Wed, Jul 27, 2016 at 03:02:24PM +0800, zhuyj wrote:
 
-They are still locks after all. On -rt I saw for the relevant
-application:
+> On ubuntu16.04 server 64 bit
+> The attached script is run, the following will appear.
+> 
+> Error: either "to" is duplicate, or "encap" is a garbage.
 
-  send package         |
-    take lock          |
-    write pckt to hw   |
-                       | rcv irq
-		       |   take lock
-		       |     schedule
-    drop lock	       |=20
-      schedule         |
-                       |   get pckt from hw
-		       |   drop lock
-
-So reducing the time a lock is taken reduces the chances that the lock
-is contended for another thread which results in extra context switches=
-=2E
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Looks like your installed iproute2 package doesn't grok MPLS.
