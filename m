@@ -1,117 +1,183 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 2/2] net: davinci_cpdma: reduce time holding chan->lock in
- cpdma_chan_submit
-Date: Wed, 27 Jul 2016 17:08:37 +0300
-Message-ID: <31cab303-4712-63e5-3dd5-7cffeb3edb0f@ti.com>
-References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <1469534545-14478-3-git-send-email-u.kleine-koenig@pengutronix.de>
- <66d886a4-4852-096c-a3b3-3faec3eb167f@ti.com>
- <20160727071228.GH5368@pengutronix.de>
+From: "Avargil, Raanan" <raanan.avargil@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH net-next v3 1/2] e1000e: factor out
+ systim	sanitization
+Date: Wed, 27 Jul 2016 14:09:13 +0000
+Message-ID: <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
+References: <1469292274-59237-1-git-send-email-jarod@redhat.com>
+ <1469557535-63429-1-git-send-email-jarod@redhat.com>
+ <1469557535-63429-2-git-send-email-jarod@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, <linux-omap@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <kernel@pengutronix.de>,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <u.kleine-koenig@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:46277 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755903AbcG0OIu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Jul 2016 10:08:50 -0400
-In-Reply-To: <20160727071228.GH5368@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+To: Jarod Wilson <jarod@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Hall, Christopher S" <christopher.s.hall@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1469557535-63429-2-git-send-email-jarod@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/27/2016 10:12 AM, Uwe Kleine-K=F6nig wrote:
-> Hello,
->=20
-> On Tue, Jul 26, 2016 at 05:25:58PM +0300, Grygorii Strashko wrote:
->> On 07/26/2016 03:02 PM, Uwe Kleine-K=F6nig wrote:
->>> Allocating and preparing a dma descriptor doesn't need to happen un=
-der
->>> the channel's lock. So do this before taking the channel's lock. Th=
-e only
->>> down side is that the dma descriptor might be allocated even though=
- the
->>> channel is about to be stopped. This is unlikely though.
->>>
->>> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->>> ---
->>>  drivers/net/ethernet/ti/davinci_cpdma.c | 38 +++++++++++++++++----=
-------------
->>>  1 file changed, 20 insertions(+), 18 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/=
-ethernet/ti/davinci_cpdma.c
->>> index 5ffa04a306c6..ba3462707ae3 100644
->>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
->>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
->>> @@ -542,24 +542,10 @@ int cpdma_chan_submit(struct cpdma_chan *chan=
-, void *token, void *data,
->>>  	u32				mode;
->>>  	int				ret =3D 0;
->>> =20
->>> -	spin_lock_irqsave(&chan->lock, flags);
->>> -
->>> -	if (chan->state =3D=3D CPDMA_STATE_TEARDOWN) {
->>> -		ret =3D -EINVAL;
->>> -		goto unlock_ret;
->>> -	}
->>> -
->>> -	if (chan->count >=3D chan->desc_num)	{
->>> -		chan->stats.desc_alloc_fail++;
->>> -		ret =3D -ENOMEM;
->>> -		goto unlock_ret;
->>> -	}
->>
->> I'm not sure this is right thing to do. This check is expected to be=
- strict
->> and means "channel has exhausted the available descriptors, so furth=
-er descs allocation does not allowed".
->=20
-> I developed this patch basing on a 4.4 kernel which doesn't have
-> 742fb20fd4c7 ("net: ethernet: ti: cpdma: switch to use genalloc"). Th=
-ere
-> my patch is more obviously correct. As currently chan->count is
-> protected by chan->lock we must hold the lock for this check. If a
-> failing check means we must not call cpdma_desc_alloc in the first
-> place, that's bad.
+This is prepatory work for an expanding list of adapter families that have occasional ~10 hour clock jumps when being used for PTP. Factor out the sanitization function and convert to using a feature (bug) flag, per suggestion from Jesse Brandeburg.
 
-Yes. That's intention of this check :(
-Now it'll work as following for two (rx/tx) channels, as example
-RX desc_num =3D 16 (max allowed number of descriptors)
-TX desc_num =3D 16 (max allowed number of descriptors)
-and with current code number of allocated descriptors will never exceed=
- 16.
+Littering functional code with device-specific checks is much messier than simply checking a flag, and having device-specific init set flags as needed.
+There are probably a number of other cases in the e1000e code that could/should be converted similarly.
 
-with your change, in corner case when TX channel's already utilized 16 =
-descriptors the
-following will happen:
-cpdma_chan_submit()
- - cpdma_desc_alloc() -  will allocate 17th desc
- - lock
- - check for chan->count - fail
- - unlock
- - cpdma_desc_free()=20
+Suggested-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Jesse Brandeburg <jesse.brandeburg@intel.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+CC: intel-wired-lan@lists.osuosl.org
+CC: netdev@vger.kernel.org
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+---
+ drivers/net/ethernet/intel/e1000e/82571.c  |  6 ++-  drivers/net/ethernet/intel/e1000e/e1000.h  |  1 +  drivers/net/ethernet/intel/e1000e/netdev.c | 66 ++++++++++++++++++------------
+ 3 files changed, 44 insertions(+), 29 deletions(-)
 
-so your patch will add additional desc_alloc/desc_free in the above cor=
-ner case
-and that's what i'm worry about (TEARDOWN seems ok) especially taking i=
-nto account
-further multi-queue feature development.
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 7fd4d54..6b03c85 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -2032,7 +2032,8 @@ const struct e1000_info e1000_82574_info = {
+ 				  | FLAG2_DISABLE_ASPM_L0S
+ 				  | FLAG2_DISABLE_ASPM_L1
+ 				  | FLAG2_NO_DISABLE_RX
+-				  | FLAG2_DMA_BURST,
++				  | FLAG2_DMA_BURST
++				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
+ 	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+@@ -2053,7 +2054,8 @@ const struct e1000_info e1000_82583_info = {
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+ 	.flags2			= FLAG2_DISABLE_ASPM_L0S
+ 				  | FLAG2_DISABLE_ASPM_L1
+-				  | FLAG2_NO_DISABLE_RX,
++				  | FLAG2_NO_DISABLE_RX
++				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
+ 	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index ef96cd1..879cca4 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -452,6 +452,7 @@ s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
+ #define FLAG2_PCIM2PCI_ARBITER_WA         BIT(11)
+ #define FLAG2_DFLT_CRC_STRIPPING          BIT(12)
+ #define FLAG2_CHECK_RX_HWTSTAMP           BIT(13)
++#define FLAG2_CHECK_SYSTIM_OVERFLOW       BIT(14)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i])) diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 41f32c0..1b2df11 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -4303,6 +4303,42 @@ void e1000e_reinit_locked(struct e1000_adapter *adapter)  }
+ 
+ /**
++ * e1000e_sanitize_systim - sanitize raw cycle counter reads
++ * @hw: pointer to the HW structure
++ * @systim: cycle_t value read, sanitized and returned
++ *
++ * Errata for 82574/82583 possible bad bits read from SYSTIMH/L:
++ * check to see that the time is incrementing at a reasonable
++ * rate and is a multiple of incvalue.
++ **/
++static cycle_t e1000e_sanitize_systim(struct e1000_hw *hw, cycle_t 
++systim) {
++	u64 time_delta, rem, temp;
++	cycle_t systim_next;
++	u32 incvalue;
++	int i;
++
++	incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
++	for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
++		/* latch SYSTIMH on read of SYSTIML */
++		systim_next = (cycle_t)er32(SYSTIML);
++		systim_next |= (cycle_t)er32(SYSTIMH) << 32;
++
++		time_delta = systim_next - systim;
++		temp = time_delta;
++		/* VMWare users have seen incvalue of zero, don't div / 0 */
++		rem = incvalue ? do_div(temp, incvalue) : (time_delta != 0);
++
++		systim = systim_next;
++
++		if ((time_delta < E1000_82574_SYSTIM_EPSILON) && (rem == 0))
++			break;
++	}
++
++	return systim;
++}
++
++/**
+  * e1000e_cyclecounter_read - read raw cycle counter (used by time counter)
+  * @cc: cyclecounter structure
+  **/
+@@ -4312,7 +4348,7 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 						     cc);
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 systimel, systimeh;
+-	cycle_t systim, systim_next;
++	cycle_t systim;
+ 	/* SYSTIMH latching upon SYSTIML read does not work well.
+ 	 * This means that if SYSTIML overflows after we read it but before
+ 	 * we read SYSTIMH, the value of SYSTIMH has been incremented and we @@ -4335,33 +4371,9 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
+ 	systim = (cycle_t)systimel;
+ 	systim |= (cycle_t)systimeh << 32;
+ 
+-	if ((hw->mac.type == e1000_82574) || (hw->mac.type == e1000_82583)) {
+-		u64 time_delta, rem, temp;
+-		u32 incvalue;
+-		int i;
+-
+-		/* errata for 82574/82583 possible bad bits read from SYSTIMH/L
+-		 * check to see that the time is incrementing at a reasonable
+-		 * rate and is a multiple of incvalue
+-		 */
+-		incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
+-		for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
+-			/* latch SYSTIMH on read of SYSTIML */
+-			systim_next = (cycle_t)er32(SYSTIML);
+-			systim_next |= (cycle_t)er32(SYSTIMH) << 32;
+-
+-			time_delta = systim_next - systim;
+-			temp = time_delta;
+-			/* VMWare users have seen incvalue of zero, don't div / 0 */
+-			rem = incvalue ? do_div(temp, incvalue) : (time_delta != 0);
+-
+-			systim = systim_next;
++	if (adapter->flags2 & FLAG2_CHECK_SYSTIM_OVERFLOW)
++		systim = e1000e_sanitize_systim(hw, systim);
+ 
+-			if ((time_delta < E1000_82574_SYSTIM_EPSILON) &&
+-			    (rem == 0))
+-				break;
+-		}
+-	}
+ 	return systim;
+ }
+ 
+--
+1.8.3.1
 
-Above corner case seems might happen very rare, because of the guard ch=
-eck in cpsw_ndo_start_xmit(),=20
-but it could.
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
 
->=20
-> But I'm not sure this is the case here. After all cpdma_desc_alloc
-> doesn't do anything relevant for the hardware, right?
 
-Right.
+Looks ok to me.
+Adding Chris who asked what happens if we reach the max retry counter (E1000_MAX_82574_SYSTIM_REREAD)?
+This counter is set to 50. 
+Can you, for testing purposes, decreased this value (or even set it to 0) and see what happens?
 
-Thanks. I'd try to do some measurement also.
---=20
-regards,
--grygorii
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
