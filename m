@@ -1,184 +1,113 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
- context at kernel/irq/manage.c:110
-Date: Wed, 27 Jul 2016 20:50:33 +0200
-Message-ID: <1469645433.17736.11.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160726035003.GA15095@wfg-t540p.sh.intel.com>
-	 <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160726153218.GA17690@wfg-t540p.sh.intel.com>
-	 <1469550513.17736.5.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160727150146.GA22982@wfg-t540p.sh.intel.com>
+From: Brandon Cazander <brandon.cazander@multapplied.net>
+Subject: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Wed, 27 Jul 2016 18:19:21 +0000
+Message-ID: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Satyam Sharma <satyam@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ye Xiaolong <xiaolong.ye@intel.com>
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160727150146.GA22982@wfg-t540p.sh.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "edumazet@google.com" <edumazet@google.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0064.outbound.protection.outlook.com ([104.47.33.64]:8149
+	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756828AbcG0SwB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 14:52:01 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-07-27 at 23:01 +0800, Fengguang Wu wrote:
-> On Tue, Jul 26, 2016 at 06:28:33PM +0200, Eric Dumazet wrote:
-> >On Tue, 2016-07-26 at 23:32 +0800, Fengguang Wu wrote:
-> >> Hi Eric,
-> >>
-> >> It works!
-> >>
-> >> On Tue, Jul 26, 2016 at 11:14:52AM +0200, Eric Dumazet wrote:
-> >> >On Tue, 2016-07-26 at 11:50 +0800, Fengguang Wu wrote:
-> >> >> Greetings,
-> >> >>
-> >> >> This BUG message can be found in recent kernels as well as v4.4 and
-> >> >> linux-stable. It happens when running
-> >> >>
-> >> >>         modprobe netconsole netconsole=@/,$port@$server/
-> >> >>
-> >> >> [   39.937534] 22 Jul 13:30:40 ntpdate[440]: step time server 192.168.1.1 offset -673.833841 sec
-> >> >> [   39.943285] netpoll: netconsole: local port 6665
-> >> >> [   39.943436] netpoll: netconsole: local IPv4 address 0.0.0.0
-> >> >> [   39.943609] netpoll: netconsole: interface 'eth0'
-> >> >> [   39.943756] netpoll: netconsole: remote port 6672
-> >> >> [   39.943913] netpoll: netconsole: remote IPv4 address 192.168.1.1
-> >> >> [   39.944099] netpoll: netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
-> >> >> [   39.944311] netpoll: netconsole: local IP 192.168.1.193
-> >> >> [   39.944514] BUG: sleeping function called from invalid context at kernel/irq/manage.c:110
-> >> >> [   39.944515] in_atomic(): 1, irqs_disabled(): 1, pid: 448, name: modprobe
-> >> >> [   39.944517] CPU: 6 PID: 448 Comm: modprobe Not tainted 4.7.0-rc7-wt-ath-10122-gf9b5ec2 #102
-> >> >> [   39.944518] Hardware name:                  /DZ77BH-55K, BIOS BHZ7710H.86A.0097.2012.1228.1346 12/28/2012
-> >> >> [   39.944522]  0000000000000000 ffffc90001f2f9e8 ffffffff813417d9 ffff88007faba5c0
-> >> >> [   39.944524]  000000000000006e ffffc90001f2fa00 ffffffff810aec03 ffffffff81a25948
-> >> >> [   39.944525]  ffffc90001f2fa28 ffffffff810aec9a ffff8803e5bd9400 ffff8803e50fbd68
-> >> >> [   39.944526] Call Trace:
-> >> >> [   39.944533]  [<ffffffff813417d9>] dump_stack+0x63/0x8a
-> >> >> [   39.944536]  [<ffffffff810aec03>] ___might_sleep+0xd3/0x120
-> >> >> [   39.944537]  [<ffffffff810aec9a>] __might_sleep+0x4a/0x80
-> >> >> [   39.944541]  [<ffffffff810e4638>] synchronize_irq+0x38/0xa0
-> >> >> [   39.944543]  [<ffffffff810e3c8e>] ? __irq_put_desc_unlock+0x1e/0x40
-> >> >> [   39.944545]  [<ffffffff810e48e3>] ? __disable_irq_nosync+0x43/0x60
-> >> >> [   39.944547]  [<ffffffff810e492c>] disable_irq+0x1c/0x20
-> >> >> [   39.944559]  [<ffffffffa0220932>] e1000_netpoll+0xf2/0x120 [e1000e]
-> >> >> [   39.944563]  [<ffffffff815f2bdc>] netpoll_poll_dev+0x5c/0x1a0
-> >> >> [   39.944567]  [<ffffffff815bb361>] ? __kmalloc_reserve+0x31/0x90
-> >> >> [   39.944569]  [<ffffffff815f2e8b>] netpoll_send_skb_on_dev+0x16b/0x250
-> >> >> [   39.944572]  [<ffffffff815f325c>] netpoll_send_udp+0x2ec/0x450
-> >> >> [   39.944576]  [<ffffffffa003cb62>] write_msg+0xb2/0xf0 [netconsole]
-> >> >> [   39.944578]  [<ffffffff810e04e5>] call_console_drivers+0x115/0x120
-> >> >> [   39.944580]  [<ffffffff810e1f13>] console_unlock+0x333/0x5c0
-> >> >> [   39.944583]  [<ffffffff810e2c74>] register_console+0x1c4/0x380
-> >> >> [   39.944586]  [<ffffffffa004f1c5>] init_netconsole+0x1c5/0x1000 [netconsole]
-> >> >> [   39.944588]  [<ffffffffa004f000>] ? 0xffffffffa004f000
-> >> >> [   39.944591]  [<ffffffff8100216d>] do_one_initcall+0x3d/0x150
-> >> >> [   39.944592]  [<ffffffff810aec9a>] ? __might_sleep+0x4a/0x80
-> >> >> [   39.944596]  [<ffffffff811f5098>] ? kmem_cache_alloc_trace+0x188/0x1e0
-> >> >> [   39.944598]  [<ffffffff8118f871>] do_init_module+0x5f/0x1d8
-> >> >> [   39.944602]  [<ffffffff81114009>] load_module+0x1429/0x1b40
-> >> >> [   39.944604]  [<ffffffff81110cd0>] ? __symbol_put+0x40/0x40
-> >> >> [   39.944607]  [<ffffffff8121f348>] ? kernel_read_file+0x178/0x1a0
-> >> >> [   39.944608]  [<ffffffff8121f429>] ? kernel_read_file_from_fd+0x49/0x80
-> >> >> [   39.944611]  [<ffffffff81114973>] SYSC_finit_module+0xc3/0xf0
-> >> >> [   39.944614]  [<ffffffff811149be>] SyS_finit_module+0xe/0x10
-> >> >> [   39.944617]  [<ffffffff816e5877>] entry_SYSCALL_64_fastpath+0x1a/0xa9
-> >> >> [   39.946384] console [netcon0] enabled
-> >> >> [   39.946514] netconsole: network logging started
-> >> >>
-> >> >> Can this be possibly fixed?
-> >> >
-> >> >Could you try this ?
-> >> >
-> >> >diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> >> >index f42129d09e2c23ba9fdb5cde890d50ecb7166a42..a53c41c4c4f7d1fe52f95a2cab8784a938b3820b 100644
-> >> >--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> >> >+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> >> >@@ -5257,9 +5257,13 @@ static void e1000_netpoll(struct net_device *netdev)
-> >> > {
-> >> > 	struct e1000_adapter *adapter = netdev_priv(netdev);
-> >> >
-> >> >-	disable_irq(adapter->pdev->irq);
-> >> >-	e1000_intr(adapter->pdev->irq, netdev);
-> >> >-	enable_irq(adapter->pdev->irq);
-> >> >+	if (napi_schedule_prep(&adapter->napi)) {
-> >> >+		adapter->total_tx_bytes = 0;
-> >> >+		adapter->total_tx_packets = 0;
-> >> >+		adapter->total_rx_bytes = 0;
-> >> >+		adapter->total_rx_packets = 0;
-> >> >+		__napi_schedule(&adapter->napi);
-> >> >+	}
-> >>
-> >> The machines are actually running e1000e driver, so I copied your
-> >> approach to e1000e and it works:
-> >>
-> >> kern  :info  : [   16.109647] netpoll: netconsole: local port 6665
-> >> kern  :info  : [   16.109961] netpoll: netconsole: local IPv4 address 0.0.0.0
-> >> kern  :info  : [   16.110346] netpoll: netconsole: interface 'eth0'
-> >> kern  :info  : [   16.110672] netpoll: netconsole: remote port 6676
-> >> kern  :info  : [   16.110991] netpoll: netconsole: remote IPv4 address 192.168.2.1
-> >> kern  :info  : [   16.111398] netpoll: netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
-> >> kern  :info  : [   16.111845] netpoll: netconsole: local IP 192.168.2.3
-> >> kern  :info  : [   16.114284] console [netcon0] enabled
-> >> kern  :info  : [   16.114550] netconsole: network logging started
-> >>
-> >> However I'm not sure if it'll have side effects, because this
-> >> effectively disables the various checks in e1000_intr() and
-> >> e1000_intr_msi().
-> >>
-> >
-> >As far as netpoll is concerned, this should not matter.
-> >
-> >We only want to drain packets from TX rings.
-> 
-> OK.
-> 
-> >I have no idea why you hit this issue only recently, since this looks a
-> >rather old bug to me ?
-> 
-> Yeah it's a rather old bug. It becomes obvious when we try to detect
-> and filter out buggy kernels for the machines that are expected to run
-> stable services. This BUG effectively blocks the stable machines from
-> booting because no clean kernel (v4.6.4, v4.6, v4.5, v4.4, ...) are
-> available at all. ;)
-> 
-> Thanks,
-> Fengguang
-> >> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-b/drivers/net/ethernet/intel/e1000e/netdev.c
-> >> index 9b4ec13..4f89873 100644
-> >> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> >> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> >> @@ -6711,15 +6711,14 @@ static void e1000_netpoll(struct net_device
-*netdev)
-> >>  	case E1000E_INT_MODE_MSIX:
-> >>  		e1000_intr_msix(adapter->pdev->irq, netdev);
-> >>  		break;
-> >> -	case E1000E_INT_MODE_MSI:
-> >> -		disable_irq(adapter->pdev->irq);
-> >> -		e1000_intr_msi(adapter->pdev->irq, netdev);
-> >> -		enable_irq(adapter->pdev->irq);
-> >> -		break;
-> >>  	default:		/* E1000E_INT_MODE_LEGACY */
-> >> -		disable_irq(adapter->pdev->irq);
-> >> -		e1000_intr(adapter->pdev->irq, netdev);
-> >> -		enable_irq(adapter->pdev->irq);
-> >> +		if (napi_schedule_prep(&adapter->napi)) {
-> >> +			adapter->total_tx_bytes = 0;
-> >> +			adapter->total_tx_packets = 0;
-> >> +			adapter->total_rx_bytes = 0;
-> >> +			adapter->total_rx_packets = 0;
-> >> +			__napi_schedule(&adapter->napi);
-> >> +		}
-> >>  		break;
-> >>  	}
-> >>  }
-> >>
-> >> Thanks,
-> >> Fengguang
-> >
-> 
+[1.] One line summary of the problem:
+Using TPROXY together with a DNAT rule (working on older kernels) fails to work on newer kernels as of commit 079096f103fa
 
-About all netpoll implementations use disable_irq(), so I guess netpoll
-is not compatible with threaded irqs.
+[2.] Full description of the problem/report:
+I performed a git bisect using a qemu image to test my example below, and the bisect ended at this commit:
+
+> commit 079096f103faca2dd87342cca6f23d4b34da8871
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Fri Oct 2 11:43:32 2015 -0700
+> 
+>     tcp/dccp: install syn_recv requests into ehash table
+
+[3.] Keywords: networking
+
+[4.] Kernel information
+[4.1.] Kernel version (from /proc/version):
+Everything as of commit 079096f103fa (tested up to 4.5.0)
+
+[4.2.] Kernel .config file:
+When performing the bisect, I built with make oldconfig. Let me know if you want the whole .config file.
+
+[5.] Most recent kernel version which did not have the bug:
+Any kernel that I built prior to commit 079096f103faca2dd87342cca6f23d4b34da8871 did not have this issue.
+
+[6.] no Oops
+
+[7.] A small shell script or example program which triggers the
+     problem (if possible)
+
+I have produced what I hope is a minimal example, using the instructions for TPROXY from http://lxr.linux.no/#linux+v3.10/Documentation/networking/tproxy.txt and an example transparent TCP proxy written in C that I found at https://github.com/kristrev/tproxy-example.
+
+* I have a machine ("ROUTER") with 10.100.0.164/24 on eth0, and 192.168.30.2/24 on eth1. This is running the tproxy-example program, with the following rules:
+    iptables -t mangle -N DIVERT
+    iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+    iptables -t mangle -A DIVERT -j MARK --set-mark 1
+    iptables -t mangle -A DIVERT -j ACCEPT
+    iptables -t mangle -A PREROUTING -p tcp --dport 8080 -j TPROXY --tproxy-mark 0x1/0x1 --on-port 9876
+    iptables -t nat -I PREROUTING -i eth0 -d 42.0.1.1 -j DNAT --to-dest 192.168.30.1
+    ip rule add fwmark 1 lookup 100
+    ip route add local 0.0.0.0/0 dev lo table 100
+
+* There is a machine ("WEBSERVER") at 192.168.30.1/24 hosting a webserver on port 8080.
+
+* My workstation is at 10.100.0.206, and I have a static route for both 192.168.30.2 and 42.0.1.1 via 10.100.0.164.
+
+* Making a curl request to 192.168.30.2:8080 hits the transparent proxy and works in both GOOD (before the aforementioned commit) kernel, and BAD (at the commit or later) kernel.
+
+* Making a curl request to 42.0.1.1:8080 hits the transparent proxy and works in GOOD kernel but in BAD kernel I get:
+    "curl: (56) Recv failure: Connection reset by peer"
+
+* When it fails, no traffic hits the WEBSERVER. A tcpdump on the bad kernel shows:
+    root@dons-qemu-new-kernel:~# tcpdump -niany tcp and port 8080
+    tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+    listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
+    16:42:31.551952 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [S], seq 3793582216, win 29200, options [mss 1460,sackOK,TS val 632068656 ecr 0,nop,wscale 7], length 0
+    16:42:31.551988 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745382 ecr 632068656,nop,wscale 7], length 0
+    16:42:31.552222 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [.], ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 0
+    16:42:31.552238 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
+    16:42:31.552246 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [P.], seq 1:78, ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 77
+    16:42:31.552251 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
+    16:42:32.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745632 ecr 632068656,nop,wscale 7], length 0
+    16:42:32.551925 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
+    16:42:34.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 746132 ecr 632068656,nop,wscale 7], length 0
+    16:42:34.551995 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
+
+* A tcpdump on a GOOD kernel shows:
+root@dons-qemu-old-kernel:~# tcpdump -niany tcp and port 8080
+    tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+    listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
+    16:44:18.364537 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [S], seq 3963646692, win 29200, options [mss 1460,sackOK,TS val 632175966 ecr 0,nop,wscale 7], length 0
+    16:44:18.364571 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [S.], seq 4117262662, ack 3963646693, win 14480, options [mss 1460,sackOK,TS val 4294903654 ecr 632175966,nop,wscale 7], length 0
+    16:44:18.364819 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [.], ack 1, win 229, options [nop,nop,TS val 632175966 ecr 4294903654], length 0
+    16:44:18.364846 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [P.], seq 1:78, ack 1, win 229, options [nop,nop,TS val 632175966 ecr 4294903654], length 77
+    16:44:18.364851 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [.], ack 78, win 114, options [nop,nop,TS val 4294903655 ecr 632175966], length 0
+    16:44:18.364931 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [S], seq 2684311354, win 14600, options [mss 1460,sackOK,TS val 4294903655 ecr 0,nop,wscale 7], length 0
+    16:44:18.365148 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [S.], seq 3410019333, ack 2684311355, win 14000, options [mss 1412,sackOK,TS val 131740369 ecr 4294903655,nop,wscale 7], length 0
+    16:44:18.365186 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [.], ack 1, win 115, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
+    16:44:18.365339 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [P.], seq 1:78, ack 1, win 115, options [nop,nop,TS val 4294903655 ecr 131740369], length 77
+    16:44:18.365444 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [.], ack 78, win 110, options [nop,nop,TS val 131740369 ecr 4294903655], length 0
+    16:44:18.365564 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [P.], seq 1:367, ack 78, win 110, options [nop,nop,TS val 131740369 ecr 4294903655], length 366
+    16:44:18.365573 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [.], ack 367, win 123, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
+    16:44:18.365616 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [P.], seq 1:367, ack 78, win 114, options [nop,nop,TS val 4294903655 ecr 632175966], length 366
+    16:44:18.365819 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [.], ack 367, win 237, options [nop,nop,TS val 632175967 ecr 4294903655], length 0
+    16:44:18.365893 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [F.], seq 78, ack 367, win 237, options [nop,nop,TS val 632175967 ecr 4294903655], length 0
+    16:44:18.365953 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [F.], seq 78, ack 367, win 123, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
+    16:44:18.365973 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [F.], seq 367, ack 79, win 114, options [nop,nop,TS val 4294903655 ecr 632175967], length 0
+    16:44:18.366054 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [F.], seq 367, ack 79, win 110, options [nop,nop,TS val 131740369 ecr 4294903655], length 0
+    16:44:18.366066 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [.], ack 368, win 123, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
+    16:44:18.366103 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [.], ack 368, win 237, options [nop,nop,TS val 632175968 ecr 4294903655], length 0
+
+Hopefully that's enough detail to replicate this issue. I have the full environment set up for both working and non-working kernel versions, so please let me know if there's anything else I can provide.
+
+Regards,
+Brandon Cazander
