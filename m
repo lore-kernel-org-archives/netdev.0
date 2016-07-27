@@ -1,90 +1,80 @@
-From: Tom Walsh <tomwalsh73@gmail.com>
-Subject: Patch: fix rotting packet OKI PCH_GBE switch
-Date: Wed, 27 Jul 2016 10:59:05 -0500
-Message-ID: <CAMSBNFuhWKGrenCGqPWkARKqdu6tQjRUwXxWL64VVr2wAPdf+w@mail.gmail.com>
+From: Patrick Schaaf <netdev@bof.de>
+Subject: CPU utilization with kvm / vhost, differences 3.14 / 4.4 / 4.6
+Date: Wed, 27 Jul 2016 18:04:27 +0200
+Message-ID: <14276407.TsEd2NX9sg@rofl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35972 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754085AbcG0P7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 11:59:08 -0400
-Received: by mail-lf0-f66.google.com with SMTP id 33so2293734lfw.3
-        for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 08:59:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is against torvalds 4.7.0 repo
-This resolves a rotting SYN-ACK packet issue with
-the OKI PCH_GBE switch.  The problem showed up
-intermittently where a client would attempt to
-establish a TCP connection to the host on an
-otherwise quiet network.  No other activity had
-occurred for a significant time.
+Hi,
 
-This was a race condition that was finally duplicated
-using a controlled set of timings between the SYN /
-ACK / SYN-ACK sequence.  We found that by adjusting
-the timing between the host ACK and the client
-transmission of the SYN-ACK that we had the SYN-ACK
-"stuck" in the switch data register.
+I'm stumped by a weird development in measured CPU utilization when testing an 
+upgrade path from 3.14.70 to 4.4.14.
 
-The problem is that pch_gbe_irq_enable() is called
-when the transmit of the ACK has completed, then
-pch_gbe_irq_enable() will enable the interrupts of
-the switch, followed by a read of the INT_ST which
-results in clearing the status bits.
+I'm running, on identical hardware (2 4-core Xeon E5420), a HA 
+(active/standby) pair of firewall/loadbalancer VMs. The OS on the host and the 
+VM is identical - openSUSE 13.1 userlevel, qemu 1.6.2 KVM, and kernels self-
+built from vanilla sources. Inside the VM I make pretty heavy use of ipset, 
+iptables, and ipvs. Traffic level is around 100 mbit/s, mostly ordinary web 
+traffic, translating to around 10 kpps.
 
-While the device would still issue an interrupt,
-the pch_gbe_intr() handler would not see any pending
-requests as the status register had been cleared.
-Thus, the packet remains "stuck".
+For the last X months I have been running this on 3.14.x kernels, currently 
+3.14.70. As that's nearing its end of support, I aim for an upgrade to 4.4.x, 
+testing with 4.4.14.
 
-Signed-off-by: Tom Walsh <tomwalsh73@gmail.com>
+For testing, I keep the kernel _within_ the VM stable - i.e. 3.14.70, and 
+upgrade only the host kernel of one of the two machines, to 4.4.14, and due to 
+the weirdness I'll describe next, to 4.6.4.
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 3cd87a4..baba31d 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -809,13 +809,16 @@ static void pch_gbe_irq_disable(struct
-pch_gbe_adapter *adapter)
-  * pch_gbe_irq_enable - Enable default interrupt generation settings
-  * @adapter:  Board private structure
-  */
--static void pch_gbe_irq_enable(struct pch_gbe_adapter *adapter)
-+static void pch_gbe_irq_enable(struct pch_gbe_adapter *adapter,
-+       bool reset_status_register)
- {
-  struct pch_gbe_hw *hw = &adapter->hw;
+What I see, and what is totally unexpected, is a severe variation in the 
+system and irq time measured on the host system, and less so inside the VM.
 
-- if (likely(atomic_dec_and_test(&adapter->irq_sem)))
-+ if (likely(atomic_dec_and_test(&adapter->irq_sem))) {
-  iowrite32(PCH_GBE_INT_ENABLE_MASK, &hw->reg->INT_EN);
-- ioread32(&hw->reg->INT_ST);
-+ if (reset_status_register)
-+ ioread32(&hw->reg->INT_ST);
-+ }
-  netdev_dbg(adapter->netdev, "INT_EN reg : 0x%08x\n",
-    ioread32(&hw->reg->INT_EN));
- }
-@@ -1976,7 +1979,7 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
-  mod_timer(&adapter->watchdog_timer, jiffies);
+The 3.14.70 running host shows 0.6 cores system and 0.4 cores IRQ time.
 
-  napi_enable(&adapter->napi);
-- pch_gbe_irq_enable(adapter);
-+ pch_gbe_irq_enable(adapter, true);
-  netif_start_queue(adapter->netdev);
+The 4.4.14 running host shows 2.3 cores system and 0.4 cores IRQ time.
 
-  return 0;
-@@ -2392,7 +2395,7 @@ static int pch_gbe_napi_poll(struct napi_struct
-*napi, int budget)
+The same host on 4.6.4, is again back at 0.6 cores system and 0.4 cores IRQ, 
+while the guest (showing as user outside) is down from the 1 core on the 
+previous to kernels, to about 0.6 cores (which I wouldn't complain about)
 
-  if (poll_end_flag) {
-  napi_complete(napi);
-- pch_gbe_irq_enable(adapter);
-+ pch_gbe_irq_enable(adapter, false);
-  }
+But my desired target kernel, 4.4.14, clearly uses about 1 1/2 cores more on 
+the same load... (all other indicators and measurements I have show that the 
+load served is pretty much stable over the situations I tested).
 
-  if (adapter->rx_stop_flag) {
+Some details on the networking setup (invariant over the tested kernels):
+* host bonds 4 NICs, half on on-board BNX2 BCM5708, other half on PCIe card 
+intel 82571EB hardware. The bond mode is LACP.
+* host lacp bond is then member of an ordinary software bridge interface,
+  which then also has the tap interface to the VM added. There is vlan
+  filtering active on the bridge.
+* two bridge vlans are separately broken out and member of a second layer 
+bridge with an extra tap interface to my VM. Don't ask why :) but one of these 
+carries about half of the traffic
+* within the VM, I have another bridge with the VLANs on top and macvlan 
+sprinkled in (keepalived VRRP setup on several legs)
+* host/vm network is virtio, of course
+* I had to disable (already some time ago, identical in all tests described 
+here) TSO / GSO / UFO on the tap interfaces to my VM, to alleviate severe 
+performance regressions. Different story, mentioning it just for completeness.
+
+Regarding the host hardware, I actually have a third system, software 
+identical, but with some more cores and purely on BNX2 BCM5719. The 4.4.14-
+needs-lots-more-systemtime symptoms were practically the same there.
+
+To end this tale, let me note that I have NO operational problems with the 
+test using the 4.4.14 kernel, as far as one can know that within some hours of 
+testing. All production metrics (and I have lots of them) are fine - except 
+for that system time usage on the host system...
+
+Anybody got a clue what may be happening?
+
+I'm a bit reluctant to jump to 4.6.x or newer kernels, as I like the concept 
+of long term stable kernels somehow... :)
+
+
+best regards
+  Patrick
