@@ -1,74 +1,90 @@
-From: Peter Chen <peter.chen@nxp.com>
-Subject: RE: [PATCH 15/15] ethernet: ti: davinci_emac: add missing of_node_put
- after calling of_parse_phandle
-Date: Wed, 27 Jul 2016 07:43:58 +0000
-Message-ID: <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
- <1469586048-15697-16-git-send-email-peter.chen@nxp.com>
- <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
+From: Tom Walsh <tomwalsh73@gmail.com>
+Subject: Patch: fix rotting packet OKI PCH_GBE switch
+Date: Wed, 27 Jul 2016 10:59:05 -0500
+Message-ID: <CAMSBNFuhWKGrenCGqPWkARKqdu6tQjRUwXxWL64VVr2wAPdf+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
-	"isubramanian@apm.com" <isubramanian@apm.com>,
-	"kchudgar@apm.com" <kchudgar@apm.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"wxt@rock-chips.com" <wxt@rock-chips.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"david.daney@cavium.com" <david.daney@cavium.com>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"jszhang@marvell.com" <jszhang@marvell.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0071.outbound.protection.outlook.com ([104.47.2.71]:24350
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753301AbcG0PTN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 11:19:13 -0400
-In-Reply-To: <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
-Content-Language: en-US
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:35972 "EHLO
+	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754085AbcG0P7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 11:59:08 -0400
+Received: by mail-lf0-f66.google.com with SMTP id 33so2293734lfw.3
+        for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 08:59:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
->On Wednesday 27 July 2016 07:50 AM, Peter Chen wrote:
->> of_node_put needs to be called when the device node which is got from
->> of_parse_phandle has finished using.
->>
->> Signed-off-by: Peter Chen <peter.chen@nxp.com>
->> ---
->>  drivers/net/ethernet/ti/davinci_emac.c | 1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/ethernet/ti/davinci_emac.c
->> b/drivers/net/ethernet/ti/davinci_emac.c
->> index c6c5465..d8cb9d0 100644
->> --- a/drivers/net/ethernet/ti/davinci_emac.c
->> +++ b/drivers/net/ethernet/ti/davinci_emac.c
->> @@ -1571,6 +1571,7 @@ static int emac_dev_open(struct net_device *ndev)
->>  	if (priv->phy_node) {
->>  		phydev = of_phy_connect(ndev, priv->phy_node,
->>  					&emac_adjust_link, 0, 0);
->> +		of_node_put(priv->phy_node);
->>  		if (!phydev) {
->>  			dev_err(emac_dev, "could not connect to phy %s\n",
->>  				priv->phy_node->full_name);
->>
->
->phy_node is accessed in case of of_phy_connect() returns error, so it has to be
->moved after the dev_err log
->
+This is against torvalds 4.7.0 repo
+This resolves a rotting SYN-ACK packet issue with
+the OKI PCH_GBE switch.  The problem showed up
+intermittently where a client would attempt to
+establish a TCP connection to the host on an
+otherwise quiet network.  No other activity had
+occurred for a significant time.
 
-Yeah, you are right. I will change it, thanks.
+This was a race condition that was finally duplicated
+using a controlled set of timings between the SYN /
+ACK / SYN-ACK sequence.  We found that by adjusting
+the timing between the host ACK and the client
+transmission of the SYN-ACK that we had the SYN-ACK
+"stuck" in the switch data register.
 
-Peter
+The problem is that pch_gbe_irq_enable() is called
+when the transmit of the ACK has completed, then
+pch_gbe_irq_enable() will enable the interrupts of
+the switch, followed by a read of the INT_ST which
+results in clearing the status bits.
+
+While the device would still issue an interrupt,
+the pch_gbe_intr() handler would not see any pending
+requests as the status register had been cleared.
+Thus, the packet remains "stuck".
+
+Signed-off-by: Tom Walsh <tomwalsh73@gmail.com>
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 3cd87a4..baba31d 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -809,13 +809,16 @@ static void pch_gbe_irq_disable(struct
+pch_gbe_adapter *adapter)
+  * pch_gbe_irq_enable - Enable default interrupt generation settings
+  * @adapter:  Board private structure
+  */
+-static void pch_gbe_irq_enable(struct pch_gbe_adapter *adapter)
++static void pch_gbe_irq_enable(struct pch_gbe_adapter *adapter,
++       bool reset_status_register)
+ {
+  struct pch_gbe_hw *hw = &adapter->hw;
+
+- if (likely(atomic_dec_and_test(&adapter->irq_sem)))
++ if (likely(atomic_dec_and_test(&adapter->irq_sem))) {
+  iowrite32(PCH_GBE_INT_ENABLE_MASK, &hw->reg->INT_EN);
+- ioread32(&hw->reg->INT_ST);
++ if (reset_status_register)
++ ioread32(&hw->reg->INT_ST);
++ }
+  netdev_dbg(adapter->netdev, "INT_EN reg : 0x%08x\n",
+    ioread32(&hw->reg->INT_EN));
+ }
+@@ -1976,7 +1979,7 @@ int pch_gbe_up(struct pch_gbe_adapter *adapter)
+  mod_timer(&adapter->watchdog_timer, jiffies);
+
+  napi_enable(&adapter->napi);
+- pch_gbe_irq_enable(adapter);
++ pch_gbe_irq_enable(adapter, true);
+  netif_start_queue(adapter->netdev);
+
+  return 0;
+@@ -2392,7 +2395,7 @@ static int pch_gbe_napi_poll(struct napi_struct
+*napi, int budget)
+
+  if (poll_end_flag) {
+  napi_complete(napi);
+- pch_gbe_irq_enable(adapter);
++ pch_gbe_irq_enable(adapter, false);
+  }
+
+  if (adapter->rx_stop_flag) {
