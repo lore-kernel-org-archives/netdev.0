@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH 08/15] ethernet: marvell: mvneta: add missing of_node_put after calling of_parse_phandle
-Date: Wed, 27 Jul 2016 10:20:41 +0800
-Message-ID: <1469586048-15697-9-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH 14/15] ethernet: stmicro: stmmac: stmmac_platform: add missing of_node_put after calling of_parse_phandle
+Date: Wed, 27 Jul 2016 10:20:47 +0800
+Message-ID: <1469586048-15697-15-git-send-email-peter.chen@nxp.com>
 References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,10 +16,10 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0079.outbound.protection.outlook.com ([104.47.34.79]:19328
-	"EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0062.outbound.protection.outlook.com ([104.47.38.62]:36800
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161392AbcG0Cpq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1161400AbcG0Cpq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 26 Jul 2016 22:45:46 -0400
 In-Reply-To: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
@@ -30,20 +30,32 @@ from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index f92018b..16aca9d 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -4113,6 +4113,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	if (bm_node && bm_node->data) {
- 		pp->bm_priv = bm_node->data;
- 		err = mvneta_bm_port_init(pdev, pp);
-+		of_node_put(bm_node);
- 		if (err < 0) {
- 			dev_info(&pdev->dev, "use SW buffer management\n");
- 			pp->bm_priv = NULL;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index f7dfc0a..8d88782 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -113,8 +113,10 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
+ 		return NULL;
+ 
+ 	axi = kzalloc(sizeof(*axi), GFP_KERNEL);
+-	if (!axi)
++	if (!axi) {
++		of_node_put(np);
+ 		return ERR_PTR(-ENOMEM);
++	}
+ 
+ 	axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
+ 	axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
+@@ -127,6 +129,7 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
+ 	of_property_read_u32(np, "snps,wr_osr_lmt", &axi->axi_wr_osr_lmt);
+ 	of_property_read_u32(np, "snps,rd_osr_lmt", &axi->axi_rd_osr_lmt);
+ 	of_property_read_u32_array(np, "snps,blen", axi->axi_blen, AXI_BLEN);
++	of_node_put(np);
+ 
+ 	return axi;
+ }
 -- 
 1.9.1
