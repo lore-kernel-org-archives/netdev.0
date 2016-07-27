@@ -1,122 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-Date: Wed, 27 Jul 2016 21:01:21 +0200
-Message-ID: <1469646081.17736.15.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+Subject: Re: [PATCH 1/2] SUNRPC: accept() may return sockets that are still in
+ SYN_RECV
+Date: Wed, 27 Jul 2016 19:11:23 +0000
+Message-ID: <332ACE13-83D0-4516-9B2D-200250ED3437@primarydata.com>
+References: <1469541080-4184-1-git-send-email-trond.myklebust@primarydata.com>
+ <20160726154354.GA6692@fieldses.org>
+ <7C18520C-D486-4466-8D9D-FF2052B03F0E@primarydata.com>
+ <20160727184806.GA19229@fieldses.org>
+ <1469645951.17736.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>,
-	Florian Westphal <fw@strlen.de>
-To: Brandon Cazander <brandon.cazander@multapplied.net>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:36693 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757190AbcG0TBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 15:01:40 -0400
-In-Reply-To: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: Fields Bruce James <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	List Linux NFS Mailing <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	List Linux Network Devel Mailing <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Yuchung Cheng <ycheng-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1469645951.17736.13.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+Content-Language: en-US
+Content-ID: <279BA5072B21064191487AB3964E6512-Hry67jCOGbCcE4WynfumptQqCkab/8FMAL8bYrjMMd8@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-07-27 at 18:19 +0000, Brandon Cazander wrote:
-> [1.] One line summary of the problem:
-> Using TPROXY together with a DNAT rule (working on older kernels) fails to work on newer kernels as of commit 079096f103fa
-> 
-> [2.] Full description of the problem/report:
-> I performed a git bisect using a qemu image to test my example below, and the bisect ended at this commit:
-> 
-> > commit 079096f103faca2dd87342cca6f23d4b34da8871
-> > Author: Eric Dumazet <edumazet@google.com>
-> > Date:   Fri Oct 2 11:43:32 2015 -0700
-> > 
-> >     tcp/dccp: install syn_recv requests into ehash table
-> 
-> [3.] Keywords: networking
-> 
-> [4.] Kernel information
-> [4.1.] Kernel version (from /proc/version):
-> Everything as of commit 079096f103fa (tested up to 4.5.0)
-> 
-> [4.2.] Kernel .config file:
-> When performing the bisect, I built with make oldconfig. Let me know if you want the whole .config file.
-> 
-> [5.] Most recent kernel version which did not have the bug:
-> Any kernel that I built prior to commit 079096f103faca2dd87342cca6f23d4b34da8871 did not have this issue.
-> 
-> [6.] no Oops
-> 
-> [7.] A small shell script or example program which triggers the
->      problem (if possible)
-> 
-> I have produced what I hope is a minimal example, using the instructions for TPROXY from http://lxr.linux.no/#linux+v3.10/Documentation/networking/tproxy.txt and an example transparent TCP proxy written in C that I found at https://github.com/kristrev/tproxy-example.
-> 
-> * I have a machine ("ROUTER") with 10.100.0.164/24 on eth0, and 192.168.30.2/24 on eth1. This is running the tproxy-example program, with the following rules:
->     iptables -t mangle -N DIVERT
->     iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
->     iptables -t mangle -A DIVERT -j MARK --set-mark 1
->     iptables -t mangle -A DIVERT -j ACCEPT
->     iptables -t mangle -A PREROUTING -p tcp --dport 8080 -j TPROXY --tproxy-mark 0x1/0x1 --on-port 9876
->     iptables -t nat -I PREROUTING -i eth0 -d 42.0.1.1 -j DNAT --to-dest 192.168.30.1
->     ip rule add fwmark 1 lookup 100
->     ip route add local 0.0.0.0/0 dev lo table 100
-> 
-> * There is a machine ("WEBSERVER") at 192.168.30.1/24 hosting a webserver on port 8080.
-> 
-> * My workstation is at 10.100.0.206, and I have a static route for both 192.168.30.2 and 42.0.1.1 via 10.100.0.164.
-> 
-> * Making a curl request to 192.168.30.2:8080 hits the transparent proxy and works in both GOOD (before the aforementioned commit) kernel, and BAD (at the commit or later) kernel.
-> 
-> * Making a curl request to 42.0.1.1:8080 hits the transparent proxy and works in GOOD kernel but in BAD kernel I get:
->     "curl: (56) Recv failure: Connection reset by peer"
-> 
-> * When it fails, no traffic hits the WEBSERVER. A tcpdump on the bad kernel shows:
->     root@dons-qemu-new-kernel:~# tcpdump -niany tcp and port 8080
->     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
->     listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
->     16:42:31.551952 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [S], seq 3793582216, win 29200, options [mss 1460,sackOK,TS val 632068656 ecr 0,nop,wscale 7], length 0
->     16:42:31.551988 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745382 ecr 632068656,nop,wscale 7], length 0
->     16:42:31.552222 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [.], ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 0
->     16:42:31.552238 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
->     16:42:31.552246 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [P.], seq 1:78, ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 77
->     16:42:31.552251 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
->     16:42:32.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745632 ecr 632068656,nop,wscale 7], length 0
->     16:42:32.551925 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
->     16:42:34.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 746132 ecr 632068656,nop,wscale 7], length 0
->     16:42:34.551995 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
-> 
-> * A tcpdump on a GOOD kernel shows:
-> root@dons-qemu-old-kernel:~# tcpdump -niany tcp and port 8080
->     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
->     listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
->     16:44:18.364537 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [S], seq 3963646692, win 29200, options [mss 1460,sackOK,TS val 632175966 ecr 0,nop,wscale 7], length 0
->     16:44:18.364571 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [S.], seq 4117262662, ack 3963646693, win 14480, options [mss 1460,sackOK,TS val 4294903654 ecr 632175966,nop,wscale 7], length 0
->     16:44:18.364819 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [.], ack 1, win 229, options [nop,nop,TS val 632175966 ecr 4294903654], length 0
->     16:44:18.364846 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [P.], seq 1:78, ack 1, win 229, options [nop,nop,TS val 632175966 ecr 4294903654], length 77
->     16:44:18.364851 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [.], ack 78, win 114, options [nop,nop,TS val 4294903655 ecr 632175966], length 0
->     16:44:18.364931 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [S], seq 2684311354, win 14600, options [mss 1460,sackOK,TS val 4294903655 ecr 0,nop,wscale 7], length 0
->     16:44:18.365148 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [S.], seq 3410019333, ack 2684311355, win 14000, options [mss 1412,sackOK,TS val 131740369 ecr 4294903655,nop,wscale 7], length 0
->     16:44:18.365186 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [.], ack 1, win 115, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
->     16:44:18.365339 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [P.], seq 1:78, ack 1, win 115, options [nop,nop,TS val 4294903655 ecr 131740369], length 77
->     16:44:18.365444 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [.], ack 78, win 110, options [nop,nop,TS val 131740369 ecr 4294903655], length 0
->     16:44:18.365564 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [P.], seq 1:367, ack 78, win 110, options [nop,nop,TS val 131740369 ecr 4294903655], length 366
->     16:44:18.365573 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [.], ack 367, win 123, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
->     16:44:18.365616 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [P.], seq 1:367, ack 78, win 114, options [nop,nop,TS val 4294903655 ecr 632175966], length 366
->     16:44:18.365819 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [.], ack 367, win 237, options [nop,nop,TS val 632175967 ecr 4294903655], length 0
->     16:44:18.365893 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [F.], seq 78, ack 367, win 237, options [nop,nop,TS val 632175967 ecr 4294903655], length 0
->     16:44:18.365953 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [F.], seq 78, ack 367, win 123, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
->     16:44:18.365973 IP 42.0.1.1.8080 > 10.100.0.206.35996: Flags [F.], seq 367, ack 79, win 114, options [nop,nop,TS val 4294903655 ecr 632175967], length 0
->     16:44:18.366054 IP 192.168.30.1.8080 > 192.168.30.2.38777: Flags [F.], seq 367, ack 79, win 110, options [nop,nop,TS val 131740369 ecr 4294903655], length 0
->     16:44:18.366066 IP 192.168.30.2.38777 > 192.168.30.1.8080: Flags [.], ack 368, win 123, options [nop,nop,TS val 4294903655 ecr 131740369], length 0
->     16:44:18.366103 IP 10.100.0.206.35996 > 42.0.1.1.8080: Flags [.], ack 368, win 237, options [nop,nop,TS val 632175968 ecr 4294903655], length 0
-> 
-> Hopefully that's enough detail to replicate this issue. I have the full environment set up for both working and non-working kernel versions, so please let me know if there's anything else I can provide.
-> 
-> Regards,
-> Brandon Cazander
+SGkgRXJpYywNCg0KPiBPbiBKdWwgMjcsIDIwMTYsIGF0IDE0OjU5LCBFcmljIER1bWF6ZXQgPGVy
+aWMuZHVtYXpldEBnbWFpbC5jb20+IHdyb3RlOg0KPiANCj4gT24gV2VkLCAyMDE2LTA3LTI3IGF0
+IDE0OjQ4IC0wNDAwLCBGaWVsZHMgQnJ1Y2UgSmFtZXMgd3JvdGU6DQo+PiBPbiBUdWUsIEp1bCAy
+NiwgMjAxNiBhdCAwNDowODoyOVBNICswMDAwLCBUcm9uZCBNeWtsZWJ1c3Qgd3JvdGU6DQo+Pj4g
+DQo+Pj4+IE9uIEp1bCAyNiwgMjAxNiwgYXQgMTE6NDMsIEouIEJydWNlIEZpZWxkcyA8YmZpZWxk
+c0BmaWVsZHNlcy5vcmc+IHdyb3RlOg0KPj4+PiANCj4+Pj4gT24gVHVlLCBKdWwgMjYsIDIwMTYg
+YXQgMDk6NTE6MTlBTSAtMDQwMCwgVHJvbmQgTXlrbGVidXN0IHdyb3RlOg0KPj4+Pj4gV2UncmUg
+c2VlaW5nIHRyYWNlcyBvZiB0aGUgZm9sbG93aW5nIGZvcm06DQo+Pj4+PiANCj4+Pj4+IFsxMDk1
+Mi4zOTYzNDddIHN2YzogdHJhbnNwb3J0IGZmZmY4ODA0MmJhNGEgMDAwIGRlcXVldWVkLCBpbnVz
+ZT0yDQo+Pj4+PiBbMTA5NTIuMzk2MzUxXSBzdmM6IHRjcF9hY2NlcHQgZmZmZjg4MDQyYmE0IGEw
+MDAgc29jayBmZmZmODgwNDJhNmU0YzgwDQo+Pj4+PiBbMTA5NTIuMzk2MzYyXSBuZnNkOiBjb25u
+ZWN0IGZyb20gMTAuMi42LjEsIHBvcnQ9MTg3DQo+Pj4+PiBbMTA5NTIuMzk2MzY0XSBzdmM6IHN2
+Y19zZXR1cF9zb2NrZXQgZmZmZjg4MDBiOTliY2YwMA0KPj4+Pj4gWzEwOTUyLjM5NjM2OF0gc2V0
+dGluZyB1cCBUQ1Agc29ja2V0IGZvciByZWFkaW5nDQo+Pj4+PiBbMTA5NTIuMzk2MzcwXSBzdmM6
+IHN2Y19zZXR1cF9zb2NrZXQgY3JlYXRlZCBmZmZmODgwM2ViMTBhMDAwIChpbmV0IGZmZmY4ODA0
+MmI3NWI4MDApDQo+Pj4+PiBbMTA5NTIuMzk2MzczXSBzdmM6IHRyYW5zcG9ydCBmZmZmODgwM2Vi
+MTBhMDAwIHB1dCBpbnRvIHF1ZXVlDQo+Pj4+PiBbMTA5NTIuMzk2Mzc1XSBzdmM6IHRyYW5zcG9y
+dCBmZmZmODgwNDJiYTRhMDAwIHB1dCBpbnRvIHF1ZXVlDQo+Pj4+PiBbMTA5NTIuMzk2Mzc3XSBz
+dmM6IHNlcnZlciBmZmZmODgwMGJiMGVjMDAwIHdhaXRpbmcgZm9yIGRhdGEgKHRvID0gMzYwMDAw
+MCkNCj4+Pj4+IFsxMDk1Mi4zOTYzODBdIHN2YzogdHJhbnNwb3J0IGZmZmY4ODAzZWIxMGEwMDAg
+ZGVxdWV1ZWQsIGludXNlPTINCj4+Pj4+IFsxMDk1Mi4zOTYzODFdIHN2Y19yZWN2OiBmb3VuZCBY
+UFRfQ0xPU0UNCj4+Pj4+IFsxMDk1Mi4zOTYzOTddIHN2Yzogc3ZjX2RlbGV0ZV94cHJ0KGZmZmY4
+ODAzZWIxMGEwMDApDQo+Pj4+PiBbMTA5NTIuMzk2Mzk4XSBzdmM6IHN2Y190Y3Bfc29ja19kZXRh
+Y2goZmZmZjg4MDNlYjEwYTAwMCkNCj4+Pj4+IFsxMDk1Mi4zOTYzOTldIHN2Yzogc3ZjX3NvY2tf
+ZGV0YWNoKGZmZmY4ODAzZWIxMGEwMDApDQo+Pj4+PiBbMTA5NTIuMzk2NDEyXSBzdmM6IHN2Y19z
+b2NrX2ZyZWUoZmZmZjg4MDNlYjEwYTAwMCkNCj4+Pj4+IA0KPj4+Pj4gaS5lLiBhbiBpbW1lZGlh
+dGUgY2xvc2Ugb2YgdGhlIHNvY2tldCBhZnRlciBpbml0aWFsaXNhdGlvbi4NCj4+Pj4gDQo+Pj4+
+IEludGVyZXN0aW5nLCB0aGFua3MhDQo+Pj4+IA0KPj4+PiBTbyB0aGUgb25lIHRoaW5nIEkgZG9u
+J3QgdW5kZXJzdGFuZCBpcyB3aHkgdGhpcyBpcyBjb3JyZWN0IGJlaGF2aW9yIGZvcg0KPj4+PiBh
+Y2NlcHQtLUkgdGhvdWdodCBpdCB3YXNuJ3Qgc3VwcG9zZWQgdG8gcmV0dXJuIGEgc29ja2V0IHVu
+dGlsIGl0IHdhcw0KPj4+PiBmdWxseSBlc3RhYmxpc2hlZC4NCj4+PiANCj4+PiBpbmV0X2FjY2Vw
+dCgpIGFwcGVhcnMgdG8gYWxsb3cgU1lOX1JFQ1Y6DQo+PiANCj4+IE9LLiAgQ2MnaW5nIG5ldGRl
+diBqdXN0IHRvIG1ha2Ugc3VyZSB3ZSBkaWRuJ3Qgb3Zlcmxvb2sgYW55dGhpbmcuDQo+PiANCj4g
+DQo+IFNZTl9SRUNWIGFmdGVyIGFjY2VwdCgpIGlzIGEgVENQIEZhc3QgT3BlbiBwcm9wZXJ0eSBJ
+IHRoaW5rLg0KPiANCj4gTWF5YmUgeW91IGFyZSBwbGF5aW5nIHdpdGggc29tZSBnbG9iYWwgVENQ
+IEZhc3QgT3BlbiBzZXR0aW5ncyA/DQo+IA0KDQpUaGUgTGludXgga2VybmVsIGNsaWVudCBzaG91
+bGQgbm90IGJlIHVzaW5nIFRDUCBmYXN0IG9wZW4sIGJ1dCBpdCBpcyBwb3NzaWJsZSB0aGF0IHNv
+bWUgb2YgdGhlIG90aGVyIE5GU3YzIGNsaWVudHMgd2XigJlyZSB1c2luZyBhcmUuDQpXb3VsZCBh
+IHN0YW5kYXJkIGtuZnNkIGxpc3RlbmVyIHJlc3BvbmQgdG8gYSBUQ1AgZmFzdCBvcGVuIHJlcXVl
+c3QsIG9yIHdvdWxkIHRoZSBkZWZhdWx0IGJlaGF2aW91ciBiZSB0byBpZ25vcmUgaXQ/DQoNCklm
+IHRoZSBkZWZhdWx0IGJlaGF2aW91ciBmb3IgdGhlIHNlcnZlciBpcyB0byBhbGxvdyBmYXN0IG9w
+ZW4sIHRoZW4gd2UgZG8gbmVlZCB0aGVzZSBwYXRjaGVzLCBJTU8uDQoNCj4gDQo+PiAoQWxzbzog
+d2hhdCB3ZXJlIHVzZXItdmlzaWJsZSBzeW1wdG9tcz8gIE1vdW50cyBmYWlsaW5nLCBvciB1bmV4
+cGVjdGVkDQo+PiBkZWxheXM/KQ0KPj4gDQoNCkNvbm5lY3Rpb24gcmV0cnkgc3Rvcm1zIG9uIHRo
+ZSBzZXJ2ZXIuDQoNCj4+IC0tYi4NCj4+IA0KPj4+IA0KPj4+IGludCBpbmV0X2FjY2VwdChzdHJ1
+Y3Qgc29ja2V0ICpzb2NrLCBzdHJ1Y3Qgc29ja2V0ICpuZXdzb2NrLCBpbnQgZmxhZ3MpDQo+Pj4g
+ew0KPj4+ICAgICAgICBzdHJ1Y3Qgc29jayAqc2sxID0gc29jay0+c2s7DQo+Pj4gICAgICAgIGlu
+dCBlcnIgPSAtRUlOVkFMOw0KPj4+ICAgICAgICBzdHJ1Y3Qgc29jayAqc2syID0gc2sxLT5za19w
+cm90LT5hY2NlcHQoc2sxLCBmbGFncywgJmVycik7DQo+Pj4gDQo+Pj4gICAgICAgIGlmICghc2sy
+KQ0KPj4+ICAgICAgICAgICAgICAgIGdvdG8gZG9fZXJyOw0KPj4+IA0KPj4+ICAgICAgICBsb2Nr
+X3NvY2soc2syKTsNCj4+PiANCj4+PiAgICAgICAgc29ja19ycHNfcmVjb3JkX2Zsb3coc2syKTsN
+Cj4+PiAgICAgICAgV0FSTl9PTighKCgxIDw8IHNrMi0+c2tfc3RhdGUpICYNCj4+PiAgICAgICAg
+ICAgICAgICAgIChUQ1BGX0VTVEFCTElTSEVEIHwgVENQRl9TWU5fUkVDViB8DQo+Pj4gICAgICAg
+ICAgICAgICAgICBUQ1BGX0NMT1NFX1dBSVQgfCBUQ1BGX0NMT1NFKSkpOw0KPj4+IA0KPj4+ICAg
+ICAgICBzb2NrX2dyYWZ0KHNrMiwgbmV3c29jayk7DQo+Pj4gDQo+Pj4gICAgICAgIG5ld3NvY2st
+PnN0YXRlID0gU1NfQ09OTkVDVEVEOw0KPj4+ICAgICAgICBlcnIgPSAwOw0KPj4+ICAgICAgICBy
+ZWxlYXNlX3NvY2soc2syKTsNCj4+PiBkb19lcnI6DQo+Pj4gICAgICAgIHJldHVybiBlcnI7DQo+
+Pj4gfQ0KPiANCj4gDQoNCg==
 
-Thanks for the report
-
-CC netfilter guys, because I am traveling (vacation time) and wont be
-able to look at this before at least next week.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
