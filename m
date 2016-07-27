@@ -1,7 +1,8 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH 00/15] ethernet: add missing of_node_put after calling of_parse_phandle
-Date: Wed, 27 Jul 2016 10:20:33 +0800
-Message-ID: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH 02/15] ethernet: apm: xgene: add missing of_node_put after calling of_parse_phandle
+Date: Wed, 27 Jul 2016 10:20:35 +0800
+Message-ID: <1469586048-15697-3-git-send-email-peter.chen@nxp.com>
+References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
@@ -15,69 +16,34 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0066.outbound.protection.outlook.com ([104.47.36.66]:35168
-	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0045.outbound.protection.outlook.com ([104.47.38.45]:51747
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756109AbcG0Cn5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Jul 2016 22:43:57 -0400
+	id S1756109AbcG0CoJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Jul 2016 22:44:09 -0400
+In-Reply-To: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-This patch set fixes missing of_node_put issue at ethernet driver.
 of_node_put needs to be called when the device node which is got
 from of_parse_phandle has finished using.
 
-Thanks.
+Signed-off-by: Peter Chen <peter.chen@nxp.com>
+---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Peter Chen (15):
-  ethernet: altera: add missing of_node_put
-  ethernet: apm: xgene: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: arc: emac_main: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: aurora: nb8800: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: cavium: octeon: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: hisilicon: hns: hns_dsaf_mac: add missing of_node_put after
-    calling of_parse_phandle
-  ethernet: hisilicon: hns: hns_dsaf_main: add missing of_node_put after
-    calling of_parse_phandle
-  ethernet: marvell: mvneta: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: marvell: mvpp2: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: marvell: pxa168_eth: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: renesas: ravb_main: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: renesas: sh_eth: add missing of_node_put after calling
-    of_parse_phandle
-  ethernet: stmicro: stmmac: dwmac-socfpga: add missing of_node_put
-    after calling of_parse_phandle
-  ethernet: stmicro: stmmac: stmmac_platform: add missing of_node_put
-    after calling of_parse_phandle
-  ethernet: ti: davinci_emac: add missing of_node_put after calling
-    of_parse_phandle
-
- drivers/net/ethernet/altera/altera_tse_main.c      |  1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  1 +
- drivers/net/ethernet/arc/emac_main.c               | 14 ++++++---
- drivers/net/ethernet/aurora/nb8800.c               |  2 ++
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   |  1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  9 ++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  7 +++--
- drivers/net/ethernet/marvell/mvneta.c              |  1 +
- drivers/net/ethernet/marvell/mvpp2.c               |  2 ++
- drivers/net/ethernet/marvell/pxa168_eth.c          |  1 +
- drivers/net/ethernet/renesas/ravb_main.c           |  1 +
- drivers/net/ethernet/renesas/sh_eth.c              |  1 +
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 36 ++++++++++++++++------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  5 ++-
- drivers/net/ethernet/ti/davinci_emac.c             |  1 +
- 15 files changed, 62 insertions(+), 21 deletions(-)
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 2f5638f..fb23408 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -758,6 +758,7 @@ static int xgene_enet_phy_connect(struct net_device *ndev)
+ 
+ 		phy_dev = of_phy_connect(ndev, phy_np, &xgene_enet_adjust_link,
+ 					 0, pdata->phy_mode);
++		of_node_put(phy_np);
+ 		if (!phy_dev) {
+ 			netdev_err(ndev, "Could not connect to PHY\n");
+ 			return -ENODEV;
 -- 
 1.9.1
