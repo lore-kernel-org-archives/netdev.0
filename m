@@ -1,59 +1,32 @@
-From: arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: Re: [v3] UCC_GETH/UCC_FAST: Use IS_ERR_VALUE_U32 API to avoid
- IS_ERR_VALUE abuses.
-Date: Wed, 27 Jul 2016 22:37:02 +0530
-Message-ID: <5798EA36.70000@gmail.com>
-References: <1469297151-9763-1-git-send-email-arvind.yadav.cs@gmail.com>
- <4175803.I7CDUloLxQ@wuerfel>
+From: "Internet Network" <u.valiev@qqb.uz>
+Subject: Forwarded Message
+Date: Wed, 27 Jul 2016 10:31:13 -0700
+Message-ID: <20160727173119.35F5E21A0AD@mail.qqb.uz>
+Reply-To: myoa@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, leoli@freescale.com, qiang.zhao@freescale.com,
-	viresh.kumar@linaro.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, scottwood@freescale.com,
-	akpm@linux-foundation.org, linux@roeck-us.net
-To: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33922 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754303AbcG0RHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 13:07:08 -0400
-In-Reply-To: <4175803.I7CDUloLxQ@wuerfel>
+Received: from mail.qqb.uz ([84.54.96.135]:38240 "EHLO mail.qqb.uz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753246AbcG0Rkl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 13:40:41 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by mail.qqb.uz (Postfix) with ESMTP id 437DC195DDC
+	for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 22:31:20 +0500 (UZT)
+Received: from mail.qqb.uz ([127.0.0.1])
+	by localhost (mail.qqb.uz [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id ekAE-6rioiFd for <netdev@vger.kernel.org>;
+	Wed, 27 Jul 2016 22:31:20 +0500 (UZT)
+Received: from [192.168.8.100] (unknown [41.85.189.162])
+	by mail.qqb.uz (Postfix) with ESMTPSA id 35F5E21A0AD
+	for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 22:31:18 +0500 (UZT)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am also agree with Arnd Bergmann. We should use 'static inline function'
-instead of macro to deal with error check.
+USA Internet Command Protocol 2016 has selected your e-mail ID as lucky winner of US$800,000.00 out of US$350,000.000.00 shared worldwide for 100.000 e-mail subscribers.
+Forward your lucky number USAL77720 to the mandated payment center in REP'Du Benin by E-mail : meyoa@yahoo.com ,CC: q112233324-+1+2+800+1+2+800+1+2+800+$$$u.s.a-corporate.agency@yahoo.com   for payment.
 
-On Tuesday 26 July 2016 05:09 PM, Arnd Bergmann wrote:
-> On Saturday, July 23, 2016 11:35:51 PM CEST Arvind Yadav wrote:
->> diff --git a/include/linux/err.h b/include/linux/err.h
->> index 1e35588..a42f942 100644
->> --- a/include/linux/err.h
->> +++ b/include/linux/err.h
->> @@ -19,6 +19,7 @@
->>   #ifndef __ASSEMBLY__
->>   
->>   #define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
->> +#define IS_ERR_VALUE_U32(x) unlikely((unsigned int)(x) >= (unsigned int)-MAX_ERRNO)
->>   
->>   static inline void * __must_check ERR_PTR(long error)
->>   {
-> This doesn't really look like something we want to have as a generic
-> interface. The IS_ERR_VALUE() API is rather awkward already, and your
-> use seems specific to the cpu_muram_alloc() function.
->
-> How about something like
->
-> int cpm_muram_error(unsigned long addr)
-> {
-> 	if (addr >= (unsigned long)-MAX_ERRNO)
-> 		return addr;
-> 	else
-> 		return 0;
-> }
->
-> and then use that to check the value returned by the allocation
-> that is still an 'unsigned long', before assigning it to a 'u32'.
->
-> 	Arnd
+Authorized Delivery
