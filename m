@@ -1,45 +1,62 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 2/6] qed: Fix removal of spoof checking for VFs
-Date: Wed, 27 Jul 2016 14:45:20 +0300
-Message-ID: <1469619924-12806-3-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 1/6] qede: Don't try removing unconfigured vlans
+Date: Wed, 27 Jul 2016 14:45:19 +0300
+Message-ID: <1469619924-12806-2-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1469619924-12806-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:59986 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:59984 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755185AbcG0Lph (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 07:45:37 -0400
+	by vger.kernel.org with ESMTP id S1753245AbcG0Lpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 07:45:35 -0400
 In-Reply-To: <1469619924-12806-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Driver has reverse logic for checking the result of the
-spoof-checking configuration. As a result, it would log that
-the configuration failed [even though it succeeded], and will
-no longer do anything when requested to remove the configuration,
-as it's accounting of the feature will be incorrect.
+As part of ndo_vlan_rx_kill_vid() implementation,
+qede is requesting firmware to remove the vlan filter.
+This currently happens even if the vlan wasn't previously
+added [In case device ran out of vlan credits].
 
-Fixes: 6ddc7608258d5 ("qed*: IOV support spoof-checking")
+For PFs this doesn't cause any issues as the firmware
+would simply ignore the removal request. But for VFs their
+parent PF is holding an accounting of the configured vlans,
+and such a request would cause the PF to fail the VF's
+removal request.
+
+Simply fix this for both PFs & VFs and don't remove filters
+that were not previously added.
+
+Fixes: 7c1bfcad9f3c8 ("qede: Add vlan filtering offload support")
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index c325ee8..875c105 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1296,7 +1296,7 @@ static int __qed_iov_spoofchk_set(struct qed_hwfn *p_hwfn,
- 	params.anti_spoofing_en = val;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index f8e11f9..8fe3cc1 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2050,10 +2050,13 @@ static int qede_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
+ 	}
  
- 	rc = qed_sp_vport_update(p_hwfn, &params, QED_SPQ_MODE_EBLOCK, NULL);
+ 	/* Remove vlan */
+-	rc = qede_set_ucast_rx_vlan(edev, QED_FILTER_XCAST_TYPE_DEL, vid);
 -	if (rc) {
-+	if (!rc) {
- 		p_vf->spoof_chk = val;
- 		p_vf->req_spoofchk_val = p_vf->spoof_chk;
- 		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
+-		DP_ERR(edev, "Failed to remove VLAN %d\n", vid);
+-		return -EINVAL;
++	if (vlan->configured) {
++		rc = qede_set_ucast_rx_vlan(edev, QED_FILTER_XCAST_TYPE_DEL,
++					    vid);
++		if (rc) {
++			DP_ERR(edev, "Failed to remove VLAN %d\n", vid);
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	qede_del_vlan_from_list(edev, vlan);
 -- 
 1.9.3
