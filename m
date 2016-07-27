@@ -1,41 +1,74 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [Intel-wired-lan] [PATCH net-next v3 1/2] e1000e: factor out
- systim	sanitization
-Date: Wed, 27 Jul 2016 11:01:55 -0400
-Message-ID: <20160727150155.GF36313@redhat.com>
-References: <1469292274-59237-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-2-git-send-email-jarod@redhat.com>
- <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
+From: Peter Chen <peter.chen@nxp.com>
+Subject: RE: [PATCH 15/15] ethernet: ti: davinci_emac: add missing of_node_put
+ after calling of_parse_phandle
+Date: Wed, 27 Jul 2016 07:43:58 +0000
+Message-ID: <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
+References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
+ <1469586048-15697-16-git-send-email-peter.chen@nxp.com>
+ <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Hall, Christopher S" <christopher.s.hall@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Avargil, Raanan" <raanan.avargil@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
+	"isubramanian@apm.com" <isubramanian@apm.com>,
+	"kchudgar@apm.com" <kchudgar@apm.com>,
+	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+	"thomas.petazzoni@free-electrons.com"
+	<thomas.petazzoni@free-electrons.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"wxt@rock-chips.com" <wxt@rock-chips.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"david.daney@cavium.com" <david.daney@cavium.com>,
+	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+	"jszhang@marvell.com" <jszhang@marvell.com>
+To: Mugunthan V N <mugunthanvnm@ti.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0071.outbound.protection.outlook.com ([104.47.2.71]:24350
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753301AbcG0PTN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 11:19:13 -0400
+In-Reply-To: <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 27, 2016 at 02:09:13PM +0000, Avargil, Raanan wrote:
->> This is prepatory work for an expanding list of adapter families that have occasional ~10 hour clock jumps when being used for PTP. Factor out the sanitization function and convert to using a feature (bug) flag, per suggestion from Jesse Brandeburg.
->> 
->> Littering functional code with device-specific checks is much messier than simply checking a flag, and having device-specific init set flags as needed.
->> There are probably a number of other cases in the e1000e code that could/should be converted similarly.
-> 
-> Looks ok to me.
-> Adding Chris who asked what happens if we reach the max retry counter (E1000_MAX_82574_SYSTIM_REREAD)?
-> This counter is set to 50. 
-> Can you, for testing purposes, decreased this value (or even set it to 0) and see what happens?
+ 
+>On Wednesday 27 July 2016 07:50 AM, Peter Chen wrote:
+>> of_node_put needs to be called when the device node which is got from
+>> of_parse_phandle has finished using.
+>>
+>> Signed-off-by: Peter Chen <peter.chen@nxp.com>
+>> ---
+>>  drivers/net/ethernet/ti/davinci_emac.c | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/ethernet/ti/davinci_emac.c
+>> b/drivers/net/ethernet/ti/davinci_emac.c
+>> index c6c5465..d8cb9d0 100644
+>> --- a/drivers/net/ethernet/ti/davinci_emac.c
+>> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+>> @@ -1571,6 +1571,7 @@ static int emac_dev_open(struct net_device *ndev)
+>>  	if (priv->phy_node) {
+>>  		phydev = of_phy_connect(ndev, priv->phy_node,
+>>  					&emac_adjust_link, 0, 0);
+>> +		of_node_put(priv->phy_node);
+>>  		if (!phydev) {
+>>  			dev_err(emac_dev, "could not connect to phy %s\n",
+>>  				priv->phy_node->full_name);
+>>
+>
+>phy_node is accessed in case of of_phy_connect() returns error, so it has to be
+>moved after the dev_err log
+>
 
-Unfortunately, I don't have direct access to the affected hardware myself,
-so I'd have to prep a test build, hand it off to someone and play relay. I
-could do that, but it'd have some lag and possible multiple round-trips...
-Anyone inside Intel have hardware handy to test on? :p
+Yeah, you are right. I will change it, thanks.
 
--- 
-Jarod Wilson
-jarod@redhat.com
+Peter
