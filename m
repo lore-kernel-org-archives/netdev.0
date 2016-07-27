@@ -1,41 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] xfrm: use printk instead of WARN for bad policy reporting
-Date: Wed, 27 Jul 2016 14:31:27 +0800
-Message-ID: <20160727063127.GA24473@gondor.apana.org.au>
-References: <1469003555-30599-1-git-send-email-vegard.nossum@oracle.com>
- <578F6628.4010002@oracle.com>
- <20160727030117.GA23226@gondor.apana.org.au>
- <579852C9.1020505@oracle.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build warning after merge of the net-next tree
+Date: Wed, 27 Jul 2016 16:35:14 +1000
+Message-ID: <20160727163514.564bfe29@canb.auug.org.au>
+References: <20160727161533.5c5d1702@canb.auug.org.au>
+	<20160726.231959.811328304777471297.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: Vegard Nossum <vegard.nossum@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:41466 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbcG0Gbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 02:31:41 -0400
-Content-Disposition: inline
-In-Reply-To: <579852C9.1020505@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, isubramanian@apm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160726.231959.811328304777471297.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 27, 2016 at 08:20:57AM +0200, Vegard Nossum wrote:
+Hi David,
+
+On Tue, 26 Jul 2016 23:19:59 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 >
-> Here's another patch to remove that too.
+> Fixed thusly:
 > 
-> I don't actually *use* this code myself and I feel the justification
-> I've given for removing the WARN to be a bit weak, so if you don't take
-> the patch I'll just keep it in my local tree to keep it from showing up
-> again during fuzzing.
+> ====================
+> From 36232012344b8db67052432742deaf17f82e70e6 Mon Sep 17 00:00:00 2001
+> From: "David S. Miller" <davem@davemloft.net>
+> Date: Tue, 26 Jul 2016 23:19:29 -0700
+> Subject: [PATCH] xgene: Fix build warning with ACPI disabled.
+> 
+> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function 'xgene_enet_phy_connect':
+> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:759:22: warning: unused variable 'adev' [-Wunused-variable]
+> 
+> Fixes: 8089a96f601b ("drivers: net: xgene: Add backward compatibility")
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> index 8a2a221..7714b7d 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> @@ -756,7 +756,6 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+>  	struct device_node *np;
+>  	struct phy_device *phy_dev;
+>  	struct device *dev = &pdata->pdev->dev;
+> -	struct acpi_device *adev;
+>  	int i;
+>  
+>  	if (dev->of_node) {
+> @@ -781,7 +780,7 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+>  		pdata->phy_dev = phy_dev;
+>  	} else {
+>  #ifdef CONFIG_ACPI
+> -		adev = acpi_phy_find_device(dev);
+> +		struct acpi_device *adev = acpi_phy_find_device(dev);
+>  		if (adev)
+>  			pdata->phy_dev =  adev->driver_data;
 
-Please just kill the whole else clause.  For soft policy expires
-we simply need to relay a message to the KM and nothing more.
+Looks good to me, thanks.
 
-Thanks,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Cheers,
+Stephen Rothwell
