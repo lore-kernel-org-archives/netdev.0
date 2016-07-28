@@ -1,63 +1,92 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 0/1] xfrm: dst lookup doesn't account for fwmark
-Date: Thu, 28 Jul 2016 07:20:13 +0200
-Message-ID: <20160728052013.GK5710@gauss.secunet.com>
-References: <CACwzwmXfY3rpWfaspveT3JvumhPXYrMCH3TUwM1WNgEFKZ_t4A@mail.gmail.com>
+Subject: Re: [PATCH RFC 1/1] xfrm: dst lookup doesn't account for fwmark
+Date: Thu, 28 Jul 2016 07:31:47 +0200
+Message-ID: <20160728053147.GL5710@gauss.secunet.com>
+References: <CACwzwmXYUhHdzGLoi73enk-5CCECkdDjJDsOeYHKswqwa9AzyA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>,
 	"David S. Miller" <davem@davemloft.net>
 To: Doug Applegate <doug.applegate@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:33985 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:34072 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751361AbcG1FUS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jul 2016 01:20:18 -0400
+	id S1753368AbcG1Fbv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jul 2016 01:31:51 -0400
 Content-Disposition: inline
-In-Reply-To: <CACwzwmXfY3rpWfaspveT3JvumhPXYrMCH3TUwM1WNgEFKZ_t4A@mail.gmail.com>
+In-Reply-To: <CACwzwmXYUhHdzGLoi73enk-5CCECkdDjJDsOeYHKswqwa9AzyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 22, 2016 at 03:50:30PM -0600, Doug Applegate wrote:
-> I ran into an issue trying to route outgoing ipsec traffic from an
-> ipsec responder hub that uses fwmark to route out a specific
-> interface. The fwmark points to a route table that contains a default
-> route out a specific interface.  The fwmark is applied based on
-> incoming interface of incoming traffic. I noticed that the mark was
-> not being used when doing a route lookup. Is there any reason why this
-> is? If not does this patch look reasonable? I just followed similar
-> logic to how TOS was being used before route-lookup. I've only tested
-> on an earlier kernel (3.14) and it works. Thanks!
+On Fri, Jul 22, 2016 at 03:50:43PM -0600, Doug Applegate wrote:
+> If route table includes routing based on fwmark, xfrm will not take it
+> into account when routing ipsec traffic. We address this issue by adding
+> fwmark information before calling route lookup.
 > 
-> Here's an example:
+> Signed-off-by: Doug Applegate <doug.applegate@gmail.com>
+> ---
+>  include/net/xfrm.h      |  3 ++-
+>  net/ipv4/xfrm4_policy.c | 15 +++++++++++----
+>  net/ipv6/xfrm6_policy.c | 11 +++++++++--
+>  net/xfrm/xfrm_policy.c  | 28 +++++++++++++++++++++++-----
+>  4 files changed, 45 insertions(+), 12 deletions(-)
 > 
-> The ipsec policy is simple, just a tunnel from 192.168.0.0/24 <-->
-> 192.168.1.0/24 the ipsec hub is at 35.0.0.1 but when traffic is being
-> responded too, instead of the expected interface (eth2) we end it out
-> a different interface (eth0)
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index adfebd6..13e80d1 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+> @@ -282,7 +282,7 @@ struct xfrm_policy_afinfo {
+>   struct dst_ops *dst_ops;
+>   void (*garbage_collect)(struct net *net);
+>   struct dst_entry *(*dst_lookup)(struct net *net,
+> -       int tos, int oif,
+> +       int tos, int oif, int mark,
+>         const xfrm_address_t *saddr,
+>         const xfrm_address_t *daddr);
+>   int (*get_saddr)(struct net *net, int oif,
+> @@ -292,6 +292,7 @@ struct xfrm_policy_afinfo {
+>    struct flowi *fl,
+>    int reverse);
+>   int (*get_tos)(const struct flowi *fl);
+> + int (*get_mark)(const struct flowi *fl);
+>   int (*init_path)(struct xfrm_dst *path,
+>       struct dst_entry *dst,
+>       int nfheader_len);
+> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+> index 7b0edb3..5dcd411 100644
+> --- a/net/ipv4/xfrm4_policy.c
+> +++ b/net/ipv4/xfrm4_policy.c
+> @@ -20,7 +20,7 @@
+>  static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
 > 
-> route table:
-> # ip rule list
-> 0: from all lookup local
-> 32766: from all lookup main
-> 32767: from all lookup default
-> 40000: from all fwmark 0x2 lookup 3
-> 40000: from all fwmark 0x4 lookup 4
-> 50000: from all lookup 3
+>  static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct
+> flowi4 *fl4,
+> -    int tos, int oif,
+> +    int tos, int oif, int mark,
+>      const xfrm_address_t *saddr,
+>      const xfrm_address_t *daddr)
+>  {
+> @@ -30,6 +30,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
+> net *net, struct flowi4 *fl4,
+>   fl4->daddr = daddr->a4;
+>   fl4->flowi4_tos = tos;
+>   fl4->flowi4_oif = oif;
+> + fl4->flowi4_mark = mark;
+>   if (saddr)
+>   fl4->saddr = saddr->a4;
 > 
-> # ip route
-> 25.0.0.0/30 dev eth0  src 25.0.0.1
-> 35.0.0.0/30 dev eth2  src 35.0.0.1
-> 192.168.1.0/24 dev lan1  src 192.168.1.1
+> @@ -42,13 +43,13 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
+> net *net, struct flowi4 *fl4,
+>   return ERR_CAST(rt);
+>  }
 > 
-> # ip route list table 4
-> default via 35.0.0.2 dev eth2 onlink
-> # ip route list table 3
-> default via 25.0.0.2 dev eth0 onlink
+> -static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
+> +static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
+> int oif, int mark,
+>    const xfrm_address_t *saddr,
+>    const xfrm_address_t *daddr)
 
-Can you provide some more information about your usecase?
-Mapping between interfaces and IP addresses, policies
-and states would be good.
-
-Btw. why do you need to insert the routes as 'onlink'?
-This disables some checks if this route is valid.
+We may consider to setup the flowi earlier instead of adding yet another
+parameter to this function. This would have also the advantage that we
+don't need to change that function whenever we find out that we need
+more flow informations.
