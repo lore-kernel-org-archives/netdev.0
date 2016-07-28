@@ -1,75 +1,48 @@
-From: Amir Levy <amir.jer.levy@intel.com>
-Subject: [PATCH v5 3/8] thunderbolt: Kconfig for Thunderbolt(TM) networking
-Date: Thu, 28 Jul 2016 11:15:16 +0300
-Message-ID: <1469693721-5641-4-git-send-email-amir.jer.levy@intel.com>
-References: <1469693721-5641-1-git-send-email-amir.jer.levy@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	thunderbolt-linux@intel.com, mika.westerberg@intel.com,
-	tomas.winkler@intel.com, Amir Levy <amir.jer.levy@intel.com>
-To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
-	bhelgaas@google.com, corbet@lwn.net
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1469693721-5641-1-git-send-email-amir.jer.levy@intel.com>
-Sender: linux-doc-owner@vger.kernel.org
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] net/mlx5_core/pagealloc: Remove deprecated
+ create_singlethread_workqueue
+Date: Thu, 28 Jul 2016 13:49:49 +0530
+Message-ID: <20160728081949.GA5561@Karyakshetra>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>
+To: Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Updating the Kconfig Thunderbolt(TM) description.
+A dedicated workqueue has been used since the work items are being used
+on a memory reclaim path. WQ_MEM_RECLAIM has been set to guarantee forward
+progress under memory pressure.
 
-Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+The workqueue has a single work item. Hence, alloc_workqueue() is used
+instead of alloc_ordered_workqueue() since ordering is unnecessary when
+there's only one work item.
+
+Explicit concurrency limit is unnecessary here since there are only a
+fixed number of work items.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 ---
- drivers/thunderbolt/Kconfig  | 25 +++++++++++++++++++++----
- drivers/thunderbolt/Makefile |  2 +-
- 2 files changed, 22 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/thunderbolt/Kconfig b/drivers/thunderbolt/Kconfig
-index c121acc..d34b0f5 100644
---- a/drivers/thunderbolt/Kconfig
-+++ b/drivers/thunderbolt/Kconfig
-@@ -1,13 +1,30 @@
--menuconfig THUNDERBOLT
--	tristate "Thunderbolt support for Apple devices"
-+config THUNDERBOLT
-+	tristate "Thunderbolt(TM) support"
- 	depends on PCI
- 	select CRC32
- 	help
--	  Cactus Ridge Thunderbolt Controller driver
-+	  Thunderbolt(TM) Controller driver
-+
-+if THUNDERBOLT
-+
-+config THUNDERBOLT_APPLE
-+	tristate "Apple hardware support"
-+	help
- 	  This driver is required if you want to hotplug Thunderbolt devices on
- 	  Apple hardware.
- 
- 	  Device chaining is currently not supported.
- 
--	  To compile this driver a module, choose M here. The module will be
-+	  To compile this driver as a module, choose M here. The module will be
- 	  called thunderbolt.
-+
-+config THUNDERBOLT_ICM
-+	tristate "Thunderbolt(TM) Networking"
-+	help
-+	  This driver is required if you want Thunderbolt(TM) Networking on
-+	  non-Apple hardware.
-+
-+	  To compile this driver as a module, choose M here. The module will be
-+	  called thunderbolt_icm.
-+
-+endif
-diff --git a/drivers/thunderbolt/Makefile b/drivers/thunderbolt/Makefile
-index 5d1053c..7a85bd1 100644
---- a/drivers/thunderbolt/Makefile
-+++ b/drivers/thunderbolt/Makefile
-@@ -1,3 +1,3 @@
--obj-${CONFIG_THUNDERBOLT} := thunderbolt.o
-+obj-${CONFIG_THUNDERBOLT_APPLE} := thunderbolt.o
- thunderbolt-objs := nhi.o ctl.o tb.o switch.o cap.o path.o tunnel_pci.o eeprom.o
- 
--- 
-2.7.4
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index 9eeee05..7c85262 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -552,7 +552,8 @@ void mlx5_pagealloc_cleanup(struct mlx5_core_dev *dev)
 
+ int mlx5_pagealloc_start(struct mlx5_core_dev *dev)
+ {
+-	dev->priv.pg_wq = create_singlethread_workqueue("mlx5_page_allocator");
++	dev->priv.pg_wq = alloc_workqueue("mlx5_page_allocator",
++					  WQ_MEM_RECLAIM, 0);
+ 	if (!dev->priv.pg_wq)
+ 		return -ENOMEM;
+
+--
+2.1.4
