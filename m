@@ -1,171 +1,220 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: RE: Microsemi VSC 8531/41 PHY Driver
-Date: Thu, 28 Jul 2016 06:44:37 +0000
-Message-ID: <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
-References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
- <20160726115556.GC11538@lunn.ch>
- <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
- <20160726124347.GD11538@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+From: fgao@ikuai8.com
+Subject: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
+Date: Thu, 28 Jul 2016 15:14:41 +0800
+Message-ID: <1469690081-32122-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, philipp@redfish-solutions.com,
+	stephen@networkplumber.org, pshelar@nicira.com,
+	tom@herbertland.com, aduyck@mirantis.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0052.outbound.protection.outlook.com ([104.47.32.52]:30249
-	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1162284AbcG1HAE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 03:00:04 -0400
-In-Reply-To: <20160726124347.GD11538@lunn.ch>
-Content-Language: en-US
+Received: from SMTPBG179.QQ.COM ([119.147.194.222]:54599 "EHLO
+	smtpbg179.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1163139AbcG1HYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 03:24:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Andrew,
+From: Gao Feng <fgao@ikuai8.com>
 
-Thank you for given valuable comments.
-Please see the my responses inline.
+The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+must contain one. But current GRE RPS needs the GRE_VERSION must be
+zero. So RPS does not work for PPTP traffic.
 
-Thanks,
-Raju
+In my test environment, there are four MIPS cores, and all traffic
+are passed through by PPTP. As a result, only one core is 100% busy
+while other three cores are very idle. After this patch, the usage
+of four cores are balanced well.
 
------Original Message-----
-From: Andrew Lunn [mailto:andrew@lunn.ch] 
-Sent: Tuesday, July 26, 2016 6:14 PM
-To: Raju Lakkaraju
-Cc: netdev@vger.kernel.org; f.fainelli@gmail.com; Allan Nielsen
-Subject: Re: Microsemi VSC 8531/41 PHY Driver
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v2: Update according to Tom and Philp's advice. 
+     1) Consolidate the codes with GRE version 0 path;
+     2) Use PPP_PROTOCOL to get ppp protol;
+     3) Set the FLOW_DIS_ENCAPSULATION flag;
+ v1: Initial patch 
 
-EXTERNAL EMAIL
+ include/uapi/linux/if_tunnel.h |   5 +-
+ net/core/flow_dissector.c      | 146 ++++++++++++++++++++++++++---------------
+ 2 files changed, 97 insertions(+), 54 deletions(-)
 
-
-> +/* RGMII Rx Clock delay value change with board lay-out */ static u8 
-> +rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
-
-Doesn't this stop you from having a board with two PHYs with different layouts? You should be getting this value from the device tree.
-
-Raju: As of now, RGMII Rx clock delay value should be 1.1 nsec as optimized/recommended value. 
-We tested on Beaglebone Black with VSC 8531 PHY.
-We would like to provide new function to configure correct/require value based on PHY layouts 
-alone with other RGMII configuration parameters as part of our next implementation.
-
-> +     phydev->supported = (SUPPORTED_1000baseT_Full |
-> +                          SUPPORTED_1000baseT_Half |
-> +                          SUPPORTED_100baseT_Full  |
-> +                          SUPPORTED_100baseT_Half  |
-> +                          SUPPORTED_10baseT_Full   |
-> +                          SUPPORTED_10baseT_Half   |
-> +                          SUPPORTED_Autoneg        |
-> +                          SUPPORTED_Pause          |
-> +                          SUPPORTED_Asym_Pause     |
-> +                          SUPPORTED_TP);
-> +
-> +     phydev->speed = SPEED_1000;
-> +     phydev->duplex = DUPLEX_FULL;
-> +     phydev->pause = 0;
-> +     phydev->asym_pause = 0;
-> +     phydev->interface = PHY_INTERFACE_MODE_RGMII;
-> +     phydev->mdix = ETH_TP_MDI_AUTO;
-
-Why are you setting all these? This is not normal, if you look at other drivers.
-
-Raju: I would like to update the default values in software data structure (phydev). 
-Our PHY is 1G speed support device and RGMII supported device.
-
-> +
-> +     mutex_lock(&phydev->lock);
-
-What are you locking against?
-
-Raju: VSC 8531 has different PAGEs. Whenever MDC/MDIO access the PHY control registers, 
-first set the page number then read/write the register address. Default page should be Page 0.
-When I want to access not default page register, I have to lock phy device access and change 
-the page number and register access as atomic operation. 
-
-> +     rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
-> +     if (rc != 0) {
-> +             rc = -EINVAL;
-
-Why do you overwrite the error code vsc85xx_phy_page_set gives you?
-
-Raju: initially I would like to create new type of Error code. Then, I decided to use existing one. 
-I accept your comment. I will remove the code.
-
-> +             goto out_unlock;
-> +     }
-> +     reg_val = phy_read(phydev, MSCC_PHY_RGMII_CNTL);
-> +     reg_val &= ~(RGMII_RX_CLK_DELAY_MASK);
-> +     reg_val |= (rgmii_rx_clk_delay << RGMII_RX_CLK_DELAY_POS);
-> +     phy_write(phydev, MSCC_PHY_RGMII_CNTL, reg_val);
-> +     rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-> +     if (rc != 0)
-> +             rc = -EINVAL;
-
-Same here.
-
-Raju: I accept your comment. I will remove the code.
-
-> +
-> +out_unlock:
-> +     mutex_unlock(&phydev->lock);
-> +
-> +     return rc;
-> +}
-> +
-> +static int vsc85xx_config_init(struct phy_device *phydev) {
-> +     int rc = 0;
-
-No need to initialise rc.
-
-Raju: I accept your comment. I will remove the code.
-
-> +     rc = vsc85xx_default_config(phydev);
-
-        if (rc)
-                return rc;
-
-> +     rc = genphy_config_init(phydev);
-> +
-> +     return rc;
-
-Or just
-        return genphy_config_init(phydev);
-
-Raju: I accept your comment. I will remove the code.
-
-> +}
-> +
-> +static int vsc85xx_ack_interrupt(struct phy_device *phydev) {
-> +     int rc = 0;
-> +
-> +     if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-> +             rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
-> +
-> +     return (rc < 0) ? rc : 0;
-> +}
-> +
-> +static int vsc85xx_config_intr(struct phy_device *phydev) {
-> +     int rc;
-> +
-> +     if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
-> +             rc = phy_write(phydev, MII_VSC85XX_INT_MASK,
-> +                            MII_VSC85XX_INT_MASK_MASK);
-> +     } else {
-> +             rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
-> +             if (rc < 0)
-> +                     return rc;
-
-And the purpose of this read is? I assume it clears an outstanding interrupt? If so, shouldn't you do it after disabling interrupts, not before? Otherwise you have a race condition.
-
-Raju: The Interrupt status register is read on clean. When, PHY_INTERRUPT_DISABLE case, 
-I should make sure that status should be clear. If I read the Interrupt status registers, it clears all preexisting interrupts.
-
-> +             rc = phy_write(phydev, MII_VSC85XX_INT_MASK, 0);
-> +     }
-> +
-> +     return rc;
-
-  Andrew
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 1046f55..dda4e4b 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -24,9 +24,12 @@
+ #define GRE_SEQ		__cpu_to_be16(0x1000)
+ #define GRE_STRICT	__cpu_to_be16(0x0800)
+ #define GRE_REC		__cpu_to_be16(0x0700)
+-#define GRE_FLAGS	__cpu_to_be16(0x00F8)
++#define GRE_ACK		__cpu_to_be16(0x0080)
++#define GRE_FLAGS	__cpu_to_be16(0x0078)
+ #define GRE_VERSION	__cpu_to_be16(0x0007)
+ 
++#define GRE_PROTO_PPP	__cpu_to_be16(0x880b)
++
+ struct ip_tunnel_parm {
+ 	char			name[IFNAMSIZ];
+ 	int			link;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 61ad43f..33e957b 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -346,63 +346,103 @@ ip_proto_again:
+ 		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+ 		if (!hdr)
+ 			goto out_bad;
+-		/*
+-		 * Only look inside GRE if version zero and no
+-		 * routing
+-		 */
+-		if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+-			break;
+-
+-		proto = hdr->proto;
+-		nhoff += 4;
+-		if (hdr->flags & GRE_CSUM)
+-			nhoff += 4;
+-		if (hdr->flags & GRE_KEY) {
+-			const __be32 *keyid;
+-			__be32 _keyid;
+-
+-			keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+-						     data, hlen, &_keyid);
+ 
+-			if (!keyid)
+-				goto out_bad;
++		/* Only look inside GRE without routing */
++		if (!(hdr->flags & GRE_ROUTING)) {
++			proto = hdr->proto;
++
++			if (hdr->flags & GRE_VERSION) {
++				/* It should be the PPTP in GRE */
++				u8 _ppp_hdr[PPP_HDRLEN];
++				u8 *ppp_hdr;
++				int offset = 0;
++
++				/* Check the flags according to RFC 2637*/
++				if (!(proto == GRE_PROTO_PPP && (hdr->flags & GRE_KEY) &&
++				      !(hdr->flags & (GRE_CSUM | GRE_STRICT | GRE_REC | GRE_FLAGS)))) {
++					break;
++				}
++
++				/* Skip GRE header */
++				offset += 4;
++				/* Skip payload length and call id */
++				offset += 4;
++
++				if (hdr->flags & GRE_SEQ)
++					offset += 4;
++
++				if (hdr->flags & GRE_ACK)
++					offset += 4;
++
++				ppp_hdr = skb_header_pointer(skb, nhoff + offset, sizeof(_ppp_hdr), _ppp_hdr);
++				if (!ppp_hdr)
++					goto out_bad;
++				proto = PPP_PROTOCOL(ppp_hdr);
++				if (proto == PPP_IP) {
++					nhoff += (PPP_HDRLEN + offset);
++					proto = htons(ETH_P_IP);
++					key_control->flags |= FLOW_DIS_ENCAPSULATION;
++					goto again;
++				} else if (proto == PPP_IPV6) {
++					nhoff += (PPP_HDRLEN + offset);
++					proto = htons(ETH_P_IPV6);
++					key_control->flags |= FLOW_DIS_ENCAPSULATION;
++					goto again;
++				}
++			} else {
++				/* Original GRE */
++				nhoff += 4;
++				if (hdr->flags & GRE_CSUM)
++					nhoff += 4;
++				if (hdr->flags & GRE_KEY) {
++					const __be32 *keyid;
++					__be32 _keyid;
++
++					keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
++								     data, hlen, &_keyid);
++
++					if (!keyid)
++						goto out_bad;
++
++					if (dissector_uses_key(flow_dissector,
++							       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
++						key_keyid = skb_flow_dissector_target(flow_dissector,
++										      FLOW_DISSECTOR_KEY_GRE_KEYID,
++										      target_container);
++						key_keyid->keyid = *keyid;
++					}
++					nhoff += 4;
++				}
++				if (hdr->flags & GRE_SEQ)
++					nhoff += 4;
++				if (proto == htons(ETH_P_TEB)) {
++					const struct ethhdr *eth;
++					struct ethhdr _eth;
++
++					eth = __skb_header_pointer(skb, nhoff,
++								   sizeof(_eth),
++								   data, hlen, &_eth);
++					if (!eth)
++						goto out_bad;
++					proto = eth->h_proto;
++					nhoff += sizeof(*eth);
++
++					/* Cap headers that we access via pointers at the
++					 * end of the Ethernet header as our maximum alignment
++					 * at that point is only 2 bytes.
++					 */
++					if (NET_IP_ALIGN)
++						hlen = nhoff;
++				}
++
++				key_control->flags |= FLOW_DIS_ENCAPSULATION;
++				if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
++					goto out_good;
+ 
+-			if (dissector_uses_key(flow_dissector,
+-					       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+-				key_keyid = skb_flow_dissector_target(flow_dissector,
+-								      FLOW_DISSECTOR_KEY_GRE_KEYID,
+-								      target_container);
+-				key_keyid->keyid = *keyid;
++				goto again;
+ 			}
+-			nhoff += 4;
+-		}
+-		if (hdr->flags & GRE_SEQ)
+-			nhoff += 4;
+-		if (proto == htons(ETH_P_TEB)) {
+-			const struct ethhdr *eth;
+-			struct ethhdr _eth;
+-
+-			eth = __skb_header_pointer(skb, nhoff,
+-						   sizeof(_eth),
+-						   data, hlen, &_eth);
+-			if (!eth)
+-				goto out_bad;
+-			proto = eth->h_proto;
+-			nhoff += sizeof(*eth);
+-
+-			/* Cap headers that we access via pointers at the
+-			 * end of the Ethernet header as our maximum alignment
+-			 * at that point is only 2 bytes.
+-			 */
+-			if (NET_IP_ALIGN)
+-				hlen = nhoff;
+ 		}
+-
+-		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+-		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+-			goto out_good;
+-
+-		goto again;
++		break;
+ 	}
+ 	case NEXTHDR_HOP:
+ 	case NEXTHDR_ROUTING:
+-- 
+1.9.1
