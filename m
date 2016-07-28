@@ -1,100 +1,235 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 3/5] ARM: sun8i: dt: Add DT bindings
- documentation for Allwinner sun8i-emac
-Date: Thu, 28 Jul 2016 20:49:16 +0200
-Message-ID: <20160728184916.GF6682@lukather>
-References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
- <1469001800-11615-4-git-send-email-clabbe.montjoie@gmail.com>
- <20160721075519.GC5993@lukather>
- <20160728134031.GC7582@Red>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 28 Jul 2016 14:12:41 -0500
+Message-ID: <579A5929.4010908@codeaurora.org>
+References: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
+ <577999EC.1010104@gmx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vKFfOv5t3oGVpiF+"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBBLVH5G6AKGQEQ6C2LQI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20160728134031.GC7582@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org, shankerd@codeaurora.org,
+	vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
+	robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
+	mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
+	davem@davemloft.net, f.fainelli@gmail.com
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <577999EC.1010104@gmx.de>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Lino Sanfilippo wrote:
 
---vKFfOv5t3oGVpiF+
-Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
+>> +		skb = dev_alloc_skb(adpt->rxbuf_size + NET_IP_ALIGN);
+>> +		if (!skb)
+>> +			break;
+>> +
+>> +		/* Make buffer alignment 2 beyond a 16 byte boundary
+>> +		 * this will result in a 16 byte aligned IP header after
+>> +		 * the 14 byte MAC header is removed
+>> +		 */
+>> +		skb_reserve(skb, NET_IP_ALIGN);
+>
+> __netdev_alloc_skb_ip_align will do this for you.
 
-On Thu, Jul 28, 2016 at 03:40:31PM +0200, LABBE Corentin wrote:
-> On Thu, Jul 21, 2016 at 09:55:19AM +0200, Maxime Ripard wrote:
-> > Hi,
-> > 
-> > On Wed, Jul 20, 2016 at 10:03:18AM +0200, LABBE Corentin wrote:
-> > > This patch adds documentation for Device-Tree bindings for the
-> > > Allwinner sun8i-emac driver.
-> > > 
-> > > Signed-off-by: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > > ---
-> > >  .../bindings/net/allwinner,sun8i-emac.txt          | 65 ++++++++++++++++++++++
-> > >  1 file changed, 65 insertions(+)
-> > >  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
-> > > 
-> > > diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
-> > > new file mode 100644
-> > > index 0000000..4bf4e53
-> > > --- /dev/null
-> > > +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
-> > > @@ -0,0 +1,65 @@
-> > > +* Allwinner sun8i EMAC ethernet controller
-> > > +
-> > > +Required properties:
-> > > +- compatible: "allwinner,sun8i-a83t-emac", "allwinner,sun8i-h3-emac",
-> > > +		or "allwinner,sun50i-a64-emac"
-> > > +- reg: address and length of the register sets for the device.
-> > > +- reg-names: should be "emac" and "syscon", matching the register sets
-> > 
-> > Blindly mapping a register of some other device on the SoC doesn't
-> > look very reasonable.
-> 
-> As we discuss after this mail on IRC, this register is dedicated to EMAC.
+Will fix.
 
-I don't think we did. It's still right in the middle of some other
-hardware block register space. You actually have a syscon driver to do
-just that, why not use it?
+>> +		curr_rxbuf->dma_addr = dma_map_single(adpt->netdev->dev.parent,
+>> +						      skb_data,
+>> +						      curr_rxbuf->length,
+>> +						      DMA_FROM_DEVICE);
+>
+>
+> Mapping can fail. You should check the result via dma_mapping_error().
+> There are several other places in which dma_map_single() is called and the return value
+> is not checked.
 
-> > > +See ethernet.txt in the same directory for generic bindings for ethernet
-> > > +controllers.
-> > > +
-> > > +The device node referenced by "phy" or "phy-handle" should be a child node
-> > > +of this node. See phy.txt for the generic PHY bindings.
-> > > +
-> > > +Optional properties:
-> > > +- phy-supply: phandle to a regulator if the PHY needs one
-> > > +- phy-io-supply: phandle to a regulator if the PHY needs a another one for I/O.
-> > > +		 This is sometimes found with RGMII PHYs, which use a second
-> > > +		 regulator for the lower I/O voltage.
-> > > +- allwinner,tx-delay: The setting of the TX clock delay chain
-> > > +- allwinner,rx-delay: The setting of the RX clock delay chain
-> > 
-> > In which unit? What is the default value?
-> 
-> The unit is unknown to me, but I have added a comment for the
-> default and acceptable range value.
+Will fix.
 
-That's unfortunate. We'll see how the DT maintainers feel about that.
+>> +	if (ret) {
+>> +		netdev_err(adpt->netdev,
+>> +			   "error:%d on request_irq(%d:%s flags:0)\n", ret,
+>> +			   irq->irq, EMAC_MAC_IRQ_RES);
+>
+> freeing the irq is missing
 
-Maxime
+Will fix.
+
+>> +	/* disable mac irq */
+>> +	writel(DIS_INT, adpt->base + EMAC_INT_STATUS);
+>> +	writel(0, adpt->base + EMAC_INT_MASK);
+>> +	synchronize_irq(adpt->irq.irq);
+>> +	free_irq(adpt->irq.irq, &adpt->irq);
+>> +	clear_bit(EMAC_STATUS_TASK_REINIT_REQ, &adpt->status);
+>> +
+>> +	cancel_work_sync(&adpt->tx_ts_task);
+>> +	spin_lock_irqsave(&adpt->tx_ts_lock, flags);
+>
+> Maybe I am missing something but AFAICS tx_ts_lock is never called from irq context, so
+> there is no reason to disable irqs.
+
+It might have been that way in an older version of the code, but it 
+appears you are correct.  I will change it to a normal spinlock.  Thanks.
+
+>> +/* Push the received skb to upper layers */
+>> +static void emac_receive_skb(struct emac_rx_queue *rx_q,
+>> +			     struct sk_buff *skb,
+>> +			     u16 vlan_tag, bool vlan_flag)
+>> +{
+>> +	if (vlan_flag) {
+>> +		u16 vlan;
+>> +
+>> +		EMAC_TAG_TO_VLAN(vlan_tag, vlan);
+>> +		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan);
+>> +	}
+>> +
+>> +	napi_gro_receive(&rx_q->napi, skb);
+>
+> napi_gro_receive requires rx checksum offload. However emac_receive_skb() is also called if
+> hardware checksumming is disabled.
+
+So the hardware is a little weird here.  Apparently, there is a bug in 
+the parsing of the packet headers that is avoided if we disable hardware 
+checksumming.
+
+In emac_mac_rx_process(), right before it calls emac_receive_skb(), it 
+does this:
+
+if (netdev->features & NETIF_F_RXCSUM)
+	skb->ip_summed = RRD_L4F(&rrd) ?
+			  CHECKSUM_NONE : CHECKSUM_UNNECESSARY;
+else
+	skb_checksum_none_assert(skb);
+
+RRD_L4F(&rrd) is always zero and NETIF_F_RXCSUM is set by default, so 
+ip_summed is set to CHECKSUM_UNNECESSARY.
+
+So you're saying that if NETIF_F_RXCSUM is not set, then 
+napi_gro_receive() should not be called?
+
+I see examples of other drivers that *appear* to call napi_gro_receive() 
+even when hardware checksumming is disabled.
+
+For example, bfin_mac_rx() in adi/bfin_mac.c does this:
+
+/*
+  * Disable hardware checksum for bug #5600 if writeback cache is
+  * enabled. Otherwize, corrupted RX packet will be sent up stack
+  * without error mark.
+  */
+#ifndef CONFIG_BFIN_EXTMEM_WRITEBACK
+#define BFIN_MAC_CSUM_OFFLOAD
+#endif
+
+...
+
+#if defined(BFIN_MAC_CSUM_OFFLOAD)
+...
+#endif
+	napi_gro_receive(&lp->napi, skb);
+
+Shouldn't the call to napi_gro_receive() be before the #endif?
+
+Function i40e_receive_skb() has similar code to my driver.
+
+In fact, I have not been able to find any clear example of a driver that 
+intentionally avoids calling napi_gro_receive() if hardware checksumming 
+is disabled.
+
+>> +/* Transmit the packet using specified transmit queue */
+>> +int emac_mac_tx_buf_send(struct emac_adapter *adpt, struct emac_tx_queue *tx_q,
+>> +			 struct sk_buff *skb)
+>> +{
+>> +	struct emac_tpd tpd;
+>> +	u32 prod_idx;
+>> +
+>> +	if (!emac_tx_has_enough_descs(tx_q, skb)) {
+>
+> Drivers should avoid this situation right from the start by checking after each transmission if the max number
+>   of possible descriptors is still available for a further transmission and stop the queue if there are not.
+
+Ok, to be clear, you're saying I should do what bcmgenet_xmit() does.
+
+	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+		netif_tx_stop_queue(txq);
+
+At the end of emac_mac_tx_buf_send(), I should call 
+emac_tpd_num_free_descs() and check to see whether the number of free 
+descriptors is <= (MAX_SKB_FRAGS + 1).
+
+> Furthermore there does not seem to be any function that wakes the queue up again once it has been stopped.
+
+If I make the above fix, won't that also fix this bug?
+
+>> +/* reinitialize */
+>> +void emac_reinit_locked(struct emac_adapter *adpt)
+>> +{
+>> +	while (test_and_set_bit(EMAC_STATUS_RESETTING, &adpt->status))
+>> +		msleep(20); /* Reset might take few 10s of ms */
+>> +
+>> +	emac_mac_down(adpt, true);
+>> +
+>> +	emac_sgmii_reset(adpt);
+>> +	emac_mac_up(adpt);
+>
+> emac_mac_up() may fail, so this case should be handled properly.
+
+Ok.
+
+>
+>> +/* Change the Maximum Transfer Unit (MTU) */
+>> +static int emac_change_mtu(struct net_device *netdev, int new_mtu)
+>> +{
+>> +	unsigned int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+>> +	struct emac_adapter *adpt = netdev_priv(netdev);
+>> +	unsigned int old_mtu = netdev->mtu;
+>> +
+>> +	if ((max_frame < EMAC_MIN_ETH_FRAME_SIZE) ||
+>> +	    (max_frame > EMAC_MAX_ETH_FRAME_SIZE)) {
+>> +		netdev_err(adpt->netdev, "error: invalid MTU setting\n");
+>> +		return -EINVAL;
+>> +	}
+>> +
+>> +	if ((old_mtu != new_mtu) && netif_running(netdev)) {
+>
+> Setting the new mtu in case that the interface is down is missing.
+
+Should I just move the "netdev->mtu = new_mtu" line outside of the 
+if-statement?
+
+> Also the first check is not needed, since this function is only called if
+> there is a change of the mtu.
+
+Will fix.
+
+>> +/* Provide network statistics info for the interface */
+>> +static struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
+>> +						  struct rtnl_link_stats64 *net_stats)
+>> +{
+>> +	struct emac_adapter *adpt = netdev_priv(netdev);
+>> +	unsigned int addr = REG_MAC_RX_STATUS_BIN;
+>> +	struct emac_stats *stats = &adpt->stats;
+>> +	u64 *stats_itr = &adpt->stats.rx_ok;
+>> +	u32 val;
+>> +
+>> +	mutex_lock(&stats->lock);
+>
+> It is not allowed to sleep in this function, so you have to use something else for locking,
+> e.g. a spinlock.
+
+Will fix.
+
+>> +	strlcpy(netdev->name, "eth%d", sizeof(netdev->name));
+>
+> This is already done by alloc_etherdev.
+
+Will fix.
+
+Thank you very much for reviewing my code.  I hope my questions haven't 
+been too stupid.
 
 -- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---vKFfOv5t3oGVpiF+--
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
