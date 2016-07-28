@@ -1,243 +1,47 @@
-From: Philp Prindeville <philipp@redfish-solutions.com>
-Subject: Re: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow
- hash
-Date: Wed, 27 Jul 2016 18:46:24 -0600
-Message-ID: <ac82e50b-8827-d13c-f02a-ce75c255721a@redfish-solutions.com>
-References: <1469662978-19814-1-git-send-email-fgao@ikuai8.com>
- <CALx6S35PxNML7YiBGEf=-FXUuwSVphXmB_y3Ta31fx4EUkWiWQ@mail.gmail.com>
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Thu, 28 Jul 2016 02:22:53 +0100
+Message-ID: <20160728012253.GT2356@ZenIV.linux.org.uk>
+References: <201607271032.u6RAWPcS008174@sdf.org>
+ <4dbfebe8136bc963b5b51463d6887db4@triadic.us>
+ <87c4ed555bcb4229f2334f6f2bb69bcb@triadic.us>
+ <20160727.164543.1466564919313003461.davem@davemloft.net>
+ <20160728003102.GS2356@ZenIV.linux.org.uk>
+ <8b3126f66186015956e0f8090fb70532@triadic.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	gfree.wind@gmail.com
-To: Tom Herbert <tom@herbertland.com>,
-	fgao@48lvckh6395k16k5.yundunddos.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:33592 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751229AbcG1BGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 21:06:53 -0400
-In-Reply-To: <CALx6S35PxNML7YiBGEf=-FXUuwSVphXmB_y3Ta31fx4EUkWiWQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, rlwinm-WF+c3Tt1nJM@public.gmane.org,
+	chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Al Viro <viro-rfM+Q5joDG/XmaaqVzeoHQ@public.gmane.org>
+To: alexmcwhirter-O8/uFoRGvHWcqzYg7KEe8g@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <8b3126f66186015956e0f8090fb70532-O8/uFoRGvHWcqzYg7KEe8g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Inline...
+On Wed, Jul 27, 2016 at 08:26:48PM -0400, alexmcwhirter-O8/uFoRGvHWcqzYg7KEe8g@public.gmane.org wrote:
 
+> I'm going to go ahead and say this is where my issue and the op's issue
+> begin to branch apart from one another. He's seeing this on all incoming
+> data, whereas i am only seeing it on ssl data and not on sun4v.
+> 
+> At this point i would say data from my issue is only going to cloud this
+> issue as they seem to be two completely different issues revolving around
+> the same commit. If i come across any relevant data for x86_64 ill be sure
+> to post it if this isn't resolved by then, but for now i'm going to refrain
+> from submitting anything sparc related.
 
-On 07/27/2016 06:04 PM, Tom Herbert wrote:
-> On Wed, Jul 27, 2016 at 4:42 PM,  <fgao@ikuai8.com> wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
->> must contain one. But current GRE RPS needs the GRE_VERSION must be
->> zero. So RPS does not work for PPTP traffic.
->>
->> In my test environment, there are four MIPS cores, and all traffic
->> are passed through by PPTP. As a result, only one core is 100% busy
->> while other three cores are very idle. After this patch, the usage
->> of four cores are balanced well.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->>   v1: Initial patch
->>
->>   include/uapi/linux/if_tunnel.h |   5 +-
->>   net/core/flow_dissector.c      | 138 ++++++++++++++++++++++++++---------------
->>   2 files changed, 92 insertions(+), 51 deletions(-)
->>
->> diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
->> index 1046f55..dda4e4b 100644
->> --- a/include/uapi/linux/if_tunnel.h
->> +++ b/include/uapi/linux/if_tunnel.h
->> @@ -24,9 +24,12 @@
->>   #define GRE_SEQ                __cpu_to_be16(0x1000)
->>   #define GRE_STRICT     __cpu_to_be16(0x0800)
->>   #define GRE_REC                __cpu_to_be16(0x0700)
->> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
->> +#define GRE_ACK                __cpu_to_be16(0x0080)
->> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
->>   #define GRE_VERSION    __cpu_to_be16(0x0007)
->>
->> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
->> +
->>   struct ip_tunnel_parm {
->>          char                    name[IFNAMSIZ];
->>          int                     link;
->> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->> index 61ad43f..d95e060 100644
->> --- a/net/core/flow_dissector.c
->> +++ b/net/core/flow_dissector.c
->> @@ -346,63 +346,101 @@ ip_proto_again:
->>                  hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
->>                  if (!hdr)
->>                          goto out_bad;
->> -               /*
->> -                * Only look inside GRE if version zero and no
->> -                * routing
->> -                */
->> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
->> -                       break;
->>
->> -               proto = hdr->proto;
->> -               nhoff += 4;
->> -               if (hdr->flags & GRE_CSUM)
->> +               /*
->> +               * Only look inside GRE if version zero and no
->> +               * routing
-> This comment is no longer true, GRE version 1 is being handled.
->
->> +               */
->> +               if (!(hdr->flags & (GRE_VERSION | GRE_ROUTING))) {
->> +                       proto = hdr->proto;
->>                          nhoff += 4;
->> -               if (hdr->flags & GRE_KEY) {
->> -                       const __be32 *keyid;
->> -                       __be32 _keyid;
->> +                       if (hdr->flags & GRE_CSUM)
->> +                               nhoff += 4;
->> +                       if (hdr->flags & GRE_KEY) {
->> +                               const __be32 *keyid;
->> +                               __be32 _keyid;
->> +
->> +                               keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
->> +                                                            data, hlen, &_keyid);
->> +
->> +                               if (!keyid)
->> +                                       goto out_bad;
->> +
->> +                               if (dissector_uses_key(flow_dissector,
->> +                                                      FLOW_DISSECTOR_KEY_GRE_KEYID)) {
->> +                                       key_keyid = skb_flow_dissector_target(flow_dissector,
->> +                                                                             FLOW_DISSECTOR_KEY_GRE_KEYID,
->> +                                                                             target_container);
->> +                                       key_keyid->keyid = *keyid;
->> +                               }
->> +                               nhoff += 4;
->> +                       }
->> +                       if (hdr->flags & GRE_SEQ)
->> +                               nhoff += 4;
->> +                       if (proto == htons(ETH_P_TEB)) {
->> +                               const struct ethhdr *eth;
->> +                               struct ethhdr _eth;
->> +
->> +                               eth = __skb_header_pointer(skb, nhoff,
->> +                                                          sizeof(_eth),
->> +                                                          data, hlen, &_eth);
->> +                               if (!eth)
->> +                                       goto out_bad;
->> +                               proto = eth->h_proto;
->> +                               nhoff += sizeof(*eth);
->> +
->> +                               /* Cap headers that we access via pointers at the
->> +                                * end of the Ethernet header as our maximum alignment
->> +                                * at that point is only 2 bytes.
->> +                                */
->> +                               if (NET_IP_ALIGN)
->> +                                       hlen = nhoff;
->> +                       }
->>
->> -                       keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
->> -                                                    data, hlen, &_keyid);
->> +                       key_control->flags |= FLOW_DIS_ENCAPSULATION;
->> +                       if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
->> +                               goto out_good;
->>
->> -                       if (!keyid)
->> +                       goto again;
->> +               } else if (hdr->proto == GRE_PROTO_PPP && (hdr->flags & GRE_VERSION) &&
->> +                       (hdr->flags & GRE_KEY) &&
->> +                       !(hdr->flags & (GRE_CSUM | GRE_ROUTING | GRE_STRICT | GRE_REC | GRE_FLAGS))) {
->> +                       /* It should be the PPTP in GRE
->> +                        * We have checked the flags according to the
->> +                        * RFC 2637
->> +                        */
->> +                       struct ppp_frame {
->> +                               /* address & control, just ignore it */
->> +                               __be16 ignore;
->> +                               __be16 proto;
->> +                       } *frame, _frame;
-> Isn't there a common definition of a PPP frame?
-
-If there were, it would be in <net/ppp_defs.h> but it's not. It's sort 
-of implied the macros PPP_ADDRESS(), PPP_CONTROL(), and PPP_PROTOCOL().
-
-Please rewrite the patch to use these.
-
--Philip
-
->> +                       int offset = 0;
->> +
->> +                       /* Skip GRE header */
->> +                       offset += 4;
->> +                       /* Skip payload length and call id */
->> +                       offset += 4;
->> +
->> +                       if (hdr->flags & GRE_SEQ)
->> +                               offset += 4;
->> +
->> +                       if (hdr->flags & GRE_ACK)
->> +                               offset += 4;
->> +
->> +                       frame = skb_header_pointer(skb, nhoff + offset, sizeof(_frame), &_frame);
->> +                       if (!frame)
->>                                  goto out_bad;
->> -
->> -                       if (dissector_uses_key(flow_dissector,
->> -                                              FLOW_DISSECTOR_KEY_GRE_KEYID)) {
->> -                               key_keyid = skb_flow_dissector_target(flow_dissector,
->> -                                                                     FLOW_DISSECTOR_KEY_GRE_KEYID,
->> -                                                                     target_container);
->> -                               key_keyid->keyid = *keyid;
->> +                       if (frame->proto == __constant_htons(PPP_IP)) {
->> +                               nhoff += (sizeof(*frame) + offset);
->> +                               proto = __constant_htons(ETH_P_IP);
->> +                               goto again;
->> +                       } else if (frame->proto == __constant_htons(PPP_IPV6)) {
->> +                               nhoff += (sizeof(*frame) + offset);
->> +                               proto = __constant_htons(ETH_P_IPV6);
->> +                               goto again;
-> There's a lot of code replication here with the version 0 path. Please
-> consolidate these. Also, this looks an awful lot like ETH_P_PPP_SES,
-> can this code leverage that code?
->
->>                          }
->> -                       nhoff += 4;
->>                  }
->> -               if (hdr->flags & GRE_SEQ)
->> -                       nhoff += 4;
->> -               if (proto == htons(ETH_P_TEB)) {
->> -                       const struct ethhdr *eth;
->> -                       struct ethhdr _eth;
->> -
->> -                       eth = __skb_header_pointer(skb, nhoff,
->> -                                                  sizeof(_eth),
->> -                                                  data, hlen, &_eth);
->> -                       if (!eth)
->> -                               goto out_bad;
->> -                       proto = eth->h_proto;
->> -                       nhoff += sizeof(*eth);
->> -
->> -                       /* Cap headers that we access via pointers at the
->> -                        * end of the Ethernet header as our maximum alignment
->> -                        * at that point is only 2 bytes.
->> -                        */
->> -                       if (NET_IP_ALIGN)
->> -                               hlen = nhoff;
->> -               }
->> -
->> -               key_control->flags |= FLOW_DIS_ENCAPSULATION;
->> -               if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
->> -                       goto out_good;
->> -
->> -               goto again;
->> +               break;
->>          }
->>          case NEXTHDR_HOP:
->>          case NEXTHDR_ROUTING:
->> --
->> 1.9.1
->>
+Which just might mean that we have *three* issues here -
+	(1) buggered __copy_to_user_inatomic() (and friends) on some sparcs
+	(2) your ssl-only corruption
+	(3) Alan's x86_64 corruption on plain TCP read - no ssl *or* sparc
+anywhere, and no multi-segment recvmsg().  Which would strongly argue in
+favour of some kind of copy_page_to_iter() breakage triggered when handling
+a fragmented skb, as in (1).  Except that I don't see anything similar in
+x86_64 uaccess primitives...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
