@@ -1,68 +1,69 @@
-From: Peter Chen <peter.chen@nxp.com>
-Subject: RE: [PATCH 05/15] ethernet: cavium: octeon: add missing of_node_put
- after calling of_parse_phandle
-Date: Thu, 28 Jul 2016 01:57:04 +0000
-Message-ID: <HE1PR04MB1450F8C93D0BEF3DAEB35E268B000@HE1PR04MB1450.eurprd04.prod.outlook.com>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
- <1469586048-15697-6-git-send-email-peter.chen@nxp.com>
- <57991FF0.1010606@caviumnetworks.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
+Date: Thu, 28 Jul 2016 12:33:58 +0200
+Message-ID: <20160728103357.GA3031@alphalink.fr>
+References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20160706082602.GM4666@uranus>
+ <20160706122515.GN4666@uranus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
-	"isubramanian@apm.com" <isubramanian@apm.com>,
-	"kchudgar@apm.com" <kchudgar@apm.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
-	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"wxt@rock-chips.com" <wxt@rock-chips.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"david.daney@cavium.com" <david.daney@cavium.com>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0063.outbound.protection.outlook.com ([104.47.2.63]:43328
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753258AbcG1Kbe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 06:31:34 -0400
-In-Reply-To: <57991FF0.1010606@caviumnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+	Matt.Bennett@alliedtelesis.co.nz,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160706122515.GN4666@uranus>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- 
->
->> ---
->>   drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 1 +
->>   1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
->> b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
->> index e8bc15b..5eb9d8c 100644
->> --- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
->> +++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
->> @@ -960,6 +960,7 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
->>   	phydev = of_phy_connect(netdev, p->phy_np,
->>   				octeon_mgmt_adjust_link, 0,
->>   				PHY_INTERFACE_MODE_MII);
->> +	of_node_put(p->phy_np);
->
->I don't think you can do this here.  octeon_mgmt_init_phy() may be called multiple
->times in the life of the driver, so p->phy_np must remain valid.
->
->It may be appropriate to do the  of_node_put() in the
->octeon_mgmt_remove() function.
- 
-Thanks, I will change it.
+On Wed, Jul 06, 2016 at 03:25:15PM +0300, Cyrill Gorcunov wrote:
+> On Wed, Jul 06, 2016 at 11:26:02AM +0300, Cyrill Gorcunov wrote:
+> > On Tue, Jul 05, 2016 at 10:12:36PM -0700, Cong Wang wrote:
+> > > Matt reported that we have a NULL pointer dereference
+> > > in ppp_pernet() from ppp_connect_channel(),
+> > > i.e. pch->chan_net is NULL.
+> > > 
+> > > This is due to that a parallel ppp_unregister_channel()
+> > > could happen while we are in ppp_connect_channel(), during
+> > > which pch->chan_net set to NULL. Since we need a reference
+> > > to net per channel, it makes sense to sync the refcnt
+> > > with the life time of the channel, therefore we should
+> > > release this reference when we destroy it.
+> > > 
+> > > Fixes: 1f461dcdd296 ("ppp: take reference on channels netns")
+> > > Reported-by: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+> > > Cc: Paul Mackerras <paulus@samba.org>
+> > > Cc: linux-ppp@vger.kernel.org
+> > > Cc: Guillaume Nault <g.nault@alphalink.fr>
+> > > Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+> > > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> > > ---
+> > 
+> > Hi Cong! I may be wrong, but this doesn't look right in general.
+> > We take the net in ppp_register_channel->ppp_register_net_channel
+> > and (name) context implies that ppp_unregister_channel does
+> > the reverse. Maybe there some sync point missed? I'll review
+> > in detail a bit later.
+> 
+> After staring more I think the patch should be fine as a fix
+> since implementing sync with ppp_[re|un]register_channel and
+> ppp_ioctl might need a way more work.
+> 
 
-Peter
+[Sorry for arriving so late in the game, I was offline the last 3 weeks]
+
+I agree having some symmetry between the creation and deletion
+processes would be nice and would make the code easier to reason about.
+Actually, I released the channel netns in ppp_unregister_channel() for
+exactly this reason (and failed to spot this race).
+
+But the code is already quite asymmetric and it's certainly too late to
+move away from this scheme now. So releasing the channel netns in
+ppp_destroy_channel() is in line with ppp_generic's architecture. Other
+data are handled this way: e.g. channel_count is incremented in
+ppp_register_net_channel() and decremented in ppp_destroy_channel()).
+
+Thank you all for testing and fixing this issue!
+
+Guillaume
