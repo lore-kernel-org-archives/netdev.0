@@ -1,47 +1,67 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH 0/2] net: davinci_cpdma: reduce latency on -rt
-Date: Thu, 28 Jul 2016 14:12:28 +0200
-Message-ID: <20160728121228.GK5629@pengutronix.de>
-References: <1469534545-14478-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <f546b5f0-1da6-2c16-647a-33bb8692b753@ti.com>
- <20160727070302.GG5368@pengutronix.de>
- <076e6aa6-91f3-8707-1d8b-504c4962f7cd@ti.com>
- <20160727143804.GC5629@pengutronix.de>
- <fc2a3300-4f6b-aff7-995d-77b37bdaab65@ti.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
+ context at kernel/irq/manage.c:110
+Date: Thu, 28 Jul 2016 14:21:16 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1607281414040.19896@nanos>
+References: <20160726035003.GA15095@wfg-t540p.sh.intel.com> <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com> <1469655487.2232.49.camel@intel.com> <1469684635.9389.4.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160728101958.GA26846@bistromath.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mugunthan V N <mugunthanvnm@ti.com>, linux-omap@vger.kernel.org,
-	kernel@pengutronix.de, netdev@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Satyam Sharma <satyam@infradead.org>,
+	intel-wired-lan@lists.osuosl.org,
+	Ye Xiaolong <xiaolong.ye@intel.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58997 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757262AbcG1MMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 08:12:34 -0400
-Content-Disposition: inline
-In-Reply-To: <fc2a3300-4f6b-aff7-995d-77b37bdaab65@ti.com>
+Received: from Galois.linutronix.de ([146.0.238.70]:48937 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757367AbcG1MXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 08:23:32 -0400
+In-Reply-To: <20160728101958.GA26846@bistromath.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Grygorii,
+On Thu, 28 Jul 2016, Sabrina Dubroca wrote:
+> 2016-07-28, 07:43:55 +0200, Eric Dumazet wrote:
+> > I would prefer having a definitive advice from Thomas Gleixner and/or
+> > others if disable_irq() is forbidden from IRQ path.
 
-On Thu, Jul 28, 2016 at 12:34:19PM +0300, Grygorii Strashko wrote:
-> Thanks. I've just wanted to have clear understanding of the [possible=
-] issue.
-> And I'd be appreciated if you could share and measurement results if =
-you have.
+Yes it is. Before we added threaded interrupt handlers it was not an issue,
+but with (possibly) threaded interrupts it's an absolute no-no.
 
-I didn't measure anything (yet), just considered these patches
-low-hanging fruits. But when looking again there, I will provide some
-numbers.
+> > As I said, about all netpoll() methods in net drivers use disable_irq()
+> > so a lot of patches would be needed.
+> > 
+> > disable_irq() should then test this condition earlier, so that we can
+> > detect potential bug, even if the IRQ is not (yet) threaded.
+> 
+> The idea when this first came up was to skip the sleeping part of
+> disable_irq():
+> 
+> http://marc.info/?l=linux-netdev&m=142314159626052
+> 
+> This fell off my todolist and I didn't send the conversion patches,
+> which would basically look like this:
+>
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> index 41f32c0b341e..b022691e680b 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -6713,20 +6713,20 @@ static irqreturn_t e1000_intr_msix(int __always_unused irq, void *data)
+>  
+>  		vector = 0;
+>  		msix_irq = adapter->msix_entries[vector].vector;
+> -		disable_irq(msix_irq);
+> -		e1000_intr_msix_rx(msix_irq, netdev);
+> +		if (disable_hardirq(msix_irq))
+> +			e1000_intr_msix_rx(msix_irq, netdev);
+>  		enable_irq(msix_irq);
 
-Best regards
-Uwe
+That'll work nicely even when one of the affected interrupts is threaded.
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Thanks,
+
+	tglx
