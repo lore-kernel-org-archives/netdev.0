@@ -1,103 +1,132 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
- context at kernel/irq/manage.c:110
-Date: Thu, 28 Jul 2016 21:30:03 +0800
-Message-ID: <20160728133003.GA30283@wfg-t540p.sh.intel.com>
-References: <20160726035003.GA15095@wfg-t540p.sh.intel.com>
- <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <1469655487.2232.49.camel@intel.com>
- <1469684635.9389.4.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160728101958.GA26846@bistromath.localdomain>
+From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 3/5] ARM: sun8i: dt: Add DT bindings
+ documentation for Allwinner sun8i-emac
+Date: Thu, 28 Jul 2016 15:40:31 +0200
+Message-ID: <20160728134031.GC7582@Red>
+References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1469001800-11615-4-git-send-email-clabbe.montjoie@gmail.com>
+ <20160721075519.GC5993@lukather>
+Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Satyam Sharma <satyam@infradead.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	intel-wired-lan@lists.osuosl.org,
-	Ye Xiaolong <xiaolong.ye@intel.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBU4W5C6AKGQEQVNAWRY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20160728101958.GA26846@bistromath.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20160721075519.GC5993@lukather>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Hi Sabrina,
+On Thu, Jul 21, 2016 at 09:55:19AM +0200, Maxime Ripard wrote:
+> Hi,
+> 
+> On Wed, Jul 20, 2016 at 10:03:18AM +0200, LABBE Corentin wrote:
+> > This patch adds documentation for Device-Tree bindings for the
+> > Allwinner sun8i-emac driver.
+> > 
+> > Signed-off-by: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > ---
+> >  .../bindings/net/allwinner,sun8i-emac.txt          | 65 ++++++++++++++++++++++
+> >  1 file changed, 65 insertions(+)
+> >  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> > 
+> > diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> > new file mode 100644
+> > index 0000000..4bf4e53
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> > @@ -0,0 +1,65 @@
+> > +* Allwinner sun8i EMAC ethernet controller
+> > +
+> > +Required properties:
+> > +- compatible: "allwinner,sun8i-a83t-emac", "allwinner,sun8i-h3-emac",
+> > +		or "allwinner,sun50i-a64-emac"
+> > +- reg: address and length of the register sets for the device.
+> > +- reg-names: should be "emac" and "syscon", matching the register sets
+> 
+> Blindly mapping a register of some other device on the SoC doesn't
+> look very reasonable.
+> 
 
->The idea when this first came up was to skip the sleeping part of
->disable_irq():
->
->http://marc.info/?l=linux-netdev&m=142314159626052
->
->This fell off my todolist and I didn't send the conversion patches,
->which would basically look like this:
+As we discuss after this mail on IRC, this register is dedicated to EMAC.
 
-Yes it works in the several machines that had the BUG!
+> > +- interrupts: interrupt for the device
+> > +- clocks: A phandle to the reference clock for this device
+> > +- clock-names: should be "ahb"
+> > +- resets: A phandle to the reset control for this device
+> > +- reset-names: should be "ahb"
+> > +- phy-mode: See ethernet.txt
+> > +- phy or phy-handle: See ethernet.txt
+> > +- #address-cells: shall be 1
+> > +- #size-cells: shall be 0
+> > +
+> > +"allwinner,sun8i-h3-emac" also requires:
+> > +- clocks: an extra phandle to the reference clock for the EPHY
+> > +- clock-names: an extra "ephy" entry matching the clocks property
+> > +- resets: an extra phandle to the reset control for the EPHY
+> > +- resets-names: an extra "ephy" entry matching the resets property
+> 
+> Shouldn't that be attached to the phy itself?
+> 
 
-[   23.806847] netpoll: netconsole: local port 6665
-[   23.807145] netpoll: netconsole: local IPv4 address 0.0.0.0
-[   23.807494] netpoll: netconsole: interface 'eth0'
-[   23.807799] netpoll: netconsole: remote port 6646
-[   23.808096] netpoll: netconsole: remote IPv4 address 192.168.1.1
-[   23.808474] netpoll: netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
-[   23.808910] netpoll: netconsole: local IP 192.168.1.161
-[   23.811680] 28 Jul 19:42:10 ntpdate[376]: step time server 192.168.1.1 offset 1696.257557 sec
-[   23.811886] console [netcon0] enabled
-[   23.812131] netconsole: network logging started
+Ok I will move them.
 
-Thanks,
-Fengguang
+> > +See ethernet.txt in the same directory for generic bindings for ethernet
+> > +controllers.
+> > +
+> > +The device node referenced by "phy" or "phy-handle" should be a child node
+> > +of this node. See phy.txt for the generic PHY bindings.
+> > +
+> > +Optional properties:
+> > +- phy-supply: phandle to a regulator if the PHY needs one
+> > +- phy-io-supply: phandle to a regulator if the PHY needs a another one for I/O.
+> > +		 This is sometimes found with RGMII PHYs, which use a second
+> > +		 regulator for the lower I/O voltage.
+> > +- allwinner,tx-delay: The setting of the TX clock delay chain
+> > +- allwinner,rx-delay: The setting of the RX clock delay chain
+> 
+> In which unit? What is the default value?
+> 
 
->
->diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
->index 41f32c0b341e..b022691e680b 100644
->--- a/drivers/net/ethernet/intel/e1000e/netdev.c
->+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->@@ -6713,20 +6713,20 @@ static irqreturn_t e1000_intr_msix(int __always_unused irq, void *data)
->
-> 		vector = 0;
-> 		msix_irq = adapter->msix_entries[vector].vector;
->-		disable_irq(msix_irq);
->-		e1000_intr_msix_rx(msix_irq, netdev);
->+		if (disable_hardirq(msix_irq))
->+			e1000_intr_msix_rx(msix_irq, netdev);
-> 		enable_irq(msix_irq);
->
-> 		vector++;
-> 		msix_irq = adapter->msix_entries[vector].vector;
->-		disable_irq(msix_irq);
->-		e1000_intr_msix_tx(msix_irq, netdev);
->+		if (disable_hardirq(msix_irq))
->+			e1000_intr_msix_tx(msix_irq, netdev);
-> 		enable_irq(msix_irq);
->
-> 		vector++;
-> 		msix_irq = adapter->msix_entries[vector].vector;
->-		disable_irq(msix_irq);
->-		e1000_msix_other(msix_irq, netdev);
->+		if (disable_hardirq(msix_irq))
->+			e1000_msix_other(msix_irq, netdev);
-> 		enable_irq(msix_irq);
-> 	}
->
->@@ -6750,13 +6750,13 @@ static void e1000_netpoll(struct net_device *netdev)
-> 		e1000_intr_msix(adapter->pdev->irq, netdev);
-> 		break;
-> 	case E1000E_INT_MODE_MSI:
->-		disable_irq(adapter->pdev->irq);
->-		e1000_intr_msi(adapter->pdev->irq, netdev);
->+		if (disable_hardirq(adapter->pdev->irq))
->+			e1000_intr_msi(adapter->pdev->irq, netdev);
-> 		enable_irq(adapter->pdev->irq);
-> 		break;
-> 	default:		/* E1000E_INT_MODE_LEGACY */
->-		disable_irq(adapter->pdev->irq);
->-		e1000_intr(adapter->pdev->irq, netdev);
->+		if (disable_hardirq(adapter->pdev->irq))
->+			e1000_intr(adapter->pdev->irq, netdev);
-> 		enable_irq(adapter->pdev->irq);
-> 		br
->ak;
-> 	}
+The unit is unknown to me, but I have added a comment for the default and acceptable range value.
+
+> > +
+> > +The TX/RX clock delay chain settings are board specific.
+> > +
+> > +Optional properties for "allwinner,sun8i-h3-emac":
+> > +- allwinner,use-internal-phy: Use the H3 SoC's internal E(thernet) PHY
+> 
+> Can't that be derived from the presence of the phy property?
+> 
+
+Yes, I have reworked the "variant" of the driver for easily handling this.
+
+> > +- allwinner,leds-active-low: EPHY LEDs are active low
+> 
+> That also seems PHY related. Overall, I feel like we really need a phy
+> node for the internal phy.
+> 
+
+Moved also in the phy node.
+
+> Maxime
+> 
+> -- 
+> Maxime Ripard, Free Electrons
+> Embedded Linux and Kernel engineering
+> http://free-electrons.com
+
+Best regards
+
+Thanks
+
+LABBE Corentin
