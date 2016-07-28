@@ -1,66 +1,73 @@
-From: Greg <gvrose8192@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbevf: replace integer number with bool value
-Date: Thu, 28 Jul 2016 07:29:06 -0700
-Message-ID: <1469716146.14256.1.camel@gmail.com>
-References: <1469626117-3669-1-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Zhu Yanjun <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1469626117-3669-1-git-send-email-zyjzyj2000@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [RFC v6 1/6] VSOCK: transport-specific vsock_transport functions
+Date: Thu, 28 Jul 2016 15:36:30 +0100
+Message-ID: <1469716595-13591-2-git-send-email-stefanha@redhat.com>
+References: <1469716595-13591-1-git-send-email-stefanha@redhat.com>
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Matt Benjamin <mbenjamin@redhat.com>,
+	Christoffer Dall <christoffer.dall@linaro.org>,
+	=?UTF-8?q?Alex=20Benn=C3=A9e?= <alex.bennee@linaro.org>,
+	marius vlad <marius.vlad0@gmail.com>, areis@redhat.com,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Greg Kurz <gkurz@linux.vnet.ibm.com>,
+	Ian Campbell <ian.campbell@docker.com>, ggarcia@abra.uab.cat,
+	virtualization@lists.linux-foundation.org,
+	Stefan Hajnoczi <stefanha@redhat.com>
+To: kvm@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1469716595-13591-1-git-send-email-stefanha@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-07-27 at 21:28 +0800, Zhu Yanjun wrote:
-> The variable get_mac_status is a bool variable. So a bool value is
-> better than an integer number.
-> 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+struct vsock_transport contains function pointers called by AF_VSOCK
+core code.  The transport may want its own transport-specific function
+pointers and they can be added after struct vsock_transport.
 
-Looks good to me.
+Allow the transport to fetch vsock_transport.  It can downcast it to
+access transport-specific function pointers.
 
-Reviewed-by: Greg Rose <grose@lightfleet.com>
+The virtio transport will use this.
 
-> ---
->  drivers/net/ethernet/intel/ixgbevf/ethtool.c      | 2 +-
->  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 4 ++--
->  2 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-> index 508e72c..ce221d1 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-> @@ -104,7 +104,7 @@ static int ixgbevf_get_settings(struct net_device *netdev,
->  	ecmd->transceiver = XCVR_DUMMY1;
->  	ecmd->port = -1;
->  
-> -	hw->mac.get_link_status = 1;
-> +	hw->mac.get_link_status = true;
->  	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
->  
->  	if (link_up) {
-> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> index acc2401..a98e7c2 100644
-> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> @@ -1285,7 +1285,7 @@ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
->  	struct ixgbevf_adapter *adapter = data;
->  	struct ixgbe_hw *hw = &adapter->hw;
->  
-> -	hw->mac.get_link_status = 1;
-> +	hw->mac.get_link_status = true;
->  
->  	ixgbevf_service_event_schedule(adapter);
->  
-> @@ -2109,7 +2109,7 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
->  	ixgbevf_save_reset_stats(adapter);
->  	ixgbevf_init_last_counter_stats(adapter);
->  
-> -	hw->mac.get_link_status = 1;
-> +	hw->mac.get_link_status = true;
->  	mod_timer(&adapter->service_timer, jiffies);
->  }
->  
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ include/net/af_vsock.h   | 3 +++
+ net/vmw_vsock/af_vsock.c | 9 +++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
+index e9eb2d6..23f5525 100644
+--- a/include/net/af_vsock.h
++++ b/include/net/af_vsock.h
+@@ -165,6 +165,9 @@ static inline int vsock_core_init(const struct vsock_transport *t)
+ }
+ void vsock_core_exit(void);
+ 
++/* The transport may downcast this to access transport-specific functions */
++const struct vsock_transport *vsock_core_get_transport(void);
++
+ /**** UTILS ****/
+ 
+ void vsock_release_pending(struct sock *pending);
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index b96ac91..e34d96f 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1995,6 +1995,15 @@ void vsock_core_exit(void)
+ }
+ EXPORT_SYMBOL_GPL(vsock_core_exit);
+ 
++const struct vsock_transport *vsock_core_get_transport(void)
++{
++	/* vsock_register_mutex not taken since only the transport uses this
++	 * function and only while registered.
++	 */
++	return transport;
++}
++EXPORT_SYMBOL_GPL(vsock_core_get_transport);
++
+ MODULE_AUTHOR("VMware, Inc.");
+ MODULE_DESCRIPTION("VMware Virtual Socket Family");
+ MODULE_VERSION("1.0.1.0-k");
+-- 
+2.7.4
+
