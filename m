@@ -1,120 +1,73 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 1/3] net: ethernet: ti: cpdma: fix lockup in
- cpdma_ctlr_destroy()
-Date: Thu, 28 Jul 2016 12:44:52 +0300
-Message-ID: <a0100f55-d930-d4b4-be9d-1ca6d21c1e70@ti.com>
-References: <20160722135847.20557-1-grygorii.strashko@ti.com>
- <20160722135847.20557-2-grygorii.strashko@ti.com>
- <fcce1940-3ca2-f5ad-bc71-8ab902c14266@linaro.org>
- <88f436f2-afe9-6a98-5887-95a1d910b57f@ti.com>
- <c9f5497e-5bdf-cf25-d1bf-309cf41f7dab@globallogic.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid context at kernel/irq/manage.c:110
+Date: Thu, 28 Jul 2016 05:46:39 -0400
+Message-ID: <18604.1469699199@turing-police.cc.vt.edu>
+References: <20160726035003.GA15095@wfg-t540p.sh.intel.com> <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com> <20160726093224.GA10339@wfg-t540p.sh.intel.com> <alpine.DEB.2.11.1607261149570.19896@nanos> <8578bb16-cd04-e8a5-c7f4-be061ede95b4@gmail.com>
+ <alpine.DEB.2.11.1607280941450.19896@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: multipart/signed; boundary="==_Exmh_1469699199_4839P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>
-To: "ivan.khoronzhuk" <ivan.khoronzhuk@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c9f5497e-5bdf-cf25-d1bf-309cf41f7dab@globallogic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nick <xerofoify@gmail.com>, Fengguang Wu <fengguang.wu@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Satyam Sharma <satyam@infradead.org>,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Ye Xiaolong <xiaolong.ye@intel.com>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound.smtp.vt.edu ([198.82.183.121]:34954 "EHLO
+	omr2.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752782AbcG1Jrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 05:47:33 -0400
+In-Reply-To: <alpine.DEB.2.11.1607280941450.19896@nanos>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/26/2016 11:54 PM, ivan.khoronzhuk wrote:
-> 
-> 
-> On 26.07.16 19:02, Grygorii Strashko wrote:
->> On 07/23/2016 09:24 AM, Ivan Khoronzhuk wrote:
->>>
->>>
->>> On 22.07.16 16:58, Grygorii Strashko wrote:
->>>> Fix deadlock in cpdma_ctlr_destroy() which is triggered now on
->>>> cpsw module removal:
->>>>  cpsw_remove()
->>>>  - cpdma_ctlr_destroy()
->>>>    - spin_lock_irqsave(&ctlr->lock, flags)
->>>>    - cpdma_ctlr_stop()
->>>>      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
->>>>    - cpdma_chan_destroy()
->>>>      - spin_lock_irqsave(&ctlr->lock, flags); <- deadlock
->>>>
->>>> The issue has not been observed before because CPDMA channels have
->>>> been destroyed manually by CPSW until commit d941ebe88a41 ("net:
->>>> ethernet: ti: cpsw: use destroy ctlr to destroy channels") was merged.
->>>>
->>>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->>>> ---
->>>>  drivers/net/ethernet/ti/davinci_cpdma.c | 2 --
->>>>  1 file changed, 2 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c
->>>> b/drivers/net/ethernet/ti/davinci_cpdma.c
->>>> index a68652a..89242e9 100644
->>>> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
->>>> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
->>>> @@ -436,7 +436,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
->>>>      if (!ctlr)
->>>>          return -EINVAL;
->>>>
->>>> -    spin_lock_irqsave(&ctlr->lock, flags);
->>> Should ctlr->state be checked under lock?
->>> Seems like here should be used unlocked static versions of
->>> cpdma_ctlr_stop() and cpdma_chan_destroy() instead.
->>
->> As per my understanding it's not expected the ctlr->state will be
->> changed at this
->> moment as all net devices has been unregistered already.
-> Seems yes, the race can be only in case of incorrect usage, stop while
-> destroy,
-> destroy while start...etc..all they are mostly unreal use-cases, you are
-> right,
-> but such check w/o lock always under eyes control, that always makes you
-> think
-> that smth wrong.
-> 
->>
->>>
->>>>      if (ctlr->state != CPDMA_STATE_IDLE)
->>
->> May be I can move above check in cpdma_ctlr_stop() instead.
->> What do you think?
-> Yes, it be more clear.
-> I was thinking about lock deletion also, as under this destroy function the
-> ctlr destroys it's resources one by one, ok, the channels are destroyed
-> under lock,
-> but pool ....(it's good that it's destroyed after channels). I see that
-> it should never
-> happen, but ctrl is external structure, who knows as it can be used
-> while destroying.
-> That was my paranoiac point, so don't pay a lot attention to it. In case
-> of normal usage,
-> as it's currently is and should be, the lock can be removed.
+--==_Exmh_1469699199_4839P
+Content-Type: text/plain; charset=us-ascii
+
+On Thu, 28 Jul 2016 09:45:12 +0200, Thomas Gleixner said:
+> On Tue, 26 Jul 2016, nick wrote:
+> > diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > index f42129d..e1830af 100644
+> > --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > @@ -3797,7 +3797,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+> >  		hw->get_link_status = 1;
+> >  		/* guard against interrupt when we're going down */
+> >  		if (!test_bit(__E1000_DOWN, &adapter->flags))
+> > -			schedule_delayed_work(&adapter->watchdog_task, 1);
+> > +			mod_work(&adapter->watchdog_task, jiffies + 1);
+>
+> And that's not even funny anymore. Are you using a random generator to create
+> these patches?
+
+At some point, we need to decide if the occasional accidentally-correct
+trivial patch from Nick is worth all the wasted maintainer time.
 
 
-I'm going to keep it as is after some thinking and code checking -
-I don't see any reasons for races here and I can't simply move this check in cpdma_ctlr_stop() 
-as it might break ndo_open failure handling (and this is not smth. I'd like to fix within this series).
+--==_Exmh_1469699199_4839P
+Content-Type: application/pgp-signature
 
-I'll resend v2 with build issue fixed and with fix for new issue I've found.
-> 
->>
->>>>          cpdma_ctlr_stop(ctlr);
->>>>
->>>> @@ -444,7 +443,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
->>>>          cpdma_chan_destroy(ctlr->channels[i]);
->>>>
->>>>      cpdma_desc_pool_destroy(ctlr->pool);
->>>> -    spin_unlock_irqrestore(&ctlr->lock, flags);
->>>>      return ret;
->>>>  }
->>>>  EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
->>>>
->>>
->>
->>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
 
+iQIVAwUBV5nUfwdmEQWDXROgAQJ4Vg//U+1L0Pj9u4cmFhgXZ5LiLTlYJlno1/Iv
+1eegThUDVlS7RSZl6aTzYGcTj9/L8jcprXtIid1RgBMYCT1WZNwIjqx/6ruRbG1q
+1B5SbqzfkkrYUEZazTMxScaGa9cTFFBuTM+UE9gpdD+2hmtXqPt1MK0Bl6TT7chL
+0WIIx4QD/dYONfTndrlKdJ04154xFkZ8WRmeuJDrdgHHTCttiB8QfqxPiX4W7MZp
+wYryUy7qB51XjoBBWo6TFdlP0rFI7ChwhPi0ljexn1LYWGyD7Ac0KpI7bk626OrI
+yC6M/Ri9aL9ra+5pepmpd5Iux8GfJGGd53ViwbPhGuakBgSJoyOiv+yxwVFpw1wX
+10kajEE70PVXD+wMMC3tcYXrrOZgMzzvVZbj+uEu/ZXWAJsJrmIF3Pcz0gidjL9g
+VFdX8fIlyaVoL0jjlEvXoQmVD6FiZx6uWrFVenSz0NmrdlxPJmjE9Ye+Up++BTAz
+o8bbmrv6P284dDJN0HH8CaFXfGmuo0hnnjFlBEZ4xVbiMKwLgG299g8ho2kGKQ4y
+7sTHjKf5HIc7QFr3h0BVLkZYsfAyEhqijxcYMO1x2MkrpfBSTmx2ZYcJ6p5jeWoL
+feULe0PRvuS1eCYtEk/BLt9hT5RICic57W0qVbDHJMBmsY4G6YMWjTPgicfWr3Jd
+Tap/Gdii9Jw=
+=NQE8
+-----END PGP SIGNATURE-----
 
--- 
-regards,
--grygorii
+--==_Exmh_1469699199_4839P--
