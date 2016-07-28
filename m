@@ -1,59 +1,48 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
 Subject: Re: [PATCH v4] net: sched: convert qdisc linked list to hashtable
-Date: Thu, 28 Jul 2016 09:52:57 -0700
-Message-ID: <CAM_iQpWbCuhG0_8ow=iszpJKMp4z-2gqoBf2gN6SDftyb2t54A@mail.gmail.com>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
- <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160414151813.GE3715@orbyte.nwl.cc> <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
- <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
- <5710E1C1.2090209@mojatatu.com> <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm> <alpine.LNX.2.00.1607072234190.24757@cbobk.fhfr.pm>
- <alpine.LNX.2.00.1607111557080.24757@cbobk.fhfr.pm> <alpine.LNX.2.00.1607281155020.24757@cbobk.fhfr.pm>
+Date: Thu, 28 Jul 2016 09:53:55 -0700
+Message-ID: <CAM_iQpWjES+zBJZvPgOHLDUQxeNwo4raapTYjGRT=nhHsoom7w@mail.gmail.com>
+References: <201607281957.yJSK4rUm%fengguang.wu@intel.com> <alpine.LNX.2.00.1607281317350.24757@cbobk.fhfr.pm>
+ <20160728125312.GB25433@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Jiri Kosina <jikos@kernel.org>, kbuild-all@01.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Phil Sutter <phil@nwl.cc>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35915 "EHLO
-	mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932581AbcG1QxS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 12:53:18 -0400
-In-Reply-To: <alpine.LNX.2.00.1607281155020.24757@cbobk.fhfr.pm>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Fengguang Wu <lkp@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160728125312.GB25433@wfg-t540p.sh.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 28, 2016 at 2:56 AM, Jiri Kosina <jikos@kernel.org> wrote:
-> From: Jiri Kosina <jkosina@suse.cz>
+On Thu, Jul 28, 2016 at 5:53 AM, Fengguang Wu <lkp@intel.com> wrote:
+> On Thu, Jul 28, 2016 at 01:18:27PM +0200, Jiri Kosina wrote:
+>> This issue is be there even without my patch (but with qdisc_list_add
+>> instead), isn't it?
 >
-> Convert the per-device linked list into a hashtable. The primary
-> motivation for this change is that currently, we're not tracking all the
-> qdiscs in hierarchy (e.g. excluding default qdiscs), as the lookup
-> performed over the linked list by qdisc_match_from_root() is rather
-> expensive.
 >
-> The ultimate goal is to get rid of hidden qdiscs completely, which will
-> bring much more determinism in user experience.
+> Yes it looks so, this number happens in a number of places:
 >
-> As we're adding hashtable.h include into generic netdevice.h, we have to
-> make sure HASH_SIZE macro is now non-conflicting with local definitions.
+> dns_query.c:(.text+0x39b84): undefined reference to `qdisc_hash_add'
+> include/linux/netdevice.h:1935: undefined reference to `qdisc_hash_add'
+> net/core/netevent.c:31: undefined reference to `qdisc_hash_add'
+> net/sched/sch_generic.c:789: undefined reference to `qdisc_hash_add'
+> sch_generic.c:(.text+0x33487): undefined reference to `qdisc_hash_add'
+> switchdev.c:(.text+0x3bf58): undefined reference to `qdisc_hash_add'
+> sysctl_net.c:(.text+0x31f70): undefined reference to `qdisc_hash_add'
+> (.text.dev_activate+0x228): undefined reference to `qdisc_hash_add'
+> (.text+0x37d0b): undefined reference to `qdisc_hash_add'
+> wext-proc.c:(.text+0x390a8): undefined reference to `qdisc_hash_add'
 >
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-> ---
-> v1 -> v2:     fix up RCU hastable usage wrt. rtnl
->               fix compilation of .c files which define their own
->               HASH_SIZE that now oncflicts with the one from
->               hashtable.h (newly included via netdevice.h)
+>> The problem is that sch_generic.c (where dev_activate() is) is being
+>> compiled everytime CONFIG_NET is set, but sch_api.c (where
+>> qdisc_list_add() is defined) only when CONFIG_NET_SCHED is set (and there
+>> is no stub for !CONFIG_NET_SCHED case).
 >
-> v2 -> v3:     resolve HASH_SIZE identifier conflicts in a cleaner way
->               fix up the number of hash bucket bits (4 bits for 16 buckets)
 >
-> v3 -> v4:     put the hastable into struct netdevice only if
->               CONFIG_NET_SCHED has been enabled
+> So it looks like a more general problem than specific to this patch.
 
-Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Thanks!
+Agreed. I can send a patch if Jiri doesn't. ;)
