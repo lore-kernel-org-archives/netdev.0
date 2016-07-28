@@ -1,46 +1,42 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] drivers: net: phy: xgene: Remove redundant dev_err call in xgene_mdio_probe()
-Date: Thu, 28 Jul 2016 02:12:17 +0000
-Message-ID: <1469671937-13265-1-git-send-email-weiyj.lk@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: use printk instead of WARN for bad policy reporting
+Date: Thu, 28 Jul 2016 06:57:47 +0200
+Message-ID: <20160728045747.GH5710@gauss.secunet.com>
+References: <1469003555-30599-1-git-send-email-vegard.nossum@oracle.com>
+ <20160720121520.GD3775@gauss.secunet.com>
+ <57984EA6.3040205@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
-To: Iyappan Subramanian <isubramanian@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	<netdev@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32780 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754062AbcG1CMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 22:12:32 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i6so2778978pfe.0
-        for <netdev@vger.kernel.org>; Wed, 27 Jul 2016 19:12:32 -0700 (PDT)
+Received: from a.mx.secunet.com ([62.96.220.36]:33780 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751361AbcG1E5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Jul 2016 00:57:54 -0400
+Content-Disposition: inline
+In-Reply-To: <57984EA6.3040205@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a error message within devm_ioremap_resource
-already, so remove the dev_err call to avoid redundant
-error message.
+On Wed, Jul 27, 2016 at 08:03:18AM +0200, Vegard Nossum wrote:
+> Subject: [PATCH] xfrm: get rid of incorrect WARN
+> 
+> AFAICT this message is just printed whenever input validation fails.
+> This is a normal failure and we shouldn't be dumping the stack over it.
+> 
+> Looks like it was originally a printk that was maybe incorrectly
+> upgraded to a WARN:
+> 
+> commit 62db5cfd70b1ef53aa21f144a806fe3b78c84fab
+> Author: stephen hemminger <shemminger@vyatta.com>
+> Date:   Wed May 12 06:37:06 2010 +0000
+> 
+>     xfrm: add severity to printk
+> 
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 
-Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
----
- drivers/net/phy/mdio-xgene.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/phy/mdio-xgene.c b/drivers/net/phy/mdio-xgene.c
-index d94a978..7756748 100644
---- a/drivers/net/phy/mdio-xgene.c
-+++ b/drivers/net/phy/mdio-xgene.c
-@@ -345,10 +345,8 @@ static int xgene_mdio_probe(struct platform_device *pdev)
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	csr_base = devm_ioremap_resource(dev, res);
--	if (IS_ERR(csr_base)) {
--		dev_err(dev, "Unable to retrieve mac CSR region\n");
-+	if (IS_ERR(csr_base))
- 		return PTR_ERR(csr_base);
--	}
- 	pdata->mac_csr_addr = csr_base;
- 	pdata->mdio_csr_addr = csr_base + BLOCK_XG_MDIO_CSR_OFFSET;
- 	pdata->diag_csr_addr = csr_base + BLOCK_DIAG_CSR_OFFSET;
+Applied to the ipsec tree, thanks!
