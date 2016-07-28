@@ -1,52 +1,92 @@
-From: alexmcwhirter@triadic.us
-Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
-Date: Wed, 27 Jul 2016 20:26:48 -0400
-Message-ID: <8b3126f66186015956e0f8090fb70532@triadic.us>
-References: <201607271032.u6RAWPcS008174@sdf.org>
- <4dbfebe8136bc963b5b51463d6887db4@triadic.us>
- <87c4ed555bcb4229f2334f6f2bb69bcb@triadic.us>
- <20160727.164543.1466564919313003461.davem@davemloft.net>
- <20160728003102.GS2356@ZenIV.linux.org.uk>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH 06/15] ethernet: hisilicon: hns: hns_dsaf_mac: add missing
+ of_node_put after calling of_parse_phandle
+Date: Thu, 28 Jul 2016 08:38:08 +0800
+Message-ID: <579953F0.5010906@huawei.com>
+References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
+ <1469586048-15697-7-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rlwinm@sdf.org,
-	chunkeey@googlemail.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Al Viro <viro@ftp.linux.org.uk>
-To: Al Viro <viro@zeniv.linux.org.uk>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
+	<isubramanian@apm.com>, <kchudgar@apm.com>,
+	<salil.mehta@huawei.com>, <thomas.petazzoni@free-electrons.com>,
+	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
+	<alexandre.torgue@st.com>, <mugunthanvnm@ti.com>,
+	<tremyfr@gmail.com>, <wxt@rock-chips.com>, <arnd@arndb.de>,
+	<david.daney@cavium.com>, <huangdaode@hisilicon.com>,
+	<jszhang@marvell.com>
+To: Peter Chen <peter.chen@nxp.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.tech.triadic.us ([98.102.61.98]:46355 "EHLO
-	SMTP.Tech.Triadic.US" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758277AbcG1Ahf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 20:37:35 -0400
-In-Reply-To: <20160728003102.GS2356@ZenIV.linux.org.uk>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:34118 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758277AbcG1AjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 20:39:01 -0400
+In-Reply-To: <1469586048-15697-7-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-07-27 20:31, Al Viro wrote:
-> On Wed, Jul 27, 2016 at 04:45:43PM -0700, David Miller wrote:
-> 
->> > I highly expect both my issue and OP's issue to revolve not around
->> > commit e5a4b0bb803b specifically, but around other code that no longer
->> > behaves as expected because of it.
->> 
->> Indeed, and that fault address rounding bug occurs two other times
->> in arch/sparc/lib/user_fixup.c
->> 
->> The mentioned patchwork patch should fix the bug and I'll get that
->> into my sparc tree, merged, and queued up for -stable ASAP.
-> 
-> Plausible for sparc, but I don't see similar __copy_to_user_inatomic()
-> bugs in case of x86_64...
 
-I'm going to go ahead and say this is where my issue and the op's issue 
-begin to branch apart from one another. He's seeing this on all incoming 
-data, whereas i am only seeing it on ssl data and not on sun4v.
 
-At this point i would say data from my issue is only going to cloud this 
-issue as they seem to be two completely different issues revolving 
-around the same commit. If i come across any relevant data for x86_64 
-ill be sure to post it if this isn't resolved by then, but for now i'm 
-going to refrain from submitting anything sparc related.
+=E5=9C=A8 2016/7/27 10:20, Peter Chen =E5=86=99=E9=81=93:
+> of_node_put needs to be called when the device node which is got
+> from of_parse_phandle has finished using.
+>=20
+> Signed-off-by: Peter Chen <peter.chen@nxp.com>
+> ---
+>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 9 ++++++---
+>  1 file changed, 6 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/driv=
+ers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> index 3fb87e2..18d72ea 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+> @@ -786,6 +786,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *m=
+ac_cb)
+>  		np =3D of_parse_phandle(mac_cb->dev->of_node, "phy-handle",
+>  				      mac_cb->mac_id);
+>  		mac_cb->phy_dev =3D of_phy_find_device(np);
+> +		of_node_put(np);
+>  		if (mac_cb->phy_dev) {
+>  			/* refcount is held by of_phy_find_device()
+>  			 * if the phy_dev is found
+
+np is accessed in case of of_phy_find_device() returns a no null value,=
+ so it has to be
+moved after the dev_dbg log.
+
+> @@ -804,6 +805,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *m=
+ac_cb)
+>  		np =3D of_parse_phandle(to_of_node(mac_cb->fw_port),
+>  				      "phy-handle", 0);
+>  		mac_cb->phy_dev =3D of_phy_find_device(np);
+> +		of_node_put(np);
+>  		if (mac_cb->phy_dev) {
+>  			/* refcount is held by of_phy_find_device()
+>  			 * if the phy_dev is found
+
+np is accessed in case of of_phy_find_device() returns a no null value,=
+ so it has to be
+moved after the dev_dbg log.
+
+Thanks,
+
+Yisen
+
+> @@ -813,9 +815,10 @@ static int  hns_mac_get_info(struct hns_mac_cb *=
+mac_cb)
+>  				mac_cb->mac_id, np->name);
+>  		}
+> =20
+> -		syscon =3D syscon_node_to_regmap(
+> -				of_parse_phandle(to_of_node(mac_cb->fw_port),
+> -						 "serdes-syscon", 0));
+> +		np =3D of_parse_phandle(to_of_node(mac_cb->fw_port),
+> +					"serdes-syscon", 0);
+> +		syscon =3D syscon_node_to_regmap(np);
+> +		of_node_put(np);
+>  		if (IS_ERR_OR_NULL(syscon)) {
+>  			dev_err(mac_cb->dev, "serdes-syscon is needed!\n");
+>  			return -EINVAL;
+>=20
