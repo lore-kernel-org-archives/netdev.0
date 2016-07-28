@@ -1,62 +1,31 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net] cxgb4/cxgb4vf: Fixes regression in perf when tx vlan offload is disabled
-Date: Thu, 28 Jul 2016 13:28:57 +0530
-Message-ID: <1469692737-19583-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
+From: ashwanth@codeaurora.org
+Subject: Uncreachable default lo route in table 0
+Date: Thu, 28 Jul 2016 13:31:46 +0530
+Message-ID: <1c8b25ef7ed1c8a79a5ad932e802ea65@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "eric.dumazet@gmail.com" <roszenrami@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:38314 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750946AbcG1Hxd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 03:53:33 -0400
+Received: from smtp.codeaurora.org ([198.145.29.96]:55794 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001AbcG1IBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 04:01:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 637d3e997351 ("cxgb4: Discard the packet if the length is
-greater than mtu") introduced a regression in the VLAN interface
-performance when Tx VLAN offload is disabled.
 
-Check if skb is tagged, regardless of whether it is hardware accelerated
-or not. Presently we were checking only for hardware acclereated one,
-which caused performance to drop to ~0.17Mbps on a 10GbE adapter for
-VLAN interface, when tx vlan offload is turned off using ethtool.
-The ethernet head length calculation was going wrong in this case, and
-driver ended up dropping packets.
+On an Android device(using 3.18 kernel version) we see multiple entries 
+as the following added to the route table 0(unspec) by kernel. We 
+noticed that this typically happens when we toggle WIFI repeatedly. The 
+problem we see is that under such stress test, the table 0 gets filled 
+with these entries(4096) and after that no further routes can get added 
+leading to unstability.
 
-Fixes: 637d3e997351 ("cxgb4: Discard the packet if the length is greater than mtu")
+unreachable default dev lo table 0 proto kernel metric 4294967295 error 
+-101
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/sge.c   | 2 +-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index bad253beb8c8..ad3552df0545 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -1192,7 +1192,7 @@ out_free:	dev_kfree_skb_any(skb);
- 
- 	/* Discard the packet if the length is greater than mtu */
- 	max_pkt_len = ETH_HLEN + dev->mtu;
--	if (skb_vlan_tag_present(skb))
-+	if (skb_vlan_tagged(skb))
- 		max_pkt_len += VLAN_HLEN;
- 	if (!skb_shinfo(skb)->gso_size && (unlikely(skb->len > max_pkt_len)))
- 		goto out_free;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 1bb57d3fbbe8..c8fd4f8fe1fa 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1188,7 +1188,7 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* Discard the packet if the length is greater than mtu */
- 	max_pkt_len = ETH_HLEN + dev->mtu;
--	if (skb_vlan_tag_present(skb))
-+	if (skb_vlan_tagged(skb))
- 		max_pkt_len += VLAN_HLEN;
- 	if (!skb_shinfo(skb)->gso_size && (unlikely(skb->len > max_pkt_len)))
- 		goto out_free;
--- 
-2.3.4
+Can you please let us know why does this route get added for lo device 
+and when is this supposed to be flushed out?
