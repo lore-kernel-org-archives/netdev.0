@@ -1,67 +1,70 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
- context at kernel/irq/manage.c:110
-Date: Thu, 28 Jul 2016 14:21:16 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1607281414040.19896@nanos>
-References: <20160726035003.GA15095@wfg-t540p.sh.intel.com> <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com> <1469655487.2232.49.camel@intel.com> <1469684635.9389.4.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160728101958.GA26846@bistromath.localdomain>
+From: Fengguang Wu <lkp@intel.com>
+Subject: Re: [RFC PATCH v3] net: sched: convert qdisc linked list to hashtable
+Date: Thu, 28 Jul 2016 20:51:57 +0800
+Message-ID: <20160728125157.GA25433@wfg-t540p.sh.intel.com>
+References: <201607120341.UDv5wy6R%fengguang.wu@intel.com>
+ <alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Satyam Sharma <satyam@infradead.org>,
-	intel-wired-lan@lists.osuosl.org,
-	Ye Xiaolong <xiaolong.ye@intel.com>
-To: Sabrina Dubroca <sd@queasysnail.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:48937 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757367AbcG1MXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 08:23:32 -0400
-In-Reply-To: <20160728101958.GA26846@bistromath.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Jul 2016, Sabrina Dubroca wrote:
-> 2016-07-28, 07:43:55 +0200, Eric Dumazet wrote:
-> > I would prefer having a definitive advice from Thomas Gleixner and/or
-> > others if disable_irq() is forbidden from IRQ path.
+Hi Jiri,
 
-Yes it is. Before we added threaded interrupt handlers it was not an issue,
-but with (possibly) threaded interrupts it's an absolute no-no.
-
-> > As I said, about all netpoll() methods in net drivers use disable_irq()
-> > so a lot of patches would be needed.
-> > 
-> > disable_irq() should then test this condition earlier, so that we can
-> > detect potential bug, even if the IRQ is not (yet) threaded.
-> 
-> The idea when this first came up was to skip the sleeping part of
-> disable_irq():
-> 
-> http://marc.info/?l=linux-netdev&m=142314159626052
-> 
-> This fell off my todolist and I didn't send the conversion patches,
-> which would basically look like this:
+On Thu, Jul 14, 2016 at 04:14:58PM +0200, Jiri Kosina wrote:
 >
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 41f32c0b341e..b022691e680b 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -6713,20 +6713,20 @@ static irqreturn_t e1000_intr_msix(int __always_unused irq, void *data)
->  
->  		vector = 0;
->  		msix_irq = adapter->msix_entries[vector].vector;
-> -		disable_irq(msix_irq);
-> -		e1000_intr_msix_rx(msix_irq, netdev);
-> +		if (disable_hardirq(msix_irq))
-> +			e1000_intr_msix_rx(msix_irq, netdev);
->  		enable_irq(msix_irq);
+>[ added CCs ]
+>
+>On Tue, 12 Jul 2016, kbuild test robot wrote:
+>
+>> Hi,
+>>
+>> [auto build test ERROR on net/master]
+>> [also build test ERROR on v4.7-rc7 next-20160711]
+>> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+>>
+>> url:    https://github.com/0day-ci/linux/commits/Jiri-Kosina/net-sched-convert-qdisc-linked-list-to-hashtable/20160711-220527
+>> config: arm-tct_hammer_defconfig (attached as .config)
+>> compiler: arm-linux-gnueabi-gcc (Debian 5.3.1-8) 5.3.1 20160205
+>> reproduce:
+>>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>>         chmod +x ~/bin/make.cross
+>>         # save the attached .config to linux build tree
+>>         make.cross ARCH=arm
+>>
+>> All errors (new ones prefixed by >>):
+>>
+>>    net/built-in.o: In function `dev_activate':
+>> >> wext-proc.c:(.text+0x38544): undefined reference to `qdisc_hash_add'
+>
+>This issue is be there even without my patch (but with qdisc_list_add
+>instead), isn't it?
 
-That'll work nicely even when one of the affected interrupts is threaded.
+Yes it looks so, this number happens in a number of places:
+
+dns_query.c:(.text+0x39b84): undefined reference to `qdisc_hash_add'
+include/linux/netdevice.h:1935: undefined reference to `qdisc_hash_add'
+net/core/netevent.c:31: undefined reference to `qdisc_hash_add'
+net/sched/sch_generic.c:789: undefined reference to `qdisc_hash_add'
+sch_generic.c:(.text+0x33487): undefined reference to `qdisc_hash_add'
+switchdev.c:(.text+0x3bf58): undefined reference to `qdisc_hash_add'
+sysctl_net.c:(.text+0x31f70): undefined reference to `qdisc_hash_add'
+(.text.dev_activate+0x228): undefined reference to `qdisc_hash_add'
+(.text+0x37d0b): undefined reference to `qdisc_hash_add'
+wext-proc.c:(.text+0x390a8): undefined reference to `qdisc_hash_add'
+
+>The problem is that sch_generic.c (where dev_activate() is) is being
+>compiled everytime CONFIG_NET is set, but sch_api.c (where
+>qdisc_list_add() is defined) only when CONFIG_NET_SCHED is set (and there
+>is no stub for !CONFIG_NET_SCHED case).
+
+So it looks like a more general problem than specific to this patch.
 
 Thanks,
-
-	tglx
+Fengguang
