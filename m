@@ -1,100 +1,100 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 4/4] ARM: OMAP2+: omap_device: fix crash on omap_device removal
-Date: Thu, 28 Jul 2016 20:50:37 +0300
-Message-ID: <20160728175037.22053-5-grygorii.strashko@ti.com>
-References: <20160728175037.22053-1-grygorii.strashko@ti.com>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2 3/5] ARM: sun8i: dt: Add DT bindings
+ documentation for Allwinner sun8i-emac
+Date: Thu, 28 Jul 2016 20:49:16 +0200
+Message-ID: <20160728184916.GF6682@lukather>
+References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1469001800-11615-4-git-send-email-clabbe.montjoie@gmail.com>
+ <20160721075519.GC5993@lukather>
+ <20160728134031.GC7582@Red>
+Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Tony Lindgren <tony@atomide.com>, Tero Kristo <t-kristo@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:43542 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932403AbcG1Ruy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 13:50:54 -0400
-In-Reply-To: <20160728175037.22053-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="vKFfOv5t3oGVpiF+"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDSJBYGBRIMBBLVH5G6AKGQEQ6C2LQI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20160728134031.GC7582@Red>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-Below call chain causes system crash when OMAP device is
-removed by calling of_platform_depopulate()/device_del():
 
-device_del()
-- blocking_notifier_call_chain(&dev->bus->p->bus_notifier,
- 			     BUS_NOTIFY_DEL_DEVICE, dev);
-  - _omap_device_notifier_call()
-    - omap_device_delete()
-      - od->pdev->archdata.od = NULL;
-	kfree(od->hwmods);
-	kfree(od);
-  - bus_remove_device()
-    - device_release_driver()
-      - __device_release_driver()
-	- pm_runtime_get_sync()
-	   - _od_runtime_resume()
-	     - omap_hwmod_enable() <- OOPS od's delted already
+--vKFfOv5t3oGVpiF+
+Content-Type: text/plain; charset=UTF-8
+Content-Disposition: inline
 
-Backtrace:
-Unable to handle kernel NULL pointer dereference at virtual address 0000000d
-pgd = eb100000
-[0000000d] *pgd=ad6e1831, *pte=00000000, *ppte=00000000
-Internal error: Oops: 17 [#1] PREEMPT SMP ARM
-CPU: 1 PID: 1273 Comm: modprobe Not tainted 4.4.15-rt19-00115-ge4d3cd3-dirty #68
-Hardware name: Generic DRA74X (Flattened Device Tree)
-task: eb1ee800 ti: ec962000 task.ti: ec962000
-PC is at omap_device_enable+0x10/0x90
-LR is at _od_runtime_resume+0x10/0x24
-[...]
-[<c00299dc>] (omap_device_enable) from [<c0029a6c>] (_od_runtime_resume+0x10/0x24)
-[<c0029a6c>] (_od_runtime_resume) from [<c04ad404>] (__rpm_callback+0x20/0x34)
-[<c04ad404>] (__rpm_callback) from [<c04ad438>] (rpm_callback+0x20/0x80)
-[<c04ad438>] (rpm_callback) from [<c04aee28>] (rpm_resume+0x48c/0x964)
-[<c04aee28>] (rpm_resume) from [<c04af360>] (__pm_runtime_resume+0x60/0x88)
-[<c04af360>] (__pm_runtime_resume) from [<c04a4974>] (__device_release_driver+0x30/0x100)
-[<c04a4974>] (__device_release_driver) from [<c04a4a60>] (device_release_driver+0x1c/0x28)
-[<c04a4a60>] (device_release_driver) from [<c04a38c0>] (bus_remove_device+0xec/0x144)
-[<c04a38c0>] (bus_remove_device) from [<c04a0764>] (device_del+0x10c/0x210)
-[<c04a0764>] (device_del) from [<c04a67b0>] (platform_device_del+0x18/0x84)
-[<c04a67b0>] (platform_device_del) from [<c04a6828>] (platform_device_unregister+0xc/0x20)
-[<c04a6828>] (platform_device_unregister) from [<c05adcfc>] (of_platform_device_destroy+0x8c/0x90)
-[<c05adcfc>] (of_platform_device_destroy) from [<c04a02f0>] (device_for_each_child+0x4c/0x78)
-[<c04a02f0>] (device_for_each_child) from [<c05adc5c>] (of_platform_depopulate+0x30/0x44)
-[<c05adc5c>] (of_platform_depopulate) from [<bf123920>] (cpsw_remove+0x68/0xf4 [ti_cpsw])
-[<bf123920>] (cpsw_remove [ti_cpsw]) from [<c04a68d8>] (platform_drv_remove+0x24/0x3c)
-[<c04a68d8>] (platform_drv_remove) from [<c04a49c8>] (__device_release_driver+0x84/0x100)
-[<c04a49c8>] (__device_release_driver) from [<c04a4b20>] (driver_detach+0xac/0xb0)
-[<c04a4b20>] (driver_detach) from [<c04a3be8>] (bus_remove_driver+0x60/0xd4)
-[<c04a3be8>] (bus_remove_driver) from [<c00d9870>] (SyS_delete_module+0x184/0x20c)
-[<c00d9870>] (SyS_delete_module) from [<c0010540>] (ret_fast_syscall+0x0/0x1c)
-Code: e3500000 e92d4070 1590630c 01a06000 (e5d6300d)
+On Thu, Jul 28, 2016 at 03:40:31PM +0200, LABBE Corentin wrote:
+> On Thu, Jul 21, 2016 at 09:55:19AM +0200, Maxime Ripard wrote:
+> > Hi,
+> > 
+> > On Wed, Jul 20, 2016 at 10:03:18AM +0200, LABBE Corentin wrote:
+> > > This patch adds documentation for Device-Tree bindings for the
+> > > Allwinner sun8i-emac driver.
+> > > 
+> > > Signed-off-by: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > ---
+> > >  .../bindings/net/allwinner,sun8i-emac.txt          | 65 ++++++++++++++++++++++
+> > >  1 file changed, 65 insertions(+)
+> > >  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> > > 
+> > > diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> > > new file mode 100644
+> > > index 0000000..4bf4e53
+> > > --- /dev/null
+> > > +++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
+> > > @@ -0,0 +1,65 @@
+> > > +* Allwinner sun8i EMAC ethernet controller
+> > > +
+> > > +Required properties:
+> > > +- compatible: "allwinner,sun8i-a83t-emac", "allwinner,sun8i-h3-emac",
+> > > +		or "allwinner,sun50i-a64-emac"
+> > > +- reg: address and length of the register sets for the device.
+> > > +- reg-names: should be "emac" and "syscon", matching the register sets
+> > 
+> > Blindly mapping a register of some other device on the SoC doesn't
+> > look very reasonable.
+> 
+> As we discuss after this mail on IRC, this register is dedicated to EMAC.
 
-Hence, fix it by using BUS_NOTIFY_REMOVED_DEVICE event for OMAP device
-deletion which is sent when DD has finished processing of device
-deletion.
+I don't think we did. It's still right in the middle of some other
+hardware block register space. You actually have a syscon driver to do
+just that, why not use it?
 
-Cc: Tony Lindgren <tony@atomide.com>
-Cc: Tero Kristo <t-kristo@ti.com>
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- arch/arm/mach-omap2/omap_device.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> > > +See ethernet.txt in the same directory for generic bindings for ethernet
+> > > +controllers.
+> > > +
+> > > +The device node referenced by "phy" or "phy-handle" should be a child node
+> > > +of this node. See phy.txt for the generic PHY bindings.
+> > > +
+> > > +Optional properties:
+> > > +- phy-supply: phandle to a regulator if the PHY needs one
+> > > +- phy-io-supply: phandle to a regulator if the PHY needs a another one for I/O.
+> > > +		 This is sometimes found with RGMII PHYs, which use a second
+> > > +		 regulator for the lower I/O voltage.
+> > > +- allwinner,tx-delay: The setting of the TX clock delay chain
+> > > +- allwinner,rx-delay: The setting of the RX clock delay chain
+> > 
+> > In which unit? What is the default value?
+> 
+> The unit is unknown to me, but I have added a comment for the
+> default and acceptable range value.
 
-diff --git a/arch/arm/mach-omap2/omap_device.c b/arch/arm/mach-omap2/omap_device.c
-index f7ff3b9..208f115 100644
---- a/arch/arm/mach-omap2/omap_device.c
-+++ b/arch/arm/mach-omap2/omap_device.c
-@@ -194,7 +194,7 @@ static int _omap_device_notifier_call(struct notifier_block *nb,
- 	int err;
- 
- 	switch (event) {
--	case BUS_NOTIFY_DEL_DEVICE:
-+	case BUS_NOTIFY_REMOVED_DEVICE:
- 		if (pdev->archdata.od)
- 			omap_device_delete(pdev->archdata.od);
- 		break;
+That's unfortunate. We'll see how the DT maintainers feel about that.
+
+Maxime
+
 -- 
-2.9.2
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--vKFfOv5t3oGVpiF+--
