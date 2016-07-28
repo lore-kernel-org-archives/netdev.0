@@ -1,24 +1,43 @@
-From: "hi" <soccerballboy77@aol.com>
-Subject: =?utf-8?B?44qjSGk=?=
-Date: Fri, 29 Jul 2016 05:31:31 +0800
-Message-ID: <634FFFD701369888FE552535D30F6330@ndkgbss>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net 1/3] r8169:fix kernel log spam when set or get
+ hardware wol setting.
+Date: Fri, 29 Jul 2016 00:13:50 +0200
+Message-ID: <20160728221350.GA22625@electric-eye.fr.zoreil.com>
+References: <1469637668-8751-1-git-send-email-hau@realtek.com>
+ <1469637668-8751-2-git-send-email-hau@realtek.com>
+ <20160727221001.GA3338@electric-eye.fr.zoreil.com>
+ <80377ECBC5453840BA8C7155328B53770143B749@RTITMBSV03.realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <talijansnezana@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	nic_swsd <nic_swsd@realtek.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Hau <hau@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oms-a010e.mx.aol.com ([204.29.186.151]:33482 "EHLO
-	oms-a010e.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758517AbcG1Vbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 17:31:47 -0400
-Received: from omr-a006e.mx.aol.com (omr-a006.mx.aol.com [10.72.105.230])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by oms-a010e.mx.aol.com (AOL Outbound OMS Interface) with ESMTPS id 01E2C38000A0
-	for <netdev@vger.kernel.org>; Thu, 28 Jul 2016 17:31:40 -0400 (EDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46036 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961AbcG1WN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 18:13:58 -0400
+Content-Disposition: inline
+In-Reply-To: <80377ECBC5453840BA8C7155328B53770143B749@RTITMBSV03.realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-aGkNCnRoaXMgaXMgYW4gZWxlY3Ryb25pY3Mgc2hvcA0KYmlrZSxicmFuZCBndWl0YXIsY2FtZXJh
-LHR2LHNhbXN1bmcgcHJvZHVjdC4uLi4gZnJlZSBzaGlwcGluZw0Kd3d3IC5zbG9vb25lIC5jb20=
+Hau <hau@realtek.com> :
+[...]
+> > Either the driver resumes the device so that it can perform requested
+> > operation or it signals .set_wol failure when the device is suspended.
+> > 
+> > If the driver does something else, "spam removal" translates to "silent
+> > failure".
+> 
+> Because "tp->saved_wolopts" will be used to set hardware wol capability in
+> rtl8169_runtime_resume().  So I prefer to keep "wol->wolopts" to
+> " tp->saved_wolopts " in runtime suspend state and set this to this
+> "wol->wolopts" to hardware in in rtl8169_runtime_resume(). 
+
+It would be fine if it could be proven that rtl8169_runtime_resume() will
+always be run before software state is lost.
+
+-- 
+Ueimor
