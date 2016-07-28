@@ -1,78 +1,67 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [RFC] net/mlx5_core/en_main: Remove deprecated create_workqueue
-Date: Fri, 29 Jul 2016 01:30:05 +0300
-Message-ID: <CALzJLG_B4q2TeAy9U+8nZisYtw8+MfwT8or81mBsPJ=VFLxBqw@mail.gmail.com>
-References: <20160727061229.GA16943@Karyakshetra>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH] net/mlx5_core/pagealloc: Remove deprecated create_singlethread_workqueue
+Date: Fri, 29 Jul 2016 01:44:41 +0300
+Message-ID: <CALzJLG-ZTnD29hyGpt2jFN=UJ4-CVBwx-f9n8XSnBaZpNR+aeA@mail.gmail.com>
+References: <20160728081949.GA5561@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>
-To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160727061229.GA16943@Karyakshetra>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160728081949.GA5561@Karyakshetra>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 27, 2016 at 9:12 AM, Bhaktipriya Shridhar
-<bhaktipriya96@gmail.com> wrote:
-> alloc_ordered_workqueue() with WQ_MEM_RECLAIM set replaces
-> deprecated create_singlethread_workqueue(). This is the identity
-> conversion.
+On Thu, Jul 28, 2016 at 11:19 AM, Bhaktipriya Shridhar
+<bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> A dedicated workqueue has been used since the work items are being used
+> on a memory reclaim path. WQ_MEM_RECLAIM has been set to guarantee forward
+> progress under memory pressure.
 >
-> A dedicated workqueue has been used since mlx5e workqueue was created to
-> handle all mlx5e specific tasks. This is in preparation for vxlan using
-> the mlx5e workqueue in order to schedule port add/remove operations.
-> WQ_MEM_RECLAIM has been set to guarantee forward progress under memory
-> pressure.
+> The workqueue has a single work item. Hence, alloc_workqueue() is used
+> instead of alloc_ordered_workqueue() since ordering is unnecessary when
+> there's only one work item.
+
+let's keep the current behavior (ST WQ) because at the moment we don't
+know how this WQ will evolve in the future, the original author had
+something in mind .. let's keep.
+
 >
-> Can the workitems be executed concurrently?
-
-well, the work items that currently using the mlx5e WQ are:
-
-priv->update_carrier_work : Read hardware link state and update netdev carrier
-priv->update_stats_work: a periodic task that runs once every 1/4 sec
-to update netdev statistics.
-priv->set_rx_mode_work: A task queued from netdev set_rx_mdoe/set_mac
-NDOs and sometimes explicitly from driver to update netdev RX mode and
-filters.
-mlx5e_vxlan_queue_work: Queue a _dynamically_ created workitem to
-add/rem vxlan port, those tasks must not be executed concurrently
--since they are dynamically- allocated to gurantee add/remove
-ordering.
-
-bottom line, I wouldn't change concurrency of the mlx5e work queue.
-
-> Are the workitems being used on a memory reclaim path?
-
-do you mean they need to allocate memory ?
-
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> Explicit concurrency limit is unnecessary here since there are only a
+> fixed number of work items.
+>
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> index fd43929..1a96445 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-> @@ -3042,7 +3042,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> index 9eeee05..7c85262 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+> @@ -552,7 +552,8 @@ void mlx5_pagealloc_cleanup(struct mlx5_core_dev *dev)
 >
->         priv = netdev_priv(netdev);
->
-> -       priv->wq = create_singlethread_workqueue("mlx5e");
-> +       priv->wq = alloc_ordered_workqueue("mlx5e", WQ_MEM_RECLAIM);
->         if (!priv->wq)
->                 goto err_free_netdev;
+>  int mlx5_pagealloc_start(struct mlx5_core_dev *dev)
+>  {
+> -       dev->priv.pg_wq = create_singlethread_workqueue("mlx5_page_allocator");
+> +       dev->priv.pg_wq = alloc_workqueue("mlx5_page_allocator",
+> +                                         WQ_MEM_RECLAIM, 0);
+>         if (!dev->priv.pg_wq)
+>                 return -ENOMEM;
 >
 > --
 > 2.1.4
 >
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
