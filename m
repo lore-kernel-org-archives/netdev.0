@@ -1,154 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Microsemi VSC 8531/41 PHY Driver
-Date: Thu, 28 Jul 2016 10:35:05 -0700
-Message-ID: <ed7f291d-200f-0ba3-953d-cc4abf53b8c1@gmail.com>
-References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
- <20160726115556.GC11538@lunn.ch>
- <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
- <20160726124347.GD11538@lunn.ch>
- <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH v2 0/4] drivers: net: cpsw: fix driver loading/unloading
+Date: Thu, 28 Jul 2016 20:50:33 +0300
+Message-ID: <20160728175037.22053-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33796 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161043AbcG1RfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 13:35:08 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fi15so22953495pac.1
-        for <netdev@vger.kernel.org>; Thu, 28 Jul 2016 10:35:07 -0700 (PDT)
-In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/27/2016 11:44 PM, Raju Lakkaraju wrote:
-> Hello Andrew,
-> 
-> Thank you for given valuable comments.
-> Please see the my responses inline.
-> 
-> Thanks,
-> Raju
-> 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch] 
-> Sent: Tuesday, July 26, 2016 6:14 PM
-> To: Raju Lakkaraju
-> Cc: netdev@vger.kernel.org; f.fainelli@gmail.com; Allan Nielsen
-> Subject: Re: Microsemi VSC 8531/41 PHY Driver
-> 
-> EXTERNAL EMAIL
-> 
-> 
->> +/* RGMII Rx Clock delay value change with board lay-out */ static u8 
->> +rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
-> 
-> Doesn't this stop you from having a board with two PHYs with different layouts? You should be getting this value from the device tree.
-> 
-> Raju: As of now, RGMII Rx clock delay value should be 1.1 nsec as optimized/recommended value. 
-> We tested on Beaglebone Black with VSC 8531 PHY.
+This series fixes set of isssues observed when CPSW driver module is unloaded/loaded:
+1) rmmod: deadlock in cpdma_ctlr_destroy
+2) rmmod: L3 back-trace and crash if all net interfaces are down, because CPSW
+can be powerred down by PM runtime in this case.
+3) insmod: mdio device is not recreated on next insmod
+ - need to use of_platform_depopulate() in cpsw_remove().
+4) rmmod: system crash on omap_device removal
 
-That is true, until the next design with a PHY that does not need this
-value and then, it will have to be adjusted.
+Tested on: am437x-idk, am57xx-beagle-x15
 
-> We would like to provide new function to configure correct/require value based on PHY layouts 
-> alone with other RGMII configuration parameters as part of our next implementation.
+Changes in v2:
+- build warning fixed
+- added fix for correct omap_device removal
 
-You can either introduce a Device Tree property to allow boards to
-specify what the correct delay(s) should be, or if the platform does not
-use Device Tree, using phy_register_fixup_for_id would be acceptable for
-that.
+Link on v1:
+ https://lkml.org/lkml/2016/7/22/240
 
-> 
->> +     phydev->supported = (SUPPORTED_1000baseT_Full |
->> +                          SUPPORTED_1000baseT_Half |
->> +                          SUPPORTED_100baseT_Full  |
->> +                          SUPPORTED_100baseT_Half  |
->> +                          SUPPORTED_10baseT_Full   |
->> +                          SUPPORTED_10baseT_Half   |
->> +                          SUPPORTED_Autoneg        |
->> +                          SUPPORTED_Pause          |
->> +                          SUPPORTED_Asym_Pause     |
->> +                          SUPPORTED_TP);
+Grygorii Strashko (4):
+  net: ethernet: ti: cpdma: fix lockup in cpdma_ctlr_destroy()
+  drivers: net: cpsw: fix wrong regs access in cpsw_remove
+  drivers: net: cpsw: use of_platform_depopulate()
+  ARM: OMAP2+: omap_device: fix crash on omap_device removal
 
-This is not necessary, your driver should advertise what the PHY is
-capable of in phy_driver::features. The Ethernet MAC driver later should
-be adjusting phydev->supported with what it actually support, there are
-cases where you connect a 10/100Mbits MAC to a 1Gbits PHY, and you want
-to properly restrict unsupported speeds.
+ arch/arm/mach-omap2/omap_device.c       |  2 +-
+ drivers/net/ethernet/ti/cpsw.c          | 19 +++++++++----------
+ drivers/net/ethernet/ti/davinci_cpdma.c |  3 ---
+ 3 files changed, 10 insertions(+), 14 deletions(-)
 
->> +
->> +     phydev->speed = SPEED_1000;
->> +     phydev->duplex = DUPLEX_FULL;
->> +     phydev->pause = 0;
->> +     phydev->asym_pause = 0;
->> +     phydev->interface = PHY_INTERFACE_MODE_RGMII;
->> +     phydev->mdix = ETH_TP_MDI_AUTO;
-> 
-> Why are you setting all these? This is not normal, if you look at other drivers.
-> 
-> Raju: I would like to update the default values in software data structure (phydev). 
-> Our PHY is 1G speed support device and RGMII supported device.
-
-Whether RGMII is used as an interface/connection type between the MAC
-and PHY is something that is within the consumer of the PHYLIB API
-(typically Ethernet MAC/Switch driver), your PHY cannot enforce
-anything, but the driver can check that the connection interface is sensble.
-
-All of these default values that you are setting here will need to be
-potentially changed by the state machine (link, duplex, pause) upon
-reaction to link state changes, this change needs to be dropped.
-
-> 
->> +
->> +     mutex_lock(&phydev->lock);
-> 
-> What are you locking against?
-> 
-> Raju: VSC 8531 has different PAGEs. Whenever MDC/MDIO access the PHY control registers, 
-> first set the page number then read/write the register address. Default page should be Page 0.
-> When I want to access not default page register, I have to lock phy device access and change 
-> the page number and register access as atomic operation. 
-
-Based on the execution context of this function, acquiring the mutex is
-not necessary, the state machine has not started yet, so there cannot be
-a conflicting PHY read which would end up changing the page selection.
-
-[snip]
-
->> +
->> +static int vsc85xx_ack_interrupt(struct phy_device *phydev) {
->> +     int rc = 0;
->> +
->> +     if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
->> +             rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
->> +
->> +     return (rc < 0) ? rc : 0;
->> +}
->> +
->> +static int vsc85xx_config_intr(struct phy_device *phydev) {
->> +     int rc;
->> +
->> +     if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
->> +             rc = phy_write(phydev, MII_VSC85XX_INT_MASK,
->> +                            MII_VSC85XX_INT_MASK_MASK);
->> +     } else {
->> +             rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
->> +             if (rc < 0)
->> +                     return rc;
-> 
-> And the purpose of this read is? I assume it clears an outstanding interrupt? If so, shouldn't you do it after disabling interrupts, not before? Otherwise you have a race condition.
-> 
-> Raju: The Interrupt status register is read on clean. When, PHY_INTERRUPT_DISABLE case, 
-> I should make sure that status should be clear. If I read the Interrupt status registers, it clears all preexisting interrupts.
-
-Should not you clear the interrupt status irrespective of whether PHY
-interrupts will be enabled or not as a first operation? Then later on,
-if the PHY needs to enable interrupt or not, this can be based on
-PHY_INTERRUPT_ENABLED.
 -- 
-Florian
+2.9.2
