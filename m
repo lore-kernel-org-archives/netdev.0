@@ -1,92 +1,243 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH 06/15] ethernet: hisilicon: hns: hns_dsaf_mac: add missing
- of_node_put after calling of_parse_phandle
-Date: Thu, 28 Jul 2016 08:38:08 +0800
-Message-ID: <579953F0.5010906@huawei.com>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
- <1469586048-15697-7-git-send-email-peter.chen@nxp.com>
+From: Philp Prindeville <philipp@redfish-solutions.com>
+Subject: Re: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow
+ hash
+Date: Wed, 27 Jul 2016 18:46:24 -0600
+Message-ID: <ac82e50b-8827-d13c-f02a-ce75c255721a@redfish-solutions.com>
+References: <1469662978-19814-1-git-send-email-fgao@ikuai8.com>
+ <CALx6S35PxNML7YiBGEf=-FXUuwSVphXmB_y3Ta31fx4EUkWiWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
-	<isubramanian@apm.com>, <kchudgar@apm.com>,
-	<salil.mehta@huawei.com>, <thomas.petazzoni@free-electrons.com>,
-	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
-	<alexandre.torgue@st.com>, <mugunthanvnm@ti.com>,
-	<tremyfr@gmail.com>, <wxt@rock-chips.com>, <arnd@arndb.de>,
-	<david.daney@cavium.com>, <huangdaode@hisilicon.com>,
-	<jszhang@marvell.com>
-To: Peter Chen <peter.chen@nxp.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	gfree.wind@gmail.com
+To: Tom Herbert <tom@herbertland.com>,
+	fgao@48lvckh6395k16k5.yundunddos.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:34118 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758277AbcG1AjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 20:39:01 -0400
-In-Reply-To: <1469586048-15697-7-git-send-email-peter.chen@nxp.com>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:33592 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751229AbcG1BGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Jul 2016 21:06:53 -0400
+In-Reply-To: <CALx6S35PxNML7YiBGEf=-FXUuwSVphXmB_y3Ta31fx4EUkWiWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Inline...
 
 
-=E5=9C=A8 2016/7/27 10:20, Peter Chen =E5=86=99=E9=81=93:
-> of_node_put needs to be called when the device node which is got
-> from of_parse_phandle has finished using.
->=20
-> Signed-off-by: Peter Chen <peter.chen@nxp.com>
-> ---
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 9 ++++++---
->  1 file changed, 6 insertions(+), 3 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/driv=
-ers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-> index 3fb87e2..18d72ea 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-> @@ -786,6 +786,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *m=
-ac_cb)
->  		np =3D of_parse_phandle(mac_cb->dev->of_node, "phy-handle",
->  				      mac_cb->mac_id);
->  		mac_cb->phy_dev =3D of_phy_find_device(np);
-> +		of_node_put(np);
->  		if (mac_cb->phy_dev) {
->  			/* refcount is held by of_phy_find_device()
->  			 * if the phy_dev is found
+On 07/27/2016 06:04 PM, Tom Herbert wrote:
+> On Wed, Jul 27, 2016 at 4:42 PM,  <fgao@ikuai8.com> wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+>> must contain one. But current GRE RPS needs the GRE_VERSION must be
+>> zero. So RPS does not work for PPTP traffic.
+>>
+>> In my test environment, there are four MIPS cores, and all traffic
+>> are passed through by PPTP. As a result, only one core is 100% busy
+>> while other three cores are very idle. After this patch, the usage
+>> of four cores are balanced well.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>   v1: Initial patch
+>>
+>>   include/uapi/linux/if_tunnel.h |   5 +-
+>>   net/core/flow_dissector.c      | 138 ++++++++++++++++++++++++++---------------
+>>   2 files changed, 92 insertions(+), 51 deletions(-)
+>>
+>> diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+>> index 1046f55..dda4e4b 100644
+>> --- a/include/uapi/linux/if_tunnel.h
+>> +++ b/include/uapi/linux/if_tunnel.h
+>> @@ -24,9 +24,12 @@
+>>   #define GRE_SEQ                __cpu_to_be16(0x1000)
+>>   #define GRE_STRICT     __cpu_to_be16(0x0800)
+>>   #define GRE_REC                __cpu_to_be16(0x0700)
+>> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
+>> +#define GRE_ACK                __cpu_to_be16(0x0080)
+>> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
+>>   #define GRE_VERSION    __cpu_to_be16(0x0007)
+>>
+>> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
+>> +
+>>   struct ip_tunnel_parm {
+>>          char                    name[IFNAMSIZ];
+>>          int                     link;
+>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>> index 61ad43f..d95e060 100644
+>> --- a/net/core/flow_dissector.c
+>> +++ b/net/core/flow_dissector.c
+>> @@ -346,63 +346,101 @@ ip_proto_again:
+>>                  hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+>>                  if (!hdr)
+>>                          goto out_bad;
+>> -               /*
+>> -                * Only look inside GRE if version zero and no
+>> -                * routing
+>> -                */
+>> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+>> -                       break;
+>>
+>> -               proto = hdr->proto;
+>> -               nhoff += 4;
+>> -               if (hdr->flags & GRE_CSUM)
+>> +               /*
+>> +               * Only look inside GRE if version zero and no
+>> +               * routing
+> This comment is no longer true, GRE version 1 is being handled.
+>
+>> +               */
+>> +               if (!(hdr->flags & (GRE_VERSION | GRE_ROUTING))) {
+>> +                       proto = hdr->proto;
+>>                          nhoff += 4;
+>> -               if (hdr->flags & GRE_KEY) {
+>> -                       const __be32 *keyid;
+>> -                       __be32 _keyid;
+>> +                       if (hdr->flags & GRE_CSUM)
+>> +                               nhoff += 4;
+>> +                       if (hdr->flags & GRE_KEY) {
+>> +                               const __be32 *keyid;
+>> +                               __be32 _keyid;
+>> +
+>> +                               keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+>> +                                                            data, hlen, &_keyid);
+>> +
+>> +                               if (!keyid)
+>> +                                       goto out_bad;
+>> +
+>> +                               if (dissector_uses_key(flow_dissector,
+>> +                                                      FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+>> +                                       key_keyid = skb_flow_dissector_target(flow_dissector,
+>> +                                                                             FLOW_DISSECTOR_KEY_GRE_KEYID,
+>> +                                                                             target_container);
+>> +                                       key_keyid->keyid = *keyid;
+>> +                               }
+>> +                               nhoff += 4;
+>> +                       }
+>> +                       if (hdr->flags & GRE_SEQ)
+>> +                               nhoff += 4;
+>> +                       if (proto == htons(ETH_P_TEB)) {
+>> +                               const struct ethhdr *eth;
+>> +                               struct ethhdr _eth;
+>> +
+>> +                               eth = __skb_header_pointer(skb, nhoff,
+>> +                                                          sizeof(_eth),
+>> +                                                          data, hlen, &_eth);
+>> +                               if (!eth)
+>> +                                       goto out_bad;
+>> +                               proto = eth->h_proto;
+>> +                               nhoff += sizeof(*eth);
+>> +
+>> +                               /* Cap headers that we access via pointers at the
+>> +                                * end of the Ethernet header as our maximum alignment
+>> +                                * at that point is only 2 bytes.
+>> +                                */
+>> +                               if (NET_IP_ALIGN)
+>> +                                       hlen = nhoff;
+>> +                       }
+>>
+>> -                       keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+>> -                                                    data, hlen, &_keyid);
+>> +                       key_control->flags |= FLOW_DIS_ENCAPSULATION;
+>> +                       if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+>> +                               goto out_good;
+>>
+>> -                       if (!keyid)
+>> +                       goto again;
+>> +               } else if (hdr->proto == GRE_PROTO_PPP && (hdr->flags & GRE_VERSION) &&
+>> +                       (hdr->flags & GRE_KEY) &&
+>> +                       !(hdr->flags & (GRE_CSUM | GRE_ROUTING | GRE_STRICT | GRE_REC | GRE_FLAGS))) {
+>> +                       /* It should be the PPTP in GRE
+>> +                        * We have checked the flags according to the
+>> +                        * RFC 2637
+>> +                        */
+>> +                       struct ppp_frame {
+>> +                               /* address & control, just ignore it */
+>> +                               __be16 ignore;
+>> +                               __be16 proto;
+>> +                       } *frame, _frame;
+> Isn't there a common definition of a PPP frame?
 
-np is accessed in case of of_phy_find_device() returns a no null value,=
- so it has to be
-moved after the dev_dbg log.
+If there were, it would be in <net/ppp_defs.h> but it's not. It's sort 
+of implied the macros PPP_ADDRESS(), PPP_CONTROL(), and PPP_PROTOCOL().
 
-> @@ -804,6 +805,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *m=
-ac_cb)
->  		np =3D of_parse_phandle(to_of_node(mac_cb->fw_port),
->  				      "phy-handle", 0);
->  		mac_cb->phy_dev =3D of_phy_find_device(np);
-> +		of_node_put(np);
->  		if (mac_cb->phy_dev) {
->  			/* refcount is held by of_phy_find_device()
->  			 * if the phy_dev is found
+Please rewrite the patch to use these.
 
-np is accessed in case of of_phy_find_device() returns a no null value,=
- so it has to be
-moved after the dev_dbg log.
+-Philip
 
-Thanks,
-
-Yisen
-
-> @@ -813,9 +815,10 @@ static int  hns_mac_get_info(struct hns_mac_cb *=
-mac_cb)
->  				mac_cb->mac_id, np->name);
->  		}
-> =20
-> -		syscon =3D syscon_node_to_regmap(
-> -				of_parse_phandle(to_of_node(mac_cb->fw_port),
-> -						 "serdes-syscon", 0));
-> +		np =3D of_parse_phandle(to_of_node(mac_cb->fw_port),
-> +					"serdes-syscon", 0);
-> +		syscon =3D syscon_node_to_regmap(np);
-> +		of_node_put(np);
->  		if (IS_ERR_OR_NULL(syscon)) {
->  			dev_err(mac_cb->dev, "serdes-syscon is needed!\n");
->  			return -EINVAL;
->=20
+>> +                       int offset = 0;
+>> +
+>> +                       /* Skip GRE header */
+>> +                       offset += 4;
+>> +                       /* Skip payload length and call id */
+>> +                       offset += 4;
+>> +
+>> +                       if (hdr->flags & GRE_SEQ)
+>> +                               offset += 4;
+>> +
+>> +                       if (hdr->flags & GRE_ACK)
+>> +                               offset += 4;
+>> +
+>> +                       frame = skb_header_pointer(skb, nhoff + offset, sizeof(_frame), &_frame);
+>> +                       if (!frame)
+>>                                  goto out_bad;
+>> -
+>> -                       if (dissector_uses_key(flow_dissector,
+>> -                                              FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+>> -                               key_keyid = skb_flow_dissector_target(flow_dissector,
+>> -                                                                     FLOW_DISSECTOR_KEY_GRE_KEYID,
+>> -                                                                     target_container);
+>> -                               key_keyid->keyid = *keyid;
+>> +                       if (frame->proto == __constant_htons(PPP_IP)) {
+>> +                               nhoff += (sizeof(*frame) + offset);
+>> +                               proto = __constant_htons(ETH_P_IP);
+>> +                               goto again;
+>> +                       } else if (frame->proto == __constant_htons(PPP_IPV6)) {
+>> +                               nhoff += (sizeof(*frame) + offset);
+>> +                               proto = __constant_htons(ETH_P_IPV6);
+>> +                               goto again;
+> There's a lot of code replication here with the version 0 path. Please
+> consolidate these. Also, this looks an awful lot like ETH_P_PPP_SES,
+> can this code leverage that code?
+>
+>>                          }
+>> -                       nhoff += 4;
+>>                  }
+>> -               if (hdr->flags & GRE_SEQ)
+>> -                       nhoff += 4;
+>> -               if (proto == htons(ETH_P_TEB)) {
+>> -                       const struct ethhdr *eth;
+>> -                       struct ethhdr _eth;
+>> -
+>> -                       eth = __skb_header_pointer(skb, nhoff,
+>> -                                                  sizeof(_eth),
+>> -                                                  data, hlen, &_eth);
+>> -                       if (!eth)
+>> -                               goto out_bad;
+>> -                       proto = eth->h_proto;
+>> -                       nhoff += sizeof(*eth);
+>> -
+>> -                       /* Cap headers that we access via pointers at the
+>> -                        * end of the Ethernet header as our maximum alignment
+>> -                        * at that point is only 2 bytes.
+>> -                        */
+>> -                       if (NET_IP_ALIGN)
+>> -                               hlen = nhoff;
+>> -               }
+>> -
+>> -               key_control->flags |= FLOW_DIS_ENCAPSULATION;
+>> -               if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+>> -                       goto out_good;
+>> -
+>> -               goto again;
+>> +               break;
+>>          }
+>>          case NEXTHDR_HOP:
+>>          case NEXTHDR_ROUTING:
+>> --
+>> 1.9.1
+>>
