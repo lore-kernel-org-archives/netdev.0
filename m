@@ -1,48 +1,51 @@
 From: Fengguang Wu <lkp@intel.com>
-Subject: Re: [RFC PATCH v3] net: sched: convert qdisc linked list to hashtable
-Date: Thu, 28 Jul 2016 20:51:57 +0800
-Message-ID: <20160728125157.GA25433@wfg-t540p.sh.intel.com>
-References: <201607120341.UDv5wy6R%fengguang.wu@intel.com>
- <alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm>
+Subject: Re: [PATCH v4] net: sched: convert qdisc linked list to hashtable
+Date: Thu, 28 Jul 2016 20:53:12 +0800
+Message-ID: <20160728125312.GB25433@wfg-t540p.sh.intel.com>
+References: <201607281957.yJSK4rUm%fengguang.wu@intel.com>
+ <alpine.LNX.2.00.1607281317350.24757@cbobk.fhfr.pm>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Cc: kbuild-all@01.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
 To: Jiri Kosina <jikos@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm>
+In-Reply-To: <alpine.LNX.2.00.1607281317350.24757@cbobk.fhfr.pm>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jiri,
-
-On Thu, Jul 14, 2016 at 04:14:58PM +0200, Jiri Kosina wrote:
+On Thu, Jul 28, 2016 at 01:18:27PM +0200, Jiri Kosina wrote:
+>On Thu, 28 Jul 2016, kbuild test robot wrote:
 >
->[ added CCs ]
->
->On Tue, 12 Jul 2016, kbuild test robot wrote:
->
->> Hi,
->>
->> [auto build test ERROR on net/master]
->> [also build test ERROR on v4.7-rc7 next-20160711]
+>> [auto build test ERROR on v4.7-rc7]
+>> [also build test ERROR on next-20160728]
+>> [cannot apply to net/master net-next/master ipsec-next/master]
 >> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
 >>
->> url:    https://github.com/0day-ci/linux/commits/Jiri-Kosina/net-sched-convert-qdisc-linked-list-to-hashtable/20160711-220527
->> config: arm-tct_hammer_defconfig (attached as .config)
->> compiler: arm-linux-gnueabi-gcc (Debian 5.3.1-8) 5.3.1 20160205
+>> url:    https://github.com/0day-ci/linux/commits/Jiri-Kosina/net-sched-convert-qdisc-linked-list-to-hashtable/20160728-182303
+>> config: i386-randconfig-s0-201630 (attached as .config)
+>> compiler: gcc-6 (Debian 6.1.1-9) 6.1.1 20160705
 >> reproduce:
->>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->>         chmod +x ~/bin/make.cross
 >>         # save the attached .config to linux build tree
->>         make.cross ARCH=arm
+>>         make ARCH=i386
 >>
 >> All errors (new ones prefixed by >>):
 >>
 >>    net/built-in.o: In function `dev_activate':
->> >> wext-proc.c:(.text+0x38544): undefined reference to `qdisc_hash_add'
+>> >> (.text+0x37ccb): undefined reference to `qdisc_hash_add'
 >
+>Dear 0-day team,
+>
+>could you please check my question regarding this very build failure here?
+>
+>	lkml.kernel.org/r/alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm
+
+Sorry I missed that. For your convenience, here is the answer to the
+original email:
+
 >This issue is be there even without my patch (but with qdisc_list_add
 >instead), isn't it?
 
