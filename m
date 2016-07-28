@@ -1,92 +1,71 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH RFC 1/1] xfrm: dst lookup doesn't account for fwmark
-Date: Thu, 28 Jul 2016 07:31:47 +0200
-Message-ID: <20160728053147.GL5710@gauss.secunet.com>
-References: <CACwzwmXYUhHdzGLoi73enk-5CCECkdDjJDsOeYHKswqwa9AzyA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
+ context at kernel/irq/manage.c:110
+Date: Thu, 28 Jul 2016 07:43:55 +0200
+Message-ID: <1469684635.9389.4.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160726035003.GA15095@wfg-t540p.sh.intel.com>
+	 <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1469655487.2232.49.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: Doug Applegate <doug.applegate@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Satyam Sharma <satyam@infradead.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	intel-wired-lan@lists.osuosl.org,
+	Ye Xiaolong <xiaolong.ye@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:34072 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753368AbcG1Fbv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jul 2016 01:31:51 -0400
-Content-Disposition: inline
-In-Reply-To: <CACwzwmXYUhHdzGLoi73enk-5CCECkdDjJDsOeYHKswqwa9AzyA@mail.gmail.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:32819 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361AbcG1FoA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 01:44:00 -0400
+In-Reply-To: <1469655487.2232.49.camel@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 22, 2016 at 03:50:43PM -0600, Doug Applegate wrote:
-> If route table includes routing based on fwmark, xfrm will not take it
-> into account when routing ipsec traffic. We address this issue by adding
-> fwmark information before calling route lookup.
+On Wed, 2016-07-27 at 14:38 -0700, Jeff Kirsher wrote:
+> On Tue, 2016-07-26 at 11:14 +0200, Eric Dumazet wrote:
+> > Could you try this ?
+> > 
+> > diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > b/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > index
+> > f42129d09e2c23ba9fdb5cde890d50ecb7166a42..a53c41c4c4f7d1fe52f95a2cab8784a
+> > 938b3820b 100644
+> > --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+> > @@ -5257,9 +5257,13 @@ static void e1000_netpoll(struct net_device
+> > *netdev)
+> >  {
+> >         struct e1000_adapter *adapter = netdev_priv(netdev);
+> >  
+> > -       disable_irq(adapter->pdev->irq);
+> > -       e1000_intr(adapter->pdev->irq, netdev);
+> > -       enable_irq(adapter->pdev->irq);
+> > +       if (napi_schedule_prep(&adapter->napi)) {
+> > +               adapter->total_tx_bytes = 0;
+> > +               adapter->total_tx_packets = 0;
+> > +               adapter->total_rx_bytes = 0;
+> > +               adapter->total_rx_packets = 0;
+> > +               __napi_schedule(&adapter->napi);
+> > +       }
+> >  }
+> >  #endif
+> >  
 > 
-> Signed-off-by: Doug Applegate <doug.applegate@gmail.com>
-> ---
->  include/net/xfrm.h      |  3 ++-
->  net/ipv4/xfrm4_policy.c | 15 +++++++++++----
->  net/ipv6/xfrm6_policy.c | 11 +++++++++--
->  net/xfrm/xfrm_policy.c  | 28 +++++++++++++++++++++++-----
->  4 files changed, 45 insertions(+), 12 deletions(-)
-> 
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index adfebd6..13e80d1 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -282,7 +282,7 @@ struct xfrm_policy_afinfo {
->   struct dst_ops *dst_ops;
->   void (*garbage_collect)(struct net *net);
->   struct dst_entry *(*dst_lookup)(struct net *net,
-> -       int tos, int oif,
-> +       int tos, int oif, int mark,
->         const xfrm_address_t *saddr,
->         const xfrm_address_t *daddr);
->   int (*get_saddr)(struct net *net, int oif,
-> @@ -292,6 +292,7 @@ struct xfrm_policy_afinfo {
->    struct flowi *fl,
->    int reverse);
->   int (*get_tos)(const struct flowi *fl);
-> + int (*get_mark)(const struct flowi *fl);
->   int (*init_path)(struct xfrm_dst *path,
->       struct dst_entry *dst,
->       int nfheader_len);
-> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-> index 7b0edb3..5dcd411 100644
-> --- a/net/ipv4/xfrm4_policy.c
-> +++ b/net/ipv4/xfrm4_policy.c
-> @@ -20,7 +20,7 @@
->  static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
-> 
->  static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct
-> flowi4 *fl4,
-> -    int tos, int oif,
-> +    int tos, int oif, int mark,
->      const xfrm_address_t *saddr,
->      const xfrm_address_t *daddr)
->  {
-> @@ -30,6 +30,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-> net *net, struct flowi4 *fl4,
->   fl4->daddr = daddr->a4;
->   fl4->flowi4_tos = tos;
->   fl4->flowi4_oif = oif;
-> + fl4->flowi4_mark = mark;
->   if (saddr)
->   fl4->saddr = saddr->a4;
-> 
-> @@ -42,13 +43,13 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-> net *net, struct flowi4 *fl4,
->   return ERR_CAST(rt);
->  }
-> 
-> -static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
-> +static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
-> int oif, int mark,
->    const xfrm_address_t *saddr,
->    const xfrm_address_t *daddr)
+> Since this fixes the issue Fengguang saw, will you be submitting a formal
+> patch Eric? (please) I can get this queued up for Dave's net tree as soon
+> as I receive the formal patch.
 
-We may consider to setup the flowi earlier instead of adding yet another
-parameter to this function. This would have also the advantage that we
-don't need to change that function whenever we find out that we need
-more flow informations.
+I would prefer having a definitive advice from Thomas Gleixner and/or
+others if disable_irq() is forbidden from IRQ path.
+
+As I said, about all netpoll() methods in net drivers use disable_irq()
+so a lot of patches would be needed.
+
+disable_irq() should then test this condition earlier, so that we can
+detect potential bug, even if the IRQ is not (yet) threaded.
+
+Thanks.
