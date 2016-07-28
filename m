@@ -1,40 +1,62 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [e1000_netpoll] BUG: sleeping function called from invalid
- context at kernel/irq/manage.c:110
-Date: Thu, 28 Jul 2016 09:45:12 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1607280941450.19896@nanos>
-References: <20160726035003.GA15095@wfg-t540p.sh.intel.com> <1469524492.17736.3.camel@edumazet-glaptop3.roam.corp.google.com> <20160726093224.GA10339@wfg-t540p.sh.intel.com> <alpine.DEB.2.11.1607261149570.19896@nanos>
- <8578bb16-cd04-e8a5-c7f4-be061ede95b4@gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Satyam Sharma <satyam@infradead.org>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Ye Xiaolong <xiaolong.ye@intel.com>
-To: nick <xerofoify@gmail.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net] cxgb4/cxgb4vf: Fixes regression in perf when tx vlan offload is disabled
+Date: Thu, 28 Jul 2016 13:28:57 +0530
+Message-ID: <1469692737-19583-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:48007 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750946AbcG1Hr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 03:47:28 -0400
-In-Reply-To: <8578bb16-cd04-e8a5-c7f4-be061ede95b4@gmail.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:38314 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750946AbcG1Hxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 03:53:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Jul 2016, nick wrote:
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> index f42129d..e1830af 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-> @@ -3797,7 +3797,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
->  		hw->get_link_status = 1;
->  		/* guard against interrupt when we're going down */
->  		if (!test_bit(__E1000_DOWN, &adapter->flags))
-> -			schedule_delayed_work(&adapter->watchdog_task, 1);
-> +			mod_work(&adapter->watchdog_task, jiffies + 1);
+The commit 637d3e997351 ("cxgb4: Discard the packet if the length is
+greater than mtu") introduced a regression in the VLAN interface
+performance when Tx VLAN offload is disabled.
 
-And that's not even funny anymore. Are you using a random generator to create
-these patches?
+Check if skb is tagged, regardless of whether it is hardware accelerated
+or not. Presently we were checking only for hardware acclereated one,
+which caused performance to drop to ~0.17Mbps on a 10GbE adapter for
+VLAN interface, when tx vlan offload is turned off using ethtool.
+The ethernet head length calculation was going wrong in this case, and
+driver ended up dropping packets.
+
+Fixes: 637d3e997351 ("cxgb4: Discard the packet if the length is greater than mtu")
+
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c   | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index bad253beb8c8..ad3552df0545 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1192,7 +1192,7 @@ out_free:	dev_kfree_skb_any(skb);
+ 
+ 	/* Discard the packet if the length is greater than mtu */
+ 	max_pkt_len = ETH_HLEN + dev->mtu;
+-	if (skb_vlan_tag_present(skb))
++	if (skb_vlan_tagged(skb))
+ 		max_pkt_len += VLAN_HLEN;
+ 	if (!skb_shinfo(skb)->gso_size && (unlikely(skb->len > max_pkt_len)))
+ 		goto out_free;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 1bb57d3fbbe8..c8fd4f8fe1fa 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -1188,7 +1188,7 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	/* Discard the packet if the length is greater than mtu */
+ 	max_pkt_len = ETH_HLEN + dev->mtu;
+-	if (skb_vlan_tag_present(skb))
++	if (skb_vlan_tagged(skb))
+ 		max_pkt_len += VLAN_HLEN;
+ 	if (!skb_shinfo(skb)->gso_size && (unlikely(skb->len > max_pkt_len)))
+ 		goto out_free;
+-- 
+2.3.4
