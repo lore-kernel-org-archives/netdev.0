@@ -1,71 +1,171 @@
-From: Peter Chen <peter.chen@nxp.com>
-Subject: RE: [PATCH 06/15] ethernet: hisilicon: hns: hns_dsaf_mac: add missing
- of_node_put after calling of_parse_phandle
-Date: Thu, 28 Jul 2016 03:43:08 +0000
-Message-ID: <HE1PR04MB1450F5FFDD38BB2B99ED24A68B000@HE1PR04MB1450.eurprd04.prod.outlook.com>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
- <1469586048-15697-7-git-send-email-peter.chen@nxp.com>
- <579953F0.5010906@huawei.com>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: RE: Microsemi VSC 8531/41 PHY Driver
+Date: Thu, 28 Jul 2016 06:44:37 +0000
+Message-ID: <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
+ <20160726115556.GC11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
+ <20160726124347.GD11538@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
-	"isubramanian@apm.com" <isubramanian@apm.com>,
-	"kchudgar@apm.com" <kchudgar@apm.com>,
-	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
-	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"wxt@rock-chips.com" <wxt@rock-chips.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"david.daney@cavium.com" <david.daney@cavium.com>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"jszhang@marvell.com" <jszhang@marvell.com>
-To: Yisen Zhuang <Yisen.zhuang@huawei.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0060.outbound.protection.outlook.com ([104.47.2.60]:14822
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0052.outbound.protection.outlook.com ([104.47.32.52]:30249
+	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757132AbcG1GPE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Jul 2016 02:15:04 -0400
-In-Reply-To: <579953F0.5010906@huawei.com>
+	id S1162284AbcG1HAE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 03:00:04 -0400
+In-Reply-To: <20160726124347.GD11538@lunn.ch>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IA0KPuWcqCAyMDE2LzcvMjcgMTA6MjAsIFBldGVyIENoZW4g5YaZ6YGTOg0KPj4gb2Zfbm9kZV9w
-dXQgbmVlZHMgdG8gYmUgY2FsbGVkIHdoZW4gdGhlIGRldmljZSBub2RlIHdoaWNoIGlzIGdvdCBm
-cm9tDQo+PiBvZl9wYXJzZV9waGFuZGxlIGhhcyBmaW5pc2hlZCB1c2luZy4NCj4+DQo+PiBTaWdu
-ZWQtb2ZmLWJ5OiBQZXRlciBDaGVuIDxwZXRlci5jaGVuQG54cC5jb20+DQo+PiAtLS0NCj4+ICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2huc19kc2FmX21hYy5jIHwgOSArKysr
-KystLS0NCj4+ICAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygt
-KQ0KPj4NCj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5z
-L2huc19kc2FmX21hYy5jDQo+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMv
-aG5zX2RzYWZfbWFjLmMNCj4+IGluZGV4IDNmYjg3ZTIuLjE4ZDcyZWEgMTAwNjQ0DQo+PiAtLS0g
-YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2huc19kc2FmX21hYy5jDQo+PiAr
-KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2huc19kc2FmX21hYy5jDQo+
-PiBAQCAtNzg2LDYgKzc4Niw3IEBAIHN0YXRpYyBpbnQgIGhuc19tYWNfZ2V0X2luZm8oc3RydWN0
-IGhuc19tYWNfY2IgKm1hY19jYikNCj4+ICAJCW5wID0gb2ZfcGFyc2VfcGhhbmRsZShtYWNfY2It
-PmRldi0+b2Zfbm9kZSwgInBoeS1oYW5kbGUiLA0KPj4gIAkJCQkgICAgICBtYWNfY2ItPm1hY19p
-ZCk7DQo+PiAgCQltYWNfY2ItPnBoeV9kZXYgPSBvZl9waHlfZmluZF9kZXZpY2UobnApOw0KPj4g
-KwkJb2Zfbm9kZV9wdXQobnApOw0KPj4gIAkJaWYgKG1hY19jYi0+cGh5X2Rldikgew0KPj4gIAkJ
-CS8qIHJlZmNvdW50IGlzIGhlbGQgYnkgb2ZfcGh5X2ZpbmRfZGV2aWNlKCkNCj4+ICAJCQkgKiBp
-ZiB0aGUgcGh5X2RldiBpcyBmb3VuZA0KPg0KPm5wIGlzIGFjY2Vzc2VkIGluIGNhc2Ugb2Ygb2Zf
-cGh5X2ZpbmRfZGV2aWNlKCkgcmV0dXJucyBhIG5vIG51bGwgdmFsdWUsIHNvIGl0IGhhcyB0byBi
-ZQ0KPm1vdmVkIGFmdGVyIHRoZSBkZXZfZGJnIGxvZy4NCj4NCj4+IEBAIC04MDQsNiArODA1LDcg
-QEAgc3RhdGljIGludCAgaG5zX21hY19nZXRfaW5mbyhzdHJ1Y3QgaG5zX21hY19jYiAqbWFjX2Ni
-KQ0KPj4gIAkJbnAgPSBvZl9wYXJzZV9waGFuZGxlKHRvX29mX25vZGUobWFjX2NiLT5md19wb3J0
-KSwNCj4+ICAJCQkJICAgICAgInBoeS1oYW5kbGUiLCAwKTsNCj4+ICAJCW1hY19jYi0+cGh5X2Rl
-diA9IG9mX3BoeV9maW5kX2RldmljZShucCk7DQo+PiArCQlvZl9ub2RlX3B1dChucCk7DQo+PiAg
-CQlpZiAobWFjX2NiLT5waHlfZGV2KSB7DQo+PiAgCQkJLyogcmVmY291bnQgaXMgaGVsZCBieSBv
-Zl9waHlfZmluZF9kZXZpY2UoKQ0KPj4gIAkJCSAqIGlmIHRoZSBwaHlfZGV2IGlzIGZvdW5kDQo+
-DQo+bnAgaXMgYWNjZXNzZWQgaW4gY2FzZSBvZiBvZl9waHlfZmluZF9kZXZpY2UoKSByZXR1cm5z
-IGEgbm8gbnVsbCB2YWx1ZSwgc28gaXQgaGFzIHRvIGJlDQo+bW92ZWQgYWZ0ZXIgdGhlIGRldl9k
-YmcgbG9nLg0KPg0KDQpUaGFua3MsIEkgd2lsbCBjaGFuZ2UgdGhlbS4NCg0KUGV0ZXINCg0K
+Hello Andrew,
+
+Thank you for given valuable comments.
+Please see the my responses inline.
+
+Thanks,
+Raju
+
+-----Original Message-----
+From: Andrew Lunn [mailto:andrew@lunn.ch] 
+Sent: Tuesday, July 26, 2016 6:14 PM
+To: Raju Lakkaraju
+Cc: netdev@vger.kernel.org; f.fainelli@gmail.com; Allan Nielsen
+Subject: Re: Microsemi VSC 8531/41 PHY Driver
+
+EXTERNAL EMAIL
+
+
+> +/* RGMII Rx Clock delay value change with board lay-out */ static u8 
+> +rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
+
+Doesn't this stop you from having a board with two PHYs with different layouts? You should be getting this value from the device tree.
+
+Raju: As of now, RGMII Rx clock delay value should be 1.1 nsec as optimized/recommended value. 
+We tested on Beaglebone Black with VSC 8531 PHY.
+We would like to provide new function to configure correct/require value based on PHY layouts 
+alone with other RGMII configuration parameters as part of our next implementation.
+
+> +     phydev->supported = (SUPPORTED_1000baseT_Full |
+> +                          SUPPORTED_1000baseT_Half |
+> +                          SUPPORTED_100baseT_Full  |
+> +                          SUPPORTED_100baseT_Half  |
+> +                          SUPPORTED_10baseT_Full   |
+> +                          SUPPORTED_10baseT_Half   |
+> +                          SUPPORTED_Autoneg        |
+> +                          SUPPORTED_Pause          |
+> +                          SUPPORTED_Asym_Pause     |
+> +                          SUPPORTED_TP);
+> +
+> +     phydev->speed = SPEED_1000;
+> +     phydev->duplex = DUPLEX_FULL;
+> +     phydev->pause = 0;
+> +     phydev->asym_pause = 0;
+> +     phydev->interface = PHY_INTERFACE_MODE_RGMII;
+> +     phydev->mdix = ETH_TP_MDI_AUTO;
+
+Why are you setting all these? This is not normal, if you look at other drivers.
+
+Raju: I would like to update the default values in software data structure (phydev). 
+Our PHY is 1G speed support device and RGMII supported device.
+
+> +
+> +     mutex_lock(&phydev->lock);
+
+What are you locking against?
+
+Raju: VSC 8531 has different PAGEs. Whenever MDC/MDIO access the PHY control registers, 
+first set the page number then read/write the register address. Default page should be Page 0.
+When I want to access not default page register, I have to lock phy device access and change 
+the page number and register access as atomic operation. 
+
+> +     rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
+> +     if (rc != 0) {
+> +             rc = -EINVAL;
+
+Why do you overwrite the error code vsc85xx_phy_page_set gives you?
+
+Raju: initially I would like to create new type of Error code. Then, I decided to use existing one. 
+I accept your comment. I will remove the code.
+
+> +             goto out_unlock;
+> +     }
+> +     reg_val = phy_read(phydev, MSCC_PHY_RGMII_CNTL);
+> +     reg_val &= ~(RGMII_RX_CLK_DELAY_MASK);
+> +     reg_val |= (rgmii_rx_clk_delay << RGMII_RX_CLK_DELAY_POS);
+> +     phy_write(phydev, MSCC_PHY_RGMII_CNTL, reg_val);
+> +     rc = vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
+> +     if (rc != 0)
+> +             rc = -EINVAL;
+
+Same here.
+
+Raju: I accept your comment. I will remove the code.
+
+> +
+> +out_unlock:
+> +     mutex_unlock(&phydev->lock);
+> +
+> +     return rc;
+> +}
+> +
+> +static int vsc85xx_config_init(struct phy_device *phydev) {
+> +     int rc = 0;
+
+No need to initialise rc.
+
+Raju: I accept your comment. I will remove the code.
+
+> +     rc = vsc85xx_default_config(phydev);
+
+        if (rc)
+                return rc;
+
+> +     rc = genphy_config_init(phydev);
+> +
+> +     return rc;
+
+Or just
+        return genphy_config_init(phydev);
+
+Raju: I accept your comment. I will remove the code.
+
+> +}
+> +
+> +static int vsc85xx_ack_interrupt(struct phy_device *phydev) {
+> +     int rc = 0;
+> +
+> +     if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
+> +             rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
+> +
+> +     return (rc < 0) ? rc : 0;
+> +}
+> +
+> +static int vsc85xx_config_intr(struct phy_device *phydev) {
+> +     int rc;
+> +
+> +     if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
+> +             rc = phy_write(phydev, MII_VSC85XX_INT_MASK,
+> +                            MII_VSC85XX_INT_MASK_MASK);
+> +     } else {
+> +             rc = phy_read(phydev, MII_VSC85XX_INT_STATUS);
+> +             if (rc < 0)
+> +                     return rc;
+
+And the purpose of this read is? I assume it clears an outstanding interrupt? If so, shouldn't you do it after disabling interrupts, not before? Otherwise you have a race condition.
+
+Raju: The Interrupt status register is read on clean. When, PHY_INTERRUPT_DISABLE case, 
+I should make sure that status should be clear. If I read the Interrupt status registers, it clears all preexisting interrupts.
+
+> +             rc = phy_write(phydev, MII_VSC85XX_INT_MASK, 0);
+> +     }
+> +
+> +     return rc;
+
+  Andrew
