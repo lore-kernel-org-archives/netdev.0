@@ -1,58 +1,31 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/2] mpls: packet stats
-Date: Thu, 28 Jul 2016 22:19:56 -0700
-Message-ID: <579AE77C.5040901@cumulusnetworks.com>
-References: <1454700472-13543-1-git-send-email-rshearma@brocade.com> <1454700472-13543-2-git-send-email-rshearma@brocade.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] bpf: fix size of copy_to_user in percpu map.
+Date: Thu, 28 Jul 2016 23:47:24 -0700
+Message-ID: <20160729064722.GA54517@ast-mbp.thefacebook.com>
+References: <1469752941-7140-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Robert Shearman <rshearma@brocade.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33348 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbcG2FT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 01:19:59 -0400
-Received: by mail-pa0-f52.google.com with SMTP id ks6so27745476pab.0
-        for <netdev@vger.kernel.org>; Thu, 28 Jul 2016 22:19:59 -0700 (PDT)
-In-Reply-To: <1454700472-13543-2-git-send-email-rshearma@brocade.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36097 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbcG2Gra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 02:47:30 -0400
+Received: by mail-pa0-f65.google.com with SMTP id ez1so4718350pab.3
+        for <netdev@vger.kernel.org>; Thu, 28 Jul 2016 23:47:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1469752941-7140-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/5/16, 11:27 AM, Robert Shearman wrote:
-> Having MPLS packet stats is useful for observing network operation and
-> for diagnosing network problems. In the absence of anything better,
-> use RFCs for MIBs defining MPLS stats for guidance on the semantics of
-> the stats to expose. RFC3813 details two per-interface packet stats
-> that should be provided (label lookup failures and fragmented packets)
-> and also provides interpretation of RFC2863 for other per-interface
-> stats (in/out ucast, mcast and bcast, in/out discards and errors and
-> in unknown protos).
->
-> Multicast, fragment and broadcast packet counters are printed, but not
-> stored to allow for future implementation of current standards or
-> future standards without user-space having to change.
->
-> All the introduced fields are 64-bit, even error ones, to ensure no
-> overflow with long uptimes. Per-CPU counters are used to avoid
-> cache-line contention on the commonly used fields. The other fields
-> have also been made per-CPU for code to avoid performance problems in
-> error conditions on the assumption that on some platforms the cost of
-> atomic operations could be more pexpensive than sending the packet
-> (which is what would be done in the success case). If that's not the
-> case, we could instead not use per-CPU counters for these fields.
->
-> The IPv6 proc code was used as an inspiration for the proc code
-> here, both in terms of the implementation as well as the location of
-> the per-device stats proc files: /proc/net/dev_snmp_mpls/<dev>.
->
-> Signed-off-by: Robert Shearman <rshearma@brocade.com>
->
-Robert, any interest in moving this to the new stats api ?.
+On Thu, Jul 28, 2016 at 05:42:21PM -0700, William Tu wrote:
+> The total size of value copy_to_user() writes to userspace should
+> be the (current number of cpu) * (value size), instead of
+> num_possible_cpus() * (value size).  Found by samples/bpf/test_maps.c,
+> which always copies 512 byte to userspace, crashing the userspace
+> program stack.
 
-I had done some work for AF_<family> stats. Did not eventually end up including it in the
-final version. The AF_<family> infra patch is here:
-https://github.com/CumulusNetworks/net-next/commits/mpls-stats
-
-Thanks!.
+hmm. I'm missing something. The sample code assumes no cpu hutplug,
+so sysconf(_SC_NPROCESSORS_CONF) == num_possible_cpu == num_online_cpu,
+unless there is crazy INIT_ALL_POSSIBLE config option is used.
