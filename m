@@ -1,174 +1,93 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 2/3] net: ipconfig: Support using "delayed" DHCP replies
-Date: Fri, 29 Jul 2016 11:30:38 +0200
-Message-ID: <1469784639-15705-3-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <20160728112613.n72e6pein3b5lm4b@pengutronix.de>
- <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Andre Przywara <andre.przywara-5wv7dgnIgG8@public.gmane.org>
+Subject: Re: [PATCH v2 1/5] ethernet: add sun8i-emac driver
+Date: Fri, 29 Jul 2016 11:12:02 +0100
+Message-ID: <0dbea4a5-6f76-5dc2-6745-dccea31072ef@arm.com>
+References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1469001800-11615-2-git-send-email-clabbe.montjoie@gmail.com>
+ <20160725195455.GQ7419@lukather>
+Reply-To: andre.przywara-5wv7dgnIgG8@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Chris Friesen <cfriesen@nortel.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:41776 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751557AbcG2JbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 05:31:25 -0400
-In-Reply-To: <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+   linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+   devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+   linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+   LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDNZNK75ZIKRBR6X5S6AKGQE5CXRMPA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20160725195455.GQ7419@lukather>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-The dhcp code only waits 1s between sending DHCP requests on different
-devices and only accepts an answer for the device that sent out the las=
-t
-request. Only the timeout at the end of a loop is increased iteratively
-which favours only the last device. This makes it impossible to work
-with a dhcp server that takes little more than 1s connected to a device
-that is not the last one.
+Hi,
 
-Instead of also increasing the inter-device timeout, teach the code to
-handle delayed replies.
+On 25/07/16 20:54, Maxime Ripard wrote:
+> On Wed, Jul 20, 2016 at 10:03:16AM +0200, LABBE Corentin wrote:
+>> This patch add support for sun8i-emac ethernet MAC hardware.
+>> It could be found in Allwinner H3/A83T/A64 SoCs.
+>>
+>> It supports 10/100/1000 Mbit/s speed with half/full duplex.
+>> It can use an internal PHY (MII 10/100) or an external PHY
+>> via RGMII/RMII.
+>>
+>> Signed-off-by: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/allwinner/Kconfig      |   13 +
+>>  drivers/net/ethernet/allwinner/Makefile     |    1 +
+>>  drivers/net/ethernet/allwinner/sun8i-emac.c | 2129 +++++++++++++++++++++++++++
+>>  3 files changed, 2143 insertions(+)
+>>  create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
 
-To accomplish that, make *ic_dev track the current ic_device instead of
-the current net_device and adapt all users accordingly. The relevant
-change then is to reset d to ic_dev on a reply to assert that the
-followup request goes through the right device.
+...
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
- net/ipv4/ipconfig.c | 29 ++++++++++-------------------
- 1 file changed, 10 insertions(+), 19 deletions(-)
+>> diff --git a/drivers/net/ethernet/allwinner/sun8i-emac.c b/drivers/net/ethernet/allwinner/sun8i-emac.c
+>> new file mode 100644
+>> index 0000000..fc0c1dd
+>> --- /dev/null
+>> +++ b/drivers/net/ethernet/allwinner/sun8i-emac.c
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 369e4a004850..5af6736bd384 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -188,7 +188,7 @@ struct ic_device {
- };
-=20
- static struct ic_device *ic_first_dev __initdata;	/* List of open devi=
-ce */
--static struct net_device *ic_dev __initdata;		/* Selected device */
-+static struct ic_device *ic_dev __initdata;		/* Selected device */
-=20
- static bool __init ic_is_init_dev(struct net_device *dev)
- {
-@@ -307,7 +307,7 @@ static void __init ic_close_devs(void)
- 	while ((d =3D next)) {
- 		next =3D d->next;
- 		dev =3D d->dev;
--		if (dev !=3D ic_dev && !netdev_uses_dsa(dev)) {
-+		if (dev !=3D ic_dev->dev && !netdev_uses_dsa(dev)) {
- 			pr_debug("IP-Config: Downing %s\n", dev->name);
- 			dev_change_flags(dev, d->flags);
- 		}
-@@ -372,7 +372,7 @@ static int __init ic_setup_if(void)
- 	int err;
-=20
- 	memset(&ir, 0, sizeof(ir));
--	strcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name);
-+	strcpy(ir.ifr_ifrn.ifrn_name, ic_dev->dev->name);
- 	set_sockaddr(sin, ic_myaddr, 0);
- 	if ((err =3D ic_devinet_ioctl(SIOCSIFADDR, &ir)) < 0) {
- 		pr_err("IP-Config: Unable to set interface address (%d)\n",
-@@ -396,7 +396,7 @@ static int __init ic_setup_if(void)
- 	 * out, we'll try to muddle along.
- 	 */
- 	if (ic_dev_mtu !=3D 0) {
--		strcpy(ir.ifr_name, ic_dev->name);
-+		strcpy(ir.ifr_name, ic_dev->dev->name);
- 		ir.ifr_mtu =3D ic_dev_mtu;
- 		if ((err =3D ic_dev_ioctl(SIOCSIFMTU, &ir)) < 0)
- 			pr_err("IP-Config: Unable to set interface mtu to %d (%d)\n",
-@@ -568,7 +568,7 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device=
- *dev, struct packet_type *pt
- 		goto drop_unlock;
-=20
- 	/* We have a winner! */
--	ic_dev =3D dev;
-+	ic_dev =3D d;
- 	if (ic_myaddr =3D=3D NONE)
- 		ic_myaddr =3D tip;
- 	ic_servaddr =3D sip;
-@@ -655,8 +655,6 @@ static struct packet_type bootp_packet_type __initd=
-ata =3D {
- 	.func =3D	ic_bootp_recv,
- };
-=20
--static __be32 ic_dev_xid;		/* Device under configuration */
--
- /*
-  *  Initialize DHCP/BOOTP extension fields in the request.
-  */
-@@ -1038,12 +1036,6 @@ static int __init ic_bootp_recv(struct sk_buff *=
-skb, struct net_device *dev, str
- 		goto drop_unlock;
- 	}
-=20
--	/* Is it a reply for the device we are configuring? */
--	if (b->xid !=3D ic_dev_xid) {
--		net_err_ratelimited("DHCP/BOOTP: Ignoring delayed packet\n");
--		goto drop_unlock;
--	}
--
- 	/* Parse extensions */
- 	if (ext_len >=3D 4 &&
- 	    !memcmp(b->exten, ic_bootp_cookie, 4)) { /* Check magic cookie */
-@@ -1130,7 +1122,7 @@ static int __init ic_bootp_recv(struct sk_buff *s=
-kb, struct net_device *dev, str
- 	}
-=20
- 	/* We have a winner! */
--	ic_dev =3D dev;
-+	ic_dev =3D d;
- 	ic_myaddr =3D b->your_ip;
- 	ic_servaddr =3D b->server_ip;
- 	ic_addrservaddr =3D b->iph.saddr;
-@@ -1225,9 +1217,6 @@ static int __init ic_dynamic(void)
- 	timeout =3D CONF_BASE_TIMEOUT + (timeout % (unsigned int) CONF_TIMEOU=
-T_RANDOM);
- 	for (;;) {
- #ifdef IPCONFIG_BOOTP
--		/* Track the device we are configuring */
--		ic_dev_xid =3D d->xid;
--
- 		if (do_bootp && (d->able & IC_BOOTP))
- 			ic_bootp_send_if(d, jiffies - start_jiffies);
- #endif
-@@ -1245,6 +1234,8 @@ static int __init ic_dynamic(void)
- 		    (ic_proto_enabled & IC_USE_DHCP) &&
- 		    ic_dhcp_msgtype !=3D DHCPACK) {
- 			ic_got_reply =3D 0;
-+			/* continue on device that got the reply */
-+			d =3D ic_dev;
- 			pr_cont(",");
- 			continue;
- 		}
-@@ -1487,7 +1478,7 @@ static int __init ip_auto_config(void)
- #endif /* IPCONFIG_DYNAMIC */
- 	} else {
- 		/* Device selected manually or only one device -> use it */
--		ic_dev =3D ic_first_dev->dev;
-+		ic_dev =3D ic_first_dev;
- 	}
-=20
- 	addr =3D root_nfs_parse_addr(root_server_path);
-@@ -1522,7 +1513,7 @@ static int __init ip_auto_config(void)
- 	pr_info("IP-Config: Complete:\n");
-=20
- 	pr_info("     device=3D%s, hwaddr=3D%*phC, ipaddr=3D%pI4, mask=3D%pI4=
-, gw=3D%pI4\n",
--		ic_dev->name, ic_dev->addr_len, ic_dev->dev_addr,
-+		ic_dev->dev->name, ic_dev->dev->addr_len, ic_dev->dev->dev_addr,
- 		&ic_myaddr, &ic_netmask, &ic_gateway);
- 	pr_info("     host=3D%s, domain=3D%s, nis-domain=3D%s\n",
- 		utsname()->nodename, ic_domain, utsname()->domainname);
---=20
-2.8.1
+...
+
+>> +
+>> +/* struct dma_desc - Structure of DMA descriptor used by the hardware
+>> + * @status: Status of the frame written by HW, so RO for the
+>> + *	driver (except for BIT(31) which is R/W)
+>> + * @ctl: Information on the frame written by the driver (INT, len,...)
+>> + * @buf_addr: physical address of the frame data
+>> + * @next: physical address of next dma_desc
+>> + */
+>> +struct dma_desc {
+>> +	u32 status;
+>> +	u32 ctl;
+>> +	u32 buf_addr;
+>> +	u32 next;
+>> +};
+> 
+> You should use the endian-aware variants here.
+
+For the records: just doing the sparse annotation with __le32 here will
+of course not be sufficient to make it work on BE kernels. I added
+proper endianness conversion to all accesses to the descriptors and got
+it to work with an arm64 big-endian kernel on the Pine64.
+
+I put a patch here:
+https://gist.github.com/apritzel/bc792c4dbbd8789f5f18aef538e8c440
+
+This particular version is untested (though it compiles), since I just
+adapted the working patch against the newer driver code and couldn't
+test it yet.
+I am not really an endianness expert, so don't know if there are smarter
+ways to tackle this, if we should for instance provide access wrappers
+to the DMA descriptor fields.
+
+I will try to test this later today, if that works, feel free to merge
+those changes into your driver.
+
+Cheers,
+Andre.
