@@ -1,45 +1,42 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec] xfrm: Ignore socket policies when rebuilding hash
- tables
-Date: Fri, 29 Jul 2016 12:40:17 +0200
-Message-ID: <20160729104017.GA5710@gauss.secunet.com>
-References: <8e6b1395-6f17-66ce-e257-6b6073ca7103@strongswan.org>
- <20160729081911.GC11307@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Tobias Brunner <tobias@strongswan.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Christophe Gouault <christophe.gouault@6wind.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:56514 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751433AbcG2KkW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jul 2016 06:40:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20160729081911.GC11307@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: [PATCH 1/1] Bluetooth: add printf format attribute to hci_set_[fh]w_info()
+Date: Fri, 29 Jul 2016 13:28:25 +0200
+Message-ID: <20160729112825.22091-1-nicolas.iooss_linux@m4x.org>
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+To: Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 29, 2016 at 04:19:11PM +0800, Herbert Xu wrote:
-> On Fri, Jul 29, 2016 at 09:57:32AM +0200, Tobias Brunner wrote:
-> > Whenever thresholds are changed the hash tables are rebuilt.  This is
-> > done by enumerating all policies and hashing and inserting them into
-> > the right table according to the thresholds and direction.
-> > 
-> > Because socket policies are also contained in net->xfrm.policy_all but
-> > no hash tables are defined for their direction (dir + XFRM_POLICY_MAX)
-> > this causes a NULL or invalid pointer dereference after returning from
-> > policy_hash_bysel() if the rebuild is done while any socket policies
-> > are installed.
-> > 
-> > Since the rebuild after changing thresholds is scheduled this crash
-> > could even occur if the userland sets thresholds seemingly before
-> > installing any socket policies.
-> > 
-> > Fixes: 53c2e285f970 ("xfrm: Do not hash socket policies")
-> > Signed-off-by: Tobias Brunner <tobias@strongswan.org>
-> 
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Commit 5177a83827cd ("Bluetooth: Add debugfs fields for hardware and
+firmware info") introduced hci_set_hw_info() and hci_set_fw_info().
+These functions use kvasprintf_const() but are not marked with a
+__printf attribute.  Adding such an attribute helps detecting issues
+related to printf-formatting at build time.
 
-Applied to the ipsec tree, thanks a lot Tobias!
+Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+---
+ include/net/bluetooth/hci_core.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
+index ee7fc47680a1..012e5031fe47 100644
+--- a/include/net/bluetooth/hci_core.h
++++ b/include/net/bluetooth/hci_core.h
+@@ -1026,8 +1026,8 @@ int hci_resume_dev(struct hci_dev *hdev);
+ int hci_reset_dev(struct hci_dev *hdev);
+ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb);
+ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb);
+-void hci_set_hw_info(struct hci_dev *hdev, const char *fmt, ...);
+-void hci_set_fw_info(struct hci_dev *hdev, const char *fmt, ...);
++__printf(2, 3) void hci_set_hw_info(struct hci_dev *hdev, const char *fmt, ...);
++__printf(2, 3) void hci_set_fw_info(struct hci_dev *hdev, const char *fmt, ...);
+ int hci_dev_open(__u16 dev);
+ int hci_dev_close(__u16 dev);
+ int hci_dev_do_close(struct hci_dev *hdev);
+-- 
+2.9.0
