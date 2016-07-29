@@ -1,55 +1,57 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH v2 net] tcp: consider recv buf for the initial window scale
-Date: Fri, 29 Jul 2016 09:34:02 -0400
-Message-ID: <1469799242-28408-1-git-send-email-soheil.kdev@gmail.com>
-Cc: edumazet@google.com, ycheng@google.com, ncardwell@google.com,
-	Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net 3/3] macsec: fix negative refcnt on parent link
+Date: Fri, 29 Jul 2016 15:37:55 +0200
+Message-ID: <e65f6e4f407f8e1a6b2fa197cf9ea3bd3ef6d888.1469782905.git.sd@queasysnail.net>
+References: <cover.1469782905.git.sd@queasysnail.net>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:33359 "EHLO
-	mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751449AbcG2NeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 09:34:06 -0400
-Received: by mail-qk0-f193.google.com with SMTP id n202so7048729qke.0
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 06:34:05 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:37310 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752834AbcG2NiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 09:38:09 -0400
+In-Reply-To: <cover.1469782905.git.sd@queasysnail.net>
+In-Reply-To: <cover.1469782905.git.sd@queasysnail.net>
+References: <cover.1469782905.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+When creation of a macsec device fails because an identical device
+already exists on this link, the current code decrements the refcnt on
+the parent link (in ->destructor for the macsec device), but it had not
+been incremented yet.
 
-tcp_select_initial_window() intends to advertise a window
-scaling for the maximum possible window size. To do so,
-it considers the maximum of net.ipv4.tcp_rmem[2] and
-net.core.rmem_max as the only possible upper-bounds.
-However, users with CAP_NET_ADMIN can use SO_RCVBUFFORCE
-to set the socket's receive buffer size to values
-larger than net.ipv4.tcp_rmem[2] and net.core.rmem_max.
-Thus, SO_RCVBUFFORCE is effectively ignored by
-tcp_select_initial_window().
+Move the dev_hold(parent_link) call earlier during macsec device
+creation.
 
-To fix this, consider the maximum of net.ipv4.tcp_rmem[2],
-net.core.rmem_max and socket's initial buffer space.
-
-Fixes: b0573dea1fb3 ("[NET]: Introduce SO_{SND,RCV}BUFFORCE socket options")
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Suggested-by: Neal Cardwell <ncardwell@google.com>
+Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- net/ipv4/tcp_output.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/macsec.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index b26aa87..bdaef7f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -236,7 +236,8 @@ void tcp_select_initial_window(int __space, __u32 mss,
- 		/* Set window scaling on max possible window
- 		 * See RFC1323 for an explanation of the limit to 14
- 		 */
--		space = max_t(u32, sysctl_tcp_rmem[2], sysctl_rmem_max);
-+		space = max_t(u32, space, sysctl_tcp_rmem[2]);
-+		space = max_t(u32, space, sysctl_rmem_max);
- 		space = min_t(u32, space, *window_clamp);
- 		while (space > 65535 && (*rcv_wscale) < 14) {
- 			space >>= 1;
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 7f5c5e0f9cf9..d13e6e15d7b5 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -3179,6 +3179,8 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
+ 	if (err < 0)
+ 		return err;
+ 
++	dev_hold(real_dev);
++
+ 	/* need to be already registered so that ->init has run and
+ 	 * the MAC addr is set
+ 	 */
+@@ -3207,8 +3209,6 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
+ 
+ 	macsec_generation++;
+ 
+-	dev_hold(real_dev);
+-
+ 	return 0;
+ 
+ del_dev:
 -- 
-2.8.0.rc3.226.g39d4020
+2.9.0
