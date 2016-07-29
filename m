@@ -1,47 +1,57 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCH] bpf: fix size of copy_to_user in percpu map.
-Date: Thu, 28 Jul 2016 17:42:21 -0700
-Message-ID: <1469752941-7140-1-git-send-email-u9012063@gmail.com>
-To: netdev@vger.kernel.org
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Subject: [PATCH net] tcp: consider recv buf for the initial window scale
+Date: Thu, 28 Jul 2016 23:11:34 -0400
+Message-ID: <1469761894-26014-1-git-send-email-soheil.kdev@gmail.com>
+Cc: edumazet@google.com, ycheng@google.com, ncardwell@google.com,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35589 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbcG2Am3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 20:42:29 -0400
-Received: by mail-pf0-f196.google.com with SMTP id h186so4463239pfg.2
-        for <netdev@vger.kernel.org>; Thu, 28 Jul 2016 17:42:29 -0700 (PDT)
-Received: from vm-dev.localdomain ([208.91.1.34])
-        by smtp.gmail.com with ESMTPSA id zk7sm19699482pac.41.2016.07.28.17.42.28
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 28 Jul 2016 17:42:28 -0700 (PDT)
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35622 "EHLO
+	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750754AbcG2DLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Jul 2016 23:11:55 -0400
+Received: by mail-qk0-f195.google.com with SMTP id q62so6203713qkf.2
+        for <netdev@vger.kernel.org>; Thu, 28 Jul 2016 20:11:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The total size of value copy_to_user() writes to userspace should
-be the (current number of cpu) * (value size), instead of
-num_possible_cpus() * (value size).  Found by samples/bpf/test_maps.c,
-which always copies 512 byte to userspace, crashing the userspace
-program stack.
+From: Soheil Hassas Yeganeh <soheil@google.com>
 
-Signed-off-by: William Tu <u9012063@gmail.com>
+tcp_select_initial_window() intends to advertise a window
+scaling for the maximum possible window size. To do so,
+it considers the maximum of net.ipv4.tcp_rmem[2] and
+net.core.rmem_max as the only possible upper-bounds.
+However, users with CAP_NET_ADMIN can use SO_RCVBUFFORCE
+to set the socket's receive buffer size to values
+larger than net.ipv4.tcp_rmem[2] and net.core.rmem_max.
+Thus, SO_RCVBUFFORCE is effectively ignored by
+tcp_select_initial_window().
+
+To fix this, consider the maximum of net.ipv4.tcp_rmem[2],
+net.core.rmem_max and socket's initial buffer space.
+
+This part of the code does not have git history and as a
+result this patch does not have a `Fixes:` tag.
+
+Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+Suggested-by: Neal Cardwell <ncardwell@google.com>
 ---
- kernel/bpf/syscall.c | 3 ++-
+ net/ipv4/tcp_output.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 228f962..47f738e 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -324,7 +324,8 @@ static int map_lookup_elem(union bpf_attr *attr)
- 		goto free_value;
- 
- 	err = -EFAULT;
--	if (copy_to_user(uvalue, value, value_size) != 0)
-+	if (copy_to_user(uvalue, value,
-+		map->value_size * num_online_cpus()) != 0)
- 		goto free_value;
- 
- 	err = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b26aa87..bdaef7f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -236,7 +236,8 @@ void tcp_select_initial_window(int __space, __u32 mss,
+ 		/* Set window scaling on max possible window
+ 		 * See RFC1323 for an explanation of the limit to 14
+ 		 */
+-		space = max_t(u32, sysctl_tcp_rmem[2], sysctl_rmem_max);
++		space = max_t(u32, space, sysctl_tcp_rmem[2]);
++		space = max_t(u32, space, sysctl_rmem_max);
+ 		space = min_t(u32, space, *window_clamp);
+ 		while (space > 65535 && (*rcv_wscale) < 14) {
+ 			space >>= 1;
 -- 
-2.5.0
+2.8.0.rc3.226.g39d4020
