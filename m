@@ -1,84 +1,122 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 3/5] ARM: sun8i: dt: Add DT bindings
- documentation for Allwinner sun8i-emac
-Date: Fri, 29 Jul 2016 20:12:32 +0200
-Message-ID: <20160729181232.GF6215@lukather>
-References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
- <1469001800-11615-4-git-send-email-clabbe.montjoie@gmail.com>
- <20160721075519.GC5993@lukather>
- <20160728134031.GC7582@Red>
- <20160728184916.GF6682@lukather>
- <20160729081519.GA31878@Red>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: subashab@codeaurora.org
+Subject: Re: [RFC PATCH] xfrm: Add option to reset oif in xfrm lookup
+Date: Fri, 29 Jul 2016 12:21:27 -0600
+Message-ID: <7e8efab3f896b081adb6bbaf6613a569@codeaurora.org>
+References: <1469493272-14894-1-git-send-email-subashab@codeaurora.org>
+ <ceb825e1-cba5-e252-f8d1-30198797bbb2@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="hK8Uo4Yp55NZU70L"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBBG5Z526AKGQE7PJNOOI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20160729081519.GA31878@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au, netdev-owner@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:42055 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988AbcG2SV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 14:21:28 -0400
+In-Reply-To: <ceb825e1-cba5-e252-f8d1-30198797bbb2@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+> Please don't try to workaround a bug with a sysctl.
+> If we have a bug here, we should fix it. Choosing
+> between bug A and bug B with a sysctl is not what
+> we are doing ;)
 
---hK8Uo4Yp55NZU70L
-Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
+Sure, this was just a quick hack.
 
-On Fri, Jul 29, 2016 at 10:15:19AM +0200, LABBE Corentin wrote:
-> > > > > +See ethernet.txt in the same directory for generic bindings for ethernet
-> > > > > +controllers.
-> > > > > +
-> > > > > +The device node referenced by "phy" or "phy-handle" should be a child node
-> > > > > +of this node. See phy.txt for the generic PHY bindings.
-> > > > > +
-> > > > > +Optional properties:
-> > > > > +- phy-supply: phandle to a regulator if the PHY needs one
-> > > > > +- phy-io-supply: phandle to a regulator if the PHY needs a another one for I/O.
-> > > > > +		 This is sometimes found with RGMII PHYs, which use a second
-> > > > > +		 regulator for the lower I/O voltage.
-> > > > > +- allwinner,tx-delay: The setting of the TX clock delay chain
-> > > > > +- allwinner,rx-delay: The setting of the RX clock delay chain
-> > > > 
-> > > > In which unit? What is the default value?
-> > > 
-> > > The unit is unknown to me, but I have added a comment for the
-> > > default and acceptable range value.
-> > 
-> > That's unfortunate. We'll see how the DT maintainers feel about that.
-> > 
-> 
-> I have searched for txdelay in Documentation, and found a few driver
-> that give the units (us/ps).
->
-> But in that case, the value in ps/us must be found in a table
-> indexed by the Xxdelay value.
->
-> So the settings seems always a raw number, and for sun8i-emac
-> nothing in user manual could help to find what each value is/related
-> to.
-> 
-> So the good value is either found by "try and test" or "copy the
-> value found in fex file".
+> Can you give an example of your use case -- e.g., commands for others
+> (me) to reproduce?
 
-What I meant was that, just like you found out already, most of the
-time the properties should be in absolute units, so that it doesn't
-depend on some clock rate most likely in that case.
+Here is an equivalent set of rules. We see a difference in the oif when 
+reset oif vs preserve it.
+eth1 is the interface from which traffic is generated while eth0 is the 
+tunnel.
 
-Maxime
+--------------
+#Commands
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 1 > /proc/sys/net/ipv4/conf/all/accept_local
+echo 1 > /proc/sys/net/ipv4/conf/eth0/accept_local
+echo 1 > /proc/sys/net/ipv4/conf/eth1/accept_local
 
--- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---hK8Uo4Yp55NZU70L--
+ip addr add 192.168.77.2/24 dev eth0
+ip link set eth0 mtu 1400
+ip link set eth0 up
+
+ip addr add 192.168.33.2/24 dev eth1
+ip link set eth1 mtu 1400
+ip link set eth1 up
+
+ip ru add to 192.168.33.1 lookup 8 prio 4000
+ip ru add oif eth1 lookup 8 prio 4010
+ip ru add to 192.168.77.1 lookup 9 prio 4030
+
+ip route add default dev eth1 table 8
+ip route add default dev eth0 table 9
+
+iptables -t raw -A OUTPUT -j LOG --log-prefix "RAW-OUT >> "
+iptables -t mangle -A POSTROUTING -j LOG --log-prefix "MAN-PST >> "
+
+echo 0 > /proc/sys/net/ipv4/tcp_timestamps
+
+# out direction
+ip xfrm state add src 192.168.77.2 dst 192.168.77.1 proto esp spi 0x1234 
+mode tunnel enc 'cbc(aes)' 
+0xbb31df5b207dc1c7a8512eeda0b2d0691e27bc8059dbb82df616bb9955058cd5 auth 
+'hmac(sha1)' 0x93b43b527d564efb9eac8cd04510b86e409f8ea7 flag af-unspec 
+encap espinudp 4500 4500 0.0.0.0
+
+ip xfrm policy add dir out src 192.168.33.2 tmpl src 192.168.77.2 dst 
+192.168.77.1 proto esp spi 0x1234 mode tunnel
+
+# in direction
+ip xfrm state add src 192.168.77.1 dst 192.168.77.2 proto esp spi 0x4321 
+mode tunnel enc 'cbc(aes)' 
+0x5d3ca96d1af2eaa9cf8f1c1cace88f550e2a5b7b82027023287e1fe2a42f7f54 auth 
+'hmac(sha1)' 0xcd09f850d7c0dd6dc0ed342619c1165571452f9d flag af-unspec 
+encap espinudp 4500 4500 0.0.0.0
+
+ip xfrm policy add dir in dst 192.168.33.2 tmpl src 192.168.77.1 dst 
+192.168.77.2 proto esp spi 0x4321 mode tunnel
+ip xfrm policy add dir fwd dst 192.168.33.2 tmpl src 192.168.77.1 dst 
+192.168.77.2 proto esp spi 0x4321 mode tunnel
+--------------
+
+Output when resetting oif (3.18)
+
+root@vm:~# ping -c 1 -I eth1 192.168.33.1
+PING 192.168.33.1 (192.168.33.1) 56(84) bytes of data.
+RAW-OUT >> IN= OUT=eth0 SRC=192.168.33.2 DST=192.168.33.1 LEN=84 
+TOS=0x00 PREC=0x00 TTL=64 ID=801 DF PROTO=ICMP TYPE=8 CODE=0 ID=2040 
+SEQ=1
+MAN-PST >> IN= OUT=eth0 SRC=192.168.33.2 DST=192.168.33.1 LEN=84 
+TOS=0x00 PREC=0x00 TTL=64 ID=801 DF PROTO=ICMP TYPE=8 CODE=0 ID=2040 
+SEQ=1
+RAW-OUT >> IN= OUT=eth0 SRC=192.168.77.2 DST=192.168.77.1 LEN=160 
+TOS=0x00 PREC=0x00 TTL=64 ID=41757 DF PROTO=UDP SPT=4500 DPT=4500 
+LEN=140
+MAN-PST >> IN= OUT=eth0 SRC=192.168.77.2 DST=192.168.77.1 LEN=160 
+TOS=0x00 PREC=0x00 TTL=64 ID=41757 DF PROTO=UDP SPT=4500 DPT=4500 
+LEN=140
+
+--------------
+
+Output when preserving oif (4.4)
+
+root@vm:~# ping -c 1 -I eth1 192.168.33.1
+PING 192.168.33.1 (192.168.33.1) 56(84) bytes of data.
+RAW-OUT >> IN= OUT=eth1 SRC=192.168.33.2 DST=192.168.33.1 LEN=84 
+TOS=0x00 PREC=0x00 TTL=64 ID=20191 DF PROTO=ICMP TYPE=8 CODE=0 ID=2043 
+SEQ=1
+MAN-PST >> IN= OUT=eth1 SRC=192.168.33.2 DST=192.168.33.1 LEN=84 
+TOS=0x00 PREC=0x00 TTL=64 ID=20191 DF PROTO=ICMP TYPE=8 CODE=0 ID=2043 
+SEQ=1
+RAW-OUT >> IN= OUT=eth1 SRC=192.168.77.2 DST=192.168.77.1 LEN=160 
+TOS=0x00 PREC=0x00 TTL=64 ID=49515 DF PROTO=UDP SPT=4500 DPT=4500 
+LEN=140
+MAN-PST >> IN= OUT=eth1 SRC=192.168.77.2 DST=192.168.77.1 LEN=160 
+TOS=0x00 PREC=0x00 TTL=64 ID=49515 DF PROTO=UDP SPT=4500 DPT=4500 
+LEN=140
