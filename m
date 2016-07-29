@@ -1,42 +1,59 @@
-From: Michael Weiser <michael.weiser@gmx.de>
-Subject: Re: [PATCH 2/3] stmmac: change dma descriptors to __le32
-Date: Fri, 29 Jul 2016 09:53:43 +0200
-Message-ID: <20160729075343.GD415@weiser.dinsnail.net>
-References: <20160721182329.13478-1-michael.weiser@gmx.de>
- <20160721182329.13478-3-michael.weiser@gmx.de>
- <e5229894-45fc-671e-641a-e41c7ab176d7@st.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Microsemi VSC 8531/41 PHY Driver
+Date: Fri, 29 Jul 2016 10:04:02 +0200
+Message-ID: <20160729080402.GA13798@lunn.ch>
+References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
+ <20160726115556.GC11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
+ <20160726124347.GD11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexandre Torgue <alexandre.torgue@st.com>,
- linux-arm-kernel@lists.infradead.org
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:53498 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750917AbcG2IEG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 04:04:06 -0400
 Content-Disposition: inline
-In-Reply-To: <e5229894-45fc-671e-641a-e41c7ab176d7@st.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Giuseppe,
+On Thu, Jul 28, 2016 at 06:44:37AM +0000, Raju Lakkaraju wrote:
+> Hello Andrew,
+> 
+> Thank you for given valuable comments.
+> Please see the my responses inline.
+> 
+> Thanks,
+> Raju
+> 
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch] 
+> Sent: Tuesday, July 26, 2016 6:14 PM
+> To: Raju Lakkaraju
+> Cc: netdev@vger.kernel.org; f.fainelli@gmail.com; Allan Nielsen
+> Subject: Re: Microsemi VSC 8531/41 PHY Driver
+> 
+> EXTERNAL EMAIL
+> 
+> 
+> > +/* RGMII Rx Clock delay value change with board lay-out */ static u8 
+> > +rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
+> 
+> Doesn't this stop you from having a board with two PHYs with different layouts? You should be getting this value from the device tree.
+> 
+> Raju: As of now, RGMII Rx clock delay value should be 1.1 nsec as optimized/recommended value. 
+> We tested on Beaglebone Black with VSC 8531 PHY.
+> We would like to provide new function to configure correct/require value based on PHY layouts 
+> alone with other RGMII configuration parameters as part of our next implementation.
 
-On Tue, Jul 26, 2016 at 02:13:45PM +0200, Giuseppe CAVALLARO wrote:
+Hi Raju
 
-> > -			ep++;
-> > +			ep++);
-> there is a build problem here.
-> Pls fix it.
+Please can you use standard email quoting, just like everybody else does.
 
-Thanks for your review. I've got it fixed locally. An updated patchset
-will be forthcoming as soon as I've sorted a problem with sun4i-emac
-which I've been asked to look into as well.
--- 
-Thanks,
-Michael
+       Andrew
