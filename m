@@ -1,42 +1,40 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 2/3] stmmac: change dma descriptors to __le32
-Date: Fri, 29 Jul 2016 10:26:24 +0200
-Message-ID: <9d83a435-eff1-a2d3-0d3d-158503564425@st.com>
-References: <20160721182329.13478-1-michael.weiser@gmx.de>
- <20160721182329.13478-3-michael.weiser@gmx.de>
- <e5229894-45fc-671e-641a-e41c7ab176d7@st.com>
- <20160729075343.GD415@weiser.dinsnail.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v2 2/4] drivers: net: cpsw: fix wrong regs access in
+ cpsw_remove
+Date: Fri, 29 Jul 2016 14:01:59 +0530
+Message-ID: <d01a86a6-4f0b-7ea7-a69d-9fcc5b2967e3@ti.com>
+References: <20160728175037.22053-1-grygorii.strashko@ti.com>
+ <20160728175037.22053-3-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	Alexandre Torgue <alexandre.torgue@st.com>,
-	<netdev@vger.kernel.org>
-To: Michael Weiser <michael.weiser@gmx.de>
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:16247 "EHLO
-	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752269AbcG2I04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 04:26:56 -0400
-In-Reply-To: <20160729075343.GD415@weiser.dinsnail.net>
+Received: from bear.ext.ti.com ([198.47.19.11]:39996 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751095AbcG2IcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 04:32:05 -0400
+In-Reply-To: <20160728175037.22053-3-grygorii.strashko@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/29/2016 9:53 AM, Michael Weiser wrote:
-> Hi Giuseppe,
->
-> On Tue, Jul 26, 2016 at 02:13:45PM +0200, Giuseppe CAVALLARO wrote:
->
->>> -			ep++;
->>> +			ep++);
->> there is a build problem here.
->> Pls fix it.
->
-> Thanks for your review. I've got it fixed locally. An updated patchset
-> will be forthcoming as soon as I've sorted a problem with sun4i-emac
-> which I've been asked to look into as well.
->
+On Thursday 28 July 2016 11:20 PM, Grygorii Strashko wrote:
+> The L3 error will be generated and system will crash during unloading
+> of CPSW driver if CPSW is used as module and ethX devices are down.
+> This happens because CPSW can be power off by PM runtime now when ethX
+> devices are down.
+> 
+> Hence, ensure that CPSW powered up by PM runtime before performing any
+> deinitialization actions which require CPSW registers access. In case
+> of PM runtime error just leave cpsw_remove() as we can't do anything
+> anymore.
+> 
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 
-ok, as you send the new version I will do a run on ARM box based too
+Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-peppe
+Regards
+Mugunthan V N
