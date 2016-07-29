@@ -1,85 +1,103 @@
-From: William Tu <u9012063@gmail.com>
-Subject: Re: [PATCH] bpf: fix size of copy_to_user in percpu map.
-Date: Fri, 29 Jul 2016 13:03:25 -0700
-Message-ID: <CALDO+SZueK9ymNjrLAK+00xzR_BTms+qVhy0DAPnJZGrken2rg@mail.gmail.com>
-References: <1469752941-7140-1-git-send-email-u9012063@gmail.com>
- <20160729064722.GA54517@ast-mbp.thefacebook.com> <579B0B9F.8040805@iogearbox.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH 2/3] sctp_diag: export timer value only if it is active
+Date: Fri, 29 Jul 2016 17:51:13 -0300
+Message-ID: <20160729205113.GA2954@localhost.localdomain>
+References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
+ <1469811580-32429-3-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Xin Long <lucien.xin@gmail.com>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35700 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032AbcG2UEG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 16:04:06 -0400
-Received: by mail-io0-f194.google.com with SMTP id q83so10349618iod.2
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 13:04:05 -0700 (PDT)
-In-Reply-To: <579B0B9F.8040805@iogearbox.net>
+Received: from mx1.redhat.com ([209.132.183.28]:58128 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753784AbcG2UvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 16:51:16 -0400
+Content-Disposition: inline
+In-Reply-To: <1469811580-32429-3-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel and Alexei,
+On Fri, Jul 29, 2016 at 06:59:39PM +0200, Phil Sutter wrote:
+> Since it is exported as unsigned value, userspace has no way detecting
+> whether it is negative or just very large. Therefore do this in kernel
+> space where it is a simple comparison.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  net/sctp/sctp_diag.c | 10 ++++++----
+>  1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+> index f69edcf219e51..0ad6033a7330c 100644
+> --- a/net/sctp/sctp_diag.c
+> +++ b/net/sctp/sctp_diag.c
+> @@ -40,10 +40,12 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
+>  	}
+>  
+>  	r->idiag_state = asoc->state;
+> -	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+> -	r->idiag_retrans = asoc->rtx_data_chunks;
+> -	r->idiag_expires = jiffies_to_msecs(
+> -		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
 
-Thanks for the reply. My apology for too brief description. In short,
-in my environment, running samples/bpf/test_map always segfault under
-percpu array/hash map operations. I think it's due to stack
-corruption.
+I think we have two issues here, prior to your patch, but I noticed
+while reviewing it :-)
 
-I'm not using ARM. It's x86 in a VM with 2 vcpu. By printk() in kernel, I got
-  num_possible_cpu == 64
-  num_online_cpu == 2 == sysconf(_SC_NPROCESSORS_CONF)
+This array is actually not based on jiffies but on intervals instead, as
+per:
 
-So at samples/bpf/test_maps.c, test_percpu_arraymap_sanity(),
-we define:
-  long values[nr_cpus]; //nr_cpus=2
+sm_sideeffect.c:
+                case SCTP_CMD_TIMER_START:                       [1]
+                        timer = &asoc->timers[cmd->obj.to];
+                        timeout = asoc->timeouts[cmd->obj.to];   <---
+                        BUG_ON(!timeout);
 
-  ... // create map and update map ...
+                        timer->expires = jiffies + timeout;      <---
 
-  /* check that key=0 is also found and zero initialized */
-  assert(bpf_lookup_elem(map_fd, &key, values) == 0 &&
-            values[0] == 0 && values[nr_cpus - 1] == 0);
+But more importantly, this array is actually not used for this timeout
+and the timeout is sctp_transport dependant, as per:
 
-Here we enter the bpf syscall, calls into kernel "map_lookup_elem()"
-and we calculate:
-  value_size = round_up(map->value_size, 8) * num_possible_cpus();
-  // which in my case 8 * 64 = 512
-  ...
-  // then copy to user, which writes 512B to the "values[nr_cpus]" on stack
-  if (copy_to_user(uvalue, value, value_size) != 0)
+/* Schedule retransmission on the given transport */
+void sctp_transport_immediate_rtx(struct sctp_transport *t)
+{
+        /* Stop pending T3_rtx_timer */
+        if (del_timer(&t->T3_rtx_timer))
+                sctp_transport_put(t);
 
-And I think this 512B write to userspace corrupts the userspace stack
-and causes a coredump. After bpf_lookup_elem() calls, gdb shows
-'values' points to memory address 0x0.
+        sctp_retransmit(&t->asoc->outqueue, t, SCTP_RTXR_T3_RTX);
+        if (!timer_pending(&t->T3_rtx_timer)) {
+                if (!mod_timer(&t->T3_rtx_timer, jiffies + t->rto))
+                                                 ^^^^^^^^^^^^^^^^
+                        sctp_transport_hold(t);
 
-To fix it, I could either
-1). declare values array based on num_possible_cpu in test_map.c,
-  long values[64];
-or 2) in kernel, only copying 8*2 = 16 byte from kernel to user.
+Note how on sctp_get_sctp_info() it fetches the RTO (which is T3_RTX)
+this way:
+	info->sctpi_p_rto = jiffies_to_msecs(prim->rto);
+If we want to know how long is left for the timer to expire, we have to
+read directly from it.
 
-Regards,
-William
+With git grep -A 1 TIMER_START we can confirm that [1] is never hit for
+SCTP_EVENT_TIMEOUT_T3_RTX. Yet, the asoc is allocated with kzalloc(), so
+I guess you were just reading -jiffies in there.
 
+Note however that the stats rtx_data_chunks is the accumulated stats,
+it's good, and that we may have multiple T3 timers running at once, with
+different timeouts.
 
-On Fri, Jul 29, 2016 at 12:54 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 07/29/2016 08:47 AM, Alexei Starovoitov wrote:
->>
->> On Thu, Jul 28, 2016 at 05:42:21PM -0700, William Tu wrote:
->>>
->>> The total size of value copy_to_user() writes to userspace should
->>> be the (current number of cpu) * (value size), instead of
->>> num_possible_cpus() * (value size).  Found by samples/bpf/test_maps.c,
->>> which always copies 512 byte to userspace, crashing the userspace
->>> program stack.
->>
->>
->> hmm. I'm missing something. The sample code assumes no cpu hutplug,
->> so sysconf(_SC_NPROCESSORS_CONF) == num_possible_cpu == num_online_cpu,
->> unless there is crazy INIT_ALL_POSSIBLE config option is used.
->
->
-> Are you using ARM by chance? What is the count that you get in
-> user space and from kernel side?
->
-> http://lists.infradead.org/pipermail/linux-arm-kernel/2011-June/054177.html
+Xin, ideas on how we can fix this? I'm not sure if we can dump
+per-transport info in there. Not as it is now, I guess.
+
+> +	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] > jiffies) {
+> +		r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+> +		r->idiag_retrans = asoc->rtx_data_chunks;
+> +		r->idiag_expires = jiffies_to_msecs(
+> +			asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
+> +	}
+>  }
+>  
+>  static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
+> -- 
+> 2.8.2
+> 
