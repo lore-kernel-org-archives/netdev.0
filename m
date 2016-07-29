@@ -1,100 +1,50 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH RESEND nf] netfilter: avoid a race between nf_register_hook()
- and cleanup_net()
-Date: Fri, 29 Jul 2016 18:19:04 +0200 (CEST)
-Message-ID: <20160729161904.4F00BA0BD9@unicorn.suse.cz>
-References: <20160729150033.E0250A0BD9@unicorn.suse.cz>
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH 2/3] sctp_diag: export timer value only if it is active
+Date: Fri, 29 Jul 2016 18:59:39 +0200
+Message-ID: <1469811580-32429-3-git-send-email-phil@nwl.cc>
+References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
+Cc: Xin Long <lucien.xin@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:40375 "EHLO mx2.suse.de"
+Received: from orbyte.nwl.cc ([151.80.46.58]:45543 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751563AbcG2QTH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jul 2016 12:19:07 -0400
-In-Reply-To: <20160729150033.E0250A0BD9@unicorn.suse.cz>
+	id S1752269AbcG2Q7y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 12:59:54 -0400
+In-Reply-To: <1469811580-32429-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a race condition between nf_{,un}register_hook() and
-cleanup_net() which can either trigger WARN check or cause a memory
-leak. The scenario is like this (2a and 2b are alternatives):
+Since it is exported as unsigned value, userspace has no way detecting
+whether it is negative or just very large. Therefore do this in kernel
+space where it is a simple comparison.
 
-1.  cleanup_net() removes one or more struct net from net_namespace_list
-2a. nf_register_hook() adds per-netns hooks to all netns (but not those
-    removed in step 1) and adds the hook to global nf_hook_list
-2b. nf_unregister_hook() deletes per-netns hooks from all netns (but not
-    those removed in step 1) and removes the hook from nf_hook_list
-3.  cleanup_net() calls pernet subsystem exit functions for netns being
-    removed; one of them is netfilter_net_exit() which (among others)
-    calls nf_unregister_net_hook() to unregister per-netns hooks for all
-    hooks in nf_hook_list.
-
-In case (a), per-netns hooks are never added as the namespace was
-already invisible to for_each_net() in step 2a but an attempt to remove
-them in step 3 (the hook is already in nf_hook_list) triggers a WARN
-check in nf_unregister_net_hook() (no real harm done, however). In case
-(b), the per-netns hook is removed neither in step 2b (netns is already
-invisible to for_each_net()) nor in step 3 (the hook is already removed
-from nf_hook_list), causing a memory leak.
-
-Prevent the race by protecting the for_each_net() loop in
-nf_{,un}register_hook() (also) by net_mutex. There is already a
-precendens for this in rtnl_link_unregister() which addresses similar
-race.
-
-Fixes: 085db2c04557 ("netfilter: Per network namespace netfilter hooks.")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- net/netfilter/core.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/sctp/sctp_diag.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index f39276d1c2d7..860978c9f82e 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -193,6 +193,8 @@ int nf_register_hook(struct nf_hook_ops *reg)
- 	struct net *net, *last;
- 	int ret;
- 
-+	/* prevent race with cleanup_net() */
-+	mutex_lock(&net_mutex);
- 	rtnl_lock();
- 	for_each_net(net) {
- 		ret = nf_register_net_hook(net, reg);
-@@ -201,6 +203,7 @@ int nf_register_hook(struct nf_hook_ops *reg)
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index f69edcf219e51..0ad6033a7330c 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -40,10 +40,12 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
  	}
- 	list_add_tail(&reg->list, &nf_hook_list);
- 	rtnl_unlock();
-+	mutex_unlock(&net_mutex);
  
- 	return 0;
- rollback:
-@@ -211,6 +214,7 @@ rollback:
- 		nf_unregister_net_hook(net, reg);
- 	}
- 	rtnl_unlock();
-+	mutex_unlock(&net_mutex);
- 	return ret;
+ 	r->idiag_state = asoc->state;
+-	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+-	r->idiag_retrans = asoc->rtx_data_chunks;
+-	r->idiag_expires = jiffies_to_msecs(
+-		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
++	if (asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] > jiffies) {
++		r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
++		r->idiag_retrans = asoc->rtx_data_chunks;
++		r->idiag_expires = jiffies_to_msecs(
++			asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
++	}
  }
- EXPORT_SYMBOL(nf_register_hook);
-@@ -219,11 +223,14 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
- {
- 	struct net *net;
  
-+	/* prevent race with cleanup_net() */
-+	mutex_lock(&net_mutex);
- 	rtnl_lock();
- 	list_del(&reg->list);
- 	for_each_net(net)
- 		nf_unregister_net_hook(net, reg);
- 	rtnl_unlock();
-+	mutex_unlock(&net_mutex);
- }
- EXPORT_SYMBOL(nf_unregister_hook);
- 
+ static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
 -- 
-2.9.2
+2.8.2
