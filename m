@@ -1,83 +1,66 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 15/15] ethernet: ti: davinci_emac: add missing of_node_put
- after calling of_parse_phandle
-Date: Fri, 29 Jul 2016 14:59:46 +0530
-Message-ID: <1c3c541a-a183-4b23-da69-991e48a06184@ti.com>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
- <1469586048-15697-16-git-send-email-peter.chen@nxp.com>
- <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
- <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 3/3] net: ipconfig: drop inter-device timeout
+Date: Fri, 29 Jul 2016 11:30:39 +0200
+Message-ID: <1469784639-15705-4-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <20160728112613.n72e6pein3b5lm4b@pengutronix.de>
+ <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
-	"isubramanian@apm.com" <isubramanian@apm.com>,
-	"kchudgar@apm.com" <kchudgar@apm.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"wxt@rock-chips.com" <wxt@rock-chips.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"david.daney@cavium.com" <david.daney@cavium.com>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"jszhang@marvell.com" <jszhang@marvell.com>,
-	Linux OMAP Mailing List <linux-omap@vger.ker
-To: Peter Chen <peter.chen@nxp.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Chris Friesen <cfriesen@nortel.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([198.47.19.12]:51892 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751123AbcG2Jad (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jul 2016 05:30:33 -0400
-In-Reply-To: <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:54348 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751123AbcG2JbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 05:31:11 -0400
+In-Reply-To: <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+ Linux Omap ML
+Now that ipconfig learned to handle "delayed replies" in the previous
+commit, there is no reason any more to delay sending a first request pe=
+r
+device.
 
-On Wednesday 27 July 2016 01:13 PM, Peter Chen wrote:
->  
->> On Wednesday 27 July 2016 07:50 AM, Peter Chen wrote:
->>> of_node_put needs to be called when the device node which is got from
->>> of_parse_phandle has finished using.
->>>
->>> Signed-off-by: Peter Chen <peter.chen@nxp.com>
->>> ---
->>>  drivers/net/ethernet/ti/davinci_emac.c | 1 +
->>>  1 file changed, 1 insertion(+)
->>>
->>> diff --git a/drivers/net/ethernet/ti/davinci_emac.c
->>> b/drivers/net/ethernet/ti/davinci_emac.c
->>> index c6c5465..d8cb9d0 100644
->>> --- a/drivers/net/ethernet/ti/davinci_emac.c
->>> +++ b/drivers/net/ethernet/ti/davinci_emac.c
->>> @@ -1571,6 +1571,7 @@ static int emac_dev_open(struct net_device *ndev)
->>>  	if (priv->phy_node) {
->>>  		phydev = of_phy_connect(ndev, priv->phy_node,
->>>  					&emac_adjust_link, 0, 0);
->>> +		of_node_put(priv->phy_node);
->>>  		if (!phydev) {
->>>  			dev_err(emac_dev, "could not connect to phy %s\n",
->>>  				priv->phy_node->full_name);
->>>
->>
->> phy_node is accessed in case of of_phy_connect() returns error, so it has to be
->> moved after the dev_err log
->>
-> 
-> Yeah, you are right. I will change it, thanks.
-> 
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ net/ipv4/ipconfig.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-I see one more problem, when you stop and open the interface there is no
-way to get the phy_node and interface will be unusable, so of_node_put()
-should be moved to remove()
-
-Regards
-Mugunthan V N
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 5af6736bd384..42cf629357b5 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -85,7 +85,6 @@
+ /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
+ #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
+ #define CONF_SEND_RETRIES 	6	/* Send six requests per open */
+-#define CONF_INTER_TIMEOUT	(HZ)	/* Inter-device timeout: 1 second */
+ #define CONF_BASE_TIMEOUT	(HZ*2)	/* Initial timeout: 2 seconds */
+ #define CONF_TIMEOUT_RANDOM	(HZ)	/* Maximum amount of randomization */
+ #define CONF_TIMEOUT_MULT	*7/4	/* Rate of timeout growth */
+@@ -1225,9 +1224,11 @@ static int __init ic_dynamic(void)
+ 			ic_rarp_send_if(d);
+ #endif
+=20
+-		jiff =3D jiffies + (d->next ? CONF_INTER_TIMEOUT : timeout);
+-		while (time_before(jiffies, jiff) && !ic_got_reply)
+-			schedule_timeout_uninterruptible(1);
++		if (!d->next) {
++			jiff =3D jiffies + timeout;
++			while (time_before(jiffies, jiff) && !ic_got_reply)
++				schedule_timeout_uninterruptible(1);
++		}
+ #ifdef IPCONFIG_DHCP
+ 		/* DHCP isn't done until we get a DHCPACK. */
+ 		if ((ic_got_reply & IC_BOOTP) &&
+--=20
+2.8.1
