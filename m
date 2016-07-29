@@ -1,98 +1,84 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net-next 3/3] bna: remove global bnad_list_mutex
-Date: Fri, 29 Jul 2016 19:52:58 +0200
-Message-ID: <1469814778-23186-4-git-send-email-ivecera@redhat.com>
-References: <1469814778-23186-1-git-send-email-ivecera@redhat.com>
-Cc: rasesh.mody@qlogic.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41468 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753217AbcG2RxF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jul 2016 13:53:05 -0400
-In-Reply-To: <1469814778-23186-1-git-send-email-ivecera@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2 3/5] ARM: sun8i: dt: Add DT bindings
+ documentation for Allwinner sun8i-emac
+Date: Fri, 29 Jul 2016 20:12:32 +0200
+Message-ID: <20160729181232.GF6215@lukather>
+References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
+ <1469001800-11615-4-git-send-email-clabbe.montjoie@gmail.com>
+ <20160721075519.GC5993@lukather>
+ <20160728134031.GC7582@Red>
+ <20160728184916.GF6682@lukather>
+ <20160729081519.GA31878@Red>
+Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="hK8Uo4Yp55NZU70L"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDSJBYGBRIMBBG5Z526AKGQE7PJNOOI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20160729081519.GA31878@Red>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-Remove global bnad_list_mutex as it is not used anymore. This makes
-bnad_add_to_list() and bnad_remove_from_list() empty so remove them too.
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 20 --------------------
- 1 file changed, 20 deletions(-)
+--hK8Uo4Yp55NZU70L
+Content-Type: text/plain; charset=UTF-8
+Content-Disposition: inline
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 2bed050..f9df4b5 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -55,7 +55,6 @@ MODULE_PARM_DESC(bna_debugfs_enable, "Enables debugfs feature, default=1,"
-  */
- static u32 bnad_rxqs_per_cq = 2;
- static atomic_t bna_id;
--static struct mutex bnad_list_mutex;
- static const u8 bnad_bcast_addr[] __aligned(2) =
- 	{ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- 
-@@ -75,20 +74,6 @@ do {								\
- 	(_res_info)->res_u.mem_info.len = (_size);		\
- } while (0)
- 
--static void
--bnad_add_to_list(struct bnad *bnad)
--{
--	mutex_lock(&bnad_list_mutex);
--	mutex_unlock(&bnad_list_mutex);
--}
--
--static void
--bnad_remove_from_list(struct bnad *bnad)
--{
--	mutex_lock(&bnad_list_mutex);
--	mutex_unlock(&bnad_list_mutex);
--}
--
- /*
-  * Reinitialize completions in CQ, once Rx is taken down
-  */
-@@ -3569,14 +3554,12 @@ bnad_lock_init(struct bnad *bnad)
- {
- 	spin_lock_init(&bnad->bna_lock);
- 	mutex_init(&bnad->conf_mutex);
--	mutex_init(&bnad_list_mutex);
- }
- 
- static void
- bnad_lock_uninit(struct bnad *bnad)
- {
- 	mutex_destroy(&bnad->conf_mutex);
--	mutex_destroy(&bnad_list_mutex);
- }
- 
- /* PCI Initialization */
-@@ -3649,7 +3632,6 @@ bnad_pci_probe(struct pci_dev *pdev,
- 	}
- 	bnad = netdev_priv(netdev);
- 	bnad_lock_init(bnad);
--	bnad_add_to_list(bnad);
- 	bnad->id = atomic_inc_return(&bna_id) - 1;
- 
- 	mutex_lock(&bnad->conf_mutex);
-@@ -3804,7 +3786,6 @@ pci_uninit:
- 	bnad_pci_uninit(pdev);
- unlock_mutex:
- 	mutex_unlock(&bnad->conf_mutex);
--	bnad_remove_from_list(bnad);
- 	bnad_lock_uninit(bnad);
- 	free_netdev(netdev);
- 	return err;
-@@ -3842,7 +3823,6 @@ bnad_pci_remove(struct pci_dev *pdev)
- 	bnad_disable_msix(bnad);
- 	bnad_pci_uninit(pdev);
- 	mutex_unlock(&bnad->conf_mutex);
--	bnad_remove_from_list(bnad);
- 	bnad_lock_uninit(bnad);
- 	/* Remove the debugfs node for this bnad */
- 	kfree(bnad->regdata);
+On Fri, Jul 29, 2016 at 10:15:19AM +0200, LABBE Corentin wrote:
+> > > > > +See ethernet.txt in the same directory for generic bindings for ethernet
+> > > > > +controllers.
+> > > > > +
+> > > > > +The device node referenced by "phy" or "phy-handle" should be a child node
+> > > > > +of this node. See phy.txt for the generic PHY bindings.
+> > > > > +
+> > > > > +Optional properties:
+> > > > > +- phy-supply: phandle to a regulator if the PHY needs one
+> > > > > +- phy-io-supply: phandle to a regulator if the PHY needs a another one for I/O.
+> > > > > +		 This is sometimes found with RGMII PHYs, which use a second
+> > > > > +		 regulator for the lower I/O voltage.
+> > > > > +- allwinner,tx-delay: The setting of the TX clock delay chain
+> > > > > +- allwinner,rx-delay: The setting of the RX clock delay chain
+> > > > 
+> > > > In which unit? What is the default value?
+> > > 
+> > > The unit is unknown to me, but I have added a comment for the
+> > > default and acceptable range value.
+> > 
+> > That's unfortunate. We'll see how the DT maintainers feel about that.
+> > 
+> 
+> I have searched for txdelay in Documentation, and found a few driver
+> that give the units (us/ps).
+>
+> But in that case, the value in ps/us must be found in a table
+> indexed by the Xxdelay value.
+>
+> So the settings seems always a raw number, and for sun8i-emac
+> nothing in user manual could help to find what each value is/related
+> to.
+> 
+> So the good value is either found by "try and test" or "copy the
+> value found in fex file".
+
+What I meant was that, just like you found out already, most of the
+time the properties should be in absolute units, so that it doesn't
+depend on some clock rate most likely in that case.
+
+Maxime
+
 -- 
-2.7.3
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--hK8Uo4Yp55NZU70L--
