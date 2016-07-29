@@ -1,8 +1,8 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH v5 4/8] thunderbolt: Communication with the ICM
  (firmware)
-Date: Fri, 29 Jul 2016 14:02:24 -0700
-Message-ID: <20160729140224.137dbaac@xeon-e3>
+Date: Fri, 29 Jul 2016 14:03:26 -0700
+Message-ID: <20160729140326.1fae0ced@xeon-e3>
 References: <1469693721-5641-1-git-send-email-amir.jer.levy@intel.com>
 	<1469693721-5641-5-git-send-email-amir.jer.levy@intel.com>
 Mime-Version: 1.0
@@ -22,7 +22,8 @@ List-Id: netdev.vger.kernel.org
 On Thu, 28 Jul 2016 11:15:17 +0300
 Amir Levy <amir.jer.levy@intel.com> wrote:
 
-> +static LIST_HEAD(controllers_list);
-> +static DECLARE_RWSEM(controllers_list_rwsem);
+> +int nhi_send_message(struct tbt_nhi_ctxt *nhi_ctxt, enum pdf_value pdf,
+> +		     u32 msg_len, const u8 *msg, bool ignore_icm_resp)
+> +{
 
-Why use a semaphore when simple spinlock or mutex would be better?
+Why not make msg a void * and not have to do so many casts?
