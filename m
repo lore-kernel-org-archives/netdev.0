@@ -1,59 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Microsemi VSC 8531/41 PHY Driver
-Date: Fri, 29 Jul 2016 10:04:02 +0200
-Message-ID: <20160729080402.GA13798@lunn.ch>
-References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
- <20160726115556.GC11538@lunn.ch>
- <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
- <20160726124347.GD11538@lunn.ch>
- <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+From: Tobias Brunner <tobias@strongswan.org>
+Subject: [PATCH ipsec] xfrm: Ignore socket policies when rebuilding hash
+ tables
+Date: Fri, 29 Jul 2016 09:57:32 +0200
+Message-ID: <8e6b1395-6f17-66ce-e257-6b6073ca7103@strongswan.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Christophe Gouault <christophe.gouault@6wind.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53498 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750917AbcG2IEG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jul 2016 04:04:06 -0400
-Content-Disposition: inline
-In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+Received: from sitav-80046.hsr.ch ([152.96.80.46]:49686 "EHLO
+	mail.strongswan.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752192AbcG2IHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 04:07:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 28, 2016 at 06:44:37AM +0000, Raju Lakkaraju wrote:
-> Hello Andrew,
-> 
-> Thank you for given valuable comments.
-> Please see the my responses inline.
-> 
-> Thanks,
-> Raju
-> 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch] 
-> Sent: Tuesday, July 26, 2016 6:14 PM
-> To: Raju Lakkaraju
-> Cc: netdev@vger.kernel.org; f.fainelli@gmail.com; Allan Nielsen
-> Subject: Re: Microsemi VSC 8531/41 PHY Driver
-> 
-> EXTERNAL EMAIL
-> 
-> 
-> > +/* RGMII Rx Clock delay value change with board lay-out */ static u8 
-> > +rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
-> 
-> Doesn't this stop you from having a board with two PHYs with different layouts? You should be getting this value from the device tree.
-> 
-> Raju: As of now, RGMII Rx clock delay value should be 1.1 nsec as optimized/recommended value. 
-> We tested on Beaglebone Black with VSC 8531 PHY.
-> We would like to provide new function to configure correct/require value based on PHY layouts 
-> alone with other RGMII configuration parameters as part of our next implementation.
+Whenever thresholds are changed the hash tables are rebuilt.  This is
+done by enumerating all policies and hashing and inserting them into
+the right table according to the thresholds and direction.
 
-Hi Raju
+Because socket policies are also contained in net->xfrm.policy_all but
+no hash tables are defined for their direction (dir + XFRM_POLICY_MAX)
+this causes a NULL or invalid pointer dereference after returning from
+policy_hash_bysel() if the rebuild is done while any socket policies
+are installed.
 
-Please can you use standard email quoting, just like everybody else does.
+Since the rebuild after changing thresholds is scheduled this crash
+could even occur if the userland sets thresholds seemingly before
+installing any socket policies.
 
-       Andrew
+Fixes: 53c2e285f970 ("xfrm: Do not hash socket policies")
+Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+---
+ net/xfrm/xfrm_policy.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index b5e665b3cfb0..45f9cf97ea25 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -626,6 +626,10 @@ static void xfrm_hash_rebuild(struct work_struct *work)
+ 
+ 	/* re-insert all policies by order of creation */
+ 	list_for_each_entry_reverse(policy, &net->xfrm.policy_all, walk.all) {
++		if (xfrm_policy_id2dir(policy->index) >= XFRM_POLICY_MAX) {
++			/* skip socket policies */
++			continue;
++		}
+ 		newpos = NULL;
+ 		chain = policy_hash_bysel(net, &policy->selector,
+ 					  policy->family,
+-- 
+1.9.1
