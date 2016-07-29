@@ -1,36 +1,42 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] bpf: fix size of copy_to_user in percpu map.
-Date: Fri, 29 Jul 2016 09:54:07 +0200
-Message-ID: <579B0B9F.8040805@iogearbox.net>
-References: <1469752941-7140-1-git-send-email-u9012063@gmail.com> <20160729064722.GA54517@ast-mbp.thefacebook.com>
+From: Michael Weiser <michael.weiser@gmx.de>
+Subject: Re: [PATCH 2/3] stmmac: change dma descriptors to __le32
+Date: Fri, 29 Jul 2016 09:53:43 +0200
+Message-ID: <20160729075343.GD415@weiser.dinsnail.net>
+References: <20160721182329.13478-1-michael.weiser@gmx.de>
+ <20160721182329.13478-3-michael.weiser@gmx.de>
+ <e5229894-45fc-671e-641a-e41c7ab176d7@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	William Tu <u9012063@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41146 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752400AbcG2HyJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 03:54:09 -0400
-In-Reply-To: <20160729064722.GA54517@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Alexandre Torgue <alexandre.torgue@st.com>,
+ linux-arm-kernel@lists.infradead.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <e5229894-45fc-671e-641a-e41c7ab176d7@st.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 07/29/2016 08:47 AM, Alexei Starovoitov wrote:
-> On Thu, Jul 28, 2016 at 05:42:21PM -0700, William Tu wrote:
->> The total size of value copy_to_user() writes to userspace should
->> be the (current number of cpu) * (value size), instead of
->> num_possible_cpus() * (value size).  Found by samples/bpf/test_maps.c,
->> which always copies 512 byte to userspace, crashing the userspace
->> program stack.
->
-> hmm. I'm missing something. The sample code assumes no cpu hutplug,
-> so sysconf(_SC_NPROCESSORS_CONF) == num_possible_cpu == num_online_cpu,
-> unless there is crazy INIT_ALL_POSSIBLE config option is used.
+Hi Giuseppe,
 
-Are you using ARM by chance? What is the count that you get in
-user space and from kernel side?
+On Tue, Jul 26, 2016 at 02:13:45PM +0200, Giuseppe CAVALLARO wrote:
 
-http://lists.infradead.org/pipermail/linux-arm-kernel/2011-June/054177.html
+> > -			ep++;
+> > +			ep++);
+> there is a build problem here.
+> Pls fix it.
+
+Thanks for your review. I've got it fixed locally. An updated patchset
+will be forthcoming as soon as I've sorted a problem with sun4i-emac
+which I've been asked to look into as well.
+-- 
+Thanks,
+Michael
