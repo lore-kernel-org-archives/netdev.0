@@ -1,9 +1,10 @@
 From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
 	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 0/3] net: ipconfig: improve DHCP timeout handling
-Date: Fri, 29 Jul 2016 11:30:36 +0200
-Message-ID: <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 1/3] net: ipconfig: Add device name to debug messages
+Date: Fri, 29 Jul 2016 11:30:37 +0200
+Message-ID: <1469784639-15705-2-git-send-email-u.kleine-koenig@pengutronix.de>
 References: <20160728112613.n72e6pein3b5lm4b@pengutronix.de>
+ <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -16,42 +17,77 @@ To: "David S. Miller" <davem@davemloft.net>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:59517 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:32931 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752731AbcG2JbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 05:31:12 -0400
-In-Reply-To: <20160728112613.n72e6pein3b5lm4b@pengutronix.de>
+	by vger.kernel.org with ESMTP id S1751557AbcG2JbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 05:31:16 -0400
+In-Reply-To: <1469784639-15705-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This simplifies understanding what happens when there is more than one
+device.
 
-this series teaches the ipconfig code to handle a DHCP reply on eth0 ev=
-en if a
-request on eth1 was already sent out.
-This is a follow fix to 2513dfb83fc7 ("ipconfig: handle case of delayed=
- DHCP
-server") that dropped a late reply.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ net/ipv4/ipconfig.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-This makes it possible at all to work with slow DHCP servers at all in =
-some
-configurations and improves boot speed in general.
-
-The first patch is not really necessary, it only helps decoding debug m=
-essages
-when there is more than one device.
-
-Best regards
-Uwe
-
-Uwe Kleine-K=C3=B6nig (3):
-  net: ipconfig: Add device name to debug messages
-  net: ipconfig: Support using "delayed" DHCP replies
-  net: ipconfig: drop inter-device timeout
-
- net/ipv4/ipconfig.c | 50 +++++++++++++++++++++------------------------=
------
- 1 file changed, 21 insertions(+), 29 deletions(-)
-
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 1d71c40eaaf3..369e4a004850 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -666,14 +666,14 @@ static const u8 ic_bootp_cookie[4] =3D { 99, 130,=
+ 83, 99 };
+ #ifdef IPCONFIG_DHCP
+=20
+ static void __init
+-ic_dhcp_init_options(u8 *options)
++ic_dhcp_init_options(u8 *options, struct ic_device *d)
+ {
+ 	u8 mt =3D ((ic_servaddr =3D=3D NONE)
+ 		 ? DHCPDISCOVER : DHCPREQUEST);
+ 	u8 *e =3D options;
+ 	int len;
+=20
+-	pr_debug("DHCP: Sending message type %d\n", mt);
++	pr_debug("DHCP: Sending message type %d (%s)\n", mt, d->dev->name);
+=20
+ 	memcpy(e, ic_bootp_cookie, 4);	/* RFC1048 Magic Cookie */
+ 	e +=3D 4;
+@@ -857,7 +857,7 @@ static void __init ic_bootp_send_if(struct ic_devic=
+e *d, unsigned long jiffies_d
+ 	/* add DHCP options or BOOTP extensions */
+ #ifdef IPCONFIG_DHCP
+ 	if (ic_proto_enabled & IC_USE_DHCP)
+-		ic_dhcp_init_options(b->exten);
++		ic_dhcp_init_options(b->exten, d);
+ 	else
+ #endif
+ 		ic_bootp_init_ext(b->exten);
+@@ -1033,8 +1033,8 @@ static int __init ic_bootp_recv(struct sk_buff *s=
+kb, struct net_device *dev, str
+ 	/* Is it a reply to our BOOTP request? */
+ 	if (b->op !=3D BOOTP_REPLY ||
+ 	    b->xid !=3D d->xid) {
+-		net_err_ratelimited("DHCP/BOOTP: Reply not for us, op[%x] xid[%x]\n"=
+,
+-				    b->op, b->xid);
++		net_err_ratelimited("DHCP/BOOTP: Reply not for us on %s, op[%x] xid[=
+%x]\n",
++				    d->dev->name, b->op, b->xid);
+ 		goto drop_unlock;
+ 	}
+=20
+@@ -1075,7 +1075,7 @@ static int __init ic_bootp_recv(struct sk_buff *s=
+kb, struct net_device *dev, str
+ 				}
+ 			}
+=20
+-			pr_debug("DHCP: Got message type %d\n", mt);
++			pr_debug("DHCP: Got message type %d (%s)\n", mt, d->dev->name);
+=20
+ 			switch (mt) {
+ 			case DHCPOFFER:
 --=20
 2.8.1
