@@ -1,61 +1,38 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net 2/3] macsec: RXSAs don't need to hold a reference on RXSCs
-Date: Fri, 29 Jul 2016 15:37:54 +0200
-Message-ID: <274de318b0cad01f83b23833f95b3f46c374e80f.1469782905.git.sd@queasysnail.net>
-References: <cover.1469782905.git.sd@queasysnail.net>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v2 net] tcp: consider recv buf for the initial window scale
+Date: Fri, 29 Jul 2016 09:39:15 -0400
+Message-ID: <CADVnQy=VeCdeaTBCe7ighw-CoT6bP4Ve2aFvB0gsAesHVUmnYw@mail.gmail.com>
+References: <1469799242-28408-1-git-send-email-soheil.kdev@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Soheil Hassas Yeganeh <soheil@google.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30332 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751557AbcG2NiI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 29 Jul 2016 09:38:08 -0400
-In-Reply-To: <cover.1469782905.git.sd@queasysnail.net>
-In-Reply-To: <cover.1469782905.git.sd@queasysnail.net>
-References: <cover.1469782905.git.sd@queasysnail.net>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:35365 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751458AbcG2Njq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 09:39:46 -0400
+Received: by mail-oi0-f43.google.com with SMTP id l72so106573659oig.2
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 06:39:45 -0700 (PDT)
+In-Reply-To: <1469799242-28408-1-git-send-email-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following the previous patch, RXSCs are held and properly refcounted in
-the RX path (instead of being implicitly held by their SA), so the SA
-doesn't need to hold a reference on its parent RXSC.
+On Fri, Jul 29, 2016 at 9:34 AM, Soheil Hassas Yeganeh
+<soheil.kdev@gmail.com> wrote:
+> To fix this, consider the maximum of net.ipv4.tcp_rmem[2],
+> net.core.rmem_max and socket's initial buffer space.
+>
+> Fixes: b0573dea1fb3 ("[NET]: Introduce SO_{SND,RCV}BUFFORCE socket options")
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Suggested-by: Neal Cardwell <ncardwell@google.com>
 
-This also avoids panics on module unload caused by the double layer of
-RCU callbacks (call_rcu frees the RXSA, which puts the final reference
-on the RXSC and allows to free it in its own call_rcu) that commit
-b196c22af5c3 ("macsec: add rcu_barrier() on module exit") didn't
-protect against.
-There were also some refcounting bugs in macsec_add_rxsa where I didn't
-put the reference on the RXSC on the error paths, which would lead to
-memory leaks.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- drivers/net/macsec.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Thanks, Soheil.
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index 718cf98023ff..7f5c5e0f9cf9 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -344,7 +344,6 @@ static void free_rxsa(struct rcu_head *head)
- 
- 	crypto_free_aead(sa->key.tfm);
- 	free_percpu(sa->stats);
--	macsec_rxsc_put(sa->sc);
- 	kfree(sa);
- }
- 
-@@ -1653,7 +1652,7 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
- 
- 	rtnl_lock();
- 	rx_sc = get_rxsc_from_nl(genl_info_net(info), attrs, tb_rxsc, &dev, &secy);
--	if (IS_ERR(rx_sc) || !macsec_rxsc_get(rx_sc)) {
-+	if (IS_ERR(rx_sc)) {
- 		rtnl_unlock();
- 		return PTR_ERR(rx_sc);
- 	}
--- 
-2.9.0
+neal
