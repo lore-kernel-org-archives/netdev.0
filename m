@@ -1,44 +1,100 @@
-From: "Woodford, Timothy W." <Timothy.Woodford@jhuapl.edu>
-Subject: RE: [Intel-wired-lan] [PATCH net-next v3 1/2] e1000e: factor out
- systim	sanitization
-Date: Fri, 29 Jul 2016 14:40:54 +0000
-Message-ID: <f236af8821e54127be4f1af2e8a998e9@APLEX07.dom1.jhuapl.edu>
-References: <1469292274-59237-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-2-git-send-email-jarod@redhat.com>
- <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
- <c79639cd5a4c4907b83e2f5df50bd2bc@APLEX07.dom1.jhuapl.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Woodford, Timothy W." <Timothy.Woodford@jhuapl.edu>,
-	"Avargil, Raanan" <raanan.avargil@intel.com>,
-	Jarod Wilson <jarod@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Hall, Christopher S" <christopher.s.hall@intel.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH RESEND nf] netfilter: avoid a race between nf_register_hook()
+ and cleanup_net()
+Date: Fri, 29 Jul 2016 18:19:04 +0200 (CEST)
+Message-ID: <20160729161904.4F00BA0BD9@unicorn.suse.cz>
+References: <20160729150033.E0250A0BD9@unicorn.suse.cz>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pilot.jhuapl.edu ([128.244.251.36]:19554 "EHLO pilot.jhuapl.edu"
+Received: from mx2.suse.de ([195.135.220.15]:40375 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751547AbcG2OlI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 10:41:08 -0400
-In-Reply-To: <c79639cd5a4c4907b83e2f5df50bd2bc@APLEX07.dom1.jhuapl.edu>
-Content-Language: en-US
+	id S1751563AbcG2QTH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 12:19:07 -0400
+In-Reply-To: <20160729150033.E0250A0BD9@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> This is prepatory work for an expanding list of adapter families that have occasional ~10 hour clock jumps when being used for PTP. Factor out the sanitization function and convert to using a feature (bug) flag, per suggestion from Jesse Brandeburg.
->>> 
->>> Littering functional code with device-specific checks is much messier than simply checking a flag, and having device-specific init set flags as needed.
->>> There are probably a number of other cases in the e1000e code that could/should be converted similarly.
->> 
->> Looks ok to me.
->> Adding Chris who asked what happens if we reach the max retry counter (E1000_MAX_82574_SYSTIM_REREAD)?
->> This counter is set to 50. 
->> Can you, for testing purposes, decreased this value (or even set it to 0) and see what happens?
->  I'll set the max retry counter to 1 and run an overnight test to see what happens.
+There is a race condition between nf_{,un}register_hook() and
+cleanup_net() which can either trigger WARN check or cause a memory
+leak. The scenario is like this (2a and 2b are alternatives):
 
-After running with this configuration for about 36 hours, I haven't seen any timing jumps.  Either this configuration eliminates the error, or it makes it significantly less likely to occur.
+1.  cleanup_net() removes one or more struct net from net_namespace_list
+2a. nf_register_hook() adds per-netns hooks to all netns (but not those
+    removed in step 1) and adds the hook to global nf_hook_list
+2b. nf_unregister_hook() deletes per-netns hooks from all netns (but not
+    those removed in step 1) and removes the hook from nf_hook_list
+3.  cleanup_net() calls pernet subsystem exit functions for netns being
+    removed; one of them is netfilter_net_exit() which (among others)
+    calls nf_unregister_net_hook() to unregister per-netns hooks for all
+    hooks in nf_hook_list.
 
-Tim Woodford
+In case (a), per-netns hooks are never added as the namespace was
+already invisible to for_each_net() in step 2a but an attempt to remove
+them in step 3 (the hook is already in nf_hook_list) triggers a WARN
+check in nf_unregister_net_hook() (no real harm done, however). In case
+(b), the per-netns hook is removed neither in step 2b (netns is already
+invisible to for_each_net()) nor in step 3 (the hook is already removed
+from nf_hook_list), causing a memory leak.
+
+Prevent the race by protecting the for_each_net() loop in
+nf_{,un}register_hook() (also) by net_mutex. There is already a
+precendens for this in rtnl_link_unregister() which addresses similar
+race.
+
+Fixes: 085db2c04557 ("netfilter: Per network namespace netfilter hooks.")
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/netfilter/core.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index f39276d1c2d7..860978c9f82e 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -193,6 +193,8 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	struct net *net, *last;
+ 	int ret;
+ 
++	/* prevent race with cleanup_net() */
++	mutex_lock(&net_mutex);
+ 	rtnl_lock();
+ 	for_each_net(net) {
+ 		ret = nf_register_net_hook(net, reg);
+@@ -201,6 +203,7 @@ int nf_register_hook(struct nf_hook_ops *reg)
+ 	}
+ 	list_add_tail(&reg->list, &nf_hook_list);
+ 	rtnl_unlock();
++	mutex_unlock(&net_mutex);
+ 
+ 	return 0;
+ rollback:
+@@ -211,6 +214,7 @@ rollback:
+ 		nf_unregister_net_hook(net, reg);
+ 	}
+ 	rtnl_unlock();
++	mutex_unlock(&net_mutex);
+ 	return ret;
+ }
+ EXPORT_SYMBOL(nf_register_hook);
+@@ -219,11 +223,14 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
+ {
+ 	struct net *net;
+ 
++	/* prevent race with cleanup_net() */
++	mutex_lock(&net_mutex);
+ 	rtnl_lock();
+ 	list_del(&reg->list);
+ 	for_each_net(net)
+ 		nf_unregister_net_hook(net, reg);
+ 	rtnl_unlock();
++	mutex_unlock(&net_mutex);
+ }
+ EXPORT_SYMBOL(nf_unregister_hook);
+ 
+-- 
+2.9.2
