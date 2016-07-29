@@ -1,51 +1,21 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: flow_dissector: Get vlan priority in addition to vlan id
-Date: Sun, 7 Aug 2016 10:43:25 +0300
-Message-ID: <CAJL1qvGt_QwecHfPMvkr54=uT8OBZ88DMmn5E=BQRpUWY6aHKw@mail.gmail.com>
+From: "nahcho@163.com" <netdev@vger.kernel.org>
+Subject: =?utf-8?Q?=D0=9F=D1=80=D0=BE=D0=B1=D0=B8=D0=B2_=D0=BB=D1?=
+	=?utf-8?Q?=8E=D0=B1=D1=8B=D1=85_=D0=B4=D0=B0=D0=BD=D0=BD?=
+	=?utf-8?Q?=D1=8B=D1=85_=D1=82=2E_+79776066203_Email=3A_na?=
+	=?utf-8?Q?hcho=40163=2Ecom?=
+Date: Sat, 30 Jul 2016 04:47:17 +0600
+Message-ID: <E01A51E58A5E70A37F7A338F9B4BBA2B@vger.kernel.org>
+Reply-To: "nahcho@163.com" <nahcho@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirva@gmail.com>, Or Gerlitz <ogerlitz@mellanox.com>,
-	netdev <netdev@vger.kernel.org>
-To: tom@herbertland.com, Jiri Pirko <jiri@mellanox.com>
+Content-Type: text/plain; charset="utf-8";
+Content-Transfer-Encoding: 8bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:34350 "EHLO
-	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbcHGHn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 03:43:26 -0400
-Received: by mail-oi0-f65.google.com with SMTP id a135so14727421oii.1
-        for <netdev@vger.kernel.org>; Sun, 07 Aug 2016 00:43:26 -0700 (PDT)
+Received: from server5857.dedicated.webfusion.co.uk ([81.21.74.143]:53368 "HELO
+	ds5857.dedicated.turbodns.co.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751297AbcHGHtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 03:49:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom and Jiri,
-
-I would like to add vlan priority to  __skb_flow_dissect.
-
-In the current vlan tag implementation there isn't any room left to
-vlan priority next to the vlan id.
-
-struct flow_dissector_key_tags {
-                u32         vlan_id:12,
-                                flow_label:20;
-};
-
-According to the discussion between you two [1], I'll be happy to get
-your advice about what is the best way of adding vlan priority?
-
-My suggestion is to add new vlan tag struct, it will make the code
-cleaner and since we have to add 3 bits to vlan priority any way it
-won't add unnecessary physical address holes.
-
-struct flow_dissector_key_tags {
-                u32         flow_label:20;
-};
-
-struct flow_dissector_key_vlan {
-                u16         vlan_id:12,
-                                vlan_priority:3;
-};
-
-Thanks,
-Hadar
-
-[1] - http://marc.info/?l=linux-netdev&m=143232557025994&w=2
+Пробив любых данных т. +79776066203 Email: nahcho@163.com
