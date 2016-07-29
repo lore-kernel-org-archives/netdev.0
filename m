@@ -1,95 +1,72 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] tcp: fix functions of tcp_congestion_ops from being
- called before initialization
-Date: Fri, 29 Jul 2016 14:09:18 +0200
-Message-ID: <20160729120918.GB26237@breakpoint.cc>
-References: <63F9B5BB-7E97-4774-AD98-5FA4010B2BE9@akamai.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH v2 1/1] Add timer to handle OOM situations
+Date: Fri, 29 Jul 2016 13:20:35 +0100
+Message-ID: <20160729122035.GE5443@stefanha-x1.localdomain>
+References: <20160726142821.31770-1-ggarcia@deic.uab.cat>
+ <20160726142821.31770-2-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fw@strlen.de" <fw@strlen.de>,
-	"dborkman@redhat.com" <dborkman@redhat.com>,
-	"glenn.judd@morganstanley.com" <glenn.judd@morganstanley.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "Li, Ji" <jli@akamai.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="a+b56+3nqLzpiR9O"
+Cc: netdev@vger.kernel.org
+To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:39748 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750948AbcG2MJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 08:09:25 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:33008 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750948AbcG2MUi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 08:20:38 -0400
 Content-Disposition: inline
-In-Reply-To: <63F9B5BB-7E97-4774-AD98-5FA4010B2BE9@akamai.com>
+In-Reply-To: <20160726142821.31770-2-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Li, Ji <jli@akamai.com> wrote:
-> In Linux 3.17 and earlier, tcp_init_congestion_ops (i.e. tcp_reno) is
-> used as the ca_ops during 3WHS, and after 3WHS, ca_ops is assigned as 
-> the default congestion control set by sysctl and immediately its parameters
-> stored in icsk_ca_priv[] are initialized. Commit 55d8694fa82c ("net:
-> tcp: assign tcp cong_ops when tcp sk is created") splits assignment and
-> initialization into two steps: assignment is done before SYN or SYN-ACK
-> is sent out; initialization is done after 3WHS (assume without
-> fastopen). But this can cause out-of-order invocation for ca_ops functions
-> other than .init() during 3WHS, as they could be called before its
-> parameters get initialized. It may cause unexpected behavior for
-> congestion controls, and make troubles for those that need dynamic
-> object allocation, like tcp_cdg etc.
 
-What exactly is the problem?
-Kernel crash?
+--a+b56+3nqLzpiR9O
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-AFAICS cdg can cope with NULL ca->gradients.
-
-> We used tcp_dctcp as an example to visualize the problem, and set it as
-> default congestion control via sysctl. Three parameters
-> (ca->prior_snd_una, ca->prior_rcv_nxt, ca->dctcp_alpha) were monitored
-> when functions, such as dctcp_update_alpha() and dctcp_ssthresh(), are
-> called during 3WHS. All of three are found to be zero, which is likely
-> impossible if dctcp_init() was called ahead, where those three
-> parameters should be initialized. Some other congestion controls are
-> examined too and the same problem was reproduced.
-
-Why is this a problem?
-
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> +{
-> +       if (inet_csk(sk)->icsk_ca_initialized)
-> +               return inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
-> +       else
-> +               return tcp_reno_ssthresh(sk);
-> +}
+On Tue, Jul 26, 2016 at 04:28:21PM +0200, ggarcia@abra.uab.cat wrote:
+> @@ -493,6 +524,9 @@ static int vhost_vsock_dev_open(struct inode *inode, =
+struct file *file)
+>  		goto out;
+>  	}
+> =20
+> +	setup_timer(&vsock->tx_kick,
+> +		    vhost_vsock_rehandle_tx_kick, (unsigned long) NULL);
 > +
->  /* Enter Loss state. If we detect SACK reneging, forget all SACK information
->   * and reset tags completely, otherwise preserve SACKs. If receiver
->   * dropped its ofo queue, we will know this due to reneging detection.
-> @@ -1896,7 +1904,7 @@ void tcp_enter_loss(struct sock *sk)
->             !after(tp->high_seq, tp->snd_una) ||
->             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
->                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
-> -               tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
-> +               tp->snd_ssthresh = tcp_ca_ssthresh(sk);
->                 tcp_ca_event(sk, CA_EVENT_LOSS);
->                 tcp_init_undo(tp);
->         }
+>  	vqs[VSOCK_VQ_TX] =3D &vsock->vqs[VSOCK_VQ_TX];
+>  	vqs[VSOCK_VQ_RX] =3D &vsock->vqs[VSOCK_VQ_RX];
+>  	vsock->vqs[VSOCK_VQ_TX].handle_kick =3D vhost_vsock_handle_tx_kick;
+> @@ -555,6 +589,7 @@ static int vhost_vsock_dev_release(struct inode *inod=
+e, struct file *file)
+>  	vhost_dev_stop(&vsock->dev);
+>  	vhost_dev_cleanup(&vsock->dev, false);
+>  	kfree(vsock->dev.vqs);
+> +	del_timer(&vsock->tx_kick);
 
-Can you explain how we can do loss recovery on a non-established
-connection ....?
+Please use del_timer_sync() so that we know the timer callback has
+finished executing if it's racing with us.
 
-> @@ -3335,7 +3343,8 @@ static void tcp_cong_control(struct sock *sk, u32 ack, u32 acked_sacked,
->         if (tcp_in_cwnd_reduction(sk)) {
->                 /* Reduce cwnd if state mandates */
->                 tcp_cwnd_reduction(sk, acked_sacked, flag);
-> -       } else if (tcp_may_raise_cwnd(sk, flag)) {
-> +       } else if (tcp_may_raise_cwnd(sk, flag) &&
-> +                  inet_csk(sk)->icsk_ca_initialized) {
->                 /* Advance cwnd if state allows */
->                 tcp_cong_avoid(sk, ack, acked_sacked);
+Also please figure out the correct ordering of this call so
+vhost_poll_queue() doesn't crash if the timer fires while we are
+executing vhost_vsock_dev_release().  In other words, vq and vq->poll
+must still be alive when we delete the timer, otherwise the callback
+could fire an run on a vq that has already been cleaned up by
+vhost_vsock_dev_release().
 
-Same here.  How is this called for minisock/sk with non-inited cong ops?
-Once sk moves to TCP_ESTABLISHED congestion ops are supposed to
-be initialized.
+--a+b56+3nqLzpiR9O
+Content-Type: application/pgp-signature; name="signature.asc"
 
-If thats not the case then thats a bug and should be fixed rather
-than not calling the cc state machinery any more.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXm0oTAAoJEJykq7OBq3PIbwIH/j+6q+shR0rhnizd8em9pSh7
+sym7BUQUmfM5E/YA4sto8BSuUu2cZVQ/bvbBh8L/MTlwssSELEJcmo3ba1NDhqcQ
+AWP/zdqnXgLw3Hzqi8q793RAGYMtJ7t1Fhya1vOthJsBR+a0nwzMbPlxlDzzleXe
+wSV8QcyZIAaK0E4iXGjzkc8mrBAYQT5i8DGAKo8ytLXPSjva/YF6hJZD0DZHQaxF
+WBDhcQXaf/URuWJkYWTFYhdxS0EmHDtFWQzjE4Pc7O3htllBa9UivLhBJhWqy4jI
+qB82pI2hQkRWyofPlGgSEq8HusQRBQobHSWiU+pzQFoLb6k33IOjo5zCl0dR4t8=
+=T+n7
+-----END PGP SIGNATURE-----
+
+--a+b56+3nqLzpiR9O--
