@@ -1,48 +1,83 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v2 1/5] ethernet: add sun8i-emac driver
-Date: Fri, 29 Jul 2016 11:26:57 +0200
-Message-ID: <4552489.XcKoxjnXeP@wuerfel>
-References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com> <4697175.RMdFEWr9V5@wuerfel> <20160728131826.GA7582@Red>
-Reply-To: arnd-r2nGTMty4D4@public.gmane.org
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 15/15] ethernet: ti: davinci_emac: add missing of_node_put
+ after calling of_parse_phandle
+Date: Fri, 29 Jul 2016 14:59:46 +0530
+Message-ID: <1c3c541a-a183-4b23-da69-991e48a06184@ti.com>
+References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
+ <1469586048-15697-16-git-send-email-peter.chen@nxp.com>
+ <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
+ <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDEKVJM7XAHRB3GC5S6AKGQE5NFSSIA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20160728131826.GA7582@Red>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
+	"isubramanian@apm.com" <isubramanian@apm.com>,
+	"kchudgar@apm.com" <kchudgar@apm.com>,
+	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+	"thomas.petazzoni@free-electrons.com"
+	<thomas.petazzoni@free-electrons.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+	"tremyfr@gmail.com" <tremyfr@gmail.com>,
+	"wxt@rock-chips.com" <wxt@rock-chips.com>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"david.daney@cavium.com" <david.daney@cavium.com>,
+	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+	"jszhang@marvell.com" <jszhang@marvell.com>,
+	Linux OMAP Mailing List <linux-omap@vger.ker
+To: Peter Chen <peter.chen@nxp.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([198.47.19.12]:51892 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751123AbcG2Jad (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 29 Jul 2016 05:30:33 -0400
+In-Reply-To: <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 28, 2016 3:18:26 PM CEST LABBE Corentin wrote:
++ Linux Omap ML
+
+On Wednesday 27 July 2016 01:13 PM, Peter Chen wrote:
+>  
+>> On Wednesday 27 July 2016 07:50 AM, Peter Chen wrote:
+>>> of_node_put needs to be called when the device node which is got from
+>>> of_parse_phandle has finished using.
+>>>
+>>> Signed-off-by: Peter Chen <peter.chen@nxp.com>
+>>> ---
+>>>  drivers/net/ethernet/ti/davinci_emac.c | 1 +
+>>>  1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/ti/davinci_emac.c
+>>> b/drivers/net/ethernet/ti/davinci_emac.c
+>>> index c6c5465..d8cb9d0 100644
+>>> --- a/drivers/net/ethernet/ti/davinci_emac.c
+>>> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+>>> @@ -1571,6 +1571,7 @@ static int emac_dev_open(struct net_device *ndev)
+>>>  	if (priv->phy_node) {
+>>>  		phydev = of_phy_connect(ndev, priv->phy_node,
+>>>  					&emac_adjust_link, 0, 0);
+>>> +		of_node_put(priv->phy_node);
+>>>  		if (!phydev) {
+>>>  			dev_err(emac_dev, "could not connect to phy %s\n",
+>>>  				priv->phy_node->full_name);
+>>>
+>>
+>> phy_node is accessed in case of of_phy_connect() returns error, so it has to be
+>> moved after the dev_err log
+>>
 > 
-> I will reworked locking and it seems that no locking is necessary.
-> I have added the following comment about the locking strategy:
+> Yeah, you are right. I will change it, thanks.
 > 
-> /* Locking strategy:
->  * RX queue does not need any lock since only sun8i_emac_poll() access it.
->  * (All other RX modifiers (ringparam/ndo_stop) disable NAPI and so sun8i_emac_poll())
->  * TX queue is handled by sun8i_emac_xmit(), sun8i_emac_complete_xmit() and sun8i_emac_tx_timeout()
->  * (All other RX modifiers (ringparam/ndo_stop) disable NAPI and stop queue)
->  *
->  * sun8i_emac_xmit() could fire only once (netif_tx_lock)
->  * sun8i_emac_complete_xmit() could fire only once (called from NAPI)
->  * sun8i_emac_tx_timeout() could fire only once (netif_tx_lock) and couldnt
->  * race with sun8i_emac_xmit (due to netif_tx_lock) and with sun8i_emac_complete_xmit which disable NAPI.
->  *
->  * So only sun8i_emac_xmit and sun8i_emac_complete_xmit could fire at the same time.
->  * But they never could modify the same descriptors:
->  * - sun8i_emac_complete_xmit() will modify only descriptors with empty status
->  * - sun8i_emac_xmit() will modify only descriptors set to DCLEAN
->  * Proper memory barriers ensure that descriptor set to DCLEAN could not be
->  * modified latter by sun8i_emac_complete_xmit().
->  * */
 
-Sounds good, the comment is certainly very helpful here.
+I see one more problem, when you stop and open the interface there is no
+way to get the phy_node and interface will be unusable, so of_node_put()
+should be moved to remove()
 
-	Arnd
+Regards
+Mugunthan V N
