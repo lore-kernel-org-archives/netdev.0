@@ -1,86 +1,121 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: octeon: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Sat, 30 Jul 2016 16:14:44 +0200
-Message-ID: <1469888084-2887-2-git-send-email-tremyfr@gmail.com>
-References: <1469888084-2887-1-git-send-email-tremyfr@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: gregkh@linuxfoundation.org, aaro.koskinen@iki.fi, nevola@gmail.com,
- andrew@lunn.ch, davem@davemloft.net, bhumirks@gmail.com,
- okash.khawaja@gmail.com, david.daney@cavium.com,
- cristina.moraru09@gmail.com, aybuke.147@gmail.com,
- kevin@darbyshire-bryant.me.uk, bhaktipriya96@gmail.com, joe@perches.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1469888084-2887-1-git-send-email-tremyfr@gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 1/2] net: ethernet: greth: use phydev from struct net_device
+Date: Sat, 30 Jul 2016 16:22:05 +0200
+Message-ID: <1469888526-8089-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: andreas@gaisler.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34778 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750919AbcG3OWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 10:22:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
-
-There was a check on CAP_NET_ADMIN in cvm_oct_set_settings, but this
-check is already done in dev_ethtool, so no need to repeat it before
-calling the generic function.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy in the private structure, and update the driver to use the
+one contained in struct net_device.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/staging/octeon/ethernet-mdio.c |   23 ++---------------------
- 1 files changed, 2 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/aeroflex/greth.c |   23 +++++++++++------------
+ drivers/net/ethernet/aeroflex/greth.h |    1 -
+ 2 files changed, 11 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
-index 661b97b..1fde9c8 100644
---- a/drivers/staging/octeon/ethernet-mdio.c
-+++ b/drivers/staging/octeon/ethernet-mdio.c
-@@ -34,25 +34,6 @@ static void cvm_oct_get_drvinfo(struct net_device *dev,
- 	strlcpy(info->bus_info, "Builtin", sizeof(info->bus_info));
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index bca07c5..010978b 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -1107,8 +1107,7 @@ static void greth_set_msglevel(struct net_device *dev, u32 value)
  }
- 
--static int cvm_oct_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
--{
--	if (dev->phydev)
--		return phy_ethtool_gset(dev->phydev, cmd);
--
--	return -EINVAL;
--}
--
--static int cvm_oct_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
--{
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
--	if (dev->phydev)
--		return phy_ethtool_sset(dev->phydev, cmd);
--
--	return -EINVAL;
--}
--
- static int cvm_oct_nway_reset(struct net_device *dev)
+ static int greth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
  {
- 	if (!capable(CAP_NET_ADMIN))
-@@ -66,10 +47,10 @@ static int cvm_oct_nway_reset(struct net_device *dev)
+-	struct greth_private *greth = netdev_priv(dev);
+-	struct phy_device *phy = greth->phy;
++	struct phy_device *phy = dev->phydev;
  
- const struct ethtool_ops cvm_oct_ethtool_ops = {
- 	.get_drvinfo = cvm_oct_get_drvinfo,
--	.get_settings = cvm_oct_get_settings,
--	.set_settings = cvm_oct_set_settings,
- 	.nway_reset = cvm_oct_nway_reset,
- 	.get_link = ethtool_op_get_link,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
+ 	if (!phy)
+ 		return -ENODEV;
+@@ -1118,8 +1117,7 @@ static int greth_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
  
- /**
+ static int greth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct greth_private *greth = netdev_priv(dev);
+-	struct phy_device *phy = greth->phy;
++	struct phy_device *phy = dev->phydev;
+ 
+ 	if (!phy)
+ 		return -ENODEV;
+@@ -1224,7 +1222,7 @@ static int greth_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ static void greth_link_change(struct net_device *dev)
+ {
+ 	struct greth_private *greth = netdev_priv(dev);
+-	struct phy_device *phydev = greth->phy;
++	struct phy_device *phydev = dev->phydev;
+ 	unsigned long flags;
+ 	int status_change = 0;
+ 	u32 ctrl;
+@@ -1307,7 +1305,6 @@ static int greth_mdio_probe(struct net_device *dev)
+ 	greth->link = 0;
+ 	greth->speed = 0;
+ 	greth->duplex = -1;
+-	greth->phy = phy;
+ 
+ 	return 0;
+ }
+@@ -1325,6 +1322,7 @@ static int greth_mdio_init(struct greth_private *greth)
+ {
+ 	int ret;
+ 	unsigned long timeout;
++	struct net_device *ndev = greth->netdev;
+ 
+ 	greth->mdio = mdiobus_alloc();
+ 	if (!greth->mdio) {
+@@ -1349,15 +1347,16 @@ static int greth_mdio_init(struct greth_private *greth)
+ 		goto unreg_mdio;
+ 	}
+ 
+-	phy_start(greth->phy);
++	phy_start(ndev->phydev);
+ 
+ 	/* If Ethernet debug link is used make autoneg happen right away */
+ 	if (greth->edcl && greth_edcl == 1) {
+-		phy_start_aneg(greth->phy);
++		phy_start_aneg(ndev->phydev);
+ 		timeout = jiffies + 6*HZ;
+-		while (!phy_aneg_done(greth->phy) && time_before(jiffies, timeout)) {
++		while (!phy_aneg_done(ndev->phydev) &&
++		       time_before(jiffies, timeout)) {
+ 		}
+-		phy_read_status(greth->phy);
++		phy_read_status(ndev->phydev);
+ 		greth_link_change(greth->netdev);
+ 	}
+ 
+@@ -1569,8 +1568,8 @@ static int greth_of_remove(struct platform_device *of_dev)
+ 
+ 	dma_free_coherent(&of_dev->dev, 1024, greth->tx_bd_base, greth->tx_bd_base_phys);
+ 
+-	if (greth->phy)
+-		phy_stop(greth->phy);
++	if (ndev->phydev)
++		phy_stop(ndev->phydev);
+ 	mdiobus_unregister(greth->mdio);
+ 
+ 	unregister_netdev(ndev);
+diff --git a/drivers/net/ethernet/aeroflex/greth.h b/drivers/net/ethernet/aeroflex/greth.h
+index 92dd918..9c07140 100644
+--- a/drivers/net/ethernet/aeroflex/greth.h
++++ b/drivers/net/ethernet/aeroflex/greth.h
+@@ -123,7 +123,6 @@ struct greth_private {
+ 	struct napi_struct napi;
+ 	spinlock_t devlock;
+ 
+-	struct phy_device *phy;
+ 	struct mii_bus *mdio;
+ 	unsigned int link;
+ 	unsigned int speed;
 -- 
 1.7.4.4
