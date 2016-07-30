@@ -1,162 +1,143 @@
 From: fxp2001640163@gmail.com
-Subject: [PATCH 1/3] netfilter: nat: update hash bucket if nat changed after ct confirmed
-Date: Sat, 30 Jul 2016 14:53:34 -0700
-Message-ID: <1469915614-16800-1-git-send-email-xfan@codeaurora.org>
+Subject: [PATCH 2/3] netfilter: nat: snat created in route process just apply to routed traffic
+Date: Sat, 30 Jul 2016 14:54:04 -0700
+Message-ID: <1469915644-16861-1-git-send-email-xfan@codeaurora.org>
 Cc: Xiaoping Fan <xfan@codeaurora.org>
 To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
 	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34059 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611AbcG3Vxh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 17:53:37 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34159 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbcG3VyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 17:54:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Xiaoping Fan <xfan@codeaurora.org>
 
-In some situations, NAT information is created after connection is
-confirmed. Since 5 tuple for reply direction is changed when creating
-NAT information, so we need to update hash bucket of connection.
+In some situations, packet goes through Linux twice, one for bridging,
+another for routing. If snat is created in bridging process, that means
+snat rule only matches bridged traffic. If snat is created in routing
+process, that means snat rule only matches routed traffic. If we apply
+snat to both bridged and routed traffic, traffic will be translated
+unexpectedly. So we limit snat created in bridge process to bridged
+traffic, snat created in route process to routed traffic.
 
 Signed-off-by: Xiaoping Fan <xfan@codeaurora.org>
 ---
- include/net/netfilter/nf_conntrack.h |  5 ++++
- net/netfilter/nf_conntrack_core.c    | 51 ++++++++++++++++++++++++++++++++++--
- net/netfilter/nf_nat_core.c          |  9 +++++++
- 3 files changed, 63 insertions(+), 2 deletions(-)
+ include/net/netfilter/nf_nat.h           |  9 +++++++++
+ net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 15 ++++++++++++++-
+ net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 15 ++++++++++++++-
+ 3 files changed, 37 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 445b019..cc9ba66 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -191,6 +191,9 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
- void nf_ct_free_hashtable(void *hash, unsigned int size);
+diff --git a/include/net/netfilter/nf_nat.h b/include/net/netfilter/nf_nat.h
+index c327a43..ef6e06c 100644
+--- a/include/net/netfilter/nf_nat.h
++++ b/include/net/netfilter/nf_nat.h
+@@ -18,12 +18,21 @@ enum nf_nat_manip_type {
+ #include <linux/netfilter/nf_conntrack_pptp.h>
+ #include <net/netfilter/nf_conntrack_extend.h>
  
- int nf_conntrack_hash_check_insert(struct nf_conn *ct);
-+void nf_conntrack_ct_hash_bucket_update(struct nf_conn *ct,
-+					unsigned int old_hash,
-+					unsigned int old_reply_hash);
- bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report);
++/* Check if packet is a bridged packet when do SNAT */
++#if defined(CONFIG_BRIDGE_NETFILTER)
++#define nf_nat_is_bridged_pkt(SKB) ((SKB)->nf_bridge && \
++				    ((SKB)->nf_bridge->physoutdev != NULL))
++#else
++#define nf_nat_is_bridged_pkt(SKB) 0
++#endif
++
+ /* per conntrack: nat application helper private data */
+ union nf_conntrack_nat_help {
+ 	/* insert nat helper private data here */
+ #if defined(CONFIG_NF_NAT_PPTP) || defined(CONFIG_NF_NAT_PPTP_MODULE)
+ 	struct nf_nat_pptp nat_pptp_info;
+ #endif
++	bool snat_in_bridge;
+ };
  
- bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
-@@ -305,6 +308,8 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
- int nf_conntrack_hash_resize(unsigned int hashsize);
- extern unsigned int nf_conntrack_htable_size;
- extern unsigned int nf_conntrack_max;
-+u_int32_t hash_conntrack(const struct net *net,
-+			 const struct nf_conntrack_tuple *tuple);
+ struct nf_conn;
+diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+index f8aad03..41c7992 100644
+--- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
+@@ -14,6 +14,7 @@
+ #include <linux/ip.h>
+ #include <linux/icmp.h>
+ #include <linux/netfilter.h>
++#include <linux/netfilter_bridge.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <net/secure_seq.h>
+ #include <net/checksum.h>
+@@ -277,6 +278,12 @@ nf_nat_ipv4_fn(void *priv, struct sk_buff *skb,
+ 	if (nat == NULL)
+ 		return NF_ACCEPT;
  
- struct nf_conn *nf_ct_tmpl_alloc(struct net *net,
- 				 const struct nf_conntrack_zone *zone,
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index dd2c43a..d4ee145 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -202,11 +202,12 @@ static u32 __hash_conntrack(const struct net *net,
- 	return reciprocal_scale(hash_conntrack_raw(tuple, net), size);
- }
++	if ((maniptype == NF_NAT_MANIP_SRC) &&
++	    nf_nat_initialized(ct, maniptype) &&
++	    (nat->help.snat_in_bridge != nf_nat_is_bridged_pkt(skb))) {
++		return NF_ACCEPT;
++	}
++
+ 	switch (ctinfo) {
+ 	case IP_CT_RELATED:
+ 	case IP_CT_RELATED_REPLY:
+@@ -299,8 +306,14 @@ nf_nat_ipv4_fn(void *priv, struct sk_buff *skb,
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
  
--static u32 hash_conntrack(const struct net *net,
--			  const struct nf_conntrack_tuple *tuple)
-+u32 hash_conntrack(const struct net *net,
-+		   const struct nf_conntrack_tuple *tuple)
- {
- 	return scale_hash(hash_conntrack_raw(tuple, net));
- }
-+EXPORT_SYMBOL(hash_conntrack);
+-			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook)))
++			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook))) {
++				if (maniptype == NF_NAT_MANIP_SRC) {
++					nfct_nat(ct)->help.snat_in_bridge =
++						nf_nat_is_bridged_pkt(skb);
++				}
++
+ 				break;
++			}
  
- bool
- nf_ct_get_tuple(const struct sk_buff *skb,
-@@ -636,6 +637,52 @@ out:
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
+ 			ret = nf_nat_alloc_null_binding(ct, state->hook);
+ 			if (ret != NF_ACCEPT)
+diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+index e0be97e..dc8df3a 100644
+--- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
+@@ -12,6 +12,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/ipv6.h>
+ #include <linux/netfilter.h>
++#include <linux/netfilter_bridge.h>
+ #include <linux/netfilter_ipv6.h>
+ #include <net/secure_seq.h>
+ #include <net/checksum.h>
+@@ -281,6 +282,12 @@ nf_nat_ipv6_fn(void *priv, struct sk_buff *skb,
+ 	if (nat == NULL)
+ 		return NF_ACCEPT;
  
-+/* Sometimes reply tuple of ct is changed by nat after ct is confirmed,
-+ * hash bucket of ct has to be updated in this situation.
-+ */
-+void nf_conntrack_ct_hash_bucket_update(struct nf_conn *ct,
-+					unsigned int old_hash,
-+					unsigned int old_reply_hash)
-+{
-+	struct net *net;
-+	unsigned int hash, reply_hash;
-+	unsigned int sequence;
++	if ((maniptype == NF_NAT_MANIP_SRC) &&
++	    nf_nat_initialized(ct, maniptype) &&
++	    (nat->help.snat_in_bridge != nf_nat_is_bridged_pkt(skb))) {
++		return NF_ACCEPT;
++	}
 +
-+	if (!ct || nf_ct_is_untracked(ct) || !nf_ct_is_confirmed(ct))
-+		return;
-+
-+	net = nf_ct_net(ct);
-+
-+	local_bh_disable();
-+	do {
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
-+	} while (nf_conntrack_double_lock(net, old_hash, old_reply_hash, sequence));
-+
-+	/* Remove from confirmed list */
-+	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
-+	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_REPLY].hnnode);
-+
-+	nf_conntrack_double_unlock(old_hash, old_reply_hash);
-+
-+	/* Make changes visible in other cores */
-+	smp_wmb();
-+
-+	do {
-+		sequence = read_seqcount_begin(&nf_conntrack_generation);
-+		hash = hash_conntrack(net,
-+				      &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
-+		reply_hash = hash_conntrack(net,
-+					    &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
-+	} while (nf_conntrack_double_lock(net, hash, reply_hash, sequence));
-+
-+	/* Insert to confirmed list again */
-+	__nf_conntrack_hash_insert(ct, hash, reply_hash);
-+
-+	nf_conntrack_double_unlock(hash, reply_hash);
-+	local_bh_enable();
-+}
-+EXPORT_SYMBOL_GPL(nf_conntrack_ct_hash_bucket_update);
-+
- static inline void nf_ct_acct_update(struct nf_conn *ct,
- 				     enum ip_conntrack_info ctinfo,
- 				     unsigned int len)
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index de31818..612d8d57 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -405,8 +405,10 @@ nf_nat_setup_info(struct nf_conn *ct,
- 		  const struct nf_nat_range *range,
- 		  enum nf_nat_manip_type maniptype)
- {
-+	struct net *net = nf_ct_net(ct);
- 	struct nf_conntrack_tuple curr_tuple, new_tuple;
- 	struct nf_conn_nat *nat;
-+	unsigned int old_hash, old_reply_hash;
+ 	switch (ctinfo) {
+ 	case IP_CT_RELATED:
+ 	case IP_CT_RELATED_REPLY:
+@@ -308,8 +315,14 @@ nf_nat_ipv6_fn(void *priv, struct sk_buff *skb,
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
  
- 	/* nat helper or nfctnetlink also setup binding */
- 	nat = nf_ct_nat_ext_add(ct);
-@@ -417,6 +419,11 @@ nf_nat_setup_info(struct nf_conn *ct,
- 		     maniptype == NF_NAT_MANIP_DST);
- 	BUG_ON(nf_nat_initialized(ct, maniptype));
- 
-+	old_hash = hash_conntrack(net,
-+				  &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
-+	old_reply_hash = hash_conntrack(net,
-+					&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
+-			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook)))
++			if (nf_nat_initialized(ct, HOOK2MANIP(state->hook))) {
++				if (maniptype == NF_NAT_MANIP_SRC) {
++					nfct_nat(ct)->help.snat_in_bridge =
++						nf_nat_is_bridged_pkt(skb);
++				}
 +
- 	/* What we've got will look like inverse of reply. Normally
- 	 * this is what is in the conntrack, except for prior
- 	 * manipulations (future optimization: if num_manips == 0,
-@@ -460,6 +467,8 @@ nf_nat_setup_info(struct nf_conn *ct,
- 	else
- 		ct->status |= IPS_SRC_NAT_DONE;
+ 				break;
++			}
  
-+	nf_conntrack_ct_hash_bucket_update(ct, old_hash, old_reply_hash);
-+
- 	return NF_ACCEPT;
- }
- EXPORT_SYMBOL(nf_nat_setup_info);
+ 			ret = nf_nat_alloc_null_binding(ct, state->hook);
+ 			if (ret != NF_ACCEPT)
 -- 
 1.9.1
