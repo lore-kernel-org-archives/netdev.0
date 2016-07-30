@@ -1,117 +1,82 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 1/5] ethernet: add sun8i-emac driver
-Date: Sat, 30 Jul 2016 09:34:12 +0200
-Message-ID: <20160730073412.GL6215@lukather>
-References: <1469001800-11615-1-git-send-email-clabbe.montjoie@gmail.com>
- <1469001800-11615-2-git-send-email-clabbe.montjoie@gmail.com>
- <20160725195455.GQ7419@lukather>
- <20160728145734.GD7582@Red>
- <20160729172526.GE6215@lukather>
- <CAGb2v678MidsiV=QJjk1bvAPL-hRFyNzZy636aObEG+HC908xw@mail.gmail.com>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 01/10] drivers: net: xgene: Fix kbuild warning
+Date: Sat, 30 Jul 2016 11:13:17 +0200
+Message-ID: <14140485.FlkQbu0aHJ@wuerfel>
+References: <1469838843-19943-1-git-send-email-isubramanian@apm.com> <1469838843-19943-2-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="kaF1vgn83Aa7CiXN"
-Cc: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-sunxi <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBB5NQ6G6AKGQEUON7MKA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <CAGb2v678MidsiV=QJjk1bvAPL-hRFyNzZy636aObEG+HC908xw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	patches@apm.com, linux@armlinux.org.uk
+To: Iyappan Subramanian <isubramanian@apm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([217.72.192.74]:64276 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbcG3JNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 05:13:55 -0400
+In-Reply-To: <1469838843-19943-2-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---kaF1vgn83Aa7CiXN
-Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
-
-On Sat, Jul 30, 2016 at 09:30:01AM +0800, Chen-Yu Tsai wrote:
-> >> > > +static void sun8i_emac_unset_syscon(struct net_device *ndev)
-> >> > > +{
-> >> > > + struct sun8i_emac_priv *priv = netdev_priv(ndev);
-> >> > > + u32 reg = 0;
-> >> > > +
-> >> > > + if (priv->variant == H3_EMAC)
-> >> > > +         reg = H3_EPHY_DEFAULT_VALUE;
-> >> >
-> >> > Why do you need that?
-> >> >
-> >> For resetting the syscon to the factory default.
-> >
-> > Yes, but does it matter? Does it have any side effect? Is that
-> > register shared with another device?
-> >
-> > Otherwise, either it won't be used anymore, and you don't care, or you
-> > will reload the driver later, and the driver should work whatever
-> > state is programmed in there. In both cases, you don't need to reset
-> > that value.
+On Friday, July 29, 2016 5:33:54 PM CEST Iyappan Subramanian wrote:
+> This patch fixes the following kbuild warning, when ACPI was not enabled.
 > 
-> The "default" setting also disables and powers down the internal PHY.
-> I think that's a good thing? The naming could be better.
+> >> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:878:23: warning: 'phy_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
+>      phy_dev->advertising = phy_dev->supported;
 
-Ah, it might, and that would obviously be the right thing to do. Using
-a define for those enable and power down bits would be better though.
+>From looking at the patch, I don't think it addresses the warning.
+Note that Linus added a patch to disable the warning in the latest
+mainline kernel, so you won't see it any more, but I think the bug
+is still there.
 
-> >> > > +static irqreturn_t sun8i_emac_dma_interrupt(int irq, void *dev_id)
-> >> > > +{
-> >> > > + struct net_device *ndev = dev_id;
-> >> > > + struct sun8i_emac_priv *priv = netdev_priv(ndev);
-> >> > > + u32 v, u;
-> >> > > +
-> >> > > + v = readl(priv->base + SUN8I_EMAC_INT_STA);
-> >> > > +
-> >> > > + /* When this bit is asserted, a frame transmission is completed. */
-> >> > > + if (v & BIT(0)) {
-> >> > > +         priv->estats.tx_int++;
-> >> > > +         writel(0, priv->base + SUN8I_EMAC_INT_EN);
-> >> > > +         napi_schedule(&priv->napi);
-> >> > > + }
-> >> > > +
-> >> > > + /* When this bit is asserted, the TX DMA FSM is stopped. */
-> >> > > + if (v & BIT(1))
-> >> > > +         priv->estats.tx_dma_stop++;
-> >> > > +
-> >> > > + /* When this asserted, the TX DMA can not acquire next TX descriptor
-> >> > > +  * and TX DMA FSM is suspended.
-> >> > > + */
-> >> > > + if (v & BIT(2))
-> >> > > +         priv->estats.tx_dma_ua++;
-> >> > > +
-> >> > > + if (v & BIT(3))
-> >> > > +         netif_dbg(priv, intr, ndev, "Unhandled interrupt TX TIMEOUT\n");
-> >> >
-> >> > Why do you enable that interrupt if you can't handle it?
-> >>
-> >> Some interrupt fire even when not enabled (like RX_BUF_UA_INT/TX_BUF_UA_INT)
-> >
-> > So the bits 9 and 2, respectively, in the interrupt enable register
-> > are useless?
-> 
-> Does it actually fire, i.e. pull the interrupt line on the GIC? Or is it just
-> the interrupt state showing an event? IIRC some other hardware blocks have this
-> behavior, such as the timer.
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> index 7714b7d..b6bc6fa 100644
+> --- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> @@ -776,15 +776,11 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+>                         netdev_err(ndev, "Could not connect to PHY\n");
+>                         return -ENODEV;
+>                 }
+> -
+> -               pdata->phy_dev = phy_dev;
+>         } else {
+>  #ifdef CONFIG_ACPI
+>                 struct acpi_device *adev = acpi_phy_find_device(dev);
+>                 if (adev)
+> -                       pdata->phy_dev =  adev->driver_data;
+> -
+> -               phy_dev = pdata->phy_dev;
+> +                       phy_dev =  adev->driver_data;
+>  
+>                 if (!phy_dev ||
+>                     phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
+> @@ -795,6 +791,7 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+>  #endif
+>         }
+>  
+> +       pdata->phy_dev = phy_dev;
 
-That's quite easy to implement, you can do a bitwise and on the status
-and enable registers.
+phy_dev is not initialized anywhere if CONFIG_ACPI is not set
+and dev->of_node is NULL (which should not happen in practice,
+but the compiler doesn't know that).
 
-Maxime
+I think you want this instead:
 
--- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---kaF1vgn83Aa7CiXN--
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 7714b7d4026a..98779fe2d558 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -792,6 +792,8 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+ 			netdev_err(ndev, "Could not connect to PHY\n");
+ 			return  -ENODEV;
+ 		}
++#else
++		return -ENODEV;
+ #endif
+ 	}
+ 
+
+	ARnd
+
+	Arnd
