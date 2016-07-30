@@ -1,44 +1,130 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 09/10] dtb: xgene: Add rxlos-gpios property
-Date: Fri, 29 Jul 2016 17:34:02 -0700
-Message-ID: <1469838843-19943-10-git-send-email-isubramanian@apm.com>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH net-next 08/10] drivers: net: xgene: Poll link status via GPIO
+Date: Fri, 29 Jul 2016 17:34:01 -0700
+Message-ID: <1469838843-19943-9-git-send-email-isubramanian@apm.com>
 References: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>,
-	Quan Nguyen <qnguyen@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35241 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753587AbcG3Add (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 20:33:33 -0400
-Received: by mail-pf0-f181.google.com with SMTP id x72so37125375pfd.2
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 17:33:33 -0700 (PDT)
-In-Reply-To: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Quan Nguyen <qnguyen-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1469838843-19943-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Added rxlos GPIO mapping by adding rxlos-gpios property.
+When 10GbE SFP+ module is not plugged in or cable is not connected,
+the link status register does not report the proper state due
+to floating signal. This patch checks the module present status via an
+GPIO to determine whether to ignore the link status register and report
+link down.
 
-Signed-off-by: Quan Nguyen <qnguyen@apm.com>
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Tested-by: Fushen Chen <fchen@apm.com>
+Signed-off-by: Quan Nguyen <qnguyen-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Tested-by: Fushen Chen <fchen-qTEPVZfXA3Y@public.gmane.org>
 ---
- arch/arm64/boot/dts/apm/apm-mustang.dts | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/apm/xgene/Kconfig            |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 15 +++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  6 ++++++
+ 4 files changed, 23 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/apm/apm-mustang.dts b/arch/arm64/boot/dts/apm/apm-mustang.dts
-index b7fb5d9..32a961c 100644
---- a/arch/arm64/boot/dts/apm/apm-mustang.dts
-+++ b/arch/arm64/boot/dts/apm/apm-mustang.dts
-@@ -74,6 +74,7 @@
+diff --git a/drivers/net/ethernet/apm/xgene/Kconfig b/drivers/net/ethernet/apm/xgene/Kconfig
+index 300e3b5..6c60a7d 100644
+--- a/drivers/net/ethernet/apm/xgene/Kconfig
++++ b/drivers/net/ethernet/apm/xgene/Kconfig
+@@ -4,6 +4,7 @@ config NET_XGENE
+ 	depends on ARCH_XGENE || COMPILE_TEST
+ 	select PHYLIB
+ 	select MDIO_XGENE
++	select GPIO_XGENE_SB
+ 	help
+ 	  This is the Ethernet driver for the on-chip ethernet interface on the
+ 	  APM X-Gene SoC.
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 383e7ad..bda386d 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -19,6 +19,7 @@
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
  
- &xgenet {
- 	status = "ok";
-+	rxlos-gpios = <&sbgpio 12 1>;
++#include <linux/gpio.h>
+ #include "xgene_enet_main.h"
+ #include "xgene_enet_hw.h"
+ #include "xgene_enet_sgmac.h"
+@@ -1322,6 +1323,18 @@ static int xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
+ 	return 0;
+ }
+ 
++static void xgene_enet_gpiod_get(struct xgene_enet_pdata *pdata)
++{
++	struct device *dev = &pdata->pdev->dev;
++
++	if (pdata->phy_mode != PHY_INTERFACE_MODE_XGMII)
++		return;
++
++	pdata->sfp_rdy = gpiod_get(dev, "rxlos", GPIOD_IN);
++	if (IS_ERR(pdata->sfp_rdy))
++		pdata->sfp_rdy = gpiod_get(dev, "sfp", GPIOD_IN);
++}
++
+ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ {
+ 	struct platform_device *pdev;
+@@ -1411,6 +1424,8 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	if (ret)
+ 		return ret;
+ 
++	xgene_enet_gpiod_get(pdata);
++
+ 	pdata->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pdata->clk)) {
+ 		/* Firmware may have set up the clock already. */
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 53f4a16..b339fc1 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -217,6 +217,7 @@ struct xgene_enet_pdata {
+ 	u8 tx_delay;
+ 	u8 rx_delay;
+ 	bool mdio_driver;
++	struct gpio_desc *sfp_rdy;
  };
  
- &mmc0 {
+ struct xgene_indirect_ctl {
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+index 4087dba..d672e71 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+@@ -18,6 +18,8 @@
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <linux/of_gpio.h>
++#include <linux/gpio.h>
+ #include "xgene_enet_main.h"
+ #include "xgene_enet_hw.h"
+ #include "xgene_enet_xgmac.h"
+@@ -399,10 +401,14 @@ static void xgene_enet_link_state(struct work_struct *work)
+ {
+ 	struct xgene_enet_pdata *pdata = container_of(to_delayed_work(work),
+ 					 struct xgene_enet_pdata, link_work);
++	struct gpio_desc *sfp_rdy = pdata->sfp_rdy;
+ 	struct net_device *ndev = pdata->ndev;
+ 	u32 link_status, poll_interval;
+ 
+ 	link_status = xgene_enet_link_status(pdata);
++	if (link_status && !IS_ERR(sfp_rdy) && !gpiod_get_value(sfp_rdy))
++		link_status = 0;
++
+ 	if (link_status) {
+ 		if (!netif_carrier_ok(ndev)) {
+ 			netif_carrier_on(ndev);
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
