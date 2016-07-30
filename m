@@ -1,55 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 04/15] ethernet: aurora: nb8800: add missing
- of_node_put after calling of_parse_phandle
-Date: Fri, 29 Jul 2016 23:13:34 -0700 (PDT)
-Message-ID: <20160729.231334.379751093388521243.davem@davemloft.net>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
-	<1469586048-15697-5-git-send-email-peter.chen@nxp.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vbridger@opensource.altera.com,
-	isubramanian@apm.com, kchudgar@apm.com, yisen.zhuang@huawei.com,
-	salil.mehta@huawei.com, thomas.petazzoni@free-electrons.com,
-	sergei.shtylyov@cogentembedded.com, peppe.cavallaro@st.com,
-	alexandre.torgue@st.com, mugunthanvnm@ti.com, tremyfr@gmail.com,
-	wxt@rock-chips.com, arnd@arndb.de, david.daney@cavium.com,
-	huangdaode@hisilicon.com, jszhang@marvell.com
-To: peter.chen@nxp.com
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: allow receiving msg when TCP-style sk is in CLOSED state
+Date: Sat, 30 Jul 2016 14:14:41 +0800
+Message-ID: <d108342f2f89cfdf7f9abc529a746a032e236b78.1469859281.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34016 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758AbcG3GNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 02:13:38 -0400
-In-Reply-To: <1469586048-15697-5-git-send-email-peter.chen@nxp.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33524 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbcG3GOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 02:14:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Chen <peter.chen@nxp.com>
-Date: Wed, 27 Jul 2016 10:20:37 +0800
+Commit 141ddefce7c8 ("sctp: change sk state to CLOSED instead of
+CLOSING in sctp_sock_migrate") changed sk state to CLOSED if the
+assoc is closed when sctp_accept clones a new sk.
 
-> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-> index 0d4ea92..d15d96b 100644
-> --- a/drivers/net/ethernet/aurora/nb8800.c
-> +++ b/drivers/net/ethernet/aurora/nb8800.c
-> @@ -1006,6 +1006,7 @@ static int nb8800_stop(struct net_device *dev)
->  
->  	netif_stop_queue(dev);
->  	napi_disable(&priv->napi);
-> +	of_node_put(priv->phy_node);
->  
->  	nb8800_dma_stop(dev);
->  	nb8800_mac_rx(dev, false);
+If there is still data in sk receive queue, users will not be able
+to read it any more, as sctp_recvmsg returns directly if sk state
+is CLOSED.
 
-This is broken.  The priv->phy_node reference is taken in the probe function,
-therefore you have to drop that reference in the "remove" function not the
-"stop" function.
+This patch is to add CLOSED state check in sctp_recvmsg to allow
+reading data from TCP-style sk with CLOSED state as what TCP does.
 
-I'm just looking over basic details of this patch series, and along with some
-other feedback you've received, it looks like you really didn't put a lot of
-auditing into the changes you are making.
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Please go over this series one more time and resubmit the entire thing after
-everything is sorted out and double-checked.
-
-Thank you.
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 8812e1b..9fc417a 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2079,7 +2079,7 @@ static int sctp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+ 	lock_sock(sk);
+ 
+ 	if (sctp_style(sk, TCP) && !sctp_sstate(sk, ESTABLISHED) &&
+-	    !sctp_sstate(sk, CLOSING)) {
++	    !sctp_sstate(sk, CLOSING) && !sctp_sstate(sk, CLOSED)) {
+ 		err = -ENOTCONN;
+ 		goto out;
+ 	}
+-- 
+2.1.0
