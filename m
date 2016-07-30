@@ -1,180 +1,59 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 07/10] drivers: net: xgene: XFI PCS reset when link is down
-Date: Fri, 29 Jul 2016 17:34:00 -0700
-Message-ID: <1469838843-19943-8-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next 06/10] drivers: net: xgene: Change port init sequence
+Date: Fri, 29 Jul 2016 17:33:59 -0700
+Message-ID: <1469838843-19943-7-git-send-email-isubramanian@apm.com>
 References: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>,
-	Fushen Chen <fchen@apm.com>
+	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35239 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753570AbcG3Adb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 20:33:31 -0400
-Received: by mail-pf0-f177.google.com with SMTP id x72so37125197pfd.2
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 17:33:31 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34605 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753561AbcG3Ada (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 20:33:30 -0400
+Received: by mail-pf0-f179.google.com with SMTP id p64so37120662pfb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 17:33:30 -0700 (PDT)
 In-Reply-To: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the link recovery issue, by doing PCS reset
-when the link is down.
+This patch rearranges the port initialization sequence as recommended by
+hardware specification.  This patch also removes, mac_init() call from
+xgene_enet_link_state(), as it was not required.
 
-Signed-off-by: Fushen Chen <fchen@apm.com>
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Tested-by: Fushen Chen <fchen@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  6 ++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  |  1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c | 42 +++++++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |  4 +++
- 5 files changed, 54 insertions(+)
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-index 179a44d..8a8d055 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
-@@ -124,6 +124,12 @@ enum xgene_enet_rm {
- #define MAC_READ_REG_OFFSET		0x0c
- #define MAC_COMMAND_DONE_REG_OFFSET	0x10
- 
-+#define PCS_ADDR_REG_OFFSET		0x00
-+#define PCS_COMMAND_REG_OFFSET		0x04
-+#define PCS_WRITE_REG_OFFSET		0x08
-+#define PCS_READ_REG_OFFSET		0x0c
-+#define PCS_COMMAND_DONE_REG_OFFSET	0x10
-+
- #define MII_MGMT_CONFIG_ADDR		0x20
- #define MII_MGMT_COMMAND_ADDR		0x24
- #define MII_MGMT_ADDRESS_ADDR		0x28
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index d05f999..383e7ad 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1435,6 +1435,7 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	} else {
- 		pdata->mcx_mac_addr = base_addr + BLOCK_AXG_MAC_OFFSET;
- 		pdata->mcx_mac_csr_addr = base_addr + BLOCK_AXG_MAC_CSR_OFFSET;
-+		pdata->pcs_addr = base_addr + BLOCK_PCS_OFFSET;
- 	}
- 	pdata->rx_buff_cnt = NUM_PKT_BUF;
- 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-index 217546e..53f4a16 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-@@ -196,6 +196,7 @@ struct xgene_enet_pdata {
- 	void __iomem *mcx_mac_addr;
- 	void __iomem *mcx_mac_csr_addr;
- 	void __iomem *base_addr;
-+	void __iomem *pcs_addr;
- 	void __iomem *ring_csr_addr;
- 	void __iomem *ring_cmd_addr;
- 	int phy_mode;
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-index d53c053..4087dba 100644
+index 9c6ad0d..d53c053 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
-@@ -84,6 +84,21 @@ static void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata,
- 			   wr_addr);
+@@ -216,12 +216,12 @@ static void xgene_xgmac_init(struct xgene_enet_pdata *pdata)
+ 	data |= CFG_RSIF_FPBUFF_TIMEOUT_EN;
+ 	xgene_enet_wr_csr(pdata, XG_RSIF_CONFIG_REG_ADDR, data);
+ 
+-	xgene_enet_wr_csr(pdata, XG_CFG_BYPASS_ADDR, RESUME_TX);
+-	xgene_enet_wr_csr(pdata, XGENET_RX_DV_GATE_REG_0_ADDR, 0);
+ 	xgene_enet_rd_csr(pdata, XG_ENET_SPARE_CFG_REG_ADDR, &data);
+ 	data |= BIT(12);
+ 	xgene_enet_wr_csr(pdata, XG_ENET_SPARE_CFG_REG_ADDR, data);
+ 	xgene_enet_wr_csr(pdata, XG_ENET_SPARE_CFG_REG_1_ADDR, 0x82);
++	xgene_enet_wr_csr(pdata, XGENET_RX_DV_GATE_REG_0_ADDR, 0);
++	xgene_enet_wr_csr(pdata, XG_CFG_BYPASS_ADDR, RESUME_TX);
  }
  
-+static void xgene_enet_wr_pcs(struct xgene_enet_pdata *pdata,
-+			      u32 wr_addr, u32 wr_data)
-+{
-+	void __iomem *addr, *wr, *cmd, *cmd_done;
-+
-+	addr = pdata->pcs_addr + PCS_ADDR_REG_OFFSET;
-+	wr = pdata->pcs_addr + PCS_WRITE_REG_OFFSET;
-+	cmd = pdata->pcs_addr + PCS_COMMAND_REG_OFFSET;
-+	cmd_done = pdata->pcs_addr + PCS_COMMAND_DONE_REG_OFFSET;
-+
-+	if (!xgene_enet_wr_indirect(addr, wr, cmd, cmd_done, wr_addr, wr_data))
-+		netdev_err(pdata->ndev, "PCS write failed, addr: %04x\n",
-+			   wr_addr);
-+}
-+
- static void xgene_enet_rd_csr(struct xgene_enet_pdata *pdata,
- 			      u32 offset, u32 *val)
- {
-@@ -122,6 +137,7 @@ static bool xgene_enet_rd_indirect(void __iomem *addr, void __iomem *rd,
- 
- 	return true;
- }
-+
- static void xgene_enet_rd_mac(struct xgene_enet_pdata *pdata,
- 			      u32 rd_addr, u32 *rd_data)
- {
-@@ -137,6 +153,21 @@ static void xgene_enet_rd_mac(struct xgene_enet_pdata *pdata,
- 			   rd_addr);
- }
- 
-+static void xgene_enet_rd_pcs(struct xgene_enet_pdata *pdata,
-+			      u32 rd_addr, u32 *rd_data)
-+{
-+	void __iomem *addr, *rd, *cmd, *cmd_done;
-+
-+	addr = pdata->pcs_addr + PCS_ADDR_REG_OFFSET;
-+	rd = pdata->pcs_addr + PCS_READ_REG_OFFSET;
-+	cmd = pdata->pcs_addr + PCS_COMMAND_REG_OFFSET;
-+	cmd_done = pdata->pcs_addr + PCS_COMMAND_DONE_REG_OFFSET;
-+
-+	if (!xgene_enet_rd_indirect(addr, rd, cmd, cmd_done, rd_addr, rd_data))
-+		netdev_err(pdata->ndev, "PCS read failed, addr: %04x\n",
-+			   rd_addr);
-+}
-+
- static int xgene_enet_ecc_init(struct xgene_enet_pdata *pdata)
- {
- 	struct net_device *ndev = pdata->ndev;
-@@ -171,6 +202,15 @@ static void xgene_xgmac_reset(struct xgene_enet_pdata *pdata)
- 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_0, 0);
- }
- 
-+static void xgene_pcs_reset(struct xgene_enet_pdata *pdata)
-+{
-+	u32 data;
-+
-+	xgene_enet_rd_pcs(pdata, PCS_CONTROL_1, &data);
-+	xgene_enet_wr_pcs(pdata, PCS_CONTROL_1, data | PCS_CTRL_PCS_RST);
-+	xgene_enet_wr_pcs(pdata, PCS_CONTROL_1, data & ~PCS_CTRL_PCS_RST);
-+}
-+
- static void xgene_xgmac_set_mac_addr(struct xgene_enet_pdata *pdata)
- {
- 	u32 addr0, addr1;
-@@ -379,6 +419,8 @@ static void xgene_enet_link_state(struct work_struct *work)
- 			netdev_info(ndev, "Link is Down\n");
- 		}
- 		poll_interval = PHY_POLL_LINK_OFF;
-+
-+		xgene_pcs_reset(pdata);
- 	}
- 
- 	schedule_delayed_work(&pdata->link_work, poll_interval);
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-index f1ea485..360ccbd 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
-@@ -24,6 +24,7 @@
- #define X2_BLOCK_ETH_MAC_CSR_OFFSET	0x3000
- #define BLOCK_AXG_MAC_OFFSET		0x0800
- #define BLOCK_AXG_MAC_CSR_OFFSET	0x2000
-+#define BLOCK_PCS_OFFSET		0x3800
- 
- #define XGENET_CONFIG_REG_ADDR		0x20
- #define XGENET_SRST_ADDR		0x00
-@@ -72,6 +73,9 @@
- #define XG_MCX_ICM_CONFIG0_REG_0_ADDR	0x00e0
- #define XG_MCX_ICM_CONFIG2_REG_0_ADDR	0x00e8
- 
-+#define PCS_CONTROL_1			0x0000
-+#define PCS_CTRL_PCS_RST		BIT(15)
-+
- extern const struct xgene_mac_ops xgene_xgmac_ops;
- extern const struct xgene_port_ops xgene_xgport_ops;
- 
+ static void xgene_xgmac_rx_enable(struct xgene_enet_pdata *pdata)
+@@ -366,7 +366,6 @@ static void xgene_enet_link_state(struct work_struct *work)
+ 	if (link_status) {
+ 		if (!netif_carrier_ok(ndev)) {
+ 			netif_carrier_on(ndev);
+-			xgene_xgmac_init(pdata);
+ 			xgene_xgmac_rx_enable(pdata);
+ 			xgene_xgmac_tx_enable(pdata);
+ 			netdev_info(ndev, "Link is Up - 10Gbps\n");
 -- 
 1.9.1
