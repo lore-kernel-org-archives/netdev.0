@@ -1,53 +1,64 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING
-Date: Sat, 30 Jul 2016 20:00:45 +0800
-Message-ID: <0517133e5f1dee8136f3a1c3bfaac522fe98e599.1469880045.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: fix the issue sctp requeue auth chunk
+ incorrectly
+Date: Sat, 30 Jul 2016 10:21:13 -0300
+Message-ID: <20160730132113.GA2957@localhost.localdomain>
+References: <af1555c524101278be2e5b07ff78a1eaacc0f7bb.1469858315.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+	daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35828 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751064AbcG3MAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 08:00:53 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:37096 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751683AbcG3NVS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2016 09:21:18 -0400
+Content-Disposition: inline
+In-Reply-To: <af1555c524101278be2e5b07ff78a1eaacc0f7bb.1469858315.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to this patch, sctp defined TCP_CLOSING as SCTP_SS_CLOSING.
-TCP_CLOSING is such a special sk state in TCP that inet common codes
-even exclude it.
+On Sat, Jul 30, 2016 at 01:58:35PM +0800, Xin Long wrote:
+> sctp needs to queue auth chunk back when we know that we are going
+> to generate another segment. But commit f1533cce60d1 ("sctp: fix
+> panic when sending auth chunks") requeues the last chunk processed
+> which is probably not the auth chunk.
+> 
+> It causes panic when calculating the MAC in sctp_auth_calculate_hmac(),
+> as the incorrect offset of the auth chunk in skb->data.
+> 
+> This fix is to requeue it by using packet->auth.
+> 
+> Fixes: f1533cce60d1 ("sctp: fix panic when sending auth chunks")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-For instance, inet_accept thinks the accept sk's state never be
-TCP_CLOSING, or it will give a WARN_ON. TCP works well with that
-while SCTP may trigger the call trace, as CLOSING state in SCTP
-has different meaning from TCP.
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-This fix is to change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING,
-instead of TCP_CLOSING. Some side-effects could be expected,
-regardless of not being used before. inet_accept will accept it
-now.
-
-I did all the func_tests in lksctp-tools and ran sctp codnomicon
-fuzzer tests against this patch, no regression or failure found.
-
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/constants.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 8c337cd..5b847e4 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -214,7 +214,7 @@ typedef enum {
- 	SCTP_SS_LISTENING      = TCP_LISTEN,
- 	SCTP_SS_ESTABLISHING   = TCP_SYN_SENT,
- 	SCTP_SS_ESTABLISHED    = TCP_ESTABLISHED,
--	SCTP_SS_CLOSING        = TCP_CLOSING,
-+	SCTP_SS_CLOSING        = TCP_CLOSE_WAIT,
- } sctp_sock_state_t;
- 
- /* These functions map various type to printable names.  */
--- 
-2.1.0
+> ---
+>  net/sctp/output.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 7425f6c..1f1682b 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -610,7 +610,8 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+>  				/* We will generate more packets, so re-queue
+>  				 * auth chunk.
+>  				 */
+> -				list_add(&chunk->list, &packet->chunk_list);
+> +				list_add(&packet->auth->list,
+> +					 &packet->chunk_list);
+>  			} else {
+>  				sctp_chunk_free(packet->auth);
+>  				packet->auth = NULL;
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
