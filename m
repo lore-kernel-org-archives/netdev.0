@@ -1,125 +1,162 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 2/3] sctp_diag: export timer value only if it is active
-Date: Sat, 30 Jul 2016 19:59:30 +0200
-Message-ID: <20160730175930.GE18872@orbyte.nwl.cc>
-References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
- <1469811580-32429-3-git-send-email-phil@nwl.cc>
- <20160729205113.GA2954@localhost.localdomain>
- <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
- <ffdc7f0d-2c98-d63a-725a-01f738689907@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xin Long <lucien.xin@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: fxp2001640163@gmail.com
+Subject: [PATCH 1/3] netfilter: nat: update hash bucket if nat changed after ct confirmed
+Date: Sat, 30 Jul 2016 14:53:34 -0700
+Message-ID: <1469915614-16800-1-git-send-email-xfan@codeaurora.org>
+Cc: Xiaoping Fan <xfan@codeaurora.org>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51711 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752094AbcG3SAV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 30 Jul 2016 14:00:21 -0400
-Content-Disposition: inline
-In-Reply-To: <ffdc7f0d-2c98-d63a-725a-01f738689907@gmail.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34059 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611AbcG3Vxh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 17:53:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 30, 2016 at 10:33:48AM -0300, Marcelo Ricardo Leitner wrote:
-> 
-> 
-> Em 30-07-2016 10:25, Xin Long escreveu:
-> >>> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> >>> index f69edcf219e51..0ad6033a7330c 100644
-> >>> --- a/net/sctp/sctp_diag.c
-> >>> +++ b/net/sctp/sctp_diag.c
-> >>> @@ -40,10 +40,12 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
-> >>>       }
-> >>>
-> >>>       r->idiag_state = asoc->state;
-> >>> -     r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-> >>> -     r->idiag_retrans = asoc->rtx_data_chunks;
-> >>> -     r->idiag_expires = jiffies_to_msecs(
-> >>> -             asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-> >>
-> >> I think we have two issues here, prior to your patch, but I noticed
-> >> while reviewing it :-)
-> >>
-> >> This array is actually not based on jiffies but on intervals instead, as
-> >> per:
-> >>
-> >> sm_sideeffect.c:
-> >>                 case SCTP_CMD_TIMER_START:                       [1]
-> >>                         timer = &asoc->timers[cmd->obj.to];
-> >>                         timeout = asoc->timeouts[cmd->obj.to];   <---
-> >>                         BUG_ON(!timeout);
-> >>
-> >>                         timer->expires = jiffies + timeout;      <---
-> > understood.
-> >
-> >>
-> >> But more importantly, this array is actually not used for this timeout
-> >> and the timeout is sctp_transport dependant, as per:
-> >>
-> >> /* Schedule retransmission on the given transport */
-> >> void sctp_transport_immediate_rtx(struct sctp_transport *t)
-> >> {
-> >>         /* Stop pending T3_rtx_timer */
-> >>         if (del_timer(&t->T3_rtx_timer))
-> >>                 sctp_transport_put(t);
-> >>
-> >>         sctp_retransmit(&t->asoc->outqueue, t, SCTP_RTXR_T3_RTX);
-> >>         if (!timer_pending(&t->T3_rtx_timer)) {
-> >>                 if (!mod_timer(&t->T3_rtx_timer, jiffies + t->rto))
-> >>                                                  ^^^^^^^^^^^^^^^^
-> >>                         sctp_transport_hold(t);
-> >>
-> >> Note how on sctp_get_sctp_info() it fetches the RTO (which is T3_RTX)
-> >> this way:
-> >>         info->sctpi_p_rto = jiffies_to_msecs(prim->rto);
-> >> If we want to know how long is left for the timer to expire, we have to
-> >> read directly from it.
-> > you are right, 3 timers (T3_tx, hb, rtx_data_chunks) are per transport.
-> >
-> >>
-> >> With git grep -A 1 TIMER_START we can confirm that [1] is never hit for
-> >> SCTP_EVENT_TIMEOUT_T3_RTX. Yet, the asoc is allocated with kzalloc(), so
-> >> I guess you were just reading -jiffies in there.
-> >>
-> >> Note however that the stats rtx_data_chunks is the accumulated stats,
-> >> it's good, and that we may have multiple T3 timers running at once, with
-> >> different timeouts.
-> >>
-> >> Xin, ideas on how we can fix this? I'm not sure if we can dump
-> >> per-transport info in there. Not as it is now, I guess.
-> > It's not that easy to dump all transports info besed on current sctp_diag codes.
-> 
-> Okay
-> 
-> >
-> > Now for the transport's info,  we only choose primary_path to dump.
-> 
-> Okay
-> 
-> > It means we should fix this by getting the left time to expire from
-> > primary transport t->T3_rtx_timer. like:
-> >
-> >         r->idiag_expires = jiffies_to_msecs(
-> > -               asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-> > +               asoc->peer.primary_path->T3_rtx_timer.expires - jiffies);
-> >
-> > but yes, need to check with timer_pending firstly.
-> 
-> Yes :)
-> 
-> >
-> > what do  you think ?
-> >
-> 
-> Makes sense, LGTM.
-> 
-> Phil, not sure how you want to proceed here. Wanna handle the change above?
+From: Xiaoping Fan <xfan@codeaurora.org>
 
-I'll look into this next week. One early question: Does the above mean
-we are printing the primary path's timer value for every assoc? If so,
-shouldn't we do that for just the EP or the primary path's assoc even?
+In some situations, NAT information is created after connection is
+confirmed. Since 5 tuple for reply direction is changed when creating
+NAT information, so we need to update hash bucket of connection.
 
-Thanks, Phil
+Signed-off-by: Xiaoping Fan <xfan@codeaurora.org>
+---
+ include/net/netfilter/nf_conntrack.h |  5 ++++
+ net/netfilter/nf_conntrack_core.c    | 51 ++++++++++++++++++++++++++++++++++--
+ net/netfilter/nf_nat_core.c          |  9 +++++++
+ 3 files changed, 63 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 445b019..cc9ba66 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -191,6 +191,9 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
+ void nf_ct_free_hashtable(void *hash, unsigned int size);
+ 
+ int nf_conntrack_hash_check_insert(struct nf_conn *ct);
++void nf_conntrack_ct_hash_bucket_update(struct nf_conn *ct,
++					unsigned int old_hash,
++					unsigned int old_reply_hash);
+ bool nf_ct_delete(struct nf_conn *ct, u32 pid, int report);
+ 
+ bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
+@@ -305,6 +308,8 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+ int nf_conntrack_hash_resize(unsigned int hashsize);
+ extern unsigned int nf_conntrack_htable_size;
+ extern unsigned int nf_conntrack_max;
++u_int32_t hash_conntrack(const struct net *net,
++			 const struct nf_conntrack_tuple *tuple);
+ 
+ struct nf_conn *nf_ct_tmpl_alloc(struct net *net,
+ 				 const struct nf_conntrack_zone *zone,
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index dd2c43a..d4ee145 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -202,11 +202,12 @@ static u32 __hash_conntrack(const struct net *net,
+ 	return reciprocal_scale(hash_conntrack_raw(tuple, net), size);
+ }
+ 
+-static u32 hash_conntrack(const struct net *net,
+-			  const struct nf_conntrack_tuple *tuple)
++u32 hash_conntrack(const struct net *net,
++		   const struct nf_conntrack_tuple *tuple)
+ {
+ 	return scale_hash(hash_conntrack_raw(tuple, net));
+ }
++EXPORT_SYMBOL(hash_conntrack);
+ 
+ bool
+ nf_ct_get_tuple(const struct sk_buff *skb,
+@@ -636,6 +637,52 @@ out:
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
+ 
++/* Sometimes reply tuple of ct is changed by nat after ct is confirmed,
++ * hash bucket of ct has to be updated in this situation.
++ */
++void nf_conntrack_ct_hash_bucket_update(struct nf_conn *ct,
++					unsigned int old_hash,
++					unsigned int old_reply_hash)
++{
++	struct net *net;
++	unsigned int hash, reply_hash;
++	unsigned int sequence;
++
++	if (!ct || nf_ct_is_untracked(ct) || !nf_ct_is_confirmed(ct))
++		return;
++
++	net = nf_ct_net(ct);
++
++	local_bh_disable();
++	do {
++		sequence = read_seqcount_begin(&nf_conntrack_generation);
++	} while (nf_conntrack_double_lock(net, old_hash, old_reply_hash, sequence));
++
++	/* Remove from confirmed list */
++	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode);
++	hlist_nulls_del_rcu(&ct->tuplehash[IP_CT_DIR_REPLY].hnnode);
++
++	nf_conntrack_double_unlock(old_hash, old_reply_hash);
++
++	/* Make changes visible in other cores */
++	smp_wmb();
++
++	do {
++		sequence = read_seqcount_begin(&nf_conntrack_generation);
++		hash = hash_conntrack(net,
++				      &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++		reply_hash = hash_conntrack(net,
++					    &ct->tuplehash[IP_CT_DIR_REPLY].tuple);
++	} while (nf_conntrack_double_lock(net, hash, reply_hash, sequence));
++
++	/* Insert to confirmed list again */
++	__nf_conntrack_hash_insert(ct, hash, reply_hash);
++
++	nf_conntrack_double_unlock(hash, reply_hash);
++	local_bh_enable();
++}
++EXPORT_SYMBOL_GPL(nf_conntrack_ct_hash_bucket_update);
++
+ static inline void nf_ct_acct_update(struct nf_conn *ct,
+ 				     enum ip_conntrack_info ctinfo,
+ 				     unsigned int len)
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index de31818..612d8d57 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -405,8 +405,10 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 		  const struct nf_nat_range *range,
+ 		  enum nf_nat_manip_type maniptype)
+ {
++	struct net *net = nf_ct_net(ct);
+ 	struct nf_conntrack_tuple curr_tuple, new_tuple;
+ 	struct nf_conn_nat *nat;
++	unsigned int old_hash, old_reply_hash;
+ 
+ 	/* nat helper or nfctnetlink also setup binding */
+ 	nat = nf_ct_nat_ext_add(ct);
+@@ -417,6 +419,11 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 		     maniptype == NF_NAT_MANIP_DST);
+ 	BUG_ON(nf_nat_initialized(ct, maniptype));
+ 
++	old_hash = hash_conntrack(net,
++				  &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++	old_reply_hash = hash_conntrack(net,
++					&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
++
+ 	/* What we've got will look like inverse of reply. Normally
+ 	 * this is what is in the conntrack, except for prior
+ 	 * manipulations (future optimization: if num_manips == 0,
+@@ -460,6 +467,8 @@ nf_nat_setup_info(struct nf_conn *ct,
+ 	else
+ 		ct->status |= IPS_SRC_NAT_DONE;
+ 
++	nf_conntrack_ct_hash_bucket_update(ct, old_hash, old_reply_hash);
++
+ 	return NF_ACCEPT;
+ }
+ EXPORT_SYMBOL(nf_nat_setup_info);
+-- 
+1.9.1
