@@ -1,61 +1,41 @@
-From: fxp2001640163@gmail.com
-Subject: [PATCH 3/3] netfilter: nat: don't assign a null snat rule to bridged traffic if no matching
-Date: Sat, 30 Jul 2016 14:54:20 -0700
-Message-ID: <1469915660-16904-1-git-send-email-xfan@codeaurora.org>
-Cc: Xiaoping Fan <xfan@codeaurora.org>
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32963 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753281AbcG3VyU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 17:54:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Networking: Core: netpoll: Fixed a missing spin_unlock
+Date: Sat, 30 Jul 2016 23:58:36 +0200
+Message-ID: <20160730215836.GA22500@electric-eye.fr.zoreil.com>
+References: <1469840027-17057-1-git-send-email-salilkapur93@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Salil Kapur <salilkapur93@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1469840027-17057-1-git-send-email-salilkapur93@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xiaoping Fan <xfan@codeaurora.org>
+Salil Kapur <salilkapur93@gmail.com> :
+[...]
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index fc75c9e..9124f76 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -386,8 +386,10 @@ void netpoll_send_skb_on_dev(struct netpoll *np, struct sk_buff *skb,
+>  					    !vlan_hw_offload_capable(netif_skb_features(skb),
+>  								     skb->vlan_proto)) {
+>  						skb = __vlan_put_tag(skb, skb->vlan_proto, vlan_tx_tag_get(skb));
+> -						if (unlikely(!skb))
+> +						if (unlikely(!skb)) {
+> +							__netif_tx_unlock(txq);
+>  							break;
+> +						}
+>  						skb->vlan_tci = 0;
+>  					}
+>  
 
-In some case, bridged packet will come back again for routing. When bridge
-netfilter is enabled, a null snat rule is assigned to bridged packet if no
-matching in nat chain. Then nat rule matching is skipped when packet comes
-back for routing. This result in private IP address exported to public
-network. So we don't assign a null snat rule to bridged traffic if no
-matching.
+Your kernel is outdated: __vlan_put_tag has disappeared from net/core/netpoll.c
+since 62749e2cb3c4a7da3eaa5c01a7e787aebeff8536 ("vlan: rename __vlan_put_tag to
+vlan_insert_tag_set_proto") by Jiri Pirko somewhere in 2014.
 
-Signed-off-by: Xiaoping Fan <xfan@codeaurora.org>
----
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c | 3 +++
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c | 3 +++
- 2 files changed, 6 insertions(+)
-
-diff --git a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-index 41c7992..151eee6 100644
---- a/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_nat_l3proto_ipv4.c
-@@ -315,6 +315,9 @@ nf_nat_ipv4_fn(void *priv, struct sk_buff *skb,
- 				break;
- 			}
- 
-+			if (nf_nat_is_bridged_pkt(skb))
-+				break;
-+
- 			ret = nf_nat_alloc_null_binding(ct, state->hook);
- 			if (ret != NF_ACCEPT)
- 				return ret;
-diff --git a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-index dc8df3a..c94eae4 100644
---- a/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_nat_l3proto_ipv6.c
-@@ -324,6 +324,9 @@ nf_nat_ipv6_fn(void *priv, struct sk_buff *skb,
- 				break;
- 			}
- 
-+			if (nf_nat_is_bridged_pkt(skb))
-+				break;
-+
- 			ret = nf_nat_alloc_null_binding(ct, state->hook);
- 			if (ret != NF_ACCEPT)
- 				return ret;
 -- 
-1.9.1
+Ueimor
