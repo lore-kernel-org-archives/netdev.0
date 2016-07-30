@@ -1,118 +1,66 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH RESEND nf] netfilter: avoid a race between nf_register_hook() and cleanup_net()
-Date: Sat, 30 Jul 2016 08:24:37 -0500
-Message-ID: <87shurb6ne.fsf@x220.int.ebiederm.org>
-References: <20160729150033.E0250A0BD9@unicorn.suse.cz>
-	<20160729161904.4F00BA0BD9@unicorn.suse.cz>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: allow receiving msg when TCP-style sk is in
+ CLOSED state
+Date: Sat, 30 Jul 2016 10:22:10 -0300
+Message-ID: <20160730132210.GC2957@localhost.localdomain>
+References: <d108342f2f89cfdf7f9abc529a746a032e236b78.1469859281.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160729161904.4F00BA0BD9@unicorn.suse.cz> (Michal Kubecek's
-	message of "Fri, 29 Jul 2016 18:19:04 +0200 (CEST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	davem@davemloft.net, Vlad Yasevich <vyasevich@gmail.com>,
+	daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45572 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752102AbcG3NWO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 30 Jul 2016 09:22:14 -0400
+Content-Disposition: inline
+In-Reply-To: <d108342f2f89cfdf7f9abc529a746a032e236b78.1469859281.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michal Kubecek <mkubecek@suse.cz> writes:
+On Sat, Jul 30, 2016 at 02:14:41PM +0800, Xin Long wrote:
+> Commit 141ddefce7c8 ("sctp: change sk state to CLOSED instead of
+> CLOSING in sctp_sock_migrate") changed sk state to CLOSED if the
+> assoc is closed when sctp_accept clones a new sk.
+> 
+> If there is still data in sk receive queue, users will not be able
+> to read it any more, as sctp_recvmsg returns directly if sk state
+> is CLOSED.
+> 
+> This patch is to add CLOSED state check in sctp_recvmsg to allow
+> reading data from TCP-style sk with CLOSED state as what TCP does.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-> There is a race condition between nf_{,un}register_hook() and
-> cleanup_net() which can either trigger WARN check or cause a memory
-> leak. The scenario is like this (2a and 2b are alternatives):
->
-> 1.  cleanup_net() removes one or more struct net from net_namespace_list
-> 2a. nf_register_hook() adds per-netns hooks to all netns (but not those
->     removed in step 1) and adds the hook to global nf_hook_list
-> 2b. nf_unregister_hook() deletes per-netns hooks from all netns (but not
->     those removed in step 1) and removes the hook from nf_hook_list
-> 3.  cleanup_net() calls pernet subsystem exit functions for netns being
->     removed; one of them is netfilter_net_exit() which (among others)
->     calls nf_unregister_net_hook() to unregister per-netns hooks for all
->     hooks in nf_hook_list.
->
-> In case (a), per-netns hooks are never added as the namespace was
-> already invisible to for_each_net() in step 2a but an attempt to remove
-> them in step 3 (the hook is already in nf_hook_list) triggers a WARN
-> check in nf_unregister_net_hook() (no real harm done, however). In case
-> (b), the per-netns hook is removed neither in step 2b (netns is already
-> invisible to for_each_net()) nor in step 3 (the hook is already removed
-> from nf_hook_list), causing a memory leak.
->
-> Prevent the race by protecting the for_each_net() loop in
-> nf_{,un}register_hook() (also) by net_mutex. There is already a
-> precendens for this in rtnl_link_unregister() which addresses similar
-> race.
+So scripts can track this later more easily,
 
-So this analysis of a problem appears to be spot on.
+Fixes: 141ddefce7c8 ("sctp: change sk state to CLOSED instead of CLOSING in sctp_sock_migrate")
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-
-I really really want there to be a better way to do this, but it is
-really not ok for a hook to continue it's life past
-nf_unregister_net_hook as after that point the code may be removed
-from the kernel (sigh).
-
-Although keeping with the precedent and minimizing net_mutex
-we could remove the WARN and keep nf_register_hook as it is.
-But that sounds entirely too clever for a fix that will
-probably be backported.
-
-But that sounds entirely too clever for a fix that likely needs to be
-backported.
-
-Eric
-
-> Fixes: 085db2c04557 ("netfilter: Per network namespace netfilter hooks.")
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 > ---
->  net/netfilter/core.c | 7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-> index f39276d1c2d7..860978c9f82e 100644
-> --- a/net/netfilter/core.c
-> +++ b/net/netfilter/core.c
-> @@ -193,6 +193,8 @@ int nf_register_hook(struct nf_hook_ops *reg)
->  	struct net *net, *last;
->  	int ret;
+>  net/sctp/socket.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 8812e1b..9fc417a 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -2079,7 +2079,7 @@ static int sctp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+>  	lock_sock(sk);
 >  
-> +	/* prevent race with cleanup_net() */
-> +	mutex_lock(&net_mutex);
->  	rtnl_lock();
->  	for_each_net(net) {
->  		ret = nf_register_net_hook(net, reg);
-> @@ -201,6 +203,7 @@ int nf_register_hook(struct nf_hook_ops *reg)
+>  	if (sctp_style(sk, TCP) && !sctp_sstate(sk, ESTABLISHED) &&
+> -	    !sctp_sstate(sk, CLOSING)) {
+> +	    !sctp_sstate(sk, CLOSING) && !sctp_sstate(sk, CLOSED)) {
+>  		err = -ENOTCONN;
+>  		goto out;
 >  	}
->  	list_add_tail(&reg->list, &nf_hook_list);
->  	rtnl_unlock();
-> +	mutex_unlock(&net_mutex);
->  
->  	return 0;
->  rollback:
-> @@ -211,6 +214,7 @@ rollback:
->  		nf_unregister_net_hook(net, reg);
->  	}
->  	rtnl_unlock();
-> +	mutex_unlock(&net_mutex);
->  	return ret;
->  }
->  EXPORT_SYMBOL(nf_register_hook);
-> @@ -219,11 +223,14 @@ void nf_unregister_hook(struct nf_hook_ops *reg)
->  {
->  	struct net *net;
->  
-> +	/* prevent race with cleanup_net() */
-> +	mutex_lock(&net_mutex);
->  	rtnl_lock();
->  	list_del(&reg->list);
->  	for_each_net(net)
->  		nf_unregister_net_hook(net, reg);
->  	rtnl_unlock();
-> +	mutex_unlock(&net_mutex);
->  }
->  EXPORT_SYMBOL(nf_unregister_hook);
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
