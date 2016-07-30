@@ -1,70 +1,60 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 00/10] Fix warning and issues
-Date: Fri, 29 Jul 2016 17:33:53 -0700
-Message-ID: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:34266 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbcG3AdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 20:33:25 -0400
-Received: by mail-pa0-f53.google.com with SMTP id fi15so35447900pac.1
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 17:33:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH net-next 01/10] drivers: net: xgene: Fix kbuild warning
+Date: Fri, 29 Jul 2016 17:33:54 -0700
+Message-ID: <1469838843-19943-2-git-send-email-isubramanian@apm.com>
+References: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1469838843-19943-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch set fixes the following warning and issues,
+This patch fixes the following kbuild warning, when ACPI was not enabled.
 
-  1. Fix kbuild warning
-	- drivers: net: xgene: Fix kbuild warning
-  2. unmap DMA memory on xgene_Enet_delete_bufpoool() 
-	- drivers: net: xgene: fix: Add dma_unmap_single
-  3. Delete descriptor rings and buffer pools on error
-	- drivers: net: xgene: fix: Delete descriptor rings and buffer pools
-  4. Fix error desconstruction on probe()
- 	- drivers: net: xgene: Fix error deconstruction path
-  5. Fix RSS indirection table fields
- 	- drivers: net: xgene: Fix RSS indirection table fields
-  6. Change the port init sequence as per hardware specification
-	- drivers: net: xgene: Change port init sequence
-  7. Fix link not recovered after link is down issue
-	- drivers: net: xgene: XFI PCS reset when link is down
-  8. Fix link up is reported when no SFP+ module is plugged in issue
-	- drivers: net: xgene: Poll link status via GPIO
-	- dtb: xgene: Add rxlos-gpios property
-	- Documentation: dtb: xgene: Add rxlos GPIO mapping
+>> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:878:23: warning: 'phy_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
+     phy_dev->advertising = phy_dev->supported;
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Tested-by: Fushen Chen <fchen@apm.com>
+Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
 ---
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-Iyappan Subramanian (10):
-  drivers: net: xgene: Fix kbuild warning
-  drivers: net: xgene: fix: Add dma_unmap_single
-  drivers: net: xgene: fix: Delete descriptor rings and buffer pools
-  drivers: net: xgene: Fix error deconstruction path
-  drivers: net: xgene: Fix RSS indirection table fields
-  drivers: net: xgene: Change port init sequence
-  drivers: net: xgene: XFI PCS reset when link is down
-  drivers: net: xgene: Poll link status via GPIO
-  dtb: xgene: Add rxlos-gpios property
-  Documentation: dtb: xgene: Add rxlos GPIO mapping
-
- .../devicetree/bindings/net/apm-xgene-enet.txt     |  1 +
- arch/arm64/boot/dts/apm/apm-mustang.dts            |  1 +
- drivers/net/ethernet/apm/xgene/Kconfig             |  1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.c    | 17 ++++--
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.h    | 10 +++-
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  7 +--
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     |  6 ++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 69 +++++++++++++++++-----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h   |  2 +
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c  | 53 ++++++++++++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h  |  4 ++
- 11 files changed, 140 insertions(+), 31 deletions(-)
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 7714b7d..b6bc6fa 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -776,15 +776,11 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+ 			netdev_err(ndev, "Could not connect to PHY\n");
+ 			return -ENODEV;
+ 		}
+-
+-		pdata->phy_dev = phy_dev;
+ 	} else {
+ #ifdef CONFIG_ACPI
+ 		struct acpi_device *adev = acpi_phy_find_device(dev);
+ 		if (adev)
+-			pdata->phy_dev =  adev->driver_data;
+-
+-		phy_dev = pdata->phy_dev;
++			phy_dev =  adev->driver_data;
+ 
+ 		if (!phy_dev ||
+ 		    phy_connect_direct(ndev, phy_dev, &xgene_enet_adjust_link,
+@@ -795,6 +791,7 @@ int xgene_enet_phy_connect(struct net_device *ndev)
+ #endif
+ 	}
+ 
++	pdata->phy_dev = phy_dev;
+ 	pdata->phy_speed = SPEED_UNKNOWN;
+ 	phy_dev->supported &= ~SUPPORTED_10baseT_Half &
+ 			      ~SUPPORTED_100baseT_Half &
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
