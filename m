@@ -1,93 +1,74 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next 04/10] drivers: net: xgene: Fix error deconstruction path
-Date: Fri, 29 Jul 2016 17:33:57 -0700
-Message-ID: <1469838843-19943-5-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next 02/10] drivers: net: xgene: fix: Add dma_unmap_single
+Date: Fri, 29 Jul 2016 17:33:55 -0700
+Message-ID: <1469838843-19943-3-git-send-email-isubramanian@apm.com>
 References: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33563 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753514AbcG3Ad3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 20:33:29 -0400
-Received: by mail-pf0-f180.google.com with SMTP id y134so37069360pfg.0
-        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 17:33:28 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:35789 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752852AbcG3Ad0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 29 Jul 2016 20:33:26 -0400
+Received: by mail-pa0-f42.google.com with SMTP id iw10so35328515pac.2
+        for <netdev@vger.kernel.org>; Fri, 29 Jul 2016 17:33:26 -0700 (PDT)
 In-Reply-To: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since register_netdev() call in xgene_enet_probe() was moved down to
-the end, it doesn't properly handle errors that may occur, by
-deconstructing everything that was setup before the error occurred.
+In addition to xgene_enet_delete_bufpool() freeing skbs, their associated
+dma memory should also be unmapped.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 27 +++++++++++++++++-------
- 1 file changed, 19 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 6fc5698..d05f999 100644
+index d1d6b5e..5246457 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1643,8 +1643,8 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 	}
- #endif
- 	if (!pdata->enet_id) {
--		free_netdev(ndev);
--		return -ENODEV;
-+		ret = -ENODEV;
-+		goto err;
- 	}
+@@ -72,7 +72,6 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ 		skb = netdev_alloc_skb_ip_align(ndev, len);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
+-		buf_pool->rx_skb[tail] = skb;
  
- 	ret = xgene_enet_get_resources(pdata);
-@@ -1667,7 +1667,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 		dma_addr = dma_map_single(dev, skb->data, len, DMA_FROM_DEVICE);
+ 		if (dma_mapping_error(dev, dma_addr)) {
+@@ -81,6 +80,8 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ 			return -EINVAL;
+ 		}
  
- 	ret = xgene_enet_init_hw(pdata);
- 	if (ret)
--		goto err_netdev;
-+		goto err;
- 
- 	link_state = pdata->mac_ops->link_state;
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
-@@ -1677,21 +1677,32 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 			ret = xgene_enet_mdio_config(pdata);
- 		else
- 			INIT_DELAYED_WORK(&pdata->link_work, link_state);
++		buf_pool->rx_skb[tail] = skb;
 +
-+		if (ret)
-+			goto err1;
- 	}
--	if (ret)
--		goto err;
+ 		raw_desc->m1 = cpu_to_le64(SET_VAL(DATAADDR, dma_addr) |
+ 					   SET_VAL(BUFDATALEN, bufdatalen) |
+ 					   SET_BIT(COHERENT));
+@@ -102,12 +103,21 @@ static u8 xgene_enet_hdr_len(const void *data)
  
- 	xgene_enet_napi_add(pdata);
- 	ret = register_netdev(ndev);
- 	if (ret) {
- 		netdev_err(ndev, "Failed to register netdev\n");
--		goto err;
-+		goto err2;
- 	}
+ static void xgene_enet_delete_bufpool(struct xgene_enet_desc_ring *buf_pool)
+ {
++	struct device *dev = ndev_to_dev(buf_pool->ndev);
++	struct xgene_enet_raw_desc16 *raw_desc;
++	dma_addr_t dma_addr;
+ 	int i;
  
- 	return 0;
- 
--err_netdev:
--	unregister_netdev(ndev);
-+err2:
-+	/*
-+	 * If necessary, free_netdev() will call netif_napi_del() and undo
-+	 * the effects of xgene_enet_napi_add()'s calls to netif_napi_add().
-+	 */
+ 	/* Free up the buffers held by hardware */
+ 	for (i = 0; i < buf_pool->slots; i++) {
+-		if (buf_pool->rx_skb[i])
++		if (buf_pool->rx_skb[i]) {
+ 			dev_kfree_skb_any(buf_pool->rx_skb[i]);
 +
-+	if (pdata->mdio_driver)
-+		xgene_enet_phy_disconnect(pdata);
-+	else if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII)
-+		xgene_enet_mdio_remove(pdata);
-+err1:
-+	xgene_enet_delete_desc_rings(pdata);
- err:
- 	free_netdev(ndev);
- 	return ret;
++			raw_desc = &buf_pool->raw_desc16[i];
++			dma_addr = GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1));
++			dma_unmap_single(dev, dma_addr, XGENE_ENET_MAX_MTU,
++					 DMA_FROM_DEVICE);
++		}
+ 	}
+ }
+ 
 -- 
 1.9.1
