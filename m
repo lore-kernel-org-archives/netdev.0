@@ -1,55 +1,55 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit systems.
-Date: Sun, 31 Jul 2016 16:48:44 +0530
-Message-ID: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] qed: Add and use specific logging functions to reduce
+ object size
+Date: Sun, 31 Jul 2016 11:04:20 -0700
+Message-ID: <1469988260.3998.128.camel@perches.com>
+References: <a0e0111217e9df2ae8dfd681b2810230e00f634e.1469568146.git.joe@perches.com>
+	 <CO2PR11MB00889101E00EA4328672A374970F0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: qiang.zhao@freescale.com, arnd@arndb.de, viresh.kumar@linaro.org,
- linux-wireless@vger.kernel.org, David.Laight@aculab.com,
- netdev@vger.kernel.org, scottwood@freescale.com,
- Arvind Yadav <arvind.yadav.cs@gmail.com>, akpm@linux-foundation.org,
- linuxppc-dev@lists.ozlabs.org, davem@davemloft.net, linux@roeck-us.net
-To: zajec5@gmail.com,
-	leoli@freescale.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Dept-Eng Everest Linux L2 <Dept-EngEverestLinuxL2@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CO2PR11MB00889101E00EA4328672A374970F0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SVNfRVJSX1ZBTFVFKCkgYXNzdW1lcyB0aGF0IHBhcmFtZXRlciBpcyBhbiB1bnNpZ25lZCBsb25n
-LgpJdCBjYW4gbm90IGJlIHVzZWQgdG8gY2hlY2sgaWYgJ3Vuc2lnbmVkIGludCcgaXMgcGFzc2Vk
-IGluc3RlZC4KV2hpY2ggdGVuZHMgdG8gcmVmbGVjdCBhbiBlcnJvci4KCkluIDY0Yml0IGFyY2hp
-dGVjdHVyZXMgc2l6ZW9mIChpbnQpID09IDQgJiYgc2l6ZW9mIChsb25nKSA9PSA4LgpJU19FUlJf
-VkFMVUUoeCkgaXMgKCh4KSA+PSAodW5zaWduZWQgbG9uZyktNDA5NSkuCgpJU19FUlJfVkFMVUUo
-KSBvZiAndW5zaWduZWQgaW50JyBpcyBhbHdheXMgZmFsc2UgYmVjYXVzZSB0aGUgMzJiaXQKdmFs
-dWUgaXMgemVybyBleHRlbmRlZCB0byA2NCBiaXRzLgoKVmFsdWUgb2YgKHVuc2lnbmVkIGludCkt
-NDA5NSBpcyBhbHdheXMgbGVzcyB0aGFuIHZhbHVlIG9mCih1bnNpZ25lZCBsb25nKS00MDk1LgoK
-Tm93IFdlIGFyZSB0YWtpbmcgb25seSBmaXJzdCAzMiBiaXQgZm9yIGVycm9yIGNoZWNraW5nIHJl
-c3Qgb2YgdGhlIDMyIGJpdAp3ZSBpZ25vcmUgc3VjaCB0aGF0IHdlIGdldCBhcHByb3ByaWF0ZSBj
-b21wYXJpc29uIG9uIDY0Yml0IHN5c3RlbSBhcyB3ZWxsLgoKRmlyc3QgMzJiaXQgb2YgVmFsdWUg
-b2YgKHVuc2lnbmVkIGludCktNDA5NSBhbmQgKHVuc2lnbmVkIGxvbmcpLTQwOTUgd2lsbApiZSBl
-cXVhbC4KClNpZ25lZC1vZmYtYnk6IEFydmluZCBZYWRhdiA8YXJ2aW5kLnlhZGF2LmNzQGdtYWls
-LmNvbT4KLS0tCiBpbmNsdWRlL2xpbnV4L2Vyci5oIHwgMTIgKysrKysrKysrKystCiAxIGZpbGUg
-Y2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL2lu
-Y2x1ZGUvbGludXgvZXJyLmggYi9pbmNsdWRlL2xpbnV4L2Vyci5oCmluZGV4IDFlMzU1ODguLmMy
-YTI3ODkgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvZXJyLmgKKysrIGIvaW5jbHVkZS9saW51
-eC9lcnIuaApAQCAtMTgsNyArMTgsMTcgQEAKIAogI2lmbmRlZiBfX0FTU0VNQkxZX18KIAotI2Rl
-ZmluZSBJU19FUlJfVkFMVUUoeCkgdW5saWtlbHkoKHVuc2lnbmVkIGxvbmcpKHZvaWQgKikoeCkg
-Pj0gKHVuc2lnbmVkIGxvbmcpLU1BWF9FUlJOTykKKyNkZWZpbmUgSVNfRVJSX1ZBTFVFKHgpIHVu
-bGlrZWx5KGlzX2Vycm9yX2NoZWNrKHgpKQorCitzdGF0aWMgaW5saW5lIGludCBpc19lcnJvcl9j
-aGVjayh1bnNpZ25lZCBsb25nIGVycm9yKQoreworCXVuc2lnbmVkIGludCBmaXJzdDMyYml0ID0g
-KGVycm9yICYgMHhGRkZGRkZGRik7CisKKwlpZiAoZmlyc3QzMmJpdCA+PSAodW5zaWduZWQgaW50
-KS1NQVhfRVJSTk8pCisJCXJldHVybiAxOworCWVsc2UKKwkJcmV0dXJuIDA7Cit9CiAKIHN0YXRp
-YyBpbmxpbmUgdm9pZCAqIF9fbXVzdF9jaGVjayBFUlJfUFRSKGxvbmcgZXJyb3IpCiB7Ci0tIAox
-LjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGlu
-dXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRw
-czovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+On Wed, 2016-07-27 at 07:24 +0000, Yuval Mintz wrote:
+> > 
+> > Current DP_ macros generate a lot of code.
+> > Using functions with vsprintf extension %pV helps reduce that size.
+> > 
+> >  drivers/net/ethernet/qlogic/qed/Makefile   |  2 +-
+> >  drivers/net/ethernet/qlogic/qed/qed_util.c | 82 ++++++++++++++++++++++++++++++
+> >  include/linux/qed/qed_if.h                 | 60 +++++++++-------------
+> >  3 files changed, 106 insertions(+), 38 deletions(-)  create mode 100644
+> > drivers/net/ethernet/qlogic/qed/qed_util.c
+> This won't compile when CONFIG_QED*=m, as qede can't link to
+> the new qed_{err, verbose, info, notice} functions.
+> That was the original reason for putting the macros in the interface
+> header.
+> 
+> Other alternatives:
+> - We can EXPORT_SYMBOL() the functions, although we've taken a
+> strain not adding such to the interface.
+>  - Code duplication between qed/qede [ugly].
+>  - Implementing this in qede via the interface functions with qed; 
+> But the notion of defining an interface between 2 modules passing
+> va_args seems [to me] like a bad one.
+> 
+> If you have cleaner solutions, I'd be happy to hear those.
+
+Hello Yuval.
+
+EXPORT_SYMBOL is probably the simplest solution.
+
+It's pretty commonly used for private logging functions
+in drivers/net/, e.g.: drivers/net/wireless/ath/main.c
+
+I'll submit that in awhile.
+
+cheers, Joe
