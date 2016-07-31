@@ -1,56 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: change to use TCP_CLOSE_WAIT as
- SCTP_SS_CLOSING
-Date: Sat, 30 Jul 2016 22:08:03 -0700 (PDT)
-Message-ID: <20160730.220803.1463117783142907557.davem@davemloft.net>
-References: <0517133e5f1dee8136f3a1c3bfaac522fe98e599.1469880045.git.lucien.xin@gmail.com>
-	<20160730132535.GE2967@localhost.localdomain>
+Subject: Re: [PATCH] net: tulip: fix spelling mistake: "attemping" ->
+ "attempting"
+Date: Sat, 30 Jul 2016 23:14:09 -0700 (PDT)
+Message-ID: <20160730.231409.583082090197899873.davem@davemloft.net>
+References: <1469897227-5476-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51914 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbcGaFIE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 01:08:04 -0400
-In-Reply-To: <20160730132535.GE2967@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fw@strlen.de, a@unstable.cc, felipe.balbi@linux.intel.com,
+	mugunthanvnm@ti.com, fabf@skynet.be, netdev@vger.kernel.org,
+	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <1469897227-5476-1-git-send-email-colin.king@canonical.com>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Sat, 30 Jul 2016 10:25:35 -0300
+From: Colin King <colin.king@canonical.com>
+Date: Sat, 30 Jul 2016 17:47:07 +0100
 
-> On Sat, Jul 30, 2016 at 08:00:45PM +0800, Xin Long wrote:
->> Prior to this patch, sctp defined TCP_CLOSING as SCTP_SS_CLOSING.
->> TCP_CLOSING is such a special sk state in TCP that inet common codes
->> even exclude it.
->> 
->> For instance, inet_accept thinks the accept sk's state never be
->> TCP_CLOSING, or it will give a WARN_ON. TCP works well with that
->> while SCTP may trigger the call trace, as CLOSING state in SCTP
->> has different meaning from TCP.
->> 
->> This fix is to change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING,
->> instead of TCP_CLOSING. Some side-effects could be expected,
->> regardless of not being used before. inet_accept will accept it
->> now.
->> 
->> I did all the func_tests in lksctp-tools and ran sctp codnomicon
->> fuzzer tests against this patch, no regression or failure found.
->> 
->> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> I don't think this is -net material. It's a one line change but a core
-> one.
-> Dave please consider it for net-next instead.
-> Though, Xin you may need to re-post later..
+> trivial fix to spelling mistake in printk message
 > 
-> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-But, the commit log message says that inet_accept() will generate
-a WARN_ON() call trace without this change.  That makes it sound
-like it's 'net' material to me.
+Applied, thanks.
