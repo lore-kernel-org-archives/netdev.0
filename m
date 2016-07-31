@@ -1,21 +1,38 @@
-From: bancoleite@sms.goiania.go.gov.br
-Subject: RE:DO YOU NEED A LOAN?
-Date: Mon, 01 Aug 2016 03:39:38 +0530
-Message-ID: <20160731220951.00EDA5F6BCE@zmail.goiania.go.gov.br>
-Reply-To: daryl0877@inbox.lv
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
+Date: Mon, 1 Aug 2016 01:22:02 +0300
+Message-ID: <20160731222202.GI26208@uranus>
+References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20160706082602.GM4666@uranus>
+ <20160706122515.GN4666@uranus>
+ <20160728103357.GA3031@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <bancoleite@sms.goiania.go.gov.br>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from correio.goiania.go.gov.br ([200.199.226.131]:52311 "EHLO
-	zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750891AbcGaWQ6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 18:16:58 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+	Matt.Bennett@alliedtelesis.co.nz,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160728103357.GA3031@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I am a reliable trustworthy lender, i give out affordable loan at 4% rate, if you find any interest, kindly contact us for more details.
+On Thu, Jul 28, 2016 at 12:33:58PM +0200, Guillaume Nault wrote:
+> > 
+> > After staring more I think the patch should be fine as a fix
+> > since implementing sync with ppp_[re|un]register_channel and
+> > ppp_ioctl might need a way more work.
+> > 
+> 
+> [Sorry for arriving so late in the game, I was offline the last 3 weeks]
+> 
+> I agree having some symmetry between the creation and deletion
+> processes would be nice and would make the code easier to reason about.
+> Actually, I released the channel netns in ppp_unregister_channel() for
+> exactly this reason (and failed to spot this race).
+> 
+> But the code is already quite asymmetric and it's certainly too late to
+> move away from this scheme now. So releasing the channel netns in
 
-  CEO DARYL WENTLAND.
+Yes, this module needs cleanup in general, so fix is fine, thanks!
