@@ -1,31 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 6/8] thunderbolt: Networking transmit and receive
-Date: Sun, 31 Jul 2016 11:45:13 -0700 (PDT)
-Message-ID: <20160731.114513.2022660088754330528.davem@davemloft.net>
-References: <1469693721-5641-7-git-send-email-amir.jer.levy@intel.com>
-	<20160729140741.18ca3e35@xeon-e3>
-	<E607265CB020454880711A6F96C05A039710868B@hasmsx108.ger.corp.intel.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 2/3] netfilter: nat: snat created in route process just
+ apply to routed traffic
+Date: Sun, 31 Jul 2016 21:00:56 +0200
+Message-ID: <20160731190056.GA14216@breakpoint.cc>
+References: <1469915644-16861-1-git-send-email-xfan@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, andreas.noever@gmail.com,
-	gregkh@linuxfoundation.org, bhelgaas@google.com, corbet@lwn.net,
-	linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-	thunderbolt-linux@intel.com, mika.westerberg@intel.com,
-	tomas.winkler@intel.com
-To: amir.jer.levy@intel.com
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <E607265CB020454880711A6F96C05A039710868B@hasmsx108.ger.corp.intel.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, Xiaoping Fan <xfan@codeaurora.org>
+To: fxp2001640163@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:43114 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750948AbcGaTBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 15:01:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1469915644-16861-1-git-send-email-xfan@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Date: Sun, 31 Jul 2016 10:15:52 +0000
+fxp2001640163@gmail.com <fxp2001640163@gmail.com> wrote:
+> From: Xiaoping Fan <xfan@codeaurora.org>
+> 
+> In some situations, packet goes through Linux twice, one for bridging,
+> another for routing. If snat is created in bridging process, that means
 
-> The network stack thinks it is Ethernet, it might not accept Runt
-> frames, so the driver pads the frame in receive.
+Hmm, but SNAT happens in POSTROUTING.
 
-The network stack doesn't care about this at all.  It's wasted effort
-on your part.
+Where can we enter routing path after bridge went though postrouting...?
 
+Normally if bridge packet has local dst mac kb traversal is:
+
+bridge prerouting -> bridge input -> ipv4 prerouting (hook invocation
+suppressed via bridge netfilter sabotage hook)
+
+Depending on route table we then end up in ipv4 input (again suppressed)
+or in forward and postrouting.
+
+What is the issue, exactly?
