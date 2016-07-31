@@ -1,34 +1,37 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: thunderx: correct bound check in nic_config_loopback
-Date: Sun, 31 Jul 2016 12:52:55 +0300
-Message-ID: <8826fedc-8419-19a9-28d0-faf46ccc9f9f@cogentembedded.com>
-References: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Levin, Alexander" <alexander.levin@verizon.com>,
-	"sgoutham@cavium.com" <sgoutham@cavium.com>,
-	"rric@kernel.org" <rric@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] net: s2io: simplify logical constraint
+Date: Sun, 31 Jul 2016 11:53:57 +0200
+Message-ID: <1469958837-1044-1-git-send-email-xypron.glpk@gmx.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Jon Mason <jdmason@kudzu.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:54070 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751338AbcGaJyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jul 2016 05:54:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+(!A || (A && B)) is equivalent to (!A || B)
 
-On 7/31/2016 5:49 AM, Levin, Alexander wrote:
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+---
+ drivers/net/ethernet/neterion/s2io.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> Off by one in nic_config_loopback would access an invalid arrat variable when
-
-    Array?
-
-> vf id == MAX_LMAC.
->
-> Signed-off-by: Sasha Levin <alexander.levin@verizon.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 2874dff..eaa37c0 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -7412,7 +7412,7 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
+ 
+ 	if ((rxdp->Control_1 & TCP_OR_UDP_FRAME) &&
+ 	    ((!ring_data->lro) ||
+-	     (ring_data->lro && (!(rxdp->Control_1 & RXD_FRAME_IP_FRAG)))) &&
++	     (!(rxdp->Control_1 & RXD_FRAME_IP_FRAG))) &&
+ 	    (dev->features & NETIF_F_RXCSUM)) {
+ 		l3_csum = RXD_GET_L3_CKSUM(rxdp->Control_1);
+ 		l4_csum = RXD_GET_L4_CKSUM(rxdp->Control_1);
+-- 
+2.8.1
