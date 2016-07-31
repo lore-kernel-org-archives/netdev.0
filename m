@@ -1,86 +1,36 @@
-From: Fengguang Wu <lkp@intel.com>
-Subject: Re: [PATCH v4] net: sched: convert qdisc linked list to hashtable
-Date: Sun, 31 Jul 2016 19:21:27 +0800
-Message-ID: <20160731112127.GA9518@wfg-t540p.sh.intel.com>
-References: <201607281957.yJSK4rUm%fengguang.wu@intel.com>
- <alpine.LNX.2.00.1607281317350.24757@cbobk.fhfr.pm>
- <20160728125312.GB25433@wfg-t540p.sh.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: kbuild-all@01.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:65094 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750748AbcGaLWM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Jul 2016 07:22:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20160728125312.GB25433@wfg-t540p.sh.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] qed: do not use unitialized variable
+Date: Sun, 31 Jul 2016 13:24:52 +0200
+Message-ID: <1469964292-3231-1-git-send-email-xypron.glpk@gmx.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	everest-linux-l2@qlogic.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 28, 2016 at 08:53:12PM +0800, Fengguang Wu wrote:
->On Thu, Jul 28, 2016 at 01:18:27PM +0200, Jiri Kosina wrote:
->>On Thu, 28 Jul 2016, kbuild test robot wrote:
->>
->>> [auto build test ERROR on v4.7-rc7]
->>> [also build test ERROR on next-20160728]
->>> [cannot apply to net/master net-next/master ipsec-next/master]
->>> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
->>>
->>> url:    https://github.com/0day-ci/linux/commits/Jiri-Kosina/net-sched-convert-qdisc-linked-list-to-hashtable/20160728-182303
->>> config: i386-randconfig-s0-201630 (attached as .config)
->>> compiler: gcc-6 (Debian 6.1.1-9) 6.1.1 20160705
->>> reproduce:
->>>         # save the attached .config to linux build tree
->>>         make ARCH=i386
->>>
->>> All errors (new ones prefixed by >>):
->>>
->>>    net/built-in.o: In function `dev_activate':
->>> >> (.text+0x37ccb): undefined reference to `qdisc_hash_add'
->>
->>Dear 0-day team,
->>
->>could you please check my question regarding this very build failure here?
->>
->>	lkml.kernel.org/r/alpine.LNX.2.00.1607141612560.24757@cbobk.fhfr.pm
->
->Sorry I missed that. For your convenience, here is the answer to the
->original email:
->
->>This issue is be there even without my patch (but with qdisc_list_add
->>instead), isn't it?
->
->Yes it looks so, this number happens in a number of places:
->
->dns_query.c:(.text+0x39b84): undefined reference to `qdisc_hash_add'
->include/linux/netdevice.h:1935: undefined reference to `qdisc_hash_add'
->net/core/netevent.c:31: undefined reference to `qdisc_hash_add'
->net/sched/sch_generic.c:789: undefined reference to `qdisc_hash_add'
->sch_generic.c:(.text+0x33487): undefined reference to `qdisc_hash_add'
->switchdev.c:(.text+0x3bf58): undefined reference to `qdisc_hash_add'
->sysctl_net.c:(.text+0x31f70): undefined reference to `qdisc_hash_add'
->(.text.dev_activate+0x228): undefined reference to `qdisc_hash_add'
->(.text+0x37d0b): undefined reference to `qdisc_hash_add'
->wext-proc.c:(.text+0x390a8): undefined reference to `qdisc_hash_add'
+Do not write random bytes from the kernel stack when
+calling qed_wr.
 
-Jiri, I just double checked and find no similar errors related to
-qdisc_list_add(). The parent commit 95556a8838 ("dccp: avoid deadlock
-in dccp_v4_ctl_send_reset") builds fine without error.
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+---
+ drivers/net/ethernet/qlogic/qed/qed_dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-Fengguang
-
->>The problem is that sch_generic.c (where dev_activate() is) is being
->>compiled everytime CONFIG_NET is set, but sch_api.c (where
->>qdisc_list_add() is defined) only when CONFIG_NET_SCHED is set (and there
->>is no stub for !CONFIG_NET_SCHED case).
->
->So it looks like a more general problem than specific to this patch.
->
->Thanks,
->Fengguang
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+index b26fe26..151cbf9 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
+@@ -888,7 +888,7 @@ static int qed_hw_init_pf(struct qed_hwfn *p_hwfn,
+ 
+ 	if (hw_mode & (1 << MODE_MF_SI)) {
+ 		u8 pf_id = 0;
+-		u32 val;
++		u32 val = 0;
+ 
+ 		if (!qed_hw_init_first_eth(p_hwfn, p_ptt, &pf_id)) {
+ 			if (p_hwfn->rel_pf_id == pf_id) {
+-- 
+2.8.1
