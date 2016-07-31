@@ -1,33 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: bcm_sf2: Unwind errors in correct order
-Date: Sat, 30 Jul 2016 23:15:22 -0700 (PDT)
-Message-ID: <20160730.231522.2076324866096732670.davem@davemloft.net>
-References: <1469820957-21496-1-git-send-email-f.fainelli@gmail.com>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] net/mlx5_core/pagealloc: Remove deprecated
+ create_singlethread_workqueue
+Date: Sun, 31 Jul 2016 09:35:13 +0300
+Message-ID: <20160731063513.GW4628@leon.nu>
+References: <20160728081949.GA5561@Karyakshetra>
+ <20160728093735.GO4628@leon.nu>
+ <20160729122237.GG2542@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52460 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbcGaGPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 02:15:23 -0400
-In-Reply-To: <1469820957-21496-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="7uidztUHYC105IRM"
+Cc: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160729122237.GG2542-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 29 Jul 2016 12:35:57 -0700
 
-> In case we cannot complete bcm_sf2_sw_setup() for any reason, and we
-> go to the out_unmap label, but the MDIO bus has not been registered yet,
-> we will hit the BUG condition in drivers/net/phy/mdio_bus.c about the
-> bus not being registered. Fix this by dedicating a specific lable for
-> when we fail after the MDIO bus has been successfully registered.
-> 
-> Fixes: 461cd1b03e32 ("net: dsa: bcm_sf2: Register our slave MDIO bus")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+--7uidztUHYC105IRM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Applied, thanks Florian.
+On Fri, Jul 29, 2016 at 08:22:37AM -0400, Tejun Heo wrote:
+> Hello,
+>=20
+> On Thu, Jul 28, 2016 at 12:37:35PM +0300, Leon Romanovsky wrote:
+> > Did you test this patch? Did you notice the memory reclaim path nature
+> > of this work?
+>=20
+> The conversion uses WQ_MEM_RECLAIM, which is standard for all
+> workqueues which can stall packet processing if stalled.  The
+> requirement comes from nfs or block devices over network.
+
+The title stays "remove deprecated create_singlethread_workqueue" and if
+we put aside the word "deprecated", the code moves from ordered
+workqueue to unordered workqueue and changes max_active count which
+isn't expressed in commit message.
+
+For reclaim paths, I want to be extra caution and want to see
+justification for doing that along with understanding if it is tested or
+not.
+
+Right now, I'm feeling that I'm participating in soapie where one sends
+patch for every line, waits and sends the same patch for another file.
+It is worth to send one patch set and let us to test it all in once.
+
+Thanks.
+
+>=20
+> Thanks.
+>=20
+> --=20
+> tejun
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--7uidztUHYC105IRM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXnZwhAAoJEORje4g2clinMmEQAJeUsY1s9+pdwsuE4W/XGaTU
+in5iWOxXqny0ElIFX6mVd+qb3YlzJoDMMjO9bD4wWdn1wnmYlo/eMVzdjdXWzFYu
+zOMCV494J8hojqCF2h/CgjaFsWDZev8Q67kQZGrTNIMWk2cozT/jBpU4bGxOpLlo
+1lt938+eCbnCmb7bokencLKS8ljJslvYrC92T0+Z3GALc9LHuTbvyhyzvi3C77eM
+DZRQuN82kpUqhp611M6iLRZKUci2hhYiLqlsnKXf6EbMbfQcIu8P4LPEOaAF3zCx
+QQr9Vo8HvQdcB29FJeerCMkMfYM7cd7msM+/9JEhwqgr6qo8Bgp3PX6xqEp3Z66s
+CDtSmfTcCh/NLVVTXkUSTwL56FuWK2dTqy0ix/T+YG0cYdZmLbf16AMtWEVZAEy6
+BKTZkwi/JpxWbr6N4ABx3oROvHCELitswqwMEMrZDddb56RjGuctqKNcuAFn3feI
+15AltfTTnpvyH+TxHJ06CmCdtGgKXGdbx6yAk8/4r0qA0bZKL0fKkbhiLJOe9k1M
+3/0Sanv2EY9IRxHJiKxs4Cbi3k7xfQYdda/ZOasMjaiN5p/T3vO9OsESuiluxiNp
+6if18XanmkmRowctZbRcdj/Z6V/8BmxPtR1Rnkm4lwMfAs0cbvwXjAx4+erTjcdi
+y0LQ5DE9KHse5+6Ned2K
+=5lHY
+-----END PGP SIGNATURE-----
+
+--7uidztUHYC105IRM--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
