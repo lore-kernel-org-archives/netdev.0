@@ -1,31 +1,55 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH] net: thunderx: correct bound check in nic_config_loopback
-Date: Mon, 1 Aug 2016 00:41:52 +0800
-Message-ID: <CA+sq2Cc-MTtoncAcL6MS-YVdeVVK=aqEmZakzkX6_CwsXvpRCQ@mail.gmail.com>
-References: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit systems.
+Date: Sun, 31 Jul 2016 16:48:44 +0530
+Message-ID: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "sgoutham@cavium.com" <sgoutham@cavium.com>,
-	"rric@kernel.org" <rric@kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Levin, Alexander" <alexander.levin@verizon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: qiang.zhao@freescale.com, arnd@arndb.de, viresh.kumar@linaro.org,
+ linux-wireless@vger.kernel.org, David.Laight@aculab.com,
+ netdev@vger.kernel.org, scottwood@freescale.com,
+ Arvind Yadav <arvind.yadav.cs@gmail.com>, akpm@linux-foundation.org,
+ linuxppc-dev@lists.ozlabs.org, davem@davemloft.net, linux@roeck-us.net
+To: zajec5@gmail.com,
+	leoli@freescale.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Thanks for finding.
-A much better fix would be,
-
--       if (lbk->vf_id > MAX_LMAC)
-+       if (lbk->vf_id >= nic->num_vf_en)
-                return -1;
-
-where 'num_vf_en' reflects the exact number of physical interfaces or
-LMACs on the system.
-
-Thanks,
-Sunil.
+SVNfRVJSX1ZBTFVFKCkgYXNzdW1lcyB0aGF0IHBhcmFtZXRlciBpcyBhbiB1bnNpZ25lZCBsb25n
+LgpJdCBjYW4gbm90IGJlIHVzZWQgdG8gY2hlY2sgaWYgJ3Vuc2lnbmVkIGludCcgaXMgcGFzc2Vk
+IGluc3RlZC4KV2hpY2ggdGVuZHMgdG8gcmVmbGVjdCBhbiBlcnJvci4KCkluIDY0Yml0IGFyY2hp
+dGVjdHVyZXMgc2l6ZW9mIChpbnQpID09IDQgJiYgc2l6ZW9mIChsb25nKSA9PSA4LgpJU19FUlJf
+VkFMVUUoeCkgaXMgKCh4KSA+PSAodW5zaWduZWQgbG9uZyktNDA5NSkuCgpJU19FUlJfVkFMVUUo
+KSBvZiAndW5zaWduZWQgaW50JyBpcyBhbHdheXMgZmFsc2UgYmVjYXVzZSB0aGUgMzJiaXQKdmFs
+dWUgaXMgemVybyBleHRlbmRlZCB0byA2NCBiaXRzLgoKVmFsdWUgb2YgKHVuc2lnbmVkIGludCkt
+NDA5NSBpcyBhbHdheXMgbGVzcyB0aGFuIHZhbHVlIG9mCih1bnNpZ25lZCBsb25nKS00MDk1LgoK
+Tm93IFdlIGFyZSB0YWtpbmcgb25seSBmaXJzdCAzMiBiaXQgZm9yIGVycm9yIGNoZWNraW5nIHJl
+c3Qgb2YgdGhlIDMyIGJpdAp3ZSBpZ25vcmUgc3VjaCB0aGF0IHdlIGdldCBhcHByb3ByaWF0ZSBj
+b21wYXJpc29uIG9uIDY0Yml0IHN5c3RlbSBhcyB3ZWxsLgoKRmlyc3QgMzJiaXQgb2YgVmFsdWUg
+b2YgKHVuc2lnbmVkIGludCktNDA5NSBhbmQgKHVuc2lnbmVkIGxvbmcpLTQwOTUgd2lsbApiZSBl
+cXVhbC4KClNpZ25lZC1vZmYtYnk6IEFydmluZCBZYWRhdiA8YXJ2aW5kLnlhZGF2LmNzQGdtYWls
+LmNvbT4KLS0tCiBpbmNsdWRlL2xpbnV4L2Vyci5oIHwgMTIgKysrKysrKysrKystCiAxIGZpbGUg
+Y2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQoKZGlmZiAtLWdpdCBhL2lu
+Y2x1ZGUvbGludXgvZXJyLmggYi9pbmNsdWRlL2xpbnV4L2Vyci5oCmluZGV4IDFlMzU1ODguLmMy
+YTI3ODkgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvZXJyLmgKKysrIGIvaW5jbHVkZS9saW51
+eC9lcnIuaApAQCAtMTgsNyArMTgsMTcgQEAKIAogI2lmbmRlZiBfX0FTU0VNQkxZX18KIAotI2Rl
+ZmluZSBJU19FUlJfVkFMVUUoeCkgdW5saWtlbHkoKHVuc2lnbmVkIGxvbmcpKHZvaWQgKikoeCkg
+Pj0gKHVuc2lnbmVkIGxvbmcpLU1BWF9FUlJOTykKKyNkZWZpbmUgSVNfRVJSX1ZBTFVFKHgpIHVu
+bGlrZWx5KGlzX2Vycm9yX2NoZWNrKHgpKQorCitzdGF0aWMgaW5saW5lIGludCBpc19lcnJvcl9j
+aGVjayh1bnNpZ25lZCBsb25nIGVycm9yKQoreworCXVuc2lnbmVkIGludCBmaXJzdDMyYml0ID0g
+KGVycm9yICYgMHhGRkZGRkZGRik7CisKKwlpZiAoZmlyc3QzMmJpdCA+PSAodW5zaWduZWQgaW50
+KS1NQVhfRVJSTk8pCisJCXJldHVybiAxOworCWVsc2UKKwkJcmV0dXJuIDA7Cit9CiAKIHN0YXRp
+YyBpbmxpbmUgdm9pZCAqIF9fbXVzdF9jaGVjayBFUlJfUFRSKGxvbmcgZXJyb3IpCiB7Ci0tIAox
+LjkuMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGlu
+dXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRw
+czovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
