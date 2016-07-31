@@ -1,42 +1,28 @@
-From: "Levin, Alexander" <alexander.levin@verizon.com>
-Subject: [PATCH] net: thunderx: correct bound check in nic_config_loopback
-Date: Sat, 30 Jul 2016 22:49:44 -0400
-Message-ID: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/6] qed*: Small fixes series
+Date: Sat, 30 Jul 2016 20:34:32 -0700 (PDT)
+Message-ID: <20160730.203432.487012053595638522.davem@davemloft.net>
+References: <1469619924-12806-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Levin, Alexander" <alexander.levin@verizon.com>
-To: "sgoutham@cavium.com" <sgoutham@cavium.com>,
-	"rric@kernel.org" <rric@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50810 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751891AbcGaDef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 30 Jul 2016 23:34:35 -0400
+In-Reply-To: <1469619924-12806-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Off by one in nic_config_loopback would access an invalid arrat variable when
-vf id == MAX_LMAC.
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Wed, 27 Jul 2016 14:45:18 +0300
 
-Signed-off-by: Sasha Levin <alexander.levin@verizon.com>
----
- drivers/net/ethernet/cavium/thunder/nic_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> This contains several small [and straight-forward] fixes to qed*
+> drivers.
+> 
+> Please consider applying this to `net'.
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 16ed203..a70f50d 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -615,7 +615,7 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
- {
- 	int bgx_idx, lmac_idx;
- 
--	if (lbk->vf_id > MAX_LMAC)
-+	if (lbk->vf_id >= MAX_LMAC)
- 		return -1;
- 
- 	bgx_idx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[lbk->vf_id]);
--- 
-2.7.4
+Series applied, thanks.
