@@ -1,32 +1,21 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] Networking: Core: netpoll: Fixed a missing spin_unlock
-Date: Mon, 1 Aug 2016 00:09:10 +0200
-Message-ID: <20160731220910.GA30064@electric-eye.fr.zoreil.com>
-References: <1469840027-17057-1-git-send-email-salilkapur93@gmail.com>
- <20160730215836.GA22500@electric-eye.fr.zoreil.com>
- <CAJksCdT5DkbrQ_OAigJim_qT3WXo6sPv07KrBcAtTsHFLMzO4w@mail.gmail.com>
+From: bancoleite@sms.goiania.go.gov.br
+Subject: RE:DO YOU NEED A LOAN?
+Date: Mon, 01 Aug 2016 03:39:38 +0530
+Message-ID: <20160731220951.00EDA5F6BCE@zmail.goiania.go.gov.br>
+Reply-To: daryl0877@inbox.lv
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Salil Kapur <salilkapur93@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <bancoleite@sms.goiania.go.gov.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50922 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750891AbcGaWL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 18:11:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJksCdT5DkbrQ_OAigJim_qT3WXo6sPv07KrBcAtTsHFLMzO4w@mail.gmail.com>
+Received: from correio.goiania.go.gov.br ([200.199.226.131]:52311 "EHLO
+	zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750891AbcGaWQ6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 18:16:58 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Salil Kapur <salilkapur93@gmail.com> :
-> I was looking at v3.12. Can we submit patches for stable versions?
+I am a reliable trustworthy lender, i give out affordable loan at 4% rate, if you find any interest, kindly contact us for more details.
 
-It has already been fixed in 3.12.8 as 56399d8b44beae5b80e1eda0350ab6af72baf4d0
-("netpoll: Fix missing TXQ unlock and and OOPS.") by davem.
-
-3.12.8 dates back to 2014/01. The current 3.12.x version is 3.12.62.
-
--- 
-Ueimor
+  CEO DARYL WENTLAND.
