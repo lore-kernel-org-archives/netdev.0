@@ -1,39 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: fix the issue sctp requeue auth chunk
- incorrectly
-Date: Sat, 30 Jul 2016 22:06:52 -0700 (PDT)
-Message-ID: <20160730.220652.1863192062471461146.davem@davemloft.net>
-References: <af1555c524101278be2e5b07ff78a1eaacc0f7bb.1469858315.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: change to use TCP_CLOSE_WAIT as
+ SCTP_SS_CLOSING
+Date: Sat, 30 Jul 2016 22:08:03 -0700 (PDT)
+Message-ID: <20160730.220803.1463117783142907557.davem@davemloft.net>
+References: <0517133e5f1dee8136f3a1c3bfaac522fe98e599.1469880045.git.lucien.xin@gmail.com>
+	<20160730132535.GE2967@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, vyasevich@gmail.com,
 	daniel@iogearbox.net
-To: lucien.xin@gmail.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51904 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51914 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901AbcGaFHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 01:07:15 -0400
-In-Reply-To: <af1555c524101278be2e5b07ff78a1eaacc0f7bb.1469858315.git.lucien.xin@gmail.com>
+	with ESMTP id S1751077AbcGaFIE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 01:08:04 -0400
+In-Reply-To: <20160730132535.GE2967@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sat, 30 Jul 2016 13:58:35 +0800
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Sat, 30 Jul 2016 10:25:35 -0300
 
-> sctp needs to queue auth chunk back when we know that we are going
-> to generate another segment. But commit f1533cce60d1 ("sctp: fix
-> panic when sending auth chunks") requeues the last chunk processed
-> which is probably not the auth chunk.
+> On Sat, Jul 30, 2016 at 08:00:45PM +0800, Xin Long wrote:
+>> Prior to this patch, sctp defined TCP_CLOSING as SCTP_SS_CLOSING.
+>> TCP_CLOSING is such a special sk state in TCP that inet common codes
+>> even exclude it.
+>> 
+>> For instance, inet_accept thinks the accept sk's state never be
+>> TCP_CLOSING, or it will give a WARN_ON. TCP works well with that
+>> while SCTP may trigger the call trace, as CLOSING state in SCTP
+>> has different meaning from TCP.
+>> 
+>> This fix is to change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING,
+>> instead of TCP_CLOSING. Some side-effects could be expected,
+>> regardless of not being used before. inet_accept will accept it
+>> now.
+>> 
+>> I did all the func_tests in lksctp-tools and ran sctp codnomicon
+>> fuzzer tests against this patch, no regression or failure found.
+>> 
+>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > 
-> It causes panic when calculating the MAC in sctp_auth_calculate_hmac(),
-> as the incorrect offset of the auth chunk in skb->data.
+> I don't think this is -net material. It's a one line change but a core
+> one.
+> Dave please consider it for net-next instead.
+> Though, Xin you may need to re-post later..
 > 
-> This fix is to requeue it by using packet->auth.
-> 
-> Fixes: f1533cce60d1 ("sctp: fix panic when sending auth chunks")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Applied.
+But, the commit log message says that inet_accept() will generate
+a WARN_ON() call trace without this change.  That makes it sound
+like it's 'net' material to me.
