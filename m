@@ -1,49 +1,43 @@
 From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] net: bcm63xx: avoid possible null pointer dereference
-Date: Sun, 31 Jul 2016 10:24:29 +0200
-Message-ID: <1469953469-20782-1-git-send-email-xypron.glpk@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ivan Vecera <ivecera@redhat.com>, Andrew Lunn <andrew@lunn.ch>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- Heinrich Schuchardt <xypron.glpk@gmx.de>, Simon Arlott <simon@fire.lp0.eu>,
- Thierry Reding <treding@nvidia.com>, "David S . Miller" <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
- bcm-kernel-feedback-list@broadcom.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 1/1] net: bna: use correct type specifications
+Date: Sun, 31 Jul 2016 10:53:14 +0200
+Message-ID: <1469955194-30017-1-git-send-email-xypron.glpk@gmx.de>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Rasesh Mody <rasesh.mody@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.19]:52074 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750988AbcGaIx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jul 2016 04:53:28 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If dev_get_platdata has failed pd is null.
-Do not dereference a null pointer.
+addr and len are read with
+sscanf(kern_buf, "%x:%x", &addr, &len);
+and used as arguments for
+bna_reg_offset_check.
+
+So they have to be unsigned.
 
 Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 ---
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/brocade/bna/bnad_debugfs.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 87c6b5b..6c8bc5f 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1859,7 +1859,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	} else {
- 
- 		/* run platform code to initialize PHY device */
--		if (pd->mii_config &&
-+		if (pd && pd->mii_config &&
- 		    pd->mii_config(dev, 1, bcm_enet_mdio_read_mii,
- 				   bcm_enet_mdio_write_mii)) {
- 			dev_err(&pdev->dev, "unable to configure mdio bus\n");
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
+index 8fc246e..cfcb00c 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
+@@ -312,7 +312,8 @@ bnad_debugfs_write_regrd(struct file *file, const char __user *buf,
+ 	struct bnad_debug_info *regrd_debug = file->private_data;
+ 	struct bnad *bnad = (struct bnad *)regrd_debug->i_private;
+ 	struct bfa_ioc *ioc = &bnad->bna.ioceth.ioc;
+-	int addr, len, rc, i;
++	int rc, i;
++	u32 addr, len;
+ 	u32 *regbuf;
+ 	void __iomem *rb, *reg_addr;
+ 	unsigned long flags;
 -- 
 2.8.1
