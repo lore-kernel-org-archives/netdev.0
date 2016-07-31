@@ -1,37 +1,50 @@
 From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] net: bna: use correct type specifier (2)
-Date: Sun, 31 Jul 2016 11:01:20 +0200
-Message-ID: <1469955680-32432-1-git-send-email-xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] net: enic: use correct type specifier
+Date: Sun, 31 Jul 2016 11:10:08 +0200
+Message-ID: <1469956208-32629-1-git-send-email-xypron.glpk@gmx.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Rasesh Mody <rasesh.mody@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Christian Benvenuti <benve@cisco.com>,
+	Sujith Sankar <ssujith@cisco.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	Neel Patel <neepatel@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.15]:50626 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750952AbcGaJKU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jul 2016 05:10:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-add and val are read with
-sscanf(kern_buf, "%x:%x", &addr, &val);
-and used as arguments for bna_reg_offset_check and writel
-so they have to be unsigned.
+i is defined as unsigned.
+So print it with %u.
 
 Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 ---
- drivers/net/ethernet/brocade/bna/bnad_debugfs.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-index cfcb00c..05c1c1d 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_debugfs.c
-@@ -373,7 +373,8 @@ bnad_debugfs_write_regwr(struct file *file, const char __user *buf,
- 	struct bnad_debug_info *debug = file->private_data;
- 	struct bnad *bnad = (struct bnad *)debug->i_private;
- 	struct bfa_ioc *ioc = &bnad->bna.ioceth.ioc;
--	int addr, val, rc;
-+	int rc;
-+	u32 addr, val;
- 	void __iomem *reg_addr;
- 	unsigned long flags;
- 	void *kern_buf;
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index f15560a..48f82ab 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1566,7 +1566,7 @@ static int enic_request_intr(struct enic *enic)
+ 			intr = enic_msix_rq_intr(enic, i);
+ 			snprintf(enic->msix[intr].devname,
+ 				sizeof(enic->msix[intr].devname),
+-				"%.11s-rx-%d", netdev->name, i);
++				"%.11s-rx-%u", netdev->name, i);
+ 			enic->msix[intr].isr = enic_isr_msix;
+ 			enic->msix[intr].devid = &enic->napi[i];
+ 		}
+@@ -1577,7 +1577,7 @@ static int enic_request_intr(struct enic *enic)
+ 			intr = enic_msix_wq_intr(enic, i);
+ 			snprintf(enic->msix[intr].devname,
+ 				sizeof(enic->msix[intr].devname),
+-				"%.11s-tx-%d", netdev->name, i);
++				"%.11s-tx-%u", netdev->name, i);
+ 			enic->msix[intr].isr = enic_isr_msix;
+ 			enic->msix[intr].devid = &enic->napi[wq];
+ 		}
 -- 
 2.8.1
