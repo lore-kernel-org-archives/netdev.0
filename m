@@ -1,38 +1,45 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
-Date: Mon, 1 Aug 2016 01:22:02 +0300
-Message-ID: <20160731222202.GI26208@uranus>
-References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
- <20160706082602.GM4666@uranus>
- <20160706122515.GN4666@uranus>
- <20160728103357.GA3031@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	Matt.Bennett@alliedtelesis.co.nz,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160728103357.GA3031@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Soltys <soltys@ziu.info>
+Subject: [PATCH 0/2] HFSC patches
+Date: Mon,  1 Aug 2016 01:03:57 +0200
+Message-ID: <1470006239-20299-1-git-send-email-soltys@ziu.info>
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from drutsystem.com ([84.10.39.251]:36829 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751701AbcGaXF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jul 2016 19:05:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 28, 2016 at 12:33:58PM +0200, Guillaume Nault wrote:
-> > 
-> > After staring more I think the patch should be fine as a fix
-> > since implementing sync with ppp_[re|un]register_channel and
-> > ppp_ioctl might need a way more work.
-> > 
-> 
-> [Sorry for arriving so late in the game, I was offline the last 3 weeks]
-> 
-> I agree having some symmetry between the creation and deletion
-> processes would be nice and would make the code easier to reason about.
-> Actually, I released the channel netns in ppp_unregister_channel() for
-> exactly this reason (and failed to spot this race).
-> 
-> But the code is already quite asymmetric and it's certainly too late to
-> move away from this scheme now. So releasing the channel netns in
+- first patch:
 
-Yes, this module needs cleanup in general, so fix is fine, thanks!
+This patch syncs virtual times with fair service curve and fixes a very old
+subtle bug.
+
+The detailed explanation is in the commit message. Additionally
+I've made an illustration to help understand the issue better:
+
+http://imgur.com/a/N8uMC
+
+See the example at the bottom of the commit message - Am1_3 and Am2_3 is what
+should happen with such queue setup, Am1_3real and Am2_3real is what actually
+happens due to rtsc_min() calculating minimum from corrected and uncorrected
+curves.
+
+- second patch:
+
+This is trivial patch that comments out one unused variable, related to another
+commented out piece of code.
+
+
+Michal Soltys (2):
+  net/sched/sch_hfsc.c: keep fsc and virtual times in sync; fix an old
+    bug
+  net/sched/sch_hfsc.c: comment out cl_myfadj
+
+ net/sched/sch_hfsc.c | 56 +++++++++++++++++++++-------------------------------
+ 1 file changed, 23 insertions(+), 33 deletions(-)
+
+-- 
+2.1.3
