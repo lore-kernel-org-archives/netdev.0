@@ -1,42 +1,58 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1 v2] dsa: b53: remove redundant if
-Date: Sun, 31 Jul 2016 13:42:33 +0200
-Message-ID: <1469965353-3496-1-git-send-email-xypron.glpk@gmx.de>
-References: <a26b33b7-f051-b84c-684a-abb586991513@cogentembedded.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:56174 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751773AbcGaLmn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Jul 2016 07:42:43 -0400
-In-Reply-To: <a26b33b7-f051-b84c-684a-abb586991513@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Subject: RE: [PATCH v5 5/8] thunderbolt: Networking state machine
+Date: Sun, 31 Jul 2016 11:58:41 +0000
+Message-ID: <E607265CB020454880711A6F96C05A039710884A@hasmsx108.ger.corp.intel.com>
+References: <1469693721-5641-1-git-send-email-amir.jer.levy@intel.com>
+ <1469693721-5641-6-git-send-email-amir.jer.levy@intel.com>
+ <20160728113550.GA1701@wunner.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	thunderbolt-linux <thunderbolt-linux@intel.com>,
+	"Westerberg, Mika" <mika.westerberg@intel.com>,
+	"Winkler, Tomas" <tomas.winkler@intel.com>
+To: Lukas Wunner <lukas@wunner.de>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20160728113550.GA1701@wunner.de>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For pdata == null the code leaves with an error.
-There is no need to check the condition again.
+On Thu, Jul 28 2016, 02:35 PM, Lukas Wunner wrote:
+> On Thu, Jul 28, 2016 at 11:15:18AM +0300, Amir Levy wrote:
+> > +				nhi_ctxt->net_devices[
+> > +					port_num].medium_sts =
+> 
+> Looks like a carriage return slipped in here.
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
----
- drivers/net/dsa/b53/b53_mmap.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Will be fixed.
 
-diff --git a/drivers/net/dsa/b53/b53_mmap.c b/drivers/net/dsa/b53/b53_mmap.c
-index 21f1068..77ffc43 100644
---- a/drivers/net/dsa/b53/b53_mmap.c
-+++ b/drivers/net/dsa/b53/b53_mmap.c
-@@ -233,8 +233,7 @@ static int b53_mmap_probe(struct platform_device *pdev)
- 	if (!dev)
- 		return -ENOMEM;
- 
--	if (pdata)
--		dev->pdata = pdata;
-+	dev->pdata = pdata;
- 
- 	platform_set_drvdata(pdev, dev);
- 
--- 
-2.8.1
+> 
+> In patch [4/8], I've found it a bit puzzling that FW->SW responses and
+> FW->SW notifications are defined in icm_nhi.c, whereas SW->FW commands
+> are defined in net.h. It would perhaps be more logical to have them all in the
+> header file. The FW->SW responses and SW->FW commands are almost
+> identical, there are odd spelling differences (CONNEXION vs.
+> CONNECTION).
+
+Will move them to the header and will change to CONNECTION.
+
+> 
+> It would probably be good to explain the PDF acronym somewhere.
+
+Will explain in the enum.
+
+> 
+> I've skimmed over all patches in the series, too superficial to provide a
+> Reviewed-by, it's just too much code to review thoroughly and I also lack the
+> hardware to test it, but broadly this LGTM.
+
+Thank you for the review.
