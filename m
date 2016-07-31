@@ -1,40 +1,53 @@
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Subject: RE: [PATCH v5 4/8] thunderbolt: Communication with the ICM
- (firmware)
-Date: Sun, 31 Jul 2016 12:07:28 +0000
-Message-ID: <E607265CB020454880711A6F96C05A03971088C6@hasmsx108.ger.corp.intel.com>
-References: <1469693721-5641-1-git-send-email-amir.jer.levy@intel.com>
-	<1469693721-5641-5-git-send-email-amir.jer.levy@intel.com>
- <20160729140326.1fae0ced@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"corbet@lwn.net" <corbet@lwn.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	thunderbolt-linux <thunderbolt-linux@intel.com>,
-	"Westerberg, Mika" <mika.westerberg@intel.com>,
-	"Winkler, Tomas" <tomas.winkler@intel.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20160729140326.1fae0ced@xeon-e3>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1] mwifiex: key_material_v2 remove superfluous condition
+Date: Sun, 31 Jul 2016 14:11:21 +0200
+Message-ID: <1469967081-3937-1-git-send-email-xypron.glpk@gmx.de>
+References: <877fc2816w.fsf@purkki.adurom.net>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:52841 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752666AbcGaMMB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 31 Jul 2016 08:12:01 -0400
+In-Reply-To: <877fc2816w.fsf@purkki.adurom.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 30 2016, 12:03 AM, Stephen Hemminger wrote:
-> On Thu, 28 Jul 2016 11:15:17 +0300
-> Amir Levy <amir.jer.levy@intel.com> wrote:
-> 
-> > +int nhi_send_message(struct tbt_nhi_ctxt *nhi_ctxt, enum pdf_value
-> pdf,
-> > +		     u32 msg_len, const u8 *msg, bool ignore_icm_resp) {
-> 
-> Why not make msg a void * and not have to do so many casts?
+We are using mac as source address in a memcpy.
+In the lines below we can assume mac is not NULL.
 
-I couldn't agree more.
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+---
+ drivers/net/wireless/marvell/mwifiex/sta_cmd.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
+index 128add8..0d4f9fe 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
++++ b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
+@@ -706,15 +706,10 @@ mwifiex_cmd_802_11_key_material_v2(struct mwifiex_private *priv,
+ 				    (priv->wep_key_curr_index & KEY_INDEX_MASK))
+ 					key_info |= KEY_DEFAULT;
+ 			} else {
+-				if (mac) {
+-					if (is_broadcast_ether_addr(mac))
+-						key_info |= KEY_MCAST;
+-					else
+-						key_info |= KEY_UNICAST |
+-							    KEY_DEFAULT;
+-				} else {
++				if (is_broadcast_ether_addr(mac))
+ 					key_info |= KEY_MCAST;
+-				}
++				else
++					key_info |= KEY_UNICAST | KEY_DEFAULT;
+ 			}
+ 		}
+ 		km->key_param_set.key_info = cpu_to_le16(key_info);
+-- 
+2.8.1
