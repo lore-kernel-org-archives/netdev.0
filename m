@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] drivers: net: cpsw: fix driver loading/unloading
-Date: Sat, 30 Jul 2016 21:00:49 -0700 (PDT)
-Message-ID: <20160730.210049.865458752683551165.davem@davemloft.net>
-References: <20160728175037.22053-1-grygorii.strashko@ti.com>
+Subject: Re: [PATCH net 0/3] macsec: reference counting fixes
+Date: Sat, 30 Jul 2016 21:11:26 -0700 (PDT)
+Message-ID: <20160730.211126.727406615870890811.davem@davemloft.net>
+References: <cover.1469782905.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, nsekhar@ti.com,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160728175037.22053-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: sd@queasysnail.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51222 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbcGaEMM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 00:12:12 -0400
+In-Reply-To: <cover.1469782905.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Thu, 28 Jul 2016 20:50:33 +0300
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Fri, 29 Jul 2016 15:37:52 +0200
 
-> This series fixes set of isssues observed when CPSW driver module is unloaded/loaded:
-> 1) rmmod: deadlock in cpdma_ctlr_destroy
-> 2) rmmod: L3 back-trace and crash if all net interfaces are down, because CPSW
-> can be powerred down by PM runtime in this case.
-> 3) insmod: mdio device is not recreated on next insmod
->  - need to use of_platform_depopulate() in cpsw_remove().
-> 4) rmmod: system crash on omap_device removal
+> Patch 1 adds explicit reference counting on RXSCs, instead of the
+> current implicit reference counting using the RXSA's refcount.
 > 
-> Tested on: am437x-idk, am57xx-beagle-x15
+> Patch 2 fixes possible kernel panics during module unload caused by an
+> RCU callback that schedules another RCU callback, which the
+> rcu_barrier() added in b196c22af5c3 ("macsec: add rcu_barrier() on
+> module exit") didn't protect against.
 > 
-> Changes in v2:
-> - build warning fixed
-> - added fix for correct omap_device removal
-> 
-> Link on v1:
->  https://lkml.org/lkml/2016/7/22/240
+> Patch 3 fixes a refcounting issue with the underlying device for a
+> macsec device when link creation fails.
 
-Series applied, thanks.
+Series applied, thanks Sabrina.
