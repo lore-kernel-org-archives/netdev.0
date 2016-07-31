@@ -1,37 +1,52 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1] net: qlcnic: avoid superfluous assignement
-Date: Sun, 31 Jul 2016 12:07:37 +0200
-Message-ID: <1469959657-1342-1-git-send-email-xypron.glpk@gmx.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Dept-GELinuxNICDev@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:63832 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753158AbcGaKHt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 31 Jul 2016 06:07:49 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Subject: RE: [PATCH v5 6/8] thunderbolt: Networking transmit and receive
+Date: Sun, 31 Jul 2016 10:15:52 +0000
+Message-ID: <E607265CB020454880711A6F96C05A039710868B@hasmsx108.ger.corp.intel.com>
+References: <1469693721-5641-1-git-send-email-amir.jer.levy@intel.com>
+	<1469693721-5641-7-git-send-email-amir.jer.levy@intel.com>
+ <20160729140741.18ca3e35@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	thunderbolt-linux <thunderbolt-linux@intel.com>,
+	"Westerberg, Mika" <mika.westerberg@intel.com>,
+	"Winkler, Tomas" <tomas.winkler@intel.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20160729140741.18ca3e35@xeon-e3>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Assigning NULL to parmeter dcb has no effect outside of the
-inlined function.
+On Sat, Jul 30 2016, 12:07 AM, Stephen Hemminger wrote:
+> On Thu, 28 Jul 2016 11:15:19 +0300
+> Amir Levy <amir.jer.levy@intel.com> wrote:
+> 
+> > +		/* pad short packets */
+> > +		if (unlikely(skb->len < ETH_ZLEN)) {
+> > +			int pad_len = ETH_ZLEN - skb->len;
+> > +
+> > +			/* The skb is freed on error */
+> > +			if (unlikely(skb_pad(skb, pad_len))) {
+> > +				cleaned_count += frame_count;
+> > +				continue;
+> > +			}
+> > +			__skb_put(skb, pad_len);
+> > +		}
+> 
+> Packets should be padded on transmit, not on receive??
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h | 1 -
- 1 file changed, 1 deletion(-)
+This driver emulates an Ethernet adapter on top of Thunderbolt technology.
+The Thunderbolt medium hasn't any restriction on minimum frame size and doesn't have the Ethernet collision detection limitation.
+So moving this code from transmit is actually an optimization - sending the minimum on the wire.
+The network stack thinks it is Ethernet, it might not accept Runt frames, so the driver pads the frame in receive.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-index 9777e57..f4aa633 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h
-@@ -45,7 +45,6 @@ struct qlcnic_dcb {
- static inline void qlcnic_clear_dcb_ops(struct qlcnic_dcb *dcb)
- {
- 	kfree(dcb);
--	dcb = NULL;
- }
- 
- static inline int qlcnic_dcb_get_hw_capability(struct qlcnic_dcb *dcb)
--- 
-2.8.1
+Looks like it deserves a comment in the code. Will add it.
