@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 04/15] ethernet: aurora: nb8800: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:32 +0800
-Message-ID: <1470034963-30506-5-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 06/15] ethernet: hisilicon: hns: hns_dsaf_mac: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:34 +0800
+Message-ID: <1470034963-30506-7-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,10 +16,10 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0046.outbound.protection.outlook.com ([104.47.38.46]:7488
-	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0076.outbound.protection.outlook.com ([104.47.42.76]:57635
+	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752107AbcHAHMD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752121AbcHAHMD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 1 Aug 2016 03:12:03 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
@@ -30,28 +30,36 @@ from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
 ---
- drivers/net/ethernet/aurora/nb8800.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-index 0d4ea92..b047fd6 100644
---- a/drivers/net/ethernet/aurora/nb8800.c
-+++ b/drivers/net/ethernet/aurora/nb8800.c
-@@ -1504,6 +1504,7 @@ static int nb8800_probe(struct platform_device *pdev)
- err_free_dma:
- 	nb8800_dma_free(dev);
- err_free_bus:
-+	of_node_put(priv->phy_node);
- 	mdiobus_unregister(bus);
- err_disable_clk:
- 	clk_disable_unprepare(priv->clk);
-@@ -1519,6 +1520,7 @@ static int nb8800_remove(struct platform_device *pdev)
- 	struct nb8800_priv *priv = netdev_priv(ndev);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index 3fb87e2..5c8afe1 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -795,6 +795,7 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 			dev_dbg(mac_cb->dev, "mac%d phy_node: %s\n",
+ 				mac_cb->mac_id, np->name);
+ 		}
++		of_node_put(np);
  
- 	unregister_netdev(ndev);
-+	of_node_put(priv->phy_node);
+ 		return 0;
+ 	}
+@@ -812,10 +813,12 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 			dev_dbg(mac_cb->dev, "mac%d phy_node: %s\n",
+ 				mac_cb->mac_id, np->name);
+ 		}
++		of_node_put(np);
  
- 	mdiobus_unregister(priv->mii_bus);
- 
+-		syscon = syscon_node_to_regmap(
+-				of_parse_phandle(to_of_node(mac_cb->fw_port),
+-						 "serdes-syscon", 0));
++		np = of_parse_phandle(to_of_node(mac_cb->fw_port),
++					"serdes-syscon", 0);
++		syscon = syscon_node_to_regmap(np);
++		of_node_put(np);
+ 		if (IS_ERR_OR_NULL(syscon)) {
+ 			dev_err(mac_cb->dev, "serdes-syscon is needed!\n");
+ 			return -EINVAL;
 -- 
 1.9.1
