@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 11/15] ethernet: renesas: ravb_main: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:39 +0800
-Message-ID: <1470034963-30506-12-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 10/15] ethernet: marvell: pxa168_eth: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:38 +0800
+Message-ID: <1470034963-30506-11-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,11 +16,11 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0069.outbound.protection.outlook.com ([104.47.34.69]:22007
-	"EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0075.outbound.protection.outlook.com ([104.47.38.75]:23296
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751239AbcHAHM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 03:12:28 -0400
+	id S1752107AbcHAHMX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 03:12:23 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -29,22 +29,21 @@ of_node_put needs to be called when the device node which is got
 from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 1 +
+ drivers/net/ethernet/marvell/pxa168_eth.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 8377d02..1e1cc0f 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1005,6 +1005,7 @@ static int ravb_phy_init(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index aeeb2e7..5d5000c 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -1506,6 +1506,7 @@ static int pxa168_eth_probe(struct platform_device *pdev)
+ 		}
+ 		of_property_read_u32(np, "reg", &pep->phy_addr);
+ 		pep->phy_intf = of_get_phy_mode(pdev->dev.of_node);
++		of_node_put(np);
  	}
- 	phydev = of_phy_connect(ndev, pn, ravb_adjust_link, 0,
- 				priv->phy_interface);
-+	of_node_put(pn);
- 	if (!phydev) {
- 		netdev_err(ndev, "failed to connect PHY\n");
- 		return -ENOENT;
+ 
+ 	/* Hardware supports only 3 ports */
 -- 
 1.9.1
