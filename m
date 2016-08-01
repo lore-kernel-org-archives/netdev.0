@@ -1,41 +1,36 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH v2 15/15] ethernet: ti: davinci_emac: add missing
- of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 13:58:20 +0530
-Message-ID: <b2d0d3a2-acf9-c151-9810-0f3045f6cac3@ti.com>
-References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
- <1470034963-30506-16-git-send-email-peter.chen@nxp.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2 1/3] mac80211: mesh: flush stations before beacons
+ are stopped
+Date: Mon, 01 Aug 2016 11:39:33 +0200
+Message-ID: <1470044373.3389.20.camel@sipsolutions.net>
+References: <20160713114449.24665-1-yanivma@ti.com>
+	 (sfid-20160713_134104_660515_B2533FBA)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
-	<isubramanian@apm.com>, <kchudgar@apm.com>,
-	<yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
-	<thomas.petazzoni@free-electrons.com>,
-	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
-	<alexandre.torgue@st.com>, <tremyfr@gmail.com>,
-	<wxt@rock-chips.com>, <arnd@arndb.de>, <david.daney@cavium.com>,
-	<huangdaode@hisilicon.com>, <jszhang@marvell.com>,
-	Linux OMAP Mailing List <linux-omap@vger.kernel.org>
-To: Peter Chen <peter.chen@nxp.com>, <davem@davemloft.net>
+Cc: Maital Hahn <maitalm@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Yaniv Machani <yanivma@ti.com>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:52387 "EHLO comal.ext.ti.com"
+Received: from s3.sipsolutions.net ([5.9.151.49]:33370 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750805AbcHAI3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 04:29:18 -0400
-In-Reply-To: <1470034963-30506-16-git-send-email-peter.chen@nxp.com>
+	id S1752199AbcHAJlo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 05:41:44 -0400
+In-Reply-To: <20160713114449.24665-1-yanivma@ti.com> (sfid-20160713_134104_660515_B2533FBA)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+omap ML
-
-On Monday 01 August 2016 12:32 PM, Peter Chen wrote:
-> of_node_put needs to be called when the device node which is got
-> from of_parse_phandle has finished using.
+On Wed, 2016-07-13 at 14:44 +0300, Yaniv Machani wrote:
+> From: Maital Hahn <maitalm@ti.com>
 > 
-> Signed-off-by: Peter Chen <peter.chen@nxp.com>
+> Some drivers (e.g. wl18xx) expect that the last stage in the
+> de-initialization process will be stopping the beacons, similar to AP
+> flow.
+> Update ieee80211_stop_mesh() flow accordingly.
+> As peers can be removed dynamically, this would not impact other
+> drivers.
+> 
+Ah, I see now that you did :)
 
-Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
-
-Regards
-Mugunthan V N
+johannes
