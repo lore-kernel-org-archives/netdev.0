@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 12/15] ethernet: renesas: sh_eth: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:40 +0800
-Message-ID: <1470034963-30506-13-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 13/15] ethernet: stmicro: stmmac: dwmac-socfpga: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:41 +0800
+Message-ID: <1470034963-30506-14-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,11 +16,11 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0044.outbound.protection.outlook.com ([104.47.33.44]:28672
-	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam02on0048.outbound.protection.outlook.com ([104.47.36.48]:62144
+	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751239AbcHAHMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 03:12:34 -0400
+	id S1752025AbcHAHMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 03:12:40 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -29,22 +29,100 @@ of_node_put needs to be called when the device node which is got
 from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c | 1 +
- 1 file changed, 1 insertion(+)
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 36 ++++++++++++++++------
+ 1 file changed, 26 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 7bd910c..799d58d 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1780,6 +1780,7 @@ static int sh_eth_phy_init(struct net_device *ndev)
- 					sh_eth_adjust_link, 0,
- 					mdp->phy_interface);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index edd20c3..bec6963 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -135,7 +135,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
  
-+		of_node_put(pn);
- 		if (!phydev)
- 			phydev = ERR_PTR(-ENOENT);
- 	} else {
+ 	np_splitter = of_parse_phandle(np, "altr,emac-splitter", 0);
+ 	if (np_splitter) {
+-		if (of_address_to_resource(np_splitter, 0, &res_splitter)) {
++		ret = of_address_to_resource(np_splitter, 0, &res_splitter);
++		of_node_put(np_splitter);
++		if (ret) {
+ 			dev_info(dev, "Missing emac splitter address\n");
+ 			return -EINVAL;
+ 		}
+@@ -159,14 +161,17 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 				dev_err(dev,
+ 					"%s: ERROR: missing emac splitter address\n",
+ 					__func__);
+-				return -EINVAL;
++				ret = -EINVAL;
++				goto err_node_put;
+ 			}
+ 
+ 			dwmac->splitter_base =
+ 			    devm_ioremap_resource(dev, &res_splitter);
+ 
+-			if (IS_ERR(dwmac->splitter_base))
+-				return PTR_ERR(dwmac->splitter_base);
++			if (IS_ERR(dwmac->splitter_base)) {
++				ret = PTR_ERR(dwmac->splitter_base);
++				goto err_node_put;
++			}
+ 		}
+ 
+ 		index = of_property_match_string(np_sgmii_adapter, "reg-names",
+@@ -178,14 +183,17 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 				dev_err(dev,
+ 					"%s: ERROR: failed mapping adapter\n",
+ 					__func__);
+-				return -EINVAL;
++				ret = -EINVAL;
++				goto err_node_put;
+ 			}
+ 
+ 			dwmac->pcs.sgmii_adapter_base =
+ 			    devm_ioremap_resource(dev, &res_sgmii_adapter);
+ 
+-			if (IS_ERR(dwmac->pcs.sgmii_adapter_base))
+-				return PTR_ERR(dwmac->pcs.sgmii_adapter_base);
++			if (IS_ERR(dwmac->pcs.sgmii_adapter_base)) {
++				ret = PTR_ERR(dwmac->pcs.sgmii_adapter_base);
++				goto err_node_put;
++			}
+ 		}
+ 
+ 		index = of_property_match_string(np_sgmii_adapter, "reg-names",
+@@ -197,22 +205,30 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 				dev_err(dev,
+ 					"%s: ERROR: failed mapping tse control port\n",
+ 					__func__);
+-				return -EINVAL;
++				ret = -EINVAL;
++				goto err_node_put;
+ 			}
+ 
+ 			dwmac->pcs.tse_pcs_base =
+ 			    devm_ioremap_resource(dev, &res_tse_pcs);
+ 
+-			if (IS_ERR(dwmac->pcs.tse_pcs_base))
+-				return PTR_ERR(dwmac->pcs.tse_pcs_base);
++			if (IS_ERR(dwmac->pcs.tse_pcs_base)) {
++				ret = PTR_ERR(dwmac->pcs.tse_pcs_base);
++				goto err_node_put;
++			}
+ 		}
+ 	}
+ 	dwmac->reg_offset = reg_offset;
+ 	dwmac->reg_shift = reg_shift;
+ 	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
+ 	dwmac->dev = dev;
++	of_node_put(np_sgmii_adapter);
+ 
+ 	return 0;
++
++err_node_put:
++	of_node_put(np_sgmii_adapter);
++	return ret;
+ }
+ 
+ static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
 -- 
 1.9.1
