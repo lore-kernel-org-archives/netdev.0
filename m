@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 05/15] ethernet: cavium: octeon: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:33 +0800
-Message-ID: <1470034963-30506-6-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 04/15] ethernet: aurora: nb8800: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:32 +0800
+Message-ID: <1470034963-30506-5-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,11 +16,11 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0053.outbound.protection.outlook.com ([104.47.40.53]:64224
-	"EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0046.outbound.protection.outlook.com ([104.47.38.46]:7488
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752107AbcHAHL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 03:11:57 -0400
+	id S1752107AbcHAHMD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 03:12:03 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -30,31 +30,28 @@ from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
 ---
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/aurora/nb8800.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-index e8bc15b..4ab404f 100644
---- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-@@ -1513,6 +1513,7 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
- 	return 0;
+diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
+index 0d4ea92..b047fd6 100644
+--- a/drivers/net/ethernet/aurora/nb8800.c
++++ b/drivers/net/ethernet/aurora/nb8800.c
+@@ -1504,6 +1504,7 @@ static int nb8800_probe(struct platform_device *pdev)
+ err_free_dma:
+ 	nb8800_dma_free(dev);
+ err_free_bus:
++	of_node_put(priv->phy_node);
+ 	mdiobus_unregister(bus);
+ err_disable_clk:
+ 	clk_disable_unprepare(priv->clk);
+@@ -1519,6 +1520,7 @@ static int nb8800_remove(struct platform_device *pdev)
+ 	struct nb8800_priv *priv = netdev_priv(ndev);
  
- err:
-+	of_node_put(p->phy_np);
- 	free_netdev(netdev);
- 	return result;
- }
-@@ -1520,8 +1521,10 @@ err:
- static int octeon_mgmt_remove(struct platform_device *pdev)
- {
- 	struct net_device *netdev = platform_get_drvdata(pdev);
-+	struct octeon_mgmt *p = netdev_priv(netdev);
+ 	unregister_netdev(ndev);
++	of_node_put(priv->phy_node);
  
- 	unregister_netdev(netdev);
-+	of_node_put(p->phy_np);
- 	free_netdev(netdev);
- 	return 0;
- }
+ 	mdiobus_unregister(priv->mii_bus);
+ 
 -- 
 1.9.1
