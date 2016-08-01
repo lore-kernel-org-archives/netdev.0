@@ -1,41 +1,42 @@
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Subject: RE: [PATCH v5 6/8] thunderbolt: Networking transmit and receive
-Date: Mon, 1 Aug 2016 04:30:50 +0000
-Message-ID: <E607265CB020454880711A6F96C05A039710FBC6@hasmsx107.ger.corp.intel.com>
-References: <1469693721-5641-7-git-send-email-amir.jer.levy@intel.com>
-	<20160729140741.18ca3e35@xeon-e3>
-	<E607265CB020454880711A6F96C05A039710868B@hasmsx108.ger.corp.intel.com>
- <20160731.114513.2022660088754330528.davem@davemloft.net>
+From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Subject: [PATCH v2] bpf: silence warnings when building kernel/bpf/core.c with W=1
+Date: Mon, 01 Aug 2016 00:33:30 -0400
+Message-ID: <23710.1470026010@turing-police.cc.vt.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"corbet@lwn.net" <corbet@lwn.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	thunderbolt-linux <thunderbolt-linux@intel.com>,
-	"Westerberg, Mika" <mika.westerberg@intel.com>,
-	"Winkler, Tomas" <tomas.winkler@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20160731.114513.2022660088754330528.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outbound.smtp.vt.edu ([198.82.183.121]:51594 "EHLO
+	omr1.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750883AbcHAEeu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 00:34:50 -0400
+Content-ID: <23709.1470026010.1@turing-police.cc.vt.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 31 2016, 09:45 PM, David Miller wrote:
-> From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-> Date: Sun, 31 Jul 2016 10:15:52 +0000
-> 
-> > The network stack thinks it is Ethernet, it might not accept Runt
-> > frames, so the driver pads the frame in receive.
-> 
-> The network stack doesn't care about this at all.  It's wasted effort on your
-> part.
+Building with W=1 generates some 350 lines of warnings of the form:
 
-Great, I'll remove this code.
+kernel/bpf/core.c: In function '__bpf_prog_run':
+kernel/bpf/core.c:476:33: warning: initialized field overwritten [-Woverride-init]
+   [BPF_ALU | BPF_ADD | BPF_X] = &&ALU_ADD_X,
+                                 ^~
+kernel/bpf/core.c:476:33: note: (near initialization for 'jumptable[12]')
+
+Since they come from the way we intentionally build the table, silence
+that one specific warning.
+
+Signed-off-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+
+Version 2: Add bpf: subsystem tag to subject line
+
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index eed911d091da..bb915f9d9f92 100644
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -1,3 +1,4 @@
++CFLAGS_core.o += -Wno-override-init
+ obj-y := core.o
+ 
+ obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
