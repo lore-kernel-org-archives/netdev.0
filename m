@@ -1,190 +1,114 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next v3 3/3] strparser: Documentation
-Date: Mon, 1 Aug 2016 14:28:49 -0700
-Message-ID: <1470086929-3666623-4-git-send-email-tom@herbertland.com>
-References: <1470086929-3666623-1-git-send-email-tom@herbertland.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: 4.6.3, pppoe + shaper workload, skb_panic / skb_push /
+ ppp_start_xmit
+Date: Tue, 02 Aug 2016 01:52:43 +0300
+Message-ID: <02d18df74c2565a0102f92de2c8ba198@nuclearcat.com>
+References: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
+ <CAM_iQpWuCw6Bgm=1BWMkoFkuav5xV+FyKPq0Ef+3N_qpQqv=AA@mail.gmail.com>
+ <20160728110948.GA3046@alphalink.fr>
+ <e6cb92be01af6190350b9b3765bee6e3@nuclearcat.com>
+ <20160801205908.GD3031@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:51839 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751559AbcHAVbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 17:31:03 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u71LLTo7032321
-	for <netdev@vger.kernel.org>; Mon, 1 Aug 2016 14:29:27 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 24gqqm54vu-5
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 01 Aug 2016 14:29:27 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
- mx-out.facebook.com (10.223.100.99) with ESMTP	id
- f7f78b8e582e11e698c524be05956610-359efaf0 for <netdev@vger.kernel.org>;	Mon,
- 01 Aug 2016 14:29:03 -0700
-In-Reply-To: <1470086929-3666623-1-git-send-email-tom@herbertland.com>
+Received: from nuclearcat.com ([144.76.183.226]:37906 "EHLO nuclearcat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754042AbcHAXOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 19:14:16 -0400
+In-Reply-To: <20160801205908.GD3031@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- Documentation/networking/strparser.txt | 147 +++++++++++++++++++++++++++++++++
- 1 file changed, 147 insertions(+)
- create mode 100644 Documentation/networking/strparser.txt
+On 2016-08-01 23:59, Guillaume Nault wrote:
+> On Thu, Jul 28, 2016 at 02:28:23PM +0300, Denys Fedoryshchenko wrote:
+>> <server19> [ 5449.904989] CPU: 1 PID: 6359 Comm: ip Not tainted
+>> 4.7.0-build-0109 #2
+>> <server19> [ 5449.905255] Hardware name: Supermicro
+>> X10SLM+-LN4F/X10SLM+-LN4F, BIOS 3.0 04/24/2015
+>> <server19> [ 5449.905712] task: ffff8803eef40000 ti: ffff8803fd754000
+>> task.ti: ffff8803fd754000
+>> <server19> [ 5449.906168] RIP: 0010:[<ffffffff818a994d>]
+>> <server19> [<ffffffff818a994d>] inet_fill_ifaddr+0x5a/0x264
+>> <server19> [ 5449.906710] RSP: 0018:ffff8803fd757b98  EFLAGS: 00010286
+>> <server19> [ 5449.906976] RAX: ffff8803ef65cb90 RBX: ffff8803f7d2cd00 
+>> RCX:
+>> 0000000000000000
+>> <server19> [ 5449.907248] RDX: 0000000800000002 RSI: ffff8803ef65cb90 
+>> RDI:
+>> ffff8803ef65cba8
+>> <server19> [ 5449.907519] RBP: ffff8803fd757be0 R08: 0000000000000008 
+>> R09:
+>> 0000000000000002
+>> <server19> [ 5449.907792] R10: ffa005040269f480 R11: ffffffff820a1c00 
+>> R12:
+>> ffa005040269f480
+>> <server19> [ 5449.908067] R13: ffff8803ef65cb90 R14: 0000000000000000 
+>> R15:
+>> ffff8803f7d2cd00
+>> <server19> [ 5449.908339] FS:  00007f660674d700(0000)
+>> GS:ffff88041fc40000(0000) knlGS:0000000000000000
+>> <server19> [ 5449.908796] CS:  0010 DS: 0000 ES: 0000 CR0: 
+>> 0000000080050033
+>> <server19> [ 5449.909067] CR2: 00000000008b9018 CR3: 00000003f2a11000 
+>> CR4:
+>> 00000000001406e0
+>> <server19> [ 5449.909339] Stack:
+>> <server19> [ 5449.909598]  0163a8c0869711ac
+>> <server19> 0000008000000000
+>> <server19> ffffffffffffffff
+>> <server19> 0003e1d50003e1d5
+>> <server19>
+>> <server19> [ 5449.910329]  ffff8800d54c0ac8
+>> <server19> ffff8803f0d90000
+>> <server19> 0000000000000005
+>> <server19> 0000000000000000
+>> <server19>
+>> <server19> [ 5449.911066]  ffff8803f7d2cd00
+>> <server19> ffff8803fd757c40
+>> <server19> ffffffff818a9f73
+>> <server19> ffffffff820a1c00
+>> <server19>
+>> <server19> [ 5449.911803] Call Trace:
+>> <server19> [ 5449.912061]  [<ffffffff818a9f73>] 
+>> inet_dump_ifaddr+0xfb/0x185
+>> <server19> [ 5449.912332]  [<ffffffff8185de4b>] 
+>> rtnl_dump_all+0xa9/0xc2
+>> <server19> [ 5449.912601]  [<ffffffff818756d8>] 
+>> netlink_dump+0xf0/0x25c
+>> <server19> [ 5449.912873]  [<ffffffff818759ed>] 
+>> netlink_recvmsg+0x1a9/0x2d3
+>> <server19> [ 5449.913142]  [<ffffffff81838412>] sock_recvmsg+0x14/0x16
+>> <server19> [ 5449.913407]  [<ffffffff8183a743>] 
+>> ___sys_recvmsg+0xea/0x1a1
+>> <server19> [ 5449.913675]  [<ffffffff811658e6>] ?
+>> alloc_pages_vma+0x167/0x1a0
+>> <server19> [ 5449.913945]  [<ffffffff81159a8b>] ?
+>> page_add_new_anon_rmap+0xb4/0xbd
+>> <server19> [ 5449.914212]  [<ffffffff8113b0d0>] ?
+>> lru_cache_add_active_or_unevictable+0x31/0x9d
+>> <server19> [ 5449.914664]  [<ffffffff81151762>] ?
+>> handle_mm_fault+0x632/0x112d
+>> <server19> [ 5449.914940]  [<ffffffff811550fe>] ? 
+>> vma_merge+0x27e/0x2b1
+>> <server19> [ 5449.915208]  [<ffffffff8183b4db>] 
+>> __sys_recvmsg+0x3d/0x5e
+>> <server19> [ 5449.915478]  [<ffffffff8183b4db>] ? 
+>> __sys_recvmsg+0x3d/0x5e
+>> <server19> [ 5449.915747]  [<ffffffff8183b509>] SyS_recvmsg+0xd/0x17
+>> <server19> [ 5449.916017]  [<ffffffff818cb85f>]
+>> entry_SYSCALL_64_fastpath+0x17/0x93
+>> 
+> Do you still have the vmlinux file with debug symbols that generated
+> this panic?
 
-diff --git a/Documentation/networking/strparser.txt b/Documentation/networking/strparser.txt
-new file mode 100644
-index 0000000..abfef72
---- /dev/null
-+++ b/Documentation/networking/strparser.txt
-@@ -0,0 +1,147 @@
-+Stream Parser
-+-------------
-+
-+The stream parser (strparser) is a utility that parses messages of an
-+application layer protocol running over a TCP connection. The stream
-+parser works in conjunction with an upper layer in the kernel to provide
-+kernel support for application layer messages. For instance, Kernel
-+Connection Multiplexor (KCM) uses the Stream Parser to parse messages
-+using a BPF program.
-+
-+Interface
-+---------
-+
-+The API includes a context structure, a set of callbacks, utility
-+functions, and a data_ready function. The callbacks include
-+a parse_msg function that is called to perform parsing (e.g.
-+BPF parsing in case of KCM), and a rcv_msg function that is called
-+when a full message has been completed.
-+
-+A stream parser can be instantiated for a TCP connection. This is done
-+by:
-+
-+strp_init(struct strparser *strp, struct sock *csk,
-+	  struct strp_callbacks *cb)
-+
-+strp is a struct of type strparser that is allocated by the upper layer.
-+csk is the TCP socket associated with the stream parser. Callbacks are
-+called by the stream parser.
-+
-+Callbacks
-+---------
-+
-+There are four callbacks:
-+
-+int (*parse_msg)(struct strparser *strp, struct sk_buff *skb);
-+
-+    parse_msg is called to determine the length of the next message
-+    in the stream. The upper layer must implement this function. It
-+    should parse the sk_buff as containing the headers for the
-+    next application layer messages in the stream.
-+
-+    The skb->cb in the input skb is a struct strp_rx_msg. Only
-+    the offset field is relevant in parse_msg and gives the offset
-+    where the message starts in the skb.
-+
-+    The return values of this function are:
-+
-+    >0 : indicates length of successfully parsed message
-+    0  : indicates more data must be received to parse the message
-+    -ESTRPIPE : current message should not be processed by the
-+          kernel, return control of the socket to userspace which
-+          can proceed to read the messages itself
-+    other < 0 : Error is parsing, give control back to userspace
-+          assuming that synchronization is lost and the stream
-+          is unrecoverable (application expected to close TCP socket)
-+
-+    In the case that an error is returned (return value is less than
-+    zero) the stream parser will set the error on TCP socket and wake
-+    it up. If parse_msg returned -ESTRPIPE and the stream parser had
-+    previously read some bytes for the current message, then the error
-+    set on the attached socket is ENODATA since the stream is
-+    unrecoverable in that case.
-+
-+void (*rcv_msg)(struct strparser *strp, struct sk_buff *skb);
-+
-+    rcv_msg is called when a full message has been received and
-+    is queued. The callee must consume the sk_buff; it can
-+    call strp_pause to prevent any further messages from being
-+    received in rcv_msg (see strp_pause below). This callback
-+    must be set.
-+
-+    The skb->cb in the input skb is a struct strp_rx_msg. This
-+    struct contains two fields: offset and full_len. Offset is
-+    where the message starts in the skb, and full_len is the
-+    the length of the message. skb->len - offset may be greater
-+    then full_len since strparser does not trim the skb.
-+
-+int (*read_sock_done)(struct strparser *strp, int err);
-+
-+     read_sock_done is called when the stream parser is done reading
-+     the TCP socket. The stream parser may read multiple messages
-+     in a loop and this function allows cleanup to occur when existing
-+     the loop. If the callback is not set (NULL in strp_init) a
-+     default function is used.
-+
-+void (*abort_parser)(struct strparser *strp, int err);
-+
-+     This function is called when stream parser encounters an error
-+     in parsing. The default function stops the stream parser for the
-+     TCP socket and sets the error in the socket. The default function
-+     can be changed by setting the callback to non-NULL in strp_init.
-+
-+data_ready
-+----------
-+
-+strp_tcp_data_ready is the TCP data ready function that can be used with
-+the stream parser. When the upper layer attaches the TCP socket it
-+can set sk_data_ready to this function (after strp_init). sk_user_data
-+must be set to the stream parser structure to use this (container_of
-+can be used in the other socket callbacks to get the upper layer
-+structure from the stream parser structure).
-+
-+Functions
-+---------
-+
-+The upper layer uses strp_pause and strp_unpause to flow control the
-+stream parser. This is needed for instance when the upper layer can't
-+immediately process a received message and has to hold it.
-+
-+strp_stop is called to completely stop stream parser operations. This
-+is called internally when the stream parser encounters an error, and
-+it is called from the upper layer when unattaching a TCP socket.
-+
-+strp_done is called to unattach the stream parser from the TCP socket.
-+This must be called after the stream processor has be stopped.
-+
-+strp_check_rcv is called to check for new messages on the socket. This
-+is normally called at initialization of the a stream parser instance
-+of after strp_unpause.
-+
-+Statistics
-+----------
-+
-+Various counters are kept for each stream parser for a TCP socket.
-+These are in the strp_stats structure. strp_aggr_stats is a convenience
-+structure for accumulating statistics for multiple stream parser
-+instances. save_strp_stats and aggregate_strp_stats are helper functions
-+to save and aggregate statistics.
-+
-+Message assembly limits
-+-----------------------
-+
-+The stream parser provide mechanisms to limit the resources consumed by
-+message assembly.
-+
-+A timer is set when assembly starts for a new message. The message
-+timeout is taken from rcvtime for the associated TCP socket. If the
-+timer fires before assembly completes the stream parser is aborted
-+and the ETIMEDOUT error is set on the TCP socket.
-+
-+Message length is limited to the receive buffer size of the associated
-+TCP socket. If the length returned by parse_msg is greater than
-+the socket buffer size then the stream parser is aborted with
-+EMSGSIZE error set on the TCP socket. Note that this makes the
-+maximum size of receive skbuffs for a socket with a stream parser
-+to be 2*sk_rcvbuf of the TCP socket.
-+
--- 
-2.8.0.rc2
+I have slightly different build now (tried to enable slightly different 
+kernel options), but i had also new panic in inet_fill_ifaddr in new 
+build. I will prepare tomorrow(everything at office) all files and 
+provide link with sources and vmlinux, and sure new panic message on 
+this build.
+New panic message happened on completely different location and ISP.
