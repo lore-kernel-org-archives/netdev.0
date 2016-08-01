@@ -1,50 +1,40 @@
-From: Denis Turischev <denis.turischev@compulab.co.il>
-Subject: e1000e: PHY cann't be initialized correctly on some I218 controllers
-Date: Mon, 1 Aug 2016 15:28:46 +0300
-Message-ID: <579F407E.9090602@compulab.co.il>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 1/3] sctp: Export struct sctp_info to userspace
+Date: Mon, 1 Aug 2016 15:36:06 +0200
+Message-ID: <20160801133606.GB10443@orbyte.nwl.cc>
+References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
+ <1469811580-32429-2-git-send-email-phil@nwl.cc>
+ <20160731141824.30785573@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Xin Long <lucien.xin@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from softlayer.compulab.co.il ([50.23.254.55]:50224 "EHLO
-	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753494AbcHANCe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 09:02:34 -0400
+Received: from orbyte.nwl.cc ([151.80.46.58]:35843 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751153AbcHANnf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 09:43:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20160731141824.30785573@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is an error "e1000e: probe of 0000:00:19.0 failed with error -3"
-that can be observed after power-on on some I218 controllers.
-Hardware reset and re-initialization fixes the issue.
+Hi Stephen,
 
-Signed-off-by: Denis Turischev <denis.turischev@compulab.co.il>
+On Sun, Jul 31, 2016 at 02:18:24PM -0700, Stephen Hemminger wrote:
+> On Fri, 29 Jul 2016 18:59:38 +0200
+> Phil Sutter <phil@nwl.cc> wrote:
+> 
+> > This is required to correctly interpret INET_DIAG_INFO messages exported
+> > by sctp_diag module.
+> > 
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> 
+> You need to add sctp.h to include/linux/Kbuild to get it exported correctly
 
-diff -Nru linux-4.7.orig/drivers/net/ethernet/intel/e1000e/ich8lan.c linux-4.7/drivers/net/ethernet/intel/e1000e/ich8lan.c
---- linux-4.7.orig/drivers/net/ethernet/intel/e1000e/ich8lan.c	2016-07-24 22:23:50.000000000 +0300
-+++ linux-4.7/drivers/net/ethernet/intel/e1000e/ich8lan.c	2016-08-01 13:59:08.046563095 +0300
-@@ -155,6 +155,7 @@
- static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force);
- static s32 e1000_setup_copper_link_pch_lpt(struct e1000_hw *hw);
- static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state);
-+static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw);
- 
- static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
- {
-@@ -459,8 +460,12 @@
- 	phy->id = e1000_phy_unknown;
- 
- 	ret_val = e1000_init_phy_workarounds_pchlan(hw);
--	if (ret_val)
--		return ret_val;
-+	if (ret_val) {
-+		e1000_reset_hw_ich8lan(hw);
-+		ret_val = e1000_init_phy_workarounds_pchlan(hw);
-+		if (ret_val)
-+			return ret_val;
-+	}
- 
- 	if (phy->id == e1000_phy_unknown)
- 		switch (hw->mac.type) {
+Thanks for the heads-up! Luckily it is in there already.
+
+Cheers, Phil
