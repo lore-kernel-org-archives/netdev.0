@@ -1,31 +1,57 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH v4] net: sched: convert qdisc linked list to hashtable
-Date: Mon, 1 Aug 2016 12:12:42 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608011212080.22028@cbobk.fhfr.pm>
-References: <201607281957.yJSK4rUm%fengguang.wu@intel.com> <alpine.LNX.2.00.1607281317350.24757@cbobk.fhfr.pm> <20160728125312.GB25433@wfg-t540p.sh.intel.com> <20160731112127.GA9518@wfg-t540p.sh.intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/4] mac80211: mesh: flush stations before beacons are
+ stopped
+Date: Mon, 01 Aug 2016 11:38:50 +0200
+Message-ID: <1470044330.3389.19.camel@sipsolutions.net>
+References: <20160628111307.8784-1-yanivma@ti.com>
+	 <20160628111307.8784-2-yanivma@ti.com>
+	 (sfid-20160628_131058_738638_5F9A964D)
+ <1467184459.2461.1.camel@sipsolutions.net>
+	 <AE1C82FB3D0EC64DB1F752C81CBD1101391FC38C@DFRE01.ent.ti.com>
+	 (sfid-20160713_121132_350432_32DE2AAC)
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kbuild-all@01.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
-To: Fengguang Wu <lkp@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "Hahn, Maital" <maitalm@ti.com>
+To: "Machani, Yaniv" <yanivma@ti.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160731112127.GA9518@wfg-t540p.sh.intel.com>
+In-Reply-To: <AE1C82FB3D0EC64DB1F752C81CBD1101391FC38C@DFRE01.ent.ti.com> (sfid-20160713_121132_350432_32DE2AAC)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 31 Jul 2016, Fengguang Wu wrote:
+On Wed, 2016-07-13 at 10:11 +0000, Machani, Yaniv wrote:
+> On Wed, Jun 29, 2016 at 10:14:19, Johannes Berg wrote:
+> > Cc: Hahn, Maital
+> > Subject: Re: [PATCH 1/4] mac80211: mesh: flush stations before
+> > beacons 
+> > are stopped
+> > 
+> > On Tue, 2016-06-28 at 14:13 +0300, Yaniv Machani wrote:
+> > > From: Maital Hahn <maitalm@ti.com>
+> > > 
+> > > Some drivers (e.g. wl18xx) expect that the last stage in the 
+> > > de-initialization process will be stopping the beacons, similar
+> > > to ap.
+> > > Update ieee80211_stop_mesh() flow accordingly.
+> > > 
+> > How well have you tested that with other drivers?
+> > 
+> 
+> Sorry for the delayed response (I've been out) and thanks for your
+> comments,
+> I have tested it with RT3572 as well, and didn't see any issue.
+> I'll update the comment to reflect that.
+> 
 
-> Jiri, I just double checked and find no similar errors related to
-> qdisc_list_add(). The parent commit 95556a8838 ("dccp: avoid deadlock
-> in dccp_v4_ctl_send_reset") builds fine without error.
+I'm actually reasonably sure that it *must* work, similiar to the AP
+mode change, since it's always valid to remove stations while the the
+mesh beacon is still active.
 
-You are right, I realized my mistake afterwards. This is fixed in v5 of 
-the patch.
+I hoped you'd actually figure out that line of reasoning and put it
+into the commit message :)
 
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+johannes
