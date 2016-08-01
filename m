@@ -1,49 +1,62 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-next 2/3] bna: change type of bna_id to atomic_t
-Date: Mon, 1 Aug 2016 17:11:00 +0200
-Message-ID: <345d713a-8399-b1ff-718a-ccf4547ecd4f@redhat.com>
-References: <1469814778-23186-1-git-send-email-ivecera@redhat.com>
- <1469814778-23186-3-git-send-email-ivecera@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D5F50672B@AcuExch.aculab.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2] bpf: silence warnings when building kernel/bpf/core.c
+ with W=1
+Date: Mon, 1 Aug 2016 08:09:57 -0700
+Message-ID: <20160801150955.GA99277@ast-mbp.thefacebook.com>
+References: <23710.1470026010@turing-police.cc.vt.edu>
+ <20160801044220.GA97382@ast-mbp.thefacebook.com>
+ <28964.1470028723@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "rasesh.mody@qlogic.com" <rasesh.mody@qlogic.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58516 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752244AbcHAPLo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 11:11:44 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F50672B@AcuExch.aculab.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35799 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752609AbcHAPX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 11:23:26 -0400
+Content-Disposition: inline
+In-Reply-To: <28964.1470028723@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1.8.2016 16:20, David Laight wrote:
-> From: Ivan Vecera
->> Sent: 29 July 2016 18:53
->> Change type of bna_id to atomic_t. The bnad_list_mutex is used to prevent
->> a race when bna_id is incremented. After the change the mutex can be
->> removed in the next step.
-> ...
->> -static u32 bna_id;
->> +static atomic_t bna_id;
-> ...
->>  	bnad_lock_init(bnad);
->>  	bnad_add_to_list(bnad);
->> +	bnad->id = atomic_inc_return(&bna_id) - 1;
-> ...
->
-> Is the 'id' expected to be unique?
-> Looks like they get reallocated after 2^32 allocates.
->
-> 	David
->
->
-I have just converted it to atomic type to eliminate mutex. The id is 
-only used as parameter 'instance' for bfa_nw_flash_{update,read}_part(). 
-There is no documentation in source code regarding this so this is a 
-question to Qlogic.
+On Mon, Aug 01, 2016 at 01:18:43AM -0400, Valdis.Kletnieks@vt.edu wrote:
+> On Sun, 31 Jul 2016 21:42:22 -0700, Alexei Starovoitov said:
+> 
+> > and at least 2 other such patches for other files...
+> > Is there a single warning where -Woverride-init was useful?
+> > May be worth disabling this warning for the whole build?
+> 
+> There's a few other cases that *aren't* the "define the array to zero
+> and then build the entries from a list" form.
+> 
+> In particular, there's still 3 odd complaints:
+> 
+> drivers/ata/ahci.c:
+> drivers/ata/ahci.h:393:16: warning: initialized field overwritten [-Woverride-in
+> it]
+>   .can_queue  = AHCI_MAX_CMDS - 1,
+> 
+> drivers/block/drbd/drbd_main.c:
+> drivers/block/drbd/drbd_main.c:3767:22: warning: initialized field overwritten [
+> -Woverride-init]
+>    [P_RETRY_WRITE]  = "retry_write",
+> 
+> arch/x86/kernel/cpu/common.c:
+> ./arch/x86/include/asm/page_64_types.h:22:21: warning: initialized field overwri
+> tten [-Woverride-init]
+>  #define DEBUG_STKSZ (PAGE_SIZE << DEBUG_STACK_ORDER)
+> 
+> The point of these patches is to make -Woverride-init *useful* - you'll never
+> spot 3 warnings in a flood of over 9,000 understood-and-ignored warnings.
+> 
+> Get rid of the 9,000 understood-and-ignored warnings, and then things that
+> probably *should* be looked at can be noticed.
 
-Ivan
+I don't think it makes sense to play kernel whack-a-warning in a hope that
+particular warning will find something useful.
+Please show few cases where it actually found a real issue, otherwise
+just disable it for all.
