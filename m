@@ -1,63 +1,66 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH net] sctp: change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING
-Date: Mon, 1 Aug 2016 08:41:17 -0300
-Message-ID: <20160801114117.GB2954@localhost.localdomain>
-References: <0517133e5f1dee8136f3a1c3bfaac522fe98e599.1469880045.git.lucien.xin@gmail.com>
- <20160730132535.GE2967@localhost.localdomain>
- <20160730.220803.1463117783142907557.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
+From: Amir Levy <amir.jer.levy@intel.com>
+Subject: [PATCH v6 0/8] thunderbolt: Introducing Thunderbolt(TM) networking
+Date: Mon,  1 Aug 2016 15:23:45 +0300
+Message-ID: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	thunderbolt-linux@intel.com, mika.westerberg@intel.com,
+	tomas.winkler@intel.com, Amir Levy <amir.jer.levy@intel.com>
+To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
+	bhelgaas@google.com, corbet@lwn.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38252 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:39722 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753199AbcHALln (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 07:41:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20160730.220803.1463117783142907557.davem@davemloft.net>
+	id S1752342AbcHAMZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 08:25:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 30, 2016 at 10:08:03PM -0700, David Miller wrote:
-> From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Date: Sat, 30 Jul 2016 10:25:35 -0300
-> 
-> > On Sat, Jul 30, 2016 at 08:00:45PM +0800, Xin Long wrote:
-> >> Prior to this patch, sctp defined TCP_CLOSING as SCTP_SS_CLOSING.
-> >> TCP_CLOSING is such a special sk state in TCP that inet common codes
-> >> even exclude it.
-> >> 
-> >> For instance, inet_accept thinks the accept sk's state never be
-> >> TCP_CLOSING, or it will give a WARN_ON. TCP works well with that
-> >> while SCTP may trigger the call trace, as CLOSING state in SCTP
-> >> has different meaning from TCP.
-> >> 
-> >> This fix is to change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING,
-> >> instead of TCP_CLOSING. Some side-effects could be expected,
-> >> regardless of not being used before. inet_accept will accept it
-> >> now.
-> >> 
-> >> I did all the func_tests in lksctp-tools and ran sctp codnomicon
-> >> fuzzer tests against this patch, no regression or failure found.
-> >> 
-> >> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> > 
-> > I don't think this is -net material. It's a one line change but a core
-> > one.
-> > Dave please consider it for net-next instead.
-> > Though, Xin you may need to re-post later..
-> > 
-> > Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> 
-> But, the commit log message says that inet_accept() will generate
-> a WARN_ON() call trace without this change.  That makes it sound
-> like it's 'net' material to me.
-> 
+This is version 6 of Thunderbolt(TM) driver for non-Apple hardware.
 
-That's right, it will fix a WARN_ON(). I just feel that this change is
-too intrusive for -net. But if you think it's okay, okay then.
+Changes since v5:
+ - Removed the padding of short packets in receive
+ - Replaced RW semaphore with mutex
+ - Cleanup
 
-  Marcelo
+These patches were pushed to GitHub where they can be reviewed more
+comfortably with green/red highlighting:
+	https://github.com/01org/thunderbolt-software-kernel-tree
+
+Daemon code:
+	https://github.com/01org/thunderbolt-software-daemon
+
+For reference, here's a link to version 5:
+[v5]:	https://lkml.org/lkml/2016/7/28/85
+
+Amir Levy (8):
+  thunderbolt: Macro rename
+  thunderbolt: Updating the register definitions
+  thunderbolt: Kconfig for Thunderbolt(TM) networking
+  thunderbolt: Communication with the ICM (firmware)
+  thunderbolt: Networking state machine
+  thunderbolt: Networking transmit and receive
+  thunderbolt: Networking doc
+  thunderbolt: Adding maintainer entry
+
+ Documentation/00-INDEX                   |    2 +
+ Documentation/thunderbolt-networking.txt |  135 ++
+ MAINTAINERS                              |    8 +-
+ drivers/thunderbolt/Kconfig              |   25 +-
+ drivers/thunderbolt/Makefile             |    3 +-
+ drivers/thunderbolt/icm/Makefile         |   28 +
+ drivers/thunderbolt/icm/icm_nhi.c        | 1622 +++++++++++++++++++++
+ drivers/thunderbolt/icm/icm_nhi.h        |   93 ++
+ drivers/thunderbolt/icm/net.c            | 2264 ++++++++++++++++++++++++++++++
+ drivers/thunderbolt/icm/net.h            |  297 ++++
+ drivers/thunderbolt/nhi_regs.h           |  115 +-
+ 11 files changed, 4583 insertions(+), 9 deletions(-)
+ create mode 100644 Documentation/thunderbolt-networking.txt
+ create mode 100644 drivers/thunderbolt/icm/Makefile
+ create mode 100644 drivers/thunderbolt/icm/icm_nhi.c
+ create mode 100644 drivers/thunderbolt/icm/icm_nhi.h
+ create mode 100644 drivers/thunderbolt/icm/net.c
+ create mode 100644 drivers/thunderbolt/icm/net.h
+
+-- 
+2.7.4
