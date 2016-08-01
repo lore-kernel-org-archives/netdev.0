@@ -1,87 +1,61 @@
-From: Peter Chen <peter.chen@nxp.com>
-Subject: RE: [PATCH 15/15] ethernet: ti: davinci_emac: add missing of_node_put
- after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 01:21:04 +0000
-Message-ID: <HE1PR04MB1450C7D7BC7465F9B43BA0DD8B040@HE1PR04MB1450.eurprd04.prod.outlook.com>
-References: <1469586048-15697-1-git-send-email-peter.chen@nxp.com>
- <1469586048-15697-16-git-send-email-peter.chen@nxp.com>
- <cc2ab963-3d26-78d7-2119-bc00bcbbd1c7@ti.com>
- <HE1PR04MB145066B58D8B26F0E4CADA488B0F0@HE1PR04MB1450.eurprd04.prod.outlook.com>
- <1c3c541a-a183-4b23-da69-991e48a06184@ti.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit systems.
+Date: Mon, 01 Aug 2016 09:02:21 +0200
+Message-ID: <1956647.cOmaJREgOE@wuerfel>
+References: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vbridger@opensource.altera.com" <vbridger@opensource.altera.com>,
-	"isubramanian@apm.com" <isubramanian@apm.com>,
-	"kchudgar@apm.com" <kchudgar@apm.com>,
-	"yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
-	"salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-	"thomas.petazzoni@free-electrons.com"
-	<thomas.petazzoni@free-electrons.com>,
-	"sergei.shtylyov@cogentembedded.com"
-	<sergei.shtylyov@cogentembedded.com>,
-	"peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-	"alexandre.torgue@st.com" <alexandre.torgue@st.com>,
-	"tremyfr@gmail.com" <tremyfr@gmail.com>,
-	"wxt@rock-chips.com" <wxt@rock-chips.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"david.daney@cavium.com" <david.daney@cavium.com>,
-	"huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-	"jszhang@marvell.com" <jszhang@marvell.com>,
-	Linux OMAP Mailing List <linux-omap@vger.ker
-To: Mugunthan V N <mugunthanvnm@ti.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0060.outbound.protection.outlook.com ([104.47.2.60]:29494
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751019AbcHAGz1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 02:55:27 -0400
-In-Reply-To: <1c3c541a-a183-4b23-da69-991e48a06184@ti.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: qiang.zhao@freescale.com, viresh.kumar@linaro.org, zajec5@gmail.com,
+ linux-wireless@vger.kernel.org, David.Laight@aculab.com,
+ netdev@vger.kernel.org, scottwood@freescale.com,
+ Arvind Yadav <arvind.yadav.cs@gmail.com>, akpm@linux-foundation.org,
+ davem@davemloft.net, linux@roeck-us.net
+To: linuxppc-dev@lists.ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
- 
->>
->>> On Wednesday 27 July 2016 07:50 AM, Peter Chen wrote:
->>>> of_node_put needs to be called when the device node which is got
->>>> from of_parse_phandle has finished using.
->>>>
->>>> Signed-off-by: Peter Chen <peter.chen@nxp.com>
->>>> ---
->>>>  drivers/net/ethernet/ti/davinci_emac.c | 1 +
->>>>  1 file changed, 1 insertion(+)
->>>>
->>>> diff --git a/drivers/net/ethernet/ti/davinci_emac.c
->>>> b/drivers/net/ethernet/ti/davinci_emac.c
->>>> index c6c5465..d8cb9d0 100644
->>>> --- a/drivers/net/ethernet/ti/davinci_emac.c
->>>> +++ b/drivers/net/ethernet/ti/davinci_emac.c
->>>> @@ -1571,6 +1571,7 @@ static int emac_dev_open(struct net_device *ndev)
->>>>  	if (priv->phy_node) {
->>>>  		phydev = of_phy_connect(ndev, priv->phy_node,
->>>>  					&emac_adjust_link, 0, 0);
->>>> +		of_node_put(priv->phy_node);
->>>>  		if (!phydev) {
->>>>  			dev_err(emac_dev, "could not connect to phy %s\n",
->>>>  				priv->phy_node->full_name);
->>>>
->>>
->>> phy_node is accessed in case of of_phy_connect() returns error, so it
->>> has to be moved after the dev_err log
->>>
->>
->> Yeah, you are right. I will change it, thanks.
->>
->
->I see one more problem, when you stop and open the interface there is no way to get
->the phy_node and interface will be unusable, so of_node_put() should be moved to
->remove()
->
-
-It is my careless. Like I replied to David I did not know the phy_node would be used
-in whole driver's life cycle. I will change it, thanks.
-
-Peter
+T24gU3VuZGF5LCBKdWx5IDMxLCAyMDE2IDQ6NDg6NDQgUE0gQ0VTVCBBcnZpbmQgWWFkYXYgd3Jv
+dGU6Cj4gSVNfRVJSX1ZBTFVFKCkgYXNzdW1lcyB0aGF0IHBhcmFtZXRlciBpcyBhbiB1bnNpZ25l
+ZCBsb25nLgo+IEl0IGNhbiBub3QgYmUgdXNlZCB0byBjaGVjayBpZiAndW5zaWduZWQgaW50JyBp
+cyBwYXNzZWQgaW5zdGVkLgo+IFdoaWNoIHRlbmRzIHRvIHJlZmxlY3QgYW4gZXJyb3IuCj4gCj4g
+SW4gNjRiaXQgYXJjaGl0ZWN0dXJlcyBzaXplb2YgKGludCkgPT0gNCAmJiBzaXplb2YgKGxvbmcp
+ID09IDguCj4gSVNfRVJSX1ZBTFVFKHgpIGlzICgoeCkgPj0gKHVuc2lnbmVkIGxvbmcpLTQwOTUp
+Lgo+IAo+IElTX0VSUl9WQUxVRSgpIG9mICd1bnNpZ25lZCBpbnQnIGlzIGFsd2F5cyBmYWxzZSBi
+ZWNhdXNlIHRoZSAzMmJpdAo+IHZhbHVlIGlzIHplcm8gZXh0ZW5kZWQgdG8gNjQgYml0cy4KPiAK
+PiBWYWx1ZSBvZiAodW5zaWduZWQgaW50KS00MDk1IGlzIGFsd2F5cyBsZXNzIHRoYW4gdmFsdWUg
+b2YKPiAodW5zaWduZWQgbG9uZyktNDA5NS4KPiAKPiBOb3cgV2UgYXJlIHRha2luZyBvbmx5IGZp
+cnN0IDMyIGJpdCBmb3IgZXJyb3IgY2hlY2tpbmcgcmVzdCBvZiB0aGUgMzIgYml0Cj4gd2UgaWdu
+b3JlIHN1Y2ggdGhhdCB3ZSBnZXQgYXBwcm9wcmlhdGUgY29tcGFyaXNvbiBvbiA2NGJpdCBzeXN0
+ZW0gYXMgd2VsbC4KClRoaXMgaXMgY29tcGxldGVseSB3cm9uZzogaWYgeW91IGhhdmUgYSB2YWxp
+ZCA2NC1iaXQgcG9pbnRlciBsaWtlCjB4MDAwMDEyMzRmZmZmZmYwMCwgdGhpcyB3aWxsIGJlIGlu
+dGVycHJldGVkIGFzIGFuIGVycm9yIG5vdy4KCj4gRmlyc3QgMzJiaXQgb2YgVmFsdWUgb2YgKHVu
+c2lnbmVkIGludCktNDA5NSBhbmQgKHVuc2lnbmVkIGxvbmcpLTQwOTUgd2lsbAo+IGJlIGVxdWFs
+Lgo+IAo+IFNpZ25lZC1vZmYtYnk6IEFydmluZCBZYWRhdiA8YXJ2aW5kLnlhZGF2LmNzQGdtYWls
+LmNvbT4KPiAtLS0KPiAgaW5jbHVkZS9saW51eC9lcnIuaCB8IDEyICsrKysrKysrKysrLQo+ICAx
+IGZpbGUgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQo+IAo+IGRpZmYg
+LS1naXQgYS9pbmNsdWRlL2xpbnV4L2Vyci5oIGIvaW5jbHVkZS9saW51eC9lcnIuaAo+IGluZGV4
+IDFlMzU1ODguLmMyYTI3ODkgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9saW51eC9lcnIuaAo+ICsr
+KyBiL2luY2x1ZGUvbGludXgvZXJyLmgKPiBAQCAtMTgsNyArMTgsMTcgQEAKPiAgCj4gICNpZm5k
+ZWYgX19BU1NFTUJMWV9fCj4gIAo+IC0jZGVmaW5lIElTX0VSUl9WQUxVRSh4KSB1bmxpa2VseSgo
+dW5zaWduZWQgbG9uZykodm9pZCAqKSh4KSA+PSAodW5zaWduZWQgbG9uZyktTUFYX0VSUk5PKQo+
+ICsjZGVmaW5lIElTX0VSUl9WQUxVRSh4KSB1bmxpa2VseShpc19lcnJvcl9jaGVjayh4KSkKPiAr
+Cj4gK3N0YXRpYyBpbmxpbmUgaW50IGlzX2Vycm9yX2NoZWNrKHVuc2lnbmVkIGxvbmcgZXJyb3Ip
+CgpQbGVhc2UgbGVhdmUgdGhlIGV4aXN0aW5nIG1hY3JvIGFsb25lLiBJIHRoaW5rIHlvdSB3ZXJl
+IGxvb2tpbmcgZm9yCnNvbWV0aGluZyBzcGVjaWZpYyB0byB0aGUgcmV0dXJuIGNvZGUgb2YgcWVf
+bXVyYW1fYWxsb2MoKSBmdW5jdGlvbiwKc28gcGxlYXNlIGFkZCBhIGhlbHBlciBpbiB0aGF0IHN1
+YnN5c3RlbSBpZiB5b3UgbmVlZCBpdCwgbm90IGluCnRoZSBnZW5lcmljIGhlYWRlciBmaWxlcy4K
+CglBcm5kCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxp
+bnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0
+cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
