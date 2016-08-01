@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 13/15] ethernet: stmicro: stmmac: dwmac-socfpga: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:41 +0800
-Message-ID: <1470034963-30506-14-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 14/15] ethernet: stmicro: stmmac: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:42 +0800
+Message-ID: <1470034963-30506-15-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,11 +16,11 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0048.outbound.protection.outlook.com ([104.47.36.48]:62144
-	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0059.outbound.protection.outlook.com ([104.47.40.59]:30880
+	"EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752025AbcHAHMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 03:12:40 -0400
+	id S1752025AbcHAHMp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 03:12:45 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,101 +28,61 @@ List-ID: <netdev.vger.kernel.org>
 of_node_put needs to be called when the device node which is got
 from of_parse_phandle has finished using.
 
+This commit fixes both local (in stmmac_axi_setup) and global
+(plat->phy_node) device_node for this issue, and using the
+correct device node when tries to put node at stmmac_probe_config_dt
+for error path.
+
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
 ---
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 36 ++++++++++++++++------
- 1 file changed, 26 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     | 1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 7 +++++--
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index edd20c3..bec6963 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -135,7 +135,9 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index c23ccab..4c8c60a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3397,6 +3397,7 @@ int stmmac_dvr_remove(struct device *dev)
+ 	stmmac_set_mac(priv->ioaddr, false);
+ 	netif_carrier_off(ndev);
+ 	unregister_netdev(ndev);
++	of_node_put(priv->plat->phy_node);
+ 	if (priv->stmmac_rst)
+ 		reset_control_assert(priv->stmmac_rst);
+ 	clk_disable_unprepare(priv->pclk);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index f7dfc0a..756bb54 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -113,8 +113,10 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
+ 		return NULL;
  
- 	np_splitter = of_parse_phandle(np, "altr,emac-splitter", 0);
- 	if (np_splitter) {
--		if (of_address_to_resource(np_splitter, 0, &res_splitter)) {
-+		ret = of_address_to_resource(np_splitter, 0, &res_splitter);
-+		of_node_put(np_splitter);
-+		if (ret) {
- 			dev_info(dev, "Missing emac splitter address\n");
- 			return -EINVAL;
- 		}
-@@ -159,14 +161,17 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 				dev_err(dev,
- 					"%s: ERROR: missing emac splitter address\n",
- 					__func__);
--				return -EINVAL;
-+				ret = -EINVAL;
-+				goto err_node_put;
- 			}
+ 	axi = kzalloc(sizeof(*axi), GFP_KERNEL);
+-	if (!axi)
++	if (!axi) {
++		of_node_put(np);
+ 		return ERR_PTR(-ENOMEM);
++	}
  
- 			dwmac->splitter_base =
- 			    devm_ioremap_resource(dev, &res_splitter);
+ 	axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
+ 	axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
+@@ -127,6 +129,7 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
+ 	of_property_read_u32(np, "snps,wr_osr_lmt", &axi->axi_wr_osr_lmt);
+ 	of_property_read_u32(np, "snps,rd_osr_lmt", &axi->axi_rd_osr_lmt);
+ 	of_property_read_u32_array(np, "snps,blen", axi->axi_blen, AXI_BLEN);
++	of_node_put(np);
  
--			if (IS_ERR(dwmac->splitter_base))
--				return PTR_ERR(dwmac->splitter_base);
-+			if (IS_ERR(dwmac->splitter_base)) {
-+				ret = PTR_ERR(dwmac->splitter_base);
-+				goto err_node_put;
-+			}
- 		}
- 
- 		index = of_property_match_string(np_sgmii_adapter, "reg-names",
-@@ -178,14 +183,17 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 				dev_err(dev,
- 					"%s: ERROR: failed mapping adapter\n",
- 					__func__);
--				return -EINVAL;
-+				ret = -EINVAL;
-+				goto err_node_put;
- 			}
- 
- 			dwmac->pcs.sgmii_adapter_base =
- 			    devm_ioremap_resource(dev, &res_sgmii_adapter);
- 
--			if (IS_ERR(dwmac->pcs.sgmii_adapter_base))
--				return PTR_ERR(dwmac->pcs.sgmii_adapter_base);
-+			if (IS_ERR(dwmac->pcs.sgmii_adapter_base)) {
-+				ret = PTR_ERR(dwmac->pcs.sgmii_adapter_base);
-+				goto err_node_put;
-+			}
- 		}
- 
- 		index = of_property_match_string(np_sgmii_adapter, "reg-names",
-@@ -197,22 +205,30 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
- 				dev_err(dev,
- 					"%s: ERROR: failed mapping tse control port\n",
- 					__func__);
--				return -EINVAL;
-+				ret = -EINVAL;
-+				goto err_node_put;
- 			}
- 
- 			dwmac->pcs.tse_pcs_base =
- 			    devm_ioremap_resource(dev, &res_tse_pcs);
- 
--			if (IS_ERR(dwmac->pcs.tse_pcs_base))
--				return PTR_ERR(dwmac->pcs.tse_pcs_base);
-+			if (IS_ERR(dwmac->pcs.tse_pcs_base)) {
-+				ret = PTR_ERR(dwmac->pcs.tse_pcs_base);
-+				goto err_node_put;
-+			}
- 		}
- 	}
- 	dwmac->reg_offset = reg_offset;
- 	dwmac->reg_shift = reg_shift;
- 	dwmac->sys_mgr_base_addr = sys_mgr_base_addr;
- 	dwmac->dev = dev;
-+	of_node_put(np_sgmii_adapter);
- 
- 	return 0;
-+
-+err_node_put:
-+	of_node_put(np_sgmii_adapter);
-+	return ret;
+ 	return axi;
  }
- 
- static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
+@@ -302,7 +305,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+ 		dma_cfg = devm_kzalloc(&pdev->dev, sizeof(*dma_cfg),
+ 				       GFP_KERNEL);
+ 		if (!dma_cfg) {
+-			of_node_put(np);
++			of_node_put(plat->phy_node);
+ 			return ERR_PTR(-ENOMEM);
+ 		}
+ 		plat->dma_cfg = dma_cfg;
 -- 
 1.9.1
