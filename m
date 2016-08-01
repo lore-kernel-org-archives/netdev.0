@@ -1,45 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: i10e: use matching format indentifiers
-Date: Sun, 31 Jul 2016 20:47:59 -0700 (PDT)
-Message-ID: <20160731.204759.1283451349474511870.davem@davemloft.net>
-References: <1469957968-726-1-git-send-email-xypron.glpk@gmx.de>
+From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Subject: RE: [PATCH v5 6/8] thunderbolt: Networking transmit and receive
+Date: Mon, 1 Aug 2016 04:30:50 +0000
+Message-ID: <E607265CB020454880711A6F96C05A039710FBC6@hasmsx107.ger.corp.intel.com>
+References: <1469693721-5641-7-git-send-email-amir.jer.levy@intel.com>
+	<20160729140741.18ca3e35@xeon-e3>
+	<E607265CB020454880711A6F96C05A039710868B@hasmsx108.ger.corp.intel.com>
+ <20160731.114513.2022660088754330528.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xypron.glpk@gmx.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39800 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753618AbcHADsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 23:48:14 -0400
-In-Reply-To: <1469957968-726-1-git-send-email-xypron.glpk@gmx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"andreas.noever@gmail.com" <andreas.noever@gmail.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"corbet@lwn.net" <corbet@lwn.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	thunderbolt-linux <thunderbolt-linux@intel.com>,
+	"Westerberg, Mika" <mika.westerberg@intel.com>,
+	"Winkler, Tomas" <tomas.winkler@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20160731.114513.2022660088754330528.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Date: Sun, 31 Jul 2016 11:39:28 +0200
-
-> i is defined as int but output as %u several times.
-> Change the definition to unsigned.
+On Sun, Jul 31 2016, 09:45 PM, David Miller wrote:
+> From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+> Date: Sun, 31 Jul 2016 10:15:52 +0000
 > 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> > The network stack thinks it is Ethernet, it might not accept Runt
+> > frames, so the driver pads the frame in receive.
+> 
+> The network stack doesn't care about this at all.  It's wasted effort on your
+> part.
 
-I hate changes like this.
-
-The canonical way to loop over a value is to use a signed integer,
-named 'i', and go:
-
-	for (i = 0; i < X; i ++)
-
-'i' can never be negative, therefore we know that this usage
-is safe.
-
-I'd rather you convert the "%u" to "%d".
-
-I'm very disappointed in your patches, and it is clear you
-are just finding the easiest and simplest way to shut up
-compiler warnings you are seeing rather than analyzing the
-code you are making changes to in order to determine what
-the best and most appropriate fix might be.
+Great, I'll remove this code.
