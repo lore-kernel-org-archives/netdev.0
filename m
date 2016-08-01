@@ -1,7 +1,7 @@
 From: Amir Levy <amir.jer.levy@intel.com>
-Subject: [PATCH v6 8/8] thunderbolt: Adding maintainer entry
-Date: Mon,  1 Aug 2016 15:23:53 +0300
-Message-ID: <1470054233-4309-9-git-send-email-amir.jer.levy@intel.com>
+Subject: [PATCH v6 7/8] thunderbolt: Networking doc
+Date: Mon,  1 Aug 2016 15:23:52 +0300
+Message-ID: <1470054233-4309-8-git-send-email-amir.jer.levy@intel.com>
 References: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
 Cc: linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
 	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
@@ -10,39 +10,176 @@ Cc: linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
 To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
 	bhelgaas@google.com, corbet@lwn.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:20355 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:9958 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753660AbcHAMZg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 08:25:36 -0400
+	id S1753639AbcHAMZc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 08:25:32 -0400
 In-Reply-To: <1470054233-4309-1-git-send-email-amir.jer.levy@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add Amir Levy as maintainer for Thunderbolt(TM) ICM driver
+Adding Thunderbolt(TM) networking documentation.
 
 Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
 ---
- MAINTAINERS | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ Documentation/00-INDEX                   |   2 +
+ Documentation/thunderbolt-networking.txt | 135 +++++++++++++++++++++++++++++++
+ 2 files changed, 137 insertions(+)
+ create mode 100644 Documentation/thunderbolt-networking.txt
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 72f7703..2b6d635 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -10193,7 +10193,13 @@ F:	include/uapi/linux/stm.h
- THUNDERBOLT DRIVER
- M:	Andreas Noever <andreas.noever@gmail.com>
- S:	Maintained
--F:	drivers/thunderbolt/
-+F:	drivers/thunderbolt/*
+diff --git a/Documentation/00-INDEX b/Documentation/00-INDEX
+index cb9a6c6..80a6706 100644
+--- a/Documentation/00-INDEX
++++ b/Documentation/00-INDEX
+@@ -439,6 +439,8 @@ this_cpu_ops.txt
+ 	- List rationale behind and the way to use this_cpu operations.
+ thermal/
+ 	- directory with information on managing thermal issues (CPU/temp)
++thunderbolt-networking.txt
++	- Thunderbolt(TM) Networking driver description.
+ trace/
+ 	- directory with info on tracing technologies within linux
+ unaligned-memory-access.txt
+diff --git a/Documentation/thunderbolt-networking.txt b/Documentation/thunderbolt-networking.txt
+new file mode 100644
+index 0000000..e112313
+--- /dev/null
++++ b/Documentation/thunderbolt-networking.txt
+@@ -0,0 +1,135 @@
++Intel Thunderbolt(TM) Linux driver
++==================================
 +
-+THUNDERBOLT ICM DRIVER
-+M:	Amir Levy <amir.jer.levy@intel.com>
-+S:	Maintained
-+F:	drivers/thunderbolt/icm/
-+F:	Documentation/thunderbolt-networking.txt
- 
- TI BQ27XXX POWER SUPPLY DRIVER
- R:	Andrew F. Davis <afd@ti.com>
++Copyright(c) 2013 - 2016 Intel Corporation.
++
++Contact Information:
++Intel Thunderbolt mailing list <thunderbolt-software@lists.01.org>
++Edited by Michael Jamet <michael.jamet@intel.com>
++
++Overview
++========
++
++Thunderbolt(TM) Networking mode is introduced with this driver.
++This kernel code creates an ethernet device utilized in computer to computer
++communication over a Thunderbolt cable.
++This driver has been added on the top of the existing thunderbolt driver
++for systems with firwmare (FW) based Thunderbolt controllers supporting
++Thunderbolt Networking.
++
++Files
++=====
++
++- icm_nhi.c/h:	These files allow communication with the FW (a.k.a ICM) based controller.
++		In addition, they create an interface for netlink communication with
++		a user space daemon.
++
++- net.c/net.h:	These files implement the 'eth' interface for the Thunderbolt(TM)
++		networking.
++
++Interface to user space
++=======================
++
++The interface to the user space module is implemented through a Generic Netlink.
++In order to be accessed by the user space module, both kernel and user space
++modules have to register with the same GENL_NAME. In our case, this is
++simply "thunderbolt".
++The registration is done at driver initialization time for all instances of
++the Thunderbolt controllers.
++The communication is then carried through pre-defined Thunderbolt messages.
++Each specific message has a callback function that is called when
++the related message is received.
++
++The messages are defined as follows:
++* NHI_CMD_UNSPEC: Not used.
++* NHI_CMD_SUBSCRIBE: Subscription request from daemon to driver to open the
++  communication channel.
++* NHI_CMD_UNSUBSCRIBE: Request from daemon to driver to unsubscribe
++  to close communication channel.
++* NHI_CMD_QUERY_INFORMATION: Request information from the driver such as
++  driver version, FW version offset, number of ports in the controller
++  and DMA port.
++* NHI_CMD_MSG_TO_ICM: Message from user space module to FW.
++* NHI_CMD_MSG_FROM_ICM: Response from FW to user space module.
++* NHI_CMD_MAILBOX: Message that uses mailbox mechanism such as FW policy
++  changes or disconnect path.
++* NHI_CMD_APPROVE_TBT_NETWORKING: Request from user space
++  module to FW to establish path.
++* NHI_CMD_ICM_IN_SAFE_MODE: Indication that the FW has entered safe mode.
++
++Communication with ICM (Firmware)
++=================================
++
++The communication with ICM is principally achieved through
++a DMA mechanism on Ring 0.
++The driver allocates a shared memory that is physically mapped onto
++the DMA physical space at Ring 0.
++
++Interrupts
++==========
++
++Thunderbolt relies on MSI-X interrupts.
++The MSI-X vector is allocated as follows:
++ICM
++     - Tx: MSI-X vector index 0
++     - Rx: MSI-X vector index 1
++
++Port 0
++     - Tx: MSI-X vector index 2
++     - Rx: MSI-X vector index 3
++
++Port 1
++     - Tx: MSI-X vector index 4
++     - Rx: MSI-X vector index 5
++
++ICM interrupts are used for communication with ICM only.
++Port 0 and Port 1 interrupts are used for Thunderbolt Networking
++communications.
++In case MSI-X is not available, the driver requests to enable MSI only.
++
++Mutexes, semaphores and spinlocks
++=================================
++
++The driver should be able to operate in an environment where hardware
++is asynchronously accessed by multiple entities such as netlink,
++multiple controllers etc.
++
++* send_sem: This semaphore enforces unique sender (one sender at a time)
++  to avoid wrong impairing with responses. FW may process one message
++  at the time.
++* d0_exit_send_mutex: This mutex protects D0 exit (D3) situation
++  to avoid continuing to send messages to FW.
++* d0_exit_mailbox_mutex: This mutex protects D0 exit (D3) situation to
++  avoid continuing to send commands to mailbox.
++* mailbox_mutex: This mutex enforces unique sender (one sender at a time)
++  for the mailbox command.
++  A mutex is sufficient since the mailbox mechanism uses a polling mechanism
++  to get the command response.
++* lock: This spinlock protects from simultaneous changes during
++  disable/enable interrupts.
++* state_lock: This mutex comes to protect changes during net device state
++  changes and net_device operations.
++* controllers_list_mutex: This mutex syncs the access to the controllers
++  list when there are multiple controllers in the system.
++
++FW path enablement
++==================
++
++In order to SW to communicate with the FW, the driver needs to send to FW
++the PDF driver ready command and receive response from FW.
++The driver ready command PDF value is 12 and the response is 13.
++Once the exchange is completed, the user space module should be able to send
++messages through the driver to the FW and FW starts to send notifications
++about HW/FW events.
++
++Information
++===========
++
++Mailing list:
++	thunderbolt-software@lists.01.org
++	Register at: https://lists.01.org/mailman/listinfo/thunderbolt-software
++	Archives at: https://lists.01.org/pipermail/thunderbolt-software/
++
++For additional information about Thunderbolt technology visit:
++	https://01.org/thunderbolt-sw
++	https://thunderbolttechnology.net/
 -- 
 2.7.4
