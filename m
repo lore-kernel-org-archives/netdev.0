@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: qlcnic: avoid superfluous assignement
-Date: Sun, 31 Jul 2016 20:32:47 -0700 (PDT)
-Message-ID: <20160731.203247.112564519224260656.davem@davemloft.net>
-References: <1469959657-1342-1-git-send-email-xypron.glpk@gmx.de>
-	<CAD=hENdsPG5u77N0vEnapSPmkJrLsPcXBUJ82s6msVX72sAi1g@mail.gmail.com>
+Subject: Re: [PATCH net v2 0/3] r8169:fix 3 runtime pm related issues.
+Date: Sun, 31 Jul 2016 20:34:18 -0700 (PDT)
+Message-ID: <20160731.203418.646652194893214741.davem@davemloft.net>
+References: <1469781476-7692-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xypron.glpk@gmx.de, Dept-GELinuxNICDev@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: zyjzyj2000@gmail.com
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39612 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39636 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750767AbcHADdh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 23:33:37 -0400
-In-Reply-To: <CAD=hENdsPG5u77N0vEnapSPmkJrLsPcXBUJ82s6msVX72sAi1g@mail.gmail.com>
+	with ESMTP id S1752946AbcHADej (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 23:34:39 -0400
+In-Reply-To: <1469781476-7692-1-git-send-email-hau@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: zhuyj <zyjzyj2000@gmail.com>
-Date: Mon, 1 Aug 2016 10:57:20 +0800
+From: Chunhao Lin <hau@realtek.com>
+Date: Fri, 29 Jul 2016 16:37:53 +0800
 
-> Sorry.
-> An inline function will be inserted into the calling function. Why
-> "Assigning NULL to parmeter dcb has no effect outside of the
-> inlined function." ?
+> v2:
+> use "struct device *d = &tp->pci_dev->dev" instead of "struct pci_dev *pdev = tp->pci_dev"
+> 
+> v1:
+> This series of patches fix 3 runtime pm related issues that are listed below.
 
-It doesn't do anything to "dcb" in the calling function, that's not
-how inlining works.
-
-The inlined function behaves exactly as if it were called as a
-non-inline function from the perspective of side effects visible to
-the program.
+Series applied, thanks.
