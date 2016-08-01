@@ -1,40 +1,48 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 1/3] sctp: Export struct sctp_info to userspace
-Date: Mon, 1 Aug 2016 15:36:06 +0200
-Message-ID: <20160801133606.GB10443@orbyte.nwl.cc>
-References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
- <1469811580-32429-2-git-send-email-phil@nwl.cc>
- <20160731141824.30785573@xeon-e3>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH net] qed: Fail driver load in 100g MSI mode.
+Date: Mon, 1 Aug 2016 09:08:13 -0400
+Message-ID: <1470056893-16415-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Xin Long <lucien.xin@gmail.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35843 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751153AbcHANnf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 09:43:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20160731141824.30785573@xeon-e3>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:30226 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752026AbcHANze (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 09:55:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+100g support is not available in MSI mode. Failing the driver load in this scenario.
 
-On Sun, Jul 31, 2016 at 02:18:24PM -0700, Stephen Hemminger wrote:
-> On Fri, 29 Jul 2016 18:59:38 +0200
-> Phil Sutter <phil@nwl.cc> wrote:
-> 
-> > This is required to correctly interpret INET_DIAG_INFO messages exported
-> > by sctp_diag module.
-> > 
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> 
-> You need to add sctp.h to include/linux/Kbuild to get it exported correctly
+Please consider applying this to `net'.
 
-Thanks for the heads-up! Luckily it is in there already.
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-Cheers, Phil
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index 1f13abb..c7dc34b 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -659,8 +659,13 @@ static int qed_slowpath_setup_int(struct qed_dev *cdev,
+ 	struct qed_sb_cnt_info sb_cnt_info;
+ 	int rc;
+ 	int i;
+-	memset(&cdev->int_params, 0, sizeof(struct qed_int_params));
+ 
++	if ((int_mode == QED_INT_MODE_MSI) && (cdev->num_hwfns > 1)) {
++		DP_NOTICE(cdev, "MSI mode is not supported for CMT devices\n");
++		return -EINVAL;
++	}
++
++	memset(&cdev->int_params, 0, sizeof(struct qed_int_params));
+ 	cdev->int_params.in.int_mode = int_mode;
+ 	for_each_hwfn(cdev, i) {
+ 		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
+-- 
+1.8.3.1
