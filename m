@@ -1,49 +1,41 @@
-From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 15/15] ethernet: ti: davinci_emac: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:43 +0800
-Message-ID: <1470034963-30506-16-git-send-email-peter.chen@nxp.com>
-References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
+From: Harini Katakam <harini.katakam@xilinx.com>
+Subject: [RFC PATCH 1/2] net: macb: Correct CAPS mask
+Date: Mon, 1 Aug 2016 12:50:22 +0530
+Message-ID: <1470036023-22368-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
-	<isubramanian@apm.com>, <kchudgar@apm.com>,
-	<yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
-	<thomas.petazzoni@free-electrons.com>,
-	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
-	<alexandre.torgue@st.com>, <mugunthanvnm@ti.com>,
-	<tremyfr@gmail.com>, <wxt@rock-chips.com>, <arnd@arndb.de>,
-	<david.daney@cavium.com>, <huangdaode@hisilicon.com>,
-	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:41120
-	"EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752038AbcHAHMu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 03:12:50 -0400
-In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<harinik@xilinx.com>, <punnaia@xilinx.com>, <michals@xilinx.com>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-of_node_put needs to be called when the device node which is got
-from of_parse_phandle has finished using.
+USRIO and JUMBO CAPS have the same mask.
+Fix the same.
 
-Signed-off-by: Peter Chen <peter.chen@nxp.com>
+Signed-off-by: Harini Katakam <harinik@xilinx.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/cadence/macb.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index c6c5465..45ab9d4 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -2060,6 +2060,7 @@ static int davinci_emac_remove(struct platform_device *pdev)
- 	cpdma_ctlr_destroy(priv->dma);
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 36893d8..b6fcf10 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -403,11 +403,11 @@
+ #define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII	0x00000004
+ #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+ #define MACB_CAPS_USRIO_DISABLED		0x00000010
++#define MACB_CAPS_JUMBO				0x00000020
+ #define MACB_CAPS_FIFO_MODE			0x10000000
+ #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+ #define MACB_CAPS_SG_DISABLED			0x40000000
+ #define MACB_CAPS_MACB_IS_GEM			0x80000000
+-#define MACB_CAPS_JUMBO				0x00000010
  
- 	unregister_netdev(ndev);
-+	of_node_put(priv->phy_node);
- 	pm_runtime_disable(&pdev->dev);
- 	free_netdev(ndev);
- 
+ /* Bit manipulation macros */
+ #define MACB_BIT(name)					\
 -- 
-1.9.1
+2.7.4
