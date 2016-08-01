@@ -1,36 +1,31 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2 1/3] mac80211: mesh: flush stations before beacons
- are stopped
-Date: Mon, 01 Aug 2016 11:39:33 +0200
-Message-ID: <1470044373.3389.20.camel@sipsolutions.net>
-References: <20160713114449.24665-1-yanivma@ti.com>
-	 (sfid-20160713_134104_660515_B2533FBA)
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: [PATCH v4] net: sched: convert qdisc linked list to hashtable
+Date: Mon, 1 Aug 2016 12:12:42 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608011212080.22028@cbobk.fhfr.pm>
+References: <201607281957.yJSK4rUm%fengguang.wu@intel.com> <alpine.LNX.2.00.1607281317350.24757@cbobk.fhfr.pm> <20160728125312.GB25433@wfg-t540p.sh.intel.com> <20160731112127.GA9518@wfg-t540p.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Maital Hahn <maitalm@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Yaniv Machani <yanivma@ti.com>, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:33370 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752199AbcHAJlo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 05:41:44 -0400
-In-Reply-To: <20160713114449.24665-1-yanivma@ti.com> (sfid-20160713_134104_660515_B2533FBA)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kbuild-all@01.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Cong Wang <xiyou.wangcong@gmail.com>
+To: Fengguang Wu <lkp@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160731112127.GA9518@wfg-t540p.sh.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-07-13 at 14:44 +0300, Yaniv Machani wrote:
-> From: Maital Hahn <maitalm@ti.com>
-> 
-> Some drivers (e.g. wl18xx) expect that the last stage in the
-> de-initialization process will be stopping the beacons, similar to AP
-> flow.
-> Update ieee80211_stop_mesh() flow accordingly.
-> As peers can be removed dynamically, this would not impact other
-> drivers.
-> 
-Ah, I see now that you did :)
+On Sun, 31 Jul 2016, Fengguang Wu wrote:
 
-johannes
+> Jiri, I just double checked and find no similar errors related to
+> qdisc_list_add(). The parent commit 95556a8838 ("dccp: avoid deadlock
+> in dccp_v4_ctl_send_reset") builds fine without error.
+
+You are right, I realized my mistake afterwards. This is fixed in v5 of 
+the patch.
+
+Thanks,
+
+-- 
+Jiri Kosina
+SUSE Labs
