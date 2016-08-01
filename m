@@ -1,70 +1,49 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] net/mlx5_core/pagealloc: Remove deprecated
- create_singlethread_workqueue
-Date: Mon, 1 Aug 2016 11:11:19 -0400
-Message-ID: <20160801151119.GE2542@mtj.duckdns.org>
-References: <20160728081949.GA5561@Karyakshetra>
- <20160728093735.GO4628@leon.nu>
- <20160729122237.GG2542@mtj.duckdns.org>
- <20160731063513.GW4628@leon.nu>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH net-next 2/3] bna: change type of bna_id to atomic_t
+Date: Mon, 1 Aug 2016 17:11:00 +0200
+Message-ID: <345d713a-8399-b1ff-718a-ccf4547ecd4f@redhat.com>
+References: <1469814778-23186-1-git-send-email-ivecera@redhat.com>
+ <1469814778-23186-3-git-send-email-ivecera@redhat.com>
+ <063D6719AE5E284EB5DD2968C1650D6D5F50672B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
-	Matan Barak <matanb@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160731063513.GW4628@leon.nu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "rasesh.mody@qlogic.com" <rasesh.mody@qlogic.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58516 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752244AbcHAPLo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 11:11:44 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F50672B@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Leon.
+On 1.8.2016 16:20, David Laight wrote:
+> From: Ivan Vecera
+>> Sent: 29 July 2016 18:53
+>> Change type of bna_id to atomic_t. The bnad_list_mutex is used to prevent
+>> a race when bna_id is incremented. After the change the mutex can be
+>> removed in the next step.
+> ...
+>> -static u32 bna_id;
+>> +static atomic_t bna_id;
+> ...
+>>  	bnad_lock_init(bnad);
+>>  	bnad_add_to_list(bnad);
+>> +	bnad->id = atomic_inc_return(&bna_id) - 1;
+> ...
+>
+> Is the 'id' expected to be unique?
+> Looks like they get reallocated after 2^32 allocates.
+>
+> 	David
+>
+>
+I have just converted it to atomic type to eliminate mutex. The id is 
+only used as parameter 'instance' for bfa_nw_flash_{update,read}_part(). 
+There is no documentation in source code regarding this so this is a 
+question to Qlogic.
 
-On Sun, Jul 31, 2016 at 09:35:13AM +0300, Leon Romanovsky wrote:
-> > The conversion uses WQ_MEM_RECLAIM, which is standard for all
-> > workqueues which can stall packet processing if stalled.  The
-> > requirement comes from nfs or block devices over network.
-> 
-> The title stays "remove deprecated create_singlethread_workqueue" and if
-> we put aside the word "deprecated", the code moves from ordered
-> workqueue to unordered workqueue and changes max_active count which
-> isn't expressed in commit message.
-
-Maybe it was too compressed but the description says
-
-"The workqueue has a single work item. Hence, alloc_workqueue() is
- used instead of alloc_ordered_workqueue() since ordering is
- unnecessary when there's only one work item."
-
-There's only one work item so whether the workqueue is ordered and its
-concurrency level don't make any difference.  The reason why people
-used to use create_singlethread_workqueue() in these situations was
-because per-cpu workqueues used to be very expensive which isn't true
-anymore.
-
-> For reclaim paths, I want to be extra caution and want to see
-> justification for doing that along with understanding if it is tested or
-> not.
-
-WQ_MEM_RECLAIM maintains the behavior of the existing code and the
-requirement comes from network interfaces being used for nfs and
-transport for block devices and is universial to everything in network
-layer.  The only test we can do here is removing it and pushing it
-really hard and see whether we can actually trigger deadlock, which it
-will under the right circumstances which may or may not be easy to
-replicate in test environments.  I don't see many merits in doing this
-especially when the behavior doesn't change from the existing code.
-
-> Right now, I'm feeling that I'm participating in soapie where one sends
-> patch for every line, waits and sends the same patch for another file.
-> It is worth to send one patch set and let us to test it all in once.
-
-Yeah, I guess it can be a bit annoying.  Bhaktipriya, can you please
-group patches for meallnox?
-
-Thanks.
-
--- 
-tejun
+Ivan
