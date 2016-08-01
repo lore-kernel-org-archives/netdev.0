@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 09/15] ethernet: marvell: mvpp2: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:37 +0800
-Message-ID: <1470034963-30506-10-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 11/15] ethernet: renesas: ravb_main: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:39 +0800
+Message-ID: <1470034963-30506-12-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,11 +16,11 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0049.outbound.protection.outlook.com ([104.47.36.49]:28119
-	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0069.outbound.protection.outlook.com ([104.47.34.69]:22007
+	"EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751239AbcHAHMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Aug 2016 03:12:18 -0400
+	id S1751239AbcHAHM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 03:12:28 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -29,29 +29,22 @@ of_node_put needs to be called when the device node which is got
 from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/renesas/ravb_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 0b04717..60227a3 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -6234,6 +6234,7 @@ err_free_stats:
- err_free_irq:
- 	irq_dispose_mapping(port->irq);
- err_free_netdev:
-+	of_node_put(phy_node);
- 	free_netdev(dev);
- 	return err;
- }
-@@ -6244,6 +6245,7 @@ static void mvpp2_port_remove(struct mvpp2_port *port)
- 	int i;
- 
- 	unregister_netdev(port->dev);
-+	of_node_put(port->phy_node);
- 	free_percpu(port->pcpu);
- 	free_percpu(port->stats);
- 	for (i = 0; i < txq_number; i++)
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 8377d02..1e1cc0f 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1005,6 +1005,7 @@ static int ravb_phy_init(struct net_device *ndev)
+ 	}
+ 	phydev = of_phy_connect(ndev, pn, ravb_adjust_link, 0,
+ 				priv->phy_interface);
++	of_node_put(pn);
+ 	if (!phydev) {
+ 		netdev_err(ndev, "failed to connect PHY\n");
+ 		return -ENOENT;
 -- 
 1.9.1
