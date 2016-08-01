@@ -1,24 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: qlge: remove superfluous statement
-Date: Mon, 01 Aug 2016 13:44:46 -0700 (PDT)
-Message-ID: <20160801.134446.265187977997617304.davem@davemloft.net>
-References: <1469960368-1616-1-git-send-email-xypron.glpk@gmx.de>
+Subject: Re: [PATCH 1/1] qed: do not use unitialized variable
+Date: Mon, 01 Aug 2016 13:45:04 -0700 (PDT)
+Message-ID: <20160801.134504.1892172575039074042.davem@davemloft.net>
+References: <1469964292-3231-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: xypron.glpk@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1469960368-1616-1-git-send-email-xypron.glpk@gmx.de>
+In-Reply-To: <1469964292-3231-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Date: Sun, 31 Jul 2016 12:19:28 +0200
+Date: Sun, 31 Jul 2016 13:24:52 +0200
 
-> Variable length is not used after the deleted line.
+> Do not write random bytes from the kernel stack when
+> calling qed_wr.
 > 
 > Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 
