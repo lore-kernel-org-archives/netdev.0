@@ -1,48 +1,40 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Subject: [PATCH net] qed: Fail driver load in 100g MSI mode.
-Date: Mon, 1 Aug 2016 09:08:13 -0400
-Message-ID: <1470056893-16415-1-git-send-email-sudarsana.kalluru@qlogic.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] bna: change type of bna_id to atomic_t
+Date: Mon, 1 Aug 2016 14:20:36 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F50672B@AcuExch.aculab.com>
+References: <1469814778-23186-1-git-send-email-ivecera@redhat.com>
+ <1469814778-23186-3-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-	<sudarsana.kalluru@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "rasesh.mody@qlogic.com" <rasesh.mody@qlogic.com>
+To: 'Ivan Vecera' <ivecera@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:30226 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752026AbcHANze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 09:55:34 -0400
+Received: from smtp-out4.electric.net ([192.162.216.184]:63587 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbcHAOYd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 10:24:33 -0400
+In-Reply-To: <1469814778-23186-3-git-send-email-ivecera@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-100g support is not available in MSI mode. Failing the driver load in this scenario.
+From: Ivan Vecera
+> Sent: 29 July 2016 18:53
+> Change type of bna_id to atomic_t. The bnad_list_mutex is used to prevent
+> a race when bna_id is incremented. After the change the mutex can be
+> removed in the next step.
+...
+> -static u32 bna_id;
+> +static atomic_t bna_id;
+...
+>  	bnad_lock_init(bnad);
+>  	bnad_add_to_list(bnad);
+> +	bnad->id = atomic_inc_return(&bna_id) - 1;
+...
 
-Please consider applying this to `net'.
+Is the 'id' expected to be unique?
+Looks like they get reallocated after 2^32 allocates.
 
-Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qed/qed_main.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index 1f13abb..c7dc34b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -659,8 +659,13 @@ static int qed_slowpath_setup_int(struct qed_dev *cdev,
- 	struct qed_sb_cnt_info sb_cnt_info;
- 	int rc;
- 	int i;
--	memset(&cdev->int_params, 0, sizeof(struct qed_int_params));
- 
-+	if ((int_mode == QED_INT_MODE_MSI) && (cdev->num_hwfns > 1)) {
-+		DP_NOTICE(cdev, "MSI mode is not supported for CMT devices\n");
-+		return -EINVAL;
-+	}
-+
-+	memset(&cdev->int_params, 0, sizeof(struct qed_int_params));
- 	cdev->int_params.in.int_mode = int_mode;
- 	for_each_hwfn(cdev, i) {
- 		memset(&sb_cnt_info, 0, sizeof(sb_cnt_info));
--- 
-1.8.3.1
+	David
