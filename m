@@ -1,38 +1,35 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: [PATCH] silence warnings when building kernel/bpf/core.c with W=1
-Date: Sun, 31 Jul 2016 23:27:33 -0400
-Message-ID: <8434.1470022053@turing-police.cc.vt.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: qlcnic: avoid superfluous assignement
+Date: Sun, 31 Jul 2016 20:32:47 -0700 (PDT)
+Message-ID: <20160731.203247.112564519224260656.davem@davemloft.net>
+References: <1469959657-1342-1-git-send-email-xypron.glpk@gmx.de>
+	<CAD=hENdsPG5u77N0vEnapSPmkJrLsPcXBUJ82s6msVX72sAi1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xypron.glpk@gmx.de, Dept-GELinuxNICDev@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: zyjzyj2000@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound.smtp.vt.edu ([198.82.183.121]:44960 "EHLO
-	omr1.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751513AbcHAD1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 23:27:43 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:39612 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750767AbcHADdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 31 Jul 2016 23:33:37 -0400
+In-Reply-To: <CAD=hENdsPG5u77N0vEnapSPmkJrLsPcXBUJ82s6msVX72sAi1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Building with W=1 generates some 350 lines of warnings of the form:
+From: zhuyj <zyjzyj2000@gmail.com>
+Date: Mon, 1 Aug 2016 10:57:20 +0800
 
-kernel/bpf/core.c: In function '__bpf_prog_run':
-kernel/bpf/core.c:476:33: warning: initialized field overwritten [-Woverride-init]
-   [BPF_ALU | BPF_ADD | BPF_X] = &&ALU_ADD_X,
-                                 ^~
-kernel/bpf/core.c:476:33: note: (near initialization for 'jumptable[12]')
+> Sorry.
+> An inline function will be inserted into the calling function. Why
+> "Assigning NULL to parmeter dcb has no effect outside of the
+> inlined function." ?
 
-Since they come from the way we intentionally build the table, silence
-that one specific warning.
+It doesn't do anything to "dcb" in the calling function, that's not
+how inlining works.
 
-Signed-off-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
-
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index eed911d091da..bb915f9d9f92 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1,3 +1,4 @@
-+CFLAGS_core.o += -Wno-override-init
- obj-y := core.o
- 
- obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
+The inlined function behaves exactly as if it were called as a
+non-inline function from the perspective of side effects visible to
+the program.
