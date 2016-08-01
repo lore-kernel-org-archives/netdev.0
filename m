@@ -1,7 +1,7 @@
 From: Peter Chen <peter.chen@nxp.com>
-Subject: [PATCH v2 07/15] ethernet: hisilicon: hns: hns_dsaf_main: add missing of_node_put after calling of_parse_phandle
-Date: Mon, 1 Aug 2016 15:02:35 +0800
-Message-ID: <1470034963-30506-8-git-send-email-peter.chen@nxp.com>
+Subject: [PATCH v2 03/15] ethernet: arc: emac_main: add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:31 +0800
+Message-ID: <1470034963-30506-4-git-send-email-peter.chen@nxp.com>
 References: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,10 +16,10 @@ Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
 	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0047.outbound.protection.outlook.com ([104.47.41.47]:4416
-	"EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0059.outbound.protection.outlook.com ([104.47.38.59]:9213
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750834AbcHAH2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1750707AbcHAH2I (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 1 Aug 2016 03:28:08 -0400
 In-Reply-To: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Sender: netdev-owner@vger.kernel.org
@@ -30,33 +30,68 @@ from of_parse_phandle has finished using.
 
 Signed-off-by: Peter Chen <peter.chen@nxp.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/arc/emac_main.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 2ef4277..afb5daa 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -51,7 +51,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	const char *mode_str;
- 	struct regmap *syscon;
- 	struct resource *res;
--	struct device_node *np = dsaf_dev->dev->of_node;
-+	struct device_node *np = dsaf_dev->dev->of_node, *np_temp;
- 	struct platform_device *pdev = to_platform_device(dsaf_dev->dev);
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index 586beda..4bff0f3 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -749,14 +749,16 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 	err = of_address_to_resource(dev->of_node, 0, &res_regs);
+ 	if (err) {
+ 		dev_err(dev, "failed to retrieve registers base from device tree\n");
+-		return -ENODEV;
++		err = -ENODEV;
++		goto out_put_node;
+ 	}
  
- 	if (dev_of_node(dsaf_dev->dev)) {
-@@ -102,8 +102,9 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 		dsaf_dev->dsaf_tc_mode = HRD_DSAF_4TC_MODE;
+ 	/* Get IRQ from device tree */
+ 	irq = irq_of_parse_and_map(dev->of_node, 0);
+ 	if (!irq) {
+ 		dev_err(dev, "failed to retrieve <irq> value from device tree\n");
+-		return -ENODEV;
++		err = -ENODEV;
++		goto out_put_node;
+ 	}
  
- 	if (dev_of_node(dsaf_dev->dev)) {
--		syscon = syscon_node_to_regmap(
--				of_parse_phandle(np, "subctrl-syscon", 0));
-+		np_temp = of_parse_phandle(np, "subctrl-syscon", 0);
-+		syscon = syscon_node_to_regmap(np_temp);
-+		of_node_put(np_temp);
- 		if (IS_ERR_OR_NULL(syscon)) {
- 			res = platform_get_resource(pdev, IORESOURCE_MEM,
- 						    res_idx++);
+ 	ndev->netdev_ops = &arc_emac_netdev_ops;
+@@ -778,7 +780,7 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 		err = clk_prepare_enable(priv->clk);
+ 		if (err) {
+ 			dev_err(dev, "failed to enable clock\n");
+-			return err;
++			goto out_put_node;
+ 		}
+ 
+ 		clock_frequency = clk_get_rate(priv->clk);
+@@ -787,7 +789,8 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 		if (of_property_read_u32(dev->of_node, "clock-frequency",
+ 					 &clock_frequency)) {
+ 			dev_err(dev, "failed to retrieve <clock-frequency> from device tree\n");
+-			return -EINVAL;
++			err = -EINVAL;
++			goto out_put_node;
+ 		}
+ 	}
+ 
+@@ -867,6 +870,7 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 		goto out_netif_api;
+ 	}
+ 
++	of_node_put(phy_node);
+ 	return 0;
+ 
+ out_netif_api:
+@@ -877,6 +881,9 @@ out_mdio:
+ out_clken:
+ 	if (priv->clk)
+ 		clk_disable_unprepare(priv->clk);
++out_put_node:
++	of_node_put(phy_node);
++
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(arc_emac_probe);
 -- 
 1.9.1
