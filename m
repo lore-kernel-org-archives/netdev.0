@@ -1,61 +1,94 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit systems.
-Date: Mon, 01 Aug 2016 09:02:21 +0200
-Message-ID: <1956647.cOmaJREgOE@wuerfel>
-References: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Peter Chen <peter.chen@nxp.com>
+Subject: [PATCH v2 00/15] add missing of_node_put after calling of_parse_phandle
+Date: Mon, 1 Aug 2016 15:02:28 +0800
+Message-ID: <1470034963-30506-1-git-send-email-peter.chen@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: qiang.zhao@freescale.com, viresh.kumar@linaro.org, zajec5@gmail.com,
- linux-wireless@vger.kernel.org, David.Laight@aculab.com,
- netdev@vger.kernel.org, scottwood@freescale.com,
- Arvind Yadav <arvind.yadav.cs@gmail.com>, akpm@linux-foundation.org,
- davem@davemloft.net, linux@roeck-us.net
-To: linuxppc-dev@lists.ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <vbridger@opensource.altera.com>,
+	<isubramanian@apm.com>, <kchudgar@apm.com>,
+	<yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+	<thomas.petazzoni@free-electrons.com>,
+	<sergei.shtylyov@cogentembedded.com>, <peppe.cavallaro@st.com>,
+	<alexandre.torgue@st.com>, <mugunthanvnm@ti.com>,
+	<tremyfr@gmail.com>, <wxt@rock-chips.com>, <arnd@arndb.de>,
+	<david.daney@cavium.com>, <huangdaode@hisilicon.com>,
+	<jszhang@marvell.com>, Peter Chen <peter.chen@nxp.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0055.outbound.protection.outlook.com ([104.47.38.55]:36764
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751989AbcHAHLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 03:11:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU3VuZGF5LCBKdWx5IDMxLCAyMDE2IDQ6NDg6NDQgUE0gQ0VTVCBBcnZpbmQgWWFkYXYgd3Jv
-dGU6Cj4gSVNfRVJSX1ZBTFVFKCkgYXNzdW1lcyB0aGF0IHBhcmFtZXRlciBpcyBhbiB1bnNpZ25l
-ZCBsb25nLgo+IEl0IGNhbiBub3QgYmUgdXNlZCB0byBjaGVjayBpZiAndW5zaWduZWQgaW50JyBp
-cyBwYXNzZWQgaW5zdGVkLgo+IFdoaWNoIHRlbmRzIHRvIHJlZmxlY3QgYW4gZXJyb3IuCj4gCj4g
-SW4gNjRiaXQgYXJjaGl0ZWN0dXJlcyBzaXplb2YgKGludCkgPT0gNCAmJiBzaXplb2YgKGxvbmcp
-ID09IDguCj4gSVNfRVJSX1ZBTFVFKHgpIGlzICgoeCkgPj0gKHVuc2lnbmVkIGxvbmcpLTQwOTUp
-Lgo+IAo+IElTX0VSUl9WQUxVRSgpIG9mICd1bnNpZ25lZCBpbnQnIGlzIGFsd2F5cyBmYWxzZSBi
-ZWNhdXNlIHRoZSAzMmJpdAo+IHZhbHVlIGlzIHplcm8gZXh0ZW5kZWQgdG8gNjQgYml0cy4KPiAK
-PiBWYWx1ZSBvZiAodW5zaWduZWQgaW50KS00MDk1IGlzIGFsd2F5cyBsZXNzIHRoYW4gdmFsdWUg
-b2YKPiAodW5zaWduZWQgbG9uZyktNDA5NS4KPiAKPiBOb3cgV2UgYXJlIHRha2luZyBvbmx5IGZp
-cnN0IDMyIGJpdCBmb3IgZXJyb3IgY2hlY2tpbmcgcmVzdCBvZiB0aGUgMzIgYml0Cj4gd2UgaWdu
-b3JlIHN1Y2ggdGhhdCB3ZSBnZXQgYXBwcm9wcmlhdGUgY29tcGFyaXNvbiBvbiA2NGJpdCBzeXN0
-ZW0gYXMgd2VsbC4KClRoaXMgaXMgY29tcGxldGVseSB3cm9uZzogaWYgeW91IGhhdmUgYSB2YWxp
-ZCA2NC1iaXQgcG9pbnRlciBsaWtlCjB4MDAwMDEyMzRmZmZmZmYwMCwgdGhpcyB3aWxsIGJlIGlu
-dGVycHJldGVkIGFzIGFuIGVycm9yIG5vdy4KCj4gRmlyc3QgMzJiaXQgb2YgVmFsdWUgb2YgKHVu
-c2lnbmVkIGludCktNDA5NSBhbmQgKHVuc2lnbmVkIGxvbmcpLTQwOTUgd2lsbAo+IGJlIGVxdWFs
-Lgo+IAo+IFNpZ25lZC1vZmYtYnk6IEFydmluZCBZYWRhdiA8YXJ2aW5kLnlhZGF2LmNzQGdtYWls
-LmNvbT4KPiAtLS0KPiAgaW5jbHVkZS9saW51eC9lcnIuaCB8IDEyICsrKysrKysrKysrLQo+ICAx
-IGZpbGUgY2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQo+IAo+IGRpZmYg
-LS1naXQgYS9pbmNsdWRlL2xpbnV4L2Vyci5oIGIvaW5jbHVkZS9saW51eC9lcnIuaAo+IGluZGV4
-IDFlMzU1ODguLmMyYTI3ODkgMTAwNjQ0Cj4gLS0tIGEvaW5jbHVkZS9saW51eC9lcnIuaAo+ICsr
-KyBiL2luY2x1ZGUvbGludXgvZXJyLmgKPiBAQCAtMTgsNyArMTgsMTcgQEAKPiAgCj4gICNpZm5k
-ZWYgX19BU1NFTUJMWV9fCj4gIAo+IC0jZGVmaW5lIElTX0VSUl9WQUxVRSh4KSB1bmxpa2VseSgo
-dW5zaWduZWQgbG9uZykodm9pZCAqKSh4KSA+PSAodW5zaWduZWQgbG9uZyktTUFYX0VSUk5PKQo+
-ICsjZGVmaW5lIElTX0VSUl9WQUxVRSh4KSB1bmxpa2VseShpc19lcnJvcl9jaGVjayh4KSkKPiAr
-Cj4gK3N0YXRpYyBpbmxpbmUgaW50IGlzX2Vycm9yX2NoZWNrKHVuc2lnbmVkIGxvbmcgZXJyb3Ip
-CgpQbGVhc2UgbGVhdmUgdGhlIGV4aXN0aW5nIG1hY3JvIGFsb25lLiBJIHRoaW5rIHlvdSB3ZXJl
-IGxvb2tpbmcgZm9yCnNvbWV0aGluZyBzcGVjaWZpYyB0byB0aGUgcmV0dXJuIGNvZGUgb2YgcWVf
-bXVyYW1fYWxsb2MoKSBmdW5jdGlvbiwKc28gcGxlYXNlIGFkZCBhIGhlbHBlciBpbiB0aGF0IHN1
-YnN5c3RlbSBpZiB5b3UgbmVlZCBpdCwgbm90IGluCnRoZSBnZW5lcmljIGhlYWRlciBmaWxlcy4K
-CglBcm5kCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxp
-bnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0
-cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+Hi David,
+
+This patch set fixes missing of_node_put issue at ethernet driver.
+of_node_put needs to be called when the device node which is got
+from of_parse_phandle has finished using.
+
+The compilation test has passed by using allmodconfig for drivers/net/ethernet.
+
+Thanks.
+
+Changes for v2:
+- If the device node is local variable, it can be put in the same function.
+- If the device node will be used the whole driver life cycle,
+  it should be put (call of_node_put) at driver's remove. 
+  Patch [4, 5, 9, 14, 15/15]
+- Fix the issue that the node still be used at error patch [6/15]
+- Add acked for patch [11,12/15]
+
+Peter Chen (15):
+  ethernet: altera: add missing of_node_put
+  ethernet: apm: xgene: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: arc: emac_main: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: aurora: nb8800: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: cavium: octeon: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: hisilicon: hns: hns_dsaf_mac: add missing of_node_put after
+    calling of_parse_phandle
+  ethernet: hisilicon: hns: hns_dsaf_main: add missing of_node_put after
+    calling of_parse_phandle
+  ethernet: marvell: mvneta: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: marvell: mvpp2: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: marvell: pxa168_eth: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: renesas: ravb_main: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: renesas: sh_eth: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: stmicro: stmmac: dwmac-socfpga: add missing of_node_put
+    after calling of_parse_phandle
+  ethernet: stmicro: stmmac: add missing of_node_put after calling
+    of_parse_phandle
+  ethernet: ti: davinci_emac: add missing of_node_put after calling
+    of_parse_phandle
+
+ drivers/net/ethernet/altera/altera_tse_main.c      |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     |  1 +
+ drivers/net/ethernet/arc/emac_main.c               | 15 ++++++---
+ drivers/net/ethernet/aurora/nb8800.c               |  2 ++
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c   |  3 ++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |  9 ++++--
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |  7 +++--
+ drivers/net/ethernet/marvell/mvneta.c              |  1 +
+ drivers/net/ethernet/marvell/mvpp2.c               |  2 ++
+ drivers/net/ethernet/marvell/pxa168_eth.c          |  1 +
+ drivers/net/ethernet/renesas/ravb_main.c           |  1 +
+ drivers/net/ethernet/renesas/sh_eth.c              |  1 +
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 36 ++++++++++++++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  1 +
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  7 +++--
+ drivers/net/ethernet/ti/davinci_emac.c             |  1 +
+ 16 files changed, 67 insertions(+), 22 deletions(-)
+
+-- 
+1.9.1
