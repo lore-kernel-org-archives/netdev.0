@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: caif: use correct format specifier
-Date: Mon, 01 Aug 2016 13:43:54 -0700 (PDT)
-Message-ID: <20160801.134354.1594660458943826700.davem@davemloft.net>
-References: <1469949590-19166-1-git-send-email-xypron.glpk@gmx.de>
+Subject: Re: [PATCH net-next v2 0/3] strp: Stream parser for messages
+Date: Mon, 01 Aug 2016 13:46:26 -0700 (PDT)
+Message-ID: <20160801.134626.597358167256129014.davem@davemloft.net>
+References: <1470069200-3279258-1-git-send-email-tom@herbertland.com>
+	<20160801.132722.1134084069187483498.davem@davemloft.net>
+	<CALx6S37EMYLXW28SETev-hJTFS=q_r-qPSzJeuyTM8Wj7yjBsw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dmitry.tarnyagin@lockless.no, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: xypron.glpk@gmx.de
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54768 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54860 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755141AbcHAUuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 16:50:13 -0400
-In-Reply-To: <1469949590-19166-1-git-send-email-xypron.glpk@gmx.de>
+	with ESMTP id S1752180AbcHAU4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 16:56:31 -0400
+In-Reply-To: <CALx6S37EMYLXW28SETev-hJTFS=q_r-qPSzJeuyTM8Wj7yjBsw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Date: Sun, 31 Jul 2016 09:19:50 +0200
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 1 Aug 2016 13:38:46 -0700
 
-> %u is the wrong format specifier for int.
-> size_t cannot be converted to int without possible
-> loss of information.
+> On Mon, Aug 1, 2016 at 1:27 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Mon, 1 Aug 2016 09:33:17 -0700
+>>
+>>>   - Remove GPL module license from strparser.c
+>>
+>> Why?
 > 
-> So leave the result as size_t and use %zu as format specifier.
-> 
-> cf. Documentation/printk-formats.txt
-> 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> It looked more consistent with other modules. Is GPL module license
+> preferred then?
 
-Applied.
+Yes.
+
+Since this is a facility which is largely unique to the Linux kernel,
+things linking to these symbols are almost certainly derived works.
