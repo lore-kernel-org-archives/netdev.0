@@ -1,62 +1,76 @@
-From: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH 1/1] mwifiex: remove superfluous condition
-Date: Mon, 1 Aug 2016 10:46:12 +0000
-Message-ID: <b7cf72a967fe4f58a59a8ba2ce43c299@SC-EXCH04.marvell.com>
-References: <1469961555-2123-1-git-send-email-xypron.glpk@gmx.de>
+From: Amitkumar Karwar <akarwar@marvell.com>
+Subject: RE: [PATCH 1/1] mwifiex: key_material_v2 remove superfluous condition
+Date: Mon, 1 Aug 2016 10:46:47 +0000
+Message-ID: <d5e7a66bc98b43eab031836908667c2c@SC-EXCH04.marvell.com>
+References: <877fc2816w.fsf@purkki.adurom.net>
+ <1469967081-3937-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1469961555-2123-1-git-send-email-xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:32350 "EHLO
+	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751162AbcHAKtR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Aug 2016 06:49:17 -0400
+In-Reply-To: <1469967081-3937-1-git-send-email-xypron.glpk@gmx.de>
 Content-Language: en-US
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Heinrich Schuchardt [mailto:xypron.glpk-Mmb7MZpHnFY@public.gmane.org]
-> Sent: Sunday, July 31, 2016 4:09 PM
+> From: Heinrich Schuchardt [mailto:xypron.glpk@gmx.de]
+> Sent: Sunday, July 31, 2016 5:41 PM
 > To: Amitkumar Karwar; Nishant Sarmukadam; Kalle Valo
-> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Heinrich Schuchardt
-> Subject: [PATCH 1/1] mwifiex: remove superfluous condition
+> Cc: linux-wireless@vger.kernel.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Heinrich Schuchardt
+> Subject: [PATCH 1/1] mwifiex: key_material_v2 remove superfluous
+> condition
 > 
-> for_each_property_of_node is only executed if the property prop is not
-> NULL.
+> We are using mac as source address in a memcpy.
+> In the lines below we can assume mac is not NULL.
 > 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 > ---
->  drivers/net/wireless/marvell/mwifiex/sta_cmd.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/wireless/marvell/mwifiex/sta_cmd.c | 11 +++--------
+>  1 file changed, 3 insertions(+), 8 deletions(-)
 > 
 > diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
 > b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
-> index 7897037..128add8 100644
+> index 128add8..0d4f9fe 100644
 > --- a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
 > +++ b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
-> @@ -1482,7 +1482,7 @@ int mwifiex_dnld_dt_cfgdata(struct mwifiex_private
-> *priv,
->  			continue;
-> 
->  		/* property header is 6 bytes, data must fit in cmd buffer
-> */
-> -		if (prop && prop->value && prop->length > 6 &&
-> +		if (prop->value && prop->length > 6 &&
->  		    prop->length <= MWIFIEX_SIZE_OF_CMD_BUFFER - S_DS_GEN) {
->  			ret = mwifiex_send_cmd(priv, HostCmd_CMD_CFG_DATA,
->  					       HostCmd_ACT_GEN_SET, 0,
+> @@ -706,15 +706,10 @@ mwifiex_cmd_802_11_key_material_v2(struct
+> mwifiex_private *priv,
+>  				    (priv->wep_key_curr_index & KEY_INDEX_MASK))
+>  					key_info |= KEY_DEFAULT;
+>  			} else {
+> -				if (mac) {
+> -					if (is_broadcast_ether_addr(mac))
+> -						key_info |= KEY_MCAST;
+> -					else
+> -						key_info |= KEY_UNICAST |
+> -							    KEY_DEFAULT;
+> -				} else {
+> +				if (is_broadcast_ether_addr(mac))
+>  					key_info |= KEY_MCAST;
+> -				}
+> +				else
+> +					key_info |= KEY_UNICAST | KEY_DEFAULT;
+>  			}
+>  		}
+>  		km->key_param_set.key_info = cpu_to_le16(key_info);
+> --
+> 2.8.1
 
-Thanks. The patch looks fine to me.
+Looks ok to me.
 
-Acked-by: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Acked-by: Amitkumar Karwar <akarwar@marvell.com>
 
 Regards,
 Amitkumar
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
