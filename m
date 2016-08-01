@@ -1,62 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2] bpf: silence warnings when building kernel/bpf/core.c
- with W=1
-Date: Mon, 1 Aug 2016 08:09:57 -0700
-Message-ID: <20160801150955.GA99277@ast-mbp.thefacebook.com>
-References: <23710.1470026010@turing-police.cc.vt.edu>
- <20160801044220.GA97382@ast-mbp.thefacebook.com>
- <28964.1470028723@turing-police.cc.vt.edu>
+From: "Levin, Alexander" <alexander.levin@verizon.com>
+Subject: Re: [PATCH] net: thunderx: correct bound check in nic_config_loopback
+Date: Mon, 1 Aug 2016 11:57:58 -0400
+Message-ID: <6b86fd8a-e97a-8b71-1786-50aa9e667873@verizon.com>
+References: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
+ <CA+sq2Cc-MTtoncAcL6MS-YVdeVVK=aqEmZakzkX6_CwsXvpRCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>
-To: Valdis.Kletnieks@vt.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35799 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609AbcHAPX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 11:23:26 -0400
-Content-Disposition: inline
-In-Reply-To: <28964.1470028723@turing-police.cc.vt.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "sgoutham@cavium.com" <sgoutham@cavium.com>,
+ "rric@kernel.org" <rric@kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Sunil Kovvuri <sunil.kovvuri@gmail.com>, "Levin, Alexander"
+ <alexander.levin@verizon.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CA+sq2Cc-MTtoncAcL6MS-YVdeVVK=aqEmZakzkX6_CwsXvpRCQ@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 01, 2016 at 01:18:43AM -0400, Valdis.Kletnieks@vt.edu wrote:
-> On Sun, 31 Jul 2016 21:42:22 -0700, Alexei Starovoitov said:
+On 07/31/2016 12:41 PM, Sunil Kovvuri wrote:
+> Thanks for finding.
+> A much better fix would be,
 > 
-> > and at least 2 other such patches for other files...
-> > Is there a single warning where -Woverride-init was useful?
-> > May be worth disabling this warning for the whole build?
+> -       if (lbk->vf_id > MAX_LMAC)
+> +       if (lbk->vf_id >= nic->num_vf_en)
+>                 return -1;
 > 
-> There's a few other cases that *aren't* the "define the array to zero
-> and then build the entries from a list" form.
-> 
-> In particular, there's still 3 odd complaints:
-> 
-> drivers/ata/ahci.c:
-> drivers/ata/ahci.h:393:16: warning: initialized field overwritten [-Woverride-in
-> it]
->   .can_queue  = AHCI_MAX_CMDS - 1,
-> 
-> drivers/block/drbd/drbd_main.c:
-> drivers/block/drbd/drbd_main.c:3767:22: warning: initialized field overwritten [
-> -Woverride-init]
->    [P_RETRY_WRITE]  = "retry_write",
-> 
-> arch/x86/kernel/cpu/common.c:
-> ./arch/x86/include/asm/page_64_types.h:22:21: warning: initialized field overwri
-> tten [-Woverride-init]
->  #define DEBUG_STKSZ (PAGE_SIZE << DEBUG_STACK_ORDER)
-> 
-> The point of these patches is to make -Woverride-init *useful* - you'll never
-> spot 3 warnings in a flood of over 9,000 understood-and-ignored warnings.
-> 
-> Get rid of the 9,000 understood-and-ignored warnings, and then things that
-> probably *should* be looked at can be noticed.
+> where 'num_vf_en' reflects the exact number of physical interfaces or
+> LMACs on the system.
 
-I don't think it makes sense to play kernel whack-a-warning in a hope that
-particular warning will find something useful.
-Please show few cases where it actually found a real issue, otherwise
-just disable it for all.
+Right. I see quite a few more places that compare to MAX_LMAC vs
+num_vf_en. What was the reasoning behind it then?
+
+
+Thanks,
+Sasha
