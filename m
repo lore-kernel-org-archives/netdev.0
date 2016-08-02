@@ -1,20 +1,19 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0767/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:44:23 +0800
-Message-ID: <20160802114423.794-1-baolex.ni@intel.com>
-Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com,
-	daniel@iogearbox.net, pabeni@redhat.com
-To: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org,
+Subject: [PATCH 0765/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:44:07 +0800
+Message-ID: <20160802114407.661-1-baolex.ni@intel.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
+	baolex.ni@intel.com, daniel@iogearbox.net, pabeni@redhat.com
+To: kvalo@qca.qualcomm.com, linux-wimax@intel.com,
 	bkenward@solarflare.com, linux-driver@qlogic.com,
 	computersforpeace@gmail.com, m.chehab@samsung.com,
 	pawel@osciak.com, m.szyprowski@samsung.com,
 	kyungmin.park@samsung.com, k.kozlowski@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43106 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:6235 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934707AbcHBMWX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S934705AbcHBMWX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 2 Aug 2016 08:22:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,53 +27,37 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/net/wireless/ath/ath9k/init.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/wireless/ath/ath6kl/core.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
-index 2ee8624..5196633 100644
---- a/drivers/net/wireless/ath/ath9k/init.c
-+++ b/drivers/net/wireless/ath/ath9k/init.c
-@@ -42,33 +42,33 @@ module_param_named(debug, ath9k_debug, uint, 0);
- MODULE_PARM_DESC(debug, "Debugging mask");
+diff --git a/drivers/net/wireless/ath/ath6kl/core.c b/drivers/net/wireless/ath/ath6kl/core.c
+index ebb9f16..6b5b18b 100644
+--- a/drivers/net/wireless/ath/ath6kl/core.c
++++ b/drivers/net/wireless/ath/ath6kl/core.c
+@@ -37,15 +37,15 @@ static unsigned int testmode;
+ static unsigned int recovery_enable;
+ static unsigned int heart_beat_poll;
  
- int ath9k_modparam_nohwcrypt;
--module_param_named(nohwcrypt, ath9k_modparam_nohwcrypt, int, 0444);
-+module_param_named(nohwcrypt, ath9k_modparam_nohwcrypt, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(nohwcrypt, "Disable hardware encryption");
- 
- int ath9k_led_blink;
--module_param_named(blink, ath9k_led_blink, int, 0444);
-+module_param_named(blink, ath9k_led_blink, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(blink, "Enable LED blink on activity");
- 
- static int ath9k_led_active_high = -1;
--module_param_named(led_active_high, ath9k_led_active_high, int, 0444);
-+module_param_named(led_active_high, ath9k_led_active_high, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(led_active_high, "Invert LED polarity");
- 
- static int ath9k_btcoex_enable;
--module_param_named(btcoex_enable, ath9k_btcoex_enable, int, 0444);
-+module_param_named(btcoex_enable, ath9k_btcoex_enable, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(btcoex_enable, "Enable wifi-BT coexistence");
- 
- static int ath9k_bt_ant_diversity;
--module_param_named(bt_ant_diversity, ath9k_bt_ant_diversity, int, 0444);
-+module_param_named(bt_ant_diversity, ath9k_bt_ant_diversity, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(bt_ant_diversity, "Enable WLAN/BT RX antenna diversity");
- 
- static int ath9k_ps_enable;
--module_param_named(ps_enable, ath9k_ps_enable, int, 0444);
-+module_param_named(ps_enable, ath9k_ps_enable, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(ps_enable, "Enable WLAN PowerSave");
- 
- #ifdef CONFIG_ATH9K_CHANNEL_CONTEXT
- 
- int ath9k_use_chanctx;
--module_param_named(use_chanctx, ath9k_use_chanctx, int, 0444);
-+module_param_named(use_chanctx, ath9k_use_chanctx, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(use_chanctx, "Enable channel context for concurrency");
- 
- #endif /* CONFIG_ATH9K_CHANNEL_CONTEXT */
+-module_param(debug_mask, uint, 0644);
+-module_param(suspend_mode, uint, 0644);
+-module_param(wow_mode, uint, 0644);
+-module_param(uart_debug, uint, 0644);
+-module_param(uart_rate, uint, 0644);
+-module_param(ath6kl_p2p, uint, 0644);
+-module_param(testmode, uint, 0644);
+-module_param(recovery_enable, uint, 0644);
+-module_param(heart_beat_poll, uint, 0644);
++module_param(debug_mask, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(suspend_mode, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(wow_mode, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(uart_debug, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(uart_rate, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(ath6kl_p2p, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(testmode, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(recovery_enable, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param(heart_beat_poll, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(recovery_enable, "Enable recovery from firmware error");
+ MODULE_PARM_DESC(heart_beat_poll,
+ 		 "Enable fw error detection periodic polling in msecs - Also set recovery_enable for this to be effective");
 -- 
 2.9.2
