@@ -1,46 +1,76 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0806/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:48:17 +0800
-Message-ID: <20160802114817.3699-1-baolex.ni@intel.com>
-Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	baolex.ni@intel.com
-To: boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-	jgross@suse.com, linuxwifi@intel.com, kvalo@codeaurora.org,
-	m.chehab@samsung.com, pawel@osciak.com, m.szyprowski@samsung.com,
-	kyungmin.park@samsung.com, k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39560 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934505AbcHBM0j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:26:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 0805/1285] Replace numeric parameter like 0444
+	with macro
+Date: Tue,  2 Aug 2016 19:48:12 +0800
+Message-ID: <20160802114812.3632-1-baolex.ni@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: baolex.ni@intel.com, xen-devel@lists.xenproject.org,
+ chuansheng.liu@intel.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: wei.liu2@citrix.com, kvalo@codeaurora.org, linuxwifi@intel.com,
+ m.chehab@samsung.com, pawel@osciak.com, m.szyprowski@samsung.com,
+ kyungmin.park@samsung.com, k.kozlowski@samsung.com
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-I find that the developers often just specified the numeric value
-when calling a macro which is defined with a parameter for access permission.
-As we know, these numeric value for access permission have had the corresponding macro,
-and that using macro can improve the robustness and readability of the code,
-thus, I suggest replacing the numeric parameter with the macro.
-
-Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
-Signed-off-by: Baole Ni <baolex.ni@intel.com>
----
- drivers/net/xen-netfront.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 96ccd4e..70c86fa 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -58,7 +58,7 @@
- 
- /* Module parameters */
- static unsigned int xennet_max_queues;
--module_param_named(max_queues, xennet_max_queues, uint, 0644);
-+module_param_named(max_queues, xennet_max_queues, uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(max_queues,
- 		 "Maximum number of queues per virtual interface");
- 
--- 
-2.9.2
+SSBmaW5kIHRoYXQgdGhlIGRldmVsb3BlcnMgb2Z0ZW4ganVzdCBzcGVjaWZpZWQgdGhlIG51bWVy
+aWMgdmFsdWUKd2hlbiBjYWxsaW5nIGEgbWFjcm8gd2hpY2ggaXMgZGVmaW5lZCB3aXRoIGEgcGFy
+YW1ldGVyIGZvciBhY2Nlc3MgcGVybWlzc2lvbi4KQXMgd2Uga25vdywgdGhlc2UgbnVtZXJpYyB2
+YWx1ZSBmb3IgYWNjZXNzIHBlcm1pc3Npb24gaGF2ZSBoYWQgdGhlIGNvcnJlc3BvbmRpbmcgbWFj
+cm8sCmFuZCB0aGF0IHVzaW5nIG1hY3JvIGNhbiBpbXByb3ZlIHRoZSByb2J1c3RuZXNzIGFuZCBy
+ZWFkYWJpbGl0eSBvZiB0aGUgY29kZSwKdGh1cywgSSBzdWdnZXN0IHJlcGxhY2luZyB0aGUgbnVt
+ZXJpYyBwYXJhbWV0ZXIgd2l0aCB0aGUgbWFjcm8uCgpTaWduZWQtb2ZmLWJ5OiBDaHVhbnNoZW5n
+IExpdSA8Y2h1YW5zaGVuZy5saXVAaW50ZWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBCYW9sZSBOaSA8
+YmFvbGV4Lm5pQGludGVsLmNvbT4KLS0tCiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNr
+LmMgfCAxMiArKysrKystLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDYg
+ZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFj
+ay5jIGIvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svbmV0YmFjay5jCmluZGV4IGVkYmFlMGIuLmU2
+ZTY1OTggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL25ldGJhY2suYworKysg
+Yi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9uZXRiYWNrLmMKQEAgLTUzLDIyICs1MywyMiBAQAog
+ICogZW5hYmxlZCBieSBkZWZhdWx0LgogICovCiBib29sIHNlcGFyYXRlX3R4X3J4X2lycSA9IHRy
+dWU7Ci1tb2R1bGVfcGFyYW0oc2VwYXJhdGVfdHhfcnhfaXJxLCBib29sLCAwNjQ0KTsKK21vZHVs
+ZV9wYXJhbShzZXBhcmF0ZV90eF9yeF9pcnEsIGJvb2wsIFNfSVJVU1IgfCBTX0lXVVNSIHwgU19J
+UkdSUCB8IFNfSVJPVEgpOwogCiAvKiBUaGUgdGltZSB0aGF0IHBhY2tldHMgY2FuIHN0YXkgb24g
+dGhlIGd1ZXN0IFJ4IGludGVybmFsIHF1ZXVlCiAgKiBiZWZvcmUgdGhleSBhcmUgZHJvcHBlZC4K
+ICAqLwogdW5zaWduZWQgaW50IHJ4X2RyYWluX3RpbWVvdXRfbXNlY3MgPSAxMDAwMDsKLW1vZHVs
+ZV9wYXJhbShyeF9kcmFpbl90aW1lb3V0X21zZWNzLCB1aW50LCAwNDQ0KTsKK21vZHVsZV9wYXJh
+bShyeF9kcmFpbl90aW1lb3V0X21zZWNzLCB1aW50LCBTX0lSVVNSIHwgU19JUkdSUCB8IFNfSVJP
+VEgpOwogCiAvKiBUaGUgbGVuZ3RoIG9mIHRpbWUgYmVmb3JlIHRoZSBmcm9udGVuZCBpcyBjb25z
+aWRlcmVkIHVucmVzcG9uc2l2ZQogICogYmVjYXVzZSBpdCBpc24ndCBwcm92aWRpbmcgUnggc2xv
+dHMuCiAgKi8KIHVuc2lnbmVkIGludCByeF9zdGFsbF90aW1lb3V0X21zZWNzID0gNjAwMDA7Ci1t
+b2R1bGVfcGFyYW0ocnhfc3RhbGxfdGltZW91dF9tc2VjcywgdWludCwgMDQ0NCk7Cittb2R1bGVf
+cGFyYW0ocnhfc3RhbGxfdGltZW91dF9tc2VjcywgdWludCwgU19JUlVTUiB8IFNfSVJHUlAgfCBT
+X0lST1RIKTsKIAogdW5zaWduZWQgaW50IHhlbnZpZl9tYXhfcXVldWVzOwotbW9kdWxlX3BhcmFt
+X25hbWVkKG1heF9xdWV1ZXMsIHhlbnZpZl9tYXhfcXVldWVzLCB1aW50LCAwNjQ0KTsKK21vZHVs
+ZV9wYXJhbV9uYW1lZChtYXhfcXVldWVzLCB4ZW52aWZfbWF4X3F1ZXVlcywgdWludCwgU19JUlVT
+UiB8IFNfSVdVU1IgfCBTX0lSR1JQIHwgU19JUk9USCk7CiBNT0RVTEVfUEFSTV9ERVNDKG1heF9x
+dWV1ZXMsCiAJCSAiTWF4aW11bSBudW1iZXIgb2YgcXVldWVzIHBlciB2aXJ0dWFsIGludGVyZmFj
+ZSIpOwogCkBAIC03OCw3ICs3OCw3IEBAIE1PRFVMRV9QQVJNX0RFU0MobWF4X3F1ZXVlcywKICAq
+LwogI2RlZmluZSBGQVRBTF9TS0JfU0xPVFNfREVGQVVMVCAyMAogc3RhdGljIHVuc2lnbmVkIGlu
+dCBmYXRhbF9za2Jfc2xvdHMgPSBGQVRBTF9TS0JfU0xPVFNfREVGQVVMVDsKLW1vZHVsZV9wYXJh
+bShmYXRhbF9za2Jfc2xvdHMsIHVpbnQsIDA0NDQpOworbW9kdWxlX3BhcmFtKGZhdGFsX3NrYl9z
+bG90cywgdWludCwgU19JUlVTUiB8IFNfSVJHUlAgfCBTX0lST1RIKTsKIAogLyogVGhlIGFtb3Vu
+dCB0byBjb3B5IG91dCBvZiB0aGUgZmlyc3QgZ3Vlc3QgVHggc2xvdCBpbnRvIHRoZSBza2Incwog
+ICogbGluZWFyIGFyZWEuICBJZiB0aGUgZmlyc3Qgc2xvdCBoYXMgbW9yZSBkYXRhLCBpdCB3aWxs
+IGJlIG1hcHBlZApAQCAtOTIsNyArOTIsNyBAQCBtb2R1bGVfcGFyYW0oZmF0YWxfc2tiX3Nsb3Rz
+LCB1aW50LCAwNDQ0KTsKIC8qIFRoaXMgaXMgdGhlIG1heGltdW0gbnVtYmVyIG9mIGZsb3dzIGlu
+IHRoZSBoYXNoIGNhY2hlLiAqLwogI2RlZmluZSBYRU5WSUZfSEFTSF9DQUNIRV9TSVpFX0RFRkFV
+TFQgNjQKIHVuc2lnbmVkIGludCB4ZW52aWZfaGFzaF9jYWNoZV9zaXplID0gWEVOVklGX0hBU0hf
+Q0FDSEVfU0laRV9ERUZBVUxUOwotbW9kdWxlX3BhcmFtX25hbWVkKGhhc2hfY2FjaGVfc2l6ZSwg
+eGVudmlmX2hhc2hfY2FjaGVfc2l6ZSwgdWludCwgMDY0NCk7Cittb2R1bGVfcGFyYW1fbmFtZWQo
+aGFzaF9jYWNoZV9zaXplLCB4ZW52aWZfaGFzaF9jYWNoZV9zaXplLCB1aW50LCBTX0lSVVNSIHwg
+U19JV1VTUiB8IFNfSVJHUlAgfCBTX0lST1RIKTsKIE1PRFVMRV9QQVJNX0RFU0MoaGFzaF9jYWNo
+ZV9zaXplLCAiTnVtYmVyIG9mIGZsb3dzIGluIHRoZSBoYXNoIGNhY2hlIik7CiAKIHN0YXRpYyB2
+b2lkIHhlbnZpZl9pZHhfcmVsZWFzZShzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZSwgdTE2IHBl
+bmRpbmdfaWR4LAotLSAKMi45LjIKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4u
+b3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
