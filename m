@@ -1,7 +1,7 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0732/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:40:53 +0800
-Message-ID: <20160802114053.30858-1-baolex.ni@intel.com>
+Subject: [PATCH 0737/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:41:18 +0800
+Message-ID: <20160802114118.31189-1-baolex.ni@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	chuansheng.liu@intel.com, baolex.ni@intel.com,
 	romieu@fr.zoreil.com, Baohua.Song@csr.com
@@ -23,24 +23,27 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 4 ++--
+ drivers/net/ethernet/sfc/siena_sriov.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 1f30912..fcf06c5 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -275,9 +275,9 @@ static ssize_t efx_ef10_show_primary_flag(struct device *dev,
- 		       ? 1 : 0);
- }
+diff --git a/drivers/net/ethernet/sfc/siena_sriov.c b/drivers/net/ethernet/sfc/siena_sriov.c
+index da7b94f..010bf28 100644
+--- a/drivers/net/ethernet/sfc/siena_sriov.c
++++ b/drivers/net/ethernet/sfc/siena_sriov.c
+@@ -175,12 +175,12 @@ struct efx_endpoint_page {
  
--static DEVICE_ATTR(link_control_flag, 0444, efx_ef10_show_link_control_flag,
-+static DEVICE_ATTR(link_control_flag, S_IRUSR | S_IRGRP | S_IROTH, efx_ef10_show_link_control_flag,
- 		   NULL);
--static DEVICE_ATTR(primary_flag, 0444, efx_ef10_show_primary_flag, NULL);
-+static DEVICE_ATTR(primary_flag, S_IRUSR | S_IRGRP | S_IROTH, efx_ef10_show_primary_flag, NULL);
+ /* VFs can only use this many transmit channels */
+ static unsigned int vf_max_tx_channels = 2;
+-module_param(vf_max_tx_channels, uint, 0444);
++module_param(vf_max_tx_channels, uint, S_IRUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(vf_max_tx_channels,
+ 		 "Limit the number of TX channels VFs can use");
  
- static int efx_ef10_probe(struct efx_nic *efx)
- {
+ static int max_vfs = -1;
+-module_param(max_vfs, int, 0444);
++module_param(max_vfs, int, S_IRUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(max_vfs,
+ 		 "Reduce the number of VFs initialized by the driver");
+ 
 -- 
 2.9.2
