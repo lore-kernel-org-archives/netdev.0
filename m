@@ -1,61 +1,47 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH 1116/1285] Replace numeric parameter like 0444 with macro
-Date: Tue, 2 Aug 2016 15:13:37 -0400
-Message-ID: <20160802191337.GD36313@redhat.com>
-References: <20160802121754.24527-1-baolex.ni@intel.com>
- <alpine.LSU.2.20.1608022006070.25634@nerf40.vanv.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baole Ni <baolex.ni@intel.com>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	chuansheng.liu@intel.com
-To: Jan Engelhardt <jengelh@inai.de>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: [PATCH 1/1 v2] rtlwifi: remove superfluous condition
+Date: Tue,  2 Aug 2016 21:26:21 +0200
+Message-ID: <1470165981-6241-1-git-send-email-xypron.glpk@gmx.de>
+References: <4e6de16f-b42c-920a-60a2-fcc88e282dc0@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:33163 "EHLO
-	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754747AbcHBTWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:22:21 -0400
-Received: by mail-qk0-f175.google.com with SMTP id p74so184161267qka.0
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 12:21:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.20.1608022006070.25634@nerf40.vanv.qr>
+Received: from mout.gmx.net ([212.227.15.18]:63463 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755752AbcHBT0u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 15:26:50 -0400
+In-Reply-To: <4e6de16f-b42c-920a-60a2-fcc88e282dc0@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 02, 2016 at 08:07:11PM +0200, Jan Engelhardt wrote:
-> 
-> On Tuesday 2016-08-02 14:17, Baole Ni wrote:
-> 
-> >I find that the developers often just specified the numeric value
-> >when calling a macro which is defined with a parameter for access permission.
-> >As we know, these numeric value for access permission have had the corresponding macro,
-> >and that using macro can improve the robustness and readability of the code,
-> >thus, I suggest replacing the numeric parameter with the macro.
-> >
-> > static int ip_vs_conn_tab_bits = CONFIG_IP_VS_TAB_BITS;
-> >-module_param_named(conn_tab_bits, ip_vs_conn_tab_bits, int, 0444);
-> >+module_param_named(conn_tab_bits, ip_vs_conn_tab_bits, int, S_IRUSR | S_IRGRP | S_IROTH);
-> 
-> We have S_IRUGO for this.
+If sta == NULL, the changed line will not be reached.
+So no need to check that sta != NULL here.
 
-Aye, for further edification, Baole, please read include/linux/stat.h,
-particularly this part:
+v2:
+	fix typo
 
-#define S_IRWXUGO       (S_IRWXU|S_IRWXG|S_IRWXO)
-#define S_IALLUGO       (S_ISUID|S_ISGID|S_ISVTX|S_IRWXUGO)
-#define S_IRUGO         (S_IRUSR|S_IRGRP|S_IROTH)
-#define S_IWUGO         (S_IWUSR|S_IWGRP|S_IWOTH)
-#define S_IXUGO         (S_IXUSR|S_IXGRP|S_IXOTH)
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
+ drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I suspect many of the patches in this set should be using one of the above
-defines instead, never mind the ridiculousness of firing off such a
-massive set at once, with every patch having the same (often not correct)
-title, and the highly questionable benefit of the set to begin with.
-
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index 41f77f8..7aee5ebb1 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -1135,7 +1135,7 @@ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
+ 					mac->mode = WIRELESS_MODE_AC_24G;
+ 			}
+ 
+-			if (vif->type == NL80211_IFTYPE_STATION && sta)
++			if (vif->type == NL80211_IFTYPE_STATION)
+ 				rtlpriv->cfg->ops->update_rate_tbl(hw, sta, 0);
+ 			rcu_read_unlock();
+ 
 -- 
-Jarod Wilson
-jarod@redhat.com
+2.1.4
