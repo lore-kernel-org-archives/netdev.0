@@ -1,181 +1,91 @@
-From: ggarcia@abra.uab.cat
-Subject: [PATCH v3 1/1] Add timer to handle OOM situations
-Date: Tue, 02 Aug 2016 19:23:26 +0200
-Message-ID: <20160802172326.1220-2-ggarcia@deic.uab.cat>
-References: <20160802172326.1220-1-ggarcia@deic.uab.cat>
-Content-Transfer-Encoding: 7BIT
-Cc: stefanha@redhat.com, Gerard Garcia <ggarcia@abra.uab.cat>
-To: netdev@vger.kernel.org
+From: Scott Wood <scott.wood@nxp.com>
+Subject: Re: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit
+ systems.
+Date: Tue, 2 Aug 2016 19:57:48 +0000
+Message-ID: <DB5PR0401MB1928DE1F195A57160DED735D91050@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+References: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <1956647.cOmaJREgOE@wuerfel>
+ <DB5PR0401MB19280ACA87C7F5EE2822D5FB91040@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+ <2484583.95xFmO7xir@wuerfel> <57A0BD8E.9050305@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>,
+	"viresh.kumar@linaro.org" <viresh.kumar@linaro.org>,
+	"zajec5@gmail.com" <zajec5@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"David.Laight@aculab.com" <David.Laight@aculab.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"scottwood@freescale.com" <scottwood@freescale.com>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux@roeck-us.net" <linux@roeck-us.net>,
+	Li Yang <leoli@freescale.com>
+To: arvind Yadav <arvind.yadav.cs@gmail.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from damascus.uab.es ([158.109.168.135]:15309 "EHLO damascus.uab.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933177AbcHBU0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 16:26:00 -0400
-Received: from damascus.uab.es ([127.0.0.1])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBA00FZELNSLT00@damascus.uab.es> for
- netdev@vger.kernel.org; Tue, 02 Aug 2016 19:23:52 +0200 (CEST)
-Received: from abra.uab.es ([158.109.79.4])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBA0099XLNSLS90@damascus.uab.es> for
- netdev@vger.kernel.org; Tue, 02 Aug 2016 19:23:52 +0200 (CEST)
-In-reply-to: <20160802172326.1220-1-ggarcia@deic.uab.cat>
+Received: from mail-db5eur01on0086.outbound.protection.outlook.com ([104.47.2.86]:49120
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751042AbcHBU3V convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 16:29:21 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+On 08/02/2016 10:34 AM, arvind Yadav wrote:
+> 
+> 
+> On Tuesday 02 August 2016 01:15 PM, Arnd Bergmann wrote:
+>> On Monday, August 1, 2016 4:55:43 PM CEST Scott Wood wrote:
+>>> On 08/01/2016 02:02 AM, Arnd Bergmann wrote:
+>>>>> diff --git a/include/linux/err.h b/include/linux/err.h
+>>>>> index 1e35588..c2a2789 100644
+>>>>> --- a/include/linux/err.h
+>>>>> +++ b/include/linux/err.h
+>>>>> @@ -18,7 +18,17 @@
+>>>>>  
+>>>>>  #ifndef __ASSEMBLY__
+>>>>>  
+>>>>> -#define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
+>>>>> +#define IS_ERR_VALUE(x) unlikely(is_error_check(x))
+>>>>> +
+>>>>> +static inline int is_error_check(unsigned long error)
+>>>> Please leave the existing macro alone. I think you were looking for
+>>>> something specific to the return code of qe_muram_alloc() function,
+>>>> so please add a helper in that subsystem if you need it, not in
+>>>> the generic header files.
+>>> qe_muram_alloc (a.k.a. cpm_muram_alloc) returns unsigned long.  The
+>>> problem is certain callers that store the return value in a u32.  Why
+>>> not just fix those callers to store it in unsigned long (at least until
+>>> error checking is done)?
+>>>
+>> Yes, that would also address another problem with code like
+>>
+>>          kfree((void *)ugeth->tx_bd_ring_offset[i]);
+>>
+>> which is not 64-bit safe when tx_bd_ring_offset is a 32-bit value
+>> that also holds the return value of qe_muram_alloc.
 
-v3:
- * Avoid race condition when freeing timer.
+Well, hopefully it doesn't hold a return of qe_muram_alloc() when it's
+being passed to kfree()...
 
-v2:
-* Use of ERR_PTR/PTR_ERR/IS_ERR
-* Timer cleaned on device release.
-* Do not process more packets on error.
+There's also the code that casts kmalloc()'s return to u32, etc.
+ucc_geth is not 64-bit clean in general.
 
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
----
- drivers/vhost/vsock.c | 52 +++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 42 insertions(+), 10 deletions(-)
+>>
+>> 	Arnd
+> Yes, we will fix caller. Caller api is not safe on 64bit.
 
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index 028ca16..8d4fb13 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -15,11 +15,13 @@
- #include <net/sock.h>
- #include <linux/virtio_vsock.h>
- #include <linux/vhost.h>
-+#include <linux/timer.h>
- 
- #include <net/af_vsock.h>
- #include "vhost.h"
- 
- #define VHOST_VSOCK_DEFAULT_HOST_CID	2
-+#define OOM_RETRY_MS	100
- 
- enum {
- 	VHOST_VSOCK_FEATURES = VHOST_FEATURES,
-@@ -43,6 +45,8 @@ struct vhost_vsock {
- 	atomic_t queued_replies;
- 
- 	u32 guest_cid;
-+
-+	struct timer_list tx_kick;
- };
- 
- static u32 vhost_transport_get_local_cid(void)
-@@ -229,12 +233,13 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
- 
- 	if (in != 0) {
- 		vq_err(vq, "Expected 0 input buffers, got %u\n", in);
--		return NULL;
-+		return ERR_PTR(-EINVAL);
- 	}
- 
- 	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
--	if (!pkt)
--		return NULL;
-+	if (!pkt){
-+		return ERR_PTR(-ENOMEM);
-+	}
- 
- 	len = iov_length(vq->iov, out);
- 	iov_iter_init(&iov_iter, WRITE, vq->iov, out, len);
-@@ -244,7 +249,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
- 		vq_err(vq, "Expected %zu bytes for pkt->hdr, got %zu bytes\n",
- 		       sizeof(pkt->hdr), nbytes);
- 		kfree(pkt);
--		return NULL;
-+		return ERR_PTR(-EINVAL);
- 	}
- 
- 	if (le16_to_cpu(pkt->hdr.type) == VIRTIO_VSOCK_TYPE_STREAM)
-@@ -257,13 +262,13 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
- 	/* The pkt is too big */
- 	if (pkt->len > VIRTIO_VSOCK_MAX_PKT_BUF_SIZE) {
- 		kfree(pkt);
--		return NULL;
-+		return ERR_PTR(-EINVAL);
- 	}
- 
- 	pkt->buf = kmalloc(pkt->len, GFP_KERNEL);
- 	if (!pkt->buf) {
- 		kfree(pkt);
--		return NULL;
-+		return ERR_PTR(-EINVAL);
- 	}
- 
- 	nbytes = copy_from_iter(pkt->buf, pkt->len, &iov_iter);
-@@ -271,7 +276,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
- 		vq_err(vq, "Expected %u byte payload, got %zu bytes\n",
- 		       pkt->len, nbytes);
- 		virtio_transport_free_pkt(pkt);
--		return NULL;
-+		return ERR_PTR(-EINVAL);
- 	}
- 
- 	return pkt;
-@@ -329,9 +334,25 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 		}
- 
- 		pkt = vhost_vsock_alloc_pkt(vq, out, in);
--		if (!pkt) {
--			vq_err(vq, "Faulted on pkt\n");
--			continue;
-+		if (IS_ERR(pkt)) {
-+			if (PTR_ERR(pkt) == -ENOMEM) {
-+				vhost_discard_vq_desc(vq, 1);
-+
-+				if (!timer_pending(&vsock->tx_kick)) {
-+					vsock->tx_kick.data =
-+						(unsigned long) vq;
-+					vsock->tx_kick.expires =
-+						jiffies + msecs_to_jiffies(OOM_RETRY_MS);
-+					add_timer(&vsock->tx_kick);
-+				}
-+
-+				break;
-+			} else {
-+				vq_err(vq, "Faulted on pkt\n");
-+				break;
-+			}
-+		} else if (unlikely(timer_pending(&vsock->tx_kick))) {
-+			del_timer(&vsock->tx_kick);
- 		}
- 
- 		/* Only accept correctly addressed packets */
-@@ -352,6 +373,13 @@ out:
- 	mutex_unlock(&vq->mutex);
- }
- 
-+static void vhost_vsock_rehandle_tx_kick(unsigned long data)
-+{
-+	struct vhost_virtqueue *vq = (struct vhost_virtqueue *) data;
-+
-+	vhost_poll_queue(&vq->poll);
-+}
-+
- static void vhost_vsock_handle_rx_kick(struct vhost_work *work)
- {
- 	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
-@@ -464,6 +492,9 @@ static int vhost_vsock_dev_open(struct inode *inode, struct file *file)
- 
- 	atomic_set(&vsock->queued_replies, 0);
- 
-+	setup_timer(&vsock->tx_kick,
-+		    vhost_vsock_rehandle_tx_kick, (unsigned long) NULL);
-+
- 	vqs[VSOCK_VQ_TX] = &vsock->vqs[VSOCK_VQ_TX];
- 	vqs[VSOCK_VQ_RX] = &vsock->vqs[VSOCK_VQ_RX];
- 	vsock->vqs[VSOCK_VQ_TX].handle_kick = vhost_vsock_handle_tx_kick;
-@@ -527,6 +558,7 @@ static int vhost_vsock_dev_release(struct inode *inode, struct file *file)
- 	vsock_for_each_connected_socket(vhost_vsock_reset_orphans);
- 
- 	vhost_vsock_stop(vsock);
-+	del_timer_sync(&vsock->tx_kick);
- 	vhost_vsock_flush(vsock);
- 	vhost_dev_stop(&vsock->dev);
- 
--- 
-2.9.1
+The API is fine (or at least, I haven't seen a valid issue pointed out
+yet).  The problem is the ucc_geth driver.
+
+> Even qe_muram_addr(a.k.a. cpm_muram_addr )passing value unsigned int,
+> but it should be unsigned long.
+
+cpm_muram_addr takes unsigned long as a parameter, not that it matters
+since you can't pass errors into it and a muram offset should never
+exceed 32 bits.
+
+-Scott
