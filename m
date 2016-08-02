@@ -1,46 +1,37 @@
-From: skallam <siva.kallam@broadcom.com>
-Subject: [PATCH net 1/2] tg3: Fix for diasllow rx coalescing time to be 0
-Date: Wed,  3 Aug 2016 09:43:59 +0530
-Message-ID: <1470197640-13587-2-git-send-email-siva.kallam@broadcom.com>
-References: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
-Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
-	prashant@broadcom.com, satish.baddipadige@broadcom.com,
-	Siva Reddy Kallam <siva.kallam@broadcom.com>
-To: davem@davemloft.net
+From: "128" <netdev@vger.kernel.org>
+Subject: =?utf-8?B?0JrQu9C40LXQvdGC0YHQutC40LUg0LHQsNC30YsgIEVt?=
+	=?utf-8?B?YWlsOiBiYXd1cGVjb2RhLTM4OTdAeW9wbWFpbC5jb20g?=
+	=?utf-8?B?U2t5cGU6IHByb2Rhd2V6Mzg5INCX0LDQv9GA0L7RgdC4?=
+	=?utf-8?B?0YLQtSDQv9C+0LTRgNC+0LHQvdC+0YHRgtC4INGB0LXQ?=
+	=?utf-8?B?udGH0LDRgSDQldGB0LvQuCDQuNC90YLQtdGA0LXRgdC9?=
+	=?utf-8?B?0L4g0JHQu9Cw0LPQvtC00LDRgNC40Lwg0LfQsCDQsdGL?=
+	=?utf-8?B?0YHRgtGA0YvQuSDQvtGC0LLQtdGCIQ==?=
+Date: Tue, 2 Aug 2016 15:20:21 +0700
+Message-ID: <3EC48F3B5480AE1DC1C48D3125160EE6@vger.kernel.org>
+Reply-To: "128" <bawupecoda-3897@yopmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8";
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:22585 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751606AbcHCFcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 01:32:52 -0400
-In-Reply-To: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
+Received: from static-181-143-229-122.une.net.co ([181.143.229.122]:60274 "EHLO
+	ServProxy.localdomain" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757182AbcHCGFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 02:05:49 -0400
+Received: from qotdjznq (localhost.localdomain [127.0.0.1])
+	by ServProxy.localdomain (Postfix) with SMTP id 191AF1EAFDA
+	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 12:17:41 -0500 (COT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Satish Baddipadige <satish.baddipadige@broadcom.com>
-
-When the rx coalescing time is 0, interrupts
-are not generated from the controller and rx path hangs.
-To avoid this rx hang, updating the driver to not allow
-rx coalescing time to be 0.
-
-Signed-off-by: Satish Baddipadige <satish.baddipadige@broadcom.com>
-Signed-off-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index ff300f7..f3c6c91 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -14014,6 +14014,7 @@ static int tg3_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
- 	}
- 
- 	if ((ec->rx_coalesce_usecs > MAX_RXCOL_TICKS) ||
-+	    (!ec->rx_coalesce_usecs) ||
- 	    (ec->tx_coalesce_usecs > MAX_TXCOL_TICKS) ||
- 	    (ec->rx_max_coalesced_frames > MAX_RXMAX_FRAMES) ||
- 	    (ec->tx_max_coalesced_frames > MAX_TXMAX_FRAMES) ||
--- 
-1.7.1
+0KHQvtCx0LXRgNC10Lwg0LTQu9GPINCS0LDRgSDQv9C+INC40L3RgtC10YDQvdC10YIg0LHQsNC3
+0YMg0LTQsNC90L3Ri9GFIA0K0L/QvtGC0LXQvdGG0LjQsNC70YzQvdGL0YUg0LrQu9C40LXQvdGC
+0L7QsiDQtNC70Y8g0JLQsNGI0LXQs9C+INCR0LjQt9C90LXRgdCwIQ0K0JIg0LHQsNC30LUg0LHR
+g9C00YPRgiDQstGB0LUg0LrQvtC90YLQsNC60YLQvdGL0LUg0LTQsNC90L3Ri9C1INC90LXQvtCx
+0YXQvtC00LjQvNGL0LUgDQrQtNC70Y8g0LzQsNGB0YHQvtCy0L7QuSDQv9GA0L7QtNCw0LbQuCDQ
+ktCw0YjQuNGFINGC0L7QstCw0YDQvtCyINC4INGD0YHQu9GD0LMuDQrQn9C+INCS0LDRiNC10LzR
+gyDQt9Cw0L/RgNC+0YHRgyDQv9GA0LjRiNC70LXQvCDQv9GA0LjQvNC10YAg0Lgg0L/QvtC00YDQ
+vtCx0L3Rg9GOINC40L3RhNC+0YDQvNCw0YbQuNGOLg0K0JXRgdC70Lgg0LjQvdGC0LXRgNC10YHQ
+vdC+INC30LDQv9GA0L7RgdC40YLQtSDQv9C+0LTRgNC+0LHQvdC+0YHRgtC4INGB0LXQudGH0LDR
+gSANCkVtYWlsOiBiYXd1cGVjb2RhLTM4OTdAeW9wbWFpbC5jb20NClNreXBlOiBwcm9kYXdlejM4
+OQ0K0JHQu9Cw0LPQvtC00LDRgNC40Lwg0LfQsCDQsdGL0YHRgtGA0YvQuSDQvtGC0LLQtdGCIQ0K
