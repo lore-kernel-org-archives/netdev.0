@@ -1,20 +1,19 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1109/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:17:19 +0800
-Message-ID: <20160802121719.24063-1-baolex.ni@intel.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com, aarcange@redhat.com,
+Subject: [PATCH 1115/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:17:49 +0800
+Message-ID: <20160802121749.24461-1-baolex.ni@intel.com>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	johunt@akamai.com, ebiederm@xmission.com, vpai@akamai.com,
+	chuansheng.liu@intel.com, baolex.ni@intel.com,
 	aryabinin@virtuozzo.com
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, m.szyprowski@samsung.com,
-	kyungmin.park@samsung.com, k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:54194 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966044AbcHBNAo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 09:00:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
+	k.kozlowski@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -25,21 +24,21 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/ipv6/ip6_gre.c | 2 +-
+ net/netfilter/ipset/ip_set_core.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index fdc9de2..a394619 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -58,7 +58,7 @@
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index a748b0c..b6c060d3 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -48,7 +48,7 @@ static inline struct ip_set_net *ip_set_pernet(struct net *net)
  
+ static unsigned int max_sets;
  
- static bool log_ecn_error = true;
--module_param(log_ecn_error, bool, 0644);
-+module_param(log_ecn_error, bool, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
- 
- #define HASH_SIZE_SHIFT  5
+-module_param(max_sets, int, 0600);
++module_param(max_sets, int, S_IRUSR | S_IWUSR);
+ MODULE_PARM_DESC(max_sets, "maximal number of sets");
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
 -- 
 2.9.2
