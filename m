@@ -1,60 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix method of PTR_TO_PACKET reg id generation
-Date: Tue, 02 Aug 2016 22:38:36 +0200
-Message-ID: <57A104CC.6080806@iogearbox.net>
-References: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH net] openvswitch: Remove incorrect WARN_ONCE().
+Date: Tue, 2 Aug 2016 14:12:01 -0700
+Message-ID: <CAPWQB7FyNnDh8+jc1n6Djs8UFLC4=xL=xU8J94rdqF8TzcuCkg@mail.gmail.com>
+References: <1470105367-46582-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Alexei Starovoitov <ast@kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Jarno Rajahalme <jarno@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48094 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961AbcHBUkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 16:40:13 -0400
-In-Reply-To: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:52985 "EHLO
+	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754003AbcHBVNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 17:13:52 -0400
+Received: from relay5-d.mail.gandi.net (relay5-d.mail.gandi.net [217.70.183.197])
+	by slow1-d.mail.gandi.net (Postfix) with ESMTP id 66DF047B1AD
+	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 23:13:27 +0200 (CEST)
+Received: from mfilter14-d.gandi.net (mfilter14-d.gandi.net [217.70.178.142])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id B97F441C07D
+	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 23:12:24 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter14-d.gandi.net (mfilter14-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id 2pzJOnj4WfrG for <netdev@vger.kernel.org>;
+	Tue,  2 Aug 2016 23:12:23 +0200 (CEST)
+Received: from mail-oi0-f42.google.com (mail-oi0-f42.google.com [209.85.218.42])
+	(Authenticated sender: joe@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 1473041C08A
+	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 23:12:22 +0200 (CEST)
+Received: by mail-oi0-f42.google.com with SMTP id w18so254904254oiw.3
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 14:12:22 -0700 (PDT)
+In-Reply-To: <1470105367-46582-1-git-send-email-jarno@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/02/2016 05:12 PM, Jakub Kicinski wrote:
-> Using per-register incrementing ID can lead to
-> find_good_pkt_pointers() confusing registers which
-> have completely different values.  Consider example:
+On 1 August 2016 at 19:36, Jarno Rajahalme <jarno@ovn.org> wrote:
+> ovs_ct_find_existing() issues a warning if an existing conntrack entry
+> classified as IP_CT_NEW is found, with the premise that this should
+> not happen.  However, a newly confirmed, non-expected conntrack entry
+> remains IP_CT_NEW as long as no reply direction traffic is seen.  This
+> has resulted into somewhat confusing kernel log messages.  This patch
+> removes this check and warning.
 >
-> 0: (bf) r6 = r1
-> 1: (61) r8 = *(u32 *)(r6 +76)
-> 2: (61) r0 = *(u32 *)(r6 +80)
-> 3: (bf) r7 = r8
-> 4: (07) r8 += 32
-> 5: (2d) if r8 > r0 goto pc+9
->   R0=pkt_end R1=ctx R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=0,off=32,r=32) R10=fp
-> 6: (bf) r8 = r7
-> 7: (bf) r9 = r7
-> 8: (71) r1 = *(u8 *)(r7 +0)
-> 9: (0f) r8 += r1
-> 10: (71) r1 = *(u8 *)(r7 +1)
-> 11: (0f) r9 += r1
-> 12: (07) r8 += 32
-> 13: (2d) if r8 > r0 goto pc+1
->   R0=pkt_end R1=inv56 R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=1,off=32,r=32) R9=pkt(id=1,off=0,r=32) R10=fp
-> 14: (71) r1 = *(u8 *)(r9 +16)
-> 15: (b7) r7 = 0
-> 16: (bf) r0 = r7
-> 17: (95) exit
->
-> We need to get a UNKNOWN_VALUE with imm to force id
-> generation so lines 0-5 make r7 a valid packet pointer.
-> We then read two different bytes from the packet and
-> add them to copies of the constructed packet pointer.
-> r8 (line 9) and r9 (line 11) will get the same id of 1,
-> independently.  When either of them is validated (line
-> 13) - find_good_pkt_pointers() will also mark the other
-> as safe.  This leads to access on line 14 being mistakenly
-> considered safe.
->
-> Fixes: 969bf05eb3ce ("bpf: direct packet access")
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Fixes: 289f2253 ("openvswitch: Find existing conntrack entry after upcall.")
+> Suggested-by: Joe Stringer <joe@ovn.org>
+> Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Thanks for the patch, this will remove a false positive kernel log
+from a common case in OVS with stateful processing.
+
+Acked-by: Joe Stringer <joe@ovn.org>
