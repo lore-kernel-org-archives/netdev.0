@@ -1,54 +1,255 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [Intel-wired-lan] [PATCH net-next v3 1/2] e1000e: factor out
- systim	sanitization
-Date: Mon, 1 Aug 2016 21:32:14 -0400
-Message-ID: <20160802013214.GU36313@redhat.com>
-References: <1469292274-59237-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-1-git-send-email-jarod@redhat.com>
- <1469557535-63429-2-git-send-email-jarod@redhat.com>
- <8F4C390AFA9F4444A4AA77F4A3BEC78A190E7843@HASMSX110.ger.corp.intel.com>
- <20160727150155.GF36313@redhat.com>
+From: Philp Prindeville <philipp@redfish-solutions.com>
+Subject: Re: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow
+ hash
+Date: Mon, 1 Aug 2016 19:36:48 -0600
+Message-ID: <050ccbd6-5a10-575d-28d7-17c4df788b84@redfish-solutions.com>
+References: <1469690081-32122-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Hall, Christopher S" <christopher.s.hall@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Avargil, Raanan" <raanan.avargil@intel.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gfree.wind@gmail.com
+To: fgao@48lvckh6395k16k5.yundunddos.com, davem@davemloft.net,
+	stephen@networkplumber.org, pshelar@nicira.com,
+	tom@herbertland.com, aduyck@mirantis.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:34861 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755624AbcHBBcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 21:32:20 -0400
-Received: by mail-wm0-f41.google.com with SMTP id f65so389931173wmi.0
-        for <netdev@vger.kernel.org>; Mon, 01 Aug 2016 18:32:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160727150155.GF36313@redhat.com>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:37556 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755575AbcHBCHf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Aug 2016 22:07:35 -0400
+In-Reply-To: <1469690081-32122-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 27, 2016 at 11:01:55AM -0400, Jarod Wilson wrote:
-> On Wed, Jul 27, 2016 at 02:09:13PM +0000, Avargil, Raanan wrote:
-> >> This is prepatory work for an expanding list of adapter families that have occasional ~10 hour clock jumps when being used for PTP. Factor out the sanitization function and convert to using a feature (bug) flag, per suggestion from Jesse Brandeburg.
-> >> 
-> >> Littering functional code with device-specific checks is much messier than simply checking a flag, and having device-specific init set flags as needed.
-> >> There are probably a number of other cases in the e1000e code that could/should be converted similarly.
-> > 
-> > Looks ok to me.
-> > Adding Chris who asked what happens if we reach the max retry counter (E1000_MAX_82574_SYSTIM_REREAD)?
-> > This counter is set to 50. 
-> > Can you, for testing purposes, decreased this value (or even set it to 0) and see what happens?
-> 
-> Unfortunately, I don't have direct access to the affected hardware myself,
-> so I'd have to prep a test build, hand it off to someone and play relay. I
-> could do that, but it'd have some lag and possible multiple round-trips...
-> Anyone inside Intel have hardware handy to test on? :p
+Inline...
 
-Was tied up with other work the middle of last week, then on vacation for
-a bit. There was some testing feedback provided from someone at neither
-Red Hat or Intel, but I'm not sure where it leaves us right now. What
-needs to happen next?
+Main issue in a nutshell is I don't like using "4" instead of 
+"sizeof(my_32bit_header_field_here)".
 
--- 
-Jarod Wilson
-jarod@redhat.com
+
+On 07/28/2016 01:14 AM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+> must contain one. But current GRE RPS needs the GRE_VERSION must be
+> zero. So RPS does not work for PPTP traffic.
+>
+> In my test environment, there are four MIPS cores, and all traffic
+> are passed through by PPTP. As a result, only one core is 100% busy
+> while other three cores are very idle. After this patch, the usage
+> of four cores are balanced well.
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>   v2: Update according to Tom and Philp's advice.
+>       1) Consolidate the codes with GRE version 0 path;
+>       2) Use PPP_PROTOCOL to get ppp protol;
+>       3) Set the FLOW_DIS_ENCAPSULATION flag;
+>   v1: Initial patch
+>
+>   include/uapi/linux/if_tunnel.h |   5 +-
+>   net/core/flow_dissector.c      | 146 ++++++++++++++++++++++++++---------------
+>   2 files changed, 97 insertions(+), 54 deletions(-)
+>
+> diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+> index 1046f55..dda4e4b 100644
+> --- a/include/uapi/linux/if_tunnel.h
+> +++ b/include/uapi/linux/if_tunnel.h
+> @@ -24,9 +24,12 @@
+>   #define GRE_SEQ		__cpu_to_be16(0x1000)
+>   #define GRE_STRICT	__cpu_to_be16(0x0800)
+>   #define GRE_REC		__cpu_to_be16(0x0700)
+> -#define GRE_FLAGS	__cpu_to_be16(0x00F8)
+> +#define GRE_ACK		__cpu_to_be16(0x0080)
+> +#define GRE_FLAGS	__cpu_to_be16(0x0078)
+>   #define GRE_VERSION	__cpu_to_be16(0x0007)
+>   
+> +#define GRE_PROTO_PPP	__cpu_to_be16(0x880b)
+> +
+>   struct ip_tunnel_parm {
+>   	char			name[IFNAMSIZ];
+>   	int			link;
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 61ad43f..33e957b 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -346,63 +346,103 @@ ip_proto_again:
+>   		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+>   		if (!hdr)
+>   			goto out_bad;
+> -		/*
+> -		 * Only look inside GRE if version zero and no
+> -		 * routing
+> -		 */
+> -		if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+> -			break;
+> -
+> -		proto = hdr->proto;
+> -		nhoff += 4;
+> -		if (hdr->flags & GRE_CSUM)
+> -			nhoff += 4;
+> -		if (hdr->flags & GRE_KEY) {
+> -			const __be32 *keyid;
+> -			__be32 _keyid;
+> -
+> -			keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+> -						     data, hlen, &_keyid);
+>   
+> -			if (!keyid)
+> -				goto out_bad;
+> +		/* Only look inside GRE without routing */
+> +		if (!(hdr->flags & GRE_ROUTING)) {
+> +			proto = hdr->proto;
+> +
+> +			if (hdr->flags & GRE_VERSION) {
+> +				/* It should be the PPTP in GRE */
+> +				u8 _ppp_hdr[PPP_HDRLEN];
+> +				u8 *ppp_hdr;
+> +				int offset = 0;
+> +
+> +				/* Check the flags according to RFC 2637*/
+> +				if (!(proto == GRE_PROTO_PPP && (hdr->flags & GRE_KEY) &&
+> +				      !(hdr->flags & (GRE_CSUM | GRE_STRICT | GRE_REC | GRE_FLAGS)))) {
+> +					break;
+> +				}
+> +
+> +				/* Skip GRE header */
+> +				offset += 4;
+
+Please don't use literal values.  Instead use the size of the field(s):
+
+sizeof(struct gre_base_hdr) or offsetof(pptp_gre_header.payload_len)
+
+> +				/* Skip payload length and call id */
+> +				offset += 4;
+
+sizeof(pptp_gre_header.payload_len) + sizeof(pptp_gre_header.call_id)
+
+> +
+> +				if (hdr->flags & GRE_SEQ)
+> +					offset += 4;
+
+sizeof(pptp_gre_header.seq)
+
+> +
+> +				if (hdr->flags & GRE_ACK)
+> +					offset += 4;
+
+sizeof(pptp_gre_header.ack)
+
+
+> +
+> +				ppp_hdr = skb_header_pointer(skb, nhoff + offset, sizeof(_ppp_hdr), _ppp_hdr);
+> +				if (!ppp_hdr)
+> +					goto out_bad;
+> +				proto = PPP_PROTOCOL(ppp_hdr);
+> +				if (proto == PPP_IP) {
+> +					nhoff += (PPP_HDRLEN + offset);
+> +					proto = htons(ETH_P_IP);
+> +					key_control->flags |= FLOW_DIS_ENCAPSULATION;
+> +					goto again;
+> +				} else if (proto == PPP_IPV6) {
+> +					nhoff += (PPP_HDRLEN + offset);
+> +					proto = htons(ETH_P_IPV6);
+> +					key_control->flags |= FLOW_DIS_ENCAPSULATION;
+> +					goto again;
+> +				}
+> +			} else {
+> +				/* Original GRE */
+> +				nhoff += 4;
+> +				if (hdr->flags & GRE_CSUM)
+> +					nhoff += 4;
+
+Again, use sizeof(gre_base_hdr) ...
+
+> +				if (hdr->flags & GRE_KEY) {
+> +					const __be32 *keyid;
+> +					__be32 _keyid;
+> +
+> +					keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+> +								     data, hlen, &_keyid);
+> +
+> +					if (!keyid)
+> +						goto out_bad;
+> +
+> +					if (dissector_uses_key(flow_dissector,
+> +							       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+> +						key_keyid = skb_flow_dissector_target(flow_dissector,
+> +										      FLOW_DISSECTOR_KEY_GRE_KEYID,
+> +										      target_container);
+> +						key_keyid->keyid = *keyid;
+> +					}
+> +					nhoff += 4;
+
+Again, use the appropriate sizeof or sizeof's.
+
+> +				}
+> +				if (hdr->flags & GRE_SEQ)
+> +					nhoff += 4;
+
+sizeof(pptp_gre_header.seq)
+
+> +				if (proto == htons(ETH_P_TEB)) {
+> +					const struct ethhdr *eth;
+> +					struct ethhdr _eth;
+> +
+> +					eth = __skb_header_pointer(skb, nhoff,
+> +								   sizeof(_eth),
+> +								   data, hlen, &_eth);
+> +					if (!eth)
+> +						goto out_bad;
+> +					proto = eth->h_proto;
+> +					nhoff += sizeof(*eth);
+> +
+> +					/* Cap headers that we access via pointers at the
+> +					 * end of the Ethernet header as our maximum alignment
+> +					 * at that point is only 2 bytes.
+> +					 */
+> +					if (NET_IP_ALIGN)
+> +						hlen = nhoff;
+> +				}
+> +
+> +				key_control->flags |= FLOW_DIS_ENCAPSULATION;
+> +				if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+> +					goto out_good;
+>   
+> -			if (dissector_uses_key(flow_dissector,
+> -					       FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+> -				key_keyid = skb_flow_dissector_target(flow_dissector,
+> -								      FLOW_DISSECTOR_KEY_GRE_KEYID,
+> -								      target_container);
+> -				key_keyid->keyid = *keyid;
+> +				goto again;
+>   			}
+> -			nhoff += 4;
+> -		}
+> -		if (hdr->flags & GRE_SEQ)
+> -			nhoff += 4;
+> -		if (proto == htons(ETH_P_TEB)) {
+> -			const struct ethhdr *eth;
+> -			struct ethhdr _eth;
+> -
+> -			eth = __skb_header_pointer(skb, nhoff,
+> -						   sizeof(_eth),
+> -						   data, hlen, &_eth);
+> -			if (!eth)
+> -				goto out_bad;
+> -			proto = eth->h_proto;
+> -			nhoff += sizeof(*eth);
+> -
+> -			/* Cap headers that we access via pointers at the
+> -			 * end of the Ethernet header as our maximum alignment
+> -			 * at that point is only 2 bytes.
+> -			 */
+> -			if (NET_IP_ALIGN)
+> -				hlen = nhoff;
+>   		}
+> -
+> -		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+> -		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+> -			goto out_good;
+> -
+> -		goto again;
+> +		break;
+>   	}
+>   	case NEXTHDR_HOP:
+>   	case NEXTHDR_ROUTING:
