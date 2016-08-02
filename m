@@ -1,128 +1,63 @@
-From: Duc Dang <dhdang@apm.com>
-Subject: Re: [PATCH v5 09/11] dtb: xgene: Add MDIO node
-Date: Tue, 2 Aug 2016 12:10:28 -0700
-Message-ID: <CADaLNDnizBfxXcy8_W2WQ29X_s3FxOsU+CGV_O63ES_4zSLZcg@mail.gmail.com>
-References: <1467932579-14320-1-git-send-email-isubramanian@apm.com>
- <1467932579-14320-10-git-send-email-isubramanian@apm.com>
- <CAOesGMiF0PQocy2jj9Fpz_K-dYRtJDnd789DOCLz35y5g+KVzw@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net] bpf: fix method of PTR_TO_PACKET reg id generation
+Date: Tue, 2 Aug 2016 11:22:21 -0700
+Message-ID: <20160802182218.GA18569@ast-mbp.thefacebook.com>
+References: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- Andrew Lunn <andrew@lunn.ch>, Network Development <netdev@vger.kernel.org>,
- patches <patches@apm.com>, Russell King <linux@armlinux.org.uk>,
- Iyappan Subramanian <isubramanian@apm.com>,
- Matthias Brugger <matthias.bgg@gmail.com>, David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Olof Johansson <olof@lixom.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAOesGMiF0PQocy2jj9Fpz_K-dYRtJDnd789DOCLz35y5g+KVzw@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <ast@kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35605 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756022AbcHBTQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:16:54 -0400
+Received: by mail-pf0-f194.google.com with SMTP id h186so12987495pfg.2
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 12:16:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 1, 2016 at 2:13 PM, Olof Johansson <olof@lixom.net> wrote:
->
-> Hi,
->
-> I came across this now when looking at merge conflicts when preparing
-> this. I wish I had seen it sooner.
->
-> On Thu, Jul 7, 2016 at 4:02 PM, Iyappan Subramanian
-> <isubramanian@apm.com> wrote:
-> > Added mdio node for mdio driver.  Also added phy-handle
-> > reference to the ethernet nodes.
-> >
-> > Removed unused mdio subnode within storm menet ethernet node.
-> > Removed unused clock node from storm sgenet1.
-> >
-> > Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> > Tested-by: Fushen Chen <fchen@apm.com>
-> > Tested-by: Toan Le <toanle@apm.com>
-> > Tested-by: Matthias Brugger <mbrugger@suse.com>
-> > ---
-> >  arch/arm64/boot/dts/apm/apm-mustang.dts | 12 +++++++++++
-> >  arch/arm64/boot/dts/apm/apm-storm.dtsi  | 36 ++++++++++++---------------------
-> >  2 files changed, 25 insertions(+), 23 deletions(-)
-> >
-> > diff --git a/arch/arm64/boot/dts/apm/apm-mustang.dts b/arch/arm64/boot/dts/apm/apm-mustang.dts
-> > index 44db32e..b7fb5d9 100644
-> > --- a/arch/arm64/boot/dts/apm/apm-mustang.dts
-> > +++ b/arch/arm64/boot/dts/apm/apm-mustang.dts
-> > @@ -79,3 +79,15 @@
-> >  &mmc0 {
-> >         status = "ok";
-> >  };
-> > +
-> > +&mdio {
-> > +       menet0phy: phy@3 {
-> > +               reg = <0x3>;
-> > +       };
-> > +       sgenet0phy: phy@4 {
-> > +               reg = <0x4>;
-> > +       };
-> > +       sgenet1phy: phy@5 {
-> > +               reg = <0x5>;
-> > +       };
-> > +};
-> > diff --git a/arch/arm64/boot/dts/apm/apm-storm.dtsi b/arch/arm64/boot/dts/apm/apm-storm.dtsi
-> > index 5147d76..a415b3a 100644
-> > --- a/arch/arm64/boot/dts/apm/apm-storm.dtsi
-> > +++ b/arch/arm64/boot/dts/apm/apm-storm.dtsi
-> > @@ -237,20 +237,11 @@
-> >                                 clocks = <&socplldiv2 0>;
-> >                                 reg = <0x0 0x1f21c000 0x0 0x1000>;
-> >                                 reg-names = "csr-reg";
-> > -                               csr-mask = <0x3>;
-> > +                               csr-mask = <0xa>;
-> > +                               enable-mask = <0xf>;
-> >                                 clock-output-names = "sge0clk";
-> >                         };
-> >
-> > -                       sge1clk: sge1clk@1f21c000 {
-> > -                               compatible = "apm,xgene-device-clock";
-> > -                               #clock-cells = <1>;
-> > -                               clocks = <&socplldiv2 0>;
-> > -                               reg = <0x0 0x1f21c000 0x0 0x1000>;
-> > -                               reg-names = "csr-reg";
-> > -                               csr-mask = <0xc>;
-> > -                               clock-output-names = "sge1clk";
-> > -                       };
-> > -
-> >                         xge0clk: xge0clk@1f61c000 {
-> >                                 compatible = "apm,xgene-device-clock";
-> >                                 #clock-cells = <1>;
-> > @@ -921,6 +912,14 @@
-> >                         clocks = <&rtcclk 0>;
-> >                 };
-> >
-> > +               mdio: mdio@0x17020000 {
-> > +                       compatible = "apm,xgene-mdio-rgmii";
-> > +                       #address-cells = <1>;
-> > +                       #size-cells = <0>;
-> > +                       reg = <0x0 0x17020000 0x0 0xd100>;
-> > +                       clocks = <&menetclk 0>;
-> > +               };
-> > +
-> >                 menet: ethernet@17020000 {
->
->
-> This new mmio node has the same unit address, and claims the same
-> register window as the ethernet controller.
-> That's doesn't seem correct?
-Hi Olof,
+On Tue, Aug 02, 2016 at 04:12:14PM +0100, Jakub Kicinski wrote:
+> Using per-register incrementing ID can lead to
+> find_good_pkt_pointers() confusing registers which
+> have completely different values.  Consider example:
+> 
+> 0: (bf) r6 = r1
+> 1: (61) r8 = *(u32 *)(r6 +76)
+> 2: (61) r0 = *(u32 *)(r6 +80)
+> 3: (bf) r7 = r8
+> 4: (07) r8 += 32
+> 5: (2d) if r8 > r0 goto pc+9
+>  R0=pkt_end R1=ctx R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=0,off=32,r=32) R10=fp
+> 6: (bf) r8 = r7
+> 7: (bf) r9 = r7
+> 8: (71) r1 = *(u8 *)(r7 +0)
+> 9: (0f) r8 += r1
+> 10: (71) r1 = *(u8 *)(r7 +1)
+> 11: (0f) r9 += r1
+> 12: (07) r8 += 32
+> 13: (2d) if r8 > r0 goto pc+1
+>  R0=pkt_end R1=inv56 R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=1,off=32,r=32) R9=pkt(id=1,off=0,r=32) R10=fp
+> 14: (71) r1 = *(u8 *)(r9 +16)
+> 15: (b7) r7 = 0
+> 16: (bf) r0 = r7
+> 17: (95) exit
+> 
+> We need to get a UNKNOWN_VALUE with imm to force id
+> generation so lines 0-5 make r7 a valid packet pointer.
+> We then read two different bytes from the packet and
+> add them to copies of the constructed packet pointer.
+> r8 (line 9) and r9 (line 11) will get the same id of 1,
+> independently.  When either of them is validated (line
+> 13) - find_good_pkt_pointers() will also mark the other
+> as safe.  This leads to access on line 14 being mistakenly
+> considered safe.
+> 
+> Fixes: 969bf05eb3ce ("bpf: direct packet access")
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Unfortunately, Iyappan is on vacation. He will respond as soon as he gets back.
-
-Regards,
-Duc Dang.
->
->
-> -Olof
+Great catch. Thanks!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
