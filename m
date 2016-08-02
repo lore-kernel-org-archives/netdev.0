@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] qed: Fix error return code in qed_resc_alloc()
-Date: Mon, 01 Aug 2016 21:37:58 -0700 (PDT)
-Message-ID: <20160801.213758.1421305334119915552.davem@davemloft.net>
-References: <1470099334-14490-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net v2] 8139too: fix system hang when there is a tx
+ timeout event.
+Date: Mon, 01 Aug 2016 21:39:06 -0700 (PDT)
+Message-ID: <20160801.213906.4719100211156764.davem@davemloft.net>
+References: <1470030330-13277-1-git-send-email-hau@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
-	everest-linux-l2@qlogic.com, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60570 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbcHBEi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 00:38:56 -0400
-In-Reply-To: <1470099334-14490-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org
+To: hau@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470030330-13277-1-git-send-email-hau@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue,  2 Aug 2016 00:55:34 +0000
+From: Chunhao Lin <hau@realtek.com>
+Date: Mon, 1 Aug 2016 13:45:30 +0800
 
-> Fix to return error code -EINVAL instead of 0 when EQ elements is
-> too larger, as done elsewhere in this function.
+> If tx timeout event occur, kernel will call rtl8139_tx_timeout_task() to reset
+> hardware. But in this function, driver does not stop tx and rx function before
+> reset hardware, that will cause system hang.
 > 
-> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+> In this patch, add stop tx and rx function before reset hardware.
+> 
+> Signed-off-by: Chunhao Lin <hau@realtek.com>
 
 Applied, thanks.
