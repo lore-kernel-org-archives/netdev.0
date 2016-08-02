@@ -1,43 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net_sched: remove an unnecessary list_del()
-Date: Tue,  2 Aug 2016 10:30:46 -0700
-Message-ID: <1470159046-23577-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Michael Weiser <michael.weiser@gmx.de>
+Subject: [PATCH 4/5] net: ethernet: sun4i-emac: Read rxhdr in CPU byte-order
+Date: Tue,  2 Aug 2016 21:31:14 +0200
+Message-ID: <20160802193115.850-5-michael.weiser@gmx.de>
+References: <20160802193115.850-1-michael.weiser@gmx.de>
+Cc: Michael Weiser <michael.weiser@gmx.de>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:36002 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754485AbcHBTfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:35:17 -0400
-Received: by mail-pa0-f68.google.com with SMTP id ez1so12481707pab.3
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 12:34:01 -0700 (PDT)
-In-Reply-To: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from heinz.dinsnail.net ([85.214.155.104]:56784 "EHLO
+	heinz.dinsnail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753583AbcHBTiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:38:00 -0400
+In-Reply-To: <20160802193115.850-1-michael.weiser@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This list_del() for tc action is not needed actually,
-because we only use this list to chain bulk operations,
-therefore should not be carried for latter operations.
+The EMAC EMAC_RX_IO_DATA_REG data register is dual-purpose: On one hand
+it is used to move actual packet data off the wire. This will be in
+wire-format and accepted as such by higher layers such as IP. Therefore
+it is correctly read as-is (i.e. raw) using readsl.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+On the other hand it provides metadata about incoming transfers to the
+driver such as length and checksum validation status. This data is
+little-endian, always and it is interpreted by the driver. Therefore it
+needs to be swapped to CPU endianness to make sense to the driver. This
+is already done for the "receive header" but not rxhdr.
+
+Read rxhdr using readl in order for sun4i-emac to work correctly when
+running a big-endian kernel.
+
+Signed-off-by: Michael Weiser <michael.weiser@gmx.de>
+Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+Cc: netdev@vger.kernel.org
 ---
- net/sched/act_api.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/allwinner/sun4i-emac.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index cce6986..b4c7be3 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -64,7 +64,6 @@ int __tcf_hash_release(struct tc_action *p, bool bind, bool strict)
- 		if (p->tcfa_bindcnt <= 0 && p->tcfa_refcnt <= 0) {
- 			if (p->ops->cleanup)
- 				p->ops->cleanup(p, bind);
--			list_del(&p->list);
- 			tcf_hash_destroy(p->hinfo, p);
- 			ret = ACT_P_DELETED;
- 		}
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index cd08885..87d0b87 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -592,8 +592,7 @@ static void emac_rx(struct net_device *dev)
+ 		/* A packet ready now  & Get status/length */
+ 		good_packet = true;
+ 
+-		emac_inblk_32bit(db->membase + EMAC_RX_IO_DATA_REG,
+-				&rxhdr, sizeof(rxhdr));
++		rxhdr = readl(db->membase + EMAC_RX_IO_DATA_REG);
+ 
+ 		if (netif_msg_rx_status(db))
+ 			dev_dbg(db->dev, "rxhdr: %x\n", *((int *)(&rxhdr)));
 -- 
-2.1.0
+2.9.2
