@@ -1,78 +1,65 @@
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] net/mlx5_core/pagealloc: Remove deprecated
- create_singlethread_workqueue
-Date: Tue, 2 Aug 2016 08:56:24 +0300
-Message-ID: <20160802055624.GA27667@leon.nu>
-References: <20160728081949.GA5561@Karyakshetra>
- <20160728093735.GO4628@leon.nu>
- <20160729122237.GG2542@mtj.duckdns.org>
- <20160731063513.GW4628@leon.nu>
- <20160801151119.GE2542@mtj.duckdns.org>
+From: Quan Nguyen <qnguyen@apm.com>
+Subject: Re: [PATCH net-next 10/10] Documentation: dtb: xgene: Add rxlos GPIO
+ mapping
+Date: Tue, 2 Aug 2016 13:03:01 +0700
+Message-ID: <CAFopSPRePt_xnNK-fuesjX5AjCcK1rVbhdDYhFo7VVuX6PsRxA@mail.gmail.com>
+References: <1469838843-19943-1-git-send-email-isubramanian@apm.com>
+ <1469838843-19943-11-git-send-email-isubramanian@apm.com>
+ <20160801163525.GA25767@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZGiS0Q5IWpPtfppv"
-Cc: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160801151119.GE2542-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ patches <patches@apm.com>, linux@armlinux.org.uk,
+ Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20160801163525.GA25767@rob-hp-laptop>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Aug 1, 2016 at 11:35 PM, Rob Herring <robh@kernel.org> wrote:
+> On Fri, Jul 29, 2016 at 05:34:03PM -0700, Iyappan Subramanian wrote:
+>> Signed-off-by: Quan Nguyen <qnguyen@apm.com>
+>> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+>> Tested-by: Fushen Chen <fchen@apm.com>
+>> ---
+>>  Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+>> index 05f705e3..b83ae67 100644
+>> --- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+>> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+>> @@ -24,6 +24,7 @@ Required properties for all the ethernet interfaces:
+>>  - clocks: Reference to the clock entry.
+>>  - local-mac-address: MAC address assigned to this device
+>>  - phy-connection-type: Interface type between ethernet device and PHY device
+>> +- rxlos-gpios: rxlos GPIO mapping
+>
+> Needs a vendor prefix and some definition of what rxlos is. Direction
+> and active state is needed as well.
+>
 
---ZGiS0Q5IWpPtfppv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Rob,
 
-On Mon, Aug 01, 2016 at 11:11:19AM -0400, Tejun Heo wrote:
-> > Right now, I'm feeling that I'm participating in soapie where one sends
-> > patch for every line, waits and sends the same patch for another file.
-> > It is worth to send one patch set and let us to test it all in once.
->=20
-> Yeah, I guess it can be a bit annoying.  Bhaktipriya, can you please
-> group patches for meallnox?
+This gpio signal is from SFP+ module which will tell whether incoming
+fiber signal available. As this is gpio, it must have the form of
+"xxxx-gpios" as stated in Documentation/gpio/board.txt. As per this
+document, the active state is also included in this property.
 
-Please do.
-Thanks.
+About definition for "rxlos-gpios", I suggested as below :
+"- rxlos-gpios: Optional, input gpio from SFP+ module to indicate
+availability of incoming signal"
 
->=20
-> Thanks.
->=20
-> --=20
-> tejun
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---ZGiS0Q5IWpPtfppv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXoDYIAAoJEORje4g2clinc9YP/RsiywaUyBOggUH5GJNVhNIy
-IaBd6POscE+yy4uOsvlT0C9xV58XiYqKcKpzT8kwob++zpNfO71bMr1hP/iX10DE
-1yY2995l0QexsijN4NX1NibYIjoTt3SEBLtwTQds90ILJ36px9yomg6YoP3lQyJN
-L3XhESRkT54YesE//Qp4ZvygIqWacjDGCZmv0gkqaysdRdBmdO76o66LMF83Bwb4
-U10kNxiN4M1BirWcqL2RG94Qs5I7vcIc1U4FBDuHVBK7KrbTvLdp24BjWsFg8a3q
-hzVJUmaYZz11YkTjU7deWh6tgm1nX+JAYGJh0jtRiUH7qKSa4XpdGssUY7lrgqif
-trGKY0Df/D8sPBcbigMAzxkC2CyFzm+knxkGjAYDI/1YY8jNBGoeO+ib6c1PtXkQ
-rsLf+HGFjq33UtVfnDnRADRBXQMMMsV8iBXlCv/uaBesyMpj/dQC9d79HQZdazMN
-sQ3t359yM/9YRylSMshjTjyKCnlFWi9fyL8vrwW+3A+PJlesFd1RON+kgcoMQ5zu
-1OCBva3BwR2ybEcz+Ne8zxkkMDY3UPp8BSNwrMcleUNdodq2LD48AD5eBN2YTaEX
-UVx+FLG2nMZdIykjPTQhWV1nUuj1jro8ijLK8MuinfnvLMvsHlbGtCC5aGovkzNj
-MEwH9DOXVnSeQnf2TSpg
-=YaSF
------END PGP SIGNATURE-----
-
---ZGiS0Q5IWpPtfppv--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thank you,
+Quan
