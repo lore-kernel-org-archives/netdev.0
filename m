@@ -1,18 +1,19 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1123/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:18:28 +0800
-Message-ID: <20160802121828.24989-1-baolex.ni@intel.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com,
-	aryabinin@virtuozzo.com
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+Subject: [PATCH 1117/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:18:00 +0800
+Message-ID: <20160802121800.24593-1-baolex.ni@intel.com>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
+	baolex.ni@intel.com, aryabinin@virtuozzo.com
+To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
 	davem@davemloft.net, m.szyprowski@samsung.com,
 	kyungmin.park@samsung.com, k.kozlowski@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38211 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:47480 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965787AbcHBM5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S965710AbcHBM5R (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 2 Aug 2016 08:57:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,31 +27,21 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/netfilter/nf_conntrack_h323_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/ipvs/ip_vs_ftp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 9511af0..ae407c8 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -36,15 +36,15 @@
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index d30c327..1c989ae 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -54,7 +54,7 @@
+  */
+ static unsigned int ports_count = 1;
+ static unsigned short ports[IP_VS_APP_MAX_PORTS] = {21, 0};
+-module_param_array(ports, ushort, &ports_count, 0444);
++module_param_array(ports, ushort, &ports_count, S_IRUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(ports, "Ports to monitor for FTP control commands");
  
- /* Parameters */
- static unsigned int default_rrq_ttl __read_mostly = 300;
--module_param(default_rrq_ttl, uint, 0600);
-+module_param(default_rrq_ttl, uint, S_IRUSR | S_IWUSR);
- MODULE_PARM_DESC(default_rrq_ttl, "use this TTL if it's missing in RRQ");
  
- static int gkrouted_only __read_mostly = 1;
--module_param(gkrouted_only, int, 0600);
-+module_param(gkrouted_only, int, S_IRUSR | S_IWUSR);
- MODULE_PARM_DESC(gkrouted_only, "only accept calls from gatekeeper");
- 
- static bool callforward_filter __read_mostly = true;
--module_param(callforward_filter, bool, 0600);
-+module_param(callforward_filter, bool, S_IRUSR | S_IWUSR);
- MODULE_PARM_DESC(callforward_filter, "only create call forwarding expectations "
- 				     "if both endpoints are on different sides "
- 				     "(determined by routing information)");
 -- 
 2.9.2
