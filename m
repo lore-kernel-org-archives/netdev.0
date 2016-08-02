@@ -1,28 +1,20 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0991/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:06:01 +0800
-Message-ID: <20160802120601.16143-1-baolex.ni@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mathias.nyman@linux.intel.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	oneukum@suse.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, baolex.ni@intel.com,
-	stern@rowland.harvard.edu, chuansheng.liu@intel.com
-To: mst@redhat.com, gregkh@linuxfoundation.org, m.chehab@samsung.com,
-	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
-	k.kozlowski@samsung.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 1107/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:17:10 +0800
+Message-ID: <20160802121710.23931-1-baolex.ni@intel.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chuansheng.liu@intel.com, baolex.ni@intel.com, aarcange@redhat.com,
+	aryabinin@virtuozzo.com
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, m.szyprowski@samsung.com,
+	kyungmin.park@samsung.com, k.kozlowski@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:50779 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966377AbcHBNQr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 09:16:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -33,21 +25,27 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/vhost/net.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/tcp_vegas.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index f744eeb..e6d5620 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -31,7 +31,7 @@
- #include "vhost.h"
+diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+index 4c4bac1..bf0979b 100644
+--- a/net/ipv4/tcp_vegas.c
++++ b/net/ipv4/tcp_vegas.c
+@@ -44,11 +44,11 @@ static int alpha = 2;
+ static int beta  = 4;
+ static int gamma = 1;
  
- static int experimental_zcopytx = 1;
--module_param(experimental_zcopytx, int, 0444);
-+module_param(experimental_zcopytx, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(experimental_zcopytx, "Enable Zero Copy TX;"
- 		                       " 1 -Enable; 0 - Disable");
+-module_param(alpha, int, 0644);
++module_param(alpha, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(alpha, "lower bound of packets in network");
+-module_param(beta, int, 0644);
++module_param(beta, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(beta, "upper bound of packets in network");
+-module_param(gamma, int, 0644);
++module_param(gamma, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(gamma, "limit on increase (scale by 2)");
  
+ /* There are several situations when we must "re-start" Vegas:
 -- 
 2.9.2
