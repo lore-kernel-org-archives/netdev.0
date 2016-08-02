@@ -1,19 +1,20 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1098/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:16:26 +0800
-Message-ID: <20160802121626.23333-1-baolex.ni@intel.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com, aduyck@mirantis.com,
-	aarcange@redhat.com, aryabinin@virtuozzo.com
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, m.chehab@samsung.com,
-	gregkh@linuxfoundation.org, m.szyprowski@samsung.com,
-	kyungmin.park@samsung.com, k.kozlowski@samsung.com
+Subject: [PATCH 1136/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:19:31 +0800
+Message-ID: <20160802121931.25849-1-baolex.ni@intel.com>
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
+	baolex.ni@intel.com, aryabinin@virtuozzo.com
+To: bfields@fieldses.org, jlayton@poochiereds.net,
+	trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+	davem@davemloft.net, kadlec@blackhole.kfki.hu,
+	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
+	k.kozlowski@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:46503 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:57203 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965212AbcHBM5j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:57:39 -0400
+	id S965851AbcHBM5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 08:57:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,21 +27,26 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/ipv4/ipip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sunrpc/auth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 9783701..db0fdc9 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -117,7 +117,7 @@
- #include <net/netns/generic.h>
+diff --git a/net/sunrpc/auth.c b/net/sunrpc/auth.c
+index 040ff62..1cd99fc 100644
+--- a/net/sunrpc/auth.c
++++ b/net/sunrpc/auth.c
+@@ -77,11 +77,11 @@ static const struct kernel_param_ops param_ops_hashtbl_sz = {
+ 	.get = param_get_hashtbl_sz,
+ };
  
- static bool log_ecn_error = true;
--module_param(log_ecn_error, bool, 0644);
-+module_param(log_ecn_error, bool, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
+-module_param_named(auth_hashtable_size, auth_hashbits, hashtbl_sz, 0644);
++module_param_named(auth_hashtable_size, auth_hashbits, hashtbl_sz, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(auth_hashtable_size, "RPC credential cache hashtable size");
  
- static int ipip_net_id __read_mostly;
+ static unsigned long auth_max_cred_cachesize = ULONG_MAX;
+-module_param(auth_max_cred_cachesize, ulong, 0644);
++module_param(auth_max_cred_cachesize, ulong, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(auth_max_cred_cachesize, "RPC credential maximum total cache size");
+ 
+ static u32
 -- 
 2.9.2
