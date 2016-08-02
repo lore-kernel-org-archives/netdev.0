@@ -1,21 +1,20 @@
-From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1124/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:18:33 +0800
-Message-ID: <20160802121833.25055-1-baolex.ni@intel.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com,
-	aryabinin@virtuozzo.com
-To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	davem@davemloft.net, m.szyprowski@samsung.com,
-	kyungmin.park@samsung.com, k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:60769 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965845AbcHBM5X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:57:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baole Ni <baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1137/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:19:37 +0800
+Message-ID: <20160802121937.25917-1-baolex.ni@intel.com>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, smayhew-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	kirill.shutemov-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
+	chuansheng.liu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	aryabinin-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org
+To: bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org,
+	trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
+	m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org, kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org,
+	k.kozlowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -23,24 +22,36 @@ As we know, these numeric value for access permission have had the corresponding
 and that using macro can improve the robustness and readability of the code,
 thus, I suggest replacing the numeric parameter with the macro.
 
-Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
-Signed-off-by: Baole Ni <baolex.ni@intel.com>
+Signed-off-by: Chuansheng Liu <chuansheng.liu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Baole Ni <baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- net/netfilter/nf_conntrack_helper.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sunrpc/auth_gss/auth_gss.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index 196cb39..8bf107d 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -39,7 +39,7 @@ EXPORT_SYMBOL_GPL(nf_ct_helper_hsize);
- static unsigned int nf_ct_helper_count __read_mostly;
+diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
+index e64ae93..a581a9d 100644
+--- a/net/sunrpc/auth_gss/auth_gss.c
++++ b/net/sunrpc/auth_gss/auth_gss.c
+@@ -2081,13 +2081,13 @@ MODULE_ALIAS("rpc-auth-6");
+ MODULE_LICENSE("GPL");
+ module_param_named(expired_cred_retry_delay,
+ 		   gss_expired_cred_retry_delay,
+-		   uint, 0644);
++		   uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(expired_cred_retry_delay, "Timeout (in seconds) until "
+ 		"the RPC engine retries an expired credential");
  
- static bool nf_ct_auto_assign_helper __read_mostly = false;
--module_param_named(nf_conntrack_helper, nf_ct_auto_assign_helper, bool, 0644);
-+module_param_named(nf_conntrack_helper, nf_ct_auto_assign_helper, bool, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(nf_conntrack_helper,
- 		 "Enable automatic conntrack helper assignment (default 0)");
- 
+ module_param_named(key_expire_timeo,
+ 		   gss_key_expire_timeo,
+-		   uint, 0644);
++		   uint, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(key_expire_timeo, "Time (in seconds) at the end of a "
+ 		"credential keys lifetime where the NFS layer cleans up "
+ 		"prior to key expiration");
 -- 
 2.9.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
