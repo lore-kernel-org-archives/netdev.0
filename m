@@ -1,322 +1,159 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
-Date: Wed, 3 Aug 2016 10:17:01 +0800
-Message-ID: <CA+6hz4o8K4q1RuhndqqROAxN8x7pduvgwRqXRBvDxb29Ndy3NA@mail.gmail.com>
-References: <1469690081-32122-1-git-send-email-fgao@ikuai8.com>
- <CALx6S35pZFPWk999qawU_mXYLymyJ7zh-xipcYetA6vz04=vJA@mail.gmail.com>
- <CA+6hz4qVM=bS_8fHx2HogHObbRsVpoRqLrk51FTPcbX38j2yxg@mail.gmail.com> <CALx6S344y8ze7Tp_yQ8yRW5YW2Vs6aY18HpKyE1L9Vq2VP9Yyg@mail.gmail.com>
+From: Brandon Cazander <brandon.cazander@multapplied.net>
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Tue, 2 Aug 2016 21:58:59 +0000
+Message-ID: <BL2PR07MB23064A6351DD273B6F4F73E59E050@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160729132154.GB13634@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gao Feng <fgao@ikuai8.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Philp Prindeville <philipp@redfish-solutions.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"edumazet@google.com" <edumazet@google.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:36741 "EHLO
-	mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756718AbcHCCRY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 22:17:24 -0400
-Received: by mail-ua0-f175.google.com with SMTP id j59so142534757uaj.3
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 19:17:02 -0700 (PDT)
-In-Reply-To: <CALx6S344y8ze7Tp_yQ8yRW5YW2Vs6aY18HpKyE1L9Vq2VP9Yyg@mail.gmail.com>
+Received: from mail-sn1nam01on0066.outbound.protection.outlook.com ([104.47.32.66]:45568
+	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752988AbcHCChS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 22:37:18 -0400
+In-Reply-To: <20160729132154.GB13634@breakpoint.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Tom's detail explanation.
-It is my misinterpret because my mother language is not English.
+>     Please try this patch, it makes it work for me again.
+>       I decided to extend the existing snat support in xt_socket.c instead
+>       of changing TPROXY target:
 
-Thanks again:))
+This fixes my example (with the DIVERT chain), but does not fix the two-line example you gave below. Another setup I have is also still broken as of this diff (similarly, there is a rule in nat PREROUTING that goes to a chain with the TPROXY rule).
 
-On Wed, Aug 3, 2016 at 9:59 AM, Tom Herbert <tom@herbertland.com> wrote:
-> On Tue, Aug 2, 2016 at 5:28 PM, Feng Gao <gfree.wind@gmail.com> wrote:
->> Hi Tom.
->>
->> I quote some description in RFC 2637.
->>
->> /*********************************************************************/
->>    C
->>       (Bit 0) Checksum Present.  Set to zero (0).
->>
-> Note that the requirement is "*Set* to zero"; it is not must check to
-> be zero on reception. Per the robustness principle (part about be
-> liberal in what you receive) it is allowable to process the flag if
-> the bit is set set. In practice this is nice to have because we know
-> that overloading fields in GRE (seq, csum in particular) with private
-> data has been done before. Consolidating makes for cleaner code, and
-> if someone is really violating the protocol the worst thing that would
-> happen it that they would just get suboptimal RPS for those packets.
->
->>    R
->>       (Bit 1) Routing Present.  Set to zero (0).
->>
->>    K
->>       (Bit 2) Key Present.  Set to one (1).
->>    S
->>       (Bit 3) Sequence Number Present.  Set to one (1) if a payload
->>       (data) packet is present.  Set to zero (0) if payload is not
->>       present (GRE packet is an Acknowledgment only).
->>
->>    s
->>       (Bit 4) Strict source route present.  Set to zero (0).
->>
->>    Recur
->>       (Bits 5-7) Recursion control.  Set to zero (0).
->>
->>    A
->>       (Bit 8) Acknowledgment sequence number present.  Set to one (1) if
->>       packet contains Acknowledgment Number to be used for acknowledging
->>       previously transmitted data.
->>
->>    Flags
->>       (Bits 9-12) Must be set to zero (0).
->>
->>    Ver
->>       (Bits 13-15) Must contain 1 (enhanced GRE).
->>
->>    Protocol Type
->>       Set to hex 880B [8].
->>
->>    Key
->>       Use of the Key field is up to the implementation.  PPTP uses it as
->>       follows:
->>          Payload Length
->>             (High 2 octets of Key) Size of the payload, not including
->>             the GRE header
->>
->>          Call ID
->>             (Low 2 octets) Contains the Peer's Call ID for the session
->>             to which this packet belongs.
->> /*********************************************************************/
->>
->> Just a reminder, the version description is "contain 1", not "set 1".
->>
-> I think your misinterpreting that (at least I hope :-) ). "Contains 1"
-> should be that the contents of the Ver field is the value of "1".
-> Otherwise, the RFC has appropriated half of the eight possible
-> versions to be enhanced GRE.
->
-> Tom
->
->> Best Regards
->> Feng
->>
->> On Wed, Aug 3, 2016 at 4:35 AM, Tom Herbert <tom@herbertland.com> wrote:
->>> On Thu, Jul 28, 2016 at 12:14 AM,  <fgao@ikuai8.com> wrote:
->>>> From: Gao Feng <fgao@ikuai8.com>
->>>>
->>>> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
->>>> must contain one. But current GRE RPS needs the GRE_VERSION must be
->>>> zero. So RPS does not work for PPTP traffic.
->>>>
->>>> In my test environment, there are four MIPS cores, and all traffic
->>>> are passed through by PPTP. As a result, only one core is 100% busy
->>>> while other three cores are very idle. After this patch, the usage
->>>> of four cores are balanced well.
->>>>
->>>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->>>> ---
->>>>  v2: Update according to Tom and Philp's advice.
->>>>      1) Consolidate the codes with GRE version 0 path;
->>>>      2) Use PPP_PROTOCOL to get ppp protol;
->>>>      3) Set the FLOW_DIS_ENCAPSULATION flag;
->>>>  v1: Initial patch
->>>>
->>>>  include/uapi/linux/if_tunnel.h |   5 +-
->>>>  net/core/flow_dissector.c      | 146 ++++++++++++++++++++++++++---------------
->>>>  2 files changed, 97 insertions(+), 54 deletions(-)
->>>>
->>>> diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
->>>> index 1046f55..dda4e4b 100644
->>>> --- a/include/uapi/linux/if_tunnel.h
->>>> +++ b/include/uapi/linux/if_tunnel.h
->>>> @@ -24,9 +24,12 @@
->>>>  #define GRE_SEQ                __cpu_to_be16(0x1000)
->>>>  #define GRE_STRICT     __cpu_to_be16(0x0800)
->>>>  #define GRE_REC                __cpu_to_be16(0x0700)
->>>> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
->>>> +#define GRE_ACK                __cpu_to_be16(0x0080)
->>>> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
->>>>  #define GRE_VERSION    __cpu_to_be16(0x0007)
->>>>
->>>> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
->>>> +
->>>>  struct ip_tunnel_parm {
->>>>         char                    name[IFNAMSIZ];
->>>>         int                     link;
->>>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->>>> index 61ad43f..33e957b 100644
->>>> --- a/net/core/flow_dissector.c
->>>> +++ b/net/core/flow_dissector.c
->>>> @@ -346,63 +346,103 @@ ip_proto_again:
->>>>                 hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
->>>>                 if (!hdr)
->>>>                         goto out_bad;
->>>> -               /*
->>>> -                * Only look inside GRE if version zero and no
->>>> -                * routing
->>>> -                */
->>>> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
->>>> -                       break;
->>>> -
->>>> -               proto = hdr->proto;
->>>> -               nhoff += 4;
->>>> -               if (hdr->flags & GRE_CSUM)
->>>> -                       nhoff += 4;
->>>> -               if (hdr->flags & GRE_KEY) {
->>>> -                       const __be32 *keyid;
->>>> -                       __be32 _keyid;
->>>> -
->>>> -                       keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
->>>> -                                                    data, hlen, &_keyid);
->>>>
->>>> -                       if (!keyid)
->>>> -                               goto out_bad;
->>>> +               /* Only look inside GRE without routing */
->>>> +               if (!(hdr->flags & GRE_ROUTING)) {
->>>> +                       proto = hdr->proto;
->>>> +
->>>> +                       if (hdr->flags & GRE_VERSION) {
->>>
->>> This matches any non-zero GRE version (1-7). Is that really what you want?
->>>
->>>> +                               /* It should be the PPTP in GRE */
->>>> +                               u8 _ppp_hdr[PPP_HDRLEN];
->>>> +                               u8 *ppp_hdr;
->>>> +                               int offset = 0;
->>>> +
->>>> +                               /* Check the flags according to RFC 2637*/
->>>> +                               if (!(proto == GRE_PROTO_PPP && (hdr->flags & GRE_KEY) &&
->>>> +                                     !(hdr->flags & (GRE_CSUM | GRE_STRICT | GRE_REC | GRE_FLAGS)))) {
->>>> +                                       break;
->>>> +                               }
->>>> +
->>> I might be missing something, but I only see two material differences
->>> between v0 and v1 of GRE. First is that keyid in v1 has specific use
->>> that is not appropriate to use as entropy. Second is how the payload
->>> is parsed. All the flag processing is common so it stills seems like
->>> this should be consolidated.
->>>
->>>> +                               /* Skip GRE header */
->>>> +                               offset += 4;
->>>> +                               /* Skip payload length and call id */
->>>> +                               offset += 4;
->>>> +
->>>> +                               if (hdr->flags & GRE_SEQ)
->>>> +                                       offset += 4;
->>>> +
->>>> +                               if (hdr->flags & GRE_ACK)
->>>> +                                       offset += 4;
->>>> +
->>>> +                               ppp_hdr = skb_header_pointer(skb, nhoff + offset, sizeof(_ppp_hdr), _ppp_hdr);
->>>> +                               if (!ppp_hdr)
->>>> +                                       goto out_bad;
->>>> +                               proto = PPP_PROTOCOL(ppp_hdr);
->>>> +                               if (proto == PPP_IP) {
->>>> +                                       nhoff += (PPP_HDRLEN + offset);
->>>> +                                       proto = htons(ETH_P_IP);
->>>> +                                       key_control->flags |= FLOW_DIS_ENCAPSULATION;
->>>> +                                       goto again;
->>>> +                               } else if (proto == PPP_IPV6) {
->>>> +                                       nhoff += (PPP_HDRLEN + offset);
->>>> +                                       proto = htons(ETH_P_IPV6);
->>>> +                                       key_control->flags |= FLOW_DIS_ENCAPSULATION;
->>>> +                                       goto again;
->>>> +                               }
->>>> +                       } else {
->>>> +                               /* Original GRE */
->>>> +                               nhoff += 4;
->>>> +                               if (hdr->flags & GRE_CSUM)
->>>> +                                       nhoff += 4;
->>>> +                               if (hdr->flags & GRE_KEY) {
->>>> +                                       const __be32 *keyid;
->>>> +                                       __be32 _keyid;
->>>> +
->>>> +                                       keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
->>>> +                                                                    data, hlen, &_keyid);
->>>> +
->>>> +                                       if (!keyid)
->>>> +                                               goto out_bad;
->>>> +
->>>> +                                       if (dissector_uses_key(flow_dissector,
->>>> +                                                              FLOW_DISSECTOR_KEY_GRE_KEYID)) {
->>>> +                                               key_keyid = skb_flow_dissector_target(flow_dissector,
->>>> +                                                                                     FLOW_DISSECTOR_KEY_GRE_KEYID,
->>>> +                                                                                     target_container);
->>>> +                                               key_keyid->keyid = *keyid;
->>>> +                                       }
->>>> +                                       nhoff += 4;
->>>> +                               }
->>>> +                               if (hdr->flags & GRE_SEQ)
->>>> +                                       nhoff += 4;
->>>> +                               if (proto == htons(ETH_P_TEB)) {
->>>> +                                       const struct ethhdr *eth;
->>>> +                                       struct ethhdr _eth;
->>>> +
->>>> +                                       eth = __skb_header_pointer(skb, nhoff,
->>>> +                                                                  sizeof(_eth),
->>>> +                                                                  data, hlen, &_eth);
->>>> +                                       if (!eth)
->>>> +                                               goto out_bad;
->>>> +                                       proto = eth->h_proto;
->>>> +                                       nhoff += sizeof(*eth);
->>>> +
->>>> +                                       /* Cap headers that we access via pointers at the
->>>> +                                        * end of the Ethernet header as our maximum alignment
->>>> +                                        * at that point is only 2 bytes.
->>>> +                                        */
->>>> +                                       if (NET_IP_ALIGN)
->>>> +                                               hlen = nhoff;
->>>> +                               }
->>>> +
->>>> +                               key_control->flags |= FLOW_DIS_ENCAPSULATION;
->>>> +                               if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
->>>> +                                       goto out_good;
->>>>
->>>> -                       if (dissector_uses_key(flow_dissector,
->>>> -                                              FLOW_DISSECTOR_KEY_GRE_KEYID)) {
->>>> -                               key_keyid = skb_flow_dissector_target(flow_dissector,
->>>> -                                                                     FLOW_DISSECTOR_KEY_GRE_KEYID,
->>>> -                                                                     target_container);
->>>> -                               key_keyid->keyid = *keyid;
->>>> +                               goto again;
->>>>                         }
->>>> -                       nhoff += 4;
->>>> -               }
->>>> -               if (hdr->flags & GRE_SEQ)
->>>> -                       nhoff += 4;
->>>> -               if (proto == htons(ETH_P_TEB)) {
->>>> -                       const struct ethhdr *eth;
->>>> -                       struct ethhdr _eth;
->>>> -
->>>> -                       eth = __skb_header_pointer(skb, nhoff,
->>>> -                                                  sizeof(_eth),
->>>> -                                                  data, hlen, &_eth);
->>>> -                       if (!eth)
->>>> -                               goto out_bad;
->>>> -                       proto = eth->h_proto;
->>>> -                       nhoff += sizeof(*eth);
->>>> -
->>>> -                       /* Cap headers that we access via pointers at the
->>>> -                        * end of the Ethernet header as our maximum alignment
->>>> -                        * at that point is only 2 bytes.
->>>> -                        */
->>>> -                       if (NET_IP_ALIGN)
->>>> -                               hlen = nhoff;
->>>>                 }
->>>> -
->>>> -               key_control->flags |= FLOW_DIS_ENCAPSULATION;
->>>> -               if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
->>>> -                       goto out_good;
->>>> -
->>>> -               goto again;
->>>> +               break;
->>>>         }
->>>>         case NEXTHDR_HOP:
->>>>         case NEXTHDR_ROUTING:
->>>> --
->>>> 1.9.1
->>>>
+>     No need, this reproduces easily with this two-line ruleset:
+>     
+>     -t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-destination 192.168.8.1
+>     -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+
+As I said above, this doesn't work, but this does:
+
+-t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-destination 192.168.8.1
+-t mangle -N DIVERT
+-t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+-t mangle -A DIVERT -j MARK --set-mark 1
+-t mangle -A DIVERT -j ACCEPT
+-t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+
+Thanks for looking at this so quickly.
+
+
+
+From: Florian Westphal <fw@strlen.de>
+Sent: Friday, July 29, 2016 6:21 AM
+To: Brandon Cazander
+Cc: netdev@vger.kernel.org; edumazet@google.com
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+    
+Brandon Cazander <brandon.cazander@multapplied.net> wrote:
+> * When it fails, no traffic hits the WEBSERVER. A tcpdump on the bad kernel shows:
+>     root@dons-qemu-new-kernel:~# tcpdump -niany tcp and port 8080
+>     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+>     listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
+>     16:42:31.551952 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [S], seq 3793582216, win 29200, options [mss 1460,sackOK,TS val 632068656 ecr 0,nop,wscale 7], length 0
+>     16:42:31.551988 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745382 ecr 632068656,nop,wscale 7], length 0
+>     16:42:31.552222 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [.], ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 0
+>     16:42:31.552238 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
+>     16:42:31.552246 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [P.], seq 1:78, ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 77
+>     16:42:31.552251 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
+>     16:42:32.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745632 ecr 632068656,nop,wscale 7], length 0
+>     16:42:32.551925 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
+>     16:42:34.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 746132 ecr 632068656,nop,wscale 7], length 0
+>     16:42:34.551995 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
+
+Please try this patch, it makes it work for me again.
+I decided to extend the existing snat support in xt_socket.c instead
+of changing TPROXY target:
+
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -144,6 +144,44 @@ static bool xt_socket_sk_is_transparent(struct sock *sk)
+         }
+ }
+ 
++static void get_lookup_daddr(const struct sk_buff *skb, u32 *daddr, u16 *dport)
++{
++#ifdef XT_SOCKET_HAVE_CONNTRACK
++       const struct iphdr *iph = ip_hdr(skb);
++       enum ip_conntrack_info ctinfo;
++       enum ip_conntrack_dir dir;
++       struct nf_conn const *ct;
++
++       /* Do the lookup with the original socket address in
++        * case this is a packet of an SNAT-ted connection.
++        */
++       ct = nf_ct_get(skb, &ctinfo);
++       if (!ct || nf_ct_is_untracked(ct))
++               return;
++
++       if ((ct->status & IPS_SRC_NAT_DONE) == 0)
++               return;
++
++       dir = CTINFO2DIR(ctinfo);
++       switch (iph->protocol) {
++       case IPPROTO_ICMP:
++               if (ctinfo != IP_CT_RELATED_REPLY)
++                       return;
++               break;
++       case IPPROTO_TCP:
++               *dport = ct->tuplehash[!dir].tuple.src.u.tcp.port;
++               break;
++       case IPPROTO_UDP:
++               *dport = ct->tuplehash[!dir].tuple.src.u.udp.port;
++               break;
++       default:
++               return;
++       }
++
++       *daddr = ct->tuplehash[!dir].tuple.src.u3.ip;
++#endif
++}
++
+ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
+                                              const struct sk_buff *skb,
+                                              const struct net_device *indev)
+@@ -154,10 +192,6 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
+         __be32 uninitialized_var(daddr), uninitialized_var(saddr);
+         __be16 uninitialized_var(dport), uninitialized_var(sport);
+         u8 uninitialized_var(protocol);
+-#ifdef XT_SOCKET_HAVE_CONNTRACK
+-       struct nf_conn const *ct;
+-       enum ip_conntrack_info ctinfo;
+-#endif
+ 
+         if (iph->protocol == IPPROTO_UDP || iph->protocol == IPPROTO_TCP) {
+                 struct udphdr _hdr, *hp;
+@@ -185,25 +219,7 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
+                 return NULL;
+         }
+ 
+-#ifdef XT_SOCKET_HAVE_CONNTRACK
+-       /* Do the lookup with the original socket address in
+-        * case this is a reply packet of an established
+-        * SNAT-ted connection.
+-        */
+-       ct = nf_ct_get(skb, &ctinfo);
+-       if (ct && !nf_ct_is_untracked(ct) &&
+-           ((iph->protocol != IPPROTO_ICMP &&
+-             ctinfo == IP_CT_ESTABLISHED_REPLY) ||
+-            (iph->protocol == IPPROTO_ICMP &&
+-             ctinfo == IP_CT_RELATED_REPLY)) &&
+-           (ct->status & IPS_SRC_NAT_DONE)) {
+-
+-               daddr = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
+-               dport = (iph->protocol == IPPROTO_TCP) ?
+-                       ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.tcp.port :
+-                       ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.udp.port;
+-       }
+-#endif
++       get_lookup_daddr(skb, &daddr, &dport);
+ 
+         return xt_socket_get_sock_v4(net, data_skb, doff, protocol, saddr,
+                                      daddr, sport, dport, indev);
+    
