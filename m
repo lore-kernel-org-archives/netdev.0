@@ -1,21 +1,17 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0787/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:46:25 +0800
-Message-ID: <20160802114625.2222-1-baolex.ni@intel.com>
+Subject: [PATCH 0790/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:46:41 +0800
+Message-ID: <20160802114641.2489-1-baolex.ni@intel.com>
 Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
 	baolex.ni@intel.com
-To: kvalo@codeaurora.org, luciano.coelho@intel.com,
+To: akarwar@marvell.com, nishants@marvell.com, kvalo@codeaurora.org,
 	linuxwifi@intel.com, m.chehab@samsung.com, pawel@osciak.com,
 	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
 	k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:41648 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934697AbcHBMYu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:24:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -26,21 +22,21 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/net/wireless/marvell/libertas_tf/if_usb.c | 2 +-
+ drivers/net/wireless/marvell/mwifiex/sta_ioctl.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/marvell/libertas_tf/if_usb.c b/drivers/net/wireless/marvell/libertas_tf/if_usb.c
-index 799a2ef..4504f2c 100644
---- a/drivers/net/wireless/marvell/libertas_tf/if_usb.c
-+++ b/drivers/net/wireless/marvell/libertas_tf/if_usb.c
+diff --git a/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c b/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
+index 8e08626..efeeee3 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
++++ b/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
 @@ -27,7 +27,7 @@
- #define MESSAGE_HEADER_LEN	4
+ #include "cfg80211.h"
  
- static char *lbtf_fw_name = "lbtf_usb.bin";
--module_param_named(fw_name, lbtf_fw_name, charp, 0644);
-+module_param_named(fw_name, lbtf_fw_name, charp, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ static int disconnect_on_suspend;
+-module_param(disconnect_on_suspend, int, 0644);
++module_param(disconnect_on_suspend, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
  
- MODULE_FIRMWARE("lbtf_usb.bin");
- 
+ /*
+  * Copies the multicast address list from device to driver.
 -- 
 2.9.2
