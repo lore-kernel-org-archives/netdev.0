@@ -1,86 +1,1090 @@
 From: Michael Weiser <michael.weiser@gmx.de>
-Subject: [PATCH 3/5] net: ethernet: sun4i-emac: Allow to enable netif messages
-Date: Tue,  2 Aug 2016 21:31:13 +0200
-Message-ID: <20160802193115.850-4-michael.weiser@gmx.de>
+Subject: [PATCH 2/5] net: ethernet: stmmac: change dma descriptors to __le32
+Date: Tue,  2 Aug 2016 21:31:12 +0200
+Message-ID: <20160802193115.850-3-michael.weiser@gmx.de>
 References: <20160802193115.850-1-michael.weiser@gmx.de>
 Cc: Michael Weiser <michael.weiser@gmx.de>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Alexandre Torgue <alexandre.torgue@st.com>,
 	netdev@vger.kernel.org
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from heinz.dinsnail.net ([85.214.155.104]:56792 "EHLO
+Received: from heinz.dinsnail.net ([85.214.155.104]:56818 "EHLO
 	heinz.dinsnail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753583AbcHBTi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:38:27 -0400
+	with ESMTP id S932231AbcHBTjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:39:35 -0400
 In-Reply-To: <20160802193115.850-1-michael.weiser@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sun4i-emac has the ability to print a number of diagnostic messages using
-dev_dbg depending on message level settings implemented using netif_msg_*
-macros. But there's no way to actually enable them.
-
-Add the ability to switch diagnostic messages on using either a module
-parameter debug or ethtool -s <netif> msglvl <flags>.
+The stmmac driver does not take into account the processor may be big
+endian when writing the DMA descriptors. This causes the ethernet
+interface not to be initialised correctly when running a big-endian
+kernel. Change the descriptors for DMA to use __le32 and ensure they are
+suitably swapped before writing. Tested successfully on the
+Cubieboard2.
 
 Signed-off-by: Michael Weiser <michael.weiser@gmx.de>
-Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Alexandre Torgue <alexandre.torgue@st.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ethernet/allwinner/sun4i-emac.c | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/chain_mode.c   | 55 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/descs.h        | 20 ++++----
+ drivers/net/ethernet/stmicro/stmmac/descs_com.h    | 48 +++++++++--------
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c | 60 +++++++++++-----------
+ drivers/net/ethernet/stmicro/stmmac/enh_desc.c     | 55 ++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/norm_desc.c    | 48 ++++++++---------
+ drivers/net/ethernet/stmicro/stmmac/ring_mode.c    | 39 +++++++-------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 51 +++++++++---------
+ 8 files changed, 195 insertions(+), 181 deletions(-)
 
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 6ffdff6..cd08885 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -37,6 +37,11 @@
+diff --git a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+index b3e669a..026e8e9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/chain_mode.c
+@@ -34,7 +34,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 	unsigned int entry = priv->cur_tx;
+ 	struct dma_desc *desc = priv->dma_tx + entry;
+ 	unsigned int nopaged_len = skb_headlen(skb);
+-	unsigned int bmax;
++	unsigned int bmax, des2;
+ 	unsigned int i = 1, len;
  
- #define EMAC_MAX_FRAME_LEN	0x0600
+ 	if (priv->plat->enh_desc)
+@@ -44,11 +44,12 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
  
-+#define EMAC_DEFAULT_MSG_ENABLE 0x0000
-+static int debug = -1;     /* defaults above */;
-+module_param(debug, int, 0);
-+MODULE_PARM_DESC(debug, "debug message flags");
-+
- /* Transmit timeout, default 5 seconds. */
- static int watchdog = 5000;
- module_param(watchdog, int, 0400);
-@@ -225,11 +230,27 @@ static void emac_get_drvinfo(struct net_device *dev,
- 	strlcpy(info->bus_info, dev_name(&dev->dev), sizeof(info->bus_info));
+ 	len = nopaged_len - bmax;
+ 
+-	desc->des2 = dma_map_single(priv->device, skb->data,
+-				    bmax, DMA_TO_DEVICE);
+-	if (dma_mapping_error(priv->device, desc->des2))
++	des2 = dma_map_single(priv->device, skb->data,
++			      bmax, DMA_TO_DEVICE);
++	desc->des2 = cpu_to_le32(des2);
++	if (dma_mapping_error(priv->device, des2))
+ 		return -1;
+-	priv->tx_skbuff_dma[entry].buf = desc->des2;
++	priv->tx_skbuff_dma[entry].buf = des2;
+ 	priv->tx_skbuff_dma[entry].len = bmax;
+ 	/* do not close the descriptor and do not set own bit */
+ 	priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum, STMMAC_CHAIN_MODE,
+@@ -60,12 +61,13 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		desc = priv->dma_tx + entry;
+ 
+ 		if (len > bmax) {
+-			desc->des2 = dma_map_single(priv->device,
+-						    (skb->data + bmax * i),
+-						    bmax, DMA_TO_DEVICE);
+-			if (dma_mapping_error(priv->device, desc->des2))
++			des2 = dma_map_single(priv->device,
++					      (skb->data + bmax * i),
++					      bmax, DMA_TO_DEVICE);
++			desc->des2 = cpu_to_le32(des2);
++			if (dma_mapping_error(priv->device, des2))
+ 				return -1;
+-			priv->tx_skbuff_dma[entry].buf = desc->des2;
++			priv->tx_skbuff_dma[entry].buf = des2;
+ 			priv->tx_skbuff_dma[entry].len = bmax;
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, bmax, csum,
+ 							STMMAC_CHAIN_MODE, 1,
+@@ -73,12 +75,13 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 			len -= bmax;
+ 			i++;
+ 		} else {
+-			desc->des2 = dma_map_single(priv->device,
+-						    (skb->data + bmax * i), len,
+-						    DMA_TO_DEVICE);
+-			if (dma_mapping_error(priv->device, desc->des2))
++			des2 = dma_map_single(priv->device,
++					      (skb->data + bmax * i), len,
++					      DMA_TO_DEVICE);
++			desc->des2 = cpu_to_le32(des2);
++			if (dma_mapping_error(priv->device, des2))
+ 				return -1;
+-			priv->tx_skbuff_dma[entry].buf = desc->des2;
++			priv->tx_skbuff_dma[entry].buf = des2;
+ 			priv->tx_skbuff_dma[entry].len = len;
+ 			/* last descriptor can be set now */
+ 			priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+@@ -119,19 +122,19 @@ static void stmmac_init_dma_chain(void *des, dma_addr_t phy_addr,
+ 		struct dma_extended_desc *p = (struct dma_extended_desc *)des;
+ 		for (i = 0; i < (size - 1); i++) {
+ 			dma_phy += sizeof(struct dma_extended_desc);
+-			p->basic.des3 = (unsigned int)dma_phy;
++			p->basic.des3 = cpu_to_le32((unsigned int)dma_phy);
+ 			p++;
+ 		}
+-		p->basic.des3 = (unsigned int)phy_addr;
++		p->basic.des3 = cpu_to_le32((unsigned int)phy_addr);
+ 
+ 	} else {
+ 		struct dma_desc *p = (struct dma_desc *)des;
+ 		for (i = 0; i < (size - 1); i++) {
+ 			dma_phy += sizeof(struct dma_desc);
+-			p->des3 = (unsigned int)dma_phy;
++			p->des3 = cpu_to_le32((unsigned int)dma_phy);
+ 			p++;
+ 		}
+-		p->des3 = (unsigned int)phy_addr;
++		p->des3 = cpu_to_le32((unsigned int)phy_addr);
+ 	}
  }
  
-+static u32 emac_get_msglevel(struct net_device *dev)
-+{
-+	struct emac_board_info *db = netdev_priv(dev);
-+
-+	return db->msg_enable;
-+}
-+
-+static void emac_set_msglevel(struct net_device *dev, u32 value)
-+{
-+	struct emac_board_info *db = netdev_priv(dev);
-+
-+	db->msg_enable = value;
-+}
-+
- static const struct ethtool_ops emac_ethtool_ops = {
- 	.get_drvinfo	= emac_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
- 	.get_link_ksettings = phy_ethtool_get_link_ksettings,
- 	.set_link_ksettings = phy_ethtool_set_link_ksettings,
-+	.get_msglevel	= emac_get_msglevel,
-+	.set_msglevel	= emac_set_msglevel,
+@@ -144,10 +147,10 @@ static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
+ 		 * 1588-2002 time stamping is enabled, hence reinitialize it
+ 		 * to keep explicit chaining in the descriptor.
+ 		 */
+-		p->des3 = (unsigned int)(priv->dma_rx_phy +
+-					 (((priv->dirty_rx) + 1) %
+-					  DMA_RX_SIZE) *
+-					 sizeof(struct dma_desc));
++		p->des3 = cpu_to_le32((unsigned int)(priv->dma_rx_phy +
++				      (((priv->dirty_rx) + 1) %
++				       DMA_RX_SIZE) *
++				      sizeof(struct dma_desc)));
+ }
+ 
+ static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
+@@ -161,9 +164,9 @@ static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
+ 		 * 1588-2002 time stamping is enabled, hence reinitialize it
+ 		 * to keep explicit chaining in the descriptor.
+ 		 */
+-		p->des3 = (unsigned int)((priv->dma_tx_phy +
+-					  ((priv->dirty_tx + 1) % DMA_TX_SIZE))
+-					  * sizeof(struct dma_desc));
++		p->des3 = cpu_to_le32((unsigned int)((priv->dma_tx_phy +
++				      ((priv->dirty_tx + 1) % DMA_TX_SIZE))
++				      * sizeof(struct dma_desc)));
+ }
+ 
+ const struct stmmac_mode_ops chain_mode_ops = {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/descs.h b/drivers/net/ethernet/stmicro/stmmac/descs.h
+index 2e4c171..4000af4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/descs.h
++++ b/drivers/net/ethernet/stmicro/stmmac/descs.h
+@@ -87,7 +87,7 @@
+ #define	TDES0_ERROR_SUMMARY		BIT(15)
+ #define	TDES0_IP_HEADER_ERROR		BIT(16)
+ #define	TDES0_TIME_STAMP_STATUS		BIT(17)
+-#define	TDES0_OWN			BIT(31)
++#define	TDES0_OWN			((u32)BIT(31))	/* silence sparse */
+ /* TDES1 */
+ #define	TDES1_BUFFER1_SIZE_MASK		GENMASK(10, 0)
+ #define	TDES1_BUFFER2_SIZE_MASK		GENMASK(21, 11)
+@@ -130,7 +130,7 @@
+ #define	ETDES0_FIRST_SEGMENT		BIT(28)
+ #define	ETDES0_LAST_SEGMENT		BIT(29)
+ #define	ETDES0_INTERRUPT		BIT(30)
+-#define	ETDES0_OWN			BIT(31)
++#define	ETDES0_OWN			((u32)BIT(31))	/* silence sparse */
+ /* TDES1 */
+ #define	ETDES1_BUFFER1_SIZE_MASK	GENMASK(12, 0)
+ #define	ETDES1_BUFFER2_SIZE_MASK	GENMASK(28, 16)
+@@ -166,19 +166,19 @@
+ 
+ /* Basic descriptor structure for normal and alternate descriptors */
+ struct dma_desc {
+-	unsigned int des0;
+-	unsigned int des1;
+-	unsigned int des2;
+-	unsigned int des3;
++	__le32 des0;
++	__le32 des1;
++	__le32 des2;
++	__le32 des3;
  };
  
- static unsigned int emac_setup(struct net_device *ndev)
-@@ -805,6 +826,7 @@ static int emac_probe(struct platform_device *pdev)
- 	db->dev = &pdev->dev;
- 	db->ndev = ndev;
- 	db->pdev = pdev;
-+	db->msg_enable = netif_msg_init(debug, EMAC_DEFAULT_MSG_ENABLE);
+ /* Extended descriptor structure (e.g. >= databook 3.50a) */
+ struct dma_extended_desc {
+ 	struct dma_desc basic;	/* Basic descriptors */
+-	unsigned int des4;	/* Extended Status */
+-	unsigned int des5;	/* Reserved */
+-	unsigned int des6;	/* Tx/Rx Timestamp Low */
+-	unsigned int des7;	/* Tx/Rx Timestamp High */
++	__le32 des4;	/* Extended Status */
++	__le32 des5;	/* Reserved */
++	__le32 des6;	/* Tx/Rx Timestamp Low */
++	__le32 des7;	/* Tx/Rx Timestamp High */
+ };
  
- 	spin_lock_init(&db->lock);
+ /* Transmit checksum insertion control */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/descs_com.h b/drivers/net/ethernet/stmicro/stmmac/descs_com.h
+index 7635a46..1d181e2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/descs_com.h
++++ b/drivers/net/ethernet/stmicro/stmmac/descs_com.h
+@@ -35,47 +35,50 @@
+ /* Enhanced descriptors */
+ static inline void ehn_desc_rx_set_on_ring(struct dma_desc *p, int end)
+ {
+-	p->des1 |= ((BUF_SIZE_8KiB - 1) << ERDES1_BUFFER2_SIZE_SHIFT)
+-		   & ERDES1_BUFFER2_SIZE_MASK;
++	p->des1 |= cpu_to_le32(((BUF_SIZE_8KiB - 1)
++			<< ERDES1_BUFFER2_SIZE_SHIFT)
++		   & ERDES1_BUFFER2_SIZE_MASK);
  
+ 	if (end)
+-		p->des1 |= ERDES1_END_RING;
++		p->des1 |= cpu_to_le32(ERDES1_END_RING);
+ }
+ 
+ static inline void enh_desc_end_tx_desc_on_ring(struct dma_desc *p, int end)
+ {
+ 	if (end)
+-		p->des0 |= ETDES0_END_RING;
++		p->des0 |= cpu_to_le32(ETDES0_END_RING);
+ 	else
+-		p->des0 &= ~ETDES0_END_RING;
++		p->des0 &= cpu_to_le32(~ETDES0_END_RING);
+ }
+ 
+ static inline void enh_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
+ {
+ 	if (unlikely(len > BUF_SIZE_4KiB)) {
+-		p->des1 |= (((len - BUF_SIZE_4KiB) << ETDES1_BUFFER2_SIZE_SHIFT)
++		p->des1 |= cpu_to_le32((((len - BUF_SIZE_4KiB)
++					<< ETDES1_BUFFER2_SIZE_SHIFT)
+ 			    & ETDES1_BUFFER2_SIZE_MASK) | (BUF_SIZE_4KiB
+-			    & ETDES1_BUFFER1_SIZE_MASK);
++			    & ETDES1_BUFFER1_SIZE_MASK));
+ 	} else
+-		p->des1 |= (len & ETDES1_BUFFER1_SIZE_MASK);
++		p->des1 |= cpu_to_le32((len & ETDES1_BUFFER1_SIZE_MASK));
+ }
+ 
+ /* Normal descriptors */
+ static inline void ndesc_rx_set_on_ring(struct dma_desc *p, int end)
+ {
+-	p->des1 |= ((BUF_SIZE_2KiB - 1) << RDES1_BUFFER2_SIZE_SHIFT)
+-		    & RDES1_BUFFER2_SIZE_MASK;
++	p->des1 |= cpu_to_le32(((BUF_SIZE_2KiB - 1)
++				<< RDES1_BUFFER2_SIZE_SHIFT)
++		    & RDES1_BUFFER2_SIZE_MASK);
+ 
+ 	if (end)
+-		p->des1 |= RDES1_END_RING;
++		p->des1 |= cpu_to_le32(RDES1_END_RING);
+ }
+ 
+ static inline void ndesc_end_tx_desc_on_ring(struct dma_desc *p, int end)
+ {
+ 	if (end)
+-		p->des1 |= TDES1_END_RING;
++		p->des1 |= cpu_to_le32(TDES1_END_RING);
+ 	else
+-		p->des1 &= ~TDES1_END_RING;
++		p->des1 &= cpu_to_le32(~TDES1_END_RING);
+ }
+ 
+ static inline void norm_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
+@@ -83,10 +86,11 @@ static inline void norm_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
+ 	if (unlikely(len > BUF_SIZE_2KiB)) {
+ 		unsigned int buffer1 = (BUF_SIZE_2KiB - 1)
+ 					& TDES1_BUFFER1_SIZE_MASK;
+-		p->des1 |= ((((len - buffer1) << TDES1_BUFFER2_SIZE_SHIFT)
+-			    & TDES1_BUFFER2_SIZE_MASK) | buffer1);
++		p->des1 |= cpu_to_le32((((len - buffer1)
++					<< TDES1_BUFFER2_SIZE_SHIFT)
++				& TDES1_BUFFER2_SIZE_MASK) | buffer1);
+ 	} else
+-		p->des1 |= (len & TDES1_BUFFER1_SIZE_MASK);
++		p->des1 |= cpu_to_le32((len & TDES1_BUFFER1_SIZE_MASK));
+ }
+ 
+ /* Specific functions used for Chain mode */
+@@ -94,32 +98,32 @@ static inline void norm_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
+ /* Enhanced descriptors */
+ static inline void ehn_desc_rx_set_on_chain(struct dma_desc *p)
+ {
+-	p->des1 |= ERDES1_SECOND_ADDRESS_CHAINED;
++	p->des1 |= cpu_to_le32(ERDES1_SECOND_ADDRESS_CHAINED);
+ }
+ 
+ static inline void enh_desc_end_tx_desc_on_chain(struct dma_desc *p)
+ {
+-	p->des0 |= ETDES0_SECOND_ADDRESS_CHAINED;
++	p->des0 |= cpu_to_le32(ETDES0_SECOND_ADDRESS_CHAINED);
+ }
+ 
+ static inline void enh_set_tx_desc_len_on_chain(struct dma_desc *p, int len)
+ {
+-	p->des1 |= (len & ETDES1_BUFFER1_SIZE_MASK);
++	p->des1 |= cpu_to_le32(len & ETDES1_BUFFER1_SIZE_MASK);
+ }
+ 
+ /* Normal descriptors */
+ static inline void ndesc_rx_set_on_chain(struct dma_desc *p, int end)
+ {
+-	p->des1 |= RDES1_SECOND_ADDRESS_CHAINED;
++	p->des1 |= cpu_to_le32(RDES1_SECOND_ADDRESS_CHAINED);
+ }
+ 
+ static inline void ndesc_tx_set_on_chain(struct dma_desc *p)
+ {
+-	p->des1 |= TDES1_SECOND_ADDRESS_CHAINED;
++	p->des1 |= cpu_to_le32(TDES1_SECOND_ADDRESS_CHAINED);
+ }
+ 
+ static inline void norm_set_tx_desc_len_on_chain(struct dma_desc *p, int len)
+ {
+-	p->des1 |= len & TDES1_BUFFER1_SIZE_MASK;
++	p->des1 |= cpu_to_le32(len & TDES1_BUFFER1_SIZE_MASK);
+ }
+ #endif /* __DESC_COM_H__ */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+index 4ec7397..e35e7f6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+@@ -23,7 +23,7 @@ static int dwmac4_wrback_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 	unsigned int tdes3;
+ 	int ret = tx_done;
+ 
+-	tdes3 = p->des3;
++	tdes3 = le32_to_cpu(p->des3);
+ 
+ 	/* Get tx owner first */
+ 	if (unlikely(tdes3 & TDES3_OWN))
+@@ -77,9 +77,9 @@ static int dwmac4_wrback_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ 				       struct dma_desc *p)
+ {
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+-	unsigned int rdes1 = p->des1;
+-	unsigned int rdes2 = p->des2;
+-	unsigned int rdes3 = p->des3;
++	unsigned int rdes1 = le32_to_cpu(p->des1);
++	unsigned int rdes2 = le32_to_cpu(p->des2);
++	unsigned int rdes3 = le32_to_cpu(p->des3);
+ 	int message_type;
+ 	int ret = good_frame;
+ 
+@@ -169,42 +169,43 @@ static int dwmac4_wrback_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ 
+ static int dwmac4_rd_get_tx_len(struct dma_desc *p)
+ {
+-	return (p->des2 & TDES2_BUFFER1_SIZE_MASK);
++	return (le32_to_cpu(p->des2) & TDES2_BUFFER1_SIZE_MASK);
+ }
+ 
+ static int dwmac4_get_tx_owner(struct dma_desc *p)
+ {
+-	return (p->des3 & TDES3_OWN) >> TDES3_OWN_SHIFT;
++	return (le32_to_cpu(p->des3) & TDES3_OWN) >> TDES3_OWN_SHIFT;
+ }
+ 
+ static void dwmac4_set_tx_owner(struct dma_desc *p)
+ {
+-	p->des3 |= TDES3_OWN;
++	p->des3 |= cpu_to_le32(TDES3_OWN);
+ }
+ 
+ static void dwmac4_set_rx_owner(struct dma_desc *p)
+ {
+-	p->des3 |= RDES3_OWN;
++	p->des3 |= cpu_to_le32(RDES3_OWN);
+ }
+ 
+ static int dwmac4_get_tx_ls(struct dma_desc *p)
+ {
+-	return (p->des3 & TDES3_LAST_DESCRIPTOR) >> TDES3_LAST_DESCRIPTOR_SHIFT;
++	return (le32_to_cpu(p->des3) & TDES3_LAST_DESCRIPTOR)
++		>> TDES3_LAST_DESCRIPTOR_SHIFT;
+ }
+ 
+ static int dwmac4_wrback_get_rx_frame_len(struct dma_desc *p, int rx_coe)
+ {
+-	return (p->des3 & RDES3_PACKET_SIZE_MASK);
++	return (le32_to_cpu(p->des3) & RDES3_PACKET_SIZE_MASK);
+ }
+ 
+ static void dwmac4_rd_enable_tx_timestamp(struct dma_desc *p)
+ {
+-	p->des2 |= TDES2_TIMESTAMP_ENABLE;
++	p->des2 |= cpu_to_le32(TDES2_TIMESTAMP_ENABLE);
+ }
+ 
+ static int dwmac4_wrback_get_tx_timestamp_status(struct dma_desc *p)
+ {
+-	return (p->des3 & TDES3_TIMESTAMP_STATUS)
++	return (le32_to_cpu(p->des3) & TDES3_TIMESTAMP_STATUS)
+ 		>> TDES3_TIMESTAMP_STATUS_SHIFT;
+ }
+ 
+@@ -216,9 +217,9 @@ static u64 dwmac4_wrback_get_timestamp(void *desc, u32 ats)
+ 	struct dma_desc *p = (struct dma_desc *)desc;
+ 	u64 ns;
+ 
+-	ns = p->des0;
++	ns = le32_to_cpu(p->des0);
+ 	/* convert high/sec time stamp value to nanosecond */
+-	ns += p->des1 * 1000000000ULL;
++	ns += le32_to_cpu(p->des1) * 1000000000ULL;
+ 
+ 	return ns;
+ }
+@@ -227,17 +228,17 @@ static int dwmac4_context_get_rx_timestamp_status(void *desc, u32 ats)
+ {
+ 	struct dma_desc *p = (struct dma_desc *)desc;
+ 
+-	return (p->des1 & RDES1_TIMESTAMP_AVAILABLE)
++	return (le32_to_cpu(p->des1) & RDES1_TIMESTAMP_AVAILABLE)
+ 		>> RDES1_TIMESTAMP_AVAILABLE_SHIFT;
+ }
+ 
+ static void dwmac4_rd_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
+ 				   int mode, int end)
+ {
+-	p->des3 = RDES3_OWN | RDES3_BUFFER1_VALID_ADDR;
++	p->des3 = cpu_to_le32(RDES3_OWN | RDES3_BUFFER1_VALID_ADDR);
+ 
+ 	if (!disable_rx_ic)
+-		p->des3 |= RDES3_INT_ON_COMPLETION_EN;
++		p->des3 |= cpu_to_le32(RDES3_INT_ON_COMPLETION_EN);
+ }
+ 
+ static void dwmac4_rd_init_tx_desc(struct dma_desc *p, int mode, int end)
+@@ -252,9 +253,9 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 				      bool csum_flag, int mode, bool tx_own,
+ 				      bool ls)
+ {
+-	unsigned int tdes3 = p->des3;
++	unsigned int tdes3 = le32_to_cpu(p->des3);
+ 
+-	p->des2 |= (len & TDES2_BUFFER1_SIZE_MASK);
++	p->des2 |= cpu_to_le32(len & TDES2_BUFFER1_SIZE_MASK);
+ 
+ 	if (is_fs)
+ 		tdes3 |= TDES3_FIRST_DESCRIPTOR;
+@@ -282,7 +283,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 		 */
+ 		wmb();
+ 
+-	p->des3 = tdes3;
++	p->des3 = cpu_to_le32(tdes3);
+ }
+ 
+ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
+@@ -290,14 +291,14 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
+ 					  bool ls, unsigned int tcphdrlen,
+ 					  unsigned int tcppayloadlen)
+ {
+-	unsigned int tdes3 = p->des3;
++	unsigned int tdes3 = le32_to_cpu(p->des3);
+ 
+ 	if (len1)
+-		p->des2 |= (len1 & TDES2_BUFFER1_SIZE_MASK);
++		p->des2 |= cpu_to_le32((len1 & TDES2_BUFFER1_SIZE_MASK));
+ 
+ 	if (len2)
+-		p->des2 |= (len2 << TDES2_BUFFER2_SIZE_MASK_SHIFT)
+-			    & TDES2_BUFFER2_SIZE_MASK;
++		p->des2 |= cpu_to_le32((len2 << TDES2_BUFFER2_SIZE_MASK_SHIFT)
++			    & TDES2_BUFFER2_SIZE_MASK);
+ 
+ 	if (is_fs) {
+ 		tdes3 |= TDES3_FIRST_DESCRIPTOR |
+@@ -325,7 +326,7 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
+ 		 */
+ 		wmb();
+ 
+-	p->des3 = tdes3;
++	p->des3 = cpu_to_le32(tdes3);
+ }
+ 
+ static void dwmac4_release_tx_desc(struct dma_desc *p, int mode)
+@@ -336,7 +337,7 @@ static void dwmac4_release_tx_desc(struct dma_desc *p, int mode)
+ 
+ static void dwmac4_rd_set_tx_ic(struct dma_desc *p)
+ {
+-	p->des2 |= TDES2_INTERRUPT_ON_COMPLETION;
++	p->des2 |= cpu_to_le32(TDES2_INTERRUPT_ON_COMPLETION);
+ }
+ 
+ static void dwmac4_display_ring(void *head, unsigned int size, bool rx)
+@@ -350,7 +351,8 @@ static void dwmac4_display_ring(void *head, unsigned int size, bool rx)
+ 		if (p->des0)
+ 			pr_info("%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+ 				i, (unsigned int)virt_to_phys(p),
+-				p->des0, p->des1, p->des2, p->des3);
++				le32_to_cpu(p->des0), le32_to_cpu(p->des1),
++				le32_to_cpu(p->des2), le32_to_cpu(p->des3));
+ 		p++;
+ 	}
+ }
+@@ -359,8 +361,8 @@ static void dwmac4_set_mss_ctxt(struct dma_desc *p, unsigned int mss)
+ {
+ 	p->des0 = 0;
+ 	p->des1 = 0;
+-	p->des2 = mss;
+-	p->des3 = TDES3_CONTEXT_TYPE | TDES3_CTXT_TCMSSV;
++	p->des2 = cpu_to_le32(mss);
++	p->des3 = cpu_to_le32(TDES3_CONTEXT_TYPE | TDES3_CTXT_TCMSSV);
+ }
+ 
+ const struct stmmac_desc_ops dwmac4_desc_ops = {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+index 38f19c9..8295aa9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -30,7 +30,7 @@ static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 				  struct dma_desc *p, void __iomem *ioaddr)
+ {
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+-	unsigned int tdes0 = p->des0;
++	unsigned int tdes0 = le32_to_cpu(p->des0);
+ 	int ret = tx_done;
+ 
+ 	/* Get tx owner first */
+@@ -95,7 +95,7 @@ static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 
+ static int enh_desc_get_tx_len(struct dma_desc *p)
+ {
+-	return (p->des1 & ETDES1_BUFFER1_SIZE_MASK);
++	return (le32_to_cpu(p->des1) & ETDES1_BUFFER1_SIZE_MASK);
+ }
+ 
+ static int enh_desc_coe_rdes0(int ipc_err, int type, int payload_err)
+@@ -134,8 +134,8 @@ static int enh_desc_coe_rdes0(int ipc_err, int type, int payload_err)
+ static void enh_desc_get_ext_status(void *data, struct stmmac_extra_stats *x,
+ 				    struct dma_extended_desc *p)
+ {
+-	unsigned int rdes0 = p->basic.des0;
+-	unsigned int rdes4 = p->des4;
++	unsigned int rdes0 = le32_to_cpu(p->basic.des0);
++	unsigned int rdes4 = le32_to_cpu(p->des4);
+ 
+ 	if (unlikely(rdes0 & ERDES0_RX_MAC_ADDR)) {
+ 		int message_type = (rdes4 & ERDES4_MSG_TYPE_MASK) >> 8;
+@@ -191,7 +191,7 @@ static int enh_desc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ 				  struct dma_desc *p)
+ {
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+-	unsigned int rdes0 = p->des0;
++	unsigned int rdes0 = le32_to_cpu(p->des0);
+ 	int ret = good_frame;
+ 
+ 	if (unlikely(rdes0 & RDES0_OWN))
+@@ -257,8 +257,8 @@ static int enh_desc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ static void enh_desc_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
+ 				  int mode, int end)
+ {
+-	p->des0 |= RDES0_OWN;
+-	p->des1 |= ((BUF_SIZE_8KiB - 1) & ERDES1_BUFFER1_SIZE_MASK);
++	p->des0 |= cpu_to_le32(RDES0_OWN);
++	p->des1 |= cpu_to_le32((BUF_SIZE_8KiB - 1) & ERDES1_BUFFER1_SIZE_MASK);
+ 
+ 	if (mode == STMMAC_CHAIN_MODE)
+ 		ehn_desc_rx_set_on_chain(p);
+@@ -266,12 +266,12 @@ static void enh_desc_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
+ 		ehn_desc_rx_set_on_ring(p, end);
+ 
+ 	if (disable_rx_ic)
+-		p->des1 |= ERDES1_DISABLE_IC;
++		p->des1 |= cpu_to_le32(ERDES1_DISABLE_IC);
+ }
+ 
+ static void enh_desc_init_tx_desc(struct dma_desc *p, int mode, int end)
+ {
+-	p->des0 &= ~ETDES0_OWN;
++	p->des0 &= cpu_to_le32(~ETDES0_OWN);
+ 	if (mode == STMMAC_CHAIN_MODE)
+ 		enh_desc_end_tx_desc_on_chain(p);
+ 	else
+@@ -280,27 +280,27 @@ static void enh_desc_init_tx_desc(struct dma_desc *p, int mode, int end)
+ 
+ static int enh_desc_get_tx_owner(struct dma_desc *p)
+ {
+-	return (p->des0 & ETDES0_OWN) >> 31;
++	return (le32_to_cpu(p->des0) & ETDES0_OWN) >> 31;
+ }
+ 
+ static void enh_desc_set_tx_owner(struct dma_desc *p)
+ {
+-	p->des0 |= ETDES0_OWN;
++	p->des0 |= cpu_to_le32(ETDES0_OWN);
+ }
+ 
+ static void enh_desc_set_rx_owner(struct dma_desc *p)
+ {
+-	p->des0 |= RDES0_OWN;
++	p->des0 |= cpu_to_le32(RDES0_OWN);
+ }
+ 
+ static int enh_desc_get_tx_ls(struct dma_desc *p)
+ {
+-	return (p->des0 & ETDES0_LAST_SEGMENT) >> 29;
++	return (le32_to_cpu(p->des0) & ETDES0_LAST_SEGMENT) >> 29;
+ }
+ 
+ static void enh_desc_release_tx_desc(struct dma_desc *p, int mode)
+ {
+-	int ter = (p->des0 & ETDES0_END_RING) >> 21;
++	int ter = (le32_to_cpu(p->des0) & ETDES0_END_RING) >> 21;
+ 
+ 	memset(p, 0, offsetof(struct dma_desc, des2));
+ 	if (mode == STMMAC_CHAIN_MODE)
+@@ -313,7 +313,7 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 				     bool csum_flag, int mode, bool tx_own,
+ 				     bool ls)
+ {
+-	unsigned int tdes0 = p->des0;
++	unsigned int tdes0 = le32_to_cpu(p->des0);
+ 
+ 	if (mode == STMMAC_CHAIN_MODE)
+ 		enh_set_tx_desc_len_on_chain(p, len);
+@@ -344,12 +344,12 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 		 */
+ 		wmb();
+ 
+-	p->des0 = tdes0;
++	p->des0 = cpu_to_le32(tdes0);
+ }
+ 
+ static void enh_desc_set_tx_ic(struct dma_desc *p)
+ {
+-	p->des0 |= ETDES0_INTERRUPT;
++	p->des0 |= cpu_to_le32(ETDES0_INTERRUPT);
+ }
+ 
+ static int enh_desc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+@@ -364,18 +364,18 @@ static int enh_desc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+ 	if (rx_coe_type == STMMAC_RX_COE_TYPE1)
+ 		csum = 2;
+ 
+-	return (((p->des0 & RDES0_FRAME_LEN_MASK) >> RDES0_FRAME_LEN_SHIFT) -
+-		csum);
++	return (((le32_to_cpu(p->des0) & RDES0_FRAME_LEN_MASK)
++				>> RDES0_FRAME_LEN_SHIFT) - csum);
+ }
+ 
+ static void enh_desc_enable_tx_timestamp(struct dma_desc *p)
+ {
+-	p->des0 |= ETDES0_TIME_STAMP_ENABLE;
++	p->des0 |= cpu_to_le32(ETDES0_TIME_STAMP_ENABLE);
+ }
+ 
+ static int enh_desc_get_tx_timestamp_status(struct dma_desc *p)
+ {
+-	return (p->des0 & ETDES0_TIME_STAMP_STATUS) >> 17;
++	return (le32_to_cpu(p->des0) & ETDES0_TIME_STAMP_STATUS) >> 17;
+ }
+ 
+ static u64 enh_desc_get_timestamp(void *desc, u32 ats)
+@@ -384,13 +384,13 @@ static u64 enh_desc_get_timestamp(void *desc, u32 ats)
+ 
+ 	if (ats) {
+ 		struct dma_extended_desc *p = (struct dma_extended_desc *)desc;
+-		ns = p->des6;
++		ns = le32_to_cpu(p->des6);
+ 		/* convert high/sec time stamp value to nanosecond */
+-		ns += p->des7 * 1000000000ULL;
++		ns += le32_to_cpu(p->des7) * 1000000000ULL;
+ 	} else {
+ 		struct dma_desc *p = (struct dma_desc *)desc;
+-		ns = p->des2;
+-		ns += p->des3 * 1000000000ULL;
++		ns = le32_to_cpu(p->des2);
++		ns += le32_to_cpu(p->des3) * 1000000000ULL;
+ 	}
+ 
+ 	return ns;
+@@ -400,10 +400,11 @@ static int enh_desc_get_rx_timestamp_status(void *desc, u32 ats)
+ {
+ 	if (ats) {
+ 		struct dma_extended_desc *p = (struct dma_extended_desc *)desc;
+-		return (p->basic.des0 & RDES0_IPC_CSUM_ERROR) >> 7;
++		return (le32_to_cpu(p->basic.des0) & RDES0_IPC_CSUM_ERROR) >> 7;
+ 	} else {
+ 		struct dma_desc *p = (struct dma_desc *)desc;
+-		if ((p->des2 == 0xffffffff) && (p->des3 == 0xffffffff))
++		if ((le32_to_cpu(p->des2) == 0xffffffff) &&
++		    (le32_to_cpu(p->des3) == 0xffffffff))
+ 			/* timestamp is corrupted, hence don't store it */
+ 			return 0;
+ 		else
+diff --git a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+index 2beacd0..fd78406 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/norm_desc.c
+@@ -30,8 +30,8 @@ static int ndesc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 			       struct dma_desc *p, void __iomem *ioaddr)
+ {
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+-	unsigned int tdes0 = p->des0;
+-	unsigned int tdes1 = p->des1;
++	unsigned int tdes0 = le32_to_cpu(p->des0);
++	unsigned int tdes1 = le32_to_cpu(p->des1);
+ 	int ret = tx_done;
+ 
+ 	/* Get tx owner first */
+@@ -77,7 +77,7 @@ static int ndesc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 
+ static int ndesc_get_tx_len(struct dma_desc *p)
+ {
+-	return (p->des1 & RDES1_BUFFER1_SIZE_MASK);
++	return (le32_to_cpu(p->des1) & RDES1_BUFFER1_SIZE_MASK);
+ }
+ 
+ /* This function verifies if each incoming frame has some errors
+@@ -88,7 +88,7 @@ static int ndesc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ 			       struct dma_desc *p)
+ {
+ 	int ret = good_frame;
+-	unsigned int rdes0 = p->des0;
++	unsigned int rdes0 = le32_to_cpu(p->des0);
+ 	struct net_device_stats *stats = (struct net_device_stats *)data;
+ 
+ 	if (unlikely(rdes0 & RDES0_OWN))
+@@ -141,8 +141,8 @@ static int ndesc_get_rx_status(void *data, struct stmmac_extra_stats *x,
+ static void ndesc_init_rx_desc(struct dma_desc *p, int disable_rx_ic, int mode,
+ 			       int end)
+ {
+-	p->des0 |= RDES0_OWN;
+-	p->des1 |= (BUF_SIZE_2KiB - 1) & RDES1_BUFFER1_SIZE_MASK;
++	p->des0 |= cpu_to_le32(RDES0_OWN);
++	p->des1 |= cpu_to_le32((BUF_SIZE_2KiB - 1) & RDES1_BUFFER1_SIZE_MASK);
+ 
+ 	if (mode == STMMAC_CHAIN_MODE)
+ 		ndesc_rx_set_on_chain(p, end);
+@@ -150,12 +150,12 @@ static void ndesc_init_rx_desc(struct dma_desc *p, int disable_rx_ic, int mode,
+ 		ndesc_rx_set_on_ring(p, end);
+ 
+ 	if (disable_rx_ic)
+-		p->des1 |= RDES1_DISABLE_IC;
++		p->des1 |= cpu_to_le32(RDES1_DISABLE_IC);
+ }
+ 
+ static void ndesc_init_tx_desc(struct dma_desc *p, int mode, int end)
+ {
+-	p->des0 &= ~TDES0_OWN;
++	p->des0 &= cpu_to_le32(~TDES0_OWN);
+ 	if (mode == STMMAC_CHAIN_MODE)
+ 		ndesc_tx_set_on_chain(p);
+ 	else
+@@ -164,27 +164,27 @@ static void ndesc_init_tx_desc(struct dma_desc *p, int mode, int end)
+ 
+ static int ndesc_get_tx_owner(struct dma_desc *p)
+ {
+-	return (p->des0 & TDES0_OWN) >> 31;
++	return (le32_to_cpu(p->des0) & TDES0_OWN) >> 31;
+ }
+ 
+ static void ndesc_set_tx_owner(struct dma_desc *p)
+ {
+-	p->des0 |= TDES0_OWN;
++	p->des0 |= cpu_to_le32(TDES0_OWN);
+ }
+ 
+ static void ndesc_set_rx_owner(struct dma_desc *p)
+ {
+-	p->des0 |= RDES0_OWN;
++	p->des0 |= cpu_to_le32(RDES0_OWN);
+ }
+ 
+ static int ndesc_get_tx_ls(struct dma_desc *p)
+ {
+-	return (p->des1 & TDES1_LAST_SEGMENT) >> 30;
++	return (le32_to_cpu(p->des1) & TDES1_LAST_SEGMENT) >> 30;
+ }
+ 
+ static void ndesc_release_tx_desc(struct dma_desc *p, int mode)
+ {
+-	int ter = (p->des1 & TDES1_END_RING) >> 25;
++	int ter = (le32_to_cpu(p->des1) & TDES1_END_RING) >> 25;
+ 
+ 	memset(p, 0, offsetof(struct dma_desc, des2));
+ 	if (mode == STMMAC_CHAIN_MODE)
+@@ -197,7 +197,7 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 				  bool csum_flag, int mode, bool tx_own,
+ 				  bool ls)
+ {
+-	unsigned int tdes1 = p->des1;
++	unsigned int tdes1 = le32_to_cpu(p->des1);
+ 
+ 	if (is_fs)
+ 		tdes1 |= TDES1_FIRST_SEGMENT;
+@@ -212,7 +212,7 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 	if (ls)
+ 		tdes1 |= TDES1_LAST_SEGMENT;
+ 
+-	p->des1 = tdes1;
++	p->des1 = cpu_to_le32(tdes1);
+ 
+ 	if (mode == STMMAC_CHAIN_MODE)
+ 		norm_set_tx_desc_len_on_chain(p, len);
+@@ -220,12 +220,12 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+ 		norm_set_tx_desc_len_on_ring(p, len);
+ 
+ 	if (tx_own)
+-		p->des0 |= TDES0_OWN;
++		p->des0 |= cpu_to_le32(TDES0_OWN);
+ }
+ 
+ static void ndesc_set_tx_ic(struct dma_desc *p)
+ {
+-	p->des1 |= TDES1_INTERRUPT;
++	p->des1 |= cpu_to_le32(TDES1_INTERRUPT);
+ }
+ 
+ static int ndesc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+@@ -241,19 +241,20 @@ static int ndesc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+ 	if (rx_coe_type == STMMAC_RX_COE_TYPE1)
+ 		csum = 2;
+ 
+-	return (((p->des0 & RDES0_FRAME_LEN_MASK) >> RDES0_FRAME_LEN_SHIFT) -
++	return (((le32_to_cpu(p->des0) & RDES0_FRAME_LEN_MASK)
++				>> RDES0_FRAME_LEN_SHIFT) -
+ 		csum);
+ 
+ }
+ 
+ static void ndesc_enable_tx_timestamp(struct dma_desc *p)
+ {
+-	p->des1 |= TDES1_TIME_STAMP_ENABLE;
++	p->des1 |= cpu_to_le32(TDES1_TIME_STAMP_ENABLE);
+ }
+ 
+ static int ndesc_get_tx_timestamp_status(struct dma_desc *p)
+ {
+-	return (p->des0 & TDES0_TIME_STAMP_STATUS) >> 17;
++	return (le32_to_cpu(p->des0) & TDES0_TIME_STAMP_STATUS) >> 17;
+ }
+ 
+ static u64 ndesc_get_timestamp(void *desc, u32 ats)
+@@ -261,9 +262,9 @@ static u64 ndesc_get_timestamp(void *desc, u32 ats)
+ 	struct dma_desc *p = (struct dma_desc *)desc;
+ 	u64 ns;
+ 
+-	ns = p->des2;
++	ns = le32_to_cpu(p->des2);
+ 	/* convert high/sec time stamp value to nanosecond */
+-	ns += p->des3 * 1000000000ULL;
++	ns += le32_to_cpu(p->des3) * 1000000000ULL;
+ 
+ 	return ns;
+ }
+@@ -272,7 +273,8 @@ static int ndesc_get_rx_timestamp_status(void *desc, u32 ats)
+ {
+ 	struct dma_desc *p = (struct dma_desc *)desc;
+ 
+-	if ((p->des2 == 0xffffffff) && (p->des3 == 0xffffffff))
++	if ((le32_to_cpu(p->des2) == 0xffffffff) &&
++	    (le32_to_cpu(p->des3) == 0xffffffff))
+ 		/* timestamp is corrupted, hence don't store it */
+ 		return 0;
+ 	else
+diff --git a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+index 7723b5d..9983ce9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
++++ b/drivers/net/ethernet/stmicro/stmmac/ring_mode.c
+@@ -34,7 +34,7 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 	unsigned int entry = priv->cur_tx;
+ 	struct dma_desc *desc;
+ 	unsigned int nopaged_len = skb_headlen(skb);
+-	unsigned int bmax, len;
++	unsigned int bmax, len, des2;
+ 
+ 	if (priv->extend_desc)
+ 		desc = (struct dma_desc *)(priv->dma_etx + entry);
+@@ -50,16 +50,17 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 
+ 	if (nopaged_len > BUF_SIZE_8KiB) {
+ 
+-		desc->des2 = dma_map_single(priv->device, skb->data,
+-					    bmax, DMA_TO_DEVICE);
+-		if (dma_mapping_error(priv->device, desc->des2))
++		des2 = dma_map_single(priv->device, skb->data, bmax,
++				      DMA_TO_DEVICE);
++		desc->des2 = cpu_to_le32(des2);
++		if (dma_mapping_error(priv->device, des2))
+ 			return -1;
+ 
+-		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].buf = des2;
+ 		priv->tx_skbuff_dma[entry].len = bmax;
+ 		priv->tx_skbuff_dma[entry].is_jumbo = true;
+ 
+-		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
++		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, bmax, csum,
+ 						STMMAC_RING_MODE, 0, false);
+ 		priv->tx_skbuff[entry] = NULL;
+@@ -70,26 +71,28 @@ static int stmmac_jumbo_frm(void *p, struct sk_buff *skb, int csum)
+ 		else
+ 			desc = priv->dma_tx + entry;
+ 
+-		desc->des2 = dma_map_single(priv->device, skb->data + bmax,
+-					    len, DMA_TO_DEVICE);
+-		if (dma_mapping_error(priv->device, desc->des2))
++		des2 = dma_map_single(priv->device, skb->data + bmax, len,
++				      DMA_TO_DEVICE);
++		desc->des2 = cpu_to_le32(des2);
++		if (dma_mapping_error(priv->device, des2))
+ 			return -1;
+-		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].buf = des2;
+ 		priv->tx_skbuff_dma[entry].len = len;
+ 		priv->tx_skbuff_dma[entry].is_jumbo = true;
+ 
+-		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
++		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
+ 		priv->hw->desc->prepare_tx_desc(desc, 0, len, csum,
+ 						STMMAC_RING_MODE, 1, true);
+ 	} else {
+-		desc->des2 = dma_map_single(priv->device, skb->data,
+-					    nopaged_len, DMA_TO_DEVICE);
+-		if (dma_mapping_error(priv->device, desc->des2))
++		des2 = dma_map_single(priv->device, skb->data,
++				      nopaged_len, DMA_TO_DEVICE);
++		desc->des2 = cpu_to_le32(des2);
++		if (dma_mapping_error(priv->device, des2))
+ 			return -1;
+-		priv->tx_skbuff_dma[entry].buf = desc->des2;
++		priv->tx_skbuff_dma[entry].buf = des2;
+ 		priv->tx_skbuff_dma[entry].len = nopaged_len;
+ 		priv->tx_skbuff_dma[entry].is_jumbo = true;
+-		desc->des3 = desc->des2 + BUF_SIZE_4KiB;
++		desc->des3 = cpu_to_le32(des2 + BUF_SIZE_4KiB);
+ 		priv->hw->desc->prepare_tx_desc(desc, 1, nopaged_len, csum,
+ 						STMMAC_RING_MODE, 0, true);
+ 	}
+@@ -115,13 +118,13 @@ static void stmmac_refill_desc3(void *priv_ptr, struct dma_desc *p)
+ 
+ 	/* Fill DES3 in case of RING mode */
+ 	if (priv->dma_buf_sz >= BUF_SIZE_8KiB)
+-		p->des3 = p->des2 + BUF_SIZE_8KiB;
++		p->des3 = cpu_to_le32(le32_to_cpu(p->des2) + BUF_SIZE_8KiB);
+ }
+ 
+ /* In ring mode we need to fill the desc3 because it is used as buffer */
+ static void stmmac_init_desc3(struct dma_desc *p)
+ {
+-	p->des3 = p->des2 + BUF_SIZE_8KiB;
++	p->des3 = cpu_to_le32(le32_to_cpu(p->des2) + BUF_SIZE_8KiB);
+ }
+ 
+ static void stmmac_clean_desc3(void *priv_ptr, struct dma_desc *p)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index c23ccab..71d1dd0 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -974,9 +974,9 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
+ 	}
+ 
+ 	if (priv->synopsys_id >= DWMAC_CORE_4_00)
+-		p->des0 = priv->rx_skbuff_dma[i];
++		p->des0 = cpu_to_le32(priv->rx_skbuff_dma[i]);
+ 	else
+-		p->des2 = priv->rx_skbuff_dma[i];
++		p->des2 = cpu_to_le32(priv->rx_skbuff_dma[i]);
+ 
+ 	if ((priv->hw->mode->init_desc3) &&
+ 	    (priv->dma_buf_sz == BUF_SIZE_16KiB))
+@@ -1931,7 +1931,7 @@ static void stmmac_tso_allocator(struct stmmac_priv *priv, unsigned int des,
+ 		priv->cur_tx = STMMAC_GET_ENTRY(priv->cur_tx, DMA_TX_SIZE);
+ 		desc = priv->dma_tx + priv->cur_tx;
+ 
+-		desc->des0 = des + (total_len - tmp_len);
++		desc->des0 = cpu_to_le32(des + (total_len - tmp_len));
+ 		buff_size = tmp_len >= TSO_MAX_BUFF_SIZE ?
+ 			    TSO_MAX_BUFF_SIZE : tmp_len;
+ 
+@@ -2033,11 +2033,11 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	priv->tx_skbuff_dma[first_entry].len = skb_headlen(skb);
+ 	priv->tx_skbuff[first_entry] = skb;
+ 
+-	first->des0 = des;
++	first->des0 = cpu_to_le32(des);
+ 
+ 	/* Fill start of payload in buff2 of first descriptor */
+ 	if (pay_len)
+-		first->des1 =  des + proto_hdr_len;
++		first->des1 = cpu_to_le32(des + proto_hdr_len);
+ 
+ 	/* If needed take extra descriptors to fill the remaining payload */
+ 	tmp_pay_len = pay_len - TSO_MAX_BUFF_SIZE;
+@@ -2226,13 +2226,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 		priv->tx_skbuff[entry] = NULL;
+ 
+-		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00)) {
+-			desc->des0 = des;
+-			priv->tx_skbuff_dma[entry].buf = desc->des0;
+-		} else {
+-			desc->des2 = des;
+-			priv->tx_skbuff_dma[entry].buf = desc->des2;
+-		}
++		priv->tx_skbuff_dma[entry].buf = des;
++		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
++			desc->des0 = cpu_to_le32(des);
++		else
++			desc->des2 = cpu_to_le32(des);
+ 
+ 		priv->tx_skbuff_dma[entry].map_as_page = true;
+ 		priv->tx_skbuff_dma[entry].len = len;
+@@ -2303,13 +2301,11 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (dma_mapping_error(priv->device, des))
+ 			goto dma_map_err;
+ 
+-		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00)) {
+-			first->des0 = des;
+-			priv->tx_skbuff_dma[first_entry].buf = first->des0;
+-		} else {
+-			first->des2 = des;
+-			priv->tx_skbuff_dma[first_entry].buf = first->des2;
+-		}
++		priv->tx_skbuff_dma[first_entry].buf = des;
++		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
++			first->des0 = cpu_to_le32(des);
++		else
++			first->des2 = cpu_to_le32(des);
+ 
+ 		priv->tx_skbuff_dma[first_entry].len = nopaged_len;
+ 		priv->tx_skbuff_dma[first_entry].last_segment = last_segment;
+@@ -2423,10 +2419,10 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
+ 			}
+ 
+ 			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00)) {
+-				p->des0 = priv->rx_skbuff_dma[entry];
++				p->des0 = cpu_to_le32(priv->rx_skbuff_dma[entry]);
+ 				p->des1 = 0;
+ 			} else {
+-				p->des2 = priv->rx_skbuff_dma[entry];
++				p->des2 = cpu_to_le32(priv->rx_skbuff_dma[entry]);
+ 			}
+ 			if (priv->hw->mode->refill_desc3)
+ 				priv->hw->mode->refill_desc3(priv, p);
+@@ -2527,9 +2523,9 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
+ 			unsigned int des;
+ 
+ 			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
+-				des = p->des0;
++				des = le32_to_cpu(p->des0);
+ 			else
+-				des = p->des2;
++				des = le32_to_cpu(p->des2);
+ 
+ 			frame_len = priv->hw->desc->get_rx_frame_len(p, coe);
+ 
+@@ -2903,14 +2899,17 @@ static void sysfs_display_ring(void *head, int size, int extend_desc,
+ 			x = *(u64 *) ep;
+ 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+ 				   i, (unsigned int)virt_to_phys(ep),
+-				   ep->basic.des0, ep->basic.des1,
+-				   ep->basic.des2, ep->basic.des3);
++				   le32_to_cpu(ep->basic.des0),
++				   le32_to_cpu(ep->basic.des1),
++				   le32_to_cpu(ep->basic.des2),
++				   le32_to_cpu(ep->basic.des3));
+ 			ep++;
+ 		} else {
+ 			x = *(u64 *) p;
+ 			seq_printf(seq, "%d [0x%x]: 0x%x 0x%x 0x%x 0x%x\n",
+ 				   i, (unsigned int)virt_to_phys(ep),
+-				   p->des0, p->des1, p->des2, p->des3);
++				   le32_to_cpu(p->des0), le32_to_cpu(p->des1),
++				   le32_to_cpu(p->des2), le32_to_cpu(p->des3));
+ 			p++;
+ 		}
+ 		seq_printf(seq, "\n");
 -- 
 2.9.2
