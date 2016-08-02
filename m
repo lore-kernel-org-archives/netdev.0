@@ -1,20 +1,20 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1136/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:19:31 +0800
-Message-ID: <20160802121931.25849-1-baolex.ni@intel.com>
+Subject: [PATCH 1139/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:19:46 +0800
+Message-ID: <20160802121946.26050-1-baolex.ni@intel.com>
 Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	baolex.ni@intel.com, aryabinin@virtuozzo.com
+	baolex.ni@intel.com, arnd@arndb.de, aryabinin@virtuozzo.com
 To: bfields@fieldses.org, jlayton@poochiereds.net,
 	trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
 	davem@davemloft.net, kadlec@blackhole.kfki.hu,
 	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
 	k.kozlowski@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:57203 "EHLO mga02.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:30509 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965851AbcHBM5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:57:30 -0400
+	id S965699AbcHBM52 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 08:57:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -27,26 +27,36 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/sunrpc/auth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/sunrpc/xprtsock.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/sunrpc/auth.c b/net/sunrpc/auth.c
-index 040ff62..1cd99fc 100644
---- a/net/sunrpc/auth.c
-+++ b/net/sunrpc/auth.c
-@@ -77,11 +77,11 @@ static const struct kernel_param_ops param_ops_hashtbl_sz = {
- 	.get = param_get_hashtbl_sz,
- };
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 7e2b2fa..51dec63 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -3166,8 +3166,8 @@ static const struct kernel_param_ops param_ops_portnr = {
+ #define param_check_portnr(name, p) \
+ 	__param_check(name, p, unsigned int);
  
--module_param_named(auth_hashtable_size, auth_hashbits, hashtbl_sz, 0644);
-+module_param_named(auth_hashtable_size, auth_hashbits, hashtbl_sz, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(auth_hashtable_size, "RPC credential cache hashtable size");
+-module_param_named(min_resvport, xprt_min_resvport, portnr, 0644);
+-module_param_named(max_resvport, xprt_max_resvport, portnr, 0644);
++module_param_named(min_resvport, xprt_min_resvport, portnr, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
++module_param_named(max_resvport, xprt_max_resvport, portnr, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
  
- static unsigned long auth_max_cred_cachesize = ULONG_MAX;
--module_param(auth_max_cred_cachesize, ulong, 0644);
-+module_param(auth_max_cred_cachesize, ulong, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(auth_max_cred_cachesize, "RPC credential maximum total cache size");
+ static int param_set_slot_table_size(const char *val,
+ 				     const struct kernel_param *kp)
+@@ -3202,9 +3202,9 @@ static const struct kernel_param_ops param_ops_max_slot_table_size = {
+ 	__param_check(name, p, unsigned int);
  
- static u32
+ module_param_named(tcp_slot_table_entries, xprt_tcp_slot_table_entries,
+-		   slot_table_size, 0644);
++		   slot_table_size, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ module_param_named(tcp_max_slot_table_entries, xprt_max_tcp_slot_table_entries,
+-		   max_slot_table_size, 0644);
++		   max_slot_table_size, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ module_param_named(udp_slot_table_entries, xprt_udp_slot_table_entries,
+-		   slot_table_size, 0644);
++		   slot_table_size, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ 
 -- 
 2.9.2
