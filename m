@@ -1,7 +1,7 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0756/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:43:16 +0800
-Message-ID: <20160802114316.32517-1-baolex.ni@intel.com>
+Subject: [PATCH 0755/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:43:10 +0800
+Message-ID: <20160802114310.32451-1-baolex.ni@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	chuansheng.liu@intel.com, baolex.ni@intel.com, tgraf@suug.ch,
 	hannes@stressinduktion.org, daniel@iogearbox.net, pabeni@redhat.com
@@ -22,19 +22,19 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/net/wan/n2.c | 2 +-
+ drivers/net/wan/c101.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wan/n2.c b/drivers/net/wan/n2.c
-index 315bf09..70c31aa 100644
---- a/drivers/net/wan/n2.c
-+++ b/drivers/net/wan/n2.c
-@@ -562,5 +562,5 @@ module_exit(n2_cleanup);
+diff --git a/drivers/net/wan/c101.c b/drivers/net/wan/c101.c
+index 09a5075..4139841 100644
+--- a/drivers/net/wan/c101.c
++++ b/drivers/net/wan/c101.c
+@@ -450,5 +450,5 @@ module_exit(c101_cleanup);
  MODULE_AUTHOR("Krzysztof Halasa <khc@pm.waw.pl>");
- MODULE_DESCRIPTION("RISCom/N2 serial port driver");
+ MODULE_DESCRIPTION("Moxa C101 serial port driver");
  MODULE_LICENSE("GPL v2");
 -module_param(hw, charp, 0444);
 +module_param(hw, charp, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(hw, "io,irq,ram,ports:io,irq,...");
+ MODULE_PARM_DESC(hw, "irq,ram:irq,...");
 -- 
 2.9.2
