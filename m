@@ -1,81 +1,64 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net] bpf: fix method of PTR_TO_PACKET reg id generation
-Date: Tue,  2 Aug 2016 16:12:14 +0100
-Message-ID: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: Alexei Starovoitov <ast@kernel.org>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH 0746/1285] Replace numeric parameter like 0444 with
+ macro
+Date: Tue, 2 Aug 2016 14:32:03 +0200
+Message-ID: <20160802143203.0dfdbb6e@griffin>
+References: <20160802114214.31794-1-baolex.ni@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+	bkenward@solarflare.com, linux-driver@qlogic.com,
+	computersforpeace@gmail.com, m.chehab@samsung.com,
+	pawel@osciak.com, m.szyprowski@samsung.com,
+	kyungmin.park@samsung.com, k.kozlowski@samsung.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, jesse@kernel.org, linville@tuxdriver.com,
+	pshelar@nicira.com, daniel@iogearbox.net,
+	hannes@stressinduktion.org, tom@herbertland.com,
+	aduyck@mirantis.com, chuansheng.liu@intel.com
+To: Baole Ni <baolex.ni@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38691 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932920AbcHBPSX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 11:18:23 -0400
-Received: by mail-wm0-f48.google.com with SMTP id o80so295530581wme.1
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 08:18:21 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:40852 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934824AbcHBMdB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 08:33:01 -0400
+In-Reply-To: <20160802114214.31794-1-baolex.ni@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using per-register incrementing ID can lead to
-find_good_pkt_pointers() confusing registers which
-have completely different values.  Consider example:
+On Tue,  2 Aug 2016 19:42:14 +0800, Baole Ni wrote:
+> I find that the developers often just specified the numeric value
+> when calling a macro which is defined with a parameter for access permission.
+> As we know, these numeric value for access permission have had the corresponding macro,
+> and that using macro can improve the robustness and readability of the code,
+> thus, I suggest replacing the numeric parameter with the macro.
+> 
+> Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
+> Signed-off-by: Baole Ni <baolex.ni@intel.com>
+> ---
+>  drivers/net/geneve.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+> index cadefe4..2ddaa09 100644
+> --- a/drivers/net/geneve.c
+> +++ b/drivers/net/geneve.c
+> @@ -32,7 +32,7 @@
+>  #define VNI_HASH_SIZE		(1<<VNI_HASH_BITS)
+>  
+>  static bool log_ecn_error = true;
+> -module_param(log_ecn_error, bool, 0644);
+> +module_param(log_ecn_error, bool, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-0: (bf) r6 = r1
-1: (61) r8 = *(u32 *)(r6 +76)
-2: (61) r0 = *(u32 *)(r6 +80)
-3: (bf) r7 = r8
-4: (07) r8 += 32
-5: (2d) if r8 > r0 goto pc+9
- R0=pkt_end R1=ctx R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=0,off=32,r=32) R10=fp
-6: (bf) r8 = r7
-7: (bf) r9 = r7
-8: (71) r1 = *(u8 *)(r7 +0)
-9: (0f) r8 += r1
-10: (71) r1 = *(u8 *)(r7 +1)
-11: (0f) r9 += r1
-12: (07) r8 += 32
-13: (2d) if r8 > r0 goto pc+1
- R0=pkt_end R1=inv56 R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=1,off=32,r=32) R9=pkt(id=1,off=0,r=32) R10=fp
-14: (71) r1 = *(u8 *)(r9 +16)
-15: (b7) r7 = 0
-16: (bf) r0 = r7
-17: (95) exit
+0644 is much more readable than the S_IGRL macros ("Incomprehensible
+Group of Random Letters"). Most people use the octal value with chmod
+and umask all the time while nobody is using the macros from the shell.
+As a consequence, a quick glance at the number is enough to see what the
+access rights are, while the macros need to be read carefully to
+understand what's going on.
 
-We need to get a UNKNOWN_VALUE with imm to force id
-generation so lines 0-5 make r7 a valid packet pointer.
-We then read two different bytes from the packet and
-add them to copies of the constructed packet pointer.
-r8 (line 9) and r9 (line 11) will get the same id of 1,
-independently.  When either of them is validated (line
-13) - find_good_pkt_pointers() will also mark the other
-as safe.  This leads to access on line 14 being mistakenly
-considered safe.
+I very much dislike this patchset. It makes readability worse, not
+better, and increases the likelihood of errors.
 
-Fixes: 969bf05eb3ce ("bpf: direct packet access")
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- kernel/bpf/verifier.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index f72f23b8fdab..7094c69ac199 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -194,6 +194,7 @@ struct verifier_env {
- 	struct verifier_state_list **explored_states; /* search pruning optimization */
- 	struct bpf_map *used_maps[MAX_USED_MAPS]; /* array of map's used by eBPF program */
- 	u32 used_map_cnt;		/* number of used maps */
-+	u32 id_gen;			/* used to generate unique reg IDs */
- 	bool allow_ptr_leaks;
- };
- 
-@@ -1301,7 +1302,7 @@ add_imm:
- 		/* dst_reg stays as pkt_ptr type and since some positive
- 		 * integer value was added to the pointer, increment its 'id'
- 		 */
--		dst_reg->id++;
-+		dst_reg->id = ++env->id_gen;
- 
- 		/* something was added to pkt_ptr, set range and off to zero */
- 		dst_reg->off = 0;
--- 
-1.9.1
+ Jiri
