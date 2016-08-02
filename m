@@ -1,47 +1,43 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1 v2] rtlwifi: remove superfluous condition
-Date: Tue,  2 Aug 2016 21:26:21 +0200
-Message-ID: <1470165981-6241-1-git-send-email-xypron.glpk@gmx.de>
-References: <4e6de16f-b42c-920a-60a2-fcc88e282dc0@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: remove an unnecessary list_del()
+Date: Tue,  2 Aug 2016 10:30:46 -0700
+Message-ID: <1470159046-23577-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:63463 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755752AbcHBT0u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 15:26:50 -0400
-In-Reply-To: <4e6de16f-b42c-920a-60a2-fcc88e282dc0@lwfinger.net>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:36002 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754485AbcHBTfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:35:17 -0400
+Received: by mail-pa0-f68.google.com with SMTP id ez1so12481707pab.3
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 12:34:01 -0700 (PDT)
+In-Reply-To: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If sta == NULL, the changed line will not be reached.
-So no need to check that sta != NULL here.
+This list_del() for tc action is not needed actually,
+because we only use this list to chain bulk operations,
+therefore should not be carried for latter operations.
 
-v2:
-	fix typo
-
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sched/act_api.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index 41f77f8..7aee5ebb1 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -1135,7 +1135,7 @@ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
- 					mac->mode = WIRELESS_MODE_AC_24G;
- 			}
- 
--			if (vif->type == NL80211_IFTYPE_STATION && sta)
-+			if (vif->type == NL80211_IFTYPE_STATION)
- 				rtlpriv->cfg->ops->update_rate_tbl(hw, sta, 0);
- 			rcu_read_unlock();
- 
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index cce6986..b4c7be3 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -64,7 +64,6 @@ int __tcf_hash_release(struct tc_action *p, bool bind, bool strict)
+ 		if (p->tcfa_bindcnt <= 0 && p->tcfa_refcnt <= 0) {
+ 			if (p->ops->cleanup)
+ 				p->ops->cleanup(p, bind);
+-			list_del(&p->list);
+ 			tcf_hash_destroy(p->hinfo, p);
+ 			ret = ACT_P_DELETED;
+ 		}
 -- 
-2.1.4
+2.1.0
