@@ -1,67 +1,178 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
- support 25G/50G/100G
-Date: Tue, 2 Aug 2016 15:49:57 -0400
-Message-ID: <20160802194957.GC24663@tuxdriver.com>
-References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
- <CO2PR11MB00889D2C55C1E4C86D831C59970C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKWE-XqpkNprFcQj7wZEthmTTtDuU7657kjFP37EvrgCChncHw@mail.gmail.com>
+From: arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: Re: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit systems.
+Date: Tue, 2 Aug 2016 21:04:38 +0530
+Message-ID: <57A0BD8E.9050305@gmail.com>
+References: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <1956647.cOmaJREgOE@wuerfel>
+ <DB5PR0401MB19280ACA87C7F5EE2822D5FB91040@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+ <2484583.95xFmO7xir@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	netdev <netdev@vger.kernel.org>,
-	"bwh@kernel.org" <bwh@kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"decot@googlers.com" <decot@googlers.com>,
-	"bkenward@solarflare.com" <bkenward@solarflare.com>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>,
-	"galp@mellanox.com" <galp@mellanox.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-	"dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>
-To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41439 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831AbcHBVxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 17:53:41 -0400
+Content-Type: multipart/mixed; boundary="===============1941726227298117907=="
+Cc: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>,
+ "viresh.kumar@linaro.org" <viresh.kumar@linaro.org>,
+ "zajec5@gmail.com" <zajec5@gmail.com>,
+ "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+ Scott Wood <scott.wood@nxp.com>,
+ "David.Laight@aculab.com" <David.Laight@aculab.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "scottwood@freescale.com" <scottwood@freescale.com>,
+ "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "linux@roeck-us.net" <linux@roeck-us.net>
+To: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <2484583.95xFmO7xir@wuerfel>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
+
+This is a multi-part message in MIME format.
+--===============1941726227298117907==
+Content-Type: multipart/alternative;
+ boundary="------------030904010008080602080808"
+
+This is a multi-part message in MIME format.
+--------------030904010008080602080808
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+
+
+
+On Tuesday 02 August 2016 01:15 PM, Arnd Bergmann wrote:
+> On Monday, August 1, 2016 4:55:43 PM CEST Scott Wood wrote:
+>> On 08/01/2016 02:02 AM, Arnd Bergmann wrote:
+>>>> diff --git a/include/linux/err.h b/include/linux/err.h
+>>>> index 1e35588..c2a2789 100644
+>>>> --- a/include/linux/err.h
+>>>> +++ b/include/linux/err.h
+>>>> @@ -18,7 +18,17 @@
+>>>>   
+>>>>   #ifndef __ASSEMBLY__
+>>>>   
+>>>> -#define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
+>>>> +#define IS_ERR_VALUE(x) unlikely(is_error_check(x))
+>>>> +
+>>>> +static inline int is_error_check(unsigned long error)
+>>> Please leave the existing macro alone. I think you were looking for
+>>> something specific to the return code of qe_muram_alloc() function,
+>>> so please add a helper in that subsystem if you need it, not in
+>>> the generic header files.
+>> qe_muram_alloc (a.k.a. cpm_muram_alloc) returns unsigned long.  The
+>> problem is certain callers that store the return value in a u32.  Why
+>> not just fix those callers to store it in unsigned long (at least until
+>> error checking is done)?
+>>
+> Yes, that would also address another problem with code like
+>
+>           kfree((void *)ugeth->tx_bd_ring_offset[i]);
+>
+> which is not 64-bit safe when tx_bd_ring_offset is a 32-bit value
+> that also holds the return value of qe_muram_alloc.
+>
+> 	Arnd
+Yes, we will fix caller. Caller api is not safe on 64bit.
+Even qe_muram_addr(a.k.a. cpm_muram_addr )passing value unsigned int,
+but it should be unsigned long.
+
+
+
+--------------030904010008080602080808
+Content-Type: text/html; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+    <meta content="text/html; charset=windows-1252"
+      http-equiv="Content-Type">
+  </head>
+  <body text="#000000" bgcolor="#FFFFFF">
+    <br>
+    <br>
+    <div class="moz-cite-prefix">On Tuesday 02 August 2016 01:15 PM,
+      Arnd Bergmann wrote:<br>
+    </div>
+    <blockquote cite="mid:2484583.95xFmO7xir@wuerfel" type="cite">
+      <pre wrap="">On Monday, August 1, 2016 4:55:43 PM CEST Scott Wood wrote:
+</pre>
+      <blockquote type="cite">
+        <pre wrap="">On 08/01/2016 02:02 AM, Arnd Bergmann wrote:
+</pre>
+      </blockquote>
+      <pre wrap="">
+</pre>
+      <blockquote type="cite">
+        <blockquote type="cite">
+          <blockquote type="cite">
+            <pre wrap="">diff --git a/include/linux/err.h b/include/linux/err.h
+index 1e35588..c2a2789 100644
+--- a/include/linux/err.h
++++ b/include/linux/err.h
+@@ -18,7 +18,17 @@
+ 
+ #ifndef __ASSEMBLY__
+ 
+-#define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) &gt;= (unsigned long)-MAX_ERRNO)
++#define IS_ERR_VALUE(x) unlikely(is_error_check(x))
++
++static inline int is_error_check(unsigned long error)
+</pre>
+          </blockquote>
+          <pre wrap="">
+Please leave the existing macro alone. I think you were looking for
+something specific to the return code of qe_muram_alloc() function,
+so please add a helper in that subsystem if you need it, not in
+the generic header files.
+</pre>
+        </blockquote>
+        <pre wrap="">
+qe_muram_alloc (a.k.a. cpm_muram_alloc) returns unsigned long.  The
+problem is certain callers that store the return value in a u32.  Why
+not just fix those callers to store it in unsigned long (at least until
+error checking is done)?
+
+</pre>
+      </blockquote>
+      <pre wrap="">
+Yes, that would also address another problem with code like
+
+         kfree((void *)ugeth-&gt;tx_bd_ring_offset[i]);
+
+which is not 64-bit safe when tx_bd_ring_offset is a 32-bit value
+that also holds the return value of qe_muram_alloc.
+
+	Arnd</pre>
+    </blockquote>
+    Yes, we will fix caller. Caller api is not safe on 64bit. <br>
+    Even qe_muram_addr(a.k.a. cpm_muram_addr )passing value unsigned
+    int,<br>
+    but it should be unsigned long.<br>
+    <meta http-equiv="content-type" content="text/html;
+      charset=windows-1252">
+    <meta http-equiv="content-type" content="text/html;
+      charset=windows-1252">
+    <br>
+    <br>
+  </body>
+</html>
+
+--------------030904010008080602080808--
+
+--===============1941726227298117907==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
 Content-Disposition: inline
-In-Reply-To: <CAKWE-XqpkNprFcQj7wZEthmTTtDuU7657kjFP37EvrgCChncHw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Are these revised patches still on their way?
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
 
-John
-
-On Sun, Jul 24, 2016 at 01:57:14AM -0700, Vidya Sagar Ravipati wrote:
-> Yuval,
->     I will try to resubmit the patches this week with updated comments
-> 
-> Thanks
-> Vidya Sagar
-> 
-> On Sat, Jul 23, 2016 at 10:57 PM, Yuval Mintz <Yuval.Mintz@qlogic.com>
-> wrote:
-> 
-> > > Enhancing link mode bits to support 25G/50G/100G for supported and
-> > > advertised speed mode bits
-> > >
-> > > Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-> > > ---
-> > >  ethtool.c | 27 +++++++++++++++++++++++++++
-> > >  1 file changed, 27 insertions(+)
-> >
-> > Hi Vidya,
-> >
-> > Are you re-trying your series one anytime soon?
-> >
-> > If not, can we simply push this [and ethtool-copy.h], as those are needed
-> > for querying/setting the recently added new speeds.
-> >
-> >
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+--===============1941726227298117907==--
