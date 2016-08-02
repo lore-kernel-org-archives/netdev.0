@@ -1,20 +1,19 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1101/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:16:43 +0800
-Message-ID: <20160802121643.23532-1-baolex.ni@intel.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com, aarcange@redhat.com,
+Subject: [PATCH 1095/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:16:10 +0800
+Message-ID: <20160802121610.23133-1-baolex.ni@intel.com>
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
+	baolex.ni@intel.com, aduyck@mirantis.com, aarcange@redhat.com,
 	aryabinin@virtuozzo.com
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, m.szyprowski@samsung.com,
-	kyungmin.park@samsung.com, k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9764 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965700AbcHBM4k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:56:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: gerrit@erg.abdn.ac.uk, davem@davemloft.net,
+	johan.hedberg@gmail.com, jiangshanlai@gmail.com,
+	m.chehab@samsung.com, gregkh@linuxfoundation.org,
+	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
+	k.kozlowski@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -25,36 +24,27 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/ipv4/tcp_bic.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/dccp/proto.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
-index 36087bc..58c27d1 100644
---- a/net/ipv4/tcp_bic.c
-+++ b/net/ipv4/tcp_bic.c
-@@ -32,17 +32,17 @@ static int beta = 819;		/* = 819/1024 (BICTCP_BETA_SCALE) */
- static int initial_ssthresh;
- static int smooth_part = 20;
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index 41e6580..dc0eb00 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -1093,12 +1093,12 @@ static inline void dccp_mib_exit(void)
+ }
  
--module_param(fast_convergence, int, 0644);
-+module_param(fast_convergence, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(fast_convergence, "turn on/off fast convergence");
--module_param(max_increment, int, 0644);
-+module_param(max_increment, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(max_increment, "Limit on increment allowed during binary search");
--module_param(low_window, int, 0644);
-+module_param(low_window, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(low_window, "lower bound on congestion window (for TCP friendliness)");
--module_param(beta, int, 0644);
-+module_param(beta, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(beta, "beta for multiplicative increase");
--module_param(initial_ssthresh, int, 0644);
-+module_param(initial_ssthresh, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(initial_ssthresh, "initial value of slow start threshold");
--module_param(smooth_part, int, 0644);
-+module_param(smooth_part, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(smooth_part, "log(B/(B*Smin))/log(B/(B-1))+B, # of RTT from Wmax-B to Wmax");
+ static int thash_entries;
+-module_param(thash_entries, int, 0444);
++module_param(thash_entries, int, S_IRUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(thash_entries, "Number of ehash buckets");
  
- /* BIC TCP Parameters */
+ #ifdef CONFIG_IP_DCCP_DEBUG
+ bool dccp_debug;
+-module_param(dccp_debug, bool, 0644);
++module_param(dccp_debug, bool, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(dccp_debug, "Enable debug messages");
+ 
+ EXPORT_SYMBOL_GPL(dccp_debug);
 -- 
 2.9.2
