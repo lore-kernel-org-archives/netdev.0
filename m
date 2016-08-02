@@ -1,63 +1,61 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] bpf: fix method of PTR_TO_PACKET reg id generation
-Date: Tue, 2 Aug 2016 11:22:21 -0700
-Message-ID: <20160802182218.GA18569@ast-mbp.thefacebook.com>
-References: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH 1116/1285] Replace numeric parameter like 0444 with macro
+Date: Tue, 2 Aug 2016 15:13:37 -0400
+Message-ID: <20160802191337.GD36313@redhat.com>
+References: <20160802121754.24527-1-baolex.ni@intel.com>
+ <alpine.LSU.2.20.1608022006070.25634@nerf40.vanv.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Cc: Baole Ni <baolex.ni@intel.com>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>, lvs-devel@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	chuansheng.liu@intel.com
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35605 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756022AbcHBTQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:16:54 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h186so12987495pfg.2
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 12:16:54 -0700 (PDT)
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:33163 "EHLO
+	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754747AbcHBTWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 15:22:21 -0400
+Received: by mail-qk0-f175.google.com with SMTP id p74so184161267qka.0
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 12:21:40 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1470150734-24022-1-git-send-email-jakub.kicinski@netronome.com>
+In-Reply-To: <alpine.LSU.2.20.1608022006070.25634@nerf40.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 02, 2016 at 04:12:14PM +0100, Jakub Kicinski wrote:
-> Using per-register incrementing ID can lead to
-> find_good_pkt_pointers() confusing registers which
-> have completely different values.  Consider example:
+On Tue, Aug 02, 2016 at 08:07:11PM +0200, Jan Engelhardt wrote:
 > 
-> 0: (bf) r6 = r1
-> 1: (61) r8 = *(u32 *)(r6 +76)
-> 2: (61) r0 = *(u32 *)(r6 +80)
-> 3: (bf) r7 = r8
-> 4: (07) r8 += 32
-> 5: (2d) if r8 > r0 goto pc+9
->  R0=pkt_end R1=ctx R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=0,off=32,r=32) R10=fp
-> 6: (bf) r8 = r7
-> 7: (bf) r9 = r7
-> 8: (71) r1 = *(u8 *)(r7 +0)
-> 9: (0f) r8 += r1
-> 10: (71) r1 = *(u8 *)(r7 +1)
-> 11: (0f) r9 += r1
-> 12: (07) r8 += 32
-> 13: (2d) if r8 > r0 goto pc+1
->  R0=pkt_end R1=inv56 R6=ctx R7=pkt(id=0,off=0,r=32) R8=pkt(id=1,off=32,r=32) R9=pkt(id=1,off=0,r=32) R10=fp
-> 14: (71) r1 = *(u8 *)(r9 +16)
-> 15: (b7) r7 = 0
-> 16: (bf) r0 = r7
-> 17: (95) exit
+> On Tuesday 2016-08-02 14:17, Baole Ni wrote:
 > 
-> We need to get a UNKNOWN_VALUE with imm to force id
-> generation so lines 0-5 make r7 a valid packet pointer.
-> We then read two different bytes from the packet and
-> add them to copies of the constructed packet pointer.
-> r8 (line 9) and r9 (line 11) will get the same id of 1,
-> independently.  When either of them is validated (line
-> 13) - find_good_pkt_pointers() will also mark the other
-> as safe.  This leads to access on line 14 being mistakenly
-> considered safe.
+> >I find that the developers often just specified the numeric value
+> >when calling a macro which is defined with a parameter for access permission.
+> >As we know, these numeric value for access permission have had the corresponding macro,
+> >and that using macro can improve the robustness and readability of the code,
+> >thus, I suggest replacing the numeric parameter with the macro.
+> >
+> > static int ip_vs_conn_tab_bits = CONFIG_IP_VS_TAB_BITS;
+> >-module_param_named(conn_tab_bits, ip_vs_conn_tab_bits, int, 0444);
+> >+module_param_named(conn_tab_bits, ip_vs_conn_tab_bits, int, S_IRUSR | S_IRGRP | S_IROTH);
 > 
-> Fixes: 969bf05eb3ce ("bpf: direct packet access")
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> We have S_IRUGO for this.
 
-Great catch. Thanks!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Aye, for further edification, Baole, please read include/linux/stat.h,
+particularly this part:
+
+#define S_IRWXUGO       (S_IRWXU|S_IRWXG|S_IRWXO)
+#define S_IALLUGO       (S_ISUID|S_ISGID|S_ISVTX|S_IRWXUGO)
+#define S_IRUGO         (S_IRUSR|S_IRGRP|S_IROTH)
+#define S_IWUGO         (S_IWUSR|S_IWGRP|S_IWOTH)
+#define S_IXUGO         (S_IXUSR|S_IXGRP|S_IXOTH)
+
+I suspect many of the patches in this set should be using one of the above
+defines instead, never mind the ridiculousness of firing off such a
+massive set at once, with every patch having the same (often not correct)
+title, and the highly questionable benefit of the set to begin with.
+
+-- 
+Jarod Wilson
+jarod@redhat.com
