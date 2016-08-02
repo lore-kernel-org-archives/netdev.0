@@ -1,63 +1,91 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [v4] Fix to avoid IS_ERR_VALUE and IS_ERR abuses on 64bit systems.
-Date: Tue, 02 Aug 2016 09:45:18 +0200
-Message-ID: <2484583.95xFmO7xir@wuerfel>
-References: <1469963924-8800-1-git-send-email-arvind.yadav.cs@gmail.com>
- <1956647.cOmaJREgOE@wuerfel>
- <DB5PR0401MB19280ACA87C7F5EE2822D5FB91040@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: Linux kernel commit breaks IPMI on iface downing
+Date: Tue, 2 Aug 2016 15:58:57 +0800
+Message-ID: <CAGb2v64BUxFn0GWZVJN=SzDQXGMW7+8Yh-QmRKUSz8ECNZ8wDQ@mail.gmail.com>
+References: <CAJPaPGU2_68J4BZanm+Lw3O+WTiwO3swegh5grP5Bn-XprLOwg@mail.gmail.com>
+ <1439515834.7684.24.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <CAJPaPGUsyHwaaTuUGcV5BMsSDcw1T7XQ9GVy5KwsMao3k8u+Kg@mail.gmail.com>
+ <CAJPaPGU=8mWhrOSKRMnZjEULsBcO4PWkCsyUEfLfpY+cktyK_w@mail.gmail.com>
+ <1441355399.8556.15.camel@LTIRV-MCHAN1.corp.ad.broadcom.com> <D214D9E7.BFB25%harish.patil@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>,
- "viresh.kumar@linaro.org" <viresh.kumar@linaro.org>,
- "zajec5@gmail.com" <zajec5@gmail.com>,
- "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
- Scott Wood <scott.wood@nxp.com>,
- "David.Laight@aculab.com" <David.Laight@aculab.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "scottwood@freescale.com" <scottwood@freescale.com>,
- Arvind Yadav <arvind.yadav.cs@gmail.com>,
- "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux@roeck-us.net" <linux@roeck-us.net>
-To: linuxppc-dev@lists.ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <DB5PR0401MB19280ACA87C7F5EE2822D5FB91040@DB5PR0401MB1928.eurprd04.prod.outlook.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Michael Chan <mchan@broadcom.com>,
+	=?UTF-8?Q?S=C3=A9bastien_Bocahu?= <sbu@reportlinker.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ameen Rahman <ameen.rahman@qlogic.com>
+To: Harish Patil <harish.patil@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.csie.ntu.edu.tw ([140.112.30.61]:41536 "EHLO
+	smtp.csie.ntu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754115AbcHBH72 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 03:59:28 -0400
+Received: from mail-io0-f173.google.com (mail-io0-f173.google.com [209.85.223.173])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: b93043)
+	by smtp.csie.ntu.edu.tw (Postfix) with ESMTPSA id B6B57205FB
+	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 15:59:19 +0800 (CST)
+Received: by mail-io0-f173.google.com with SMTP id m101so205313918ioi.2
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 00:59:19 -0700 (PDT)
+In-Reply-To: <D214D9E7.BFB25%harish.patil@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uZGF5LCBBdWd1c3QgMSwgMjAxNiA0OjU1OjQzIFBNIENFU1QgU2NvdHQgV29vZCB3cm90
-ZToKPiBPbiAwOC8wMS8yMDE2IDAyOjAyIEFNLCBBcm5kIEJlcmdtYW5uIHdyb3RlOgoKPiA+PiBk
-aWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9lcnIuaCBiL2luY2x1ZGUvbGludXgvZXJyLmgKPiA+
-PiBpbmRleCAxZTM1NTg4Li5jMmEyNzg5IDEwMDY0NAo+ID4+IC0tLSBhL2luY2x1ZGUvbGludXgv
-ZXJyLmgKPiA+PiArKysgYi9pbmNsdWRlL2xpbnV4L2Vyci5oCj4gPj4gQEAgLTE4LDcgKzE4LDE3
-IEBACj4gPj4gIAo+ID4+ICAjaWZuZGVmIF9fQVNTRU1CTFlfXwo+ID4+ICAKPiA+PiAtI2RlZmlu
-ZSBJU19FUlJfVkFMVUUoeCkgdW5saWtlbHkoKHVuc2lnbmVkIGxvbmcpKHZvaWQgKikoeCkgPj0g
-KHVuc2lnbmVkIGxvbmcpLU1BWF9FUlJOTykKPiA+PiArI2RlZmluZSBJU19FUlJfVkFMVUUoeCkg
-dW5saWtlbHkoaXNfZXJyb3JfY2hlY2soeCkpCj4gPj4gKwo+ID4+ICtzdGF0aWMgaW5saW5lIGlu
-dCBpc19lcnJvcl9jaGVjayh1bnNpZ25lZCBsb25nIGVycm9yKQo+ID4gCj4gPiBQbGVhc2UgbGVh
-dmUgdGhlIGV4aXN0aW5nIG1hY3JvIGFsb25lLiBJIHRoaW5rIHlvdSB3ZXJlIGxvb2tpbmcgZm9y
-Cj4gPiBzb21ldGhpbmcgc3BlY2lmaWMgdG8gdGhlIHJldHVybiBjb2RlIG9mIHFlX211cmFtX2Fs
-bG9jKCkgZnVuY3Rpb24sCj4gPiBzbyBwbGVhc2UgYWRkIGEgaGVscGVyIGluIHRoYXQgc3Vic3lz
-dGVtIGlmIHlvdSBuZWVkIGl0LCBub3QgaW4KPiA+IHRoZSBnZW5lcmljIGhlYWRlciBmaWxlcy4K
-PiAKPiBxZV9tdXJhbV9hbGxvYyAoYS5rLmEuIGNwbV9tdXJhbV9hbGxvYykgcmV0dXJucyB1bnNp
-Z25lZCBsb25nLiAgVGhlCj4gcHJvYmxlbSBpcyBjZXJ0YWluIGNhbGxlcnMgdGhhdCBzdG9yZSB0
-aGUgcmV0dXJuIHZhbHVlIGluIGEgdTMyLiAgV2h5Cj4gbm90IGp1c3QgZml4IHRob3NlIGNhbGxl
-cnMgdG8gc3RvcmUgaXQgaW4gdW5zaWduZWQgbG9uZyAoYXQgbGVhc3QgdW50aWwKPiBlcnJvciBj
-aGVja2luZyBpcyBkb25lKT8KPiAKClllcywgdGhhdCB3b3VsZCBhbHNvIGFkZHJlc3MgYW5vdGhl
-ciBwcm9ibGVtIHdpdGggY29kZSBsaWtlCgogICAgICAgICBrZnJlZSgodm9pZCAqKXVnZXRoLT50
-eF9iZF9yaW5nX29mZnNldFtpXSk7Cgp3aGljaCBpcyBub3QgNjQtYml0IHNhZmUgd2hlbiB0eF9i
-ZF9yaW5nX29mZnNldCBpcyBhIDMyLWJpdCB2YWx1ZQp0aGF0IGFsc28gaG9sZHMgdGhlIHJldHVy
-biB2YWx1ZSBvZiBxZV9tdXJhbV9hbGxvYy4KCglBcm5kCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhw
-cGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZv
-L2xpbnV4cHBjLWRldg==
+Hi,
+
+On Wed, Sep 9, 2015 at 9:33 AM, Harish Patil <harish.patil@qlogic.com> wrote:
+>
+>>On Fri, 2015-09-04 at 09:55 +0200, Sébastien Bocahu wrote:
+>>> Hi,
+>>>
+>>> Any chance this behaviour gets fixed, with either a new firmware or a
+>>> workaround in the kernel ?
+>>>
+>>
+>>As I said earlier, when we call bnx2_shutdown_chip(), we inform the
+>>firmware that the driver is shutting down.  The firmware should know
+>>that there is IPMI firmware and the link needs to stay up.
+>>
+>>In the older driver, we would also call bnx2_set_power_state() which
+>>would send some additional messages to the firmware before putting the
+>>device in D3hot.  May be these messages are required by the firmware to
+>>keep the link up.  Harish, please check with your firmware team.
+>>Thanks.
+>>
+>>
+>>
+>>
+>
+> Hi Michael/Sebastien,
+> ACK. Sure, I will look into it and get back.
+
+Sorry to resurrect such an old thread. I'm still having problems with this.
+
+We have a whole bunch of Dell PowerEdge R210 II servers at our datacenter.
+These have the NetXtreme II BCM 5716 controller. Most still have the
+factory firmware (6.2.12) while a few have been updated to the latest
+firmware released by Dell (7.12.19). With both versions, IPMI over LAN
+becomes unusable as soon as Ubuntu's installer reconfigures the network.
+It only returns after installation is complete and the system is reboot,
+after the firmware is reloaded.
+
+This means if anything were to fail during an automated installation,
+the system would no longer be controllable remotely. For us this is a
+huge inconvenience, as we have hundreds of them. If any go down due
+to bad installation scripts or entering a wrong command, someone has
+to literally go there and reboot the machine.
+
+I also tested with Ubuntu 16.04.1, running Ubuntu's 4.4.0-31-generic
+kernel. IPMI over LAN is unusable as soon as "ip link set XXX down" is
+run, and recovers in 1 second after "ip link set XXX up" is run, or when
+the system is restarted.
+
+So in addition to IPMI not working on iface down, there might be a
+problem with how the installer works, resulting in the prolonged
+outage.
+
+
+Regards
+ChenYu
