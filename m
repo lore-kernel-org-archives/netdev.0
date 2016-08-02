@@ -1,54 +1,41 @@
-From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0798/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:47:34 +0800
-Message-ID: <20160802114734.3053-1-baolex.ni@intel.com>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	baolex.ni@intel.com
-To: Larry.Finger@lwfinger.net, chaoming_li@realsil.com.cn,
-	kvalo@codeaurora.org, linuxwifi@intel.com, m.chehab@samsung.com,
-	pawel@osciak.com, m.szyprowski@samsung.com,
-	kyungmin.park@samsung.com, k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:61291 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934816AbcHBM3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:29:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH 0805/1285] Replace numeric parameter like
+	0444 with macro
+Date: Tue, 2 Aug 2016 13:40:08 +0100
+Message-ID: <20160802124008.GL22419@citrix.com>
+References: <20160802114812.3632-1-baolex.ni@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: k.kozlowski@samsung.com, chuansheng.liu@intel.com, wei.liu2@citrix.com,
+ pawel@osciak.com, linuxwifi@intel.com, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, kyungmin.park@samsung.com,
+ xen-devel@lists.xenproject.org, m.chehab@samsung.com, kvalo@codeaurora.org,
+ m.szyprowski@samsung.com
+To: Baole Ni <baolex.ni@intel.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <20160802114812.3632-1-baolex.ni@intel.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-I find that the developers often just specified the numeric value
-when calling a macro which is defined with a parameter for access permission.
-As we know, these numeric value for access permission have had the corresponding macro,
-and that using macro can improve the robustness and readability of the code,
-thus, I suggest replacing the numeric parameter with the macro.
-
-Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
-Signed-off-by: Baole Ni <baolex.ni@intel.com>
----
- drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c
-index 31baca41..d543a78 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192se/sw.c
-@@ -420,11 +420,11 @@ MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Realtek 8192S/8191S 802.11n PCI wireless");
- MODULE_FIRMWARE("rtlwifi/rtl8192sefw.bin");
- 
--module_param_named(swenc, rtl92se_mod_params.sw_crypto, bool, 0444);
--module_param_named(debug, rtl92se_mod_params.debug, int, 0444);
--module_param_named(ips, rtl92se_mod_params.inactiveps, bool, 0444);
--module_param_named(swlps, rtl92se_mod_params.swctrl_lps, bool, 0444);
--module_param_named(fwlps, rtl92se_mod_params.fwctrl_lps, bool, 0444);
-+module_param_named(swenc, rtl92se_mod_params.sw_crypto, bool, S_IRUSR | S_IRGRP | S_IROTH);
-+module_param_named(debug, rtl92se_mod_params.debug, int, S_IRUSR | S_IRGRP | S_IROTH);
-+module_param_named(ips, rtl92se_mod_params.inactiveps, bool, S_IRUSR | S_IRGRP | S_IROTH);
-+module_param_named(swlps, rtl92se_mod_params.swctrl_lps, bool, S_IRUSR | S_IRGRP | S_IROTH);
-+module_param_named(fwlps, rtl92se_mod_params.fwctrl_lps, bool, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
- MODULE_PARM_DESC(ips, "Set to 0 to not use link power save (default 1)\n");
- MODULE_PARM_DESC(swlps, "Set to 1 to use SW control power save (default 1)\n");
--- 
-2.9.2
+T24gVHVlLCBBdWcgMDIsIDIwMTYgYXQgMDc6NDg6MTJQTSArMDgwMCwgQmFvbGUgTmkgd3JvdGU6
+Cj4gSSBmaW5kIHRoYXQgdGhlIGRldmVsb3BlcnMgb2Z0ZW4ganVzdCBzcGVjaWZpZWQgdGhlIG51
+bWVyaWMgdmFsdWUKPiB3aGVuIGNhbGxpbmcgYSBtYWNybyB3aGljaCBpcyBkZWZpbmVkIHdpdGgg
+YSBwYXJhbWV0ZXIgZm9yIGFjY2VzcyBwZXJtaXNzaW9uLgo+IEFzIHdlIGtub3csIHRoZXNlIG51
+bWVyaWMgdmFsdWUgZm9yIGFjY2VzcyBwZXJtaXNzaW9uIGhhdmUgaGFkIHRoZSBjb3JyZXNwb25k
+aW5nIG1hY3JvLAo+IGFuZCB0aGF0IHVzaW5nIG1hY3JvIGNhbiBpbXByb3ZlIHRoZSByb2J1c3Ru
+ZXNzIGFuZCByZWFkYWJpbGl0eSBvZiB0aGUgY29kZSwKPiB0aHVzLCBJIHN1Z2dlc3QgcmVwbGFj
+aW5nIHRoZSBudW1lcmljIHBhcmFtZXRlciB3aXRoIHRoZSBtYWNyby4KPiAKPiBTaWduZWQtb2Zm
+LWJ5OiBDaHVhbnNoZW5nIExpdSA8Y2h1YW5zaGVuZy5saXVAaW50ZWwuY29tPgo+IFNpZ25lZC1v
+ZmYtYnk6IEJhb2xlIE5pIDxiYW9sZXgubmlAaW50ZWwuY29tPgoKQWNrZWQtYnk6IFdlaSBMaXUg
+PHdlaS5saXUyQGNpdHJpeC5jb20+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4u
+b3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
