@@ -1,60 +1,29 @@
-From: Jarno Rajahalme <jarno@ovn.org>
-Subject: [PATCH net] openvswitch: Remove incorrect WARN_ONCE().
-Date: Mon,  1 Aug 2016 19:36:07 -0700
-Message-ID: <1470105367-46582-1-git-send-email-jarno@ovn.org>
-Cc: jarno@ovn.org
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] qed: Fix error return code in qed_resc_alloc()
+Date: Mon, 01 Aug 2016 21:37:58 -0700 (PDT)
+Message-ID: <20160801.213758.1421305334119915552.davem@davemloft.net>
+References: <1470099334-14490-1-git-send-email-weiyj.lk@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	everest-linux-l2@qlogic.com, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:33870 "EHLO
-	slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751776AbcHBE2m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 00:28:42 -0400
-Received: from relay4-d.mail.gandi.net (relay4-d.mail.gandi.net [217.70.183.196])
-	by slow1-d.mail.gandi.net (Postfix) with ESMTP id 8B62947AC4E
-	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 04:37:47 +0200 (CEST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:60570 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750869AbcHBEi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 00:38:56 -0400
+In-Reply-To: <1470099334-14490-1-git-send-email-weiyj.lk@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ovs_ct_find_existing() issues a warning if an existing conntrack entry
-classified as IP_CT_NEW is found, with the premise that this should
-not happen.  However, a newly confirmed, non-expected conntrack entry
-remains IP_CT_NEW as long as no reply direction traffic is seen.  This
-has resulted into somewhat confusing kernel log messages.  This patch
-removes this check and warning.
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Tue,  2 Aug 2016 00:55:34 +0000
 
-Fixes: 289f2253 ("openvswitch: Find existing conntrack entry after upcall.")
-Suggested-by: Joe Stringer <joe@ovn.org>
-Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
----
- net/openvswitch/conntrack.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+> Fix to return error code -EINVAL instead of 0 when EQ elements is
+> too larger, as done elsewhere in this function.
+> 
+> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
 
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index c644c78..e054a74 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -433,7 +433,6 @@ ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
- 	struct nf_conntrack_l4proto *l4proto;
- 	struct nf_conntrack_tuple tuple;
- 	struct nf_conntrack_tuple_hash *h;
--	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct;
- 	unsigned int dataoff;
- 	u8 protonum;
-@@ -458,13 +457,8 @@ ovs_ct_find_existing(struct net *net, const struct nf_conntrack_zone *zone,
- 
- 	ct = nf_ct_tuplehash_to_ctrack(h);
- 
--	ctinfo = ovs_ct_get_info(h);
--	if (ctinfo == IP_CT_NEW) {
--		/* This should not happen. */
--		WARN_ONCE(1, "ovs_ct_find_existing: new packet for %p\n", ct);
--	}
- 	skb->nfct = &ct->ct_general;
--	skb->nfctinfo = ctinfo;
-+	skb->nfctinfo = ovs_ct_get_info(h);
- 	return ct;
- }
- 
--- 
-2.1.4
+Applied, thanks.
