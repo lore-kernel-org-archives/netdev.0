@@ -1,118 +1,109 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH 1086/1285] Replace numeric parameter like
-	0444 with macro
-Date: Tue, 02 Aug 2016 15:38:00 +0200
-Message-ID: <2410594.BZ40g7jear@bentobox>
-References: <20160802121513.22526-1-baolex.ni@intel.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH] phy: fix the bug when remove the phy driver
+Date: Tue, 2 Aug 2016 21:00:56 +0800
+Message-ID: <57A09988.9040702@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart3017057.9hDxvFLKKV";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Cc: aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, k.kozlowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org, mhocko-IBi9RG/b67k@public.gmane.org,
- mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org, a@unstable.cc, jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chuansheng.liu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Baole Ni <baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, aryabinin-5HdwGun5lf+gSpxsJD1C4w@public.gmane.org,
- gang.chen.5i5j-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, m.chehab-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20160802121513.22526-1-baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:63722 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966093AbcHBNJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 09:09:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3017057.9hDxvFLKKV
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+The nic in my board use the phy dev from marvell, and
+the system will load the marvell phy driver automatically,
+but when I remove the phy drivers, the system immediately panic:
 
-On Dienstag, 2. August 2016 20:15:13 CEST Baole Ni wrote:
-[...]
-> diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-> index 5f2974b..25759b9 100644
-> --- a/net/batman-adv/main.c
-> +++ b/net/batman-adv/main.c
-> @@ -1313,7 +1313,7 @@ static struct kparam_string batadv_param_string_ra = {
->  };
->  
->  module_param_cb(routing_algo, &batadv_param_ops_ra, &batadv_param_string_ra,
-> -		0644);
-> +		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
->  module_init(batadv_init);
->  module_exit(batadv_exit);
+localhost login: [ 2582.052465] Unable to handle kernel NULL pointer dereference at virtual address 000000c0
+[ 2582.061429] pgd = ffff800001226000
+[ 2582.065277] [000000c0] *pgd=0000003f7f893003, *pud=0000003f7f894003, *pmd=0000003f7f895003, *pte=006000006d000707
+[ 2582.076681] Internal error: Oops: 96000006 [#1] SMP
+[ 2582.082049] Modules linked in: sr_mod(E) cdrom(E) ses(E) enclosure(E) shpchp(E) crc32_arm64(E) aes_ce_blk(E) ablk_helper(E) cryptd(E) aes_ce_cipher(E) ghash_ce(E) sha2_ce(E) sha1_ce(E) usb_storage(E) dm_mirror(E) dm_region_hash(E) dm_log(E) dm_mod(E) [last unloaded: marvell]
+[ 2582.109226] CPU: 21 PID: 1514 Comm: kworker/21:1 Tainted: G            E   4.1.27-vhulk3.6.5.aarch64 #1
+[ 2582.119415] Hardware name: Huawei Taishan 2180 /BC11SPCC, BIOS 1.31 06/23/2016
+[ 2582.127346] Workqueue: events_power_efficient phy_state_machine
+[ 2582.133796] task: ffff803f6f41bac0 ti: ffff803f6eca4000 task.ti: ffff803f6eca4000
+[ 2582.141910] PC is at phy_state_machine+0x3c/0x438
+[ 2582.147081] LR is at phy_state_machine+0x34/0x438
+[ 2582.152173] pc : [<ffff800000715384>] lr : [<ffff80000071537c>] pstate: 60000145
+[ 2582.160189] sp : ffff803f6eca7d30
+[ 2582.163825] x29: ffff803f6eca7d30 x28: 0000000000000000
+[ 2582.169689] x27: ffff805fdfd0aa00 x26: 0000000000000008
+[ 2582.175482] x25: 0000000000000000 x24: ffff80000112c57c
+[ 2582.181391] x23: ffff805f4fc8a800 x22: ffff805fdfd0f700
+[ 2582.187241] x21: ffff805f4fc8abf8 x20: ffff805f4fc8a770
+[ 2582.193035] x19: ffff805f4fc8ab70 x18: 0000000000000007
+[ 2582.198914] x17: 000000000000000e x16: 0000000000000001
+[ 2582.204710] x15: 0000000000000007 x14: 000000000000000e
+[ 2582.210584] x13: 0000000000000200 x12: 0000000055555556
+[ 2582.216373] x11: 0000000000001c00 x10: 0000000000000000
+[ 2582.222166] x9 : ffff800000a36880 x8 : ffff803f6f41c060
+[ 2582.227994] x7 : 000000010008b39b x6 : ffff80000101e690
+[ 2582.233788] x5 : 0000000000000000 x4 : 0000000000800000
+[ 2582.239612] x3 : 0000000000000000 x2 : 0000000000000000
+[ 2582.245404] x1 : 0000000000000000 x0 : 0000000000000000
+[ 2582.265813]
+[ 2582.282971] Process kworker/21:1 (pid: 1514, stack limit = 0xffff803f6eca4020)
+[ 2582.307284] Stack: (0xffff803f6eca7d30 to 0xffff803f6eca8000)
+[ 2582.331183] 7d20:                                   ffff803f6eca7d70 ffff8000000db3b8
+[ 2582.354788] 7d40: ffff803f6e696000 ffff805f4fc8ab70 ffff805fdfd0aa00 ffff805fdfd0f700
+[ 2582.378341] 7d60: 0000000000000000 ffff80000112c57c ffff803f6eca7dc0 ffff8000000db7d4
+[ 2582.403700] 7d80: ffff803f6e696000 ffff803f6e696030 ffff805fdfd0aa18 ffff805fdfd0aa00
+[ 2582.428385] 7da0: ffff803f6eca4000 ffff80000112c57c 0000000000000000 0000000000000008
+[ 2582.451222] 7dc0: ffff803f6eca7e20 ffff8000000e1d0c ffff805f4fc15000 ffff80000115f188
+[ 2582.474577] 7de0: ffff800000d1cf88 ffff803f6e696000 ffff8000000db690 0000000000000000
+[ 2582.497281] 7e00: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.522992] 7e20: 0000000000000000 ffff800000083dd0 ffff8000000e1c10 ffff805f4fc15000
+[ 2582.546945] 7e40: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.568550] 7e60: 0000000000000000 ffff8000000ee33c ffff803f6e696000 ffff805f00000000
+[ 2582.589157] 7e80: 0000000000000000 ffff803f6eca7e88 ffff803f6eca7e88 0000000000000000
+[ 2582.609767] 7ea0: 0000000000000000 ffff803f6eca7ea8 ffff803f6eca7ea8 cb88537fdc8ba31b
+[ 2582.633228] 7ec0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.655386] 7ee0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.674223] 7f00: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.692994] 7f20: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.711765] 7f40: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.730809] 7f60: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.748601] 7f80: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.769388] 7fa0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.786756] 7fc0: 0000000000000000 0000000000000005 0000000000000000 0000000000000000
+[ 2582.804134] 7fe0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+[ 2582.821488] Call trace:
+[ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438
+[ 2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428
+[ 2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0
+[ 2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
 
-Doesn't seem to apply on current net-next:
+============================cut here===============================
 
-    $ git am -3 16577.patch
-    Applying: Replace numeric parameter like 0444 with macro
-    Using index info to reconstruct a base tree...
-    M       net/batman-adv/main.c
-    Falling back to patching base and 3-way merge...
-    Auto-merging net/batman-adv/main.c
-    CONFLICT (content): Merge conflict in net/batman-adv/main.c
-    error: Failed to merge in the changes.
-    Patch failed at 0001 Replace numeric parameter like 0444 with macro
-    The copy of the patch that failed is found in: .git/rebase-apply/patch
-    When you have resolved this problem, run "git am --continue".
-    If you prefer to skip this patch, run "git am --skip" instead.
-    To restore the original branch and stop patching, run "git am --abort".
+The phy_state_machine was still running and didn't know whether the phydev's driver was
+removed or not, then occur this problem, so we need to stop the phy_state_machine when
+removing the phy driver.
 
-The code for it can now be found at net/batman-adv/bat_algo.c
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/phy/phy_device.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Also the prefix "batman-adv: " is missing in the subject and you should
-include <linux/stat.h> in net/batman-adv/bat_algo.c to make sure that these
-macros are actually defined before you use them.
-
-So you would end up with something more like:
-
---- a/net/batman-adv/bat_algo.c
-+++ b/net/batman-adv/bat_algo.c
-@@ -22,6 +22,7 @@
- #include <linux/moduleparam.h>
- #include <linux/printk.h>
- #include <linux/seq_file.h>
-+#include <linux/stat.h>
- #include <linux/stddef.h>
- #include <linux/string.h>
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 9b24d7e..f01838a 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1282,6 +1282,8 @@ static int phy_remove(struct device *dev)
+ {
+ 	struct phy_device *phydev = to_phy_device(dev);
  
-@@ -137,4 +138,4 @@ static struct kparam_string batadv_param_string_ra = {
- };
- 
- module_param_cb(routing_algo, &batadv_param_ops_ra, &batadv_param_string_ra,
--		0644);
-+		S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-
-Kind regards,
-	Sven
---nextPart3017057.9hDxvFLKKV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXoKI4AAoJEF2HCgfBJntGpJAQAJ81kA4Lzqsn/xWGR0D4+17/
-pVqP/EOkedAfVjBjV7QShJd8e/CJKoApxiQsKwtKiezWYSFrDE8bEV0mdNS5XVuQ
-Jj0IP++MXGmLJkpQIuAK08CLNp5+Ev8Z+UswEFfcP8/yPc6fcQ9bl9FGJaSTza6W
-938jrVT001iuN1/F9+gFXbb5ZmeSs03AVrbHKOYUYTBBZEZua8hSyiGImkzGBIuy
-yHislKXRayPyd5Xogkx+5WRwKJgHBJsWm0u2MBQVubVPJ8iX/vupCSpudKLUSbVM
-HFGrCZTffRvBwXNozuTURyVMi7f+5SHPYYIrHeiIuW0Rzv2evf1aJpJ7xLHuDv/A
-hP9AKM1UtGabkELhvqcCAjFcUp3WP/J9kFQ3GvlZfTt5pz0FwnGBMkwE62ZOeR6F
-vYgl3Vn1x5nb4PmaaeJpQaHJn/KFj43ijaexZikYUO7BUdpDhbR3BZ4MQ5fM7Tm2
-4LYvla+QYCSFiAE3M8YhJSHWLbJVdqZ6ZEAmTt8QIGwotNQWBihNiIHvdm63vKcj
-RqTCP71ZzPckn81oq6dKCMQi5HqMmqvqzonvNYZbJy1bTiKSczVtwRhE89dyXxWk
-31D1d8n0h/CW8zh2/0B0RYKWtnadoQXHIWO5rzzkahHxQ3I+TGmBj8jv8djzH9i1
-NYizHKWGycjLXLzhoHEU
-=4CGD
------END PGP SIGNATURE-----
-
---nextPart3017057.9hDxvFLKKV--
++	phy_stop_machine(phydev);
++
+ 	mutex_lock(&phydev->lock);
+ 	phydev->state = PHY_DOWN;
+ 	mutex_unlock(&phydev->lock);
+-- 
+1.9.0
