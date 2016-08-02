@@ -1,22 +1,17 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1139/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:19:46 +0800
-Message-ID: <20160802121946.26050-1-baolex.ni@intel.com>
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	baolex.ni@intel.com, arnd@arndb.de, aryabinin@virtuozzo.com
-To: bfields@fieldses.org, jlayton@poochiereds.net,
-	trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
-	davem@davemloft.net, kadlec@blackhole.kfki.hu,
-	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
-	k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:30509 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965699AbcHBM52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:57:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH 1126/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:18:43 +0800
+Message-ID: <20160802121843.25188-1-baolex.ni@intel.com>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chuansheng.liu@intel.com, baolex.ni@intel.com,
+	aryabinin@virtuozzo.com
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, m.szyprowski@samsung.com,
+	kyungmin.park@samsung.com, k.kozlowski@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -27,36 +22,21 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/sunrpc/xprtsock.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/netfilter/nf_conntrack_sane.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 7e2b2fa..51dec63 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -3166,8 +3166,8 @@ static const struct kernel_param_ops param_ops_portnr = {
- #define param_check_portnr(name, p) \
- 	__param_check(name, p, unsigned int);
+diff --git a/net/netfilter/nf_conntrack_sane.c b/net/netfilter/nf_conntrack_sane.c
+index 3fcbaab..4b39f41 100644
+--- a/net/netfilter/nf_conntrack_sane.c
++++ b/net/netfilter/nf_conntrack_sane.c
+@@ -42,7 +42,7 @@ static DEFINE_SPINLOCK(nf_sane_lock);
+ #define MAX_PORTS 8
+ static u_int16_t ports[MAX_PORTS];
+ static unsigned int ports_c;
+-module_param_array(ports, ushort, &ports_c, 0400);
++module_param_array(ports, ushort, &ports_c, S_IRUSR);
  
--module_param_named(min_resvport, xprt_min_resvport, portnr, 0644);
--module_param_named(max_resvport, xprt_max_resvport, portnr, 0644);
-+module_param_named(min_resvport, xprt_min_resvport, portnr, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-+module_param_named(max_resvport, xprt_max_resvport, portnr, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- 
- static int param_set_slot_table_size(const char *val,
- 				     const struct kernel_param *kp)
-@@ -3202,9 +3202,9 @@ static const struct kernel_param_ops param_ops_max_slot_table_size = {
- 	__param_check(name, p, unsigned int);
- 
- module_param_named(tcp_slot_table_entries, xprt_tcp_slot_table_entries,
--		   slot_table_size, 0644);
-+		   slot_table_size, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- module_param_named(tcp_max_slot_table_entries, xprt_max_tcp_slot_table_entries,
--		   max_slot_table_size, 0644);
-+		   max_slot_table_size, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- module_param_named(udp_slot_table_entries, xprt_udp_slot_table_entries,
--		   slot_table_size, 0644);
-+		   slot_table_size, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
- 
+ struct sane_request {
+ 	__be32 RPC_code;
 -- 
 2.9.2
