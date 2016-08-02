@@ -1,22 +1,17 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 1117/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 20:18:00 +0800
-Message-ID: <20160802121800.24593-1-baolex.ni@intel.com>
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	baolex.ni@intel.com, aryabinin@virtuozzo.com
-To: wensong@linux-vs.org, horms@verge.net.au, ja@ssi.bg,
-	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+Subject: [PATCH 1122/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 20:18:23 +0800
+Message-ID: <20160802121823.24923-1-baolex.ni@intel.com>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chuansheng.liu@intel.com, baolex.ni@intel.com,
+	aryabinin@virtuozzo.com
+To: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
 	davem@davemloft.net, m.szyprowski@samsung.com,
 	kyungmin.park@samsung.com, k.kozlowski@samsung.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:47480 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965710AbcHBM5R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 08:57:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -27,21 +22,26 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- net/netfilter/ipvs/ip_vs_ftp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/nf_conntrack_ftp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index d30c327..1c989ae 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -54,7 +54,7 @@
-  */
- static unsigned int ports_count = 1;
- static unsigned short ports[IP_VS_APP_MAX_PORTS] = {21, 0};
--module_param_array(ports, ushort, &ports_count, 0444);
-+module_param_array(ports, ushort, &ports_count, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(ports, "Ports to monitor for FTP control commands");
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 19efeba..5bc9e90 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -43,10 +43,10 @@ static DEFINE_SPINLOCK(nf_ftp_lock);
+ #define MAX_PORTS 8
+ static u_int16_t ports[MAX_PORTS];
+ static unsigned int ports_c;
+-module_param_array(ports, ushort, &ports_c, 0400);
++module_param_array(ports, ushort, &ports_c, S_IRUSR);
  
+ static bool loose;
+-module_param(loose, bool, 0600);
++module_param(loose, bool, S_IRUSR | S_IWUSR);
  
+ unsigned int (*nf_nat_ftp_hook)(struct sk_buff *skb,
+ 				enum ip_conntrack_info ctinfo,
 -- 
 2.9.2
+
