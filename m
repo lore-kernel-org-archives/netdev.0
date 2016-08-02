@@ -1,18 +1,21 @@
-From: Baole Ni <baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0783/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:45:56 +0800
-Message-ID: <20160802114556.1945-1-baolex.ni@intel.com>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chuansheng.liu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, a@unstable.cc, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org,
-	Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	m.chehab-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org, pawel-FA/gS7QP4orQT0dZR+AlfA@public.gmane.org, m.szyprowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org,
-	kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org, k.kozlowski-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Baole Ni <baolex.ni@intel.com>
+Subject: [PATCH 0781/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:45:44 +0800
+Message-ID: <20160802114544.1811-1-baolex.ni@intel.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
+	baolex.ni@intel.com, lars@metafoo.de, johannes.berg@intel.com
+To: j@w1.fi, kvalo@codeaurora.org, luciano.coelho@intel.com,
+	linuxwifi@intel.com, m.chehab@samsung.com, pawel@osciak.com,
+	m.szyprowski@samsung.com, kyungmin.park@samsung.com,
+	k.kozlowski@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:22889 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934749AbcHBM0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 08:26:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 I find that the developers often just specified the numeric value
 when calling a macro which is defined with a parameter for access permission.
@@ -20,34 +23,24 @@ As we know, these numeric value for access permission have had the corresponding
 and that using macro can improve the robustness and readability of the code,
 thus, I suggest replacing the numeric parameter with the macro.
 
-Signed-off-by: Chuansheng Liu <chuansheng.liu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Baole Ni <baolex.ni-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
+Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/net/wireless/intersil/p54/p54spi.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/intersil/hostap/hostap_plx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/intersil/p54/p54spi.c b/drivers/net/wireless/intersil/p54/p54spi.c
-index 7ab2f43..07c77f8 100644
---- a/drivers/net/wireless/intersil/p54/p54spi.c
-+++ b/drivers/net/wireless/intersil/p54/p54spi.c
-@@ -48,11 +48,11 @@ MODULE_FIRMWARE("3826.arm");
-  */
+diff --git a/drivers/net/wireless/intersil/hostap/hostap_plx.c b/drivers/net/wireless/intersil/hostap/hostap_plx.c
+index 4901a99..cbdd2c7 100644
+--- a/drivers/net/wireless/intersil/hostap/hostap_plx.c
++++ b/drivers/net/wireless/intersil/hostap/hostap_plx.c
+@@ -34,7 +34,7 @@ MODULE_LICENSE("GPL");
  
- static int p54spi_gpio_power = 97;
--module_param(p54spi_gpio_power, int, 0444);
-+module_param(p54spi_gpio_power, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(p54spi_gpio_power, "gpio number for power line");
  
- static int p54spi_gpio_irq = 87;
--module_param(p54spi_gpio_irq, int, 0444);
-+module_param(p54spi_gpio_irq, int, S_IRUSR | S_IRGRP | S_IROTH);
- MODULE_PARM_DESC(p54spi_gpio_irq, "gpio number for irq line");
+ static int ignore_cis;
+-module_param(ignore_cis, int, 0444);
++module_param(ignore_cis, int, S_IRUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(ignore_cis, "Do not verify manfid information in CIS");
  
- static void p54spi_spi_read(struct p54s_priv *priv, u8 address,
+ 
 -- 
 2.9.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
