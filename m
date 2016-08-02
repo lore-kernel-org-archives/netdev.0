@@ -1,14 +1,13 @@
 From: Baole Ni <baolex.ni@intel.com>
-Subject: [PATCH 0731/1285] Replace numeric parameter like 0444 with macro
-Date: Tue,  2 Aug 2016 19:40:48 +0800
-Message-ID: <20160802114048.30792-1-baolex.ni@intel.com>
+Subject: [PATCH 0727/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:40:25 +0800
+Message-ID: <20160802114025.30526-1-baolex.ni@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chuansheng.liu@intel.com, baolex.ni@intel.com,
-	romieu@fr.zoreil.com, Baohua.Song@csr.com
-To: harish.patil@qlogic.com, sudarsana.kalluru@qlogic.com,
-	Dept-GELinuxNICDev@qlogic.com, linux-driver@qlogic.com,
-	computersforpeace@gmail.com, m.chehab@samsung.com,
-	pawel@osciak.com, m.szyprowski@samsung.com,
+	chuansheng.liu@intel.com, baolex.ni@intel.com, davem@davemloft.net,
+	Baohua.Song@csr.com
+To: hykim@myri.com, leonro@mellanox.com, paulus@samba.org,
+	mpe@ellerman.id.au, computersforpeace@gmail.com,
+	m.chehab@samsung.com, pawel@osciak.com, m.szyprowski@samsung.com,
 	kyungmin.park@samsung.com, k.kozlowski@samsung.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -23,29 +22,21 @@ thus, I suggest replacing the numeric parameter with the macro.
 Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
 Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index fd5d1c9..5632339 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -64,14 +64,14 @@ static const u32 default_msg =
-     NETIF_MSG_HW | NETIF_MSG_WOL | 0;
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 6d1a956..cdbad43 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -288,7 +288,7 @@ MODULE_PARM_DESC(myri10ge_fw_name, "Firmware image name");
+ static char *myri10ge_fw_names[MYRI10GE_MAX_BOARDS] =
+     {[0 ... (MYRI10GE_MAX_BOARDS - 1)] = NULL };
+ module_param_array_named(myri10ge_fw_names, myri10ge_fw_names, charp, NULL,
+-			 0444);
++			 S_IRUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(myri10ge_fw_name, "Firmware image names per board");
  
- static int debug = -1;	/* defaults above */
--module_param(debug, int, 0664);
-+module_param(debug, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
- MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
- 
- #define MSIX_IRQ 0
- #define MSI_IRQ 1
- #define LEG_IRQ 2
- static int qlge_irq_type = MSIX_IRQ;
--module_param(qlge_irq_type, int, 0664);
-+module_param(qlge_irq_type, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
- MODULE_PARM_DESC(qlge_irq_type, "0 = MSI-X, 1 = MSI, 2 = Legacy.");
- 
- static int qlge_mpi_coredump;
+ static int myri10ge_ecrc_enable = 1;
 -- 
 2.9.2
