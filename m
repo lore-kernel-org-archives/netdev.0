@@ -1,20 +1,18 @@
-From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Subject: Re: [PATCH] net: thunderx: correct bound check in nic_config_loopback
-Date: Tue, 2 Aug 2016 17:02:54 +0530
-Message-ID: <CA+sq2Cd39o2S7qm65gVb=TmYydNPES-TYO4CdhgKuVRC6fgozg@mail.gmail.com>
-References: <1469933384-16827-1-git-send-email-alexander.levin@verizon.com>
- <CA+sq2Cc-MTtoncAcL6MS-YVdeVVK=aqEmZakzkX6_CwsXvpRCQ@mail.gmail.com>
- <6b86fd8a-e97a-8b71-1786-50aa9e667873@verizon.com>
+From: Baole Ni <baolex.ni@intel.com>
+Subject: [PATCH 0712/1285] Replace numeric parameter like 0444 with macro
+Date: Tue,  2 Aug 2016 19:39:01 +0800
+Message-ID: <20160802113901.29520-1-baolex.ni@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1146ace2f705ad053915137c
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "sgoutham@cavium.com" <sgoutham@cavium.com>,
- "rric@kernel.org" <rric@kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: "Levin, Alexander" <alexander.levin@verizon.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, felipe.balbi@linux.intel.com, netdev@vger.kernel.org,
+ fw@strlen.de, linux-kernel@vger.kernel.org, baolex.ni@intel.com,
+ chuansheng.liu@intel.com, linux-arm-kernel@lists.infradead.org
+To: sgoutham@cavium.com, rric@kernel.org, felix.manlunas@caviumnetworks.com,
+ raghu.vatsavayi@caviumnetworks.com, computersforpeace@gmail.com,
+ m.chehab@samsung.com, pawel@osciak.com, m.szyprowski@samsung.com,
+ kyungmin.park@samsung.com, k.kozlowski@samsung.com
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <6b86fd8a-e97a-8b71-1786-50aa9e667873@verizon.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -26,162 +24,30 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
---001a1146ace2f705ad053915137c
-Content-Type: text/plain; charset=UTF-8
+I find that the developers often just specified the numeric value
+when calling a macro which is defined with a parameter for access permission.
+As we know, these numeric value for access permission have had the corresponding macro,
+and that using macro can improve the robustness and readability of the code,
+thus, I suggest replacing the numeric parameter with the macro.
 
-Yes, it's incorrect at other places as well.
-That went in the very early stages of development and didn't change it because
-that out of bounds issue will never happen as no of logical interfaces
-will never be
-morethan  MAX_LMAC i.e 8, so max vf_id will be 7.
+Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
+Signed-off-by: Baole Ni <baolex.ni@intel.com>
+---
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-But with addition of support for newer platforms with different set HW
-capabilities we
-are slowly getting rid of most of the macros i.e static info.
-Attached is the patch which will get rid of MAX_LMAC and also allows
-support for 16LMACs (supported on newer platforms) or more.
-
-I hope currently you are not facing any issue with below check.
->>> if (lbk->vf_id > MAX_LMAC)
-
-I will submit the attached patch along with other patches when net-next is open.
-https://lkml.org/lkml/2016/7/15/362
-
-Thanks,
-Sunil.
-
-On Mon, Aug 1, 2016 at 9:27 PM, Levin, Alexander
-<alexander.levin@verizon.com> wrote:
-> On 07/31/2016 12:41 PM, Sunil Kovvuri wrote:
->> Thanks for finding.
->> A much better fix would be,
->>
->> -       if (lbk->vf_id > MAX_LMAC)
->> +       if (lbk->vf_id >= nic->num_vf_en)
->>                 return -1;
->>
->> where 'num_vf_en' reflects the exact number of physical interfaces or
->> LMACs on the system.
->
-> Right. I see quite a few more places that compare to MAX_LMAC vs
-> num_vf_en. What was the reasoning behind it then?
->
->
-> Thanks,
-> Sasha
-
---001a1146ace2f705ad053915137c
-Content-Type: text/x-patch; charset=US-ASCII;
-	name="0001-net-thunderx-Add-support-for-16-LMACs-of-83xx.patch"
-Content-Disposition: attachment;
-	filename="0001-net-thunderx-Add-support-for-16-LMACs-of-83xx.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_irddsknl0
-
-RnJvbSBjYWI5YWZmOGM3NmZkMzRmZGMyNTJlYmE5MGVlMWJiMDE2YzU4MjliIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBTdW5pbCBHb3V0aGFtIDxzZ291dGhhbUBjYXZpdW0uY29tPgpE
-YXRlOiBUdWUsIDIgQXVnIDIwMTYgMTY6NTY6MTIgKzA1MzAKU3ViamVjdDogW1BBVENIXSBuZXQ6
-IHRodW5kZXJ4OiBBZGQgc3VwcG9ydCBmb3IgMTYgTE1BQ3Mgb2YgODN4eAoKODN4eCB3aWxsIGhh
-dmUgNCBCR1ggYmxvY2tzIGkuZSAxNiBMTUFDcywgdG8gYXZvaWQgY2hhbmdpbmcKdGhlIHNhbWUg
-d2l0aCBldmVyeSBwbGF0Zm9ybSwgbmljcGYgc3RydWN0IGVsZW1lbnRzIHdoaWNoCnRyYWNrIExN
-QUMgcmVsYXRlZCBpbmZvIGFyZSBub3cgYWxsb2NhdGVkIHJ1bnRpbWUgYmFzZWQKb24gcGxhdGZv
-cm0ncyBtYXggcG9zc2libGUgQkdYIGNvdW50LgoKU2lnbmVkLW9mZi1ieTogU3VuaWwgR291dGhh
-bSA8c2dvdXRoYW1AY2F2aXVtLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9jYXZpdW0v
-dGh1bmRlci9uaWNfbWFpbi5jICAgIHwgNjEgKysrKysrKysrKysrKysrKysrLS0tLS0KIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2Nhdml1bS90aHVuZGVyL3RodW5kZXJfYmd4LmggfCAgMiAtCiAyIGZp
-bGVzIGNoYW5nZWQsIDQ5IGluc2VydGlvbnMoKyksIDE0IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdp
-dCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Nhdml1bS90aHVuZGVyL25pY19tYWluLmMgYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9jYXZpdW0vdGh1bmRlci9uaWNfbWFpbi5jCmluZGV4IDc0YmI4MTEu
-LjAxMzkxODYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Nhdml1bS90aHVuZGVy
-L25pY19tYWluLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2F2aXVtL3RodW5kZXIvbmlj
-X21haW4uYwpAQCAtNTMsMTIgKzUzLDEyIEBAIHN0cnVjdCBuaWNwZiB7CiAjZGVmaW5lCU5JQ19T
-RVRfVkZfTE1BQ19NQVAoYmd4LCBsbWFjKQkoKChiZ3ggJiAweEYpIDw8IDQpIHwgKGxtYWMgJiAw
-eEYpKQogI2RlZmluZQlOSUNfR0VUX0JHWF9GUk9NX1ZGX0xNQUNfTUFQKG1hcCkJKChtYXAgPj4g
-NCkgJiAweEYpCiAjZGVmaW5lCU5JQ19HRVRfTE1BQ19GUk9NX1ZGX0xNQUNfTUFQKG1hcCkJKG1h
-cCAmIDB4RikKLQl1OAkJCXZmX2xtYWNfbWFwW01BWF9MTUFDXTsKKwl1OAkJCSp2Zl9sbWFjX21h
-cDsKIAlzdHJ1Y3QgZGVsYXllZF93b3JrICAgICBkd29yazsKIAlzdHJ1Y3Qgd29ya3F1ZXVlX3N0
-cnVjdCAqY2hlY2tfbGluazsKLQl1OAkJCWxpbmtbTUFYX0xNQUNdOwotCXU4CQkJZHVwbGV4W01B
-WF9MTUFDXTsKLQl1MzIJCQlzcGVlZFtNQVhfTE1BQ107CisJdTgJCQkqbGluazsKKwl1OAkJCSpk
-dXBsZXg7CisJdTMyCQkJKnNwZWVkOwogCXUxNgkJCWNwaV9iYXNlW01BWF9OVU1fVkZTX1NVUFBP
-UlRFRF07CiAJdTE2CQkJcnNzaV9iYXNlW01BWF9OVU1fVkZTX1NVUFBPUlRFRF07CiAJYm9vbAkJ
-CW1ieF9sb2NrW01BWF9OVU1fVkZTX1NVUFBPUlRFRF07CkBAIC0xODUsNyArMTg1LDcgQEAgc3Rh
-dGljIHZvaWQgbmljX21ieF9zZW5kX3JlYWR5KHN0cnVjdCBuaWNwZiAqbmljLCBpbnQgdmYpCiAJ
-bWJ4Lm5pY19jZmcuc3FzX21vZGUgPSAodmYgPj0gbmljLT5udW1fdmZfZW4pID8gdHJ1ZSA6IGZh
-bHNlOwogCW1ieC5uaWNfY2ZnLm5vZGVfaWQgPSBuaWMtPm5vZGU7CiAKLQltYngubmljX2NmZy5s
-b29wYmFja19zdXBwb3J0ZWQgPSB2ZiA8IE1BWF9MTUFDOworCW1ieC5uaWNfY2ZnLmxvb3BiYWNr
-X3N1cHBvcnRlZCA9IHZmIDwgbmljLT5udW1fdmZfZW47CiAKIAluaWNfc2VuZF9tc2dfdG9fdmYo
-bmljLCB2ZiwgJm1ieCk7CiB9CkBAIC0zMzYsOCArMzM2LDE3IEBAIHN0YXRpYyB2b2lkIG5pY19z
-ZXRfbG1hY192Zl9tYXBwaW5nKHN0cnVjdCBuaWNwZiAqbmljKQogCX0KIH0KIAotc3RhdGljIHZv
-aWQgbmljX2dldF9od19pbmZvKHN0cnVjdCBuaWNwZiAqbmljKQorc3RhdGljIHZvaWQgbmljX2Zy
-ZWVfbG1hY21lbShzdHJ1Y3QgbmljcGYgKm5pYykKIHsKKwlrZnJlZShuaWMtPnZmX2xtYWNfbWFw
-KTsKKwlrZnJlZShuaWMtPmxpbmspOworCWtmcmVlKG5pYy0+ZHVwbGV4KTsKKwlrZnJlZShuaWMt
-PnNwZWVkKTsKK30KKworc3RhdGljIGludCBuaWNfZ2V0X2h3X2luZm8oc3RydWN0IG5pY3BmICpu
-aWMpCit7CisJdTggbWF4X2xtYWM7CiAJdTE2IHNkZXZpZDsKIAlzdHJ1Y3QgaHdfaW5mbyAqaHcg
-PSBuaWMtPmh3OwogCkBAIC0zODUsMTggKzM5NCw0MCBAQCBzdGF0aWMgdm9pZCBuaWNfZ2V0X2h3
-X2luZm8oc3RydWN0IG5pY3BmICpuaWMpCiAJCWJyZWFrOwogCX0KIAlody0+dGw0X2NudCA9IE1B
-WF9RVUVVRVNfUEVSX1FTRVQgKiBwY2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKG5pYy0+cGRldik7CisK
-KwkvKiBBbGxvY2F0ZSBtZW1vcnkgZm9yIExNQUMgdHJhY2tpbmcgZWxlbWVudHMgKi8KKwltYXhf
-bG1hYyA9IGh3LT5iZ3hfY250ICogTUFYX0xNQUNfUEVSX0JHWDsKKwluaWMtPnZmX2xtYWNfbWFw
-ID0ga21hbGxvY19hcnJheShtYXhfbG1hYywgc2l6ZW9mKHU4KSwgR0ZQX0tFUk5FTCk7CisJaWYg
-KCFuaWMtPnZmX2xtYWNfbWFwKQorCQlnb3RvIGVycm9yOworCW5pYy0+bGluayA9IGttYWxsb2Nf
-YXJyYXkobWF4X2xtYWMsIHNpemVvZih1OCksIEdGUF9LRVJORUwpOworCWlmICghbmljLT5saW5r
-KQorCQlnb3RvIGVycm9yOworCW5pYy0+ZHVwbGV4ID0ga21hbGxvY19hcnJheShtYXhfbG1hYywg
-c2l6ZW9mKHU4KSwgR0ZQX0tFUk5FTCk7CisJaWYgKCFuaWMtPmR1cGxleCkKKwkJZ290byBlcnJv
-cjsKKwluaWMtPnNwZWVkID0ga21hbGxvY19hcnJheShtYXhfbG1hYywgc2l6ZW9mKHUzMiksIEdG
-UF9LRVJORUwpOworCWlmICghbmljLT5zcGVlZCkKKwkJZ290byBlcnJvcjsKKwlyZXR1cm4gMDsK
-KworZXJyb3I6CisJbmljX2ZyZWVfbG1hY21lbShuaWMpOworCXJldHVybiAtRU5PTUVNOwogfQog
-CiAjZGVmaW5lIEJHWDBfQkxPQ0sgOAogI2RlZmluZSBCR1gxX0JMT0NLIDkKIAotc3RhdGljIHZv
-aWQgbmljX2luaXRfaHcoc3RydWN0IG5pY3BmICpuaWMpCitzdGF0aWMgaW50IG5pY19pbml0X2h3
-KHN0cnVjdCBuaWNwZiAqbmljKQogewotCWludCBpOworCWludCBpLCBlcnI7CiAJdTY0IGNxbV9j
-Zmc7CiAKIAkvKiBHZXQgSFcgY2FwYWJpbGl0eSBpbmZvICovCi0JbmljX2dldF9od19pbmZvKG5p
-Yyk7CisJZXJyID0gbmljX2dldF9od19pbmZvKG5pYyk7CisJaWYgKGVycikKKwkJcmV0dXJuIGVy
-cjsKIAogCS8qIEVuYWJsZSBOSUMgSFcgYmxvY2sgKi8KIAluaWNfcmVnX3dyaXRlKG5pYywgTklD
-X1BGX0NGRywgMHgzKTsKQEAgLTQ0Miw2ICs0NzMsOCBAQCBzdGF0aWMgdm9pZCBuaWNfaW5pdF9o
-dyhzdHJ1Y3QgbmljcGYgKm5pYykKIAljcW1fY2ZnID0gbmljX3JlZ19yZWFkKG5pYywgTklDX1BG
-X0NRTV9DRkcpOwogCWlmIChjcW1fY2ZnIDwgTklDUEZfQ1FNX01JTl9EUk9QX0xFVkVMKQogCQlu
-aWNfcmVnX3dyaXRlKG5pYywgTklDX1BGX0NRTV9DRkcsIE5JQ1BGX0NRTV9NSU5fRFJPUF9MRVZF
-TCk7CisKKwlyZXR1cm4gMDsKIH0KIAogLyogQ2hhbm5lbCBwYXJzZSBpbmRleCBjb25maWd1cmF0
-aW9uICovCkBAIC03NDEsNyArNzc0LDcgQEAgc3RhdGljIGludCBuaWNfY29uZmlnX2xvb3BiYWNr
-KHN0cnVjdCBuaWNwZiAqbmljLCBzdHJ1Y3Qgc2V0X2xvb3BiYWNrICpsYmspCiB7CiAJaW50IGJn
-eF9pZHgsIGxtYWNfaWR4OwogCi0JaWYgKGxiay0+dmZfaWQgPiBNQVhfTE1BQykKKwlpZiAobGJr
-LT52Zl9pZCA+PSBuaWMtPm51bV92Zl9lbikKIAkJcmV0dXJuIC0xOwogCiAJYmd4X2lkeCA9IE5J
-Q19HRVRfQkdYX0ZST01fVkZfTE1BQ19NQVAobmljLT52Zl9sbWFjX21hcFtsYmstPnZmX2lkXSk7
-CkBAIC04MzcsNyArODcwLDcgQEAgc3RhdGljIHZvaWQgbmljX2hhbmRsZV9tYnhfaW50cihzdHJ1
-Y3QgbmljcGYgKm5pYywgaW50IHZmKQogCXN3aXRjaCAobWJ4Lm1zZy5tc2cpIHsKIAljYXNlIE5J
-Q19NQk9YX01TR19SRUFEWToKIAkJbmljX21ieF9zZW5kX3JlYWR5KG5pYywgdmYpOwotCQlpZiAo
-dmYgPCBNQVhfTE1BQykgeworCQlpZiAodmYgPCBuaWMtPm51bV92Zl9lbikgewogCQkJbmljLT5s
-aW5rW3ZmXSA9IDA7CiAJCQluaWMtPmR1cGxleFt2Zl0gPSAwOwogCQkJbmljLT5zcGVlZFt2Zl0g
-PSAwOwpAQCAtMTI0MCw3ICsxMjczLDkgQEAgc3RhdGljIGludCBuaWNfcHJvYmUoc3RydWN0IHBj
-aV9kZXYgKnBkZXYsIGNvbnN0IHN0cnVjdCBwY2lfZGV2aWNlX2lkICplbnQpCiAJbmljLT5ub2Rl
-ID0gbmljX2dldF9ub2RlX2lkKHBkZXYpOwogCiAJLyogSW5pdGlhbGl6ZSBoYXJkd2FyZSAqLwot
-CW5pY19pbml0X2h3KG5pYyk7CisJZXJyID0gbmljX2luaXRfaHcobmljKTsKKwlpZiAoZXJyKQor
-CQlnb3RvIGVycl9yZWxlYXNlX3JlZ2lvbnM7CiAKIAluaWNfc2V0X2xtYWNfdmZfbWFwcGluZyhu
-aWMpOwogCkBAIC0xMjc1LDYgKzEzMTAsNyBAQCBlcnJfdW5yZWdpc3Rlcl9pbnRlcnJ1cHRzOgog
-ZXJyX3JlbGVhc2VfcmVnaW9uczoKIAlwY2lfcmVsZWFzZV9yZWdpb25zKHBkZXYpOwogZXJyX2Rp
-c2FibGVfZGV2aWNlOgorCW5pY19mcmVlX2xtYWNtZW0obmljKTsKIAlkZXZtX2tmcmVlKGRldiwg
-bmljLT5odyk7CiAJZGV2bV9rZnJlZShkZXYsIG5pYyk7CiAJcGNpX2Rpc2FibGVfZGV2aWNlKHBk
-ZXYpOwpAQCAtMTI5OCw2ICsxMzM0LDcgQEAgc3RhdGljIHZvaWQgbmljX3JlbW92ZShzdHJ1Y3Qg
-cGNpX2RldiAqcGRldikKIAluaWNfdW5yZWdpc3Rlcl9pbnRlcnJ1cHRzKG5pYyk7CiAJcGNpX3Jl
-bGVhc2VfcmVnaW9ucyhwZGV2KTsKIAorCW5pY19mcmVlX2xtYWNtZW0obmljKTsKIAlkZXZtX2tm
-cmVlKCZwZGV2LT5kZXYsIG5pYy0+aHcpOwogCWRldm1fa2ZyZWUoJnBkZXYtPmRldiwgbmljKTsK
-IApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvY2F2aXVtL3RodW5kZXIvdGh1bmRl
-cl9iZ3guaCBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Nhdml1bS90aHVuZGVyL3RodW5kZXJfYmd4
-LmgKaW5kZXggNjIyNWZmNC4uYzdkN2NjNiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvY2F2aXVtL3RodW5kZXIvdGh1bmRlcl9iZ3guaAorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9jYXZpdW0vdGh1bmRlci90aHVuZGVyX2JneC5oCkBAIC0yOSw4ICsyOSw2IEBACiAKICNkZWZp
-bmUgICAgTUFYX0RNQUNfUEVSX0xNQUNfVE5TX0JZUEFTU19NT0RFCTIKIAotI2RlZmluZSAgICBN
-QVhfTE1BQwkoTUFYX0JHWF9QRVJfQ044OFhYICogTUFYX0xNQUNfUEVSX0JHWCkKLQogLyogUmVn
-aXN0ZXJzICovCiAjZGVmaW5lIEJHWF9DTVJYX0NGRwkJCTB4MDAKICNkZWZpbmUgIENNUl9QS1Rf
-VFhfRU4JCQkJQklUX1VMTCgxMykKLS0gCjIuNy40Cgo=
---001a1146ace2f705ad053915137c
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
---001a1146ace2f705ad053915137c--
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index a19e73f..f480cde 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -43,7 +43,7 @@ MODULE_VERSION(DRV_VERSION);
+ MODULE_DEVICE_TABLE(pci, nicvf_id_table);
+ 
+ static int debug = 0x00;
+-module_param(debug, int, 0644);
++module_param(debug, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+ MODULE_PARM_DESC(debug, "Debug message level bitmap");
+ 
+ static int cpi_alg = CPI_ALG_NONE;
+-- 
+2.9.2
