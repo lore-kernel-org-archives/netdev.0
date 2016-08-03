@@ -1,42 +1,51 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] tc: Fix for missing estimator initialization
-Date: Wed,  3 Aug 2016 11:43:45 +0200
-Message-ID: <1470217425-19709-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:37807 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752679AbcHCJxc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 05:53:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH v2] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
+Date: Wed,  3 Aug 2016 12:41:40 +0200 (CEST)
+Message-ID: <20160803104141.12CDB1A2394@localhost.localdomain>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When switching to C99 initializers, I forgot to add this one. This means
-that when trying to set an estimator value, tc would complain about
-spurious duplicate estimator parameter. But much worse, the random
-variable content is sent to the kernel regardless of whether an
-estimator was given or not.
+Do not drop packet when CSeq is 0 as 0 is also a valid value for CSeq.
 
-Fixes: d17b136f7d7dd ("Use C99 style initializers everywhere")
-Reported-by: Stas Nichiporovich <stasn77@gmail.com>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+simple_strtoul() will return 0 either when all digits are 0
+or if there are no digits at all. Therefore when simple_strtoul()
+returns 0 we check if first character is digit 0 or not.
+
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 ---
- tc/tc_qdisc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ v2: not using kstrtouint() anymore, as it required to use a temp buffer
 
-diff --git a/tc/tc_qdisc.c b/tc/tc_qdisc.c
-index bc87aab110e48..93c9a4c1daa28 100644
---- a/tc/tc_qdisc.c
-+++ b/tc/tc_qdisc.c
-@@ -45,7 +45,7 @@ static int usage(void)
- static int tc_qdisc_modify(int cmd, unsigned int flags, int argc, char **argv)
- {
- 	struct qdisc_util *q = NULL;
--	struct tc_estimator est;
-+	struct tc_estimator est = {};
- 	struct {
- 		struct tc_sizespec	szopts;
- 		__u16			*data;
+ net/netfilter/nf_conntrack_sip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 8d9db9d..7d77217 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1383,7 +1383,7 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+ 		return NF_DROP;
+ 	}
+ 	cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+-	if (!cseq) {
++	if (!cseq && *(*dptr + matchoff) != '0') {
+ 		nf_ct_helper_log(skb, ct, "cannot get cseq");
+ 		return NF_DROP;
+ 	}
+@@ -1446,7 +1446,7 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
+ 			return NF_DROP;
+ 		}
+ 		cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+-		if (!cseq) {
++		if (!cseq && *(*dptr + matchoff) != '0') {
+ 			nf_ct_helper_log(skb, ct, "cannot get cseq");
+ 			return NF_DROP;
+ 		}
 -- 
-2.8.2
+2.1.0
