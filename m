@@ -1,38 +1,110 @@
-From: "128" <netdev@vger.kernel.org>
-Subject: =?utf-8?B?0JrQu9C40LXQvdGC0YHQutC40LUg0LHQsNC30YsgIEVt?=
-	=?utf-8?B?YWlsOiBiYXd1cGVjb2RhLTM4OTdAeW9wbWFpbC5jb20g?=
-	=?utf-8?B?U2t5cGU6IHByb2Rhd2V6Mzg5INCX0LDQv9GA0L7RgdC4?=
-	=?utf-8?B?0YLQtSDQv9C+0LTRgNC+0LHQvdC+0YHRgtC4INGB0LXQ?=
-	=?utf-8?B?udGH0LDRgSDQldGB0LvQuCDQuNC90YLQtdGA0LXRgdC9?=
-	=?utf-8?B?0L4g0JHQu9Cw0LPQvtC00LDRgNC40Lwg0LfQsCDQsdGL?=
-	=?utf-8?B?0YHRgtGA0YvQuSDQvtGC0LLQtdGCIQ==?=
-Date: Wed, 3 Aug 2016 14:07:02 +0700
-Message-ID: <8D773C88E7331DAE72773E82968A2F00@vger.kernel.org>
-Reply-To: "128" <bawupecoda-3897@yopmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] 9p/trans_virtio: use kvfree() for
+ iov_iter_get_pages_alloc()
+Date: Wed, 3 Aug 2016 15:48:57 +0300
+Message-ID: <20160803151757-mutt-send-email-mst@kernel.org>
+References: <1469185929-476-1-git-send-email-vegard.nossum@oracle.com>
+ <57A1BA31.8030502@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8";
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [190.202.82.238] ([190.202.82.238]:56054 "EHLO
-	ns1bk.aragua.gob.ve" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751351AbcHCM5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 08:57:00 -0400
-Received: from fawzjxbr (localhost [127.0.0.1])
-	by ns1bk.aragua.gob.ve (Postfix) with SMTP id 6A1B15FEC3
-	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 16:45:45 -0430 (VET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Van Hensbergen <ericvh@gmail.com>,
+	Ron Minnich <rminnich@sandia.gov>,
+	Latchesar Ionkov <lucho@ionkov.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	v9fs-developer@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>, dgibson@redhat.com
+To: Vegard Nossum <vegard.nossum@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <57A1BA31.8030502@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-0KHQvtCx0LXRgNC10Lwg0LTQu9GPINCS0LDRgSDQv9C+INC40L3RgtC10YDQvdC10YIg0LHQsNC3
-0YMg0LTQsNC90L3Ri9GFIA0K0L/QvtGC0LXQvdGG0LjQsNC70YzQvdGL0YUg0LrQu9C40LXQvdGC
-0L7QsiDQtNC70Y8g0JLQsNGI0LXQs9C+INCR0LjQt9C90LXRgdCwIQ0K0JIg0LHQsNC30LUg0LHR
-g9C00YPRgiDQstGB0LUg0LrQvtC90YLQsNC60YLQvdGL0LUg0LTQsNC90L3Ri9C1INC90LXQvtCx
-0YXQvtC00LjQvNGL0LUgDQrQtNC70Y8g0LzQsNGB0YHQvtCy0L7QuSDQv9GA0L7QtNCw0LbQuCDQ
-ktCw0YjQuNGFINGC0L7QstCw0YDQvtCyINC4INGD0YHQu9GD0LMuDQrQn9C+INCS0LDRiNC10LzR
-gyDQt9Cw0L/RgNC+0YHRgyDQv9GA0LjRiNC70LXQvCDQv9GA0LjQvNC10YAg0Lgg0L/QvtC00YDQ
-vtCx0L3Rg9GOINC40L3RhNC+0YDQvNCw0YbQuNGOLg0K0JXRgdC70Lgg0LjQvdGC0LXRgNC10YHQ
-vdC+INC30LDQv9GA0L7RgdC40YLQtSDQv9C+0LTRgNC+0LHQvdC+0YHRgtC4INGB0LXQudGH0LDR
-gSANCkVtYWlsOiBiYXd1cGVjb2RhLTM4OTdAeW9wbWFpbC5jb20NClNreXBlOiBwcm9kYXdlejM4
-OQ0K0JHQu9Cw0LPQvtC00LDRgNC40Lwg0LfQsCDQsdGL0YHRgtGA0YvQuSDQvtGC0LLQtdGCIQ0K
->
+On Wed, Aug 03, 2016 at 11:32:33AM +0200, Vegard Nossum wrote:
+> On 07/22/2016 01:12 PM, Vegard Nossum wrote:
+> > The memory allocated by iov_iter_get_pages_alloc() can be allocated with
+> > vmalloc() if kmalloc() failed -- see get_pages_array().
+> > 
+> > In that case we need to free it with vfree(), so let's use kvfree().
+> > 
+> > The bug manifests like this:
+> > 
+> > BUG: unable to handle kernel paging request at ffffeb0400072da0
+> > IP: [<ffffffff8139c67b>] kfree+0x4b/0x140
+> > PGD 0
+> > Oops: 0000 [#1] PREEMPT SMP KASAN
+> > CPU: 2 PID: 675 Comm: trinity-c2 Not tainted 4.7.0-rc7+ #14
+> > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Ubuntu-1.8.2-1ubuntu1 04/01/2014
+> > task: ffff8800badef2c0 ti: ffff880069208000 task.ti: ffff880069208000
+> > RIP: 0010:[<ffffffff8139c67b>]  [<ffffffff8139c67b>] kfree+0x4b/0x140
+> > RSP: 0000:ffff88006920f3f0  EFLAGS: 00010282
+> > RAX: ffffea0000000000 RBX: ffffc90001cb6000 RCX: 0000000000000000
+> > RDX: 0000000000000001 RSI: 0000000000000246 RDI: ffffc90001cb6000
+> > RBP: ffff88006920f410 R08: 0000000000000000 R09: dffffc0000000000
+> > R10: ffff8800badefa30 R11: 0000056a3d3b0d9f R12: ffff88006920f620
+> > R13: ffffeb0400072d80 R14: ffff8800baa94078 R15: 0000000000000000
+> > FS:  00007fbd2b437700(0000) GS:ffff88011af00000(0000) knlGS:0000000000000000
+> > CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> > CR2: ffffeb0400072da0 CR3: 000000006926d000 CR4: 00000000000006e0
+> > Stack:
+> >   0000000000000001 ffff88006920f620 ffffed001755280f ffff8800baa94078
+> >   ffff88006920f6a8 ffffffff8310442b dffffc0000000000 ffff8800badefa30
+> >   ffff8800badefa28 ffff88011af1fba0 1ffff1000d241e98 ffff8800ba892150
+> > Call Trace:
+> >   [<ffffffff8310442b>] p9_virtio_zc_request+0x72b/0xdb0
+> >   [<ffffffff830f2116>] p9_client_zc_rpc.constprop.8+0x246/0xb10
+> >   [<ffffffff830f5d79>] p9_client_read+0x4c9/0x750
+> >   [<ffffffff8175ceac>] v9fs_fid_readpage+0x14c/0x320
+> >   [<ffffffff8175d0b6>] v9fs_vfs_readpage+0x36/0x50
+> >   [<ffffffff812c6f13>] filemap_fault+0x9a3/0xe60
+> >   [<ffffffff81331878>] __do_fault+0x158/0x300
+> >   [<ffffffff81339e01>] handle_mm_fault+0x1cf1/0x3c80
+> >   [<ffffffff810c0aaa>] __do_page_fault+0x30a/0x8e0
+> >   [<ffffffff810c10df>] do_page_fault+0x2f/0x80
+> >   [<ffffffff810b5b07>] do_async_page_fault+0x27/0xa0
+> >   [<ffffffff83296c48>] async_page_fault+0x28/0x30
+> > Code: 00 80 41 54 53 49 01 fd 48 0f 42 05 b0 39 67 02 48 89 fb 49 01 c5 48 b8 00 00 00 00 00 ea ff ff 49 c1 ed 0c 49 c1 e5 06 49 01 c5 <49> 8b 45 20 48 8d 50 ff a8 01 4c 0f 45 ea 49 8b 55 20 48 8d 42
+> > RIP  [<ffffffff8139c67b>] kfree+0x4b/0x140
+> >   RSP <ffff88006920f3f0>
+> > CR2: ffffeb0400072da0
+> > ---[ end trace f3d59a04bafec038 ]---
+> > 
+> > Cc: Al Viro <viro@zeniv.linux.org.uk>
+> > Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> > ---
+> >   net/9p/trans_virtio.c | 4 ++--
+> >   1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+> > index 4acb1d5..f24b25c 100644
+> > --- a/net/9p/trans_virtio.c
+> > +++ b/net/9p/trans_virtio.c
+> > @@ -507,8 +507,8 @@ err_out:
+> >   		/* wakeup anybody waiting for slots to pin pages */
+> >   		wake_up(&vp_wq);
+> >   	}
+> > -	kfree(in_pages);
+> > -	kfree(out_pages);
+> > +	kvfree(in_pages);
+> > +	kvfree(out_pages);
+> >   	return err;
+> >   }
+> > 
+> > 
+> 
+> Ping? Should this go to somebody else? Added a couple of Ccs.
+> 
+> 
+> Vegard
+
+I'll pick it up, thanks. Is virtio 9p in odd fixes mode?
+Anyone interested in maintaining it?
+I think it's actually kind of broken in virtio 1 mode,
+and probably in IOMMU_PLATFORM mode as well.
+The endian-ness also looks questionable - does it actually
+pass native endian structures guets to host?
+
+-- 
+MST
