@@ -1,67 +1,52 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH v2 2/3] sctp_diag: export timer value only if it is active
-Date: Wed,  3 Aug 2016 23:23:12 +0200
-Message-ID: <1470259393-22861-3-git-send-email-phil@nwl.cc>
-References: <1470259393-22861-1-git-send-email-phil@nwl.cc>
-Cc: Xin Long <lucien.xin@gmail.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51814 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758441AbcHCVXu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 17:23:50 -0400
-In-Reply-To: <1470259393-22861-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 3 Aug 2016 16:24:22 -0500
+Message-ID: <57A26106.50206@codeaurora.org>
+References: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
+ <11472258.9SNjZdPb6l@wuerfel> <57742C84.6000903@codeaurora.org>
+ <79189959.nJygzEHqi7@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
+	f.fainelli@gmail.com, catalin.marinas@arm.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <79189959.nJygzEHqi7@wuerfel>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since it is exported as unsigned value, userspace has no way detecting
-whether it is negative or just very large. Therefore do this in kernel
-space where it is a simple comparison.
+Arnd Bergmann wrote:
+> As I said, this is inherently driver specific. If setting the 64-bit
+> mask fails, the driver itself needs to fall back to the 32-bit mask
+> so it can allocate buffers from ZONE_DMA instead of ZONE_NORMAL.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
-Changes since v1:
-- Introduce local variable to shorten long lines.
-- Use timer_pending() to decide whether to export the timer value.
-- Export the primary path's value instead of garbage.
-- If not exporting, zero fields to not confuse userspace.
----
- net/sctp/sctp_diag.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+I just posted a v7 of my patch, but I forgot to fix the dma_set_mask 
+call.  I'll post a v8 soon, but before I do, what do you think of this:
 
-diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-index f69edcf219e51..f728ef04a7b2d 100644
---- a/net/sctp/sctp_diag.c
-+++ b/net/sctp/sctp_diag.c
-@@ -13,6 +13,7 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
- {
- 	union sctp_addr laddr, paddr;
- 	struct dst_entry *dst;
-+	struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
- 
- 	laddr = list_entry(asoc->base.bind_addr.address_list.next,
- 			   struct sctp_sockaddr_entry, list)->a;
-@@ -40,10 +41,15 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
- 	}
- 
- 	r->idiag_state = asoc->state;
--	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
--	r->idiag_retrans = asoc->rtx_data_chunks;
--	r->idiag_expires = jiffies_to_msecs(
--		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-+	if (timer_pending(t3_rtx)) {
-+		r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-+		r->idiag_retrans = asoc->rtx_data_chunks;
-+		r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
-+	} else {
-+		r->idiag_timer = 0;
-+		r->idiag_retrans = 0;
-+		r->idiag_expires = 0;
-+	}
- }
- 
- static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
+/* The EMAC itself is capable of 64-bit DMA, so try that first. */
+ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+if (ret) {
+         /* Some platforms may restrict the EMAC's address bus to less
+          * then the size of DDR. In this case, we need to try a
+          * smaller mask.  We could try every possible smaller mask,
+          * but that's overkill.  Instead, just fall to 32-bit, which
+          * should always work.
+          */
+         ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+         if (ret) {
+                 dev_err(&pdev->dev, "could not set DMA mask\n");
+                 return ret;
+         }
+}
+
+
 -- 
-2.8.2
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
