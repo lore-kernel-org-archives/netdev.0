@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next  15/18] liquidio support for new device cn23xx
-Date: Wed, 3 Aug 2016 11:55:46 -0700
-Message-ID: <1470250549-10993-16-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next  04/18] liquidio support for new device cn23xx
+Date: Wed, 3 Aug 2016 11:55:35 -0700
+Message-ID: <1470250549-10993-5-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,584 +13,634 @@ Cc: <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0083.outbound.protection.outlook.com ([104.47.33.83]:30448
+Received: from mail-bn3nam01on0059.outbound.protection.outlook.com ([104.47.33.59]:13184
 	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758336AbcHCUb2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 16:31:28 -0400
+	id S932352AbcHCUbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 16:31:11 -0400
 In-Reply-To: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for LED identification and ethtool
-based statistics for cn23xx device.
+This patch adds support for new device cn23xx related
+register definitions and structures.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   2 +
- drivers/net/ethernet/cavium/liquidio/lio_core.c    |   6 +
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 379 ++++++++++++++++++++-
- .../net/ethernet/cavium/liquidio/liquidio_common.h |   5 +
- 4 files changed, 384 insertions(+), 8 deletions(-)
+ .../net/ethernet/cavium/liquidio/cn23xx_pf_regs.h  | 602 +++++++++++++++++++++
+ 1 file changed, 602 insertions(+)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-index ec25ea3..fa74caf 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-@@ -51,6 +51,8 @@ int setup_cn23xx_octeon_pf_device(struct octeon_device *oct);
- int validate_cn23xx_pf_config_info(struct octeon_device *oct,
- 				   struct octeon_config *conf23xx);
- 
-+u32 cn23xx_pf_get_oq_ticks(struct octeon_device *oct, u32 time_intr_in_us);
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
+new file mode 100644
+index 0000000..8aab568
+--- /dev/null
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
+@@ -0,0 +1,602 @@
++/**********************************************************************
++* Author: Cavium, Inc.
++*
++* Contact: support@cavium.com
++*          Please include "LiquidIO" in the subject.
++*
++* Copyright (c) 2003-2015 Cavium, Inc.
++*
++* This file is free software; you can redistribute it and/or modify
++* it under the terms of the GNU General Public License, Version 2, as
++* published by the Free Software Foundation.
++*
++* This file is distributed in the hope that it will be useful, but
++* AS-IS and WITHOUT ANY WARRANTY; without even the implied warranty
++* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE, TITLE, or
++* NONINFRINGEMENT.  See the GNU General Public License for more
++* details.
++*
++* This file may also be available under a different license from Cavium.
++* Contact Cavium, Inc. for more information
++**********************************************************************/
 +
- void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct);
- 
- int cn23xx_fw_lock(struct octeon_device *oct);
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index ad1db3f..2551645 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -163,6 +163,12 @@ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
- 
- 	case OCTNET_CMD_GPIO_ACCESS:
- 		netif_info(lio, probe, lio->netdev, "LED Flashing visual identification\n");
++/*! \file cn23xx_regs.h
++ * \brief Host Driver: Register Address and Register Mask values for
++ * Octeon CN23XX devices.
++*/
 +
-+		break;
++#ifndef __CN23XX_PF_REGS_H__
++#define __CN23XX_PF_REGS_H__
 +
-+	case OCTNET_CMD_ID_ACTIVE:
-+		netif_info(lio, probe, lio->netdev, "LED Flashing visual identification\n");
++#define     CN23XX_CONFIG_VENDOR_ID	0x00
++#define     CN23XX_CONFIG_DEVICE_ID	0x02
 +
- 		break;
- 
- 	case OCTNET_CMD_LRO_ENABLE:
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 16a92b9..d05e9b4 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -32,6 +32,7 @@
- #include "octeon_network.h"
- #include "cn66xx_regs.h"
- #include "cn66xx_device.h"
-+#include "cn23xx_pf_device.h"
- 
- static int octnet_get_link_stats(struct net_device *netdev);
- 
-@@ -75,6 +76,7 @@ enum {
- 
- #define ARRAY_LENGTH(a) (sizeof(a) / sizeof((a)[0]))
- #define OCT_ETHTOOL_REGDUMP_LEN  4096
-+#define OCT_ETHTOOL_REGDUMP_LEN_23XX  (4096 * 11)
- #define OCT_ETHTOOL_REGSVER  1
- 
- /* statistics of PF */
-@@ -259,6 +261,13 @@ lio_ethtool_get_channels(struct net_device *dev,
- 		max_tx = CFG_GET_IQ_MAX_Q(conf6x);
- 		rx_count = CFG_GET_NUM_RXQS_NIC_IF(conf6x, lio->ifidx);
- 		tx_count = CFG_GET_NUM_TXQS_NIC_IF(conf6x, lio->ifidx);
-+	} else if (OCTEON_CN23XX_PF(oct)) {
-+		struct octeon_config *conf23 = CHIP_FIELD(oct, cn23xx_pf, conf);
++#define     CN23XX_CONFIG_XPANSION_BAR             0x38
 +
-+		max_rx = CFG_GET_OQ_MAX_Q(conf23);
-+		max_tx = CFG_GET_IQ_MAX_Q(conf23);
-+		rx_count = CFG_GET_NUM_RXQS_NIC_IF(conf23, lio->ifidx);
-+		tx_count = CFG_GET_NUM_TXQS_NIC_IF(conf23, lio->ifidx);
- 	}
- 
- 	channel->max_rx = max_rx;
-@@ -332,6 +341,32 @@ static int octnet_gpio_access(struct net_device *netdev, int addr, int val)
- 	return 0;
- }
- 
-+static int octnet_id_active(struct net_device *netdev, int val)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	int ret = 0;
++#define     CN23XX_CONFIG_MSIX_CAP		   0x50
++#define     CN23XX_CONFIG_MSIX_LMSI		   0x54
++#define     CN23XX_CONFIG_MSIX_UMSI		   0x58
++#define     CN23XX_CONFIG_MSIX_MSIMD		   0x5C
++#define     CN23XX_CONFIG_MSIX_MSIMM		   0x60
++#define     CN23XX_CONFIG_MSIX_MSIMP		   0x64
 +
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++#define     CN23XX_CONFIG_PCIE_CAP                 0x70
++#define     CN23XX_CONFIG_PCIE_DEVCAP              0x74
++#define     CN23XX_CONFIG_PCIE_DEVCTL              0x78
++#define     CN23XX_CONFIG_PCIE_LINKCAP             0x7C
++#define     CN23XX_CONFIG_PCIE_LINKCTL             0x80
++#define     CN23XX_CONFIG_PCIE_SLOTCAP             0x84
++#define     CN23XX_CONFIG_PCIE_SLOTCTL             0x88
++#define     CN23XX_CONFIG_PCIE_DEVCTL2             0x98
++#define     CN23XX_CONFIG_PCIE_LINKCTL2            0xA0
++#define     CN23XX_CONFIG_PCIE_UNCORRECT_ERR_MASK  0x108
++#define     CN23XX_CONFIG_PCIE_CORRECT_ERR_STATUS  0x110
 +
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_ID_ACTIVE;
-+	nctrl.ncmd.s.param1 = val;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
++#define     CN23XX_PCIE_SRIOV_FDL		   0x188
++#define     CN23XX_PCIE_SRIOV_FDL_BIT_POS	   0x10
++#define     CN23XX_PCIE_SRIOV_FDL_MASK		   0xFF
 +
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to configure gpio value\n");
-+		return -EINVAL;
-+	}
++#define     CN23XX_CONFIG_PCIE_FLTMSK              0x720
 +
-+	return 0;
-+}
++#define     CN23XX_CONFIG_SRIOV_VFDEVID            0x190
 +
- /* Callback for when mdio command response arrives
-  */
- static void octnet_mdio_resp_callback(struct octeon_device *oct,
-@@ -475,6 +510,11 @@ static int lio_set_phys_id(struct net_device *netdev,
- 						   &value);
- 			if (ret)
- 				return ret;
-+		} else if (oct->chip_id == OCTEON_CN23XX_PF_VID) {
-+			octnet_id_active(netdev, LED_IDENTIFICATION_ON);
++#define     CN23XX_CONFIG_SRIOV_BAR_START	   0x19C
++#define     CN23XX_CONFIG_SRIOV_BARX(i)		\
++		(CN23XX_CONFIG_SRIOV_BAR_START + (i * 4))
++#define     CN23XX_CONFIG_SRIOV_BAR_PF		   0x08
++#define     CN23XX_CONFIG_SRIOV_BAR_64BIT	   0x04
++#define     CN23XX_CONFIG_SRIOV_BAR_IO		   0x01
 +
-+			/* returns 0 since updates are asynchronous */
-+			return 0;
- 		} else {
- 			return -EINVAL;
- 		}
-@@ -520,7 +560,10 @@ static int lio_set_phys_id(struct net_device *netdev,
- 						   &lio->phy_beacon_val);
- 			if (ret)
- 				return ret;
-+		} else if (oct->chip_id == OCTEON_CN23XX_PF_VID) {
-+			octnet_id_active(netdev, LED_IDENTIFICATION_OFF);
- 
-+			return 0;
- 		} else {
- 			return -EINVAL;
- 		}
-@@ -549,6 +592,13 @@ lio_ethtool_get_ringparam(struct net_device *netdev,
- 		rx_max_pending = CN6XXX_MAX_OQ_DESCRIPTORS;
- 		rx_pending = CFG_GET_NUM_RX_DESCS_NIC_IF(conf6x, lio->ifidx);
- 		tx_pending = CFG_GET_NUM_TX_DESCS_NIC_IF(conf6x, lio->ifidx);
-+	} else if (OCTEON_CN23XX_PF(oct)) {
-+		struct octeon_config *conf23 = CHIP_FIELD(oct, cn23xx_pf, conf);
++/* ##############  BAR0 Registers ################ */
 +
-+		tx_max_pending = CN23XX_MAX_IQ_DESCRIPTORS;
-+		rx_max_pending = CN23XX_MAX_OQ_DESCRIPTORS;
-+		rx_pending = CFG_GET_NUM_RX_DESCS_NIC_IF(conf23, lio->ifidx);
-+		tx_pending = CFG_GET_NUM_TX_DESCS_NIC_IF(conf23, lio->ifidx);
- 	}
- 
- 	if (lio->mtu > OCTNET_DEFAULT_FRM_SIZE - OCTNET_FRM_HEADER_SIZE) {
-@@ -947,6 +997,16 @@ static int lio_get_intr_coalesce(struct net_device *netdev,
- 	intrmod_cfg = &oct->intrmod;
- 
- 	switch (oct->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		if (!intrmod_cfg->rx_enable) {
-+			intr_coal->rx_coalesce_usecs = intrmod_cfg->rx_usecs;
-+			intr_coal->rx_max_coalesced_frames =
-+				intrmod_cfg->rx_frames;
-+		}
-+		if (!intrmod_cfg->tx_enable)
-+			intr_coal->tx_max_coalesced_frames =
-+				intrmod_cfg->tx_frames;
-+		break;
- 	case OCTEON_CN68XX:
- 	case OCTEON_CN66XX: {
- 		struct octeon_cn6xxx *cn6xxx =
-@@ -982,7 +1042,15 @@ static int lio_get_intr_coalesce(struct net_device *netdev,
- 		intr_coal->rx_coalesce_usecs_low =
- 			intrmod_cfg->rx_mintmr_trigger;
- 		intr_coal->rx_max_coalesced_frames_low =
--			intrmod_cfg->rx_mincnt_trigger;
-+		    intrmod_cfg->rx_mincnt_trigger;
-+	}
-+	if (OCTEON_CN23XX_PF(oct) &&
-+	    (intrmod_cfg->tx_enable)) {
-+		intr_coal->use_adaptive_tx_coalesce = intrmod_cfg->tx_enable;
-+		intr_coal->tx_max_coalesced_frames_high =
-+		    intrmod_cfg->tx_maxcnt_trigger;
-+		intr_coal->tx_max_coalesced_frames_low =
-+		    intrmod_cfg->tx_mincnt_trigger;
- 	}
- 	return 0;
- }
-@@ -1059,11 +1127,11 @@ static void
- octnet_nic_stats_callback(struct octeon_device *oct_dev,
- 			  u32 status, void *ptr)
- {
--	struct octeon_soft_command  *sc = (struct octeon_soft_command  *)ptr;
--	struct oct_nic_stats_resp *resp = (struct oct_nic_stats_resp *)
--		sc->virtrptr;
--	struct oct_nic_stats_ctrl *ctrl = (struct oct_nic_stats_ctrl *)
--		sc->ctxptr;
-+	struct octeon_soft_command *sc = (struct octeon_soft_command *)ptr;
-+	struct oct_nic_stats_resp *resp =
-+	    (struct oct_nic_stats_resp *)sc->virtrptr;
-+	struct oct_nic_stats_ctrl *ctrl =
-+	    (struct oct_nic_stats_ctrl *)sc->ctxptr;
- 	struct nic_rx_stats *rsp_rstats = &resp->stats.fromwire;
- 	struct nic_tx_stats *rsp_tstats = &resp->stats.fromhost;
- 
-@@ -1313,6 +1381,27 @@ oct_cfg_rx_intrcnt(struct lio *lio, struct ethtool_coalesce *intr_coal)
- 		CFG_SET_OQ_INTR_PKT(cn6xxx->conf, rx_max_coalesced_frames);
- 		break;
- 	}
-+	case OCTEON_CN23XX_PF_VID: {
-+		int q_no;
++#define    CN23XX_SLI_CTL_PORT_START               0x286E0
++#define    CN23XX_PORT_OFFSET                      0x10
 +
-+		if (!intr_coal->rx_max_coalesced_frames)
-+			rx_max_coalesced_frames = oct->intrmod.rx_frames;
-+		else
-+			rx_max_coalesced_frames =
-+			    intr_coal->rx_max_coalesced_frames;
-+		for (q_no = 0; q_no < oct->num_oqs; q_no++) {
-+			q_no += oct->sriov_info.pf_srn;
-+			octeon_write_csr64(
-+			    oct, CN23XX_SLI_OQ_PKT_INT_LEVELS(q_no),
-+			    (octeon_read_csr64(
-+				 oct, CN23XX_SLI_OQ_PKT_INT_LEVELS(q_no)) &
-+			     (0x3fffff00000000UL)) |
-+				rx_max_coalesced_frames);
-+			/*consider setting resend bit*/
-+		}
-+		oct->intrmod.rx_frames = rx_max_coalesced_frames;
-+		break;
-+	}
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1345,6 +1434,27 @@ static int oct_cfg_rx_intrtime(struct lio *lio,
- 		CFG_SET_OQ_INTR_TIME(cn6xxx->conf, rx_coalesce_usecs);
- 		break;
- 	}
-+	case OCTEON_CN23XX_PF_VID: {
-+		u64 time_threshold;
-+		int q_no;
++#define    CN23XX_SLI_CTL_PORT(p)                  \
++		(CN23XX_SLI_CTL_PORT_START + ((p) * CN23XX_PORT_OFFSET))
 +
-+		if (!intr_coal->rx_coalesce_usecs)
-+			rx_coalesce_usecs = oct->intrmod.rx_usecs;
-+		else
-+			rx_coalesce_usecs = intr_coal->rx_coalesce_usecs;
-+		time_threshold =
-+		    cn23xx_pf_get_oq_ticks(oct, (u32)rx_coalesce_usecs);
-+		for (q_no = 0; q_no < oct->num_oqs; q_no++) {
-+			q_no += oct->sriov_info.pf_srn;
-+			octeon_write_csr64(oct,
-+					   CN23XX_SLI_OQ_PKT_INT_LEVELS(q_no),
-+					   (oct->intrmod.rx_frames |
-+					    ((u64)time_threshold << 32)));
-+			/*consider writing to resend bit here*/
-+		}
-+		oct->intrmod.rx_usecs = rx_coalesce_usecs;
-+		break;
-+	}
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1357,12 +1467,37 @@ oct_cfg_tx_intrcnt(struct lio *lio, struct ethtool_coalesce *intr_coal
- 		   __attribute__((unused)))
- {
- 	struct octeon_device *oct = lio->oct_dev;
-+	u32 iq_intr_pkt;
-+	void __iomem *inst_cnt_reg;
-+	u64 val;
- 
- 	/* Config Cnt based interrupt values */
- 	switch (oct->chip_id) {
- 	case OCTEON_CN68XX:
- 	case OCTEON_CN66XX:
- 		break;
-+	case OCTEON_CN23XX_PF_VID: {
-+		int q_no;
++/* 2 scatch registers (64-bit)  */
++#define    CN23XX_SLI_WINDOW_CTL                   0x282E0
++#define    CN23XX_SLI_SCRATCH1                     0x283C0
++#define    CN23XX_SLI_SCRATCH2                     0x283D0
 +
-+		if (!intr_coal->tx_max_coalesced_frames)
-+			iq_intr_pkt = CN23XX_DEF_IQ_INTR_THRESHOLD &
-+				      CN23XX_PKT_IN_DONE_WMARK_MASK;
-+		else
-+			iq_intr_pkt = intr_coal->tx_max_coalesced_frames &
-+				      CN23XX_PKT_IN_DONE_WMARK_MASK;
-+		for (q_no = 0; q_no < oct->num_iqs; q_no++) {
-+			inst_cnt_reg = (oct->instr_queue[q_no])->inst_cnt_reg;
-+			val = readq(inst_cnt_reg);
-+			/*clear wmark and count.dont want to write count back*/
-+			val = (val & 0xFFFF000000000000ULL) |
-+			      ((u64)iq_intr_pkt
-+			       << CN23XX_PKT_IN_DONE_WMARK_BIT_POS);
-+			writeq(val, inst_cnt_reg);
-+			/*consider setting resend bit*/
-+		}
-+		oct->intrmod.tx_frames = iq_intr_pkt;
-+		break;
-+	}
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1398,6 +1533,8 @@ static int lio_set_intr_coalesce(struct net_device *netdev,
- 			return -EINVAL;
- 		}
- 		break;
-+	case OCTEON_CN23XX_PF_VID:
-+		break;
- 	default:
- 		return -EINVAL;
- 	}
-@@ -1540,9 +1677,231 @@ static int lio_nway_reset(struct net_device *netdev)
- }
- 
- /* Return register dump len. */
--static int lio_get_regs_len(struct net_device *dev __attribute__((unused)))
-+static int lio_get_regs_len(struct net_device *dev)
-+{
-+	struct lio *lio = GET_LIO(dev);
-+	struct octeon_device *oct = lio->oct_dev;
++/* 1 registers (64-bit)  - SLI_CTL_STATUS */
++#define    CN23XX_SLI_CTL_STATUS                   0x28570
 +
-+	switch (oct->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		return OCT_ETHTOOL_REGDUMP_LEN_23XX;
-+	default:
-+		return OCT_ETHTOOL_REGDUMP_LEN;
-+	}
-+}
++/* SLI Packet Input Jabber Register (64 bit register)
++ * <31:0> for Byte count for limiting sizes of packet sizes
++ * that are allowed for sli packet inbound packets.
++ * the default value is 0xFA00(=64000).
++ */
++#define    CN23XX_SLI_PKT_IN_JABBER                0x29170
++/* The input jabber is used to determine the TSO max size.
++ * Due to H/W limitation, this need to be reduced to 60000
++ * in order to to H/W TSO and avoid the WQE malfarmation
++ * PKO_BUG_24989_WQE_LEN
++ */
++#define    CN23XX_DEFAULT_INPUT_JABBER             0xEA60 /*60000*/
 +
-+static int cn23xx_read_csr_reg(char *s, struct octeon_device *oct)
- {
--	return OCT_ETHTOOL_REGDUMP_LEN;
-+	u32 reg;
-+	u8 pf_num = oct->pf_num;
-+	int len = 0;
-+	int i;
++#define    CN23XX_WIN_WR_ADDR_LO                   0x20000
++#define    CN23XX_WIN_WR_ADDR_HI                   0x20004
++#define    CN23XX_WIN_WR_ADDR64                    CN23XX_WIN_WR_ADDR_LO
 +
-+	/* PCI  Window Registers */
++#define    CN23XX_WIN_RD_ADDR_LO                   0x20010
++#define    CN23XX_WIN_RD_ADDR_HI                   0x20014
++#define    CN23XX_WIN_RD_ADDR64                    CN23XX_WIN_RD_ADDR_LO
 +
-+	len += sprintf(s + len, "\n\t Octeon CSR Registers\n\n");
++#define    CN23XX_WIN_WR_DATA_LO                   0x20020
++#define    CN23XX_WIN_WR_DATA_HI                   0x20024
++#define    CN23XX_WIN_WR_DATA64                    CN23XX_WIN_WR_DATA_LO
 +
-+	/*0x29030 or 0x29040*/
-+	reg = CN23XX_SLI_PKT_MAC_RINFO64(oct->pcie_port, oct->pf_num);
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_MAC%d_PF%d_RINFO): %016lx\n",
-+		       reg, oct->pcie_port, oct->pf_num,
-+		       octeon_read_csr64(oct, reg));
++#define    CN23XX_WIN_RD_DATA_LO                   0x20040
++#define    CN23XX_WIN_RD_DATA_HI                   0x20044
++#define    CN23XX_WIN_RD_DATA64                    CN23XX_WIN_RD_DATA_LO
 +
-+	/*0x27080 or 0x27090*/
-+	reg = CN23XX_SLI_MAC_PF_INT_ENB64(oct->pcie_port, oct->pf_num);
-+	len +=
-+	    sprintf(s + len, "\n[%08x] (SLI_MAC%d_PF%d_INT_ENB): %016lx\n", reg,
-+		    oct->pcie_port, oct->pf_num, octeon_read_csr64(oct, reg));
++#define    CN23XX_WIN_WR_MASK_LO                   0x20030
++#define    CN23XX_WIN_WR_MASK_HI                   0x20034
++#define    CN23XX_WIN_WR_MASK_REG                  CN23XX_WIN_WR_MASK_LO
++#define CN23XX_SLI_MAC_CREDIT_CNT		   0x23D70
 +
-+	/*0x27000 or 0x27010*/
-+	reg = CN23XX_SLI_MAC_PF_INT_SUM64(oct->pcie_port, oct->pf_num);
-+	len +=
-+	    sprintf(s + len, "\n[%08x] (SLI_MAC%d_PF%d_INT_SUM): %016lx\n", reg,
-+		    oct->pcie_port, oct->pf_num, octeon_read_csr64(oct, reg));
++/* 4 registers (64-bit) for mapping IOQs to MACs(PEMs)-
++ * SLI_PKT_MAC(0..3)_PF(0..1)_RINFO
++ */
++#define    CN23XX_SLI_PKT_MAC_RINFO_START64       0x29030
 +
-+	/*0x29120*/
-+	reg = 0x29120;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_MEM_CTL): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++/*1 register (64-bit) to determine whether IOQs are in reset. */
++#define    CN23XX_SLI_PKT_IOQ_RING_RST            0x291E0
 +
-+	/*0x27300*/
-+	reg = 0x27300 + oct->pcie_port * CN23XX_MAC_INT_OFFSET +
-+	      (oct->pf_num) * CN23XX_PF_INT_OFFSET;
-+	len += sprintf(
-+	    s + len, "\n[%08x] (SLI_MAC%d_PF%d_PKT_VF_INT): %016lx\n", reg,
-+	    oct->pcie_port, oct->pf_num, octeon_read_csr64(oct, reg));
++/* Each Input Queue register is at a 16-byte Offset in BAR0 */
++#define    CN23XX_IQ_OFFSET                       0x20000
 +
-+	/*0x27200*/
-+	reg = 0x27200 + oct->pcie_port * CN23XX_MAC_INT_OFFSET +
-+	      (oct->pf_num) * CN23XX_PF_INT_OFFSET;
-+	len += sprintf(s + len, "\n[%08x] (SLI_MAC%d_PF%d_PP_VF_INT): %016lx\n",
-+		       reg, oct->pcie_port, oct->pf_num,
-+		       octeon_read_csr64(oct, reg));
++#define    CN23XX_MAC_RINFO_OFFSET                0x20
++#define    CN23XX_PF_RINFO_OFFSET                 0x10
 +
-+	/*29130*/
-+	reg = CN23XX_SLI_PKT_CNT_INT;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_CNT_INT): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++#define CN23XX_SLI_PKT_MAC_RINFO64(mac, pf)		\
++		(CN23XX_SLI_PKT_MAC_RINFO_START64 +     \
++		 ((mac) * CN23XX_MAC_RINFO_OFFSET) +	\
++		 ((pf) * CN23XX_PF_RINFO_OFFSET))
 +
-+	/*0x29140*/
-+	reg = CN23XX_SLI_PKT_TIME_INT;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_TIME_INT): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++/** mask for total rings, setting TRS to base */
++#define    CN23XX_PKT_MAC_CTL_RINFO_TRS               BIT_ULL(16)
++/** mask for starting ring number: setting SRN <6:0> = 0x7F */
++#define    CN23XX_PKT_MAC_CTL_RINFO_SRN               (0x7F)
 +
-+	/*0x29160*/
-+	reg = 0x29160;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_INT): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++/* Starting bit of the TRS field in CN23XX_SLI_PKT_MAC_RINFO64 register */
++#define    CN23XX_PKT_MAC_CTL_RINFO_TRS_BIT_POS     16
++/* Starting bit of SRN field in CN23XX_SLI_PKT_MAC_RINFO64 register */
++#define    CN23XX_PKT_MAC_CTL_RINFO_SRN_BIT_POS     0
++/* Starting bit of RPVF field in CN23XX_SLI_PKT_MAC_RINFO64 register */
++#define    CN23XX_PKT_MAC_CTL_RINFO_RPVF_BIT_POS     32
++/* Starting bit of NVFS field in CN23XX_SLI_PKT_MAC_RINFO64 register */
++#define    CN23XX_PKT_MAC_CTL_RINFO_NVFS_BIT_POS     48
 +
-+	/*0x29180*/
-+	reg = CN23XX_SLI_OQ_WMARK;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_OUTPUT_WMARK): %016lx\n",
-+		       reg, octeon_read_csr64(oct, reg));
++/*###################### REQUEST QUEUE #########################*/
 +
-+	/*0x291E0*/
-+	reg = CN23XX_SLI_PKT_IOQ_RING_RST;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_RING_RST): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++/* 64 registers for Input Queue Instr Count - SLI_PKT_IN_DONE0_CNTS */
++#define    CN23XX_SLI_IQ_INSTR_COUNT_START64     0x10040
 +
-+	/*0x29210*/
-+	reg = CN23XX_SLI_GBL_CONTROL;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_GBL_CONTROL): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++/* 64 registers for Input Queues Start Addr - SLI_PKT0_INSTR_BADDR */
++#define    CN23XX_SLI_IQ_BASE_ADDR_START64       0x10010
 +
-+	/*0x29220*/
-+	reg = 0x29220;
-+	len += sprintf(s + len, "\n[%08x] (SLI_PKT_BIST_STATUS): %016lx\n", reg,
-+		       octeon_read_csr64(oct, reg));
++/* 64 registers for Input Doorbell - SLI_PKT0_INSTR_BAOFF_DBELL */
++#define    CN23XX_SLI_IQ_DOORBELL_START          0x10020
 +
-+	/*PF only*/
-+	if (pf_num == 0) {
-+		/*0x29260*/
-+		reg = CN23XX_SLI_OUT_BP_EN_W1S;
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT_OUT_BP_EN_W1S):  %016lx\n",
-+			       reg, octeon_read_csr64(oct, reg));
-+	} else if (pf_num == 1) {
-+		/*0x29270*/
-+		reg = CN23XX_SLI_OUT_BP_EN2_W1S;
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT_OUT_BP_EN2_W1S): %016lx\n",
-+			       reg, octeon_read_csr64(oct, reg));
-+	}
++/* 64 registers for Input Queue size - SLI_PKT0_INSTR_FIFO_RSIZE */
++#define    CN23XX_SLI_IQ_SIZE_START              0x10030
 +
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_BUFF_INFO_SIZE(i);
-+		len +=
-+		    sprintf(s + len, "\n[%08x] (SLI_PKT%d_OUT_SIZE): %016lx\n",
-+			    reg, i, octeon_read_csr64(oct, reg));
-+	}
++/* 64 registers (64-bit) - ES, RO, NS, Arbitration for Input Queue Data &
++ * gather list fetches. SLI_PKT(0..63)_INPUT_CONTROL.
++ */
++#define    CN23XX_SLI_IQ_PKT_CONTROL_START64    0x10000
 +
-+	/*0x10040*/
-+	for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_IQ_INSTR_COUNT64(i);
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT_IN_DONE%d_CNTS): %016lx\n",
-+			       reg, i, octeon_read_csr64(oct, reg));
-+	}
++/*------- Request Queue Macros ---------*/
++#define    CN23XX_SLI_IQ_PKT_CONTROL64(iq)          \
++		(CN23XX_SLI_IQ_PKT_CONTROL_START64 + ((iq) * CN23XX_IQ_OFFSET))
 +
-+	/*0x10080*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_PKTS_CREDIT(i);
-+		len += sprintf(
-+		    s + len, "\n[%08x] (SLI_PKT%d_SLIST_BAOFF_DBELL): %016lx\n",
-+		    reg, i, octeon_read_csr64(oct, reg));
-+	}
++#define    CN23XX_SLI_IQ_BASE_ADDR64(iq)          \
++		(CN23XX_SLI_IQ_BASE_ADDR_START64 + ((iq) * CN23XX_IQ_OFFSET))
 +
-+	/*0x10090*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_SIZE(i);
-+		len += sprintf(
-+		    s + len, "\n[%08x] (SLI_PKT%d_SLIST_FIFO_RSIZE): %016lx\n",
-+		    reg, i, octeon_read_csr64(oct, reg));
-+	}
++#define    CN23XX_SLI_IQ_SIZE(iq)                 \
++		(CN23XX_SLI_IQ_SIZE_START + ((iq) * CN23XX_IQ_OFFSET))
 +
-+	/*0x10050*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_PKT_CONTROL(i);
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT%d__OUTPUT_CONTROL): %016lx\n",
-+			       reg, i, octeon_read_csr64(oct, reg));
-+	}
++#define    CN23XX_SLI_IQ_DOORBELL(iq)             \
++		(CN23XX_SLI_IQ_DOORBELL_START + ((iq) * CN23XX_IQ_OFFSET))
 +
-+	/*0x10070*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_BASE_ADDR64(i);
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT%d_SLIST_BADDR): %016lx\n",
-+			       reg, i, octeon_read_csr64(oct, reg));
-+	}
++#define    CN23XX_SLI_IQ_INSTR_COUNT64(iq)          \
++		(CN23XX_SLI_IQ_INSTR_COUNT_START64 + ((iq) * CN23XX_IQ_OFFSET))
 +
-+	/*0x100a0*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_PKT_INT_LEVELS(i);
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT%d_INT_LEVELS): %016lx\n", reg,
-+			       i, octeon_read_csr64(oct, reg));
-+	}
++/*------------------ Masks ----------------*/
++#define    CN23XX_PKT_INPUT_CTL_VF_NUM                  BIT_ULL(32)
++#define    CN23XX_PKT_INPUT_CTL_MAC_NUM                 BIT(29)
++/* Number of instructions to be read in one MAC read request.
++ * setting to Max value(4)
++ */
++#define    CN23XX_PKT_INPUT_CTL_RDSIZE                  (3 << 25)
++#define    CN23XX_PKT_INPUT_CTL_IS_64B                  BIT(24)
++#define    CN23XX_PKT_INPUT_CTL_RST                     BIT(23)
++#define    CN23XX_PKT_INPUT_CTL_QUIET                   BIT(28)
++#define    CN23XX_PKT_INPUT_CTL_RING_ENB                BIT(22)
++#define    CN23XX_PKT_INPUT_CTL_DATA_NS                 BIT(8)
++#define    CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP        BIT(6)
++#define    CN23XX_PKT_INPUT_CTL_DATA_RO                 BIT(5)
++#define    CN23XX_PKT_INPUT_CTL_USE_CSR                 BIT(4)
++#define    CN23XX_PKT_INPUT_CTL_GATHER_NS               BIT(3)
++#define    CN23XX_PKT_INPUT_CTL_GATHER_ES_64B_SWAP      (2)
++#define    CN23XX_PKT_INPUT_CTL_GATHER_RO               (1)
 +
-+	/*0x100b0*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = CN23XX_SLI_OQ_PKTS_SENT(i);
-+		len += sprintf(s + len, "\n[%08x] (SLI_PKT%d_CNTS): %016lx\n",
-+			       reg, i, octeon_read_csr64(oct, reg));
-+	}
++/** Rings per Virtual Function **/
++#define    CN23XX_PKT_INPUT_CTL_RPVF_MASK		(0x3F)
++#define	   CN23XX_PKT_INPUT_CTL_RPVF_POS		(48)
++/** These bits[47:44] select the Physical function number within the MAC */
++#define	   CN23XX_PKT_INPUT_CTL_PF_NUM_MASK		(0x7)
++#define	   CN23XX_PKT_INPUT_CTL_PF_NUM_POS		(45)
++/** These bits[43:32] select the function number within the PF */
++#define	   CN23XX_PKT_INPUT_CTL_VF_NUM_MASK		(0x1FFF)
++#define	   CN23XX_PKT_INPUT_CTL_VF_NUM_POS		(32)
++#define    CN23XX_PKT_INPUT_CTL_MAC_NUM_MASK		(0x3)
++#define	   CN23XX_PKT_INPUT_CTL_MAC_NUM_POS		(29)
++#define	   CN23XX_PKT_IN_DONE_WMARK_MASK		(0xFFFFULL)
++#define	   CN23XX_PKT_IN_DONE_WMARK_BIT_POS		(32)
++#define	   CN23XX_PKT_IN_DONE_CNT_MASK			(0x00000000FFFFFFFFULL)
 +
-+	/*0x100c0*/
-+	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
-+		reg = 0x100c0 + i * CN23XX_OQ_OFFSET;
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT%d_ERROR_INFO): %016lx\n", reg,
-+			       i, octeon_read_csr64(oct, reg));
++#ifdef __LITTLE_ENDIAN_BITFIELD
++#define    CN23XX_PKT_INPUT_CTL_MASK				\
++		(CN23XX_PKT_INPUT_CTL_RDSIZE		|	\
++		 CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP	|	\
++		 CN23XX_PKT_INPUT_CTL_USE_CSR)
++#else
++#define    CN23XX_PKT_INPUT_CTL_MASK				\
++		(CN23XX_PKT_INPUT_CTL_RDSIZE		|	\
++		 CN23XX_PKT_INPUT_CTL_DATA_ES_64B_SWAP	|	\
++		 CN23XX_PKT_INPUT_CTL_USE_CSR		|	\
++		 CN23XX_PKT_INPUT_CTL_GATHER_ES_64B_SWAP)
++#endif
 +
-+		/*0x10000*/
-+		for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
-+			reg = CN23XX_SLI_IQ_PKT_CONTROL64(i);
-+			len += sprintf(
-+				s + len,
-+				"\n[%08x] (SLI_PKT%d_INPUT_CONTROL): %016lx\n",
-+				reg, i, octeon_read_csr64(oct, reg));
-+		}
++/** Masks for SLI_PKT_IN_DONE(0..63)_CNTS Register */
++#define    CN23XX_IN_DONE_CNTS_PI_INT               BIT_ULL(62)
++#define    CN23XX_IN_DONE_CNTS_CINT_ENB             BIT_ULL(48)
 +
-+		/*0x10010*/
-+		for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
-+			reg = CN23XX_SLI_IQ_BASE_ADDR64(i);
-+			len += sprintf(
-+			    s + len,
-+			    "\n[%08x] (SLI_PKT%d_INSTR_BADDR): %016lx\n", reg,
-+			    i, octeon_read_csr64(oct, reg));
-+		}
++/*############################ OUTPUT QUEUE #########################*/
 +
-+		/*0x10020*/
-+		for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
-+			reg = CN23XX_SLI_IQ_DOORBELL(i);
-+			len += sprintf(
-+			    s + len,
-+			    "\n[%08x] (SLI_PKT%d_INSTR_BAOFF_DBELL): %016lx\n",
-+			    reg, i, octeon_read_csr64(oct, reg));
-+		}
++/* 64 registers for Output queue control - SLI_PKT(0..63)_OUTPUT_CONTROL */
++#define    CN23XX_SLI_OQ_PKT_CONTROL_START       0x10050
 +
-+		/*0x10030*/
-+		for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
-+			reg = CN23XX_SLI_IQ_SIZE(i);
-+			len += sprintf(
-+			    s + len,
-+			    "\n[%08x] (SLI_PKT%d_INSTR_FIFO_RSIZE): %016lx\n",
-+			    reg, i, octeon_read_csr64(oct, reg));
-+		}
++/* 64 registers for Output queue buffer and info size - SLI_PKT0_OUT_SIZE */
++#define    CN23XX_SLI_OQ0_BUFF_INFO_SIZE         0x10060
 +
-+		/*0x10040*/
-+		for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++)
-+			reg = CN23XX_SLI_IQ_INSTR_COUNT64(i);
-+		len += sprintf(s + len,
-+			       "\n[%08x] (SLI_PKT_IN_DONE%d_CNTS): %016lx\n",
-+			       reg, i, octeon_read_csr64(oct, reg));
-+	}
++/* 64 registers for Output Queue Start Addr - SLI_PKT0_SLIST_BADDR */
++#define    CN23XX_SLI_OQ_BASE_ADDR_START64       0x10070
 +
-+	return len;
- }
- 
- static int cn6xxx_read_csr_reg(char *s, struct octeon_device *oct)
-@@ -1687,6 +2046,10 @@ static void lio_get_regs(struct net_device *dev,
- 	regs->version = OCT_ETHTOOL_REGSVER;
- 
- 	switch (oct->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		memset(regbuf, 0, OCT_ETHTOOL_REGDUMP_LEN_23XX);
-+		len += cn23xx_read_csr_reg(regbuf + len, oct);
-+		break;
- 	case OCTEON_CN68XX:
- 	case OCTEON_CN66XX:
- 		memset(regbuf, 0, OCT_ETHTOOL_REGDUMP_LEN);
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 9f328ff..4e33f48 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -234,6 +234,9 @@ static inline void add_sg_size(struct octeon_sg_entry *sg_entry,
- #define   OCTNET_CMD_ADD_VLAN_FILTER  0x17
- #define   OCTNET_CMD_DEL_VLAN_FILTER  0x18
- #define   OCTNET_CMD_VXLAN_PORT_CONFIG 0x19
++/* 64 registers for Output Queue Packet Credits - SLI_PKT0_SLIST_BAOFF_DBELL */
++#define    CN23XX_SLI_OQ_PKT_CREDITS_START       0x10080
 +
-+#define   OCTNET_CMD_ID_ACTIVE         0x1a
++/* 64 registers for Output Queue size - SLI_PKT0_SLIST_FIFO_RSIZE */
++#define    CN23XX_SLI_OQ_SIZE_START              0x10090
 +
- #define   OCTNET_CMD_VXLAN_PORT_ADD    0x0
- #define   OCTNET_CMD_VXLAN_PORT_DEL    0x1
- #define   OCTNET_CMD_RXCSUM_ENABLE     0x0
-@@ -830,6 +833,8 @@ struct oct_link_stats {
- #define VITESSE_PHY_GPIO_DRIVEOFF 0x4
- #define VITESSE_PHY_GPIO_HIGH     0x2
- #define VITESSE_PHY_GPIO_LOW      0x3
-+#define LED_IDENTIFICATION_ON     0x1
-+#define LED_IDENTIFICATION_OFF    0x0
- 
- struct oct_mdio_cmd {
- 	u64 op;
++/* 64 registers for Output Queue Packet Count - SLI_PKT0_CNTS */
++#define    CN23XX_SLI_OQ_PKT_SENT_START          0x100B0
++
++/* 64 registers for Output Queue INT Levels - SLI_PKT0_INT_LEVELS */
++#define    CN23XX_SLI_OQ_PKT_INT_LEVELS_START64   0x100A0
++
++/* Each Output Queue register is at a 16-byte Offset in BAR0 */
++#define    CN23XX_OQ_OFFSET                      0x20000
++
++/* 1 (64-bit register) for Output Queue backpressure across all rings. */
++#define    CN23XX_SLI_OQ_WMARK                   0x29180
++
++/* Global pkt control register */
++#define    CN23XX_SLI_GBL_CONTROL                0x29210
++
++/* Backpressure enable register for PF0  */
++#define    CN23XX_SLI_OUT_BP_EN_W1S              0x29260
++
++/* Backpressure enable register for PF1  */
++#define    CN23XX_SLI_OUT_BP_EN2_W1S             0x29270
++
++/* Backpressure disable register for PF0  */
++#define    CN23XX_SLI_OUT_BP_EN_W1C              0x29280
++
++/* Backpressure disable register for PF1  */
++#define    CN23XX_SLI_OUT_BP_EN2_W1C             0x29290
++
++/*------- Output Queue Macros ---------*/
++
++#define    CN23XX_SLI_OQ_PKT_CONTROL(oq)          \
++		(CN23XX_SLI_OQ_PKT_CONTROL_START + ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_BASE_ADDR64(oq)          \
++		(CN23XX_SLI_OQ_BASE_ADDR_START64 + ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_SIZE(oq)                 \
++		(CN23XX_SLI_OQ_SIZE_START + ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_BUFF_INFO_SIZE(oq)                 \
++		(CN23XX_SLI_OQ0_BUFF_INFO_SIZE + ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_PKTS_SENT(oq)            \
++		(CN23XX_SLI_OQ_PKT_SENT_START + ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_PKTS_CREDIT(oq)          \
++		(CN23XX_SLI_OQ_PKT_CREDITS_START + ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_PKT_INT_LEVELS(oq)		\
++		(CN23XX_SLI_OQ_PKT_INT_LEVELS_START64 +	\
++		 ((oq) * CN23XX_OQ_OFFSET))
++
++/*Macro's for accessing CNT and TIME separately from INT_LEVELS*/
++#define    CN23XX_SLI_OQ_PKT_INT_LEVELS_CNT(oq)		\
++		(CN23XX_SLI_OQ_PKT_INT_LEVELS_START64 +	\
++		 ((oq) * CN23XX_OQ_OFFSET))
++
++#define    CN23XX_SLI_OQ_PKT_INT_LEVELS_TIME(oq)	\
++		(CN23XX_SLI_OQ_PKT_INT_LEVELS_START64 +	\
++		 ((oq) * CN23XX_OQ_OFFSET) + 4)
++
++/*------------------ Masks ----------------*/
++#define    CN23XX_PKT_OUTPUT_CTL_TENB                  BIT(13)
++#define    CN23XX_PKT_OUTPUT_CTL_CENB                  BIT(12)
++#define    CN23XX_PKT_OUTPUT_CTL_IPTR                  BIT(11)
++#define    CN23XX_PKT_OUTPUT_CTL_ES                    BIT(9)
++#define    CN23XX_PKT_OUTPUT_CTL_NSR                   BIT(8)
++#define    CN23XX_PKT_OUTPUT_CTL_ROR                   BIT(7)
++#define    CN23XX_PKT_OUTPUT_CTL_DPTR                  BIT(6)
++#define    CN23XX_PKT_OUTPUT_CTL_BMODE                 BIT(5)
++#define    CN23XX_PKT_OUTPUT_CTL_ES_P                  BIT(3)
++#define    CN23XX_PKT_OUTPUT_CTL_NSR_P                 BIT(2)
++#define    CN23XX_PKT_OUTPUT_CTL_ROR_P                 BIT(1)
++#define    CN23XX_PKT_OUTPUT_CTL_RING_ENB              BIT(0)
++
++/*######################### Mailbox Reg Macros ########################*/
++#define	   CN23XX_SLI_PKT_MBOX_INT_START	     0x10210
++#define    CN23XX_SLI_PKT_PF_VF_MBOX_SIG_START       0x10200
++#define    CN23XX_SLI_MAC_PF_MBOX_INT_START	     0x27380
++
++#define    CN23XX_SLI_MBOX_OFFSET		     0x20000
++#define    CN23XX_SLI_MBOX_SIG_IDX_OFFSET	     0x8
++
++#define    CN23XX_SLI_PKT_MBOX_INT(q)          \
++		(CN23XX_SLI_PKT_MBOX_INT_START + ((q) * CN23XX_SLI_MBOX_OFFSET))
++
++#define    CN23XX_SLI_PKT_PF_VF_MBOX_SIG(q, idx)		\
++		(CN23XX_SLI_PKT_PF_VF_MBOX_SIG_START +		\
++		 ((q) * CN23XX_SLI_MBOX_OFFSET +		\
++		  (idx) * CN23XX_SLI_MBOX_SIG_IDX_OFFSET))
++
++#define    CN23XX_SLI_MAC_PF_MBOX_INT(mac, pf)		\
++		(CN23XX_SLI_MAC_PF_MBOX_INT_START +	\
++		 ((mac) * CN23XX_MAC_INT_OFFSET +	\
++		  (pf) * CN23XX_PF_INT_OFFSET))
++
++/*######################### DMA Counters #########################*/
++
++/* 2 registers (64-bit) - DMA Count - 1 for each DMA counter 0/1. */
++#define    CN23XX_DMA_CNT_START                   0x28400
++
++/* 2 registers (64-bit) - DMA Timer 0/1, contains DMA timer values */
++/* SLI_DMA_0_TIM */
++#define    CN23XX_DMA_TIM_START                   0x28420
++
++/* 2 registers (64-bit) - DMA count & Time Interrupt threshold -
++ * SLI_DMA_0_INT_LEVEL
++ */
++#define    CN23XX_DMA_INT_LEVEL_START             0x283E0
++
++/* Each DMA register is at a 16-byte Offset in BAR0 */
++#define    CN23XX_DMA_OFFSET                      0x10
++
++/*---------- DMA Counter Macros ---------*/
++#define    CN23XX_DMA_CNT(dq)                      \
++		(CN23XX_DMA_CNT_START + ((dq) * CN23XX_DMA_OFFSET))
++
++#define    CN23XX_DMA_INT_LEVEL(dq)                \
++		(CN23XX_DMA_INT_LEVEL_START + ((dq) * CN23XX_DMA_OFFSET))
++
++#define    CN23XX_DMA_PKT_INT_LEVEL(dq)            \
++		(CN23XX_DMA_INT_LEVEL_START + ((dq) * CN23XX_DMA_OFFSET))
++
++#define    CN23XX_DMA_TIME_INT_LEVEL(dq)           \
++		(CN23XX_DMA_INT_LEVEL_START + 4 + ((dq) * CN23XX_DMA_OFFSET))
++
++#define    CN23XX_DMA_TIM(dq)                     \
++		(CN23XX_DMA_TIM_START + ((dq) * CN23XX_DMA_OFFSET))
++
++/*######################## MSIX TABLE #########################*/
++
++#define	CN23XX_MSIX_TABLE_ADDR_START		0x0
++#define	CN23XX_MSIX_TABLE_DATA_START		0x8
++
++#define	CN23XX_MSIX_TABLE_SIZE			0x10
++#define	CN23XX_MSIX_TABLE_ENTRIES		0x41
++
++#define CN23XX_MSIX_ENTRY_VECTOR_CTL	BIT_ULL(32)
++
++#define	CN23XX_MSIX_TABLE_ADDR(idx)		\
++	(CN23XX_MSIX_TABLE_ADDR_START + ((idx) * CN23XX_MSIX_TABLE_SIZE))
++
++#define	CN23XX_MSIX_TABLE_DATA(idx)		\
++	(CN23XX_MSIX_TABLE_DATA_START + ((idx) * CN23XX_MSIX_TABLE_SIZE))
++
++/*######################## INTERRUPTS #########################*/
++#define CN23XX_MAC_INT_OFFSET   0x20
++#define CN23XX_PF_INT_OFFSET    0x10
++
++/* 1 register (64-bit) for Interrupt Summary */
++#define    CN23XX_SLI_INT_SUM64            0x27000
++
++/* 4 registers (64-bit) for Interrupt Enable for each Port */
++#define    CN23XX_SLI_INT_ENB64            0x27080
++
++#define    CN23XX_SLI_MAC_PF_INT_SUM64(mac, pf)			\
++		(CN23XX_SLI_INT_SUM64 +				\
++		 ((mac) * CN23XX_MAC_INT_OFFSET) +		\
++		 ((pf) * CN23XX_PF_INT_OFFSET))
++
++#define    CN23XX_SLI_MAC_PF_INT_ENB64(mac, pf)		\
++		(CN23XX_SLI_INT_ENB64 +			\
++		 ((mac) * CN23XX_MAC_INT_OFFSET) +	\
++		 ((pf) * CN23XX_PF_INT_OFFSET))
++
++/* 1 register (64-bit) to indicate which Output Queue reached pkt threshold */
++#define    CN23XX_SLI_PKT_CNT_INT                0x29130
++
++/* 1 register (64-bit) to indicate which Output Queue reached time threshold */
++#define    CN23XX_SLI_PKT_TIME_INT               0x29140
++
++/*------------------ Interrupt Masks ----------------*/
++
++#define    CN23XX_INTR_PO_INT			BIT_ULL(63)
++#define    CN23XX_INTR_PI_INT			BIT_ULL(62)
++#define    CN23XX_INTR_MBOX_INT			BIT_ULL(61)
++#define    CN23XX_INTR_RESEND			BIT_ULL(60)
++
++#define    CN23XX_INTR_CINT_ENB                 BIT_ULL(48)
++#define    CN23XX_INTR_MBOX_ENB                 BIT(0)
++
++#define    CN23XX_INTR_RML_TIMEOUT_ERR           (1)
++
++#define    CN23XX_INTR_MIO_INT                   BIT(1)
++
++#define    CN23XX_INTR_RESERVED1                 (3 << 2)
++
++#define    CN23XX_INTR_PKT_COUNT                 BIT(4)
++#define    CN23XX_INTR_PKT_TIME                  BIT(5)
++
++#define    CN23XX_INTR_RESERVED2                 (3 << 6)
++
++#define    CN23XX_INTR_M0UPB0_ERR                BIT(8)
++#define    CN23XX_INTR_M0UPWI_ERR                BIT(9)
++#define    CN23XX_INTR_M0UNB0_ERR                BIT(10)
++#define    CN23XX_INTR_M0UNWI_ERR                BIT(11)
++
++#define    CN23XX_INTR_RESERVED3                 (0xFFFFFULL << 12)
++
++#define    CN23XX_INTR_DMA0_FORCE                BIT_ULL(32)
++#define    CN23XX_INTR_DMA1_FORCE                BIT_ULL(33)
++
++#define    CN23XX_INTR_DMA0_COUNT                BIT_ULL(34)
++#define    CN23XX_INTR_DMA1_COUNT                BIT_ULL(35)
++
++#define    CN23XX_INTR_DMA0_TIME                 BIT_ULL(36)
++#define    CN23XX_INTR_DMA1_TIME                 BIT_ULL(37)
++
++#define    CN23XX_INTR_RESERVED4                 (0x7FFFFULL << 38)
++
++#define    CN23XX_INTR_VF_MBOX                   BIT_ULL(57)
++#define    CN23XX_INTR_DMAVF_ERR                 BIT_ULL(58)
++#define    CN23XX_INTR_DMAPF_ERR                 BIT_ULL(59)
++
++#define    CN23XX_INTR_PKTVF_ERR                 BIT_ULL(60)
++#define    CN23XX_INTR_PKTPF_ERR                 BIT_ULL(61)
++#define    CN23XX_INTR_PPVF_ERR                  BIT_ULL(62)
++#define    CN23XX_INTR_PPPF_ERR                  BIT_ULL(63)
++
++#define    CN23XX_INTR_DMA0_DATA                 (CN23XX_INTR_DMA0_TIME)
++#define    CN23XX_INTR_DMA1_DATA                 (CN23XX_INTR_DMA1_TIME)
++
++#define    CN23XX_INTR_DMA_DATA                  \
++		(CN23XX_INTR_DMA0_DATA | CN23XX_INTR_DMA1_DATA)
++
++/* By fault only TIME based */
++#define    CN23XX_INTR_PKT_DATA                  (CN23XX_INTR_PKT_TIME)
++/* For both COUNT and TIME based */
++/* #define    CN23XX_INTR_PKT_DATA                  \
++ * (CN23XX_INTR_PKT_COUNT | CN23XX_INTR_PKT_TIME)
++ */
++
++/* Sum of interrupts for all PCI-Express Data Interrupts */
++#define    CN23XX_INTR_PCIE_DATA                 \
++		(CN23XX_INTR_DMA_DATA | CN23XX_INTR_PKT_DAT)
++
++/* Sum of interrupts for error events */
++#define    CN23XX_INTR_ERR			\
++		(CN23XX_INTR_M0UPB0_ERR	|	\
++		 CN23XX_INTR_M0UPWI_ERR	|	\
++		 CN23XX_INTR_M0UNB0_ERR	|	\
++		 CN23XX_INTR_M0UNWI_ERR	|	\
++		 CN23XX_INTR_DMAVF_ERR	|	\
++		 CN23XX_INTR_DMAPF_ERR	|	\
++		 CN23XX_INTR_PKTPF_ERR	|	\
++		 CN23XX_INTR_PPPF_ERR	|	\
++		 CN23XX_INTR_PPVF_ERR)
++
++/* Programmed Mask for Interrupt Sum */
++#define    CN23XX_INTR_MASK			\
++		(CN23XX_INTR_DMA_DATA	|	\
++		 CN23XX_INTR_DMA0_FORCE	|	\
++		 CN23XX_INTR_DMA1_FORCE	|	\
++		 CN23XX_INTR_MIO_INT	|	\
++		 CN23XX_INTR_ERR)
++
++/* 4 Registers (64 - bit) */
++#define    CN23XX_SLI_S2M_PORT_CTL_START         0x23D80
++#define    CN23XX_SLI_S2M_PORTX_CTL(port)	\
++		(CN23XX_SLI_S2M_PORT_CTL_START + (port * 0x10))
++
++#define    CN23XX_SLI_MAC_NUMBER                 0x20050
++
++/** PEM(0..3)_BAR1_INDEX(0..15)address is defined as
++ *  addr = (0x00011800C0000100  |port <<24 |idx <<3 )
++ *  Here, port is PEM(0..3) & idx is INDEX(0..15)
++ */
++#define    CN23XX_PEM_BAR1_INDEX_START             0x00011800C0000100ULL
++#define    CN23XX_PEM_OFFSET                       24
++#define    CN23XX_BAR1_INDEX_OFFSET                3
++
++#define    CN23XX_PEM_BAR1_INDEX_REG(port, idx)		\
++		(CN23XX_PEM_BAR1_INDEX_START + ((port) << CN23XX_PEM_OFFSET) + \
++		 ((idx) << CN23XX_BAR1_INDEX_OFFSET))
++
++/*############################ DPI #########################*/
++
++/* 1 register (64-bit) - provides DMA Enable */
++#define    CN23XX_DPI_CTL                 0x0001df0000000040ULL
++
++/* 1 register (64-bit) - Controls the DMA IO Operation */
++#define    CN23XX_DPI_DMA_CONTROL         0x0001df0000000048ULL
++
++/* 1 register (64-bit) - Provides DMA Instr'n Queue Enable  */
++#define    CN23XX_DPI_REQ_GBL_ENB         0x0001df0000000050ULL
++
++/* 1 register (64-bit) - DPI_REQ_ERR_RSP
++ * Indicates which Instr'n Queue received error response from the IO sub-system
++ */
++#define    CN23XX_DPI_REQ_ERR_RSP         0x0001df0000000058ULL
++
++/* 1 register (64-bit) - DPI_REQ_ERR_RST
++ * Indicates which Instr'n Queue dropped an Instr'n
++ */
++#define    CN23XX_DPI_REQ_ERR_RST         0x0001df0000000060ULL
++
++/* 6 register (64-bit) - DPI_DMA_ENG(0..5)_EN
++ * Provides DMA Engine Queue Enable
++ */
++#define    CN23XX_DPI_DMA_ENG0_ENB        0x0001df0000000080ULL
++#define    CN23XX_DPI_DMA_ENG_ENB(eng) (CN23XX_DPI_DMA_ENG0_ENB + (eng * 8))
++
++/* 8 register (64-bit) - DPI_DMA(0..7)_REQQ_CTL
++ * Provides control bits for transaction on 8 Queues
++ */
++#define    CN23XX_DPI_DMA_REQQ0_CTL       0x0001df0000000180ULL
++#define    CN23XX_DPI_DMA_REQQ_CTL(q_no)	\
++		(CN23XX_DPI_DMA_REQQ0_CTL + (q_no * 8))
++
++/* 6 register (64-bit) - DPI_ENG(0..5)_BUF
++ * Provides DMA Engine FIFO (Queue) Size
++ */
++#define    CN23XX_DPI_DMA_ENG0_BUF        0x0001df0000000880ULL
++#define    CN23XX_DPI_DMA_ENG_BUF(eng)   \
++		(CN23XX_DPI_DMA_ENG0_BUF + (eng * 8))
++
++/* 4 Registers (64-bit) */
++#define    CN23XX_DPI_SLI_PRT_CFG_START   0x0001df0000000900ULL
++#define    CN23XX_DPI_SLI_PRTX_CFG(port)        \
++		(CN23XX_DPI_SLI_PRT_CFG_START + (port * 0x8))
++
++/* Masks for DPI_DMA_CONTROL Register */
++#define    CN23XX_DPI_DMA_COMMIT_MODE     BIT_ULL(58)
++#define    CN23XX_DPI_DMA_PKT_EN          BIT_ULL(56)
++#define    CN23XX_DPI_DMA_ENB             (0x0FULL << 48)
++/* Set the DMA Control, to update packet count not byte count sent by DMA,
++ * when we use Interrupt Coalescing (CA mode)
++ */
++#define    CN23XX_DPI_DMA_O_ADD1          BIT(19)
++/*selecting 64-bit Byte Swap Mode */
++#define    CN23XX_DPI_DMA_O_ES            BIT(15)
++#define    CN23XX_DPI_DMA_O_MODE          BIT(14)
++
++#define    CN23XX_DPI_DMA_CTL_MASK			\
++		(CN23XX_DPI_DMA_COMMIT_MODE	|	\
++		 CN23XX_DPI_DMA_PKT_EN		|	\
++		 CN23XX_DPI_DMA_O_ES		|	\
++		 CN23XX_DPI_DMA_O_MODE)
++
++/*############################ RST #########################*/
++
++#define    CN23XX_RST_BOOT            0x0001180006001600ULL
++#define    CN23XX_RST_SOFT_RST        0x0001180006001680ULL
++
++#define    CN23XX_LMC0_RESET_CTL               0x0001180088000180ULL
++#define    CN23XX_LMC0_RESET_CTL_DDR3RST_MASK  0x0000000000000001ULL
++
++#endif
 -- 
 1.8.3.1
