@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] tg3: Disallow 0 rx coalesce time and correctly
- report RSS queues in tg3_get_rxnfc
-Date: Wed, 03 Aug 2016 11:56:45 -0700 (PDT)
-Message-ID: <20160803.115645.2266573771021836487.davem@davemloft.net>
-References: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
+Subject: Re: [PATCH] ipv4: panic in leaf_walk_rcu due to stale node pointer
+Date: Wed, 03 Aug 2016 12:01:43 -0700 (PDT)
+Message-ID: <20160803.120143.377608139981878642.davem@davemloft.net>
+References: <1470233581-25728-1-git-send-email-dforster@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
-	prashant@broadcom.com, satish.baddipadige@broadcom.com
-To: siva.kallam@broadcom.com
+Cc: netdev@vger.kernel.org, alexander.duyck@gmail.com
+To: dforster@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47128 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47246 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752995AbcHCS6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 14:58:11 -0400
-In-Reply-To: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
+	with ESMTP id S1757059AbcHCTDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 15:03:10 -0400
+In-Reply-To: <1470233581-25728-1-git-send-email-dforster@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: skallam <siva.kallam@broadcom.com>
-Date: Wed,  3 Aug 2016 09:43:58 +0530
+From: David Forster <dforster@brocade.com>
+Date: Wed, 3 Aug 2016 15:13:01 +0100
 
-> First patch:
->         Diasllow rx coalescing time to be 0
+> Panic occurs when issuing "cat /proc/net/route" whilst
+> populating FIB with > 1M routes.
 > 
-> Second patch:
->         Report the correct number of RSS queues through tg3_get_rxnfc
+> Use of cached node pointer in fib_route_get_idx is unsafe.
+ ...
+> Signed-off-by: Dave Forster <dforster@brocade.com>
 
-Series applied, thanks.
+Alexander, please review.
+
+Thanks.
