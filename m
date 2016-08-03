@@ -1,190 +1,197 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phy: fix the bug when remove the phy driver
-Date: Tue, 02 Aug 2016 21:33:02 -0700
-Message-ID: <B08FB1A3-953C-4A90-8B28-139B4F934721@gmail.com>
-References: <57A09988.9040702@huawei.com> <82f1f3de-0569-2346-9a69-fcfd5d49c565@gmail.com> <57A14730.6070309@huawei.com> <8A86BAAA-7D4C-41BC-A65C-3D618208B5C2@gmail.com> <57A1719D.7000709@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 02 Aug 2016 21:42:33 -0700 (PDT)
+Message-ID: <20160802.214233.1619734018053305525.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:36141 "EHLO
-	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751351AbcHCEdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 00:33:20 -0400
-In-Reply-To: <57A1719D.7000709@huawei.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60422 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751573AbcHCEpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 00:45:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On August 2, 2016 9:22:53 PM MST, Ding Tianhong <dingtianhong@huawei.com> wrote:
->On 2016/8/3 10:41, Florian Fainelli wrote:
->> On August 2, 2016 6:21:52 PM MST, Ding Tianhong
-><dingtianhong@huawei.com> wrote:
->>> On 2016/8/3 0:42, Florian Fainelli wrote:
->>>> Le 02/08/2016 à 06:00, Ding Tianhong a écrit :
->>>>> The nic in my board use the phy dev from marvell, and
->>>>> the system will load the marvell phy driver automatically,
->>>>> but when I remove the phy drivers, the system immediately panic:
->>>>>
->>>>> localhost login: [ 2582.052465] Unable to handle kernel NULL
->pointer
->>> dereference at virtual address 000000c0
->>>>> [ 2582.061429] pgd = ffff800001226000
->>>>> [ 2582.065277] [000000c0] *pgd=0000003f7f893003,
->>> *pud=0000003f7f894003, *pmd=0000003f7f895003, *pte=006000006d000707
->>>>> [ 2582.076681] Internal error: Oops: 96000006 [#1] SMP
->>>>> [ 2582.082049] Modules linked in: sr_mod(E) cdrom(E) ses(E)
->>> enclosure(E) shpchp(E) crc32_arm64(E) aes_ce_blk(E) ablk_helper(E)
->>> cryptd(E) aes_ce_cipher(E) ghash_ce(E) sha2_ce(E) sha1_ce(E)
->>> usb_storage(E) dm_mirror(E) dm_region_hash(E) dm_log(E) dm_mod(E)
->[last
->>> unloaded: marvell]
->>>>> [ 2582.109226] CPU: 21 PID: 1514 Comm: kworker/21:1 Tainted: G    
-> 
->>>     E   4.1.27-vhulk3.6.5.aarch64 #1
->>>>> [ 2582.119415] Hardware name: Huawei Taishan 2180 /BC11SPCC, BIOS
->>> 1.31 06/23/2016
->>>>> [ 2582.127346] Workqueue: events_power_efficient phy_state_machine
->>>>> [ 2582.133796] task: ffff803f6f41bac0 ti: ffff803f6eca4000
->task.ti:
->>> ffff803f6eca4000
->>>>> [ 2582.141910] PC is at phy_state_machine+0x3c/0x438
->>>>> [ 2582.147081] LR is at phy_state_machine+0x34/0x438
->>>>> [ 2582.152173] pc : [<ffff800000715384>] lr : [<ffff80000071537c>]
->>> pstate: 60000145
->>>>> [ 2582.160189] sp : ffff803f6eca7d30
->>>>> [ 2582.163825] x29: ffff803f6eca7d30 x28: 0000000000000000
->>>>> [ 2582.169689] x27: ffff805fdfd0aa00 x26: 0000000000000008
->>>>> [ 2582.175482] x25: 0000000000000000 x24: ffff80000112c57c
->>>>> [ 2582.181391] x23: ffff805f4fc8a800 x22: ffff805fdfd0f700
->>>>> [ 2582.187241] x21: ffff805f4fc8abf8 x20: ffff805f4fc8a770
->>>>> [ 2582.193035] x19: ffff805f4fc8ab70 x18: 0000000000000007
->>>>> [ 2582.198914] x17: 000000000000000e x16: 0000000000000001
->>>>> [ 2582.204710] x15: 0000000000000007 x14: 000000000000000e
->>>>> [ 2582.210584] x13: 0000000000000200 x12: 0000000055555556
->>>>> [ 2582.216373] x11: 0000000000001c00 x10: 0000000000000000
->>>>> [ 2582.222166] x9 : ffff800000a36880 x8 : ffff803f6f41c060
->>>>> [ 2582.227994] x7 : 000000010008b39b x6 : ffff80000101e690
->>>>> [ 2582.233788] x5 : 0000000000000000 x4 : 0000000000800000
->>>>> [ 2582.239612] x3 : 0000000000000000 x2 : 0000000000000000
->>>>> [ 2582.245404] x1 : 0000000000000000 x0 : 0000000000000000
->>>>> [ 2582.265813]
->>>>> [ 2582.282971] Process kworker/21:1 (pid: 1514, stack limit =
->>> 0xffff803f6eca4020)
->>>>> [ 2582.307284] Stack: (0xffff803f6eca7d30 to 0xffff803f6eca8000)
->>>>> [ 2582.331183] 7d20:                                  
->>> ffff803f6eca7d70 ffff8000000db3b8
->>>>> [ 2582.354788] 7d40: ffff803f6e696000 ffff805f4fc8ab70
->>> ffff805fdfd0aa00 ffff805fdfd0f700
->>>>> [ 2582.378341] 7d60: 0000000000000000 ffff80000112c57c
->>> ffff803f6eca7dc0 ffff8000000db7d4
->>>>> [ 2582.403700] 7d80: ffff803f6e696000 ffff803f6e696030
->>> ffff805fdfd0aa18 ffff805fdfd0aa00
->>>>> [ 2582.428385] 7da0: ffff803f6eca4000 ffff80000112c57c
->>> 0000000000000000 0000000000000008
->>>>> [ 2582.451222] 7dc0: ffff803f6eca7e20 ffff8000000e1d0c
->>> ffff805f4fc15000 ffff80000115f188
->>>>> [ 2582.474577] 7de0: ffff800000d1cf88 ffff803f6e696000
->>> ffff8000000db690 0000000000000000
->>>>> [ 2582.497281] 7e00: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.522992] 7e20: 0000000000000000 ffff800000083dd0
->>> ffff8000000e1c10 ffff805f4fc15000
->>>>> [ 2582.546945] 7e40: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.568550] 7e60: 0000000000000000 ffff8000000ee33c
->>> ffff803f6e696000 ffff805f00000000
->>>>> [ 2582.589157] 7e80: 0000000000000000 ffff803f6eca7e88
->>> ffff803f6eca7e88 0000000000000000
->>>>> [ 2582.609767] 7ea0: 0000000000000000 ffff803f6eca7ea8
->>> ffff803f6eca7ea8 cb88537fdc8ba31b
->>>>> [ 2582.633228] 7ec0: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.655386] 7ee0: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.674223] 7f00: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.692994] 7f20: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.711765] 7f40: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.730809] 7f60: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.748601] 7f80: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.769388] 7fa0: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.786756] 7fc0: 0000000000000000 0000000000000005
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.804134] 7fe0: 0000000000000000 0000000000000000
->>> 0000000000000000 0000000000000000
->>>>> [ 2582.821488] Call trace:
->>>>> [ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438
->>>>> [ 2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428
->>>>> [ 2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0
->>>>> [ 2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
->>>>>
->>>>> ============================cut
->here===============================
->>>>>
->>>>> The phy_state_machine was still running and didn't know whether
->the
->>> phydev's driver was
->>>>> removed or not, then occur this problem, so we need to stop the
->>> phy_state_machine when
->>>>> removing the phy driver.
->>>>
->>>> Your explanation of the problem is unclear to me, unless a network
->>>> driver attached to the PHY and started it, and then never stopped
->the
->>>> PHY state machine, this should not happen, also there should be
->>> proper
->>>> reference counting in place to avoid that. Your trace is based on
->4.1
->>> is
->>>> this still reproducible with latest vanilla? Is this with a
->mainline
->>>> Ethernet driver?
->>>>
->>>
->>> Yes，the network driver already attached to the PHY and started it,
->and
->>> all
->>> of them could work well if I didn't do anything, but if I suddenly
->>> remove the marvall.ko,
->>> the phy_state_machine was still running, but the phydev->drv is NULL
->at
->>> this time, than oops,
->>> I found this problem at 4.1 lts, and didn't see any effective
->>> improvement in the kernel 4.8, so
->>> report this bug and fix it.
->> 
->> Ok, then the issue seems to be with reference counting here, we
->should not be able to unload
->>the module until the last user dropped the reference, which would be
->when the Ethernet driver 
->>called phy_disconnect(). Your fix does not prevent a dangling
->phy_device pointer from being 
->>accessed in the Ethernet driver for instance because the PHY would be
->silently dropped.
->> 
->
->I couldn't stop the root or other user to do the stupid action just
->like unload a drivers, but we need to make sure
->the system could still work and avoid the more serious consequences,
->and I think the phy_remove has done a lot of
->things for unloading action, but still miss to stop the
->phy_state_machine.
->
->Maybe you could give me more suggestion how to fix this problem, thanks
->very much for any opinion.
 
-My previous email was giving some directions, if the module use count is zero while a network device is attached to a PHY, then we want to fix that.
+1) Fix several cases of missing of_node_put() calls in various networking
+   drivers.  From Peter Chen.
 
--- 
-Florian
+2) Don't try to remove unconfigured VLANs in qed driver, from Yuval Mintz.
+
+3) Unbalanced locking in TIPC error handling, from Wei Yongjun.
+
+4) Fix lockups in CPDMA driver, from Grygorii Strashko.
+
+5) More MACSEC refcount et al. fixes, from Sabrina Dubroca.
+
+6) Fix MAC address setting in r8169 during runtime suspend, from
+   Chun-Hao Lin.
+
+7) Various printf format specifier fixes, from Heinrich Schuchardt.
+
+Please pull, thanks a lot!
+
+The following changes since commit 797cee982eef9195736afc5e7f3b8f613c41d19a:
+
+  Merge branch 'stable-4.8' of git://git.infradead.org/users/pcmoore/audit (2016-07-29 17:54:17 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
+
+for you to fetch changes up to 1d2c2024dcb7aeb2555db4bfd7f991d247ba0508:
+
+  qed: Fail driver load in 100g MSI mode. (2016-08-01 22:13:59 -0700)
+
+----------------------------------------------------------------
+Alexander Stein (1):
+      phy/micrel: Change phy_id_mask for KSZ8721
+
+Chun-Hao Lin (4):
+      r8169: fix kernel log spam when set or get hardware wol setting.
+      r8169: add checking driver's runtime pm status in rtl8169_get_ethtool_stats()
+      r8169: fix nic may not work after changing mac address.
+      8139too: fix system hang when there is a tx timeout event.
+
+Colin Ian King (1):
+      net: tulip: fix spelling mistake: "attemping" -> "attempting"
+
+David S. Miller (5):
+      Merge branch 'qed-fixes'
+      Merge branch 'cpsw-fixes'
+      Merge branch 'macsec-fixes'
+      Merge branch 'r8169-fixes'
+      Merge branch 'net-of_node_put'
+
+Florian Fainelli (1):
+      net: dsa: bcm_sf2: Unwind errors in correct order
+
+Grygorii Strashko (4):
+      net: ethernet: ti: cpdma: fix lockup in cpdma_ctlr_destroy()
+      drivers: net: cpsw: fix wrong regs access in cpsw_remove
+      drivers: net: cpsw: use of_platform_depopulate()
+      ARM: OMAP2+: omap_device: fix crash on omap_device removal
+
+Hariprasad Shenai (1):
+      cxgb4/cxgb4vf: Fixes regression in perf when tx vlan offload is disabled
+
+Peter Chen (15):
+      ethernet: altera: add missing of_node_put
+      ethernet: apm: xgene: add missing of_node_put after calling of_parse_phandle
+      ethernet: arc: emac_main: add missing of_node_put after calling of_parse_phandle
+      ethernet: aurora: nb8800: add missing of_node_put after calling of_parse_phandle
+      ethernet: cavium: octeon: add missing of_node_put after calling of_parse_phandle
+      ethernet: hisilicon: hns: hns_dsaf_mac: add missing of_node_put after calling of_parse_phandle
+      ethernet: hisilicon: hns: hns_dsaf_main: add missing of_node_put after calling of_parse_phandle
+      ethernet: marvell: mvneta: add missing of_node_put after calling of_parse_phandle
+      ethernet: marvell: mvpp2: add missing of_node_put after calling of_parse_phandle
+      ethernet: marvell: pxa168_eth: add missing of_node_put after calling of_parse_phandle
+      ethernet: renesas: ravb_main: add missing of_node_put after calling of_parse_phandle
+      ethernet: renesas: sh_eth: add missing of_node_put after calling of_parse_phandle
+      ethernet: stmicro: stmmac: dwmac-socfpga: add missing of_node_put after calling of_parse_phandle
+      ethernet: stmicro: stmmac: add missing of_node_put after calling of_parse_phandle
+      ethernet: ti: davinci_emac: add missing of_node_put after calling of_parse_phandle
+
+Sabrina Dubroca (3):
+      macsec: fix reference counting on RXSC in macsec_handle_frame
+      macsec: RXSAs don't need to hold a reference on RXSCs
+      macsec: fix negative refcnt on parent link
+
+Soheil Hassas Yeganeh (1):
+      tcp: consider recv buf for the initial window scale
+
+Sudarsana Reddy Kalluru (1):
+      qed: Fail driver load in 100g MSI mode.
+
+Wei Yongjun (4):
+      tipc: fix imbalance read_unlock_bh in __tipc_nl_add_monitor()
+      drivers: net: phy: xgene: Remove redundant dev_err call in xgene_mdio_probe()
+      net: ipv6: use list_move instead of list_del/list_add
+      qed: Fix error return code in qed_resc_alloc()
+
+Xin Long (4):
+      sctp: fix the issue sctp requeue auth chunk incorrectly
+      sctp: allow delivering notifications after receiving SHUTDOWN
+      sctp: allow receiving msg when TCP-style sk is in CLOSED state
+      sctp: change to use TCP_CLOSE_WAIT as SCTP_SS_CLOSING
+
+Yuval Mintz (6):
+      qede: Don't try removing unconfigured vlans
+      qed: Fix removal of spoof checking for VFs
+      qed: Don't over-do producer cleanup for Rx
+      qede: Reset statistics on explicit down
+      qed: Correct min bandwidth for 100g
+      qed: Prevent over-usage of vlan credits by PF
+
+xypron.glpk@gmx.de (13):
+      net: caif: use correct format specifier
+      net: ethernet: ax88796: avoid null pointer dereference
+      net: amd-xgbe: use correct format specifier
+      net: bcm63xx: avoid possible null pointer dereference
+      net: bna: use correct type specifications
+      net: bna: use correct type specifier (2)
+      net: enic: use correct type specifier
+      net: s2io: simplify logical constraint
+      net: qlge: remove superfluous statement
+      wan/fsl_ucc_hdlc: avoid possible NULL pointer dereference
+      qed: do not use unitialized variable
+      dsa: b53: remove redundant if
+      net: qlcnic: avoid superfluous assignement
+
+ arch/arm/mach-omap2/omap_device.c                     |  2 +-
+ drivers/net/caif/caif_spi.c                           |  4 ++--
+ drivers/net/dsa/b53/b53_mmap.c                        |  3 +--
+ drivers/net/dsa/bcm_sf2.c                             |  5 +++--
+ drivers/net/ethernet/8390/ax88796.c                   |  3 ++-
+ drivers/net/ethernet/altera/altera_tse_main.c         |  1 +
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c              |  2 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c        |  1 +
+ drivers/net/ethernet/arc/emac_main.c                  | 15 +++++++++++----
+ drivers/net/ethernet/aurora/nb8800.c                  |  2 ++
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c          |  2 +-
+ drivers/net/ethernet/brocade/bna/bnad_debugfs.c       |  6 ++++--
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c      |  3 +++
+ drivers/net/ethernet/chelsio/cxgb4/sge.c              |  2 +-
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c            |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c           |  4 ++--
+ drivers/net/ethernet/dec/tulip/de4x5.c                |  2 +-
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c     |  9 ++++++---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c    |  7 ++++---
+ drivers/net/ethernet/marvell/mvneta.c                 |  1 +
+ drivers/net/ethernet/marvell/mvpp2.c                  |  2 ++
+ drivers/net/ethernet/marvell/pxa168_eth.c             |  1 +
+ drivers/net/ethernet/neterion/s2io.c                  |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c             |  5 +++--
+ drivers/net/ethernet/qlogic/qed/qed_l2.c              | 13 ++++++++++---
+ drivers/net/ethernet/qlogic/qed/qed_main.c            |  7 ++++++-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c           |  2 +-
+ drivers/net/ethernet/qlogic/qed/qed_vf.c              |  4 ++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c          | 12 ++++++++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.h       |  1 -
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c          |  1 -
+ drivers/net/ethernet/realtek/8139too.c                | 12 ++++++++----
+ drivers/net/ethernet/realtek/r8169.c                  | 37 +++++++++++++++++++++++++++++++++----
+ drivers/net/ethernet/renesas/ravb_main.c              |  1 +
+ drivers/net/ethernet/renesas/sh_eth.c                 |  1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c   | 36 ++++++++++++++++++++++++++----------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     |  1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |  7 +++++--
+ drivers/net/ethernet/ti/cpsw.c                        | 19 +++++++++----------
+ drivers/net/ethernet/ti/davinci_cpdma.c               |  3 ---
+ drivers/net/ethernet/ti/davinci_emac.c                |  1 +
+ drivers/net/macsec.c                                  | 16 +++++++++++-----
+ drivers/net/phy/mdio-xgene.c                          |  4 +---
+ drivers/net/phy/micrel.c                              |  4 ++--
+ drivers/net/wan/fsl_ucc_hdlc.c                        |  3 ++-
+ include/net/sctp/constants.h                          |  2 +-
+ net/ipv4/tcp_output.c                                 |  3 ++-
+ net/ipv6/addrconf.c                                   |  3 +--
+ net/sctp/output.c                                     |  3 ++-
+ net/sctp/socket.c                                     |  2 +-
+ net/sctp/ulpqueue.c                                   |  4 +++-
+ net/tipc/monitor.c                                    |  2 +-
+ 52 files changed, 195 insertions(+), 95 deletions(-)
