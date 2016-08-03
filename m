@@ -1,78 +1,38 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v2 2/3] sctp_diag: export timer value only if it is active
-Date: Wed, 3 Aug 2016 18:51:15 -0300
-Message-ID: <20160803215115.GE2954@localhost.localdomain>
-References: <1470259393-22861-1-git-send-email-phil@nwl.cc>
- <1470259393-22861-3-git-send-email-phil@nwl.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/18] liquidio support for new device cn23xx
+Date: Wed, 03 Aug 2016 15:05:04 -0700 (PDT)
+Message-ID: <20160803.150504.2220219685584839824.davem@davemloft.net>
+References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Xin Long <lucien.xin@gmail.com>, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: rvatsavayi@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51996 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932176AbcHCVvS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 17:51:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1470259393-22861-3-git-send-email-phil@nwl.cc>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50160 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758358AbcHCWFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 18:05:08 -0400
+In-Reply-To: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 03, 2016 at 11:23:12PM +0200, Phil Sutter wrote:
-> Since it is exported as unsigned value, userspace has no way detecting
-> whether it is negative or just very large. Therefore do this in kernel
-> space where it is a simple comparison.
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
-> Changes since v1:
-> - Introduce local variable to shorten long lines.
-> - Use timer_pending() to decide whether to export the timer value.
-> - Export the primary path's value instead of garbage.
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Date: Wed, 3 Aug 2016 11:55:31 -0700
 
-This is now the most important change on the patch IMO. Can we mention
-it on changelog itself?
+> Please consider following patches for support of new device
+> CN23XX in liquidio family of adapters. Patches may have to
+> be applied in following order as some of the patches depend
+> on earlier patches.
 
-A Fixes tag is welcomed too, as previous values were incorrect.
+You can't have the same Subject line text for every patch in the
+series.
 
-> - If not exporting, zero fields to not confuse userspace.
-> ---
->  net/sctp/sctp_diag.c | 14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> index f69edcf219e51..f728ef04a7b2d 100644
-> --- a/net/sctp/sctp_diag.c
-> +++ b/net/sctp/sctp_diag.c
-> @@ -13,6 +13,7 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
->  {
->  	union sctp_addr laddr, paddr;
->  	struct dst_entry *dst;
-> +	struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
->  
->  	laddr = list_entry(asoc->base.bind_addr.address_list.next,
->  			   struct sctp_sockaddr_entry, list)->a;
-> @@ -40,10 +41,15 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
->  	}
->  
->  	r->idiag_state = asoc->state;
-> -	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-> -	r->idiag_retrans = asoc->rtx_data_chunks;
-> -	r->idiag_expires = jiffies_to_msecs(
-> -		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-> +	if (timer_pending(t3_rtx)) {
-> +		r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-> +		r->idiag_retrans = asoc->rtx_data_chunks;
-> +		r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
-> +	} else {
-> +		r->idiag_timer = 0;
-> +		r->idiag_retrans = 0;
-> +		r->idiag_expires = 0;
-> +	}
->  }
->  
->  static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
-> -- 
-> 2.8.2
-> 
+It is required that you use unique subject lines so that someone
+scanning the shortlog can see what is unique in each of these patches.
+
+And don't try to thward this by saying something like:
+
+	liquidio support for new device cn23xx part 1
+
+Really describe in words what each change is uniquely doing.
