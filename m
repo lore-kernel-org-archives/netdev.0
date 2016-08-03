@@ -1,64 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and
- rewrite
-Date: Wed, 03 Aug 2016 11:31:20 -0700 (PDT)
-Message-ID: <20160803.113120.723316810333787446.davem@davemloft.net>
-References: <20160803171118.GA37742@ast-mbp.thefacebook.com>
-	<CALx6S36ARsfC8XxPHYsbD+T6Dx3SOgxdxv2CDJWuVZGf+H1oAw@mail.gmail.com>
-	<20160803182950.GA10130@gmail.com>
+Subject: Re: [PATCH 1/1] virtio-vsock: Fix unbound rx buffer
+Date: Wed, 03 Aug 2016 11:42:23 -0700 (PDT)
+Message-ID: <20160803.114223.772489117054301264.davem@davemloft.net>
+References: <20160801171821.32662-1-ggarcia@deic.uab.cat>
+	<20160801171821.32662-2-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, alexei.starovoitov@gmail.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com,
-	saeedm@dev.mellanox.co.il, kafai@fb.com, brouer@redhat.com,
-	as754m@att.com, gerlitz.or@gmail.com, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, tgraf@suug.ch, daniel@iogearbox.net,
-	ttoukan.linux@gmail.com, haoxuany@fb.com
-To: bblanco@plumgrid.com
+Cc: netdev@vger.kernel.org, stefanha@redhat.com
+To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46604 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46802 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753307AbcHCSbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 14:31:21 -0400
-In-Reply-To: <20160803182950.GA10130@gmail.com>
+	with ESMTP id S1755250AbcHCSns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 14:43:48 -0400
+In-Reply-To: <20160801171821.32662-2-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brenden Blanco <bblanco@plumgrid.com>
-Date: Wed, 3 Aug 2016 11:29:52 -0700
+From: ggarcia@abra.uab.cat
+Date: Mon, 01 Aug 2016 19:18:21 +0200
 
-> On Wed, Aug 03, 2016 at 10:29:58AM -0700, Tom Herbert wrote:
->> On Wed, Aug 3, 2016 at 10:11 AM, Alexei Starovoitov
->> <alexei.starovoitov@gmail.com> wrote:
->> > On Wed, Aug 03, 2016 at 10:01:54AM -0700, Tom Herbert wrote:
->> >> On Tue, Jul 19, 2016 at 12:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> [...]
->> >> > +SEC("xdp1")
->> >> > +int xdp_prog1(struct xdp_md *ctx)
->> >> > +{
->> >> > +       void *data_end = (void *)(long)ctx->data_end;
->> >> > +       void *data = (void *)(long)ctx->data;
->> >>
->> >> Brendan,
->> >>
->> >> It seems that the cast to long here is done because data_end and data
->> >> are u32s in xdp_md. So the effect is that we are upcasting a
->> >> thirty-bit integer into a sixty-four bit pointer (in fact without the
->> >> cast we see compiler warnings). I don't understand how this can be
->> >> correct. Can you shed some light on this?
->> >
->> > please see:
->> > http://lists.iovisor.org/pipermail/iovisor-dev/2016-August/000355.html
->> >
->> That doesn't explain it. The only thing I can figure is that there is
->> an implicit assumption somewhere that even though the pointer size may
->> be 64 bits, only the low order thirty-two bits are relevant in this
->> environment (i.e. upper bit are always zero for any pointers)-- so
->> then it would safe store pointers as u32 and to upcast them to void *.
-> No, the actual pointer storage is always void* sized (see struct
-> xdp_buff). The mangling is cosmetic. The verifier converts the
-> underlying bpf load instruction to the right sized operation.
+> From: Gerard Garcia <ggarcia@deic.uab.cat>
+> 
+> Reset connection and close rx socket when the sender is ignoring our announced available buffer.
+> 
+> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> ---
+>  net/vmw_vsock/virtio_transport_common.c | 22 ++++++++++++++++------
+>  1 file changed, 16 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
+> index a53b3a1..3c38d43 100644
+> --- a/net/vmw_vsock/virtio_transport_common.c
+> +++ b/net/vmw_vsock/virtio_transport_common.c
+> @@ -773,13 +773,23 @@ virtio_transport_recv_connected(struct sock *sk,
+>  		pkt->len = le32_to_cpu(pkt->hdr.len);
+>  		pkt->off = 0;
+>  
+> -		spin_lock_bh(&vvs->rx_lock);
+> -		virtio_transport_inc_rx_pkt(vvs, pkt);
+> -		list_add_tail(&pkt->list, &vvs->rx_queue);
+> -		spin_unlock_bh(&vvs->rx_lock);
+> +		if (vvs->rx_bytes + pkt->len <= vvs->buf_size) {
+> +			spin_lock_bh(&vvs->rx_lock);
+> +			virtio_transport_inc_rx_pkt(vvs, pkt);
+> +			list_add_tail(&pkt->list, &vvs->rx_queue);
+> +			spin_unlock_bh(&vvs->rx_lock);
+> +
+> +			sk->sk_data_ready(sk);
+> +			return err;
+> +		} else {
+> +			/* Sender is ignoring our buf_alloc */
+> +			spin_unlock_bh(&vvs->rx_lock);
 
-And this is what Alexei meant by "meta".  Tom this stuff works just
-fine.
+You don't hold vvs->rx_lock here, so it's a bug to try and release it.
+
+I'd also expect the maintainers of this driver to give some feedback
+before I apply this.
