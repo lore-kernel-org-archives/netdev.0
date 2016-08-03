@@ -1,45 +1,80 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] net: dsa: b53: Add missing ULL suffix for 64-bit constant
-Date: Wed,  3 Aug 2016 21:42:18 +0200
-Message-ID: <1470253338-8210-1-git-send-email-geert@linux-m68k.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH 2/3] sctp_diag: export timer value only if it is active
+Date: Wed, 3 Aug 2016 16:46:52 -0300
+Message-ID: <20160803194652.GD2954@localhost.localdomain>
+References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
+ <1469811580-32429-3-git-send-email-phil@nwl.cc>
+ <20160729205113.GA2954@localhost.localdomain>
+ <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
+ <20160803192813.GE17974@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: Phil Sutter <phil@nwl.cc>, Xin Long <lucien.xin@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from michel.telenet-ops.be ([195.130.137.88]:60314 "EHLO
-	michel.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754310AbcHCTnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 15:43:12 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:60080 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758252AbcHCTrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 15:47:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20160803192813.GE17974@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 32-bit (e.g. with m68k-linux-gnu-gcc-4.1):
+On Wed, Aug 03, 2016 at 09:28:13PM +0200, Phil Sutter wrote:
+> Hi,
+> 
+> On Sat, Jul 30, 2016 at 09:25:42PM +0800, Xin Long wrote:
+> [...]
+> > Now for the transport's info,  we only choose primary_path to dump.
+> > It means we should fix this by getting the left time to expire from
+> > primary transport t->T3_rtx_timer. like:
+> > 
+> >         r->idiag_expires = jiffies_to_msecs(
+> > -               asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
+> > +               asoc->peer.primary_path->T3_rtx_timer.expires - jiffies);
+> > 
+> > but yes, need to check with timer_pending firstly.
+> 
+> I have changed the code to this:
+> 
+> | struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
+> | 
+> | [...]
+> | 
+> | if (timer_pending(t3_rtx)) {
+> | 	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+> | 	r->idiag_retrans = asoc->rtx_data_chunks;
+> | 	r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
+> | }
+> 
+> And I'm still getting what appears to be negative values sometimes. Here
+> are some of the common values in hex when busy looping sctp_diag
+> requests:
+> 
+> 0
+> 7530
+> 1000000
+> 3000000
+> 6000000
+> 14000000
+> 94000000
+> ed690000
+> ffffea00
 
-    drivers/net/dsa/b53/b53_common.c: In function ‘b53_arl_read’:
-    drivers/net/dsa/b53/b53_common.c:1072: warning: integer constant is too large for ‘long’ type
+Are these for the same asoc? I wouldn't expect it to vary that much.
+Even the 1000000 it's already just too big to be reasonable. That's
+16777 seconds. Only 0x7530 is reasonable, 30 seconds.
 
-Fixes: 1da6df85c6fbed8f ("net: dsa: b53: Implement ARL add/del/dump operations")
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/dsa/b53/b53_regs.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> While I wonder a bit about the zero, the last two seem to be unsigned
+> underruns. Do I still have to check for 't3_rtx->expires > jiffies' or
+> am I missing something?
 
-diff --git a/drivers/net/dsa/b53/b53_regs.h b/drivers/net/dsa/b53/b53_regs.h
-index 8f12bddd5dc90077..a0b453ea34c90423 100644
---- a/drivers/net/dsa/b53/b53_regs.h
-+++ b/drivers/net/dsa/b53/b53_regs.h
-@@ -258,7 +258,7 @@
-  * BCM5325 and BCM5365 share most definitions below
-  */
- #define B53_ARLTBL_MAC_VID_ENTRY(n)	(0x10 * (n))
--#define   ARLTBL_MAC_MASK		0xffffffffffff
-+#define   ARLTBL_MAC_MASK		0xffffffffffffULL
- #define   ARLTBL_VID_S			48
- #define   ARLTBL_VID_MASK_25		0xff
- #define   ARLTBL_VID_MASK		0xfff
--- 
-1.9.1
+You shouldn't have to because then the timer wouldn't be pending. 
+
+I don't know what can be wrong in there. Could it be the application not
+checking if the timer was exported or not before dumping it? </longshot>
+
+  Marcelo
