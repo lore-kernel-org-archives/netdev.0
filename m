@@ -1,33 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] i40e: remove a stray unlock
-Date: Wed, 3 Aug 2016 22:01:07 +0300
-Message-ID: <20160803190107.GC775@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: xgene: fix maybe-uninitialized variable
+Date: Wed, 03 Aug 2016 11:52:32 -0700 (PDT)
+Message-ID: <20160803.115232.837383021887790928.davem@davemloft.net>
+References: <20160802102348.81986-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Catherine Sullivan <catherine.sullivan@intel.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: isubramanian@apm.com, kchudgar@apm.com, tinamdar@apm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160802102348.81986-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We shifted the locking around a bit but forgot to delete this unlock so
-now it can unlock twice.
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue,  2 Aug 2016 12:23:29 +0200
 
-Fixes: cd3be169a5ff ('i40e: Move the mutex lock in i40e_client_unregister')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Building with -Wmaybe-uninitialized shows a potential use of
+> an uninitialized variable:
+> 
+> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c: In function 'xgene_enet_phy_connect':
+> drivers/net/ethernet/apm/xgene/xgene_enet_hw.c:802:23: warning: 'phy_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> 
+> Although the compiler correctly identified this based on the function,
+> the current code is still safe as long dev->of_node is non-NULL
+> for the case of CONFIG_ACPI=n, which is currently the case.
+> 
+> The warning is now disabled by default, but still appears when
+> building with W=1, and other build test tools should be able to
+> detect it as well. Adding an #else clause here makes the code
+> more robust and makes it clear to the compiler that this cannot
+> happen.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 8089a96f601b ("drivers: net: xgene: Add backward compatibility")
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index e1370c5..1a9682f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -990,7 +990,6 @@ int i40e_unregister_client(struct i40e_client *client)
- 	if (!i40e_client_is_registered(client)) {
- 		pr_info("i40e: Client %s has not been registered\n",
- 			client->name);
--		mutex_unlock(&i40e_client_mutex);
- 		ret = -ENODEV;
- 		goto out;
- 	}
+Applied.
