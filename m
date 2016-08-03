@@ -1,45 +1,66 @@
-From: Brandon Cazander <brandon.cazander@multapplied.net>
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-Date: Wed, 3 Aug 2016 15:47:36 +0000
-Message-ID: <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20160729132154.GB13634@breakpoint.cc>
- <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160802221121.GB31209@breakpoint.cc>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH net 1/2] tg3: Fix for diasllow rx coalescing time to be 0
+Date: Wed, 3 Aug 2016 09:04:44 -0700
+Message-ID: <7d591d9f-463b-cedd-5590-c4ff8260ffa0@hpe.com>
+References: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
+ <1470197640-13587-2-git-send-email-siva.kallam@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
+	prashant@broadcom.com, satish.baddipadige@broadcom.com
+To: skallam <siva.kallam@broadcom.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0080.outbound.protection.outlook.com ([104.47.42.80]:14875
-	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751351AbcHCQCN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 12:02:13 -0400
-In-Reply-To: <20160802221121.GB31209@breakpoint.cc>
-Content-Language: en-US
+Received: from g2t2353.austin.hpe.com ([15.233.44.26]:36180 "EHLO
+	g2t2353.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752810AbcHCQGI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 12:06:08 -0400
+In-Reply-To: <1470197640-13587-2-git-send-email-siva.kallam@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think that it is worth doing, as the original kernel change broke my user space program and could do the same to others as well.
+On 08/02/2016 09:13 PM, skallam wrote:
+> From: Satish Baddipadige <satish.baddipadige@broadcom.com>
+>
+> When the rx coalescing time is 0, interrupts
+> are not generated from the controller and rx path hangs.
+> To avoid this rx hang, updating the driver to not allow
+> rx coalescing time to be 0.
+>
+> Signed-off-by: Satish Baddipadige <satish.baddipadige@broadcom.com>
+> Signed-off-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
+> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index ff300f7..f3c6c91 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -14014,6 +14014,7 @@ static int tg3_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
+>  	}
+>
+>  	if ((ec->rx_coalesce_usecs > MAX_RXCOL_TICKS) ||
+> +	    (!ec->rx_coalesce_usecs) ||
+>  	    (ec->tx_coalesce_usecs > MAX_TXCOL_TICKS) ||
+>  	    (ec->rx_max_coalesced_frames > MAX_RXMAX_FRAMES) ||
+>  	    (ec->tx_max_coalesced_frames > MAX_TXMAX_FRAMES) ||
+>
 
-On another setup, even with the DIVERT rule in place, I'm still seeing the RST after the ACK. I'm not sure how it is behaving differently than the other setup so I need to look into that. But it definitely worked before the changes to the kernel.
+Should anything then happen with:
 
-From: Florian Westphal <fw@strlen.de>
-Sent: Tuesday, August 2, 2016 3:11 PM
-To: Brandon Cazander
-Cc: Florian Westphal
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-    
-Brandon Cazander <brandon.cazander@multapplied.net> wrote:
-> >     Please try this patch, it makes it work for me again.
-> >       I decided to extend the existing snat support in xt_socket.c instead
-> >       of changing TPROXY target:
-> 
-> This fixes my example (with the DIVERT chain), but does not fix the two-line example you gave below. Another setup I have is also still broken as of this diff (similarly, there is a rule in nat PREROUTING that goes to a chain with the TPROXY rule).
+         /* No rx interrupts will be generated if both are zero */
+         if ((ec->rx_coalesce_usecs == 0) &&
+             (ec->rx_max_coalesced_frames == 0))
+                 return -EINVAL;
 
-Yes, I did not touch TPROXY target, we would need something similar
-(take tuple addresses from the conntrack entry) there as well if we
-need to make it work without the -m socket rule.
 
-    
+which is the next block of code?  The logic there seems to suggest that 
+it was intended to be able to have an rx_coalesce_usecs of 0 and rely on 
+packet arrival to trigger an interrupt.  Presumably setting 
+rx_max_coalesced_frames to 1 to disable interrupt coalescing.
+
+happy benchmarking,
+
+rick jones
