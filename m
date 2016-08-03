@@ -1,79 +1,90 @@
-From: Ian Wienand <iwienand@redhat.com>
-Subject: Re: [PATCH net] OVS: Ignore negative headroom value
-Date: Wed, 3 Aug 2016 10:29:57 +1000
-Message-ID: <5bc6b8df-0c4e-6dd5-716a-a9be88173741@redhat.com>
-References: <201608030858.Ib9LFQO4%fengguang.wu@intel.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH/RFC iproute2 2/3] iptunnel: add support for mpls/ip to sit
+ tunnels
+Date: Tue, 2 Aug 2016 18:48:37 -0600
+Message-ID: <1c808da7-3dc7-b963-03c1-9516ef503ba9@cumulusnetworks.com>
+References: <1467829398-4601-1-git-send-email-simon.horman@netronome.com>
+ <1467829398-4601-3-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Benjamin Poirier <bpoirier@suse.com>,
-	Paolo Abeni <pabeni@redhat.com>
-To: unlisted-recipients:; (no To-header on input)
+Cc: stephen@networkplumber.org
+To: Simon Horman <simon.horman@netronome.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58054 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753725AbcHCAaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Aug 2016 20:30:00 -0400
-In-Reply-To: <201608030858.Ib9LFQO4%fengguang.wu@intel.com>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35126 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756121AbcHCAzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 20:55:23 -0400
+Received: by mail-pf0-f177.google.com with SMTP id x72so71434319pfd.2
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 17:54:45 -0700 (PDT)
+In-Reply-To: <1467829398-4601-3-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2016 10:10 AM, kbuild test robot wrote:
-> [auto build test ERROR on net/master]
+On 7/6/16 12:23 PM, Simon Horman wrote:
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+>  ip/link_iptnl.c       | 12 +++++++++++-
+>  ip/tunnel.c           | 10 ++++++++++
+>  man/man8/ip-link.8.in |  9 +++++----
+>  3 files changed, 26 insertions(+), 5 deletions(-)
+>
+> diff --git a/ip/link_iptnl.c b/ip/link_iptnl.c
+> index 8411a6a00a1b..34e4625b4335 100644
+> --- a/ip/link_iptnl.c
+> +++ b/ip/link_iptnl.c
+> @@ -23,6 +23,13 @@
+>  #include "ip_common.h"
+>  #include "tunnel.h"
+>
+> +/* This should be in ip.h but it might not be.
+> + * What to do?
+> + */
+> +#ifndef IPPROTO_MPLS
+> +#define IPPROTO_MPLS 137 /* RFC 4023 */
+> +#endif
+> +
 
-Sorry, typo.  Thank you test robot
+This is defined in iproute2's copy of linux/in.h
 
-===
 
-net_device->ndo_set_rx_headroom (introduced in
-871b642adebe300be2e50aa5f65a418510f636ec) says
+>  static void print_usage(FILE *f, int sit)
+>  {
+>  	fprintf(f, "Usage: ip link { add | set | change | replace | del } NAME\n");
+> @@ -33,7 +40,7 @@ static void print_usage(FILE *f, int sit)
+>  	fprintf(f, "          [ encap-sport PORT ] [ encap-dport PORT ]\n");
+>  	fprintf(f, "          [ [no]encap-csum ] [ [no]encap-csum6 ] [ [no]encap-remcsum ]\n");
+>  	if (sit) {
+> -		fprintf(f, "          [ mode { ip6ip | ipip | any } ]\n");
+> +		fprintf(f, "          [ mode { ip6ip | ipip | mplsip | any } ]\n");
+>  		fprintf(f, "          [ isatap ]\n");
+>  	}
+>  	fprintf(f, "\n");
+> @@ -222,6 +229,9 @@ get_failed:
+>  				 strcmp(*argv, "ipip") == 0 ||
+>  				 strcmp(*argv, "ip4ip4") == 0)
+>  				proto = IPPROTO_IPIP;
+> +			else if (strcmp(*argv, "mpls/ipv4") == 0 ||
+> +				   strcmp(*argv, "mplsip") == 0)
+> +				proto = IPPROTO_MPLS;
+>  			else if (strcmp(*argv, "any/ipv4") == 0 ||
+>  				 strcmp(*argv, "any") == 0)
+>  				proto = 0;
+> diff --git a/ip/tunnel.c b/ip/tunnel.c
+> index 7956d71aa733..760fa18a5be6 100644
+> --- a/ip/tunnel.c
+> +++ b/ip/tunnel.c
+> @@ -37,6 +37,13 @@
+>  #include "utils.h"
+>  #include "tunnel.h"
+>
+> +/* This should be in ip.h but it might not be.
+> + * What to do?
+> + */
+> +#ifndef IPPROTO_MPLS
+> +#define IPPROTO_MPLS 137 /* RFC 4023 */
+> +#endif
 
-   "Setting a negative value reset the rx headroom
-    to the default value".
+ditto
 
-It seems that the OVS implementation in
-3a927bc7cf9d0fbe8f4a8189dd5f8440228f64e7 overlooked this and sets
-dev->needed_headroom unconditionally.
-
-This doesn't have an immediate effect, but can mess up later
-LL_RESERVED_SPACE calculations, such as done in
-net/ipv6/mcast.c:mld_newpack.  For reference, this issue was found
-from a skb_panic raised there after the length calculations had given
-the wrong result.
-
-Note the other current users of this interface
-(drivers/net/tun.c:tun_set_headroom and
-drivers/net/veth.c:veth_set_rx_headroom) are both checking this
-correctly and thus need no modification.
-
-An OpenStack tempest run
-(http://docs.openstack.org/developer/tempest/) that reliably hit this
-panic works correctly with this patch.  Thanks to Ben for some
-pointers from the crash dumps!
-
-Cc: Benjamin Poirier <bpoirier@suse.com>
-Cc: Paolo Abeni <pabeni@redhat.com>
-Cc: netdev@vger.kernel.org
-Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1361414
-Signed-off-by: Ian Wienand <iwienand@redhat.com>
----
-  net/openvswitch/vport-internal_dev.c | 2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/openvswitch/vport-internal_dev.c 
-b/net/openvswitch/vport-internal_dev.c
-index 434e04c..95c3614 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -140,7 +140,7 @@ internal_get_stats(struct net_device *dev, struct 
-rtnl_link_stats64 *stats)
-
-  static void internal_set_rx_headroom(struct net_device *dev, int new_hr)
-  {
--	dev->needed_headroom = new_hr;
-+	dev->needed_headroom = new_hr < 0 ? 0 : new_hr;
-  }
-
-  static const struct net_device_ops internal_dev_netdev_ops = {
--- 
-2.7.4
+David
