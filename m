@@ -1,181 +1,66 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and rewrite
-Date: Wed, 3 Aug 2016 10:29:58 -0700
-Message-ID: <CALx6S36ARsfC8XxPHYsbD+T6Dx3SOgxdxv2CDJWuVZGf+H1oAw@mail.gmail.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-13-git-send-email-bblanco@plumgrid.com> <CALx6S34b1O6iiFn6M2=xX3iduGWDQm=G+jweYVvGqY-xa4E2sg@mail.gmail.com>
- <20160803171118.GA37742@ast-mbp.thefacebook.com>
+From: Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>
+Subject: [RFC PATCH] sunrpc: do not allow process to freeze within RPC state
+ machine
+Date: Wed, 03 Aug 2016 20:54:50 +0400
+Message-ID: <20160803165412.22407.47399.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Aaron Yue <haoxuany@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:35465 "EHLO
-	mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755825AbcHCRaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 13:30:00 -0400
-Received: by mail-it0-f50.google.com with SMTP id u186so303826016ita.0
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 10:29:59 -0700 (PDT)
-In-Reply-To: <20160803171118.GA37742@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gorcunov@virtuozzo.com,
+	davem@davemloft.net, devel@openvz.org
+To: bfields@fieldses.org, jlayton@poochiereds.net,
+	trond.myklebust@primarydata.com, anna.schumaker@netapp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 3, 2016 at 10:11 AM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Wed, Aug 03, 2016 at 10:01:54AM -0700, Tom Herbert wrote:
->> On Tue, Jul 19, 2016 at 12:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
->> > Add a sample that rewrites and forwards packets out on the same
->> > interface. Observed single core forwarding performance of ~10Mpps.
->> >
->> > Since the mlx4 driver under test recycles every single packet page, the
->> > perf output shows almost exclusively just the ring management and bpf
->> > program work. Slowdowns are likely occurring due to cache misses.
->> >
->> > Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
->> > ---
->> >  samples/bpf/Makefile    |   5 +++
->> >  samples/bpf/xdp2_kern.c | 114 ++++++++++++++++++++++++++++++++++++++++++++++++
->> >  2 files changed, 119 insertions(+)
->> >  create mode 100644 samples/bpf/xdp2_kern.c
->> >
->> > diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
->> > index 0e4ab3a..d2d2b35 100644
->> > --- a/samples/bpf/Makefile
->> > +++ b/samples/bpf/Makefile
->> > @@ -22,6 +22,7 @@ hostprogs-y += map_perf_test
->> >  hostprogs-y += test_overhead
->> >  hostprogs-y += test_cgrp2_array_pin
->> >  hostprogs-y += xdp1
->> > +hostprogs-y += xdp2
->> >
->> >  test_verifier-objs := test_verifier.o libbpf.o
->> >  test_maps-objs := test_maps.o libbpf.o
->> > @@ -44,6 +45,8 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
->> >  test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
->> >  test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
->> >  xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
->> > +# reuse xdp1 source intentionally
->> > +xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
->> >
->> >  # Tell kbuild to always build the programs
->> >  always := $(hostprogs-y)
->> > @@ -67,6 +70,7 @@ always += test_overhead_kprobe_kern.o
->> >  always += parse_varlen.o parse_simple.o parse_ldabs.o
->> >  always += test_cgrp2_tc_kern.o
->> >  always += xdp1_kern.o
->> > +always += xdp2_kern.o
->> >
->> >  HOSTCFLAGS += -I$(objtree)/usr/include
->> >
->> > @@ -88,6 +92,7 @@ HOSTLOADLIBES_spintest += -lelf
->> >  HOSTLOADLIBES_map_perf_test += -lelf -lrt
->> >  HOSTLOADLIBES_test_overhead += -lelf -lrt
->> >  HOSTLOADLIBES_xdp1 += -lelf
->> > +HOSTLOADLIBES_xdp2 += -lelf
->> >
->> >  # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
->> >  #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
->> > diff --git a/samples/bpf/xdp2_kern.c b/samples/bpf/xdp2_kern.c
->> > new file mode 100644
->> > index 0000000..38fe7e1
->> > --- /dev/null
->> > +++ b/samples/bpf/xdp2_kern.c
->> > @@ -0,0 +1,114 @@
->> > +/* Copyright (c) 2016 PLUMgrid
->> > + *
->> > + * This program is free software; you can redistribute it and/or
->> > + * modify it under the terms of version 2 of the GNU General Public
->> > + * License as published by the Free Software Foundation.
->> > + */
->> > +#define KBUILD_MODNAME "foo"
->> > +#include <uapi/linux/bpf.h>
->> > +#include <linux/in.h>
->> > +#include <linux/if_ether.h>
->> > +#include <linux/if_packet.h>
->> > +#include <linux/if_vlan.h>
->> > +#include <linux/ip.h>
->> > +#include <linux/ipv6.h>
->> > +#include "bpf_helpers.h"
->> > +
->> > +struct bpf_map_def SEC("maps") dropcnt = {
->> > +       .type = BPF_MAP_TYPE_PERCPU_ARRAY,
->> > +       .key_size = sizeof(u32),
->> > +       .value_size = sizeof(long),
->> > +       .max_entries = 256,
->> > +};
->> > +
->> > +static void swap_src_dst_mac(void *data)
->> > +{
->> > +       unsigned short *p = data;
->> > +       unsigned short dst[3];
->> > +
->> > +       dst[0] = p[0];
->> > +       dst[1] = p[1];
->> > +       dst[2] = p[2];
->> > +       p[0] = p[3];
->> > +       p[1] = p[4];
->> > +       p[2] = p[5];
->> > +       p[3] = dst[0];
->> > +       p[4] = dst[1];
->> > +       p[5] = dst[2];
->> > +}
->> > +
->> > +static int parse_ipv4(void *data, u64 nh_off, void *data_end)
->> > +{
->> > +       struct iphdr *iph = data + nh_off;
->> > +
->> > +       if (iph + 1 > data_end)
->> > +               return 0;
->> > +       return iph->protocol;
->> > +}
->> > +
->> > +static int parse_ipv6(void *data, u64 nh_off, void *data_end)
->> > +{
->> > +       struct ipv6hdr *ip6h = data + nh_off;
->> > +
->> > +       if (ip6h + 1 > data_end)
->> > +               return 0;
->> > +       return ip6h->nexthdr;
->> > +}
->> > +
->> > +SEC("xdp1")
->> > +int xdp_prog1(struct xdp_md *ctx)
->> > +{
->> > +       void *data_end = (void *)(long)ctx->data_end;
->> > +       void *data = (void *)(long)ctx->data;
->>
->> Brendan,
->>
->> It seems that the cast to long here is done because data_end and data
->> are u32s in xdp_md. So the effect is that we are upcasting a
->> thirty-bit integer into a sixty-four bit pointer (in fact without the
->> cast we see compiler warnings). I don't understand how this can be
->> correct. Can you shed some light on this?
->
-> please see:
-> http://lists.iovisor.org/pipermail/iovisor-dev/2016-August/000355.html
->
-That doesn't explain it. The only thing I can figure is that there is
-an implicit assumption somewhere that even though the pointer size may
-be 64 bits, only the low order thirty-two bits are relevant in this
-environment (i.e. upper bit are always zero for any pointers)-- so
-then it would safe store pointers as u32 and to upcast them to void *.
-If this is indeed the case, then we really need to make this explicit
-to the user. Casting to long without comment just to avoid the
-compiler warning is not good programming style, maybe a function
-xdp_md_data_to_ptr or the like could be used.
+Otherwise freezer cgroup state might never become "FROZEN".
 
-Tom
+Here is a deadlock scheme for 2 processes in one freezer cgroup, which is
+freezing:
+
+CPU 0                                   CPU 1
+--------                                --------
+do_last
+inode_lock(dir->d_inode)
+vfs_create
+nfs_create
+...
+__rpc_execute
+rpc_wait_bit_killable
+__refrigerator
+                                        do_last
+                                        inode_lock(dir->d_inode)
+
+So, the problem is that one process takes directory inode mutex, executes
+creation request and goes to refrigerator.
+Another one waits till directory lock is released, remains "thawed" and thus
+freezer cgroup state never becomes "FROZEN".
+
+Notes:
+1) Interesting, that this is not a pure deadlock: one can thaw cgroup and then
+freeze it again.
+2) The issue was introduced by commit d310310cbff18ec385c6ab4d58f33b100192a96a.
+3) This patch is not aimed to fix the issue, but to show the problem root.
+Look like this problem moght be applicable to other hunks from the commit,
+mentioned above.
+
+
+Signed-off-by: Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>
+---
+ net/sunrpc/sched.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
+index 9ae5885..ec7ccc1 100644
+--- a/net/sunrpc/sched.c
++++ b/net/sunrpc/sched.c
+@@ -253,7 +253,6 @@ EXPORT_SYMBOL_GPL(rpc_destroy_wait_queue);
+ 
+ static int rpc_wait_bit_killable(struct wait_bit_key *key, int mode)
+ {
+-	freezable_schedule_unsafe();
+ 	if (signal_pending_state(mode, current))
+ 		return -ERESTARTSYS;
+ 	return 0;
