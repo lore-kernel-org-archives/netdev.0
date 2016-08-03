@@ -1,159 +1,152 @@
-From: Brandon Cazander <brandon.cazander@multapplied.net>
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-Date: Tue, 2 Aug 2016 21:58:59 +0000
-Message-ID: <BL2PR07MB23064A6351DD273B6F4F73E59E050@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160729132154.GB13634@breakpoint.cc>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] phy: fix the bug when remove the phy driver
+Date: Tue, 02 Aug 2016 19:41:33 -0700
+Message-ID: <8A86BAAA-7D4C-41BC-A65C-3D618208B5C2@gmail.com>
+References: <57A09988.9040702@huawei.com> <82f1f3de-0569-2346-9a69-fcfd5d49c565@gmail.com> <57A14730.6070309@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0066.outbound.protection.outlook.com ([104.47.32.66]:45568
-	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752988AbcHCChS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 22:37:18 -0400
-In-Reply-To: <20160729132154.GB13634@breakpoint.cc>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57A14730.6070309@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->     Please try this patch, it makes it work for me again.
->       I decided to extend the existing snat support in xt_socket.c instead
->       of changing TPROXY target:
+On August 2, 2016 6:21:52 PM MST, Ding Tianhong <dingtianhong@huawei.com> wrote:
+>On 2016/8/3 0:42, Florian Fainelli wrote:
+>> Le 02/08/2016 Ã  06:00, Ding Tianhong a Ã©crit :
+>>> The nic in my board use the phy dev from marvell, and
+>>> the system will load the marvell phy driver automatically,
+>>> but when I remove the phy drivers, the system immediately panic:
+>>>
+>>> localhost login: [ 2582.052465] Unable to handle kernel NULL pointer
+>dereference at virtual address 000000c0
+>>> [ 2582.061429] pgd = ffff800001226000
+>>> [ 2582.065277] [000000c0] *pgd=0000003f7f893003,
+>*pud=0000003f7f894003, *pmd=0000003f7f895003, *pte=006000006d000707
+>>> [ 2582.076681] Internal error: Oops: 96000006 [#1] SMP
+>>> [ 2582.082049] Modules linked in: sr_mod(E) cdrom(E) ses(E)
+>enclosure(E) shpchp(E) crc32_arm64(E) aes_ce_blk(E) ablk_helper(E)
+>cryptd(E) aes_ce_cipher(E) ghash_ce(E) sha2_ce(E) sha1_ce(E)
+>usb_storage(E) dm_mirror(E) dm_region_hash(E) dm_log(E) dm_mod(E) [last
+>unloaded: marvell]
+>>> [ 2582.109226] CPU: 21 PID: 1514 Comm: kworker/21:1 Tainted: G      
+>     E   4.1.27-vhulk3.6.5.aarch64 #1
+>>> [ 2582.119415] Hardware name: Huawei Taishan 2180 /BC11SPCC, BIOS
+>1.31 06/23/2016
+>>> [ 2582.127346] Workqueue: events_power_efficient phy_state_machine
+>>> [ 2582.133796] task: ffff803f6f41bac0 ti: ffff803f6eca4000 task.ti:
+>ffff803f6eca4000
+>>> [ 2582.141910] PC is at phy_state_machine+0x3c/0x438
+>>> [ 2582.147081] LR is at phy_state_machine+0x34/0x438
+>>> [ 2582.152173] pc : [<ffff800000715384>] lr : [<ffff80000071537c>]
+>pstate: 60000145
+>>> [ 2582.160189] sp : ffff803f6eca7d30
+>>> [ 2582.163825] x29: ffff803f6eca7d30 x28: 0000000000000000
+>>> [ 2582.169689] x27: ffff805fdfd0aa00 x26: 0000000000000008
+>>> [ 2582.175482] x25: 0000000000000000 x24: ffff80000112c57c
+>>> [ 2582.181391] x23: ffff805f4fc8a800 x22: ffff805fdfd0f700
+>>> [ 2582.187241] x21: ffff805f4fc8abf8 x20: ffff805f4fc8a770
+>>> [ 2582.193035] x19: ffff805f4fc8ab70 x18: 0000000000000007
+>>> [ 2582.198914] x17: 000000000000000e x16: 0000000000000001
+>>> [ 2582.204710] x15: 0000000000000007 x14: 000000000000000e
+>>> [ 2582.210584] x13: 0000000000000200 x12: 0000000055555556
+>>> [ 2582.216373] x11: 0000000000001c00 x10: 0000000000000000
+>>> [ 2582.222166] x9 : ffff800000a36880 x8 : ffff803f6f41c060
+>>> [ 2582.227994] x7 : 000000010008b39b x6 : ffff80000101e690
+>>> [ 2582.233788] x5 : 0000000000000000 x4 : 0000000000800000
+>>> [ 2582.239612] x3 : 0000000000000000 x2 : 0000000000000000
+>>> [ 2582.245404] x1 : 0000000000000000 x0 : 0000000000000000
+>>> [ 2582.265813]
+>>> [ 2582.282971] Process kworker/21:1 (pid: 1514, stack limit =
+>0xffff803f6eca4020)
+>>> [ 2582.307284] Stack: (0xffff803f6eca7d30 to 0xffff803f6eca8000)
+>>> [ 2582.331183] 7d20:                                  
+>ffff803f6eca7d70 ffff8000000db3b8
+>>> [ 2582.354788] 7d40: ffff803f6e696000 ffff805f4fc8ab70
+>ffff805fdfd0aa00 ffff805fdfd0f700
+>>> [ 2582.378341] 7d60: 0000000000000000 ffff80000112c57c
+>ffff803f6eca7dc0 ffff8000000db7d4
+>>> [ 2582.403700] 7d80: ffff803f6e696000 ffff803f6e696030
+>ffff805fdfd0aa18 ffff805fdfd0aa00
+>>> [ 2582.428385] 7da0: ffff803f6eca4000 ffff80000112c57c
+>0000000000000000 0000000000000008
+>>> [ 2582.451222] 7dc0: ffff803f6eca7e20 ffff8000000e1d0c
+>ffff805f4fc15000 ffff80000115f188
+>>> [ 2582.474577] 7de0: ffff800000d1cf88 ffff803f6e696000
+>ffff8000000db690 0000000000000000
+>>> [ 2582.497281] 7e00: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.522992] 7e20: 0000000000000000 ffff800000083dd0
+>ffff8000000e1c10 ffff805f4fc15000
+>>> [ 2582.546945] 7e40: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.568550] 7e60: 0000000000000000 ffff8000000ee33c
+>ffff803f6e696000 ffff805f00000000
+>>> [ 2582.589157] 7e80: 0000000000000000 ffff803f6eca7e88
+>ffff803f6eca7e88 0000000000000000
+>>> [ 2582.609767] 7ea0: 0000000000000000 ffff803f6eca7ea8
+>ffff803f6eca7ea8 cb88537fdc8ba31b
+>>> [ 2582.633228] 7ec0: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.655386] 7ee0: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.674223] 7f00: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.692994] 7f20: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.711765] 7f40: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.730809] 7f60: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.748601] 7f80: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.769388] 7fa0: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.786756] 7fc0: 0000000000000000 0000000000000005
+>0000000000000000 0000000000000000
+>>> [ 2582.804134] 7fe0: 0000000000000000 0000000000000000
+>0000000000000000 0000000000000000
+>>> [ 2582.821488] Call trace:
+>>> [ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438
+>>> [ 2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428
+>>> [ 2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0
+>>> [ 2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
+>>>
+>>> ============================cut here===============================
+>>>
+>>> The phy_state_machine was still running and didn't know whether the
+>phydev's driver was
+>>> removed or not, then occur this problem, so we need to stop the
+>phy_state_machine when
+>>> removing the phy driver.
+>> 
+>> Your explanation of the problem is unclear to me, unless a network
+>> driver attached to the PHY and started it, and then never stopped the
+>> PHY state machine, this should not happen, also there should be
+>proper
+>> reference counting in place to avoid that. Your trace is based on 4.1
+>is
+>> this still reproducible with latest vanilla? Is this with a mainline
+>> Ethernet driver?
+>> 
+>
+>Yesï¼Œthe network driver already attached to the PHY and started it, and
+>all
+>of them could work well if I didn't do anything, but if I suddenly
+>remove the marvall.ko,
+>the phy_state_machine was still running, but the phydev->drv is NULL at
+>this time, than oops,
+>I found this problem at 4.1 lts, and didn't see any effective
+>improvement in the kernel 4.8, so
+>report this bug and fix it.
 
-This fixes my example (with the DIVERT chain), but does not fix the two-line example you gave below. Another setup I have is also still broken as of this diff (similarly, there is a rule in nat PREROUTING that goes to a chain with the TPROXY rule).
+Ok, then the issue seems to be with reference counting here, we should not be able to unload the module until the last user dropped the reference, which would be when the Ethernet driver called phy_disconnect(). Your fix does not prevent a dangling phy_device pointer from being accessed in the Ethernet driver for instance because the PHY would be silently dropped.
 
->     No need, this reproduces easily with this two-line ruleset:
->     
->     -t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-destination 192.168.8.1
->     -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
-
-As I said above, this doesn't work, but this does:
-
--t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-destination 192.168.8.1
--t mangle -N DIVERT
--t mangle -A PREROUTING -p tcp -m socket -j DIVERT
--t mangle -A DIVERT -j MARK --set-mark 1
--t mangle -A DIVERT -j ACCEPT
--t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
-
-Thanks for looking at this so quickly.
-
-
-
-From: Florian Westphal <fw@strlen.de>
-Sent: Friday, July 29, 2016 6:21 AM
-To: Brandon Cazander
-Cc: netdev@vger.kernel.org; edumazet@google.com
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-    
-Brandon Cazander <brandon.cazander@multapplied.net> wrote:
-> * When it fails, no traffic hits the WEBSERVER. A tcpdump on the bad kernel shows:
->     root@dons-qemu-new-kernel:~# tcpdump -niany tcp and port 8080
->     tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
->     listening on any, link-type LINUX_SLL (Linux cooked), capture size 65535 bytes
->     16:42:31.551952 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [S], seq 3793582216, win 29200, options [mss 1460,sackOK,TS val 632068656 ecr 0,nop,wscale 7], length 0
->     16:42:31.551988 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745382 ecr 632068656,nop,wscale 7], length 0
->     16:42:31.552222 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [.], ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 0
->     16:42:31.552238 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
->     16:42:31.552246 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [P.], seq 1:78, ack 1, win 229, options [nop,nop,TS val 632068657 ecr 745382], length 77
->     16:42:31.552251 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [R], seq 4042636217, win 0, length 0
->     16:42:32.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 745632 ecr 632068656,nop,wscale 7], length 0
->     16:42:32.551925 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
->     16:42:34.551668 IP 42.0.1.1.8080 > 10.100.0.206.35562: Flags [S.], seq 4042636216, ack 3793582217, win 28960, options [mss 1460,sackOK,TS val 746132 ecr 632068656,nop,wscale 7], length 0
->     16:42:34.551995 IP 10.100.0.206.35562 > 42.0.1.1.8080: Flags [R], seq 3793582217, win 0, length 0
-
-Please try this patch, it makes it work for me again.
-I decided to extend the existing snat support in xt_socket.c instead
-of changing TPROXY target:
-
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -144,6 +144,44 @@ static bool xt_socket_sk_is_transparent(struct sock *sk)
-         }
- }
- 
-+static void get_lookup_daddr(const struct sk_buff *skb, u32 *daddr, u16 *dport)
-+{
-+#ifdef XT_SOCKET_HAVE_CONNTRACK
-+       const struct iphdr *iph = ip_hdr(skb);
-+       enum ip_conntrack_info ctinfo;
-+       enum ip_conntrack_dir dir;
-+       struct nf_conn const *ct;
-+
-+       /* Do the lookup with the original socket address in
-+        * case this is a packet of an SNAT-ted connection.
-+        */
-+       ct = nf_ct_get(skb, &ctinfo);
-+       if (!ct || nf_ct_is_untracked(ct))
-+               return;
-+
-+       if ((ct->status & IPS_SRC_NAT_DONE) == 0)
-+               return;
-+
-+       dir = CTINFO2DIR(ctinfo);
-+       switch (iph->protocol) {
-+       case IPPROTO_ICMP:
-+               if (ctinfo != IP_CT_RELATED_REPLY)
-+                       return;
-+               break;
-+       case IPPROTO_TCP:
-+               *dport = ct->tuplehash[!dir].tuple.src.u.tcp.port;
-+               break;
-+       case IPPROTO_UDP:
-+               *dport = ct->tuplehash[!dir].tuple.src.u.udp.port;
-+               break;
-+       default:
-+               return;
-+       }
-+
-+       *daddr = ct->tuplehash[!dir].tuple.src.u3.ip;
-+#endif
-+}
-+
- static struct sock *xt_socket_lookup_slow_v4(struct net *net,
-                                              const struct sk_buff *skb,
-                                              const struct net_device *indev)
-@@ -154,10 +192,6 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
-         __be32 uninitialized_var(daddr), uninitialized_var(saddr);
-         __be16 uninitialized_var(dport), uninitialized_var(sport);
-         u8 uninitialized_var(protocol);
--#ifdef XT_SOCKET_HAVE_CONNTRACK
--       struct nf_conn const *ct;
--       enum ip_conntrack_info ctinfo;
--#endif
- 
-         if (iph->protocol == IPPROTO_UDP || iph->protocol == IPPROTO_TCP) {
-                 struct udphdr _hdr, *hp;
-@@ -185,25 +219,7 @@ static struct sock *xt_socket_lookup_slow_v4(struct net *net,
-                 return NULL;
-         }
- 
--#ifdef XT_SOCKET_HAVE_CONNTRACK
--       /* Do the lookup with the original socket address in
--        * case this is a reply packet of an established
--        * SNAT-ted connection.
--        */
--       ct = nf_ct_get(skb, &ctinfo);
--       if (ct && !nf_ct_is_untracked(ct) &&
--           ((iph->protocol != IPPROTO_ICMP &&
--             ctinfo == IP_CT_ESTABLISHED_REPLY) ||
--            (iph->protocol == IPPROTO_ICMP &&
--             ctinfo == IP_CT_RELATED_REPLY)) &&
--           (ct->status & IPS_SRC_NAT_DONE)) {
--
--               daddr = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
--               dport = (iph->protocol == IPPROTO_TCP) ?
--                       ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.tcp.port :
--                       ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.udp.port;
--       }
--#endif
-+       get_lookup_daddr(skb, &daddr, &dport);
- 
-         return xt_socket_get_sock_v4(net, data_skb, doff, protocol, saddr,
-                                      daddr, sport, dport, indev);
-    
+-- 
+Florian
