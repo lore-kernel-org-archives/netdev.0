@@ -1,42 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: remove the leftover cleanup_a()
-Date: Wed, 3 Aug 2016 08:20:15 -0700
-Message-ID: <CAM_iQpVONAiDqgUQhWRbTEUkoEQQPiSUHnpo8aQ8KtGiR1zzFg@mail.gmail.com>
-References: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com> <d82351ba-cd1e-d5e1-0faa-94c2bcaf720a@mojatatu.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 0071/1285] Replace numeric parameter like 0444 with macro
+Date: Wed, 3 Aug 2016 15:47:14 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F50893F@AcuExch.aculab.com>
+References: <20160802103831.18486-1-baolex.ni@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:35929 "EHLO
-	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026AbcHCP0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 11:26:31 -0400
-Received: by mail-it0-f42.google.com with SMTP id f6so299651059ith.1
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 08:26:30 -0700 (PDT)
-In-Reply-To: <d82351ba-cd1e-d5e1-0faa-94c2bcaf720a@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-atm-general@lists.sourceforge.net"
+	<linux-atm-general@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"chuansheng.liu@intel.com" <chuansheng.liu@intel.com>
+To: 'Baole Ni' <baolex.ni@intel.com>,
+	"3chas3@gmail.com" <3chas3@gmail.com>,
+	"tj@kernel.org" <tj@kernel.org>,
+	"lenb@kernel.org" <lenb@kernel.org>,
+	"x86@kernel.org" <x86@kernel.org>, "hpa@zytor.com" <hpa@zytor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160802103831.18486-1-baolex.ni@intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 3, 2016 at 4:36 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> Cong,
->
-> Improvement on the basic test as it no longer oopses, but:
-> here's a test that will oops:
+From: Baole Ni
+> Sent: 02 August 2016 11:39
+> I find that the developers often just specified the numeric value
+> when calling a macro which is defined with a parameter for access permission.
+> As we know, these numeric value for access permission have had the corresponding macro,
+> and that using macro can improve the robustness and readability of the code,
+> thus, I suggest replacing the numeric parameter with the macro.
+...
+> -module_param(debug, ulong, 0644);
+> +module_param(debug, ulong, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+...
 
-Make sure you test this together with the other patch I sent
-(sorry I didn't number them), the other patch also fixed an oops.
+If you're as old as I am the octal constant is easier to read!
 
-
->
-> And btw, this should be submitted to -net not -net-next and should
-> specify something along the lines of "broken-by .."
-
-
-Oh, sure, my bad, I thought net-next is still not closed, it should
-be already closed. Here it is:
-
-Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
-
-
-Thanks!
+	David
