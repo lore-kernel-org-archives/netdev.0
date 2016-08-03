@@ -1,38 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/18] liquidio support for new device cn23xx
-Date: Wed, 03 Aug 2016 15:05:04 -0700 (PDT)
-Message-ID: <20160803.150504.2220219685584839824.davem@davemloft.net>
-References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH net 1/2] tg3: Fix for diasllow rx coalescing time to be 0
+Date: Wed, 3 Aug 2016 15:15:35 -0700
+Message-ID: <CACKFLikoKktanhxgaMeSA0NGmA6RiaBnxnCXUYfcssYWefdMVg@mail.gmail.com>
+References: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
+ <1470197640-13587-2-git-send-email-siva.kallam@broadcom.com> <7d591d9f-463b-cedd-5590-c4ff8260ffa0@hpe.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rvatsavayi@caviumnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: skallam <siva.kallam@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Satish Baddipadige <satish.baddipadige@broadcom.com>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50160 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758358AbcHCWFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 18:05:08 -0400
-In-Reply-To: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:33459 "EHLO
+	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758464AbcHCWPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 18:15:39 -0400
+Received: by mail-oi0-f53.google.com with SMTP id j185so299766020oih.0
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 15:15:36 -0700 (PDT)
+In-Reply-To: <7d591d9f-463b-cedd-5590-c4ff8260ffa0@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Wed, 3 Aug 2016 11:55:31 -0700
+On Wed, Aug 3, 2016 at 9:04 AM, Rick Jones <rick.jones2@hpe.com> wrote:
+>
+> Should anything then happen with:
+>
+>         /* No rx interrupts will be generated if both are zero */
+>         if ((ec->rx_coalesce_usecs == 0) &&
+>             (ec->rx_max_coalesced_frames == 0))
+>                 return -EINVAL;
+>
+>
+> which is the next block of code?  The logic there seems to suggest that it
+> was intended to be able to have an rx_coalesce_usecs of 0 and rely on packet
+> arrival to trigger an interrupt.  Presumably setting rx_max_coalesced_frames
+> to 1 to disable interrupt coalescing.
+>
 
-> Please consider following patches for support of new device
-> CN23XX in liquidio family of adapters. Patches may have to
-> be applied in following order as some of the patches depend
-> on earlier patches.
-
-You can't have the same Subject line text for every patch in the
-series.
-
-It is required that you use unique subject lines so that someone
-scanning the shortlog can see what is unique in each of these patches.
-
-And don't try to thward this by saying something like:
-
-	liquidio support for new device cn23xx part 1
-
-Really describe in words what each change is uniquely doing.
+I remember writing this block of code over 10 years ago for early
+generations of the chip.  Newer chips seem to behave differently and
+rx_coalesce_usecs can never be zero.  So this block can be removed now
+that the condition can never be true.  We should probably leave a
+comment there for future reference.
