@@ -1,62 +1,107 @@
-From: Philip Prindeville <philipp@redfish-solutions.com>
-Subject: Re: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
-Date: Tue, 2 Aug 2016 19:11:18 -0600
-Message-ID: <2AC57BFE-E95C-4690-BE9F-4A1B6DB44893@redfish-solutions.com>
-References: <1469690081-32122-1-git-send-email-fgao@ikuai8.com> <CALx6S35pZFPWk999qawU_mXYLymyJ7zh-xipcYetA6vz04=vJA@mail.gmail.com> <CA+6hz4qVM=bS_8fHx2HogHObbRsVpoRqLrk51FTPcbX38j2yxg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: multipart/signed; boundary="Apple-Mail=_1B150E1B-328D-40CA-B5C9-BAD3707E2DD4"; protocol="application/pgp-signature"; micalg=pgp-sha512
-Cc: Tom Herbert <tom@herbertland.com>,
-	Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>,
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] phy: fix the bug when remove the phy driver
+Date: Wed, 3 Aug 2016 09:21:52 +0800
+Message-ID: <57A14730.6070309@huawei.com>
+References: <57A09988.9040702@huawei.com>
+ <82f1f3de-0569-2346-9a69-fcfd5d49c565@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Feng Gao <gfree.wind@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:49122 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757324AbcHCBN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 21:13:26 -0400
-In-Reply-To: <CA+6hz4qVM=bS_8fHx2HogHObbRsVpoRqLrk51FTPcbX38j2yxg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <82f1f3de-0569-2346-9a69-fcfd5d49c565@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---Apple-Mail=_1B150E1B-328D-40CA-B5C9-BAD3707E2DD4
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii
-
-In this case they both mean the same thing.
-
-
-> On Aug 2, 2016, at 6:28 PM, Feng Gao <gfree.wind@gmail.com> wrote:
+On 2016/8/3 0:42, Florian Fainelli wrote:
+> Le 02/08/2016 à 06:00, Ding Tianhong a écrit :
+>> The nic in my board use the phy dev from marvell, and
+>> the system will load the marvell phy driver automatically,
+>> but when I remove the phy drivers, the system immediately panic:
+>>
+>> localhost login: [ 2582.052465] Unable to handle kernel NULL pointer dereference at virtual address 000000c0
+>> [ 2582.061429] pgd = ffff800001226000
+>> [ 2582.065277] [000000c0] *pgd=0000003f7f893003, *pud=0000003f7f894003, *pmd=0000003f7f895003, *pte=006000006d000707
+>> [ 2582.076681] Internal error: Oops: 96000006 [#1] SMP
+>> [ 2582.082049] Modules linked in: sr_mod(E) cdrom(E) ses(E) enclosure(E) shpchp(E) crc32_arm64(E) aes_ce_blk(E) ablk_helper(E) cryptd(E) aes_ce_cipher(E) ghash_ce(E) sha2_ce(E) sha1_ce(E) usb_storage(E) dm_mirror(E) dm_region_hash(E) dm_log(E) dm_mod(E) [last unloaded: marvell]
+>> [ 2582.109226] CPU: 21 PID: 1514 Comm: kworker/21:1 Tainted: G            E   4.1.27-vhulk3.6.5.aarch64 #1
+>> [ 2582.119415] Hardware name: Huawei Taishan 2180 /BC11SPCC, BIOS 1.31 06/23/2016
+>> [ 2582.127346] Workqueue: events_power_efficient phy_state_machine
+>> [ 2582.133796] task: ffff803f6f41bac0 ti: ffff803f6eca4000 task.ti: ffff803f6eca4000
+>> [ 2582.141910] PC is at phy_state_machine+0x3c/0x438
+>> [ 2582.147081] LR is at phy_state_machine+0x34/0x438
+>> [ 2582.152173] pc : [<ffff800000715384>] lr : [<ffff80000071537c>] pstate: 60000145
+>> [ 2582.160189] sp : ffff803f6eca7d30
+>> [ 2582.163825] x29: ffff803f6eca7d30 x28: 0000000000000000
+>> [ 2582.169689] x27: ffff805fdfd0aa00 x26: 0000000000000008
+>> [ 2582.175482] x25: 0000000000000000 x24: ffff80000112c57c
+>> [ 2582.181391] x23: ffff805f4fc8a800 x22: ffff805fdfd0f700
+>> [ 2582.187241] x21: ffff805f4fc8abf8 x20: ffff805f4fc8a770
+>> [ 2582.193035] x19: ffff805f4fc8ab70 x18: 0000000000000007
+>> [ 2582.198914] x17: 000000000000000e x16: 0000000000000001
+>> [ 2582.204710] x15: 0000000000000007 x14: 000000000000000e
+>> [ 2582.210584] x13: 0000000000000200 x12: 0000000055555556
+>> [ 2582.216373] x11: 0000000000001c00 x10: 0000000000000000
+>> [ 2582.222166] x9 : ffff800000a36880 x8 : ffff803f6f41c060
+>> [ 2582.227994] x7 : 000000010008b39b x6 : ffff80000101e690
+>> [ 2582.233788] x5 : 0000000000000000 x4 : 0000000000800000
+>> [ 2582.239612] x3 : 0000000000000000 x2 : 0000000000000000
+>> [ 2582.245404] x1 : 0000000000000000 x0 : 0000000000000000
+>> [ 2582.265813]
+>> [ 2582.282971] Process kworker/21:1 (pid: 1514, stack limit = 0xffff803f6eca4020)
+>> [ 2582.307284] Stack: (0xffff803f6eca7d30 to 0xffff803f6eca8000)
+>> [ 2582.331183] 7d20:                                   ffff803f6eca7d70 ffff8000000db3b8
+>> [ 2582.354788] 7d40: ffff803f6e696000 ffff805f4fc8ab70 ffff805fdfd0aa00 ffff805fdfd0f700
+>> [ 2582.378341] 7d60: 0000000000000000 ffff80000112c57c ffff803f6eca7dc0 ffff8000000db7d4
+>> [ 2582.403700] 7d80: ffff803f6e696000 ffff803f6e696030 ffff805fdfd0aa18 ffff805fdfd0aa00
+>> [ 2582.428385] 7da0: ffff803f6eca4000 ffff80000112c57c 0000000000000000 0000000000000008
+>> [ 2582.451222] 7dc0: ffff803f6eca7e20 ffff8000000e1d0c ffff805f4fc15000 ffff80000115f188
+>> [ 2582.474577] 7de0: ffff800000d1cf88 ffff803f6e696000 ffff8000000db690 0000000000000000
+>> [ 2582.497281] 7e00: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.522992] 7e20: 0000000000000000 ffff800000083dd0 ffff8000000e1c10 ffff805f4fc15000
+>> [ 2582.546945] 7e40: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.568550] 7e60: 0000000000000000 ffff8000000ee33c ffff803f6e696000 ffff805f00000000
+>> [ 2582.589157] 7e80: 0000000000000000 ffff803f6eca7e88 ffff803f6eca7e88 0000000000000000
+>> [ 2582.609767] 7ea0: 0000000000000000 ffff803f6eca7ea8 ffff803f6eca7ea8 cb88537fdc8ba31b
+>> [ 2582.633228] 7ec0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.655386] 7ee0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.674223] 7f00: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.692994] 7f20: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.711765] 7f40: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.730809] 7f60: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.748601] 7f80: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.769388] 7fa0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.786756] 7fc0: 0000000000000000 0000000000000005 0000000000000000 0000000000000000
+>> [ 2582.804134] 7fe0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+>> [ 2582.821488] Call trace:
+>> [ 2582.834493] [<ffff800000715384>] phy_state_machine+0x3c/0x438
+>> [ 2582.851754] [<ffff8000000db3b8>] process_one_work+0x150/0x428
+>> [ 2582.868188] [<ffff8000000db7d4>] worker_thread+0x144/0x4b0
+>> [ 2582.883882] [<ffff8000000e1d0c>] kthread+0xfc/0x110
+>>
+>> ============================cut here===============================
+>>
+>> The phy_state_machine was still running and didn't know whether the phydev's driver was
+>> removed or not, then occur this problem, so we need to stop the phy_state_machine when
+>> removing the phy driver.
 > 
-> Just a reminder, the version description is "contain 1", not "set 1".
+> Your explanation of the problem is unclear to me, unless a network
+> driver attached to the PHY and started it, and then never stopped the
+> PHY state machine, this should not happen, also there should be proper
+> reference counting in place to avoid that. Your trace is based on 4.1 is
+> this still reproducible with latest vanilla? Is this with a mainline
+> Ethernet driver?
 > 
-> Best Regards
-> Feng
 
+Yes，the network driver already attached to the PHY and started it, and all
+of them could work well if I didn't do anything, but if I suddenly remove the marvall.ko,
+the phy_state_machine was still running, but the phydev->drv is NULL at this time, than oops,
+I found this problem at 4.1 lts, and didn't see any effective improvement in the kernel 4.8, so
+report this bug and fix it.
 
---Apple-Mail=_1B150E1B-328D-40CA-B5C9-BAD3707E2DD4
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename=signature.asc
-Content-Type: application/pgp-signature;
-	name=signature.asc
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - https://gpgtools.org
-
-iQEcBAEBCgAGBQJXoUS3AAoJEGTaZwSfpZInB4sIAKUD3zsV+TSXPAgUViUgBgb5
-J0QXESywNo9OCCLXD3AtnIQ79eFR7AO+wVKBKFwQS5Hr/cbLNdtgwbG+os+8T/Bp
-e5ugDMUUO4R7XKHlntEJCpPl8jXYvDrodRGCI0BjLlIqYqmQXPrV9bSD6Mu8jr4I
-ZoHDede7GejsTgdhyv2J6+z6EAh87xjR1ospSk58NPXk6DBnap0owBFvBsEBs/bb
-bH83ucLeCW5MaoLPpLJ66LDuPz3YvkBFAcfrwh/NUFL6TRtlcCPG3W6C8UbFAead
-DhtG8omsWcuTQIKUcZPkz5GgRyOFGaG2r2gDB5CpAiES8CNlU1NY1a2u3BLmV7s=
-=XdW0
------END PGP SIGNATURE-----
-
---Apple-Mail=_1B150E1B-328D-40CA-B5C9-BAD3707E2DD4--
+Thanks.
+Ding
