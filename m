@@ -1,51 +1,49 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH v2] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
-Date: Wed,  3 Aug 2016 12:41:40 +0200 (CEST)
-Message-ID: <20160803104141.12CDB1A2394@localhost.localdomain>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] net: arc_emac: add missing of_node_put() in arc_emac_probe()
+Date: Wed,  3 Aug 2016 10:58:35 +0000
+Message-ID: <1470221915-5880-1-git-send-email-weiyj.lk@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Alexander Kochetkov <al.kochet@gmail.com>,
+	Philippe Reynes <tremyfr@gmail.com>,
+	Peter Chen <peter.chen@nxp.com>,
+	Caesar Wang <wxt@rock-chips.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:34030 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757746AbcHCK6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 06:58:48 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hh10so13892826pac.1
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 03:58:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do not drop packet when CSeq is 0 as 0 is also a valid value for CSeq.
+commit a94efbd7cc45 ("ethernet: arc: emac_main: add missing of_node_put
+after calling of_parse_phandle") added missing of_node_put after calling
+of_parse_phandle, but missing the devm_ioremap_resource() error handling
+case.
 
-simple_strtoul() will return 0 either when all digits are 0
-or if there are no digits at all. Therefore when simple_strtoul()
-returns 0 we check if first character is digit 0 or not.
-
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
 ---
- v2: not using kstrtouint() anymore, as it required to use a temp buffer
+ drivers/net/ethernet/arc/emac_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
- net/netfilter/nf_conntrack_sip.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 8d9db9d..7d77217 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1383,7 +1383,7 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
- 		return NF_DROP;
- 	}
- 	cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
--	if (!cseq) {
-+	if (!cseq && *(*dptr + matchoff) != '0') {
- 		nf_ct_helper_log(skb, ct, "cannot get cseq");
- 		return NF_DROP;
- 	}
-@@ -1446,7 +1446,7 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
- 			return NF_DROP;
- 		}
- 		cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
--		if (!cseq) {
-+		if (!cseq && *(*dptr + matchoff) != '0') {
- 			nf_ct_helper_log(skb, ct, "cannot get cseq");
- 			return NF_DROP;
- 		}
--- 
-2.1.0
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index 4bff0f3..b0da969 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -771,8 +771,10 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+ 	priv->dev = dev;
+ 
+ 	priv->regs = devm_ioremap_resource(dev, &res_regs);
+-	if (IS_ERR(priv->regs))
+-		return PTR_ERR(priv->regs);
++	if (IS_ERR(priv->regs)) {
++		err = PTR_ERR(priv->regs);
++		goto out_put_node;
++	}
+ 
+ 	dev_dbg(dev, "Registers base address is 0x%p\n", priv->regs);
