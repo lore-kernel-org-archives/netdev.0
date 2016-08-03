@@ -1,53 +1,54 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 3 Aug 2016 15:00:34 -0500
-Message-ID: <57A24D62.5080207@codeaurora.org>
-References: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
- <577999EC.1010104@gmx.de> <579A5929.4010908@codeaurora.org>
- <d41488bf-ef79-ab11-f5fd-5ab15195c932@gmx.de>
- <57A0DF6D.6040207@codeaurora.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: net: vrf: Handle ipv6 multicast and link-local addresses
+Date: Wed, 3 Aug 2016 14:11:49 -0600
+Message-ID: <1d0eb1d8-708f-2238-37c9-b75004804065@cumulusnetworks.com>
+References: <20160727215224.EB4E26611D4@gitolite.kernel.org>
+ <CAMuHMdU6zpowkWgUW0+8Fhx7BmwTn=FvVBoTKXUgNzLeBpFrHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	sdharia@codeaurora.org, shankerd@codeaurora.org,
-	vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
-	robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
-	mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
-	davem@davemloft.net, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:60557 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758214AbcHCUAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 16:00:39 -0400
-In-Reply-To: <57A0DF6D.6040207@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdU6zpowkWgUW0+8Fhx7BmwTn=FvVBoTKXUgNzLeBpFrHg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Timur Tabi wrote:
->
-> Is there a good way to test my code? ping and iperf appear to send no
-> more than 3 packets at a time, which comes nowhere close to filling the
-> queue (which holds 512 normally).  netif_queue_stopped() never returns
-> true, no matter what I do.
+On 8/3/16 1:57 PM, Geert Uytterhoeven wrote:
+>> +static void vrf_ip6_input_dst(struct sk_buff *skb, struct net_device *vrf_dev,
+>> > +                             int ifindex)
+>> > +{
+>> > +       const struct ipv6hdr *iph = ipv6_hdr(skb);
+>> > +       struct flowi6 fl6 = {
+>> > +               .daddr          = iph->daddr,
+>> > +               .saddr          = iph->saddr,
+>> > +               .flowlabel      = ip6_flowinfo(iph),
+> The above assignment causes the following compiler warning with
+> m68k-linux-gnu-gcc-4.1:
+> 
+>     drivers/net/vrf.c: In function ‘vrf_ip6_input_dst’:
+>     drivers/net/vrf.c:870: warning: initialized field with
+> side-effects overwritten
+>     drivers/net/vrf.c:870: warning: (near initialization for ‘fl6’)
+> 
+> Unfortunately I have no idea what it means, nor do I see what's wrong
+> with the code.
 
-Never mind, I fixed this problem.  I had a race condition between
+no idea. Fields are initialized once and left and right data types are the same.
 
-	/* update produce idx */
-	prod_idx = (tx_q->tpd.produce_idx << tx_q->produce_shift) &
-		    tx_q->produce_mask;
-	emac_reg_update32(adpt->base + tx_q->produce_reg,
-			  tx_q->produce_mask, prod_idx);
+Can you remove one line at a time? Line 870 is ".flowi6_proto   = iph->nexthdr," but all of the flowi6 macros are unique references to unique fields in flowi_common. The flowlabel line you point out is a unique field as well.
 
-and the call to netif_stop_queue().  The emac_reg_update32() signalled 
-to the hardware that data is available, and it immediately called the 
-ISR, before I had a chance to call netif_stop_queue().  So now I call 
-emac_reg_update32() after netif_stop_queue(), and everything works.
+Can you run pahole on file that did compile? e.g.,
 
-I'll post a v7 soon.
+pahole -C 'flowi6' net/ipv6/route.o
 
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+and get the common struct too:
+
+pahole -C 'flowi_common' net/ipv6/route.o
+
+> 
+>> > +               .flowi6_mark    = skb->mark,
+>> > +               .flowi6_proto   = iph->nexthdr,
+>> > +               .flowi6_iif     = ifindex,
+>> > +       };
