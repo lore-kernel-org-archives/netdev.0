@@ -1,90 +1,79 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
-Date: Wed, 3 Aug 2016 08:22:13 +0800
-Message-ID: <CA+6hz4pJ6WySV5Nww7o0=6n0a-oLByujDirkG_nEPFWaP7-VNw@mail.gmail.com>
-References: <1469690081-32122-1-git-send-email-fgao@ikuai8.com>
- <050ccbd6-5a10-575d-28d7-17c4df788b84@redfish-solutions.com>
- <CA+6hz4p2Z+Va2GNuRpcp3MRc5V_Yf0Bf7ut7QsAxTRBtFg9u9Q@mail.gmail.com> <29507597-6977-cbe1-3983-1e8e30c94f0b@redfish-solutions.com>
+From: Ian Wienand <iwienand@redhat.com>
+Subject: Re: [PATCH net] OVS: Ignore negative headroom value
+Date: Wed, 3 Aug 2016 10:29:57 +1000
+Message-ID: <5bc6b8df-0c4e-6dd5-716a-a9be88173741@redhat.com>
+References: <201608030858.Ib9LFQO4%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: fgao@48lvckh6395k16k5.yundunddos.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Philp Prindeville <philipp@redfish-solutions.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Benjamin Poirier <bpoirier@suse.com>,
+	Paolo Abeni <pabeni@redhat.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f47.google.com ([209.85.213.47]:34719 "EHLO
-	mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753725AbcHCAWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Aug 2016 20:22:14 -0400
-Received: by mail-vk0-f47.google.com with SMTP id s189so134775219vkh.1
-        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 17:22:14 -0700 (PDT)
-In-Reply-To: <29507597-6977-cbe1-3983-1e8e30c94f0b@redfish-solutions.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58054 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753725AbcHCAaA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Aug 2016 20:30:00 -0400
+In-Reply-To: <201608030858.Ib9LFQO4%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Philp.
+On 08/03/2016 10:10 AM, kbuild test robot wrote:
+> [auto build test ERROR on net/master]
 
-I get it, then i will send another update v3 patch soon.
+Sorry, typo.  Thank you test robot
 
-On Wed, Aug 3, 2016 at 1:33 AM, Philp Prindeville
-<philipp@redfish-solutions.com> wrote:
-> Inline...
->
->
-> On 08/02/2016 12:10 AM, Feng Gao wrote:
->>
->> Thanks.
->> Because the original GRE uses the literal number directly, so I follow
->> this style.
->>
->> Then I have two questions.
->> 1. pptp_gre_header is defined in "drivers/net/ppp/pptp.c"; If we want
->> to use it, need to create one new header file, is it ok ?
->
->
-> Yes, I would move the relevant constants and packet structures into
-> include/net/pptp.h ...
->
-> While you're at it, there are places like:
->
->     islcp = ((data[0] << 8) + data[1]) == PPP_LCP && 1 <= data[2] && data[2]
-> <= 7;
->
-> that should be written as:
->
->     islcp = PPP_PROTOCOL(data-2) == PPP_LCP && CP_CONF_REQ <= data[2] &&
-> data[2] <= CP_CODE_REJ;
->
-> Similarly for:
->
->                 data[0] = PPP_ALLSTATIONS;
->                 data[1] = PPP_UI;
->
-> that should be using:
->
->         PPP_ADDRESS(data) = PPP_ALLSTATIONS;
->         PPP_CONTROL(data) = PPP_UI;
->
-> etc. but this cleanup can go in a 2nd patch.  The definitions for CONFREQ
-> and CONFACK and CP_CONF_REQ and CP_CONF_ACK and PPP_LCP_ECHOREQ and
-> PPP_LCP_ECHOREP are redundant and probably should all go into ppp_defs.h as
-> well (which would require refactoring drivers/net/ppp/ppp_async.c).
->
->
->> 2. The GRE version 0 patch could use the sizeof pptp_gre_header.seq ?
->
->
-> Actually, since you're going to be doing the pptp.h header anyway, I'd add a
-> v0 as well as a v1 struct just to be more clear/concise.
->
-> -Philip
->
->> Best Regards
->> Feng
->>
->>
-> [snip]
+===
+
+net_device->ndo_set_rx_headroom (introduced in
+871b642adebe300be2e50aa5f65a418510f636ec) says
+
+   "Setting a negative value reset the rx headroom
+    to the default value".
+
+It seems that the OVS implementation in
+3a927bc7cf9d0fbe8f4a8189dd5f8440228f64e7 overlooked this and sets
+dev->needed_headroom unconditionally.
+
+This doesn't have an immediate effect, but can mess up later
+LL_RESERVED_SPACE calculations, such as done in
+net/ipv6/mcast.c:mld_newpack.  For reference, this issue was found
+from a skb_panic raised there after the length calculations had given
+the wrong result.
+
+Note the other current users of this interface
+(drivers/net/tun.c:tun_set_headroom and
+drivers/net/veth.c:veth_set_rx_headroom) are both checking this
+correctly and thus need no modification.
+
+An OpenStack tempest run
+(http://docs.openstack.org/developer/tempest/) that reliably hit this
+panic works correctly with this patch.  Thanks to Ben for some
+pointers from the crash dumps!
+
+Cc: Benjamin Poirier <bpoirier@suse.com>
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: netdev@vger.kernel.org
+Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1361414
+Signed-off-by: Ian Wienand <iwienand@redhat.com>
+---
+  net/openvswitch/vport-internal_dev.c | 2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/vport-internal_dev.c 
+b/net/openvswitch/vport-internal_dev.c
+index 434e04c..95c3614 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -140,7 +140,7 @@ internal_get_stats(struct net_device *dev, struct 
+rtnl_link_stats64 *stats)
+
+  static void internal_set_rx_headroom(struct net_device *dev, int new_hr)
+  {
+-	dev->needed_headroom = new_hr;
++	dev->needed_headroom = new_hr < 0 ? 0 : new_hr;
+  }
+
+  static const struct net_device_ops internal_dev_netdev_ops = {
+-- 
+2.7.4
