@@ -1,52 +1,78 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: remove the leftover cleanup_a()
-Date: Wed, 3 Aug 2016 07:36:29 -0400
-Message-ID: <d82351ba-cd1e-d5e1-0faa-94c2bcaf720a@mojatatu.com>
-References: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Wed, 03 Aug 2016 14:43:43 +0200
+Message-ID: <1882749.mb7lsAROoU@debian64>
+References: <201608030349.u733nRPn000595@sdf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f176.google.com ([209.85.223.176]:35833 "EHLO
-	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751410AbcHCMkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 08:40:10 -0400
-Received: by mail-io0-f176.google.com with SMTP id m101so241382850ioi.2
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 05:40:09 -0700 (PDT)
-In-Reply-To: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Al Viro <viro@zeniv.linux.org.uk>, alexmcwhirter@triadic.us,
+	David Miller <davem@davemloft.net>, chunkeey@googlemail.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alan Curry <rlwinm@sdf.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201608030349.u733nRPn000595@sdf.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong,
+On Wednesday, August 3, 2016 3:49:26 AM CEST Alan Curry wrote:
+> Al Viro wrote:
+> > 
+> > Which just might mean that we have *three* issues here -
+> > 	(1) buggered __copy_to_user_inatomic() (and friends) on some sparcs
+> > 	(2) your ssl-only corruption
+> > 	(3) Alan's x86_64 corruption on plain TCP read - no ssl *or* sparc
+> > anywhere, and no multi-segment recvmsg().  Which would strongly argue in
+> > favour of some kind of copy_page_to_iter() breakage triggered when handling
+> > a fragmented skb, as in (1).  Except that I don't see anything similar in
+> > x86_64 uaccess primitives...
+> > 
+> 
+> I think I've solved (3) at least...
+> 
+> Using the twin weapons of printk and stubbornness, I have built a working
+> theory of the bug. I haven't traced it all the way through, so my explanation
+> may be partly wrong. I do have a patch that eliminates the symptom in all my
+> tests though. Here's what happens:
+> 
+> A corrupted packet somehow arrives in skb_copy_and_csum_datagram_msg().
+> During downloads at reasonably high speed, about 0.1% of my incoming
+> packets are bad. Probably because the access point is that suspicious
+> Comcast thing.
 
-Improvement on the basic test as it no longer oopses, but:
-here's a test that will oops:
------------------------------
-# add action that will be shared for multi-flows
-sudo tc actions add action drop index 10
-#add an action noone uses
-sudo tc actions add action ok index 12
-#
-sudo tc actions ls action gact
-# see both dumped... (good)
-#Lets bind the shared action twice
-#
-sudo tc qdisc del dev lo parent ffff:
-sudo tc qdisc add dev lo ingress
-#
-#use existing action index 10
-sudo tc filter add dev lo parent ffff: protocol ip prio 8 \
-u32 match ip dst 127.0.0.8/32 flowid 1:10 action gact index 10
-#use existing action index 10
-sudo tc filter add dev lo parent ffff: protocol ip prio 7 \
-u32 match ip src 127.0.0.10/32 flowid 1:11 action gact index 10
-# and now dump and see an oops
-sudo tc filter ls dev lo parent ffff: protocol ip
--------------------
+Thanks for being very persistent with this. I think I'm able to reproduce
+this now (on any hardware... like r8169 ethernet) as long as the following 
+"traffic policy" is enacted on the HTTP - Server: 
 
-And btw, this should be submitted to -net not -net-next and should
-specify something along the lines of "broken-by .."
+# tc qdisc add dev eth0 root netem corrupt 0.1%
 
-cheers,
-jamal
+(This needs the "Network Emulation" Sched CONFIG_NET_SCH_NETEM [0].)
+
+With your tool (changed to point to my apache local server). I'm seeing 
+corruptions in the "noselect" case. Running it in "select" mode however
+and the resulting files have no corruptions.
+
+About AR9170 corruption issues: I know of one report that the AR9170's
+Encryption Engine can cause corruptions [1]. In this case outgoing
+data was corrupted which lead to deauths/disassocs since the AP was
+basically sending out multicast deauths/disassocs with bad addresses.
+However, "nohwcrypt" should have made a difference there since the
+software decryption would discard the faulty package due the message
+integrety checks.
+
+Another source for corruptions could be the USB-PHY (FUSB200) in the
+AR9170 [2]. I know it's causing problems for the ath9k_htc. However
+not everyone is affected.
+
+One thing I noticed in your previous post is that you "might" not have
+draft-802.11n enabled. Do you see any "disabling HT/VHT due to WEP/TKIP use."
+in your dmesg logs? If so, check if you can force your AP to use WPA2
+with CCMP/AES only.
+
+Regards,
+Christian
+
+[0] <http://www.spinics.net/lists/linux-wireless/msg60104.html>
+[1] <https://wiki.linuxfoundation.org/networking/netem>
+[2] <https://github.com/qca/open-ath9k-htc-firmware/wiki/usb-related-issues>
