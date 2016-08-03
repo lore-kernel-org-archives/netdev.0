@@ -1,125 +1,493 @@
-From: zyjzyj2000@gmail.com
-Subject: [PATCH 1/1] ixgbevf: remove unused variable
-Date: Thu,  4 Aug 2016 07:29:33 +0800
-Message-ID: <1470266973-11347-1-git-send-email-zyjzyj2000@gmail.com>
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH v3 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
+Date: Thu, 4 Aug 2016 07:47:25 +0800
+Message-ID: <CA+6hz4rYZEjoN_pXWx4qym6tygwrcW7BGtr_ABAS9sPqG=3g6Q@mail.gmail.com>
+References: <1470235960-4740-1-git-send-email-fgao@ikuai8.com> <CALx6S354=B-r3CNor4-poPKn+xfgarB2H_yK7bmnKie_PXxUAQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Gao Feng <fgao@ikuai8.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Philp Prindeville <philipp@redfish-solutions.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [221.223.11.60] ([221.223.11.60]:59696 "EHLO mail.rain.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933056AbcHCXyg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 19:54:36 -0400
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:34697 "EHLO
+	mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752187AbcHDAE3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 20:04:29 -0400
+Received: by mail-ua0-f194.google.com with SMTP id s7so2564220uas.1
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 17:03:46 -0700 (PDT)
+In-Reply-To: <CALx6S354=B-r3CNor4-poPKn+xfgarB2H_yK7bmnKie_PXxUAQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+Hi Tom,
 
-The variable autoneg_wait_to_complete is not used. So it is removed.
+inline comments
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/ixgbevf/ethtool.c      |  4 ++--
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  2 +-
- drivers/net/ethernet/intel/ixgbevf/vf.c           | 11 +++--------
- drivers/net/ethernet/intel/ixgbevf/vf.h           |  4 ++--
- 4 files changed, 8 insertions(+), 13 deletions(-)
+On Thu, Aug 4, 2016 at 12:15 AM, Tom Herbert <tom@herbertland.com> wrote:
+> On Wed, Aug 3, 2016 at 7:52 AM,  <fgao@ikuai8.com> wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+>> must contain one. But current GRE RPS needs the GRE_VERSION must be
+>> zero. So RPS does not work for PPTP traffic.
+>>
+>> In my test environment, there are four MIPS cores, and all traffic
+>> are passed through by PPTP. As a result, only one core is 100% busy
+>> while other three cores are very idle. After this patch, the usage
+>> of four cores are balanced well.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>  v3: 1) Move struct pptp_gre_header defination into new file pptp.h
+>>      2) Use sizeof GRE and PPTP type instead of literal value;
+>>      3) Remove strict flag check for PPTP to robust;
+>>      4) Consolidate the codes again;
+>>  v2: Update according to Tom and Philp's advice.
+>>      1) Consolidate the codes with GRE version 0 path;
+>>      2) Use PPP_PROTOCOL to get ppp protol;
+>>      3) Set the FLOW_DIS_ENCAPSULATION flag;
+>>  v1: Intial patch
+>>
+>>  drivers/net/ppp/pptp.c         |  36 +----------
+>>  include/net/pptp.h             |  40 ++++++++++++
+>>  include/uapi/linux/if_tunnel.h |   7 +-
+>>  net/core/flow_dissector.c      | 141 +++++++++++++++++++++++++----------------
+>>  4 files changed, 134 insertions(+), 90 deletions(-)
+>>  create mode 100644 include/net/pptp.h
+>>
+>> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+>> index ae0905e..3e68dbc 100644
+>> --- a/drivers/net/ppp/pptp.c
+>> +++ b/drivers/net/ppp/pptp.c
+>> @@ -37,6 +37,7 @@
+>>  #include <net/icmp.h>
+>>  #include <net/route.h>
+>>  #include <net/gre.h>
+>> +#include <net/pptp.h>
+>>
+>>  #include <linux/uaccess.h>
+>>
+>> @@ -53,41 +54,6 @@ static struct proto pptp_sk_proto __read_mostly;
+>>  static const struct ppp_channel_ops pptp_chan_ops;
+>>  static const struct proto_ops pptp_ops;
+>>
+>> -#define PPP_LCP_ECHOREQ 0x09
+>> -#define PPP_LCP_ECHOREP 0x0A
+>> -#define SC_RCV_BITS    (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
+>> -
+>> -#define MISSING_WINDOW 20
+>> -#define WRAPPED(curseq, lastseq)\
+>> -       ((((curseq) & 0xffffff00) == 0) &&\
+>> -       (((lastseq) & 0xffffff00) == 0xffffff00))
+>> -
+>> -#define PPTP_GRE_PROTO  0x880B
+>> -#define PPTP_GRE_VER    0x1
+>> -
+>> -#define PPTP_GRE_FLAG_C        0x80
+>> -#define PPTP_GRE_FLAG_R        0x40
+>> -#define PPTP_GRE_FLAG_K        0x20
+>> -#define PPTP_GRE_FLAG_S        0x10
+>> -#define PPTP_GRE_FLAG_A        0x80
+>> -
+>> -#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
+>> -#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
+>> -#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
+>> -#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
+>> -#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
+>> -
+>> -#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
+>> -struct pptp_gre_header {
+>> -       u8  flags;
+>> -       u8  ver;
+>> -       __be16 protocol;
+>> -       __be16 payload_len;
+>> -       __be16 call_id;
+>> -       __be32 seq;
+>> -       __be32 ack;
+>> -} __packed;
+>> -
+>>  static struct pppox_sock *lookup_chan(u16 call_id, __be32 s_addr)
+>>  {
+>>         struct pppox_sock *sock;
+>> diff --git a/include/net/pptp.h b/include/net/pptp.h
+>> new file mode 100644
+>> index 0000000..301d3e2
+>> --- /dev/null
+>> +++ b/include/net/pptp.h
+>> @@ -0,0 +1,40 @@
+>> +#ifndef _NET_PPTP_H
+>> +#define _NET_PPTP_H
+>> +
+>> +#define PPP_LCP_ECHOREQ 0x09
+>> +#define PPP_LCP_ECHOREP 0x0A
+>> +#define SC_RCV_BITS     (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
+>> +
+>> +#define MISSING_WINDOW 20
+>> +#define WRAPPED(curseq, lastseq)\
+>> +       ((((curseq) & 0xffffff00) == 0) &&\
+>> +       (((lastseq) & 0xffffff00) == 0xffffff00))
+>> +
+>> +#define PPTP_GRE_PROTO  0x880B
+>> +#define PPTP_GRE_VER    0x1
+>> +
+>> +#define PPTP_GRE_FLAG_C 0x80
+>> +#define PPTP_GRE_FLAG_R 0x40
+>> +#define PPTP_GRE_FLAG_K 0x20
+>> +#define PPTP_GRE_FLAG_S 0x10
+>> +#define PPTP_GRE_FLAG_A 0x80
+>> +
+>> +#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
+>> +#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
+>> +#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
+>> +#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
+>> +#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
+>> +
+>> +#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
+>> +struct pptp_gre_header {
+>> +       u8  flags;
+>> +       u8  ver;
+>> +       __be16 protocol;
+>> +       __be16 payload_len;
+>> +       __be16 call_id;
+>> +       __be32 seq;
+>> +       __be32 ack;
+>> +} __packed;
+>> +
+>> +
+>> +#endif
+>> diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+>> index 1046f55..7d889db 100644
+>> --- a/include/uapi/linux/if_tunnel.h
+>> +++ b/include/uapi/linux/if_tunnel.h
+>> @@ -24,9 +24,14 @@
+>>  #define GRE_SEQ                __cpu_to_be16(0x1000)
+>>  #define GRE_STRICT     __cpu_to_be16(0x0800)
+>>  #define GRE_REC                __cpu_to_be16(0x0700)
+>> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
+>> +#define GRE_ACK                __cpu_to_be16(0x0080)
+>> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
+>>  #define GRE_VERSION    __cpu_to_be16(0x0007)
+>>
+>> +#define GRE_VERSION_1  __cpu_to_be16(0x0001)
+>> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
+>> +
+>> +
+>>  struct ip_tunnel_parm {
+>>         char                    name[IFNAMSIZ];
+>>         int                     link;
+>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>> index 61ad43f..52b7c3c 100644
+>> --- a/net/core/flow_dissector.c
+>> +++ b/net/core/flow_dissector.c
+>> @@ -6,6 +6,8 @@
+>>  #include <linux/if_vlan.h>
+>>  #include <net/ip.h>
+>>  #include <net/ipv6.h>
+>> +#include <net/gre.h>
+>> +#include <net/pptp.h>
+>>  #include <linux/igmp.h>
+>>  #include <linux/icmp.h>
+>>  #include <linux/sctp.h>
+>> @@ -338,71 +340,102 @@ mpls:
+>>  ip_proto_again:
+>>         switch (ip_proto) {
+>>         case IPPROTO_GRE: {
+>> -               struct gre_hdr {
+>> -                       __be16 flags;
+>> -                       __be16 proto;
+>> -               } *hdr, _hdr;
+>> +               struct gre_base_hdr *hdr, _hdr;
+>>
+>>                 hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+>>                 if (!hdr)
+>>                         goto out_bad;
+>> -               /*
+>> -                * Only look inside GRE if version zero and no
+>> -                * routing
+>> -                */
+>> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+>> -                       break;
+>>
+>> -               proto = hdr->proto;
+>> -               nhoff += 4;
+>> -               if (hdr->flags & GRE_CSUM)
+>> -                       nhoff += 4;
+>> -               if (hdr->flags & GRE_KEY) {
+>> -                       const __be32 *keyid;
+>> -                       __be32 _keyid;
+>> +               /* Only look inside GRE without routing */
+>> +               if (!(hdr->flags & GRE_ROUTING)) {
+>> +                       int offset = 0;
+>>
+>> -                       keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
+>> -                                                    data, hlen, &_keyid);
+>> +                       proto = hdr->protocol;
+>>
+>> -                       if (!keyid)
+>> -                               goto out_bad;
+>> +                       if (hdr->flags & GRE_VERSION) {
+>> +                               /* Maybe PPTP in GRE */
+>> +                               if (!(proto == GRE_PROTO_PPP && (hdr->flags & GRE_KEY) &&
+>> +                                    (hdr->flags & GRE_VERSION) == GRE_VERSION_1))
+>> +                                       break;
+>> +                       }
+>>
+>> -                       if (dissector_uses_key(flow_dissector,
+>> -                                              FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+>> -                               key_keyid = skb_flow_dissector_target(flow_dissector,
+>> -                                                                     FLOW_DISSECTOR_KEY_GRE_KEYID,
+>> -                                                                     target_container);
+>> -                               key_keyid->keyid = *keyid;
+>> +                       offset += sizeof(struct gre_base_hdr);
+>> +
+>> +                       if (hdr->flags & GRE_CSUM)
+>> +                               offset += sizeof(__be32);
+>> +
+>> +                       if (hdr->flags & GRE_KEY) {
+>> +                               const __be32 *keyid;
+>> +                               __be32 _keyid;
+>> +
+>> +                               keyid = __skb_header_pointer(skb, nhoff + offset, sizeof(_keyid),
+>> +                                                            data, hlen, &_keyid);
+>> +
+>> +                               if (!keyid)
+>> +                                       goto out_bad;
+>> +
+>> +                               if (dissector_uses_key(flow_dissector,
+>> +                                                      FLOW_DISSECTOR_KEY_GRE_KEYID)) {
+>> +                                       key_keyid = skb_flow_dissector_target(flow_dissector,
+>> +                                                                             FLOW_DISSECTOR_KEY_GRE_KEYID,
+>> +                                                                             target_container);
+>> +                                       key_keyid->keyid = *keyid;
+>> +                               }
+>> +                               offset += sizeof(_keyid);
+>>                         }
+>> -                       nhoff += 4;
+>> -               }
+>> -               if (hdr->flags & GRE_SEQ)
+>> -                       nhoff += 4;
+>> -               if (proto == htons(ETH_P_TEB)) {
+>> -                       const struct ethhdr *eth;
+>> -                       struct ethhdr _eth;
+>> -
+>> -                       eth = __skb_header_pointer(skb, nhoff,
+>> -                                                  sizeof(_eth),
+>> -                                                  data, hlen, &_eth);
+>> -                       if (!eth)
+>> -                               goto out_bad;
+>> -                       proto = eth->h_proto;
+>> -                       nhoff += sizeof(*eth);
+>> -
+>> -                       /* Cap headers that we access via pointers at the
+>> -                        * end of the Ethernet header as our maximum alignment
+>> -                        * at that point is only 2 bytes.
+>> -                        */
+>> -                       if (NET_IP_ALIGN)
+>> -                               hlen = nhoff;
+>> -               }
+>>
+>> -               key_control->flags |= FLOW_DIS_ENCAPSULATION;
+>> -               if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+>> -                       goto out_good;
+>> +                       if (hdr->flags & GRE_SEQ)
+>> +                               offset += sizeof(((struct pptp_gre_header *)0)->seq);
+>> +
+>> +                       if (hdr->flags & GRE_ACK)
+>> +                               offset += sizeof(((struct pptp_gre_header *)0)->ack);
+>> +
+>> +                       if (proto == GRE_PROTO_PPP) {
+>> +                               u8 _ppp_hdr[PPP_HDRLEN];
+>> +                               u8 *ppp_hdr;
+>> +
+>> +                               ppp_hdr = skb_header_pointer(skb, nhoff + offset,
+>> +                                                            sizeof(_ppp_hdr), _ppp_hdr);
+>> +                               if (!ppp_hdr)
+>> +                                       goto out_bad;
+>> +
+>> +                               proto = PPP_PROTOCOL(ppp_hdr);
+>> +                               if (proto == PPP_IP)
+>> +                                       proto = htons(ETH_P_IP);
+>> +                               else if (proto == PPP_IPV6)
+>> +                                       proto = htons(ETH_P_IPV6);
+>> +                               else
+>> +                                       break;
+>> +
+>> +                               offset += PPP_HDRLEN;
+>> +                       } else if (proto == htons(ETH_P_TEB)) {
+>> +                               const struct ethhdr *eth;
+>> +                               struct ethhdr _eth;
+>> +
+>> +                               eth = __skb_header_pointer(skb, nhoff + offset,
+>> +                                                          sizeof(_eth),
+>> +                                                          data, hlen, &_eth);
+>> +                               if (!eth)
+>> +                                       goto out_bad;
+>> +                               proto = eth->h_proto;
+>> +                               offset += sizeof(*eth);
+>> +
+>> +                               /* Cap headers that we access via pointers at the
+>> +                                * end of the Ethernet header as our maximum alignment
+>> +                                * at that point is only 2 bytes.
+>> +                                */
+>> +                               if (NET_IP_ALIGN)
+>> +                                       hlen = (nhoff + offset);
+>> +                       }
+>>
+>> -               goto again;
+>> +                       nhoff += offset;
+>> +                       key_control->flags |= FLOW_DIS_ENCAPSULATION;
+>> +                       if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+>> +                               goto out_good;
+>> +
+>> +                       goto again;
+>> +               }
+>> +               break;
+>>         }
+>>         case NEXTHDR_HOP:
+>>         case NEXTHDR_ROUTING:
+>> --
+>> 1.9.1
+>>
+>
+> HI Feng,
+>
+> Please be careful about order of processing GRE options, keyid must be
+> handled first.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index ce221d1..f5d2ff6 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -105,7 +105,7 @@ static int ixgbevf_get_settings(struct net_device *netdev,
- 	ecmd->port = -1;
- 
- 	hw->mac.get_link_status = true;
--	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
-+	hw->mac.ops.check_link(hw, &link_speed, &link_up);
- 
- 	if (link_up) {
- 		__u32 speed = SPEED_10000;
-@@ -541,7 +541,7 @@ static int ixgbevf_link_test(struct ixgbevf_adapter *adapter, u64 *data)
- 	u32 link_speed = 0;
- 	*data = 0;
- 
--	hw->mac.ops.check_link(hw, &link_speed, &link_up, true);
-+	hw->mac.ops.check_link(hw, &link_speed, &link_up);
- 	if (!link_up)
- 		*data = 1;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index c91c33d..c0aa6fe 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -2839,7 +2839,7 @@ static void ixgbevf_watchdog_update_link(struct ixgbevf_adapter *adapter)
- 
- 	spin_lock_bh(&adapter->mbx_lock);
- 
--	err = hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
-+	err = hw->mac.ops.check_link(hw, &link_speed, &link_up);
- 
- 	spin_unlock_bh(&adapter->mbx_lock);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
-index a52f70e..f6c862bf 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
-@@ -617,14 +617,12 @@ static s32 ixgbevf_hv_set_vfta_vf(struct ixgbe_hw *hw, u32 vlan, u32 vind,
-  *  @hw: pointer to hardware structure
-  *  @speed: Unused in this implementation
-  *  @autoneg: Unused in this implementation
-- *  @autoneg_wait_to_complete: Unused in this implementation
-  *
-  *  Do nothing and return success.  VF drivers are not allowed to change
-  *  global settings.  Maintained for driver compatibility.
-  **/
- static s32 ixgbevf_setup_mac_link_vf(struct ixgbe_hw *hw,
--				     ixgbe_link_speed speed, bool autoneg,
--				     bool autoneg_wait_to_complete)
-+				     ixgbe_link_speed speed, bool autoneg)
- {
- 	return 0;
- }
-@@ -634,14 +632,12 @@ static s32 ixgbevf_setup_mac_link_vf(struct ixgbe_hw *hw,
-  *  @hw: pointer to hardware structure
-  *  @speed: pointer to link speed
-  *  @link_up: true is link is up, false otherwise
-- *  @autoneg_wait_to_complete: true when waiting for completion is needed
-  *
-  *  Reads the links register to determine if link is up and the current speed
-  **/
- static s32 ixgbevf_check_mac_link_vf(struct ixgbe_hw *hw,
- 				     ixgbe_link_speed *speed,
--				     bool *link_up,
--				     bool autoneg_wait_to_complete)
-+				     bool *link_up)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	struct ixgbe_mac_info *mac = &hw->mac;
-@@ -722,8 +718,7 @@ out:
-  */
- static s32 ixgbevf_hv_check_mac_link_vf(struct ixgbe_hw *hw,
- 					ixgbe_link_speed *speed,
--					bool *link_up,
--					bool autoneg_wait_to_complete)
-+					bool *link_up)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
- 	struct ixgbe_mac_info *mac = &hw->mac;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.h b/drivers/net/ethernet/intel/ixgbevf/vf.h
-index 04d8d4e..df90478 100644
---- a/drivers/net/ethernet/intel/ixgbevf/vf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/vf.h
-@@ -54,8 +54,8 @@ struct ixgbe_mac_operations {
- 	s32 (*negotiate_api_version)(struct ixgbe_hw *hw, int api);
- 
- 	/* Link */
--	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool, bool);
--	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *, bool);
-+	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool);
-+	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *);
- 	s32 (*get_link_capabilities)(struct ixgbe_hw *, ixgbe_link_speed *,
- 				     bool *);
- 
--- 
-2.7.4
+Thanks your reminder. But I think the keyid should be processed
+secondly and I did it in v4 patch.
+Because the keyid option is processed secondly in original codes.
+
+> GRE_ACK looks like the only new field that needs to be
+> considered for v1. Also, the keyid in v1 is split into two 16 bit
+> fields; the first is payload length which is not usable for entropy,
+> but the second (Call ID) does look useful  for that. I would suggest
+> the IPPROTO_GRE could look something like:
+
+Ok, I get it.
+
+>
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 61ad43f..736b531 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -342,15 +342,20 @@ ip_proto_again:
+>                         __be16 flags;
+>                         __be16 proto;
+>                 } *hdr, _hdr;
+> +               u8 gre_ver;
+>
+>                 hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr),
+> data, hlen, &_hdr);
+>                 if (!hdr)
+>                         goto out_bad;
+> +
+> +               /* Only look inside GRE for versions 0 and 1 */
+> +               gre_ver = hdr->flags & GRE_VERSION;
+> +               if (gre_ver > 1)
+> +                       break;
+>                 /*
+> -                * Only look inside GRE if version zero and no
+> -                * routing
+> +                * Only look inside GRE if no routing
+>                  */
+> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+> +               if (hdr->flags & GRE_ROUTING)
+>                         break;
+>
+>                 proto = hdr->proto;
+> @@ -372,30 +377,62 @@ ip_proto_again:
+>                                 key_keyid =
+> skb_flow_dissector_target(flow_dissector,
+>
+> FLOW_DISSECTOR_KEY_GRE_KEYID,
+>
+> target_container);
+> -                               key_keyid->keyid = *keyid;
+> +                               if (gre_ver == 0)
+> +                                       key_keyid->keyid = *keyid;
+> +                               else
+> +                                       key_keyid->keyid = *keyid &
+> htonl(0xffff);
+>                         }
+>                         nhoff += 4;
+>                 }
+>                 if (hdr->flags & GRE_SEQ)
+>                         nhoff += 4;
+> -               if (proto == htons(ETH_P_TEB)) {
+> -                       const struct ethhdr *eth;
+> -                       struct ethhdr _eth;
+> -
+> -                       eth = __skb_header_pointer(skb, nhoff,
+> -                                                  sizeof(_eth),
+> -                                                  data, hlen, &_eth);
+> -                       if (!eth)
+> -                               goto out_bad;
+> -                       proto = eth->h_proto;
+> -                       nhoff += sizeof(*eth);
+> -
+> -                       /* Cap headers that we access via pointers at the
+> -                        * end of the Ethernet header as our maximum alignment
+> -                        * at that point is only 2 bytes.
+> -                        */
+> -                       if (NET_IP_ALIGN)
+> -                               hlen = nhoff;
+> +               if (gre_ver == 0) {
+> +                       if (proto == htons(ETH_P_TEB)) {
+> +                               const struct ethhdr *eth;
+> +                               struct ethhdr _eth;
+> +
+> +                               eth = __skb_header_pointer(skb, nhoff,
+> +                                                          sizeof(_eth),
+> +                                                          data, hlen, &_eth);
+> +                               if (!eth)
+> +                                       goto out_bad;
+> +                               proto = eth->h_proto;
+> +                               nhoff += sizeof(*eth);
+> +
+> +                               /* Cap headers that we access via
+> pointers at the
+> +                                * end of the Ethernet header as our
+> maximum alignment
+> +                                * at that point is only 2 bytes.
+> +                                */
+> +                               if (NET_IP_ALIGN)
+> +                                       hlen = nhoff;
+> +                       }
+> +               } else { /* Version 1 */
+> +                       if (hdr->flags & GRE_ACK)
+> +                               offset += 4;
+> +
+> +                       if (proto == GRE_PROTO_PPP) {
+> +                               u8 _ppp_hdr[PPP_HDRLEN];
+> +                               u8 *ppp_hdr;
+> +
+> +                               ppp_hdr = skb_header_pointer(skb,
+> nhoff + offset,
+> +                                       sizeof(_ppp_hdr), _ppp_hdr);
+> +                               if (!ppp_hdr)
+> +                                       goto out_bad;
+> +
+> +                               switch (PPP_PROTOCOL(ppp_hdr));
+> +                               case PPP_IP:
+> +                                       proto = htons(ETH_P_IP);
+> +                                       break;
+> +                               case PPP_IPV6:
+> +                                       proto = htons(ETH_P_IPV6);
+> +                                       break;
+> +                               default:
+> +                                       /* Could probably catch some
+> more like MPLS */
+> +                                       break;
+> +                               }
+> +
+> +                               offset += PPP_HDRLEN;
+> +                       }
+>                 }
+>
+>                 key_control->flags |= FLOW_DIS_ENCAPSULATION;
