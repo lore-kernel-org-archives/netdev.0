@@ -1,82 +1,69 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and rewrite
-Date: Wed, 3 Aug 2016 12:06:55 -0700
-Message-ID: <CALx6S36k=kfrvY+aFD4rfq+nUJfd5-=8+26uk-=8dCFye_c-Ow@mail.gmail.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-13-git-send-email-bblanco@plumgrid.com> <CALx6S34b1O6iiFn6M2=xX3iduGWDQm=G+jweYVvGqY-xa4E2sg@mail.gmail.com>
- <20160803171118.GA37742@ast-mbp.thefacebook.com> <CALx6S36ARsfC8XxPHYsbD+T6Dx3SOgxdxv2CDJWuVZGf+H1oAw@mail.gmail.com>
- <20160803182950.GA10130@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH 2/3] sctp_diag: export timer value only if it is active
+Date: Wed, 3 Aug 2016 21:28:13 +0200
+Message-ID: <20160803192813.GE17974@orbyte.nwl.cc>
+References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
+ <1469811580-32429-3-git-send-email-phil@nwl.cc>
+ <20160729205113.GA2954@localhost.localdomain>
+ <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Aaron Yue <haoxuany@fb.com>
-To: Brenden Blanco <bblanco@plumgrid.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f169.google.com ([209.85.223.169]:34485 "EHLO
-	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758012AbcHCTG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 15:06:57 -0400
-Received: by mail-io0-f169.google.com with SMTP id q83so252822399iod.1
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 12:06:56 -0700 (PDT)
-In-Reply-To: <20160803182950.GA10130@gmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:50986 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752810AbcHCT2a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 15:28:30 -0400
+Content-Disposition: inline
+In-Reply-To: <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 3, 2016 at 11:29 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> On Wed, Aug 03, 2016 at 10:29:58AM -0700, Tom Herbert wrote:
->> On Wed, Aug 3, 2016 at 10:11 AM, Alexei Starovoitov
->> <alexei.starovoitov@gmail.com> wrote:
->> > On Wed, Aug 03, 2016 at 10:01:54AM -0700, Tom Herbert wrote:
->> >> On Tue, Jul 19, 2016 at 12:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> [...]
->> >> > +SEC("xdp1")
->> >> > +int xdp_prog1(struct xdp_md *ctx)
->> >> > +{
->> >> > +       void *data_end = (void *)(long)ctx->data_end;
->> >> > +       void *data = (void *)(long)ctx->data;
->> >>
->> >> Brendan,
->> >>
->> >> It seems that the cast to long here is done because data_end and data
->> >> are u32s in xdp_md. So the effect is that we are upcasting a
->> >> thirty-bit integer into a sixty-four bit pointer (in fact without the
->> >> cast we see compiler warnings). I don't understand how this can be
->> >> correct. Can you shed some light on this?
->> >
->> > please see:
->> > http://lists.iovisor.org/pipermail/iovisor-dev/2016-August/000355.html
->> >
->> That doesn't explain it. The only thing I can figure is that there is
->> an implicit assumption somewhere that even though the pointer size may
->> be 64 bits, only the low order thirty-two bits are relevant in this
->> environment (i.e. upper bit are always zero for any pointers)-- so
->> then it would safe store pointers as u32 and to upcast them to void *.
-> No, the actual pointer storage is always void* sized (see struct
-> xdp_buff). The mangling is cosmetic. The verifier converts the
-> underlying bpf load instruction to the right sized operation.
+Hi,
 
-This is not at all obvious to XDP programmer. The type of ctx
-structure is xdp_md and the definition of that structure in
-uapi/linux/bpf.h says that the fields in the that structure are __u32.
-So when I, as a user naive the inner workings of the verifier, read
-this code it sure looks like we are upcasting a 32 bit value to a 64
-bit value-- that does not seem right at all and the compiler
-apparently concurs my point of view. If the code ends up being correct
-anyway, then the obvious answer to have an explicit cast that points
-out the special nature of this cast. Blindly casting to u32 to long
-for the purposes of assigning to a pointer is only going to confuse
-more people as it has me.
+On Sat, Jul 30, 2016 at 09:25:42PM +0800, Xin Long wrote:
+[...]
+> Now for the transport's info,  we only choose primary_path to dump.
+> It means we should fix this by getting the left time to expire from
+> primary transport t->T3_rtx_timer. like:
+> 
+>         r->idiag_expires = jiffies_to_msecs(
+> -               asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
+> +               asoc->peer.primary_path->T3_rtx_timer.expires - jiffies);
+> 
+> but yes, need to check with timer_pending firstly.
 
-Tom
+I have changed the code to this:
+
+| struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
+| 
+| [...]
+| 
+| if (timer_pending(t3_rtx)) {
+| 	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+| 	r->idiag_retrans = asoc->rtx_data_chunks;
+| 	r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
+| }
+
+And I'm still getting what appears to be negative values sometimes. Here
+are some of the common values in hex when busy looping sctp_diag
+requests:
+
+0
+7530
+1000000
+3000000
+6000000
+14000000
+94000000
+ed690000
+ffffea00
+
+While I wonder a bit about the zero, the last two seem to be unsigned
+underruns. Do I still have to check for 't3_rtx->expires > jiffies' or
+am I missing something?
+
+Thanks, Phil
