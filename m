@@ -1,63 +1,76 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and rewrite
-Date: Thu, 04 Aug 2016 01:18:36 +0200
-Message-ID: <57A27BCC.4000608@iogearbox.net>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com> <1468955817-10604-13-git-send-email-bblanco@plumgrid.com> <CALx6S34b1O6iiFn6M2=xX3iduGWDQm=G+jweYVvGqY-xa4E2sg@mail.gmail.com> <20160803171118.GA37742@ast-mbp.thefacebook.com> <CALx6S36ARsfC8XxPHYsbD+T6Dx3SOgxdxv2CDJWuVZGf+H1oAw@mail.gmail.com> <20160803182950.GA10130@gmail.com> <CALx6S36k=kfrvY+aFD4rfq+nUJfd5-=8+26uk-=8dCFye_c-Ow@mail.gmail.com> <20160803223632.GA42605@ast-mbp.thefacebook.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Hitting WARN_ON_ONCE on skb_try_coalesce
+Date: Wed, 3 Aug 2016 20:36:05 -0300
+Message-ID: <20160803233605.GF2967@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Aaron Yue <haoxuany@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40311 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758389AbcHCXTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 19:19:40 -0400
-In-Reply-To: <20160803223632.GA42605@ast-mbp.thefacebook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:41322 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758363AbcHCXgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 19:36:12 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/04/2016 12:36 AM, Alexei Starovoitov wrote:
-> On Wed, Aug 03, 2016 at 12:06:55PM -0700, Tom Herbert wrote:
-[...]
->> This is not at all obvious to XDP programmer. The type of ctx
->> structure is xdp_md and the definition of that structure in
->> uapi/linux/bpf.h says that the fields in the that structure are __u32.
->> So when I, as a user naive the inner workings of the verifier, read
->> this code it sure looks like we are upcasting a 32 bit value to a 64
->> bit value-- that does not seem right at all and the compiler
->> apparently concurs my point of view. If the code ends up being correct
->> anyway, then the obvious answer to have an explicit cast that points
->> out the special nature of this cast. Blindly casting to u32 to long
->> for the purposes of assigning to a pointer is only going to confuse
->> more people as it has me.
->
-> Agree. Would be nice to have few helpers. The question is whether
-> they belong in bpf.h. Probably not, since they're not kernel abi.
+Hi,
 
-Yeah, fully agree, they don't belong into uapi.
+I have two namespaces linked with a veth and netem in one of them adding 20ms
+latency, and doing netperf from one to another. I'm on commit
+7cf210dc267861360cf6968b69bf512475aca985, net updated today, and I'm hitting
+this:
 
-> For the same reasons we didn't include instruction building macros
-> like BPF_ALU64_REG and instead kept them in samples/bpf/libbpf.h
+[ 1043.024555] WARNING: CPU: 3 PID: 19902 at ...../linux/net/core/skbuff.c:4289 skb_try_coalesce+0x414/0x430
+[ 1043.024556] Kernel panic - not syncing: panic_on_warn set ...
 
-+1
+[ 1043.024601] CPU: 3 PID: 19902 Comm: netserver Not tainted 4.7.0-standard+ #20
+[ 1043.024631] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.9.1-1.fc24 04/01/2014
+[ 1043.024667]  0000000000000086 00000000db033d46 ffff880035733ad8 ffffffff813d630d
+[ 1043.024705]  0000000000000000 ffffffff81a35655 ffff880035733b60 ffffffff811b5e3d
+[ 1043.024741]  ffff880000000008 ffff880035733b70 ffff880035733b08 00000000db033d46
+[ 1043.024777] Call Trace:
+[ 1043.024794]  [<ffffffff813d630d>] dump_stack+0x63/0x86
+[ 1043.024818]  [<ffffffff811b5e3d>] panic+0xe4/0x226
+[ 1043.024842]  [<ffffffff816ae244>] ? skb_try_coalesce+0x414/0x430
+[ 1043.024870]  [<ffffffff810a5f13>] __warn+0xe3/0xf0
+[ 1043.024892]  [<ffffffff810a602d>] warn_slowpath_null+0x1d/0x20
+[ 1043.024919]  [<ffffffff816ae244>] skb_try_coalesce+0x414/0x430
+[ 1043.024945]  [<ffffffff817165f3>] tcp_try_coalesce+0x63/0xd0
+[ 1043.024977]  [<ffffffff81718497>] tcp_queue_rcv+0x57/0x140
+[ 1043.025003]  [<ffffffff8171e132>] tcp_rcv_established+0x3f2/0x6f0
+[ 1043.025029]  [<ffffffff81728815>] tcp_v4_do_rcv+0x145/0x200
+[ 1043.025054]  [<ffffffff816a4387>] __release_sock+0x87/0xf0
+[ 1043.025078]  [<ffffffff816a4420>] release_sock+0x30/0xa0
+[ 1043.025102]  [<ffffffff81711d8c>] tcp_recvmsg+0x5fc/0xb70
+[ 1043.025126]  [<ffffffff8174051e>] inet_recvmsg+0x7e/0xb0
+[ 1043.025151]  [<ffffffff8169f61d>] sock_recvmsg+0x3d/0x50
+[ 1043.025175]  [<ffffffff8169f85a>] SYSC_recvfrom+0xda/0x150
+[ 1043.025201]  [<ffffffff811157df>] ? do_setitimer+0x1bf/0x220
+[ 1043.025226]  [<ffffffff81115891>] ? alarm_setitimer+0x51/0x90
+[ 1043.025252]  [<ffffffff816a0bbe>] SyS_recvfrom+0xe/0x10
+[ 1043.025277]  [<ffffffff817df132>] entry_SYSCALL_64_fastpath+0x1a/0xa4
 
-> Here probably four static inline functions are needed. Two for __sk_buff
-> and two for xpd_md. That should make xdp*_kern.c examples a bit easier
-> to read.
+That's:
+        WARN_ON_ONCE(delta < len);
 
-Yeah, all these bits should go into some library headers that the test
-cases make use of (and make them easier to parse for developers).
+Netperf command line is:
+netperf -cC -l 10 -t TCP_STREAM \
+		-H 192.168.10.1 -L 192.168.10.2
+
+netem is added on netperf/client side.
+
+It triggers it right at the beginning of the test.
+
+I can reproduce it 100% of the times with above setup. 
+- Removing netem made it stop reproducing.
+- Reducing netem latency to 10ms, still warns
+- Reducing netem latency to 1ms, still warns
+- Reducing netem latency to 0ms, it stops reproducing it
+
+This system is not generating a kdump, I'm looking into it.
+
+Thanks,
+Marcelo
