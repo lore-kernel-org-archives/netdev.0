@@ -1,116 +1,74 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [RFC PATCH] sunrpc: do not allow process to freeze within RPC
- state machine
-Date: Wed, 03 Aug 2016 13:36:17 -0400
-Message-ID: <1470245777.13804.34.camel@redhat.com>
-References: <20160803165412.22407.47399.stgit@localhost.localdomain>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+ net/mlx4_en: add page recycle to prepare rx ring for tx support
+Date: Wed, 3 Aug 2016 10:45:13 -0700
+Message-ID: <20160803174107.GA38399@ast-mbp.thefacebook.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+ <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gorcunov@virtuozzo.com,
-	davem@davemloft.net, devel@openvz.org
-To: Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>,
-	bfields@fieldses.org, trond.myklebust@primarydata.com,
-	anna.schumaker@netapp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160803165412.22407.47399.stgit@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
+	john.fastabend@gmail.com, hannes@stressinduktion.org,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33255 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752115AbcHCRqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 13:46:19 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i6so15043647pfe.0
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 10:46:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-08-03 at 20:54 +0400, Stanislav Kinsburskiy wrote:
-> Otherwise freezer cgroup state might never become "FROZEN".
+On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
+> On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
+> > The mlx4 driver by default allocates order-3 pages for the ring to
+> > consume in multiple fragments. When the device has an xdp program, this
+> > behavior will prevent tx actions since the page must be re-mapped in
+> > TODEVICE mode, which cannot be done if the page is still shared.
+> > 
+> > Start by making the allocator configurable based on whether xdp is
+> > running, such that order-0 pages are always used and never shared.
+> > 
+> > Since this will stress the page allocator, add a simple page cache to
+> > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
+> > stress tests the page allocator is eliminated from the perf report.
+> > 
+> > Note that setting an xdp program will now require the rings to be
+> > reconfigured.
 > 
-> Here is a deadlock scheme for 2 processes in one freezer cgroup,
-> which is
-> freezing:
+> Again, this has nothing to do with XDP ?
 > 
-> CPU 0                                   CPU 1
-> --------                                --------
-> do_last
-> inode_lock(dir->d_inode)
-> vfs_create
-> nfs_create
-> ...
-> __rpc_execute
-> rpc_wait_bit_killable
-> __refrigerator
->                                         do_last
->                                         inode_lock(dir->d_inode)
+> Please submit a separate patch, switching this driver to order-0
+> allocations.
 > 
-> So, the problem is that one process takes directory inode mutex,
-> executes
-> creation request and goes to refrigerator.
-> Another one waits till directory lock is released, remains "thawed"
-> and thus
-> freezer cgroup state never becomes "FROZEN".
+> I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
+> send a generic patch, but had been traveling lately, and currently in
+> vacation.
 > 
-> Notes:
-> 1) Interesting, that this is not a pure deadlock: one can thaw cgroup
-> and then
-> freeze it again.
-> 2) The issue was introduced by commit
-> d310310cbff18ec385c6ab4d58f33b100192a96a.
-> 3) This patch is not aimed to fix the issue, but to show the problem
-> root.
-> Look like this problem moght be applicable to other hunks from the
-> commit,
-> mentioned above.
+> order-3 pages are problematic when dealing with hostile traffic anyway,
+> so we should exclusively use order-0 pages, and page recycling like
+> Intel drivers.
 > 
-> 
-> Signed-off-by: Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>
-> ---
->  net/sunrpc/sched.c |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
-> index 9ae5885..ec7ccc1 100644
-> --- a/net/sunrpc/sched.c
-> +++ b/net/sunrpc/sched.c
-> @@ -253,7 +253,6 @@ EXPORT_SYMBOL_GPL(rpc_destroy_wait_queue);
->  
->  static int rpc_wait_bit_killable(struct wait_bit_key *key, int mode)
->  {
-> -	freezable_schedule_unsafe();
->  	if (signal_pending_state(mode, current))
->  		return -ERESTARTSYS;
->  	return 0;
-> 
+> http://lists.openwall.net/netdev/2016/04/11/88
 
-Ummm...so what actually does the schedule() with this patch?
+Completely agree. These multi-page tricks work only for benchmarks and
+not for production.
+Eric,
+if you can submit that patch for mlx4 that would be awesome.
 
-There was a bit of discussion on this recently -- see the thread with
-this subject line in linux-nfs:
-
-    Re: Hang due to nfs letting tasks freeze with locked inodes
-
-Basically it comes down to this:
-
-All of the proposals so far to fix this problem just switch out the
-freezable_schedule_unsafe (and similar) calls for those that don't
-allow the process to freeze.
-
-The problem there is that we originally added that stuff in response to
-bug reports about machines failing to suspend. What often happens is
-that the network interfaces come down, and then the freezer runs over
-all of the processes, which never return because they're blocked
-waiting on the server to reply.
-
-...shrug...
-
-Maybe we should just go ahead and do it (and to CIFS as well). Just be
-prepared for the inevitable complaints about laptops failing to suspend
-once you do.
-
-Part of the fix, I think is to add a return code (similar to
-ERESTARTSYS) that gets interpreted near the kernel-userland boundary
-as: "allow the process to be frozen, and then retry the call once it's
-resumed".
-
-With that, filesystems could return the error code when they want to
-redrive the entire syscall from that level. That won't work for non-
-idempotent requests though. We'd need to do something more elaborate
-there.
-
--- 
-Jeff Layton <jlayton@redhat.com>
+I think we should default to order-0 for both mlx4 and mlx5.
+Alternatively we're thinking to do a netlink or ethtool switch to
+preserve old behavior, but frankly I don't see who needs this order-N
+allocation schemes.
