@@ -1,46 +1,99 @@
-From: Masashi Honma <masashi.honma@gmail.com>
-Subject: Re: [PATCH v3 3/3] mac80211: mesh: fixed HT ies in beacon template
-Date: Wed, 3 Aug 2016 11:51:09 +0900
-Message-ID: <bb69b031-53ad-4649-bd1d-e95ca7a0cc70@gmail.com>
-References: <20160713200755.26839-1-yanivma@ti.com>
- <40a34537-486e-a466-5a7e-e253f19d81c3@gmail.com>
- <1470045822.3389.24.camel@sipsolutions.net>
- <75fef3ce-41a6-5845-e9be-d7ff052a07da@gmail.com>
- <1c2d3cfc-b7fd-c8fd-4f74-14dd3aa3076e@gmail.com>
- <1470122837.2665.5.camel@sipsolutions.net>
+From: Alan Curry <rlwinm@sdf.org>
+Subject: Re: PROBLEM: network data corruption (bisected to e5a4b0bb803b)
+Date: Wed, 3 Aug 2016 03:49:26 +0000 (UTC)
+Message-ID: <201608030349.u733nRPn000595@sdf.org>
+References: <20160728012253.GT2356@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Yaniv Machani <yanivma@ti.com>, linux-kernel@vger.kernel.org,
-	Meirav Kama <meiravk@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alexmcwhirter@triadic.us, David Miller <davem@davemloft.net>,
+	rlwinm@sdf.org, chunkeey@googlemail.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470122837.2665.5.camel@sipsolutions.net>
+In-Reply-To: <20160728012253.GT2356@ZenIV.linux.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2016年08月02日 16:27, Johannes Berg wrote:
-> This explicitly configures *HT capability* though - that's even the
-> name of the parameter. If you enable HT40 in the capability, the
-> resulting BSS might still not actually *use* 40 MHz bandwidth, as
-> required by overlapping BSS detection.
+Al Viro wrote:
+> 
+> Which just might mean that we have *three* issues here -
+> 	(1) buggered __copy_to_user_inatomic() (and friends) on some sparcs
+> 	(2) your ssl-only corruption
+> 	(3) Alan's x86_64 corruption on plain TCP read - no ssl *or* sparc
+> anywhere, and no multi-segment recvmsg().  Which would strongly argue in
+> favour of some kind of copy_page_to_iter() breakage triggered when handling
+> a fragmented skb, as in (1).  Except that I don't see anything similar in
+> x86_64 uaccess primitives...
+> 
 
-OK, I see.
+I think I've solved (3) at least...
 
-HT Capabilities element = Defined by hardware and software spec of the 
-node. So it does not be modified after boot.
+Using the twin weapons of printk and stubbornness, I have built a working
+theory of the bug. I haven't traced it all the way through, so my explanation
+may be partly wrong. I do have a patch that eliminates the symptom in all my
+tests though. Here's what happens:
 
-HT Operation element = Defined by surrounding environment and 
-configuration of the node. So it could be modified after boot.
+A corrupted packet somehow arrives in skb_copy_and_csum_datagram_msg().
+During downloads at reasonably high speed, about 0.1% of my incoming
+packets are bad. Probably because the access point is that suspicious
+Comcast thing.
 
-So, if the node supports HT40, HT Capabilities shows HT40 is capable.
-Now, I understand why you rejected this patch.
+skb_copy_and_csum_datagram_msg() does this:
 
-But now, when disable_ht=1, no HT Capabilities element in beacon even 
-though the node supports HT.
+		if (skb_copy_and_csum_datagram(skb, hlen, &msg->msg_iter,
+					       chunk, &csum))
+			goto fault;
+		if (csum_fold(csum))
+			goto csum_error;
 
-My trailing patch could solve the issue.
+skb_copy_and_csum_datagram() copies the bad data, computes the checksum,
+and *advances the iterator*. The checksum is bad, so it goes to
+csum_error, which returns without indicating success to userspace, but the
+bad data is in the userspace buffer, and since the iterator has advanced,
+the proper data doesn't get written to the proper place when it arrives in a
+retransmission. The same iterator is still used because we're still in the
+same syscall (I guess - this is one of the parts I didn't check out).
 
-Masashi Honma.
+My ugly patch fixes this in the most obvious way: make a local copy of
+msg->msg_iter before the call to skb_copy_and_csum_datagram(), and copy it
+back if the checksum is bad, just before "goto csum_error;". (I wonder if the
+other failure exits from this function might need to do the same thing.)
+
+You can probably reproduce this problem if you deliberately inject some
+bad TCP checksums into a stream. Just make sure the receiving machine is
+in a blocking read() on the socket when the bad packet arrives. You may
+need to resend the offending packet afterward with the checksum corrected.
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index b7de71f..574d4bf 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -730,6 +730,7 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ {
+ 	__wsum csum;
+ 	int chunk = skb->len - hlen;
++	struct iov_iter save_iter;
+ 
+ 	if (!chunk)
+ 		return 0;
+@@ -741,11 +742,14 @@ int skb_copy_and_csum_datagram_msg(struct sk_buff *skb,
+ 			goto fault;
+ 	} else {
+ 		csum = csum_partial(skb->data, hlen, skb->csum);
++		memcpy(&save_iter, &msg->msg_iter, sizeof save_iter);
+ 		if (skb_copy_and_csum_datagram(skb, hlen, &msg->msg_iter,
+ 					       chunk, &csum))
+ 			goto fault;
+-		if (csum_fold(csum))
++		if (csum_fold(csum)) {
++			memcpy(&msg->msg_iter, &save_iter, sizeof save_iter);
+ 			goto csum_error;
++		}
+ 		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE))
+ 			netdev_rx_csum_fault(skb->dev);
+ 	}
+
+-- 
+Alan Curry
