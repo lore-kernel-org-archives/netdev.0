@@ -1,80 +1,135 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH 2/3] sctp_diag: export timer value only if it is active
-Date: Wed, 3 Aug 2016 16:46:52 -0300
-Message-ID: <20160803194652.GD2954@localhost.localdomain>
-References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
- <1469811580-32429-3-git-send-email-phil@nwl.cc>
- <20160729205113.GA2954@localhost.localdomain>
- <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
- <20160803192813.GE17974@orbyte.nwl.cc>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: net: vrf: Handle ipv6 multicast and link-local addresses
+Date: Wed, 3 Aug 2016 21:57:27 +0200
+Message-ID: <CAMuHMdU6zpowkWgUW0+8Fhx7BmwTn=FvVBoTKXUgNzLeBpFrHg@mail.gmail.com>
+References: <20160727215224.EB4E26611D4@gitolite.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>, Xin Long <lucien.xin@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60080 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758252AbcHCTrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 15:47:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20160803192813.GE17974@orbyte.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160727215224.EB4E26611D4@gitolite.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 03, 2016 at 09:28:13PM +0200, Phil Sutter wrote:
-> Hi,
-> 
-> On Sat, Jul 30, 2016 at 09:25:42PM +0800, Xin Long wrote:
-> [...]
-> > Now for the transport's info,  we only choose primary_path to dump.
-> > It means we should fix this by getting the left time to expire from
-> > primary transport t->T3_rtx_timer. like:
-> > 
-> >         r->idiag_expires = jiffies_to_msecs(
-> > -               asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-> > +               asoc->peer.primary_path->T3_rtx_timer.expires - jiffies);
-> > 
-> > but yes, need to check with timer_pending firstly.
-> 
-> I have changed the code to this:
-> 
-> | struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
-> | 
-> | [...]
-> | 
-> | if (timer_pending(t3_rtx)) {
-> | 	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-> | 	r->idiag_retrans = asoc->rtx_data_chunks;
-> | 	r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
-> | }
-> 
-> And I'm still getting what appears to be negative values sometimes. Here
-> are some of the common values in hex when busy looping sctp_diag
-> requests:
-> 
-> 0
-> 7530
-> 1000000
-> 3000000
-> 6000000
-> 14000000
-> 94000000
-> ed690000
-> ffffea00
+On Wed, Jul 27, 2016 at 11:52 PM, Linux Kernel Mailing List
+<linux-kernel@vger.kernel.org> wrote:
+> Web:        https://git.kernel.org/torvalds/c/9ff74384600aeecba34ebdacbbde0627489ff601
+> Commit:     9ff74384600aeecba34ebdacbbde0627489ff601
+> Parent:     ba46ee4c0ed122fa14aa2f5d6994c166a01ae2c0
+> Refname:    refs/heads/master
+> Author:     David Ahern <dsa@cumulusnetworks.com>
+> AuthorDate: Mon Jun 13 13:44:19 2016 -0700
+> Committer:  David S. Miller <davem@davemloft.net>
+> CommitDate: Wed Jun 15 12:34:34 2016 -0700
+>
+>     net: vrf: Handle ipv6 multicast and link-local addresses
+>
+>     IPv6 multicast and link-local addresses require special handling by the
+>     VRF driver:
+>     1. Rather than using the VRF device index and full FIB lookups,
+>        packets to/from these addresses should use direct FIB lookups based on
+>        the VRF device table.
+>
+>     2. fail sends/receives on a VRF device to/from a multicast address
+>        (e.g, make ping6 ff02::1%<vrf> fail)
+>
+>     3. move the setting of the flow oif to the first dst lookup and revert
+>        the change in icmpv6_echo_reply made in ca254490c8dfd ("net: Add VRF
+>        support to IPv6 stack"). Linklocal/mcast addresses require use of the
+>        skb->dev.
+>
+>     With this change connections into and out of a VRF enslaved device work
+>     for multicast and link-local addresses work (icmp, tcp, and udp)
+>     e.g.,
+>
+>     1. packets into VM with VRF config:
+>         ping6 -c3 fe80::e0:f9ff:fe1c:b974%br1
+>         ping6 -c3 ff02::1%br1
+>
+>         ssh -6 fe80::e0:f9ff:fe1c:b974%br1
+>
+>     2. packets going out a VRF enslaved device:
+>         ping6 -c3 fe80::18f8:83ff:fe4b:7a2e%eth1
+>         ping6 -c3 ff02::1%eth1
+>         ssh -6 root@fe80::18f8:83ff:fe4b:7a2e%eth1
+>
+>     Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/vrf.c       | 98 ++++++++++++++++++++++++++++++++++++++++++++++---
+>  include/net/ip6_route.h |  2 +
+>  net/ipv6/icmp.c         |  2 +-
+>  net/ipv6/route.c        |  5 ++-
+>  4 files changed, 99 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+> index d2ce76c..0b5b3c2 100644
+> --- a/drivers/net/vrf.c
+> +++ b/drivers/net/vrf.c
+> @@ -785,9 +785,63 @@ out:
+>         return rc;
+>  }
+>
+> +static struct rt6_info *vrf_ip6_route_lookup(struct net *net,
+> +                                            const struct net_device *dev,
+> +                                            struct flowi6 *fl6,
+> +                                            int ifindex,
+> +                                            int flags)
+> +{
+> +       struct net_vrf *vrf = netdev_priv(dev);
+> +       struct fib6_table *table = NULL;
+> +       struct rt6_info *rt6;
+> +
+> +       rcu_read_lock();
+> +
+> +       /* fib6_table does not have a refcnt and can not be freed */
+> +       rt6 = rcu_dereference(vrf->rt6);
+> +       if (likely(rt6))
+> +               table = rt6->rt6i_table;
+> +
+> +       rcu_read_unlock();
+> +
+> +       if (!table)
+> +               return NULL;
+> +
+> +       return ip6_pol_route(net, table, ifindex, fl6, flags);
+> +}
+> +
+> +static void vrf_ip6_input_dst(struct sk_buff *skb, struct net_device *vrf_dev,
+> +                             int ifindex)
+> +{
+> +       const struct ipv6hdr *iph = ipv6_hdr(skb);
+> +       struct flowi6 fl6 = {
+> +               .daddr          = iph->daddr,
+> +               .saddr          = iph->saddr,
+> +               .flowlabel      = ip6_flowinfo(iph),
 
-Are these for the same asoc? I wouldn't expect it to vary that much.
-Even the 1000000 it's already just too big to be reasonable. That's
-16777 seconds. Only 0x7530 is reasonable, 30 seconds.
+The above assignment causes the following compiler warning with
+m68k-linux-gnu-gcc-4.1:
 
-> 
-> While I wonder a bit about the zero, the last two seem to be unsigned
-> underruns. Do I still have to check for 't3_rtx->expires > jiffies' or
-> am I missing something?
+    drivers/net/vrf.c: In function ‘vrf_ip6_input_dst’:
+    drivers/net/vrf.c:870: warning: initialized field with
+side-effects overwritten
+    drivers/net/vrf.c:870: warning: (near initialization for ‘fl6’)
 
-You shouldn't have to because then the timer wouldn't be pending. 
+Unfortunately I have no idea what it means, nor do I see what's wrong
+with the code.
 
-I don't know what can be wrong in there. Could it be the application not
-checking if the timer was exported or not before dumping it? </longshot>
+> +               .flowi6_mark    = skb->mark,
+> +               .flowi6_proto   = iph->nexthdr,
+> +               .flowi6_iif     = ifindex,
+> +       };
 
-  Marcelo
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
