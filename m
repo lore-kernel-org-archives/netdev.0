@@ -1,48 +1,46 @@
 From: skallam <siva.kallam@broadcom.com>
-Subject: [PATCH net 2/2] tg3: Report the correct number of RSS queues through tg3_get_rxnfc
-Date: Wed,  3 Aug 2016 09:44:00 +0530
-Message-ID: <1470197640-13587-3-git-send-email-siva.kallam@broadcom.com>
+Subject: [PATCH net 1/2] tg3: Fix for diasllow rx coalescing time to be 0
+Date: Wed,  3 Aug 2016 09:43:59 +0530
+Message-ID: <1470197640-13587-2-git-send-email-siva.kallam@broadcom.com>
 References: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
 Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
 	prashant@broadcom.com, satish.baddipadige@broadcom.com,
 	Siva Reddy Kallam <siva.kallam@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:14676 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751413AbcHCFcw (ORCPT
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:22585 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751606AbcHCFcw (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 01:32:52 -0400
 In-Reply-To: <1470197640-13587-1-git-send-email-siva.kallam@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+From: Satish Baddipadige <satish.baddipadige@broadcom.com>
 
-This patch remove the wrong substraction from info->data in
-tg3_get_rxnfc function. Without this patch, the number of RSS
-queues reported is less by one.
+When the rx coalescing time is 0, interrupts
+are not generated from the controller and rx path hangs.
+To avoid this rx hang, updating the driver to not allow
+rx coalescing time to be 0.
 
-Reported-by: Michal Soltys <soltys@ziu.info>
+Signed-off-by: Satish Baddipadige <satish.baddipadige@broadcom.com>
 Signed-off-by: Siva Reddy Kallam <siva.kallam@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index f3c6c91..6592612 100644
+index ff300f7..f3c6c91 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -12552,10 +12552,6 @@ static int tg3_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- 				info->data = TG3_RSS_MAX_NUM_QS;
- 		}
+@@ -14014,6 +14014,7 @@ static int tg3_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
+ 	}
  
--		/* The first interrupt vector only
--		 * handles link interrupts.
--		 */
--		info->data -= 1;
- 		return 0;
- 
- 	default:
+ 	if ((ec->rx_coalesce_usecs > MAX_RXCOL_TICKS) ||
++	    (!ec->rx_coalesce_usecs) ||
+ 	    (ec->tx_coalesce_usecs > MAX_TXCOL_TICKS) ||
+ 	    (ec->rx_max_coalesced_frames > MAX_RXMAX_FRAMES) ||
+ 	    (ec->tx_max_coalesced_frames > MAX_TXMAX_FRAMES) ||
 -- 
 1.7.1
