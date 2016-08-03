@@ -1,69 +1,107 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH 2/3] sctp_diag: export timer value only if it is active
-Date: Wed, 3 Aug 2016 21:28:13 +0200
-Message-ID: <20160803192813.GE17974@orbyte.nwl.cc>
-References: <1469811580-32429-1-git-send-email-phil@nwl.cc>
- <1469811580-32429-3-git-send-email-phil@nwl.cc>
- <20160729205113.GA2954@localhost.localdomain>
- <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next  02/18] liquidio support for new device cn23xx
+Date: Wed, 3 Aug 2016 11:55:33 -0700
+Message-ID: <1470250549-10993-3-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:50986 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752810AbcHCT2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 15:28:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CADvbK_dWaMFz2f8GdavXuhyfiCxRmkT_8n9yHHNwSA3y_73WoA@mail.gmail.com>
+Received: from mail-by2nam01on0052.outbound.protection.outlook.com ([104.47.34.52]:38284
+	"EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757236AbcHCTdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 15:33:51 -0400
+In-Reply-To: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This patch contains changes for firmware version management
+changes.
 
-On Sat, Jul 30, 2016 at 09:25:42PM +0800, Xin Long wrote:
-[...]
-> Now for the transport's info,  we only choose primary_path to dump.
-> It means we should fix this by getting the left time to expire from
-> primary transport t->T3_rtx_timer. like:
-> 
->         r->idiag_expires = jiffies_to_msecs(
-> -               asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-> +               asoc->peer.primary_path->T3_rtx_timer.expires - jiffies);
-> 
-> but yes, need to check with timer_pending firstly.
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 12 ++++++++++--
+ .../net/ethernet/cavium/liquidio/liquidio_common.h | 22 +++++++++++++++++++---
+ 2 files changed, 29 insertions(+), 5 deletions(-)
 
-I have changed the code to this:
-
-| struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
-| 
-| [...]
-| 
-| if (timer_pending(t3_rtx)) {
-| 	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-| 	r->idiag_retrans = asoc->rtx_data_chunks;
-| 	r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
-| }
-
-And I'm still getting what appears to be negative values sometimes. Here
-are some of the common values in hex when busy looping sctp_diag
-requests:
-
-0
-7530
-1000000
-3000000
-6000000
-14000000
-94000000
-ed690000
-ffffea00
-
-While I wonder a bit about the zero, the last two seem to be unsigned
-underruns. Do I still have to check for 't3_rtx->expires > jiffies' or
-am I missing something?
-
-Thanks, Phil
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 8e9ada9..06f4094 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3231,8 +3231,9 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	union oct_nic_if_cfg if_cfg;
+ 	unsigned int base_queue;
+ 	unsigned int gmx_port_id;
+-	u32 resp_size, ctx_size;
++	u32 resp_size, ctx_size, data_size;
+ 	u32 ifidx_or_pfnum;
++	struct lio_version *vdata;
+ 
+ 	/* This is to handle link status changes */
+ 	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
+@@ -3254,11 +3255,18 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	for (i = 0; i < octeon_dev->ifcount; i++) {
+ 		resp_size = sizeof(struct liquidio_if_cfg_resp);
+ 		ctx_size = sizeof(struct liquidio_if_cfg_context);
++		data_size = sizeof(struct lio_version);
+ 		sc = (struct octeon_soft_command *)
+-			octeon_alloc_soft_command(octeon_dev, 0,
++			octeon_alloc_soft_command(octeon_dev, data_size,
+ 						  resp_size, ctx_size);
+ 		resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
+ 		ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
++		vdata = (struct lio_version *)sc->virtdptr;
++
++		*((u64 *)vdata) = 0;
++		vdata->major = cpu_to_be16(LIQUIDIO_BASE_MAJOR_VERSION);
++		vdata->minor = cpu_to_be16(LIQUIDIO_BASE_MINOR_VERSION);
++		vdata->micro = cpu_to_be16(LIQUIDIO_BASE_MICRO_VERSION);
+ 
+ 		num_iqueues =
+ 			CFG_GET_NUM_TXQS_NIC_IF(octeon_get_conf(octeon_dev), i);
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 199a8b9..0a5bc1f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -30,10 +30,26 @@
+ 
+ #include "octeon_config.h"
+ 
+-#define LIQUIDIO_BASE_VERSION   "1.4"
+-#define LIQUIDIO_MICRO_VERSION  ".1"
+ #define LIQUIDIO_PACKAGE ""
+-#define LIQUIDIO_VERSION  "1.4.1"
++#define LIO_STR_HELPER(x)	#x
++#define LIO_STR(x)	LIO_STR_HELPER(x)
++#define LIQUIDIO_BASE_MAJOR_VERSION 1
++#define LIQUIDIO_BASE_MINOR_VERSION 4
++#define LIQUIDIO_BASE_MICRO_VERSION 1
++#define LIQUIDIO_BASE_VERSION   LIO_STR(LIQUIDIO_BASE_MAJOR_VERSION) "." \
++				LIO_STR(LIQUIDIO_BASE_MINOR_VERSION)
++#define LIQUIDIO_MICRO_VERSION  "." LIO_STR(LIQUIDIO_BASE_MICRO_VERSION)
++#define LIQUIDIO_VERSION        LIQUIDIO_PACKAGE \
++				LIO_STR(LIQUIDIO_BASE_MAJOR_VERSION) "." \
++				LIO_STR(LIQUIDIO_BASE_MINOR_VERSION) \
++				"." LIO_STR(LIQUIDIO_BASE_MICRO_VERSION)
++
++struct lio_version {
++	u64  major:16;
++	u64  minor:16;
++	u64  micro:16;
++	u64  reserved:16;
++};
+ 
+ #define CONTROL_IQ 0
+ /** Tag types used by Octeon cores in its work. */
+-- 
+1.8.3.1
