@@ -1,267 +1,93 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next  18/18] liquidio support for new device cn23xx
-Date: Wed, 3 Aug 2016 11:55:49 -0700
-Message-ID: <1470250549-10993-19-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and rewrite
+Date: Wed, 3 Aug 2016 15:36:34 -0700
+Message-ID: <20160803223632.GA42605@ast-mbp.thefacebook.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-13-git-send-email-bblanco@plumgrid.com>
+ <CALx6S34b1O6iiFn6M2=xX3iduGWDQm=G+jweYVvGqY-xa4E2sg@mail.gmail.com>
+ <20160803171118.GA37742@ast-mbp.thefacebook.com>
+ <CALx6S36ARsfC8XxPHYsbD+T6Dx3SOgxdxv2CDJWuVZGf+H1oAw@mail.gmail.com>
+ <20160803182950.GA10130@gmail.com>
+ <CALx6S36k=kfrvY+aFD4rfq+nUJfd5-=8+26uk-=8dCFye_c-Ow@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-	Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Aaron Yue <haoxuany@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0047.outbound.protection.outlook.com ([104.47.42.47]:10154
-	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752056AbcHCWea (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 18:34:30 -0400
-In-Reply-To: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35315 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752710AbcHCWgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 18:36:40 -0400
+Received: by mail-pa0-f51.google.com with SMTP id iw10so77688765pac.2
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 15:36:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S36k=kfrvY+aFD4rfq+nUJfd5-=8+26uk-=8dCFye_c-Ow@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for pause frame and priv flag for
-cn23xx device.
+On Wed, Aug 03, 2016 at 12:06:55PM -0700, Tom Herbert wrote:
+> On Wed, Aug 3, 2016 at 11:29 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> > On Wed, Aug 03, 2016 at 10:29:58AM -0700, Tom Herbert wrote:
+> >> On Wed, Aug 3, 2016 at 10:11 AM, Alexei Starovoitov
+> >> <alexei.starovoitov@gmail.com> wrote:
+> >> > On Wed, Aug 03, 2016 at 10:01:54AM -0700, Tom Herbert wrote:
+> >> >> On Tue, Jul 19, 2016 at 12:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> > [...]
+> >> >> > +SEC("xdp1")
+> >> >> > +int xdp_prog1(struct xdp_md *ctx)
+> >> >> > +{
+> >> >> > +       void *data_end = (void *)(long)ctx->data_end;
+> >> >> > +       void *data = (void *)(long)ctx->data;
+> >> >>
+> >> >> Brendan,
+> >> >>
+> >> >> It seems that the cast to long here is done because data_end and data
+> >> >> are u32s in xdp_md. So the effect is that we are upcasting a
+> >> >> thirty-bit integer into a sixty-four bit pointer (in fact without the
+> >> >> cast we see compiler warnings). I don't understand how this can be
+> >> >> correct. Can you shed some light on this?
+> >> >
+> >> > please see:
+> >> > http://lists.iovisor.org/pipermail/iovisor-dev/2016-August/000355.html
+> >> >
+> >> That doesn't explain it. The only thing I can figure is that there is
+> >> an implicit assumption somewhere that even though the pointer size may
+> >> be 64 bits, only the low order thirty-two bits are relevant in this
+> >> environment (i.e. upper bit are always zero for any pointers)-- so
+> >> then it would safe store pointers as u32 and to upcast them to void *.
+> > No, the actual pointer storage is always void* sized (see struct
+> > xdp_buff). The mangling is cosmetic. The verifier converts the
+> > underlying bpf load instruction to the right sized operation.
+> 
+> This is not at all obvious to XDP programmer. The type of ctx
+> structure is xdp_md and the definition of that structure in
+> uapi/linux/bpf.h says that the fields in the that structure are __u32.
+> So when I, as a user naive the inner workings of the verifier, read
+> this code it sure looks like we are upcasting a 32 bit value to a 64
+> bit value-- that does not seem right at all and the compiler
+> apparently concurs my point of view. If the code ends up being correct
+> anyway, then the obvious answer to have an explicit cast that points
+> out the special nature of this cast. Blindly casting to u32 to long
+> for the purposes of assigning to a pointer is only going to confuse
+> more people as it has me.
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 110 +++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  12 ++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  11 ++-
- 3 files changed, 126 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index d05e9b4..8e807a8 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -190,6 +190,10 @@ static const char oct_droq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"buffer_alloc_failure",
- };
- 
-+/* LiquidIO driver private flags */
-+static const char oct_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+};
-+
- #define OCTNIC_NCMD_AUTONEG_ON  0x1
- #define OCTNIC_NCMD_PHY_ON      0x2
- 
-@@ -659,6 +663,69 @@ lio_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
- 	pause->rx_pause = oct->rx_pause;
- }
- 
-+static int
-+lio_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
-+{
-+	/* Notes: Not supporting any auto negotiation in these
-+	 * drivers.
-+	 */
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	struct oct_link_info *linfo = &lio->linfo;
-+
-+	int ret = 0;
-+
-+	if (oct->chip_id != OCTEON_CN23XX_PF_VID)
-+		return -EINVAL;
-+
-+	if (linfo->link.s.duplex == 0) {
-+		/*no flow control for half duplex*/
-+		if (pause->rx_pause || pause->tx_pause)
-+			return -EINVAL;
-+	}
-+
-+	/*do not support autoneg of link flow control*/
-+	if (pause->autoneg == AUTONEG_ENABLE)
-+		return -EINVAL;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_FLOW_CTL;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+	if (pause->rx_pause) {
-+		/*enable rx pause*/
-+		nctrl.ncmd.s.param1 = 1;
-+	} else {
-+		/*disable rx pause*/
-+		nctrl.ncmd.s.param1 = 0;
-+	}
-+
-+	if (pause->tx_pause) {
-+		/*enable tx pause*/
-+		nctrl.ncmd.s.param2 = 1;
-+	} else {
-+		/*disable tx pause*/
-+		nctrl.ncmd.s.param2 = 0;
-+	}
-+
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to set pause parameter\n");
-+		return -EINVAL;
-+	}
-+
-+	oct->rx_pause = pause->rx_pause;
-+	oct->tx_pause = pause->tx_pause;
-+
-+	return 0;
-+}
-+
- static void
- lio_get_ethtool_stats(struct net_device *netdev,
- 		      struct ethtool_stats *stats  __attribute__((unused)),
-@@ -926,6 +993,27 @@ lio_get_ethtool_stats(struct net_device *netdev,
- 	}
- }
- 
-+static void lio_get_priv_flags_strings(struct lio *lio, u8 *data)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
-+	int i;
-+
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		for (i = 0; i < ARRAY_SIZE(oct_priv_flags_strings); i++) {
-+			sprintf(data, "%s", oct_priv_flags_strings[i]);
-+			data += ETH_GSTRING_LEN;
-+		}
-+		break;
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		break;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		break;
-+	}
-+}
-+
- static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -965,12 +1053,31 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 		}
- 		break;
- 
-+	case ETH_SS_PRIV_FLAGS:
-+		lio_get_priv_flags_strings(lio, data);
-+		break;
- 	default:
- 		netif_info(lio, drv, lio->netdev, "Unknown Stringset !!\n");
- 		break;
- 	}
- }
- 
-+static int lio_get_priv_flags_ss_count(struct lio *lio)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
-+
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		return ARRAY_SIZE(oct_priv_flags_strings);
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		return -EOPNOTSUPP;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int lio_get_sset_count(struct net_device *netdev, int sset)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -981,6 +1088,8 @@ static int lio_get_sset_count(struct net_device *netdev, int sset)
- 		return (ARRAY_SIZE(oct_stats_strings) +
- 			ARRAY_SIZE(oct_iq_stats_strings) * oct_dev->num_iqs +
- 			ARRAY_SIZE(oct_droq_stats_strings) * oct_dev->num_oqs);
-+	case ETH_SS_PRIV_FLAGS:
-+		return lio_get_priv_flags_ss_count(lio);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -2091,6 +2200,7 @@ static const struct ethtool_ops lio_ethtool_ops = {
- 	.get_strings		= lio_get_strings,
- 	.get_ethtool_stats	= lio_get_ethtool_stats,
- 	.get_pauseparam		= lio_get_pauseparam,
-+	.set_pauseparam		= lio_set_pauseparam,
- 	.get_regs_len		= lio_get_regs_len,
- 	.get_regs		= lio_get_regs,
- 	.get_msglevel		= lio_get_msglevel,
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index ee5921a..ab552cd 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2180,7 +2180,7 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	struct liquidio_if_cfg_context *ctx;
- 
- 	resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
--	ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
-+	ctx = (struct liquidio_if_cfg_context *)sc->ctxptr;
- 
- 	oct = lio_get_device(ctx->octeon_id);
- 	if (resp->status)
-@@ -3925,7 +3925,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 
- 		/* Register ethtool support */
- 		liquidio_set_ethtool_ops(netdev);
--		octeon_dev->priv_flags = 0x0;
-+		if (lio->oct_dev->chip_id == OCTEON_CN23XX_PF_VID)
-+			octeon_dev->priv_flags = OCT_PRIV_FLAG_DEFAULT;
-+		else
-+			octeon_dev->priv_flags = 0x0;
- 
- 		if (netdev->features & NETIF_F_LRO)
- 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
-@@ -4005,8 +4008,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* run port_config command for each port */
- 	oct->ifcount = num_nic_ports;
- 
--	memset(oct->props, 0,
--	       sizeof(struct octdev_props) * num_nic_ports);
-+	memset(oct->props, 0, sizeof(struct octdev_props) * num_nic_ports);
- 
- 	for (i = 0; i < MAX_OCTEON_LINKS; i++)
- 		oct->props[i].gmxport = -1;
-@@ -4022,7 +4024,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* Initialize interrupt moderation params */
- 	intrmod_cfg = &((struct octeon_device *)oct)->intrmod;
- 	intrmod_cfg->rx_enable = 1;
--	intrmod_cfg->check_intrvl =   LIO_INTRMOD_CHECK_INTERVAL;
-+	intrmod_cfg->check_intrvl = LIO_INTRMOD_CHECK_INTERVAL;
- 	intrmod_cfg->maxpkt_ratethr = LIO_INTRMOD_MAXPKT_RATETHR;
- 	intrmod_cfg->minpkt_ratethr = LIO_INTRMOD_MINPKT_RATETHR;
- 	intrmod_cfg->rx_maxcnt_trigger = LIO_INTRMOD_RXMAXCNT_TRIGGER;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 7a965c1..28f4dfa 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -759,8 +759,15 @@ enum {
- 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
- };
- 
--static inline void lio_set_priv_flag(struct octeon_device *octdev, u32 flag,
--				     u32 val)
-+#define OCT_PRIV_FLAG_DEFAULT 0x0
-+
-+static inline u32 lio_get_priv_flag(struct octeon_device *octdev, u32 flag)
-+{
-+	return !!(octdev->priv_flags & (0x1 << flag));
-+}
-+
-+static inline void lio_set_priv_flag(struct octeon_device *octdev,
-+				     u32 flag, u32 val)
- {
- 	if (val)
- 		octdev->priv_flags |= (0x1 << flag);
--- 
-1.8.3.1
+Agree. Would be nice to have few helpers. The question is whether
+they belong in bpf.h. Probably not, since they're not kernel abi.
+For the same reasons we didn't include instruction building macros
+like BPF_ALU64_REG and instead kept them in samples/bpf/libbpf.h
+Here probably four static inline functions are needed. Two for __sk_buff
+and two for xpd_md. That should make xdp*_kern.c examples a bit easier
+to read.
