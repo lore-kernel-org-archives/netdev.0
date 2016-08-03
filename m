@@ -1,63 +1,51 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: net: vrf: Handle ipv6 multicast and link-local addresses
-Date: Wed, 3 Aug 2016 23:07:57 +0200
-Message-ID: <CAMuHMdUJj3SMrizMDxBPdDwmZRivasyfMUmA1ik7h2QxY5KKgw@mail.gmail.com>
-References: <20160727215224.EB4E26611D4@gitolite.kernel.org>
- <CAMuHMdU6zpowkWgUW0+8Fhx7BmwTn=FvVBoTKXUgNzLeBpFrHg@mail.gmail.com>
- <1d0eb1d8-708f-2238-37c9-b75004804065@cumulusnetworks.com>
- <CAMuHMdWGX3owP=xr-hhr6gE9PFRFc55Rzsc1M1JVoFLHdmuUYQ@mail.gmail.com> <b23bf44d-1334-cbbc-6fa3-e1705a8e06f0@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b23bf44d-1334-cbbc-6fa3-e1705a8e06f0@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH v2 3/3] sctp_diag: Respect ss adding TCPF_CLOSE to idiag_states
+Date: Wed,  3 Aug 2016 23:23:13 +0200
+Message-ID: <1470259393-22861-4-git-send-email-phil@nwl.cc>
+References: <1470259393-22861-1-git-send-email-phil@nwl.cc>
+Cc: Xin Long <lucien.xin@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:43602 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751787AbcHCVX1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 17:23:27 -0400
+In-Reply-To: <1470259393-22861-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 3, 2016 at 10:36 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 8/3/16 2:27 PM, Geert Uytterhoeven wrote:
->> On Wed, Aug 3, 2016 at 10:11 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->>> On 8/3/16 1:57 PM, Geert Uytterhoeven wrote:
->>>>> +static void vrf_ip6_input_dst(struct sk_buff *skb, struct net_device *vrf_dev,
->>>>>> +                             int ifindex)
->>>>>> +{
->>>>>> +       const struct ipv6hdr *iph = ipv6_hdr(skb);
->>>>>> +       struct flowi6 fl6 = {
->>>>>> +               .daddr          = iph->daddr,
->>>>>> +               .saddr          = iph->saddr,
->>>>>> +               .flowlabel      = ip6_flowinfo(iph),
->>>> The above assignment causes the following compiler warning with
->>>> m68k-linux-gnu-gcc-4.1:
->>>>
->>>>     drivers/net/vrf.c: In function ‘vrf_ip6_input_dst’:
->>>>     drivers/net/vrf.c:870: warning: initialized field with
->>>> side-effects overwritten
->>>>     drivers/net/vrf.c:870: warning: (near initialization for ‘fl6’)
->>>>
->>>> Unfortunately I have no idea what it means, nor do I see what's wrong
->>>> with the code.
->>>
->>> no idea. Fields are initialized once and left and right data types are the same.
->>>
->>> Can you remove one line at a time? Line 870 is ".flowi6_proto   = iph->nexthdr," but all of the flowi6 macros are unique references to unique fields in flowi_common. The flowlabel line you point out is a unique field as well.
->>
->> The only thing that seems to matter is assigning the result of the call to
->> ip6_flowinfo() to .flowlabel. Assigning a constant makes the warning go away.
->
-> No complaints for the same initialization style at line 151?
+Since 'ss' always adds TCPF_CLOSE to idiag_states flags, sctp_diag can't
+rely upon TCPF_LISTEN flag solely being present when listening sockets
+are requested.
 
-No.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ net/sctp/sctp_diag.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index f728ef04a7b2d..bb691538adc8e 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -356,7 +356,7 @@ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
+ 	if (cb->args[4] < cb->args[1])
+ 		goto next;
+ 
+-	if ((r->idiag_states & ~TCPF_LISTEN) && !list_empty(&ep->asocs))
++	if (!(r->idiag_states & TCPF_LISTEN) && !list_empty(&ep->asocs))
+ 		goto next;
+ 
+ 	if (r->sdiag_family != AF_UNSPEC &&
+@@ -471,7 +471,7 @@ skip:
+ 	 * 3 : to mark if we have dumped the ep info of the current asoc
+ 	 * 4 : to work as a temporary variable to traversal list
+ 	 */
+-	if (!(idiag_states & ~TCPF_LISTEN))
++	if (!(idiag_states & ~(TCPF_LISTEN | TCPF_CLOSE)))
+ 		goto done;
+ 	sctp_for_each_transport(sctp_tsp_dump, net, cb->args[2], &commp);
+ done:
+-- 
+2.8.2
