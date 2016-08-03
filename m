@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next  03/18] liquidio support for new device cn23xx
-Date: Wed, 3 Aug 2016 11:55:34 -0700
-Message-ID: <1470250549-10993-4-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next  16/18] liquidio support for new device cn23xx
+Date: Wed, 3 Aug 2016 11:55:47 -0700
+Message-ID: <1470250549-10993-17-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,222 +13,202 @@ Cc: <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0059.outbound.protection.outlook.com ([104.47.33.59]:13184
+Received: from mail-bn3nam01on0083.outbound.protection.outlook.com ([104.47.33.83]:30448
 	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758270AbcHCUbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Aug 2016 16:31:09 -0400
+	id S1758330AbcHCUb0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Aug 2016 16:31:26 -0400
 In-Reply-To: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for adding common lio_enable_irq
-function for iq and oq.
+This patch adds support for watchdog based health
+monitoring of octeon cores.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  1 +
- .../net/ethernet/cavium/liquidio/liquidio_common.h |  2 +-
- .../net/ethernet/cavium/liquidio/octeon_device.c   | 17 +++++++++++
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  2 ++
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c | 33 +++++++++++++---------
- drivers/net/ethernet/cavium/liquidio/octeon_droq.h |  2 ++
- drivers/net/ethernet/cavium/liquidio/octeon_iq.h   |  2 ++
- .../net/ethernet/cavium/liquidio/request_manager.c |  3 ++
- 8 files changed, 48 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 124 ++++++++++++++++++++-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   2 +
+ 2 files changed, 124 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 06f4094..8798246 100644
+index 3ae7e76..14b8dda 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -192,6 +192,7 @@ static void octeon_droq_bh(unsigned long pdev)
- 			continue;
- 		reschedule |= octeon_droq_process_packets(oct, oct->droq[q_no],
- 							  MAX_PACKET_BUDGET);
-+		lio_enable_irq(oct->droq[q_no], NULL);
+@@ -24,6 +24,7 @@
+ #include <linux/firmware.h>
+ #include <linux/ptp_clock_kernel.h>
+ #include <net/vxlan.h>
++#include <linux/kthread.h>
+ #include "liquidio_common.h"
+ #include "octeon_droq.h"
+ #include "octeon_iq.h"
+@@ -946,8 +947,6 @@ static void update_txq_status(struct octeon_device *oct, int iq_num)
+ 	struct lio *lio;
+ 	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
+ 
+-	/*octeon_update_iq_read_idx(oct, iq);*/
+-
+ 	netdev = oct->props[iq->ifidx].netdev;
+ 
+ 	/* This is needed because the first IQ does not have
+@@ -1183,6 +1182,100 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 	return 0;
+ }
+ 
++static int liquidio_watchdog(void *param)
++{
++#define CIU3_WDOG(c) (0x1010000020000ULL + (c << 3))
++	u64 wdog;
++	u16 mask_of_stuck_cores = 0;
++	u16 mask_of_crashed_cores = 0;
++	int core_num;
++	u8 core_is_stuck[12];
++	u8 core_crashed[12];
++	struct octeon_device *oct = param;
++
++	memset(core_is_stuck, 0, sizeof(core_is_stuck));
++	memset(core_crashed, 0, sizeof(core_crashed));
++
++	while (!kthread_should_stop()) {
++		mask_of_crashed_cores =
++		    (u16)octeon_read_csr64(oct, CN23XX_SLI_SCRATCH2);
++
++		for (core_num = 0; core_num < 12; core_num++) {
++			if (!core_is_stuck[core_num]) {
++				wdog = lio_pci_readq(oct, CIU3_WDOG(core_num));
++
++				/* look at watchdog state field */
++				wdog &= 12ULL;
++				if (wdog) {
++					/* this watchdog timer has expired */
++					core_is_stuck[core_num] = 1;
++					mask_of_stuck_cores |= (1 << core_num);
++				}
++			}
++
++			if (!core_crashed[core_num])
++				core_crashed[core_num] =
++				    (mask_of_crashed_cores >> core_num) & 1;
++		}
++
++		if (mask_of_stuck_cores) {
++			for (core_num = 0; core_num < 12; core_num++) {
++				if (core_is_stuck[core_num] == 1) {
++					dev_err(&oct->pci_dev->dev,
++						"ERROR: Octeon core %d is stuck!\n",
++						core_num);
++					core_is_stuck[core_num] =
++						2; /* 2 means we have printk'd
++						    * an error; so no need to
++						    * repeat the same printk
++						    */
++				}
++			}
++		}
++
++		if (mask_of_crashed_cores) {
++			for (core_num = 0; core_num < 12; core_num++) {
++				if (core_crashed[core_num] == 1) {
++					dev_err(&oct->pci_dev->dev,
++						"ERROR: Octeon core %d crashed!  See oct-fwdump for details.\n",
++						core_num);
++					core_crashed[core_num] =
++						2; /* 2 means we have printk'd
++						    * an error; so no need to
++						    * repeat the same printk
++						    */
++				}
++			}
++		}
++
++		if (mask_of_stuck_cores || mask_of_crashed_cores) {
++			/* make module refcount=0 so that rmmod will work */
++			long refcount;
++
++			refcount = module_refcount(THIS_MODULE);
++
++			while (refcount > 0) {
++				module_put(THIS_MODULE);
++				refcount = module_refcount(THIS_MODULE);
++			}
++
++			/* compensate for and withstand an unlikely (but still
++			 * possible) race condition
++			 */
++			while (refcount < 0) {
++				try_module_get(THIS_MODULE);
++				refcount = module_refcount(THIS_MODULE);
++			}
++		}
++
++		/* sleep for two seconds */
++		set_current_state(TASK_INTERRUPTIBLE);
++		schedule_timeout(2 * HZ);
++	}
++
++	return 0;
++}
++
+ /**
+  * \brief PCI probe handler
+  * @param pdev PCI device structure
+@@ -1228,6 +1321,30 @@ liquidio_probe(struct pci_dev *pdev,
+ 		return -ENOMEM;
  	}
  
- 	if (reschedule)
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 0a5bc1f..9f328ff 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -848,7 +848,7 @@ struct oct_mdio_cmd {
- /* intrmod: max. packets to trigger interrupt */
- #define LIO_INTRMOD_RXMAXCNT_TRIGGER	384
- /* intrmod: min. packets to trigger interrupt */
--#define LIO_INTRMOD_RXMINCNT_TRIGGER	1
-+#define LIO_INTRMOD_RXMINCNT_TRIGGER	0
- /* intrmod: max. time to trigger interrupt */
- #define LIO_INTRMOD_RXMAXTMR_TRIGGER	128
- /* 66xx:intrmod: min. time to trigger interrupt
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index cff845c..541137a 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -1122,3 +1122,20 @@ int lio_get_device_id(void *dev)
- 			return octeon_dev->octeon_id;
- 	return -1;
- }
++	if (OCTEON_CN23XX_PF(oct_dev)) {
++		u64 scratch1;
++		u8 bus, device, function;
 +
-+void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
-+{
-+	/* the whole thing needs to be atomic, ideally */
-+	if (droq) {
-+		spin_lock_bh(&droq->lock);
-+		writel(droq->pkt_count, droq->pkts_sent_reg);
-+		droq->pkt_count = 0;
-+		spin_unlock_bh(&droq->lock);
++		scratch1 = octeon_read_csr64(oct_dev, CN23XX_SLI_SCRATCH1);
++		if (!(scratch1 & 4ULL)) {
++			/* Bit 2 of SLI_SCRATCH_1 is a flag that indicates that
++			 * the lio watchdog kernel thread is running for this
++			 * NIC.  Each NIC gets one watchdog kernel thread.
++			 */
++			scratch1 |= 4ULL;
++			octeon_write_csr64(oct_dev, CN23XX_SLI_SCRATCH1,
++					   scratch1);
++
++			bus = pdev->bus->number;
++			device = PCI_SLOT(pdev->devfn);
++			function = PCI_FUNC(pdev->devfn);
++			oct_dev->watchdog_task = kthread_create(
++			    liquidio_watchdog, oct_dev,
++			    "liowd/%02hhx:%02hhx.%hhx", bus, device, function);
++			wake_up_process(oct_dev->watchdog_task);
++		}
 +	}
-+	if (iq) {
-+		spin_lock_bh(&iq->lock);
-+		writel(iq->pkt_in_done, iq->inst_cnt_reg);
-+		iq->pkt_in_done = 0;
-+		spin_unlock_bh(&iq->lock);
-+	}
-+}
++
+ 	oct_dev->rx_pause = 1;
+ 	oct_dev->tx_pause = 1;
+ 
+@@ -1562,6 +1679,9 @@ static void liquidio_remove(struct pci_dev *pdev)
+ 
+ 	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
+ 
++	if (oct_dev->watchdog_task)
++		kthread_stop(oct_dev->watchdog_task);
++
+ 	if (oct_dev->app_mode && (oct_dev->app_mode == CVM_DRV_NIC_APP))
+ 		liquidio_stop_nic_module(oct_dev);
+ 
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 01edfb4..fcda21e 100644
+index 911bfde..7a965c1 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -661,6 +661,8 @@ void *oct_get_config_info(struct octeon_device *oct, u16 card_type);
-  */
- struct octeon_config *octeon_get_conf(struct octeon_device *oct);
+@@ -488,6 +488,8 @@ struct octeon_device {
  
-+void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq);
+ 	/* private flags to control driver-specific features through ethtool */
+ 	u32 priv_flags;
 +
- /* LiquidIO driver pivate flags */
- enum {
- 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-index e0afe4c..5dfc23d 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-@@ -92,22 +92,25 @@ static inline void *octeon_get_dispatch_arg(struct octeon_device *octeon_dev,
- 	return fn_arg;
- }
++	void *watchdog_task;
+ };
  
--/** Check for packets on Droq. This function should be called with
-- * lock held.
-+/** Check for packets on Droq. This function should be called with lock held.
-  *  @param  droq - Droq on which count is checked.
-  *  @return Returns packet count.
-  */
- u32 octeon_droq_check_hw_for_pkts(struct octeon_droq *droq)
- {
- 	u32 pkt_count = 0;
-+	u32 last_count;
- 
- 	pkt_count = readl(droq->pkts_sent_reg);
--	if (pkt_count) {
--		atomic_add(pkt_count, &droq->pkts_pending);
--		writel(pkt_count, droq->pkts_sent_reg);
--	}
- 
--	return pkt_count;
-+	last_count = pkt_count - droq->pkt_count;
-+	droq->pkt_count = pkt_count;
-+
-+	/* we shall write to cnts  at napi irq enable or end of droq tasklet */
-+	if (last_count)
-+		atomic_add(last_count, &droq->pkts_pending);
-+
-+	return last_count;
- }
- 
- static void octeon_droq_compute_max_packet_bufs(struct octeon_droq *droq)
-@@ -735,16 +738,20 @@ octeon_droq_process_packets(struct octeon_device *oct,
- 	u32 pkt_count = 0, pkts_processed = 0;
- 	struct list_head *tmp, *tmp2;
- 
-+	/* Grab the droq lock */
-+	spin_lock(&droq->lock);
-+
-+	octeon_droq_check_hw_for_pkts(droq);
- 	pkt_count = atomic_read(&droq->pkts_pending);
--	if (!pkt_count)
-+
-+	if (!pkt_count) {
-+		spin_unlock(&droq->lock);
- 		return 0;
-+	}
- 
- 	if (pkt_count > budget)
- 		pkt_count = budget;
- 
--	/* Grab the droq lock */
--	spin_lock(&droq->lock);
--
- 	pkts_processed = octeon_droq_fast_process_packets(oct, droq, pkt_count);
- 
- 	atomic_sub(pkts_processed, &droq->pkts_pending);
-@@ -789,6 +796,8 @@ octeon_droq_process_poll_pkts(struct octeon_device *oct,
- 	spin_lock(&droq->lock);
- 
- 	while (total_pkts_processed < budget) {
-+		octeon_droq_check_hw_for_pkts(droq);
-+
- 		pkts_available =
- 			CVM_MIN((budget - total_pkts_processed),
- 				(u32)(atomic_read(&droq->pkts_pending)));
-@@ -803,8 +812,6 @@ octeon_droq_process_poll_pkts(struct octeon_device *oct,
- 		atomic_sub(pkts_processed, &droq->pkts_pending);
- 
- 		total_pkts_processed += pkts_processed;
--
--		octeon_droq_check_hw_for_pkts(droq);
- 	}
- 
- 	spin_unlock(&droq->lock);
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-index 5a6fb91..5be002d 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
-@@ -261,6 +261,8 @@ struct octeon_droq {
- 
- 	u32 q_no;
- 
-+	u32 pkt_count;
-+
- 	struct octeon_droq_ops ops;
- 
- 	struct octeon_device *oct_dev;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-index ff4b1d6..e4d426b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-@@ -88,6 +88,8 @@ struct octeon_instr_queue {
- 	/** A spinlock to protect while posting on the ring.  */
- 	spinlock_t post_lock;
- 
-+	u32 pkt_in_done;
-+
- 	/** A spinlock to protect access to the input ring.*/
- 	spinlock_t iq_flush_running_lock;
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index d32492f1..3ee5d02 100644
---- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -499,6 +499,7 @@ static void __check_db_timeout(struct octeon_device *oct, u64 iq_no)
- 
- 	if (!oct)
- 		return;
-+
- 	iq = oct->instr_queue[iq_no];
- 	if (!iq)
- 		return;
-@@ -514,6 +515,8 @@ static void __check_db_timeout(struct octeon_device *oct, u64 iq_no)
- 
- 	/* Flush the instruction queue */
- 	octeon_flush_iq(oct, iq, 1, 0);
-+
-+	lio_enable_irq(NULL, iq);
- }
- 
- /* Called by the Poll thread at regular intervals to check the instruction
+ #define  OCT_DRV_ONLINE 1
 -- 
 1.8.3.1
