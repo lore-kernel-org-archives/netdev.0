@@ -1,74 +1,221 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
- net/mlx4_en: add page recycle to prepare rx ring for tx support
-Date: Wed, 3 Aug 2016 10:45:13 -0700
-Message-ID: <20160803174107.GA38399@ast-mbp.thefacebook.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
- <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v10 12/12] bpf: add sample for xdp forwarding and rewrite
+Date: Wed, 3 Aug 2016 10:01:54 -0700
+Message-ID: <CALx6S34b1O6iiFn6M2=xX3iduGWDQm=G+jweYVvGqY-xa4E2sg@mail.gmail.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com> <1468955817-10604-13-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
 	Martin KaFai Lau <kafai@fb.com>,
 	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
 	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Aaron Yue <haoxuany@fb.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33255 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115AbcHCRqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 13:46:19 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i6so15043647pfe.0
-        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 10:46:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35747 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932153AbcHCSGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 14:06:10 -0400
+Received: by mail-io0-f193.google.com with SMTP id q83so18686515iod.2
+        for <netdev@vger.kernel.org>; Wed, 03 Aug 2016 11:06:10 -0700 (PDT)
+In-Reply-To: <1468955817-10604-13-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
-> On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
-> > The mlx4 driver by default allocates order-3 pages for the ring to
-> > consume in multiple fragments. When the device has an xdp program, this
-> > behavior will prevent tx actions since the page must be re-mapped in
-> > TODEVICE mode, which cannot be done if the page is still shared.
-> > 
-> > Start by making the allocator configurable based on whether xdp is
-> > running, such that order-0 pages are always used and never shared.
-> > 
-> > Since this will stress the page allocator, add a simple page cache to
-> > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
-> > stress tests the page allocator is eliminated from the perf report.
-> > 
-> > Note that setting an xdp program will now require the rings to be
-> > reconfigured.
-> 
-> Again, this has nothing to do with XDP ?
-> 
-> Please submit a separate patch, switching this driver to order-0
-> allocations.
-> 
-> I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
-> send a generic patch, but had been traveling lately, and currently in
-> vacation.
-> 
-> order-3 pages are problematic when dealing with hostile traffic anyway,
-> so we should exclusively use order-0 pages, and page recycling like
-> Intel drivers.
-> 
-> http://lists.openwall.net/netdev/2016/04/11/88
+On Tue, Jul 19, 2016 at 12:16 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> Add a sample that rewrites and forwards packets out on the same
+> interface. Observed single core forwarding performance of ~10Mpps.
+>
+> Since the mlx4 driver under test recycles every single packet page, the
+> perf output shows almost exclusively just the ring management and bpf
+> program work. Slowdowns are likely occurring due to cache misses.
+>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+> ---
+>  samples/bpf/Makefile    |   5 +++
+>  samples/bpf/xdp2_kern.c | 114 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 119 insertions(+)
+>  create mode 100644 samples/bpf/xdp2_kern.c
+>
+> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+> index 0e4ab3a..d2d2b35 100644
+> --- a/samples/bpf/Makefile
+> +++ b/samples/bpf/Makefile
+> @@ -22,6 +22,7 @@ hostprogs-y += map_perf_test
+>  hostprogs-y += test_overhead
+>  hostprogs-y += test_cgrp2_array_pin
+>  hostprogs-y += xdp1
+> +hostprogs-y += xdp2
+>
+>  test_verifier-objs := test_verifier.o libbpf.o
+>  test_maps-objs := test_maps.o libbpf.o
+> @@ -44,6 +45,8 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
+>  test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+>  test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+>  xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
+> +# reuse xdp1 source intentionally
+> +xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
+>
+>  # Tell kbuild to always build the programs
+>  always := $(hostprogs-y)
+> @@ -67,6 +70,7 @@ always += test_overhead_kprobe_kern.o
+>  always += parse_varlen.o parse_simple.o parse_ldabs.o
+>  always += test_cgrp2_tc_kern.o
+>  always += xdp1_kern.o
+> +always += xdp2_kern.o
+>
+>  HOSTCFLAGS += -I$(objtree)/usr/include
+>
+> @@ -88,6 +92,7 @@ HOSTLOADLIBES_spintest += -lelf
+>  HOSTLOADLIBES_map_perf_test += -lelf -lrt
+>  HOSTLOADLIBES_test_overhead += -lelf -lrt
+>  HOSTLOADLIBES_xdp1 += -lelf
+> +HOSTLOADLIBES_xdp2 += -lelf
+>
+>  # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+>  #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+> diff --git a/samples/bpf/xdp2_kern.c b/samples/bpf/xdp2_kern.c
+> new file mode 100644
+> index 0000000..38fe7e1
+> --- /dev/null
+> +++ b/samples/bpf/xdp2_kern.c
+> @@ -0,0 +1,114 @@
+> +/* Copyright (c) 2016 PLUMgrid
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of version 2 of the GNU General Public
+> + * License as published by the Free Software Foundation.
+> + */
+> +#define KBUILD_MODNAME "foo"
+> +#include <uapi/linux/bpf.h>
+> +#include <linux/in.h>
+> +#include <linux/if_ether.h>
+> +#include <linux/if_packet.h>
+> +#include <linux/if_vlan.h>
+> +#include <linux/ip.h>
+> +#include <linux/ipv6.h>
+> +#include "bpf_helpers.h"
+> +
+> +struct bpf_map_def SEC("maps") dropcnt = {
+> +       .type = BPF_MAP_TYPE_PERCPU_ARRAY,
+> +       .key_size = sizeof(u32),
+> +       .value_size = sizeof(long),
+> +       .max_entries = 256,
+> +};
+> +
+> +static void swap_src_dst_mac(void *data)
+> +{
+> +       unsigned short *p = data;
+> +       unsigned short dst[3];
+> +
+> +       dst[0] = p[0];
+> +       dst[1] = p[1];
+> +       dst[2] = p[2];
+> +       p[0] = p[3];
+> +       p[1] = p[4];
+> +       p[2] = p[5];
+> +       p[3] = dst[0];
+> +       p[4] = dst[1];
+> +       p[5] = dst[2];
+> +}
+> +
+> +static int parse_ipv4(void *data, u64 nh_off, void *data_end)
+> +{
+> +       struct iphdr *iph = data + nh_off;
+> +
+> +       if (iph + 1 > data_end)
+> +               return 0;
+> +       return iph->protocol;
+> +}
+> +
+> +static int parse_ipv6(void *data, u64 nh_off, void *data_end)
+> +{
+> +       struct ipv6hdr *ip6h = data + nh_off;
+> +
+> +       if (ip6h + 1 > data_end)
+> +               return 0;
+> +       return ip6h->nexthdr;
+> +}
+> +
+> +SEC("xdp1")
+> +int xdp_prog1(struct xdp_md *ctx)
+> +{
+> +       void *data_end = (void *)(long)ctx->data_end;
+> +       void *data = (void *)(long)ctx->data;
 
-Completely agree. These multi-page tricks work only for benchmarks and
-not for production.
-Eric,
-if you can submit that patch for mlx4 that would be awesome.
+Brendan,
 
-I think we should default to order-0 for both mlx4 and mlx5.
-Alternatively we're thinking to do a netlink or ethtool switch to
-preserve old behavior, but frankly I don't see who needs this order-N
-allocation schemes.
+It seems that the cast to long here is done because data_end and data
+are u32s in xdp_md. So the effect is that we are upcasting a
+thirty-bit integer into a sixty-four bit pointer (in fact without the
+cast we see compiler warnings). I don't understand how this can be
+correct. Can you shed some light on this?
+
+Thanks,
+Tom
+
+> +       struct ethhdr *eth = data;
+> +       int rc = XDP_DROP;
+> +       long *value;
+> +       u16 h_proto;
+> +       u64 nh_off;
+> +       u32 index;
+> +
+> +       nh_off = sizeof(*eth);
+> +       if (data + nh_off > data_end)
+> +               return rc;
+> +
+> +       h_proto = eth->h_proto;
+> +
+> +       if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
+> +               struct vlan_hdr *vhdr;
+> +
+> +               vhdr = data + nh_off;
+> +               nh_off += sizeof(struct vlan_hdr);
+> +               if (data + nh_off > data_end)
+> +                       return rc;
+> +               h_proto = vhdr->h_vlan_encapsulated_proto;
+> +       }
+> +       if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
+> +               struct vlan_hdr *vhdr;
+> +
+> +               vhdr = data + nh_off;
+> +               nh_off += sizeof(struct vlan_hdr);
+> +               if (data + nh_off > data_end)
+> +                       return rc;
+> +               h_proto = vhdr->h_vlan_encapsulated_proto;
+> +       }
+> +
+> +       if (h_proto == htons(ETH_P_IP))
+> +               index = parse_ipv4(data, nh_off, data_end);
+> +       else if (h_proto == htons(ETH_P_IPV6))
+> +               index = parse_ipv6(data, nh_off, data_end);
+> +       else
+> +               index = 0;
+> +
+> +       value = bpf_map_lookup_elem(&dropcnt, &index);
+> +       if (value)
+> +               *value += 1;
+> +
+> +       if (index == 17) {
+> +               swap_src_dst_mac(data);
+> +               rc = XDP_TX;
+> +       }
+> +
+> +       return rc;
+> +}
+> +
+> +char _license[] SEC("license") = "GPL";
+> --
+> 2.8.2
+>
