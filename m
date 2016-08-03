@@ -1,37 +1,50 @@
-From: "128" <netdev@vger.kernel.org>
-Subject: =?utf-8?B?0JrQu9C40LXQvdGC0YHQutC40LUg0LHQsNC30YsgIEVt?=
-	=?utf-8?B?YWlsOiBiYXd1cGVjb2RhLTM4OTdAeW9wbWFpbC5jb20g?=
-	=?utf-8?B?U2t5cGU6IHByb2Rhd2V6Mzg5INCX0LDQv9GA0L7RgdC4?=
-	=?utf-8?B?0YLQtSDQv9C+0LTRgNC+0LHQvdC+0YHRgtC4INGB0LXQ?=
-	=?utf-8?B?udGH0LDRgSDQldGB0LvQuCDQuNC90YLQtdGA0LXRgdC9?=
-	=?utf-8?B?0L4g0JHQu9Cw0LPQvtC00LDRgNC40Lwg0LfQsCDQsdGL?=
-	=?utf-8?B?0YHRgtGA0YvQuSDQvtGC0LLQtdGCIQ==?=
-Date: Tue, 2 Aug 2016 15:20:21 +0700
-Message-ID: <3EC48F3B5480AE1DC1C48D3125160EE6@vger.kernel.org>
-Reply-To: "128" <bawupecoda-3897@yopmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8";
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next] bridge: print_vlan: add missing check for json instance
+Date: Tue,  2 Aug 2016 23:07:05 -0700
+Message-ID: <1470204425-40078-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-181-143-229-122.une.net.co ([181.143.229.122]:60274 "EHLO
-	ServProxy.localdomain" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757182AbcHCGFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 02:05:49 -0400
-Received: from qotdjznq (localhost.localdomain [127.0.0.1])
-	by ServProxy.localdomain (Postfix) with SMTP id 191AF1EAFDA
-	for <netdev@vger.kernel.org>; Tue,  2 Aug 2016 12:17:41 -0500 (COT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35019 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753679AbcHCGPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Aug 2016 02:15:37 -0400
+Received: by mail-pa0-f47.google.com with SMTP id iw10so70637954pac.2
+        for <netdev@vger.kernel.org>; Tue, 02 Aug 2016 23:14:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-0KHQvtCx0LXRgNC10Lwg0LTQu9GPINCS0LDRgSDQv9C+INC40L3RgtC10YDQvdC10YIg0LHQsNC3
-0YMg0LTQsNC90L3Ri9GFIA0K0L/QvtGC0LXQvdGG0LjQsNC70YzQvdGL0YUg0LrQu9C40LXQvdGC
-0L7QsiDQtNC70Y8g0JLQsNGI0LXQs9C+INCR0LjQt9C90LXRgdCwIQ0K0JIg0LHQsNC30LUg0LHR
-g9C00YPRgiDQstGB0LUg0LrQvtC90YLQsNC60YLQvdGL0LUg0LTQsNC90L3Ri9C1INC90LXQvtCx
-0YXQvtC00LjQvNGL0LUgDQrQtNC70Y8g0LzQsNGB0YHQvtCy0L7QuSDQv9GA0L7QtNCw0LbQuCDQ
-ktCw0YjQuNGFINGC0L7QstCw0YDQvtCyINC4INGD0YHQu9GD0LMuDQrQn9C+INCS0LDRiNC10LzR
-gyDQt9Cw0L/RgNC+0YHRgyDQv9GA0LjRiNC70LXQvCDQv9GA0LjQvNC10YAg0Lgg0L/QvtC00YDQ
-vtCx0L3Rg9GOINC40L3RhNC+0YDQvNCw0YbQuNGOLg0K0JXRgdC70Lgg0LjQvdGC0LXRgNC10YHQ
-vdC+INC30LDQv9GA0L7RgdC40YLQtSDQv9C+0LTRgNC+0LHQvdC+0YHRgtC4INGB0LXQudGH0LDR
-gSANCkVtYWlsOiBiYXd1cGVjb2RhLTM4OTdAeW9wbWFpbC5jb20NClNreXBlOiBwcm9kYXdlejM4
-OQ0K0JHQu9Cw0LPQvtC00LDRgNC40Lwg0LfQsCDQsdGL0YHRgtGA0YvQuSDQvtGC0LLQtdGCIQ0K
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+Also initialize vlan_flags
+
+Fixes: d82a49ce85f0 ("bridge: add json support for bridge vlan show")
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ bridge/vlan.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/bridge/vlan.c b/bridge/vlan.c
+index f262cc7..22f32a5 100644
+--- a/bridge/vlan.c
++++ b/bridge/vlan.c
+@@ -188,7 +188,7 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 	struct ifinfomsg *ifm = NLMSG_DATA(n);
+ 	int len = n->nlmsg_len;
+ 	struct rtattr *tb[IFLA_MAX+1];
+-	bool vlan_flags;
++	bool vlan_flags = false;
+ 
+ 	if (n->nlmsg_type != RTM_NEWLINK) {
+ 		fprintf(stderr, "Not RTM_NEWLINK: %08x %08x %08x\n",
+@@ -276,7 +276,7 @@ static int print_vlan(const struct sockaddr_nl *who,
+ 					fprintf(fp, " Egress Untagged");
+ 				}
+ 			}
+-			if (vlan_flags) {
++			if (jw_global && vlan_flags) {
+ 				jsonw_end_array(jw_global);
+ 				vlan_flags = false;
+ 			}
+-- 
+2.1.4
