@@ -1,35 +1,38 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net 0/3] mlxsw: DCB fixes
-Date: Thu, 4 Aug 2016 17:36:19 +0300
-Message-ID: <1470321382-10426-1-git-send-email-idosch@mellanox.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 4 Aug 2016 13:18:55 -0500
+Message-ID: <57A3870F.8020203@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <20160804175541.GA2832@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <jiri@mellanox.com>,
-	<eladr@mellanox.com>, <yotamg@mellanox.com>, <nogahf@mellanox.com>,
-	<ogerlitz@mellanox.com>, "Ido Schimmel" <idosch@mellanox.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0063.outbound.protection.outlook.com ([104.47.1.63]:35063
-	"EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754182AbcHDSNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 14:13:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, mlangsdo@redhat.com, jcm@redhat.com,
+	agross@codeaurora.org, davem@davemloft.net, f.fainelli@gmail.com,
+	LinoSanfilippo@gmx.de
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20160804175541.GA2832@rob-hp-laptop>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patches 1 and 2 fix a problem in which PAUSE frames settings are wrongly
-overridden when ieee_setpfc() gets called.
+Rob Herring wrote:
+>> >+- phy-version : the version of the integrated emac phy, either 1 or 2.
+> Sounds like 2 different h/w. The compatible property should distinguish
+> this.
 
-Patch 3 adds a missing rollback in port's creation error path.
+Well, the MAC parts of the EMAC is the same.  I could do 
+qcom,fsm9900-emac for v1 and qcom,qdf2432-emac for v2.  I can't really 
+think of a reason why that wouldn't work.
 
-Ido Schimmel (3):
-  mlxsw: spectrum: Do not assume PAUSE frames are disabled
-  mlxsw: spectrum: Do not override PAUSE settings
-  mlxsw: spectrum: Add missing DCB rollback in error path
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c | 10 ++++++----
- 2 files changed, 7 insertions(+), 4 deletions(-)
+For ACPI, we can assume that QCOM8070 is a v2 PHY.  If Qualcomm creates 
+another server chip with a v1 PHY, it would need a new ACPI HID.
 
 -- 
-2.8.2
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
