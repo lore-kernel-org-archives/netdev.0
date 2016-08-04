@@ -1,155 +1,74 @@
-From: Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>
-Subject: Re: [RFC PATCH] sunrpc: do not allow process to freeze within RPC
- state machine
-Date: Thu, 4 Aug 2016 15:57:24 +0200
-Message-ID: <1638fe19-af90-6683-f04e-6fb94b8b8f67@virtuozzo.com>
-References: <20160803165412.22407.47399.stgit@localhost.localdomain>
- <1470245777.13804.34.camel@redhat.com>
- <cb097e9e-760b-5512-ff4a-276b31bfc83f@virtuozzo.com>
- <1470316606.22052.17.camel@redhat.com>
-Reply-To: <skinsbursky@virtuozzo.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 4 Aug 2016 09:24:54 -0500
+Message-ID: <57A35036.2030604@codeaurora.org>
+References: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
+ <79189959.nJygzEHqi7@wuerfel> <57A26106.50206@codeaurora.org>
+ <3036653.SbY9jG7XMU@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: <linux-nfs@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <gorcunov@virtuozzo.com>,
-	<davem@davemloft.net>, <devel@openvz.org>
-To: Jeff Layton <jlayton@redhat.com>, <bfields@fieldses.org>,
-	<trond.myklebust@primarydata.com>, <anna.schumaker@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470316606.22052.17.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
+	f.fainelli@gmail.com, catalin.marinas@arm.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <3036653.SbY9jG7XMU@wuerfel>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Arnd Bergmann wrote:
+> This is basically ok, but then I think you should pass GFP_DMA
+> or GFP_DMA32 to all allocations that the driver does after
+> the 64-bit mask fails, otherwise you get a significant overhead
+> in the bounce buffers.
 
+Well, for starters, ZONE_DMA32 is the same as ZONE_NORMAL on ARM, 
+because CONFIG_ZONE_DMA32 is not defined.
 
-04.08.2016 15:16, Jeff Layton пишет:
-> On Thu, 2016-08-04 at 12:55 +0200, Stanislav Kinsburskiy wrote:
->> 03.08.2016 19:36, Jeff Layton пишет:
->>> On Wed, 2016-08-03 at 20:54 +0400, Stanislav Kinsburskiy wrote:
->>>> Otherwise freezer cgroup state might never become "FROZEN".
->>>>
->>>> Here is a deadlock scheme for 2 processes in one freezer cgroup,
->>>> which is
->>>> freezing:
->>>>
->>>> CPU 0                                   CPU 1
->>>> --------                                --------
->>>> do_last
->>>> inode_lock(dir->d_inode)
->>>> vfs_create
->>>> nfs_create
->>>> ...
->>>> __rpc_execute
->>>> rpc_wait_bit_killable
->>>> __refrigerator
->>>>                                           do_last
->>>>                                           inode_lock(dir->d_inode)
->>>>
->>>> So, the problem is that one process takes directory inode mutex,
->>>> executes
->>>> creation request and goes to refrigerator.
->>>> Another one waits till directory lock is released, remains "thawed"
->>>> and thus
->>>> freezer cgroup state never becomes "FROZEN".
->>>>
->>>> Notes:
->>>> 1) Interesting, that this is not a pure deadlock: one can thaw cgroup
->>>> and then
->>>> freeze it again.
->>>> 2) The issue was introduced by commit
->>>> d310310cbff18ec385c6ab4d58f33b100192a96a.
->>>> 3) This patch is not aimed to fix the issue, but to show the problem
->>>> root.
->>>> Look like this problem moght be applicable to other hunks from the
->>>> commit,
->>>> mentioned above.
->>>>
->>>>
->>>>>>> Signed-off-by: Stanislav Kinsburskiy <skinsbursky@virtuozzo.com>
->>>> ---
->>>>    net/sunrpc/sched.c |    1 -
->>>>    1 file changed, 1 deletion(-)
->>>>
->>>> diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
->>>> index 9ae5885..ec7ccc1 100644
->>>> --- a/net/sunrpc/sched.c
->>>> +++ b/net/sunrpc/sched.c
->>>> @@ -253,7 +253,6 @@ EXPORT_SYMBOL_GPL(rpc_destroy_wait_queue);
->>>>    
->>>>    static int rpc_wait_bit_killable(struct wait_bit_key *key, int mode)
->>>>    {
->>>>>>> -	freezable_schedule_unsafe();
->>>>>>>    	if (signal_pending_state(mode, current))
->>>>>>>    		return -ERESTARTSYS;
->>>>>>>    	return 0;
->>> Ummm...so what actually does the schedule() with this patch?
->> Schedule() replaces freezable_schedule_unsafe() of course, sorry for this.
->>
->>> There was a bit of discussion on this recently -- see the thread with
->>> this subject line in linux-nfs:
->>>
->>>       Re: Hang due to nfs letting tasks freeze with locked inodes
->> Thanks, had a look.
->>
->>> Basically it comes down to this:
->>>
->>> All of the proposals so far to fix this problem just switch out the
->>> freezable_schedule_unsafe (and similar) calls for those that don't
->>> allow the process to freeze.
->>>
->>> The problem there is that we originally added that stuff in response to
->>> bug reports about machines failing to suspend. What often happens is
->>> that the network interfaces come down, and then the freezer runs over
->>> all of the processes, which never return because they're blocked
->>> waiting on the server to reply.
->> I probably don't understand something, but this sounds somewhat wrong to
->> me: freezing processes _after_ network is down.
->>
->>
->>>
->>> ...shrug...
->>>
->>> Maybe we should just go ahead and do it (and to CIFS as well). Just be
->>> prepared for the inevitable complaints about laptops failing to suspend
->>> once you do.
->> The worst part in all of this, from my POW, is that current behavior
->> makes NFS non-freezable in a generic case, even in case of freezing a
->> container, which has it's own net ns and NFS mount.
->> So, I would say, that returning of previous logic would make the
->> world better.
->>
->>> Part of the fix, I think is to add a return code (similar to
->>> ERESTARTSYS) that gets interpreted near the kernel-userland boundary
->>> as: "allow the process to be frozen, and then retry the call once it's
->>> resumed".
->>>
->>> With that, filesystems could return the error code when they want to
->>> redrive the entire syscall from that level. That won't work for non-
->>> idempotent requests though. We'd need to do something more elaborate
->>> there.
->>>
->> Might be, that breaking rpc request is something that should be avoided
->> at all.
->> With all these locks being held, almost all (any?) of the requests to
->> remote server
->> should be considered as an atomic operation from freezer point of view.
->> The process always can be frozen on signal handling.
->>
->> IOW, I might worth considering a scenario, when NFS is not freezable at all,
->> and any problems with suspend on laptops/whatever have to solved in
->> suspend code.
->>
->>
-> Fair enough. At this point, I don't care much one way or another. Maybe
-> if we make this change and laptops start failing to suspend, we'll be
-> able to use that as leverage pursue other avenues to make the
-> suspend/resume subsystem work with NFS.
->
-> That said, the patch you have really isn't sufficient. There are places
-> where the NFS client can sleep while waiting for things other than RPC
-> calls.
+#ifdef CONFIG_ZONE_DMA32
+#define OPT_ZONE_DMA32 ZONE_DMA32
+#else
+#define OPT_ZONE_DMA32 ZONE_NORMAL
+#endif
 
-Sure. As I said, this patch wasn't aimed to fix the issue but rather 
-start the discussion.
-Thanks for your patch.
+(I wonder if this should say instead:
+
+#ifdef CONFIG_ZONE_DMA32
+#define OPT_ZONE_DMA32 ZONE_DMA32
+#else
+#define OPT_ZONE_DMA32 ZONE_DMA  <----
+#endif
+)
+
+However, I'm not sure where I should be using GFP_DMA anyway.  Whenever 
+the driver allocates memory for DMA, it uses dma_zalloc_coherent():
+
+ring_header->v_addr = dma_zalloc_coherent(dev, ring_header->size,
+					 &ring_header->dma_addr,
+					 GFP_KERNEL);
+
+and I don't think I need to pass GFP_DMA to dma_zalloc_coherent.  Every 
+other memory allocation is a kmalloc variant, but that's never for DMA, 
+so that memory can be anywhere.
+
+I found about 70 drivers that fall-back to 32-bit DMA if 64-bit fails. 
+None of them do as you suggest.  They all just set the mask to 64 or 32 
+and that's it.
+
+Some drivers set NETIF_F_HIGHDMA if 64-bit DMA is enabled:
+
+	if (pci_using_dac)
+		netdev->features |= NETIF_F_HIGHDMA;
+
+I could do this, but I think it has no meaning on ARM64 because it 
+depends on CONFIG_HIGHMEM.
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
