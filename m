@@ -1,239 +1,66 @@
-From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 01/25] net: introduce NET policy
-Date: Thu,  4 Aug 2016 15:36:05 -0400
-Message-ID: <1470339389-8542-2-git-send-email-kan.liang@intel.com>
-References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
-Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	akpm@linux-foundation.org, keescook@chromium.org,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
-	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
-	daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
-	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
-	jesse.brandeburg@intel.com, andi@firstfloor.org,
-	Kan Liang <kan.liang@intel.com>
-To: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH -net] net/ethernet: tundra: fix dump_eth_one warning in tsi108_eth
+Date: Thu, 4 Aug 2016 16:07:58 -0400
+Message-ID: <20160804200758.29835-1-paul.gortmaker@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linuxppc-dev@lists.ozlabs.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail5.windriver.com ([192.103.53.11]:57622 "EHLO mail5.wrs.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934014AbcHDUJC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 16:09:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kan Liang <kan.liang@intel.com>
+The call site for this function appears as:
 
-This patch introduce NET policy subsystem. If proc is supported in the
-system, it creates netpolicy node in proc system.
+  #ifdef DEBUG
+        data->msg_enable = DEBUG;
+        dump_eth_one(dev);
+  #endif
 
-Signed-off-by: Kan Liang <kan.liang@intel.com>
+...leading to the following warning for !DEBUG builds:
+
+drivers/net/ethernet/tundra/tsi108_eth.c:169:13: warning: 'dump_eth_one' defined but not used [-Wunused-function]
+ static void dump_eth_one(struct net_device *dev)
+             ^
+
+...when using the arch/powerpc/configs/mpc7448_hpc2_defconfig
+
+Put the function definition under the same #ifdef as the call site
+to avoid the warning.
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- include/linux/netdevice.h   |   7 +++
- include/net/net_namespace.h |   3 ++
- net/Kconfig                 |   7 +++
- net/core/Makefile           |   1 +
- net/core/netpolicy.c        | 128 ++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 146 insertions(+)
- create mode 100644 net/core/netpolicy.c
+ drivers/net/ethernet/tundra/tsi108_eth.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 076df53..19638d6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1619,6 +1619,8 @@ enum netdev_priv_flags {
-  *			switch driver and used to set the phys state of the
-  *			switch port.
-  *
-+ *	@proc_dev:	device node in proc to configure device net policy
-+ *
-  *	FIXME: cleanup struct net_device such that network protocol info
-  *	moves out.
-  */
-@@ -1886,6 +1888,11 @@ struct net_device {
- 	struct lock_class_key	*qdisc_tx_busylock;
- 	struct lock_class_key	*qdisc_running_key;
- 	bool			proto_down;
-+#ifdef CONFIG_NETPOLICY
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry	*proc_dev;
-+#endif /* CONFIG_PROC_FS */
-+#endif /* CONFIG_NETPOLICY */
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
+diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
+index 01a77145a0fa..8fd131207ee1 100644
+--- a/drivers/net/ethernet/tundra/tsi108_eth.c
++++ b/drivers/net/ethernet/tundra/tsi108_eth.c
+@@ -166,6 +166,7 @@ static struct platform_driver tsi_eth_driver = {
  
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index 4089abc..d2ff6c4 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -142,6 +142,9 @@ struct net {
- #endif
- 	struct sock		*diag_nlsk;
- 	atomic_t		fnhe_genid;
-+#ifdef CONFIG_NETPOLICY
-+	struct proc_dir_entry	*proc_netpolicy;
-+#endif /* CONFIG_NETPOLICY */
- };
+ static void tsi108_timed_checker(unsigned long dev_ptr);
  
- #include <linux/seq_file_net.h>
-diff --git a/net/Kconfig b/net/Kconfig
-index c2cdbce..00552ba 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -205,6 +205,13 @@ source "net/bridge/netfilter/Kconfig"
++#ifdef DEBUG
+ static void dump_eth_one(struct net_device *dev)
+ {
+ 	struct tsi108_prv_data *data = netdev_priv(dev);
+@@ -190,6 +191,7 @@ static void dump_eth_one(struct net_device *dev)
+ 	       TSI_READ(TSI108_EC_RXESTAT),
+ 	       TSI_READ(TSI108_EC_RXERR), data->rxpending);
+ }
++#endif
  
- endif
- 
-+config NETPOLICY
-+	depends on NET
-+	bool "Net policy support"
-+	default y
-+	---help---
-+	Net policy support
-+
- source "net/dccp/Kconfig"
- source "net/sctp/Kconfig"
- source "net/rds/Kconfig"
-diff --git a/net/core/Makefile b/net/core/Makefile
-index d6508c2..0be7092 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -27,3 +27,4 @@ obj-$(CONFIG_LWTUNNEL) += lwtunnel.o
- obj-$(CONFIG_DST_CACHE) += dst_cache.o
- obj-$(CONFIG_HWBM) += hwbm.o
- obj-$(CONFIG_NET_DEVLINK) += devlink.o
-+obj-$(CONFIG_NETPOLICY) += netpolicy.o
-diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-new file mode 100644
-index 0000000..faabfe7
---- /dev/null
-+++ b/net/core/netpolicy.c
-@@ -0,0 +1,128 @@
-+/*
-+ * netpolicy.c: Net policy support
-+ * Copyright (c) 2016, Intel Corporation.
-+ * Author: Kan Liang (kan.liang@intel.com)
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * NET policy intends to simplify the network configuration and get a good
-+ * network performance according to the hints(policy) which is applied by user.
-+ *
-+ * Motivation
-+ * 	- The network performance is not good with default system settings.
-+ *	- It is too difficult to do automatic tuning for all possible
-+ *	  workloads, since workloads have different requirements. Some
-+ *	  workloads may want high throughput. Some may need low latency.
-+ *	- There are lots of manual configurations. Fine grained configuration
-+ *	  is too difficult for users.
-+ * 	So, it is a big challenge to get good network performance.
-+ *
-+ */
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/errno.h>
-+#include <linux/init.h>
-+#include <linux/seq_file.h>
-+#include <linux/proc_fs.h>
-+#include <linux/uaccess.h>
-+#include <linux/netdevice.h>
-+#include <net/net_namespace.h>
-+
-+#ifdef CONFIG_PROC_FS
-+
-+static int net_policy_proc_show(struct seq_file *m, void *v)
-+{
-+	struct net_device *dev = (struct net_device *)m->private;
-+
-+	seq_printf(m, "%s doesn't support net policy manager\n", dev->name);
-+
-+	return 0;
-+}
-+
-+static int net_policy_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, net_policy_proc_show, PDE_DATA(inode));
-+}
-+
-+static const struct file_operations proc_net_policy_operations = {
-+	.open		= net_policy_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= seq_release,
-+	.owner		= THIS_MODULE,
-+};
-+
-+static int netpolicy_proc_dev_init(struct net *net, struct net_device *dev)
-+{
-+	dev->proc_dev = proc_net_mkdir(net, dev->name, net->proc_netpolicy);
-+	if (!dev->proc_dev)
-+		return -ENOMEM;
-+
-+	if (!proc_create_data("policy", S_IWUSR | S_IRUGO,
-+			      dev->proc_dev, &proc_net_policy_operations,
-+			      (void *)dev)) {
-+		remove_proc_subtree(dev->name, net->proc_netpolicy);
-+		return -ENOMEM;
-+	}
-+	return 0;
-+}
-+
-+static int __net_init netpolicy_net_init(struct net *net)
-+{
-+	struct net_device *dev, *aux;
-+
-+	net->proc_netpolicy = proc_net_mkdir(net, "netpolicy",
-+					     net->proc_net);
-+	if (!net->proc_netpolicy)
-+		return -ENOMEM;
-+
-+	for_each_netdev_safe(net, dev, aux) {
-+		netpolicy_proc_dev_init(net, dev);
-+	}
-+
-+	return 0;
-+}
-+
-+#else /* CONFIG_PROC_FS */
-+
-+static int __net_init netpolicy_net_init(struct net *net)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_PROC_FS */
-+
-+static void __net_exit netpolicy_net_exit(struct net *net)
-+{
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_subtree("netpolicy", net->proc_net);
-+#endif /* CONFIG_PROC_FS */
-+}
-+
-+static struct pernet_operations netpolicy_net_ops = {
-+	.init = netpolicy_net_init,
-+	.exit = netpolicy_net_exit,
-+};
-+
-+static int __init netpolicy_init(void)
-+{
-+	int ret;
-+
-+	ret = register_pernet_subsys(&netpolicy_net_ops);
-+
-+	return ret;
-+}
-+
-+static void __exit netpolicy_exit(void)
-+{
-+	unregister_pernet_subsys(&netpolicy_net_ops);
-+}
-+
-+subsys_initcall(netpolicy_init);
-+module_exit(netpolicy_exit);
+ /* Synchronization is needed between the thread and up/down events.
+  * Note that the PHY is accessed through the same registers for both
 -- 
-2.5.5
+2.8.4
