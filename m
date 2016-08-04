@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 17/25] net/netpolicy: introduce netpolicy_pick_queue
-Date: Thu,  4 Aug 2016 15:36:21 -0400
-Message-ID: <1470339389-8542-18-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 16/25] net/netpolicy: introduce per socket netpolicy
+Date: Thu,  4 Aug 2016 15:36:20 -0400
+Message-ID: <1470339389-8542-17-git-send-email-kan.liang@intel.com>
 References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
 Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
 	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
@@ -22,197 +22,307 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-To achieve better network performance, the key step is to distribute the
-packets to dedicated queues according to policy and system run time
-status.
+The network socket is the most basic unit which control the network
+traffic. This patch introduces a new socket option SO_NETPOLICY to
+set/get net policy for socket. so that the application can set its own
+policy on socket to improve the network performance.
+Per socket net policy can also be inherited by new socket.
 
-This patch provides an interface which can return the proper dedicated
-queue for socket/task. Then the packets of the socket/task will be
-redirect to the dedicated queue for better network performance.
-
-For selecting the proper queue, currently it uses round-robin algorithm
-to find the available object from the given policy object list. The
-algorithm is good enough for now. But it could be improved by some
-adaptive algorithm later.
-
-The selected object will be stored in hashtable. So it does not need to
-go through the whole object list every time.
+The usage of SO_NETPOLICY socket option is as below.
+setsockopt(sockfd,SOL_SOCKET,SO_NETPOLICY,&policy,sizeof(int))
+getsockopt(sockfd,SOL_SOCKET,SO_NETPOLICY,&policy,sizeof(int))
+The policy set by SO_NETPOLICY socket option must be valid and
+compatible with current device policy. Othrewise, it will error out. The
+socket policy will be set to NET_POLICY_INVALID.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netpolicy.h |   5 ++
- net/core/netpolicy.c      | 136 ++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 141 insertions(+)
+ arch/alpha/include/uapi/asm/socket.h   |  2 ++
+ arch/avr32/include/uapi/asm/socket.h   |  2 ++
+ arch/frv/include/uapi/asm/socket.h     |  2 ++
+ arch/ia64/include/uapi/asm/socket.h    |  2 ++
+ arch/m32r/include/uapi/asm/socket.h    |  2 ++
+ arch/mips/include/uapi/asm/socket.h    |  2 ++
+ arch/mn10300/include/uapi/asm/socket.h |  2 ++
+ arch/parisc/include/uapi/asm/socket.h  |  2 ++
+ arch/powerpc/include/uapi/asm/socket.h |  2 ++
+ arch/s390/include/uapi/asm/socket.h    |  2 ++
+ arch/sparc/include/uapi/asm/socket.h   |  2 ++
+ arch/xtensa/include/uapi/asm/socket.h  |  2 ++
+ include/net/request_sock.h             |  4 +++-
+ include/net/sock.h                     |  9 +++++++++
+ include/uapi/asm-generic/socket.h      |  2 ++
+ net/core/sock.c                        | 28 ++++++++++++++++++++++++++++
+ 16 files changed, 66 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index 5900252..a522015 100644
---- a/include/linux/netpolicy.h
-+++ b/include/linux/netpolicy.h
-@@ -97,6 +97,7 @@ extern void update_netpolicy_sys_map(void);
- extern int netpolicy_register(struct netpolicy_instance *instance,
- 			      enum netpolicy_name policy);
- extern void netpolicy_unregister(struct netpolicy_instance *instance);
-+extern int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx);
- #else
- static inline void update_netpolicy_sys_map(void)
- {
-@@ -111,6 +112,10 @@ static inline void netpolicy_unregister(struct netpolicy_instance *instance)
- {
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 9e46d6e..06b2ef9 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -97,4 +97,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 1fd147f..24f85f0 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -90,4 +90,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index afbc98f0..82c8d44 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -90,5 +90,7 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index 0018fad..b99c1df 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -99,4 +99,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 5fe42fc..71a43ed 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -90,4 +90,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 2027240a..ce8b9ba 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -108,4 +108,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 5129f23..c041265 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -90,4 +90,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index 9c935d7..2639dcd 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -89,4 +89,6 @@
+ 
+ #define SO_CNX_ADVICE		0x402E
+ 
++#define SO_NETPOLICY		0x402F
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index 1672e33..e04e3b6 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -97,4 +97,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index 41b51c2..d43b854 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -96,4 +96,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 31aede3..94a2cdf 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -86,6 +86,8 @@
+ 
+ #define SO_CNX_ADVICE		0x0037
+ 
++#define SO_NETPOLICY		0x0038
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 81435d9..97f1691 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -101,4 +101,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 6ebe13e..1fa2d0e 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -101,7 +101,9 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
+ 	sk_tx_queue_clear(req_to_sk(req));
+ 	req->saved_syn = NULL;
+ 	atomic_set(&req->rsk_refcnt, 0);
+-
++#ifdef CONFIG_NETPOLICY
++	memcpy(&req_to_sk(req)->sk_netpolicy, &sk_listener->sk_netpolicy, sizeof(sk_listener->sk_netpolicy));
++#endif
+ 	return req;
  }
  
-+static inline int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
-+{
-+	return 0;
-+}
- #endif
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ff5be7e..fd4132f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -70,6 +70,7 @@
+ #include <net/checksum.h>
+ #include <net/tcp_states.h>
+ #include <linux/net_tstamp.h>
++#include <linux/netpolicy.h>
  
- #endif /*__LINUX_NETPOLICY_H*/
-diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 3605761..98ca430 100644
---- a/net/core/netpolicy.c
-+++ b/net/core/netpolicy.c
-@@ -290,6 +290,142 @@ static void netpolicy_record_clear_dev_node(struct net_device *dev)
- 	spin_unlock_bh(&np_hashtable_lock);
+ /*
+  * This structure really needs to be cleaned up.
+@@ -141,6 +142,7 @@ typedef __u64 __bitwise __addrpair;
+  *		%SO_OOBINLINE settings, %SO_TIMESTAMPING settings
+  *	@skc_incoming_cpu: record/match cpu processing incoming packets
+  *	@skc_refcnt: reference count
++ *	@skc_netpolicy: per socket net policy
+  *
+  *	This is the minimal network layer representation of sockets, the header
+  *	for struct sock and struct inet_timewait_sock.
+@@ -200,6 +202,10 @@ struct sock_common {
+ 		struct sock	*skc_listener; /* request_sock */
+ 		struct inet_timewait_death_row *skc_tw_dr; /* inet_timewait_sock */
+ 	};
++
++#ifdef CONFIG_NETPOLICY
++	struct netpolicy_instance    skc_netpolicy;
++#endif
+ 	/*
+ 	 * fields between dontcopy_begin/dontcopy_end
+ 	 * are not copied in sock_copy()
+@@ -339,6 +345,9 @@ struct sock {
+ #define sk_incoming_cpu		__sk_common.skc_incoming_cpu
+ #define sk_flags		__sk_common.skc_flags
+ #define sk_rxhash		__sk_common.skc_rxhash
++#ifdef CONFIG_NETPOLICY
++#define sk_netpolicy		__sk_common.skc_netpolicy
++#endif
+ 
+ 	socket_lock_t		sk_lock;
+ 	struct sk_buff_head	sk_receive_queue;
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 67d632f..d2a5aeb 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -92,4 +92,6 @@
+ 
+ #define SO_CNX_ADVICE		53
+ 
++#define SO_NETPOLICY		54
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 25dab8b..77f226b 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1003,6 +1003,12 @@ set_rcvbuf:
+ 		if (val == 1)
+ 			dst_negative_advice(sk);
+ 		break;
++
++#ifdef CONFIG_NETPOLICY
++	case SO_NETPOLICY:
++		ret = netpolicy_register(&sk->sk_netpolicy, val);
++		break;
++#endif
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 		break;
+@@ -1263,6 +1269,11 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sk->sk_incoming_cpu;
+ 		break;
+ 
++#ifdef CONFIG_NETPOLICY
++	case SO_NETPOLICY:
++		v.val = sk->sk_netpolicy.policy;
++		break;
++#endif
+ 	default:
+ 		/* We implement the SO_SNDLOWAT etc to not be settable
+ 		 * (1003.1g 7).
+@@ -1424,6 +1435,12 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 
+ 		sock_update_classid(&sk->sk_cgrp_data);
+ 		sock_update_netprioidx(&sk->sk_cgrp_data);
++
++#ifdef CONFIG_NETPOLICY
++		sk->sk_netpolicy.dev = NULL;
++		sk->sk_netpolicy.ptr = (void *)sk;
++		sk->sk_netpolicy.policy = NET_POLICY_INVALID;
++#endif
+ 	}
+ 
+ 	return sk;
+@@ -1461,6 +1478,10 @@ static void __sk_destruct(struct rcu_head *head)
+ 	put_pid(sk->sk_peer_pid);
+ 	if (likely(sk->sk_net_refcnt))
+ 		put_net(sock_net(sk));
++#ifdef CONFIG_NETPOLICY
++	if (is_net_policy_valid(sk->sk_netpolicy.policy))
++		netpolicy_unregister(&sk->sk_netpolicy);
++#endif
+ 	sk_prot_free(sk->sk_prot_creator, sk);
  }
  
-+static struct netpolicy_object *get_avail_object(struct net_device *dev,
-+						 enum netpolicy_name policy,
-+						 bool is_rx)
-+{
-+	int dir = is_rx ? NETPOLICY_RX : NETPOLICY_TX;
-+	struct netpolicy_object *tmp, *obj = NULL;
-+	int val = -1;
+@@ -1597,6 +1618,13 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		if (sock_needs_netstamp(sk) &&
+ 		    newsk->sk_flags & SK_FLAGS_TIMESTAMP)
+ 			net_enable_timestamp();
 +
-+	/* Check if net policy is supported */
-+	if (!dev || !dev->netpolicy)
-+		return NULL;
++#ifdef CONFIG_NETPOLICY
++		newsk->sk_netpolicy.ptr = (void *)newsk;
++		if (is_net_policy_valid(newsk->sk_netpolicy.policy))
++			netpolicy_register(&newsk->sk_netpolicy, newsk->sk_netpolicy.policy);
 +
-+	/* The system should have queues which support the request policy. */
-+	if ((policy != dev->netpolicy->cur_policy) &&
-+	    (dev->netpolicy->cur_policy != NET_POLICY_MIX))
-+		return NULL;
-+
-+	spin_lock_bh(&dev->np_ob_list_lock);
-+	list_for_each_entry(tmp, &dev->netpolicy->obj_list[dir][policy], list) {
-+		if ((val > atomic_read(&tmp->refcnt)) ||
-+		    (val == -1)) {
-+			val = atomic_read(&tmp->refcnt);
-+			obj = tmp;
-+		}
-+	}
-+
-+	if (WARN_ON(!obj)) {
-+		spin_unlock_bh(&dev->np_ob_list_lock);
-+		return NULL;
-+	}
-+	atomic_inc(&obj->refcnt);
-+	spin_unlock_bh(&dev->np_ob_list_lock);
-+
-+	return obj;
-+}
-+
-+static int get_avail_queue(struct netpolicy_instance *instance, bool is_rx)
-+{
-+	struct netpolicy_record *old_record, *new_record;
-+	struct net_device *dev = instance->dev;
-+	unsigned long ptr_id = (uintptr_t)instance->ptr;
-+	int queue = -1;
-+
-+	spin_lock_bh(&np_hashtable_lock);
-+	old_record = netpolicy_record_search(ptr_id);
-+	if (!old_record) {
-+		pr_warn("NETPOLICY: doesn't registered. Remove net policy settings!\n");
-+		instance->policy = NET_POLICY_INVALID;
-+		goto err;
-+	}
-+
-+	if (is_rx && old_record->rx_obj) {
-+		queue = old_record->rx_obj->queue;
-+	} else if (!is_rx && old_record->tx_obj) {
-+		queue = old_record->tx_obj->queue;
-+	} else {
-+		new_record = kzalloc(sizeof(*new_record), GFP_KERNEL);
-+		if (!new_record)
-+			goto err;
-+		memcpy(new_record, old_record, sizeof(*new_record));
-+
-+		if (is_rx) {
-+			new_record->rx_obj = get_avail_object(dev, new_record->policy, is_rx);
-+			if (!new_record->dev)
-+				new_record->dev = dev;
-+			if (!new_record->rx_obj) {
-+				kfree(new_record);
-+				goto err;
-+			}
-+			queue = new_record->rx_obj->queue;
-+		} else {
-+			new_record->tx_obj = get_avail_object(dev, new_record->policy, is_rx);
-+			if (!new_record->dev)
-+				new_record->dev = dev;
-+			if (!new_record->tx_obj) {
-+				kfree(new_record);
-+				goto err;
-+			}
-+			queue = new_record->tx_obj->queue;
-+		}
-+		/* update record */
-+		hlist_replace_rcu(&old_record->hash_node, &new_record->hash_node);
-+		kfree(old_record);
-+	}
-+err:
-+	spin_unlock_bh(&np_hashtable_lock);
-+	return queue;
-+}
-+
-+static inline bool policy_validate(struct netpolicy_instance *instance)
-+{
-+	struct net_device *dev = instance->dev;
-+	enum netpolicy_name cur_policy;
-+
-+	cur_policy = dev->netpolicy->cur_policy;
-+	if ((instance->policy == NET_POLICY_NONE) ||
-+	    (cur_policy == NET_POLICY_NONE))
-+		return false;
-+
-+	if (((cur_policy != NET_POLICY_MIX) && (cur_policy != instance->policy)) ||
-+	    ((cur_policy == NET_POLICY_MIX) && (instance->policy == NET_POLICY_CPU))) {
-+		pr_warn("NETPOLICY: %s current device policy %s doesn't support required policy %s! Remove net policy settings!\n",
-+			dev->name, policy_name[cur_policy],
-+			policy_name[instance->policy]);
-+		return false;
-+	}
-+	return true;
-+}
-+
-+/**
-+ * netpolicy_pick_queue() - Find proper queue
-+ * @instance:	NET policy per socket/task instance info
-+ * @is_rx:	RX queue or TX queue
-+ *
-+ * This function intends to find the proper queue according to policy.
-+ * For selecting the proper queue, currently it uses round-robin algorithm
-+ * to find the available object from the given policy object list.
-+ * The selected object will be stored in hashtable. So it does not need to
-+ * go through the whole object list every time.
-+ *
-+ * Return: negative on failure, otherwise on the assigned queue
-+ */
-+int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
-+{
-+	struct net_device *dev = instance->dev;
-+
-+	if (!dev || !dev->netpolicy)
-+		return -EINVAL;
-+
-+	if (!policy_validate(instance))
-+		return -EINVAL;
-+
-+	return get_avail_queue(instance, is_rx);
-+}
-+EXPORT_SYMBOL(netpolicy_pick_queue);
-+
- /**
-  * netpolicy_register() - Register per socket/task policy request
-  * @instance:	NET policy per socket/task instance info
++#endif
+ 	}
+ out:
+ 	return newsk;
 -- 
 2.5.5
