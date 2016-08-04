@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 09/25] net/netpolicy: set NET policy by policy name
-Date: Thu,  4 Aug 2016 15:36:13 -0400
-Message-ID: <1470339389-8542-10-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 06/25] net/netpolicy: set and remove IRQ affinity
+Date: Thu,  4 Aug 2016 15:36:10 -0400
+Message-ID: <1470339389-8542-7-git-send-email-kan.liang@intel.com>
 References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
 Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
 	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
@@ -22,191 +22,68 @@ List-Id: netdev.vger.kernel.org
 
 From: Kan Liang <kan.liang@intel.com>
 
-User can write policy name to /proc/net/netpolicy/$DEV/policy to enable
-net policy for specific device.
+This patches introduces functions to set and remove IRQ affinity
+according to cpu and queue mapping.
 
-When the policy is enabled, the subsystem automatically disables IRQ
-balance and set IRQ affinity. The object list is also generated
-accordingly.
-
-It is device driver's responsibility to set driver specific
-configuration for the given policy.
-
-np_lock will be used to protect the state.
+The functions will not record the previous affinity status. After a
+set/remove cycles, it will set the affinity on all online CPU with IRQ
+balance enabling.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- include/linux/netdevice.h |  5 +++
- include/linux/netpolicy.h |  1 +
- net/core/netpolicy.c      | 95 +++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 101 insertions(+)
+ net/core/netpolicy.c | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1eda870..aa3ef38 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1127,6 +1127,9 @@ struct netdev_xdp {
-  * int (*ndo_get_irq_info)(struct net_device *dev,
-  *			   struct netpolicy_dev_info *info);
-  *	This function is used to get irq information of rx and tx queues
-+ * int (*ndo_set_net_policy)(struct net_device *dev,
-+ *			     enum netpolicy_name name);
-+ *	This function is used to set per device net policy by name
-  *
-  */
- struct net_device_ops {
-@@ -1318,6 +1321,8 @@ struct net_device_ops {
- 						      struct netpolicy_info *info);
- 	int			(*ndo_get_irq_info)(struct net_device *dev,
- 						    struct netpolicy_dev_info *info);
-+	int			(*ndo_set_net_policy)(struct net_device *dev,
-+						      enum netpolicy_name name);
- #endif /* CONFIG_NETPOLICY */
- };
- 
-diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-index 73a5fa6..b1d9277 100644
---- a/include/linux/netpolicy.h
-+++ b/include/linux/netpolicy.h
-@@ -27,6 +27,7 @@ enum netpolicy_traffic {
- 	NETPOLICY_RXTX,
- };
- 
-+#define POLICY_NAME_LEN_MAX	64
- extern const char *policy_name[];
- 
- struct netpolicy_dev_info {
 diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-index 0f8ff16..8112839 100644
+index ff7fc04..c44818d 100644
 --- a/net/core/netpolicy.c
 +++ b/net/core/netpolicy.c
-@@ -36,6 +36,7 @@
- #include <linux/netdevice.h>
- #include <net/net_namespace.h>
- #include <linux/sort.h>
-+#include <linux/ctype.h>
- 
- static int netpolicy_get_dev_info(struct net_device *dev,
- 				  struct netpolicy_dev_info *d_info)
-@@ -430,6 +431,69 @@ err:
- 	return ret;
+@@ -29,6 +29,7 @@
+ #include <linux/kernel.h>
+ #include <linux/errno.h>
+ #include <linux/init.h>
++#include <linux/irq.h>
+ #include <linux/seq_file.h>
+ #include <linux/proc_fs.h>
+ #include <linux/uaccess.h>
+@@ -128,6 +129,38 @@ err:
+ 	return -ENOMEM;
  }
  
-+static int net_policy_set_by_name(char *name, struct net_device *dev)
++static void netpolicy_clear_affinity(struct net_device *dev)
 +{
-+	int i, ret;
++	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
++	u32 i;
 +
-+	spin_lock(&dev->np_lock);
-+	ret = 0;
-+
-+	if (!dev->netpolicy ||
-+	    !dev->netdev_ops->ndo_set_net_policy) {
-+		ret = -ENOTSUPP;
-+		goto unlock;
++	for (i = 0; i < s_info->avail_rx_num; i++) {
++		irq_clear_status_flags(s_info->rx[i].irq, IRQ_NO_BALANCING);
++		irq_set_affinity_hint(s_info->rx[i].irq, cpu_online_mask);
 +	}
 +
-+	for (i = 0; i < NET_POLICY_MAX; i++) {
-+		if (!strncmp(name, policy_name[i], strlen(policy_name[i])))
-+		break;
++	for (i = 0; i < s_info->avail_tx_num; i++) {
++		irq_clear_status_flags(s_info->tx[i].irq, IRQ_NO_BALANCING);
++		irq_set_affinity_hint(s_info->tx[i].irq, cpu_online_mask);
 +	}
-+
-+	if (!test_bit(i, dev->netpolicy->avail_policy)) {
-+		ret = -ENOTSUPP;
-+		goto unlock;
-+	}
-+
-+	if (i == dev->netpolicy->cur_policy)
-+		goto unlock;
-+
-+	/* If there is no policy applied yet, need to do enable first . */
-+	if (dev->netpolicy->cur_policy == NET_POLICY_NONE) {
-+		ret = netpolicy_enable(dev);
-+		if (ret)
-+			goto unlock;
-+	}
-+
-+	netpolicy_free_obj_list(dev);
-+
-+	/* Generate object list according to policy name */
-+	ret = netpolicy_gen_obj_list(dev, i);
-+	if (ret)
-+		goto err;
-+
-+	/* set policy */
-+	ret = dev->netdev_ops->ndo_set_net_policy(dev, i);
-+	if (ret)
-+		goto err;
-+
-+	/* If removing policy, need to do disable. */
-+	if (i == NET_POLICY_NONE)
-+		netpolicy_disable(dev);
-+
-+	dev->netpolicy->cur_policy = i;
-+
-+	spin_unlock(&dev->np_lock);
-+	return 0;
-+
-+err:
-+	netpolicy_free_obj_list(dev);
-+	if (dev->netpolicy->cur_policy == NET_POLICY_NONE)
-+		netpolicy_disable(dev);
-+unlock:
-+	spin_unlock(&dev->np_lock);
-+	return ret;
 +}
 +
- #ifdef CONFIG_PROC_FS
- 
- static int net_policy_proc_show(struct seq_file *m, void *v)
-@@ -459,11 +523,40 @@ static int net_policy_proc_open(struct inode *inode, struct file *file)
- 	return single_open(file, net_policy_proc_show, PDE_DATA(inode));
- }
- 
-+static ssize_t net_policy_proc_write(struct file *file, const char __user *buf,
-+				     size_t count, loff_t *pos)
++static void netpolicy_set_affinity(struct net_device *dev)
 +{
-+	struct seq_file *m = file->private_data;
-+	struct net_device *dev = (struct net_device *)m->private;
-+	char name[POLICY_NAME_LEN_MAX];
-+	int i, ret;
++	struct netpolicy_sys_info *s_info = &dev->netpolicy->sys_info;
++	u32 i;
 +
-+	if (!dev->netpolicy)
-+		return -ENOTSUPP;
++	for (i = 0; i < s_info->avail_rx_num; i++) {
++		irq_set_status_flags(s_info->rx[i].irq, IRQ_NO_BALANCING);
++		irq_set_affinity_hint(s_info->rx[i].irq, cpumask_of(s_info->rx[i].cpu));
++	}
 +
-+	if (count > POLICY_NAME_LEN_MAX)
-+		return -EINVAL;
-+
-+	if (copy_from_user(name, buf, count))
-+		return -EINVAL;
-+
-+	for (i = 0; i < count - 1; i++)
-+		name[i] = toupper(name[i]);
-+	name[POLICY_NAME_LEN_MAX - 1] = 0;
-+
-+	ret = net_policy_set_by_name(name, dev);
-+	if (ret)
-+		return ret;
-+
-+	return count;
++	for (i = 0; i < s_info->avail_tx_num; i++) {
++		irq_set_status_flags(s_info->tx[i].irq, IRQ_NO_BALANCING);
++		irq_set_affinity_hint(s_info->tx[i].irq, cpumask_of(s_info->tx[i].cpu));
++	}
 +}
 +
- static const struct file_operations proc_net_policy_operations = {
- 	.open		= net_policy_proc_open,
- 	.read		= seq_read,
- 	.llseek		= seq_lseek,
- 	.release	= seq_release,
-+	.write		= net_policy_proc_write,
- 	.owner		= THIS_MODULE,
+ const char *policy_name[NET_POLICY_MAX] = {
+ 	"NONE"
  };
- 
-@@ -527,6 +620,8 @@ void uninit_netpolicy(struct net_device *dev)
- {
- 	spin_lock(&dev->np_lock);
- 	if (dev->netpolicy) {
-+		if (dev->netpolicy->cur_policy > NET_POLICY_NONE)
-+			netpolicy_disable(dev);
- 		kfree(dev->netpolicy);
- 		dev->netpolicy = NULL;
- 	}
 -- 
 2.5.5
