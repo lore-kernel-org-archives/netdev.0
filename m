@@ -1,55 +1,73 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] bridge: Fix problems around fdb entries
- pointing to the bridge device
-Date: Thu, 4 Aug 2016 19:11:19 +0900
-Message-ID: <1b2f2b26-ad21-031c-800b-e894c508713b@lab.ntt.co.jp>
-References: <1470276679-5533-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<57A2ED94.2020709@cumulusnetworks.com>
-	<ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH v3 2/3] sctp_diag: Fix T3_rtx timer export
+Date: Thu,  4 Aug 2016 12:11:56 +0200
+Message-ID: <1470305517-31880-3-git-send-email-phil@nwl.cc>
+References: <1470305517-31880-1-git-send-email-phil@nwl.cc>
+Cc: Xin Long <lucien.xin@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:49446 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754409AbcHDKND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 06:13:03 -0400
+In-Reply-To: <1470305517-31880-1-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/08/04 17:15, Toshiaki Makita wrote:
-> On 2016/08/04 16:24, Roopa Prabhu wrote:
->> On 8/3/16, 7:11 PM, Toshiaki Makita wrote:
->>> Adding fdb entries pointing to the bridge device uses fdb_insert(),
->>> which lacks various checks and does not respect added_by_user flag.
->>>
->>> As a result, some inconsistent behavior can happen:
->>> * Adding temporary entries succeeds but results in permanent entries.
->>
->> IIRC this is not specific to fdb entries on the bridge device. all temp
->> fdb entries via iproute2 result in permanent entries. thats why 'dynamic'
->> was added.
-> 
-> Sorry for confusing you, I meant "temp" (i.e., "static") of bridge fdb
-> command.
-> "temp", "dynamic" and "use" should not result in "permanent".
+The asoc's timer value is not kept in asoc->timeouts array but in it's
+primary transport instead.
 
-I probably misread you in my previous reply so the previous answer looks
-weird...
+Furthermore, we must export the timer only if it is pending, otherwise
+the value will underrun when stored in an unsigned variable and
+user space will only see a very large timeout value.
 
-What I should have said is:
-Other temp fdb entries via iproute2 result in static (== temp), not
-permanent.
-"dynamic" and "use" should be meant for dynamic entries, not static (temp).
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Changes since v1:
+- Introduce local variable to shorten long lines.
+- Use timer_pending() to decide whether to export the timer value.
+- Export the primary path's value instead of garbage.
+- If not exporting, zero fields to not confuse userspace.
+Changes since v2:
+- Rewrote description, emphasizing on wrong value export
+  rather than exporting conditionally.
+---
+ net/sctp/sctp_diag.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index f69edcf219e51..f728ef04a7b2d 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -13,6 +13,7 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
+ {
+ 	union sctp_addr laddr, paddr;
+ 	struct dst_entry *dst;
++	struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
+ 
+ 	laddr = list_entry(asoc->base.bind_addr.address_list.next,
+ 			   struct sctp_sockaddr_entry, list)->a;
+@@ -40,10 +41,15 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
+ 	}
+ 
+ 	r->idiag_state = asoc->state;
+-	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
+-	r->idiag_retrans = asoc->rtx_data_chunks;
+-	r->idiag_expires = jiffies_to_msecs(
+-		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
++	if (timer_pending(t3_rtx)) {
++		r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
++		r->idiag_retrans = asoc->rtx_data_chunks;
++		r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
++	} else {
++		r->idiag_timer = 0;
++		r->idiag_retrans = 0;
++		r->idiag_expires = 0;
++	}
+ }
+ 
+ static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
 -- 
-Toshiaki Makita
+2.8.2
