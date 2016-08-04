@@ -1,70 +1,66 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 4/4] bpf: Restrict Checmate bpf programs to current kernel
- ABI
-Date: Thu, 04 Aug 2016 11:52:48 +0200
-Message-ID: <57A31070.8090602@iogearbox.net>
-References: <20160804071227.GA19135@ircssh.c.rugged-nimbus-611.internal>
+From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: Re: Microsemi VSC 8531/41 PHY Driver
+Date: Thu, 4 Aug 2016 14:47:15 +0530
+Message-ID: <20160804091714.GA3786@microsemi.com>
+References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
+ <20160726115556.GC11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
+ <20160726124347.GD11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+ <20160729081736.GB13798@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59752 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751188AbcHDKu1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 06:50:27 -0400
-In-Reply-To: <20160804071227.GA19135@ircssh.c.rugged-nimbus-611.internal>
+Received: from mail-sn1nam01on0069.outbound.protection.outlook.com ([104.47.32.69]:30631
+	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751188AbcHDLtH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 07:49:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20160729081736.GB13798@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/04/2016 09:12 AM, Sargun Dhillon wrote:
-> I think it makes sense to restrict Checmate to loading programs that have been
-> compiled with the current kernel ABI. We can further stabilize the ABI, and
-> perhaps lift this restriction later.
->
-> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-> ---
->   kernel/bpf/syscall.c         | 2 +-
->   samples/bpf/checmate1_kern.c | 3 ++-
->   2 files changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 228f962..2a37b4d 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -741,7 +741,7 @@ static int bpf_prog_load(union bpf_attr *attr)
->   	if (attr->insn_cnt >= BPF_MAXINSNS)
->   		return -EINVAL;
->
-> -	if (type == BPF_PROG_TYPE_KPROBE &&
-> +	if ((type & (BPF_PROG_TYPE_KPROBE | BPF_PROG_TYPE_CHECMATE)) &&
->   	    attr->kern_version != LINUX_VERSION_CODE)
+On Fri, Jul 29, 2016 at 10:17:36AM +0200, Andrew Lunn wrote:
+> EXTERNAL EMAIL
+> 
+> 
+> > > +/* RGMII Rx Clock delay value change with board lay-out */ static u8
+> > > +rgmii_rx_clk_delay = RGMII_RX_CLK_DELAY_1_1_NS;
+> >
+> > Doesn't this stop you from having a board with two PHYs with different layouts? You should be getting this value from the device tree.
+> >
+> > Raju: As of now, RGMII Rx clock delay value should be 1.1 nsec as optimized/recommended value.
+> > We tested on Beaglebone Black with VSC 8531 PHY.
+> > We would like to provide new function to configure correct/require value based on PHY layouts
+> > alone with other RGMII configuration parameters as part of our next implementation.
+> 
+> Please either do it properly now or hard code it as the default, and
+> then later replace it with device tree, etc. We don't like to see half
+> finished features.
+> 
 
-Btw, this check is correct, program types are not masks.
+I accepted your review comment. I do hard code it as the default values.
 
-BPF_PROG_TYPE_KPROBE (== 2) and BPF_PROG_TYPE_CHECMATE (== 7) will now
-require every type to have a version code ...
+> > What are you locking against?
+> >
+> > Raju: VSC 8531 has different PAGEs. Whenever MDC/MDIO access the PHY control registers,
+> > first set the page number then read/write the register address. Default page should be Page 0.
+> > When I want to access not default page register, I have to lock phy device access and change
+> > the page number and register access as atomic operation.
+> 
+> I understand all that, which is why i asked, "what are you locking
+> against?", not "why are you locking?" What are the other call paths? I
+> don't see you taking this lock anywhere else? Should you be? I would
+> just like to see a comment which suggests you understand when this
+> lock is needed, and when not.
+> 
 
->   		return -EINVAL;
->
-> diff --git a/samples/bpf/checmate1_kern.c b/samples/bpf/checmate1_kern.c
-> index f78b66b..d4ec1fa 100644
-> --- a/samples/bpf/checmate1_kern.c
-> +++ b/samples/bpf/checmate1_kern.c
-> @@ -3,6 +3,7 @@
->   #include <linux/in.h>
->   #include <linux/checmate.h>
->   #include "bpf_helpers.h"
-> +#include <linux/version.h>
->
->   SEC("checmate")
->   int prog(struct checmate_ctx *ctx)
-> @@ -24,4 +25,4 @@ int prog(struct checmate_ctx *ctx)
->   }
->
->   char _license[] SEC("license") = "GPL";
-> -
-> +u32 _version SEC("version") = LINUX_VERSION_CODE;
->
+This is Read Modify Write (RMW) operation on register MSCC_PHY_RGMII_CNTL. This register in different page i.e. EXTENDED-2. I would like to execute all these operations in atomic.
+I also use the mutex in different functions. But not in this patch.
+
+>      Andrew
