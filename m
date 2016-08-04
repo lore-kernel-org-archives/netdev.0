@@ -1,58 +1,62 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH] VSOCK: fix vhost virtio_vsock_pkt use-after-free
-Date: Thu,  4 Aug 2016 14:52:53 +0100
-Message-ID: <1470318773-10414-1-git-send-email-stefanha@redhat.com>
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Stefan Hajnoczi <stefanha@redhat.com>
-To: kvm@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH 1/2] net: macb: Correct CAPS mask
+Date: Thu, 4 Aug 2016 16:07:45 +0200
+Message-ID: <f4a7d36f-2686-f8ae-35aa-ca5902cc9197@atmel.com>
+References: <1470036023-22368-1-git-send-email-harinik@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<harinik@xilinx.com>, <punnaia@xilinx.com>, <michals@xilinx.com>,
+	"Neil Armstrong" <narmstrong@baylibre.com>
+To: Harini Katakam <harini.katakam@xilinx.com>, <davem@davemloft.net>,
+	<harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470036023-22368-1-git-send-email-harinik@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stash the packet length in a local variable before handing over
-ownership of the packet to virtio_transport_recv_pkt() or
-virtio_transport_free_pkt().
+Le 01/08/2016 à 09:20, Harini Katakam a écrit :
+> USRIO and JUMBO CAPS have the same mask.
+> Fix the same.
+> 
+> Signed-off-by: Harini Katakam <harinik@xilinx.com>
 
-This patch solves the use-after-free since pkt is no longer guaranteed
-to be alive.
+Hi,
+Indeed there's a bug...
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
- drivers/vhost/vsock.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index 0ddf3a2..e3b30ea 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -307,6 +307,8 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 
- 	vhost_disable_notify(&vsock->dev, vq);
- 	for (;;) {
-+		u32 len;
-+
- 		if (!vhost_vsock_more_replies(vsock)) {
- 			/* Stop tx until the device processes already
- 			 * pending replies.  Leave tx virtqueue
-@@ -334,13 +336,15 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 			continue;
- 		}
- 
-+		len = pkt->len;
-+
- 		/* Only accept correctly addressed packets */
- 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
- 			virtio_transport_recv_pkt(pkt);
- 		else
- 			virtio_transport_free_pkt(pkt);
- 
--		vhost_add_used(vq, head, sizeof(pkt->hdr) + pkt->len);
-+		vhost_add_used(vq, head, sizeof(pkt->hdr) + len);
- 		added = true;
- 	}
- 
+> ---
+>  drivers/net/ethernet/cadence/macb.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index 36893d8..b6fcf10 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -403,11 +403,11 @@
+>  #define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII	0x00000004
+>  #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+>  #define MACB_CAPS_USRIO_DISABLED		0x00000010
+> +#define MACB_CAPS_JUMBO				0x00000020
+>  #define MACB_CAPS_FIFO_MODE			0x10000000
+>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+>  #define MACB_CAPS_SG_DISABLED			0x40000000
+>  #define MACB_CAPS_MACB_IS_GEM			0x80000000
+> -#define MACB_CAPS_JUMBO				0x00000010
+
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+
+Can you please send it independently without the RFC tag in the subject
+and with the following tags in the body as well:
+
+Fixes: ce721a702197 ("net: ethernet: cadence-macb: Add disabled usrio caps")
+Cc: stable@vger.kernel.org # v4.5+
+
+>  /* Bit manipulation macros */
+>  #define MACB_BIT(name)					\
+> 
+
+Thanks, bye,
 -- 
-2.7.4
-
+Nicolas Ferre
