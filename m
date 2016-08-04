@@ -1,55 +1,76 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 2/3] bpf: fix checksum fixups on bpf_skb_store_bytes
-Date: Thu, 04 Aug 2016 10:27:32 +0200
-Message-ID: <57A2FC74.7040701@iogearbox.net>
-References: <201608041148.lftoFao6%fengguang.wu@intel.com>
+From: Richard Weinberger <richard.weinberger@gmail.com>
+Subject: Re: [RFC 0/4] RFC: Add Checmate, BPF-driven minor LSM
+Date: Thu, 4 Aug 2016 10:41:17 +0200
+Message-ID: <CAFLxGvw2XNyfVeVjjie3UgbGA8LR2-gFhqKQhJR=1NzBP51ZkA@mail.gmail.com>
+References: <20160804071116.GA19098@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, davem@davemloft.net,
-	alexei.starovoitov@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: kbuild test robot <lkp@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40916 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbcHDI23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 04:28:29 -0400
-In-Reply-To: <201608041148.lftoFao6%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>, alexei.starovoitov@gmail.com,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	LSM <linux-security-module@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20160804071116.GA19098@ircssh.c.rugged-nimbus-611.internal>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/04/2016 05:10 AM, kbuild test robot wrote:
-> Hi Daniel,
->
-> [auto build test WARNING on net/master]
->
-> url:    https://github.com/0day-ci/linux/commits/Daniel-Borkmann/Few-BPF-helper-related-checksum-fixes/20160804-085300
-> reproduce: make htmldocs
->
-> All warnings (new ones prefixed by >>):
->
->     include/linux/skbuff.h:940: warning: No description found for parameter 'sk'
->>> include/linux/skbuff.h:2864: warning: No description found for parameter 'off'
->     include/net/sock.h:449: warning: No description found for parameter 'sk_padding'
->     include/net/sock.h:449: warning: No description found for parameter 'sk_rcu'
->     include/linux/netdevice.h:1889: warning: No description found for parameter 'prio_tc_map[TC_BITMASK + 1]'
->
-> vim +/off +2864 include/linux/skbuff.h
->
-> ^1da177e Linus Torvalds  2005-04-16  2848  }
-> ^1da177e Linus Torvalds  2005-04-16  2849
-> ^1da177e Linus Torvalds  2005-04-16  2850  /**
-> ^1da177e Linus Torvalds  2005-04-16  2851   *	skb_postpull_rcsum - update checksum for received skb after pull
-> ^1da177e Linus Torvalds  2005-04-16  2852   *	@skb: buffer to update
-> ^1da177e Linus Torvalds  2005-04-16  2853   *	@start: start of data before pull
-> ^1da177e Linus Torvalds  2005-04-16  2854   *	@len: length of data pulled
-> ^1da177e Linus Torvalds  2005-04-16  2855   *
-> ^1da177e Linus Torvalds  2005-04-16  2856   *	After doing a pull on a received packet, you need to call this to
-> 84fa7933 Patrick McHardy 2006-08-29  2857   *	update the CHECKSUM_COMPLETE checksum, or set ip_summed to
-> 84fa7933 Patrick McHardy 2006-08-29  2858   *	CHECKSUM_NONE so that it can be recomputed from scratch.
-> ^1da177e Linus Torvalds  2005-04-16  2859   */
+Sargun,
 
-Alright, I move the kdoc under skb_postpull_rcsum() and also add one for
-skb_postpush_rcsum() in a v2 of this set. I didn't touch it because of -net
-tree, but since someone might be using 'make htmldocs' it shouldn't generate
-additional warnings. So, will respin with v2!
+On Thu, Aug 4, 2016 at 9:11 AM, Sargun Dhillon <sargun@sargun.me> wrote:
+> I distributed this patchset to linux-security-module@vger.kernel.org earlier,
+> but based on the fact that the archive is down, and this is a fairly
+> broad-sweeping proposal, I figured I'd grow the audience a little bit. Sorry
+> if you received this multiple times.
+>
+> I've begun building out the skeleton of a Linux Security Module, and I'd like to
+> get feedback on it. It's a skeleton, and I've only populated a few hooks, so I'm
+> mostly looking for input on the general proposal, interest, and design. It's a
+> minor LSM. My particular use case is one in which containers are being
+> dynamically deployed to machines by internal developers in a different group.
+> The point of Checmate is to act as an extensible bed for _safe_, complex
+> security policies. It's nice to enable dynamic security policies that can be
+> defined in C, and change as neccessary, without ever having to patch, or rebuild
+> the kernel.
+>
+> For many of these containers, the security policies can be fairly nuanced. One
+> particular one to take into account is network security. Often times,
+> administrators want to prevent ingress, and egress connectivity except from a
+> few select IPs. Egress filtering can be managed using net_cls, but without
+> modifying running software, it's non-trivial to attach a filter to all sockets
+> being created within a container. The inet_conn_request, socket_recvmsg,
+> socket_sock_rcv_skb hooks make this trivial to implement.
+
+What is wrong with having firewall rules per container?
+Either by matching the container IP or an interface...
+
+> Other times, containers need to be throttled in places where there's not really
+> a good place to impose that policy for software which isn't built in-house.  If
+> one wants to limit file creations/sec, or reject I/O under certain
+> characteristics, there's not a great place to do it now. This gives engineers a
+> mechanism to write those policies.
+
+Hmm, not sure if resource control is something we want to do with an LSM.
+
+> This same flexibility can be used to take existing programs and enable safe BPF
+> helpers to modify memory to allow rules to pass. One example that I prototyped
+> was Docker's port mapping, which has an overhead (DNAT), and there's some loss
+> of fidelity in the BSD Socket API to identify what's going on. Instead, we can
+> just rewrite the port in a bind, based upon some data in a BPF map, and a cgroup
+> match.
+>
+> I can actually see other minor security modules being implemented in Checmate,
+> for example, Yama, or the recently proposed Hardchroot could be reimplemented in
+> BPF. Potentially, they could even be API compatible.
+>
+> Although, at first, much of this sounds like seccomp, it's quite different. For
+> one, what we can do in the security hooks is more complex (access to kernel
+> pointers). The other side of this is we can have effects on a system-wide,
+> or cgroup level. This also circumvents the need for CRIU-friendly policies.
+
+It is like seccomp except that you have a single rule set and target LSM hooks
+instead of syscalls, right?
+
+-- 
+Thanks,
+//richard
