@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v2 3/3] bpf: fix checksum for vlan push/pop helper
-Date: Fri,  5 Aug 2016 00:11:13 +0200
-Message-ID: <395839b32d7b9b55133fbac367c6976991921ba3.1470346863.git.daniel@iogearbox.net>
+Subject: [PATCH net v2 2/3] bpf: fix checksum fixups on bpf_skb_store_bytes
+Date: Fri,  5 Aug 2016 00:11:12 +0200
+Message-ID: <6fbc5135595b6d2d07ed070d807729f22ce31d08.1470346863.git.daniel@iogearbox.net>
 References: <cover.1470346863.git.daniel@iogearbox.net>
 Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38674 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:38668 "EHLO
 	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966141AbcHDWLV (ORCPT
+	with ESMTP id S965415AbcHDWLV (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 18:11:21 -0400
 In-Reply-To: <cover.1470346863.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1470346863.git.daniel@iogearbox.net>
@@ -17,73 +17,140 @@ References: <cover.1470346863.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When having skbs on ingress with CHECKSUM_COMPLETE, tc BPF programs don't
-push rcsum of mac header back in and after BPF run back pull out again as
-opposed to some other subsystems (ovs, for example).
+bpf_skb_store_bytes() invocations above L2 header need BPF_F_RECOMPUTE_CSUM
+flag for updates, so that CHECKSUM_COMPLETE will be fixed up along the way.
+Where we ran into an issue with bpf_skb_store_bytes() is when we did a
+single-byte update on the IPv6 hoplimit despite using BPF_F_RECOMPUTE_CSUM
+flag; simple ping via ICMPv6 triggered a hw csum failure as a result. The
+underlying issue has been tracked down to a buffer alignment issue.
 
-For cases like q-in-q, meaning when a vlan tag for offloading is already
-present and we're about to push another one, then skb_vlan_push() pushes the
-inner one into the skb, increasing mac header and skb_postpush_rcsum()'ing
-the 4 bytes vlan header diff. Likewise, for the reverse operation in
-skb_vlan_pop() for the case where vlan header needs to be pulled out of the
-skb, we're decreasing the mac header and skb_postpull_rcsum()'ing the 4 bytes
-rcsum of the vlan header that was removed.
+Meaning, that csum_partial() computations via skb_postpull_rcsum() and
+skb_postpush_rcsum() pair invoked had a wrong result since they operated on
+an odd address for the hoplimit, while other computations were done on an
+even address. This mix doesn't work as-is with skb_postpull_rcsum(),
+skb_postpush_rcsum() pair as it always expects at least half-word alignment
+of input buffers, which is normally the case. Thus, instead of these helpers
+using csum_sub() and (implicitly) csum_add(), we need to use csum_block_sub(),
+csum_block_add(), respectively. For unaligned offsets, they rotate the sum
+to align it to a half-word boundary again, otherwise they work the same as
+csum_sub() and csum_add().
 
-However mangling the rcsum here will lead to hw csum failure for BPF case,
-since we're pulling or pushing data that was not part of the current rcsum.
-Changing tc BPF programs in general to push/pull rcsum around BPF_PROG_RUN()
-is also not really an option since current behaviour is ABI by now, but apart
-from that would also mean to do quite a bit of useless work in the sense that
-usually 12 bytes need to be rcsum pushed/pulled also when we don't need to
-touch this vlan related corner case. One way to fix it would be to push the
-necessary rcsum fixup down into vlan helpers that are (mostly) slow-path
-anyway.
+Adding __skb_postpull_rcsum(), __skb_postpush_rcsum() variants that take the
+offset as an input and adapting bpf_skb_store_bytes() to them fixes the hw
+csum failures again. The skb_postpull_rcsum(), skb_postpush_rcsum() helpers
+use a 0 constant for offset so that the compiler optimizes the offset & 1
+test away and generates the same code as with csum_sub()/_add().
 
-Fixes: 4e10df9a60d9 ("bpf: introduce bpf_skb_vlan_push/pop() helpers")
+Fixes: 608cd71a9c7c ("tc: bpf: generalize pedit action")
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/core/filter.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ include/linux/skbuff.h | 52 ++++++++++++++++++++++++++++++++------------------
+ net/core/filter.c      |  4 ++--
+ 2 files changed, 35 insertions(+), 21 deletions(-)
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5ecd5c9..b5add4e 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1371,6 +1371,12 @@ static inline void bpf_push_mac_rcsum(struct sk_buff *skb)
- 		skb_postpush_rcsum(skb, skb_mac_header(skb), skb->mac_len);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6f0b3e0..0f665cb 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2847,6 +2847,18 @@ static inline int skb_linearize_cow(struct sk_buff *skb)
+ 	       __skb_linearize(skb) : 0;
  }
  
-+static inline void bpf_pull_mac_rcsum(struct sk_buff *skb)
++static __always_inline void
++__skb_postpull_rcsum(struct sk_buff *skb, const void *start, unsigned int len,
++		     unsigned int off)
 +{
-+	if (skb_at_tc_ingress(skb))
-+		skb_postpull_rcsum(skb, skb_mac_header(skb), skb->mac_len);
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_block_sub(skb->csum,
++					   csum_partial(start, len, 0), off);
++	else if (skb->ip_summed == CHECKSUM_PARTIAL &&
++		 skb_checksum_start_offset(skb) < 0)
++		skb->ip_summed = CHECKSUM_NONE;
 +}
 +
- static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ /**
+  *	skb_postpull_rcsum - update checksum for received skb after pull
+  *	@skb: buffer to update
+@@ -2857,36 +2869,38 @@ static inline int skb_linearize_cow(struct sk_buff *skb)
+  *	update the CHECKSUM_COMPLETE checksum, or set ip_summed to
+  *	CHECKSUM_NONE so that it can be recomputed from scratch.
+  */
+-
+ static inline void skb_postpull_rcsum(struct sk_buff *skb,
+ 				      const void *start, unsigned int len)
  {
- 	struct bpf_scratchpad *sp = this_cpu_ptr(&bpf_sp);
-@@ -1763,7 +1769,10 @@ static u64 bpf_skb_vlan_push(u64 r1, u64 r2, u64 vlan_tci, u64 r4, u64 r5)
- 		     vlan_proto != htons(ETH_P_8021AD)))
- 		vlan_proto = htons(ETH_P_8021Q);
- 
-+	bpf_push_mac_rcsum(skb);
- 	ret = skb_vlan_push(skb, vlan_proto, vlan_tci);
-+	bpf_pull_mac_rcsum(skb);
-+
- 	bpf_compute_data_end(skb);
- 	return ret;
+-	if (skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
+-	else if (skb->ip_summed == CHECKSUM_PARTIAL &&
+-		 skb_checksum_start_offset(skb) < 0)
+-		skb->ip_summed = CHECKSUM_NONE;
++	__skb_postpull_rcsum(skb, start, len, 0);
  }
-@@ -1783,7 +1792,10 @@ static u64 bpf_skb_vlan_pop(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
- 	int ret;
  
-+	bpf_push_mac_rcsum(skb);
- 	ret = skb_vlan_pop(skb);
-+	bpf_pull_mac_rcsum(skb);
-+
- 	bpf_compute_data_end(skb);
- 	return ret;
+-unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
++static __always_inline void
++__skb_postpush_rcsum(struct sk_buff *skb, const void *start, unsigned int len,
++		     unsigned int off)
++{
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->csum = csum_block_add(skb->csum,
++					   csum_partial(start, len, 0), off);
++}
+ 
++/**
++ *	skb_postpush_rcsum - update checksum for received skb after push
++ *	@skb: buffer to update
++ *	@start: start of data after push
++ *	@len: length of data pushed
++ *
++ *	After doing a push on a received packet, you need to call this to
++ *	update the CHECKSUM_COMPLETE checksum.
++ */
+ static inline void skb_postpush_rcsum(struct sk_buff *skb,
+ 				      const void *start, unsigned int len)
+ {
+-	/* For performing the reverse operation to skb_postpull_rcsum(),
+-	 * we can instead of ...
+-	 *
+-	 *   skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
+-	 *
+-	 * ... just use this equivalent version here to save a few
+-	 * instructions. Feeding csum of 0 in csum_partial() and later
+-	 * on adding skb->csum is equivalent to feed skb->csum in the
+-	 * first place.
+-	 */
+-	if (skb->ip_summed == CHECKSUM_COMPLETE)
+-		skb->csum = csum_partial(start, len, skb->csum);
++	__skb_postpush_rcsum(skb, start, len, 0);
  }
+ 
++unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
++
+ /**
+  *	skb_push_rcsum - push skb and update receive checksum
+  *	@skb: buffer to update
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c46244f..5ecd5c9 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1401,7 +1401,7 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ 		return -EFAULT;
+ 
+ 	if (flags & BPF_F_RECOMPUTE_CSUM)
+-		skb_postpull_rcsum(skb, ptr, len);
++		__skb_postpull_rcsum(skb, ptr, len, offset);
+ 
+ 	memcpy(ptr, from, len);
+ 
+@@ -1410,7 +1410,7 @@ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ 		skb_store_bits(skb, offset, ptr, len);
+ 
+ 	if (flags & BPF_F_RECOMPUTE_CSUM)
+-		skb_postpush_rcsum(skb, ptr, len);
++		__skb_postpush_rcsum(skb, ptr, len, offset);
+ 	if (flags & BPF_F_INVALIDATE_HASH)
+ 		skb_clear_hash(skb);
+ 
 -- 
 1.9.3
