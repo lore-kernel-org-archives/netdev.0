@@ -1,94 +1,47 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] bridge: Fix problems around fdb entries pointing
- to the bridge device
-Date: Thu, 04 Aug 2016 11:27:25 -0700
-Message-ID: <57A3890D.9010809@cumulusnetworks.com>
-References: <1470276679-5533-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <57A2ED94.2020709@cumulusnetworks.com> <ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next  02/18] liquidio support for new device cn23xx
+Date: Thu, 4 Aug 2016 18:12:56 +0000
+Message-ID: <CO2PR11MB0088EF589259501F4BE5970497070@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1470250549-10993-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <1470250549-10993-3-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:36802 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933852AbcHDS12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 14:27:28 -0400
-Received: by mail-pa0-f54.google.com with SMTP id pp5so84905896pac.3
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 11:27:27 -0700 (PDT)
-In-Reply-To: <ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
+Received: from mail-cys01nam02on0105.outbound.protection.outlook.com ([104.47.37.105]:5815
+	"EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933971AbcHDSaW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 14:30:22 -0400
+In-Reply-To: <1470250549-10993-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/4/16, 1:15 AM, Toshiaki Makita wrote:
-> On 2016/08/04 16:24, Roopa Prabhu wrote:
->> On 8/3/16, 7:11 PM, Toshiaki Makita wrote:
->>> Adding fdb entries pointing to the bridge device uses fdb_insert(),
->>> which lacks various checks and does not respect added_by_user flag.
->>>
->>> As a result, some inconsistent behavior can happen:
->>> * Adding temporary entries succeeds but results in permanent entries.
->> IIRC this is not specific to fdb entries on the bridge device. all temp
->> fdb entries via iproute2 result in permanent entries. thats why 'dynamic'
->> was added.
-> Sorry for confusing you, I meant "temp" (i.e., "static") of bridge fdb
-> command.
-> "temp", "dynamic" and "use" should not result in "permanent".
->
->>> * Same goes for "dynamic" and "use".
->> This patch seems to not allow dynamic and use entries
->> on the bridge device. I don't see a strong use-case to
->> allow them, but any reason you want to add the restriction now ?
-> Because dynamic fdb entries pointing the bridge device cannot be
-> created. So it is prohibited. I cannot find other appropriate behavior
-> about this.
-> Or are you suggesting local entries with aging supported or something
-> like that?
-no, i am ok with prohibiting it, just was wondering if this is necessary.
+> +		vdata->major =
+> cpu_to_be16(LIQUIDIO_BASE_MAJOR_VERSION);
+> +		vdata->minor =
+> cpu_to_be16(LIQUIDIO_BASE_MINOR_VERSION);
+> +		vdata->micro =
+> cpu_to_be16(LIQUIDIO_BASE_MICRO_VERSION);
+Will probably add sparse warnings.
 
->
->>> * Changing mac address of the bridge device causes deletion of
->>>   user-added entries.
->> unless I am missing something, this does not seem to be related to the
->> external fdb entry on the bridge device.
-> Yes this is related to manually-added fdb entries on the bridge device.
-> When manual addition of fdb pointing the bridge device was introduced,
-> we should have set added_by_user on adding the entry and modify
-> br_fdb_change_mac_address() to respect the flag, but both were not done.
->
->>> * Replacing existing entries looks successful from userspace but actually
->>>   not, regardless of NLM_F_EXCL flag.
->> curious about this one. I will try it, but if you have an example that
->> will help.
-> Before:
-> # bridge fdb add 12:34:56:78:90:ab dev enp3s0 master
-> # bridge fdb add 12:34:56:78:90:ab dev br0; echo $?
-> 0
-> # bridge fdb show
-> ...
-> 12:34:56:78:90:ab dev enp3s0 master br0 permanent
->
-> # bridge fdb replace 12:34:56:78:90:ab dev br0; echo $?
-> 0
-> # bridge fdb show
-> ...
-> 12:34:56:78:90:ab dev enp3s0 master br0 permanent
->
-> After:
-> # bridge fdb add 12:34:56:78:90:ab dev enp3s0 master
-> # bridge fdb add 12:34:56:78:90:ab dev br0; echo $?
-> RTNETLINK answers: File exists
-> 255
->
-> # bridge fdb replace 12:34:56:78:90:ab dev br0; echo $?
-> 0
-> # bridge fdb show
-> ...
-> 12:34:56:78:90:ab dev br0 master br0 permanent
->
-ok, thanks for the example.
+> +#define LIO_STR_HELPER(x)	#x
+> +#define LIO_STR(x)	LIO_STR_HELPER(x)
+This is basically __stringify()
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> +struct lio_version {
+> +	u64  major:16;
+> +	u64  minor:16;
+> +	u64  micro:16;
+> +	u64  reserved:16;
+> +};
+You probably want those typed, not merely bits out of u64.
+But even if you didn't, what's the benefit this has over u16s?
