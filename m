@@ -1,32 +1,56 @@
-From: Alexander Heinlein <alexander.heinlein@secunet.com>
-Subject: IPIP tunnel with fixed TTL but no DF bit
-Date: Thu, 4 Aug 2016 08:20:24 +0200
-Message-ID: <1b4cfd95-4242-c0a6-7cd4-43fa037e2bae@secunet.com>
+From: Peter Chen <peter.chen@nxp.com>
+Subject: RE: [PATCH] net: arc_emac: add missing of_node_put() in
+ arc_emac_probe()
+Date: Thu, 4 Aug 2016 06:20:46 +0000
+Message-ID: <HE1PR04MB1450E5B957ED8C1D511FAFE58B070@HE1PR04MB1450.eurprd04.prod.outlook.com>
+References: <1470221915-5880-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <nicolas.dichtel@6wind.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexander Kochetkov <al.kochet@gmail.com>,
+	"Philippe Reynes" <tremyfr@gmail.com>,
+	Caesar Wang <wxt@rock-chips.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:56474 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbcHDGw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 02:52:58 -0400
+Received: from mail-db5eur01on0071.outbound.protection.outlook.com ([104.47.2.71]:43200
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754252AbcHDGy1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 02:54:27 -0400
+In-Reply-To: <1470221915-5880-1-git-send-email-weiyj.lk@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+ 
+>
+>Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+>---
+> drivers/net/ethernet/arc/emac_main.c | 6 ++++--
+> 1 file changed, 4 insertions(+), 2 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/arc/emac_main.c
+>b/drivers/net/ethernet/arc/emac_main.c
+>index 4bff0f3..b0da969 100644
+>--- a/drivers/net/ethernet/arc/emac_main.c
+>+++ b/drivers/net/ethernet/arc/emac_main.c
+>@@ -771,8 +771,10 @@ int arc_emac_probe(struct net_device *ndev, int interface)
+> 	priv->dev = dev;
+>
+> 	priv->regs = devm_ioremap_resource(dev, &res_regs);
+>-	if (IS_ERR(priv->regs))
+>-		return PTR_ERR(priv->regs);
+>+	if (IS_ERR(priv->regs)) {
+>+		err = PTR_ERR(priv->regs);
+>+		goto out_put_node;
+>+	}
+>
+> 	dev_dbg(dev, "Registers base address is 0x%p\n", priv->regs);
 
-I would like to know why ip_tunnel_ioctl() enforces the DF bit whenever
-the tunnel device has a fixed TTL set. The same restriction is enforced
-by iproute2 (iptunnel.c and link_iptnl.c).
+Thanks, I missed that error path.
 
-Ideally I would like to use an IPIP tunnel with a fixed TTL but no DF
-bit set. Otherwise for non-TCP packets that are larger than the PMTU
-size the kernel will send ICMP packets to end systems. However these
-ICMP packets are ignored by the end system since the original packets
-didn't have the DF bit set. As a result, non-TCP packets larger than the
-PMTU are being dropped.
+Reviewed-by: Peter Chen <peter.chen@nxp.com>
 
-Regards
-Alex
+Peter
