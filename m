@@ -1,88 +1,94 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [RFC PATCH v3 1/2] Documentation: DT: net: Add Xilinx
- gmiitorgmii converter device tree binding documentation
-Date: Thu, 4 Aug 2016 13:25:15 -0500
-Message-ID: <20160804182515.GA19890@rob-hp-laptop>
-References: <1470312789-28275-1-git-send-email-appanad@xilinx.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net] bridge: Fix problems around fdb entries pointing
+ to the bridge device
+Date: Thu, 04 Aug 2016 11:27:25 -0700
+Message-ID: <57A3890D.9010809@cumulusnetworks.com>
+References: <1470276679-5533-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <57A2ED94.2020709@cumulusnetworks.com> <ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1470312789-28275-1-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:36802 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933852AbcHDS12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 14:27:28 -0400
+Received: by mail-pa0-f54.google.com with SMTP id pp5so84905896pac.3
+        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 11:27:27 -0700 (PDT)
+In-Reply-To: <ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 04, 2016 at 05:43:08PM +0530, Kedareswara rao Appana wrote:
-> Device-tree binding documentation for xilinx gmiitorgmii converter.
-> 
-> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> ---
-> Changes for v3:
-> --> None.
-> Changes for v2:
-> --> New patch.
-> 
->  .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 32 ++++++++++++++++++++++
->  1 file changed, 32 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
-> new file mode 100644
-> index 0000000..79fa504
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
-> @@ -0,0 +1,32 @@
-> +XILINX GMIITORGMII Converter Driver Device Tree Bindings
-> +--------------------------------------------------------
-> +
-> +The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
-> +Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
-> +Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
-> +This core can be used in all three modes of operation(10/100/1000 Mb/s).
-> +The Management Data Input/Output (MDIO) interface is used to configure the
-> +Speed of operation. This core can switch dynamically between the three
-> +Different speed modes by configuring the conveter register through mdio write.
-> +
-> +The MDIO is a bus to which the PHY devices are connected.  For each
-> +device that exists on this bus, a child node should be created.  See
-> +the definition of the PHY node in booting-without-of.txt for an example
-> +of how to define a PHY.
-> +
-> +Required properties:
-> +  - compatible : Should be "xilinx,gmiitorgmii"
+On 8/4/16, 1:15 AM, Toshiaki Makita wrote:
+> On 2016/08/04 16:24, Roopa Prabhu wrote:
+>> On 8/3/16, 7:11 PM, Toshiaki Makita wrote:
+>>> Adding fdb entries pointing to the bridge device uses fdb_insert(),
+>>> which lacks various checks and does not respect added_by_user flag.
+>>>
+>>> As a result, some inconsistent behavior can happen:
+>>> * Adding temporary entries succeeds but results in permanent entries.
+>> IIRC this is not specific to fdb entries on the bridge device. all temp
+>> fdb entries via iproute2 result in permanent entries. thats why 'dynamic'
+>> was added.
+> Sorry for confusing you, I meant "temp" (i.e., "static") of bridge fdb
+> command.
+> "temp", "dynamic" and "use" should not result in "permanent".
+>
+>>> * Same goes for "dynamic" and "use".
+>> This patch seems to not allow dynamic and use entries
+>> on the bridge device. I don't see a strong use-case to
+>> allow them, but any reason you want to add the restriction now ?
+> Because dynamic fdb entries pointing the bridge device cannot be
+> created. So it is prohibited. I cannot find other appropriate behavior
+> about this.
+> Or are you suggesting local entries with aging supported or something
+> like that?
+no, i am ok with prohibiting it, just was wondering if this is necessary.
 
-Perhaps xilinx,gmii-to-rgmii.
+>
+>>> * Changing mac address of the bridge device causes deletion of
+>>>   user-added entries.
+>> unless I am missing something, this does not seem to be related to the
+>> external fdb entry on the bridge device.
+> Yes this is related to manually-added fdb entries on the bridge device.
+> When manual addition of fdb pointing the bridge device was introduced,
+> we should have set added_by_user on adding the entry and modify
+> br_fdb_change_mac_address() to respect the flag, but both were not done.
+>
+>>> * Replacing existing entries looks successful from userspace but actually
+>>>   not, regardless of NLM_F_EXCL flag.
+>> curious about this one. I will try it, but if you have an example that
+>> will help.
+> Before:
+> # bridge fdb add 12:34:56:78:90:ab dev enp3s0 master
+> # bridge fdb add 12:34:56:78:90:ab dev br0; echo $?
+> 0
+> # bridge fdb show
+> ...
+> 12:34:56:78:90:ab dev enp3s0 master br0 permanent
+>
+> # bridge fdb replace 12:34:56:78:90:ab dev br0; echo $?
+> 0
+> # bridge fdb show
+> ...
+> 12:34:56:78:90:ab dev enp3s0 master br0 permanent
+>
+> After:
+> # bridge fdb add 12:34:56:78:90:ab dev enp3s0 master
+> # bridge fdb add 12:34:56:78:90:ab dev br0; echo $?
+> RTNETLINK answers: File exists
+> 255
+>
+> # bridge fdb replace 12:34:56:78:90:ab dev br0; echo $?
+> 0
+> # bridge fdb show
+> ...
+> 12:34:56:78:90:ab dev br0 master br0 permanent
+>
+ok, thanks for the example.
 
-This needs some sort of version information in the compatible string.
-
-> +  - reg : The ID number for the phy, usually a small integer
-> +
-> +Example:
-> +	mdio {
-> +                #address-cells = <1>;
-> +                #size-cells = <0>;
-> +		ethernet-phy@0 {
-> +			......
-> +		};
-> +                gmii_to_rgmii: gmii_to_rgmii@8 {
-
-Don't use underscores in node names.
-
-> +                        compatible = "xilinx,gmiitorgmii";
-> +                        reg = <8>;
-> +                };
-> +        };
-> -- 
-> 2.1.2
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
