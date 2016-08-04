@@ -1,197 +1,55 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH iproute v2 4/5] gre6: Support for fou encapsulation
-Date: Thu, 4 Aug 2016 13:34:56 -0700
-Message-ID: <1470342897-2004557-5-git-send-email-tom@herbertland.com>
-References: <1470342897-2004557-1-git-send-email-tom@herbertland.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [v5.1] ucc_fast: Fix to avoid IS_ERR_VALUE abuses and dead code
+ on 64bit systems.
+Date: Thu, 04 Aug 2016 22:31:30 +0200
+Message-ID: <2376517.GXv6XVOdDd@wuerfel>
+References: <1470329563-5464-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
-To: <shemming@brocade.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53791 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965862AbcHDUfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 16:35:18 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u74KQW2o015324
-	for <netdev@vger.kernel.org>; Thu, 4 Aug 2016 13:35:17 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 24m5fyknpv-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 13:35:17 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
- mx-out.facebook.com (10.212.236.89) with ESMTP	id
- f3abd1245a8211e6b4190002c95209d8-d15fdaf0 for <netdev@vger.kernel.org>;	Thu,
- 04 Aug 2016 13:35:16 -0700
-In-Reply-To: <1470342897-2004557-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: qiang.zhao@freescale.com, viresh.kumar@linaro.org, zajec5@gmail.com,
+ linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+ scottwood@freescale.com, Arvind Yadav <arvind.yadav.cs@gmail.com>,
+ akpm@linux-foundation.org, linux@roeck-us.net
+To: linuxppc-dev@lists.ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1470329563-5464-1-git-send-email-arvind.yadav.cs@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- ip/link_gre.c  |   2 +-
- ip/link_gre6.c | 101 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 102 insertions(+), 1 deletion(-)
+On Thursday, August 4, 2016 10:22:43 PM CEST Arvind Yadav wrote:
+> index df8ea79..ada9070 100644
+> --- a/include/soc/fsl/qe/ucc_fast.h
+> +++ b/include/soc/fsl/qe/ucc_fast.h
+> @@ -165,10 +165,12 @@ struct ucc_fast_private {
+>         int stopped_tx;         /* Whether channel has been stopped for Tx
+>                                    (STOP_TX, etc.) */
+>         int stopped_rx;         /* Whether channel has been stopped for Rx */
+> -       u32 ucc_fast_tx_virtual_fifo_base_offset;/* pointer to base of Tx
+> -                                                   virtual fifo */
+> -       u32 ucc_fast_rx_virtual_fifo_base_offset;/* pointer to base of Rx
+> -                                                   virtual fifo */
+> +       unsigned long ucc_fast_tx_virtual_fifo_base_offset;/* pointer to base of
+> +                                                           * Tx virtual fifo
+> +                                                           */
+> +       unsigned long ucc_fast_rx_virtual_fifo_base_offset;/* pointer to base of
+> +                                                           * Rx virtual fifo
+> +                                                           */
+>  #ifdef STATISTICS
+>         u32 tx_frames;          /* Transmitted frames counter. */
+>         u32 rx_frames;          /* Received frames counter (only frames
+> 
 
-diff --git a/ip/link_gre.c b/ip/link_gre.c
-index 5dc4067..3b99e56 100644
---- a/ip/link_gre.c
-+++ b/ip/link_gre.c
-@@ -429,7 +429,7 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		fputs("external ", f);
- 
- 	if (tb[IFLA_GRE_ENCAP_TYPE] &&
--	    *(__u16 *)RTA_DATA(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
-+	    rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
- 		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
- 		__u16 flags = rta_getattr_u16(tb[IFLA_GRE_ENCAP_FLAGS]);
- 		__u16 sport = rta_getattr_u16(tb[IFLA_GRE_ENCAP_SPORT]);
-diff --git a/ip/link_gre6.c b/ip/link_gre6.c
-index 6767ef6..d00db1f 100644
---- a/ip/link_gre6.c
-+++ b/ip/link_gre6.c
-@@ -38,6 +38,9 @@ static void print_usage(FILE *f)
- 	fprintf(f, "          [ hoplimit TTL ] [ encaplimit ELIM ]\n");
- 	fprintf(f, "          [ tclass TCLASS ] [ flowlabel FLOWLABEL ]\n");
- 	fprintf(f, "          [ dscp inherit ] [ dev PHYS_DEV ]\n");
-+	fprintf(f, "          [ noencap ] [ encap { fou | gue | none } ]\n");
-+	fprintf(f, "          [ encap-sport PORT ] [ encap-dport PORT ]\n");
-+	fprintf(f, "          [ [no]encap-csum ] [ [no]encap-csum6 ] [ [no]encap-remcsum ]\n");
- 	fprintf(f, "\n");
- 	fprintf(f, "Where: NAME      := STRING\n");
- 	fprintf(f, "       ADDR      := IPV6_ADDRESS\n");
-@@ -86,6 +89,10 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
- 	unsigned int flags = 0;
- 	__u8 hop_limit = DEFAULT_TNL_HOP_LIMIT;
- 	__u8 encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
-+	__u16 encaptype = 0;
-+	__u16 encapflags = TUNNEL_ENCAP_FLAG_CSUM6;
-+	__u16 encapsport = 0;
-+	__u16 encapdport = 0;
- 	int len;
- 
- 	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
-@@ -146,6 +153,18 @@ get_failed:
- 
- 		if (greinfo[IFLA_GRE_FLAGS])
- 			flags = rta_getattr_u32(greinfo[IFLA_GRE_FLAGS]);
-+
-+		if (greinfo[IFLA_GRE_ENCAP_TYPE])
-+			encaptype = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_TYPE]);
-+
-+		if (greinfo[IFLA_GRE_ENCAP_FLAGS])
-+			encapflags = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_FLAGS]);
-+
-+		if (greinfo[IFLA_GRE_ENCAP_SPORT])
-+			encapsport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_SPORT]);
-+
-+		if (greinfo[IFLA_GRE_ENCAP_DPORT])
-+			encapdport = rta_getattr_u16(greinfo[IFLA_GRE_ENCAP_DPORT]);
- 	}
- 
- 	while (argc > 0) {
-@@ -277,6 +296,40 @@ get_failed:
- 			if (strcmp(*argv, "inherit") != 0)
- 				invarg("not inherit", *argv);
- 			flags |= IP6_TNL_F_RCV_DSCP_COPY;
-+		} else if (strcmp(*argv, "noencap") == 0) {
-+			encaptype = TUNNEL_ENCAP_NONE;
-+		} else if (strcmp(*argv, "encap") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "fou") == 0)
-+				encaptype = TUNNEL_ENCAP_FOU;
-+			else if (strcmp(*argv, "gue") == 0)
-+				encaptype = TUNNEL_ENCAP_GUE;
-+			else if (strcmp(*argv, "none") == 0)
-+				encaptype = TUNNEL_ENCAP_NONE;
-+			else
-+				invarg("Invalid encap type.", *argv);
-+		} else if (strcmp(*argv, "encap-sport") == 0) {
-+			NEXT_ARG();
-+			if (strcmp(*argv, "auto") == 0)
-+				encapsport = 0;
-+			else if (get_u16(&encapsport, *argv, 0))
-+				invarg("Invalid source port.", *argv);
-+		} else if (strcmp(*argv, "encap-dport") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&encapdport, *argv, 0))
-+				invarg("Invalid destination port.", *argv);
-+		} else if (strcmp(*argv, "encap-csum") == 0) {
-+			encapflags |= TUNNEL_ENCAP_FLAG_CSUM;
-+		} else if (strcmp(*argv, "noencap-csum") == 0) {
-+			encapflags &= ~TUNNEL_ENCAP_FLAG_CSUM;
-+		} else if (strcmp(*argv, "encap-udp6-csum") == 0) {
-+			encapflags |= TUNNEL_ENCAP_FLAG_CSUM6;
-+		} else if (strcmp(*argv, "noencap-udp6-csum") == 0) {
-+			encapflags &= ~TUNNEL_ENCAP_FLAG_CSUM6;
-+		} else if (strcmp(*argv, "encap-remcsum") == 0) {
-+			encapflags |= TUNNEL_ENCAP_FLAG_REMCSUM;
-+		} else if (strcmp(*argv, "noencap-remcsum") == 0) {
-+			encapflags &= ~TUNNEL_ENCAP_FLAG_REMCSUM;
- 		} else
- 			usage();
- 		argc--; argv++;
-@@ -295,6 +348,11 @@ get_failed:
- 	addattr_l(n, 1024, IFLA_GRE_FLOWINFO, &flowinfo, 4);
- 	addattr_l(n, 1024, IFLA_GRE_FLAGS, &flowinfo, 4);
- 
-+	addattr16(n, 1024, IFLA_GRE_ENCAP_TYPE, encaptype);
-+	addattr16(n, 1024, IFLA_GRE_ENCAP_FLAGS, encapflags);
-+	addattr16(n, 1024, IFLA_GRE_ENCAP_SPORT, htons(encapsport));
-+	addattr16(n, 1024, IFLA_GRE_ENCAP_DPORT, htons(encapdport));
-+
- 	return 0;
- }
- 
-@@ -393,6 +451,49 @@ static void gre_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 		fputs("icsum ", f);
- 	if (oflags & GRE_CSUM)
- 		fputs("ocsum ", f);
-+
-+	if (tb[IFLA_GRE_ENCAP_TYPE] &&
-+	    rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]) != TUNNEL_ENCAP_NONE) {
-+		__u16 type = rta_getattr_u16(tb[IFLA_GRE_ENCAP_TYPE]);
-+		__u16 flags = rta_getattr_u16(tb[IFLA_GRE_ENCAP_FLAGS]);
-+		__u16 sport = rta_getattr_u16(tb[IFLA_GRE_ENCAP_SPORT]);
-+		__u16 dport = rta_getattr_u16(tb[IFLA_GRE_ENCAP_DPORT]);
-+
-+		fputs("encap ", f);
-+		switch (type) {
-+		case TUNNEL_ENCAP_FOU:
-+			fputs("fou ", f);
-+			break;
-+		case TUNNEL_ENCAP_GUE:
-+			fputs("gue ", f);
-+			break;
-+		default:
-+			fputs("unknown ", f);
-+			break;
-+		}
-+
-+		if (sport == 0)
-+			fputs("encap-sport auto ", f);
-+		else
-+			fprintf(f, "encap-sport %u", ntohs(sport));
-+
-+		fprintf(f, "encap-dport %u ", ntohs(dport));
-+
-+		if (flags & TUNNEL_ENCAP_FLAG_CSUM)
-+			fputs("encap-csum ", f);
-+		else
-+			fputs("noencap-csum ", f);
-+
-+		if (flags & TUNNEL_ENCAP_FLAG_CSUM6)
-+			fputs("encap-csum6 ", f);
-+		else
-+			fputs("noencap-csum6 ", f);
-+
-+		if (flags & TUNNEL_ENCAP_FLAG_REMCSUM)
-+			fputs("encap-remcsum ", f);
-+		else
-+			fputs("noencap-remcsum ", f);
-+	}
- }
- 
- static void gre_print_help(struct link_util *lu, int argc, char **argv,
--- 
-2.8.0.rc2
+This change seems ok, but what about the other u32 variables in ucc_geth.c
+that get checked for IS_ERR_VALUE?
+
+	Arnd
