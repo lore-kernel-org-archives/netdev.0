@@ -1,66 +1,45 @@
-From: "Niklas =?iso-8859-1?Q?S=F6derlund?=" <niklas.soderlund@ragnatech.se>
-Subject: Re: [PATCH 1/2] ravb: use SET_RUNTIME_PM_OPS macro
-Date: Thu, 4 Aug 2016 17:28:14 +0200
-Message-ID: <20160804152814.GQ3672@bigcity.dyn.berto.se>
-References: <20160803135647.23242-1-niklas.soderlund+renesas@ragnatech.se>
- <20160803135647.23242-2-niklas.soderlund+renesas@ragnatech.se>
- <CAMuHMdU-czrkroEKkWg-WFJ7ayqhGntDtuaRXFoyQnm_wDdxvw@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net_sched: remove the leftover cleanup_a()
+Date: Thu, 4 Aug 2016 08:29:22 -0700
+Message-ID: <CAM_iQpVEA6vJxveDO2j7z1yPdS3Ed90T89Q6nU784inEX0ryvQ@mail.gmail.com>
+References: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
+ <d82351ba-cd1e-d5e1-0faa-94c2bcaf720a@mojatatu.com> <CAM_iQpVONAiDqgUQhWRbTEUkoEQQPiSUHnpo8aQ8KtGiR1zzFg@mail.gmail.com>
+ <193309c8-c4d4-4552-69fe-8b971ac76d53@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wolfram Sang <wsa@the-dreams.de>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:35343 "EHLO
-	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756395AbcHDPaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 11:30:05 -0400
-Received: by mail-lf0-f53.google.com with SMTP id f93so184672138lfi.2
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 08:28:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAMuHMdU-czrkroEKkWg-WFJ7ayqhGntDtuaRXFoyQnm_wDdxvw@mail.gmail.com>
+Received: from mail-it0-f43.google.com ([209.85.214.43]:37623 "EHLO
+	mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758718AbcHDPaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 11:30:06 -0400
+Received: by mail-it0-f43.google.com with SMTP id f6so262898552ith.0
+        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 08:29:46 -0700 (PDT)
+In-Reply-To: <193309c8-c4d4-4552-69fe-8b971ac76d53@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-08-04 15:33:18 +0200, Geert Uytterhoeven wrote:
-> On Wed, Aug 3, 2016 at 3:56 PM, Niklas Söderlund
-> <niklas.soderlund+renesas@ragnatech.se> wrote:
-> > Use macro to define the runtime PM operations.
-> >
-> > Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-> 
-> Duplicate of  commit 524c6f691b99065577b245b250efe93fb0cda5c4
-> Author: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-> Date:   Mon May 30 05:25:43 2016 +0900
-> 
->     ravb: Add SET_RUNTIME_PM_OPS macro
-> 
->     Use SET_RUNTIME_PM_OPS macro instead of assigning a member of
->     dev_pm_ops directly.
-> 
->     Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
->     Signed-off-by: Yoshihiro Kaneko <ykaneko0929@gmail.com>
->     Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+On Thu, Aug 4, 2016 at 5:10 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 16-08-03 11:20 AM, Cong Wang wrote:
+>>
+>> On Wed, Aug 3, 2016 at 4:36 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>>>
+>>> Cong,
+>>>
+>>> Improvement on the basic test as it no longer oopses, but:
+>>> here's a test that will oops:
+>>
+>>
+>> Make sure you test this together with the other patch I sent
+>> (sorry I didn't number them), the other patch also fixed an oops.
+>>
+>
+> Ok, just included second patch - problem still there.
+> Try the testcase i outlined earlier.
 
-Wops, I will drop my commit then. Thanks for pointing it out.
+I tried it yesterday, and have been working on a patch.
+Basically, I need to replace the list with a flex_array
+to hold pointers to these actions. I will send it out tomorrow.
 
-> 
-> Gr{oetje,eeting}s,
-> 
->                         Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                 -- Linus Torvalds
-
--- 
-Regards,
-Niklas Söderlund
+Thanks.
