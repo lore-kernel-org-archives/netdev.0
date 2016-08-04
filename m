@@ -1,77 +1,124 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH iproute v2 5/5] fou: Allowing configuring IPv6 listener
-Date: Thu, 4 Aug 2016 13:34:57 -0700
-Message-ID: <1470342897-2004557-6-git-send-email-tom@herbertland.com>
+Subject: [PATCH iproute v2 1/5] ila: Support for checksum neutral translation
+Date: Thu, 4 Aug 2016 13:34:53 -0700
+Message-ID: <1470342897-2004557-2-git-send-email-tom@herbertland.com>
 References: <1470342897-2004557-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
 To: <shemming@brocade.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:32977 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53770 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965872AbcHDUfS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 16:35:18 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u74KRPFl009124
-	for <netdev@vger.kernel.org>; Thu, 4 Aug 2016 13:35:17 -0700
+	by vger.kernel.org with ESMTP id S1759010AbcHDUfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 16:35:12 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u74KQNSN015299
+	for <netdev@vger.kernel.org>; Thu, 4 Aug 2016 13:35:11 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 24marrgwkr-1
+	by mx0a-00082601.pphosted.com with ESMTP id 24m5fyknpd-1
 	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 13:35:17 -0700
+	for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 13:35:11 -0700
 Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
  mx-out.facebook.com (10.102.107.99) with ESMTP	id
- f4135e485a8211e6b5790002c99293a0-263fcaf0 for <netdev@vger.kernel.org>;	Thu,
- 04 Aug 2016 13:35:16 -0700
+ f081a6545a8211e69dcf0002c99293a0-217f9af0 for <netdev@vger.kernel.org>;	Thu,
+ 04 Aug 2016 13:35:10 -0700
 In-Reply-To: <1470342897-2004557-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add configuration of ila LWT tunnels for checksum mode including
+checksum neutral translation.
+
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- ip/ipfou.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ ip/iproute_lwtunnel.c | 58 +++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 56 insertions(+), 2 deletions(-)
 
-diff --git a/ip/ipfou.c b/ip/ipfou.c
-index 2a6ae17..0673d11 100644
---- a/ip/ipfou.c
-+++ b/ip/ipfou.c
-@@ -25,8 +25,9 @@
+diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
+index bdbb15d..b656143 100644
+--- a/ip/iproute_lwtunnel.c
++++ b/ip/iproute_lwtunnel.c
+@@ -90,6 +90,32 @@ static void print_encap_ip(FILE *fp, struct rtattr *encap)
+ 		fprintf(fp, "tos %d ", rta_getattr_u8(tb[LWTUNNEL_IP_TOS]));
+ }
  
- static void usage(void)
++static char *ila_csum_mode2name(__u8 csum_mode)
++{
++	switch (csum_mode) {
++	case ILA_CSUM_ADJUST_TRANSPORT:
++		return "adj-transport";
++	case ILA_CSUM_NEUTRAL_MAP:
++		return "neutral-map";
++	case ILA_CSUM_NO_ACTION:
++		return "no-action";
++	default:
++		return "unknown";
++	}
++}
++
++static __u8 ila_csum_name2mode(char *name)
++{
++	if (strcmp(name, "adj-transport") == 0)
++		return ILA_CSUM_ADJUST_TRANSPORT;
++	else if (strcmp(name, "neutral-map") == 0)
++		return ILA_CSUM_NEUTRAL_MAP;
++	else if (strcmp(name, "no-action") == 0)
++		return ILA_CSUM_NO_ACTION;
++	else
++		return -1;
++}
++
+ static void print_encap_ila(FILE *fp, struct rtattr *encap)
  {
--	fprintf(stderr, "Usage: ip fou add port PORT { ipproto PROTO  | gue }\n");
--	fprintf(stderr, "       ip fou del port PORT\n");
-+	fprintf(stderr, "Usage: ip fou add port PORT "
-+		"{ ipproto PROTO  | gue } [ -6 ]\n");
-+	fprintf(stderr, "       ip fou del port PORT [ -6 ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Where: PROTO { ipproto-name | 1..255 }\n");
- 	fprintf(stderr, "       PORT { 1..65535 }\n");
-@@ -50,6 +51,7 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
- 	__u8 ipproto, type;
- 	bool gue_set = false;
- 	int ipproto_set = 0;
-+	unsigned short family = AF_INET;
+ 	struct rtattr *tb[ILA_ATTR_MAX+1];
+@@ -103,6 +129,10 @@ static void print_encap_ila(FILE *fp, struct rtattr *encap)
+ 			   abuf, sizeof(abuf));
+ 		fprintf(fp, " %s ", abuf);
+ 	}
++
++	if (tb[ILA_ATTR_CSUM_MODE])
++		fprintf(fp, " csum-mode %s ",
++			ila_csum_mode2name(rta_getattr_u8(tb[ILA_ATTR_CSUM_MODE])));
+ }
  
- 	while (argc > 0) {
- 		if (!matches(*argv, "port")) {
-@@ -71,6 +73,8 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
- 			ipproto_set = 1;
- 		} else if (!matches(*argv, "gue")) {
- 			gue_set = true;
-+		} else if (!matches(*argv, "-6")) {
-+			family = AF_INET6;
- 		} else {
- 			fprintf(stderr, "fou: unknown command \"%s\"?\n", *argv);
- 			usage();
-@@ -98,6 +102,7 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
+ static void print_encap_ip6(FILE *fp, struct rtattr *encap)
+@@ -246,10 +276,34 @@ static int parse_encap_ila(struct rtattr *rta, size_t len,
+ 		exit(1);
+ 	}
  
- 	addattr16(n, 1024, FOU_ATTR_PORT, port);
- 	addattr8(n, 1024, FOU_ATTR_TYPE, type);
-+	addattr16(n, 1024, FOU_ATTR_AF, family);
++	argc--; argv++;
++
+ 	rta_addattr64(rta, 1024, ILA_ATTR_LOCATOR, locator);
  
- 	if (ipproto_set)
- 		addattr8(n, 1024, FOU_ATTR_IPPROTO, ipproto);
+-	*argcp = argc;
+-	*argvp = argv;
++	while (argc > 0) {
++		if (strcmp(*argv, "csum-mode") == 0) {
++			__u8 csum_mode;
++
++			NEXT_ARG();
++
++			csum_mode = ila_csum_name2mode(*argv);
++			if (csum_mode < 0)
++				invarg("\"csum-mode\" value is invalid\n", *argv);
++
++			rta_addattr8(rta, 1024, ILA_ATTR_CSUM_MODE, csum_mode);
++
++			argc--; argv++;
++		} else {
++			break;
++		}
++	}
++
++	/* argv is currently the first unparsed argument,
++	 * but the lwt_parse_encap() caller will move to the next,
++	 * so step back
++	 */
++	*argcp = argc + 1;
++	*argvp = argv - 1;
+ 
+ 	return 0;
+ }
 -- 
 2.8.0.rc2
