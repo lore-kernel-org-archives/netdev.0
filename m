@@ -1,70 +1,110 @@
-From: Raanan Avargil <raanan.avargil@intel.com>
-Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on
- some I218 controllers
-Date: Thu, 4 Aug 2016 19:18:08 +0300
-Message-ID: <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
-References: <579F407E.9090602@compulab.co.il>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+ net/mlx4_en: add page recycle to prepare rx ring for tx support
+Date: Thu, 4 Aug 2016 18:19:13 +0200
+Message-ID: <20160804181913.26ee17b9@redhat.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+	<1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+	<1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160803174107.GA38399@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	linux-kernel@vger.kernel.org
-To: Denis Turischev <denis.turischev@compulab.co.il>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <579F407E.9090602@compulab.co.il>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Brenden Blanco
+ <bblanco@plumgrid.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, Jamal
+ Hadi Salim <jhs@mojatatu.com>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+        Or Gerlitz
+ <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+        hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+        Tom Herbert
+ <tom@herbertland.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tariq Toukan
+ <ttoukan.linux@gmail.com>, brouer@redhat.com,
+        Mel Gorman
+ <mgorman@techsingularity.net>,
+        linux-mm <linux-mm@kvack.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160803174107.GA38399@ast-mbp.thefacebook.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 
+On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-On 8/1/2016 15:28, Denis Turischev wrote:
-> There is an error "e1000e: probe of 0000:00:19.0 failed with error -3"
-> that can be observed after power-on on some I218 controllers.
-> Hardware reset and re-initialization fixes the issue.
->
-> Signed-off-by: Denis Turischev <denis.turischev@compulab.co.il>
->
-> diff -Nru linux-4.7.orig/drivers/net/ethernet/intel/e1000e/ich8lan.c linux-4.7/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> --- linux-4.7.orig/drivers/net/ethernet/intel/e1000e/ich8lan.c	2016-07-24 22:23:50.000000000 +0300
-> +++ linux-4.7/drivers/net/ethernet/intel/e1000e/ich8lan.c	2016-08-01 13:59:08.046563095 +0300
-> @@ -155,6 +155,7 @@
->   static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force);
->   static s32 e1000_setup_copper_link_pch_lpt(struct e1000_hw *hw);
->   static s32 e1000_oem_bits_config_ich8lan(struct e1000_hw *hw, bool d0_state);
-> +static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw);
->   
->   static inline u16 __er16flash(struct e1000_hw *hw, unsigned long reg)
->   {
-> @@ -459,8 +460,12 @@
->   	phy->id = e1000_phy_unknown;
->   
->   	ret_val = e1000_init_phy_workarounds_pchlan(hw);
-> -	if (ret_val)
-> -		return ret_val;
-> +	if (ret_val) {
-> +		e1000_reset_hw_ich8lan(hw);
-> +		ret_val = e1000_init_phy_workarounds_pchlan(hw);
-> +		if (ret_val)
-> +			return ret_val;
-> +	}
->   
->   	if (phy->id == e1000_phy_unknown)
->   		switch (hw->mac.type) {
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@lists.osuosl.org
-> http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
->
+> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
+> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:  
+> > > The mlx4 driver by default allocates order-3 pages for the ring to
+> > > consume in multiple fragments. When the device has an xdp program, this
+> > > behavior will prevent tx actions since the page must be re-mapped in
+> > > TODEVICE mode, which cannot be done if the page is still shared.
+> > > 
+> > > Start by making the allocator configurable based on whether xdp is
+> > > running, such that order-0 pages are always used and never shared.
+> > > 
+> > > Since this will stress the page allocator, add a simple page cache to
+> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
+> > > stress tests the page allocator is eliminated from the perf report.
+> > > 
+> > > Note that setting an xdp program will now require the rings to be
+> > > reconfigured.  
+> > 
+> > Again, this has nothing to do with XDP ?
+> > 
+> > Please submit a separate patch, switching this driver to order-0
+> > allocations.
+> > 
+> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
+> > send a generic patch, but had been traveling lately, and currently in
+> > vacation.
+> > 
+> > order-3 pages are problematic when dealing with hostile traffic anyway,
+> > so we should exclusively use order-0 pages, and page recycling like
+> > Intel drivers.
+> > 
+> > http://lists.openwall.net/netdev/2016/04/11/88  
+> 
+> Completely agree. These multi-page tricks work only for benchmarks and
+> not for production.
+> Eric, if you can submit that patch for mlx4 that would be awesome.
+> 
+> I think we should default to order-0 for both mlx4 and mlx5.
+> Alternatively we're thinking to do a netlink or ethtool switch to
+> preserve old behavior, but frankly I don't see who needs this order-N
+> allocation schemes.
 
-It is hard to determine what is exactly the problem here and what causes 
-the -3 error, but this is not the place to perform hw reset and retry to 
-init the phy.
----------------------------------------------------------------------
-Intel Israel (74) Limited
+I actually agree, that we should switch to order-0 allocations.
 
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+*BUT* this will cause performance regressions on platforms with
+expensive DMA operations (as they no longer amortize the cost of
+mapping a larger page).
+
+Plus, the base cost of order-0 page is 246 cycles (see [1] slide#9),
+and the 10G wirespeed target is approx 201 cycles.  Thus, for these
+speeds some page recycling tricks are needed.  I described how the Intel
+drives does a cool trick in [1] slide#14, but it does not address the
+DMA part and costs some extra atomic ops.
+
+I've started coding on the page-pool last week, which address both the
+DMA mapping and recycling (with less atomic ops). (p.s. still on
+vacation this week).
+
+http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
