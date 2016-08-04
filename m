@@ -1,26 +1,36 @@
-From: Dominic Curran <dominic.curran@citrix.com>
-Subject: Re: igb: question regarding auto-negotiation
-Date: Thu, 4 Aug 2016 16:01:39 -0700
-Message-ID: <57A3C953.6050403@citrix.com>
+From: "Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+Subject: RE: [E1000-devel] igb: question regarding auto-negotiation
+Date: Thu, 4 Aug 2016 23:16:09 +0000
+Message-ID: <2A35EA60C3C77D438915767F458D65688391472E@ORSMSX111.amr.corp.intel.com>
 References: <579BE8C3.806@citrix.com>
 	<CAKgT0UfAawN49bc5kWjnynHhA4rBddQOJ320SdaK57yDCNFb_A@mail.gmail.com>
+ <57A3C953.6050403@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8BIT
 Cc: Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAKgT0UfAawN49bc5kWjnynHhA4rBddQOJ320SdaK57yDCNFb_A@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: Dominic Curran <dominic.curran@citrix.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:9067 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759193AbcHDXQL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 19:16:11 -0400
+In-Reply-To: <57A3C953.6050403@citrix.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+
+-----Original Message-----
+From: Dominic Curran [mailto:dominic.curran@citrix.com] 
+Sent: Thursday, August 04, 2016 4:02 PM
+To: Alexander Duyck <alexander.duyck@gmail.com>; e1000-devel@lists.sourceforge.net
+Cc: Netdev <netdev@vger.kernel.org>
+Subject: Re: [E1000-devel] igb: question regarding auto-negotiation
 
 
 
@@ -130,7 +140,12 @@ Can anyone help please ?
 Thanks
 dom
 
+Dom,
 
+ethtool -A is used to set flow-control parameters, not speed/duplex/autoneg. Speed/duplex parameters are set with ethtool -s. man ethtool should help explain the difference.
+
+I hope this helps,
+Jeff
 ------------------------------------------------------------------------------
 _______________________________________________
 E1000-devel mailing list
