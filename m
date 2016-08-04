@@ -1,62 +1,49 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH 1/3] net: ethernet: ti: cpsw: simplify submit routine
-Date: Fri,  5 Aug 2016 00:14:30 +0300
-Message-ID: <1470345272-874-2-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1470345272-874-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 0/2] Add ability to configure ethernet h/w shaper
+Date: Fri, 5 Aug 2016 00:17:19 +0300
+Message-ID: <7bfc435d-c7d5-60a9-d6e2-ada9effcf190@linaro.org>
+References: <1470345113-804-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
-	linux-kernel@vger.kernel.org,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org, mugunthanvnm@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470345272-874-1-git-send-email-ivan.khoronzhuk@linaro.org>
+In-Reply-To: <1470345113-804-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As second net dev is created only in case of dual_emac mode, port
-number can be figured out in simpler way. Also no need to pass
-redundant ndev struct.
+Please, ignore it
+It was sent by mistake
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- drivers/net/ethernet/ti/cpsw.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+On 05.08.16 00:11, Ivan Khoronzhuk wrote:
+> These two patches can be used to set per queue bandwidth with ethtool.
+> I've create them as logical continuation of patchset from intel,
+> that have introduced per-queue setting command month ago for ethtool
+> interface
+> (http://kernel.opensuse.org/cgit/kernel-source/commit/?h=rpm-4.4.9-36&
+> id=feaab26abfffe381fb4c8c10d2762a753d481c6c). Actually I've not tested this
+> interface and planning to send it in parallel with
+> "net: ethernet: ti: cpsw: add multi-queue support"
+> (https://lkml.org/lkml/2016/6/30/603), as it contains only changes to
+> ethtool interface.
+>
+> First patch can be used to set per-channel bandwidth, second to tune
+> number of per-channel descriptors. It can solve issues described by
+> Schuyler. In case if per-channel bandwidth is equal to maximum
+> for every channel, the driver could be switched to priority mode.
+>
+> Ivan Khoronzhuk (2):
+>   net: core: ethtool: add per queue bandwidth command
+>   net: core: ethtool: add ringparam perqueue command
+>
+>  include/linux/ethtool.h      |   8 ++
+>  include/uapi/linux/ethtool.h |   2 +
+>  net/core/ethtool.c           | 206 +++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 216 insertions(+)
+>
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c51f346..8972bf6 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1065,19 +1065,11 @@ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
- 	return usage_count;
- }
- 
--static inline int cpsw_tx_packet_submit(struct net_device *ndev,
--			struct cpsw_priv *priv, struct sk_buff *skb)
-+static inline int cpsw_tx_packet_submit(struct cpsw_priv *priv,
-+					struct sk_buff *skb)
- {
--	if (!priv->data.dual_emac)
--		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 0);
--
--	if (ndev == cpsw_get_slave_ndev(priv, 0))
--		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 1);
--	else
--		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 2);
-+	return cpdma_chan_submit(priv->txch, skb, skb->data, skb->len,
-+				 priv->emac_port + priv->data.dual_emac);
- }
- 
- static inline void cpsw_add_dual_emac_def_ale_entries(
-@@ -1406,7 +1398,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
- 
- 	skb_tx_timestamp(skb);
- 
--	ret = cpsw_tx_packet_submit(ndev, priv, skb);
-+	ret = cpsw_tx_packet_submit(priv, skb);
- 	if (unlikely(ret != 0)) {
- 		cpsw_err(priv, tx_err, "desc submit failed\n");
- 		goto fail;
 -- 
-1.9.1
+Regards,
+Ivan Khoronzhuk
