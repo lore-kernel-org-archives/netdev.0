@@ -1,45 +1,83 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: remove the leftover cleanup_a()
-Date: Thu, 4 Aug 2016 08:29:22 -0700
-Message-ID: <CAM_iQpVEA6vJxveDO2j7z1yPdS3Ed90T89Q6nU784inEX0ryvQ@mail.gmail.com>
-References: <1470159046-23577-1-git-send-email-xiyou.wangcong@gmail.com>
- <d82351ba-cd1e-d5e1-0faa-94c2bcaf720a@mojatatu.com> <CAM_iQpVONAiDqgUQhWRbTEUkoEQQPiSUHnpo8aQ8KtGiR1zzFg@mail.gmail.com>
- <193309c8-c4d4-4552-69fe-8b971ac76d53@mojatatu.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] net: ethernet: ti: cpdma: remove used_desc counter
+Date: Thu, 4 Aug 2016 18:20:51 +0300
+Message-ID: <20160804152051.30565-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:37623 "EHLO
-	mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758718AbcHDPaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 11:30:06 -0400
-Received: by mail-it0-f43.google.com with SMTP id f6so262898552ith.0
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 08:29:46 -0700 (PDT)
-In-Reply-To: <193309c8-c4d4-4552-69fe-8b971ac76d53@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 4, 2016 at 5:10 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-08-03 11:20 AM, Cong Wang wrote:
->>
->> On Wed, Aug 3, 2016 at 4:36 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->>>
->>> Cong,
->>>
->>> Improvement on the basic test as it no longer oopses, but:
->>> here's a test that will oops:
->>
->>
->> Make sure you test this together with the other patch I sent
->> (sorry I didn't number them), the other patch also fixed an oops.
->>
->
-> Ok, just included second patch - problem still there.
-> Try the testcase i outlined earlier.
+The struct cpdma_desc_pool->used_desc field can be safely removed from
+CPDMA driver (and hot patch) because used_descs counter is used just
+for pool consistency check at CPDMA deinitialization and now this
+check can be re-implemnted using gen_pool_size(pool->gen_pool) !=
+gen_pool_avail(pool->gen_pool).
+More over, this will allow to get rid of warnings in
+cpdma_desc_pool_destro()-> WARN_ON(pool->used_desc) which may happen
+because the used_descs is used unprotected, since CPDMA has been
+switched to use genalloc, and may get wrong values on SMP.
 
-I tried it yesterday, and have been working on a patch.
-Basically, I need to replace the list with a flex_array
-to hold pointers to these actions. I will send it out tomorrow.
+Hence, remove used_desc from struct cpdma_desc_pool.
 
-Thanks.
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_cpdma.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 19e5f32..cf72b33 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -86,7 +86,7 @@ struct cpdma_desc_pool {
+ 	void __iomem		*iomap;		/* ioremap map */
+ 	void			*cpumap;	/* dma_alloc map */
+ 	int			desc_size, mem_size;
+-	int			num_desc, used_desc;
++	int			num_desc;
+ 	struct device		*dev;
+ 	struct gen_pool		*gen_pool;
+ };
+@@ -148,7 +148,10 @@ static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
+ 	if (!pool)
+ 		return;
+ 
+-	WARN_ON(pool->used_desc);
++	WARN(gen_pool_size(pool->gen_pool) != gen_pool_avail(pool->gen_pool),
++	     "cpdma_desc_pool size %d != avail %d",
++	     gen_pool_size(pool->gen_pool),
++	     gen_pool_avail(pool->gen_pool));
+ 	if (pool->cpumap)
+ 		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
+ 				  pool->phys);
+@@ -232,21 +235,14 @@ desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
+ static struct cpdma_desc __iomem *
+ cpdma_desc_alloc(struct cpdma_desc_pool *pool)
+ {
+-	struct cpdma_desc __iomem *desc = NULL;
+-
+-	desc = (struct cpdma_desc __iomem *)gen_pool_alloc(pool->gen_pool,
+-							   pool->desc_size);
+-	if (desc)
+-		pool->used_desc++;
+-
+-	return desc;
++	return (struct cpdma_desc __iomem *)
++		gen_pool_alloc(pool->gen_pool, pool->desc_size);
+ }
+ 
+ static void cpdma_desc_free(struct cpdma_desc_pool *pool,
+ 			    struct cpdma_desc __iomem *desc, int num_desc)
+ {
+ 	gen_pool_free(pool->gen_pool, (unsigned long)desc, pool->desc_size);
+-	pool->used_desc--;
+ }
+ 
+ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
+-- 
+2.9.2
