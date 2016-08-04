@@ -1,83 +1,59 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v2 1/3] sctp: Export struct sctp_info to userspace
-Date: Thu, 4 Aug 2016 11:27:20 +0200
-Message-ID: <20160804092720.GC8988@orbyte.nwl.cc>
-References: <1470259393-22861-1-git-send-email-phil@nwl.cc>
- <1470259393-22861-2-git-send-email-phil@nwl.cc>
- <063D6719AE5E284EB5DD2968C1650D6D5F509220@AcuExch.aculab.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 04 Aug 2016 11:21:43 +0200
+Message-ID: <3036653.SbY9jG7XMU@wuerfel>
+References: <1466812008-26686-1-git-send-email-timur@codeaurora.org> <79189959.nJygzEHqi7@wuerfel> <57A26106.50206@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Xin Long <lucien.xin@gmail.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
+	f.fainelli@gmail.com, catalin.marinas@arm.com
+To: Timur Tabi <timur@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:54574 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757194AbcHDJ12 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 05:27:28 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F509220@AcuExch.aculab.com>
+Received: from mout.kundenserver.de ([212.227.17.10]:60189 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932336AbcHDJaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 05:30:07 -0400
+In-Reply-To: <57A26106.50206@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 04, 2016 at 09:13:03AM +0000, David Laight wrote:
-> From: Phil Sutter
-> > Sent: 03 August 2016 22:23
-> > This is required to correctly interpret INET_DIAG_INFO messages exported
-> > by sctp_diag module.
-> ...
-> > diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-> > index de1f64318fc4e..fcb4c36461732 100644
-> > --- a/include/linux/sctp.h
-> > +++ b/include/linux/sctp.h
-> > @@ -705,70 +705,6 @@ typedef struct sctp_auth_chunk {
-> >  	sctp_authhdr_t auth_hdr;
-> >  } __packed sctp_auth_chunk_t;
-> > 
-> > -struct sctp_info {
-> > -	__u32	sctpi_tag;
-> ...
-> > -	__u32	__reserved3;
-> > -};
-> > -
-> >  struct sctp_infox {
-> >  	struct sctp_info *sctpinfo;
-> >  	struct sctp_association *asoc;
-> > diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> > index d304f4c9792c4..a406adcc0793e 100644
-> > --- a/include/uapi/linux/sctp.h
-> > +++ b/include/uapi/linux/sctp.h
-> > @@ -944,4 +944,68 @@ struct sctp_default_prinfo {
-> >  	__u16 pr_policy;
-> >  };
-> > 
-> > +struct sctp_info {
-> > +	__u32	sctpi_tag;
+On Wednesday, August 3, 2016 4:24:22 PM CEST Timur Tabi wrote:
+> Arnd Bergmann wrote:
+> > As I said, this is inherently driver specific. If setting the 64-bit
+> > mask fails, the driver itself needs to fall back to the 32-bit mask
+> > so it can allocate buffers from ZONE_DMA instead of ZONE_NORMAL.
 > 
-> Should these be uint32_t (etc) for userspace?
-
-Grepping through include/uapi in my clone of net-next, I see 271 results
-for uint32_t but 4595 ones for __u32. So while not necessarily correct,
-it seems to be the far more popular choice. Do you see any benefit in
-using the uint*_t typedefs instead?
-
-> > +	__u32	sctpi_state;
-> ...
-> > +	__u16	__reserved1;
+> I just posted a v7 of my patch, but I forgot to fix the dma_set_mask 
+> call.  I'll post a v8 soon, but before I do, what do you think of this:
 > 
-> Is it worth adding some extra pad here in case anything extra needs
-> to be added to this set of data?
-> 
-> ...
-> > +	__u32	__reserved3;
-> 
-> Think I'd definitely add a few words of pad here.
-> Or at least make absolutely sure the interface passes the buffer length and
-> allows for kernels that report different length buffers.
+> /* The EMAC itself is capable of 64-bit DMA, so try that first. */
+> ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+> if (ret) {
+>          /* Some platforms may restrict the EMAC's address bus to less
+>           * then the size of DDR. In this case, we need to try a
+>           * smaller mask.  We could try every possible smaller mask,
+>           * but that's overkill.  Instead, just fall to 32-bit, which
+>           * should always work.
+>           */
+>          ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+>          if (ret) {
+>                  dev_err(&pdev->dev, "could not set DMA mask\n");
+>                  return ret;
+>          }
+> }
 
-I merely copy and pasted the struct from include/linux/sctp.h without
-thinking about it's layout. Xin, what are your thoughts about this?
+This is basically ok, but then I think you should pass GFP_DMA
+or GFP_DMA32 to all allocations that the driver does after
+the 64-bit mask fails, otherwise you get a significant overhead
+in the bounce buffers.
 
-Thanks, Phil
+For data that comes from the network stack, we have no choice
+and always use bounce buffers for data that is beyond the mask.
+
+	Arnd
