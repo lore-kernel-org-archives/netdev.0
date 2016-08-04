@@ -1,66 +1,62 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH -net] net/ethernet: tundra: fix dump_eth_one warning in tsi108_eth
-Date: Thu, 4 Aug 2016 16:07:58 -0400
-Message-ID: <20160804200758.29835-1-paul.gortmaker@windriver.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [RFC V2 PATCH 01/25] net: introduce NET policy
+Date: Thu, 4 Aug 2016 13:09:24 -0700
+Message-ID: <3823555d-91bf-cdef-95d0-8a22235bb96d@infradead.org>
+References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
+ <1470339389-8542-2-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linuxppc-dev@lists.ozlabs.org>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:57622 "EHLO mail5.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934014AbcHDUJC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 16:09:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+	daniel@iogearbox.net, tom@herbertland.com,
+	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+	jesse.brandeburg@intel.com, andi@firstfloor.org
+To: kan.liang@intel.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470339389-8542-2-git-send-email-kan.liang@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The call site for this function appears as:
+On 08/04/16 12:36, kan.liang@intel.com wrote:
+> From: Kan Liang <kan.liang@intel.com>
+> 
+> This patch introduce NET policy subsystem. If proc is supported in the
+> system, it creates netpolicy node in proc system.
+> 
+> Signed-off-by: Kan Liang <kan.liang@intel.com>
+> ---
+>  include/linux/netdevice.h   |   7 +++
+>  include/net/net_namespace.h |   3 ++
+>  net/Kconfig                 |   7 +++
+>  net/core/Makefile           |   1 +
+>  net/core/netpolicy.c        | 128 ++++++++++++++++++++++++++++++++++++++++++++
+>  5 files changed, 146 insertions(+)
+>  create mode 100644 net/core/netpolicy.c
 
-  #ifdef DEBUG
-        data->msg_enable = DEBUG;
-        dump_eth_one(dev);
-  #endif
+> diff --git a/net/Kconfig b/net/Kconfig
+> index c2cdbce..00552ba 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -205,6 +205,13 @@ source "net/bridge/netfilter/Kconfig"
+>  
+>  endif
+>  
+> +config NETPOLICY
+> +	depends on NET
+> +	bool "Net policy support"
+> +	default y
+> +	---help---
+> +	Net policy support
+> +
 
-...leading to the following warning for !DEBUG builds:
+New kconfig options shouldn't default to y.
 
-drivers/net/ethernet/tundra/tsi108_eth.c:169:13: warning: 'dump_eth_one' defined but not used [-Wunused-function]
- static void dump_eth_one(struct net_device *dev)
-             ^
 
-...when using the arch/powerpc/configs/mpc7448_hpc2_defconfig
-
-Put the function definition under the same #ifdef as the call site
-to avoid the warning.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/ethernet/tundra/tsi108_eth.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/tundra/tsi108_eth.c b/drivers/net/ethernet/tundra/tsi108_eth.c
-index 01a77145a0fa..8fd131207ee1 100644
---- a/drivers/net/ethernet/tundra/tsi108_eth.c
-+++ b/drivers/net/ethernet/tundra/tsi108_eth.c
-@@ -166,6 +166,7 @@ static struct platform_driver tsi_eth_driver = {
- 
- static void tsi108_timed_checker(unsigned long dev_ptr);
- 
-+#ifdef DEBUG
- static void dump_eth_one(struct net_device *dev)
- {
- 	struct tsi108_prv_data *data = netdev_priv(dev);
-@@ -190,6 +191,7 @@ static void dump_eth_one(struct net_device *dev)
- 	       TSI_READ(TSI108_EC_RXESTAT),
- 	       TSI_READ(TSI108_EC_RXERR), data->rxpending);
- }
-+#endif
- 
- /* Synchronization is needed between the thread and up/down events.
-  * Note that the PHY is accessed through the same registers for both
 -- 
-2.8.4
+~Randy
