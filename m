@@ -1,7 +1,7 @@
 From: kan.liang@intel.com
-Subject: [RFC V2 PATCH 21/25] net/netpolicy: set per task policy by proc
-Date: Thu,  4 Aug 2016 15:36:25 -0400
-Message-ID: <1470339389-8542-22-git-send-email-kan.liang@intel.com>
+Subject: [RFC V2 PATCH 18/25] net/netpolicy: set Tx queues according to policy
+Date: Thu,  4 Aug 2016 15:36:22 -0400
+Message-ID: <1470339389-8542-19-git-send-email-kan.liang@intel.com>
 References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
 Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
 	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
@@ -15,114 +15,83 @@ Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
 	Kan Liang <kan.liang@intel.com>
 To: davem@davemloft.net, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:57313 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965910AbcHDThD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 15:37:03 -0400
 In-Reply-To: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kan Liang <kan.liang@intel.com>
 
-Users may not want to change the source code to add per task net polic
-support. Or they may want to change a running task's net policy. prctl
-does not work for both cases.
-
-This patch adds an interface in /proc, which can be used to set and
-retrieve policy of already running tasks. User can write the policy name
-into /proc/$PID/net_policy to set per task net policy.
+When the device tries to transmit a packet, netdev_pick_tx is called to
+find the available Tx queues. If the net policy is applied, it picks up
+the assigned Tx queue from net policy subsystem, and redirect the
+traffic to the assigned queue.
 
 Signed-off-by: Kan Liang <kan.liang@intel.com>
 ---
- fs/proc/base.c | 64 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 64 insertions(+)
+ include/net/sock.h |  9 +++++++++
+ net/core/dev.c     | 20 ++++++++++++++++++--
+ 2 files changed, 27 insertions(+), 2 deletions(-)
 
-diff --git a/fs/proc/base.c b/fs/proc/base.c
-index a11eb71..7679785 100644
---- a/fs/proc/base.c
-+++ b/fs/proc/base.c
-@@ -91,6 +91,8 @@
- #include <asm/hardwall.h>
- #endif
- #include <trace/events/oom.h>
-+#include <linux/netpolicy.h>
-+#include <linux/ctype.h>
- #include "internal.h"
- #include "fd.h"
+diff --git a/include/net/sock.h b/include/net/sock.h
+index fd4132f..6219434 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2273,4 +2273,13 @@ extern int sysctl_optmem_max;
+ extern __u32 sysctl_wmem_default;
+ extern __u32 sysctl_rmem_default;
  
-@@ -2807,6 +2809,65 @@ static int proc_pid_personality(struct seq_file *m, struct pid_namespace *ns,
- 	return err;
- }
- 
++/* Return netpolicy instance information from socket. */
++static inline struct netpolicy_instance *netpolicy_find_instance(struct sock *sk)
++{
 +#ifdef CONFIG_NETPOLICY
-+static int proc_net_policy_show(struct seq_file *m, void *v)
-+{
-+	struct inode *inode = m->private;
-+	struct task_struct *task = get_proc_task(inode);
-+
-+	if (is_net_policy_valid(task->task_netpolicy.policy))
-+		seq_printf(m, "%s\n", policy_name[task->task_netpolicy.policy]);
-+
-+	return 0;
-+}
-+
-+static int proc_net_policy_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, proc_net_policy_show, inode);
-+}
-+
-+static ssize_t proc_net_policy_write(struct file *file, const char __user *buf,
-+				     size_t count, loff_t *ppos)
-+{
-+	struct inode *inode = file_inode(file);
-+	struct task_struct *task = get_proc_task(inode);
-+	char name[POLICY_NAME_LEN_MAX];
-+	int i, ret;
-+
-+	if (count >= POLICY_NAME_LEN_MAX)
-+		return -EINVAL;
-+
-+	if (copy_from_user(name, buf, count))
-+		return -EINVAL;
-+
-+	for (i = 0; i < count - 1; i++)
-+		name[i] = toupper(name[i]);
-+	name[POLICY_NAME_LEN_MAX - 1] = 0;
-+
-+	for (i = 0; i < NET_POLICY_MAX; i++) {
-+		if (!strncmp(name, policy_name[i], strlen(policy_name[i]))) {
-+			ret = netpolicy_register(&task->task_netpolicy, i);
-+			if (ret)
-+				return ret;
-+			break;
-+		}
-+	}
-+
-+	if (i == NET_POLICY_MAX)
-+		return -EINVAL;
-+
-+	return count;
-+}
-+
-+static const struct file_operations proc_net_policy_operations = {
-+	.open		= proc_net_policy_open,
-+	.write		= proc_net_policy_write,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= seq_release,
-+};
-+#endif /* CONFIG_NETPOLICY */
-+
- /*
-  * Thread groups
-  */
-@@ -2906,6 +2967,9 @@ static const struct pid_entry tgid_base_stuff[] = {
- 	REG("timers",	  S_IRUGO, proc_timers_operations),
- #endif
- 	REG("timerslack_ns", S_IRUGO|S_IWUGO, proc_pid_set_timerslack_ns_operations),
-+#if IS_ENABLED(CONFIG_NETPOLICY)
-+	REG("net_policy", S_IRUSR|S_IWUSR, proc_net_policy_operations),
++	if (is_net_policy_valid(sk->sk_netpolicy.policy))
++		return &sk->sk_netpolicy;
 +#endif
- };
++	return NULL;
++}
+ #endif	/* _SOCK_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2a9c39f..08db6eb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3266,6 +3266,7 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+ 				    struct sk_buff *skb,
+ 				    void *accel_priv)
+ {
++	struct sock *sk = skb->sk;
+ 	int queue_index = 0;
  
- static int proc_tgid_base_readdir(struct file *file, struct dir_context *ctx)
+ #ifdef CONFIG_XPS
+@@ -3280,8 +3281,23 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+ 		if (ops->ndo_select_queue)
+ 			queue_index = ops->ndo_select_queue(dev, skb, accel_priv,
+ 							    __netdev_pick_tx);
+-		else
+-			queue_index = __netdev_pick_tx(dev, skb);
++		else {
++#ifdef CONFIG_NETPOLICY
++			struct netpolicy_instance *instance;
++
++			queue_index = -1;
++			if (dev->netpolicy && sk) {
++				instance = netpolicy_find_instance(sk);
++				if (instance) {
++					if (!instance->dev)
++						instance->dev = dev;
++					queue_index = netpolicy_pick_queue(instance, false);
++				}
++			}
++			if (queue_index < 0)
++#endif
++				queue_index = __netdev_pick_tx(dev, skb);
++		}
+ 
+ 		if (!accel_priv)
+ 			queue_index = netdev_cap_txqueue(dev, queue_index);
 -- 
 2.5.5
