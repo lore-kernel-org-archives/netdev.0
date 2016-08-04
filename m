@@ -1,51 +1,194 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use non-compound pages in frag allocator
-Date: Thu, 04 Aug 2016 15:24:49 +0200
-Message-ID: <1470317089.13693.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1470314858-32105-1-git-send-email-ilyal@mellanox.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v3 1/3] sctp: Export struct sctp_info to userspace
+Date: Thu, 4 Aug 2016 09:33:29 -0400
+Message-ID: <20160804133329.GA11579@hmsreliant.think-freely.org>
+References: <1470305517-31880-1-git-send-email-phil@nwl.cc>
+ <1470305517-31880-2-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: Ilya Lesokhin <ilyal@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Xin Long <lucien.xin@gmail.com>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:32876 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757561AbcHDN0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 09:26:25 -0400
-Received: by mail-io0-f193.google.com with SMTP id y195so21770231iod.0
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 06:24:53 -0700 (PDT)
-In-Reply-To: <1470314858-32105-1-git-send-email-ilyal@mellanox.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36314 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933647AbcHDNdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 09:33:53 -0400
+Content-Disposition: inline
+In-Reply-To: <1470305517-31880-2-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-08-04 at 15:47 +0300, Ilya Lesokhin wrote:
-> The code currently always references the first page in the
-> frag therefore there is no need to pay the extra overhead
-> of making the frag page compound
+On Thu, Aug 04, 2016 at 12:11:55PM +0200, Phil Sutter wrote:
+> This is required to correctly interpret INET_DIAG_INFO messages exported
+> by sctp_diag module.
 > 
-> Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 > ---
->  net/core/sock.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  include/linux/sctp.h      | 64 -----------------------------------------------
+>  include/uapi/linux/sctp.h | 64 +++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 64 insertions(+), 64 deletions(-)
 > 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 08bf97e..77432ba 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1993,7 +1993,7 @@ bool skb_page_frag_refill(unsigned int sz, struct page_frag *pfrag, gfp_t gfp)
->  	if (SKB_FRAG_PAGE_ORDER) {
->  		/* Avoid direct reclaim but allow kswapd to wake */
->  		pfrag->page = alloc_pages((gfp & ~__GFP_DIRECT_RECLAIM) |
-> -					  __GFP_COMP | __GFP_NOWARN |
-> +					  __GFP_NOWARN |
->  					  __GFP_NORETRY,
->  					  SKB_FRAG_PAGE_ORDER);
->  		if (likely(pfrag->page)) {
+> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
+> index de1f64318fc4e..fcb4c36461732 100644
+> --- a/include/linux/sctp.h
+> +++ b/include/linux/sctp.h
+> @@ -705,70 +705,6 @@ typedef struct sctp_auth_chunk {
+>  	sctp_authhdr_t auth_hdr;
+>  } __packed sctp_auth_chunk_t;
+>  
+> -struct sctp_info {
+> -	__u32	sctpi_tag;
+> -	__u32	sctpi_state;
+> -	__u32	sctpi_rwnd;
+> -	__u16	sctpi_unackdata;
+> -	__u16	sctpi_penddata;
+> -	__u16	sctpi_instrms;
+> -	__u16	sctpi_outstrms;
+> -	__u32	sctpi_fragmentation_point;
+> -	__u32	sctpi_inqueue;
+> -	__u32	sctpi_outqueue;
+> -	__u32	sctpi_overall_error;
+> -	__u32	sctpi_max_burst;
+> -	__u32	sctpi_maxseg;
+> -	__u32	sctpi_peer_rwnd;
+> -	__u32	sctpi_peer_tag;
+> -	__u8	sctpi_peer_capable;
+> -	__u8	sctpi_peer_sack;
+> -	__u16	__reserved1;
+> -
+> -	/* assoc status info */
+> -	__u64	sctpi_isacks;
+> -	__u64	sctpi_osacks;
+> -	__u64	sctpi_opackets;
+> -	__u64	sctpi_ipackets;
+> -	__u64	sctpi_rtxchunks;
+> -	__u64	sctpi_outofseqtsns;
+> -	__u64	sctpi_idupchunks;
+> -	__u64	sctpi_gapcnt;
+> -	__u64	sctpi_ouodchunks;
+> -	__u64	sctpi_iuodchunks;
+> -	__u64	sctpi_oodchunks;
+> -	__u64	sctpi_iodchunks;
+> -	__u64	sctpi_octrlchunks;
+> -	__u64	sctpi_ictrlchunks;
+> -
+> -	/* primary transport info */
+> -	struct sockaddr_storage	sctpi_p_address;
+> -	__s32	sctpi_p_state;
+> -	__u32	sctpi_p_cwnd;
+> -	__u32	sctpi_p_srtt;
+> -	__u32	sctpi_p_rto;
+> -	__u32	sctpi_p_hbinterval;
+> -	__u32	sctpi_p_pathmaxrxt;
+> -	__u32	sctpi_p_sackdelay;
+> -	__u32	sctpi_p_sackfreq;
+> -	__u32	sctpi_p_ssthresh;
+> -	__u32	sctpi_p_partial_bytes_acked;
+> -	__u32	sctpi_p_flight_size;
+> -	__u16	sctpi_p_error;
+> -	__u16	__reserved2;
+> -
+> -	/* sctp sock info */
+> -	__u32	sctpi_s_autoclose;
+> -	__u32	sctpi_s_adaptation_ind;
+> -	__u32	sctpi_s_pd_point;
+> -	__u8	sctpi_s_nodelay;
+> -	__u8	sctpi_s_disable_fragments;
+> -	__u8	sctpi_s_v4mapped;
+> -	__u8	sctpi_s_frag_interleave;
+> -	__u32	sctpi_s_type;
+> -	__u32	__reserved3;
+> -};
+> -
+>  struct sctp_infox {
+>  	struct sctp_info *sctpinfo;
+>  	struct sctp_association *asoc;
+> diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+> index d304f4c9792c4..a406adcc0793e 100644
+> --- a/include/uapi/linux/sctp.h
+> +++ b/include/uapi/linux/sctp.h
+> @@ -944,4 +944,68 @@ struct sctp_default_prinfo {
+>  	__u16 pr_policy;
+>  };
+>  
+> +struct sctp_info {
+> +	__u32	sctpi_tag;
+> +	__u32	sctpi_state;
+> +	__u32	sctpi_rwnd;
+> +	__u16	sctpi_unackdata;
+> +	__u16	sctpi_penddata;
+> +	__u16	sctpi_instrms;
+> +	__u16	sctpi_outstrms;
+> +	__u32	sctpi_fragmentation_point;
+> +	__u32	sctpi_inqueue;
+> +	__u32	sctpi_outqueue;
+> +	__u32	sctpi_overall_error;
+> +	__u32	sctpi_max_burst;
+> +	__u32	sctpi_maxseg;
+> +	__u32	sctpi_peer_rwnd;
+> +	__u32	sctpi_peer_tag;
+> +	__u8	sctpi_peer_capable;
+> +	__u8	sctpi_peer_sack;
+> +	__u16	__reserved1;
+> +
+> +	/* assoc status info */
+> +	__u64	sctpi_isacks;
+> +	__u64	sctpi_osacks;
+> +	__u64	sctpi_opackets;
+> +	__u64	sctpi_ipackets;
+> +	__u64	sctpi_rtxchunks;
+> +	__u64	sctpi_outofseqtsns;
+> +	__u64	sctpi_idupchunks;
+> +	__u64	sctpi_gapcnt;
+> +	__u64	sctpi_ouodchunks;
+> +	__u64	sctpi_iuodchunks;
+> +	__u64	sctpi_oodchunks;
+> +	__u64	sctpi_iodchunks;
+> +	__u64	sctpi_octrlchunks;
+> +	__u64	sctpi_ictrlchunks;
+> +
+> +	/* primary transport info */
+> +	struct sockaddr_storage	sctpi_p_address;
+> +	__s32	sctpi_p_state;
+> +	__u32	sctpi_p_cwnd;
+> +	__u32	sctpi_p_srtt;
+> +	__u32	sctpi_p_rto;
+> +	__u32	sctpi_p_hbinterval;
+> +	__u32	sctpi_p_pathmaxrxt;
+> +	__u32	sctpi_p_sackdelay;
+> +	__u32	sctpi_p_sackfreq;
+> +	__u32	sctpi_p_ssthresh;
+> +	__u32	sctpi_p_partial_bytes_acked;
+> +	__u32	sctpi_p_flight_size;
+> +	__u16	sctpi_p_error;
+> +	__u16	__reserved2;
+> +
+> +	/* sctp sock info */
+> +	__u32	sctpi_s_autoclose;
+> +	__u32	sctpi_s_adaptation_ind;
+> +	__u32	sctpi_s_pd_point;
+> +	__u8	sctpi_s_nodelay;
+> +	__u8	sctpi_s_disable_fragments;
+> +	__u8	sctpi_s_v4mapped;
+> +	__u8	sctpi_s_frag_interleave;
+> +	__u32	sctpi_s_type;
+> +	__u32	__reserved3;
+> +};
+> +
+If you export these, shouldn't they be converted to the corresponding
+uint<size>_t variants?
 
+Neil
 
-Looks very risky to me.
-
-What numbers can you show us exactly ?
-
-splice() is known to play games on pages, make sure it still works ?
+>  #endif /* _UAPI_SCTP_H */
+> -- 
+> 2.8.2
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
