@@ -1,82 +1,120 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v1] net: phy: micrel: Add specific suspend
-Date: Wed, 3 Aug 2016 20:33:08 -0700
-Message-ID: <11f70064-11d6-47b9-6ec1-83b7b0dc5419@gmail.com>
-References: <1470270095-13131-1-git-send-email-wenyou.yang@atmel.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH v2 1/4] Documentation: DT: net: Add Xilinx gmiitorgmii
+ converter device tree binding documentation
+Date: Wed, 3 Aug 2016 20:42:08 -0700
+Message-ID: <971c966a-5335-310b-0a1a-3f1b7ee2f841@gmail.com>
+References: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
+ <1467623084-15471-2-git-send-email-appanad@xilinx.com>
+ <20160704140458.GC3282@lunn.ch>
+ <03CA77BA8AF6F1469AEDFBDA1322A7B74A193913@XAP-PVEXMBX02.xlnx.xilinx.com>
+ <20160706142121.GI19800@lunn.ch>
+ <03CA77BA8AF6F1469AEDFBDA1322A7B74A19393B@XAP-PVEXMBX02.xlnx.xilinx.com>
+ <C246CAC1457055469EF09E3A7AC4E11A4A5C2387@XAP-PVEXMBX01.xlnx.xilinx.com>
+ <20160727080526.GH11538@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Wenyou Yang <wenyou.yang@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470270095-13131-1-git-send-email-wenyou.yang@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Soren Brinkmann <sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	"nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org" <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160727080526.GH11538-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 03/08/2016 17:21, Wenyou Yang wrote:
-> Disable all interrupts when suspend, they will be enabled
-> when resume. Otherwise, the suspend/resume process will be
-> blocked occasionally.
-
-This seems like something fairly generic actually, we could imagine
-having the core library do something like this:
-
-- if interrupts are valid and enabled for the PHY, call
-phydrv->config_intr() with PHY_INTERRUPT_DISABLED
-- call genphy_suspend
-
-Of course if none of this fits the generic model, the PHY driver can
-still provide a suspend callback. Might be worth auditing other drivers
-for that pattern and look at those that need specific handling like
-keeping specific interrupt sources active for e.g: wake-on-LAN.
-
+On 27/07/2016 01:05, Andrew Lunn wrote:
+> Hi Appana
 > 
-> Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
-> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> ---
+> Here is roughly what i was thinking:
 > 
->  drivers/net/phy/micrel.c | 19 ++++++++++++++++++-
->  1 file changed, 18 insertions(+), 1 deletion(-)
+> struct priv {
+>        phy_device *master;
+>        phy_device *slave;
+>        struct phy_driver *slave_drv;
+> };
 > 
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 5a8fefc..8cb778a 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -647,6 +647,23 @@ static void kszphy_get_stats(struct phy_device *phydev,
->  		data[i] = kszphy_get_stat(phydev, i);
->  }
->  
-> +int kszphy_suspend(struct phy_device *phydev)
-> +{
-> +	int value;
-> +
-> +	mutex_lock(&phydev->lock);
-> +
-> +	/* disable interrupts */
-> +	phy_write(phydev, MII_KSZPHY_INTCS, 0x0);
-> +
-> +	value = phy_read(phydev, MII_BMCR);
-> +	phy_write(phydev, MII_BMCR, value | BMCR_PDOWN);
-> +
-> +	mutex_unlock(&phydev->lock);
-> +
-> +	return 0;
-> +}
-> +
->  static int kszphy_resume(struct phy_device *phydev)
->  {
->  	int value;
-> @@ -870,7 +887,7 @@ static struct phy_driver ksphy_driver[] = {
->  	.get_sset_count = kszphy_get_sset_count,
->  	.get_strings	= kszphy_get_strings,
->  	.get_stats	= kszphy_get_stats,
-> -	.suspend	= genphy_suspend,
-> +	.suspend	= kszphy_suspend,
->  	.resume		= kszphy_resume,
->  }, {
->  	.phy_id		= PHY_ID_KSZ8061,
+> phy_status_clone(phy_device *master, phy_device *slave)
+> {
+> 	master->speed = slave->speed;
+> 	master->duplex = slave->duplex;
+> 	master->pause = slave->pause;
+> }
 > 
+> read_status(struct phy_device *phydev)
+> {
+> 	struct priv *priv = phydev->priv;
+> 
+> 	/* Get the status from the slave, and duplicate in into the
+> 	 * master */
+> 	 slave_drv->read_status(priv->slave);
+> 	 phy_status_clone(priv->master, priv->slave);
+> 
+> 	 /* Update the gmiitorgmii with the current link parameters */
+> 	 update_link(master);
+> }
+> 
+> config_init(struct phy_device *phydev)
+> {
+> 	struct priv *priv = phydev->priv;
+> 
+> 	/* Configure the slave, and duplicate in into the master */
+> 	slave_drv->config_init(priv->slave);
+> 	phy_status_clone(priv->master, priv->slave);
+> }
+> 
+> struct phy_driver master_drv = {
+>        .read_status = read_status,
+>        .config_init = config_init,
+>        .soft_reset  = ...
+>        .suspend = ...
+> };
+> 
+> probe(mdio_device *mdio)
+> {
+> 	struct priv *priv = devm_alloc();
+> 
+> 	/* Use the phy-handle property to find the slave phy */
+> 	node_phy = of_parse_phandle(mdio->of_node, "phy", 0);
+> 	priv->slave = of_phy_find_device(node_phy);
+> 
+> 	/* Create the master phy on the control address. Use the phy
+> 	   ID from the slave. */
+> 	priv->master = phy_device_create(mdio->bus, mdio->addr,
+> 	  				 phy->slave->phy_id,
+> 					 phy->slave->is_c45,
+> 					 phy->slave->c45_ids);
+> 
+> 	slave_dev_drv = phydev->mdio.dev.driver;
+> 	priv->slave_drv = to_phy_driver(slave_dev_drv);
+> 	priv->master->mdio.dev.driver = master_drv;
+
+The key here is really that except for the phy_driver::read_status
+callback, we want to defer every operation to the slave (full MDIO
+register range compatible) PHY.
+
+> }
+> 
+> It would however be nice to only have one phydev structure, so you are
+> not copying status and settings backwards and forwards from one to the
+> other all the time, and need a wrapper for every function in
+> phy_driver. Studying the structures a bit, that might be possible. You
+> would then only need to wrap the read_status(), so that when the link
+> speed/duplex changes, you can configure the converter as appropriate.
+
+Agreed.
+--
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
