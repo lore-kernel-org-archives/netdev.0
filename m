@@ -1,73 +1,177 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH v3 2/3] sctp_diag: Fix T3_rtx timer export
-Date: Thu,  4 Aug 2016 12:11:56 +0200
-Message-ID: <1470305517-31880-3-git-send-email-phil@nwl.cc>
+Subject: [PATCH v3 1/3] sctp: Export struct sctp_info to userspace
+Date: Thu,  4 Aug 2016 12:11:55 +0200
+Message-ID: <1470305517-31880-2-git-send-email-phil@nwl.cc>
 References: <1470305517-31880-1-git-send-email-phil@nwl.cc>
 Cc: Xin Long <lucien.xin@gmail.com>,
 	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
 	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:49446 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:36065 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754409AbcHDKND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754097AbcHDKND (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 4 Aug 2016 06:13:03 -0400
 In-Reply-To: <1470305517-31880-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The asoc's timer value is not kept in asoc->timeouts array but in it's
-primary transport instead.
-
-Furthermore, we must export the timer only if it is pending, otherwise
-the value will underrun when stored in an unsigned variable and
-user space will only see a very large timeout value.
+This is required to correctly interpret INET_DIAG_INFO messages exported
+by sctp_diag module.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
-Changes since v1:
-- Introduce local variable to shorten long lines.
-- Use timer_pending() to decide whether to export the timer value.
-- Export the primary path's value instead of garbage.
-- If not exporting, zero fields to not confuse userspace.
-Changes since v2:
-- Rewrote description, emphasizing on wrong value export
-  rather than exporting conditionally.
----
- net/sctp/sctp_diag.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ include/linux/sctp.h      | 64 -----------------------------------------------
+ include/uapi/linux/sctp.h | 64 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+), 64 deletions(-)
 
-diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-index f69edcf219e51..f728ef04a7b2d 100644
---- a/net/sctp/sctp_diag.c
-+++ b/net/sctp/sctp_diag.c
-@@ -13,6 +13,7 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
- {
- 	union sctp_addr laddr, paddr;
- 	struct dst_entry *dst;
-+	struct timer_list *t3_rtx = &asoc->peer.primary_path->T3_rtx_timer;
+diff --git a/include/linux/sctp.h b/include/linux/sctp.h
+index de1f64318fc4e..fcb4c36461732 100644
+--- a/include/linux/sctp.h
++++ b/include/linux/sctp.h
+@@ -705,70 +705,6 @@ typedef struct sctp_auth_chunk {
+ 	sctp_authhdr_t auth_hdr;
+ } __packed sctp_auth_chunk_t;
  
- 	laddr = list_entry(asoc->base.bind_addr.address_list.next,
- 			   struct sctp_sockaddr_entry, list)->a;
-@@ -40,10 +41,15 @@ static void inet_diag_msg_sctpasoc_fill(struct inet_diag_msg *r,
- 	}
+-struct sctp_info {
+-	__u32	sctpi_tag;
+-	__u32	sctpi_state;
+-	__u32	sctpi_rwnd;
+-	__u16	sctpi_unackdata;
+-	__u16	sctpi_penddata;
+-	__u16	sctpi_instrms;
+-	__u16	sctpi_outstrms;
+-	__u32	sctpi_fragmentation_point;
+-	__u32	sctpi_inqueue;
+-	__u32	sctpi_outqueue;
+-	__u32	sctpi_overall_error;
+-	__u32	sctpi_max_burst;
+-	__u32	sctpi_maxseg;
+-	__u32	sctpi_peer_rwnd;
+-	__u32	sctpi_peer_tag;
+-	__u8	sctpi_peer_capable;
+-	__u8	sctpi_peer_sack;
+-	__u16	__reserved1;
+-
+-	/* assoc status info */
+-	__u64	sctpi_isacks;
+-	__u64	sctpi_osacks;
+-	__u64	sctpi_opackets;
+-	__u64	sctpi_ipackets;
+-	__u64	sctpi_rtxchunks;
+-	__u64	sctpi_outofseqtsns;
+-	__u64	sctpi_idupchunks;
+-	__u64	sctpi_gapcnt;
+-	__u64	sctpi_ouodchunks;
+-	__u64	sctpi_iuodchunks;
+-	__u64	sctpi_oodchunks;
+-	__u64	sctpi_iodchunks;
+-	__u64	sctpi_octrlchunks;
+-	__u64	sctpi_ictrlchunks;
+-
+-	/* primary transport info */
+-	struct sockaddr_storage	sctpi_p_address;
+-	__s32	sctpi_p_state;
+-	__u32	sctpi_p_cwnd;
+-	__u32	sctpi_p_srtt;
+-	__u32	sctpi_p_rto;
+-	__u32	sctpi_p_hbinterval;
+-	__u32	sctpi_p_pathmaxrxt;
+-	__u32	sctpi_p_sackdelay;
+-	__u32	sctpi_p_sackfreq;
+-	__u32	sctpi_p_ssthresh;
+-	__u32	sctpi_p_partial_bytes_acked;
+-	__u32	sctpi_p_flight_size;
+-	__u16	sctpi_p_error;
+-	__u16	__reserved2;
+-
+-	/* sctp sock info */
+-	__u32	sctpi_s_autoclose;
+-	__u32	sctpi_s_adaptation_ind;
+-	__u32	sctpi_s_pd_point;
+-	__u8	sctpi_s_nodelay;
+-	__u8	sctpi_s_disable_fragments;
+-	__u8	sctpi_s_v4mapped;
+-	__u8	sctpi_s_frag_interleave;
+-	__u32	sctpi_s_type;
+-	__u32	__reserved3;
+-};
+-
+ struct sctp_infox {
+ 	struct sctp_info *sctpinfo;
+ 	struct sctp_association *asoc;
+diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+index d304f4c9792c4..a406adcc0793e 100644
+--- a/include/uapi/linux/sctp.h
++++ b/include/uapi/linux/sctp.h
+@@ -944,4 +944,68 @@ struct sctp_default_prinfo {
+ 	__u16 pr_policy;
+ };
  
- 	r->idiag_state = asoc->state;
--	r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
--	r->idiag_retrans = asoc->rtx_data_chunks;
--	r->idiag_expires = jiffies_to_msecs(
--		asoc->timeouts[SCTP_EVENT_TIMEOUT_T3_RTX] - jiffies);
-+	if (timer_pending(t3_rtx)) {
-+		r->idiag_timer = SCTP_EVENT_TIMEOUT_T3_RTX;
-+		r->idiag_retrans = asoc->rtx_data_chunks;
-+		r->idiag_expires = jiffies_to_msecs(t3_rtx->expires - jiffies);
-+	} else {
-+		r->idiag_timer = 0;
-+		r->idiag_retrans = 0;
-+		r->idiag_expires = 0;
-+	}
- }
- 
- static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
++struct sctp_info {
++	__u32	sctpi_tag;
++	__u32	sctpi_state;
++	__u32	sctpi_rwnd;
++	__u16	sctpi_unackdata;
++	__u16	sctpi_penddata;
++	__u16	sctpi_instrms;
++	__u16	sctpi_outstrms;
++	__u32	sctpi_fragmentation_point;
++	__u32	sctpi_inqueue;
++	__u32	sctpi_outqueue;
++	__u32	sctpi_overall_error;
++	__u32	sctpi_max_burst;
++	__u32	sctpi_maxseg;
++	__u32	sctpi_peer_rwnd;
++	__u32	sctpi_peer_tag;
++	__u8	sctpi_peer_capable;
++	__u8	sctpi_peer_sack;
++	__u16	__reserved1;
++
++	/* assoc status info */
++	__u64	sctpi_isacks;
++	__u64	sctpi_osacks;
++	__u64	sctpi_opackets;
++	__u64	sctpi_ipackets;
++	__u64	sctpi_rtxchunks;
++	__u64	sctpi_outofseqtsns;
++	__u64	sctpi_idupchunks;
++	__u64	sctpi_gapcnt;
++	__u64	sctpi_ouodchunks;
++	__u64	sctpi_iuodchunks;
++	__u64	sctpi_oodchunks;
++	__u64	sctpi_iodchunks;
++	__u64	sctpi_octrlchunks;
++	__u64	sctpi_ictrlchunks;
++
++	/* primary transport info */
++	struct sockaddr_storage	sctpi_p_address;
++	__s32	sctpi_p_state;
++	__u32	sctpi_p_cwnd;
++	__u32	sctpi_p_srtt;
++	__u32	sctpi_p_rto;
++	__u32	sctpi_p_hbinterval;
++	__u32	sctpi_p_pathmaxrxt;
++	__u32	sctpi_p_sackdelay;
++	__u32	sctpi_p_sackfreq;
++	__u32	sctpi_p_ssthresh;
++	__u32	sctpi_p_partial_bytes_acked;
++	__u32	sctpi_p_flight_size;
++	__u16	sctpi_p_error;
++	__u16	__reserved2;
++
++	/* sctp sock info */
++	__u32	sctpi_s_autoclose;
++	__u32	sctpi_s_adaptation_ind;
++	__u32	sctpi_s_pd_point;
++	__u8	sctpi_s_nodelay;
++	__u8	sctpi_s_disable_fragments;
++	__u8	sctpi_s_v4mapped;
++	__u8	sctpi_s_frag_interleave;
++	__u32	sctpi_s_type;
++	__u32	__reserved3;
++};
++
+ #endif /* _UAPI_SCTP_H */
 -- 
 2.8.2
