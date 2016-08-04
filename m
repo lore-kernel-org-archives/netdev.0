@@ -1,51 +1,77 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net 2/3] mlxsw: spectrum: Do not override PAUSE settings
-Date: Thu, 4 Aug 2016 17:36:21 +0300
-Message-ID: <1470321382-10426-3-git-send-email-idosch@mellanox.com>
-References: <1470321382-10426-1-git-send-email-idosch@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC V2 PATCH 17/25] net/netpolicy: introduce netpolicy_pick_queue
+Date: Fri, 05 Aug 2016 00:39:00 +0200
+Message-ID: <57A3C404.8010608@iogearbox.net>
+References: <1470339389-8542-1-git-send-email-kan.liang@intel.com> <1470339389-8542-18-git-send-email-kan.liang@intel.com> <57A3A3AC.4010307@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <jiri@mellanox.com>,
-	<eladr@mellanox.com>, <yotamg@mellanox.com>, <nogahf@mellanox.com>,
-	<ogerlitz@mellanox.com>, "Ido Schimmel" <idosch@mellanox.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0080.outbound.protection.outlook.com ([104.47.1.80]:10240
-	"EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759000AbcHDWUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 18:20:41 -0400
-In-Reply-To: <1470321382-10426-1-git-send-email-idosch@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+	tom@herbertland.com, rdunlap@infradead.org,
+	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+	jesse.brandeburg@intel.com, andi@firstfloor.org
+To: John Fastabend <john.fastabend@gmail.com>, kan.liang@intel.com,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57A3A3AC.4010307@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The PFCC register is used to configure both PAUSE and PFC frames.
-Therefore, when PFC frames are disabled we must make sure we don't
-mistakenly also disable PAUSE frames (which might be enabled).
+On 08/04/2016 10:21 PM, John Fastabend wrote:
+> On 16-08-04 12:36 PM, kan.liang@intel.com wrote:
+>> From: Kan Liang <kan.liang@intel.com>
+>>
+>> To achieve better network performance, the key step is to distribute the
+>> packets to dedicated queues according to policy and system run time
+>> status.
+>>
+>> This patch provides an interface which can return the proper dedicated
+>> queue for socket/task. Then the packets of the socket/task will be
+>> redirect to the dedicated queue for better network performance.
+>>
+>> For selecting the proper queue, currently it uses round-robin algorithm
+>> to find the available object from the given policy object list. The
+>> algorithm is good enough for now. But it could be improved by some
+>> adaptive algorithm later.
+>>
+>> The selected object will be stored in hashtable. So it does not need to
+>> go through the whole object list every time.
+>>
+>> Signed-off-by: Kan Liang <kan.liang@intel.com>
+>> ---
+>>   include/linux/netpolicy.h |   5 ++
+>>   net/core/netpolicy.c      | 136 ++++++++++++++++++++++++++++++++++++++++++++++
+>>   2 files changed, 141 insertions(+)
+>
+> There is a hook in the tx path now (recently added)
+>
+> # ifdef CONFIG_NET_EGRESS
+>          if (static_key_false(&egress_needed)) {
+>                  skb = sch_handle_egress(skb, &rc, dev);
+>                  if (!skb)
+>                          goto out;
+>          }
+> # endif
+>
+> that allows pushing any policy you like for picking tx queues. It would
+> be better to use this mechanism. The hook runs 'tc' classifiers so
+> either write a new ./net/sch/cls_*.c for this or just use ebpf to stick
+> your policy in at runtime.
+>
+> I'm out of the office for a few days but when I get pack I can test that
+> it actually picks the selected queue in all cases I know there was an
+> issue with some of the drivers using select_queue awhile back.
 
-Fix this by packing the PFCC register with the current PAUSE settings.
++1, I tried to bring this up here [1] in the last spin. I think only very
+few changes would be needed, f.e. on eBPF side to add a queue setting
+helper function which is probably straight forward ~10loc patch; and with
+regards to actually picking it up after clsact egress, we'd need to adapt
+__netdev_pick_tx() slightly when CONFIG_XPS so it doesn't override it.
 
-Note that this register is also accessed via ethtool ops, but there we
-are guaranteed to have PFC disabled.
-
-Fixes: d81a6bdb87ce ("mlxsw: spectrum: Add IEEE 802.1Qbb PFC support")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c
-index 3c4a178..b6ed7f7 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dcb.c
-@@ -341,6 +341,8 @@ static int mlxsw_sp_port_pfc_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 	char pfcc_pl[MLXSW_REG_PFCC_LEN];
- 
- 	mlxsw_reg_pfcc_pack(pfcc_pl, mlxsw_sp_port->local_port);
-+	mlxsw_reg_pfcc_pprx_set(pfcc_pl, mlxsw_sp_port->link.rx_pause);
-+	mlxsw_reg_pfcc_pptx_set(pfcc_pl, mlxsw_sp_port->link.tx_pause);
- 	mlxsw_reg_pfcc_prio_pack(pfcc_pl, pfc->pfc_en);
- 
- 	return mlxsw_reg_write(mlxsw_sp_port->mlxsw_sp->core, MLXSW_REG(pfcc),
--- 
-2.8.2
+   [1] http://www.spinics.net/lists/netdev/msg386953.html
