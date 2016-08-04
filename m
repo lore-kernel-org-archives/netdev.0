@@ -1,104 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Hitting WARN_ON_ONCE on skb_try_coalesce
-Date: Thu, 04 Aug 2016 18:56:14 +0200
-Message-ID: <1470329774.13693.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160803233605.GF2967@localhost.localdomain>
-	 <1470290142.13693.11.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <215693ed-3873-428d-3258-a0684f1e4015@gmail.com>
-	 <20160804164848.GA2966@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:36199 "EHLO
-	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933989AbcHDQ4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 12:56:19 -0400
-Received: by mail-io0-f182.google.com with SMTP id b62so276259015iod.3
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 09:56:18 -0700 (PDT)
-In-Reply-To: <20160804164848.GA2966@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [v5.1] ucc_fast: Fix to avoid IS_ERR_VALUE abuses and dead code on
+ 64bit systems.
+Date: Thu,  4 Aug 2016 22:22:43 +0530
+Message-ID: <1470329563-5464-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: qiang.zhao@freescale.com, arnd@arndb.de, viresh.kumar@linaro.org,
+ linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+ scottwood@freescale.com, Arvind Yadav <arvind.yadav.cs@gmail.com>,
+ akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, linux@roeck-us.net
+To: zajec5@gmail.com,
+	leoli@freescale.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-08-04 at 13:48 -0300, Marcelo Ricardo Leitner wrote:
+IS_ERR_VALUE() assumes that parameter is an unsigned long.
+It can not be used to check if 'unsigned int' is passed insted.
+Which tends to reflect an error.
+In 64bit architectures sizeof (int) == 4 && sizeof (long) == 8.
+IS_ERR_VALUE(x) is ((x) >= (unsigned long)-4095).
+IS_ERR_VALUE() of 'unsigned int' is always false because the 32bit
+value is zero extended to 64 bits.
 
-> If we pack the struct, we have enough space to save the original
-> truesize and restore it when dequeing it.
-> This way the skb won't be charging sender buf too much while sitting on
-> netem queue and will allow proper accouting on rx buf if it's
-> reinjected.
-> 
-> The check on skb->sk in the last chunk is for handling duplicated
-> packets.
-> 
-> This patch makes it not trigger the Warn for this test. Wdyt?
-> 
-> ---8<---
-> 
-> --- a/net/sched/sch_netem.c
-> +++ b/net/sched/sch_netem.c
-> @@ -147,7 +147,8 @@ struct netem_sched_data {
->  struct netem_skb_cb {
->  	psched_time_t	time_to_send;
->  	ktime_t		tstamp_save;
-> -};
-> +	unsigned int	truesize;
-> +} __attribute__ ((packed));
+Now Problem In UCC fast protocols -: drivers/soc/fsl/qe/ucc_fast.c
 
+        /* Allocate memory for Tx Virtual Fifo */
+        uccf->ucc_fast_tx_virtual_fifo_base_offset =
+          qe_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+        if (IS_ERR_VALUE(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
+                printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO\n",
+                        __func__);
+                uccf->ucc_fast_tx_virtual_fifo_base_offset = 0;
+                ucc_fast_free(uccf);
+                return -ENOMEM;
+        }
 
->  
-> 
->  static struct sk_buff *netem_rb_to_skb(struct rb_node *rb)
-> @@ -428,6 +429,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
->  	struct sk_buff *skb2;
->  	struct sk_buff *segs = NULL;
->  	unsigned int len = 0, last_len, prev_len = qdisc_pkt_len(skb);
-> +	unsigned int truesize;
->  	int nb = 0;
->  	int count = 1;
->  	int rc = NET_XMIT_SUCCESS;
-> @@ -452,8 +454,10 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
->  	/* If a delay is expected, orphan the skb. (orphaning usually takes
->  	 * place at TX completion time, so _before_ the link transit delay)
->  	 */
-> -	if (q->latency || q->jitter)
-> +	if (q->latency || q->jitter) {
-> +		truesize = skb->truesize;
->  		skb_orphan_partial(skb);
-> +	}
->  
->  	/*
->  	 * If we need to duplicate packet, then re-insert at top of the
-> @@ -508,6 +512,7 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
->  	qdisc_qstats_backlog_inc(sch, skb);
->  
->  	cb = netem_skb_cb(skb);
-> +	cb->truesize = truesize;
->  	if (q->gap == 0 ||		/* not doing reordering */
->  	    q->counter < q->gap - 1 ||	/* inside last reordering gap */
->  	    q->reorder < get_crandom(&q->reorder_cor)) {
-> @@ -591,6 +596,10 @@ tfifo_dequeue:
->  	if (skb) {
->  		qdisc_qstats_backlog_dec(sch, skb);
->  deliver:
-> +		if (skb->sk && skb->truesize == 1) {
-> +			skb->truesize = netem_skb_cb(skb)->truesize;
-> +			atomic_add(skb->truesize - 1, &skb->sk->sk_wmem_alloc);
-> +		}
->  		qdisc_bstats_update(sch, skb);
->  		return skb;
->  	}
+        /* Allocate memory for Rx Virtual Fifo */
+        uccf->ucc_fast_rx_virtual_fifo_base_offset =
+           qe_muram_alloc(uf_info->urfs +
+                           UCC_FAST_RECEIVE_VIRTUAL_FIFO_SIZE_FUDGE_FACTOR,
+                           UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+        if (IS_ERR_VALUE(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
+                printk(KERN_ERR "%s: cannot allocate MURAM for RX FIFO\n",
+                        __func__);
+                uccf->ucc_fast_rx_virtual_fifo_base_offset = 0;
+                ucc_fast_free(uccf);
+                return -ENOMEM;
+        }
 
+qe_muram_alloc (a.k.a. cpm_muram_alloc) returns unsigned long.
+Return value store in a u32 (ucc_fast_tx_virtual_fifo_base_offset
+and ucc_fast_rx_virtual_fifo_base_offset).If qe_muram_alloc will
+return any error, Then IS_ERR_VALUE will always return 0. it'll not
+call ucc_fast_free for any failure. Inside 'if code' will be a dead
+code on 64bit.
+This patch is to avoid this problem on 64bit machine.
 
-It is probably more complicated.
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ include/soc/fsl/qe/ucc_fast.h | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-netem can have a child qdisc that could mess skb->truesize and/or
-segment it (check tbf for example)
-
-So I would make sure that the skb->truesize changes are only around the
-queue/dequeue of skb in netem tfifo, not after ->queue()/dequeue() on
-the child.
-
-Thanks.
+diff --git a/include/soc/fsl/qe/ucc_fast.h b/include/soc/fsl/qe/ucc_fast.h
+index df8ea79..ada9070 100644
+--- a/include/soc/fsl/qe/ucc_fast.h
++++ b/include/soc/fsl/qe/ucc_fast.h
+@@ -165,10 +165,12 @@ struct ucc_fast_private {
+ 	int stopped_tx;		/* Whether channel has been stopped for Tx
+ 				   (STOP_TX, etc.) */
+ 	int stopped_rx;		/* Whether channel has been stopped for Rx */
+-	u32 ucc_fast_tx_virtual_fifo_base_offset;/* pointer to base of Tx
+-						    virtual fifo */
+-	u32 ucc_fast_rx_virtual_fifo_base_offset;/* pointer to base of Rx
+-						    virtual fifo */
++	unsigned long ucc_fast_tx_virtual_fifo_base_offset;/* pointer to base of
++							    * Tx virtual fifo
++							    */
++	unsigned long ucc_fast_rx_virtual_fifo_base_offset;/* pointer to base of
++							    * Rx virtual fifo
++							    */
+ #ifdef STATISTICS
+ 	u32 tx_frames;		/* Transmitted frames counter. */
+ 	u32 rx_frames;		/* Received frames counter (only frames
+-- 
+1.9.1
