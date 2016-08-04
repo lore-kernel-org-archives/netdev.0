@@ -1,45 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: use non-compound pages in frag allocator
-Date: Thu, 04 Aug 2016 15:50:47 +0200
-Message-ID: <1470318647.13693.28.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1470314858-32105-1-git-send-email-ilyal@mellanox.com>
-	 <1470317089.13693.23.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <VI1PR0501MB1968D785003AA94C1EB0F226D4070@VI1PR0501MB1968.eurprd05.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>
-To: Ilya Lesokhin <ilyal@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34581 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933411AbcHDNvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 09:51:31 -0400
-Received: by mail-wm0-f66.google.com with SMTP id q128so44672816wma.1
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 06:50:51 -0700 (PDT)
-In-Reply-To: <VI1PR0501MB1968D785003AA94C1EB0F226D4070@VI1PR0501MB1968.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] VSOCK: fix vhost virtio_vsock_pkt use-after-free
+Date: Thu,  4 Aug 2016 14:52:53 +0100
+Message-ID: <1470318773-10414-1-git-send-email-stefanha@redhat.com>
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Stefan Hajnoczi <stefanha@redhat.com>
+To: kvm@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-08-04 at 13:38 +0000, Ilya Lesokhin wrote:
-> You are right I just realized that this patch causes a memory leak, so sorry for the spam.
-> 
-> I just had problem understanding when compound pages are needed and when It is enough to use an high order pages.
-> I thought that that high order pages are enough for this use case, tested it and saw no problems.
-> 
-> Unfortunately it seems you must use compound pages to keep track of  the page order.
-> put_page assumes that the order of a non-compound page is always 0. 
-> It would be nice to document it somewhere but I'm not sure where.
+Stash the packet length in a local variable before handing over
+ownership of the packet to virtio_transport_recv_pkt() or
+virtio_transport_free_pkt().
 
-Please do not top-post on netdev mailing list.
+This patch solves the use-after-free since pkt is no longer guaranteed
+to be alive.
 
-( Documentation/development-process/2.Process : line 422 )
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ drivers/vhost/vsock.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-AFAIK, only when we can call free_pages(p, order) and provide @order, we
-can avoid using __GFP_COMP at alloc time.
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index 0ddf3a2..e3b30ea 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -307,6 +307,8 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+ 
+ 	vhost_disable_notify(&vsock->dev, vq);
+ 	for (;;) {
++		u32 len;
++
+ 		if (!vhost_vsock_more_replies(vsock)) {
+ 			/* Stop tx until the device processes already
+ 			 * pending replies.  Leave tx virtqueue
+@@ -334,13 +336,15 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+ 			continue;
+ 		}
+ 
++		len = pkt->len;
++
+ 		/* Only accept correctly addressed packets */
+ 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
+ 			virtio_transport_recv_pkt(pkt);
+ 		else
+ 			virtio_transport_free_pkt(pkt);
+ 
+-		vhost_add_used(vq, head, sizeof(pkt->hdr) + pkt->len);
++		vhost_add_used(vq, head, sizeof(pkt->hdr) + len);
+ 		added = true;
+ 	}
+ 
+-- 
+2.7.4
 
-But if some path has to use put_page(), then we are forced to use
-__GFP_COMP for high order pages.
-
-Thanks.
