@@ -1,42 +1,61 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH v3 0/3] sctp_diag: A bunch of fixes for upcoming 'ss'
- support
-Date: Thu, 4 Aug 2016 09:36:17 -0300
-Message-ID: <20160804123617.GG2967@localhost.localdomain>
-References: <1470305517-31880-1-git-send-email-phil@nwl.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/4] net_sched: netem: remove
+ qdisc_is_throttled() use
+Date: Thu, 04 Aug 2016 14:35:51 +0200
+Message-ID: <1470314151.13693.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465602099-15808-1-git-send-email-edumazet@google.com>
+	 <1465602099-15808-4-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Xin Long <lucien.xin@gmail.com>, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49006 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933388AbcHDMgW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Aug 2016 08:36:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1470305517-31880-1-git-send-email-phil@nwl.cc>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36217 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933388AbcHDMg0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 08:36:26 -0400
+Received: by mail-wm0-f67.google.com with SMTP id x83so43843204wma.3
+        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 05:36:26 -0700 (PDT)
+In-Reply-To: <1465602099-15808-4-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 04, 2016 at 12:11:54PM +0200, Phil Sutter wrote:
-> The following series contains a number of fixes necessary to make my yet
-> unpublished 'ss' support patch functional.
+On Fri, 2016-06-10 at 16:41 -0700, Eric Dumazet wrote:
+> Looks like it is only there as some optimization attempt.
 > 
-> Changes since v1:
-> - Fixed patch 2/3
-> - Rebased whole series onto current net-next/master
+> Since __QDISC_STATE_THROTTLED set/unset is way too expensive,
+> and netem is the last user, just remove this check.
 > 
-> Changes since v2:
-> - Improved description of patch 2/3
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/sched/sch_netem.c | 3 ---
+>  1 file changed, 3 deletions(-)
 > 
-> Phil Sutter (3):
->   sctp: Export struct sctp_info to userspace
->   sctp_diag: Fix T3_rtx timer export
->   sctp_diag: Respect ss adding TCPF_CLOSE to idiag_states
-> 
+> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+> index 9ca7947ab643..2dbe732ca135 100644
+> --- a/net/sched/sch_netem.c
+> +++ b/net/sched/sch_netem.c
+> @@ -582,9 +582,6 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+>  	struct sk_buff *skb;
+>  	struct rb_node *p;
+>  
+> -	if (qdisc_is_throttled(sch))
+> -		return NULL;
+> -
+>  tfifo_dequeue:
+>  	skb = __skb_dequeue(&sch->q);
+>  	if (skb) {
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Thanks!
+Note that this commit (42117927cab5a13192ecc227bea19da5059ffc6c
+"net_sched: netem: remove qdisc_is_throttled() use")
+is a stable candidate, as it incidentally removes one long standing bug.
+
+Namely, we were not calling qdisc_unthrottled() from netem enqueue(), so
+we would be forced to wait a timer activation to be able to drain the
+queue(s).
+
+This matters with either a jitter, or a "tc qdisc change ... delay <new
+delay>"
