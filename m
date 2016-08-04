@@ -1,93 +1,192 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: Hitting WARN_ON_ONCE on skb_try_coalesce
-Date: Thu, 4 Aug 2016 11:07:38 -0300
-Message-ID: <215693ed-3873-428d-3258-a0684f1e4015@gmail.com>
-References: <20160803233605.GF2967@localhost.localdomain>
- <1470290142.13693.11.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Slow veth performance over ipoib interface on 4.7.0 (and
+ earlier) (Was Re: [IPOIB] Excessive TX packet drops due to
+ IPOIB_MAX_PATH_REC_QUEUE)
+Date: Thu, 04 Aug 2016 10:08:28 -0400
+Message-ID: <1470319708.18081.104.camel@redhat.com>
+References: <5799E5E6.3060104@kyup.com>
+	 <CAAk-MO83mJTq=E_MC=izqq8fEmVujY=5egVmKfFjxAz4jO3hHg@mail.gmail.com>
+	 <579F065C.602@kyup.com>
+	 <CAAk-MO9C7i0en5ZE=pufz6tMecUi23kL=5FR36JNfPzuO1G5-g@mail.gmail.com>
+	 <57A34448.1040600@kyup.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-sPiCFsJznwRdSZtmbWtU"
+Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>,
+	Erez Shitrit <erezsh-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57A34448.1040600-6AxghH7DbtA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-sPiCFsJznwRdSZtmbWtU
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2016-08-04 at 16:34 +0300, Nikolay Borisov wrote:
+>=20
+> On 08/01/2016 11:56 AM, Erez Shitrit wrote:
+> >=20
+> > The GID (9000:0:2800:0:bc00:7500:6e:d8a4) is not regular, not from
+> > local subnet prefix.
+> > why is that?
+> >=20
+>=20
+> So I managed to debug this and it tuns out the problem lies between
+> veth
+> and ipoib interaction:
+>=20
+> I've discovered the following strange thing. If I have a vethpair
+> where
+> the 2 devices are in a different net namespaces as shown in the
+> scripts
+> I have attached then the performance of sending a file, originating
+> from
+> the veth interface inside the non-init netnamespace, going across the
+> ipoib interface is very slow (100kb). For simple reproduction I'm
+> attaching
+> 2 scripts which have to be run on 2 machine and the respective ip
+> addresses
+> set on them. Then sending node woult initiate a simple file copy over
+> NC.
+> I've observed this behavior on upstream 4.4, 4.5.4 and 4.7.0 kernels
+> both
+> with ipv4 and ipv6 addresses. Here is what the debug log of the ipoib
+> module shows:
+>=20
+> ib%d: max_srq_sge=3D128
+> ib%d: max_cm_mtu =3D 0xfff0, num_frags=3D16
+> ib0: enabling connected mode will cause multicast packet drops
+> ib0: mtu > 4092 will cause multicast packet drops.
+> ib0: bringing up interface
+> ib0: starting multicast thread
+> ib0: joining MGID ff12:401b:ffff:0000:0000:0000:ffff:ffff
+> ib0: restarting multicast task
+> ib0: adding multicast entry for mgid
+> ff12:601b:ffff:0000:0000:0000:0000:0001
+> ib0: restarting multicast task
+> ib0: adding multicast entry for mgid
+> ff12:401b:ffff:0000:0000:0000:0000:0001
+> ib0: join completion for ff12:401b:ffff:0000:0000:0000:ffff:ffff
+> (status 0)
+> ib0: Created ah ffff88081063ea80
+> ib0: MGID ff12:401b:ffff:0000:0000:0000:ffff:ffff AV
+> ffff88081063ea80, LID 0xc000, SL 0
+> ib0: joining MGID ff12:601b:ffff:0000:0000:0000:0000:0001
+> ib0: joining MGID ff12:401b:ffff:0000:0000:0000:0000:0001
+> ib0: successfully started all multicast joins
+> ib0: join completion for ff12:601b:ffff:0000:0000:0000:0000:0001
+> (status 0)
+> ib0: Created ah ffff880839084680
+> ib0: MGID ff12:601b:ffff:0000:0000:0000:0000:0001 AV
+> ffff880839084680, LID 0xc002, SL 0
+> ib0: join completion for ff12:401b:ffff:0000:0000:0000:0000:0001
+> (status 0)
+> ib0: Created ah ffff88081063e280
+> ib0: MGID ff12:401b:ffff:0000:0000:0000:0000:0001 AV
+> ffff88081063e280, LID 0xc004, SL 0
+>=20
+> When the transfer is initiated I can see the following errors
+> on the sending node:
+>=20
+> ib0: PathRec status -22 for GID
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: neigh free for 000003 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: Start path record lookup for
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: PathRec status -22 for GID
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: neigh free for 000003 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: Start path record lookup for
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: PathRec status -22 for GID
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: neigh free for 000003 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: Start path record lookup for
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: PathRec status -22 for GID
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: Start path record lookup for
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: PathRec status -22 for GID
+> 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: neigh free for 000003 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+> ib0: neigh free for 000003 0401:0000:1400:0000:a0a8:ffff:1c01:4d36
+>=20
+> Here is the port guid of the sending node: 0x0011750000772664 and
+> on the receiving one: 0x0011750000774d36
+>=20
+> Here is how the paths look like on the sending node,=C2=A0
+> clearly the paths being requested from the veth interface
+>=20
+> cat /sys/kernel/debug/ipoib/ib0_path
+> GID: 401:0:1400:0:a0a8:ffff:1c01:4d36
+> complete: no
+>=20
+> GID: 401:0:1400:0:a410:ffff:1c01:4d36
+> complete: no
+>=20
+> GID: fe80:0:0:0:11:7500:77:2a1a
+> complete: yes
+> DLID: 0x0004
+> SL: 0
+> rate: 40.0 Gb/sec
+>=20
+> GID: fe80:0:0:0:11:7500:77:4d36
+> complete: yes
+> DLID: 0x000a
+> SL: 0
+> rate: 40.0 Gb/sec
+>=20
+> Testing the same scenario but instead of using veth devices I create
+> the device in the non-init netnamespace via the following commands
+> I can achieve sensible speeds:
+> ip link add link ib0 name ip1 type ipoib
+> ip link set dev ip1 netns test-netnamespace
+>=20
+>=20
+>=20
+>=20
+> =C2=A0
+> [Snipped a lot of useless stuff]
+
+The poor performance sounds a duplicate of the issue reported by Roland
+and in the upstream kernel bugzilla 111921. =C2=A0That would be the IPoIB
+routed packet performance issue.
+
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+              GPG KeyID: 0E572FDD
+
+--=-sPiCFsJznwRdSZtmbWtU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35827 "EHLO
-	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933841AbcHDOHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 10:07:50 -0400
-Received: by mail-qk0-f194.google.com with SMTP id q62so20667627qkf.2
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 07:07:44 -0700 (PDT)
-In-Reply-To: <1470290142.13693.11.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Em 04-08-2016 02:55, Eric Dumazet escreveu:
-> On Wed, 2016-08-03 at 20:36 -0300, Marcelo Ricardo Leitner wrote:
->> Hi,
->>
->> I have two namespaces linked with a veth and netem in one of them adding 20ms
->> latency, and doing netperf from one to another. I'm on commit
->> 7cf210dc267861360cf6968b69bf512475aca985, net updated today, and I'm hitting
->> this:
->>
->> [ 1043.024555] WARNING: CPU: 3 PID: 19902 at ...../linux/net/core/skbuff.c:4289 skb_try_coalesce+0x414/0x430
->> [ 1043.024556] Kernel panic - not syncing: panic_on_warn set ...
->>
->> [ 1043.024601] CPU: 3 PID: 19902 Comm: netserver Not tainted 4.7.0-standard+ #20
->> [ 1043.024631] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.9.1-1.fc24 04/01/2014
->> [ 1043.024667]  0000000000000086 00000000db033d46 ffff880035733ad8 ffffffff813d630d
->> [ 1043.024705]  0000000000000000 ffffffff81a35655 ffff880035733b60 ffffffff811b5e3d
->> [ 1043.024741]  ffff880000000008 ffff880035733b70 ffff880035733b08 00000000db033d46
->> [ 1043.024777] Call Trace:
->> [ 1043.024794]  [<ffffffff813d630d>] dump_stack+0x63/0x86
->> [ 1043.024818]  [<ffffffff811b5e3d>] panic+0xe4/0x226
->> [ 1043.024842]  [<ffffffff816ae244>] ? skb_try_coalesce+0x414/0x430
->> [ 1043.024870]  [<ffffffff810a5f13>] __warn+0xe3/0xf0
->> [ 1043.024892]  [<ffffffff810a602d>] warn_slowpath_null+0x1d/0x20
->> [ 1043.024919]  [<ffffffff816ae244>] skb_try_coalesce+0x414/0x430
->> [ 1043.024945]  [<ffffffff817165f3>] tcp_try_coalesce+0x63/0xd0
->> [ 1043.024977]  [<ffffffff81718497>] tcp_queue_rcv+0x57/0x140
->> [ 1043.025003]  [<ffffffff8171e132>] tcp_rcv_established+0x3f2/0x6f0
->> [ 1043.025029]  [<ffffffff81728815>] tcp_v4_do_rcv+0x145/0x200
->> [ 1043.025054]  [<ffffffff816a4387>] __release_sock+0x87/0xf0
->> [ 1043.025078]  [<ffffffff816a4420>] release_sock+0x30/0xa0
->> [ 1043.025102]  [<ffffffff81711d8c>] tcp_recvmsg+0x5fc/0xb70
->> [ 1043.025126]  [<ffffffff8174051e>] inet_recvmsg+0x7e/0xb0
->> [ 1043.025151]  [<ffffffff8169f61d>] sock_recvmsg+0x3d/0x50
->> [ 1043.025175]  [<ffffffff8169f85a>] SYSC_recvfrom+0xda/0x150
->> [ 1043.025201]  [<ffffffff811157df>] ? do_setitimer+0x1bf/0x220
->> [ 1043.025226]  [<ffffffff81115891>] ? alarm_setitimer+0x51/0x90
->> [ 1043.025252]  [<ffffffff816a0bbe>] SyS_recvfrom+0xe/0x10
->> [ 1043.025277]  [<ffffffff817df132>] entry_SYSCALL_64_fastpath+0x1a/0xa4
->>
->> That's:
->>         WARN_ON_ONCE(delta < len);
->>
->> Netperf command line is:
->> netperf -cC -l 10 -t TCP_STREAM \
->> 		-H 192.168.10.1 -L 192.168.10.2
->>
->> netem is added on netperf/client side.
->>
->> It triggers it right at the beginning of the test.
->>
->> I can reproduce it 100% of the times with above setup.
->> - Removing netem made it stop reproducing.
->> - Reducing netem latency to 10ms, still warns
->> - Reducing netem latency to 1ms, still warns
->> - Reducing netem latency to 0ms, it stops reproducing it
->>
->> This system is not generating a kdump, I'm looking into it.
->
-> This is caused by the skb_orphan_partial() call from netem.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-That also explains why I couldn't trigger it with sctp then.
+iQIcBAABCAAGBQJXo0xcAAoJELgmozMOVy/duakP/iNOIDp8OWq8eEQR/UtyIfuL
+hv3FCPJqRRPq8JglTmVuzBrCjMqCt5re7sKpsQW78Ew1AlqqVjDXRhJGHEMDc0+H
+daE/5/0+AYHNMU+RrxU1ujT3HwXYy8Dync1NoG3tkmNOoh/txABF8R+AwJ+9xedt
+r7nygC3NZWqC9hOe6j/VsfaEc9ITCm4gAtX0mZwbSvS4dTEz7Lctrwg6K6IXIoFj
+PWr5SguSb8l8p+tp5QgwMDWSJrKRgGgC0CTQDuswOgI9NcDuRoB/GH0vg/G8BeN1
+VStm1DWejs7P4KqwYTE0P/Z6rx4Ak9mrSdhAOwRuFW4kCw4KgSxfMO3zHN8NlLlr
+dCMT2SJJv3ydsPPMU7xvH8YkO2gX3nOuy2adjlreb/DCrQuVBtqZ2c5OXK9bdmV7
+r3kgV7tYdE32Y1suD/L2slExTyBhZmzEtvUAKh8I0VvTMz669c2+s1WQDKX6/Aah
+4mtj8ZEFwg4dXMKsoIDi/pOQWLo8rkEZBQd9A3AKYHEdQ05UgTMtFRIqQkbaKLuq
+oicpNMbQW3+lBTZ1GT1VXoldmpqf4X7la77b8PT/SlD2G1E3X4EDuquJz8fHmQfQ
++oel95Vl7CewwmM9FUDf6EZA8ofa69I6bcsyId1uAkeHvufK06uDFrSRhZ+3uOrx
+PpX+r2z5duUaxCZP2s5o
+=yX6W
+-----END PGP SIGNATURE-----
 
->
-> This breaks if packet is re-injected instead of being sent to a physical
-> NIC.
->
+--=-sPiCFsJznwRdSZtmbWtU--
 
-This truesize change will also break rx buffer accounting, as delta will 
-become negative and propagated to the merged skb.
-
-I'm trying to save it on netem cb and restore it before pushing it forward.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
