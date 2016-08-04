@@ -1,60 +1,101 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH iproute v2 0/5] iproute: ila and fou addition
-Date: Thu, 4 Aug 2016 13:34:52 -0700
-Message-ID: <1470342897-2004557-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
-To: <shemming@brocade.com>, <netdev@vger.kernel.org>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH] priority improvement
+Date: Fri,  5 Aug 2016 00:11:52 +0300
+Message-ID: <1470345113-804-4-git-send-email-ivan.khoronzhuk@linaro.org>
+References: <1470345113-804-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
+	linux-kernel@vger.kernel.org,
+	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: netdev@vger.kernel.org, mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:26183 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759009AbcHDUfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 16:35:12 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u74KQ5dM004900
-	for <netdev@vger.kernel.org>; Thu, 4 Aug 2016 13:35:10 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 24m96d9mm0-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 13:35:10 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- ef4070d65a8211e689880002c991e86a-195f7af0 for <netdev@vger.kernel.org>;	Thu,
- 04 Aug 2016 13:35:08 -0700
+Received: from mail-lf0-f52.google.com ([209.85.215.52]:32875 "EHLO
+	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966251AbcHDVMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 17:12:13 -0400
+Received: by mail-lf0-f52.google.com with SMTP id b199so190865844lfe.0
+        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 14:12:12 -0700 (PDT)
+In-Reply-To: <1470345113-804-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch set includes:
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+ drivers/net/ethernet/ti/cpsw.c | 45 +++++++++++++++++-------------------------
+ 1 file changed, 18 insertions(+), 27 deletions(-)
 
-- Allow configuring checksum mode for ila LWT (e.g. configure
-  checksum neutral
-- Configuration for performing ila translations using netfilter hook
-- fou encapsulation for ip6tnl and gre6
-- fou listener for IPv6
-
-v2:
-  - Style fixes
-  - Replace occurences of RTA_DATA with rta_getattr_u*
-
-Tom Herbert (5):
-  ila: Support for checksum neutral translation
-  ila: Support for configuring ila to use netfilter hook
-  ip6tnl: Support for fou encapsulation
-  gre6: Support for fou encapsulation
-  fou: Allowing configuring IPv6 listener
-
- ip/Makefile           |   2 +-
- ip/ip.c               |   3 +-
- ip/ip_common.h        |   1 +
- ip/ipfou.c            |   9 +-
- ip/ipila.c            | 267 ++++++++++++++++++++++++++++++++++++++++++++++++++
- ip/iproute_lwtunnel.c |  58 ++++++++++-
- ip/link_gre.c         |   2 +-
- ip/link_gre6.c        | 101 +++++++++++++++++++
- ip/link_ip6tnl.c      |  92 ++++++++++++++++-
- 9 files changed, 527 insertions(+), 8 deletions(-)
- create mode 100644 ip/ipila.c
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 9ddaccc..cd12f52 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -788,22 +788,16 @@ static int cpsw_tx_poll(struct napi_struct *napi_tx, int budget)
+ {
+ 	struct cpsw_priv	*priv = napi_to_priv(napi_tx);
+ 	int			num_tx, ch;
+-	u32			ch_map;
++	unsigned long		ch_map;
+ 
+ 	/* process every unprocessed channel */
+-	ch_map = cpdma_ctrl_txchs_state(priv->dma);
+-	for (ch = 0, num_tx = 0; num_tx < budget; ch_map >>= 1, ch++) {
+-		if (!ch_map) {
+-			ch_map = cpdma_ctrl_txchs_state(priv->dma);
+-			if (!ch_map)
+-				break;
+-
+-			ch = 0;
+-		}
+-
+-		if (!(ch_map & 0x01))
+-			continue;
++	for (num_tx = 0; num_tx < budget;) {
++		ch_map = cpdma_ctrl_txchs_state(priv->dma);
++		if (!ch_map)
++			break;
+ 
++		/* process beginning from higher priority queue */
++		ch = __fls(ch_map);
+ 		num_tx += cpdma_chan_process(priv->txch[ch], budget - num_tx);
+ 	}
+ 
+@@ -829,19 +823,13 @@ static int cpsw_rx_poll(struct napi_struct *napi_rx, int budget)
+ 	u32			ch_map;
+ 
+ 	/* process every unprocessed channel */
+-	ch_map = cpdma_ctrl_rxchs_state(priv->dma);
+-	for (ch = 0, num_rx = 0; num_rx < budget; ch_map >>= 1, ch++) {
+-		if (!ch_map) {
+-			ch_map = cpdma_ctrl_rxchs_state(priv->dma);
+-			if (!ch_map)
+-				break;
+-
+-			ch = 0;
+-		}
+-
+-		if (!(ch_map & 0x01))
+-			continue;
++	for (num_rx = 0; num_rx < budget;) {
++		ch_map = cpdma_ctrl_rxchs_state(priv->dma);
++		if (!ch_map)
++			break;
+ 
++		/* process beginning from higher priority queue */
++		ch = __fls(ch_map);
+ 		num_rx += cpdma_chan_process(priv->rxch[ch], budget - num_rx);
+ 	}
+ 
+@@ -1130,8 +1118,11 @@ cpsw_tx_queue_mapping(struct cpsw_priv *priv, struct sk_buff *skb)
+ {
+ 	unsigned int q_idx = skb_get_queue_mapping(skb);
+ 
+-	if (q_idx >= priv->tx_ch_num)
+-		q_idx = q_idx % priv->tx_ch_num;
++	/* cpsw h/w has backward order queue priority, 7 - highest */
++	if (likely(q_idx < priv->tx_ch_num))
++		q_idx = priv->tx_ch_num - q_idx - 1;
++	else
++		q_idx = 0;
+ 
+ 	return priv->txch[q_idx];
+ }
 -- 
-2.8.0.rc2
+1.9.1
