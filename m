@@ -1,110 +1,72 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
- net/mlx4_en: add page recycle to prepare rx ring for tx support
-Date: Thu, 4 Aug 2016 18:19:13 +0200
-Message-ID: <20160804181913.26ee17b9@redhat.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
-	<1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
-	<1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160803174107.GA38399@ast-mbp.thefacebook.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] VSOCK: fix vhost virtio_vsock_pkt use-after-free
+Date: Thu, 4 Aug 2016 19:34:43 +0300
+Message-ID: <20160804193338-mutt-send-email-mst@kernel.org>
+References: <1470318773-10414-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Brenden Blanco
- <bblanco@plumgrid.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, Jamal
- Hadi Salim <jhs@mojatatu.com>,
-        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-        Or Gerlitz
- <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-        hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-        Tom Herbert
- <tom@herbertland.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Tariq Toukan
- <ttoukan.linux@gmail.com>, brouer@redhat.com,
-        Mel Gorman
- <mgorman@techsingularity.net>,
-        linux-mm <linux-mm@kvack.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160803174107.GA38399@ast-mbp.thefacebook.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57634 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756095AbcHDQeo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 12:34:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1470318773-10414-1-git-send-email-stefanha@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-
-> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
-> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:  
-> > > The mlx4 driver by default allocates order-3 pages for the ring to
-> > > consume in multiple fragments. When the device has an xdp program, this
-> > > behavior will prevent tx actions since the page must be re-mapped in
-> > > TODEVICE mode, which cannot be done if the page is still shared.
-> > > 
-> > > Start by making the allocator configurable based on whether xdp is
-> > > running, such that order-0 pages are always used and never shared.
-> > > 
-> > > Since this will stress the page allocator, add a simple page cache to
-> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
-> > > stress tests the page allocator is eliminated from the perf report.
-> > > 
-> > > Note that setting an xdp program will now require the rings to be
-> > > reconfigured.  
-> > 
-> > Again, this has nothing to do with XDP ?
-> > 
-> > Please submit a separate patch, switching this driver to order-0
-> > allocations.
-> > 
-> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
-> > send a generic patch, but had been traveling lately, and currently in
-> > vacation.
-> > 
-> > order-3 pages are problematic when dealing with hostile traffic anyway,
-> > so we should exclusively use order-0 pages, and page recycling like
-> > Intel drivers.
-> > 
-> > http://lists.openwall.net/netdev/2016/04/11/88  
+On Thu, Aug 04, 2016 at 02:52:53PM +0100, Stefan Hajnoczi wrote:
+> Stash the packet length in a local variable before handing over
+> ownership of the packet to virtio_transport_recv_pkt() or
+> virtio_transport_free_pkt().
 > 
-> Completely agree. These multi-page tricks work only for benchmarks and
-> not for production.
-> Eric, if you can submit that patch for mlx4 that would be awesome.
+> This patch solves the use-after-free since pkt is no longer guaranteed
+> to be alive.
 > 
-> I think we should default to order-0 for both mlx4 and mlx5.
-> Alternatively we're thinking to do a netlink or ethtool switch to
-> preserve old behavior, but frankly I don't see who needs this order-N
-> allocation schemes.
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 
-I actually agree, that we should switch to order-0 allocations.
 
-*BUT* this will cause performance regressions on platforms with
-expensive DMA operations (as they no longer amortize the cost of
-mapping a larger page).
+Thanks!
+I'd prefer a lower-case prefix, mentioning vhost, such as vhost/vsock.
+I'll tweak it for now.
 
-Plus, the base cost of order-0 page is 246 cycles (see [1] slide#9),
-and the 10G wirespeed target is approx 201 cycles.  Thus, for these
-speeds some page recycling tricks are needed.  I described how the Intel
-drives does a cool trick in [1] slide#14, but it does not address the
-DMA part and costs some extra atomic ops.
-
-I've started coding on the page-pool last week, which address both the
-DMA mapping and recycling (with less atomic ops). (p.s. still on
-vacation this week).
-
-http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> ---
+>  drivers/vhost/vsock.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+> index 0ddf3a2..e3b30ea 100644
+> --- a/drivers/vhost/vsock.c
+> +++ b/drivers/vhost/vsock.c
+> @@ -307,6 +307,8 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+>  
+>  	vhost_disable_notify(&vsock->dev, vq);
+>  	for (;;) {
+> +		u32 len;
+> +
+>  		if (!vhost_vsock_more_replies(vsock)) {
+>  			/* Stop tx until the device processes already
+>  			 * pending replies.  Leave tx virtqueue
+> @@ -334,13 +336,15 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+>  			continue;
+>  		}
+>  
+> +		len = pkt->len;
+> +
+>  		/* Only accept correctly addressed packets */
+>  		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
+>  			virtio_transport_recv_pkt(pkt);
+>  		else
+>  			virtio_transport_free_pkt(pkt);
+>  
+> -		vhost_add_used(vq, head, sizeof(pkt->hdr) + pkt->len);
+> +		vhost_add_used(vq, head, sizeof(pkt->hdr) + len);
+>  		added = true;
+>  	}
+>  
+> -- 
+> 2.7.4
