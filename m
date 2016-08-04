@@ -1,95 +1,103 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH] net: ethernet: ti: cpdma: remove used_desc counter
-Date: Thu, 4 Aug 2016 18:56:12 +0300
-Message-ID: <614baaea-0b60-647b-6000-d4676a94df6b@linaro.org>
-References: <20160804152051.30565-1-grygorii.strashko@ti.com>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,
+ 1/2] hv_netvsc: Add query for initial physical link speed
+Date: Thu,  4 Aug 2016 10:42:14 -0700
+Message-ID: <1470332535-15554-1-git-send-email-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-	linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160804152051.30565-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: haiyangz@microsoft.com, driverdev-devel@linuxdriverproject.org,
+ olaf@aepfle.de
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
+The physical link speed value will be reported by ethtool command.
+The real speed is available from Windows 2016 host or later.
 
-On 04.08.16 18:20, Grygorii Strashko wrote:
-> The struct cpdma_desc_pool->used_desc field can be safely removed from
-> CPDMA driver (and hot patch) because used_descs counter is used just
-> for pool consistency check at CPDMA deinitialization and now this
-> check can be re-implemnted using gen_pool_size(pool->gen_pool) !=
-> gen_pool_avail(pool->gen_pool).
-> More over, this will allow to get rid of warnings in
-> cpdma_desc_pool_destro()-> WARN_ON(pool->used_desc) which may happen
-> because the used_descs is used unprotected, since CPDMA has been
-> switched to use genalloc, and may get wrong values on SMP.
->
-> Hence, remove used_desc from struct cpdma_desc_pool.
->
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c   |    4 ++--
+ drivers/net/hyperv/rndis_filter.c |   24 ++++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 2 deletions(-)
 
-Reviewed-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 18 +++++++-----------
->  1 file changed, 7 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 19e5f32..cf72b33 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -86,7 +86,7 @@ struct cpdma_desc_pool {
->  	void __iomem		*iomap;		/* ioremap map */
->  	void			*cpumap;	/* dma_alloc map */
->  	int			desc_size, mem_size;
-> -	int			num_desc, used_desc;
-> +	int			num_desc;
->  	struct device		*dev;
->  	struct gen_pool		*gen_pool;
->  };
-> @@ -148,7 +148,10 @@ static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
->  	if (!pool)
->  		return;
->
-> -	WARN_ON(pool->used_desc);
-> +	WARN(gen_pool_size(pool->gen_pool) != gen_pool_avail(pool->gen_pool),
-> +	     "cpdma_desc_pool size %d != avail %d",
-> +	     gen_pool_size(pool->gen_pool),
-> +	     gen_pool_avail(pool->gen_pool));
->  	if (pool->cpumap)
->  		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
->  				  pool->phys);
-> @@ -232,21 +235,14 @@ desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
->  static struct cpdma_desc __iomem *
->  cpdma_desc_alloc(struct cpdma_desc_pool *pool)
->  {
-> -	struct cpdma_desc __iomem *desc = NULL;
-> -
-> -	desc = (struct cpdma_desc __iomem *)gen_pool_alloc(pool->gen_pool,
-> -							   pool->desc_size);
-> -	if (desc)
-> -		pool->used_desc++;
-> -
-> -	return desc;
-> +	return (struct cpdma_desc __iomem *)
-> +		gen_pool_alloc(pool->gen_pool, pool->desc_size);
->  }
->
->  static void cpdma_desc_free(struct cpdma_desc_pool *pool,
->  			    struct cpdma_desc __iomem *desc, int num_desc)
->  {
->  	gen_pool_free(pool->gen_pool, (unsigned long)desc, pool->desc_size);
-> -	pool->used_desc--;
->  }
->
->  struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
->
-
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 41bd952..3e5356b 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1352,6 +1352,8 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	netif_carrier_off(net);
+ 
++	netvsc_init_settings(net);
++
+ 	net_device_ctx = netdev_priv(net);
+ 	net_device_ctx->device_ctx = dev;
+ 	net_device_ctx->msg_enable = netif_msg_init(debug, default_msg);
+@@ -1410,8 +1412,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+ 
+-	netvsc_init_settings(net);
+-
+ 	ret = register_netdev(net);
+ 	if (ret != 0) {
+ 		pr_err("Unable to register netdev.\n");
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 8e830f7..dd3b335 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -752,6 +752,28 @@ static int rndis_filter_query_device_link_status(struct rndis_device *dev)
+ 	return ret;
+ }
+ 
++static int rndis_filter_query_link_speed(struct rndis_device *dev)
++{
++	u32 size = sizeof(u32);
++	u32 link_speed;
++	struct net_device_context *ndc;
++	int ret;
++
++	ret = rndis_filter_query_device(dev, RNDIS_OID_GEN_LINK_SPEED,
++					&link_speed, &size);
++
++	if (!ret) {
++		ndc = netdev_priv(dev->ndev);
++
++		/* The link speed reported from host is in 100bps unit, so
++		 * we convert it to Mbps here.
++		 */
++		ndc->speed = link_speed / 10000;
++	}
++
++	return ret;
++}
++
+ int rndis_filter_set_packet_filter(struct rndis_device *dev, u32 new_filter)
+ {
+ 	struct rndis_request *request;
+@@ -1044,6 +1066,8 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	if (net_device->nvsp_version < NVSP_PROTOCOL_VERSION_5)
+ 		return 0;
+ 
++	rndis_filter_query_link_speed(rndis_device);
++
+ 	/* vRSS setup */
+ 	memset(&rsscap, 0, rsscap_size);
+ 	ret = rndis_filter_query_device(rndis_device,
 -- 
-Regards,
-Ivan Khoronzhuk
+1.7.4.1
