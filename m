@@ -1,51 +1,46 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [RFC 4/4] bpf: Restrict Checmate bpf programs to current kernel
- ABI
-Date: Thu, 04 Aug 2016 11:54:45 +0200
-Message-ID: <57A310E5.7030000@iogearbox.net>
-References: <20160804071227.GA19135@ircssh.c.rugged-nimbus-611.internal> <57A31070.8090602@iogearbox.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: IPIP tunnel with fixed TTL but no DF bit
+Date: Thu, 4 Aug 2016 12:25:41 +0200
+Message-ID: <33dfec52-46c0-7eca-11f3-934a99fa54cc@stressinduktion.org>
+References: <1b4cfd95-4242-c0a6-7cd4-43fa037e2bae@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>, linux-kernel@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <57A31070.8090602@iogearbox.net>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.dichtel@6wind.com
+To: Alexander Heinlein <alexander.heinlein@secunet.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:52546 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757194AbcHDKdE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 06:33:04 -0400
+In-Reply-To: <1b4cfd95-4242-c0a6-7cd4-43fa037e2bae@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/04/2016 11:52 AM, Daniel Borkmann wrote:
-> On 08/04/2016 09:12 AM, Sargun Dhillon wrote:
->> I think it makes sense to restrict Checmate to loading programs that have been
->> compiled with the current kernel ABI. We can further stabilize the ABI, and
->> perhaps lift this restriction later.
->>
->> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
->> ---
->>   kernel/bpf/syscall.c         | 2 +-
->>   samples/bpf/checmate1_kern.c | 3 ++-
->>   2 files changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
->> index 228f962..2a37b4d 100644
->> --- a/kernel/bpf/syscall.c
->> +++ b/kernel/bpf/syscall.c
->> @@ -741,7 +741,7 @@ static int bpf_prog_load(union bpf_attr *attr)
->>       if (attr->insn_cnt >= BPF_MAXINSNS)
->>           return -EINVAL;
->>
->> -    if (type == BPF_PROG_TYPE_KPROBE &&
->> +    if ((type & (BPF_PROG_TYPE_KPROBE | BPF_PROG_TYPE_CHECMATE)) &&
->>           attr->kern_version != LINUX_VERSION_CODE)
->
-> Btw, this check is correct, program types are not masks.
+Hello,
 
-Sorry, I meant to write *not* correct, which was hopefully inferable from
-the rest.
+On 04.08.2016 08:20, Alexander Heinlein wrote:
+> I would like to know why ip_tunnel_ioctl() enforces the DF bit whenever
+> the tunnel device has a fixed TTL set. The same restriction is enforced
+> by iproute2 (iptunnel.c and link_iptnl.c).
+> 
+> Ideally I would like to use an IPIP tunnel with a fixed TTL but no DF
+> bit set. Otherwise for non-TCP packets that are larger than the PMTU
+> size the kernel will send ICMP packets to end systems. However these
+> ICMP packets are ignored by the end system since the original packets
+> didn't have the DF bit set. As a result, non-TCP packets larger than the
+> PMTU are being dropped.
 
-> BPF_PROG_TYPE_KPROBE (== 2) and BPF_PROG_TYPE_CHECMATE (== 7) will now
-> require every type to have a version code ...
->
->>           return -EINVAL;
->>
+It should prevent endless loops. Imagine you have a packet looping into
+the tunnel again somehow because of broken network setup: the tie
+breaker normally is the TTL, so if it reaches zero, the packet gets
+dropped. You can do the same with the packet size. So you add yet
+another tunnel header, until you can't forward it anymore and thus drop
+the packet, too.
+
+If you don't use any of those tie breakers you are vulnerable to network
+outages.
+
+Bye,
+Hannes
