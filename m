@@ -1,40 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Buggy rhashtable walking
-Date: Fri, 05 Aug 2016 08:16:53 +0200
-Message-ID: <1470377813.2977.14.camel@sipsolutions.net>
-References: <20160804071846.GA773@gondor.apana.org.au>
-	 <20160804074546.GA996@gondor.apana.org.au>
-	 (sfid-20160804_094611_627754_FBB091B2)
+From: <Wenyou.Yang@microchip.com>
+Subject: RE: [PATCH v1] net: phy: micrel: Add specific suspend
+Date: Fri, 5 Aug 2016 06:18:11 +0000
+Message-ID: <F9F4555C4E01D7469D37975B62D0EFBB393CF0@CHN-SV-EXMX07.mchp-main.com>
+References: <1470270095-13131-1-git-send-email-wenyou.yang@atmel.com>
+ <11f70064-11d6-47b9-6ec1-83b7b0dc5419@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, tom@herbertland.com
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:36276 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965694AbcHEGRC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2016 02:17:02 -0400
-In-Reply-To: <20160804074546.GA996@gondor.apana.org.au> (sfid-20160804_094611_627754_FBB091B2)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<alexandre.belloni@free-electrons.com>, <nicolas.ferre@atmel.com>,
+	<andrew@lunn.ch>
+To: <f.fainelli@gmail.com>, <wenyou.yang@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <11f70064-11d6-47b9-6ec1-83b7b0dc5419@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-> So I'm going to fix this by consolidating identical objects into
-> a single rhashtable entry which also lets us get rid of the
-> insecure_elasticity setting.
-
-Hm. Would you rather allocate a separate head entry for the hashtable,
-or chain the entries?
-
-(Luckily) the colliding key case practically never happens, and some
-drivers don't even allow it, so that's perhaps something to keep in
-mind for this. Perhaps we should just generally disallow it - but a few
-people (hi Ben) would be really unhappy about that I guess.
-
-I think this might affect more than one use of rhashtable in mac80211
-now, since the mesh paths also use it.
-
-johannes
+SGkgRmxvcmlhbiwNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9y
+aWFuIEZhaW5lbGxpIFttYWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IDIwMTbE
+6jjUwjTI1SAxMTozMw0KPiBUbzogV2VueW91IFlhbmcgPHdlbnlvdS55YW5nQGF0bWVsLmNvbT4N
+Cj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5v
+cmc7IGxpbnV4LWFybS0NCj4ga2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7IEFsZXhhbmRyZSBC
+ZWxsb25pIDxhbGV4YW5kcmUuYmVsbG9uaUBmcmVlLQ0KPiBlbGVjdHJvbnMuY29tPjsgTmljb2xh
+cyBGZXJyZSA8bmljb2xhcy5mZXJyZUBhdG1lbC5jb20+OyBBbmRyZXcgTHVubg0KPiA8YW5kcmV3
+QGx1bm4uY2g+DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjFdIG5ldDogcGh5OiBtaWNyZWw6IEFk
+ZCBzcGVjaWZpYyBzdXNwZW5kDQo+IA0KPiBPbiAwMy8wOC8yMDE2IDE3OjIxLCBXZW55b3UgWWFu
+ZyB3cm90ZToNCj4gPiBEaXNhYmxlIGFsbCBpbnRlcnJ1cHRzIHdoZW4gc3VzcGVuZCwgdGhleSB3
+aWxsIGJlIGVuYWJsZWQgd2hlbiByZXN1bWUuDQo+ID4gT3RoZXJ3aXNlLCB0aGUgc3VzcGVuZC9y
+ZXN1bWUgcHJvY2VzcyB3aWxsIGJlIGJsb2NrZWQgb2NjYXNpb25hbGx5Lg0KPiANCj4gVGhpcyBz
+ZWVtcyBsaWtlIHNvbWV0aGluZyBmYWlybHkgZ2VuZXJpYyBhY3R1YWxseSwgd2UgY291bGQgaW1h
+Z2luZSBoYXZpbmcgdGhlDQo+IGNvcmUgbGlicmFyeSBkbyBzb21ldGhpbmcgbGlrZSB0aGlzOg0K
+PiANCj4gLSBpZiBpbnRlcnJ1cHRzIGFyZSB2YWxpZCBhbmQgZW5hYmxlZCBmb3IgdGhlIFBIWSwg
+Y2FsbA0KPiBwaHlkcnYtPmNvbmZpZ19pbnRyKCkgd2l0aCBQSFlfSU5URVJSVVBUX0RJU0FCTEVE
+DQo+IC0gY2FsbCBnZW5waHlfc3VzcGVuZA0KDQpBY2NlcHRlZC4gSSB3aWxsIHNlbmQgYSBuZXcg
+dmVyc2lvbi4NCg0KPiANCj4gT2YgY291cnNlIGlmIG5vbmUgb2YgdGhpcyBmaXRzIHRoZSBnZW5l
+cmljIG1vZGVsLCB0aGUgUEhZIGRyaXZlciBjYW4gc3RpbGwgcHJvdmlkZSBhDQo+IHN1c3BlbmQg
+Y2FsbGJhY2suIE1pZ2h0IGJlIHdvcnRoIGF1ZGl0aW5nIG90aGVyIGRyaXZlcnMgZm9yIHRoYXQg
+cGF0dGVybiBhbmQgbG9vayBhdA0KPiB0aG9zZSB0aGF0IG5lZWQgc3BlY2lmaWMgaGFuZGxpbmcg
+bGlrZSBrZWVwaW5nIHNwZWNpZmljIGludGVycnVwdCBzb3VyY2VzIGFjdGl2ZSBmb3INCj4gZS5n
+OiB3YWtlLW9uLUxBTi4NCj4gDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBXZW55b3UgWWFuZyA8
+d2VueW91LnlhbmdAYXRtZWwuY29tPg0KPiA+IEFja2VkLWJ5OiBOaWNvbGFzIEZlcnJlIDxuaWNv
+bGFzLmZlcnJlQGF0bWVsLmNvbT4NCj4gPiAtLS0NCj4gPg0KPiA+ICBkcml2ZXJzL25ldC9waHkv
+bWljcmVsLmMgfCAxOSArKysrKysrKysrKysrKysrKystDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAx
+OCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJp
+dmVycy9uZXQvcGh5L21pY3JlbC5jIGIvZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jIGluZGV4DQo+
+ID4gNWE4ZmVmYy4uOGNiNzc4YSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9waHkvbWlj
+cmVsLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9waHkvbWljcmVsLmMNCj4gPiBAQCAtNjQ3LDYg
+KzY0NywyMyBAQCBzdGF0aWMgdm9pZCBrc3pwaHlfZ2V0X3N0YXRzKHN0cnVjdCBwaHlfZGV2aWNl
+DQo+ICpwaHlkZXYsDQo+ID4gIAkJZGF0YVtpXSA9IGtzenBoeV9nZXRfc3RhdChwaHlkZXYsIGkp
+OyAgfQ0KPiA+DQo+ID4gK2ludCBrc3pwaHlfc3VzcGVuZChzdHJ1Y3QgcGh5X2RldmljZSAqcGh5
+ZGV2KSB7DQo+ID4gKwlpbnQgdmFsdWU7DQo+ID4gKw0KPiA+ICsJbXV0ZXhfbG9jaygmcGh5ZGV2
+LT5sb2NrKTsNCj4gPiArDQo+ID4gKwkvKiBkaXNhYmxlIGludGVycnVwdHMgKi8NCj4gPiArCXBo
+eV93cml0ZShwaHlkZXYsIE1JSV9LU1pQSFlfSU5UQ1MsIDB4MCk7DQo+ID4gKw0KPiA+ICsJdmFs
+dWUgPSBwaHlfcmVhZChwaHlkZXYsIE1JSV9CTUNSKTsNCj4gPiArCXBoeV93cml0ZShwaHlkZXYs
+IE1JSV9CTUNSLCB2YWx1ZSB8IEJNQ1JfUERPV04pOw0KPiA+ICsNCj4gPiArCW11dGV4X3VubG9j
+aygmcGh5ZGV2LT5sb2NrKTsNCj4gPiArDQo+ID4gKwlyZXR1cm4gMDsNCj4gPiArfQ0KPiA+ICsN
+Cj4gPiAgc3RhdGljIGludCBrc3pwaHlfcmVzdW1lKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYp
+ICB7DQo+ID4gIAlpbnQgdmFsdWU7DQo+ID4gQEAgLTg3MCw3ICs4ODcsNyBAQCBzdGF0aWMgc3Ry
+dWN0IHBoeV9kcml2ZXIga3NwaHlfZHJpdmVyW10gPSB7DQo+ID4gIAkuZ2V0X3NzZXRfY291bnQg
+PSBrc3pwaHlfZ2V0X3NzZXRfY291bnQsDQo+ID4gIAkuZ2V0X3N0cmluZ3MJPSBrc3pwaHlfZ2V0
+X3N0cmluZ3MsDQo+ID4gIAkuZ2V0X3N0YXRzCT0ga3N6cGh5X2dldF9zdGF0cywNCj4gPiAtCS5z
+dXNwZW5kCT0gZ2VucGh5X3N1c3BlbmQsDQo+ID4gKwkuc3VzcGVuZAk9IGtzenBoeV9zdXNwZW5k
+LA0KPiA+ICAJLnJlc3VtZQkJPSBrc3pwaHlfcmVzdW1lLA0KPiA+ICB9LCB7DQo+ID4gIAkucGh5
+X2lkCQk9IFBIWV9JRF9LU1o4MDYxLA0KPiA+DQoNCg0KQmVzdCBSZWdhcmRzLA0KV2VueW91IFlh
+bmcNCg==
