@@ -1,126 +1,56 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
- net/mlx4_en: add page recycle to prepare rx ring for tx support
-Date: Thu, 4 Aug 2016 17:30:56 -0700
-Message-ID: <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-8-git-send-email-bblanco@plumgrid.com> <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160803174107.GA38399@ast-mbp.thefacebook.com> <20160804181913.26ee17b9@redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC V2 PATCH 00/25] Kernel NET policy
+Date: Thu, 4 Aug 2016 18:31:40 -0700
+Message-ID: <20160805013138.GA52225@ast-mbp.thefacebook.com>
+References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Brenden Blanco <bblanco@plumgrid.com>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>, Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>, Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman <mgorman@techsingularity.net>,
-	linux-mm <linux-mm@kvack.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160804181913.26ee17b9@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+	daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
+	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+	jesse.brandeburg@intel.com, andi@firstfloor.org
+To: kan.liang@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33820 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964818AbcHEBbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 21:31:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 4, 2016 at 9:19 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
->
-> On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
->
->> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
->> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
->> > > The mlx4 driver by default allocates order-3 pages for the ring to
->> > > consume in multiple fragments. When the device has an xdp program, this
->> > > behavior will prevent tx actions since the page must be re-mapped in
->> > > TODEVICE mode, which cannot be done if the page is still shared.
->> > >
->> > > Start by making the allocator configurable based on whether xdp is
->> > > running, such that order-0 pages are always used and never shared.
->> > >
->> > > Since this will stress the page allocator, add a simple page cache to
->> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
->> > > stress tests the page allocator is eliminated from the perf report.
->> > >
->> > > Note that setting an xdp program will now require the rings to be
->> > > reconfigured.
->> >
->> > Again, this has nothing to do with XDP ?
->> >
->> > Please submit a separate patch, switching this driver to order-0
->> > allocations.
->> >
->> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
->> > send a generic patch, but had been traveling lately, and currently in
->> > vacation.
->> >
->> > order-3 pages are problematic when dealing with hostile traffic anyway,
->> > so we should exclusively use order-0 pages, and page recycling like
->> > Intel drivers.
->> >
->> > http://lists.openwall.net/netdev/2016/04/11/88
->>
->> Completely agree. These multi-page tricks work only for benchmarks and
->> not for production.
->> Eric, if you can submit that patch for mlx4 that would be awesome.
->>
->> I think we should default to order-0 for both mlx4 and mlx5.
->> Alternatively we're thinking to do a netlink or ethtool switch to
->> preserve old behavior, but frankly I don't see who needs this order-N
->> allocation schemes.
->
-> I actually agree, that we should switch to order-0 allocations.
->
-> *BUT* this will cause performance regressions on platforms with
-> expensive DMA operations (as they no longer amortize the cost of
-> mapping a larger page).
+On Wed, Dec 31, 2014 at 08:38:49PM -0500, kan.liang@intel.com wrote:
+> 
+> Changes since V1:
+>  - Using work queue to set Rx network flow classification rules and search
+>    available NET policy object asynchronously.
+>  - Using RCU lock to replace read-write lock
+>  - Redo performance test and update performance results.
+>  - Some minor modification for codes and documents.
+>  - Remove i40e related patches which will be submitted in separate thread.
 
-The trick is to use page reuse like we do for the Intel NICs.  If you
-can get away with just reusing the page you don't have to keep making
-the expensive map/unmap calls.
+Most of the issues brought up in the prior submission were not addressed,
+so one more NACK from me as well.
+My objection with this approach is the same as others:
+such policy doesn't belong in the kernel.
 
-> Plus, the base cost of order-0 page is 246 cycles (see [1] slide#9),
-> and the 10G wirespeed target is approx 201 cycles.  Thus, for these
-> speeds some page recycling tricks are needed.  I described how the Intel
-> drives does a cool trick in [1] slide#14, but it does not address the
-> DMA part and costs some extra atomic ops.
+>  1. Why userspace tool cannot do the same thing?
+>     A: Kernel is more suitable for NET policy.
+>        - User space code would be far more complicated to get right and perform
+>          well . It always need to work with out of date state compared to the
+>          latest, because it cannot do any locking with the kernel state.
+>        - User space code is less efficient than kernel code, because of the
+>          additional context switches needed.
+>        - Kernel is in the right position to coordinate requests from multiple
+>          users.
 
-I'm not sure what you mean about it not addressing the DMA part.  Last
-I knew we should be just as fast using the page reuse in the Intel
-drivers as the Mellanox driver using the 32K page.  The only real
-difference in cost is the spot where we are atomically incrementing
-the page count since that is the atomic I assume you are referring to.
-
-I had thought about it and amortizing the atomic operation would
-probably be pretty straight forward.  All we would have to do is the
-same trick we use in the page frag allocator.  We could add a separate
-page_count type variable to the Rx buffer info structure and decrement
-that instead.  If I am not mistaken that would allow us to drop it
-down to only one atomic update of the page count every 64K or so uses
-of the page.
-
-> I've started coding on the page-pool last week, which address both the
-> DMA mapping and recycling (with less atomic ops). (p.s. still on
-> vacation this week).
->
-> http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
-
-I really wonder if we couldn't get away with creating some sort of 2
-tiered allocator for this.  So instead of allocating a page pool we
-just reserved blocks of memory like we do with huge pages.  Then you
-have essentially a huge page that is mapped to a given device for DMA
-and reserved for it to use as a memory resource to allocate the order
-0 pages out of.  Doing it that way would likely have multiple
-advantages when working with things like IOMMU since the pages would
-all belong to one linear block so it would likely consume less
-resources on those devices, and it wouldn't be that far off from how
-DPDK is making use of huge pages in order to improve it's memory
-access times and such.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+and above excuses is the reason to hack flow director rules in the kernel?
+You can do the same in user space. It's not a kernel job.
