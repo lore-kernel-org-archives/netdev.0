@@ -1,51 +1,105 @@
-From: subashab@codeaurora.org
-Subject: Re: [RFC PATCH] xfrm: Add option to reset oif in xfrm lookup
-Date: Fri, 05 Aug 2016 15:57:30 -0600
-Message-ID: <589520a9e6091d1b0c503303553510c7@codeaurora.org>
-References: <1469493272-14894-1-git-send-email-subashab@codeaurora.org>
- <ceb825e1-cba5-e252-f8d1-30198797bbb2@cumulusnetworks.com>
- <7e8efab3f896b081adb6bbaf6613a569@codeaurora.org>
- <7c3836e2-adf0-8e04-8c2f-6ee714a38f70@cumulusnetworks.com>
- <3e4bb514a6fc5316c093f5f39cc07762@codeaurora.org>
- <3c59303e-f393-ab2f-733e-0769a615e685@cumulusnetworks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] bridge: Fix problems around fdb entries
+ pointing to the bridge device
+Date: Fri, 5 Aug 2016 15:26:04 -0700
+Message-ID: <20160805152604.6c24bf70@xeon-e3>
+References: <1470276679-5533-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<57A2ED94.2020709@cumulusnetworks.com>
+	<ca69126a-3387-7499-c02c-55ba10f0793b@lab.ntt.co.jp>
+	<57A3890D.9010809@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au, netdev-owner@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57559 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S3003167AbcHEV5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 17:57:31 -0400
-In-Reply-To: <3c59303e-f393-ab2f-733e-0769a615e685@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <57A3890D.9010809@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> I need to do some additional testing next week (taking PTO the next 2
-> days), but this should fix your problem. Can you confirm? This is
-> better than a sysctl to handle the known use cases, but it does not
-> handle a combination of the 2 known use cases (e.g., throw your use
-> case into a VRF).
+On Thu, 04 Aug 2016 11:27:25 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+
+> On 8/4/16, 1:15 AM, Toshiaki Makita wrote:
+> > On 2016/08/04 16:24, Roopa Prabhu wrote:  
+> >> On 8/3/16, 7:11 PM, Toshiaki Makita wrote:  
+> >>> Adding fdb entries pointing to the bridge device uses fdb_insert(),
+> >>> which lacks various checks and does not respect added_by_user flag.
+> >>>
+> >>> As a result, some inconsistent behavior can happen:
+> >>> * Adding temporary entries succeeds but results in permanent entries.  
+> >> IIRC this is not specific to fdb entries on the bridge device. all temp
+> >> fdb entries via iproute2 result in permanent entries. thats why 'dynamic'
+> >> was added.  
+> > Sorry for confusing you, I meant "temp" (i.e., "static") of bridge fdb
+> > command.
+> > "temp", "dynamic" and "use" should not result in "permanent".
+> >  
+> >>> * Same goes for "dynamic" and "use".  
+> >> This patch seems to not allow dynamic and use entries
+> >> on the bridge device. I don't see a strong use-case to
+> >> allow them, but any reason you want to add the restriction now ?  
+> > Because dynamic fdb entries pointing the bridge device cannot be
+> > created. So it is prohibited. I cannot find other appropriate behavior
+> > about this.
+> > Or are you suggesting local entries with aging supported or something
+> > like that?  
+> no, i am ok with prohibiting it, just was wondering if this is necessary.
 > 
-> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-> index b644a23c3db0..41f5b504a782 100644
-> --- a/net/ipv4/xfrm4_policy.c
-> +++ b/net/ipv4/xfrm4_policy.c
-> @@ -29,7 +29,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-> net *net, struct flowi4 *fl4,
->         memset(fl4, 0, sizeof(*fl4));
->         fl4->daddr = daddr->a4;
->         fl4->flowi4_tos = tos;
-> -       fl4->flowi4_oif = oif;
-> +       fl4->flowi4_oif = l3mdev_master_ifindex_by_index(net, oif);
->         if (saddr)
->                 fl4->saddr = saddr->a4;
+> >  
+> >>> * Changing mac address of the bridge device causes deletion of
+> >>>   user-added entries.  
+> >> unless I am missing something, this does not seem to be related to the
+> >> external fdb entry on the bridge device.  
+> > Yes this is related to manually-added fdb entries on the bridge device.
+> > When manual addition of fdb pointing the bridge device was introduced,
+> > we should have set added_by_user on adding the entry and modify
+> > br_fdb_change_mac_address() to respect the flag, but both were not done.
+> >  
+> >>> * Replacing existing entries looks successful from userspace but actually
+> >>>   not, regardless of NLM_F_EXCL flag.  
+> >> curious about this one. I will try it, but if you have an example that
+> >> will help.  
+> > Before:
+> > # bridge fdb add 12:34:56:78:90:ab dev enp3s0 master
+> > # bridge fdb add 12:34:56:78:90:ab dev br0; echo $?
+> > 0
+> > # bridge fdb show
+> > ...
+> > 12:34:56:78:90:ab dev enp3s0 master br0 permanent
+> >
+> > # bridge fdb replace 12:34:56:78:90:ab dev br0; echo $?
+> > 0
+> > # bridge fdb show
+> > ...
+> > 12:34:56:78:90:ab dev enp3s0 master br0 permanent
+> >
+> > After:
+> > # bridge fdb add 12:34:56:78:90:ab dev enp3s0 master
+> > # bridge fdb add 12:34:56:78:90:ab dev br0; echo $?
+> > RTNETLINK answers: File exists
+> > 255
+> >
+> > # bridge fdb replace 12:34:56:78:90:ab dev br0; echo $?
+> > 0
+> > # bridge fdb show
+> > ...
+> > 12:34:56:78:90:ab dev br0 master br0 permanent
+> >  
+> ok, thanks for the example.
+> 
+> Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Thanks David. This works for me on 4.4 (along with commit 
-1a8524794fc7c70f44ac28e3a6e8fd637bc41f14 ('net: l3mdev: Add master 
-device lookup by index')).
-Let me know if you have some other approach in mind or if this needs to 
-be sent as an official patch.
+It should be possible to manually add fdb entries with any combination
+of valid flags. That is it should be possible to add temporary as well as permanent
+entries. There are people that use this facility to do long and short ageing temporary
+entries.
