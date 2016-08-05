@@ -1,55 +1,65 @@
-From: arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: Re: [v5.1] ucc_fast: Fix to avoid IS_ERR_VALUE abuses and dead code
- on 64bit systems.
-Date: Fri, 5 Aug 2016 14:18:32 +0530
-Message-ID: <57A452E0.10904@gmail.com>
-References: <1470329563-5464-1-git-send-email-arvind.yadav.cs@gmail.com>
- <2376517.GXv6XVOdDd@wuerfel>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] VSOCK: fix vhost virtio_vsock_pkt use-after-free
+Date: Fri, 5 Aug 2016 09:44:35 +0100
+Message-ID: <20160805084435.GB15955@stefanha-x1.localdomain>
+References: <1470318773-10414-1-git-send-email-stefanha@redhat.com>
+ <20160804193338-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, leoli@freescale.com, qiang.zhao@freescale.com,
-	viresh.kumar@linaro.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, scottwood@freescale.com,
-	akpm@linux-foundation.org, linux@roeck-us.net
-To: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Fba/0zbH8Xs+Fj9o"
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36397 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759414AbcHEIsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 04:48:40 -0400
-In-Reply-To: <2376517.GXv6XVOdDd@wuerfel>
+Received: from mx1.redhat.com ([209.132.183.28]:47532 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757779AbcHEIwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2016 04:52:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20160804193338-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+--Fba/0zbH8Xs+Fj9o
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Friday 05 August 2016 02:01 AM, Arnd Bergmann wrote:
-> On Thursday, August 4, 2016 10:22:43 PM CEST Arvind Yadav wrote:
->> index df8ea79..ada9070 100644
->> --- a/include/soc/fsl/qe/ucc_fast.h
->> +++ b/include/soc/fsl/qe/ucc_fast.h
->> @@ -165,10 +165,12 @@ struct ucc_fast_private {
->>          int stopped_tx;         /* Whether channel has been stopped for Tx
->>                                     (STOP_TX, etc.) */
->>          int stopped_rx;         /* Whether channel has been stopped for Rx */
->> -       u32 ucc_fast_tx_virtual_fifo_base_offset;/* pointer to base of Tx
->> -                                                   virtual fifo */
->> -       u32 ucc_fast_rx_virtual_fifo_base_offset;/* pointer to base of Rx
->> -                                                   virtual fifo */
->> +       unsigned long ucc_fast_tx_virtual_fifo_base_offset;/* pointer to base of
->> +                                                           * Tx virtual fifo
->> +                                                           */
->> +       unsigned long ucc_fast_rx_virtual_fifo_base_offset;/* pointer to base of
->> +                                                           * Rx virtual fifo
->> +                                                           */
->>   #ifdef STATISTICS
->>          u32 tx_frames;          /* Transmitted frames counter. */
->>          u32 rx_frames;          /* Received frames counter (only frames
->>
-> This change seems ok, but what about the other u32 variables in ucc_geth.c
-> that get checked for IS_ERR_VALUE?
->
-> 	Arnd
-> I have send separate patch for ucc_geth ans ucc_slow.
-> -Arvind
+On Thu, Aug 04, 2016 at 07:34:43PM +0300, Michael S. Tsirkin wrote:
+> On Thu, Aug 04, 2016 at 02:52:53PM +0100, Stefan Hajnoczi wrote:
+> > Stash the packet length in a local variable before handing over
+> > ownership of the packet to virtio_transport_recv_pkt() or
+> > virtio_transport_free_pkt().
+> >=20
+> > This patch solves the use-after-free since pkt is no longer guaranteed
+> > to be alive.
+> >=20
+> > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+>=20
+>=20
+> Thanks!
+> I'd prefer a lower-case prefix, mentioning vhost, such as vhost/vsock.
+> I'll tweak it for now.
+
+Thanks, I will use vhost/vsock in the future.
+
+Stefan
+
+--Fba/0zbH8Xs+Fj9o
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXpFHzAAoJEJykq7OBq3PIuTIIAK7hJrVhJRRqTDbDEDDK9hub
+tdTlC9vEeenJkaONV68d1E9qQDfvaouVKGbXzrJq+3dQ5cC0fmMkps8fY0BE3JeB
+PG37Hr8Hah4XpU9cOjkmMQT8Com7u51m9iFoL4zslehECcttw82oB1gP430tksak
+iSmWQhBPqt6ijhVVa38m0OEyctIbAaMdQCPXnJbL4VSUNnlMEhLhIaa3DikhD7Cm
+74H15SiE3U9OKoV5Q4FfsZAE+huNXC5rGKx6FicBCQAOin5291u7usezIg5zqgNb
+yLWAdzyXYuC8/xmKhJ2aP6ArHqo3NZqucNu0ke3tdWjzJwjtYOW2I2SUXosN+DI=
+=C5n7
+-----END PGP SIGNATURE-----
+
+--Fba/0zbH8Xs+Fj9o--
