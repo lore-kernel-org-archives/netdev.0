@@ -1,30 +1,67 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH 1/1] RDS: add __printf format attribute to error reporting
- functions
-Date: Fri, 5 Aug 2016 13:32:39 -0700
-Message-ID: <c676d9af-9dec-8e2c-218c-fffd454f38dd@oracle.com>
-References: <20160805201112.30892-1-nicolas.iooss_linux@m4x.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1050.oracle.com ([156.151.31.82]:19586 "EHLO
-	userp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1426302AbcHEUd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 16:33:57 -0400
-In-Reply-To: <20160805201112.30892-1-nicolas.iooss_linux@m4x.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: [PATCH 1/1] brcmfmac: fix pmksa->bssid usage
+Date: Fri,  5 Aug 2016 22:34:18 +0200
+Message-ID: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/5/2016 1:11 PM, Nicolas Iooss wrote:
-> This is helpful to detect at compile-time errors related to format
-> strings.
->
-> Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-> ---
-OK.
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+The struct cfg80211_pmksa defines its bssid field as:
+
+    const u8 *bssid;
+
+contrary to struct brcmf_pmksa, which uses:
+
+    u8 bssid[ETH_ALEN];
+
+Therefore in brcmf_cfg80211_del_pmksa(), &pmksa->bssid takes the address
+of this field (of type u8**), not the one of its content (which would be
+u8*).  Remove the & operator to make brcmf_dbg("%pM") and memcmp()
+behave as expected.
+
+This bug have been found using a custom static checker (which checks the
+usage of %p... attributes at build time).  It has been introduced in
+commit 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code"),
+which replaced pmksa->bssid by &pmksa->bssid while refactoring the code,
+without modifying struct cfg80211_pmksa definition.
+
+Fixes: 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code")
+Cc: stable@ger.kernel.org
+Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+---
+
+scripts/checkpatch.pl reports a warning: "Prefer ether_addr_equal() or
+ether_addr_equal_unaligned() over memcmp()".  Because some files in
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/ still use memcmp()
+to compare addresses and because I do not know whether pmksa->bssid is
+always aligned, I did not follow this warning.
+
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+index 2628d5e12c64..aceab77cd95a 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+@@ -3884,11 +3884,11 @@ brcmf_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *ndev,
+ 	if (!check_vif_up(ifp->vif))
+ 		return -EIO;
+ 
+-	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", &pmksa->bssid);
++	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", pmksa->bssid);
+ 
+ 	npmk = le32_to_cpu(cfg->pmk_list.npmk);
+ 	for (i = 0; i < npmk; i++)
+-		if (!memcmp(&pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
++		if (!memcmp(pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
+ 			break;
+ 
+ 	if ((npmk > 0) && (i < npmk)) {
+-- 
+2.9.2
