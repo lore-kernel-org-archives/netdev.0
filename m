@@ -1,68 +1,221 @@
-From: <Wenyou.Yang@microchip.com>
-Subject: RE: [PATCH v1] net: phy: micrel: Add specific suspend
-Date: Fri, 5 Aug 2016 06:18:11 +0000
-Message-ID: <F9F4555C4E01D7469D37975B62D0EFBB393CF0@CHN-SV-EXMX07.mchp-main.com>
-References: <1470270095-13131-1-git-send-email-wenyou.yang@atmel.com>
- <11f70064-11d6-47b9-6ec1-83b7b0dc5419@gmail.com>
+From: zhuyj <zyjzyj2000-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH v3 2/2] net: phy: Add gmiitorgmii converter support
+Date: Fri, 5 Aug 2016 14:42:20 +0800
+Message-ID: <CAD=hENc_mYLDsqWjoY2rPw59hgBUVtODKH=sf=_osew4OCA=Xw@mail.gmail.com>
+References: <1470312789-28275-1-git-send-email-appanad@xilinx.com> <1470312789-28275-2-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<alexandre.belloni@free-electrons.com>, <nicolas.ferre@atmel.com>,
-	<andrew@lunn.ch>
-To: <f.fainelli@gmail.com>, <wenyou.yang@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <11f70064-11d6-47b9-6ec1-83b7b0dc5419@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+	anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1470312789-28275-2-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRmxvcmlhbiwNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9y
-aWFuIEZhaW5lbGxpIFttYWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IDIwMTbE
-6jjUwjTI1SAxMTozMw0KPiBUbzogV2VueW91IFlhbmcgPHdlbnlvdS55YW5nQGF0bWVsLmNvbT4N
-Cj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5v
-cmc7IGxpbnV4LWFybS0NCj4ga2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7IEFsZXhhbmRyZSBC
-ZWxsb25pIDxhbGV4YW5kcmUuYmVsbG9uaUBmcmVlLQ0KPiBlbGVjdHJvbnMuY29tPjsgTmljb2xh
-cyBGZXJyZSA8bmljb2xhcy5mZXJyZUBhdG1lbC5jb20+OyBBbmRyZXcgTHVubg0KPiA8YW5kcmV3
-QGx1bm4uY2g+DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjFdIG5ldDogcGh5OiBtaWNyZWw6IEFk
-ZCBzcGVjaWZpYyBzdXNwZW5kDQo+IA0KPiBPbiAwMy8wOC8yMDE2IDE3OjIxLCBXZW55b3UgWWFu
-ZyB3cm90ZToNCj4gPiBEaXNhYmxlIGFsbCBpbnRlcnJ1cHRzIHdoZW4gc3VzcGVuZCwgdGhleSB3
-aWxsIGJlIGVuYWJsZWQgd2hlbiByZXN1bWUuDQo+ID4gT3RoZXJ3aXNlLCB0aGUgc3VzcGVuZC9y
-ZXN1bWUgcHJvY2VzcyB3aWxsIGJlIGJsb2NrZWQgb2NjYXNpb25hbGx5Lg0KPiANCj4gVGhpcyBz
-ZWVtcyBsaWtlIHNvbWV0aGluZyBmYWlybHkgZ2VuZXJpYyBhY3R1YWxseSwgd2UgY291bGQgaW1h
-Z2luZSBoYXZpbmcgdGhlDQo+IGNvcmUgbGlicmFyeSBkbyBzb21ldGhpbmcgbGlrZSB0aGlzOg0K
-PiANCj4gLSBpZiBpbnRlcnJ1cHRzIGFyZSB2YWxpZCBhbmQgZW5hYmxlZCBmb3IgdGhlIFBIWSwg
-Y2FsbA0KPiBwaHlkcnYtPmNvbmZpZ19pbnRyKCkgd2l0aCBQSFlfSU5URVJSVVBUX0RJU0FCTEVE
-DQo+IC0gY2FsbCBnZW5waHlfc3VzcGVuZA0KDQpBY2NlcHRlZC4gSSB3aWxsIHNlbmQgYSBuZXcg
-dmVyc2lvbi4NCg0KPiANCj4gT2YgY291cnNlIGlmIG5vbmUgb2YgdGhpcyBmaXRzIHRoZSBnZW5l
-cmljIG1vZGVsLCB0aGUgUEhZIGRyaXZlciBjYW4gc3RpbGwgcHJvdmlkZSBhDQo+IHN1c3BlbmQg
-Y2FsbGJhY2suIE1pZ2h0IGJlIHdvcnRoIGF1ZGl0aW5nIG90aGVyIGRyaXZlcnMgZm9yIHRoYXQg
-cGF0dGVybiBhbmQgbG9vayBhdA0KPiB0aG9zZSB0aGF0IG5lZWQgc3BlY2lmaWMgaGFuZGxpbmcg
-bGlrZSBrZWVwaW5nIHNwZWNpZmljIGludGVycnVwdCBzb3VyY2VzIGFjdGl2ZSBmb3INCj4gZS5n
-OiB3YWtlLW9uLUxBTi4NCj4gDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBXZW55b3UgWWFuZyA8
-d2VueW91LnlhbmdAYXRtZWwuY29tPg0KPiA+IEFja2VkLWJ5OiBOaWNvbGFzIEZlcnJlIDxuaWNv
-bGFzLmZlcnJlQGF0bWVsLmNvbT4NCj4gPiAtLS0NCj4gPg0KPiA+ICBkcml2ZXJzL25ldC9waHkv
-bWljcmVsLmMgfCAxOSArKysrKysrKysrKysrKysrKystDQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAx
-OCBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4NCj4gPiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvcGh5L21pY3JlbC5jIGIvZHJpdmVycy9uZXQvcGh5L21pY3JlbC5jIGluZGV4DQo+
-ID4gNWE4ZmVmYy4uOGNiNzc4YSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9waHkvbWlj
-cmVsLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9waHkvbWljcmVsLmMNCj4gPiBAQCAtNjQ3LDYg
-KzY0NywyMyBAQCBzdGF0aWMgdm9pZCBrc3pwaHlfZ2V0X3N0YXRzKHN0cnVjdCBwaHlfZGV2aWNl
-DQo+ICpwaHlkZXYsDQo+ID4gIAkJZGF0YVtpXSA9IGtzenBoeV9nZXRfc3RhdChwaHlkZXYsIGkp
-OyAgfQ0KPiA+DQo+ID4gK2ludCBrc3pwaHlfc3VzcGVuZChzdHJ1Y3QgcGh5X2RldmljZSAqcGh5
-ZGV2KSB7DQo+ID4gKwlpbnQgdmFsdWU7DQo+ID4gKw0KPiA+ICsJbXV0ZXhfbG9jaygmcGh5ZGV2
-LT5sb2NrKTsNCj4gPiArDQo+ID4gKwkvKiBkaXNhYmxlIGludGVycnVwdHMgKi8NCj4gPiArCXBo
-eV93cml0ZShwaHlkZXYsIE1JSV9LU1pQSFlfSU5UQ1MsIDB4MCk7DQo+ID4gKw0KPiA+ICsJdmFs
-dWUgPSBwaHlfcmVhZChwaHlkZXYsIE1JSV9CTUNSKTsNCj4gPiArCXBoeV93cml0ZShwaHlkZXYs
-IE1JSV9CTUNSLCB2YWx1ZSB8IEJNQ1JfUERPV04pOw0KPiA+ICsNCj4gPiArCW11dGV4X3VubG9j
-aygmcGh5ZGV2LT5sb2NrKTsNCj4gPiArDQo+ID4gKwlyZXR1cm4gMDsNCj4gPiArfQ0KPiA+ICsN
-Cj4gPiAgc3RhdGljIGludCBrc3pwaHlfcmVzdW1lKHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYp
-ICB7DQo+ID4gIAlpbnQgdmFsdWU7DQo+ID4gQEAgLTg3MCw3ICs4ODcsNyBAQCBzdGF0aWMgc3Ry
-dWN0IHBoeV9kcml2ZXIga3NwaHlfZHJpdmVyW10gPSB7DQo+ID4gIAkuZ2V0X3NzZXRfY291bnQg
-PSBrc3pwaHlfZ2V0X3NzZXRfY291bnQsDQo+ID4gIAkuZ2V0X3N0cmluZ3MJPSBrc3pwaHlfZ2V0
-X3N0cmluZ3MsDQo+ID4gIAkuZ2V0X3N0YXRzCT0ga3N6cGh5X2dldF9zdGF0cywNCj4gPiAtCS5z
-dXNwZW5kCT0gZ2VucGh5X3N1c3BlbmQsDQo+ID4gKwkuc3VzcGVuZAk9IGtzenBoeV9zdXNwZW5k
-LA0KPiA+ICAJLnJlc3VtZQkJPSBrc3pwaHlfcmVzdW1lLA0KPiA+ICB9LCB7DQo+ID4gIAkucGh5
-X2lkCQk9IFBIWV9JRF9LU1o4MDYxLA0KPiA+DQoNCg0KQmVzdCBSZWdhcmRzLA0KV2VueW91IFlh
-bmcNCg==
++       switch (phydev->speed) {
++       case SPEED_1000:
++               val |= BMCR_SPEED1000;
++       case SPEED_100:
++               val |= BMCR_SPEED100;
++       }
+
+Are there only 2 kinds of speed?
+
+
+On Thu, Aug 4, 2016 at 8:13 PM, Kedareswara rao Appana
+<appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org> wrote:
+> This patch adds support for gmiitorgmii converter.
+>
+> The GMII to RGMII IP core provides the Reduced Gigabit Media
+> Independent Interface (RGMII) between Ethernet physical media
+> Devices and the Gigabit Ethernet controller. This core can
+> Switch dynamically between the three different speed modes of
+> Operation by configuring the converter register through mdio write.
+>
+> MDIO interface is used to set operating speed of Ethernet MAC.
+>
+> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> ---
+> Thanks a lot Andrew for your inputs.
+> Changes for v3:
+> --> Updated the driver as suggested by Andrew.
+> Changes for v2:
+> --> Passed struct xphy pointer directly to the fix_mac_speed
+> API as suggested by the Florian.
+> --> Added checks for the phy-node fail case as suggested
+> by the Florian
+>
+>  drivers/net/phy/Kconfig             |   8 +++
+>  drivers/net/phy/Makefile            |   1 +
+>  drivers/net/phy/xilinx_gmii2rgmii.c | 121 ++++++++++++++++++++++++++++++++++++
+>  3 files changed, 130 insertions(+)
+>  create mode 100644 drivers/net/phy/xilinx_gmii2rgmii.c
+>
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 6dad9a9..eec31a3 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -271,6 +271,14 @@ config MDIO_BCM_IPROC
+>           This module provides a driver for the MDIO busses found in the
+>           Broadcom iProc SoC's.
+>
+> +config XILINX_GMII2RGMII
+> +       tristate "Xilinx GMII2RGMII converter driver"
+> +       default y
+> +       ---help---
+> +         This driver support xilinx GMII to RGMII IP core it provides
+> +         the Reduced Gigabit Media Independent Interface(RGMII) between
+> +         Ethernet physical media devices and the Gigabit Ethernet controller.
+> +
+>  endif # PHYLIB
+>
+>  config MICREL_KS8995MA
+> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+> index fcdbb92..8650067 100644
+> --- a/drivers/net/phy/Makefile
+> +++ b/drivers/net/phy/Makefile
+> @@ -44,3 +44,4 @@ obj-$(CONFIG_MDIO_MOXART)     += mdio-moxart.o
+>  obj-$(CONFIG_MDIO_BCM_UNIMAC)  += mdio-bcm-unimac.o
+>  obj-$(CONFIG_MICROCHIP_PHY)    += microchip.o
+>  obj-$(CONFIG_MDIO_BCM_IPROC)   += mdio-bcm-iproc.o
+> +obj-$(CONFIG_XILINX_GMII2RGMII) += xilinx_gmii2rgmii.o
+> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+> new file mode 100644
+> index 0000000..56a655a9
+> --- /dev/null
+> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+> @@ -0,0 +1,121 @@
+> +/* Xilinx GMII2RGMII Converter driver
+> + *
+> + * Copyright (C) 2016 Xilinx, Inc.
+> + *
+> + * Author: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> + *
+> + * Description:
+> + * This driver is developed for Xilinx GMII2RGMII Converter
+> + *
+> + * This program is free software: you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation, either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <linux/mii.h>
+> +#include <linux/mdio.h>
+> +#include <linux/phy.h>
+> +#include <linux/of_mdio.h>
+> +
+> +#define XILINX_GMII2RGMII_REG  0x10
+> +
+> +struct gmii2rgmii {
+> +       struct phy_device *phy_dev;
+> +       struct phy_driver *phy_drv;
+> +       struct phy_driver conv_phy_drv;
+> +       int addr;
+> +};
+> +
+> +static int xgmiitorgmii_read_status(struct phy_device *phydev)
+> +{
+> +       struct gmii2rgmii *priv = (struct gmii2rgmii *)phydev->priv;
+> +       u16 val = 0;
+> +
+> +       priv->phy_drv->read_status(phydev);
+> +
+> +       val = mdiobus_read(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG);
+> +
+> +       switch (phydev->speed) {
+> +       case SPEED_1000:
+> +               val |= BMCR_SPEED1000;
+> +       case SPEED_100:
+> +               val |= BMCR_SPEED100;
+> +       }
+> +
+> +       mdiobus_write(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG, val);
+> +
+> +       return 0;
+> +}
+> +
+> +int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+> +{
+> +       struct device *dev = &mdiodev->dev;
+> +       struct device_node *np = dev->of_node, *phy_node;
+> +       struct gmii2rgmii *priv;
+> +       int ret;
+> +
+> +       priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+> +       if (!priv)
+> +               return -ENOMEM;
+> +
+> +       phy_node = of_parse_phandle(np, "phy-handle", 0);
+> +       if (IS_ERR(phy_node)) {
+> +               dev_err(dev, "Couldn't parse phy-handle\n");
+> +               ret = -ENODEV;
+> +               goto out;
+> +       }
+> +
+> +       priv->phy_dev = of_phy_find_device(phy_node);
+> +       if (!priv->phy_dev) {
+> +               ret = -EPROBE_DEFER;
+> +               dev_info(dev, "Couldn't find phydev\n");
+> +               goto out;
+> +       }
+> +
+> +       priv->addr = mdiodev->addr;
+> +       priv->phy_drv = priv->phy_dev->drv;
+> +       memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
+> +              sizeof(struct phy_driver));
+> +       priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
+> +       priv->phy_dev->priv = priv;
+> +       priv->phy_dev->drv = &priv->conv_phy_drv;
+> +
+> +       return 0;
+> +out:
+> +       return ret;
+> +}
+> +
+> +static const struct of_device_id xgmiitorgmii_of_match[] = {
+> +       { .compatible = "xilinx,gmiitorgmii" },
+> +};
+> +MODULE_DEVICE_TABLE(of, xgmiitorgmii_of_match);
+> +
+> +static struct mdio_driver xgmiitorgmii_driver = {
+> +       .probe  = xgmiitorgmii_probe,
+> +       .mdiodrv.driver = {
+> +               .name = "xgmiitorgmii",
+> +               .of_match_table = xgmiitorgmii_of_match,
+> +       },
+> +};
+> +
+> +static int __init xgmiitorgmii_init(void)
+> +{
+> +       return mdio_driver_register(&xgmiitorgmii_driver);
+> +}
+> +module_init(xgmiitorgmii_init);
+> +
+> +static void __exit xgmiitorgmii_cleanup(void)
+> +{
+> +       mdio_driver_unregister(&xgmiitorgmii_driver);
+> +}
+> +module_exit(xgmiitorgmii_cleanup);
+> +
+> +MODULE_DESCRIPTION("Xilinx GMII2RGMII converter driver");
+> +MODULE_LICENSE("GPL");
+> --
+> 2.1.2
+>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
