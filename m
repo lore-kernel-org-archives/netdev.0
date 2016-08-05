@@ -1,233 +1,137 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC V2 PATCH 17/25] net/netpolicy: introduce netpolicy_pick_queue
-Date: Thu, 4 Aug 2016 20:51:32 -0700
-Message-ID: <CALx6S37NbXVh-vS=Vxrm_8qhhOsOkPy-+hLTUGk=E57yKBkCyQ@mail.gmail.com>
-References: <1470339389-8542-1-git-send-email-kan.liang@intel.com> <1470339389-8542-18-git-send-email-kan.liang@intel.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+ net/mlx4_en: add page recycle to prepare rx ring for tx support
+Date: Thu, 4 Aug 2016 20:55:36 -0700
+Message-ID: <20160805035534.GA56390@ast-mbp.thefacebook.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+ <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160803174107.GA38399@ast-mbp.thefacebook.com>
+ <20160804181913.26ee17b9@redhat.com>
+ <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@redhat.com>, peterz@infradead.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, akpm@linux-foundation.org,
-	Kees Cook <keescook@chromium.org>, viro@zeniv.linux.org.uk,
-	gorcunov@openvz.org, John Stultz <john.stultz@linaro.org>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Decotigny <decot@googlers.com>,
-	Florian Westphal <fw@strlen.de>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, rdunlap@infradead.org,
-	Cong Wang <xiyou.wangcong@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-To: "Liang, Kan" <kan.liang@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470339389-8542-18-git-send-email-kan.liang@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	linux-mm <linux-mm@kvack.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 4, 2016 at 12:36 PM,  <kan.liang@intel.com> wrote:
-> From: Kan Liang <kan.liang@intel.com>
->
-> To achieve better network performance, the key step is to distribute the
-> packets to dedicated queues according to policy and system run time
-> status.
->
-> This patch provides an interface which can return the proper dedicated
-> queue for socket/task. Then the packets of the socket/task will be
-> redirect to the dedicated queue for better network performance.
->
-> For selecting the proper queue, currently it uses round-robin algorithm
-> to find the available object from the given policy object list. The
-> algorithm is good enough for now. But it could be improved by some
-> adaptive algorithm later.
->
-Seriously? You want to all of this code so we revert to TX queue
-selection by round robin?
+On Thu, Aug 04, 2016 at 05:30:56PM -0700, Alexander Duyck wrote:
+> On Thu, Aug 4, 2016 at 9:19 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> >
+> > On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> >
+> >> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
+> >> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
+> >> > > The mlx4 driver by default allocates order-3 pages for the ring to
+> >> > > consume in multiple fragments. When the device has an xdp program, this
+> >> > > behavior will prevent tx actions since the page must be re-mapped in
+> >> > > TODEVICE mode, which cannot be done if the page is still shared.
+> >> > >
+> >> > > Start by making the allocator configurable based on whether xdp is
+> >> > > running, such that order-0 pages are always used and never shared.
+> >> > >
+> >> > > Since this will stress the page allocator, add a simple page cache to
+> >> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
+> >> > > stress tests the page allocator is eliminated from the perf report.
+> >> > >
+> >> > > Note that setting an xdp program will now require the rings to be
+> >> > > reconfigured.
+> >> >
+> >> > Again, this has nothing to do with XDP ?
+> >> >
+> >> > Please submit a separate patch, switching this driver to order-0
+> >> > allocations.
+> >> >
+> >> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
+> >> > send a generic patch, but had been traveling lately, and currently in
+> >> > vacation.
+> >> >
+> >> > order-3 pages are problematic when dealing with hostile traffic anyway,
+> >> > so we should exclusively use order-0 pages, and page recycling like
+> >> > Intel drivers.
+> >> >
+> >> > http://lists.openwall.net/netdev/2016/04/11/88
+> >>
+> >> Completely agree. These multi-page tricks work only for benchmarks and
+> >> not for production.
+> >> Eric, if you can submit that patch for mlx4 that would be awesome.
+> >>
+> >> I think we should default to order-0 for both mlx4 and mlx5.
+> >> Alternatively we're thinking to do a netlink or ethtool switch to
+> >> preserve old behavior, but frankly I don't see who needs this order-N
+> >> allocation schemes.
+> >
+> > I actually agree, that we should switch to order-0 allocations.
+> >
+> > *BUT* this will cause performance regressions on platforms with
+> > expensive DMA operations (as they no longer amortize the cost of
+> > mapping a larger page).
 
-> The selected object will be stored in hashtable. So it does not need to
-> go through the whole object list every time.
->
-> Signed-off-by: Kan Liang <kan.liang@intel.com>
-> ---
->  include/linux/netpolicy.h |   5 ++
->  net/core/netpolicy.c      | 136 ++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 141 insertions(+)
->
-> diff --git a/include/linux/netpolicy.h b/include/linux/netpolicy.h
-> index 5900252..a522015 100644
-> --- a/include/linux/netpolicy.h
-> +++ b/include/linux/netpolicy.h
-> @@ -97,6 +97,7 @@ extern void update_netpolicy_sys_map(void);
->  extern int netpolicy_register(struct netpolicy_instance *instance,
->                               enum netpolicy_name policy);
->  extern void netpolicy_unregister(struct netpolicy_instance *instance);
-> +extern int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx);
->  #else
->  static inline void update_netpolicy_sys_map(void)
->  {
-> @@ -111,6 +112,10 @@ static inline void netpolicy_unregister(struct netpolicy_instance *instance)
->  {
->  }
->
-> +static inline int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
-> +{
-> +       return 0;
-> +}
->  #endif
->
->  #endif /*__LINUX_NETPOLICY_H*/
-> diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
-> index 3605761..98ca430 100644
-> --- a/net/core/netpolicy.c
-> +++ b/net/core/netpolicy.c
-> @@ -290,6 +290,142 @@ static void netpolicy_record_clear_dev_node(struct net_device *dev)
->         spin_unlock_bh(&np_hashtable_lock);
->  }
->
-> +static struct netpolicy_object *get_avail_object(struct net_device *dev,
-> +                                                enum netpolicy_name policy,
-> +                                                bool is_rx)
-> +{
-> +       int dir = is_rx ? NETPOLICY_RX : NETPOLICY_TX;
-> +       struct netpolicy_object *tmp, *obj = NULL;
-> +       int val = -1;
-> +
-> +       /* Check if net policy is supported */
-> +       if (!dev || !dev->netpolicy)
-> +               return NULL;
-> +
-> +       /* The system should have queues which support the request policy. */
-> +       if ((policy != dev->netpolicy->cur_policy) &&
-> +           (dev->netpolicy->cur_policy != NET_POLICY_MIX))
-> +               return NULL;
-> +
-> +       spin_lock_bh(&dev->np_ob_list_lock);
-> +       list_for_each_entry(tmp, &dev->netpolicy->obj_list[dir][policy], list) {
-> +               if ((val > atomic_read(&tmp->refcnt)) ||
-> +                   (val == -1)) {
-> +                       val = atomic_read(&tmp->refcnt);
-> +                       obj = tmp;
-> +               }
-> +       }
-> +
-> +       if (WARN_ON(!obj)) {
-> +               spin_unlock_bh(&dev->np_ob_list_lock);
-> +               return NULL;
-> +       }
-> +       atomic_inc(&obj->refcnt);
-> +       spin_unlock_bh(&dev->np_ob_list_lock);
-> +
-> +       return obj;
-> +}
-> +
-> +static int get_avail_queue(struct netpolicy_instance *instance, bool is_rx)
-> +{
-> +       struct netpolicy_record *old_record, *new_record;
-> +       struct net_device *dev = instance->dev;
-> +       unsigned long ptr_id = (uintptr_t)instance->ptr;
-> +       int queue = -1;
-> +
-> +       spin_lock_bh(&np_hashtable_lock);
-> +       old_record = netpolicy_record_search(ptr_id);
-> +       if (!old_record) {
-> +               pr_warn("NETPOLICY: doesn't registered. Remove net policy settings!\n");
-> +               instance->policy = NET_POLICY_INVALID;
-> +               goto err;
-> +       }
-> +
-> +       if (is_rx && old_record->rx_obj) {
-> +               queue = old_record->rx_obj->queue;
-> +       } else if (!is_rx && old_record->tx_obj) {
-> +               queue = old_record->tx_obj->queue;
-> +       } else {
-> +               new_record = kzalloc(sizeof(*new_record), GFP_KERNEL);
-> +               if (!new_record)
-> +                       goto err;
-> +               memcpy(new_record, old_record, sizeof(*new_record));
-> +
-> +               if (is_rx) {
-> +                       new_record->rx_obj = get_avail_object(dev, new_record->policy, is_rx);
-> +                       if (!new_record->dev)
-> +                               new_record->dev = dev;
-> +                       if (!new_record->rx_obj) {
-> +                               kfree(new_record);
-> +                               goto err;
-> +                       }
-> +                       queue = new_record->rx_obj->queue;
-> +               } else {
-> +                       new_record->tx_obj = get_avail_object(dev, new_record->policy, is_rx);
-> +                       if (!new_record->dev)
-> +                               new_record->dev = dev;
-> +                       if (!new_record->tx_obj) {
-> +                               kfree(new_record);
-> +                               goto err;
-> +                       }
-> +                       queue = new_record->tx_obj->queue;
-> +               }
-> +               /* update record */
-> +               hlist_replace_rcu(&old_record->hash_node, &new_record->hash_node);
-> +               kfree(old_record);
-> +       }
-> +err:
-> +       spin_unlock_bh(&np_hashtable_lock);
-> +       return queue;
-> +}
-> +
-> +static inline bool policy_validate(struct netpolicy_instance *instance)
-> +{
-> +       struct net_device *dev = instance->dev;
-> +       enum netpolicy_name cur_policy;
-> +
-> +       cur_policy = dev->netpolicy->cur_policy;
-> +       if ((instance->policy == NET_POLICY_NONE) ||
-> +           (cur_policy == NET_POLICY_NONE))
-> +               return false;
-> +
-> +       if (((cur_policy != NET_POLICY_MIX) && (cur_policy != instance->policy)) ||
-> +           ((cur_policy == NET_POLICY_MIX) && (instance->policy == NET_POLICY_CPU))) {
-> +               pr_warn("NETPOLICY: %s current device policy %s doesn't support required policy %s! Remove net policy settings!\n",
-> +                       dev->name, policy_name[cur_policy],
-> +                       policy_name[instance->policy]);
-> +               return false;
-> +       }
-> +       return true;
-> +}
-> +
-> +/**
-> + * netpolicy_pick_queue() - Find proper queue
-> + * @instance:  NET policy per socket/task instance info
-> + * @is_rx:     RX queue or TX queue
-> + *
-> + * This function intends to find the proper queue according to policy.
-> + * For selecting the proper queue, currently it uses round-robin algorithm
-> + * to find the available object from the given policy object list.
-> + * The selected object will be stored in hashtable. So it does not need to
-> + * go through the whole object list every time.
-> + *
-> + * Return: negative on failure, otherwise on the assigned queue
-> + */
-> +int netpolicy_pick_queue(struct netpolicy_instance *instance, bool is_rx)
-> +{
-> +       struct net_device *dev = instance->dev;
-> +
-> +       if (!dev || !dev->netpolicy)
-> +               return -EINVAL;
-> +
-> +       if (!policy_validate(instance))
-> +               return -EINVAL;
-> +
-> +       return get_avail_queue(instance, is_rx);
-> +}
-> +EXPORT_SYMBOL(netpolicy_pick_queue);
-> +
->  /**
->   * netpolicy_register() - Register per socket/task policy request
->   * @instance:  NET policy per socket/task instance info
-> --
-> 2.5.5
->
+order-0 is mainly about correctness under memory pressure.
+As Eric pointed out order-N is a serious issue for hostile traffic,
+but even for normal traffic it's a problem. Sooner or later
+only order-0 pages will be available.
+Performance considerations come second.
+
+> The trick is to use page reuse like we do for the Intel NICs.  If you
+> can get away with just reusing the page you don't have to keep making
+> the expensive map/unmap calls.
+
+you mean two packet per page trick?
+I think it's trading off performance vs memory.
+It's useful. I wish there was a knob to turn it on/off instead
+of relying on mtu size threshold.
+
+> > I've started coding on the page-pool last week, which address both the
+> > DMA mapping and recycling (with less atomic ops). (p.s. still on
+> > vacation this week).
+> >
+> > http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
+> 
+> I really wonder if we couldn't get away with creating some sort of 2
+> tiered allocator for this.  So instead of allocating a page pool we
+> just reserved blocks of memory like we do with huge pages.  Then you
+> have essentially a huge page that is mapped to a given device for DMA
+> and reserved for it to use as a memory resource to allocate the order
+> 0 pages out of.  Doing it that way would likely have multiple
+> advantages when working with things like IOMMU since the pages would
+> all belong to one linear block so it would likely consume less
+> resources on those devices, and it wouldn't be that far off from how
+> DPDK is making use of huge pages in order to improve it's memory
+> access times and such.
+
+interesting idea. Like dma_map 1GB region and then allocate
+pages from it only? but the rest of the kernel won't be able
+to use them? so only some smaller region then? or it will be
+a boot time flag to reserve this pseudo-huge page?
+I don't think any of that is needed for XDP. As demonstrated by current
+mlx4 it's very fast already. No bottlenecks in page allocators.
+Tiny page recycle array does the magic because most of the traffic
+is not going to the stack.
+This order-0 vs order-N discussion is for the main stack.
+Not related to XDP.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
