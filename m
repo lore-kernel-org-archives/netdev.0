@@ -1,137 +1,75 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 3/3] net: ethernet: ti: cpsw: split common driver data and
- private net data
-Date: Fri, 5 Aug 2016 17:38:47 +0300
-Message-ID: <b730a95a-af6e-5d7c-fe46-c2b285baedf2@linaro.org>
-References: <1470345272-874-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1470345272-874-4-git-send-email-ivan.khoronzhuk@linaro.org>
- <04f2beb0-7b1c-1585-7661-aa12c0d175df@ti.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [RFC V2 PATCH 17/25] net/netpolicy: introduce netpolicy_pick_queue
+Date: Fri, 5 Aug 2016 07:38:01 -0700
+Message-ID: <CALx6S35RnPwqvRepCZ8Jgu0inkCvCtfM41An9YVEP8cy=9dSjw@mail.gmail.com>
+References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
+ <1470339389-8542-18-git-send-email-kan.liang@intel.com> <CALx6S37NbXVh-vS=Vxrm_8qhhOsOkPy-+hLTUGk=E57yKBkCyQ@mail.gmail.com>
+ <37D7C6CF3E00A74B8858931C1DB2F07712C237BE@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	netdev@vger.kernel.org, mugunthanvnm@ti.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"gorcunov@openvz.org" <gorcunov@openvz.org>,
+	John Stultz <john.stultz@linaro.org>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	David Decotigny <decot@googlers.com>,
+	Florian Westphal <fw@strlen.de>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"rdunlap@infradead.org" <rdunlap@infradead.org>,
+	C
+To: "Liang, Kan" <kan.liang@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <04f2beb0-7b1c-1585-7661-aa12c0d175df@ti.com>
+In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F07712C237BE@SHSMSX103.ccr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 5, 2016 at 6:55 AM, Liang, Kan <kan.liang@intel.com> wrote:
+>
+>
+>>
+>> On Thu, Aug 4, 2016 at 12:36 PM,  <kan.liang@intel.com> wrote:
+>> > From: Kan Liang <kan.liang@intel.com>
+>> >
+>> > To achieve better network performance, the key step is to distribute
+>> > the packets to dedicated queues according to policy and system run
+>> > time status.
+>> >
+>> > This patch provides an interface which can return the proper dedicated
+>> > queue for socket/task. Then the packets of the socket/task will be
+>> > redirect to the dedicated queue for better network performance.
+>> >
+>> > For selecting the proper queue, currently it uses round-robin
+>> > algorithm to find the available object from the given policy object
+>> > list. The algorithm is good enough for now. But it could be improved
+>> > by some adaptive algorithm later.
+>> >
+>> Seriously? You want to all of this code so we revert to TX queue selection by
+>> round robin?
+>>
+>
+> I agree that the round robin is not an optimal algorithm.
+> For this series, we intends to provide a generic infrastructure for review.
+> For the algorithm parts, it's already in our TODO list. We will replace it later.
+>
+Kan,
 
+The justification for this patch is that to achieve to network
+performance to steer TX distribute the packets to according to policy
+and system runtime status. But the patch doesn't remotely implement
+that, there's no data provided that these do anything useful or ever
+will do anything useful, and it seems like this is completely ignoring
+existing mechanisms like XPS that have proven to improve performance.
 
-On 05.08.16 15:14, Grygorii Strashko wrote:
-> On 08/05/2016 12:14 AM, Ivan Khoronzhuk wrote:
->> Simplify driver by splitting common driver data and net dev
->> private data. In case of dual_emac mode 2 networks devices
->> are created, each of them contains its own private data.
->> But 2 net devices share a bunch of h/w resources, that shouldn't
->> be duplicated.
->> This patch leads to the following:
->> - no functional changes
->> - reduce code size
->> - reduce memory usage
->> - reduce number of conversion to priv function
->> - reduce number of arguments for some functions
->> - increase code readability
->> - create prerequisites to add multichannel support,
->>   when channels are shared between net devices
->
-> Even if it sounds reasonable, I have to NACK this patch -
-> main reason below, but there are few more:
-> - could you pls split this change as it's too big and I'm pretty sure it's possible;
-> - could you pls avoid unrelated changes like variable reordering in structures
-Ok. v2 will include it.
-
->
-> and thanks a lot for working on this.
->
->>
->> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->> ---
->>  drivers/net/ethernet/ti/cpsw.c | 775 +++++++++++++++++++----------------------
->>  1 file changed, 364 insertions(+), 411 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 85ee9f5..7a84515 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -141,8 +141,8 @@ do {								\
->>  #define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
->>
->>  #define cpsw_slave_index(priv)				\
->> -		((priv->data.dual_emac) ? priv->emac_port :	\
->> -		priv->data.active_slave)
->> +		((cpsw->data.dual_emac) ? priv->emac_port :	\
->> +		cpsw->data.active_slave)
->>
->>  static int debug_level;
->>  module_param(debug_level, int, 0);
->> @@ -364,29 +364,34 @@ static inline void slave_write(struct cpsw_slave *slave, u32 val, u32 offset)
->>  }
->>
->>  struct cpsw_priv {
->> -	struct platform_device		*pdev;
->>  	struct net_device		*ndev;
->> -	struct napi_struct		napi_rx;
->> -	struct napi_struct		napi_tx;
->>  	struct device			*dev;
->> +	u8				mac_addr[ETH_ALEN];
->> +	bool				rx_pause;
->> +	bool				tx_pause;
->> +	u32				msg_enable;
->> +	u32				emac_port;
->> +};
->> +
->> +struct cpsw_common {
->> +	struct net_device		*ndev; /* holds base ndev */
->> +	struct platform_device		*pdev;
->>  	struct cpsw_platform_data	data;
->> +	struct napi_struct		napi_rx;
->> +	struct napi_struct		napi_tx;
->> +	struct cpdma_chan		*txch, *rxch;
->> +	struct cpsw_slave		*slaves;
->>  	struct cpsw_ss_regs __iomem	*regs;
->>  	struct cpsw_wr_regs __iomem	*wr_regs;
->>  	u8 __iomem			*hw_stats;
->>  	struct cpsw_host_regs __iomem	*host_port_regs;
->> -	u32				msg_enable;
->> -	u32				version;
->> -	u32				coal_intvl;
->> -	u32				bus_freq_mhz;
->> -	int				rx_packet_max;
->>  	struct clk			*clk;
->> -	u8				mac_addr[ETH_ALEN];
->> -	struct cpsw_slave		*slaves;
->>  	struct cpdma_ctlr		*dma;
->> -	struct cpdma_chan		*txch, *rxch;
->>  	struct cpsw_ale			*ale;
->> -	bool				rx_pause;
->> -	bool				tx_pause;
->> +	int				rx_packet_max;
->> +	u32				bus_freq_mhz;
->> +	u32				version;
->> +	u32				coal_intvl;
->>  	bool				quirk_irq;
->>  	bool				rx_irq_disabled;
->>  	bool				tx_irq_disabled;
->> @@ -394,9 +399,10 @@ struct cpsw_priv {
->>  	u32 irqs_table[4];
->>  	u32 num_irqs;
->>  	struct cpts *cpts;
->> -	u32 emac_port;
->>  };
->
->
->
->>
->> +static struct cpsw_common *cpsw;
->> +
->
-> Sry, but NACK - no new static variables pls.
-Ok.
-
->
-
--- 
-Regards,
-Ivan Khoronzhuk
+Tom
