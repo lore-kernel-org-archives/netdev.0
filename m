@@ -1,44 +1,60 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: Buggy rhashtable walking
-Date: Fri, 5 Aug 2016 18:48:58 +0800
-Message-ID: <20160805104858.GA9297@gondor.apana.org.au>
-References: <20160804071846.GA773@gondor.apana.org.au>
- <20160804074546.GA996@gondor.apana.org.au>
- <1470377813.2977.14.camel@sipsolutions.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC V2 PATCH 04/25] net/netpolicy: get CPU information
+Date: Fri, 5 Aug 2016 14:00:32 +0300
+Message-ID: <675652db-6d35-783f-1745-6e6b932ed868@cogentembedded.com>
+References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
+ <1470339389-8542-5-git-send-email-kan.liang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-	tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1470377813.2977.14.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
+	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
+	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
+	daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
+	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
+	jesse.brandeburg@intel.com, andi@firstfloor.org
+To: kan.liang@intel.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470339389-8542-5-git-send-email-kan.liang@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 05, 2016 at 08:16:53AM +0200, Johannes Berg wrote:
-> 
-> Hm. Would you rather allocate a separate head entry for the hashtable,
-> or chain the entries?
+Hello.
 
-My plan is to build support for this directly into rhashtable.
-So I'm adding a struct rhlist_head that would be used in place
-of rhash_head for these cases and it'll carry an extra pointer
-for the list of identical entries.
+On 8/4/2016 10:36 PM, kan.liang@intel.com wrote:
 
-I will then add an additional layer of insert/lookup interfaces
-for rhlist_head.
+> From: Kan Liang <kan.liang@intel.com>
+>
+> Net policy also needs to know CPU information. Currently, online
+> CPU number is enough.
 
-So bottom-line is that if you have no identical entries that you
-only incur an extra 8 bytes per-object.
+    s/number/count/. Or "the number of online CPUs".
 
-Cheers,
--- 
-Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Signed-off-by: Kan Liang <kan.liang@intel.com>
+> ---
+>  net/core/netpolicy.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+>
+> diff --git a/net/core/netpolicy.c b/net/core/netpolicy.c
+> index 7c34c8a..075aaca 100644
+> --- a/net/core/netpolicy.c
+> +++ b/net/core/netpolicy.c
+> @@ -49,6 +49,11 @@ static void netpolicy_free_dev_info(struct netpolicy_dev_info *d_info)
+>  	kfree(d_info->tx_irq);
+>  }
+>
+> +static u32 netpolicy_get_cpu_information(void)
+> +{
+> +	return num_online_cpus();
+> +}
+> +
+>  const char *policy_name[NET_POLICY_MAX] = {
+>  	"NONE"
+>  };
+
+MBR, Sergei
