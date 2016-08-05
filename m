@@ -1,71 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 08/11] net/fsl: use of_property_read_bool
-Date: Fri, 5 Aug 2016 14:40:53 +0300
-Message-ID: <b98f3cfd-a8fa-f078-07f8-b06b803d82b2@cogentembedded.com>
-References: <1470387411-15879-1-git-send-email-Julia.Lawall@lip6.fr>
- <1470387411-15879-9-git-send-email-Julia.Lawall@lip6.fr>
- <ceb47a0e-5759-486c-68d9-3feb9faf9e7a@cogentembedded.com>
- <alpine.DEB.2.10.1608051338000.2999@hadrien>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Buggy rhashtable walking
+Date: Fri, 05 Aug 2016 04:46:43 -0700
+Message-ID: <57A47CA3.4010101@candelatech.com>
+References: <20160804071846.GA773@gondor.apana.org.au> <20160804074546.GA996@gondor.apana.org.au> <1470377813.2977.14.camel@sipsolutions.net>	 <20160805104858.GA9297@gondor.apana.org.au> <1470394233.2977.37.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1608051338000.2999@hadrien>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+	tom@herbertland.com
+To: Johannes Berg <johannes@sipsolutions.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:35788 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759624AbcHELqp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 07:46:45 -0400
+In-Reply-To: <1470394233.2977.37.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/5/2016 2:38 PM, Julia Lawall wrote:
 
->>> Use of_property_read_bool to check for the existence of a property.
+
+On 08/05/2016 03:50 AM, Johannes Berg wrote:
+> On Fri, 2016-08-05 at 18:48 +0800, Herbert Xu wrote:
+>> On Fri, Aug 05, 2016 at 08:16:53AM +0200, Johannes Berg wrote:
 >>>
->>> The semantic patch that makes this change is as follows:
->>> (http://coccinelle.lip6.fr/)
->>>
->>> // <smpl>
->>> @@
->>> expression e1,e2;
->>> statement S2,S1;
->>> @@
->>> -       if (of_get_property(e1,e2,NULL))
->>> +       if (of_property_read_bool(e1,e2))
->>>         S1 else S2
->>> // </smpl>
->>>
->>> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->>>
->>> ---
->>>  drivers/net/ethernet/freescale/xgmac_mdio.c |    3 +--
->>>  1 file changed, 1 insertion(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c
->>> b/drivers/net/ethernet/freescale/xgmac_mdio.c
->>> index 7b8fe86..a77ba98 100644
->>> --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
->>> +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
->>> @@ -271,8 +271,7 @@ static int xgmac_mdio_probe(struct platform_device
->>> *pdev)
->>>  		goto err_ioremap;
->>>  	}
->>>
->>> -	if (of_get_property(pdev->dev.of_node,
->>> -			    "little-endian", NULL))
->>> +	if (of_property_read_bool(pdev->dev.of_node, "little-endian"))
->>>  		priv->is_little_endian = true;
->>>  	else
->>>  		priv->is_little_endian = false;
+>>> Hm. Would you rather allocate a separate head entry for the
+>>> hashtable,
+>>> or chain the entries?
 >>
->>    priv->is_little_endian = of_property_read_bool(pdev->dev.of_node,
->> 						  "little-endian"));
->
-> Thanks,
->
-> I just sent a v2 with this change.
+>> My plan is to build support for this directly into rhashtable.
+>> So I'm adding a struct rhlist_head that would be used in place
+>> of rhash_head for these cases and it'll carry an extra pointer
+>> for the list of identical entries.
+>>
+>> I will then add an additional layer of insert/lookup interfaces
+>> for rhlist_head.
 
-    I've seen. Sorry, forgot to look at the followups before commenting...
+Herbert, thank you for fixing this!
 
-> julia
+It would not be fun to have to revert to the old way of hashing
+stations in mac80211...
 
-MBR, Sergei
+I'll be happy to test the patches when you have them ready.
+
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
