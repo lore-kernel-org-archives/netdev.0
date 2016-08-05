@@ -1,45 +1,47 @@
-From: Harini Katakam <harini.katakam@xilinx.com>
-Subject: [PATCH] net: macb: Correct CAPS mask
-Date: Fri, 5 Aug 2016 10:31:58 +0530
-Message-ID: <1470373318-34516-1-git-send-email-harinik@xilinx.com>
+From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+Subject: Re: [PATCH net 1/2] tg3: Fix for diasllow rx coalescing time to be 0
+Date: Fri, 5 Aug 2016 11:14:55 +0530
+Message-ID: <CAMet4B47ueZVdOYBiC03Ppc8f3WNLJn24nuBfYrMkrNB9Tu44Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<harinik@xilinx.com>, <punnaia@xilinx.com>, <michals@xilinx.com>,
-	<stable@vger.kernel.org>
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rick Jones <rick.jones2@hpe.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Prashant Sreedharan <prashant@broadcom.com>,
+	Satish Baddipadige <satish.baddipadige@broadcom.com>
+To: Michael Chan <michael.chan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:35502 "EHLO
+	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752058AbcHEFo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 01:44:57 -0400
+Received: by mail-qk0-f170.google.com with SMTP id x185so61251997qkc.2
+        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 22:44:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-USRIO and JUMBO CAPS have the same mask.
-Fix the same.
-
-Fixes: ce721a702197 ("net: ethernet: cadence-macb: Add disabled usrio caps")
-Cc: stable@vger.kernel.org # v4.5+
-Signed-off-by: Harini Katakam <harinik@xilinx.com>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 36893d8..b6fcf10 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -403,11 +403,11 @@
- #define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII	0x00000004
- #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
- #define MACB_CAPS_USRIO_DISABLED		0x00000010
-+#define MACB_CAPS_JUMBO				0x00000020
- #define MACB_CAPS_FIFO_MODE			0x10000000
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
- #define MACB_CAPS_MACB_IS_GEM			0x80000000
--#define MACB_CAPS_JUMBO				0x00000010
- 
- /* Bit manipulation macros */
- #define MACB_BIT(name)					\
--- 
-2.7.4
+On Thu, Aug 4, 2016 at 3:45 AM, Michael Chan <michael.chan@broadcom.com> wrote:
+> On Wed, Aug 3, 2016 at 9:04 AM, Rick Jones <rick.jones2@hpe.com> wrote:
+>>
+>> Should anything then happen with:
+>>
+>>         /* No rx interrupts will be generated if both are zero */
+>>         if ((ec->rx_coalesce_usecs == 0) &&
+>>             (ec->rx_max_coalesced_frames == 0))
+>>                 return -EINVAL;
+>>
+>>
+>> which is the next block of code?  The logic there seems to suggest that it
+>> was intended to be able to have an rx_coalesce_usecs of 0 and rely on packet
+>> arrival to trigger an interrupt.  Presumably setting rx_max_coalesced_frames
+>> to 1 to disable interrupt coalescing.
+>>
+>
+> I remember writing this block of code over 10 years ago for early
+> generations of the chip.  Newer chips seem to behave differently and
+> rx_coalesce_usecs can never be zero.  So this block can be removed now
+> that the condition can never be true.  We should probably leave a
+> comment there for future reference.
+Thanks Rick for identifying this.
+Thanks Michael for your inputs. I will submit a patch with removal of
+this block of code and add a comment for future reference.
