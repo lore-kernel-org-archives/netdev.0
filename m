@@ -1,58 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] VSOCK: remove more space available check filling TX
- vq
-Date: Fri, 5 Aug 2016 19:53:46 +0300
-Message-ID: <69d05004-506c-dbc2-f97e-b71f4945c703@cogentembedded.com>
-References: <20160805163420.10092-1-ggarcia@deic.uab.cat>
+From: Adit Ranadive <aditr@vmware.com>
+Subject: [PATCH] vmxnet3: Move PCI Id to pci_ids.h
+Date: Fri, 5 Aug 2016 11:00:39 -0700
+Message-ID: <1470420039-23125-1-git-send-email-aditr@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: stefanha@redhat.com, mst@redhat.com
-To: ggarcia@abra.uab.cat, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:34351 "EHLO
-	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759965AbcHEQxu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 12:53:50 -0400
-Received: by mail-lf0-f53.google.com with SMTP id l69so207663987lfg.1
-        for <netdev@vger.kernel.org>; Fri, 05 Aug 2016 09:53:50 -0700 (PDT)
-In-Reply-To: <20160805163420.10092-1-ggarcia@deic.uab.cat>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Adit Ranadive <aditr@vmware.com>, <leon@kernel.org>
+To: <skhare@vmware.com>, <bhelgaas@google.com>,
+	<pv-drivers@vmware.com>, <linux-pci@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/05/2016 07:34 PM, ggarcia@abra.uab.cat wrote:
+The VMXNet3 PCI Id will be shared with our upcoming paravirtual RDMA
+driver. Moved it to the shared location in pci_ids.h and updated the
+driver version.
 
-> From: Gerard Garcia <ggarcia@deic.uab.cat>
->
-> Remove unnecessary use of enable/disable callback notifications
-> and the incorrect more space available check.
->
-> The virtio_transport_tx_work handles when the TX virtqueue
-> has more buffers available.
->
-> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-> ---
->  net/vmw_vsock/virtio_transport.c | 9 ++-------
->  1 file changed, 2 insertions(+), 7 deletions(-)
->
-> diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
-> index 699dfab..b7a1055 100644
-> --- a/net/vmw_vsock/virtio_transport.c
-> +++ b/net/vmw_vsock/virtio_transport.c
-[...]
-> @@ -118,13 +114,12 @@ virtio_transport_send_pkt_work(struct work_struct *work)
->  		}
->
->  		ret = virtqueue_add_sgs(vq, sgs, out_sg, in_sg, pkt, GFP_KERNEL);
-> +		/* Usually this means that there is no more space available in
-> +		 * the vq */
+Suggested-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Adit Ranadive <aditr@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_int.h | 7 +++----
+ include/linux/pci_ids.h           | 1 +
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-    The preferred comment style in the networking code is:
-
-/* bla
-  * bla
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 74fc030..be5991e 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
   */
-
-[...]
-
-MBR, Sergei
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.4.9.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.4.10.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01040900
++#define VMXNET3_DRIVER_VERSION_NUM      0x01040A00
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+@@ -119,9 +119,8 @@ enum {
+ };
+ 
+ /*
+- * PCI vendor and device IDs.
++ * Maximum devices supported.
+  */
+-#define PCI_DEVICE_ID_VMWARE_VMXNET3    0x07B0
+ #define MAX_ETHERNET_CARDS		10
+ #define MAX_PCI_PASSTHRU_DEVICE		6
+ 
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index c58752f..98bb455 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -2251,6 +2251,7 @@
+ #define PCI_DEVICE_ID_RASTEL_2PORT	0x2000
+ 
+ #define PCI_VENDOR_ID_VMWARE		0x15ad
++#define PCI_DEVICE_ID_VMWARE_VMXNET3	0x07b0
+ 
+ #define PCI_VENDOR_ID_ZOLTRIX		0x15b0
+ #define PCI_DEVICE_ID_ZOLTRIX_2BD0	0x2bd0
+-- 
+2.7.4
