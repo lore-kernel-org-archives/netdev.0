@@ -1,137 +1,71 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
- net/mlx4_en: add page recycle to prepare rx ring for tx support
-Date: Thu, 4 Aug 2016 20:55:36 -0700
-Message-ID: <20160805035534.GA56390@ast-mbp.thefacebook.com>
-References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
- <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160803174107.GA38399@ast-mbp.thefacebook.com>
- <20160804181913.26ee17b9@redhat.com>
- <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [RFC PATCH 1/2] net: macb: Correct CAPS mask
+Date: Fri, 5 Aug 2016 09:48:14 +0530
+Message-ID: <CAFcVEC+s3d9Lpz54PBygDXC-1s75WJcPxGxb8202gEuaerJDGw@mail.gmail.com>
+References: <1470036023-22368-1-git-send-email-harinik@xilinx.com> <f4a7d36f-2686-f8ae-35aa-ca5902cc9197@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>,
-	Mel Gorman <mgorman@techsingularity.net>,
-	linux-mm <linux-mm@kvack.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Harini Katakam <harini.katakam@xilinx.com>, davem@davemloft.net,
+	netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	"michals@xilinx.com" <michals@xilinx.com>,
+	Neil Armstrong <narmstrong@baylibre.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f4a7d36f-2686-f8ae-35aa-ca5902cc9197@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 04, 2016 at 05:30:56PM -0700, Alexander Duyck wrote:
-> On Thu, Aug 4, 2016 at 9:19 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> >
-> > On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> >
-> >> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
-> >> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
-> >> > > The mlx4 driver by default allocates order-3 pages for the ring to
-> >> > > consume in multiple fragments. When the device has an xdp program, this
-> >> > > behavior will prevent tx actions since the page must be re-mapped in
-> >> > > TODEVICE mode, which cannot be done if the page is still shared.
-> >> > >
-> >> > > Start by making the allocator configurable based on whether xdp is
-> >> > > running, such that order-0 pages are always used and never shared.
-> >> > >
-> >> > > Since this will stress the page allocator, add a simple page cache to
-> >> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
-> >> > > stress tests the page allocator is eliminated from the perf report.
-> >> > >
-> >> > > Note that setting an xdp program will now require the rings to be
-> >> > > reconfigured.
-> >> >
-> >> > Again, this has nothing to do with XDP ?
-> >> >
-> >> > Please submit a separate patch, switching this driver to order-0
-> >> > allocations.
-> >> >
-> >> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
-> >> > send a generic patch, but had been traveling lately, and currently in
-> >> > vacation.
-> >> >
-> >> > order-3 pages are problematic when dealing with hostile traffic anyway,
-> >> > so we should exclusively use order-0 pages, and page recycling like
-> >> > Intel drivers.
-> >> >
-> >> > http://lists.openwall.net/netdev/2016/04/11/88
-> >>
-> >> Completely agree. These multi-page tricks work only for benchmarks and
-> >> not for production.
-> >> Eric, if you can submit that patch for mlx4 that would be awesome.
-> >>
-> >> I think we should default to order-0 for both mlx4 and mlx5.
-> >> Alternatively we're thinking to do a netlink or ethtool switch to
-> >> preserve old behavior, but frankly I don't see who needs this order-N
-> >> allocation schemes.
-> >
-> > I actually agree, that we should switch to order-0 allocations.
-> >
-> > *BUT* this will cause performance regressions on platforms with
-> > expensive DMA operations (as they no longer amortize the cost of
-> > mapping a larger page).
+On Thu, Aug 4, 2016 at 7:37 PM, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
+> Le 01/08/2016 à 09:20, Harini Katakam a écrit :
+>> USRIO and JUMBO CAPS have the same mask.
+>> Fix the same.
+>>
+>> Signed-off-by: Harini Katakam <harinik@xilinx.com>
+>
+> Hi,
+> Indeed there's a bug...
+>
+>
+>> ---
+>>  drivers/net/ethernet/cadence/macb.h | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+>> index 36893d8..b6fcf10 100644
+>> --- a/drivers/net/ethernet/cadence/macb.h
+>> +++ b/drivers/net/ethernet/cadence/macb.h
+>> @@ -403,11 +403,11 @@
+>>  #define MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII  0x00000004
+>>  #define MACB_CAPS_NO_GIGABIT_HALF            0x00000008
+>>  #define MACB_CAPS_USRIO_DISABLED             0x00000010
+>> +#define MACB_CAPS_JUMBO                              0x00000020
+>>  #define MACB_CAPS_FIFO_MODE                  0x10000000
+>>  #define MACB_CAPS_GIGABIT_MODE_AVAILABLE     0x20000000
+>>  #define MACB_CAPS_SG_DISABLED                        0x40000000
+>>  #define MACB_CAPS_MACB_IS_GEM                        0x80000000
+>> -#define MACB_CAPS_JUMBO                              0x00000010
+>
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>
+> Can you please send it independently without the RFC tag in the subject
+> and with the following tags in the body as well:
+>
+> Fixes: ce721a702197 ("net: ethernet: cadence-macb: Add disabled usrio caps")
+> Cc: stable@vger.kernel.org # v4.5+
+>
 
-order-0 is mainly about correctness under memory pressure.
-As Eric pointed out order-N is a serious issue for hostile traffic,
-but even for normal traffic it's a problem. Sooner or later
-only order-0 pages will be available.
-Performance considerations come second.
+Thanks Nicolas. I'll do that.
 
-> The trick is to use page reuse like we do for the Intel NICs.  If you
-> can get away with just reusing the page you don't have to keep making
-> the expensive map/unmap calls.
+Regards,
+Harini
 
-you mean two packet per page trick?
-I think it's trading off performance vs memory.
-It's useful. I wish there was a knob to turn it on/off instead
-of relying on mtu size threshold.
-
-> > I've started coding on the page-pool last week, which address both the
-> > DMA mapping and recycling (with less atomic ops). (p.s. still on
-> > vacation this week).
-> >
-> > http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
-> 
-> I really wonder if we couldn't get away with creating some sort of 2
-> tiered allocator for this.  So instead of allocating a page pool we
-> just reserved blocks of memory like we do with huge pages.  Then you
-> have essentially a huge page that is mapped to a given device for DMA
-> and reserved for it to use as a memory resource to allocate the order
-> 0 pages out of.  Doing it that way would likely have multiple
-> advantages when working with things like IOMMU since the pages would
-> all belong to one linear block so it would likely consume less
-> resources on those devices, and it wouldn't be that far off from how
-> DPDK is making use of huge pages in order to improve it's memory
-> access times and such.
-
-interesting idea. Like dma_map 1GB region and then allocate
-pages from it only? but the rest of the kernel won't be able
-to use them? so only some smaller region then? or it will be
-a boot time flag to reserve this pseudo-huge page?
-I don't think any of that is needed for XDP. As demonstrated by current
-mlx4 it's very fast already. No bottlenecks in page allocators.
-Tiny page recycle array does the magic because most of the traffic
-is not going to the stack.
-This order-0 vs order-N discussion is for the main stack.
-Not related to XDP.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>>  /* Bit manipulation macros */
+>>  #define MACB_BIT(name)                                       \
+>>
+>
+> Thanks, bye,
+> --
+> Nicolas Ferre
