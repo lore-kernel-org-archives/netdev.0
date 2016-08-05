@@ -1,80 +1,155 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC V2 PATCH 17/25] net/netpolicy: introduce netpolicy_pick_queue
-Date: Fri, 5 Aug 2016 07:41:40 -0700
-Message-ID: <CALx6S374fUxDd1_=db8hg4YsMoMZ_UwM3_uNW4JsXbVkHUEmHQ@mail.gmail.com>
-References: <1470339389-8542-1-git-send-email-kan.liang@intel.com>
- <1470339389-8542-18-git-send-email-kan.liang@intel.com> <57A3A3AC.4010307@gmail.com>
- <57A3C404.8010608@iogearbox.net> <20160804225423.GW5871@two.firstfloor.org> <57A3DB2F.1010909@iogearbox.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+ net/mlx4_en: add page recycle to prepare rx ring for tx support
+Date: Fri, 5 Aug 2016 08:15:25 -0700
+Message-ID: <CAKgT0Uc0=10xhcJJ+55rBv=YNPgPLmHb8x82CKbj+N895JQY5Q@mail.gmail.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-8-git-send-email-bblanco@plumgrid.com> <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160803174107.GA38399@ast-mbp.thefacebook.com> <20160804181913.26ee17b9@redhat.com>
+ <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com> <20160805035534.GA56390@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andi Kleen <andi@firstfloor.org>,
-	John Fastabend <john.fastabend@gmail.com>,
-	"Liang, Kan" <kan.liang@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@redhat.com>, peterz@infradead.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, akpm@linux-foundation.org,
-	Kees Cook <keescook@chromium.org>, viro@zeniv.linux.org.uk,
-	gorcunov@openvz.org, John Stultz <john.stultz@linaro.org>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	David Decotigny <decot@googlers.com>,
-	Florian Westphal <fw@strlen.de>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	rdunlap@infradead.org, Cong Wang <xiyou.wangcong@gmail.com>,
-	Hannes Frederic Sowa <han
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57A3DB2F.1010909@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Brenden Blanco <bblanco@plumgrid.com>, David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>, Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>, Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman <mgorman@techsingularity.net>,
+	linux-mm <linux-mm@kvack.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160805035534.GA56390@ast-mbp.thefacebook.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 4, 2016 at 5:17 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 08/05/2016 12:54 AM, Andi Kleen wrote:
->>>
->>> +1, I tried to bring this up here [1] in the last spin. I think only very
->>> few changes would be needed, f.e. on eBPF side to add a queue setting
->>> helper function which is probably straight forward ~10loc patch; and with
->>> regards to actually picking it up after clsact egress, we'd need to adapt
->>> __netdev_pick_tx() slightly when CONFIG_XPS so it doesn't override it.
->>
->>
->> You're proposing to rewrite the whole net policy manager as EBPF and run
->> it in a crappy JITer? Is that a serious proposal? It just sounds crazy
->> to me.
->>
->> Especially since we already have a perfectly good compiler and
->> programming language to write system code in.
->>
->> EBPF is ok for temporal instrumentation (if you somehow can accept
->> its security challenges), but using it to replace core
->> kernel functionality (which network policy IMHO is) with some bizarre
->> JITed setup and multiple languages doesn't really make any sense.
->>
->> Especially it doesn't make sense for anything with shared state,
->> which is the core part of network policy: it negotiates with multiple
->> users.
->>
->> After all we're writing Linux here and not some research toy.
+On Thu, Aug 4, 2016 at 8:55 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Thu, Aug 04, 2016 at 05:30:56PM -0700, Alexander Duyck wrote:
+>> On Thu, Aug 4, 2016 at 9:19 AM, Jesper Dangaard Brouer
+>> <brouer@redhat.com> wrote:
+>> >
+>> > On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+>> >
+>> >> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
+>> >> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
+>> >> > > The mlx4 driver by default allocates order-3 pages for the ring to
+>> >> > > consume in multiple fragments. When the device has an xdp program, this
+>> >> > > behavior will prevent tx actions since the page must be re-mapped in
+>> >> > > TODEVICE mode, which cannot be done if the page is still shared.
+>> >> > >
+>> >> > > Start by making the allocator configurable based on whether xdp is
+>> >> > > running, such that order-0 pages are always used and never shared.
+>> >> > >
+>> >> > > Since this will stress the page allocator, add a simple page cache to
+>> >> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
+>> >> > > stress tests the page allocator is eliminated from the perf report.
+>> >> > >
+>> >> > > Note that setting an xdp program will now require the rings to be
+>> >> > > reconfigured.
+>> >> >
+>> >> > Again, this has nothing to do with XDP ?
+>> >> >
+>> >> > Please submit a separate patch, switching this driver to order-0
+>> >> > allocations.
+>> >> >
+>> >> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
+>> >> > send a generic patch, but had been traveling lately, and currently in
+>> >> > vacation.
+>> >> >
+>> >> > order-3 pages are problematic when dealing with hostile traffic anyway,
+>> >> > so we should exclusively use order-0 pages, and page recycling like
+>> >> > Intel drivers.
+>> >> >
+>> >> > http://lists.openwall.net/netdev/2016/04/11/88
+>> >>
+>> >> Completely agree. These multi-page tricks work only for benchmarks and
+>> >> not for production.
+>> >> Eric, if you can submit that patch for mlx4 that would be awesome.
+>> >>
+>> >> I think we should default to order-0 for both mlx4 and mlx5.
+>> >> Alternatively we're thinking to do a netlink or ethtool switch to
+>> >> preserve old behavior, but frankly I don't see who needs this order-N
+>> >> allocation schemes.
+>> >
+>> > I actually agree, that we should switch to order-0 allocations.
+>> >
+>> > *BUT* this will cause performance regressions on platforms with
+>> > expensive DMA operations (as they no longer amortize the cost of
+>> > mapping a larger page).
 >
+> order-0 is mainly about correctness under memory pressure.
+> As Eric pointed out order-N is a serious issue for hostile traffic,
+> but even for normal traffic it's a problem. Sooner or later
+> only order-0 pages will be available.
+> Performance considerations come second.
 >
-> From what I read I guess you didn't really bother to look any deeper into
-> this bizarre "research toy" to double check some of your claims. One of the
-> things it's often deployed for by the way is defining policy. And the
-> suggestion here was merely to explore existing infrastructure around things
-> like tc and whether it already resolves at least a part of your net policy
-> manager's requirements (like queue selection) or whether existing
-> infrastructure
-> can be extended with fewer complexity this way (as was mentioned with a new
-> cls module as one option).
+>> The trick is to use page reuse like we do for the Intel NICs.  If you
+>> can get away with just reusing the page you don't have to keep making
+>> the expensive map/unmap calls.
+>
+> you mean two packet per page trick?
+> I think it's trading off performance vs memory.
+> It's useful. I wish there was a knob to turn it on/off instead
+> of relying on mtu size threshold.
 
-+1. The SO_REUSEPORT + BPF patches have already demonstrated the value
-of making policy in the kernel programmable. There's no reason to
-believe that model can't be extended to cover packet steering in the
-data path for TX or RX as well as other cases.
+The MTU size doesn't really play a role in the Intel drivers in
+regards to page reuse anymore.  We pretty much are just treating the
+page as a pair of 2K buffers.  It does have some disadvantages in that
+we cannot pack the frames as tight in the case of jumbo frames with
+GRO, but at the same time jumbo frames are just not that common.
 
-Tom
+>> > I've started coding on the page-pool last week, which address both the
+>> > DMA mapping and recycling (with less atomic ops). (p.s. still on
+>> > vacation this week).
+>> >
+>> > http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
+>>
+>> I really wonder if we couldn't get away with creating some sort of 2
+>> tiered allocator for this.  So instead of allocating a page pool we
+>> just reserved blocks of memory like we do with huge pages.  Then you
+>> have essentially a huge page that is mapped to a given device for DMA
+>> and reserved for it to use as a memory resource to allocate the order
+>> 0 pages out of.  Doing it that way would likely have multiple
+>> advantages when working with things like IOMMU since the pages would
+>> all belong to one linear block so it would likely consume less
+>> resources on those devices, and it wouldn't be that far off from how
+>> DPDK is making use of huge pages in order to improve it's memory
+>> access times and such.
+>
+> interesting idea. Like dma_map 1GB region and then allocate
+> pages from it only? but the rest of the kernel won't be able
+> to use them? so only some smaller region then? or it will be
+> a boot time flag to reserve this pseudo-huge page?
+
+Yeah, something like that.  If we were already talking about
+allocating a pool of pages it might make sense to just setup something
+like this where you could reserve a 1GB region for a single 10G device
+for instance.  Then it would make the whole thing much easier to deal
+with since you would have a block of memory that should perform very
+well in terms of DMA accesses.
+
+> I don't think any of that is needed for XDP. As demonstrated by current
+> mlx4 it's very fast already. No bottlenecks in page allocators.
+> Tiny page recycle array does the magic because most of the traffic
+> is not going to the stack.
+
+Agreed.  If you aren't handing the frames up we don't really don't
+even have to bother.  In the Intel drivers for instance if the frame
+size is less than 256 bytes we just copy the whole thing out since it
+is cheaper to just extend the header copy rather than taking the extra
+hit for get_page/put_page.
+
+> This order-0 vs order-N discussion is for the main stack.
+> Not related to XDP.
+
+Agreed.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
