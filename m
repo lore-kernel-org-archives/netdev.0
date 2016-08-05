@@ -1,86 +1,59 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: [PATCH] proc: make proc entries inherit ownership from parent
-Date: Thu, 4 Aug 2016 20:22:10 -0700
-Message-ID: <20160805032210.GA27480@dtor-ws>
+From: "Shougang Group of company" <ahanacek@fai.utb.cz>
+Subject: Logistic Officer Needed Urgently
+Date: Fri, 5 Aug 2016 05:15:33 +0200
+Message-ID: <094094e948630c0ede65a4004fb4242a.squirrel@webmail.utb.cz>
+Reply-To: zhujimin01@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sun.utb.cz ([195.178.88.66]:56050 "EHLO sun.utb.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759213AbcHEDrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Aug 2016 23:47:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are certain parameters that belong to net namespace and that are
-exported in /proc. They should be controllable by the container's owner,
-but are currently owned by global root and thus not available.
 
-Let's change proc code to inherit ownership of parent entry, and when
-create per-ns "net" proc entry set it up as owned by container's owner.
-
-Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
----
- fs/proc/generic.c  |  2 ++
- fs/proc/proc_net.c | 13 +++++++++++++
- 2 files changed, 15 insertions(+)
-
-diff --git a/fs/proc/generic.c b/fs/proc/generic.c
-index c633476..bca66d8 100644
---- a/fs/proc/generic.c
-+++ b/fs/proc/generic.c
-@@ -390,6 +390,8 @@ static struct proc_dir_entry *__proc_create(struct proc_dir_entry **parent,
- 	atomic_set(&ent->count, 1);
- 	spin_lock_init(&ent->pde_unload_lock);
- 	INIT_LIST_HEAD(&ent->pde_openers);
-+	proc_set_user(ent, (*parent)->uid, (*parent)->gid);
-+
- out:
- 	return ent;
- }
-diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
-index c8bbc68..d701738 100644
---- a/fs/proc/proc_net.c
-+++ b/fs/proc/proc_net.c
-@@ -21,6 +21,7 @@
- #include <linux/bitops.h>
- #include <linux/mount.h>
- #include <linux/nsproxy.h>
-+#include <linux/uidgid.h>
- #include <net/net_namespace.h>
- #include <linux/seq_file.h>
- 
-@@ -185,6 +186,8 @@ const struct file_operations proc_net_operations = {
- static __net_init int proc_net_ns_init(struct net *net)
- {
- 	struct proc_dir_entry *netd, *net_statd;
-+	kuid_t uid;
-+	kgid_t gid;
- 	int err;
- 
- 	err = -ENOMEM;
-@@ -199,6 +202,16 @@ static __net_init int proc_net_ns_init(struct net *net)
- 	netd->parent = &proc_root;
- 	memcpy(netd->name, "net", 4);
- 
-+	uid = make_kuid(net->user_ns, 0);
-+	if (!uid_valid(uid))
-+		uid = GLOBAL_ROOT_UID;
-+
-+	gid = make_kgid(net->user_ns, 0);
-+	if (!gid_valid(gid))
-+		gid = GLOBAL_ROOT_GID;
-+
-+	proc_set_user(netd, uid, gid);
-+
- 	err = -EEXIST;
- 	net_statd = proc_net_mkdir(net, "stat", netd);
- 	if (!net_statd)
--- 
-2.8.0.rc3.226.g39d4020
 
 
 -- 
-Dmitry
+Shougang Group
+45 Huagong Road Xinji City,
+Hebei Province China.
+webpage: www.shougang.com.cn
+
+
+This is an official request for Professional/consultants who will stand as
+our regional representative to run logistics on behalf of Shougang Group.
+We are only looking for individual or company from USA and Canada. You
+will be entitle to ten percent (10%) of every payment you receive from our
+customers in your region on behalf of the company.
+
+NOTE: You are not require to travel, all communications with our customers
+will be through email or phone. All fees, including taxes will be handled
+by us.
+
+You can apply for this position by filling the information below and send
+back to us;
+
+Full Name:
+Residencial or office address:
+Town:
+State:
+Zipcode:
+Country:
+Current Job:
+If you own a company, please state the company name:
+Prefered Email:
+Gender:
+Age:
+Telephone:
+
+If you have a current job, you can still be part of our business, as
+services for us will not bother with your hours of work.
+
+Respectfully,
+Mr. Zhu Jimin (Chief Executive Officer)
+Shougang Grou
