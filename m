@@ -1,246 +1,45 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net 1/2] bpf: restore behavior of bpf_map_update_elem
-Date: Fri, 5 Aug 2016 14:01:27 -0700
-Message-ID: <1470430888-2530070-1-git-send-email-ast@fb.com>
+From: Adit Ranadive <aditr@vmware.com>
+Subject: RE: [PATCH] vmxnet3: Move PCI Id to pci_ids.h
+Date: Fri, 5 Aug 2016 21:22:16 +0000
+Message-ID: <BLUPR0501MB836F0E58C62EB35F561E4D4C5180@BLUPR0501MB836.namprd05.prod.outlook.com>
+References: <1470420039-23125-1-git-send-email-aditr@vmware.com>
+ <20160805182332.GA6369@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	pv-drivers <pv-drivers@mailman2.vmware.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"leon@kernel.org" <leon@kernel.org>
+To: Bjorn Helgaas <helgaas@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:30919 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1427130AbcHEVBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 17:01:33 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-	by m0089730.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u75L0Mli027645
-	for <netdev@vger.kernel.org>; Fri, 5 Aug 2016 14:01:30 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by m0089730.ppops.net with ESMTP id 24m96dhpjm-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 05 Aug 2016 14:01:30 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.102.107.99) with ESMTP	id
- c740129e5b4f11e693f30002c99293a0-237fdaf0 for <netdev@vger.kernel.org>;	Fri,
- 05 Aug 2016 14:01:28 -0700
+Received: from ex13-edg-ou-002.vmware.com ([208.91.0.190]:11677 "EHLO
+	EX13-EDG-OU-002.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S3002616AbcHEVxg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2016 17:53:36 -0400
+In-Reply-To: <20160805182332.GA6369@localhost>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The introduction of pre-allocated hash elements inadvertently broke
-the behavior of bpf hash maps where users expected to call
-bpf_map_update_elem() without considering that the map can be full.
-Some programs do:
-old_value = bpf_map_lookup_elem(map, key);
-if (old_value) {
-  ... prepare new_value on stack ...
-  bpf_map_update_elem(map, key, new_value);
-}
-Before pre-alloc the update() for existing element would work even
-in 'map full' condition. Restore this behavior.
+On Fri, Aug 05, 2016 11:23:41AM -0700, Bjorn Helgaas <helgaas@kernel.org> wrote:
+> On Fri, Aug 05, 2016 at 11:00:39AM -0700, Adit Ranadive wrote:
+> > The VMXNet3 PCI Id will be shared with our upcoming paravirtual RDMA
+> > driver. Moved it to the shared location in pci_ids.h and updated the
+> > driver version.
+> >
+> > Suggested-by: Leon Romanovsky <leon@kernel.org>
+> > Signed-off-by: Adit Ranadive <aditr@vmware.com>
+> 
+> Please include this in the series that adds your paravirtual RDMA
+> driver.  Please do not change the driver version information in this
+> patch, because that change is unrelated to moving the PCI ID.
 
-The above program could have updated old_value in place instead of
-update() which would be faster and most programs use that approach,
-but sometimes the values are large and the programs use update()
-helper to do atomic replacement of the element.
-Note we cannot simply update element's value in-place like percpu
-hash map does and have to allocate extra num_possible_cpu elements
-and use this extra reserve when the map is full.
+Ok, I will. Please drop this patch then.
 
-Fixes: 6c9059817432 ("bpf: pre-allocate hash map elements")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/hashtab.c | 84 +++++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 73 insertions(+), 11 deletions(-)
-
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index fff3650d52fc..570eeca7bdfa 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -26,11 +26,18 @@ struct bpf_htab {
- 	struct bucket *buckets;
- 	void *elems;
- 	struct pcpu_freelist freelist;
-+	void __percpu *extra_elems;
- 	atomic_t count;	/* number of elements in this hashtable */
- 	u32 n_buckets;	/* number of hash buckets */
- 	u32 elem_size;	/* size of each element in bytes */
- };
- 
-+enum extra_elem_state {
-+	HTAB_NOT_AN_EXTRA_ELEM = 0,
-+	HTAB_EXTRA_ELEM_FREE,
-+	HTAB_EXTRA_ELEM_USED
-+};
-+
- /* each htab element is struct htab_elem + key + value */
- struct htab_elem {
- 	union {
-@@ -38,7 +45,10 @@ struct htab_elem {
- 		struct bpf_htab *htab;
- 		struct pcpu_freelist_node fnode;
- 	};
--	struct rcu_head rcu;
-+	union {
-+		struct rcu_head rcu;
-+		enum extra_elem_state state;
-+	};
- 	u32 hash;
- 	char key[0] __aligned(8);
- };
-@@ -113,6 +123,23 @@ free_elems:
- 	return err;
- }
- 
-+static int alloc_extra_elems(struct bpf_htab *htab)
-+{
-+	void __percpu *pptr;
-+	int cpu;
-+
-+	pptr = __alloc_percpu_gfp(htab->elem_size, 8, GFP_USER | __GFP_NOWARN);
-+	if (!pptr)
-+		return -ENOMEM;
-+
-+	for_each_possible_cpu(cpu) {
-+		((struct htab_elem *)per_cpu_ptr(pptr, cpu))->state =
-+			HTAB_EXTRA_ELEM_FREE;
-+	}
-+	htab->extra_elems = pptr;
-+	return 0;
-+}
-+
- /* Called from syscall */
- static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
- {
-@@ -185,6 +212,8 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
- 	if (percpu)
- 		cost += (u64) round_up(htab->map.value_size, 8) *
- 			num_possible_cpus() * htab->map.max_entries;
-+	else
-+	       cost += (u64) htab->elem_size * num_possible_cpus();
- 
- 	if (cost >= U32_MAX - PAGE_SIZE)
- 		/* make sure page count doesn't overflow */
-@@ -212,14 +241,22 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
- 		raw_spin_lock_init(&htab->buckets[i].lock);
- 	}
- 
-+	if (!percpu) {
-+		err = alloc_extra_elems(htab);
-+		if (err)
-+			goto free_buckets;
-+	}
-+
- 	if (!(attr->map_flags & BPF_F_NO_PREALLOC)) {
- 		err = prealloc_elems_and_freelist(htab);
- 		if (err)
--			goto free_buckets;
-+			goto free_extra_elems;
- 	}
- 
- 	return &htab->map;
- 
-+free_extra_elems:
-+	free_percpu(htab->extra_elems);
- free_buckets:
- 	kvfree(htab->buckets);
- free_htab:
-@@ -349,7 +386,6 @@ static void htab_elem_free(struct bpf_htab *htab, struct htab_elem *l)
- 	if (htab->map.map_type == BPF_MAP_TYPE_PERCPU_HASH)
- 		free_percpu(htab_elem_get_ptr(l, htab->map.key_size));
- 	kfree(l);
--
- }
- 
- static void htab_elem_free_rcu(struct rcu_head *head)
-@@ -370,6 +406,11 @@ static void htab_elem_free_rcu(struct rcu_head *head)
- 
- static void free_htab_elem(struct bpf_htab *htab, struct htab_elem *l)
- {
-+	if (l->state == HTAB_EXTRA_ELEM_USED) {
-+		l->state = HTAB_EXTRA_ELEM_FREE;
-+		return;
-+	}
-+
- 	if (!(htab->map.map_flags & BPF_F_NO_PREALLOC)) {
- 		pcpu_freelist_push(&htab->freelist, &l->fnode);
- 	} else {
-@@ -381,25 +422,44 @@ static void free_htab_elem(struct bpf_htab *htab, struct htab_elem *l)
- 
- static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
- 					 void *value, u32 key_size, u32 hash,
--					 bool percpu, bool onallcpus)
-+					 bool percpu, bool onallcpus,
-+					 bool old_elem_exists)
- {
- 	u32 size = htab->map.value_size;
- 	bool prealloc = !(htab->map.map_flags & BPF_F_NO_PREALLOC);
- 	struct htab_elem *l_new;
- 	void __percpu *pptr;
-+	int err = 0;
- 
- 	if (prealloc) {
- 		l_new = (struct htab_elem *)pcpu_freelist_pop(&htab->freelist);
- 		if (!l_new)
--			return ERR_PTR(-E2BIG);
-+			err = -E2BIG;
- 	} else {
- 		if (atomic_inc_return(&htab->count) > htab->map.max_entries) {
- 			atomic_dec(&htab->count);
--			return ERR_PTR(-E2BIG);
-+			err = -E2BIG;
-+		} else {
-+			l_new = kmalloc(htab->elem_size,
-+					GFP_ATOMIC | __GFP_NOWARN);
-+			if (!l_new)
-+				return ERR_PTR(-ENOMEM);
- 		}
--		l_new = kmalloc(htab->elem_size, GFP_ATOMIC | __GFP_NOWARN);
--		if (!l_new)
--			return ERR_PTR(-ENOMEM);
-+	}
-+
-+	if (err) {
-+		if (!old_elem_exists)
-+			return ERR_PTR(err);
-+
-+		/* if we're updating the existing element and the hash table
-+		 * is full, use per-cpu extra elems
-+		 */
-+		l_new = this_cpu_ptr(htab->extra_elems);
-+		if (l_new->state != HTAB_EXTRA_ELEM_FREE)
-+			return ERR_PTR(-E2BIG);
-+		l_new->state = HTAB_EXTRA_ELEM_USED;
-+	} else {
-+		l_new->state = HTAB_NOT_AN_EXTRA_ELEM;
- 	}
- 
- 	memcpy(l_new->key, key, key_size);
-@@ -489,7 +549,8 @@ static int htab_map_update_elem(struct bpf_map *map, void *key, void *value,
- 	if (ret)
- 		goto err;
- 
--	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false, false);
-+	l_new = alloc_htab_elem(htab, key, value, key_size, hash, false, false,
-+				!!l_old);
- 	if (IS_ERR(l_new)) {
- 		/* all pre-allocated elements are in use or memory exhausted */
- 		ret = PTR_ERR(l_new);
-@@ -563,7 +624,7 @@ static int __htab_percpu_map_update_elem(struct bpf_map *map, void *key,
- 		}
- 	} else {
- 		l_new = alloc_htab_elem(htab, key, value, key_size,
--					hash, true, onallcpus);
-+					hash, true, onallcpus, false);
- 		if (IS_ERR(l_new)) {
- 			ret = PTR_ERR(l_new);
- 			goto err;
-@@ -652,6 +713,7 @@ static void htab_map_free(struct bpf_map *map)
- 		htab_free_elems(htab);
- 		pcpu_freelist_destroy(&htab->freelist);
- 	}
-+	free_percpu(htab->extra_elems);
- 	kvfree(htab->buckets);
- 	kfree(htab);
- }
--- 
-2.8.0
+Thanks,
+Adit
