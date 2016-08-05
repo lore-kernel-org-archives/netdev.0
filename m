@@ -1,83 +1,63 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH v3 1/2] Documentation: DT: net: Add Xilinx
- gmiitorgmii converter device tree binding documentation
-Date: Fri, 5 Aug 2016 06:48:51 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5DD373@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1470312789-28275-1-git-send-email-appanad@xilinx.com>
- <20160804182515.GA19890@rob-hp-laptop>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: [RFC 2/4] bpf, security: Add Checmate
+Date: Fri, 5 Aug 2016 00:05:05 -0700
+Message-ID: <20160805070504.GA5971@ircssh.c.rugged-nimbus-611.internal>
+References: <20160804071140.GA19121@ircssh.c.rugged-nimbus-611.internal>
+ <CAD=hENfPUmP6odm+oFg0gAEJ5oqKksTyZPYE1F1iXJW=DS7sqQ@mail.gmail.com>
+ <1470299302.13693.13.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAD=hENeWDNTQ8oQurdX6kHxuuRVh-DtEDEDH0=-BCM9mqzZn6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
-	Michal Simek <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	"Anirudha Sarangi" <anirudh@xilinx.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160804182515.GA19890@rob-hp-laptop>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+	linux-security-module@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f41.google.com ([209.85.214.41]:35031 "EHLO
+	mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757779AbcHEHKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 03:10:36 -0400
+Received: by mail-it0-f41.google.com with SMTP id u186so15338502ita.0
+        for <netdev@vger.kernel.org>; Fri, 05 Aug 2016 00:10:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAD=hENeWDNTQ8oQurdX6kHxuuRVh-DtEDEDH0=-BCM9mqzZn6g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rob,
-
-	Thanks for the review...
-
-<Snip>
-
-> > +XILINX GMIITORGMII Converter Driver Device Tree Bindings
-> > +--------------------------------------------------------
-> > +
-> > +The Gigabit Media Independent Interface (GMII) to Reduced Gigabit
-> > +Media Independent Interface (RGMII) core provides the RGMII between
-> > +RGMII-compliant Ethernet physical media devices (PHY) and the Gigabit
-> Ethernet controller.
-> > +This core can be used in all three modes of operation(10/100/1000 Mb/s).
-> > +The Management Data Input/Output (MDIO) interface is used to
-> > +configure the Speed of operation. This core can switch dynamically
-> > +between the three Different speed modes by configuring the conveter
-> register through mdio write.
-> > +
-> > +The MDIO is a bus to which the PHY devices are connected.  For each
-> > +device that exists on this bus, a child node should be created.  See
-> > +the definition of the PHY node in booting-without-of.txt for an
-> > +example of how to define a PHY.
-> > +
-> > +Required properties:
-> > +  - compatible : Should be "xilinx,gmiitorgmii"
+On Thu, Aug 04, 2016 at 05:34:32PM +0800, zhuyj wrote:
+>  Sure.
+> Is it better to add
+> #ifndef CONFIG_PREEMPT_RCU ?
 > 
-> Perhaps xilinx,gmii-to-rgmii.
+> On Thu, Aug 4, 2016 at 4:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > Please do not top post
+> >
+> > On Thu, 2016-08-04 at 16:08 +0800, zhuyj wrote:
+> >>  +void register_checmate_prog_ops(void);
+> >> maybe it is extern void register_checmate_prog_ops(void);?
+> >>
+> >> +       preempt_disable();
+> >> +       rcu_read_lock();
+> >> IMHO, it is not necessary to use the above 2 since rcu_read_lock will
+> >> call preempt_disable.
+> >
+> > You might double check if this claim is true if CONFIG_PREEMPT_RCU=y
+> >
+> >
+> >
+Thanks for your feedback zhuyj, Looking at kernel documentation itself, it looks 
+like this is the preferred mechanism[1]. Their example:
 
-Sure...
+ 1 preempt_disable();
+ 2 rcu_read_lock();
+ 3 do_something();
+ 4 rcu_read_unlock();
+ 5 preempt_enable();
 
-> 
-> This needs some sort of version information in the compatible string.
+But, I think you're right. Do you know if there's a great benefit of doing this? 
+Or does it make sense to implement a new macro, a la 
+rcu_read_lock_and_preent_disable()?
 
-Sure will fix in the next version...
-
-> 
-> > +  - reg : The ID number for the phy, usually a small integer
-> > +
-> > +Example:
-> > +	mdio {
-> > +                #address-cells = <1>;
-> > +                #size-cells = <0>;
-> > +		ethernet-phy@0 {
-> > +			......
-> > +		};
-> > +                gmii_to_rgmii: gmii_to_rgmii@8 {
-> 
-> Don't use underscores in node names.
-
-Ok will fix in the next version...
-
-Regards,
-Kedar.
+[1] https://www.kernel.org/doc/Documentation/RCU/Design/Requirements/Requirements.html#Disabling Preemption Does Not Block Grace Periods
