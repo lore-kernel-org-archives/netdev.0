@@ -1,155 +1,74 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
  net/mlx4_en: add page recycle to prepare rx ring for tx support
-Date: Fri, 5 Aug 2016 08:15:25 -0700
-Message-ID: <CAKgT0Uc0=10xhcJJ+55rBv=YNPgPLmHb8x82CKbj+N895JQY5Q@mail.gmail.com>
+Date: Fri, 5 Aug 2016 15:33:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F50B52E@AcuExch.aculab.com>
 References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
- <1468955817-10604-8-git-send-email-bblanco@plumgrid.com> <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160803174107.GA38399@ast-mbp.thefacebook.com> <20160804181913.26ee17b9@redhat.com>
- <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com> <20160805035534.GA56390@ast-mbp.thefacebook.com>
+ <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+ <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160803174107.GA38399@ast-mbp.thefacebook.com>
+ <20160804181913.26ee17b9@redhat.com>
+ <CAKgT0UdbVK6Ti9drCQFfa0MyU40Kh=Hu=BtDTRCqqsSiBvJ7rg@mail.gmail.com>
+ <20160805035534.GA56390@ast-mbp.thefacebook.com>
+ <CAKgT0Uc0=10xhcJJ+55rBv=YNPgPLmHb8x82CKbj+N895JQY5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Brenden Blanco <bblanco@plumgrid.com>, David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>, Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>, Daniel Borkmann <daniel@iogearbox.net>,
-	Tariq Toukan <ttoukan.linux@gmail.com>, Mel Gorman <mgorman@techsingularity.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	"Martin KaFai Lau" <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	"Hannes Frederic Sowa" <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	"Tom Herbert" <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"Tariq Toukan" <ttoukan.linux@gmail.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
 	linux-mm <linux-mm@kvack.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20160805035534.GA56390@ast-mbp.thefacebook.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+To: 'Alexander Duyck' <alexander.duyck@gmail.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.188]:53660 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754029AbcHEPgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 11:36:18 -0400
+In-Reply-To: <CAKgT0Uc0=10xhcJJ+55rBv=YNPgPLmHb8x82CKbj+N895JQY5Q@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 4, 2016 at 8:55 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Thu, Aug 04, 2016 at 05:30:56PM -0700, Alexander Duyck wrote:
->> On Thu, Aug 4, 2016 at 9:19 AM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->> >
->> > On Wed, 3 Aug 2016 10:45:13 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
->> >
->> >> On Mon, Jul 25, 2016 at 09:35:20AM +0200, Eric Dumazet wrote:
->> >> > On Tue, 2016-07-19 at 12:16 -0700, Brenden Blanco wrote:
->> >> > > The mlx4 driver by default allocates order-3 pages for the ring to
->> >> > > consume in multiple fragments. When the device has an xdp program, this
->> >> > > behavior will prevent tx actions since the page must be re-mapped in
->> >> > > TODEVICE mode, which cannot be done if the page is still shared.
->> >> > >
->> >> > > Start by making the allocator configurable based on whether xdp is
->> >> > > running, such that order-0 pages are always used and never shared.
->> >> > >
->> >> > > Since this will stress the page allocator, add a simple page cache to
->> >> > > each rx ring. Pages in the cache are left dma-mapped, and in drop-only
->> >> > > stress tests the page allocator is eliminated from the perf report.
->> >> > >
->> >> > > Note that setting an xdp program will now require the rings to be
->> >> > > reconfigured.
->> >> >
->> >> > Again, this has nothing to do with XDP ?
->> >> >
->> >> > Please submit a separate patch, switching this driver to order-0
->> >> > allocations.
->> >> >
->> >> > I mentioned this order-3 vs order-0 issue earlier [1], and proposed to
->> >> > send a generic patch, but had been traveling lately, and currently in
->> >> > vacation.
->> >> >
->> >> > order-3 pages are problematic when dealing with hostile traffic anyway,
->> >> > so we should exclusively use order-0 pages, and page recycling like
->> >> > Intel drivers.
->> >> >
->> >> > http://lists.openwall.net/netdev/2016/04/11/88
->> >>
->> >> Completely agree. These multi-page tricks work only for benchmarks and
->> >> not for production.
->> >> Eric, if you can submit that patch for mlx4 that would be awesome.
->> >>
->> >> I think we should default to order-0 for both mlx4 and mlx5.
->> >> Alternatively we're thinking to do a netlink or ethtool switch to
->> >> preserve old behavior, but frankly I don't see who needs this order-N
->> >> allocation schemes.
->> >
->> > I actually agree, that we should switch to order-0 allocations.
->> >
->> > *BUT* this will cause performance regressions on platforms with
->> > expensive DMA operations (as they no longer amortize the cost of
->> > mapping a larger page).
->
-> order-0 is mainly about correctness under memory pressure.
-> As Eric pointed out order-N is a serious issue for hostile traffic,
-> but even for normal traffic it's a problem. Sooner or later
-> only order-0 pages will be available.
-> Performance considerations come second.
->
->> The trick is to use page reuse like we do for the Intel NICs.  If you
->> can get away with just reusing the page you don't have to keep making
->> the expensive map/unmap calls.
->
-> you mean two packet per page trick?
-> I think it's trading off performance vs memory.
-> It's useful. I wish there was a knob to turn it on/off instead
-> of relying on mtu size threshold.
-
-The MTU size doesn't really play a role in the Intel drivers in
-regards to page reuse anymore.  We pretty much are just treating the
-page as a pair of 2K buffers.  It does have some disadvantages in that
-we cannot pack the frames as tight in the case of jumbo frames with
-GRO, but at the same time jumbo frames are just not that common.
-
->> > I've started coding on the page-pool last week, which address both the
->> > DMA mapping and recycling (with less atomic ops). (p.s. still on
->> > vacation this week).
->> >
->> > http://people.netfilter.org/hawk/presentations/MM-summit2016/generic_page_pool_mm_summit2016.pdf
->>
->> I really wonder if we couldn't get away with creating some sort of 2
->> tiered allocator for this.  So instead of allocating a page pool we
->> just reserved blocks of memory like we do with huge pages.  Then you
->> have essentially a huge page that is mapped to a given device for DMA
->> and reserved for it to use as a memory resource to allocate the order
->> 0 pages out of.  Doing it that way would likely have multiple
->> advantages when working with things like IOMMU since the pages would
->> all belong to one linear block so it would likely consume less
->> resources on those devices, and it wouldn't be that far off from how
->> DPDK is making use of huge pages in order to improve it's memory
->> access times and such.
->
-> interesting idea. Like dma_map 1GB region and then allocate
-> pages from it only? but the rest of the kernel won't be able
-> to use them? so only some smaller region then? or it will be
-> a boot time flag to reserve this pseudo-huge page?
-
-Yeah, something like that.  If we were already talking about
-allocating a pool of pages it might make sense to just setup something
-like this where you could reserve a 1GB region for a single 10G device
-for instance.  Then it would make the whole thing much easier to deal
-with since you would have a block of memory that should perform very
-well in terms of DMA accesses.
-
-> I don't think any of that is needed for XDP. As demonstrated by current
-> mlx4 it's very fast already. No bottlenecks in page allocators.
-> Tiny page recycle array does the magic because most of the traffic
-> is not going to the stack.
-
-Agreed.  If you aren't handing the frames up we don't really don't
-even have to bother.  In the Intel drivers for instance if the frame
-size is less than 256 bytes we just copy the whole thing out since it
-is cheaper to just extend the header copy rather than taking the extra
-hit for get_page/put_page.
-
-> This order-0 vs order-N discussion is for the main stack.
-> Not related to XDP.
-
-Agreed.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+RnJvbTogQWxleGFuZGVyIER1eWNrDQo+IFNlbnQ6IDA1IEF1Z3VzdCAyMDE2IDE2OjE1DQouLi4N
+Cj4gPg0KPiA+IGludGVyZXN0aW5nIGlkZWEuIExpa2UgZG1hX21hcCAxR0IgcmVnaW9uIGFuZCB0
+aGVuIGFsbG9jYXRlDQo+ID4gcGFnZXMgZnJvbSBpdCBvbmx5PyBidXQgdGhlIHJlc3Qgb2YgdGhl
+IGtlcm5lbCB3b24ndCBiZSBhYmxlDQo+ID4gdG8gdXNlIHRoZW0/IHNvIG9ubHkgc29tZSBzbWFs
+bGVyIHJlZ2lvbiB0aGVuPyBvciBpdCB3aWxsIGJlDQo+ID4gYSBib290IHRpbWUgZmxhZyB0byBy
+ZXNlcnZlIHRoaXMgcHNldWRvLWh1Z2UgcGFnZT8NCj4gDQo+IFllYWgsIHNvbWV0aGluZyBsaWtl
+IHRoYXQuICBJZiB3ZSB3ZXJlIGFscmVhZHkgdGFsa2luZyBhYm91dA0KPiBhbGxvY2F0aW5nIGEg
+cG9vbCBvZiBwYWdlcyBpdCBtaWdodCBtYWtlIHNlbnNlIHRvIGp1c3Qgc2V0dXAgc29tZXRoaW5n
+DQo+IGxpa2UgdGhpcyB3aGVyZSB5b3UgY291bGQgcmVzZXJ2ZSBhIDFHQiByZWdpb24gZm9yIGEg
+c2luZ2xlIDEwRyBkZXZpY2UNCj4gZm9yIGluc3RhbmNlLiAgVGhlbiBpdCB3b3VsZCBtYWtlIHRo
+ZSB3aG9sZSB0aGluZyBtdWNoIGVhc2llciB0byBkZWFsDQo+IHdpdGggc2luY2UgeW91IHdvdWxk
+IGhhdmUgYSBibG9jayBvZiBtZW1vcnkgdGhhdCBzaG91bGQgcGVyZm9ybSB2ZXJ5DQo+IHdlbGwg
+aW4gdGVybXMgb2YgRE1BIGFjY2Vzc2VzLg0KDQpJU1RNIHRoYXQgdGhlIG1haW4ga2VybmVsIGFs
+bG9jYXRvciBvdWdodCB0byBiZSBrZWVwaW5nIGEgY2FjaGUNCm9mIHBhZ2VzIHRoYXQgYXJlIG1h
+cHBlZCBpbnRvIHRoZSB2YXJpb3VzIElPTU1VLg0KVGhpcyBtaWdodCBiZSBhIHBlci1kcml2ZXIg
+Y2FjaGUsIGJ1dCBjb3VsZCBiZSBtdWNoIHdpZGVyLg0KDQpUaGVuIGlmIHNvbWUgY29kZSB3YW50
+cyBzdWNoIGEgcGFnZSBpdCBjYW4gYmUgYWxsb2NhdGVkIG9uZSB0aGF0IGlzDQphbHJlYWR5IG1h
+cHBlZC4NClVuZGVyIG1lbW9yeSBwcmVzc3VyZSB0aGUgcGFnZXMgY291bGQgdGhlbiBiZSByZXVz
+ZWQgZm9yIG90aGVyIHB1cnBvc2VzLg0KDQouLi4NCj4gSW4gdGhlIEludGVsIGRyaXZlcnMgZm9y
+IGluc3RhbmNlIGlmIHRoZSBmcmFtZQ0KPiBzaXplIGlzIGxlc3MgdGhhbiAyNTYgYnl0ZXMgd2Ug
+anVzdCBjb3B5IHRoZSB3aG9sZSB0aGluZyBvdXQgc2luY2UgaXQNCj4gaXMgY2hlYXBlciB0byBq
+dXN0IGV4dGVuZCB0aGUgaGVhZGVyIGNvcHkgcmF0aGVyIHRoYW4gdGFraW5nIHRoZSBleHRyYQ0K
+PiBoaXQgZm9yIGdldF9wYWdlL3B1dF9wYWdlLg0KDQpIb3cgZmFzdCBpcyAncmVwIG1vdnNiJyAo
+b24gY2FjaGVkIGFkZHJlc3Nlcykgb24gcmVjZW50IHg4NiBjcHU/DQpJdCBtaWdodCBhY3R1YWxs
+eSBiZSB3b3J0aCB1bmNvbmRpdGlvbmFsbHkgY29weWluZyB0aGUgZW50aXJlIGZyYW1lDQpvbiB0
+aG9zZSBjcHVzLg0KDQpBIGxvbmcgdGltZSBhZ28gd2UgZm91bmQgdGhlIGJyZWFrZXZlbiBwb2lu
+dCBmb3IgdGhlIGNvcHkgdG8gYmUgYWJvdXQNCjFrYiBvbiBzcGFyYyBtYnVzL3NidXMgc3lzdGVt
+cyAtIGFuZCB0aGF0IG1pZ2h0IG5vdCBoYXZlIGJlZW4gYWxpZ25pbmcNCnRoZSBjb3B5Lg0KDQoJ
+RGF2aWQNCg0K
