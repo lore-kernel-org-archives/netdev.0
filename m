@@ -1,98 +1,81 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [v5.1] ucc_fast: Fix to avoid IS_ERR_VALUE abuses and dead code
- on 64bit systems.
-Date: Fri, 5 Aug 2016 13:04:25 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F50B336@AcuExch.aculab.com>
-References: <1470329563-5464-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: "Liang, Kan" <kan.liang@intel.com>
+Subject: RE: [RFC V2 PATCH 00/25] Kernel NET policy
+Date: Fri, 5 Aug 2016 13:44:25 +0000
+Message-ID: <37D7C6CF3E00A74B8858931C1DB2F07712C2375A@SHSMSX103.ccr.corp.intel.com>
+References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
+ <20160804170332.4304a907@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "qiang.zhao@freescale.com" <qiang.zhao@freescale.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"viresh.kumar@linaro.org" <viresh.kumar@linaro.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"scottwood@freescale.com" <scottwood@freescale.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"peterz@infradead.org" <peterz@infradead.org>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>,
 	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux@roeck-us.net" <linux@roeck-us.net>
-To: 'Arvind Yadav' <arvind.yadav.cs@gmail.com>,
-	"zajec5@gmail.com" <zajec5@gmail.com>,
-	"leoli@freescale.com" <leoli@freescale.com>
+	"keescook@chromium.org" <keescook@chromium.org>,
+	"viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>,
+	"gorcunov@openvz.org" <gorcunov@openvz.org>,
+	"john.stultz@linaro.org" <john.stultz@linaro.org>,
+	"aduyck@mirantis.com" <aduyck@mirantis.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"decot@googlers.com" <decot@googlers.com>,
+	"fw@strlen.de"
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.185]:54479 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759655AbcHENHO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 09:07:14 -0400
-In-Reply-To: <1470329563-5464-1-git-send-email-arvind.yadav.cs@gmail.com>
+Received: from mga09.intel.com ([134.134.136.24]:5496 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161167AbcHENo3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 09:44:29 -0400
+In-Reply-To: <20160804170332.4304a907@xeon-e3>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arvind Yadav
-> Sent: 04 August 2016 17:53
-> IS_ERR_VALUE() assumes that parameter is an unsigned long.
-> It can not be used to check if 'unsigned int' is passed insted.
-> Which tends to reflect an error.
-> In 64bit architectures sizeof (int) == 4 && sizeof (long) == 8.
-> IS_ERR_VALUE(x) is ((x) >= (unsigned long)-4095).
-> IS_ERR_VALUE() of 'unsigned int' is always false because the 32bit
-> value is zero extended to 64 bits.
+
+
 > 
-> Now Problem In UCC fast protocols -: drivers/soc/fsl/qe/ucc_fast.c
+> >  5. Why disable IRQ balance?
+> >     A: Disabling IRQ balance is a common way (recommend way for some
+> devices) to
+> >        tune network performance.
 > 
->         /* Allocate memory for Tx Virtual Fifo */
->         uccf->ucc_fast_tx_virtual_fifo_base_offset =
->           qe_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
->         if (IS_ERR_VALUE(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
->                 printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO\n",
->                         __func__);
->                 uccf->ucc_fast_tx_virtual_fifo_base_offset = 0;
->                 ucc_fast_free(uccf);
->                 return -ENOMEM;
->         }
+> I appreciate that network tuning is hard, most people get it wrong, and
+> nobody agrees on the right answer.
 > 
->         /* Allocate memory for Rx Virtual Fifo */
->         uccf->ucc_fast_rx_virtual_fifo_base_offset =
->            qe_muram_alloc(uf_info->urfs +
->                            UCC_FAST_RECEIVE_VIRTUAL_FIFO_SIZE_FUDGE_FACTOR,
->                            UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
->         if (IS_ERR_VALUE(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
->                 printk(KERN_ERR "%s: cannot allocate MURAM for RX FIFO\n",
->                         __func__);
->                 uccf->ucc_fast_rx_virtual_fifo_base_offset = 0;
->                 ucc_fast_free(uccf);
->                 return -ENOMEM;
->         }
+> So rather than fixing existing tools or writing new userspace tools to do
+> network tuning, you want to hard code one policy manager in kernel with a
+> /proc interface.
+
+Current interaction is by /proc.  But it's not hard to have command line interface
+to facilitate the user later. 
+ 
+> Why not make a good userspace tool (like powertop).
+
+AFAIK, Powertop mainly shows statistics and does global settings.
+NET policy is more complex than powertop. It can do per process or per socket
+setting. So it needs to coordinate requests from multiple users and dynamically
+assign resource to users at run time. Considering the efficiency and complexity,
+a kernel subsystem is more suitable, isn't it?
+
+> There are also several
+> IRQ balancing programs, but since irqbalance was championed by one
+> vendor others seem to follow like sheep.
+
+Based on my test, disabling IRQ balancing helps a lot for i40e performance.
+So in my implementation, I made it a mandatory setting.
+But NET policy intends to provide a generic infrastructure. If there are vendors
+who want IRQ balancing, I think I can provide an option for the device driver.
+Let the device driver decide if disabling IRQ balancing.
+
+Thanks,
+Kan
+
 > 
-> qe_muram_alloc (a.k.a. cpm_muram_alloc) returns unsigned long.
-> Return value store in a u32 (ucc_fast_tx_virtual_fifo_base_offset
-> and ucc_fast_rx_virtual_fifo_base_offset).If qe_muram_alloc will
-> return any error, Then IS_ERR_VALUE will always return 0. it'll not
-> call ucc_fast_free for any failure. Inside 'if code' will be a dead
-> code on 64bit.
-> This patch is to avoid this problem on 64bit machine.
-
-That is really far too wordy for a commit message.
-
-My suspicion is that qe_muram_alloc() always returns a value that is much
-less than 2^32 - even though the return type is 'long'.
-
-Looking further all this code is a bag of worms.
-
-The 'fail' return value from qe_muram_alloc() (aka cpm_muram_alloc()) is
-never returned to an outer level.
-It might be better to return a constant CPM_MURAL_ALLOC_FAIL (say 0x7fffffff)
-and have the callers check that (via a #define).
-
-That is only the start of the problems...
-
-It looks very likely that cpm_muram_free() will be called in tidy up paths
-when cpm_muram_alloc() either failed, or hasn't been called.
-Since 0 is a valid return value, and there is no check for -ENOMEM it is
-all an 'accident waiting to happen'.
-
->From my quick scan (grep -B2 -A6) I'm not at all sure most of the error paths
-at best leak memory.
-
-	David
+> I agree that this a real concern but the implementation of this leaves much to
+> be desired and discussed. Why can't this be done outside of the kernel.
