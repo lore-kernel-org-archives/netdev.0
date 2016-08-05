@@ -1,84 +1,83 @@
-From: Wenyou Yang <wenyou.yang@atmel.com>
-Subject: [PATCH v2] net: phy: micrel: Add specific suspend
-Date: Fri, 5 Aug 2016 14:35:41 +0800
-Message-ID: <1470378941-12387-1-git-send-email-wenyou.yang@atmel.com>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [RFC PATCH v3 1/2] Documentation: DT: net: Add Xilinx
+ gmiitorgmii converter device tree binding documentation
+Date: Fri, 5 Aug 2016 06:48:51 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5DD373@XAP-PVEXMBX01.xlnx.xilinx.com>
+References: <1470312789-28275-1-git-send-email-appanad@xilinx.com>
+ <20160804182515.GA19890@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
+	Michal Simek <michals@xilinx.com>,
+	Soren Brinkmann <sorenb@xilinx.com>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"andrew@lunn.ch" <andrew@lunn.ch>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	"Anirudha Sarangi" <anirudh@xilinx.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Wenyou Yang <wenyou.yang@atmel.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Rob Herring <robh@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160804182515.GA19890@rob-hp-laptop>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Disable all interrupts when suspend, they will be enabled
-when resume. Otherwise, the suspend/resume process will be
-blocked occasionally.
+Hi Rob,
 
-Signed-off-by: Wenyou Yang <wenyou.yang@atmel.com>
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
+	Thanks for the review...
 
-Changes in v2:
- - Use fairly generic phydrv->config_intr() with
-   PHY_INTERRUPT_DISABLED, then call genphy_suspend().
- - Modify kszphy_resume() with PHY_INTERRUPT_ENABLED accordingly.
- - Add static attribute for kszphy_suspend().
+<Snip>
 
- drivers/net/phy/micrel.c | 27 +++++++++++++++++++--------
- 1 file changed, 19 insertions(+), 8 deletions(-)
+> > +XILINX GMIITORGMII Converter Driver Device Tree Bindings
+> > +--------------------------------------------------------
+> > +
+> > +The Gigabit Media Independent Interface (GMII) to Reduced Gigabit
+> > +Media Independent Interface (RGMII) core provides the RGMII between
+> > +RGMII-compliant Ethernet physical media devices (PHY) and the Gigabit
+> Ethernet controller.
+> > +This core can be used in all three modes of operation(10/100/1000 Mb/s).
+> > +The Management Data Input/Output (MDIO) interface is used to
+> > +configure the Speed of operation. This core can switch dynamically
+> > +between the three Different speed modes by configuring the conveter
+> register through mdio write.
+> > +
+> > +The MDIO is a bus to which the PHY devices are connected.  For each
+> > +device that exists on this bus, a child node should be created.  See
+> > +the definition of the PHY node in booting-without-of.txt for an
+> > +example of how to define a PHY.
+> > +
+> > +Required properties:
+> > +  - compatible : Should be "xilinx,gmiitorgmii"
+> 
+> Perhaps xilinx,gmii-to-rgmii.
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 5a8fefc..b598d46 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -647,17 +647,28 @@ static void kszphy_get_stats(struct phy_device *phydev,
- 		data[i] = kszphy_get_stat(phydev, i);
- }
- 
--static int kszphy_resume(struct phy_device *phydev)
-+static int kszphy_suspend(struct phy_device *phydev)
- {
--	int value;
-+	/* Disable PHY Interrupts */
-+	if (phy_interrupt_is_valid(phydev)) {
-+		phydev->interrupts = PHY_INTERRUPT_DISABLED;
-+		if (phydev->drv->config_intr)
-+			phydev->drv->config_intr(phydev);
-+	}
- 
--	mutex_lock(&phydev->lock);
-+	return genphy_suspend(phydev);
-+}
- 
--	value = phy_read(phydev, MII_BMCR);
--	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
-+static int kszphy_resume(struct phy_device *phydev)
-+{
-+	genphy_resume(phydev);
- 
--	kszphy_config_intr(phydev);
--	mutex_unlock(&phydev->lock);
-+	/* Enable PHY Interrupts */
-+	if (phy_interrupt_is_valid(phydev)) {
-+		phydev->interrupts = PHY_INTERRUPT_ENABLED;
-+		if (phydev->drv->config_intr)
-+			phydev->drv->config_intr(phydev);
-+	}
- 
- 	return 0;
- }
-@@ -870,7 +881,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.get_sset_count = kszphy_get_sset_count,
- 	.get_strings	= kszphy_get_strings,
- 	.get_stats	= kszphy_get_stats,
--	.suspend	= genphy_suspend,
-+	.suspend	= kszphy_suspend,
- 	.resume		= kszphy_resume,
- }, {
- 	.phy_id		= PHY_ID_KSZ8061,
--- 
-2.7.4
+Sure...
+
+> 
+> This needs some sort of version information in the compatible string.
+
+Sure will fix in the next version...
+
+> 
+> > +  - reg : The ID number for the phy, usually a small integer
+> > +
+> > +Example:
+> > +	mdio {
+> > +                #address-cells = <1>;
+> > +                #size-cells = <0>;
+> > +		ethernet-phy@0 {
+> > +			......
+> > +		};
+> > +                gmii_to_rgmii: gmii_to_rgmii@8 {
+> 
+> Don't use underscores in node names.
+
+Ok will fix in the next version...
+
+Regards,
+Kedar.
