@@ -1,56 +1,86 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC V2 PATCH 00/25] Kernel NET policy
-Date: Thu, 4 Aug 2016 18:31:40 -0700
-Message-ID: <20160805013138.GA52225@ast-mbp.thefacebook.com>
-References: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: [PATCH] proc: make proc entries inherit ownership from parent
+Date: Thu, 4 Aug 2016 20:22:10 -0700
+Message-ID: <20160805032210.GA27480@dtor-ws>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	mingo@redhat.com, peterz@infradead.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	akpm@linux-foundation.org, keescook@chromium.org,
-	viro@zeniv.linux.org.uk, gorcunov@openvz.org,
-	john.stultz@linaro.org, aduyck@mirantis.com, ben@decadent.org.uk,
-	decot@googlers.com, fw@strlen.de, alexander.duyck@gmail.com,
-	daniel@iogearbox.net, tom@herbertland.com, rdunlap@infradead.org,
-	xiyou.wangcong@gmail.com, hannes@stressinduktion.org,
-	jesse.brandeburg@intel.com, andi@firstfloor.org
-To: kan.liang@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33820 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964818AbcHEBbr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Aug 2016 21:31:47 -0400
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Al Viro <viro@zeniv.linux.org.uk>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1420076354-4861-1-git-send-email-kan.liang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 31, 2014 at 08:38:49PM -0500, kan.liang@intel.com wrote:
-> 
-> Changes since V1:
->  - Using work queue to set Rx network flow classification rules and search
->    available NET policy object asynchronously.
->  - Using RCU lock to replace read-write lock
->  - Redo performance test and update performance results.
->  - Some minor modification for codes and documents.
->  - Remove i40e related patches which will be submitted in separate thread.
+There are certain parameters that belong to net namespace and that are
+exported in /proc. They should be controllable by the container's owner,
+but are currently owned by global root and thus not available.
 
-Most of the issues brought up in the prior submission were not addressed,
-so one more NACK from me as well.
-My objection with this approach is the same as others:
-such policy doesn't belong in the kernel.
+Let's change proc code to inherit ownership of parent entry, and when
+create per-ns "net" proc entry set it up as owned by container's owner.
 
->  1. Why userspace tool cannot do the same thing?
->     A: Kernel is more suitable for NET policy.
->        - User space code would be far more complicated to get right and perform
->          well . It always need to work with out of date state compared to the
->          latest, because it cannot do any locking with the kernel state.
->        - User space code is less efficient than kernel code, because of the
->          additional context switches needed.
->        - Kernel is in the right position to coordinate requests from multiple
->          users.
+Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+---
+ fs/proc/generic.c  |  2 ++
+ fs/proc/proc_net.c | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
 
-and above excuses is the reason to hack flow director rules in the kernel?
-You can do the same in user space. It's not a kernel job.
+diff --git a/fs/proc/generic.c b/fs/proc/generic.c
+index c633476..bca66d8 100644
+--- a/fs/proc/generic.c
++++ b/fs/proc/generic.c
+@@ -390,6 +390,8 @@ static struct proc_dir_entry *__proc_create(struct proc_dir_entry **parent,
+ 	atomic_set(&ent->count, 1);
+ 	spin_lock_init(&ent->pde_unload_lock);
+ 	INIT_LIST_HEAD(&ent->pde_openers);
++	proc_set_user(ent, (*parent)->uid, (*parent)->gid);
++
+ out:
+ 	return ent;
+ }
+diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
+index c8bbc68..d701738 100644
+--- a/fs/proc/proc_net.c
++++ b/fs/proc/proc_net.c
+@@ -21,6 +21,7 @@
+ #include <linux/bitops.h>
+ #include <linux/mount.h>
+ #include <linux/nsproxy.h>
++#include <linux/uidgid.h>
+ #include <net/net_namespace.h>
+ #include <linux/seq_file.h>
+ 
+@@ -185,6 +186,8 @@ const struct file_operations proc_net_operations = {
+ static __net_init int proc_net_ns_init(struct net *net)
+ {
+ 	struct proc_dir_entry *netd, *net_statd;
++	kuid_t uid;
++	kgid_t gid;
+ 	int err;
+ 
+ 	err = -ENOMEM;
+@@ -199,6 +202,16 @@ static __net_init int proc_net_ns_init(struct net *net)
+ 	netd->parent = &proc_root;
+ 	memcpy(netd->name, "net", 4);
+ 
++	uid = make_kuid(net->user_ns, 0);
++	if (!uid_valid(uid))
++		uid = GLOBAL_ROOT_UID;
++
++	gid = make_kgid(net->user_ns, 0);
++	if (!gid_valid(gid))
++		gid = GLOBAL_ROOT_GID;
++
++	proc_set_user(netd, uid, gid);
++
+ 	err = -EEXIST;
+ 	net_statd = proc_net_mkdir(net, "stat", netd);
+ 	if (!net_statd)
+-- 
+2.8.0.rc3.226.g39d4020
+
+
+-- 
+Dmitry
