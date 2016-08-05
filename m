@@ -1,67 +1,75 @@
-From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: [PATCH 1/1] brcmfmac: fix pmksa->bssid usage
-Date: Fri,  5 Aug 2016 22:34:18 +0200
-Message-ID: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	Hante Meuleman <hante.meuleman@broadcom.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net 2/2] samples/bpf: add bpf_map_update_elem() tests
+Date: Fri, 5 Aug 2016 14:01:28 -0700
+Message-ID: <1470430888-2530070-2-git-send-email-ast@fb.com>
+References: <1470430888-2530070-1-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:8109 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1427129AbcHEVBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 17:01:31 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u75KufOO027860
+	for <netdev@vger.kernel.org>; Fri, 5 Aug 2016 14:01:30 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 24n051rq2v-2
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 05 Aug 2016 14:01:30 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ c79454d05b4f11e6b3490002c992ebde-da3f7af0 for <netdev@vger.kernel.org>;	Fri,
+ 05 Aug 2016 14:01:29 -0700
+In-Reply-To: <1470430888-2530070-1-git-send-email-ast@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The struct cfg80211_pmksa defines its bssid field as:
+increase test coverage to check previously missing 'update when full'
 
-    const u8 *bssid;
-
-contrary to struct brcmf_pmksa, which uses:
-
-    u8 bssid[ETH_ALEN];
-
-Therefore in brcmf_cfg80211_del_pmksa(), &pmksa->bssid takes the address
-of this field (of type u8**), not the one of its content (which would be
-u8*).  Remove the & operator to make brcmf_dbg("%pM") and memcmp()
-behave as expected.
-
-This bug have been found using a custom static checker (which checks the
-usage of %p... attributes at build time).  It has been introduced in
-commit 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code"),
-which replaced pmksa->bssid by &pmksa->bssid while refactoring the code,
-without modifying struct cfg80211_pmksa definition.
-
-Fixes: 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code")
-Cc: stable@ger.kernel.org
-Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 ---
+ samples/bpf/test_maps.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-scripts/checkpatch.pl reports a warning: "Prefer ether_addr_equal() or
-ether_addr_equal_unaligned() over memcmp()".  Because some files in
-drivers/net/wireless/broadcom/brcm80211/brcmfmac/ still use memcmp()
-to compare addresses and because I do not know whether pmksa->bssid is
-always aligned, I did not follow this warning.
-
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-index 2628d5e12c64..aceab77cd95a 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-@@ -3884,11 +3884,11 @@ brcmf_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *ndev,
- 	if (!check_vif_up(ifp->vif))
- 		return -EIO;
+diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
+index 47bf0858f9e4..cce2b59751eb 100644
+--- a/samples/bpf/test_maps.c
++++ b/samples/bpf/test_maps.c
+@@ -68,7 +68,16 @@ static void test_hashmap_sanity(int i, void *data)
+ 	assert(bpf_update_elem(map_fd, &key, &value, BPF_NOEXIST) == -1 &&
+ 	       errno == E2BIG);
  
--	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", &pmksa->bssid);
-+	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", pmksa->bssid);
++	/* update existing element, thought the map is full */
++	key = 1;
++	assert(bpf_update_elem(map_fd, &key, &value, BPF_EXIST) == 0);
++	key = 2;
++	assert(bpf_update_elem(map_fd, &key, &value, BPF_ANY) == 0);
++	key = 1;
++	assert(bpf_update_elem(map_fd, &key, &value, BPF_ANY) == 0);
++
+ 	/* check that key = 0 doesn't exist */
++	key = 0;
+ 	assert(bpf_delete_elem(map_fd, &key) == -1 && errno == ENOENT);
  
- 	npmk = le32_to_cpu(cfg->pmk_list.npmk);
- 	for (i = 0; i < npmk; i++)
--		if (!memcmp(&pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
-+		if (!memcmp(pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
- 			break;
+ 	/* iterate over two elements */
+@@ -413,10 +422,12 @@ static void do_work(int fn, void *data)
  
- 	if ((npmk > 0) && (i < npmk)) {
+ 	for (i = fn; i < MAP_SIZE; i += TASKS) {
+ 		key = value = i;
+-		if (do_update)
++		if (do_update) {
+ 			assert(bpf_update_elem(map_fd, &key, &value, BPF_NOEXIST) == 0);
+-		else
++			assert(bpf_update_elem(map_fd, &key, &value, BPF_EXIST) == 0);
++		} else {
+ 			assert(bpf_delete_elem(map_fd, &key) == 0);
++		}
+ 	}
+ }
+ 
 -- 
-2.9.2
+2.8.0
