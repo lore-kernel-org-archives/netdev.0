@@ -1,47 +1,40 @@
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Subject: Re: [PATCH net 1/2] tg3: Fix for diasllow rx coalescing time to be 0
-Date: Fri, 5 Aug 2016 11:14:55 +0530
-Message-ID: <CAMet4B47ueZVdOYBiC03Ppc8f3WNLJn24nuBfYrMkrNB9Tu44Q@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: Buggy rhashtable walking
+Date: Fri, 05 Aug 2016 08:16:53 +0200
+Message-ID: <1470377813.2977.14.camel@sipsolutions.net>
+References: <20160804071846.GA773@gondor.apana.org.au>
+	 <20160804074546.GA996@gondor.apana.org.au>
+	 (sfid-20160804_094611_627754_FBB091B2)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rick Jones <rick.jones2@hpe.com>,
-	David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Satish Baddipadige <satish.baddipadige@broadcom.com>
-To: Michael Chan <michael.chan@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, tom@herbertland.com
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:35502 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058AbcHEFo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Aug 2016 01:44:57 -0400
-Received: by mail-qk0-f170.google.com with SMTP id x185so61251997qkc.2
-        for <netdev@vger.kernel.org>; Thu, 04 Aug 2016 22:44:57 -0700 (PDT)
+Received: from s3.sipsolutions.net ([5.9.151.49]:36276 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965694AbcHEGRC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Aug 2016 02:17:02 -0400
+In-Reply-To: <20160804074546.GA996@gondor.apana.org.au> (sfid-20160804_094611_627754_FBB091B2)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 4, 2016 at 3:45 AM, Michael Chan <michael.chan@broadcom.com> wrote:
-> On Wed, Aug 3, 2016 at 9:04 AM, Rick Jones <rick.jones2@hpe.com> wrote:
->>
->> Should anything then happen with:
->>
->>         /* No rx interrupts will be generated if both are zero */
->>         if ((ec->rx_coalesce_usecs == 0) &&
->>             (ec->rx_max_coalesced_frames == 0))
->>                 return -EINVAL;
->>
->>
->> which is the next block of code?  The logic there seems to suggest that it
->> was intended to be able to have an rx_coalesce_usecs of 0 and rely on packet
->> arrival to trigger an interrupt.  Presumably setting rx_max_coalesced_frames
->> to 1 to disable interrupt coalescing.
->>
->
-> I remember writing this block of code over 10 years ago for early
-> generations of the chip.  Newer chips seem to behave differently and
-> rx_coalesce_usecs can never be zero.  So this block can be removed now
-> that the condition can never be true.  We should probably leave a
-> comment there for future reference.
-Thanks Rick for identifying this.
-Thanks Michael for your inputs. I will submit a patch with removal of
-this block of code and add a comment for future reference.
+
+> So I'm going to fix this by consolidating identical objects into
+> a single rhashtable entry which also lets us get rid of the
+> insecure_elasticity setting.
+
+Hm. Would you rather allocate a separate head entry for the hashtable,
+or chain the entries?
+
+(Luckily) the colliding key case practically never happens, and some
+drivers don't even allow it, so that's perhaps something to keep in
+mind for this. Perhaps we should just generally disallow it - but a few
+people (hi Ben) would be really unhappy about that I guess.
+
+I think this might affect more than one use of rhashtable in mac80211
+now, since the mesh paths also use it.
+
+johannes
