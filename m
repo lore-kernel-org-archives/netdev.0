@@ -1,65 +1,56 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH] VSOCK: fix vhost virtio_vsock_pkt use-after-free
-Date: Fri, 5 Aug 2016 09:44:35 +0100
-Message-ID: <20160805084435.GB15955@stefanha-x1.localdomain>
-References: <1470318773-10414-1-git-send-email-stefanha@redhat.com>
- <20160804193338-mutt-send-email-mst@kernel.org>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 00/11] use of_property_read_bool
+Date: Fri,  5 Aug 2016 10:56:40 +0200
+Message-ID: <1470387411-15879-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Fba/0zbH8Xs+Fj9o"
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47532 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757779AbcHEIwb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Aug 2016 04:52:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20160804193338-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org, kernel-janitors@vger.kernel.org,
+ linux-usb@vger.kernel.org, linux-mmc@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-gpio@vger.kernel.org,
+ linux-i2c@vger.kernel.org, linux-serial@vger.kernel.org,
+ linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: netdev@vger.kernel.org
+Return-path: <alsa-devel-bounces@alsa-project.org>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
+Use of_property_read_bool to check for the existence of a property.
 
---Fba/0zbH8Xs+Fj9o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
 
-On Thu, Aug 04, 2016 at 07:34:43PM +0300, Michael S. Tsirkin wrote:
-> On Thu, Aug 04, 2016 at 02:52:53PM +0100, Stefan Hajnoczi wrote:
-> > Stash the packet length in a local variable before handing over
-> > ownership of the packet to virtio_transport_recv_pkt() or
-> > virtio_transport_free_pkt().
-> >=20
-> > This patch solves the use-after-free since pkt is no longer guaranteed
-> > to be alive.
-> >=20
-> > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
->=20
->=20
-> Thanks!
-> I'd prefer a lower-case prefix, mentioning vhost, such as vhost/vsock.
-> I'll tweak it for now.
+// <smpl>
+@@
+expression e1,e2;
+statement S2,S1;
+@@
+-       if (of_get_property(e1,e2,NULL))
++       if (of_property_read_bool(e1,e2))
+        S1 else S2
+// </smpl>
 
-Thanks, I will use vhost/vsock in the future.
+---
 
-Stefan
-
---Fba/0zbH8Xs+Fj9o
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBAgAGBQJXpFHzAAoJEJykq7OBq3PIuTIIAK7hJrVhJRRqTDbDEDDK9hub
-tdTlC9vEeenJkaONV68d1E9qQDfvaouVKGbXzrJq+3dQ5cC0fmMkps8fY0BE3JeB
-PG37Hr8Hah4XpU9cOjkmMQT8Com7u51m9iFoL4zslehECcttw82oB1gP430tksak
-iSmWQhBPqt6ijhVVa38m0OEyctIbAaMdQCPXnJbL4VSUNnlMEhLhIaa3DikhD7Cm
-74H15SiE3U9OKoV5Q4FfsZAE+huNXC5rGKx6FicBCQAOin5291u7usezIg5zqgNb
-yLWAdzyXYuC8/xmKhJ2aP6ArHqo3NZqucNu0ke3tdWjzJwjtYOW2I2SUXosN+DI=
-=C5n7
------END PGP SIGNATURE-----
-
---Fba/0zbH8Xs+Fj9o--
+ arch/powerpc/sysdev/mpic.c                  |    2 +-
+ drivers/i2c/busses/i2c-mpc.c                |    2 +-
+ drivers/mmc/host/sdhci-of-esdhc.c           |    2 +-
+ drivers/net/ethernet/freescale/xgmac_mdio.c |    3 +--
+ drivers/phy/phy-qcom-ufs.c                  |    2 +-
+ drivers/pinctrl/nomadik/pinctrl-nomadik.c   |    2 +-
+ drivers/soc/fsl/qe/qe_tdm.c                 |    2 +-
+ drivers/soc/ti/knav_qmss_queue.c            |    2 +-
+ drivers/tty/serial/atmel_serial.c           |    8 ++++----
+ drivers/usb/host/fsl-mph-dr-of.c            |    6 +++---
+ sound/soc/codecs/ab8500-codec.c             |   10 +++++-----
+ sound/soc/sh/rcar/ssi.c                     |    2 +-
+ sound/soc/soc-core.c                        |    2 +-
+ 13 files changed, 22 insertions(+), 23 deletions(-)
