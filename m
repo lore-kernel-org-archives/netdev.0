@@ -1,78 +1,190 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v2 03/14] net: ethernet: ti: cpsw: remove priv from cpsw_get_slave_port() parameters list
-Date: Sat,  6 Aug 2016 13:48:33 +0300
-Message-ID: <1470480524-6851-4-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v2 13/14] net: ethernet: ti: cpsw: move napi struct to cpsw_common
+Date: Sat,  6 Aug 2016 13:48:43 +0300
+Message-ID: <1470480524-6851-14-git-send-email-ivan.khoronzhuk@linaro.org>
 References: <1470480524-6851-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
 	dlide@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 To: netdev@vger.kernel.org, mugunthanvnm@ti.com,
 	grygorii.strashko@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:33421 "EHLO
-	mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbcHFVdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2016 17:33:49 -0400
-Received: by mail-lf0-f49.google.com with SMTP id b199so224984393lfe.0
-        for <netdev@vger.kernel.org>; Sat, 06 Aug 2016 14:33:48 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1470480524-6851-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is no need in priv here.
+The napi structs are common for both net devices in dual_emac
+mode, In order to not hold duplicate links to them, move to
+cpsw_common.
 
 Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
- drivers/net/ethernet/ti/cpsw.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 50 +++++++++++++++++++-----------------------
+ 1 file changed, 22 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 85ee9f5..30e1ddb 100644
+index 395531d..e0a1b80 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -525,7 +525,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
- 		if (priv->data.dual_emac) {				\
- 			struct cpsw_slave *slave = priv->slaves +	\
- 						priv->emac_port;	\
--			int slave_port = cpsw_get_slave_port(priv,	\
-+			int slave_port = cpsw_get_slave_port(		\
- 						slave->slave_num);	\
- 			cpsw_ale_add_mcast(priv->ale, addr,		\
- 				1 << slave_port | ALE_PORT_HOST,	\
-@@ -537,7 +537,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
- 		}							\
- 	} while (0)
+@@ -367,6 +367,8 @@ static inline void slave_write(struct cpsw_slave *slave, u32 val, u32 offset)
+ struct cpsw_common {
+ 	struct device			*dev;
+ 	struct cpsw_platform_data	data;
++	struct napi_struct		napi_rx;
++	struct napi_struct		napi_tx;
+ 	struct cpsw_ss_regs __iomem	*regs;
+ 	struct cpsw_wr_regs __iomem	*wr_regs;
+ 	u8 __iomem			*hw_stats;
+@@ -383,8 +385,6 @@ struct cpsw_common {
  
--static inline int cpsw_get_slave_port(struct cpsw_priv *priv, u32 slave_num)
-+static inline int cpsw_get_slave_port(u32 slave_num)
+ struct cpsw_priv {
+ 	struct net_device		*ndev;
+-	struct napi_struct		napi_rx;
+-	struct napi_struct		napi_tx;
+ 	struct device			*dev;
+ 	u32				msg_enable;
+ 	u32				version;
+@@ -489,7 +489,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
+ #define CPSW_STATS_LEN	ARRAY_SIZE(cpsw_gstrings_stats)
+ 
+ #define ndev_to_cpsw(ndev) (((struct cpsw_priv *)netdev_priv(ndev))->cpsw)
+-#define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
++#define napi_to_cpsw(napi)	container_of(napi, struct cpsw_common, napi)
+ #define for_each_slave(priv, func, arg...)				\
+ 	do {								\
+ 		struct cpsw_slave *slave;				\
+@@ -755,8 +755,7 @@ requeue:
+ 
+ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
  {
- 	return slave_num + 1;
+-	struct cpsw_priv *priv = dev_id;
+-	struct cpsw_common *cpsw = priv->cpsw;
++	struct cpsw_common *cpsw = dev_id;
+ 
+ 	writel(0, &cpsw->wr_regs->tx_en);
+ 	cpdma_ctlr_eoi(cpsw->dma, CPDMA_EOI_TX);
+@@ -766,14 +765,13 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+ 		cpsw->tx_irq_disabled = true;
+ 	}
+ 
+-	napi_schedule(&priv->napi_tx);
++	napi_schedule(&cpsw->napi_tx);
+ 	return IRQ_HANDLED;
  }
-@@ -849,7 +849,7 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
- 	if (!phy)
- 		return;
  
--	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
-+	slave_port = cpsw_get_slave_port(slave->slave_num);
- 
- 	if (phy->link) {
- 		mac_control = priv->data.mac_control;
-@@ -1120,7 +1120,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 
- 	slave->mac_control = 0;	/* no link yet */
- 
--	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
-+	slave_port = cpsw_get_slave_port(slave->slave_num);
- 
- 	if (priv->data.dual_emac)
- 		cpsw_add_dual_emac_def_ale_entries(priv, slave, slave_port);
-@@ -1222,7 +1222,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
  {
- 	u32 slave_port;
+-	struct cpsw_priv *priv = dev_id;
+-	struct cpsw_common *cpsw = priv->cpsw;
++	struct cpsw_common *cpsw = dev_id;
  
--	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
-+	slave_port = cpsw_get_slave_port(slave->slave_num);
+ 	cpdma_ctlr_eoi(cpsw->dma, CPDMA_EOI_RX);
+ 	writel(0, &cpsw->wr_regs->rx_en);
+@@ -783,15 +781,14 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
+ 		cpsw->rx_irq_disabled = true;
+ 	}
  
- 	if (!slave->phy)
- 		return;
+-	napi_schedule(&priv->napi_rx);
++	napi_schedule(&cpsw->napi_rx);
+ 	return IRQ_HANDLED;
+ }
+ 
+ static int cpsw_tx_poll(struct napi_struct *napi_tx, int budget)
+ {
+-	struct cpsw_priv	*priv = napi_to_priv(napi_tx);
++	struct cpsw_common	*cpsw = napi_to_cpsw(napi_tx);
+ 	int			num_tx;
+-	struct cpsw_common	*cpsw = priv->cpsw;
+ 
+ 	num_tx = cpdma_chan_process(cpsw->txch, budget);
+ 	if (num_tx < budget) {
+@@ -811,9 +808,8 @@ static int cpsw_tx_poll(struct napi_struct *napi_tx, int budget)
+ 
+ static int cpsw_rx_poll(struct napi_struct *napi_rx, int budget)
+ {
+-	struct cpsw_priv	*priv = napi_to_priv(napi_rx);
++	struct cpsw_common	*cpsw = napi_to_cpsw(napi_rx);
+ 	int			num_rx;
+-	struct cpsw_common	*cpsw = priv->cpsw;
+ 
+ 	num_rx = cpdma_chan_process(cpsw->rxch, budget);
+ 	if (num_rx < budget) {
+@@ -1292,7 +1288,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
+ 
+ 	if (!cpsw_common_res_usage_state(cpsw)) {
+-		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(cpsw, 0);
+ 		int buf_num;
+ 
+ 		/* setup tx dma to fixed prio and zero offset */
+@@ -1308,8 +1303,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		/* Enable internal fifo flow control */
+ 		writel(0x7, &cpsw->regs->flow_control);
+ 
+-		napi_enable(&priv_sl0->napi_rx);
+-		napi_enable(&priv_sl0->napi_tx);
++		napi_enable(&cpsw->napi_rx);
++		napi_enable(&cpsw->napi_tx);
+ 
+ 		if (cpsw->tx_irq_disabled) {
+ 			cpsw->tx_irq_disabled = false;
+@@ -1384,8 +1379,8 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+ 	if (cpsw_common_res_usage_state(cpsw) <= 1) {
+ 		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(cpsw, 0);
+ 
+-		napi_disable(&priv_sl0->napi_rx);
+-		napi_disable(&priv_sl0->napi_tx);
++		napi_disable(&cpsw->napi_rx);
++		napi_disable(&cpsw->napi_tx);
+ 		cpts_unregister(priv->cpts);
+ 		cpsw_intr_disable(cpsw);
+ 		cpdma_ctlr_stop(cpsw->dma);
+@@ -1665,13 +1660,12 @@ static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ {
+-	struct cpsw_priv *priv = netdev_priv(ndev);
+-	struct cpsw_common *cpsw = priv->cpsw;
++	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
+ 
+-	cpsw_intr_disable(priv->cpsw);
+-	cpsw_rx_interrupt(cpsw->irqs_table[0], priv);
+-	cpsw_tx_interrupt(cpsw->irqs_table[1], priv);
+-	cpsw_intr_enable(priv->cpsw);
++	cpsw_intr_disable(cpsw);
++	cpsw_rx_interrupt(cpsw->irqs_table[0], cpsw);
++	cpsw_tx_interrupt(cpsw->irqs_table[1], cpsw);
++	cpsw_intr_enable(cpsw);
+ }
+ #endif
+ 
+@@ -2548,7 +2542,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	cpsw->irqs_table[0] = irq;
+ 	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
+-			       0, dev_name(&pdev->dev), priv);
++			       0, dev_name(&pdev->dev), cpsw);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+ 		goto clean_ale_ret;
+@@ -2563,7 +2557,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	cpsw->irqs_table[1] = irq;
+ 	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+-			       0, dev_name(&pdev->dev), priv);
++			       0, dev_name(&pdev->dev), cpsw);
+ 	if (ret < 0) {
+ 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+ 		goto clean_ale_ret;
+@@ -2573,8 +2567,8 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	ndev->netdev_ops = &cpsw_netdev_ops;
+ 	ndev->ethtool_ops = &cpsw_ethtool_ops;
+-	netif_napi_add(ndev, &priv->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
+-	netif_tx_napi_add(ndev, &priv->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
++	netif_napi_add(ndev, &cpsw->napi_rx, cpsw_rx_poll, CPSW_POLL_WEIGHT);
++	netif_tx_napi_add(ndev, &cpsw->napi_tx, cpsw_tx_poll, CPSW_POLL_WEIGHT);
+ 
+ 	/* register the network device */
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
 -- 
 1.9.1
