@@ -1,52 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute v2 2/5] ila: Support for configuring ila to use
- netfilter hook
-Date: Sat, 6 Aug 2016 10:33:46 -0700
-Message-ID: <20160806103346.56f7c33a@xeon-e3>
-References: <1470342897-2004557-1-git-send-email-tom@herbertland.com>
-	<269381334f4e4f2e9a40dd3f91129234@HQ1WP-EXMB11.corp.brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <shemming@Brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-team@fb.com" <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:35647 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbcHFU3f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 6 Aug 2016 16:29:35 -0400
-Received: by mail-pa0-f47.google.com with SMTP id iw10so102168609pac.2
-        for <netdev@vger.kernel.org>; Sat, 06 Aug 2016 13:29:34 -0700 (PDT)
-In-Reply-To: <269381334f4e4f2e9a40dd3f91129234@HQ1WP-EXMB11.corp.brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v2 01/14] net: ethernet: ti: cpsw: simplify submit routine
+Date: Sat,  6 Aug 2016 13:48:31 +0300
+Message-ID: <1470480524-6851-2-git-send-email-ivan.khoronzhuk@linaro.org>
+References: <1470480524-6851-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dlide@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	grygorii.strashko@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470480524-6851-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have no problem with this series in general and wanted to put it in before
-closing the lid on 4.7 version, BUT.
+As second net dev is created only in case of dual_emac mode, port
+number can be figured out in simpler way. Also no need to pass
+redundant ndev struct.
 
-This patch generates warnings when built on Debian Strech with gcc-5
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+ drivers/net/ethernet/ti/cpsw.c | 18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index c51f346..8972bf6 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1065,19 +1065,11 @@ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
+ 	return usage_count;
+ }
  
-ipila.c: In function ‘ila_parse_opt.constprop’:
-ipila.c:205:2: warning: ‘locator_match’ may be used uninitialized in this function [-Wmaybe-uninitialized]
-  addattr64(n, 1024, ILA_ATTR_LOCATOR_MATCH, locator_match);
-
-	if (matches(*argv, "add") == 0)
-> +		return do_add(argc-1, argv+1);
-> +	if (matches(*argv, "delete") == 0)
-> +		return do_del(argc-1, argv+1);
-> +	if (matches(*argv, "list") == 0)
-> +		return do_list(argc-1, argv+1);
-> +	if (matches(*argv, "help") == 0)
-> +		usage();
-> +
-> +	fprintf(stderr, "Command \"%s\" is unknown, try \"ip ila help\".\n",
-> +		*argv);
-> +	exit(-1);
-> +}
-> +
-
-You also added a blank line at end of file.
-
-Please fix this and resubmit the series.
+-static inline int cpsw_tx_packet_submit(struct net_device *ndev,
+-			struct cpsw_priv *priv, struct sk_buff *skb)
++static inline int cpsw_tx_packet_submit(struct cpsw_priv *priv,
++					struct sk_buff *skb)
+ {
+-	if (!priv->data.dual_emac)
+-		return cpdma_chan_submit(priv->txch, skb, skb->data,
+-				  skb->len, 0);
+-
+-	if (ndev == cpsw_get_slave_ndev(priv, 0))
+-		return cpdma_chan_submit(priv->txch, skb, skb->data,
+-				  skb->len, 1);
+-	else
+-		return cpdma_chan_submit(priv->txch, skb, skb->data,
+-				  skb->len, 2);
++	return cpdma_chan_submit(priv->txch, skb, skb->data, skb->len,
++				 priv->emac_port + priv->data.dual_emac);
+ }
+ 
+ static inline void cpsw_add_dual_emac_def_ale_entries(
+@@ -1406,7 +1398,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 
+ 	skb_tx_timestamp(skb);
+ 
+-	ret = cpsw_tx_packet_submit(ndev, priv, skb);
++	ret = cpsw_tx_packet_submit(priv, skb);
+ 	if (unlikely(ret != 0)) {
+ 		cpsw_err(priv, tx_err, "desc submit failed\n");
+ 		goto fail;
+-- 
+1.9.1
