@@ -1,54 +1,57 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [net-next 0/2] BPF, kprobes: Add current_in_cgroup helper
-Date: Sat, 6 Aug 2016 21:56:06 -0700
-Message-ID: <20160807045605.GA10067@ircssh.c.rugged-nimbus-611.internal>
-References: <20160807040651.GA9262@ircssh.c.rugged-nimbus-611.internal>
- <20160807043203.GA77894@ast-mbp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: use event->chunk when it's valid
+Date: Sun,  7 Aug 2016 14:15:13 +0800
+Message-ID: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:35533 "EHLO
-	mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033AbcHGE4J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 00:56:09 -0400
-Received: by mail-it0-f49.google.com with SMTP id u186so51525582ita.0
-        for <netdev@vger.kernel.org>; Sat, 06 Aug 2016 21:56:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160807043203.GA77894@ast-mbp>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:34458 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751040AbcHGGPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 02:15:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 06, 2016 at 09:32:05PM -0700, Alexei Starovoitov wrote:
-> On Sat, Aug 06, 2016 at 09:06:53PM -0700, Sargun Dhillon wrote:
-> > This patchset includes a helper and an example to determine whether the kprobe 
-> > is currently executing in the context of a specific cgroup based on a cgroup
-> > bpf map / array. 
-> 
-> description is too short to understand how this new helper is going to be used.
-> depending on kprobe current is not always valid.
-Anything not in in_interrupt() should have a current, right?
+Commit 52253db924d1 ("sctp: also point GSO head_skb to the sk when
+it's available") used event->chunk->head_skb to get the head_skb in
+sctp_ulpevent_set_owner().
 
-> what are you trying to achieve?
-This is primarily to help troubleshoot containers (Docker, and now systemd). A 
-lot of the time we want to determine what's going on in a given container 
-(opening files, connecting to systems, etc...). There's not really a great way 
-to restrict to containers except by manually walking datastructures to check for 
-the right cgroup. This seems like a better alternative.
+But at that moment, the event->chunk was NULL, as it cloned the skb
+in sctp_ulpevent_make_rcvmsg(). Therefore, that patch didn't really
+work.
 
-> This looks like an alternative to lsm patches submitted earlier?
-No. But I would like to use this helper in the LSM patches I'm working on. For 
-now, with those patches, and this helper, I can create a map sized 1, and add 
-the cgroup I care about to it. Given I can add as many bpf programs to an LSM
-hook I want, I can use this mechanism to "attach BPF programs to cgroups" -- 
-I put that in quotes because you're not really attaching it to a cgroup,
-but just burning some instructions on checking it. 
+This patch is to move the event->chunk initialization before calling
+sctp_ulpevent_receive_data() so that it uses event->chunk when it's
+valid.
 
-In my mind it seems better than making cgroup-attachment a first-class part
-of the checmate work since I still want to make globally available hooks
-possible.
+Fixes: 52253db924d1 ("sctp: also point GSO head_skb to the sk when it's available")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/ulpevent.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> btw net-next is closed and no new features accepted at the moment.
-Sorry, I didn't realize that. I'd still love to get feedback.
-> 
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index 1bc4f71..d85b803 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -702,14 +702,14 @@ struct sctp_ulpevent *sctp_ulpevent_make_rcvmsg(struct sctp_association *asoc,
+ 	 */
+ 	sctp_ulpevent_init(event, 0, skb->len + sizeof(struct sk_buff));
+ 
+-	sctp_ulpevent_receive_data(event, asoc);
+-
+ 	/* And hold the chunk as we need it for getting the IP headers
+ 	 * later in recvmsg
+ 	 */
+ 	sctp_chunk_hold(chunk);
+ 	event->chunk = chunk;
+ 
++	sctp_ulpevent_receive_data(event, asoc);
++
+ 	event->stream = ntohs(chunk->subh.data_hdr->stream);
+ 	event->ssn = ntohs(chunk->subh.data_hdr->ssn);
+ 	event->ppid = chunk->subh.data_hdr->ppid;
+-- 
+2.1.0
