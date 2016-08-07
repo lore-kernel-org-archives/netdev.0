@@ -1,21 +1,32 @@
-From: "nahcho@163.com" <netdev@vger.kernel.org>
-Subject: =?utf-8?Q?=D0=9F=D1=80=D0=BE=D0=B1=D0=B8=D0=B2_=D0=BB=D1?=
-	=?utf-8?Q?=8E=D0=B1=D1=8B=D1=85_=D0=B4=D0=B0=D0=BD=D0=BD?=
-	=?utf-8?Q?=D1=8B=D1=85_=D1=82=2E_+79776066203_Email=3A_na?=
-	=?utf-8?Q?hcho=40163=2Ecom?=
-Date: Sat, 30 Jul 2016 04:47:17 +0600
-Message-ID: <E01A51E58A5E70A37F7A338F9B4BBA2B@vger.kernel.org>
-Reply-To: "nahcho@163.com" <nahcho@163.com>
+From: Denis Turischev <denis.turischev@compulab.co.il>
+Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on
+ some I218 controllers
+Date: Sun, 7 Aug 2016 11:56:09 +0300
+Message-ID: <57A6F7A9.1030401@compulab.co.il>
+References: <579F407E.9090602@compulab.co.il>
+ <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8";
-Content-Transfer-Encoding: 8bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server5857.dedicated.webfusion.co.uk ([81.21.74.143]:53368 "HELO
-	ds5857.dedicated.turbodns.co.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751297AbcHGHtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 03:49:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Raanan Avargil <raanan.avargil@intel.com>,
+	intel-wired-lan@lists.osuosl.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Пробив любых данных т. +79776066203 Email: nahcho@163.com
+Hi Raanan,
+
+On 08/04/2016 07:18 PM, Raanan Avargil wrote:
+> It is hard to determine what is exactly the problem here and what causes the -3 error, but this is not the place to perform hw reset and retry to init the phy.
+
+I agree that may be this is not the correct place for hw reset, can you advice about another solution?
+
+It works, not only for me, for example it helps here:
+http://www.linux.org.ru/forum/linux-hardware/10268216
+
+Another fact that Windows drivers work fine with the same hw.
+
+Denis
