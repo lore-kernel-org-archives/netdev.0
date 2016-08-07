@@ -1,39 +1,31 @@
-From: "Mr.Friedrich Mayrhofer" <americo.freitas@inss.gov.br>
-Subject: Good News
-Date: Sun, 07 Aug 2016 05:16:34 +0100
-Message-ID: <20160807041638.98357102E9A8@mx.inss.gov.br>
-Reply-To: friedrich_mayrh1@yeah.net
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next 0/2] BPF, kprobes: Add current_in_cgroup helper
+Date: Sat, 6 Aug 2016 21:32:05 -0700
+Message-ID: <20160807043203.GA77894@ast-mbp>
+References: <20160807040651.GA9262@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net
+To: Sargun Dhillon <sargun@sargun.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.inss.gov.br ([200.152.40.7]:5823 "EHLO mx.inss.gov.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751040AbcHGEVr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 00:21:47 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mx.inss.gov.br (Postfix) with ESMTP id 98357102E9A8
-	for <netdev@vger.kernel.org>; Sun,  7 Aug 2016 01:16:38 -0300 (BRT)
-Received: from mx.inss.gov.br ([127.0.0.1])
-	by localhost (www747.dmz [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id su-omrnEvpMw for <netdev@vger.kernel.org>;
-	Sun,  7 Aug 2016 01:16:38 -0300 (BRT)
-Received: from PETER-PC.localdomain (unknown [169.159.81.218])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx.inss.gov.br (Postfix) with ESMTPSA id ABC33101F0A9
-	for <netdev@vger.kernel.org>; Sun,  7 Aug 2016 01:16:37 -0300 (BRT)
-Content-Description: Mail message body
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35189 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbcHGEed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 00:34:33 -0400
+Received: by mail-pf0-f196.google.com with SMTP id h186so22643238pfg.2
+        for <netdev@vger.kernel.org>; Sat, 06 Aug 2016 21:34:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160807040651.GA9262@ircssh.c.rugged-nimbus-611.internal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Good Day,
- 
- This is the second time i am sending you this mail.
- 
- I, Friedrich Mayrhofer Donate $ 1,000,000.00 to You, Email
- Me personally for more details.
- 
- Regards.
- Friedrich Mayrhofer
+On Sat, Aug 06, 2016 at 09:06:53PM -0700, Sargun Dhillon wrote:
+> This patchset includes a helper and an example to determine whether the kprobe 
+> is currently executing in the context of a specific cgroup based on a cgroup
+> bpf map / array. 
+
+description is too short to understand how this new helper is going to be used.
+depending on kprobe current is not always valid.
+what are you trying to achieve?
+This looks like an alternative to lsm patches submitted earlier?
+btw net-next is closed and no new features accepted at the moment.
