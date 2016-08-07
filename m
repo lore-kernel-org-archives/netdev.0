@@ -1,32 +1,46 @@
-From: Denis Turischev <denis.turischev@compulab.co.il>
-Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on
- some I218 controllers
-Date: Sun, 7 Aug 2016 11:56:09 +0300
-Message-ID: <57A6F7A9.1030401@compulab.co.il>
-References: <579F407E.9090602@compulab.co.il>
- <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Raanan Avargil <raanan.avargil@intel.com>,
-	intel-wired-lan@lists.osuosl.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH iproute2] ip route: restore_handler should check tb[RTA_PREFSRC] for local networks
+Date: Sun,  7 Aug 2016 17:12:30 +0800
+Message-ID: <f805ffe5dad63ae04330df32bbe6cf532a6772b7.1470561150.git.lucien.xin@gmail.com>
+To: network dev <netdev@vger.kernel.org>, stephen@networkplumber.org,
+	phil@nwl.cc
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35269 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400AbcHGJMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 05:12:36 -0400
+Received: by mail-pf0-f194.google.com with SMTP id h186so22932811pfg.2
+        for <netdev@vger.kernel.org>; Sun, 07 Aug 2016 02:12:36 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Raanan,
+Prior to this patch, If one route entry's RTA_PREFSRC and RTA_GATEWAY
+both were NULL, it was supposed to be restored ONLY as a local address.
 
-On 08/04/2016 07:18 PM, Raanan Avargil wrote:
-> It is hard to determine what is exactly the problem here and what causes the -3 error, but this is not the place to perform hw reset and retry to init the phy.
+But as it didn't check tb[RTA_PREFSRC] when restoring local networks,
+rtattr_cmp would return a success if it was NULL, this route entry would
+be restored again as a local network.
 
-I agree that may be this is not the correct place for hw reset, can you advice about another solution?
+This patch is to add tb[RTA_PREFSRC] check when restoring local networks.
 
-It works, not only for me, for example it helps here:
-http://www.linux.org.ru/forum/linux-hardware/10268216
+Fixes: 74af8dd9620e ("ip route: restore route entries in correct order")
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ ip/iproute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Another fact that Windows drivers work fine with the same hw.
-
-Denis
+diff --git a/ip/iproute.c b/ip/iproute.c
+index c52294d..3da23af 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -1813,7 +1813,7 @@ static int restore_handler(const struct sockaddr_nl *nl,
+ 	if (!prio && !tb[RTA_GATEWAY] && (!tb[RTA_PREFSRC] ||
+ 	    !rtattr_cmp(tb[RTA_PREFSRC], tb[RTA_DST])))
+ 		goto restore;
+-	else if (prio == 1 && !tb[RTA_GATEWAY] &&
++	else if (prio == 1 && !tb[RTA_GATEWAY] && tb[RTA_PREFSRC] &&
+ 		 rtattr_cmp(tb[RTA_PREFSRC], tb[RTA_DST]))
+ 		goto restore;
+ 	else if (prio == 2 && tb[RTA_GATEWAY])
+-- 
+2.1.0
