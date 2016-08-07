@@ -1,57 +1,33 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] sctp: use event->chunk when it's valid
-Date: Sun,  7 Aug 2016 14:15:13 +0800
-Message-ID: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34458 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751040AbcHGGPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 02:15:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2016-08-05
+Date: Sun, 07 Aug 2016 00:24:38 -0700 (PDT)
+Message-ID: <20160807.002438.1914925161653123293.davem@davemloft.net>
+References: <1470400329-23256-1-git-send-email-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1470400329-23256-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit 52253db924d1 ("sctp: also point GSO head_skb to the sk when
-it's available") used event->chunk->head_skb to get the head_skb in
-sctp_ulpevent_set_owner().
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Fri,  5 Aug 2016 14:32:08 +0200
 
-But at that moment, the event->chunk was NULL, as it cloned the skb
-in sctp_ulpevent_make_rcvmsg(). Therefore, that patch didn't really
-work.
+> Here's a first set of fixes for the current cycle. See the tag message
+> for more information.
+> 
+> I'll probably have a follow-up fix for the real problem in mac80211
+> that caused the crash later, but for now we have this patch and it
+> makes sense and fixes the crash, even if the behaviour isn't quite
+> right (afaict.)
+> 
+> Let me know if there's any problem.
 
-This patch is to move the event->chunk initialization before calling
-sctp_ulpevent_receive_data() so that it uses event->chunk when it's
-valid.
-
-Fixes: 52253db924d1 ("sctp: also point GSO head_skb to the sk when it's available")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/ulpevent.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index 1bc4f71..d85b803 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -702,14 +702,14 @@ struct sctp_ulpevent *sctp_ulpevent_make_rcvmsg(struct sctp_association *asoc,
- 	 */
- 	sctp_ulpevent_init(event, 0, skb->len + sizeof(struct sk_buff));
- 
--	sctp_ulpevent_receive_data(event, asoc);
--
- 	/* And hold the chunk as we need it for getting the IP headers
- 	 * later in recvmsg
- 	 */
- 	sctp_chunk_hold(chunk);
- 	event->chunk = chunk;
- 
-+	sctp_ulpevent_receive_data(event, asoc);
-+
- 	event->stream = ntohs(chunk->subh.data_hdr->stream);
- 	event->ssn = ntohs(chunk->subh.data_hdr->ssn);
- 	event->ppid = chunk->subh.data_hdr->ppid;
--- 
-2.1.0
+Pulled, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
