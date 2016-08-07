@@ -1,46 +1,38 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH iproute2] ip route: restore_handler should check tb[RTA_PREFSRC] for local networks
-Date: Sun,  7 Aug 2016 17:12:30 +0800
-Message-ID: <f805ffe5dad63ae04330df32bbe6cf532a6772b7.1470561150.git.lucien.xin@gmail.com>
-To: network dev <netdev@vger.kernel.org>, stephen@networkplumber.org,
-	phil@nwl.cc
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH] tc/m_gact: Fix action_a2n() return code check
+Date: Sun,  7 Aug 2016 13:19:01 +0200
+Message-ID: <20160807111621.6D056647E4@mail.nwl.cc>
+Cc: Mark Bloch <markb@mellanox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35269 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751400AbcHGJMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 05:12:36 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h186so22932811pfg.2
-        for <netdev@vger.kernel.org>; Sun, 07 Aug 2016 02:12:36 -0700 (PDT)
+Received: from orbyte.nwl.cc ([151.80.46.58]:47111 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751574AbcHGLQY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Aug 2016 07:16:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to this patch, If one route entry's RTA_PREFSRC and RTA_GATEWAY
-both were NULL, it was supposed to be restored ONLY as a local address.
+The function returns zero on success.
 
-But as it didn't check tb[RTA_PREFSRC] when restoring local networks,
-rtattr_cmp would return a success if it was NULL, this route entry would
-be restored again as a local network.
-
-This patch is to add tb[RTA_PREFSRC] check when restoring local networks.
-
-Fixes: 74af8dd9620e ("ip route: restore route entries in correct order")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Reported-by: Mark Bloch <markb@mellanox.com>
+Fixes: 69f5aff63c770b ("tc: use action_a2n() everywhere")
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/iproute.c | 2 +-
+ tc/m_gact.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index c52294d..3da23af 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -1813,7 +1813,7 @@ static int restore_handler(const struct sockaddr_nl *nl,
- 	if (!prio && !tb[RTA_GATEWAY] && (!tb[RTA_PREFSRC] ||
- 	    !rtattr_cmp(tb[RTA_PREFSRC], tb[RTA_DST])))
- 		goto restore;
--	else if (prio == 1 && !tb[RTA_GATEWAY] &&
-+	else if (prio == 1 && !tb[RTA_GATEWAY] && tb[RTA_PREFSRC] &&
- 		 rtattr_cmp(tb[RTA_PREFSRC], tb[RTA_DST]))
- 		goto restore;
- 	else if (prio == 2 && tb[RTA_GATEWAY])
+diff --git a/tc/m_gact.c b/tc/m_gact.c
+index c0a938c716b6a..2bfd9a7c317e4 100644
+--- a/tc/m_gact.c
++++ b/tc/m_gact.c
+@@ -73,7 +73,7 @@ get_act(char ***argv_p)
+ {
+ 	int n;
+ 
+-	if (!action_a2n(**argv_p, &n, false)) {
++	if (action_a2n(**argv_p, &n, false)) {
+ 		fprintf(stderr, "bad action type %s\n", **argv_p);
+ 		return -10;
+ 	}
 -- 
-2.1.0
+2.9.0
