@@ -1,33 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull-request: mac80211 2016-08-05
-Date: Sun, 07 Aug 2016 00:24:38 -0700 (PDT)
-Message-ID: <20160807.002438.1914925161653123293.davem@davemloft.net>
-References: <1470400329-23256-1-git-send-email-johannes@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: macb: Correct CAPS mask
+Date: Sun, 07 Aug 2016 00:25:00 -0700 (PDT)
+Message-ID: <20160807.002500.1385616310816950633.davem@davemloft.net>
+References: <1470373318-34516-1-git-send-email-harinik@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1470400329-23256-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: nicolas.ferre@atmel.com, harinikatakamlinux@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	harinik@xilinx.com, punnaia@xilinx.com, michals@xilinx.com,
+	stable@vger.kernel.org
+To: harini.katakam@xilinx.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470373318-34516-1-git-send-email-harinik@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Fri,  5 Aug 2016 14:32:08 +0200
+From: Harini Katakam <harini.katakam@xilinx.com>
+Date: Fri, 5 Aug 2016 10:31:58 +0530
 
-> Here's a first set of fixes for the current cycle. See the tag message
-> for more information.
+> USRIO and JUMBO CAPS have the same mask.
+> Fix the same.
 > 
-> I'll probably have a follow-up fix for the real problem in mac80211
-> that caused the crash later, but for now we have this patch and it
-> makes sense and fixes the crash, even if the behaviour isn't quite
-> right (afaict.)
-> 
-> Let me know if there's any problem.
+> Fixes: ce721a702197 ("net: ethernet: cadence-macb: Add disabled usrio caps")
+> Cc: stable@vger.kernel.org # v4.5+
+> Signed-off-by: Harini Katakam <harinik@xilinx.com>
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Pulled, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
