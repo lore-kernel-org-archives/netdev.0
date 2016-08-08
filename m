@@ -1,125 +1,423 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [net-next 0/2] BPF, kprobes: Add current_in_cgroup helper
-Date: Sun, 7 Aug 2016 20:08:19 -0700
-Message-ID: <20160808030818.GA26215@ircssh.c.rugged-nimbus-611.internal>
-References: <20160807040651.GA9262@ircssh.c.rugged-nimbus-611.internal>
- <20160807043203.GA77894@ast-mbp>
- <20160807045605.GA10067@ircssh.c.rugged-nimbus-611.internal>
- <20160808005234.GA80725@ast-mbp>
+From: Philp Prindeville <philipp@redfish-solutions.com>
+Subject: Re: [PATCH v4 1/1] rps: Inspect PPTP encapsulated by GRE to get flow
+ hash
+Date: Sun, 7 Aug 2016 21:27:09 -0600
+Message-ID: <51af298c-f64d-b32a-e679-3a5ac821af2e@redfish-solutions.com>
+References: <1470294406-11208-1-git-send-email-fgao@ikuai8.com>
+ <e185b3b9-77cc-bb8f-eaea-04a801859179@redfish-solutions.com>
+ <CA+6hz4qPsm_E5WVU_tdw-v5S4pyqPCuEsSPjcnjbPg9hY7Q3xA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, daniel@zonque.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: fgao@48lvckh6395k16k5.yundunddos.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Feng Gao <gfree.wind@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:36607 "EHLO
-	mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbcHHDIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 23:08:22 -0400
-Received: by mail-it0-f47.google.com with SMTP id x130so64285283ite.1
-        for <netdev@vger.kernel.org>; Sun, 07 Aug 2016 20:08:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160808005234.GA80725@ast-mbp>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:53786 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751997AbcHHD3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Aug 2016 23:29:20 -0400
+In-Reply-To: <CA+6hz4qPsm_E5WVU_tdw-v5S4pyqPCuEsSPjcnjbPg9hY7Q3xA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for your feedback Alexei,
-I really appreciate it.
+Feng,
 
-On Sun, Aug 07, 2016 at 05:52:36PM -0700, Alexei Starovoitov wrote:
-> On Sat, Aug 06, 2016 at 09:56:06PM -0700, Sargun Dhillon wrote:
-> > On Sat, Aug 06, 2016 at 09:32:05PM -0700, Alexei Starovoitov wrote:
-> > > On Sat, Aug 06, 2016 at 09:06:53PM -0700, Sargun Dhillon wrote:
-> > > > This patchset includes a helper and an example to determine whether the kprobe 
-> > > > is currently executing in the context of a specific cgroup based on a cgroup
-> > > > bpf map / array. 
-> > > 
-> > > description is too short to understand how this new helper is going to be used.
-> > > depending on kprobe current is not always valid.
-> > Anything not in in_interrupt() should have a current, right?
-> > 
-> > > what are you trying to achieve?
-> > This is primarily to help troubleshoot containers (Docker, and now systemd). A 
-> > lot of the time we want to determine what's going on in a given container 
-> > (opening files, connecting to systems, etc...). There's not really a great way 
-> > to restrict to containers except by manually walking datastructures to check for 
-> > the right cgroup. This seems like a better alternative.
-> 
-> so it's about restricting or determining?
-> In other words if it's analytics/tracing that's one thing, but
-> enforcement/restriction is quite different.
-> For analytics one can walk task_css_set(current)->dfl_cgrp and remember
-> that pointer in a map or something for stats collections and similar.
-> If it's restricting apps in containers then kprobe approach
-> is not usable. I don't think you'd want to built an enforcement system
-> on an unstable api then can vary kernel-to-kernel.
-> 
-The first real-world use case are to implement something like Sysdig. Often the 
-team running the team running the containers don't always know what's inside of 
-them, so they want to be able to view network, I/O, and other activity by 
-container. Right now, the lowest common denominator between all of the 
-containerization techniques is cgroups. We've seen examples of where a admin is 
-unsure of the workload, and would love to use opensnoop, but there are too many 
-workloads on the machine.
+An anonymous structure is defined here: 
+https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html
 
-Unfortunately, I don't think that it's possible just to check 
-task_css_set(current)->dfl_cgrp in a bpf program. The container, especially 
-containers with sidecars (what Kubernetes calls Pods, I believe?) tend to have 
-multiple nested cgroups inside of them. If you had a way to convert cgroup array 
-entries to pointers, I imagine you could write an unrolled loop to check for 
-ownership within a limited range.
+i.e.:
 
-I'm still looking for comments from the LSM folks on Checmate[1]. It appears 
-that there has been very little churn in the LSM hooks API that's API-breaking. 
-For many of syscall hooks, they're closely tied to the syscall API, so they 
-can't really change too much. I think that a toolkit like iovisor, or another 
-userland translation layer, these hooks could be very powerful. I would love to 
-hear feedback from the LSM folks.
+struct gre_full_hdr {
+     struct gre_base_hdr;
+     ...
 
-My plan with those patches is to reimplement Yama, and Hardchroot in BPF 
-programs to show off the potential capabilities of Checmate. I'd also like to 
-create some example programs blocking CVEs that have popped up. I think of the 
-idea like nftables for kernel syscalls, storage, and the network stack.
+so yes, I'm talking about making fixed_header be anonymous instead.
 
-The other example I want to show is implementing Docker-bridge style network 
-isolation with Checmate. Most folks use it to map ports, and to restrict binding 
-to specific ports, and not the dedicated network namespace, or loopback 
-interface. It turns out for some applications this comes at a pretty significant 
-hit[2][3], as well as awkward upper bounds based on conntrack.
+-Philip
 
-> > > This looks like an alternative to lsm patches submitted earlier?
-> > No. But I would like to use this helper in the LSM patches I'm working on. For 
-> > now, with those patches, and this helper, I can create a map sized 1, and add 
-> > the cgroup I care about to it. Given I can add as many bpf programs to an LSM
-> > hook I want, I can use this mechanism to "attach BPF programs to cgroups" -- 
-> > I put that in quotes because you're not really attaching it to a cgroup,
-> > but just burning some instructions on checking it. 
-> 
-> how many cgroups will you need to check? The current bpf_skb_in_cgroup()
-> suffers similar scaling issues.
-> I think the proper restriction/enforcement could be done via attaching bpf
-> program to a cgroup. These patches are being worked on Daniel Mack cc-ed.
-> Then bpf program will be able to enforce networking behavior of applications
-> in cgroups.
-> For global container analytics I think we need something that converts
-> current to cgroup_id or cgroup_handle. I don't think descendant check
-> can scale for such use case.
-> 
-Usually there's a top level cgroup for a container, and then cgroup for each 
-subprocess, and maybe a third level if that fans out to multiple workers (See: 
-unicorn). I see your point though about scalability, or performance issues. I 
-still think a current_is_cgroup (vs in_cgroup) call would be really nice. 
-Though, if we have a current_cgroup_id helper, it introduces the problem that if 
-there is churn in cgroups, the ID may be reassigned. There still needs to be a 
-way to keep the reference, and perhaps we just make a helper to convert cgroup 
-map entires into IDs.
 
-The approach I took in the Checmate patches allows for "attachment" to a uts 
-namespace, which are perhaps the lightest, and simplest namespaces. Maybe that's 
-the right direction to go, but I'm looking forward to seeing Daniel's patches.
-
--Thanks,
-Sargun
-
-[1] https://lkml.org/lkml/2016/8/4/58
-[2] https://www.percona.com/blog/2016/02/11/measuring-docker-io-overhead/ 
-[3] http://blog.pierreroudier.net/wp-content/uploads/2015/08/rc25482.pdf (warning: PDF)
+On 08/07/2016 08:50 PM, Feng Gao wrote:
+> Hi Philp,
+>
+> Forgive my poor English, I am not clear about the comment #1.
+> "Can you make gre_base_hdr be anonymous?".
+>
+> +struct gre_full_hdr {
+> +   struct gre_base_hdr fixed_header;
+>
+> Do you mean make the member "fixed_header" as anonymous or not?
+>
+> Best Regards
+> Feng
+>
+>
+> On Mon, Aug 8, 2016 at 5:03 AM, Philp Prindeville
+> <philipp@redfish-solutions.com> wrote:
+>> Inline...
+>>
+>>
+>>
+>> On 08/04/2016 01:06 AM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
+>>> From: Gao Feng <fgao@ikuai8.com>
+>>>
+>>> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+>>> must contain one. But current GRE RPS needs the GRE_VERSION must be
+>>> zero. So RPS does not work for PPTP traffic.
+>>>
+>>> In my test environment, there are four MIPS cores, and all traffic
+>>> are passed through by PPTP. As a result, only one core is 100% busy
+>>> while other three cores are very idle. After this patch, the usage
+>>> of four cores are balanced well.
+>>>
+>>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>>> ---
+>>>    v4: 1) Define struct gre_full_hdr, and use sizeof its member directly;
+>>>        2) Move version and routing check ahead;
+>>>        3) Only PPTP in GRE check the ack flag;
+>>>    v3: 1) Move struct pptp_gre_header defination into new file pptp.h
+>>>        2) Use sizeof GRE and PPTP type instead of literal value;
+>>>        3) Remove strict flag check for PPTP to robust;
+>>>        4) Consolidate the codes again;
+>>>    v2: Update according to Tom and Philp's advice.
+>>>        1) Consolidate the codes with GRE version 0 path;
+>>>        2) Use PPP_PROTOCOL to get ppp protol;
+>>>        3) Set the FLOW_DIS_ENCAPSULATION flag;
+>>>    v1: Intial Patch
+>>>
+>>>    drivers/net/ppp/pptp.c         |  36 +------------
+>>>    include/net/gre.h              |  10 +++-
+>>>    include/net/pptp.h             |  40 +++++++++++++++
+>>>    include/uapi/linux/if_tunnel.h |   7 ++-
+>>>    net/core/flow_dissector.c      | 113
+>>> ++++++++++++++++++++++++++++-------------
+>>>    5 files changed, 135 insertions(+), 71 deletions(-)
+>>>    create mode 100644 include/net/pptp.h
+>>>
+>>> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+>>> index ae0905e..3e68dbc 100644
+>>> --- a/drivers/net/ppp/pptp.c
+>>> +++ b/drivers/net/ppp/pptp.c
+>>> @@ -37,6 +37,7 @@
+>>>    #include <net/icmp.h>
+>>>    #include <net/route.h>
+>>>    #include <net/gre.h>
+>>> +#include <net/pptp.h>
+>>>      #include <linux/uaccess.h>
+>>>    @@ -53,41 +54,6 @@ static struct proto pptp_sk_proto __read_mostly;
+>>>    static const struct ppp_channel_ops pptp_chan_ops;
+>>>    static const struct proto_ops pptp_ops;
+>>>    -#define PPP_LCP_ECHOREQ 0x09
+>>> -#define PPP_LCP_ECHOREP 0x0A
+>>> -#define SC_RCV_BITS    (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
+>>> -
+>>> -#define MISSING_WINDOW 20
+>>> -#define WRAPPED(curseq, lastseq)\
+>>> -       ((((curseq) & 0xffffff00) == 0) &&\
+>>> -       (((lastseq) & 0xffffff00) == 0xffffff00))
+>>> -
+>>> -#define PPTP_GRE_PROTO  0x880B
+>>> -#define PPTP_GRE_VER    0x1
+>>> -
+>>> -#define PPTP_GRE_FLAG_C        0x80
+>>> -#define PPTP_GRE_FLAG_R        0x40
+>>> -#define PPTP_GRE_FLAG_K        0x20
+>>> -#define PPTP_GRE_FLAG_S        0x10
+>>> -#define PPTP_GRE_FLAG_A        0x80
+>>> -
+>>> -#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
+>>> -#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
+>>> -#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
+>>> -#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
+>>> -#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
+>>> -
+>>> -#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
+>>> -struct pptp_gre_header {
+>>> -       u8  flags;
+>>> -       u8  ver;
+>>> -       __be16 protocol;
+>>> -       __be16 payload_len;
+>>> -       __be16 call_id;
+>>> -       __be32 seq;
+>>> -       __be32 ack;
+>>> -} __packed;
+>>> -
+>>>    static struct pppox_sock *lookup_chan(u16 call_id, __be32 s_addr)
+>>>    {
+>>>          struct pppox_sock *sock;
+>>> diff --git a/include/net/gre.h b/include/net/gre.h
+>>> index 7a54a31..c469dcc 100644
+>>> --- a/include/net/gre.h
+>>> +++ b/include/net/gre.h
+>>> @@ -7,9 +7,17 @@
+>>>    struct gre_base_hdr {
+>>>          __be16 flags;
+>>>          __be16 protocol;
+>>> -};
+>>> +} __packed;
+>>>    #define GRE_HEADER_SECTION 4
+>>>    +struct gre_full_hdr {
+>>> +       struct gre_base_hdr fixed_header;
+>>
+>> Can you make gre_base_hdr be anonymous?
+>>
+>>
+>>
+>>> +       __be16 csum;
+>>> +       __be16 reserved1;
+>>> +       __be32 key;
+>>> +       __be32 seq;
+>>> +} __packed;
+>>> +
+>>>    #define GREPROTO_CISCO                0
+>>>    #define GREPROTO_PPTP         1
+>>>    #define GREPROTO_MAX          2
+>>> diff --git a/include/net/pptp.h b/include/net/pptp.h
+>>> new file mode 100644
+>>> index 0000000..301d3e2
+>>> --- /dev/null
+>>> +++ b/include/net/pptp.h
+>>> @@ -0,0 +1,40 @@
+>>> +#ifndef _NET_PPTP_H
+>>> +#define _NET_PPTP_H
+>>> +
+>>> +#define PPP_LCP_ECHOREQ 0x09
+>>> +#define PPP_LCP_ECHOREP 0x0A
+>>> +#define SC_RCV_BITS     (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
+>>> +
+>>> +#define MISSING_WINDOW 20
+>>> +#define WRAPPED(curseq, lastseq)\
+>>> +       ((((curseq) & 0xffffff00) == 0) &&\
+>>> +       (((lastseq) & 0xffffff00) == 0xffffff00))
+>>> +
+>>> +#define PPTP_GRE_PROTO  0x880B
+>>> +#define PPTP_GRE_VER    0x1
+>>> +
+>>> +#define PPTP_GRE_FLAG_C 0x80
+>>> +#define PPTP_GRE_FLAG_R 0x40
+>>> +#define PPTP_GRE_FLAG_K 0x20
+>>> +#define PPTP_GRE_FLAG_S 0x10
+>>> +#define PPTP_GRE_FLAG_A 0x80
+>>> +
+>>> +#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
+>>> +#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
+>>> +#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
+>>> +#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
+>>> +#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
+>>> +
+>>> +#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
+>>> +struct pptp_gre_header {
+>>> +       u8  flags;
+>>> +       u8  ver;
+>>> +       __be16 protocol;
+>>> +       __be16 payload_len;
+>>> +       __be16 call_id;
+>>> +       __be32 seq;
+>>> +       __be32 ack;
+>>> +} __packed;
+>>> +
+>>> +
+>>> +#endif
+>>> diff --git a/include/uapi/linux/if_tunnel.h
+>>> b/include/uapi/linux/if_tunnel.h
+>>> index 1046f55..7d889db 100644
+>>> --- a/include/uapi/linux/if_tunnel.h
+>>> +++ b/include/uapi/linux/if_tunnel.h
+>>> @@ -24,9 +24,14 @@
+>>>    #define GRE_SEQ               __cpu_to_be16(0x1000)
+>>>    #define GRE_STRICT    __cpu_to_be16(0x0800)
+>>>    #define GRE_REC               __cpu_to_be16(0x0700)
+>>> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
+>>> +#define GRE_ACK                __cpu_to_be16(0x0080)
+>>> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
+>>>    #define GRE_VERSION   __cpu_to_be16(0x0007)
+>>>    +#define GRE_VERSION_1        __cpu_to_be16(0x0001)
+>>> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
+>>> +
+>>> +
+>>>    struct ip_tunnel_parm {
+>>>          char                    name[IFNAMSIZ];
+>>>          int                     link;
+>>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>>> index 61ad43f..1186712 100644
+>>> --- a/net/core/flow_dissector.c
+>>> +++ b/net/core/flow_dissector.c
+>>> @@ -6,6 +6,8 @@
+>>>    #include <linux/if_vlan.h>
+>>>    #include <net/ip.h>
+>>>    #include <net/ipv6.h>
+>>> +#include <net/gre.h>
+>>> +#include <net/pptp.h>
+>>>    #include <linux/igmp.h>
+>>>    #include <linux/icmp.h>
+>>>    #include <linux/sctp.h>
+>>> @@ -338,32 +340,42 @@ mpls:
+>>>    ip_proto_again:
+>>>          switch (ip_proto) {
+>>>          case IPPROTO_GRE: {
+>>> -               struct gre_hdr {
+>>> -                       __be16 flags;
+>>> -                       __be16 proto;
+>>> -               } *hdr, _hdr;
+>>> +               struct gre_base_hdr *hdr, _hdr;
+>>> +               u16 gre_ver;
+>>> +               int offset = 0;
+>>>                  hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data,
+>>> hlen, &_hdr);
+>>>                  if (!hdr)
+>>>                          goto out_bad;
+>>> -               /*
+>>> -                * Only look inside GRE if version zero and no
+>>> -                * routing
+>>> -                */
+>>> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
+>>> +
+>>> +               /* Only look inside GRE without routing */
+>>> +               if (hdr->flags & GRE_ROUTING)
+>>>                          break;
+>>>    -             proto = hdr->proto;
+>>> -               nhoff += 4;
+>>> +               /* Only look inside GRE for version 0 and 1 */
+>>> +               gre_ver = ntohs(hdr->flags & GRE_VERSION);
+>>> +               if (gre_ver > 1)
+>>> +                       break;
+>>> +
+>>> +               proto = hdr->protocol;
+>>> +               if (gre_ver) {
+>>> +                       /* Version1 must be PPTP, and check the flags */
+>>> +                       if (!(proto == GRE_PROTO_PPP && (hdr->flags &
+>>> GRE_KEY)))
+>>> +                               break;
+>>> +               }
+>>> +
+>>> +               offset += sizeof(struct gre_base_hdr);
+>>> +
+>>>                  if (hdr->flags & GRE_CSUM)
+>>> -                       nhoff += 4;
+>>> +                       offset += sizeof(((struct gre_full_hdr *)0)->csum)
+>>> +
+>>> +                                 sizeof(((struct gre_full_hdr
+>>> *)0)->reserved1);
+>>> +
+>>>                  if (hdr->flags & GRE_KEY) {
+>>>                          const __be32 *keyid;
+>>>                          __be32 _keyid;
+>>>    -                     keyid = __skb_header_pointer(skb, nhoff,
+>>> sizeof(_keyid),
+>>> +                       keyid = __skb_header_pointer(skb, nhoff + offset,
+>>> sizeof(_keyid),
+>>>                                                       data, hlen, &_keyid);
+>>> -
+>>>                          if (!keyid)
+>>>                                  goto out_bad;
+>>>    @@ -372,32 +384,65 @@ ip_proto_again:
+>>>                                  key_keyid =
+>>> skb_flow_dissector_target(flow_dissector,
+>>>
+>>> FLOW_DISSECTOR_KEY_GRE_KEYID,
+>>>
+>>> target_container);
+>>> -                               key_keyid->keyid = *keyid;
+>>> +                               if (gre_ver == 0)
+>>> +                                       key_keyid->keyid = *keyid;
+>>> +                               else
+>>> +                                       key_keyid->keyid = *keyid &
+>>> htonl(0xffff);
+>>
+>> Would be good to have a #define'd constant for the keyid mask... Otherwise,
+>> looks good.
+>>
+>> -Philip
+>>
+>>
+>>>                          }
+>>> -                       nhoff += 4;
+>>> +                       offset += sizeof(((struct gre_full_hdr *)0)->key);
+>>>                  }
+>>> +
+>>>                  if (hdr->flags & GRE_SEQ)
+>>> -                       nhoff += 4;
+>>> -               if (proto == htons(ETH_P_TEB)) {
+>>> -                       const struct ethhdr *eth;
+>>> -                       struct ethhdr _eth;
+>>> -
+>>> -                       eth = __skb_header_pointer(skb, nhoff,
+>>> -                                                  sizeof(_eth),
+>>> -                                                  data, hlen, &_eth);
+>>> -                       if (!eth)
+>>> +                       offset += sizeof(((struct pptp_gre_header
+>>> *)0)->seq);
+>>> +
+>>> +               if (gre_ver == 0) {
+>>> +                       if (proto == htons(ETH_P_TEB)) {
+>>> +                               const struct ethhdr *eth;
+>>> +                               struct ethhdr _eth;
+>>> +
+>>> +                               eth = __skb_header_pointer(skb, nhoff +
+>>> offset,
+>>> +                                                          sizeof(_eth),
+>>> +                                                          data, hlen,
+>>> &_eth);
+>>> +                               if (!eth)
+>>> +                                       goto out_bad;
+>>> +                               proto = eth->h_proto;
+>>> +                               offset += sizeof(*eth);
+>>> +
+>>> +                               /* Cap headers that we access via pointers
+>>> at the
+>>> +                                * end of the Ethernet header as our
+>>> maximum alignment
+>>> +                                * at that point is only 2 bytes.
+>>> +                                */
+>>> +                               if (NET_IP_ALIGN)
+>>> +                                       hlen = (nhoff + offset);
+>>> +                       }
+>>> +               } else { /* version 1, must be PPTP */
+>>> +                       u8 _ppp_hdr[PPP_HDRLEN];
+>>> +                       u8 *ppp_hdr;
+>>> +
+>>> +                       if (hdr->flags & GRE_ACK)
+>>> +                               offset += sizeof(((struct pptp_gre_header
+>>> *)0)->ack);
+>>> +
+>>> +                       ppp_hdr = skb_header_pointer(skb, nhoff + offset,
+>>> +                                                    sizeof(_ppp_hdr),
+>>> _ppp_hdr);
+>>> +                       if (!ppp_hdr)
+>>>                                  goto out_bad;
+>>> -                       proto = eth->h_proto;
+>>> -                       nhoff += sizeof(*eth);
+>>> -
+>>> -                       /* Cap headers that we access via pointers at the
+>>> -                        * end of the Ethernet header as our maximum
+>>> alignment
+>>> -                        * at that point is only 2 bytes.
+>>> -                        */
+>>> -                       if (NET_IP_ALIGN)
+>>> -                               hlen = nhoff;
+>>> +
+>>> +                       switch (PPP_PROTOCOL(ppp_hdr)) {
+>>> +                       case PPP_IP:
+>>> +                               proto = htons(ETH_P_IP);
+>>> +                               break;
+>>> +                       case PPP_IPV6:
+>>> +                               proto = htons(ETH_P_IPV6);
+>>> +                               break;
+>>> +                       default:
+>>> +                               /* Could probably catch some more like
+>>> MPLS */
+>>> +                               break;
+>>> +                       }
+>>> +
+>>> +                       offset += PPP_HDRLEN;
+>>>                  }
+>>>    +             nhoff += offset;
+>>>                  key_control->flags |= FLOW_DIS_ENCAPSULATION;
+>>>                  if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+>>>                          goto out_good;
+>>
