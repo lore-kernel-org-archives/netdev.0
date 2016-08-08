@@ -1,57 +1,103 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH 2/2] mwifiex: simplify length computation for some memset
-Date: Mon,  8 Aug 2016 09:39:00 +0200
-Message-ID: <1470641940-26681-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: akarwar@marvell.com, nishants@marvell.com,
-	linux-wireless@vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH net] net: ipv6: Fix ping to link-local addresses.
+Date: Mon,  8 Aug 2016 16:42:07 +0900
+Message-ID: <1470642127-574-1-git-send-email-lorenzo@google.com>
+Cc: hannes@stressinduktion.org, ek@google.com, davem@davemloft.net,
+	hideaki.yoshifuji@miraclelinux.com,
+	Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:50922 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752159AbcHHHjI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 03:39:08 -0400
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33449 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751211AbcHHHmV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 03:42:21 -0400
+Received: by mail-pf0-f169.google.com with SMTP id y134so116719185pfg.0
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 00:42:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch should be a no-op. It just simplifies code by using the name of
-a variable instead of its type when calling 'sizeof'.
+ping_v6_sendmsg never sets flowi6_oif, so it is not possible to
+ping an IPv6 address on a different interface. Instead, it sets
+flowi6_iif, which is incorrect but harmless. Also, it returns an
+error if a passed-in scope ID doesn't match sk_bound_dev_if.
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Get rid of the error, stop setting flowi6_iif, and support
+various ways of setting oif in the same priority order used by
+udpv6_sendmsg.
+
+Tested: https://android-review.googlesource.com/#/c/254470/
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- drivers/net/wireless/marvell/mwifiex/sta_ioctl.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/ping.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c b/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
-index 78819e8..644f3a2 100644
---- a/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
-+++ b/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
-@@ -574,7 +574,7 @@ int mwifiex_enable_hs(struct mwifiex_adapter *adapter)
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index fed40d1..eabf1ea 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -55,7 +55,7 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	struct icmp6hdr user_icmph;
+ 	int addr_type;
+ 	struct in6_addr *daddr;
+-	int iif = 0;
++	int oif = 0;
+ 	struct flowi6 fl6;
+ 	int err;
+ 	struct dst_entry *dst;
+@@ -78,23 +78,28 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 		if (u->sin6_family != AF_INET6) {
+ 			return -EAFNOSUPPORT;
+ 		}
+-		if (sk->sk_bound_dev_if &&
+-		    sk->sk_bound_dev_if != u->sin6_scope_id) {
+-			return -EINVAL;
+-		}
+ 		daddr = &(u->sin6_addr);
+-		iif = u->sin6_scope_id;
++		if (__ipv6_addr_needs_scope_id(ipv6_addr_type(daddr)))
++			oif = u->sin6_scope_id;
+ 	} else {
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+ 			return -EDESTADDRREQ;
+ 		daddr = &sk->sk_v6_daddr;
+ 	}
  
- 	adapter->hs_activate_wait_q_woken = false;
+-	if (!iif)
+-		iif = sk->sk_bound_dev_if;
++	if (!oif)
++		oif = sk->sk_bound_dev_if;
++
++	if (!oif)
++		oif = np->sticky_pktinfo.ipi6_ifindex;
++
++	if (!oif && ipv6_addr_is_multicast(daddr))
++		fl6.flowi6_oif = np->mcast_oif;
++	else if (!oif)
++		oif = np->ucast_oif;
  
--	memset(&hscfg, 0, sizeof(struct mwifiex_ds_hs_cfg));
-+	memset(&hscfg, 0, sizeof(hscfg));
- 	hscfg.is_invoke_hostcmd = true;
+ 	addr_type = ipv6_addr_type(daddr);
+-	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
++	if (__ipv6_addr_needs_scope_id(addr_type) && !oif)
+ 		return -EINVAL;
+ 	if (addr_type & IPV6_ADDR_MAPPED)
+ 		return -EINVAL;
+@@ -106,16 +111,12 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	fl6.flowi6_proto = IPPROTO_ICMPV6;
+ 	fl6.saddr = np->saddr;
+ 	fl6.daddr = *daddr;
++	fl6.flowi6_oif = oif;
+ 	fl6.flowi6_mark = sk->sk_mark;
+ 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
+ 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
+ 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
  
- 	adapter->hs_enabling = true;
-@@ -1138,7 +1138,7 @@ int mwifiex_set_encode(struct mwifiex_private *priv, struct key_params *kp,
- {
- 	struct mwifiex_ds_encrypt_key encrypt_key;
- 
--	memset(&encrypt_key, 0, sizeof(struct mwifiex_ds_encrypt_key));
-+	memset(&encrypt_key, 0, sizeof(encrypt_key));
- 	encrypt_key.key_len = key_len;
- 	encrypt_key.key_index = key_index;
+-	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+-		fl6.flowi6_oif = np->mcast_oif;
+-	else if (!fl6.flowi6_oif)
+-		fl6.flowi6_oif = np->ucast_oif;
+-
+ 	ipc6.tclass = np->tclass;
+ 	fl6.flowlabel = ip6_make_flowinfo(ipc6.tclass, fl6.flowlabel);
  
 -- 
-2.7.4
-
-
----
-L'absence de virus dans ce courrier électronique a été vérifiée par le logiciel antivirus Avast.
-https://www.avast.com/antivirus
+2.8.0.rc3.226.g39d4020
