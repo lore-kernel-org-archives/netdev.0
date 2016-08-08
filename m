@@ -1,161 +1,126 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next 0/2] BPF, kprobes: Add current_in_cgroup helper
-Date: Mon, 08 Aug 2016 11:27:32 +0200
-Message-ID: <57A85084.1030807@iogearbox.net>
-References: <20160807040651.GA9262@ircssh.c.rugged-nimbus-611.internal> <20160807043203.GA77894@ast-mbp> <20160807045605.GA10067@ircssh.c.rugged-nimbus-611.internal> <20160808005234.GA80725@ast-mbp> <20160808030818.GA26215@ircssh.c.rugged-nimbus-611.internal> <20160808035240.GA82509@ast-mbp.thefacebook.com>
+From: "Paul Tsang" <haochenghk1987@163.com>
+Subject: =?utf-8?B?UmXvvJvot6jlooPnlLXllYbnianmtYHkvpvlupTllYY=?=
+Date: Mon, 8 Aug 2016 17:29:53 +0800
+Message-ID: <20160808172958587532@yun152.com>
+Reply-To: <haochenghk1987@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@zonque.org,
-	Thomas Graf <tgraf@suug.ch>, aravinda@linux.vnet.ibm.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Sargun Dhillon <sargun@sargun.me>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57464 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005AbcHHJ1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 05:27:38 -0400
-In-Reply-To: <20160808035240.GA82509@ast-mbp.thefacebook.com>
+Received: from [61.176.220.141] ([61.176.220.141]:3309 "EHLO mail.yun152.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259AbcHHJbB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 05:31:01 -0400
+Received: from localhost by mail.yun152.com (MDaemon PRO v10.1.1)
+	with ESMTP id md50243285905.msg
+	for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 17:30:37 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/08/2016 05:52 AM, Alexei Starovoitov wrote:
-> On Sun, Aug 07, 2016 at 08:08:19PM -0700, Sargun Dhillon wrote:
->> Thanks for your feedback Alexei,
->> I really appreciate it.
->>
->> On Sun, Aug 07, 2016 at 05:52:36PM -0700, Alexei Starovoitov wrote:
->>> On Sat, Aug 06, 2016 at 09:56:06PM -0700, Sargun Dhillon wrote:
->>>> On Sat, Aug 06, 2016 at 09:32:05PM -0700, Alexei Starovoitov wrote:
->>>>> On Sat, Aug 06, 2016 at 09:06:53PM -0700, Sargun Dhillon wrote:
->>>>>> This patchset includes a helper and an example to determine whether the kprobe
->>>>>> is currently executing in the context of a specific cgroup based on a cgroup
->>>>>> bpf map / array.
->>>>>
->>>>> description is too short to understand how this new helper is going to be used.
->>>>> depending on kprobe current is not always valid.
->>>> Anything not in in_interrupt() should have a current, right?
->>>>
->>>>> what are you trying to achieve?
->>>> This is primarily to help troubleshoot containers (Docker, and now systemd). A
->>>> lot of the time we want to determine what's going on in a given container
->>>> (opening files, connecting to systems, etc...). There's not really a great way
->>>> to restrict to containers except by manually walking datastructures to check for
->>>> the right cgroup. This seems like a better alternative.
->>>
->>> so it's about restricting or determining?
->>> In other words if it's analytics/tracing that's one thing, but
->>> enforcement/restriction is quite different.
->>> For analytics one can walk task_css_set(current)->dfl_cgrp and remember
->>> that pointer in a map or something for stats collections and similar.
->>> If it's restricting apps in containers then kprobe approach
->>> is not usable. I don't think you'd want to built an enforcement system
->>> on an unstable api then can vary kernel-to-kernel.
->>>
->> The first real-world use case are to implement something like Sysdig. Often the
->> team running the team running the containers don't always know what's inside of
->> them, so they want to be able to view network, I/O, and other activity by
->> container. Right now, the lowest common denominator between all of the
->> containerization techniques is cgroups. We've seen examples of where a admin is
->> unsure of the workload, and would love to use opensnoop, but there are too many
->> workloads on the machine.
->
-> Indeed it would be a useful feature to teach opensnoop to filter by a cgroup
-> and all descentants of it. If you can prepare a patch for it that would be
-> a strong use case for this bpf_current_in_cgroup helper and solid justification
-> to accept it in the kernel.
-> Something like cgroupv2 string path as an argument ?
-
-How does this integrate with cgroup namespaces? Your current helper would only
-look at the cgroup in your current namespace, no? Or would the program populating
-the map temporarily switch into other namespaces?
-
-What about cases where cgroup could be shared among other (net, ..) namespaces,
-BPF program would still not be namespace aware to sort these things out?
-
-You'll also have the issue, for example, that bpf_perf_event_read() counters
-are global, combining them with cgroups helper in a program would lead to false
-expectations (in the sense that they might also be assumed for that cgroup), or
-do you have a way to tackle that as well (at least SW events, since HW should not
-be possible)?
-
-Btw, there's slightly related work from IBM folks (but to run it from within a
-container; there was a v2 recently I recall):
-
-   https://lkml.org/lkml/2016/6/14/547
-
->> Unfortunately, I don't think that it's possible just to check
->> task_css_set(current)->dfl_cgrp in a bpf program. The container, especially
->> containers with sidecars (what Kubernetes calls Pods, I believe?) tend to have
->> multiple nested cgroups inside of them. If you had a way to convert cgroup array
->> entries to pointers, I imagine you could write an unrolled loop to check for
->> ownership within a limited range.
->>
->> I'm still looking for comments from the LSM folks on Checmate[1]. It appears
->> that there has been very little churn in the LSM hooks API that's API-breaking.
->> For many of syscall hooks, they're closely tied to the syscall API, so they
->> can't really change too much. I think that a toolkit like iovisor, or another
->> userland translation layer, these hooks could be very powerful. I would love to
->> hear feedback from the LSM folks.
->>
->> My plan with those patches is to reimplement Yama, and Hardchroot in BPF
->> programs to show off the potential capabilities of Checmate. I'd also like to
->> create some example programs blocking CVEs that have popped up. I think of the
->> idea like nftables for kernel syscalls, storage, and the network stack.
->
-> looking forward to more details on checmate, so far I'm convinced we need it.
->
->> The other example I want to show is implementing Docker-bridge style network
->> isolation with Checmate. Most folks use it to map ports, and to restrict binding
->> to specific ports, and not the dedicated network namespace, or loopback
->> interface. It turns out for some applications this comes at a pretty significant
->> hit[2][3], as well as awkward upper bounds based on conntrack.
->
-> the default nat setup of docker is obviously slow, but that doesn't mean
-> kernel needs anything more than it already has.
-> If you're at linuxcon this year, Thomas's talk [4] shouldn't be missed.
->
->>>>> This looks like an alternative to lsm patches submitted earlier?
->>>> No. But I would like to use this helper in the LSM patches I'm working on. For
->>>> now, with those patches, and this helper, I can create a map sized 1, and add
->>>> the cgroup I care about to it. Given I can add as many bpf programs to an LSM
->>>> hook I want, I can use this mechanism to "attach BPF programs to cgroups" --
->>>> I put that in quotes because you're not really attaching it to a cgroup,
->>>> but just burning some instructions on checking it.
->>>
->>> how many cgroups will you need to check? The current bpf_skb_in_cgroup()
->>> suffers similar scaling issues.
->>> I think the proper restriction/enforcement could be done via attaching bpf
->>> program to a cgroup. These patches are being worked on Daniel Mack cc-ed.
->>> Then bpf program will be able to enforce networking behavior of applications
->>> in cgroups.
->>> For global container analytics I think we need something that converts
->>> current to cgroup_id or cgroup_handle. I don't think descendant check
->>> can scale for such use case.
->>>
->> Usually there's a top level cgroup for a container, and then cgroup for each
->> subprocess, and maybe a third level if that fans out to multiple workers (See:
->> unicorn). I see your point though about scalability, or performance issues. I
->> still think a current_is_cgroup (vs in_cgroup) call would be really nice.
->> Though, if we have a current_cgroup_id helper, it introduces the problem that if
->> there is churn in cgroups, the ID may be reassigned. There still needs to be a
->> way to keep the reference, and perhaps we just make a helper to convert cgroup
->> map entires into IDs.
->
-> agree. good points.
-> Looking forward for opensnoop+bpf_current_in_cgroup patch.
-> Naming-wise may be bpf_current_task_in_cgroup is a better name?
->
->> The approach I took in the Checmate patches allows for "attachment" to a uts
->> namespace, which are perhaps the lightest, and simplest namespaces. Maybe that's
->> the right direction to go, but I'm looking forward to seeing Daniel's patches.
->>
->> -Thanks,
->> Sargun
->>
->> [1] https://lkml.org/lkml/2016/8/4/58
->> [2] https://www.percona.com/blog/2016/02/11/measuring-docker-io-overhead/
->> [3] http://blog.pierreroudier.net/wp-content/uploads/2015/08/rc25482.pdf (warning: PDF)
->
-> [4] https://lcccna2016.sched.org/event/7JUl/fast-ipv6-only-networking-for-containers-based-on-bpf-and-xdp-thomas-graf-cisco
->
+RGVhciBTaXIvTWlzcw0KVGhpcyBpcyB0aGUgZS1tYWlsIGZyb20gUGF1bCBvZiBIQU9DSElORyBJ
+TlQnTCBMT0dJU1RJQ1MgTFREIGluIENoaW5hLiBPdXIgY29tcGFueSBpcyBhIHdlbGwtc3RhZmZl
+ZCBmcmVpZ2h0IGZvcndhcmRpbmcgYW5kIGxvZ2lzdGljcyBzZXJ2aWNlIGNvbXBhbnkgbG9jYXRl
+ZCBpbiBTaGVuemhlbi9Eb25nZ3Vhbi9HdWFuZ3pob3UvSHVpWmhvdS9aaG9uZ3NoYW4gR3VhbmdE
+b25nIFByb3ZpbmNlIGNoaW5h77yMYW5kIHByb3ZpZGUgc2FmZXR5LCBjb252ZW5pZW50IGFuZCBz
+cGVlZHkgbG9naXN0aWMgc2VydmljZS4gQXMgYSB5b3VuZyBhbmQgdmlicmFudCBjb21wYW55ICx3
+ZSBhcmUgYWxsIGZ1bGwgb2YgZW50aHVzaWFzbSBhbmQgcG93ZXIuU3VyZWx5LGl0IGlzIGd1YXJh
+bnRlZWQgd2Ugd2lsbCBwcm92aWRlIHRoZSBiZXN0IHNlcnZpY2UgZm9yIGltcG9ydCBhbmQgZXhw
+b3J0IGJvdGggb2Ygb2NlYW4gYW5kIGFpciBmcmVpZ2h0IC5UbyBtZW50aW9uIHdpdGggLFdlJ3Zl
+IGdvdCBub3Qgb25seSBhIGdyZWF0IGFkdmFudGFnZSBpbiB0aGUgc3BlY2lhbCBjb250YWluZXIg
+dHJhbnNwb3J0YXRpb24gaW4gYWxsIGxpbmVzIG92ZXIgdGhlIHdvcmxkLGJ1dCB3ZSBhbHNvIGhh
+dmUgcXVpdGUgYSBmZXcgc2hpcHBpbmcgbGluZXMgICBpbmNsdWRpbmc6WklNLENTQ0wsRU1DLFdI
+TCxPT0NMLEtNVEMsWU1MLEFOTCxITU0gYW5kIHNvIG9uIC4NClNwZWNpZmljYXRpb25zDQoxLklt
+cG9ydCBhbmQgZXhwb3J0IHNlcnZpY2UNCjIuV2FyZWhvdXNpbmcgYW5kIGxvZ2lzdGljcw0KMy5P
+dmVyIDEwIHllYXJzIG9mIGV4cGVyaWVuY2UNCjQudGhlIHN0cm9uZ2VzdCBhYmlsaXR5IG9mIEN1
+c3RvbXMgQ2xlYXJhbmNlDQo1LkRvb3IgdG8gRG9vciBkZWxpdmVyeSAoZnJvbSBob25na29uZyB0
+byBjaGluYW1haW5sYW5kKS8oZnJvbSBjaGluYW1haW5sYW5kIHRvIGhvbmdrb25nICkNCjYuIHBy
+b2Zlc3Npb25hbCBpbXBvcnQgbG9naXN0aWNzDQo3LiBDb2xsZWN0aW5nLXBheWluZyBzZXJ2aWNl
+Ow0KV2Ugb2ZmZXI6DQoxLkN1c3RvbXMgY2xlYXJhbmNlDQoyLkNvbW1vZGl0eSBjb25zb2xpZGF0
+aW9uDQozLkRvbWVzdGljIHRyYW5zcG9ydGF0aW9uDQo0LkNvbmNlYWwgaWRlbnRpdHkgb2YgdHJ1
+ZSBzaGlwcGVyIG9yIHJlYWwgY29uc2lnbmVlDQo1LkV4cG9ydCBMaWNlbmNlDQo2LkZyZWlnaHQg
+Y29sbGVjdA0KSWYgeW91IGhhdmUgYW55IHJlcXVpcmVtZW50IHdlIGNhbiBkbyBmb3IgeW91LCBw
+bGVhc2Ugc2VudCBlLW1haWwgKCBIQU9DSEVOR0hLQFlBSE9PLkNPTS5ISykgYXMgc29vbiBhcyBw
+b3NzaWJsZS4gSG9waW5nIHdlIGNhbiBlc3RhYmxpc2ggdGhlIHdpbuKAlXdpbiBjb29wZXJhdGlv
+biBsYXRlciBmb3IgYSBsb25nIHRpbWUuIFRoYW5rIGZvciByZWFkaW5nIG15IGUtbWFpbC4NCg0K
+5Y+q6KaB6LS15Y+45oul5pyJ5LiA6Iis57qz56iO5Lq66LWE6LSo5ZKM6IO95byAMTcl55qE5aKe
+5YC856iO5LiT55So5Y+R56Wo77yM5oiR5Y+45L6/6IO95Li66LS15Y+45YGa6YCA56iO77ybDQox
+LuWHuuWPo+mAgOeojuadoeS7tu+8mg0K4pGg55yf5q2j5pyJ55Sf5Lqn57uP6JCl6IO95Yqb55qE
+5LyB5Lia6ICM5LiN5piv56m65aOz5LyB5Lia4pGh6ZyA5Luj5Yqe5Ye65Y+j6YCA56iO55qE5LyB
+5Lia4pGi5L+d6K+B6IO95byA5aKe5YC856iO5LiT55So5Y+R56Wo55qE5LyB5Lia4pGj5L+d6K+B
+5LyB5Lia5byA55qE5aKe5YC856iO5LiT55So5Y+R56Wo55qE5ZCI5rOV77yM5ZCI55CG6ICM5LiN
+5piv6Jma5byA5aKe5YC856iO5LiT55So5Y+R56WoDQoyLui0p+eJqeWHuuWPo++8m+W3peWOgumh
+u+aPkOS+m+S6p+WTgeWQjeensO+8jOWVhuWTgee8luegge+8jOinhOagvO+8jOWei+WPt++8jOWM
+heijheaWueW8j++8jOWNleS7t++8jOaAu+S7t+WPiuijheeuseWNlS4NCjMu57uT5rGH77ya4pGg
+6LSn54mp5Ye65Y+j5ZCO5Lik5Liq5pyI5YaF77yI5LiN6IO96LaF6L+H5Lik5Liq5pyI77yJ5b+F
+6aG76L+b6KGM57uT5rGH5qC46ZSA44CC5bel5Y6C6YCa55+l5a6i5oi377yI5aSW5Zu977yJ5Y+K
+5pe257uT5rGH77yM5Lul5L6/5oiR5Y+45Y+K5pe25Yiw5aSW5rGH566h55CG5bGA6L+b6KGM5aSW
+5rGH5qC46ZSA5bel5L2c77yM5ZCm5YiZ5Lya5b2x5ZON5oiR5Y+455qE6L+Q5L2c5Y+K5Ye65Y+j
+6LSn54mp55qE6YCA56iO5bel5L2c44CC4pGh5oiR5Y+45pS25Yiw5rGH5qy+5ZCO5oyJ6ZO26KGM
+5b2T5pel6ZO26KGM54mM5Lu377yMMjTlsI/ml7blhoXmsYfoh7Plt6XljoLotKbmiLcNCjQu5byA
+56Wo77ya4pGg5oiR5Y+45rGH5Ye66LSn5qy+5ZCO77yM5bCG44CI5rGH5qy+5Y2V44CJ44CB44CI
+5byA56Wo5piO57uG6KGo44CJ44CB44CI6LSt6LSn5ZCI5ZCM44CJRU1BSUzoh7Plt6XljoLotKLl
+iqHpg6jikaHlt6XljoLmoLnmja7jgIjlvIDnpajmmI7nu4booajjgInlvIDlh7oxNyXnmoTjgIjl
+op7lgLznqI7kuJPnlKjlj5HnpajjgInvvIzmiqzlpLTkuLrmiJHlj7jvvIzlj5HnpajnmoTllYbl
+k4HlkI3np7DjgIHop4TmoLzjgIHljZXkvY3jgIHljZXku7fjgIHmgLvku7fjgIHnqI7ph5HlnYfl
+v4Xpobvlh4bnoa7ml6Dor6/vvIzlj5HnpajnmoTku7fnqI7lkIjorqHph5Hpop3kuI7msYfmrL7l
+jZXph5Hpop3kuIDoh7TjgILikaLlt6XljoLlv4Xpobvkv53or4HlvIDnmoTlj5HnpajmmK/lkIjn
+kIbjgIHlkIjms5XnmoTjgILikaPlt6XljoLpobvlsIblvIDlpb3nmoTlop7lgLznqI7kuJPnlKjl
+j5HnpajvvIznm5blpb3nq6DnmoTotK3otKflkIjlkIzvvIjkuIDlvI/kuozku73vvInjgIHnm5bl
+pb3nq6DnmoTpgIHotKfljZXkuInku73otYTmlpnnu5nmiJHlj7jjgIINCjUu5LuY56iO5qy+77ya
+5b6F5oiR5Y+457uP6L+H5Zu956iO6K6k6K+B5oiQ5YqfMuS4quW3peS9nOaXpeS7peWQjuWwhueo
+juasvuaxh+e7meW3peWOgu+8jOS7mOeahOmAgOeojuasvuaYr+WunumZhemAgOeojuasvuaJo+mZ
+pOaIkeWPuOeahOS7o+eQhuaJi+e7rei0uS4NCg0K6YCA56iO6aKd6K6h566X5pa55rOV5aaC5LiL
+DQrpgIDnqI7pop0977yI5aKe5YC856iO5Y+R56Wo6YeR6aKd77yJL++8iDEr5aKe5YC856iO546H
+77yJKuWHuuWPo+mAgOeojueOh+OAgg0K5L6L5aaC77ya6LSn5YC8MTAw5LiH5Lq65rCR5biB77yM
+5aKe5YC856iO546H5Li6MTcl77yM6YCA56iO546H5Li6MTMl77yM5YiZ77yaDQoxMDAwMDAwLzEu
+MTcqMC4xMz0xMTExMTEuMTHlhYPkurrmsJHluIENCg0K5Lul5LiL5aCx5YO554K65bi46KaL6L+Q
+6L6T5Lqk6LKo5aCx5YO577yM5aaC5pyJ6ZyA6KaB77yM5q2h6L+O5L6G6Zu76Kmi5YO5DQox77yJ
+MjDlsLrmn5wvNDDlsLrmn5zosqjmtbfpgYvppqzkvobopb/kup7loLHlg7kNCuS4gOOAgU9jZWFu
+IGZyZWlnaHTmtbfpgYvosrvvvJpSTUI4MDANCuS6jOOAgVRIQ+eggeWktOijheWNuOi0ue+8mlJN
+QjEzMDANCuS4ieOAgURPQyDmlofku7botLnvvJpSTUI1MDAv56WoDQrlm5vjgIFTRUFMIOWwgead
+oei0uTpSTUI1NS/npagNCuS6lOOAgUVCUyDntKfmgKXnh4PmsrnpmYTliqDotLnvvJpSTUIyMTAv
+56WoDQrms6jvvJvkuIDjgIHku6XkuIrov5DotLnljIXlip7kuK3lm73lh7rlj6PkuIDliIfmiYvn
+u63mlLbotKfjgIHoo4Xmn5zjgIHlh7rlj6PjgIHmiqXlhbPnrYnosrvnlKjvvIwNCiAgICDkuozj
+gIHlj5HotKfkurrlj6rpnIDopoHmj5DkvpvotKfnianmuIXljZXkuI7mlLblj5Hkurrkv6Hmga/l
+jbPlj6/vvIjllYbkuJrmiJbkuKrkurrnianlk4Hpg73lj6/vvInvvJsNCiAgICDkuInjgIHmr4/l
+kajlj5HoiLnkuInmrKHvvIjlkajkuIDjgIHlkajkuInjgIHlkajkupTmiKrlhbPoo4Xmn5zvvIks
+5Yiw5riv5pe25pWI5b+rKOiHquijheafnOi1tzctMTTlpKnlt6blj7PliLDmuK8p77yb5Y+R44CB
+5pS26LSn5Lq65Y+q6ZyA5pSv5LuY6L+Q6LS55Y2z5Y+v77yM5LiN6ZyA5Y+m5Lqk5YW25LuW5Lu7
+5L2V6LS555So77ybDQogICAg5Zub44CB5LiN5om/6L+Q55qE6LSn54mp77ya5rG96L2m77yI5pW0
+5Y+w77yJ77yM54Of6Iqx54iG56u577yM5piT54iG5piT54eD5ZOB77yM5omT54Gr5py677yM5omL
+5py677yM5omL5o+Q55S16ISR77yM6YeR6ZO26aaW6aWwLg0KICAgIOS6lOOAgei/m+WPo+WFs+eo
+jj1b6LSn54mp5Lu35YC8K+a1t+i/kOi0uSvkv53pmanvvIjmsqHotK3kubDkv53pmak9MO+8iSvl
+hbPnqI5dKjEwJQ0KICAgICAgICDlhbPnqI4956iO546H77yINSUtMTAl77yM5LiA6Iis5pmu6YCa
+5ZWG5ZOB6YO95pivNSXvvIkq6LSn54mp5Lu35YC8DQoNCjLvvInmlaPmnYLosqjmtbfpgYvmnbHl
+jZfkup7vvIzmvrPlpKfliKnkup7loLHlg7kNCuS4gOOAgU9jZWFuIGZyZWlnaHTmtbfpgYvosrvv
+vJpSTUI4MDANCuS6jOOAgURPQyDmlofku7botLnvvJpSTUIyMDAv56WoDQrkuInjgIFFQlMg57Sn
+5oCl54eD5rK56ZmE5Yqg6LS577yaUk1CMjEwL+elqA0K5rOo77yb5LiA44CB5Lul5LiK6L+Q6LS5
+5YyF5Yqe5Lit5Zu95Ye65Y+j5LiA5YiH5omL57ut5pS26LSn44CB6KOF5p+c44CB5Ye65Y+j44CB
+5oql5YWz562J6LK755So77yMDQogICAg5LqM44CB5Y+R6LSn5Lq65Y+q6ZyA6KaB5o+Q5L6b6LSn
+54mp5riF5Y2V5LiO5pS25Y+R5Lq65L+h5oGv5Y2z5Y+v77yI5ZWG5Lia5oiW5Liq5Lq654mp5ZOB
+6YO95Y+v77yJ77ybDQogICAg5LiJ44CB5q+P5ZGo5Y+R6Ii55LiJ5qyh77yI5ZGo5LiA44CB5ZGo
+5LiJ44CB5ZGo5LqU5oiq5YWz6KOF5p+c77yJLOWIsOa4r+aXtuaViOW/qyjoh6roo4Xmn5zotbc3
+LTE05aSp5bem5Y+z5Yiw5rivKe+8m+WPkeOAgeaUtui0p+S6uuWPqumcgOaUr+S7mOi/kOi0ueWN
+s+WPr++8jOS4jemcgOWPpuS6pOWFtuS7luS7u+S9lei0ueeUqO+8mw0KICAgIOWbm+OAgeS4jeaJ
+v+i/kOeahOi0p+eJqe+8muaxvei9pu+8iOaVtOWPsO+8ie+8jOeDn+iKseeIhuerue+8jOaYk+eI
+huaYk+eHg+WTge+8jOaJk+eBq+acuu+8jOaJi+acuu+8jOaJi+aPkOeUteiEke+8jOmHkemTtumm
+lumlsC4NCiAgICDkupTjgIHov5vlj6PlhbPnqI49W+i0p+eJqeS7t+WAvCvmtbfov5DotLkr5L+d
+6Zmp77yI5rKh6LSt5Lmw5L+d6ZmpPTDvvIkr5YWz56iOXSoxMCUNCiAgICAgICAg5YWz56iOPeeo
+jueOh++8iDUlLTEwJe+8jOS4gOiIrOaZrumAmuWVhuWTgemDveaYrzUl77yJKui0p+eJqeS7t+WA
+vA0KDQoz77yJ5pWj5p2C6LKo5LiA6Iis6LK/5piT6YCA56iF5aCx6Zec77yIRURJ6Zu75a2Q5aCx
+6Zec77yJ5Ye65Y+j6aaZ5riv5aCx5YO577ybDQrvvIjkuIDvvInkuK3muK/oh6rmj5DmlLbotLnv
+vJogUk1CMC42L2tn77yI5pyA5L2O5pS2Uk1CMTUwL+WWru+8iQ0K77yI5LqM77yJ5aCx6Zec6LS5
+77yaUk1CMjUw77yI5peg5oql5YWz5YiZ5peg5q2k6LS555So77yJDQrvvIjkuInvvInmo4Dnlqvo
+tLnlj4rlhbbmnYLotLnlh63npajmja7lrp7miqXlrp7plIDjgILvvIjml6DllYbmo4DliJnml6Dm
+raTotLnnlKjvvIkNCu+8iOWbm++8ieWVhuajgOaNouivgeWHreadoei0ueeUqO+8mlJNQjEwMCAg
+77yI5peg5ZWG5qOA5YiZ5peg5q2k6LS555So77yJDQrvvIjkupTvvInpppnmuK/mtL7pgIFSTUIy
+MDDlkKvpppbph401MDBLR+aIlummluaWuTPmlrnvvIznu63ph41STUIwLjMvS0fmiJbnu63mlrlS
+TUI1MC9DQk3vvIjmnYLotLnlrp7miqXlrp7plIDvvIkNCu+8iOWFre+8iemmmea4r+WFpeS7k1JN
+QjMxMOWQq+mmlumHjTUwMEtH5oiW6aaW5pa5M+aWue+8jOe7remHjVJNQjAuMy9LR+aIlue7reaW
+uVJNQjUwL0NCTe+8iOeZu+iusOi0ueOAgeWBnOi9pui0ueetieadgui0ueWunuaKpeWunumUgO+8
+iQ0KDQpCRVNUIFJFR0FSRFMNCuabvueUnw0KSEFPQ0hJTkcgSU5UJ0wgTE9HSVNUSUNTIExURA0K
+TS5QOjg2LTEzNDMwODczMTE3DQpURUw6IDg1Mi0zMTc2Mzg5MQ0K5b6u5L+hOzEzNDMwODczMTE3
+DQpRUe+8mzI1NDAzMTM4OTENClNLWVBF77yaSEFPQ0hFTkdISzE5ODcNCkUtTUFJTDogSEFPQ0hF
+TkdISzE5ODdAMTYzLkNPTQ0K
