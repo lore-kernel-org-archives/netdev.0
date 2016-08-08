@@ -1,33 +1,80 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] bridge: vlan json: skip ports with empty vlans
-Date: Mon, 8 Aug 2016 08:43:12 -0700
-Message-ID: <20160808084312.066f9539@xeon-e3>
-References: <1470598623-17215-1-git-send-email-roopa@cumulusnetworks.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [5.3] ucc_geth: Fix to avoid IS_ERR_VALUE abuses and dead code
+ on 64bit systems.
+Date: Mon, 8 Aug 2016 15:49:22 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F50C532@AcuExch.aculab.com>
+References: <1470386442-7208-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D5F50C493@AcuExch.aculab.com>
+ <2862487.guU7g5Qkfj@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:35077 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752072AbcHHPoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 11:44:19 -0400
-Received: by mail-pa0-f45.google.com with SMTP id iw10so114927857pac.2
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 08:44:19 -0700 (PDT)
-In-Reply-To: <1470598623-17215-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: 'Arvind Yadav' <arvind.yadav.cs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org" <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org" <qiang.zhao-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <viresh.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org" <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	"linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org" <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+To: 'Arnd Bergmann' <arnd-r2nGTMty4D4@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2862487.guU7g5Qkfj@wuerfel>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun,  7 Aug 2016 12:37:03 -0700
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
-
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Arnd Bergmann
+> Sent: 08 August 2016 16:13
 > 
-> The non-json output prints 'None' for such vlans.
-> And this can garble json output.
+> On Monday, August 8, 2016 2:49:11 PM CEST David Laight wrote:
+> >
+> > > If qe_muram_alloc will return any error, Then IS_ERR_VALUE will always
+> > > return 0. it'll not call ucc_fast_free for any failure. Inside 'if code'
+> > > will be a dead code on 64bit. Even qe_muram_addr will return wrong
+> > > virtual address. Which can cause an error.
+> > >
+> > >  kfree((void *)ugeth->tx_bd_ring_offset[i]);
+> >
+> > Erm, kfree() isn't the right function for things allocated by qe_muram_alloc().
+> >
+> > I still thing you need to stop this code using IS_ERR_VALUE() at all.
 > 
-> Fixes: d82a49ce85f0 ("bridge: add json support for bridge vlan show")
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> Those are two separate issues:
+> 
+> a) The ucc_geth driver mixing kmalloc() memory with muram, and assigning
+>    the result to "u32" and "void __iomem *" variables, both of which
+>    are wrong at least half of the time.
+> 
+> b) calling conventions of qe_muram_alloc() being defined in a way that
+>    requires the use of IS_ERR_VALUE(), because '0' is a valid address
+>    here.
 
-Applied
+Yep, it is all a big bag of worms...
+'0' being valid is going to make tidying up after failure 'problematic'.
+
+> The first one can be solved by updating the network driver, ideally
+> by getting rid of the casts and using proper types and accessors,
+> while the second would require updating all users of that interface.
+
+It might be worth (at least as a compilation option) of embedding the
+'muram offset' in a structure (passed and returned by value).
+
+The compiler can then check that the driver code is never be looking
+directly at the value.
+
+For 'b' zero can be made invalid by changing the places where the
+offset is added/subtracted.
+It could even be used to offset the saved physical and virtual
+addresses of the area - so not needing any extra code when the values
+are converted to physical/virtual addresses.
+
+	David
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
