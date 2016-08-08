@@ -1,51 +1,33 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC PATCH 1/3] net: Remove unnecessary memset in
- __snmp6_fill_stats64
-Date: Mon, 8 Aug 2016 13:12:31 +0200
-Message-ID: <20160808111231.GA20192@breakpoint.cc>
-References: <1470651742-15195-1-git-send-email-hejianet@gmail.com>
- <1470651742-15195-2-git-send-email-hejianet@gmail.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: 4.6.3, pppoe + shaper workload, skb_panic / skb_push /
+ ppp_start_xmit
+Date: Mon, 08 Aug 2016 14:25:00 +0300
+Message-ID: <0776d5f55356ba0ed4400d46e5e52088@nuclearcat.com>
+References: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
+ <CAM_iQpWuCw6Bgm=1BWMkoFkuav5xV+FyKPq0Ef+3N_qpQqv=AA@mail.gmail.com>
+ <20160728110948.GA3046@alphalink.fr>
+ <e6cb92be01af6190350b9b3765bee6e3@nuclearcat.com>
+ <20160801205908.GD3031@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Jia He <hejianet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1470651742-15195-2-git-send-email-hejianet@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nuclearcat.com ([144.76.183.226]:55326 "EHLO nuclearcat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752014AbcHHLZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 07:25:04 -0400
+In-Reply-To: <20160801205908.GD3031@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jia He <hejianet@gmail.com> wrote:
-> buff[] will be assigned later, so memset is not necessary.
-> 
-> Signed-off-by: Jia He <hejianet@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> ---
->  net/ipv6/addrconf.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index ab3e796..43fa8d0 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -4967,7 +4967,6 @@ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
->  
->  	BUG_ON(pad < 0);
->  
-> -	memset(buff, 0, sizeof(buff));
->  	buff[0] = IPSTATS_MIB_MAX;
->  
->  	for_each_possible_cpu(c) {
-                for (i = 1; i < IPSTATS_MIB_MAX; i++)
-                        buff[i] += snmp_get_cpu_field64(mib, c, i, syncpoff);
-
-Without memset result of buff[i] += ... is undefined.
+On 2016-08-01 23:59, Guillaume Nault wrote:
+> Do you still have the vmlinux file with debug symbols that generated
+> this panic?
+Sorry for delay, i didn't had same image on all servers and probably i 
+found cause of panic, but still testing on several servers.
+If i remove SFQ qdisc from ppp shapers, servers not rebooting anymore.
+But still i need around 2 days to make sure that's the reason.
