@@ -1,42 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: use event->chunk when it's valid
-Date: Mon, 08 Aug 2016 14:34:01 -0700 (PDT)
-Message-ID: <20160808.143401.1489906176772169295.davem@davemloft.net>
-References: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
+Date: Mon, 08 Aug 2016 14:35:00 -0700 (PDT)
+Message-ID: <20160808.143500.473355495580691289.davem@davemloft.net>
+References: <1470642127-574-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	marcelo.leitner@gmail.com, vyasevich@gmail.com,
-	daniel@iogearbox.net
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org, ek@google.com,
+	hideaki.yoshifuji@miraclelinux.com
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34626 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbcHHVeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:34:04 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g202so25707045pfb.1
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 14:34:03 -0700 (PDT)
-In-Reply-To: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35455 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429AbcHHVfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:35:03 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h186so25582183pfg.2
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 14:35:03 -0700 (PDT)
+In-Reply-To: <1470642127-574-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sun,  7 Aug 2016 14:15:13 +0800
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Mon,  8 Aug 2016 16:42:07 +0900
 
-> Commit 52253db924d1 ("sctp: also point GSO head_skb to the sk when
-> it's available") used event->chunk->head_skb to get the head_skb in
-> sctp_ulpevent_set_owner().
+> ping_v6_sendmsg never sets flowi6_oif, so it is not possible to
+> ping an IPv6 address on a different interface. Instead, it sets
+> flowi6_iif, which is incorrect but harmless. Also, it returns an
+> error if a passed-in scope ID doesn't match sk_bound_dev_if.
 > 
-> But at that moment, the event->chunk was NULL, as it cloned the skb
-> in sctp_ulpevent_make_rcvmsg(). Therefore, that patch didn't really
-> work.
+> Get rid of the error, stop setting flowi6_iif, and support
+> various ways of setting oif in the same priority order used by
+> udpv6_sendmsg.
 > 
-> This patch is to move the event->chunk initialization before calling
-> sctp_ulpevent_receive_data() so that it uses event->chunk when it's
-> valid.
-> 
-> Fixes: 52253db924d1 ("sctp: also point GSO head_skb to the sk when it's available")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Tested: https://android-review.googlesource.com/#/c/254470/
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Applied, thank you.
+We should always give sk_bound_dev_if the highest priority.
+
+Also, we should amend, not delete, the check against the scope
+ID in the sockaddr.  As explained by YOSHIFUJI Hideaki.
