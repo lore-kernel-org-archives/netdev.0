@@ -1,48 +1,79 @@
-From: Yaniv Machani <yanivma@ti.com>
-Subject: [PATCH v3] mac80211: mesh: set tx_info->hw_queue to the correct queue upon packet forwarding
-Date: Mon, 8 Aug 2016 10:06:04 +0300
-Message-ID: <20160808070610.20563-1-yanivma@ti.com>
+From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Subject: [RFC PATCH v4 1/2] Documentation: DT: net: Add Xilinx gmiitorgmii converter device tree binding documentation
+Date: Mon, 8 Aug 2016 12:45:04 +0530
+Message-ID: <1470640505-8279-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Meirav Kama <meiravk@ti.com>, Yaniv Machani <yanivma@ti.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <linux-kernel@vger.kernel.org>
+Cc: <devicetree@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <robh+dt@kernel.org>, <mark.rutland@arm.com>,
+	<michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
+	<appanad@xilinx.com>, <f.fainelli@gmail.com>, <andrew@lunn.ch>,
+	<punnaia@xilinx.com>, <anirudh@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Meirav Kama <meiravk@ti.com>
+Device-tree binding documentation for xilinx gmiitorgmii converter.
 
-MP received data frames from another MP. Frames are forwarded
-from Rx to Tx to be transmitted to a third MP.
-Upon cloning the skb, the tx_info was zeroed, and the
-hw_queue wasn't set correctly, causing frames to be
-inserted to queue 0 (VOICE). If re-queue occurred for some
-reason, frame will be inserted to correct queue 2 (BE).
-In this case frames are now dequeued from 2 different queues and
-sent out of order.
-
-Signed-off-by: Meirav Kama <meiravk@ti.com>
-Signed-off-by: Yaniv Machani <yanivma@ti.com>
+Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
 ---
-v3 - update the headline
+Changes for v4:
+--> Modified compatible as suggested by Rob.
+--> Removed underscores from the converter node name as suggested by Rob.
+Changes for v3:
+--> None.
+Changes for v2:
+--> New patch.
 
- net/mac80211/rx.c | 1 +
- 1 file changed, 1 insertion(+)
+ .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 38 ++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 9a1eb70..88dc744 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -2392,6 +2392,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 	info->flags |= IEEE80211_TX_INTFL_NEED_TXPROCESSING;
- 	info->control.vif = &rx->sdata->vif;
- 	info->control.jiffies = jiffies;
-+	info->hw_queue = q;
- 	if (is_multicast_ether_addr(fwd_hdr->addr1)) {
- 		IEEE80211_IFSTA_MESH_CTR_INC(ifmsh, fwded_mcast);
- 		memcpy(fwd_hdr->addr2, sdata->vif.addr, ETH_ALEN);
+diff --git a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+new file mode 100644
+index 0000000..453680d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+@@ -0,0 +1,38 @@
++XILINX GMIITORGMII Converter Driver Device Tree Bindings
++--------------------------------------------------------
++
++The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
++Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
++Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
++This core can be used in all three modes of operation(10/100/1000 Mb/s).
++The Management Data Input/Output (MDIO) interface is used to configure the
++Speed of operation. This core can switch dynamically between the three
++Different speed modes by configuring the conveter register through mdio write.
++
++The MDIO is a bus to which the PHY devices are connected.  For each
++device that exists on this bus, a child node should be created.  See
++the definition of the PHY node in booting-without-of.txt for an example
++of how to define a PHY.
++
++This converter sits between the MAC and the external phy.
++MAC <==> GMII2RGMII <==> RGMII_PHY
++
++Required properties:
++  - compatible : Should be "xlnx,gmii-to-rgmii-1.0"
++  - reg : The ID number for the phy, usually a small integer
++  - phy-handle: Should point to the external phy device.
++		See ethernet.txt file in the same directory.
++
++Example:
++	mdio {
++                #address-cells = <1>;
++                #size-cells = <0>;
++		phy: ethernet-phy@0 {
++			......
++		};
++                gmiitorgmii: gmiitorgmii@8 {
++                        compatible = "xlnx,gmii-to-rgmii-1.0";
++                        reg = <8>;
++			phy-handle = <&phy>;
++                };
++        };
 -- 
-2.9.0
+2.1.2
