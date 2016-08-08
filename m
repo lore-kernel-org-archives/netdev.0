@@ -1,30 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: size of data_segs_[in|out] and segs_[in|out]
-Date: Mon, 08 Aug 2016 16:02:45 -0700 (PDT)
-Message-ID: <20160808.160245.2063863440275871547.davem@davemloft.net>
-References: <797392fa-8d87-f45b-69b2-fdd096e1229c@psc.edu>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rapier@psc.edu
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch iproute2] tc: fix a misleading failure
+Date: Mon,  8 Aug 2016 16:24:45 -0700
+Message-ID: <1470698685-20177-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <shemming@brocade.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34338 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751542AbcHHXCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 19:02:47 -0400
-Received: by mail-pf0-f181.google.com with SMTP id p64so123498711pfb.1
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 16:02:47 -0700 (PDT)
-In-Reply-To: <797392fa-8d87-f45b-69b2-fdd096e1229c@psc.edu>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35282 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752156AbcHHXYy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 19:24:54 -0400
+Received: by mail-pa0-f65.google.com with SMTP id cf3so24649019pad.2
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 16:24:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: rapier <rapier@psc.edu>
-Date: Mon, 8 Aug 2016 18:02:29 -0400
+Before this patch:
 
-> As such, would it be feasible to define these instruments as 64bit
-> instead of 32bit? If so, a cursory look at the code seems to indicate
-> that this would only require a change in the header files.
+ # ./tc/tc actions add action drop index 11
+ RTNETLINK answers: File exists
+ We have an error talking to the kernel
+ Command "(null)" is unknown, try "tc actions help".
 
-It would break every application looking at these datastructures
-right now.
+After this patch:
+
+ # ./tc/tc actions add action drop index 11
+ RTNETLINK answers: File exists
+ We have an error talking to the kernel
+
+Cc: Stephen Hemminger <shemming@brocade.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ tc/m_action.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/tc/m_action.c b/tc/m_action.c
+index 24f8b5d..bb19df8 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -623,14 +623,12 @@ int do_action(int argc, char **argv)
+ 			act_usage();
+ 			return -1;
+ 		} else {
+-
+-			ret = -1;
+-		}
+-
+-		if (ret < 0) {
+ 			fprintf(stderr, "Command \"%s\" is unknown, try \"tc actions help\".\n", *argv);
+ 			return -1;
+ 		}
++
++		if (ret < 0)
++			return -1;
+ 	}
+ 
+ 	return 0;
+-- 
+2.1.0
