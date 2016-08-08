@@ -1,65 +1,87 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@purestorage.com>
-Subject: [PATCH] bonding: Allow tun-interfaces as slaves
-Date: Mon, 8 Aug 2016 14:48:12 -0700
-Message-ID: <20160808214812.GJ22974@cork>
-References: <20160808211530.GH22974@cork>
- <20160808212112.GI22974@cork>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [PATCH] net: make net namespace sysctls belong to container's owner
+Date: Mon, 8 Aug 2016 14:54:45 -0700
+Message-ID: <CAKdAkRRq8dRR5=H+R2HWhwFfgXuVxiu_mbekZuGPkaJzHPYLuw@mail.gmail.com>
+References: <20160802231926.GA8108@dtor-ws> <8737mfotnj.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: dingtianhong <dingtianhong@huawei.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33805 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbcHHVsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:48:20 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fi15so117484268pac.1
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 14:48:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160808212112.GI22974@cork>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8737mfotnj.fsf@x220.int.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Up until 00503b6f702e (part of 3.14-rc1), the bonding driver could be
-used to enslave tun-interfaces.  00503b6f702e broke that behaviour,
-afaics as an unintended side-effect.
+On Mon, Aug 8, 2016 at 2:08 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Dmitry Torokhov <dmitry.torokhov@gmail.com> writes:
+>
+>> If net namespace is attached to a user namespace let's make container's
+>> root owner of sysctls affecting said network namespace instead of global
+>> root.
+>>
+>> This also allows us to clean up net_ctl_permissions() because we do not
+>> need to fudge permissions anymore for the container's owner since it now
+>> owns the objects in question.
+>
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>
+> Overall this seems reasonable.  However I am not a fan of your error
+> handling.
+>
+>> Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+>> ---
+>>
+>> This helps when running Android CTS in a container, but I think it makes
+>> sense regardless.
+>
+>> +static void net_ctl_set_ownership(struct ctl_table_header *head,
+>> +                               struct ctl_table *table,
+>> +                               kuid_t *uid, kgid_t *gid)
+>> +{
+>> +     struct net *net = container_of(head->set, struct net, sysctls);
+>> +
+>> +     *uid = make_kuid(net->user_ns, 0);
+>> +     if (!uid_valid(*uid))
+>> +             *uid = GLOBAL_ROOT_UID;
+>> +
+>> +     *gid = make_kgid(net->user_ns, 0);
+>> +     if (!gid_valid(*gid))
+>> +             *gid = GLOBAL_ROOT_GID;
+>
+> This code should eiter be:
+>         *uid = make_kuid(net->user_ns, 0);
+>         *gid = make_kgid(net->user_ns, 0);
+>
+> Or it should be:
+>         tmp_uid = make_kuid(net->user_ns, 0);
+>         if (uid_valid(tmp_uid))
+>                 *uid = tmp_uid;
+>
+>         tmp_gid = make_kgid(net->user_ns, 0);
+>         if (gid_valid(tmp_gid))
+>                 *gid = tmp_gid;
+>
+> It is just very fragile to assume to know what uid and gid
+> would be if this code fails.
+>
+> As of v4.8-rc1 INVALID_UID and INVALID_GID can be set in inode->i_uid
+> and inode->i_gid without causing horrible vfs confusion (making the
+> first option viable), but I expect with the mention of Android you want
+> to backport this so I will ask that you ask to implement the error
+> handling that doesn't assume you know better than the generic code.
+>
+> If you don't have a better value to set something to it really should be
+> left alone.
 
-For the purpose of bond-over-tun in balance-rr mode, simply ignoring the
-error from dev_set_mac_address() is good enough.  I am not familiar
-enough with the code to judge what new problems this patch might
-introduce.
+OK, fair enough. I will adopt the 2nd option and will resubmit. I need
+to also test without net namespaces support (my other change blows up
+because we are getting half-initialized init_net structure when
+namespaces are disabled).
 
-Signed-off-by: Joern Engel <joern@purestorage.com>
----
- drivers/net/bonding/bond_main.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+Thanks.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1f276fa30ba6..bc5dba847f50 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1489,11 +1489,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		 */
- 		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
- 		addr.sa_family = slave_dev->type;
--		res = dev_set_mac_address(slave_dev, &addr);
--		if (res) {
--			netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
--			goto err_restore_mtu;
--		}
-+		dev_set_mac_address(slave_dev, &addr);
- 	}
- 
- 	/* set slave flag before open to prevent IPv6 addrconf */
-@@ -1777,7 +1773,6 @@ err_restore_mac:
- 		dev_set_mac_address(slave_dev, &addr);
- 	}
- 
--err_restore_mtu:
- 	dev_set_mtu(slave_dev, new_slave->original_mtu);
- 
- err_free:
 -- 
-2.1.4
+Dmitry
