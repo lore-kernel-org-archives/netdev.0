@@ -1,44 +1,33 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [ovs-dev] [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Mon, 8 Aug 2016 17:28:39 +0200
-Message-ID: <20160808172839.2cc42c61@griffin>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
-	<1467827996-32547-6-git-send-email-simon.horman@netronome.com>
-	<CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
-	<20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
-	<CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
-	<20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
-	<CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
-	<20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
-	<CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
-	<20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] bridge: vlan json: skip ports with empty vlans
+Date: Mon, 8 Aug 2016 08:43:12 -0700
+Message-ID: <20160808084312.066f9539@xeon-e3>
+References: <1470598623-17215-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pravin shelar <pshelar@ovn.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>
-To: Simon Horman <simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54928 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752020AbcHHP2n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2016 11:28:43 -0400
-In-Reply-To: <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:35077 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752072AbcHHPoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 11:44:19 -0400
+Received: by mail-pa0-f45.google.com with SMTP id iw10so114927857pac.2
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 08:44:19 -0700 (PDT)
+In-Reply-To: <1470598623-17215-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Aug 2016 17:17:17 +0200, Simon Horman wrote:
-> +bool skb_mac_header_present(struct sk_buff *skb)
-> +{
-> +	return skb->dev->type == ARPHRD_ETHER ||
-> +		(skb->dev->type == ARPHRD_NONE &&
-> +		 skb->protocol == htons(ETH_P_TEB));
-> +}
-> +EXPORT_SYMBOL(skb_mac_header_present);
+On Sun,  7 Aug 2016 12:37:03 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-I'd suggest a different name, this looks like it has something to do
-with skb->mac_header, which it doesn't. skb_eth_header_present, perhaps?
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> The non-json output prints 'None' for such vlans.
+> And this can garble json output.
+> 
+> Fixes: d82a49ce85f0 ("bridge: add json support for bridge vlan show")
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
- Jiri
+Applied
