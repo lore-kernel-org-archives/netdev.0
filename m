@@ -1,66 +1,44 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
-Date: Mon, 8 Aug 2016 09:27:12 -0600
-Message-ID: <39efdc37-88cc-34c4-ad64-2f13fd0bc4a2@cumulusnetworks.com>
-References: <1470642127-574-1-git-send-email-lorenzo@google.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [ovs-dev] [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Mon, 8 Aug 2016 17:28:39 +0200
+Message-ID: <20160808172839.2cc42c61@griffin>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+	<1467827996-32547-6-git-send-email-simon.horman@netronome.com>
+	<CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
+	<20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
+	<CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
+	<20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
+	<CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
+	<20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
+	<CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
+	<20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, ek@google.com, davem@davemloft.net,
-	hideaki.yoshifuji@miraclelinux.com
-To: Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org
+Cc: pravin shelar <pshelar@ovn.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35149 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752149AbcHHP1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 11:27:20 -0400
-Received: by mail-pf0-f171.google.com with SMTP id x72so120301924pfd.2
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 08:27:19 -0700 (PDT)
-In-Reply-To: <1470642127-574-1-git-send-email-lorenzo@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54928 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752020AbcHHP2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 11:28:43 -0400
+In-Reply-To: <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/8/16 1:42 AM, Lorenzo Colitti wrote:
-> ping_v6_sendmsg never sets flowi6_oif, so it is not possible to
-> ping an IPv6 address on a different interface. Instead, it sets
-> flowi6_iif, which is incorrect but harmless. Also, it returns an
-> error if a passed-in scope ID doesn't match sk_bound_dev_if.
-> 
-> Get rid of the error, stop setting flowi6_iif, and support
-> various ways of setting oif in the same priority order used by
-> udpv6_sendmsg.
-> 
-> Tested: https://android-review.googlesource.com/#/c/254470/
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
->  net/ipv6/ping.c | 29 +++++++++++++++--------------
->  1 file changed, 15 insertions(+), 14 deletions(-)
-> 
-> diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-> index fed40d1..eabf1ea 100644
-> --- a/net/ipv6/ping.c
-> +++ b/net/ipv6/ping.c
+On Mon, 8 Aug 2016 17:17:17 +0200, Simon Horman wrote:
+> +bool skb_mac_header_present(struct sk_buff *skb)
+> +{
+> +	return skb->dev->type == ARPHRD_ETHER ||
+> +		(skb->dev->type == ARPHRD_NONE &&
+> +		 skb->protocol == htons(ETH_P_TEB));
+> +}
+> +EXPORT_SYMBOL(skb_mac_header_present);
 
------8<-----
+I'd suggest a different name, this looks like it has something to do
+with skb->mac_header, which it doesn't. skb_eth_header_present, perhaps?
 
-> @@ -106,16 +111,12 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
->  	fl6.flowi6_proto = IPPROTO_ICMPV6;
->  	fl6.saddr = np->saddr;
->  	fl6.daddr = *daddr;
-> +	fl6.flowi6_oif = oif;
->  	fl6.flowi6_mark = sk->sk_mark;
->  	fl6.fl6_icmp_type = user_icmph.icmp6_type;
->  	fl6.fl6_icmp_code = user_icmph.icmp6_code;
->  	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
->  
-> -	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
-> -		fl6.flowi6_oif = np->mcast_oif;
-> -	else if (!fl6.flowi6_oif)
-> -		fl6.flowi6_oif = np->ucast_oif;
-> -
->  	ipc6.tclass = np->tclass;
->  	fl6.flowlabel = ip6_make_flowinfo(ipc6.tclass, fl6.flowlabel);
->  
-> 
-
-That code removal is contrary to your patch description regarding flowi6_oif.
+ Jiri
