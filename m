@@ -1,56 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 1/2] devlink: write usage help messages to stderr
-Date: Mon, 8 Aug 2016 18:18:22 +0200
-Message-ID: <20160808161822.GK1944@nanopsycho.orion>
-References: <1469205270-6180-1-git-send-email-jiri@resnulli.us>
- <20160723094659.06921b95@xeon-e3>
- <20160808071921.GA1944@nanopsycho.orion>
- <20160808085654.764550e2@xeon-e3>
+From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
+Date: Tue, 9 Aug 2016 01:22:12 +0900
+Message-ID: <CAPA1RqCQu8yQQTqrUUh+jcj9GT4OCh5EEbqU6mHjGiEzv0AP2w@mail.gmail.com>
+References: <1470642127-574-1-git-send-email-lorenzo@google.com>
+ <7ff321ea-87f7-4a59-0e1e-52962d4e9be6@stressinduktion.org> <CAKD1Yr2yeVbue0ygRd2av+_nrTaq2cOtD=ZNJT7H25CqXr-=zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Erik Kline <ek@google.com>, David Miller <davem@davemloft.net>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32903 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313AbcHHQSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 12:18:30 -0400
-Received: by mail-wm0-f68.google.com with SMTP id o80so16446504wme.0
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 09:18:29 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160808085654.764550e2@xeon-e3>
+Received: from mail-io0-f178.google.com ([209.85.223.178]:34714 "EHLO
+	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152AbcHHQWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 12:22:13 -0400
+Received: by mail-io0-f178.google.com with SMTP id q83so362935263iod.1
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 09:22:13 -0700 (PDT)
+In-Reply-To: <CAKD1Yr2yeVbue0ygRd2av+_nrTaq2cOtD=ZNJT7H25CqXr-=zg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Aug 08, 2016 at 05:56:54PM CEST, stephen@networkplumber.org wrote:
->On Mon, 8 Aug 2016 09:19:21 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> Sat, Jul 23, 2016 at 06:46:59PM CEST, stephen@networkplumber.org wrote:
->> >On Fri, 22 Jul 2016 18:34:29 +0200
->> >Jiri Pirko <jiri@resnulli.us> wrote:
->> >  
->> >> From: Jiri Pirko <jiri@mellanox.com>
->> >> 
->> >> In order to not confuse reader, write help messages into stderr.
->> >> 
->> >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>  
->> >
->> >This does make devlink consistent with other parts of iproute2.
->> >But the most common coding standards, back to Unix, and GNU are
->> >that help messages should go to stdout so that:
->> >  $ ip -h | more
->> >would work as expected.  
->> 
->> The thing is I wanted to make stdout only for json. Putting non-json
->> help out there does not look correct to me. Is it?
->> 
->
->I applied both of these patches, just wanted to mention that iproute2 is not
->following the GNU convention. At this point, it really doesn't matter, there
->are arguments to be made for both behaviors.
+Hi,
 
+2016-08-08 23:45 GMT+09:00 Lorenzo Colitti <lorenzo@google.com>:
+> On Mon, Aug 8, 2016 at 11:26 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>>> -             if (sk->sk_bound_dev_if &&
+>>> -                 sk->sk_bound_dev_if != u->sin6_scope_id) {
+>>> -                     return -EINVAL;
+>>> -             }
+>>
+>> Hmm, sk->sk_bound_dev_if always has highest prio for the selection of
+>> the output interface. Thus this code made sense to me.
+>
+> Removing it is consistent with the other sendmsg functions such as
+> udpv6_sendmsg or rawv6_sendmsg.
+>
+> There is similar code in __ip6_datagram_connect, but that seems a bit
+> different because that code also *sets* sk_bound_dev_if.
+>
+> Personally I think it's better for pingv6_sendmsg be consistent with
+> the other *_sendmsg functions than with ip6_datagram_connect, and thus
+> the code should be removed. But I don't feel particularly strongly
+> about it.
 
-Allright. Thanks.
+Following must be met, at least, IMHO.
+- SO_BINDTODEVICE requires "root", which sets sk_bound_dev_if.
+- sin6_scope_id and sk_bound_dev_if should match (if the address it
+link-local address), or each or both should equal to 0.
+
+I think it would make more sense if former setting wins...
+
+--yoshfuji
