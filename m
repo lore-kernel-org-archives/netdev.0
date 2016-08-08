@@ -1,474 +1,135 @@
-From: Philp Prindeville <philipp@redfish-solutions.com>
-Subject: Re: [PATCH v4 1/1] rps: Inspect PPTP encapsulated by GRE to get flow
- hash
-Date: Mon, 8 Aug 2016 09:20:19 -0600
-Message-ID: <15b0bc2e-1493-8567-f86a-0a82a38cb4d8@redfish-solutions.com>
-References: <1470294406-11208-1-git-send-email-fgao@ikuai8.com>
- <e185b3b9-77cc-bb8f-eaea-04a801859179@redfish-solutions.com>
- <CA+6hz4qPsm_E5WVU_tdw-v5S4pyqPCuEsSPjcnjbPg9hY7Q3xA@mail.gmail.com>
- <51af298c-f64d-b32a-e679-3a5ac821af2e@redfish-solutions.com>
- <CA+6hz4pL=Ug6xZ-bRPjUAk1Ld3eOHTHDv-1JDyGUN7-x7pOcsg@mail.gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: problem with MPLS and TSO/GSO
+Date: Mon, 8 Aug 2016 17:25:27 +0200
+Message-ID: <20160808152526.GC8477@penelope.isobedori.kobe.vergenet.net>
+References: <20160725163915.GE10080@wantstofly.org>
+ <CAD=hENdOy-d0v9BskuvfqF3qdbrWCy2b-Dc-LSSUcZBmHy-X1A@mail.gmail.com>
+ <579DA39E.3070703@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: fgao@48lvckh6395k16k5.yundunddos.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Feng Gao <gfree.wind@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: zhuyj <zyjzyj2000@gmail.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	netdev <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:59724 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751473AbcHHPWZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 11:22:25 -0400
-In-Reply-To: <CA+6hz4pL=Ug6xZ-bRPjUAk1Ld3eOHTHDv-1JDyGUN7-x7pOcsg@mail.gmail.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36112 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020AbcHHPZb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 11:25:31 -0400
+Received: by mail-wm0-f47.google.com with SMTP id q128so126016611wma.1
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 08:25:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <579DA39E.3070703@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No, I was referring to anonymous structures, which is a feature of C11.
+On Sun, Jul 31, 2016 at 12:07:10AM -0700, Roopa Prabhu wrote:
+> On 7/27/16, 12:02 AM, zhuyj wrote:
+> > On ubuntu16.04 server 64 bit
+> > The attached script is run, the following will appear.
+> >
+> > Error: either "to" is duplicate, or "encap" is a garbage.
+> 
+> This maybe just because the iproute2 version on ubuntu does not
+> support the route encap attributes yet.
+> 
+> [snip]
+> 
+> >
+> > On Tue, Jul 26, 2016 at 12:39 AM, Lennert Buytenhek <buytenh@wantstofly.org>
+> > wrote:
+> >
+> >> Hi!
+> >>
+> >> I am seeing pretty horrible TCP transmit performance (anywhere between
+> >> 1 and 10 Mb/s, on a 10 Gb/s interface) when traffic is sent out over a
+> >> route that involves MPLS labeling, and this seems to be due to an
+> >> interaction between MPLS and TSO/GSO that causes all segmentable TCP
+> >> frames that are MPLS-labeled to be dropped on egress.
+> >>
+> >> I initially ran into this issue with the ixgbe driver, but it is easily
+> >> reproduced with veth interfaces, and the script attached below this
+> >> email reproduces the issue.  The script configures three network
+> >> namespaces: one that transmits TCP data (netperf) with MPLS labels,
+> >> one that takes the MPLS traffic and pops the labels and forwards the
+> >> traffic on, and one that receives the traffic (netserver).  When not
+> >> using MPLS labeling, I get ~30000 Mb/s single-stream TCP performance
+> >> in this setup on my test box, and with MPLS labeling, I get ~2 Mb/s.
+> >>
+> >> Some investigating shows that egress TCP frames that need to be
+> >> segmented are being dropped in validate_xmit_skb(), which calls
+> >> skb_gso_segment() which calls skb_mac_gso_segment() which returns
+> >> -EPROTONOSUPPORT because we apparently didn't have the right kernel
+> >> module (mpls_gso) loaded.
+> >>
+> >> (It's somewhat poor design, IMHO, to degrade network performance by
+> >> 15000x if someone didn't load a kernel module they didn't know they
+> >> should have loaded, and in a way that doesn't log any warnings or
+> >> errors and can only be diagnosed by adding printk calls to net/core/
+> >> and recompiling your kernel.)
+> 
+> Its possible that the right way to do this is to always auto select MPLS_GSO
+> if MPLS_IPTUNNEL is selected. I am guessing this by looking at the
+> openvswitch mpls Kconfig entries and comparing with MPLS_IPTUNNEL.
+> will look some more.
+> 
+> >>
+> >> (Also, I'm not sure why mpls_gso is needed when ixgbe seems to be
+> >> able to natively do TSO on MPLS-labeled traffic, maybe because ixgbe
+> >> doesn't advertise the necessary features in ->mpls_features?  But
+> >> adding those bits doesn't seem to change much.)
+> >>
+> >> But, loading mpls_gso doesn't change much -- skb_gso_segment() then
+> >> starts return -EINVAL instead, which is due to the
+> >> skb_network_protocol() call in skb_mac_gso_segment() returning zero.
+> >> And looking at skb_network_protocol(), I don't see how this is
+> >> supposed to work -- skb->protocol is 0 at this point, and there is no
+> >> way to figure out that what we are encapsulating is IP traffic, because
+> >> unlike what is the case with VLAN tags, MPLS labels aren't followed by
+> >> an inner ethertype that says what kind of traffic is in here, you have
+> >> to have explicit knowledge of the payload type for MPLS.
+> >>
+> >> Any ideas?
+> I was looking at the history of net/mpls/mpls_gso.c and the initial git log comment
+> says that the driver expects the mpls tunnel driver to do a few things which I think
+> might be the problem. I do see mpls_iptunnel.c setting the skb->protocol but not the
+> skb->inner_protocol. wonder if fixing anything there will help ?.
 
-Please see the link I sent.
+If the inner protocol is not set then I don't think that segmentation can
+function as there is (or at least was for the use case the code was added)
+no way for the stack to know the protocol of the inner packet otherwise.
 
+On another note I was recently poking around the code and I wonder if the
+following may be needed (this was in the context of my under-construction
+l3 tunnel work for OvS and it may only be needed in that context):
 
-On 08/08/2016 03:13 AM, Feng Gao wrote:
-> Hi Philip,
->
-> Do you mean like the following?
->
-> struct gre_full_hdr {
->          struct {
->                  __be16 flags;
->                  __be16 protocol;
->          } fixed_header;
->          __be16 csum;
->          __be16 reserved1;
->          __be32 key;
->          __be32 seq;
-> } __packed;
->
-> But we need struct gre_base_hdr to get the fixed header of GRE in
-> function __skb_flow_dissect like the following codes.
-> struct gre_base_hdr *hdr, _hdr;
-> hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
->
-> BTW, the original codes define one local stuct gre_hdr. Now I use the
-> unified struct gre_base_hdr instead of it.
->
-> Best Regards
-> Feng
->
->
-> On Mon, Aug 8, 2016 at 11:27 AM, Philp Prindeville
-> <philipp@redfish-solutions.com> wrote:
->> Feng,
->>
->> An anonymous structure is defined here:
->> https://gcc.gnu.org/onlinedocs/gcc/Unnamed-Fields.html
->>
->> i.e.:
->>
->> struct gre_full_hdr {
->>      struct gre_base_hdr;
->>      ...
->>
->> so yes, I'm talking about making fixed_header be anonymous instead.
->>
->> -Philip
->>
->>
->>
->> On 08/07/2016 08:50 PM, Feng Gao wrote:
->>> Hi Philp,
->>>
->>> Forgive my poor English, I am not clear about the comment #1.
->>> "Can you make gre_base_hdr be anonymous?".
->>>
->>> +struct gre_full_hdr {
->>> +   struct gre_base_hdr fixed_header;
->>>
->>> Do you mean make the member "fixed_header" as anonymous or not?
->>>
->>> Best Regards
->>> Feng
->>>
->>>
->>> On Mon, Aug 8, 2016 at 5:03 AM, Philp Prindeville
->>> <philipp@redfish-solutions.com> wrote:
->>>> Inline...
->>>>
->>>>
->>>>
->>>> On 08/04/2016 01:06 AM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
->>>>> From: Gao Feng <fgao@ikuai8.com>
->>>>>
->>>>> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
->>>>> must contain one. But current GRE RPS needs the GRE_VERSION must be
->>>>> zero. So RPS does not work for PPTP traffic.
->>>>>
->>>>> In my test environment, there are four MIPS cores, and all traffic
->>>>> are passed through by PPTP. As a result, only one core is 100% busy
->>>>> while other three cores are very idle. After this patch, the usage
->>>>> of four cores are balanced well.
->>>>>
->>>>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->>>>> ---
->>>>>     v4: 1) Define struct gre_full_hdr, and use sizeof its member
->>>>> directly;
->>>>>         2) Move version and routing check ahead;
->>>>>         3) Only PPTP in GRE check the ack flag;
->>>>>     v3: 1) Move struct pptp_gre_header defination into new file pptp.h
->>>>>         2) Use sizeof GRE and PPTP type instead of literal value;
->>>>>         3) Remove strict flag check for PPTP to robust;
->>>>>         4) Consolidate the codes again;
->>>>>     v2: Update according to Tom and Philp's advice.
->>>>>         1) Consolidate the codes with GRE version 0 path;
->>>>>         2) Use PPP_PROTOCOL to get ppp protol;
->>>>>         3) Set the FLOW_DIS_ENCAPSULATION flag;
->>>>>     v1: Intial Patch
->>>>>
->>>>>     drivers/net/ppp/pptp.c         |  36 +------------
->>>>>     include/net/gre.h              |  10 +++-
->>>>>     include/net/pptp.h             |  40 +++++++++++++++
->>>>>     include/uapi/linux/if_tunnel.h |   7 ++-
->>>>>     net/core/flow_dissector.c      | 113
->>>>> ++++++++++++++++++++++++++++-------------
->>>>>     5 files changed, 135 insertions(+), 71 deletions(-)
->>>>>     create mode 100644 include/net/pptp.h
->>>>>
->>>>> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
->>>>> index ae0905e..3e68dbc 100644
->>>>> --- a/drivers/net/ppp/pptp.c
->>>>> +++ b/drivers/net/ppp/pptp.c
->>>>> @@ -37,6 +37,7 @@
->>>>>     #include <net/icmp.h>
->>>>>     #include <net/route.h>
->>>>>     #include <net/gre.h>
->>>>> +#include <net/pptp.h>
->>>>>       #include <linux/uaccess.h>
->>>>>     @@ -53,41 +54,6 @@ static struct proto pptp_sk_proto __read_mostly;
->>>>>     static const struct ppp_channel_ops pptp_chan_ops;
->>>>>     static const struct proto_ops pptp_ops;
->>>>>     -#define PPP_LCP_ECHOREQ 0x09
->>>>> -#define PPP_LCP_ECHOREP 0x0A
->>>>> -#define SC_RCV_BITS
->>>>> (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
->>>>> -
->>>>> -#define MISSING_WINDOW 20
->>>>> -#define WRAPPED(curseq, lastseq)\
->>>>> -       ((((curseq) & 0xffffff00) == 0) &&\
->>>>> -       (((lastseq) & 0xffffff00) == 0xffffff00))
->>>>> -
->>>>> -#define PPTP_GRE_PROTO  0x880B
->>>>> -#define PPTP_GRE_VER    0x1
->>>>> -
->>>>> -#define PPTP_GRE_FLAG_C        0x80
->>>>> -#define PPTP_GRE_FLAG_R        0x40
->>>>> -#define PPTP_GRE_FLAG_K        0x20
->>>>> -#define PPTP_GRE_FLAG_S        0x10
->>>>> -#define PPTP_GRE_FLAG_A        0x80
->>>>> -
->>>>> -#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
->>>>> -#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
->>>>> -#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
->>>>> -#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
->>>>> -#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
->>>>> -
->>>>> -#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
->>>>> -struct pptp_gre_header {
->>>>> -       u8  flags;
->>>>> -       u8  ver;
->>>>> -       __be16 protocol;
->>>>> -       __be16 payload_len;
->>>>> -       __be16 call_id;
->>>>> -       __be32 seq;
->>>>> -       __be32 ack;
->>>>> -} __packed;
->>>>> -
->>>>>     static struct pppox_sock *lookup_chan(u16 call_id, __be32 s_addr)
->>>>>     {
->>>>>           struct pppox_sock *sock;
->>>>> diff --git a/include/net/gre.h b/include/net/gre.h
->>>>> index 7a54a31..c469dcc 100644
->>>>> --- a/include/net/gre.h
->>>>> +++ b/include/net/gre.h
->>>>> @@ -7,9 +7,17 @@
->>>>>     struct gre_base_hdr {
->>>>>           __be16 flags;
->>>>>           __be16 protocol;
->>>>> -};
->>>>> +} __packed;
->>>>>     #define GRE_HEADER_SECTION 4
->>>>>     +struct gre_full_hdr {
->>>>> +       struct gre_base_hdr fixed_header;
->>>>
->>>> Can you make gre_base_hdr be anonymous?
->>>>
->>>>
->>>>
->>>>> +       __be16 csum;
->>>>> +       __be16 reserved1;
->>>>> +       __be32 key;
->>>>> +       __be32 seq;
->>>>> +} __packed;
->>>>> +
->>>>>     #define GREPROTO_CISCO                0
->>>>>     #define GREPROTO_PPTP         1
->>>>>     #define GREPROTO_MAX          2
->>>>> diff --git a/include/net/pptp.h b/include/net/pptp.h
->>>>> new file mode 100644
->>>>> index 0000000..301d3e2
->>>>> --- /dev/null
->>>>> +++ b/include/net/pptp.h
->>>>> @@ -0,0 +1,40 @@
->>>>> +#ifndef _NET_PPTP_H
->>>>> +#define _NET_PPTP_H
->>>>> +
->>>>> +#define PPP_LCP_ECHOREQ 0x09
->>>>> +#define PPP_LCP_ECHOREP 0x0A
->>>>> +#define SC_RCV_BITS
->>>>> (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
->>>>> +
->>>>> +#define MISSING_WINDOW 20
->>>>> +#define WRAPPED(curseq, lastseq)\
->>>>> +       ((((curseq) & 0xffffff00) == 0) &&\
->>>>> +       (((lastseq) & 0xffffff00) == 0xffffff00))
->>>>> +
->>>>> +#define PPTP_GRE_PROTO  0x880B
->>>>> +#define PPTP_GRE_VER    0x1
->>>>> +
->>>>> +#define PPTP_GRE_FLAG_C 0x80
->>>>> +#define PPTP_GRE_FLAG_R 0x40
->>>>> +#define PPTP_GRE_FLAG_K 0x20
->>>>> +#define PPTP_GRE_FLAG_S 0x10
->>>>> +#define PPTP_GRE_FLAG_A 0x80
->>>>> +
->>>>> +#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
->>>>> +#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
->>>>> +#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
->>>>> +#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
->>>>> +#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
->>>>> +
->>>>> +#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
->>>>> +struct pptp_gre_header {
->>>>> +       u8  flags;
->>>>> +       u8  ver;
->>>>> +       __be16 protocol;
->>>>> +       __be16 payload_len;
->>>>> +       __be16 call_id;
->>>>> +       __be32 seq;
->>>>> +       __be32 ack;
->>>>> +} __packed;
->>>>> +
->>>>> +
->>>>> +#endif
->>>>> diff --git a/include/uapi/linux/if_tunnel.h
->>>>> b/include/uapi/linux/if_tunnel.h
->>>>> index 1046f55..7d889db 100644
->>>>> --- a/include/uapi/linux/if_tunnel.h
->>>>> +++ b/include/uapi/linux/if_tunnel.h
->>>>> @@ -24,9 +24,14 @@
->>>>>     #define GRE_SEQ               __cpu_to_be16(0x1000)
->>>>>     #define GRE_STRICT    __cpu_to_be16(0x0800)
->>>>>     #define GRE_REC               __cpu_to_be16(0x0700)
->>>>> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
->>>>> +#define GRE_ACK                __cpu_to_be16(0x0080)
->>>>> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
->>>>>     #define GRE_VERSION   __cpu_to_be16(0x0007)
->>>>>     +#define GRE_VERSION_1        __cpu_to_be16(0x0001)
->>>>> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
->>>>> +
->>>>> +
->>>>>     struct ip_tunnel_parm {
->>>>>           char                    name[IFNAMSIZ];
->>>>>           int                     link;
->>>>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->>>>> index 61ad43f..1186712 100644
->>>>> --- a/net/core/flow_dissector.c
->>>>> +++ b/net/core/flow_dissector.c
->>>>> @@ -6,6 +6,8 @@
->>>>>     #include <linux/if_vlan.h>
->>>>>     #include <net/ip.h>
->>>>>     #include <net/ipv6.h>
->>>>> +#include <net/gre.h>
->>>>> +#include <net/pptp.h>
->>>>>     #include <linux/igmp.h>
->>>>>     #include <linux/icmp.h>
->>>>>     #include <linux/sctp.h>
->>>>> @@ -338,32 +340,42 @@ mpls:
->>>>>     ip_proto_again:
->>>>>           switch (ip_proto) {
->>>>>           case IPPROTO_GRE: {
->>>>> -               struct gre_hdr {
->>>>> -                       __be16 flags;
->>>>> -                       __be16 proto;
->>>>> -               } *hdr, _hdr;
->>>>> +               struct gre_base_hdr *hdr, _hdr;
->>>>> +               u16 gre_ver;
->>>>> +               int offset = 0;
->>>>>                   hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr),
->>>>> data,
->>>>> hlen, &_hdr);
->>>>>                   if (!hdr)
->>>>>                           goto out_bad;
->>>>> -               /*
->>>>> -                * Only look inside GRE if version zero and no
->>>>> -                * routing
->>>>> -                */
->>>>> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
->>>>> +
->>>>> +               /* Only look inside GRE without routing */
->>>>> +               if (hdr->flags & GRE_ROUTING)
->>>>>                           break;
->>>>>     -             proto = hdr->proto;
->>>>> -               nhoff += 4;
->>>>> +               /* Only look inside GRE for version 0 and 1 */
->>>>> +               gre_ver = ntohs(hdr->flags & GRE_VERSION);
->>>>> +               if (gre_ver > 1)
->>>>> +                       break;
->>>>> +
->>>>> +               proto = hdr->protocol;
->>>>> +               if (gre_ver) {
->>>>> +                       /* Version1 must be PPTP, and check the flags */
->>>>> +                       if (!(proto == GRE_PROTO_PPP && (hdr->flags &
->>>>> GRE_KEY)))
->>>>> +                               break;
->>>>> +               }
->>>>> +
->>>>> +               offset += sizeof(struct gre_base_hdr);
->>>>> +
->>>>>                   if (hdr->flags & GRE_CSUM)
->>>>> -                       nhoff += 4;
->>>>> +                       offset += sizeof(((struct gre_full_hdr
->>>>> *)0)->csum)
->>>>> +
->>>>> +                                 sizeof(((struct gre_full_hdr
->>>>> *)0)->reserved1);
->>>>> +
->>>>>                   if (hdr->flags & GRE_KEY) {
->>>>>                           const __be32 *keyid;
->>>>>                           __be32 _keyid;
->>>>>     -                     keyid = __skb_header_pointer(skb, nhoff,
->>>>> sizeof(_keyid),
->>>>> +                       keyid = __skb_header_pointer(skb, nhoff +
->>>>> offset,
->>>>> sizeof(_keyid),
->>>>>                                                        data, hlen,
->>>>> &_keyid);
->>>>> -
->>>>>                           if (!keyid)
->>>>>                                   goto out_bad;
->>>>>     @@ -372,32 +384,65 @@ ip_proto_again:
->>>>>                                   key_keyid =
->>>>> skb_flow_dissector_target(flow_dissector,
->>>>>
->>>>> FLOW_DISSECTOR_KEY_GRE_KEYID,
->>>>>
->>>>> target_container);
->>>>> -                               key_keyid->keyid = *keyid;
->>>>> +                               if (gre_ver == 0)
->>>>> +                                       key_keyid->keyid = *keyid;
->>>>> +                               else
->>>>> +                                       key_keyid->keyid = *keyid &
->>>>> htonl(0xffff);
->>>>
->>>> Would be good to have a #define'd constant for the keyid mask...
->>>> Otherwise,
->>>> looks good.
->>>>
->>>> -Philip
->>>>
->>>>
->>>>>                           }
->>>>> -                       nhoff += 4;
->>>>> +                       offset += sizeof(((struct gre_full_hdr
->>>>> *)0)->key);
->>>>>                   }
->>>>> +
->>>>>                   if (hdr->flags & GRE_SEQ)
->>>>> -                       nhoff += 4;
->>>>> -               if (proto == htons(ETH_P_TEB)) {
->>>>> -                       const struct ethhdr *eth;
->>>>> -                       struct ethhdr _eth;
->>>>> -
->>>>> -                       eth = __skb_header_pointer(skb, nhoff,
->>>>> -                                                  sizeof(_eth),
->>>>> -                                                  data, hlen, &_eth);
->>>>> -                       if (!eth)
->>>>> +                       offset += sizeof(((struct pptp_gre_header
->>>>> *)0)->seq);
->>>>> +
->>>>> +               if (gre_ver == 0) {
->>>>> +                       if (proto == htons(ETH_P_TEB)) {
->>>>> +                               const struct ethhdr *eth;
->>>>> +                               struct ethhdr _eth;
->>>>> +
->>>>> +                               eth = __skb_header_pointer(skb, nhoff +
->>>>> offset,
->>>>> +                                                          sizeof(_eth),
->>>>> +                                                          data, hlen,
->>>>> &_eth);
->>>>> +                               if (!eth)
->>>>> +                                       goto out_bad;
->>>>> +                               proto = eth->h_proto;
->>>>> +                               offset += sizeof(*eth);
->>>>> +
->>>>> +                               /* Cap headers that we access via
->>>>> pointers
->>>>> at the
->>>>> +                                * end of the Ethernet header as our
->>>>> maximum alignment
->>>>> +                                * at that point is only 2 bytes.
->>>>> +                                */
->>>>> +                               if (NET_IP_ALIGN)
->>>>> +                                       hlen = (nhoff + offset);
->>>>> +                       }
->>>>> +               } else { /* version 1, must be PPTP */
->>>>> +                       u8 _ppp_hdr[PPP_HDRLEN];
->>>>> +                       u8 *ppp_hdr;
->>>>> +
->>>>> +                       if (hdr->flags & GRE_ACK)
->>>>> +                               offset += sizeof(((struct
->>>>> pptp_gre_header
->>>>> *)0)->ack);
->>>>> +
->>>>> +                       ppp_hdr = skb_header_pointer(skb, nhoff +
->>>>> offset,
->>>>> +                                                    sizeof(_ppp_hdr),
->>>>> _ppp_hdr);
->>>>> +                       if (!ppp_hdr)
->>>>>                                   goto out_bad;
->>>>> -                       proto = eth->h_proto;
->>>>> -                       nhoff += sizeof(*eth);
->>>>> -
->>>>> -                       /* Cap headers that we access via pointers at
->>>>> the
->>>>> -                        * end of the Ethernet header as our maximum
->>>>> alignment
->>>>> -                        * at that point is only 2 bytes.
->>>>> -                        */
->>>>> -                       if (NET_IP_ALIGN)
->>>>> -                               hlen = nhoff;
->>>>> +
->>>>> +                       switch (PPP_PROTOCOL(ppp_hdr)) {
->>>>> +                       case PPP_IP:
->>>>> +                               proto = htons(ETH_P_IP);
->>>>> +                               break;
->>>>> +                       case PPP_IPV6:
->>>>> +                               proto = htons(ETH_P_IPV6);
->>>>> +                               break;
->>>>> +                       default:
->>>>> +                               /* Could probably catch some more like
->>>>> MPLS */
->>>>> +                               break;
->>>>> +                       }
->>>>> +
->>>>> +                       offset += PPP_HDRLEN;
->>>>>                   }
->>>>>     +             nhoff += offset;
->>>>>                   key_control->flags |= FLOW_DIS_ENCAPSULATION;
->>>>>                   if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
->>>>>                           goto out_good;
->>>>
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+index 2055e57ed1c3..113cba89653d 100644
+--- a/net/mpls/mpls_gso.c
++++ b/net/mpls/mpls_gso.c
+@@ -39,16 +39,18 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+ 	mpls_features = skb->dev->mpls_features & features;
+ 	segs = skb_mac_gso_segment(skb, mpls_features);
+ 
+-
+-	/* Restore outer protocol. */
+-	skb->protocol = mpls_protocol;
+-
+ 	/* Re-pull the mac header that the call to skb_mac_gso_segment()
+ 	 * above pulled.  It will be re-pushed after returning
+ 	 * skb_mac_gso_segment(), an indirect caller of this function.
+ 	 */
+ 	__skb_pull(skb, skb->data - skb_mac_header(skb));
+ 
++	/* Restore outer protocol. */
++	skb->protocol = mpls_protocol;
++	if (!IS_ERR(segs))
++		for (skb = segs; skb; skb = skb->next)
++			skb->protocol = mpls_protocol;
++
+ 	return segs;
+ }
+ 
