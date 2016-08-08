@@ -1,71 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: use event->chunk when it's valid
-Date: Mon, 8 Aug 2016 09:48:09 -0400
-Message-ID: <20160808134809.GA4319@hmsreliant.think-freely.org>
-References: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
+From: Anna Schumaker <Anna.Schumaker@netapp.com>
+Subject: Re: [PATCH] sunrpc: Remove unnecessary variable
+Date: Mon, 8 Aug 2016 09:49:56 -0400
+Message-ID: <8822c3be-56c1-d9ac-7f7d-164804322083@Netapp.com>
+References: <20160808091349.GA20849@amitoj-Inspiron-3542>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	davem@davemloft.net,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45716 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752355AbcHHNs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 09:48:27 -0400
-Content-Disposition: inline
-In-Reply-To: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <julia.lawall@lip6.fr>
+To: Amitoj Kaur Chawla <amitoj1606@gmail.com>, <bfields@fieldses.org>,
+	<jlayton@poochiereds.net>, <trond.myklebust@primarydata.com>,
+	<davem@davemloft.net>, <linux-nfs@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160808091349.GA20849@amitoj-Inspiron-3542>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 07, 2016 at 02:15:13PM +0800, Xin Long wrote:
-> Commit 52253db924d1 ("sctp: also point GSO head_skb to the sk when
-> it's available") used event->chunk->head_skb to get the head_skb in
-> sctp_ulpevent_set_owner().
+On 08/08/2016 05:13 AM, Amitoj Kaur Chawla wrote:
+> The variable `err` is not used anywhere and just returns the
+> predefined value `0` at the end of the function. Hence, remove the
+> variable and return 0 explicitly.
+
+Makes sense to me.  Thanks!
+
+Anna
+
 > 
-> But at that moment, the event->chunk was NULL, as it cloned the skb
-> in sctp_ulpevent_make_rcvmsg(). Therefore, that patch didn't really
-> work.
-> 
-> This patch is to move the event->chunk initialization before calling
-> sctp_ulpevent_receive_data() so that it uses event->chunk when it's
-> valid.
-> 
-> Fixes: 52253db924d1 ("sctp: also point GSO head_skb to the sk when it's available")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 > ---
->  net/sctp/ulpevent.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>  net/sunrpc/clnt.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 > 
-> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-> index 1bc4f71..d85b803 100644
-> --- a/net/sctp/ulpevent.c
-> +++ b/net/sctp/ulpevent.c
-> @@ -702,14 +702,14 @@ struct sctp_ulpevent *sctp_ulpevent_make_rcvmsg(struct sctp_association *asoc,
->  	 */
->  	sctp_ulpevent_init(event, 0, skb->len + sizeof(struct sk_buff));
+> diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+> index b7f2104..0a775fa 100644
+> --- a/net/sunrpc/clnt.c
+> +++ b/net/sunrpc/clnt.c
+> @@ -184,7 +184,6 @@ static int __rpc_clnt_handle_event(struct rpc_clnt *clnt, unsigned long event,
+>  				   struct super_block *sb)
+>  {
+>  	struct dentry *dentry;
+> -	int err = 0;
 >  
-> -	sctp_ulpevent_receive_data(event, asoc);
-> -
->  	/* And hold the chunk as we need it for getting the IP headers
->  	 * later in recvmsg
->  	 */
->  	sctp_chunk_hold(chunk);
->  	event->chunk = chunk;
+>  	switch (event) {
+>  	case RPC_PIPEFS_MOUNT:
+> @@ -201,7 +200,7 @@ static int __rpc_clnt_handle_event(struct rpc_clnt *clnt, unsigned long event,
+>  		printk(KERN_ERR "%s: unknown event: %ld\n", __func__, event);
+>  		return -ENOTSUPP;
+>  	}
+> -	return err;
+> +	return 0;
+>  }
 >  
-> +	sctp_ulpevent_receive_data(event, asoc);
-> +
->  	event->stream = ntohs(chunk->subh.data_hdr->stream);
->  	event->ssn = ntohs(chunk->subh.data_hdr->ssn);
->  	event->ppid = chunk->subh.data_hdr->ppid;
-> -- 
-> 2.1.0
+>  static int __rpc_pipefs_event(struct rpc_clnt *clnt, unsigned long event,
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
