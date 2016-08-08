@@ -1,50 +1,93 @@
-From: Jia He <hejianet@gmail.com>
-Subject: [RFC PATCH 2/3] net: Replace for_each_possible_cpu with for_each_online_cpu
-Date: Mon,  8 Aug 2016 18:22:21 +0800
-Message-ID: <1470651742-15195-3-git-send-email-hejianet@gmail.com>
-References: <1470651742-15195-1-git-send-email-hejianet@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Jia He <hejianet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35483 "EHLO
-	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752356AbcHHKWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 06:22:53 -0400
-In-Reply-To: <1470651742-15195-1-git-send-email-hejianet@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [RFC PATCH v4 1/2] Documentation: DT: net: Add Xilinx gmiitorgmii
+ converter device tree binding documentation
+Date: Mon, 8 Aug 2016 12:50:16 +0200
+Message-ID: <b3813524-7531-d294-1def-628b0a28f6bb@xilinx.com>
+References: <1470640505-8279-1-git-send-email-appanad@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+ <robh+dt@kernel.org>, <mark.rutland@arm.com>, <michal.simek@xilinx.com>,
+ <soren.brinkmann@xilinx.com>, <appanad@xilinx.com>, <f.fainelli@gmail.com>,
+ <andrew@lunn.ch>, <punnaia@xilinx.com>, <anirudh@xilinx.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1470640505-8279-1-git-send-email-appanad@xilinx.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-In PowerPC server with large number cpus, the loop index in smt=1 could be 
-reduced to 1/8 compared with smt=8.
-Thus cache misses can be reduced.
+On 8.8.2016 09:15, Kedareswara rao Appana wrote:
+> Device-tree binding documentation for xilinx gmiitorgmii converter.
+> 
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+> Changes for v4:
+> --> Modified compatible as suggested by Rob.
+> --> Removed underscores from the converter node name as suggested by Rob.
+> Changes for v3:
+> --> None.
+> Changes for v2:
+> --> New patch.
+> 
+>  .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 38 ++++++++++++++++++++++
+>  1 file changed, 38 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> new file mode 100644
+> index 0000000..453680d
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> @@ -0,0 +1,38 @@
+> +XILINX GMIITORGMII Converter Driver Device Tree Bindings
+> +--------------------------------------------------------
+> +
+> +The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
+> +Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
+> +Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
+> +This core can be used in all three modes of operation(10/100/1000 Mb/s).
+> +The Management Data Input/Output (MDIO) interface is used to configure the
+> +Speed of operation. This core can switch dynamically between the three
+> +Different speed modes by configuring the conveter register through mdio write.
+> +
+> +The MDIO is a bus to which the PHY devices are connected.  For each
+> +device that exists on this bus, a child node should be created.  See
+> +the definition of the PHY node in booting-without-of.txt for an example
+> +of how to define a PHY.
+> +
+> +This converter sits between the MAC and the external phy.
+> +MAC <==> GMII2RGMII <==> RGMII_PHY
+> +
+> +Required properties:
+> +  - compatible : Should be "xlnx,gmii-to-rgmii-1.0"
+> +  - reg : The ID number for the phy, usually a small integer
+> +  - phy-handle: Should point to the external phy device.
+> +		See ethernet.txt file in the same directory.
+> +
+> +Example:
+> +	mdio {
+> +                #address-cells = <1>;
+> +                #size-cells = <0>;
+> +		phy: ethernet-phy@0 {
+> +			......
+> +		};
+> +                gmiitorgmii: gmiitorgmii@8 {
+> +                        compatible = "xlnx,gmii-to-rgmii-1.0";
+> +                        reg = <8>;
+> +			phy-handle = <&phy>;
+> +                };
 
-Signed-off-by: Jia He <hejianet@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
----
- net/ipv6/addrconf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Indentation in this example is quite weird. You are mixing tabs and spaces.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 43fa8d0..1fce613 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4969,7 +4969,7 @@ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
- 
- 	buff[0] = IPSTATS_MIB_MAX;
- 
--	for_each_possible_cpu(c) {
-+	for_each_online_cpu(c) {
- 		for (i = 1; i < IPSTATS_MIB_MAX; i++)
- 			buff[i] += snmp_get_cpu_field64(mib, c, i, syncpoff);
- 	}
--- 
-2.5.0
+Thanks,
+Michal
