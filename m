@@ -1,103 +1,118 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net] net: ipv6: Fix ping to link-local addresses.
-Date: Mon,  8 Aug 2016 16:42:07 +0900
-Message-ID: <1470642127-574-1-git-send-email-lorenzo@google.com>
-Cc: hannes@stressinduktion.org, ek@google.com, davem@davemloft.net,
-	hideaki.yoshifuji@miraclelinux.com,
-	Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33449 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751211AbcHHHmV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 03:42:21 -0400
-Received: by mail-pf0-f169.google.com with SMTP id y134so116719185pfg.0
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 00:42:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+ net/mlx4_en: add page recycle to prepare rx ring for tx support
+Date: Mon, 8 Aug 2016 10:01:15 +0200
+Message-ID: <20160808100115.143d6ed3@redhat.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+	<1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+	<1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160803174107.GA38399@ast-mbp.thefacebook.com>
+	<20160804181913.26ee17b9@redhat.com>
+	<1470381333.13693.48.camel@edumazet-glaptop3.roam.corp.google.com>
+	<20160808021525.GA81429@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Brenden Blanco
+ <bblanco@plumgrid.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, Jamal
+ Hadi Salim <jhs@mojatatu.com>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+        Or Gerlitz
+ <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+        hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+        Tom Herbert
+ <tom@herbertland.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Tariq Toukan
+ <ttoukan.linux@gmail.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        linux-mm <linux-mm@kvack.org>, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160808021525.GA81429@ast-mbp>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-ping_v6_sendmsg never sets flowi6_oif, so it is not possible to
-ping an IPv6 address on a different interface. Instead, it sets
-flowi6_iif, which is incorrect but harmless. Also, it returns an
-error if a passed-in scope ID doesn't match sk_bound_dev_if.
 
-Get rid of the error, stop setting flowi6_iif, and support
-various ways of setting oif in the same priority order used by
-udpv6_sendmsg.
+On Sun, 7 Aug 2016 19:15:27 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-Tested: https://android-review.googlesource.com/#/c/254470/
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv6/ping.c | 29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+> On Fri, Aug 05, 2016 at 09:15:33AM +0200, Eric Dumazet wrote:
+> > On Thu, 2016-08-04 at 18:19 +0200, Jesper Dangaard Brouer wrote:
+> >   
+> > > I actually agree, that we should switch to order-0 allocations.
+> > > 
+> > > *BUT* this will cause performance regressions on platforms with
+> > > expensive DMA operations (as they no longer amortize the cost of
+> > > mapping a larger page).  
+> > 
+> > 
+> > We much prefer reliable behavior, even it it is ~1 % slower than the
+> > super-optimized thing that opens highways for attackers.  
+> 
+> +1
+> It's more important to have deterministic performance at fresh boot
+> and after long uptime when high order-N are gone.
 
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index fed40d1..eabf1ea 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -55,7 +55,7 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	struct icmp6hdr user_icmph;
- 	int addr_type;
- 	struct in6_addr *daddr;
--	int iif = 0;
-+	int oif = 0;
- 	struct flowi6 fl6;
- 	int err;
- 	struct dst_entry *dst;
-@@ -78,23 +78,28 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 		if (u->sin6_family != AF_INET6) {
- 			return -EAFNOSUPPORT;
- 		}
--		if (sk->sk_bound_dev_if &&
--		    sk->sk_bound_dev_if != u->sin6_scope_id) {
--			return -EINVAL;
--		}
- 		daddr = &(u->sin6_addr);
--		iif = u->sin6_scope_id;
-+		if (__ipv6_addr_needs_scope_id(ipv6_addr_type(daddr)))
-+			oif = u->sin6_scope_id;
- 	} else {
- 		if (sk->sk_state != TCP_ESTABLISHED)
- 			return -EDESTADDRREQ;
- 		daddr = &sk->sk_v6_daddr;
- 	}
- 
--	if (!iif)
--		iif = sk->sk_bound_dev_if;
-+	if (!oif)
-+		oif = sk->sk_bound_dev_if;
-+
-+	if (!oif)
-+		oif = np->sticky_pktinfo.ipi6_ifindex;
-+
-+	if (!oif && ipv6_addr_is_multicast(daddr))
-+		fl6.flowi6_oif = np->mcast_oif;
-+	else if (!oif)
-+		oif = np->ucast_oif;
- 
- 	addr_type = ipv6_addr_type(daddr);
--	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
-+	if (__ipv6_addr_needs_scope_id(addr_type) && !oif)
- 		return -EINVAL;
- 	if (addr_type & IPV6_ADDR_MAPPED)
- 		return -EINVAL;
-@@ -106,16 +111,12 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	fl6.flowi6_proto = IPPROTO_ICMPV6;
- 	fl6.saddr = np->saddr;
- 	fl6.daddr = *daddr;
-+	fl6.flowi6_oif = oif;
- 	fl6.flowi6_mark = sk->sk_mark;
- 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
- 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
- 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
- 
--	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
--		fl6.flowi6_oif = np->mcast_oif;
--	else if (!fl6.flowi6_oif)
--		fl6.flowi6_oif = np->ucast_oif;
--
- 	ipc6.tclass = np->tclass;
- 	fl6.flowlabel = ip6_make_flowinfo(ipc6.tclass, fl6.flowlabel);
- 
+Yes, exactly. Doing high order-N pages allocations might look good on
+benchmarks on a freshly booted system, but once the page allocator gets
+fragmented (after long uptime) then performance characteristics change.
+(Discussed this with Christoph Lameter during MM-summit, and he have
+seen issues with this kind of fragmentation in production)
+
+
+> > Anyway, in most cases pages are re-used, so we only call
+> > dma_sync_single_range_for_cpu(), and there is no way to avoid this.
+> > 
+> > Using order-0 pages [1] is actually faster, since when we use high-order
+> > pages (multiple frames per 'page') we can not reuse the pages.
+> > 
+> > [1] I had a local patch to allocate these pages using a very simple
+> > allocator allocating max order (order-10) pages and splitting them into
+> > order-0 ages, in order to lower TLB footprint. But I could not measure a
+> > gain doing so on x86, at least on my lab machines.  
+> 
+> Which driver was that?
+> I suspect that should indeed be the case for any driver that
+> uses build_skb and <256 copybreak.
+> 
+> Saeed,
+> could you please share the performance numbers for mlx5 order-0 vs order-N ?
+> You mentioned that there was some performance improvement. We need to know
+> how much we'll lose when we turn off order-N.
+
+I'm not sure the compare will be "fair" with the mlx5 driver, because
+(1) the N-order page mode (MPWQE) is a hardware feature, plus (2) the
+order-0 page mode is done "wrongly" (by preallocating SKBs together
+with RX ring entries).
+
+AFAIK it is a hardware feature the MPQWE (Multi-Packet Work Queue
+Element) or Striding RQ, for ConnectX4-Lx.  Thus, the need to support
+two modes in the mlx5 driver.
+
+Commit[1] 461017cb006a ("net/mlx5e: Support RX multi-packet WQE
+(Striding RQ)") states this gives a 10-15% performance improvement for
+netperf TCP stream (and ability to absorb bursty traffic).
+
+ [1] https://git.kernel.org/torvalds/c/461017cb006
+
+
+The MPWQE mode, uses order-5 pages.  The critical question is: what
+happens to the performance when order-5 allocations gets slower (or
+impossible) due to page fragmentation? (Notice the page allocator uses
+a central lock for order-N pages)
+
 -- 
-2.8.0.rc3.226.g39d4020
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
