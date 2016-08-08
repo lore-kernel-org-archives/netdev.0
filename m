@@ -1,43 +1,119 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next] cdc_ether: Improve ZTE MF823/831/910 handling
-Date: Mon, 08 Aug 2016 20:30:35 +0200
-Message-ID: <87oa535d10.fsf@miraculix.mork.no>
-References: <1468844691-8222-1-git-send-email-kristian.evensen@gmail.com>
-	<1468846886.2280.6.camel@suse.com>
-	<CAKfDRXiqDmJadXL4+v7saM431vPAp_8m8F0wvTkkYt-3tNjYyw@mail.gmail.com>
-	<1468849802.2280.11.camel@suse.com>
-	<CAKfDRXjaSz25_b8Na46DJEDvGUsZ-Xye+Rn2+o6Hy0EcuOopkA@mail.gmail.com>
-	<1468851242.2280.14.camel@suse.com> <87y4475t2f.fsf@miraculix.mork.no>
-	<1470664620.3175.18.camel@suse.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: order-0 vs order-N driver allocation. Was: [PATCH v10 07/12]
+ net/mlx4_en: add page recycle to prepare rx ring for tx support
+Date: Mon, 8 Aug 2016 11:34:30 -0700
+Message-ID: <20160808183428.GA87737@ast-mbp.thefacebook.com>
+References: <1468955817-10604-1-git-send-email-bblanco@plumgrid.com>
+ <1468955817-10604-8-git-send-email-bblanco@plumgrid.com>
+ <1469432120.8514.5.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160803174107.GA38399@ast-mbp.thefacebook.com>
+ <20160804181913.26ee17b9@redhat.com>
+ <1470381333.13693.48.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160808021525.GA81429@ast-mbp>
+ <20160808100115.143d6ed3@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: Kristian Evensen <kristian.evensen@gmail.com>,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470664620.3175.18.camel@suse.com> (Oliver Neukum's message of
-	"Mon, 08 Aug 2016 15:57:00 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	linux-mm <linux-mm@kvack.org>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20160808100115.143d6ed3@redhat.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oneukum@suse.com> writes:
+On Mon, Aug 08, 2016 at 10:01:15AM +0200, Jesper Dangaard Brouer wrote:
+> 
+> On Sun, 7 Aug 2016 19:15:27 -0700 Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+> 
+> > On Fri, Aug 05, 2016 at 09:15:33AM +0200, Eric Dumazet wrote:
+> > > On Thu, 2016-08-04 at 18:19 +0200, Jesper Dangaard Brouer wrote:
+> > >   
+> > > > I actually agree, that we should switch to order-0 allocations.
+> > > > 
+> > > > *BUT* this will cause performance regressions on platforms with
+> > > > expensive DMA operations (as they no longer amortize the cost of
+> > > > mapping a larger page).  
+> > > 
+> > > 
+> > > We much prefer reliable behavior, even it it is ~1 % slower than the
+> > > super-optimized thing that opens highways for attackers.  
+> > 
+> > +1
+> > It's more important to have deterministic performance at fresh boot
+> > and after long uptime when high order-N are gone.
+> 
+> Yes, exactly. Doing high order-N pages allocations might look good on
+> benchmarks on a freshly booted system, but once the page allocator gets
+> fragmented (after long uptime) then performance characteristics change.
+> (Discussed this with Christoph Lameter during MM-summit, and he have
+> seen issues with this kind of fragmentation in production)
+> 
+> 
+> > > Anyway, in most cases pages are re-used, so we only call
+> > > dma_sync_single_range_for_cpu(), and there is no way to avoid this.
+> > > 
+> > > Using order-0 pages [1] is actually faster, since when we use high-order
+> > > pages (multiple frames per 'page') we can not reuse the pages.
+> > > 
+> > > [1] I had a local patch to allocate these pages using a very simple
+> > > allocator allocating max order (order-10) pages and splitting them into
+> > > order-0 ages, in order to lower TLB footprint. But I could not measure a
+> > > gain doing so on x86, at least on my lab machines.  
+> > 
+> > Which driver was that?
+> > I suspect that should indeed be the case for any driver that
+> > uses build_skb and <256 copybreak.
+> > 
+> > Saeed,
+> > could you please share the performance numbers for mlx5 order-0 vs order-N ?
+> > You mentioned that there was some performance improvement. We need to know
+> > how much we'll lose when we turn off order-N.
+> 
+> I'm not sure the compare will be "fair" with the mlx5 driver, because
+> (1) the N-order page mode (MPWQE) is a hardware feature, plus (2) the
+> order-0 page mode is done "wrongly" (by preallocating SKBs together
+> with RX ring entries).
+> 
+> AFAIK it is a hardware feature the MPQWE (Multi-Packet Work Queue
+> Element) or Striding RQ, for ConnectX4-Lx.  Thus, the need to support
+> two modes in the mlx5 driver.
+> 
+> Commit[1] 461017cb006a ("net/mlx5e: Support RX multi-packet WQE
+> (Striding RQ)") states this gives a 10-15% performance improvement for
+> netperf TCP stream (and ability to absorb bursty traffic).
+> 
+>  [1] https://git.kernel.org/torvalds/c/461017cb006
 
-> But why fix similar issues at two different places? And what about
-> PCI or other cards that show the same problem?
+I suspect this 10% perf improvement is due to build_skb approach
+instead of mpqwe which works fine with order-0 pages as well.
+The request for perf numbers was for mlx5 order-0 vs order-N _with_
+build_skb. In other words using MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ
+with order-0.
+Old mlx5e_handle_rx_cqe should also be converted to build_skb
+even when striding_rq is not available in hw, it's a win.
 
-I guess some sort of common helper would be nice to avoid open coding
-this fix everywhere.  But you would still have to modify every driver
-where it is applicable, as there is no existing common API.
+> The MPWQE mode, uses order-5 pages.  The critical question is: what
+> happens to the performance when order-5 allocations gets slower (or
+> impossible) due to page fragmentation? (Notice the page allocator uses
+> a central lock for order-N pages)
 
-Note that this doesn't include *every* ethernet driver, although there
-certainly are some examples.  There are also a number of serious
-vendors, providing vendor supported drivers for cards with no known
-issues of this kind.
+it suppose to fallback to order-0. See mlx5e_alloc_rx_fragmented_mpwqe.
+which scares me a lot, since I don't see how such logic could have
+been stress tested and we'll be hitting it in production.
 
-Where exactly would you like to see this implemented if it isn't going
-into those specific usbnet drivers?
-
-
-Bjørn
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
