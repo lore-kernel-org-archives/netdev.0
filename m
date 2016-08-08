@@ -1,9 +1,9 @@
 From: Laurentiu Gosu <laurentiu.gosu@gmail.com>
 Subject: Issues booting 4.7.0.1 kernel with i40e driver
-Date: Mon, 8 Aug 2016 11:17:36 +0300
-Message-ID: <CABddM=m6FLXVo0bkQ3uKRyYkmPOLUoZnDmPep1JirZ85zj1E9A@mail.gmail.com>
+Date: Mon, 8 Aug 2016 11:19:38 +0300
+Message-ID: <CABddM==7fFywfyiZS_f0RAgbOeUMNxSp+5-1ieUsTRDAe4jhgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a113f9bd08dd3db05398b0c62
+Content-Type: multipart/mixed; boundary="===============3025677333651973871=="
 Cc: netdev@vger.kernel.org
 To: e1000-devel@lists.sourceforge.net
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
@@ -17,10 +17,10 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
---001a113f9bd08dd3db05398b0c62
-Content-Type: multipart/alternative; boundary=001a113f9bd08dd3d505398b0c60
+--===============3025677333651973871==
+Content-Type: multipart/alternative; boundary=001a11408f08d12aec05398b1365
 
---001a113f9bd08dd3d505398b0c60
+--001a11408f08d12aec05398b1365
 Content-Type: text/plain; charset=UTF-8
 
 Hi,
@@ -39,9 +39,10 @@ work(and I had to apply above steps) with firmware 17.5.11.
 Regards,
 Laurentiu.
 
---001a113f9bd08dd3d505398b0c60--
+--001a11408f08d12aec05398b1365--
 
---001a113f9bd08dd3db05398b0c62
+
+--===============3025677333651973871==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -49,7 +50,7 @@ Content-Disposition: inline
 
 ------------------------------------------------------------------------------
 
---001a113f9bd08dd3db05398b0c62
+--===============3025677333651973871==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -61,4 +62,4 @@ E1000-devel@lists.sourceforge.net
 https://lists.sourceforge.net/lists/listinfo/e1000-devel
 To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
---001a113f9bd08dd3db05398b0c62--
+--===============3025677333651973871==--
