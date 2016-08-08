@@ -1,78 +1,45 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] net: make net namespace sysctls belong to container's owner
-Date: Mon, 08 Aug 2016 16:08:48 -0500
-Message-ID: <8737mfotnj.fsf@x220.int.ebiederm.org>
-References: <20160802231926.GA8108@dtor-ws>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
+Date: Mon, 08 Aug 2016 16:16:08 -0500
+Message-ID: <87h9avneqv.fsf@x220.int.ebiederm.org>
+References: <8737n5dscy.fsf@x220.int.ebiederm.org>
+	<87d1m754jc.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160802231926.GA8108@dtor-ws> (Dmitry Torokhov's message of
-	"Tue, 2 Aug 2016 16:19:26 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Colin Walters <walters-gPq2gbYjIk8dnm+yROfE0A@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>,
+	"Michael Kerrisk \(man-pages\)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
+To: Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87d1m754jc.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org> (Eric W. Biederman's
+	message of "Thu, 21 Jul 2016 11:39:35 -0500")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dmitry Torokhov <dmitry.torokhov@gmail.com> writes:
 
-> If net namespace is attached to a user namespace let's make container's
-> root owner of sysctls affecting said network namespace instead of global
-> root.
->
-> This also allows us to clean up net_ctl_permissions() because we do not
-> need to fudge permissions anymore for the container's owner since it now
-> owns the objects in question.
+I won't have any more time for this until I return from vacation at the
+end of the month but after a little bit of thought I think I have fixed
+all of the bugs (except arguably the return value).
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+I have further tweaked these and made the limits per user.  Because it
+occured to me that if the limits are global it is possible for one
+misbehaving user to DOS another which is undesirable in princible.
 
-Overall this seems reasonable.  However I am not a fan of your error
-handling.
-
-> Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-> ---
->
-> This helps when running Android CTS in a container, but I think it makes
-> sense regardless.
-
-> +static void net_ctl_set_ownership(struct ctl_table_header *head,
-> +				  struct ctl_table *table,
-> +				  kuid_t *uid, kgid_t *gid)
-> +{
-> +	struct net *net = container_of(head->set, struct net, sysctls);
-> +
-> +	*uid = make_kuid(net->user_ns, 0);
-> +	if (!uid_valid(*uid))
-> +		*uid = GLOBAL_ROOT_UID;
-> +
-> +	*gid = make_kgid(net->user_ns, 0);
-> +	if (!gid_valid(*gid))
-> +		*gid = GLOBAL_ROOT_GID;
-
-This code should eiter be:
-	*uid = make_kuid(net->user_ns, 0);
-        *gid = make_kgid(net->user_ns, 0);
-
-Or it should be:
-	tmp_uid = make_kuid(net->user_ns, 0);
-        if (uid_valid(tmp_uid))
-        	*uid = tmp_uid;
-
-	tmp_gid = make_kgid(net->user_ns, 0);
-        if (gid_valid(tmp_gid))
-        	*gid = tmp_gid;
-
-It is just very fragile to assume to know what uid and gid
-would be if this code fails.
-
-As of v4.8-rc1 INVALID_UID and INVALID_GID can be set in inode->i_uid
-and inode->i_gid without causing horrible vfs confusion (making the
-first option viable), but I expect with the mention of Android you want
-to backport this so I will ask that you ask to implement the error
-handling that doesn't assume you know better than the generic code.
-
-If you don't have a better value to set something to it really should be
-left alone.
+I have put my updated code at:
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-testing
 
 Eric
