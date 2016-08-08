@@ -1,45 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vti: flush x-netns xfrm cache when vti interface
- is removed
-Date: Mon, 08 Aug 2016 15:35:22 -0700 (PDT)
-Message-ID: <20160808.153522.275623399426494584.davem@davemloft.net>
-References: <1470694965-17978-1-git-send-email-lrichard@redhat.com>
+From: rapier <rapier@psc.edu>
+Subject: size of data_segs_[in|out] and segs_[in|out]
+Date: Mon, 8 Aug 2016 18:02:29 -0400
+Message-ID: <797392fa-8d87-f45b-69b2-fdd096e1229c@psc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lrichard@redhat.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34793 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbcHHWfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 18:35:32 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g202so25783772pfb.1
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 15:35:32 -0700 (PDT)
-In-Reply-To: <1470694965-17978-1-git-send-email-lrichard@redhat.com>
+Received: from mailer1.psc.edu ([128.182.58.100]:48052 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750938AbcHHWrf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 18:47:35 -0400
+Received: from iztli.psc.edu (iztli.psc.edu [128.182.160.106])
+	(authenticated bits=0)
+	by mailer1.psc.edu (8.13.8/8.13.8) with ESMTP id u78M2TNW027500
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 8 Aug 2016 18:02:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lance Richardson <lrichard@redhat.com>
-Date: Mon,  8 Aug 2016 18:22:45 -0400
+The instruments for data_segs_in, data_segs_out, segs_in, and segs_out 
+(along with the corresponding tcpi_ variables) are currently defined as 
+unsigned 32 bit ints. While this is in line with RFC4898 I'm thinking 
+that for some flows this value might be too small.
 
-> @@ -392,6 +393,17 @@ static int vti_tunnel_init(struct net_device *dev)
->  	return ip_tunnel_init(dev);
->  }
->  
-> +static void vti_tunnel_uninit(struct net_device *dev)
-> +{
-> +	struct ip_tunnel *tunnel = netdev_priv(dev);
-> +	struct net *net = tunnel->net;
-> +
-> +	ip_tunnel_uninit(dev);
-> +
-> +	if (!net_eq(net, dev_net(dev)))
-> +		xfrm_garbage_collect(net);
-> +}
+For example, a 1GB sustained flow at 1500 bytes would exceed the max 
+value inside of around 14.7 hours. Which seems like a long time but at 
+higher rates, even with 9k packets, this could cause problems within 7.5 
+hours or so (after ~36TB of data). While this is probably not an issue 
+for a large number of people in the scientific community transferring 
+data sets of this size is happening and likely to become far more common.
 
-Like the normal netns, this netns should be expunged from the
-flow cache on interface down, not uninit.
+As such, would it be feasible to define these instruments as 64bit 
+instead of 32bit? If so, a cursory look at the code seems to indicate 
+that this would only require a change in the header files.
 
-So like the existing facilities do, you should add a NETDEV_DOWN
-notifier that flushes tunnel->net if necessary.
+Chris
