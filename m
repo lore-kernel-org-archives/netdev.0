@@ -1,126 +1,50 @@
-From: "Paul Tsang" <haochenghk1987@163.com>
-Subject: =?utf-8?B?UmXvvJvot6jlooPnlLXllYbnianmtYHkvpvlupTllYY=?=
-Date: Mon, 8 Aug 2016 17:29:53 +0800
-Message-ID: <20160808172958587532@yun152.com>
-Reply-To: <haochenghk1987@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [61.176.220.141] ([61.176.220.141]:3309 "EHLO mail.yun152.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751259AbcHHJbB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2016 05:31:01 -0400
-Received: from localhost by mail.yun152.com (MDaemon PRO v10.1.1)
-	with ESMTP id md50243285905.msg
-	for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 17:30:37 +0800
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] [net] rxrpc: fix uninitialized pointer dereference in debug code
+Date: Mon,  8 Aug 2016 12:13:45 +0200
+Message-ID: <20160808101357.1583011-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RGVhciBTaXIvTWlzcw0KVGhpcyBpcyB0aGUgZS1tYWlsIGZyb20gUGF1bCBvZiBIQU9DSElORyBJ
-TlQnTCBMT0dJU1RJQ1MgTFREIGluIENoaW5hLiBPdXIgY29tcGFueSBpcyBhIHdlbGwtc3RhZmZl
-ZCBmcmVpZ2h0IGZvcndhcmRpbmcgYW5kIGxvZ2lzdGljcyBzZXJ2aWNlIGNvbXBhbnkgbG9jYXRl
-ZCBpbiBTaGVuemhlbi9Eb25nZ3Vhbi9HdWFuZ3pob3UvSHVpWmhvdS9aaG9uZ3NoYW4gR3VhbmdE
-b25nIFByb3ZpbmNlIGNoaW5h77yMYW5kIHByb3ZpZGUgc2FmZXR5LCBjb252ZW5pZW50IGFuZCBz
-cGVlZHkgbG9naXN0aWMgc2VydmljZS4gQXMgYSB5b3VuZyBhbmQgdmlicmFudCBjb21wYW55ICx3
-ZSBhcmUgYWxsIGZ1bGwgb2YgZW50aHVzaWFzbSBhbmQgcG93ZXIuU3VyZWx5LGl0IGlzIGd1YXJh
-bnRlZWQgd2Ugd2lsbCBwcm92aWRlIHRoZSBiZXN0IHNlcnZpY2UgZm9yIGltcG9ydCBhbmQgZXhw
-b3J0IGJvdGggb2Ygb2NlYW4gYW5kIGFpciBmcmVpZ2h0IC5UbyBtZW50aW9uIHdpdGggLFdlJ3Zl
-IGdvdCBub3Qgb25seSBhIGdyZWF0IGFkdmFudGFnZSBpbiB0aGUgc3BlY2lhbCBjb250YWluZXIg
-dHJhbnNwb3J0YXRpb24gaW4gYWxsIGxpbmVzIG92ZXIgdGhlIHdvcmxkLGJ1dCB3ZSBhbHNvIGhh
-dmUgcXVpdGUgYSBmZXcgc2hpcHBpbmcgbGluZXMgICBpbmNsdWRpbmc6WklNLENTQ0wsRU1DLFdI
-TCxPT0NMLEtNVEMsWU1MLEFOTCxITU0gYW5kIHNvIG9uIC4NClNwZWNpZmljYXRpb25zDQoxLklt
-cG9ydCBhbmQgZXhwb3J0IHNlcnZpY2UNCjIuV2FyZWhvdXNpbmcgYW5kIGxvZ2lzdGljcw0KMy5P
-dmVyIDEwIHllYXJzIG9mIGV4cGVyaWVuY2UNCjQudGhlIHN0cm9uZ2VzdCBhYmlsaXR5IG9mIEN1
-c3RvbXMgQ2xlYXJhbmNlDQo1LkRvb3IgdG8gRG9vciBkZWxpdmVyeSAoZnJvbSBob25na29uZyB0
-byBjaGluYW1haW5sYW5kKS8oZnJvbSBjaGluYW1haW5sYW5kIHRvIGhvbmdrb25nICkNCjYuIHBy
-b2Zlc3Npb25hbCBpbXBvcnQgbG9naXN0aWNzDQo3LiBDb2xsZWN0aW5nLXBheWluZyBzZXJ2aWNl
-Ow0KV2Ugb2ZmZXI6DQoxLkN1c3RvbXMgY2xlYXJhbmNlDQoyLkNvbW1vZGl0eSBjb25zb2xpZGF0
-aW9uDQozLkRvbWVzdGljIHRyYW5zcG9ydGF0aW9uDQo0LkNvbmNlYWwgaWRlbnRpdHkgb2YgdHJ1
-ZSBzaGlwcGVyIG9yIHJlYWwgY29uc2lnbmVlDQo1LkV4cG9ydCBMaWNlbmNlDQo2LkZyZWlnaHQg
-Y29sbGVjdA0KSWYgeW91IGhhdmUgYW55IHJlcXVpcmVtZW50IHdlIGNhbiBkbyBmb3IgeW91LCBw
-bGVhc2Ugc2VudCBlLW1haWwgKCBIQU9DSEVOR0hLQFlBSE9PLkNPTS5ISykgYXMgc29vbiBhcyBw
-b3NzaWJsZS4gSG9waW5nIHdlIGNhbiBlc3RhYmxpc2ggdGhlIHdpbuKAlXdpbiBjb29wZXJhdGlv
-biBsYXRlciBmb3IgYSBsb25nIHRpbWUuIFRoYW5rIGZvciByZWFkaW5nIG15IGUtbWFpbC4NCg0K
-5Y+q6KaB6LS15Y+45oul5pyJ5LiA6Iis57qz56iO5Lq66LWE6LSo5ZKM6IO95byAMTcl55qE5aKe
-5YC856iO5LiT55So5Y+R56Wo77yM5oiR5Y+45L6/6IO95Li66LS15Y+45YGa6YCA56iO77ybDQox
-LuWHuuWPo+mAgOeojuadoeS7tu+8mg0K4pGg55yf5q2j5pyJ55Sf5Lqn57uP6JCl6IO95Yqb55qE
-5LyB5Lia6ICM5LiN5piv56m65aOz5LyB5Lia4pGh6ZyA5Luj5Yqe5Ye65Y+j6YCA56iO55qE5LyB
-5Lia4pGi5L+d6K+B6IO95byA5aKe5YC856iO5LiT55So5Y+R56Wo55qE5LyB5Lia4pGj5L+d6K+B
-5LyB5Lia5byA55qE5aKe5YC856iO5LiT55So5Y+R56Wo55qE5ZCI5rOV77yM5ZCI55CG6ICM5LiN
-5piv6Jma5byA5aKe5YC856iO5LiT55So5Y+R56WoDQoyLui0p+eJqeWHuuWPo++8m+W3peWOgumh
-u+aPkOS+m+S6p+WTgeWQjeensO+8jOWVhuWTgee8luegge+8jOinhOagvO+8jOWei+WPt++8jOWM
-heijheaWueW8j++8jOWNleS7t++8jOaAu+S7t+WPiuijheeuseWNlS4NCjMu57uT5rGH77ya4pGg
-6LSn54mp5Ye65Y+j5ZCO5Lik5Liq5pyI5YaF77yI5LiN6IO96LaF6L+H5Lik5Liq5pyI77yJ5b+F
-6aG76L+b6KGM57uT5rGH5qC46ZSA44CC5bel5Y6C6YCa55+l5a6i5oi377yI5aSW5Zu977yJ5Y+K
-5pe257uT5rGH77yM5Lul5L6/5oiR5Y+45Y+K5pe25Yiw5aSW5rGH566h55CG5bGA6L+b6KGM5aSW
-5rGH5qC46ZSA5bel5L2c77yM5ZCm5YiZ5Lya5b2x5ZON5oiR5Y+455qE6L+Q5L2c5Y+K5Ye65Y+j
-6LSn54mp55qE6YCA56iO5bel5L2c44CC4pGh5oiR5Y+45pS25Yiw5rGH5qy+5ZCO5oyJ6ZO26KGM
-5b2T5pel6ZO26KGM54mM5Lu377yMMjTlsI/ml7blhoXmsYfoh7Plt6XljoLotKbmiLcNCjQu5byA
-56Wo77ya4pGg5oiR5Y+45rGH5Ye66LSn5qy+5ZCO77yM5bCG44CI5rGH5qy+5Y2V44CJ44CB44CI
-5byA56Wo5piO57uG6KGo44CJ44CB44CI6LSt6LSn5ZCI5ZCM44CJRU1BSUzoh7Plt6XljoLotKLl
-iqHpg6jikaHlt6XljoLmoLnmja7jgIjlvIDnpajmmI7nu4booajjgInlvIDlh7oxNyXnmoTjgIjl
-op7lgLznqI7kuJPnlKjlj5HnpajjgInvvIzmiqzlpLTkuLrmiJHlj7jvvIzlj5HnpajnmoTllYbl
-k4HlkI3np7DjgIHop4TmoLzjgIHljZXkvY3jgIHljZXku7fjgIHmgLvku7fjgIHnqI7ph5HlnYfl
-v4Xpobvlh4bnoa7ml6Dor6/vvIzlj5HnpajnmoTku7fnqI7lkIjorqHph5Hpop3kuI7msYfmrL7l
-jZXph5Hpop3kuIDoh7TjgILikaLlt6XljoLlv4Xpobvkv53or4HlvIDnmoTlj5HnpajmmK/lkIjn
-kIbjgIHlkIjms5XnmoTjgILikaPlt6XljoLpobvlsIblvIDlpb3nmoTlop7lgLznqI7kuJPnlKjl
-j5HnpajvvIznm5blpb3nq6DnmoTotK3otKflkIjlkIzvvIjkuIDlvI/kuozku73vvInjgIHnm5bl
-pb3nq6DnmoTpgIHotKfljZXkuInku73otYTmlpnnu5nmiJHlj7jjgIINCjUu5LuY56iO5qy+77ya
-5b6F5oiR5Y+457uP6L+H5Zu956iO6K6k6K+B5oiQ5YqfMuS4quW3peS9nOaXpeS7peWQjuWwhueo
-juasvuaxh+e7meW3peWOgu+8jOS7mOeahOmAgOeojuasvuaYr+WunumZhemAgOeojuasvuaJo+mZ
-pOaIkeWPuOeahOS7o+eQhuaJi+e7rei0uS4NCg0K6YCA56iO6aKd6K6h566X5pa55rOV5aaC5LiL
-DQrpgIDnqI7pop0977yI5aKe5YC856iO5Y+R56Wo6YeR6aKd77yJL++8iDEr5aKe5YC856iO546H
-77yJKuWHuuWPo+mAgOeojueOh+OAgg0K5L6L5aaC77ya6LSn5YC8MTAw5LiH5Lq65rCR5biB77yM
-5aKe5YC856iO546H5Li6MTcl77yM6YCA56iO546H5Li6MTMl77yM5YiZ77yaDQoxMDAwMDAwLzEu
-MTcqMC4xMz0xMTExMTEuMTHlhYPkurrmsJHluIENCg0K5Lul5LiL5aCx5YO554K65bi46KaL6L+Q
-6L6T5Lqk6LKo5aCx5YO577yM5aaC5pyJ6ZyA6KaB77yM5q2h6L+O5L6G6Zu76Kmi5YO5DQox77yJ
-MjDlsLrmn5wvNDDlsLrmn5zosqjmtbfpgYvppqzkvobopb/kup7loLHlg7kNCuS4gOOAgU9jZWFu
-IGZyZWlnaHTmtbfpgYvosrvvvJpSTUI4MDANCuS6jOOAgVRIQ+eggeWktOijheWNuOi0ue+8mlJN
-QjEzMDANCuS4ieOAgURPQyDmlofku7botLnvvJpSTUI1MDAv56WoDQrlm5vjgIFTRUFMIOWwgead
-oei0uTpSTUI1NS/npagNCuS6lOOAgUVCUyDntKfmgKXnh4PmsrnpmYTliqDotLnvvJpSTUIyMTAv
-56WoDQrms6jvvJvkuIDjgIHku6XkuIrov5DotLnljIXlip7kuK3lm73lh7rlj6PkuIDliIfmiYvn
-u63mlLbotKfjgIHoo4Xmn5zjgIHlh7rlj6PjgIHmiqXlhbPnrYnosrvnlKjvvIwNCiAgICDkuozj
-gIHlj5HotKfkurrlj6rpnIDopoHmj5DkvpvotKfnianmuIXljZXkuI7mlLblj5Hkurrkv6Hmga/l
-jbPlj6/vvIjllYbkuJrmiJbkuKrkurrnianlk4Hpg73lj6/vvInvvJsNCiAgICDkuInjgIHmr4/l
-kajlj5HoiLnkuInmrKHvvIjlkajkuIDjgIHlkajkuInjgIHlkajkupTmiKrlhbPoo4Xmn5zvvIks
-5Yiw5riv5pe25pWI5b+rKOiHquijheafnOi1tzctMTTlpKnlt6blj7PliLDmuK8p77yb5Y+R44CB
-5pS26LSn5Lq65Y+q6ZyA5pSv5LuY6L+Q6LS55Y2z5Y+v77yM5LiN6ZyA5Y+m5Lqk5YW25LuW5Lu7
-5L2V6LS555So77ybDQogICAg5Zub44CB5LiN5om/6L+Q55qE6LSn54mp77ya5rG96L2m77yI5pW0
-5Y+w77yJ77yM54Of6Iqx54iG56u577yM5piT54iG5piT54eD5ZOB77yM5omT54Gr5py677yM5omL
-5py677yM5omL5o+Q55S16ISR77yM6YeR6ZO26aaW6aWwLg0KICAgIOS6lOOAgei/m+WPo+WFs+eo
-jj1b6LSn54mp5Lu35YC8K+a1t+i/kOi0uSvkv53pmanvvIjmsqHotK3kubDkv53pmak9MO+8iSvl
-hbPnqI5dKjEwJQ0KICAgICAgICDlhbPnqI4956iO546H77yINSUtMTAl77yM5LiA6Iis5pmu6YCa
-5ZWG5ZOB6YO95pivNSXvvIkq6LSn54mp5Lu35YC8DQoNCjLvvInmlaPmnYLosqjmtbfpgYvmnbHl
-jZfkup7vvIzmvrPlpKfliKnkup7loLHlg7kNCuS4gOOAgU9jZWFuIGZyZWlnaHTmtbfpgYvosrvv
-vJpSTUI4MDANCuS6jOOAgURPQyDmlofku7botLnvvJpSTUIyMDAv56WoDQrkuInjgIFFQlMg57Sn
-5oCl54eD5rK56ZmE5Yqg6LS577yaUk1CMjEwL+elqA0K5rOo77yb5LiA44CB5Lul5LiK6L+Q6LS5
-5YyF5Yqe5Lit5Zu95Ye65Y+j5LiA5YiH5omL57ut5pS26LSn44CB6KOF5p+c44CB5Ye65Y+j44CB
-5oql5YWz562J6LK755So77yMDQogICAg5LqM44CB5Y+R6LSn5Lq65Y+q6ZyA6KaB5o+Q5L6b6LSn
-54mp5riF5Y2V5LiO5pS25Y+R5Lq65L+h5oGv5Y2z5Y+v77yI5ZWG5Lia5oiW5Liq5Lq654mp5ZOB
-6YO95Y+v77yJ77ybDQogICAg5LiJ44CB5q+P5ZGo5Y+R6Ii55LiJ5qyh77yI5ZGo5LiA44CB5ZGo
-5LiJ44CB5ZGo5LqU5oiq5YWz6KOF5p+c77yJLOWIsOa4r+aXtuaViOW/qyjoh6roo4Xmn5zotbc3
-LTE05aSp5bem5Y+z5Yiw5rivKe+8m+WPkeOAgeaUtui0p+S6uuWPqumcgOaUr+S7mOi/kOi0ueWN
-s+WPr++8jOS4jemcgOWPpuS6pOWFtuS7luS7u+S9lei0ueeUqO+8mw0KICAgIOWbm+OAgeS4jeaJ
-v+i/kOeahOi0p+eJqe+8muaxvei9pu+8iOaVtOWPsO+8ie+8jOeDn+iKseeIhuerue+8jOaYk+eI
-huaYk+eHg+WTge+8jOaJk+eBq+acuu+8jOaJi+acuu+8jOaJi+aPkOeUteiEke+8jOmHkemTtumm
-lumlsC4NCiAgICDkupTjgIHov5vlj6PlhbPnqI49W+i0p+eJqeS7t+WAvCvmtbfov5DotLkr5L+d
-6Zmp77yI5rKh6LSt5Lmw5L+d6ZmpPTDvvIkr5YWz56iOXSoxMCUNCiAgICAgICAg5YWz56iOPeeo
-jueOh++8iDUlLTEwJe+8jOS4gOiIrOaZrumAmuWVhuWTgemDveaYrzUl77yJKui0p+eJqeS7t+WA
-vA0KDQoz77yJ5pWj5p2C6LKo5LiA6Iis6LK/5piT6YCA56iF5aCx6Zec77yIRURJ6Zu75a2Q5aCx
-6Zec77yJ5Ye65Y+j6aaZ5riv5aCx5YO577ybDQrvvIjkuIDvvInkuK3muK/oh6rmj5DmlLbotLnv
-vJogUk1CMC42L2tn77yI5pyA5L2O5pS2Uk1CMTUwL+WWru+8iQ0K77yI5LqM77yJ5aCx6Zec6LS5
-77yaUk1CMjUw77yI5peg5oql5YWz5YiZ5peg5q2k6LS555So77yJDQrvvIjkuInvvInmo4Dnlqvo
-tLnlj4rlhbbmnYLotLnlh63npajmja7lrp7miqXlrp7plIDjgILvvIjml6DllYbmo4DliJnml6Dm
-raTotLnnlKjvvIkNCu+8iOWbm++8ieWVhuajgOaNouivgeWHreadoei0ueeUqO+8mlJNQjEwMCAg
-77yI5peg5ZWG5qOA5YiZ5peg5q2k6LS555So77yJDQrvvIjkupTvvInpppnmuK/mtL7pgIFSTUIy
-MDDlkKvpppbph401MDBLR+aIlummluaWuTPmlrnvvIznu63ph41STUIwLjMvS0fmiJbnu63mlrlS
-TUI1MC9DQk3vvIjmnYLotLnlrp7miqXlrp7plIDvvIkNCu+8iOWFre+8iemmmea4r+WFpeS7k1JN
-QjMxMOWQq+mmlumHjTUwMEtH5oiW6aaW5pa5M+aWue+8jOe7remHjVJNQjAuMy9LR+aIlue7reaW
-uVJNQjUwL0NCTe+8iOeZu+iusOi0ueOAgeWBnOi9pui0ueetieadgui0ueWunuaKpeWunumUgO+8
-iQ0KDQpCRVNUIFJFR0FSRFMNCuabvueUnw0KSEFPQ0hJTkcgSU5UJ0wgTE9HSVNUSUNTIExURA0K
-TS5QOjg2LTEzNDMwODczMTE3DQpURUw6IDg1Mi0zMTc2Mzg5MQ0K5b6u5L+hOzEzNDMwODczMTE3
-DQpRUe+8mzI1NDAzMTM4OTENClNLWVBF77yaSEFPQ0hFTkdISzE5ODcNCkUtTUFJTDogSEFPQ0hF
-TkdISzE5ODdAMTYzLkNPTQ0K
+A newly added bugfix caused an uninitialized variable to be
+used for printing debug output. This is harmless as long
+as the debug setting is disabled, but otherwise leads to an
+immediate crash.
+
+gcc warns about this when -Wmaybe-uninitialized is enabled:
+
+net/rxrpc/call_object.c: In function 'rxrpc_release_call':
+net/rxrpc/call_object.c:496:163: error: 'sp' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+
+The initialization was removed but one of the users remains.
+This adds back the initialization.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 372ee16386bb ("rxrpc: Fix races between skb free, ACK generation and replying")
+---
+I have not tried to understand the longish bugfix patch that
+caused this, so I'm not sure whether it's actually safe to
+access rxrpc_skb(skb) in this function. Please check if this
+is the right fix.
+---
+ net/rxrpc/call_object.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index c47f14fc5e88..e8c953c48cb8 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -493,6 +493,7 @@ void rxrpc_release_call(struct rxrpc_call *call)
+ 		       (skb = skb_dequeue(&call->rx_oos_queue))) {
+ 			spin_unlock_bh(&call->lock);
+ 
++			sp = rxrpc_skb(skb);
+ 			_debug("- zap %s %%%u #%u",
+ 			       rxrpc_pkts[sp->hdr.type],
+ 			       sp->hdr.serial, sp->hdr.seq);
+-- 
+2.9.0
