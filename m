@@ -1,45 +1,42 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH v2 00/10] userns: sysctl limits for namespaces
-Date: Mon, 08 Aug 2016 16:16:08 -0500
-Message-ID: <87h9avneqv.fsf@x220.int.ebiederm.org>
-References: <8737n5dscy.fsf@x220.int.ebiederm.org>
-	<87d1m754jc.fsf@x220.int.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sctp: use event->chunk when it's valid
+Date: Mon, 08 Aug 2016 14:34:01 -0700 (PDT)
+Message-ID: <20160808.143401.1489906176772169295.davem@davemloft.net>
+References: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Colin Walters <walters-gPq2gbYjIk8dnm+yROfE0A@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Seth Forshee <seth.forshee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>,
-	"Michael Kerrisk \(man-pages\)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>
-To: Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <87d1m754jc.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org> (Eric W. Biederman's
-	message of "Thu, 21 Jul 2016 11:39:35 -0500")
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34626 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbcHHVeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:34:04 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g202so25707045pfb.1
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 14:34:03 -0700 (PDT)
+In-Reply-To: <b2a38bf9d9d9b9b10a3243149badd56fbb971c4e.1470550513.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun,  7 Aug 2016 14:15:13 +0800
 
-I won't have any more time for this until I return from vacation at the
-end of the month but after a little bit of thought I think I have fixed
-all of the bugs (except arguably the return value).
+> Commit 52253db924d1 ("sctp: also point GSO head_skb to the sk when
+> it's available") used event->chunk->head_skb to get the head_skb in
+> sctp_ulpevent_set_owner().
+> 
+> But at that moment, the event->chunk was NULL, as it cloned the skb
+> in sctp_ulpevent_make_rcvmsg(). Therefore, that patch didn't really
+> work.
+> 
+> This patch is to move the event->chunk initialization before calling
+> sctp_ulpevent_receive_data() so that it uses event->chunk when it's
+> valid.
+> 
+> Fixes: 52253db924d1 ("sctp: also point GSO head_skb to the sk when it's available")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-I have further tweaked these and made the limits per user.  Because it
-occured to me that if the limits are global it is possible for one
-misbehaving user to DOS another which is undesirable in princible.
-
-I have put my updated code at:
-git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git for-testing
-
-Eric
+Applied, thank you.
