@@ -1,209 +1,56 @@
-From: ggarcia@abra.uab.cat
-Subject: [PATCH 1/3] vsockmon: Add tap functions.
-Date: Mon, 08 Aug 2016 18:14:40 +0200
-Message-ID: <20160808161442.16038-2-ggarcia@deic.uab.cat>
-References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
-Content-Transfer-Encoding: 7BIT
-Cc: stefanha@redhat.com, jhansen@vmware.com, mst@redhat.com,
-	Gerard Garcia <ggarcia@abra.uab.cat>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/2] devlink: write usage help messages to stderr
+Date: Mon, 8 Aug 2016 18:18:22 +0200
+Message-ID: <20160808161822.GK1944@nanopsycho.orion>
+References: <1469205270-6180-1-git-send-email-jiri@resnulli.us>
+ <20160723094659.06921b95@xeon-e3>
+ <20160808071921.GA1944@nanopsycho.orion>
+ <20160808085654.764550e2@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from damascus.uab.es ([158.109.168.135]:19497 "EHLO damascus.uab.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167AbcHHQO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2016 12:14:57 -0400
-Received: from damascus.uab.es ([127.0.0.1])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBL001OEMGRU500@damascus.uab.es> for
- netdev@vger.kernel.org; Mon, 08 Aug 2016 18:14:51 +0200 (CEST)
-Received: from abra.uab.es ([158.109.79.4])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBL005OPMGRWJ30@damascus.uab.es> for
- netdev@vger.kernel.org; Mon, 08 Aug 2016 18:14:51 +0200 (CEST)
-In-reply-to: <20160808161442.16038-1-ggarcia@deic.uab.cat>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:32903 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752313AbcHHQSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 12:18:30 -0400
+Received: by mail-wm0-f68.google.com with SMTP id o80so16446504wme.0
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 09:18:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160808085654.764550e2@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+Mon, Aug 08, 2016 at 05:56:54PM CEST, stephen@networkplumber.org wrote:
+>On Mon, 8 Aug 2016 09:19:21 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> Sat, Jul 23, 2016 at 06:46:59PM CEST, stephen@networkplumber.org wrote:
+>> >On Fri, 22 Jul 2016 18:34:29 +0200
+>> >Jiri Pirko <jiri@resnulli.us> wrote:
+>> >  
+>> >> From: Jiri Pirko <jiri@mellanox.com>
+>> >> 
+>> >> In order to not confuse reader, write help messages into stderr.
+>> >> 
+>> >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>  
+>> >
+>> >This does make devlink consistent with other parts of iproute2.
+>> >But the most common coding standards, back to Unix, and GNU are
+>> >that help messages should go to stdout so that:
+>> >  $ ip -h | more
+>> >would work as expected.  
+>> 
+>> The thing is I wanted to make stdout only for json. Putting non-json
+>> help out there does not look correct to me. Is it?
+>> 
+>
+>I applied both of these patches, just wanted to mention that iproute2 is not
+>following the GNU convention. At this point, it really doesn't matter, there
+>are arguments to be made for both behaviors.
 
-Add tap functions that can be used by the vsock transports to
-deliver packets to vsockmon virtual network devices.
 
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
----
- include/net/af_vsock.h       |  13 +++++
- include/uapi/linux/if_arp.h  |   1 +
- net/vmw_vsock/Makefile       |   2 +-
- net/vmw_vsock/af_vsock_tap.c | 114 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 129 insertions(+), 1 deletion(-)
- create mode 100644 net/vmw_vsock/af_vsock_tap.c
-
-diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
-index f275896..f7c51b1 100644
---- a/include/net/af_vsock.h
-+++ b/include/net/af_vsock.h
-@@ -185,4 +185,17 @@ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
- void vsock_remove_sock(struct vsock_sock *vsk);
- void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
- 
-+/**** TAP ****/
-+
-+struct vsock_tap {
-+	struct net_device *dev;
-+	struct module *module;
-+	struct list_head list;
-+};
-+
-+int vsock_init_tap(void);
-+int vsock_add_tap(struct vsock_tap *vt);
-+int vsock_remove_tap(struct vsock_tap *vt);
-+void vsock_deliver_tap(struct sk_buff *skb);
-+
- #endif /* __AF_VSOCK_H__ */
-diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-index 4d024d7..cf73510 100644
---- a/include/uapi/linux/if_arp.h
-+++ b/include/uapi/linux/if_arp.h
-@@ -95,6 +95,7 @@
- #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
- #define ARPHRD_NETLINK	824		/* Netlink header		*/
- #define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
-+#define ARPHRD_VSOCKMON	826		/* Vsock monitor header		*/
- 
- #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
- #define ARPHRD_NONE	  0xFFFE	/* zero header length */
-diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-index bc27c70..09fc2eb 100644
---- a/net/vmw_vsock/Makefile
-+++ b/net/vmw_vsock/Makefile
-@@ -3,7 +3,7 @@ obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
- obj-$(CONFIG_VIRTIO_VSOCKETS) += vmw_vsock_virtio_transport.o
- obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += vmw_vsock_virtio_transport_common.o
- 
--vsock-y += af_vsock.o vsock_addr.o
-+vsock-y += af_vsock.o af_vsock_tap.o vsock_addr.o
- 
- vmw_vsock_vmci_transport-y += vmci_transport.o vmci_transport_notify.o \
- 	vmci_transport_notify_qstate.o
-diff --git a/net/vmw_vsock/af_vsock_tap.c b/net/vmw_vsock/af_vsock_tap.c
-new file mode 100644
-index 0000000..427b3b3
---- /dev/null
-+++ b/net/vmw_vsock/af_vsock_tap.c
-@@ -0,0 +1,114 @@
-+/*
-+ * Tap functions for AF_VSOCK sockets.
-+ *
-+ * Code based on net/netlink/af_netlink.c tap functions.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <net/sock.h>
-+#include <net/af_vsock.h>
-+#include <linux/if_arp.h>
-+
-+static DEFINE_SPINLOCK(vsock_tap_lock);
-+static struct list_head vsock_tap_all __read_mostly =
-+				LIST_HEAD_INIT(vsock_tap_all);
-+
-+int vsock_add_tap(struct vsock_tap *vt) {
-+	if (unlikely(vt->dev->type != ARPHRD_VSOCKMON))
-+		return -EINVAL;
-+
-+	__module_get(vt->module);
-+
-+	spin_lock(&vsock_tap_lock);
-+	list_add_rcu(&vt->list, &vsock_tap_all);
-+	spin_unlock(&vsock_tap_lock);
-+
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(vsock_add_tap);
-+
-+int __vsock_remove_tap(struct vsock_tap *vt) {
-+	bool found = false;
-+	struct vsock_tap *tmp;
-+
-+	spin_lock(&vsock_tap_lock);
-+
-+	list_for_each_entry(tmp, &vsock_tap_all, list) {
-+		if (vt == tmp) {
-+			list_del_rcu(&vt->list);
-+			found = true;
-+			goto out;
-+		}
-+	}
-+
-+	pr_warn("__vsock_remove_tap: %p not found\n", vt);
-+out:
-+	spin_unlock(&vsock_tap_lock);
-+
-+	if (found)
-+		module_put(vt->module);
-+
-+	return found ? 0 : -ENODEV;
-+}
-+
-+int vsock_remove_tap(struct vsock_tap *vt)
-+{
-+	int ret;
-+
-+	ret = __vsock_remove_tap(vt);
-+	synchronize_net();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(vsock_remove_tap);
-+
-+static int __vsock_deliver_tap_skb(struct sk_buff *skb,
-+				     struct net_device *dev)
-+{
-+	int ret = 0;
-+
-+	if (skb) {
-+		dev_hold(dev);
-+		/* Take skb ownership so it is not consumed in dev_queue_xmit.
-+		 * dev_queue_xmit will drop a reference so the reference count
-+		 * will reset.
-+		 */
-+		skb_get(skb);
-+		skb->dev = dev;
-+		ret = dev_queue_xmit(skb);
-+		if (unlikely(ret > 0))
-+			ret = net_xmit_errno(ret);
-+
-+		dev_put(dev);
-+	}
-+
-+	return ret;
-+}
-+
-+static void __vsock_deliver_tap(struct sk_buff *skb)
-+{
-+	int ret;
-+	struct vsock_tap *tmp;
-+
-+	list_for_each_entry_rcu(tmp, &vsock_tap_all, list) {
-+		ret = __vsock_deliver_tap_skb(skb, tmp->dev);
-+		if (unlikely(ret))
-+			break;
-+	}
-+}
-+
-+void vsock_deliver_tap(struct sk_buff *skb)
-+{
-+	rcu_read_lock();
-+
-+	if (unlikely(!list_empty(&vsock_tap_all)))
-+		__vsock_deliver_tap(skb);
-+
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL_GPL(vsock_deliver_tap);
--- 
-2.9.1
+Allright. Thanks.
