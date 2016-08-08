@@ -1,52 +1,32 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 1/2] devlink: write usage help messages to
- stderr
-Date: Mon, 8 Aug 2016 08:56:54 -0700
-Message-ID: <20160808085654.764550e2@xeon-e3>
-References: <1469205270-6180-1-git-send-email-jiri@resnulli.us>
-	<20160723094659.06921b95@xeon-e3>
-	<20160808071921.GA1944@nanopsycho.orion>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net 2/2] net: vxlan: lwt: Fix vxlan local traffic.
+Date: Mon, 8 Aug 2016 18:03:31 +0200
+Message-ID: <20160808180331.0dd7bd69@griffin>
+References: <1470444337-3725-1-git-send-email-pshelar@ovn.org>
+	<1470444337-3725-2-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36422 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020AbcHHP4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 11:56:43 -0400
-Received: by mail-pa0-f52.google.com with SMTP id pp5so114987860pac.3
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 08:56:42 -0700 (PDT)
-In-Reply-To: <20160808071921.GA1944@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:40394 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752125AbcHHQDf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 12:03:35 -0400
+In-Reply-To: <1470444337-3725-2-git-send-email-pshelar@ovn.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Aug 2016 09:19:21 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
-
-> Sat, Jul 23, 2016 at 06:46:59PM CEST, stephen@networkplumber.org wrote:
-> >On Fri, 22 Jul 2016 18:34:29 +0200
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >  
-> >> From: Jiri Pirko <jiri@mellanox.com>
-> >> 
-> >> In order to not confuse reader, write help messages into stderr.
-> >> 
-> >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>  
-> >
-> >This does make devlink consistent with other parts of iproute2.
-> >But the most common coding standards, back to Unix, and GNU are
-> >that help messages should go to stdout so that:
-> >  $ ip -h | more
-> >would work as expected.  
+On Fri,  5 Aug 2016 17:45:37 -0700, Pravin B Shelar wrote:
+> vxlan driver has bypass for local vxlan traffic, but that
+> depends on information about all VNIs on local system in
+> vxlan driver. This is not available in case of LWT.
+> Therefore following patch disable encap bypass for LWT
+> vxlan traffic.
 > 
-> The thing is I wanted to make stdout only for json. Putting non-json
-> help out there does not look correct to me. Is it?
-> 
+> Fixes: ee122c79d42 ("vxlan: Flow based tunneling").
+> Reported-by: Jakub Libosvar <jlibosva@redhat.com>
+> Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
 
-I applied both of these patches, just wanted to mention that iproute2 is not
-following the GNU convention. At this point, it really doesn't matter, there
-are arguments to be made for both behaviors.
+Acked-by: Jiri Benc <jbenc@redhat.com>
