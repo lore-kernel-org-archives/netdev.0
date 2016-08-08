@@ -1,7 +1,7 @@
 From: ggarcia@abra.uab.cat
-Subject: [PATCH 3/3] vsockmon: Add virtio vsock hooks
-Date: Mon, 08 Aug 2016 18:14:42 +0200
-Message-ID: <20160808161442.16038-4-ggarcia@deic.uab.cat>
+Subject: [PATCH 1/3] vsockmon: Add tap functions.
+Date: Mon, 08 Aug 2016 18:14:40 +0200
+Message-ID: <20160808161442.16038-2-ggarcia@deic.uab.cat>
 References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
 Content-Transfer-Encoding: 7BIT
 Cc: stefanha@redhat.com, jhansen@vmware.com, mst@redhat.com,
@@ -10,135 +10,200 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from damascus.uab.es ([158.109.168.135]:19497 "EHLO damascus.uab.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752167AbcHHQPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Aug 2016 12:15:00 -0400
+	id S1752167AbcHHQO5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 12:14:57 -0400
 Received: from damascus.uab.es ([127.0.0.1])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBL001OIMGSU500@damascus.uab.es> for
- netdev@vger.kernel.org; Mon, 08 Aug 2016 18:14:52 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0OBL001OEMGRU500@damascus.uab.es> for
+ netdev@vger.kernel.org; Mon, 08 Aug 2016 18:14:51 +0200 (CEST)
 Received: from abra.uab.es ([158.109.79.4])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBL005LTMGRWM30@damascus.uab.es> for
- netdev@vger.kernel.org; Mon, 08 Aug 2016 18:14:52 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0OBL005OPMGRWJ30@damascus.uab.es> for
+ netdev@vger.kernel.org; Mon, 08 Aug 2016 18:14:51 +0200 (CEST)
 In-reply-to: <20160808161442.16038-1-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gerard Garcia <ggarcia@deic.uab.cat>
 
-Add hooks to the virtio transport host driver to deliver a copy of
-the received and sent messages to all vsockmon virtual network devices.
+Add tap functions that can be used by the vsock transports to
+deliver packets to vsockmon virtual network devices.
 
 Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
 ---
- drivers/vhost/vsock.c | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
+ include/net/af_vsock.h       |  13 +++++
+ include/uapi/linux/if_arp.h  |   1 +
+ net/vmw_vsock/Makefile       |   2 +-
+ net/vmw_vsock/af_vsock_tap.c | 114 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 129 insertions(+), 1 deletion(-)
+ create mode 100644 net/vmw_vsock/af_vsock_tap.c
 
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index 0ddf3a2..75b5a46 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -15,8 +15,10 @@
- #include <net/sock.h>
- #include <linux/virtio_vsock.h>
- #include <linux/vhost.h>
-+#include <linux/skbuff.h>
+diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
+index f275896..f7c51b1 100644
+--- a/include/net/af_vsock.h
++++ b/include/net/af_vsock.h
+@@ -185,4 +185,17 @@ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
+ void vsock_remove_sock(struct vsock_sock *vsk);
+ void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
  
- #include <net/af_vsock.h>
-+#include <uapi/linux/vsockmon.h>
- #include "vhost.h"
++/**** TAP ****/
++
++struct vsock_tap {
++	struct net_device *dev;
++	struct module *module;
++	struct list_head list;
++};
++
++int vsock_init_tap(void);
++int vsock_add_tap(struct vsock_tap *vt);
++int vsock_remove_tap(struct vsock_tap *vt);
++void vsock_deliver_tap(struct sk_buff *skb);
++
+ #endif /* __AF_VSOCK_H__ */
+diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
+index 4d024d7..cf73510 100644
+--- a/include/uapi/linux/if_arp.h
++++ b/include/uapi/linux/if_arp.h
+@@ -95,6 +95,7 @@
+ #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
+ #define ARPHRD_NETLINK	824		/* Netlink header		*/
+ #define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
++#define ARPHRD_VSOCKMON	826		/* Vsock monitor header		*/
  
- #define VHOST_VSOCK_DEFAULT_HOST_CID	2
-@@ -45,6 +47,68 @@ struct vhost_vsock {
- 	u32 guest_cid;
- };
+ #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
+ #define ARPHRD_NONE	  0xFFFE	/* zero header length */
+diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
+index bc27c70..09fc2eb 100644
+--- a/net/vmw_vsock/Makefile
++++ b/net/vmw_vsock/Makefile
+@@ -3,7 +3,7 @@ obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
+ obj-$(CONFIG_VIRTIO_VSOCKETS) += vmw_vsock_virtio_transport.o
+ obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += vmw_vsock_virtio_transport_common.o
  
-+static struct sk_buff *
-+virtio_vsock_pkt_vsockmon_to_vsockmon_skb(struct virtio_vsock_pkt *pkt)
-+{
-+	struct sk_buff *skb;
-+	struct af_vsockmon_hdr *hdr;
-+	void *payload;
+-vsock-y += af_vsock.o vsock_addr.o
++vsock-y += af_vsock.o af_vsock_tap.o vsock_addr.o
+ 
+ vmw_vsock_vmci_transport-y += vmci_transport.o vmci_transport_notify.o \
+ 	vmci_transport_notify_qstate.o
+diff --git a/net/vmw_vsock/af_vsock_tap.c b/net/vmw_vsock/af_vsock_tap.c
+new file mode 100644
+index 0000000..427b3b3
+--- /dev/null
++++ b/net/vmw_vsock/af_vsock_tap.c
+@@ -0,0 +1,114 @@
++/*
++ * Tap functions for AF_VSOCK sockets.
++ *
++ * Code based on net/netlink/af_netlink.c tap functions.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
 +
-+	u32 skb_len = sizeof(struct af_vsockmon_hdr) + pkt->len;
++#include <net/sock.h>
++#include <net/af_vsock.h>
++#include <linux/if_arp.h>
 +
-+	skb = alloc_skb(skb_len, GFP_ATOMIC);
-+	if (!skb)
-+		return NULL;
++static DEFINE_SPINLOCK(vsock_tap_lock);
++static struct list_head vsock_tap_all __read_mostly =
++				LIST_HEAD_INIT(vsock_tap_all);
 +
-+	hdr = (struct af_vsockmon_hdr *) skb_put(skb, sizeof(*hdr));
++int vsock_add_tap(struct vsock_tap *vt) {
++	if (unlikely(vt->dev->type != ARPHRD_VSOCKMON))
++		return -EINVAL;
 +
-+	hdr->src_cid = pkt->hdr.src_cid;
-+	hdr->src_port = pkt->hdr.src_port;
-+	hdr->dst_cid = pkt->hdr.dst_cid;
-+	hdr->dst_port = pkt->hdr.dst_port;
-+	hdr->t = cpu_to_le16(AF_VSOCK_T_VIRTIO);
-+	hdr->len = cpu_to_le16(sizeof(hdr->t_hdr));
++	__module_get(vt->module);
 +
-+	switch(pkt->hdr.op) {
-+	case VIRTIO_VSOCK_OP_REQUEST:
-+	case VIRTIO_VSOCK_OP_RESPONSE:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
-+		break;
-+	case VIRTIO_VSOCK_OP_RST:
-+	case VIRTIO_VSOCK_OP_SHUTDOWN:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
-+		break;
-+	case VIRTIO_VSOCK_OP_RW:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
-+		break;
-+	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
-+	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
-+		break;
-+	default:
-+		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
-+		break;
++	spin_lock(&vsock_tap_lock);
++	list_add_rcu(&vt->list, &vsock_tap_all);
++	spin_unlock(&vsock_tap_lock);
++
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(vsock_add_tap);
++
++int __vsock_remove_tap(struct vsock_tap *vt) {
++	bool found = false;
++	struct vsock_tap *tmp;
++
++	spin_lock(&vsock_tap_lock);
++
++	list_for_each_entry(tmp, &vsock_tap_all, list) {
++		if (vt == tmp) {
++			list_del_rcu(&vt->list);
++			found = true;
++			goto out;
++		}
 +	}
 +
-+	hdr->t_hdr.virtio_hdr = pkt->hdr;
++	pr_warn("__vsock_remove_tap: %p not found\n", vt);
++out:
++	spin_unlock(&vsock_tap_lock);
 +
-+	if (pkt->len) {
-+		payload = skb_put(skb, pkt->len);
-+		memcpy(payload, pkt->buf, pkt->len);
-+	}
++	if (found)
++		module_put(vt->module);
 +
-+	return skb;
++	return found ? 0 : -ENODEV;
 +}
 +
-+static void vsock_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
++int vsock_remove_tap(struct vsock_tap *vt)
 +{
-+	struct sk_buff *skb = virtio_vsock_pkt_to_vsockmon_skb(pkt);
++	int ret;
++
++	ret = __vsock_remove_tap(vt);
++	synchronize_net();
++
++	return ret;
++}
++EXPORT_SYMBOL_GPL(vsock_remove_tap);
++
++static int __vsock_deliver_tap_skb(struct sk_buff *skb,
++				     struct net_device *dev)
++{
++	int ret = 0;
++
 +	if (skb) {
-+		vsock_deliver_tap(skb);
-+		kfree_skb(skb);
++		dev_hold(dev);
++		/* Take skb ownership so it is not consumed in dev_queue_xmit.
++		 * dev_queue_xmit will drop a reference so the reference count
++		 * will reset.
++		 */
++		skb_get(skb);
++		skb->dev = dev;
++		ret = dev_queue_xmit(skb);
++		if (unlikely(ret > 0))
++			ret = net_xmit_errno(ret);
++
++		dev_put(dev);
++	}
++
++	return ret;
++}
++
++static void __vsock_deliver_tap(struct sk_buff *skb)
++{
++	int ret;
++	struct vsock_tap *tmp;
++
++	list_for_each_entry_rcu(tmp, &vsock_tap_all, list) {
++		ret = __vsock_deliver_tap_skb(skb, tmp->dev);
++		if (unlikely(ret))
++			break;
 +	}
 +}
 +
- static u32 vhost_transport_get_local_cid(void)
- {
- 	return VHOST_VSOCK_DEFAULT_HOST_CID;
-@@ -168,6 +232,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
- 				restart_tx = true;
- 		}
- 
-+		/* Deliver to monitoring devices all correctly transmitted
-+		 * packets.
-+		 */
-+		vsock_deliver_tap_pkt(pkt);
++void vsock_deliver_tap(struct sk_buff *skb)
++{
++	rcu_read_lock();
 +
- 		virtio_transport_free_pkt(pkt);
- 	}
- 	if (added)
-@@ -334,6 +403,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 			continue;
- 		}
- 
-+		/* Deliver to monitoring devices all received packets */
-+		vsock_deliver_tap_pkt(pkt);
++	if (unlikely(!list_empty(&vsock_tap_all)))
++		__vsock_deliver_tap(skb);
 +
- 		/* Only accept correctly addressed packets */
- 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
- 			virtio_transport_recv_pkt(pkt);
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL_GPL(vsock_deliver_tap);
 -- 
 2.9.1
