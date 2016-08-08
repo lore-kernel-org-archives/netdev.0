@@ -1,7 +1,7 @@
 From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH 1/2] mwifiex: fix the length parameter of a memset
-Date: Mon,  8 Aug 2016 09:38:48 +0200
-Message-ID: <1470641928-26616-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Subject: [PATCH 2/2] mwifiex: simplify length computation for some memset
+Date: Mon,  8 Aug 2016 09:39:00 +0200
+Message-ID: <1470641940-26681-1-git-send-email-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
@@ -10,37 +10,44 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 To: akarwar@marvell.com, nishants@marvell.com,
 	linux-wireless@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:50922 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752159AbcHHHjI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 03:39:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In 'mwifiex_get_ver_ext', we have:
-   struct mwifiex_ver_ext ver_ext;
-
-   memset(&ver_ext, 0, sizeof(struct host_cmd_ds_version_ext));
-
-This is likely that memset'ing sizeof(struct mwifiex_ver_ext) was expected.
-Remove the ambiguity by using the variable name directly instead of its
-type.
+This patch should be a no-op. It just simplifies code by using the name of
+a variable instead of its type when calling 'sizeof'.
 
 Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 ---
- drivers/net/wireless/marvell/mwifiex/sta_ioctl.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/marvell/mwifiex/sta_ioctl.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c b/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
-index e06647a..78819e8 100644
+index 78819e8..644f3a2 100644
 --- a/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
 +++ b/drivers/net/wireless/marvell/mwifiex/sta_ioctl.c
-@@ -1180,7 +1180,7 @@ mwifiex_get_ver_ext(struct mwifiex_private *priv, u32 version_str_sel)
- {
- 	struct mwifiex_ver_ext ver_ext;
+@@ -574,7 +574,7 @@ int mwifiex_enable_hs(struct mwifiex_adapter *adapter)
  
--	memset(&ver_ext, 0, sizeof(struct host_cmd_ds_version_ext));
-+	memset(&ver_ext, 0, sizeof(ver_ext));
- 	ver_ext.version_str_sel = version_str_sel;
- 	if (mwifiex_send_cmd(priv, HostCmd_CMD_VERSION_EXT,
- 			     HostCmd_ACT_GEN_GET, 0, &ver_ext, true))
+ 	adapter->hs_activate_wait_q_woken = false;
+ 
+-	memset(&hscfg, 0, sizeof(struct mwifiex_ds_hs_cfg));
++	memset(&hscfg, 0, sizeof(hscfg));
+ 	hscfg.is_invoke_hostcmd = true;
+ 
+ 	adapter->hs_enabling = true;
+@@ -1138,7 +1138,7 @@ int mwifiex_set_encode(struct mwifiex_private *priv, struct key_params *kp,
+ {
+ 	struct mwifiex_ds_encrypt_key encrypt_key;
+ 
+-	memset(&encrypt_key, 0, sizeof(struct mwifiex_ds_encrypt_key));
++	memset(&encrypt_key, 0, sizeof(encrypt_key));
+ 	encrypt_key.key_len = key_len;
+ 	encrypt_key.key_index = key_index;
+ 
 -- 
 2.7.4
 
@@ -48,4 +55,3 @@ index e06647a..78819e8 100644
 ---
 L'absence de virus dans ce courrier électronique a été vérifiée par le logiciel antivirus Avast.
 https://www.avast.com/antivirus
-
