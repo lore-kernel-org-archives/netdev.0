@@ -1,47 +1,65 @@
-From: <salome.khum@vision-france.net>
-Subject: RE: netdev
-Date: Mon, 8 Aug 2016 17:45:01 -0400
-Message-ID: <000101d1f1f0$63ec6c38$c0a80001@hinet.net>
-Reply-To: <netdev@vger.kernel.org>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@purestorage.com>
+Subject: [PATCH] bonding: Allow tun-interfaces as slaves
+Date: Mon, 8 Aug 2016 14:48:12 -0700
+Message-ID: <20160808214812.GJ22974@cork>
+References: <20160808211530.GH22974@cork>
+ <20160808212112.GI22974@cork>
 Mime-Version: 1.0
-Content-Type: application/zip; name="nnbhnnzzjpvuezy_netdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: dingtianhong <dingtianhong@huawei.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 187-5-80-171.bsaco701.dsl.brasiltelecom.net.br ([187.5.80.171]:49189
-	"HELO hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with SMTP id S1752495AbcHHVpB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:45:01 -0400
-Content-Disposition: attachment
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33805 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbcHHVsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 17:48:20 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fi15so117484268pac.1
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 14:48:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160808212112.GI22974@cork>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AADYBQAAAAA=
+Up until 00503b6f702e (part of 3.14-rc1), the bonding driver could be
+used to enslave tun-interfaces.  00503b6f702e broke that behaviour,
+afaics as an unintended side-effect.
+
+For the purpose of bond-over-tun in balance-rr mode, simply ignoring the
+error from dev_set_mac_address() is good enough.  I am not familiar
+enough with the code to judge what new problems this patch might
+introduce.
+
+Signed-off-by: Joern Engel <joern@purestorage.com>
+---
+ drivers/net/bonding/bond_main.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1f276fa30ba6..bc5dba847f50 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1489,11 +1489,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		 */
+ 		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+ 		addr.sa_family = slave_dev->type;
+-		res = dev_set_mac_address(slave_dev, &addr);
+-		if (res) {
+-			netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
+-			goto err_restore_mtu;
+-		}
++		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
+ 	/* set slave flag before open to prevent IPv6 addrconf */
+@@ -1777,7 +1773,6 @@ err_restore_mac:
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
+-err_restore_mtu:
+ 	dev_set_mtu(slave_dev, new_slave->original_mtu);
+ 
+ err_free:
+-- 
+2.1.4
