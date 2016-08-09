@@ -1,659 +1,504 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH RESEND net-next 03/15] smc: establish pnet table management
-Date: Tue,  9 Aug 2016 12:12:48 +0200
-Message-ID: <1470737580-43012-4-git-send-email-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH RESEND net-next 10/15] smc: link layer control (LLC)
+Date: Tue,  9 Aug 2016 12:12:55 +0200
+Message-ID: <1470737580-43012-11-git-send-email-ubraun@linux.vnet.ibm.com>
 References: <1470737580-43012-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
 	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
 	utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:35966 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:47014 "EHLO
 	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932372AbcHIKNX (ORCPT
+	by vger.kernel.org with ESMTP id S932371AbcHIKNX (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 06:13:23 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u79A4Sql027865
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 06:13:23 -0400
-Received: from e06smtp09.uk.ibm.com (e06smtp09.uk.ibm.com [195.75.94.105])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 24n8sk5pcd-1
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u79A4hqj037327
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 06:13:17 -0400
+Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 24nce97pjp-1
 	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 06:13:22 -0400
+	for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 06:13:17 -0400
 Received: from localhost
-	by e06smtp09.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Tue, 9 Aug 2016 11:13:18 +0100
+	Tue, 9 Aug 2016 11:13:14 +0100
 In-Reply-To: <1470737580-43012-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Richter <tmricht@linux.vnet.ibm.com>
+send and receive LLC messages CONFIRM_LINK (via IB message send and CQE)
 
-Connection creation with SMC-R starts through an internal
-TCP-connection. The Ethernet interface for this TCP-connection is not
-restricted to the Ethernet interface of a RoCE device. Any existing
-Ethernet interface belonging to the same physical net can be used, as
-long as there is a defined relation between the Ethernet interface and
-some RoCE devices. This relation is defined with the help of an
-identification string called "Physical Net ID" or short "pnet ID".
-Information about defined pnet IDs and their related Ethernet
-interfaces and RoCE devices is stored in the SMC-R pnet table.
-
-This patch adds pnet table configuration support as a set of
-sysfs files listed under /sys/kernel/smc. Attribute files
-exist to add and delete pnet IDs and to map RoCE devices and
-ethernet interfaces to an individual pnet ID.
-
-There is no cross check if ethernet interfaces or infiniband
-devices really exist in the system. This enables the configuration of
-the pnet table after module load even if interfaces or devices might
-not yet be available.
-
-Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
  net/smc/Makefile   |   2 +-
- net/smc/af_smc.c   |  11 +-
- net/smc/smc_pnet.c | 510 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/smc/smc_pnet.h |  19 ++
- 4 files changed, 539 insertions(+), 3 deletions(-)
- create mode 100644 net/smc/smc_pnet.c
- create mode 100644 net/smc/smc_pnet.h
+ net/smc/af_smc.c   |  94 ++++++++++++++++++++++++++++++-
+ net/smc/smc_clc.h  |   2 +
+ net/smc/smc_core.c |   8 +++
+ net/smc/smc_core.h |   4 ++
+ net/smc/smc_llc.c  | 158 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/smc/smc_llc.h  |  63 +++++++++++++++++++++
+ 7 files changed, 328 insertions(+), 3 deletions(-)
+ create mode 100644 net/smc/smc_llc.c
+ create mode 100644 net/smc/smc_llc.h
 
 diff --git a/net/smc/Makefile b/net/smc/Makefile
-index c285c86..64dab53 100644
+index b19120e..73320bf 100644
 --- a/net/smc/Makefile
 +++ b/net/smc/Makefile
 @@ -1,2 +1,2 @@
  obj-$(CONFIG_SMC)	+= smc.o
--smc-y := af_smc.o
-+smc-y := af_smc.o smc_pnet.o
+-smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o
++smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index ae3332c..e6bbadc 100644
+index 2a7c0df..5cddce0 100644
 --- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -20,6 +20,7 @@
- #include <net/sock.h>
+@@ -31,6 +31,7 @@
  
  #include "smc.h"
-+#include "smc_pnet.h"
+ #include "smc_clc.h"
++#include "smc_llc.h"
+ #include "smc_core.h"
+ #include "smc_ib.h"
+ #include "smc_pnet.h"
+@@ -252,6 +253,41 @@ out:
+ 	return rc;
+ }
  
- static void smc_set_keepalive(struct sock *sk, int val)
- {
-@@ -588,10 +589,14 @@ static int __init smc_init(void)
- {
- 	int rc;
- 
-+	rc = smc_pnet_init();
-+	if (rc)
++static int smc_clnt_conf_first_link(struct smc_sock *smc, union ib_gid *gid)
++{
++	struct smc_link_group *lgr = smc->conn.lgr;
++	struct smc_link *link;
++	int rest;
++	int rc;
++
++	link = &lgr->lnk[SMC_SINGLE_LINK];
++	/* receive CONFIRM LINK request from server over RoCE fabric */
++	rest = wait_for_completion_interruptible_timeout(
++		&link->llc_confirm,
++		SMC_LLC_WAIT_FIRST_TIME);
++	if (rest <= 0) {
++		struct smc_clc_msg_decline dclc;
++
++		rc = smc_clc_wait_msg(smc, &dclc, sizeof(dclc),
++				      SMC_CLC_DECLINE);
 +		return rc;
++	}
++
++	rc = smc_ib_modify_qp_rts(link);
++	if (rc)
++		return SMC_CLC_DECL_INTERR;
++
++	smc_wr_remember_qp_attr(link);
++	/* send CONFIRM LINK response over RoCE fabric */
++	rc = smc_llc_send_confirm_link(link,
++				       link->smcibdev->mac[link->ibport - 1],
++				       gid, SMC_LLC_RESP);
++	if (rc < 0)
++		return SMC_CLC_DECL_TCL;
++
++	return rc;
++}
++
+ static void smc_conn_save_peer_info(struct smc_sock *smc,
+ 				    struct smc_clc_msg_accept_confirm *clc)
+ {
+@@ -369,7 +405,17 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 	if (rc)
+ 		goto out_err_unlock;
+ 
+-	/* tbd in follow-on patch: llc_confirm */
++	if (local_contact == SMC_FIRST_CONTACT) {
++		/* QP confirmation over RoCE fabric */
++		reason_code = smc_clnt_conf_first_link(
++			smc, &smcibdev->gid[ibport - 1]);
++		if (reason_code < 0) {
++			rc = reason_code;
++			goto out_err_unlock;
++		}
++		if (reason_code > 0)
++			goto decline_rdma_unlock;
++	}
+ 
+ 	mutex_unlock(&smc_create_lgr_pending);
+ out_connected:
+@@ -554,6 +600,36 @@ static void smc_close_non_accepted(struct sock *sk)
+ 	sock_put(sk);
+ }
+ 
++static int smc_serv_conf_first_link(struct smc_sock *smc)
++{
++	struct smc_link_group *lgr = smc->conn.lgr;
++	struct smc_link *link;
++	int rest;
++	int rc;
++
++	link = &lgr->lnk[SMC_SINGLE_LINK];
++	/* send CONFIRM LINK request to client over the RoCE fabric */
++	rc = smc_llc_send_confirm_link(link,
++				       link->smcibdev->mac[link->ibport - 1],
++				       &link->smcibdev->gid[link->ibport - 1],
++				       SMC_LLC_REQ);
++	if (rc < 0)
++		return SMC_CLC_DECL_TCL;
++
++	/* receive CONFIRM LINK response from client over the RoCE fabric */
++	rest = wait_for_completion_interruptible_timeout(
++		&link->llc_confirm_resp,
++		SMC_LLC_WAIT_FIRST_TIME);
++	if (rest <= 0) {
++		struct smc_clc_msg_decline dclc;
++
++		rc = smc_clc_wait_msg(smc, &dclc, sizeof(dclc),
++				      SMC_CLC_DECLINE);
++	}
++
++	return rc;
++}
++
+ /* setup for RDMA connection of server */
+ static void smc_listen_work(struct work_struct *work)
+ {
+@@ -666,13 +742,21 @@ static void smc_listen_work(struct work_struct *work)
+ 		goto decline_rdma;
+ 	}
+ 
+-	/* tbd in follow-on patch: modify_qp, llc_confirm */
+ 	if (local_contact == SMC_FIRST_CONTACT) {
+ 		rc = smc_ib_ready_link(link);
+ 		if (rc) {
+ 			reason_code = SMC_CLC_DECL_INTERR;
+ 			goto decline_rdma;
+ 		}
++		/* QP confirmation over RoCE fabric */
++		reason_code = smc_serv_conf_first_link(new_smc);
++		if (reason_code < 0) {
++			/* peer is not aware of a problem */
++			rc = reason_code;
++			goto out_err;
++		}
++		if (reason_code > 0)
++			goto decline_rdma;
+ 	}
+ 
+ out_connected:
+@@ -1122,6 +1206,12 @@ static int __init smc_init(void)
+ 	if (rc)
+ 		return rc;
+ 
++	rc = smc_llc_init();
++	if (rc) {
++		pr_err("%s: smc_llc_init fails with %d\n", __func__, rc);
++		goto out_pnet;
++	}
 +
  	rc = proto_register(&smc_proto, 1);
  	if (rc) {
  		pr_err("%s: proto_register fails with %d\n", __func__, rc);
--		goto out;
-+		goto out_pnet;
+diff --git a/net/smc/smc_clc.h b/net/smc/smc_clc.h
+index ba42f7b..c1821ff 100644
+--- a/net/smc/smc_clc.h
++++ b/net/smc/smc_clc.h
+@@ -33,6 +33,8 @@ static const char SMC_EYECATCHER[4] = {'\xe2', '\xd4', '\xc3', '\xd9'};
+ #define SMC_CLC_DECL_SYNCERR	0x04000000  /* synchronization error          */
+ #define SMC_CLC_DECL_REPLY	0x06000000  /* reply to a received decline    */
+ #define SMC_CLC_DECL_INTERR	0x99990000  /* internal error                 */
++#define SMC_CLC_DECL_TCL	0x02040000  /* timeout w4 QP confirm          */
++#define SMC_CLC_DECL_SEND	0x07000000  /* sending problem                */
+ 
+ struct smc_clc_msg_hdr {	/* header1 of clc messages */
+ 	u8 eyecatcher[4];	/* eye catcher */
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index c8294f6..55944b4 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -21,9 +21,13 @@
+ #include "smc_core.h"
+ #include "smc_ib.h"
+ #include "smc_wr.h"
++#include "smc_llc.h"
+ 
++#define SMC_LGR_NUM_INCR	256
+ #define SMC_LGR_FREE_DELAY	(600 * HZ)
+ 
++static u32 smc_lgr_num;			/* unique link group number */
++
+ /* Register connection's alert token in our lookup structure.
+  * To use rbtrees we have to implement our own insert core.
+  * Requires @conns_lock
+@@ -150,6 +154,8 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 		INIT_LIST_HEAD(&lgr->sndbufs[i]);
+ 		INIT_LIST_HEAD(&lgr->rmbs[i]);
  	}
++	smc_lgr_num += SMC_LGR_NUM_INCR;
++	lgr->id = smc_lgr_num;
+ 	INIT_DELAYED_WORK(&lgr->free_work, smc_lgr_free_work);
  
- 	rc = sock_register(&smc_sock_family_ops);
-@@ -604,7 +609,8 @@ static int __init smc_init(void)
+ 	lnk = &lgr->lnk[SMC_SINGLE_LINK];
+@@ -176,6 +182,8 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	rc = smc_wr_create_link(lnk);
+ 	if (rc)
+ 		goto destroy_qp;
++	init_completion(&lnk->llc_confirm);
++	init_completion(&lnk->llc_confirm_resp);
  
- out_proto:
- 	proto_unregister(&smc_proto);
--out:
-+out_pnet:
-+	smc_pnet_exit();
- 	return rc;
- }
+ 	smc->conn.lgr = lgr;
+ 	rwlock_init(&lgr->conns_lock);
+diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
+index 14fd82f..10b89ab 100644
+--- a/net/smc/smc_core.h
++++ b/net/smc/smc_core.h
+@@ -74,6 +74,9 @@ struct smc_link {
+ 	u32			peer_psn;	/* QP rx initial packet seqno */
+ 	u8			peer_mac[ETH_ALEN];	/* = gid[8:10||13:15] */
+ 	u8			peer_gid[sizeof(union ib_gid)];	/* gid of peer*/
++	u8			link_id;	/* unique # within link group */
++	struct completion	llc_confirm;	/* wait for rx of conf link */
++	struct completion	llc_confirm_resp; /* wait 4 rx of cnf lnk rsp */
+ };
  
-@@ -612,6 +618,7 @@ static void __exit smc_exit(void)
- {
- 	sock_unregister(PF_SMC);
- 	proto_unregister(&smc_proto);
-+	smc_pnet_exit();
- }
+ /* For now we just allow one parallel link per link group. The SMC protocol
+@@ -125,6 +128,7 @@ struct smc_link_group {
+ 							SMC_RMBS_PER_LGR_MAX)];
+ 						/* used rtoken elements */
  
- module_init(smc_init);
-diff --git a/net/smc/smc_pnet.c b/net/smc/smc_pnet.c
++	u32			id;		/* unique lgr id */
+ 	struct delayed_work	free_work;	/* delayed freeing of an lgr */
+ };
+ 
+diff --git a/net/smc/smc_llc.c b/net/smc/smc_llc.c
 new file mode 100644
-index 0000000..1d41375
+index 0000000..1a3e811
 --- /dev/null
-+++ b/net/smc/smc_pnet.c
-@@ -0,0 +1,510 @@
++++ b/net/smc/smc_llc.c
+@@ -0,0 +1,158 @@
 +/*
 + *  Shared Memory Communications over RDMA (SMC-R) and RoCE
 + *
-+ *  Sysfs support functions
++ *  Link Layer Control (LLC)
++ *
++ *  For now, we only support the necessary "confirm link" functionality
++ *  which happens for the first RoCE link after successful CLC handshake.
 + *
 + *  Copyright IBM Corp. 2016
 + *
-+ *  Author(s):  Thomas Richter <tmricht@linux.vnet.ibm.com>
++ *  Author(s):  Klaus Wacker <Klaus.Wacker@de.ibm.com>
++ *              Ursula Braun <ursula.braun@de.ibm.com>
 + */
 +
-+#include <linux/device.h>
-+#include <linux/netdevice.h>
-+#include <linux/inetdevice.h>
-+#include <linux/types.h>
-+#include <linux/ctype.h>
-+
-+#include <net/sock.h>
-+
++#include <net/tcp.h>
 +#include <rdma/ib_verbs.h>
 +
-+#include "smc_pnet.h"
++#include "smc.h"
++#include "smc_core.h"
++#include "smc_clc.h"
++#include "smc_llc.h"
 +
-+#define SMC_MAX_PNET_ID_LEN	16	/* Max. length of PNET id */
++/********************************** send *************************************/
 +
-+/* Sysfs interface for the pnet table
-+ *
-+ * Create a directory /sys/kernel/smc/ with these files:
-+ * /sys/kernel/smc/pnetid_add       --> Create a PNETID
-+ * /sys/kernel/smc/pnetid_delete    --> Delete a PNETID
-+ * /sys/kernel/smc/flush            --> Delete all PNETIDs
-+ * /sys/kernel/smc/pnetids/xxxxx    --> Created PNETIDs
-+ *
-+ * Create PNETID PNET1:
-+ * A new file named PNET1 shows up in /sys/kernel/smc/pnetids/.
-+ * echo PNET1 > /sys/kernel/smc/pnetid_add
-+ *
-+ * Display all created PNETIDs:
-+ * ls -l /sys/kernel/smc/pnetids
-+ *
-+ * Delete PNETID PNET1:
-+ * File PNET1 is removed from directory /sys/kernel/smc/pnetids/.
-+ * echo PNET1 > /sys/kernel/smc/pnetid_del
-+ *
-+ * Add an ethernet interface to PNETID PNET1:
-+ * A leading '+' is optional.
-+ * echo "eth enccw0.0.f5f0" > /sys/kernel/smc/pnetids/PNET1
-+ *
-+ * Add an RDMA device to PNETID PNET1:
-+ * A leading '+' is optional
-+ * The 3rd field is an optional port. If not specified it defaults to 1.
-+ * Currently accepted port numbers are 1 and 2. Other numbers generate an
-+ * error.
-+ * echo "ib mlx4_0 1" > /sys/kernel/smc/pnetids/PNET1
-+ * echo "+ib mlx4_1 2" > /sys/kernel/smc/pnetids/PNET1
-+ *
-+ * Display all entries belonging to PNETID PNET1:
-+ * cat /sys/kernel/smc/pnetids/PNET1
-+ *
-+ * Delete any entry from PNETID PNET1 with a leading '-':
-+ * echo "-ib mlx4_1 2" > /sys/kernel/smc/pnetids/PNET1
-+ *
-+ * Delete all created PNETIDs at once:
-+ * echo - > /sys/kernel/smc/flush
-+ *
-+ * No load balancing and link fail over is supported.
-+ * This results a one to one relationship between ethernet interface and
-+ * RDMA device including port name. Therefore each pnet identifier maps
-+ * one ethernet interface to one RDMA device.
-+ */
++struct smc_llc_tx_pend {
++};
++
++/* handler for send/transmission completion of an LLC msg */
++static void smc_llc_tx_handler(struct smc_wr_tx_pend_priv *pend,
++			       struct smc_link *link,
++			       enum ib_wc_status wc_status)
++{
++	/* future work: handle wc_status error for recovery and failover */
++}
 +
 +/**
-+ * struct smc_pnettable - SMC sysfs anchor
-+ * @kset: SMC sysfs anchor
-+ * @pnetids_kobj: Anchor to /sys/kernel/smc/pnetids
-+ * @lock: Lock for list action
-+ * @pnetlist: List of PNETIDs
++ * smc_llc_add_pending_send() - add LLC control message to pending WQE transmits
++ * @link: Pointer to SMC link used for sending LLC control message.
++ * @wr_buf: Out variable returning pointer to work request payload buffer.
++ * @pend: Out variable returning pointer to private pending WR tracking.
++ *	  It's the context the transmit complete handler will get.
++ *
++ * Reserves and pre-fills an entry for a pending work request send/tx.
++ * Used by mid-level smc_llc_send_msg() to prepare for later actual send/tx.
++ * Can sleep due to smc_get_ctrl_buf (if not in softirq context).
++ *
++ * Return: 0 on success, otherwise an error value.
 + */
-+static struct smc_pnettable {
-+	struct kset *kset;
-+	struct kobject pnetids_kobj;
-+	rwlock_t lock;
-+	struct list_head pnetlist;
-+} smc_pnettable = {
-+	.pnetlist = LIST_HEAD_INIT(smc_pnettable.pnetlist),
-+	.lock = __RW_LOCK_UNLOCKED(smc_pnettable.lock)
-+};
-+
-+/**
-+ * struct smc_pnetentry - pnet identifier name entry
-+ * @list: List node.
-+ * @attr: Embedded attribute structure
-+ * @pnet_name: Pnet identifier name
-+ * @if_name: Name of the ethernet interface.
-+ * @ib_name: Name of the RDMA device.
-+ * @ib_port: RDMA device port number.
-+ */
-+struct smc_pnetentry {
-+	struct list_head list;
-+	struct kobj_attribute attr;
-+	char pnet_name[SMC_MAX_PNET_ID_LEN + 1];
-+	char if_name[IFNAMSIZ];
-+	char ib_name[IB_DEVICE_NAME_MAX];
-+	u8 ib_port;
-+};
-+
-+#define to_smcpnetentry(a)	container_of((a), struct smc_pnetentry, attr)
-+
-+/* Release /sys/kernel/smc/pnetids and delete all pnetids. This function
-+ * is called when the kobject anchor in smc_pnettable.pnetids_kobj is freed.
-+ */
-+static void smc_pnetid_release(struct kobject *kobj)
++static int smc_llc_add_pending_send(struct smc_link *link,
++				    struct smc_wr_buf **wr_buf,
++				    struct smc_wr_tx_pend_priv **pend)
 +{
-+	struct smc_pnetentry *e, *tmp_e;
-+
-+	write_lock(&smc_pnettable.lock);
-+	list_for_each_entry_safe(e, tmp_e, &smc_pnettable.pnetlist, list) {
-+		list_del(&e->list);
-+		kfree(e);
-+	}
-+	write_unlock(&smc_pnettable.lock);
-+}
-+
-+static struct kobj_type smc_pnet_ktype = {
-+	.release = smc_pnetid_release,
-+	.sysfs_ops = &kobj_sysfs_ops
-+};
-+
-+/* Remove an ethernet entry from the PNET table */
-+static int smc_pnet_del_eth(struct smc_pnetentry *pnetelem, char *name)
-+{
-+	int rc = -ENOENT;
-+
-+	write_lock(&smc_pnettable.lock);
-+	if (!strncmp(pnetelem->if_name, name, sizeof(pnetelem->if_name))) {
-+		rc = 0;
-+		pnetelem->if_name[0] = '\0';
-+	}
-+	write_unlock(&smc_pnettable.lock);
-+	return rc;
-+}
-+
-+/* Add an ethernet entry to the PNET table. Search the complete pnet table to
-+ * make sure the same ethernet interface is not listed under different PNET ids.
-+ */
-+static int smc_pnet_add_eth(struct smc_pnetentry *pnetelem, char *name)
-+{
-+	struct smc_pnetentry *p;
-+	int rc = -EEXIST;
-+
-+	write_lock(&smc_pnettable.lock);
-+	list_for_each_entry(p, &smc_pnettable.pnetlist, list) {
-+		if (!strncmp(p->if_name, name, sizeof(p->if_name)))
-+			goto out;
-+	}
-+	if (pnetelem->if_name[0] == '\0') {
-+		strncpy(pnetelem->if_name, name, sizeof(pnetelem->if_name));
-+		rc = 0;
-+	}
-+out:
-+	write_unlock(&smc_pnettable.lock);
-+	return rc;
-+}
-+
-+/* Create an ethernet interface entry. */
-+static int smc_pnet_makeeth(struct smc_pnetentry *pnetelem, bool add,
-+			    char *name)
-+{
-+	name = skip_spaces(name);
-+	if (!dev_valid_name(name))
-+		return -EINVAL;
-+	return (add) ? smc_pnet_add_eth(pnetelem, name)
-+		     : smc_pnet_del_eth(pnetelem, name);
-+}
-+
-+/* Check if two RDMA device entries are identical. Use device name and port
-+ * number for comparison.
-+ */
-+static bool smc_pnet_same_ibname(struct smc_pnetentry *a, char *name, u8 ibport)
-+{
-+	return a->ib_port == ibport &&
-+	       !strncmp(a->ib_name, name, sizeof(a->ib_name));
-+}
-+
-+/* Add an RDMA device entry to the PNET table */
-+static int smc_pnet_add_ib(struct smc_pnetentry *pnetelem, char *name,
-+			   u8 ibport)
-+{
-+	struct smc_pnetentry *p;
-+	int rc = -EEXIST;
-+
-+	write_lock(&smc_pnettable.lock);
-+	list_for_each_entry(p, &smc_pnettable.pnetlist, list) {
-+		if (smc_pnet_same_ibname(p, name, ibport))
-+			goto out;
-+	}
-+	if (pnetelem->ib_name[0] == '\0') {
-+		strncpy(pnetelem->ib_name, name, sizeof(pnetelem->ib_name));
-+		pnetelem->ib_port = ibport;
-+		rc = 0;
-+	}
-+out:
-+	write_unlock(&smc_pnettable.lock);
-+	return rc;
-+}
-+
-+/* Remove an RDMA device entry from the PNET table */
-+static int smc_pnet_del_ib(struct smc_pnetentry *pnetelem, char *name,
-+			   u8 ibport)
-+{
-+	int rc = -ENOENT;
-+
-+	write_lock(&smc_pnettable.lock);
-+	if (smc_pnet_same_ibname(pnetelem, name, ibport)) {
-+		rc = 0;
-+		pnetelem->ib_name[0] = '\0';
-+		pnetelem->ib_port = 0;
-+	}
-+	write_unlock(&smc_pnettable.lock);
-+	return rc;
-+}
-+
-+/* Create an RDMA device entry. Optional port number delimited by blank
-+ * from name. Missing port number defaults to 1.
-+ */
-+static int smc_pnet_makeib(struct smc_pnetentry *pnetelem, bool add, char *name)
-+{
-+	unsigned int tmp_port = 1;
-+	char *portno;
 +	int rc;
 +
-+	name = skip_spaces(name);
-+	portno = strchr(name, ' ');
-+	if (portno) {		/* Port number specified */
-+		*portno = '\0';
-+		portno = skip_spaces(portno + 1);
-+		rc = kstrtouint(portno, 10, &tmp_port);
-+		if (rc || tmp_port > SMC_MAX_PORTS || !tmp_port) {
-+			rc = -EINVAL;
-+			goto out;
-+		}
-+	}
-+	rc = (add) ? smc_pnet_add_ib(pnetelem, name, (u8)tmp_port)
-+		   : smc_pnet_del_ib(pnetelem, name, (u8)tmp_port);
-+out:
-+	return rc;
-+}
-+
-+static ssize_t smc_pnetidfile_attr_store(struct kobject *kobj,
-+					 struct kobj_attribute *ka,
-+					 const char *buf, size_t len)
-+{
-+	char *text, *buf_copy;
-+	bool add = true;
-+	int rc;
-+
-+	/* Operate on a copy of the buffer, we might modify the string */
-+	buf_copy = kstrdup(buf, GFP_KERNEL);
-+	if (!buf_copy)
-+		return -ENOMEM;
-+	text = strim(buf_copy);
-+	switch (*text) {
-+	case '-':
-+		add = false;
-+		/* Fall through intended */
-+	case '+':
-+		++text;
-+		break;
-+	}
-+	text = skip_spaces(text);
-+	rc = -EINVAL;
-+	if (!strncmp(text, "ib ", 3))
-+		rc = smc_pnet_makeib(to_smcpnetentry(ka), add, text + 3);
-+	else if (!strncmp(text, "eth ", 4))
-+		rc = smc_pnet_makeeth(to_smcpnetentry(ka), add, text + 4);
-+	kfree(buf_copy);
-+	return rc ?: len;
-+}
-+
-+/* List all entries of a PNETID. List ethernet entries first followed by
-+ * RDMA device entries. Output limited to PAGE_SIZE bytes.
-+ */
-+static ssize_t smc_pnetidfile_attr_show(struct kobject *kobj,
-+					struct kobj_attribute *ka,
-+					char *buf)
-+{
-+	struct smc_pnetentry *pnetelem = to_smcpnetentry(ka);
-+	size_t pos = 0;
-+
-+	read_lock(&smc_pnettable.lock);
-+	if (strlen(pnetelem->if_name)) {
-+		snprintf(buf, PAGE_SIZE, "eth %s\n", pnetelem->if_name);
-+		pos = strlen(buf);
-+	}
-+	if (strlen(pnetelem->ib_name))
-+		snprintf(buf + pos, PAGE_SIZE - pos, "ib %s %u\n",
-+			 pnetelem->ib_name, pnetelem->ib_port);
-+	read_unlock(&smc_pnettable.lock);
-+	return strlen(buf);
-+}
-+
-+/* Delete a PNETID attribute file in /sys/kernel/smc/pnetids.
-+ * Remove the sysfs file first and then remove the node from the list and
-+ * release memory.
-+ */
-+static int smc_pnetid_del_file(char *pnetid)
-+{
-+	struct smc_pnetentry *e, *tmp_e, *found = NULL;
-+
-+	write_lock(&smc_pnettable.lock);
-+	list_for_each_entry_safe(e, tmp_e, &smc_pnettable.pnetlist, list) {
-+		if (!strncmp(e->pnet_name, pnetid, sizeof(e->pnet_name))) {
-+			list_del(&e->list);
-+			found = e;
-+			break;
-+		}
-+	}
-+	write_unlock(&smc_pnettable.lock);
-+	if (!found)
-+		return -ENOENT;
-+	sysfs_remove_file(&smc_pnettable.pnetids_kobj, &found->attr.attr);
-+	kfree(found);
++	rc = smc_wr_tx_get_free_slot(link, smc_llc_tx_handler, wr_buf, pend);
++	if (rc < 0)
++		return rc;
++	BUILD_BUG_ON_MSG(
++		sizeof(union smc_llc_msg) > SMC_WR_BUF_SIZE,
++		"must increase SMC_WR_BUF_SIZE to at least sizeof(struct smc_llc_msg)");
++	BUILD_BUG_ON_MSG(
++		sizeof(union smc_llc_msg) != SMC_WR_TX_SIZE,
++		"must adapt SMC_WR_TX_SIZE to sizeof(struct smc_llc_msg); if not all smc_wr upper layer protocols use the same message size any more, must start to set link->wr_tx_sges[i].length on each individual smc_wr_tx_send()");
++	BUILD_BUG_ON_MSG(
++		sizeof(struct smc_llc_tx_pend) > SMC_WR_TX_PEND_PRIV_SIZE,
++		"must increase SMC_WR_TX_PEND_PRIV_SIZE to at least sizeof(struct smc_llc_tx_pend)");
 +	return 0;
 +}
 +
-+/* Append a PNETID to the end of the list if not already on this list. */
-+static int smc_pnet_append_pnetentry(struct smc_pnetentry *new)
++/* high-level API to send LLC confirm link */
++int smc_llc_send_confirm_link(struct smc_link *link, u8 mac[],
++			      union ib_gid *gid,
++			      enum smc_llc_reqresp reqresp)
 +{
-+	struct smc_pnetentry *pnetelem;
-+	int rc = 0;
-+
-+	write_lock(&smc_pnettable.lock);
-+	list_for_each_entry(pnetelem, &smc_pnettable.pnetlist, list) {
-+		if (!strncmp(pnetelem->pnet_name, new->pnet_name,
-+			     sizeof(new->pnet_name))) {
-+			rc = -EEXIST;
-+			goto found;
-+		}
-+	}
-+	list_add_tail(&new->list, &smc_pnettable.pnetlist);
-+found:
-+	write_unlock(&smc_pnettable.lock);
-+	return rc;
-+}
-+
-+/* Add a PNETID attribute file in /sys/kernel/smc/pnetids. */
-+static int smc_pnetid_add_file(char *pnetname)
-+{
-+	struct smc_pnetentry *pnetelem = kzalloc(sizeof(*pnetelem), GFP_KERNEL);
-+	struct kobj_attribute *ka;
++	struct smc_link_group *lgr = container_of(link, struct smc_link_group,
++						  lnk[SMC_SINGLE_LINK]);
++	struct smc_llc_msg_confirm_link *confllc;
++	struct smc_wr_tx_pend_priv *pend;
++	struct smc_wr_buf *wr_buf;
 +	int rc;
 +
-+	if (!pnetelem)
-+		return -ENOMEM;
-+	ka = &pnetelem->attr;
-+	sysfs_attr_init(&ka->attr);
-+	strncpy(pnetelem->pnet_name, pnetname, sizeof(pnetelem->pnet_name));
-+	ka->attr.name = pnetelem->pnet_name;
-+	ka->attr.mode = S_IWUSR | S_IRUGO;
-+	ka->show = smc_pnetidfile_attr_show;
-+	ka->store = smc_pnetidfile_attr_store;
-+	rc = smc_pnet_append_pnetentry(pnetelem);
++	rc = smc_llc_add_pending_send(link, &wr_buf, &pend);
 +	if (rc)
-+		goto outfree;
-+	rc = sysfs_create_file_ns(&smc_pnettable.pnetids_kobj, &ka->attr, NULL);
-+	if (!rc)
 +		return rc;
-+	/* sysfs failure, remove node from list */
-+	write_lock(&smc_pnettable.lock);
-+	list_del(&pnetelem->list);
-+	write_unlock(&smc_pnettable.lock);
-+outfree:
-+	kfree(pnetelem);
++	confllc = (struct smc_llc_msg_confirm_link *)wr_buf;
++	memset(confllc, 0, sizeof(*confllc));
++	confllc->hd.common.type = SMC_LLC_CONFIRM_LINK;
++	confllc->hd.length = sizeof(struct smc_llc_msg_confirm_link);
++	if (reqresp == SMC_LLC_RESP)
++		confllc->hd.flags |= SMC_LLC_FLAG_RESP;
++	memcpy(confllc->sender_mac, mac, ETH_ALEN);
++	memcpy(&confllc->sender_gid, gid, SMC_GID_SIZE);
++	hton24(confllc->sender_qp_num, link->roce_qp->qp_num);
++	/* confllc->link_num = SMC_SINGLE_LINK; already done by memset above */
++	confllc->link_uid = htonl(lgr->id);
++	confllc->max_links = SMC_LINKS_PER_LGR_MAX;
++	/* send llc message */
++	rc = smc_wr_tx_send(link, pend);
 +	return rc;
 +}
 +
-+/* The limit for PNETID is 16 characters.
-+ * Valid characters should be (single-byte character set) a-z, A-Z, 0-9.
-+ * Lower case letters are converted to upper case.
-+ * Interior blanks should not be used.
-+ */
-+static bool smc_pnetid_valid(const char *buf, char *pnetid)
-+{
-+	char *bf = skip_spaces(buf);
-+	size_t len = strlen(bf);
-+	char *end = bf + len;
++/********************************* receive ***********************************/
 +
-+	if (!len)
-+		return false;
-+	while (--end >= bf && isspace(*end))
-+		;
-+	if (end - bf >= SMC_MAX_PNET_ID_LEN)
-+		return false;
-+	while (bf <= end) {
-+		if (!isalnum(*bf))
-+			return false;
-+		*pnetid++ = islower(*bf) ? toupper(*bf) : *bf;
-+		bf++;
++static void smc_llc_rx_confirm_link(struct smc_link *link,
++				    struct smc_llc_msg_confirm_link *llc)
++{
++	struct smc_link_group *lgr;
++
++	lgr = container_of(link, struct smc_link_group, lnk[SMC_SINGLE_LINK]);
++	if (llc->hd.flags & SMC_LLC_FLAG_RESP) {
++		if (lgr->role == SMC_SERV)
++			complete(&link->llc_confirm_resp);
++	} else {
++		if (lgr->role == SMC_CLNT) {
++			link->link_id = llc->link_num;
++			complete(&link->llc_confirm);
++		}
 +	}
-+	*pnetid = '\0';
-+	return true;
 +}
 +
-+static ssize_t smc_pnetid_store(bool add, const char *buf)
++static void smc_llc_rx_handler(struct ib_wc *wc, void *buf)
 +{
-+	char pnetid[SMC_MAX_PNET_ID_LEN + 1];
++	struct smc_link *link = (struct smc_link *)wc->qp->qp_context;
++	union smc_llc_msg *llc = buf;
 +
-+	if (!smc_pnetid_valid(buf, pnetid))
-+		return -EINVAL;
-+	return add ? smc_pnetid_add_file(pnetid) : smc_pnetid_del_file(pnetid);
++	if (wc->byte_len < sizeof(*llc))
++		return; /* short message */
++	if (llc->raw.hdr.length != sizeof(*llc))
++		return; /* invalid message */
++	if (llc->raw.hdr.common.type == SMC_LLC_CONFIRM_LINK)
++		smc_llc_rx_confirm_link(link, &llc->confirm_link);
 +}
 +
-+#define SMC_ATTR_WO(_name)	\
-+	struct kobj_attribute smc_attr_##_name = __ATTR(_name, S_IWUSR, NULL, \
-+							smc_##_name##_store)
++/***************************** init, exit, misc ******************************/
 +
-+static ssize_t smc_pnetid_del_store(struct kobject *kobj,
-+				    struct kobj_attribute *attr,
-+				    const char *buf, size_t count)
-+{
-+	ssize_t rc = smc_pnetid_store(false, buf);
-+
-+	return rc ?: count;
-+}
-+static SMC_ATTR_WO(pnetid_del);
-+
-+static ssize_t smc_pnetid_add_store(struct kobject *kobj,
-+				    struct kobj_attribute *attr,
-+				    const char *buf, size_t count)
-+{
-+	ssize_t rc = smc_pnetid_store(true, buf);
-+
-+	return rc ?: count;
-+}
-+static SMC_ATTR_WO(pnetid_add);
-+
-+/* Delete all PNETIDs. Any string with leading '-' will do.
-+ * smc_pnetid_del_file() can not be called directly, because function
-+ * sysfs_remove_file() can not be called under lock. Get the first entry
-+ * of the list and remove it. smc_pnetid_del_file() can handle the case
-+ * when a PNETID already has been deleted in the mean time.
-+ */
-+static ssize_t smc_flush_store(struct kobject *kobj,
-+			       struct kobj_attribute *attr,
-+			       const char *buf, size_t count)
-+{
-+	struct smc_pnettable *ptr = &smc_pnettable;
-+	char pnetname[SMC_MAX_PNET_ID_LEN + 1];
-+	struct smc_pnetentry *pnetelem;
-+	char *bf = skip_spaces(buf);
-+
-+	if (*bf != '-')
-+		return -EINVAL;
-+	do {
-+		read_lock(&ptr->lock);
-+		pnetelem = list_first_entry_or_null(&ptr->pnetlist,
-+						    struct smc_pnetentry, list);
-+		if (pnetelem)
-+			strncpy(pnetname, pnetelem->pnet_name,
-+				sizeof(pnetname));
-+		read_unlock(&ptr->lock);
-+		if (pnetelem)
-+			smc_pnetid_del_file(pnetname);
-+	} while (pnetelem);
-+	return count;
-+}
-+static SMC_ATTR_WO(flush);
-+
-+static struct attribute *smc_pnetid_attrs[] = { /* Default SMC attributes */
-+	&smc_attr_pnetid_add.attr,
-+	&smc_attr_pnetid_del.attr,
-+	&smc_attr_flush.attr,
-+	NULL
++static struct smc_wr_rx_handler smc_llc_rx_handlers[] = {
++	{
++		.handler	= smc_llc_rx_handler,
++		.type		= SMC_LLC_CONFIRM_LINK
++	},
++	{
++		.handler	= NULL,
++	}
 +};
 +
-+static struct attribute_group smc_attr_group = {
-+	.attrs = smc_pnetid_attrs
-+};
-+
-+/* Remove directory tree created under /sys/kernel/smc/. */
-+void smc_pnet_exit(void)
++int __init smc_llc_init(void)
 +{
-+	kobject_put(&smc_pnettable.pnetids_kobj);
-+	sysfs_remove_group(&smc_pnettable.kset->kobj, &smc_attr_group);
-+	kset_unregister(smc_pnettable.kset);
-+}
++	struct smc_wr_rx_handler *handler;
++	int rc = 0;
 +
-+/* Create directory tree for SMC under /sys/kernel/smc/. */
-+int __init smc_pnet_init(void)
-+{
-+	int rc = -ENOMEM;
-+
-+	smc_pnettable.kset = kset_create_and_add("smc", NULL, kernel_kobj);
-+	if (!smc_pnettable.kset)
-+		goto bad0;
-+	rc = sysfs_create_group(&smc_pnettable.kset->kobj, &smc_attr_group);
-+	if (rc)
-+		goto bad1;
-+	rc = kobject_init_and_add(&smc_pnettable.pnetids_kobj, &smc_pnet_ktype,
-+				  &smc_pnettable.kset->kobj, "pnetids");
-+	if (rc)
-+		goto bad2;
-+	return rc;
-+
-+bad2:
-+	sysfs_remove_group(&smc_pnettable.kset->kobj, &smc_attr_group);
-+bad1:
-+	kset_unregister(smc_pnettable.kset);
-+bad0:
++	for (handler = smc_llc_rx_handlers; handler->handler; handler++) {
++		INIT_HLIST_NODE(&handler->list);
++		rc = smc_wr_rx_register_handler(handler);
++		if (rc)
++			break;
++	}
 +	return rc;
 +}
-diff --git a/net/smc/smc_pnet.h b/net/smc/smc_pnet.h
+diff --git a/net/smc/smc_llc.h b/net/smc/smc_llc.h
 new file mode 100644
-index 0000000..34f85f6
+index 0000000..932d96d
 --- /dev/null
-+++ b/net/smc/smc_pnet.h
-@@ -0,0 +1,19 @@
++++ b/net/smc/smc_llc.h
+@@ -0,0 +1,63 @@
 +/*
-+ * Shared Memory Communications over RDMA (SMC-R) and RoCE
++ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
 + *
-+ *  PNET table queries
++ *  Definitions for LLC (link layer control) message handling
 + *
 + *  Copyright IBM Corp. 2016
 + *
-+ *  Author(s):  Thomas Richter <tmricht@linux.vnet.ibm.com>
++ *  Author(s):  Klaus Wacker <Klaus.Wacker@de.ibm.com>
++ *              Ursula Braun <ursula.braun@de.ibm.com>
 + */
 +
-+#ifndef _SMC_PNET_H
-+#define _SMC_PNET_H
++#ifndef SMC_LLC_H
++#define SMC_LLC_H
 +
-+#define SMC_MAX_PORTS		2	/* Max # of ports */
++#include "smc_wr.h"
 +
-+int smc_pnet_init(void) __init;
-+void smc_pnet_exit(void);
++#define SMC_LLC_FLAG_RESP		0x80
 +
-+#endif
++#define SMC_LLC_WAIT_FIRST_TIME		(5 * HZ)
++
++enum smc_llc_reqresp {
++	SMC_LLC_REQ,
++	SMC_LLC_RESP
++};
++
++enum smc_llc_msg_type {
++	SMC_LLC_CONFIRM_LINK		= 0x01,
++};
++
++#define SMC_LLC_DATA_LEN		40
++
++struct smc_llc_hdr {
++	struct smc_wr_rx_hdr common;
++	u8 length;	/* 44 */
++	u8 reserved;
++	u8 flags;
++} __packed;
++
++struct smc_llc_msg_confirm_link {	/* type 0x01 */
++	struct smc_llc_hdr hd;
++	u8 sender_mac[ETH_ALEN];
++	union ib_gid sender_gid;
++	u8 sender_qp_num[3];
++	u8 link_num;
++	__be32 link_uid;
++	u8 max_links;
++	u8 reserved[9];
++} __packed;
++
++union smc_llc_msg {
++	struct smc_llc_msg_confirm_link confirm_link;
++	struct {
++		struct smc_llc_hdr hdr;
++		u8 data[SMC_LLC_DATA_LEN];
++	} __packed raw;
++} __packed;
++
++/* transmit */
++int smc_llc_send_confirm_link(struct smc_link *, u8 *, union ib_gid *,
++			      enum smc_llc_reqresp);
++int smc_llc_init(void) __init;
++
++#endif /* SMC_LLC_H */
 -- 
 2.6.6
