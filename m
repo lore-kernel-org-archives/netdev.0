@@ -1,106 +1,109 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] net: dsa: b53: constify xfrm_replay structures
-Date: Tue,  9 Aug 2016 18:58:09 +0200
-Message-ID: <1470761889-26808-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+Subject: Re: [PATCH] dm9000: Fix irq trigger type setup on non-dt platforms
+Date: Tue, 09 Aug 2016 19:20:44 +0200
+Message-ID: <878tw5x3ir.fsf@belgarion.home>
+References: <1470758408-14248-1-git-send-email-s.nawrocki@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linus.walleij@linaro.org, tglx@linutronix.de,
+	b.zolnierkie@samsung.com, linux-kernel@vger.kernel.org,
+	linux-samsung-soc@vger.kernel.org
+To: Sylwester Nawrocki <s.nawrocki@samsung.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470758408-14248-1-git-send-email-s.nawrocki@samsung.com>
+	(Sylwester Nawrocki's message of "Tue, 09 Aug 2016 18:00:08 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The xfrm_replay structures are never modified, so declare them as const.
+Sylwester Nawrocki <s.nawrocki@samsung.com> writes:
 
-Done with the help of Coccinelle.
+> Commit b5a099c67a1c36b "net: ethernet: davicom: fix devicetree irq
+> resource" causes an interrupt storm after the ethernet interface
+> is activated on S3C24XX platform (ARM non-dt), due to the interrupt
+> trigger type not being set properly.
+>
+> It seems, after adding parsing of IRQ flags in commit 7085a7401ba54e92b
+> "drivers: platform: parse IRQ flags from resources", there is no path
+> for non-dt platforms where irq_set_type callback could be invoked when
+> we don't pass the trigger type flags to the request_irq() call.
+>
+> In case of a board where the regression is seen the interrupt trigger
+> type flags are passed through a platform device's resource and it is
+> not currently handled properly without passing the irq trigger type
+> flags to the request_irq() call.  In case of OF an of_irq_get() call
+> within platform_get_irq() function seems to be ensuring required irq_chip
+> setup, but there is no equivalent code for non OF/ACPI platforms.
+>
+> This patch mostly restores irq trigger type setting code which has been
+> removed in commit ("net: ethernet: davicom: fix devicetree irq resource").
+>
+> Fixes: b5a099c67a1c36b913 ("net: ethernet: davicom: fix devicetree irq resource")
+>
+> Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+> ---
+>
+> Perhaps instead the core could be configuring the irqchip automatically as it
+> is done for OF/ACPI cases. I had doubts though if trying to make such changes
+> for a bug fix patch was the right thing to do.
+Hi Sylvester,
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+You're right, and I came to the same conclusion a bit earlier, in [1], but I
+didn't notice my FAI didn't actually send the mail. Your analysis of the core in
+non-OF/ACPI case is the reason I didn't post a patch for dm9000 ... I was
+overconfident in finding a reason in irq core code within a couple of days.
 
----
- drivers/net/dsa/b53/b53_common.c |    3 ++-
- drivers/net/dsa/b53/b53_mdio.c   |    2 +-
- drivers/net/dsa/b53/b53_mmap.c   |    2 +-
- drivers/net/dsa/b53/b53_priv.h   |    3 ++-
- drivers/net/dsa/b53/b53_spi.c    |    2 +-
- drivers/net/dsa/b53/b53_srab.c   |    2 +-
- 6 files changed, 8 insertions(+), 6 deletions(-)
+Therefore:
+Acked-by: Robert Jarzmik <robert.jarzmik@free.fr>
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index bda37d3..38ee10d 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1681,7 +1681,8 @@ static int b53_switch_init(struct b53_device *dev)
- 	return 0;
- }
- 
--struct b53_device *b53_switch_alloc(struct device *base, struct b53_io_ops *ops,
-+struct b53_device *b53_switch_alloc(struct device *base,
-+				    const struct b53_io_ops *ops,
- 				    void *priv)
- {
- 	struct dsa_switch *ds;
-diff --git a/drivers/net/dsa/b53/b53_mdio.c b/drivers/net/dsa/b53/b53_mdio.c
-index aa87c3f..477a16b 100644
---- a/drivers/net/dsa/b53/b53_mdio.c
-+++ b/drivers/net/dsa/b53/b53_mdio.c
-@@ -267,7 +267,7 @@ static int b53_mdio_phy_write16(struct b53_device *dev, int addr, int reg,
- 	return mdiobus_write_nested(bus, addr, reg, value);
- }
- 
--static struct b53_io_ops b53_mdio_ops = {
-+static const struct b53_io_ops b53_mdio_ops = {
- 	.read8 = b53_mdio_read8,
- 	.read16 = b53_mdio_read16,
- 	.read32 = b53_mdio_read32,
-diff --git a/drivers/net/dsa/b53/b53_mmap.c b/drivers/net/dsa/b53/b53_mmap.c
-index 77ffc43..cc9e6bd 100644
---- a/drivers/net/dsa/b53/b53_mmap.c
-+++ b/drivers/net/dsa/b53/b53_mmap.c
-@@ -208,7 +208,7 @@ static int b53_mmap_write64(struct b53_device *dev, u8 page, u8 reg,
- 	return 0;
- }
- 
--static struct b53_io_ops b53_mmap_ops = {
-+static const struct b53_io_ops b53_mmap_ops = {
- 	.read8 = b53_mmap_read8,
- 	.read16 = b53_mmap_read16,
- 	.read32 = b53_mmap_read32,
-diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index 835a744..d268493 100644
---- a/drivers/net/dsa/b53/b53_priv.h
-+++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -182,7 +182,8 @@ static inline int is_cpu_port(struct b53_device *dev, int port)
- 	return dev->cpu_port;
- }
- 
--struct b53_device *b53_switch_alloc(struct device *base, struct b53_io_ops *ops,
-+struct b53_device *b53_switch_alloc(struct device *base,
-+				    const struct b53_io_ops *ops,
- 				    void *priv);
- 
- int b53_switch_detect(struct b53_device *dev);
-diff --git a/drivers/net/dsa/b53/b53_spi.c b/drivers/net/dsa/b53/b53_spi.c
-index 2bda0b5..1c847a1 100644
---- a/drivers/net/dsa/b53/b53_spi.c
-+++ b/drivers/net/dsa/b53/b53_spi.c
-@@ -270,7 +270,7 @@ static int b53_spi_write64(struct b53_device *dev, u8 page, u8 reg, u64 value)
- 	return spi_write(spi, txbuf, sizeof(txbuf));
- }
- 
--static struct b53_io_ops b53_spi_ops = {
-+static const struct b53_io_ops b53_spi_ops = {
- 	.read8 = b53_spi_read8,
- 	.read16 = b53_spi_read16,
- 	.read32 = b53_spi_read32,
-diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
-index 3e2d4a5..8a62b6a 100644
---- a/drivers/net/dsa/b53/b53_srab.c
-+++ b/drivers/net/dsa/b53/b53_srab.c
-@@ -344,7 +344,7 @@ err:
- 	return ret;
- }
- 
--static struct b53_io_ops b53_srab_ops = {
-+static const struct b53_io_ops b53_srab_ops = {
- 	.read8 = b53_srab_read8,
- 	.read16 = b53_srab_read16,
- 	.read32 = b53_srab_read32,
+And I can make a test for you on my cm-x300 board, even if your patch is very
+alike the draft I had in my internal tree since then.
+
+Cheers.
+
+--
+Robert
+
+[1] Non-delivered mail, shame on me
+From: Robert Jarzmik <robert.jarzmik@free.fr>
+To: Linus Walleij <linus.walleij@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org "David S. Miller" <davem@davemloft.net>
+Subject: platform_get_irq and trigger types
+X-URL: http://belgarath.falguerolles.org/
+Date: Sat, 21 May 2016 11:16:09 +0200
+Message-ID: <87y473hiue.fsf@belgarion.home>
+User-Agent: Gnus/5.130008 (Ma Gnus v0.8) Emacs/24.4 (gnu/linux)
+MIME-Version: 1.0
+Content-Type: text/plain
+
+Hi Linus,
+
+I was bitten again by the rising/falling flags of interrupt flags.
+
+The commit which triggered this "regression" (the wording regression is rather
+incorrect so please don't take this as an incentive to revert) is :
+   b5a099c67a1c ("net: ethernet: davicom: fix devicetree irq resource")
+
+The exact context is that for platform type builds, the irq rising edge flag is
+not activated in the irqchip, ie. in the gpio-pxa.c pxa_gpio_irq_type() is not
+called. The board used for this test is arch/arm/mach-pxa/cm-x300.c (line 200).
+
+Now I've started to add printks here and there, and from a first glance :
+ - platform_get_irq() is correctly calling irqd_set_trigger_type()
+ - but upon the request_irq() in drivers/net/ethernet/davicom/dm9000.c:1319,
+   these flags are not taken into account
+   => this is where commit b5a099c67a1c comes into play
+   => re-adding irq_get_trigger_type(dev->irq) to the passed flags does solve the
+      issue
+
+I tried to ponder whether my commit was wrong, or if it's the gpio-pxa.c which
+is wrong, or something else. My inner feeling is that dm9000.c code is now
+correct, and that something else is happening that I don't understand.
+
+I'm bringing this to your attention if you have an idea before I begin to dig
+deeper, add printk() and go down to the problem.
+
+Cheers.
+
+-- 
+Robert
