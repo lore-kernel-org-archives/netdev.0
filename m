@@ -1,55 +1,42 @@
-From: Raanan Avargil <raanan.avargil@intel.com>
-Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on
- some I218 controllers
-Date: Tue, 9 Aug 2016 18:10:53 +0300
-Message-ID: <f9d596bd-226b-0faf-bab1-858823f17ee4@intel.com>
-References: <579F407E.9090602@compulab.co.il>
- <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
- <57A6F7A9.1030401@compulab.co.il>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [PATCH] drivers: net: cpsw: fix kmemleak false-positive reports
+ for sk buffers
+Date: Tue, 9 Aug 2016 16:19:37 +0100
+Message-ID: <20160809151937.GA15447@e104818-lin.cambridge.arm.com>
+References: <20160809120944.23185-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format="flowed"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Denis Turischev <denis.turischev@compulab.co.il>,
-	intel-wired-lan@lists.osuosl.org,
-	"Brown, Aaron F" <aaron.f.brown@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+	linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57A6F7A9.1030401@compulab.co.il>
+Content-Disposition: inline
+In-Reply-To: <20160809120944.23185-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 09, 2016 at 03:09:44PM +0300, Grygorii Strashko wrote:
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 0805855..0456e0e 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -732,6 +732,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
+>  		netif_receive_skb(skb);
+>  		ndev->stats.rx_bytes += len;
+>  		ndev->stats.rx_packets++;
+> +		kmemleak_not_leak(new_skb);
+>  	} else {
+>  		ndev->stats.rx_dropped++;
+>  		new_skb = skb;
+> @@ -1323,6 +1324,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+>  				kfree_skb(skb);
+>  				goto err_cleanup;
+>  			}
+> +			kmemleak_not_leak(skb);
 
+Nitpick: I would add a short comment above the kmemleak_not_leak() calls
+on why there is a false positive. Otherwise:
 
-On 8/7/2016 11:56, Denis Turischev wrote:
-> Hi Raanan,
->
-> On 08/04/2016 07:18 PM, Raanan Avargil wrote:
->> It is hard to determine what is exactly the problem here and what causes the -3 error, but this is not the place to perform hw reset and retry to init the phy.
-> I agree that may be this is not the correct place for hw reset, can you advice about another solution?
->
-> It works, not only for me, for example it helps here:
-> http://www.linux.org.ru/forum/linux-hardware/10268216
->
-> Another fact that Windows drivers work fine with the same hw.
->
-> Denis
->
-
-Hi Denis,
-
-More suitable place to retry init the device would be in probe function.
-However, we haven't seen initialization issues like this on i218.
-
-Adding Aaron.
-
-@Aaron - have you seen initialization errors on i218 devices?
-
-Raanan
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
