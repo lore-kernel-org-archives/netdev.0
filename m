@@ -1,7 +1,9 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 0/6] rxrpc: Miscellaneous fixes
-Date: Tue, 09 Aug 2016 17:33:12 +0100
-Message-ID: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net 1/6] rxrpc: fix uninitialized pointer dereference in
+ debug code
+Date: Tue, 09 Aug 2016 17:33:19 +0100
+Message-ID: <147076039919.13232.12482209450582110412.stgit@warthog.procyon.org.uk>
+References: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,49 +11,42 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
 	linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Arnd Bergmann <arnd@arndb.de>
 
-Hi Dave,
+A newly added bugfix caused an uninitialized variable to be
+used for printing debug output. This is harmless as long
+as the debug setting is disabled, but otherwise leads to an
+immediate crash.
 
-Here are a bunch of miscellaneous fixes to AF_RXRPC:
+gcc warns about this when -Wmaybe-uninitialized is enabled:
 
- (*) Fix an uninitialised pointer.
+net/rxrpc/call_object.c: In function 'rxrpc_release_call':
+net/rxrpc/call_object.c:496:163: error: 'sp' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
- (*) Fix error handling when we fail to connect a call.
+The initialization was removed but one of the users remains.
+This adds back the initialization.
 
- (*) Fix a NULL pointer dereference.
-
- (*) Fix two occasions where a packet is accessed again after being queued
-     for someone else to deal with.
-
- (*) Fix a missing skb free.
-
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 372ee16386bb ("rxrpc: Fix races between skb free, ACK generation and replying")
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-The patches can be found here also:
 
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-fixes
+ net/rxrpc/call_object.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-fixes-20160809
-
-David
----
-Arnd Bergmann (1):
-      rxrpc: fix uninitialized pointer dereference in debug code
-
-David Howells (5):
-      rxrpc: Need to flag call as being released on connect failure
-      rxrpc: Don't access connection from call if pointer is NULL
-      rxrpc: Once packet posted in data_ready, don't retry posting
-      rxrpc: Fix a use-after-push in data_ready handler
-      rxrpc: Free packets discarded in data_ready
-
-
- net/rxrpc/call_event.c  |    4 ++++
- net/rxrpc/call_object.c |    3 +++
- net/rxrpc/input.c       |   27 ++++++++++++++++-----------
- 3 files changed, 23 insertions(+), 11 deletions(-)
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index c47f14fc5e88..e8c953c48cb8 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -493,6 +493,7 @@ void rxrpc_release_call(struct rxrpc_call *call)
+ 		       (skb = skb_dequeue(&call->rx_oos_queue))) {
+ 			spin_unlock_bh(&call->lock);
+ 
++			sp = rxrpc_skb(skb);
+ 			_debug("- zap %s %%%u #%u",
+ 			       rxrpc_pkts[sp->hdr.type],
+ 			       sp->hdr.serial, sp->hdr.seq);
