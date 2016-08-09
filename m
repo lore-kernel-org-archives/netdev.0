@@ -1,429 +1,75 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH v5 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
-Date: Tue, 9 Aug 2016 10:25:11 +0800
-Message-ID: <CA+6hz4pXpid-V5FTV4CNyTanbjwMMQVjU7r9dpPY==-OHMvDwg@mail.gmail.com>
-References: <1470703058-2641-1-git-send-email-fgao@ikuai8.com> <7a7dde9e-1a55-6057-829d-0d9e77336289@redfish-solutions.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
+Date: Tue, 9 Aug 2016 10:18:41 +0800
+Message-ID: <57A93D81.4030808@huawei.com>
+References: <20160808211530.GH22974@cork> <20160808212112.GI22974@cork>
+ <20160808214812.GJ22974@cork>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: fgao@48lvckh6395k16k5.yundunddos.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Andy Gospodarek <andy@greyhouse.net>, <netdev@vger.kernel.org>
+To: =?UTF-8?Q?J=c3=b6rn_Engel?= <joern@purestorage.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f193.google.com ([209.85.217.193]:36739 "EHLO
-	mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751949AbcHICZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 22:25:13 -0400
-Received: by mail-ua0-f193.google.com with SMTP id 74so9082193uau.3
-        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 19:25:13 -0700 (PDT)
-In-Reply-To: <7a7dde9e-1a55-6057-829d-0d9e77336289@redfish-solutions.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:15911 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752258AbcHICZa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Aug 2016 22:25:30 -0400
+In-Reply-To: <20160808214812.GJ22974@cork>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Oh, I think I really get you this time.
-Please see my inline comment.
+On 2016/8/9 5:48, Jörn Engel wrote:
+> Up until 00503b6f702e (part of 3.14-rc1), the bonding driver could be
+> used to enslave tun-interfaces.  00503b6f702e broke that behaviour,
+> afaics as an unintended side-effect.
+> 
 
-If they are right, I could send the v6 patch.....
+Hi Jorn:
 
-Best Regards
-Feng
+I don't understand your problem clearly, can you explain more about how the 00503b6f702e break tun-interfaces
+and we will try to fix it.
 
+and more, dev_set_mac_address will change the salver's mac address, some nic don't support to change the mac address and
+could not work as bond slave, so we need to check the return value, I don't think this patch has any effective improvement.
 
-On Tue, Aug 9, 2016 at 9:06 AM, Philip Prindeville
-<philipp_subx@redfish-solutions.com> wrote:
-> Inline...
->
->
->
-> On 08/08/2016 06:37 PM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
->>
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
->> must contain one. But current GRE RPS needs the GRE_VERSION must be
->> zero. So RPS does not work for PPTP traffic.
->>
->> In my test environment, there are four MIPS cores, and all traffic
->> are passed through by PPTP. As a result, only one core is 100% busy
->> while other three cores are very idle. After this patch, the usage
->> of four cores are balanced well.
->>
->> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> ---
->>   v5: 1) Make fix header of gre_full_hdr as uname struct;
->>       2) Create macro GRE_PPTP_KEY_MASK;
->>   v4: 1) Define struct gre_full_hdr, and use sizeof its member directly;
->>       2) Move version and routing check ahead;
->>       3) Only PPTP in GRE check the ack flag;
->>   v3: 1) Move struct pptp_gre_header defination into new file pptp.h
->>       2) Use sizeof GRE and PPTP type instead of literal value;
->>       3) Remove strict flag check for PPTP to robust;
->>       4) Consolidate the codes again;
->>   v2: Update according to Tom and Philp's advice.
->>       1) Consolidate the codes with GRE version 0 path;
->>       2) Use PPP_PROTOCOL to get ppp protol;
->>       3) Set the FLOW_DIS_ENCAPSULATION flag;
->>   v1: Intial Patch
->>
->>   drivers/net/ppp/pptp.c         |  36 +------------
->>   include/net/gre.h              |  13 ++++-
->>   include/net/pptp.h             |  40 +++++++++++++++
->>   include/uapi/linux/if_tunnel.h |   7 ++-
->>   net/core/flow_dissector.c      | 113
->> ++++++++++++++++++++++++++++-------------
->>   5 files changed, 138 insertions(+), 71 deletions(-)
->>   create mode 100644 include/net/pptp.h
->>
->> diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
->> index ae0905e..3e68dbc 100644
->> --- a/drivers/net/ppp/pptp.c
->> +++ b/drivers/net/ppp/pptp.c
->> @@ -37,6 +37,7 @@
->>   #include <net/icmp.h>
->>   #include <net/route.h>
->>   #include <net/gre.h>
->> +#include <net/pptp.h>
->>     #include <linux/uaccess.h>
->>   @@ -53,41 +54,6 @@ static struct proto pptp_sk_proto __read_mostly;
->>   static const struct ppp_channel_ops pptp_chan_ops;
->>   static const struct proto_ops pptp_ops;
->>   -#define PPP_LCP_ECHOREQ 0x09
->> -#define PPP_LCP_ECHOREP 0x0A
->> -#define SC_RCV_BITS    (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
->> -
->> -#define MISSING_WINDOW 20
->> -#define WRAPPED(curseq, lastseq)\
->> -       ((((curseq) & 0xffffff00) == 0) &&\
->> -       (((lastseq) & 0xffffff00) == 0xffffff00))
->> -
->> -#define PPTP_GRE_PROTO  0x880B
->> -#define PPTP_GRE_VER    0x1
->> -
->> -#define PPTP_GRE_FLAG_C        0x80
->> -#define PPTP_GRE_FLAG_R        0x40
->> -#define PPTP_GRE_FLAG_K        0x20
->> -#define PPTP_GRE_FLAG_S        0x10
->> -#define PPTP_GRE_FLAG_A        0x80
->> -
->> -#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
->> -#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
->> -#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
->> -#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
->> -#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
->> -
->> -#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
->> -struct pptp_gre_header {
->> -       u8  flags;
->> -       u8  ver;
->> -       __be16 protocol;
->> -       __be16 payload_len;
->> -       __be16 call_id;
->> -       __be32 seq;
->> -       __be32 ack;
->> -} __packed;
->> -
->>   static struct pppox_sock *lookup_chan(u16 call_id, __be32 s_addr)
->>   {
->>         struct pppox_sock *sock;
->> diff --git a/include/net/gre.h b/include/net/gre.h
->> index 7a54a31..6347f16 100644
->> --- a/include/net/gre.h
->> +++ b/include/net/gre.h
->> @@ -7,9 +7,20 @@
->>   struct gre_base_hdr {
->>         __be16 flags;
->>         __be16 protocol;
->> -};
->> +} __packed;
->>   #define GRE_HEADER_SECTION 4
->>   +struct gre_full_hdr {
->> +       struct {
->> +               __be16 flags;
->> +               __be16 protocols;
->> +       };
->
->
-> No, you're misunderstanding what I was saying.  I was suggesting using
-> "struct gre_base_hdr" here.
->
-> Anyway, we can skip it.  Was trying to reflect that the gre_full_hdr was
-> derived from the gre_base_hdr.
+Thanks.
+Ding
 
-struct gre_full_hdr {
-       struct gre_base_hdr {
-            __be16 flags;
-            __be16 protocols;
-       } fixed_header;
-       .....
-};
-I think you mean it is this.
-Sorry about misunderstanding about that always :((
-
-And I have got the advantage now, thanks.
-
->
->
->
->> +       __be16 csum;
->> +       __be16 reserved1;
->> +       __be32 key;
->> +       __be32 seq;
->> +} __packed;
->> +
->>   #define GREPROTO_CISCO                0
->>   #define GREPROTO_PPTP         1
->>   #define GREPROTO_MAX          2
->> diff --git a/include/net/pptp.h b/include/net/pptp.h
->> new file mode 100644
->> index 0000000..301d3e2
->> --- /dev/null
->> +++ b/include/net/pptp.h
->> @@ -0,0 +1,40 @@
->> +#ifndef _NET_PPTP_H
->> +#define _NET_PPTP_H
->> +
->> +#define PPP_LCP_ECHOREQ 0x09
->> +#define PPP_LCP_ECHOREP 0x0A
->> +#define SC_RCV_BITS     (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
->> +
->> +#define MISSING_WINDOW 20
->> +#define WRAPPED(curseq, lastseq)\
->> +       ((((curseq) & 0xffffff00) == 0) &&\
->> +       (((lastseq) & 0xffffff00) == 0xffffff00))
->> +
->> +#define PPTP_GRE_PROTO  0x880B
->> +#define PPTP_GRE_VER    0x1
->> +
->> +#define PPTP_GRE_FLAG_C 0x80
->> +#define PPTP_GRE_FLAG_R 0x40
->> +#define PPTP_GRE_FLAG_K 0x20
->> +#define PPTP_GRE_FLAG_S 0x10
->> +#define PPTP_GRE_FLAG_A 0x80
->> +
->> +#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
->> +#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
->> +#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
->> +#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
->> +#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
->> +
->> +#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
->> +struct pptp_gre_header {
->> +       u8  flags;
->> +       u8  ver;
->> +       __be16 protocol;
->> +       __be16 payload_len;
->> +       __be16 call_id;
->> +       __be32 seq;
->> +       __be32 ack;
->> +} __packed;
->> +
->> +
->> +#endif
->> diff --git a/include/uapi/linux/if_tunnel.h
->> b/include/uapi/linux/if_tunnel.h
->> index 1046f55..0c11918 100644
->> --- a/include/uapi/linux/if_tunnel.h
->> +++ b/include/uapi/linux/if_tunnel.h
->> @@ -24,9 +24,14 @@
->>   #define GRE_SEQ               __cpu_to_be16(0x1000)
->>   #define GRE_STRICT    __cpu_to_be16(0x0800)
->>   #define GRE_REC               __cpu_to_be16(0x0700)
->> -#define GRE_FLAGS      __cpu_to_be16(0x00F8)
->> +#define GRE_ACK                __cpu_to_be16(0x0080)
->> +#define GRE_FLAGS      __cpu_to_be16(0x0078)
->>   #define GRE_VERSION   __cpu_to_be16(0x0007)
->>   +#define GRE_VERSION_1        __cpu_to_be16(0x0001)
->> +#define GRE_PROTO_PPP  __cpu_to_be16(0x880b)
->> +#define GRE_PPTP_KEY_MASK      htonl(0xffff)
->
->
-> Any reason to not use __cpu_to_be32() or __constant_htonl() here?
-
-Because I met that the checkpatch.pl reports warning about "__constant_htonl()".
-But I should use __cpu_to_be32 instead of htonl indeed.
-
->
-> -Philip
->
->
->
->> +
->>   struct ip_tunnel_parm {
->>         char                    name[IFNAMSIZ];
->>         int                     link;
->> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->> index 61ad43f..91028ae 100644
->> --- a/net/core/flow_dissector.c
->> +++ b/net/core/flow_dissector.c
->> @@ -6,6 +6,8 @@
->>   #include <linux/if_vlan.h>
->>   #include <net/ip.h>
->>   #include <net/ipv6.h>
->> +#include <net/gre.h>
->> +#include <net/pptp.h>
->>   #include <linux/igmp.h>
->>   #include <linux/icmp.h>
->>   #include <linux/sctp.h>
->> @@ -338,32 +340,42 @@ mpls:
->>   ip_proto_again:
->>         switch (ip_proto) {
->>         case IPPROTO_GRE: {
->> -               struct gre_hdr {
->> -                       __be16 flags;
->> -                       __be16 proto;
->> -               } *hdr, _hdr;
->> +               struct gre_base_hdr *hdr, _hdr;
->> +               u16 gre_ver;
->> +               int offset = 0;
->>                 hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data,
->> hlen, &_hdr);
->>                 if (!hdr)
->>                         goto out_bad;
->> -               /*
->> -                * Only look inside GRE if version zero and no
->> -                * routing
->> -                */
->> -               if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
->> +
->> +               /* Only look inside GRE without routing */
->> +               if (hdr->flags & GRE_ROUTING)
->>                         break;
->>   -             proto = hdr->proto;
->> -               nhoff += 4;
->> +               /* Only look inside GRE for version 0 and 1 */
->> +               gre_ver = ntohs(hdr->flags & GRE_VERSION);
->> +               if (gre_ver > 1)
->> +                       break;
->> +
->> +               proto = hdr->protocol;
->> +               if (gre_ver) {
->> +                       /* Version1 must be PPTP, and check the flags */
->> +                       if (!(proto == GRE_PROTO_PPP && (hdr->flags &
->> GRE_KEY)))
->> +                               break;
->> +               }
->> +
->> +               offset += sizeof(struct gre_base_hdr);
->> +
->>                 if (hdr->flags & GRE_CSUM)
->> -                       nhoff += 4;
->> +                       offset += sizeof(((struct gre_full_hdr *)0)->csum)
->> +
->> +                                 sizeof(((struct gre_full_hdr
->> *)0)->reserved1);
->> +
->>                 if (hdr->flags & GRE_KEY) {
->>                         const __be32 *keyid;
->>                         __be32 _keyid;
->>   -                     keyid = __skb_header_pointer(skb, nhoff,
->> sizeof(_keyid),
->> +                       keyid = __skb_header_pointer(skb, nhoff + offset,
->> sizeof(_keyid),
->>                                                      data, hlen, &_keyid);
->> -
->>                         if (!keyid)
->>                                 goto out_bad;
->>   @@ -372,32 +384,65 @@ ip_proto_again:
->>                                 key_keyid =
->> skb_flow_dissector_target(flow_dissector,
->>
->> FLOW_DISSECTOR_KEY_GRE_KEYID,
->>
->> target_container);
->> -                               key_keyid->keyid = *keyid;
->> +                               if (gre_ver == 0)
->> +                                       key_keyid->keyid = *keyid;
->> +                               else
->> +                                       key_keyid->keyid = *keyid &
->> GRE_PPTP_KEY_MASK;
->>                         }
->> -                       nhoff += 4;
->> +                       offset += sizeof(((struct gre_full_hdr *)0)->key);
->>                 }
->> +
->>                 if (hdr->flags & GRE_SEQ)
->> -                       nhoff += 4;
->> -               if (proto == htons(ETH_P_TEB)) {
->> -                       const struct ethhdr *eth;
->> -                       struct ethhdr _eth;
->> -
->> -                       eth = __skb_header_pointer(skb, nhoff,
->> -                                                  sizeof(_eth),
->> -                                                  data, hlen, &_eth);
->> -                       if (!eth)
->> +                       offset += sizeof(((struct pptp_gre_header
->> *)0)->seq);
->> +
->> +               if (gre_ver == 0) {
->> +                       if (proto == htons(ETH_P_TEB)) {
->> +                               const struct ethhdr *eth;
->> +                               struct ethhdr _eth;
->> +
->> +                               eth = __skb_header_pointer(skb, nhoff +
->> offset,
->> +                                                          sizeof(_eth),
->> +                                                          data, hlen,
->> &_eth);
->> +                               if (!eth)
->> +                                       goto out_bad;
->> +                               proto = eth->h_proto;
->> +                               offset += sizeof(*eth);
->> +
->> +                               /* Cap headers that we access via pointers
->> at the
->> +                                * end of the Ethernet header as our
->> maximum alignment
->> +                                * at that point is only 2 bytes.
->> +                                */
->> +                               if (NET_IP_ALIGN)
->> +                                       hlen = (nhoff + offset);
->> +                       }
->> +               } else { /* version 1, must be PPTP */
->> +                       u8 _ppp_hdr[PPP_HDRLEN];
->> +                       u8 *ppp_hdr;
->> +
->> +                       if (hdr->flags & GRE_ACK)
->> +                               offset += sizeof(((struct pptp_gre_header
->> *)0)->ack);
->> +
->> +                       ppp_hdr = skb_header_pointer(skb, nhoff + offset,
->> +                                                    sizeof(_ppp_hdr),
->> _ppp_hdr);
->> +                       if (!ppp_hdr)
->>                                 goto out_bad;
->> -                       proto = eth->h_proto;
->> -                       nhoff += sizeof(*eth);
->> -
->> -                       /* Cap headers that we access via pointers at the
->> -                        * end of the Ethernet header as our maximum
->> alignment
->> -                        * at that point is only 2 bytes.
->> -                        */
->> -                       if (NET_IP_ALIGN)
->> -                               hlen = nhoff;
->> +
->> +                       switch (PPP_PROTOCOL(ppp_hdr)) {
->> +                       case PPP_IP:
->> +                               proto = htons(ETH_P_IP);
->> +                               break;
->> +                       case PPP_IPV6:
->> +                               proto = htons(ETH_P_IPV6);
->> +                               break;
->> +                       default:
->> +                               /* Could probably catch some more like
->> MPLS */
->> +                               break;
->> +                       }
->> +
->> +                       offset += PPP_HDRLEN;
->>                 }
->>   +             nhoff += offset;
->>                 key_control->flags |= FLOW_DIS_ENCAPSULATION;
->>                 if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
->>                         goto out_good;
->
->
+> For the purpose of bond-over-tun in balance-rr mode, simply ignoring the
+> error from dev_set_mac_address() is good enough.  I am not familiar
+> enough with the code to judge what new problems this patch might
+> introduce.
+> 
+> Signed-off-by: Joern Engel <joern@purestorage.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 7 +------
+>  1 file changed, 1 insertion(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 1f276fa30ba6..bc5dba847f50 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1489,11 +1489,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  		 */
+>  		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+>  		addr.sa_family = slave_dev->type;
+> -		res = dev_set_mac_address(slave_dev, &addr);
+> -		if (res) {
+> -			netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
+> -			goto err_restore_mtu;
+> -		}
+> +		dev_set_mac_address(slave_dev, &addr);
+>  	}
+>  
+>  	/* set slave flag before open to prevent IPv6 addrconf */
+> @@ -1777,7 +1773,6 @@ err_restore_mac:
+>  		dev_set_mac_address(slave_dev, &addr);
+>  	}
+>  
+> -err_restore_mtu:
+>  	dev_set_mtu(slave_dev, new_slave->original_mtu);
+>  
+>  err_free:
+> 
