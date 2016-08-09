@@ -1,158 +1,124 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 5/6] rxrpc: Fix a use-after-push in data_ready handler
-Date: Tue, 09 Aug 2016 17:33:46 +0100
-Message-ID: <147076042652.13232.7940007630014233642.stgit@warthog.procyon.org.uk>
-References: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
+ Ultrascale+ MPSoC
+Date: Tue, 9 Aug 2016 18:40:08 +0200
+Message-ID: <99d6c0ce-c3b9-a919-cedb-0af954bac388@atmel.com>
+References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
+ <1441958258-35441-3-git-send-email-harinik@xilinx.com>
+ <CAFcVECLfXL-=efbUhNeKhiFQgtfv6Z1+JJckg+js7DM-LfFeSw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>,
+	Boris Brezillon <boris.brezillon@free-electrons.com>,
+	<alexandre.belloni@free-electrons.com>, <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	"michals@xilinx.com" <michals@xilinx.com>, <anirudh@xilinx.com>
+To: Harini Katakam <harinikatakamlinux@gmail.com>,
+	Harini Katakam <harini.katakam@xilinx.com>,
+	Andrei Pistirica <Andrei.Pistirica@microchip.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
+In-Reply-To: <CAFcVECLfXL-=efbUhNeKhiFQgtfv6Z1+JJckg+js7DM-LfFeSw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix a use of a packet after it has been enqueued onto the packet processing
-queue in the data_ready handler.  Once on a call's Rx queue, we mustn't
-touch it any more as it may be dequeued and freed by the call processor
-running on a work queue.
+Le 21/09/2015 à 19:49, Harini Katakam a écrit :
+> On Fri, Sep 11, 2015 at 1:27 PM, Harini Katakam
+> <harini.katakam@xilinx.com> wrote:
+>> Cadence GEM in Zynq Ultrascale+ MPSoC supports 1588 and provides a
+>> 102 bit time counter with 48 bits for seconds, 30 bits for nsecs and
+>> 24 bits for sub-nsecs. The timestamp is made available to the SW through
+>> registers as well as (more precisely) through upper two words in
+>> an extended BD.
+>>
+>> This patch does the following:
+>> - Adds MACB_CAPS_TSU in zynqmp_config.
+>> - Registers to ptp clock framework (after checking for timestamp support in
+>>   IP and capability in config).
+>> - TX BD and RX BD control registers are written to populate timestamp in
+>>   extended BD words.
+>> - Timer initialization is done by writing time of day to the timer counter.
+>> - ns increment register is programmed as NS_PER_SEC/TSU_CLK.
+>>   For a 24 bit subns precision, the subns increment equals
+>>   remainder of (NS_PER_SEC/TSU_CLK) * (2^24).
+>>   TSU (Time stamp unit) clock is obtained by the  driver from devicetree.
+>> - HW time stamp capabilities are advertised via ethtool and macb ioctl is
+>>   updated accordingly.
+>> - For all PTP event frames, nanoseconds and the lower 5 bits of seconds are
+>>   obtained from the BD. This offers a precise timestamp. The upper bits
+>>   (which dont vary between consecutive packets) are obtained from the
+>>   TX/RX PTP event/PEER registers. The timestamp obtained thus is updated
+>>   in skb for upper layers to access.
+>> - The drivers register functions with ptp to perform time and frequency
+>>   adjustment.
+>> - Time adjustment is done by writing to the 1558_ADJUST register.
+>>   The controller will read the delta in this register and update the timer
+>>   counter register. Alternatively, for large time offset adjustments,
+>>   the driver reads the secs and nsecs counter values, adds/subtracts the
+>>   delta and updates the timer counter. In order to be as precise as possible,
+>>   nsecs counter is read again if secs has incremented during the counter read.
+>> - Frequency adjustment is not directly supported by this IP.
+>>   addend is the initial value ns increment and similarly addendesub.
+>>   The ppb (parts per billion) provided is used as
+>>   ns_incr = addend +/- (ppb/rate).
+>>   Similarly the remainder of the above is used to populate subns increment.
+>>   In case the ppb requested is negative AND subns adjustment greater than
+>>   the addendsub, ns_incr is reduced by 1 and subns_incr is adjusted in
+>>   positive accordingly.
+>>
+>> Signed-off-by: Harini Katakam <harinik@xilinx.com>:
+>> ---
+>>  drivers/net/ethernet/cadence/macb.c |  372 ++++++++++++++++++++++++++++++++++-
+>>  drivers/net/ethernet/cadence/macb.h |   64 ++++++
+>>  2 files changed, 428 insertions(+), 8 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+>> index bb2932c..b531008 100644
+>> --- a/drivers/net/ethernet/cadence/macb.c
+>> +++ b/drivers/net/ethernet/cadence/macb.c
+>> @@ -30,6 +30,8 @@
+>>  #include <linux/of_device.h>
+>>  #include <linux/of_mdio.h>
 
-Save the values we need before enqueuing.
+[..]
 
-Without this, we can get an oops like the following:
+>> +       unsigned int            ns_incr;
+>> +       unsigned int            subns_incr;
+>>  };
+>>
+>>  static inline bool macb_is_gem(struct macb *bp)
+>> --
+>> 1.7.9.5
+> 
+> Ping
+> 
+> Thanks.
 
-BUG: unable to handle kernel NULL pointer dereference at 000000000000009c
-IP: [<ffffffffa01854e8>] rxrpc_fast_process_packet+0x724/0xa11 [af_rxrpc]
-PGD 0
-Oops: 0000 [#1] SMP
-Modules linked in: kafs(E) af_rxrpc(E) [last unloaded: af_rxrpc]
-CPU: 2 PID: 0 Comm: swapper/2 Tainted: G            E   4.7.0-fsdevel+ #1336
-Hardware name: ASUS All Series/H97-PLUS, BIOS 2306 10/09/2014
-task: ffff88040d6863c0 task.stack: ffff88040d68c000
-RIP: 0010:[<ffffffffa01854e8>]  [<ffffffffa01854e8>] rxrpc_fast_process_packet+0x724/0xa11 [af_rxrpc]
-RSP: 0018:ffff88041fb03a78  EFLAGS: 00010246
-RAX: ffffffffffffffff RBX: ffff8803ff195b00 RCX: 0000000000000001
-RDX: ffffffffa01854d1 RSI: 0000000000000008 RDI: ffff8803ff195b00
-RBP: ffff88041fb03ab0 R08: 0000000000000000 R09: 0000000000000001
-R10: ffff88041fb038c8 R11: 0000000000000000 R12: ffff880406874800
-R13: 0000000000000001 R14: 0000000000000000 R15: 0000000000000000
-FS:  0000000000000000(0000) GS:ffff88041fb00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 000000000000009c CR3: 0000000001c14000 CR4: 00000000001406e0
-Stack:
- ffff8803ff195ea0 ffff880408348800 ffff880406874800 ffff8803ff195b00
- ffff880408348800 ffff8803ff195ed8 0000000000000000 ffff88041fb03af0
- ffffffffa0186072 0000000000000000 ffff8804054da000 0000000000000000
-Call Trace:
- <IRQ>
- [<ffffffffa0186072>] rxrpc_data_ready+0x89d/0xbae [af_rxrpc]
- [<ffffffff814c94d7>] __sock_queue_rcv_skb+0x24c/0x2b2
- [<ffffffff8155c59a>] __udp_queue_rcv_skb+0x4b/0x1bd
- [<ffffffff8155e048>] udp_queue_rcv_skb+0x281/0x4db
- [<ffffffff8155ea8f>] __udp4_lib_rcv+0x7ed/0x963
- [<ffffffff8155ef9a>] udp_rcv+0x15/0x17
- [<ffffffff81531d86>] ip_local_deliver_finish+0x1c3/0x318
- [<ffffffff81532544>] ip_local_deliver+0xbb/0xc4
- [<ffffffff81531bc3>] ? inet_del_offload+0x40/0x40
- [<ffffffff815322a9>] ip_rcv_finish+0x3ce/0x42c
- [<ffffffff81532851>] ip_rcv+0x304/0x33d
- [<ffffffff81531edb>] ? ip_local_deliver_finish+0x318/0x318
- [<ffffffff814dff9d>] __netif_receive_skb_core+0x601/0x6e8
- [<ffffffff814e072e>] __netif_receive_skb+0x13/0x54
- [<ffffffff814e082a>] netif_receive_skb_internal+0xbb/0x17c
- [<ffffffff814e1838>] napi_gro_receive+0xf9/0x1bd
- [<ffffffff8144eb9f>] rtl8169_poll+0x32b/0x4a8
- [<ffffffff814e1c7b>] net_rx_action+0xe8/0x357
- [<ffffffff81051074>] __do_softirq+0x1aa/0x414
- [<ffffffff810514ab>] irq_exit+0x3d/0xb0
- [<ffffffff810184a2>] do_IRQ+0xe4/0xfc
- [<ffffffff81612053>] common_interrupt+0x93/0x93
- <EOI>
- [<ffffffff814af837>] ? cpuidle_enter_state+0x1ad/0x2be
- [<ffffffff814af832>] ? cpuidle_enter_state+0x1a8/0x2be
- [<ffffffff814af96a>] cpuidle_enter+0x12/0x14
- [<ffffffff8108956f>] call_cpuidle+0x39/0x3b
- [<ffffffff81089855>] cpu_startup_entry+0x230/0x35d
- [<ffffffff810312ea>] start_secondary+0xf4/0xf7
+Harini,
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+I come back to this patch of last year and I'm sorry about being so late
+answering you.
 
- net/rxrpc/input.c |   17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+Andrei who is added to the discussion will have some time to deal with
+this feature and we would like to make some progress with it. He already
+had some work done on his side before I recall your email.
 
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 04afdc09557b..789719031462 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -124,11 +124,15 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
- 	struct rxrpc_skb_priv *sp;
- 	bool terminal;
- 	int ret, ackbit, ack;
-+	u32 serial;
-+	u8 flags;
- 
- 	_enter("{%u,%u},,{%u}", call->rx_data_post, call->rx_first_oos, seq);
- 
- 	sp = rxrpc_skb(skb);
- 	ASSERTCMP(sp->call, ==, NULL);
-+	flags = sp->hdr.flags;
-+	serial = sp->hdr.serial;
- 
- 	spin_lock(&call->lock);
- 
-@@ -192,8 +196,8 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
- 	sp->call = call;
- 	rxrpc_get_call(call);
- 	atomic_inc(&call->skb_count);
--	terminal = ((sp->hdr.flags & RXRPC_LAST_PACKET) &&
--		    !(sp->hdr.flags & RXRPC_CLIENT_INITIATED));
-+	terminal = ((flags & RXRPC_LAST_PACKET) &&
-+		    !(flags & RXRPC_CLIENT_INITIATED));
- 	ret = rxrpc_queue_rcv_skb(call, skb, false, terminal);
- 	if (ret < 0) {
- 		if (ret == -ENOMEM || ret == -ENOBUFS) {
-@@ -205,12 +209,13 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
- 	}
- 
- 	skb = NULL;
-+	sp = NULL;
- 
- 	_debug("post #%u", seq);
- 	ASSERTCMP(call->rx_data_post, ==, seq);
- 	call->rx_data_post++;
- 
--	if (sp->hdr.flags & RXRPC_LAST_PACKET)
-+	if (flags & RXRPC_LAST_PACKET)
- 		set_bit(RXRPC_CALL_RCVD_LAST, &call->flags);
- 
- 	/* if we've reached an out of sequence packet then we need to drain
-@@ -226,7 +231,7 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
- 
- 	spin_unlock(&call->lock);
- 	atomic_inc(&call->ackr_not_idle);
--	rxrpc_propose_ACK(call, RXRPC_ACK_DELAY, sp->hdr.serial, false);
-+	rxrpc_propose_ACK(call, RXRPC_ACK_DELAY, serial, false);
- 	_leave(" = 0 [posted]");
- 	return 0;
- 
-@@ -239,7 +244,7 @@ out:
- 
- discard_and_ack:
- 	_debug("discard and ACK packet %p", skb);
--	__rxrpc_propose_ACK(call, ack, sp->hdr.serial, true);
-+	__rxrpc_propose_ACK(call, ack, serial, true);
- discard:
- 	spin_unlock(&call->lock);
- 	rxrpc_free_skb(skb);
-@@ -247,7 +252,7 @@ discard:
- 	return 0;
- 
- enqueue_and_ack:
--	__rxrpc_propose_ACK(call, ack, sp->hdr.serial, true);
-+	__rxrpc_propose_ACK(call, ack, serial, true);
- enqueue_packet:
- 	_net("defer skb %p", skb);
- 	spin_unlock(&call->lock);
+So, could you please re-send your original 1588 patch with Andrei in
+copy so that we can all (re-)start the discussion and progress for
+adding this feature.
+
+We must also note that some hardware differences between our platforms
+may have an impact on the code and how we implement things (as
+highlighted on this forum:
+http://www.at91.com/discussions/viewtopic.php/f,12/t,25462.html).
+Anyway, we'll overcome this and have a widely tested solution at the end
+of the day!
+
+Thanks for your patience, bye!
+
+PS: for some reason, I only have this "ping" part of your email but not
+the original one
+-- 
+Nicolas Ferre
