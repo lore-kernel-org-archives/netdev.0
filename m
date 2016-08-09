@@ -1,34 +1,77 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC PATCH v5 1/3] net: Add mask for Control register 10Mbps
- speed
-Date: Tue, 9 Aug 2016 14:41:13 -0700
-Message-ID: <66e5649c-e50a-d8f7-4e41-d0083f2b94a8@gmail.com>
-References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
- <1470735283-23611-2-git-send-email-appanad@xilinx.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH iproute v3 5/5] fou: Allowing configuring IPv6 listener
+Date: Tue, 9 Aug 2016 14:41:39 -0700
+Message-ID: <1470778899-2854697-6-git-send-email-tom@herbertland.com>
+References: <1470778899-2854697-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1470735283-23611-2-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
+To: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:20527 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932518AbcHIVmG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:42:06 -0400
+Received: from pps.filterd (m0001303.ppops.net [127.0.0.1])
+	by m0001303.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u79LXcOA024633
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 14:42:05 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by m0001303.ppops.net with ESMTP id 24nbjc36x6-4
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:42:05 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
+ mx-out.facebook.com (10.223.100.99) with ESMTP	id
+ 146ecd6c5e7a11e68e0d24be05956610-2c3fdaf0 for <netdev@vger.kernel.org>;	Tue,
+ 09 Aug 2016 14:41:50 -0700
+In-Reply-To: <1470778899-2854697-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2016 02:34 AM, Kedareswara rao Appana wrote:
-> This patch adds mask for the Control register
-> 10Mbps speed.
-> 
-> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ ip/ipfou.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-Reviewed-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+diff --git a/ip/ipfou.c b/ip/ipfou.c
+index 2a6ae17..0673d11 100644
+--- a/ip/ipfou.c
++++ b/ip/ipfou.c
+@@ -25,8 +25,9 @@
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: ip fou add port PORT { ipproto PROTO  | gue }\n");
+-	fprintf(stderr, "       ip fou del port PORT\n");
++	fprintf(stderr, "Usage: ip fou add port PORT "
++		"{ ipproto PROTO  | gue } [ -6 ]\n");
++	fprintf(stderr, "       ip fou del port PORT [ -6 ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: PROTO { ipproto-name | 1..255 }\n");
+ 	fprintf(stderr, "       PORT { 1..65535 }\n");
+@@ -50,6 +51,7 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
+ 	__u8 ipproto, type;
+ 	bool gue_set = false;
+ 	int ipproto_set = 0;
++	unsigned short family = AF_INET;
+ 
+ 	while (argc > 0) {
+ 		if (!matches(*argv, "port")) {
+@@ -71,6 +73,8 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
+ 			ipproto_set = 1;
+ 		} else if (!matches(*argv, "gue")) {
+ 			gue_set = true;
++		} else if (!matches(*argv, "-6")) {
++			family = AF_INET6;
+ 		} else {
+ 			fprintf(stderr, "fou: unknown command \"%s\"?\n", *argv);
+ 			usage();
+@@ -98,6 +102,7 @@ static int fou_parse_opt(int argc, char **argv, struct nlmsghdr *n,
+ 
+ 	addattr16(n, 1024, FOU_ATTR_PORT, port);
+ 	addattr8(n, 1024, FOU_ATTR_TYPE, type);
++	addattr16(n, 1024, FOU_ATTR_AF, family);
+ 
+ 	if (ipproto_set)
+ 		addattr8(n, 1024, FOU_ATTR_IPPROTO, ipproto);
 -- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.8.0.rc2
