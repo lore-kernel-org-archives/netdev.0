@@ -1,129 +1,68 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH v4 2/2] net: phy: Add gmiitorgmii converter support
-Date: Tue, 9 Aug 2016 09:36:14 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E0880@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1470640505-8279-1-git-send-email-appanad@xilinx.com>
- <1470640505-8279-2-git-send-email-appanad@xilinx.com>
- <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C3E6C@XAP-PVEXMBX02.xlnx.xilinx.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Regression introduced by "net: ipconfig: Support using "delayed" DHCP replies"
+Date: Tue, 9 Aug 2016 12:02:44 +0200
+Message-ID: <CAMuHMdVjugL0y-C+vet=qbcER8rjuFKwFgrutRUAs=uOk0JZ1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"Michal Simek" <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Anirudha Sarangi <anirudh@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C3E6C@XAP-PVEXMBX02.xlnx.xilinx.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Punnaiah,
+Hi Uwe, David,
 
-	Thanks for the review...
+On current net-next, I see the following corruption during DHCP on
+r8a7791/koelsch, which uses the sh_eth driver:
 
-> > +
-> > +#define XILINX_GMII2RGMII_REG	0x10
-> > +#define BMCR_SPEED10		0x00
-> 
-> Move this macro to mii.h
+     Sending DHCP requests ., OK
+     IP-Config: Got DHCP answer from 192.168.97.254, my address is 192.168.97.28
+     IP-Config: Complete:
+-         device=eth0, hwaddr=2e:09:0a:00:6d:85, ipaddr=192.168.97.28,
+mask=255.255.255.0, gw=192.168.97.254
++         device=^M\xffffffc0\xffffffa0\xffffffe1,
+hwaddr=0e:9e:45:ac:dd:b4:3a:88:95:e1:50:af:0c:44:92:c0:6c:46:9f:02:34:1e:58:21:cd:c3:40:0c:ed:80:b1:74:10:0c:04:31:06:9f:04:01:04:93:5c:51:83:18:46:09,
+ipaddr=192.168.97.28, mask=255.255.255.0, gw=192.168.97.254
 
-Sure will fix in the next version...
+It may also crash in ip_auto_config() with e.g. "Unable to handle kernel NULL
+pointer dereference at virtual address 0000017d".
 
-> 
-> > +
-> > +struct gmii2rgmii {
-> > +	struct phy_device *phy_dev;
-> > +	struct phy_driver *phy_drv;
-> > +	struct phy_driver conv_phy_drv;
-> > +	int addr;
-> > +};
-> > +
-> > +static int xgmiitorgmii_read_status(struct phy_device *phydev) {
-> > +	struct gmii2rgmii *priv = (struct gmii2rgmii *)phydev->priv;
-> > +	u16 val = 0;
-> > +
-> > +	priv->phy_drv->read_status(phydev);
-> > +
-> > +	val = mdiobus_read(phydev->mdio.bus, priv->addr,
-> > XILINX_GMII2RGMII_REG);
-> > +
-> 
->     Since its read and then modify, you should mask the speed field With zero and
-> then write new value.
-> 
+I've bisected this to commit 2647cffb2bc6fbed163d377390eb7ca552c7c1cb
+('net: ipconfig: Support using "delayed" DHCP replies').
+Unfortunately just reverting that commit on current net-next is not a
+solution, as
+that may lead to DHCP failures:
 
-Sure will fix in the next version...
+    DHCP/BOOTP: Ignoring delayed packet
+    timed out!
+    [...]
+    IP-Config: Retrying forever (NFS root)...
 
-> 
-> > +	switch (phydev->speed) {
-> > +	case SPEED_1000:
-> > +		val |= BMCR_SPEED1000;
-> > +	case SPEED_100:
-> > +		val |= BMCR_SPEED100;
-> > +	case SPEED_10:
-> > +		val |= BMCR_SPEED10;
-> > +	}
-> > +
-> > +	mdiobus_write(phydev->mdio.bus, priv->addr,
-> > XILINX_GMII2RGMII_REG, val);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +int xgmiitorgmii_probe(struct mdio_device *mdiodev) {
-> > +	struct device *dev = &mdiodev->dev;
-> > +	struct device_node *np = dev->of_node, *phy_node;
-> > +	struct gmii2rgmii *priv;
-> > +	int ret;
-> > +
-> > +	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-> > +	if (!priv)
-> > +		return -ENOMEM;
-> > +
-> > +	phy_node = of_parse_phandle(np, "phy-handle", 0);
-> > +	if (IS_ERR(phy_node)) {
-> > +		dev_err(dev, "Couldn't parse phy-handle\n");
-> > +		ret = -ENODEV;
-> > +		goto out;
-> > +	}
-> > +
-> > +	priv->phy_dev = of_phy_find_device(phy_node);
-> > +	if (!priv->phy_dev) {
-> > +		ret = -EPROBE_DEFER;
-> > +		dev_info(dev, "Couldn't find phydev\n");
-> > +		goto out;
-> > +	}
-> > +
-> > +	priv->addr = mdiodev->addr;
-> > +	priv->phy_drv = priv->phy_dev->drv;
-> > +	memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
-> > +	       sizeof(struct phy_driver));
-> > +	priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
-> > +	priv->phy_dev->priv = priv;
-> > +	priv->phy_dev->drv = &priv->conv_phy_drv;
-> > +
-> > +	return 0;
-> > +out:
-> > +	return ret;
-> 
-> Since there is no resource cleaning here, you could consider Return from this
-> function in above conditions and avoid goto here.
-> 
+Reverting also commit e068853409aa1720 ("net: ipconfig: drop inter-device
+timeout") fixes that, though.
 
-Sure will fix in the next version...
+On r8a7795/salvator-x, which uses the ravb driver, I once saw the following:
 
-Regards,
-Kedar.
+     Sending DHCP requests ., OK
+     IP-Config: Got DHCP answer from 192.168.97.254, my address is 192.168.97.44
+     IP-Config: Complete:
+-         device=eth0, hwaddr=2e:09:0a:00:83:1e, ipaddr=192.168.97.44,
+mask=255.255.255.0, gw=192.168.97.254
++         device=, hwaddr=(null), ipaddr=192.168.97.44,
+mask=255.255.255.0, gw=192.168.97.254
 
-> Regards,
-> Punnaiah
+This isn't reproducible at will, though.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
