@@ -1,146 +1,87 @@
-From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] bnx2x: don't reset chip on cleanup if PCI function is
- offline
-Date: Tue, 9 Aug 2016 10:27:07 -0300
-Message-ID: <57A9DA2B.7080908@linux.vnet.ibm.com>
-References: <1470687227-21024-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
- <CO2PR11MB0088856E58DAADE7064F28AF971C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
+Date: Tue, 9 Aug 2016 21:28:45 +0800
+Message-ID: <57A9DA8D.3010407@huawei.com>
+References: <20160808211530.GH22974@cork> <20160808212112.GI22974@cork>
+ <20160808214812.GJ22974@cork> <57A93D81.4030808@huawei.com>
+ <20160809030956.GL22974@cork>
+ <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	netdev <netdev@vger.kernel.org>
+To: zhuyj <zyjzyj2000@gmail.com>,
+	=?UTF-8?Q?J=c3=b6rn_Engel?= <joern@purestorage.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:30211 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932389AbcHIN1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 09:27:16 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u79DOUgq024089
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 09:27:15 -0400
-Received: from e24smtp01.br.ibm.com (e24smtp01.br.ibm.com [32.104.18.85])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 24qe85nup4-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 09:27:15 -0400
-Received: from localhost
-	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
-	Tue, 9 Aug 2016 10:27:13 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 42027352006C
-	for <netdev@vger.kernel.org>; Tue,  9 Aug 2016 09:26:49 -0400 (EDT)
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u79DR93H61866006
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 10:27:09 -0300
-Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u79DR9SR014714
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 10:27:09 -0300
-In-Reply-To: <CO2PR11MB0088856E58DAADE7064F28AF971C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:58530 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932398AbcHIN3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 09:29:40 -0400
+In-Reply-To: <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2016 09:14 AM, Yuval Mintz wrote:
->> When PCI error is detected, in some architectures (like PowerPC) a slot reset is
->> performed - the driver's error handlers are in charge of "disable"
->> device before the reset, and re-enable it after a successful slot reset.
+On 2016/8/9 13:29, zhuyj wrote:
+> Can we check slave_ops->ndo_set_mac_address?
+> 
+> 1476         if ((slave_ops->ndo_set_mac_address) &&
+> (!bond->params.fail_over_mac ||
+> 1477             BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP)) {
+> 1478                 /* Set slave to master's mac address. The
+> application already
+> 1479 * set the master's mac address to that of the first slave
+> 1480 */
+> 1481                 memcpy(addr.sa_data, bond_dev->dev_addr,
+> bond_dev->addr_len);
+> 1482                 addr.sa_family = slave_dev->type;
+> 1483                 res = dev_set_mac_address(slave_dev, &addr);
+> 1484                 if (res) {
+> 1485                         netdev_dbg(bond_dev, "Error %d calling
+> set_mac_address\n", res);
+> 1486                         goto err_restore_mtu;
+> 1487                 }
+> 1488         }
+> 
+
+This patch is a simple solution for this problem, but I don't think it is the right solution, the bond is a virtual device base on L2,
+if the slave has no mac address, it will break the design principle, so we need to think more about it.
+
+I think if the bonding dev has to support L3 virtual device, we need to add new bond features to distinguish the dev and make the
+bond xmit and transfer without the mac address.
+
+Thanks
+Ding
+
+> On Tue, Aug 9, 2016 at 11:09 AM, Jörn Engel <joern@purestorage.com> wrote:
+>> Hello Tianhong!
 >>
->> There are two cases though that another path is taken on the code: if the slot
->> reset is not successful or if too many errors already happened in the specific
->> adapter (meaning that possibly the device is experiencing a HW failure that slot
->> reset is not able to solve), the core PCI error mechanism (called EEH in PowerPC)
->> will remove the adapter from the system, since it will consider this as a
->> permanent failure on device.
-> Why would the published resume()  from pci_error_handlers be called in this scenario?
-
-It isn't. That's why I specifically commented on commit message: "There 
-are two cases though that another path is taken on the code".
-
-The code path reach bnx2x_chip_cleanup() on device removal from the 
-system, as seen in the below call trace:
-
-bnx2x_chip_cleanup+0x3c0/0x910 [bnx2x]
-bnx2x_nic_unload+0x268/0xaf0 [bnx2x]
-bnx2x_close+0x34/0x50 [bnx2x]
-__dev_close_many+0xd4/0x150
-dev_close_many+0xa8/0x160
-rollback_registered_many+0x174/0x3f0
-rollback_registered+0x40/0x70
-unregister_netdevice_queue+0x98/0x110
-unregister_netdev+0x34/0x50
-__bnx2x_remove+0xa8/0x3a0 [bnx2x]
-pci_device_remove+0x70/0x110
-
-
->
->> Also, we avoid the MCP information dump in case of non-recoverable PCI error
->> (when adapter is about to be removed), since it will certainly fail.
->
-> We should probably avoid several things here; Why specifically only this?
-
-For example, we shouldn't execute bnx2x_timer() in this scenario. But I 
-thought it'd be too much to check every call of a timer function against 
-PCI channel state just to avoid it's execution on this scenario, so I 
-just let it execute, since it seems harmless.
-
-On the other hand, MCP dump is, as you said below, a slowpath and surely 
-will fail in the following conditional (since addresses are all like 
-0xFFF...):
-
-        /* sanity */
-         if (trace_shmem_base < MCPR_SCRATCH_BASE(bp) + 
-MCPR_TRACE_BUFFER_SIZE ||
-             trace_shmem_base >= MCPR_SCRATCH_BASE(bp) +
-                                 SCRATCH_BUFFER_SIZE(bp))
-
-So, I added the check to at least be more informative on logs on why it 
-failed. If you desire, we can avoid the timer execution (maybe a 
-del_timer() instead of checking for PCI state?) and bnx2x_period_task() 
-run in case of PCI permanent failure. I'm open to suggestions!
-
-
->> +	if (unlikely(pci_channel_offline(bp->pdev))) {
->> +		BNX2X_ERR("Cannot dump MCP info while in PCI error\n");
->> +		return;
->> +	}
->> +
-> Nitpicky, but I don't think there's reason to add 'unlikely' to a purely slowpath
-> Configuration.
-
-OK, your call. I can remove it on v2, no problem.
-
-
->
->>   	val = REG_RD(bp, MCP_REG_MCPR_CPU_PROGRAM_COUNTER);
->>   	if (val == REG_RD(bp, MCP_REG_MCPR_CPU_PROGRAM_COUNTER))
->>   		BNX2X_ERR("%s" "MCP PC at 0x%x\n", lvl, val); @@ -9415,10
->> +9420,16 @@ unload_error:
->
->
->> -	/* Reset the chip */
->> -	rc = bnx2x_reset_hw(bp, reset_code);
->> -	if (rc)
->> -		BNX2X_ERR("HW_RESET failed\n");
->> +	/* Reset the chip, unless PCI function is offline. If we reach this
->> +	 * point following a PCI error handling, it means device is really
->> +	 * in a bad state and we're about to remove it, so reset the chip
->> +	 * is not a good idea.
->> +	 */
->> +	if (!pci_channel_offline(bp->pdev)) {
->> +		rc = bnx2x_reset_hw(bp, reset_code);
->> +		if (rc)
->> +			BNX2X_ERR("HW_RESET failed\n");
->> +	}
->
-> Why not simply check this at the beginning of the function?
-
-Because I wasn't sure if I could drop the entire execution of 
-chip_cleanup(). I tried to keep the most of this function aiming to 
-shutdown the module in a gentle way, like cleaning MAC, stopping 
-queues...but again, I'm open to suggestions and gladly will change this 
-in v2 if you think it's for the best.
-
-Thanks for your review,
-
-
-Guilherme
+>> On Tue, Aug 09, 2016 at 10:18:41AM +0800, Ding Tianhong wrote:
+>>>
+>>> I don't understand your problem clearly, can you explain more about how the 00503b6f702e break tun-interfaces
+>>> and we will try to fix it.
+>>
+>> Here is a trivial testcase:
+>> openvpn --mktun --dev tun0
+>> echo +tun0 > /sys/class/net/bond0/bonding/slaves
+>>
+>> Worked fine before your patch, no longer works after your patch.  Works
+>> again after my patch.
+>>
+>>> and more, dev_set_mac_address will change the salver's mac address, some nic don't support to change the mac address and
+>>> could not work as bond slave, so we need to check the return value, I don't think this patch has any effective improvement.
+>>
+>> Using bonding in balance-rr mode, there doesn't seem to be a need to
+>> change the mac address.  I suppose you might care in other modes, but I
+>> don't.
+>>
+>> Jörn
+>>
+>> --
+>> Time? What's that? Time is only worth what you do with it.
+>> -- Theo de Raadt
+> 
+> .
+> 
