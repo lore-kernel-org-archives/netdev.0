@@ -1,27 +1,27 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH RESEND net-next 11/15] smc: connection data control (CDC)
-Date: Tue, 9 Aug 2016 22:02:48 +0800
-Message-ID: <201608092111.jPgBh6tG%fengguang.wu@intel.com>
-References: <1470737580-43012-12-git-send-email-ubraun@linux.vnet.ibm.com>
+Subject: Re: [PATCH RESEND net-next 12/15] smc: send data (through RDMA)
+Date: Tue, 9 Aug 2016 22:43:54 +0800
+Message-ID: <201608092256.5ZAqqUDX%fengguang.wu@intel.com>
+References: <1470737580-43012-13-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="ikeVEW9yuYc//A+q"
+Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
 Cc: kbuild-all@01.org, davem@davemloft.net, netdev@vger.kernel.org,
 	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
 	heiko.carstens@de.ibm.com, utz.bacher@de.ibm.com,
 	ubraun@linux.vnet.ibm.com
 To: Ursula Braun <ubraun@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:15568 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:17691 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932190AbcHIOFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Aug 2016 10:05:08 -0400
+	id S1752748AbcHIOo7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2016 10:44:59 -0400
 Content-Disposition: inline
-In-Reply-To: <1470737580-43012-12-git-send-email-ubraun@linux.vnet.ibm.com>
+In-Reply-To: <1470737580-43012-13-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---ikeVEW9yuYc//A+q
+--fdj2RfSjLxBAspz7
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -38,55 +38,63 @@ reproduce:
 
 All errors (new ones prefixed by >>):
 
-   net/smc/smc_cdc.c: In function 'smc_cdc_tx_handler':
->> net/smc/smc_cdc.c:56:64: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
-    }
-                                                                   ^                  
-   In file included from net/smc/smc_cdc.c:16:0:
-   In function 'smc_cdc_cursor_to_host',
-       inlined from 'smc_cdc_msg_to_host' at net/smc/smc_cdc.h:159:2,
-       inlined from 'smc_cdc_msg_recv_action.isra.2' at net/smc/smc_cdc.c:170:2,
-       inlined from 'smc_cdc_msg_recv.isra.3' at net/smc/smc_cdc.c:240:2,
-       inlined from 'smc_cdc_rx_handler' at net/smc/smc_cdc.c:256:2:
->> net/smc/smc_cdc.h:153:60: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
-               struct smc_cdc_msg *peer)
-                                                               ^                  
-   In function 'smc_cdc_cursor_to_host',
-       inlined from 'smc_cdc_msg_to_host' at net/smc/smc_cdc.h:160:2,
-       inlined from 'smc_cdc_msg_recv_action.isra.2' at net/smc/smc_cdc.c:170:2,
-       inlined from 'smc_cdc_msg_recv.isra.3' at net/smc/smc_cdc.c:240:2,
-       inlined from 'smc_cdc_rx_handler' at net/smc/smc_cdc.c:256:2:
->> net/smc/smc_cdc.h:153:60: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
-               struct smc_cdc_msg *peer)
-                                                               ^                  
-   net/smc/smc_cdc.c: In function 'smc_cdc_msg_send':
-   net/smc/smc_cdc.c:106:69: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
-    int smc_cdc_get_slot_and_msg_send(struct smc_connection *conn)
-                                                                        ^                  
+   In function 'smc_tx_rdma_writes',
+       inlined from 'smc_tx_sndbuf_nonempty' at net/smc/smc_tx.c:384:5:
+>> net/smc/smc_tx.c:363:40: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
+    
+                                           ^                  
+   net/smc/smc_tx.c:364:4: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
+    /* Wakeup sndbuf consumers from any context (IRQ or process)
+       ^~~~~~~~~~~~~~~~~~~
+   net/smc/smc_tx.c: In function 'smc_tx_sendmsg':
+   net/smc/smc_tx.c:196:5: error: call to '__xchg_wrong_size' declared with attribute error: Bad argument size for xchg
+      smp_mb__after_atomic();
+        ^~~~~~~~~~~~~~~~~~~
 
-vim +/__xchg_wrong_size +56 net/smc/smc_cdc.c
+vim +/__xchg_wrong_size +363 net/smc/smc_tx.c
 
-    50			smp_mb__after_atomic();
-    51			xchg(&cdcpend->conn->tx_curs_fin.acurs,
-    52			     cdcpend->cursor.acurs);
-    53		}
-    54		/* subsequent patch: wake if send buffer space available */
-    55		bh_unlock_sock(&smc->sk);
-  > 56	}
-    57	
-    58	int smc_cdc_get_free_slot(struct smc_link *link,
-    59				  struct smc_wr_buf **wr_buf,
+   357		/* update connection's cursors with advanced local cursors */
+   358		xchg(&conn->local_tx_ctrl.prod.acurs, prod.acurs); /* dst: peer RMBE */
+   359		xchg(&conn->tx_curs_sent.acurs, sent.acurs); /* src: local sndbuf */
+   360	
+   361		return 0;
+   362	}
+ > 363	
+   364	/* Wakeup sndbuf consumers from any context (IRQ or process)
+   365	 * since there is more data to transmit; usable snd_wnd as max transmit
+   366	 */
+   367	int smc_tx_sndbuf_nonempty(struct smc_connection *conn)
+   368	{
+   369		struct smc_cdc_tx_pend *pend;
+   370		struct smc_wr_buf *wr_buf;
+   371		int rc;
+   372	
+   373		spin_lock_bh(&conn->send_lock);
+   374		rc = smc_cdc_get_free_slot(&conn->lgr->lnk[SMC_SINGLE_LINK], &wr_buf,
+   375					   &pend);
+   376		if (rc < 0) {
+   377			if (rc == -EBUSY) {
+   378				rc = 0;
+   379				schedule_work(&conn->tx_work);
+   380			}
+   381			goto out_unlock;
+   382		}
+   383	
+ > 384		rc = smc_tx_rdma_writes(conn);
+   385		if (rc) {
+   386			smc_wr_tx_put_slot(&conn->lgr->lnk[SMC_SINGLE_LINK],
+   387					   (struct smc_wr_tx_pend_priv *)pend);
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---ikeVEW9yuYc//A+q
+--fdj2RfSjLxBAspz7
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICELdqVcAAy5jb25maWcAjDzLdtw2svv5ij7OXcwsEutlWTn3aAGCYDfSJEEDYHdLGx5F
+H4sICJPpqVcAAy5jb25maWcAjDzLdtw2svv5ij7OXcwsEutlWTn3aAGCYDfSJEEDYHdLGx5F
 bic6I0sZSZ6b/P2tAshmAQTb8cI2qwogHvWuYv/wjx8W7Nvb89e7t4f7u8fHvxa/7Z/2L3dv
 +8+LLw+P+/9d5GpRK7sQubQ/AXH58PTtz/cP51eXi4ufPv50sljvX572jwv+/PTl4bdvMPLh
 +ekfPwAlV3Uhl93lRSbt4uF18fT8tnjdv/2jh++uLrvzs+u/yPP4IGtjdcutVHWXC65yoUek
@@ -1107,4 +1115,4 @@ lKHhQfqv6B6UVyH/pawaZc6j0Ewr/GRXaaZSagKX4DeTqdv0g4ysk98NHfWYQJNdqthCQ4u5
 Bjr7QcPlGOj9DxpEwkCYZSVXCgygaUoFx5h2w8kP5WVH3peUSq0AXa1/0Ay5Bl4d/ViRV7Xo
 spVTqaHFhCs8jYQbCS0OTpZCYiKh/DoIczUzSOOkNraU/w/BRGBle3ADAA==
 
---ikeVEW9yuYc//A+q--
+--fdj2RfSjLxBAspz7--
