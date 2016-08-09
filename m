@@ -1,73 +1,42 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly
- on some I218 controllers
-Date: Tue, 9 Aug 2016 18:59:04 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81F70C7D@ORSMSX101.amr.corp.intel.com>
-References: <579F407E.9090602@compulab.co.il>
- <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
- <57A6F7A9.1030401@compulab.co.il>
- <f9d596bd-226b-0faf-bab1-858823f17ee4@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: size of data_segs_[in|out] and segs_[in|out]
+Date: Tue, 09 Aug 2016 12:04:58 -0700 (PDT)
+Message-ID: <20160809.120458.792987014914899369.davem@davemloft.net>
+References: <797392fa-8d87-f45b-69b2-fdd096e1229c@psc.edu>
+	<20160808.160245.2063863440275871547.davem@davemloft.net>
+	<e0a3f13a-f3cc-8455-8e7d-9c604f8ef4fb@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Avargil, Raanan" <raanan.avargil@intel.com>,
-	Denis Turischev <denis.turischev@compulab.co.il>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: rapier@psc.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64705 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932321AbcHITAb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 15:00:31 -0400
-In-Reply-To: <f9d596bd-226b-0faf-bab1-858823f17ee4@intel.com>
-Content-Language: en-US
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:32983 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbcHITFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 15:05:05 -0400
+Received: by mail-pf0-f169.google.com with SMTP id y134so7714454pfg.0
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 12:05:04 -0700 (PDT)
+In-Reply-To: <e0a3f13a-f3cc-8455-8e7d-9c604f8ef4fb@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: rapier <rapier@psc.edu>
+Date: Tue, 9 Aug 2016 13:17:59 -0400
 
+> I cannot deny that would be a problem but conversely, those
+> applications are currently in a position where they may be depending
+> on inaccurate data. I'm not advocating breaking things for the sake of
+> breaking things but my feeling is that this will eventually need to be
+> addressed. Since the segs datastructure is a relatively recent
+> addition it might make sense to make that change now before it's even
+> more baked in to other applications.
 
-> -----Original Message-----
-> From: Avargil, Raanan
-> Sent: Tuesday, August 9, 2016 8:11 AM
-> To: Denis Turischev <denis.turischev@compulab.co.il>; intel-wired-
-> lan@lists.osuosl.org; Brown, Aaron F <aaron.f.brown@intel.com>; Kirsher,
-> Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on
-> some I218 controllers
-> 
-> 
-> 
-> On 8/7/2016 11:56, Denis Turischev wrote:
-> > Hi Raanan,
-> >
-> > On 08/04/2016 07:18 PM, Raanan Avargil wrote:
-> >> It is hard to determine what is exactly the problem here and what causes
-> the -3 error, but this is not the place to perform hw reset and retry to init the
-> phy.
-> > I agree that may be this is not the correct place for hw reset, can you advice
-> about another solution?
-> >
-> > It works, not only for me, for example it helps here:
-> > http://www.linux.org.ru/forum/linux-hardware/10268216
-> >
-> > Another fact that Windows drivers work fine with the same hw.
-> >
-> > Denis
-> >
-> 
-> Hi Denis,
-> 
-> More suitable place to retry init the device would be in probe function.
-> However, we haven't seen initialization issues like this on i218.
-> 
-> Adding Aaron.
-> 
-> @Aaron - have you seen initialization errors on i218 devices?
+Changing the size or position of these data structure members is
+simply not an option.  It is locked into stone, and a permanent
+ABI which we cannot change.
 
-I have not.  But I don't have many systems with i218 so all that means is my systems do not exhibit the problem.
+Please stop discussing as if changing this is a possibility.
 
-> 
-> Raanan
+You need to find another solution to the problem, or advocate a
+user side solution (periodic polling).
