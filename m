@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] bonding: fix the typo
-Date: Tue, 09 Aug 2016 14:57:54 -0700 (PDT)
-Message-ID: <20160809.145754.1224913803308175783.davem@davemloft.net>
-References: <1470749764-5666-1-git-send-email-zyjzyj2000@gmail.com>
+Subject: Re: [PATCH net-next] net: Remove fib_local variable
+Date: Tue, 09 Aug 2016 14:58:02 -0700 (PDT)
+Message-ID: <20160809.145802.1873156215188615511.davem@davemloft.net>
+References: <1470750666-28053-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: zyjzyj2000@gmail.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36290 "EHLO
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:34391 "EHLO
 	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932395AbcHIV55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:57:57 -0400
-Received: by mail-pa0-f65.google.com with SMTP id ez1so1577618pab.3
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:57:56 -0700 (PDT)
-In-Reply-To: <1470749764-5666-1-git-send-email-zyjzyj2000@gmail.com>
+	with ESMTP id S932395AbcHIV6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:58:05 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hh10so1580791pac.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:58:04 -0700 (PDT)
+In-Reply-To: <1470750666-28053-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: zyjzyj2000@gmail.com
-Date: Tue,  9 Aug 2016 21:36:04 +0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue,  9 Aug 2016 06:51:06 -0700
 
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+> After commit 0ddcf43d5d4a ("ipv4: FIB Local/MAIN table collapse")
+> fib_local is set but not used. Remove it.
 > 
-> The message "803.ad" should be "802.3ad".
-> 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied.
+Applied, thanks David.
