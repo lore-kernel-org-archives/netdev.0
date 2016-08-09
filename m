@@ -1,87 +1,39 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
-Date: Tue, 9 Aug 2016 21:28:45 +0800
-Message-ID: <57A9DA8D.3010407@huawei.com>
-References: <20160808211530.GH22974@cork> <20160808212112.GI22974@cork>
- <20160808214812.GJ22974@cork> <57A93D81.4030808@huawei.com>
- <20160809030956.GL22974@cork>
- <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	netdev <netdev@vger.kernel.org>
-To: zhuyj <zyjzyj2000@gmail.com>,
-	=?UTF-8?Q?J=c3=b6rn_Engel?= <joern@purestorage.com>
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] bonding: fix the typo
+Date: Tue,  9 Aug 2016 21:36:04 +0800
+Message-ID: <1470749764-5666-1-git-send-email-zyjzyj2000@gmail.com>
+Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
+To: j.vosburgh@gmail.com, vfalico@gmail.com, gospo@cumulusnetworks.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:58530 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932398AbcHIN3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 09:29:40 -0400
-In-Reply-To: <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
+Received: from [123.118.58.43] ([123.118.58.43]:36050 "EHLO mail.rain.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932276AbcHINp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2016 09:45:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016/8/9 13:29, zhuyj wrote:
-> Can we check slave_ops->ndo_set_mac_address?
-> 
-> 1476         if ((slave_ops->ndo_set_mac_address) &&
-> (!bond->params.fail_over_mac ||
-> 1477             BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP)) {
-> 1478                 /* Set slave to master's mac address. The
-> application already
-> 1479 * set the master's mac address to that of the first slave
-> 1480 */
-> 1481                 memcpy(addr.sa_data, bond_dev->dev_addr,
-> bond_dev->addr_len);
-> 1482                 addr.sa_family = slave_dev->type;
-> 1483                 res = dev_set_mac_address(slave_dev, &addr);
-> 1484                 if (res) {
-> 1485                         netdev_dbg(bond_dev, "Error %d calling
-> set_mac_address\n", res);
-> 1486                         goto err_restore_mtu;
-> 1487                 }
-> 1488         }
-> 
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-This patch is a simple solution for this problem, but I don't think it is the right solution, the bond is a virtual device base on L2,
-if the slave has no mac address, it will break the design principle, so we need to think more about it.
+The message "803.ad" should be "802.3ad".
 
-I think if the bonding dev has to support L3 virtual device, we need to add new bond features to distinguish the dev and make the
-bond xmit and transfer without the mac address.
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+---
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks
-Ding
-
-> On Tue, Aug 9, 2016 at 11:09 AM, Jörn Engel <joern@purestorage.com> wrote:
->> Hello Tianhong!
->>
->> On Tue, Aug 09, 2016 at 10:18:41AM +0800, Ding Tianhong wrote:
->>>
->>> I don't understand your problem clearly, can you explain more about how the 00503b6f702e break tun-interfaces
->>> and we will try to fix it.
->>
->> Here is a trivial testcase:
->> openvpn --mktun --dev tun0
->> echo +tun0 > /sys/class/net/bond0/bonding/slaves
->>
->> Worked fine before your patch, no longer works after your patch.  Works
->> again after my patch.
->>
->>> and more, dev_set_mac_address will change the salver's mac address, some nic don't support to change the mac address and
->>> could not work as bond slave, so we need to check the return value, I don't think this patch has any effective improvement.
->>
->> Using bonding in balance-rr mode, there doesn't seem to be a need to
->> change the mac address.  I suppose you might care in other modes, but I
->> don't.
->>
->> Jörn
->>
->> --
->> Time? What's that? Time is only worth what you do with it.
->> -- Theo de Raadt
-> 
-> .
-> 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1f276fa..217e8da 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -152,7 +152,7 @@ module_param(lacp_rate, charp, 0);
+ MODULE_PARM_DESC(lacp_rate, "LACPDU tx rate to request from 802.3ad partner; "
+ 			    "0 for slow, 1 for fast");
+ module_param(ad_select, charp, 0);
+-MODULE_PARM_DESC(ad_select, "803.ad aggregation selection logic; "
++MODULE_PARM_DESC(ad_select, "802.3ad aggregation selection logic; "
+ 			    "0 for stable (default), 1 for bandwidth, "
+ 			    "2 for count");
+ module_param(min_links, int, 0);
+-- 
+2.7.4
