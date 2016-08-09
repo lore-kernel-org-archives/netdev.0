@@ -1,50 +1,146 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
-Date: Tue, 9 Aug 2016 07:21:31 -0600
-Message-ID: <04a393c9-39f8-8d73-3476-928732e5b193@cumulusnetworks.com>
-References: <1470642127-574-1-git-send-email-lorenzo@google.com>
- <20160808.143500.473355495580691289.davem@davemloft.net>
- <CAKD1Yr25UUNOANnUD+cCszA2HfoPrsEPxaGqgqBBBG_wcs1tGg@mail.gmail.com>
- <20160808.222030.1314134961786852070.davem@davemloft.net>
- <CAAedzxq-XYTVgZ7=VX-OWHYNSRjDuf==si-my=Jy3YEo7atcWQ@mail.gmail.com>
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] bnx2x: don't reset chip on cleanup if PCI function is
+ offline
+Date: Tue, 9 Aug 2016 10:27:07 -0300
+Message-ID: <57A9DA2B.7080908@linux.vnet.ibm.com>
+References: <1470687227-21024-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+ <CO2PR11MB0088856E58DAADE7064F28AF971C0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	=?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-To: Erik Kline <ek@google.com>, David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:34854 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932223AbcHINVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 09:21:39 -0400
-Received: by mail-pa0-f47.google.com with SMTP id iw10so5502678pac.2
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 06:21:39 -0700 (PDT)
-In-Reply-To: <CAAedzxq-XYTVgZ7=VX-OWHYNSRjDuf==si-my=Jy3YEo7atcWQ@mail.gmail.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:30211 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932389AbcHIN1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 09:27:16 -0400
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u79DOUgq024089
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 09:27:15 -0400
+Received: from e24smtp01.br.ibm.com (e24smtp01.br.ibm.com [32.104.18.85])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 24qe85nup4-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 09:27:15 -0400
+Received: from localhost
+	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
+	Tue, 9 Aug 2016 10:27:13 -0300
+Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 42027352006C
+	for <netdev@vger.kernel.org>; Tue,  9 Aug 2016 09:26:49 -0400 (EDT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u79DR93H61866006
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 10:27:09 -0300
+Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u79DR9SR014714
+	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 10:27:09 -0300
+In-Reply-To: <CO2PR11MB0088856E58DAADE7064F28AF971C0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/9/16 1:01 AM, Erik Kline wrote:
-> On 9 August 2016 at 14:20, David Miller <davem@davemloft.net> wrote:
->> From: Lorenzo Colitti <lorenzo@google.com>
->> Date: Tue, 9 Aug 2016 10:00:25 +0900
+On 08/09/2016 09:14 AM, Yuval Mintz wrote:
+>> When PCI error is detected, in some architectures (like PowerPC) a slot reset is
+>> performed - the driver's error handlers are in charge of "disable"
+>> device before the reset, and re-enable it after a successful slot reset.
 >>
->>> Note that pretty much every sendmsg codepath allows other data to take
->>> precedence over sk_bound_dev_if:
->>>
->>> - udpv6_sendmsg: if sin6_scope_id specified on a scoped address
->>> - rawv6_sendmsg: if sin6_scope_id specified on a scoped address
->>> - l2tp_ip6_sendmsg: if sin6_scope_id specified on a scoped address
->>> - ip_cmsg_send: if IP_PKTINFO or IPV6_PKTINFO specified
->>>
->>> What should I do about those? -EINVAL? Ignore the conflicting data? Leave as is?
->>
->> That's a good point, I guess this needs some more thought.
-> 
-> I could see a point of view that says when bound_if is in play sending
-> to destinations on/via other interfaces--by any mechanism--should
-> effectively get ENETUNREACH (or something).
+>> There are two cases though that another path is taken on the code: if the slot
+>> reset is not successful or if too many errors already happened in the specific
+>> adapter (meaning that possibly the device is experiencing a HW failure that slot
+>> reset is not able to solve), the core PCI error mechanism (called EEH in PowerPC)
+>> will remove the adapter from the system, since it will consider this as a
+>> permanent failure on device.
+> Why would the published resume()  from pci_error_handlers be called in this scenario?
 
-VRF uses this capability to send on an enslaved interface. ie., socket is bound to VRF device to limit packets to that L3 domain and then uses PKTINFO to force a packet out a particular interface.
+It isn't. That's why I specifically commented on commit message: "There 
+are two cases though that another path is taken on the code".
+
+The code path reach bnx2x_chip_cleanup() on device removal from the 
+system, as seen in the below call trace:
+
+bnx2x_chip_cleanup+0x3c0/0x910 [bnx2x]
+bnx2x_nic_unload+0x268/0xaf0 [bnx2x]
+bnx2x_close+0x34/0x50 [bnx2x]
+__dev_close_many+0xd4/0x150
+dev_close_many+0xa8/0x160
+rollback_registered_many+0x174/0x3f0
+rollback_registered+0x40/0x70
+unregister_netdevice_queue+0x98/0x110
+unregister_netdev+0x34/0x50
+__bnx2x_remove+0xa8/0x3a0 [bnx2x]
+pci_device_remove+0x70/0x110
+
+
+>
+>> Also, we avoid the MCP information dump in case of non-recoverable PCI error
+>> (when adapter is about to be removed), since it will certainly fail.
+>
+> We should probably avoid several things here; Why specifically only this?
+
+For example, we shouldn't execute bnx2x_timer() in this scenario. But I 
+thought it'd be too much to check every call of a timer function against 
+PCI channel state just to avoid it's execution on this scenario, so I 
+just let it execute, since it seems harmless.
+
+On the other hand, MCP dump is, as you said below, a slowpath and surely 
+will fail in the following conditional (since addresses are all like 
+0xFFF...):
+
+        /* sanity */
+         if (trace_shmem_base < MCPR_SCRATCH_BASE(bp) + 
+MCPR_TRACE_BUFFER_SIZE ||
+             trace_shmem_base >= MCPR_SCRATCH_BASE(bp) +
+                                 SCRATCH_BUFFER_SIZE(bp))
+
+So, I added the check to at least be more informative on logs on why it 
+failed. If you desire, we can avoid the timer execution (maybe a 
+del_timer() instead of checking for PCI state?) and bnx2x_period_task() 
+run in case of PCI permanent failure. I'm open to suggestions!
+
+
+>> +	if (unlikely(pci_channel_offline(bp->pdev))) {
+>> +		BNX2X_ERR("Cannot dump MCP info while in PCI error\n");
+>> +		return;
+>> +	}
+>> +
+> Nitpicky, but I don't think there's reason to add 'unlikely' to a purely slowpath
+> Configuration.
+
+OK, your call. I can remove it on v2, no problem.
+
+
+>
+>>   	val = REG_RD(bp, MCP_REG_MCPR_CPU_PROGRAM_COUNTER);
+>>   	if (val == REG_RD(bp, MCP_REG_MCPR_CPU_PROGRAM_COUNTER))
+>>   		BNX2X_ERR("%s" "MCP PC at 0x%x\n", lvl, val); @@ -9415,10
+>> +9420,16 @@ unload_error:
+>
+>
+>> -	/* Reset the chip */
+>> -	rc = bnx2x_reset_hw(bp, reset_code);
+>> -	if (rc)
+>> -		BNX2X_ERR("HW_RESET failed\n");
+>> +	/* Reset the chip, unless PCI function is offline. If we reach this
+>> +	 * point following a PCI error handling, it means device is really
+>> +	 * in a bad state and we're about to remove it, so reset the chip
+>> +	 * is not a good idea.
+>> +	 */
+>> +	if (!pci_channel_offline(bp->pdev)) {
+>> +		rc = bnx2x_reset_hw(bp, reset_code);
+>> +		if (rc)
+>> +			BNX2X_ERR("HW_RESET failed\n");
+>> +	}
+>
+> Why not simply check this at the beginning of the function?
+
+Because I wasn't sure if I could drop the entire execution of 
+chip_cleanup(). I tried to keep the most of this function aiming to 
+shutdown the module in a gentle way, like cleaning MAC, stopping 
+queues...but again, I'm open to suggestions and gladly will change this 
+in v2 if you think it's for the best.
+
+Thanks for your review,
+
+
+Guilherme
