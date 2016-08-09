@@ -1,58 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ibmveth: Disable tx queue while changing mtu
-Date: Tue, 09 Aug 2016 15:13:44 -0700 (PDT)
-Message-ID: <20160809.151344.1875492869890678715.davem@davemloft.net>
-References: <1470764857-7714-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
+Date: Wed, 10 Aug 2016 07:44:18 +0900
+Message-ID: <ed271d49-e796-ebaa-2e71-35711710fd49@miraclelinux.com>
+References: <1470642127-574-1-git-send-email-lorenzo@google.com>
+ <20160808.143500.473355495580691289.davem@davemloft.net>
+ <CAKD1Yr25UUNOANnUD+cCszA2HfoPrsEPxaGqgqBBBG_wcs1tGg@mail.gmail.com>
+ <20160808.222030.1314134961786852070.davem@davemloft.net>
+ <CAAedzxq-XYTVgZ7=VX-OWHYNSRjDuf==si-my=Jy3YEo7atcWQ@mail.gmail.com>
+ <04a393c9-39f8-8d73-3476-928732e5b193@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tlfalcon@linux.vnet.ibm.com
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	Lorenzo Colitti <lorenzo@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: David Ahern <dsa@cumulusnetworks.com>, Erik Kline <ek@google.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932486AbcHIWNp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 18:13:45 -0400
-In-Reply-To: <1470764857-7714-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33051 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932461AbcHIWoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 18:44:22 -0400
+Received: by mail-pa0-f48.google.com with SMTP id ti13so9251331pac.0
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 15:44:22 -0700 (PDT)
+In-Reply-To: <04a393c9-39f8-8d73-3476-928732e5b193@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Tue,  9 Aug 2016 12:47:37 -0500
 
-> If the device is running while the MTU is changed, ibmveth
-> is closed and the bounce buffer is freed. If a transmission
-> is sent before ibmveth can be reopened, ibmveth_start_xmit
-> tries to copy to the null bounce buffer, leading to a kernel
-> oops. The proposed solution disables the tx queue until
-> ibmveth is restarted.
+
+David Ahern wrote:
+> On 8/9/16 1:01 AM, Erik Kline wrote:
+>> On 9 August 2016 at 14:20, David Miller <davem@davemloft.net> wrote:
+>>> From: Lorenzo Colitti <lorenzo@google.com>
+>>> Date: Tue, 9 Aug 2016 10:00:25 +0900
+>>>
+>>>> Note that pretty much every sendmsg codepath allows other data to take
+>>>> precedence over sk_bound_dev_if:
+>>>>
+>>>> - udpv6_sendmsg: if sin6_scope_id specified on a scoped address
+>>>> - rawv6_sendmsg: if sin6_scope_id specified on a scoped address
+>>>> - l2tp_ip6_sendmsg: if sin6_scope_id specified on a scoped address
+>>>> - ip_cmsg_send: if IP_PKTINFO or IPV6_PKTINFO specified
+>>>>
+>>>> What should I do about those? -EINVAL? Ignore the conflicting data? Leave as is?
+>>>
+>>> That's a good point, I guess this needs some more thought.
+>>
+>> I could see a point of view that says when bound_if is in play sending
+>> to destinations on/via other interfaces--by any mechanism--should
+>> effectively get ENETUNREACH (or something).
 > 
-> Reported-by: Jan Stancek <jstancek@redhat.com>
-> Tested-by: Jan Stancek <jstancek@redhat.com>
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> VRF uses this capability to send on an enslaved interface. ie., socket is bound to VRF device to limit packets to that L3 domain and then uses PKTINFO to force a packet out a particular interface.
+> 
 
-The bugs in the patch show clearly why this kind of non-unwindable behavior
-is so undesirable.
+We could extend our code to allow enslave devices, maybe.
 
-> @@ -1378,14 +1379,18 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
->  						ibmveth_get_desired_dma
->  						(viodev));
->  			if (need_restart) {
-> -				return ibmveth_open(adapter->netdev);
-> +				rc = ibmveth_open(adapter->netdev);
-> +				netif_wake_queue(dev);
-> +				return rc;
-
-If the open fails, the last thing in the world you should do is wake the
-TX queue.
-
-Furthermore, ibmveth_open() does netif_start_queue() so this call should
-be completely unnecessary.
-
-But fundamentally here the real problem, the whole operation should be
-done in a "prepare, commit" style transaction.  So that if we can't
-make the MTU change for whatever reason, the original MTU
-configuration is retained and the interface stays up and operational.
-
-The error recovery mechanism here in this function is unacceptable,
-and needs to be rewritten from scratch.
+-- 
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
