@@ -1,69 +1,105 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@purestorage.com>
-Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
-Date: Tue, 9 Aug 2016 14:10:59 -0700
-Message-ID: <20160809211058.GP22974@cork>
-References: <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
- <57A9DA8D.3010407@huawei.com>
- <20160809180830.GM22974@cork>
- <20160809.120636.2039586307820412288.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dingtianhong@huawei.com, zyjzyj2000@gmail.com, fubar@us.ibm.com,
-	andy@greyhouse.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v6 0/3] return offloaded stats as default and expose original sw stats
+Date: Tue,  9 Aug 2016 23:25:09 +0200
+Message-ID: <1470777912-2227-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+	f.fainelli@gmail.com, dsa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33011 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932324AbcHIVLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:11:06 -0400
-Received: by mail-pf0-f178.google.com with SMTP id y134so8532051pfg.0
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:11:06 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160809.120636.2039586307820412288.davem@davemloft.net>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34150 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932338AbcHIVZP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:25:15 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q128so5785668wma.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:25:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 09, 2016 at 12:06:36PM -0700, David Miller wrote:
-> > On Tue, Aug 09, 2016 at 09:28:45PM +0800, Ding Tianhong wrote:
-> > 
-> > Simply not checking errors when setting the mac address solves the
-> > problem for me.  No new features needed.
-> 
-> But it only works in certain modes.
-> 
-> So the best we can do is enforce the MAC address setting in the
-> modes that absolutely require it.  We cannot ignore the MAC
-> address setting unilaterally.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Something like this?
+The problem we try to handle is about offloaded forwarded packets
+which are not seen by kernel. Let me try to draw it:
 
-[PATCH] bonding: Allow tun-interfaces as slaves in balance-rr mode
+    port1                       port2 (HW stats are counted here)
+      \                          /
+       \                        /
+        \                      /
+         --(A)---- ASIC --(B)--
+                    |
+                   (C)
+                    |
+                   CPU (SW stats are counted here)
 
-Up until 00503b6f702e (part of 3.14-rc1), the bonding driver could be
-used to enslave tun-interfaces.  00503b6f702e broke that behaviour,
-afaics as an unintended side-effect.
 
-For the purpose of bond-over-tun in balance-rr mode, simply ignoring the
-error from dev_set_mac_address() is good enough.
+Now we have couple of flows for TX and RX (direction does not matter here):
 
-Signed-off-by: Joern Engel <joern@purestorage.com>
+1) port1->A->ASIC->C->CPU
+
+   For this flow, HW and SW stats are equal.
+
+2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
+
+   For this flow, HW and SW stats are equal.
+
+3) port1->A->ASIC->B->port2
+
+   For this flow, SW stats are 0.
+
+The purpose of this patchset is to provide facility for user to
+find out the difference between flows 1+2 and 3. In other words, user
+will be able to see the statistics for the slow-path (through kernel).
+
+Also note that HW stats are what someone calls "accumulated" stats.
+Every packet counted by SW is also counted by HW. Not the other way around.
+
+As a default the accumulated stats (HW) will be exposed to user
+so the userspace apps can react properly.
+
 ---
- drivers/net/bonding/bond_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+v5->v6:
+- patch 2/4 was dropped as requested by Roopa
+- patch 1/3:
+ - comment changed to indicate that default stats are combined stats
+ - commit massage changed
+- patch 2/3: (previously 3/4)
+ - SW stats return nothing if there is no SW stats ndo
+v4->v5:
+- updated cover letter
+- patch3/4:
+  - using memcpy directly to copy stats as requested by DaveM
+v3->v4:
+- patch1/4:
+  - fixed "return ()" pointed out by EricD
+- patch2/4:
+  - fixed if_nlmsg_size as pointed out by EricD
+v2->v3:
+- patch1/4:
+  - added dev_have_sw_stats helper
+- patch2/4:
+  - avoided memcpy as requested by DaveM
+- patch3/4:
+  - use new dev_have_sw_stats helper
+v1->v2:
+- patch3/4: 
+  - fixed NULL initialization
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1f276fa30ba6..2f686bfe4304 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1490,7 +1490,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
- 		addr.sa_family = slave_dev->type;
- 		res = dev_set_mac_address(slave_dev, &addr);
--		if (res) {
-+		/* round-robin mode works fine without a mac address */
-+		if (res && BOND_MODE(bond) != BOND_MODE_ROUNDROBIN) {
- 			netdev_dbg(bond_dev, "Error %d calling set_mac_address\n", res);
- 			goto err_restore_mtu;
- 		}
+Nogah Frankel (3):
+  netdevice: add SW statistics ndo
+  net: core: add SW stats to if_stats_msg
+  mlxsw: spectrum: Implement SW stats ndo and expose HW stats by default
+
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 105 +++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |   5 ++
+ include/linux/netdevice.h                      |  14 ++++
+ include/uapi/linux/if_link.h                   |   1 +
+ net/core/dev.c                                 |  31 ++++++++
+ net/core/rtnetlink.c                           |  21 +++++
+ 6 files changed, 171 insertions(+), 6 deletions(-)
+
 -- 
-2.1.4
+2.5.5
