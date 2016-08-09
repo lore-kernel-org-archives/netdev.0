@@ -1,42 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: size of data_segs_[in|out] and segs_[in|out]
-Date: Tue, 09 Aug 2016 12:04:58 -0700 (PDT)
-Message-ID: <20160809.120458.792987014914899369.davem@davemloft.net>
-References: <797392fa-8d87-f45b-69b2-fdd096e1229c@psc.edu>
-	<20160808.160245.2063863440275871547.davem@davemloft.net>
-	<e0a3f13a-f3cc-8455-8e7d-9c604f8ef4fb@psc.edu>
+Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
+Date: Tue, 09 Aug 2016 12:06:36 -0700 (PDT)
+Message-ID: <20160809.120636.2039586307820412288.davem@davemloft.net>
+References: <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
+	<57A9DA8D.3010407@huawei.com>
+	<20160809180830.GM22974@cork>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rapier@psc.edu
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: dingtianhong@huawei.com, zyjzyj2000@gmail.com, fubar@us.ibm.com,
+	andy@greyhouse.net, netdev@vger.kernel.org
+To: joern@purestorage.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:32983 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbcHITFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 15:05:05 -0400
-Received: by mail-pf0-f169.google.com with SMTP id y134so7714454pfg.0
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 12:05:04 -0700 (PDT)
-In-Reply-To: <e0a3f13a-f3cc-8455-8e7d-9c604f8ef4fb@psc.edu>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36361 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbcHITGi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 15:06:38 -0400
+Received: by mail-pf0-f195.google.com with SMTP id y134so1320743pfg.3
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 12:06:38 -0700 (PDT)
+In-Reply-To: <20160809180830.GM22974@cork>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: rapier <rapier@psc.edu>
-Date: Tue, 9 Aug 2016 13:17:59 -0400
+From: Jörn Engel <joern@purestorage.com>
+Date: Tue, 9 Aug 2016 11:08:30 -0700
 
-> I cannot deny that would be a problem but conversely, those
-> applications are currently in a position where they may be depending
-> on inaccurate data. I'm not advocating breaking things for the sake of
-> breaking things but my feeling is that this will eventually need to be
-> addressed. Since the segs datastructure is a relatively recent
-> addition it might make sense to make that change now before it's even
-> more baked in to other applications.
+> On Tue, Aug 09, 2016 at 09:28:45PM +0800, Ding Tianhong wrote:
+>> 
+>> I think if the bonding dev has to support L3 virtual device, we need to add new bond features to distinguish the dev and make the
+>> bond xmit and transfer without the mac address.
+> 
+> Simply not checking errors when setting the mac address solves the
+> problem for me.  No new features needed.
 
-Changing the size or position of these data structure members is
-simply not an option.  It is locked into stone, and a permanent
-ABI which we cannot change.
+But it only works in certain modes.
 
-Please stop discussing as if changing this is a possibility.
-
-You need to find another solution to the problem, or advocate a
-user side solution (periodic polling).
+So the best we can do is enforce the MAC address setting in the
+modes that absolutely require it.  We cannot ignore the MAC
+address setting unilaterally.
