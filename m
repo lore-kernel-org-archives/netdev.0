@@ -1,83 +1,57 @@
-From: Sylwester Nawrocki <s.nawrocki@samsung.com>
-Subject: [PATCH] dm9000: Fix irq trigger type setup on non-dt platforms
-Date: Tue, 09 Aug 2016 18:00:08 +0200
-Message-ID: <1470758408-14248-1-git-send-email-s.nawrocki@samsung.com>
-Cc: netdev@vger.kernel.org, robert.jarzmik@free.fr,
-	linus.walleij@linaro.org, tglx@linutronix.de,
-	b.zolnierkie@samsung.com, linux-kernel@vger.kernel.org,
-	linux-samsung-soc@vger.kernel.org,
-	Sylwester Nawrocki <s.nawrocki@samsung.com>
-To: davem@davemloft.net
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Sender: linux-samsung-soc-owner@vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net 0/6] rxrpc: Miscellaneous fixes
+Date: Tue, 09 Aug 2016 17:33:12 +0100
+Message-ID: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit b5a099c67a1c36b "net: ethernet: davicom: fix devicetree irq
-resource" causes an interrupt storm after the ethernet interface
-is activated on S3C24XX platform (ARM non-dt), due to the interrupt
-trigger type not being set properly.
 
-It seems, after adding parsing of IRQ flags in commit 7085a7401ba54e92b
-"drivers: platform: parse IRQ flags from resources", there is no path
-for non-dt platforms where irq_set_type callback could be invoked when
-we don't pass the trigger type flags to the request_irq() call.
+Hi Dave,
 
-In case of a board where the regression is seen the interrupt trigger
-type flags are passed through a platform device's resource and it is
-not currently handled properly without passing the irq trigger type
-flags to the request_irq() call.  In case of OF an of_irq_get() call
-within platform_get_irq() function seems to be ensuring required irq_chip
-setup, but there is no equivalent code for non OF/ACPI platforms.
+Here are a bunch of miscellaneous fixes to AF_RXRPC:
 
-This patch mostly restores irq trigger type setting code which has been
-removed in commit ("net: ethernet: davicom: fix devicetree irq resource").
+ (*) Fix an uninitialised pointer.
 
-Fixes: b5a099c67a1c36b913 ("net: ethernet: davicom: fix devicetree irq resource")
+ (*) Fix error handling when we fail to connect a call.
 
-Signed-off-by: Sylwester Nawrocki <s.nawrocki@samsung.com>
+ (*) Fix a NULL pointer dereference.
+
+ (*) Fix two occasions where a packet is accessed again after being queued
+     for someone else to deal with.
+
+ (*) Fix a missing skb free.
+
 ---
+The patches can be found here also:
 
-Perhaps instead the core could be configuring the irqchip automatically as it
-is done for OF/ACPI cases. I had doubts though if trying to make such changes
-for a bug fix patch was the right thing to do.
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-fixes
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-fixes-20160809
+
+David
 ---
- drivers/net/ethernet/davicom/dm9000.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+Arnd Bergmann (1):
+      rxrpc: fix uninitialized pointer dereference in debug code
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 1471e16..f45385f 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -1299,6 +1299,7 @@ static int
- dm9000_open(struct net_device *dev)
- {
- 	struct board_info *db = netdev_priv(dev);
-+	unsigned int irq_flags = irq_get_trigger_type(dev->irq);
- 
- 	if (netif_msg_ifup(db))
- 		dev_dbg(db->dev, "enabling %s\n", dev->name);
-@@ -1306,9 +1307,11 @@ dm9000_open(struct net_device *dev)
- 	/* If there is no IRQ type specified, tell the user that this is a
- 	 * problem
- 	 */
--	if (irq_get_trigger_type(dev->irq) == IRQF_TRIGGER_NONE)
-+	if (irq_flags == IRQF_TRIGGER_NONE)
- 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
- 
-+	irq_flags |= IRQF_SHARED;
-+
- 	/* GPIO0 on pre-activate PHY, Reg 1F is not set by reset */
- 	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
- 	mdelay(1); /* delay needs by DM9000B */
-@@ -1316,8 +1319,7 @@ dm9000_open(struct net_device *dev)
- 	/* Initialize DM9000 board */
- 	dm9000_init_dm9000(dev);
- 
--	if (request_irq(dev->irq, dm9000_interrupt, IRQF_SHARED,
--			dev->name, dev))
-+	if (request_irq(dev->irq, dm9000_interrupt, irq_flags, dev->name, dev))
- 		return -EAGAIN;
- 	/* Now that we have an interrupt handler hooked up we can unmask
- 	 * our interrupts
--- 
-1.9.1
+David Howells (5):
+      rxrpc: Need to flag call as being released on connect failure
+      rxrpc: Don't access connection from call if pointer is NULL
+      rxrpc: Once packet posted in data_ready, don't retry posting
+      rxrpc: Fix a use-after-push in data_ready handler
+      rxrpc: Free packets discarded in data_ready
+
+
+ net/rxrpc/call_event.c  |    4 ++++
+ net/rxrpc/call_object.c |    3 +++
+ net/rxrpc/input.c       |   27 ++++++++++++++++-----------
+ 3 files changed, 23 insertions(+), 11 deletions(-)
