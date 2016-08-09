@@ -1,68 +1,56 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Regression introduced by "net: ipconfig: Support using "delayed" DHCP replies"
-Date: Tue, 9 Aug 2016 12:02:44 +0200
-Message-ID: <CAMuHMdVjugL0y-C+vet=qbcER8rjuFKwFgrutRUAs=uOk0JZ1A@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 2/3] net: Replace for_each_possible_cpu with
+ for_each_online_cpu
+Date: Tue, 09 Aug 2016 12:10:31 +0200
+Message-ID: <1470737431.5324.0.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1470651742-15195-1-git-send-email-hejianet@gmail.com>
+	 <1470651742-15195-3-git-send-email-hejianet@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jia He <hejianet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36431 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751337AbcHIKKf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 06:10:35 -0400
+In-Reply-To: <1470651742-15195-3-git-send-email-hejianet@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Uwe, David,
+On Mon, 2016-08-08 at 18:22 +0800, Jia He wrote:
+> In PowerPC server with large number cpus, the loop index in smt=1 could be 
+> reduced to 1/8 compared with smt=8.
+> Thus cache misses can be reduced.
+> 
+> Signed-off-by: Jia He <hejianet@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> ---
+>  net/ipv6/addrconf.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 43fa8d0..1fce613 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -4969,7 +4969,7 @@ static inline void __snmp6_fill_stats64(u64 *stats, void __percpu *mib,
+>  
+>  	buff[0] = IPSTATS_MIB_MAX;
+>  
+> -	for_each_possible_cpu(c) {
+> +	for_each_online_cpu(c) {
+>  		for (i = 1; i < IPSTATS_MIB_MAX; i++)
+>  			buff[i] += snmp_get_cpu_field64(mib, c, i, syncpoff);
+>  	}
 
-On current net-next, I see the following corruption during DHCP on
-r8a7791/koelsch, which uses the sh_eth driver:
-
-     Sending DHCP requests ., OK
-     IP-Config: Got DHCP answer from 192.168.97.254, my address is 192.168.97.28
-     IP-Config: Complete:
--         device=eth0, hwaddr=2e:09:0a:00:6d:85, ipaddr=192.168.97.28,
-mask=255.255.255.0, gw=192.168.97.254
-+         device=^M\xffffffc0\xffffffa0\xffffffe1,
-hwaddr=0e:9e:45:ac:dd:b4:3a:88:95:e1:50:af:0c:44:92:c0:6c:46:9f:02:34:1e:58:21:cd:c3:40:0c:ed:80:b1:74:10:0c:04:31:06:9f:04:01:04:93:5c:51:83:18:46:09,
-ipaddr=192.168.97.28, mask=255.255.255.0, gw=192.168.97.254
-
-It may also crash in ip_auto_config() with e.g. "Unable to handle kernel NULL
-pointer dereference at virtual address 0000017d".
-
-I've bisected this to commit 2647cffb2bc6fbed163d377390eb7ca552c7c1cb
-('net: ipconfig: Support using "delayed" DHCP replies').
-Unfortunately just reverting that commit on current net-next is not a
-solution, as
-that may lead to DHCP failures:
-
-    DHCP/BOOTP: Ignoring delayed packet
-    timed out!
-    [...]
-    IP-Config: Retrying forever (NFS root)...
-
-Reverting also commit e068853409aa1720 ("net: ipconfig: drop inter-device
-timeout") fixes that, though.
-
-On r8a7795/salvator-x, which uses the ravb driver, I once saw the following:
-
-     Sending DHCP requests ., OK
-     IP-Config: Got DHCP answer from 192.168.97.254, my address is 192.168.97.44
-     IP-Config: Complete:
--         device=eth0, hwaddr=2e:09:0a:00:83:1e, ipaddr=192.168.97.44,
-mask=255.255.255.0, gw=192.168.97.254
-+         device=, hwaddr=(null), ipaddr=192.168.97.44,
-mask=255.255.255.0, gw=192.168.97.254
-
-This isn't reproducible at will, though.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+This will break on machines with cpu hotplug.
