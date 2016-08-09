@@ -1,228 +1,356 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [RFC 0/4] RFC: Add Checmate, BPF-driven minor LSM
-Date: Mon, 8 Aug 2016 17:22:37 -0700
-Message-ID: <CAGXu5jKJTqb25vE_TyRiv1X3tg-dU3OLXh+FxPfcBhxmQoOZ=A@mail.gmail.com>
-References: <20160804071116.GA19098@ircssh.c.rugged-nimbus-611.internal>
- <CAGXu5jKfjKPuGO98S5XwVSuOcimLtZD6Y9WRQ9pvdBa16TQyFw@mail.gmail.com> <20160809000015.GA9866@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	linux-security-module <linux-security-module@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"Reshetova, Elena" <elena.reshetova@intel.com>
-To: Sargun Dhillon <sargun@sargun.me>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160809000015.GA9866@ircssh.c.rugged-nimbus-611.internal>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH v5 1/1] rps: Inspect PPTP encapsulated by GRE to get flow hash
+Date: Tue,  9 Aug 2016 08:37:38 +0800
+Message-ID: <1470703058-2641-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: davem@davemloft.net, philipp@redfish-solutions.com,
+	stephen@networkplumber.org, pshelar@nicira.com,
+	tom@herbertland.com, aduyck@mirantis.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from SMTPBG252.QQ.COM ([183.60.52.105]:52280 "EHLO smtpbg252.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752167AbcHIAia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Aug 2016 20:38:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 8, 2016 at 5:00 PM, Sargun Dhillon <sargun@sargun.me> wrote:
-> On Mon, Aug 08, 2016 at 04:44:02PM -0700, Kees Cook wrote:
->> On Thu, Aug 4, 2016 at 12:11 AM, Sargun Dhillon <sargun@sargun.me> wrote:
->> > I distributed this patchset to linux-security-module@vger.kernel.org earlier,
->> > but based on the fact that the archive is down, and this is a fairly
->> > broad-sweeping proposal, I figured I'd grow the audience a little bit. Sorry
->> > if you received this multiple times.
->> >
->> > I've begun building out the skeleton of a Linux Security Module, and I'd like to
->> > get feedback on it. It's a skeleton, and I've only populated a few hooks, so I'm
->> > mostly looking for input on the general proposal, interest, and design. It's a
->> > minor LSM. My particular use case is one in which containers are being
->> > dynamically deployed to machines by internal developers in a different group.
->> > The point of Checmate is to act as an extensible bed for _safe_, complex
->> > security policies. It's nice to enable dynamic security policies that can be
->> > defined in C, and change as neccessary, without ever having to patch, or rebuild
->> > the kernel.
->> >
->> > For many of these containers, the security policies can be fairly nuanced. One
->> > particular one to take into account is network security. Often times,
->> > administrators want to prevent ingress, and egress connectivity except from a
->> > few select IPs. Egress filtering can be managed using net_cls, but without
->> > modifying running software, it's non-trivial to attach a filter to all sockets
->> > being created within a container. The inet_conn_request, socket_recvmsg,
->> > socket_sock_rcv_skb hooks make this trivial to implement.
->> >
->> > Other times, containers need to be throttled in places where there's not really
->> > a good place to impose that policy for software which isn't built in-house.  If
->> > one wants to limit file creations/sec, or reject I/O under certain
->> > characteristics, there's not a great place to do it now. This gives engineers a
->> > mechanism to write those policies.
->> >
->> > This same flexibility can be used to take existing programs and enable safe BPF
->> > helpers to modify memory to allow rules to pass. One example that I prototyped
->> > was Docker's port mapping, which has an overhead (DNAT), and there's some loss
->> > of fidelity in the BSD Socket API to identify what's going on. Instead, we can
->> > just rewrite the port in a bind, based upon some data in a BPF map, and a cgroup
->> > match.
->> >
->> > I can actually see other minor security modules being implemented in Checmate,
->> > for example, Yama, or the recently proposed Hardchroot could be reimplemented in
->> > BPF. Potentially, they could even be API compatible.
->> >
->> > Although, at first, much of this sounds like seccomp, it's quite different. For
->> > one, what we can do in the security hooks is more complex (access to kernel
->> > pointers). The other side of this is we can have effects on a system-wide,
->> > or cgroup level. This also circumvents the need for CRIU-friendly policies.
->> >
->> > Lastly, the flexibility of this mechanism allows for prevention of security
->> > vulnerabilities which are often complex in nature and require the interaction
->> > of multiple hooks (CVE-2014-9717 is a good example), and although ksplice,
->> > and livepatch exist, they're not always easy to use, as compared to loading
->> > a single bpf program across all kernels.
->> >
->> > The user-facing API is exposed via prctl as it's meant to be very simple (at
->> > least the kernel components). It only has three operations. For a given security
->> > hook, you can attach a BPF program to it, which will add it to the set of
->> > programs that are executed over when the hook is hit. You can reset a hook,
->> > which removes all program associated with a given hook, and you can set a
->> > deny_reset flag on a hook to prevent anyone from resetting it. It's likely that
->> > an individual would want to set this in any production use case.
->>
->> One fairly serious problem that seccomp had to overcome was dealing
->> with exec+setuid in the face of an attacker. The main example is "what
->> if we refuse to allow a program to drop privileges via a filter rule?"
->> For seccomp, no-new-privs was introduced for non-root users of
->> seccomp. Programmatic syscall (or LSM) filters need to deal with this,
->> and it's a bit ungainly. :)
->>
-> Couldn't someone do the same with SELinux, or Apparmor?
+From: Gao Feng <fgao@ikuai8.com>
 
-The "big" LSMs aren't defined programmatically by non-root users, so
-there is no risk of elevating privileges (they are already root).
+The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+must contain one. But current GRE RPS needs the GRE_VERSION must be
+zero. So RPS does not work for PPTP traffic.
 
->> Also, if you have a prctl API that already has 3 operations, you might
->> want to use a new syscall anyway. :)
->>
-> Looking at other LSMs, they appear to expose their API via a virtual filesystem,
-> or prctl. I followed the model of YAMA. I think there may be two more operations
-> (detach program, and mark a hook as append-only / read-only / disabled). It
-> seems like overkill to implement my own syscall.
->
->> > On the BPF side of it, all that's involved in the work in progress is to
->> > move some of the tracing helpers into the shared helpers. For example,
->> > it's very valuable to have access to current when enforcing a hook.
->> > BPF programs also have access to maps, which somewhat works around
->> > the need for security blobs in some cases.
->>
->> Just from a compatibility perspective, doesn't this end up exposing
->> kernel structures to userspace? What happens when the structures
->> change?
->>
-> I wouldn't consider BPF userspace. Although it executes in the kernel, I
-> wouldn't really consider it kernel space either as it's restricted to safe
-> operations.
->
-> As far as addressing this issue -- A significant part of the LSM hooks API is
-> tied to the syscall, giving stability to those datastructures.
+In my test environment, there are four MIPS cores, and all traffic
+are passed through by PPTP. As a result, only one core is 100% busy
+while other three cores are very idle. After this patch, the usage
+of four cores are balanced well.
 
-Just for the sake of clarity: they're tied to internal callers,
-usually near syscall entry points; LSMs can't filter syscalls.
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v5: 1) Make fix header of gre_full_hdr as uname struct;
+     2) Create macro GRE_PPTP_KEY_MASK;
+ v4: 1) Define struct gre_full_hdr, and use sizeof its member directly;
+     2) Move version and routing check ahead;
+     3) Only PPTP in GRE check the ack flag;
+ v3: 1) Move struct pptp_gre_header defination into new file pptp.h
+     2) Use sizeof GRE and PPTP type instead of literal value;
+     3) Remove strict flag check for PPTP to robust;
+     4) Consolidate the codes again;
+ v2: Update according to Tom and Philp's advice.
+     1) Consolidate the codes with GRE version 0 path;
+     2) Use PPP_PROTOCOL to get ppp protol;
+     3) Set the FLOW_DIS_ENCAPSULATION flag;
+ v1: Intial Patch
 
-> If you look at
-> the API itself a significant part of it has been untouched for 3+ years, and
-> it's been even longer since there has been an API breaking change. On the other
-> hand, the developer has the ability to perform arbitrary reads of kernel space
-> using bpf_probe_read.
+ drivers/net/ppp/pptp.c         |  36 +------------
+ include/net/gre.h              |  13 ++++-
+ include/net/pptp.h             |  40 +++++++++++++++
+ include/uapi/linux/if_tunnel.h |   7 ++-
+ net/core/flow_dissector.c      | 113 ++++++++++++++++++++++++++++-------------
+ 5 files changed, 138 insertions(+), 71 deletions(-)
+ create mode 100644 include/net/pptp.h
 
-What's hilarious is that syscall API is unchanged, but LSM API keeps
-shifting around a little at a time. So, same issues as with kprobes,
-etc, as you mention.
-
-FWIW, I'd much rather have an LSM that reacts to seccomp filters and
-maps syscall arguments to in-kernel data structures that can be
-examined during an LSM hook. Then we'd have both a stable API and a
-programmatic filtering of data structures.
-
-> This is addressed in the 4th patch, which requires the BPF program is compiled
-> against the current kernel version. The userspace policy orchestration code
-> should recompile the BPF program on the fly matching the current kernel's
-> datastructures. There's a certain level of rope here given to the operator,
-> and it's expected that they use it carefully. Similarly, folks could load
-> kprobes, kmods, and other programs that have the same issues.
-
-Right, perhaps I misunderstood the privilege level you were targeting.
-:) Did you intend for unprivileged users to use this, or just the
-init-ns root user?
-
->
->> And from a security perspective, programmatic examination of kernel
->> structures means you can trivially leak kernel memory locations and
->> contents. Resisting these sorts of leaks needs to be addressed too.
->>
-> I'm unsure of that unintentional exfiltration of kernel memory locations is
-> possible. You may be able to via a BPF map or similar (logging). What kinds of
-> attacks are you thinking about specifically?
-
-Well, I was looking at the example you sent, and it seemed like it had
-raw access to kernel pointers, which means it could be programmed to
-leak the values.
-
->> This looks like a subset of kprobes but available to non-root users,
->> which looks rather scary to me at first glance. :)
-> You need CAP_SYS_ADMIN to touch this. These folks are the same ones that control
-> SELinux, and Apparmor.
-
-Ah-ha, missed that. Still, we want to keep a bright line between uid-0
-and ring-0, and to make sure this is just init-ns CAP_SYS_ADMIN.
-
--Kees
-
->
->>
->> -Kees
->>
->> >
->> > I would love to know what y'all think.
->> >
->> > Sargun Dhillon (4):
->> >   bpf: move tracing helpers to shared helpers
->> >   bpf, security: Add Checmate
->> >   security/checmate: Add Checmate sample
->> >   bpf: Restrict Checmate bpf programs to current kernel ABI
->> >
->> >  include/linux/bpf.h              |   2 +
->> >  include/linux/checmate.h         |  38 +++++
->> >  include/uapi/linux/Kbuild        |   1 +
->> >  include/uapi/linux/bpf.h         |   1 +
->> >  include/uapi/linux/checmate.h    |  65 +++++++++
->> >  include/uapi/linux/prctl.h       |   3 +
->> >  kernel/bpf/helpers.c             |  34 +++++
->> >  kernel/bpf/syscall.c             |   2 +-
->> >  kernel/trace/bpf_trace.c         |  33 -----
->> >  samples/bpf/Makefile             |   4 +
->> >  samples/bpf/bpf_load.c           |  11 +-
->> >  samples/bpf/checmate1_kern.c     |  28 ++++
->> >  samples/bpf/checmate1_user.c     |  54 +++++++
->> >  security/Kconfig                 |   1 +
->> >  security/Makefile                |   2 +
->> >  security/checmate/Kconfig        |   6 +
->> >  security/checmate/Makefile       |   3 +
->> >  security/checmate/checmate_bpf.c |  67 +++++++++
->> >  security/checmate/checmate_lsm.c | 304 +++++++++++++++++++++++++++++++++++++++
->> >  19 files changed, 622 insertions(+), 37 deletions(-)
->> >  create mode 100644 include/linux/checmate.h
->> >  create mode 100644 include/uapi/linux/checmate.h
->> >  create mode 100644 samples/bpf/checmate1_kern.c
->> >  create mode 100644 samples/bpf/checmate1_user.c
->> >  create mode 100644 security/checmate/Kconfig
->> >  create mode 100644 security/checmate/Makefile
->> >  create mode 100644 security/checmate/checmate_bpf.c
->> >  create mode 100644 security/checmate/checmate_lsm.c
->> >
->> > --
->> > 2.7.4
->> >
->>
->>
->>
->> --
->> Kees Cook
->> Nexus Security
-
-
-
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index ae0905e..3e68dbc 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -37,6 +37,7 @@
+ #include <net/icmp.h>
+ #include <net/route.h>
+ #include <net/gre.h>
++#include <net/pptp.h>
+ 
+ #include <linux/uaccess.h>
+ 
+@@ -53,41 +54,6 @@ static struct proto pptp_sk_proto __read_mostly;
+ static const struct ppp_channel_ops pptp_chan_ops;
+ static const struct proto_ops pptp_ops;
+ 
+-#define PPP_LCP_ECHOREQ 0x09
+-#define PPP_LCP_ECHOREP 0x0A
+-#define SC_RCV_BITS	(SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
+-
+-#define MISSING_WINDOW 20
+-#define WRAPPED(curseq, lastseq)\
+-	((((curseq) & 0xffffff00) == 0) &&\
+-	(((lastseq) & 0xffffff00) == 0xffffff00))
+-
+-#define PPTP_GRE_PROTO  0x880B
+-#define PPTP_GRE_VER    0x1
+-
+-#define PPTP_GRE_FLAG_C	0x80
+-#define PPTP_GRE_FLAG_R	0x40
+-#define PPTP_GRE_FLAG_K	0x20
+-#define PPTP_GRE_FLAG_S	0x10
+-#define PPTP_GRE_FLAG_A	0x80
+-
+-#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
+-#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
+-#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
+-#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
+-#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
+-
+-#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
+-struct pptp_gre_header {
+-	u8  flags;
+-	u8  ver;
+-	__be16 protocol;
+-	__be16 payload_len;
+-	__be16 call_id;
+-	__be32 seq;
+-	__be32 ack;
+-} __packed;
+-
+ static struct pppox_sock *lookup_chan(u16 call_id, __be32 s_addr)
+ {
+ 	struct pppox_sock *sock;
+diff --git a/include/net/gre.h b/include/net/gre.h
+index 7a54a31..6347f16 100644
+--- a/include/net/gre.h
++++ b/include/net/gre.h
+@@ -7,9 +7,20 @@
+ struct gre_base_hdr {
+ 	__be16 flags;
+ 	__be16 protocol;
+-};
++} __packed;
+ #define GRE_HEADER_SECTION 4
+ 
++struct gre_full_hdr {
++	struct {
++		__be16 flags;
++		__be16 protocols;
++	};
++	__be16 csum;
++	__be16 reserved1;
++	__be32 key;
++	__be32 seq;
++} __packed;
++
+ #define GREPROTO_CISCO		0
+ #define GREPROTO_PPTP		1
+ #define GREPROTO_MAX		2
+diff --git a/include/net/pptp.h b/include/net/pptp.h
+new file mode 100644
+index 0000000..301d3e2
+--- /dev/null
++++ b/include/net/pptp.h
+@@ -0,0 +1,40 @@
++#ifndef _NET_PPTP_H
++#define _NET_PPTP_H
++
++#define PPP_LCP_ECHOREQ 0x09
++#define PPP_LCP_ECHOREP 0x0A
++#define SC_RCV_BITS     (SC_RCV_B7_1|SC_RCV_B7_0|SC_RCV_ODDP|SC_RCV_EVNP)
++
++#define MISSING_WINDOW 20
++#define WRAPPED(curseq, lastseq)\
++	((((curseq) & 0xffffff00) == 0) &&\
++	(((lastseq) & 0xffffff00) == 0xffffff00))
++
++#define PPTP_GRE_PROTO  0x880B
++#define PPTP_GRE_VER    0x1
++
++#define PPTP_GRE_FLAG_C 0x80
++#define PPTP_GRE_FLAG_R 0x40
++#define PPTP_GRE_FLAG_K 0x20
++#define PPTP_GRE_FLAG_S 0x10
++#define PPTP_GRE_FLAG_A 0x80
++
++#define PPTP_GRE_IS_C(f) ((f)&PPTP_GRE_FLAG_C)
++#define PPTP_GRE_IS_R(f) ((f)&PPTP_GRE_FLAG_R)
++#define PPTP_GRE_IS_K(f) ((f)&PPTP_GRE_FLAG_K)
++#define PPTP_GRE_IS_S(f) ((f)&PPTP_GRE_FLAG_S)
++#define PPTP_GRE_IS_A(f) ((f)&PPTP_GRE_FLAG_A)
++
++#define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
++struct pptp_gre_header {
++	u8  flags;
++	u8  ver;
++	__be16 protocol;
++	__be16 payload_len;
++	__be16 call_id;
++	__be32 seq;
++	__be32 ack;
++} __packed;
++
++
++#endif
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 1046f55..0c11918 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -24,9 +24,14 @@
+ #define GRE_SEQ		__cpu_to_be16(0x1000)
+ #define GRE_STRICT	__cpu_to_be16(0x0800)
+ #define GRE_REC		__cpu_to_be16(0x0700)
+-#define GRE_FLAGS	__cpu_to_be16(0x00F8)
++#define GRE_ACK		__cpu_to_be16(0x0080)
++#define GRE_FLAGS	__cpu_to_be16(0x0078)
+ #define GRE_VERSION	__cpu_to_be16(0x0007)
+ 
++#define GRE_VERSION_1	__cpu_to_be16(0x0001)
++#define GRE_PROTO_PPP	__cpu_to_be16(0x880b)
++#define GRE_PPTP_KEY_MASK	htonl(0xffff)
++
+ struct ip_tunnel_parm {
+ 	char			name[IFNAMSIZ];
+ 	int			link;
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 61ad43f..91028ae 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -6,6 +6,8 @@
+ #include <linux/if_vlan.h>
+ #include <net/ip.h>
+ #include <net/ipv6.h>
++#include <net/gre.h>
++#include <net/pptp.h>
+ #include <linux/igmp.h>
+ #include <linux/icmp.h>
+ #include <linux/sctp.h>
+@@ -338,32 +340,42 @@ mpls:
+ ip_proto_again:
+ 	switch (ip_proto) {
+ 	case IPPROTO_GRE: {
+-		struct gre_hdr {
+-			__be16 flags;
+-			__be16 proto;
+-		} *hdr, _hdr;
++		struct gre_base_hdr *hdr, _hdr;
++		u16 gre_ver;
++		int offset = 0;
+ 
+ 		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
+ 		if (!hdr)
+ 			goto out_bad;
+-		/*
+-		 * Only look inside GRE if version zero and no
+-		 * routing
+-		 */
+-		if (hdr->flags & (GRE_VERSION | GRE_ROUTING))
++
++		/* Only look inside GRE without routing */
++		if (hdr->flags & GRE_ROUTING)
+ 			break;
+ 
+-		proto = hdr->proto;
+-		nhoff += 4;
++		/* Only look inside GRE for version 0 and 1 */
++		gre_ver = ntohs(hdr->flags & GRE_VERSION);
++		if (gre_ver > 1)
++			break;
++
++		proto = hdr->protocol;
++		if (gre_ver) {
++			/* Version1 must be PPTP, and check the flags */
++			if (!(proto == GRE_PROTO_PPP && (hdr->flags & GRE_KEY)))
++				break;
++		}
++
++		offset += sizeof(struct gre_base_hdr);
++
+ 		if (hdr->flags & GRE_CSUM)
+-			nhoff += 4;
++			offset += sizeof(((struct gre_full_hdr *)0)->csum) +
++				  sizeof(((struct gre_full_hdr *)0)->reserved1);
++
+ 		if (hdr->flags & GRE_KEY) {
+ 			const __be32 *keyid;
+ 			__be32 _keyid;
+ 
+-			keyid = __skb_header_pointer(skb, nhoff, sizeof(_keyid),
++			keyid = __skb_header_pointer(skb, nhoff + offset, sizeof(_keyid),
+ 						     data, hlen, &_keyid);
+-
+ 			if (!keyid)
+ 				goto out_bad;
+ 
+@@ -372,32 +384,65 @@ ip_proto_again:
+ 				key_keyid = skb_flow_dissector_target(flow_dissector,
+ 								      FLOW_DISSECTOR_KEY_GRE_KEYID,
+ 								      target_container);
+-				key_keyid->keyid = *keyid;
++				if (gre_ver == 0)
++					key_keyid->keyid = *keyid;
++				else
++					key_keyid->keyid = *keyid & GRE_PPTP_KEY_MASK;
+ 			}
+-			nhoff += 4;
++			offset += sizeof(((struct gre_full_hdr *)0)->key);
+ 		}
++
+ 		if (hdr->flags & GRE_SEQ)
+-			nhoff += 4;
+-		if (proto == htons(ETH_P_TEB)) {
+-			const struct ethhdr *eth;
+-			struct ethhdr _eth;
+-
+-			eth = __skb_header_pointer(skb, nhoff,
+-						   sizeof(_eth),
+-						   data, hlen, &_eth);
+-			if (!eth)
++			offset += sizeof(((struct pptp_gre_header *)0)->seq);
++
++		if (gre_ver == 0) {
++			if (proto == htons(ETH_P_TEB)) {
++				const struct ethhdr *eth;
++				struct ethhdr _eth;
++
++				eth = __skb_header_pointer(skb, nhoff + offset,
++							   sizeof(_eth),
++							   data, hlen, &_eth);
++				if (!eth)
++					goto out_bad;
++				proto = eth->h_proto;
++				offset += sizeof(*eth);
++
++				/* Cap headers that we access via pointers at the
++				 * end of the Ethernet header as our maximum alignment
++				 * at that point is only 2 bytes.
++				 */
++				if (NET_IP_ALIGN)
++					hlen = (nhoff + offset);
++			}
++		} else { /* version 1, must be PPTP */
++			u8 _ppp_hdr[PPP_HDRLEN];
++			u8 *ppp_hdr;
++
++			if (hdr->flags & GRE_ACK)
++				offset += sizeof(((struct pptp_gre_header *)0)->ack);
++
++			ppp_hdr = skb_header_pointer(skb, nhoff + offset,
++						     sizeof(_ppp_hdr), _ppp_hdr);
++			if (!ppp_hdr)
+ 				goto out_bad;
+-			proto = eth->h_proto;
+-			nhoff += sizeof(*eth);
+-
+-			/* Cap headers that we access via pointers at the
+-			 * end of the Ethernet header as our maximum alignment
+-			 * at that point is only 2 bytes.
+-			 */
+-			if (NET_IP_ALIGN)
+-				hlen = nhoff;
++
++			switch (PPP_PROTOCOL(ppp_hdr)) {
++			case PPP_IP:
++				proto = htons(ETH_P_IP);
++				break;
++			case PPP_IPV6:
++				proto = htons(ETH_P_IPV6);
++				break;
++			default:
++				/* Could probably catch some more like MPLS */
++				break;
++			}
++
++			offset += PPP_HDRLEN;
+ 		}
+ 
++		nhoff += offset;
+ 		key_control->flags |= FLOW_DIS_ENCAPSULATION;
+ 		if (flags & FLOW_DISSECTOR_F_STOP_AT_ENCAP)
+ 			goto out_good;
 -- 
-Kees Cook
-Nexus Security
+1.9.1
