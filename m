@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net 6/6] rxrpc: Free packets discarded in data_ready
-Date: Tue, 09 Aug 2016 17:33:53 +0100
-Message-ID: <147076043338.13232.13982890221086889631.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net 5/6] rxrpc: Fix a use-after-push in data_ready handler
+Date: Tue, 09 Aug 2016 17:33:46 +0100
+Message-ID: <147076042652.13232.7940007630014233642.stgit@warthog.procyon.org.uk>
 References: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,25 +14,145 @@ In-Reply-To: <147076039224.13232.8512451280294417362.stgit@warthog.procyon.org.u
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Under certain conditions, the data_ready handler will discard a packet.
-These need to be freed.
+Fix a use of a packet after it has been enqueued onto the packet processing
+queue in the data_ready handler.  Once on a call's Rx queue, we mustn't
+touch it any more as it may be dequeued and freed by the call processor
+running on a work queue.
+
+Save the values we need before enqueuing.
+
+Without this, we can get an oops like the following:
+
+BUG: unable to handle kernel NULL pointer dereference at 000000000000009c
+IP: [<ffffffffa01854e8>] rxrpc_fast_process_packet+0x724/0xa11 [af_rxrpc]
+PGD 0
+Oops: 0000 [#1] SMP
+Modules linked in: kafs(E) af_rxrpc(E) [last unloaded: af_rxrpc]
+CPU: 2 PID: 0 Comm: swapper/2 Tainted: G            E   4.7.0-fsdevel+ #1336
+Hardware name: ASUS All Series/H97-PLUS, BIOS 2306 10/09/2014
+task: ffff88040d6863c0 task.stack: ffff88040d68c000
+RIP: 0010:[<ffffffffa01854e8>]  [<ffffffffa01854e8>] rxrpc_fast_process_packet+0x724/0xa11 [af_rxrpc]
+RSP: 0018:ffff88041fb03a78  EFLAGS: 00010246
+RAX: ffffffffffffffff RBX: ffff8803ff195b00 RCX: 0000000000000001
+RDX: ffffffffa01854d1 RSI: 0000000000000008 RDI: ffff8803ff195b00
+RBP: ffff88041fb03ab0 R08: 0000000000000000 R09: 0000000000000001
+R10: ffff88041fb038c8 R11: 0000000000000000 R12: ffff880406874800
+R13: 0000000000000001 R14: 0000000000000000 R15: 0000000000000000
+FS:  0000000000000000(0000) GS:ffff88041fb00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 000000000000009c CR3: 0000000001c14000 CR4: 00000000001406e0
+Stack:
+ ffff8803ff195ea0 ffff880408348800 ffff880406874800 ffff8803ff195b00
+ ffff880408348800 ffff8803ff195ed8 0000000000000000 ffff88041fb03af0
+ ffffffffa0186072 0000000000000000 ffff8804054da000 0000000000000000
+Call Trace:
+ <IRQ>
+ [<ffffffffa0186072>] rxrpc_data_ready+0x89d/0xbae [af_rxrpc]
+ [<ffffffff814c94d7>] __sock_queue_rcv_skb+0x24c/0x2b2
+ [<ffffffff8155c59a>] __udp_queue_rcv_skb+0x4b/0x1bd
+ [<ffffffff8155e048>] udp_queue_rcv_skb+0x281/0x4db
+ [<ffffffff8155ea8f>] __udp4_lib_rcv+0x7ed/0x963
+ [<ffffffff8155ef9a>] udp_rcv+0x15/0x17
+ [<ffffffff81531d86>] ip_local_deliver_finish+0x1c3/0x318
+ [<ffffffff81532544>] ip_local_deliver+0xbb/0xc4
+ [<ffffffff81531bc3>] ? inet_del_offload+0x40/0x40
+ [<ffffffff815322a9>] ip_rcv_finish+0x3ce/0x42c
+ [<ffffffff81532851>] ip_rcv+0x304/0x33d
+ [<ffffffff81531edb>] ? ip_local_deliver_finish+0x318/0x318
+ [<ffffffff814dff9d>] __netif_receive_skb_core+0x601/0x6e8
+ [<ffffffff814e072e>] __netif_receive_skb+0x13/0x54
+ [<ffffffff814e082a>] netif_receive_skb_internal+0xbb/0x17c
+ [<ffffffff814e1838>] napi_gro_receive+0xf9/0x1bd
+ [<ffffffff8144eb9f>] rtl8169_poll+0x32b/0x4a8
+ [<ffffffff814e1c7b>] net_rx_action+0xe8/0x357
+ [<ffffffff81051074>] __do_softirq+0x1aa/0x414
+ [<ffffffff810514ab>] irq_exit+0x3d/0xb0
+ [<ffffffff810184a2>] do_IRQ+0xe4/0xfc
+ [<ffffffff81612053>] common_interrupt+0x93/0x93
+ <EOI>
+ [<ffffffff814af837>] ? cpuidle_enter_state+0x1ad/0x2be
+ [<ffffffff814af832>] ? cpuidle_enter_state+0x1a8/0x2be
+ [<ffffffff814af96a>] cpuidle_enter+0x12/0x14
+ [<ffffffff8108956f>] call_cpuidle+0x39/0x3b
+ [<ffffffff81089855>] cpu_startup_entry+0x230/0x35d
+ [<ffffffff810312ea>] start_secondary+0xf4/0xf7
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/input.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/rxrpc/input.c |   17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 789719031462..70bb77818dea 100644
+index 04afdc09557b..789719031462 100644
 --- a/net/rxrpc/input.c
 +++ b/net/rxrpc/input.c
-@@ -744,6 +744,8 @@ cant_route_call:
- 	if (sp->hdr.type != RXRPC_PACKET_TYPE_ABORT) {
- 		_debug("reject type %d",sp->hdr.type);
- 		rxrpc_reject_packet(local, skb);
-+	} else {
-+		rxrpc_free_skb(skb);
+@@ -124,11 +124,15 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
+ 	struct rxrpc_skb_priv *sp;
+ 	bool terminal;
+ 	int ret, ackbit, ack;
++	u32 serial;
++	u8 flags;
+ 
+ 	_enter("{%u,%u},,{%u}", call->rx_data_post, call->rx_first_oos, seq);
+ 
+ 	sp = rxrpc_skb(skb);
+ 	ASSERTCMP(sp->call, ==, NULL);
++	flags = sp->hdr.flags;
++	serial = sp->hdr.serial;
+ 
+ 	spin_lock(&call->lock);
+ 
+@@ -192,8 +196,8 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
+ 	sp->call = call;
+ 	rxrpc_get_call(call);
+ 	atomic_inc(&call->skb_count);
+-	terminal = ((sp->hdr.flags & RXRPC_LAST_PACKET) &&
+-		    !(sp->hdr.flags & RXRPC_CLIENT_INITIATED));
++	terminal = ((flags & RXRPC_LAST_PACKET) &&
++		    !(flags & RXRPC_CLIENT_INITIATED));
+ 	ret = rxrpc_queue_rcv_skb(call, skb, false, terminal);
+ 	if (ret < 0) {
+ 		if (ret == -ENOMEM || ret == -ENOBUFS) {
+@@ -205,12 +209,13 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
  	}
- 	_leave(" [no call]");
- 	return;
+ 
+ 	skb = NULL;
++	sp = NULL;
+ 
+ 	_debug("post #%u", seq);
+ 	ASSERTCMP(call->rx_data_post, ==, seq);
+ 	call->rx_data_post++;
+ 
+-	if (sp->hdr.flags & RXRPC_LAST_PACKET)
++	if (flags & RXRPC_LAST_PACKET)
+ 		set_bit(RXRPC_CALL_RCVD_LAST, &call->flags);
+ 
+ 	/* if we've reached an out of sequence packet then we need to drain
+@@ -226,7 +231,7 @@ static int rxrpc_fast_process_data(struct rxrpc_call *call,
+ 
+ 	spin_unlock(&call->lock);
+ 	atomic_inc(&call->ackr_not_idle);
+-	rxrpc_propose_ACK(call, RXRPC_ACK_DELAY, sp->hdr.serial, false);
++	rxrpc_propose_ACK(call, RXRPC_ACK_DELAY, serial, false);
+ 	_leave(" = 0 [posted]");
+ 	return 0;
+ 
+@@ -239,7 +244,7 @@ out:
+ 
+ discard_and_ack:
+ 	_debug("discard and ACK packet %p", skb);
+-	__rxrpc_propose_ACK(call, ack, sp->hdr.serial, true);
++	__rxrpc_propose_ACK(call, ack, serial, true);
+ discard:
+ 	spin_unlock(&call->lock);
+ 	rxrpc_free_skb(skb);
+@@ -247,7 +252,7 @@ discard:
+ 	return 0;
+ 
+ enqueue_and_ack:
+-	__rxrpc_propose_ACK(call, ack, sp->hdr.serial, true);
++	__rxrpc_propose_ACK(call, ack, serial, true);
+ enqueue_packet:
+ 	_net("defer skb %p", skb);
+ 	spin_unlock(&call->lock);
