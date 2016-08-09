@@ -1,42 +1,71 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [PATCH] drivers: net: cpsw: fix kmemleak false-positive reports
- for sk buffers
-Date: Tue, 9 Aug 2016 16:19:37 +0100
-Message-ID: <20160809151937.GA15447@e104818-lin.cambridge.arm.com>
-References: <20160809120944.23185-1-grygorii.strashko@ti.com>
+From: Martynas Pumputis <martynas-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>
+Subject: [PATCH] openvswitch: do not ignore netdev errors when
+	creating tunnel vports
+Date: Tue,  9 Aug 2016 16:24:50 +0100
+Message-ID: <20160809152450.6626-1-martynas@weave.works>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-	linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160809120944.23185-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Martynas Pumputis <martynas-1SEAoVOfG6VEzL6FDj/jAg@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 09, 2016 at 03:09:44PM +0300, Grygorii Strashko wrote:
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 0805855..0456e0e 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -732,6 +732,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
->  		netif_receive_skb(skb);
->  		ndev->stats.rx_bytes += len;
->  		ndev->stats.rx_packets++;
-> +		kmemleak_not_leak(new_skb);
->  	} else {
->  		ndev->stats.rx_dropped++;
->  		new_skb = skb;
-> @@ -1323,6 +1324,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->  				kfree_skb(skb);
->  				goto err_cleanup;
->  			}
-> +			kmemleak_not_leak(skb);
-
-Nitpick: I would add a short comment above the kmemleak_not_leak() calls
-on why there is a false positive. Otherwise:
-
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+VGhlIGNyZWF0aW9uIG9mIGEgdHVubmVsIHZwb3J0IChnZW5ldmUsIGdyZSwgdnhsYW4pIGJyaW5n
+cyB1cCBhCmNvcnJlc3BvbmRpbmcgbmV0ZGV2LCBhIG11bHRpLXN0ZXAgb3BlcmF0aW9uIHdoaWNo
+IGNhbiBmYWlsLgoKRm9yIGV4YW1wbGUsIGNoYW5naW5nIGEgdnhsYW4gdnBvcnQncyBuZXRkZXYg
+c3RhdGUgdG8gJ3VwJyBiaW5kcyB0aGUKdnBvcnQncyBzb2NrZXQgdG8gYSBVRFAgcG9ydCAtIGlm
+IHRoZSBiaW5kaW5nIGZhaWxzIChlLmcuIGR1ZSB0byB0aGUKcG9ydCBiZWluZyBpbiB1c2UpLCB0
+aGUgZXJyb3IgaXMgY3VycmVudGx5IGlnbm9yZWQgZ2l2aW5nIHRoZQphcHBlYXJhbmNlIHRoYXQg
+dGhlIHR1bm5lbCB2cG9ydCBjcmVhdGlvbiBjb21wbGV0ZWQgc3VjY2Vzc2Z1bGx5LgoKU2lnbmVk
+LW9mZi1ieTogTWFydHluYXMgUHVtcHV0aXMgPG1hcnR5bmFzQHdlYXZlLndvcmtzPgotLS0KIG5l
+dC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYyB8ICA5ICsrKysrKysrLQogbmV0L29wZW52c3dp
+dGNoL3Zwb3J0LWdyZS5jICAgIHwgMTEgKysrKysrKysrLS0KIG5ldC9vcGVudnN3aXRjaC92cG9y
+dC12eGxhbi5jICB8ICA5ICsrKysrKysrLQogMyBmaWxlcyBjaGFuZ2VkLCAyNSBpbnNlcnRpb25z
+KCspLCA0IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1n
+ZW5ldmUuYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1nZW5ldmUuYwppbmRleCAxYTFmY2VjLi41
+YWFmM2JhIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ2VuZXZlLmMKKysrIGIv
+bmV0L29wZW52c3dpdGNoL3Zwb3J0LWdlbmV2ZS5jCkBAIC05Myw3ICs5MywxNCBAQCBzdGF0aWMg
+c3RydWN0IHZwb3J0ICpnZW5ldmVfdG5sX2NyZWF0ZShjb25zdCBzdHJ1Y3QgdnBvcnRfcGFybXMg
+KnBhcm1zKQogCQlyZXR1cm4gRVJSX0NBU1QoZGV2KTsKIAl9CiAKLQlkZXZfY2hhbmdlX2ZsYWdz
+KGRldiwgZGV2LT5mbGFncyB8IElGRl9VUCk7CisJZXJyID0gZGV2X2NoYW5nZV9mbGFncyhkZXYs
+IGRldi0+ZmxhZ3MgfCBJRkZfVVApOworCWlmIChlcnIgPCAwKSB7CisJCXJ0bmxfZGVsZXRlX2xp
+bmsoZGV2KTsKKwkJcnRubF91bmxvY2soKTsKKwkJb3ZzX3Zwb3J0X2ZyZWUodnBvcnQpOworCQln
+b3RvIGVycm9yOworCX0KKwogCXJ0bmxfdW5sb2NrKCk7CiAJcmV0dXJuIHZwb3J0OwogZXJyb3I6
+CmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtZ3JlLmMgYi9uZXQvb3BlbnZzd2l0
+Y2gvdnBvcnQtZ3JlLmMKaW5kZXggN2Y4ODk3Zi4uMGU3MmQ5NSAxMDA2NDQKLS0tIGEvbmV0L29w
+ZW52c3dpdGNoL3Zwb3J0LWdyZS5jCisrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1ncmUuYwpA
+QCAtNTQsNiArNTQsNyBAQCBzdGF0aWMgc3RydWN0IHZwb3J0ICpncmVfdG5sX2NyZWF0ZShjb25z
+dCBzdHJ1Y3QgdnBvcnRfcGFybXMgKnBhcm1zKQogCXN0cnVjdCBuZXQgKm5ldCA9IG92c19kcF9n
+ZXRfbmV0KHBhcm1zLT5kcCk7CiAJc3RydWN0IG5ldF9kZXZpY2UgKmRldjsKIAlzdHJ1Y3QgdnBv
+cnQgKnZwb3J0OworCWludCBlcnI7CiAKIAl2cG9ydCA9IG92c192cG9ydF9hbGxvYygwLCAmb3Zz
+X2dyZV92cG9ydF9vcHMsIHBhcm1zKTsKIAlpZiAoSVNfRVJSKHZwb3J0KSkKQEAgLTY3LDkgKzY4
+LDE1IEBAIHN0YXRpYyBzdHJ1Y3QgdnBvcnQgKmdyZV90bmxfY3JlYXRlKGNvbnN0IHN0cnVjdCB2
+cG9ydF9wYXJtcyAqcGFybXMpCiAJCXJldHVybiBFUlJfQ0FTVChkZXYpOwogCX0KIAotCWRldl9j
+aGFuZ2VfZmxhZ3MoZGV2LCBkZXYtPmZsYWdzIHwgSUZGX1VQKTsKLQlydG5sX3VubG9jaygpOwor
+CWVyciA9IGRldl9jaGFuZ2VfZmxhZ3MoZGV2LCBkZXYtPmZsYWdzIHwgSUZGX1VQKTsKKwlpZiAo
+ZXJyIDwgMCkgeworCQlydG5sX2RlbGV0ZV9saW5rKGRldik7CisJCXJ0bmxfdW5sb2NrKCk7CisJ
+CW92c192cG9ydF9mcmVlKHZwb3J0KTsKKwkJcmV0dXJuIEVSUl9QVFIoZXJyKTsKKwl9CiAKKwly
+dG5sX3VubG9jaygpOwogCXJldHVybiB2cG9ydDsKIH0KIApkaWZmIC0tZ2l0IGEvbmV0L29wZW52
+c3dpdGNoL3Zwb3J0LXZ4bGFuLmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwppbmRl
+eCA1ZWI3Njk0Li43ZWI5NTVlIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhs
+YW4uYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwpAQCAtMTMwLDcgKzEzMCwx
+NCBAQCBzdGF0aWMgc3RydWN0IHZwb3J0ICp2eGxhbl90bmxfY3JlYXRlKGNvbnN0IHN0cnVjdCB2
+cG9ydF9wYXJtcyAqcGFybXMpCiAJCXJldHVybiBFUlJfQ0FTVChkZXYpOwogCX0KIAotCWRldl9j
+aGFuZ2VfZmxhZ3MoZGV2LCBkZXYtPmZsYWdzIHwgSUZGX1VQKTsKKwllcnIgPSBkZXZfY2hhbmdl
+X2ZsYWdzKGRldiwgZGV2LT5mbGFncyB8IElGRl9VUCk7CisJaWYgKGVyciA8IDApIHsKKwkJcnRu
+bF9kZWxldGVfbGluayhkZXYpOworCQlydG5sX3VubG9jaygpOworCQlvdnNfdnBvcnRfZnJlZSh2
+cG9ydCk7CisJCWdvdG8gZXJyb3I7CisJfQorCiAJcnRubF91bmxvY2soKTsKIAlyZXR1cm4gdnBv
+cnQ7CiBlcnJvcjoKLS0gCjIuOS4wCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDov
+L29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
