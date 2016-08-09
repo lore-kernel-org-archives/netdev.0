@@ -1,63 +1,109 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH iproute v3 0/5] iproute: ila and fou additions
-Date: Tue, 9 Aug 2016 14:41:34 -0700
-Message-ID: <1470778899-2854697-1-git-send-email-tom@herbertland.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH v5 2/3] Documentation: DT: net: Add Xilinx gmiitorgmii
+ converter device tree binding documentation
+Date: Tue, 9 Aug 2016 14:50:09 -0700
+Message-ID: <638248c5-1747-0a7d-58e6-27b7646c4f6d@gmail.com>
+References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
+ <1470735283-23611-3-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
-To: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50974 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932497AbcHIVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:41:44 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u79LZl4F011746
-	for <netdev@vger.kernel.org>; Tue, 9 Aug 2016 14:41:43 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 24qmgjgych-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:41:43 -0700
-Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
- mx-out.facebook.com (10.103.99.97) with ESMTP	id
- 100b85b25e7a11e687910002c9931860-458caaf0 for <netdev@vger.kernel.org>;	Tue,
- 09 Aug 2016 14:41:42 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1470735283-23611-3-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Patch set includes:
+On 08/09/2016 02:34 AM, Kedareswara rao Appana wrote:
+> Device-tree binding documentation for xilinx gmiitorgmii converter.
+> 
+> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> ---
+> Changes for v5:
+> ---> Fixed Indentation in the example as suggested by Michal.
+> Changes for v4:
+> --> Modified compatible as suggested by Rob.
+> --> Removed underscores from the converter node name as suggested by Rob.
+> Changes for v3:
+> --> None.
+> Changes for v2:
+> --> New patch.
+> 
+>  .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 38 ++++++++++++++++++++++
+>  1 file changed, 38 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> new file mode 100644
+> index 0000000..5f48793
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> @@ -0,0 +1,38 @@
+> +XILINX GMIITORGMII Converter Driver Device Tree Bindings
+> +--------------------------------------------------------
+> +
+> +The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
+> +Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
+> +Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
+> +This core can be used in all three modes of operation(10/100/1000 Mb/s).
+> +The Management Data Input/Output (MDIO) interface is used to configure the
+> +Speed of operation. This core can switch dynamically between the three
+> +Different speed modes by configuring the conveter register through mdio write.
+> +
+> +The MDIO is a bus to which the PHY devices are connected.  For each
+> +device that exists on this bus, a child node should be created.  See
+> +the definition of the PHY node in booting-without-of.txt for an example
+> +of how to define a PHY.
 
-- Allow configuring checksum mode for ila LWT (e.g. configure
-  checksum neutral
-- Configuration for performing ila translations using netfilter hook
-- fou encapsulation for ip6tnl and gre6
-- fou listener for IPv6
-
-v2:
-  - Fixed coding style issues
-
-v3:
-  - Fixed uniinitialized variable waning in ipila.c
+I would skip this paragraph which does not really help with
+understanding, and just refer to
+Documentation/devicetree/bindings/net/phy.txt for examples.
 
 
-Tom Herbert (5):
-  ila: Support for checksum neutral translation
-  ila: Support for configuring ila to use netfilter hook
-  ip6tnl: Support for fou encapsulation
-  gre6: Support for fou encapsulation
-  fou: Allowing configuring IPv6 listener
+> +
+> +This converter sits between the ethernet MAC and the external phy.
+> +MAC <==> GMII2RGMII <==> RGMII_PHY
+> +
+> +Required properties:
+> +- compatible	: Should be "xlnx,gmii-to-rgmii-1.0"
+> +- reg		: The ID number for the phy, usually a small integer
 
- ip/Makefile           |   2 +-
- ip/ip.c               |   3 +-
- ip/ip_common.h        |   1 +
- ip/ipfou.c            |   9 +-
- ip/ipila.c            | 268 ++++++++++++++++++++++++++++++++++++++++++++++++++
- ip/iproute_lwtunnel.c |  58 ++++++++++-
- ip/link_gre.c         |   2 +-
- ip/link_gre6.c        | 101 +++++++++++++++++++
- ip/link_ip6tnl.c      |  92 ++++++++++++++++-
- 9 files changed, 528 insertions(+), 8 deletions(-)
- create mode 100644 ip/ipila.c
+You would want specify that "reg" property needs to match the one of the
+PHY (specified via phy-handle) you are converting to/from for this
+"proxy" piece of hardware to work.
+
+If these two have the same "reg" value, is not that going to lead to
+duplicate MDIO devices created on the bus, this may work, based on
+probing ordering, but seems unusual, you don't really need the "reg"
+property here it seems?
+
+> +- phy-handle	: Should point to the external phy device.
+> +		  See ethernet.txt file in the same directory.
+> +
+> +Example:
+> +	mdio {
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		phy: ethernet-phy@0 {
+> +			......
+> +		};
+> +		gmiitorgmii: gmiitorgmii@8 {
+> +			compatible = "xlnx,gmii-to-rgmii-1.0";
+> +			reg = <8>;
+> +			phy-handle = <&phy>;
+> +		};
+> +	};
+> 
+
 
 -- 
-2.8.0.rc2
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
