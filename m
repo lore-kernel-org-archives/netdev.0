@@ -1,7 +1,7 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v3 01/13] net: ethernet: ti: cpsw: simplify submit routine
-Date: Wed, 10 Aug 2016 02:22:32 +0300
-Message-ID: <1470784964-26440-2-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v3 02/13] net: ethernet: ti: cpsw: remove intr dbg msg from poll handlers
+Date: Wed, 10 Aug 2016 02:22:33 +0300
+Message-ID: <1470784964-26440-3-git-send-email-ivan.khoronzhuk@linaro.org>
 References: <1470784964-26440-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
 	dlide@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
@@ -12,53 +12,41 @@ In-Reply-To: <1470784964-26440-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As second net dev is created only in case of dual_emac mode, port
-number can be figured out in simpler way. Also no need to pass
-redundant ndev struct.
+At poll handler no possibility to figure out which network device is
+handling packets, as cpdma channels are common for both network
+devices in dual_emac mode. Currently, the messages are printed only
+for one device, in fact, there is two. This print msg is incorrect
+and seems is not very useful, so drop it from poll handler.
 
 Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
 Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
- drivers/net/ethernet/ti/cpsw.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c51f346..8972bf6 100644
+index 8972bf6..21cf367 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1065,19 +1065,11 @@ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
- 	return usage_count;
- }
+@@ -793,9 +793,6 @@ static int cpsw_tx_poll(struct napi_struct *napi_tx, int budget)
+ 		}
+ 	}
  
--static inline int cpsw_tx_packet_submit(struct net_device *ndev,
--			struct cpsw_priv *priv, struct sk_buff *skb)
-+static inline int cpsw_tx_packet_submit(struct cpsw_priv *priv,
-+					struct sk_buff *skb)
- {
--	if (!priv->data.dual_emac)
--		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 0);
+-	if (num_tx)
+-		cpsw_dbg(priv, intr, "poll %d tx pkts\n", num_tx);
 -
--	if (ndev == cpsw_get_slave_ndev(priv, 0))
--		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 1);
--	else
--		return cpdma_chan_submit(priv->txch, skb, skb->data,
--				  skb->len, 2);
-+	return cpdma_chan_submit(priv->txch, skb, skb->data, skb->len,
-+				 priv->emac_port + priv->data.dual_emac);
+ 	return num_tx;
  }
  
- static inline void cpsw_add_dual_emac_def_ale_entries(
-@@ -1406,7 +1398,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+@@ -814,9 +811,6 @@ static int cpsw_rx_poll(struct napi_struct *napi_rx, int budget)
+ 		}
+ 	}
  
- 	skb_tx_timestamp(skb);
+-	if (num_rx)
+-		cpsw_dbg(priv, intr, "poll %d rx pkts\n", num_rx);
+-
+ 	return num_rx;
+ }
  
--	ret = cpsw_tx_packet_submit(ndev, priv, skb);
-+	ret = cpsw_tx_packet_submit(priv, skb);
- 	if (unlikely(ret != 0)) {
- 		cpsw_err(priv, tx_err, "desc submit failed\n");
- 		goto fail;
 -- 
 1.9.1
