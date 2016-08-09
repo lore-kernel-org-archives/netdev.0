@@ -1,65 +1,33 @@
-From: Andreas Werner <andreas.werner@men.de>
-Subject: Re: [PATCH RESEND] net: can: Introduce MEN 16Z192-00 CAN controller
- driver
-Date: Tue, 9 Aug 2016 08:11:21 +0200
-Message-ID: <20160809061121.GD1733@awelinux>
-References: <20160726091555.GA26227@awelinux>
- <20160808035814.ulqx4hnbtkkd2iko@f1.synalogic.ca>
- <20160808072620.GA5749@awelinux>
- <20160809032355.fzbdpudsqg2bdn27@f1.synalogic.ca>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [Patch net 3/5] net_sched: fix a typo in tc_for_each_action()
+Date: Tue, 9 Aug 2016 09:37:25 +0300
+Message-ID: <20160809063725.GA7102@office.localdomain>
+References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1470689209-17682-4-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andreas Werner <andreas.werner@men.de>, <wg@grandegger.com>,
-	<mkl@pengutronix.de>, <linux-can@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>, <jthumshirn@suse.de>, <andy@wernerandy.de>
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
-Return-path: <linux-can-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34687 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752171AbcHIGh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 02:37:29 -0400
+Received: by mail-wm0-f65.google.com with SMTP id q128so1165345wma.1
+        for <netdev@vger.kernel.org>; Mon, 08 Aug 2016 23:37:29 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160809032355.fzbdpudsqg2bdn27@f1.synalogic.ca>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1470689209-17682-4-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 08, 2016 at 08:23:55PM -0700, Benjamin Poirier wrote:
-> On 2016/08/08 09:26, Andreas Werner wrote:
-> [...]
-> > > > +
-> > > > +	if (cf->can_dlc > 0)
-> > > > +		data[0] = be32_to_cpup((__be32 *)(cf->data));
-> > > > +	if (cf->can_dlc > 3)
-> > > > +		data[1] = be32_to_cpup((__be32 *)(cf->data + 4));
-> > > > +
-> > > > +	writel(id, &cf_buf->can_id);
-> > > > +	writel(cf->can_dlc, &cf_buf->length);
-> > > > +
-> > > > +	if (!(cf->can_id & CAN_RTR_FLAG)) {
-> > > > +		writel(data[0], &cf_buf->data[0]);
-> > > > +		writel(data[1], &cf_buf->data[1]);
-> > > > +
-> > > > +		stats->tx_bytes += cf->can_dlc;
-> > > > +	}
-> > > > +
-> > > > +	/* be sure everything is written to the
-> > > > +	 * device before acknowledge the data.
-> > > > +	 */
-> > > > +	mmiowb();
-> > > > +
-> > > > +	/* trigger the transmission */
-> > > > +	men_z192_ack_tx_pkg(priv, 1);
-> > > > +
-> > > > +	stats->tx_packets++;
-> > > > +
-> > > > +	kfree_skb(skb);
-> > > 
-> > > What prevents the skb data to be freed/reused before the device has
-> > > accessed it?
+On Mon, Aug 08, 2016 at 01:46:47PM -0700, Cong Wang wrote:
+> It is harmless because all users pass 'a' to this macro.
 > 
-> I'm sorry, I hadn't realized that all of the data (all 8 bytes of it!)
-> is written directly to the device. I was thinking about ethernet devices
-> that dma packet data.
+> Fixes: 00175aec941e ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
+> Cc: Amir Vadai <amir@vadai.me>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
-Ah ok :-)
-I thought you just want me to free the skb earlier.
+Acked-by: Amir Vadai <amir@vadai.me>
 
-Regards
-Andy
+Thanks Cong.
