@@ -1,76 +1,52 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: qdisc hash table changes...
-Date: Tue, 9 Aug 2016 09:42:01 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608090936180.22028@cbobk.fhfr.pm>
-References: <20160808.155335.2122819330212870390.davem@davemloft.net>
+From: Amir Vadai <amirva@gmail.com>
+Subject: Re: [Patch net 5/5] net_sched: convert tcf_exts from list to flex_array
+Date: Tue, 9 Aug 2016 11:03:50 +0300
+Message-ID: <CAPcc5PhMHVSFoQVoF7u0Kcn0Cn=kLWB+Hr3bZT8f2rgk5pNfOw@mail.gmail.com>
+References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com> <1470689209-17682-6-git-send-email-xiyou.wangcong@gmail.com>
+Reply-To: amir@vadai.me
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33542 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750810AbcHIHmD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Aug 2016 03:42:03 -0400
-In-Reply-To: <20160808.155335.2122819330212870390.davem@davemloft.net>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34234 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751522AbcHIIEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 04:04:12 -0400
+Received: by mail-wm0-f68.google.com with SMTP id q128so1532239wma.1
+        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 01:03:51 -0700 (PDT)
+In-Reply-To: <1470689209-17682-6-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 8 Aug 2016, David Miller wrote:
+On Mon, Aug 8, 2016 at 11:46 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> As pointed out by Jamal, an action could be shared by
+> multiple filters, so we can't use list to chain them
+> any more after we get rid of the original tc_action.
+> Instead, we could just save pointers to these actions
+> in tcf_exts, since they are refcount'ed, so convert
+> the list to a flex array.
+>
+> The ugly part is the action API still accepts list
+> as a parameter, I just introduce a helper function to
+> convert the flex array of pointers to a list.
+>
+> Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
+> Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
 
-> I think there will still be build failures even with v6 due to symbol
-> clashes.
-> 
-> For example, kernel/audit_tree.c defines HASH_SIZE as an enumeration
-> value, and that (indirectly) includes networking headers.
+[...]
 
-It does indirectly pull in some networking headers, but it doesn't pull in 
-netdevice.h (which is the place where the actual include of hashtable.h 
-happens):
+> -#define tc_single_action(_exts) \
+> -       (list_is_singular(&(_exts)->actions))
+> +#define tc_no_actions(_exts)  (&(_exts)->nr_actions == 0)
+> +#define tc_single_action(_exts) (&(_exts)->nr_actions == 1)
 
-$ make kernel/audit_tree.i; grep HASH_SIZE kernel/audit_tree.i; grep netdev.*\.h kernel/audit_tree.i
-  CHK     include/config/kernel.release
-  CHK     include/generated/uapi/linux/version.h
-  CHK     include/generated/utsrelease.h
-  CHK     include/generated/bounds.h
-  CHK     include/generated/timeconst.h
-  CHK     include/generated/asm-offsets.h
-  CALL    scripts/checksyscalls.sh
-  DESCEND  objtool
-  CPP     kernel/audit_tree.i
-enum {HASH_SIZE = 128};
-static struct list_head chunk_hash_heads[HASH_SIZE];
- return chunk_hash_heads + n % HASH_SIZE;
- for (i = 0; i < HASH_SIZE; i++)
-# 1 "./include/linux/netdev_features.h" 1
-# 15 "./include/linux/netdev_features.h"
-# 85 "./include/linux/netdev_features.h"
-struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int length,
- return __netdev_alloc_skb(dev, length, ((( gfp_t)0x20u)|(( gfp_t)0x80000u)|(( gfp_t)0x2000000u)));
- return __netdev_alloc_skb(((void *)0), length, gfp_mask);
- return netdev_alloc_skb(((void *)0), length);
- struct sk_buff *skb = __netdev_alloc_skb(dev, length + 0, gfp);
- return __netdev_alloc_skb_ip_align(dev, length, ((( gfp_t)0x20u)|(( gfp_t)0x80000u)|(( gfp_t)0x2000000u)));
+Should remove the '&' here.
 
-So this is fine.
+Amir
 
-> There are others all over the tree.
-> 
-> I would therefore ask that you first fix the namespace conflicts against 
-> the hash symbols in the entire tree as a separate patch series (one for 
-> each driver/subsystem which has this problem.)  Really, get it down to 
-> "git grep hash_add | grep -v _hash_add" and similar returning no output.
-
-Is this really worth the hassle when there are no real conflicts (i.e. the 
-code in question doesn't indirectly pull in netdevice.h)?
-
-I just did allmodconfig build with v6, and it passed. Fengguang's 0-day 
-bot didn't report any failures either.
-
-> Then we can add the qdisc hash facility.
-
-Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs
+[...]
