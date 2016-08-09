@@ -1,236 +1,187 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v6 3/3] mlxsw: spectrum: Implement SW stats ndo and expose HW stats by default
-Date: Tue,  9 Aug 2016 23:25:12 +0200
-Message-ID: <1470777912-2227-4-git-send-email-jiri@resnulli.us>
-References: <1470777912-2227-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-	f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36612 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932480AbcHIVZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 17:25:20 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i138so5759595wmf.3
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 14:25:19 -0700 (PDT)
-In-Reply-To: <1470777912-2227-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH v5 3/3] net: phy: Add gmiitorgmii converter support
+Date: Tue, 9 Aug 2016 14:29:10 -0700
+Message-ID: <8919e4fe-69c5-9b16-cc37-e423b757609c@gmail.com>
+References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
+ <1470735283-23611-4-git-send-email-appanad@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
+	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1470735283-23611-4-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Nogah Frankel <nogahf@mellanox.com>
+On 08/09/2016 02:34 AM, Kedareswara rao Appana wrote:
+> This patch adds support for gmiitorgmii converter.
+> 
+> The GMII to RGMII IP core provides the Reduced Gigabit Media
+> Independent Interface (RGMII) between Ethernet physical media
+> Devices and the Gigabit Ethernet controller. This core can
+> Switch dynamically between the three different speed modes of
+> Operation by configuring the converter register through mdio write.
+> 
+> MDIO interface is used to set operating speed of Ethernet MAC.
+> 
+> This converter sits between the MAC and the external phy
+> MAC <==> GMII2RGMII <==> RGMII_PHY
 
-Add a function to get the SW statistics with an ndo.
-Change the default statistics ndo to return HW statistics
-(like the one returned by ethtool_ops).
-The HW stats are collected to a cache by delayed work every 1 sec.
+This looks good, just a few things, see below:
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 105 +++++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |   5 ++
- 2 files changed, 104 insertions(+), 6 deletions(-)
+> 
+> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> ---
+> Thanks a lot Andrew for your inputs.
+> Changes for v5:
+> --> Fixed return values in the probe as suggested by punnaiah.
+> --> Added a mask for the converter speed as suggested by punnaiah.
+> Changes for v4:
+> --> Updated phydev speed for all 3 speeds as suggested by zhuyj.
+> Changes for v3:
+> --> Updated the driver as suggested by Andrew.
+> Changes for v2:
+> --> Passed struct xphy pointer directly to the fix_mac_speed
+> API as suggested by the Florian.
+> --> Added checks for the phy-node fail case as suggested
+> by the Florian
+> 
+>  drivers/net/phy/Kconfig             |   8 +++
+>  drivers/net/phy/Makefile            |   1 +
+>  drivers/net/phy/xilinx_gmii2rgmii.c | 121 ++++++++++++++++++++++++++++++++++++
+>  3 files changed, 130 insertions(+)
+>  create mode 100644 drivers/net/phy/xilinx_gmii2rgmii.c
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 1b534ea..c79f347 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -312,6 +312,14 @@ config MICROSEMI_PHY
+>      ---help---
+>        Currently supports the VSC8531 and VSC8541 PHYs
+>  
+> +config XILINX_GMII2RGMII
+> +       tristate "Xilinx GMII2RGMII converter driver"
+> +       default y
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e1b8f62..29230e2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -811,8 +811,8 @@ err_span_port_mtu_update:
- }
- 
- static struct rtnl_link_stats64 *
--mlxsw_sp_port_get_stats64(struct net_device *dev,
--			  struct rtnl_link_stats64 *stats)
-+mlxsw_sp_port_get_sw_stats64(struct net_device *dev,
-+			     struct rtnl_link_stats64 *stats)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct mlxsw_sp_port_pcpu_stats *p;
-@@ -842,6 +842,86 @@ mlxsw_sp_port_get_stats64(struct net_device *dev,
- 	return stats;
- }
- 
-+static int mlxsw_sp_port_get_stats_raw(struct net_device *dev, int grp,
-+				       int prio, char *ppcnt_pl)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+
-+	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port, grp, prio);
-+	return mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
-+}
-+
-+static int mlxsw_sp_port_get_hw_stats(struct net_device *dev,
-+				      struct rtnl_link_stats64 *stats)
-+{
-+	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
-+	int err;
-+
-+	err = mlxsw_sp_port_get_stats_raw(dev, MLXSW_REG_PPCNT_IEEE_8023_CNT,
-+					  0, ppcnt_pl);
-+	if (err)
-+		goto out;
-+
-+	stats->tx_packets =
-+		mlxsw_reg_ppcnt_a_frames_transmitted_ok_get(ppcnt_pl);
-+	stats->rx_packets =
-+		mlxsw_reg_ppcnt_a_frames_received_ok_get(ppcnt_pl);
-+	stats->tx_bytes =
-+		mlxsw_reg_ppcnt_a_octets_transmitted_ok_get(ppcnt_pl);
-+	stats->rx_bytes =
-+		mlxsw_reg_ppcnt_a_octets_received_ok_get(ppcnt_pl);
-+	stats->multicast =
-+		mlxsw_reg_ppcnt_a_multicast_frames_received_ok_get(ppcnt_pl);
-+
-+	stats->rx_crc_errors =
-+		mlxsw_reg_ppcnt_a_frame_check_sequence_errors_get(ppcnt_pl);
-+	stats->rx_frame_errors =
-+		mlxsw_reg_ppcnt_a_alignment_errors_get(ppcnt_pl);
-+
-+	stats->rx_length_errors = (
-+		mlxsw_reg_ppcnt_a_in_range_length_errors_get(ppcnt_pl) +
-+		mlxsw_reg_ppcnt_a_out_of_range_length_field_get(ppcnt_pl) +
-+		mlxsw_reg_ppcnt_a_frame_too_long_errors_get(ppcnt_pl));
-+
-+	stats->rx_errors = (stats->rx_crc_errors +
-+		stats->rx_frame_errors + stats->rx_length_errors);
-+
-+out:
-+	return err;
-+}
-+
-+static void update_stats_cache(struct work_struct *work)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port =
-+		container_of(work, struct mlxsw_sp_port,
-+			     hw_stats.update_dw.work);
-+
-+	if (!netif_carrier_ok(mlxsw_sp_port->dev))
-+		goto out;
-+
-+	mlxsw_sp_port_get_hw_stats(mlxsw_sp_port->dev,
-+				   mlxsw_sp_port->hw_stats.cache);
-+
-+out:
-+	mlxsw_core_schedule_dw(&mlxsw_sp_port->hw_stats.update_dw,
-+			       MLXSW_HW_STATS_UPDATE_TIME);
-+}
-+
-+/* Return the stats from a cache that is updated periodically,
-+ * as this function might get called in an atomic context.
-+ */
-+static struct rtnl_link_stats64 *
-+mlxsw_sp_port_get_stats64(struct net_device *dev,
-+			  struct rtnl_link_stats64 *stats)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
-+
-+	memcpy(stats, mlxsw_sp_port->hw_stats.cache, sizeof(*stats));
-+
-+	return stats;
-+}
-+
- int mlxsw_sp_port_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid_begin,
- 			   u16 vid_end, bool is_member, bool untagged)
- {
-@@ -1234,6 +1314,7 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
- 	.ndo_set_mac_address	= mlxsw_sp_port_set_mac_address,
- 	.ndo_change_mtu		= mlxsw_sp_port_change_mtu,
- 	.ndo_get_stats64	= mlxsw_sp_port_get_stats64,
-+	.ndo_get_sw_stats64     = mlxsw_sp_port_get_sw_stats64,
- 	.ndo_vlan_rx_add_vid	= mlxsw_sp_port_add_vid,
- 	.ndo_vlan_rx_kill_vid	= mlxsw_sp_port_kill_vid,
- 	.ndo_neigh_construct	= mlxsw_sp_router_neigh_construct,
-@@ -1572,8 +1653,6 @@ static void __mlxsw_sp_port_get_stats(struct net_device *dev,
- 				      enum mlxsw_reg_ppcnt_grp grp, int prio,
- 				      u64 *data, int data_index)
- {
--	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
--	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	struct mlxsw_sp_port_hw_stats *hw_stats;
- 	char ppcnt_pl[MLXSW_REG_PPCNT_LEN];
- 	int i, len;
-@@ -1582,8 +1661,7 @@ static void __mlxsw_sp_port_get_stats(struct net_device *dev,
- 	err = mlxsw_sp_get_hw_stats_by_group(&hw_stats, &len, grp);
- 	if (err)
- 		return;
--	mlxsw_reg_ppcnt_pack(ppcnt_pl, mlxsw_sp_port->local_port, grp, prio);
--	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ppcnt), ppcnt_pl);
-+	mlxsw_sp_port_get_stats_raw(dev, grp, prio, ppcnt_pl);
- 	for (i = 0; i < len; i++)
- 		data[data_index + i] = !err ? hw_stats[i].getter(ppcnt_pl) : 0;
- }
-@@ -2116,6 +2194,16 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 		goto err_alloc_stats;
- 	}
- 
-+	mlxsw_sp_port->hw_stats.cache =
-+		kzalloc(sizeof(*mlxsw_sp_port->hw_stats.cache), GFP_KERNEL);
-+
-+	if (!mlxsw_sp_port->hw_stats.cache) {
-+		err = -ENOMEM;
-+		goto err_alloc_hw_stats;
-+	}
-+	INIT_DELAYED_WORK(&mlxsw_sp_port->hw_stats.update_dw,
-+			  &update_stats_cache);
-+
- 	dev->netdev_ops = &mlxsw_sp_port_netdev_ops;
- 	dev->ethtool_ops = &mlxsw_sp_port_ethtool_ops;
- 
-@@ -2213,6 +2301,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 		goto err_port_vlan_init;
- 
- 	mlxsw_sp->ports[local_port] = mlxsw_sp_port;
-+	mlxsw_core_schedule_dw(&mlxsw_sp_port->hw_stats.update_dw, 0);
- 	return 0;
- 
- err_port_vlan_init:
-@@ -2230,6 +2319,8 @@ err_port_speed_by_width_set:
- err_port_swid_set:
- err_port_system_port_mapping_set:
- err_dev_addr_init:
-+	kfree(mlxsw_sp_port->hw_stats.cache);
-+err_alloc_hw_stats:
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
- err_alloc_stats:
- 	kfree(mlxsw_sp_port->untagged_vlans);
-@@ -2246,6 +2337,7 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 
- 	if (!mlxsw_sp_port)
- 		return;
-+	cancel_delayed_work_sync(&mlxsw_sp_port->hw_stats.update_dw);
- 	mlxsw_sp->ports[local_port] = NULL;
- 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
- 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
-@@ -2255,6 +2347,7 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
- 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
-+	kfree(mlxsw_sp_port->hw_stats.cache);
- 	kfree(mlxsw_sp_port->untagged_vlans);
- 	kfree(mlxsw_sp_port->active_vlans);
- 	WARN_ON_ONCE(!list_empty(&mlxsw_sp_port->vports_list));
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index f69aa37..e7f3a5d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -360,6 +360,11 @@ struct mlxsw_sp_port {
- 	struct list_head vports_list;
- 	/* TC handles */
- 	struct list_head mall_tc_list;
-+	struct {
-+		#define MLXSW_HW_STATS_UPDATE_TIME HZ
-+		struct rtnl_link_stats64 *cache;
-+		struct delayed_work update_dw;
-+	} hw_stats;
- };
- 
- struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
+Don't force that, or at least make the default based on the potential
+users/drivers here.
+
+> +       ---help---
+> +         This driver support xilinx GMII to RGMII IP core it provides
+> +         the Reduced Gigabit Media Independent Interface(RGMII) between
+> +         Ethernet physical media devices and the Gigabit Ethernet controller.
+> +
+>  endif # PHYLIB
+>  
+>  config MICREL_KS8995MA
+> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+> index a713bd4..73d65ce 100644
+> --- a/drivers/net/phy/Makefile
+> +++ b/drivers/net/phy/Makefile
+> @@ -50,3 +50,4 @@ obj-$(CONFIG_MDIO_BCM_IPROC)	+= mdio-bcm-iproc.o
+>  obj-$(CONFIG_INTEL_XWAY_PHY)	+= intel-xway.o
+>  obj-$(CONFIG_MDIO_HISI_FEMAC)	+= mdio-hisi-femac.o
+>  obj-$(CONFIG_MDIO_XGENE)	+= mdio-xgene.o
+> +obj-$(CONFIG_XILINX_GMII2RGMII) += xilinx_gmii2rgmii.o
+> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+> new file mode 100644
+> index 0000000..1456e27
+> --- /dev/null
+> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+> @@ -0,0 +1,121 @@
+> +/* Xilinx GMII2RGMII Converter driver
+> + *
+> + * Copyright (C) 2016 Xilinx, Inc.
+> + *
+> + * Author: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> + *
+> + * Description:
+> + * This driver is developed for Xilinx GMII2RGMII Converter
+> + *
+> + * This program is free software: you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation, either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +#include <linux/module.h>
+> +#include <linux/kernel.h>
+> +#include <linux/mii.h>
+> +#include <linux/mdio.h>
+> +#include <linux/phy.h>
+> +#include <linux/of_mdio.h>
+> +
+> +#define XILINX_GMII2RGMII_REG		0x10
+> +#define XILINX_GMII2RGMII_SPEED_MASK	0x2040
+
+BMCR_SPEED1000 | BMCR_SPEED100 would be clearer here.
+
+> +
+> +struct gmii2rgmii {
+> +	struct phy_device *phy_dev;
+> +	struct phy_driver *phy_drv;
+> +	struct phy_driver conv_phy_drv;
+> +	int addr;
+> +};
+> +
+> +static int xgmiitorgmii_read_status(struct phy_device *phydev)
+> +{
+> +	struct gmii2rgmii *priv = (struct gmii2rgmii *)phydev->priv;
+
+Casting is not required here, priv is void *.
+
+> +	u16 val = 0;
+> +
+> +	priv->phy_drv->read_status(phydev);
+> +
+> +	val = mdiobus_read(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG);
+> +	val &= XILINX_GMII2RGMII_SPEED_MASK;
+> +
+> +	switch (phydev->speed) {
+> +	case SPEED_1000:
+> +		val |= BMCR_SPEED1000;
+
+Is the fall through really intentional here? See genphy_setup_forced()
+for instance.
+
+> +	case SPEED_100:
+> +		val |= BMCR_SPEED100;
+> +	case SPEED_10:
+> +		val |= BMCR_SPEED10;
+> +	}
+> +
+> +	mdiobus_write(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG, val);
+> +
+> +	return 0;
+> +}
+[snip]
+
+> +static int __init xgmiitorgmii_init(void)
+> +{
+> +	return mdio_driver_register(&xgmiitorgmii_driver);
+> +}
+> +module_init(xgmiitorgmii_init);
+> +
+> +static void __exit xgmiitorgmii_cleanup(void)
+> +{
+> +	mdio_driver_unregister(&xgmiitorgmii_driver);
+> +}
+> +module_exit(xgmiitorgmii_cleanup);
+
+mdio_module_driver() does eliminate a bit of this boilerplate code.
 -- 
-2.5.5
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
