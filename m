@@ -1,62 +1,101 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH v2 05/14] net: ethernet: ti: cpsw: don't check slave num
- in runtime
-Date: Tue, 9 Aug 2016 15:08:38 +0300
-Message-ID: <27ec9c9d-a0f4-ebeb-0d59-6f0e4ca5eead@linaro.org>
-References: <1470480524-6851-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1470480524-6851-6-git-send-email-ivan.khoronzhuk@linaro.org>
- <aa96e076-f5a9-df65-bf7e-e4b02df0a210@ti.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] drivers: net: cpsw: fix kmemleak false-positive reports for sk buffers
+Date: Tue, 9 Aug 2016 15:09:44 +0300
+Message-ID: <20160809120944.23185-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dlide@ti.com
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	netdev@vger.kernel.org, mugunthanvnm@ti.com
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Catalin Marinas <catalin.marinas@arm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <aa96e076-f5a9-df65-bf7e-e4b02df0a210@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Kmemleak reports following false positive memory leaks for each sk
+buffers allocated by CPSW (__netdev_alloc_skb_ip_align()) in
+cpsw_ndo_open() and cpsw_rx_handler():
 
+unreferenced object 0xea915000 (size 2048):
+  comm "systemd-network", pid 713, jiffies 4294938323 (age 102.180s)
+  hex dump (first 32 bytes):
+    00 58 91 ea ff ff ff ff ff ff ff ff ff ff ff ff  .X..............
+    ff ff ff ff ff ff fd 0f 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<c0108680>] __kmalloc_track_caller+0x1a4/0x230
+    [<c0529eb4>] __alloc_skb+0x68/0x16c
+    [<c052c884>] __netdev_alloc_skb+0x40/0x104
+    [<bf1ad29c>] cpsw_ndo_open+0x374/0x670 [ti_cpsw]
+    [<c053c3d4>] __dev_open+0xb0/0x114
+    [<c053c690>] __dev_change_flags+0x9c/0x14c
+    [<c053c760>] dev_change_flags+0x20/0x50
+    [<c054bdcc>] do_setlink+0x2cc/0x78c
+    [<c054c358>] rtnl_setlink+0xcc/0x100
+    [<c054b34c>] rtnetlink_rcv_msg+0x184/0x224
+    [<c056467c>] netlink_rcv_skb+0xa8/0xc4
+    [<c054b1c0>] rtnetlink_rcv+0x2c/0x34
+    [<c0564018>] netlink_unicast+0x16c/0x1f8
+    [<c0564498>] netlink_sendmsg+0x334/0x348
+    [<c052015c>] sock_sendmsg+0x1c/0x2c
+    [<c05213e0>] SyS_sendto+0xc0/0xe8
 
-On 09.08.16 14:34, Grygorii Strashko wrote:
-> On 08/06/2016 01:48 PM, Ivan Khoronzhuk wrote:
->> No need to check const slave num in runtime for every packet,
->> and ndev for slaves w/o ndev is anyway NULL. So remove redundant
->> check.
->>
->> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->> ---
->>  drivers/net/ethernet/ti/cpsw.c | 3 +--
->>  1 file changed, 1 insertion(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 70a9570..19aa4bb 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -498,8 +498,7 @@ static const struct cpsw_stats cpsw_gstrings_stats[] = {
->>  				(func)(slave++, ##arg);			\
->>  	} while (0)
->>  #define cpsw_get_slave_ndev(priv, __slave_no__)				\
->> -	((__slave_no__ < priv->data.slaves) ?				\
->> -		priv->slaves[__slave_no__].ndev : NULL)
->> +		priv->slaves[__slave_no__].ndev
->
-> So after this change it will be
-> #define cpsw_get_slave_ndev(priv, __slave_no__) priv->slaves[__slave_no__].ndev
->
-> Can we just drop cpsw_get_slave_ndev() macro?
-Sure. Will drop it in v3.
+unreferenced object 0xec861780 (size 192):
+  comm "softirq", pid 0, jiffies 4294938759 (age 109.540s)
+  hex dump (first 32 bytes):
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+    00 00 00 00 00 b0 5a ed 00 00 00 00 00 00 00 00  ......Z.........
+  backtrace:
+    [<c0107830>] kmem_cache_alloc+0x190/0x208
+    [<c052c768>] __build_skb+0x30/0x98
+    [<c052c8fc>] __netdev_alloc_skb+0xb8/0x104
+    [<bf1abc54>] cpsw_rx_handler+0x68/0x1e4 [ti_cpsw]
+    [<bf11aa30>] __cpdma_chan_free+0xa8/0xc4 [davinci_cpdma]
+    [<bf11ab98>] __cpdma_chan_process+0x14c/0x16c [davinci_cpdma]
+    [<bf11abfc>] cpdma_chan_process+0x44/0x5c [davinci_cpdma]
+    [<bf1adc78>] cpsw_rx_poll+0x1c/0x9c [ti_cpsw]
+    [<c0539180>] net_rx_action+0x1f0/0x2ec
+    [<c003881c>] __do_softirq+0x134/0x258
+    [<c0038a00>] do_softirq+0x68/0x70
+    [<c0038adc>] __local_bh_enable_ip+0xd4/0xe8
+    [<c0640994>] _raw_spin_unlock_bh+0x30/0x34
+    [<c05f4e9c>] igmp6_group_added+0x4c/0x1bc
+    [<c05f6600>] ipv6_dev_mc_inc+0x398/0x434
+    [<c05dba74>] addrconf_dad_work+0x224/0x39c
 
->
->>  #define cpsw_get_slave_priv(priv, __slave_no__)				\
->>  	(((__slave_no__ < priv->data.slaves) &&				\
->>  		(priv->slaves[__slave_no__].ndev)) ?			\
->>
->
->
+This happens because CPSW allocates SK buffers and then passes
+pointers on them in CPDMA where they stored in internal CPPI RAM
+(SRAM) which belongs to DEV MMIO space. Kmemleak does not scan IO
+memory and so reports memory leaks.
 
+Hence, mark allocated sk buffers as false positive explicitly.
+
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 0805855..0456e0e 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -732,6 +732,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 		netif_receive_skb(skb);
+ 		ndev->stats.rx_bytes += len;
+ 		ndev->stats.rx_packets++;
++		kmemleak_not_leak(new_skb);
+ 	} else {
+ 		ndev->stats.rx_dropped++;
+ 		new_skb = skb;
+@@ -1323,6 +1324,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 				kfree_skb(skb);
+ 				goto err_cleanup;
+ 			}
++			kmemleak_not_leak(skb);
+ 		}
+ 		/* continue even if we didn't manage to submit all
+ 		 * receive descs
 -- 
-Regards,
-Ivan Khoronzhuk
+2.9.2
