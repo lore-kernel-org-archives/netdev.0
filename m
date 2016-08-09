@@ -1,7 +1,7 @@
 From: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: [RFC PATCH v5 1/3] net: Add mask for Control register 10Mbps speed
-Date: Tue, 9 Aug 2016 15:04:41 +0530
-Message-ID: <1470735283-23611-2-git-send-email-appanad@xilinx.com>
+Subject: [RFC PATCH v5 2/3] Documentation: DT: net: Add Xilinx gmiitorgmii converter device tree binding documentation
+Date: Tue, 9 Aug 2016 15:04:42 +0530
+Message-ID: <1470735283-23611-3-git-send-email-appanad@xilinx.com>
 References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,29 +17,68 @@ In-Reply-To: <1470735283-23611-1-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@p
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds mask for the Control register
-10Mbps speed.
+Device-tree binding documentation for xilinx gmiitorgmii converter.
 
 Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
 ---
 Changes for v5:
----> New patch as suggested by Punnaiah.
+---> Fixed Indentation in the example as suggested by Michal.
+Changes for v4:
+--> Modified compatible as suggested by Rob.
+--> Removed underscores from the converter node name as suggested by Rob.
+Changes for v3:
+--> None.
+Changes for v2:
+--> New patch.
 
- include/uapi/linux/mii.h | 1 +
- 1 file changed, 1 insertion(+)
+ .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 38 ++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
 
-diff --git a/include/uapi/linux/mii.h b/include/uapi/linux/mii.h
-index 237fac4..15d8510 100644
---- a/include/uapi/linux/mii.h
-+++ b/include/uapi/linux/mii.h
-@@ -48,6 +48,7 @@
- #define BMCR_SPEED100		0x2000	/* Select 100Mbps              */
- #define BMCR_LOOPBACK		0x4000	/* TXD loopback bits           */
- #define BMCR_RESET		0x8000	/* Reset to default state      */
-+#define BMCR_SPEED10		0x0000	/* Select 10Mbps               */
- 
- /* Basic mode status register. */
- #define BMSR_ERCAP		0x0001	/* Ext-reg capability          */
+diff --git a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+new file mode 100644
+index 0000000..5f48793
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+@@ -0,0 +1,38 @@
++XILINX GMIITORGMII Converter Driver Device Tree Bindings
++--------------------------------------------------------
++
++The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
++Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
++Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
++This core can be used in all three modes of operation(10/100/1000 Mb/s).
++The Management Data Input/Output (MDIO) interface is used to configure the
++Speed of operation. This core can switch dynamically between the three
++Different speed modes by configuring the conveter register through mdio write.
++
++The MDIO is a bus to which the PHY devices are connected.  For each
++device that exists on this bus, a child node should be created.  See
++the definition of the PHY node in booting-without-of.txt for an example
++of how to define a PHY.
++
++This converter sits between the ethernet MAC and the external phy.
++MAC <==> GMII2RGMII <==> RGMII_PHY
++
++Required properties:
++- compatible	: Should be "xlnx,gmii-to-rgmii-1.0"
++- reg		: The ID number for the phy, usually a small integer
++- phy-handle	: Should point to the external phy device.
++		  See ethernet.txt file in the same directory.
++
++Example:
++	mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		phy: ethernet-phy@0 {
++			......
++		};
++		gmiitorgmii: gmiitorgmii@8 {
++			compatible = "xlnx,gmii-to-rgmii-1.0";
++			reg = <8>;
++			phy-handle = <&phy>;
++		};
++	};
 -- 
 2.1.2
 
