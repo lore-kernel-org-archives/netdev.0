@@ -1,43 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
-Date: Tue, 09 Aug 2016 12:10:10 -0700 (PDT)
-Message-ID: <20160809.121010.539583047008259861.davem@davemloft.net>
-References: <20160809030956.GL22974@cork>
-	<16281.1470766891@famine>
-	<20160809184057.GO22974@cork>
+From: rapier <rapier@psc.edu>
+Subject: Re: size of data_segs_[in|out] and segs_[in|out]
+Date: Tue, 9 Aug 2016 15:15:59 -0400
+Message-ID: <e4365bea-e591-3041-14f8-4ecae7e91f75@psc.edu>
+References: <797392fa-8d87-f45b-69b2-fdd096e1229c@psc.edu>
+ <20160808.160245.2063863440275871547.davem@davemloft.net>
+ <e0a3f13a-f3cc-8455-8e7d-9c604f8ef4fb@psc.edu>
+ <20160809.120458.792987014914899369.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: jay.vosburgh@canonical.com, dingtianhong@huawei.com,
-	andy@greyhouse.net, netdev@vger.kernel.org
-To: joern@purestorage.com
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35292 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932209AbcHITKM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 15:10:12 -0400
-Received: by mail-pa0-f68.google.com with SMTP id cf3so1371548pad.2
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 12:10:12 -0700 (PDT)
-In-Reply-To: <20160809184057.GO22974@cork>
+Received: from mailer2.psc.edu ([128.182.70.106]:35641 "EHLO mailer2.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932322AbcHITQF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2016 15:16:05 -0400
+In-Reply-To: <20160809.120458.792987014914899369.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jörn Engel <joern@purestorage.com>
-Date: Tue, 9 Aug 2016 11:40:57 -0700
 
-> On Tue, Aug 09, 2016 at 11:21:31AM -0700, Jay Vosburgh wrote:
->> 	The balance-rr mode (as well as the -xor mode) is designed to
->> interoperate with a Cisco Etherchannel-style static link aggregation,
->> which requires all members to have the same MAC address for proper
->> function.
-> 
-> Linux was designed to be a terminal for dialup to a university in
-> Helsinki, if memory serves.  Sometimes it is a good thing to work in
-> ways the design never intended.
 
-You're not addressing the issue Jay is trying to make you aware of
-in a useful way.
+On 8/9/16 3:04 PM, David Miller wrote:
+> From: rapier <rapier@psc.edu>
+> Date: Tue, 9 Aug 2016 13:17:59 -0400
+>
+>> I cannot deny that would be a problem but conversely, those
+>> applications are currently in a position where they may be depending
+>> on inaccurate data. I'm not advocating breaking things for the sake of
+>> breaking things but my feeling is that this will eventually need to be
+>> addressed. Since the segs datastructure is a relatively recent
+>> addition it might make sense to make that change now before it's even
+>> more baked in to other applications.
+>
+> Changing the size or position of these data structure members is
+> simply not an option.  It is locked into stone, and a permanent
+> ABI which we cannot change.
+>
+> Please stop discussing as if changing this is a possibility.
 
-You state that Jay doesn't want to help you, but your comment here
-shows that you really aren't exactly participating in the most
-positive manner either.
+I apologize, I wasn't aware of the constraints on this. There are other 
+solutions available and I'll focus on those.
