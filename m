@@ -1,76 +1,168 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
-Date: Tue, 9 Aug 2016 12:17:01 -0700
-Message-ID: <214dcbb7-0c3b-1e00-3e50-db513d77b10b@gmail.com>
-References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
- <9ebb6cb7-c793-cd76-5283-c9a659d0398f@gmx.de>
- <57AA2001.2010904@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Timur Tabi <timur@codeaurora.org>,
-	Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <57AA2001.2010904@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net v2] vti: flush x-netns xfrm cache when vti interface is removed
+Date: Tue,  9 Aug 2016 15:29:42 -0400
+Message-ID: <1470770982-1606-1-git-send-email-lrichard@redhat.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33246 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751774AbcHIT3n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2016 15:29:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/09/2016 11:25 AM, Timur Tabi wrote:
-> I need some help figuring that out.  Like I said, I didn't write this
-> driver initially, so there are parts that I don't really understand.  I
-> copied the above code from other drivers, but after studying your
-> question, I think I understand what you're asking.  I just don't know
-> how to fix it.
-> 
-> First of all, why do other drivers test MAX_SKB_FRAGS + 1?  Why the +1?
+When executing the script included below, the netns delete operation
+hangs with the following message (repeated at 10 second intervals):
 
-The 1 is for the non-fragment part of the SKB, like its head.
+  kernel:unregister_netdevice: waiting for lo to become free. Usage count = 1
 
-> 
-> The driver originally used function emac_tx_has_enough_descs() to
-> determine if there is enough room for the new packet.  Then I changed
-> the code as you suggested, and now it guesses how many descriptors need
-> to be free to support the next packet.
+This occurs because a reference to the lo interface in the "secure" netns
+is still held by a dst entry in the xfrm bundle cache in the init netns.
 
-That seems fine and expected.
+Address this problem by garbage collecting the tunnel netns flow cache
+when a cross-namespace vti interface receives a NETDEV_DOWN notification.
 
-> 
-> If I'm reading emac_tx_fill_tpd() correctly, there could be as many as
-> (2 + skb_shinfo(skb)->nr_frags) descriptors for a given packet.  I don't
-> know how big nr_frags could get, so I don't know how to calculate the
-> number of descriptors I really need.  I'm assuming I need to do
-> something like this:
+A more detailed description of the problem scenario (referencing commands
+in the script below):
 
-nr_frags can't be bigger than MAX_SKB_FRAGS, hence these checks all
-other drivers do against 1 + MAX_SKB_FRAGS.
+(1) ip link add vti_test type vti local 1.1.1.1 remote 1.1.1.2 key 1
 
+  The vti_test interface is created in the init namespace. vti_tunnel_init()
+  attaches a struct ip_tunnel to the vti interface's netdev_priv(dev),
+  setting the tunnel net to &init_net.
 
-> 
-> However, I'm confused about one thing.  Almost every other driver just
-> sets "netdev->mtu = new_mtu" and does nothing else.  I can't find any
-> other driver that actually stops the RX path, reprograms the hardware,
-> and then restarts the RX path.  I know this is a stupid question, but
-> why is my driver doing that?
+(2) ip link set vti_test netns secure
 
-Most drivers allocate RX buffer sizes that are usually bigger than the
-MTU, but would probably silently fail or expose transient behavior once
-the MTU changes to greater than the size pre-defined.
+  The vti_test interface is moved to the "secure" netns. Note that
+  the associated struct ip_tunnel still has tunnel->net set to &init_net.
 
-> 
-> Can I get away with just calling netdev_update_features()?
+(3) ip netns exec secure ping -c 4 -i 0.02 -I 192.168.100.1 192.168.200.1
 
-MTU change is a pretty disruptive change for the HW I typically work
-with since we need to choose a RX buffer size that is aligned to the
-DRAM controller burst size, reprogram the MAC to accept packets up to
-that size, and potentially change the RX ring allocation strategy and
-typical buffer size. None of these requirements are unusual or unique,
-they ost likely apply to most MACs out there, my guess is that MTU
-change is barely tested.
+  The first packet sent using the vti device causes xfrm_lookup() to be
+  called as follows:
+
+      dst = xfrm_lookup(tunnel->net, skb_dst(skb), fl, NULL, 0);
+
+  Note that tunnel->net is the init namespace, while skb_dst(skb) references
+  the vti_test interface in the "secure" namespace. The returned dst
+  references an interface in the init namespace.
+
+  Also note that the first parameter to xfrm_lookup() determines which flow
+  cache is used to store the computed xfrm bundle, so after xfrm_lookup()
+  returns there will be a cached bundle in the init namespace flow cache
+  with a dst referencing a device in the "secure" namespace.
+
+(4) ip netns del secure
+
+  Kernel begins to delete the "secure" namespace.  At some point the
+  vti_test interface is deleted, at which point dst_ifdown() changes
+  the dst->dev in the cached xfrm bundle flow from vti_test to lo (still
+  in the "secure" namespace however).
+  Since nothing has happened to cause the init namespace's flow cache
+  to be garbage collected, this dst remains attached to the flow cache,
+  so the kernel loops waiting for the last reference to lo to go away.
+
+<Begin script>
+ip link add br1 type bridge
+ip link set dev br1 up
+ip addr add dev br1 1.1.1.1/8
+
+ip netns add secure
+ip link add vti_test type vti local 1.1.1.1 remote 1.1.1.2 key 1
+ip link set vti_test netns secure
+ip netns exec secure ip link set vti_test up
+ip netns exec secure ip link s lo up
+ip netns exec secure ip addr add dev lo 192.168.100.1/24
+ip netns exec secure ip route add 192.168.200.0/24 dev vti_test
+ip xfrm policy flush
+ip xfrm state flush
+ip xfrm policy add dir out tmpl src 1.1.1.1 dst 1.1.1.2 \
+   proto esp mode tunnel mark 1
+ip xfrm policy add dir in tmpl src 1.1.1.2 dst 1.1.1.1 \
+   proto esp mode tunnel mark 1
+ip xfrm state add src 1.1.1.1 dst 1.1.1.2 proto esp spi 1 \
+   mode tunnel enc des3_ede 0x112233445566778811223344556677881122334455667788
+ip xfrm state add src 1.1.1.2 dst 1.1.1.1 proto esp spi 1 \
+   mode tunnel enc des3_ede 0x112233445566778811223344556677881122334455667788
+
+ip netns exec secure ping -c 4 -i 0.02 -I 192.168.100.1 192.168.200.1
+
+ip netns del secure
+<End script>
+
+Reported-by: Hangbin Liu <haliu@redhat.com>
+Reported-by: Jan Tluka <jtluka@redhat.com>
+Signed-off-by: Lance Richardson <lrichard@redhat.com>
+---
+v2: Perform garbage collection on NETDEV_DOWN notification (v1 did this 
+    in uninit op handler).
+
+ net/ipv4/ip_vti.c | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index a917903..cc701fa 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -557,6 +557,33 @@ static struct rtnl_link_ops vti_link_ops __read_mostly = {
+ 	.get_link_net	= ip_tunnel_get_link_net,
+ };
+ 
++static bool is_vti_tunnel(const struct net_device *dev)
++{
++	return dev->netdev_ops == &vti_netdev_ops;
++}
++
++static int vti_device_event(struct notifier_block *unused,
++			    unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++
++	if (!is_vti_tunnel(dev))
++		return NOTIFY_DONE;
++
++	switch (event) {
++	case NETDEV_DOWN:
++		if (!net_eq(tunnel->net, dev_net(dev)))
++			xfrm_garbage_collect(tunnel->net);
++		break;
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block vti_notifier_block __read_mostly = {
++	.notifier_call = vti_device_event,
++};
++
+ static int __init vti_init(void)
+ {
+ 	const char *msg;
+@@ -564,6 +591,8 @@ static int __init vti_init(void)
+ 
+ 	pr_info("IPv4 over IPsec tunneling driver\n");
+ 
++	register_netdevice_notifier(&vti_notifier_block);
++
+ 	msg = "tunnel device";
+ 	err = register_pernet_device(&vti_net_ops);
+ 	if (err < 0)
+@@ -596,6 +625,7 @@ xfrm_proto_ah_failed:
+ xfrm_proto_esp_failed:
+ 	unregister_pernet_device(&vti_net_ops);
+ pernet_dev_failed:
++	unregister_netdevice_notifier(&vti_notifier_block);
+ 	pr_err("vti init: failed to register %s\n", msg);
+ 	return err;
+ }
+@@ -607,6 +637,7 @@ static void __exit vti_fini(void)
+ 	xfrm4_protocol_deregister(&vti_ah4_protocol, IPPROTO_AH);
+ 	xfrm4_protocol_deregister(&vti_esp4_protocol, IPPROTO_ESP);
+ 	unregister_pernet_device(&vti_net_ops);
++	unregister_netdevice_notifier(&vti_notifier_block);
+ }
+ 
+ module_init(vti_init);
 -- 
-Florian
+2.5.5
