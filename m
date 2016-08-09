@@ -1,54 +1,76 @@
-From: wenxu@ucloud.cn
-Subject: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for gre tunneled skbs
-Date: Tue,  9 Aug 2016 15:04:21 +0800
-Message-ID: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	shmulik.ladkani@gmail.com, wenx05124561@163.com
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: qdisc hash table changes...
+Date: Tue, 9 Aug 2016 09:42:01 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608090936180.22028@cbobk.fhfr.pm>
+References: <20160808.155335.2122819330212870390.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50149.mail.qiye.163.com ([123.125.50.149]:61890 "EHLO
-	m50149.mail.qiye.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752240AbcHIHX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 03:23:56 -0400
+Received: from mx2.suse.de ([195.135.220.15]:33542 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750810AbcHIHmD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Aug 2016 03:42:03 -0400
+In-Reply-To: <20160808.155335.2122819330212870390.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: wenxu <wenxu@ucloud.cn>
+On Mon, 8 Aug 2016, David Miller wrote:
 
-commit b8247f095edd ("net: ip_finish_output_gso: If skb_gso_network_seglen
-exceeds MTU, allow segmentation for local udp tunneled skbs")
+> I think there will still be build failures even with v6 due to symbol
+> clashes.
+> 
+> For example, kernel/audit_tree.c defines HASH_SIZE as an enumeration
+> value, and that (indirectly) includes networking headers.
 
-Given:
-     - tap0 and ovs-gre
-     - ovs-gre stacked on eth0, eth0 having the small mtu
+It does indirectly pull in some networking headers, but it doesn't pull in 
+netdevice.h (which is the place where the actual include of hashtable.h 
+happens):
 
-After encapsulation these skbs have skb_gso_network_seglen that exceed
-eth0's ip_skb_dst_mtu. So the finnal each segment would be larger than
-eth0 mtu. These packets maybe dropped.
+$ make kernel/audit_tree.i; grep HASH_SIZE kernel/audit_tree.i; grep netdev.*\.h kernel/audit_tree.i
+  CHK     include/config/kernel.release
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/utsrelease.h
+  CHK     include/generated/bounds.h
+  CHK     include/generated/timeconst.h
+  CHK     include/generated/asm-offsets.h
+  CALL    scripts/checksyscalls.sh
+  DESCEND  objtool
+  CPP     kernel/audit_tree.i
+enum {HASH_SIZE = 128};
+static struct list_head chunk_hash_heads[HASH_SIZE];
+ return chunk_hash_heads + n % HASH_SIZE;
+ for (i = 0; i < HASH_SIZE; i++)
+# 1 "./include/linux/netdev_features.h" 1
+# 15 "./include/linux/netdev_features.h"
+# 85 "./include/linux/netdev_features.h"
+struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int length,
+ return __netdev_alloc_skb(dev, length, ((( gfp_t)0x20u)|(( gfp_t)0x80000u)|(( gfp_t)0x2000000u)));
+ return __netdev_alloc_skb(((void *)0), length, gfp_mask);
+ return netdev_alloc_skb(((void *)0), length);
+ struct sk_buff *skb = __netdev_alloc_skb(dev, length + 0, gfp);
+ return __netdev_alloc_skb_ip_align(dev, length, ((( gfp_t)0x20u)|(( gfp_t)0x80000u)|(( gfp_t)0x2000000u)));
 
-It has the same problem if tap0 bridge with ipgre or gretap device. So
-the IPSKB_FRAG_SEGS flags should also be set in gre tunneled skbs.
+So this is fine.
 
-Signed-off-by: wenxu <wenxu@ucloud.cn>
----
- net/ipv4/ip_tunnel_core.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> There are others all over the tree.
+> 
+> I would therefore ask that you first fix the namespace conflicts against 
+> the hash symbols in the entire tree as a separate patch series (one for 
+> each driver/subsystem which has this problem.)  Really, get it down to 
+> "git grep hash_add | grep -v _hash_add" and similar returning no output.
 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 9d847c3..7f36ea2 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -73,8 +73,9 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	skb_dst_set(skb, &rt->dst);
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 
--	if (skb_iif && proto == IPPROTO_UDP) {
--		/* Arrived from an ingress interface and got udp encapuslated.
-+	if (skb_iif && (proto == IPPROTO_UDP || proto == IPPROTO_GRE)) {
-+		/* Arrived from an ingress interface and got udp or gre
-+		 * encapsulated.
- 		 * The encapsulated network segment length may exceed dst mtu.
- 		 * Allow IP Fragmentation of segments.
- 		 */
+Is this really worth the hassle when there are no real conflicts (i.e. the 
+code in question doesn't indirectly pull in netdevice.h)?
+
+I just did allmodconfig build with v6, and it passed. Fengguang's 0-day 
+bot didn't report any failures either.
+
+> Then we can add the qdisc hash facility.
+
+Thanks,
+
 -- 
-1.8.3.1
+Jiri Kosina
+SUSE Labs
