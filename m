@@ -1,101 +1,76 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH] drivers: net: cpsw: fix kmemleak false-positive reports for sk buffers
-Date: Tue, 9 Aug 2016 15:09:44 +0300
-Message-ID: <20160809120944.23185-1-grygorii.strashko@ti.com>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH v2 02/14] net: ethernet: ti: cpsw: remove redundant check
+ in napi poll
+Date: Tue, 9 Aug 2016 15:10:02 +0300
+Message-ID: <dbdd5e2d-8aef-34e4-2ef5-1a35edadbf2c@linaro.org>
+References: <1470480524-6851-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <1470480524-6851-3-git-send-email-ivan.khoronzhuk@linaro.org>
+ <c3f81cb3-2a1c-89e5-b2f0-a67e220fb5ca@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Catalin Marinas <catalin.marinas@arm.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-omap@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dlide@ti.com
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	netdev@vger.kernel.org, mugunthanvnm@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c3f81cb3-2a1c-89e5-b2f0-a67e220fb5ca@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kmemleak reports following false positive memory leaks for each sk
-buffers allocated by CPSW (__netdev_alloc_skb_ip_align()) in
-cpsw_ndo_open() and cpsw_rx_handler():
 
-unreferenced object 0xea915000 (size 2048):
-  comm "systemd-network", pid 713, jiffies 4294938323 (age 102.180s)
-  hex dump (first 32 bytes):
-    00 58 91 ea ff ff ff ff ff ff ff ff ff ff ff ff  .X..............
-    ff ff ff ff ff ff fd 0f 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<c0108680>] __kmalloc_track_caller+0x1a4/0x230
-    [<c0529eb4>] __alloc_skb+0x68/0x16c
-    [<c052c884>] __netdev_alloc_skb+0x40/0x104
-    [<bf1ad29c>] cpsw_ndo_open+0x374/0x670 [ti_cpsw]
-    [<c053c3d4>] __dev_open+0xb0/0x114
-    [<c053c690>] __dev_change_flags+0x9c/0x14c
-    [<c053c760>] dev_change_flags+0x20/0x50
-    [<c054bdcc>] do_setlink+0x2cc/0x78c
-    [<c054c358>] rtnl_setlink+0xcc/0x100
-    [<c054b34c>] rtnetlink_rcv_msg+0x184/0x224
-    [<c056467c>] netlink_rcv_skb+0xa8/0xc4
-    [<c054b1c0>] rtnetlink_rcv+0x2c/0x34
-    [<c0564018>] netlink_unicast+0x16c/0x1f8
-    [<c0564498>] netlink_sendmsg+0x334/0x348
-    [<c052015c>] sock_sendmsg+0x1c/0x2c
-    [<c05213e0>] SyS_sendto+0xc0/0xe8
 
-unreferenced object 0xec861780 (size 192):
-  comm "softirq", pid 0, jiffies 4294938759 (age 109.540s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-    00 00 00 00 00 b0 5a ed 00 00 00 00 00 00 00 00  ......Z.........
-  backtrace:
-    [<c0107830>] kmem_cache_alloc+0x190/0x208
-    [<c052c768>] __build_skb+0x30/0x98
-    [<c052c8fc>] __netdev_alloc_skb+0xb8/0x104
-    [<bf1abc54>] cpsw_rx_handler+0x68/0x1e4 [ti_cpsw]
-    [<bf11aa30>] __cpdma_chan_free+0xa8/0xc4 [davinci_cpdma]
-    [<bf11ab98>] __cpdma_chan_process+0x14c/0x16c [davinci_cpdma]
-    [<bf11abfc>] cpdma_chan_process+0x44/0x5c [davinci_cpdma]
-    [<bf1adc78>] cpsw_rx_poll+0x1c/0x9c [ti_cpsw]
-    [<c0539180>] net_rx_action+0x1f0/0x2ec
-    [<c003881c>] __do_softirq+0x134/0x258
-    [<c0038a00>] do_softirq+0x68/0x70
-    [<c0038adc>] __local_bh_enable_ip+0xd4/0xe8
-    [<c0640994>] _raw_spin_unlock_bh+0x30/0x34
-    [<c05f4e9c>] igmp6_group_added+0x4c/0x1bc
-    [<c05f6600>] ipv6_dev_mc_inc+0x398/0x434
-    [<c05dba74>] addrconf_dad_work+0x224/0x39c
+On 09.08.16 14:29, Grygorii Strashko wrote:
+> On 08/06/2016 01:48 PM, Ivan Khoronzhuk wrote:
+>> No need to check number of handled packets, when in most cases (> 99%)
+>> it's not 0. It can be 0 only in rare cases, even in this case
+>> it's not bad to print just 0.
+>>
+>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+>> ---
+>>  drivers/net/ethernet/ti/cpsw.c | 8 ++------
+>>  1 file changed, 2 insertions(+), 6 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index 8972bf6..85ee9f5 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -793,9 +793,7 @@ static int cpsw_tx_poll(struct napi_struct *napi_tx, int budget)
+>>  		}
+>>  	}
+>>
+>> -	if (num_tx)
+>> -		cpsw_dbg(priv, intr, "poll %d tx pkts\n", num_tx);
+>> -
+>> +	cpsw_dbg(priv, intr, "poll %d tx pkts\n", num_tx);
+>
+> I think, this dbg log can be just dropped as it seems not very useful.
+> This also will allow to drop patch [PATCH v2 12/14] net: ethernet: ti: cpsw: fix int dbg message
+That was my first thought, but I worried about someone can use it.
+If no one has objection, I'll drop the patch 12 and delete "poll" print at all.
 
-This happens because CPSW allocates SK buffers and then passes
-pointers on them in CPDMA where they stored in internal CPPI RAM
-(SRAM) which belongs to DEV MMIO space. Kmemleak does not scan IO
-memory and so reports memory leaks.
+>
+>>  	return num_tx;
+>>  }
+>>
+>> @@ -814,9 +812,7 @@ static int cpsw_rx_poll(struct napi_struct *napi_rx, int budget)
+>>  		}
+>>  	}
+>>
+>> -	if (num_rx)
+>> -		cpsw_dbg(priv, intr, "poll %d rx pkts\n", num_rx);
+>> -
+>> +	cpsw_dbg(priv, intr, "poll %d rx pkts\n", num_rx);
+>
+> Same here.
+>
+>>  	return num_rx;
+>>  }
+>>
+>>
+>
+>
 
-Hence, mark allocated sk buffers as false positive explicitly.
-
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 0805855..0456e0e 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -732,6 +732,7 @@ static void cpsw_rx_handler(void *token, int len, int status)
- 		netif_receive_skb(skb);
- 		ndev->stats.rx_bytes += len;
- 		ndev->stats.rx_packets++;
-+		kmemleak_not_leak(new_skb);
- 	} else {
- 		ndev->stats.rx_dropped++;
- 		new_skb = skb;
-@@ -1323,6 +1324,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 				kfree_skb(skb);
- 				goto err_cleanup;
- 			}
-+			kmemleak_not_leak(skb);
- 		}
- 		/* continue even if we didn't manage to submit all
- 		 * receive descs
 -- 
-2.9.2
+Regards,
+Ivan Khoronzhuk
