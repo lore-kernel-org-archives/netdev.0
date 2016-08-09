@@ -1,91 +1,82 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH RESEND net-next 07/15] smc: remote memory buffers (RMBs)
- (fwd)
-Date: Tue, 9 Aug 2016 14:09:46 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1608091409080.2911@hadrien>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: 4.8.0-rc1: page allocation failure: order:3,
+ mode:0x2084020(GFP_ATOMIC|__GFP_COMP)
+Date: Tue, 9 Aug 2016 14:22:41 +0200
+Message-ID: <20160809122241.GA13060@breakpoint.cc>
+References: <8bdcb66dc3eb2448e4b6f2baef2ad8ea@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, utz.bacher@de.ibm.com,
-	ubraun@linux.vnet.ibm.com
-To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org, tgraf@suug.ch
+To: linux@eikelenboom.it
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:32443
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932173AbcHIMVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 08:21:15 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44436 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752046AbcHIMWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 08:22:44 -0400
+Content-Disposition: inline
+In-Reply-To: <8bdcb66dc3eb2448e4b6f2baef2ad8ea@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is there a guarantee that the contrinues can't fall off the end of the
-loop?
+linux@eikelenboom.it <linux@eikelenboom.it> wrote:
 
-julia
+[ CC Thomas Graf -- rhashtable related splat ]
 
----------- Forwarded message ----------
-Date: Tue, 9 Aug 2016 20:06:24 +0800
-From: kbuild test robot <fengguang.wu@intel.com>
-To: kbuild@01.org
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH RESEND net-next 07/15] smc: remote memory buffers (RMBs)
+> Just tested 4.8.0-rc1, but i get the stack trace below, everything seems to
+> continue fine afterwards though
+> (haven't tried to bisect it yet, hopefully someone has an insight without
+> having to go through that :) )
 
-CC: kbuild-all@01.org
-In-Reply-To: <1470737580-43012-8-git-send-email-ubraun@linux.vnet.ibm.com>
-TO: Ursula Braun <ubraun@linux.vnet.ibm.com>
-CC: davem@davemloft.net
-CC: netdev@vger.kernel.org, linux-s390@vger.kernel.org, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
+No need, nat hash was converted to use rhashtable so its normal
+that earlier kernels did not have such rhashtable splat here.
 
-Hi Ursula,
+> My network config consists of a bridge and NAT.
+> 
+> [10469.336815] swapper/0: page allocation failure: order:3,
+> mode:0x2084020(GFP_ATOMIC|__GFP_COMP)
+> [10469.336820] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
+> 4.8.0-rc1-20160808-linus-doflr+ #1
+> [10469.336821] Hardware name: MSI MS-7640/890FXA-GD70 (MS-7640)  , BIOS
+> V1.8B1 09/13/2010
+> [10469.336825]  0000000000000000 ffff88005f603228 ffffffff81456ca5
+> 0000000000000000
+> [10469.336828]  0000000000000003 ffff88005f6032b0 ffffffff811633ed
+> 020840205fd0f000
+> [10469.336830]  0000000000000000 ffff88005f603278 0208402000000008
+> 000000035fd0f500
+> [10469.336832] Call Trace:
+> [10469.336834]  <IRQ>  [<ffffffff81456ca5>] dump_stack+0x87/0xb2
+> [10469.336845]  [<ffffffff811633ed>] warn_alloc_failed+0xdd/0x140
+> [10469.336847]  [<ffffffff811638b1>] __alloc_pages_nodemask+0x3e1/0xcf0
+> [10469.336851]  [<ffffffff810edebf>] ? check_preempt_curr+0x4f/0x90
+> [10469.336852]  [<ffffffff810edf12>] ? ttwu_do_wakeup+0x12/0x90
+> [10469.336855]  [<ffffffff811a72ed>] alloc_pages_current+0x8d/0x110
+> [10469.336857]  [<ffffffff8117cb7f>] kmalloc_order+0x1f/0x70
+> [10469.336859]  [<ffffffff811aec19>] __kmalloc+0x129/0x140
+> [10469.336861]  [<ffffffff8146d561>] bucket_table_alloc+0xc1/0x1d0
+> [10469.336862]  [<ffffffff8146da1d>] rhashtable_insert_rehash+0x5d/0xe0
+> [10469.336865]  [<ffffffff819fbe70>] ? __nf_nat_l4proto_find+0x20/0x20
+> [10469.336866]  [<ffffffff819fcfff>] nf_nat_setup_info+0x2ef/0x400
+> [10469.336869]  [<ffffffff81aa88d5>] nf_nat_masquerade_ipv4+0xd5/0x100
 
-[auto build test WARNING on net-next/master]
+[ snip ]
 
-url:    https://github.com/0day-ci/linux/commits/Ursula-Braun/net-smc-Shared-Memory-Communications-RDMA/20160809-182526
-:::::: branch date: 2 hours ago
-:::::: commit date: 2 hours ago
+Hmmm, seems this is coming from an attempt to allocate the bucket lock
+array (since actual table has __GFP_NOWARN).
 
->> net/smc/smc_core.c:570:17-25: ERROR: reference preceded by free on line 549
-   net/smc/smc_core.c:570:17-25: ERROR: reference preceded by free on line 560
-   net/smc/smc_core.c:507:20-31: ERROR: reference preceded by free on line 486
-   net/smc/smc_core.c:507:20-31: ERROR: reference preceded by free on line 497
+I was about to just send a patch that adds a GPF_NOWARN in
+bucket_table_alloc/alloc_bucket_locks call.
 
-git remote add linux-review https://github.com/0day-ci/linux
-git remote update linux-review
-git checkout 2e8eda2734f14a860721121549f05e5ecd13d81d
-vim +570 net/smc/smc_core.c
+However, I wonder if we really need this elaborate sizing logic.
+I think it makes more sense to always allocate a fixed size regardless
+of number of CPUs, i.e. get rid of locks_mul and all the code that comes
+with it.
 
-2e8eda27 Ursula Braun 2016-08-09  543  			break; /* give up with -ENOMEM */
-2e8eda27 Ursula Braun 2016-08-09  544  		rmb_desc->cpu_addr = kzalloc(tmp_bufsize,
-2e8eda27 Ursula Braun 2016-08-09  545  					     GFP_KERNEL | __GFP_NOWARN |
-2e8eda27 Ursula Braun 2016-08-09  546  					     __GFP_NOMEMALLOC |
-2e8eda27 Ursula Braun 2016-08-09  547  					     __GFP_NORETRY);
-2e8eda27 Ursula Braun 2016-08-09  548  		if (!rmb_desc->cpu_addr) {
-2e8eda27 Ursula Braun 2016-08-09 @549  			kfree(rmb_desc);
-2e8eda27 Ursula Braun 2016-08-09  550  			/* if RMB allocation has failed,
-2e8eda27 Ursula Braun 2016-08-09  551  			 * try a smaller one
-2e8eda27 Ursula Braun 2016-08-09  552  			 */
-2e8eda27 Ursula Braun 2016-08-09  553  			continue;
-2e8eda27 Ursula Braun 2016-08-09  554  		}
-2e8eda27 Ursula Braun 2016-08-09  555  		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
-2e8eda27 Ursula Braun 2016-08-09  556  				    tmp_bufsize, rmb_desc,
-2e8eda27 Ursula Braun 2016-08-09  557  				    DMA_FROM_DEVICE);
-2e8eda27 Ursula Braun 2016-08-09  558  		if (rc) {
-2e8eda27 Ursula Braun 2016-08-09  559  			kfree(rmb_desc->cpu_addr);
-2e8eda27 Ursula Braun 2016-08-09  560  			kfree(rmb_desc);
-2e8eda27 Ursula Braun 2016-08-09  561  			continue; /* if mapping failed, try smaller one */
-2e8eda27 Ursula Braun 2016-08-09  562  		}
-2e8eda27 Ursula Braun 2016-08-09  563  		rmb_desc->used = 1;
-2e8eda27 Ursula Braun 2016-08-09  564  		write_lock_bh(&lgr->rmbs_lock);
-2e8eda27 Ursula Braun 2016-08-09  565  		list_add(&rmb_desc->list,
-2e8eda27 Ursula Braun 2016-08-09  566  			 &lgr->rmbs[tmp_bufsize_short]);
-2e8eda27 Ursula Braun 2016-08-09  567  		write_unlock_bh(&lgr->rmbs_lock);
-2e8eda27 Ursula Braun 2016-08-09  568  		break;
-2e8eda27 Ursula Braun 2016-08-09  569  	}
-2e8eda27 Ursula Braun 2016-08-09 @570  	if (rmb_desc && rmb_desc->cpu_addr) {
-2e8eda27 Ursula Braun 2016-08-09  571  		conn->rmb_desc = rmb_desc;
-2e8eda27 Ursula Braun 2016-08-09  572  		conn->rmbe_size = tmp_bufsize;
-2e8eda27 Ursula Braun 2016-08-09  573  		conn->rmbe_size_short = tmp_bufsize_short;
+Doing order-3 allocation for locks seems excessive to me.
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+The netfilter conntrack hashtable just uses a fixed array of 1024
+spinlocks (so on x86_64 we get on page of locks).
+
+What do you think?
+
+Do you have another suggestion on how to tackle this?
