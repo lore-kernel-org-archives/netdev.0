@@ -1,7 +1,7 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 04/21] net: thunderx: Set queue count based on number of CPUs
-Date: Wed, 10 Aug 2016 12:12:36 +0530
-Message-ID: <1470811373-28277-5-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 05/21] net: thunderx: Enable CQE_RX desc's extension fields
+Date: Wed, 10 Aug 2016 12:12:37 +0530
+Message-ID: <1470811373-28277-6-git-send-email-sunil.kovvuri@gmail.com>
 References: <1470811373-28277-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,93 +24,93 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-81xx has only 4 CPUs, so it doesn't make sense to initialize
-entire Qset i.e 8 queues by default. Made changes to queue
-initialization to init queues equal to number of CPUs or
-8 queues whichever is lesser. Also this will be applicable to
-VMs with VNIC VF attached and having less VCPUs
+Unlike 88xx, CQE_RX descriptor's tunnelling extension i.e CQE_RX2_S
+is always enabled on 81xx/83xx and HW does insert these fields into
+CQE_RX. As a result receive buffer addresses will now be present at
+7th word of CQE_RX instead of 6th.
+
+Enable CQE_RX2_S on 88xx pass 2.x as well.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c     | 6 ++++++
- drivers/net/ethernet/cavium/thunder/nicvf_main.c   | 7 +++----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 8 ++++----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 5 +----
- 4 files changed, 14 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          |  9 ++++++++-
+ drivers/net/ethernet/cavium/thunder/nic_main.c     |  7 +++++++
+ drivers/net/ethernet/cavium/thunder/nic_reg.h      |  1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 12 +++++++++++-
+ 4 files changed, 27 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 6b0b240..136db2a 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -493,7 +493,14 @@ static inline int nic_get_node_id(struct pci_dev *pdev)
+ 
+ static inline bool pass1_silicon(struct pci_dev *pdev)
+ {
+-	return pdev->revision < 8;
++	return (pdev->revision < 8) &&
++		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
++}
++
++static inline bool pass2_silicon(struct pci_dev *pdev)
++{
++	return (pdev->revision >= 8) &&
++		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
+ }
+ 
+ int nicvf_set_real_num_queues(struct net_device *netdev,
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 4974923..0d81117 100644
+index 0d81117..3f52b36 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -1009,6 +1009,12 @@ static int nic_num_sqs_en(struct nicpf *nic, int vf_en)
- 	int pos, sqs_per_vf = MAX_SQS_PER_VF_SINGLE_NODE;
- 	u16 total_vf;
- 
-+	/* Secondary Qsets are needed only if CPU count is
-+	 * morethan MAX_QUEUES_PER_QSET.
-+	 */
-+	if (num_online_cpus() <= MAX_QUEUES_PER_QSET)
-+		return 0;
-+
- 	/* Check if its a multi-node environment */
- 	if (nr_node_ids > 1)
- 		sqs_per_vf = MAX_SQS_PER_VF;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 0c10635..af04d9f 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1537,14 +1537,13 @@ static int nicvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_release_regions;
- 	}
- 
--	qcount = MAX_CMP_QUEUES_PER_QS;
-+	qcount = min_t(int, MAX_CMP_QUEUES_PER_QS, num_online_cpus());
- 
- 	/* Restrict multiqset support only for host bound VFs */
- 	if (pdev->is_virtfn) {
- 		/* Set max number of queues per VF */
--		qcount = roundup(num_online_cpus(), MAX_CMP_QUEUES_PER_QS);
--		qcount = min(qcount,
--			     (MAX_SQS_PER_VF + 1) * MAX_CMP_QUEUES_PER_QS);
-+		qcount = min_t(int, num_online_cpus(),
-+			       (MAX_SQS_PER_VF + 1) * MAX_CMP_QUEUES_PER_QS);
- 	}
- 
- 	netdev = alloc_etherdev_mqs(sizeof(struct nicvf), qcount, qcount);
+@@ -799,6 +799,13 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ 			   (mbx.rq.qs_num << NIC_QS_ID_SHIFT) |
+ 			   (mbx.rq.rq_num << NIC_Q_NUM_SHIFT);
+ 		nic_reg_write(nic, reg_addr, mbx.rq.cfg);
++		/* Enable CQE_RX2_S extension in CQE_RX descriptor.
++		 * This gets appended by default on 81xx/83xx chips,
++		 * for consistency enabling the same on 88xx pass2
++		 * where this is introduced.
++		 */
++		if (pass2_silicon(nic->pdev))
++			nic_reg_write(nic, NIC_PF_RX_CFG, 0x01);
+ 		break;
+ 	case NIC_MBOX_MSG_RQ_BP_CFG:
+ 		reg_addr = NIC_PF_QSET_0_127_RQ_0_7_BP_CFG |
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
+index 833cf3d..b4a7953 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
++++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
+@@ -36,6 +36,7 @@
+ #define   NIC_PF_MAILBOX_ENA_W1C		(0x0450)
+ #define   NIC_PF_MAILBOX_ENA_W1S		(0x0470)
+ #define   NIC_PF_RX_ETYPE_0_7			(0x0500)
++#define   NIC_PF_RX_CFG				(0x05D0)
+ #define   NIC_PF_PKIND_0_15_CFG			(0x0600)
+ #define   NIC_PF_ECC0_FLIP0			(0x1000)
+ #define   NIC_PF_ECC1_FLIP0			(0x1008)
 diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index 0ff8e60..e521a94 100644
+index e521a94..ca223aa 100644
 --- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
 +++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -762,10 +762,10 @@ int nicvf_set_qset_resources(struct nicvf *nic)
- 	nic->qs = qs;
+@@ -1190,7 +1190,17 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 	u64 *rb_ptrs = NULL;
  
- 	/* Set count of each queue */
--	qs->rbdr_cnt = RBDR_CNT;
--	qs->rq_cnt = RCV_QUEUE_CNT;
--	qs->sq_cnt = SND_QUEUE_CNT;
--	qs->cq_cnt = CMP_QUEUE_CNT;
-+	qs->rbdr_cnt = DEFAULT_RBDR_CNT;
-+	qs->rq_cnt = min_t(u8, MAX_RCV_QUEUES_PER_QS, num_online_cpus());
-+	qs->sq_cnt = min_t(u8, MAX_SND_QUEUES_PER_QS, num_online_cpus());
-+	qs->cq_cnt = max_t(u8, qs->rq_cnt, qs->sq_cnt);
+ 	rb_lens = (void *)cqe_rx + (3 * sizeof(u64));
+-	rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
++	/* Except 88xx pass1 on all other chips CQE_RX2_S is added to
++	 * CQE_RX at word6, hence buffer pointers move by word
++	 *
++	 * Use existing 'hw_tso' flag which will be set for all chips
++	 * except 88xx pass1 instead of a additional cache line
++	 * access (or miss) by using pci dev's revision.
++	 */
++	if (!nic->hw_tso)
++		rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
++	else
++		rb_ptrs = (void *)cqe_rx + (7 * sizeof(u64));
  
- 	/* Set queue lengths */
- 	qs->rbdr_len = RCV_BUF_COUNT;
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index 6673e11..869f338 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -57,10 +57,7 @@
- #define CMP_QUEUE_SIZE6		6ULL /* 64K entries */
- 
- /* Default queue count per QS, its lengths and threshold values */
--#define RBDR_CNT		1
--#define RCV_QUEUE_CNT		8
--#define SND_QUEUE_CNT		8
--#define CMP_QUEUE_CNT		8 /* Max of RCV and SND qcount */
-+#define DEFAULT_RBDR_CNT	1
- 
- #define SND_QSIZE		SND_QUEUE_SIZE2
- #define SND_QUEUE_LEN		(1ULL << (SND_QSIZE + 10))
+ 	netdev_dbg(nic->netdev, "%s rb_cnt %d rb0_ptr %llx rb0_sz %d\n",
+ 		   __func__, cqe_rx->rb_cnt, cqe_rx->rb0_ptr, cqe_rx->rb0_sz);
 -- 
 2.7.4
