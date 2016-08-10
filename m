@@ -1,62 +1,54 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH RESEND net-next 13/15] smc: receive data from RMBE
-Date: Wed, 10 Aug 2016 15:44:00 +0200
-Message-ID: <653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
-References: <1470737580-43012-1-git-send-email-ubraun@linux.vnet.ibm.com>
- <1470737580-43012-14-git-send-email-ubraun@linux.vnet.ibm.com>
- <20160809.143245.2022037008405834176.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net 0/5] net_sched: tc action fixes and updates
+Date: Wed, 10 Aug 2016 13:06:30 -0700
+Message-ID: <CAM_iQpUCqzytG662vBd4D0Zx09CWA9a1VuZerTatMMhdy42jBA@mail.gmail.com>
+References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com> <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	utz.bacher@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:53153 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933396AbcHJUEu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 16:04:50 -0400
-Received: from pps.filterd (m0098396.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u7ADgwxn055780
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 09:44:07 -0400
-Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 24qm9sqp9w-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 09:44:06 -0400
-Received: from localhost
-	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Wed, 10 Aug 2016 14:44:04 +0100
-In-Reply-To: <20160809.143245.2022037008405834176.davem@davemloft.net>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:33503 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935183AbcHJUGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 16:06:52 -0400
+Received: by mail-io0-f173.google.com with SMTP id 38so52123470iol.0
+        for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 13:06:51 -0700 (PDT)
+In-Reply-To: <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Aug 10, 2016 at 7:34 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 16-08-08 04:46 PM, Cong Wang wrote:
+>>
+>> This patchset fixes several regressions caused by the previous
+>> code refactor. Thanks to Jamal for catching them!
+>>
+>
+> Cong,
+>
+> Good news: oops gone. I havent done more testing than I did
+> before; but looks good so far.
+>
+> Bad news: You have introduced a performance regression which is
+> noticeable at high speed.
+>
+> tcf_exts_exec() is the culprit - and conversion to from flexarray
+> to linked list in the fast problem to be specific.
 
+Ah, this reminds me that I don't have to use flex_array, initially
+I thought the tcf_exts could hold as many actions as it wants,
+but actually there is a upper bound, TCA_ACT_MAX_PRIO.
+IOW, a regular dynamic array is just enough here.
 
-On 08/09/2016 11:32 PM, David Miller wrote:
-> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-> Date: Tue,  9 Aug 2016 12:12:58 +0200
->
->> +		xchg(&conn->rx_curs_confirmed.acurs,
->> +		     smc_curs_read(conn->local_tx_ctrl.cons.acurs));
->
-> Why in the world do you need to use xchg() in all of these places?
->
-> It makes no sense whatsoever, especially since you don't even check
-> the return value.
-> 98e906b2
-> If you need the operation to be atomic, then you have to check the
-> return value and do something to recover if something else beat
-> you to the xchg() and put something else into the location.
->
-> Otherwise, you therefore don't need it be atomic and can avoid
-> this expensive operation and just store the value normally.
->
-Reviewing my xchg() usages, I really detected some paranoid usages, that 
-I am going to remove. But there are still usages (and 
-conn->rx_curs_confirmed is one of them), where I need an 8-byte cursor 
-field to be read and written atomicaly, even though I do not care 
-whether the write operation has been beaten or not. But I do care that 
-reading the cursor does not return a partially updated cursor. Isn't 
-xchg() a possible solution in this case?
+I just replaced the flex_array with a regular one, it works fine
+for me too, at least no crash with all of my test cases.
+
+Please try v2, since you have more test cases that I do.
+Or it would be great if you can share your test cases with
+me or us.
+
+Be patient, every big change could have regression. :)
+
+Thanks.
