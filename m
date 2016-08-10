@@ -1,12 +1,14 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 08/21] net: thunderx: Add 81xx support to BGX driver
-Date: Wed, 10 Aug 2016 12:12:40 +0530
-Message-ID: <1470811373-28277-9-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 16/21] net: thunderx: Reset RXQ HW stats when interface is
+ brought down
+Date: Wed, 10 Aug 2016 12:12:48 +0530
+Message-ID: <1470811373-28277-17-git-send-email-sunil.kovvuri@gmail.com>
 References: <1470811373-28277-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
+Cc: Jerin Jacob <jerin.jacob@caviumnetworks.com>,
+ Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
  linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
@@ -22,225 +24,169 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Sunil Goutham <sgoutham@cavium.com>
+From: Jerin Jacob <jerin.jacob@caviumnetworks.com>
 
-This patch adds support for BGX module on 81xx where a BGX
-can be split and have different LMACs configured in
-different modes.
+When SQ/TXQ is reclaimed i.e reset it's stats also automatically reset
+by HW. This is not the case with RQ. Also VF doesn't have write access
+to statistics counter registers. Hence a new Mbox msg is introduced which
+supports resetting RQ, SQ and full Qset stats. Currently only RQ stats
+are being reset using this mbox message.
 
+Signed-off-by: Jerin Jacob <jerin.jacob@caviumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 112 ++++++++++++++++++++--
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  11 +++
- 2 files changed, 113 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic.h          | 27 +++++++++++++
+ drivers/net/ethernet/cavium/thunder/nic_main.c     | 45 ++++++++++++++++++++++
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 15 ++++++++
+ 3 files changed, 87 insertions(+)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 4497427..9c3c273 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -50,6 +50,7 @@ struct bgx {
- 	int			lmac_count;
- 	void __iomem		*reg_base;
- 	struct pci_dev		*pdev;
-+	bool                    is_81xx;
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 136db2a..dd63f96 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -347,6 +347,7 @@ struct nicvf {
+ #define	NIC_MBOX_MSG_PNICVF_PTR		0x14	/* Get primary qset nicvf ptr */
+ #define	NIC_MBOX_MSG_SNICVF_PTR		0x15	/* Send sqet nicvf ptr to PVF */
+ #define	NIC_MBOX_MSG_LOOPBACK		0x16	/* Set interface in loopback */
++#define	NIC_MBOX_MSG_RESET_STAT_COUNTER 0x17	/* Reset statistics counters */
+ #define	NIC_MBOX_MSG_CFG_DONE		0xF0	/* VF configuration done */
+ #define	NIC_MBOX_MSG_SHUTDOWN		0xF1	/* VF is being shutdown */
+ 
+@@ -463,6 +464,31 @@ struct set_loopback {
+ 	bool  enable;
  };
  
- static struct bgx *bgx_vnic[MAX_BGX_THUNDER];
-@@ -803,9 +804,17 @@ static void bgx_print_qlm_mode(struct bgx *bgx, u8 lmacid)
- 	struct device *dev = &bgx->pdev->dev;
- 	struct lmac *lmac;
- 	char str[20];
-+	u8 dlm;
++/* Reset statistics counters */
++struct reset_stat_cfg {
++	u8    msg;
++	/* Bitmap to select NIC_PF_VNIC(vf_id)_RX_STAT(0..13) */
++	u16   rx_stat_mask;
++	/* Bitmap to select NIC_PF_VNIC(vf_id)_TX_STAT(0..4) */
++	u8    tx_stat_mask;
++	/* Bitmap to select NIC_PF_QS(0..127)_RQ(0..7)_STAT(0..1)
++	 * bit14, bit15 NIC_PF_QS(vf_id)_RQ7_STAT(0..1)
++	 * bit12, bit13 NIC_PF_QS(vf_id)_RQ6_STAT(0..1)
++	 * ..
++	 * bit2, bit3 NIC_PF_QS(vf_id)_RQ1_STAT(0..1)
++	 * bit0, bit1 NIC_PF_QS(vf_id)_RQ0_STAT(0..1)
++	 */
++	u16   rq_stat_mask;
++	/* Bitmap to select NIC_PF_QS(0..127)_SQ(0..7)_STAT(0..1)
++	 * bit14, bit15 NIC_PF_QS(vf_id)_SQ7_STAT(0..1)
++	 * bit12, bit13 NIC_PF_QS(vf_id)_SQ6_STAT(0..1)
++	 * ..
++	 * bit2, bit3 NIC_PF_QS(vf_id)_SQ1_STAT(0..1)
++	 * bit0, bit1 NIC_PF_QS(vf_id)_SQ0_STAT(0..1)
++	 */
++	u16   sq_stat_mask;
++};
 +
-+	if (lmacid > MAX_LMAC_PER_BGX)
-+		return;
+ /* 128 bit shared memory between PF and each VF */
+ union nic_mbx {
+ 	struct { u8 msg; }	msg;
+@@ -480,6 +506,7 @@ union nic_mbx {
+ 	struct sqs_alloc        sqs_alloc;
+ 	struct nicvf_ptr	nicvf;
+ 	struct set_loopback	lbk;
++	struct reset_stat_cfg	reset_stat;
+ };
  
- 	lmac = &bgx->lmac[lmacid];
--	sprintf(str, "BGX%d QLM mode", bgx->bgx_id);
-+	dlm = (lmacid / 2) + (bgx->bgx_id * 2);
-+	if (!bgx->is_81xx)
-+		sprintf(str, "BGX%d QLM mode", bgx->bgx_id);
-+	else
-+		sprintf(str, "BGX%d DLM%d mode", bgx->bgx_id, dlm);
+ #define NIC_NODE_ID_MASK	0x03
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
+index 668cfd9..3932c45 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+@@ -793,6 +793,48 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
+ 	return 0;
+ }
  
- 	switch (lmac->lmac_type) {
- 	case BGX_MODE_SGMII:
-@@ -857,26 +866,81 @@ static void lmac_set_lane2sds(struct lmac *lmac)
- static void bgx_set_lmac_config(struct bgx *bgx, u8 idx)
- {
- 	struct lmac *lmac;
-+	struct lmac *olmac;
- 	u64 cmr_cfg;
-+	u8 lmac_type;
-+	u8 lane_to_sds;
- 
- 	lmac = &bgx->lmac[idx];
--	lmac->lmacid = idx;
- 
--	/* Read LMAC0 type to figure out QLM mode
--	 * This is configured by low level firmware
-+	if (!bgx->is_81xx) {
-+		/* Read LMAC0 type to figure out QLM mode
-+		 * This is configured by low level firmware
-+		 */
-+		cmr_cfg = bgx_reg_read(bgx, 0, BGX_CMRX_CFG);
-+		lmac->lmac_type = (cmr_cfg >> 8) & 0x07;
-+		lmac->use_training =
-+			bgx_reg_read(bgx, 0, BGX_SPUX_BR_PMD_CRTL) &
-+				SPU_PMD_CRTL_TRAIN_EN;
-+		lmac_set_lane2sds(lmac);
-+		return;
++/* Reset statistics counters */
++static int nic_reset_stat_counters(struct nicpf *nic,
++				   int vf, struct reset_stat_cfg *cfg)
++{
++	int i, stat, qnum;
++	u64 reg_addr;
++
++	for (i = 0; i < RX_STATS_ENUM_LAST; i++) {
++		if (cfg->rx_stat_mask & BIT(i)) {
++			reg_addr = NIC_PF_VNIC_0_127_RX_STAT_0_13 |
++				   (vf << NIC_QS_ID_SHIFT) |
++				   (i << 3);
++			nic_reg_write(nic, reg_addr, 0);
++		}
 +	}
 +
-+	/* On 81xx BGX can be split across 2 DLMs
-+	 * firmware programs lmac_type of LMAC0 and LMAC2
- 	 */
--	cmr_cfg = bgx_reg_read(bgx, 0, BGX_CMRX_CFG);
--	lmac->lmac_type = (cmr_cfg >> 8) & 0x07;
--	lmac->use_training =
--		bgx_reg_read(bgx, 0, BGX_SPUX_BR_PMD_CRTL) &
-+	if ((idx == 0) || (idx == 2)) {
-+		cmr_cfg = bgx_reg_read(bgx, idx, BGX_CMRX_CFG);
-+		lmac_type = (u8)((cmr_cfg >> 8) & 0x07);
-+		lane_to_sds = (u8)(cmr_cfg & 0xFF);
-+		/* Check if config is not reset value */
-+		if ((lmac_type == 0) && (lane_to_sds == 0xE4))
-+			lmac->lmac_type = BGX_MODE_INVALID;
-+		else
-+			lmac->lmac_type = lmac_type;
-+		lmac->use_training =
-+			bgx_reg_read(bgx, idx, BGX_SPUX_BR_PMD_CRTL) &
-+				SPU_PMD_CRTL_TRAIN_EN;
-+		lmac_set_lane2sds(lmac);
-+
-+		/* Set LMAC type of other lmac on same DLM i.e LMAC 1/3 */
-+		olmac = &bgx->lmac[idx + 1];
-+		olmac->lmac_type = lmac->lmac_type;
-+		olmac->use_training =
-+		bgx_reg_read(bgx, idx + 1, BGX_SPUX_BR_PMD_CRTL) &
- 			SPU_PMD_CRTL_TRAIN_EN;
--	lmac_set_lane2sds(lmac);
-+		lmac_set_lane2sds(olmac);
++	for (i = 0; i < TX_STATS_ENUM_LAST; i++) {
++		if (cfg->tx_stat_mask & BIT(i)) {
++			reg_addr = NIC_PF_VNIC_0_127_TX_STAT_0_4 |
++				   (vf << NIC_QS_ID_SHIFT) |
++				   (i << 3);
++			nic_reg_write(nic, reg_addr, 0);
++		}
 +	}
++
++	for (i = 0; i <= 15; i++) {
++		qnum = i >> 1;
++		stat = i & 1 ? 1 : 0;
++		reg_addr = (vf << NIC_QS_ID_SHIFT) |
++			   (qnum << NIC_Q_NUM_SHIFT) | (stat << 3);
++		if (cfg->rq_stat_mask & BIT(i)) {
++			reg_addr |= NIC_PF_QSET_0_127_RQ_0_7_STAT_0_1;
++			nic_reg_write(nic, reg_addr, 0);
++		}
++		if (cfg->sq_stat_mask & BIT(i)) {
++			reg_addr |= NIC_PF_QSET_0_127_SQ_0_7_STAT_0_1;
++			nic_reg_write(nic, reg_addr, 0);
++		}
++	}
++	return 0;
 +}
 +
-+static bool is_dlm0_in_bgx_mode(struct bgx *bgx)
-+{
-+	struct lmac *lmac;
-+
-+	if (!bgx->is_81xx)
-+		return true;
-+
-+	lmac = &bgx->lmac[1];
-+	if (lmac->lmac_type == BGX_MODE_INVALID)
-+		return false;
-+
-+	return true;
- }
- 
- static void bgx_get_qlm_mode(struct bgx *bgx)
+ static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
  {
-+	struct lmac *lmac;
-+	struct lmac *lmac01;
-+	struct lmac *lmac23;
- 	u8  idx;
- 
-+	/* Init all LMAC's type to invalid */
-+	for (idx = 0; idx < MAX_LMAC_PER_BGX; idx++) {
-+		lmac = &bgx->lmac[idx];
-+		lmac->lmac_type = BGX_MODE_INVALID;
-+		lmac->lmacid = idx;
-+	}
-+
- 	/* It is assumed that low level firmware sets this value */
- 	bgx->lmac_count = bgx_reg_read(bgx, 0, BGX_CMR_RX_LMACS) & 0x7;
- 	if (bgx->lmac_count > MAX_LMAC_PER_BGX)
-@@ -884,7 +948,28 @@ static void bgx_get_qlm_mode(struct bgx *bgx)
- 
- 	for (idx = 0; idx < bgx->lmac_count; idx++)
- 		bgx_set_lmac_config(bgx, idx);
--	bgx_print_qlm_mode(bgx, 0);
-+
-+	if (!bgx->is_81xx) {
-+		bgx_print_qlm_mode(bgx, 0);
-+		return;
-+	}
-+
-+	if (bgx->lmac_count) {
-+		bgx_print_qlm_mode(bgx, 0);
-+		bgx_print_qlm_mode(bgx, 2);
-+	}
-+
-+	/* If DLM0 is not in BGX mode then LMAC0/1 have
-+	 * to be configured with serdes lanes of DLM1
-+	 */
-+	if (is_dlm0_in_bgx_mode(bgx) || (bgx->lmac_count > 2))
-+		return;
-+	for (idx = 0; idx < bgx->lmac_count; idx++) {
-+		lmac01 = &bgx->lmac[idx];
-+		lmac23 = &bgx->lmac[idx + 2];
-+		lmac01->lmac_type = lmac23->lmac_type;
-+		lmac01->lane_to_sds = lmac23->lane_to_sds;
-+	}
+ 	int bgx, lmac;
+@@ -942,6 +984,9 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ 	case NIC_MBOX_MSG_LOOPBACK:
+ 		ret = nic_config_loopback(nic, &mbx.lbk);
+ 		break;
++	case NIC_MBOX_MSG_RESET_STAT_COUNTER:
++		ret = nic_reset_stat_counters(nic, vf, &mbx.reset_stat);
++		break;
+ 	default:
+ 		dev_err(&nic->pdev->dev,
+ 			"Invalid msg from VF%d, msg 0x%x\n", vf, mbx.msg.msg);
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index ed2fe72..7d90856 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -479,6 +479,16 @@ void nicvf_config_vlan_stripping(struct nicvf *nic, netdev_features_t features)
+ 					      NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
  }
  
- #ifdef CONFIG_ACPI
-@@ -1059,6 +1144,7 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct device *dev = &pdev->dev;
- 	struct bgx *bgx = NULL;
- 	u8 lmac;
-+	u16 sdevid;
- 
- 	bgx = devm_kzalloc(dev, sizeof(*bgx), GFP_KERNEL);
- 	if (!bgx)
-@@ -1080,6 +1166,10 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_disable_device;
++static void nicvf_reset_rcv_queue_stats(struct nicvf *nic)
++{
++	union nic_mbx mbx = {};
++
++	/* Reset all RXQ's stats */
++	mbx.reset_stat.msg = NIC_MBOX_MSG_RESET_STAT_COUNTER;
++	mbx.reset_stat.rq_stat_mask = 0xFFFF;
++	nicvf_send_msg_to_pf(nic, &mbx);
++}
++
+ /* Configures receive queue */
+ static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
+ 				   int qidx, bool enable)
+@@ -812,6 +822,11 @@ int nicvf_config_data_transfer(struct nicvf *nic, bool enable)
+ 		nicvf_free_resources(nic);
  	}
  
-+	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &sdevid);
-+	if (sdevid == PCI_SUBSYS_DEVID_81XX_BGX)
-+		bgx->is_81xx = true;
++	/* Reset RXQ's stats.
++	 * SQ's stats will get reset automatically once SQ is reset.
++	 */
++	nicvf_reset_rcv_queue_stats(nic);
 +
- 	/* MAP configuration registers */
- 	bgx->reg_base = pcim_iomap(pdev, PCI_CFG_REG_BAR_NUM, 0);
- 	if (!bgx->reg_base) {
-@@ -1105,6 +1195,8 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		if (err) {
- 			dev_err(dev, "BGX%d failed to enable lmac%d\n",
- 				bgx->bgx_id, lmac);
-+			while (lmac)
-+				bgx_lmac_disable(bgx, --lmac);
- 			goto err_enable;
- 		}
- 	}
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index b7b91c8..38e9fb4 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -9,6 +9,14 @@
- #ifndef THUNDER_BGX_H
- #define THUNDER_BGX_H
+ 	return 0;
+ }
  
-+/* PCI device ID */
-+#define	PCI_DEVICE_ID_THUNDER_BGX		0xA026
-+
-+/* Subsystem device IDs */
-+#define PCI_SUBSYS_DEVID_88XX_BGX		0xA126
-+#define PCI_SUBSYS_DEVID_81XX_BGX		0xA226
-+#define PCI_SUBSYS_DEVID_83XX_BGX		0xA326
-+
- #define    MAX_BGX_THUNDER			8 /* Max 4 nodes, 2 per node */
- #define    MAX_BGX_PER_CN88XX			2
- #define    MAX_BGX_PER_CN81XX			2
-@@ -215,6 +223,9 @@ enum LMAC_TYPE {
- 	BGX_MODE_XLAUI = 4, /* 4 lanes, 10.3125 Gbaud */
- 	BGX_MODE_10G_KR = 3,/* 1 lane, 10.3125 Gbaud */
- 	BGX_MODE_40G_KR = 4,/* 4 lanes, 10.3125 Gbaud */
-+	BGX_MODE_RGMII = 5,
-+	BGX_MODE_QSGMII = 6,
-+	BGX_MODE_INVALID = 7,
- };
- 
- #endif /* THUNDER_BGX_H */
 -- 
 2.7.4
