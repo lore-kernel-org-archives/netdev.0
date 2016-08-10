@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ravb: add sleep PM suspend/resume support
-Date: Wed, 10 Aug 2016 10:43:21 -0700 (PDT)
-Message-ID: <20160810.104321.1196349376146959513.davem@davemloft.net>
-References: <20160803135647.23242-3-niklas.soderlund+renesas@ragnatech.se>
-	<20160809.161636.2181233072433514866.davem@davemloft.net>
-	<79a23b1c-9f73-e004-87d9-256bc408e633@cogentembedded.com>
+Subject: Re: [PATCH RESEND net-next 13/15] smc: receive data from RMBE
+Date: Wed, 10 Aug 2016 10:45:56 -0700 (PDT)
+Message-ID: <20160810.104556.1507709019319192063.davem@davemloft.net>
+References: <1470737580-43012-14-git-send-email-ubraun@linux.vnet.ibm.com>
+	<20160809.143245.2022037008405834176.davem@davemloft.net>
+	<653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: niklas.soderlund+renesas@ragnatech.se, netdev@vger.kernel.org,
-	linux-renesas-soc@vger.kernel.org, wsa@the-dreams.de
-To: sergei.shtylyov@cogentembedded.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	utz.bacher@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40294 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40291 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932314AbcHJSCm (ORCPT
+	with ESMTP id S932272AbcHJSCm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:02:42 -0400
-In-Reply-To: <79a23b1c-9f73-e004-87d9-256bc408e633@cogentembedded.com>
+In-Reply-To: <653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Wed, 10 Aug 2016 13:47:26 +0300
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Wed, 10 Aug 2016 15:44:00 +0200
 
->    Ugh, I should have reviewed the patch earlier -- I was postponing this
->    until I have the time to test it... Since the patch did have some
->    visible issues, it should've been recast before applying. DaveM,
->    please in the future could you ping me before merging?
+> But there are still usages (and conn->rx_curs_confirmed is one of
+> them), where I need an 8-byte cursor field to be read and written
+> atomicaly, even though I do not care whether the write operation has
+> been beaten or not. But I do care that reading the cursor does not
+> return a partially updated cursor. Isn't xchg() a possible solution
+> in this case?
 
-Review patches in a timely manner.
+Either the cpu supports 64-bit stores or it does not.
 
-If I can go through a 5 day email outage and still see this patch
-rotting in patchwork, you could have reviewed it in time.
+xchg() and atomicity have absolutely nothing to do with this.
