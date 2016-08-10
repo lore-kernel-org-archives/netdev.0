@@ -1,7 +1,7 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 05/21] net: thunderx: Enable CQE_RX desc's extension fields
-Date: Wed, 10 Aug 2016 12:12:37 +0530
-Message-ID: <1470811373-28277-6-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 06/21] net: thunderx: Enable mailbox interrupts on 81xx/83xx
+Date: Wed, 10 Aug 2016 12:12:38 +0530
+Message-ID: <1470811373-28277-7-git-send-email-sunil.kovvuri@gmail.com>
 References: <1470811373-28277-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,93 +24,183 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Unlike 88xx, CQE_RX descriptor's tunnelling extension i.e CQE_RX2_S
-is always enabled on 81xx/83xx and HW does insert these fields into
-CQE_RX. As a result receive buffer addresses will now be present at
-7th word of CQE_RX instead of 6th.
-
-Enable CQE_RX2_S on 88xx pass 2.x as well.
+88xx has 128 VFs, 81xx has 8 VFs and 83xx will have 32VFs.
+Made changes to PF driver such that mailbox interrupt enable
+registers are configuired based on number of VFs HW supports.
+Also cleanedup mailbox irq handler registration code.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |  9 ++++++++-
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  7 +++++++
- drivers/net/ethernet/cavium/thunder/nic_reg.h      |  1 +
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 12 +++++++++++-
- 4 files changed, 27 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic_main.c | 88 +++++++++++++++-----------
+ 1 file changed, 50 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 6b0b240..136db2a 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -493,7 +493,14 @@ static inline int nic_get_node_id(struct pci_dev *pdev)
- 
- static inline bool pass1_silicon(struct pci_dev *pdev)
- {
--	return pdev->revision < 8;
-+	return (pdev->revision < 8) &&
-+		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
-+}
-+
-+static inline bool pass2_silicon(struct pci_dev *pdev)
-+{
-+	return (pdev->revision >= 8) &&
-+		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
- }
- 
- int nicvf_set_real_num_queues(struct net_device *netdev,
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 0d81117..3f52b36 100644
+index 3f52b36..955c522 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -799,6 +799,13 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 			   (mbx.rq.qs_num << NIC_QS_ID_SHIFT) |
- 			   (mbx.rq.rq_num << NIC_Q_NUM_SHIFT);
- 		nic_reg_write(nic, reg_addr, mbx.rq.cfg);
-+		/* Enable CQE_RX2_S extension in CQE_RX descriptor.
-+		 * This gets appended by default on 81xx/83xx chips,
-+		 * for consistency enabling the same on 88xx pass2
-+		 * where this is introduced.
-+		 */
-+		if (pass2_silicon(nic->pdev))
-+			nic_reg_write(nic, NIC_PF_RX_CFG, 0x01);
- 		break;
- 	case NIC_MBOX_MSG_RQ_BP_CFG:
- 		reg_addr = NIC_PF_QSET_0_127_RQ_0_7_BP_CFG |
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-index 833cf3d..b4a7953 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-@@ -36,6 +36,7 @@
- #define   NIC_PF_MAILBOX_ENA_W1C		(0x0450)
- #define   NIC_PF_MAILBOX_ENA_W1S		(0x0470)
- #define   NIC_PF_RX_ETYPE_0_7			(0x0500)
-+#define   NIC_PF_RX_CFG				(0x05D0)
- #define   NIC_PF_PKIND_0_15_CFG			(0x0600)
- #define   NIC_PF_ECC0_FLIP0			(0x1000)
- #define   NIC_PF_ECC1_FLIP0			(0x1008)
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index e521a94..ca223aa 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1190,7 +1190,17 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
- 	u64 *rb_ptrs = NULL;
+@@ -66,8 +66,9 @@ struct nicpf {
+ 	/* MSI-X */
+ 	bool			msix_enabled;
+ 	u8			num_vec;
+-	struct msix_entry	msix_entries[NIC_PF_MSIX_VECTORS];
++	struct msix_entry	*msix_entries;
+ 	bool			irq_allocated[NIC_PF_MSIX_VECTORS];
++	char			irq_name[NIC_PF_MSIX_VECTORS][20];
+ };
  
- 	rb_lens = (void *)cqe_rx + (3 * sizeof(u64));
--	rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
-+	/* Except 88xx pass1 on all other chips CQE_RX2_S is added to
-+	 * CQE_RX at word6, hence buffer pointers move by word
-+	 *
-+	 * Use existing 'hw_tso' flag which will be set for all chips
-+	 * except 88xx pass1 instead of a additional cache line
-+	 * access (or miss) by using pci dev's revision.
-+	 */
-+	if (!nic->hw_tso)
-+		rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
+ /* Supported devices */
+@@ -105,9 +106,22 @@ static u64 nic_reg_read(struct nicpf *nic, u64 offset)
+ /* PF -> VF mailbox communication APIs */
+ static void nic_enable_mbx_intr(struct nicpf *nic)
+ {
+-	/* Enable mailbox interrupt for all 128 VFs */
+-	nic_reg_write(nic, NIC_PF_MAILBOX_ENA_W1S, ~0ull);
+-	nic_reg_write(nic, NIC_PF_MAILBOX_ENA_W1S + sizeof(u64), ~0ull);
++	int vf_cnt = pci_sriov_get_totalvfs(nic->pdev);
++
++#define INTR_MASK(vfs) ((vfs < 64) ? (BIT_ULL(vfs) - 1) : (~0ull))
++
++	/* Clear it, to avoid spurious interrupts (if any) */
++	nic_reg_write(nic, NIC_PF_MAILBOX_INT, INTR_MASK(vf_cnt));
++
++	/* Enable mailbox interrupt for all VFs */
++	nic_reg_write(nic, NIC_PF_MAILBOX_ENA_W1S, INTR_MASK(vf_cnt));
++	/* One mailbox intr enable reg per 64 VFs */
++	if (vf_cnt > 64) {
++		nic_reg_write(nic, NIC_PF_MAILBOX_INT + sizeof(u64),
++			      INTR_MASK(vf_cnt - 64));
++		nic_reg_write(nic, NIC_PF_MAILBOX_ENA_W1S + sizeof(u64),
++			      INTR_MASK(vf_cnt - 64));
++	}
+ }
+ 
+ static void nic_clear_mbx_intr(struct nicpf *nic, int vf, int mbx_reg)
+@@ -894,11 +908,18 @@ unlock:
+ 	nic->mbx_lock[vf] = false;
+ }
+ 
+-static void nic_mbx_intr_handler (struct nicpf *nic, int mbx)
++static irqreturn_t nic_mbx_intr_handler(int irq, void *nic_irq)
+ {
++	struct nicpf *nic = (struct nicpf *)nic_irq;
++	int mbx;
+ 	u64 intr;
+ 	u8  vf, vf_per_mbx_reg = 64;
+ 
++	if (irq == nic->msix_entries[NIC_PF_INTR_ID_MBOX0].vector)
++		mbx = 0;
 +	else
-+		rb_ptrs = (void *)cqe_rx + (7 * sizeof(u64));
++		mbx = 1;
++
+ 	intr = nic_reg_read(nic, NIC_PF_MAILBOX_INT + (mbx << 3));
+ 	dev_dbg(&nic->pdev->dev, "PF interrupt Mbox%d 0x%llx\n", mbx, intr);
+ 	for (vf = 0; vf < vf_per_mbx_reg; vf++) {
+@@ -910,23 +931,6 @@ static void nic_mbx_intr_handler (struct nicpf *nic, int mbx)
+ 			nic_clear_mbx_intr(nic, vf, mbx);
+ 		}
+ 	}
+-}
+-
+-static irqreturn_t nic_mbx0_intr_handler (int irq, void *nic_irq)
+-{
+-	struct nicpf *nic = (struct nicpf *)nic_irq;
+-
+-	nic_mbx_intr_handler(nic, 0);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-static irqreturn_t nic_mbx1_intr_handler (int irq, void *nic_irq)
+-{
+-	struct nicpf *nic = (struct nicpf *)nic_irq;
+-
+-	nic_mbx_intr_handler(nic, 1);
+-
+ 	return IRQ_HANDLED;
+ }
  
- 	netdev_dbg(nic->netdev, "%s rb_cnt %d rb0_ptr %llx rb0_sz %d\n",
- 		   __func__, cqe_rx->rb_cnt, cqe_rx->rb0_ptr, cqe_rx->rb0_sz);
+@@ -934,7 +938,13 @@ static int nic_enable_msix(struct nicpf *nic)
+ {
+ 	int i, ret;
+ 
+-	nic->num_vec = NIC_PF_MSIX_VECTORS;
++	nic->num_vec = pci_msix_vec_count(nic->pdev);
++
++	nic->msix_entries = kmalloc_array(nic->num_vec,
++					  sizeof(struct msix_entry),
++					  GFP_KERNEL);
++	if (!nic->msix_entries)
++		return -ENOMEM;
+ 
+ 	for (i = 0; i < nic->num_vec; i++)
+ 		nic->msix_entries[i].entry = i;
+@@ -942,8 +952,9 @@ static int nic_enable_msix(struct nicpf *nic)
+ 	ret = pci_enable_msix(nic->pdev, nic->msix_entries, nic->num_vec);
+ 	if (ret) {
+ 		dev_err(&nic->pdev->dev,
+-			"Request for #%d msix vectors failed\n",
+-			   nic->num_vec);
++			"Request for #%d msix vectors failed, returned %d\n",
++			   nic->num_vec, ret);
++		kfree(nic->msix_entries);
+ 		return ret;
+ 	}
+ 
+@@ -955,6 +966,7 @@ static void nic_disable_msix(struct nicpf *nic)
+ {
+ 	if (nic->msix_enabled) {
+ 		pci_disable_msix(nic->pdev);
++		kfree(nic->msix_entries);
+ 		nic->msix_enabled = 0;
+ 		nic->num_vec = 0;
+ 	}
+@@ -973,27 +985,26 @@ static void nic_free_all_interrupts(struct nicpf *nic)
+ 
+ static int nic_register_interrupts(struct nicpf *nic)
+ {
+-	int ret;
++	int i, ret;
+ 
+ 	/* Enable MSI-X */
+ 	ret = nic_enable_msix(nic);
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Register mailbox interrupt handlers */
+-	ret = request_irq(nic->msix_entries[NIC_PF_INTR_ID_MBOX0].vector,
+-			  nic_mbx0_intr_handler, 0, "NIC Mbox0", nic);
+-	if (ret)
+-		goto fail;
++	/* Register mailbox interrupt handler */
++	for (i = NIC_PF_INTR_ID_MBOX0; i < nic->num_vec; i++) {
++		sprintf(nic->irq_name[i],
++			"NICPF Mbox%d", (i - NIC_PF_INTR_ID_MBOX0));
+ 
+-	nic->irq_allocated[NIC_PF_INTR_ID_MBOX0] = true;
++		ret = request_irq(nic->msix_entries[i].vector,
++				  nic_mbx_intr_handler, 0,
++				  nic->irq_name[i], nic);
++		if (ret)
++			goto fail;
+ 
+-	ret = request_irq(nic->msix_entries[NIC_PF_INTR_ID_MBOX1].vector,
+-			  nic_mbx1_intr_handler, 0, "NIC Mbox1", nic);
+-	if (ret)
+-		goto fail;
+-
+-	nic->irq_allocated[NIC_PF_INTR_ID_MBOX1] = true;
++		nic->irq_allocated[i] = true;
++	}
+ 
+ 	/* Enable mailbox interrupt */
+ 	nic_enable_mbx_intr(nic);
+@@ -1002,6 +1013,7 @@ static int nic_register_interrupts(struct nicpf *nic)
+ fail:
+ 	dev_err(&nic->pdev->dev, "Request irq failed\n");
+ 	nic_free_all_interrupts(nic);
++	nic_disable_msix(nic);
+ 	return ret;
+ }
+ 
 -- 
 2.7.4
