@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next 2/4] flow_dissector: Get vlan priority in addition to vlan id
-Date: Wed, 10 Aug 2016 16:32:21 +0300
-Message-ID: <1470835943-9042-3-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next 3/4] net_sched: flower: Add vlan support
+Date: Wed, 10 Aug 2016 16:32:22 +0300
+Message-ID: <1470835943-9042-4-git-send-email-hadarh@mellanox.com>
 References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Tom Herbert <tom@herbertland.com>,
@@ -10,123 +10,172 @@ Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45344 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45348 "EHLO
 	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933547AbcHJT14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:27:56 -0400
+	with ESMTP id S933537AbcHJT17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:27:59 -0400
 In-Reply-To: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add vlan priority check to the flow dissector by adding new flow
-dissector struct, flow_dissector_key_vlan which includes vlan tag
-fields.
+Enhance flower to support 802.1Q vlan protocol classification.
+Currently, the supported fields are vlan_id and vlan_priority.
 
-vlan_id and flow_label fields were under the same struct
-(flow_dissector_key_tags). It was a convenient setting since struct
-flow_dissector_key_tags is used by struct flow_keys and by setting
-vlan_id and flow_label under the same struct, we get precisely 24 or 48
-bytes in flow_keys from flow_dissector_key_basic.
+Example:
 
-Now, when adding vlan priority support, the code will be cleaner if
-flow_label and vlan tag won't be under the same struct anymore.
+	# add a flower filter with vlan id and priority classification
+	tc filter add dev ens4f0 protocol 802.1Q parent ffff: \
+		flower \
+		indev ens4f0 \
+		vlan_ethtype ipv4 \
+		vlan_id 100 \
+		vlan_prio 3 \
+	action vlan pop
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 ---
- include/linux/if_vlan.h      |  1 +
- include/net/flow_dissector.h | 11 ++++++++---
- net/core/flow_dissector.c    | 15 +++++++++------
- 3 files changed, 18 insertions(+), 9 deletions(-)
+ include/uapi/linux/pkt_cls.h |  3 ++
+ net/sched/cls_flower.c       | 69 ++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 69 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index a5f6ce6..49d4aef 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -81,6 +81,7 @@ static inline bool is_vlan_dev(const struct net_device *dev)
- #define skb_vlan_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
- #define skb_vlan_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
- #define skb_vlan_tag_get_id(__skb)	((__skb)->vlan_tci & VLAN_VID_MASK)
-+#define skb_vlan_tag_get_prio(__skb)	((__skb)->vlan_tci & VLAN_PRIO_MASK)
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index d1c1cca..51b5b24 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -428,6 +428,9 @@ enum {
+ 	TCA_FLOWER_KEY_UDP_DST,		/* be16 */
  
- /**
-  *	struct vlan_pcpu_stats - VLAN percpu rx/tx stats
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index d3d60dc..3781f18 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -32,8 +32,12 @@ struct flow_dissector_key_basic {
+ 	TCA_FLOWER_FLAGS,
++	TCA_FLOWER_KEY_VLAN_ID,
++	TCA_FLOWER_KEY_VLAN_PRIO,
++	TCA_FLOWER_KEY_VLAN_ETH_TYPE,
+ 	__TCA_FLOWER_MAX,
  };
  
- struct flow_dissector_key_tags {
--	u32	vlan_id:12,
--		flow_label:20;
-+	u32	flow_label:20;
-+};
-+
-+struct flow_dissector_key_vlan {
-+	u16	vlan_id:12,
-+		vlan_priority:3;
- };
- 
- struct flow_dissector_key_keyid {
-@@ -119,7 +123,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_PORTS, /* struct flow_dissector_key_ports */
- 	FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
- 	FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
--	FLOW_DISSECTOR_KEY_VLANID, /* struct flow_dissector_key_flow_tags */
-+	FLOW_DISSECTOR_KEY_VLAN, /* struct flow_dissector_key_flow_vlan */
- 	FLOW_DISSECTOR_KEY_FLOW_LABEL, /* struct flow_dissector_key_flow_tags */
- 	FLOW_DISSECTOR_KEY_GRE_KEYID, /* struct flow_dissector_key_keyid */
- 	FLOW_DISSECTOR_KEY_MPLS_ENTROPY, /* struct flow_dissector_key_keyid */
-@@ -148,6 +152,7 @@ struct flow_keys {
- #define FLOW_KEYS_HASH_START_FIELD basic
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 5060801..4e249be 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -28,6 +28,7 @@ struct fl_flow_key {
+ 	struct flow_dissector_key_control control;
  	struct flow_dissector_key_basic basic;
- 	struct flow_dissector_key_tags tags;
+ 	struct flow_dissector_key_eth_addrs eth;
 +	struct flow_dissector_key_vlan vlan;
- 	struct flow_dissector_key_keyid keyid;
- 	struct flow_dissector_key_ports ports;
- 	struct flow_dissector_key_addrs addrs;
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 6060fc2..6dfcb10 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -116,6 +116,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	struct flow_dissector_key_addrs *key_addrs;
- 	struct flow_dissector_key_ports *key_ports;
- 	struct flow_dissector_key_tags *key_tags;
-+	struct flow_dissector_key_vlan *key_vlan;
- 	struct flow_dissector_key_keyid *key_keyid;
- 	u8 ip_proto = 0;
- 	bool ret = false;
-@@ -242,12 +243,14 @@ ipv6:
- 	case htons(ETH_P_8021AD):
- 	case htons(ETH_P_8021Q): {
- 		if (dissector_uses_key(flow_dissector,
--				       FLOW_DISSECTOR_KEY_VLANID)) {
--			key_tags = skb_flow_dissector_target(flow_dissector,
--							     FLOW_DISSECTOR_KEY_VLANID,
-+				       FLOW_DISSECTOR_KEY_VLAN)) {
-+			key_vlan = skb_flow_dissector_target(flow_dissector,
-+							     FLOW_DISSECTOR_KEY_VLAN,
- 							     target_container);
+ 	struct flow_dissector_key_addrs ipaddrs;
+ 	union {
+ 		struct flow_dissector_key_ipv4_addrs ipv4;
+@@ -293,6 +294,10 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_TCP_DST]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_UDP_SRC]	= { .type = NLA_U16 },
+ 	[TCA_FLOWER_KEY_UDP_DST]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_VLAN_ID]	= { .type = NLA_U16 },
++	[TCA_FLOWER_KEY_VLAN_PRIO]	= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_VLAN_ETH_TYPE]	= { .type = NLA_U16 },
++
+ };
  
--			key_tags->vlan_id = skb_vlan_tag_get_id(skb);
-+			key_vlan->vlan_id = skb_vlan_tag_get_id(skb);
-+			key_vlan->vlan_priority =
-+				(skb_vlan_tag_get_prio(skb) >> VLAN_PRIO_SHIFT);
- 		}
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -308,9 +313,28 @@ static void fl_set_key_val(struct nlattr **tb,
+ 		memcpy(mask, nla_data(tb[mask_type]), len);
+ }
  
- 		proto = skb->protocol;
-@@ -865,8 +868,8 @@ static const struct flow_dissector_key flow_keys_dissector_keys[] = {
- 		.offset = offsetof(struct flow_keys, ports),
- 	},
- 	{
--		.key_id = FLOW_DISSECTOR_KEY_VLANID,
--		.offset = offsetof(struct flow_keys, tags),
-+		.key_id = FLOW_DISSECTOR_KEY_VLAN,
-+		.offset = offsetof(struct flow_keys, vlan),
- 	},
- 	{
- 		.key_id = FLOW_DISSECTOR_KEY_FLOW_LABEL,
++static void fl_set_key_vlan(struct nlattr **tb,
++			    struct flow_dissector_key_vlan *key_val,
++			    struct flow_dissector_key_vlan *key_mask)
++{
++#define VLAN_PRIORITY_MASK	0x7
++
++	if (tb[TCA_FLOWER_KEY_VLAN_ID]) {
++		key_val->vlan_id =
++			nla_get_u16(tb[TCA_FLOWER_KEY_VLAN_ID]) & VLAN_VID_MASK;
++		key_mask->vlan_id = VLAN_VID_MASK;
++	}
++	if (tb[TCA_FLOWER_KEY_VLAN_PRIO]) {
++		key_val->vlan_priority =
++			nla_get_u8(tb[TCA_FLOWER_KEY_VLAN_PRIO]) & VLAN_PRIORITY_MASK;
++		key_mask->vlan_priority = VLAN_PRIORITY_MASK;
++	}
++}
++
+ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		      struct fl_flow_key *key, struct fl_flow_key *mask)
+ {
++	__be16 ethertype;
+ #ifdef CONFIG_NET_CLS_IND
+ 	if (tb[TCA_FLOWER_INDEV]) {
+ 		int err = tcf_change_indev(net, tb[TCA_FLOWER_INDEV]);
+@@ -328,9 +352,19 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 		       mask->eth.src, TCA_FLOWER_KEY_ETH_SRC_MASK,
+ 		       sizeof(key->eth.src));
+ 
+-	fl_set_key_val(tb, &key->basic.n_proto, TCA_FLOWER_KEY_ETH_TYPE,
+-		       &mask->basic.n_proto, TCA_FLOWER_UNSPEC,
+-		       sizeof(key->basic.n_proto));
++	if (tb[TCA_FLOWER_KEY_ETH_TYPE])
++		ethertype = nla_get_be16(tb[TCA_FLOWER_KEY_ETH_TYPE]);
++
++	if (ethertype == htons(ETH_P_8021Q)) {
++		fl_set_key_vlan(tb, &key->vlan, &mask->vlan);
++		fl_set_key_val(tb, &key->basic.n_proto,
++			       TCA_FLOWER_KEY_VLAN_ETH_TYPE,
++			       &mask->basic.n_proto, TCA_FLOWER_UNSPEC,
++			       sizeof(key->basic.n_proto));
++	} else {
++		key->basic.n_proto = ethertype;
++		mask->basic.n_proto = cpu_to_be16(~0);
++	}
+ 
+ 	if (key->basic.n_proto == htons(ETH_P_IP) ||
+ 	    key->basic.n_proto == htons(ETH_P_IPV6)) {
+@@ -440,6 +474,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
+ 			       FLOW_DISSECTOR_KEY_IPV6_ADDRS, ipv6);
+ 	FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt,
+ 			       FLOW_DISSECTOR_KEY_PORTS, tp);
++	FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt,
++			       FLOW_DISSECTOR_KEY_VLAN, vlan);
+ 
+ 	skb_flow_dissector_init(&head->dissector, keys, cnt);
+ }
+@@ -668,6 +704,29 @@ static int fl_dump_key_val(struct sk_buff *skb,
+ 	return 0;
+ }
+ 
++static int fl_dump_key_vlan(struct sk_buff *skb,
++			    struct flow_dissector_key_vlan *vlan_key,
++			    struct flow_dissector_key_vlan *vlan_mask)
++{
++	int err;
++
++	if (!memchr_inv(vlan_mask, 0, sizeof(*vlan_mask)))
++		return 0;
++	if (vlan_mask->vlan_id) {
++		err = nla_put_u16(skb, TCA_FLOWER_KEY_VLAN_ID,
++				  vlan_key->vlan_id);
++		if (err)
++			return err;
++	}
++	if (vlan_mask->vlan_priority) {
++		err = nla_put_u8(skb, TCA_FLOWER_KEY_VLAN_PRIO,
++				 vlan_key->vlan_priority);
++		if (err)
++			return err;
++	}
++	return 0;
++}
++
+ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 		   struct sk_buff *skb, struct tcmsg *t)
+ {
+@@ -712,6 +771,10 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 			    &mask->basic.n_proto, TCA_FLOWER_UNSPEC,
+ 			    sizeof(key->basic.n_proto)))
+ 		goto nla_put_failure;
++
++	if (fl_dump_key_vlan(skb, &key->vlan, &mask->vlan))
++		goto nla_put_failure;
++
+ 	if ((key->basic.n_proto == htons(ETH_P_IP) ||
+ 	     key->basic.n_proto == htons(ETH_P_IPV6)) &&
+ 	    fl_dump_key_val(skb, &key->basic.ip_proto, TCA_FLOWER_KEY_IP_PROTO,
 -- 
 1.8.3.1
