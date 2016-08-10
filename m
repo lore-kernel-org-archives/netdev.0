@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/9] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
-Date: Wed, 10 Aug 2016 21:16:40 +0200
-Message-ID: <1470856605-7903-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 6/9] netfilter: nfnetlink_queue: fix memory leak when attach expectation successfully
+Date: Wed, 10 Aug 2016 21:16:42 +0200
+Message-ID: <1470856605-7903-7-git-send-email-pablo@netfilter.org>
 References: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,42 +10,39 @@ In-Reply-To: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
+From: Liping Zhang <liping.zhang@spreadtrum.com>
 
-Do not drop packet when CSeq is 0 as 0 is also a valid value for CSeq.
+User can use NFQA_EXP to attach expectations to conntracks, but we
+forget to put back nf_conntrack_expect when it is inserted successfully,
+i.e. in this normal case, expect's use refcnt will be 3. So even we
+unlink it and put it back later, the use refcnt is still 1, then the
+memory will be leaked forever.
 
-simple_strtoul() will return 0 either when all digits are 0
-or if there are no digits at all. Therefore when simple_strtoul()
-returns 0 we check if first character is digit 0 or not.
-
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_conntrack_sip.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_netlink.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 8d9db9d..7d77217 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1383,7 +1383,7 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
- 		return NF_DROP;
- 	}
- 	cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
--	if (!cseq) {
-+	if (!cseq && *(*dptr + matchoff) != '0') {
- 		nf_ct_helper_log(skb, ct, "cannot get cseq");
- 		return NF_DROP;
- 	}
-@@ -1446,7 +1446,7 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
- 			return NF_DROP;
- 		}
- 		cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
--		if (!cseq) {
-+		if (!cseq && *(*dptr + matchoff) != '0') {
- 			nf_ct_helper_log(skb, ct, "cannot get cseq");
- 			return NF_DROP;
- 		}
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 050bb34..b9bfe64 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -2362,12 +2362,8 @@ ctnetlink_glue_attach_expect(const struct nlattr *attr, struct nf_conn *ct,
+ 		return PTR_ERR(exp);
+ 
+ 	err = nf_ct_expect_related_report(exp, portid, report);
+-	if (err < 0) {
+-		nf_ct_expect_put(exp);
+-		return err;
+-	}
+-
+-	return 0;
++	nf_ct_expect_put(exp);
++	return err;
+ }
+ 
+ static void ctnetlink_glue_seqadj(struct sk_buff *skb, struct nf_conn *ct,
 -- 
 2.1.4
 
