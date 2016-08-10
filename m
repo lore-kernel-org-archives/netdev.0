@@ -1,259 +1,104 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next v2 v2 1/2] bpf: Add bpf_current_task_in_cgroup helper
-Date: Wed, 10 Aug 2016 11:03:13 +0200
-Message-ID: <57AAEDD1.1060406@iogearbox.net>
-References: <20160810000010.GA28455@ircssh.c.rugged-nimbus-611.internal> <20160810002349.GA19751@ast-mbp.thefacebook.com> <20160810005525.GA28930@ircssh.c.rugged-nimbus-611.internal> <20160810010232.GA21141@ast-mbp.thefacebook.com> <20160810012636.GB28930@ircssh.c.rugged-nimbus-611.internal> <20160810032730.GA22945@ast-mbp.thefacebook.com> <20160810034004.GA31242@ircssh.c.rugged-nimbus-611.internal> <20160810035159.GA26617@ast-mbp.thefacebook.com> <20160810044053.GA30708@ircssh.c.rugged-nimbus-611.internal>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH RESEND] net: can: Introduce MEN 16Z192-00 CAN controller
+ driver
+Date: Wed, 10 Aug 2016 22:28:45 +0200
+Message-ID: <a0169f54-c8c7-5cf6-b93b-acd4a308a052@hartkopp.net>
+References: <20160726091555.GA26227@awelinux>
+ <9487fe77-dbd0-3a64-b648-cf76b897feda@grandegger.com>
+ <20160808113938.GA17459@awelinux>
+ <456c4f82-6a53-e821-3396-63d413db9eb7@grandegger.com>
+ <20160808140546.GA1733@awelinux>
+ <808e919b-8643-2113-9fde-001861883abe@grandegger.com>
+ <20160809061038.GC1733@awelinux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Sargun Dhillon <sargun@sargun.me>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42946 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933468AbcHJSUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:20:14 -0400
-In-Reply-To: <20160810044053.GA30708@ircssh.c.rugged-nimbus-611.internal>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mkl@pengutronix.de, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, jthumshirn@suse.de, andy@wernerandy.de,
+	michael.miehling@men.de
+To: Andreas Werner <andreas.werner@men.de>,
+	Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160809061038.GC1733@awelinux>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/10/2016 06:40 AM, Sargun Dhillon wrote:
-> On Tue, Aug 09, 2016 at 08:52:01PM -0700, Alexei Starovoitov wrote:
->> On Tue, Aug 09, 2016 at 08:40:05PM -0700, Sargun Dhillon wrote:
->>> On Tue, Aug 09, 2016 at 08:27:32PM -0700, Alexei Starovoitov wrote:
->>>> On Tue, Aug 09, 2016 at 06:26:37PM -0700, Sargun Dhillon wrote:
->>>>> On Tue, Aug 09, 2016 at 06:02:34PM -0700, Alexei Starovoitov wrote:
->>>>>> On Tue, Aug 09, 2016 at 05:55:26PM -0700, Sargun Dhillon wrote:
->>>>>>> On Tue, Aug 09, 2016 at 05:23:50PM -0700, Alexei Starovoitov wrote:
->>>>>>>> On Tue, Aug 09, 2016 at 05:00:12PM -0700, Sargun Dhillon wrote:
->>>>>>>>> This adds a bpf helper that's similar to the skb_in_cgroup helper to check
->>>>>>>>> whether the probe is currently executing in the context of a specific
->>>>>>>>> subset of the cgroupsv2 hierarchy. It does this based on membership test
->>>>>>>>> for a cgroup arraymap. It is invalid to call this in an interrupt, and
->>>>>>>>> it'll return an error. The helper is primarily to be used in debugging
->>>>>>>>> activities for containers, where you may have multiple programs running in
->>>>>>>>> a given top-level "container".
->>>>>>>>>
->>>>>>>>> This patch also genericizes some of the arraymap fetching logic between the
->>>>>>>>> skb_in_cgroup helper and this new helper.
->>>>>>>>>
->>>>>>>>> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
->>>>>>>>> Cc: Alexei Starovoitov <ast@kernel.org>
->>>>>>>>> Cc: Daniel Borkmann <daniel@iogearbox.net>
->>>>>>>>> ---
->>>>>>>>>   include/linux/bpf.h      | 24 ++++++++++++++++++++++++
->>>>>>>>>   include/uapi/linux/bpf.h | 11 +++++++++++
->>>>>>>>>   kernel/bpf/arraymap.c    |  2 +-
->>>>>>>>>   kernel/bpf/verifier.c    |  4 +++-
->>>>>>>>>   kernel/trace/bpf_trace.c | 34 ++++++++++++++++++++++++++++++++++
->>>>>>>>>   net/core/filter.c        | 11 ++++-------
->>>>>>>>>   6 files changed, 77 insertions(+), 9 deletions(-)
->>>>>>>>>
->>>>>>>>> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
->>>>>>>>> index 1113423..9adf712 100644
->>>>>>>>> --- a/include/linux/bpf.h
->>>>>>>>> +++ b/include/linux/bpf.h
->>>>>>>>> @@ -319,4 +319,28 @@ extern const struct bpf_func_proto bpf_get_stackid_proto;
->>>>>>>>>   void bpf_user_rnd_init_once(void);
->>>>>>>>>   u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
->>>>>>>>>
->>>>>>>>> +#ifdef CONFIG_CGROUPS
->>>>>>>>> +/* Helper to fetch a cgroup pointer based on index.
->>>>>>>>> + * @map: a cgroup arraymap
->>>>>>>>> + * @idx: index of the item you want to fetch
->>>>>>>>> + *
->>>>>>>>> + * Returns pointer on success,
->>>>>>>>> + * Error code if item not found, or out-of-bounds access
->>>>>>>>> + */
->>>>>>>>> +static inline struct cgroup *fetch_arraymap_ptr(struct bpf_map *map, int idx)
->>>>>>>>> +{
->>>>>>>>> +	struct cgroup *cgrp;
->>>>>>>>> +	struct bpf_array *array = container_of(map, struct bpf_array, map);
->>>>>>>>> +
->>>>>>>>> +	if (unlikely(idx >= array->map.max_entries))
->>>>>>>>> +		return ERR_PTR(-E2BIG);
->>>>>>>>> +
->>>>>>>>> +	cgrp = READ_ONCE(array->ptrs[idx]);
->>>>>>>>> +	if (unlikely(!cgrp))
->>>>>>>>> +		return ERR_PTR(-EAGAIN);
->>>>>>>>> +
->>>>>>>>> +	return cgrp;
->>>>>>>>> +}
->>>>>>>>> +#endif /* CONFIG_CGROUPS */
->>>>>>>>> +
->>>>>>>>>   #endif /* _LINUX_BPF_H */
->>>>>>>>> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->>>>>>>>> index da218fe..64b1a07 100644
->>>>>>>>> --- a/include/uapi/linux/bpf.h
->>>>>>>>> +++ b/include/uapi/linux/bpf.h
->>>>>>>>> @@ -375,6 +375,17 @@ enum bpf_func_id {
->>>>>>>>>   	 */
->>>>>>>>>   	BPF_FUNC_probe_write_user,
->>>>>>>>>
->>>>>>>>> +	/**
->>>>>>>>> +	 * bpf_current_task_in_cgroup(map, index) - Check cgroup2 membership of current task
->>>>>>>>> +	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
->>>>>>>>> +	 * @index: index of the cgroup in the bpf_map
->>>>>>>>> +	 * Return:
->>>>>>>>> +	 *   == 0 current failed the cgroup2 descendant test
->>>>>>>>> +	 *   == 1 current succeeded the cgroup2 descendant test
->>>>>>>>> +	 *    < 0 error
->>>>>>>>> +	 */
->>>>>>>>> +	BPF_FUNC_current_task_in_cgroup,
->>>>>>>>> +
->>>>>>>>>   	__BPF_FUNC_MAX_ID,
->>>>>>>>>   };
->>>>>>>>>
->>>>>>>>> diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
->>>>>>>>> index 633a650..a2ac051 100644
->>>>>>>>> --- a/kernel/bpf/arraymap.c
->>>>>>>>> +++ b/kernel/bpf/arraymap.c
->>>>>>>>> @@ -538,7 +538,7 @@ static int __init register_perf_event_array_map(void)
->>>>>>>>>   }
->>>>>>>>>   late_initcall(register_perf_event_array_map);
->>>>>>>>>
->>>>>>>>> -#ifdef CONFIG_SOCK_CGROUP_DATA
->>>>>>>>> +#ifdef CONFIG_CGROUPS
->>>>>>>>>   static void *cgroup_fd_array_get_ptr(struct bpf_map *map,
->>>>>>>>>   				     struct file *map_file /* not used */,
->>>>>>>>>   				     int fd)
->>>>>>>>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->>>>>>>>> index 7094c69..80efab8 100644
->>>>>>>>> --- a/kernel/bpf/verifier.c
->>>>>>>>> +++ b/kernel/bpf/verifier.c
->>>>>>>>> @@ -1053,7 +1053,8 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
->>>>>>>>>   			goto error;
->>>>>>>>>   		break;
->>>>>>>>>   	case BPF_MAP_TYPE_CGROUP_ARRAY:
->>>>>>>>> -		if (func_id != BPF_FUNC_skb_in_cgroup)
->>>>>>>>> +		if (func_id != BPF_FUNC_skb_in_cgroup &&
->>>>>>>>> +		    func_id != BPF_FUNC_current_task_in_cgroup)
->>>>>>>>>   			goto error;
->>>>>>>>>   		break;
->>>>>>>>>   	default:
->>>>>>>>> @@ -1075,6 +1076,7 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
->>>>>>>>>   		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
->>>>>>>>>   			goto error;
->>>>>>>>>   		break;
->>>>>>>>> +	case BPF_FUNC_current_task_in_cgroup:
->>>>>>>>>   	case BPF_FUNC_skb_in_cgroup:
->>>>>>>>>   		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
->>>>>>>>>   			goto error;
->>>>>>>>> diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
->>>>>>>>> index b20438f..39f0290 100644
->>>>>>>>> --- a/kernel/trace/bpf_trace.c
->>>>>>>>> +++ b/kernel/trace/bpf_trace.c
->>>>>>>>> @@ -376,6 +376,36 @@ static const struct bpf_func_proto bpf_get_current_task_proto = {
->>>>>>>>>   	.ret_type	= RET_INTEGER,
->>>>>>>>>   };
->>>>>>>>>
->>>>>>>>> +#ifdef CONFIG_CGROUPS
->>>>>>>>> +static u64 bpf_current_task_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
->>>>>>>>
->>>>>>>> please don't introduce #ifdef into .c code.
->>>>>>>> In this case add #else in .h to fetch_arraymap_ptr() that returns -EOPNOTSUPP.
->>>>>>>> Also why guard it with CONFIG_CGROUPS in .h at all?
->>>>>>>> I think it should compile fine even when cgroups are not defined.
->>>>>>>> The helper won't be functional anyway, since no cgroup_fd can be added
->>>>>>>> to cgroup map.
->>>>>>>>
->>>>>>> Pardon my ignorance, but if I don't have an ifdef wont I be referencing a bunch
->>>>>>> of non-existent code (like cgroup_is_descendant)? Unless your suggestion is to
->>>>>>> move this to the .h file as well.
+Hi Andreas,
+
+On 08/09/2016 08:10 AM, Andreas Werner wrote:
+> On Mon, Aug 08, 2016 at 04:35:34PM +0200, Wolfgang Grandegger wrote:
+
+>>>>>> You specify here one echo_skb but it's not used anywhere. Local loopback
+>>>>>> seems not to be implemented.
 >>>>>>
->>>>>> I see. If cgroup_is_descendant is the only function we use, how about
->>>>>> adding it as 'return false' in #else part of linux/cgroup.h ?
->>>>>> There are a bunch of them there like cgroup_exit/cgroup_free/...
->>>>>>
->>>>> It appears messier than that:
->>>>> kernel/trace/bpf_trace.c: In function ‘bpf_current_task_in_cgroup’:
->>>>> kernel/trace/bpf_trace.c:394:9: error: implicit declaration of function ‘task_css_set’ [-Werror=implicit-function-declaration]
->>>>>    cset = task_css_set(current);
->>>>>           ^
->>>>> kernel/trace/bpf_trace.c:394:7: warning: assignment makes pointer from integer without a cast [-Wint-conversion]
->>>>>    cset = task_css_set(current);
->>>>>         ^
->>>>> kernel/trace/bpf_trace.c:396:9: error: implicit declaration of function ‘cgroup_is_descendant’ [-Werror=implicit-function-declaration]
->>>>>    return cgroup_is_descendant(cset->dfl_cgrp, cgrp);
->>>>>           ^
->>>>> kernel/trace/bpf_trace.c:396:34: error: dereferencing pointer to incomplete type ‘struct css_set’
->>>>>    return cgroup_is_descendant(cset->dfl_cgrp, cgrp);
+>>>>>
+>>>>> Agree with you, will set it to "0".
 >>>>
->>>> yeah. exporting struct css_set is too much.
->>>> No other ideas how to reduce so many #ifdef CONFIG_CGROUPS.
->>>> At least the one in .h can be dropped, right?
->>>> Please cc Tejun in the next spin.
+>>>> No, the local loopback is mandetory!
 >>>>
->>> The path I'm going down is to add this helper to cgroup.h:
 >>>
->>> #ifdef CONFIG_CGROUPS
->>> /**
->>>   * task_in_cgroup_hierarchy - test task's membership of cgroup ancestry
->>>   * @task: the task to be tested
->>>   * @ancestor: possible ancestor of @task's cgroup
->>>   *
->>>   * Tests whether @task's default cgroup hierarchy is a descendant of @ancestor.
->>>   * It follows all the same rules as cgroup_is_descendant, and only applies
->>>   * to the default hierarchy.
->>>   */
->>> static inline bool task_in_cgroup_hierarchy(struct task_struct *task,
->>> 					    struct cgroup *ancestor)
->>> {
->>> 	struct css_set *cset = task_css_set(task);
->>> 	return cgroup_is_descendant(cset->dfl_cgrp, ancestor);
->>> }
->>>
->>> #else
->>>
->>> struct cgroup;
->>> static inline bool task_in_cgroup_hierarchy(struct task_struct *task,
->>> 				  struct cgroup *ancestor) { return false; }
->>> #endif
->>>
->>>
->>> It gets rid of all of the CONFIG_CGROUPS, and I think it's a useful helper for
->>> others. I can't be the only one, esp. as we move towards cgroupv2 more that
->>> depends on default cgroups hierarchy checks.
+>>> Hm ok, but if i check alloc_candev() in drivers/net/can/dev.c
+>>> it is not mandatory.
+
+It is.
+
+Even those drivers that show up to use zero echo skbs in alloc_candev() 
+implement the echo functionality correct.
+
+Just check 'git grep IFF_ECHO'. Even grcan.c and janz-ican3.c have 
+IFF_ECHO set - but implement it in a different way without using the 
+provided machanism from dev.c .
+
+>>> In the Documentation/networking/can.txt
+>>> there is also a "should" and a fallback mechnism if the driver
+>>> does not support the local loopback.
+
+But this fallback mechanism is bad - really bad!
+
+E.g. the slcan.c driver sends a stream of CAN frames without knowing 
+whether the frames ever hit the wire. The slcan driver is more less for 
+hobby users. The CAN frame echo with IFF_ECHO gives a correct 
+representation of the traffic on the wire - including the correct 
+timestamps.
+
+You really want to know whether a CAN frame was sent correctly on the 
+bus instead of getting some shortcut info from inside the network layer.
+.
 >>
->> good idea. I think that's the best option so far.
->> If we can get rid of ifdef in net/core/filter.c at the same time
->> that would be even better. Looks like it needs dummy sock_cgroup_ptr().
+>> Well, s/driver/hardware/ ! Local loopback is the preferred mechanism.
 >>
-> The net/core/filter.c one is more complicated. If I follow the same pattern,
-> we'd have a sock-specific sock_in_cgroup_hierarchy function. Is that general
-> purpose enough, or checked elsewhere in the kernel?
+>
+> Sure...
+>
+>>> I'm currently ok with this fallback mechanism.
 
-If I'm not missing something, I think what it would need is the following,
-uncompiled:
+/me not.
 
-For include/net/sock.h:
+>>> Anyway I am not sure that the driver can handle the echo skb correctly.
+>>> If i understand it correctly, the can_get_echo_skb() is normally called
+>>> on a "TX done IRQ" to get the skb and loop it back.
 
-static inline int sk_cgroup_is_descendant(struct sock *sk,
-					  struct cgroup *cgrp)
-{
-#ifdef CONFIG_SOCK_CGROUP_DATA
-         return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
-#else
-	return -EOPNOTSUPP;
-#endif
-}
+ack.
 
-And then in net/core/filter.c,:
+>>> I do not have such a "TX done IRQ" and have not implemented implemented
+>>> and added the local looback.
 
-static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-{
-[...]
-	cgrp = READ_ONCE(array->ptrs[i]);
-	if (unlikely(!cgrp))
-		return -EAGAIN;
+I'm not really sure how grcan.c and janz-ican3.c implemented the echo 
+functionality but they must have faced a similar situation.
 
-	return sk_cgroup_is_descendant(sk, cgrp);
-}
+A local loopback inside the CAN controller which is generated after 
+successful transmit is an excellent implementation with excellent 
+timestamps. The only problem for you is to detect the looped CAN frames 
+and match them to the skb pointer of the outgoing frame to 'receive' the 
+correct echo skb.
 
-This should be enough to get rid of the ugly CONFIG_SOCK_CGROUP_DATA
-there. And it would also allow for only returning a membership (0 or 1)
-when there's *actually* CONFIG_SOCK_CGROUP_DATA enabled, but otherwise
-indicates -EOPNOTSUPP as error.
+When you send CAN frames to an unconnected CAN bus it can't be sent out 
+due to the missing acknowledge from other nodes. So when you send frames 
+and you get echo frames due to the fallback mode your cool CAN 
+controller degrades to slcan level.
 
-Similar approach should be done for the kprobes.
+Regards,
+Oliver
+
+ps. Do you have any URL where one can get the MEN 16Z192 spec?
