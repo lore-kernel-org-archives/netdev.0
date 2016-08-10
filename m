@@ -1,13 +1,13 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 19/21] net: thunderx: Configure tunnelling protocol parsing
-Date: Wed, 10 Aug 2016 12:12:51 +0530
-Message-ID: <1470811373-28277-20-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 20/21] net: thunderx: Use netdev_rss_key_fill() helper
+Date: Wed, 10 Aug 2016 12:12:52 +0530
+Message-ID: <1470811373-28277-21-git-send-email-sunil.kovvuri@gmail.com>
 References: <1470811373-28277-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, Zyta Szpak <zr@semihalf.com>
+ linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1470811373-28277-1-git-send-email-sunil.kovvuri@gmail.com>
@@ -22,79 +22,34 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Zyta Szpak <zr@semihalf.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch enables parsing of inner layers for tunnelled packets.
+Use standard API to generate a random RSS hash key
+on every boot.
 
-Signed-off-by: Zyta Szpak <zr@semihalf.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c | 21 +++++++++++++++++++++
- drivers/net/ethernet/cavium/thunder/nic_reg.h  | 13 +++++++++++++
- 2 files changed, 34 insertions(+)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 167291b..25618d2 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -835,6 +835,25 @@ static int nic_reset_stat_counters(struct nicpf *nic,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index e73e6df..1cfe2b0 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -366,13 +366,7 @@ static int nicvf_rss_init(struct nicvf *nic)
  
-+static void nic_enable_tunnel_parsing(struct nicpf *nic, int vf)
-+{
-+	u64 prot_def = (IPV6_PROT << 32) | (IPV4_PROT << 16) | ET_PROT;
-+	u64 vxlan_prot_def = (IPV6_PROT_DEF << 32) |
-+			      (IPV4_PROT_DEF) << 16 | ET_PROT_DEF;
-+
-+	/* Configure tunnel parsing parameters */
-+	nic_reg_write(nic, NIC_PF_RX_GENEVE_DEF,
-+		      (1ULL << 63 | UDP_GENEVE_PORT_NUM));
-+	nic_reg_write(nic, NIC_PF_RX_GENEVE_PROT_DEF,
-+		      ((7ULL << 61) | prot_def));
-+	nic_reg_write(nic, NIC_PF_RX_NVGRE_PROT_DEF,
-+		      ((7ULL << 61) | prot_def));
-+	nic_reg_write(nic, NIC_PF_RX_VXLAN_DEF_0_1,
-+		      ((1ULL << 63) | UDP_VXLAN_PORT_NUM));
-+	nic_reg_write(nic, NIC_PF_RX_VXLAN_PROT_DEF,
-+		      ((0xfULL << 60) | vxlan_prot_def));
-+}
-+
- static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
- {
- 	int bgx, lmac;
-@@ -908,6 +927,8 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 		 */
- 		if (pass2_silicon(nic->pdev))
- 			nic_reg_write(nic, NIC_PF_RX_CFG, 0x01);
-+		if (!pass1_silicon(nic->pdev))
-+			nic_enable_tunnel_parsing(nic, vf);
- 		break;
- 	case NIC_MBOX_MSG_RQ_BP_CFG:
- 		reg_addr = NIC_PF_QSET_0_127_RQ_0_7_BP_CFG |
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-index b4a7953..db9c632 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-@@ -36,6 +36,19 @@
- #define   NIC_PF_MAILBOX_ENA_W1C		(0x0450)
- #define   NIC_PF_MAILBOX_ENA_W1S		(0x0470)
- #define   NIC_PF_RX_ETYPE_0_7			(0x0500)
-+#define   NIC_PF_RX_GENEVE_DEF			(0x0580)
-+#define    UDP_GENEVE_PORT_NUM				0x17C1ULL
-+#define   NIC_PF_RX_GENEVE_PROT_DEF		(0x0588)
-+#define    IPV6_PROT					0x86DDULL
-+#define    IPV4_PROT					0x800ULL
-+#define    ET_PROT					0x6558ULL
-+#define   NIC_PF_RX_NVGRE_PROT_DEF		(0x0598)
-+#define   NIC_PF_RX_VXLAN_DEF_0_1		(0x05A0)
-+#define    UDP_VXLAN_PORT_NUM				0x12B5
-+#define   NIC_PF_RX_VXLAN_PROT_DEF		(0x05B0)
-+#define    IPV6_PROT_DEF				0x2ULL
-+#define    IPV4_PROT_DEF				0x1ULL
-+#define    ET_PROT_DEF					0x3ULL
- #define   NIC_PF_RX_CFG				(0x05D0)
- #define   NIC_PF_PKIND_0_15_CFG			(0x0600)
- #define   NIC_PF_ECC0_FLIP0			(0x1000)
+ 	rss->enable = true;
+ 
+-	/* Using the HW reset value for now */
+-	rss->key[0] = 0xFEED0BADFEED0BADULL;
+-	rss->key[1] = 0xFEED0BADFEED0BADULL;
+-	rss->key[2] = 0xFEED0BADFEED0BADULL;
+-	rss->key[3] = 0xFEED0BADFEED0BADULL;
+-	rss->key[4] = 0xFEED0BADFEED0BADULL;
+-
++	netdev_rss_key_fill(rss->key, RSS_HASH_KEY_SIZE * sizeof(u64));
+ 	nicvf_set_rss_key(nic);
+ 
+ 	rss->cfg = RSS_IP_HASH_ENA | RSS_TCP_HASH_ENA | RSS_UDP_HASH_ENA;
 -- 
 2.7.4
