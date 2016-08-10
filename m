@@ -1,184 +1,258 @@
-From: Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
- Ultrascale+ MPSoC
-Date: Wed, 10 Aug 2016 08:11:27 +0200
-Message-ID: <49580e8c-35cc-99b3-e77e-1c58107e6ffb@xilinx.com>
-References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
- <1441958258-35441-3-git-send-email-harinik@xilinx.com>
- <CAFcVECLfXL-=efbUhNeKhiFQgtfv6Z1+JJckg+js7DM-LfFeSw@mail.gmail.com>
- <99d6c0ce-c3b9-a919-cedb-0af954bac388@atmel.com>
- <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C4205@XAP-PVEXMBX02.xlnx.xilinx.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
+Date: Wed, 10 Aug 2016 17:27:56 +0800
+Message-ID: <57AAF39C.3050907@huawei.com>
+References: <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
+ <57A9DA8D.3010407@huawei.com> <20160809180830.GM22974@cork>
+ <20160809.120636.2039586307820412288.davem@davemloft.net>
+ <20160809211058.GP22974@cork> <20075.1470786664@famine>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org"
-	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Anirudha Sarangi <anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-	Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Andrei Pistirica <Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C4205-4lKfpRxZ5ekkx2a1wsGfbYg+Gb3gawCHQz34XiSyOiE@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <zyjzyj2000@gmail.com>,
+	<andy@greyhouse.net>, <netdev@vger.kernel.org>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	=?UTF-8?Q?J=c3=b6rn_Engel?= <joern@purestorage.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:25747 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936539AbcHJSp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:45:28 -0400
+In-Reply-To: <20075.1470786664@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Nicolas,
-
-just a note: Here is the link to public Linux repo
-https://github.com/Xilinx/linux-xlnx
-
-Thanks,
-Michal
-
-
-On 9.8.2016 18:56, Punnaiah Choudary Kalluri wrote:
-> Hi Nicolas,
+On 2016/8/10 7:51, Jay Vosburgh wrote:
+> Jörn Engel <joern@purestorage.com> wrote:
 > 
->  1588 implementation in cadence GEM IP we have in Zynq Ultascale+ MPSoC is
-> Different to the one in Zynq SOC.
-> 
-> In earlier version, all timestamp values will be stored in registers and there is no specific
-> Mechanism to distinguish the received ethernet frame that contains time stamp information
-> Other than parsing the frame for PTP packet type.
-> 
-> We have basic implementation for earlier version in our out of tree driver, which is going to be deprecated
-> Soon. You could also check the below driver for 1588 support.
-> https://gitenterprise.xilinx.com/Linux/linux-xlnx/blob/master/drivers/net/ethernet/xilinx/xilinx_emacps.c
-> 
-> 
-> Regards,
-> Punnaiah
-> 
->> -----Original Message-----
->> From: Nicolas Ferre [mailto:nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org]
->> Sent: Tuesday, August 09, 2016 10:10 PM
->> To: Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; Harini Katakam
->> <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>; Andrei Pistirica <Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
->> Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Boris Brezillon <boris.brezillon@free-
->> electrons.com>; alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org;
->> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
->> devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Punnaiah Choudary Kalluri
->> <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>; Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>; Anirudha
->> Sarangi <anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
->> Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
->> Ultrascale+ MPSoC
->>
->> Le 21/09/2015 à 19:49, Harini Katakam a écrit :
->>> On Fri, Sep 11, 2015 at 1:27 PM, Harini Katakam
->>> <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org> wrote:
->>>> Cadence GEM in Zynq Ultrascale+ MPSoC supports 1588 and provides a
->>>> 102 bit time counter with 48 bits for seconds, 30 bits for nsecs and
->>>> 24 bits for sub-nsecs. The timestamp is made available to the SW through
->>>> registers as well as (more precisely) through upper two words in
->>>> an extended BD.
+>> On Tue, Aug 09, 2016 at 12:06:36PM -0700, David Miller wrote:
+>>>> On Tue, Aug 09, 2016 at 09:28:45PM +0800, Ding Tianhong wrote:
 >>>>
->>>> This patch does the following:
->>>> - Adds MACB_CAPS_TSU in zynqmp_config.
->>>> - Registers to ptp clock framework (after checking for timestamp support
->> in
->>>>   IP and capability in config).
->>>> - TX BD and RX BD control registers are written to populate timestamp in
->>>>   extended BD words.
->>>> - Timer initialization is done by writing time of day to the timer counter.
->>>> - ns increment register is programmed as NS_PER_SEC/TSU_CLK.
->>>>   For a 24 bit subns precision, the subns increment equals
->>>>   remainder of (NS_PER_SEC/TSU_CLK) * (2^24).
->>>>   TSU (Time stamp unit) clock is obtained by the  driver from devicetree.
->>>> - HW time stamp capabilities are advertised via ethtool and macb ioctl is
->>>>   updated accordingly.
->>>> - For all PTP event frames, nanoseconds and the lower 5 bits of seconds
->> are
->>>>   obtained from the BD. This offers a precise timestamp. The upper bits
->>>>   (which dont vary between consecutive packets) are obtained from the
->>>>   TX/RX PTP event/PEER registers. The timestamp obtained thus is
->> updated
->>>>   in skb for upper layers to access.
->>>> - The drivers register functions with ptp to perform time and frequency
->>>>   adjustment.
->>>> - Time adjustment is done by writing to the 1558_ADJUST register.
->>>>   The controller will read the delta in this register and update the timer
->>>>   counter register. Alternatively, for large time offset adjustments,
->>>>   the driver reads the secs and nsecs counter values, adds/subtracts the
->>>>   delta and updates the timer counter. In order to be as precise as
->> possible,
->>>>   nsecs counter is read again if secs has incremented during the counter
->> read.
->>>> - Frequency adjustment is not directly supported by this IP.
->>>>   addend is the initial value ns increment and similarly addendesub.
->>>>   The ppb (parts per billion) provided is used as
->>>>   ns_incr = addend +/- (ppb/rate).
->>>>   Similarly the remainder of the above is used to populate subns
->> increment.
->>>>   In case the ppb requested is negative AND subns adjustment greater
->> than
->>>>   the addendsub, ns_incr is reduced by 1 and subns_incr is adjusted in
->>>>   positive accordingly.
->>>>
->>>> Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>:
->>>> ---
->>>>  drivers/net/ethernet/cadence/macb.c |  372
->> ++++++++++++++++++++++++++++++++++-
->>>>  drivers/net/ethernet/cadence/macb.h |   64 ++++++
->>>>  2 files changed, 428 insertions(+), 8 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/cadence/macb.c
->> b/drivers/net/ethernet/cadence/macb.c
->>>> index bb2932c..b531008 100644
->>>> --- a/drivers/net/ethernet/cadence/macb.c
->>>> +++ b/drivers/net/ethernet/cadence/macb.c
->>>> @@ -30,6 +30,8 @@
->>>>  #include <linux/of_device.h>
->>>>  #include <linux/of_mdio.h>
->>
->> [..]
->>
->>>> +       unsigned int            ns_incr;
->>>> +       unsigned int            subns_incr;
->>>>  };
->>>>
->>>>  static inline bool macb_is_gem(struct macb *bp)
->>>> --
->>>> 1.7.9.5
+>>>> Simply not checking errors when setting the mac address solves the
+>>>> problem for me.  No new features needed.
 >>>
->>> Ping
+>>> But it only works in certain modes.
 >>>
->>> Thanks.
+>>> So the best we can do is enforce the MAC address setting in the
+>>> modes that absolutely require it.  We cannot ignore the MAC
+>>> address setting unilaterally.
 >>
->> Harini,
+>> Something like this?
 >>
->> I come back to this patch of last year and I'm sorry about being so late
->> answering you.
+>> [PATCH] bonding: Allow tun-interfaces as slaves in balance-rr mode
 >>
->> Andrei who is added to the discussion will have some time to deal with
->> this feature and we would like to make some progress with it. He already
->> had some work done on his side before I recall your email.
+>> Up until 00503b6f702e (part of 3.14-rc1), the bonding driver could be
+>> used to enslave tun-interfaces.  00503b6f702e broke that behaviour,
+>> afaics as an unintended side-effect.
 >>
->> So, could you please re-send your original 1588 patch with Andrei in
->> copy so that we can all (re-)start the discussion and progress for
->> adding this feature.
+>> For the purpose of bond-over-tun in balance-rr mode, simply ignoring the
+>> error from dev_set_mac_address() is good enough.
 >>
->> We must also note that some hardware differences between our platforms
->> may have an impact on the code and how we implement things (as
->> highlighted on this forum:
->> http://www.at91.com/discussions/viewtopic.php/f,12/t,25462.html).
->> Anyway, we'll overcome this and have a widely tested solution at the end
->> of the day!
+>> Signed-off-by: Joern Engel <joern@purestorage.com>
+>> ---
+>> drivers/net/bonding/bond_main.c | 3 ++-
+>> 1 file changed, 2 insertions(+), 1 deletion(-)
 >>
->> Thanks for your patience, bye!
->>
->> PS: for some reason, I only have this "ping" part of your email but not
->> the original one
->> --
->> Nicolas Ferre
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 1f276fa30ba6..2f686bfe4304 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1490,7 +1490,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>> 		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+>> 		addr.sa_family = slave_dev->type;
+>> 		res = dev_set_mac_address(slave_dev, &addr);
+>> -		if (res) {
+>> +		/* round-robin mode works fine without a mac address */
+>> +		if (res && BOND_MODE(bond) != BOND_MODE_ROUNDROBIN) {
+> 
+> 	This will cause balance-rr to add the slave to the bond if any
+> device's dev_set_mac_address call fails.
+> 
+> 	If a bond of regular Ethernet devices is connected to a static
+> link aggregation (Etherchannel channel group), a set_mac failure would
+> result in that slave having a different MAC address than the bond, which
+> in turn would cause traffic inbound from the switch to that slave to be
+> dropped (as the destination MAC would not pass the device MAC filters).
+> 
+> 	The failure check for the set_mac call serves a legitimate
+> purpose, and I don't believe we should bypass it without making the
+> bypass an option that is explicitly enabled for those special cases that
+> need it.
+> 
+> 	E.g., something like the following (which I have not tested);
+> this would also need documentation and iproute2 updates to go with it.
+> This would be enabled with "fail_over_mac=keepmac".
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 1f276fa30ba6..d2283fc23b16 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1483,7 +1483,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  	ether_addr_copy(new_slave->perm_hwaddr, slave_dev->dev_addr);
+>  
+>  	if (!bond->params.fail_over_mac ||
+> -	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
+> +	    (BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP &&
+> +	     bond->params.fail_over_mac != BOND_FOM_KEEPMAC)) {
+>  		/* Set slave to master's mac address.  The application already
+>  		 * set the master's mac address to that of the first slave
+>  		 */
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index 577e57cad1dc..f9653fe4d622 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -125,6 +125,7 @@ static const struct bond_opt_value bond_fail_over_mac_tbl[] = {
+>  	{ "none",   BOND_FOM_NONE,   BOND_VALFLAG_DEFAULT},
+>  	{ "active", BOND_FOM_ACTIVE, 0},
+>  	{ "follow", BOND_FOM_FOLLOW, 0},
+> +	{ "keepmac", BOND_FOM_KEEPMAC, 0},
+>  	{ NULL,     -1,              0},
+>  };
+>  
+> diff --git a/include/net/bonding.h b/include/net/bonding.h
+> index 6360c259da6d..ec3442b3aa83 100644
+> --- a/include/net/bonding.h
+> +++ b/include/net/bonding.h
+> @@ -420,6 +420,7 @@ static inline bool bond_slave_can_tx(struct slave *slave)
+>  #define BOND_FOM_NONE			0
+>  #define BOND_FOM_ACTIVE			1
+>  #define BOND_FOM_FOLLOW			2
+> +#define BOND_FOM_KEEPMAC		3
+>  
+>  #define BOND_ARP_TARGETS_ANY		0
+>  #define BOND_ARP_TARGETS_ALL		1
+> 
+> 
+> 	-J
+> 
+Hi jorn:
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Could you please test this patch? I build this patch base on Jay's suggestion and I think it could fix your problem.
+
+---
+ drivers/net/bonding/bond_main.c    | 24 +++++++++---------------
+ drivers/net/bonding/bond_options.c |  3 ++-
+ include/net/bonding.h              |  1 +
+ 3 files changed, 12 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1f276fa..dd4a8eb 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -174,9 +174,9 @@ MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes; "
+ module_param(arp_all_targets, charp, 0);
+ MODULE_PARM_DESC(arp_all_targets, "fail on any/all arp targets timeout; 0 for any (default), 1 for all");
+ module_param(fail_over_mac, charp, 0);
+-MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to "
+-				"the same MAC; 0 for none (default), "
+-				"1 for active, 2 for follow");
++MODULE_PARM_DESC(fail_over_mac, "Do not set all slaves to the same MAC; "
++				"0 for none (default), 1 for active, "
++				"2 for follow, 3 for keepmac");
+ module_param(all_slaves_active, int, 0);
+ MODULE_PARM_DESC(all_slaves_active, "Keep all frames received on an interface "
+ 				     "by setting active flag for all slaves; "
+@@ -1482,8 +1482,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 */
+ 	ether_addr_copy(new_slave->perm_hwaddr, slave_dev->dev_addr);
+ 
+-	if (!bond->params.fail_over_mac ||
+-	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
++	if (bond->params.fail_over_mac == BOND_FOM_NONE) {
+ 		/* Set slave to master's mac address.  The application already
+ 		 * set the master's mac address to that of the first slave
+ 		 */
+@@ -1766,8 +1765,7 @@ err_close:
+ 
+ err_restore_mac:
+ 	slave_dev->flags &= ~IFF_SLAVE;
+-	if (!bond->params.fail_over_mac ||
+-	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
++	if (bond->params.fail_over_mac == BOND_FOM_NONE) {
+ 		/* XXX TODO - fom follow mode needs to change master's
+ 		 * MAC if this slave's MAC is in use by the bond, or at
+ 		 * least print a warning.
+@@ -1867,8 +1865,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 
+ 	RCU_INIT_POINTER(bond->current_arp_slave, NULL);
+ 
+-	if (!all && (!bond->params.fail_over_mac ||
+-		     BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP)) {
++	if (!all && bond->params.fail_over_mac == BOND_FOM_NONE) {
+ 		if (ether_addr_equal_64bits(bond_dev->dev_addr, slave->perm_hwaddr) &&
+ 		    bond_has_slaves(bond))
+ 			netdev_warn(bond_dev, "the permanent HWaddr of %s - %pM - is still in use by %s - set the HWaddr of %s to a different address to avoid conflicts\n",
+@@ -1949,8 +1946,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
+ 
+-	if (bond->params.fail_over_mac != BOND_FOM_ACTIVE ||
+-	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
++	if (bond->params.fail_over_mac == BOND_FOM_FOLLOW ||
++	    bond->params.fail_over_mac == BOND_FOM_NONE) {
+ 		/* restore original ("permanent") mac address */
+ 		ether_addr_copy(addr.sa_data, slave->perm_hwaddr);
+ 		addr.sa_family = slave_dev->type;
+@@ -3634,8 +3631,7 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ 	/* If fail_over_mac is enabled, do nothing and return success.
+ 	 * Returning an error causes ifenslave to fail.
+ 	 */
+-	if (bond->params.fail_over_mac &&
+-	    BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP)
++	if (bond->params.fail_over_mac)
+ 		return 0;
+ 
+ 	if (!is_valid_ether_addr(sa->sa_data))
+@@ -4543,8 +4539,6 @@ static int bond_check_params(struct bond_params *params)
+ 			return -EINVAL;
+ 		}
+ 		fail_over_mac_value = valptr->value;
+-		if (bond_mode != BOND_MODE_ACTIVEBACKUP)
+-			pr_warn("Warning: fail_over_mac only affects active-backup mode\n");
+ 	} else {
+ 		fail_over_mac_value = BOND_FOM_NONE;
+ 	}
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 577e57c..9038be5 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -125,6 +125,7 @@ static const struct bond_opt_value bond_fail_over_mac_tbl[] = {
+ 	{ "none",   BOND_FOM_NONE,   BOND_VALFLAG_DEFAULT},
+ 	{ "active", BOND_FOM_ACTIVE, 0},
+ 	{ "follow", BOND_FOM_FOLLOW, 0},
++	{ "keepmac", BOND_FOM_KEEPMAC, 0},
+ 	{ NULL,     -1,              0},
+ };
+ 
+@@ -247,7 +248,7 @@ static const struct bond_option bond_opts[BOND_OPT_LAST] = {
+ 	[BOND_OPT_FAIL_OVER_MAC] = {
+ 		.id = BOND_OPT_FAIL_OVER_MAC,
+ 		.name = "fail_over_mac",
+-		.desc = "For active-backup, do not set all slaves to the same MAC",
++		.desc = "Do not set all slaves to the same MAC",
+ 		.flags = BOND_OPTFLAG_NOSLAVES,
+ 		.values = bond_fail_over_mac_tbl,
+ 		.set = bond_option_fail_over_mac_set
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index 6360c25..ec3442b 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -420,6 +420,7 @@ static inline bool bond_slave_can_tx(struct slave *slave)
+ #define BOND_FOM_NONE			0
+ #define BOND_FOM_ACTIVE			1
+ #define BOND_FOM_FOLLOW			2
++#define BOND_FOM_KEEPMAC		3
+ 
+ #define BOND_ARP_TARGETS_ANY		0
+ #define BOND_ARP_TARGETS_ALL		1
+-- 
+1.9.0
+
+
+
+
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+> 
+> .
+> 
