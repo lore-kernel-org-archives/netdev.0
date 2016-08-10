@@ -1,76 +1,74 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH 2/3] vsockmon: Add vsockmon device.
-Date: Wed, 10 Aug 2016 12:51:58 +0100
-Message-ID: <20160810115158.GB10461@stefanha-x1.localdomain>
-References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
- <20160808161442.16038-3-ggarcia@deic.uab.cat>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH] net: ipconfig: fix use after free
+Date: Wed, 10 Aug 2016 11:44:17 +0200
+Message-ID: <1470822257-13275-1-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <CAMuHMdVjugL0y-C+vet=qbcER8rjuFKwFgrutRUAs=uOk0JZ1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="8P1HSweYDcXXzwPJ"
-Cc: netdev@vger.kernel.org, jhansen@vmware.com, mst@redhat.com
-To: ggarcia@abra.uab.cat
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+	Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+	kernel@pengutronix.de
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48384 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935790AbcHJTBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2016 15:01:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20160808161442.16038-3-ggarcia@deic.uab.cat>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:53644 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S938784AbcHJTC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:02:26 -0400
+In-Reply-To: <CAMuHMdVjugL0y-C+vet=qbcER8rjuFKwFgrutRUAs=uOk0JZ1A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+ic_close_devs() calls kfree() for all devices's ic_device. Since commit
+2647cffb2bc6 ("net: ipconfig: Support using "delayed" DHCP replies")
+the active device's ic_device is still used however to print the
+ipconfig summary which results in an oops if the memory is already
+changed. So delay freeing until after the autoconfig results are
+reported.
 
---8P1HSweYDcXXzwPJ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Fixes: 2647cffb2bc6 ("net: ipconfig: Support using "delayed" DHCP replies")
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
+---
+ net/ipv4/ipconfig.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-On Mon, Aug 08, 2016 at 06:14:41PM +0200, ggarcia@abra.uab.cat wrote:
-> diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
-> new file mode 100644
-> index 0000000..739b4bf
-> --- /dev/null
-> +++ b/include/uapi/linux/vsockmon.h
-> @@ -0,0 +1,35 @@
-> +#ifndef _UAPI_VSOCKMON_H
-> +#define _UAPI_VSOCKMON_H
-> +
-> +#include <linux/virtio_vsock.h>
-> +
-> +/* Structure of packets received trought the vsockmon device. */
-> +
-> +struct af_vsockmon_hdr {
-> +	__le64 src_cid;
-> +	__le64 dst_cid;
-> +	__le32 src_port;
-> +	__le32 dst_port;
-> +	__le16 op;			/* enum af_vsockmon_op */
-> +	__le16 t;			/* enum af_vosckmon_t */
-> +	__le16 len;			/* sizeof(t_hdr) */
-> +	union {
-> +		struct virtio_vsock_hdr virtio_hdr;
-> +	} t_hdr;
-> +} __attribute__((packed));
-
-This struct will change in size if/when VMCI transport support is added.
-Existing binaries that were complied against the old header file would
-use an incorrect size.
-
-It would be cleaner to drop t_hdr from the struct and force users to
-explicitly use af_vsockmon_hdr.len to handle the size of the headers.
-
---8P1HSweYDcXXzwPJ
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBAgAGBQJXqxVeAAoJEJykq7OBq3PIwEwH/i2V+kDhmnJLkz4vpZm/cZ++
-bPr9+z0FiCkrycPhNMYYxfILEt0Jp2QUlkOxvbob1oY7ufiFPWSeyIhuzkdjZ5tD
-9chKQbCTRxumiwKkzD84v6fXyRm+UXX68vmaSJKe+xeMWWyuiUEGh9hYcc6kS7nX
-o8NpQt5lxYQQWxGgcnQMsINP9DgdHUFpSM5FMa4M1IOUmUM2s3sG6hzR/iBc75Xe
-57lQ2ZndNmpWpKZfQ+oKoGBmuryxRfiyvVbB5/3dYkNRgvglA4/ktyoBZXphRiSu
-zzzO5jjAab7069GVI1wE7YI7sz3LcTLr6B/Mv3oElIiYqKI8T+ToMZauJD/0iuI=
-=QR3a
------END PGP SIGNATURE-----
-
---8P1HSweYDcXXzwPJ--
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index 42cf629357b5..66c2fe602810 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -1493,14 +1493,6 @@ static int __init ip_auto_config(void)
+ 		return -1;
+ 
+ 	/*
+-	 * Close all network devices except the device we've
+-	 * autoconfigured and set up routes.
+-	 */
+-	ic_close_devs();
+-	if (ic_setup_if() < 0 || ic_setup_routes() < 0)
+-		return -1;
+-
+-	/*
+ 	 * Record which protocol was actually used.
+ 	 */
+ #ifdef IPCONFIG_DYNAMIC
+@@ -1534,6 +1526,15 @@ static int __init ip_auto_config(void)
+ 	pr_cont("\n");
+ #endif /* !SILENT */
+ 
++	/*
++	 * Close all network devices except the device we've
++	 * autoconfigured and set up routes.
++	 */
++	ic_close_devs();
++	if (ic_setup_if() < 0 || ic_setup_routes() < 0)
++		return -1;
++
++
+ 	return 0;
+ }
+ 
+-- 
+2.8.1
