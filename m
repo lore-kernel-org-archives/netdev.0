@@ -1,75 +1,184 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Fwd: Re: [PATCH RESEND net-next 13/15] smc: receive data from RMBE
-Date: Wed, 10 Aug 2016 17:15:01 +0200
-Message-ID: <40f250c2-d865-5bd3-8d20-a2dc2fd7d257@linux.vnet.ibm.com>
-References: <653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
+From: Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
+ Ultrascale+ MPSoC
+Date: Wed, 10 Aug 2016 08:11:27 +0200
+Message-ID: <49580e8c-35cc-99b3-e77e-1c58107e6ffb@xilinx.com>
+References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
+ <1441958258-35441-3-git-send-email-harinik@xilinx.com>
+ <CAFcVECLfXL-=efbUhNeKhiFQgtfv6Z1+JJckg+js7DM-LfFeSw@mail.gmail.com>
+ <99d6c0ce-c3b9-a919-cedb-0af954bac388@atmel.com>
+ <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C4205@XAP-PVEXMBX02.xlnx.xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Utz Bacher <utz.bacher@de.ibm.com>
-To: Dave Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39247 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932616AbcHJTp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:45:59 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u7AFEDBv057969
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 11:15:12 -0400
-Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 24qm9sup4a-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 11:15:12 -0400
-Received: from localhost
-	by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Wed, 10 Aug 2016 16:15:09 +0100
-In-Reply-To: <653f839a-8098-da62-3437-8b002d929a50@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org"
+	<alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Anirudha Sarangi <anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+To: Punnaiah Choudary Kalluri <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+	Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	Andrei Pistirica <Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C4205-4lKfpRxZ5ekkx2a1wsGfbYg+Gb3gawCHQz34XiSyOiE@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
+Hi Nicolas,
 
-sorry, forget my previous mail from today. I now realize that xchg() 
-does not help on 32-bit architectures. I have to think about 
-alternatives here.
+just a note: Here is the link to public Linux repo
+https://github.com/Xilinx/linux-xlnx
 
--------- Forwarded Message --------
-Subject: Re: [PATCH RESEND net-next 13/15] smc: receive data from RMBE
-Date: Wed, 10 Aug 2016 15:44:00 +0200
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
-CC: netdev@vger.kernel.org, linux-s390@vger.kernel.org, 
-schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, utz.bacher@de.ibm.com
+Thanks,
+Michal
 
 
+On 9.8.2016 18:56, Punnaiah Choudary Kalluri wrote:
+> Hi Nicolas,
+> 
+>  1588 implementation in cadence GEM IP we have in Zynq Ultascale+ MPSoC is
+> Different to the one in Zynq SOC.
+> 
+> In earlier version, all timestamp values will be stored in registers and there is no specific
+> Mechanism to distinguish the received ethernet frame that contains time stamp information
+> Other than parsing the frame for PTP packet type.
+> 
+> We have basic implementation for earlier version in our out of tree driver, which is going to be deprecated
+> Soon. You could also check the below driver for 1588 support.
+> https://gitenterprise.xilinx.com/Linux/linux-xlnx/blob/master/drivers/net/ethernet/xilinx/xilinx_emacps.c
+> 
+> 
+> Regards,
+> Punnaiah
+> 
+>> -----Original Message-----
+>> From: Nicolas Ferre [mailto:nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org]
+>> Sent: Tuesday, August 09, 2016 10:10 PM
+>> To: Harini Katakam <harinikatakamlinux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; Harini Katakam
+>> <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>; Andrei Pistirica <Andrei.Pistirica-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>
+>> Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Boris Brezillon <boris.brezillon@free-
+>> electrons.com>; alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org;
+>> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+>> devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Punnaiah Choudary Kalluri
+>> <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>; Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>; Anirudha
+>> Sarangi <anirudh-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+>> Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
+>> Ultrascale+ MPSoC
+>>
+>> Le 21/09/2015 à 19:49, Harini Katakam a écrit :
+>>> On Fri, Sep 11, 2015 at 1:27 PM, Harini Katakam
+>>> <harini.katakam-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org> wrote:
+>>>> Cadence GEM in Zynq Ultrascale+ MPSoC supports 1588 and provides a
+>>>> 102 bit time counter with 48 bits for seconds, 30 bits for nsecs and
+>>>> 24 bits for sub-nsecs. The timestamp is made available to the SW through
+>>>> registers as well as (more precisely) through upper two words in
+>>>> an extended BD.
+>>>>
+>>>> This patch does the following:
+>>>> - Adds MACB_CAPS_TSU in zynqmp_config.
+>>>> - Registers to ptp clock framework (after checking for timestamp support
+>> in
+>>>>   IP and capability in config).
+>>>> - TX BD and RX BD control registers are written to populate timestamp in
+>>>>   extended BD words.
+>>>> - Timer initialization is done by writing time of day to the timer counter.
+>>>> - ns increment register is programmed as NS_PER_SEC/TSU_CLK.
+>>>>   For a 24 bit subns precision, the subns increment equals
+>>>>   remainder of (NS_PER_SEC/TSU_CLK) * (2^24).
+>>>>   TSU (Time stamp unit) clock is obtained by the  driver from devicetree.
+>>>> - HW time stamp capabilities are advertised via ethtool and macb ioctl is
+>>>>   updated accordingly.
+>>>> - For all PTP event frames, nanoseconds and the lower 5 bits of seconds
+>> are
+>>>>   obtained from the BD. This offers a precise timestamp. The upper bits
+>>>>   (which dont vary between consecutive packets) are obtained from the
+>>>>   TX/RX PTP event/PEER registers. The timestamp obtained thus is
+>> updated
+>>>>   in skb for upper layers to access.
+>>>> - The drivers register functions with ptp to perform time and frequency
+>>>>   adjustment.
+>>>> - Time adjustment is done by writing to the 1558_ADJUST register.
+>>>>   The controller will read the delta in this register and update the timer
+>>>>   counter register. Alternatively, for large time offset adjustments,
+>>>>   the driver reads the secs and nsecs counter values, adds/subtracts the
+>>>>   delta and updates the timer counter. In order to be as precise as
+>> possible,
+>>>>   nsecs counter is read again if secs has incremented during the counter
+>> read.
+>>>> - Frequency adjustment is not directly supported by this IP.
+>>>>   addend is the initial value ns increment and similarly addendesub.
+>>>>   The ppb (parts per billion) provided is used as
+>>>>   ns_incr = addend +/- (ppb/rate).
+>>>>   Similarly the remainder of the above is used to populate subns
+>> increment.
+>>>>   In case the ppb requested is negative AND subns adjustment greater
+>> than
+>>>>   the addendsub, ns_incr is reduced by 1 and subns_incr is adjusted in
+>>>>   positive accordingly.
+>>>>
+>>>> Signed-off-by: Harini Katakam <harinik-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>:
+>>>> ---
+>>>>  drivers/net/ethernet/cadence/macb.c |  372
+>> ++++++++++++++++++++++++++++++++++-
+>>>>  drivers/net/ethernet/cadence/macb.h |   64 ++++++
+>>>>  2 files changed, 428 insertions(+), 8 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/cadence/macb.c
+>> b/drivers/net/ethernet/cadence/macb.c
+>>>> index bb2932c..b531008 100644
+>>>> --- a/drivers/net/ethernet/cadence/macb.c
+>>>> +++ b/drivers/net/ethernet/cadence/macb.c
+>>>> @@ -30,6 +30,8 @@
+>>>>  #include <linux/of_device.h>
+>>>>  #include <linux/of_mdio.h>
+>>
+>> [..]
+>>
+>>>> +       unsigned int            ns_incr;
+>>>> +       unsigned int            subns_incr;
+>>>>  };
+>>>>
+>>>>  static inline bool macb_is_gem(struct macb *bp)
+>>>> --
+>>>> 1.7.9.5
+>>>
+>>> Ping
+>>>
+>>> Thanks.
+>>
+>> Harini,
+>>
+>> I come back to this patch of last year and I'm sorry about being so late
+>> answering you.
+>>
+>> Andrei who is added to the discussion will have some time to deal with
+>> this feature and we would like to make some progress with it. He already
+>> had some work done on his side before I recall your email.
+>>
+>> So, could you please re-send your original 1588 patch with Andrei in
+>> copy so that we can all (re-)start the discussion and progress for
+>> adding this feature.
+>>
+>> We must also note that some hardware differences between our platforms
+>> may have an impact on the code and how we implement things (as
+>> highlighted on this forum:
+>> http://www.at91.com/discussions/viewtopic.php/f,12/t,25462.html).
+>> Anyway, we'll overcome this and have a widely tested solution at the end
+>> of the day!
+>>
+>> Thanks for your patience, bye!
+>>
+>> PS: for some reason, I only have this "ping" part of your email but not
+>> the original one
+>> --
+>> Nicolas Ferre
 
-On 08/09/2016 11:32 PM, David Miller wrote:
-> From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-> Date: Tue,  9 Aug 2016 12:12:58 +0200
->
->> +		xchg(&conn->rx_curs_confirmed.acurs,
->> +		     smc_curs_read(conn->local_tx_ctrl.cons.acurs));
->
-> Why in the world do you need to use xchg() in all of these places?
->
-> It makes no sense whatsoever, especially since you don't even check
-> the return value.
-> 98e906b2
-> If you need the operation to be atomic, then you have to check the
-> return value and do something to recover if something else beat
-> you to the xchg() and put something else into the location.
->
-> Otherwise, you therefore don't need it be atomic and can avoid
-> this expensive operation and just store the value normally.
->
-Reviewing my xchg() usages, I really detected some paranoid usages, that 
-I am going to remove. But there are still usages (and 
-conn->rx_curs_confirmed is one of them), where I need an 8-byte cursor 
-field to be read and written atomicaly, even though I do not care 
-whether the write operation has been beaten or not. But I do care that 
-reading the cursor does not return a partially updated cursor. Isn't 
-xchg() a possible solution in this case?
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
