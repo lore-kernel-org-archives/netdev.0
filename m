@@ -1,10 +1,11 @@
 From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH v5 3/3] net: phy: Add gmiitorgmii converter support
-Date: Wed, 10 Aug 2016 05:27:45 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E0D49@XAP-PVEXMBX01.xlnx.xilinx.com>
+Subject: RE: [RFC PATCH v5 2/3] Documentation: DT: net: Add Xilinx
+ gmiitorgmii converter device tree binding documentation
+Date: Wed, 10 Aug 2016 05:31:02 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E0D56@XAP-PVEXMBX01.xlnx.xilinx.com>
 References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
- <1470735283-23611-4-git-send-email-appanad@xilinx.com>
- <8919e4fe-69c5-9b16-cc37-e423b757609c@gmail.com>
+ <1470735283-23611-3-git-send-email-appanad@xilinx.com>
+ <638248c5-1747-0a7d-58e6-27b7646c4f6d@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,7 +19,7 @@ To: Florian Fainelli <f.fainelli@gmail.com>, "robh+dt@kernel.org"
  "andrew@lunn.ch" <andrew@lunn.ch>, Punnaiah Choudary Kalluri
  <punnaia@xilinx.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <8919e4fe-69c5-9b16-cc37-e423b757609c@gmail.com>
+In-Reply-To: <638248c5-1747-0a7d-58e6-27b7646c4f6d@gmail.com>
 Content-Language: en-US
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
@@ -35,104 +36,103 @@ Hi Florian,
 
 	Thanks for the review...
 
+> 
+> On 08/09/2016 02:34 AM, Kedareswara rao Appana wrote:
+> > Device-tree binding documentation for xilinx gmiitorgmii converter.
 > >
-> > This converter sits between the MAC and the external phy MAC <==>
-> > GMII2RGMII <==> RGMII_PHY
-> 
-> This looks good, just a few things, see below:
-
-Thanks...
-
-> > +config XILINX_GMII2RGMII
-> > +       tristate "Xilinx GMII2RGMII converter driver"
-> > +       default y
-> 
-> Don't force that, or at least make the default based on the potential
-> users/drivers here.
-
-Ok sure will fix in the next version...
-
-> 
-> > +       ---help---
-> > +         This driver support xilinx GMII to RGMII IP core it provides
-> > +         the Reduced Gigabit Media Independent Interface(RGMII) between
-> > +         Ethernet physical media devices and the Gigabit Ethernet controller.
+> > Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> > ---
+> > Changes for v5:
+> > ---> Fixed Indentation in the example as suggested by Michal.
+> > Changes for v4:
+> > --> Modified compatible as suggested by Rob.
+> > --> Removed underscores from the converter node name as suggested by Rob.
+> > Changes for v3:
+> > --> None.
+> > Changes for v2:
+> > --> New patch.
+> >
+> >  .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 38
+> > ++++++++++++++++++++++
+> >  1 file changed, 38 insertions(+)
+> >  create mode 100644
+> > Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> >
+> > diff --git
+> > a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> > b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> > new file mode 100644
+> > index 0000000..5f48793
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+> > @@ -0,0 +1,38 @@
+> > +XILINX GMIITORGMII Converter Driver Device Tree Bindings
+> > +--------------------------------------------------------
 > > +
-> >  endif # PHYLIB
-
-<snip>
-
-> > +#define XILINX_GMII2RGMII_REG		0x10
-> > +#define XILINX_GMII2RGMII_SPEED_MASK	0x2040
-> 
-> BMCR_SPEED1000 | BMCR_SPEED100 would be clearer here.
-
-Sure will fix...
-
-> 
+> > +The Gigabit Media Independent Interface (GMII) to Reduced Gigabit
+> > +Media Independent Interface (RGMII) core provides the RGMII between
+> > +RGMII-compliant Ethernet physical media devices (PHY) and the Gigabit
+> Ethernet controller.
+> > +This core can be used in all three modes of operation(10/100/1000 Mb/s).
+> > +The Management Data Input/Output (MDIO) interface is used to
+> > +configure the Speed of operation. This core can switch dynamically
+> > +between the three Different speed modes by configuring the conveter
+> register through mdio write.
 > > +
-> > +struct gmii2rgmii {
-> > +	struct phy_device *phy_dev;
-> > +	struct phy_driver *phy_drv;
-> > +	struct phy_driver conv_phy_drv;
-> > +	int addr;
-> > +};
-> > +
-> > +static int xgmiitorgmii_read_status(struct phy_device *phydev) {
-> > +	struct gmii2rgmii *priv = (struct gmii2rgmii *)phydev->priv;
+> > +The MDIO is a bus to which the PHY devices are connected.  For each
+> > +device that exists on this bus, a child node should be created.  See
+> > +the definition of the PHY node in booting-without-of.txt for an
+> > +example of how to define a PHY.
 > 
-> Casting is not required here, priv is void *.
-
-Ok will remove...
-
-> 
-> > +	u16 val = 0;
-> > +
-> > +	priv->phy_drv->read_status(phydev);
-> > +
-> > +	val = mdiobus_read(phydev->mdio.bus, priv->addr,
-> XILINX_GMII2RGMII_REG);
-> > +	val &= XILINX_GMII2RGMII_SPEED_MASK;
-> > +
-> > +	switch (phydev->speed) {
-> > +	case SPEED_1000:
-> > +		val |= BMCR_SPEED1000;
-> 
-> Is the fall through really intentional here? See genphy_setup_forced() for
-> instance.
-
-Ok will fix...
-
-> 
-> > +	case SPEED_100:
-> > +		val |= BMCR_SPEED100;
-> > +	case SPEED_10:
-> > +		val |= BMCR_SPEED10;
-> > +	}
-> > +
-> > +	mdiobus_write(phydev->mdio.bus, priv->addr,
-> XILINX_GMII2RGMII_REG,
-> > +val);
-> > +
-> > +	return 0;
-> > +}
-> [snip]
-> 
-> > +static int __init xgmiitorgmii_init(void) {
-> > +	return mdio_driver_register(&xgmiitorgmii_driver);
-> > +}
-> > +module_init(xgmiitorgmii_init);
-> > +
-> > +static void __exit xgmiitorgmii_cleanup(void) {
-> > +	mdio_driver_unregister(&xgmiitorgmii_driver);
-> > +}
-> > +module_exit(xgmiitorgmii_cleanup);
-> 
-> mdio_module_driver() does eliminate a bit of this boilerplate code.
+> I would skip this paragraph which does not really help with understanding, and
+> just refer to Documentation/devicetree/bindings/net/phy.txt for examples.
 
 Sure will fix in the next version...
 
+> 
+> 
+> > +
+> > +This converter sits between the ethernet MAC and the external phy.
+> > +MAC <==> GMII2RGMII <==> RGMII_PHY
+> > +
+> > +Required properties:
+> > +- compatible	: Should be "xlnx,gmii-to-rgmii-1.0"
+> > +- reg		: The ID number for the phy, usually a small integer
+> 
+> You would want specify that "reg" property needs to match the one of the PHY
+> (specified via phy-handle) you are converting to/from for this "proxy" piece of
+> hardware to work.
+> 
+> If these two have the same "reg" value, is not that going to lead to duplicate
+> MDIO devices created on the bus, this may work, based on probing ordering, but
+> seems unusual, you don't really need the "reg"
+> property here it seems?
+
+The converter Phy address is different from the external phy address.
+
 Regards,
 Kedar.
+
+
+> 
+> > +- phy-handle	: Should point to the external phy device.
+> > +		  See ethernet.txt file in the same directory.
+> > +
+> > +Example:
+> > +	mdio {
+> > +		#address-cells = <1>;
+> > +		#size-cells = <0>;
+> > +		phy: ethernet-phy@0 {
+> > +			......
+> > +		};
+> > +		gmiitorgmii: gmiitorgmii@8 {
+> > +			compatible = "xlnx,gmii-to-rgmii-1.0";
+> > +			reg = <8>;
+> > +			phy-handle = <&phy>;
+> > +		};
+> > +	};
+> >
+> 
+> 
 > --
 > Florian
