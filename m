@@ -1,98 +1,96 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH] net/xfrm_input: fix possible NULL deref of tunnel.ip6->parms.i_key
-Date: Wed, 10 Aug 2016 13:54:57 +0300
-Message-ID: <1470826497-3931-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: vasily.isaenko@oracle.com,
-	Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1050.oracle.com ([141.146.126.70]:25930 "EHLO
-	aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934335AbcHJS2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:28:39 -0400
-Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
-	by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u7AAnUqd017162
-	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 10:49:31 GMT
-Received: from aserv0021.oracle.com (aserv0021.oracle.com [141.146.126.233])
-	by aserp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u7AAnTZN029440
-	(version=TLSv1 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 10:49:29 GMT
-Received: from userv0121.oracle.com (userv0121.oracle.com [156.151.31.72])
-	by aserv0021.oracle.com (8.13.8/8.13.8) with ESMTP id u7AAnS9T007173
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 10:49:29 GMT
-Received: from abhmp0015.oracle.com (abhmp0015.oracle.com [141.146.116.21])
-	by userv0121.oracle.com (8.13.8/8.13.8) with ESMTP id u7AAnRp6013826
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 10:49:28 GMT
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: RE: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly
+ on some I218 controllers
+Date: Wed, 10 Aug 2016 15:00:05 +0000
+Message-ID: <630A6B92B7EDEB45A87E20D3D286660153DE9E12@hasmsx109.ger.corp.intel.com>
+References: <579F407E.9090602@compulab.co.il>
+ <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
+ <57A6F7A9.1030401@compulab.co.il>
+ <f9d596bd-226b-0faf-bab1-858823f17ee4@intel.com>
+ <309B89C4C689E141A5FF6A0C5FB2118B81F70C7D@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
+	"Avargil, Raanan" <raanan.avargil@intel.com>,
+	Denis Turischev <denis.turischev@compulab.co.il>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B81F70C7D@ORSMSX101.amr.corp.intel.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Running LTP 'icmp-uni-basic.sh -6 -p ipcomp -m tunnel' test over
-openvswitch + veth can trigger kernel panic:
+Hello Denis,
+In case this reset help you fix initialization error of I218 you can use it locally on your system. How many system with I218 encountered with initialization error on your side?
 
-  BUG: unable to handle kernel NULL pointer dereference
-  at 00000000000000e0 IP: [<ffffffff8169d1d2>] xfrm_input+0x82/0x750
-  ...
-  [<ffffffff816d472e>] xfrm6_rcv_spi+0x1e/0x20
-  [<ffffffffa082c3c2>] xfrm6_tunnel_rcv+0x42/0x50 [xfrm6_tunnel]
-  [<ffffffffa082727e>] tunnel6_rcv+0x3e/0x8c [tunnel6]
-  [<ffffffff8169f365>] ip6_input_finish+0xd5/0x430
-  [<ffffffff8169fc53>] ip6_input+0x33/0x90
-  [<ffffffff8169f1d5>] ip6_rcv_finish+0xa5/0xb0
-  ...
+Thanks,
+Sasha
+-----Original Message-----
+From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Brown, Aaron F
+Sent: Tuesday, August 09, 2016 9:59 PM
+To: Avargil, Raanan <raanan.avargil@intel.com>; Denis Turischev <denis.turischev@compulab.co.il>; intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on some I218 controllers
 
-It seems that tunnel.ip6 can have garbage values and also dereferenced
-without a proper check, only tunnel.ip4 is being verified. Fix it by
-adding one more if block for AF_INET6 and initialize tunnel.ip6 with NULL
-inside xfrm6_rcv_spi() (which is similar to xfrm4_rcv_spi()).
 
-Fixes: 049f8e2 ("xfrm: Override skb->mark with tunnel->parm.i_key in xfrm_input")
 
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- net/ipv6/xfrm6_input.c |    1 +
- net/xfrm/xfrm_input.c  |   14 +++++++-------
- 2 files changed, 8 insertions(+), 7 deletions(-)
+> -----Original Message-----
+> From: Avargil, Raanan
+> Sent: Tuesday, August 9, 2016 8:11 AM
+> To: Denis Turischev <denis.turischev@compulab.co.il>; intel-wired- 
+> lan@lists.osuosl.org; Brown, Aaron F <aaron.f.brown@intel.com>; 
+> Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized 
+> correctly on some I218 controllers
+> 
+> 
+> 
+> On 8/7/2016 11:56, Denis Turischev wrote:
+> > Hi Raanan,
+> >
+> > On 08/04/2016 07:18 PM, Raanan Avargil wrote:
+> >> It is hard to determine what is exactly the problem here and what 
+> >> causes
+> the -3 error, but this is not the place to perform hw reset and retry 
+> to init the phy.
+> > I agree that may be this is not the correct place for hw reset, can 
+> > you advice
+> about another solution?
+> >
+> > It works, not only for me, for example it helps here:
+> > http://www.linux.org.ru/forum/linux-hardware/10268216
+> >
+> > Another fact that Windows drivers work fine with the same hw.
+> >
+> > Denis
+> >
+> 
+> Hi Denis,
+> 
+> More suitable place to retry init the device would be in probe function.
+> However, we haven't seen initialization issues like this on i218.
+> 
+> Adding Aaron.
+> 
+> @Aaron - have you seen initialization errors on i218 devices?
 
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index 0eaab1f..00a2d40 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -23,6 +23,7 @@ int xfrm6_extract_input(struct xfrm_state *x, struct sk_buff *skb)
- 
- int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
- {
-+	XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6 = NULL;
- 	XFRM_SPI_SKB_CB(skb)->family = AF_INET6;
- 	XFRM_SPI_SKB_CB(skb)->daddroff = offsetof(struct ipv6hdr, daddr);
- 	return xfrm_input(skb, nexthdr, spi, 0);
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 1c4ad47..6e3f025 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -207,15 +207,15 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	family = XFRM_SPI_SKB_CB(skb)->family;
- 
- 	/* if tunnel is present override skb->mark value with tunnel i_key */
--	if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4) {
--		switch (family) {
--		case AF_INET:
-+	switch (family) {
-+	case AF_INET:
-+		if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4)
- 			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip4->parms.i_key);
--			break;
--		case AF_INET6:
-+		break;
-+	case AF_INET6:
-+		if (XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6)
- 			mark = be32_to_cpu(XFRM_TUNNEL_SKB_CB(skb)->tunnel.ip6->parms.i_key);
--			break;
--		}
-+		break;
- 	}
- 
- 	/* Allocate new secpath or COW existing one. */
--- 
-1.7.1
+I have not.  But I don't have many systems with i218 so all that means is my systems do not exhibit the problem.
+
+> 
+> Raanan
+_______________________________________________
+Intel-wired-lan mailing list
+Intel-wired-lan@lists.osuosl.org
+http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
