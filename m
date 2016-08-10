@@ -1,50 +1,73 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
- Ultrascale+ MPSoC
-Date: Wed, 10 Aug 2016 15:52:20 +0530
-Message-ID: <CAFcVEC+qmgZ55BsDwCKSLQo0FcYT6zSUz8L7ULC7dTw6uB+fOQ@mail.gmail.com>
-References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
- <1441958258-35441-3-git-send-email-harinik@xilinx.com> <CAFcVECLfXL-=efbUhNeKhiFQgtfv6Z1+JJckg+js7DM-LfFeSw@mail.gmail.com>
- <99d6c0ce-c3b9-a919-cedb-0af954bac388@atmel.com> <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C4205@XAP-PVEXMBX02.xlnx.xilinx.com>
- <b680d509-5a30-1960-8aea-485befc2d57b@microchip.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Boris Brezillon <boris.brezillon@free-electrons.com>,
-	"alexandre.belloni@free-electrons.com"
-	<alexandre.belloni@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Michal Simek <michals@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>
-To: Andrei Pistirica <andrei.pistirica@microchip.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: [PATCH net-next 1/4] flow_dissector: Get vlan info from skb->vlan_tci instead of skb->data
+Date: Wed, 10 Aug 2016 16:32:20 +0300
+Message-ID: <1470835943-9042-2-git-send-email-hadarh@mellanox.com>
+References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37009 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933335AbcHJT0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:26:08 -0400
-In-Reply-To: <b680d509-5a30-1960-8aea-485befc2d57b@microchip.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45346 "EHLO
+	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933540AbcHJT14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:27:56 -0400
+In-Reply-To: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrei,
+Early in the datapath skb_vlan_untag function is called, stripped
+the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
 
-On Wed, Aug 10, 2016 at 3:42 PM, Andrei Pistirica
-<andrei.pistirica@microchip.com> wrote:
-> Hi Punnaiah,
->
-> cpts_match(...) has a way to parse frames, while ptp_classify_raw identifies
-> the underlying protocol (in case the frames are parsed on data path), or
-> tx/rxtstamp callbacks can be used with PTP events. But, there is comment in
-> ptp_classify.h which worries me.
->
-> Unfortunately,  I cannot access https://gitenterprise.xilinx.com.
+The current dissection doesn't handle vlan packets correctly.  Vlan
+doesn't exist in skb->data anymore when applying flow dissection on the
+skb, fix that.
 
-Please access this public repo:
-https://github.com/Xilinx/linux-xlnx
+Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+---
+ net/core/flow_dissector.c | 13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
 
-Regards,
-Harini
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 61ad43f..6060fc2 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -122,7 +122,8 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 
+ 	if (!data) {
+ 		data = skb->data;
+-		proto = skb->protocol;
++		proto = skb_vlan_tag_present(skb) ?
++			 skb->vlan_proto : skb->protocol;
+ 		nhoff = skb_network_offset(skb);
+ 		hlen = skb_headlen(skb);
+ 	}
+@@ -240,13 +241,6 @@ ipv6:
+ 	}
+ 	case htons(ETH_P_8021AD):
+ 	case htons(ETH_P_8021Q): {
+-		const struct vlan_hdr *vlan;
+-		struct vlan_hdr _vlan;
+-
+-		vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
+-		if (!vlan)
+-			goto out_bad;
+-
+ 		if (dissector_uses_key(flow_dissector,
+ 				       FLOW_DISSECTOR_KEY_VLANID)) {
+ 			key_tags = skb_flow_dissector_target(flow_dissector,
+@@ -256,8 +250,7 @@ ipv6:
+ 			key_tags->vlan_id = skb_vlan_tag_get_id(skb);
+ 		}
+ 
+-		proto = vlan->h_vlan_encapsulated_proto;
+-		nhoff += sizeof(*vlan);
++		proto = skb->protocol;
+ 		goto again;
+ 	}
+ 	case htons(ETH_P_PPP_SES): {
+-- 
+1.8.3.1
