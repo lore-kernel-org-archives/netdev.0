@@ -1,93 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/9] Netfilter fixes for net
-Date: Wed, 10 Aug 2016 21:16:36 +0200
-Message-ID: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/9] netfilter: nf_ct_expect: remove the redundant slash when policy name is empty
+Date: Wed, 10 Aug 2016 21:16:41 +0200
+Message-ID: <1470856605-7903-6-git-send-email-pablo@netfilter.org>
+References: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58018 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S938997AbcHJTQ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 15:16:58 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 35FF61F18D7
+	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 21:16:56 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 26FED100798
+	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 21:16:56 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 23C53100A58
+	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 21:16:54 +0200 (CEST)
+In-Reply-To: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resending as my robot didn't Cc netdev, sorry.
+From: Liping Zhang <liping.zhang@spreadtrum.com>
 
--o-
+The 'name' filed in struct nf_conntrack_expect_policy{} is not a
+pointer, so check it is NULL or not will always return true. Even if the
+name is empty, slash will always be displayed like follows:
+  # cat /proc/net/nf_conntrack_expect
+  297 l3proto = 2 proto=6 src=1.1.1.1 dst=2.2.2.2 sport=1 dport=1025 ftp/
+                                                                        ^
 
-Hi David,
+Fixes: 3a8fc53a45c4 ("netfilter: nf_ct_helper: allocate 16 bytes for the helper and policy names")
+Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_conntrack_expect.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The following patchset contains Netfilter fixes for your net tree,
-they are:
-
-1) Use mod_timer_pending() to avoid reactivating a dead expectation in
-   the h323 conntrack helper, from Liping Zhang.
-
-2) Oneliner to fix a type in the register name defined in the nf_tables
-   header.
-
-3) Don't try to look further when we find an inactive elements with no
-   descendants in the rbtree set implementation, otherwise we crash.
-
-4) Handle valid zero CSeq in the SIP conntrack helper, from
-   Christophe Leroy.
-
-5) Don't display a trailing slash in conntrack helper with no classes
-   via /proc/net/nf_conntrack_expect, from Liping Zhang.
-
-6) Fix an expectation leak during creation from the nfqueue path, again
-   from Liping Zhang.
-
-7) Validate netlink port ID in verdict message from nfqueue, otherwise
-   an injection can be possible. Again from Zhang.
-
-8) Reject conntrack tuples with different transport protocol on
-   original and reply tuples, also from Zhang.
-
-9) Validate offset and length in nft_exthdr, make sure they are under
-   sizeof(u8), from Laura Garcia Liebana.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit c518189567eaf42b2ec50a4d982484c8e38799f8:
-
-  net: macb: Correct CAPS mask (2016-08-06 20:53:06 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
-
-for you to fetch changes up to 4da449ae1df9cfeb167e78f250b250eff64bc65e:
-
-  netfilter: nft_exthdr: Add size check on u8 nft_exthdr attributes (2016-08-10 13:10:13 +0200)
-
-----------------------------------------------------------------
-Christophe Leroy (1):
-      netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
-
-Laura Garcia Liebana (1):
-      netfilter: nft_exthdr: Add size check on u8 nft_exthdr attributes
-
-Liping Zhang (5):
-      netfilter: nf_ct_h323: do not re-activate already expired timer
-      netfilter: nf_ct_expect: remove the redundant slash when policy name is empty
-      netfilter: nfnetlink_queue: fix memory leak when attach expectation successfully
-      netfilter: nfnetlink_queue: reject verdict request from different portid
-      netfilter: ctnetlink: reject new conntrack request with different l4proto
-
-Pablo Neira Ayuso (2):
-      netfilter: nf_tables: s/MFT_REG32_01/NFT_REG32_01
-      netfilter: nft_rbtree: ignore inactive matching element with no descendants
-
- include/uapi/linux/netfilter/nf_tables.h |  2 +-
- net/netfilter/nf_conntrack_expect.c      |  2 +-
- net/netfilter/nf_conntrack_h323_main.c   |  3 ++-
- net/netfilter/nf_conntrack_netlink.c     | 10 ++++------
- net/netfilter/nf_conntrack_sip.c         |  4 ++--
- net/netfilter/nfnetlink_queue.c          |  6 ++----
- net/netfilter/nft_exthdr.c               | 11 +++++++++--
- net/netfilter/nft_rbtree.c               | 10 ++++++----
- 8 files changed, 27 insertions(+), 21 deletions(-)
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 9e36931..f8dbacf 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -574,7 +574,7 @@ static int exp_seq_show(struct seq_file *s, void *v)
+ 	helper = rcu_dereference(nfct_help(expect->master)->helper);
+ 	if (helper) {
+ 		seq_printf(s, "%s%s", expect->flags ? " " : "", helper->name);
+-		if (helper->expect_policy[expect->class].name)
++		if (helper->expect_policy[expect->class].name[0])
+ 			seq_printf(s, "/%s",
+ 				   helper->expect_policy[expect->class].name);
+ 	}
+-- 
+2.1.4
