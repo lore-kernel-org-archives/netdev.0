@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: qdisc hash table changes...
-Date: Tue, 09 Aug 2016 22:04:32 -0700 (PDT)
-Message-ID: <20160809.220432.1884446879035612633.davem@davemloft.net>
-References: <alpine.LNX.2.00.1608090936180.22028@cbobk.fhfr.pm>
-	<20160809.015417.214949723922909511.davem@davemloft.net>
-	<alpine.LNX.2.00.1608091101220.22028@cbobk.fhfr.pm>
+Subject: Re: [PATCH 2/2] ravb: add sleep PM suspend/resume support
+Date: Wed, 10 Aug 2016 10:43:21 -0700 (PDT)
+Message-ID: <20160810.104321.1196349376146959513.davem@davemloft.net>
+References: <20160803135647.23242-3-niklas.soderlund+renesas@ragnatech.se>
+	<20160809.161636.2181233072433514866.davem@davemloft.net>
+	<79a23b1c-9f73-e004-87d9-256bc408e633@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jikos@kernel.org
+Cc: niklas.soderlund+renesas@ragnatech.se, netdev@vger.kernel.org,
+	linux-renesas-soc@vger.kernel.org, wsa@the-dreams.de
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40290 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40294 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932319AbcHJSCm (ORCPT
+	with ESMTP id S932314AbcHJSCm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:02:42 -0400
-In-Reply-To: <alpine.LNX.2.00.1608091101220.22028@cbobk.fhfr.pm>
+In-Reply-To: <79a23b1c-9f73-e004-87d9-256bc408e633@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Kosina <jikos@kernel.org>
-Date: Tue, 9 Aug 2016 11:02:43 +0200 (CEST)
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 10 Aug 2016 13:47:26 +0300
 
-> Does that strictly have to be a show-stopper for the qdisc hash 
-> conversion, given the fact that the whole tree is building properly?
+>    Ugh, I should have reviewed the patch earlier -- I was postponing this
+>    until I have the time to test it... Since the patch did have some
+>    visible issues, it should've been recast before applying. DaveM,
+>    please in the future could you ping me before merging?
 
-I guess not.  Please submit that change as a series, first patches
-that correct the build required hash symbol conflict fixes, then
-the qdisc change itself.
+Review patches in a timely manner.
 
-THanks.
+If I can go through a 5 day email outage and still see this patch
+rotting in patchwork, you could have reviewed it in time.
