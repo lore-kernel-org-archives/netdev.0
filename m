@@ -1,105 +1,76 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] net: ethernet: renesas: sh_eth: use new api
- ethtool_{get|set}_link_ksettings
-Date: Wed, 10 Aug 2016 11:29:23 +0200
-Message-ID: <20160810092923.GF6276@verge.net.au>
-References: <1470780289-27496-1-git-send-email-tremyfr@gmail.com>
- <1470780289-27496-2-git-send-email-tremyfr@gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH 2/3] vsockmon: Add vsockmon device.
+Date: Wed, 10 Aug 2016 12:51:58 +0100
+Message-ID: <20160810115158.GB10461@stefanha-x1.localdomain>
+References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
+ <20160808161442.16038-3-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
-	geert+renesas@glider.be, andrew@lunn.ch, netdev@vger.kernel.org,
-	linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="8P1HSweYDcXXzwPJ"
+Cc: netdev@vger.kernel.org, jhansen@vmware.com, mst@redhat.com
+To: ggarcia@abra.uab.cat
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48384 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935790AbcHJTBX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 15:01:23 -0400
 Content-Disposition: inline
-In-Reply-To: <1470780289-27496-2-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160808161442.16038-3-ggarcia@deic.uab.cat>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[CC linux-sh as some of those boards use this driver]
 
-Hi Phillippe,
+--8P1HSweYDcXXzwPJ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On Wed, Aug 10, 2016 at 12:04:49AM +0200, Philippe Reynes wrote:
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+On Mon, Aug 08, 2016 at 06:14:41PM +0200, ggarcia@abra.uab.cat wrote:
+> diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
+> new file mode 100644
+> index 0000000..739b4bf
+> --- /dev/null
+> +++ b/include/uapi/linux/vsockmon.h
+> @@ -0,0 +1,35 @@
+> +#ifndef _UAPI_VSOCKMON_H
+> +#define _UAPI_VSOCKMON_H
+> +
+> +#include <linux/virtio_vsock.h>
+> +
+> +/* Structure of packets received trought the vsockmon device. */
+> +
+> +struct af_vsockmon_hdr {
+> +	__le64 src_cid;
+> +	__le64 dst_cid;
+> +	__le32 src_port;
+> +	__le32 dst_port;
+> +	__le16 op;			/* enum af_vsockmon_op */
+> +	__le16 t;			/* enum af_vosckmon_t */
+> +	__le16 len;			/* sizeof(t_hdr) */
+> +	union {
+> +		struct virtio_vsock_hdr virtio_hdr;
+> +	} t_hdr;
+> +} __attribute__((packed));
 
-Thanks this change looks reasonable to me.
+This struct will change in size if/when VMCI transport support is added.
+Existing binaries that were complied against the old header file would
+use an incorrect size.
 
-I have also tested it as follows on the r8a7790/Lager board and it
-appears to work.
+It would be cleaner to drop t_hdr from the struct and force users to
+explicitly use af_vsockmon_hdr.len to handle the size of the headers.
 
-Tested-by: Simon Horman <horms+renesas@verge.net.au>
+--8P1HSweYDcXXzwPJ
+Content-Type: application/pgp-signature; name="signature.asc"
 
-# ethtool -h | head -1
-ethtool version 3.1
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-# ethtool -i eth0
-driver: sh-eth
-version:
-firmware-version:
-bus-info: ee700000.ethernet
-supports-statistics: yes
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: yes
+iQEcBAEBAgAGBQJXqxVeAAoJEJykq7OBq3PIwEwH/i2V+kDhmnJLkz4vpZm/cZ++
+bPr9+z0FiCkrycPhNMYYxfILEt0Jp2QUlkOxvbob1oY7ufiFPWSeyIhuzkdjZ5tD
+9chKQbCTRxumiwKkzD84v6fXyRm+UXX68vmaSJKe+xeMWWyuiUEGh9hYcc6kS7nX
+o8NpQt5lxYQQWxGgcnQMsINP9DgdHUFpSM5FMa4M1IOUmUM2s3sG6hzR/iBc75Xe
+57lQ2ZndNmpWpKZfQ+oKoGBmuryxRfiyvVbB5/3dYkNRgvglA4/ktyoBZXphRiSu
+zzzO5jjAab7069GVI1wE7YI7sz3LcTLr6B/Mv3oElIiYqKI8T+ToMZauJD/0iuI=
+=QR3a
+-----END PGP SIGNATURE-----
 
-# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Supported pause frame use: Symmetric Receive-only
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-        Advertised pause frame use: Symmetric Receive-only
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full
-                                             100baseT/Half 100baseT/Full
-        Link partner advertised pause frame use: No
-        Link partner advertised auto-negotiation: Yes
-        Speed: 100Mb/s
-        Duplex: Full
-        Port: MII
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        Current message level: 0x000000cc (204)
-                               link timer rx_err tx_err
-        Link detected: yes
-
-# ethtool -s eth0 speed 10 duplex half
-
---- start kernel messages ---
-[  375.640312] sh-eth ee700000.ethernet eth0: Link is Down
-[  377.360727] sh-eth ee700000.ethernet eth0: Link is Up - 10Mbps/Half - flow control off
---- end kernel messages ---
-
-# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP MII ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
-                                100baseT/Half 100baseT/Full 
-        Supported pause frame use: Symmetric Receive-only
-        Supports auto-negotiation: Yes
-        Advertised link modes:  10baseT/Half 
-        Advertised pause frame use: No
-        Advertised auto-negotiation: Yes
-        Link partner advertised link modes:  10baseT/Half 10baseT/Full 
-                                             100baseT/Half 100baseT/Full 
-        Link partner advertised pause frame use: No
-        Link partner advertised auto-negotiation: Yes
-        Speed: 10Mb/s
-        Duplex: Half
-        Port: MII
-        PHYAD: 1
-        Transceiver: internal
-        Auto-negotiation: on
-        Current message level: 0x000000cc (204)
-                               link timer rx_err tx_err
-        Link detected: yes
+--8P1HSweYDcXXzwPJ--
