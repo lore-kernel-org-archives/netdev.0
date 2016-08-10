@@ -1,96 +1,45 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: RE: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly
- on some I218 controllers
-Date: Wed, 10 Aug 2016 15:00:05 +0000
-Message-ID: <630A6B92B7EDEB45A87E20D3D286660153DE9E12@hasmsx109.ger.corp.intel.com>
-References: <579F407E.9090602@compulab.co.il>
- <1e8f37ec-eda4-eb2d-64d2-e96a7aa71902@intel.com>
- <57A6F7A9.1030401@compulab.co.il>
- <f9d596bd-226b-0faf-bab1-858823f17ee4@intel.com>
- <309B89C4C689E141A5FF6A0C5FB2118B81F70C7D@ORSMSX101.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>,
-	"Avargil, Raanan" <raanan.avargil@intel.com>,
-	Denis Turischev <denis.turischev@compulab.co.il>,
-	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B81F70C7D@ORSMSX101.amr.corp.intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net v2 0/5] net_sched: tc action fixes and updates
+Date: Wed, 10 Aug 2016 13:16:10 -0700
+Message-ID: <1470860175-10903-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34645 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932915AbcHJUQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 16:16:32 -0400
+Received: by mail-pf0-f193.google.com with SMTP id g202so3377116pfb.1
+        for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 13:16:32 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Denis,
-In case this reset help you fix initialization error of I218 you can use it locally on your system. How many system with I218 encountered with initialization error on your side?
+This patchset fixes a few regressions caused by the previous
+code refactor. Thanks to Jamal for catching them!
 
-Thanks,
-Sasha
------Original Message-----
-From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On Behalf Of Brown, Aaron F
-Sent: Tuesday, August 09, 2016 9:59 PM
-To: Avargil, Raanan <raanan.avargil@intel.com>; Denis Turischev <denis.turischev@compulab.co.il>; intel-wired-lan@lists.osuosl.org; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized correctly on some I218 controllers
+Note, patch 3/5 and 4/5 are not strictly necessary for this patchset,
+I just want to carry them together.
 
+---
+v2: replace flex_array with regular dynamic array
+    keep tcf_action_stats_update() in act_api.h
+    fix macro typos found by Amir
 
+Cong Wang (5):
+  net_sched: remove the leftover cleanup_a()
+  net_sched: remove an unnecessary list_del()
+  net_sched: fix a typo in tc_for_each_action()
+  net_sched: move tc offload macros to pkt_cls.h
+  net_sched: convert tcf_exts from list to pointer array
 
-> -----Original Message-----
-> From: Avargil, Raanan
-> Sent: Tuesday, August 9, 2016 8:11 AM
-> To: Denis Turischev <denis.turischev@compulab.co.il>; intel-wired- 
-> lan@lists.osuosl.org; Brown, Aaron F <aaron.f.brown@intel.com>; 
-> Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [Intel-wired-lan] e1000e: PHY cann't be initialized 
-> correctly on some I218 controllers
-> 
-> 
-> 
-> On 8/7/2016 11:56, Denis Turischev wrote:
-> > Hi Raanan,
-> >
-> > On 08/04/2016 07:18 PM, Raanan Avargil wrote:
-> >> It is hard to determine what is exactly the problem here and what 
-> >> causes
-> the -3 error, but this is not the place to perform hw reset and retry 
-> to init the phy.
-> > I agree that may be this is not the correct place for hw reset, can 
-> > you advice
-> about another solution?
-> >
-> > It works, not only for me, for example it helps here:
-> > http://www.linux.org.ru/forum/linux-hardware/10268216
-> >
-> > Another fact that Windows drivers work fine with the same hw.
-> >
-> > Denis
-> >
-> 
-> Hi Denis,
-> 
-> More suitable place to retry init the device would be in probe function.
-> However, we haven't seen initialization issues like this on i218.
-> 
-> Adding Aaron.
-> 
-> @Aaron - have you seen initialization errors on i218 devices?
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 12 ++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c  |  4 +-
+ include/net/act_api.h                           | 19 ++-------
+ include/net/pkt_cls.h                           | 43 ++++++++++++++++++---
+ net/sched/act_api.c                             | 23 ++---------
+ net/sched/cls_api.c                             | 51 +++++++++++++++++--------
+ 7 files changed, 95 insertions(+), 61 deletions(-)
 
-I have not.  But I don't have many systems with i218 so all that means is my systems do not exhibit the problem.
-
-> 
-> Raanan
-_______________________________________________
-Intel-wired-lan mailing list
-Intel-wired-lan@lists.osuosl.org
-http://lists.osuosl.org/mailman/listinfo/intel-wired-lan
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+-- 
+2.1.0
