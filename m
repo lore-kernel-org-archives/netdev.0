@@ -1,84 +1,66 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Wed, 10 Aug 2016 12:20:44 +0200
-Message-ID: <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
-References: <1467827996-32547-6-git-send-email-simon.horman@netronome.com>
- <CAOrHB_BYD40ZkWbU0dvhPOCcaCVgooksOUkejxyFoagyoiBTNw@mail.gmail.com>
- <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
- <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
- <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
- <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/1] tipc: fix variable dereference
+	before NULL check
+Date: Wed, 10 Aug 2016 14:07:34 +0200
+Message-ID: <1470830854-4072-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBBdWcgMDksIDIwMTYgYXQgMDg6NDc6NDBBTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3
-cm90ZToKPiBPbiBNb24sIEF1ZyA4LCAyMDE2IGF0IDg6MTcgQU0sIFNpbW9uIEhvcm1hbiA8c2lt
-b24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgoKLi4uCgo+ID4gSGkgUHJhdmluLAo+ID4K
-PiA+IEkgaGF2ZSBtYWRlIGFuIGF0dGVtcHQgdG8gaW1wbGVtZW50IHlvdXIgc3VnZ2VzdGlvbiB0
-byB0aGUgZXh0ZW50IHRoYXQKPiA+IEkgdW5kZXJzdGFuZCBpdC4gVGhlIGZvbGxvd2luZyBpcyBh
-biBpbmNyZW1lbnRhbCBjaGFuZ2Ugb24gdG9wCj4gPiBvZiB0aGlzIHBhdGNoLXNldC4gRG9lcyBp
-dCBtb3ZlIHRoaW5ncyBjbG9zZXIgdG8gd2hhdCB5b3UgaGF2ZSBpbiBtaW5kPwo+ID4KPiBGb2xs
-b3dpbmcgYXBwcm9hY2ggbG9va3MgZ29vZCB0byBtZS4gSSBoYXZlIHBvc3RlZCBjb3VwbGUgb2Yg
-Y29tbWVudHMuCgpUaGFua3MsIEkgYW0gcmF0aGVyIGdsYWQgdG8gaGVhciB0aGF0LgoKPiA+IExp
-Z2h0IHRlc3Rpbmcgc2VlbXMgdG8gaW5kaWNhdGUgdGhhdCBpdCB3b3JrcyBmb3IgR1NPIHNrYnMK
-PiA+IHJlY2VpdmVkIG92ZXIgYm90aCBMMyBhbmQgTDIgR1JFIHR1bm5lbHMgYnkgT3ZTIHdpdGgg
-Ym90aAo+ID4gSVAtaW4tTVBMUyBhbmQgSVAgKHdpdGhvdXQgTVBMUykgcGF5bG9hZHMuCj4gPgo+
-IAo+IFRoYW5rcyBmb3IgdGVzdGluZyBpdC4gQ2FuIHlvdSBhbHNvIGFkZCB0aG9zZSB0ZXN0cyB0
-byBPVlMga21vZCB0ZXN0IHN1aXRlPwo+IC4uCgpTdXJlLCBJIHdpbGwgbG9vayBpbnRvIGRvaW5n
-IHRoYXQuCkFtIEkgY29ycmVjdCBpbiB0aGlua2luZyBKb2UgU3RyaW5nZXIgaXMgdGhlIGJlc3Qg
-cGVyc29uIHRvIGNvbnRhY3QgaWYKSSBydW4gaW50byB0cm91YmxlIHRoZXJlPwoKPiA+IGRpZmYg
-LS1naXQgYS9uZXQvbXBscy9tcGxzX2dzby5jIGIvbmV0L21wbHMvbXBsc19nc28uYwo+ID4gaW5k
-ZXggMjA1NWU1N2VkMWMzLi4xMTNjYmE4OTY1M2QgMTAwNjQ0Cj4gPiAtLS0gYS9uZXQvbXBscy9t
-cGxzX2dzby5jCj4gPiArKysgYi9uZXQvbXBscy9tcGxzX2dzby5jCj4gPiBAQCAtMzksMTYgKzM5
-LDE4IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqbXBsc19nc29fc2VnbWVudChzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiLAo+ID4gICAgICAgICBtcGxzX2ZlYXR1cmVzID0gc2tiLT5kZXYtPm1wbHNfZmVh
-dHVyZXMgJiBmZWF0dXJlczsKPiA+ICAgICAgICAgc2VncyA9IHNrYl9tYWNfZ3NvX3NlZ21lbnQo
-c2tiLCBtcGxzX2ZlYXR1cmVzKTsKPiA+Cj4gPiAtCj4gPiAtICAgICAgIC8qIFJlc3RvcmUgb3V0
-ZXIgcHJvdG9jb2wuICovCj4gPiAtICAgICAgIHNrYi0+cHJvdG9jb2wgPSBtcGxzX3Byb3RvY29s
-Owo+ID4gLQo+ID4gICAgICAgICAvKiBSZS1wdWxsIHRoZSBtYWMgaGVhZGVyIHRoYXQgdGhlIGNh
-bGwgdG8gc2tiX21hY19nc29fc2VnbWVudCgpCj4gPiAgICAgICAgICAqIGFib3ZlIHB1bGxlZC4g
-IEl0IHdpbGwgYmUgcmUtcHVzaGVkIGFmdGVyIHJldHVybmluZwo+ID4gICAgICAgICAgKiBza2Jf
-bWFjX2dzb19zZWdtZW50KCksIGFuIGluZGlyZWN0IGNhbGxlciBvZiB0aGlzIGZ1bmN0aW9uLgo+
-ID4gICAgICAgICAgKi8KPiA+ICAgICAgICAgX19za2JfcHVsbChza2IsIHNrYi0+ZGF0YSAtIHNr
-Yl9tYWNfaGVhZGVyKHNrYikpOwo+ID4KPiA+ICsgICAgICAgLyogUmVzdG9yZSBvdXRlciBwcm90
-b2NvbC4gKi8KPiA+ICsgICAgICAgc2tiLT5wcm90b2NvbCA9IG1wbHNfcHJvdG9jb2w7Cj4gPiAr
-ICAgICAgIGlmICghSVNfRVJSKHNlZ3MpKQo+ID4gKyAgICAgICAgICAgICAgIGZvciAoc2tiID0g
-c2Vnczsgc2tiOyBza2IgPSBza2ItPm5leHQpCj4gPiArICAgICAgICAgICAgICAgICAgICAgICBz
-a2ItPnByb3RvY29sID0gbXBsc19wcm90b2NvbDsKPiA+ICsKPiAKPiBza2JfbWFjX2dzb19zZWdt
-ZW50KCkgY2FuIGFsc28gcmV0dXJuIE5VTEwuIFRoZXJlZm9yZSBzZWdzIHNob3VsZCBiZQo+IGNo
-ZWNrZWQgZm9yIE5VTEwgY2FzZS4KClN1cmUsIEkgd2lsbCBmaXggdGhhdC4KSSB0aGluayB0aGF0
-IGNhbiBiZSB0cml2aWFsbHkgcmVzb2x2ZWQgdXNpbmcgSVNfRVJSX09SX05VTEwoKQoKPiA+IGRp
-ZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jIGIvbmV0L29wZW52c3dpdGNoL2Fj
-dGlvbnMuYwo+ID4gaW5kZXggMDAwMWY2NTFjOTM0Li40MjQxNjQyMjJmMWUgMTAwNjQ0Cj4gPiAt
-LS0gYS9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCj4gPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gv
-YWN0aW9ucy5jCj4gCj4gLi4uCj4gPiBAQCAtMzA4LDggKzMxOSw4IEBAIHN0YXRpYyBpbnQgcG9w
-X2V0aChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSkKPiA+ICB7
-Cj4gPiAgICAgICAgIHNrYl9wdWxsX3Jjc3VtKHNrYiwgRVRIX0hMRU4pOwo+ID4gICAgICAgICBz
-a2JfcmVzZXRfbWFjX2hlYWRlcihza2IpOwo+ID4gLSAgICAgICBza2ItPm1hY19sZW4gLT0gRVRI
-X0hMRU47Cj4gPgo+IAo+IEkgYW0gbm90IHN1cmUgd2h5IHRoaXMgbGluZSBpcyByZW1vdmVkLgoK
-SSB3aWxsIHJlc3RvcmUgaXQuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3Bl
-bnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+In commit cf6f7e1d5109 ("tipc: dump monitor attributes"),
+I dereferenced a pointer before checking if its valid.
+This is reported by static check Smatch as:
+net/tipc/monitor.c:733 tipc_nl_add_monitor_peer()
+     warn: variable dereferenced before check 'mon' (see line 731)
+
+In this commit, we check for a valid monitor before proceeding
+with any other operation.
+
+Fixes: cf6f7e1d5109 ("tipc: dump monitor attributes")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/monitor.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
+index b62caa1c770c..ed97a5876ebe 100644
+--- a/net/tipc/monitor.c
++++ b/net/tipc/monitor.c
+@@ -728,12 +728,13 @@ int tipc_nl_add_monitor_peer(struct net *net, struct tipc_nl_msg *msg,
+ 			     u32 bearer_id, u32 *prev_node)
+ {
+ 	struct tipc_monitor *mon = tipc_monitor(net, bearer_id);
+-	struct tipc_peer *peer = mon->self;
++	struct tipc_peer *peer;
+ 
+ 	if (!mon)
+ 		return -EINVAL;
+ 
+ 	read_lock_bh(&mon->lock);
++	peer = mon->self;
+ 	do {
+ 		if (*prev_node) {
+ 			if (peer->addr == *prev_node)
+-- 
+2.1.4
+
+
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity 
+planning reports. http://sdm.link/zohodev2dev
