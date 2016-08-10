@@ -1,113 +1,79 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: [PATCH 1/1 v3] net: i40e: use matching format identifiers
-Date: Thu, 11 Aug 2016 01:07:22 +0200
-Message-ID: <1470870442-14539-1-git-send-email-xypron.glpk@gmx.de>
-References: <1470851448.2128.15.camel@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	intel-wired-lan@lists.osuosl.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
+Date: Thu, 11 Aug 2016 09:54:56 +1000
+Message-ID: <1470873296.3015.117.camel@kernel.crashing.org>
+References: <1452684335-46107-1-git-send-email-hare@suse.de>
+	 <1452684335-46107-4-git-send-email-hare@suse.de>
+	 <20160209210458.GB32530@localhost>
+	 <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
+	 <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
+	 <1470787409.3015.81.camel@kernel.crashing.org>
+	 <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Alexey Kardashevskiy <aik@ozlabs.ru>,
+	Bjorn Helgaas <helgaas@kernel.org>,
+	Hannes Reinecke <hare@suse.de>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Babu Moger <babu.moger@oracle.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	santosh@chelsio.com, Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470851448.2128.15.camel@intel.com>
+In-Reply-To: <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-i is defined as int but output as %u several times.
-Adjust the format identifiers.
+On Wed, 2016-08-10 at 08:47 -0700, Alexander Duyck wrote:
+> 
+> The problem is if we don't do this it becomes possible for a guest to
+> essentially cripple a device on the host by just accessing VPD
+> regions that aren't actually viable on many devices. 
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+And ? We already can cripple the device in so many different ways
+simpy because we have pretty much full BAR access to it...
 
----
+>  We are much better off
+> in terms of security and stability if we restrict access to what
+> should be accessible. 
 
-v3:
-	fix typos in title, old title:
-	net: i10e: use matching format indentifiers
+Bollox. I've heard that argument over and over again, it never stood
+and still doesn't.
 
-v2:
-	Keep definition of i as int.
+We have full BAR access for god sake. We can already destroy the device
+in many cases (think: reflashing microcode, internal debug bus access
+with a route to the config space, voltage/freq control ....).
 
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+We aren't protecting anything more here, we are just adding layers of
+bloat, complication and bugs.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index c912e04..94ac712 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1560,13 +1560,13 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 		}
- #endif
- 		for (i = 0; i < vsi->num_queue_pairs; i++) {
--			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_packets", i);
-+			snprintf(p, ETH_GSTRING_LEN, "tx-%d.tx_packets", i);
- 			p += ETH_GSTRING_LEN;
--			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_bytes", i);
-+			snprintf(p, ETH_GSTRING_LEN, "tx-%d.tx_bytes", i);
- 			p += ETH_GSTRING_LEN;
--			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_packets", i);
-+			snprintf(p, ETH_GSTRING_LEN, "rx-%d.rx_packets", i);
- 			p += ETH_GSTRING_LEN;
--			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_bytes", i);
-+			snprintf(p, ETH_GSTRING_LEN, "rx-%d.rx_bytes", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		if (vsi != pf->vsi[pf->lan_vsi] || pf->hw.partition_id != 1)
-@@ -1581,16 +1581,16 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 			}
- 			for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_tx_packets", i);
-+					 "veb.tc_%d_tx_packets", i);
- 				p += ETH_GSTRING_LEN;
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_tx_bytes", i);
-+					 "veb.tc_%d_tx_bytes", i);
- 				p += ETH_GSTRING_LEN;
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_rx_packets", i);
-+					 "veb.tc_%d_rx_packets", i);
- 				p += ETH_GSTRING_LEN;
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_rx_bytes", i);
-+					 "veb.tc_%d_rx_bytes", i);
- 				p += ETH_GSTRING_LEN;
- 			}
- 		}
-@@ -1601,23 +1601,23 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 		}
- 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.tx_priority_%u_xon", i);
-+				 "port.tx_priority_%d_xon", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.tx_priority_%u_xoff", i);
-+				 "port.tx_priority_%d_xoff", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.rx_priority_%u_xon", i);
-+				 "port.rx_priority_%d_xon", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.rx_priority_%u_xoff", i);
-+				 "port.rx_priority_%d_xoff", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.rx_priority_%u_xon_2_xoff", i);
-+				 "port.rx_priority_%d_xon_2_xoff", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		/* BUG_ON(p - data != I40E_STATS_LEN * ETH_GSTRING_LEN); */
--- 
-2.1.4
+>  In this case what has happened is that the
+> vendor threw in an extra out-of-spec block and just expected it to
+> work.
+
+Like vendors do all the time in all sort of places
+
+I still completely fail to see the point in acting as a filtering
+middle man.
+
+> In order to work around it we just need to add a small function
+> to drivers/pci/quirks.c that would update the VPD size reported so
+> that it matches what the hardware is actually providing instead of
+> what we can determine based on the VPD layout.
+> 
+> Really working around something like this is not much different than
+> what we would have to do if the vendor had stuffed the data in some
+> reserved section of their PCI configuration space.
+
+It is, in both cases we shouldn't have VFIO or the host involved. We
+should just let the guest config space accesses go through.
+
+>   We end up needing
+> to add special quirks any time a vendor goes out-of-spec for some
+> one-off configuration interface that only they are ever going to use.
+
+Cheers,
+Ben.
