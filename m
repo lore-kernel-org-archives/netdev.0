@@ -1,74 +1,131 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/9] netfilter: nf_ct_h323: do not re-activate already expired timer
-Date: Wed, 10 Aug 2016 21:16:37 +0200
-Message-ID: <1470856605-7903-2-git-send-email-pablo@netfilter.org>
-References: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: problem with MPLS and TSO/GSO
+Date: Tue, 09 Aug 2016 22:44:13 -0700
+Message-ID: <57AABF2D.3050803@cumulusnetworks.com>
+References: <20160725163915.GE10080@wantstofly.org> <CAD=hENdOy-d0v9BskuvfqF3qdbrWCy2b-Dc-LSSUcZBmHy-X1A@mail.gmail.com> <579DA39E.3070703@cumulusnetworks.com> <20160808152526.GC8477@penelope.isobedori.kobe.vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: zhuyj <zyjzyj2000@gmail.com>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Robert Shearman <rshearma@brocade.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	netdev <netdev@vger.kernel.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58018 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933821AbcHJTQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2016 15:16:56 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id C3F801F18CB
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 21:16:54 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A99FE100A60
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 21:16:54 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id D51E0100794
-	for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 21:16:50 +0200 (CEST)
-In-Reply-To: <1470856605-7903-1-git-send-email-pablo@netfilter.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34260 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936601AbcHJTVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:21:11 -0400
+Received: by mail-pa0-f51.google.com with SMTP id fi15so18428406pac.1
+        for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 12:21:11 -0700 (PDT)
+In-Reply-To: <20160808152526.GC8477@penelope.isobedori.kobe.vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+On 8/8/16, 8:25 AM, Simon Horman wrote:
+> On Sun, Jul 31, 2016 at 12:07:10AM -0700, Roopa Prabhu wrote:
+>> On 7/27/16, 12:02 AM, zhuyj wrote:
+>>> On ubuntu16.04 server 64 bit
+>>> The attached script is run, the following will appear.
+>>>
+>>> Error: either "to" is duplicate, or "encap" is a garbage.
+>> This maybe just because the iproute2 version on ubuntu does not
+>> support the route encap attributes yet.
+>>
+>> [snip]
+>>
+>>> On Tue, Jul 26, 2016 at 12:39 AM, Lennert Buytenhek <buytenh@wantstofly.org>
+>>> wrote:
+>>>
+>>>> Hi!
+>>>>
+>>>> I am seeing pretty horrible TCP transmit performance (anywhere between
+>>>> 1 and 10 Mb/s, on a 10 Gb/s interface) when traffic is sent out over a
+>>>> route that involves MPLS labeling, and this seems to be due to an
+>>>> interaction between MPLS and TSO/GSO that causes all segmentable TCP
+>>>> frames that are MPLS-labeled to be dropped on egress.
+>>>>
+>>>> I initially ran into this issue with the ixgbe driver, but it is easily
+>>>> reproduced with veth interfaces, and the script attached below this
+>>>> email reproduces the issue.  The script configures three network
+>>>> namespaces: one that transmits TCP data (netperf) with MPLS labels,
+>>>> one that takes the MPLS traffic and pops the labels and forwards the
+>>>> traffic on, and one that receives the traffic (netserver).  When not
+>>>> using MPLS labeling, I get ~30000 Mb/s single-stream TCP performance
+>>>> in this setup on my test box, and with MPLS labeling, I get ~2 Mb/s.
+>>>>
+>>>> Some investigating shows that egress TCP frames that need to be
+>>>> segmented are being dropped in validate_xmit_skb(), which calls
+>>>> skb_gso_segment() which calls skb_mac_gso_segment() which returns
+>>>> -EPROTONOSUPPORT because we apparently didn't have the right kernel
+>>>> module (mpls_gso) loaded.
+>>>>
+>>>> (It's somewhat poor design, IMHO, to degrade network performance by
+>>>> 15000x if someone didn't load a kernel module they didn't know they
+>>>> should have loaded, and in a way that doesn't log any warnings or
+>>>> errors and can only be diagnosed by adding printk calls to net/core/
+>>>> and recompiling your kernel.)
+>> Its possible that the right way to do this is to always auto select MPLS_GSO
+>> if MPLS_IPTUNNEL is selected. I am guessing this by looking at the
+>> openvswitch mpls Kconfig entries and comparing with MPLS_IPTUNNEL.
+>> will look some more.
+>>
+>>>> (Also, I'm not sure why mpls_gso is needed when ixgbe seems to be
+>>>> able to natively do TSO on MPLS-labeled traffic, maybe because ixgbe
+>>>> doesn't advertise the necessary features in ->mpls_features?  But
+>>>> adding those bits doesn't seem to change much.)
+>>>>
+>>>> But, loading mpls_gso doesn't change much -- skb_gso_segment() then
+>>>> starts return -EINVAL instead, which is due to the
+>>>> skb_network_protocol() call in skb_mac_gso_segment() returning zero.
+>>>> And looking at skb_network_protocol(), I don't see how this is
+>>>> supposed to work -- skb->protocol is 0 at this point, and there is no
+>>>> way to figure out that what we are encapsulating is IP traffic, because
+>>>> unlike what is the case with VLAN tags, MPLS labels aren't followed by
+>>>> an inner ethertype that says what kind of traffic is in here, you have
+>>>> to have explicit knowledge of the payload type for MPLS.
+>>>>
+>>>> Any ideas?
+>> I was looking at the history of net/mpls/mpls_gso.c and the initial git log comment
+>> says that the driver expects the mpls tunnel driver to do a few things which I think
+>> might be the problem. I do see mpls_iptunnel.c setting the skb->protocol but not the
+>> skb->inner_protocol. wonder if fixing anything there will help ?.
+> If the inner protocol is not set then I don't think that segmentation can
+> function as there is (or at least was for the use case the code was added)
+> no way for the stack to know the protocol of the inner packet otherwise.
+>
+> On another note I was recently poking around the code and I wonder if the
+> following may be needed (this was in the context of my under-construction
+> l3 tunnel work for OvS and it may only be needed in that context):
 
-Commit 96d1327ac2e3 ("netfilter: h323: Use mod_timer instead of
-set_expect_timeout") just simplify the source codes
-    if (!del_timer(&exp->timeout))
-        return 0;
-    add_timer(&exp->timeout);
-to mod_timer(&exp->timeout, jiffies + info->timeout * HZ);
-
-This is not correct, and introduce a race codition:
-    CPU0                     CPU1
-     -                     timer expire
-  process_rcf              expectation_timed_out
-  lock(exp_lock)              -
-  find_exp                 waiting exp_lock...
-  re-activate timer!!      waiting exp_lock...
-  unlock(exp_lock)         lock(exp_lock)
-     -                     unlink expect
-     -                     free(expect)
-     -                     unlock(exp_lock)
-So when the timer expires again, we will access the memory that
-was already freed.
-
-Replace mod_timer with mod_timer_pending here to fix this problem.
-
-Fixes: 96d1327ac2e3 ("netfilter: h323: Use mod_timer instead of set_expect_timeout")
-Cc: Gao Feng <fgao@ikuai8.com>
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_h323_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index bb77a97..5c0db5c 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -1473,7 +1473,8 @@ static int process_rcf(struct sk_buff *skb, struct nf_conn *ct,
- 				 "timeout to %u seconds for",
- 				 info->timeout);
- 			nf_ct_dump_tuple(&exp->tuple);
--			mod_timer(&exp->timeout, jiffies + info->timeout * HZ);
-+			mod_timer_pending(&exp->timeout,
-+					  jiffies + info->timeout * HZ);
- 		}
- 		spin_unlock_bh(&nf_conntrack_expect_lock);
- 	}
--- 
-2.1.4
+Thanks simon, we are still working with this.. stay tuned.
+>
+> diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+> index 2055e57ed1c3..113cba89653d 100644
+> --- a/net/mpls/mpls_gso.c
+> +++ b/net/mpls/mpls_gso.c
+> @@ -39,16 +39,18 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+>  	mpls_features = skb->dev->mpls_features & features;
+>  	segs = skb_mac_gso_segment(skb, mpls_features);
+>  
+> -
+> -	/* Restore outer protocol. */
+> -	skb->protocol = mpls_protocol;
+> -
+>  	/* Re-pull the mac header that the call to skb_mac_gso_segment()
+>  	 * above pulled.  It will be re-pushed after returning
+>  	 * skb_mac_gso_segment(), an indirect caller of this function.
+>  	 */
+>  	__skb_pull(skb, skb->data - skb_mac_header(skb));
+>  
+> +	/* Restore outer protocol. */
+> +	skb->protocol = mpls_protocol;
+> +	if (!IS_ERR(segs))
+> +		for (skb = segs; skb; skb = skb->next)
+> +			skb->protocol = mpls_protocol;
+> +
+>  	return segs;
+>  }
+>  
