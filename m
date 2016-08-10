@@ -1,164 +1,89 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next v2 v2 1/2] bpf: Add bpf_current_task_in_cgroup helper
-Date: Tue, 9 Aug 2016 18:02:34 -0700
-Message-ID: <20160810010232.GA21141@ast-mbp.thefacebook.com>
-References: <20160810000010.GA28455@ircssh.c.rugged-nimbus-611.internal>
- <20160810002349.GA19751@ast-mbp.thefacebook.com>
- <20160810005525.GA28930@ircssh.c.rugged-nimbus-611.internal>
+From: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Tue, 9 Aug 2016 20:09:36 -0500
+Message-ID: <57AA7ED0.9000707@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <9ebb6cb7-c793-cd76-5283-c9a659d0398f@gmx.de>
+ <57AA2001.2010904@codeaurora.org>
+ <214dcbb7-0c3b-1e00-3e50-db513d77b10b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net
-To: Sargun Dhillon <sargun@sargun.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35446 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932585AbcHJBCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 21:02:40 -0400
-Received: by mail-pa0-f65.google.com with SMTP id cf3so1800158pad.2
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 18:02:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160810005525.GA28930@ircssh.c.rugged-nimbus-611.internal>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	andrew-g2DYL2Zd6BY@public.gmane.org, bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <214dcbb7-0c3b-1e00-3e50-db513d77b10b-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 09, 2016 at 05:55:26PM -0700, Sargun Dhillon wrote:
-> On Tue, Aug 09, 2016 at 05:23:50PM -0700, Alexei Starovoitov wrote:
-> > On Tue, Aug 09, 2016 at 05:00:12PM -0700, Sargun Dhillon wrote:
-> > > This adds a bpf helper that's similar to the skb_in_cgroup helper to check
-> > > whether the probe is currently executing in the context of a specific
-> > > subset of the cgroupsv2 hierarchy. It does this based on membership test
-> > > for a cgroup arraymap. It is invalid to call this in an interrupt, and
-> > > it'll return an error. The helper is primarily to be used in debugging
-> > > activities for containers, where you may have multiple programs running in
-> > > a given top-level "container".
-> > > 
-> > > This patch also genericizes some of the arraymap fetching logic between the
-> > > skb_in_cgroup helper and this new helper.
-> > > 
-> > > Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-> > > Cc: Alexei Starovoitov <ast@kernel.org>
-> > > Cc: Daniel Borkmann <daniel@iogearbox.net>
-> > > ---
-> > >  include/linux/bpf.h      | 24 ++++++++++++++++++++++++
-> > >  include/uapi/linux/bpf.h | 11 +++++++++++
-> > >  kernel/bpf/arraymap.c    |  2 +-
-> > >  kernel/bpf/verifier.c    |  4 +++-
-> > >  kernel/trace/bpf_trace.c | 34 ++++++++++++++++++++++++++++++++++
-> > >  net/core/filter.c        | 11 ++++-------
-> > >  6 files changed, 77 insertions(+), 9 deletions(-)
-> > > 
-> > > diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> > > index 1113423..9adf712 100644
-> > > --- a/include/linux/bpf.h
-> > > +++ b/include/linux/bpf.h
-> > > @@ -319,4 +319,28 @@ extern const struct bpf_func_proto bpf_get_stackid_proto;
-> > >  void bpf_user_rnd_init_once(void);
-> > >  u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
-> > >  
-> > > +#ifdef CONFIG_CGROUPS
-> > > +/* Helper to fetch a cgroup pointer based on index.
-> > > + * @map: a cgroup arraymap
-> > > + * @idx: index of the item you want to fetch
-> > > + *
-> > > + * Returns pointer on success,
-> > > + * Error code if item not found, or out-of-bounds access
-> > > + */
-> > > +static inline struct cgroup *fetch_arraymap_ptr(struct bpf_map *map, int idx)
-> > > +{
-> > > +	struct cgroup *cgrp;
-> > > +	struct bpf_array *array = container_of(map, struct bpf_array, map);
-> > > +
-> > > +	if (unlikely(idx >= array->map.max_entries))
-> > > +		return ERR_PTR(-E2BIG);
-> > > +
-> > > +	cgrp = READ_ONCE(array->ptrs[idx]);
-> > > +	if (unlikely(!cgrp))
-> > > +		return ERR_PTR(-EAGAIN);
-> > > +
-> > > +	return cgrp;
-> > > +}
-> > > +#endif /* CONFIG_CGROUPS */
-> > > +
-> > >  #endif /* _LINUX_BPF_H */
-> > > diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> > > index da218fe..64b1a07 100644
-> > > --- a/include/uapi/linux/bpf.h
-> > > +++ b/include/uapi/linux/bpf.h
-> > > @@ -375,6 +375,17 @@ enum bpf_func_id {
-> > >  	 */
-> > >  	BPF_FUNC_probe_write_user,
-> > >  
-> > > +	/**
-> > > +	 * bpf_current_task_in_cgroup(map, index) - Check cgroup2 membership of current task
-> > > +	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
-> > > +	 * @index: index of the cgroup in the bpf_map
-> > > +	 * Return:
-> > > +	 *   == 0 current failed the cgroup2 descendant test
-> > > +	 *   == 1 current succeeded the cgroup2 descendant test
-> > > +	 *    < 0 error
-> > > +	 */
-> > > +	BPF_FUNC_current_task_in_cgroup,
-> > > +
-> > >  	__BPF_FUNC_MAX_ID,
-> > >  };
-> > >  
-> > > diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-> > > index 633a650..a2ac051 100644
-> > > --- a/kernel/bpf/arraymap.c
-> > > +++ b/kernel/bpf/arraymap.c
-> > > @@ -538,7 +538,7 @@ static int __init register_perf_event_array_map(void)
-> > >  }
-> > >  late_initcall(register_perf_event_array_map);
-> > >  
-> > > -#ifdef CONFIG_SOCK_CGROUP_DATA
-> > > +#ifdef CONFIG_CGROUPS
-> > >  static void *cgroup_fd_array_get_ptr(struct bpf_map *map,
-> > >  				     struct file *map_file /* not used */,
-> > >  				     int fd)
-> > > diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> > > index 7094c69..80efab8 100644
-> > > --- a/kernel/bpf/verifier.c
-> > > +++ b/kernel/bpf/verifier.c
-> > > @@ -1053,7 +1053,8 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
-> > >  			goto error;
-> > >  		break;
-> > >  	case BPF_MAP_TYPE_CGROUP_ARRAY:
-> > > -		if (func_id != BPF_FUNC_skb_in_cgroup)
-> > > +		if (func_id != BPF_FUNC_skb_in_cgroup &&
-> > > +		    func_id != BPF_FUNC_current_task_in_cgroup)
-> > >  			goto error;
-> > >  		break;
-> > >  	default:
-> > > @@ -1075,6 +1076,7 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
-> > >  		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
-> > >  			goto error;
-> > >  		break;
-> > > +	case BPF_FUNC_current_task_in_cgroup:
-> > >  	case BPF_FUNC_skb_in_cgroup:
-> > >  		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
-> > >  			goto error;
-> > > diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> > > index b20438f..39f0290 100644
-> > > --- a/kernel/trace/bpf_trace.c
-> > > +++ b/kernel/trace/bpf_trace.c
-> > > @@ -376,6 +376,36 @@ static const struct bpf_func_proto bpf_get_current_task_proto = {
-> > >  	.ret_type	= RET_INTEGER,
-> > >  };
-> > >  
-> > > +#ifdef CONFIG_CGROUPS
-> > > +static u64 bpf_current_task_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-> > 
-> > please don't introduce #ifdef into .c code.
-> > In this case add #else in .h to fetch_arraymap_ptr() that returns -EOPNOTSUPP.
-> > Also why guard it with CONFIG_CGROUPS in .h at all?
-> > I think it should compile fine even when cgroups are not defined.
-> > The helper won't be functional anyway, since no cgroup_fd can be added
-> > to cgroup map.
-> > 
-> Pardon my ignorance, but if I don't have an ifdef wont I be referencing a bunch 
-> of non-existent code (like cgroup_is_descendant)? Unless your suggestion is to 
-> move this to the .h file as well.
+Florian Fainelli wrote:
 
-I see. If cgroup_is_descendant is the only function we use, how about
-adding it as 'return false' in #else part of linux/cgroup.h ?
-There are a bunch of them there like cgroup_exit/cgroup_free/...
+> nr_frags can't be bigger than MAX_SKB_FRAGS, hence these checks all
+> other drivers do against 1 + MAX_SKB_FRAGS.
+
+Doh, I just realized something.  emac_mac_tx_buf_send() just needs to 
+make sure that there's enough room for ONE skb.  For some reason I 
+thought it had to make sure there's enough room for multiple SKBs.
+
+Now it makes a lot more sense.  Thank you.
+
+So it looks like a given SKB can occupy 3 + nr_frags descriptors.  So I 
+need to change that line to:
+
+	if (emac_tpd_num_free_descs(tx_q) < (MAX_SKB_FRAGS + 3))
+		netif_stop_queue(adpt->netdev);
+
+Question, some  drivers do <= instead of just <, like this:
+
+	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+		netif_tx_stop_queue(txq);
+
+Is it necessary to stop the queue if there exactly enough descriptors to 
+hold an SKB?  Shouldn't the above be this instead:
+
+	if (ring->free_bds < (MAX_SKB_FRAGS + 1))
+		netif_tx_stop_queue(txq);
+
+
+>> However, I'm confused about one thing.  Almost every other driver just
+>> sets "netdev->mtu = new_mtu" and does nothing else.  I can't find any
+>> other driver that actually stops the RX path, reprograms the hardware,
+>> and then restarts the RX path.  I know this is a stupid question, but
+>> why is my driver doing that?
+>
+> Most drivers allocate RX buffer sizes that are usually bigger than the
+> MTU, but would probably silently fail or expose transient behavior once
+> the MTU changes to greater than the size pre-defined.
+
+So it looks like the real problem is a race condition between
+
+	adpt->rxbuf_size = new_mtu > EMAC_DEF_RX_BUF_SIZE ?
+		ALIGN(max_frame, 8) : EMAC_DEF_RX_BUF_SIZE;
+
+and
+
+	if (netif_running(netdev))
+		return emac_reinit_locked(adpt);
+
+
+That is, if the interface is running, I set rxbuf_size.  If suddenly I 
+receive some packets, then the driver will use the wrong buffer size.
+
+Is there an easy way for me to stop the RX path before I set rxbuf_size? 
+  Some netif_xxx function I can call?
+
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
