@@ -1,67 +1,83 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/1 v2] net: i10e: use matching format indentifiers
-Date: Wed, 10 Aug 2016 10:50:48 -0700
-Message-ID: <1470851448.2128.15.camel@intel.com>
-References: <20160731.204759.1283451349474511870.davem@davemloft.net>
-	 <1470161718-8824-1-git-send-email-xypron.glpk@gmx.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-h96oO27GaYc45A6+VWZP"
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470161718-8824-1-git-send-email-xypron.glpk@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ggarcia@abra.uab.cat
+Subject: [PATCH v2 1/1] VSOCK: remove more space available check filling TX vq
+Date: Wed, 10 Aug 2016 17:24:34 +0200
+Message-ID: <20160810152434.14346-1-ggarcia@deic.uab.cat>
+Content-Transfer-Encoding: 7BIT
+Cc: stefanha@redhat.com, mst@redhat.com,
+	Gerard Garcia <ggarcia@abra.uab.cat>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from damascus.uab.es ([158.109.168.135]:38529 "EHLO damascus.uab.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933785AbcHJSZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 14:25:04 -0400
+Received: from damascus.uab.es ([127.0.0.1])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OBP00MAO9H4Z100@damascus.uab.es> for
+ netdev@vger.kernel.org; Wed, 10 Aug 2016 17:24:40 +0200 (CEST)
+Received: from abra.uab.es ([158.109.79.4])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OBP0001R9H4WC80@damascus.uab.es> for
+ netdev@vger.kernel.org; Wed, 10 Aug 2016 17:24:40 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Gerard Garcia <ggarcia@deic.uab.cat>
 
---=-h96oO27GaYc45A6+VWZP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Remove unnecessary use of enable/disable callback notifications
+and the incorrect more space available check.
 
-On Tue, 2016-08-02 at 20:15 +0200, Heinrich Schuchardt wrote:
-> i is defined as int but output as %u several times.
-> Adjust the format identifiers.
->=20
-> v2:
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0Keep definition of i as i=
-nt.
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0David indicated that this=
- is the preferable way to define
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0loop variables.
->=20
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-> ---
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 26 +++++++++++++--=
------
-> ------
-> =C2=A01 file changed, 13 insertions(+), 13 deletions(-)
+The virtio_transport_tx_work handles when the TX virtqueue
+has more buffers available.
 
-your title needs fixing as well...
-s/i10e/i40e/ and s/indentifiers/identifiers/
---=-h96oO27GaYc45A6+VWZP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+v2:
+ * Comment style.
 
-iQIcBAABCgAGBQJXq2l4AAoJEOVv75VaS+3O32kP/RE9ABGsEfLF8ZpbSw3OXwWt
-CiA6F/NZWGTF/TdCcbov6DH9PXqdIxGzmlXlBePS1hNlEHF69+ScqQMW1f10RfDN
-aIfN6872tnwO0C00klnAQNOH+lrbvzLYjIkNo2qY1/1viAezoBONPU4DmlKSLjfS
-xKtW4fhGdynFzaV6IP4ZASkIb+YwQFXBZhNswlmCz/U1q5XqAxBZ5fXfw2Bj7gtI
-QtPHkEIe1RWKfDS+VLN2Uwb35R5A05Rfq6W8R/EPDpP/9mFj7c4cxCav+3j9+eVH
-X52qymIFbxWoq/Ub2fZhqXhl+yCcT1GYE369PDeQYxW910ap7ldFZhGCBVlUAydc
-u4fZrDebaKmAQU+kK3IQjwFWWoVvYkHTHDP9VYPDaDzRfqyXToQgisjknkUukCkx
-jyKNR+zSNCFNTM5ayNQDsw/256xm0Z23Qht7NHMCnyDMMR2wLBezTJTzCHJ/DLaE
-iCiT6IuZwXly0oO8fpKMXj0ug0BNmQ2sb1aFJ1Cvu+bkINVU5dt5VsnNO4zQR+JP
-uOFDCGhQ/M1CJsxoxrWn7YAq3i+wcqLLKionI11ncD9RrBXuamDyTTtuq8Nxdhwn
-kM/UGxl/tjY4vDFsCz/gFE5KitkWAsmtNVxEnaPfzMt7FIMmV6ztpfj28CXSCf8K
-SMFBAfLbsWU7HnfO8Ahv
-=TGI7
------END PGP SIGNATURE-----
+ net/vmw_vsock/virtio_transport.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
---=-h96oO27GaYc45A6+VWZP--
+diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
+index 699dfab..936d7ee 100644
+--- a/net/vmw_vsock/virtio_transport.c
++++ b/net/vmw_vsock/virtio_transport.c
+@@ -87,9 +87,6 @@ virtio_transport_send_pkt_work(struct work_struct *work)
+ 
+ 	vq = vsock->vqs[VSOCK_VQ_TX];
+ 
+-	/* Avoid unnecessary interrupts while we're processing the ring */
+-	virtqueue_disable_cb(vq);
+-
+ 	for (;;) {
+ 		struct virtio_vsock_pkt *pkt;
+ 		struct scatterlist hdr, buf, *sgs[2];
+@@ -99,7 +96,6 @@ virtio_transport_send_pkt_work(struct work_struct *work)
+ 		spin_lock_bh(&vsock->send_pkt_list_lock);
+ 		if (list_empty(&vsock->send_pkt_list)) {
+ 			spin_unlock_bh(&vsock->send_pkt_list_lock);
+-			virtqueue_enable_cb(vq);
+ 			break;
+ 		}
+ 
+@@ -118,13 +114,13 @@ virtio_transport_send_pkt_work(struct work_struct *work)
+ 		}
+ 
+ 		ret = virtqueue_add_sgs(vq, sgs, out_sg, in_sg, pkt, GFP_KERNEL);
++		/* Usually this means that there is no more space available in
++		 * the vq
++		 */
+ 		if (ret < 0) {
+ 			spin_lock_bh(&vsock->send_pkt_list_lock);
+ 			list_add(&pkt->list, &vsock->send_pkt_list);
+ 			spin_unlock_bh(&vsock->send_pkt_list_lock);
+-
+-			if (!virtqueue_enable_cb(vq) && ret == -ENOSPC)
+-				continue; /* retry now that we have more space */
+ 			break;
+ 		}
+ 
+-- 
+2.9.1
