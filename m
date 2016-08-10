@@ -1,69 +1,61 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH v4 1/1] Add timer to handle OOM situations
-Date: Wed, 10 Aug 2016 13:24:18 +0100
-Message-ID: <20160810122418.GE10461@stefanha-x1.localdomain>
-References: <20160804140911.23453-1-ggarcia@deic.uab.cat>
- <20160804140911.23453-2-ggarcia@deic.uab.cat>
+Subject: Re: [PATCH v2 1/1] Fix unbound rx buffer
+Date: Wed, 10 Aug 2016 13:25:57 +0100
+Message-ID: <20160810122557.GF10461@stefanha-x1.localdomain>
+References: <20160804140957.23693-1-ggarcia@deic.uab.cat>
+ <20160804140957.23693-2-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="idY8LE8SD6/8DnRI"
+	protocol="application/pgp-signature"; boundary="GV0iVqYguTV4Q9ER"
 Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
 To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53196 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59116 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933743AbcHJSWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2016 14:22:36 -0400
+	id S934207AbcHJSWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 14:22:13 -0400
 Content-Disposition: inline
-In-Reply-To: <20160804140911.23453-2-ggarcia@deic.uab.cat>
+In-Reply-To: <20160804140957.23693-2-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---idY8LE8SD6/8DnRI
+--GV0iVqYguTV4Q9ER
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, Aug 04, 2016 at 04:09:11PM +0200, ggarcia@abra.uab.cat wrote:
+On Thu, Aug 04, 2016 at 04:09:57PM +0200, ggarcia@abra.uab.cat wrote:
 > From: Gerard Garcia <ggarcia@deic.uab.cat>
 >=20
-> Set up a rx timer to avoid packets being discarded when there is not=20
-> available memory in the host.
+> Reset connection and close rx socket when the sender is ignoring our anno=
+unced available buffer.
 >=20
 > Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
 >=20
 > ---
-> v4:
->  * Fix style.
->=20
-> v3:
->  * Avoid race condition when freeing timer.
->=20
 > v2:
-> * Use of ERR_PTR/PTR_ERR/IS_ERR
-> * Timer cleaned on device release.
-> * Do not process more packets on error.
+>  * Get vvs->rx_lock lock before checking if next packet is going to
+>     overflow the rx buffer.
 >=20
->  drivers/vhost/vsock.c | 49 ++++++++++++++++++++++++++++++++++++++++-----=
-----
->  1 file changed, 40 insertions(+), 9 deletions(-)
+>  net/vmw_vsock/virtio_transport_common.c | 20 +++++++++++++++-----
+>  1 file changed, 15 insertions(+), 5 deletions(-)
 
-Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
 
---idY8LE8SD6/8DnRI
+--GV0iVqYguTV4Q9ER
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQEcBAEBAgAGBQJXqxzyAAoJEJykq7OBq3PIh6AIAKl+DgQ4rqV1bqgzW77tqjpp
-xKdNXWvJzyN6yGBVp0bRJUsGVT1mNLdX0zL16H93KMHZAnALF7haLVKMYBOZqb7T
-efd2Lq9QnfetNVtrjOVZWidULCHYLV4DpXzbp6wtq+SOhPgwD/nLH40MZtnwx4mi
-14DuQvvEO5/1Mur5Sr/g0W4VXmEM7EPEy+yuxGlcgZAdB4F8W3GBBhux5Kc6odaJ
-Ijn0x3AhzjqXZ/2pZj2petMfQCCLqnJB8uRBvG8aJUSLtburYynl8sORJo/UUsC8
-sDs3/G7xGp2JSb80IscVe3nO9kstCTfbyNff8Vt+DAHUKC5c33erNimgqRDy4Z0=
-=oE/u
+iQEcBAEBAgAGBQJXqx1VAAoJEJykq7OBq3PILCYIAKUyNDzVUe8C90N2CwN+WQKj
+06I7hGeu9JaqWNsgtuBAhbi/+AX+6APMl5lvoe70kZcVN7RUfEzqf9cfC0YulXpC
+Zysb0rqGHgXQk4C2yt5Ro6cFytc7F1619bQLRAZT8Jstwf3puSPvDyZAE0BUxWFn
+7Omza7dJeXT+2EWDDHSprsFSbcKAGQ1zhCZW0u0nVfZWwlbEMMXRcgJo12lzCuLL
+OPngPH83xuZtf1IloJHgHq9I8hXx/Ud7pdCVVfvkmteeCe8z7utNbAOapliWKwgO
+hXcZuHFteYv2vJ0FnQJz1XxOBTHyKJt4V5L9LBcmXThFrbe50iKvatjTcIA7Iks=
+=uFMQ
 -----END PGP SIGNATURE-----
 
---idY8LE8SD6/8DnRI--
+--GV0iVqYguTV4Q9ER--
