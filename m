@@ -1,207 +1,164 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: [net-next v2 v2 2/2] samples/bpf: Add opensnoop example that uses
- current_task_in_cgroup helper
-Date: Tue, 9 Aug 2016 17:00:58 -0700
-Message-ID: <20160810000056.GA28461@ircssh.c.rugged-nimbus-611.internal>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
+Date: Wed, 10 Aug 2016 10:03:29 +1000
+Message-ID: <1470787409.3015.81.camel@kernel.crashing.org>
+References: <1452684335-46107-1-git-send-email-hare@suse.de>
+	 <1452684335-46107-4-git-send-email-hare@suse.de>
+	 <20160209210458.GB32530@localhost>
+	 <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
+	 <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:34471 "EHLO
-	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751119AbcHJABA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 20:01:00 -0400
-Received: by mail-io0-f179.google.com with SMTP id q83so26956988iod.1
-        for <netdev@vger.kernel.org>; Tue, 09 Aug 2016 17:01:00 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Bjorn Helgaas <helgaas@kernel.org>, Hannes Reinecke <hare@suse.de>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Babu Moger <babu.moger@oracle.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	santosh@chelsio.com, Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexey Kardashevskiy <aik@ozlabs.ru>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This example adds the trace_opensnoop BPF sample. This example program
-prints all activities of files being opened for all programs in the
-provided cgroupsv2 cgroup and it's descendants in the cgroupv2 hierarchy.
+On Tue, 2016-08-09 at 11:12 -0700, Alexander Duyck wrote:
+> 
+> The PCI spec is what essentially assumes that there is only one block.
+> If I am not mistaken in the case of this device the second block here
+> actually contains device configuration data, not actual VPD data.  The
+> issue here is that the second block is being accessed as VPD when it
+> isn't.
 
-It populate a cgroups arraymap prior to execution in userspace. This means
-that the program must be run in the same cgroups namespace as the programs
-that are being traced.
+Devices do funny things with config space, film at 11. VFIO trying to
+be the middle man and intercept/interpret things is broken, cannot work,
+will never work, will just results in lots and lots of useless code, but
+I've been singing that song for too long and nobody seems to care...
 
-Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
----
- samples/bpf/Makefile               |  4 +++
- samples/bpf/bpf_helpers.h          |  2 ++
- samples/bpf/trace_opensnoop_kern.c | 35 +++++++++++++++++++
- samples/bpf/trace_opensnoop_user.c | 69 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 110 insertions(+)
- create mode 100644 samples/bpf/trace_opensnoop_kern.c
- create mode 100644 samples/bpf/trace_opensnoop_user.c
+> > > #0000 Large item 42 bytes; name 0x2 Identifier String
+> > #002d Large item 74 bytes; name 0x10
+> > #007a Small item 1 bytes; name 0xf End Tag
+> > ---
+> > #0c00 Large item 16 bytes; name 0x2 Identifier String
+> > #0c13 Large item 234 bytes; name 0x10
+> > #0d00 Large item 252 bytes; name 0x11
+> > #0dff Small item 0 bytes; name 0xf End Tag
+> 
+> The second block here is driver proprietary setup bits.
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 90ebf7d..d9c37a4 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -24,6 +24,7 @@ hostprogs-y += test_overhead
- hostprogs-y += test_cgrp2_array_pin
- hostprogs-y += xdp1
- hostprogs-y += xdp2
-+hostprogs-y += trace_opensnoop
- 
- test_verifier-objs := test_verifier.o libbpf.o
- test_maps-objs := test_maps.o libbpf.o
-@@ -49,6 +50,7 @@ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
- xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
- # reuse xdp1 source intentionally
- xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
-+trace_opensnoop-objs := bpf_load.o libbpf.o trace_opensnoop_user.o
- 
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -74,6 +76,7 @@ always += parse_varlen.o parse_simple.o parse_ldabs.o
- always += test_cgrp2_tc_kern.o
- always += xdp1_kern.o
- always += xdp2_kern.o
-+always += trace_opensnoop_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
- 
-@@ -97,6 +100,7 @@ HOSTLOADLIBES_map_perf_test += -lelf -lrt
- HOSTLOADLIBES_test_overhead += -lelf -lrt
- HOSTLOADLIBES_xdp1 += -lelf
- HOSTLOADLIBES_xdp2 += -lelf
-+HOSTLOADLIBES_trace_opensnoop += -lelf
- 
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index 217c8d5..d409cbb 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -43,6 +43,8 @@ static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
- 	(void *) BPF_FUNC_get_stackid;
- static int (*bpf_probe_write_user)(void *dst, void *src, int size) =
- 	(void *) BPF_FUNC_probe_write_user;
-+static int (*bpf_current_task_in_cgroup)(void *map, int index) =
-+	(void *) BPF_FUNC_current_task_in_cgroup;
- 
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
-diff --git a/samples/bpf/trace_opensnoop_kern.c b/samples/bpf/trace_opensnoop_kern.c
-new file mode 100644
-index 0000000..dade471
---- /dev/null
-+++ b/samples/bpf/trace_opensnoop_kern.c
-@@ -0,0 +1,35 @@
-+/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/ptrace.h>
-+#include <uapi/linux/bpf.h>
-+#include <linux/version.h>
-+#include "bpf_helpers.h"
-+
-+struct bpf_map_def SEC("maps") cgroup_map = {
-+	.type = BPF_MAP_TYPE_CGROUP_ARRAY,
-+	.key_size = sizeof(u32),
-+	.value_size = sizeof(u32),
-+	.max_entries = 1,
-+};
-+
-+SEC("kprobe/sys_open")
-+int bpf_prog1(struct pt_regs *ctx)
-+{
-+	const char *filename = (char *)PT_REGS_PARM1(ctx);
-+	char fmt[] = "Opening file: %s\n";
-+
-+	if (!bpf_current_task_in_cgroup(&cgroup_map, 0))
-+		return 0;
-+
-+	bpf_trace_printk(fmt, sizeof(fmt), filename);
-+
-+	return 1;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-+u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/trace_opensnoop_user.c b/samples/bpf/trace_opensnoop_user.c
-new file mode 100644
-index 0000000..403664e
---- /dev/null
-+++ b/samples/bpf/trace_opensnoop_user.c
-@@ -0,0 +1,69 @@
-+#include <stdio.h>
-+#include <assert.h>
-+#include <linux/bpf.h>
-+#include <unistd.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+#include <sys/socket.h>
-+#include <string.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <fcntl.h>
-+#include <errno.h>
-+#include <linux/bpf.h>
-+
-+static void usage(char **argv)
-+{
-+	printf("Usage:	%s [...]\n", argv[0]);
-+	printf("Prints the file opening activity of all processes under a given cgroupv2 hierarchy.\n");
-+	printf("	-v <value>	Full path of the cgroup2\n");
-+	printf("	-h		Display this help\n");
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	char filename[256];
-+	const char *cg2 = NULL;
-+	int ret, opt, cg2_fd;
-+	int array_index = 0;
-+
-+	while ((opt = getopt(argc, argv, "v:")) != -1) {
-+		switch (opt) {
-+		case 'v':
-+			cg2 = optarg;
-+			break;
-+		default:
-+			usage(argv);
-+			return 1;
-+		}
-+	}
-+
-+	if (!cg2) {
-+		usage(argv);
-+		return 1;
-+	}
-+
-+	cg2_fd = open(cg2, O_RDONLY);
-+	if (cg2_fd < 0) {
-+		fprintf(stderr, "open(%s,...): %s(%d)\n",
-+			cg2, strerror(errno), errno);
-+		return 1;
-+	}
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	ret = bpf_update_elem(map_fd[0],
-+			      &array_index,
-+			      &cg2_fd, BPF_ANY);
-+	if (ret) {
-+		perror("bpf_update_elem");
-+		return 1;
-+	}
-+
-+	read_trace_pipe();
-+	return 0;
-+}
--- 
-2.7.4
+Right. They happen to be in VPD on this device. They an be elsewhere on
+other devices. In between capabilities on some, in vendor caps on others...
+
+> > > The cxgb3 driver is reading the second bit starting from 0xc00 but since
+> > the size is wrongly detected as 0x7c, VFIO blocks access beyond it and the
+> > guest driver fails to probe.
+> >
+> > I also cannot find a clause in the PCI 3.0 spec saying that there must be
+> > just a single block, is it there?
+> 
+> > The problem is we need to be able to parse it.
+
+We can parse the standard part for generic stuff like inventory tools
+or lsvpd, but we shouldn't get in the way of the driver poking at its
+device.
+
+>   The spec defines a
+> series of tags that can be used starting at offset 0.  That is how we
+> are supposed to get around through the VPD data.  The problem is we
+> can't have more than one end tag and what appears to be happening here
+> is that we are defining a second block of data which uses the same
+> formatting as VPD but is not VPD.
+> 
+> > What would the correct fix be? Scanning all 32k of VPD is not an option I
+> > suppose as this is what this patch is trying to avoid. Thanks.
+> 
+> I adding the current cxgb3 maintainer and netdev list to the Cc.  This
+> is something that can probably be addressed via a PCI quirk as what
+> needs to happen is that we need to extend the VPD in the case of this
+> part in order to include this second block.  As long as we can read
+> the VPD data all the way out to 0xdff odds are we could probably just
+> have the size arbitrarily increased to 0xe00 via the quirk and then
+> you would be able to access all of the VPD for the device.  We already
+> have code making other modifications to drivers/pci/quirks.c for
+> several Broadcom devices and probably just need something similar to
+> allow extended access in the case of these devices.
+
+
+> > >
+> >
+> >
+> > This is the device:
+> >
+> > > [aik@p81-p9 ~]$ sudo lspci -vvnns 0001:03:00.0
+> > 0001:03:00.0 Ethernet controller [0200]: Chelsio Communications Inc T310
+> > 10GbE Single Port Adapter [1425:0030]
+> >         Subsystem: IBM Device [1014:038c]
+> >         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> > Stepping- SERR- FastB2B- DisINTx+
+> >         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort-
+> > <MAbort- >SERR- <PERR- INTx-
+> >         Latency: 0
+> >         Interrupt: pin A routed to IRQ 494
+> >         Region 0: Memory at 3fe080880000 (64-bit, non-prefetchable) [size=4K]
+> >         Region 2: Memory at 3fe080000000 (64-bit, non-prefetchable) [size=8M]
+> >         Region 4: Memory at 3fe080881000 (64-bit, non-prefetchable) [size=4K]
+> >         [virtual] Expansion ROM at 3fe080800000 [disabled] [size=512K]
+> >         Capabilities: [40] Power Management version 3
+> >                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold-)
+> >                 Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=0 PME-
+> >         Capabilities: [48] MSI: Enable- Count=1/32 Maskable- 64bit+
+> >                 Address: 0000000000000000  Data: 0000
+> >         Capabilities: [58] Express (v2) Endpoint, MSI 00
+> >                 DevCap: MaxPayload 4096 bytes, PhantFunc 0, Latency L0s <64ns, L1 <1us
+> >                         ExtTag+ AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
+> >                 DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported+
+> >                         RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+> >                         MaxPayload 256 bytes, MaxReadReq 512 bytes
+> >                 DevSta: CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr- TransPend-
+> >                 LnkCap: Port #0, Speed 2.5GT/s, Width x8, ASPM L0s L1, Exit Latency L0s
+> > unlimited, L1 unlimited
+> >                         ClockPM- Surprise- LLActRep- BwNot- ASPMOptComp-
+> >                 LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- CommClk-
+> >                         ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+> >                 LnkSta: Speed 2.5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-
+> > ABWMgmt-
+> >                 DevCap2: Completion Timeout: Range ABC, TimeoutDis-, LTR-, OBFF Not Supported
+> >                 DevCtl2: Completion Timeout: 50us to 50ms, TimeoutDis-, LTR-, OBFF Disabled
+> >                 LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-
+> >                          Transmit Margin: Normal Operating Range, EnterModifiedCompliance-
+> > ComplianceSOS-
+> >                          Compliance De-emphasis: -6dB
+> >                 LnkSta2: Current De-emphasis Level: -6dB, EqualizationComplete-,
+> > EqualizationPhase1-
+> >                          EqualizationPhase2-, EqualizationPhase3-, LinkEqualizationRequest-
+> >         Capabilities: [94] Vital Product Data
+> >                 Product Name: 10 Gigabit Ethernet-SR PCI Express Adapter
+> >                 Read-only fields:
+> >                         [EC] Engineering changes: D76809
+> >                         [FN] Unknown: 34 36 4b 37 38 39 37
+> >                         [PN] Part number: 46K7897
+> >                         [MN] Manufacture ID: 31 30 33 37
+> >                         [FC] Unknown: 35 37 36 39
+> >                         [SN] Serial number: YL102035603V
+> >                         [NA] Unknown: 30 30 31 34 35 45 39 39 32 45 44 31
+> >                 End
+> >         Capabilities: [9c] MSI-X: Enable+ Count=32 Masked-
+> >                 Vector table: BAR=4 offset=00000000
+> >                 PBA: BAR=4 offset=00000800
+> >         Capabilities: [100 v1] Device Serial Number 00-00-00-01-00-00-00-01
+> >         Capabilities: [300 v1] Advanced Error Reporting
+> >                 UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP-
+> > ECRC- UnsupReq- ACSViol-
+> >                 UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP-
+> > ECRC- UnsupReq- ACSViol-
+> >                 UESvrt: DLP+ SDES+ TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+
+> > ECRC- UnsupReq- ACSViol-
+> >                 CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+> >                 CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+> >                 AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
+> >         Kernel driver in use: cxgb3
+> >         Kernel modules: cxgb3
+> >
+> >
