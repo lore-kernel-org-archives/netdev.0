@@ -1,54 +1,60 @@
-From: David Howells <dhowells@redhat.com>
-Subject: How best to {en,de}crypt between sk_buff and iov_iter?
-Date: Wed, 10 Aug 2016 10:12:12 +0100
-Message-ID: <9009.1470820332@warthog.procyon.org.uk>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH 1/3] vsockmon: Add tap functions.
+Date: Wed, 10 Aug 2016 12:40:33 +0100
+Message-ID: <20160810114033.GA10461@stefanha-x1.localdomain>
+References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
+ <20160808161442.16038-2-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, viro@zeniv.linux.org.uk
-To: netdev@vger.kernel.org, linux-crypto@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="GvXjxJ+pjyke8COw"
+Cc: netdev@vger.kernel.org, jhansen@vmware.com, mst@redhat.com
+To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38856 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52960 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933745AbcHJSlX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:41:23 -0400
-Content-ID: <9008.1470820332.1@warthog.procyon.org.uk>
+	id S936597AbcHJSqq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 14:46:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20160808161442.16038-2-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is there a good way to encrypt data held in an iov_iter directly into an
-sk_buff and decrypt data held in an sk_buff back into an iov_iter?
 
-What I would like to avoid is:
+--GvXjxJ+pjyke8COw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
- (a) Invoking skb_cow_data() to potentially take an unnecessary copy of the
-     data I shouldn't need to change, but I need to do this to decrypt in
-     place.
+On Mon, Aug 08, 2016 at 06:14:40PM +0200, ggarcia@abra.uab.cat wrote:
+> +static int __vsock_deliver_tap_skb(struct sk_buff *skb,
+> +				     struct net_device *dev)
+> +{
+> +	int ret = 0;
+> +
+> +	if (skb) {
+> +		dev_hold(dev);
+> +		/* Take skb ownership so it is not consumed in dev_queue_xmit.
+> +		 * dev_queue_xmit will drop a reference so the reference count
+> +		 * will reset.
+> +		 */
+> +		skb_get(skb);
 
- (b) Having to copy the unencrypted data between the sk_buff and the iov_iter
-     when the crypto process ought to get me a free copy.
+Netlink clones the skb instead of adding a reference.  I guess this is
+because the skb might be modified later on?  Perhaps there are race
+conditions if the original skb is shared.
 
-One problem, though, is that I might not be able to do drain/fill a complete
-sk_buff in a single operation because the iov_iter might not give me sufficient
-bufferage/data to do that, so it may take multiple operations.  However, since
-I'm using an skcipher, I think it should be fine to call
-crypto_skcipher_encrypt() multiple times on the same skcipher.
+--GvXjxJ+pjyke8COw
+Content-Type: application/pgp-signature; name="signature.asc"
 
-I can see a couple of alternatives:
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
- (1) Duplicate skb_copy_datagram_iter(), give it an initialised
-     skcipher_request and let it set the crypto parameters for each block it
-     transfers.  copy_to_iter() would then need to be replaced with something
-     that sets up an sglist each time from the iov.
+iQEcBAEBAgAGBQJXqxKxAAoJEJykq7OBq3PIJ9wH/iJyN7k/6Fb9Ki2F1B3UfJOj
+zeWgTTplbJe6ZBSDNwcwRh89xYn+tLRabYPq3re4HvHF0JBuoRVmAcepKgB4yOEk
+JNgRxHhgtdY3az74IanFxBcBSYP31gSjCdHgDvFdxWzeeFPLtI1hiSEJMBNpT3jM
+2/+TA57xNx1uAP2gNZbGx7AkhN3j99XfETR6laKSzX5xd2TCft0cJEnn6E4mr/hr
+2QEy5x79ASFL68fnKiR1oYXYbAg0tJ2Qhvk0eKRqDoNIznck7I0M5afZCgqqDNHs
+/BSf8+baN2INM4b/DdrEvv3zwvAqxWVlPnrA2nZ8uWY8UPcX42iMdCPJBBTkP0M=
+=9KeV
+-----END PGP SIGNATURE-----
 
-     Something similar would need doing for skb_copy_datagram_from_iter().
-
- (2) Create an sglist for the skb and one for the iov_iter and encrypt/decrypt
-     between them.  Unfortunately, if the iov_iter is a userspace reference
-     then this would mean pinning userspace pages.
-
- (3) Add an {en,de}crypt-to-iov_iter capability to the crypto layer.  I'm not
-     sure how well this would work for hardware support, though.  I think we'd
-     come back to pinning userspace pages.
-
-David
+--GvXjxJ+pjyke8COw--
