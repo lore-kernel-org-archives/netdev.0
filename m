@@ -1,123 +1,84 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next 4/4] net_sched: act_vlan: Add priority option
-Date: Wed, 10 Aug 2016 16:32:23 +0300
-Message-ID: <1470835943-9042-5-git-send-email-hadarh@mellanox.com>
-References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net] bnx2x: don't reset chip on cleanup if PCI function is
+ offline
+Date: Wed, 10 Aug 2016 07:59:55 +0000
+Message-ID: <CO2PR11MB008852D899DEF786AD7CB48C971D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1470687227-21024-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+ <CO2PR11MB0088856E58DAADE7064F28AF971C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <57A9DA2B.7080908@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45349 "EHLO
-	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933600AbcHJT17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:27:59 -0400
-In-Reply-To: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
+Received: from mail-bn3nam01on0137.outbound.protection.outlook.com ([104.47.33.137]:23543
+	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S934937AbcHJTfa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:35:30 -0400
+In-Reply-To: <57A9DA2B.7080908@linux.vnet.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current vlan push action supports only vid and protocol options.
-Add priority option.
+> > Why would the published resume()  from pci_error_handlers be called in this
+> scenario?
+> 
+> It isn't. That's why I specifically commented on commit message: "There are two
+> cases though that another path is taken on the code".
+> 
+> The code path reach bnx2x_chip_cleanup() on device removal from the system,
+> as seen in the below call trace:
+> 
+> bnx2x_chip_cleanup+0x3c0/0x910 [bnx2x]
+> bnx2x_nic_unload+0x268/0xaf0 [bnx2x]
+> bnx2x_close+0x34/0x50 [bnx2x]
+> __dev_close_many+0xd4/0x150
+> dev_close_many+0xa8/0x160
+> rollback_registered_many+0x174/0x3f0
+> rollback_registered+0x40/0x70
+> unregister_netdevice_queue+0x98/0x110
+> unregister_netdev+0x34/0x50
+> __bnx2x_remove+0xa8/0x3a0 [bnx2x]
+> pci_device_remove+0x70/0x110
 
-Example script that adds vlan push action with vid and
-priority:
+Makes sense.
 
-tc filter add dev veth0 protocol ip parent ffff: \
-	   flower \
-	   	indev veth0 \
-	   action vlan push id 100 priority 5
+> >> Also, we avoid the MCP information dump in case of non-recoverable
+> >> PCI error (when adapter is about to be removed), since it will certainly fail.
+> >
+> > We should probably avoid several things here; Why specifically only this?
+> 
+> For example, we shouldn't execute bnx2x_timer() in this scenario. But I thought
+> it'd be too much to check every call of a timer function against PCI channel state
+> just to avoid it's execution on this scenario, so I just let it execute, since it seems
+> harmless.
+> 
+> >> +	/* Reset the chip, unless PCI function is offline. If we reach this
+> >> +	 * point following a PCI error handling, it means device is really
+> >> +	 * in a bad state and we're about to remove it, so reset the chip
+> >> +	 * is not a good idea.
+> >> +	 */
+> >> +	if (!pci_channel_offline(bp->pdev)) {
+> >> +		rc = bnx2x_reset_hw(bp, reset_code);
+> >> +		if (rc)
+> >> +			BNX2X_ERR("HW_RESET failed\n");
+> >> +	}
+> >
+> > Why not simply check this at the beginning of the function?
+> 
+> Because I wasn't sure if I could drop the entire execution of chip_cleanup(). I
+> tried to keep the most of this function aiming to shutdown the module in a
+> gentle way, like cleaning MAC, stopping queues...but again, I'm open to
+> suggestions and gladly will change this in v2 if you think it's for the best.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
----
- include/net/tc_act/tc_vlan.h        |  1 +
- include/uapi/linux/tc_act/tc_vlan.h |  1 +
- net/sched/act_vlan.c                | 13 +++++++++++--
- 3 files changed, 13 insertions(+), 2 deletions(-)
+Problem is I won't be able to have a more thorough review of this in the next
+couple of days - and other than code-review I won't have a reasonable way
+of testing this [I can use aer_inject, but I don't have your magical EEH
+error injections, and I'm not at all certain it would suffice for a good testing ].
 
-diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
-index e29f52e..6b83588 100644
---- a/include/net/tc_act/tc_vlan.h
-+++ b/include/net/tc_act/tc_vlan.h
-@@ -20,6 +20,7 @@ struct tcf_vlan {
- 	int			tcfv_action;
- 	u16			tcfv_push_vid;
- 	__be16			tcfv_push_proto;
-+	u8			tcfv_push_prio;
- };
- #define to_vlan(a) ((struct tcf_vlan *)a)
- 
-diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
-index 31151ff62..be72b6e 100644
---- a/include/uapi/linux/tc_act/tc_vlan.h
-+++ b/include/uapi/linux/tc_act/tc_vlan.h
-@@ -29,6 +29,7 @@ enum {
- 	TCA_VLAN_PUSH_VLAN_ID,
- 	TCA_VLAN_PUSH_VLAN_PROTOCOL,
- 	TCA_VLAN_PAD,
-+	TCA_VLAN_PUSH_VLAN_PRIORITY,
- 	__TCA_VLAN_MAX,
- };
- #define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
-diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-index 691409d..d2fcf7cd 100644
---- a/net/sched/act_vlan.c
-+++ b/net/sched/act_vlan.c
-@@ -43,7 +43,8 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 			goto drop;
- 		break;
- 	case TCA_VLAN_ACT_PUSH:
--		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid);
-+		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid |
-+				    (v->tcfv_push_prio << VLAN_PRIO_SHIFT));
- 		if (err)
- 			goto drop;
- 		break;
-@@ -65,6 +66,7 @@ static const struct nla_policy vlan_policy[TCA_VLAN_MAX + 1] = {
- 	[TCA_VLAN_PARMS]		= { .len = sizeof(struct tc_vlan) },
- 	[TCA_VLAN_PUSH_VLAN_ID]		= { .type = NLA_U16 },
- 	[TCA_VLAN_PUSH_VLAN_PROTOCOL]	= { .type = NLA_U16 },
-+	[TCA_VLAN_PUSH_VLAN_PRIORITY]	= { .type = NLA_U8 },
- };
- 
- static int tcf_vlan_init(struct net *net, struct nlattr *nla,
-@@ -78,6 +80,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
- 	int action;
- 	__be16 push_vid = 0;
- 	__be16 push_proto = 0;
-+	u8 push_prio = 0;
- 	bool exists = false;
- 	int ret = 0, err;
- 
-@@ -123,6 +126,9 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
- 		} else {
- 			push_proto = htons(ETH_P_8021Q);
- 		}
-+
-+		if (tb[TCA_VLAN_PUSH_VLAN_PRIORITY])
-+			push_prio = nla_get_u8(tb[TCA_VLAN_PUSH_VLAN_PRIORITY]);
- 		break;
- 	default:
- 		if (exists)
-@@ -150,6 +156,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
- 
- 	v->tcfv_action = action;
- 	v->tcfv_push_vid = push_vid;
-+	v->tcfv_push_prio = push_prio;
- 	v->tcfv_push_proto = push_proto;
- 
- 	v->tcf_action = parm->action;
-@@ -181,7 +188,9 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
- 	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
- 	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
- 	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
--			  v->tcfv_push_proto)))
-+			  v->tcfv_push_proto) ||
-+	     (v->tcfv_push_prio && nla_put_u8(skb, TCA_VLAN_PUSH_VLAN_PRIORITY,
-+					      v->tcfv_push_prio))))
- 		goto nla_put_failure;
- 
- 	tcf_tm_dump(&t, &v->tcf_tm);
--- 
-1.8.3.1
+I agree that even as-is, what you're suggesting is an improvement to the
+existing flow - so it's basically up to dave, i.e., whether to take a half fix
+or wait for a more thorough one.
