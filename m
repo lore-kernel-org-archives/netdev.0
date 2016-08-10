@@ -1,61 +1,270 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] ip-route: Pretty-print expired routes
-Date: Wed, 10 Aug 2016 13:14:50 +0200
-Message-ID: <1470827690-5625-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:46206 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932629AbcHJSYH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2016 14:24:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
+Date: Wed, 10 Aug 2016 11:05:15 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm>
+References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of printing 'expires -23sec' for expired (but not yet garbage
-collected) routes, print 'expired 23sec' instead.
+From: Jiri Kosina <jkosina@suse.cz>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Convert the per-device linked list into a hashtable. The primary 
+motivation for this change is that currently, we're not tracking all the 
+qdiscs in hierarchy (e.g. excluding default qdiscs), as the lookup 
+performed over the linked list by qdisc_match_from_root() is rather 
+expensive.
+
+The ultimate goal is to get rid of hidden qdiscs completely, which will 
+bring much more determinism in user experience.
+
+Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 ---
- ip/iproute.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h |  4 ++++
+ include/net/pkt_sched.h   |  4 ++--
+ include/net/sch_generic.h |  2 +-
+ net/core/dev.c            |  3 +++
+ net/sched/sch_api.c       | 23 +++++++++++++----------
+ net/sched/sch_generic.c   |  8 +++++---
+ net/sched/sch_mq.c        |  2 +-
+ net/sched/sch_mqprio.c    |  2 +-
+ 8 files changed, 30 insertions(+), 18 deletions(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index c52294d298210..a89a26d68be0f 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -305,6 +305,14 @@ static void print_rtax_features(FILE *fp, unsigned int features)
- 		fprintf(fp, " 0x%x", of);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f45929c..17c6499 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -52,6 +52,7 @@
+ #include <uapi/linux/netdevice.h>
+ #include <uapi/linux/if_bonding.h>
+ #include <uapi/linux/pkt_cls.h>
++#include <linux/hashtable.h>
+ 
+ struct netpoll_info;
+ struct device;
+@@ -1778,6 +1779,9 @@ struct net_device {
+ 	unsigned int		num_tx_queues;
+ 	unsigned int		real_num_tx_queues;
+ 	struct Qdisc		*qdisc;
++#ifdef CONFIG_NET_SCHED
++	DECLARE_HASHTABLE	(qdisc_hash, 4);
++#endif
+ 	unsigned long		tx_queue_len;
+ 	spinlock_t		tx_global_lock;
+ 	int			watchdog_timeo;
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index fea53f4..8ba11b4 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -90,8 +90,8 @@ int unregister_qdisc(struct Qdisc_ops *qops);
+ void qdisc_get_default(char *id, size_t len);
+ int qdisc_set_default(const char *id);
+ 
+-void qdisc_list_add(struct Qdisc *q);
+-void qdisc_list_del(struct Qdisc *q);
++void qdisc_hash_add(struct Qdisc *q);
++void qdisc_hash_del(struct Qdisc *q);
+ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
+ struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
+ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 62d5531..26f5cb3 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -67,7 +67,7 @@ struct Qdisc {
+ 	u32			limit;
+ 	const struct Qdisc_ops	*ops;
+ 	struct qdisc_size_table	__rcu *stab;
+-	struct list_head	list;
++	struct hlist_node       hash;
+ 	u32			handle;
+ 	u32			parent;
+ 	int			(*reshape_fail)(struct sk_buff *skb,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 904ff43..d3736d5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7511,6 +7511,9 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	INIT_LIST_HEAD(&dev->all_adj_list.lower);
+ 	INIT_LIST_HEAD(&dev->ptype_all);
+ 	INIT_LIST_HEAD(&dev->ptype_specific);
++#ifdef CONFIG_NET_SCHED
++	hash_init(dev->qdisc_hash);
++#endif
+ 	dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;
+ 	setup(dev);
+ 
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index ddf047d..c093d32 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -29,6 +29,7 @@
+ #include <linux/hrtimer.h>
+ #include <linux/lockdep.h>
+ #include <linux/slab.h>
++#include <linux/hashtable.h>
+ 
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+@@ -265,33 +266,33 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ 	    root->handle == handle)
+ 		return root;
+ 
+-	list_for_each_entry_rcu(q, &root->list, list) {
++	hash_for_each_possible_rcu(qdisc_dev(root)->qdisc_hash, q, hash, handle) {
+ 		if (q->handle == handle)
+ 			return q;
+ 	}
+ 	return NULL;
  }
  
-+static void print_expires(FILE *fp, __s32 expires, int hz)
-+{
-+	if (expires > 0)
-+		fprintf(fp, " expires %dsec", expires/hz);
-+	else
-+		fprintf(fp, " expired %dsec", -expires/hz);
-+}
-+
- int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+-void qdisc_list_add(struct Qdisc *q)
++void qdisc_hash_add(struct Qdisc *q)
  {
- 	FILE *fp = (FILE *)arg;
-@@ -502,7 +510,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			if (!hz)
- 				hz = get_user_hz();
- 			if (ci->rta_expires != 0)
--				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
-+				print_expires(fp, ci->rta_expires, hz);
- 			if (ci->rta_error != 0)
- 				fprintf(fp, " error %d", ci->rta_error);
- 			if (show_stats) {
-@@ -530,7 +538,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 			if (r->rtm_flags & RTM_F_CLONED)
- 				fprintf(fp, "%s    cache ", _SL_);
- 			if (ci->rta_expires)
--				fprintf(fp, " expires %dsec", ci->rta_expires/hz);
-+				print_expires(fp, ci->rta_expires, hz);
- 			if (ci->rta_error != 0)
- 				fprintf(fp, " error %d", ci->rta_error);
- 			if (show_stats) {
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+ 		struct Qdisc *root = qdisc_dev(q)->qdisc;
+ 
+ 		WARN_ON_ONCE(root == &noop_qdisc);
+ 		ASSERT_RTNL();
+-		list_add_tail_rcu(&q->list, &root->list);
++		hash_add_rcu(qdisc_dev(q)->qdisc_hash, &q->hash, q->handle);
+ 	}
+ }
+-EXPORT_SYMBOL(qdisc_list_add);
++EXPORT_SYMBOL(qdisc_hash_add);
+ 
+-void qdisc_list_del(struct Qdisc *q)
++void qdisc_hash_del(struct Qdisc *q)
+ {
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+ 		ASSERT_RTNL();
+-		list_del_rcu(&q->list);
++		hash_del_rcu(&q->hash);
+ 	}
+ }
+-EXPORT_SYMBOL(qdisc_list_del);
++EXPORT_SYMBOL(qdisc_hash_del);
+ 
+ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ {
+@@ -1004,7 +1005,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 				goto err_out4;
+ 		}
+ 
+-		qdisc_list_add(sch);
++		qdisc_hash_add(sch);
+ 
+ 		return sch;
+ 	}
+@@ -1440,6 +1441,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ {
+ 	int ret = 0, q_idx = *q_idx_p;
+ 	struct Qdisc *q;
++	int b;
+ 
+ 	if (!root)
+ 		return 0;
+@@ -1454,7 +1456,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ 			goto done;
+ 		q_idx++;
+ 	}
+-	list_for_each_entry(q, &root->list, list) {
++	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+ 		if (q_idx < s_q_idx) {
+ 			q_idx++;
+ 			continue;
+@@ -1771,6 +1773,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+ 			       int *t_p, int s_t)
+ {
+ 	struct Qdisc *q;
++	int b;
+ 
+ 	if (!root)
+ 		return 0;
+@@ -1778,7 +1781,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+ 	if (tc_dump_tclass_qdisc(root, skb, tcm, cb, t_p, s_t) < 0)
+ 		return -1;
+ 
+-	list_for_each_entry(q, &root->list, list) {
++	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+ 		if (tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
+ 			return -1;
+ 	}
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index f9e0e9c..94d5999 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -378,7 +378,6 @@ struct Qdisc noop_qdisc = {
+ 	.dequeue	=	noop_dequeue,
+ 	.flags		=	TCQ_F_BUILTIN,
+ 	.ops		=	&noop_qdisc_ops,
+-	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
+ 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
+ 	.dev_queue	=	&noop_netdev_queue,
+ 	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
+@@ -565,7 +564,6 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 		sch = (struct Qdisc *) QDISC_ALIGN((unsigned long) p);
+ 		sch->padded = (char *) sch - (char *) p;
+ 	}
+-	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 
+ 	spin_lock_init(&sch->busylock);
+@@ -645,7 +643,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 		return;
+ 
+ #ifdef CONFIG_NET_SCHED
+-	qdisc_list_del(qdisc);
++	qdisc_hash_del(qdisc);
+ 
+ 	qdisc_put_stab(rtnl_dereference(qdisc->stab));
+ #endif
+@@ -732,6 +730,10 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 			qdisc->ops->attach(qdisc);
+ 		}
+ 	}
++#ifdef CONFIG_NET_SCHED
++	if (dev->qdisc)
++		qdisc_hash_add(dev->qdisc);
++#endif
+ }
+ 
+ static void transition_one_qdisc(struct net_device *dev,
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index 56a77b8..3bee15d 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -88,7 +88,7 @@ static void mq_attach(struct Qdisc *sch)
+ 			qdisc_destroy(old);
+ #ifdef CONFIG_NET_SCHED
+ 		if (ntx < dev->real_num_tx_queues)
+-			qdisc_list_add(qdisc);
++			qdisc_hash_add(qdisc);
+ #endif
+ 
+ 	}
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index b8002ce..dbfb3a5 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -182,7 +182,7 @@ static void mqprio_attach(struct Qdisc *sch)
+ 		if (old)
+ 			qdisc_destroy(old);
+ 		if (ntx < dev->real_num_tx_queues)
+-			qdisc_list_add(qdisc);
++			qdisc_hash_add(qdisc);
+ 	}
+ 	kfree(priv->qdiscs);
+ 	priv->qdiscs = NULL;
 -- 
-2.8.2
+1.9.2
