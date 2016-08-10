@@ -1,258 +1,113 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: [PATCH 1/2] net: resolve symbol conflicts with generic hashtable.h
-Date: Wed, 10 Aug 2016 11:03:35 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608101053400.22028@cbobk.fhfr.pm>
-References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH 3/3] vsockmon: Add virtio vsock hooks
+Date: Wed, 10 Aug 2016 12:59:18 +0100
+Message-ID: <20160810115918.GC10461@stefanha-x1.localdomain>
+References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
+ <20160808161442.16038-4-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="UPT3ojh+0CqEDtpF"
+Cc: netdev@vger.kernel.org, jhansen@vmware.com, mst@redhat.com
+To: ggarcia@abra.uab.cat
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48576 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934086AbcHJTHH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 15:07:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20160808161442.16038-4-ggarcia@deic.uab.cat>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Kosina <jkosina@suse.cz>
 
-This is a preparatory patch for converting qdisc linked list into a 
-hashtable. As we'll need to include hashtable.h in netdevice.h, we first 
-have to make sure that this will not introduce symbol conflicts for any of 
-the netdevice.h users.
+--UPT3ojh+0CqEDtpF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Jiri Kosina <jkosina@suse.cz>
----
- drivers/net/ethernet/ti/davinci_emac.c | 14 +++++++-------
- net/ipv6/ip6_gre.c                     | 12 ++++++------
- net/ipv6/ip6_tunnel.c                  | 10 +++++-----
- net/ipv6/ip6_vti.c                     | 10 +++++-----
- net/ipv6/sit.c                         | 10 +++++-----
- 5 files changed, 28 insertions(+), 28 deletions(-)
+On Mon, Aug 08, 2016 at 06:14:42PM +0200, ggarcia@abra.uab.cat wrote:
+> +static struct sk_buff *
+> +virtio_vsock_pkt_vsockmon_to_vsockmon_skb(struct virtio_vsock_pkt *pkt)
+> +{
+> +	struct sk_buff *skb;
+> +	struct af_vsockmon_hdr *hdr;
+> +	void *payload;
+> +
+> +	u32 skb_len = sizeof(struct af_vsockmon_hdr) + pkt->len;
+> +
+> +	skb = alloc_skb(skb_len, GFP_ATOMIC);
+> +	if (!skb)
+> +		return NULL;
+> +
+> +	hdr = (struct af_vsockmon_hdr *) skb_put(skb, sizeof(*hdr));
+> +
+> +	hdr->src_cid = pkt->hdr.src_cid;
+> +	hdr->src_port = pkt->hdr.src_port;
+> +	hdr->dst_cid = pkt->hdr.dst_cid;
+> +	hdr->dst_port = pkt->hdr.dst_port;
+> +	hdr->t = cpu_to_le16(AF_VSOCK_T_VIRTIO);
+> +	hdr->len = cpu_to_le16(sizeof(hdr->t_hdr));
+> +
+> +	switch(pkt->hdr.op) {
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index f56d66e..91ca2b2 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -726,14 +726,14 @@ static u32 hash_get(u8 *addr)
- }
- 
- /**
-- * hash_add - Hash function to add mac addr from hash table
-+ * emac_hash_add - Hash function to add mac addr from hash table
-  * @priv: The DaVinci EMAC private adapter structure
-  * @mac_addr: mac address to delete from hash table
-  *
-  * Adds mac address to the internal hash table
-  *
-  */
--static int hash_add(struct emac_priv *priv, u8 *mac_addr)
-+static int emac_hash_add(struct emac_priv *priv, u8 *mac_addr)
- {
- 	struct device *emac_dev = &priv->ndev->dev;
- 	u32 rc = 0;
-@@ -742,7 +742,7 @@ static int hash_add(struct emac_priv *priv, u8 *mac_addr)
- 
- 	if (hash_value >= EMAC_NUM_MULTICAST_BITS) {
- 		if (netif_msg_drv(priv)) {
--			dev_err(emac_dev, "DaVinci EMAC: hash_add(): Invalid "\
-+			dev_err(emac_dev, "DaVinci EMAC: emac_hash_add(): Invalid "\
- 				"Hash %08x, should not be greater than %08x",
- 				hash_value, (EMAC_NUM_MULTICAST_BITS - 1));
- 		}
-@@ -768,14 +768,14 @@ static int hash_add(struct emac_priv *priv, u8 *mac_addr)
- }
- 
- /**
-- * hash_del - Hash function to delete mac addr from hash table
-+ * emac_hash_del - Hash function to delete mac addr from hash table
-  * @priv: The DaVinci EMAC private adapter structure
-  * @mac_addr: mac address to delete from hash table
-  *
-  * Removes mac address from the internal hash table
-  *
-  */
--static int hash_del(struct emac_priv *priv, u8 *mac_addr)
-+static int emac_hash_del(struct emac_priv *priv, u8 *mac_addr)
- {
- 	u32 hash_value;
- 	u32 hash_bit;
-@@ -825,10 +825,10 @@ static void emac_add_mcast(struct emac_priv *priv, u32 action, u8 *mac_addr)
- 
- 	switch (action) {
- 	case EMAC_MULTICAST_ADD:
--		update = hash_add(priv, mac_addr);
-+		update = emac_hash_add(priv, mac_addr);
- 		break;
- 	case EMAC_MULTICAST_DEL:
--		update = hash_del(priv, mac_addr);
-+		update = emac_hash_del(priv, mac_addr);
- 		break;
- 	case EMAC_ALL_MULTI_SET:
- 		update = 1;
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index fdc9de2..d3697a4 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -61,12 +61,12 @@ static bool log_ecn_error = true;
- module_param(log_ecn_error, bool, 0644);
- MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
- 
--#define HASH_SIZE_SHIFT  5
--#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
-+#define IP6_GRE_HASH_SIZE_SHIFT  5
-+#define IP6_GRE_HASH_SIZE (1 << IP6_GRE_HASH_SIZE_SHIFT)
- 
- static int ip6gre_net_id __read_mostly;
- struct ip6gre_net {
--	struct ip6_tnl __rcu *tunnels[4][HASH_SIZE];
-+	struct ip6_tnl __rcu *tunnels[4][IP6_GRE_HASH_SIZE];
- 
- 	struct net_device *fb_tunnel_dev;
- };
-@@ -96,12 +96,12 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu);
-    will match fallback tunnel.
-  */
- 
--#define HASH_KEY(key) (((__force u32)key^((__force u32)key>>4))&(HASH_SIZE - 1))
-+#define HASH_KEY(key) (((__force u32)key^((__force u32)key>>4))&(IP6_GRE_HASH_SIZE - 1))
- static u32 HASH_ADDR(const struct in6_addr *addr)
- {
- 	u32 hash = ipv6_addr_hash(addr);
- 
--	return hash_32(hash, HASH_SIZE_SHIFT);
-+	return hash_32(hash, IP6_GRE_HASH_SIZE_SHIFT);
- }
- 
- #define tunnels_r_l	tunnels[3]
-@@ -1089,7 +1089,7 @@ static void ip6gre_destroy_tunnels(struct net *net, struct list_head *head)
- 
- 	for (prio = 0; prio < 4; prio++) {
- 		int h;
--		for (h = 0; h < HASH_SIZE; h++) {
-+		for (h = 0; h < IP6_GRE_HASH_SIZE; h++) {
- 			struct ip6_tnl *t;
- 
- 			t = rtnl_dereference(ign->tunnels[prio][h]);
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 7b0481e..2050217 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -64,8 +64,8 @@ MODULE_LICENSE("GPL");
- MODULE_ALIAS_RTNL_LINK("ip6tnl");
- MODULE_ALIAS_NETDEV("ip6tnl0");
- 
--#define HASH_SIZE_SHIFT  5
--#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
-+#define IP6_TUNNEL_HASH_SIZE_SHIFT  5
-+#define IP6_TUNNEL_HASH_SIZE (1 << IP6_TUNNEL_HASH_SIZE_SHIFT)
- 
- static bool log_ecn_error = true;
- module_param(log_ecn_error, bool, 0644);
-@@ -75,7 +75,7 @@ static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
- {
- 	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
- 
--	return hash_32(hash, HASH_SIZE_SHIFT);
-+	return hash_32(hash, IP6_TUNNEL_HASH_SIZE_SHIFT);
- }
- 
- static int ip6_tnl_dev_init(struct net_device *dev);
-@@ -87,7 +87,7 @@ struct ip6_tnl_net {
- 	/* the IPv6 tunnel fallback device */
- 	struct net_device *fb_tnl_dev;
- 	/* lists for storing tunnels in use */
--	struct ip6_tnl __rcu *tnls_r_l[HASH_SIZE];
-+	struct ip6_tnl __rcu *tnls_r_l[IP6_TUNNEL_HASH_SIZE];
- 	struct ip6_tnl __rcu *tnls_wc[1];
- 	struct ip6_tnl __rcu **tnls[2];
- };
-@@ -2031,7 +2031,7 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct net *net)
- 		if (dev->rtnl_link_ops == &ip6_link_ops)
- 			unregister_netdevice_queue(dev, &list);
- 
--	for (h = 0; h < HASH_SIZE; h++) {
-+	for (h = 0; h < IP6_TUNNEL_HASH_SIZE; h++) {
- 		t = rtnl_dereference(ip6n->tnls_r_l[h]);
- 		while (t) {
- 			/* If dev is in the same netns, it has already
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index d90a11f..cc7e058 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -50,14 +50,14 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- 
--#define HASH_SIZE_SHIFT  5
--#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
-+#define IP6_VTI_HASH_SIZE_SHIFT  5
-+#define IP6_VTI_HASH_SIZE (1 << IP6_VTI_HASH_SIZE_SHIFT)
- 
- static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
- {
- 	u32 hash = ipv6_addr_hash(addr1) ^ ipv6_addr_hash(addr2);
- 
--	return hash_32(hash, HASH_SIZE_SHIFT);
-+	return hash_32(hash, IP6_VTI_HASH_SIZE_SHIFT);
- }
- 
- static int vti6_dev_init(struct net_device *dev);
-@@ -69,7 +69,7 @@ struct vti6_net {
- 	/* the vti6 tunnel fallback device */
- 	struct net_device *fb_tnl_dev;
- 	/* lists for storing tunnels in use */
--	struct ip6_tnl __rcu *tnls_r_l[HASH_SIZE];
-+	struct ip6_tnl __rcu *tnls_r_l[IP6_VTI_HASH_SIZE];
- 	struct ip6_tnl __rcu *tnls_wc[1];
- 	struct ip6_tnl __rcu **tnls[2];
- };
-@@ -1040,7 +1040,7 @@ static void __net_exit vti6_destroy_tunnels(struct vti6_net *ip6n)
- 	struct ip6_tnl *t;
- 	LIST_HEAD(list);
- 
--	for (h = 0; h < HASH_SIZE; h++) {
-+	for (h = 0; h < IP6_VTI_HASH_SIZE; h++) {
- 		t = rtnl_dereference(ip6n->tnls_r_l[h]);
- 		while (t) {
- 			unregister_netdevice_queue(t->dev, &list);
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 0a5a255..94dd0f0 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -62,7 +62,7 @@
-    For comments look at net/ipv4/ip_gre.c --ANK
-  */
- 
--#define HASH_SIZE  16
-+#define IP6_SIT_HASH_SIZE  16
- #define HASH(addr) (((__force u32)addr^((__force u32)addr>>4))&0xF)
- 
- static bool log_ecn_error = true;
-@@ -78,9 +78,9 @@ static struct rtnl_link_ops sit_link_ops __read_mostly;
- 
- static int sit_net_id __read_mostly;
- struct sit_net {
--	struct ip_tunnel __rcu *tunnels_r_l[HASH_SIZE];
--	struct ip_tunnel __rcu *tunnels_r[HASH_SIZE];
--	struct ip_tunnel __rcu *tunnels_l[HASH_SIZE];
-+	struct ip_tunnel __rcu *tunnels_r_l[IP6_SIT_HASH_SIZE];
-+	struct ip_tunnel __rcu *tunnels_r[IP6_SIT_HASH_SIZE];
-+	struct ip_tunnel __rcu *tunnels_l[IP6_SIT_HASH_SIZE];
- 	struct ip_tunnel __rcu *tunnels_wc[1];
- 	struct ip_tunnel __rcu **tunnels[4];
- 
-@@ -1773,7 +1773,7 @@ static void __net_exit sit_destroy_tunnels(struct net *net,
- 
- 	for (prio = 1; prio < 4; prio++) {
- 		int h;
--		for (h = 0; h < HASH_SIZE; h++) {
-+		for (h = 0; h < IP6_SIT_HASH_SIZE; h++) {
- 			struct ip_tunnel *t;
- 
- 			t = rtnl_dereference(sitn->tunnels[prio][h]);
--- 
-1.9.2
+Missing le16_to_cpu()
+
+> +	case VIRTIO_VSOCK_OP_REQUEST:
+> +	case VIRTIO_VSOCK_OP_RESPONSE:
+> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
+> +		break;
+> +	case VIRTIO_VSOCK_OP_RST:
+> +	case VIRTIO_VSOCK_OP_SHUTDOWN:
+> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
+> +		break;
+> +	case VIRTIO_VSOCK_OP_RW:
+> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
+> +		break;
+> +	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
+> +	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
+> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
+> +		break;
+> +	default:
+> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
+> +		break;
+> +	}
+> +
+> +	hdr->t_hdr.virtio_hdr = pkt->hdr;
+> +
+> +	if (pkt->len) {
+> +		payload = skb_put(skb, pkt->len);
+> +		memcpy(payload, pkt->buf, pkt->len);
+> +	}
+> +
+> +	return skb;
+> +}
+> +
+> +static void vsock_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
+> +{
+> +	struct sk_buff *skb = virtio_vsock_pkt_to_vsockmon_skb(pkt);
+> +	if (skb) {
+> +		vsock_deliver_tap(skb);
+> +		kfree_skb(skb);
+
+Should this be consume_skb()?  The function's doc comment says:
+
+ *	Functions identically to kfree_skb, but kfree_skb assumes that the frame
+ *	is being dropped after a failure and notes that
+
+This isn't a failure case so kfree_skb() is not the right function.
+
+--UPT3ojh+0CqEDtpF
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXqxcWAAoJEJykq7OBq3PIJC8H/icmw9mEGsayWgIf7u1xl6k4
+n8C6cMQBAiqUmqekRtC+JJavV5I472IFidEVPirzA/2UCDjcWaEvCVXLEuWQVdjI
+TGj7VZktm4pwVkxygwyyYh2GzefZcZ2UecZtwitYaAvFLV6csvXY3+AAzFCgS206
+LLaUHcqnGRWT1w+PqVpudMxPpKdXNOGNJGZlJF2b7zmeyk3FbvPuYxUknK7JfYQu
+/kA+Cj0QUjylU1Ys6pllSiPWw/juGsrn02OfuzNP1wThkVtovz1JyvDWELnH0GIN
+UIHklUNAKjDcaq/Kb2Li/wgCW3EhKSHzmzeoed7IeMBUVDuIb0B/b2AsGzO36G0=
+=Eznx
+-----END PGP SIGNATURE-----
+
+--UPT3ojh+0CqEDtpF--
