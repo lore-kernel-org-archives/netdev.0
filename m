@@ -1,131 +1,50 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: problem with MPLS and TSO/GSO
-Date: Tue, 09 Aug 2016 22:44:13 -0700
-Message-ID: <57AABF2D.3050803@cumulusnetworks.com>
-References: <20160725163915.GE10080@wantstofly.org> <CAD=hENdOy-d0v9BskuvfqF3qdbrWCy2b-Dc-LSSUcZBmHy-X1A@mail.gmail.com> <579DA39E.3070703@cumulusnetworks.com> <20160808152526.GC8477@penelope.isobedori.kobe.vergenet.net>
+From: Harini Katakam <harinikatakamlinux@gmail.com>
+Subject: Re: [RFC PATCH 2/3] net: macb: Add support for 1588 for Zynq
+ Ultrascale+ MPSoC
+Date: Wed, 10 Aug 2016 15:52:20 +0530
+Message-ID: <CAFcVEC+qmgZ55BsDwCKSLQo0FcYT6zSUz8L7ULC7dTw6uB+fOQ@mail.gmail.com>
+References: <1441958258-35441-1-git-send-email-harinik@xilinx.com>
+ <1441958258-35441-3-git-send-email-harinik@xilinx.com> <CAFcVECLfXL-=efbUhNeKhiFQgtfv6Z1+JJckg+js7DM-LfFeSw@mail.gmail.com>
+ <99d6c0ce-c3b9-a919-cedb-0af954bac388@atmel.com> <03CA77BA8AF6F1469AEDFBDA1322A7B74A1C4205@XAP-PVEXMBX02.xlnx.xilinx.com>
+ <b680d509-5a30-1960-8aea-485befc2d57b@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: zhuyj <zyjzyj2000@gmail.com>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Robert Shearman <rshearma@brocade.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Punnaiah Choudary Kalluri <punnaiah.choudary.kalluri@xilinx.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Boris Brezillon <boris.brezillon@free-electrons.com>,
+	"alexandre.belloni@free-electrons.com"
+	<alexandre.belloni@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Michal Simek <michals@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>
+To: Andrei Pistirica <andrei.pistirica@microchip.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34260 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936601AbcHJTVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:21:11 -0400
-Received: by mail-pa0-f51.google.com with SMTP id fi15so18428406pac.1
-        for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 12:21:11 -0700 (PDT)
-In-Reply-To: <20160808152526.GC8477@penelope.isobedori.kobe.vergenet.net>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37009 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933335AbcHJT0I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 15:26:08 -0400
+In-Reply-To: <b680d509-5a30-1960-8aea-485befc2d57b@microchip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/8/16, 8:25 AM, Simon Horman wrote:
-> On Sun, Jul 31, 2016 at 12:07:10AM -0700, Roopa Prabhu wrote:
->> On 7/27/16, 12:02 AM, zhuyj wrote:
->>> On ubuntu16.04 server 64 bit
->>> The attached script is run, the following will appear.
->>>
->>> Error: either "to" is duplicate, or "encap" is a garbage.
->> This maybe just because the iproute2 version on ubuntu does not
->> support the route encap attributes yet.
->>
->> [snip]
->>
->>> On Tue, Jul 26, 2016 at 12:39 AM, Lennert Buytenhek <buytenh@wantstofly.org>
->>> wrote:
->>>
->>>> Hi!
->>>>
->>>> I am seeing pretty horrible TCP transmit performance (anywhere between
->>>> 1 and 10 Mb/s, on a 10 Gb/s interface) when traffic is sent out over a
->>>> route that involves MPLS labeling, and this seems to be due to an
->>>> interaction between MPLS and TSO/GSO that causes all segmentable TCP
->>>> frames that are MPLS-labeled to be dropped on egress.
->>>>
->>>> I initially ran into this issue with the ixgbe driver, but it is easily
->>>> reproduced with veth interfaces, and the script attached below this
->>>> email reproduces the issue.  The script configures three network
->>>> namespaces: one that transmits TCP data (netperf) with MPLS labels,
->>>> one that takes the MPLS traffic and pops the labels and forwards the
->>>> traffic on, and one that receives the traffic (netserver).  When not
->>>> using MPLS labeling, I get ~30000 Mb/s single-stream TCP performance
->>>> in this setup on my test box, and with MPLS labeling, I get ~2 Mb/s.
->>>>
->>>> Some investigating shows that egress TCP frames that need to be
->>>> segmented are being dropped in validate_xmit_skb(), which calls
->>>> skb_gso_segment() which calls skb_mac_gso_segment() which returns
->>>> -EPROTONOSUPPORT because we apparently didn't have the right kernel
->>>> module (mpls_gso) loaded.
->>>>
->>>> (It's somewhat poor design, IMHO, to degrade network performance by
->>>> 15000x if someone didn't load a kernel module they didn't know they
->>>> should have loaded, and in a way that doesn't log any warnings or
->>>> errors and can only be diagnosed by adding printk calls to net/core/
->>>> and recompiling your kernel.)
->> Its possible that the right way to do this is to always auto select MPLS_GSO
->> if MPLS_IPTUNNEL is selected. I am guessing this by looking at the
->> openvswitch mpls Kconfig entries and comparing with MPLS_IPTUNNEL.
->> will look some more.
->>
->>>> (Also, I'm not sure why mpls_gso is needed when ixgbe seems to be
->>>> able to natively do TSO on MPLS-labeled traffic, maybe because ixgbe
->>>> doesn't advertise the necessary features in ->mpls_features?  But
->>>> adding those bits doesn't seem to change much.)
->>>>
->>>> But, loading mpls_gso doesn't change much -- skb_gso_segment() then
->>>> starts return -EINVAL instead, which is due to the
->>>> skb_network_protocol() call in skb_mac_gso_segment() returning zero.
->>>> And looking at skb_network_protocol(), I don't see how this is
->>>> supposed to work -- skb->protocol is 0 at this point, and there is no
->>>> way to figure out that what we are encapsulating is IP traffic, because
->>>> unlike what is the case with VLAN tags, MPLS labels aren't followed by
->>>> an inner ethertype that says what kind of traffic is in here, you have
->>>> to have explicit knowledge of the payload type for MPLS.
->>>>
->>>> Any ideas?
->> I was looking at the history of net/mpls/mpls_gso.c and the initial git log comment
->> says that the driver expects the mpls tunnel driver to do a few things which I think
->> might be the problem. I do see mpls_iptunnel.c setting the skb->protocol but not the
->> skb->inner_protocol. wonder if fixing anything there will help ?.
-> If the inner protocol is not set then I don't think that segmentation can
-> function as there is (or at least was for the use case the code was added)
-> no way for the stack to know the protocol of the inner packet otherwise.
->
-> On another note I was recently poking around the code and I wonder if the
-> following may be needed (this was in the context of my under-construction
-> l3 tunnel work for OvS and it may only be needed in that context):
+Hi Andrei,
 
-Thanks simon, we are still working with this.. stay tuned.
+On Wed, Aug 10, 2016 at 3:42 PM, Andrei Pistirica
+<andrei.pistirica@microchip.com> wrote:
+> Hi Punnaiah,
 >
-> diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-> index 2055e57ed1c3..113cba89653d 100644
-> --- a/net/mpls/mpls_gso.c
-> +++ b/net/mpls/mpls_gso.c
-> @@ -39,16 +39,18 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
->  	mpls_features = skb->dev->mpls_features & features;
->  	segs = skb_mac_gso_segment(skb, mpls_features);
->  
-> -
-> -	/* Restore outer protocol. */
-> -	skb->protocol = mpls_protocol;
-> -
->  	/* Re-pull the mac header that the call to skb_mac_gso_segment()
->  	 * above pulled.  It will be re-pushed after returning
->  	 * skb_mac_gso_segment(), an indirect caller of this function.
->  	 */
->  	__skb_pull(skb, skb->data - skb_mac_header(skb));
->  
-> +	/* Restore outer protocol. */
-> +	skb->protocol = mpls_protocol;
-> +	if (!IS_ERR(segs))
-> +		for (skb = segs; skb; skb = skb->next)
-> +			skb->protocol = mpls_protocol;
-> +
->  	return segs;
->  }
->  
+> cpts_match(...) has a way to parse frames, while ptp_classify_raw identifies
+> the underlying protocol (in case the frames are parsed on data path), or
+> tx/rxtstamp callbacks can be used with PTP events. But, there is comment in
+> ptp_classify.h which worries me.
+>
+> Unfortunately,  I cannot access https://gitenterprise.xilinx.com.
+
+Please access this public repo:
+https://github.com/Xilinx/linux-xlnx
+
+Regards,
+Harini
