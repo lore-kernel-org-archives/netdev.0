@@ -1,83 +1,89 @@
-From: ggarcia@abra.uab.cat
-Subject: [PATCH v2 1/1] VSOCK: remove more space available check filling TX vq
-Date: Wed, 10 Aug 2016 17:24:34 +0200
-Message-ID: <20160810152434.14346-1-ggarcia@deic.uab.cat>
-Content-Transfer-Encoding: 7BIT
-Cc: stefanha@redhat.com, mst@redhat.com,
-	Gerard Garcia <ggarcia@abra.uab.cat>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from damascus.uab.es ([158.109.168.135]:38529 "EHLO damascus.uab.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933785AbcHJSZE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Aug 2016 14:25:04 -0400
-Received: from damascus.uab.es ([127.0.0.1])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBP00MAO9H4Z100@damascus.uab.es> for
- netdev@vger.kernel.org; Wed, 10 Aug 2016 17:24:40 +0200 (CEST)
-Received: from abra.uab.es ([158.109.79.4])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBP0001R9H4WC80@damascus.uab.es> for
- netdev@vger.kernel.org; Wed, 10 Aug 2016 17:24:40 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
+Date: Wed, 10 Aug 2016 08:47:41 -0700
+Message-ID: <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
+References: <1452684335-46107-1-git-send-email-hare@suse.de>
+ <1452684335-46107-4-git-send-email-hare@suse.de> <20160209210458.GB32530@localhost>
+ <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru> <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
+ <1470787409.3015.81.camel@kernel.crashing.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexey Kardashevskiy <aik@ozlabs.ru>,
+	Bjorn Helgaas <helgaas@kernel.org>,
+	Hannes Reinecke <hare@suse.de>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Babu Moger <babu.moger@oracle.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Alex Williamson <alex.williamson@redhat.com>,
+	santosh@chelsio.com, Netdev <netdev@vger.kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470787409.3015.81.camel@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+On Tue, Aug 9, 2016 at 5:03 PM, Benjamin Herrenschmidt
+<benh@kernel.crashing.org> wrote:
+> On Tue, 2016-08-09 at 11:12 -0700, Alexander Duyck wrote:
+>>
+>> The PCI spec is what essentially assumes that there is only one block.
+>> If I am not mistaken in the case of this device the second block here
+>> actually contains device configuration data, not actual VPD data.  The
+>> issue here is that the second block is being accessed as VPD when it
+>> isn't.
+>
+> Devices do funny things with config space, film at 11. VFIO trying to
+> be the middle man and intercept/interpret things is broken, cannot work,
+> will never work, will just results in lots and lots of useless code, but
+> I've been singing that song for too long and nobody seems to care...
+>
+>> > > #0000 Large item 42 bytes; name 0x2 Identifier String
+>> > #002d Large item 74 bytes; name 0x10
+>> > #007a Small item 1 bytes; name 0xf End Tag
+>> > ---
+>> > #0c00 Large item 16 bytes; name 0x2 Identifier String
+>> > #0c13 Large item 234 bytes; name 0x10
+>> > #0d00 Large item 252 bytes; name 0x11
+>> > #0dff Small item 0 bytes; name 0xf End Tag
+>>
+>> The second block here is driver proprietary setup bits.
+>
+> Right. They happen to be in VPD on this device. They an be elsewhere on
+> other devices. In between capabilities on some, in vendor caps on others...
+>
+>> > > The cxgb3 driver is reading the second bit starting from 0xc00 but since
+>> > the size is wrongly detected as 0x7c, VFIO blocks access beyond it and the
+>> > guest driver fails to probe.
+>> >
+>> > I also cannot find a clause in the PCI 3.0 spec saying that there must be
+>> > just a single block, is it there?
+>>
+>> > The problem is we need to be able to parse it.
+>
+> We can parse the standard part for generic stuff like inventory tools
+> or lsvpd, but we shouldn't get in the way of the driver poking at its
+> device.
 
-Remove unnecessary use of enable/disable callback notifications
-and the incorrect more space available check.
+If we add the quirk to the kernel that reports the VPD for this device
+is the actual size of both blocks then we wouldn't be blocking the VPD
+access like we currently are.
 
-The virtio_transport_tx_work handles when the TX virtqueue
-has more buffers available.
+The problem is if we don't do this it becomes possible for a guest to
+essentially cripple a device on the host by just accessing VPD regions
+that aren't actually viable on many devices.  We are much better off
+in terms of security and stability if we restrict access to what
+should be accessible.  In this case what has happened is that the
+vendor threw in an extra out-of-spec block and just expected it to
+work.  In order to work around it we just need to add a small function
+to drivers/pci/quirks.c that would update the VPD size reported so
+that it matches what the hardware is actually providing instead of
+what we can determine based on the VPD layout.
 
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
----
+Really working around something like this is not much different than
+what we would have to do if the vendor had stuffed the data in some
+reserved section of their PCI configuration space.  We end up needing
+to add special quirks any time a vendor goes out-of-spec for some
+one-off configuration interface that only they are ever going to use.
 
-v2:
- * Comment style.
-
- net/vmw_vsock/virtio_transport.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
-
-diff --git a/net/vmw_vsock/virtio_transport.c b/net/vmw_vsock/virtio_transport.c
-index 699dfab..936d7ee 100644
---- a/net/vmw_vsock/virtio_transport.c
-+++ b/net/vmw_vsock/virtio_transport.c
-@@ -87,9 +87,6 @@ virtio_transport_send_pkt_work(struct work_struct *work)
- 
- 	vq = vsock->vqs[VSOCK_VQ_TX];
- 
--	/* Avoid unnecessary interrupts while we're processing the ring */
--	virtqueue_disable_cb(vq);
--
- 	for (;;) {
- 		struct virtio_vsock_pkt *pkt;
- 		struct scatterlist hdr, buf, *sgs[2];
-@@ -99,7 +96,6 @@ virtio_transport_send_pkt_work(struct work_struct *work)
- 		spin_lock_bh(&vsock->send_pkt_list_lock);
- 		if (list_empty(&vsock->send_pkt_list)) {
- 			spin_unlock_bh(&vsock->send_pkt_list_lock);
--			virtqueue_enable_cb(vq);
- 			break;
- 		}
- 
-@@ -118,13 +114,13 @@ virtio_transport_send_pkt_work(struct work_struct *work)
- 		}
- 
- 		ret = virtqueue_add_sgs(vq, sgs, out_sg, in_sg, pkt, GFP_KERNEL);
-+		/* Usually this means that there is no more space available in
-+		 * the vq
-+		 */
- 		if (ret < 0) {
- 			spin_lock_bh(&vsock->send_pkt_list_lock);
- 			list_add(&pkt->list, &vsock->send_pkt_list);
- 			spin_unlock_bh(&vsock->send_pkt_list_lock);
--
--			if (!virtqueue_enable_cb(vq) && ret == -ENOSPC)
--				continue; /* retry now that we have more space */
- 			break;
- 		}
- 
--- 
-2.9.1
+- Alex
