@@ -1,8 +1,7 @@
 From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Subject: [PATCH v6 1/3] net: Add mask for Control register 10Mbps speed
-Date: Wed, 10 Aug 2016 11:20:06 +0530
-Message-ID: <1470808208-32133-2-git-send-email-appanad@xilinx.com>
-References: <1470808208-32133-1-git-send-email-appanad@xilinx.com>
+Subject: [PATCH v6 0/3] net: phy: Add xilinx gmiitorgmii converter support
+Date: Wed, 10 Aug 2016 11:20:05 +0530
+Message-ID: <1470808208-32133-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +11,6 @@ To: <robh+dt@kernel.org>, <mark.rutland@arm.com>, <michal.simek@xilinx.com>,
  <soren.brinkmann@xilinx.com>, <appanad@xilinx.com>, <f.fainelli@gmail.com>,
  <andrew@lunn.ch>, <punnaia@xilinx.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1470808208-32133-1-git-send-email-appanad@xilinx.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -24,31 +22,44 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds mask for the Control register
-10Mbps speed.
+The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
+Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
+Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
+This core can be used in all three modes of operation(10/100/1000 Mb/s).
+The Management Data Input/Output (MDIO) interface is used to configure the
+Speed of operation. This core can switch dynamically between the three
+Different speed modes by configuring the conveter register through mdio write.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
----
-Changes for v6:
-- None.
-Changes for v5:
-- New patch.
+The conveter sits b/w the MAC and external phy like below
 
- include/uapi/linux/mii.h | 1 +
- 1 file changed, 1 insertion(+)
+MACB <==> GMII2RGMII <==> RGMII_PHY
 
-diff --git a/include/uapi/linux/mii.h b/include/uapi/linux/mii.h
-index 237fac4..15d8510 100644
---- a/include/uapi/linux/mii.h
-+++ b/include/uapi/linux/mii.h
-@@ -48,6 +48,7 @@
- #define BMCR_SPEED100		0x2000	/* Select 100Mbps              */
- #define BMCR_LOOPBACK		0x4000	/* TXD loopback bits           */
- #define BMCR_RESET		0x8000	/* Reset to default state      */
-+#define BMCR_SPEED10		0x0000	/* Select 10Mbps               */
- 
- /* Basic mode status register. */
- #define BMSR_ERCAP		0x0001	/* Ext-reg capability          */
+        MDIO    <========> GMII2RGMII
+MCAB <=======>
+                <========> RGMII
+
+Using MAC MDIO bus we can access both the converter and the external PHY.
+We need to program the line speed of the converter during run time based
+On the external phy negotiated speed.
+
+This patch series does the below
+---> Add mask for Control register 10Mbps speed.
+---> Add support for xilinx gmiitorgmii converter.
+
+Kedareswara rao Appana (3):
+  net: Add mask for Control register 10Mbps speed
+  Documentation: DT: net: Add Xilinx gmiitorgmii converter device tree
+    binding documentation
+  net: phy: Add gmiitorgmii converter support
+
+ .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  |  35 +++++++
+ drivers/net/phy/Kconfig                            |   7 ++
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/xilinx_gmii2rgmii.c                | 109 +++++++++++++++++++++
+ include/uapi/linux/mii.h                           |   1 +
+ 5 files changed, 153 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+ create mode 100644 drivers/net/phy/xilinx_gmii2rgmii.c
+
 -- 
 2.1.2
