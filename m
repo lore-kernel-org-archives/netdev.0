@@ -1,34 +1,29 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1 linux-next] net: hns: fix typo in g_gmac_stats_string[]
-Date: Wed, 10 Aug 2016 17:48:36 +0200
-Message-ID: <1470844116-13545-1-git-send-email-fabf@skynet.be>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fabf@skynet.be, davem@davemloft.net
-To: Yisen Zhuang <yisen.zhuang@huawei.com>,
-	Salil Mehta <salil.mehta@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net 0/5] net_sched: tc action fixes and updates
+Date: Wed, 10 Aug 2016 10:38:36 -0400
+Message-ID: <7ba19dd6-e8c7-52f3-1c57-194b4e0adbe7@mojatatu.com>
+References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com>
+ <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:33224 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753099AbcHJS3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:29:23 -0400
+Received: by mail-pa0-f44.google.com with SMTP id ti13so18116960pac.0
+        for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 11:29:22 -0700 (PDT)
+In-Reply-To: <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-s/gamc/gmac/
+Sorry I have a really bad (expensive) connection and the SMTP
+server seems to reject the first message and i retyped it and
+sent again - and now notice both were sent.
+Message didnt change ;->
 
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-index 1235c7f..1e1eb92 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
-@@ -17,7 +17,7 @@ static const struct mac_stats_string g_gmac_stats_string[] = {
- 	{"gmac_rx_octets_total_ok", MAC_STATS_FIELD_OFF(rx_good_bytes)},
- 	{"gmac_rx_octets_bad", MAC_STATS_FIELD_OFF(rx_bad_bytes)},
- 	{"gmac_rx_uc_pkts", MAC_STATS_FIELD_OFF(rx_uc_pkts)},
--	{"gamc_rx_mc_pkts", MAC_STATS_FIELD_OFF(rx_mc_pkts)},
-+	{"gmac_rx_mc_pkts", MAC_STATS_FIELD_OFF(rx_mc_pkts)},
- 	{"gmac_rx_bc_pkts", MAC_STATS_FIELD_OFF(rx_bc_pkts)},
- 	{"gmac_rx_pkts_64octets", MAC_STATS_FIELD_OFF(rx_64bytes)},
- 	{"gmac_rx_pkts_65to127", MAC_STATS_FIELD_OFF(rx_65to127)},
--- 
-2.8.1
+cheers,
+jamal
