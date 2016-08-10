@@ -1,41 +1,105 @@
-From: ashwanth@codeaurora.org
-Subject: Re: Uncreachable default lo route in table 0
-Date: Wed, 10 Aug 2016 17:15:48 +0530
-Message-ID: <f98eece12ed4e88dc7db17a120134f0d@codeaurora.org>
-References: <1c8b25ef7ed1c8a79a5ad932e802ea65@codeaurora.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 2/2] net: ethernet: renesas: sh_eth: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 10 Aug 2016 11:29:23 +0200
+Message-ID: <20160810092923.GF6276@verge.net.au>
+References: <1470780289-27496-1-git-send-email-tremyfr@gmail.com>
+ <1470780289-27496-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "eric.dumazet@gmail.com" <roszenrami@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:54547 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752759AbcHJSvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:51:06 -0400
-In-Reply-To: <1c8b25ef7ed1c8a79a5ad932e802ea65@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+	geert+renesas@glider.be, andrew@lunn.ch, netdev@vger.kernel.org,
+	linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1470780289-27496-2-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2016-07-28 13:31, ashwanth@codeaurora.org wrote:
-> On an Android device(using 3.18 kernel version) we see multiple
-> entries as the following added to the route table 0(unspec) by kernel.
-> We noticed that this typically happens when we toggle WIFI repeatedly.
-> The problem we see is that under such stress test, the table 0 gets
-> filled with these entries(4096) and after that no further routes can
-> get added leading to unstability.
-> 
-> unreachable default dev lo table 0 proto kernel metric 4294967295 error 
-> -101
-> 
-> Can you please let us know why does this route get added for lo device
-> and when is this supposed to be flushed out?
-> 
-> --
-> Qualcomm Innovation Center, Inc.
-> The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-> a Linux Foundation Collaborative Project
+[CC linux-sh as some of those boards use this driver]
 
+Hi Phillippe,
 
-can someone help us with this query?
+On Wed, Aug 10, 2016 at 12:04:49AM +0200, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+
+Thanks this change looks reasonable to me.
+
+I have also tested it as follows on the r8a7790/Lager board and it
+appears to work.
+
+Tested-by: Simon Horman <horms+renesas@verge.net.au>
+
+# ethtool -h | head -1
+ethtool version 3.1
+
+# ethtool -i eth0
+driver: sh-eth
+version:
+firmware-version:
+bus-info: ee700000.ethernet
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: yes
+
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Supported pause frame use: Symmetric Receive-only
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Advertised pause frame use: Symmetric Receive-only
+        Advertised auto-negotiation: Yes
+        Link partner advertised link modes:  10baseT/Half 10baseT/Full
+                                             100baseT/Half 100baseT/Full
+        Link partner advertised pause frame use: No
+        Link partner advertised auto-negotiation: Yes
+        Speed: 100Mb/s
+        Duplex: Full
+        Port: MII
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Current message level: 0x000000cc (204)
+                               link timer rx_err tx_err
+        Link detected: yes
+
+# ethtool -s eth0 speed 10 duplex half
+
+--- start kernel messages ---
+[  375.640312] sh-eth ee700000.ethernet eth0: Link is Down
+[  377.360727] sh-eth ee700000.ethernet eth0: Link is Up - 10Mbps/Half - flow control off
+--- end kernel messages ---
+
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+        Supported pause frame use: Symmetric Receive-only
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 
+        Advertised pause frame use: No
+        Advertised auto-negotiation: Yes
+        Link partner advertised link modes:  10baseT/Half 10baseT/Full 
+                                             100baseT/Half 100baseT/Full 
+        Link partner advertised pause frame use: No
+        Link partner advertised auto-negotiation: Yes
+        Speed: 10Mb/s
+        Duplex: Half
+        Port: MII
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Current message level: 0x000000cc (204)
+                               link timer rx_err tx_err
+        Link detected: yes
