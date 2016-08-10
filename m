@@ -1,29 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net 0/5] net_sched: tc action fixes and updates
-Date: Wed, 10 Aug 2016 10:38:36 -0400
-Message-ID: <7ba19dd6-e8c7-52f3-1c57-194b4e0adbe7@mojatatu.com>
-References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com>
- <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH 1/1] VSOCK: remove more space available check filling TX
+ vq
+Date: Wed, 10 Aug 2016 13:01:52 +0100
+Message-ID: <20160810120152.GD10461@stefanha-x1.localdomain>
+References: <20160805163420.10092-1-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="TybLhxa8M7aNoW+V"
+Cc: netdev@vger.kernel.org, mst@redhat.com
+To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33224 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753099AbcHJS3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 14:29:23 -0400
-Received: by mail-pa0-f44.google.com with SMTP id ti13so18116960pac.0
-        for <netdev@vger.kernel.org>; Wed, 10 Aug 2016 11:29:22 -0700 (PDT)
-In-Reply-To: <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38264 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934217AbcHJShH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Aug 2016 14:37:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20160805163420.10092-1-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry I have a really bad (expensive) connection and the SMTP
-server seems to reject the first message and i retyped it and
-sent again - and now notice both were sent.
-Message didnt change ;->
 
-cheers,
-jamal
+--TybLhxa8M7aNoW+V
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, Aug 05, 2016 at 06:34:20PM +0200, ggarcia@abra.uab.cat wrote:
+> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>=20
+> Remove unnecessary use of enable/disable callback notifications
+> and the incorrect more space available check.
+>=20
+> The virtio_transport_tx_work handles when the TX virtqueue
+> has more buffers available.
+>=20
+> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> ---
+>  net/vmw_vsock/virtio_transport.c | 9 ++-------
+>  1 file changed, 2 insertions(+), 7 deletions(-)
+
+Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+--TybLhxa8M7aNoW+V
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXqxewAAoJEJykq7OBq3PIVvIIAJas140huqhE03e6Zq/8v7EK
+tbCxPrSBwQJcdc+NjfdvKbyOMFrA6U3nGYTK+gOJSk2LyOlKp9NxoSpJrZ7p4EM6
+dG/VYwaWoPwkK29kOo4I6w8UZBIR1js7yk0m9vwH0yxBLvAv+x6XN0q9T2tC18au
+zX/YICok+EuAlQ0zQkjgnoRxYhUvKMBe0A621t2XVWffYh42QxVuX8wPeeS0dTbY
+p98bUqNNm7dWaP5u2/yR3PTDKHxyme2cDdcKUaAnnAPQK9rUdUEsddsbBdaB/NLe
+8zRgzyHUY46FadvSS5FL6akRmkqRR4RlfkP5hvviiY1jWwFeKkkN+Q/TkqNDrws=
+=/ywA
+-----END PGP SIGNATURE-----
+
+--TybLhxa8M7aNoW+V--
