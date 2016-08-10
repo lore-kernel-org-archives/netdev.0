@@ -1,83 +1,41 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 0/9] v4.8 build regressions
-Date: Wed, 10 Aug 2016 23:54:06 +0200
-Message-ID: <20160810215424.1926658-1-arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipconfig: fix use after free
+Date: Wed, 10 Aug 2016 14:55:46 -0700 (PDT)
+Message-ID: <20160810.145546.383556730317744645.davem@davemloft.net>
+References: <CAMuHMdVjugL0y-C+vet=qbcER8rjuFKwFgrutRUAs=uOk0JZ1A@mail.gmail.com>
+	<1470822257-13275-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<CAMuHMdV=MsCUzuGJ76jWaw7kmMm7o1c3Dvpn50rCaJ2a7wS2iw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Lunn <andrew@lunn.ch>, x86@kernel.org,
- kernel-build-reports@lists.linaro.org, dri-devel@lists.freedesktop.org,
- Masahiro Yamada <yamada.masahiro@socionext.com>,
- Daniel Lezcano <daniel.lezcano@linaro.org>,
- Geert Uytterhoeven <geert@linux-m68k.org>, Jiri Slaby <jslaby@suse.com>,
- Arnd Bergmann <arnd@arndb.de>, Josh Triplett <josh@joshtriplett.org>,
- George Spelvin <linux@sciencehorizons.net>,
- Matthias Brugger <matthias.bgg@gmail.com>,
- Ji-Ze Hong <hpeter+linux_kernel@gmail.com>,
- Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: u.kleine-koenig@pengutronix.de, netdev@vger.kernel.org,
+	linux-renesas-soc@vger.kernel.org, kernel@pengutronix.de
+To: geert@linux-m68k.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdV=MsCUzuGJ76jWaw7kmMm7o1c3Dvpn50rCaJ2a7wS2iw@mail.gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhpcyBpcyBhIHNldCBvZiBwYXRjaGVzIHRvIGFkZHJlc3MgYnVpbGQgd2FybmluZ3MgYW5kIGVy
-cm9ycyB0aGF0IGhhdmUKY29tZSB1cCBpbiBsaW51eC00LjggYnV0IHRoYXQgd29ya2VkIGZpbmUg
-aW4gdjQuNy4gSSd2ZSBhZGRlZCB0aGUKdGlueWNvbmZpZyB3YXJuaW5nIHBhdGNoIGluIHRoZXJl
-IGFzIHdlbGwsIHdoaWNoIGlzIG5vdCBhIHJlZ3Jlc3Npb24KYnV0IGlzIHNvbWV0aGluZyB0aGF0
-IHNob3dzIHVwIGluIHRoZSBrZXJuZWxjaS5vcmcgYnVpbGQgYm90cy4KVGhlIG90aGVyIHBhdGNo
-ZXMgYWRkcmVzcyBpc3N1ZXMgdGhhdCBlaXRoZXIgY2FtZSB1cCBpbiBrZXJuZWxjaS5vcmcKb3Ig
-aW4gbXkgcmFuZGNvbmZpZyB0ZXN0IHNldHVwLgoKSSBoYXZlIHRocmVlIG1vcmUgZml4ZXMgcXVl
-dWVkIHVwIGluIGFybS1zb2MvZml4ZXMgdGhhdCBJIHBsYW4KdG8gc2VuZCBhcyBhIHB1bGwgcmVx
-dWVzdCBmb3IgLXJjMiBhbG9uZyB3aXRoIHRoZSBvdGhlciBidWdmaXhlcy4KCkFsbCBwYXRjaGVz
-IGhhdmUgYmVlbiBwb3N0ZWQgYmVmb3JlLCBidXQgZm9yIHNvbWUgcmVhc29uIG9yIGFub3RoZXIK
-ZmFpbGVkIHRvIG1ha2UgaXQgaW50byB0aGUgbWVyZ2Ugd2luZG93LiBJIGhhdmUgdXBkYXRlZCB0
-aGUgb25lcwp0aGF0IHdlcmUgd2FpdGluZyBmb3IgYSBuZXcgdmVyc2lvbiBmcm9tIG1lIG5vdywg
-dGhlIG90aGVycyBhcmUKc2VudCB3aXRob3V0IG1vZGlmaWNhdGlvbnMuCgpIb3BlZnVsbHkgd2Ug
-Y2FuIGdldCB0aGVtIGFsbCBtZXJnZWQgaW50byB2NC44LiBQbGVhc2UgcGljayB1cApwYXRjaGVz
-IGZyb20gdGhlIG1pZGRsZSBvZiB0aGUgc2VyaWVzIGlmIGFwcHJvcHJpYXRlLgoKCUFybmQKCkFy
-bmQgQmVyZ21hbm4gKDcpOgogIGtjb25maWc6IHRpbnljb25maWc6IHByb3ZpZGUgd2hvbGUgY2hv
-aWNlIGJsb2NrcyB0byBhdm9pZCB3YXJuaW5ncwogIGRzYTogbXY4OGU2eHh4OiBoaWRlIHVudXNl
-ZCBmdW5jdGlvbnMKICBkcm0vbWVkaWF0ZWs6IGFkZCBDT01NT05fQ0xLIGRlcGVuZGVuY3kKICBk
-cm0vbWVkaWF0ZWs6IGFkZCBDT05GSUdfT0YgZGVwZW5kZW5jeQogIGRybS9tZWRpYXRlazogYWRk
-IEFSTV9TTUNDQyBkZXBlbmRlbmN5CiAgY2xvY2tzb3VyY2U6IGtvbmE6IGZpeCBnZXRfY291bnRl
-ciBlcnJvciBoYW5kbGluZwogIDgyNTAvZmludGVrOiByZW5hbWUgSVJRX01PREUgbWFjcm8KCkdl
-ZXJ0IFV5dHRlcmhvZXZlbiAoMSk6CiAgdGVzdC9oYXNoOiBGaXggd2FybmluZyBpbiB0d28tZGlt
-ZW5zaW9uYWwgYXJyYXkgaW5pdAoKR2VvcmdlIFNwZWx2aW4gKDEpOgogIHRlc3QvaGFzaDogRml4
-IHdhcm5pbmcgaW4gcHJlcHJvY2Vzc29yIHN5bWJvbCBldmFsdWF0aW9uCgogYXJjaC94ODYvY29u
-Zmlncy90aW55LmNvbmZpZyAgICAgICAgICB8ICAyICsrCiBkcml2ZXJzL2Nsb2Nrc291cmNlL2Jj
-bV9rb25hX3RpbWVyLmMgIHwgMTYgKysrKysrKysrKy0tLS0tLQogZHJpdmVycy9ncHUvZHJtL21l
-ZGlhdGVrL0tjb25maWcgICAgICB8ICAzICsrKwogZHJpdmVycy9uZXQvZHNhL212ODhlNnh4eC9j
-aGlwLmMgICAgICB8ICAyICsrCiBkcml2ZXJzL3R0eS9zZXJpYWwvODI1MC84MjUwX2ZpbnRlay5j
-IHwgIDQgKystLQoga2VybmVsL2NvbmZpZ3MvdGlueS5jb25maWcgICAgICAgICAgICB8ICA4ICsr
-KysrKysrCiBsaWIvdGVzdF9oYXNoLmMgICAgICAgICAgICAgICAgICAgICAgIHwgIDggKysrKy0t
-LS0KIDcgZmlsZXMgY2hhbmdlZCwgMzEgaW5zZXJ0aW9ucygrKSwgMTIgZGVsZXRpb25zKC0pCgot
-LSAKMi45LjAKCkNjOiBBbmRyZXcgTHVubiA8YW5kcmV3QGx1bm4uY2g+CkNjOiBBbmRyZXcgTW9y
-dG9uIDxha3BtQGxpbnV4LWZvdW5kYXRpb24ub3JnPgpDYzogRGFuaWVsIExlemNhbm8gPGRhbmll
-bC5sZXpjYW5vQGxpbmFyby5vcmc+CkNjOiBEYXZpZCBBaXJsaWUgPGFpcmxpZWRAbGludXguaWU+
-CkNjOiBkcmktZGV2ZWxAbGlzdHMuZnJlZWRlc2t0b3Aub3JnCkNjOiBHZWVydCBVeXR0ZXJob2V2
-ZW4gPGdlZXJ0QGxpbnV4LW02OGsub3JnPgpDYzogR2VvcmdlIFNwZWx2aW4gPGxpbnV4QHNjaWVu
-Y2Vob3Jpem9ucy5uZXQ+CkNjOiBHcmVnIEtyb2FoLUhhcnRtYW4gPGdyZWdraEBsaW51eGZvdW5k
-YXRpb24ub3JnPgpDYzogSmlyaSBTbGFieSA8anNsYWJ5QHN1c2UuY29tPgpDYzogSmktWmUgSG9u
-ZyAoUGV0ZXIgSG9uZykgPGhwZXRlcitsaW51eF9rZXJuZWxAZ21haWwuY29tPgpDYzogSm9zaCBU
-cmlwbGV0dCA8am9zaEBqb3NodHJpcGxldHQub3JnPgpDYzoga2VybmVsLWJ1aWxkLXJlcG9ydHNA
-bGlzdHMubGluYXJvLm9yZwpDYzogbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3Jn
-CkNjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnCkNjOiBNYXNhaGlybyBZYW1hZGEgPHlh
-bWFkYS5tYXNhaGlyb0Bzb2Npb25leHQuY29tPgpDYzogTWF0dGhpYXMgQnJ1Z2dlciA8bWF0dGhp
-YXMuYmdnQGdtYWlsLmNvbT4KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKQ2M6IFBoaWxpcHAg
-WmFiZWwgPHAuemFiZWxAcGVuZ3V0cm9uaXguZGU+CkNjOiBSaWNhcmRvIFJpYmFsZGEgRGVsZ2Fk
-byA8cmljYXJkby5yaWJhbGRhQGdtYWlsLmNvbT4KQ2M6IFRob21hcyBHbGVpeG5lciA8dGdseEBs
-aW51dHJvbml4LmRlPgpDYzogVml2aWVuIERpZGVsb3QgPHZpdmllbi5kaWRlbG90QHNhdm9pcmZh
-aXJlbGludXguY29tPgpDYzogeDg2QGtlcm5lbC5vcmcKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KZHJpLWRldmVsIG1haWxpbmcgbGlzdApkcmktZGV2ZWxA
-bGlzdHMuZnJlZWRlc2t0b3Aub3JnCmh0dHBzOi8vbGlzdHMuZnJlZWRlc2t0b3Aub3JnL21haWxt
-YW4vbGlzdGluZm8vZHJpLWRldmVsCg==
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 10 Aug 2016 12:00:35 +0200
+
+> Hi Uwe,
+> 
+> On Wed, Aug 10, 2016 at 11:44 AM, Uwe Kleine-König
+> <u.kleine-koenig@pengutronix.de> wrote:
+>> ic_close_devs() calls kfree() for all devices's ic_device. Since commit
+>> 2647cffb2bc6 ("net: ipconfig: Support using "delayed" DHCP replies")
+>> the active device's ic_device is still used however to print the
+>> ipconfig summary which results in an oops if the memory is already
+>> changed. So delay freeing until after the autoconfig results are
+>> reported.
+> 
+> Thanks!
+> 
+>> Fixes: 2647cffb2bc6 ("net: ipconfig: Support using "delayed" DHCP replies")
+>> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>> Signed-off-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
+> 
+> Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
+
+Applied, thanks everyone.
