@@ -1,8 +1,8 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH 17/21] net: thunderx: Don't set mac address for secondary Qset
- VFs
-Date: Wed, 10 Aug 2016 12:12:49 +0530
-Message-ID: <1470811373-28277-18-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH 14/21] net: thunderx: Use skb_add_rx_frag() for split buffer
+ Rx pkts
+Date: Wed, 10 Aug 2016 12:12:46 +0530
+Message-ID: <1470811373-28277-15-git-send-email-sunil.kovvuri@gmail.com>
 References: <1470811373-28277-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,40 +25,58 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Set MAC addresses only for primary VF's and don't for
-secondary VFs.
+Instead of a round about way of converting buffers to SKBs and
+combining them into a frag list, use standard skb_add_rx_frag()
+API to merge page fragments. This code is useful when incoming
+packets are of size more than RCV_FRAG_LEN which is currently
+set to 2048bytes.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c   | 2 +-
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 24 ++++++----------------
+ 1 file changed, 6 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 3932c45..167291b 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -174,7 +174,7 @@ static void nic_mbx_send_ready(struct nicpf *nic, int vf)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index ca223aa..ed2fe72 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1184,8 +1184,8 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 	int frag;
+ 	int payload_len = 0;
+ 	struct sk_buff *skb = NULL;
+-	struct sk_buff *skb_frag = NULL;
+-	struct sk_buff *prev_frag = NULL;
++	struct page *page;
++	int offset;
+ 	u16 *rb_lens = NULL;
+ 	u64 *rb_ptrs = NULL;
  
- 	mbx.nic_cfg.tns_mode = NIC_TNS_BYPASS_MODE;
- 
--	if (vf < MAX_LMAC) {
-+	if (vf < nic->num_vf_en) {
- 		bgx_idx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
- 		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
- 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 300416a..4a084ab 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1209,7 +1209,7 @@ int nicvf_open(struct net_device *netdev)
- 	}
- 
- 	/* Check if we got MAC address from PF or else generate a radom MAC */
--	if (is_zero_ether_addr(netdev->dev_addr)) {
-+	if (!nic->sqs_mode && is_zero_ether_addr(netdev->dev_addr)) {
- 		eth_hw_addr_random(netdev);
- 		nicvf_hw_set_mac_addr(nic, netdev);
- 	}
+@@ -1218,22 +1218,10 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 			skb_put(skb, payload_len);
+ 		} else {
+ 			/* Add fragments */
+-			skb_frag = nicvf_rb_ptr_to_skb(nic, *rb_ptrs,
+-						       payload_len);
+-			if (!skb_frag) {
+-				dev_kfree_skb(skb);
+-				return NULL;
+-			}
+-
+-			if (!skb_shinfo(skb)->frag_list)
+-				skb_shinfo(skb)->frag_list = skb_frag;
+-			else
+-				prev_frag->next = skb_frag;
+-
+-			prev_frag = skb_frag;
+-			skb->len += payload_len;
+-			skb->data_len += payload_len;
+-			skb_frag->len = payload_len;
++			page = virt_to_page(phys_to_virt(*rb_ptrs));
++			offset = phys_to_virt(*rb_ptrs) - page_address(page);
++			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
++					offset, payload_len, RCV_FRAG_LEN);
+ 		}
+ 		/* Next buffer pointer */
+ 		rb_ptrs++;
 -- 
 2.7.4
