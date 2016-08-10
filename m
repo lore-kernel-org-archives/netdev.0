@@ -1,89 +1,141 @@
-From: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
-Date: Tue, 9 Aug 2016 20:09:36 -0500
-Message-ID: <57AA7ED0.9000707@codeaurora.org>
-References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
- <9ebb6cb7-c793-cd76-5283-c9a659d0398f@gmx.de>
- <57AA2001.2010904@codeaurora.org>
- <214dcbb7-0c3b-1e00-3e50-db513d77b10b@gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: Allow tun-interfaces as slaves
+Date: Wed, 10 Aug 2016 09:06:06 +0800
+Message-ID: <57AA7DFE.6040503@huawei.com>
+References: <CAD=hENd01nGdvB9GseG+CrWn3f0PXyGgwOmf=+MVAfuW7Hv9Nw@mail.gmail.com>
+ <57A9DA8D.3010407@huawei.com> <20160809180830.GM22974@cork>
+ <20160809.120636.2039586307820412288.davem@davemloft.net>
+ <20160809211058.GP22974@cork> <20075.1470786664@famine>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-	cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	andrew-g2DYL2Zd6BY@public.gmane.org, bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <214dcbb7-0c3b-1e00-3e50-db513d77b10b-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>, <zyjzyj2000@gmail.com>,
+	<andy@greyhouse.net>, <netdev@vger.kernel.org>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	=?UTF-8?Q?J=c3=b6rn_Engel?= <joern@purestorage.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:49041 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932775AbcHJBNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Aug 2016 21:13:01 -0400
+In-Reply-To: <20075.1470786664@famine>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli wrote:
+On 2016/8/10 7:51, Jay Vosburgh wrote:
+> Jörn Engel <joern@purestorage.com> wrote:
+> 
+>> On Tue, Aug 09, 2016 at 12:06:36PM -0700, David Miller wrote:
+>>>> On Tue, Aug 09, 2016 at 09:28:45PM +0800, Ding Tianhong wrote:
+>>>>
+>>>> Simply not checking errors when setting the mac address solves the
+>>>> problem for me.  No new features needed.
+>>>
+>>> But it only works in certain modes.
+>>>
+>>> So the best we can do is enforce the MAC address setting in the
+>>> modes that absolutely require it.  We cannot ignore the MAC
+>>> address setting unilaterally.
+>>
+>> Something like this?
+>>
+>> [PATCH] bonding: Allow tun-interfaces as slaves in balance-rr mode
+>>
+>> Up until 00503b6f702e (part of 3.14-rc1), the bonding driver could be
+>> used to enslave tun-interfaces.  00503b6f702e broke that behaviour,
+>> afaics as an unintended side-effect.
+>>
+>> For the purpose of bond-over-tun in balance-rr mode, simply ignoring the
+>> error from dev_set_mac_address() is good enough.
+>>
+>> Signed-off-by: Joern Engel <joern@purestorage.com>
+>> ---
+>> drivers/net/bonding/bond_main.c | 3 ++-
+>> 1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index 1f276fa30ba6..2f686bfe4304 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1490,7 +1490,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>> 		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+>> 		addr.sa_family = slave_dev->type;
+>> 		res = dev_set_mac_address(slave_dev, &addr);
+>> -		if (res) {
+>> +		/* round-robin mode works fine without a mac address */
+>> +		if (res && BOND_MODE(bond) != BOND_MODE_ROUNDROBIN) {
+> 
+> 	This will cause balance-rr to add the slave to the bond if any
+> device's dev_set_mac_address call fails.
+> 
+> 	If a bond of regular Ethernet devices is connected to a static
+> link aggregation (Etherchannel channel group), a set_mac failure would
+> result in that slave having a different MAC address than the bond, which
+> in turn would cause traffic inbound from the switch to that slave to be
+> dropped (as the destination MAC would not pass the device MAC filters).
+> 
+> 	The failure check for the set_mac call serves a legitimate
+> purpose, and I don't believe we should bypass it without making the
+> bypass an option that is explicitly enabled for those special cases that
+> need it.
+> 
+> 	E.g., something like the following (which I have not tested);
+> this would also need documentation and iproute2 updates to go with it.
+> This would be enabled with "fail_over_mac=keepmac".
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 1f276fa30ba6..d2283fc23b16 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1483,7 +1483,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  	ether_addr_copy(new_slave->perm_hwaddr, slave_dev->dev_addr);
+>  
+>  	if (!bond->params.fail_over_mac ||
+> -	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
+> +	    (BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP &&
+> +	     bond->params.fail_over_mac != BOND_FOM_KEEPMAC)) {
+>  		/* Set slave to master's mac address.  The application already
+>  		 * set the master's mac address to that of the first slave
+>  		 */
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index 577e57cad1dc..f9653fe4d622 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -125,6 +125,7 @@ static const struct bond_opt_value bond_fail_over_mac_tbl[] = {
+>  	{ "none",   BOND_FOM_NONE,   BOND_VALFLAG_DEFAULT},
+>  	{ "active", BOND_FOM_ACTIVE, 0},
+>  	{ "follow", BOND_FOM_FOLLOW, 0},
+> +	{ "keepmac", BOND_FOM_KEEPMAC, 0},
+>  	{ NULL,     -1,              0},
+>  };
+>  
+> diff --git a/include/net/bonding.h b/include/net/bonding.h
+> index 6360c259da6d..ec3442b3aa83 100644
+> --- a/include/net/bonding.h
+> +++ b/include/net/bonding.h
+> @@ -420,6 +420,7 @@ static inline bool bond_slave_can_tx(struct slave *slave)
+>  #define BOND_FOM_NONE			0
+>  #define BOND_FOM_ACTIVE			1
+>  #define BOND_FOM_FOLLOW			2
+> +#define BOND_FOM_KEEPMAC		3
+>  
+>  #define BOND_ARP_TARGETS_ANY		0
+>  #define BOND_ARP_TARGETS_ALL		1
+> 
+> 
+> 	-J
+> 
 
-> nr_frags can't be bigger than MAX_SKB_FRAGS, hence these checks all
-> other drivers do against 1 + MAX_SKB_FRAGS.
+Hi Jay:
 
-Doh, I just realized something.  emac_mac_tx_buf_send() just needs to 
-make sure that there's enough room for ONE skb.  For some reason I 
-thought it had to make sure there's enough room for multiple SKBs.
+It looks the best solution till now, the user need to ensure the slave don't need the same mac
+any more, and no need to checking the ndo_set_mac_address, it looks need more think about this later,
+but let we fix it first.
 
-Now it makes a lot more sense.  Thank you.
+Ding
 
-So it looks like a given SKB can occupy 3 + nr_frags descriptors.  So I 
-need to change that line to:
-
-	if (emac_tpd_num_free_descs(tx_q) < (MAX_SKB_FRAGS + 3))
-		netif_stop_queue(adpt->netdev);
-
-Question, some  drivers do <= instead of just <, like this:
-
-	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
-		netif_tx_stop_queue(txq);
-
-Is it necessary to stop the queue if there exactly enough descriptors to 
-hold an SKB?  Shouldn't the above be this instead:
-
-	if (ring->free_bds < (MAX_SKB_FRAGS + 1))
-		netif_tx_stop_queue(txq);
-
-
->> However, I'm confused about one thing.  Almost every other driver just
->> sets "netdev->mtu = new_mtu" and does nothing else.  I can't find any
->> other driver that actually stops the RX path, reprograms the hardware,
->> and then restarts the RX path.  I know this is a stupid question, but
->> why is my driver doing that?
->
-> Most drivers allocate RX buffer sizes that are usually bigger than the
-> MTU, but would probably silently fail or expose transient behavior once
-> the MTU changes to greater than the size pre-defined.
-
-So it looks like the real problem is a race condition between
-
-	adpt->rxbuf_size = new_mtu > EMAC_DEF_RX_BUF_SIZE ?
-		ALIGN(max_frame, 8) : EMAC_DEF_RX_BUF_SIZE;
-
-and
-
-	if (netif_running(netdev))
-		return emac_reinit_locked(adpt);
-
-
-That is, if the interface is running, I set rxbuf_size.  If suddenly I 
-receive some packets, then the driver will use the wrong buffer size.
-
-Is there an easy way for me to stop the RX path before I set rxbuf_size? 
-  Some netif_xxx function I can call?
-
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+> 	-Jay Vosburgh, jay.vosburgh@canonical.com
+> 
+> .
+> 
