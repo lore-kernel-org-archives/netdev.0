@@ -1,35 +1,112 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH v3 00/13] net: ethernet: ti: cpsw: split driver data and
- per ndev data
-Date: Wed, 10 Aug 2016 19:38:01 +0300
-Message-ID: <ee835c48-4978-10ab-f061-1a77387941a6@ti.com>
-References: <1470784964-26440-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v2] drivers: net: cpsw: fix kmemleak false-positive reports for sk buffers
+Date: Wed, 10 Aug 2016 20:02:53 +0300
+Message-ID: <20160810170253.31825-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<dlide@ti.com>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	<netdev@vger.kernel.org>, <mugunthanvnm@ti.com>
+Content-Type: text/plain
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1470784964-26440-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/10/2016 02:22 AM, Ivan Khoronzhuk wrote:
-> In dual_emac mode the driver can handle 2 network devices. Each of them can use
-> its own private data and common data/resources. This patchset splits common driver
-> data/resources and private per net device data.
-> It leads to:
-> - reduce memory usage
-> - increase code readability
-> - allows add a bunch of simplification
-> - create prerequisites to add multi-channel support,
->   when channels are shared between net devices
->
+Kmemleak reports following false positive memory leaks for each sk
+buffers allocated by CPSW (__netdev_alloc_skb_ip_align()) in
+cpsw_ndo_open() and cpsw_rx_handler():
 
-Reviewed-by: Grygorii Strashko <grygorii.strashko@ti.com>
+unreferenced object 0xea915000 (size 2048):
+  comm "systemd-network", pid 713, jiffies 4294938323 (age 102.180s)
+  hex dump (first 32 bytes):
+    00 58 91 ea ff ff ff ff ff ff ff ff ff ff ff ff  .X..............
+    ff ff ff ff ff ff fd 0f 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<c0108680>] __kmalloc_track_caller+0x1a4/0x230
+    [<c0529eb4>] __alloc_skb+0x68/0x16c
+    [<c052c884>] __netdev_alloc_skb+0x40/0x104
+    [<bf1ad29c>] cpsw_ndo_open+0x374/0x670 [ti_cpsw]
+    [<c053c3d4>] __dev_open+0xb0/0x114
+    [<c053c690>] __dev_change_flags+0x9c/0x14c
+    [<c053c760>] dev_change_flags+0x20/0x50
+    [<c054bdcc>] do_setlink+0x2cc/0x78c
+    [<c054c358>] rtnl_setlink+0xcc/0x100
+    [<c054b34c>] rtnetlink_rcv_msg+0x184/0x224
+    [<c056467c>] netlink_rcv_skb+0xa8/0xc4
+    [<c054b1c0>] rtnetlink_rcv+0x2c/0x34
+    [<c0564018>] netlink_unicast+0x16c/0x1f8
+    [<c0564498>] netlink_sendmsg+0x334/0x348
+    [<c052015c>] sock_sendmsg+0x1c/0x2c
+    [<c05213e0>] SyS_sendto+0xc0/0xe8
 
+unreferenced object 0xec861780 (size 192):
+  comm "softirq", pid 0, jiffies 4294938759 (age 109.540s)
+  hex dump (first 32 bytes):
+    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+    00 00 00 00 00 b0 5a ed 00 00 00 00 00 00 00 00  ......Z.........
+  backtrace:
+    [<c0107830>] kmem_cache_alloc+0x190/0x208
+    [<c052c768>] __build_skb+0x30/0x98
+    [<c052c8fc>] __netdev_alloc_skb+0xb8/0x104
+    [<bf1abc54>] cpsw_rx_handler+0x68/0x1e4 [ti_cpsw]
+    [<bf11aa30>] __cpdma_chan_free+0xa8/0xc4 [davinci_cpdma]
+    [<bf11ab98>] __cpdma_chan_process+0x14c/0x16c [davinci_cpdma]
+    [<bf11abfc>] cpdma_chan_process+0x44/0x5c [davinci_cpdma]
+    [<bf1adc78>] cpsw_rx_poll+0x1c/0x9c [ti_cpsw]
+    [<c0539180>] net_rx_action+0x1f0/0x2ec
+    [<c003881c>] __do_softirq+0x134/0x258
+    [<c0038a00>] do_softirq+0x68/0x70
+    [<c0038adc>] __local_bh_enable_ip+0xd4/0xe8
+    [<c0640994>] _raw_spin_unlock_bh+0x30/0x34
+    [<c05f4e9c>] igmp6_group_added+0x4c/0x1bc
+    [<c05f6600>] ipv6_dev_mc_inc+0x398/0x434
+    [<c05dba74>] addrconf_dad_work+0x224/0x39c
+
+This happens because CPSW allocates SK buffers and then passes
+pointers on them in CPDMA where they stored in internal CPPI RAM
+(SRAM) which belongs to DEV MMIO space. Kmemleak does not scan IO
+memory and so reports memory leaks.
+
+Hence, mark allocated sk buffers as false positive explicitly.
+
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+changes in v2:
+ - comments added 
+
+ drivers/net/ethernet/ti/cpsw.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 0805855..5caef77 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -732,6 +732,11 @@ static void cpsw_rx_handler(void *token, int len, int status)
+ 		netif_receive_skb(skb);
+ 		ndev->stats.rx_bytes += len;
+ 		ndev->stats.rx_packets++;
++		/* SKB pointer will be stored in CPPI RAM (SRAM) which belongs
++		 * to MMIO space, as result false positive memory leak report
++		 * will be generated.
++		 */
++		kmemleak_not_leak(new_skb);
+ 	} else {
+ 		ndev->stats.rx_dropped++;
+ 		new_skb = skb;
+@@ -1323,6 +1328,11 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 				kfree_skb(skb);
+ 				goto err_cleanup;
+ 			}
++			/* SKB pointer will be stored in CPPI RAM (SRAM) which
++			 * belongs to MMIO space, as result false positive
++			 * memory leak report will be generated.
++			 */
++			kmemleak_not_leak(skb);
+ 		}
+ 		/* continue even if we didn't manage to submit all
+ 		 * receive descs
 -- 
-regards,
--grygorii
+2.9.2
