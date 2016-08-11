@@ -1,126 +1,50 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH] net: ethernet: mediatek: enhance the locking using the
- lightweight ones
-Date: Thu, 11 Aug 2016 16:28:40 +0200
-Message-ID: <d2456ca1-189e-3440-9f3b-6646fcbd82e5@phrozen.org>
-References: <1470909060-27976-1-git-send-email-sean.wang@mediatek.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 11 Aug 2016 10:10:45 -0500
+Message-ID: <57AC9575.3040204@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <9ebb6cb7-c793-cd76-5283-c9a659d0398f@gmx.de>
+ <57AA2001.2010904@codeaurora.org>
+ <214dcbb7-0c3b-1e00-3e50-db513d77b10b@gmail.com>
+ <57AA7ED0.9000707@codeaurora.org>
+ <85b76eca-5473-6724-0c9d-7b6fa7677f50@gmail.com>
+ <57AB589D.3010509@codeaurora.org>
+ <0da01875-b55a-c0fd-bd5f-05bb41fbd7fc@gmail.com>
+ <57AC8A3D.3010208@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: keyhaede@gmail.com, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, davem@davemloft.net,
-	Felix Fietkau <nbd@nbd.name>
-To: sean.wang@mediatek.com
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:46184 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752345AbcHKO2u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2016 10:28:50 -0400
-In-Reply-To: <1470909060-27976-1-git-send-email-sean.wang@mediatek.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:36231 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611AbcHKPKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 11:10:49 -0400
+In-Reply-To: <57AC8A3D.3010208@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Timur Tabi wrote:
+>
+> The hang occurs with this loop in napi_disable():
+>
+>      while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
+>          msleep(1);
+>
+> This loop never exits.  Can you give me a clue as to what could be the
+> reason?
 
+I figured it out.  I cannot call napi_disable() twice in a row.  It's 
+not smart enough to know that NAPI is already disabled.
 
-On 11/08/2016 11:51, sean.wang@mediatek.com wrote:
-> From: Sean Wang <sean.wang@mediatek.com>
-> 
-> Since these critical sections protected by page_lock are all entered
-> from the user context or bottom half context, they can be replaced
-> with the spin_lock() or spin_lock_bh instead of spin_lock_irqsave().
-> 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-
-I gave this a quick spin on my board and it worked fine
-
-Acked-by: John Crispin <john@phrozen.org>
-
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c |   19 ++++++++-----------
->  1 file changed, 8 insertions(+), 11 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index b57ae3a..3a4726e 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -353,18 +353,17 @@ static int mtk_set_mac_address(struct net_device *dev, void *p)
->  	int ret = eth_mac_addr(dev, p);
->  	struct mtk_mac *mac = netdev_priv(dev);
->  	const char *macaddr = dev->dev_addr;
-> -	unsigned long flags;
->  
->  	if (ret)
->  		return ret;
->  
-> -	spin_lock_irqsave(&mac->hw->page_lock, flags);
-> +	spin_lock_bh(&mac->hw->page_lock);
->  	mtk_w32(mac->hw, (macaddr[0] << 8) | macaddr[1],
->  		MTK_GDMA_MAC_ADRH(mac->id));
->  	mtk_w32(mac->hw, (macaddr[2] << 24) | (macaddr[3] << 16) |
->  		(macaddr[4] << 8) | macaddr[5],
->  		MTK_GDMA_MAC_ADRL(mac->id));
-> -	spin_unlock_irqrestore(&mac->hw->page_lock, flags);
-> +	spin_unlock_bh(&mac->hw->page_lock);
->  
->  	return 0;
->  }
-> @@ -748,7 +747,6 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	struct mtk_eth *eth = mac->hw;
->  	struct mtk_tx_ring *ring = &eth->tx_ring;
->  	struct net_device_stats *stats = &dev->stats;
-> -	unsigned long flags;
->  	bool gso = false;
->  	int tx_num;
->  
-> @@ -756,14 +754,14 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	 * however we have 2 queues running on the same ring so we need to lock
->  	 * the ring access
->  	 */
-> -	spin_lock_irqsave(&eth->page_lock, flags);
-> +	spin_lock(&eth->page_lock);
->  
->  	tx_num = mtk_cal_txd_req(skb);
->  	if (unlikely(atomic_read(&ring->free_count) <= tx_num)) {
->  		mtk_stop_queue(eth);
->  		netif_err(eth, tx_queued, dev,
->  			  "Tx Ring full when queue awake!\n");
-> -		spin_unlock_irqrestore(&eth->page_lock, flags);
-> +		spin_unlock(&eth->page_lock);
->  		return NETDEV_TX_BUSY;
->  	}
->  
-> @@ -788,12 +786,12 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh))
->  		mtk_stop_queue(eth);
->  
-> -	spin_unlock_irqrestore(&eth->page_lock, flags);
-> +	spin_unlock(&eth->page_lock);
->  
->  	return NETDEV_TX_OK;
->  
->  drop:
-> -	spin_unlock_irqrestore(&eth->page_lock, flags);
-> +	spin_unlock(&eth->page_lock);
->  	stats->tx_dropped++;
->  	dev_kfree_skb(skb);
->  	return NETDEV_TX_OK;
-> @@ -1347,16 +1345,15 @@ static int mtk_open(struct net_device *dev)
->  
->  static void mtk_stop_dma(struct mtk_eth *eth, u32 glo_cfg)
->  {
-> -	unsigned long flags;
->  	u32 val;
->  	int i;
->  
->  	/* stop the dma engine */
-> -	spin_lock_irqsave(&eth->page_lock, flags);
-> +	spin_lock_bh(&eth->page_lock);
->  	val = mtk_r32(eth, glo_cfg);
->  	mtk_w32(eth, val & ~(MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN),
->  		glo_cfg);
-> -	spin_unlock_irqrestore(&eth->page_lock, flags);
-> +	spin_unlock_bh(&eth->page_lock);
->  
->  	/* wait for dma stop */
->  	for (i = 0; i < 10; i++) {
-> 
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
