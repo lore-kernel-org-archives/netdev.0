@@ -1,65 +1,86 @@
-From: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
-Subject: [PATCH 16/16] net: wireless: realtek: rtlwifi: usb: don't print error when allocating urb fails
-Date: Thu, 11 Aug 2016 23:13:08 +0200
-Message-ID: <1470949988-25705-4-git-send-email-wsa-dev@sang-engineering.com>
+From: Wolfram Sang <wsa-dev@sang-engineering.com>
+Subject: [PATCH 15/16] net: wireless: marvell: mwifiex: usb: don't print error when allocating urb fails
+Date: Thu, 11 Aug 2016 23:13:07 +0200
+Message-ID: <1470949988-25705-3-git-send-email-wsa-dev@sang-engineering.com>
 References: <1470949539-25392-1-git-send-email-wsa-dev@sang-engineering.com>
  <1470949988-25705-1-git-send-email-wsa-dev@sang-engineering.com>
-Cc: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1470949988-25705-1-git-send-email-wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Wolfram Sang <wsa-dev@sang-engineering.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux-usb@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.zeus03.de ([194.117.254.33]:56572 "EHLO mail.zeus03.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932748AbcHKVNh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2016 17:13:37 -0400
+In-Reply-To: <1470949988-25705-1-git-send-email-wsa-dev@sang-engineering.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 kmalloc will print enough information in case of failure.
 
-Signed-off-by: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
+Signed-off-by: Wolfram Sang <wsa-dev@sang-engineering.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/usb.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ drivers/net/wireless/marvell/mwifiex/usb.c | 19 ++++---------------
+ 1 file changed, 4 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/usb.c b/drivers/net/wireless/realtek/rtlwifi/usb.c
-index 41617b7b082260..32aa5c1d070a07 100644
---- a/drivers/net/wireless/realtek/rtlwifi/usb.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/usb.c
-@@ -739,11 +739,8 @@ static int _rtl_usb_receive(struct ieee80211_hw *hw)
- 	for (i = 0; i < rtlusb->rx_urb_num; i++) {
- 		err = -ENOMEM;
- 		urb = usb_alloc_urb(0, GFP_KERNEL);
--		if (!urb) {
--			RT_TRACE(rtlpriv, COMP_USB, DBG_EMERG,
--				 "Failed to alloc URB!!\n");
-+		if (!urb)
- 			goto err_out;
--		}
+diff --git a/drivers/net/wireless/marvell/mwifiex/usb.c b/drivers/net/wireless/marvell/mwifiex/usb.c
+index 0857575c5c39fe..3bd04f52f36988 100644
+--- a/drivers/net/wireless/marvell/mwifiex/usb.c
++++ b/drivers/net/wireless/marvell/mwifiex/usb.c
+@@ -657,11 +657,8 @@ static int mwifiex_usb_tx_init(struct mwifiex_adapter *adapter)
+ 	card->tx_cmd.ep = card->tx_cmd_ep;
  
- 		err = _rtl_prep_rx_urb(hw, rtlusb, urb, GFP_KERNEL);
- 		if (err < 0) {
-@@ -907,15 +904,12 @@ static void _rtl_tx_complete(struct urb *urb)
- static struct urb *_rtl_usb_tx_urb_setup(struct ieee80211_hw *hw,
- 				struct sk_buff *skb, u32 ep_num)
- {
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct rtl_usb *rtlusb = rtl_usbdev(rtl_usbpriv(hw));
- 	struct urb *_urb;
+ 	card->tx_cmd.urb = usb_alloc_urb(0, GFP_KERNEL);
+-	if (!card->tx_cmd.urb) {
+-		mwifiex_dbg(adapter, ERROR,
+-			    "tx_cmd.urb allocation failed\n");
++	if (!card->tx_cmd.urb)
+ 		return -ENOMEM;
+-	}
  
- 	WARN_ON(NULL == skb);
- 	_urb = usb_alloc_urb(0, GFP_ATOMIC);
- 	if (!_urb) {
--		RT_TRACE(rtlpriv, COMP_USB, DBG_EMERG,
--			 "Can't allocate URB for bulk out!\n");
- 		kfree_skb(skb);
- 		return NULL;
+ 	for (i = 0; i < MWIFIEX_TX_DATA_PORT; i++) {
+ 		port = &card->port[i];
+@@ -677,11 +674,8 @@ static int mwifiex_usb_tx_init(struct mwifiex_adapter *adapter)
+ 			port->tx_data_list[j].ep = port->tx_data_ep;
+ 			port->tx_data_list[j].urb =
+ 					usb_alloc_urb(0, GFP_KERNEL);
+-			if (!port->tx_data_list[j].urb) {
+-				mwifiex_dbg(adapter, ERROR,
+-					    "urb allocation failed\n");
++			if (!port->tx_data_list[j].urb)
+ 				return -ENOMEM;
+-			}
+ 		}
  	}
+ 
+@@ -697,10 +691,8 @@ static int mwifiex_usb_rx_init(struct mwifiex_adapter *adapter)
+ 	card->rx_cmd.ep = card->rx_cmd_ep;
+ 
+ 	card->rx_cmd.urb = usb_alloc_urb(0, GFP_KERNEL);
+-	if (!card->rx_cmd.urb) {
+-		mwifiex_dbg(adapter, ERROR, "rx_cmd.urb allocation failed\n");
++	if (!card->rx_cmd.urb)
+ 		return -ENOMEM;
+-	}
+ 
+ 	card->rx_cmd.skb = dev_alloc_skb(MWIFIEX_RX_CMD_BUF_SIZE);
+ 	if (!card->rx_cmd.skb)
+@@ -714,11 +706,8 @@ static int mwifiex_usb_rx_init(struct mwifiex_adapter *adapter)
+ 		card->rx_data_list[i].ep = card->rx_data_ep;
+ 
+ 		card->rx_data_list[i].urb = usb_alloc_urb(0, GFP_KERNEL);
+-		if (!card->rx_data_list[i].urb) {
+-			mwifiex_dbg(adapter, ERROR,
+-				    "rx_data_list[] urb allocation failed\n");
++		if (!card->rx_data_list[i].urb)
+ 			return -1;
+-		}
+ 		if (mwifiex_usb_submit_rx_urb(&card->rx_data_list[i],
+ 					      MWIFIEX_RX_DATA_BUF_SIZE))
+ 			return -1;
 -- 
 2.8.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
