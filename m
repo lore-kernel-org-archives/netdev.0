@@ -1,34 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] openvswitch: do not ignore netdev errors when creating
- tunnel vports
-Date: Wed, 10 Aug 2016 23:14:04 -0700 (PDT)
-Message-ID: <20160810.231404.72331184301113017.davem@davemloft.net>
-References: <20160809152450.6626-1-martynas@weave.works>
+From: Philipp Zabel <p.zabel@pengutronix.de>
+Subject: Re: [PATCH 0/9] v4.8 build regressions
+Date: Thu, 11 Aug 2016 08:38:54 +0200
+Message-ID: <1470897534.2493.8.camel@pengutronix.de>
+References: <20160810215424.1926658-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, dev@openvswitch.org
-To: martynas@weave.works
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43328 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbcHKGOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 02:14:05 -0400
-In-Reply-To: <20160809152450.6626-1-martynas@weave.works>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew@lunn.ch>, x86@kernel.org,
+ kernel-build-reports@lists.linaro.org,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Daniel Lezcano <daniel.lezcano@linaro.org>,
+ Josh Triplett <josh@joshtriplett.org>, dri-devel@lists.freedesktop.org,
+ linux-kernel@vger.kernel.org, Masahiro Yamada <yamada.masahiro@socionext.com>,
+ netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>,
+ George Spelvin <linux@sciencehorizons.net>, Jiri Slaby <jslaby@suse.com>,
+ Matthias Brugger <matthias.bgg@gmail.com>,
+ Ji-Ze Hong <hpeter+linux_kernel@gmail.com>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+ Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20160810215424.1926658-1-arnd@arndb.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-From: Martynas Pumputis <martynas@weave.works>
-Date: Tue,  9 Aug 2016 16:24:50 +0100
-
-> The creation of a tunnel vport (geneve, gre, vxlan) brings up a
-> corresponding netdev, a multi-step operation which can fail.
-> 
-> For example, changing a vxlan vport's netdev state to 'up' binds the
-> vport's socket to a UDP port - if the binding fails (e.g. due to the
-> port being in use), the error is currently ignored giving the
-> appearance that the tunnel vport creation completed successfully.
-> 
-> Signed-off-by: Martynas Pumputis <martynas@weave.works>
-
-Applied.
+QW0gTWl0dHdvY2gsIGRlbiAxMC4wOC4yMDE2LCAyMzo1NCArMDIwMCBzY2hyaWViIEFybmQgQmVy
+Z21hbm46Cj4gVGhpcyBpcyBhIHNldCBvZiBwYXRjaGVzIHRvIGFkZHJlc3MgYnVpbGQgd2Fybmlu
+Z3MgYW5kIGVycm9ycyB0aGF0IGhhdmUKPiBjb21lIHVwIGluIGxpbnV4LTQuOCBidXQgdGhhdCB3
+b3JrZWQgZmluZSBpbiB2NC43LiBJJ3ZlIGFkZGVkIHRoZQo+IHRpbnljb25maWcgd2FybmluZyBw
+YXRjaCBpbiB0aGVyZSBhcyB3ZWxsLCB3aGljaCBpcyBub3QgYSByZWdyZXNzaW9uCj4gYnV0IGlz
+IHNvbWV0aGluZyB0aGF0IHNob3dzIHVwIGluIHRoZSBrZXJuZWxjaS5vcmcgYnVpbGQgYm90cy4K
+PiBUaGUgb3RoZXIgcGF0Y2hlcyBhZGRyZXNzIGlzc3VlcyB0aGF0IGVpdGhlciBjYW1lIHVwIGlu
+IGtlcm5lbGNpLm9yZwo+IG9yIGluIG15IHJhbmRjb25maWcgdGVzdCBzZXR1cC4KPiAKPiBJIGhh
+dmUgdGhyZWUgbW9yZSBmaXhlcyBxdWV1ZWQgdXAgaW4gYXJtLXNvYy9maXhlcyB0aGF0IEkgcGxh
+bgo+IHRvIHNlbmQgYXMgYSBwdWxsIHJlcXVlc3QgZm9yIC1yYzIgYWxvbmcgd2l0aCB0aGUgb3Ro
+ZXIgYnVnZml4ZXMuCj4gCj4gQWxsIHBhdGNoZXMgaGF2ZSBiZWVuIHBvc3RlZCBiZWZvcmUsIGJ1
+dCBmb3Igc29tZSByZWFzb24gb3IgYW5vdGhlcgo+IGZhaWxlZCB0byBtYWtlIGl0IGludG8gdGhl
+IG1lcmdlIHdpbmRvdy4gSSBoYXZlIHVwZGF0ZWQgdGhlIG9uZXMKPiB0aGF0IHdlcmUgd2FpdGlu
+ZyBmb3IgYSBuZXcgdmVyc2lvbiBmcm9tIG1lIG5vdywgdGhlIG90aGVycyBhcmUKPiBzZW50IHdp
+dGhvdXQgbW9kaWZpY2F0aW9ucy4KPiAKPiBIb3BlZnVsbHkgd2UgY2FuIGdldCB0aGVtIGFsbCBt
+ZXJnZWQgaW50byB2NC44LiBQbGVhc2UgcGljayB1cAo+IHBhdGNoZXMgZnJvbSB0aGUgbWlkZGxl
+IG9mIHRoZSBzZXJpZXMgaWYgYXBwcm9wcmlhdGUuCj4gCj4gCUFybmQKPiAKPiBBcm5kIEJlcmdt
+YW5uICg3KToKPiAgIGtjb25maWc6IHRpbnljb25maWc6IHByb3ZpZGUgd2hvbGUgY2hvaWNlIGJs
+b2NrcyB0byBhdm9pZCB3YXJuaW5ncwo+ICAgZHNhOiBtdjg4ZTZ4eHg6IGhpZGUgdW51c2VkIGZ1
+bmN0aW9ucwo+ICAgZHJtL21lZGlhdGVrOiBhZGQgQ09NTU9OX0NMSyBkZXBlbmRlbmN5Cj4gICBk
+cm0vbWVkaWF0ZWs6IGFkZCBDT05GSUdfT0YgZGVwZW5kZW5jeQo+ICAgZHJtL21lZGlhdGVrOiBh
+ZGQgQVJNX1NNQ0NDIGRlcGVuZGVuY3kKCkkgaGF2ZSBwaWNrZWQgdXAgdGhlIHRocmVlIGRybS9t
+ZWRpYXRlayBwYXRjaGVzLgoKcmVnYXJkcwpQaGlsaXBwCgo+ICAgY2xvY2tzb3VyY2U6IGtvbmE6
+IGZpeCBnZXRfY291bnRlciBlcnJvciBoYW5kbGluZwo+ICAgODI1MC9maW50ZWs6IHJlbmFtZSBJ
+UlFfTU9ERSBtYWNybwo+IAo+IEdlZXJ0IFV5dHRlcmhvZXZlbiAoMSk6Cj4gICB0ZXN0L2hhc2g6
+IEZpeCB3YXJuaW5nIGluIHR3by1kaW1lbnNpb25hbCBhcnJheSBpbml0Cj4gCj4gR2VvcmdlIFNw
+ZWx2aW4gKDEpOgo+ICAgdGVzdC9oYXNoOiBGaXggd2FybmluZyBpbiBwcmVwcm9jZXNzb3Igc3lt
+Ym9sIGV2YWx1YXRpb24KPiAKPiAgYXJjaC94ODYvY29uZmlncy90aW55LmNvbmZpZyAgICAgICAg
+ICB8ICAyICsrCj4gIGRyaXZlcnMvY2xvY2tzb3VyY2UvYmNtX2tvbmFfdGltZXIuYyAgfCAxNiAr
+KysrKysrKysrLS0tLS0tCj4gIGRyaXZlcnMvZ3B1L2RybS9tZWRpYXRlay9LY29uZmlnICAgICAg
+fCAgMyArKysKPiAgZHJpdmVycy9uZXQvZHNhL212ODhlNnh4eC9jaGlwLmMgICAgICB8ICAyICsr
+Cj4gIGRyaXZlcnMvdHR5L3NlcmlhbC84MjUwLzgyNTBfZmludGVrLmMgfCAgNCArKy0tCj4gIGtl
+cm5lbC9jb25maWdzL3RpbnkuY29uZmlnICAgICAgICAgICAgfCAgOCArKysrKysrKwo+ICBsaWIv
+dGVzdF9oYXNoLmMgICAgICAgICAgICAgICAgICAgICAgIHwgIDggKysrKy0tLS0KPiAgNyBmaWxl
+cyBjaGFuZ2VkLCAzMSBpbnNlcnRpb25zKCspLCAxMiBkZWxldGlvbnMoLSkKCgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBs
+aXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVz
+a3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
