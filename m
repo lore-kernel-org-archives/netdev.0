@@ -1,17 +1,17 @@
 From: "Shougang Group Co. Ltd" <jmm@xanum.uam.mx>
 Subject: Logistic Officer Needed Urgently
-Date: Thu, 11 Aug 2016 02:33:49 -0500
-Message-ID: <20160811073330.M79112@xanum.uam.mx>
+Date: Thu, 11 Aug 2016 02:42:50 -0500
+Message-ID: <20160811074128.M48728@xanum.uam.mx>
 Reply-To: zhujimin20@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=iso-8859-1
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.izt.uam.mx ([148.206.32.74]:53654 "EHLO
+Received: from correo.izt.uam.mx ([148.206.32.74]:37160 "EHLO
 	correo.izt.uam.mx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932388AbcHKHfT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 03:35:19 -0400
+	with ESMTP id S932309AbcHKHqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 03:46:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
