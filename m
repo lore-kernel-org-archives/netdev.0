@@ -1,59 +1,45 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: fix a success return may hide an error
-Date: Thu, 11 Aug 2016 11:36:28 -0400
-Message-ID: <20160811153628.GA6646@hmsreliant.think-freely.org>
-References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net 1/4] hv_netvsc: don't lose VF information
+Date: Thu, 11 Aug 2016 15:38:05 +0000
+Message-ID: <DM5PR03MB2538CF7A32AD65F437634039CA1E0@DM5PR03MB2538.namprd03.prod.outlook.com>
+References: <1470913137-29167-1-git-send-email-vkuznets@redhat.com>
+ <1470913137-29167-2-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	davem@davemloft.net,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:40594 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932190AbcHKPhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 11:37:05 -0400
-Content-Disposition: inline
-In-Reply-To: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1470913137-29167-2-git-send-email-vkuznets@redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 11, 2016 at 08:52:58PM +0800, Xin Long wrote:
-> Now in the end of sctp_outq_flush, sctp calls sctp_packet_transmit
-> in a loop. The return of current sctp_packet_transmit always covers
-> the prior one's. If the last call of sctp_packet_transmit return a
-> success, it may hide the error that returns from the prior call.
+
+
+> -----Original Message-----
+> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+> Sent: Thursday, August 11, 2016 6:59 AM
+> To: netdev@vger.kernel.org
+> Cc: devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; Haiyang
+> Zhang <haiyangz@microsoft.com>; KY Srinivasan <kys@microsoft.com>
+> Subject: [PATCH net 1/4] hv_netvsc: don't lose VF information
 > 
-> This patch is to fix this by keeping the old error until the new
-> error returns from sctp_packet_transmit. Did TAHI test against this
-> fix, no regression is found.
+> struct netvsc_device is not suitable for storing VF information as this
+> structure is being destroyed on MTU change / set channel operation (see
+> rndis_filter_device_remove()). Move all VF related stuff to struct
+> net_device_context which is persistent.
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/outqueue.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 72e54a4..b97c8ad 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1193,7 +1193,7 @@ sctp_flush_out:
->  						      send_ready);
->  		packet = &t->packet;
->  		if (!sctp_packet_empty(packet))
-> -			error = sctp_packet_transmit(packet, gfp);
-> +			error = sctp_packet_transmit(packet, gfp) ? : error;
->  
->  		/* Clear the burst limited state, if any */
->  		sctp_transport_burst_reset(t);
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
