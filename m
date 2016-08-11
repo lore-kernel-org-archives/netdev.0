@@ -1,56 +1,87 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v2 2/3] mac80211: mesh: improve path resolving time
-Date: Thu, 11 Aug 2016 15:22:12 +0200
-Message-ID: <1470921732.12075.18.camel@sipsolutions.net>
-References: <20160713114528.24835-1-yanivma@ti.com>
-	 <20160719123648.GC11996@localhost> (sfid-20160719_143659_093323_398D42D9)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, Maital Hahn <maitalm@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Bob Copeland <me@bobcopeland.com>, Yaniv Machani <yanivma@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160719123648.GC11996@localhost> (sfid-20160719_143659_093323_398D42D9)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] macsec: use after free when deleting the underlying device
+Date: Thu, 11 Aug 2016 15:24:27 +0200
+Message-ID: <33fb7087b1e258144cc5d2ab155ecf11a8f410bb.1470921449.git.sd@queasysnail.net>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42858 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751839AbcHKNYk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2016 09:24:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-07-19 at 08:36 -0400, Bob Copeland wrote:
-> On Wed, Jul 13, 2016 at 02:45:25PM +0300, Yaniv Machani wrote:
-> > 
-> > When a packet is received for transmission,
-> > a PREQ frame is sent to resolve the appropriate path to the desired
-> > destination.
-> > After path was established, any sequential PREQ will be sent only
-> > after
-> > dot11MeshHWMPpreqMinInterval, which usually set to few seconds.
-> > 
-> > This implementation has an impact in cases where we would like to
-> > resolve the path quickly.
-> > A clear example is when a peer was disconnected from us,
-> > while he acted as a hop to our destination.
-> > Although the path table will be cleared, the next PREQ frame will
-> > be sent only after reaching the MinInterval.
-> > This will cause unwanted delay, possibly of few seconds until the
-> > traffic will resume.
-> > 
-> >  	if (!(mpath->flags & MESH_PATH_RESOLVING))
-> > -		mesh_queue_preq(mpath, PREQ_Q_F_START);
-> > +		mesh_queue_preq(mpath, PREQ_Q_F_START, true);
-> 
-> What about something like this here instead:
-> 
->     if (!(mpath->flags & MESH_PATH_RESOLVING)) {
->         /* force next preq to be sent without delay */
->         ifmsh->last_preq = jiffies - min_preq_int_jiff(sdata) - 1;
->         mesh_queue_preq(mpath, PREQ_Q_F_START);
->     }
-> 
+macsec_notify() loops over the list of macsec devices configured on the
+underlying device when this device is being removed.  This list is part
+of the rx_handler data.
 
-Yaniv, did you disagree with this for some strong reason, or were you
-going to resend?
+However, macsec_dellink unregisters the rx_handler and frees the
+rx_handler data when the last macsec device is removed from the
+underlying device.
 
-Having a smaller patch seems nicer too.
+Add macsec_common_dellink() to delete macsec devices without
+unregistering the rx_handler and freeing the associated data.
 
-johannes
+Fixes: 960d5848dbf1 ("macsec: fix memory leaks around rx_handler (un)registration")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ drivers/net/macsec.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index d13e6e15d7b5..dbd590a8177f 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -3047,22 +3047,29 @@ static void macsec_del_dev(struct macsec_dev *macsec)
+ 	}
+ }
+ 
++static void macsec_common_dellink(struct net_device *dev, struct list_head *head)
++{
++	struct macsec_dev *macsec = macsec_priv(dev);
++
++	unregister_netdevice_queue(dev, head);
++	list_del_rcu(&macsec->secys);
++	macsec_del_dev(macsec);
++
++	macsec_generation++;
++}
++
+ static void macsec_dellink(struct net_device *dev, struct list_head *head)
+ {
+ 	struct macsec_dev *macsec = macsec_priv(dev);
+ 	struct net_device *real_dev = macsec->real_dev;
+ 	struct macsec_rxh_data *rxd = macsec_data_rtnl(real_dev);
+ 
+-	macsec_generation++;
++	macsec_common_dellink(dev, head);
+ 
+-	unregister_netdevice_queue(dev, head);
+-	list_del_rcu(&macsec->secys);
+ 	if (list_empty(&rxd->secys)) {
+ 		netdev_rx_handler_unregister(real_dev);
+ 		kfree(rxd);
+ 	}
+-
+-	macsec_del_dev(macsec);
+ }
+ 
+ static int register_macsec_dev(struct net_device *real_dev,
+@@ -3382,8 +3389,12 @@ static int macsec_notify(struct notifier_block *this, unsigned long event,
+ 
+ 		rxd = macsec_data_rtnl(real_dev);
+ 		list_for_each_entry_safe(m, n, &rxd->secys, secys) {
+-			macsec_dellink(m->secy.netdev, &head);
++			macsec_common_dellink(m->secy.netdev, &head);
+ 		}
++
++		netdev_rx_handler_unregister(real_dev);
++		kfree(rxd);
++
+ 		unregister_netdevice_many(&head);
+ 		break;
+ 	}
+-- 
+2.9.2
