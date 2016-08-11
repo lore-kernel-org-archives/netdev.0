@@ -1,9 +1,9 @@
 From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net 1/4] hv_netvsc: don't lose VF information
-Date: Thu, 11 Aug 2016 15:38:05 +0000
-Message-ID: <DM5PR03MB2538CF7A32AD65F437634039CA1E0@DM5PR03MB2538.namprd03.prod.outlook.com>
+Subject: RE: [PATCH net 2/4] hv_netvsc: reset vf_inject on VF removal
+Date: Thu, 11 Aug 2016 15:38:06 +0000
+Message-ID: <DM5PR03MB253861AD422102B2D9F7DCC3CA1E0@DM5PR03MB2538.namprd03.prod.outlook.com>
 References: <1470913137-29167-1-git-send-email-vkuznets@redhat.com>
- <1470913137-29167-2-git-send-email-vkuznets@redhat.com>
+ <1470913137-29167-3-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
 To: Vitaly Kuznetsov <vkuznets@redhat.com>, "netdev@vger.kernel.org"
  <netdev@vger.kernel.org>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1470913137-29167-2-git-send-email-vkuznets@redhat.com>
+In-Reply-To: <1470913137-29167-3-git-send-email-vkuznets@redhat.com>
 Content-Language: en-US
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
@@ -33,12 +33,12 @@ List-Id: netdev.vger.kernel.org
 > To: netdev@vger.kernel.org
 > Cc: devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; Haiyang
 > Zhang <haiyangz@microsoft.com>; KY Srinivasan <kys@microsoft.com>
-> Subject: [PATCH net 1/4] hv_netvsc: don't lose VF information
+> Subject: [PATCH net 2/4] hv_netvsc: reset vf_inject on VF removal
 > 
-> struct netvsc_device is not suitable for storing VF information as this
-> structure is being destroyed on MTU change / set channel operation (see
-> rndis_filter_device_remove()). Move all VF related stuff to struct
-> net_device_context which is persistent.
+> We reset vf_inject on VF going down (netvsc_vf_down()) but we don't on
+> VF removal (netvsc_unregister_vf()) so vf_inject stays 'true' while
+> vf_netdev is already NULL and we're trying to inject packets into NULL
+> net device in netvsc_recv_callback() causing kernel to crash.
 > 
 > Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 
