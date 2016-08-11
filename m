@@ -1,66 +1,121 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, allow segmentation for gre tunneled skbs
-Date: Thu, 11 Aug 2016 22:41:32 +0300
-Message-ID: <20160811224132.7a17f0c3@halley>
-References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
-	<20160810.173511.968926810628735179.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: wenxu@ucloud.cn, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	wenx05124561@163.com, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net v2] ibmveth: Disable tx queue while changing mtu
+Date: Thu, 11 Aug 2016 15:01:19 -0500
+Message-ID: <1470945679-29133-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: jstancek@redhat.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33733 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115AbcHKTlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 15:41:45 -0400
-Received: by mail-wm0-f65.google.com with SMTP id o80so1150788wme.0
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 12:41:45 -0700 (PDT)
-In-Reply-To: <20160810.173511.968926810628735179.davem@davemloft.net>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:3837 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932273AbcHKUB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 16:01:28 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u7BJxXTf137794
+	for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 16:01:27 -0400
+Received: from e34.co.us.ibm.com (e34.co.us.ibm.com [32.97.110.152])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 24ru3052hy-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 16:01:26 -0400
+Received: from localhost
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Thu, 11 Aug 2016 14:01:26 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 10 Aug 2016 17:35:11 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
-> > commit b8247f095edd ("net: ip_finish_output_gso: If skb_gso_network_seglen
-> > exceeds MTU, allow segmentation for local udp tunneled skbs")
-> > 
-> > Given:
-> >      - tap0 and ovs-gre
-> >      - ovs-gre stacked on eth0, eth0 having the small mtu
-> > 
-> > After encapsulation these skbs have skb_gso_network_seglen that exceed
-> > eth0's ip_skb_dst_mtu. So the finnal each segment would be larger than
-> > eth0 mtu. These packets maybe dropped.
-> > 
-> > It has the same problem if tap0 bridge with ipgre or gretap device. So
-> > the IPSKB_FRAG_SEGS flags should also be set in gre tunneled skbs.
-> > 
-> > Signed-off-by: wenxu <wenxu@ucloud.cn>  
-> 
-> I am rather certain that this test is intentionally restricted to
-> UDP tunnel endpoints, because GRE and other tunnel types are PMTU safe.
-> 
-> Hannes and Shmulik?
+If the device is running while the MTU is changed, ibmveth
+is closed and the bounce buffer is freed. If a transmission
+is sent before ibmveth can be reopened, ibmveth_start_xmit
+tries to copy to the null bounce buffer, leading to a kernel
+oops. The proposed solution disables the tx queue until
+ibmveth is restarted.
 
-It was restricted to UDP tun encaps per Hannes' suggestion, in order to
-scope the change, as Hannes hinted gre and ipip are pmtu-safe, see [1].
+The error recovery mechanism is revised to revert back to
+the original MTU configuration in case there is a failure
+when restarting the device.
 
-Glancing at ip_tunnel_xmit() --> tnl_update_pmtu(), they do seem to
-handle PMTU, but - if I understand correctly - only in the !skb_is_gso
-case.
-(since 68c3316311 "v4 GRE: Add TCP segmentation offload for GRE")
+Reported-by: Jan Stancek <jstancek@redhat.com>
+Tested-by: Jan Stancek <jstancek@redhat.com>
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+v2: rewrote error checking mechanism to revert to original MTU 
+configuration on failure in accordance with David Miller's comments
+---
+ drivers/net/ethernet/ibm/ibmveth.c | 43 +++++++++++++++++++++++++-------------
+ 1 file changed, 28 insertions(+), 15 deletions(-)
 
-This is probably due the same hidden assumption that 'gso_size' will be
-suitable for the egress mtu even after encapsulation, which does not
-hold true in some usecases as described in [2].
-
-Therefore it might be that b8247f095edd needs to be augmented for
-non-udp tunnels as well.
-
-Hannes?
-
-[1] http://www.spinics.net/lists/netdev/msg386447.html
-[2] http://www.spinics.net/lists/netdev/msg385776.html
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index ebe6071..e735525 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -1346,6 +1346,8 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
+ 	struct ibmveth_adapter *adapter = netdev_priv(dev);
+ 	struct vio_dev *viodev = adapter->vdev;
+ 	int new_mtu_oh = new_mtu + IBMVETH_BUFF_OH;
++	int old_active_pools[IBMVETH_NUM_BUFF_POOLS];
++	int old_mtu = dev->mtu;
+ 	int i, rc;
+ 	int need_restart = 0;
+ 
+@@ -1361,33 +1363,44 @@ static int ibmveth_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ 	/* Deactivate all the buffer pools so that the next loop can activate
+ 	   only the buffer pools necessary to hold the new MTU */
+-	if (netif_running(adapter->netdev)) {
++	if (netif_running(dev)) {
++		/* save old active pool settings */
++		for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
++			old_active_pools[i] = adapter->rx_buff_pool[i].active;
++		netif_tx_disable(dev);
+ 		need_restart = 1;
+ 		adapter->pool_config = 1;
+-		ibmveth_close(adapter->netdev);
++		ibmveth_close(dev);
+ 		adapter->pool_config = 0;
+ 	}
+ 
+ 	/* Look for an active buffer pool that can hold the new MTU */
+ 	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++) {
+ 		adapter->rx_buff_pool[i].active = 1;
++		if (new_mtu_oh <= adapter->rx_buff_pool[i].buff_size)
++			break;
++	}
+ 
+-		if (new_mtu_oh <= adapter->rx_buff_pool[i].buff_size) {
+-			dev->mtu = new_mtu;
+-			vio_cmo_set_dev_desired(viodev,
+-						ibmveth_get_desired_dma
+-						(viodev));
+-			if (need_restart) {
+-				return ibmveth_open(adapter->netdev);
+-			}
+-			return 0;
+-		}
++	dev->mtu = new_mtu;
++	vio_cmo_set_dev_desired(viodev, ibmveth_get_desired_dma(viodev));
++
++	if (need_restart) {
++		rc = ibmveth_open(dev);
++		if (rc)
++			goto revert_mtu;
+ 	}
+ 
+-	if (need_restart && (rc = ibmveth_open(adapter->netdev)))
+-		return rc;
++	return 0;
+ 
+-	return -EINVAL;
++revert_mtu:
++	/* revert active buffers, mtu, and desired resources */
++	for (i = 0; i < IBMVETH_NUM_BUFF_POOLS; i++)
++		adapter->rx_buff_pool[i].active = old_active_pools[i];
++	dev->mtu = old_mtu;
++	vio_cmo_set_dev_desired(viodev, ibmveth_get_desired_dma(viodev));
++	/* attempt to restart device with original configuration */
++	rc = ibmveth_open(dev);
++	return rc ? rc : -EINVAL;
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-- 
+1.8.3.1
