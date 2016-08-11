@@ -1,54 +1,32 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] macvtap: fix use after free for skb_array during release
-Date: Thu, 11 Aug 2016 18:15:56 +0800
-Message-ID: <1470910556-11872-1-git-send-email-jasowang@redhat.com>
-Cc: borntraeger@de.ibm.com, cornelia.huck@de.ibm.com, mst@redhat.com,
-	Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCHv3 net-next 1/2] cxgb4: Add control net_device for
+ configuring PCIe VF
+Date: Thu, 11 Aug 2016 10:22:03 +0000
+Message-ID: <CO2PR11MB0088B7B0FC2202287F8BD2FE971E0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1470887687-27155-1-git-send-email-hariprasad@chelsio.com>
+ <1470887687-27155-2-git-send-email-hariprasad@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"leedom@chelsio.com" <leedom@chelsio.com>,
+	"nirranjan@chelsio.com" <nirranjan@chelsio.com>
+To: Hariprasad Shenai <hariprasad@chelsio.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46664 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752590AbcHKKQC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2016 06:16:02 -0400
+Received: from mail-co1nam03on0106.outbound.protection.outlook.com ([104.47.40.106]:52512
+	"EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932173AbcHKKh3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 06:37:29 -0400
+In-Reply-To: <1470887687-27155-2-git-send-email-hariprasad@chelsio.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've clean skb_array in macvtap_put_queue() but still try to pop from
-it during macvtap_sock_destruct(). Fix this use after free by moving
-the skb array cleanup to macvtap_sock_destruct() instead.
-
-Fixes: 362899b8725b ("macvtap: switch to use skb array")
-Reported-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-Tested-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvtap.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index a38c0da..070e329 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -275,7 +275,6 @@ static void macvtap_put_queue(struct macvtap_queue *q)
- 	rtnl_unlock();
- 
- 	synchronize_rcu();
--	skb_array_cleanup(&q->skb_array);
- 	sock_put(&q->sk);
- }
- 
-@@ -533,10 +532,8 @@ static void macvtap_sock_write_space(struct sock *sk)
- static void macvtap_sock_destruct(struct sock *sk)
- {
- 	struct macvtap_queue *q = container_of(sk, struct macvtap_queue, sk);
--	struct sk_buff *skb;
- 
--	while ((skb = skb_array_consume(&q->skb_array)) != NULL)
--		kfree_skb(skb);
-+	skb_array_cleanup(&q->skb_array);
- }
- 
- static int macvtap_open(struct inode *inode, struct file *file)
--- 
-2.7.4
+> +	adapter->mbox_log = kzalloc(sizeof(*adapter->mbox_log) +
+> +				    (sizeof(struct mbox_cmd) *
+> +				     T4_OS_LOG_MBOX_CMDS),
+> +				    GFP_KERNEL);
+> +	pi = netdev_priv(netdev);
+You probably want to check mbox_log allocation.
