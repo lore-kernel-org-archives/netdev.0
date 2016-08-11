@@ -1,81 +1,64 @@
-From: Andreas Werner <andreas.werner@men.de>
-Subject: Re: [PATCH RESEND] net: can: Introduce MEN 16Z192-00 CAN controller
- driver
-Date: Thu, 11 Aug 2016 10:58:26 +0200
-Message-ID: <20160811085826.GB25813@awelinux>
-References: <20160726091555.GA26227@awelinux>
- <9487fe77-dbd0-3a64-b648-cf76b897feda@grandegger.com>
- <20160808113938.GA17459@awelinux>
- <456c4f82-6a53-e821-3396-63d413db9eb7@grandegger.com>
- <20160808140546.GA1733@awelinux>
- <808e919b-8643-2113-9fde-001861883abe@grandegger.com>
- <20160809061038.GC1733@awelinux>
- <a0169f54-c8c7-5cf6-b93b-acd4a308a052@hartkopp.net>
- <20160811071458.GA25813@awelinux>
- <1d81436b-4ad2-a34f-e2e1-accde0b16a47@hartkopp.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [REGRESSION] 362899b ("macvtap: switch to use skb array") causes
+ oops during teardown
+Date: Thu, 11 Aug 2016 16:58:44 +0800
+Message-ID: <55867d3a-7668-7a77-ea51-3de76b1b6bda@redhat.com>
+References: <20160810184032.51f5429e.cornelia.huck@de.ibm.com>
+ <c78f4930-dae0-8cde-be6b-8975a1081d6f@redhat.com>
+ <20160811101320.20f03b17.cornelia.huck@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Andreas Werner <andreas.werner@men.de>,
-	Wolfgang Grandegger <wg@grandegger.com>, <mkl@pengutronix.de>,
-	<linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
-	<jthumshirn@suse.de>, <andy@wernerandy.de>,
-	<michael.miehling@men.de>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1d81436b-4ad2-a34f-e2e1-accde0b16a47@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: Cornelia Huck <cornelia.huck@de.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160811101320.20f03b17.cornelia.huck@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 11, 2016 at 10:45:00AM +0200, Oliver Hartkopp wrote:
-> On 08/11/2016 09:14 AM, Andreas Werner wrote:
-> >On Wed, Aug 10, 2016 at 10:28:45PM +0200, Oliver Hartkopp wrote:
-> 
-> >>Just check 'git grep IFF_ECHO'. Even grcan.c and janz-ican3.c have IFF_ECHO
-> >>set - but implement it in a different way without using the provided
-> >>machanism from dev.c .
-> >>
-> >
-> >Ok I am with you.
-> 
-> Great :-)
-> 
-> >>A local loopback inside the CAN controller which is generated after
-> >>successful transmit is an excellent implementation with excellent
-> >>timestamps. The only problem for you is to detect the looped CAN frames and
-> >>match them to the skb pointer of the outgoing frame to 'receive' the correct
-> >>echo skb.
-> >>
-> >
-> >At the moment, i think there is no way to detect those looped frames.
-> >I will talk to our IC designer and discuss this issue with him. Maybe we
-> >have the possibility to get a local loopback inside the CAN controller.
-> >This seems to be the best way to do it.
-> 
-> When you still have the possibility to change the IP core I would suggest to
-> create some kind of 16/32 bit value which you can pass to the CAN controller
-> along with the CAN frame to be sent.
-> 
-> And when this frame comes back due to the loopback you can use this non-zero
-> 16/32 bit value to match into a list of tx skb pointers for IFF_ECHO.
-> 
-> E.g. when this 16/32 bit value is zero this CAN frame obviously was received
-> from another CAN node.
-> 
-> Just an idea.
-> 
 
-I am not sure if we have a way to change the IP but i will try to talk with
-my IC designer. He will be available next week.
 
-Your idea sounds good. I will check a few more driver to get more information
-how they did the implementation.
+On 2016年08月11日 16:13, Cornelia Huck wrote:
+> On Thu, 11 Aug 2016 15:49:12 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> This looks like a use-after-free. Could you pls try the following patch
+>> to see it if fixes your issue?
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index a38c0da..070e329 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -275,7 +275,6 @@ static void macvtap_put_queue(struct macvtap_queue *q)
+>>           rtnl_unlock();
+>>
+>>           synchronize_rcu();
+>> -       skb_array_cleanup(&q->skb_array);
+>>           sock_put(&q->sk);
+>>    }
+>>
+>> @@ -533,10 +532,8 @@ static void macvtap_sock_write_space(struct sock *sk)
+>>    static void macvtap_sock_destruct(struct sock *sk)
+>>    {
+>>           struct macvtap_queue *q = container_of(sk, struct
+>> macvtap_queue, sk);
+>> -       struct sk_buff *skb;
+>>
+>> -       while ((skb = skb_array_consume(&q->skb_array)) != NULL)
+>> -               kfree_skb(skb);
+>> +       skb_array_cleanup(&q->skb_array);
+>>    }
+>>
+>>    static int macvtap_open(struct inode *inode, struct file *file)
+> Yes, that change fixes things for me.
+>
+> Tested-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+>
+> Thanks for the quick reply!
+>
 
-> Regards,
-> Oliver
+Thanks for the testing.
 
-Thanks your comments and explanations Oliver.
-
-Regards
-Andy
+Will send a formal patch shortly.
