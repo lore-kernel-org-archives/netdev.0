@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macvtap: fix use after free for skb_array during
- release
-Date: Thu, 11 Aug 2016 09:56:20 -0700 (PDT)
-Message-ID: <20160811.095620.2209757084053700354.davem@davemloft.net>
-References: <1470910556-11872-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net] macsec: use after free when deleting the
+ underlying device
+Date: Thu, 11 Aug 2016 09:59:13 -0700 (PDT)
+Message-ID: <20160811.095913.971401938578495068.davem@davemloft.net>
+References: <33fb7087b1e258144cc5d2ab155ecf11a8f410bb.1470921449.git.sd@queasysnail.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	borntraeger@de.ibm.com, cornelia.huck@de.ibm.com, mst@redhat.com
-To: jasowang@redhat.com
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46974 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46997 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932489AbcHKQ4W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 12:56:22 -0400
-In-Reply-To: <1470910556-11872-1-git-send-email-jasowang@redhat.com>
+	with ESMTP id S932489AbcHKQ7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 12:59:14 -0400
+In-Reply-To: <33fb7087b1e258144cc5d2ab155ecf11a8f410bb.1470921449.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 11 Aug 2016 18:15:56 +0800
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Thu, 11 Aug 2016 15:24:27 +0200
 
-> We've clean skb_array in macvtap_put_queue() but still try to pop from
-> it during macvtap_sock_destruct(). Fix this use after free by moving
-> the skb array cleanup to macvtap_sock_destruct() instead.
+> macsec_notify() loops over the list of macsec devices configured on the
+> underlying device when this device is being removed.  This list is part
+> of the rx_handler data.
 > 
-> Fixes: 362899b8725b ("macvtap: switch to use skb array")
-> Reported-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Tested-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> However, macsec_dellink unregisters the rx_handler and frees the
+> rx_handler data when the last macsec device is removed from the
+> underlying device.
+> 
+> Add macsec_common_dellink() to delete macsec devices without
+> unregistering the rx_handler and freeing the associated data.
+> 
+> Fixes: 960d5848dbf1 ("macsec: fix memory leaks around rx_handler (un)registration")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Applied, thanks for fixing this so quickly Jason.
+Applied, thanks.
