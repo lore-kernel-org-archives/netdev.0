@@ -1,61 +1,66 @@
 From: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
-Subject: [PATCH 01/16] net: can: usb: ems_usb: don't print error when allocating urb fails
-Date: Thu, 11 Aug 2016 23:05:20 +0200
-Message-ID: <1470949539-25392-2-git-send-email-wsa-dev@sang-engineering.com>
-References: <1470949539-25392-1-git-send-email-wsa-dev@sang-engineering.com>
+Subject: [PATCH 00/16] net: don't print error when allocating urb fails
+Date: Thu, 11 Aug 2016 23:05:19 +0200
+Message-ID: <1470949539-25392-1-git-send-email-wsa-dev@sang-engineering.com>
 Cc: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1470949539-25392-1-git-send-email-wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-kmalloc will print enough information in case of failure.
+This per-subsystem series is part of a tree wide cleanup. usb_alloc_urb() uses
+kmalloc which already prints enough information on failure. So, let's simply
+remove those "allocation failed" messages from drivers like we did already for
+other -ENOMEM cases. gkh acked this approach when we talked about it at LCJ in
+Tokyo a few weeks ago.
 
-Signed-off-by: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
----
- drivers/net/can/usb/ems_usb.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
-index 71f0e791355b9c..b3d02759c226bb 100644
---- a/drivers/net/can/usb/ems_usb.c
-+++ b/drivers/net/can/usb/ems_usb.c
-@@ -600,7 +600,6 @@ static int ems_usb_start(struct ems_usb *dev)
- 		/* create a URB, and a buffer for it */
- 		urb = usb_alloc_urb(0, GFP_KERNEL);
- 		if (!urb) {
--			netdev_err(netdev, "No memory left for URBs\n");
- 			err = -ENOMEM;
- 			break;
- 		}
-@@ -752,10 +751,8 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
- 
- 	/* create a URB, and a buffer for it, and copy the data to the URB */
- 	urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (!urb) {
--		netdev_err(netdev, "No memory left for URBs\n");
-+	if (!urb)
- 		goto nomem;
--	}
- 
- 	buf = usb_alloc_coherent(dev->udev, size, GFP_ATOMIC, &urb->transfer_dma);
- 	if (!buf) {
-@@ -1007,10 +1004,8 @@ static int ems_usb_probe(struct usb_interface *intf,
- 		dev->tx_contexts[i].echo_index = MAX_TX_URBS;
- 
- 	dev->intr_urb = usb_alloc_urb(0, GFP_KERNEL);
--	if (!dev->intr_urb) {
--		dev_err(&intf->dev, "Couldn't alloc intr URB\n");
-+	if (!dev->intr_urb)
- 		goto cleanup_candev;
--	}
- 
- 	dev->intr_in_buffer = kzalloc(INTR_IN_BUFFER_SIZE, GFP_KERNEL);
- 	if (!dev->intr_in_buffer)
+Wolfram Sang (16):
+  net: can: usb: ems_usb: don't print error when allocating urb fails
+  net: can: usb: esd_usb2: don't print error when allocating urb fails
+  net: can: usb: gs_usb: don't print error when allocating urb fails
+  net: can: usb: kvaser_usb: don't print error when allocating urb fails
+  net: can: usb: peak_usb: pcan_usb_core: don't print error when
+    allocating urb fails
+  net: can: usb: usb_8dev: don't print error when allocating urb fails
+  net: usb: hso: don't print error when allocating urb fails
+  net: usb: lan78xx: don't print error when allocating urb fails
+  net: usb: usbnet: don't print error when allocating urb fails
+  net: wimax: i2400m: usb-notif: don't print error when allocating urb
+    fails
+  net: wireless: ath: ar5523: ar5523: don't print error when allocating
+    urb fails
+  net: wireless: broadcom: brcm80211: brcmfmac: usb: don't print error
+    when allocating urb fails
+  net: wireless: intersil: orinoco: orinoco_usb: don't print error when
+    allocating urb fails
+  net: wireless: marvell: libertas_tf: if_usb: don't print error when
+    allocating urb fails
+  net: wireless: marvell: mwifiex: usb: don't print error when
+    allocating urb fails
+  net: wireless: realtek: rtlwifi: usb: don't print error when
+    allocating urb fails
+
+ drivers/net/can/usb/ems_usb.c                        |  9 ++-------
+ drivers/net/can/usb/esd_usb2.c                       |  3 ---
+ drivers/net/can/usb/gs_usb.c                         |  9 ++-------
+ drivers/net/can/usb/kvaser_usb.c                     |  7 +------
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c         |  6 +-----
+ drivers/net/can/usb/usb_8dev.c                       |  5 +----
+ drivers/net/usb/hso.c                                | 20 +++++---------------
+ drivers/net/usb/lan78xx.c                            |  4 +---
+ drivers/net/usb/usbnet.c                             |  5 +----
+ drivers/net/wimax/i2400m/usb-notif.c                 |  1 -
+ drivers/net/wireless/ath/ar5523/ar5523.c             |  9 ++-------
+ .../net/wireless/broadcom/brcm80211/brcmfmac/usb.c   |  8 ++------
+ drivers/net/wireless/intersil/orinoco/orinoco_usb.c  |  4 +---
+ drivers/net/wireless/marvell/libertas_tf/if_usb.c    | 12 +++---------
+ drivers/net/wireless/marvell/mwifiex/usb.c           | 19 ++++---------------
+ drivers/net/wireless/realtek/rtlwifi/usb.c           |  8 +-------
+ 16 files changed, 27 insertions(+), 102 deletions(-)
+
 -- 
 2.8.1
 
