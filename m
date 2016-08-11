@@ -1,46 +1,166 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: 4.8.0-rc1: page allocation failure: order:3,
- mode:0x2084020(GFP_ATOMIC|__GFP_COMP)
-Date: Fri, 12 Aug 2016 00:28:16 +0200
-Message-ID: <20160811222816.GA21039@pox.localdomain>
-References: <8bdcb66dc3eb2448e4b6f2baef2ad8ea@eikelenboom.it>
- <20160809122241.GA13060@breakpoint.cc>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [v8] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 11 Aug 2016 15:45:11 -0700
+Message-ID: <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
+References: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux@eikelenboom.it, netdev@vger.kernel.org,
-	netfilter@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:34976 "EHLO
-	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751577AbcHKW2T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 18:28:19 -0400
-Received: by mail-wm0-f51.google.com with SMTP id f65so17116547wmi.0
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 15:28:18 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160809122241.GA13060@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org, shankerd@codeaurora.org,
+	vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
+	robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
+	mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
+	davem@davemloft.net, LinoSanfilippo@gmx.de
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/09/16 at 02:22pm, Florian Westphal wrote:
-> Hmmm, seems this is coming from an attempt to allocate the bucket lock
-> array (since actual table has __GFP_NOWARN).
-> 
-> I was about to just send a patch that adds a GPF_NOWARN in
-> bucket_table_alloc/alloc_bucket_locks call.
-> 
-> However, I wonder if we really need this elaborate sizing logic.
-> I think it makes more sense to always allocate a fixed size regardless
-> of number of CPUs, i.e. get rid of locks_mul and all the code that comes
-> with it.
-> 
-> Doing order-3 allocation for locks seems excessive to me.
-> 
-> The netfilter conntrack hashtable just uses a fixed array of 1024
-> spinlocks (so on x86_64 we get on page of locks).
-> 
-> What do you think?
+On 08/11/2016 02:34 PM, Timur Tabi wrote:
+> Add supports for ethernet controller HW on Qualcomm Technologies, Inc. SoC.
+> This driver supports the following features:
+> 1) Checksum offload.
+> 2) Interrupt coalescing support.
+> 3) SGMII phy.
+> 4) phylib interface for external phy
 
-The code has been primarily derived from inet_ehash_locks_alloc()
-so my initial suggestion would be to adjust it to after Eric's
-latest fixes including the change to GFP_NOWARN.
+OK, so this is looking good now, just a few nits, feel free to submit as
+clean up patches, would this one be accepted.
+
+[snip]
+
+> +Example:
+> +soc {
+> +	#address-cells = <1>;
+> +	#size-cells = <1>;
+> +	dma-ranges = <0 0 0xffffffff>;
+> +
+> +	emac0: ethernet@feb20000 {
+> +		compatible = "qcom,fsm9900-emac";
+> +		#address-cells = <1>;
+> +		#size-cells = <1>;
+> +		reg-names = "base", "csr", "ptp", "sgmii";
+> +		reg =   <0xfeb20000 0x10000>,
+> +			<0xfeb36000 0x1000>,
+> +			<0xfeb3c000 0x4000>,
+> +			<0xfeb38000 0x400>;
+> +		interrupt-parent = <&emac0>;
+> +		#interrupt-cells = <1>;
+> +		interrupts = <76 80>;
+> +		interrupt-names = "emac_core0", "sgmii_irq";
+> +		phy0: ethernet-phy@0 {
+> +			compatible = "qcom,fsm9900-emac-phy";
+> +			reg = <0>;
+> +		}
+
+If this is an external PHY, the expectation is that it will be hanging
+off a MDIO bus controller, either the MDIO bus internal to the MAC, or
+an external MDIO bus (separate register range).
+
+If such a PHY node is provided, the expectation is that your Ethernet
+MAC will have a phy-handle property and a phy-mode property to specify
+how to connect to this external PHY, so in your specific case, better
+remove the PHY from your example, or detail further how it should be done.
+
+> +
+> +		pinctrl-names = "default";
+> +		pinctrl-0 = <&mdio_pins_a>;
+> +	};
+> +
+> +	tlmm: pinctrl@fd510000 {
+> +		compatible = "qcom,fsm9900-pinctrl";
+> +
+> +		mdio_pins_a: mdio {
+> +			state {
+> +				pins = "gpio123", "gpio124";
+> +				function = "mdio";
+> +			};
+> +		};
+> +	};
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 952fd2a..38dabdf 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -9404,6 +9404,12 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/ath.git
+>  S:	Supported
+>  F:	drivers/net/wireless/ath/ath10k/
+>  
+> +QUALCOMM EMAC GIGABIT ETHERNET DRIVER
+> +M:	Timur Tabi <timur@codeaurora.org>
+> +L:	netdev@vger.kernel.org
+> +S:	Supported
+> +F:	drivers/net/ethernet/qualcomm/emac/
+> +
+>  QUALCOMM HEXAGON ARCHITECTURE
+>  M:	Richard Kuo <rkuo@codeaurora.org>
+>  L:	linux-hexagon@vger.kernel.org
+> diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+> index a76e380..85b599f 100644
+> --- a/drivers/net/ethernet/qualcomm/Kconfig
+> +++ b/drivers/net/ethernet/qualcomm/Kconfig
+> @@ -24,4 +24,15 @@ config QCA7000
+>  	  To compile this driver as a module, choose M here. The module
+>  	  will be called qcaspi.
+>  
+> +config QCOM_EMAC
+> +	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
+> +	select CRC32
+
+select PHYLIB?
+
+> +	---help---
+> +	  This driver supports the Qualcomm Technologies, Inc. Gigabit
+> +	  Ethernet Media Access Controller (EMAC). The controller
+> +	  supports IEEE 802.3-2002, half-duplex mode at 10/100 Mb/s,
+> +	  full-duplex mode at 10/100/1000Mb/s, Wake On LAN (WOL) for
+> +	  low power, Receive-Side Scaling (RSS), and IEEE 1588-2008
+> +	  Precision Clock Synchronization Protocol.
+> +
+>  endif # NET_VENDOR_QUALCOMM
+> diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
+> index 9da2d75..1b3a0ce 100644
+> --- a/drivers/net/ethernet/qualcomm/Makefile
+> +++ b/drivers/net/ethernet/qualcomm/Makefile
+> @@ -4,3 +4,5 @@
+>  
+>  obj-$(CONFIG_QCA7000) += qcaspi.o
+>  qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
+> +
+> +obj-$(CONFIG_QCOM_EMAC) += emac/
+
+Since you have a check on CONFIG_QCOM_EMAC in emac/Makefile, you could
+always recurse into that directory while building (use obj-y).
+
+> diff --git a/drivers/net/ethernet/qualcomm/emac/Makefile b/drivers/net/ethernet/qualcomm/emac/Makefile
+> new file mode 100644
+> index 0000000..01ee144
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qualcomm/emac/Makefile
+> @@ -0,0 +1,7 @@
+> +#
+> +# Makefile for the Qualcomm Technologies, Inc. EMAC Gigabit Ethernet driver
+> +#
+> +
+> +obj-$(CONFIG_QCOM_EMAC) += qcom-emac.o
+
+[snip]
+
+> +
+> +static void emac_adjust_link(struct net_device *netdev)
+> +{
+> +	struct emac_adapter *adpt = netdev_priv(netdev);
+> +	struct phy_device *phydev = netdev->phydev;
+> +
+> +	if (phydev->link)
+> +		emac_mac_start(adpt);
+> +	else
+> +		emac_mac_stop(adpt);
+
+This is really excessive here, you typically don't need to completely
+stop your transmitter/receiver/DMA/what have you, just reprogram the MAC
+with the appropriate link speed/duplex/pause parameters.
+
+-- 
+Florian
