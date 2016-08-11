@@ -1,72 +1,65 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v3 1/2] bpf: Add bpf_current_task_in_cgroup helper
-Date: Thu, 11 Aug 2016 22:24:24 +0200
-Message-ID: <57ACDEF8.20600@iogearbox.net>
-References: <20160811185140.GA28294@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tj@kernel.org
-To: Sargun Dhillon <sargun@sargun.me>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56144 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbcHKUY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 16:24:28 -0400
-In-Reply-To: <20160811185140.GA28294@ircssh.c.rugged-nimbus-611.internal>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
+Subject: [PATCH 01/16] net: can: usb: ems_usb: don't print error when allocating urb fails
+Date: Thu, 11 Aug 2016 23:05:20 +0200
+Message-ID: <1470949539-25392-2-git-send-email-wsa-dev@sang-engineering.com>
+References: <1470949539-25392-1-git-send-email-wsa-dev@sang-engineering.com>
+Cc: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1470949539-25392-1-git-send-email-wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sargun,
+kmalloc will print enough information in case of failure.
 
-just some minor comment inline.
+Signed-off-by: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
+---
+ drivers/net/can/usb/ems_usb.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-On 08/11/2016 08:51 PM, Sargun Dhillon wrote:
-[...]
-> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> index 1113423..6c01ab1 100644
-> --- a/include/linux/bpf.h
-> +++ b/include/linux/bpf.h
-> @@ -319,4 +319,26 @@ extern const struct bpf_func_proto bpf_get_stackid_proto;
->   void bpf_user_rnd_init_once(void);
->   u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5);
->
-> +/* Helper to fetch a cgroup pointer based on index.
-> + * @map: a cgroup arraymap
-> + * @idx: index of the item you want to fetch
-> + *
-> + * Returns pointer on success,
-> + * Error code if item not found, or out-of-bounds access
-> + */
-> +static inline struct cgroup *fetch_arraymap_ptr(struct bpf_map *map, int idx)
-> +{
-> +	struct cgroup *cgrp;
-> +	struct bpf_array *array = container_of(map, struct bpf_array, map);
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index 71f0e791355b9c..b3d02759c226bb 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -600,7 +600,6 @@ static int ems_usb_start(struct ems_usb *dev)
+ 		/* create a URB, and a buffer for it */
+ 		urb = usb_alloc_urb(0, GFP_KERNEL);
+ 		if (!urb) {
+-			netdev_err(netdev, "No memory left for URBs\n");
+ 			err = -ENOMEM;
+ 			break;
+ 		}
+@@ -752,10 +751,8 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
+ 
+ 	/* create a URB, and a buffer for it, and copy the data to the URB */
+ 	urb = usb_alloc_urb(0, GFP_ATOMIC);
+-	if (!urb) {
+-		netdev_err(netdev, "No memory left for URBs\n");
++	if (!urb)
+ 		goto nomem;
+-	}
+ 
+ 	buf = usb_alloc_coherent(dev->udev, size, GFP_ATOMIC, &urb->transfer_dma);
+ 	if (!buf) {
+@@ -1007,10 +1004,8 @@ static int ems_usb_probe(struct usb_interface *intf,
+ 		dev->tx_contexts[i].echo_index = MAX_TX_URBS;
+ 
+ 	dev->intr_urb = usb_alloc_urb(0, GFP_KERNEL);
+-	if (!dev->intr_urb) {
+-		dev_err(&intf->dev, "Couldn't alloc intr URB\n");
++	if (!dev->intr_urb)
+ 		goto cleanup_candev;
+-	}
+ 
+ 	dev->intr_in_buffer = kzalloc(INTR_IN_BUFFER_SIZE, GFP_KERNEL);
+ 	if (!dev->intr_in_buffer)
+-- 
+2.8.1
 
-Nit, please keep it in this reverse tree like order (whenever possible)
-to be consistent with kernel coding style:
-
-	struct bpf_array *array = container_of(map, struct bpf_array, map);
-	struct cgroup *cgrp;
-
-> +	if (unlikely(idx >= array->map.max_entries))
-> +		return ERR_PTR(-E2BIG);
-> +
-> +	cgrp = READ_ONCE(array->ptrs[idx]);
-> +	if (unlikely(!cgrp))
-> +		return ERR_PTR(-EAGAIN);
-> +
-> +	return cgrp;
-> +}
-
-I think this inline helper doesn't buy us too much to be honest. First,
-it really should be prefixed with bpf_* if this is exposed like this to
-avoid potential naming clashes with other headers, but apart from that
-a generic function to fetch an array map pointer returning a cgroup
-is also not really generic. We have other specialized array maps also
-fetching a pointer apart from cgroup, so either we make a real generic
-helper for use in all of them, or just add the content of above into the
-bpf_current_task_in_cgroup() helper directly. Probably just going for
-the latter is more straight forward and likely also smaller diff.
-
-Rest looks otherwise good to me, thanks!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
