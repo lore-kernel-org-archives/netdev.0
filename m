@@ -1,50 +1,60 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
-Date: Thu, 11 Aug 2016 10:10:45 -0500
-Message-ID: <57AC9575.3040204@codeaurora.org>
-References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
- <9ebb6cb7-c793-cd76-5283-c9a659d0398f@gmx.de>
- <57AA2001.2010904@codeaurora.org>
- <214dcbb7-0c3b-1e00-3e50-db513d77b10b@gmail.com>
- <57AA7ED0.9000707@codeaurora.org>
- <85b76eca-5473-6724-0c9d-7b6fa7677f50@gmail.com>
- <57AB589D.3010509@codeaurora.org>
- <0da01875-b55a-c0fd-bd5f-05bb41fbd7fc@gmail.com>
- <57AC8A3D.3010208@codeaurora.org>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 2/4] flow_dissector: Get vlan priority in
+ addition to vlan id
+Date: Thu, 11 Aug 2016 18:23:00 +0300
+Message-ID: <CAJL1qvHT_SUO+22wfsTCay-gxMnj8j6pV5NNALaStPeH5H_nLA@mail.gmail.com>
+References: <1470835943-9042-3-git-send-email-hadarh@mellanox.com> <201608110519.ecG3SB3c%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Hadar Hen Zion <hadarh@mellanox.com>, kbuild-all@01.org,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirva@gmail.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:36231 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611AbcHKPKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 11:10:49 -0400
-In-Reply-To: <57AC8A3D.3010208@codeaurora.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:35510 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902AbcHKPXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 11:23:32 -0400
+Received: by mail-oi0-f66.google.com with SMTP id e80so593880oig.2
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 08:23:01 -0700 (PDT)
+In-Reply-To: <201608110519.ecG3SB3c%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Timur Tabi wrote:
+On Thu, Aug 11, 2016 at 12:58 AM, kbuild test robot <lkp@intel.com> wrote:
+> Hi Hadar,
 >
-> The hang occurs with this loop in napi_disable():
+> [auto build test ERROR on net-next/master]
 >
->      while (test_and_set_bit(NAPI_STATE_SCHED, &n->state))
->          msleep(1);
+> url:    https://github.com/0day-ci/linux/commits/Hadar-Hen-Zion/flow_dissector-Get-vlan-info-from-skb-vlan_tci-instead-of-skb-data/20160811-042500
+> config: cris-etrax-100lx_v2_defconfig (attached as .config)
+> compiler: cris-linux-gcc (GCC) 4.6.3
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=cris
 >
-> This loop never exits.  Can you give me a clue as to what could be the
-> reason?
+> All errors (new ones prefixed by >>):
+>
+>    In function 'flow_keys_hash_length.isra.6',
+>        inlined from '__flow_hash_from_keys' at net/core/flow_dissector.c:599:26,
+>        inlined from 'flow_hash_from_keys' at net/core/flow_dissector.c:610:2:
+>>> net/core/flow_dissector.c:512:2: error: call to '__compiletime_assert_512' declared with attribute error: BUILD_BUG_ON failed: (sizeof(*flow) - FLOW_KEYS_HASH_OFFSET) % sizeof(u32)
 
-I figured it out.  I cannot call napi_disable() twice in a row.  It's 
-not smart enough to know that NAPI is already disabled.
+[...]
 
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+
+I'm working on a fix, will send it soon.
+
+I'll be happy to get your review and comments on my flow_dissector and
+flower patches.
+
+Thank you,
+
+Hadar
+
+[...]
