@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 1/1] rps: Inspect PPTP encapsulated by GRE to get
- flow hash
-Date: Wed, 10 Aug 2016 17:24:50 -0700 (PDT)
-Message-ID: <20160810.172450.1513266088290748091.davem@davemloft.net>
-References: <1470717504-1292-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH v3 00/13] net: ethernet: ti: cpsw: split driver data
+ and per ndev data
+Date: Wed, 10 Aug 2016 17:28:05 -0700 (PDT)
+Message-ID: <20160810.172805.1742489787835736863.davem@davemloft.net>
+References: <1470784964-26440-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: philipp@redfish-solutions.com, stephen@networkplumber.org,
-	pshelar@nicira.com, tom@herbertland.com, aduyck@mirantis.com,
-	netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42143 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbcHKAYw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 20:24:52 -0400
-In-Reply-To: <1470717504-1292-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dlide@ti.com
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470784964-26440-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: fgao@ikuai8.com
-Date: Tue,  9 Aug 2016 12:38:24 +0800
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Wed, 10 Aug 2016 02:22:31 +0300
 
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
-> must contain one. But current GRE RPS needs the GRE_VERSION must be
-> zero. So RPS does not work for PPTP traffic.
-> 
-> In my test environment, there are four MIPS cores, and all traffic
-> are passed through by PPTP. As a result, only one core is 100% busy
-> while other three cores are very idle. After this patch, the usage
-> of four cores are balanced well.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> In dual_emac mode the driver can handle 2 network devices. Each of them can use
+> its own private data and common data/resources. This patchset splits common driver
+> data/resources and private per net device data.
+> It leads to:
+> - reduce memory usage
+> - increase code readability
+> - allows add a bunch of simplification
+> - create prerequisites to add multi-channel support,
+>   when channels are shared between net devices
+ ...
 
-Applied to net-next, thanks.
+Series applied to net-next, thank you.
