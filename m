@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: macb: Add 64 bit addressing support for GEM
-Date: Wed, 10 Aug 2016 17:39:23 -0700 (PDT)
-Message-ID: <20160810.173923.1161254761132296894.davem@davemloft.net>
-References: <1470728753-12985-1-git-send-email-harinik@xilinx.com>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH 1/1 linux-next] net: hns: fix typo in
+ g_gmac_stats_string[]
+Date: Thu, 11 Aug 2016 08:45:26 +0800
+Message-ID: <57ABCAA6.10006@huawei.com>
+References: <1470844116-13545-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, harinikatakamlinux@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	harinik@xilinx.com, punnaia@xilinx.com, michals@xilinx.com,
-	anirudh@xilinx.com
-To: harini.katakam@xilinx.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42186 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751597AbcHKAjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 20:39:25 -0400
-In-Reply-To: <1470728753-12985-1-git-send-email-harinik@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Fabian Frederick <fabf@skynet.be>,
+	Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1470844116-13545-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Harini Katakam <harini.katakam@xilinx.com>
-Date: Tue, 9 Aug 2016 13:15:53 +0530
+Hi Fabian,
 
-> This patch adds support for 64 bit addressing and BDs.
-> -> Enable 64 bit addressing in DMACFG register.
-> -> Set DMA mask when design config register shows support for 64 bit addr.
-> -> Add new BD words for higher address when 64 bit DMA support is present.
-> -> Add and update TBQPH and RBQPH for MSB of BD pointers.
-> -> Change extraction and updation of buffer addresses to use
-> 64 bit address.
-> -> In gem_rx extract address in one place insted of two and use a
-> separate flag for RXUSED.
+This patch is fine to me, many thanks.
+
+Yisen
+
+在 2016/8/10 23:48, Fabian Frederick 写道:
+> s/gamc/gmac/
 > 
-> Signed-off-by: Harini Katakam <harinik@xilinx.com>
-
-It's not the cleanest looking thing in the world with all of these
-ifdefs, but I can't suggest anything better, so applied to net-next
-thanks.
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> ---
+>  drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+> index 1235c7f..1e1eb92 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_gmac.c
+> @@ -17,7 +17,7 @@ static const struct mac_stats_string g_gmac_stats_string[] = {
+>  	{"gmac_rx_octets_total_ok", MAC_STATS_FIELD_OFF(rx_good_bytes)},
+>  	{"gmac_rx_octets_bad", MAC_STATS_FIELD_OFF(rx_bad_bytes)},
+>  	{"gmac_rx_uc_pkts", MAC_STATS_FIELD_OFF(rx_uc_pkts)},
+> -	{"gamc_rx_mc_pkts", MAC_STATS_FIELD_OFF(rx_mc_pkts)},
+> +	{"gmac_rx_mc_pkts", MAC_STATS_FIELD_OFF(rx_mc_pkts)},
+>  	{"gmac_rx_bc_pkts", MAC_STATS_FIELD_OFF(rx_bc_pkts)},
+>  	{"gmac_rx_pkts_64octets", MAC_STATS_FIELD_OFF(rx_64bytes)},
+>  	{"gmac_rx_pkts_65to127", MAC_STATS_FIELD_OFF(rx_65to127)},
+> 
