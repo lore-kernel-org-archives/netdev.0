@@ -1,54 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] ipv6: suppress sparse warnings in IP6_ECN_set_ce()
-Date: Thu, 11 Aug 2016 12:04:43 +0200
-Message-ID: <1470909883-5463-1-git-send-email-johannes@sipsolutions.net>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] macvtap: fix use after free for skb_array during release
+Date: Thu, 11 Aug 2016 18:15:56 +0800
+Message-ID: <1470910556-11872-1-git-send-email-jasowang@redhat.com>
+Cc: borntraeger@de.ibm.com, cornelia.huck@de.ibm.com, mst@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:51852 "EHLO sipsolutions.net"
+Received: from mx1.redhat.com ([209.132.183.28]:46664 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751072AbcHKKEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2016 06:04:49 -0400
+	id S1752590AbcHKKQC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2016 06:16:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+We've clean skb_array in macvtap_put_queue() but still try to pop from
+it during macvtap_sock_destruct(). Fix this use after free by moving
+the skb array cleanup to macvtap_sock_destruct() instead.
 
-Use the correct type for these manipulations, which is __wsum,
-instead of using __be32. This doesn't really change anything
-since __wsum really *is* __be32, but removes the address space
-warnings from sparse.
-
-Cc: Eric Dumazet <edumazet@google.com>
-Fixes: 34ae6a1aa054 ("ipv6: update skb->csum when CE mark is propagated")
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Fixes: 362899b8725b ("macvtap: switch to use skb array")
+Reported-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Tested-by: Cornelia Huck <cornelia.huck@de.ibm.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/net/inet_ecn.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/macvtap.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
-index 0dc0a51da38f..89aa4e73fc37 100644
---- a/include/net/inet_ecn.h
-+++ b/include/net/inet_ecn.h
-@@ -119,14 +119,14 @@ struct ipv6hdr;
-  */
- static inline int IP6_ECN_set_ce(struct sk_buff *skb, struct ipv6hdr *iph)
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index a38c0da..070e329 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -275,7 +275,6 @@ static void macvtap_put_queue(struct macvtap_queue *q)
+ 	rtnl_unlock();
+ 
+ 	synchronize_rcu();
+-	skb_array_cleanup(&q->skb_array);
+ 	sock_put(&q->sk);
+ }
+ 
+@@ -533,10 +532,8 @@ static void macvtap_sock_write_space(struct sock *sk)
+ static void macvtap_sock_destruct(struct sock *sk)
  {
--	__be32 from, to;
-+	__wsum from, to;
+ 	struct macvtap_queue *q = container_of(sk, struct macvtap_queue, sk);
+-	struct sk_buff *skb;
  
- 	if (INET_ECN_is_not_ect(ipv6_get_dsfield(iph)))
- 		return 0;
+-	while ((skb = skb_array_consume(&q->skb_array)) != NULL)
+-		kfree_skb(skb);
++	skb_array_cleanup(&q->skb_array);
+ }
  
--	from = *(__be32 *)iph;
--	to = from | htonl(INET_ECN_CE << 20);
--	*(__be32 *)iph = to;
-+	from = *(__wsum *)iph;
-+	to = from | (__force __wsum)htonl(INET_ECN_CE << 20);
-+	*(__wsum *)iph = to;
- 	if (skb->ip_summed == CHECKSUM_COMPLETE)
- 		skb->csum = csum_add(csum_sub(skb->csum, from), to);
- 	return 1;
+ static int macvtap_open(struct inode *inode, struct file *file)
 -- 
-2.8.1
+2.7.4
