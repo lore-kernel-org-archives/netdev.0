@@ -1,105 +1,300 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
-Date: Thu, 11 Aug 2016 11:52:02 -0700
-Message-ID: <CAKgT0UcPh2RZazDL-cJbJkZFUJ03kTocn5H7WA=Kk_+S-CV_HA@mail.gmail.com>
-References: <1452684335-46107-1-git-send-email-hare@suse.de>
- <1452684335-46107-4-git-send-email-hare@suse.de> <20160209210458.GB32530@localhost>
- <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru> <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
- <1470787409.3015.81.camel@kernel.crashing.org> <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
- <1470873296.3015.117.camel@kernel.crashing.org>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: [PATCH net-next v3 2/2] samples/bpf: Add test_current_task_in_cgroup
+ test
+Date: Thu, 11 Aug 2016 11:52:30 -0700
+Message-ID: <20160811185229.GA28310@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexey Kardashevskiy <aik@ozlabs.ru>,
-	Bjorn Helgaas <helgaas@kernel.org>,
-	Hannes Reinecke <hare@suse.de>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Babu Moger <babu.moger@oracle.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Alex Williamson <alex.williamson@redhat.com>,
-	santosh@chelsio.com, Netdev <netdev@vger.kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, tj@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:35272 "EHLO
-	mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752325AbcHKSwE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 14:52:04 -0400
-In-Reply-To: <1470873296.3015.117.camel@kernel.crashing.org>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:36194 "EHLO
+	mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162AbcHKSwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 14:52:34 -0400
+Received: by mail-it0-f45.google.com with SMTP id x130so4218368ite.1
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 11:52:33 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 10, 2016 at 4:54 PM, Benjamin Herrenschmidt
-<benh@kernel.crashing.org> wrote:
-> On Wed, 2016-08-10 at 08:47 -0700, Alexander Duyck wrote:
->>
->> The problem is if we don't do this it becomes possible for a guest to
->> essentially cripple a device on the host by just accessing VPD
->> regions that aren't actually viable on many devices.
->
-> And ? We already can cripple the device in so many different ways
-> simpy because we have pretty much full BAR access to it...
->
->>  We are much better off
->> in terms of security and stability if we restrict access to what
->> should be accessible.
->
-> Bollox. I've heard that argument over and over again, it never stood
-> and still doesn't.
->
-> We have full BAR access for god sake. We can already destroy the device
-> in many cases (think: reflashing microcode, internal debug bus access
-> with a route to the config space, voltage/freq control ....).
->
-> We aren't protecting anything more here, we are just adding layers of
-> bloat, complication and bugs.
+This test has a BPF program which writes the last known pid to call the
+sync syscall within a given cgroup to a map.
 
-To some extent I can agree with you.  I don't know if we should be
-restricting the VFIO based interface the same way we restrict systemd
-from accessing this region.  In the case of VFIO maybe we need to look
-at a different approach for accessing this.  Perhaps we need a
-privileged version of the VPD accessors that could be used by things
-like VFIO and the cxgb3 driver since they are assumed to be a bit
-smarter than those interfaces that were just trying to slurp up
-something like 4K of VPD data.
+The user mode program creates its own mount namespace, and mounts the
+cgroupsv2 hierarchy in there, as on all current test systems
+(Ubuntu 16.04, CoreOS 1053),  the cgroupsv2 vfs is unmounted by default.
+Once it does this, it proceeds to test.
 
->>  In this case what has happened is that the
->> vendor threw in an extra out-of-spec block and just expected it to
->> work.
->
-> Like vendors do all the time in all sort of places
->
-> I still completely fail to see the point in acting as a filtering
-> middle man.
+The test checks for positive and negative condition. It ensures that
+when it's part of a given cgroup, its pid is captured in the map,
+and that when it leaves the cgroup, this doesn't happen.
 
-The problem is we are having to do some filtering because things like
-systemd were using dumb accessors that were trying to suck down 4K of
-VPD data instead of trying to parse through and read it a field at a
-time.
+It populate a cgroups arraymap prior to execution in userspace. This means
+that the program must be run in the same cgroups namespace as the programs
+that are being traced.
 
->> In order to work around it we just need to add a small function
->> to drivers/pci/quirks.c that would update the VPD size reported so
->> that it matches what the hardware is actually providing instead of
->> what we can determine based on the VPD layout.
->>
->> Really working around something like this is not much different than
->> what we would have to do if the vendor had stuffed the data in some
->> reserved section of their PCI configuration space.
->
-> It is, in both cases we shouldn't have VFIO or the host involved. We
-> should just let the guest config space accesses go through.
->
->>   We end up needing
->> to add special quirks any time a vendor goes out-of-spec for some
->> one-off configuration interface that only they are ever going to use.
->
-> Cheers,
-> Ben.
+Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+Cc: Alexei Starovoitov <ast@kernel.org>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Tejun Heo <tj@kernel.org>
+---
+ samples/bpf/Makefile                           |   4 +
+ samples/bpf/bpf_helpers.h                      |   2 +
+ samples/bpf/test_current_task_in_cgroup_kern.c |  43 ++++++++
+ samples/bpf/test_current_task_in_cgroup_user.c | 145 +++++++++++++++++++++++++
+ 4 files changed, 194 insertions(+)
+ create mode 100644 samples/bpf/test_current_task_in_cgroup_kern.c
+ create mode 100644 samples/bpf/test_current_task_in_cgroup_user.c
 
-If you have a suggestion on how to resolve this patches are always
-welcome.  Otherwise I think the simpler approach to fixing this
-without re-introducing the existing bugs is to just add the quirk.  I
-will try to get to it sometime this weekend if nobody else does.  It
-should be pretty straight foward, but I just don't have the time to
-pull up a kernel and generate a patch right now.
-
-- Alex
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 90ebf7d..45aeb1c 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -24,6 +24,7 @@ hostprogs-y += test_overhead
+ hostprogs-y += test_cgrp2_array_pin
+ hostprogs-y += xdp1
+ hostprogs-y += xdp2
++hostprogs-y += test_current_task_in_cgroup
+ 
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -49,6 +50,7 @@ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+ xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
+ # reuse xdp1 source intentionally
+ xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
++test_current_task_in_cgroup-objs := bpf_load.o libbpf.o test_current_task_in_cgroup_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -74,6 +76,7 @@ always += parse_varlen.o parse_simple.o parse_ldabs.o
+ always += test_cgrp2_tc_kern.o
+ always += xdp1_kern.o
+ always += xdp2_kern.o
++always += test_current_task_in_cgroup_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+@@ -97,6 +100,7 @@ HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ HOSTLOADLIBES_test_overhead += -lelf -lrt
+ HOSTLOADLIBES_xdp1 += -lelf
+ HOSTLOADLIBES_xdp2 += -lelf
++HOSTLOADLIBES_test_current_task_in_cgroup += -lelf
+ 
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
+index cbc52df..e6bc5936 100644
+--- a/samples/bpf/bpf_helpers.h
++++ b/samples/bpf/bpf_helpers.h
+@@ -45,6 +45,8 @@ static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
+ 	(void *) BPF_FUNC_get_stackid;
+ static int (*bpf_probe_write_user)(void *dst, void *src, int size) =
+ 	(void *) BPF_FUNC_probe_write_user;
++static int (*bpf_current_task_in_cgroup)(void *map, int index) =
++	(void *) BPF_FUNC_current_task_in_cgroup;
+ 
+ /* llvm builtin functions that eBPF C program may use to
+  * emit BPF_LD_ABS and BPF_LD_IND instructions
+diff --git a/samples/bpf/test_current_task_in_cgroup_kern.c b/samples/bpf/test_current_task_in_cgroup_kern.c
+new file mode 100644
+index 0000000..2a77bd7
+--- /dev/null
++++ b/samples/bpf/test_current_task_in_cgroup_kern.c
+@@ -0,0 +1,43 @@
++/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++
++#include <linux/ptrace.h>
++#include <uapi/linux/bpf.h>
++#include <linux/version.h>
++#include "bpf_helpers.h"
++#include <uapi/linux/utsname.h>
++
++struct bpf_map_def SEC("maps") cgroup_map = {
++	.type			= BPF_MAP_TYPE_CGROUP_ARRAY,
++	.key_size		= sizeof(u32),
++	.value_size		= sizeof(u32),
++	.max_entries	= 1,
++};
++
++struct bpf_map_def SEC("maps") perf_map = {
++	.type			= BPF_MAP_TYPE_ARRAY,
++	.key_size		= sizeof(u32),
++	.value_size		= sizeof(u64),
++	.max_entries	= 1,
++};
++
++/* Writes the last PID that called sync to a map at index 0 */
++SEC("kprobe/sys_sync")
++int bpf_prog1(struct pt_regs *ctx)
++{
++	u64 pid = bpf_get_current_pid_tgid();
++	int idx = 0;
++
++	if (!bpf_current_task_in_cgroup(&cgroup_map, 0))
++		return 0;
++
++	bpf_map_update_elem(&perf_map, &idx, &pid, BPF_ANY);
++	return 0;
++}
++
++char _license[] SEC("license") = "GPL";
++u32 _version SEC("version") = LINUX_VERSION_CODE;
+diff --git a/samples/bpf/test_current_task_in_cgroup_user.c b/samples/bpf/test_current_task_in_cgroup_user.c
+new file mode 100644
+index 0000000..41b8d1c
+--- /dev/null
++++ b/samples/bpf/test_current_task_in_cgroup_user.c
+@@ -0,0 +1,145 @@
++/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++
++#define _GNU_SOURCE
++#include <stdio.h>
++#include <linux/bpf.h>
++#include <unistd.h>
++#include "libbpf.h"
++#include "bpf_load.h"
++#include <string.h>
++#include <fcntl.h>
++#include <errno.h>
++#include <linux/bpf.h>
++#include <sched.h>
++#include <sys/mount.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <linux/limits.h>
++
++#define CGROUP_MOUNT_PATH	"/mnt"
++#define CGROUP_PATH		"/mnt/my-cgroup"
++
++#define clean_errno() (errno == 0 ? "None" : strerror(errno))
++#define log_err(MSG, ...) fprintf(stderr, "(%s:%d: errno: %s) " MSG "\n", \
++	__FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
++
++int join_cgroup(char *path)
++{
++	int fd, rc = 0;
++	pid_t pid = getpid();
++	char cgroup_path[PATH_MAX + 1];
++
++	snprintf(cgroup_path, sizeof(cgroup_path), "%s/cgroup.procs", path);
++
++	fd = open(cgroup_path, O_WRONLY);
++	if (fd < 0) {
++		log_err("Opening Cgroup");
++		return 1;
++	}
++
++	if (dprintf(fd, "%d\n", pid) < 0) {
++		log_err("Joining Cgroup");
++		rc = 1;
++	}
++	close(fd);
++	return rc;
++}
++
++int main(int argc, char **argv)
++{
++	char filename[256];
++	int cg2, idx = 0;
++	pid_t remote_pid, local_pid = getpid();
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
++	}
++
++	/*
++	 * This is to avoid interfering with existing cgroups. Unfortunately,
++	 * most people don't have cgroupv2 enabled at this point in time.
++	 * It's easier to create our own mount namespace and manage it
++	 * ourselves.
++	 */
++	if (unshare(CLONE_NEWNS)) {
++		log_err("unshare");
++		return 1;
++	}
++
++	if (mount("none", "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
++		log_err("mount fakeroot");
++		return 1;
++	}
++
++	if (mount("none", CGROUP_MOUNT_PATH, "cgroup2", 0, NULL)) {
++		log_err("mount cgroup2");
++		return 1;
++	}
++
++	if (mkdir(CGROUP_PATH, 0777) && errno != EEXIST) {
++		log_err("mkdir cgroup");
++		return 1;
++	}
++
++	cg2 = open(CGROUP_PATH, O_RDONLY);
++	if (cg2 < 0) {
++		log_err("opening target cgroup");
++		goto cleanup_cgroup_err;
++	}
++
++	if (bpf_update_elem(map_fd[0], &idx, &cg2, BPF_ANY)) {
++		log_err("Adding target cgroup to map");
++		goto cleanup_cgroup_err;
++	}
++	if (join_cgroup("/mnt/my-cgroup")) {
++		log_err("Leaving target cgroup");
++		goto cleanup_cgroup_err;
++	}
++
++	/*
++	 * The installed helper program catched the sync call, and should
++	 * write it to the map.
++	 */
++
++	sync();
++	bpf_lookup_elem(map_fd[1], &idx, &remote_pid);
++
++	if (local_pid != remote_pid) {
++		fprintf(stderr,
++			"BPF Helper didn't write correct PID to map, but: %d\n",
++			remote_pid);
++		goto leave_cgroup_err;
++	}
++
++	/* Verify the negative scenario; leave the cgroup */
++	if (join_cgroup(CGROUP_MOUNT_PATH))
++		goto leave_cgroup_err;
++
++	remote_pid = 0;
++	bpf_update_elem(map_fd[1], &idx, &remote_pid, BPF_ANY);
++
++	sync();
++	bpf_lookup_elem(map_fd[1], &idx, &remote_pid);
++
++	if (local_pid == remote_pid) {
++		fprintf(stderr, "BPF cgroup negative test did not work\n");
++		goto cleanup_cgroup_err;
++	}
++
++	rmdir(CGROUP_PATH);
++	return 0;
++
++	/* Error condition, cleanup */
++leave_cgroup_err:
++	join_cgroup(CGROUP_MOUNT_PATH);
++cleanup_cgroup_err:
++	rmdir(CGROUP_PATH);
++	return 1;
++}
+-- 
+2.7.4
