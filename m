@@ -1,60 +1,79 @@
-From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 2/4] flow_dissector: Get vlan priority in
- addition to vlan id
-Date: Thu, 11 Aug 2016 18:23:00 +0300
-Message-ID: <CAJL1qvHT_SUO+22wfsTCay-gxMnj8j6pV5NNALaStPeH5H_nLA@mail.gmail.com>
-References: <1470835943-9042-3-git-send-email-hadarh@mellanox.com> <201608110519.ecG3SB3c%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hadar Hen Zion <hadarh@mellanox.com>, kbuild-all@01.org,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirva@gmail.com>
-To: kbuild test robot <lkp@intel.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv5 net-next 0/2] Add support for IFLA_VF_MAC
+Date: Thu, 11 Aug 2016 21:06:22 +0530
+Message-ID: <1470929784-3882-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35510 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751902AbcHKPXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 11:23:32 -0400
-Received: by mail-oi0-f66.google.com with SMTP id e80so593880oig.2
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 08:23:01 -0700 (PDT)
-In-Reply-To: <201608110519.ecG3SB3c%fengguang.wu@intel.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:54667 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751003AbcHKPap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 11:30:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 11, 2016 at 12:58 AM, kbuild test robot <lkp@intel.com> wrote:
-> Hi Hadar,
->
-> [auto build test ERROR on net-next/master]
->
-> url:    https://github.com/0day-ci/linux/commits/Hadar-Hen-Zion/flow_dissector-Get-vlan-info-from-skb-vlan_tci-instead-of-skb-data/20160811-042500
-> config: cris-etrax-100lx_v2_defconfig (attached as .config)
-> compiler: cris-linux-gcc (GCC) 4.6.3
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=cris
->
-> All errors (new ones prefixed by >>):
->
->    In function 'flow_keys_hash_length.isra.6',
->        inlined from '__flow_hash_from_keys' at net/core/flow_dissector.c:599:26,
->        inlined from 'flow_hash_from_keys' at net/core/flow_dissector.c:610:2:
->>> net/core/flow_dissector.c:512:2: error: call to '__compiletime_assert_512' declared with attribute error: BUILD_BUG_ON failed: (sizeof(*flow) - FLOW_KEYS_HASH_OFFSET) % sizeof(u32)
+Hi,
 
-[...]
+We're struggling to implement the PCI SR-IOV management features for
+administering Virtual Functions which represent networking devices using
+the current Linux APIs. The problem is that these APIs incorporate all
+sorts of assumptions which don't match chelsio networking cards.
 
+For instance, the current APIs assume a 1-to-1 mapping of Network Ports,
+Physical Functions and the SR-IOV Virtual Functions of those Physical
+Functions. This is not the case with our cards where any Virtual Function
+can be hooked up to any Port -- or any number of Ports the current Linux
+APIs also assume only 1 Network Interface/Port can be accessed per Virtuali
+Function.
 
-I'm working on a fix, will send it soon.
+Another issue is that these APIs assume that the Administrative Driver is
+attached to the Physical Function Associated with a Virtual Function. This
+is not the case with our card where all administration is performed by a
+Driver which is not attached to any of the Physical Functions which have
+SR-IOV PCI Capabilities.
 
-I'll be happy to get your review and comments on my flow_dissector and
-flower patches.
+Another consequence of these assumptions is the inability to utilize all
+of the cards SR-IOV resources. For instance, our cards have SR-IOV
+Capabilities on Physical Functions 0..3 and the administrative Driver
+attaches to Physical Function 4. Each of the Physical Functions 0..3 can
+support up to 16 Virtual Functions. With the current Linux APIs, a 2-Port
+card would only be able to use the Virtual Functions on Physical
+Function 0..1 and not allow the Virtual Functions on Physical
+Functions 2..3 to be used since there are no Ports 2..3 on a 2-Port card.
 
-Thank you,
+Patch 1/2 adds support to create management interface for each PF to control
+thier corresponding VF's. Patch 2/2 adds support for ndo_set_vf_mac.
 
-Hadar
+This patch series has been created against net-next tree.
 
-[...]
+We have included all the maintainers of respective drivers. Kindly review
+the change and let us know in case of any review comments.
+
+V5: Fix warning reported by kbuild bot when CONFIG_PCI_IOV isn't defined.
+
+V4: Handle memory allocation failure for adapter->mbox_log in init_one().
+    Based on review comment by Yuval Mintz <Yuval.Mintz@qlogic.com>
+
+V3: Based on review comment by Yuval Mintz, removed extra parameter pf
+    added to IFLA_VF API's and created a net_device corresponding to
+    each PF for controling their VF. Based on review comment by
+    Yuval Mintz <Yuval.Mintz@qlogic.com>
+
+V2: Fixed check for MAC address in Patch 2/2, based on review comment by
+    Yuval Mintz <Yuval.Mintz@qlogic.com>
+
+Hariprasad Shenai (2):
+  cxgb4: Add control net_device for configuring PCIe VF
+  cxgb4/cxgb4vf: Add set VF mac address support
+
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 143 ++++++++++++++++++---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  41 ++++++
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |  24 ++++
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_common.h |   3 +
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c     |  63 ++++++++-
+ 6 files changed, 253 insertions(+), 24 deletions(-)
+
+-- 
+2.3.4
