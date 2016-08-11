@@ -1,32 +1,55 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCHv3 net-next 1/2] cxgb4: Add control net_device for
- configuring PCIe VF
-Date: Thu, 11 Aug 2016 10:22:03 +0000
-Message-ID: <CO2PR11MB0088B7B0FC2202287F8BD2FE971E0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1470887687-27155-1-git-send-email-hariprasad@chelsio.com>
- <1470887687-27155-2-git-send-email-hariprasad@chelsio.com>
+From: "Shougang Group Co. Ltd" <jmdm@xanum.uam.mx>
+Subject: Company Payment Agent Needed
+Date: Thu, 11 Aug 2016 05:36:58 -0500
+Message-ID: <20160811102835.M61671@xanum.uam.mx>
+Reply-To: zhujimin06@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"leedom@chelsio.com" <leedom@chelsio.com>,
-	"nirranjan@chelsio.com" <nirranjan@chelsio.com>
-To: Hariprasad Shenai <hariprasad@chelsio.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0106.outbound.protection.outlook.com ([104.47.40.106]:52512
-	"EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932173AbcHKKh3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 06:37:29 -0400
-In-Reply-To: <1470887687-27155-2-git-send-email-hariprasad@chelsio.com>
-Content-Language: en-US
+Received: from correo.izt.uam.mx ([148.206.32.74]:48324 "EHLO
+	correo.izt.uam.mx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751432AbcHKKjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 06:39:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	adapter->mbox_log = kzalloc(sizeof(*adapter->mbox_log) +
-> +				    (sizeof(struct mbox_cmd) *
-> +				     T4_OS_LOG_MBOX_CMDS),
-> +				    GFP_KERNEL);
-> +	pi = netdev_priv(netdev);
-You probably want to check mbox_log allocation.
+Shougang Group
+45 Huagong Road Xinji City,
+Hebei Province China.
+webpage: www.shougang.com.cn
+
+
+This is an official request for Professional/consultants who will stand as
+our regional representative to run logistics on behalf of Shougang Group.
+We are only looking for individual or company from USA and Canada. You
+will be entitle to ten percent (10%) of every payment you receive from our
+customers in your region on behalf of the company.
+
+NOTE: You are not require to travel, all communications with our customers
+will be through email or phone. All fees, including taxes will be handled
+by us.
+
+You can apply for this position by filling the information below and send
+back to us;
+
+Full Name:
+Residencial or office address:
+Town:
+State:
+Zipcode:
+Country:
+Current Job:
+If you own a company, please state the company name:
+Prefered Email:
+Gender:
+Age:
+Telephone:
+
+If you have a current job, you can still be part of our business, as
+services for us will not bother with your hours of work.
+
+Respectfully,
+Mr. Zhu Jimin (Chief Executive Officer)
+Shougang Group
