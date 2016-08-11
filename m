@@ -1,7 +1,7 @@
 From: Dongpo Li <lidongpo@hisilicon.com>
-Subject: [PATCH 3/4] clk: hix5hd2: change ethernet clock type
-Date: Thu, 11 Aug 2016 17:01:54 +0800
-Message-ID: <1470906115-155569-4-git-send-email-lidongpo@hisilicon.com>
+Subject: [PATCH 4/4] ARM: dts: hix5hd2: add gmac clock and reset property
+Date: Thu, 11 Aug 2016 17:01:55 +0800
+Message-ID: <1470906115-155569-5-git-send-email-lidongpo@hisilicon.com>
 References: <1470906115-155569-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,166 +19,74 @@ In-Reply-To: <1470906115-155569-1-git-send-email-lidongpo@hisilicon.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Because the clock and reset signals share the same register,
-we initialize reset controller when initializing clock controller.
-So the ethernet driver will control the reset signal instead of
-the clock driver.
-All the ethernet clock is changed from complex clock to gate clock.
-The original ethernet clock is really a "complex" clock because
-it's obscure and hard to understand.
+Add clock and reset property for gmac node.
 
 Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
 ---
- drivers/clk/hisilicon/clk-hix5hd2.c       | 72 +++++++------------------------
- include/dt-bindings/clock/hix5hd2-clock.h |  6 ++-
- 2 files changed, 20 insertions(+), 58 deletions(-)
+ arch/arm/boot/dts/hisi-x5hd2-dkb.dts |  2 ++
+ arch/arm/boot/dts/hisi-x5hd2.dtsi    | 15 +++++++++++----
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/clk/hisilicon/clk-hix5hd2.c b/drivers/clk/hisilicon/clk-hix5hd2.c
-index 14b05ef..f9689e3 100644
---- a/drivers/clk/hisilicon/clk-hix5hd2.c
-+++ b/drivers/clk/hisilicon/clk-hix5hd2.c
-@@ -12,6 +12,7 @@
- #include <linux/slab.h>
- #include <linux/delay.h>
- #include "clk.h"
-+#include "reset.h"
+diff --git a/arch/arm/boot/dts/hisi-x5hd2-dkb.dts b/arch/arm/boot/dts/hisi-x5hd2-dkb.dts
+index d13af84..9da9283 100644
+--- a/arch/arm/boot/dts/hisi-x5hd2-dkb.dts
++++ b/arch/arm/boot/dts/hisi-x5hd2-dkb.dts
+@@ -57,6 +57,7 @@
+ 	#size-cells = <0>;
+ 	phy-handle = <&phy2>;
+ 	phy-mode = "mii";
++	hisilicon,phy-reset-delays-us = <1000 1000 20000>;
+ 	/* Placeholder, overwritten by bootloader */
+ 	mac-address = [00 00 00 00 00 00];
+ 	status = "okay";
+@@ -71,6 +72,7 @@
+ 	#size-cells = <0>;
+ 	phy-handle = <&phy1>;
+ 	phy-mode = "rgmii";
++	hisilicon,phy-reset-delays-us = <10000 10000 30000>;
+ 	/* Placeholder, overwritten by bootloader */
+ 	mac-address = [00 00 00 00 00 00];
+ 	status = "okay";
+diff --git a/arch/arm/boot/dts/hisi-x5hd2.dtsi b/arch/arm/boot/dts/hisi-x5hd2.dtsi
+index fdcc23d..c391ce6 100644
+--- a/arch/arm/boot/dts/hisi-x5hd2.dtsi
++++ b/arch/arm/boot/dts/hisi-x5hd2.dtsi
+@@ -413,6 +413,7 @@
+ 				compatible = "hisilicon,hix5hd2-clock";
+ 				reg = <0 0x2000>;
+ 				#clock-cells = <1>;
++				#reset-cells = <2>;
+ 			};
+ 		};
  
- static struct hisi_fixed_rate_clock hix5hd2_fixed_rate_clks[] __initdata = {
- 	{ HIX5HD2_FIXED_1200M, "1200m", NULL, 0, 1200000000, },
-@@ -93,8 +94,12 @@ static struct hisi_gate_clock hix5hd2_gate_clks[] __initdata = {
- 	/* gsf */
- 	{ HIX5HD2_FWD_BUS_CLK, "clk_fwd_bus", NULL, 0, 0xcc, 0, 0, },
- 	{ HIX5HD2_FWD_SYS_CLK, "clk_fwd_sys", "clk_fwd_bus", 0, 0xcc, 5, 0, },
--	{ HIX5HD2_MAC0_PHY_CLK, "clk_fephy", "clk_fwd_sys",
--		 CLK_SET_RATE_PARENT, 0x120, 0, 0, },
-+	{ HIX5HD2_MAC0_CLK, "clk_mac0", "clk_fwd_sys", 0, 0xcc, 1, 0, },
-+	{ HIX5HD2_MAC_IFC0_CLK, "clk_mac_ifc0", "clk_fwd_sys", 0, 0xcc, 3, 0, },
-+	{ HIX5HD2_MAC1_CLK, "clk_mac1", "clk_fwd_sys", 0, 0xcc, 2, 0, },
-+	{ HIX5HD2_MAC_IFC1_CLK, "clk_mac_ifc1", "clk_fwd_sys", 0, 0xcc, 4, 0, },
-+	{ HIX5HD2_MAC0_PHY_CLK, "clk_fephy", NULL,
-+		 CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED, 0x120, 0, 0, },
- 	/* wdg0 */
- 	{ HIX5HD2_WDG0_CLK, "clk_wdg0", "24m",
- 		CLK_SET_RATE_PARENT, 0x178, 0, 0, },
-@@ -129,7 +134,6 @@ static struct hisi_gate_clock hix5hd2_gate_clks[] __initdata = {
+@@ -436,18 +437,24 @@
+ 		};
  
- enum hix5hd2_clk_type {
- 	TYPE_COMPLEX,
--	TYPE_ETHER,
- };
+ 		gmac0: ethernet@1840000 {
+-			compatible = "hisilicon,hix5hd2-gmac";
++			compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
+ 			reg = <0x1840000 0x1000>,<0x184300c 0x4>;
+ 			interrupts = <0 71 4>;
+-			clocks = <&clock HIX5HD2_MAC0_CLK>;
++			clocks = <&clock HIX5HD2_MAC0_CLK>, <&clock HIX5HD2_MAC_IFC0_CLK>;
++			clock-names = "mac_core", "mac_ifc";
++			resets = <&clock 0xcc 8>, <&clock 0xcc 10>, <&clock 0x120 4>;
++			reset-names = "mac_core", "mac_ifc", "phy";
+ 			status = "disabled";
+ 		};
  
- struct hix5hd2_complex_clock {
-@@ -157,10 +161,6 @@ struct hix5hd2_clk_complex {
- };
- 
- static struct hix5hd2_complex_clock hix5hd2_complex_clks[] __initdata = {
--	{"clk_mac0", "clk_fephy", HIX5HD2_MAC0_CLK,
--		0xcc, 0xa, 0x500, 0x120, 0, 0x10, TYPE_ETHER},
--	{"clk_mac1", "clk_fwd_sys", HIX5HD2_MAC1_CLK,
--		0xcc, 0x14, 0xa00, 0x168, 0x2, 0, TYPE_ETHER},
- 	{"clk_sata", NULL, HIX5HD2_SATA_CLK,
- 		0xa8, 0x1f, 0x300, 0xac, 0x1, 0x0, TYPE_COMPLEX},
- 	{"clk_usb", NULL, HIX5HD2_USB_CLK,
-@@ -169,50 +169,6 @@ static struct hix5hd2_complex_clock hix5hd2_complex_clks[] __initdata = {
- 
- #define to_complex_clk(_hw) container_of(_hw, struct hix5hd2_clk_complex, hw)
- 
--static int clk_ether_prepare(struct clk_hw *hw)
--{
--	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
--	u32 val;
--
--	val = readl_relaxed(clk->ctrl_reg);
--	val |= clk->ctrl_clk_mask | clk->ctrl_rst_mask;
--	writel_relaxed(val, clk->ctrl_reg);
--	val &= ~(clk->ctrl_rst_mask);
--	writel_relaxed(val, clk->ctrl_reg);
--
--	val = readl_relaxed(clk->phy_reg);
--	val |= clk->phy_clk_mask;
--	val &= ~(clk->phy_rst_mask);
--	writel_relaxed(val, clk->phy_reg);
--	mdelay(10);
--
--	val &= ~(clk->phy_clk_mask);
--	val |= clk->phy_rst_mask;
--	writel_relaxed(val, clk->phy_reg);
--	mdelay(10);
--
--	val |= clk->phy_clk_mask;
--	val &= ~(clk->phy_rst_mask);
--	writel_relaxed(val, clk->phy_reg);
--	mdelay(30);
--	return 0;
--}
--
--static void clk_ether_unprepare(struct clk_hw *hw)
--{
--	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
--	u32 val;
--
--	val = readl_relaxed(clk->ctrl_reg);
--	val &= ~(clk->ctrl_clk_mask);
--	writel_relaxed(val, clk->ctrl_reg);
--}
--
--static struct clk_ops clk_ether_ops = {
--	.prepare = clk_ether_prepare,
--	.unprepare = clk_ether_unprepare,
--};
--
- static int clk_complex_enable(struct clk_hw *hw)
- {
- 	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
-@@ -269,10 +225,7 @@ hix5hd2_clk_register_complex(struct hix5hd2_complex_clock *clks, int nums,
- 			return;
- 
- 		init.name = clks[i].name;
--		if (clks[i].type == TYPE_ETHER)
--			init.ops = &clk_ether_ops;
--		else
--			init.ops = &clk_complex_ops;
-+		init.ops = &clk_complex_ops;
- 
- 		init.flags = CLK_IS_BASIC;
- 		init.parent_names =
-@@ -302,10 +255,17 @@ hix5hd2_clk_register_complex(struct hix5hd2_complex_clock *clks, int nums,
- static void __init hix5hd2_clk_init(struct device_node *np)
- {
- 	struct hisi_clock_data *clk_data;
-+	struct hisi_reset_controller *rstc;
-+
-+	rstc = hisi_reset_init(np);
-+	if (!rstc)
-+		return;
- 
- 	clk_data = hisi_clk_init(np, HIX5HD2_NR_CLKS);
--	if (!clk_data)
-+	if (!clk_data) {
-+		hisi_reset_exit(rstc);
- 		return;
-+	}
- 
- 	hisi_clk_register_fixed_rate(hix5hd2_fixed_rate_clks,
- 				     ARRAY_SIZE(hix5hd2_fixed_rate_clks),
-diff --git a/include/dt-bindings/clock/hix5hd2-clock.h b/include/dt-bindings/clock/hix5hd2-clock.h
-index fd29c17..90f0731 100644
---- a/include/dt-bindings/clock/hix5hd2-clock.h
-+++ b/include/dt-bindings/clock/hix5hd2-clock.h
-@@ -74,10 +74,12 @@
- #define HIX5HD2_I2C4_RST		150
- #define HIX5HD2_I2C5_CLK		151
- #define HIX5HD2_I2C5_RST		152
-+#define HIX5HD2_MAC0_CLK		153
-+#define HIX5HD2_MAC1_CLK		154
-+#define HIX5HD2_MAC_IFC0_CLK		155
-+#define HIX5HD2_MAC_IFC1_CLK		156
- 
- /* complex */
--#define HIX5HD2_MAC0_CLK		192
--#define HIX5HD2_MAC1_CLK		193
- #define HIX5HD2_SATA_CLK		194
- #define HIX5HD2_USB_CLK			195
+ 		gmac1: ethernet@1841000 {
+-			compatible = "hisilicon,hix5hd2-gmac";
++			compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
+ 			reg = <0x1841000 0x1000>,<0x1843010 0x4>;
+ 			interrupts = <0 72 4>;
+-			clocks = <&clock HIX5HD2_MAC1_CLK>;
++			clocks = <&clock HIX5HD2_MAC1_CLK>, <&clock HIX5HD2_MAC_IFC1_CLK>;
++			clock-names = "mac_core", "mac_ifc";
++			resets = <&clock 0xcc 9>, <&clock 0xcc 11>, <&clock 0x168 2>;
++			reset-names = "mac_core", "mac_ifc", "phy";
+ 			status = "disabled";
+ 		};
  
 -- 
 2.8.2
