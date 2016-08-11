@@ -1,15 +1,12 @@
 From: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
-Subject: [PATCH 12/16] net: wireless: broadcom: brcm80211: brcmfmac: usb: don't print error when allocating urb fails
-Date: Thu, 11 Aug 2016 23:05:31 +0200
-Message-ID: <1470949539-25392-13-git-send-email-wsa-dev@sang-engineering.com>
+Subject: [PATCH 05/16] net: can: usb: peak_usb: pcan_usb_core: don't print error when allocating urb fails
+Date: Thu, 11 Aug 2016 23:05:24 +0200
+Message-ID: <1470949539-25392-6-git-send-email-wsa-dev@sang-engineering.com>
 References: <1470949539-25392-1-git-send-email-wsa-dev@sang-engineering.com>
 Cc: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>,
-	Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <1470949539-25392-1-git-send-email-wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
@@ -20,31 +17,41 @@ kmalloc will print enough information in case of failure.
 
 Signed-off-by: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
 ---
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/usb.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/can/usb/peak_usb/pcan_usb_core.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/usb.c
-index 98b15a9a2779f4..fa26619a7945d9 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/usb.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/usb.c
-@@ -1099,15 +1099,11 @@ struct brcmf_usbdev *brcmf_usb_attach(struct brcmf_usbdev_info *devinfo,
- 	devinfo->tx_freecount = ntxq;
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb_core.c b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+index bfb91d8fa46056..c06382cdfdfee4 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb_core.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb_core.c
+@@ -399,7 +399,6 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 		/* create a URB, and a buffer for it, to receive usb messages */
+ 		urb = usb_alloc_urb(0, GFP_KERNEL);
+ 		if (!urb) {
+-			netdev_err(netdev, "No memory left for URBs\n");
+ 			err = -ENOMEM;
+ 			break;
+ 		}
+@@ -454,7 +453,6 @@ static int peak_usb_start(struct peak_usb_device *dev)
+ 		/* create a URB and a buffer for it, to transmit usb messages */
+ 		urb = usb_alloc_urb(0, GFP_KERNEL);
+ 		if (!urb) {
+-			netdev_err(netdev, "No memory left for URBs\n");
+ 			err = -ENOMEM;
+ 			break;
+ 		}
+@@ -651,10 +649,8 @@ static int peak_usb_restart(struct peak_usb_device *dev)
  
- 	devinfo->ctl_urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (!devinfo->ctl_urb) {
--		brcmf_err("usb_alloc_urb (ctl) failed\n");
-+	if (!devinfo->ctl_urb)
- 		goto error;
+ 	/* first allocate a urb to handle the asynchronous steps */
+ 	urb = usb_alloc_urb(0, GFP_ATOMIC);
+-	if (!urb) {
+-		netdev_err(dev->netdev, "no memory left for urb\n");
++	if (!urb)
+ 		return -ENOMEM;
 -	}
- 	devinfo->bulk_urb = usb_alloc_urb(0, GFP_ATOMIC);
--	if (!devinfo->bulk_urb) {
--		brcmf_err("usb_alloc_urb (bulk) failed\n");
-+	if (!devinfo->bulk_urb)
- 		goto error;
--	}
  
- 	return &devinfo->bus_pub;
- 
+ 	/* also allocate enough space for the commands to send */
+ 	buf = kmalloc(PCAN_USB_MAX_CMD_LEN, GFP_ATOMIC);
 -- 
 2.8.1
 
