@@ -1,79 +1,63 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: fixes and cleanups for 4.8
-Date: Thu, 11 Aug 2016 21:31:40 +0300
-Message-ID: <20160811213140-mutt-send-email-mst@kernel.org>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: [PATCH net-next v3 0/2] Add bpf current_task_in_cgroup helper &
+ opensnoop example
+Date: Thu, 11 Aug 2016 11:51:30 -0700
+Message-ID: <20160811185128.GA28288@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: vegard.nossum@oracle.com, weiyj.lk@gmail.com, stefanha@redhat.com,
-	kvm@vger.kernel.org, minfei.hmf@alibaba-inc.com,
-	netdev@vger.kernel.org, fanc.fnst@cn.fujitsu.com,
-	liujbjl@linux.vnet.ibm.com, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, mst@redhat.com,
-	viro@zeniv.linux.org.uk, mnghuan@gmail.com, dan.carpenter@oracle.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, tj@kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f171.google.com ([209.85.223.171]:35144 "EHLO
+	mail-io0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbcHKSvd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 14:51:33 -0400
+Received: by mail-io0-f171.google.com with SMTP id m101so4585161ioi.2
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 11:51:33 -0700 (PDT)
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 29b4817d4018df78086157ea3a55c1d9424a7cfc:
+This patchset includes a helper and an example to determine whether the probe is
+currently executing in the context of a specific cgroup based on a cgroup bpf
+map / array. The helper checks the cgroupsv2 hierarchy based on the handle in
+the map and if the current cgroup is equal to it, or a descendant of it. The
+helper was tested with the example program, and it was verified that the correct
+behaviour occurs in the interrupt context.
 
-  Linux 4.8-rc1 (2016-08-07 18:18:00 -0700)
+In an earlier version of this patchset I had added an "opensnoop"-like tool, and 
+I realized I was basically reimplementing a lot of the code that already exists 
+in the bcc repo. So, instead I decided to write a test that creates a new mount 
+namespace, mounts up the cgroupv2 hierarchy, and does some basic tests.  I used 
+the sync syscall as a canary for these tests because it's a simple, 0-arg 
+syscall. Once this patch is accepted, adding support to opensnoop will be easy.
 
-are available in the git repository at:
+I also added a task_in_cgroup_hierarchy function in cgroups.h, as this pattern
+is used in a couple places. Converting those can be done in a later patchset.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+Thanks to Alexei for providing review.
 
-for you to fetch changes up to 3b2fbb3f06efe5bd2dfdce2a1db703e23c1a78af:
+v1->v2: Clean up
+v2->v3: Move around ifdefs out of *.c files, add an "integration" test
 
-  virtio/s390: deprecate old transport (2016-08-09 13:42:41 +0300)
+Sargun Dhillon (2):
+  bpf: Add bpf_current_task_in_cgroup helper
+  samples/bpf: Add test_current_task_in_cgroup test
 
-----------------------------------------------------------------
-virtio/vhost: fixes and cleanups for 4.8
+ include/linux/bpf.h                            |  22 ++++
+ include/linux/cgroup.h                         |  23 ++++
+ include/uapi/linux/bpf.h                       |  11 ++
+ kernel/bpf/arraymap.c                          |   2 +-
+ kernel/bpf/verifier.c                          |   4 +-
+ kernel/trace/bpf_trace.c                       |  27 +++++
+ net/core/filter.c                              |  11 +-
+ samples/bpf/Makefile                           |   4 +
+ samples/bpf/bpf_helpers.h                      |   2 +
+ samples/bpf/test_current_task_in_cgroup_kern.c |  43 ++++++++
+ samples/bpf/test_current_task_in_cgroup_user.c | 145 +++++++++++++++++++++++++
+ 11 files changed, 285 insertions(+), 9 deletions(-)
+ create mode 100644 samples/bpf/test_current_task_in_cgroup_kern.c
+ create mode 100644 samples/bpf/test_current_task_in_cgroup_user.c
 
-- Misc fixes and cleanups all over the place.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Christian Borntraeger (1):
-      virtio/s390: keep early_put_chars
-
-Cornelia Huck (1):
-      virtio/s390: deprecate old transport
-
-Michael S. Tsirkin (1):
-      virtio: fix error handling for debug builds
-
-Minfei Huang (1):
-      virtio_blk: Fix a slient kernel panic
-
-Stefan Hajnoczi (2):
-      vhost/vsock: fix vhost virtio_vsock_pkt use-after-free
-      virtio-vsock: fix include guard typo
-
-Vegard Nossum (1):
-      9p/trans_virtio: use kvfree() for iov_iter_get_pages_alloc()
-
-Wei Yongjun (1):
-      virtio: fix memory leak in virtqueue_add()
-
- include/uapi/linux/virtio_vsock.h |  2 +-
- drivers/block/virtio_blk.c        | 26 ++++++++------------------
- drivers/s390/virtio/kvm_virtio.c  |  4 +++-
- drivers/vhost/vsock.c             |  6 +++++-
- drivers/virtio/virtio_ring.c      |  3 +++
- net/9p/trans_virtio.c             |  4 ++--
- arch/s390/Kconfig                 | 13 +++++++++++++
- drivers/s390/virtio/Makefile      |  6 +++++-
- 8 files changed, 40 insertions(+), 24 deletions(-)
+-- 
+2.7.4
