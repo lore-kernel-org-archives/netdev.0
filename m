@@ -1,54 +1,45 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH v2] drivers: net: cpsw: fix kmemleak false-positive
- reports for sk buffers
-Date: Thu, 11 Aug 2016 15:39:17 +0300
-Message-ID: <4655373e-cafc-70ad-443e-9668a81a1d08@ti.com>
-References: <20160810170253.31825-1-grygorii.strashko@ti.com>
- <20160810.180020.2223832285502216272.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>, <nsekhar@ti.com>,
-	<linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<catalin.marinas@arm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160810.180020.2223832285502216272.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: fix a success return may hide an error
+Date: Thu, 11 Aug 2016 20:52:58 +0800
+Message-ID: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33580 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752337AbcHKMxf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 08:53:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/11/2016 04:00 AM, David Miller wrote:
-> From: Grygorii Strashko <grygorii.strashko@ti.com>
-> Date: Wed, 10 Aug 2016 20:02:53 +0300
->
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 0805855..5caef77 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -732,6 +732,11 @@ static void cpsw_rx_handler(void *token, int len, int status)
->>  		netif_receive_skb(skb);
->>  		ndev->stats.rx_bytes += len;
->>  		ndev->stats.rx_packets++;
->> +		/* SKB pointer will be stored in CPPI RAM (SRAM) which belongs
->> +		 * to MMIO space, as result false positive memory leak report
->> +		 * will be generated.
->> +		 */
->> +		kmemleak_not_leak(new_skb);
->>  	} else {
->>  		ndev->stats.rx_dropped++;
->>  		new_skb = skb;
->
-> There is already a kmemleak_not_leak() statement here in the current
-> driver.
->
-> Please always develop and generate patches against current sources.
->
+Now in the end of sctp_outq_flush, sctp calls sctp_packet_transmit
+in a loop. The return of current sctp_packet_transmit always covers
+the prior one's. If the last call of sctp_packet_transmit return a
+success, it may hide the error that returns from the prior call.
 
-Oh. Sorry, I've expected to receive merge notification (as you do 
-usually),  but I didn't see it. I'll be more careful in the future.
+This patch is to fix this by keeping the old error until the new
+error returns from sctp_packet_transmit. Did TAHI test against this
+fix, no regression is found.
 
-Sorry again.
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/outqueue.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 72e54a4..b97c8ad 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -1193,7 +1193,7 @@ sctp_flush_out:
+ 						      send_ready);
+ 		packet = &t->packet;
+ 		if (!sctp_packet_empty(packet))
+-			error = sctp_packet_transmit(packet, gfp);
++			error = sctp_packet_transmit(packet, gfp) ? : error;
+ 
+ 		/* Clear the burst limited state, if any */
+ 		sctp_transport_burst_reset(t);
 -- 
-regards,
--grygorii
+2.1.0
