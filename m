@@ -1,142 +1,139 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: Kernel NFS boot failure
-Date: Thu, 11 Aug 2016 19:25:44 +0300
-Message-ID: <a094b3c3-0441-4e7f-7e51-f6ee5d6bb2f1@ti.com>
-References: <674e6841-d2c5-ccae-6633-a699e848e6d2@ti.com>
- <57A1DE28.7020604@arm.com> <c234fc25-ef5b-eecc-450f-34d01410f9de@ti.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as
+ IRQF_NO_THREAD
+Date: Thu, 11 Aug 2016 12:36:56 -0400
+Message-ID: <20160811123656.66acb844@gandalf.local.home>
+References: <20160811161540.9613-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Vladimir Murzin <vladimir.murzin@arm.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	Sekhar Nori <nsekhar@ti.com>,
-	open list <linux-kernel@vger.kernel.org>,
-	linux-arm <linux-arm-kernel@lists.infradead.org>,
-	Neil Brown <neilb@suse.de>
-To: netdev <netdev@vger.kernel.org>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	<linux-nfs@vger.kernel.org>,
-	Anna Schumaker <anna.schumaker@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <c234fc25-ef5b-eecc-450f-34d01410f9de@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	<linux-omap@vger.kernel.org>,
+	Alison Chaiken <alison@peloton-tech.com>,
+	<linux-rt-users@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0096.hostedemail.com ([216.40.44.96]:39811 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932574AbcHKQhA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 12:37:00 -0400
+In-Reply-To: <20160811161540.9613-1-grygorii.strashko@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/03/2016 06:04 PM, Grygorii Strashko wrote:
-> Hi Vladimir,
+On Thu, 11 Aug 2016 19:15:40 +0300
+Grygorii Strashko <grygorii.strashko@ti.com> wrote:
+
+> Mark CPSW Rx/Tx IRQs as IRQF_NO_THREAD and avoid double scheduling on -RT
+> where this IRQs are forced threaded:
+>  rx-irq
+>   |- schedule threaded rx-irq handler
+> ...
+>   |- threaded rx-irq handler -> cpsw_rx_interrupt()
+>      |- napi_schedule()
+> 	|- __raise_softirq_irqoff()
+> 	   |- wakeup_proper_softirq()
+> ...
+>   napi
 > 
-> On 08/03/2016 03:06 PM, Vladimir Murzin wrote:
->> On 03/08/16 12:41, Grygorii Strashko wrote:
->>> We observe Kernel boot failure while running NFS boot stress test (1000 iterations):
->>> - Linux version 4.7.0 
+> after:
+>  rx-irq
+>   |- cpsw_rx_interrupt()
+>      |- napi_schedule()
+>   |- irq_exit()
+>      |- invoke_softirq()
+> 	   |- wakeup_softirqd()
+> ...
+>   napi
 > 
-> I'd like to pay your attention that this issue also reproducible with
-> Kernel 4.7.0!
-> The same can be seen from the log I've provided in first e-mail:
-> [    0.000000] Linux version 4.7.0 (lcpdbld@dflsdit-build06.dal.design.ti.com) (gcc version 4.9.3 20150413 (prerelease) (Linaro GCC 4.9-2015.05) ) #1 SMP Fri Jul 29 17:41:27 CDT 2016
+> And, as result, get benefits from the following improvements (tested
+> on am57xx-evm):
 > 
+> 1) "[ 78.348599] NOHZ: local_softirq_pending 80" message will not be
+>    seen any more. Now these warnings can be seen once iperf is started.
+>    # iperf -c $IPERFHOST -w 128K  -d -t 60
 > 
-> I've not run the test with current master at it's not been tagged yet.
+> 2) latency reduction when cyclictest is run in parallel with network load
+>  where net_perf.sh is:
+>    iperf -c $IPERFHOST -w 8K    -d -t 60
+>    iperf -c $IPERFHOST -w 16K   -d -t 60
+>    iperf -c $IPERFHOST -w 32K   -d -t 60
+>    iperf -c $IPERFHOST -w 64K   -d -t 60
+>    iperf -c $IPERFHOST -w 128K  -d -t 60
+> 
+> before:
+> T: 0 ( 1326) P:98 I:1000 C: 240000 Min:      8 Act:   13 Avg:   18 Max:      70
+> T: 1 ( 1327) P:98 I:1500 C: 159981 Min:      9 Act:   15 Avg:   16 Max:      43
+> after:
+> T: 0 ( 1331) P:98 I:1000 C: 240000 Min:      8 Act:   15 Avg:   14 Max:      51
+> T: 1 ( 1332) P:98 I:1500 C: 159953 Min:      8 Act:   16 Avg:   15 Max:      33
+> 
+> 3) network performance increase
+> 
+> win, K	Mbits/s
+> 	before	after	%
+> 8K	354	350.3	0.0
+> 16K	412	551	33.7
+> 32K	423	659.5	55.9
+> 64K	436	728.3	67.0
+> 128K	537	845	57.4
+> 
+> This change does not affect on non-RT.
 
-Still in progress. rc1 unstable on my platforms due to other issues :(
+This looks fine to me, but it should go into the development branch,
+which is currently 4.6-rt. And I can then pull it from there.
+
+-- Steve
+
 
 > 
->>> - am335x-evm (TI AM335x EVM)
->>> - failure rate 10-20 times per test.
->>> Originally this issue was reproduced using TI Kernel 4.4
->>> ( git://git.ti.com/ti-linux-kernel/ti-linux-kernel.git, branch: ti-linux-4.4.y)
->>> on both am335x-evm and am57xx-beagle-x15(am57xx-evm) platforms.
->>> This issues has not been reproduced with TI Kernel 4.1 before.
->>>
->>> The SysRq shows that system stuck in nfs_fs_mount()
->>>
->>> [  207.904632] [<c07ab34c>] (schedule) from [<c0783554>] (rpc_wait_bit_killable+0x2c/0xd8)
->>> [  207.912996] [<c0783554>] (rpc_wait_bit_killable) from [<c07ab7f0>] (__wait_on_bit+0x84/0xc0)
->>> [  207.921812] [<c07ab7f0>] (__wait_on_bit) from [<c07ab890>] (out_of_line_wait_on_bit+0x64/0x70)
->>> [  207.930810] [<c07ab890>] (out_of_line_wait_on_bit) from [<c07843f4>] (__rpc_execute+0x18c/0x544)
->>> [  207.939988] [<c07843f4>] (__rpc_execute) from [<c0779f24>] (rpc_run_task+0x13c/0x158)
->>> [  207.948166] [<c0779f24>] (rpc_run_task) from [<c0779f84>] (rpc_call_sync+0x44/0xc4)
->>> [  207.956163] [<c0779f84>] (rpc_call_sync) from [<c077a04c>] (rpc_ping+0x48/0x68)
->>> [  207.963796] [<c077a04c>] (rpc_ping) from [<c077a158>] (rpc_create_xprt+0xec/0x164)
->>> [  207.971702] [<c077a158>] (rpc_create_xprt) from [<c077a2c0>] (rpc_create+0xf0/0x1a0)
->>> [  207.979794] [<c077a2c0>] (rpc_create) from [<c0393088>] (nfs_create_rpc_client+0xd4/0xec)
->>> [  207.988338] [<c0393088>] (nfs_create_rpc_client) from [<c0394d10>] (nfs_init_client+0x20/0x78)
->>> [  207.997332] [<c0394d10>] (nfs_init_client) from [<c03949d4>] (nfs_create_server+0xa0/0x3bc)
->>> [  208.006057] [<c03949d4>] (nfs_create_server) from [<c03b197c>] (nfs3_create_server+0x8/0x20)
->>> [  208.014879] [<c03b197c>] (nfs3_create_server) from [<c03a34c4>] (nfs_try_mount+0xc4/0x1f0)
->>> [  208.023513] [<c03a34c4>] (nfs_try_mount) from [<c03a2c48>] (nfs_fs_mount+0x290/0x910)
->>> [  208.031702] [<c03a2c48>] (nfs_fs_mount) from [<c0294d24>] (mount_fs+0x44/0x168)
->>>
->>> Has anyone else seen this issue?
->>>
->>> I'd be appreciated for any help or advice related to this issue?
->>
->> I did not look at details, but because it is 4.4 and __wait_on_bit
->> showed up you might want to look at [1]
->>
->> [1] https://lkml.org/lkml/2015/11/20/472
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> ---
+> Hi All,
 > 
-> Thanks. I'll take a look.
+> I'll be appreciated on any feedback or tested-by.
+> In case of positive feedback I'll resend it for upstream.
 > 
-
-I've checked this thread and all three commits mentioned there are present in K4.4
->=3.17
-commit 743162013d40  sched: Remove proliferation of wait_on_bit() action functions
->=4.4
-commit 68985633bccb  sched/wait: Fix signal handling in bit wait helpers
->=4.4
-commit dfd01f026058  sched/wait: Fix the signal handling fix
-
-
-Also, It seems first patch, probably, has copy-past error.
-I'm not sure and it may be that patch is correct :)
-Any way, It doesn't help with this issue if I use wait_on_bit_lock_io in nfs_page_group_lock().
-
-743162013d40 ("sched: Remove proliferation of wait_on_bit() action functions")
--- does:
-
-diff --git a/fs/nfs/pagelist.c b/fs/nfs/pagelist.c
-index b6ee3a6..6104d35 100644
---- a/fs/nfs/pagelist.c
-+++ b/fs/nfs/pagelist.c
-@@ -138,12 +138,6 @@ nfs_iocounter_wait(struct nfs_io_counter *c)
-        return __nfs_iocounter_wait(c);
- }
- 
--static int nfs_wait_bit_uninterruptible(void *word)
--{
--       io_schedule();
--       return 0;
--}
--
- /*
-  * nfs_page_group_lock - lock the head of the page group
-  * @req - request in group that is to be locked
-@@ -158,7 +152,6 @@ nfs_page_group_lock(struct nfs_page *req)
-        WARN_ON_ONCE(head != head->wb_head);
- 
-        wait_on_bit_lock(&head->wb_flags, PG_HEADLOCK,
--                       nfs_wait_bit_uninterruptible,
-
-[GS] But it seems should be wait_on_bit_lock_io() <----
-
-                        TASK_UNINTERRUPTIBLE);
- }
- 
-@@ -425,9 +418,8 @@ void nfs_release_request(struct nfs_page *req)
- int
- nfs_wait_on_request(struct nfs_page *req)
- {
--       return wait_on_bit(&req->wb_flags, PG_BUSY,
--                       nfs_wait_bit_uninterruptible,
--                       TASK_UNINTERRUPTIBLE);
-+       return wait_on_bit_io(&req->wb_flags, PG_BUSY,
-+                             TASK_UNINTERRUPTIBLE);
- }
-
-
-
-
--- 
-regards,
--grygorii
+>  drivers/net/ethernet/ti/cpsw.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 7b59283..fa4bb81 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -769,7 +769,7 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
+>  		priv->tx_irq_disabled = true;
+>  	}
+>  
+> -	napi_schedule(&priv->napi_tx);
+> +	napi_schedule_irqoff(&priv->napi_tx);
+>  	return IRQ_HANDLED;
+>  }
+>  
+> @@ -785,7 +785,7 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
+>  		priv->rx_irq_disabled = true;
+>  	}
+>  
+> -	napi_schedule(&priv->napi_rx);
+> +	napi_schedule_irqoff(&priv->napi_rx);
+>  	return IRQ_HANDLED;
+>  }
+>  
+> @@ -2827,7 +2827,7 @@ static int cpsw_probe(struct platform_device *pdev)
+>  
+>  	priv->irqs_table[0] = irq;
+>  	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
+> -			       0, dev_name(&pdev->dev), priv);
+> +			       IRQF_NO_THREAD, dev_name(&pdev->dev), priv);
+>  	if (ret < 0) {
+>  		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+>  		goto clean_ale_ret;
+> @@ -2842,7 +2842,7 @@ static int cpsw_probe(struct platform_device *pdev)
+>  
+>  	priv->irqs_table[1] = irq;
+>  	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
+> -			       0, dev_name(&pdev->dev), priv);
+> +			       IRQF_NO_THREAD, dev_name(&pdev->dev), priv);
+>  	if (ret < 0) {
+>  		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
+>  		goto clean_ale_ret;
