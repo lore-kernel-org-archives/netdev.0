@@ -1,300 +1,216 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: [PATCH net-next v3 2/2] samples/bpf: Add test_current_task_in_cgroup
- test
-Date: Thu, 11 Aug 2016 11:52:30 -0700
-Message-ID: <20160811185229.GA28310@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net, tj@kernel.org
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix write helpers with regards to non-linear parts
+Date: Thu, 11 Aug 2016 21:38:37 +0200
+Message-ID: <c281218e107134c8d30d1aafe2aca15fcf8e43df.1470941847.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:36194 "EHLO
-	mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162AbcHKSwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 14:52:34 -0400
-Received: by mail-it0-f45.google.com with SMTP id x130so4218368ite.1
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 11:52:33 -0700 (PDT)
-Content-Disposition: inline
+Received: from www62.your-server.de ([213.133.104.62]:51871 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752057AbcHKTis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 15:38:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This test has a BPF program which writes the last known pid to call the
-sync syscall within a given cgroup to a map.
+Fix the bpf_try_make_writable() helper and all call sites we have in BPF,
+it's currently defect with regards to skbs when the write_len spans into
+non-linear parts, no matter if cloned or not.
 
-The user mode program creates its own mount namespace, and mounts the
-cgroupsv2 hierarchy in there, as on all current test systems
-(Ubuntu 16.04, CoreOS 1053),  the cgroupsv2 vfs is unmounted by default.
-Once it does this, it proceeds to test.
+There are multiple issues at once. First, using skb_store_bits() is not
+correct since even if we have a cloned skb, page frags can still be shared.
+To really make them private, we need to pull them in via __pskb_pull_tail()
+first, which also gets us a private head via pskb_expand_head() implicitly.
 
-The test checks for positive and negative condition. It ensures that
-when it's part of a given cgroup, its pid is captured in the map,
-and that when it leaves the cgroup, this doesn't happen.
+This is for helpers like bpf_skb_store_bytes(), bpf_l3_csum_replace(),
+bpf_l4_csum_replace(). Really, the only thing reasonable and working here
+is to call skb_ensure_writable() before any write operation. Meaning, via
+pskb_may_pull() it makes sure that parts we want to access are pulled in and
+if not does so plus unclones the skb implicitly. If our write_len still fits
+the headlen and we're cloned and our header of the clone is not writable,
+then we need to make a private copy via pskb_expand_head(). skb_store_bits()
+is a bit misleading and only safe to store into non-linear data in different
+contexts such as 357b40a18b04 ("[IPV6]: IPV6_CHECKSUM socket option can
+corrupt kernel memory").
 
-It populate a cgroups arraymap prior to execution in userspace. This means
-that the program must be run in the same cgroups namespace as the programs
-that are being traced.
+For above BPF helper functions, it means after fixed bpf_try_make_writable(),
+we've pulled in enough, so that we operate always based on skb->data. Thus,
+the call to skb_header_pointer() and skb_store_bits() becomes superfluous.
+In bpf_skb_store_bytes(), the len check is unnecessary too since it can
+only pass in maximum of BPF stack size, so adding offset is guaranteed to
+never overflow. Also bpf_l3/4_csum_replace() helpers must test for proper
+offset alignment since they use __sum16 pointer for writing resulting csum.
 
-Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Tejun Heo <tj@kernel.org>
+The remaining helpers that change skb data not discussed here yet are
+bpf_skb_vlan_push(), bpf_skb_vlan_pop() and bpf_skb_change_proto(). The
+vlan helpers internally call either skb_ensure_writable() (pop case) and
+skb_cow_head() (push case, for head expansion), respectively. Similarly,
+bpf_skb_proto_xlat() takes care to not mangle page frags.
+
+Fixes: 608cd71a9c7c ("tc: bpf: generalize pedit action")
+Fixes: 91bc4822c3d6 ("tc: bpf: add checksum helpers")
+Fixes: 3697649ff29e ("bpf: try harder on clones when writing into skb")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- samples/bpf/Makefile                           |   4 +
- samples/bpf/bpf_helpers.h                      |   2 +
- samples/bpf/test_current_task_in_cgroup_kern.c |  43 ++++++++
- samples/bpf/test_current_task_in_cgroup_user.c | 145 +++++++++++++++++++++++++
- 4 files changed, 194 insertions(+)
- create mode 100644 samples/bpf/test_current_task_in_cgroup_kern.c
- create mode 100644 samples/bpf/test_current_task_in_cgroup_user.c
+ net/core/filter.c | 70 ++++++++++++++-----------------------------------------
+ 1 file changed, 18 insertions(+), 52 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 90ebf7d..45aeb1c 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -24,6 +24,7 @@ hostprogs-y += test_overhead
- hostprogs-y += test_cgrp2_array_pin
- hostprogs-y += xdp1
- hostprogs-y += xdp2
-+hostprogs-y += test_current_task_in_cgroup
+diff --git a/net/core/filter.c b/net/core/filter.c
+index b5add4e..927e136 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1355,13 +1355,9 @@ static inline int bpf_try_make_writable(struct sk_buff *skb,
+ {
+ 	int err;
  
- test_verifier-objs := test_verifier.o libbpf.o
- test_maps-objs := test_maps.o libbpf.o
-@@ -49,6 +50,7 @@ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
- xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
- # reuse xdp1 source intentionally
- xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
-+test_current_task_in_cgroup-objs := bpf_load.o libbpf.o test_current_task_in_cgroup_user.o
+-	if (!skb_cloned(skb))
+-		return 0;
+-	if (skb_clone_writable(skb, write_len))
+-		return 0;
+-	err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-	if (!err)
+-		bpf_compute_data_end(skb);
++	err = skb_ensure_writable(skb, write_len);
++	bpf_compute_data_end(skb);
++
+ 	return err;
+ }
  
- # Tell kbuild to always build the programs
- always := $(hostprogs-y)
-@@ -74,6 +76,7 @@ always += parse_varlen.o parse_simple.o parse_ldabs.o
- always += test_cgrp2_tc_kern.o
- always += xdp1_kern.o
- always += xdp2_kern.o
-+always += test_current_task_in_cgroup_kern.o
+@@ -1379,42 +1375,25 @@ static inline void bpf_pull_mac_rcsum(struct sk_buff *skb)
  
- HOSTCFLAGS += -I$(objtree)/usr/include
+ static u64 bpf_skb_store_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 flags)
+ {
+-	struct bpf_scratchpad *sp = this_cpu_ptr(&bpf_sp);
+ 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
+-	int offset = (int) r2;
++	unsigned int offset = (unsigned int) r2;
+ 	void *from = (void *) (long) r3;
+ 	unsigned int len = (unsigned int) r4;
+ 	void *ptr;
  
-@@ -97,6 +100,7 @@ HOSTLOADLIBES_map_perf_test += -lelf -lrt
- HOSTLOADLIBES_test_overhead += -lelf -lrt
- HOSTLOADLIBES_xdp1 += -lelf
- HOSTLOADLIBES_xdp2 += -lelf
-+HOSTLOADLIBES_test_current_task_in_cgroup += -lelf
+ 	if (unlikely(flags & ~(BPF_F_RECOMPUTE_CSUM | BPF_F_INVALIDATE_HASH)))
+ 		return -EINVAL;
+-
+-	/* bpf verifier guarantees that:
+-	 * 'from' pointer points to bpf program stack
+-	 * 'len' bytes of it were initialized
+-	 * 'len' > 0
+-	 * 'skb' is a valid pointer to 'struct sk_buff'
+-	 *
+-	 * so check for invalid 'offset' and too large 'len'
+-	 */
+-	if (unlikely((u32) offset > 0xffff || len > sizeof(sp->buff)))
++	if (unlikely(offset > 0xffff))
+ 		return -EFAULT;
+ 	if (unlikely(bpf_try_make_writable(skb, offset + len)))
+ 		return -EFAULT;
  
- # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
- #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-diff --git a/samples/bpf/bpf_helpers.h b/samples/bpf/bpf_helpers.h
-index cbc52df..e6bc5936 100644
---- a/samples/bpf/bpf_helpers.h
-+++ b/samples/bpf/bpf_helpers.h
-@@ -45,6 +45,8 @@ static int (*bpf_get_stackid)(void *ctx, void *map, int flags) =
- 	(void *) BPF_FUNC_get_stackid;
- static int (*bpf_probe_write_user)(void *dst, void *src, int size) =
- 	(void *) BPF_FUNC_probe_write_user;
-+static int (*bpf_current_task_in_cgroup)(void *map, int index) =
-+	(void *) BPF_FUNC_current_task_in_cgroup;
+-	ptr = skb_header_pointer(skb, offset, len, sp->buff);
+-	if (unlikely(!ptr))
+-		return -EFAULT;
+-
++	ptr = skb->data + offset;
+ 	if (flags & BPF_F_RECOMPUTE_CSUM)
+ 		__skb_postpull_rcsum(skb, ptr, len, offset);
  
- /* llvm builtin functions that eBPF C program may use to
-  * emit BPF_LD_ABS and BPF_LD_IND instructions
-diff --git a/samples/bpf/test_current_task_in_cgroup_kern.c b/samples/bpf/test_current_task_in_cgroup_kern.c
-new file mode 100644
-index 0000000..2a77bd7
---- /dev/null
-+++ b/samples/bpf/test_current_task_in_cgroup_kern.c
-@@ -0,0 +1,43 @@
-+/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/ptrace.h>
-+#include <uapi/linux/bpf.h>
-+#include <linux/version.h>
-+#include "bpf_helpers.h"
-+#include <uapi/linux/utsname.h>
-+
-+struct bpf_map_def SEC("maps") cgroup_map = {
-+	.type			= BPF_MAP_TYPE_CGROUP_ARRAY,
-+	.key_size		= sizeof(u32),
-+	.value_size		= sizeof(u32),
-+	.max_entries	= 1,
-+};
-+
-+struct bpf_map_def SEC("maps") perf_map = {
-+	.type			= BPF_MAP_TYPE_ARRAY,
-+	.key_size		= sizeof(u32),
-+	.value_size		= sizeof(u64),
-+	.max_entries	= 1,
-+};
-+
-+/* Writes the last PID that called sync to a map at index 0 */
-+SEC("kprobe/sys_sync")
-+int bpf_prog1(struct pt_regs *ctx)
-+{
-+	u64 pid = bpf_get_current_pid_tgid();
-+	int idx = 0;
-+
-+	if (!bpf_current_task_in_cgroup(&cgroup_map, 0))
-+		return 0;
-+
-+	bpf_map_update_elem(&perf_map, &idx, &pid, BPF_ANY);
-+	return 0;
-+}
-+
-+char _license[] SEC("license") = "GPL";
-+u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/test_current_task_in_cgroup_user.c b/samples/bpf/test_current_task_in_cgroup_user.c
-new file mode 100644
-index 0000000..41b8d1c
---- /dev/null
-+++ b/samples/bpf/test_current_task_in_cgroup_user.c
-@@ -0,0 +1,145 @@
-+/* Copyright (c) 2016 Sargun Dhillon <sargun@sargun.me>
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+
-+#define _GNU_SOURCE
-+#include <stdio.h>
-+#include <linux/bpf.h>
-+#include <unistd.h>
-+#include "libbpf.h"
-+#include "bpf_load.h"
-+#include <string.h>
-+#include <fcntl.h>
-+#include <errno.h>
-+#include <linux/bpf.h>
-+#include <sched.h>
-+#include <sys/mount.h>
-+#include <sys/stat.h>
-+#include <sys/types.h>
-+#include <linux/limits.h>
-+
-+#define CGROUP_MOUNT_PATH	"/mnt"
-+#define CGROUP_PATH		"/mnt/my-cgroup"
-+
-+#define clean_errno() (errno == 0 ? "None" : strerror(errno))
-+#define log_err(MSG, ...) fprintf(stderr, "(%s:%d: errno: %s) " MSG "\n", \
-+	__FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
-+
-+int join_cgroup(char *path)
-+{
-+	int fd, rc = 0;
-+	pid_t pid = getpid();
-+	char cgroup_path[PATH_MAX + 1];
-+
-+	snprintf(cgroup_path, sizeof(cgroup_path), "%s/cgroup.procs", path);
-+
-+	fd = open(cgroup_path, O_WRONLY);
-+	if (fd < 0) {
-+		log_err("Opening Cgroup");
-+		return 1;
-+	}
-+
-+	if (dprintf(fd, "%d\n", pid) < 0) {
-+		log_err("Joining Cgroup");
-+		rc = 1;
-+	}
-+	close(fd);
-+	return rc;
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	char filename[256];
-+	int cg2, idx = 0;
-+	pid_t remote_pid, local_pid = getpid();
-+
-+	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
-+	if (load_bpf_file(filename)) {
-+		printf("%s", bpf_log_buf);
-+		return 1;
-+	}
-+
-+	/*
-+	 * This is to avoid interfering with existing cgroups. Unfortunately,
-+	 * most people don't have cgroupv2 enabled at this point in time.
-+	 * It's easier to create our own mount namespace and manage it
-+	 * ourselves.
-+	 */
-+	if (unshare(CLONE_NEWNS)) {
-+		log_err("unshare");
-+		return 1;
-+	}
-+
-+	if (mount("none", "/", NULL, MS_REC | MS_PRIVATE, NULL)) {
-+		log_err("mount fakeroot");
-+		return 1;
-+	}
-+
-+	if (mount("none", CGROUP_MOUNT_PATH, "cgroup2", 0, NULL)) {
-+		log_err("mount cgroup2");
-+		return 1;
-+	}
-+
-+	if (mkdir(CGROUP_PATH, 0777) && errno != EEXIST) {
-+		log_err("mkdir cgroup");
-+		return 1;
-+	}
-+
-+	cg2 = open(CGROUP_PATH, O_RDONLY);
-+	if (cg2 < 0) {
-+		log_err("opening target cgroup");
-+		goto cleanup_cgroup_err;
-+	}
-+
-+	if (bpf_update_elem(map_fd[0], &idx, &cg2, BPF_ANY)) {
-+		log_err("Adding target cgroup to map");
-+		goto cleanup_cgroup_err;
-+	}
-+	if (join_cgroup("/mnt/my-cgroup")) {
-+		log_err("Leaving target cgroup");
-+		goto cleanup_cgroup_err;
-+	}
-+
-+	/*
-+	 * The installed helper program catched the sync call, and should
-+	 * write it to the map.
-+	 */
-+
-+	sync();
-+	bpf_lookup_elem(map_fd[1], &idx, &remote_pid);
-+
-+	if (local_pid != remote_pid) {
-+		fprintf(stderr,
-+			"BPF Helper didn't write correct PID to map, but: %d\n",
-+			remote_pid);
-+		goto leave_cgroup_err;
-+	}
-+
-+	/* Verify the negative scenario; leave the cgroup */
-+	if (join_cgroup(CGROUP_MOUNT_PATH))
-+		goto leave_cgroup_err;
-+
-+	remote_pid = 0;
-+	bpf_update_elem(map_fd[1], &idx, &remote_pid, BPF_ANY);
-+
-+	sync();
-+	bpf_lookup_elem(map_fd[1], &idx, &remote_pid);
-+
-+	if (local_pid == remote_pid) {
-+		fprintf(stderr, "BPF cgroup negative test did not work\n");
-+		goto cleanup_cgroup_err;
-+	}
-+
-+	rmdir(CGROUP_PATH);
-+	return 0;
-+
-+	/* Error condition, cleanup */
-+leave_cgroup_err:
-+	join_cgroup(CGROUP_MOUNT_PATH);
-+cleanup_cgroup_err:
-+	rmdir(CGROUP_PATH);
-+	return 1;
-+}
+ 	memcpy(ptr, from, len);
+ 
+-	if (ptr == sp->buff)
+-		/* skb_store_bits cannot return -EFAULT here */
+-		skb_store_bits(skb, offset, ptr, len);
+-
+ 	if (flags & BPF_F_RECOMPUTE_CSUM)
+ 		__skb_postpush_rcsum(skb, ptr, len, offset);
+ 	if (flags & BPF_F_INVALIDATE_HASH)
+@@ -1437,12 +1416,12 @@ static const struct bpf_func_proto bpf_skb_store_bytes_proto = {
+ static u64 bpf_skb_load_bytes(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ {
+ 	const struct sk_buff *skb = (const struct sk_buff *)(unsigned long) r1;
+-	int offset = (int) r2;
++	unsigned int offset = (unsigned int) r2;
+ 	void *to = (void *)(unsigned long) r3;
+ 	unsigned int len = (unsigned int) r4;
+ 	void *ptr;
+ 
+-	if (unlikely((u32) offset > 0xffff))
++	if (unlikely(offset > 0xffff))
+ 		goto err_clear;
+ 
+ 	ptr = skb_header_pointer(skb, offset, len, to);
+@@ -1470,20 +1449,17 @@ static const struct bpf_func_proto bpf_skb_load_bytes_proto = {
+ static u64 bpf_l3_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
+ {
+ 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
+-	int offset = (int) r2;
+-	__sum16 sum, *ptr;
++	unsigned int offset = (unsigned int) r2;
++	__sum16 *ptr;
+ 
+ 	if (unlikely(flags & ~(BPF_F_HDR_FIELD_MASK)))
+ 		return -EINVAL;
+-	if (unlikely((u32) offset > 0xffff))
+-		return -EFAULT;
+-	if (unlikely(bpf_try_make_writable(skb, offset + sizeof(sum))))
++	if (unlikely(offset > 0xffff || offset & 1))
+ 		return -EFAULT;
+-
+-	ptr = skb_header_pointer(skb, offset, sizeof(sum), &sum);
+-	if (unlikely(!ptr))
++	if (unlikely(bpf_try_make_writable(skb, offset + sizeof(*ptr))))
+ 		return -EFAULT;
+ 
++	ptr = (__sum16 *)(skb->data + offset);
+ 	switch (flags & BPF_F_HDR_FIELD_MASK) {
+ 	case 0:
+ 		if (unlikely(from != 0))
+@@ -1501,10 +1477,6 @@ static u64 bpf_l3_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (ptr == &sum)
+-		/* skb_store_bits guaranteed to not return -EFAULT here */
+-		skb_store_bits(skb, offset, ptr, sizeof(sum));
+-
+ 	return 0;
+ }
+ 
+@@ -1524,20 +1496,18 @@ static u64 bpf_l4_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
+ 	struct sk_buff *skb = (struct sk_buff *) (long) r1;
+ 	bool is_pseudo = flags & BPF_F_PSEUDO_HDR;
+ 	bool is_mmzero = flags & BPF_F_MARK_MANGLED_0;
+-	int offset = (int) r2;
+-	__sum16 sum, *ptr;
++	unsigned int offset = (unsigned int) r2;
++	__sum16 *ptr;
+ 
+ 	if (unlikely(flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_PSEUDO_HDR |
+ 			       BPF_F_HDR_FIELD_MASK)))
+ 		return -EINVAL;
+-	if (unlikely((u32) offset > 0xffff))
++	if (unlikely(offset > 0xffff || offset & 1))
+ 		return -EFAULT;
+-	if (unlikely(bpf_try_make_writable(skb, offset + sizeof(sum))))
++	if (unlikely(bpf_try_make_writable(skb, offset + sizeof(*ptr))))
+ 		return -EFAULT;
+ 
+-	ptr = skb_header_pointer(skb, offset, sizeof(sum), &sum);
+-	if (unlikely(!ptr))
+-		return -EFAULT;
++	ptr = (__sum16 *)(skb->data + offset);
+ 	if (is_mmzero && !*ptr)
+ 		return 0;
+ 
+@@ -1560,10 +1530,6 @@ static u64 bpf_l4_csum_replace(u64 r1, u64 r2, u64 from, u64 to, u64 flags)
+ 
+ 	if (is_mmzero && !*ptr)
+ 		*ptr = CSUM_MANGLED_0;
+-	if (ptr == &sum)
+-		/* skb_store_bits guaranteed to not return -EFAULT here */
+-		skb_store_bits(skb, offset, ptr, sizeof(sum));
+-
+ 	return 0;
+ }
+ 
 -- 
-2.7.4
+1.9.3
