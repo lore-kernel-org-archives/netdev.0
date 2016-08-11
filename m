@@ -1,37 +1,59 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull-request: mac80211 2016-08-05
-Date: Thu, 11 Aug 2016 09:58:15 +0200
-Message-ID: <1470902295.5266.8.camel@sipsolutions.net>
-References: <1470400329-23256-1-git-send-email-johannes@sipsolutions.net>
-	 (sfid-20160805_143231_516679_202A0463)
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH 1/3] net: stmmac: dwmac-rk: add rk3366 & rk3399 specific data
+Date: Thu, 11 Aug 2016 10:12:44 +0200
+Message-ID: <1799606.7CVTQCi7m5@diego>
+References: <1470900288-10109-1-git-send-email-roger.chen@rock-chips.com> <1470900288-10109-2-git-send-email-roger.chen@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:51226 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750856AbcHKH6U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Aug 2016 03:58:20 -0400
-In-Reply-To: <1470400329-23256-1-git-send-email-johannes@sipsolutions.net> (sfid-20160805_143231_516679_202A0463)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1470900288-10109-2-git-send-email-roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-08-05 at 14:32 +0200, Johannes Berg wrote:
-> Hi Dave,
-> 
-> Here's a first set of fixes for the current cycle. See the tag
-> message
-> for more information.
-> 
-> I'll probably have a follow-up fix for the real problem in mac80211
-> that caused the crash later, but for now we have this patch and it
-> makes sense and fixes the crash, even if the behaviour isn't quite
-> right (afaict.)
-> 
+Hi Roger,
 
-Just FYI, I'm going to "defer" the fix for the wrong behaviour to
-mac80211-next since no driver is affected by it.
+Am Donnerstag, 11. August 2016, 15:24:46 schrieb Roger Chen:
+> Add constants and callback functions for the dwmac on rk3228/rk3229 socs.
+> As can be seen, the base structure is the same, only registers and the
+> bits in them moved slightly.
+> 
+> Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/rockchip-dwmac.txt     |   4 +-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 226
+> +++++++++++++++++++++ 2 files changed, 228 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+> b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt index
+> cccd945..8c066e6 100644
+> --- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+> +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+> @@ -3,8 +3,8 @@ Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
+>  The device node has following properties.
+> 
+>  Required properties:
+> - - compatible: Can be one of "rockchip,rk3228-gmac",
+> "rockchip,rk3288-gmac", -                            
+> "rockchip,rk3368-gmac"
+> + - compatible: Can be one of "rockchip,rk3288-gmac",
 
-johannes
+you're dropping the rk3228 here.
+
+Otherwise looks fine, so with the compatible list fixed you can add my
+Reviewed-by: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+
+
+Heiko
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
