@@ -1,140 +1,43 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net 4/4] hv_netvsc: avoid deadlocks between rtnl lock and
- netvsc_inject_disable()
-Date: Thu, 11 Aug 2016 12:58:57 +0200
-Message-ID: <1470913137-29167-5-git-send-email-vkuznets@redhat.com>
-References: <1470913137-29167-1-git-send-email-vkuznets@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net-next 0/6] xfrm: convert xfrm_state_find to rcu
+Date: Thu, 11 Aug 2016 13:13:01 +0200
+Message-ID: <20160811111301.GD5710@gauss.secunet.com>
+References: <1470737769-30438-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
- linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1470913137-29167-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:48300 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750828AbcHKLNF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Aug 2016 07:13:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1470737769-30438-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Here is a deadlock scenario:
-- netvsc_vf_up() schedules netvsc_notify_peers() work and quits.
-- netvsc_vf_down() runs before netvsc_notify_peers() gets executed. As it
-  is being executed from netdev notifier chain we hold rtnl lock when we
-  get here.
-- we enter netvsc_inject_disable() and loop and wait till
-  netvsc_notify_peers() drops vf_use_cnt.
-- netvsc_notify_peers() starts on some other CPU but netdev_notify_peers()
-  will hang on rtnl_lock().
-- deadlock!
+On Tue, Aug 09, 2016 at 12:16:03PM +0200, Florian Westphal wrote:
+> This series converts state_by{dst,src,spi} to allow lookups without
+> holding xfrm_state_lock.
+> 
+> Only xfrm_state_find() is converted here for the (more common) case where
+> we do not query key manager.
+> 
+> Once more flows are created/destroyed (or the flow cache is overloaded and
+> often cleans out other entries) this function (and the state lock)
+> start to show up in perf.
+> 
+> Florian Westphal (6):
+>       xfrm: state: use hlist_for_each_entry_rcu helper
+>       xfrm: state: use atomic_inc_not_zero to increment refcount
+>       xfrm: state: delay freeing until rcu grace period has elapsed
+>       xfrm: state: add sequence count to detect hash resizes
+>       xfrm: state: use rcu_deref and assign_pointer helpers
+>       xfrm: state: don't use lock anymore unless acquire operation is needed
+> 
+>  include/net/netns/xfrm.h |    6 +-
+>  net/xfrm/xfrm_state.c    |  103 +++++++++++++++++++++++++++++++----------------
+>  2 files changed, 72 insertions(+), 37 deletions(-)
 
-Similar deadlocks are possible between netvsc_vf_{up,down}() and
-netvsc_unregister_vf() as it also waits till vf_use_cnt drops to zero.
-Instead of introducing additional synchronization I suggest we drop
-gwrk.dwrk completely and call NETDEV_NOTIFY_PEERS directly. As we're
-acting under rtnl lock this is legitimate.
-
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/hyperv/hyperv_net.h |  7 -------
- drivers/net/hyperv/netvsc_drv.c | 33 +++++----------------------------
- 2 files changed, 5 insertions(+), 35 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 3b3ecf2..591af71 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -644,12 +644,6 @@ struct netvsc_reconfig {
- 	u32 event;
- };
- 
--struct garp_wrk {
--	struct work_struct dwrk;
--	struct net_device *netdev;
--	struct net_device_context *net_device_ctx;
--};
--
- /* The context of the netvsc device  */
- struct net_device_context {
- 	/* point back to our device context */
-@@ -667,7 +661,6 @@ struct net_device_context {
- 
- 	struct work_struct work;
- 	u32 msg_enable; /* debug level */
--	struct garp_wrk gwrk;
- 
- 	struct netvsc_stats __percpu *tx_stats;
- 	struct netvsc_stats __percpu *rx_stats;
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 874829a..62a4e6e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1151,17 +1151,6 @@ static void netvsc_free_netdev(struct net_device *netdev)
- 	free_netdev(netdev);
- }
- 
--static void netvsc_notify_peers(struct work_struct *wrk)
--{
--	struct garp_wrk *gwrk;
--
--	gwrk = container_of(wrk, struct garp_wrk, dwrk);
--
--	netdev_notify_peers(gwrk->netdev);
--
--	atomic_dec(&gwrk->net_device_ctx->vf_use_cnt);
--}
--
- static struct net_device *get_netvsc_net_device(char *mac)
- {
- 	struct net_device *dev, *found = NULL;
-@@ -1266,15 +1255,8 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 
- 	netif_carrier_off(ndev);
- 
--	/*
--	 * Now notify peers. We are scheduling work to
--	 * notify peers; take a reference to prevent
--	 * the VF interface from vanishing.
--	 */
--	atomic_inc(&net_device_ctx->vf_use_cnt);
--	net_device_ctx->gwrk.netdev = vf_netdev;
--	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
--	schedule_work(&net_device_ctx->gwrk.dwrk);
-+	/* Now notify peers through VF device. */
-+	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vf_netdev);
- 
- 	return NOTIFY_OK;
- }
-@@ -1306,13 +1288,9 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
- 	rndis_filter_close(netvsc_dev);
- 	netif_carrier_on(ndev);
--	/*
--	 * Notify peers.
--	 */
--	atomic_inc(&net_device_ctx->vf_use_cnt);
--	net_device_ctx->gwrk.netdev = ndev;
--	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
--	schedule_work(&net_device_ctx->gwrk.dwrk);
-+
-+	/* Now notify peers through netvsc device. */
-+	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
- 
- 	return NOTIFY_OK;
- }
-@@ -1384,7 +1362,6 @@ static int netvsc_probe(struct hv_device *dev,
- 
- 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
- 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
--	INIT_WORK(&net_device_ctx->gwrk.dwrk, netvsc_notify_peers);
- 
- 	spin_lock_init(&net_device_ctx->lock);
- 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
--- 
-2.7.4
+All applied to the ipsec-next tree, thanks Florian!
