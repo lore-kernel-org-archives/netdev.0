@@ -1,55 +1,44 @@
-From: "Shougang Group Co. Ltd" <jmdm@xanum.uam.mx>
-Subject: Company Payment Agent Needed
-Date: Thu, 11 Aug 2016 05:36:58 -0500
-Message-ID: <20160811102835.M61671@xanum.uam.mx>
-Reply-To: zhujimin06@gmail.com
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net 0/4] hv_netvsc: fixes for VF removal path
+Date: Thu, 11 Aug 2016 12:58:53 +0200
+Message-ID: <1470913137-29167-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.izt.uam.mx ([148.206.32.74]:48324 "EHLO
-	correo.izt.uam.mx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432AbcHKKjj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 06:39:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Shougang Group
-45 Huagong Road Xinji City,
-Hebei Province China.
-webpage: www.shougang.com.cn
+Kernel crash is reported after VF is removed and detached from netvsc
+device. My investigation led me to PATCH2 of this series but PATCH1 is
+required to support the change. I also noticed a couple of other issues
+while debugging and I fix them with PATCH3 and PATCH4.
 
+Please review.
 
-This is an official request for Professional/consultants who will stand as
-our regional representative to run logistics on behalf of Shougang Group.
-We are only looking for individual or company from USA and Canada. You
-will be entitle to ten percent (10%) of every payment you receive from our
-customers in your region on behalf of the company.
+Vitaly Kuznetsov (4):
+  hv_netvsc: don't lose VF information
+  hv_netvsc: reset vf_inject on VF removal
+  hv_netvsc: protect module refcount by checking
+    net_device_ctx->vf_netdev
+  hv_netvsc: avoid deadlocks between rtnl lock and
+    netvsc_inject_disable()
 
-NOTE: You are not require to travel, all communications with our customers
-will be through email or phone. All fees, including taxes will be handled
-by us.
+ drivers/net/hyperv/hyperv_net.h | 24 ++++-------
+ drivers/net/hyperv/netvsc.c     | 19 ++++----
+ drivers/net/hyperv/netvsc_drv.c | 96 ++++++++++++++++++-----------------------
+ 3 files changed, 59 insertions(+), 80 deletions(-)
 
-You can apply for this position by filling the information below and send
-back to us;
-
-Full Name:
-Residencial or office address:
-Town:
-State:
-Zipcode:
-Country:
-Current Job:
-If you own a company, please state the company name:
-Prefered Email:
-Gender:
-Age:
-Telephone:
-
-If you have a current job, you can still be part of our business, as
-services for us will not bother with your hours of work.
-
-Respectfully,
-Mr. Zhu Jimin (Chief Executive Officer)
-Shougang Group
+-- 
+2.7.4
