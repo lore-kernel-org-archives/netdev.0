@@ -1,42 +1,55 @@
-From: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH 0/3] support GMAC for RK3399 & RK3366
-Date: Thu, 11 Aug 2016 15:24:45 +0800
-Message-ID: <1470900288-10109-1-git-send-email-roger.chen@rock-chips.com>
+From: "Shougang Group Co. Ltd" <jmm@xanum.uam.mx>
+Subject: Logistic Officer Needed Urgently
+Date: Thu, 11 Aug 2016 02:23:17 -0500
+Message-ID: <20160811071621.M49061@xanum.uam.mx>
+Reply-To: zhujimin20@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
- pawel.moll-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
- peppe.cavallaro-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org
-To: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from correo.izt.uam.mx ([148.206.32.74]:38288 "EHLO
+	correo.izt.uam.mx" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932297AbcHKHbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 03:31:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series adds registers description for RK3366 & RK3399 GMAC.
-And also DT nodes for RK3399 SoC and EVB.
+Shougang Group
+45 Huagong Road Xinji City,
+Hebei Province China.
+webpage: www.shougang.com.cn
 
-Roger Chen (3):
-  net: stmmac: dwmac-rk: add rk3366 & rk3399 specific data
-  arm64: dts: rockchip: add GMAC dt nodes for rk3399 SoC
-  arm64: dts: rockchip: add GMAC dt nodes for RK3399 evb
 
- .../devicetree/bindings/net/rockchip-dwmac.txt     |   4 +-
- arch/arm64/boot/dts/rockchip/rk3399-evb.dts        |  23 +++
- arch/arm64/boot/dts/rockchip/rk3399.dtsi           |  79 +++++++
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 226 +++++++++++++++++++++
- 4 files changed, 330 insertions(+), 2 deletions(-)
+This is an official request for Professional/consultants who will stand as
+our regional representative to run logistics on behalf of Shougang Group.
+We are only looking for individual or company from USA and Canada. You
+will be entitle to ten percent (10%) of every payment you receive from our
+customers in your region on behalf of the company.
 
--- 
-1.9.1
+NOTE: You are not require to travel, all communications with our customers
+will be through email or phone. All fees, including taxes will be handled
+by us.
+
+You can apply for this position by filling the information below and send
+back to us;
+
+Full Name:
+Residencial or office address:
+Town:
+State:
+Zipcode:
+Country:
+Current Job:
+If you own a company, please state the company name:
+Prefered Email:
+Gender:
+Age:
+Telephone:
+
+If you have a current job, you can still be part of our business, as
+services for us will not bother with your hours of work.
+
+Respectfully,
+Mr. Zhu Jimin (Chief Executive Officer)
+Shougang Grou
