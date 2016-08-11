@@ -1,125 +1,65 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as IRQF_NO_THREAD
-Date: Thu, 11 Aug 2016 19:15:40 +0300
-Message-ID: <20160811161540.9613-1-grygorii.strashko@ti.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net 0/5] net_sched: tc action fixes and updates
+Date: Thu, 11 Aug 2016 12:20:31 -0400
+Message-ID: <62bb1c25-2967-dedc-89ac-01632d0e090d@mojatatu.com>
+References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com>
+ <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
+ <CAM_iQpUCqzytG662vBd4D0Zx09CWA9a1VuZerTatMMhdy42jBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-omap@vger.kernel.org>,
-	Alison Chaiken <alison@peloton-tech.com>,
-	<linux-rt-users@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36278 "EHLO
+	mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932791AbcHKQV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 12:21:28 -0400
+Received: by mail-qk0-f193.google.com with SMTP id v123so21232qkh.3
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 09:21:27 -0700 (PDT)
+In-Reply-To: <CAM_iQpUCqzytG662vBd4D0Zx09CWA9a1VuZerTatMMhdy42jBA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mark CPSW Rx/Tx IRQs as IRQF_NO_THREAD and avoid double scheduling on -RT
-where this IRQs are forced threaded:
- rx-irq
-  |- schedule threaded rx-irq handler
-...
-  |- threaded rx-irq handler -> cpsw_rx_interrupt()
-     |- napi_schedule()
-	|- __raise_softirq_irqoff()
-	   |- wakeup_proper_softirq()
-...
-  napi
+On 16-08-10 04:06 PM, Cong Wang wrote:
+> On Wed, Aug 10, 2016 at 7:34 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> On 16-08-08 04:46 PM, Cong Wang wrote:
 
-after:
- rx-irq
-  |- cpsw_rx_interrupt()
-     |- napi_schedule()
-  |- irq_exit()
-     |- invoke_softirq()
-	   |- wakeup_softirqd()
-...
-  napi
+>> tcf_exts_exec() is the culprit - and conversion to from flexarray
+>> to linked list in the fast problem to be specific.
+>
+> Ah, this reminds me that I don't have to use flex_array, initially
+> I thought the tcf_exts could hold as many actions as it wants,
+> but actually there is a upper bound, TCA_ACT_MAX_PRIO.
+> IOW, a regular dynamic array is just enough here.
+>
 
-And, as result, get benefits from the following improvements (tested
-on am57xx-evm):
+Yes, a regular array would be enough.
 
-1) "[ 78.348599] NOHZ: local_softirq_pending 80" message will not be
-   seen any more. Now these warnings can be seen once iperf is started.
-   # iperf -c $IPERFHOST -w 128K  -d -t 60
 
-2) latency reduction when cyclictest is run in parallel with network load
- where net_perf.sh is:
-   iperf -c $IPERFHOST -w 8K    -d -t 60
-   iperf -c $IPERFHOST -w 16K   -d -t 60
-   iperf -c $IPERFHOST -w 32K   -d -t 60
-   iperf -c $IPERFHOST -w 64K   -d -t 60
-   iperf -c $IPERFHOST -w 128K  -d -t 60
+> I just replaced the flex_array with a regular one, it works fine
+> for me too, at least no crash with all of my test cases.
+>
 
-before:
-T: 0 ( 1326) P:98 I:1000 C: 240000 Min:      8 Act:   13 Avg:   18 Max:      70
-T: 1 ( 1327) P:98 I:1500 C: 159981 Min:      9 Act:   15 Avg:   16 Max:      43
-after:
-T: 0 ( 1331) P:98 I:1000 C: 240000 Min:      8 Act:   15 Avg:   14 Max:      51
-T: 1 ( 1332) P:98 I:1500 C: 159953 Min:      8 Act:   16 Avg:   15 Max:      33
+Ok, I did a quick look at your patch - I still see you converting
+from array to list. I mean get tcf_exts_exec() to take an array
+and walk it. That will restore the perf numbers to the same level.
 
-3) network performance increase
+> Please try v2, since you have more test cases that I do.
+> Or it would be great if you can share your test cases with
+> me or us.
+>
+> Be patient, every big change could have regression. :)
+>
 
-win, K	Mbits/s
-	before	after	%
-8K	354	350.3	0.0
-16K	412	551	33.7
-32K	423	659.5	55.9
-64K	436	728.3	67.0
-128K	537	845	57.4
+No problem Cong - except we have a kernel that crashes right now.
+BTW: I just thought of another test which uses a different code
+path
+# add a policer rule
+sudo $TC actions add action police rate 1kbit burst 90k drop
+#dump rules..
+sudo $TC -s actions ls action police
 
-This change does not affect on non-RT.
-
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
-Hi All,
-
-I'll be appreciated on any feedback or tested-by.
-In case of positive feedback I'll resend it for upstream.
-
- drivers/net/ethernet/ti/cpsw.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 7b59283..fa4bb81 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -769,7 +769,7 @@ static irqreturn_t cpsw_tx_interrupt(int irq, void *dev_id)
- 		priv->tx_irq_disabled = true;
- 	}
- 
--	napi_schedule(&priv->napi_tx);
-+	napi_schedule_irqoff(&priv->napi_tx);
- 	return IRQ_HANDLED;
- }
- 
-@@ -785,7 +785,7 @@ static irqreturn_t cpsw_rx_interrupt(int irq, void *dev_id)
- 		priv->rx_irq_disabled = true;
- 	}
- 
--	napi_schedule(&priv->napi_rx);
-+	napi_schedule_irqoff(&priv->napi_rx);
- 	return IRQ_HANDLED;
- }
- 
-@@ -2827,7 +2827,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	priv->irqs_table[0] = irq;
- 	ret = devm_request_irq(&pdev->dev, irq, cpsw_rx_interrupt,
--			       0, dev_name(&pdev->dev), priv);
-+			       IRQF_NO_THREAD, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
- 		goto clean_ale_ret;
-@@ -2842,7 +2842,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 
- 	priv->irqs_table[1] = irq;
- 	ret = devm_request_irq(&pdev->dev, irq, cpsw_tx_interrupt,
--			       0, dev_name(&pdev->dev), priv);
-+			       IRQF_NO_THREAD, dev_name(&pdev->dev), priv);
- 	if (ret < 0) {
- 		dev_err(priv->dev, "error attaching irq (%d)\n", ret);
- 		goto clean_ale_ret;
--- 
-2.9.2
-
+cheers,
+jamal
