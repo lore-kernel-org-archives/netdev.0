@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Convert qdisc linked list into a hashtable
-Date: Wed, 10 Aug 2016 17:22:33 -0700 (PDT)
-Message-ID: <20160810.172233.1177985248903694422.davem@davemloft.net>
-References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm>
+Subject: Re: [PATCH v6 1/1] rps: Inspect PPTP encapsulated by GRE to get
+ flow hash
+Date: Wed, 10 Aug 2016 17:24:50 -0700 (PDT)
+Message-ID: <20160810.172450.1513266088290748091.davem@davemloft.net>
+References: <1470717504-1292-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jhs@mojatatu.com, phil@nwl.cc,
-	xiyou.wangcong@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jikos@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: philipp@redfish-solutions.com, stephen@networkplumber.org,
+	pshelar@nicira.com, tom@herbertland.com, aduyck@mirantis.com,
+	netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42143 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074AbcHKAYw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Aug 2016 20:24:52 -0400
+In-Reply-To: <1470717504-1292-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Kosina <jikos@kernel.org>
-Date: Wed, 10 Aug 2016 11:00:42 +0200 (CEST)
+From: fgao@ikuai8.com
+Date: Tue,  9 Aug 2016 12:38:24 +0800
 
-> This is a respin of the v6 of the original patch [1], split into two-patch 
-> series as requested by davem; first patch fixes all symbol conflicts 
-> that'd happen once netdevice.h starts to include hashtable.h, the second 
-> one performs the actual switch to hashtable.
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> I've preserved Cong's Reviewed-by:, as code-wise this series is identical 
-> to the original v6 of the patch.
+> The PPTP is encapsulated by GRE header with that GRE_VERSION bits
+> must contain one. But current GRE RPS needs the GRE_VERSION must be
+> zero. So RPS does not work for PPTP traffic.
 > 
-> [1] lkml.kernel.org/r/alpine.LNX.2.00.1608011220580.22028@cbobk.fhfr.pm
+> In my test environment, there are four MIPS cores, and all traffic
+> are passed through by PPTP. As a result, only one core is 100% busy
+> while other three cores are very idle. After this patch, the usage
+> of four cores are balanced well.
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-Series applied, thank you.
+Applied to net-next, thanks.
