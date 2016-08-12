@@ -1,182 +1,116 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 1/3] bpf: allow helpers access the packet directly
-Date: Thu, 11 Aug 2016 18:17:16 -0700
-Message-ID: <1470964638-1313057-2-git-send-email-ast@fb.com>
-References: <1470964638-1313057-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
-	<kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net] rhashtable: avoid large lock-array allocations
+Date: Fri, 12 Aug 2016 04:13:43 +0200
+Message-ID: <1470968023-14338-1-git-send-email-fw@strlen.de>
+Cc: tgraf@suug.ch, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44862 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751207AbcHLBRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 21:17:22 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u7C1HE4o015937
-	for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 18:17:21 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 24s0h1s9kp-5
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 18:17:21 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 83a1d650602a11e693a60002c992ebde-57c806e0 for <netdev@vger.kernel.org>;	Thu,
- 11 Aug 2016 18:17:19 -0700
-In-Reply-To: <1470964638-1313057-1-git-send-email-ast@fb.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:57368 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751271AbcHLCN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 22:13:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The helper functions like bpf_map_lookup_elem(map, key) were only
-allowing 'key' to point to the initialized stack area.
-That is causing performance degradation when programs need to process
-millions of packets per second and need to copy contents of the packet
-into the stack just to pass the stack pointer into the lookup() function.
-Allow such helpers read from the packet directly.
-All helpers that expect ARG_PTR_TO_MAP_KEY, ARG_PTR_TO_MAP_VALUE,
-ARG_PTR_TO_STACK assume byte aligned pointer, so no alignment concerns,
-only need to check that helper will not be accessing beyond
-the packet range verified by the prior 'if (ptr < data_end)' condition.
-For now allow this feature for XDP programs only. Later it can be
-relaxed for the clsact programs as well.
+Sander reports following splat after netfilter nat bysrc table got
+converted to rhashtable:
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+swapper/0: page allocation failure: order:3, mode:0x2084020(GFP_ATOMIC|__GFP_COMP)
+ CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.8.0-rc1 [..]
+ [<ffffffff811633ed>] warn_alloc_failed+0xdd/0x140
+ [<ffffffff811638b1>] __alloc_pages_nodemask+0x3e1/0xcf0
+ [<ffffffff811a72ed>] alloc_pages_current+0x8d/0x110
+ [<ffffffff8117cb7f>] kmalloc_order+0x1f/0x70
+ [<ffffffff811aec19>] __kmalloc+0x129/0x140
+ [<ffffffff8146d561>] bucket_table_alloc+0xc1/0x1d0
+ [<ffffffff8146da1d>] rhashtable_insert_rehash+0x5d/0xe0
+ [<ffffffff819fcfff>] nf_nat_setup_info+0x2ef/0x400
+
+The failure happens when allocating the spinlock array.
+Even with GFP_KERNEL its unlikely for such a large allocation
+to succeed.
+
+Thomas Graf pointed me at inet_ehash_locks_alloc(), so in addition
+to adding NOWARN for atomic allocations this also makes the bucket-array
+sizing more conservative.
+
+In commit 095dc8e0c3686 ("tcp: fix/cleanup inet_ehash_locks_alloc()"),
+Eric Dumazet says: "Budget 2 cache lines per cpu worth of 'spinlocks'".
+IOW, consider size needed by a single spinlock when determining
+number of locks per cpu.
+
+Currently, rhashtable just allocates 128 locks per cpu which gives
+factor of 4 more than what inet hashtable uses with same number of
+cpus.
+
+For LOCKDEP, we now allocate a lot less locks than before (1 per cpu on
+my test box) so we no longer need to pretend we only have two cpus.
+
+Some sizes (64 byte L1 cache, 4 byte per spinlock, numbers in bytes):
+
+cpus:    1   2   4    8   16    32   64
+old:    1k  1k  4k   8k  16k   16k  16k
+new:   128 256 512   1k   2k    4k   8k
+
+With 72-byte spinlock (LOCKDEP):
+cpus :   1   2   4    8   16    32   64
+old:    9k 18k 18k  18k  18k   18k  18k
+new:    72 144 288  575  ~1k ~2.3k  ~4k
+
+Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+Suggested-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- kernel/bpf/verifier.c | 61 ++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 43 insertions(+), 18 deletions(-)
+ Alernatively we could lower BUCKET_LOCKS_PER_CPU to 32
+ and keep the CONFIG_PROVE_LOCKING ifdef around.
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 7094c69ac199..202e4a8b2805 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -930,14 +930,14 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			  enum bpf_arg_type arg_type,
- 			  struct bpf_call_arg_meta *meta)
+ Any preference?
+
+ Thanks!
+
+ lib/rhashtable.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5d845ff..92cf5a9 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -30,7 +30,8 @@
+ 
+ #define HASH_DEFAULT_SIZE	64UL
+ #define HASH_MIN_SIZE		4U
+-#define BUCKET_LOCKS_PER_CPU   128UL
++#define BUCKET_LOCKS_PER_CPU	max_t(unsigned int, \
++				      2 * L1_CACHE_BYTES / sizeof(spinlock_t), 1)
+ 
+ static u32 head_hashfn(struct rhashtable *ht,
+ 		       const struct bucket_table *tbl,
+@@ -63,14 +64,10 @@ EXPORT_SYMBOL_GPL(lockdep_rht_bucket_is_held);
+ static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
+ 			      gfp_t gfp)
  {
--	struct reg_state *reg = env->cur_state.regs + regno;
--	enum bpf_reg_type expected_type;
-+	struct reg_state *regs = env->cur_state.regs, *reg = &regs[regno];
-+	enum bpf_reg_type expected_type, type = reg->type;
- 	int err = 0;
+-	unsigned int i, size;
+-#if defined(CONFIG_PROVE_LOCKING)
+-	unsigned int nr_pcpus = 2;
+-#else
+ 	unsigned int nr_pcpus = num_possible_cpus();
+-#endif
++	unsigned int i, size;
  
- 	if (arg_type == ARG_DONTCARE)
- 		return 0;
+-	nr_pcpus = min_t(unsigned int, nr_pcpus, 32UL);
++	nr_pcpus = min_t(unsigned int, nr_pcpus, 64UL);
+ 	size = roundup_pow_of_two(nr_pcpus * ht->p.locks_mul);
  
--	if (reg->type == NOT_INIT) {
-+	if (type == NOT_INIT) {
- 		verbose("R%d !read_ok\n", regno);
- 		return -EACCES;
- 	}
-@@ -950,16 +950,29 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 		return 0;
- 	}
- 
-+	if (type == PTR_TO_PACKET && !may_write_pkt_data(env->prog->type)) {
-+		verbose("helper access to the packet is not allowed for clsact\n");
-+		return -EACCES;
-+	}
+ 	/* Never allocate more than 0.5 locks per bucket */
+@@ -83,6 +80,9 @@ static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
+ 			tbl->locks = vmalloc(size * sizeof(spinlock_t));
+ 		else
+ #endif
++		if (gfp != GFP_KERNEL)
++			gfp |= __GFP_NOWARN | __GFP_NORETRY;
 +
- 	if (arg_type == ARG_PTR_TO_MAP_KEY ||
- 	    arg_type == ARG_PTR_TO_MAP_VALUE) {
- 		expected_type = PTR_TO_STACK;
-+		if (type != PTR_TO_PACKET && type != expected_type)
-+			goto err_type;
- 	} else if (arg_type == ARG_CONST_STACK_SIZE ||
- 		   arg_type == ARG_CONST_STACK_SIZE_OR_ZERO) {
- 		expected_type = CONST_IMM;
-+		if (type != expected_type)
-+			goto err_type;
- 	} else if (arg_type == ARG_CONST_MAP_PTR) {
- 		expected_type = CONST_PTR_TO_MAP;
-+		if (type != expected_type)
-+			goto err_type;
- 	} else if (arg_type == ARG_PTR_TO_CTX) {
- 		expected_type = PTR_TO_CTX;
-+		if (type != expected_type)
-+			goto err_type;
- 	} else if (arg_type == ARG_PTR_TO_STACK ||
- 		   arg_type == ARG_PTR_TO_RAW_STACK) {
- 		expected_type = PTR_TO_STACK;
-@@ -967,20 +980,16 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 		 * passed in as argument, it's a CONST_IMM type. Final test
- 		 * happens during stack boundary checking.
- 		 */
--		if (reg->type == CONST_IMM && reg->imm == 0)
--			expected_type = CONST_IMM;
-+		if (type == CONST_IMM && reg->imm == 0)
-+			/* final test in check_stack_boundary() */;
-+		else if (type != PTR_TO_PACKET && type != expected_type)
-+			goto err_type;
- 		meta->raw_mode = arg_type == ARG_PTR_TO_RAW_STACK;
- 	} else {
- 		verbose("unsupported arg_type %d\n", arg_type);
- 		return -EFAULT;
- 	}
- 
--	if (reg->type != expected_type) {
--		verbose("R%d type=%s expected=%s\n", regno,
--			reg_type_str[reg->type], reg_type_str[expected_type]);
--		return -EACCES;
--	}
--
- 	if (arg_type == ARG_CONST_MAP_PTR) {
- 		/* bpf_map_xxx(map_ptr) call: remember that map_ptr */
- 		meta->map_ptr = reg->map_ptr;
-@@ -998,8 +1007,13 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			verbose("invalid map_ptr to access map->key\n");
- 			return -EACCES;
- 		}
--		err = check_stack_boundary(env, regno, meta->map_ptr->key_size,
--					   false, NULL);
-+		if (type == PTR_TO_PACKET)
-+			err = check_packet_access(env, regno, 0,
-+						  meta->map_ptr->key_size);
-+		else
-+			err = check_stack_boundary(env, regno,
-+						   meta->map_ptr->key_size,
-+						   false, NULL);
- 	} else if (arg_type == ARG_PTR_TO_MAP_VALUE) {
- 		/* bpf_map_xxx(..., map_ptr, ..., value) call:
- 		 * check [value, value + map->value_size) validity
-@@ -1009,9 +1023,13 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			verbose("invalid map_ptr to access map->value\n");
- 			return -EACCES;
- 		}
--		err = check_stack_boundary(env, regno,
--					   meta->map_ptr->value_size,
--					   false, NULL);
-+		if (type == PTR_TO_PACKET)
-+			err = check_packet_access(env, regno, 0,
-+						  meta->map_ptr->value_size);
-+		else
-+			err = check_stack_boundary(env, regno,
-+						   meta->map_ptr->value_size,
-+						   false, NULL);
- 	} else if (arg_type == ARG_CONST_STACK_SIZE ||
- 		   arg_type == ARG_CONST_STACK_SIZE_OR_ZERO) {
- 		bool zero_size_allowed = (arg_type == ARG_CONST_STACK_SIZE_OR_ZERO);
-@@ -1025,11 +1043,18 @@ static int check_func_arg(struct verifier_env *env, u32 regno,
- 			verbose("ARG_CONST_STACK_SIZE cannot be first argument\n");
- 			return -EACCES;
- 		}
--		err = check_stack_boundary(env, regno - 1, reg->imm,
--					   zero_size_allowed, meta);
-+		if (regs[regno - 1].type == PTR_TO_PACKET)
-+			err = check_packet_access(env, regno - 1, 0, reg->imm);
-+		else
-+			err = check_stack_boundary(env, regno - 1, reg->imm,
-+						   zero_size_allowed, meta);
- 	}
- 
- 	return err;
-+err_type:
-+	verbose("R%d type=%s expected=%s\n", regno,
-+		reg_type_str[type], reg_type_str[expected_type]);
-+	return -EACCES;
- }
- 
- static int check_map_func_compatibility(struct bpf_map *map, int func_id)
+ 		tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
+ 					   gfp);
+ 		if (!tbl->locks)
 -- 
-2.8.0
+2.7.3
