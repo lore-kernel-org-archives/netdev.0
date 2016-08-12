@@ -1,44 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH v2] ipv6: suppress sparse warnings in IP6_ECN_set_ce()
-Date: Fri, 12 Aug 2016 07:48:21 +0200
-Message-ID: <1470980901-26786-1-git-send-email-johannes@sipsolutions.net>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Johannes Berg <johannes.berg@intel.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 3/4] net_sched: flower: Add vlan support
+Date: Fri, 12 Aug 2016 07:57:36 +0200
+Message-ID: <20160812055736.GA1841@nanopsycho.orion>
+References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
+ <1470835943-9042-4-git-send-email-hadarh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jiri Pirko <jiri@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:58053 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750878AbcHLFs1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 01:48:27 -0400
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:37611 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922AbcHLF5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 01:57:40 -0400
+Received: by mail-wm0-f48.google.com with SMTP id i5so10774356wmg.0
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 22:57:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1470835943-9042-4-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
+Wed, Aug 10, 2016 at 03:32:22PM CEST, hadarh@mellanox.com wrote:
+>Enhance flower to support 802.1Q vlan protocol classification.
+>Currently, the supported fields are vlan_id and vlan_priority.
+>
+>Example:
+>
+>	# add a flower filter with vlan id and priority classification
+>	tc filter add dev ens4f0 protocol 802.1Q parent ffff: \
+>		flower \
+>		indev ens4f0 \
+>		vlan_ethtype ipv4 \
+>		vlan_id 100 \
+>		vlan_prio 3 \
+>	action vlan pop
+>
+>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 
-Pass the correct type __wsum to csum_sub() and csum_add(). This doesn't
-really change anything since __wsum really *is* __be32, but removes the
-address space warnings from sparse.
-
-Cc: Eric Dumazet <edumazet@google.com>
-Fixes: 34ae6a1aa054 ("ipv6: update skb->csum when CE mark is propagated")
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
- include/net/inet_ecn.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
-index 0dc0a51da38f..dce2d586d9ce 100644
---- a/include/net/inet_ecn.h
-+++ b/include/net/inet_ecn.h
-@@ -128,7 +128,8 @@ static inline int IP6_ECN_set_ce(struct sk_buff *skb, struct ipv6hdr *iph)
- 	to = from | htonl(INET_ECN_CE << 20);
- 	*(__be32 *)iph = to;
- 	if (skb->ip_summed == CHECKSUM_COMPLETE)
--		skb->csum = csum_add(csum_sub(skb->csum, from), to);
-+		skb->csum = csum_add(csum_sub(skb->csum, (__force __wsum)from),
-+				     (__force __wsum)to);
- 	return 1;
- }
- 
--- 
-2.8.1
+Acked-by: Jiri Pirko <jiri@mellanox.com>
