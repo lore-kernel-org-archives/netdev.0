@@ -1,116 +1,225 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 05/21] net: thunderx: Enable CQE_RX desc's extension fields
-Date: Fri, 12 Aug 2016 16:51:28 +0530
-Message-ID: <1471000904-21715-6-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 11/21] net: thunderx: Add support for 16 LMACs of 83xx
+Date: Fri, 12 Aug 2016 16:51:34 +0530
+Message-ID: <1471000904-21715-12-git-send-email-sunil.kovvuri@gmail.com>
 References: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-Unlike 88xx, CQE_RX descriptor's tunnelling extension i.e CQE_RX2_S
-is always enabled on 81xx/83xx and HW does insert these fields into
-CQE_RX. As a result receive buffer addresses will now be present at
-7th word of CQE_RX instead of 6th.
+83xx will have 4 BGX blocks i.e 16 LMACs, to avoid changing
+the same with every platform, nicpf struct elements which
+track LMAC related info are now allocated runtime based
+on platform's max possible BGX count.
 
-Enable CQE_RX2_S on 88xx pass 2.x as well.
+Also fixed configuring min packet size for all LMAC's
+supported on a platform.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          |  9 ++++++++-
- drivers/net/ethernet/cavium/thunder/nic_main.c     |  7 +++++++
- drivers/net/ethernet/cavium/thunder/nic_reg.h      |  1 +
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 12 +++++++++++-
- 4 files changed, 27 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nic_main.c    | 75 ++++++++++++++++++-----
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  2 -
+ 2 files changed, 60 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 6b0b240..136db2a 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -493,7 +493,14 @@ static inline int nic_get_node_id(struct pci_dev *pdev)
- 
- static inline bool pass1_silicon(struct pci_dev *pdev)
- {
--	return pdev->revision < 8;
-+	return (pdev->revision < 8) &&
-+		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
-+}
-+
-+static inline bool pass2_silicon(struct pci_dev *pdev)
-+{
-+	return (pdev->revision >= 8) &&
-+		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
- }
- 
- int nicvf_set_real_num_queues(struct net_device *netdev,
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 0d81117..3f52b36 100644
+index 91c575d..b982e5f 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_main.c
 +++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -799,6 +799,13 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 			   (mbx.rq.qs_num << NIC_QS_ID_SHIFT) |
- 			   (mbx.rq.rq_num << NIC_Q_NUM_SHIFT);
- 		nic_reg_write(nic, reg_addr, mbx.rq.cfg);
-+		/* Enable CQE_RX2_S extension in CQE_RX descriptor.
-+		 * This gets appended by default on 81xx/83xx chips,
-+		 * for consistency enabling the same on 88xx pass2
-+		 * where this is introduced.
-+		 */
-+		if (pass2_silicon(nic->pdev))
-+			nic_reg_write(nic, NIC_PF_RX_CFG, 0x01);
- 		break;
- 	case NIC_MBOX_MSG_RQ_BP_CFG:
- 		reg_addr = NIC_PF_QSET_0_127_RQ_0_7_BP_CFG |
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-index 833cf3d..b4a7953 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-@@ -36,6 +36,7 @@
- #define   NIC_PF_MAILBOX_ENA_W1C		(0x0450)
- #define   NIC_PF_MAILBOX_ENA_W1S		(0x0470)
- #define   NIC_PF_RX_ETYPE_0_7			(0x0500)
-+#define   NIC_PF_RX_CFG				(0x05D0)
- #define   NIC_PF_PKIND_0_15_CFG			(0x0600)
- #define   NIC_PF_ECC0_FLIP0			(0x1000)
- #define   NIC_PF_ECC1_FLIP0			(0x1008)
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index e521a94..ca223aa 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -1190,7 +1190,17 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
- 	u64 *rb_ptrs = NULL;
+@@ -53,12 +53,12 @@ struct nicpf {
+ #define	NIC_SET_VF_LMAC_MAP(bgx, lmac)	(((bgx & 0xF) << 4) | (lmac & 0xF))
+ #define	NIC_GET_BGX_FROM_VF_LMAC_MAP(map)	((map >> 4) & 0xF)
+ #define	NIC_GET_LMAC_FROM_VF_LMAC_MAP(map)	(map & 0xF)
+-	u8			vf_lmac_map[MAX_LMAC];
++	u8			*vf_lmac_map;
+ 	struct delayed_work     dwork;
+ 	struct workqueue_struct *check_link;
+-	u8			link[MAX_LMAC];
+-	u8			duplex[MAX_LMAC];
+-	u32			speed[MAX_LMAC];
++	u8			*link;
++	u8			*duplex;
++	u32			*speed;
+ 	u16			cpi_base[MAX_NUM_VFS_SUPPORTED];
+ 	u16			rssi_base[MAX_NUM_VFS_SUPPORTED];
+ 	bool			mbx_lock[MAX_NUM_VFS_SUPPORTED];
+@@ -174,7 +174,7 @@ static void nic_mbx_send_ready(struct nicpf *nic, int vf)
  
- 	rb_lens = (void *)cqe_rx + (3 * sizeof(u64));
--	rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
-+	/* Except 88xx pass1 on all other chips CQE_RX2_S is added to
-+	 * CQE_RX at word6, hence buffer pointers move by word
-+	 *
-+	 * Use existing 'hw_tso' flag which will be set for all chips
-+	 * except 88xx pass1 instead of a additional cache line
-+	 * access (or miss) by using pci dev's revision.
-+	 */
-+	if (!nic->hw_tso)
-+		rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
+ 	mbx.nic_cfg.tns_mode = NIC_TNS_BYPASS_MODE;
+ 
+-	if (vf < MAX_LMAC) {
++	if (vf < nic->num_vf_en) {
+ 		bgx_idx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
+ 		lmac = NIC_GET_LMAC_FROM_VF_LMAC_MAP(nic->vf_lmac_map[vf]);
+ 
+@@ -185,7 +185,7 @@ static void nic_mbx_send_ready(struct nicpf *nic, int vf)
+ 	mbx.nic_cfg.sqs_mode = (vf >= nic->num_vf_en) ? true : false;
+ 	mbx.nic_cfg.node_id = nic->node;
+ 
+-	mbx.nic_cfg.loopback_supported = vf < MAX_LMAC;
++	mbx.nic_cfg.loopback_supported = vf < nic->num_vf_en;
+ 
+ 	nic_send_msg_to_vf(nic, vf, &mbx);
+ }
+@@ -278,14 +278,22 @@ static int nic_update_hw_frs(struct nicpf *nic, int new_frs, int vf)
+ /* Set minimum transmit packet size */
+ static void nic_set_tx_pkt_pad(struct nicpf *nic, int size)
+ {
+-	int lmac;
++	int lmac, max_lmac;
++	u16 sdevid;
+ 	u64 lmac_cfg;
+ 
+ 	/* Max value that can be set is 60 */
+ 	if (size > 60)
+ 		size = 60;
+ 
+-	for (lmac = 0; lmac < (MAX_BGX_PER_CN88XX * MAX_LMAC_PER_BGX); lmac++) {
++	pci_read_config_word(nic->pdev, PCI_SUBSYSTEM_ID, &sdevid);
++	/* 81xx's RGX has only one LMAC */
++	if (sdevid == PCI_SUBSYS_DEVID_81XX_NIC_PF)
++		max_lmac = ((nic->hw->bgx_cnt - 1) * MAX_LMAC_PER_BGX) + 1;
 +	else
-+		rb_ptrs = (void *)cqe_rx + (7 * sizeof(u64));
++		max_lmac = nic->hw->bgx_cnt * MAX_LMAC_PER_BGX;
++
++	for (lmac = 0; lmac < max_lmac; lmac++) {
+ 		lmac_cfg = nic_reg_read(nic, NIC_PF_LMAC_0_7_CFG | (lmac << 3));
+ 		lmac_cfg &= ~(0xF << 2);
+ 		lmac_cfg |= ((size / 4) << 2);
+@@ -336,8 +344,17 @@ static void nic_set_lmac_vf_mapping(struct nicpf *nic)
+ 	}
+ }
  
- 	netdev_dbg(nic->netdev, "%s rb_cnt %d rb0_ptr %llx rb0_sz %d\n",
- 		   __func__, cqe_rx->rb_cnt, cqe_rx->rb0_ptr, cqe_rx->rb0_sz);
+-static void nic_get_hw_info(struct nicpf *nic)
++static void nic_free_lmacmem(struct nicpf *nic)
+ {
++	kfree(nic->vf_lmac_map);
++	kfree(nic->link);
++	kfree(nic->duplex);
++	kfree(nic->speed);
++}
++
++static int nic_get_hw_info(struct nicpf *nic)
++{
++	u8 max_lmac;
+ 	u16 sdevid;
+ 	struct hw_info *hw = nic->hw;
+ 
+@@ -385,18 +402,40 @@ static void nic_get_hw_info(struct nicpf *nic)
+ 		break;
+ 	}
+ 	hw->tl4_cnt = MAX_QUEUES_PER_QSET * pci_sriov_get_totalvfs(nic->pdev);
++
++	/* Allocate memory for LMAC tracking elements */
++	max_lmac = hw->bgx_cnt * MAX_LMAC_PER_BGX;
++	nic->vf_lmac_map = kmalloc_array(max_lmac, sizeof(u8), GFP_KERNEL);
++	if (!nic->vf_lmac_map)
++		goto error;
++	nic->link = kmalloc_array(max_lmac, sizeof(u8), GFP_KERNEL);
++	if (!nic->link)
++		goto error;
++	nic->duplex = kmalloc_array(max_lmac, sizeof(u8), GFP_KERNEL);
++	if (!nic->duplex)
++		goto error;
++	nic->speed = kmalloc_array(max_lmac, sizeof(u32), GFP_KERNEL);
++	if (!nic->speed)
++		goto error;
++	return 0;
++
++error:
++	nic_free_lmacmem(nic);
++	return -ENOMEM;
+ }
+ 
+ #define BGX0_BLOCK 8
+ #define BGX1_BLOCK 9
+ 
+-static void nic_init_hw(struct nicpf *nic)
++static int nic_init_hw(struct nicpf *nic)
+ {
+-	int i;
++	int i, err;
+ 	u64 cqm_cfg;
+ 
+ 	/* Get HW capability info */
+-	nic_get_hw_info(nic);
++	err = nic_get_hw_info(nic);
++	if (err)
++		return err;
+ 
+ 	/* Enable NIC HW block */
+ 	nic_reg_write(nic, NIC_PF_CFG, 0x3);
+@@ -442,6 +481,8 @@ static void nic_init_hw(struct nicpf *nic)
+ 	cqm_cfg = nic_reg_read(nic, NIC_PF_CQM_CFG);
+ 	if (cqm_cfg < NICPF_CQM_MIN_DROP_LEVEL)
+ 		nic_reg_write(nic, NIC_PF_CQM_CFG, NICPF_CQM_MIN_DROP_LEVEL);
++
++	return 0;
+ }
+ 
+ /* Channel parse index configuration */
+@@ -741,7 +782,7 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
+ {
+ 	int bgx_idx, lmac_idx;
+ 
+-	if (lbk->vf_id > MAX_LMAC)
++	if (lbk->vf_id >= nic->num_vf_en)
+ 		return -1;
+ 
+ 	bgx_idx = NIC_GET_BGX_FROM_VF_LMAC_MAP(nic->vf_lmac_map[lbk->vf_id]);
+@@ -795,7 +836,7 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ 	switch (mbx.msg.msg) {
+ 	case NIC_MBOX_MSG_READY:
+ 		nic_mbx_send_ready(nic, vf);
+-		if (vf < MAX_LMAC) {
++		if (vf < nic->num_vf_en) {
+ 			nic->link[vf] = 0;
+ 			nic->duplex[vf] = 0;
+ 			nic->speed[vf] = 0;
+@@ -1191,7 +1232,9 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	nic->node = nic_get_node_id(pdev);
+ 
+ 	/* Initialize hardware */
+-	nic_init_hw(nic);
++	err = nic_init_hw(nic);
++	if (err)
++		goto err_release_regions;
+ 
+ 	nic_set_lmac_vf_mapping(nic);
+ 
+@@ -1226,6 +1269,7 @@ err_unregister_interrupts:
+ err_release_regions:
+ 	pci_release_regions(pdev);
+ err_disable_device:
++	nic_free_lmacmem(nic);
+ 	devm_kfree(dev, nic->hw);
+ 	devm_kfree(dev, nic);
+ 	pci_disable_device(pdev);
+@@ -1249,6 +1293,7 @@ static void nic_remove(struct pci_dev *pdev)
+ 	nic_unregister_interrupts(nic);
+ 	pci_release_regions(pdev);
+ 
++	nic_free_lmacmem(nic);
+ 	devm_kfree(&pdev->dev, nic->hw);
+ 	devm_kfree(&pdev->dev, nic);
+ 
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+index 6225ff4..c7d7cc67 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -29,8 +29,6 @@
+ 
+ #define    MAX_DMAC_PER_LMAC_TNS_BYPASS_MODE	2
+ 
+-#define    MAX_LMAC	(MAX_BGX_PER_CN88XX * MAX_LMAC_PER_BGX)
+-
+ /* Registers */
+ #define BGX_CMRX_CFG			0x00
+ #define  CMR_PKT_TX_EN				BIT_ULL(13)
 -- 
 2.7.4
