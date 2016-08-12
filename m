@@ -1,87 +1,234 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] rhashtable: fix shift by 64 when shrinking
-Date: Fri, 12 Aug 2016 20:10:44 +0200
-Message-ID: <1471025444-22800-1-git-send-email-vegard.nossum@oracle.com>
-Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Thomas Graf <tgraf@suug.ch>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 03/18] liquidio: Common enable irq function
+Date: Fri, 12 Aug 2016 11:20:20 -0700
+Message-ID: <1471026035-15323-4-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:17577 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750989AbcHLSKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 14:10:55 -0400
+Received: from mail-sn1nam02on0088.outbound.protection.outlook.com ([104.47.36.88]:33472
+	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750989AbcHLSVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 14:21:31 -0400
+In-Reply-To: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I got this:
+Add support of common irq enable functionality for both
+iq(instruction queue) and oq(output queue).
 
-    ================================================================================
-    UBSAN: Undefined behaviour in ./include/linux/log2.h:63:13
-    shift exponent 64 is too large for 64-bit type 'long unsigned int'
-    CPU: 1 PID: 721 Comm: kworker/1:1 Not tainted 4.8.0-rc1+ #87
-    Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.3-0-ge2fc41e-prebuilt.qemu-project.org 04/01/2014
-    Workqueue: events rht_deferred_worker
-     0000000000000000 ffff88011661f8d8 ffffffff82344f50 0000000041b58ab3
-     ffffffff84f98000 ffffffff82344ea4 ffff88011661f900 ffff88011661f8b0
-     0000000000000001 ffff88011661f6b8 dffffc0000000000 ffffffff867f7640
-    Call Trace:
-     [<ffffffff82344f50>] dump_stack+0xac/0xfc
-     [<ffffffff82344ea4>] ? _atomic_dec_and_lock+0xc4/0xc4
-     [<ffffffff8242f5b8>] ubsan_epilogue+0xd/0x8a
-     [<ffffffff82430c41>] __ubsan_handle_shift_out_of_bounds+0x255/0x29a
-     [<ffffffff824309ec>] ? __ubsan_handle_out_of_bounds+0x180/0x180
-     [<ffffffff84003436>] ? nl80211_req_set_reg+0x256/0x2f0
-     [<ffffffff812112ba>] ? print_context_stack+0x8a/0x160
-     [<ffffffff81200031>] ? amd_pmu_reset+0x341/0x380
-     [<ffffffff823af808>] rht_deferred_worker+0x1618/0x1790
-     [<ffffffff823af808>] ? rht_deferred_worker+0x1618/0x1790
-     [<ffffffff823ae1f0>] ? rhashtable_jhash2+0x370/0x370
-     [<ffffffff8134c12d>] ? process_one_work+0x6fd/0x1970
-     [<ffffffff8134c1cf>] process_one_work+0x79f/0x1970
-     [<ffffffff8134c12d>] ? process_one_work+0x6fd/0x1970
-     [<ffffffff8134ba30>] ? try_to_grab_pending+0x4c0/0x4c0
-     [<ffffffff8134d564>] ? worker_thread+0x1c4/0x1340
-     [<ffffffff8134d8ff>] worker_thread+0x55f/0x1340
-     [<ffffffff845e904f>] ? __schedule+0x4df/0x1d40
-     [<ffffffff8134d3a0>] ? process_one_work+0x1970/0x1970
-     [<ffffffff8134d3a0>] ? process_one_work+0x1970/0x1970
-     [<ffffffff813642f7>] kthread+0x237/0x390
-     [<ffffffff813640c0>] ? __kthread_parkme+0x280/0x280
-     [<ffffffff845f8c93>] ? _raw_spin_unlock_irq+0x33/0x50
-     [<ffffffff845f95df>] ret_from_fork+0x1f/0x40
-     [<ffffffff813640c0>] ? __kthread_parkme+0x280/0x280
-    ================================================================================
-
-roundup_pow_of_two() is undefined when called with an argument of 0, so
-let's avoid the call and just fall back to ht->p.min_size (which should
-never be smaller than HASH_MIN_SIZE).
-
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- lib/rhashtable.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |  1 +
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |  2 +-
+ .../net/ethernet/cavium/liquidio/octeon_device.c   | 17 +++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  2 ++
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.c | 33 +++++++++++++---------
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.h |  2 ++
+ drivers/net/ethernet/cavium/liquidio/octeon_iq.h   |  2 ++
+ .../net/ethernet/cavium/liquidio/request_manager.c |  3 ++
+ 8 files changed, 48 insertions(+), 14 deletions(-)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5d845ff..fc47ca39 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -321,12 +321,14 @@ static int rhashtable_expand(struct rhashtable *ht)
- static int rhashtable_shrink(struct rhashtable *ht)
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 06f4094..8798246 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -192,6 +192,7 @@ static void octeon_droq_bh(unsigned long pdev)
+ 			continue;
+ 		reschedule |= octeon_droq_process_packets(oct, oct->droq[q_no],
+ 							  MAX_PACKET_BUDGET);
++		lio_enable_irq(oct->droq[q_no], NULL);
+ 	}
+ 
+ 	if (reschedule)
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 0330b52..acd0153 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -848,7 +848,7 @@ struct oct_mdio_cmd {
+ /* intrmod: max. packets to trigger interrupt */
+ #define LIO_INTRMOD_RXMAXCNT_TRIGGER	384
+ /* intrmod: min. packets to trigger interrupt */
+-#define LIO_INTRMOD_RXMINCNT_TRIGGER	1
++#define LIO_INTRMOD_RXMINCNT_TRIGGER	0
+ /* intrmod: max. time to trigger interrupt */
+ #define LIO_INTRMOD_RXMAXTMR_TRIGGER	128
+ /* 66xx:intrmod: min. time to trigger interrupt
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index cff845c..541137a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -1122,3 +1122,20 @@ int lio_get_device_id(void *dev)
+ 			return octeon_dev->octeon_id;
+ 	return -1;
+ }
++
++void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
++{
++	/* the whole thing needs to be atomic, ideally */
++	if (droq) {
++		spin_lock_bh(&droq->lock);
++		writel(droq->pkt_count, droq->pkts_sent_reg);
++		droq->pkt_count = 0;
++		spin_unlock_bh(&droq->lock);
++	}
++	if (iq) {
++		spin_lock_bh(&iq->lock);
++		writel(iq->pkt_in_done, iq->inst_cnt_reg);
++		iq->pkt_in_done = 0;
++		spin_unlock_bh(&iq->lock);
++	}
++}
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 01edfb4..fcda21e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -661,6 +661,8 @@ void *oct_get_config_info(struct octeon_device *oct, u16 card_type);
+  */
+ struct octeon_config *octeon_get_conf(struct octeon_device *oct);
+ 
++void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq);
++
+ /* LiquidIO driver pivate flags */
+ enum {
+ 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
+index e0afe4c..5dfc23d 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
+@@ -92,22 +92,25 @@ static inline void *octeon_get_dispatch_arg(struct octeon_device *octeon_dev,
+ 	return fn_arg;
+ }
+ 
+-/** Check for packets on Droq. This function should be called with
+- * lock held.
++/** Check for packets on Droq. This function should be called with lock held.
+  *  @param  droq - Droq on which count is checked.
+  *  @return Returns packet count.
+  */
+ u32 octeon_droq_check_hw_for_pkts(struct octeon_droq *droq)
  {
- 	struct bucket_table *new_tbl, *old_tbl = rht_dereference(ht->tbl, ht);
--	unsigned int size;
-+	unsigned int nelems = atomic_read(&ht->nelems);
-+	unsigned int size = 0;
- 	int err;
+ 	u32 pkt_count = 0;
++	u32 last_count;
  
- 	ASSERT_RHT_MUTEX(ht);
+ 	pkt_count = readl(droq->pkts_sent_reg);
+-	if (pkt_count) {
+-		atomic_add(pkt_count, &droq->pkts_pending);
+-		writel(pkt_count, droq->pkts_sent_reg);
+-	}
  
--	size = roundup_pow_of_two(atomic_read(&ht->nelems) * 3 / 2);
-+	if (nelems)
-+		size = roundup_pow_of_two(nelems * 3 / 2);
- 	if (size < ht->p.min_size)
- 		size = ht->p.min_size;
+-	return pkt_count;
++	last_count = pkt_count - droq->pkt_count;
++	droq->pkt_count = pkt_count;
++
++	/* we shall write to cnts  at napi irq enable or end of droq tasklet */
++	if (last_count)
++		atomic_add(last_count, &droq->pkts_pending);
++
++	return last_count;
+ }
  
+ static void octeon_droq_compute_max_packet_bufs(struct octeon_droq *droq)
+@@ -735,16 +738,20 @@ octeon_droq_process_packets(struct octeon_device *oct,
+ 	u32 pkt_count = 0, pkts_processed = 0;
+ 	struct list_head *tmp, *tmp2;
+ 
++	/* Grab the droq lock */
++	spin_lock(&droq->lock);
++
++	octeon_droq_check_hw_for_pkts(droq);
+ 	pkt_count = atomic_read(&droq->pkts_pending);
+-	if (!pkt_count)
++
++	if (!pkt_count) {
++		spin_unlock(&droq->lock);
+ 		return 0;
++	}
+ 
+ 	if (pkt_count > budget)
+ 		pkt_count = budget;
+ 
+-	/* Grab the droq lock */
+-	spin_lock(&droq->lock);
+-
+ 	pkts_processed = octeon_droq_fast_process_packets(oct, droq, pkt_count);
+ 
+ 	atomic_sub(pkts_processed, &droq->pkts_pending);
+@@ -789,6 +796,8 @@ octeon_droq_process_poll_pkts(struct octeon_device *oct,
+ 	spin_lock(&droq->lock);
+ 
+ 	while (total_pkts_processed < budget) {
++		octeon_droq_check_hw_for_pkts(droq);
++
+ 		pkts_available =
+ 			CVM_MIN((budget - total_pkts_processed),
+ 				(u32)(atomic_read(&droq->pkts_pending)));
+@@ -803,8 +812,6 @@ octeon_droq_process_poll_pkts(struct octeon_device *oct,
+ 		atomic_sub(pkts_processed, &droq->pkts_pending);
+ 
+ 		total_pkts_processed += pkts_processed;
+-
+-		octeon_droq_check_hw_for_pkts(droq);
+ 	}
+ 
+ 	spin_unlock(&droq->lock);
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
+index 5a6fb91..5be002d 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.h
+@@ -261,6 +261,8 @@ struct octeon_droq {
+ 
+ 	u32 q_no;
+ 
++	u32 pkt_count;
++
+ 	struct octeon_droq_ops ops;
+ 
+ 	struct octeon_device *oct_dev;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
+index ff4b1d6..e4d426b 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
+@@ -88,6 +88,8 @@ struct octeon_instr_queue {
+ 	/** A spinlock to protect while posting on the ring.  */
+ 	spinlock_t post_lock;
+ 
++	u32 pkt_in_done;
++
+ 	/** A spinlock to protect access to the input ring.*/
+ 	spinlock_t iq_flush_running_lock;
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+index d32492f1..3ee5d02 100644
+--- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+@@ -499,6 +499,7 @@ static void __check_db_timeout(struct octeon_device *oct, u64 iq_no)
+ 
+ 	if (!oct)
+ 		return;
++
+ 	iq = oct->instr_queue[iq_no];
+ 	if (!iq)
+ 		return;
+@@ -514,6 +515,8 @@ static void __check_db_timeout(struct octeon_device *oct, u64 iq_no)
+ 
+ 	/* Flush the instruction queue */
+ 	octeon_flush_iq(oct, iq, 1, 0);
++
++	lio_enable_irq(NULL, iq);
+ }
+ 
+ /* Called by the Poll thread at regular intervals to check the instruction
 -- 
-1.9.1
+1.8.3.1
