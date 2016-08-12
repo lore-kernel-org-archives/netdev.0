@@ -1,58 +1,39 @@
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Subject: [PATCH] net: bfin_mac: Fix a few spelling fixes
-Date: Fri, 12 Aug 2016 14:58:02 +0200
-Message-ID: <1471006682-27036-1-git-send-email-clabbe.montjoie@gmail.com>
-Cc: adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	LABBE Corentin <clabbe.montjoie@gmail.com>
-To: davem@davemloft.net, andrew@lunn.ch, tremyfr@gmail.com,
-	sudipm.mukherjee@gmail.com, a@unstable.cc, treding@nvidia.com,
-	linux@roeck-us.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH net-next v4 2/3] bpf: Add bpf_current_task_under_cgroup
+ helper
+Date: Fri, 12 Aug 2016 09:21:39 -0400
+Message-ID: <20160812132139.GI2695@mtj.duckdns.org>
+References: <20160812031454.GA2075@ircssh.c.rugged-nimbus-611.internal>
+ <20160812044818.GA39190@ast-mbp.thefacebook.com>
+ <CAMp4zn-0ox8DLO0jNP9Z2+RKqbHmcrRS_dr+L0de_bd=17mp_w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36023 "EHLO
+	mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752225AbcHLNVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 09:21:43 -0400
+Received: by mail-qt0-f193.google.com with SMTP id u25so964606qtb.3
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 06:21:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAMp4zn-0ox8DLO0jNP9Z2+RKqbHmcrRS_dr+L0de_bd=17mp_w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch respell some word badly spelled.
-- Invidate instead of Invalidate
-- proble instead of probe
+On Thu, Aug 11, 2016 at 09:50:48PM -0700, Sargun Dhillon wrote:
+> I realize that in_cgroup is more consistent, but under_cgroup makes
+> far more sense to me. I think it's more intuitive.
 
-Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
----
- drivers/net/ethernet/adi/bfin_mac.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+So, I think in_cgroup should mean that the object is in that
+particular cgroup while under_cgroup in the subhierarchy of that
+cgroup.  Let's rename the other subhierarchy test to under too.  I
+think that'd be a lot less confusing going forward.
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index 38eaea1..00f9ee3 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -192,8 +192,8 @@ static int desc_list_init(struct net_device *dev)
- 			goto init_error;
- 
- 		skb_reserve(new_skb, NET_IP_ALIGN);
--		/* Invidate the data cache of skb->data range when it is write back
--		 * cache. It will prevent overwritting the new data from DMA
-+		/* Invalidate the data cache of skb->data range when it is write back
-+		 * cache. It will prevent overwriting the new data from DMA
- 		 */
- 		blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
- 					 (unsigned long)new_skb->end);
-@@ -1205,7 +1205,7 @@ static void bfin_mac_rx(struct bfin_mac_local *lp)
- 	}
- 	/* reserve 2 bytes for RXDWA padding */
- 	skb_reserve(new_skb, NET_IP_ALIGN);
--	/* Invidate the data cache of skb->data range when it is write back
-+	/* Invalidate the data cache of skb->data range when it is write back
- 	 * cache. It will prevent overwritting the new data from DMA
- 	 */
- 	blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
-@@ -1599,7 +1599,7 @@ static int bfin_mac_probe(struct platform_device *pdev)
- 	*(__le16 *) (&(ndev->dev_addr[4])) = cpu_to_le16((u16) bfin_read_EMAC_ADDRHI());
- 
- 	/* probe mac */
--	/*todo: how to proble? which is revision_register */
-+	/*todo: how to probe? which is revision_register */
- 	bfin_write_EMAC_ADDRLO(0x12345678);
- 	if (bfin_read_EMAC_ADDRLO() != 0x12345678) {
- 		dev_err(&pdev->dev, "Cannot detect Blackfin on-chip ethernet MAC controller!\n");
+Thanks.
+
 -- 
-2.7.3
+tejun
