@@ -1,52 +1,40 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH RFCv2] net: ethernet: macb: Add support for rx_clk
-Date: Fri, 12 Aug 2016 14:03:18 -0500
-Message-ID: <20160812190318.GA17752@rob-hp-laptop>
-References: <1470996979-33015-1-git-send-email-shubhrajyoti.datta@xilinx.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Fri, 12 Aug 2016 21:03:19 +0200
+Message-ID: <20160812190319.GB25519@breakpoint.cc>
+References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160729132154.GB13634@breakpoint.cc>
+ <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160802221121.GB31209@breakpoint.cc>
+ <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	soren.brinkmann@xilinx.com, shubhrajyoti.datta@gmail.com,
-	michal.simek@xilinx.com
-To: Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
+Cc: Florian Westphal <fw@strlen.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Brandon Cazander <brandon.cazander@multapplied.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34197 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088AbcHLTDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 15:03:20 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:60098 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752194AbcHLTDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 15:03:22 -0400
 Content-Disposition: inline
-In-Reply-To: <1470996979-33015-1-git-send-email-shubhrajyoti.datta@xilinx.com>
+In-Reply-To: <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 12, 2016 at 03:46:19PM +0530, Shubhrajyoti Datta wrote:
-> Some of the platforms like zynqmp ultrascale+ has a
-> separate clock gate for the rx clock. Add an optional
-> rx_clk so that the clock can be enabled.
-> 
-> Signed-off-by: Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
-> ---
-> v2:
-> fix warning
-> 
->  Documentation/devicetree/bindings/net/macb.txt |  2 +-
->  drivers/net/ethernet/cadence/macb.c            | 31 +++++++++++++++++++++-----
->  drivers/net/ethernet/cadence/macb.h            |  4 +++-
->  3 files changed, 30 insertions(+), 7 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-> index b5a42df..315beda 100644
-> --- a/Documentation/devicetree/bindings/net/macb.txt
-> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> @@ -20,7 +20,7 @@ Required properties:
->  - phy-mode: See ethernet.txt file in the same directory.
->  - clock-names: Tuple listing input clock names.
->  	Required elements: 'pclk', 'hclk'
-> -	Optional elements: 'tx_clk'
-> +	Optional elements: 'tx_clk', 'rx_clk'
+Brandon Cazander <brandon.cazander@multapplied.net> wrote:
+> Is there anything I can provide or do to help get this issue fixed? Even with the patch provided, our application is still broken.
 
-Please state which compatibles this applies to.
+[..]
 
->  - clocks: Phandles to input clocks.
->  
->  Optional properties for PHY child node:
+> I think that it is worth doing, as the original kernel change broke my user space program and could do the same to others as well.
+> 
+> On another setup, even with the DIVERT rule in place, I'm still seeing the RST after the ACK. I'm not sure how it is behaving differently than the other setup so I need to look into that. But it definitely worked before the changes to the kernel.
+
+Well, what is different in that setup?
+(e.g. rules, application binding different ip address, etc)
+
+Once I can re-create the problem chances for a fix will be a bit
+higher...
