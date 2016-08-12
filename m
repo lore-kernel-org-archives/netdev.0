@@ -1,42 +1,68 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: Aw: [PATCH] [v8] net: emac: emac gigabit ethernet controller
- driver
-Date: Fri, 12 Aug 2016 15:39:23 -0500
-Message-ID: <57AE33FB.5080905@codeaurora.org>
-References: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
- <trinity-1978b11f-5ee9-4e10-b88d-ab126cd976e0-1471033378842@3capp-gmx-bs27>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH] ip-route: Pretty-print expired routes
+Date: Fri, 12 Aug 2016 23:11:26 +0200
+Message-ID: <20160812211126.GM10197@orbyte.nwl.cc>
+References: <1470827690-5625-1-git-send-email-phil@nwl.cc>
+ <9d2afc01-bb48-25f7-9cad-7c4926622a38@solarflare.com>
+ <20160811135450.GC10197@orbyte.nwl.cc>
+ <20160812125815.3acccc22@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
-	f.fainelli@gmail.com
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:51428 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752293AbcHLUj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 16:39:27 -0400
-In-Reply-To: <trinity-1978b11f-5ee9-4e10-b88d-ab126cd976e0-1471033378842@3capp-gmx-bs27>
+Received: from orbyte.nwl.cc ([151.80.46.58]:34389 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752053AbcHLVL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 17:11:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20160812125815.3acccc22@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lino Sanfilippo wrote:
-> You can either extend the refill function by one gfp_t parameter and then call it
-> with GFP_KERNEL for the initial rx buffer allocation when the hw is brought up and
-> then with GFP_ATOMIC for refilling in the NAPI handler. Or simply always use GFP_ATOMIC.
-> In the latter case the additional parameter is not needed of course and you can
-> use netdev_alloc_skb_ip_align() instead of __netdev_alloc_skb_ip_align().
+On Fri, Aug 12, 2016 at 12:58:15PM -0700, Stephen Hemminger wrote:
+> On Thu, 11 Aug 2016 15:54:50 +0200
+> Phil Sutter <phil@nwl.cc> wrote:
+> 
+> > On Thu, Aug 11, 2016 at 02:46:26PM +0100, Edward Cree wrote:
+> > > On 10/08/16 12:14, Phil Sutter wrote:  
+> > > > Instead of printing 'expires -23sec' for expired (but not yet garbage
+> > > > collected) routes, print 'expired 23sec' instead.
+> > > >
+> > > > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > > > ---
+> > > >  ip/iproute.c | 12 ++++++++++--
+> > > >  1 file changed, 10 insertions(+), 2 deletions(-)
+> > > >
+> > > > diff --git a/ip/iproute.c b/ip/iproute.c
+> > > > index c52294d298210..a89a26d68be0f 100644
+> > > > --- a/ip/iproute.c
+> > > > +++ b/ip/iproute.c
+> > > > @@ -305,6 +305,14 @@ static void print_rtax_features(FILE *fp, unsigned int features)
+> > > >               fprintf(fp, " 0x%x", of);
+> > > >  }
+> > > >
+> > > > +static void print_expires(FILE *fp, __s32 expires, int hz)
+> > > > +{
+> > > > +     if (expires > 0)
+> > > > +             fprintf(fp, " expires %dsec", expires/hz);
+> > > > +     else
+> > > > +             fprintf(fp, " expired %dsec", -expires/hz);
+> > > > +}  
+> > > Perhaps something that differs by more than a single character, to
+> > > make it stand out more?  I don't know what to suggest, though.  
+> > 
+> > Yes, I thought about that, too. At first, I had "expired for %dsec" for
+> > the second case, but decided that it was a bit too verbose given that
+> > all route info goes into a single line and is still meant to be
+> > human-readable. :)
+> > 
+> > Cheers, Phil
+> 
+> This makes sense to humans but changing the output format can break some brittle
+> scripts that parse output of iproute tools.  The risk of incompatibility is a
+> bigger issue than the small gain in readability. Sorry, not taking this.
 
-I will change this to use netdev_alloc_skb_ip_align().
+Sure, no problem.
 
-Thanks.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Thanks, Phil
