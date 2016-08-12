@@ -1,66 +1,61 @@
-From: wenxu <wenxu@ucloud.cn>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, allow segmentation for gre tunneled skbs
-Date: Fri, 12 Aug 2016 12:29:36 +0800
-Message-ID: <ffd3ada7-1a3f-0bfc-8e4f-10904321fcae@ucloud.cn>
-References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
- <20160810.173511.968926810628735179.davem@davemloft.net>
- <20160811224132.7a17f0c3@halley>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v4 2/3] bpf: Add bpf_current_task_under_cgroup
+ helper
+Date: Thu, 11 Aug 2016 21:48:20 -0700
+Message-ID: <20160812044818.GA39190@ast-mbp.thefacebook.com>
+References: <20160812031454.GA2075@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: wenx05124561@163.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, tj@kernel.org
+To: Sargun Dhillon <sargun@sargun.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m97131.qiye.163.com ([220.181.97.131]:28648 "EHLO
-	m97131.qiye.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750922AbcHLEgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 00:36:04 -0400
-In-Reply-To: <20160811224132.7a17f0c3@halley>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:32874 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750781AbcHLEs0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 00:48:26 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i6so864850pfe.0
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 21:48:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160812031454.GA2075@ircssh.c.rugged-nimbus-611.internal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Wed, 10 Aug 2016 17:35:11 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->>> commit b8247f095edd ("net: ip_finish_output_gso: If skb_gso_network_seglen
->>> exceeds MTU, allow segmentation for local udp tunneled skbs")
->>>
->>> Given:
->>>      - tap0 and ovs-gre
->>>      - ovs-gre stacked on eth0, eth0 having the small mtu
->>>
->>> After encapsulation these skbs have skb_gso_network_seglen that exceed
->>> eth0's ip_skb_dst_mtu. So the finnal each segment would be larger than
->>> eth0 mtu. These packets maybe dropped.
->>>
->>> It has the same problem if tap0 bridge with ipgre or gretap device. So
->>> the IPSKB_FRAG_SEGS flags should also be set in gre tunneled skbs.
->>>
->>> Signed-off-by: wenxu <wenxu@ucloud.cn>  
->> I am rather certain that this test is intentionally restricted to
->> UDP tunnel endpoints, because GRE and other tunnel types are PMTU safe.
->>
->> Hannes and Shmulik?
-> It was restricted to UDP tun encaps per Hannes' suggestion, in order to
-> scope the change, as Hannes hinted gre and ipip are pmtu-safe, see [1].
->
-> Glancing at ip_tunnel_xmit() --> tnl_update_pmtu(), they do seem to
-> handle PMTU, but - if I understand correctly - only in the !skb_is_gso
-> case.
-> (since 68c3316311 "v4 GRE: Add TCP segmentation offload for GRE")
->
-> This is probably due the same hidden assumption that 'gso_size' will be
-> suitable for the egress mtu even after encapsulation, which does not
-> hold true in some usecases as described in [2].
->
-> Therefore it might be that b8247f095edd needs to be augmented for
-> non-udp tunnels as well.
->
-> Hannes?
->
-> [1] http://www.spinics.net/lists/netdev/msg386447.html
-> [2] http://www.spinics.net/lists/netdev/msg385776.html
-I think non-udp tunnels should also be set
-And in b8247f095edd, condition skb_iif also should be removed
-given:
-ovs-internal-port bridge with ovs-gre
+On Thu, Aug 11, 2016 at 08:14:56PM -0700, Sargun Dhillon wrote:
+> This adds a bpf helper that's similar to the skb_in_cgroup helper to check
+> whether the probe is currently executing in the context of a specific
+> subset of the cgroupsv2 hierarchy. It does this based on membership test
+> for a cgroup arraymap. It is invalid to call this in an interrupt, and
+> it'll return an error. The helper is primarily to be used in debugging
+> activities for containers, where you may have multiple programs running in
+> a given top-level "container".
+> 
+> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Tejun Heo <tj@kernel.org>
+> ---
+> +	/**
+> +	 * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
+> +	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
+> +	 * @index: index of the cgroup in the bpf_map
+> +	 * Return:
+> +	 *   == 0 current failed the cgroup2 descendant test
+> +	 *   == 1 current succeeded the cgroup2 descendant test
+> +	 *    < 0 error
+> +	 */
+> +	BPF_FUNC_current_task_under_cgroup,
+..
+>  	case BPF_MAP_TYPE_CGROUP_ARRAY:
+> -		if (func_id != BPF_FUNC_skb_in_cgroup)
+> +		if (func_id != BPF_FUNC_skb_in_cgroup &&
+> +		    func_id != BPF_FUNC_current_task_under_cgroup)
+>  			goto error;
+...
+> +	case BPF_FUNC_current_task_under_cgroup:
+>  	case BPF_FUNC_skb_in_cgroup:
 
-There is the same problem that packets from local.
+Tejun,
+do you feel strongly about 'under' ?
+It just looks inconsistent vs existing skb_in_cgroup...
+"in cgroup" - 4k google hits
+"under cgroup" - 2k google hits
