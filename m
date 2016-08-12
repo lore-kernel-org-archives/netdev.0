@@ -1,103 +1,67 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH RESEND] net/sctp: always initialise
- sctp_ht_iter::start_fail
-Date: Fri, 12 Aug 2016 11:41:42 -0300
-Message-ID: <20160812144142.GB3110@localhost.localdomain>
-References: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
+Date: Fri, 12 Aug 2016 16:44:32 +0200
+Message-ID: <57ADE0D0.2080500@iogearbox.net>
+References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm> <57ADC6AA.5070506@iogearbox.net> <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm> <57ADDC8B.9010700@iogearbox.net> <alpine.LNX.2.00.1608121634520.22028@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
-To: Vegard Nossum <vegard.nossum@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42022 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752305AbcHLOmG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 10:42:06 -0400
-Content-Disposition: inline
-In-Reply-To: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1608121634520.22028@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 12, 2016 at 09:50:51AM +0200, Vegard Nossum wrote:
-> sctp_transport_seq_start() does not currently clear iter->start_fail on
-> success, but relies on it being zero when it is allocated (by
-> seq_open_net()).
-> 
-> This can be a problem in the following sequence:
-> 
->     open() // allocates iter (and implicitly sets iter->start_fail = 0)
->     read()
->      - iter->start() // fails and sets iter->start_fail = 1
->      - iter->stop() // doesn't call sctp_transport_walk_stop() (correct)
->     read() again
->      - iter->start() // succeeds, but doesn't change iter->start_fail
->      - iter->stop() // doesn't call sctp_transport_walk_stop() (wrong)
-> 
-> We should initialize sctp_ht_iter::start_fail to zero if ->start()
-> succeeds, otherwise it's possible that we leave an old value of 1 there,
-> which will cause ->stop() to not call sctp_transport_walk_stop(), which
-> causes all sorts of problems like not calling rcu_read_unlock() (and
-> preempt_enable()), eventually leading to more warnings like this:
-> 
->     BUG: sleeping function called from invalid context at mm/slab.h:388
->     in_atomic(): 0, irqs_disabled(): 0, pid: 16551, name: trinity-c2
->     Preemption disabled at:[<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
-> 
->      [<ffffffff81149abb>] preempt_count_add+0x1fb/0x280
->      [<ffffffff83295892>] _raw_spin_lock+0x12/0x40
->      [<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
->      [<ffffffff82ec665f>] sctp_transport_walk_start+0x2f/0x60
->      [<ffffffff82edda1d>] sctp_transport_seq_start+0x4d/0x150
->      [<ffffffff81439e50>] traverse+0x170/0x850
->      [<ffffffff8143aeec>] seq_read+0x7cc/0x1180
->      [<ffffffff814f996c>] proc_reg_read+0xbc/0x180
->      [<ffffffff813d0384>] do_loop_readv_writev+0x134/0x210
->      [<ffffffff813d2a95>] do_readv_writev+0x565/0x660
->      [<ffffffff813d6857>] vfs_readv+0x67/0xa0
->      [<ffffffff813d6c16>] do_preadv+0x126/0x170
->      [<ffffffff813d710c>] SyS_preadv+0xc/0x10
->      [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
->      [<ffffffff83296225>] return_from_SYSCALL_64+0x0/0x6a
->      [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> Notice that this is a subtly different stacktrace from the one in commit
-> 5fc382d875 ("net/sctp: terminate rhashtable walk correctly").
-> 
-> Cc: Xin Long <lucien.xin@gmail.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Eric W. Biederman <ebiederm@xmission.com>
-> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+On 08/12/2016 04:36 PM, Jiri Kosina wrote:
+> On Fri, 12 Aug 2016, Daniel Borkmann wrote:
+>
+>>> I was thinking about something like the patch below (the reasong being
+>>> that ->dev would be NULL only in cases of singletonish qdiscs) ...
+>>> wouldn't that also fix the issue you're seeing? Have to think it
+>>> through a little bit more ..
+>>
+>> Ahh, so this has the same effect as previously observed with the other fix.
+>
+> Thanks a lot for confirming that this fixes the panic. I still have to
+> think a little bit more about this though.
+>
+>> Perhaps it's just a dumping issue, but to the below clsact, there shouldn't
+>> be pfifo_fast instances appearing.
+>>
+>> # tc qdisc show dev wlp2s0b1
+>> qdisc mq 0: root
+>> qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> # tc qdisc add dev wlp2s0b1 clsact
+>> # tc qdisc show dev wlp2s0b1
+>> qdisc mq 0: root
+>> qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc clsact ffff: parent ffff:fff1
+>> qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>> qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+>
+> Hmm, no immediate idea where those are coming from, we'll have to figure
+> it out. The mq device used here has 4 queues, right?
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Yes, the first tc qdisc show is after boot and how it should normally
+look like, so 4 tx queues.
 
-Thanks
+# ls /sys/class/net/wlp2s0b1/queues/
+rx-0  tx-0  tx-1  tx-2  tx-3
 
-> ---
->  net/sctp/proc.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index 4cb5aed..ef8ba77 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -293,6 +293,7 @@ static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
->  		return ERR_PTR(err);
->  	}
->  
-> +	iter->start_fail = 0;
->  	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
->  }
->  
-> -- 
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+When adding clsact, only the 'qdisc clsact' line should be extra. Given
+the extra pfifo_fast ones look the same as above, I would suspect a htab
+dumping issue, perhaps. I can debug a bit later tonight on this.
