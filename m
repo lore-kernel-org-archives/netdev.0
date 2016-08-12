@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 02/18] liquidio: Firmware version management
-Date: Fri, 12 Aug 2016 11:20:19 -0700
-Message-ID: <1471026035-15323-3-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 12/18] liquidio: RX control commands
+Date: Fri, 12 Aug 2016 11:20:29 -0700
+Message-ID: <1471026035-15323-13-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,94 +13,221 @@ Cc: <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0072.outbound.protection.outlook.com ([104.47.41.72]:35104
-	"EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0075.outbound.protection.outlook.com ([104.47.42.75]:37600
+	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751652AbcHLSye (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 14:54:34 -0400
+	id S1752504AbcHLSyk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 14:54:40 -0400
 In-Reply-To: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch contains changes for firmware version management.
+Adds support for RX control commands on cn23xx device.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 12 ++++++++++--
- .../net/ethernet/cavium/liquidio/liquidio_common.h | 22 +++++++++++++++++++---
- 2 files changed, 29 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 100 ++++++++++++++++++---
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   1 +
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |   8 +-
+ 3 files changed, 96 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 8e9ada9..06f4094 100644
+index 154584b..9399a99 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3231,8 +3231,9 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 	union oct_nic_if_cfg if_cfg;
- 	unsigned int base_queue;
- 	unsigned int gmx_port_id;
--	u32 resp_size, ctx_size;
-+	u32 resp_size, ctx_size, data_size;
- 	u32 ifidx_or_pfnum;
-+	struct lio_version *vdata;
+@@ -98,6 +98,14 @@ struct liquidio_if_cfg_resp {
+ 	u64 status;
+ };
  
- 	/* This is to handle link status changes */
- 	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
-@@ -3254,11 +3255,18 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 	for (i = 0; i < octeon_dev->ifcount; i++) {
- 		resp_size = sizeof(struct liquidio_if_cfg_resp);
- 		ctx_size = sizeof(struct liquidio_if_cfg_context);
-+		data_size = sizeof(struct lio_version);
- 		sc = (struct octeon_soft_command *)
--			octeon_alloc_soft_command(octeon_dev, 0,
-+			octeon_alloc_soft_command(octeon_dev, data_size,
- 						  resp_size, ctx_size);
- 		resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
- 		ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
-+		vdata = (struct lio_version *)sc->virtdptr;
++struct liquidio_rx_ctl_context {
++	int octeon_id;
 +
-+		*((u64 *)vdata) = 0;
-+		vdata->major = cpu_to_be16(LIQUIDIO_BASE_MAJOR_VERSION);
-+		vdata->minor = cpu_to_be16(LIQUIDIO_BASE_MINOR_VERSION);
-+		vdata->micro = cpu_to_be16(LIQUIDIO_BASE_MICRO_VERSION);
- 
- 		num_iqueues =
- 			CFG_GET_NUM_TXQS_NIC_IF(octeon_get_conf(octeon_dev), i);
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index 199a8b9..0330b52 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -30,10 +30,26 @@
- 
- #include "octeon_config.h"
- 
--#define LIQUIDIO_BASE_VERSION   "1.4"
--#define LIQUIDIO_MICRO_VERSION  ".1"
- #define LIQUIDIO_PACKAGE ""
--#define LIQUIDIO_VERSION  "1.4.1"
-+#define LIO_STR_HELPER(x)	#x
-+#define LIO_STR(x)	LIO_STR_HELPER(x)
-+#define LIQUIDIO_BASE_MAJOR_VERSION 1
-+#define LIQUIDIO_BASE_MINOR_VERSION 4
-+#define LIQUIDIO_BASE_MICRO_VERSION 1
-+#define LIQUIDIO_BASE_VERSION   LIO_STR(LIQUIDIO_BASE_MAJOR_VERSION) "." \
-+				LIO_STR(LIQUIDIO_BASE_MINOR_VERSION)
-+#define LIQUIDIO_MICRO_VERSION  "." LIO_STR(LIQUIDIO_BASE_MICRO_VERSION)
-+#define LIQUIDIO_VERSION        LIQUIDIO_PACKAGE \
-+				LIO_STR(LIQUIDIO_BASE_MAJOR_VERSION) "." \
-+				LIO_STR(LIQUIDIO_BASE_MINOR_VERSION) \
-+				"." LIO_STR(LIQUIDIO_BASE_MICRO_VERSION)
++	wait_queue_head_t wc;
 +
-+struct lio_version {
-+	u16  major;
-+	u16  minor;
-+	u16  micro;
-+	u16  reserved;
++	int cond;
 +};
++
+ struct oct_link_status_resp {
+ 	u64 rh;
+ 	struct oct_link_info link_info;
+@@ -1374,23 +1382,89 @@ static void octeon_destroy_resources(struct octeon_device *oct)
+ }
  
- #define CONTROL_IQ 0
- /** Tag types used by Octeon cores in its work. */
+ /**
++ * \brief Callback for rx ctrl
++ * @param status status of request
++ * @param buf pointer to resp structure
++ */
++static void rx_ctl_callback(struct octeon_device *oct,
++			    u32 status,
++			    void *buf)
++{
++	struct octeon_soft_command *sc = (struct octeon_soft_command *)buf;
++	struct liquidio_rx_ctl_context *ctx;
++
++	ctx  = (struct liquidio_rx_ctl_context *)sc->ctxptr;
++
++	oct = lio_get_device(ctx->octeon_id);
++	if (status)
++		dev_err(&oct->pci_dev->dev, "rx ctl instruction failed. Status: %llx\n",
++			CVM_CAST64(status));
++	WRITE_ONCE(ctx->cond, 1);
++
++	/* This barrier is required to be sure that the response has been
++	 * written fully before waking up the handler
++	 */
++	wmb();
++
++	wake_up_interruptible(&ctx->wc);
++}
++
++/**
+  * \brief Send Rx control command
+  * @param lio per-network private data
+  * @param start_stop whether to start or stop
+  */
+ static void send_rx_ctrl_cmd(struct lio *lio, int start_stop)
+ {
+-	struct octnic_ctrl_pkt nctrl;
++	struct octeon_soft_command *sc;
++	struct liquidio_rx_ctl_context *ctx;
++	union octnet_cmd *ncmd;
++	int ctx_size = sizeof(struct liquidio_rx_ctl_context);
++	struct octeon_device *oct = (struct octeon_device *)lio->oct_dev;
++	int retval;
+ 
+-	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
++	if (oct->props[lio->ifidx].rx_on == start_stop)
++		return;
+ 
+-	nctrl.ncmd.s.cmd = OCTNET_CMD_RX_CTL;
+-	nctrl.ncmd.s.param1 = start_stop;
+-	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
+-	nctrl.netpndev = (u64)lio->netdev;
++	sc = (struct octeon_soft_command *)
++		octeon_alloc_soft_command(oct, OCTNET_CMD_SIZE,
++					  16, ctx_size);
++
++	ncmd = (union octnet_cmd *)sc->virtdptr;
++	ctx  = (struct liquidio_rx_ctl_context *)sc->ctxptr;
++
++	WRITE_ONCE(ctx->cond, 0);
++	ctx->octeon_id = lio_get_device_id(oct);
++	init_waitqueue_head(&ctx->wc);
++
++	ncmd->u64 = 0;
++	ncmd->s.cmd = OCTNET_CMD_RX_CTL;
++	ncmd->s.param1 = start_stop;
++
++	octeon_swap_8B_data((u64 *)ncmd, (OCTNET_CMD_SIZE >> 3));
++
++	sc->iq_no = lio->linfo.txpciq[0].s.q_no;
++
++	octeon_prepare_soft_command(oct, sc, OPCODE_NIC,
++				    OPCODE_NIC_CMD, 0, 0, 0);
++
++	sc->callback = rx_ctl_callback;
++	sc->callback_arg = sc;
++	sc->wait_time = 5000;
+ 
+-	if (octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl) < 0)
++	retval = octeon_send_soft_command(oct, sc);
++	if (retval == IQ_SEND_FAILED) {
+ 		netif_info(lio, rx_err, lio->netdev, "Failed to send RX Control message\n");
++	} else {
++		/* Sleep on a wait queue till the cond flag indicates that the
++		 * response arrived or timed-out.
++		 */
++		if (sleep_cond(&ctx->wc, &ctx->cond) == -EINTR)
++			return;
++		oct->props[lio->ifidx].rx_on = start_stop;
++	}
++
++	octeon_free_soft_command(oct, sc);
+ }
+ 
+ /**
+@@ -1417,10 +1491,8 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
+ 
+ 	dev_dbg(&oct->pci_dev->dev, "NIC device cleanup\n");
+ 
+-	send_rx_ctrl_cmd(lio, 0);
+-
+ 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_RUNNING)
+-		txqs_stop(netdev);
++		liquidio_stop(netdev);
+ 
+ 	if (oct->props[lio->ifidx].napi_enabled == 1) {
+ 		list_for_each_entry_safe(napi, n, &netdev->napi_list, dev_list)
+@@ -3558,7 +3630,11 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 		/* Sleep on a wait queue till the cond flag indicates that the
+ 		 * response arrived or timed-out.
+ 		 */
+-		sleep_cond(&ctx->wc, &ctx->cond);
++		if (sleep_cond(&ctx->wc, &ctx->cond) == -EINTR) {
++			dev_err(&octeon_dev->pci_dev->dev, "Wait interrupted\n");
++			goto setup_nic_wait_intr;
++		}
++
+ 		retval = resp->status;
+ 		if (retval) {
+ 			dev_err(&octeon_dev->pci_dev->dev, "iq/oq config failed\n");
+@@ -3758,6 +3834,8 @@ setup_nic_dev_fail:
+ 
+ 	octeon_free_soft_command(octeon_dev, sc);
+ 
++setup_nic_wait_intr:
++
+ 	while (i--) {
+ 		dev_err(&octeon_dev->pci_dev->dev,
+ 			"NIC ifidx:%d Setup failed\n", i);
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 8e28ff4..ec3cb22 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -277,6 +277,7 @@ struct octdev_props {
+ 	/* Each interface in the Octeon device has a network
+ 	 * device pointer (used for OS specific calls).
+ 	 */
++	int    rx_on;
+ 	int    napi_enabled;
+ 	int    gmxport;
+ 	struct net_device *netdev;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_main.h b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
+index ebeef95..366298f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_main.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_main.h
+@@ -181,22 +181,26 @@ cnnic_numa_alloc_aligned_dma(u32 size,
+ #define cnnic_free_aligned_dma(pci_dev, ptr, size, orig_ptr, dma_addr) \
+ 		free_pages(orig_ptr, get_order(size))
+ 
+-static inline void
++static inline int
+ sleep_cond(wait_queue_head_t *wait_queue, int *condition)
+ {
++	int errno = 0;
+ 	wait_queue_t we;
+ 
+ 	init_waitqueue_entry(&we, current);
+ 	add_wait_queue(wait_queue, &we);
+ 	while (!(READ_ONCE(*condition))) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+-		if (signal_pending(current))
++		if (signal_pending(current)) {
++			errno = -EINTR;
+ 			goto out;
++		}
+ 		schedule();
+ 	}
+ out:
+ 	set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(wait_queue, &we);
++	return errno;
+ }
+ 
+ static inline void
 -- 
 1.8.3.1
