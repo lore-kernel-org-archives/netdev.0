@@ -1,69 +1,54 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
-Date: Fri, 12 Aug 2016 15:11:09 +1000
-Message-ID: <1470978669.3015.155.camel@kernel.crashing.org>
-References: <1452684335-46107-1-git-send-email-hare@suse.de>
-	 <1452684335-46107-4-git-send-email-hare@suse.de>
-	 <20160209210458.GB32530@localhost>
-	 <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
-	 <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
-	 <1470787409.3015.81.camel@kernel.crashing.org>
-	 <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
-	 <1470873296.3015.117.camel@kernel.crashing.org>
-	 <CAKgT0UcPh2RZazDL-cJbJkZFUJ03kTocn5H7WA=Kk_+S-CV_HA@mail.gmail.com>
-	 <20160811141700.4f4faabb@t450s.home>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, allow segmentation for gre tunneled skbs
+Date: Fri, 12 Aug 2016 08:18:00 +0300
+Message-ID: <20160812081800.02a98e17@halley>
+References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
+	<20160810.173511.968926810628735179.davem@davemloft.net>
+	<20160811224132.7a17f0c3@halley>
+	<80d116d7-e61c-1bbd-64bf-e3b1f809419b@ucloud.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Alexey Kardashevskiy <aik@ozlabs.ru>,
-	Bjorn Helgaas <helgaas@kernel.org>,
-	Hannes Reinecke <hare@suse.de>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Babu Moger <babu.moger@oracle.com>,
-	Paul Mackerras <paulus@samba.org>, santosh@chelsio.com,
-	Netdev <netdev@vger.kernel.org>
-To: Alex Williamson <alex.williamson@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160811141700.4f4faabb@t450s.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, wenx05124561@163.com,
+	hannes@stressinduktion.org
+To: wenxu <wenxu@ucloud.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:34278 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750855AbcHLFSK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 01:18:10 -0400
+Received: by mail-wm0-f47.google.com with SMTP id q128so1308503wma.1
+        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 22:18:09 -0700 (PDT)
+In-Reply-To: <80d116d7-e61c-1bbd-64bf-e3b1f809419b@ucloud.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-08-11 at 14:17 -0600, Alex Williamson wrote:
+Hi,
+
+On Fri, 12 Aug 2016 11:51:07 +0800 wenxu <wenxu@ucloud.cn> wrote:
 > 
-> vfio isn't playing nanny here for the fun of it, part of the reason we
-> have vpd access functions is because folks have discovered that vpd
-> registers between PCI functions on multi-function devices may be
-> shared.  So pounding on vpd registers for function 1 may adversely
-> > affect someone else reading from a different function.
+> And in b8247f095edd, the condition skb_iif also should be removed.
+> given:
+>      ovs-internal-dev bridge with ovs-gre
+> 
+> There are the same problem which the skb from local.
 
-A lot more than that may be shared... the bus for example. lots of
-devices have backdoors into their own BARs, one partition can make its
-BARs overlap the neighbour function, ... dang !
+There's no need to remove the skb_iif criteria:
 
-In the end, PCI assignment at a granularity smaller than a bus cannot
-be done in a fully air tight way and shouldn't be relied upon in
-environemnt where the isolation between partitions matters.
+For the local bridge port, we have control over its mtu. This allows
+setting an mtu value that takes into account the gre encapsulation
+performed by other member ports.
+By doing so, locally generated traffic (on br0) will have a proper
+gso_size.
 
-The only exception here is SR-IOV of course since it's designed
-specifically so that the VFs can't be messed with.
+OTOH if packet arrives from an ingress member port (such as tap0) the
+packet's gso_size could have been set by another system - which is not
+always under our control.
 
->   This is a case
-> where I feel vfio needs to step in because if that's a user competing
-> with the host or two users stepping on each other, well that's exactly
-> what vfio tries to prevent.  A driver in userspace or a VM driver can't
-> very well determine these sorts of interactions when it only has
-> visibility to a subset of the functions and users and hardware folks
-> would throw a fit if I extended iommu groups to encompass all the
-> related devices rather than take the relatively simple step of
-> virtualizing these accesses and occasionally quirking devices that are
-> extra broken, as seems to be required here.  Thanks,
+( see discussion in http://www.spinics.net/lists/netdev/msg385085.html )
 
-We may want some kind of "strict" vs. "relaxed" model here to
-differenciate the desktop user wanting to give a function to his/her
-windows partition and doesn't care about strict isolation vs. the cloud
-data center.
-
-Cheers,
-Ben.
+Regards,
+Shmulik
