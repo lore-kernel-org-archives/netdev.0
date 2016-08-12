@@ -1,108 +1,56 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 2/4] net: hix5hd2_gmac: add reset control and clock
- signals
-Date: Fri, 12 Aug 2016 13:48:24 -0500
-Message-ID: <20160812184824.GA8959@rob-hp-laptop>
-References: <1470906115-155569-1-git-send-email-lidongpo@hisilicon.com>
- <1470906115-155569-3-git-send-email-lidongpo@hisilicon.com>
+From: Brandon Cazander <brandon.cazander@multapplied.net>
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Fri, 12 Aug 2016 15:35:48 +0000
+Message-ID: <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160729132154.GB13634@breakpoint.cc>
+ <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160802221121.GB31209@breakpoint.cc>,<BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-	sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
-	zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
-	andrew-g2DYL2Zd6BY@public.gmane.org, xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	benjamin.chenhao-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org, howell.yang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1470906115-155569-3-git-send-email-lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0072.outbound.protection.outlook.com ([104.47.32.72]:36326
+	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750708AbcHLSwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 14:52:46 -0400
+In-Reply-To: <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 11, 2016 at 05:01:53PM +0800, Dongpo Li wrote:
-> From: Li Dongpo <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-> 
-> Add three reset control signals, "mac_core_rst", "mac_ifc_rst" and
-> "phy_rst".
-> The following diagram explained how the reset signals work.
-> 
->                         SoC
-> |-----------------------------------------------------
-> |                               ------                |
-> |                               | cpu |               |
-> |                               ------                |
-> |                                  |                  |
-> |                              ------------ AMBA bus  |
-> |                         GMAC     |                  |
-> |                            ----------------------   |
-> | ------------- mac_core_rst | --------------      |  |
-> | |clock and   |-------------->|   mac core  |     |  |
-> | |reset       |             | --------------      |  |
-> | |generator   |----         |       |             |  |
-> | -------------     |        | ----------------    |  |
-> |          |        ---------->| mac interface |   |  |
-> |          |     mac_ifc_rst | ----------------    |  |
-> |          |                 |       |             |  |
-> |          |                 | ------------------  |  |
-> |          |phy_rst          | | RGMII interface | |  |
-> |          |                 | ------------------  |  |
-> |          |                 ----------------------   |
-> |----------|------------------------------------------|
->            |                          |
->            |                      ----------
->            |--------------------- |PHY chip |
->                                   ----------
-> 
-> The "mac_core_rst" represents "mac core reset signal", it resets
-> the mac core including packet processing unit, descriptor processing unit,
-> tx engine, rx engine, control unit.
-> The "mac_ifc_rst" represents "mac interface reset signal", it resets
-> the mac interface. The mac interface unit connects mac core and
-> data interface like MII/RMII/RGMII. After we set a new value of
-> interface mode, we must reset mac interface to reload the new mode value.
-> The "phy_rst" represents "phy reset signal", it does a hardware reset
-> on the PHY chip. This reset signal is optinal if the PHY can work well
-> without the hardware reset.
-> 
-> Add one more clock signal, the existing is MAC core clock,
-> and the new one is MAC interface clock.
-> 
-> Signed-off-by: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-> ---
->  .../bindings/net/hisilicon-hix5hd2-gmac.txt        |  16 ++-
->  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c      | 140 +++++++++++++++++++--
->  2 files changed, 143 insertions(+), 13 deletions(-)
+Is there anything I can provide or do to help get this issue fixed? Even with the patch provided, our application is still broken.
 
+-Brandon
 
+From: Brandon Cazander
+Sent: Wednesday, August 3, 2016 8:47 AM
+To: Florian Westphal
+Cc: netdev@vger.kernel.org
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+    
+I think that it is worth doing, as the original kernel change broke my user space program and could do the same to others as well.
+
+On another setup, even with the DIVERT rule in place, I'm still seeing the RST after the ACK. I'm not sure how it is behaving differently than the other setup so I need to look into that. But it definitely worked before the changes to the kernel.
+
+From: Florian Westphal <fw@strlen.de>
+Sent: Tuesday, August 2, 2016 3:11 PM
+To: Brandon Cazander
+Cc: Florian Westphal
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+    
+Brandon Cazander <brandon.cazander@multapplied.net> wrote:
+> >     Please try this patch, it makes it work for me again.
+> >       I decided to extend the existing snat support in xt_socket.c instead
+> >       of changing TPROXY target:
 > 
-> @@ -807,16 +829,26 @@ static int hix5hd2_net_open(struct net_device *dev)
->  	struct phy_device *phy;
->  	int ret;
->  
-> -	ret = clk_prepare_enable(priv->clk);
-> +	ret = clk_prepare_enable(priv->mac_core_clk);
-> +	if (ret < 0) {
-> +		netdev_err(dev, "failed to enable mac core clk %d\n", ret);
-> +		return ret;
-> +	}
-> +
-> +	ret = clk_prepare_enable(priv->mac_ifc_clk);
->  	if (ret < 0) {
-> -		netdev_err(dev, "failed to enable clk %d\n", ret);
-> +		clk_disable_unprepare(priv->mac_core_clk);
-> +		netdev_err(dev, "failed to enable mac ifc clk %d\n", ret);
+> This fixes my example (with the DIVERT chain), but does not fix the two-line example you gave below. Another setup I have is also still broken as of this diff (similarly, there is a rule in nat PREROUTING that goes to a chain with the TPROXY rule).
 
-This change will break with existing DTs. The mac_ifc_clk should be 
-optional.
+Yes, I did not touch TPROXY target, we would need something similar
+(take tuple addresses from the conntrack entry) there as well if we
+need to make it work without the -m socket rule.
 
-Rob
-
->  		return ret;
->  	}
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+        
