@@ -1,66 +1,69 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: [PATCH net-next v4 2/3] bpf: Add bpf_current_task_under_cgroup helper
-Date: Thu, 11 Aug 2016 21:50:48 -0700
-Message-ID: <CAMp4zn-0ox8DLO0jNP9Z2+RKqbHmcrRS_dr+L0de_bd=17mp_w@mail.gmail.com>
-References: <20160812031454.GA2075@ircssh.c.rugged-nimbus-611.internal> <20160812044818.GA39190@ast-mbp.thefacebook.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
+Date: Fri, 12 Aug 2016 15:11:09 +1000
+Message-ID: <1470978669.3015.155.camel@kernel.crashing.org>
+References: <1452684335-46107-1-git-send-email-hare@suse.de>
+	 <1452684335-46107-4-git-send-email-hare@suse.de>
+	 <20160209210458.GB32530@localhost>
+	 <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
+	 <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
+	 <1470787409.3015.81.camel@kernel.crashing.org>
+	 <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
+	 <1470873296.3015.117.camel@kernel.crashing.org>
+	 <CAKgT0UcPh2RZazDL-cJbJkZFUJ03kTocn5H7WA=Kk_+S-CV_HA@mail.gmail.com>
+	 <20160811141700.4f4faabb@t450s.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>, tj@kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:34978 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbcHLE4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 00:56:51 -0400
-Received: by mail-oi0-f48.google.com with SMTP id 4so21562772oih.2
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 21:56:50 -0700 (PDT)
-In-Reply-To: <20160812044818.GA39190@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Alexey Kardashevskiy <aik@ozlabs.ru>,
+	Bjorn Helgaas <helgaas@kernel.org>,
+	Hannes Reinecke <hare@suse.de>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Babu Moger <babu.moger@oracle.com>,
+	Paul Mackerras <paulus@samba.org>, santosh@chelsio.com,
+	Netdev <netdev@vger.kernel.org>
+To: Alex Williamson <alex.williamson@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160811141700.4f4faabb@t450s.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I realize that in_cgroup is more consistent, but under_cgroup makes
-far more sense to me. I think it's more intuitive.
+On Thu, 2016-08-11 at 14:17 -0600, Alex Williamson wrote:
+> 
+> vfio isn't playing nanny here for the fun of it, part of the reason we
+> have vpd access functions is because folks have discovered that vpd
+> registers between PCI functions on multi-function devices may be
+> shared.  So pounding on vpd registers for function 1 may adversely
+> > affect someone else reading from a different function.
 
-On Thu, Aug 11, 2016 at 9:48 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Thu, Aug 11, 2016 at 08:14:56PM -0700, Sargun Dhillon wrote:
->> This adds a bpf helper that's similar to the skb_in_cgroup helper to check
->> whether the probe is currently executing in the context of a specific
->> subset of the cgroupsv2 hierarchy. It does this based on membership test
->> for a cgroup arraymap. It is invalid to call this in an interrupt, and
->> it'll return an error. The helper is primarily to be used in debugging
->> activities for containers, where you may have multiple programs running in
->> a given top-level "container".
->>
->> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
->> Cc: Alexei Starovoitov <ast@kernel.org>
->> Cc: Daniel Borkmann <daniel@iogearbox.net>
->> Cc: Tejun Heo <tj@kernel.org>
->> ---
->> +     /**
->> +      * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
->> +      * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
->> +      * @index: index of the cgroup in the bpf_map
->> +      * Return:
->> +      *   == 0 current failed the cgroup2 descendant test
->> +      *   == 1 current succeeded the cgroup2 descendant test
->> +      *    < 0 error
->> +      */
->> +     BPF_FUNC_current_task_under_cgroup,
-> ..
->>       case BPF_MAP_TYPE_CGROUP_ARRAY:
->> -             if (func_id != BPF_FUNC_skb_in_cgroup)
->> +             if (func_id != BPF_FUNC_skb_in_cgroup &&
->> +                 func_id != BPF_FUNC_current_task_under_cgroup)
->>                       goto error;
-> ...
->> +     case BPF_FUNC_current_task_under_cgroup:
->>       case BPF_FUNC_skb_in_cgroup:
->
-> Tejun,
-> do you feel strongly about 'under' ?
-> It just looks inconsistent vs existing skb_in_cgroup...
-> "in cgroup" - 4k google hits
-> "under cgroup" - 2k google hits
->
+A lot more than that may be shared... the bus for example. lots of
+devices have backdoors into their own BARs, one partition can make its
+BARs overlap the neighbour function, ... dang !
+
+In the end, PCI assignment at a granularity smaller than a bus cannot
+be done in a fully air tight way and shouldn't be relied upon in
+environemnt where the isolation between partitions matters.
+
+The only exception here is SR-IOV of course since it's designed
+specifically so that the VFs can't be messed with.
+
+>   This is a case
+> where I feel vfio needs to step in because if that's a user competing
+> with the host or two users stepping on each other, well that's exactly
+> what vfio tries to prevent.  A driver in userspace or a VM driver can't
+> very well determine these sorts of interactions when it only has
+> visibility to a subset of the functions and users and hardware folks
+> would throw a fit if I extended iommu groups to encompass all the
+> related devices rather than take the relatively simple step of
+> virtualizing these accesses and occasionally quirking devices that are
+> extra broken, as seems to be required here.  Thanks,
+
+We may want some kind of "strict" vs. "relaxed" model here to
+differenciate the desktop user wanting to give a function to his/her
+windows partition and doesn't care about strict isolation vs. the cloud
+data center.
+
+Cheers,
+Ben.
