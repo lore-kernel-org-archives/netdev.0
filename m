@@ -1,87 +1,191 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
-Date: Fri, 12 Aug 2016 15:53:04 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm>
-References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm> <57ADC6AA.5070506@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57ADC6AA.5070506@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: ggarcia@abra.uab.cat
+Subject: [PATCH v5] virtio-vsock: Add timer to handle OOM situations
+Date: Fri, 12 Aug 2016 16:02:08 +0200
+Message-ID: <20160812140208.16772-1-ggarcia@deic.uab.cat>
+Content-Transfer-Encoding: 7BIT
+Cc: stefanha@redhat.com, mst@redhat.com,
+	Gerard Garcia <ggarcia@abra.uab.cat>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from damascus.uab.es ([158.109.168.135]:14594 "EHLO damascus.uab.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752596AbcHLOCO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 10:02:14 -0400
+Received: from damascus.uab.es ([127.0.0.1])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OBS00K2QUZOJG00@damascus.uab.es> for
+ netdev@vger.kernel.org; Fri, 12 Aug 2016 16:02:12 +0200 (CEST)
+Received: from abra.uab.es ([158.109.79.4])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OBS00267UZNIN40@damascus.uab.es> for
+ netdev@vger.kernel.org; Fri, 12 Aug 2016 16:02:12 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 12 Aug 2016, Daniel Borkmann wrote:
+From: Gerard Garcia <ggarcia@deic.uab.cat>
 
-> This results in below panic. Tested reverting this patch and it fixes
-> the panic.
-> 
-> Did you test this also with ingress or clsact qdisc (just try adding
-> it to lo dev for example) ?
+Set up a rx timer to avoid packets being discarded when there is no 
+available memory in the host.
 
-Hi Daniel,
+Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
 
-thanks for the report. Hmm, I am pretty sure clsact worked for me, but 
-I'll recheck.
+---
+Applies over mst/vhost: http://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git
 
-> What happens is the following in qdisc_match_from_root():
-> 
-> [  995.422187] XXX qdisc:ffff88025e4fc800 queue:ffff880262759000
-> dev:ffff880261cc2000 handle:ffff0000
-> [  995.422200] XXX qdisc:ffffffff81cf8100 queue:ffffffff81cf8240 dev:
-> (null) handle:ffff0000
-> 
-> I believe this is due to dev_ingress_queue_create() assigning the
-> global noop_qdisc instance as qdisc_sleeping, which later qdisc_lookup()
-> uses for qdisc_match_from_root().
-> 
-> But everything that uses things like noop_qdisc cannot work with the
-> new qdisc_match_from_root(), because qdisc_dev(root) will always trigger
-> NULL pointer dereference there. Reason is because the dev is always
-> NULL for noop, it's a singleton, see noop_qdisc and noop_netdev_queue
-> in sch_generic.c.
-> 
-> Now how to fix it? Creating separate noop instances each time it's set
-> would be quite a waste of memory. Even fuglier would be to hack a static
-> net device struct into sch_generic.c and let noop_netdev_queue point there
-> to get to the hash table. Or we just not use qdisc_dev().
+v5:
+ * Add subsystem prefix.
 
-How about we actually extend a little bit the TCQ_F_BUILTIN special case 
-test in qdisc_match_from_root()?
+v4:
+ * Fix style.
 
-After the change, the only way how qdisc_dev() could be NULL should be a 
-TCQ_F_BUILTIN case, right?
+v3:
+ * Avoid race condition when freeing timer.
 
-I was thinking about something like the patch below (the reasong being 
-that ->dev would be NULL only in cases of singletonish qdiscs) ... 
-wouldn't that also fix the issue you're seeing? Have to think it through a 
-little bit more ..
+v2:
+* Use of ERR_PTR/PTR_ERR/IS_ERR
+* Timer cleaned on device release.
+* Do not process more packets on error.
 
+ drivers/vhost/vsock.c | 49 ++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 40 insertions(+), 9 deletions(-)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 25aada7..1c9faed 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -260,6 +260,9 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
- {
- 	struct Qdisc *q;
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index e3b30ea..3fdaf31 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -15,11 +15,13 @@
+ #include <net/sock.h>
+ #include <linux/virtio_vsock.h>
+ #include <linux/vhost.h>
++#include <linux/timer.h>
  
-+	if (!qdisc_dev(root))
-+		return (root->handle == handle ? root : NULL);
+ #include <net/af_vsock.h>
+ #include "vhost.h"
+ 
+ #define VHOST_VSOCK_DEFAULT_HOST_CID	2
++#define OOM_RETRY_MS	100
+ 
+ enum {
+ 	VHOST_VSOCK_FEATURES = VHOST_FEATURES,
+@@ -43,6 +45,8 @@ struct vhost_vsock {
+ 	atomic_t queued_replies;
+ 
+ 	u32 guest_cid;
 +
- 	if (!(root->flags & TCQ_F_BUILTIN) &&
- 	    root->handle == handle)
- 		return root;
-
-
-Thanks!
-
++	struct timer_list tx_kick;
+ };
+ 
+ static u32 vhost_transport_get_local_cid(void)
+@@ -229,12 +233,12 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 
+ 	if (in != 0) {
+ 		vq_err(vq, "Expected 0 input buffers, got %u\n", in);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
+ 	if (!pkt)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	len = iov_length(vq->iov, out);
+ 	iov_iter_init(&iov_iter, WRITE, vq->iov, out, len);
+@@ -244,7 +248,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Expected %zu bytes for pkt->hdr, got %zu bytes\n",
+ 		       sizeof(pkt->hdr), nbytes);
+ 		kfree(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	if (le16_to_cpu(pkt->hdr.type) == VIRTIO_VSOCK_TYPE_STREAM)
+@@ -257,13 +261,13 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 	/* The pkt is too big */
+ 	if (pkt->len > VIRTIO_VSOCK_MAX_PKT_BUF_SIZE) {
+ 		kfree(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	pkt->buf = kmalloc(pkt->len, GFP_KERNEL);
+ 	if (!pkt->buf) {
+ 		kfree(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	nbytes = copy_from_iter(pkt->buf, pkt->len, &iov_iter);
+@@ -271,7 +275,7 @@ vhost_vsock_alloc_pkt(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Expected %u byte payload, got %zu bytes\n",
+ 		       pkt->len, nbytes);
+ 		virtio_transport_free_pkt(pkt);
+-		return NULL;
++		return ERR_PTR(-EINVAL);
+ 	}
+ 
+ 	return pkt;
+@@ -331,9 +335,25 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
+ 		}
+ 
+ 		pkt = vhost_vsock_alloc_pkt(vq, out, in);
+-		if (!pkt) {
+-			vq_err(vq, "Faulted on pkt\n");
+-			continue;
++		if (IS_ERR(pkt)) {
++			if (PTR_ERR(pkt) == -ENOMEM) {
++				vhost_discard_vq_desc(vq, 1);
++
++				if (!timer_pending(&vsock->tx_kick)) {
++					vsock->tx_kick.data =
++						(unsigned long) vq;
++					vsock->tx_kick.expires =
++						jiffies + msecs_to_jiffies(OOM_RETRY_MS);
++					add_timer(&vsock->tx_kick);
++				}
++
++				break;
++			} else {
++				vq_err(vq, "Faulted on pkt\n");
++				break;
++			}
++		} else if (unlikely(timer_pending(&vsock->tx_kick))) {
++			del_timer(&vsock->tx_kick);
+ 		}
+ 
+ 		len = pkt->len;
+@@ -356,6 +376,13 @@ out:
+ 	mutex_unlock(&vq->mutex);
+ }
+ 
++static void vhost_vsock_rehandle_tx_kick(unsigned long data)
++{
++	struct vhost_virtqueue *vq = (struct vhost_virtqueue *) data;
++
++	vhost_poll_queue(&vq->poll);
++}
++
+ static void vhost_vsock_handle_rx_kick(struct vhost_work *work)
+ {
+ 	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
+@@ -465,6 +492,9 @@ static int vhost_vsock_dev_open(struct inode *inode, struct file *file)
+ 
+ 	atomic_set(&vsock->queued_replies, 0);
+ 
++	setup_timer(&vsock->tx_kick,
++		    vhost_vsock_rehandle_tx_kick, (unsigned long) NULL);
++
+ 	vqs[VSOCK_VQ_TX] = &vsock->vqs[VSOCK_VQ_TX];
+ 	vqs[VSOCK_VQ_RX] = &vsock->vqs[VSOCK_VQ_RX];
+ 	vsock->vqs[VSOCK_VQ_TX].handle_kick = vhost_vsock_handle_tx_kick;
+@@ -528,6 +558,7 @@ static int vhost_vsock_dev_release(struct inode *inode, struct file *file)
+ 	vsock_for_each_connected_socket(vhost_vsock_reset_orphans);
+ 
+ 	vhost_vsock_stop(vsock);
++	del_timer_sync(&vsock->tx_kick);
+ 	vhost_vsock_flush(vsock);
+ 	vhost_dev_stop(&vsock->dev);
+ 
 -- 
-Jiri Kosina
-SUSE Labs
+2.9.1
