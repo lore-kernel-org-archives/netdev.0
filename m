@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 18/18] liquidio:CN23XX pause frame support
-Date: Fri, 12 Aug 2016 11:20:35 -0700
-Message-ID: <1471026035-15323-19-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 08/18] liquidio: CN23XX queue manipulation
+Date: Fri, 12 Aug 2016 11:20:25 -0700
+Message-ID: <1471026035-15323-9-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,255 +13,267 @@ Cc: <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0040.outbound.protection.outlook.com ([104.47.41.40]:7366
-	"EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0066.outbound.protection.outlook.com ([104.47.42.66]:43325
+	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752365AbcHLSyJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 14:54:09 -0400
+	id S1751652AbcHLSyY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 14:54:24 -0400
 In-Reply-To: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for pause frame and priv flag for cn23xx
-device.
+This patch adds support for cn23xx queue manipulation.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 110 +++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  12 ++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  11 ++-
- 3 files changed, 126 insertions(+), 7 deletions(-)
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 193 +++++++++++++++++++++
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |   6 +-
+ 2 files changed, 195 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 1e7d683..a64eedf 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -190,6 +190,10 @@ static const char oct_droq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"buffer_alloc_failure",
- };
- 
-+/* LiquidIO driver private flags */
-+static const char oct_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+};
-+
- #define OCTNIC_NCMD_AUTONEG_ON  0x1
- #define OCTNIC_NCMD_PHY_ON      0x2
- 
-@@ -659,6 +663,69 @@ lio_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
- 	pause->rx_pause = oct->rx_pause;
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+index 172c3cd..315f01e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -315,6 +315,52 @@ static void cn23xx_setup_global_mac_regs(struct octeon_device *oct)
+ 		(oct, CN23XX_SLI_PKT_MAC_RINFO64(mac_no, pf_num)));
  }
  
-+static int
-+lio_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
++static int cn23xx_reset_io_queues(struct octeon_device *oct)
 +{
-+	/* Notes: Not supporting any auto negotiation in these
-+	 * drivers.
-+	 */
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	struct oct_link_info *linfo = &lio->linfo;
++	int ret_val = 0;
++	u64 d64 = 0ULL, q_no = 0ULL, srn = 0ULL, ern = 0ULL;
 +
-+	int ret = 0;
++	srn = oct->sriov_info.pf_srn;
++	ern = srn + oct->sriov_info.num_pf_rings;
 +
-+	if (oct->chip_id != OCTEON_CN23XX_PF_VID)
-+		return -EINVAL;
++	/*As per HRM reg description, s/w cant write 0 to ENB. */
++	/*to make the queue off, need to set the RST bit. */
 +
-+	if (linfo->link.s.duplex == 0) {
-+		/*no flow control for half duplex*/
-+		if (pause->rx_pause || pause->tx_pause)
-+			return -EINVAL;
++	/* Reset the Enable bit for all the 64 IQs.  */
++	for (q_no = srn; q_no < ern; q_no++) {
++		/* set RST bit to 1. This bit applies to both IQ and OQ */
++		d64 = octeon_read_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++		d64 = d64 | CN23XX_PKT_INPUT_CTL_RST;
++		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no), d64);
 +	}
 +
-+	/*do not support autoneg of link flow control*/
-+	if (pause->autoneg == AUTONEG_ENABLE)
-+		return -EINVAL;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_FLOW_CTL;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+	if (pause->rx_pause) {
-+		/*enable rx pause*/
-+		nctrl.ncmd.s.param1 = 1;
-+	} else {
-+		/*disable rx pause*/
-+		nctrl.ncmd.s.param1 = 0;
-+	}
-+
-+	if (pause->tx_pause) {
-+		/*enable tx pause*/
-+		nctrl.ncmd.s.param2 = 1;
-+	} else {
-+		/*disable tx pause*/
-+		nctrl.ncmd.s.param2 = 0;
-+	}
-+
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to set pause parameter\n");
-+		return -EINVAL;
-+	}
-+
-+	oct->rx_pause = pause->rx_pause;
-+	oct->tx_pause = pause->tx_pause;
-+
-+	return 0;
-+}
-+
- static void
- lio_get_ethtool_stats(struct net_device *netdev,
- 		      struct ethtool_stats *stats  __attribute__((unused)),
-@@ -926,6 +993,27 @@ lio_get_ethtool_stats(struct net_device *netdev,
- 	}
- }
- 
-+static void lio_get_priv_flags_strings(struct lio *lio, u8 *data)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
-+	int i;
-+
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		for (i = 0; i < ARRAY_SIZE(oct_priv_flags_strings); i++) {
-+			sprintf(data, "%s", oct_priv_flags_strings[i]);
-+			data += ETH_GSTRING_LEN;
++	/*wait until the RST bit is clear or the RST and quite bits are set*/
++	for (q_no = srn; q_no < ern; q_no++) {
++		u64 reg_val = octeon_read_csr64(oct,
++					CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++		while ((READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST) &&
++		       !(READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_QUIET)) {
++			WRITE_ONCE(reg_val, octeon_read_csr64(
++			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
 +		}
-+		break;
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		break;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		break;
++		WRITE_ONCE(reg_val, READ_ONCE(reg_val) &
++			~CN23XX_PKT_INPUT_CTL_RST);
++		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
++				   READ_ONCE(reg_val));
++
++		WRITE_ONCE(reg_val, octeon_read_csr64(
++			   oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
++		if (READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST) {
++			dev_err(&oct->pci_dev->dev,
++				"clearing the reset failed for qno: %llu\n",
++				q_no);
++			ret_val = -1;
++		}
 +	}
++
++	return ret_val;
 +}
 +
- static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ static void cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
  {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -965,12 +1053,31 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 		}
- 		break;
+ 	u64 q_no = 0ULL, ern, srn = 0ULL, pf_num = 0ULL;
+@@ -327,6 +373,8 @@ static void cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
+ 	srn = oct->sriov_info.pf_srn;
+ 	ern = srn + oct->sriov_info.num_pf_rings;
  
-+	case ETH_SS_PRIV_FLAGS:
-+		lio_get_priv_flags_strings(lio, data);
-+		break;
- 	default:
- 		netif_info(lio, drv, lio->netdev, "Unknown Stringset !!\n");
- 		break;
- 	}
++	cn23xx_reset_io_queues(oct);
++
+ 	/** Set the MAC_NUM and PVF_NUM in IQ_PKT_CONTROL reg
+ 	* for all queues.Only PF can set these bits.
+ 	* bits 29:30 indicate the MAC num.
+@@ -552,6 +600,148 @@ static void cn23xx_setup_oq_regs(struct octeon_device *oct, u32 oq_no)
+ 			 reg_val);
  }
  
-+static int lio_get_priv_flags_ss_count(struct lio *lio)
++static void cn23xx_enable_io_queues(struct octeon_device *oct)
 +{
-+	struct octeon_device *oct_dev = lio->oct_dev;
++	u64 q_no = 0, reg_val = 0ULL;
++	s32 srn = 0, ern = 0;
 +
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		return ARRAY_SIZE(oct_priv_flags_strings);
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		return -EOPNOTSUPP;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		return -EOPNOTSUPP;
++	srn = oct->sriov_info.pf_srn;
++	ern = srn + oct->num_iqs;
++
++	for (q_no = srn; q_no < ern; q_no++) {
++		/* set the corresponding IQ IS_64B bit */
++		if (oct->io_qmask.iq64B & (1ULL << (q_no - srn))) {
++			reg_val = octeon_read_csr64(
++			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++			reg_val = reg_val | CN23XX_PKT_INPUT_CTL_IS_64B;
++			octeon_write_csr64(
++			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no), reg_val);
++		}
++
++		/* set the corresponding IQ ENB bit */
++		if (oct->io_qmask.iq & (1ULL << (q_no - srn))) {
++			/* IOQs are in reset by default in PEM2 mode,
++			 * clearing reset bit
++			 */
++			reg_val = octeon_read_csr64(
++			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++
++			if (reg_val & CN23XX_PKT_INPUT_CTL_RST) {
++				while (
++				    (reg_val & CN23XX_PKT_INPUT_CTL_RST) &&
++				    !(reg_val & CN23XX_PKT_INPUT_CTL_QUIET)) {
++					reg_val = octeon_read_csr64(
++					    oct,
++					    CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++				}
++				reg_val = reg_val & ~CN23XX_PKT_INPUT_CTL_RST;
++				octeon_write_csr64(
++				    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
++				    reg_val);
++
++				reg_val = octeon_read_csr64(
++				    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++				if (reg_val & CN23XX_PKT_INPUT_CTL_RST) {
++					dev_err(&oct->pci_dev->dev, "clearing the reset failed for qno: %lld\n",
++						q_no);
++				}
++			}
++			reg_val = octeon_read_csr64(
++			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
++			reg_val = reg_val | CN23XX_PKT_INPUT_CTL_RING_ENB;
++			octeon_write_csr64(
++			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no), reg_val);
++		}
++	}
++	for (q_no = srn; q_no < ern; q_no++) {
++		u32 reg_val;
++		/* set the corresponding OQ ENB bit */
++		if (oct->io_qmask.oq & (1ULL << (q_no - srn))) {
++			reg_val = octeon_read_csr(
++			    oct, CN23XX_SLI_OQ_PKT_CONTROL(q_no));
++			reg_val = reg_val | CN23XX_PKT_OUTPUT_CTL_RING_ENB;
++			octeon_write_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(q_no),
++					 reg_val);
++		}
 +	}
 +}
 +
- static int lio_get_sset_count(struct net_device *netdev, int sset)
++static void cn23xx_disable_io_queues(struct octeon_device *oct)
++{
++	int q_no = 0, loop = HZ;
++	u64 d64 = 0ULL;
++	u32 d32 = 0ULL;
++	s32 srn = 0, ern = 0;
++
++	srn = oct->sriov_info.pf_srn;
++	ern = srn + oct->num_iqs;
++
++	/*** Disable Input Queues. ***/
++	for (q_no = srn; q_no < ern; q_no++) {
++		loop = HZ;
++
++		/* start the Reset for a particular ring */
++		WRITE_ONCE(d64, octeon_read_csr64(
++			   oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
++		WRITE_ONCE(d64, READ_ONCE(d64) &
++					(~(CN23XX_PKT_INPUT_CTL_RING_ENB)));
++		WRITE_ONCE(d64, READ_ONCE(d64) | CN23XX_PKT_INPUT_CTL_RST);
++		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
++				   READ_ONCE(d64));
++
++		/* Wait until hardware indicates that the particular IQ
++		 * is out of reset.
++		 */
++		WRITE_ONCE(d64, octeon_read_csr64(
++					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
++		while (!(READ_ONCE(d64) & (0x1ULL << q_no)) && loop--) {
++			WRITE_ONCE(d64, octeon_read_csr64(
++					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
++			schedule_timeout_uninterruptible(1);
++		}
++
++		/* Reset the doorbell register for this Input Queue. */
++		octeon_write_csr(oct, CN23XX_SLI_IQ_DOORBELL(q_no), 0xFFFFFFFF);
++		while (((octeon_read_csr64(
++			    oct, CN23XX_SLI_IQ_DOORBELL(q_no))) != 0ULL) &&
++		       loop--) {
++			schedule_timeout_uninterruptible(1);
++		}
++	}
++
++	/*** Disable Output Queues. ***/
++	for (q_no = srn; q_no < ern; q_no++) {
++		loop = HZ;
++
++		/* Wait until hardware indicates that the particular IQ
++		 * is out of reset.It given that SLI_PKT_RING_RST is
++		 * common for both IQs and OQs
++		 */
++		WRITE_ONCE(d64, octeon_read_csr64(
++					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
++		while (!(READ_ONCE(d64) & (0x1ULL << q_no)) && loop--) {
++			WRITE_ONCE(d64, octeon_read_csr64(
++					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
++			schedule_timeout_uninterruptible(1);
++		}
++
++		/* Reset the doorbell register for this Output Queue. */
++		octeon_write_csr(oct, CN23XX_SLI_OQ_PKTS_CREDIT(q_no),
++				 0xFFFFFFFF);
++		while (((octeon_read_csr64(
++			    oct, CN23XX_SLI_OQ_PKTS_CREDIT(q_no))) != 0ULL) &&
++		       loop--) {
++			schedule_timeout_uninterruptible(1);
++		}
++
++		/* clear the SLI_PKT(0..63)_CNTS[CNT] reg value */
++		WRITE_ONCE(d32, octeon_read_csr(
++					oct, CN23XX_SLI_OQ_PKTS_SENT(q_no)));
++		octeon_write_csr(oct, CN23XX_SLI_OQ_PKTS_SENT(q_no),
++				 READ_ONCE(d32));
++	}
++}
++
+ static void cn23xx_reinit_regs(struct octeon_device *oct)
  {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -981,6 +1088,8 @@ static int lio_get_sset_count(struct net_device *netdev, int sset)
- 		return (ARRAY_SIZE(oct_stats_strings) +
- 			ARRAY_SIZE(oct_iq_stats_strings) * oct_dev->num_iqs +
- 			ARRAY_SIZE(oct_droq_stats_strings) * oct_dev->num_oqs);
-+	case ETH_SS_PRIV_FLAGS:
-+		return lio_get_priv_flags_ss_count(lio);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -2097,6 +2206,7 @@ static const struct ethtool_ops lio_ethtool_ops = {
- 	.get_strings		= lio_get_strings,
- 	.get_ethtool_stats	= lio_get_ethtool_stats,
- 	.get_pauseparam		= lio_get_pauseparam,
-+	.set_pauseparam		= lio_set_pauseparam,
- 	.get_regs_len		= lio_get_regs_len,
- 	.get_regs		= lio_get_regs,
- 	.get_msglevel		= lio_get_msglevel,
+ 	u32 i;
+@@ -729,6 +919,9 @@ int setup_cn23xx_octeon_pf_device(struct octeon_device *oct)
+ 	oct->fn_list.setup_device_regs = cn23xx_setup_pf_device_regs;
+ 	oct->fn_list.reinit_regs = cn23xx_reinit_regs;
+ 
++	oct->fn_list.enable_io_queues = cn23xx_enable_io_queues;
++	oct->fn_list.disable_io_queues = cn23xx_disable_io_queues;
++
+ 	cn23xx_setup_reg_address(oct);
+ 
+ 	oct->coproc_clock_rate = 1000000ULL * cn23xx_coprocessor_clock(oct);
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a5ba8f6..5701a1f 100644
+index b0a97d2..397ef1d 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2178,7 +2178,7 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	struct liquidio_if_cfg_context *ctx;
+@@ -2094,10 +2094,8 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
  
- 	resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
--	ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
-+	ctx = (struct liquidio_if_cfg_context *)sc->ctxptr;
+ 		droq = octeon_dev->droq[q_no];
+ 		napi = &droq->napi;
+-		dev_dbg(&octeon_dev->pci_dev->dev,
+-			"netif_napi_add netdev:%llx oct:%llx\n",
+-			(u64)netdev,
+-			(u64)octeon_dev);
++		dev_dbg(&octeon_dev->pci_dev->dev, "netif_napi_add netdev:%llx oct:%llx pf_num:%d\n",
++			(u64)netdev, (u64)octeon_dev, octeon_dev->pf_num);
+ 		netif_napi_add(netdev, napi, liquidio_napi_poll, 64);
  
- 	oct = lio_get_device(ctx->octeon_id);
- 	if (resp->status)
-@@ -3923,7 +3923,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 
- 		/* Register ethtool support */
- 		liquidio_set_ethtool_ops(netdev);
--		octeon_dev->priv_flags = 0x0;
-+		if (lio->oct_dev->chip_id == OCTEON_CN23XX_PF_VID)
-+			octeon_dev->priv_flags = OCT_PRIV_FLAG_DEFAULT;
-+		else
-+			octeon_dev->priv_flags = 0x0;
- 
- 		if (netdev->features & NETIF_F_LRO)
- 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
-@@ -4003,8 +4006,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* run port_config command for each port */
- 	oct->ifcount = num_nic_ports;
- 
--	memset(oct->props, 0,
--	       sizeof(struct octdev_props) * num_nic_ports);
-+	memset(oct->props, 0, sizeof(struct octdev_props) * num_nic_ports);
- 
- 	for (i = 0; i < MAX_OCTEON_LINKS; i++)
- 		oct->props[i].gmxport = -1;
-@@ -4020,7 +4022,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* Initialize interrupt moderation params */
- 	intrmod_cfg = &((struct octeon_device *)oct)->intrmod;
- 	intrmod_cfg->rx_enable = 1;
--	intrmod_cfg->check_intrvl =   LIO_INTRMOD_CHECK_INTERVAL;
-+	intrmod_cfg->check_intrvl = LIO_INTRMOD_CHECK_INTERVAL;
- 	intrmod_cfg->maxpkt_ratethr = LIO_INTRMOD_MAXPKT_RATETHR;
- 	intrmod_cfg->minpkt_ratethr = LIO_INTRMOD_MINPKT_RATETHR;
- 	intrmod_cfg->rx_maxcnt_trigger = LIO_INTRMOD_RXMAXCNT_TRIGGER;
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 773eb09..a86fe2b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -757,8 +757,15 @@ enum {
- 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
- };
- 
--static inline void lio_set_priv_flag(struct octeon_device *octdev, u32 flag,
--				     u32 val)
-+#define OCT_PRIV_FLAG_DEFAULT 0x0
-+
-+static inline u32 lio_get_priv_flag(struct octeon_device *octdev, u32 flag)
-+{
-+	return !!(octdev->priv_flags & (0x1 << flag));
-+}
-+
-+static inline void lio_set_priv_flag(struct octeon_device *octdev,
-+				     u32 flag, u32 val)
- {
- 	if (val)
- 		octdev->priv_flags |= (0x1 << flag);
+ 		/* designate a CPU for this droq */
 -- 
 1.8.3.1
