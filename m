@@ -1,61 +1,90 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: [PATCH] net: ipv6: Do not keep IPv6 addresses when IPv6 is disabled
-Date: Fri, 12 Aug 2016 12:02:38 +0100
-Message-ID: <1470999758-11535-1-git-send-email-mmanning@brocade.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, allow segmentation for gre tunneled skbs
+Date: Fri, 12 Aug 2016 13:11:50 +0200
+Message-ID: <dfa12e1b-54dc-4e20-8819-cb2400a693d1@stressinduktion.org>
+References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
+ <20160810.173511.968926810628735179.davem@davemloft.net>
+ <20160811224132.7a17f0c3@halley>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: wenxu@ucloud.cn, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	kaber@trash.net, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	wenx05124561@163.com
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:62927 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751636AbcHLLDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 07:03:21 -0400
-Received: from pps.filterd (m0000700.ppops.net [127.0.0.1])
-	by m0000700.ppops.net (8.16.0.11/8.16.0.11) with SMTP id u7CB2WZE011737
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 04:03:20 -0700
-Received: from brmwp-exmb11.corp.brocade.com ([208.47.132.227])
-	by mx0b-000f0801.pphosted.com with ESMTP id 24qmect3sj-2
-	(version=TLSv1.2 cipher=ECDHE-RSA-AES256-SHA384 bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 04:03:20 -0700
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:35629 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751356AbcHLLLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 07:11:54 -0400
+In-Reply-To: <20160811224132.7a17f0c3@halley>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If IPv6 is disabled when the option is set to keep IPv6
-addresses on link down, userspace is unaware of this as
-there is no such indication via netlink. The solution is to
-remove the IPv6 addresses in this case, which results in
-netlink messages indicating removal of addresses in the
-usual manner. This fix also makes the behavior consistent
-with the case of having IPv6 disabled first, which stops
-IPv6 addresses from being added.
+On 11.08.2016 21:41, Shmulik Ladkani wrote:
+> On Wed, 10 Aug 2016 17:35:11 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+>>> commit b8247f095edd ("net: ip_finish_output_gso: If skb_gso_network_seglen
+>>> exceeds MTU, allow segmentation for local udp tunneled skbs")
+>>>
+>>> Given:
+>>>      - tap0 and ovs-gre
+>>>      - ovs-gre stacked on eth0, eth0 having the small mtu
+>>>
+>>> After encapsulation these skbs have skb_gso_network_seglen that exceed
+>>> eth0's ip_skb_dst_mtu. So the finnal each segment would be larger than
+>>> eth0 mtu. These packets maybe dropped.
+>>>
+>>> It has the same problem if tap0 bridge with ipgre or gretap device. So
+>>> the IPSKB_FRAG_SEGS flags should also be set in gre tunneled skbs.
+>>>
+>>> Signed-off-by: wenxu <wenxu@ucloud.cn>  
+>>
+>> I am rather certain that this test is intentionally restricted to
+>> UDP tunnel endpoints, because GRE and other tunnel types are PMTU safe.
+>>
+>> Hannes and Shmulik?
+> 
+> It was restricted to UDP tun encaps per Hannes' suggestion, in order to
+> scope the change, as Hannes hinted gre and ipip are pmtu-safe, see [1].
+> 
+> Glancing at ip_tunnel_xmit() --> tnl_update_pmtu(), they do seem to
+> handle PMTU, but - if I understand correctly - only in the !skb_is_gso
+> case.
+> (since 68c3316311 "v4 GRE: Add TCP segmentation offload for GRE")
+> 
+> This is probably due the same hidden assumption that 'gso_size' will be
+> suitable for the egress mtu even after encapsulation, which does not
+> hold true in some usecases as described in [2].
+> 
+> Therefore it might be that b8247f095edd needs to be augmented for
+> non-udp tunnels as well.
+> 
+> Hannes?
 
-Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-Signed-off-by: Mike Manning <mmanning@brocade.com>
----
- net/ipv6/addrconf.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I really would not like to see this expanded to gre and other protocols.
+All switches drop packets where the packets are exceeding the MTU,
+bridges and also openvswitch should behave the same.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ab3e796..df8425f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3543,7 +3543,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
- 	/* combine the user config with event to determine if permanent
- 	 * addresses are to be removed from address hash table
- 	 */
--	keep_addr = !(how || _keep_addr <= 0);
-+	keep_addr = !(how || _keep_addr <= 0 || idev->cnf.disable_ipv6);
- 
- 	/* Step 2: clear hash table */
- 	for (i = 0; i < IN6_ADDR_HSIZE; i++) {
-@@ -3599,7 +3599,7 @@ restart:
- 	/* re-combine the user config with event to determine if permanent
- 	 * addresses are to be removed from the interface list
- 	 */
--	keep_addr = (!how && _keep_addr > 0);
-+	keep_addr = (!how && _keep_addr > 0 && !idev->cnf.disable_ipv6);
- 
- 	INIT_LIST_HEAD(&del_list);
- 	list_for_each_entry_safe(ifa, tmp, &idev->addr_list, if_list) {
--- 
-1.7.10.4
+Unfortunately we already had this loophole in the kernel that vxlan udp
+output path could fragment the packet again, even in case of switches.
+But this stopped working for GSO packets, which violates another rule in
+the kernel, GSO should always be transparent and user space should never
+have to care if a packet is GSO or not.
+
+Because we couldn't a) roll back the change that we fragment packets in
+UDP output paths and b) should not violate GSO transparency rule, I
+strongly believed it would be better too only change the kernel in a way
+that it transparently works with GSO, too. If we argue that a VTEP is
+its own UDP endpoint which is set up after the bridge, I still can sleep
+well. :)
+
+My understanding was that GRE failed consistently, GSO as well as
+non-GSO packets are dropped, which would be the correct behavior for me.
+I don't want to change this. A good argument against this would be if we
+violate the GSO transparency rule again. But when I looked into the code
+I couldn't see that.
+
+Bye,
+Hannes
