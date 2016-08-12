@@ -1,59 +1,95 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
-Date: Fri, 12 Aug 2016 16:36:01 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608121634520.22028@cbobk.fhfr.pm>
-References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm> <57ADC6AA.5070506@iogearbox.net> <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm> <57ADDC8B.9010700@iogearbox.net>
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: Re: [PATCH] tipc: fix NULL pointer dereference in shutdown()
+Date: Fri, 12 Aug 2016 16:37:32 +0200
+Message-ID: <57ADDF2C.3@oracle.com>
+References: <1469254504-15347-1-git-send-email-vegard.nossum@oracle.com>
+ <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Xue, Ying" <Ying.Xue@windriver.com>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57ADDC8B.9010700@iogearbox.net>
+In-Reply-To: <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Aug 2016, Daniel Borkmann wrote:
+Hi,
 
-> > I was thinking about something like the patch below (the reasong being 
-> > that ->dev would be NULL only in cases of singletonish qdiscs) ... 
-> > wouldn't that also fix the issue you're seeing? Have to think it 
-> > through a little bit more ..
-> 
-> Ahh, so this has the same effect as previously observed with the other fix.
+I didn't see this patch go in yet. Jon Maloy, ping?
 
-Thanks a lot for confirming that this fixes the panic. I still have to 
-think a little bit more about this though.
+Should this go through somebody else?
 
-> Perhaps it's just a dumping issue, but to the below clsact, there shouldn't
-> be pfifo_fast instances appearing.
-> 
-> # tc qdisc show dev wlp2s0b1
-> qdisc mq 0: root
-> qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> # tc qdisc add dev wlp2s0b1 clsact
-> # tc qdisc show dev wlp2s0b1
-> qdisc mq 0: root
-> qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc clsact ffff: parent ffff:fff1
-> qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-> qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
 
-Hmm, no immediate idea where those are coming from, we'll have to figure 
-it out. The mq device used here has 4 queues, right?
+Vegard
 
--- 
-Jiri Kosina
-SUSE Labs
+On 07/23/2016 11:49 AM, Xue, Ying wrote:
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+>
+> -----Original Message-----
+> From: Vegard Nossum [mailto:vegard.nossum@oracle.com]
+> Sent: Saturday, July 23, 2016 2:15 PM
+> To: Jon Maloy; Xue, Ying
+> Cc: netdev@vger.kernel.org; David S. Miller; Michael Kerrisk; linux-kernel@vger.kernel.org; Vegard Nossum; stable@vger.kernel.org
+> Subject: [PATCH] tipc: fix NULL pointer dereference in shutdown()
+>
+> tipc_msg_create() can return a NULL skb and if so, we shouldn't try to call tipc_node_xmit_skb() on it.
+>
+>      general protection fault: 0000 [#1] PREEMPT SMP KASAN
+>      CPU: 3 PID: 30298 Comm: trinity-c0 Not tainted 4.7.0-rc7+ #19
+>      Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Ubuntu-1.8.2-1ubuntu1 04/01/2014
+>      task: ffff8800baf09980 ti: ffff8800595b8000 task.ti: ffff8800595b8000
+>      RIP: 0010:[<ffffffff830bb46b>]  [<ffffffff830bb46b>] tipc_node_xmit_skb+0x6b/0x140
+>      RSP: 0018:ffff8800595bfce8  EFLAGS: 00010246
+>      RAX: 0000000000000000 RBX: 0000000000000000 RCX: 000000003023b0e0
+>      RDX: 0000000000000000 RSI: dffffc0000000000 RDI: ffffffff83d12580
+>      RBP: ffff8800595bfd78 R08: ffffed000b2b7f32 R09: 0000000000000000
+>      R10: fffffbfff0759725 R11: 0000000000000000 R12: 1ffff1000b2b7f9f
+>      R13: ffff8800595bfd58 R14: ffffffff83d12580 R15: dffffc0000000000
+>      FS:  00007fcdde242700(0000) GS:ffff88011af80000(0000) knlGS:0000000000000000
+>      CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+>      CR2: 00007fcddde1db10 CR3: 000000006874b000 CR4: 00000000000006e0
+>      DR0: 00007fcdde248000 DR1: 00007fcddd73d000 DR2: 00007fcdde248000
+>      DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000090602
+>      Stack:
+>       0000000000000018 0000000000000018 0000000041b58ab3 ffffffff83954208
+>       ffffffff830bb400 ffff8800595bfd30 ffffffff8309d767 0000000000000018
+>       0000000000000018 ffff8800595bfd78 ffffffff8309da1a 00000000810ee611
+>      Call Trace:
+>       [<ffffffff830c84a3>] tipc_shutdown+0x553/0x880
+>       [<ffffffff825b4a3b>] SyS_shutdown+0x14b/0x170
+>       [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
+>       [<ffffffff83295ca5>] entry_SYSCALL64_slow_path+0x25/0x25
+>      Code: 90 00 b4 0b 83 c7 00 f1 f1 f1 f1 4c 8d 6d e0 c7 40 04 00 00 00 f4 c7 40 08 f3 f3 f3 f3 48 89 d8 48 c1 e8 03 c7 45 b4 00 00 00 00 <80> 3c 30 00 75 78 48 8d 7b 08 49 8d 75 c0 48 b8 00 00 00 00 00
+>      RIP  [<ffffffff830bb46b>] tipc_node_xmit_skb+0x6b/0x140
+>       RSP <ffff8800595bfce8>
+>      ---[ end trace 57b0484e351e71f1 ]---
+>
+> I feel like we should maybe return -ENOMEM or -ENOBUFS, but I'm not sure userspace is equipped to handle that. Anyway, this is better than a GPF and looks somewhat consistent with other tipc_msg_create() callers.
+>
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> ---
+>   net/tipc/socket.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c index c49b8df..f9f5f3c 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -2180,7 +2180,8 @@ restart:
+>   					      TIPC_CONN_MSG, SHORT_H_SIZE,
+>   					      0, dnode, onode, dport, oport,
+>   					      TIPC_CONN_SHUTDOWN);
+> -			tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
+> +			if (skb)
+> +				tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
+>   		}
+>   		tsk->connected = 0;
+>   		sock->state = SS_DISCONNECTING;
+> --
+> 1.9.1
+>
