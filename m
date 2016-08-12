@@ -1,49 +1,43 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] bpf: fix bpf_skb_in_cgroup helper naming
-Date: Fri, 12 Aug 2016 16:06:42 -0700
-Message-ID: <20160812230640.GA48651@ast-mbp.thefacebook.com>
-References: <f08aab1ab054e7609ff3dc1632c4cc4603636d7d.1471031665.git.daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: fix size of copy_to_user in percpu map.
+Date: Fri, 12 Aug 2016 16:08:12 -0700
+Message-ID: <20160812230810.GB48651@ast-mbp.thefacebook.com>
+References: <20160729064722.GA54517@ast-mbp.thefacebook.com>
+ <579B0B9F.8040805@iogearbox.net>
+ <CALDO+SZueK9ymNjrLAK+00xzR_BTms+qVhy0DAPnJZGrken2rg@mail.gmail.com>
+ <579BF2A1.7000709@iogearbox.net>
+ <CALDO+SbhCuc85b=UuSWVc7baScN+MNwwaLKcXeubPL1SJvOT=Q@mail.gmail.com>
+ <20160730053415.GA78880@ast-mbp.thefacebook.com>
+ <CALDO+SaVhA4GB+=-LnbZpWyx15wgc8PRFXVD4dO-O5kb+hJE9g@mail.gmail.com>
+ <20160801160738.GA99707@ast-mbp.thefacebook.com>
+ <CALDO+SbcTh9Gd75wrJRUvo7SG-kCaKDk8fteQKndTz+_NnAccw@mail.gmail.com>
+ <CALDO+SbrUBa0JpGTbX2cFs3rVhchPtSOmw=Jwjb26fkQ=w0qmg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kafai@fb.com, tj@kernel.org, sargun@sargun.me,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33205 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749AbcHLXGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 19:06:47 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i6so39487pfe.0
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 16:06:47 -0700 (PDT)
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34565 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749AbcHLXIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 19:08:17 -0400
+Received: by mail-pa0-f68.google.com with SMTP id hh10so36697pac.1
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 16:08:16 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <f08aab1ab054e7609ff3dc1632c4cc4603636d7d.1471031665.git.daniel@iogearbox.net>
+In-Reply-To: <CALDO+SbrUBa0JpGTbX2cFs3rVhchPtSOmw=Jwjb26fkQ=w0qmg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 12, 2016 at 10:17:17PM +0200, Daniel Borkmann wrote:
-> While hashing out BPF's current_task_under_cgroup helper bits, it came
-> to discussion that the skb_in_cgroup helper name was suboptimally chosen.
+On Fri, Aug 12, 2016 at 09:58:51AM -0700, William Tu wrote:
+> Hi,
 > 
-> Tejun says:
+> I've tested on ESXi version 5.5 and it seems OK.
+> - VM1: Ubuntu 14.04, kernel 3.19 ---> OK 3 cpu dirs, possible = 0-2
+> - VM2: Centos7, kernel 3.10 ---> OK 8 cpu dirs, possible = 0-7
 > 
->   So, I think in_cgroup should mean that the object is in that
->   particular cgroup while under_cgroup in the subhierarchy of that
->   cgroup. Let's rename the other subhierarchy test to under too. I
->   think that'd be a lot less confusing going forward.
-> 
->   [...]
-> 
->   It's more intuitive and gives us the room to implement the real
->   "in" test if ever necessary in the future.
-> 
-> Since this touches uapi bits, we need to change this as long as v4.8
-> is not yet officially released. Thus, change the helper enum and rename
-> related bits.
-> 
-> Fixes: 4a482f34afcc ("cgroup: bpf: Add bpf_skb_in_cgroup_proto")
-> Reference: http://patchwork.ozlabs.org/patch/658500/
-> Suggested-by: Sargun Dhillon <sargun@sargun.me>
-> Suggested-by: Tejun Heo <tj@kernel.org>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> I tried another MacBook with Fusion, same issue happens, the cpu[0-9]
+> dirs are not equal to /sys/devices/system/cpu/possible
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+great. thanks for testing. I think the issue is closed and
+hopefully you can follow up with fusion guys ;)
