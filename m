@@ -1,60 +1,73 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 1/3] net: stmmac: dwmac-rk: add rk3366 & rk3399 specific
- data
-Date: Fri, 12 Aug 2016 13:37:32 -0500
-Message-ID: <20160812183732.GA3838@rob-hp-laptop>
-References: <1470900288-10109-1-git-send-email-roger.chen@rock-chips.com>
- <1470900288-10109-2-git-send-email-roger.chen@rock-chips.com>
- <1799606.7CVTQCi7m5@diego>
+Subject: Re: [PATCH 1/4] net: hix5hd2_gmac: add tx scatter-gather feature
+Date: Fri, 12 Aug 2016 13:43:37 -0500
+Message-ID: <20160812184336.GA5706@rob-hp-laptop>
+References: <1470906115-155569-1-git-send-email-lidongpo@hisilicon.com>
+ <1470906115-155569-2-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Roger Chen <roger.chen@rock-chips.com>,
-	linux-rockchip@lists.infradead.org, zhengxing@rock-chips.com,
-	pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	peppe.cavallaro@st.com, alexandre.torgue@st.com,
-	davem@davemloft.net, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Heiko =?iso-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, mturquette@baylibre.com,
+	sboyd@codeaurora.org, linux@armlinux.org.uk,
+	zhangfei.gao@linaro.org, yisen.zhuang@huawei.com,
+	salil.mehta@huawei.com, davem@davemloft.net, arnd@arndb.de,
+	andrew@lunn.ch, xuejiancheng@hisilicon.com,
+	benjamin.chenhao@hisilicon.com, howell.yang@hisilicon.com,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-clk@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <linux-clk-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1799606.7CVTQCi7m5@diego>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1470906115-155569-2-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-clk-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 11, 2016 at 10:12:44AM +0200, Heiko Stübner wrote:
-> Hi Roger,
+On Thu, Aug 11, 2016 at 05:01:52PM +0800, Dongpo Li wrote:
+> From: Li Dongpo <lidongpo@hisilicon.com>
 > 
-> Am Donnerstag, 11. August 2016, 15:24:46 schrieb Roger Chen:
-> > Add constants and callback functions for the dwmac on rk3228/rk3229 socs.
-> > As can be seen, the base structure is the same, only registers and the
-> > bits in them moved slightly.
-> > 
-> > Signed-off-by: Roger Chen <roger.chen@rock-chips.com>
-> > ---
-> >  .../devicetree/bindings/net/rockchip-dwmac.txt     |   4 +-
-> >  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 226
-> > +++++++++++++++++++++ 2 files changed, 228 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> > b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt index
-> > cccd945..8c066e6 100644
-> > --- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> > +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> > @@ -3,8 +3,8 @@ Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
-> >  The device node has following properties.
-> > 
-> >  Required properties:
-> > - - compatible: Can be one of "rockchip,rk3228-gmac",
-> > "rockchip,rk3288-gmac", -                            
-> > "rockchip,rk3368-gmac"
-> > + - compatible: Can be one of "rockchip,rk3288-gmac",
+> The "hix5hd2" is SoC name, add the generic ethernet driver name.
+> The "hisi-gemac-v1" is the basic version and "hisi-gemac-v2" adds
+> the SG/TXCSUM/TSO/UFO features.
+> This patch only adds the SG(scatter-gather) driver for transmitting,
+> the drivers of other features will be submitted later.
+
+The compatible string changes should probably be a separate patch.
+
+> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+> ---
+>  .../bindings/net/hisilicon-hix5hd2-gmac.txt        |   9 +-
+>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c      | 213 +++++++++++++++++++--
+>  2 files changed, 205 insertions(+), 17 deletions(-)
 > 
-> you're dropping the rk3228 here.
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> index 75d398b..3c02fac 100644
+> --- a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> @@ -1,7 +1,12 @@
+>  Hisilicon hix5hd2 gmac controller
+>  
+>  Required properties:
+> -- compatible: should be "hisilicon,hix5hd2-gmac".
+> +- compatible: should contain one of the following version strings:
+> +	* "hisilicon,hisi-gemac-v1"
+> +	* "hisilicon,hisi-gemac-v2"
+> +	and one of the following SoC string:
+> +	* "hisilicon,hix5hd2-gemac"
+> +	* "hisilicon,hi3798cv200-gemac"
 
-And please do 1 compatible per line unless multiple strings apply to a 
-given platform.
+Make it clear what the order should be.
 
-Rob
+2 SOC versions so far and 2 generic versions. I'm not really convinced 
+that the generic string is needed.
+
+>  - reg: specifies base physical address(s) and size of the device registers.
+>    The first region is the MAC register base and size.
+>    The second region is external interface control register.
+> @@ -20,7 +25,7 @@ Required properties:
+>  
+>  Example:
+>  	gmac0: ethernet@f9840000 {
+> -		compatible = "hisilicon,hix5hd2-gmac";
+> +		compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
+>  		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
+>  		interrupts = <0 71 4>;
+>  		#address-cells = <1>;
