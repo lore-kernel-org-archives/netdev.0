@@ -1,99 +1,52 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 19/19] batman-adv: Fix consistency of update route messages
-Date: Fri, 12 Aug 2016 10:56:55 +0200
-Message-ID: <1470992215-11009-20-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 18/19] batman-adv: Use bitwise instead of arithmetic operator for flags
+Date: Fri, 12 Aug 2016 10:56:54 +0200
+Message-ID: <1470992215-11009-19-git-send-email-sw@simonwunderlich.de>
 References: <1470992215-11009-1-git-send-email-sw@simonwunderlich.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@c0d3.blue>,
 	Marek Lindner <mareklindner@neomailbox.ch>,
+	Sven Eckelmann <sven@narfation.org>,
 	Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:34982 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:35035 "EHLO
 	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752420AbcHLI5j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 04:57:39 -0400
+	with ESMTP id S1752458AbcHLI5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 04:57:37 -0400
 In-Reply-To: <1470992215-11009-1-git-send-email-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+From: Linus Lüssing <linus.luessing@c0d3.blue>
 
-The debug messages of _batadv_update_route were printed before the actual
-route change is done. At this point it is not really known which
-curr_router will be replaced. Thus the messages could print the wrong
-operation.
+This silences the following coccinelle warning:
 
-Printing the debug messages after the operation was done avoids this
-problem.
+"WARNING: sum of probable bitmasks, consider |"
 
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/routing.c | 43 +++++++++++++++++--------------------------
- 1 file changed, 17 insertions(+), 26 deletions(-)
+ net/batman-adv/multicast.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 7602c00..610f2c4 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -74,11 +74,23 @@ static void _batadv_update_route(struct batadv_priv *bat_priv,
- 	if (!orig_ifinfo)
- 		return;
- 
--	rcu_read_lock();
--	curr_router = rcu_dereference(orig_ifinfo->router);
--	if (curr_router && !kref_get_unless_zero(&curr_router->refcount))
--		curr_router = NULL;
--	rcu_read_unlock();
-+	spin_lock_bh(&orig_node->neigh_list_lock);
-+	/* curr_router used earlier may not be the current orig_ifinfo->router
-+	 * anymore because it was dereferenced outside of the neigh_list_lock
-+	 * protected region. After the new best neighbor has replace the current
-+	 * best neighbor the reference counter needs to decrease. Consequently,
-+	 * the code needs to ensure the curr_router variable contains a pointer
-+	 * to the replaced best neighbor.
-+	 */
-+	curr_router = rcu_dereference_protected(orig_ifinfo->router, true);
-+
-+	/* increase refcount of new best neighbor */
-+	if (neigh_node)
-+		kref_get(&neigh_node->refcount);
-+
-+	rcu_assign_pointer(orig_ifinfo->router, neigh_node);
-+	spin_unlock_bh(&orig_node->neigh_list_lock);
-+	batadv_orig_ifinfo_put(orig_ifinfo);
- 
- 	/* route deleted */
- 	if ((curr_router) && (!neigh_node)) {
-@@ -100,27 +112,6 @@ static void _batadv_update_route(struct batadv_priv *bat_priv,
- 			   curr_router->addr);
+diff --git a/net/batman-adv/multicast.c b/net/batman-adv/multicast.c
+index cc91507..894df60 100644
+--- a/net/batman-adv/multicast.c
++++ b/net/batman-adv/multicast.c
+@@ -528,7 +528,7 @@ update:
  	}
  
--	if (curr_router)
--		batadv_neigh_node_put(curr_router);
--
--	spin_lock_bh(&orig_node->neigh_list_lock);
--	/* curr_router used earlier may not be the current orig_ifinfo->router
--	 * anymore because it was dereferenced outside of the neigh_list_lock
--	 * protected region. After the new best neighbor has replace the current
--	 * best neighbor the reference counter needs to decrease. Consequently,
--	 * the code needs to ensure the curr_router variable contains a pointer
--	 * to the replaced best neighbor.
--	 */
--	curr_router = rcu_dereference_protected(orig_ifinfo->router, true);
--
--	/* increase refcount of new best neighbor */
--	if (neigh_node)
--		kref_get(&neigh_node->refcount);
--
--	rcu_assign_pointer(orig_ifinfo->router, neigh_node);
--	spin_unlock_bh(&orig_node->neigh_list_lock);
--	batadv_orig_ifinfo_put(orig_ifinfo);
--
- 	/* decrease refcount of previous best neighbor */
- 	if (curr_router)
- 		batadv_neigh_node_put(curr_router);
+ 	return !(mcast_data.flags &
+-		 (BATADV_MCAST_WANT_ALL_IPV4 + BATADV_MCAST_WANT_ALL_IPV6));
++		 (BATADV_MCAST_WANT_ALL_IPV4 | BATADV_MCAST_WANT_ALL_IPV6));
+ }
+ 
+ /**
 -- 
 2.8.1
