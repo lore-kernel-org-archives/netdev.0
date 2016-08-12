@@ -1,34 +1,41 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2] ip route: restore_handler should check
- tb[RTA_PREFSRC] for local networks
-Date: Fri, 12 Aug 2016 17:43:45 +0200
-Message-ID: <20160812154345.GL10197@orbyte.nwl.cc>
-References: <f805ffe5dad63ae04330df32bbe6cf532a6772b7.1470561150.git.lucien.xin@gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: macb: add missing free_netdev() on error in macb_probe()
+Date: Fri, 12 Aug 2016 15:43:54 +0000
+Message-ID: <1471016634-32320-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, stephen@networkplumber.org
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:60911 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbcHLPns (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 11:43:48 -0400
-Content-Disposition: inline
-In-Reply-To: <f805ffe5dad63ae04330df32bbe6cf532a6772b7.1470561150.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33763 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752234AbcHLPoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 11:44:01 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i6so1719449pfe.0
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 08:44:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 07, 2016 at 05:12:30PM +0800, Xin Long wrote:
-> Prior to this patch, If one route entry's RTA_PREFSRC and RTA_GATEWAY
-> both were NULL, it was supposed to be restored ONLY as a local address.
-> 
-> But as it didn't check tb[RTA_PREFSRC] when restoring local networks,
-> rtattr_cmp would return a success if it was NULL, this route entry would
-> be restored again as a local network.
-> 
-> This patch is to add tb[RTA_PREFSRC] check when restoring local networks.
-> 
-> Fixes: 74af8dd9620e ("ip route: restore route entries in correct order")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Add the missing free_netdev() before return from function macb_probe()
+in the platform_get_irq() error handling case.
 
-Tested-by: Phil Sutter <phil@nwl.cc>
+Fixes: c69618b3e4f2 ("net/macb: fix probe sequence to setup clocks earlier")
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 6b797e3..dbce938 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2985,7 +2985,7 @@ static int macb_probe(struct platform_device *pdev)
+ 	dev->irq = platform_get_irq(pdev, 0);
+ 	if (dev->irq < 0) {
+ 		err = dev->irq;
+-		goto err_disable_clocks;
++		goto err_out_free_netdev;
+ 	}
+ 
+ 	mac = of_get_mac_address(np);
