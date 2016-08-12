@@ -1,10 +1,9 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 16/21] net: thunderx: Reset RXQ HW stats when interface is brought down
-Date: Fri, 12 Aug 2016 16:51:39 +0530
-Message-ID: <1471000904-21715-17-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 18/21] net: thunderx: Use napi_consume_skb for bulk free
+Date: Fri, 12 Aug 2016 16:51:41 +0530
+Message-ID: <1471000904-21715-19-git-send-email-sunil.kovvuri@gmail.com>
 References: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Jerin Jacob <jerin.jacob@caviumnetworks.com>,
 	Sunil Goutham <sgoutham@cavium.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -12,169 +11,47 @@ In-Reply-To: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jerin Jacob <jerin.jacob@caviumnetworks.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-When SQ/TXQ is reclaimed i.e reset it's stats also automatically reset
-by HW. This is not the case with RQ. Also VF doesn't have write access
-to statistics counter registers. Hence a new Mbox msg is introduced which
-supports resetting RQ, SQ and full Qset stats. Currently only RQ stats
-are being reset using this mbox message.
+This patch enables bulk freeing on the Tx side.
 
-Signed-off-by: Jerin Jacob <jerin.jacob@caviumnetworks.com>
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic.h          | 27 +++++++++++++
- drivers/net/ethernet/cavium/thunder/nic_main.c     | 45 ++++++++++++++++++++++
- drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 15 ++++++++
- 3 files changed, 87 insertions(+)
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
-index 136db2a..dd63f96 100644
---- a/drivers/net/ethernet/cavium/thunder/nic.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic.h
-@@ -347,6 +347,7 @@ struct nicvf {
- #define	NIC_MBOX_MSG_PNICVF_PTR		0x14	/* Get primary qset nicvf ptr */
- #define	NIC_MBOX_MSG_SNICVF_PTR		0x15	/* Send sqet nicvf ptr to PVF */
- #define	NIC_MBOX_MSG_LOOPBACK		0x16	/* Set interface in loopback */
-+#define	NIC_MBOX_MSG_RESET_STAT_COUNTER 0x17	/* Reset statistics counters */
- #define	NIC_MBOX_MSG_CFG_DONE		0xF0	/* VF configuration done */
- #define	NIC_MBOX_MSG_SHUTDOWN		0xF1	/* VF is being shutdown */
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+index 0b68f2b..eb48d33 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
+@@ -521,7 +521,8 @@ static int nicvf_init_resources(struct nicvf *nic)
  
-@@ -463,6 +464,31 @@ struct set_loopback {
- 	bool  enable;
- };
- 
-+/* Reset statistics counters */
-+struct reset_stat_cfg {
-+	u8    msg;
-+	/* Bitmap to select NIC_PF_VNIC(vf_id)_RX_STAT(0..13) */
-+	u16   rx_stat_mask;
-+	/* Bitmap to select NIC_PF_VNIC(vf_id)_TX_STAT(0..4) */
-+	u8    tx_stat_mask;
-+	/* Bitmap to select NIC_PF_QS(0..127)_RQ(0..7)_STAT(0..1)
-+	 * bit14, bit15 NIC_PF_QS(vf_id)_RQ7_STAT(0..1)
-+	 * bit12, bit13 NIC_PF_QS(vf_id)_RQ6_STAT(0..1)
-+	 * ..
-+	 * bit2, bit3 NIC_PF_QS(vf_id)_RQ1_STAT(0..1)
-+	 * bit0, bit1 NIC_PF_QS(vf_id)_RQ0_STAT(0..1)
-+	 */
-+	u16   rq_stat_mask;
-+	/* Bitmap to select NIC_PF_QS(0..127)_SQ(0..7)_STAT(0..1)
-+	 * bit14, bit15 NIC_PF_QS(vf_id)_SQ7_STAT(0..1)
-+	 * bit12, bit13 NIC_PF_QS(vf_id)_SQ6_STAT(0..1)
-+	 * ..
-+	 * bit2, bit3 NIC_PF_QS(vf_id)_SQ1_STAT(0..1)
-+	 * bit0, bit1 NIC_PF_QS(vf_id)_SQ0_STAT(0..1)
-+	 */
-+	u16   sq_stat_mask;
-+};
-+
- /* 128 bit shared memory between PF and each VF */
- union nic_mbx {
- 	struct { u8 msg; }	msg;
-@@ -480,6 +506,7 @@ union nic_mbx {
- 	struct sqs_alloc        sqs_alloc;
- 	struct nicvf_ptr	nicvf;
- 	struct set_loopback	lbk;
-+	struct reset_stat_cfg	reset_stat;
- };
- 
- #define NIC_NODE_ID_MASK	0x03
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index c706b2e..167291b 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -793,6 +793,48 @@ static int nic_config_loopback(struct nicpf *nic, struct set_loopback *lbk)
- 	return 0;
- }
- 
-+/* Reset statistics counters */
-+static int nic_reset_stat_counters(struct nicpf *nic,
-+				   int vf, struct reset_stat_cfg *cfg)
-+{
-+	int i, stat, qnum;
-+	u64 reg_addr;
-+
-+	for (i = 0; i < RX_STATS_ENUM_LAST; i++) {
-+		if (cfg->rx_stat_mask & BIT(i)) {
-+			reg_addr = NIC_PF_VNIC_0_127_RX_STAT_0_13 |
-+				   (vf << NIC_QS_ID_SHIFT) |
-+				   (i << 3);
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+	}
-+
-+	for (i = 0; i < TX_STATS_ENUM_LAST; i++) {
-+		if (cfg->tx_stat_mask & BIT(i)) {
-+			reg_addr = NIC_PF_VNIC_0_127_TX_STAT_0_4 |
-+				   (vf << NIC_QS_ID_SHIFT) |
-+				   (i << 3);
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+	}
-+
-+	for (i = 0; i <= 15; i++) {
-+		qnum = i >> 1;
-+		stat = i & 1 ? 1 : 0;
-+		reg_addr = (vf << NIC_QS_ID_SHIFT) |
-+			   (qnum << NIC_Q_NUM_SHIFT) | (stat << 3);
-+		if (cfg->rq_stat_mask & BIT(i)) {
-+			reg_addr |= NIC_PF_QSET_0_127_RQ_0_7_STAT_0_1;
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+		if (cfg->sq_stat_mask & BIT(i)) {
-+			reg_addr |= NIC_PF_QSET_0_127_SQ_0_7_STAT_0_1;
-+			nic_reg_write(nic, reg_addr, 0);
-+		}
-+	}
-+	return 0;
-+}
-+
- static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
+ static void nicvf_snd_pkt_handler(struct net_device *netdev,
+ 				  struct cmp_queue *cq,
+-				  struct cqe_send_t *cqe_tx, int cqe_type)
++				  struct cqe_send_t *cqe_tx,
++				  int cqe_type, int budget)
  {
- 	int bgx, lmac;
-@@ -942,6 +984,9 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 	case NIC_MBOX_MSG_LOOPBACK:
- 		ret = nic_config_loopback(nic, &mbx.lbk);
+ 	struct sk_buff *skb = NULL;
+ 	struct nicvf *nic = netdev_priv(netdev);
+@@ -545,7 +546,7 @@ static void nicvf_snd_pkt_handler(struct net_device *netdev,
+ 	if (skb) {
+ 		nicvf_put_sq_desc(sq, hdr->subdesc_cnt + 1);
+ 		prefetch(skb);
+-		dev_consume_skb_any(skb);
++		napi_consume_skb(skb, budget);
+ 		sq->skbuff[cqe_tx->sqe_ptr] = (u64)NULL;
+ 	} else {
+ 		/* In case of HW TSO, HW sends a CQE for each segment of a TSO
+@@ -700,7 +701,8 @@ loop:
  		break;
-+	case NIC_MBOX_MSG_RESET_STAT_COUNTER:
-+		ret = nic_reset_stat_counters(nic, vf, &mbx.reset_stat);
-+		break;
- 	default:
- 		dev_err(&nic->pdev->dev,
- 			"Invalid msg from VF%d, msg 0x%x\n", vf, mbx.msg.msg);
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-index ed2fe72..7d90856 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
-@@ -479,6 +479,16 @@ void nicvf_config_vlan_stripping(struct nicvf *nic, netdev_features_t features)
- 					      NIC_QSET_RQ_GEN_CFG, 0, rq_cfg);
- }
- 
-+static void nicvf_reset_rcv_queue_stats(struct nicvf *nic)
-+{
-+	union nic_mbx mbx = {};
-+
-+	/* Reset all RXQ's stats */
-+	mbx.reset_stat.msg = NIC_MBOX_MSG_RESET_STAT_COUNTER;
-+	mbx.reset_stat.rq_stat_mask = 0xFFFF;
-+	nicvf_send_msg_to_pf(nic, &mbx);
-+}
-+
- /* Configures receive queue */
- static void nicvf_rcv_queue_config(struct nicvf *nic, struct queue_set *qs,
- 				   int qidx, bool enable)
-@@ -812,6 +822,11 @@ int nicvf_config_data_transfer(struct nicvf *nic, bool enable)
- 		nicvf_free_resources(nic);
- 	}
- 
-+	/* Reset RXQ's stats.
-+	 * SQ's stats will get reset automatically once SQ is reset.
-+	 */
-+	nicvf_reset_rcv_queue_stats(nic);
-+
- 	return 0;
- }
- 
+ 		case CQE_TYPE_SEND:
+ 			nicvf_snd_pkt_handler(netdev, cq,
+-					      (void *)cq_desc, CQE_TYPE_SEND);
++					      (void *)cq_desc, CQE_TYPE_SEND,
++					      budget);
+ 			tx_done++;
+ 		break;
+ 		case CQE_TYPE_INVALID:
 -- 
 2.7.4
