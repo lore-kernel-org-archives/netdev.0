@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 09/19] batman-adv: make the GW selection
-	class algorithm specific
-Date: Fri, 12 Aug 2016 10:56:45 +0200
-Message-ID: <1470992215-11009-10-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 11/19] batman-adv: B.A.T.M.A.N. V - implement
+	GW selection logic
+Date: Fri, 12 Aug 2016 10:56:47 +0200
+Message-ID: <1470992215-11009-12-git-send-email-sw@simonwunderlich.de>
 References: <1470992215-11009-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -24,186 +24,312 @@ List-Id: netdev.vger.kernel.org
 
 From: Antonio Quartulli <a@unstable.cc>
 
-The B.A.T.M.A.N. V algorithm uses a different metric compared to its
-predecessor and for this reason the logic used to compute the best
-Gateway is also changed. This means that the GW selection class
-fed to this logic has a semantics that depends on the algorithm being
-used.
+Since the GW selection logic has been made routing protocol specific
+it is now possible for B.A.T.M.A.N V to have its own mechanism by
+providing the API implementation.
 
-Make the parsing and printing routine of the GW selection class
-routing algorithm specific. Each algorithm can now parse (and print)
-this value independently.
-
-If no API is provided by any algorithm, the default is to use the
-current mechanism of considering such value like an integer between
-1 and 255.
+Implement the GW specific API in the B.A.T.M.A.N. V protocol in
+order to provide a working GW selection mechanism.
 
 Signed-off-by: Antonio Quartulli <a@unstable.cc>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bat_v.c | 34 ++++++++++++++++++++++++++++++++++
- net/batman-adv/sysfs.c | 34 ++++++++++++++++++++++++++++++++--
- net/batman-adv/types.h | 13 +++++++++++++
- 3 files changed, 79 insertions(+), 2 deletions(-)
+ net/batman-adv/bat_v.c          | 223 +++++++++++++++++++++++++++++++++++++++-
+ net/batman-adv/gateway_client.c |   5 +-
+ net/batman-adv/gateway_client.h |   2 +
+ 3 files changed, 226 insertions(+), 4 deletions(-)
 
 diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
-index 0366cbf..90fd5ee 100644
+index 90fd5ee..1d777b1 100644
 --- a/net/batman-adv/bat_v.c
 +++ b/net/batman-adv/bat_v.c
-@@ -21,8 +21,10 @@
- #include <linux/atomic.h>
- #include <linux/bug.h>
- #include <linux/cache.h>
-+#include <linux/errno.h>
+@@ -25,6 +25,7 @@
  #include <linux/init.h>
  #include <linux/jiffies.h>
-+#include <linux/kernel.h>
+ #include <linux/kernel.h>
++#include <linux/kref.h>
  #include <linux/netdevice.h>
  #include <linux/rculist.h>
  #include <linux/rcupdate.h>
-@@ -34,6 +36,8 @@
- #include "bat_algo.h"
- #include "bat_v_elp.h"
- #include "bat_v_ogm.h"
-+#include "gateway_client.h"
-+#include "gateway_common.h"
+@@ -40,6 +41,7 @@
+ #include "gateway_common.h"
  #include "hard-interface.h"
  #include "hash.h"
++#include "log.h"
  #include "originator.h"
-@@ -320,6 +324,32 @@ err_ifinfo1:
- 	return ret;
+ #include "packet.h"
+ 
+@@ -350,6 +352,213 @@ static ssize_t batadv_v_show_sel_class(struct batadv_priv *bat_priv, char *buff)
+ 	return sprintf(buff, "%u.%u MBit\n", class / 10, class % 10);
  }
  
-+static ssize_t batadv_v_store_sel_class(struct batadv_priv *bat_priv,
-+					char *buff, size_t count)
++/**
++ * batadv_v_gw_throughput_get - retrieve the GW-bandwidth for a given GW
++ * @gw_node: the GW to retrieve the metric for
++ * @bw: the pointer where the metric will be stored. The metric is computed as
++ *  the minimum between the GW advertised throughput and the path throughput to
++ *  it in the mesh
++ *
++ * Return: 0 on success, -1 on failure
++ */
++static int batadv_v_gw_throughput_get(struct batadv_gw_node *gw_node, u32 *bw)
 +{
-+	u32 old_class, class;
++	struct batadv_neigh_ifinfo *router_ifinfo = NULL;
++	struct batadv_orig_node *orig_node;
++	struct batadv_neigh_node *router;
++	int ret = -1;
 +
-+	if (!batadv_parse_throughput(bat_priv->soft_iface, buff,
-+				     "B.A.T.M.A.N. V GW selection class",
-+				     &class))
-+		return -EINVAL;
++	orig_node = gw_node->orig_node;
++	router = batadv_orig_router_get(orig_node, BATADV_IF_DEFAULT);
++	if (!router)
++		goto out;
 +
-+	old_class = atomic_read(&bat_priv->gw.sel_class);
-+	atomic_set(&bat_priv->gw.sel_class, class);
++	router_ifinfo = batadv_neigh_ifinfo_get(router, BATADV_IF_DEFAULT);
++	if (!router_ifinfo)
++		goto out;
 +
-+	if (old_class != class)
-+		batadv_gw_reselect(bat_priv);
++	/* the GW metric is computed as the minimum between the path throughput
++	 * to reach the GW itself and the advertised bandwidth.
++	 * This gives us an approximation of the effective throughput that the
++	 * client can expect via this particular GW node
++	 */
++	*bw = router_ifinfo->bat_v.throughput;
++	*bw = min_t(u32, *bw, gw_node->bandwidth_down);
 +
-+	return count;
++	ret = 0;
++out:
++	if (router)
++		batadv_neigh_node_put(router);
++	if (router_ifinfo)
++		batadv_neigh_ifinfo_put(router_ifinfo);
++
++	return ret;
 +}
 +
-+static ssize_t batadv_v_show_sel_class(struct batadv_priv *bat_priv, char *buff)
++/**
++ * batadv_v_gw_get_best_gw_node - retrieve the best GW node
++ * @bat_priv: the bat priv with all the soft interface information
++ *
++ * Return: the GW node having the best GW-metric, NULL if no GW is known
++ */
++static struct batadv_gw_node *
++batadv_v_gw_get_best_gw_node(struct batadv_priv *bat_priv)
 +{
-+	u32 class = atomic_read(&bat_priv->gw.sel_class);
++	struct batadv_gw_node *gw_node, *curr_gw = NULL;
++	u32 max_bw = 0, bw;
 +
-+	return sprintf(buff, "%u.%u MBit\n", class / 10, class % 10);
++	rcu_read_lock();
++	hlist_for_each_entry_rcu(gw_node, &bat_priv->gw.list, list) {
++		if (!kref_get_unless_zero(&gw_node->refcount))
++			continue;
++
++		if (batadv_v_gw_throughput_get(gw_node, &bw) < 0)
++			goto next;
++
++		if (curr_gw && (bw <= max_bw))
++			goto next;
++
++		if (curr_gw)
++			batadv_gw_node_put(curr_gw);
++
++		curr_gw = gw_node;
++		kref_get(&curr_gw->refcount);
++		max_bw = bw;
++
++next:
++		batadv_gw_node_put(gw_node);
++	}
++	rcu_read_unlock();
++
++	return curr_gw;
++}
++
++/**
++ * batadv_v_gw_is_eligible - check if a originator would be selected as GW
++ * @bat_priv: the bat priv with all the soft interface information
++ * @curr_gw_orig: originator representing the currently selected GW
++ * @orig_node: the originator representing the new candidate
++ *
++ * Return: true if orig_node can be selected as current GW, false otherwise
++ */
++static bool batadv_v_gw_is_eligible(struct batadv_priv *bat_priv,
++				    struct batadv_orig_node *curr_gw_orig,
++				    struct batadv_orig_node *orig_node)
++{
++	struct batadv_gw_node *curr_gw = NULL, *orig_gw = NULL;
++	u32 gw_throughput, orig_throughput, threshold;
++	bool ret = false;
++
++	threshold = atomic_read(&bat_priv->gw.sel_class);
++
++	curr_gw = batadv_gw_node_get(bat_priv, curr_gw_orig);
++	if (!curr_gw) {
++		ret = true;
++		goto out;
++	}
++
++	if (batadv_v_gw_throughput_get(curr_gw, &gw_throughput) < 0) {
++		ret = true;
++		goto out;
++	}
++
++	orig_gw = batadv_gw_node_get(bat_priv, orig_node);
++	if (!orig_node)
++		goto out;
++
++	if (batadv_v_gw_throughput_get(orig_gw, &orig_throughput) < 0)
++		goto out;
++
++	if (orig_throughput < gw_throughput)
++		goto out;
++
++	if ((orig_throughput - gw_throughput) < threshold)
++		goto out;
++
++	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
++		   "Restarting gateway selection: better gateway found (throughput curr: %u, throughput new: %u)\n",
++		   gw_throughput, orig_throughput);
++
++	ret = true;
++out:
++	if (curr_gw)
++		batadv_gw_node_put(curr_gw);
++	if (orig_gw)
++		batadv_gw_node_put(orig_gw);
++
++	return ret;
++}
++
++/* fails if orig_node has no router */
++static int batadv_v_gw_write_buffer_text(struct batadv_priv *bat_priv,
++					 struct seq_file *seq,
++					 const struct batadv_gw_node *gw_node)
++{
++	struct batadv_gw_node *curr_gw;
++	struct batadv_neigh_node *router;
++	struct batadv_neigh_ifinfo *router_ifinfo = NULL;
++	int ret = -1;
++
++	router = batadv_orig_router_get(gw_node->orig_node, BATADV_IF_DEFAULT);
++	if (!router)
++		goto out;
++
++	router_ifinfo = batadv_neigh_ifinfo_get(router, BATADV_IF_DEFAULT);
++	if (!router_ifinfo)
++		goto out;
++
++	curr_gw = batadv_gw_get_selected_gw_node(bat_priv);
++
++	seq_printf(seq, "%s %pM (%9u.%1u) %pM [%10s]: %u.%u/%u.%u MBit\n",
++		   (curr_gw == gw_node ? "=>" : "  "),
++		   gw_node->orig_node->orig,
++		   router_ifinfo->bat_v.throughput / 10,
++		   router_ifinfo->bat_v.throughput % 10, router->addr,
++		   router->if_incoming->net_dev->name,
++		   gw_node->bandwidth_down / 10,
++		   gw_node->bandwidth_down % 10,
++		   gw_node->bandwidth_up / 10,
++		   gw_node->bandwidth_up % 10);
++	ret = seq_has_overflowed(seq) ? -1 : 0;
++
++	if (curr_gw)
++		batadv_gw_node_put(curr_gw);
++out:
++	if (router_ifinfo)
++		batadv_neigh_ifinfo_put(router_ifinfo);
++	if (router)
++		batadv_neigh_node_put(router);
++	return ret;
++}
++
++/**
++ * batadv_v_gw_print - print the gateway list
++ * @bat_priv: the bat priv with all the soft interface information
++ * @seq: gateway table seq_file struct
++ */
++static void batadv_v_gw_print(struct batadv_priv *bat_priv,
++			      struct seq_file *seq)
++{
++	struct batadv_gw_node *gw_node;
++	int gw_count = 0;
++
++	seq_puts(seq,
++		 "      Gateway        ( throughput)           Nexthop [outgoingIF]: advertised uplink bandwidth\n");
++
++	rcu_read_lock();
++	hlist_for_each_entry_rcu(gw_node, &bat_priv->gw.list, list) {
++		/* fails if orig_node has no router */
++		if (batadv_v_gw_write_buffer_text(bat_priv, seq, gw_node) < 0)
++			continue;
++
++		gw_count++;
++	}
++	rcu_read_unlock();
++
++	if (gw_count == 0)
++		seq_puts(seq, "No gateways in range ...\n");
 +}
 +
  static struct batadv_algo_ops batadv_batman_v __read_mostly = {
  	.name = "BATMAN_V",
  	.iface = {
-@@ -338,6 +368,10 @@ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
- 	.orig = {
- 		.print = batadv_v_orig_print,
+@@ -371,6 +580,9 @@ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
+ 	.gw = {
+ 		.store_sel_class = batadv_v_store_sel_class,
+ 		.show_sel_class = batadv_v_show_sel_class,
++		.get_best_gw_node = batadv_v_gw_get_best_gw_node,
++		.is_eligible = batadv_v_gw_is_eligible,
++		.print = batadv_v_gw_print,
  	},
-+	.gw = {
-+		.store_sel_class = batadv_v_store_sel_class,
-+		.show_sel_class = batadv_v_show_sel_class,
-+	},
  };
  
- /**
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index 4e06cb7..e78bd7f 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -515,6 +515,36 @@ static ssize_t batadv_store_gw_mode(struct kobject *kobj,
- 	return count;
+@@ -397,7 +609,16 @@ void batadv_v_hardif_init(struct batadv_hard_iface *hard_iface)
+  */
+ int batadv_v_mesh_init(struct batadv_priv *bat_priv)
+ {
+-	return batadv_v_ogm_init(bat_priv);
++	int ret = 0;
++
++	ret = batadv_v_ogm_init(bat_priv);
++	if (ret < 0)
++		return ret;
++
++	/* set default throughput difference threshold to 5Mbps */
++	atomic_set(&bat_priv->gw.sel_class, 50);
++
++	return 0;
  }
  
-+static ssize_t batadv_show_gw_sel_class(struct kobject *kobj,
-+					struct attribute *attr, char *buff)
-+{
-+	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);
-+
-+	if (bat_priv->algo_ops->gw.show_sel_class)
-+		return bat_priv->algo_ops->gw.show_sel_class(bat_priv, buff);
-+
-+	return sprintf(buff, "%i\n", atomic_read(&bat_priv->gw.sel_class));
-+}
-+
-+static ssize_t batadv_store_gw_sel_class(struct kobject *kobj,
-+					 struct attribute *attr, char *buff,
-+					 size_t count)
-+{
-+	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);
-+
-+	if (buff[count - 1] == '\n')
-+		buff[count - 1] = '\0';
-+
-+	if (bat_priv->algo_ops->gw.store_sel_class)
-+		return bat_priv->algo_ops->gw.store_sel_class(bat_priv, buff,
-+							      count);
-+
-+	return __batadv_store_uint_attr(buff, count, 1, BATADV_TQ_MAX_VALUE,
-+					batadv_post_gw_reselect, attr,
-+					&bat_priv->gw.sel_class,
-+					bat_priv->soft_iface);
-+}
-+
- static ssize_t batadv_show_gw_bwidth(struct kobject *kobj,
- 				     struct attribute *attr, char *buff)
- {
-@@ -626,8 +656,8 @@ BATADV_ATTR_SIF_UINT(orig_interval, orig_interval, S_IRUGO | S_IWUSR,
- 		     2 * BATADV_JITTER, INT_MAX, NULL);
- BATADV_ATTR_SIF_UINT(hop_penalty, hop_penalty, S_IRUGO | S_IWUSR, 0,
- 		     BATADV_TQ_MAX_VALUE, NULL);
--BATADV_ATTR_SIF_UINT(gw_sel_class, gw.sel_class, S_IRUGO | S_IWUSR, 1,
--		     BATADV_TQ_MAX_VALUE, batadv_post_gw_reselect);
-+static BATADV_ATTR(gw_sel_class, S_IRUGO | S_IWUSR, batadv_show_gw_sel_class,
-+		   batadv_store_gw_sel_class);
- static BATADV_ATTR(gw_bandwidth, S_IRUGO | S_IWUSR, batadv_show_gw_bwidth,
- 		   batadv_store_gw_bwidth);
- #ifdef CONFIG_BATMAN_ADV_MCAST
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 96af6da..deaadba 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -1450,12 +1450,24 @@ struct batadv_algo_orig_ops {
- };
- 
  /**
-+ * struct batadv_algo_gw_ops - mesh algorithm callbacks (GW specific)
-+ * @store_sel_class: parse and stores a new GW selection class (optional)
-+ * @show_sel_class: prints the current GW selection class (optional)
-+ */
-+struct batadv_algo_gw_ops {
-+	ssize_t (*store_sel_class)(struct batadv_priv *bat_priv, char *buff,
-+				   size_t count);
-+	ssize_t (*show_sel_class)(struct batadv_priv *bat_priv, char *buff);
-+};
-+
-+/**
-  * struct batadv_algo_ops - mesh algorithm callbacks
-  * @list: list node for the batadv_algo_list
-  * @name: name of the algorithm
-  * @iface: callbacks related to interface handling
-  * @neigh: callbacks related to neighbors handling
-  * @orig: callbacks related to originators handling
-+ * @gw: callbacks related to GW mode
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index ec363f3..a77a179 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -360,9 +360,8 @@ static void batadv_gw_node_add(struct batadv_priv *bat_priv,
+  *
+  * Return: gateway node if found or NULL otherwise.
   */
- struct batadv_algo_ops {
- 	struct hlist_node list;
-@@ -1463,6 +1475,7 @@ struct batadv_algo_ops {
- 	struct batadv_algo_iface_ops iface;
- 	struct batadv_algo_neigh_ops neigh;
- 	struct batadv_algo_orig_ops orig;
-+	struct batadv_algo_gw_ops gw;
- };
+-static struct batadv_gw_node *
+-batadv_gw_node_get(struct batadv_priv *bat_priv,
+-		   struct batadv_orig_node *orig_node)
++struct batadv_gw_node *batadv_gw_node_get(struct batadv_priv *bat_priv,
++					  struct batadv_orig_node *orig_node)
+ {
+ 	struct batadv_gw_node *gw_node_tmp, *gw_node = NULL;
  
- /**
+diff --git a/net/batman-adv/gateway_client.h b/net/batman-adv/gateway_client.h
+index 4c9edde..6b40432 100644
+--- a/net/batman-adv/gateway_client.h
++++ b/net/batman-adv/gateway_client.h
+@@ -47,5 +47,7 @@ bool batadv_gw_out_of_range(struct batadv_priv *bat_priv, struct sk_buff *skb);
+ enum batadv_dhcp_recipient
+ batadv_gw_dhcp_recipient_get(struct sk_buff *skb, unsigned int *header_len,
+ 			     u8 *chaddr);
++struct batadv_gw_node *batadv_gw_node_get(struct batadv_priv *bat_priv,
++					  struct batadv_orig_node *orig_node);
+ 
+ #endif /* _NET_BATMAN_ADV_GATEWAY_CLIENT_H_ */
 -- 
 2.8.1
