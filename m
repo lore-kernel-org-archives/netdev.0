@@ -1,41 +1,56 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] net: macb: add missing free_netdev() on error in macb_probe()
-Date: Fri, 12 Aug 2016 15:43:54 +0000
-Message-ID: <1471016634-32320-1-git-send-email-weiyj.lk@gmail.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
+Date: Sat, 13 Aug 2016 00:45:16 +0900
+Message-ID: <CAKD1Yr3LNv+hDm0HfxYiGvotiTYab9W-+5R0OUjinF-tdwKy1g@mail.gmail.com>
+References: <1470642127-574-1-git-send-email-lorenzo@google.com>
+ <20160808.143500.473355495580691289.davem@davemloft.net> <CAKD1Yr25UUNOANnUD+cCszA2HfoPrsEPxaGqgqBBBG_wcs1tGg@mail.gmail.com>
+ <20160808.222030.1314134961786852070.davem@davemloft.net> <CAAedzxq-XYTVgZ7=VX-OWHYNSRjDuf==si-my=Jy3YEo7atcWQ@mail.gmail.com>
+ <04a393c9-39f8-8d73-3476-928732e5b193@cumulusnetworks.com> <ed271d49-e796-ebaa-2e71-35711710fd49@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Ahern <dsa@cumulusnetworks.com>, Erik Kline <ek@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33763 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbcHLPoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 11:44:01 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i6so1719449pfe.0
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 08:44:01 -0700 (PDT)
+Received: from mail-it0-f50.google.com ([209.85.214.50]:35366 "EHLO
+	mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752535AbcHLPqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 11:46:04 -0400
+Received: by mail-it0-f50.google.com with SMTP id u186so14851566ita.0
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 08:45:37 -0700 (PDT)
+In-Reply-To: <ed271d49-e796-ebaa-2e71-35711710fd49@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the missing free_netdev() before return from function macb_probe()
-in the platform_get_irq() error handling case.
+On Wed, Aug 10, 2016 at 7:44 AM, YOSHIFUJI Hideaki
+<hideaki.yoshifuji@miraclelinux.com> wrote:
+>
+> >> I could see a point of view that says when bound_if is in play sending
+> >> to destinations on/via other interfaces--by any mechanism--should
+> >> effectively get ENETUNREACH (or something).
+> >
+> > VRF uses this capability to send on an enslaved interface. ie., socket is bound to VRF device to limit packets to that L3 domain and then uses PKTINFO to force a packet out a particular interface.
+>
+> We could extend our code to allow enslave devices, maybe.
 
-Fixes: c69618b3e4f2 ("net/macb: fix probe sequence to setup clocks earlier")
-Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
----
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+So something like this, then?
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 6b797e3..dbce938 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2985,7 +2985,7 @@ static int macb_probe(struct platform_device *pdev)
- 	dev->irq = platform_get_irq(pdev, 0);
- 	if (dev->irq < 0) {
- 		err = dev->irq;
--		goto err_disable_clocks;
-+		goto err_out_free_netdev;
- 	}
- 
- 	mac = of_get_mac_address(np);
+static inline bool inet_check_bound_oif(const struct sock *sk, int oif)
+{
+        if (!oif || !sk->sk_bound_dev_if || oif == sk->sk_bound_dev_if)
+                return true;
+
+#ifdef CONFIG_NET_L3_MASTER_DEV
+        return l3mdev_master_ifindex_by_index(sock_net(sk), oif) ==
+                sk->sk_bound_dev_if;
+#endif
+
+        return false;
+}
+
+and then in the various sendmsg functions:
+
+        if (!inet_check_bound_oif(sk, oif))
+                return -EINVAL;
