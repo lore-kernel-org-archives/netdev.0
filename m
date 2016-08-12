@@ -1,100 +1,109 @@
-From: Gerard Garcia <ggarcia@abra.uab.cat>
-Subject: Re: [PATCH 3/3] vsockmon: Add virtio vsock hooks
-Date: Fri, 12 Aug 2016 16:18:54 +0200
-Message-ID: <29e24e4f-321b-96ba-4ed5-4e401bed7d4a@deic.uab.cat>
-References: <20160808161442.16038-1-ggarcia@deic.uab.cat>
- <20160808161442.16038-4-ggarcia@deic.uab.cat>
- <20160810115918.GC10461@stefanha-x1.localdomain>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
+Date: Fri, 12 Aug 2016 16:26:19 +0200
+Message-ID: <57ADDC8B.9010700@iogearbox.net>
+References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm> <57ADC6AA.5070506@iogearbox.net> <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhansen@vmware.com, mst@redhat.com
-To: Stefan Hajnoczi <stefanha@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33009 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbcHLOS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 10:18:56 -0400
-Received: by mail-wm0-f67.google.com with SMTP id o80so3128074wme.0
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 07:18:56 -0700 (PDT)
-In-Reply-To: <20160810115918.GC10461@stefanha-x1.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/10/2016 01:59 PM, Stefan Hajnoczi wrote:
-> On Mon, Aug 08, 2016 at 06:14:42PM +0200, ggarcia@abra.uab.cat wrote:
->> +static struct sk_buff *
->> +virtio_vsock_pkt_vsockmon_to_vsockmon_skb(struct virtio_vsock_pkt *pkt)
->> +{
->> +	struct sk_buff *skb;
->> +	struct af_vsockmon_hdr *hdr;
->> +	void *payload;
->> +
->> +	u32 skb_len = sizeof(struct af_vsockmon_hdr) + pkt->len;
->> +
->> +	skb = alloc_skb(skb_len, GFP_ATOMIC);
->> +	if (!skb)
->> +		return NULL;
->> +
->> +	hdr = (struct af_vsockmon_hdr *) skb_put(skb, sizeof(*hdr));
->> +
->> +	hdr->src_cid = pkt->hdr.src_cid;
->> +	hdr->src_port = pkt->hdr.src_port;
->> +	hdr->dst_cid = pkt->hdr.dst_cid;
->> +	hdr->dst_port = pkt->hdr.dst_port;
->> +	hdr->t = cpu_to_le16(AF_VSOCK_T_VIRTIO);
->> +	hdr->len = cpu_to_le16(sizeof(hdr->t_hdr));
->> +
->> +	switch(pkt->hdr.op) {
+On 08/12/2016 03:53 PM, Jiri Kosina wrote:
+> On Fri, 12 Aug 2016, Daniel Borkmann wrote:
 >
-> Missing le16_to_cpu()
+>> This results in below panic. Tested reverting this patch and it fixes
+>> the panic.
+>>
+>> Did you test this also with ingress or clsact qdisc (just try adding
+>> it to lo dev for example) ?
 >
+> Hi Daniel,
+>
+> thanks for the report. Hmm, I am pretty sure clsact worked for me, but
+> I'll recheck.
+>
+>> What happens is the following in qdisc_match_from_root():
+>>
+>> [  995.422187] XXX qdisc:ffff88025e4fc800 queue:ffff880262759000
+>> dev:ffff880261cc2000 handle:ffff0000
+>> [  995.422200] XXX qdisc:ffffffff81cf8100 queue:ffffffff81cf8240 dev:
+>> (null) handle:ffff0000
+>>
+>> I believe this is due to dev_ingress_queue_create() assigning the
+>> global noop_qdisc instance as qdisc_sleeping, which later qdisc_lookup()
+>> uses for qdisc_match_from_root().
+>>
+>> But everything that uses things like noop_qdisc cannot work with the
+>> new qdisc_match_from_root(), because qdisc_dev(root) will always trigger
+>> NULL pointer dereference there. Reason is because the dev is always
+>> NULL for noop, it's a singleton, see noop_qdisc and noop_netdev_queue
+>> in sch_generic.c.
+>>
+>> Now how to fix it? Creating separate noop instances each time it's set
+>> would be quite a waste of memory. Even fuglier would be to hack a static
+>> net device struct into sch_generic.c and let noop_netdev_queue point there
+>> to get to the hash table. Or we just not use qdisc_dev().
+>
+> How about we actually extend a little bit the TCQ_F_BUILTIN special case
+> test in qdisc_match_from_root()?
+>
+> After the change, the only way how qdisc_dev() could be NULL should be a
+> TCQ_F_BUILTIN case, right?
+>
+> I was thinking about something like the patch below (the reasong being
+> that ->dev would be NULL only in cases of singletonish qdiscs) ...
+> wouldn't that also fix the issue you're seeing? Have to think it through a
+> little bit more ..
 
-Right
+Ahh, so this has the same effect as previously observed with the other fix.
 
->> +	case VIRTIO_VSOCK_OP_REQUEST:
->> +	case VIRTIO_VSOCK_OP_RESPONSE:
->> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONNECT);
->> +		break;
->> +	case VIRTIO_VSOCK_OP_RST:
->> +	case VIRTIO_VSOCK_OP_SHUTDOWN:
->> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_DISCONNECT);
->> +		break;
->> +	case VIRTIO_VSOCK_OP_RW:
->> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_PAYLOAD);
->> +		break;
->> +	case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
->> +	case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
->> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_CONTROL);
->> +		break;
->> +	default:
->> +		hdr->op = cpu_to_le16(AF_VSOCK_OP_UNKNOWN);
->> +		break;
->> +	}
->> +
->> +	hdr->t_hdr.virtio_hdr = pkt->hdr;
->> +
->> +	if (pkt->len) {
->> +		payload = skb_put(skb, pkt->len);
->> +		memcpy(payload, pkt->buf, pkt->len);
->> +	}
->> +
->> +	return skb;
->> +}
->> +
->> +static void vsock_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
->> +{
->> +	struct sk_buff *skb = virtio_vsock_pkt_to_vsockmon_skb(pkt);
->> +	if (skb) {
->> +		vsock_deliver_tap(skb);
->> +		kfree_skb(skb);
->
-> Should this be consume_skb()?  The function's doc comment says:
->
->  *	Functions identically to kfree_skb, but kfree_skb assumes that the frame
->  *	is being dropped after a failure and notes that
->
-> This isn't a failure case so kfree_skb() is not the right function.
->
+Perhaps it's just a dumping issue, but to the below clsact, there shouldn't
+be pfifo_fast instances appearing.
 
-I agree, consume_skb is more appropriate.
+# tc qdisc show dev wlp2s0b1
+qdisc mq 0: root
+qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+# tc qdisc add dev wlp2s0b1 clsact
+# tc qdisc show dev wlp2s0b1
+qdisc mq 0: root
+qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc clsact ffff: parent ffff:fff1
+qdisc pfifo_fast 0: parent :4 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :3 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc pfifo_fast 0: parent :1 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index 25aada7..1c9faed 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -260,6 +260,9 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+>   {
+>   	struct Qdisc *q;
+>
+> +	if (!qdisc_dev(root))
+> +		return (root->handle == handle ? root : NULL);
+> +
+>   	if (!(root->flags & TCQ_F_BUILTIN) &&
+>   	    root->handle == handle)
+>   		return root;
+>
+>
+> Thanks!
+>
