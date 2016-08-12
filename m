@@ -1,94 +1,116 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 19/21] net: thunderx: Configure tunnelling protocol parsing
-Date: Fri, 12 Aug 2016 16:51:42 +0530
-Message-ID: <1471000904-21715-20-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 05/21] net: thunderx: Enable CQE_RX desc's extension fields
+Date: Fri, 12 Aug 2016 16:51:28 +0530
+Message-ID: <1471000904-21715-6-git-send-email-sunil.kovvuri@gmail.com>
 References: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Zyta Szpak <zr@semihalf.com>,
-	Sunil Goutham <sgoutham@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sunil Goutham <sgoutham@cavium.com>, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:32852 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753120AbcHLLXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 07:23:16 -0400
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Zyta Szpak <zr@semihalf.com>
+From: Sunil Goutham <sgoutham@cavium.com>
 
-This patch enables parsing of inner layers for tunnelled packets.
+Unlike 88xx, CQE_RX descriptor's tunnelling extension i.e CQE_RX2_S
+is always enabled on 81xx/83xx and HW does insert these fields into
+CQE_RX. As a result receive buffer addresses will now be present at
+7th word of CQE_RX instead of 6th.
 
-Signed-off-by: Zyta Szpak <zr@semihalf.com>
+Enable CQE_RX2_S on 88xx pass 2.x as well.
+
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/nic_main.c | 21 +++++++++++++++++++++
- drivers/net/ethernet/cavium/thunder/nic_reg.h  | 13 +++++++++++++
- 2 files changed, 34 insertions(+)
+ drivers/net/ethernet/cavium/thunder/nic.h          |  9 ++++++++-
+ drivers/net/ethernet/cavium/thunder/nic_main.c     |  7 +++++++
+ drivers/net/ethernet/cavium/thunder/nic_reg.h      |  1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 12 +++++++++++-
+ 4 files changed, 27 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
-index 167291b..25618d2 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
-@@ -835,6 +835,25 @@ static int nic_reset_stat_counters(struct nicpf *nic,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/cavium/thunder/nic.h b/drivers/net/ethernet/cavium/thunder/nic.h
+index 6b0b240..136db2a 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic.h
++++ b/drivers/net/ethernet/cavium/thunder/nic.h
+@@ -493,7 +493,14 @@ static inline int nic_get_node_id(struct pci_dev *pdev)
  
-+static void nic_enable_tunnel_parsing(struct nicpf *nic, int vf)
-+{
-+	u64 prot_def = (IPV6_PROT << 32) | (IPV4_PROT << 16) | ET_PROT;
-+	u64 vxlan_prot_def = (IPV6_PROT_DEF << 32) |
-+			      (IPV4_PROT_DEF) << 16 | ET_PROT_DEF;
-+
-+	/* Configure tunnel parsing parameters */
-+	nic_reg_write(nic, NIC_PF_RX_GENEVE_DEF,
-+		      (1ULL << 63 | UDP_GENEVE_PORT_NUM));
-+	nic_reg_write(nic, NIC_PF_RX_GENEVE_PROT_DEF,
-+		      ((7ULL << 61) | prot_def));
-+	nic_reg_write(nic, NIC_PF_RX_NVGRE_PROT_DEF,
-+		      ((7ULL << 61) | prot_def));
-+	nic_reg_write(nic, NIC_PF_RX_VXLAN_DEF_0_1,
-+		      ((1ULL << 63) | UDP_VXLAN_PORT_NUM));
-+	nic_reg_write(nic, NIC_PF_RX_VXLAN_PROT_DEF,
-+		      ((0xfULL << 60) | vxlan_prot_def));
+ static inline bool pass1_silicon(struct pci_dev *pdev)
+ {
+-	return pdev->revision < 8;
++	return (pdev->revision < 8) &&
++		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
 +}
 +
- static void nic_enable_vf(struct nicpf *nic, int vf, bool enable)
- {
- 	int bgx, lmac;
-@@ -908,6 +927,8 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
- 		 */
- 		if (pass2_silicon(nic->pdev))
- 			nic_reg_write(nic, NIC_PF_RX_CFG, 0x01);
-+		if (!pass1_silicon(nic->pdev))
-+			nic_enable_tunnel_parsing(nic, vf);
++static inline bool pass2_silicon(struct pci_dev *pdev)
++{
++	return (pdev->revision >= 8) &&
++		(pdev->subsystem_device == PCI_SUBSYS_DEVID_88XX_NIC_PF);
+ }
+ 
+ int nicvf_set_real_num_queues(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/cavium/thunder/nic_main.c b/drivers/net/ethernet/cavium/thunder/nic_main.c
+index 0d81117..3f52b36 100644
+--- a/drivers/net/ethernet/cavium/thunder/nic_main.c
++++ b/drivers/net/ethernet/cavium/thunder/nic_main.c
+@@ -799,6 +799,13 @@ static void nic_handle_mbx_intr(struct nicpf *nic, int vf)
+ 			   (mbx.rq.qs_num << NIC_QS_ID_SHIFT) |
+ 			   (mbx.rq.rq_num << NIC_Q_NUM_SHIFT);
+ 		nic_reg_write(nic, reg_addr, mbx.rq.cfg);
++		/* Enable CQE_RX2_S extension in CQE_RX descriptor.
++		 * This gets appended by default on 81xx/83xx chips,
++		 * for consistency enabling the same on 88xx pass2
++		 * where this is introduced.
++		 */
++		if (pass2_silicon(nic->pdev))
++			nic_reg_write(nic, NIC_PF_RX_CFG, 0x01);
  		break;
  	case NIC_MBOX_MSG_RQ_BP_CFG:
  		reg_addr = NIC_PF_QSET_0_127_RQ_0_7_BP_CFG |
 diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-index b4a7953..db9c632 100644
+index 833cf3d..b4a7953 100644
 --- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
 +++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-@@ -36,6 +36,19 @@
+@@ -36,6 +36,7 @@
  #define   NIC_PF_MAILBOX_ENA_W1C		(0x0450)
  #define   NIC_PF_MAILBOX_ENA_W1S		(0x0470)
  #define   NIC_PF_RX_ETYPE_0_7			(0x0500)
-+#define   NIC_PF_RX_GENEVE_DEF			(0x0580)
-+#define    UDP_GENEVE_PORT_NUM				0x17C1ULL
-+#define   NIC_PF_RX_GENEVE_PROT_DEF		(0x0588)
-+#define    IPV6_PROT					0x86DDULL
-+#define    IPV4_PROT					0x800ULL
-+#define    ET_PROT					0x6558ULL
-+#define   NIC_PF_RX_NVGRE_PROT_DEF		(0x0598)
-+#define   NIC_PF_RX_VXLAN_DEF_0_1		(0x05A0)
-+#define    UDP_VXLAN_PORT_NUM				0x12B5
-+#define   NIC_PF_RX_VXLAN_PROT_DEF		(0x05B0)
-+#define    IPV6_PROT_DEF				0x2ULL
-+#define    IPV4_PROT_DEF				0x1ULL
-+#define    ET_PROT_DEF					0x3ULL
- #define   NIC_PF_RX_CFG				(0x05D0)
++#define   NIC_PF_RX_CFG				(0x05D0)
  #define   NIC_PF_PKIND_0_15_CFG			(0x0600)
  #define   NIC_PF_ECC0_FLIP0			(0x1000)
+ #define   NIC_PF_ECC1_FLIP0			(0x1008)
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index e521a94..ca223aa 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1190,7 +1190,17 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 	u64 *rb_ptrs = NULL;
+ 
+ 	rb_lens = (void *)cqe_rx + (3 * sizeof(u64));
+-	rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
++	/* Except 88xx pass1 on all other chips CQE_RX2_S is added to
++	 * CQE_RX at word6, hence buffer pointers move by word
++	 *
++	 * Use existing 'hw_tso' flag which will be set for all chips
++	 * except 88xx pass1 instead of a additional cache line
++	 * access (or miss) by using pci dev's revision.
++	 */
++	if (!nic->hw_tso)
++		rb_ptrs = (void *)cqe_rx + (6 * sizeof(u64));
++	else
++		rb_ptrs = (void *)cqe_rx + (7 * sizeof(u64));
+ 
+ 	netdev_dbg(nic->netdev, "%s rb_cnt %d rb0_ptr %llx rb0_sz %d\n",
+ 		   __func__, cqe_rx->rb_cnt, cqe_rx->rb0_ptr, cqe_rx->rb0_sz);
 -- 
 2.7.4
