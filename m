@@ -1,56 +1,214 @@
-From: Brandon Cazander <brandon.cazander@multapplied.net>
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-Date: Fri, 12 Aug 2016 15:35:48 +0000
-Message-ID: <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20160729132154.GB13634@breakpoint.cc>
- <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160802221121.GB31209@breakpoint.cc>,<BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 16/18] liquidio: CN23XX health monitoring
+Date: Fri, 12 Aug 2016 11:20:33 -0700
+Message-ID: <1471026035-15323-17-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0072.outbound.protection.outlook.com ([104.47.32.72]:36326
-	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam03on0083.outbound.protection.outlook.com ([104.47.42.83]:43456
+	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750708AbcHLSwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 14:52:46 -0400
-In-Reply-To: <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
-Content-Language: en-US
+	id S1752206AbcHLSxO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 14:53:14 -0400
+In-Reply-To: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Is there anything I can provide or do to help get this issue fixed? Even with the patch provided, our application is still broken.
+Adds support for watchdog based health monitoring
+of octeon cores on cn23xx device.
 
--Brandon
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 124 ++++++++++++++++++++-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   2 +
+ 2 files changed, 124 insertions(+), 2 deletions(-)
 
-From: Brandon Cazander
-Sent: Wednesday, August 3, 2016 8:47 AM
-To: Florian Westphal
-Cc: netdev@vger.kernel.org
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-    
-I think that it is worth doing, as the original kernel change broke my user space program and could do the same to others as well.
-
-On another setup, even with the DIVERT rule in place, I'm still seeing the RST after the ACK. I'm not sure how it is behaving differently than the other setup so I need to look into that. But it definitely worked before the changes to the kernel.
-
-From: Florian Westphal <fw@strlen.de>
-Sent: Tuesday, August 2, 2016 3:11 PM
-To: Brandon Cazander
-Cc: Florian Westphal
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-    
-Brandon Cazander <brandon.cazander@multapplied.net> wrote:
-> >     Please try this patch, it makes it work for me again.
-> >       I decided to extend the existing snat support in xt_socket.c instead
-> >       of changing TPROXY target:
-> 
-> This fixes my example (with the DIVERT chain), but does not fix the two-line example you gave below. Another setup I have is also still broken as of this diff (similarly, there is a rule in nat PREROUTING that goes to a chain with the TPROXY rule).
-
-Yes, I did not touch TPROXY target, we would need something similar
-(take tuple addresses from the conntrack entry) there as well if we
-need to make it work without the -m socket rule.
-
-        
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index c73db84..e05fad4 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -24,6 +24,7 @@
+ #include <linux/firmware.h>
+ #include <linux/ptp_clock_kernel.h>
+ #include <net/vxlan.h>
++#include <linux/kthread.h>
+ #include "liquidio_common.h"
+ #include "octeon_droq.h"
+ #include "octeon_iq.h"
+@@ -946,8 +947,6 @@ static void update_txq_status(struct octeon_device *oct, int iq_num)
+ 	struct lio *lio;
+ 	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
+ 
+-	/*octeon_update_iq_read_idx(oct, iq);*/
+-
+ 	netdev = oct->props[iq->ifidx].netdev;
+ 
+ 	/* This is needed because the first IQ does not have
+@@ -1183,6 +1182,100 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 	return 0;
+ }
+ 
++static int liquidio_watchdog(void *param)
++{
++#define CIU3_WDOG(c) (0x1010000020000ULL + (c << 3))
++	u64 wdog;
++	u16 mask_of_stuck_cores = 0;
++	u16 mask_of_crashed_cores = 0;
++	int core_num;
++	u8 core_is_stuck[12];
++	u8 core_crashed[12];
++	struct octeon_device *oct = param;
++
++	memset(core_is_stuck, 0, sizeof(core_is_stuck));
++	memset(core_crashed, 0, sizeof(core_crashed));
++
++	while (!kthread_should_stop()) {
++		mask_of_crashed_cores =
++		    (u16)octeon_read_csr64(oct, CN23XX_SLI_SCRATCH2);
++
++		for (core_num = 0; core_num < 12; core_num++) {
++			if (!core_is_stuck[core_num]) {
++				wdog = lio_pci_readq(oct, CIU3_WDOG(core_num));
++
++				/* look at watchdog state field */
++				wdog &= 12ULL;
++				if (wdog) {
++					/* this watchdog timer has expired */
++					core_is_stuck[core_num] = 1;
++					mask_of_stuck_cores |= (1 << core_num);
++				}
++			}
++
++			if (!core_crashed[core_num])
++				core_crashed[core_num] =
++				    (mask_of_crashed_cores >> core_num) & 1;
++		}
++
++		if (mask_of_stuck_cores) {
++			for (core_num = 0; core_num < 12; core_num++) {
++				if (core_is_stuck[core_num] == 1) {
++					dev_err(&oct->pci_dev->dev,
++						"ERROR: Octeon core %d is stuck!\n",
++						core_num);
++					core_is_stuck[core_num] =
++						2; /* 2 means we have printk'd
++						    * an error; so no need to
++						    * repeat the same printk
++						    */
++				}
++			}
++		}
++
++		if (mask_of_crashed_cores) {
++			for (core_num = 0; core_num < 12; core_num++) {
++				if (core_crashed[core_num] == 1) {
++					dev_err(&oct->pci_dev->dev,
++						"ERROR: Octeon core %d crashed!  See oct-fwdump for details.\n",
++						core_num);
++					core_crashed[core_num] =
++						2; /* 2 means we have printk'd
++						    * an error; so no need to
++						    * repeat the same printk
++						    */
++				}
++			}
++		}
++#ifdef CONFIG_MODULE_UNLOAD
++		if (mask_of_stuck_cores || mask_of_crashed_cores) {
++			/* make module refcount=0 so that rmmod will work */
++			long refcount;
++
++			refcount = module_refcount(THIS_MODULE);
++
++			while (refcount > 0) {
++				module_put(THIS_MODULE);
++				refcount = module_refcount(THIS_MODULE);
++			}
++
++			/* compensate for and withstand an unlikely (but still
++			 * possible) race condition
++			 */
++			while (refcount < 0) {
++				try_module_get(THIS_MODULE);
++				refcount = module_refcount(THIS_MODULE);
++			}
++		}
++#endif
++		/* sleep for two seconds */
++		set_current_state(TASK_INTERRUPTIBLE);
++		schedule_timeout(2 * HZ);
++	}
++
++	return 0;
++}
++
+ /**
+  * \brief PCI probe handler
+  * @param pdev PCI device structure
+@@ -1228,6 +1321,30 @@ liquidio_probe(struct pci_dev *pdev,
+ 		return -ENOMEM;
+ 	}
+ 
++	if (OCTEON_CN23XX_PF(oct_dev)) {
++		u64 scratch1;
++		u8 bus, device, function;
++
++		scratch1 = octeon_read_csr64(oct_dev, CN23XX_SLI_SCRATCH1);
++		if (!(scratch1 & 4ULL)) {
++			/* Bit 2 of SLI_SCRATCH_1 is a flag that indicates that
++			 * the lio watchdog kernel thread is running for this
++			 * NIC.  Each NIC gets one watchdog kernel thread.
++			 */
++			scratch1 |= 4ULL;
++			octeon_write_csr64(oct_dev, CN23XX_SLI_SCRATCH1,
++					   scratch1);
++
++			bus = pdev->bus->number;
++			device = PCI_SLOT(pdev->devfn);
++			function = PCI_FUNC(pdev->devfn);
++			oct_dev->watchdog_task = kthread_create(
++			    liquidio_watchdog, oct_dev,
++			    "liowd/%02hhx:%02hhx.%hhx", bus, device, function);
++			wake_up_process(oct_dev->watchdog_task);
++		}
++	}
++
+ 	oct_dev->rx_pause = 1;
+ 	oct_dev->tx_pause = 1;
+ 
+@@ -1560,6 +1677,9 @@ static void liquidio_remove(struct pci_dev *pdev)
+ 
+ 	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
+ 
++	if (oct_dev->watchdog_task)
++		kthread_stop(oct_dev->watchdog_task);
++
+ 	if (oct_dev->app_mode && (oct_dev->app_mode == CVM_DRV_NIC_APP))
+ 		liquidio_stop_nic_module(oct_dev);
+ 
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index ec3cb22..773eb09 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -486,6 +486,8 @@ struct octeon_device {
+ 
+ 	/* private flags to control driver-specific features through ethtool */
+ 	u32 priv_flags;
++
++	void *watchdog_task;
+ };
+ 
+ #define  OCT_DRV_ONLINE 1
+-- 
+1.8.3.1
