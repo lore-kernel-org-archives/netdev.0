@@ -1,97 +1,134 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as
- IRQF_NO_THREAD
-Date: Fri, 12 Aug 2016 10:32:06 +0200
-Message-ID: <20160812083206.t7lvxpo44marwpf5@linutronix.de>
-References: <20160811161540.9613-1-grygorii.strashko@ti.com>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 00/19] pull request for net-next: batman-adv
+	2016-08-12
+Date: Fri, 12 Aug 2016 10:56:36 +0200
+Message-ID: <1470992215-11009-1-git-send-email-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Steven Rostedt <rostedt@goodmis.org>, linux-omap@vger.kernel.org,
-	Alison Chaiken <alison@peloton-tech.com>,
-	linux-rt-users@vger.kernel.org, netdev@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160811161540.9613-1-grygorii.strashko@ti.com>
-Sender: linux-rt-users-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 2016-08-11 19:15:40 [+0300], Grygorii Strashko wrote:
-> Mark CPSW Rx/Tx IRQs as IRQF_NO_THREAD and avoid double scheduling on -RT
-> where this IRQs are forced threaded:
->  rx-irq
->   |- schedule threaded rx-irq handler
-> ...
->   |- threaded rx-irq handler -> cpsw_rx_interrupt()
->      |- napi_schedule()
-> 	|- __raise_softirq_irqoff()
-> 	   |- wakeup_proper_softirq()
-> ...
->   napi
+Hi David,
 
-This should not be the default path. The default should be napi running
-in the context of the threaded rx-irq handler once the handler is done.
-The wakeup_proper_softirq() part is only done if napi thinks that the
-callback functions runs for too long. So in *that* case you continue
-NAPI in the softirq-thread which runs at SCHED_OTHER.
+this is our first feature pull request for batman-adv, there are at least two
+more to come (the bigger features come later).
 
-> after:
->  rx-irq
->   |- cpsw_rx_interrupt()
->      |- napi_schedule()
->   |- irq_exit()
->      |- invoke_softirq()
-> 	   |- wakeup_softirqd()
-> ...
->   napi
+Please pull or let me know of any problem!
 
-Since you schedule the softirq from an IRQ-off region / without a
-process context you force the softirq to run in the thread at
-SCHED_OTHER priority.
+Thank you,
+      Simon
 
-> And, as result, get benefits from the following improvements (tested
-> on am57xx-evm):
-> 
-> 1) "[ 78.348599] NOHZ: local_softirq_pending 80" message will not be
->    seen any more. Now these warnings can be seen once iperf is started.
->    # iperf -c $IPERFHOST -w 128K  -d -t 60
+The following changes since commit 1fe323aa1b2390a0c57fb0b06a782f128d49094c:
 
-Do you also see "sched: RT throttling activated"? Because I don't see
-otherwise why this should pop up.
+  sctp: use event->chunk when it's valid (2016-08-08 14:31:23 -0700)
 
-> 2) latency reduction when cyclictest is run in parallel with network load
->  where net_perf.sh is:
->    iperf -c $IPERFHOST -w 8K    -d -t 60
->    iperf -c $IPERFHOST -w 16K   -d -t 60
->    iperf -c $IPERFHOST -w 32K   -d -t 60
->    iperf -c $IPERFHOST -w 64K   -d -t 60
->    iperf -c $IPERFHOST -w 128K  -d -t 60
-> 
-> before:
-> T: 0 ( 1326) P:98 I:1000 C: 240000 Min:      8 Act:   13 Avg:   18 Max:      70
-> T: 1 ( 1327) P:98 I:1500 C: 159981 Min:      9 Act:   15 Avg:   16 Max:      43
-> after:
-> T: 0 ( 1331) P:98 I:1000 C: 240000 Min:      8 Act:   15 Avg:   14 Max:      51
-> T: 1 ( 1332) P:98 I:1500 C: 159953 Min:      8 Act:   16 Avg:   15 Max:      33
+are available in the git repository at:
 
--d 0 to have I: set to the same value.
-What does -i 250 say?
-And without network load we are where we were at "after" values?
+  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20160812
 
-What happens if s/__raise_softirq_irqoff_ksoft/__raise_softirq_irqoff/
-in net/core/dev.c and chrt the priority of you network interrupt
-handlers to SCHED_OTHER priority?
+for you to fetch changes up to b5dcbad25219b82408e15e6d775a406be2116af1:
 
-> 3) network performance increase
-> 
-> win, K	Mbits/s
-> 	before	after	%
-> 8K	354	350.3	0.0
-> 16K	412	551	33.7
-> 32K	423	659.5	55.9
-> 64K	436	728.3	67.0
-> 128K	537	845	57.4
+  batman-adv: Fix consistency of update route messages (2016-08-09 07:54:34 +0200)
 
-How close are the after numbers to !RT?
+----------------------------------------------------------------
+This feature patchset includes the following changes (mostly
+chronological order):
 
-Sebastian
+ - bump version strings, by Simon Wunderlich
+
+ - kerneldoc clean up, by Sven Eckelmann
+
+ - enable RTNL automatic loading and according documentation
+   changes, by Sven Eckelmann (2 patches)
+
+ - fix/improve interface removal and associated locking, by
+   Sven Eckelmann (3 patches)
+
+ - clean up unused variables, by Linus Luessing
+
+ - implement Gateway selection code for B.A.T.M.A.N. V by
+   Antonio Quartulli (4 patches)
+
+ - rewrite TQ comparison by Markus Pargmann
+
+ - fix Cocinelle warnings on bool vs integers (by Fenguang Wu/Intels
+   kbuild test robot) and bitwise arithmetic operations (by Linus
+   Luessing)
+
+ - rewrite packet creation for forwarding for readability and to avoid
+   reference count mistakes, by Linus Luessing
+
+ - use kmem_cache for translation table, which results in more efficient
+   storing of translation table entries, by Sven Eckelmann
+
+ - rewrite/clarify reference handling for send_skb_unicast, by Sven
+   Eckelmann
+
+ - fix debug messages when updating routes, by Sven Eckelmann
+
+----------------------------------------------------------------
+Antonio Quartulli (4):
+      batman-adv: make the GW selection class algorithm specific
+      batman-adv: make GW election code protocol specific
+      batman-adv: B.A.T.M.A.N. V - implement GW selection logic
+      batman-adv: disable sysfs knobs when GW-mode is not implemented
+
+Linus Lüssing (3):
+      batman-adv: Remove unused primary_if and bat_priv variables
+      batman-adv: Introduce forward packet creation helper
+      batman-adv: Use bitwise instead of arithmetic operator for flags
+
+Markus Pargmann (1):
+      batman-adv: iv_ogm, Reduce code duplication
+
+Simon Wunderlich (1):
+      batman-adv: Start new development cycle
+
+Sven Eckelmann (9):
+      batman-adv: Document optional batadv_algo_ops
+      batman-adv: Define module rtnl link name
+      batman-adv: Use rtnl link in device creation example
+      batman-adv: Modify mesh_iface outside sysfs context
+      batman-adv: Revert "postpone sysfs removal when unregistering"
+      batman-adv: Avoid sysfs name collision for netns moves
+      batman-adv: use kmem_cache for translation table
+      batman-adv: Remove orig_node reference handling from send_skb_unicast
+      batman-adv: Fix consistency of update route messages
+
+kbuild test robot (1):
+      batman-adv: fix boolreturn.cocci warnings
+
+ Documentation/networking/batman-adv.txt |  17 +-
+ net/batman-adv/bat_iv_ogm.c             | 347 +++++++++++++++++++++++++-------
+ net/batman-adv/bat_v.c                  | 257 ++++++++++++++++++++++-
+ net/batman-adv/bridge_loop_avoidance.c  |   2 +-
+ net/batman-adv/gateway_client.c         | 222 +++-----------------
+ net/batman-adv/gateway_client.h         |   5 +
+ net/batman-adv/gateway_common.c         |   5 +-
+ net/batman-adv/hard-interface.c         |  26 +--
+ net/batman-adv/main.c                   |  17 +-
+ net/batman-adv/main.h                   |   2 +-
+ net/batman-adv/multicast.c              |   2 +-
+ net/batman-adv/routing.c                |  43 ++--
+ net/batman-adv/send.c                   | 136 +++++++++----
+ net/batman-adv/send.h                   |   6 +
+ net/batman-adv/soft-interface.c         |  47 ++---
+ net/batman-adv/sysfs.c                  | 183 ++++++++++++++---
+ net/batman-adv/translation-table.c      | 169 ++++++++++++++--
+ net/batman-adv/translation-table.h      |   3 +
+ net/batman-adv/types.h                  |  51 ++++-
+ 19 files changed, 1092 insertions(+), 448 deletions(-)
