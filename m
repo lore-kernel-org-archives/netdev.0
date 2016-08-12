@@ -1,95 +1,103 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: Re: [PATCH] tipc: fix NULL pointer dereference in shutdown()
-Date: Fri, 12 Aug 2016 16:37:32 +0200
-Message-ID: <57ADDF2C.3@oracle.com>
-References: <1469254504-15347-1-git-send-email-vegard.nossum@oracle.com>
- <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH RESEND] net/sctp: always initialise
+ sctp_ht_iter::start_fail
+Date: Fri, 12 Aug 2016 11:41:42 -0300
+Message-ID: <20160812144142.GB3110@localhost.localdomain>
+References: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Xue, Ying" <Ying.Xue@windriver.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
+To: Vegard Nossum <vegard.nossum@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42022 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752305AbcHLOmG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Aug 2016 10:42:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-I didn't see this patch go in yet. Jon Maloy, ping?
-
-Should this go through somebody else?
-
-
-Vegard
-
-On 07/23/2016 11:49 AM, Xue, Ying wrote:
-> Acked-by: Ying Xue <ying.xue@windriver.com>
->
-> -----Original Message-----
-> From: Vegard Nossum [mailto:vegard.nossum@oracle.com]
-> Sent: Saturday, July 23, 2016 2:15 PM
-> To: Jon Maloy; Xue, Ying
-> Cc: netdev@vger.kernel.org; David S. Miller; Michael Kerrisk; linux-kernel@vger.kernel.org; Vegard Nossum; stable@vger.kernel.org
-> Subject: [PATCH] tipc: fix NULL pointer dereference in shutdown()
->
-> tipc_msg_create() can return a NULL skb and if so, we shouldn't try to call tipc_node_xmit_skb() on it.
->
->      general protection fault: 0000 [#1] PREEMPT SMP KASAN
->      CPU: 3 PID: 30298 Comm: trinity-c0 Not tainted 4.7.0-rc7+ #19
->      Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Ubuntu-1.8.2-1ubuntu1 04/01/2014
->      task: ffff8800baf09980 ti: ffff8800595b8000 task.ti: ffff8800595b8000
->      RIP: 0010:[<ffffffff830bb46b>]  [<ffffffff830bb46b>] tipc_node_xmit_skb+0x6b/0x140
->      RSP: 0018:ffff8800595bfce8  EFLAGS: 00010246
->      RAX: 0000000000000000 RBX: 0000000000000000 RCX: 000000003023b0e0
->      RDX: 0000000000000000 RSI: dffffc0000000000 RDI: ffffffff83d12580
->      RBP: ffff8800595bfd78 R08: ffffed000b2b7f32 R09: 0000000000000000
->      R10: fffffbfff0759725 R11: 0000000000000000 R12: 1ffff1000b2b7f9f
->      R13: ffff8800595bfd58 R14: ffffffff83d12580 R15: dffffc0000000000
->      FS:  00007fcdde242700(0000) GS:ffff88011af80000(0000) knlGS:0000000000000000
->      CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->      CR2: 00007fcddde1db10 CR3: 000000006874b000 CR4: 00000000000006e0
->      DR0: 00007fcdde248000 DR1: 00007fcddd73d000 DR2: 00007fcdde248000
->      DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000090602
->      Stack:
->       0000000000000018 0000000000000018 0000000041b58ab3 ffffffff83954208
->       ffffffff830bb400 ffff8800595bfd30 ffffffff8309d767 0000000000000018
->       0000000000000018 ffff8800595bfd78 ffffffff8309da1a 00000000810ee611
->      Call Trace:
->       [<ffffffff830c84a3>] tipc_shutdown+0x553/0x880
->       [<ffffffff825b4a3b>] SyS_shutdown+0x14b/0x170
->       [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
->       [<ffffffff83295ca5>] entry_SYSCALL64_slow_path+0x25/0x25
->      Code: 90 00 b4 0b 83 c7 00 f1 f1 f1 f1 4c 8d 6d e0 c7 40 04 00 00 00 f4 c7 40 08 f3 f3 f3 f3 48 89 d8 48 c1 e8 03 c7 45 b4 00 00 00 00 <80> 3c 30 00 75 78 48 8d 7b 08 49 8d 75 c0 48 b8 00 00 00 00 00
->      RIP  [<ffffffff830bb46b>] tipc_node_xmit_skb+0x6b/0x140
->       RSP <ffff8800595bfce8>
->      ---[ end trace 57b0484e351e71f1 ]---
->
-> I feel like we should maybe return -ENOMEM or -ENOBUFS, but I'm not sure userspace is equipped to handle that. Anyway, this is better than a GPF and looks somewhat consistent with other tipc_msg_create() callers.
->
+On Fri, Aug 12, 2016 at 09:50:51AM +0200, Vegard Nossum wrote:
+> sctp_transport_seq_start() does not currently clear iter->start_fail on
+> success, but relies on it being zero when it is allocated (by
+> seq_open_net()).
+> 
+> This can be a problem in the following sequence:
+> 
+>     open() // allocates iter (and implicitly sets iter->start_fail = 0)
+>     read()
+>      - iter->start() // fails and sets iter->start_fail = 1
+>      - iter->stop() // doesn't call sctp_transport_walk_stop() (correct)
+>     read() again
+>      - iter->start() // succeeds, but doesn't change iter->start_fail
+>      - iter->stop() // doesn't call sctp_transport_walk_stop() (wrong)
+> 
+> We should initialize sctp_ht_iter::start_fail to zero if ->start()
+> succeeds, otherwise it's possible that we leave an old value of 1 there,
+> which will cause ->stop() to not call sctp_transport_walk_stop(), which
+> causes all sorts of problems like not calling rcu_read_unlock() (and
+> preempt_enable()), eventually leading to more warnings like this:
+> 
+>     BUG: sleeping function called from invalid context at mm/slab.h:388
+>     in_atomic(): 0, irqs_disabled(): 0, pid: 16551, name: trinity-c2
+>     Preemption disabled at:[<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
+> 
+>      [<ffffffff81149abb>] preempt_count_add+0x1fb/0x280
+>      [<ffffffff83295892>] _raw_spin_lock+0x12/0x40
+>      [<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
+>      [<ffffffff82ec665f>] sctp_transport_walk_start+0x2f/0x60
+>      [<ffffffff82edda1d>] sctp_transport_seq_start+0x4d/0x150
+>      [<ffffffff81439e50>] traverse+0x170/0x850
+>      [<ffffffff8143aeec>] seq_read+0x7cc/0x1180
+>      [<ffffffff814f996c>] proc_reg_read+0xbc/0x180
+>      [<ffffffff813d0384>] do_loop_readv_writev+0x134/0x210
+>      [<ffffffff813d2a95>] do_readv_writev+0x565/0x660
+>      [<ffffffff813d6857>] vfs_readv+0x67/0xa0
+>      [<ffffffff813d6c16>] do_preadv+0x126/0x170
+>      [<ffffffff813d710c>] SyS_preadv+0xc/0x10
+>      [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
+>      [<ffffffff83296225>] return_from_SYSCALL_64+0x0/0x6a
+>      [<ffffffffffffffff>] 0xffffffffffffffff
+> 
+> Notice that this is a subtly different stacktrace from the one in commit
+> 5fc382d875 ("net/sctp: terminate rhashtable walk correctly").
+> 
+> Cc: Xin Long <lucien.xin@gmail.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 > Cc: stable@vger.kernel.org
 > Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+
+Thanks
+
 > ---
->   net/tipc/socket.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c index c49b8df..f9f5f3c 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -2180,7 +2180,8 @@ restart:
->   					      TIPC_CONN_MSG, SHORT_H_SIZE,
->   					      0, dnode, onode, dport, oport,
->   					      TIPC_CONN_SHUTDOWN);
-> -			tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
-> +			if (skb)
-> +				tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
->   		}
->   		tsk->connected = 0;
->   		sock->state = SS_DISCONNECTING;
-> --
+>  net/sctp/proc.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 4cb5aed..ef8ba77 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -293,6 +293,7 @@ static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
+>  		return ERR_PTR(err);
+>  	}
+>  
+> +	iter->start_fail = 0;
+>  	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
+>  }
+>  
+> -- 
 > 1.9.1
->
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
