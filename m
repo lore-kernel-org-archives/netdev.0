@@ -1,42 +1,78 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net 0/5] net_sched: tc action fixes and updates
-Date: Fri, 12 Aug 2016 07:12:55 -0400
-Message-ID: <53a7ddda-6b53-d083-93b3-0dfb0d7a0911@mojatatu.com>
-References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com>
- <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
- <CAM_iQpUCqzytG662vBd4D0Zx09CWA9a1VuZerTatMMhdy42jBA@mail.gmail.com>
- <62bb1c25-2967-dedc-89ac-01632d0e090d@mojatatu.com>
- <CAM_iQpXW4Rt4=H89ZdK2BwEmK2FBHownmXEoeAWjBsQW5mLxRQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:33768 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356AbcHLLNE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 07:13:04 -0400
-Received: by mail-qk0-f174.google.com with SMTP id t7so21811789qkh.0
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 04:13:03 -0700 (PDT)
-In-Reply-To: <CAM_iQpXW4Rt4=H89ZdK2BwEmK2FBHownmXEoeAWjBsQW5mLxRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sunil.kovvuri@gmail.com
+Subject: [PATCH v2 00/21] net: thunderx: Support for newer chips and miscellaneous patches
+Date: Fri, 12 Aug 2016 16:51:23 +0530
+Message-ID: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Sunil Goutham <sgoutham@cavium.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-08-11 08:08 PM, Cong Wang wrote:
-> On Thu, Aug 11, 2016 at 9:20 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->> On 16-08-10 04:06 PM, Cong Wang wrote:
+From: Sunil Goutham <sgoutham@cavium.com>
 
->> Ok, I did a quick look at your patch - I still see you converting
->> from array to list. I mean get tcf_exts_exec() to take an array
->> and walk it. That will restore the perf numbers to the same level.
->
->
-> Makes sense! I just did this change as you suggest.
+This patch series adds support for VNIC on 81xx and 83xx SOCs.
+81xx/83xx is different from 88xx in terms of capabilities and new type
+of interfaces supported (eg: QSGMII, RGMII) and have DLMs instead of
+QLMs which allows single BGX to have interfaces of different LMAC types.
 
-Ok, took look at it. Looks promising! Thanks Cong. I will test
-and get back to you (sorry, likely by end of day)
+Also included some patches which are common for all 88xx/81xx/83xx
+SOCs like using netdev's name while registering irqs, reset receive
+queue stats and some changes to use standard API for split buffer Rx
+packets, generating RSS key e.t.c
 
-cheers,
-jamal
+PS: Most of the patches were submitted earlier under different series but
+for some reason were not picked up by patchwork. Since new patches have been
+added in the meantime, resubmitting all as a new patchset.
+
+Changes from v1:
+- Incorporated Yuval Mintz's suggestion to use generic API to set minimum
+  queue count i.e by using netif_get_num_default_rss_queues().
+- Resolved a compilation issue reported by test robot while compiling
+  patch 'Add support for 16 LMACs of 83xx'
+
+Jerin Jacob (1):
+  net: thunderx: Reset RXQ HW stats when interface is brought down
+
+Radoslaw Biernacki (1):
+  net: thunderx: Improvement for MBX interface debug messages
+
+Sunil Goutham (18):
+  net: thunderx: Moved HW capability info from macros to structure
+  net: thunderx: Add VNIC's PCI devid on future chips
+  net: thunderx: Add support for 81xx and 83xx chips
+  net: thunderx: Set queue count based on number of CPUs
+  net: thunderx: Enable CQE_RX desc's extension fields
+  net: thunderx: Enable mailbox interrupts on 81xx/83xx
+  net: thunderx: Support for different LMAC types within BGX
+  net: thunderx: Add 81xx support to BGX driver
+  net: thunderx: Add QSGMII interface type support
+  net: thunderx: Add RGMII interface type support
+  net: thunderx: Add support for 16 LMACs of 83xx
+  net: thunderx: Support for 83xx mixed QLM/DLM config
+  net: thunderx: Use netdev's name for naming VF's interrupts
+  net: thunderx: Use skb_add_rx_frag() for split buffer Rx pkts
+  net: thunderx: Don't set mac address for secondary Qset VFs
+  net: thunderx: Use napi_consume_skb for bulk free
+  net: thunderx: Use netdev_rss_key_fill() helper
+  net: thunderx: Don't set RX_PACKET_DIS while initializing
+
+Zyta Szpak (1):
+  net: thunderx: Configure tunnelling protocol parsing
+
+ drivers/net/ethernet/cavium/Kconfig                |  10 +
+ drivers/net/ethernet/cavium/thunder/Makefile       |   1 +
+ drivers/net/ethernet/cavium/thunder/nic.h          |  85 ++--
+ drivers/net/ethernet/cavium/thunder/nic_main.c     | 433 +++++++++++++++----
+ drivers/net/ethernet/cavium/thunder/nic_reg.h      |  15 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |  67 +--
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c |  59 +--
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h |   5 +-
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c  | 460 ++++++++++++++-------
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.h  |  33 +-
+ drivers/net/ethernet/cavium/thunder/thunder_xcv.c  | 237 +++++++++++
+ 11 files changed, 1059 insertions(+), 346 deletions(-)
+ create mode 100644 drivers/net/ethernet/cavium/thunder/thunder_xcv.c
+
+-- 
+2.7.4
