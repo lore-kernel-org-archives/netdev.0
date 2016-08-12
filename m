@@ -1,88 +1,84 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH RESEND] net/sctp: always initialise sctp_ht_iter::start_fail
-Date: Fri, 12 Aug 2016 09:50:51 +0200
-Message-ID: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@oracle.com>,
-	Xin Long <lucien.xin@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	stable@vger.kernel.org
-To: davem@davemloft.net
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v4 2/3] bpf: Add bpf_current_task_under_cgroup
+ helper
+Date: Fri, 12 Aug 2016 09:40:39 +0200
+Message-ID: <57AD7D77.4090205@iogearbox.net>
+References: <20160812031454.GA2075@ircssh.c.rugged-nimbus-611.internal> <20160812044818.GA39190@ast-mbp.thefacebook.com> <CAMp4zn-0ox8DLO0jNP9Z2+RKqbHmcrRS_dr+L0de_bd=17mp_w@mail.gmail.com> <57AD77B7.5050400@iogearbox.net> <20160812072247.GB31242@ircssh.c.rugged-nimbus-611.internal>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	netdev <netdev@vger.kernel.org>, tj@kernel.org
+To: Sargun Dhillon <sargun@sargun.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:44353 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbcHLHvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 03:51:06 -0400
+Received: from www62.your-server.de ([213.133.104.62]:58542 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708AbcHLIGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 04:06:01 -0400
+In-Reply-To: <20160812072247.GB31242@ircssh.c.rugged-nimbus-611.internal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sctp_transport_seq_start() does not currently clear iter->start_fail on
-success, but relies on it being zero when it is allocated (by
-seq_open_net()).
+On 08/12/2016 09:22 AM, Sargun Dhillon wrote:
+> On Fri, Aug 12, 2016 at 09:16:07AM +0200, Daniel Borkmann wrote:
+>> On 08/12/2016 06:50 AM, Sargun Dhillon wrote:
+>>> I realize that in_cgroup is more consistent, but under_cgroup makes
+>>> far more sense to me. I think it's more intuitive.
+>>>
+>>> On Thu, Aug 11, 2016 at 9:48 PM, Alexei Starovoitov
+>>> <alexei.starovoitov@gmail.com> wrote:
+>>>> On Thu, Aug 11, 2016 at 08:14:56PM -0700, Sargun Dhillon wrote:
+>>>>> This adds a bpf helper that's similar to the skb_in_cgroup helper to check
+>>>>> whether the probe is currently executing in the context of a specific
+>>>>> subset of the cgroupsv2 hierarchy. It does this based on membership test
+>>>>> for a cgroup arraymap. It is invalid to call this in an interrupt, and
+>>>>> it'll return an error. The helper is primarily to be used in debugging
+>>>>> activities for containers, where you may have multiple programs running in
+>>>>> a given top-level "container".
+>>>>>
+>>>>> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+>>>>> Cc: Alexei Starovoitov <ast@kernel.org>
+>>>>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>>>>> Cc: Tejun Heo <tj@kernel.org>
+>>>>> ---
+>>>>> +     /**
+>>>>> +      * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
+>>>>> +      * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
+>>>>> +      * @index: index of the cgroup in the bpf_map
+>>>>> +      * Return:
+>>>>> +      *   == 0 current failed the cgroup2 descendant test
+>>>>> +      *   == 1 current succeeded the cgroup2 descendant test
+>>>>> +      *    < 0 error
+>>>>> +      */
+>>>>> +     BPF_FUNC_current_task_under_cgroup,
+>>>> ..
+>>>>>        case BPF_MAP_TYPE_CGROUP_ARRAY:
+>>>>> -             if (func_id != BPF_FUNC_skb_in_cgroup)
+>>>>> +             if (func_id != BPF_FUNC_skb_in_cgroup &&
+>>>>> +                 func_id != BPF_FUNC_current_task_under_cgroup)
+>>>>>                        goto error;
+>>>> ...
+>>>>> +     case BPF_FUNC_current_task_under_cgroup:
+>>>>>        case BPF_FUNC_skb_in_cgroup:
+>>>>
+>>>> Tejun,
+>>>> do you feel strongly about 'under' ?
+>>>> It just looks inconsistent vs existing skb_in_cgroup...
+>>>> "in cgroup" - 4k google hits
+>>>> "under cgroup" - 2k google hits
+>>
+>> Alternative could be that we take "BPF_FUNC_current_in_cgroup" as a
+>> helper enum to keep consistency with what we have wrt skb helper, but
+>> for the cgroup header have the suggested task_under_cgroup_hierarchy()
+>> name.
+>
+> I actually wish we could rename skb_in_cgroup to skb_under_cgroup. If we ever
+> introduced a check for absolute membership versus ancestral membership, what
+> would we call that?
 
-This can be a problem in the following sequence:
+That option is, by the way, still on the table for -net tree, since 4.8 is not
+released yet, so it could still be renamed into BPF_FUNC_skb_under_cgroup.
 
-    open() // allocates iter (and implicitly sets iter->start_fail = 0)
-    read()
-     - iter->start() // fails and sets iter->start_fail = 1
-     - iter->stop() // doesn't call sctp_transport_walk_stop() (correct)
-    read() again
-     - iter->start() // succeeds, but doesn't change iter->start_fail
-     - iter->stop() // doesn't call sctp_transport_walk_stop() (wrong)
+Then you could make this one here for -net-next as "BPF_FUNC_current_under_cgroup".
 
-We should initialize sctp_ht_iter::start_fail to zero if ->start()
-succeeds, otherwise it's possible that we leave an old value of 1 there,
-which will cause ->stop() to not call sctp_transport_walk_stop(), which
-causes all sorts of problems like not calling rcu_read_unlock() (and
-preempt_enable()), eventually leading to more warnings like this:
-
-    BUG: sleeping function called from invalid context at mm/slab.h:388
-    in_atomic(): 0, irqs_disabled(): 0, pid: 16551, name: trinity-c2
-    Preemption disabled at:[<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
-
-     [<ffffffff81149abb>] preempt_count_add+0x1fb/0x280
-     [<ffffffff83295892>] _raw_spin_lock+0x12/0x40
-     [<ffffffff819bceb6>] rhashtable_walk_start+0x46/0x150
-     [<ffffffff82ec665f>] sctp_transport_walk_start+0x2f/0x60
-     [<ffffffff82edda1d>] sctp_transport_seq_start+0x4d/0x150
-     [<ffffffff81439e50>] traverse+0x170/0x850
-     [<ffffffff8143aeec>] seq_read+0x7cc/0x1180
-     [<ffffffff814f996c>] proc_reg_read+0xbc/0x180
-     [<ffffffff813d0384>] do_loop_readv_writev+0x134/0x210
-     [<ffffffff813d2a95>] do_readv_writev+0x565/0x660
-     [<ffffffff813d6857>] vfs_readv+0x67/0xa0
-     [<ffffffff813d6c16>] do_preadv+0x126/0x170
-     [<ffffffff813d710c>] SyS_preadv+0xc/0x10
-     [<ffffffff8100334c>] do_syscall_64+0x19c/0x410
-     [<ffffffff83296225>] return_from_SYSCALL_64+0x0/0x6a
-     [<ffffffffffffffff>] 0xffffffffffffffff
-
-Notice that this is a subtly different stacktrace from the one in commit
-5fc382d875 ("net/sctp: terminate rhashtable walk correctly").
-
-Cc: Xin Long <lucien.xin@gmail.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Cc: stable@vger.kernel.org
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- net/sctp/proc.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index 4cb5aed..ef8ba77 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -293,6 +293,7 @@ static void *sctp_transport_seq_start(struct seq_file *seq, loff_t *pos)
- 		return ERR_PTR(err);
- 	}
- 
-+	iter->start_fail = 0;
- 	return sctp_transport_get_idx(seq_file_net(seq), &iter->hti, *pos);
- }
- 
--- 
-1.9.1
+Tejun, Alexei?
