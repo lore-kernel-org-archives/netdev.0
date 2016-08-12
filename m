@@ -1,37 +1,47 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] net: ipv6: Do not keep IPv6 addresses when IPv6 is
- disabled
-Date: Fri, 12 Aug 2016 11:01:43 -0600
-Message-ID: <069293e2-0c21-3439-edec-5482f19b79d2@cumulusnetworks.com>
-References: <1470999758-11535-1-git-send-email-mmanning@brocade.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] qed: Fix possible memory leak in
+ qed_dcbnl_get_ieee_pfc()
+Date: Fri, 12 Aug 2016 10:49:19 -0700 (PDT)
+Message-ID: <20160812.104919.412008599153333225.davem@davemloft.net>
+References: <1470958194-25496-1-git-send-email-weiyj.lk@gmail.com>
+	<BN6PR11MB189049E2D7F71CA1B47CDE56901F0@BN6PR11MB1890.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
+Cc: weiyj.lk@gmail.com, Yuval.Mintz@qlogic.com, Ariel.Elior@qlogic.com,
+	Dept-EngEverestLinuxL2@qlogic.com, netdev@vger.kernel.org
+To: Sudarsana.Kalluru@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:32844 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752752AbcHLRBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 13:01:45 -0400
-Received: by mail-pf0-f177.google.com with SMTP id y134so10743620pfg.0
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 10:01:45 -0700 (PDT)
-In-Reply-To: <1470999758-11535-1-git-send-email-mmanning@brocade.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54472 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752363AbcHLRtb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 13:49:31 -0400
+In-Reply-To: <BN6PR11MB189049E2D7F71CA1B47CDE56901F0@BN6PR11MB1890.namprd11.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/12/16 5:02 AM, Mike Manning wrote:
-> If IPv6 is disabled when the option is set to keep IPv6
-> addresses on link down, userspace is unaware of this as
-> there is no such indication via netlink. The solution is to
-> remove the IPv6 addresses in this case, which results in
-> netlink messages indicating removal of addresses in the
-> usual manner. This fix also makes the behavior consistent
-> with the case of having IPv6 disabled first, which stops
-> IPv6 addresses from being added.
+From: Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
+Date: Fri, 12 Aug 2016 05:00:40 +0000
+
+> Thanks for the patch.
 > 
-> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
-> ---
+> Acked-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 
+Please do not quote patches like this, and top-post your Ack.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Please instead use canonical quoting, with some kind of delimiter
+in the first column of the quoted material.
+
+Unless you have specific comments for specific parts of the change
+itself, do not quote the patch, just quoting the commit message itself
+is sufficient.
+
+And finally, put your ACK and any other part of your response, after
+the quoted material rather than before.
+
+The way you have ACK'd this patch, patchwork will not see it and
+instead thinks this is a fresh new patch posting.  So your ACK will
+get possibly lost, and I will definitely have more work to do weeding
+out this extraneous patch entry in patchwork.
+
+Thank you.
