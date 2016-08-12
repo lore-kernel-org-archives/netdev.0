@@ -1,59 +1,83 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Subject: [PATCH ipsec-next 0/8] xfrm: policy: convert lookups to
- rcu
-Date: Fri, 12 Aug 2016 10:22:54 +0200
-Message-ID: <20160812082254.GI5710@gauss.secunet.com>
-References: <1470921479-25592-1-git-send-email-fw@strlen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] net/irda: handle iriap_register_lsap() allocation failure
+Date: Fri, 12 Aug 2016 10:29:13 +0200
+Message-ID: <1470990553-19921-1-git-send-email-vegard.nossum@oracle.com>
+Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	stable@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:33297 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750935AbcHLIW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 04:22:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1470921479-25592-1-git-send-email-fw@strlen.de>
+Received: from aserp1040.oracle.com ([141.146.126.69]:49437 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752487AbcHLIaU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 04:30:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 11, 2016 at 03:17:51PM +0200, Florian Westphal wrote:
-> Since commit d188ba86dd07a72eb ("xfrm: add rcu protection to sk->sk_policy[]")
-> sk_policy can rely on rcu protection.
-> 
-> This change allows to also use rcu in xfrm_policy_lookup_bytype and to
-> avoid grabbing the read-sie policy lock during lookups.
-> 
-> read-side policy rwlock is converted to pure rcu, then the policy_lock is
-> changed to a plain spinlock as only write-sides remain.
-> 
-> First few patches do some preparation work, the later ones remove
-> the read-side locks, last patch converts rwlock to spinlock.
-> 
-> I tested this with rcu debug enabled and simple esp tunnel
-> forwarding udp packets.
-> 
-> If you have better tests for this please let me know and I can re-run with
-> that.
-> 
-> Florian Westphal (8):
->       xfrm: policy: use rcu versions for iteration and list add/del
->       xfrm: policy: prepare policy_bydst hash for rcu lookups
->       xfrm: policy: add sequence count to synchronize reads with hash resizes
->       xfrm: policy: use atomic_inc_not_zero in rcu section
->       xfrm: policy: make xfrm_policy_lookup_bytype lockless
->       xfrm: policy: only use rcu in xfrm_sk_policy_lookup
->       xfrm: policy: don't acquire policy lock in xfrm_spd_getinfo
->       xfrm: policy: convert policy_lock to spinlock
-> 
->  include/net/netns/xfrm.h |    4 -
->  net/xfrm/xfrm_policy.c   |  145 +++++++++++++++++++++++++++--------------------
->  2 files changed, 88 insertions(+), 61 deletions(-)
+If iriap_register_lsap() fails to allocate memory, self->lsap is
+set to NULL. However, none of the callers handle the failure and
+irlmp_connect_request() will happily dereference it:
 
-Looks good, I've applied to already to the ipsec-next testing branch.
-However, I'll be off for a week starting this afternoon, so I don't
-see if the patchset passed all tests before I leave. For that I defer
-the applying to master until I'm back.
+    iriap_register_lsap: Unable to allocated LSAP!
+    ================================================================================
+    UBSAN: Undefined behaviour in net/irda/irlmp.c:378:2
+    member access within null pointer of type 'struct lsap_cb'
+    CPU: 1 PID: 15403 Comm: trinity-c0 Not tainted 4.8.0-rc1+ #81
+    Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.3-0-ge2fc41e-prebuilt.qemu-project.org
+    04/01/2014
+     0000000000000000 ffff88010c7e78a8 ffffffff82344f40 0000000041b58ab3
+     ffffffff84f98000 ffffffff82344e94 ffff88010c7e78d0 ffff88010c7e7880
+     ffff88010630ad00 ffffffff84a5fae0 ffffffff84d3f5c0 000000000000017a
+    Call Trace:
+     [<ffffffff82344f40>] dump_stack+0xac/0xfc
+     [<ffffffff8242f5a8>] ubsan_epilogue+0xd/0x8a
+     [<ffffffff824302bf>] __ubsan_handle_type_mismatch+0x157/0x411
+     [<ffffffff83b7bdbc>] irlmp_connect_request+0x7ac/0x970
+     [<ffffffff83b77cc0>] iriap_connect_request+0xa0/0x160
+     [<ffffffff83b77f48>] state_s_disconnect+0x88/0xd0
+     [<ffffffff83b78904>] iriap_do_client_event+0x94/0x120
+     [<ffffffff83b77710>] iriap_getvaluebyclass_request+0x3e0/0x6d0
+     [<ffffffff83ba6ebb>] irda_find_lsap_sel+0x1eb/0x630
+     [<ffffffff83ba90c8>] irda_connect+0x828/0x12d0
+     [<ffffffff833c0dfb>] SYSC_connect+0x22b/0x340
+     [<ffffffff833c7e09>] SyS_connect+0x9/0x10
+     [<ffffffff81007bd3>] do_syscall_64+0x1b3/0x4b0
+     [<ffffffff845f946a>] entry_SYSCALL64_slow_path+0x25/0x25
+    ================================================================================
 
-Thanks!
+The bug seems to have been around since forever.
+
+There's more problems with missing error checks in iriap_init() (and
+indeed all of irda_init()), but that's a bigger problem that needs
+very careful review and testing. This patch will fix the most serious
+bug (as it's easily reached from unprivileged userspace).
+
+I have tested my patch with a reproducer.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+---
+ net/irda/iriap.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/irda/iriap.c b/net/irda/iriap.c
+index 4a7ae32a..1138eaf 100644
+--- a/net/irda/iriap.c
++++ b/net/irda/iriap.c
+@@ -185,8 +185,12 @@ struct iriap_cb *iriap_open(__u8 slsap_sel, int mode, void *priv,
+ 
+ 	self->magic = IAS_MAGIC;
+ 	self->mode = mode;
+-	if (mode == IAS_CLIENT)
+-		iriap_register_lsap(self, slsap_sel, mode);
++	if (mode == IAS_CLIENT) {
++		if (iriap_register_lsap(self, slsap_sel, mode)) {
++			kfree(self);
++			return NULL;
++		}
++	}
+ 
+ 	self->confirm = callback;
+ 	self->priv = priv;
+-- 
+1.9.1
