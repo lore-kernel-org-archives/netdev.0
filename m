@@ -1,68 +1,49 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH] ip-route: Pretty-print expired routes
-Date: Fri, 12 Aug 2016 23:11:26 +0200
-Message-ID: <20160812211126.GM10197@orbyte.nwl.cc>
-References: <1470827690-5625-1-git-send-email-phil@nwl.cc>
- <9d2afc01-bb48-25f7-9cad-7c4926622a38@solarflare.com>
- <20160811135450.GC10197@orbyte.nwl.cc>
- <20160812125815.3acccc22@xeon-e3>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net] bpf: fix bpf_skb_in_cgroup helper naming
+Date: Fri, 12 Aug 2016 16:06:42 -0700
+Message-ID: <20160812230640.GA48651@ast-mbp.thefacebook.com>
+References: <f08aab1ab054e7609ff3dc1632c4cc4603636d7d.1471031665.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: davem@davemloft.net, kafai@fb.com, tj@kernel.org, sargun@sargun.me,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:34389 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752053AbcHLVL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 17:11:29 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33205 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749AbcHLXGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 19:06:47 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i6so39487pfe.0
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 16:06:47 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160812125815.3acccc22@xeon-e3>
+In-Reply-To: <f08aab1ab054e7609ff3dc1632c4cc4603636d7d.1471031665.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 12, 2016 at 12:58:15PM -0700, Stephen Hemminger wrote:
-> On Thu, 11 Aug 2016 15:54:50 +0200
-> Phil Sutter <phil@nwl.cc> wrote:
+On Fri, Aug 12, 2016 at 10:17:17PM +0200, Daniel Borkmann wrote:
+> While hashing out BPF's current_task_under_cgroup helper bits, it came
+> to discussion that the skb_in_cgroup helper name was suboptimally chosen.
 > 
-> > On Thu, Aug 11, 2016 at 02:46:26PM +0100, Edward Cree wrote:
-> > > On 10/08/16 12:14, Phil Sutter wrote:  
-> > > > Instead of printing 'expires -23sec' for expired (but not yet garbage
-> > > > collected) routes, print 'expired 23sec' instead.
-> > > >
-> > > > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > > > ---
-> > > >  ip/iproute.c | 12 ++++++++++--
-> > > >  1 file changed, 10 insertions(+), 2 deletions(-)
-> > > >
-> > > > diff --git a/ip/iproute.c b/ip/iproute.c
-> > > > index c52294d298210..a89a26d68be0f 100644
-> > > > --- a/ip/iproute.c
-> > > > +++ b/ip/iproute.c
-> > > > @@ -305,6 +305,14 @@ static void print_rtax_features(FILE *fp, unsigned int features)
-> > > >               fprintf(fp, " 0x%x", of);
-> > > >  }
-> > > >
-> > > > +static void print_expires(FILE *fp, __s32 expires, int hz)
-> > > > +{
-> > > > +     if (expires > 0)
-> > > > +             fprintf(fp, " expires %dsec", expires/hz);
-> > > > +     else
-> > > > +             fprintf(fp, " expired %dsec", -expires/hz);
-> > > > +}  
-> > > Perhaps something that differs by more than a single character, to
-> > > make it stand out more?  I don't know what to suggest, though.  
-> > 
-> > Yes, I thought about that, too. At first, I had "expired for %dsec" for
-> > the second case, but decided that it was a bit too verbose given that
-> > all route info goes into a single line and is still meant to be
-> > human-readable. :)
-> > 
-> > Cheers, Phil
+> Tejun says:
 > 
-> This makes sense to humans but changing the output format can break some brittle
-> scripts that parse output of iproute tools.  The risk of incompatibility is a
-> bigger issue than the small gain in readability. Sorry, not taking this.
+>   So, I think in_cgroup should mean that the object is in that
+>   particular cgroup while under_cgroup in the subhierarchy of that
+>   cgroup. Let's rename the other subhierarchy test to under too. I
+>   think that'd be a lot less confusing going forward.
+> 
+>   [...]
+> 
+>   It's more intuitive and gives us the room to implement the real
+>   "in" test if ever necessary in the future.
+> 
+> Since this touches uapi bits, we need to change this as long as v4.8
+> is not yet officially released. Thus, change the helper enum and rename
+> related bits.
+> 
+> Fixes: 4a482f34afcc ("cgroup: bpf: Add bpf_skb_in_cgroup_proto")
+> Reference: http://patchwork.ozlabs.org/patch/658500/
+> Suggested-by: Sargun Dhillon <sargun@sargun.me>
+> Suggested-by: Tejun Heo <tj@kernel.org>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Sure, no problem.
-
-Thanks, Phil
+Acked-by: Alexei Starovoitov <ast@kernel.org>
