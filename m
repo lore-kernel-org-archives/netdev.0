@@ -1,11 +1,14 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 07/19] batman-adv: Avoid sysfs name collision
-	for netns moves
-Date: Fri, 12 Aug 2016 10:56:43 +0200
-Message-ID: <1470992215-11009-8-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 08/19] batman-adv: Remove unused primary_if
+	and bat_priv variables
+Date: Fri, 12 Aug 2016 10:56:44 +0200
+Message-ID: <1470992215-11009-9-git-send-email-sw@simonwunderlich.de>
 References: <1470992215-11009-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
  Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
@@ -22,80 +25,61 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+From: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
 
-The kobject_put is only removing the sysfs entry and corresponding entries
-when its reference counter becomes zero. This tends to lead to collisions
-when a device is moved between two different network namespaces because
-some of the sysfs files have to be removed first and then added again to
-the already moved sysfs entry.
-
-    WARNING: CPU: 0 PID: 290 at lib/kobject.c:240 kobject_add_internal+0x5ec/0x8a0
-    kobject_add_internal failed for batman_adv with -EEXIST, don't try to register things with the same name in the same directory.
-
-But the caller of kobject_put can already remove the sysfs entry before it
-does the kobject_put. This removal is done even when the reference counter
-is not yet zero and thus avoids the problem.
-
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Fixes: ef0a937f7a14 ("batman-adv: consider outgoing interface in OGM sending")
+Signed-off-by: Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/sysfs.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ net/batman-adv/bat_iv_ogm.c | 19 ++++---------------
+ 1 file changed, 4 insertions(+), 15 deletions(-)
 
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index 8528959..4e06cb7 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -713,6 +713,8 @@ rem_attr:
- 	for (bat_attr = batadv_mesh_attrs; *bat_attr; ++bat_attr)
- 		sysfs_remove_file(bat_priv->mesh_obj, &((*bat_attr)->attr));
- 
-+	kobject_uevent(bat_priv->mesh_obj, KOBJ_REMOVE);
-+	kobject_del(bat_priv->mesh_obj);
- 	kobject_put(bat_priv->mesh_obj);
- 	bat_priv->mesh_obj = NULL;
- out:
-@@ -727,6 +729,8 @@ void batadv_sysfs_del_meshif(struct net_device *dev)
- 	for (bat_attr = batadv_mesh_attrs; *bat_attr; ++bat_attr)
- 		sysfs_remove_file(bat_priv->mesh_obj, &((*bat_attr)->attr));
- 
-+	kobject_uevent(bat_priv->mesh_obj, KOBJ_REMOVE);
-+	kobject_del(bat_priv->mesh_obj);
- 	kobject_put(bat_priv->mesh_obj);
- 	bat_priv->mesh_obj = NULL;
- }
-@@ -782,6 +786,10 @@ rem_attr:
- 	for (bat_attr = batadv_vlan_attrs; *bat_attr; ++bat_attr)
- 		sysfs_remove_file(vlan->kobj, &((*bat_attr)->attr));
- 
-+	if (vlan->kobj != bat_priv->mesh_obj) {
-+		kobject_uevent(vlan->kobj, KOBJ_REMOVE);
-+		kobject_del(vlan->kobj);
-+	}
- 	kobject_put(vlan->kobj);
- 	vlan->kobj = NULL;
- out:
-@@ -801,6 +809,10 @@ void batadv_sysfs_del_vlan(struct batadv_priv *bat_priv,
- 	for (bat_attr = batadv_vlan_attrs; *bat_attr; ++bat_attr)
- 		sysfs_remove_file(vlan->kobj, &((*bat_attr)->attr));
- 
-+	if (vlan->kobj != bat_priv->mesh_obj) {
-+		kobject_uevent(vlan->kobj, KOBJ_REMOVE);
-+		kobject_del(vlan->kobj);
-+	}
- 	kobject_put(vlan->kobj);
- 	vlan->kobj = NULL;
- }
-@@ -1103,6 +1115,8 @@ out:
- 
- void batadv_sysfs_del_hardif(struct kobject **hardif_obj)
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 19b0abd..6af4462 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -528,36 +528,25 @@ static void batadv_iv_ogm_send_to_if(struct batadv_forw_packet *forw_packet,
+ static void batadv_iv_ogm_emit(struct batadv_forw_packet *forw_packet)
  {
-+	kobject_uevent(*hardif_obj, KOBJ_REMOVE);
-+	kobject_del(*hardif_obj);
- 	kobject_put(*hardif_obj);
- 	*hardif_obj = NULL;
+ 	struct net_device *soft_iface;
+-	struct batadv_priv *bat_priv;
+-	struct batadv_hard_iface *primary_if = NULL;
+ 
+ 	if (!forw_packet->if_incoming) {
+ 		pr_err("Error - can't forward packet: incoming iface not specified\n");
+-		goto out;
++		return;
+ 	}
+ 
+ 	soft_iface = forw_packet->if_incoming->soft_iface;
+-	bat_priv = netdev_priv(soft_iface);
+ 
+ 	if (WARN_ON(!forw_packet->if_outgoing))
+-		goto out;
++		return;
+ 
+ 	if (WARN_ON(forw_packet->if_outgoing->soft_iface != soft_iface))
+-		goto out;
++		return;
+ 
+ 	if (forw_packet->if_incoming->if_status != BATADV_IF_ACTIVE)
+-		goto out;
+-
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if)
+-		goto out;
++		return;
+ 
+ 	/* only for one specific outgoing interface */
+ 	batadv_iv_ogm_send_to_if(forw_packet, forw_packet->if_outgoing);
+-
+-out:
+-	if (primary_if)
+-		batadv_hardif_put(primary_if);
  }
+ 
+ /**
 -- 
 2.8.1
