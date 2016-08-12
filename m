@@ -1,40 +1,79 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
-Date: Fri, 12 Aug 2016 21:03:19 +0200
-Message-ID: <20160812190319.GB25519@breakpoint.cc>
-References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20160729132154.GB13634@breakpoint.cc>
- <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>
- <20160802221121.GB31209@breakpoint.cc>
- <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
- <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next V2 01/18] liquidio: Consolidate common
+ functionality
+Date: Fri, 12 Aug 2016 12:21:09 -0700
+Message-ID: <1471029669.18251.6.camel@perches.com>
+References: <1471026035-15323-1-git-send-email-rvatsavayi@caviumnetworks.com>
+	 <1471026035-15323-2-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Brandon Cazander <brandon.cazander@multapplied.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:60098 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752194AbcHLTDW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 15:03:22 -0400
-Content-Disposition: inline
-In-Reply-To: <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>
+Received: from smtprelay0110.hostedemail.com ([216.40.44.110]:39598 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751091AbcHLTVS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 15:21:18 -0400
+In-Reply-To: <1471026035-15323-2-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Brandon Cazander <brandon.cazander@multapplied.net> wrote:
-> Is there anything I can provide or do to help get this issue fixed? Even with the patch provided, our application is still broken.
+On Fri, 2016-08-12 at 11:20 -0700, Raghu Vatsavayi wrote:
+> Consolidate common functionality of various devices
+> from different files into lio_core.c/octeon_console.c.
 
-[..]
+trivial notes:
 
-> I think that it is worth doing, as the original kernel change broke my user space program and could do the same to others as well.
-> 
-> On another setup, even with the DIVERT rule in place, I'm still seeing the RST after the ACK. I'm not sure how it is behaving differently than the other setup so I need to look into that. But it definitely worked before the changes to the kernel.
+> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+[]
+> +void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
+> +{
+[]
+> +	case OCTNET_CMD_CHANGE_MACADDR:
+> +		mac = ((u8 *)&nctrl->udd[0]) + 2;
+> +		netif_info(lio, probe, lio->netdev,
+> +			   "MACAddr changed to %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n",
 
-Well, what is different in that setup?
-(e.g. rules, application binding different ip address, etc)
+			   "MACAddr changed to %pM\n", mac);
+[]
 
-Once I can re-create the problem chances for a fix will be a bit
-higher...
+> +	case OCTNET_CMD_TNL_RX_CSUM_CTL:
+> +		if (nctrl->ncmd.s.param1 == OCTNET_CMD_RXCSUM_ENABLE) {
+> +			netif_info(lio, probe, lio->netdev,
+> +				   "%s RX Checksum Offload Enabled\n",
+> +				   netdev->name);
+> +		} else if (nctrl->ncmd.s.param1 ==
+> +			   OCTNET_CMD_RXCSUM_DISABLE) {
+> +			netif_info(lio, probe, lio->netdev,
+> +				   "%s RX Checksum Offload Disabled\n",
+> +				   netdev->name);
+
+Aren't these a bit redundant output with the both name
+output of lio->netdev->name and netdev->name?
+
+> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+[]
+> @@ -297,11 +297,10 @@ lio_get_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
+>  
+>  	eeprom->magic = oct_dev->pci_dev->vendor;
+>  	board_info = (struct octeon_board_info *)(&oct_dev->boardinfo);
+> -	len =
+> -		sprintf((char *)bytes,
+> -			"boardname:%s serialnum:%s maj:%lld min:%lld\n",
+> -			board_info->name, board_info->serial_number,
+> -			board_info->major, board_info->minor);
+> +	len = sprintf((char *)bytes,
+> +		      "boardname:%s serialnum:%s maj:%lld min:%lld\n",
+> +		      board_info->name, board_info->serial_number,
+> +		      board_info->major, board_info->minor);
+
+snprintf might be better and len doesn't seem useful here
+ 
+>  	return 0;
+>  }
