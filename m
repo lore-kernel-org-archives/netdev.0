@@ -1,86 +1,106 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v5 3/3] samples/bpf: Add
- test_current_task_under_cgroup test
-Date: Fri, 12 Aug 2016 09:10:08 -0700
-Message-ID: <20160812161006.GA43887@ast-mbp.thefacebook.com>
-References: <20160812155703.GA12893@ircssh.c.rugged-nimbus-611.internal>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, tj@kernel.org
-To: Sargun Dhillon <sargun@sargun.me>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH net v2] net: ipv6: Fix ping to link-local addresses.
+Date: Sat, 13 Aug 2016 01:13:38 +0900
+Message-ID: <1471018418-12212-1-git-send-email-lorenzo@google.com>
+Cc: hannes@stressinduktion.org, ek@google.com, davem@davemloft.net,
+	hideaki.yoshifuji@miraclelinux.com, dsa@cumulusnetworks.com,
+	Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34998 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751570AbcHLQKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 12:10:13 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h186so1742604pfg.2
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 09:10:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160812155703.GA12893@ircssh.c.rugged-nimbus-611.internal>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33045 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752184AbcHLQNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 12:13:47 -0400
+Received: by mail-pa0-f49.google.com with SMTP id ti13so9942069pac.0
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 09:13:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 12, 2016 at 08:57:04AM -0700, Sargun Dhillon wrote:
-> This test has a BPF program which writes the last known pid to call the
-> sync syscall within a given cgroup to a map.
-> 
-> The user mode program creates its own mount namespace, and mounts the
-> cgroupsv2  hierarchy in there, as on all current test systems
-> (Ubuntu 16.04, Debian), the cgroupsv2 vfs is unmounted by default.
-> Once it does this, it proceeds to test.
-> 
-> The test checks for positive and negative condition. It ensures that
-> when it's part of a given cgroup, its pid is captured in the map,
-> and that when it leaves the cgroup, this doesn't happen.
-> 
-> It populate a cgroups arraymap prior to execution in userspace. This means
-> that the program must be run in the same cgroups namespace as the programs
-> that are being traced.
-> 
-> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Tejun Heo <tj@kernel.org>
+ping_v6_sendmsg does not set flowi6_oif in response to
+sin6_scope_id or sk_bound_dev_if, so it is not possible to use
+these APIs to ping an IPv6 address on a different interface.
+Instead, it sets flowi6_iif, which is incorrect but harmless.
 
-I don't think there is much value explicitly adding 'cc:' to commit log.
+Stop setting flowi6_iif, and support various ways of setting oif
+in the same priority order used by udpv6_sendmsg.
 
-> +	if (join_cgroup("/mnt/my-cgroup")) {
-> +		log_err("Leaving target cgroup");
-> +		goto cleanup_cgroup_err;
-> +	}
-> +
-> +	/*
-> +	 * The installed helper program catched the sync call, and should
-> +	 * write it to the map.
-> +	 */
-> +
-> +	sync();
-> +	bpf_lookup_elem(map_fd[1], &idx, &remote_pid);
-> +
-> +	if (local_pid != remote_pid) {
-> +		fprintf(stderr,
-> +			"BPF Helper didn't write correct PID to map, but: %d\n",
-> +			remote_pid);
-> +		goto leave_cgroup_err;
-> +	}
-> +
-> +	/* Verify the negative scenario; leave the cgroup */
-> +	if (join_cgroup(CGROUP_MOUNT_PATH))
-> +		goto leave_cgroup_err;
-> +
-> +	remote_pid = 0;
-> +	bpf_update_elem(map_fd[1], &idx, &remote_pid, BPF_ANY);
-> +
-> +	sync();
-> +	bpf_lookup_elem(map_fd[1], &idx, &remote_pid);
-> +
-> +	if (local_pid == remote_pid) {
-> +		fprintf(stderr, "BPF cgroup negative test did not work\n");
-> +		goto cleanup_cgroup_err;
-> +	}
-> +
-> +	rmdir(CGROUP_PATH);
-> +	return 0;
+Tested: https://android-review.googlesource.com/#/c/254470/
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ net/ipv6/ping.c | 33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
 
-Nice test. Thanks
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index fed40d1..0900352 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -55,7 +55,7 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	struct icmp6hdr user_icmph;
+ 	int addr_type;
+ 	struct in6_addr *daddr;
+-	int iif = 0;
++	int oif = 0;
+ 	struct flowi6 fl6;
+ 	int err;
+ 	struct dst_entry *dst;
+@@ -78,25 +78,30 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 		if (u->sin6_family != AF_INET6) {
+ 			return -EAFNOSUPPORT;
+ 		}
+-		if (sk->sk_bound_dev_if &&
+-		    sk->sk_bound_dev_if != u->sin6_scope_id) {
+-			return -EINVAL;
+-		}
+ 		daddr = &(u->sin6_addr);
+-		iif = u->sin6_scope_id;
++		if (__ipv6_addr_needs_scope_id(ipv6_addr_type(daddr)))
++			oif = u->sin6_scope_id;
+ 	} else {
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+ 			return -EDESTADDRREQ;
+ 		daddr = &sk->sk_v6_daddr;
+ 	}
+ 
+-	if (!iif)
+-		iif = sk->sk_bound_dev_if;
++	if (!oif)
++		oif = sk->sk_bound_dev_if;
++
++	if (!oif)
++		oif = np->sticky_pktinfo.ipi6_ifindex;
++
++	if (!oif && ipv6_addr_is_multicast(daddr))
++		oif = np->mcast_oif;
++	else if (!oif)
++		oif = np->ucast_oif;
+ 
+ 	addr_type = ipv6_addr_type(daddr);
+-	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
+-		return -EINVAL;
+-	if (addr_type & IPV6_ADDR_MAPPED)
++	if ((__ipv6_addr_needs_scope_id(addr_type) && !oif) ||
++	    (addr_type & IPV6_ADDR_MAPPED) ||
++	    (oif && sk->sk_bound_dev_if && oif != sk->sk_bound_dev_if))
+ 		return -EINVAL;
+ 
+ 	/* TODO: use ip6_datagram_send_ctl to get options from cmsg */
+@@ -106,16 +111,12 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	fl6.flowi6_proto = IPPROTO_ICMPV6;
+ 	fl6.saddr = np->saddr;
+ 	fl6.daddr = *daddr;
++	fl6.flowi6_oif = oif;
+ 	fl6.flowi6_mark = sk->sk_mark;
+ 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
+ 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
+ 	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+ 
+-	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+-		fl6.flowi6_oif = np->mcast_oif;
+-	else if (!fl6.flowi6_oif)
+-		fl6.flowi6_oif = np->ucast_oif;
+-
+ 	ipc6.tclass = np->tclass;
+ 	fl6.flowlabel = ip6_make_flowinfo(ipc6.tclass, fl6.flowlabel);
+ 
+-- 
+2.8.0.rc3.226.g39d4020
