@@ -1,45 +1,81 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] net/xfrm_input: fix possible NULL deref of
- tunnel.ip6->parms.i_key
-Date: Fri, 12 Aug 2016 09:16:56 +0200
-Message-ID: <20160812071656.GH5710@gauss.secunet.com>
-References: <1470826497-3931-1-git-send-email-alexey.kodanev@oracle.com>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: [PATCH net-next v4 2/3] bpf: Add bpf_current_task_under_cgroup
+ helper
+Date: Fri, 12 Aug 2016 00:22:48 -0700
+Message-ID: <20160812072247.GB31242@ircssh.c.rugged-nimbus-611.internal>
+References: <20160812031454.GA2075@ircssh.c.rugged-nimbus-611.internal>
+ <20160812044818.GA39190@ast-mbp.thefacebook.com>
+ <CAMp4zn-0ox8DLO0jNP9Z2+RKqbHmcrRS_dr+L0de_bd=17mp_w@mail.gmail.com>
+ <57AD77B7.5050400@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <vasily.isaenko@oracle.com>
-To: Alexey Kodanev <alexey.kodanev@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	netdev <netdev@vger.kernel.org>, tj@kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:60082 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750878AbcHLHRG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Aug 2016 03:17:06 -0400
+Received: from mail-io0-f181.google.com ([209.85.223.181]:36529 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751139AbcHLHW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 03:22:58 -0400
+Received: by mail-io0-f181.google.com with SMTP id b62so17637078iod.3
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 00:22:51 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1470826497-3931-1-git-send-email-alexey.kodanev@oracle.com>
+In-Reply-To: <57AD77B7.5050400@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 10, 2016 at 01:54:57PM +0300, Alexey Kodanev wrote:
-> Running LTP 'icmp-uni-basic.sh -6 -p ipcomp -m tunnel' test over
-> openvswitch + veth can trigger kernel panic:
+On Fri, Aug 12, 2016 at 09:16:07AM +0200, Daniel Borkmann wrote:
+> On 08/12/2016 06:50 AM, Sargun Dhillon wrote:
+> >I realize that in_cgroup is more consistent, but under_cgroup makes
+> >far more sense to me. I think it's more intuitive.
+> >
+> >On Thu, Aug 11, 2016 at 9:48 PM, Alexei Starovoitov
+> ><alexei.starovoitov@gmail.com> wrote:
+> >>On Thu, Aug 11, 2016 at 08:14:56PM -0700, Sargun Dhillon wrote:
+> >>>This adds a bpf helper that's similar to the skb_in_cgroup helper to check
+> >>>whether the probe is currently executing in the context of a specific
+> >>>subset of the cgroupsv2 hierarchy. It does this based on membership test
+> >>>for a cgroup arraymap. It is invalid to call this in an interrupt, and
+> >>>it'll return an error. The helper is primarily to be used in debugging
+> >>>activities for containers, where you may have multiple programs running in
+> >>>a given top-level "container".
+> >>>
+> >>>Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+> >>>Cc: Alexei Starovoitov <ast@kernel.org>
+> >>>Cc: Daniel Borkmann <daniel@iogearbox.net>
+> >>>Cc: Tejun Heo <tj@kernel.org>
+> >>>---
+> >>>+     /**
+> >>>+      * bpf_current_task_under_cgroup(map, index) - Check cgroup2 membership of current task
+> >>>+      * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
+> >>>+      * @index: index of the cgroup in the bpf_map
+> >>>+      * Return:
+> >>>+      *   == 0 current failed the cgroup2 descendant test
+> >>>+      *   == 1 current succeeded the cgroup2 descendant test
+> >>>+      *    < 0 error
+> >>>+      */
+> >>>+     BPF_FUNC_current_task_under_cgroup,
+> >>..
+> >>>       case BPF_MAP_TYPE_CGROUP_ARRAY:
+> >>>-             if (func_id != BPF_FUNC_skb_in_cgroup)
+> >>>+             if (func_id != BPF_FUNC_skb_in_cgroup &&
+> >>>+                 func_id != BPF_FUNC_current_task_under_cgroup)
+> >>>                       goto error;
+> >>...
+> >>>+     case BPF_FUNC_current_task_under_cgroup:
+> >>>       case BPF_FUNC_skb_in_cgroup:
+> >>
+> >>Tejun,
+> >>do you feel strongly about 'under' ?
+> >>It just looks inconsistent vs existing skb_in_cgroup...
+> >>"in cgroup" - 4k google hits
+> >>"under cgroup" - 2k google hits
 > 
->   BUG: unable to handle kernel NULL pointer dereference
->   at 00000000000000e0 IP: [<ffffffff8169d1d2>] xfrm_input+0x82/0x750
->   ...
->   [<ffffffff816d472e>] xfrm6_rcv_spi+0x1e/0x20
->   [<ffffffffa082c3c2>] xfrm6_tunnel_rcv+0x42/0x50 [xfrm6_tunnel]
->   [<ffffffffa082727e>] tunnel6_rcv+0x3e/0x8c [tunnel6]
->   [<ffffffff8169f365>] ip6_input_finish+0xd5/0x430
->   [<ffffffff8169fc53>] ip6_input+0x33/0x90
->   [<ffffffff8169f1d5>] ip6_rcv_finish+0xa5/0xb0
->   ...
-> 
-> It seems that tunnel.ip6 can have garbage values and also dereferenced
-> without a proper check, only tunnel.ip4 is being verified. Fix it by
-> adding one more if block for AF_INET6 and initialize tunnel.ip6 with NULL
-> inside xfrm6_rcv_spi() (which is similar to xfrm4_rcv_spi()).
-> 
-> Fixes: 049f8e2 ("xfrm: Override skb->mark with tunnel->parm.i_key in xfrm_input")
-> 
-> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+> Alternative could be that we take "BPF_FUNC_current_in_cgroup" as a
+> helper enum to keep consistency with what we have wrt skb helper, but
+> for the cgroup header have the suggested task_under_cgroup_hierarchy()
+> name.
 
-Applied to the ipsec tree, thanks a lot for the fix!
+I actually wish we could rename skb_in_cgroup to skb_under_cgroup. If we ever 
+introduced a check for absolute membership versus ancestral membership, what 
+would we call that?
