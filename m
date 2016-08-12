@@ -1,7 +1,7 @@
 From: sunil.kovvuri@gmail.com
-Subject: [PATCH v2 12/21] net: thunderx: Support for 83xx mixed QLM/DLM config
-Date: Fri, 12 Aug 2016 16:51:35 +0530
-Message-ID: <1471000904-21715-13-git-send-email-sunil.kovvuri@gmail.com>
+Subject: [PATCH v2 14/21] net: thunderx: Use skb_add_rx_frag() for split buffer Rx pkts
+Date: Fri, 12 Aug 2016 16:51:37 +0530
+Message-ID: <1471000904-21715-15-git-send-email-sunil.kovvuri@gmail.com>
 References: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	Sunil Goutham <sgoutham@cavium.com>
@@ -13,202 +13,58 @@ List-Id: netdev.vger.kernel.org
 
 From: Sunil Goutham <sgoutham@cavium.com>
 
-83xx has 4 BGX blocks and are enabled mixed QLM/DLM
-configs. BGX0/BGX1 are from QLM2/QLM3, BGX3 is DLM4
-and BGX2 is split across DLM5 & DLM6.
-
-This patch adds support for BGX2's split config and also
-enables all 4 BGXs to be used.
+Instead of a round about way of converting buffers to SKBs and
+combining them into a frag list, use standard skb_add_rx_frag()
+API to merge page fragments. This code is useful when incoming
+packets are of size more than RCV_FRAG_LEN which is currently
+set to 2048bytes.
 
 Signed-off-by: Sunil Goutham <sgoutham@cavium.com>
 ---
- drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 44 ++++++++++++-----------
- drivers/net/ethernet/cavium/thunder/thunder_bgx.h |  3 +-
- 2 files changed, 26 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.c | 24 ++++++----------------
+ 1 file changed, 6 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-index 4ddc760..ca58d7f 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
-@@ -51,7 +51,7 @@ struct bgx {
- 	u8			max_lmac;
- 	void __iomem		*reg_base;
- 	struct pci_dev		*pdev;
--	bool                    is_81xx;
-+	bool                    is_dlm;
- 	bool                    is_rgx;
- };
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+index ca223aa..ed2fe72 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.c
+@@ -1184,8 +1184,8 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 	int frag;
+ 	int payload_len = 0;
+ 	struct sk_buff *skb = NULL;
+-	struct sk_buff *skb_frag = NULL;
+-	struct sk_buff *prev_frag = NULL;
++	struct page *page;
++	int offset;
+ 	u16 *rb_lens = NULL;
+ 	u64 *rb_ptrs = NULL;
  
-@@ -127,8 +127,8 @@ unsigned bgx_get_map(int node)
- 	int i;
- 	unsigned map = 0;
- 
--	for (i = 0; i < MAX_BGX_PER_CN81XX; i++) {
--		if (bgx_vnic[(node * MAX_BGX_PER_CN88XX) + i])
-+	for (i = 0; i < MAX_BGX_PER_NODE; i++) {
-+		if (bgx_vnic[(node * MAX_BGX_PER_NODE) + i])
- 			map |= (1 << i);
- 	}
- 
-@@ -141,7 +141,7 @@ int bgx_get_lmac_count(int node, int bgx_idx)
- {
- 	struct bgx *bgx;
- 
--	bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 	if (bgx)
- 		return bgx->lmac_count;
- 
-@@ -156,7 +156,7 @@ void bgx_get_lmac_link_state(int node, int bgx_idx, int lmacid, void *status)
- 	struct bgx *bgx;
- 	struct lmac *lmac;
- 
--	bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 	if (!bgx)
- 		return;
- 
-@@ -169,7 +169,7 @@ EXPORT_SYMBOL(bgx_get_lmac_link_state);
- 
- const u8 *bgx_get_lmac_mac(int node, int bgx_idx, int lmacid)
- {
--	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 
- 	if (bgx)
- 		return bgx->lmac[lmacid].mac;
-@@ -180,7 +180,7 @@ EXPORT_SYMBOL(bgx_get_lmac_mac);
- 
- void bgx_set_lmac_mac(int node, int bgx_idx, int lmacid, const u8 *mac)
- {
--	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 
- 	if (!bgx)
- 		return;
-@@ -191,7 +191,7 @@ EXPORT_SYMBOL(bgx_set_lmac_mac);
- 
- void bgx_lmac_rx_tx_enable(int node, int bgx_idx, int lmacid, bool enable)
- {
--	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	struct bgx *bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 	struct lmac *lmac;
- 	u64 cfg;
- 
-@@ -325,7 +325,7 @@ u64 bgx_get_rx_stats(int node, int bgx_idx, int lmac, int idx)
- {
- 	struct bgx *bgx;
- 
--	bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 	if (!bgx)
- 		return 0;
- 
-@@ -339,7 +339,7 @@ u64 bgx_get_tx_stats(int node, int bgx_idx, int lmac, int idx)
- {
- 	struct bgx *bgx;
- 
--	bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 	if (!bgx)
- 		return 0;
- 
-@@ -367,7 +367,7 @@ void bgx_lmac_internal_loopback(int node, int bgx_idx,
- 	struct lmac *lmac;
- 	u64    cfg;
- 
--	bgx = bgx_vnic[(node * MAX_BGX_PER_CN88XX) + bgx_idx];
-+	bgx = bgx_vnic[(node * MAX_BGX_PER_NODE) + bgx_idx];
- 	if (!bgx)
- 		return;
- 
-@@ -850,7 +850,7 @@ static void bgx_print_qlm_mode(struct bgx *bgx, u8 lmacid)
- 
- 	lmac = &bgx->lmac[lmacid];
- 	dlm = (lmacid / 2) + (bgx->bgx_id * 2);
--	if (!bgx->is_81xx)
-+	if (!bgx->is_dlm)
- 		sprintf(str, "BGX%d QLM mode", bgx->bgx_id);
- 	else
- 		sprintf(str, "BGX%d DLM%d mode", bgx->bgx_id, dlm);
-@@ -946,7 +946,7 @@ static void bgx_set_lmac_config(struct bgx *bgx, u8 idx)
- 
- 	lmac = &bgx->lmac[idx];
- 
--	if (!bgx->is_81xx || bgx->is_rgx) {
-+	if (!bgx->is_dlm || bgx->is_rgx) {
- 		/* Read LMAC0 type to figure out QLM mode
- 		 * This is configured by low level firmware
- 		 */
-@@ -986,7 +986,7 @@ static bool is_dlm0_in_bgx_mode(struct bgx *bgx)
- {
- 	struct lmac *lmac;
- 
--	if (!bgx->is_81xx)
-+	if (!bgx->is_dlm)
- 		return true;
- 
- 	lmac = &bgx->lmac[0];
-@@ -1019,7 +1019,7 @@ static void bgx_get_qlm_mode(struct bgx *bgx)
- 	for (idx = 0; idx < bgx->max_lmac; idx++)
- 		bgx_set_lmac_config(bgx, idx);
- 
--	if (!bgx->is_81xx || bgx->is_rgx) {
-+	if (!bgx->is_dlm || bgx->is_rgx) {
- 		bgx_print_qlm_mode(bgx, 0);
- 		return;
- 	}
-@@ -1236,10 +1236,6 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_disable_device;
- 	}
- 
--	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &sdevid);
--	if (sdevid == PCI_SUBSYS_DEVID_81XX_BGX)
--		bgx->is_81xx = true;
+@@ -1218,22 +1218,10 @@ struct sk_buff *nicvf_get_rcv_skb(struct nicvf *nic, struct cqe_rx_t *cqe_rx)
+ 			skb_put(skb, payload_len);
+ 		} else {
+ 			/* Add fragments */
+-			skb_frag = nicvf_rb_ptr_to_skb(nic, *rb_ptrs,
+-						       payload_len);
+-			if (!skb_frag) {
+-				dev_kfree_skb(skb);
+-				return NULL;
+-			}
 -
- 	/* MAP configuration registers */
- 	bgx->reg_base = pcim_iomap(pdev, PCI_CFG_REG_BAR_NUM, 0);
- 	if (!bgx->reg_base) {
-@@ -1252,7 +1248,7 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (sdevid != PCI_DEVICE_ID_THUNDER_RGX) {
- 		bgx->bgx_id =
- 		    (pci_resource_start(pdev, PCI_CFG_REG_BAR_NUM) >> 24) & 1;
--		bgx->bgx_id += nic_get_node_id(pdev) * MAX_BGX_PER_CN88XX;
-+		bgx->bgx_id += nic_get_node_id(pdev) * MAX_BGX_PER_NODE;
- 		bgx->max_lmac = MAX_LMAC_PER_BGX;
- 		bgx_vnic[bgx->bgx_id] = bgx;
- 	} else {
-@@ -1263,6 +1259,14 @@ static int bgx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		xcv_init_hw();
- 	}
- 
-+	/* On 81xx all are DLMs and on 83xx there are 3 BGX QLMs and one
-+	 * BGX i.e BGX2 can be split across 2 DLMs.
-+	 */
-+	pci_read_config_word(pdev, PCI_SUBSYSTEM_ID, &sdevid);
-+	if ((sdevid == PCI_SUBSYS_DEVID_81XX_BGX) ||
-+	    ((sdevid == PCI_SUBSYS_DEVID_83XX_BGX) && (bgx->bgx_id == 2)))
-+		bgx->is_dlm = true;
-+
- 	bgx_get_qlm_mode(bgx);
- 
- 	err = bgx_init_phy(bgx);
-diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-index c7d7cc67..d59c71e 100644
---- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-+++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
-@@ -18,10 +18,11 @@
- #define PCI_SUBSYS_DEVID_81XX_BGX		0xA226
- #define PCI_SUBSYS_DEVID_83XX_BGX		0xA326
- 
--#define    MAX_BGX_THUNDER			8 /* Max 4 nodes, 2 per node */
-+#define    MAX_BGX_THUNDER			8 /* Max 2 nodes, 4 per node */
- #define    MAX_BGX_PER_CN88XX			2
- #define    MAX_BGX_PER_CN81XX			3 /* 2 BGXs + 1 RGX */
- #define    MAX_BGX_PER_CN83XX			4
-+#define    MAX_BGX_PER_NODE			4
- #define    MAX_LMAC_PER_BGX			4
- #define    MAX_BGX_CHANS_PER_LMAC		16
- #define    MAX_DMAC_PER_LMAC			8
+-			if (!skb_shinfo(skb)->frag_list)
+-				skb_shinfo(skb)->frag_list = skb_frag;
+-			else
+-				prev_frag->next = skb_frag;
+-
+-			prev_frag = skb_frag;
+-			skb->len += payload_len;
+-			skb->data_len += payload_len;
+-			skb_frag->len = payload_len;
++			page = virt_to_page(phys_to_virt(*rb_ptrs));
++			offset = phys_to_virt(*rb_ptrs) - page_address(page);
++			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
++					offset, payload_len, RCV_FRAG_LEN);
+ 		}
+ 		/* Next buffer pointer */
+ 		rb_ptrs++;
 -- 
 2.7.4
