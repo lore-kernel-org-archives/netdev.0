@@ -1,390 +1,197 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v3 5/5] net_sched: convert tcf_exts from list to pointer array
-Date: Thu, 11 Aug 2016 17:41:43 -0700
-Message-ID: <1470962503-19682-6-git-send-email-xiyou.wangcong@gmail.com>
-References: <1470962503-19682-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next 2/3] samples/bpf: add verifier tests for the helper access to the packet
+Date: Thu, 11 Aug 2016 18:17:17 -0700
+Message-ID: <1470964638-1313057-3-git-send-email-ast@fb.com>
+References: <1470964638-1313057-1-git-send-email-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+	<kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36312 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbcHLAn6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 20:43:58 -0400
-Received: by mail-pf0-f195.google.com with SMTP id y134so557040pfg.3
-        for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 17:43:58 -0700 (PDT)
-In-Reply-To: <1470962503-19682-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:24771 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751258AbcHLBRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Aug 2016 21:17:21 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u7C1HE4l015937
+	for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 18:17:20 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 24s0h1s9kp-2
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 11 Aug 2016 18:17:20 -0700
+Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
+ mx-out.facebook.com (10.212.232.63) with ESMTP	id
+ 833bd6e8602a11e6a56f0002c992ebde-53fbaa0 for <netdev@vger.kernel.org>;	Thu,
+ 11 Aug 2016 18:17:19 -0700
+In-Reply-To: <1470964638-1313057-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As pointed out by Jamal, an action could be shared by
-multiple filters, so we can't use list to chain them
-any more after we get rid of the original tc_action.
-Instead, we could just save pointers to these actions
-in tcf_exts, since they are refcount'ed, so convert
-the list to an array of pointers.
+From: Aaron Yue <haoxuany@fb.com>
 
-The "ugly" part is the action API still accepts list
-as a parameter, I just introduce a helper function to
-convert the array of pointers to a list. For iteration,
-it seems we can't rely on the C99 feature to iterate
-the array.
+test various corner cases of the helper function access to the packet
+via crafted XDP programs.
 
-Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
-Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Aaron Yue <haoxuany@fb.com>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 12 ++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c  |  4 +-
- include/net/act_api.h                           |  4 +-
- include/net/pkt_cls.h                           | 40 ++++++++++++-------
- net/sched/act_api.c                             | 11 +++---
- net/sched/cls_api.c                             | 51 +++++++++++++++++--------
- 7 files changed, 85 insertions(+), 41 deletions(-)
+ samples/bpf/test_verifier.c | 114 ++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 110 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5418c69a..6ac1254 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8390,12 +8390,14 @@ static int parse_tc_actions(struct ixgbe_adapter *adapter,
- 			    struct tcf_exts *exts, u64 *action, u8 *queue)
- {
- 	const struct tc_action *a;
-+	LIST_HEAD(actions);
- 	int err;
- 
- 	if (tc_no_actions(exts))
- 		return -EINVAL;
- 
--	tc_for_each_action(a, exts) {
-+	tcf_exts_to_list(exts, &actions);
-+	list_for_each_entry(a, &actions, list) {
- 
- 		/* Drop action */
- 		if (is_tcf_gact_shot(a)) {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 0f19b01..dc8b1cb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -318,6 +318,7 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 				u32 *action, u32 *flow_tag)
- {
- 	const struct tc_action *a;
-+	LIST_HEAD(actions);
- 
- 	if (tc_no_actions(exts))
- 		return -EINVAL;
-@@ -325,7 +326,8 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 	*flow_tag = MLX5_FS_DEFAULT_FLOW_TAG;
- 	*action = 0;
- 
--	tc_for_each_action(a, exts) {
-+	tcf_exts_to_list(exts, &actions);
-+	list_for_each_entry(a, &actions, list) {
- 		/* Only support a single action per rule */
- 		if (*action)
- 			return -EINVAL;
-@@ -362,13 +364,15 @@ static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
- 				u32 *action, u32 *dest_vport)
- {
- 	const struct tc_action *a;
-+	LIST_HEAD(actions);
- 
- 	if (tc_no_actions(exts))
- 		return -EINVAL;
- 
- 	*action = 0;
- 
--	tc_for_each_action(a, exts) {
-+	tcf_exts_to_list(exts, &actions);
-+	list_for_each_entry(a, &actions, list) {
- 		/* Only support a single action per rule */
- 		if (*action)
- 			return -EINVAL;
-@@ -503,6 +507,7 @@ int mlx5e_stats_flower(struct mlx5e_priv *priv,
- 	struct mlx5e_tc_flow *flow;
- 	struct tc_action *a;
- 	struct mlx5_fc *counter;
-+	LIST_HEAD(actions);
- 	u64 bytes;
- 	u64 packets;
- 	u64 lastuse;
-@@ -518,7 +523,8 @@ int mlx5e_stats_flower(struct mlx5e_priv *priv,
- 
- 	mlx5_fc_query_cached(counter, &bytes, &packets, &lastuse);
- 
--	tc_for_each_action(a, f->exts)
-+	tcf_exts_to_list(f->exts, &actions);
-+	list_for_each_entry(a, &actions, list)
- 		tcf_action_stats_update(a, bytes, packets, lastuse);
- 
- 	return 0;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e1b8f62..9130cb2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1149,6 +1149,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 					  bool ingress)
- {
- 	const struct tc_action *a;
-+	LIST_HEAD(actions);
- 	int err;
- 
- 	if (!tc_single_action(cls->exts)) {
-@@ -1156,7 +1157,8 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
- 		return -ENOTSUPP;
- 	}
- 
--	tc_for_each_action(a, cls->exts) {
-+	tcf_exts_to_list(cls->exts, &actions);
-+	list_for_each_entry(a, &actions, list) {
- 		if (!is_tcf_mirred_mirror(a) || protocol != htons(ETH_P_ALL))
- 			return -ENOTSUPP;
- 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 870332f..82f3c91 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -176,8 +176,8 @@ int tcf_register_action(struct tc_action_ops *a, struct pernet_operations *ops);
- int tcf_unregister_action(struct tc_action_ops *a,
- 			  struct pernet_operations *ops);
- int tcf_action_destroy(struct list_head *actions, int bind);
--int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
--		    struct tcf_result *res);
-+int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
-+		    int nr_actions, struct tcf_result *res);
- int tcf_action_init(struct net *net, struct nlattr *nla,
- 				  struct nlattr *est, char *n, int ovr,
- 				  int bind, struct list_head *);
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 00dd5c4..587c501 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -59,7 +59,8 @@ tcf_unbind_filter(struct tcf_proto *tp, struct tcf_result *r)
- struct tcf_exts {
- #ifdef CONFIG_NET_CLS_ACT
- 	__u32	type; /* for backward compat(TCA_OLD_COMPAT) */
--	struct list_head actions;
-+	int nr_actions;
-+	struct tc_action **actions;
- #endif
- 	/* Map to export classifier specific extension TLV types to the
- 	 * generic extensions API. Unsupported extensions must be set to 0.
-@@ -72,7 +73,10 @@ static inline void tcf_exts_init(struct tcf_exts *exts, int action, int police)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	exts->type = 0;
--	INIT_LIST_HEAD(&exts->actions);
-+	exts->nr_actions = 0;
-+	exts->actions = kcalloc(TCA_ACT_MAX_PRIO, sizeof(struct tc_action *),
-+				GFP_KERNEL);
-+	WARN_ON(!exts->actions); /* TODO: propagate the error to callers */
- #endif
- 	exts->action = action;
- 	exts->police = police;
-@@ -89,7 +93,7 @@ static inline int
- tcf_exts_is_predicative(struct tcf_exts *exts)
- {
- #ifdef CONFIG_NET_CLS_ACT
--	return !list_empty(&exts->actions);
-+	return exts->nr_actions;
- #else
- 	return 0;
- #endif
-@@ -108,6 +112,20 @@ tcf_exts_is_available(struct tcf_exts *exts)
- 	return tcf_exts_is_predicative(exts);
- }
- 
-+static inline void
-+tcf_exts_to_list(const struct tcf_exts *exts, struct list_head *actions)
-+{
-+#ifdef CONFIG_NET_CLS_ACT
-+	int i;
-+
-+	for (i = 0; i < exts->nr_actions; i++) {
-+		struct tc_action *a = exts->actions[i];
-+
-+		list_add(&a->list, actions);
-+	}
-+#endif
-+}
-+
- /**
-  * tcf_exts_exec - execute tc filter extensions
-  * @skb: socket buffer
-@@ -124,27 +142,21 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
- 	       struct tcf_result *res)
- {
- #ifdef CONFIG_NET_CLS_ACT
--	if (!list_empty(&exts->actions))
--		return tcf_action_exec(skb, &exts->actions, res);
-+	if (exts->nr_actions)
-+		return tcf_action_exec(skb, exts->actions, exts->nr_actions,
-+				       res);
- #endif
- 	return 0;
- }
- 
- #ifdef CONFIG_NET_CLS_ACT
- 
--#define tc_no_actions(_exts) \
--	(list_empty(&(_exts)->actions))
--
--#define tc_for_each_action(_a, _exts) \
--	list_for_each_entry(_a, &(_exts)->actions, list)
--
--#define tc_single_action(_exts) \
--	(list_is_singular(&(_exts)->actions))
-+#define tc_no_actions(_exts)  ((_exts)->nr_actions == 0)
-+#define tc_single_action(_exts) ((_exts)->nr_actions == 1)
- 
- #else /* CONFIG_NET_CLS_ACT */
- 
- #define tc_no_actions(_exts) true
--#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
- #define tc_single_action(_exts) false
- 
- #endif /* CONFIG_NET_CLS_ACT */
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index b4c7be3..d09d068 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -420,18 +420,19 @@ static struct tc_action_ops *tc_lookup_action(struct nlattr *kind)
- 	return res;
- }
- 
--int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
--		    struct tcf_result *res)
-+int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
-+		    int nr_actions, struct tcf_result *res)
- {
--	const struct tc_action *a;
--	int ret = -1;
-+	int ret = -1, i;
- 
- 	if (skb->tc_verd & TC_NCLS) {
- 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
- 		ret = TC_ACT_OK;
- 		goto exec_done;
- 	}
--	list_for_each_entry(a, actions, list) {
-+	for (i = 0; i < nr_actions; i++) {
-+		const struct tc_action *a = actions[i];
-+
- repeat:
- 		ret = a->ops->act(skb, a, res);
- 		if (ret == TC_ACT_REPEAT)
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 843a716..a7c5645 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -541,8 +541,12 @@ out:
- void tcf_exts_destroy(struct tcf_exts *exts)
- {
- #ifdef CONFIG_NET_CLS_ACT
--	tcf_action_destroy(&exts->actions, TCA_ACT_UNBIND);
--	INIT_LIST_HEAD(&exts->actions);
-+	LIST_HEAD(actions);
-+
-+	tcf_exts_to_list(exts, &actions);
-+	tcf_action_destroy(&actions, TCA_ACT_UNBIND);
-+	kfree(exts->actions);
-+	exts->nr_actions = 0;
- #endif
- }
- EXPORT_SYMBOL(tcf_exts_destroy);
-@@ -554,7 +558,6 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
+diff --git a/samples/bpf/test_verifier.c b/samples/bpf/test_verifier.c
+index fe2fcec98c1f..78c6f131d94f 100644
+--- a/samples/bpf/test_verifier.c
++++ b/samples/bpf/test_verifier.c
+@@ -1449,7 +1449,7 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
  	{
- 		struct tc_action *act;
+-		"pkt: test1",
++		"direct packet access: test1",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, data)),
+@@ -1466,7 +1466,7 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
+-		"pkt: test2",
++		"direct packet access: test2",
+ 		.insns = {
+ 			BPF_MOV64_IMM(BPF_REG_0, 1),
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1,
+@@ -1499,7 +1499,7 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
+ 	{
+-		"pkt: test3",
++		"direct packet access: test3",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, data)),
+@@ -1511,7 +1511,7 @@ static struct bpf_test tests[] = {
+ 		.prog_type = BPF_PROG_TYPE_SOCKET_FILTER,
+ 	},
+ 	{
+-		"pkt: test4",
++		"direct packet access: test4",
+ 		.insns = {
+ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
+ 				    offsetof(struct __sk_buff, data)),
+@@ -1528,6 +1528,112 @@ static struct bpf_test tests[] = {
+ 		.result = REJECT,
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
++	{
++		"helper access to packet: test1, valid packet_ptr range",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 5),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_2),
++			BPF_MOV64_IMM(BPF_REG_4, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {5},
++		.result_unpriv = ACCEPT,
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"helper access to packet: test2, unchecked packet_ptr",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {1},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"helper access to packet: test3, variable add",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++					offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++					offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 10),
++			BPF_LDX_MEM(BPF_B, BPF_REG_5, BPF_REG_2, 0),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_4, BPF_REG_5),
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_4),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_5, BPF_REG_3, 4),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_4),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {11},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"helper access to packet: test4, packet_ptr with bad range",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 4),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 2),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {7},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"helper access to packet: test5, packet_ptr with too short range",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 1),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 7),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 3),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.fixup = {6},
++		.result = REJECT,
++		.errstr = "invalid access to packet",
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
+ };
  
--		INIT_LIST_HEAD(&exts->actions);
- 		if (exts->police && tb[exts->police]) {
- 			act = tcf_action_init_1(net, tb[exts->police], rate_tlv,
- 						"police", ovr,
-@@ -563,14 +566,20 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 				return PTR_ERR(act);
- 
- 			act->type = exts->type = TCA_OLD_COMPAT;
--			list_add(&act->list, &exts->actions);
-+			exts->actions[0] = act;
-+			exts->nr_actions = 1;
- 		} else if (exts->action && tb[exts->action]) {
--			int err;
-+			LIST_HEAD(actions);
-+			int err, i = 0;
-+
- 			err = tcf_action_init(net, tb[exts->action], rate_tlv,
- 					      NULL, ovr,
--					      TCA_ACT_BIND, &exts->actions);
-+					      TCA_ACT_BIND, &actions);
- 			if (err)
- 				return err;
-+			list_for_each_entry(act, &actions, list)
-+				exts->actions[i++] = act;
-+			exts->nr_actions = i;
- 		}
- 	}
- #else
-@@ -587,37 +596,49 @@ void tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
- 		     struct tcf_exts *src)
- {
- #ifdef CONFIG_NET_CLS_ACT
--	LIST_HEAD(tmp);
-+	struct tcf_exts old = *dst;
-+
- 	tcf_tree_lock(tp);
--	list_splice_init(&dst->actions, &tmp);
--	list_splice(&src->actions, &dst->actions);
-+	dst->nr_actions = src->nr_actions;
-+	dst->actions = src->actions;
- 	dst->type = src->type;
- 	tcf_tree_unlock(tp);
--	tcf_action_destroy(&tmp, TCA_ACT_UNBIND);
-+
-+	tcf_exts_destroy(&old);
- #endif
- }
- EXPORT_SYMBOL(tcf_exts_change);
- 
--#define tcf_exts_first_act(ext)					\
--	list_first_entry_or_null(&(exts)->actions,		\
--				 struct tc_action, list)
-+#ifdef CONFIG_NET_CLS_ACT
-+static struct tc_action *tcf_exts_first_act(struct tcf_exts *exts)
-+{
-+	if (exts->nr_actions == 0)
-+		return NULL;
-+	else
-+		return exts->actions[0];
-+}
-+#endif
- 
- int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts)
- {
- #ifdef CONFIG_NET_CLS_ACT
- 	struct nlattr *nest;
- 
--	if (exts->action && !list_empty(&exts->actions)) {
-+	if (exts->action && exts->nr_actions) {
- 		/*
- 		 * again for backward compatible mode - we want
- 		 * to work with both old and new modes of entering
- 		 * tc data even if iproute2  was newer - jhs
- 		 */
- 		if (exts->type != TCA_OLD_COMPAT) {
-+			LIST_HEAD(actions);
-+
- 			nest = nla_nest_start(skb, exts->action);
- 			if (nest == NULL)
- 				goto nla_put_failure;
--			if (tcf_action_dump(skb, &exts->actions, 0, 0) < 0)
-+
-+			tcf_exts_to_list(exts, &actions);
-+			if (tcf_action_dump(skb, &actions, 0, 0) < 0)
- 				goto nla_put_failure;
- 			nla_nest_end(skb, nest);
- 		} else if (exts->police) {
+ static int probe_filter_length(struct bpf_insn *fp)
 -- 
-1.8.4.5
+2.8.0
