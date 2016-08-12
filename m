@@ -1,83 +1,97 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] net/irda: handle iriap_register_lsap() allocation failure
-Date: Fri, 12 Aug 2016 10:29:13 +0200
-Message-ID: <1470990553-19921-1-git-send-email-vegard.nossum@oracle.com>
-Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@oracle.com>,
-	stable@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:49437 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487AbcHLIaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 04:30:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [4.4-RT PATCH RFC/RFT] drivers: net: cpsw: mark rx/tx irq as
+ IRQF_NO_THREAD
+Date: Fri, 12 Aug 2016 10:32:06 +0200
+Message-ID: <20160812083206.t7lvxpo44marwpf5@linutronix.de>
+References: <20160811161540.9613-1-grygorii.strashko@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Steven Rostedt <rostedt@goodmis.org>, linux-omap@vger.kernel.org,
+	Alison Chaiken <alison@peloton-tech.com>,
+	linux-rt-users@vger.kernel.org, netdev@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160811161540.9613-1-grygorii.strashko@ti.com>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If iriap_register_lsap() fails to allocate memory, self->lsap is
-set to NULL. However, none of the callers handle the failure and
-irlmp_connect_request() will happily dereference it:
+On 2016-08-11 19:15:40 [+0300], Grygorii Strashko wrote:
+> Mark CPSW Rx/Tx IRQs as IRQF_NO_THREAD and avoid double scheduling on -RT
+> where this IRQs are forced threaded:
+>  rx-irq
+>   |- schedule threaded rx-irq handler
+> ...
+>   |- threaded rx-irq handler -> cpsw_rx_interrupt()
+>      |- napi_schedule()
+> 	|- __raise_softirq_irqoff()
+> 	   |- wakeup_proper_softirq()
+> ...
+>   napi
 
-    iriap_register_lsap: Unable to allocated LSAP!
-    ================================================================================
-    UBSAN: Undefined behaviour in net/irda/irlmp.c:378:2
-    member access within null pointer of type 'struct lsap_cb'
-    CPU: 1 PID: 15403 Comm: trinity-c0 Not tainted 4.8.0-rc1+ #81
-    Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.3-0-ge2fc41e-prebuilt.qemu-project.org
-    04/01/2014
-     0000000000000000 ffff88010c7e78a8 ffffffff82344f40 0000000041b58ab3
-     ffffffff84f98000 ffffffff82344e94 ffff88010c7e78d0 ffff88010c7e7880
-     ffff88010630ad00 ffffffff84a5fae0 ffffffff84d3f5c0 000000000000017a
-    Call Trace:
-     [<ffffffff82344f40>] dump_stack+0xac/0xfc
-     [<ffffffff8242f5a8>] ubsan_epilogue+0xd/0x8a
-     [<ffffffff824302bf>] __ubsan_handle_type_mismatch+0x157/0x411
-     [<ffffffff83b7bdbc>] irlmp_connect_request+0x7ac/0x970
-     [<ffffffff83b77cc0>] iriap_connect_request+0xa0/0x160
-     [<ffffffff83b77f48>] state_s_disconnect+0x88/0xd0
-     [<ffffffff83b78904>] iriap_do_client_event+0x94/0x120
-     [<ffffffff83b77710>] iriap_getvaluebyclass_request+0x3e0/0x6d0
-     [<ffffffff83ba6ebb>] irda_find_lsap_sel+0x1eb/0x630
-     [<ffffffff83ba90c8>] irda_connect+0x828/0x12d0
-     [<ffffffff833c0dfb>] SYSC_connect+0x22b/0x340
-     [<ffffffff833c7e09>] SyS_connect+0x9/0x10
-     [<ffffffff81007bd3>] do_syscall_64+0x1b3/0x4b0
-     [<ffffffff845f946a>] entry_SYSCALL64_slow_path+0x25/0x25
-    ================================================================================
+This should not be the default path. The default should be napi running
+in the context of the threaded rx-irq handler once the handler is done.
+The wakeup_proper_softirq() part is only done if napi thinks that the
+callback functions runs for too long. So in *that* case you continue
+NAPI in the softirq-thread which runs at SCHED_OTHER.
 
-The bug seems to have been around since forever.
+> after:
+>  rx-irq
+>   |- cpsw_rx_interrupt()
+>      |- napi_schedule()
+>   |- irq_exit()
+>      |- invoke_softirq()
+> 	   |- wakeup_softirqd()
+> ...
+>   napi
 
-There's more problems with missing error checks in iriap_init() (and
-indeed all of irda_init()), but that's a bigger problem that needs
-very careful review and testing. This patch will fix the most serious
-bug (as it's easily reached from unprivileged userspace).
+Since you schedule the softirq from an IRQ-off region / without a
+process context you force the softirq to run in the thread at
+SCHED_OTHER priority.
 
-I have tested my patch with a reproducer.
+> And, as result, get benefits from the following improvements (tested
+> on am57xx-evm):
+> 
+> 1) "[ 78.348599] NOHZ: local_softirq_pending 80" message will not be
+>    seen any more. Now these warnings can be seen once iperf is started.
+>    # iperf -c $IPERFHOST -w 128K  -d -t 60
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- net/irda/iriap.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Do you also see "sched: RT throttling activated"? Because I don't see
+otherwise why this should pop up.
 
-diff --git a/net/irda/iriap.c b/net/irda/iriap.c
-index 4a7ae32a..1138eaf 100644
---- a/net/irda/iriap.c
-+++ b/net/irda/iriap.c
-@@ -185,8 +185,12 @@ struct iriap_cb *iriap_open(__u8 slsap_sel, int mode, void *priv,
- 
- 	self->magic = IAS_MAGIC;
- 	self->mode = mode;
--	if (mode == IAS_CLIENT)
--		iriap_register_lsap(self, slsap_sel, mode);
-+	if (mode == IAS_CLIENT) {
-+		if (iriap_register_lsap(self, slsap_sel, mode)) {
-+			kfree(self);
-+			return NULL;
-+		}
-+	}
- 
- 	self->confirm = callback;
- 	self->priv = priv;
--- 
-1.9.1
+> 2) latency reduction when cyclictest is run in parallel with network load
+>  where net_perf.sh is:
+>    iperf -c $IPERFHOST -w 8K    -d -t 60
+>    iperf -c $IPERFHOST -w 16K   -d -t 60
+>    iperf -c $IPERFHOST -w 32K   -d -t 60
+>    iperf -c $IPERFHOST -w 64K   -d -t 60
+>    iperf -c $IPERFHOST -w 128K  -d -t 60
+> 
+> before:
+> T: 0 ( 1326) P:98 I:1000 C: 240000 Min:      8 Act:   13 Avg:   18 Max:      70
+> T: 1 ( 1327) P:98 I:1500 C: 159981 Min:      9 Act:   15 Avg:   16 Max:      43
+> after:
+> T: 0 ( 1331) P:98 I:1000 C: 240000 Min:      8 Act:   15 Avg:   14 Max:      51
+> T: 1 ( 1332) P:98 I:1500 C: 159953 Min:      8 Act:   16 Avg:   15 Max:      33
+
+-d 0 to have I: set to the same value.
+What does -i 250 say?
+And without network load we are where we were at "after" values?
+
+What happens if s/__raise_softirq_irqoff_ksoft/__raise_softirq_irqoff/
+in net/core/dev.c and chrt the priority of you network interrupt
+handlers to SCHED_OTHER priority?
+
+> 3) network performance increase
+> 
+> win, K	Mbits/s
+> 	before	after	%
+> 8K	354	350.3	0.0
+> 16K	412	551	33.7
+> 32K	423	659.5	55.9
+> 64K	436	728.3	67.0
+> 128K	537	845	57.4
+
+How close are the after numbers to !RT?
+
+Sebastian
