@@ -1,216 +1,69 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: [PATCH 6/6] net: virtio-net: Convert to hotplug state machine
-Date: Fri, 12 Aug 2016 19:49:43 +0200
-Message-ID: <1471024183-12666-7-git-send-email-bigeasy@linutronix.de>
-References: <1471024183-12666-1-git-send-email-bigeasy@linutronix.de>
-Cc: rt@linutronix.de, Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Will Deacon <will.deacon@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471024183-12666-1-git-send-email-bigeasy@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net v2] gre: set inner_protocol on xmit
+Date: Fri, 12 Aug 2016 10:57:15 -0700
+Message-ID: <CAOrHB_CJdxnZgQJHQzT00SjeHTXt7J19Lbg2qDUoH_qKR=kOTA@mail.gmail.com>
+References: <1471014883-25399-1-git-send-email-simon.horman@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:52401 "EHLO
+	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752713AbcHLR5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 13:57:21 -0400
+Received: from mfilter34-d.gandi.net (mfilter34-d.gandi.net [217.70.178.165])
+	by relay6-d.mail.gandi.net (Postfix) with ESMTP id 802E4FB8A0
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 19:57:18 +0200 (CEST)
+Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
+	by mfilter34-d.gandi.net (mfilter34-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id uir5ourTPeCu for <netdev@vger.kernel.org>;
+	Fri, 12 Aug 2016 19:57:17 +0200 (CEST)
+Received: from mail-io0-f171.google.com (mail-io0-f171.google.com [209.85.223.171])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 0AE45FB882
+	for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 19:57:16 +0200 (CEST)
+Received: by mail-io0-f171.google.com with SMTP id 38so31520602iol.0
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 10:57:16 -0700 (PDT)
+In-Reply-To: <1471014883-25399-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Install the callbacks via the state machine.
-The driver supports multiple instances and therefore the new
-cpuhp_state_add_instance_nocalls() infrastrucure is used. The driver
-currently uses get_online_cpus() to avoid missing a CPU hotplug event
-while invoking virtnet_set_affinity(). This could be avoided by using
-cpuhp_state_add_instance() variant which holds the hotplug lock and
-invokes callback during registration. This is more or less a 1:1
-conversation of the current code.
+On Fri, Aug 12, 2016 at 8:14 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> Ensure that the inner_protocol is set on transmit so that GSO segmentation,
+> which relies on that field, works correctly.
+>
+> I have observed this is not the case when OvS transmits GRE using
+> lwtunnel metadata (which it always does).
+>
+> Fixes: 38720352412a ("gre: Use inner_proto to obtain inner header protocol")
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+> v2
+> * Added Alexander's Ack
+> * Drop RFC designation
+> ---
+>  net/ipv4/ip_gre.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index 5b1481be0282..1571b71448a0 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -451,6 +451,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
+>
+>         df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
+>
+> +       skb_set_inner_protocol(skb, proto);
+>         iptunnel_xmit(skb->sk, rt, skb, fl.saddr, key->u.ipv4.dst, IPPROTO_GRE,
+>                       key->tos, key->ttl, df, false);
+>         return;
 
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: virtualization@lists.linux-foundation.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- drivers/net/virtio_net.c   | 110 +++++++++++++++++++++++++++++++++++----------
- include/linux/cpuhotplug.h |   1 +
- 2 files changed, 87 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 1b5f531eeb25..e9be88cd76c1 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -138,8 +138,9 @@ struct virtnet_info {
- 	/* Does the affinity hint is set for virtqueues? */
- 	bool affinity_hint_set;
- 
--	/* CPU hot plug notifier */
--	struct notifier_block nb;
-+	/* CPU hotplug instances for online & dead */
-+	struct hlist_node node;
-+	struct hlist_node node_dead;
- 
- 	/* Control VQ buffers: protected by the rtnl lock */
- 	struct virtio_net_ctrl_hdr ctrl_hdr;
-@@ -1237,25 +1238,53 @@ static void virtnet_set_affinity(struct virtnet_info *vi)
- 	vi->affinity_hint_set = true;
- }
- 
--static int virtnet_cpu_callback(struct notifier_block *nfb,
--			        unsigned long action, void *hcpu)
-+static int virtnet_cpu_online(unsigned int cpu, struct hlist_node *node)
- {
--	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
-+	struct virtnet_info *vi = hlist_entry_safe(node, struct virtnet_info,
-+						   node);
-+	virtnet_set_affinity(vi);
-+	return 0;
-+}
- 
--	switch(action & ~CPU_TASKS_FROZEN) {
--	case CPU_ONLINE:
--	case CPU_DOWN_FAILED:
--	case CPU_DEAD:
--		virtnet_set_affinity(vi);
--		break;
--	case CPU_DOWN_PREPARE:
--		virtnet_clean_affinity(vi, (long)hcpu);
--		break;
--	default:
--		break;
--	}
-+static int virtnet_cpu_dead(unsigned int cpu, struct hlist_node *node)
-+{
-+	struct virtnet_info *vi = hlist_entry_safe(node, struct virtnet_info,
-+						   node_dead);
-+	virtnet_set_affinity(vi);
-+	return 0;
-+}
- 
--	return NOTIFY_OK;
-+static int virtnet_cpu_down_prep(unsigned int cpu, struct hlist_node *node)
-+{
-+	struct virtnet_info *vi = hlist_entry_safe(node, struct virtnet_info,
-+						   node);
-+
-+	virtnet_clean_affinity(vi, cpu);
-+	return 0;
-+}
-+
-+static enum cpuhp_state virtionet_online;
-+
-+static int virtnet_cpu_notif_add(struct virtnet_info *vi)
-+{
-+	int ret;
-+
-+	ret = cpuhp_state_add_instance_nocalls(virtionet_online, &vi->node);
-+	if (ret)
-+		return ret;
-+	ret = cpuhp_state_add_instance_nocalls(CPUHP_VIRT_NET_DEAD,
-+					       &vi->node_dead);
-+	if (!ret)
-+		return ret;
-+	cpuhp_state_remove_instance_nocalls(virtionet_online, &vi->node);
-+	return ret;
-+}
-+
-+static void virtnet_cpu_notif_remove(struct virtnet_info *vi)
-+{
-+	cpuhp_state_remove_instance_nocalls(virtionet_online, &vi->node);
-+	cpuhp_state_remove_instance_nocalls(CPUHP_VIRT_NET_DEAD,
-+					    &vi->node_dead);
- }
- 
- static void virtnet_get_ringparam(struct net_device *dev,
-@@ -1879,8 +1908,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 
- 	virtio_device_ready(vdev);
- 
--	vi->nb.notifier_call = &virtnet_cpu_callback;
--	err = register_hotcpu_notifier(&vi->nb);
-+	err = virtnet_cpu_notif_add(vi);
- 	if (err) {
- 		pr_debug("virtio_net: registering cpu notifier failed\n");
- 		goto free_unregister_netdev;
-@@ -1934,7 +1962,7 @@ static void virtnet_remove(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
- 
--	unregister_hotcpu_notifier(&vi->nb);
-+	virtnet_cpu_notif_remove(vi);
- 
- 	/* Make sure no work handler is accessing the device. */
- 	flush_work(&vi->config_work);
-@@ -1953,7 +1981,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	struct virtnet_info *vi = vdev->priv;
- 	int i;
- 
--	unregister_hotcpu_notifier(&vi->nb);
-+	virtnet_cpu_notif_remove(vi);
- 
- 	/* Make sure no work handler is accessing the device */
- 	flush_work(&vi->config_work);
-@@ -1997,7 +2025,7 @@ static int virtnet_restore(struct virtio_device *vdev)
- 	virtnet_set_queues(vi, vi->curr_queue_pairs);
- 	rtnl_unlock();
- 
--	err = register_hotcpu_notifier(&vi->nb);
-+	err = virtnet_cpu_notif_add(vi);
- 	if (err)
- 		return err;
- 
-@@ -2039,7 +2067,41 @@ static struct virtio_driver virtio_net_driver = {
- #endif
- };
- 
--module_virtio_driver(virtio_net_driver);
-+static __init int virtio_net_driver_init(void)
-+{
-+	int ret;
-+
-+	ret = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN, "AP_VIRT_NET_ONLINE",
-+				      virtnet_cpu_online,
-+				      virtnet_cpu_down_prep);
-+	if (ret < 0)
-+		goto out;
-+	virtionet_online = ret;
-+	ret = cpuhp_setup_state_multi(CPUHP_VIRT_NET_DEAD, "VIRT_NET_DEAD",
-+				      NULL, virtnet_cpu_dead);
-+	if (ret)
-+		goto err_dead;
-+
-+        ret = register_virtio_driver(&virtio_net_driver);
-+	if (ret)
-+		goto err_virtio;
-+	return 0;
-+err_virtio:
-+	cpuhp_remove_state_nocalls(CPUHP_VIRT_NET_DEAD);
-+err_dead:
-+	cpuhp_remove_state_nocalls(virtionet_online);
-+out:
-+	return ret;
-+}
-+module_init(virtio_net_driver_init);
-+
-+static __exit void virtio_net_driver_exit(void)
-+{
-+	cpuhp_remove_state_nocalls(CPUHP_VIRT_NET_DEAD);
-+	cpuhp_remove_state_nocalls(virtionet_online);
-+	unregister_virtio_driver(&virtio_net_driver);
-+}
-+module_exit(virtio_net_driver_exit);
- 
- MODULE_DEVICE_TABLE(virtio, id_table);
- MODULE_DESCRIPTION("Virtio network driver");
-diff --git a/include/linux/cpuhotplug.h b/include/linux/cpuhotplug.h
-index 81cc20789a3e..5c657c836de6 100644
---- a/include/linux/cpuhotplug.h
-+++ b/include/linux/cpuhotplug.h
-@@ -20,6 +20,7 @@ enum cpuhp_state {
- 	CPUHP_PROFILE_PREPARE,
- 	CPUHP_X2APIC_PREPARE,
- 	CPUHP_SMPCFD_PREPARE,
-+	CPUHP_VIRT_NET_DEAD,
- 	CPUHP_RCUTREE_PREP,
- 	CPUHP_NOTIFY_PREPARE,
- 	CPUHP_TIMERS_DEAD,
--- 
-2.8.1
+This patch is right but can you move this call to gre_build_header().
+This way there would less duplicate code. Plus it is more consistent
+with vxlan and geneve where the inner protocol is set in respective
+build header functions.
