@@ -1,49 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/21] net: thunderx: Support for newer chips and
- miscellaneous patches
-Date: Sat, 13 Aug 2016 12:01:22 -0700 (PDT)
-Message-ID: <20160813.120122.1295172335050799161.davem@davemloft.net>
-References: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: ethernet: mediatek: fixed that initializing
+ u64_stats_sync is missing
+Date: Sat, 13 Aug 2016 14:59:31 -0700 (PDT)
+Message-ID: <20160813.145931.1217702635280785771.davem@davemloft.net>
+References: <1471086979-23032-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sgoutham@cavium.com, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: sunil.kovvuri@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1471000904-21715-1-git-send-email-sunil.kovvuri@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1471086979-23032-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: sunil.kovvuri@gmail.com
-Date: Fri, 12 Aug 2016 16:51:23 +0530
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Date: Sat, 13 Aug 2016 19:16:18 +0800
 
-> This patch series adds support for VNIC on 81xx and 83xx SOCs.
-> 81xx/83xx is different from 88xx in terms of capabilities and new type
-> of interfaces supported (eg: QSGMII, RGMII) and have DLMs instead of
-> QLMs which allows single BGX to have interfaces of different LMAC types.
+> To fix runtime warning with lockdep is enabled due that u64_stats_sync
+> is not initialized well, so add it.
 > 
-> Also included some patches which are common for all 88xx/81xx/83xx
-> SOCs like using netdev's name while registering irqs, reset receive
-> queue stats and some changes to use standard API for split buffer Rx
-> packets, generating RSS key e.t.c
-> 
-> PS: Most of the patches were submitted earlier under different series but
-> for some reason were not picked up by patchwork. Since new patches have been
-> added in the meantime, resubmitting all as a new patchset.
-> 
-> Changes from v1:
-> - Incorporated Yuval Mintz's suggestion to use generic API to set minimum
->   queue count i.e by using netif_get_num_default_rss_queues().
-> - Resolved a compilation issue reported by test robot while compiling
->   patch 'Add support for 16 LMACs of 83xx'
+> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 
-Series applied.
+Applied.
