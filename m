@@ -1,97 +1,104 @@
-From: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net: macb: add phy-handle support for the macb
-Date: Sat, 13 Aug 2016 15:31:49 +0530
-Message-ID: <1471082509-11764-1-git-send-email-appanad@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<sergio.prado-1e4yhPs3/ABSwrhanM7KvQ@public.gmane.org>,
-	<gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, <narmstrong-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
-	<michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>, <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: ggarcia@abra.uab.cat
+Subject: [PATCH v2 0/3] VSOCK: vsockmon virtual device to monitor AF_VSOCK
+ sockets.
+Date: Sat, 13 Aug 2016 12:21:51 +0200
+Message-ID: <20160813102154.14338-1-ggarcia@deic.uab.cat>
+Content-Transfer-Encoding: 7BIT
+Cc: stefanha@redhat.com, mst@redhat.com,
+	Gerard Garcia <ggarcia@abra.uab.cat>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from damascus.uab.es ([158.109.168.135]:24466 "EHLO damascus.uab.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752135AbcHMKWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2016 06:22:02 -0400
+Received: from damascus.uab.es ([127.0.0.1])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OBU00K48FGNJO10@damascus.uab.es> for
+ netdev@vger.kernel.org; Sat, 13 Aug 2016 12:21:59 +0200 (CEST)
+Received: from abra.uab.es ([158.109.79.4])
+ by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
+ Jan  6 2005)) with ESMTP id <0OBU00F8CFGNC350@damascus.uab.es> for
+ netdev@vger.kernel.org; Sat, 13 Aug 2016 12:21:59 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the 'phy-handle' binding which allows for a
-system to specifically select a phy which can be attached via any MDIO
-bus available in the system.
+From: Gerard Garcia <ggarcia@deic.uab.cat>
 
-Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
----
- Documentation/devicetree/bindings/net/macb.txt |  3 +++
- drivers/net/ethernet/cadence/macb.c            | 11 +++++++++--
- drivers/net/ethernet/cadence/macb.h            |  1 +
- 3 files changed, 13 insertions(+), 2 deletions(-)
+This patch applies over the mst vhost git repository:
+http://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git
 
-diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-index b5a42df..3cfff7c 100644
---- a/Documentation/devicetree/bindings/net/macb.txt
-+++ b/Documentation/devicetree/bindings/net/macb.txt
-@@ -23,6 +23,9 @@ Required properties:
- 	Optional elements: 'tx_clk'
- - clocks: Phandles to input clocks.
- 
-+Optional properties:
-+- phy-handle	: See ethernet.txt file in the same directory.
-+
- Optional properties for PHY child node:
- - reset-gpios : Should specify the gpio for phy reset
- - magic-packet : If present, indicates that the hardware supports waking
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 6b797e3..4ddd45d 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -421,7 +421,7 @@ static int macb_mii_probe(struct net_device *dev)
- static int macb_mii_init(struct macb *bp)
- {
- 	struct macb_platform_data *pdata;
--	struct device_node *np;
-+	struct device_node *np, *np1;
- 	int err = -ENXIO, i;
- 
- 	/* Enable management port */
-@@ -445,7 +445,13 @@ static int macb_mii_init(struct macb *bp)
- 	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
- 
- 	np = bp->pdev->dev.of_node;
--	if (np) {
-+	np1 = of_get_parent(bp->phy_node);
-+	if (np1) {
-+		of_node_put(np1);
-+		err = of_mdiobus_register(bp->mii_bus, np1);
-+		if (err)
-+			goto err_out_unregister_bus;
-+	} else if (np) {
- 		/* try dt phy registration */
- 		err = of_mdiobus_register(bp->mii_bus, np);
- 
-@@ -3016,6 +3022,7 @@ static int macb_probe(struct platform_device *pdev)
- 	} else {
- 		bp->phy_interface = err;
- 	}
-+	bp->phy_node = of_parse_phandle(np, "phy-handle", 0);
- 
- 	/* IP specific init */
- 	err = init(pdev);
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index aa3aeec..83d1617 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -855,6 +855,7 @@ struct macb {
- 	unsigned int		jumbo_max_len;
- 
- 	u32			wol;
-+	struct device_node	*phy_node;
- };
- 
- static inline bool macb_is_gem(struct macb *bp)
+v2:
+ * Clone skb before transmitting them to vsockmon.
+ * Use consume_skb() instead of kfree_skb().
+ * Pass skb lifetime responsibility to tap functions.
+ * Remove t_hdr member from vsockmon header to avoid problems when/if it
+    changes it size if more transports are supported.
+
+This was already been sent as a RFC where several issues where fixed.
+This is the summary of changes from the first RFC:
+
+v2:
+ * Do not clone skb, instead take ownership before transmitting.
+ * Split tap functions from af_vsock.c.
+ * Simplify vsockmon header to remove unnecessary padding and
+    set little endian byte order.
+ * Various simple fixes from the comments received to the first RFC.
+
+Additionally, first pach version changes:
+ * Add len field to the vsockmon header to ease parsing.
+ * Pack vsockmon header.
+ * Various simple fixes and styling.
+
+Overview:
+
+Virtual socket transports operate at kernel level therefore, there is no easy
+way to see the traffic exchanged between virtual machines and hypervisors that
+communicate using AF_VSOCK sockets. In addition, being able to see the control
+messages exchanged by the transports may be useful for debugging and
+optimization purposes. This patch adds a virtual device that may be used to see
+the traffic exchanged between virtual machines and hypervisors through AF_VSOCK
+sockets.
+
+Its structure is based on the nlmon device and this version just targets the
+virtio transport, but support for the VMCI transport can be easily implemented.
+The vsockmon header contains a generic header and includes the header specific to
+the transport. The generic header allows to follow an AF_VSOCK stream without
+having to dig into the details of the transport while the transport header
+gives more detail which may be useful for troubleshooting and debugging.
+
+Testing:
+
+To set up a vsockmon device:
+
+ip link add type vsockmon
+ip link set vsockmon0 up
+
+The Wireshark development version (master branch) includes a vsock dissector
+that is capable of parsing packets received through vsockmon. The dissector
+needs to be manually selected.
+
+Thanks to Stefan Hajnoczi for his help.
+
+Gerard Garcia (3):
+  VSOCK: Add vsockmon tap functions
+  VSOCK: Add vsockmon device
+  VSOCK: Add virtio vsock vsockmon hooks
+
+ drivers/net/Kconfig           |   8 ++
+ drivers/net/Makefile          |   1 +
+ drivers/net/vsockmon.c        | 168 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/vsock.c         |  72 ++++++++++++++++++
+ include/net/af_vsock.h        |  13 ++++
+ include/uapi/linux/Kbuild     |   1 +
+ include/uapi/linux/if_arp.h   |   1 +
+ include/uapi/linux/vsockmon.h |  38 ++++++++++
+ net/vmw_vsock/Makefile        |   2 +-
+ net/vmw_vsock/af_vsock_tap.c  | 113 ++++++++++++++++++++++++++++
+ 10 files changed, 416 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/vsockmon.c
+ create mode 100644 include/uapi/linux/vsockmon.h
+ create mode 100644 net/vmw_vsock/af_vsock_tap.c
+
 -- 
-2.1.2
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.9.1
