@@ -1,67 +1,74 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v2 03/12] drivers: net: xgene: fix: Delete descriptor rings and buffer pools
-Date: Fri, 12 Aug 2016 22:05:39 -0700
-Message-ID: <1471064748-28033-4-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next v2 02/12] drivers: net: xgene: fix: Add dma_unmap_single
+Date: Fri, 12 Aug 2016 22:05:38 -0700
+Message-ID: <1471064748-28033-3-git-send-email-isubramanian@apm.com>
 References: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35856 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455AbcHMFEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:54 -0400
-Received: by mail-pf0-f174.google.com with SMTP id h186so2048442pfg.3
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:35855 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428AbcHMFEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:53 -0400
+Received: by mail-pf0-f177.google.com with SMTP id h186so2048386pfg.3
         for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:04:53 -0700 (PDT)
 In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xgene_enet_init_hw() should delete any descriptor rings and
-buffer pools setup should le_ops->cle_init() return an error.
+In addition to xgene_enet_delete_bufpool() freeing skbs, their associated
+dma memory should also be unmapped.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index c1fd33d..6b36e0f 100644
+index ceeb3f4..c1fd33d 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1462,10 +1462,8 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
- 		buf_pool = pdata->rx_ring[i]->buf_pool;
- 		xgene_enet_init_bufpool(buf_pool);
- 		ret = xgene_enet_refill_bufpool(buf_pool, pdata->rx_buff_cnt);
--		if (ret) {
--			xgene_enet_delete_desc_rings(pdata);
--			return ret;
--		}
-+		if (ret)
-+			goto err;
- 	}
+@@ -72,7 +72,6 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ 		skb = netdev_alloc_skb_ip_align(ndev, len);
+ 		if (unlikely(!skb))
+ 			return -ENOMEM;
+-		buf_pool->rx_skb[tail] = skb;
  
- 	dst_ring_num = xgene_enet_dst_ring_num(pdata->rx_ring[0]);
-@@ -1482,7 +1480,7 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
- 		ret = pdata->cle_ops->cle_init(pdata);
- 		if (ret) {
- 			netdev_err(ndev, "Preclass Tree init error\n");
--			return ret;
-+			goto err;
+ 		dma_addr = dma_map_single(dev, skb->data, len, DMA_FROM_DEVICE);
+ 		if (dma_mapping_error(dev, dma_addr)) {
+@@ -81,6 +80,8 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
+ 			return -EINVAL;
  		}
- 	} else {
- 		pdata->port_ops->cle_bypass(pdata, dst_ring_num, buf_pool->id);
-@@ -1492,6 +1490,10 @@ static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
- 	pdata->mac_ops->init(pdata);
  
- 	return ret;
++		buf_pool->rx_skb[tail] = skb;
 +
-+err:
-+	xgene_enet_delete_desc_rings(pdata);
-+	return ret;
+ 		raw_desc->m1 = cpu_to_le64(SET_VAL(DATAADDR, dma_addr) |
+ 					   SET_VAL(BUFDATALEN, bufdatalen) |
+ 					   SET_BIT(COHERENT));
+@@ -102,12 +103,21 @@ static u8 xgene_enet_hdr_len(const void *data)
+ 
+ static void xgene_enet_delete_bufpool(struct xgene_enet_desc_ring *buf_pool)
+ {
++	struct device *dev = ndev_to_dev(buf_pool->ndev);
++	struct xgene_enet_raw_desc16 *raw_desc;
++	dma_addr_t dma_addr;
+ 	int i;
+ 
+ 	/* Free up the buffers held by hardware */
+ 	for (i = 0; i < buf_pool->slots; i++) {
+-		if (buf_pool->rx_skb[i])
++		if (buf_pool->rx_skb[i]) {
+ 			dev_kfree_skb_any(buf_pool->rx_skb[i]);
++
++			raw_desc = &buf_pool->raw_desc16[i];
++			dma_addr = GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1));
++			dma_unmap_single(dev, dma_addr, XGENE_ENET_MAX_MTU,
++					 DMA_FROM_DEVICE);
++		}
+ 	}
  }
  
- static void xgene_enet_setup_ops(struct xgene_enet_pdata *pdata)
 -- 
 1.9.1
