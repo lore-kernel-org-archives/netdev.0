@@ -1,43 +1,38 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: [PATCH 2/2] net: ethernet: mediatek: add the missing of_node_put() after node is used done
-Date: Sat, 13 Aug 2016 19:16:19 +0800
-Message-ID: <1471086979-23032-2-git-send-email-sean.wang@mediatek.com>
-References: <1471086979-23032-1-git-send-email-sean.wang@mediatek.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net v3 5/5] net_sched: convert tcf_exts from list to
+ pointer array
+Date: Sat, 13 Aug 2016 07:33:55 -0400
+Message-ID: <70a062d7-5670-b71a-1ead-045a7b1426f5@mojatatu.com>
+References: <1470962503-19682-1-git-send-email-xiyou.wangcong@gmail.com>
+ <1470962503-19682-6-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-	<linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-	Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:5770 "EHLO
-	mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751566AbcHMLQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 07:16:31 -0400
-In-Reply-To: <1471086979-23032-1-git-send-email-sean.wang@mediatek.com>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:35160 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbcHMLea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 07:34:30 -0400
+Received: by mail-qk0-f176.google.com with SMTP id v123so8807575qkh.2
+        for <netdev@vger.kernel.org>; Sat, 13 Aug 2016 04:33:57 -0700 (PDT)
+In-Reply-To: <1470962503-19682-6-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the missing of_node_put() after finishing the usage
-of of_parse_phandle() or of_node_get() used by fixed_phy.
 
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 ++
- 1 file changed, 2 insertions(+)
+Just minor comment below:
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index f5d2745..88b04dd 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -269,6 +269,8 @@ static int mtk_phy_connect(struct mtk_mac *mac)
- 				    ADVERTISED_Autoneg;
- 	phy_start_aneg(mac->phy_dev);
- 
-+	of_node_put(np);
-+
- 	return 0;
- }
- 
--- 
-1.7.9.5
+On 16-08-11 08:41 PM, Cong Wang wrote:
+
+
+> +static inline void
+> +tcf_exts_to_list(const struct tcf_exts *exts, struct list_head *actions)
+> +{
+
+to:
+static inline void tcf_exts_to_list(const struct tcf_exts *exts,
+                                     struct list_head *actions)
+
+cheers,
+jamal
