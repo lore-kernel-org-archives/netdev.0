@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] VSOCK: remove more space available check
- filling TX vq
-Date: Fri, 12 Aug 2016 17:31:15 -0700 (PDT)
-Message-ID: <20160812.173115.1043123219898818778.davem@davemloft.net>
-References: <20160810152434.14346-1-ggarcia@deic.uab.cat>
+Subject: Re: [PATCH 2/9] dsa: mv88e6xxx: hide unused functions
+Date: Fri, 12 Aug 2016 17:32:47 -0700 (PDT)
+Message-ID: <20160812.173247.1281295644746506311.davem@davemloft.net>
+References: <20160810215424.1926658-1-arnd@arndb.de>
+	<20160810215424.1926658-3-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stefanha@redhat.com, mst@redhat.com
-To: ggarcia@abra.uab.cat
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56275 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544AbcHMAbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 20:31:16 -0400
-In-Reply-To: <20160810152434.14346-1-ggarcia@deic.uab.cat>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+	f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160810215424.1926658-3-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: ggarcia@abra.uab.cat
-Date: Wed, 10 Aug 2016 17:24:34 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 10 Aug 2016 23:54:08 +0200
 
-> From: Gerard Garcia <ggarcia@deic.uab.cat>
+> When CONFIG_NET_DSA_HWMON is disabled, we get warnings about two unused
+> functions whose only callers are all inside of an #ifdef:
 > 
-> Remove unnecessary use of enable/disable callback notifications
-> and the incorrect more space available check.
+> drivers/net/dsa/mv88e6xxx.c:3257:12: 'mv88e6xxx_mdio_page_write' defined but not used [-Werror=unused-function]
+> drivers/net/dsa/mv88e6xxx.c:3244:12: 'mv88e6xxx_mdio_page_read' defined but not used [-Werror=unused-function]
 > 
-> The virtio_transport_tx_work handles when the TX virtqueue
-> has more buffers available.
+> This adds another ifdef around the function definitions. The warnings
+> appeared after the functions were marked 'static', but the problem
+> was already there before that.
 > 
-> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
-> Acked-by: Stefan Hajnoczi <stefanha@redhat.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 57d3231057e9 ("net: dsa: mv88e6xxx: fix style issues")
+> Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+> When I first submitted it on June 23, there was a clash with some
+> other patches, this version is based on top of current mainline,
+> which contains those patches already, so it should apply cleanly.
 
-This does not apply cleanly to the current net GIT tree.
+Applied, thanks.
