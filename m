@@ -1,74 +1,91 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v2 02/12] drivers: net: xgene: fix: Add dma_unmap_single
-Date: Fri, 12 Aug 2016 22:05:38 -0700
-Message-ID: <1471064748-28033-3-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next v2 05/12] drivers: net: xgene: Fix RSS indirection table fields
+Date: Fri, 12 Aug 2016 22:05:41 -0700
+Message-ID: <1471064748-28033-6-git-send-email-isubramanian@apm.com>
 References: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>
+	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>,
+	Quan Nguyen <qnguyen@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35855 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752428AbcHMFEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:53 -0400
-Received: by mail-pf0-f177.google.com with SMTP id h186so2048386pfg.3
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:04:53 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33200 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428AbcHMFE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:56 -0400
+Received: by mail-pf0-f171.google.com with SMTP id y134so2074117pfg.0
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:04:56 -0700 (PDT)
 In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In addition to xgene_enet_delete_bufpool() freeing skbs, their associated
-dma memory should also be unmapped.
+This patch fixes FPSel and NxtFPSel fields length to 5-bit value.
 
+Signed-off-by: Quan Nguyen <qnguyen@apm.com>
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Tested-by: Fushen Chen <fchen@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_cle.c | 17 ++++++++++++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_cle.h | 10 +++++++---
+ 2 files changed, 19 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index ceeb3f4..c1fd33d 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -72,7 +72,6 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
- 		skb = netdev_alloc_skb_ip_align(ndev, len);
- 		if (unlikely(!skb))
- 			return -ENOMEM;
--		buf_pool->rx_skb[tail] = skb;
- 
- 		dma_addr = dma_map_single(dev, skb->data, len, DMA_FROM_DEVICE);
- 		if (dma_mapping_error(dev, dma_addr)) {
-@@ -81,6 +80,8 @@ static int xgene_enet_refill_bufpool(struct xgene_enet_desc_ring *buf_pool,
- 			return -EINVAL;
- 		}
- 
-+		buf_pool->rx_skb[tail] = skb;
-+
- 		raw_desc->m1 = cpu_to_le64(SET_VAL(DATAADDR, dma_addr) |
- 					   SET_VAL(BUFDATALEN, bufdatalen) |
- 					   SET_BIT(COHERENT));
-@@ -102,12 +103,21 @@ static u8 xgene_enet_hdr_len(const void *data)
- 
- static void xgene_enet_delete_bufpool(struct xgene_enet_desc_ring *buf_pool)
- {
-+	struct device *dev = ndev_to_dev(buf_pool->ndev);
-+	struct xgene_enet_raw_desc16 *raw_desc;
-+	dma_addr_t dma_addr;
- 	int i;
- 
- 	/* Free up the buffers held by hardware */
- 	for (i = 0; i < buf_pool->slots; i++) {
--		if (buf_pool->rx_skb[i])
-+		if (buf_pool->rx_skb[i]) {
- 			dev_kfree_skb_any(buf_pool->rx_skb[i]);
-+
-+			raw_desc = &buf_pool->raw_desc16[i];
-+			dma_addr = GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1));
-+			dma_unmap_single(dev, dma_addr, XGENE_ENET_MAX_MTU,
-+					 DMA_FROM_DEVICE);
-+		}
- 	}
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
+index 472c0fb..23d72af 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
+@@ -32,12 +32,19 @@ static void xgene_cle_sband_to_hw(u8 frag, enum xgene_cle_prot_version ver,
+ 		SET_VAL(SB_HDRLEN, len);
  }
  
+-static void xgene_cle_idt_to_hw(u32 dstqid, u32 fpsel,
++static void xgene_cle_idt_to_hw(struct xgene_enet_pdata *pdata,
++				u32 dstqid, u32 fpsel,
+ 				u32 nfpsel, u32 *idt_reg)
+ {
+-	*idt_reg =  SET_VAL(IDT_DSTQID, dstqid) |
+-		    SET_VAL(IDT_FPSEL, fpsel) |
+-		    SET_VAL(IDT_NFPSEL, nfpsel);
++	if (pdata->enet_id == XGENE_ENET1) {
++		*idt_reg = SET_VAL(IDT_DSTQID, dstqid) |
++			   SET_VAL(IDT_FPSEL1, fpsel)  |
++			   SET_VAL(IDT_NFPSEL1, nfpsel);
++	} else {
++		*idt_reg = SET_VAL(IDT_DSTQID, dstqid) |
++			   SET_VAL(IDT_FPSEL, fpsel)   |
++			   SET_VAL(IDT_NFPSEL, nfpsel);
++	}
+ }
+ 
+ static void xgene_cle_dbptr_to_hw(struct xgene_enet_pdata *pdata,
+@@ -344,7 +351,7 @@ static int xgene_cle_set_rss_idt(struct xgene_enet_pdata *pdata)
+ 		nfpsel = 0;
+ 		idt_reg = 0;
+ 
+-		xgene_cle_idt_to_hw(dstqid, fpsel, nfpsel, &idt_reg);
++		xgene_cle_idt_to_hw(pdata, dstqid, fpsel, nfpsel, &idt_reg);
+ 		ret = xgene_cle_dram_wr(&pdata->cle, &idt_reg, 1, i,
+ 					RSS_IDT, CLE_CMD_WR);
+ 		if (ret)
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
+index 33c5f6b..9ac9f8e 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
+@@ -196,9 +196,13 @@ enum xgene_cle_ptree_dbptrs {
+ #define IDT_DSTQID_POS		0
+ #define IDT_DSTQID_LEN		12
+ #define IDT_FPSEL_POS		12
+-#define IDT_FPSEL_LEN		4
+-#define IDT_NFPSEL_POS		16
+-#define IDT_NFPSEL_LEN		4
++#define IDT_FPSEL_LEN		5
++#define IDT_NFPSEL_POS		17
++#define IDT_NFPSEL_LEN		5
++#define IDT_FPSEL1_POS		12
++#define IDT_FPSEL1_LEN		4
++#define IDT_NFPSEL1_POS		16
++#define IDT_NFPSEL1_LEN		4
+ 
+ struct xgene_cle_ptree_branch {
+ 	bool valid;
 -- 
 1.9.1
