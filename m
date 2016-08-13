@@ -1,61 +1,180 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: [PATCH net-next v2 11/12] drivers: net: xgene: Fix backward compatibility
-Date: Fri, 12 Aug 2016 22:05:47 -0700
-Message-ID: <1471064748-28033-12-git-send-email-isubramanian@apm.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH net-next v2 07/12] drivers: net: xgene: XFI PCS reset when link is down
+Date: Fri, 12 Aug 2016 22:05:43 -0700
+Message-ID: <1471064748-28033-8-git-send-email-isubramanian@apm.com>
 References: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>,
+	Fushen Chen <fchen@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34672 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752744AbcHMFE7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:59 -0400
+Received: by mail-pa0-f42.google.com with SMTP id fi15so1974024pac.1
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:04:59 -0700 (PDT)
+In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the backward compatibility on handling phy_connect(), by
-iterating over the phy-handle, when new DT is used with older kernel.
+This patch fixes the link recovery issue, by doing PCS reset
+when the link is down.
 
-Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Fushen Chen <fchen@apm.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  6 ++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c | 42 +++++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |  4 +++
+ 5 files changed, 54 insertions(+)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index 18bb955..321fb19 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -761,18 +761,18 @@ int xgene_enet_phy_connect(struct net_device *ndev)
- 	if (dev->of_node) {
- 		for (i = 0 ; i < 2; i++) {
- 			np = of_parse_phandle(dev->of_node, "phy-handle", i);
--			if (np)
--				break;
--		}
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index 179a44d..8a8d055 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -124,6 +124,12 @@ enum xgene_enet_rm {
+ #define MAC_READ_REG_OFFSET		0x0c
+ #define MAC_COMMAND_DONE_REG_OFFSET	0x10
  
--		if (!np) {
--			netdev_dbg(ndev, "No phy-handle found in DT\n");
--			return -ENODEV;
-+			if (!np)
-+				continue;
++#define PCS_ADDR_REG_OFFSET		0x00
++#define PCS_COMMAND_REG_OFFSET		0x04
++#define PCS_WRITE_REG_OFFSET		0x08
++#define PCS_READ_REG_OFFSET		0x0c
++#define PCS_COMMAND_DONE_REG_OFFSET	0x10
 +
-+			phy_dev = of_phy_connect(ndev, np,
-+						 &xgene_enet_adjust_link,
-+						 0, pdata->phy_mode);
-+			of_node_put(np);
-+			if (phy_dev)
-+				break;
- 		}
+ #define MII_MGMT_CONFIG_ADDR		0x20
+ #define MII_MGMT_COMMAND_ADDR		0x24
+ #define MII_MGMT_ADDRESS_ADDR		0x28
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index a727da8..01a9aaf 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -1433,6 +1433,7 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	} else {
+ 		pdata->mcx_mac_addr = base_addr + BLOCK_AXG_MAC_OFFSET;
+ 		pdata->mcx_mac_csr_addr = base_addr + BLOCK_AXG_MAC_CSR_OFFSET;
++		pdata->pcs_addr = base_addr + BLOCK_PCS_OFFSET;
+ 	}
+ 	pdata->rx_buff_cnt = NUM_PKT_BUF;
  
--		phy_dev = of_phy_connect(ndev, np, &xgene_enet_adjust_link,
--					 0, pdata->phy_mode);
--		of_node_put(np);
- 		if (!phy_dev) {
- 			netdev_err(ndev, "Could not connect to PHY\n");
- 			return -ENODEV;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 217546e..53f4a16 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -196,6 +196,7 @@ struct xgene_enet_pdata {
+ 	void __iomem *mcx_mac_addr;
+ 	void __iomem *mcx_mac_csr_addr;
+ 	void __iomem *base_addr;
++	void __iomem *pcs_addr;
+ 	void __iomem *ring_csr_addr;
+ 	void __iomem *ring_cmd_addr;
+ 	int phy_mode;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+index d53c053..4087dba 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+@@ -84,6 +84,21 @@ static void xgene_enet_wr_mac(struct xgene_enet_pdata *pdata,
+ 			   wr_addr);
+ }
+ 
++static void xgene_enet_wr_pcs(struct xgene_enet_pdata *pdata,
++			      u32 wr_addr, u32 wr_data)
++{
++	void __iomem *addr, *wr, *cmd, *cmd_done;
++
++	addr = pdata->pcs_addr + PCS_ADDR_REG_OFFSET;
++	wr = pdata->pcs_addr + PCS_WRITE_REG_OFFSET;
++	cmd = pdata->pcs_addr + PCS_COMMAND_REG_OFFSET;
++	cmd_done = pdata->pcs_addr + PCS_COMMAND_DONE_REG_OFFSET;
++
++	if (!xgene_enet_wr_indirect(addr, wr, cmd, cmd_done, wr_addr, wr_data))
++		netdev_err(pdata->ndev, "PCS write failed, addr: %04x\n",
++			   wr_addr);
++}
++
+ static void xgene_enet_rd_csr(struct xgene_enet_pdata *pdata,
+ 			      u32 offset, u32 *val)
+ {
+@@ -122,6 +137,7 @@ static bool xgene_enet_rd_indirect(void __iomem *addr, void __iomem *rd,
+ 
+ 	return true;
+ }
++
+ static void xgene_enet_rd_mac(struct xgene_enet_pdata *pdata,
+ 			      u32 rd_addr, u32 *rd_data)
+ {
+@@ -137,6 +153,21 @@ static void xgene_enet_rd_mac(struct xgene_enet_pdata *pdata,
+ 			   rd_addr);
+ }
+ 
++static void xgene_enet_rd_pcs(struct xgene_enet_pdata *pdata,
++			      u32 rd_addr, u32 *rd_data)
++{
++	void __iomem *addr, *rd, *cmd, *cmd_done;
++
++	addr = pdata->pcs_addr + PCS_ADDR_REG_OFFSET;
++	rd = pdata->pcs_addr + PCS_READ_REG_OFFSET;
++	cmd = pdata->pcs_addr + PCS_COMMAND_REG_OFFSET;
++	cmd_done = pdata->pcs_addr + PCS_COMMAND_DONE_REG_OFFSET;
++
++	if (!xgene_enet_rd_indirect(addr, rd, cmd, cmd_done, rd_addr, rd_data))
++		netdev_err(pdata->ndev, "PCS read failed, addr: %04x\n",
++			   rd_addr);
++}
++
+ static int xgene_enet_ecc_init(struct xgene_enet_pdata *pdata)
+ {
+ 	struct net_device *ndev = pdata->ndev;
+@@ -171,6 +202,15 @@ static void xgene_xgmac_reset(struct xgene_enet_pdata *pdata)
+ 	xgene_enet_wr_mac(pdata, AXGMAC_CONFIG_0, 0);
+ }
+ 
++static void xgene_pcs_reset(struct xgene_enet_pdata *pdata)
++{
++	u32 data;
++
++	xgene_enet_rd_pcs(pdata, PCS_CONTROL_1, &data);
++	xgene_enet_wr_pcs(pdata, PCS_CONTROL_1, data | PCS_CTRL_PCS_RST);
++	xgene_enet_wr_pcs(pdata, PCS_CONTROL_1, data & ~PCS_CTRL_PCS_RST);
++}
++
+ static void xgene_xgmac_set_mac_addr(struct xgene_enet_pdata *pdata)
+ {
+ 	u32 addr0, addr1;
+@@ -379,6 +419,8 @@ static void xgene_enet_link_state(struct work_struct *work)
+ 			netdev_info(ndev, "Link is Down\n");
+ 		}
+ 		poll_interval = PHY_POLL_LINK_OFF;
++
++		xgene_pcs_reset(pdata);
+ 	}
+ 
+ 	schedule_delayed_work(&pdata->link_work, poll_interval);
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
+index f1ea485..360ccbd 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h
+@@ -24,6 +24,7 @@
+ #define X2_BLOCK_ETH_MAC_CSR_OFFSET	0x3000
+ #define BLOCK_AXG_MAC_OFFSET		0x0800
+ #define BLOCK_AXG_MAC_CSR_OFFSET	0x2000
++#define BLOCK_PCS_OFFSET		0x3800
+ 
+ #define XGENET_CONFIG_REG_ADDR		0x20
+ #define XGENET_SRST_ADDR		0x00
+@@ -72,6 +73,9 @@
+ #define XG_MCX_ICM_CONFIG0_REG_0_ADDR	0x00e0
+ #define XG_MCX_ICM_CONFIG2_REG_0_ADDR	0x00e8
+ 
++#define PCS_CONTROL_1			0x0000
++#define PCS_CTRL_PCS_RST		BIT(15)
++
+ extern const struct xgene_mac_ops xgene_xgmac_ops;
+ extern const struct xgene_port_ops xgene_xgport_ops;
+ 
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
