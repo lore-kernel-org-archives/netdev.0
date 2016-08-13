@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/9] dsa: mv88e6xxx: hide unused functions
-Date: Fri, 12 Aug 2016 17:32:47 -0700 (PDT)
-Message-ID: <20160812.173247.1281295644746506311.davem@davemloft.net>
-References: <20160810215424.1926658-1-arnd@arndb.de>
-	<20160810215424.1926658-3-arnd@arndb.de>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] sit: make function ipip6_valid_ip_proto() static
+Date: Sat, 13 Aug 2016 01:54:15 +0000
+Message-ID: <1471053255-31395-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-	f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160810215424.1926658-3-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34502 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751981AbcHMByX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 21:54:23 -0400
+Received: by mail-pa0-f68.google.com with SMTP id hh10so188916pac.1
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 18:54:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 10 Aug 2016 23:54:08 +0200
+Fixes the following sparse warning:
 
-> When CONFIG_NET_DSA_HWMON is disabled, we get warnings about two unused
-> functions whose only callers are all inside of an #ifdef:
-> 
-> drivers/net/dsa/mv88e6xxx.c:3257:12: 'mv88e6xxx_mdio_page_write' defined but not used [-Werror=unused-function]
-> drivers/net/dsa/mv88e6xxx.c:3244:12: 'mv88e6xxx_mdio_page_read' defined but not used [-Werror=unused-function]
-> 
-> This adds another ifdef around the function definitions. The warnings
-> appeared after the functions were marked 'static', but the problem
-> was already there before that.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 57d3231057e9 ("net: dsa: mv88e6xxx: fix style issues")
-> Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
-> When I first submitted it on June 23, there was a clash with some
-> other patches, this version is based on top of current mainline,
-> which contains those patches already, so it should apply cleanly.
+net/ipv6/sit.c:1129:6: warning:
+ symbol 'ipip6_valid_ip_proto' was not declared. Should it be static?
 
-Applied, thanks.
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+---
+ net/ipv6/sit.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 696edee..b1cdf80 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1126,7 +1126,7 @@ static int ipip6_tunnel_update_6rd(struct ip_tunnel *t,
+ }
+ #endif
+ 
+-bool ipip6_valid_ip_proto(u8 ipproto)
++static bool ipip6_valid_ip_proto(u8 ipproto)
+ {
+ 	return ipproto == IPPROTO_IPV6 ||
+ 		ipproto == IPPROTO_IPIP ||
