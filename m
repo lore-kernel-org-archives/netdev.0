@@ -1,44 +1,43 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v2 10/12] Documentation: dtb: xgene: Add rxlos GPIO mapping
-Date: Fri, 12 Aug 2016 22:05:46 -0700
-Message-ID: <1471064748-28033-11-git-send-email-isubramanian@apm.com>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH net-next v2 09/12] dtb: xgene: Add rxlos-gpios property
+Date: Fri, 12 Aug 2016 22:05:45 -0700
+Message-ID: <1471064748-28033-10-git-send-email-isubramanian@apm.com>
 References: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>,
-	Quan Nguyen <qnguyen@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:35869 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752834AbcHMFFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:05:03 -0400
-Received: by mail-pf0-f173.google.com with SMTP id h186so2049389pfg.3
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:05:02 -0700 (PDT)
-In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Quan Nguyen <qnguyen-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Quan Nguyen <qnguyen@apm.com>
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Tested-by: Fushen Chen <fchen@apm.com>
+Added rxlos GPIO mapping by adding rxlos-gpios property.
+
+Signed-off-by: Quan Nguyen <qnguyen-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Tested-by: Fushen Chen <fchen-qTEPVZfXA3Y@public.gmane.org>
 ---
- Documentation/devicetree/bindings/net/apm-xgene-enet.txt | 3 +++
- 1 file changed, 3 insertions(+)
+ arch/arm64/boot/dts/apm/apm-mustang.dts | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-index e41b2d5..f591ab7 100644
---- a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -47,6 +47,9 @@ Optional properties:
- 	    Valid values are between 0 to 7, that maps to
- 	    273, 589, 899, 1222, 1480, 1806, 2147, 2464 ps
- 	    Default value is 2, which corresponds to 899 ps
-+- rxlos-gpios: Input gpio from SFP+ module to indicate availability of
-+	       incoming signal.
-+
+diff --git a/arch/arm64/boot/dts/apm/apm-mustang.dts b/arch/arm64/boot/dts/apm/apm-mustang.dts
+index b7fb5d9..32a961c 100644
+--- a/arch/arm64/boot/dts/apm/apm-mustang.dts
++++ b/arch/arm64/boot/dts/apm/apm-mustang.dts
+@@ -74,6 +74,7 @@
  
- Example:
- 	menetclk: menetclk {
+ &xgenet {
+ 	status = "ok";
++	rxlos-gpios = <&sbgpio 12 1>;
+ };
+ 
+ &mmc0 {
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
