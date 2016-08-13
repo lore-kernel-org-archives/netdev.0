@@ -1,93 +1,42 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v2 04/12] drivers: net: xgene: Fix error deconstruction path
-Date: Fri, 12 Aug 2016 22:05:40 -0700
-Message-ID: <1471064748-28033-5-git-send-email-isubramanian@apm.com>
-References: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
-	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net] bpf: fix bpf_skb_in_cgroup helper naming
+Date: Fri, 12 Aug 2016 23:14:02 -0700
+Message-ID: <20160813061402.GA68945@kafai-mba.local>
+References: <f08aab1ab054e7609ff3dc1632c4cc4603636d7d.1471031665.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <alexei.starovoitov@gmail.com>,
+	<tj@kernel.org>, <sargun@sargun.me>, <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35857 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752517AbcHMFEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:55 -0400
-Received: by mail-pf0-f178.google.com with SMTP id h186so2048589pfg.3
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:04:55 -0700 (PDT)
-In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:2072 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751496AbcHMGOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 02:14:32 -0400
+Content-Disposition: inline
+In-Reply-To: <f08aab1ab054e7609ff3dc1632c4cc4603636d7d.1471031665.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since register_netdev() call in xgene_enet_probe() was moved down to
-the end, it doesn't properly handle errors that may occur, by
-deconstructing everything that was setup before the error occurred.
+On Fri, Aug 12, 2016 at 10:17:17PM +0200, Daniel Borkmann wrote:
+> While hashing out BPF's current_task_under_cgroup helper bits, it came
+> to discussion that the skb_in_cgroup helper name was suboptimally chosen.
+>
+> Tejun says:
+>
+>   So, I think in_cgroup should mean that the object is in that
+>   particular cgroup while under_cgroup in the subhierarchy of that
+>   cgroup. Let's rename the other subhierarchy test to under too. I
+>   think that'd be a lot less confusing going forward.
+>
+>   [...]
+>
+>   It's more intuitive and gives us the room to implement the real
+>   "in" test if ever necessary in the future.
+>
+> Since this touches uapi bits, we need to change this as long as v4.8
+> is not yet officially released. Thus, change the helper enum and rename
+> related bits.
+Thanks for working on this and be-lated
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 27 +++++++++++++++++-------
- 1 file changed, 19 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 6b36e0f..a727da8 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1641,8 +1641,8 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 	}
- #endif
- 	if (!pdata->enet_id) {
--		free_netdev(ndev);
--		return -ENODEV;
-+		ret = -ENODEV;
-+		goto err;
- 	}
- 
- 	ret = xgene_enet_get_resources(pdata);
-@@ -1665,7 +1665,7 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 
- 	ret = xgene_enet_init_hw(pdata);
- 	if (ret)
--		goto err_netdev;
-+		goto err;
- 
- 	link_state = pdata->mac_ops->link_state;
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
-@@ -1675,21 +1675,32 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 			ret = xgene_enet_mdio_config(pdata);
- 		else
- 			INIT_DELAYED_WORK(&pdata->link_work, link_state);
-+
-+		if (ret)
-+			goto err1;
- 	}
--	if (ret)
--		goto err;
- 
- 	xgene_enet_napi_add(pdata);
- 	ret = register_netdev(ndev);
- 	if (ret) {
- 		netdev_err(ndev, "Failed to register netdev\n");
--		goto err;
-+		goto err2;
- 	}
- 
- 	return 0;
- 
--err_netdev:
--	unregister_netdev(ndev);
-+err2:
-+	/*
-+	 * If necessary, free_netdev() will call netif_napi_del() and undo
-+	 * the effects of xgene_enet_napi_add()'s calls to netif_napi_add().
-+	 */
-+
-+	if (pdata->mdio_driver)
-+		xgene_enet_phy_disconnect(pdata);
-+	else if (pdata->phy_mode == PHY_INTERFACE_MODE_RGMII)
-+		xgene_enet_mdio_remove(pdata);
-+err1:
-+	xgene_enet_delete_desc_rings(pdata);
- err:
- 	free_netdev(ndev);
- 	return ret;
--- 
-1.9.1
+Acked-by: Martin KaFai Lau <kafai@fb.com>
