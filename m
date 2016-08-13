@@ -1,44 +1,63 @@
-From: Piotr Jurkiewicz <piotr.jerzy.jurkiewicz@gmail.com>
-Subject: Issues related to TCP Fast Open flags: TFO_SERVER_COOKIE_NOT_CHKED
- and TFO_SERVER_WO_SOCKOPT2
-Date: Sun, 14 Aug 2016 01:05:38 +0200
-Message-ID: <58f77827-c57c-0602-255f-a76fdd3cd472@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [Intel-wired-lan] [net-next] igb: add function to set I210
+ transmit mode
+Date: Sat, 13 Aug 2016 12:03:21 -0700
+Message-ID: <57AF6EF9.5090707@gmail.com>
+References: <1470811692-24574-1-git-send-email-gangfeng.huang@ni.com>
+ <1470811692-24574-2-git-send-email-gangfeng.huang@ni.com>
+ <CAKgT0UeOmzDaLm0-yuvEjzYoN5g8=ouBv+8rpOmx7MgkWRfA+A@mail.gmail.com>
+ <20160813161103.GA1188@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Gangfeng <gangfeng.huang@ni.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:34820 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642AbcHNKQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 06:16:02 -0400
-Received: by mail-wm0-f50.google.com with SMTP id f65so46849743wmi.0
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 03:16:01 -0700 (PDT)
-Received: from [192.168.1.100] (static-202-152.is.net.pl. [217.144.202.152])
-        by smtp.googlemail.com with ESMTPSA id q36sm2051489lfi.26.2016.08.13.16.05.38
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sat, 13 Aug 2016 16:05:39 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35288 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751442AbcHNKsn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 06:48:43 -0400
+Received: by mail-pf0-f179.google.com with SMTP id x72so9242422pfd.2
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 03:48:43 -0700 (PDT)
+In-Reply-To: <20160813161103.GA1188@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. Handling of TFO_SERVER_COOKIE_NOT_CHKED flag was removed back in 2014, but this flag is still mentioned in the documentation:
+On 16-08-13 09:11 AM, Richard Cochran wrote:
+> On Sat, Aug 13, 2016 at 08:27:38AM -0700, Alexander Duyck wrote:
+>> I really don' think this patch is going to work.  If you are going to
+>> implement something like this and have a hope to get it accepted into
+>> the Linux kernel you need to come up with a solution that will work
+>> fore more than this one device.  We don't want the drivers having to
+>> carry around their own sysfs controls for things that really are not
+>> proprietary to the device.  There needs to be a generic kernel
+>> interface for this.  The fact is something like QAV more than likely
+>> exists on other devices as well so it may be worth while to look into
+>> seeing if you could come up with some way of interfacing this with
+>> either ethtool ,iproute2, or maybe even the DCB/LLDP utilities since
+>> this is essentially splitting the Tx into two separate traffic
+>> classes.
+> 
+> Yes to all of this.
+>  
+>> Also for these kind of patches it would be best to include the netdev
+>> mailing list.  That way it can be reviewed by a wider audience and you
+>> are much more likely to get this accepted upstream rather than have it
+>> rejected when Jeff Kirsher attempts to submit it.
+> 
+> Right.  We just had a discussion about implementing TSN, and we will
+> need proper infrastructure in place *before* we start hacking
+> drivers.
+> 
+> Thanks,
+> Richard
 
-Documentation/networking/ip-sysctl.txt:
-	0x100: Accept SYN data w/o validating the cookie.
+Ah reading my email backwards. I think we could add TSN under the mqprio
+qdisc and ./net/dcb infrastructure. In hindsight I wouldn't have named
+the infrastructure dcb as its already being used for other 802.1Q things
+and hardware scheduling algorithms that are not strictly DCB.
 
-2. There is no explanation how TFO_SERVER_WO_SOCKOPT1 and TFO_SERVER_WO_SOCKOPT2 differ, the docs only say:
-
-Documentation/networking/ip-sysctl.txt:
-	0x400/0x800: Enable Fast Open on all listeners regardless of the
-	   TCP_FASTOPEN socket option. The two different flags designate two
-	   different ways of setting max_qlen without the TCP_FASTOPEN socket
-	   option.
-
-3. When TFO_SERVER_WO_SOCKOPT2 flag is set, the fastopenq.max_qlen is set to the value of sysctl bitmap containing flags (sysctl_tcp_fastopen), what is (at least for me) completely irrational and I believe is a bug:
-
-net/ipv4/af_inet.c:
-225                         else if ((sysctl_tcp_fastopen &
-226                                   TFO_SERVER_WO_SOCKOPT2) != 0)
-227                                 fastopen_queue_tune(sk,
-228                                     ((uint)sysctl_tcp_fastopen) >> 16);
+.John
