@@ -1,35 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/19] pull request for net-next:
-	batman-adv 2016-08-12
-Date: Fri, 12 Aug 2016 20:56:53 -0700 (PDT)
-Message-ID: <20160812.205653.180702709271306137.davem@davemloft.net>
-References: <1470992215-11009-1-git-send-email-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] sfc: SFN8000 support improvements
+Date: Fri, 12 Aug 2016 20:51:19 -0700 (PDT)
+Message-ID: <20160812.205119.1620323708766243315.davem@davemloft.net>
+References: <1137d3d8-0b1b-d5f5-149a-1771bbac7aa6@solarflare.com>
+	<78a8505b-8c63-b879-2cd2-d78d9890aa6c@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1470992215-11009-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bkenward@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57001 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752234AbcHMDvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Aug 2016 23:51:20 -0400
+In-Reply-To: <78a8505b-8c63-b879-2cd2-d78d9890aa6c@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Date: Fri, 12 Aug 2016 10:56:36 +0200
+From: Bert Kenward <bkenward@solarflare.com>
+Date: Thu, 11 Aug 2016 12:59:20 +0100
 
-> this is our first feature pull request for batman-adv, there are at least two
-> more to come (the bigger features come later).
-> 
-> Please pull or let me know of any problem!
+> This series improves support for the recently released SFN8000 series
+> of adapters. Specifically, it retrieves interrupt moderation timer
+> settings directly from the adapter and uses those settings. It also
+> uses a new event queue initialisation interface, allowing specification
+> of a performance objective rather than enabling individual flags.
 
-Pulled, thanks.
+Series applied, thanks.
