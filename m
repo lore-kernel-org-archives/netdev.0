@@ -1,7 +1,7 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH net-next v2 05/12] drivers: net: xgene: Fix RSS indirection table fields
-Date: Fri, 12 Aug 2016 22:05:41 -0700
-Message-ID: <1471064748-28033-6-git-send-email-isubramanian@apm.com>
+Subject: [PATCH net-next v2 08/12] drivers: net: xgene: Poll link status via GPIO
+Date: Fri, 12 Aug 2016 22:05:44 -0700
+Message-ID: <1471064748-28033-9-git-send-email-isubramanian@apm.com>
 References: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	linux@armlinux.org.uk, Iyappan Subramanian <isubramanian@apm.com>,
@@ -9,83 +9,123 @@ Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33200 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752428AbcHMFE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:04:56 -0400
-Received: by mail-pf0-f171.google.com with SMTP id y134so2074117pfg.0
-        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:04:56 -0700 (PDT)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35754 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752794AbcHMFFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 01:05:00 -0400
+Received: by mail-pa0-f44.google.com with SMTP id i5so1972132pat.2
+        for <netdev@vger.kernel.org>; Fri, 12 Aug 2016 22:05:00 -0700 (PDT)
 In-Reply-To: <1471064748-28033-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes FPSel and NxtFPSel fields length to 5-bit value.
+When 10GbE SFP+ module is not plugged in or cable is not connected,
+the link status register does not report the proper state due
+to floating signal. This patch checks the module present status via an
+GPIO to determine whether to ignore the link status register and report
+link down.
 
 Signed-off-by: Quan Nguyen <qnguyen@apm.com>
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Tested-by: Fushen Chen <fchen@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.c | 17 ++++++++++++-----
- drivers/net/ethernet/apm/xgene/xgene_enet_cle.h | 10 +++++++---
- 2 files changed, 19 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/apm/xgene/Kconfig            |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 15 +++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  1 +
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  6 ++++++
+ 4 files changed, 23 insertions(+)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-index 472c0fb..23d72af 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.c
-@@ -32,12 +32,19 @@ static void xgene_cle_sband_to_hw(u8 frag, enum xgene_cle_prot_version ver,
- 		SET_VAL(SB_HDRLEN, len);
+diff --git a/drivers/net/ethernet/apm/xgene/Kconfig b/drivers/net/ethernet/apm/xgene/Kconfig
+index 300e3b5..afccb03 100644
+--- a/drivers/net/ethernet/apm/xgene/Kconfig
++++ b/drivers/net/ethernet/apm/xgene/Kconfig
+@@ -4,6 +4,7 @@ config NET_XGENE
+ 	depends on ARCH_XGENE || COMPILE_TEST
+ 	select PHYLIB
+ 	select MDIO_XGENE
++	select GPIOLIB
+ 	help
+ 	  This is the Ethernet driver for the on-chip ethernet interface on the
+ 	  APM X-Gene SoC.
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index 01a9aaf..b8b9495 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -19,6 +19,7 @@
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#include <linux/gpio.h>
+ #include "xgene_enet_main.h"
+ #include "xgene_enet_hw.h"
+ #include "xgene_enet_sgmac.h"
+@@ -1320,6 +1321,18 @@ static int xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
+ 	return 0;
  }
  
--static void xgene_cle_idt_to_hw(u32 dstqid, u32 fpsel,
-+static void xgene_cle_idt_to_hw(struct xgene_enet_pdata *pdata,
-+				u32 dstqid, u32 fpsel,
- 				u32 nfpsel, u32 *idt_reg)
++static void xgene_enet_gpiod_get(struct xgene_enet_pdata *pdata)
++{
++	struct device *dev = &pdata->pdev->dev;
++
++	if (pdata->phy_mode != PHY_INTERFACE_MODE_XGMII)
++		return;
++
++	pdata->sfp_rdy = gpiod_get(dev, "rxlos", GPIOD_IN);
++	if (IS_ERR(pdata->sfp_rdy))
++		pdata->sfp_rdy = gpiod_get(dev, "sfp", GPIOD_IN);
++}
++
+ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
  {
--	*idt_reg =  SET_VAL(IDT_DSTQID, dstqid) |
--		    SET_VAL(IDT_FPSEL, fpsel) |
--		    SET_VAL(IDT_NFPSEL, nfpsel);
-+	if (pdata->enet_id == XGENE_ENET1) {
-+		*idt_reg = SET_VAL(IDT_DSTQID, dstqid) |
-+			   SET_VAL(IDT_FPSEL1, fpsel)  |
-+			   SET_VAL(IDT_NFPSEL1, nfpsel);
-+	} else {
-+		*idt_reg = SET_VAL(IDT_DSTQID, dstqid) |
-+			   SET_VAL(IDT_FPSEL, fpsel)   |
-+			   SET_VAL(IDT_NFPSEL, nfpsel);
-+	}
- }
+ 	struct platform_device *pdev;
+@@ -1409,6 +1422,8 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	if (ret)
+ 		return ret;
  
- static void xgene_cle_dbptr_to_hw(struct xgene_enet_pdata *pdata,
-@@ -344,7 +351,7 @@ static int xgene_cle_set_rss_idt(struct xgene_enet_pdata *pdata)
- 		nfpsel = 0;
- 		idt_reg = 0;
++	xgene_enet_gpiod_get(pdata);
++
+ 	pdata->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pdata->clk)) {
+ 		/* Firmware may have set up the clock already. */
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index 53f4a16..b339fc1 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -217,6 +217,7 @@ struct xgene_enet_pdata {
+ 	u8 tx_delay;
+ 	u8 rx_delay;
+ 	bool mdio_driver;
++	struct gpio_desc *sfp_rdy;
+ };
  
--		xgene_cle_idt_to_hw(dstqid, fpsel, nfpsel, &idt_reg);
-+		xgene_cle_idt_to_hw(pdata, dstqid, fpsel, nfpsel, &idt_reg);
- 		ret = xgene_cle_dram_wr(&pdata->cle, &idt_reg, 1, i,
- 					RSS_IDT, CLE_CMD_WR);
- 		if (ret)
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-index 33c5f6b..9ac9f8e 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_cle.h
-@@ -196,9 +196,13 @@ enum xgene_cle_ptree_dbptrs {
- #define IDT_DSTQID_POS		0
- #define IDT_DSTQID_LEN		12
- #define IDT_FPSEL_POS		12
--#define IDT_FPSEL_LEN		4
--#define IDT_NFPSEL_POS		16
--#define IDT_NFPSEL_LEN		4
-+#define IDT_FPSEL_LEN		5
-+#define IDT_NFPSEL_POS		17
-+#define IDT_NFPSEL_LEN		5
-+#define IDT_FPSEL1_POS		12
-+#define IDT_FPSEL1_LEN		4
-+#define IDT_NFPSEL1_POS		16
-+#define IDT_NFPSEL1_LEN		4
+ struct xgene_indirect_ctl {
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+index 4087dba..d672e71 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+@@ -18,6 +18,8 @@
+  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
  
- struct xgene_cle_ptree_branch {
- 	bool valid;
++#include <linux/of_gpio.h>
++#include <linux/gpio.h>
+ #include "xgene_enet_main.h"
+ #include "xgene_enet_hw.h"
+ #include "xgene_enet_xgmac.h"
+@@ -399,10 +401,14 @@ static void xgene_enet_link_state(struct work_struct *work)
+ {
+ 	struct xgene_enet_pdata *pdata = container_of(to_delayed_work(work),
+ 					 struct xgene_enet_pdata, link_work);
++	struct gpio_desc *sfp_rdy = pdata->sfp_rdy;
+ 	struct net_device *ndev = pdata->ndev;
+ 	u32 link_status, poll_interval;
+ 
+ 	link_status = xgene_enet_link_status(pdata);
++	if (link_status && !IS_ERR(sfp_rdy) && !gpiod_get_value(sfp_rdy))
++		link_status = 0;
++
+ 	if (link_status) {
+ 		if (!netif_carrier_ok(ndev)) {
+ 			netif_carrier_on(ndev);
 -- 
 1.9.1
