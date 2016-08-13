@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: fix write helpers with regards to non-linear
- parts
-Date: Sat, 13 Aug 2016 15:01:38 -0700 (PDT)
-Message-ID: <20160813.150138.275492199968284654.davem@davemloft.net>
-References: <c281218e107134c8d30d1aafe2aca15fcf8e43df.1470941847.git.daniel@iogearbox.net>
+Subject: NetDEV conf 1.2 in Tokyo!
+Date: Sat, 13 Aug 2016 16:17:43 -0700 (PDT)
+Message-ID: <20160813.161743.1630038737087253080.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35513 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35532 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbcHNIie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 04:38:34 -0400
-In-Reply-To: <c281218e107134c8d30d1aafe2aca15fcf8e43df.1470941847.git.daniel@iogearbox.net>
+	with ESMTP id S1751442AbcHNInX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 04:43:23 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id C531B660320
+	for <netdev@vger.kernel.org>; Sat, 13 Aug 2016 16:17:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 11 Aug 2016 21:38:37 +0200
 
-> Fix the bpf_try_make_writable() helper and all call sites we have in BPF,
-> it's currently defect with regards to skbs when the write_len spans into
-> non-linear parts, no matter if cloned or not.
- ...
-> Fixes: 608cd71a9c7c ("tc: bpf: generalize pedit action")
-> Fixes: 91bc4822c3d6 ("tc: bpf: add checksum helpers")
-> Fixes: 3697649ff29e ("bpf: try harder on clones when writing into skb")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+I just wanted to send out an extra encouragement for people
+to consider attening netdev conf 1.2 in Tokyo this coming
+October.  Details at:
 
-Applied and queued up for -stable, thanks.
+	http://netdevconf.org/1.2/
+
+If you'd like to submit a proposal for a talk, tutorial, or
+workshop, you can learn about how to do that here:
+
+	http://www.netdevconf.org/1.2/submit-proposal.html
+
+Previous editions of the conference have been in North America and
+Europe.  Therefore, I wish to specifically encourage people in the
+Asia Pacific region to attend since this will be much easier, travel
+wise, for you.
+
+I'm looking forward to seeing everyone in October!
