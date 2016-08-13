@@ -1,28 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bfin_mac: Fix a few spelling fixes
-Date: Sat, 13 Aug 2016 15:15:10 -0700 (PDT)
-Message-ID: <20160813.151510.809113014259766132.davem@davemloft.net>
-References: <1471006682-27036-1-git-send-email-clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH] net: macb: add phy-handle support for the macb
+Date: Sat, 13 Aug 2016 11:52:22 -0700 (PDT)
+Message-ID: <20160813.115222.443333178659469072.davem@davemloft.net>
+References: <1471082509-11764-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, tremyfr@gmail.com, sudipm.mukherjee@gmail.com,
-	a@unstable.cc, treding@nvidia.com, linux@roeck-us.net,
-	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471006682-27036-1-git-send-email-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, nicolas.ferre@atmel.com,
+	sergio.prado@e-labworks.com, gregory.clement@free-electrons.com,
+	narmstrong@baylibre.com, michal.simek@xilinx.com,
+	appanad@xilinx.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: appana.durga.rao@xilinx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35582 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752989AbcHNI6X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 04:58:23 -0400
+In-Reply-To: <1471082509-11764-1-git-send-email-appanad@xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: LABBE Corentin <clabbe.montjoie@gmail.com>
-Date: Fri, 12 Aug 2016 14:58:02 +0200
+From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Date: Sat, 13 Aug 2016 15:31:49 +0530
 
-> This patch respell some word badly spelled.
-> - Invidate instead of Invalidate
-> - proble instead of probe
-> 
-> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
+> @@ -445,7 +445,13 @@ static int macb_mii_init(struct macb *bp)
+>  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+>  
+>  	np = bp->pdev->dev.of_node;
+> -	if (np) {
+> +	np1 = of_get_parent(bp->phy_node);
+> +	if (np1) {
+> +		of_node_put(np1);
+> +		err = of_mdiobus_register(bp->mii_bus, np1);
+> +		if (err)
+> +			goto err_out_unregister_bus;
+> +	} else if (np) {
 
-Applied.
+I don't know about this, all OF nodes other than the root have a
+parent node which is non-NULL.  This parent node can be anything.
+
+Just blinding assuming that any parent node of the phy_node is
+what we are looking for, without any other supplementary checks
+at all, seems to be asking for trouble at the very least.
