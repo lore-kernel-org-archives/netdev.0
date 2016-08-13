@@ -1,307 +1,78 @@
-From: ggarcia@abra.uab.cat
-Subject: [PATCH v2 2/3] VSOCK: Add vsockmon device
-Date: Sat, 13 Aug 2016 12:21:53 +0200
-Message-ID: <20160813102154.14338-3-ggarcia@deic.uab.cat>
-References: <20160813102154.14338-1-ggarcia@deic.uab.cat>
-Content-Transfer-Encoding: 7BIT
-Cc: stefanha@redhat.com, mst@redhat.com,
-	Gerard Garcia <ggarcia@abra.uab.cat>
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net 0/5] net_sched: tc action fixes and updates
+Date: Sat, 13 Aug 2016 07:05:00 -0400
+Message-ID: <7d9ff1fb-90e3-6055-1560-1cf92e23f084@mojatatu.com>
+References: <1470689209-17682-1-git-send-email-xiyou.wangcong@gmail.com>
+ <a79fc4fd-69aa-0af6-bb2d-7729610f97e4@mojatatu.com>
+ <CAM_iQpUCqzytG662vBd4D0Zx09CWA9a1VuZerTatMMhdy42jBA@mail.gmail.com>
+ <62bb1c25-2967-dedc-89ac-01632d0e090d@mojatatu.com>
+ <CAM_iQpXW4Rt4=H89ZdK2BwEmK2FBHownmXEoeAWjBsQW5mLxRQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from damascus.uab.es ([158.109.168.135]:24466 "EHLO damascus.uab.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752319AbcHMKWF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Aug 2016 06:22:05 -0400
-Received: from damascus.uab.es ([127.0.0.1])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBU00K48FGNJO10@damascus.uab.es> for
- netdev@vger.kernel.org; Sat, 13 Aug 2016 12:22:00 +0200 (CEST)
-Received: from abra.uab.es ([158.109.79.4])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0OBU00EHPFGNEG50@damascus.uab.es> for
- netdev@vger.kernel.org; Sat, 13 Aug 2016 12:21:59 +0200 (CEST)
-In-reply-to: <20160813102154.14338-1-ggarcia@deic.uab.cat>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:35788 "EHLO
+	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbcHMLMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Aug 2016 07:12:21 -0400
+Received: by mail-qk0-f173.google.com with SMTP id v123so8563823qkh.2
+        for <netdev@vger.kernel.org>; Sat, 13 Aug 2016 04:12:20 -0700 (PDT)
+In-Reply-To: <CAM_iQpXW4Rt4=H89ZdK2BwEmK2FBHownmXEoeAWjBsQW5mLxRQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+On 16-08-11 08:08 PM, Cong Wang wrote:
+> On Thu, Aug 11, 2016 at 9:20 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> On 16-08-10 04:06 PM, Cong Wang wrote:
+>>>
+>>> On Wed, Aug 10, 2016 at 7:34 AM, Jamal Hadi Salim <jhs@mojatatu.com>
+>>> wrote:
+>>>>
+>>>> On 16-08-08 04:46 PM, Cong Wang wrote:
+>>
+>>
+>>>> tcf_exts_exec() is the culprit - and conversion to from flexarray
+>>>> to linked list in the fast problem to be specific.
+>>>
+>>>
+>>> Ah, this reminds me that I don't have to use flex_array, initially
+>>> I thought the tcf_exts could hold as many actions as it wants,
+>>> but actually there is a upper bound, TCA_ACT_MAX_PRIO.
+>>> IOW, a regular dynamic array is just enough here.
+>>>
+>>
+>> Yes, a regular array would be enough.
+>>
+>>
+>>> I just replaced the flex_array with a regular one, it works fine
+>>> for me too, at least no crash with all of my test cases.
+>>>
+>>
+>
+>> No problem Cong - except we have a kernel that crashes right now.
+>> BTW: I just thought of another test which uses a different code
+>> path
+>> # add a policer rule
+>> sudo $TC actions add action police rate 1kbit burst 90k drop
+>> #dump rules..
+>> sudo $TC -s actions ls action police
+>>
+>
 
-Add vsockmon virtual network device that receives packets from the vsock
-transports and exposes them to user space.
+I tested a lot more this time.
+Good news: performance regression now resolved.
+Some bad news - there's still one more oops:
 
-Based on the nlmon device.
+sudo $TC actions add action police rate 1kbit burst 90k drop index 1
 
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
----
- drivers/net/Kconfig           |   8 ++
- drivers/net/Makefile          |   1 +
- drivers/net/vsockmon.c        | 168 ++++++++++++++++++++++++++++++++++++++++++
- include/uapi/linux/Kbuild     |   1 +
- include/uapi/linux/vsockmon.h |  38 ++++++++++
- 5 files changed, 216 insertions(+)
- create mode 100644 drivers/net/vsockmon.c
- create mode 100644 include/uapi/linux/vsockmon.h
+note how i explicitly specified the index.
+If i leave out the index, all works fine. I'll continue to see
+if there are any other issue for the next while and will email.
+I think you are close so  I will also make small comments on the
+patches because you are going to make another update.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0c5415b..42c43b6 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -330,6 +330,14 @@ config NET_VRF
- 	  This option enables the support for mapping interfaces into VRF's. The
- 	  support enables VRF devices.
- 
-+config VSOCKMON
-+    tristate "Virtual vsock monitoring device"
-+    depends on VHOST_VSOCK
-+    ---help---
-+     This option enables a monitoring net device for vsock sockets. It is
-+     mostly intended for developers or support to debug vsock issues. If
-+     unsure, say N.
-+
- endif # NET_CORE
- 
- config SUNGEM_PHY
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 7336cbd..e2188d4 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -28,6 +28,7 @@ obj-$(CONFIG_GENEVE) += geneve.o
- obj-$(CONFIG_GTP) += gtp.o
- obj-$(CONFIG_NLMON) += nlmon.o
- obj-$(CONFIG_NET_VRF) += vrf.o
-+obj-$(CONFIG_VSOCKMON) += vsockmon.o
- 
- #
- # Networking Drivers
-diff --git a/drivers/net/vsockmon.c b/drivers/net/vsockmon.c
-new file mode 100644
-index 0000000..9ad4f0a
---- /dev/null
-+++ b/drivers/net/vsockmon.c
-@@ -0,0 +1,168 @@
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/if_arp.h>
-+#include <net/rtnetlink.h>
-+#include <net/sock.h>
-+#include <net/af_vsock.h>
-+#include <uapi/linux/vsockmon.h>
-+#include <linux/virtio_vsock.h>
-+
-+/* Virtio transport max packet size plus header */
-+#define DEFAULT_MTU VIRTIO_VSOCK_MAX_PKT_BUF_SIZE + sizeof(struct af_vsockmon_hdr);
-+
-+struct pcpu_lstats {
-+	u64 rx_packets;
-+	u64 rx_bytes;
-+	struct u64_stats_sync syncp;
-+};
-+
-+static int vsockmon_dev_init(struct net_device *dev)
-+{
-+	dev->lstats = netdev_alloc_pcpu_stats(struct pcpu_lstats);
-+	return dev->lstats == NULL ? -ENOMEM : 0;
-+}
-+
-+static void vsockmon_dev_uninit(struct net_device *dev)
-+{
-+	free_percpu(dev->lstats);
-+}
-+
-+struct vsockmon {
-+	struct vsock_tap vt;
-+};
-+
-+static int vsockmon_open(struct net_device *dev)
-+{
-+	struct vsockmon *vsockmon = netdev_priv(dev);
-+
-+	vsockmon->vt.dev = dev;
-+	vsockmon->vt.module = THIS_MODULE;
-+	return vsock_add_tap(&vsockmon->vt);
-+}
-+
-+static int vsockmon_close(struct net_device *dev) {
-+	struct vsockmon *vsockmon = netdev_priv(dev);
-+
-+	return vsock_remove_tap(&vsockmon->vt);
-+}
-+
-+static netdev_tx_t vsockmon_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	int len = skb->len;
-+	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
-+
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->rx_bytes += len;
-+	stats->rx_packets++;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	dev_kfree_skb(skb);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static struct rtnl_link_stats64 *
-+vsockmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
-+{
-+	int i;
-+	u64 bytes = 0, packets = 0;
-+
-+	for_each_possible_cpu(i) {
-+		const struct pcpu_lstats *vstats;
-+		u64 tbytes, tpackets;
-+		unsigned int start;
-+
-+		vstats = per_cpu_ptr(dev->lstats, i);
-+
-+		do {
-+			start = u64_stats_fetch_begin_irq(&vstats->syncp);
-+			tbytes = vstats->rx_bytes;
-+			tpackets = vstats->rx_packets;
-+		} while (u64_stats_fetch_retry_irq(&vstats->syncp, start));
-+
-+		packets += tpackets;
-+		bytes += tbytes;
-+	}
-+
-+	stats->rx_packets = packets;
-+	stats->tx_packets = 0;
-+
-+	stats->rx_bytes = bytes;
-+	stats->tx_bytes = 0;
-+
-+	return stats;
-+}
-+
-+static int vsockmon_is_valid_mtu(int new_mtu)
-+{
-+	return new_mtu >= (int) sizeof(struct af_vsockmon_hdr);
-+}
-+
-+static int vsockmon_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if (!vsockmon_is_valid_mtu(new_mtu))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
-+static const struct net_device_ops vsockmon_ops = {
-+	.ndo_init = vsockmon_dev_init,
-+	.ndo_uninit = vsockmon_dev_uninit,
-+	.ndo_open = vsockmon_open,
-+	.ndo_stop = vsockmon_close,
-+	.ndo_start_xmit = vsockmon_xmit,
-+	.ndo_get_stats64 = vsockmon_get_stats64,
-+	.ndo_change_mtu = vsockmon_change_mtu,
-+};
-+
-+static u32 always_on(struct net_device *dev)
-+{
-+	return 1;
-+}
-+
-+static const struct ethtool_ops vsockmon_ethtool_ops = {
-+	.get_link = always_on,
-+};
-+
-+static void vsockmon_setup(struct net_device *dev)
-+{
-+	dev->type = ARPHRD_VSOCKMON;
-+	dev->priv_flags |= IFF_NO_QUEUE;
-+
-+	dev->netdev_ops	= &vsockmon_ops;
-+	dev->ethtool_ops = &vsockmon_ethtool_ops;
-+	dev->destructor	= free_netdev;
-+
-+	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST |
-+			NETIF_F_HIGHDMA | NETIF_F_LLTX;
-+
-+	dev->flags = IFF_NOARP;
-+
-+	dev->mtu = DEFAULT_MTU;
-+}
-+
-+static struct rtnl_link_ops vsockmon_link_ops __read_mostly = {
-+	.kind			= "vsockmon",
-+	.priv_size		= sizeof(struct vsockmon),
-+	.setup			= vsockmon_setup,
-+};
-+
-+static __init int vsockmon_register(void)
-+{
-+	return rtnl_link_register(&vsockmon_link_ops);
-+}
-+
-+static __exit void vsockmon_unregister(void)
-+{
-+	rtnl_link_unregister(&vsockmon_link_ops);
-+}
-+
-+module_init(vsockmon_register);
-+module_exit(vsockmon_unregister);
-+
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Gerard Garcia <ggarcia@deic.uab.cat>");
-+MODULE_DESCRIPTION("Vsock monitoring device. Based on nlmon device.");
-+MODULE_ALIAS_RTNL_LINK("vsockmon");
-diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
-index 185f8ea..ef7f878 100644
---- a/include/uapi/linux/Kbuild
-+++ b/include/uapi/linux/Kbuild
-@@ -456,6 +456,7 @@ header-y += virtio_scsi.h
- header-y += virtio_types.h
- header-y += virtio_vsock.h
- header-y += vm_sockets.h
-+header-y += vsockmon.h
- header-y += vt.h
- header-y += vtpm_proxy.h
- header-y += wait.h
-diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
-new file mode 100644
-index 0000000..0e9c54e
---- /dev/null
-+++ b/include/uapi/linux/vsockmon.h
-@@ -0,0 +1,38 @@
-+#ifndef _UAPI_VSOCKMON_H
-+#define _UAPI_VSOCKMON_H
-+
-+#include <linux/virtio_vsock.h>
-+
-+/*
-+ * Structure of packets received through the vsockmon device.
-+ *
-+ * Note that after the vsockmon header comes the transport header (len bytes and
-+ * type specified by t) and if the packet op is AF_VSOCK_OP_PAYLOAD then comes
-+ * the payload.
-+ */
-+
-+struct af_vsockmon_hdr {
-+	__le64 src_cid;
-+	__le64 dst_cid;
-+	__le32 src_port;
-+	__le32 dst_port;
-+	__le16 op;			/* enum af_vsockmon_op */
-+	__le16 t;			/* enum af_vosckmon_t */
-+	__le16 len;			/* Transport header length */
-+} __attribute__((packed));
-+
-+enum af_vsockmon_op {
-+	AF_VSOCK_OP_UNKNOWN = 0,
-+	AF_VSOCK_OP_CONNECT = 1,
-+	AF_VSOCK_OP_DISCONNECT = 2,
-+	AF_VSOCK_OP_CONTROL = 3,
-+	AF_VSOCK_OP_PAYLOAD = 4,
-+};
-+
-+enum af_vsockmon_t {
-+	AF_VSOCK_T_UNKNOWN = 0,
-+	AF_VSOCK_T_NO_INFO = 1,		/* No transport information */
-+	AF_VSOCK_T_VIRTIO = 2,		/* Virtio transport header (struct virtio_vsock_hdr) */
-+};
-+
-+#endif
--- 
-2.9.1
+cheers,
+jamal
