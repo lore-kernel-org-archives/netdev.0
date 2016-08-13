@@ -1,31 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 00/16] net: don't print error when allocating urb fails
-Date: Sat, 13 Aug 2016 14:55:12 -0700 (PDT)
-Message-ID: <20160813.145512.718202374151341346.davem@davemloft.net>
-References: <1470949539-25392-1-git-send-email-wsa-dev@sang-engineering.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND] net/sctp: always initialise
+ sctp_ht_iter::start_fail
+Date: Sat, 13 Aug 2016 15:10:50 -0700 (PDT)
+Message-ID: <20160813.151050.1364196940604628961.davem@davemloft.net>
+References: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1470949539-25392-1-git-send-email-wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	lucien.xin@gmail.com, herbert@gondor.apana.org.au,
+	ebiederm@xmission.com, marcelo.leitner@gmail.com,
+	stable@vger.kernel.org
+To: vegard.nossum@oracle.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1470988251-18792-1-git-send-email-vegard.nossum@oracle.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wolfram Sang <wsa-dev-jBu1N2QxHDJrcw3mvpCnnVaTQe2KTcn/@public.gmane.org>
-Date: Thu, 11 Aug 2016 23:05:19 +0200
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Date: Fri, 12 Aug 2016 09:50:51 +0200
 
-> This per-subsystem series is part of a tree wide cleanup. usb_alloc_urb() uses
-> kmalloc which already prints enough information on failure. So, let's simply
-> remove those "allocation failed" messages from drivers like we did already for
-> other -ENOMEM cases. gkh acked this approach when we talked about it at LCJ in
-> Tokyo a few weeks ago.
+> sctp_transport_seq_start() does not currently clear iter->start_fail on
+> success, but relies on it being zero when it is allocated (by
+> seq_open_net()).
+> 
+> This can be a problem in the following sequence:
+> 
+>     open() // allocates iter (and implicitly sets iter->start_fail = 0)
+>     read()
+>      - iter->start() // fails and sets iter->start_fail = 1
+>      - iter->stop() // doesn't call sctp_transport_walk_stop() (correct)
+>     read() again
+>      - iter->start() // succeeds, but doesn't change iter->start_fail
+>      - iter->stop() // doesn't call sctp_transport_walk_stop() (wrong)
+> 
+> We should initialize sctp_ht_iter::start_fail to zero if ->start()
+> succeeds, otherwise it's possible that we leave an old value of 1 there,
+> which will cause ->stop() to not call sctp_transport_walk_stop(), which
+> causes all sorts of problems like not calling rcu_read_unlock() (and
+> preempt_enable()), eventually leading to more warnings like this:
+ ...
+> Notice that this is a subtly different stacktrace from the one in commit
+> 5fc382d875 ("net/sctp: terminate rhashtable walk correctly").
+> 
+> Cc: Xin Long <lucien.xin@gmail.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Eric W. Biederman <ebiederm@xmission.com>
+> Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 
-Series applied to net-next, thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
