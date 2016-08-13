@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] macsec: fix lockdep splats when nesting devices
-Date: Sat, 13 Aug 2016 15:16:22 -0700 (PDT)
-Message-ID: <20160813.151622.366324340238094901.davem@davemloft.net>
-References: <4c1a6a53725cc0ec023f92dae1165f3ade1e7862.1470951139.git.sd@queasysnail.net>
+Subject: Re: [PATCH] net: bfin_mac: Fix a few spelling fixes
+Date: Sat, 13 Aug 2016 15:15:10 -0700 (PDT)
+Message-ID: <20160813.151510.809113014259766132.davem@davemloft.net>
+References: <1471006682-27036-1-git-send-email-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	eric.dumazet@gmail.com, hannes@stressinduktion.org
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35565 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753199AbcHNIx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 04:53:29 -0400
-In-Reply-To: <4c1a6a53725cc0ec023f92dae1165f3ade1e7862.1470951139.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andrew@lunn.ch, tremyfr@gmail.com, sudipm.mukherjee@gmail.com,
+	a@unstable.cc, treding@nvidia.com, linux@roeck-us.net,
+	adi-buildroot-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: clabbe.montjoie@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471006682-27036-1-git-send-email-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Fri, 12 Aug 2016 16:10:32 +0200
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Date: Fri, 12 Aug 2016 14:58:02 +0200
 
-> Currently, trying to setup a vlan over a macsec device, or other
-> combinations of devices, triggers a lockdep warning.
+> This patch respell some word badly spelled.
+> - Invidate instead of Invalidate
+> - proble instead of probe
 > 
-> Use netdev_lockdep_set_classes and ndo_get_lock_subclass, similar to
-> what macvlan does.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 
 Applied.
