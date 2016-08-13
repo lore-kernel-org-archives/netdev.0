@@ -1,54 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] net: remove type_check from
- dev_get_nest_level()
-Date: Sat, 13 Aug 2016 15:16:34 -0700 (PDT)
-Message-ID: <20160813.151634.506622667393502211.davem@davemloft.net>
-References: <4c1a6a53725cc0ec023f92dae1165f3ade1e7862.1470951139.git.sd@queasysnail.net>
-	<4c1a6a53725cc0ec023f92dae1165f3ade1e7862.1470951139.git.sd@queasysnail.net>
-	<6dfc4b9a52ee8113e8843db32917b9e09c4d1fc4.1470951139.git.sd@queasysnail.net>
+Subject: Re: [PATCH] net: ipv6: Do not keep IPv6 addresses when IPv6 is
+ disabled
+Date: Sat, 13 Aug 2016 15:14:39 -0700 (PDT)
+Message-ID: <20160813.151439.1969888908743414343.davem@davemloft.net>
+References: <1470999758-11535-1-git-send-email-mmanning@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	eric.dumazet@gmail.com, hannes@stressinduktion.org
-To: sd@queasysnail.net
+Cc: netdev@vger.kernel.org
+To: mmanning@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35562 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35566 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752761AbcHNIx3 (ORCPT
+	with ESMTP id S1753186AbcHNIx3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 04:53:29 -0400
-In-Reply-To: <6dfc4b9a52ee8113e8843db32917b9e09c4d1fc4.1470951139.git.sd@queasysnail.net>
+In-Reply-To: <1470999758-11535-1-git-send-email-mmanning@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Fri, 12 Aug 2016 16:10:33 +0200
+From: Mike Manning <mmanning@brocade.com>
+Date: Fri, 12 Aug 2016 12:02:38 +0100
 
-> The idea for type_check in dev_get_nest_level() was to count the number
-> of nested devices of the same type (currently, only macvlan or vlan
-> devices).
-> This prevented the false positive lockdep warning on configurations such
-> as:
+> If IPv6 is disabled when the option is set to keep IPv6
+> addresses on link down, userspace is unaware of this as
+> there is no such indication via netlink. The solution is to
+> remove the IPv6 addresses in this case, which results in
+> netlink messages indicating removal of addresses in the
+> usual manner. This fix also makes the behavior consistent
+> with the case of having IPv6 disabled first, which stops
+> IPv6 addresses from being added.
 > 
-> eth0 <--- macvlan0 <--- vlan0 <--- macvlan1
-> 
-> However, this doesn't prevent a warning on a configuration such as:
-> 
-> eth0 <--- macvlan0 <--- vlan0
-> eth1 <--- vlan1 <--- macvlan1
-> 
-> In this case, all the locks end up with a nesting subclass of 1, so
-> lockdep thinks that there is still a deadlock:
-> 
-> - in the first case we have (macvlan_netdev_addr_lock_key, 1) and then
->   take (vlan_netdev_xmit_lock_key, 1)
-> - in the second case, we have (vlan_netdev_xmit_lock_key, 1) and then
->   take (macvlan_netdev_addr_lock_key, 1)
-> 
-> By removing the linktype check in dev_get_nest_level() and always
-> incrementing the nesting depth, lockdep considers this configuration
-> valid.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Fixes: f1705ec197e7 ("net: ipv6: Make address flushing on ifdown optional")
+> Signed-off-by: Mike Manning <mmanning@brocade.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
