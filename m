@@ -1,40 +1,44 @@
-From: f6bvp <f6bvp@free.fr>
-Subject: [PATCH 3/6]NET:AX25:ROSE Traps calls to rose_route_frame with a NULL
- ax25 callback
-Date: Sun, 14 Aug 2016 15:41:08 +0200
-Message-ID: <57B074F4.9050307@free.fr>
+From: =?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>
+Subject: [PATCH] mlxsw: spectrum_router: Fix use after free
+Date: Sun, 14 Aug 2016 15:38:29 +0200
+Message-ID: <1471181909-22187-1-git-send-email-vincent.stehle@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	Richard Stearn <richard@rns-stearn.demon.co.uk>,
-	Bernard Pidoux <bernard.pidoux@free.fr>
-To: netdev@vger.kernel.org, linux-hams@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shiva145.upmc.fr ([134.157.0.145]:38998 "EHLO shiva145.upmc.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752104AbcHNNk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Aug 2016 09:40:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Vincent=20Stehl=C3=A9?= <vincent.stehle@laposte.net>,
+	Jiri Pirko <jiri@mellanox.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Richard,
+In mlxsw_sp_router_fib4_add_info_destroy(), the fib_entry pointer is used
+after it has been freed by mlxsw_sp_fib_entry_destroy(). Use a temporary
+variable to fix this.
 
-Thanks for this patch and all others for ROSE code you sent recently.
-I already committed a similar one in february 2016.
+Fixes: 61c503f976b5449e ("mlxsw: spectrum_router: Implement fib4 add/del switchdev obj ops")
+Signed-off-by: Vincent Stehlé <vincent.stehle@laposte.net>
+Cc: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Subject: [Patch] rose_route_frame() NULL pointer dereference kernel panic
-From: f6bvp <f6bvp@xxxxxxx>
-Date: Wed, 24 Feb 2016 17:53:11 +0100
-Cc: Ralf Baechle <ralf@xxxxxxxxxxxxxx>, "'f6bvp'" <f6bvp@xxxxxxx>, 
-davem@xxxxxxxxxxxxx
-
-You may browse linux servers for author f6bvp and see my last findings 
-about null ax25.
-
-However, despite all my efforts, I did no convince referees of the 
-patch's legitimity and it had not been accepted.
-I hope your work for improving rose code will be successful to the 
-benefit of all radioamateur packet community!
-
-73 de Bernard, f6bvp
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 81418d6..90bb93b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1651,9 +1651,10 @@ static void mlxsw_sp_router_fib4_add_info_destroy(void const *data)
+ 	const struct mlxsw_sp_router_fib4_add_info *info = data;
+ 	struct mlxsw_sp_fib_entry *fib_entry = info->fib_entry;
+ 	struct mlxsw_sp *mlxsw_sp = info->mlxsw_sp;
++	struct mlxsw_sp_vr *vr = fib_entry->vr;
+ 
+ 	mlxsw_sp_fib_entry_destroy(fib_entry);
+-	mlxsw_sp_vr_put(mlxsw_sp, fib_entry->vr);
++	mlxsw_sp_vr_put(mlxsw_sp, vr);
+ 	kfree(info);
+ }
+ 
+-- 
+2.8.1
