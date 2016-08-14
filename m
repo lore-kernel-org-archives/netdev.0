@@ -1,43 +1,80 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v4 2/7] net_sched: remove an unnecessary list_del()
-Date: Sat, 13 Aug 2016 22:34:57 -0700
-Message-ID: <1471152902-12444-3-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net v4 1/7] net_sched: remove the leftover cleanup_a()
+Date: Sat, 13 Aug 2016 22:34:56 -0700
+Message-ID: <1471152902-12444-2-git-send-email-xiyou.wangcong@gmail.com>
 References: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: jhs@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34546 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753125AbcHNJfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:35:10 -0400
-Received: by mail-pf0-f193.google.com with SMTP id g202so2052899pfb.1
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:35:10 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34356 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752802AbcHNJlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:41:50 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g202so2058938pfb.1
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:41:39 -0700 (PDT)
 In-Reply-To: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This list_del() for tc action is not needed actually,
-because we only use this list to chain bulk operations,
-therefore should not be carried for latter operations.
+After refactoring tc_action into tcf_common, we no
+longer need to cleanup temporary "actions" in list,
+they are permanently stored in the hashtable.
 
-Fixes: ec0595cc4495 ("net_sched: get rid of struct tcf_common")
+Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
+Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/act_api.c | 1 -
- 1 file changed, 1 deletion(-)
+ net/sched/act_api.c | 22 +++-------------------
+ 1 file changed, 3 insertions(+), 19 deletions(-)
 
 diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index cce6986..b4c7be3 100644
+index e4a5f26..cce6986 100644
 --- a/net/sched/act_api.c
 +++ b/net/sched/act_api.c
-@@ -64,7 +64,6 @@ int __tcf_hash_release(struct tc_action *p, bool bind, bool strict)
- 		if (p->tcfa_bindcnt <= 0 && p->tcfa_refcnt <= 0) {
- 			if (p->ops->cleanup)
- 				p->ops->cleanup(p, bind);
--			list_del(&p->list);
- 			tcf_hash_destroy(p->hinfo, p);
- 			ret = ACT_P_DELETED;
- 		}
+@@ -754,16 +754,6 @@ err_out:
+ 	return ERR_PTR(err);
+ }
+ 
+-static void cleanup_a(struct list_head *actions)
+-{
+-	struct tc_action *a, *tmp;
+-
+-	list_for_each_entry_safe(a, tmp, actions, list) {
+-		list_del(&a->list);
+-		kfree(a);
+-	}
+-}
+-
+ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 			    struct nlmsghdr *n, u32 portid)
+ {
+@@ -905,7 +895,7 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 		return ret;
+ 	}
+ err:
+-	cleanup_a(&actions);
++	tcf_action_destroy(&actions, 0);
+ 	return ret;
+ }
+ 
+@@ -942,15 +932,9 @@ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+ 
+ 	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
+ 	if (ret)
+-		goto done;
++		return ret;
+ 
+-	/* dump then free all the actions after update; inserted policy
+-	 * stays intact
+-	 */
+-	ret = tcf_add_notify(net, n, &actions, portid);
+-	cleanup_a(&actions);
+-done:
+-	return ret;
++	return tcf_add_notify(net, n, &actions, portid);
+ }
+ 
+ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n)
 -- 
 1.8.4.5
