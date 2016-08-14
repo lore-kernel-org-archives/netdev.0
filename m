@@ -1,35 +1,40 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net v4 6/7] net_sched: unify the init logic for act_police
-Date: Sun, 14 Aug 2016 07:04:35 -0400
-Message-ID: <9df96b68-67dd-3631-d8f3-abb57d2a08ae@mojatatu.com>
-References: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
- <1471152902-12444-7-git-send-email-xiyou.wangcong@gmail.com>
+From: f6bvp <f6bvp@free.fr>
+Subject: [PATCH 3/6]NET:AX25:ROSE Traps calls to rose_route_frame with a NULL
+ ax25 callback
+Date: Sun, 14 Aug 2016 15:41:08 +0200
+Message-ID: <57B074F4.9050307@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	Richard Stearn <richard@rns-stearn.demon.co.uk>,
+	Bernard Pidoux <bernard.pidoux@free.fr>
+To: netdev@vger.kernel.org, linux-hams@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:33079 "EHLO
-	mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933248AbcHNLSl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 07:18:41 -0400
-Received: by mail-qk0-f193.google.com with SMTP id x189so2365624qkd.0
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 04:18:41 -0700 (PDT)
-In-Reply-To: <1471152902-12444-7-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shiva145.upmc.fr ([134.157.0.145]:38998 "EHLO shiva145.upmc.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbcHNNk3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Aug 2016 09:40:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-08-14 01:35 AM, Cong Wang wrote:
-> Jamal reported a crash when we create a police action
-> with a specific index, this is because the init logic
-> is not correct, we should always create one for this
-> case. Just unify the logic with other tc actions.
->
-> Fixes: a03e6fe56971 ("act_police: fix a crash during removal")
-> Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Hi Richard,
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Thanks for this patch and all others for ROSE code you sent recently.
+I already committed a similar one in february 2016.
 
-cheers,
-jamal
+Subject: [Patch] rose_route_frame() NULL pointer dereference kernel panic
+From: f6bvp <f6bvp@xxxxxxx>
+Date: Wed, 24 Feb 2016 17:53:11 +0100
+Cc: Ralf Baechle <ralf@xxxxxxxxxxxxxx>, "'f6bvp'" <f6bvp@xxxxxxx>, 
+davem@xxxxxxxxxxxxx
+
+You may browse linux servers for author f6bvp and see my last findings 
+about null ax25.
+
+However, despite all my efforts, I did no convince referees of the 
+patch's legitimity and it had not been accepted.
+I hope your work for improving rose code will be successful to the 
+benefit of all radioamateur packet community!
+
+73 de Bernard, f6bvp
