@@ -1,99 +1,91 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v4 4/7] net_sched: move tc offload macros to pkt_cls.h
-Date: Sat, 13 Aug 2016 22:34:59 -0700
-Message-ID: <1471152902-12444-5-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net v4 7/7] net_sched: allow flushing tc police actions
+Date: Sat, 13 Aug 2016 22:35:02 -0700
+Message-ID: <1471152902-12444-8-git-send-email-xiyou.wangcong@gmail.com>
 References: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: jhs@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	Ido Schimmel <idosch@mellanox.com>
+	Roman Mashak <mrv@mojatatu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36653 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34472 "EHLO
 	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbcHNJlz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:41:55 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y134so2055621pfg.3
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:41:55 -0700 (PDT)
+	with ESMTP id S1750701AbcHNJmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:42:37 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g202so2059775pfb.1
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:42:37 -0700 (PDT)
 In-Reply-To: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct tcf_exts belongs to filters, should not be visible
-to plain tc actions.
+From: Roman Mashak <mrv@mojatatu.com>
 
-Cc: Ido Schimmel <idosch@mellanox.com>
+The act_police uses its own code to walk the
+action hashtable, which leads to that we could
+not flush standalone tc police actions, so just
+switch to tcf_generic_walker() like other actions.
+
+(Joint work from Roman and Cong.)
+
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/act_api.h | 19 +++----------------
- include/net/pkt_cls.h | 19 +++++++++++++++++++
- 2 files changed, 22 insertions(+), 16 deletions(-)
+ net/sched/act_police.c | 43 +------------------------------------------
+ 1 file changed, 1 insertion(+), 42 deletions(-)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index f53ee9d..870332f 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -189,30 +189,17 @@ int tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int, int);
- int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int, int);
- int tcf_action_copy_stats(struct sk_buff *, struct tc_action *, int);
- 
--#define tc_no_actions(_exts) \
--	(list_empty(&(_exts)->actions))
--
--#define tc_for_each_action(_a, _exts) \
--	list_for_each_entry(_a, &(_exts)->actions, list)
--
--#define tc_single_action(_exts) \
--	(list_is_singular(&(_exts)->actions))
-+#endif /* CONFIG_NET_CLS_ACT */
- 
- static inline void tcf_action_stats_update(struct tc_action *a, u64 bytes,
- 					   u64 packets, u64 lastuse)
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index 259352d..8a3be1d 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -63,49 +63,8 @@ static int tcf_act_police_walker(struct net *net, struct sk_buff *skb,
+ 				 const struct tc_action_ops *ops)
  {
-+#ifdef CONFIG_NET_CLS_ACT
- 	if (!a->ops->stats_update)
- 		return;
+ 	struct tc_action_net *tn = net_generic(net, police_net_id);
+-	struct tcf_hashinfo *hinfo = tn->hinfo;
+-	int err = 0, index = -1, i = 0, s_i = 0, n_i = 0;
+-	struct nlattr *nest;
+-
+-	spin_lock_bh(&hinfo->lock);
+-
+-	s_i = cb->args[0];
+-
+-	for (i = 0; i < (POL_TAB_MASK + 1); i++) {
+-		struct hlist_head *head;
+-		struct tc_action *p;
+-
+-		head = &hinfo->htab[tcf_hash(i, POL_TAB_MASK)];
+-
+-		hlist_for_each_entry_rcu(p, head, tcfa_head) {
+-			index++;
+-			if (index < s_i)
+-				continue;
+-			nest = nla_nest_start(skb, index);
+-			if (nest == NULL)
+-				goto nla_put_failure;
+-			if (type == RTM_DELACTION)
+-				err = tcf_action_dump_1(skb, p, 0, 1);
+-			else
+-				err = tcf_action_dump_1(skb, p, 0, 0);
+-			if (err < 0) {
+-				index--;
+-				nla_nest_cancel(skb, nest);
+-				goto done;
+-			}
+-			nla_nest_end(skb, nest);
+-			n_i++;
+-		}
+-	}
+-done:
+-	spin_unlock_bh(&hinfo->lock);
+-	if (n_i)
+-		cb->args[0] += n_i;
+-	return n_i;
  
- 	a->ops->stats_update(a, bytes, packets, lastuse);
-+#endif
+-nla_put_failure:
+-	nla_nest_cancel(skb, nest);
+-	goto done;
++	return tcf_generic_walker(tn, skb, cb, type, ops);
  }
  
--#else /* CONFIG_NET_CLS_ACT */
--
--#define tc_no_actions(_exts) true
--#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
--#define tc_single_action(_exts) false
--#define tcf_action_stats_update(a, bytes, packets, lastuse)
--
--#endif /* CONFIG_NET_CLS_ACT */
- #endif
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 6f8d653..00dd5c4 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -130,6 +130,25 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
- 	return 0;
- }
- 
-+#ifdef CONFIG_NET_CLS_ACT
-+
-+#define tc_no_actions(_exts) \
-+	(list_empty(&(_exts)->actions))
-+
-+#define tc_for_each_action(_a, _exts) \
-+	list_for_each_entry(_a, &(_exts)->actions, list)
-+
-+#define tc_single_action(_exts) \
-+	(list_is_singular(&(_exts)->actions))
-+
-+#else /* CONFIG_NET_CLS_ACT */
-+
-+#define tc_no_actions(_exts) true
-+#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
-+#define tc_single_action(_exts) false
-+
-+#endif /* CONFIG_NET_CLS_ACT */
-+
- int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
- 		      struct nlattr **tb, struct nlattr *rate_tlv,
- 		      struct tcf_exts *exts, bool ovr);
+ static const struct nla_policy police_policy[TCA_POLICE_MAX + 1] = {
 -- 
 1.8.4.5
