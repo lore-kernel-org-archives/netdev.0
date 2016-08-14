@@ -1,43 +1,53 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v4 3/7] net_sched: fix a typo in tc_for_each_action()
-Date: Sat, 13 Aug 2016 22:34:58 -0700
-Message-ID: <1471152902-12444-4-git-send-email-xiyou.wangcong@gmail.com>
-References: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: jhs@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>,
-	Amir Vadai <amir@vadai.me>
+Subject: [Patch net v4 0/7] net_sched: tc action fixes and updates
+Date: Sat, 13 Aug 2016 22:34:55 -0700
+Message-ID: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: jhs@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35553 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751334AbcHNJTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:19:52 -0400
-Received: by mail-pf0-f196.google.com with SMTP id h186so2029551pfg.2
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:19:52 -0700 (PDT)
-In-Reply-To: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33525 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752537AbcHNJ0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:26:44 -0400
+Received: by mail-pf0-f180.google.com with SMTP id y134so8932041pfg.0
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:26:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is harmless because all users pass 'a' to this macro.
+This patchset fixes a few regressions caused by the previous
+code refactor and more. Thanks to Jamal for catching them!
 
-Fixes: 00175aec941e ("net/sched: Macro instead of CONFIG_NET_CLS_ACT ifdef")
-Cc: Amir Vadai <amir@vadai.me>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Note, patch 3/7 and 4/7 are not strictly necessary for this patchset,
+I just want to carry them together.
+
 ---
- include/net/act_api.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+v4: adjust an indention for Jamal
+    add two more patches
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 41e6a24..f53ee9d 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -193,7 +193,7 @@ int tcf_action_copy_stats(struct sk_buff *, struct tc_action *, int);
- 	(list_empty(&(_exts)->actions))
- 
- #define tc_for_each_action(_a, _exts) \
--	list_for_each_entry(a, &(_exts)->actions, list)
-+	list_for_each_entry(_a, &(_exts)->actions, list)
- 
- #define tc_single_action(_exts) \
- 	(list_is_singular(&(_exts)->actions))
+v3: avoid list for fast path, suggested by Jamal
+
+v2: replace flex_array with regular dynamic array
+    keep tcf_action_stats_update() in act_api.h
+    fix macro typos found by Amir
+
+Cong Wang (7):
+  net_sched: remove the leftover cleanup_a()
+  net_sched: remove an unnecessary list_del()
+  net_sched: fix a typo in tc_for_each_action()
+  net_sched: move tc offload macros to pkt_cls.h
+  net_sched: convert tcf_exts from list to pointer array
+  net_sched: unify the init logic for act_police
+  net_sched: allow flushing tc police actions
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 12 +++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c  |  4 +-
+ include/net/act_api.h                           | 23 ++-------
+ include/net/pkt_cls.h                           | 41 ++++++++++++++--
+ net/sched/act_api.c                             | 34 ++++----------
+ net/sched/act_police.c                          | 62 +++++--------------------
+ net/sched/cls_api.c                             | 51 ++++++++++++++------
+ 8 files changed, 112 insertions(+), 119 deletions(-)
+
 -- 
 1.8.4.5
