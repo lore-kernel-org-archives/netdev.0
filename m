@@ -1,62 +1,29 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2/2 (linux-stable-4.5.y)] stmmac: fix MDIO settings
-Date: Sun, 14 Aug 2016 17:44:41 +0200
-Message-ID: <20160814154441.GJ20560@kroah.com>
-References: <1464009463-23654-1-git-send-email-peppe.cavallaro@st.com>
- <1464009463-23654-3-git-send-email-peppe.cavallaro@st.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH] mlxsw: spectrum_router: Fix use after free
+Date: Sun, 14 Aug 2016 18:49:53 +0300
+Message-ID: <20160814154953.GA31698@splinter>
+References: <1471181909-22187-1-git-send-email-vincent.stehle@laposte.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: stable@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, robin.murphy@arm.com, marc.zyngier@arm.com,
-	afaerber@suse.de, bert@a20.net, linux-sunxi@googlegroups.com,
-	maxime.ripard@free-electrons.com,
-	Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-	Dinh Nguyen <dinh.linux@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Phil Reid <preid@electromag.com.au>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:47882 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752170AbcHNPob (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 11:44:31 -0400
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jiri Pirko <jiri@mellanox.com>
+To: Vincent =?iso-8859-1?Q?Stehl=E9?= <vincent.stehle@laposte.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1464009463-23654-3-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1471181909-22187-1-git-send-email-vincent.stehle@laposte.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 23, 2016 at 03:17:43PM +0200, Giuseppe Cavallaro wrote:
-> Initially the phy_bus_name was added to manipulate the
-> driver name but it was recently just used to manage the
-> fixed-link and then to take some decision at run-time.
-> So the patch uses the is_pseudo_fixed_link and removes
-> the phy_bus_name variable not necessary anymore.
+On Sun, Aug 14, 2016 at 03:38:29PM +0200, Vincent Stehlé wrote:
+> In mlxsw_sp_router_fib4_add_info_destroy(), the fib_entry pointer is used
+> after it has been freed by mlxsw_sp_fib_entry_destroy(). Use a temporary
+> variable to fix this.
 > 
-> The driver can manage the mdio registration by using phy-handle,
-> dwmac-mdio and own parameter e.g. snps,phy-addr.
-> This patch takes care about all these possible configurations
-> and fixes the mdio registration in case of there is a real
-> transceiver or a switch (that needs to be managed by using
-> fixed-link).
-> 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Reviewed-by: Andreas Färber <afaerber@suse.de>
-> Tested-by: Frank Schäfer <fschaefer.oss@googlemail.com>
-> Cc: Gabriel Fernandez <gabriel.fernandez@linaro.org>
-> Cc: Dinh Nguyen <dinh.linux@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Phil Reid <preid@electromag.com.au>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 11 +--
->  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  | 19 +----
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 84 +++++++++++++++++-----
->  3 files changed, 70 insertions(+), 44 deletions(-)
+> Fixes: 61c503f976b5449e ("mlxsw: spectrum_router: Implement fib4 add/del switchdev obj ops")
+> Signed-off-by: Vincent Stehlé <vincent.stehle@laposte.net>
+> Cc: Jiri Pirko <jiri@mellanox.com>
 
-<formletter>
+Acked-by: Ido Schimmel <idosch@mellanox.com>
 
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
-
-</formletter>
+Thank you.
