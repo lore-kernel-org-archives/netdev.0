@@ -1,156 +1,60 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [RFC net-next 1/2] net/sched: cls_flower: Introduce classify by vxlan outer headers
-Date: Sun, 14 Aug 2016 17:06:51 +0300
-Message-ID: <20160814140652.15985-2-amir@vadai.me>
-References: <20160814140652.15985-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Oded Shanoon <odeds@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@mellanox.com>
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 1/4] flow_dissector: Get vlan info from
+ skb->vlan_tci instead of skb->data
+Date: Sun, 14 Aug 2016 17:58:53 +0300
+Message-ID: <CAJL1qvEncNo-10vd387jdLj2Y+Xc_-Ms7rKHU6bQh=QO43ic5w@mail.gmail.com>
+References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
+ <1470835943-9042-2-git-send-email-hadarh@mellanox.com> <e16e8104-c010-e812-74c8-d28960e23643@lab.ntt.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33172 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590AbcHNOHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 10:07:11 -0400
-Received: by mail-wm0-f65.google.com with SMTP id o80so6565880wme.0
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 07:07:10 -0700 (PDT)
-In-Reply-To: <20160814140652.15985-1-amir@vadai.me>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35623 "EHLO
+	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099AbcHNO7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 10:59:50 -0400
+Received: by mail-oi0-f65.google.com with SMTP id e80so2655851oig.2
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 07:58:54 -0700 (PDT)
+In-Reply-To: <e16e8104-c010-e812-74c8-d28960e23643@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirva@mellanox.com>>
+On Fri, Aug 12, 2016 at 9:36 AM, Toshiaki Makita
+<makita.toshiaki@lab.ntt.co.jp> wrote:
+> On 2016/08/10 22:32, Hadar Hen Zion wrote:
+>> Early in the datapath skb_vlan_untag function is called, stripped
+>> the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+>>
+>> The current dissection doesn't handle vlan packets correctly.  Vlan
+>> doesn't exist in skb->data anymore when applying flow dissection on the
+>> skb, fix that.
+>
+> RPS (and flow-dissector called in RPS) is performed before vlan-strip in
+> __netif_receive_skb_core().
 
-Signed-off-by: Amir Vadai <amirva@mellanox.com>>
----
- include/uapi/linux/pkt_cls.h | 11 +++++++++
- net/sched/cls_flower.c       | 53 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 64 insertions(+)
+right, I'll fix it to v2.
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index d1c1ccaba787..a192195a5516 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -428,6 +428,17 @@ enum {
- 	TCA_FLOWER_KEY_UDP_DST,		/* be16 */
- 
- 	TCA_FLOWER_FLAGS,
-+
-+	TCA_FLOWER_KEY_ENC_IPV4_SRC,	/* be32 */
-+	TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,/* be32 */
-+	TCA_FLOWER_KEY_ENC_IPV4_DST,	/* be32 */
-+	TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,/* be32 */
-+	TCA_FLOWER_KEY_ENC_IPV6_SRC,	/* struct in6_addr */
-+	TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK,	/* struct in6_addr */
-+	TCA_FLOWER_KEY_ENC_IPV6_DST,	/* struct in6_addr */
-+	TCA_FLOWER_KEY_ENC_IPV6_DST_MASK,	/* struct in6_addr */
-+	TCA_FLOWER_KEY_ENC_KEY_ID,	/* be32 */
-+
- 	__TCA_FLOWER_MAX,
- };
- 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 5060801a2f6d..26436dd34e21 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -23,12 +23,18 @@
- #include <net/ip.h>
- #include <net/flow_dissector.h>
- 
-+#include <net/dst.h>
-+#include <net/dst_metadata.h>
-+#include <net/vxlan.h>
-+
- struct fl_flow_key {
- 	int	indev_ifindex;
- 	struct flow_dissector_key_control control;
- 	struct flow_dissector_key_basic basic;
- 	struct flow_dissector_key_eth_addrs eth;
- 	struct flow_dissector_key_addrs ipaddrs;
-+	struct flow_dissector_key_ipv4_addrs enc_ipv4;
-+	struct flow_dissector_key_keyid enc_key_id;
- 	union {
- 		struct flow_dissector_key_ipv4_addrs ipv4;
- 		struct flow_dissector_key_ipv6_addrs ipv6;
-@@ -123,11 +129,27 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	struct cls_fl_filter *f;
- 	struct fl_flow_key skb_key;
- 	struct fl_flow_key skb_mkey;
-+	struct ip_tunnel_info *info;
- 
- 	if (!atomic_read(&head->ht.nelems))
- 		return -1;
- 
- 	fl_clear_masked_range(&skb_key, &head->mask);
-+
-+	info = skb_tunnel_info(skb);
-+	if (info) {
-+		struct ip_tunnel_key *key = &info->key;
-+		netdev_err(skb->dev, "%s:%d saddr: %pI4, daddr: %pI4 vni: %d tos: %#x ttl: %#x src_port: %d dst_port: %d\n",
-+			      __func__, __LINE__,
-+			      &key->u.ipv4.src, &key->u.ipv4.dst,
-+			      be32_to_cpu(vxlan_tun_id_to_vni(key->tun_id)),
-+			      key->tos, key->ttl,
-+			      ntohs(key->tp_src), ntohs(key->tp_dst));
-+		skb_key.enc_ipv4.src = key->u.ipv4.src;
-+		skb_key.enc_ipv4.dst = key->u.ipv4.dst;
-+		skb_key.enc_key_id.keyid = vxlan_tun_id_to_vni(key->tun_id);
-+	}
-+
- 	skb_key.indev_ifindex = skb->skb_iif;
- 	/* skb_flow_dissect() does not set n_proto in case an unknown protocol,
- 	 * so do it rather here.
-@@ -293,6 +315,12 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
- 	[TCA_FLOWER_KEY_TCP_DST]	= { .type = NLA_U16 },
- 	[TCA_FLOWER_KEY_UDP_SRC]	= { .type = NLA_U16 },
- 	[TCA_FLOWER_KEY_UDP_DST]	= { .type = NLA_U16 },
-+
-+	[TCA_FLOWER_KEY_ENC_IPV4_SRC]	= { .type = NLA_U32 },
-+	[TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK] = { .type = NLA_U32 },
-+	[TCA_FLOWER_KEY_ENC_IPV4_DST]	= { .type = NLA_U32 },
-+	[TCA_FLOWER_KEY_ENC_IPV4_DST_MASK] = { .type = NLA_U32 },
-+	[TCA_FLOWER_KEY_ENC_KEY_ID]	= { .type = NLA_U32 },
- };
- 
- static void fl_set_key_val(struct nlattr **tb,
-@@ -373,6 +401,20 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
- 			       sizeof(key->tp.dst));
- 	}
- 
-+	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
-+	    tb[TCA_FLOWER_KEY_ENC_IPV4_DST] ||
-+	    tb[TCA_FLOWER_KEY_ENC_KEY_ID]) {
-+		fl_set_key_val(tb, &key->enc_ipv4.src, TCA_FLOWER_KEY_ENC_IPV4_SRC,
-+			       &mask->enc_ipv4.src, TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
-+			       sizeof(key->enc_ipv4.src));
-+		fl_set_key_val(tb, &key->enc_ipv4.dst, TCA_FLOWER_KEY_ENC_IPV4_DST,
-+			       &mask->enc_ipv4.dst, TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
-+			       sizeof(key->enc_ipv4.dst));
-+		fl_set_key_val(tb, &key->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
-+			       &mask->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
-+			       sizeof(key->enc_key_id));
-+	}
-+
- 	return 0;
- }
- 
-@@ -753,6 +795,17 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
- 				  sizeof(key->tp.dst))))
- 		goto nla_put_failure;
- 
-+	if (fl_dump_key_val(skb, &key->enc_ipv4.src, TCA_FLOWER_KEY_ENC_IPV4_SRC,
-+			    &mask->enc_ipv4.src, TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK,
-+			    sizeof(key->enc_ipv4.src)) ||
-+	    fl_dump_key_val(skb, &key->enc_ipv4.dst, TCA_FLOWER_KEY_ENC_IPV4_DST,
-+			    &mask->enc_ipv4.dst, TCA_FLOWER_KEY_ENC_IPV4_DST_MASK,
-+			    sizeof(key->enc_ipv4.dst)) ||
-+	    fl_dump_key_val(skb, &key->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
-+			    &mask->enc_key_id, TCA_FLOWER_KEY_ENC_KEY_ID,
-+			    sizeof(key->enc_key_id)))
-+		goto nla_put_failure;
-+
- 	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
- 
- 	if (tcf_exts_dump(skb, &f->exts))
--- 
-2.9.0
+> Also, in cases skb is tagged with multiple vlan headers (typical when
+> using 802.1ad), the second level vlan tag is in skb->data.
+
+Currently, flow_dissector doesn't support multiple vlan headers, only
+one vlan_id field is present.
+There aren't any flow_dissector "customers" yet for multiple vlan support.
+
+
+> So I think you should handle both of skb->vlan_tci and skb->data cases.
+
+Sure, will do it.
+
+
+>
+> Thanks,
+> Toshiaki Makita
+>
+>
