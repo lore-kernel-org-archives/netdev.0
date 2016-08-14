@@ -1,80 +1,99 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v4 1/7] net_sched: remove the leftover cleanup_a()
-Date: Sat, 13 Aug 2016 22:34:56 -0700
-Message-ID: <1471152902-12444-2-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net v4 4/7] net_sched: move tc offload macros to pkt_cls.h
+Date: Sat, 13 Aug 2016 22:34:59 -0700
+Message-ID: <1471152902-12444-5-git-send-email-xiyou.wangcong@gmail.com>
 References: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: jhs@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>
+Cc: jhs@mojatatu.com, Cong Wang <xiyou.wangcong@gmail.com>,
+	Ido Schimmel <idosch@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34356 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752802AbcHNJlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:41:50 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g202so2058938pfb.1
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:41:39 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36653 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752104AbcHNJlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 05:41:55 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y134so2055621pfg.3
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 02:41:55 -0700 (PDT)
 In-Reply-To: <1471152902-12444-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After refactoring tc_action into tcf_common, we no
-longer need to cleanup temporary "actions" in list,
-they are permanently stored in the hashtable.
+struct tcf_exts belongs to filters, should not be visible
+to plain tc actions.
 
-Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
-Reported-by: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/act_api.c | 22 +++-------------------
- 1 file changed, 3 insertions(+), 19 deletions(-)
+ include/net/act_api.h | 19 +++----------------
+ include/net/pkt_cls.h | 19 +++++++++++++++++++
+ 2 files changed, 22 insertions(+), 16 deletions(-)
 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index e4a5f26..cce6986 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -754,16 +754,6 @@ err_out:
- 	return ERR_PTR(err);
- }
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index f53ee9d..870332f 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -189,30 +189,17 @@ int tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int, int);
+ int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int, int);
+ int tcf_action_copy_stats(struct sk_buff *, struct tc_action *, int);
  
--static void cleanup_a(struct list_head *actions)
--{
--	struct tc_action *a, *tmp;
+-#define tc_no_actions(_exts) \
+-	(list_empty(&(_exts)->actions))
 -
--	list_for_each_entry_safe(a, tmp, actions, list) {
--		list_del(&a->list);
--		kfree(a);
--	}
--}
+-#define tc_for_each_action(_a, _exts) \
+-	list_for_each_entry(_a, &(_exts)->actions, list)
 -
- static int tca_action_flush(struct net *net, struct nlattr *nla,
- 			    struct nlmsghdr *n, u32 portid)
+-#define tc_single_action(_exts) \
+-	(list_is_singular(&(_exts)->actions))
++#endif /* CONFIG_NET_CLS_ACT */
+ 
+ static inline void tcf_action_stats_update(struct tc_action *a, u64 bytes,
+ 					   u64 packets, u64 lastuse)
  {
-@@ -905,7 +895,7 @@ tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 		return ret;
- 	}
- err:
--	cleanup_a(&actions);
-+	tcf_action_destroy(&actions, 0);
- 	return ret;
++#ifdef CONFIG_NET_CLS_ACT
+ 	if (!a->ops->stats_update)
+ 		return;
+ 
+ 	a->ops->stats_update(a, bytes, packets, lastuse);
++#endif
  }
  
-@@ -942,15 +932,9 @@ tcf_action_add(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 
- 	ret = tcf_action_init(net, nla, NULL, NULL, ovr, 0, &actions);
- 	if (ret)
--		goto done;
-+		return ret;
- 
--	/* dump then free all the actions after update; inserted policy
--	 * stays intact
--	 */
--	ret = tcf_add_notify(net, n, &actions, portid);
--	cleanup_a(&actions);
--done:
--	return ret;
-+	return tcf_add_notify(net, n, &actions, portid);
+-#else /* CONFIG_NET_CLS_ACT */
+-
+-#define tc_no_actions(_exts) true
+-#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
+-#define tc_single_action(_exts) false
+-#define tcf_action_stats_update(a, bytes, packets, lastuse)
+-
+-#endif /* CONFIG_NET_CLS_ACT */
+ #endif
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 6f8d653..00dd5c4 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -130,6 +130,25 @@ tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
+ 	return 0;
  }
  
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n)
++#ifdef CONFIG_NET_CLS_ACT
++
++#define tc_no_actions(_exts) \
++	(list_empty(&(_exts)->actions))
++
++#define tc_for_each_action(_a, _exts) \
++	list_for_each_entry(_a, &(_exts)->actions, list)
++
++#define tc_single_action(_exts) \
++	(list_is_singular(&(_exts)->actions))
++
++#else /* CONFIG_NET_CLS_ACT */
++
++#define tc_no_actions(_exts) true
++#define tc_for_each_action(_a, _exts) while ((void)(_a), 0)
++#define tc_single_action(_exts) false
++
++#endif /* CONFIG_NET_CLS_ACT */
++
+ int tcf_exts_validate(struct net *net, struct tcf_proto *tp,
+ 		      struct nlattr **tb, struct nlattr *rate_tlv,
+ 		      struct tcf_exts *exts, bool ovr);
 -- 
 1.8.4.5
