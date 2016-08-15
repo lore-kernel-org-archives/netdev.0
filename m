@@ -1,58 +1,66 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
-Date: Tue, 16 Aug 2016 01:27:17 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608160122420.22028@cbobk.fhfr.pm>
-References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm> <57ADC6AA.5070506@iogearbox.net> <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm>
- <CAM_iQpVD_+M7ehSxRRs6tRTfDWAzOp2hHLmSecguXq9YHYw5ag@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: [PATCH iproute] ipila: Fixed unitialized variables
+Date: Mon, 15 Aug 2016 16:30:22 -0700
+Message-ID: <1471303822-1486672-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpVD_+M7ehSxRRs6tRTfDWAzOp2hHLmSecguXq9YHYw5ag@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>, Tom Herbert <tom@herbertland.com>
+To: <stephen@networkplumber.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56892 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752316AbcHOXa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 19:30:28 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u7FNTiZJ018928
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 16:30:28 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 24unjvrheh-2
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 16:30:28 -0700
+Received: from facebook.com (2401:db00:21:6030:face:0:92:0)	by
+ mx-out.facebook.com (10.103.99.99) with ESMTP	id
+ 3f306662634011e6b96a0002c9dfb610-d07f1aa0 for <netdev@vger.kernel.org>;	Mon,
+ 15 Aug 2016 16:30:27 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 13 Aug 2016, Cong Wang wrote:
+Initialize locator and locator_match to zero and only do
+addattr if they have been set.
 
-> > How about we actually extend a little bit the TCQ_F_BUILTIN special case
-> > test in qdisc_match_from_root()?
-> >
-> > After the change, the only way how qdisc_dev() could be NULL should be a
-> > TCQ_F_BUILTIN case, right?
-> >
-> > I was thinking about something like the patch below (the reasong being
-> > that ->dev would be NULL only in cases of singletonish qdiscs) ...
-> > wouldn't that also fix the issue you're seeing? Have to think it through a
-> > little bit more ..
-> 
-> I think this is probably why we never show noop qdisc in dump. 
+Signed-off-by: Tom Herbert <tom@herbertland.com>
+---
+ ip/ipila.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-Well, partially. A lot of 'default' qdiscs are omitted in a not really 
-uniform and deterministic way. That's actually the primary point of this 
-whole effort -- to get rid of the hidden qdiscs entirely.
-
-> So I think we should relax the singleton rule for noop_qdisc, to save 
-> some code for noop_qdisc case and also for dumping noop_qdisc.
-
-Completely moving away from singleton qdiscs is one of the possibilities, 
-but OTOH I think that my special-casing of !qdisc_dev(root) in 
-qdisc_match_from_root() is correct handling of singletons. I've been 
-completely off the grid for the past three days, but I plan to submit this 
-as a proper followup fix tomorrow if noone has any objections.
-
-> I will try to work on a patch tomorrow.
-
-What still needs to be looked into are the duplicate clsact entries for 
-multiqueue.
-
-Thanks,
-
+diff --git a/ip/ipila.c b/ip/ipila.c
+index c30bdbf..57f8c79 100644
+--- a/ip/ipila.c
++++ b/ip/ipila.c
+@@ -149,8 +149,8 @@ static int do_list(int argc, char **argv)
+ static int ila_parse_opt(int argc, char **argv, struct nlmsghdr *n,
+ 			 bool adding)
+ {
+-	__u64 locator;
+-	__u64 locator_match;
++	__u64 locator = 0;
++	__u64 locator_match = 0;
+ 	int ifindex = 0;
+ 	bool loc_set = false;
+ 	bool loc_match_set = false;
+@@ -202,8 +202,11 @@ static int ila_parse_opt(int argc, char **argv, struct nlmsghdr *n,
+ 		}
+ 	}
+ 
+-	addattr64(n, 1024, ILA_ATTR_LOCATOR_MATCH, locator_match);
+-	addattr64(n, 1024, ILA_ATTR_LOCATOR, locator);
++	if (loc_match_set)
++		addattr64(n, 1024, ILA_ATTR_LOCATOR_MATCH, locator_match);
++
++	if (loc_set)
++		addattr64(n, 1024, ILA_ATTR_LOCATOR, locator);
+ 
+ 	if (ifindex_set)
+ 		addattr32(n, 1024, ILA_ATTR_IFINDEX, ifindex);
 -- 
-Jiri Kosina
-SUSE Labs
+2.8.0.rc2
