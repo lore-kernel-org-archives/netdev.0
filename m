@@ -1,88 +1,74 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
- redirect using TC
-Date: Mon, 15 Aug 2016 12:08:04 +0300
-Message-ID: <20160815090804.GB19058@office.localdomain>
-References: <20160814140652.15985-1-amir@vadai.me>
- <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
- <20160815071121.GA2024@nanopsycho>
- <20160815081740.GA19058@office.localdomain>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Subject: [BUGFIX PATCH 0/2] Bugfixes for brcmfmac
+Date: Mon, 15 Aug 2016 18:40:41 +0900
+Message-ID: <147125403645.9434.8008546579326856373.stgit@devbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Oded Shanoon <odeds@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34521 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbcHOJIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 05:08:07 -0400
-Received: by mail-wm0-f66.google.com with SMTP id q128so10034260wma.1
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 02:08:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160815081740.GA19058@office.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org,
+	brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 15, 2016 at 11:17:40AM +0300, Amir Vadai wrote:
-> On Mon, Aug 15, 2016 at 09:11:22AM +0200, Jiri Pirko wrote:
-> > Sun, Aug 14, 2016 at 07:53:30PM CEST, xiyou.wangcong@gmail.com wrote:
-> > >On Sun, Aug 14, 2016 at 7:06 AM, Amir Vadai <amir@vadai.me> wrote:
-> > >> tc qdisc add dev $ETH ingress
-> > >>
-> > >> # ENCAP rule for ARP
-> > >> tc filter add dev $ETH protocol 0x806 parent ffff: prio 11 \
-> > >>                 flower \
-> > >>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
-> > >>
-> > >> # ENCAP rule for ICMP
-> > >> tc filter add dev $ETH protocol ip parent ffff: prio 10 \
-> > >>                 flower ip_proto 1 \
-> > >>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
-> > >>
-> > >
-> > >I don't like this. This makes mirred action unnecessarily
-> > >complex, it should really just mirror or redirect packets as
-> > >it is, why it should be aware of tunnel information?
-> > >
-> > >I think you probably need to introduce a new tc action
-> > >for these tunnel information and pipe it to mirred.
-> > 
-> > that is the first thing that I thinked of when I saw the patch. I think
-> > you can introduce act_vxlan similar to act_vlan.
-> 
-> introducing a new action was the first thing I thought of, but it felt
-> problematic because the actual encap is done by the redirection to the
-> vxlan device. This action is only responsible to supply the metadata and
-> work tightly with the mirred. It is not exactly like vlan that the
-> push/pop actions can live without mirroring/redirecting.
-> But still as all of you said, it makes mirred complex with stuff that
-> shouldn't be there. And between the two options it is better to
-> introduce a new action.
-> 
-> I will go in this direction.
-> 
-> Thanks,
-> Amir
+Hi,
 
-Any objection to the following?
+Here are 2 patches for fixing bugs which I recently faced on my PC.
 
-# ENCAP rule
-tc filter add dev $ETH protocol ip parent ffff: prio 10 \
-		flower ip_proto 1 \
-		action set_tunnel_key src_ip 11.11.0.1 dst_ip 11.11.0.2 key_id 11 dst_port 4789 \
-		action mirred egress redirect dev $VXLAN 
+There are 2 bugs I've hit on brcmfmac, one issue was critical,
+the other was just found when I investigated the first issue.
 
-# DECAP rule
-tc filter add dev $VXLAN protocol ip parent ffff: prio 10 \
-		flower \
-			enc_src_ip 11.11.0.2 enc_dst_ip 11.11.0.1 enc_key_id 11 \
-			ip_proto 1 \
-		action mirred egress redirect dev $ETH
+1) when I shutdown or reboot my pc with wifi, it always stopped
+ when disabling networking. I tried to just disable wifi and saw
+ task hung up messages on dmesg.
+ All those taskes were blocked on rtnl_lock according to the
+ stacktrace, and found a suspicious task in the list. Actually
+ the wpa_supplicant is blocked while stopping the interface.
+
+2) I also tried to get more information about that and enabled
+ DEBUG_ATOMIC_SLEEP and got another warning in brcmfmac. That
+ warned a mutex (which can yeild/sleep) is held in !TASK_RUNNING
+ state. I've found a mutex is held when in wait_event_timeout()
+ condition parameter.
+
+I traced the source code and found that #1 was caused by double
+locking of rtnl_lock in brcmfmac driver, because it doesn't
+check the rtnl_lock is already held in a path (actually, other
+paths checked that). So I fixed it by checking rtnl_locked and
+skip locking rtnl_lock. It works, but not seems the best way
+to fix, since original code (rtnl_lock locking around
+cfg80211_unregister_wdev) itself looks add-hoc. Anyway, since
+I don't have any knowladge of this subsystem, I'd like to ask
+maintainer's help.
+
+To fix #2 issue, I've checked the mutex (vif_event_lock) in
+struct brcmf_cfg80211_vif_event just protect updating other
+members and can be replaced by a spinlock because in the
+protected regions are not involving any scheduler related
+code.
+
+
+Thank you,
+---
+
+Masami Hiramatsu (2):
+      brcmfmac: Check rtnl_lock is locked when removing interface
+      brcmfmac: Change vif_event_lock to spinlock
+
+
+ .../broadcom/brcm80211/brcmfmac/cfg80211.c         |   26 ++++++++++----------
+ .../broadcom/brcm80211/brcmfmac/cfg80211.h         |    2 +-
+ .../wireless/broadcom/brcm80211/brcmfmac/core.c    |    2 +-
+ .../net/wireless/broadcom/brcm80211/brcmfmac/p2p.c |    8 ++++--
+ .../net/wireless/broadcom/brcm80211/brcmfmac/p2p.h |    2 +-
+ 5 files changed, 21 insertions(+), 19 deletions(-)
+
+--
+Masami Hiramatsu <mhiramat@kernel.org>
