@@ -1,8 +1,7 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net v2 2/5] hv_netvsc: avoid deadlocks between rtnl lock and
- vf_use_cnt wait
-Date: Mon, 15 Aug 2016 17:48:40 +0200
-Message-ID: <1471276123-24264-3-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH net v2 1/5] hv_netvsc: don't lose VF information
+Date: Mon, 15 Aug 2016 17:48:39 +0200
+Message-ID: <1471276123-24264-2-git-send-email-vkuznets@redhat.com>
 References: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,121 +22,280 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Here is a deadlock scenario:
-- netvsc_vf_up() schedules netvsc_notify_peers() work and quits.
-- netvsc_vf_down() runs before netvsc_notify_peers() gets executed. As it
-  is being executed from netdev notifier chain we hold rtnl lock when we
-  get here.
-- we enter while (atomic_read(&net_device_ctx->vf_use_cnt) != 0) loop and
-  wait till netvsc_notify_peers() drops vf_use_cnt.
-- netvsc_notify_peers() starts on some other CPU but netdev_notify_peers()
-  will hang on rtnl_lock().
-- deadlock!
-
-Instead of introducing additional synchronization I suggest we drop
-gwrk.dwrk completely and call NETDEV_NOTIFY_PEERS directly. As we're
-acting under rtnl lock this is legitimate.
+struct netvsc_device is not suitable for storing VF information as this
+structure is being destroyed on MTU change / set channel operation (see
+rndis_filter_device_remove()). Move all VF related stuff to struct
+net_device_context which is persistent.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
-Changes since v1:
-- Move the patch ahead in the series to avoid introducing new blocking
-  issues and solving them later in the series. [David Miller]
----
- drivers/net/hyperv/hyperv_net.h |  7 -------
- drivers/net/hyperv/netvsc_drv.c | 33 +++++----------------------------
- 2 files changed, 5 insertions(+), 35 deletions(-)
+ drivers/net/hyperv/hyperv_net.h | 19 ++++++++--------
+ drivers/net/hyperv/netvsc.c     | 19 +++++++---------
+ drivers/net/hyperv/netvsc_drv.c | 49 +++++++++++++++++++++++------------------
+ 3 files changed, 45 insertions(+), 42 deletions(-)
 
 diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 3b3ecf2..591af71 100644
+index 467fb8b..3b3ecf2 100644
 --- a/drivers/net/hyperv/hyperv_net.h
 +++ b/drivers/net/hyperv/hyperv_net.h
-@@ -644,12 +644,6 @@ struct netvsc_reconfig {
- 	u32 event;
+@@ -647,7 +647,7 @@ struct netvsc_reconfig {
+ struct garp_wrk {
+ 	struct work_struct dwrk;
+ 	struct net_device *netdev;
+-	struct netvsc_device *netvsc_dev;
++	struct net_device_context *net_device_ctx;
  };
  
--struct garp_wrk {
--	struct work_struct dwrk;
--	struct net_device *netdev;
--	struct net_device_context *net_device_ctx;
--};
--
  /* The context of the netvsc device  */
- struct net_device_context {
- 	/* point back to our device context */
-@@ -667,7 +661,6 @@ struct net_device_context {
+@@ -678,6 +678,15 @@ struct net_device_context {
  
- 	struct work_struct work;
- 	u32 msg_enable; /* debug level */
--	struct garp_wrk gwrk;
+ 	/* the device is going away */
+ 	bool start_remove;
++
++	/* State to manage the associated VF interface. */
++	struct net_device *vf_netdev;
++	bool vf_inject;
++	atomic_t vf_use_cnt;
++	/* 1: allocated, serial number is valid. 0: not allocated */
++	u32 vf_alloc;
++	/* Serial number of the VF to team with */
++	u32 vf_serial;
+ };
  
- 	struct netvsc_stats __percpu *tx_stats;
- 	struct netvsc_stats __percpu *rx_stats;
+ /* Per netvsc device */
+@@ -733,15 +742,7 @@ struct netvsc_device {
+ 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
+ 	u32 pkt_align; /* alignment bytes, e.g. 8 */
+ 
+-	/* 1: allocated, serial number is valid. 0: not allocated */
+-	u32 vf_alloc;
+-	/* Serial number of the VF to team with */
+-	u32 vf_serial;
+ 	atomic_t open_cnt;
+-	/* State to manage the associated VF interface. */
+-	bool vf_inject;
+-	struct net_device *vf_netdev;
+-	atomic_t vf_use_cnt;
+ };
+ 
+ static inline struct netvsc_device *
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 20e0917..410fb8e8 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -77,13 +77,9 @@ static struct netvsc_device *alloc_net_device(void)
+ 	init_waitqueue_head(&net_device->wait_drain);
+ 	net_device->destroy = false;
+ 	atomic_set(&net_device->open_cnt, 0);
+-	atomic_set(&net_device->vf_use_cnt, 0);
+ 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 
+-	net_device->vf_netdev = NULL;
+-	net_device->vf_inject = false;
+-
+ 	return net_device;
+ }
+ 
+@@ -1106,16 +1102,16 @@ static void netvsc_send_table(struct hv_device *hdev,
+ 		nvscdev->send_table[i] = tab[i];
+ }
+ 
+-static void netvsc_send_vf(struct netvsc_device *nvdev,
++static void netvsc_send_vf(struct net_device_context *net_device_ctx,
+ 			   struct nvsp_message *nvmsg)
+ {
+-	nvdev->vf_alloc = nvmsg->msg.v4_msg.vf_assoc.allocated;
+-	nvdev->vf_serial = nvmsg->msg.v4_msg.vf_assoc.serial;
++	net_device_ctx->vf_alloc = nvmsg->msg.v4_msg.vf_assoc.allocated;
++	net_device_ctx->vf_serial = nvmsg->msg.v4_msg.vf_assoc.serial;
+ }
+ 
+ static inline void netvsc_receive_inband(struct hv_device *hdev,
+-					 struct netvsc_device *nvdev,
+-					 struct nvsp_message *nvmsg)
++				 struct net_device_context *net_device_ctx,
++				 struct nvsp_message *nvmsg)
+ {
+ 	switch (nvmsg->hdr.msg_type) {
+ 	case NVSP_MSG5_TYPE_SEND_INDIRECTION_TABLE:
+@@ -1123,7 +1119,7 @@ static inline void netvsc_receive_inband(struct hv_device *hdev,
+ 		break;
+ 
+ 	case NVSP_MSG4_TYPE_SEND_VF_ASSOCIATION:
+-		netvsc_send_vf(nvdev, nvmsg);
++		netvsc_send_vf(net_device_ctx, nvmsg);
+ 		break;
+ 	}
+ }
+@@ -1136,6 +1132,7 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 				   struct vmpacket_descriptor *desc)
+ {
+ 	struct nvsp_message *nvmsg;
++	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+ 
+ 	nvmsg = (struct nvsp_message *)((unsigned long)
+ 		desc + (desc->offset8 << 3));
+@@ -1150,7 +1147,7 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
+ 		break;
+ 
+ 	case VM_PKT_DATA_INBAND:
+-		netvsc_receive_inband(device, net_device, nvmsg);
++		netvsc_receive_inband(device, net_device_ctx, nvmsg);
+ 		break;
+ 
+ 	default:
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 794139b..70317fa 100644
+index 41bd952..794139b 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1151,17 +1151,6 @@ static void netvsc_free_netdev(struct net_device *netdev)
- 	free_netdev(netdev);
+@@ -658,20 +658,19 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	struct sk_buff *skb;
+ 	struct sk_buff *vf_skb;
+ 	struct netvsc_stats *rx_stats;
+-	struct netvsc_device *netvsc_dev = net_device_ctx->nvdev;
+ 	u32 bytes_recvd = packet->total_data_buflen;
+ 	int ret = 0;
+ 
+ 	if (!net || net->reg_state != NETREG_REGISTERED)
+ 		return NVSP_STAT_FAIL;
+ 
+-	if (READ_ONCE(netvsc_dev->vf_inject)) {
+-		atomic_inc(&netvsc_dev->vf_use_cnt);
+-		if (!READ_ONCE(netvsc_dev->vf_inject)) {
++	if (READ_ONCE(net_device_ctx->vf_inject)) {
++		atomic_inc(&net_device_ctx->vf_use_cnt);
++		if (!READ_ONCE(net_device_ctx->vf_inject)) {
+ 			/*
+ 			 * We raced; just move on.
+ 			 */
+-			atomic_dec(&netvsc_dev->vf_use_cnt);
++			atomic_dec(&net_device_ctx->vf_use_cnt);
+ 			goto vf_injection_done;
+ 		}
+ 
+@@ -683,17 +682,19 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 		 * the host). Deliver these via the VF interface
+ 		 * in the guest.
+ 		 */
+-		vf_skb = netvsc_alloc_recv_skb(netvsc_dev->vf_netdev, packet,
+-					       csum_info, *data, vlan_tci);
++		vf_skb = netvsc_alloc_recv_skb(net_device_ctx->vf_netdev,
++					       packet, csum_info, *data,
++					       vlan_tci);
+ 		if (vf_skb != NULL) {
+-			++netvsc_dev->vf_netdev->stats.rx_packets;
+-			netvsc_dev->vf_netdev->stats.rx_bytes += bytes_recvd;
++			++net_device_ctx->vf_netdev->stats.rx_packets;
++			net_device_ctx->vf_netdev->stats.rx_bytes +=
++				bytes_recvd;
+ 			netif_receive_skb(vf_skb);
+ 		} else {
+ 			++net->stats.rx_dropped;
+ 			ret = NVSP_STAT_FAIL;
+ 		}
+-		atomic_dec(&netvsc_dev->vf_use_cnt);
++		atomic_dec(&net_device_ctx->vf_use_cnt);
+ 		return ret;
+ 	}
+ 
+@@ -1158,7 +1159,7 @@ static void netvsc_notify_peers(struct work_struct *wrk)
+ 
+ 	netdev_notify_peers(gwrk->netdev);
+ 
+-	atomic_dec(&gwrk->netvsc_dev->vf_use_cnt);
++	atomic_dec(&gwrk->net_device_ctx->vf_use_cnt);
  }
  
--static void netvsc_notify_peers(struct work_struct *wrk)
--{
--	struct garp_wrk *gwrk;
--
--	gwrk = container_of(wrk, struct garp_wrk, dwrk);
--
--	netdev_notify_peers(gwrk->netdev);
--
--	atomic_dec(&gwrk->net_device_ctx->vf_use_cnt);
--}
--
  static struct net_device *get_netvsc_net_device(char *mac)
- {
- 	struct net_device *dev, *found = NULL;
-@@ -1253,15 +1242,8 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 
- 	netif_carrier_off(ndev);
- 
--	/*
--	 * Now notify peers. We are scheduling work to
--	 * notify peers; take a reference to prevent
--	 * the VF interface from vanishing.
--	 */
--	atomic_inc(&net_device_ctx->vf_use_cnt);
--	net_device_ctx->gwrk.netdev = vf_netdev;
--	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
--	schedule_work(&net_device_ctx->gwrk.dwrk);
-+	/* Now notify peers through VF device. */
-+	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vf_netdev);
- 
+@@ -1211,7 +1212,7 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
+ 	 * Take a reference on the module.
+ 	 */
+ 	try_module_get(THIS_MODULE);
+-	netvsc_dev->vf_netdev = vf_netdev;
++	net_device_ctx->vf_netdev = vf_netdev;
  	return NOTIFY_OK;
  }
-@@ -1300,13 +1282,9 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 
+@@ -1233,11 +1234,11 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+-	if ((netvsc_dev == NULL) || (netvsc_dev->vf_netdev == NULL))
++	if (!netvsc_dev || !net_device_ctx->vf_netdev)
+ 		return NOTIFY_DONE;
+ 
+ 	netdev_info(ndev, "VF up: %s\n", vf_netdev->name);
+-	netvsc_dev->vf_inject = true;
++	net_device_ctx->vf_inject = true;
+ 
+ 	/*
+ 	 * Open the device before switching data path.
+@@ -1257,9 +1258,9 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 	 * notify peers; take a reference to prevent
+ 	 * the VF interface from vanishing.
+ 	 */
+-	atomic_inc(&netvsc_dev->vf_use_cnt);
++	atomic_inc(&net_device_ctx->vf_use_cnt);
+ 	net_device_ctx->gwrk.netdev = vf_netdev;
+-	net_device_ctx->gwrk.netvsc_dev = netvsc_dev;
++	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
+ 	schedule_work(&net_device_ctx->gwrk.dwrk);
+ 
+ 	return NOTIFY_OK;
+@@ -1283,17 +1284,17 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+ 
+-	if ((netvsc_dev == NULL) || (netvsc_dev->vf_netdev == NULL))
++	if (!netvsc_dev || !net_device_ctx->vf_netdev)
+ 		return NOTIFY_DONE;
+ 
+ 	netdev_info(ndev, "VF down: %s\n", vf_netdev->name);
+-	netvsc_dev->vf_inject = false;
++	net_device_ctx->vf_inject = false;
+ 	/*
+ 	 * Wait for currently active users to
+ 	 * drain out.
+ 	 */
+ 
+-	while (atomic_read(&netvsc_dev->vf_use_cnt) != 0)
++	while (atomic_read(&net_device_ctx->vf_use_cnt) != 0)
+ 		udelay(50);
+ 	netvsc_switch_datapath(ndev, false);
  	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
- 	rndis_filter_close(netvsc_dev);
- 	netif_carrier_on(ndev);
--	/*
--	 * Notify peers.
--	 */
--	atomic_inc(&net_device_ctx->vf_use_cnt);
--	net_device_ctx->gwrk.netdev = ndev;
--	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
--	schedule_work(&net_device_ctx->gwrk.dwrk);
-+
-+	/* Now notify peers through netvsc device. */
-+	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
+@@ -1302,9 +1303,9 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 	/*
+ 	 * Notify peers.
+ 	 */
+-	atomic_inc(&netvsc_dev->vf_use_cnt);
++	atomic_inc(&net_device_ctx->vf_use_cnt);
+ 	net_device_ctx->gwrk.netdev = ndev;
+-	net_device_ctx->gwrk.netvsc_dev = netvsc_dev;
++	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
+ 	schedule_work(&net_device_ctx->gwrk.dwrk);
  
  	return NOTIFY_OK;
+@@ -1331,7 +1332,7 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
+ 		return NOTIFY_DONE;
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 
+-	netvsc_dev->vf_netdev = NULL;
++	net_device_ctx->vf_netdev = NULL;
+ 	module_put(THIS_MODULE);
+ 	return NOTIFY_OK;
  }
-@@ -1378,7 +1356,6 @@ static int netvsc_probe(struct hv_device *dev,
- 
- 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
- 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
--	INIT_WORK(&net_device_ctx->gwrk.dwrk, netvsc_notify_peers);
- 
+@@ -1382,6 +1383,10 @@ static int netvsc_probe(struct hv_device *dev,
  	spin_lock_init(&net_device_ctx->lock);
  	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
+ 
++	atomic_set(&net_device_ctx->vf_use_cnt, 0);
++	net_device_ctx->vf_netdev = NULL;
++	net_device_ctx->vf_inject = false;
++
+ 	net->netdev_ops = &device_ops;
+ 
+ 	net->hw_features = NETVSC_HW_FEATURES;
 -- 
 2.7.4
