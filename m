@@ -1,57 +1,60 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: Issues related to TCP Fast Open flags: TFO_SERVER_COOKIE_NOT_CHKED
- and TFO_SERVER_WO_SOCKOPT2
-Date: Mon, 15 Aug 2016 09:52:40 -0700
-Message-ID: <CAK6E8=fakba_v3mZBXBSaeDbsQBjfXcdoYRTbkmsOhcnsZ5iXQ@mail.gmail.com>
-References: <58f77827-c57c-0602-255f-a76fdd3cd472@gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net v3] gre: set inner_protocol on xmit
+Date: Mon, 15 Aug 2016 10:02:10 -0700
+Message-ID: <CAOrHB_AgN68VR5+sz+rBtuxo_-dKqzjWu23fXVqMaCV9Ua7sPg@mail.gmail.com>
+References: <1471259184-18294-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Piotr Jurkiewicz <piotr.jerzy.jurkiewicz@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f47.google.com ([209.85.214.47]:36481 "EHLO
-	mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863AbcHOQxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 12:53:22 -0400
-Received: by mail-it0-f47.google.com with SMTP id e63so11463584ith.1
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 09:53:21 -0700 (PDT)
-In-Reply-To: <58f77827-c57c-0602-255f-a76fdd3cd472@gmail.com>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:46730 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752590AbcHORCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 13:02:14 -0400
+Received: from mfilter43-d.gandi.net (mfilter43-d.gandi.net [217.70.178.174])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id 3439241C086
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 19:02:13 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter43-d.gandi.net (mfilter43-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id 0HFSNQjjPGMa for <netdev@vger.kernel.org>;
+	Mon, 15 Aug 2016 19:02:11 +0200 (CEST)
+Received: from mail-io0-f173.google.com (mail-io0-f173.google.com [209.85.223.173])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id B698041C095
+	for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 19:02:11 +0200 (CEST)
+Received: by mail-io0-f173.google.com with SMTP id 38so84815136iol.0
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 10:02:11 -0700 (PDT)
+In-Reply-To: <1471259184-18294-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 13, 2016 at 4:05 PM, Piotr Jurkiewicz
-<piotr.jerzy.jurkiewicz@gmail.com> wrote:
-> 1. Handling of TFO_SERVER_COOKIE_NOT_CHKED flag was removed back in 2014,
-> but this flag is still mentioned in the documentation:
+On Mon, Aug 15, 2016 at 4:06 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> Ensure that the inner_protocol is set on transmit so that GSO segmentation,
+> which relies on that field, works correctly.
 >
-> Documentation/networking/ip-sysctl.txt:
->         0x100: Accept SYN data w/o validating the cookie.
+> This is achieved by setting the inner_protocol in gre_build_header rather
+> than each caller of that function. It ensures that the inner_protocol is
+> set when gre_fb_xmit() is used to transmit GRE which was not previously the
+> case.
 >
-> 2. There is no explanation how TFO_SERVER_WO_SOCKOPT1 and
-> TFO_SERVER_WO_SOCKOPT2 differ, the docs only say:
+> I have observed this is not the case when OvS transmits GRE using
+> lwtunnel metadata (which it always does).
 >
-> Documentation/networking/ip-sysctl.txt:
->         0x400/0x800: Enable Fast Open on all listeners regardless of the
->            TCP_FASTOPEN socket option. The two different flags designate two
->            different ways of setting max_qlen without the TCP_FASTOPEN
-> socket
->            option.
+> Fixes: 38720352412a ("gre: Use inner_proto to obtain inner header protocol")
+> Cc: Pravin Shelar <pshelar@ovn.org>
+> Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> ---
+> v3
+> * Move logic to gre_build_header() as suggested by Pravin Shelar.
 >
-> 3. When TFO_SERVER_WO_SOCKOPT2 flag is set, the fastopenq.max_qlen is set to
-> the value of sysctl bitmap containing flags (sysctl_tcp_fastopen), what is
-> (at least for me) completely irrational and I believe is a bug:
->
-> net/ipv4/af_inet.c:
-> 225                         else if ((sysctl_tcp_fastopen &
-> 226                                   TFO_SERVER_WO_SOCKOPT2) != 0)
-> 227                                 fastopen_queue_tune(sk,
-> 228                                     ((uint)sysctl_tcp_fastopen) >> 16);
-Thanks for pointing these issues out. The document indeed needs work.
+> v2
+> * Added Alexander's Ack
+> * Drop RFC designation
+> ---
 
-TFO_SERVERS_WO_SOCKEOPT2 was used for debugging purposes that we
-forget to clean up before upstream. Here is my plan:
-
-1) send a patch to remove this opaque/buggy internal debugging option
-2) update the ip-sysctl, perhaps update tcp option man pages
-
-How does that sound?
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
