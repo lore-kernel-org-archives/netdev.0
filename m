@@ -1,59 +1,59 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [RFC PATCH v5 3/3] net: phy: Add gmiitorgmii converter support
-Date: Mon, 15 Aug 2016 23:30:59 +0200
-Message-ID: <20160815213059.GK24664@lunn.ch>
-References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
- <1470735283-23611-4-git-send-email-appanad@xilinx.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [BUGFIX PATCH 1/2] brcmfmac: Check rtnl_lock is locked when
+ removing interface
+Date: Mon, 15 Aug 2016 23:44:05 +0200
+Message-ID: <15e43df4-b8cc-8612-472e-80634cf27cac@broadcom.com>
+References: <147125403645.9434.8008546579326856373.stgit@devbox>
+ <147125405701.9434.12911635695339175773.stgit@devbox>
+ <5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
+ <87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
+ <CACna6ryuN_qDrVwAbS5P9mfhjMwv2hNeTqEzTQ=WxvP1V=zHXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org, appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kedareswara rao Appana <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1470735283-23611-4-git-send-email-appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Masami Hiramatsu <mhiramat@kernel.org>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list.pdl@broadcom.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACna6ryuN_qDrVwAbS5P9mfhjMwv2hNeTqEzTQ=WxvP1V=zHXA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> ---
-> Thanks a lot Andrew for your inputs.
-> Changes for v5:
-> --> Fixed return values in the probe as suggested by punnaiah.
-> --> Added a mask for the converter speed as suggested by punnaiah.
-> +/* Xilinx GMII2RGMII Converter driver
-> + *
-> + * Copyright (C) 2016 Xilinx, Inc.
-> + *
-> + * Author: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
 
-Not cool
 
-https://github.com/lunn/linux/commit/03d375489ceb56e171056f44d0fe9c34ca5a098e
+On 15-8-2016 13:52, Rafał Miłecki wrote:
+> On 15 August 2016 at 12:57, Kalle Valo <kvalo@codeaurora.org> wrote:
+>> Rafał Miłecki <zajec5@gmail.com> writes:
+>>
+>>>> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+>>>
+>>> Fixes: a63b09872c1d ("brcmfmac: delete interface directly in code that sent fw request")
+>>> Acked-by: Rafał Miłecki <rafal@milecki.pl>
+>>>
+>>> Kalle: I'm acking this as bugfix for 4.8 release.
+>>
+>> Ok. I'll wait few days for more comments before I apply this.
+> 
+> Sure.
+> 
+> 
+>> (I assume you are talking only about patch 1)
+> 
+> Yes, I'll leave mutex vs. spinlock to the experts :)
 
-Notice the
+Don't know who the experts are. Surely not me :-p
 
-Not-Signed-off-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+I made an uneducated design decision using a mutex for this. The
+reasoning for using a regular spinlock make sense. So I will go and ack
+that patch.
 
-and the Copyright i added?
-
-In various emails i gave you the basic idea how this should be done, a
-framework of code, and then took your code which did not even compile
-and made the core of it work. This is as much my code as your code, so
-i expect my Copyright to be kept on this code. And since this is my
-code, i need to give a Signed-off-by, which i was not yet ready to
-give since the code was not complete or working.
-
-Please put both my Copyright back and Not-Signed-Off-by back and post
-the next version as RFC. Once i'm happy this code is O.K, i will give
-you a Signed-off-by.
-
-    Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Arend
