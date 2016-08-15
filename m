@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [PATCH 1/9] microblaze: irqchip: Move intc driver to irqchip
-Date: Mon, 15 Aug 2016 14:55:27 +0100
-Message-ID: <1471269335-58747-2-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [PATCH 2/9] irqchip: xilinx: Add support for parent intc
+Date: Mon, 15 Aug 2016 14:55:28 +0100
+Message-ID: <1471269335-58747-3-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -22,77 +22,73 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-The Xilinx AXI Interrupt Controller IP block is used by the MIPS
-based xilfpga platform.
+The MIPS based xilfpga platform has the following IRQ structure
 
-Move the interrupt controller code out of arch/microblaze so that
-it can be used by everyone
+Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
+
+Add support for the driver to chain the irq handler
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 ---
- arch/microblaze/Kconfig                                       | 1 +
- arch/microblaze/kernel/Makefile                               | 2 +-
- drivers/irqchip/Kconfig                                       | 4 ++++
- drivers/irqchip/Makefile                                      | 1 +
- arch/microblaze/kernel/intc.c => drivers/irqchip/irq-xilinx.c | 0
- 5 files changed, 7 insertions(+), 1 deletion(-)
- rename arch/microblaze/kernel/intc.c => drivers/irqchip/irq-xilinx.c (100%)
+ drivers/irqchip/irq-xilinx.c | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
 
-diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
-index 86f6572..198e921 100644
---- a/arch/microblaze/Kconfig
-+++ b/arch/microblaze/Kconfig
-@@ -27,6 +27,7 @@ config MICROBLAZE
- 	select HAVE_MEMBLOCK_NODE_MAP
- 	select HAVE_OPROFILE
- 	select IRQ_DOMAIN
-+	select XILINX_IRQ
- 	select MODULES_USE_ELF_RELA
- 	select OF
- 	select OF_EARLY_FLATTREE
-diff --git a/arch/microblaze/kernel/Makefile b/arch/microblaze/kernel/Makefile
-index f08baca..e098381 100644
---- a/arch/microblaze/kernel/Makefile
-+++ b/arch/microblaze/kernel/Makefile
-@@ -15,7 +15,7 @@ endif
- extra-y := head.o vmlinux.lds
+diff --git a/drivers/irqchip/irq-xilinx.c b/drivers/irqchip/irq-xilinx.c
+index 90bec7d..a0be6fa 100644
+--- a/drivers/irqchip/irq-xilinx.c
++++ b/drivers/irqchip/irq-xilinx.c
+@@ -15,6 +15,7 @@
+ #include <linux/of_address.h>
+ #include <linux/io.h>
+ #include <linux/bug.h>
++#include <linux/of_irq.h>
  
- obj-y += dma.o exceptions.o \
--	hw_exception_handler.o intc.o irq.o \
-+	hw_exception_handler.o irq.o \
- 	platform.o process.o prom.o ptrace.o \
- 	reset.o setup.o signal.o sys_microblaze.o timer.o traps.o unwind.o
+ static void __iomem *intc_baseaddr;
  
-diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
-index 7f87289..b5e40ee 100644
---- a/drivers/irqchip/Kconfig
-+++ b/drivers/irqchip/Kconfig
-@@ -203,6 +203,10 @@ config XTENSA_MX
- 	bool
- 	select IRQ_DOMAIN
+@@ -135,11 +136,26 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
+ 	.map = xintc_map,
+ };
  
-+config XILINX_IRQ
-+	bool
-+	select IRQ_DOMAIN
++static void xil_intc_irq_handler(struct irq_desc *desc)
++{
++	u32 pending = get_irq();
 +
- config IRQ_CROSSBAR
- 	bool
- 	help
-diff --git a/drivers/irqchip/Makefile b/drivers/irqchip/Makefile
-index 4c203b6..2bd833d 100644
---- a/drivers/irqchip/Makefile
-+++ b/drivers/irqchip/Makefile
-@@ -51,6 +51,7 @@ obj-$(CONFIG_TB10X_IRQC)		+= irq-tb10x.o
- obj-$(CONFIG_TS4800_IRQ)		+= irq-ts4800.o
- obj-$(CONFIG_XTENSA)			+= irq-xtensa-pic.o
- obj-$(CONFIG_XTENSA_MX)			+= irq-xtensa-mx.o
-+obj-$(CONFIG_XILINX_IRQ)		+= irq-xilinx.o
- obj-$(CONFIG_IRQ_CROSSBAR)		+= irq-crossbar.o
- obj-$(CONFIG_SOC_VF610)			+= irq-vf610-mscm-ir.o
- obj-$(CONFIG_BCM6345_L1_IRQ)		+= irq-bcm6345-l1.o
-diff --git a/arch/microblaze/kernel/intc.c b/drivers/irqchip/irq-xilinx.c
-similarity index 100%
-rename from arch/microblaze/kernel/intc.c
-rename to drivers/irqchip/irq-xilinx.c
++	if (pending != -1U) {
++		while (true) {
++			pending = get_irq();
++			generic_handle_irq(pending);
++			if (pending == -1U)
++				break;
++		}
++	}
++}
++
+ static int __init xilinx_intc_of_init(struct device_node *intc,
+ 					     struct device_node *parent)
+ {
+ 	u32 nr_irq, intr_mask;
+-	int ret;
++	int ret, irq;
++	struct device_node *parent_node;
+ 
+ 	intc_baseaddr = of_iomap(intc, 0);
+ 	BUG_ON(!intc_baseaddr);
+@@ -188,6 +204,16 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
+ 	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+ 							(void *)intr_mask);
+ 
++	parent_node = of_irq_find_parent(intc);
++	if (parent_node) {
++		irq = irq_of_parse_and_map(intc, 0);
++		if (irq)
++			irq_set_chained_handler_and_data(irq,
++							 xil_intc_irq_handler,
++							 root_domain);
++
++	}
++
+ 	irq_set_default_host(root_domain);
+ 
+ 	return 0;
 -- 
 1.9.1
