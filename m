@@ -1,57 +1,71 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
- redirect using TC
-Date: Sun, 14 Aug 2016 22:05:31 -0700
-Message-ID: <57B14D9B.8040802@gmail.com>
-References: <20160814140652.15985-1-amir@vadai.me>
- <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] rhashtable: fix shift by 64 when shrinking
+Date: Mon, 15 Aug 2016 14:02:17 +0800
+Message-ID: <20160815060217.GA16182@gondor.apana.org.au>
+References: <1471025444-22800-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Oded Shanoon <odeds@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+To: Vegard Nossum <vegard.nossum@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36118 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751375AbcHOFFr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 01:05:47 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y134so3149437pfg.3
-        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 22:05:47 -0700 (PDT)
-In-Reply-To: <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:35833 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752289AbcHOGC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 02:02:29 -0400
+Content-Disposition: inline
+In-Reply-To: <1471025444-22800-1-git-send-email-vegard.nossum@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-08-14 10:53 AM, Cong Wang wrote:
-> On Sun, Aug 14, 2016 at 7:06 AM, Amir Vadai <amir@vadai.me> wrote:
->> tc qdisc add dev $ETH ingress
->>
->> # ENCAP rule for ARP
->> tc filter add dev $ETH protocol 0x806 parent ffff: prio 11 \
->>                 flower \
->>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
->>
->> # ENCAP rule for ICMP
->> tc filter add dev $ETH protocol ip parent ffff: prio 10 \
->>                 flower ip_proto 1 \
->>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
->>
+On Fri, Aug 12, 2016 at 08:10:44PM +0200, Vegard Nossum wrote:
+> I got this:
 > 
-> I don't like this. This makes mirred action unnecessarily
-> complex, it should really just mirror or redirect packets as
-> it is, why it should be aware of tunnel information?
+>     ================================================================================
+>     UBSAN: Undefined behaviour in ./include/linux/log2.h:63:13
+>     shift exponent 64 is too large for 64-bit type 'long unsigned int'
+>     CPU: 1 PID: 721 Comm: kworker/1:1 Not tainted 4.8.0-rc1+ #87
+>     Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.9.3-0-ge2fc41e-prebuilt.qemu-project.org 04/01/2014
+>     Workqueue: events rht_deferred_worker
+>      0000000000000000 ffff88011661f8d8 ffffffff82344f50 0000000041b58ab3
+>      ffffffff84f98000 ffffffff82344ea4 ffff88011661f900 ffff88011661f8b0
+>      0000000000000001 ffff88011661f6b8 dffffc0000000000 ffffffff867f7640
+>     Call Trace:
+>      [<ffffffff82344f50>] dump_stack+0xac/0xfc
+>      [<ffffffff82344ea4>] ? _atomic_dec_and_lock+0xc4/0xc4
+>      [<ffffffff8242f5b8>] ubsan_epilogue+0xd/0x8a
+>      [<ffffffff82430c41>] __ubsan_handle_shift_out_of_bounds+0x255/0x29a
+>      [<ffffffff824309ec>] ? __ubsan_handle_out_of_bounds+0x180/0x180
+>      [<ffffffff84003436>] ? nl80211_req_set_reg+0x256/0x2f0
+>      [<ffffffff812112ba>] ? print_context_stack+0x8a/0x160
+>      [<ffffffff81200031>] ? amd_pmu_reset+0x341/0x380
+>      [<ffffffff823af808>] rht_deferred_worker+0x1618/0x1790
+>      [<ffffffff823af808>] ? rht_deferred_worker+0x1618/0x1790
+>      [<ffffffff823ae1f0>] ? rhashtable_jhash2+0x370/0x370
+>      [<ffffffff8134c12d>] ? process_one_work+0x6fd/0x1970
+>      [<ffffffff8134c1cf>] process_one_work+0x79f/0x1970
+>      [<ffffffff8134c12d>] ? process_one_work+0x6fd/0x1970
+>      [<ffffffff8134ba30>] ? try_to_grab_pending+0x4c0/0x4c0
+>      [<ffffffff8134d564>] ? worker_thread+0x1c4/0x1340
+>      [<ffffffff8134d8ff>] worker_thread+0x55f/0x1340
+>      [<ffffffff845e904f>] ? __schedule+0x4df/0x1d40
+>      [<ffffffff8134d3a0>] ? process_one_work+0x1970/0x1970
+>      [<ffffffff8134d3a0>] ? process_one_work+0x1970/0x1970
+>      [<ffffffff813642f7>] kthread+0x237/0x390
+>      [<ffffffff813640c0>] ? __kthread_parkme+0x280/0x280
+>      [<ffffffff845f8c93>] ? _raw_spin_unlock_irq+0x33/0x50
+>      [<ffffffff845f95df>] ret_from_fork+0x1f/0x40
+>      [<ffffffff813640c0>] ? __kthread_parkme+0x280/0x280
+>     ================================================================================
 > 
-> I think you probably need to introduce a new tc action
-> for these tunnel information and pipe it to mirred.
+> roundup_pow_of_two() is undefined when called with an argument of 0, so
+> let's avoid the call and just fall back to ht->p.min_size (which should
+> never be smaller than HASH_MIN_SIZE).
 > 
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 
-I agree how about a set_tunnel_key() action it could be very
-similar to the bpf helper routine. Then you can string it
-together with other actions easily.
-
-.John
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
