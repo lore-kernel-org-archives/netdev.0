@@ -1,226 +1,134 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v3 1/5] net: ethernet: ti: davinci_cpdma: split descs num between all channels
-Date: Tue, 16 Aug 2016 02:25:45 +0300
-Message-ID: <1471303549-4134-2-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v3 4/5] net: ethernet: ti: davinci_cpdma: move cpdma channel struct macroses to internals
+Date: Tue, 16 Aug 2016 02:25:48 +0300
+Message-ID: <1471303549-4134-5-git-send-email-ivan.khoronzhuk@linaro.org>
 References: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
 	nsekhar@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 To: davem@davemloft.net, netdev@vger.kernel.org, mugunthanvnm@ti.com,
 	grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:37293 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932290AbcHOX0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 19:26:07 -0400
+Received: by mail-wm0-f47.google.com with SMTP id i5so132188525wmg.0
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 16:26:06 -0700 (PDT)
 In-Reply-To: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tx channels share same pool of descriptors. Thus one channel can
-block another if pool is emptied by one. But, the shaper should
-decide which channel is allowed to send packets. To avoid such
-impact of one channel on another, let every channel to have its
-own piece of pool.
+Keep the driver internals in C file. Currently it's not required for
+drivers to know rx or tx a channel is, except create function.
+So correct "channel create" function, and use all channel struct
+macroses only for internal use.
 
 Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
- drivers/net/ethernet/ti/cpsw.c          | 61 ++++++++++++++++++++-------------
- drivers/net/ethernet/ti/davinci_cpdma.c | 46 +++++++++++++++++++++++--
- drivers/net/ethernet/ti/davinci_cpdma.h |  2 +-
- 3 files changed, 83 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c          |  7 ++-----
+ drivers/net/ethernet/ti/davinci_cpdma.c | 13 +++++++++++--
+ drivers/net/ethernet/ti/davinci_cpdma.h |  9 +--------
+ drivers/net/ethernet/ti/davinci_emac.c  |  8 ++++----
+ 4 files changed, 18 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index b4d3b41..a4c1538 100644
+index 05f36fc..6dcbd8a 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1212,6 +1212,40 @@ static void cpsw_init_host_port(struct cpsw_priv *priv)
+@@ -2535,11 +2535,8 @@ static int cpsw_probe(struct platform_device *pdev)
+ 		goto clean_runtime_disable_ret;
  	}
- }
  
-+static int cpsw_fill_rx_channels(struct net_device *ndev)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+	struct cpsw_common *cpsw = priv->cpsw;
-+	struct sk_buff *skb;
-+	int ch_buf_num;
-+	int i, ret;
-+
-+	ch_buf_num = cpdma_chan_get_rx_buf_num(cpsw->rxch);
-+	for (i = 0; i < ch_buf_num; i++) {
-+		skb = __netdev_alloc_skb_ip_align(ndev,
-+						  cpsw->rx_packet_max,
-+						  GFP_KERNEL);
-+		if (!skb) {
-+			cpsw_err(priv, ifup, "cannot allocate skb\n");
-+			return -ENOMEM;
-+		}
-+
-+		ret = cpdma_chan_submit(cpsw->rxch, skb, skb->data,
-+					skb_tailroom(skb), 0);
-+		if (ret < 0) {
-+			cpsw_err(priv, ifup,
-+				 "cannot submit skb to rx channel, error %d\n",
-+				 ret);
-+			kfree_skb(skb);
-+			return ret;
-+		}
-+	}
-+
-+	cpsw_info(priv, ifup, "submitted %d rx descriptors\n", ch_buf_num);
-+
-+	return ch_buf_num;
-+}
-+
- static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_common *cpsw)
- {
- 	u32 slave_port;
-@@ -1232,7 +1266,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- {
- 	struct cpsw_priv *priv = netdev_priv(ndev);
- 	struct cpsw_common *cpsw = priv->cpsw;
--	int i, ret;
-+	int ret;
- 	u32 reg;
- 
- 	ret = pm_runtime_get_sync(cpsw->dev);
-@@ -1264,8 +1298,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
- 
- 	if (!cpsw_common_res_usage_state(cpsw)) {
--		int buf_num;
+-	cpsw->txch[0] = cpdma_chan_create(cpsw->dma, tx_chan_num(0),
+-					  cpsw_tx_handler);
+-	cpsw->rxch[0] = cpdma_chan_create(cpsw->dma, rx_chan_num(0),
+-					  cpsw_rx_handler);
 -
- 		/* setup tx dma to fixed prio and zero offset */
- 		cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
- 		cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
-@@ -1292,26 +1324,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 			enable_irq(cpsw->irqs_table[0]);
- 		}
- 
--		buf_num = cpdma_chan_get_rx_buf_num(cpsw->dma);
--		for (i = 0; i < buf_num; i++) {
--			struct sk_buff *skb;
--
--			ret = -ENOMEM;
--			skb = __netdev_alloc_skb_ip_align(priv->ndev,
--					cpsw->rx_packet_max, GFP_KERNEL);
--			if (!skb)
--				goto err_cleanup;
--			ret = cpdma_chan_submit(cpsw->rxch, skb, skb->data,
--						skb_tailroom(skb), 0);
--			if (ret < 0) {
--				kfree_skb(skb);
--				goto err_cleanup;
--			}
--		}
--		/* continue even if we didn't manage to submit all
--		 * receive descs
--		 */
--		cpsw_info(priv, ifup, "submitted %d rx descriptors\n", i);
-+		ret = cpsw_fill_rx_channels(ndev);
-+		if (ret < 0)
-+			goto err_cleanup;
- 
- 		if (cpts_register(cpsw->dev, cpsw->cpts,
- 				  cpsw->data.cpts_clock_mult,
++	cpsw->txch[0] = cpdma_chan_create(cpsw->dma, 0, cpsw_tx_handler, 0);
++	cpsw->rxch[0] = cpdma_chan_create(cpsw->dma, 0, cpsw_rx_handler, 1);
+ 	if (WARN_ON(!cpsw->rxch[0] || !cpsw->txch[0])) {
+ 		dev_err(priv->dev, "error initializing dma channels\n");
+ 		ret = -ENOMEM;
 diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index cf72b33..167fd65 100644
+index 4b578b1..c3f35f1 100644
 --- a/drivers/net/ethernet/ti/davinci_cpdma.c
 +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -104,6 +104,7 @@ struct cpdma_ctlr {
- 	struct cpdma_desc_pool	*pool;
- 	spinlock_t		lock;
- 	struct cpdma_chan	*channels[2 * CPDMA_MAX_CHANNELS];
-+	int chan_num;
+@@ -124,6 +124,13 @@ struct cpdma_chan {
+ 	int	int_set, int_clear, td;
  };
  
- struct cpdma_chan {
-@@ -256,6 +257,7 @@ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
- 	ctlr->state = CPDMA_STATE_IDLE;
- 	ctlr->params = *params;
- 	ctlr->dev = params->dev;
-+	ctlr->chan_num = 0;
- 	spin_lock_init(&ctlr->lock);
- 
- 	ctlr->pool = cpdma_desc_pool_create(ctlr->dev,
-@@ -399,6 +401,31 @@ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value)
++#define tx_chan_num(chan)	(chan)
++#define rx_chan_num(chan)	((chan) + CPDMA_MAX_CHANNELS)
++#define is_rx_chan(chan)	((chan)->chan_num >= CPDMA_MAX_CHANNELS)
++#define is_tx_chan(chan)	(!is_rx_chan(chan))
++#define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
++#define chan_linear(chan)	__chan_linear((chan)->chan_num)
++
+ /* The following make access to common cpdma_ctlr params more readable */
+ #define dmaregs		params.dmaregs
+ #define num_chan	params.num_chan
+@@ -441,12 +448,14 @@ static void cpdma_chan_split_pool(struct cpdma_ctlr *ctlr)
  }
- EXPORT_SYMBOL_GPL(cpdma_ctlr_eoi);
  
-+/**
-+ * cpdma_chan_split_pool - Splits ctrl pool between all channels.
-+ * Has to be called under ctlr lock
-+ */
-+static void cpdma_chan_split_pool(struct cpdma_ctlr *ctlr)
-+{
-+	struct cpdma_desc_pool *pool = ctlr->pool;
-+	struct cpdma_chan *chan;
-+	int ch_desc_num;
-+	int i;
-+
-+	if (!ctlr->chan_num)
-+		return;
-+
-+	/* calculate average size of pool slice */
-+	ch_desc_num = pool->num_desc / ctlr->chan_num;
-+
-+	/* split ctlr pool */
-+	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
-+		chan = ctlr->channels[i];
-+		if (chan)
-+			chan->desc_num = ch_desc_num;
-+	}
-+}
-+
  struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 				     cpdma_handler_fn handler)
+-				     cpdma_handler_fn handler)
++				     cpdma_handler_fn handler, int rx_type)
  {
-@@ -447,14 +474,25 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 	spin_lock_init(&chan->lock);
++	int offset = chan_num * 4;
+ 	struct cpdma_chan *chan;
+-	int offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
+ 	unsigned long flags;
  
- 	ctlr->channels[chan_num] = chan;
-+	ctlr->chan_num++;
++	chan_num = rx_type ? rx_chan_num(chan_num) : tx_chan_num(chan_num);
 +
-+	cpdma_chan_split_pool(ctlr);
-+
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return chan;
- }
- EXPORT_SYMBOL_GPL(cpdma_chan_create);
+ 	if (__chan_linear(chan_num) >= ctlr->num_chan)
+ 		return NULL;
  
--int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr)
-+int cpdma_chan_get_rx_buf_num(struct cpdma_chan *chan)
- {
--	return ctlr->pool->num_desc / 2;
-+	unsigned long flags;
-+	int desc_num;
-+
-+	spin_lock_irqsave(&chan->lock, flags);
-+	desc_num = chan->desc_num;
-+	spin_unlock_irqrestore(&chan->lock, flags);
-+
-+	return desc_num;
- }
- EXPORT_SYMBOL_GPL(cpdma_chan_get_rx_buf_num);
- 
-@@ -471,6 +509,10 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
- 	if (chan->state != CPDMA_STATE_IDLE)
- 		cpdma_chan_stop(chan);
- 	ctlr->channels[chan->chan_num] = NULL;
-+	ctlr->chan_num--;
-+
-+	cpdma_chan_split_pool(ctlr);
-+
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return 0;
- }
 diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-index 4b46cd6..9119b43 100644
+index 070f1d0..a07b22b 100644
 --- a/drivers/net/ethernet/ti/davinci_cpdma.h
 +++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-@@ -80,7 +80,7 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr);
+@@ -17,13 +17,6 @@
+ 
+ #define CPDMA_MAX_CHANNELS	BITS_PER_LONG
+ 
+-#define tx_chan_num(chan)	(chan)
+-#define rx_chan_num(chan)	((chan) + CPDMA_MAX_CHANNELS)
+-#define is_rx_chan(chan)	((chan)->chan_num >= CPDMA_MAX_CHANNELS)
+-#define is_tx_chan(chan)	(!is_rx_chan(chan))
+-#define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
+-#define chan_linear(chan)	__chan_linear((chan)->chan_num)
+-
+ #define CPDMA_RX_SOURCE_PORT(__status__)	((__status__ >> 16) & 0x7)
+ 
+ #define CPDMA_EOI_RX_THRESH	0x0
+@@ -79,7 +72,7 @@ int cpdma_ctlr_start(struct cpdma_ctlr *ctlr);
+ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr);
  
  struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 				     cpdma_handler_fn handler);
--int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr);
-+int cpdma_chan_get_rx_buf_num(struct cpdma_chan *chan);
+-				     cpdma_handler_fn handler);
++				     cpdma_handler_fn handler, int rx_type);
+ int cpdma_chan_get_rx_buf_num(struct cpdma_chan *chan);
  int cpdma_chan_destroy(struct cpdma_chan *chan);
  int cpdma_chan_start(struct cpdma_chan *chan);
- int cpdma_chan_stop(struct cpdma_chan *chan);
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 2d6fc9a..2fd94a5 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1870,10 +1870,10 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 		goto no_pdata;
+ 	}
+ 
+-	priv->txchan = cpdma_chan_create(priv->dma, tx_chan_num(EMAC_DEF_TX_CH),
+-				       emac_tx_handler);
+-	priv->rxchan = cpdma_chan_create(priv->dma, rx_chan_num(EMAC_DEF_RX_CH),
+-				       emac_rx_handler);
++	priv->txchan = cpdma_chan_create(priv->dma, EMAC_DEF_TX_CH,
++					 emac_tx_handler, 0);
++	priv->rxchan = cpdma_chan_create(priv->dma, EMAC_DEF_RX_CH,
++					 emac_rx_handler, 1);
+ 	if (WARN_ON(!priv->txchan || !priv->rxchan)) {
+ 		rc = -ENOMEM;
+ 		goto no_cpdma_chan;
 -- 
 1.9.1
