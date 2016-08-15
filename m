@@ -1,42 +1,143 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net v2 0/5] hv_netvsc: fixes for VF removal path
-Date: Mon, 15 Aug 2016 17:48:38 +0200
-Message-ID: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
-Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net v2 2/5] hv_netvsc: avoid deadlocks between rtnl lock and
+ vf_use_cnt wait
+Date: Mon, 15 Aug 2016 17:48:40 +0200
+Message-ID: <1471276123-24264-3-git-send-email-vkuznets@redhat.com>
+References: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Kernel crash is reported after VF is removed and detached from netvsc
-device. Turns out we have multiple different (but related) issues on the
-VF removal path which I'm trying to address with PATCHes 2-5 of this
-series. PATCH1 is required to support the change.
+Here is a deadlock scenario:
+- netvsc_vf_up() schedules netvsc_notify_peers() work and quits.
+- netvsc_vf_down() runs before netvsc_notify_peers() gets executed. As it
+  is being executed from netdev notifier chain we hold rtnl lock when we
+  get here.
+- we enter while (atomic_read(&net_device_ctx->vf_use_cnt) != 0) loop and
+  wait till netvsc_notify_peers() drops vf_use_cnt.
+- netvsc_notify_peers() starts on some other CPU but netdev_notify_peers()
+  will hang on rtnl_lock().
+- deadlock!
 
+Instead of introducing additional synchronization I suggest we drop
+gwrk.dwrk completely and call NETDEV_NOTIFY_PEERS directly. As we're
+acting under rtnl lock this is legitimate.
+
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
 Changes since v1:
-- Re-arrange patches in the series to not introduce new issues [David Miller]
-- Add PATCH5 which fixes a new issue I discovered while testing.
-- Add Haiyang' A-b tags to PATCH1-4
+- Move the patch ahead in the series to avoid introducing new blocking
+  issues and solving them later in the series. [David Miller]
+---
+ drivers/net/hyperv/hyperv_net.h |  7 -------
+ drivers/net/hyperv/netvsc_drv.c | 33 +++++----------------------------
+ 2 files changed, 5 insertions(+), 35 deletions(-)
 
-With regards to Stephen's suggestion: I believe that switching to using RCU
-and eliminating vf_use_cnt/vf_inject is the right thing to do long-term, we
-can either put this on top of this series or do it later in net-next.
-
-Vitaly Kuznetsov (5):
-  hv_netvsc: don't lose VF information
-  hv_netvsc: avoid deadlocks between rtnl lock and vf_use_cnt wait
-  hv_netvsc: reset vf_inject on VF removal
-  hv_netvsc: protect module refcount by checking
-    net_device_ctx->vf_netdev
-  hv_netvsc: fix bonding devices check in netvsc_netdev_event()
-
- drivers/net/hyperv/hyperv_net.h |  24 ++++-----
- drivers/net/hyperv/netvsc.c     |  19 +++-----
- drivers/net/hyperv/netvsc_drv.c | 105 +++++++++++++++++++---------------------
- 3 files changed, 66 insertions(+), 82 deletions(-)
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 3b3ecf2..591af71 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -644,12 +644,6 @@ struct netvsc_reconfig {
+ 	u32 event;
+ };
+ 
+-struct garp_wrk {
+-	struct work_struct dwrk;
+-	struct net_device *netdev;
+-	struct net_device_context *net_device_ctx;
+-};
+-
+ /* The context of the netvsc device  */
+ struct net_device_context {
+ 	/* point back to our device context */
+@@ -667,7 +661,6 @@ struct net_device_context {
+ 
+ 	struct work_struct work;
+ 	u32 msg_enable; /* debug level */
+-	struct garp_wrk gwrk;
+ 
+ 	struct netvsc_stats __percpu *tx_stats;
+ 	struct netvsc_stats __percpu *rx_stats;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 794139b..70317fa 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1151,17 +1151,6 @@ static void netvsc_free_netdev(struct net_device *netdev)
+ 	free_netdev(netdev);
+ }
+ 
+-static void netvsc_notify_peers(struct work_struct *wrk)
+-{
+-	struct garp_wrk *gwrk;
+-
+-	gwrk = container_of(wrk, struct garp_wrk, dwrk);
+-
+-	netdev_notify_peers(gwrk->netdev);
+-
+-	atomic_dec(&gwrk->net_device_ctx->vf_use_cnt);
+-}
+-
+ static struct net_device *get_netvsc_net_device(char *mac)
+ {
+ 	struct net_device *dev, *found = NULL;
+@@ -1253,15 +1242,8 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
+ 
+ 	netif_carrier_off(ndev);
+ 
+-	/*
+-	 * Now notify peers. We are scheduling work to
+-	 * notify peers; take a reference to prevent
+-	 * the VF interface from vanishing.
+-	 */
+-	atomic_inc(&net_device_ctx->vf_use_cnt);
+-	net_device_ctx->gwrk.netdev = vf_netdev;
+-	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
+-	schedule_work(&net_device_ctx->gwrk.dwrk);
++	/* Now notify peers through VF device. */
++	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, vf_netdev);
+ 
+ 	return NOTIFY_OK;
+ }
+@@ -1300,13 +1282,9 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
+ 	netdev_info(ndev, "Data path switched from VF: %s\n", vf_netdev->name);
+ 	rndis_filter_close(netvsc_dev);
+ 	netif_carrier_on(ndev);
+-	/*
+-	 * Notify peers.
+-	 */
+-	atomic_inc(&net_device_ctx->vf_use_cnt);
+-	net_device_ctx->gwrk.netdev = ndev;
+-	net_device_ctx->gwrk.net_device_ctx = net_device_ctx;
+-	schedule_work(&net_device_ctx->gwrk.dwrk);
++
++	/* Now notify peers through netvsc device. */
++	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, ndev);
+ 
+ 	return NOTIFY_OK;
+ }
+@@ -1378,7 +1356,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	INIT_DELAYED_WORK(&net_device_ctx->dwork, netvsc_link_change);
+ 	INIT_WORK(&net_device_ctx->work, do_set_multicast);
+-	INIT_WORK(&net_device_ctx->gwrk.dwrk, netvsc_notify_peers);
+ 
+ 	spin_lock_init(&net_device_ctx->lock);
+ 	INIT_LIST_HEAD(&net_device_ctx->reconfig_events);
 -- 
 2.7.4
