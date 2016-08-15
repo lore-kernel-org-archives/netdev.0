@@ -1,99 +1,38 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH] tipc: fix NULL pointer dereference in shutdown()
-Date: Mon, 15 Aug 2016 19:48:24 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D224FF922@eusaamb103.ericsson.se>
-References: <1469254504-15347-1-git-send-email-vegard.nossum@oracle.com>
- <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
- <57ADDF2C.3@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH repost net-next 0/3] qed*: Janitorial series [semantic
+ & prints]
+Date: Mon, 15 Aug 2016 13:35:07 -0700 (PDT)
+Message-ID: <20160815.133507.93499827123938857.davem@davemloft.net>
+References: <1471246965-26031-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Vegard Nossum <vegard.nossum@oracle.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57ADDF2C.3@oracle.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45210 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932115AbcHOUfN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 16:35:13 -0400
+In-Reply-To: <1471246965-26031-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U29ycnksIEkganVzdCBjYW1lIGJhY2sgZnJvbSB2YWNhdGlvbiB0b2RheS4NCg0KQWNrZWQtYnk6
-IEpvbiBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4NCg0KDQo+IC0tLS0tT3JpZ2luYWwg
-TWVzc2FnZS0tLS0tDQo+IEZyb206IFZlZ2FyZCBOb3NzdW0gW21haWx0bzp2ZWdhcmQubm9zc3Vt
-QG9yYWNsZS5jb21dDQo+IFNlbnQ6IEZyaWRheSwgMTIgQXVndXN0LCAyMDE2IDEwOjM4DQo+IFRv
-OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT47IEpvbiBNYWxveSA8am9uLm1hbG95
-QGVyaWNzc29uLmNvbT47DQo+IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4N
-Cj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IE1pY2hhZWwgS2VycmlzayA8bXRrLm1hbnBh
-Z2VzQGdtYWlsLmNvbT47DQo+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVj
-dDogUmU6IFtQQVRDSF0gdGlwYzogZml4IE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBzaHV0
-ZG93bigpDQo+IA0KPiBIaSwNCj4gDQo+IEkgZGlkbid0IHNlZSB0aGlzIHBhdGNoIGdvIGluIHll
-dC4gSm9uIE1hbG95LCBwaW5nPw0KPiANCj4gU2hvdWxkIHRoaXMgZ28gdGhyb3VnaCBzb21lYm9k
-eSBlbHNlPw0KPiANCj4gDQo+IFZlZ2FyZA0KPiANCj4gT24gMDcvMjMvMjAxNiAxMTo0OSBBTSwg
-WHVlLCBZaW5nIHdyb3RlOg0KPiA+IEFja2VkLWJ5OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJp
-dmVyLmNvbT4NCj4gPg0KPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTog
-VmVnYXJkIE5vc3N1bSBbbWFpbHRvOnZlZ2FyZC5ub3NzdW1Ab3JhY2xlLmNvbV0NCj4gPiBTZW50
-OiBTYXR1cmRheSwgSnVseSAyMywgMjAxNiAyOjE1IFBNDQo+ID4gVG86IEpvbiBNYWxveTsgWHVl
-LCBZaW5nDQo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuIE1pbGxlcjsg
-TWljaGFlbCBLZXJyaXNrOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgVmVnYXJk
-IE5vc3N1bTsgc3RhYmxlQHZnZXIua2VybmVsLm9yZw0KPiA+IFN1YmplY3Q6IFtQQVRDSF0gdGlw
-YzogZml4IE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBzaHV0ZG93bigpDQo+ID4NCj4gPiB0
-aXBjX21zZ19jcmVhdGUoKSBjYW4gcmV0dXJuIGEgTlVMTCBza2IgYW5kIGlmIHNvLCB3ZSBzaG91
-bGRuJ3QgdHJ5IHRvIGNhbGwNCj4gdGlwY19ub2RlX3htaXRfc2tiKCkgb24gaXQuDQo+ID4NCj4g
-PiAgICAgIGdlbmVyYWwgcHJvdGVjdGlvbiBmYXVsdDogMDAwMCBbIzFdIFBSRUVNUFQgU01QIEtB
-U0FODQo+ID4gICAgICBDUFU6IDMgUElEOiAzMDI5OCBDb21tOiB0cmluaXR5LWMwIE5vdCB0YWlu
-dGVkIDQuNy4wLXJjNysgIzE5DQo+ID4gICAgICBIYXJkd2FyZSBuYW1lOiBRRU1VIFN0YW5kYXJk
-IFBDIChpNDQwRlggKyBQSUlYLCAxOTk2KSwgQklPUyBVYnVudHUtDQo+IDEuOC4yLTF1YnVudHUx
-IDA0LzAxLzIwMTQNCj4gPiAgICAgIHRhc2s6IGZmZmY4ODAwYmFmMDk5ODAgdGk6IGZmZmY4ODAw
-NTk1YjgwMDAgdGFzay50aTogZmZmZjg4MDA1OTViODAwMA0KPiA+ICAgICAgUklQOiAwMDEwOls8
-ZmZmZmZmZmY4MzBiYjQ2Yj5dICBbPGZmZmZmZmZmODMwYmI0NmI+XQ0KPiB0aXBjX25vZGVfeG1p
-dF9za2IrMHg2Yi8weDE0MA0KPiA+ICAgICAgUlNQOiAwMDE4OmZmZmY4ODAwNTk1YmZjZTggIEVG
-TEFHUzogMDAwMTAyNDYNCj4gPiAgICAgIFJBWDogMDAwMDAwMDAwMDAwMDAwMCBSQlg6IDAwMDAw
-MDAwMDAwMDAwMDAgUkNYOiAwMDAwMDAwMDMwMjNiMGUwDQo+ID4gICAgICBSRFg6IDAwMDAwMDAw
-MDAwMDAwMDAgUlNJOiBkZmZmZmMwMDAwMDAwMDAwIFJESTogZmZmZmZmZmY4M2QxMjU4MA0KPiA+
-ICAgICAgUkJQOiBmZmZmODgwMDU5NWJmZDc4IFIwODogZmZmZmVkMDAwYjJiN2YzMiBSMDk6IDAw
-MDAwMDAwMDAwMDAwMDANCj4gPiAgICAgIFIxMDogZmZmZmZiZmZmMDc1OTcyNSBSMTE6IDAwMDAw
-MDAwMDAwMDAwMDAgUjEyOiAxZmZmZjEwMDBiMmI3ZjlmDQo+ID4gICAgICBSMTM6IGZmZmY4ODAw
-NTk1YmZkNTggUjE0OiBmZmZmZmZmZjgzZDEyNTgwIFIxNTogZGZmZmZjMDAwMDAwMDAwMA0KPiA+
-ICAgICAgRlM6ICAwMDAwN2ZjZGRlMjQyNzAwKDAwMDApIEdTOmZmZmY4ODAxMWFmODAwMDAoMDAw
-MCkNCj4ga25sR1M6MDAwMDAwMDAwMDAwMDAwMA0KPiA+ICAgICAgQ1M6ICAwMDEwIERTOiAwMDAw
-IEVTOiAwMDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMw0KPiA+ICAgICAgQ1IyOiAwMDAwN2ZjZGRk
-ZTFkYjEwIENSMzogMDAwMDAwMDA2ODc0YjAwMCBDUjQ6IDAwMDAwMDAwMDAwMDA2ZTANCj4gPiAg
-ICAgIERSMDogMDAwMDdmY2RkZTI0ODAwMCBEUjE6IDAwMDA3ZmNkZGQ3M2QwMDAgRFIyOiAwMDAw
-N2ZjZGRlMjQ4MDAwDQo+ID4gICAgICBEUjM6IDAwMDAwMDAwMDAwMDAwMDAgRFI2OiAwMDAwMDAw
-MGZmZmYwZmYwIERSNzogMDAwMDAwMDAwMDA5MDYwMg0KPiA+ICAgICAgU3RhY2s6DQo+ID4gICAg
-ICAgMDAwMDAwMDAwMDAwMDAxOCAwMDAwMDAwMDAwMDAwMDE4IDAwMDAwMDAwNDFiNThhYjMgZmZm
-ZmZmZmY4Mzk1NDIwOA0KPiA+ICAgICAgIGZmZmZmZmZmODMwYmI0MDAgZmZmZjg4MDA1OTViZmQz
-MCBmZmZmZmZmZjgzMDlkNzY3IDAwMDAwMDAwMDAwMDAwMTgNCj4gPiAgICAgICAwMDAwMDAwMDAw
-MDAwMDE4IGZmZmY4ODAwNTk1YmZkNzggZmZmZmZmZmY4MzA5ZGExYSAwMDAwMDAwMDgxMGVlNjEx
-DQo+ID4gICAgICBDYWxsIFRyYWNlOg0KPiA+ICAgICAgIFs8ZmZmZmZmZmY4MzBjODRhMz5dIHRp
-cGNfc2h1dGRvd24rMHg1NTMvMHg4ODANCj4gPiAgICAgICBbPGZmZmZmZmZmODI1YjRhM2I+XSBT
-eVNfc2h1dGRvd24rMHgxNGIvMHgxNzANCj4gPiAgICAgICBbPGZmZmZmZmZmODEwMDMzNGM+XSBk
-b19zeXNjYWxsXzY0KzB4MTljLzB4NDEwDQo+ID4gICAgICAgWzxmZmZmZmZmZjgzMjk1Y2E1Pl0g
-ZW50cnlfU1lTQ0FMTDY0X3Nsb3dfcGF0aCsweDI1LzB4MjUNCj4gPiAgICAgIENvZGU6IDkwIDAw
-IGI0IDBiIDgzIGM3IDAwIGYxIGYxIGYxIGYxIDRjIDhkIDZkIGUwIGM3IDQwIDA0IDAwIDAwIDAw
-IGY0IGM3IDQwIDA4IGYzDQo+IGYzIGYzIGYzIDQ4IDg5IGQ4IDQ4IGMxIGU4IDAzIGM3IDQ1IGI0
-IDAwIDAwIDAwIDAwIDw4MD4gM2MgMzAgMDAgNzUgNzggNDggOGQgN2IgMDggNDkNCj4gOGQgNzUg
-YzAgNDggYjggMDAgMDAgMDAgMDAgMDANCj4gPiAgICAgIFJJUCAgWzxmZmZmZmZmZjgzMGJiNDZi
-Pl0gdGlwY19ub2RlX3htaXRfc2tiKzB4NmIvMHgxNDANCj4gPiAgICAgICBSU1AgPGZmZmY4ODAw
-NTk1YmZjZTg+DQo+ID4gICAgICAtLS1bIGVuZCB0cmFjZSA1N2IwNDg0ZTM1MWU3MWYxIF0tLS0N
-Cj4gPg0KPiA+IEkgZmVlbCBsaWtlIHdlIHNob3VsZCBtYXliZSByZXR1cm4gLUVOT01FTSBvciAt
-RU5PQlVGUywgYnV0IEknbSBub3Qgc3VyZQ0KPiB1c2Vyc3BhY2UgaXMgZXF1aXBwZWQgdG8gaGFu
-ZGxlIHRoYXQuIEFueXdheSwgdGhpcyBpcyBiZXR0ZXIgdGhhbiBhIEdQRiBhbmQgbG9va3MNCj4g
-c29tZXdoYXQgY29uc2lzdGVudCB3aXRoIG90aGVyIHRpcGNfbXNnX2NyZWF0ZSgpIGNhbGxlcnMu
-DQo+ID4NCj4gPiBDYzogc3RhYmxlQHZnZXIua2VybmVsLm9yZw0KPiA+IFNpZ25lZC1vZmYtYnk6
-IFZlZ2FyZCBOb3NzdW0gPHZlZ2FyZC5ub3NzdW1Ab3JhY2xlLmNvbT4NCj4gPiAtLS0NCj4gPiAg
-IG5ldC90aXBjL3NvY2tldC5jIHwgMyArKy0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2Vy
-dGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9uZXQvdGlwYy9z
-b2NrZXQuYyBiL25ldC90aXBjL3NvY2tldC5jIGluZGV4IGM0OWI4ZGYuLmY5ZjVmM2MgMTAwNjQ0
-DQo+ID4gLS0tIGEvbmV0L3RpcGMvc29ja2V0LmMNCj4gPiArKysgYi9uZXQvdGlwYy9zb2NrZXQu
-Yw0KPiA+IEBAIC0yMTgwLDcgKzIxODAsOCBAQCByZXN0YXJ0Og0KPiA+ICAgCQkJCQkgICAgICBU
-SVBDX0NPTk5fTVNHLCBTSE9SVF9IX1NJWkUsDQo+ID4gICAJCQkJCSAgICAgIDAsIGRub2RlLCBv
-bm9kZSwgZHBvcnQsIG9wb3J0LA0KPiA+ICAgCQkJCQkgICAgICBUSVBDX0NPTk5fU0hVVERPV04p
-Ow0KPiA+IC0JCQl0aXBjX25vZGVfeG1pdF9za2IobmV0LCBza2IsIGRub2RlLCB0c2stPnBvcnRp
-ZCk7DQo+ID4gKwkJCWlmIChza2IpDQo+ID4gKwkJCQl0aXBjX25vZGVfeG1pdF9za2IobmV0LCBz
-a2IsIGRub2RlLCB0c2stDQo+ID5wb3J0aWQpOw0KPiA+ICAgCQl9DQo+ID4gICAJCXRzay0+Y29u
-bmVjdGVkID0gMDsNCj4gPiAgIAkJc29jay0+c3RhdGUgPSBTU19ESVNDT05ORUNUSU5HOw0KPiA+
-IC0tDQo+ID4gMS45LjENCj4gPg0KDQo=
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 15 Aug 2016 10:42:42 +0300
+
+> Some day 1 slips in coding style exist in the qed* code
+> [incorrect alignments, conditions using (== 0), etc.].
+> This series comes to address those, and do some additional
+> cosmetic changes along the way [such as reducing the number of lines
+> for function declerations].
+> 
+> The series is broken to 3 parts - purely semantic changes, cosmetic
+> changes that required minor changes in the code, and print-related
+> changes. All-in-all, no real change in driver behavior is expected.
+> 
+> [This is a repost; Original was sent when net-next closed].
+> 
+> Please consider applying this to `net-next'.
+
+Series applied, thanks.
