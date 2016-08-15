@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: thunderx: Remove unnecessary
- pci_set_drvdata()
-Date: Mon, 15 Aug 2016 16:35:03 -0700 (PDT)
-Message-ID: <20160815.163503.1779445142068275986.davem@davemloft.net>
-References: <1471301489-24888-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net-next 0/6] net: dsa: abstract PHY accesses
+Date: Mon, 15 Aug 2016 16:44:16 -0700 (PDT)
+Message-ID: <20160815.164416.889081072849280440.davem@davemloft.net>
+References: <20160815211902.2236-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sgoutham@cavium.com, rric@kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46299 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753033AbcHOXfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 19:35:04 -0400
-In-Reply-To: <1471301489-24888-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160815211902.2236-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Mon, 15 Aug 2016 22:51:29 +0000
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon, 15 Aug 2016 17:18:56 -0400
 
-> The driver core clears the driver data to NULL after device_release
-> or on probe failure. Thus, it is not needed to manually clear the
-> device driver data to NULL.
+> The Marvell 88E6xxx switch chips have different way to access the PHY
+> devices registers. 
 > 
-> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+> Old chips use a direct access to the PHY registers. Next chips have a
+> PHY Polling Unit (PPU) which needs to be disabled before accessing PHY
+> registers. Newer chips have an indirect access to the PHY devices so
+> that disabling the PPU is not necessary.
+> 
+> This patchset abstracts these accesses behind a new mv88e6xxx_phy_* API.
+> 
+> It also has the side effect to fix the temperature access code for
+> 88E61xx chips which were using the wrong PHY access functions.
 
-Applied.
+Looks good, series applied, thanks.
