@@ -1,61 +1,99 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
-Date: Mon, 15 Aug 2016 15:06:24 -0500
-Message-ID: <57B220C0.3060608@codeaurora.org>
-References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
- <20160804175541.GA2832@rob-hp-laptop>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH] tipc: fix NULL pointer dereference in shutdown()
+Date: Mon, 15 Aug 2016 19:48:24 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D224FF922@eusaamb103.ericsson.se>
+References: <1469254504-15347-1-git-send-email-vegard.nossum@oracle.com>
+ <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
+ <57ADDF2C.3@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, andrew@lunn.ch,
-	bjorn.andersson@linaro.org, mlangsdo@redhat.com, jcm@redhat.com,
-	agross@codeaurora.org, davem@davemloft.net, f.fainelli@gmail.com,
-	LinoSanfilippo@gmx.de, "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Al Stone <al.stone@linaro.org>
-To: Rob Herring <robh@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:46371 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbcHOUG1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 16:06:27 -0400
-In-Reply-To: <20160804175541.GA2832@rob-hp-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Vegard Nossum <vegard.nossum@oracle.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57ADDF2C.3@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-+ Rafael and Al, for ACPI help.
-
-Rob Herring wrote:
->> >+Optional properties:
->> >+- phy-version : the version of the integrated emac phy, either 1 or 2.
-
-> Sounds like 2 different h/w. The compatible property should distinguish
-> this.
-
-So I implemented this in v8 of my driver, but it is causing problems for 
-ACPI.
-
-In ACPI, the equivalent to a compatible string is the HID, which is 
-QCOM8070 for the EMAC.  The problem is that it's very difficult, if not 
-impossible, to create new HIDs for different versions of the same device.
-
-The driver will primarily (if not exclusively) be used on ACPI 
-platforms, not DT.  In Qualcomm, DT is for mobile chips, and ACPI is for 
-server.  To my knowledge, there are no plans to use this driver on an 
-actual DT-enabled platform, but I want to support DT anyway.
-
-The other problem is that the "internal PHY" of the EMAC is technically 
-a separate device, and it's interchangeable.  Future versions of our 
-chips will use different internal PHYs, but the EMAC will stay the same.
-
-So I would like a solution that works on DT and ACPI.  I suppose I could 
-use compatible strings on DT, and a "phy-version" DSD (property) on 
-ACPI.  If that's acceptable to everyone, then I can do that.  It seems 
-clunky to me.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+U29ycnksIEkganVzdCBjYW1lIGJhY2sgZnJvbSB2YWNhdGlvbiB0b2RheS4NCg0KQWNrZWQtYnk6
+IEpvbiBNYWxveSA8am9uLm1hbG95QGVyaWNzc29uLmNvbT4NCg0KDQo+IC0tLS0tT3JpZ2luYWwg
+TWVzc2FnZS0tLS0tDQo+IEZyb206IFZlZ2FyZCBOb3NzdW0gW21haWx0bzp2ZWdhcmQubm9zc3Vt
+QG9yYWNsZS5jb21dDQo+IFNlbnQ6IEZyaWRheSwgMTIgQXVndXN0LCAyMDE2IDEwOjM4DQo+IFRv
+OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJpdmVyLmNvbT47IEpvbiBNYWxveSA8am9uLm1hbG95
+QGVyaWNzc29uLmNvbT47DQo+IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4N
+Cj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IE1pY2hhZWwgS2VycmlzayA8bXRrLm1hbnBh
+Z2VzQGdtYWlsLmNvbT47DQo+IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVj
+dDogUmU6IFtQQVRDSF0gdGlwYzogZml4IE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBzaHV0
+ZG93bigpDQo+IA0KPiBIaSwNCj4gDQo+IEkgZGlkbid0IHNlZSB0aGlzIHBhdGNoIGdvIGluIHll
+dC4gSm9uIE1hbG95LCBwaW5nPw0KPiANCj4gU2hvdWxkIHRoaXMgZ28gdGhyb3VnaCBzb21lYm9k
+eSBlbHNlPw0KPiANCj4gDQo+IFZlZ2FyZA0KPiANCj4gT24gMDcvMjMvMjAxNiAxMTo0OSBBTSwg
+WHVlLCBZaW5nIHdyb3RlOg0KPiA+IEFja2VkLWJ5OiBZaW5nIFh1ZSA8eWluZy54dWVAd2luZHJp
+dmVyLmNvbT4NCj4gPg0KPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTog
+VmVnYXJkIE5vc3N1bSBbbWFpbHRvOnZlZ2FyZC5ub3NzdW1Ab3JhY2xlLmNvbV0NCj4gPiBTZW50
+OiBTYXR1cmRheSwgSnVseSAyMywgMjAxNiAyOjE1IFBNDQo+ID4gVG86IEpvbiBNYWxveTsgWHVl
+LCBZaW5nDQo+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IERhdmlkIFMuIE1pbGxlcjsg
+TWljaGFlbCBLZXJyaXNrOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgVmVnYXJk
+IE5vc3N1bTsgc3RhYmxlQHZnZXIua2VybmVsLm9yZw0KPiA+IFN1YmplY3Q6IFtQQVRDSF0gdGlw
+YzogZml4IE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBzaHV0ZG93bigpDQo+ID4NCj4gPiB0
+aXBjX21zZ19jcmVhdGUoKSBjYW4gcmV0dXJuIGEgTlVMTCBza2IgYW5kIGlmIHNvLCB3ZSBzaG91
+bGRuJ3QgdHJ5IHRvIGNhbGwNCj4gdGlwY19ub2RlX3htaXRfc2tiKCkgb24gaXQuDQo+ID4NCj4g
+PiAgICAgIGdlbmVyYWwgcHJvdGVjdGlvbiBmYXVsdDogMDAwMCBbIzFdIFBSRUVNUFQgU01QIEtB
+U0FODQo+ID4gICAgICBDUFU6IDMgUElEOiAzMDI5OCBDb21tOiB0cmluaXR5LWMwIE5vdCB0YWlu
+dGVkIDQuNy4wLXJjNysgIzE5DQo+ID4gICAgICBIYXJkd2FyZSBuYW1lOiBRRU1VIFN0YW5kYXJk
+IFBDIChpNDQwRlggKyBQSUlYLCAxOTk2KSwgQklPUyBVYnVudHUtDQo+IDEuOC4yLTF1YnVudHUx
+IDA0LzAxLzIwMTQNCj4gPiAgICAgIHRhc2s6IGZmZmY4ODAwYmFmMDk5ODAgdGk6IGZmZmY4ODAw
+NTk1YjgwMDAgdGFzay50aTogZmZmZjg4MDA1OTViODAwMA0KPiA+ICAgICAgUklQOiAwMDEwOls8
+ZmZmZmZmZmY4MzBiYjQ2Yj5dICBbPGZmZmZmZmZmODMwYmI0NmI+XQ0KPiB0aXBjX25vZGVfeG1p
+dF9za2IrMHg2Yi8weDE0MA0KPiA+ICAgICAgUlNQOiAwMDE4OmZmZmY4ODAwNTk1YmZjZTggIEVG
+TEFHUzogMDAwMTAyNDYNCj4gPiAgICAgIFJBWDogMDAwMDAwMDAwMDAwMDAwMCBSQlg6IDAwMDAw
+MDAwMDAwMDAwMDAgUkNYOiAwMDAwMDAwMDMwMjNiMGUwDQo+ID4gICAgICBSRFg6IDAwMDAwMDAw
+MDAwMDAwMDAgUlNJOiBkZmZmZmMwMDAwMDAwMDAwIFJESTogZmZmZmZmZmY4M2QxMjU4MA0KPiA+
+ICAgICAgUkJQOiBmZmZmODgwMDU5NWJmZDc4IFIwODogZmZmZmVkMDAwYjJiN2YzMiBSMDk6IDAw
+MDAwMDAwMDAwMDAwMDANCj4gPiAgICAgIFIxMDogZmZmZmZiZmZmMDc1OTcyNSBSMTE6IDAwMDAw
+MDAwMDAwMDAwMDAgUjEyOiAxZmZmZjEwMDBiMmI3ZjlmDQo+ID4gICAgICBSMTM6IGZmZmY4ODAw
+NTk1YmZkNTggUjE0OiBmZmZmZmZmZjgzZDEyNTgwIFIxNTogZGZmZmZjMDAwMDAwMDAwMA0KPiA+
+ICAgICAgRlM6ICAwMDAwN2ZjZGRlMjQyNzAwKDAwMDApIEdTOmZmZmY4ODAxMWFmODAwMDAoMDAw
+MCkNCj4ga25sR1M6MDAwMDAwMDAwMDAwMDAwMA0KPiA+ICAgICAgQ1M6ICAwMDEwIERTOiAwMDAw
+IEVTOiAwMDAwIENSMDogMDAwMDAwMDA4MDA1MDAzMw0KPiA+ICAgICAgQ1IyOiAwMDAwN2ZjZGRk
+ZTFkYjEwIENSMzogMDAwMDAwMDA2ODc0YjAwMCBDUjQ6IDAwMDAwMDAwMDAwMDA2ZTANCj4gPiAg
+ICAgIERSMDogMDAwMDdmY2RkZTI0ODAwMCBEUjE6IDAwMDA3ZmNkZGQ3M2QwMDAgRFIyOiAwMDAw
+N2ZjZGRlMjQ4MDAwDQo+ID4gICAgICBEUjM6IDAwMDAwMDAwMDAwMDAwMDAgRFI2OiAwMDAwMDAw
+MGZmZmYwZmYwIERSNzogMDAwMDAwMDAwMDA5MDYwMg0KPiA+ICAgICAgU3RhY2s6DQo+ID4gICAg
+ICAgMDAwMDAwMDAwMDAwMDAxOCAwMDAwMDAwMDAwMDAwMDE4IDAwMDAwMDAwNDFiNThhYjMgZmZm
+ZmZmZmY4Mzk1NDIwOA0KPiA+ICAgICAgIGZmZmZmZmZmODMwYmI0MDAgZmZmZjg4MDA1OTViZmQz
+MCBmZmZmZmZmZjgzMDlkNzY3IDAwMDAwMDAwMDAwMDAwMTgNCj4gPiAgICAgICAwMDAwMDAwMDAw
+MDAwMDE4IGZmZmY4ODAwNTk1YmZkNzggZmZmZmZmZmY4MzA5ZGExYSAwMDAwMDAwMDgxMGVlNjEx
+DQo+ID4gICAgICBDYWxsIFRyYWNlOg0KPiA+ICAgICAgIFs8ZmZmZmZmZmY4MzBjODRhMz5dIHRp
+cGNfc2h1dGRvd24rMHg1NTMvMHg4ODANCj4gPiAgICAgICBbPGZmZmZmZmZmODI1YjRhM2I+XSBT
+eVNfc2h1dGRvd24rMHgxNGIvMHgxNzANCj4gPiAgICAgICBbPGZmZmZmZmZmODEwMDMzNGM+XSBk
+b19zeXNjYWxsXzY0KzB4MTljLzB4NDEwDQo+ID4gICAgICAgWzxmZmZmZmZmZjgzMjk1Y2E1Pl0g
+ZW50cnlfU1lTQ0FMTDY0X3Nsb3dfcGF0aCsweDI1LzB4MjUNCj4gPiAgICAgIENvZGU6IDkwIDAw
+IGI0IDBiIDgzIGM3IDAwIGYxIGYxIGYxIGYxIDRjIDhkIDZkIGUwIGM3IDQwIDA0IDAwIDAwIDAw
+IGY0IGM3IDQwIDA4IGYzDQo+IGYzIGYzIGYzIDQ4IDg5IGQ4IDQ4IGMxIGU4IDAzIGM3IDQ1IGI0
+IDAwIDAwIDAwIDAwIDw4MD4gM2MgMzAgMDAgNzUgNzggNDggOGQgN2IgMDggNDkNCj4gOGQgNzUg
+YzAgNDggYjggMDAgMDAgMDAgMDAgMDANCj4gPiAgICAgIFJJUCAgWzxmZmZmZmZmZjgzMGJiNDZi
+Pl0gdGlwY19ub2RlX3htaXRfc2tiKzB4NmIvMHgxNDANCj4gPiAgICAgICBSU1AgPGZmZmY4ODAw
+NTk1YmZjZTg+DQo+ID4gICAgICAtLS1bIGVuZCB0cmFjZSA1N2IwNDg0ZTM1MWU3MWYxIF0tLS0N
+Cj4gPg0KPiA+IEkgZmVlbCBsaWtlIHdlIHNob3VsZCBtYXliZSByZXR1cm4gLUVOT01FTSBvciAt
+RU5PQlVGUywgYnV0IEknbSBub3Qgc3VyZQ0KPiB1c2Vyc3BhY2UgaXMgZXF1aXBwZWQgdG8gaGFu
+ZGxlIHRoYXQuIEFueXdheSwgdGhpcyBpcyBiZXR0ZXIgdGhhbiBhIEdQRiBhbmQgbG9va3MNCj4g
+c29tZXdoYXQgY29uc2lzdGVudCB3aXRoIG90aGVyIHRpcGNfbXNnX2NyZWF0ZSgpIGNhbGxlcnMu
+DQo+ID4NCj4gPiBDYzogc3RhYmxlQHZnZXIua2VybmVsLm9yZw0KPiA+IFNpZ25lZC1vZmYtYnk6
+IFZlZ2FyZCBOb3NzdW0gPHZlZ2FyZC5ub3NzdW1Ab3JhY2xlLmNvbT4NCj4gPiAtLS0NCj4gPiAg
+IG5ldC90aXBjL3NvY2tldC5jIHwgMyArKy0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2Vy
+dGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9uZXQvdGlwYy9z
+b2NrZXQuYyBiL25ldC90aXBjL3NvY2tldC5jIGluZGV4IGM0OWI4ZGYuLmY5ZjVmM2MgMTAwNjQ0
+DQo+ID4gLS0tIGEvbmV0L3RpcGMvc29ja2V0LmMNCj4gPiArKysgYi9uZXQvdGlwYy9zb2NrZXQu
+Yw0KPiA+IEBAIC0yMTgwLDcgKzIxODAsOCBAQCByZXN0YXJ0Og0KPiA+ICAgCQkJCQkgICAgICBU
+SVBDX0NPTk5fTVNHLCBTSE9SVF9IX1NJWkUsDQo+ID4gICAJCQkJCSAgICAgIDAsIGRub2RlLCBv
+bm9kZSwgZHBvcnQsIG9wb3J0LA0KPiA+ICAgCQkJCQkgICAgICBUSVBDX0NPTk5fU0hVVERPV04p
+Ow0KPiA+IC0JCQl0aXBjX25vZGVfeG1pdF9za2IobmV0LCBza2IsIGRub2RlLCB0c2stPnBvcnRp
+ZCk7DQo+ID4gKwkJCWlmIChza2IpDQo+ID4gKwkJCQl0aXBjX25vZGVfeG1pdF9za2IobmV0LCBz
+a2IsIGRub2RlLCB0c2stDQo+ID5wb3J0aWQpOw0KPiA+ICAgCQl9DQo+ID4gICAJCXRzay0+Y29u
+bmVjdGVkID0gMDsNCj4gPiAgIAkJc29jay0+c3RhdGUgPSBTU19ESVNDT05ORUNUSU5HOw0KPiA+
+IC0tDQo+ID4gMS45LjENCj4gPg0KDQo=
