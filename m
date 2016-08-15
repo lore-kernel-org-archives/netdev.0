@@ -1,7 +1,7 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
-Date: Tue, 16 Aug 2016 08:23:19 +1000
-Message-ID: <1471299799.12231.121.camel@kernel.crashing.org>
+Date: Tue, 16 Aug 2016 08:33:20 +1000
+Message-ID: <1471300400.12231.130.camel@kernel.crashing.org>
 References: <1452684335-46107-1-git-send-email-hare@suse.de>
 	 <1452684335-46107-4-git-send-email-hare@suse.de>
 	 <20160209210458.GB32530@localhost>
@@ -14,6 +14,7 @@ References: <1452684335-46107-1-git-send-email-hare@suse.de>
 	 <20160811141700.4f4faabb@t450s.home>
 	 <1470978669.3015.155.camel@kernel.crashing.org>
 	 <197F6532-FC5E-4D72-976D-4207BAD8D83E@intel.com>
+	 <1471299799.12231.121.camel@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
@@ -29,32 +30,49 @@ Cc: Alex Williamson <alex.williamson@redhat.com>,
 	"santosh@chelsio.com" <santosh@chelsio.com>,
 	Netdev <netdev@vger.kernel.org>
 To: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <197F6532-FC5E-4D72-976D-4207BAD8D83E@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471299799.12231.121.camel@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-08-15 at 17:59 +0000, Rustad, Mark D wrote:
-> > Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+On Tue, 2016-08-16 at 08:23 +1000, Benjamin Herrenschmidt wrote:
+> > I don't think desktop users appreciate hangs any more than anyone else, and  
+> > that is one of the symptoms that can arise here without the vfio  
+> > coordination.
 > 
-> > 
-> > We may want some kind of "strict" vs. "relaxed" model here to
-> > differenciate the desktop user wanting to give a function to his/her
-> > windows partition and doesn't care about strict isolation vs. the cloud
-> > data center.
-> 
-> I don't think desktop users appreciate hangs any more than anyone else, and  
-> that is one of the symptoms that can arise here without the vfio  
-> coordination.
+> And can happen with it as well.... 
 
-And can happen with it as well.... 
+Oh and your response was completely besides the point I was trying
+to make, just some passive aggressive noise, thank you.
 
-Put it this way, we have a hole the size of a football field and we are
-spending all that time "plugging" it by putting a 3 foot gate in the
-middle of it... ugh.
+The point was that if you want the sort of safety that we are trying
+to aim for, without additional HW support, you basically have to do
+the isolation on a granularity no smaller than a bridge/bus (with the
+notable exception of SR-IOV of course).
 
-VFIO shouldn't try to get between the device driver and the HW, it doesn't
-work. It cannot work.
+Otherwise guest *will* be able to harm each other (or the host) in
+all sorts of ways if anything because devices will have MMIO backdoors
+into their own BAR space, or can be made to DMA to a neighbour, etc...
+
+This is the only safe thing to do (and we are enforcing that on POWER
+with our IOMMU groups).
+
+Now that being said, if you want to keep the ability to assign 2 functions
+of a device to different guests for your average non-critical desktop user,
+that's where you may want to consider two models.
+
+Generally speaking, filtering things for "safety" won't work.
+
+Filtering things to work around bugs in existing guests to avoid crashes
+is a different kettle of fish and could be justified but keep in mind that
+in most cases a malicious guest will be able to exploit those HW flaws.
+
+Assuming that a device coming back from a guest is functional and not
+completely broken and can be re-used without a full PERST or power cycle
+is a wrong assumption. It may or may not work, no amount of "filtering"
+will fix the fundamental issue. If your HW won't give you access to PERST
+well ... blame Intel for not specifying a standard way to generate it in
+the first place :-)
 
 Cheers,
 Ben.
