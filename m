@@ -1,123 +1,70 @@
-From: Dongpo Li <lidongpo@hisilicon.com>
-Subject: Re: [PATCH 2/4] net: hix5hd2_gmac: add reset control and clock
- signals
-Date: Mon, 15 Aug 2016 15:07:47 +0800
-Message-ID: <57B16A43.4090600@hisilicon.com>
-References: <1470906115-155569-1-git-send-email-lidongpo@hisilicon.com>
- <1470906115-155569-3-git-send-email-lidongpo@hisilicon.com>
- <20160812184824.GA8959@rob-hp-laptop>
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH net] net: ipv6: Fix ping to link-local addresses.
+Date: Mon, 15 Aug 2016 16:39:51 +0900
+Message-ID: <642d0eef-4f62-f63c-9db5-3d890bb942df@miraclelinux.com>
+References: <1470642127-574-1-git-send-email-lorenzo@google.com>
+ <20160808.143500.473355495580691289.davem@davemloft.net>
+ <CAKD1Yr25UUNOANnUD+cCszA2HfoPrsEPxaGqgqBBBG_wcs1tGg@mail.gmail.com>
+ <20160808.222030.1314134961786852070.davem@davemloft.net>
+ <CAAedzxq-XYTVgZ7=VX-OWHYNSRjDuf==si-my=Jy3YEo7atcWQ@mail.gmail.com>
+ <04a393c9-39f8-8d73-3476-928732e5b193@cumulusnetworks.com>
+ <ed271d49-e796-ebaa-2e71-35711710fd49@miraclelinux.com>
+ <CAKD1Yr3LNv+hDm0HfxYiGvotiTYab9W-+5R0OUjinF-tdwKy1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: <mark.rutland@arm.com>, <mturquette@baylibre.com>,
-	<sboyd@codeaurora.org>, <linux@armlinux.org.uk>,
-	<zhangfei.gao@linaro.org>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>, <davem@davemloft.net>, <arnd@arndb.de>,
-	<andrew@lunn.ch>, <xuejiancheng@hisilicon.com>,
-	<benjamin.chenhao@hisilicon.com>, <howell.yang@hisilicon.com>,
-	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux-clk@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-clk-owner@vger.kernel.org>
-In-Reply-To: <20160812184824.GA8959@rob-hp-laptop>
-Sender: linux-clk-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hideaki.yoshifuji@miraclelinux.com,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Erik Kline <ek@google.com>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33292 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752106AbcHOHj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 03:39:56 -0400
+Received: by mail-pf0-f176.google.com with SMTP id y134so15096948pfg.0
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 00:39:55 -0700 (PDT)
+In-Reply-To: <CAKD1Yr3LNv+hDm0HfxYiGvotiTYab9W-+5R0OUjinF-tdwKy1g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rob,
 
-On 2016/8/13 2:48, Rob Herring wrote:
-> On Thu, Aug 11, 2016 at 05:01:53PM +0800, Dongpo Li wrote:
->> From: Li Dongpo <lidongpo@hisilicon.com>
+
+Lorenzo Colitti wrote:
+> On Wed, Aug 10, 2016 at 7:44 AM, YOSHIFUJI Hideaki
+> <hideaki.yoshifuji@miraclelinux.com> wrote:
 >>
->> Add three reset control signals, "mac_core_rst", "mac_ifc_rst" and
->> "phy_rst".
->> The following diagram explained how the reset signals work.
+>>>> I could see a point of view that says when bound_if is in play sending
+>>>> to destinations on/via other interfaces--by any mechanism--should
+>>>> effectively get ENETUNREACH (or something).
+>>>
+>>> VRF uses this capability to send on an enslaved interface. ie., socket is bound to VRF device to limit packets to that L3 domain and then uses PKTINFO to force a packet out a particular interface.
 >>
->>                         SoC
->> |-----------------------------------------------------
->> |                               ------                |
->> |                               | cpu |               |
->> |                               ------                |
->> |                                  |                  |
->> |                              ------------ AMBA bus  |
->> |                         GMAC     |                  |
->> |                            ----------------------   |
->> | ------------- mac_core_rst | --------------      |  |
->> | |clock and   |-------------->|   mac core  |     |  |
->> | |reset       |             | --------------      |  |
->> | |generator   |----         |       |             |  |
->> | -------------     |        | ----------------    |  |
->> |          |        ---------->| mac interface |   |  |
->> |          |     mac_ifc_rst | ----------------    |  |
->> |          |                 |       |             |  |
->> |          |                 | ------------------  |  |
->> |          |phy_rst          | | RGMII interface | |  |
->> |          |                 | ------------------  |  |
->> |          |                 ----------------------   |
->> |----------|------------------------------------------|
->>            |                          |
->>            |                      ----------
->>            |--------------------- |PHY chip |
->>                                   ----------
->>
->> The "mac_core_rst" represents "mac core reset signal", it resets
->> the mac core including packet processing unit, descriptor processing unit,
->> tx engine, rx engine, control unit.
->> The "mac_ifc_rst" represents "mac interface reset signal", it resets
->> the mac interface. The mac interface unit connects mac core and
->> data interface like MII/RMII/RGMII. After we set a new value of
->> interface mode, we must reset mac interface to reload the new mode value.
->> The "phy_rst" represents "phy reset signal", it does a hardware reset
->> on the PHY chip. This reset signal is optinal if the PHY can work well
->> without the hardware reset.
->>
->> Add one more clock signal, the existing is MAC core clock,
->> and the new one is MAC interface clock.
->>
->> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
->> ---
->>  .../bindings/net/hisilicon-hix5hd2-gmac.txt        |  16 ++-
->>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c      | 140 +++++++++++++++++++--
->>  2 files changed, 143 insertions(+), 13 deletions(-)
+>> We could extend our code to allow enslave devices, maybe.
 > 
+> So something like this, then?
 > 
->>
->> @@ -807,16 +829,26 @@ static int hix5hd2_net_open(struct net_device *dev)
->>  	struct phy_device *phy;
->>  	int ret;
->>  
->> -	ret = clk_prepare_enable(priv->clk);
->> +	ret = clk_prepare_enable(priv->mac_core_clk);
->> +	if (ret < 0) {
->> +		netdev_err(dev, "failed to enable mac core clk %d\n", ret);
->> +		return ret;
->> +	}
->> +
->> +	ret = clk_prepare_enable(priv->mac_ifc_clk);
->>  	if (ret < 0) {
->> -		netdev_err(dev, "failed to enable clk %d\n", ret);
->> +		clk_disable_unprepare(priv->mac_core_clk);
->> +		netdev_err(dev, "failed to enable mac ifc clk %d\n", ret);
+> static inline bool inet_check_bound_oif(const struct sock *sk, int oif)
+> {
+>         if (!oif || !sk->sk_bound_dev_if || oif == sk->sk_bound_dev_if)
+>                 return true;
 > 
-> This change will break with existing DTs. The mac_ifc_clk should be 
-> optional.
+> #ifdef CONFIG_NET_L3_MASTER_DEV
+>         return l3mdev_master_ifindex_by_index(sock_net(sk), oif) ==
+>                 sk->sk_bound_dev_if;
+> #endif
 > 
-The mac_ifc_clk has existed in the existing hix5hd2. It's not implemented in the MAC driver
-because the CLOCK driver implements a "complex" ethernet clock type.
-So [PATCH 3/4] and [PATCH 4/4] are following this patch to change the CLOCK driver and existing DTs
-at the same time.
-
-> Rob
+>         return false;
+> }
 > 
->>  		return ret;
->>  	}
+> and then in the various sendmsg functions:
 > 
-> .
+>         if (!inet_check_bound_oif(sk, oif))
+>                 return -EINVAL;
 > 
 
+Yes, something like that.
 
-    Regards,
-    Dongpo
-
-.
-
+--yoshfuji
