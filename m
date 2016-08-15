@@ -1,81 +1,68 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, allow segmentation for gre tunneled skbs
-Date: Mon, 15 Aug 2016 14:16:39 +0300
-Message-ID: <20160815141639.35e940b4@pixies>
-References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
-	<20160810.173511.968926810628735179.davem@davemloft.net>
-	<20160811224132.7a17f0c3@halley>
-	<dfa12e1b-54dc-4e20-8819-cb2400a693d1@stressinduktion.org>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
+ redirect using TC
+Date: Mon, 15 Aug 2016 14:36:53 +0300
+Message-ID: <20160815113653.GD19058@office.localdomain>
+References: <20160814140652.15985-1-amir@vadai.me>
+ <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
+ <20160815071121.GA2024@nanopsycho>
+ <20160815081740.GA19058@office.localdomain>
+ <20160815090804.GB19058@office.localdomain>
+ <faa0a9ab-fc02-543e-c60a-0d22b253a830@mojatatu.com>
+ <20160815132436.0d1e34b6@pixies>
+ <a27a76e8-d7c3-457d-be98-00cf2d942cf8@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, wenxu@ucloud.cn,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	wenx05124561@163.com
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Oded Shanoon <odeds@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:38200 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752328AbcHOLQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 07:16:50 -0400
-Received: by mail-wm0-f50.google.com with SMTP id o80so96801917wme.1
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 04:16:50 -0700 (PDT)
-In-Reply-To: <dfa12e1b-54dc-4e20-8819-cb2400a693d1@stressinduktion.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36385 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752762AbcHOLg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 07:36:56 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i138so10603028wmf.3
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 04:36:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <a27a76e8-d7c3-457d-be98-00cf2d942cf8@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Fri, 12 Aug 2016 13:11:50 +0200, hannes@stressinduktion.org wrote:
-> I really would not like to see this expanded to gre and other protocols.
-> All switches drop packets where the packets are exceeding the MTU,
-> bridges and also openvswitch should behave the same.
+On Mon, Aug 15, 2016 at 06:41:14AM -0400, Jamal Hadi Salim wrote:
+> On 16-08-15 06:24 AM, Shmulik Ladkani wrote:
+> > On Mon, 15 Aug 2016 06:08:10 -0400, jhs@mojatatu.com wrote:
 > 
-> Unfortunately we already had this loophole in the kernel that vxlan udp
-> output path could fragment the packet again, even in case of switches.
-> But this stopped working for GSO packets, which violates another rule in
-> the kernel, GSO should always be transparent and user space should never
-> have to care if a packet is GSO or not.
+> > > Assuming $VXLAN is actually not a linux netdev of type vxlan?
+> > > then the action does vxlan encap redirect sends it to the $VXLAN
+> > > dev with encapsulation in place.
+> > 
+> > I assume Amir refers to vxlan netdev in VXLAN_F_COLLECT_METADATA mode,
+> > using the tun_info metadata found in skb_metadata_dst.
+> > The action is supposed to assign the tun metadata.
+> > 
 > 
-> Because we couldn't a) roll back the change that we fragment packets in
-> UDP output paths and b) should not violate GSO transparency rule, I
-> strongly believed it would be better too only change the kernel in a way
-> that it transparently works with GSO, too. If we argue that a VTEP is
-> its own UDP endpoint which is set up after the bridge, I still can sleep
-> well. :)
+> I see - so you let the vxlan netdev do the encap?
+> Would it still scale to a _very large_ number of tunnels?
+> How many netdevs are you going to use? I am assuming you will hit
+> a nasty lock somewhere(qdisc?) if you use only one.
+Having a netdev per tunnel is problematic in its memory use [1].
+User can take each of the approaches. Can have a shared netdev, but will
+have some contention on the qdisc lock, or create a vxlan dev per VNI
+and increase memory use.
+When offloading will be added, shared netdev will enjoy all worlds - low
+memory use and no lock contention.
+
+
+[1] - http://www.netdevconf.org/1.1/proceedings/slides/ahern-aleksandrov-prabhu-scaling-network-cumulus.pdf
+
 > 
-> My understanding was that GRE failed consistently, GSO as well as
-> non-GSO packets are dropped, which would be the correct behavior for me.
-> I don't want to change this. A good argument against this would be if we
-> violate the GSO transparency rule again. But when I looked into the code
-> I couldn't see that.
-
-I completely agree with your arguments.
-
-I think we may run into the same GSO vs Non-GSO anomaly if one uses
-a "nopmtudisc" tunnel, or a gre tunnel in "collect_md" mode, where the
-encapsulating iphdr 'df' is derived from 'tun_flags&TUNNEL_DONT_FRAGMENT'
-(e.g. in case DF is not set).
-
-I suspect OvS's vport-gre does exactly that, so I assume this is the
-reason why the change was suggested.
-
-Maybe we can change our criteria in the following manner:
- 
--	if (skb_iif && proto == IPPROTO_UDP) {
-+	if (skb_iif && !(df & htons(IP_DF))) {
-		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
-
-This way, any tunnel explicitly providing DF is NOT allowed to
-further fragment the resulting segments (leading to tx segments being
-dropped).
-Others tunnels, that do not care (e.g. vxlan and geneve, and probably
-ovs vport-gre, or other ovs encap vports, in df_default=false mode),
-will behave same for gso and non-gso.
-
-WDYT? Am I missing something here?
-
-Thanks,
-Shmulik
+> cheers,
+> jamal
