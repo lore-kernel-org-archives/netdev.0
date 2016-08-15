@@ -1,27 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tipc: fix NULL pointer dereference in shutdown()
-Date: Mon, 15 Aug 2016 13:56:12 -0700 (PDT)
-Message-ID: <20160815.135612.681646390445456120.davem@davemloft.net>
-References: <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
-	<57ADDF2C.3@oracle.com>
-	<A2BAEFC30C8FD34388F02C9B3121859D224FF922@eusaamb103.ericsson.se>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vegard.nossum@oracle.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, mtk.manpages@gmail.com,
-	linux-kernel@vger.kernel.org
-To: jon.maloy@ericsson.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/6] net: dsa: abstract PHY accesses
+Date: Mon, 15 Aug 2016 17:18:56 -0400
+Message-ID: <20160815211902.2236-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D224FF922@eusaamb103.ericsson.se>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Mon, 15 Aug 2016 19:48:24 +0000
+The Marvell 88E6xxx switch chips have different way to access the PHY
+devices registers. 
 
-> Sorry, I just came back from vacation today.
-> 
-> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+Old chips use a direct access to the PHY registers. Next chips have a
+PHY Polling Unit (PPU) which needs to be disabled before accessing PHY
+registers. Newer chips have an indirect access to the PHY devices so
+that disabling the PPU is not necessary.
 
-Applied.
+This patchset abstracts these accesses behind a new mv88e6xxx_phy_* API.
+
+It also has the side effect to fix the temperature access code for
+88E61xx chips which were using the wrong PHY access functions.
+
+Vivien Didelot (6):
+  net: dsa: mv88e6xxx: rename _mv88e6xxx_wait
+  net: dsa: mv88e6xxx: describe Multi-chip registers
+  net: dsa: mv88e6xxx: rework Global2 SMI PHY access
+  net: dsa: mv88e6xxx: abstract PHY ops
+  net: dsa: mv88e6xxx: describe PHY page and SerDes
+  net: dsa: mv88e6xxx: use the new PHY API
+
+ drivers/net/dsa/mv88e6xxx/chip.c      | 541 ++++++++++++++++++----------------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 117 +++++---
+ 2 files changed, 369 insertions(+), 289 deletions(-)
+
+-- 
+2.9.3
