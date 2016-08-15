@@ -1,62 +1,58 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v3 2/5] net: ethernet: ti: davinci_cpdma: fix locking while ctrl_stop
-Date: Tue, 16 Aug 2016 02:25:46 +0300
-Message-ID: <1471303549-4134-3-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	nsekhar@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: davem@davemloft.net, netdev@vger.kernel.org, mugunthanvnm@ti.com,
-	grygorii.strashko@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:33390 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753087AbcHOX0E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 19:26:04 -0400
-Received: by mail-wm0-f42.google.com with SMTP id d196so24490921wmd.0
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 16:26:03 -0700 (PDT)
-In-Reply-To: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: [PATCH 2/2] net: sched: convert qdisc linked list to hashtable
+Date: Tue, 16 Aug 2016 01:27:17 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608160122420.22028@cbobk.fhfr.pm>
+References: <alpine.LNX.2.00.1608101049260.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608101054320.22028@cbobk.fhfr.pm> <57ADC6AA.5070506@iogearbox.net> <alpine.LNX.2.00.1608121523020.22028@cbobk.fhfr.pm>
+ <CAM_iQpVD_+M7ehSxRRs6tRTfDWAzOp2hHLmSecguXq9YHYw5ag@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpVD_+M7ehSxRRs6tRTfDWAzOp2hHLmSecguXq9YHYw5ag@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The interrupts shouldn't be disabled while receiving skb, but while
-ctrl_stop, the channels are stopped and all remaining packets are
-handled with netif_receive_skb():
+On Sat, 13 Aug 2016, Cong Wang wrote:
 
-lock_irq_save
-    cpdma_ctlr_stop
-       cpdma_chan_top
-           __cpdma_chan_free
-               cpsw_rx_handler
-                   netif_receive_skb
+> > How about we actually extend a little bit the TCQ_F_BUILTIN special case
+> > test in qdisc_match_from_root()?
+> >
+> > After the change, the only way how qdisc_dev() could be NULL should be a
+> > TCQ_F_BUILTIN case, right?
+> >
+> > I was thinking about something like the patch below (the reasong being
+> > that ->dev would be NULL only in cases of singletonish qdiscs) ...
+> > wouldn't that also fix the issue you're seeing? Have to think it through a
+> > little bit more ..
+> 
+> I think this is probably why we never show noop qdisc in dump. 
 
-So, split locking while ctrl stop thus interrupts are still
-enabled while skbs handling. It can cause WARN_ONCE in rare
-cases when ctrl is stopping while not all packets were handled
-with NAPIs.
+Well, partially. A lot of 'default' qdiscs are omitted in a not really 
+uniform and deterministic way. That's actually the primary point of this 
+whole effort -- to get rid of the hidden qdiscs entirely.
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- drivers/net/ethernet/ti/davinci_cpdma.c | 2 ++
- 1 file changed, 2 insertions(+)
+> So I think we should relax the singleton rule for noop_qdisc, to save 
+> some code for noop_qdisc case and also for dumping noop_qdisc.
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 167fd65..ffb32af 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -334,12 +334,14 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
- 	}
- 
- 	ctlr->state = CPDMA_STATE_TEARDOWN;
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
- 
- 	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
- 		if (ctlr->channels[i])
- 			cpdma_chan_stop(ctlr->channels[i]);
- 	}
- 
-+	spin_lock_irqsave(&ctlr->lock, flags);
- 	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
- 	dma_reg_write(ctlr, CPDMA_TXINTMASKCLEAR, 0xffffffff);
- 
+Completely moving away from singleton qdiscs is one of the possibilities, 
+but OTOH I think that my special-casing of !qdisc_dev(root) in 
+qdisc_match_from_root() is correct handling of singletons. I've been 
+completely off the grid for the past three days, but I plan to submit this 
+as a proper followup fix tomorrow if noone has any objections.
+
+> I will try to work on a patch tomorrow.
+
+What still needs to be looked into are the duplicate clsact entries for 
+multiqueue.
+
+Thanks,
+
 -- 
-1.9.1
+Jiri Kosina
+SUSE Labs
