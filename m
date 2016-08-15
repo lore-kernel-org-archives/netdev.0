@@ -1,86 +1,150 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net v3] gre: set inner_protocol on xmit
-Date: Mon, 15 Aug 2016 13:06:24 +0200
-Message-ID: <1471259184-18294-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Simon Horman <simon.horman@netronome.com>,
-	Pravin Shelar <pshelar@ovn.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:36365 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752328AbcHOLGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 07:06:38 -0400
-Received: by mail-wm0-f49.google.com with SMTP id q128so83939420wma.1
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 04:06:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC 0/4] RFC: Add Checmate, BPF-driven minor LSM
+Date: Mon, 15 Aug 2016 12:59:13 +0200
+Message-ID: <57B1A081.9030209@digikod.net>
+References: <20160804071116.GA19098@ircssh.c.rugged-nimbus-611.internal>
+ <CAGXu5jKfjKPuGO98S5XwVSuOcimLtZD6Y9WRQ9pvdBa16TQyFw@mail.gmail.com>
+ <20160809000015.GA9866@ircssh.c.rugged-nimbus-611.internal>
+ <CAGXu5jKJTqb25vE_TyRiv1X3tg-dU3OLXh+FxPfcBhxmQoOZ=A@mail.gmail.com>
+ <57B0F768.8000307@digikod.net>
+ <20160815030952.GC31242@ircssh.c.rugged-nimbus-611.internal>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="0VUOPQi8IDCAB49wlODo7sN4ApHLD9wsp"
+Cc: Kees Cook <keescook@chromium.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	linux-security-module <linux-security-module@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"Reshetova, Elena" <elena.reshetova@intel.com>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160815030952.GC31242@ircssh.c.rugged-nimbus-611.internal>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ensure that the inner_protocol is set on transmit so that GSO segmentation,
-which relies on that field, works correctly.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--0VUOPQi8IDCAB49wlODo7sN4ApHLD9wsp
+Content-Type: multipart/mixed; boundary="XNCOStDjja1r03tsItccSTfHtRHdk66EF"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Sargun Dhillon <sargun@sargun.me>
+Cc: Kees Cook <keescook@chromium.org>, LKML <linux-kernel@vger.kernel.org>,
+ Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+ Daniel Borkmann <daniel@iogearbox.net>,
+ linux-security-module <linux-security-module@vger.kernel.org>,
+ Network Development <netdev@vger.kernel.org>,
+ "Reshetova, Elena" <elena.reshetova@intel.com>
+Message-ID: <57B1A081.9030209@digikod.net>
+Subject: Re: [RFC 0/4] RFC: Add Checmate, BPF-driven minor LSM
+References: <20160804071116.GA19098@ircssh.c.rugged-nimbus-611.internal>
+ <CAGXu5jKfjKPuGO98S5XwVSuOcimLtZD6Y9WRQ9pvdBa16TQyFw@mail.gmail.com>
+ <20160809000015.GA9866@ircssh.c.rugged-nimbus-611.internal>
+ <CAGXu5jKJTqb25vE_TyRiv1X3tg-dU3OLXh+FxPfcBhxmQoOZ=A@mail.gmail.com>
+ <57B0F768.8000307@digikod.net>
+ <20160815030952.GC31242@ircssh.c.rugged-nimbus-611.internal>
+In-Reply-To: <20160815030952.GC31242@ircssh.c.rugged-nimbus-611.internal>
 
-This is achieved by setting the inner_protocol in gre_build_header rather
-than each caller of that function. It ensures that the inner_protocol is
-set when gre_fb_xmit() is used to transmit GRE which was not previously the
-case.
+--XNCOStDjja1r03tsItccSTfHtRHdk66EF
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-I have observed this is not the case when OvS transmits GRE using
-lwtunnel metadata (which it always does).
 
-Fixes: 38720352412a ("gre: Use inner_proto to obtain inner header protocol")
-Cc: Pravin Shelar <pshelar@ovn.org>
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
-v3
-* Move logic to gre_build_header() as suggested by Pravin Shelar.
+On 15/08/2016 05:09, Sargun Dhillon wrote:
+> On Mon, Aug 15, 2016 at 12:57:44AM +0200, Micka=C3=ABl Sala=C3=BCn wrot=
+e:
+>> Our approaches have some common points (i.e. use eBPF in an LSM, stack=
+ed=20
+>> filters like seccomp) but I'm focused on a kind of unprivileged LSM (i=
+=2Ee. no=20
+>> CAP_SYS_ADMIN), to make standalone sandboxes, which brings more constr=
+aints=20
+>> (e.g. no use of unsafe functions like bpf_probe_read(), take care of p=
+rivacy,=20
+>> SUID exec, stable ABI=E2=80=A6). However, I don't want to handle resou=
+rce limits,=20
+>> which should be the job of cgroups.
+>>
+> Kind of. Sometimes describing these resource limits is difficult. For e=
+xample, I=20
+> have a customer who is trying to restrict containers from burning up al=
+l the=20
+> ephemeral ports on the machine. In this, they have an incredibly elabor=
+ate chain=20
+> of wiring to prevent a given container from connecting to the same (pro=
+to,=20
+> destip, destport) more than 1000 times.
+>=20
+> I'm unsure of how you'd model that in a cgroup.=20
 
-v2
-* Added Alexander's Ack
-* Drop RFC designation
----
- include/net/gre.h  | 1 +
- net/ipv4/ip_gre.c  | 1 -
- net/ipv6/ip6_gre.c | 2 --
- 3 files changed, 1 insertion(+), 3 deletions(-)
+This looks like a Netfilter rule. Have you tried applying this limitation=
+ with the connlimit module?
 
-diff --git a/include/net/gre.h b/include/net/gre.h
-index 7a54a31d1d4c..73ea256eb7d7 100644
---- a/include/net/gre.h
-+++ b/include/net/gre.h
-@@ -104,6 +104,7 @@ static inline void gre_build_header(struct sk_buff *skb, int hdr_len,
- 
- 	skb_push(skb, hdr_len);
- 
-+	skb_set_inner_protocol(skb, proto);
- 	skb_reset_transport_header(skb);
- 	greh = (struct gre_base_hdr *)skb->data;
- 	greh->flags = gre_tnl_flags_to_gre_flags(flags);
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 5b1481be0282..113cc43df789 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -370,7 +370,6 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
- 			 tunnel->parms.o_flags, proto, tunnel->parms.o_key,
- 			 htonl(tunnel->o_seqno));
- 
--	skb_set_inner_protocol(skb, proto);
- 	ip_tunnel_xmit(skb, dev, tnl_params, tnl_params->protocol);
- }
- 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 776d145113e1..704274cbd495 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -519,8 +519,6 @@ static netdev_tx_t __gre6_xmit(struct sk_buff *skb,
- 	gre_build_header(skb, tunnel->tun_hlen, tunnel->parms.o_flags,
- 			 protocol, tunnel->parms.o_key, htonl(tunnel->o_seqno));
- 
--	skb_set_inner_protocol(skb, protocol);
--
- 	return ip6_tnl_xmit(skb, dev, dsfield, fl6, encap_limit, pmtu,
- 			    NEXTHDR_GRE);
- }
--- 
-2.7.0.rc3.207.g0ac5344
+
+>=20
+>> For now, I'm focusing on file-system access control which is one of th=
+e more=20
+>> complex system to properly filter. I also plan to support basic networ=
+k access=20
+>> control.
+>>
+>> What you are trying to accomplish seems more related to a Netfilter ex=
+tension=20
+>> (something like ipset but with eBPF maybe?).
+>>
+> I don't only want to do network access control, I also want to write to=
+ the=20
+> value once it's copied into kernel space. There are lot of benefits of =
+doing=20
+> this at the syscall level, but the two primary ones are performance, an=
+d=20
+> capability.=20
+>=20
+> One of the biggest complaints with our current approach to filtering & =
+load=20
+> balancing (iptables) is that it hides information. When people connect =
+through=20
+> the load balancer, they want to find out who they connected to, and wit=
+hout some=20
+> high application-level mechanism, this isn't possible. On the other han=
+d, if we=20
+> just rewrite the destination address in the connect hook, we can pretty=
+ easily
+> allow them to do getpeername.
+
+What exactly is not doable with Netfilter (e.g. REDIRECT or TPROXY)?
+
+
+>=20
+> I'm curious about your filesystem access limiter. Do you have a way to =
+make it so
+> that a given container can only write, say, 100mb of data to disk?=20
+
+It's a filesystem access control. It doesn't deal with quota and is not f=
+ocused on container but process hierarchies (which is more generic).
+
+What is not doable with a quota mount option? It may be more appropriate =
+to enhance the VFS (or overlayfs) to apply this kind of limitation, if ne=
+eded.
+
+
+--XNCOStDjja1r03tsItccSTfHtRHdk66EF--
+
+--0VUOPQi8IDCAB49wlODo7sN4ApHLD9wsp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJXsaCNAAoJECLe/t9zvWqVGg8IAJ+C8DzVjeBJDm4rgD6BVFha
+6V29tMnouofgoS1lnYwp5Mmuco8PTMg929HYBTD9zB4Wk7ALht+JrP+hu/n9gWII
+BsM1DxwFk+YtgUsV3RP4ADcpha93FCbYVAYijQCOTA3cB2t5JrOKRBffeD9lVIFd
+JPM155CCJRkLFX0booWO1F9nCodwRHp5ovoXMOgY/6sA7EhxqoRR17bJ/qPHJWUS
+R20ceKQpK1Z8d3DixYY5+EZXzvkU9QHVKwsZeXb4MLEQGE2z2VeqMQo3QgVIyHoG
+hPVIIFWQGYEdySNVNW0UZ/snan8Hu36IYYWzzEiXruVwdLJGlZK2Z0jGpYxNcOg=
+=EKC8
+-----END PGP SIGNATURE-----
+
+--0VUOPQi8IDCAB49wlODo7sN4ApHLD9wsp--
