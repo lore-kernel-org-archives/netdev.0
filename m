@@ -1,95 +1,63 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 1/9] mlxsw: spectrum: Don't return upon error in removal path
-Date: Mon, 15 Aug 2016 16:37:45 +0200
-Message-ID: <1471271873-4389-2-git-send-email-jiri@resnulli.us>
-References: <1471271873-4389-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: [PATCH 2/5] net: ethernet: mediatek: fixed flow control settings on GMAC0 is not being enabled properly
+Date: Mon, 15 Aug 2016 23:03:47 +0800
+Message-ID: <1471273430-19942-2-git-send-email-sean.wang@mediatek.com>
+References: <1471273430-19942-1-git-send-email-sean.wang@mediatek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+	<linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+	Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36850 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753150AbcHOOh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 10:37:58 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i138so11405955wmf.3
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 07:37:57 -0700 (PDT)
-In-Reply-To: <1471271873-4389-1-git-send-email-jiri@resnulli.us>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:35442 "EHLO
+	mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753083AbcHOPD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 11:03:57 -0400
+In-Reply-To: <1471273430-19942-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+Commit 08ef55c6f257acf3bdc6940813f80e8f0f5d90ec
+("net-next: mediatek: fix gigabit and flow control advertisement")
+had supported proper flow control settings for GMAC1. But for GMAC0,
 
-When removing a VLAN filter from the device we shouldn't return upon the
-first error we encounter, as otherwise we'll have resources that will
-never be freed nor used.
+1.GMAC0 shares the common logic with GMAC1 inside mtk_phy_link_adjust()
+to adapt various settings for the target phy.
 
-Instead, we should keep trying to free as much resources as possible in
-a best effort mode.
+2.GMAC1 uses fixed-phy to connect to a builtin gigabit switch with
+fixed link speed as commit 0c72c50f6f93b0c3daa9ea35d89ab3a933c7b5a0
+("net-next: mediatek: add fixed-phy support") describes.
 
-Remove the error message as well, since we already get these from the
-EMAD transaction code.
+3.However, fixed-phy doesn't enable SUPPORTED_Pause & SUPPORTED_Asym_Pause
+supported flag on default that would cause mtk_phy_link_adjust() not to
+enable flow control setting on GMAC0 properly and cause packet dropped
+when high traffic.
 
-Fixes: 99724c18fc66 ("mlxsw: spectrum: Introduce support for router interfaces")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Due to these reasons, the patch adds SUPPORTED_Pause & SUPPORTED_Asym_Pause
+supported flags on fixed-phy used by driver to have proper handling on
+the both GMAC with the shared common logic.
+
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 27 +++++---------------------
- 1 file changed, 5 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e1b8f62..76b53ed 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1010,7 +1010,6 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct mlxsw_sp_port *mlxsw_sp_vport;
- 	struct mlxsw_sp_fid *f;
--	int err;
- 
- 	/* VLAN 0 is removed from HW filter when device goes down, but
- 	 * it is reserved in our case, so simply return.
-@@ -1019,23 +1018,12 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 		return 0;
- 
- 	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
--	if (!mlxsw_sp_vport) {
--		netdev_warn(dev, "VID=%d does not exist\n", vid);
-+	if (WARN_ON(!mlxsw_sp_vport))
- 		return 0;
--	}
- 
--	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
--	if (err) {
--		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
--			   vid);
--		return err;
--	}
-+	mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
- 
--	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
--	if (err) {
--		netdev_err(dev, "Failed to enable learning for VID=%d\n", vid);
--		return err;
--	}
-+	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
- 
- 	/* Drop FID reference. If this was the last reference the
- 	 * resources will be freed.
-@@ -1048,13 +1036,8 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	 * transition all active 802.1Q bridge VLANs to use VID to FID
- 	 * mappings and set port's mode to VLAN mode.
- 	 */
--	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
--		err = mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
--		if (err) {
--			netdev_err(dev, "Failed to set to VLAN mode\n");
--			return err;
--		}
--	}
-+	if (list_is_singular(&mlxsw_sp_port->vports_list))
-+		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
- 
- 	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
- 
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index f19b8b9..eb59a73 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -267,6 +267,11 @@ static int mtk_phy_connect(struct mtk_mac *mac)
+ 	mac->phy_dev->autoneg = AUTONEG_ENABLE;
+ 	mac->phy_dev->speed = 0;
+ 	mac->phy_dev->duplex = 0;
++
++	if (of_phy_is_fixed_link(mac->of_node))
++		mac->phy_dev->supported |=
++		SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++
+ 	mac->phy_dev->supported &= PHY_GBIT_FEATURES | SUPPORTED_Pause |
+ 				   SUPPORTED_Asym_Pause;
+ 	mac->phy_dev->advertising = mac->phy_dev->supported |
 -- 
-2.5.5
+1.7.9.5
