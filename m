@@ -1,68 +1,45 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
- redirect using TC
-Date: Mon, 15 Aug 2016 14:36:53 +0300
-Message-ID: <20160815113653.GD19058@office.localdomain>
-References: <20160814140652.15985-1-amir@vadai.me>
- <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
- <20160815071121.GA2024@nanopsycho>
- <20160815081740.GA19058@office.localdomain>
- <20160815090804.GB19058@office.localdomain>
- <faa0a9ab-fc02-543e-c60a-0d22b253a830@mojatatu.com>
- <20160815132436.0d1e34b6@pixies>
- <a27a76e8-d7c3-457d-be98-00cf2d942cf8@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Oded Shanoon <odeds@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next] switchdev: Put export declaration in the right place
+Date: Mon, 15 Aug 2016 14:51:54 +0300
+Message-ID: <1471261914-32183-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36385 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752762AbcHOLg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 07:36:56 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i138so10603028wmf.3
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 04:36:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <a27a76e8-d7c3-457d-be98-00cf2d942cf8@mojatatu.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37520 "EHLO
+	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752850AbcHOLwB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 07:52:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 15, 2016 at 06:41:14AM -0400, Jamal Hadi Salim wrote:
-> On 16-08-15 06:24 AM, Shmulik Ladkani wrote:
-> > On Mon, 15 Aug 2016 06:08:10 -0400, jhs@mojatatu.com wrote:
-> 
-> > > Assuming $VXLAN is actually not a linux netdev of type vxlan?
-> > > then the action does vxlan encap redirect sends it to the $VXLAN
-> > > dev with encapsulation in place.
-> > 
-> > I assume Amir refers to vxlan netdev in VXLAN_F_COLLECT_METADATA mode,
-> > using the tun_info metadata found in skb_metadata_dst.
-> > The action is supposed to assign the tun metadata.
-> > 
-> 
-> I see - so you let the vxlan netdev do the encap?
-> Would it still scale to a _very large_ number of tunnels?
-> How many netdevs are you going to use? I am assuming you will hit
-> a nasty lock somewhere(qdisc?) if you use only one.
-Having a netdev per tunnel is problematic in its memory use [1].
-User can take each of the approaches. Can have a shared netdev, but will
-have some contention on the qdisc lock, or create a vxlan dev per VNI
-and increase memory use.
-When offloading will be added, shared netdev will enjoy all worlds - low
-memory use and no lock contention.
+Move exporting of switchdev_port_same_parent_id to be right
+below it and not elsewhere.
 
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Ido Schimmel <idosch@mellanox.com>
+---
+ net/switchdev/switchdev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-[1] - http://www.netdevconf.org/1.1/proceedings/slides/ahern-aleksandrov-prabhu-scaling-network-cumulus.pdf
-
-> 
-> cheers,
-> jamal
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index a5fc9dd..9e90129 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -1306,6 +1306,7 @@ bool switchdev_port_same_parent_id(struct net_device *a,
+ 
+ 	return netdev_phys_item_id_same(&a_attr.u.ppid, &b_attr.u.ppid);
+ }
++EXPORT_SYMBOL_GPL(switchdev_port_same_parent_id);
+ 
+ static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
+ 				       struct net_device *group_dev)
+@@ -1323,7 +1324,6 @@ static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
+ 
+ 	return dev->ifindex;
+ }
+-EXPORT_SYMBOL_GPL(switchdev_port_same_parent_id);
+ 
+ static void switchdev_port_fwd_mark_reset(struct net_device *group_dev,
+ 					  u32 old_mark, u32 *reset_mark)
+-- 
+2.3.7
