@@ -1,37 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/1] pptp: Refactor the struct and macros of PPTP
- codes
-Date: Mon, 15 Aug 2016 10:56:09 -0700 (PDT)
-Message-ID: <20160815.105609.2284363778318727099.davem@davemloft.net>
-References: <1471019448-3336-1-git-send-email-fgao@ikuai8.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
+Date: Mon, 15 Aug 2016 17:59:57 +0000
+Message-ID: <197F6532-FC5E-4D72-976D-4207BAD8D83E@intel.com>
+References: <1452684335-46107-1-git-send-email-hare@suse.de>
+ <1452684335-46107-4-git-send-email-hare@suse.de>
+ <20160209210458.GB32530@localhost>
+ <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
+ <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
+ <1470787409.3015.81.camel@kernel.crashing.org>
+ <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
+ <1470873296.3015.117.camel@kernel.crashing.org>
+ <CAKgT0UcPh2RZazDL-cJbJkZFUJ03kTocn5H7WA=Kk_+S-CV_HA@mail.gmail.com>
+ <20160811141700.4f4faabb@t450s.home>
+ <1470978669.3015.155.camel@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Alex Williamson <alex.williamson@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexey Kardashevskiy <aik@ozlabs.ru>,
+	"Bjorn Helgaas" <helgaas@kernel.org>,
+	Hannes Reinecke <hare@suse.de>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Babu Moger <babu.moger@oracle.com>,
+	Paul Mackerras <paulus@samba.org>,
+	"santosh@chelsio.com" <santosh@chelsio.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1470978669.3015.155.camel@kernel.crashing.org>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D
 Content-Transfer-Encoding: 7bit
-Cc: philipp@redfish-solutions.com, stephen@networkplumber.org,
-	pshelar@nicira.com, tom@herbertland.com, xeb@mail.ru,
-	netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44225 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753091AbcHOR4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 13:56:10 -0400
-In-Reply-To: <1471019448-3336-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset=us-ascii;
+	delsp=yes;
+	format=flowed
 
-From: fgao@ikuai8.com
-Date: Sat, 13 Aug 2016 00:30:48 +0800
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-> From: Gao Feng <fgao@ikuai8.com>
-> 
-> 1. Use struct gre_base_hdr directly in pptp_gre_header instead of
-> duplicated members;
-> 2. Use existing macros like GRE_KEY, GRE_SEQ, and so on instead of
-> duplicated macros defined by PPTP;
-> 3. Add new macros like GRE_IS_ACK/SEQ and so on instead of
-> PPTP_GRE_IS_A/S and so on;
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> We may want some kind of "strict" vs. "relaxed" model here to
+> differenciate the desktop user wanting to give a function to his/her
+> windows partition and doesn't care about strict isolation vs. the cloud
+> data center.
 
-Applied to net-next.
+I don't think desktop users appreciate hangs any more than anyone else, and  
+that is one of the symptoms that can arise here without the vfio  
+coordination.
+
+--
+Mark Rustad, Networking Division, Intel Corporation
+
+--Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJXsgMdAAoJEDwO/+eO4+5uYqEP/10CAPxkFeUIud2v+pS5ZJE2
+UKxBzqRgql3GqA6hxm+RbtvRXIp1DhHO1YuGVkdTobjS8dlTEwr9rLIRmoz099fN
+411HU3MupMsJ2bsag+RI/XNKBbqqteZ8vtLMMj8Ep72TDnxsSLvkgOTtaI03StoQ
+ytvErumSPmO8xIQJFjogbjiGbxCO233KW8vH8tWzbnbcABSYU7ohNjkhJfxSKCSY
+Wl7Q4nCGqKtwzSnSaogix8MSuPqT4YdAbFfrKXFlh8n1wF4VLuKpZC04/HWJwdFk
+XuedPkQ3o7ukbgwVXGCK3uIDBmhBJUGkJl2vwCG5mJaUqYTQPUxrTGuWHhBi4SqK
+cUg2wanWva7ziU4zzMf1ZZw4mhj/oCYucOFAaPNIf/uvkDfNfIKyYiAGT+ktFOLW
+MTTdrfAb8C0i7i+whhFNPDkYl9MI+XRXWaPS1wK6SZF3hsJHZn4CSi6YG7MKWxET
+n0Zu6vT2iLQUqX6pQ2iab4bdaJQ7boKAs/DY270FAPWsFMIASkmJNcd2+tKmLkPn
+1n/GhXcW66QiiweqgFO4W1QhclpEiV7ry6Jd4WmbKlZDTOET6DoMd9KeEla0Ainx
+bzb7c/ob4DKw0W+sAi5bRxdLcayNWw+OHaeeoMTuPXl2wujyDvqUhTBmhok61Hy/
+/x4xcsjMGxD92kwRRDgk
+=uz2d
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D--
