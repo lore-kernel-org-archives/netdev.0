@@ -1,21 +1,38 @@
-From: "Lisa Collins" <link2ict@loan.com>
-Subject: Loan Application
-Date: Sun, 14 Aug 2016 13:41:43 -0700
-Message-ID: <20160814204140.8C62B9372C7@mx.arq.up.pt>
-Reply-To: internationalloanplc2@gmail.com
+From: "Wangnan (F)" <wangnan0@huawei.com>
+Subject: Re: [PATCH net-next 0/2] libbpf: minor fix and API update
+Date: Mon, 15 Aug 2016 09:22:58 +0800
+Message-ID: <57B11972.6040307@huawei.com>
+References: <1471090643-22403-1-git-send-email-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <link2ict@loan.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>
+To: Eric Leblond <eric@regit.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.arq.up.pt ([193.137.25.15]:56848 "EHLO mx.arq.up.pt"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752328AbcHOA6A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Aug 2016 20:58:00 -0400
-Content-Description: Mail message body
+Received: from szxga02-in.huawei.com ([119.145.14.65]:50828 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbcHOBXe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 21:23:34 -0400
+In-Reply-To: <1471090643-22403-1-git-send-email-eric@regit.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do You Need A Loan Of Any Kind ? If Yes Email Now For More Info on internationalloanplc2@gmail.com
+I think you should cc linux-kernel@vger.kernel.org for code in
+tools/ .
 
-Benötigen Sie ein Darlehen jeglicher Art? Wenn ja E-Mail jetzt für mehr Info auf internationalloanplc2@gmail.com
+Thank you.
+
+On 2016/8/13 20:17, Eric Leblond wrote:
+> Hello,
+>
+> Here's a small patchset on libbpf fixing two issues I've encountered
+> when adding some eBPF related features to Suricata.
+>
+> Patchset statistics:
+>   tools/lib/bpf/libbpf.c | 16 +++++++---------
+>   tools/lib/bpf/libbpf.h |  4 +++-
+>   2 files changed, 10 insertions(+), 10 deletions(-)
+>
+> BR,
+> --
+> Eric Leblond
