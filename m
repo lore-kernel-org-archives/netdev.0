@@ -1,89 +1,83 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/9] mlxsw: spectrum: Remove redundant errors from the code
-Date: Mon, 15 Aug 2016 16:37:46 +0200
-Message-ID: <1471271873-4389-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net 5/9] mlxsw: spectrum: Add missing packet traps
+Date: Mon, 15 Aug 2016 16:37:49 +0200
+Message-ID: <1471271873-4389-6-git-send-email-jiri@resnulli.us>
 References: <1471271873-4389-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34437 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753159AbcHOOh6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 10:37:58 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q128so11460900wma.1
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 07:37:58 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34478 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753159AbcHOOiD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 10:38:03 -0400
+Received: by mail-wm0-f67.google.com with SMTP id q128so11461193wma.1
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 07:38:02 -0700 (PDT)
 In-Reply-To: <1471271873-4389-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Elad Raz <eladr@mellanox.com>
 
-Currently, when device configuration fails we emit errors to the kernel
-log despite the fact we already get these from the EMAD transaction
-layer, so remove them.
+Add the following traps:
 
-In addition to being unnecessary, removing these error messages will
-allow us to reuse mlxsw_sp_port_add_vid() to create the PVID vPort
-before registering the netdevice.
+1) MTU Error: Trap packets whose size is bigger than the egress RIF's
+MTU. If DF bit isn't set, traffic will continue to be routed in slow
+path.
 
-Fixes: 99724c18fc66 ("mlxsw: spectrum: Introduce support for router interfaces")
+2) TTL Error: Trap packets whose TTL expired. This allows traceroute to
+work properly.
+
+3) OSPF packets.
+
+Fixes: 7b27ce7bb9cd ("mlxsw: spectrum: Add traps needed for router implementation")
+Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 21 +++++----------------
- 1 file changed, 5 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 15 +++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |  3 +++
+ 2 files changed, 18 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 76b53ed..a9281afc 100644
+index 12681db..6b69c8a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -956,16 +956,12 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 	if (!vid)
- 		return 0;
- 
--	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid)) {
--		netdev_warn(dev, "VID=%d already configured\n", vid);
-+	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid))
- 		return 0;
--	}
- 
- 	mlxsw_sp_vport = mlxsw_sp_port_vport_create(mlxsw_sp_port, vid);
--	if (!mlxsw_sp_vport) {
--		netdev_err(dev, "Failed to create vPort for VID=%d\n", vid);
-+	if (!mlxsw_sp_vport)
- 		return -ENOMEM;
--	}
- 
- 	/* When adding the first VLAN interface on a bridged port we need to
- 	 * transition all the active 802.1Q bridge VLANs to use explicit
-@@ -973,24 +969,17 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 	 */
- 	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
- 		err = mlxsw_sp_port_vp_mode_trans(mlxsw_sp_port);
--		if (err) {
--			netdev_err(dev, "Failed to set to Virtual mode\n");
-+		if (err)
- 			goto err_port_vp_mode_trans;
--		}
- 	}
- 
- 	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
--	if (err) {
--		netdev_err(dev, "Failed to disable learning for VID=%d\n", vid);
-+	if (err)
- 		goto err_port_vid_learning_set;
--	}
- 
- 	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, untagged);
--	if (err) {
--		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
--			   vid);
-+	if (err)
- 		goto err_port_add_vid;
--	}
- 
- 	return 0;
- 
+@@ -2651,6 +2651,21 @@ static const struct mlxsw_rx_listener mlxsw_sp_rx_listener[] = {
+ 	{
+ 		.func = mlxsw_sp_rx_listener_func,
+ 		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_MTUERROR,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_TTLERROR,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_OSPF,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
+ 		.trap_id = MLXSW_TRAP_ID_IP2ME,
+ 	},
+ 	{
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+index 470d769..9508e0a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+@@ -56,6 +56,9 @@ enum {
+ 	MLXSW_TRAP_ID_IGMP_V3_REPORT = 0x34,
+ 	MLXSW_TRAP_ID_ARPBC = 0x50,
+ 	MLXSW_TRAP_ID_ARPUC = 0x51,
++	MLXSW_TRAP_ID_MTUERROR = 0x52,
++	MLXSW_TRAP_ID_TTLERROR = 0x53,
++	MLXSW_TRAP_ID_OSPF = 0x55,
+ 	MLXSW_TRAP_ID_IP2ME = 0x5F,
+ 	MLXSW_TRAP_ID_RTR_INGRESS0 = 0x70,
+ 	MLXSW_TRAP_ID_HOST_MISS_IPV4 = 0x90,
 -- 
 2.5.5
