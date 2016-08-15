@@ -1,51 +1,60 @@
 From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net v2 5/5] hv_netvsc: fix bonding devices check in netvsc_netdev_event()
-Date: Mon, 15 Aug 2016 17:48:43 +0200
-Message-ID: <1471276123-24264-6-git-send-email-vkuznets@redhat.com>
+Subject: [PATCH net v2 4/5] hv_netvsc: protect module refcount by checking
+ net_device_ctx->vf_netdev
+Date: Mon, 15 Aug 2016 17:48:42 +0200
+Message-ID: <1471276123-24264-5-git-send-email-vkuznets@redhat.com>
 References: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
-Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"K. Y. Srinivasan" <kys@microsoft.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Bonding driver sets IFF_BONDING on both master (the bonding device) and
-slave (the real NIC) devices and in netvsc_netdev_event() we want to skip
-master devices only. Currently, there is an uncertainty when a slave
-interface is removed: if bonding module comes first in netdev_chain it
-clears IFF_BONDING flag on the netdev and netvsc_netdev_event() correctly
-handles NETDEV_UNREGISTER event, but in case netvsc comes first on the
-chain it sees the device with IFF_BONDING still attached and skips it. As
-we still hold vf_netdev pointer to the device we crash on the next inject.
+We're not guaranteed to see NETDEV_REGISTER/NETDEV_UNREGISTER notifications
+only once per VF but we increase/decrease module refcount unconditionally.
+Check vf_netdev to make sure we don't take/release it twice. We presume
+that only one VF per netvsc device may exist.
 
 Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 62a4e6e..3ba29fc 100644
+index 2c90883..62a4e6e 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1482,8 +1482,13 @@ static int netvsc_netdev_event(struct notifier_block *this,
- {
- 	struct net_device *event_dev = netdev_notifier_info_to_dev(ptr);
+@@ -1193,7 +1193,7 @@ static int netvsc_register_vf(struct net_device *vf_netdev)
  
--	/* Avoid Vlan, Bonding dev with same MAC registering as VF */
--	if (event_dev->priv_flags & (IFF_802_1Q_VLAN | IFF_BONDING))
-+	/* Avoid Vlan dev with same MAC registering as VF */
-+	if (event_dev->priv_flags & IFF_802_1Q_VLAN)
-+		return NOTIFY_DONE;
-+
-+	/* Avoid Bonding master dev with same MAC registering as VF */
-+	if (event_dev->priv_flags & IFF_BONDING &&
-+	    event_dev->flags & IFF_MASTER)
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+-	if (netvsc_dev == NULL)
++	if (!netvsc_dev || net_device_ctx->vf_netdev)
  		return NOTIFY_DONE;
  
- 	switch (event) {
+ 	netdev_info(ndev, "VF registering: %s\n", vf_netdev->name);
+@@ -1312,7 +1312,7 @@ static int netvsc_unregister_vf(struct net_device *vf_netdev)
+ 
+ 	net_device_ctx = netdev_priv(ndev);
+ 	netvsc_dev = net_device_ctx->nvdev;
+-	if (netvsc_dev == NULL)
++	if (!netvsc_dev || !net_device_ctx->vf_netdev)
+ 		return NOTIFY_DONE;
+ 	netdev_info(ndev, "VF unregistering: %s\n", vf_netdev->name);
+ 	netvsc_inject_disable(net_device_ctx);
 -- 
 2.7.4
