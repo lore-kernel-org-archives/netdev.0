@@ -1,125 +1,226 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
-Date: Mon, 15 Aug 2016 23:16:57 +0000
-Message-ID: <B64D748A-711E-4701-96EF-C447333F5BF5@intel.com>
-References: <1452684335-46107-1-git-send-email-hare@suse.de>
- <1452684335-46107-4-git-send-email-hare@suse.de>
- <20160209210458.GB32530@localhost>
- <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
- <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
- <1470787409.3015.81.camel@kernel.crashing.org>
- <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
- <1470873296.3015.117.camel@kernel.crashing.org>
- <CAKgT0UcPh2RZazDL-cJbJkZFUJ03kTocn5H7WA=Kk_+S-CV_HA@mail.gmail.com>
- <20160811141700.4f4faabb@t450s.home>
- <1470978669.3015.155.camel@kernel.crashing.org>
- <197F6532-FC5E-4D72-976D-4207BAD8D83E@intel.com>
- <1471299799.12231.121.camel@kernel.crashing.org>
- <1471300400.12231.130.camel@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_4378A241-00CD-4684-B3B4-5F5698D79B1E";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Alex Williamson <alex.williamson@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexey Kardashevskiy <aik@ozlabs.ru>,
-	"Bjorn Helgaas" <helgaas@kernel.org>,
-	Hannes Reinecke <hare@suse.de>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Babu Moger <babu.moger@oracle.com>,
-	Paul Mackerras <paulus@samba.org>,
-	"santosh@chelsio.com" <santosh@chelsio.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v3 1/5] net: ethernet: ti: davinci_cpdma: split descs num between all channels
+Date: Tue, 16 Aug 2016 02:25:45 +0300
+Message-ID: <1471303549-4134-2-git-send-email-ivan.khoronzhuk@linaro.org>
+References: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	nsekhar@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: davem@davemloft.net, netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	grygorii.strashko@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471300400.12231.130.camel@kernel.crashing.org>
-Content-Language: en-US
+In-Reply-To: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_4378A241-00CD-4684-B3B4-5F5698D79B1E
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii;
-	delsp=yes;
-	format=flowed
+Tx channels share same pool of descriptors. Thus one channel can
+block another if pool is emptied by one. But, the shaper should
+decide which channel is allowed to send packets. To avoid such
+impact of one channel on another, let every channel to have its
+own piece of pool.
 
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
+ drivers/net/ethernet/ti/cpsw.c          | 61 ++++++++++++++++++++-------------
+ drivers/net/ethernet/ti/davinci_cpdma.c | 46 +++++++++++++++++++++++--
+ drivers/net/ethernet/ti/davinci_cpdma.h |  2 +-
+ 3 files changed, 83 insertions(+), 26 deletions(-)
 
-> Filtering things to work around bugs in existing guests to avoid crashes
-> is a different kettle of fish and could be justified but keep in mind that
-> in most cases a malicious guest will be able to exploit those HW flaws.
-
-Bugs in existing guests is an interesting case, but I have been focused on  
-getting acceptable behavior from a properly functioning guest, in the face  
-of hardware issues that can only be resolved in a single place.
-
-I agree that a malicious guest can cause all kinds of havoc with  
-directly-assigned devices. Consider a 4-port PHY chip on a shared MDIO bus,  
-for instance. There is really nothing to be done about the potential for  
-mischief with that kind of thing.
-
-The VPD problem that I had been concerned about arises from a bad design in  
-the PCI spec together with implementations that share the registers across  
-functions. The hardware isn't going to change and I really doubt that the  
-spec will either, so we address it the only place we can.
-
-I am certain that we agree that not everything can or should be addressed  
-in vfio. I did not mean to suggest it should try to address everything, but  
-I think it should make it possible for correctly behaving guests to work. I  
-think that is not unreasonable.
-
-Perhaps the VPD range check should really just have been implemented for  
-the sysfs interface, and left the vfio case unchecked. I don't know because  
-I was not involved in that issue. Perhaps someone more intimately involved  
-can comment on that notion.
-
-> Assuming that a device coming back from a guest is functional and not
-> completely broken and can be re-used without a full PERST or power cycle
-> is a wrong assumption. It may or may not work, no amount of "filtering"
-> will fix the fundamental issue. If your HW won't give you access to PERST
-> well ... blame Intel for not specifying a standard way to generate it in
-> the first place :-)
-
-Yeah, I worry about the state that a malicious guest could leave a device  
-in, but I consider direct assignment always risky anyway. I would just like  
-it to at least work in the non-malicious guest cases.
-
-I guess my previous response was really just too terse, I was just focused  
-on unavoidable hangs and data corruption, which even were happening without  
-any guest involvement. For me, guests were just an additional exposure of  
-the same underlying issue.
-
-With hindsight, it is easy to see that a standard reset would now be a  
-pretty useful thing. I am sure that even if it existed, we would now have  
-lots and lots of quirks around it as well! :-)
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
---Apple-Mail=_4378A241-00CD-4684-B3B4-5F5698D79B1E
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJXsk1oAAoJEDwO/+eO4+5ucXYQAKOGYyHnEI9+QpoV7FEgGsTQ
-+Ire7lSaKbkhfIDDcECGW/CjrfKBeAM9x9Hk1NII2/Dbux4Hlf8WMXkfmsFb2VXU
-axjM2OyjJahdsGWHy96gZ7M/Do/tho/aOjBL27a9G539bJci5Y+rEcIO0disjds+
-lyQ5IOf6j1zJFdl3koiNJMmsJou+kTadC4Cq93x3trG9iiOl8m8FaujmcWr3uz8M
-y1uG6xuUBEXRexxKe2UL0SQQvR0/XY/J9dMyTEKmT+3a2+VhvxwOjFlduJy31BUp
-T8SFT9okqliTWY5QzT+xJ2A9C6+/5ji3Pj47eTeo0GCQVPnjwD7nFYCtjczM2Ni5
-4o0znkwijA2TwYuPf2ZUXNzqUwU15fAK5zJT1ga5juRpsasiJavn1izF7WXI76ca
-/4wfdyJvt/vaqJBBzKzCEbX73gM275G3ETq3nLtw+09yuq+S1ZPkXd/28g/wmlXl
-tZ5Rs6SdvT37FEAHiuxJxLfmBNpZ9dd58RHb4Hq6PpL7FS0yh/1mBY/DWobB4MHl
-zgCI1dxv2udAGcLOSJ2LAPE/oEqlQXmYmIa39NwGS/lMAFD7DDnH1BpcyrseSlRX
-IJhnL0x1Lfb2eVAiNlwjJLZgvNSjbeQv2rdsgLjrmgH06XXJqZcXjgbUHRKSK2pT
-dXqcxOxBrHnHIgpmHy9W
-=MBjF
------END PGP SIGNATURE-----
-
---Apple-Mail=_4378A241-00CD-4684-B3B4-5F5698D79B1E--
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index b4d3b41..a4c1538 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1212,6 +1212,40 @@ static void cpsw_init_host_port(struct cpsw_priv *priv)
+ 	}
+ }
+ 
++static int cpsw_fill_rx_channels(struct net_device *ndev)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	struct cpsw_common *cpsw = priv->cpsw;
++	struct sk_buff *skb;
++	int ch_buf_num;
++	int i, ret;
++
++	ch_buf_num = cpdma_chan_get_rx_buf_num(cpsw->rxch);
++	for (i = 0; i < ch_buf_num; i++) {
++		skb = __netdev_alloc_skb_ip_align(ndev,
++						  cpsw->rx_packet_max,
++						  GFP_KERNEL);
++		if (!skb) {
++			cpsw_err(priv, ifup, "cannot allocate skb\n");
++			return -ENOMEM;
++		}
++
++		ret = cpdma_chan_submit(cpsw->rxch, skb, skb->data,
++					skb_tailroom(skb), 0);
++		if (ret < 0) {
++			cpsw_err(priv, ifup,
++				 "cannot submit skb to rx channel, error %d\n",
++				 ret);
++			kfree_skb(skb);
++			return ret;
++		}
++	}
++
++	cpsw_info(priv, ifup, "submitted %d rx descriptors\n", ch_buf_num);
++
++	return ch_buf_num;
++}
++
+ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_common *cpsw)
+ {
+ 	u32 slave_port;
+@@ -1232,7 +1266,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ {
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
+ 	struct cpsw_common *cpsw = priv->cpsw;
+-	int i, ret;
++	int ret;
+ 	u32 reg;
+ 
+ 	ret = pm_runtime_get_sync(cpsw->dev);
+@@ -1264,8 +1298,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
+ 
+ 	if (!cpsw_common_res_usage_state(cpsw)) {
+-		int buf_num;
+-
+ 		/* setup tx dma to fixed prio and zero offset */
+ 		cpdma_control_set(cpsw->dma, CPDMA_TX_PRIO_FIXED, 1);
+ 		cpdma_control_set(cpsw->dma, CPDMA_RX_BUFFER_OFFSET, 0);
+@@ -1292,26 +1324,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 			enable_irq(cpsw->irqs_table[0]);
+ 		}
+ 
+-		buf_num = cpdma_chan_get_rx_buf_num(cpsw->dma);
+-		for (i = 0; i < buf_num; i++) {
+-			struct sk_buff *skb;
+-
+-			ret = -ENOMEM;
+-			skb = __netdev_alloc_skb_ip_align(priv->ndev,
+-					cpsw->rx_packet_max, GFP_KERNEL);
+-			if (!skb)
+-				goto err_cleanup;
+-			ret = cpdma_chan_submit(cpsw->rxch, skb, skb->data,
+-						skb_tailroom(skb), 0);
+-			if (ret < 0) {
+-				kfree_skb(skb);
+-				goto err_cleanup;
+-			}
+-		}
+-		/* continue even if we didn't manage to submit all
+-		 * receive descs
+-		 */
+-		cpsw_info(priv, ifup, "submitted %d rx descriptors\n", i);
++		ret = cpsw_fill_rx_channels(ndev);
++		if (ret < 0)
++			goto err_cleanup;
+ 
+ 		if (cpts_register(cpsw->dev, cpsw->cpts,
+ 				  cpsw->data.cpts_clock_mult,
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index cf72b33..167fd65 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -104,6 +104,7 @@ struct cpdma_ctlr {
+ 	struct cpdma_desc_pool	*pool;
+ 	spinlock_t		lock;
+ 	struct cpdma_chan	*channels[2 * CPDMA_MAX_CHANNELS];
++	int chan_num;
+ };
+ 
+ struct cpdma_chan {
+@@ -256,6 +257,7 @@ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
+ 	ctlr->state = CPDMA_STATE_IDLE;
+ 	ctlr->params = *params;
+ 	ctlr->dev = params->dev;
++	ctlr->chan_num = 0;
+ 	spin_lock_init(&ctlr->lock);
+ 
+ 	ctlr->pool = cpdma_desc_pool_create(ctlr->dev,
+@@ -399,6 +401,31 @@ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value)
+ }
+ EXPORT_SYMBOL_GPL(cpdma_ctlr_eoi);
+ 
++/**
++ * cpdma_chan_split_pool - Splits ctrl pool between all channels.
++ * Has to be called under ctlr lock
++ */
++static void cpdma_chan_split_pool(struct cpdma_ctlr *ctlr)
++{
++	struct cpdma_desc_pool *pool = ctlr->pool;
++	struct cpdma_chan *chan;
++	int ch_desc_num;
++	int i;
++
++	if (!ctlr->chan_num)
++		return;
++
++	/* calculate average size of pool slice */
++	ch_desc_num = pool->num_desc / ctlr->chan_num;
++
++	/* split ctlr pool */
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
++		chan = ctlr->channels[i];
++		if (chan)
++			chan->desc_num = ch_desc_num;
++	}
++}
++
+ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
+ 				     cpdma_handler_fn handler)
+ {
+@@ -447,14 +474,25 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
+ 	spin_lock_init(&chan->lock);
+ 
+ 	ctlr->channels[chan_num] = chan;
++	ctlr->chan_num++;
++
++	cpdma_chan_split_pool(ctlr);
++
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
+ 	return chan;
+ }
+ EXPORT_SYMBOL_GPL(cpdma_chan_create);
+ 
+-int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr)
++int cpdma_chan_get_rx_buf_num(struct cpdma_chan *chan)
+ {
+-	return ctlr->pool->num_desc / 2;
++	unsigned long flags;
++	int desc_num;
++
++	spin_lock_irqsave(&chan->lock, flags);
++	desc_num = chan->desc_num;
++	spin_unlock_irqrestore(&chan->lock, flags);
++
++	return desc_num;
+ }
+ EXPORT_SYMBOL_GPL(cpdma_chan_get_rx_buf_num);
+ 
+@@ -471,6 +509,10 @@ int cpdma_chan_destroy(struct cpdma_chan *chan)
+ 	if (chan->state != CPDMA_STATE_IDLE)
+ 		cpdma_chan_stop(chan);
+ 	ctlr->channels[chan->chan_num] = NULL;
++	ctlr->chan_num--;
++
++	cpdma_chan_split_pool(ctlr);
++
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+index 4b46cd6..9119b43 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.h
++++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+@@ -80,7 +80,7 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr);
+ 
+ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
+ 				     cpdma_handler_fn handler);
+-int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr);
++int cpdma_chan_get_rx_buf_num(struct cpdma_chan *chan);
+ int cpdma_chan_destroy(struct cpdma_chan *chan);
+ int cpdma_chan_start(struct cpdma_chan *chan);
+ int cpdma_chan_stop(struct cpdma_chan *chan);
+-- 
+1.9.1
