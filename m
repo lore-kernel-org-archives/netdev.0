@@ -1,83 +1,86 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCHv2 3/4] pci: Determine actual VPD size on first access
-Date: Mon, 15 Aug 2016 17:59:57 +0000
-Message-ID: <197F6532-FC5E-4D72-976D-4207BAD8D83E@intel.com>
-References: <1452684335-46107-1-git-send-email-hare@suse.de>
- <1452684335-46107-4-git-send-email-hare@suse.de>
- <20160209210458.GB32530@localhost>
- <bc3c39b1-cbff-99a5-8fe7-9add14f2c6f5@ozlabs.ru>
- <CAKgT0Udm0a08v34zU11ckjk4DCq2uxjPxmhLmgiKozY676Hruw@mail.gmail.com>
- <1470787409.3015.81.camel@kernel.crashing.org>
- <CAKgT0UcfznUD2LM08focv7Y+vqLFMhqNiK5o1TUSsJFFYSt2Gg@mail.gmail.com>
- <1470873296.3015.117.camel@kernel.crashing.org>
- <CAKgT0UcPh2RZazDL-cJbJkZFUJ03kTocn5H7WA=Kk_+S-CV_HA@mail.gmail.com>
- <20160811141700.4f4faabb@t450s.home>
- <1470978669.3015.155.camel@kernel.crashing.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/4] flow_dissector: Get vlan info from
+ skb->vlan_tci instead of skb->data
+Date: Mon, 15 Aug 2016 20:06:45 +0200
+Message-ID: <20160815180645.GM2024@nanopsycho>
+References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
+ <1470835943-9042-2-git-send-email-hadarh@mellanox.com>
+ <e16e8104-c010-e812-74c8-d28960e23643@lab.ntt.co.jp>
+ <CAJL1qvEncNo-10vd387jdLj2Y+Xc_-Ms7rKHU6bQh=QO43ic5w@mail.gmail.com>
+ <cdfa6f93-631e-8875-a60f-871507f8a3c2@gmail.com>
+ <CAJL1qvHL27cFDYHwyKFiRoGx4FERMWY_e8ybo3ihoRWhFZLUMg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Alex Williamson <alex.williamson@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Alexey Kardashevskiy <aik@ozlabs.ru>,
-	"Bjorn Helgaas" <helgaas@kernel.org>,
-	Hannes Reinecke <hare@suse.de>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Babu Moger <babu.moger@oracle.com>,
-	Paul Mackerras <paulus@samba.org>,
-	"santosh@chelsio.com" <santosh@chelsio.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1470978669.3015.155.camel@kernel.crashing.org>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33239 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750791AbcHOSGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 14:06:48 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o80so12412908wme.0
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 11:06:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJL1qvHL27cFDYHwyKFiRoGx4FERMWY_e8ybo3ihoRWhFZLUMg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
-	charset=us-ascii;
-	delsp=yes;
-	format=flowed
+Mon, Aug 15, 2016 at 05:51:38PM CEST, hadarh@dev.mellanox.co.il wrote:
+>On Mon, Aug 15, 2016 at 5:38 AM, Toshiaki Makita
+><toshiaki.makita1@gmail.com> wrote:
+>> On 16/08/14 (日) 23:58, Hadar Hen Zion wrote:
+>>>
+>>> On Fri, Aug 12, 2016 at 9:36 AM, Toshiaki Makita
+>>> <makita.toshiaki@lab.ntt.co.jp> wrote:
+>>>>
+>>>> On 2016/08/10 22:32, Hadar Hen Zion wrote:
+>>>>>
+>>>>> Early in the datapath skb_vlan_untag function is called, stripped
+>>>>> the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+>>>>>
+>>>>> The current dissection doesn't handle vlan packets correctly.  Vlan
+>>>>> doesn't exist in skb->data anymore when applying flow dissection on the
+>>>>> skb, fix that.
+>>>>
+>>>>
+>>>> RPS (and flow-dissector called in RPS) is performed before vlan-strip in
+>>>> __netif_receive_skb_core().
+>>>
+>>>
+>>> right, I'll fix it to v2.
+>>>
+>>>> Also, in cases skb is tagged with multiple vlan headers (typical when
+>>>> using 802.1ad), the second level vlan tag is in skb->data.
+>>>
+>>>
+>>> Currently, flow_dissector doesn't support multiple vlan headers, only
+>>> one vlan_id field is present.
+>>> There aren't any flow_dissector "customers" yet for multiple vlan support.
+>>
+>>
+>> Sure, no need to store second level vlan tag information for now.
+>> The point is that current flow-dissector correctly skips any number of vlan
+>> tags and get hash value from IP/TCP/UDP headers, so RPS works for multiple
+>> vlan tagged packets.
+>>
+>> Thanks,
+>> Toshiaki Makita
+>
+>ok, so we are on the same page.
+>The flow dissector will correctly skip any number of vlans regardless
+>if the first vlan is stripped or not.
 
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-> We may want some kind of "strict" vs. "relaxed" model here to
-> differenciate the desktop user wanting to give a function to his/her
-> windows partition and doesn't care about strict isolation vs. the cloud
-> data center.
+On RX the first vlan is always stripped either by hw or by skb_vlan_untag.
+On TX the first vlan is also stripped as validate_xmit_skb_list which
+pushes vlan header is called just before dev_hard_start_xmit.
 
-I don't think desktop users appreciate hangs any more than anyone else, and  
-that is one of the symptoms that can arise here without the vfio  
-coordination.
-
---
-Mark Rustad, Networking Division, Intel Corporation
-
---Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
-
-iQIcBAEBCAAGBQJXsgMdAAoJEDwO/+eO4+5uYqEP/10CAPxkFeUIud2v+pS5ZJE2
-UKxBzqRgql3GqA6hxm+RbtvRXIp1DhHO1YuGVkdTobjS8dlTEwr9rLIRmoz099fN
-411HU3MupMsJ2bsag+RI/XNKBbqqteZ8vtLMMj8Ep72TDnxsSLvkgOTtaI03StoQ
-ytvErumSPmO8xIQJFjogbjiGbxCO233KW8vH8tWzbnbcABSYU7ohNjkhJfxSKCSY
-Wl7Q4nCGqKtwzSnSaogix8MSuPqT4YdAbFfrKXFlh8n1wF4VLuKpZC04/HWJwdFk
-XuedPkQ3o7ukbgwVXGCK3uIDBmhBJUGkJl2vwCG5mJaUqYTQPUxrTGuWHhBi4SqK
-cUg2wanWva7ziU4zzMf1ZZw4mhj/oCYucOFAaPNIf/uvkDfNfIKyYiAGT+ktFOLW
-MTTdrfAb8C0i7i+whhFNPDkYl9MI+XRXWaPS1wK6SZF3hsJHZn4CSi6YG7MKWxET
-n0Zu6vT2iLQUqX6pQ2iab4bdaJQ7boKAs/DY270FAPWsFMIASkmJNcd2+tKmLkPn
-1n/GhXcW66QiiweqgFO4W1QhclpEiV7ry6Jd4WmbKlZDTOET6DoMd9KeEla0Ainx
-bzb7c/ob4DKw0W+sAi5bRxdLcayNWw+OHaeeoMTuPXl2wujyDvqUhTBmhok61Hy/
-/x4xcsjMGxD92kwRRDgk
-=uz2d
------END PGP SIGNATURE-----
-
---Apple-Mail=_0B97A36D-9514-48B6-9725-293733669A1D--
+So I believe you can safely work just with skb->vlan_*
