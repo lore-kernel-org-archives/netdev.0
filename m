@@ -1,63 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] vsockmon: Add vsockmon device.
-Date: Mon, 15 Aug 2016 10:23:49 -0700 (PDT)
-Message-ID: <20160815.102349.379302333828628901.davem@davemloft.net>
-References: <20160808161442.16038-3-ggarcia@deic.uab.cat>
-	<20160810115158.GB10461@stefanha-x1.localdomain>
-	<063D6719AE5E284EB5DD2968C1650D6DB00DC3A8@AcuExch.aculab.com>
+From: Sean Wang <sean.wang@mediatek.com>
+Subject: [PATCH v2 4/5] net: ethernet: mediatek: enhance RX path by reducing the frequency of the memory barrier used
+Date: Tue, 16 Aug 2016 01:51:25 +0800
+Message-ID: <1471283487-24113-5-git-send-email-sean.wang@mediatek.com>
+References: <1471283487-24113-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stefanha@redhat.com, ggarcia@abra.uab.cat, netdev@vger.kernel.org,
-	jhansen@vmware.com, mst@redhat.com
-To: David.Laight@ACULAB.COM
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+	<linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+	Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43967 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181AbcHORXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 13:23:50 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00DC3A8@AcuExch.aculab.com>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:27442 "EHLO
+	mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752924AbcHORvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 13:51:36 -0400
+In-Reply-To: <1471283487-24113-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Mon, 15 Aug 2016 16:38:36 +0000
+The patch makes moving wmb() to outside the loop that could help
+RX path handling more faster although that RX descriptors aren't
+freed for DMA to use as soon as possible, but based on my experiment
+and the result show it still can reach about 943Mbpis without
+performance drop that is tested based on the setup with one port
+using gigaphy and 256 RX descriptors for DMA to move.
 
-> From: Stefan Hajnoczi
->> Sent: 10 August 2016 12:52
->> On Mon, Aug 08, 2016 at 06:14:41PM +0200, ggarcia@abra.uab.cat wrote:
->> > diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
->> > new file mode 100644
->> > index 0000000..739b4bf
->> > --- /dev/null
->> > +++ b/include/uapi/linux/vsockmon.h
->> > @@ -0,0 +1,35 @@
->> > +#ifndef _UAPI_VSOCKMON_H
->> > +#define _UAPI_VSOCKMON_H
->> > +
->> > +#include <linux/virtio_vsock.h>
->> > +
->> > +/* Structure of packets received trought the vsockmon device. */
->> > +
->> > +struct af_vsockmon_hdr {
->> > +	__le64 src_cid;
->> > +	__le64 dst_cid;
->> > +	__le32 src_port;
->> > +	__le32 dst_port;
->> > +	__le16 op;			/* enum af_vsockmon_op */
->> > +	__le16 t;			/* enum af_vosckmon_t */
->> > +	__le16 len;			/* sizeof(t_hdr) */
->> > +	union {
->> > +		struct virtio_vsock_hdr virtio_hdr;
->> > +	} t_hdr;
->> > +} __attribute__((packed));
-> ...
-> 
-> Gah, another 'packed' structure.
-> Have you looked at the amount of code the sparc64 compiler generates
-> to access the structure members??
-> 
-> You really want to add another 16bit field and enforce 64bit alignment
-> on the header and all data blocks.
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-Indeed, avoid the packed attribute at all costs.
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index b782330..53e24c1 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -893,14 +893,15 @@ release_desc:
+ 		rxd->rxd2 = RX_DMA_PLEN0(ring->buf_size);
+ 
+ 		ring->calc_idx = idx;
+-		/* make sure that all changes to the dma ring are flushed before
+-		 * we continue
+-		 */
+-		wmb();
+-		mtk_w32(eth, ring->calc_idx, MTK_QRX_CRX_IDX0);
+ 		done++;
+ 	}
+ 
++    /* make sure that all changes to the dma ring are flushed before
++     * we continue
++     */
++	wmb();
++	mtk_w32(eth, ring->calc_idx, MTK_QRX_CRX_IDX0);
++
+ 	if (done < budget)
+ 		mtk_w32(eth, MTK_RX_DONE_INT, MTK_QMTK_INT_STATUS);
+ 
+-- 
+1.7.9.5
