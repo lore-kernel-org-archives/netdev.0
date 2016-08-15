@@ -1,223 +1,300 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH repost net-next 2/3] qed*: Trivial modifications
-Date: Mon, 15 Aug 2016 10:42:44 +0300
-Message-ID: <1471246965-26031-3-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH repost net-next 3/3] qed*: Add and modify some prints
+Date: Mon, 15 Aug 2016 10:42:45 +0300
+Message-ID: <1471246965-26031-4-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1471246965-26031-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:18831 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752787AbcHOHm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 03:42:57 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40716 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752762AbcHOHm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 03:42:58 -0400
 In-Reply-To: <1471246965-26031-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change qed* code in trivial manner; This isn't necessarily
-semantic-only, but the end result is the same, i.e., no change
-should occur from user perspective. Changes include:
-  - Using temporary variables to better fit 80-character restrictions.
-  - Removal of unused variables & code with no effect.
-[plus some additional minor modifications].
+This patch touches various prints in the driver - it reduces the
+verbosity of some prints [which were previously logged by default]
+while adding several new debug prints and modifying others.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c      | 11 +++++----
- drivers/net/ethernet/qlogic/qed/qed_init_ops.c | 14 +++++-------
- drivers/net/ethernet/qlogic/qed/qed_int.c      | 11 ++-------
- drivers/net/ethernet/qlogic/qed/qed_l2.c       | 31 ++++++++++++--------------
- drivers/net/ethernet/qlogic/qed/qed_mcp.c      |  4 +---
- drivers/net/ethernet/qlogic/qede/qede_main.c   |  3 ---
- 6 files changed, 28 insertions(+), 46 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_dev.c    | 10 +++++++---
+ drivers/net/ethernet/qlogic/qed/qed_int.c    |  8 ++++++--
+ drivers/net/ethernet/qlogic/qed/qed_main.c   | 21 +++++++++++++++------
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c    |  7 ++++---
+ drivers/net/ethernet/qlogic/qed/qed_spq.c    | 11 +++++++++--
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 20 ++++++++++++--------
+ 6 files changed, 53 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 1356e17..da23169 100644
+index da23169..66e9f91 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -540,8 +540,7 @@ int qed_resc_alloc(struct qed_dev *cdev)
- 	cdev->reset_stats = kzalloc(sizeof(*cdev->reset_stats), GFP_KERNEL);
- 	if (!cdev->reset_stats) {
- 		DP_NOTICE(cdev, "Failed to allocate reset statistics\n");
--		rc = -ENOMEM;
--		goto alloc_err;
-+		goto alloc_no_mem;
+@@ -1211,7 +1211,7 @@ static int qed_reg_assert(struct qed_hwfn *p_hwfn,
+ 	u32 assert_val = qed_rd(p_hwfn, p_ptt, reg);
+ 
+ 	if (assert_val != expected) {
+-		DP_NOTICE(p_hwfn, "Value at address 0x%x != 0x%08x\n",
++		DP_NOTICE(p_hwfn, "Value at address 0x%08x != 0x%08x\n",
+ 			  reg, expected);
+ 		return -EINVAL;
  	}
+@@ -1311,6 +1311,10 @@ static void get_function_id(struct qed_hwfn *p_hwfn)
+ 				      PXP_CONCRETE_FID_PFID);
+ 	p_hwfn->port_id = GET_FIELD(p_hwfn->hw_info.concrete_fid,
+ 				    PXP_CONCRETE_FID_PORT);
++
++	DP_VERBOSE(p_hwfn, NETIF_MSG_PROBE,
++		   "Read ME register: Concrete 0x%08x Opaque 0x%04x\n",
++		   p_hwfn->hw_info.concrete_fid, p_hwfn->hw_info.opaque_fid);
+ }
  
- 	return 0;
-@@ -1468,11 +1467,11 @@ static int qed_hw_get_nvm_info(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 	link_temp = qed_rd(p_hwfn, p_ptt,
- 			   port_cfg_addr +
- 			   offsetof(struct nvm_cfg1_port, speed_cap_mask));
--	link->speed.advertised_speeds =
--		link_temp & NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_MASK;
-+	link_temp &= NVM_CFG1_PORT_DRV_SPEED_CAPABILITY_MASK_MASK;
-+	link->speed.advertised_speeds = link_temp;
+ static void qed_hw_set_feat(struct qed_hwfn *p_hwfn)
+@@ -1610,10 +1614,10 @@ static void qed_get_num_funcs(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
  
--	p_hwfn->mcp_info->link_capabilities.speed_capabilities =
--						link->speed.advertised_speeds;
-+	link_temp = link->speed.advertised_speeds;
-+	p_hwfn->mcp_info->link_capabilities.speed_capabilities = link_temp;
+ 	DP_VERBOSE(p_hwfn,
+ 		   NETIF_MSG_PROBE,
+-		   "PF [rel_id %d, abs_id %d] within the %d enabled functions on the engine\n",
++		   "PF [rel_id %d, abs_id %d] occupies index %d within the %d enabled functions on the engine\n",
+ 		   p_hwfn->rel_pf_id,
+ 		   p_hwfn->abs_pf_id,
+-		   p_hwfn->num_funcs_on_engine);
++		   p_hwfn->enabled_func_idx, p_hwfn->num_funcs_on_engine);
+ }
  
- 	link_temp = qed_rd(p_hwfn, p_ptt,
- 			   port_cfg_addr +
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_ops.c b/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
-index 57044ee..b7a4b27 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
-@@ -295,17 +295,15 @@ static int qed_init_cmd_wr(struct qed_hwfn *p_hwfn,
- 
- 	switch (GET_FIELD(data, INIT_WRITE_OP_SOURCE)) {
- 	case INIT_SRC_INLINE:
--		qed_wr(p_hwfn, p_ptt, addr,
--		       le32_to_cpu(arg->inline_val));
-+		data = le32_to_cpu(p_cmd->args.inline_val);
-+		qed_wr(p_hwfn, p_ptt, addr, data);
- 		break;
- 	case INIT_SRC_ZEROS:
--		if (b_must_dmae ||
--		    (b_can_dmae && (le32_to_cpu(arg->zeros_count) >= 64)))
--			rc = qed_init_fill_dmae(p_hwfn, p_ptt, addr, 0,
--						le32_to_cpu(arg->zeros_count));
-+		data = le32_to_cpu(p_cmd->args.zeros_count);
-+		if (b_must_dmae || (b_can_dmae && (data >= 64)))
-+			rc = qed_init_fill_dmae(p_hwfn, p_ptt, addr, 0, data);
- 		else
--			qed_init_fill(p_hwfn, p_ptt, addr, 0,
--				      le32_to_cpu(arg->zeros_count));
-+			qed_init_fill(p_hwfn, p_ptt, addr, 0, data);
- 		break;
- 	case INIT_SRC_ARRAY:
- 		rc = qed_init_cmd_array(p_hwfn, p_ptt, p_cmd,
+ static int
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index 2afa7a0..a701b76 100644
+index a701b76..61ec973 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_int.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -2413,12 +2413,6 @@ void qed_init_cau_sb_entry(struct qed_hwfn *p_hwfn,
- 	SET_FIELD(p_sb_entry->params, CAU_SB_ENTRY_SB_TIMESET0, 0x7F);
- 	SET_FIELD(p_sb_entry->params, CAU_SB_ENTRY_SB_TIMESET1, 0x7F);
+@@ -2576,8 +2576,12 @@ static u16 qed_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
+ 	else
+ 		igu_sb_id = qed_vf_get_igu_sb_id(p_hwfn, sb_id);
  
--	/* setting the time resultion to a fixed value ( = 1) */
--	SET_FIELD(p_sb_entry->params, CAU_SB_ENTRY_TIMER_RES0,
--		  QED_CAU_DEF_RX_TIMER_RES);
--	SET_FIELD(p_sb_entry->params, CAU_SB_ENTRY_TIMER_RES1,
--		  QED_CAU_DEF_TX_TIMER_RES);
+-	DP_VERBOSE(p_hwfn, NETIF_MSG_INTR, "SB [%s] index is 0x%04x\n",
+-		   (sb_id == QED_SP_SB_ID) ? "DSB" : "non-DSB", igu_sb_id);
++	if (sb_id == QED_SP_SB_ID)
++		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
++			   "Slowpath SB index in IGU is 0x%04x\n", igu_sb_id);
++	else
++		DP_VERBOSE(p_hwfn, NETIF_MSG_INTR,
++			   "SB [%04x] <--> IGU SB [%04x]\n", sb_id, igu_sb_id);
+ 
+ 	return igu_sb_id;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
+index aacd00f..675a503 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_main.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
+@@ -51,8 +51,6 @@ MODULE_FIRMWARE(QED_FW_FILE_NAME);
+ 
+ static int __init qed_init(void)
+ {
+-	pr_notice("qed_init called\n");
 -
- 	cau_state = CAU_HC_DISABLE_STATE;
+ 	pr_info("%s", version);
  
- 	if (cdev->int_coalescing_mode == QED_COAL_MODE_ENABLE) {
-@@ -3133,10 +3127,9 @@ int qed_int_alloc(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 		return rc;
+ 	return 0;
+@@ -437,6 +435,11 @@ static int qed_set_int_mode(struct qed_dev *cdev, bool force_mode)
  	}
- 	rc = qed_int_sb_attn_alloc(p_hwfn, p_ptt);
--	if (rc) {
+ 
+ out:
++	if (!rc)
++		DP_INFO(cdev, "Using %s interrupts\n",
++			int_params->out.int_mode == QED_INT_MODE_INTA ?
++			"INTa" : int_params->out.int_mode == QED_INT_MODE_MSI ?
++			"MSI" : "MSIX");
+ 	cdev->int_coalescing_mode = QED_COAL_MODE_ENABLE;
+ 
+ 	return rc;
+@@ -512,19 +515,18 @@ static irqreturn_t qed_single_int(int irq, void *dev_instance)
+ int qed_slowpath_irq_req(struct qed_hwfn *hwfn)
+ {
+ 	struct qed_dev *cdev = hwfn->cdev;
++	u32 int_mode;
+ 	int rc = 0;
+ 	u8 id;
+ 
+-	if (cdev->int_params.out.int_mode == QED_INT_MODE_MSIX) {
++	int_mode = cdev->int_params.out.int_mode;
++	if (int_mode == QED_INT_MODE_MSIX) {
+ 		id = hwfn->my_id;
+ 		snprintf(hwfn->name, NAME_SIZE, "sp-%d-%02x:%02x.%02x",
+ 			 id, cdev->pdev->bus->number,
+ 			 PCI_SLOT(cdev->pdev->devfn), hwfn->abs_pf_id);
+ 		rc = request_irq(cdev->int_params.msix_table[id].vector,
+ 				 qed_msix_sp_int, 0, hwfn->name, hwfn->sp_dpc);
+-		if (!rc)
+-			DP_VERBOSE(hwfn, (NETIF_MSG_INTR | QED_MSG_SP),
+-				   "Requested slowpath MSI-X\n");
+ 	} else {
+ 		unsigned long flags = 0;
+ 
+@@ -539,6 +541,13 @@ int qed_slowpath_irq_req(struct qed_hwfn *hwfn)
+ 				 flags, cdev->name, cdev);
+ 	}
+ 
 +	if (rc)
- 		DP_ERR(p_hwfn->cdev, "Failed to allocate sb attn mem\n");
--		return rc;
--	}
++		DP_NOTICE(cdev, "request_irq failed, rc = %d\n", rc);
++	else
++		DP_VERBOSE(hwfn, (NETIF_MSG_INTR | QED_MSG_SP),
++			   "Requested slowpath %s\n",
++			   (int_mode == QED_INT_MODE_MSIX) ? "MSI-X" : "IRQ");
 +
  	return rc;
  }
  
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index abb2902..1f8ff9b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -305,14 +305,14 @@ qed_sp_update_mcast_bin(struct qed_hwfn *p_hwfn,
- 	memset(&p_ramrod->approx_mcast.bins, 0,
- 	       sizeof(p_ramrod->approx_mcast.bins));
- 
--	if (p_params->update_approx_mcast_flg) {
--		p_ramrod->common.update_approx_mcast_flg = 1;
--		for (i = 0; i < ETH_MULTICAST_MAC_BINS_IN_REGS; i++) {
--			u32 *p_bins = (u32 *)p_params->bins;
--			__le32 val = cpu_to_le32(p_bins[i]);
-+	if (!p_params->update_approx_mcast_flg)
-+		return;
- 
--			p_ramrod->approx_mcast.bins[i] = val;
--		}
-+	p_ramrod->common.update_approx_mcast_flg = 1;
-+	for (i = 0; i < ETH_MULTICAST_MAC_BINS_IN_REGS; i++) {
-+		u32 *p_bins = (u32 *)p_params->bins;
-+
-+		p_ramrod->approx_mcast.bins[i] = cpu_to_le32(p_bins[i]);
- 	}
- }
- 
-@@ -360,8 +360,8 @@ int qed_sp_vport_update(struct qed_hwfn *p_hwfn,
- 	p_cmn->tx_active_flg = p_params->vport_active_tx_flg;
- 	p_cmn->update_tx_active_flg = p_params->update_vport_active_tx_flg;
- 	p_cmn->accept_any_vlan = p_params->accept_any_vlan;
--	p_cmn->update_accept_any_vlan_flg =
--			p_params->update_accept_any_vlan_flg;
-+	val = p_params->update_accept_any_vlan_flg;
-+	p_cmn->update_accept_any_vlan_flg = val;
- 
- 	p_cmn->inner_vlan_removal_en = p_params->inner_vlan_removal_flg;
- 	val = p_params->update_inner_vlan_removal_flg;
-@@ -1183,17 +1183,14 @@ qed_sp_eth_filter_mcast(struct qed_hwfn *p_hwfn,
- 	u8 abs_vport_id = 0;
- 	int rc, i;
- 
--	if (p_filter_cmd->opcode == QED_FILTER_ADD) {
-+	if (p_filter_cmd->opcode == QED_FILTER_ADD)
- 		rc = qed_fw_vport(p_hwfn, p_filter_cmd->vport_to_add_to,
- 				  &abs_vport_id);
--		if (rc)
--			return rc;
--	} else {
-+	else
- 		rc = qed_fw_vport(p_hwfn, p_filter_cmd->vport_to_remove_from,
- 				  &abs_vport_id);
--		if (rc)
--			return rc;
--	}
-+	if (rc)
-+		return rc;
- 
- 	/* Get SPQ entry */
- 	memset(&init_data, 0, sizeof(init_data));
-@@ -1833,8 +1830,8 @@ static int qed_update_vport(struct qed_dev *cdev,
- 		       QED_RSS_IND_TABLE_SIZE * sizeof(u16));
- 		memcpy(sp_rss_params.rss_key, params->rss_params.rss_key,
- 		       QED_RSS_KEY_SIZE * sizeof(u32));
-+		sp_params.rss_params = &sp_rss_params;
- 	}
--	sp_params.rss_params = &sp_rss_params;
- 
- 	for_each_hwfn(cdev, i) {
- 		struct qed_hwfn *p_hwfn = &cdev->hwfns[i];
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index b65c549..ad86262 100644
+index ad86262..a68bcf9 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -161,9 +161,7 @@ int qed_mcp_cmd_init(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+@@ -317,7 +317,8 @@ static int qed_do_mcp_cmd(struct qed_hwfn *p_hwfn,
+ 		*o_mcp_param = DRV_MB_RD(p_hwfn, p_ptt, fw_mb_param);
+ 	} else {
+ 		/* FW BUG! */
+-		DP_ERR(p_hwfn, "MFW failed to respond!\n");
++		DP_ERR(p_hwfn, "MFW failed to respond [cmd 0x%x param 0x%x]\n",
++		       cmd, param);
+ 		*o_mcp_resp = 0;
+ 		rc = -EAGAIN;
+ 	}
+@@ -333,7 +334,7 @@ static int qed_mcp_cmd_and_union(struct qed_hwfn *p_hwfn,
  
- 	size = MFW_DRV_MSG_MAX_DWORDS(p_info->mfw_mb_length) * sizeof(u32);
- 	p_info->mfw_mb_cur = kzalloc(size, GFP_KERNEL);
--	p_info->mfw_mb_shadow =
--		kzalloc(sizeof(u32) * MFW_DRV_MSG_MAX_DWORDS(
--				p_info->mfw_mb_length), GFP_KERNEL);
-+	p_info->mfw_mb_shadow = kzalloc(size, GFP_KERNEL);
- 	if (!p_info->mfw_mb_shadow || !p_info->mfw_mb_addr)
- 		goto err;
+ 	/* MCP not initialized */
+ 	if (!qed_mcp_is_init(p_hwfn)) {
+-		DP_NOTICE(p_hwfn, "MFW is not initialized !\n");
++		DP_NOTICE(p_hwfn, "MFW is not initialized!\n");
+ 		return -EBUSY;
+ 	}
  
+@@ -932,7 +933,7 @@ int qed_mcp_get_media_type(struct qed_dev *cdev, u32 *p_media_type)
+ 		return -EINVAL;
+ 
+ 	if (!qed_mcp_is_init(p_hwfn)) {
+-		DP_NOTICE(p_hwfn, "MFW is not initialized !\n");
++		DP_NOTICE(p_hwfn, "MFW is not initialized!\n");
+ 		return -EBUSY;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index 5e68a33..0265a32 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -824,15 +824,22 @@ int qed_spq_completion(struct qed_hwfn *p_hwfn,
+ 
+ 	if (!found) {
+ 		DP_NOTICE(p_hwfn,
+-			  "Failed to find an entry this EQE completes\n");
++			  "Failed to find an entry this EQE [echo %04x] completes\n",
++			  le16_to_cpu(echo));
+ 		return -EEXIST;
+ 	}
+ 
+-	DP_VERBOSE(p_hwfn, QED_MSG_SPQ, "Complete: func %p cookie %p)\n",
++	DP_VERBOSE(p_hwfn, QED_MSG_SPQ,
++		   "Complete EQE [echo %04x]: func %p cookie %p)\n",
++		   le16_to_cpu(echo),
+ 		   p_ent->comp_cb.function, p_ent->comp_cb.cookie);
+ 	if (found->comp_cb.function)
+ 		found->comp_cb.function(p_hwfn, found->comp_cb.cookie, p_data,
+ 					fw_return_code);
++	else
++		DP_VERBOSE(p_hwfn,
++			   QED_MSG_SPQ,
++			   "Got a completion without a callback function\n");
+ 
+ 	if ((found->comp_mode != QED_SPQ_MODE_EBLOCK) ||
+ 	    (found->queue == &p_spq->unlimited_pending))
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 598a462..0bf0e55 100644
+index 0bf0e55..be6254e 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2701,9 +2701,6 @@ static int qede_alloc_rx_buffer(struct qede_dev *edev,
- 	struct eth_rx_bd *rx_bd;
- 	dma_addr_t mapping;
- 	struct page *data;
--	u16 rx_buf_size;
--
--	rx_buf_size = rxq->rx_buf_size;
+@@ -222,7 +222,7 @@ int __init qede_init(void)
+ {
+ 	int ret;
  
- 	data = alloc_pages(GFP_ATOMIC, 0);
- 	if (unlikely(!data)) {
+-	pr_notice("qede_init: %s\n", version);
++	pr_info("qede_init: %s\n", version);
+ 
+ 	qed_ops = qed_get_eth_ops();
+ 	if (!qed_ops) {
+@@ -253,7 +253,8 @@ int __init qede_init(void)
+ 
+ static void __exit qede_cleanup(void)
+ {
+-	pr_notice("qede_cleanup called\n");
++	if (debug & QED_LOG_INFO_MASK)
++		pr_info("qede_cleanup called\n");
+ 
+ 	unregister_netdevice_notifier(&qede_netdev_notifier);
+ 	pci_unregister_driver(&qede_pci_driver);
+@@ -1453,7 +1454,7 @@ alloc_skb:
+ 		skb = netdev_alloc_skb(edev->ndev, QEDE_RX_HDR_SIZE);
+ 		if (unlikely(!skb)) {
+ 			DP_NOTICE(edev,
+-				  "Build_skb failed, dropping incoming packet\n");
++				  "skb allocation failed, dropping incoming packet\n");
+ 			qede_recycle_rx_bd_ring(rxq, edev, fp_cqe->bd_num);
+ 			rxq->rx_alloc_errors++;
+ 			goto next_cqe;
+@@ -2127,7 +2128,7 @@ static void qede_udp_tunnel_add(struct net_device *dev,
+ 
+ 		edev->vxlan_dst_port = t_port;
+ 
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added vxlan port=%d",
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added vxlan port=%d\n",
+ 			   t_port);
+ 
+ 		set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
+@@ -2138,7 +2139,7 @@ static void qede_udp_tunnel_add(struct net_device *dev,
+ 
+ 		edev->geneve_dst_port = t_port;
+ 
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added geneve port=%d",
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added geneve port=%d\n",
+ 			   t_port);
+ 		set_bit(QEDE_SP_GENEVE_PORT_CONFIG, &edev->sp_flags);
+ 		break;
+@@ -2162,7 +2163,7 @@ static void qede_udp_tunnel_del(struct net_device *dev,
+ 
+ 		edev->vxlan_dst_port = 0;
+ 
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted vxlan port=%d",
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted vxlan port=%d\n",
+ 			   t_port);
+ 
+ 		set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
+@@ -2173,7 +2174,7 @@ static void qede_udp_tunnel_del(struct net_device *dev,
+ 
+ 		edev->geneve_dst_port = 0;
+ 
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted geneve port=%d",
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted geneve port=%d\n",
+ 			   t_port);
+ 		set_bit(QEDE_SP_GENEVE_PORT_CONFIG, &edev->sp_flags);
+ 		break;
+@@ -2240,6 +2241,9 @@ static struct qede_dev *qede_alloc_etherdev(struct qed_dev *cdev,
+ 	edev->q_num_rx_buffers = NUM_RX_BDS_DEF;
+ 	edev->q_num_tx_buffers = NUM_TX_BDS_DEF;
+ 
++	DP_INFO(edev, "Allocated netdev with %d tx queues and %d rx queues\n",
++		info->num_queues, info->num_queues);
++
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+ 	memset(&edev->stats, 0, sizeof(edev->stats));
+@@ -2565,7 +2569,7 @@ static void __qede_remove(struct pci_dev *pdev, enum qede_remove_mode mode)
+ 	qed_ops->common->slowpath_stop(cdev);
+ 	qed_ops->common->remove(cdev);
+ 
+-	pr_notice("Ending successfully qede_remove\n");
++	dev_info(&pdev->dev, "Ending qede_remove successfully\n");
+ }
+ 
+ static void qede_remove(struct pci_dev *pdev)
 -- 
 1.9.3
