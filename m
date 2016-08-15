@@ -1,45 +1,42 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 1/9] microblaze: irqchip: Move intc driver to irqchip
-Date: Mon, 15 Aug 2016 15:22:50 +0000
-Message-ID: <20160815152250.GE3353@io.lakedaemon.net>
-References: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1471269335-58747-2-git-send-email-Zubair.Kakakhel@imgtec.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
-	marc.zyngier@arm.com, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: [PATCH net v2 0/5] hv_netvsc: fixes for VF removal path
+Date: Mon, 15 Aug 2016 17:48:38 +0200
+Message-ID: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
+Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"K. Y. Srinivasan" <kys@microsoft.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1471269335-58747-2-git-send-email-Zubair.Kakakhel@imgtec.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Zubair,
+Kernel crash is reported after VF is removed and detached from netvsc
+device. Turns out we have multiple different (but related) issues on the
+VF removal path which I'm trying to address with PATCHes 2-5 of this
+series. PATCH1 is required to support the change.
 
-On Mon, Aug 15, 2016 at 02:55:27PM +0100, Zubair Lutfullah Kakakhel wrote:
-> The Xilinx AXI Interrupt Controller IP block is used by the MIPS
-> based xilfpga platform.
-> 
-> Move the interrupt controller code out of arch/microblaze so that
-> it can be used by everyone
-> 
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> ---
->  arch/microblaze/Kconfig                                       | 1 +
->  arch/microblaze/kernel/Makefile                               | 2 +-
->  drivers/irqchip/Kconfig                                       | 4 ++++
->  drivers/irqchip/Makefile                                      | 1 +
->  arch/microblaze/kernel/intc.c => drivers/irqchip/irq-xilinx.c | 0
->  5 files changed, 7 insertions(+), 1 deletion(-)
->  rename arch/microblaze/kernel/intc.c => drivers/irqchip/irq-xilinx.c (100%)
+Changes since v1:
+- Re-arrange patches in the series to not introduce new issues [David Miller]
+- Add PATCH5 which fixes a new issue I discovered while testing.
+- Add Haiyang' A-b tags to PATCH1-4
 
-When you send the next version, please disable rename detection.  The
-driver looks pretty straight forward, but I'd like to take the
-opportunity to clean up the abstraction around read and write.  As well
-as making it easier for everyone to review on-list.
+With regards to Stephen's suggestion: I believe that switching to using RCU
+and eliminating vf_use_cnt/vf_inject is the right thing to do long-term, we
+can either put this on top of this series or do it later in net-next.
 
-thx,
+Vitaly Kuznetsov (5):
+  hv_netvsc: don't lose VF information
+  hv_netvsc: avoid deadlocks between rtnl lock and vf_use_cnt wait
+  hv_netvsc: reset vf_inject on VF removal
+  hv_netvsc: protect module refcount by checking
+    net_device_ctx->vf_netdev
+  hv_netvsc: fix bonding devices check in netvsc_netdev_event()
 
-Jason.
+ drivers/net/hyperv/hyperv_net.h |  24 ++++-----
+ drivers/net/hyperv/netvsc.c     |  19 +++-----
+ drivers/net/hyperv/netvsc_drv.c | 105 +++++++++++++++++++---------------------
+ 3 files changed, 66 insertions(+), 82 deletions(-)
+
+-- 
+2.7.4
