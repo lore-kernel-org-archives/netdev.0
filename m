@@ -1,79 +1,95 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 4/9] mlxsw: spectrum: Mark port as active before registering it
-Date: Mon, 15 Aug 2016 16:37:48 +0200
-Message-ID: <1471271873-4389-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net 1/9] mlxsw: spectrum: Don't return upon error in removal path
+Date: Mon, 15 Aug 2016 16:37:45 +0200
+Message-ID: <1471271873-4389-2-git-send-email-jiri@resnulli.us>
 References: <1471271873-4389-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35877 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36850 "EHLO
 	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932184AbcHOOiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 10:38:07 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i138so11406278wmf.3
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 07:38:06 -0700 (PDT)
+	with ESMTP id S1753150AbcHOOh6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 10:37:58 -0400
+Received: by mail-wm0-f66.google.com with SMTP id i138so11405955wmf.3
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 07:37:57 -0700 (PDT)
 In-Reply-To: <1471271873-4389-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Commit bbf2a4757b30 ("mlxsw: spectrum: Initialize ports at the end of
-init sequence") moved ports initialization to the end of the init
-sequence, which means ports are the first to be removed during fini.
+When removing a VLAN filter from the device we shouldn't return upon the
+first error we encounter, as otherwise we'll have resources that will
+never be freed nor used.
 
-Since the FDB delayed work is still active when ports are removed it's
-possible for it to process FDB notifications of inactive ports,
-resulting in a warning message.
+Instead, we should keep trying to free as much resources as possible in
+a best effort mode.
 
-Fix that by marking ports as inactive only after unregistering them. The
-NETDEV_UNREGISTER event will invoke bridge's driver port removal
-sequence that will cause the FDB (and FDB notifications) to be flushed.
+Remove the error message as well, since we already get these from the
+EMAD transaction code.
 
-Fixes: bbf2a4757b30 ("mlxsw: spectrum: Initialize ports at the end of init sequence")
+Fixes: 99724c18fc66 ("mlxsw: spectrum: Introduce support for router interfaces")
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 27 +++++---------------------
+ 1 file changed, 5 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 0677f3f..12681db 100644
+index e1b8f62..76b53ed 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2183,6 +2183,7 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 	}
+@@ -1010,7 +1010,6 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
+ 	struct mlxsw_sp_fid *f;
+-	int err;
  
- 	mlxsw_sp_port_switchdev_init(mlxsw_sp_port);
-+	mlxsw_sp->ports[local_port] = mlxsw_sp_port;
- 	err = register_netdev(dev);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Port %d: Failed to register netdev\n",
-@@ -2199,12 +2200,12 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 		goto err_core_port_init;
- 	}
+ 	/* VLAN 0 is removed from HW filter when device goes down, but
+ 	 * it is reserved in our case, so simply return.
+@@ -1019,23 +1018,12 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
+ 		return 0;
  
--	mlxsw_sp->ports[local_port] = mlxsw_sp_port;
- 	return 0;
+ 	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
+-	if (!mlxsw_sp_vport) {
+-		netdev_warn(dev, "VID=%d does not exist\n", vid);
++	if (WARN_ON(!mlxsw_sp_vport))
+ 		return 0;
+-	}
  
- err_core_port_init:
- 	unregister_netdev(dev);
- err_register_netdev:
-+	mlxsw_sp->ports[local_port] = NULL;
- 	mlxsw_sp_port_pvid_vport_destroy(mlxsw_sp_port);
- err_port_pvid_vport_create:
- 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
-@@ -2233,9 +2234,9 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+-	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
+-	if (err) {
+-		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
+-			   vid);
+-		return err;
+-	}
++	mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
  
- 	if (!mlxsw_sp_port)
- 		return;
--	mlxsw_sp->ports[local_port] = NULL;
- 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
- 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
-+	mlxsw_sp->ports[local_port] = NULL;
- 	mlxsw_sp_port_pvid_vport_destroy(mlxsw_sp_port);
- 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+-	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
+-	if (err) {
+-		netdev_err(dev, "Failed to enable learning for VID=%d\n", vid);
+-		return err;
+-	}
++	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
+ 
+ 	/* Drop FID reference. If this was the last reference the
+ 	 * resources will be freed.
+@@ -1048,13 +1036,8 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
+ 	 * transition all active 802.1Q bridge VLANs to use VID to FID
+ 	 * mappings and set port's mode to VLAN mode.
+ 	 */
+-	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
+-		err = mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
+-		if (err) {
+-			netdev_err(dev, "Failed to set to VLAN mode\n");
+-			return err;
+-		}
+-	}
++	if (list_is_singular(&mlxsw_sp_port->vports_list))
++		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
+ 
+ 	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
+ 
 -- 
 2.5.5
