@@ -1,65 +1,83 @@
-From: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: Re: [PATCH 3/4] clk: hix5hd2: change ethernet clock type
-Date: Mon, 15 Aug 2016 15:49:34 +0800
-Message-ID: <57B1740E.6070501@hisilicon.com>
-References: <201608112002.qeCiGZLQ%fengguang.wu@intel.com>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: [PATCH iproute2 v2 1/2] tipc: fix UDP bearer
+	synopsis
+Date: Mon, 15 Aug 2016 10:24:31 +0200
+Message-ID: <1471249472-2554-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <kbuild-all-JC7UmRfGjtg@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
-	<xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <benjamin.chenhao-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
-	<howell.yang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201608112002.qeCiGZLQ%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Local ip is not required to identify a UDP bearer and shouldn't be
+passed to bearer disable, set or get. In this patch we remove the
+localip entry from the synopsis of these functions.
 
-On 2016/8/11 20:09, kbuild test robot wrote:
-> Hi Dongpo,
-> 
-> [auto build test ERROR on robh/for-next]
-> [also build test ERROR on v4.8-rc1 next-20160811]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Dongpo-Li/net-hix5hd2_gmac-add-tx-sg-feature-and-reset-clock-control-signals/20160811-170826
-> base:   https://git.kernel.org/pub/scm/linux/kernel/git/robh/linux.git for-next
-> config: arm-multi_v7_defconfig (attached as .config)
-> compiler: arm-linux-gnueabi-gcc (Debian 5.4.0-6) 5.4.0 20160609
-> reproduce:
->         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         make.cross ARCH=arm 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    drivers/clk/hisilicon/clk-hix5hd2.c: In function 'hix5hd2_clk_init':
->>> drivers/clk/hisilicon/clk-hix5hd2.c:260:25: error: passing argument 1 of 'hisi_reset_init' from incompatible pointer type [-Werror=incompatible-pointer-types]
->      rstc = hisi_reset_init(np);
->                             ^
->    In file included from drivers/clk/hisilicon/clk-hix5hd2.c:15:0:
->    drivers/clk/hisilicon/reset.h:25:31: note: expected 'struct platform_device *' but argument is of type 'struct device_node *'
->     struct hisi_reset_controller *hisi_reset_init(struct platform_device *pdev);
->                                   ^
+Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
+---
+ man/man8/tipc-bearer.8 | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
-Sorry for my mistake, the interface changes in newer patch. I will fix my problem in the next patch version.
+diff --git a/man/man8/tipc-bearer.8 b/man/man8/tipc-bearer.8
+index 50a1ed2..846f1db 100644
+--- a/man/man8/tipc-bearer.8
++++ b/man/man8/tipc-bearer.8
+@@ -39,14 +39,12 @@ tipc-bearer \- show or modify TIPC bearers
+ .B tipc bearer disable media
+ .br
+ .RB "{ { " eth " | " ib " } " device
+-.IR DEVICE
++.IR "DEVICE " }
+ .RB "|"
+ .br
+ .RB "{ " udp
+ .B name
+-.IR NAME
+-.B localip
+-.IR LOCALIP " } }"
++.IR NAME " }"
+ .br
+ 
+ .ti -8
+@@ -65,9 +63,7 @@ tipc-bearer \- show or modify TIPC bearers
+ .br
+ .RB "{ " udp
+ .B name
+-.IR NAME
+-.B localip
+-.IR LOCALIP " } }"
++.IR NAME " }"
+ .br
+ 
+ .ti -8
+@@ -80,9 +76,7 @@ tipc-bearer \- show or modify TIPC bearers
+ .br
+ .RB "{ " udp
+ .B name
+-.IR NAME
+-.B localip
+-.IR LOCALIP " } }"
++.IR NAME " }"
+ .br
+ 
+ .ti -8
+-- 
+2.1.4
 
 
-    Regards,
-    Dongpo
-
-.
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity 
+planning reports. http://sdm.link/zohodev2dev
