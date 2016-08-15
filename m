@@ -1,134 +1,263 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v3 4/5] net: ethernet: ti: davinci_cpdma: move cpdma channel struct macroses to internals
-Date: Tue, 16 Aug 2016 02:25:48 +0300
-Message-ID: <1471303549-4134-5-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v3 5/5] net: ethernet: ti: cpsw: add ethtool channels support
+Date: Tue, 16 Aug 2016 02:25:49 +0300
+Message-ID: <1471303549-4134-6-git-send-email-ivan.khoronzhuk@linaro.org>
 References: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
 	nsekhar@ti.com, Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 To: davem@davemloft.net, netdev@vger.kernel.org, mugunthanvnm@ti.com,
 	grygorii.strashko@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37293 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932290AbcHOX0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 19:26:07 -0400
-Received: by mail-wm0-f47.google.com with SMTP id i5so132188525wmg.0
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 16:26:06 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Keep the driver internals in C file. Currently it's not required for
-drivers to know rx or tx a channel is, except create function.
-So correct "channel create" function, and use all channel struct
-macroses only for internal use.
+These ops allow to control number of channels driver is allowed to
+work with at cpdma level. The maximum number of channels is 8 for
+rx and 8 for tx. In dual_emac mode the h/w channels are shared
+between two interfaces and changing number on one interface changes
+number of channels on another.
+
+How many channels are supported and enabled:
+$ ethtool -l ethX
+
+Change number of channels (up to 8)
+$ ethtool -L ethX rx 6 tx 6
+
+Per-channel statistic:
+$ ethtool -S ethX
 
 Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
- drivers/net/ethernet/ti/cpsw.c          |  7 ++-----
- drivers/net/ethernet/ti/davinci_cpdma.c | 13 +++++++++++--
- drivers/net/ethernet/ti/davinci_cpdma.h |  9 +--------
- drivers/net/ethernet/ti/davinci_emac.c  |  8 ++++----
- 4 files changed, 18 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 180 ++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 176 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 05f36fc..6dcbd8a 100644
+index 6dcbd8a..f02e577 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2535,11 +2535,8 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_runtime_disable_ret;
+@@ -735,6 +735,11 @@ static void cpsw_rx_handler(void *token, int len, int status)
  	}
  
--	cpsw->txch[0] = cpdma_chan_create(cpsw->dma, tx_chan_num(0),
--					  cpsw_tx_handler);
--	cpsw->rxch[0] = cpdma_chan_create(cpsw->dma, rx_chan_num(0),
--					  cpsw_rx_handler);
--
-+	cpsw->txch[0] = cpdma_chan_create(cpsw->dma, 0, cpsw_tx_handler, 0);
-+	cpsw->rxch[0] = cpdma_chan_create(cpsw->dma, 0, cpsw_rx_handler, 1);
- 	if (WARN_ON(!cpsw->rxch[0] || !cpsw->txch[0])) {
- 		dev_err(priv->dev, "error initializing dma channels\n");
- 		ret = -ENOMEM;
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 4b578b1..c3f35f1 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -124,6 +124,13 @@ struct cpdma_chan {
- 	int	int_set, int_clear, td;
- };
- 
-+#define tx_chan_num(chan)	(chan)
-+#define rx_chan_num(chan)	((chan) + CPDMA_MAX_CHANNELS)
-+#define is_rx_chan(chan)	((chan)->chan_num >= CPDMA_MAX_CHANNELS)
-+#define is_tx_chan(chan)	(!is_rx_chan(chan))
-+#define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
-+#define chan_linear(chan)	__chan_linear((chan)->chan_num)
+ requeue:
++	if (netif_dormant(ndev)) {
++		dev_kfree_skb_any(new_skb);
++		return;
++	}
 +
- /* The following make access to common cpdma_ctlr params more readable */
- #define dmaregs		params.dmaregs
- #define num_chan	params.num_chan
-@@ -441,12 +448,14 @@ static void cpdma_chan_split_pool(struct cpdma_ctlr *ctlr)
+ 	ch = cpsw->rxch[skb_get_queue_mapping(new_skb)];
+ 	ret = cpdma_chan_submit(ch, new_skb, new_skb->data,
+ 				skb_tailroom(new_skb), 0);
+@@ -1267,9 +1272,8 @@ static void cpsw_init_host_port(struct cpsw_priv *priv)
+ 	}
  }
  
- struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
--				     cpdma_handler_fn handler)
-+				     cpdma_handler_fn handler, int rx_type)
+-static int cpsw_fill_rx_channels(struct net_device *ndev)
++static int cpsw_fill_rx_channels(struct cpsw_priv *priv)
  {
-+	int offset = chan_num * 4;
- 	struct cpdma_chan *chan;
--	int offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
- 	unsigned long flags;
+-	struct cpsw_priv *priv = netdev_priv(ndev);
+ 	struct cpsw_common *cpsw = priv->cpsw;
+ 	struct sk_buff *skb;
+ 	int ch, i, ret;
+@@ -1279,7 +1283,7 @@ static int cpsw_fill_rx_channels(struct net_device *ndev)
  
-+	chan_num = rx_type ? rx_chan_num(chan_num) : tx_chan_num(chan_num);
+ 		ch_buf_num = cpdma_chan_get_rx_buf_num(cpsw->rxch[ch]);
+ 		for (i = 0; i < ch_buf_num; i++) {
+-			skb = __netdev_alloc_skb_ip_align(ndev,
++			skb = __netdev_alloc_skb_ip_align(priv->ndev,
+ 							  cpsw->rx_packet_max,
+ 							  GFP_KERNEL);
+ 			if (!skb) {
+@@ -1397,7 +1401,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 			enable_irq(cpsw->irqs_table[0]);
+ 		}
+ 
+-		ret = cpsw_fill_rx_channels(ndev);
++		ret = cpsw_fill_rx_channels(priv);
+ 		if (ret < 0)
+ 			goto err_cleanup;
+ 
+@@ -2060,6 +2064,172 @@ static void cpsw_ethtool_op_complete(struct net_device *ndev)
+ 		cpsw_err(priv, drv, "ethtool complete failed %d\n", ret);
+ }
+ 
++static void cpsw_get_channels(struct net_device *ndev,
++			      struct ethtool_channels *ch)
++{
++	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
 +
- 	if (__chan_linear(chan_num) >= ctlr->num_chan)
- 		return NULL;
++	ch->max_combined = 0;
++	ch->max_rx = CPSW_MAX_QUEUES;
++	ch->max_tx = CPSW_MAX_QUEUES;
++	ch->max_other = 0;
++	ch->other_count = 0;
++	ch->rx_count = cpsw->rx_ch_num;
++	ch->tx_count = cpsw->tx_ch_num;
++	ch->combined_count = 0;
++}
++
++static int cpsw_check_ch_settings(struct cpsw_common *cpsw,
++				  struct ethtool_channels *ch)
++{
++	if (ch->combined_count)
++		return -EINVAL;
++
++	/* verify we have at least one channel in each direction */
++	if (!ch->rx_count || !ch->tx_count)
++		return -EINVAL;
++
++	if (ch->rx_count > cpsw->data.channels ||
++	    ch->tx_count > cpsw->data.channels)
++		return -EINVAL;
++
++	return 0;
++}
++
++static int cpsw_update_channels_res(struct cpsw_priv *priv, int ch_num, int rx)
++{
++	int (*poll)(struct napi_struct *, int);
++	struct cpsw_common *cpsw = priv->cpsw;
++	void (*handler)(void *, int, int);
++	struct cpdma_chan **chan;
++	int ret, *ch;
++
++	if (rx) {
++		ch = &cpsw->rx_ch_num;
++		chan = cpsw->rxch;
++		handler = cpsw_rx_handler;
++		poll = cpsw_rx_poll;
++	} else {
++		ch = &cpsw->tx_ch_num;
++		chan = cpsw->txch;
++		handler = cpsw_tx_handler;
++		poll = cpsw_tx_poll;
++	}
++
++	while (*ch < ch_num) {
++		chan[*ch] = cpdma_chan_create(cpsw->dma, *ch, handler, rx);
++
++		if (IS_ERR(chan[*ch]))
++			return PTR_ERR(chan[*ch]);
++
++		if (!chan[*ch])
++			return -EINVAL;
++
++		cpsw_info(priv, ifup, "created new %d %s channel\n", *ch,
++			  (rx ? "rx" : "tx"));
++		(*ch)++;
++	}
++
++	while (*ch > ch_num) {
++		(*ch)--;
++
++		ret = cpdma_chan_destroy(chan[*ch]);
++		if (ret)
++			return ret;
++
++		cpsw_info(priv, ifup, "destroyed %d %s channel\n", *ch,
++			  (rx ? "rx" : "tx"));
++	}
++
++	return 0;
++}
++
++static int cpsw_update_channels(struct cpsw_priv *priv,
++				struct ethtool_channels *ch)
++{
++	int ret;
++
++	ret = cpsw_update_channels_res(priv, ch->rx_count, 1);
++	if (ret)
++		return ret;
++
++	ret = cpsw_update_channels_res(priv, ch->tx_count, 0);
++	if (ret)
++		return ret;
++
++	return 0;
++}
++
++static int cpsw_set_channels(struct net_device *ndev,
++			     struct ethtool_channels *chs)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	struct cpsw_common *cpsw = priv->cpsw;
++	struct cpsw_slave *slave;
++	int i, ret;
++
++	ret = cpsw_check_ch_settings(cpsw, chs);
++	if (ret < 0)
++		return ret;
++
++	cpsw_intr_disable(cpsw);
++
++	for (i = cpsw->data.slaves, slave = cpsw->slaves; i; i--, slave++) {
++		if (!(slave->ndev && netif_running(slave->ndev)))
++			continue;
++
++		netif_tx_stop_all_queues(slave->ndev);
++		netif_dormant_on(slave->ndev);
++	}
++
++	cpdma_ctlr_stop(cpsw->dma);
++	ret = cpsw_update_channels(priv, chs);
++	if (ret)
++		goto err;
++
++	for (i = cpsw->data.slaves, slave = cpsw->slaves; i; i--, slave++) {
++		if (!(slave->ndev && netif_running(slave->ndev)))
++			continue;
++
++		/* inform stack about new count of queues */
++		ret = netif_set_real_num_tx_queues(slave->ndev,
++						   cpsw->tx_ch_num);
++		if (ret) {
++			dev_err(priv->dev, "cannot set real number of tx queues\n");
++			goto err;
++		}
++
++		ret = netif_set_real_num_rx_queues(slave->ndev,
++						   cpsw->rx_ch_num);
++		if (ret) {
++			dev_err(priv->dev, "cannot set real number of rx queues\n");
++			goto err;
++		}
++
++		netif_dormant_off(slave->ndev);
++	}
++
++	if (cpsw_common_res_usage_state(cpsw)) {
++		if (cpsw_fill_rx_channels(priv))
++			goto err;
++
++		cpdma_ctlr_start(cpsw->dma);
++		cpsw_intr_enable(cpsw);
++	}
++
++	for (i = cpsw->data.slaves, slave = cpsw->slaves; i; i--, slave++) {
++		if (!(slave->ndev && netif_running(slave->ndev)))
++			continue;
++		netif_tx_start_all_queues(slave->ndev);
++	}
++
++	return 0;
++err:
++	dev_err(priv->dev, "cannot update channels number, closing device\n");
++	dev_close(ndev);
++	return ret;
++}
++
+ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_drvinfo	= cpsw_get_drvinfo,
+ 	.get_msglevel	= cpsw_get_msglevel,
+@@ -2081,6 +2251,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_regs	= cpsw_get_regs,
+ 	.begin		= cpsw_ethtool_op_begin,
+ 	.complete	= cpsw_ethtool_op_complete,
++	.get_channels	= cpsw_get_channels,
++	.set_channels	= cpsw_set_channels,
+ };
  
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-index 070f1d0..a07b22b 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.h
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-@@ -17,13 +17,6 @@
- 
- #define CPDMA_MAX_CHANNELS	BITS_PER_LONG
- 
--#define tx_chan_num(chan)	(chan)
--#define rx_chan_num(chan)	((chan) + CPDMA_MAX_CHANNELS)
--#define is_rx_chan(chan)	((chan)->chan_num >= CPDMA_MAX_CHANNELS)
--#define is_tx_chan(chan)	(!is_rx_chan(chan))
--#define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
--#define chan_linear(chan)	__chan_linear((chan)->chan_num)
--
- #define CPDMA_RX_SOURCE_PORT(__status__)	((__status__ >> 16) & 0x7)
- 
- #define CPDMA_EOI_RX_THRESH	0x0
-@@ -79,7 +72,7 @@ int cpdma_ctlr_start(struct cpdma_ctlr *ctlr);
- int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr);
- 
- struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
--				     cpdma_handler_fn handler);
-+				     cpdma_handler_fn handler, int rx_type);
- int cpdma_chan_get_rx_buf_num(struct cpdma_chan *chan);
- int cpdma_chan_destroy(struct cpdma_chan *chan);
- int cpdma_chan_start(struct cpdma_chan *chan);
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 2d6fc9a..2fd94a5 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1870,10 +1870,10 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 		goto no_pdata;
- 	}
- 
--	priv->txchan = cpdma_chan_create(priv->dma, tx_chan_num(EMAC_DEF_TX_CH),
--				       emac_tx_handler);
--	priv->rxchan = cpdma_chan_create(priv->dma, rx_chan_num(EMAC_DEF_RX_CH),
--				       emac_rx_handler);
-+	priv->txchan = cpdma_chan_create(priv->dma, EMAC_DEF_TX_CH,
-+					 emac_tx_handler, 0);
-+	priv->rxchan = cpdma_chan_create(priv->dma, EMAC_DEF_RX_CH,
-+					 emac_rx_handler, 1);
- 	if (WARN_ON(!priv->txchan || !priv->rxchan)) {
- 		rc = -ENOMEM;
- 		goto no_cpdma_chan;
+ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_common *cpsw,
 -- 
 1.9.1
