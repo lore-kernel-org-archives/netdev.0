@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [PATCH 6/9] MIPS: Xilfpga: Add DT node for AXI I2C
-Date: Mon, 15 Aug 2016 14:55:32 +0100
-Message-ID: <1471269335-58747-7-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [PATCH 7/9] net: ethernet: xilinx: Enable emaclite for MIPS
+Date: Mon, 15 Aug 2016 14:55:33 +0100
+Message-ID: <1471269335-58747-8-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -22,48 +22,35 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-The xilfpga platform has an AXI I2C Bus master with a temperature
-sensor connected to it.
-
-Add the device tree node to use them.
+The MIPS based xilfpga platform uses this driver.
+Enable it for MIPS
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 ---
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ drivers/net/ethernet/xilinx/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-index d285c8d..3658e21 100644
---- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-+++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-@@ -54,6 +54,28 @@
- 		interrupt-parent = <&axi_intc>;
- 		interrupts = <0>;
- 	};
-+
-+	axi_i2c: i2c@10A00000 {
-+	    compatible = "xlnx,xps-iic-2.00.a";
-+	    interrupt-parent = <&axi_intc>;
-+	    interrupts = <4>;
-+	    reg = < 0x10A00000 0x10000 >;
-+	    clocks = <&ext>;
-+	    xlnx,clk-freq = <0x5f5e100>;
-+	    xlnx,family = "Artix7";
-+	    xlnx,gpo-width = <0x1>;
-+	    xlnx,iic-freq = <0x186a0>;
-+	    xlnx,scl-inertial-delay = <0x0>;
-+	    xlnx,sda-inertial-delay = <0x0>;
-+	    xlnx,ten-bit-adr = <0x0>;
-+	    #address-cells = <1>;
-+	    #size-cells = <0>;
-+
-+	    ad7420@4B {
-+		compatible = "adt7420";
-+		reg = <0x4B>;
-+	    };
-+	} ;
- };
+diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethernet/xilinx/Kconfig
+index 4f5c024..ae5c404 100644
+--- a/drivers/net/ethernet/xilinx/Kconfig
++++ b/drivers/net/ethernet/xilinx/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_XILINX
+ 	bool "Xilinx devices"
+ 	default y
+-	depends on PPC || PPC32 || MICROBLAZE || ARCH_ZYNQ
++	depends on PPC || PPC32 || MICROBLAZE || ARCH_ZYNQ || MIPS
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
  
- &ext {
+@@ -18,7 +18,7 @@ if NET_VENDOR_XILINX
+ 
+ config XILINX_EMACLITE
+ 	tristate "Xilinx 10/100 Ethernet Lite support"
+-	depends on (PPC32 || MICROBLAZE || ARCH_ZYNQ)
++	depends on (PPC32 || MICROBLAZE || ARCH_ZYNQ || MIPS)
+ 	select PHYLIB
+ 	---help---
+ 	  This driver supports the 10/100 Ethernet Lite from Xilinx.
 -- 
 1.9.1
