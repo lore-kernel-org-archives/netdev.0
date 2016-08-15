@@ -1,34 +1,61 @@
-From: "Mrs. Maimouna Farooq" <bn1@204715289.com>
-Subject: Re: Faith For Charity
-Date: Mon, 15 Aug 2016 01:56:55 +0200
-Message-ID: <VI1PR06MB1294F1E84EEA23AE74D3BF5DBE110@VI1PR06MB1294.eurprd06.prod.outlook.com>
-Reply-To: <mrsmaimounafarooq@gmail.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH net-next 1/4] flow_dissector: Get vlan info from
+ skb->vlan_tci instead of skb->data
+Date: Mon, 15 Aug 2016 11:38:26 +0900
+Message-ID: <cdfa6f93-631e-8875-a60f-871507f8a3c2@gmail.com>
+References: <1470835943-9042-1-git-send-email-hadarh@mellanox.com>
+ <1470835943-9042-2-git-send-email-hadarh@mellanox.com>
+ <e16e8104-c010-e812-74c8-d28960e23643@lab.ntt.co.jp>
+ <CAJL1qvEncNo-10vd387jdLj2Y+Xc_-Ms7rKHU6bQh=QO43ic5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <bn1@204715289.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur02hn0242.outbound.protection.outlook.com ([104.47.5.242]:13824
-	"EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751907AbcHOB2F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Aug 2016 21:28:05 -0400
-Content-Description: Mail message body
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35394 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752428AbcHOCib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Aug 2016 22:38:31 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h186so2952723pfg.2
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 19:38:31 -0700 (PDT)
+In-Reply-To: <CAJL1qvEncNo-10vd387jdLj2Y+Xc_-Ms7rKHU6bQh=QO43ic5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dearly Beloved,
+On 16/08/14 (日) 23:58, Hadar Hen Zion wrote:
+> On Fri, Aug 12, 2016 at 9:36 AM, Toshiaki Makita
+> <makita.toshiaki@lab.ntt.co.jp> wrote:
+>> On 2016/08/10 22:32, Hadar Hen Zion wrote:
+>>> Early in the datapath skb_vlan_untag function is called, stripped
+>>> the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+>>>
+>>> The current dissection doesn't handle vlan packets correctly.  Vlan
+>>> doesn't exist in skb->data anymore when applying flow dissection on the
+>>> skb, fix that.
+>>
+>> RPS (and flow-dissector called in RPS) is performed before vlan-strip in
+>> __netif_receive_skb_core().
+>
+> right, I'll fix it to v2.
+>
+>> Also, in cases skb is tagged with multiple vlan headers (typical when
+>> using 802.1ad), the second level vlan tag is in skb->data.
+>
+> Currently, flow_dissector doesn't support multiple vlan headers, only
+> one vlan_id field is present.
+> There aren't any flow_dissector "customers" yet for multiple vlan support.
 
-I am very glad to write you this mail, my name is Mrs. Maimouna Farooq, and I am from Omani ancestral origin living in Abidjan for many years with my family. I am a good merchant; I have companies and good shares in various banks. I spend all my life on investment and Real Estate business. All the way I lost my husband and two kids in a fatal train crash in 2014
+Sure, no need to store second level vlan tag information for now.
+The point is that current flow-dissector correctly skips any number of 
+vlan tags and get hash value from IP/TCP/UDP headers, so RPS works for 
+multiple vlan tagged packets.
 
-Since I lost my family, I have been living a self-minding life; I don't know much and care about people. But last year 2015 around July, I was sent a letter of medical checkup as my personal doctor testified that I have lungs cancer which can easily take off my life soon. I found it uneasy to survive myself because a lot of investment cannot be run and manage by me again. So I quickly call up a spiritual adviser to give me positive thinking on this solution as my adviser.
-
-He minister to me to share my properties to the poor and needy, people that need money to survive both students that need money for their education and business people for their investment and for less privilege around the globe.
-
-My condition would not allow me handle disbursement and carry out other functions actively, if you sincere and honest with heart for helping me distribute money to orphanages homes in your country and other country's you wish to.
-
-I will give more information to you as I wait your response immediately.
-
-Best Regards,	
-
-Mrs. Maimouna Farooq
+Thanks,
+Toshiaki Makita
