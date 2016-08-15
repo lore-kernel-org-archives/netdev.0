@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] switchdev: Put export declaration in the
- right place
-Date: Mon, 15 Aug 2016 13:38:09 -0700 (PDT)
-Message-ID: <20160815.133809.190925026743453165.davem@davemloft.net>
-References: <1471261914-32183-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH] net: hns: mdio->irq is an array, so no need to check
+ if it is null
+Date: Mon, 15 Aug 2016 13:39:03 -0700 (PDT)
+Message-ID: <20160815.133903.1454433408106419676.davem@davemloft.net>
+References: <1471265717-10784-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45218 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932115AbcHOUiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 16:38:10 -0400
-In-Reply-To: <1471261914-32183-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+	yankejian@huawei.com, huangdaode@hisilicon.com,
+	lipeng321@huawei.com, lisheng011@huawei.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471265717-10784-1-git-send-email-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 15 Aug 2016 14:51:54 +0300
+From: Colin King <colin.king@canonical.com>
+Date: Mon, 15 Aug 2016 13:55:17 +0100
 
-> Move exporting of switchdev_port_same_parent_id to be right
-> below it and not elsewhere.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Reported-by: Ido Schimmel <idosch@mellanox.com>
+> The null check on mdio->irq is redundant since mdio->irq is an array
+> of PHY_MAX_ADDR ints and hence can never be null. Remove the redundant
+> check.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied, thank you.
+Applied, thanks.
