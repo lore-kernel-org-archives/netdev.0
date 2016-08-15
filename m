@@ -1,73 +1,33 @@
-From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [PATCH 8/9] MIPS: xilfpga: Add DT node for AXI emaclite
-Date: Mon, 15 Aug 2016 14:55:34 +0100
-Message-ID: <1471269335-58747-9-git-send-email-Zubair.Kakakhel@imgtec.com>
-References: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Pavel Andrianov <andrianov@ispras.ru>
+Subject: A potential data race in drivers/isdn/hardware/eicon/diva_mnt.ko
+Date: Mon, 15 Aug 2016 17:06:51 +0300
+Message-ID: <b5d9c5f8-7f52-c499-c5fa-68f72d88f38f@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jason@lakedaemon.net>, <marc.zyngier@arm.com>,
-        <Zubair.Kakakhel@imgtec.com>, <linux-mips@linux-mips.org>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Vaishali Thakkar <vaishali.thakkar@oracle.com>,
+	ldv-project@linuxtesting.org
+To: mac@melware.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The xilfpga platform has a Xilinx AXI emaclite block.
+Hi!
 
-Add the DT node to use it.
+There is a potential data race in drivers/isdn/hardware/eicon/diva_mnt.ko
 
-Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
----
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 27 +++++++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
+In diva_maint_init there is an initialization of spinlocks (debug.c: 
+lines 245, 252) and a queue (debug.c: line 237). These objects are used 
+in handlers of divas_main_fops, for instance, divas_maint_read. These 
+ops are registered in divas_maint_register_chrdev, which is called 
+(divamnt.c: line 206) before initialization (divamnt.c: line 211). Thus, 
+there may occur a situation when the handlers of divas_main_fops occur 
+to uninitialized resources.
 
-diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-index 3658e21..58bc62f 100644
---- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-+++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-@@ -42,6 +42,33 @@
- 		xlnx,tri-default = <0xffffffff>;
- 	} ;
- 
-+	axi_ethernetlite: ethernet@10e00000 {
-+		compatible = "xlnx,xps-ethernetlite-3.00.a";
-+		device_type = "network";
-+		interrupt-parent = <&axi_intc>;
-+		interrupts = <1>;
-+		local-mac-address = [08 86 4C 0D F7 09];
-+		phy-handle = <&phy0>;
-+		reg = <0x10e00000 0x10000>;
-+		xlnx,duplex = <0x1>;
-+		xlnx,include-global-buffers = <0x1>;
-+		xlnx,include-internal-loopback = <0x0>;
-+		xlnx,include-mdio = <0x1>;
-+		xlnx,instance = "axi_ethernetlite_inst";
-+		xlnx,rx-ping-pong = <0x1>;
-+		xlnx,s-axi-id-width = <0x1>;
-+		xlnx,tx-ping-pong = <0x1>;
-+		xlnx,use-internal = <0x0>;
-+		mdio {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			phy0: phy@1 {
-+				device_type = "ethernet-phy";
-+				reg = <1>;
-+			};
-+		};
-+	};
-+
- 	axi_uart16550: serial@10400000 {
- 		compatible = "ns16550a";
- 		reg = <0x10400000 0x10000>;
 -- 
-1.9.1
+Pavel Andrianov
+Linux Verification Center, ISPRAS
+web: http://linuxtesting.org
+e-mail: andrianov@ispras.ru
