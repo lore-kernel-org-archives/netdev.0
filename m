@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/5] hv_netvsc: fixes for VF removal path
-Date: Mon, 15 Aug 2016 13:48:22 -0700 (PDT)
-Message-ID: <20160815.134822.386218604294575604.davem@davemloft.net>
-References: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
+Subject: Re: [PATCH v2 0/5] Fix warning, issue and give some enhancements
+Date: Mon, 15 Aug 2016 13:50:01 -0700 (PDT)
+Message-ID: <20160815.135001.2129164870243111346.davem@davemloft.net>
+References: <1471283487-24113-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@linuxdriverproject.org,
-	linux-kernel@vger.kernel.org, haiyangz@microsoft.com,
-	kys@microsoft.com, stephen@networkplumber.org
-To: vkuznets@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
+	linux-mediatek@lists.infradead.org, keyhaede@gmail.com
+To: sean.wang@mediatek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45306 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932323AbcHOUuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 16:50:02 -0400
+In-Reply-To: <1471283487-24113-1-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Mon, 15 Aug 2016 17:48:38 +0200
+From: Sean Wang <sean.wang@mediatek.com>
+Date: Tue, 16 Aug 2016 01:51:21 +0800
 
-> Kernel crash is reported after VF is removed and detached from netvsc
-> device. Turns out we have multiple different (but related) issues on the
-> VF removal path which I'm trying to address with PATCHes 2-5 of this
-> series. PATCH1 is required to support the change.
+> This patch set fixes the following warning and issues and gives some 
+> enhancements about RX path handling.
 > 
-> Changes since v1:
-> - Re-arrange patches in the series to not introduce new issues [David Miller]
-> - Add PATCH5 which fixes a new issue I discovered while testing.
-> - Add Haiyang' A-b tags to PATCH1-4
-> 
-> With regards to Stephen's suggestion: I believe that switching to using RCU
-> and eliminating vf_use_cnt/vf_inject is the right thing to do long-term, we
-> can either put this on top of this series or do it later in net-next.
+> v1 -> v2: fix message typos and add coverletter
 
-Series applied, thanks.
+Please do not mix bug fixes and changes which are not bug fixes.
+
+Submit bug fixes as a series targetting 'net'.
+
+Submit the rest targetting 'net-next'.
+
+Thanks.
