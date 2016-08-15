@@ -1,71 +1,65 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
- redirect using TC
-Date: Mon, 15 Aug 2016 11:17:40 +0300
-Message-ID: <20160815081740.GA19058@office.localdomain>
-References: <20160814140652.15985-1-amir@vadai.me>
- <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
- <20160815071121.GA2024@nanopsycho>
+From: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Subject: Re: [PATCH 3/4] clk: hix5hd2: change ethernet clock type
+Date: Mon, 15 Aug 2016 15:49:34 +0800
+Message-ID: <57B1740E.6070501@hisilicon.com>
+References: <201608112002.qeCiGZLQ%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Oded Shanoon <odeds@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34077 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752378AbcHOIRo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 04:17:44 -0400
-Received: by mail-wm0-f67.google.com with SMTP id q128so9841547wma.1
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 01:17:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160815071121.GA2024@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <kbuild-all-JC7UmRfGjtg@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>, <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>, <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>, <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	<xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <benjamin.chenhao-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<howell.yang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201608112002.qeCiGZLQ%fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 15, 2016 at 09:11:22AM +0200, Jiri Pirko wrote:
-> Sun, Aug 14, 2016 at 07:53:30PM CEST, xiyou.wangcong@gmail.com wrote:
-> >On Sun, Aug 14, 2016 at 7:06 AM, Amir Vadai <amir@vadai.me> wrote:
-> >> tc qdisc add dev $ETH ingress
-> >>
-> >> # ENCAP rule for ARP
-> >> tc filter add dev $ETH protocol 0x806 parent ffff: prio 11 \
-> >>                 flower \
-> >>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
-> >>
-> >> # ENCAP rule for ICMP
-> >> tc filter add dev $ETH protocol ip parent ffff: prio 10 \
-> >>                 flower ip_proto 1 \
-> >>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
-> >>
-> >
-> >I don't like this. This makes mirred action unnecessarily
-> >complex, it should really just mirror or redirect packets as
-> >it is, why it should be aware of tunnel information?
-> >
-> >I think you probably need to introduce a new tc action
-> >for these tunnel information and pipe it to mirred.
+Hi all,
+
+On 2016/8/11 20:09, kbuild test robot wrote:
+> Hi Dongpo,
 > 
-> that is the first thing that I thinked of when I saw the patch. I think
-> you can introduce act_vxlan similar to act_vlan.
+> [auto build test ERROR on robh/for-next]
+> [also build test ERROR on v4.8-rc1 next-20160811]
+> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Dongpo-Li/net-hix5hd2_gmac-add-tx-sg-feature-and-reset-clock-control-signals/20160811-170826
+> base:   https://git.kernel.org/pub/scm/linux/kernel/git/robh/linux.git for-next
+> config: arm-multi_v7_defconfig (attached as .config)
+> compiler: arm-linux-gnueabi-gcc (Debian 5.4.0-6) 5.4.0 20160609
+> reproduce:
+>         wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=arm 
+> 
+> All errors (new ones prefixed by >>):
+> 
+>    drivers/clk/hisilicon/clk-hix5hd2.c: In function 'hix5hd2_clk_init':
+>>> drivers/clk/hisilicon/clk-hix5hd2.c:260:25: error: passing argument 1 of 'hisi_reset_init' from incompatible pointer type [-Werror=incompatible-pointer-types]
+>      rstc = hisi_reset_init(np);
+>                             ^
+>    In file included from drivers/clk/hisilicon/clk-hix5hd2.c:15:0:
+>    drivers/clk/hisilicon/reset.h:25:31: note: expected 'struct platform_device *' but argument is of type 'struct device_node *'
+>     struct hisi_reset_controller *hisi_reset_init(struct platform_device *pdev);
+>                                   ^
 
-introducing a new action was the first thing I thought of, but it felt
-problematic because the actual encap is done by the redirection to the
-vxlan device. This action is only responsible to supply the metadata and
-work tightly with the mirred. It is not exactly like vlan that the
-push/pop actions can live without mirroring/redirecting.
-But still as all of you said, it makes mirred complex with stuff that
-shouldn't be there. And between the two options it is better to
-introduce a new action.
+Sorry for my mistake, the interface changes in newer patch. I will fix my problem in the next patch version.
 
-I will go in this direction.
 
-Thanks,
-Amir
+    Regards,
+    Dongpo
+
+.
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
