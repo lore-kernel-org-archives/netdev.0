@@ -1,80 +1,85 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 4/9] MIPS: xilfpga: Use Xilinx AXI Interrupt Controller
-Date: Mon, 15 Aug 2016 15:12:59 +0000
-Message-ID: <20160815151259.GC3353@io.lakedaemon.net>
-References: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
- <1471269335-58747-5-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH v2 0/3] VSOCK: vsockmon virtual device to monitor
+ AF_VSOCK sockets.
+Date: Mon, 15 Aug 2016 16:13:26 +0100
+Message-ID: <20160815151326.GE3598@stefanha-x1.localdomain>
+References: <20160813102154.14338-1-ggarcia@deic.uab.cat>
+ <20160814231538.jihsj54ft7aftvdf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: monstr@monstr.eu, ralf@linux-mips.org, tglx@linutronix.de,
-	marc.zyngier@arm.com, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="gMR3gsNFwZpnI/Ts"
+Cc: ggarcia@abra.uab.cat, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52258 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932449AbcHOPN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Aug 2016 11:13:28 -0400
 Content-Disposition: inline
-In-Reply-To: <1471269335-58747-5-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160814231538.jihsj54ft7aftvdf@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Zubair,
 
-On Mon, Aug 15, 2016 at 02:55:30PM +0100, Zubair Lutfullah Kakakhel wrote:
-> IRQs from peripherals such as i2c/uart/ethernet come via
-> the AXI Interrupt controller.
-> 
-> Select it in Kconfig for xilfpga and add the DT node
-> 
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> ---
->  arch/mips/Kconfig                        |  1 +
->  arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 12 ++++++++++++
->  2 files changed, 13 insertions(+)
-> 
-> diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-> index 2638856..42ecf40 100644
-> --- a/arch/mips/Kconfig
-> +++ b/arch/mips/Kconfig
-> @@ -426,6 +426,7 @@ config MACH_XILFPGA
->  	select SYS_SUPPORTS_ZBOOT_UART16550
->  	select USE_OF
->  	select USE_GENERIC_EARLY_PRINTK_8250
-> +	select XILINX_IRQ
->  	help
->  	  This enables support for the IMG University Program MIPSfpga platform.
+--gMR3gsNFwZpnI/Ts
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Please split dt changes from code changes.
+On Mon, Aug 15, 2016 at 02:15:38AM +0300, Michael S. Tsirkin wrote:
+> On Sat, Aug 13, 2016 at 12:21:51PM +0200, ggarcia@abra.uab.cat wrote:
+> > From: Gerard Garcia <ggarcia@deic.uab.cat>
+> >=20
+> > This patch applies over the mst vhost git repository:
+> > http://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git
+>=20
+> So I do like where this is going, but it gives me pause
+> that there's a global list of taps, where all sockets
+> seem to multicast to them all.
+>=20
+> In particular, this won't play well with things
+> like containers.
 
-> diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-> index 48d2112..8db660b 100644
-> --- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-> +++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
-> @@ -17,6 +17,18 @@
->  		compatible = "mti,cpu-interrupt-controller";
->  	};
->  
-> +	axi_intc: interrupt-controller@10200000 {
-> +		#interrupt-cells = <1>;
-> +		compatible = "xlnx,xps-intc-1.00.a";
+vsock currently has no network namespace support.  I agree that the tap
+instances should be per-namespace when we add namespace support.
 
-This compatible string isn't documented, mind adding it?  Please make
-sure to Cc the devicetree maintainers on it.
+> As each socket is bound to a physical device, how about binding
+> the monitor there as well?
 
-thx,
+Sockets aren't bound to physical devices, they are bound globally in the
+af_vsock.ko module.  The module currently doesn't allow multiple
+instances (you cannot have multiple VMCI or virtio transports).
 
-Jason.
+> Only sockets from this device
+> would do the forwarding, and only one monitor per
+> device would be supported.
+>=20
+> In a sense this will make it more like macvtap than tap.
 
-> +		interrupt-controller;
-> +		reg = <0x10200000 0x10000>;
-> +		xlnx,kind-of-intr = <0x0>;
-> +		xlnx,num-intr-inputs = <0x6>;
-> +
-> +		interrupt-parent = <&cpuintc>;
-> +		interrupts = <6>;
-> +	};
-> +
->  	axi_gpio: gpio@10600000 {
->  		#gpio-cells = <1>;
->  		compatible = "xlnx,xps-gpio-1.00.a";
-> -- 
-> 1.9.1
-> 
+Restricting the number of monitors could make userspace cumbersome.
+Imagine two scripts that want to capture packets.  The two scripts have
+no knowledge of each other and create their own vsockmon interfaces.  If
+we restrict vsockmon to just 1 interface then users need to agree on
+sharing just 1 vsockmon interface.  I don't think this is beneficial.
+
+So I think this global list is acceptable until we introduce network
+namespace support.  At that point it will become per-namespace.
+
+Stefan
+
+--gMR3gsNFwZpnI/Ts
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXsdwWAAoJEJykq7OBq3PIOYgIAKY5i95WiWS+f15q4OFrla7e
+daxO4ezmEGb3wKgUpwpiPmlfuxwcn6XoQWxN/xI73USYWfnAGVOF4QwTYSahE1wl
+LySamVxBgc9b2s9JtmNRyqJmPFzR7e/33CGHNWiXr04ZDHvvquPYygro8yRPjYGF
++SflRFIQY9yIkaguL6/xQv2Uk+PbOI7ESxiqMeIOxoogeBPTR5fW14Pf08RDcA6G
+bFc2WzjXj+3B3OuRYf9t7YA9LGCAZZnd//uKyP4pR6BJ/JElkocajLp21LKslQM+
+8KGi/UI5AlJOZ82HtjRpwoL1c5FdQXfpc4akr7Oe61CgN1qAGL92Sq07VpqSAPQ=
+=GMnP
+-----END PGP SIGNATURE-----
+
+--gMR3gsNFwZpnI/Ts--
