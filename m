@@ -1,48 +1,87 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [BUGFIX PATCH 1/2] brcmfmac: Check rtnl_lock is locked when
- removing interface
-Date: Mon, 15 Aug 2016 13:52:17 +0200
-Message-ID: <CACna6ryuN_qDrVwAbS5P9mfhjMwv2hNeTqEzTQ=WxvP1V=zHXA@mail.gmail.com>
-References: <147125403645.9434.8008546579326856373.stgit@devbox>
- <147125405701.9434.12911635695339175773.stgit@devbox> <5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
- <87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
+ redirect using TC
+Date: Mon, 15 Aug 2016 14:34:00 +0200
+Message-ID: <20160815123400.GH2024@nanopsycho>
+References: <20160814140652.15985-1-amir@vadai.me>
+ <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
+ <20160815071121.GA2024@nanopsycho>
+ <20160815081740.GA19058@office.localdomain>
+ <20160815090804.GB19058@office.localdomain>
+ <faa0a9ab-fc02-543e-c60a-0d22b253a830@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Masami Hiramatsu <mhiramat@kernel.org>,
-	Arend van Spriel <arend.vanspriel@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	Hante Meuleman <hante.meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list.pdl@broadcom.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Amir Vadai <amir@vadai.me>, Cong Wang <xiyou.wangcong@gmail.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Oded Shanoon <odeds@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33718 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752768AbcHOMeD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 08:34:03 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o80so10924155wme.0
+        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 05:34:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <faa0a9ab-fc02-543e-c60a-0d22b253a830@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15 August 2016 at 12:57, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Rafał Miłecki <zajec5@gmail.com> writes:
+Mon, Aug 15, 2016 at 12:08:10PM CEST, jhs@mojatatu.com wrote:
+>On 16-08-15 05:08 AM, Amir Vadai wrote:
+>> On Mon, Aug 15, 2016 at 11:17:40AM +0300, Amir Vadai wrote:
+>> > On Mon, Aug 15, 2016 at 09:11:22AM +0200, Jiri Pirko wrote:
+>> > > Sun, Aug 14, 2016 at 07:53:30PM CEST, xiyou.wangcong@gmail.com wrote:
 >
->>> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
->>
->> Fixes: a63b09872c1d ("brcmfmac: delete interface directly in code that sent fw request")
->> Acked-by: Rafał Miłecki <rafal@milecki.pl>
->>
->> Kalle: I'm acking this as bugfix for 4.8 release.
+>> > 
+>> > Thanks,
+>> > Amir
+>> 
+>> Any objection to the following?
+>> 
+>> # ENCAP rule
+>> tc filter add dev $ETH protocol ip parent ffff: prio 10 \
+>> 		flower ip_proto 1 \
+>> 		action set_tunnel_key src_ip 11.11.0.1 dst_ip 11.11.0.2 key_id 11 dst_port 4789 \
+>> 		action mirred egress redirect dev $VXLAN
 >
-> Ok. I'll wait few days for more comments before I apply this.
+>Assuming $VXLAN is actually not a linux netdev of type vxlan?
+>then the action does vxlan encap redirect sends it to the $VXLAN
+>dev with encapsulation in place.
+>Sounds to me like a name like "vxlan" would be more usable. Example:
 
-Sure.
+I believe those are generic tunelling data
 
 
-> (I assume you are talking only about patch 1)
+>
+>tc filter add dev $ETH protocol ip parent ffff: prio 10 ..
+>action vxlan encap src_ip 11.11.0.1 dst_ip 11.11.0.2 key_id 11 ....
+>action mirred egress redirect dev eth0
+>
+>> 
+>> # DECAP rule
+>> tc filter add dev $VXLAN protocol ip parent ffff: prio 10 \
+>> 		flower \
+>> 			enc_src_ip 11.11.0.2 enc_dst_ip 11.11.0.1 enc_key_id 11 \
+>> 			ip_proto 1 \
+>> 		action mirred egress redirect dev $ETH
+>> 
+>
+>And a decap would be of the form:
+>tc filter add dev $ETH protocol ip parent ffff: prio 10 ..
+>action vxlan decap
 
-Yes, I'll leave mutex vs. spinlock to the experts :)
+That's right. Amir, don't you need decap here to drop the tunnel
+metadata?
 
--- 
-Rafał
+
+>
+>i.e there is no redirect needed here, no?
+>
+>cheers,
+>jamal
