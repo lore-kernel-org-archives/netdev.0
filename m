@@ -1,45 +1,48 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next] switchdev: Put export declaration in the right place
-Date: Mon, 15 Aug 2016 14:51:54 +0300
-Message-ID: <1471261914-32183-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37520 "EHLO
-	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752850AbcHOLwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 07:52:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [BUGFIX PATCH 1/2] brcmfmac: Check rtnl_lock is locked when
+ removing interface
+Date: Mon, 15 Aug 2016 13:52:17 +0200
+Message-ID: <CACna6ryuN_qDrVwAbS5P9mfhjMwv2hNeTqEzTQ=WxvP1V=zHXA@mail.gmail.com>
+References: <147125403645.9434.8008546579326856373.stgit@devbox>
+ <147125405701.9434.12911635695339175773.stgit@devbox> <5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
+ <87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Masami Hiramatsu <mhiramat@kernel.org>,
+	Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list.pdl@broadcom.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move exporting of switchdev_port_same_parent_id to be right
-below it and not elsewhere.
+On 15 August 2016 at 12:57, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Rafał Miłecki <zajec5@gmail.com> writes:
+>
+>>> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+>>
+>> Fixes: a63b09872c1d ("brcmfmac: delete interface directly in code that sent fw request")
+>> Acked-by: Rafał Miłecki <rafal@milecki.pl>
+>>
+>> Kalle: I'm acking this as bugfix for 4.8 release.
+>
+> Ok. I'll wait few days for more comments before I apply this.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reported-by: Ido Schimmel <idosch@mellanox.com>
----
- net/switchdev/switchdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sure.
 
-diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index a5fc9dd..9e90129 100644
---- a/net/switchdev/switchdev.c
-+++ b/net/switchdev/switchdev.c
-@@ -1306,6 +1306,7 @@ bool switchdev_port_same_parent_id(struct net_device *a,
- 
- 	return netdev_phys_item_id_same(&a_attr.u.ppid, &b_attr.u.ppid);
- }
-+EXPORT_SYMBOL_GPL(switchdev_port_same_parent_id);
- 
- static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
- 				       struct net_device *group_dev)
-@@ -1323,7 +1324,6 @@ static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
- 
- 	return dev->ifindex;
- }
--EXPORT_SYMBOL_GPL(switchdev_port_same_parent_id);
- 
- static void switchdev_port_fwd_mark_reset(struct net_device *group_dev,
- 					  u32 old_mark, u32 *reset_mark)
+
+> (I assume you are talking only about patch 1)
+
+Yes, I'll leave mutex vs. spinlock to the experts :)
+
 -- 
-2.3.7
+Rafał
