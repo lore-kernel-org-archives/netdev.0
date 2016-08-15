@@ -1,70 +1,41 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
- redirect using TC
-Date: Mon, 15 Aug 2016 13:42:57 +0300
-Message-ID: <20160815134257.7eb5b5d0@pixies>
-References: <20160814140652.15985-1-amir@vadai.me>
-	<CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
-	<20160815071121.GA2024@nanopsycho>
-	<20160815081740.GA19058@office.localdomain>
-	<20160815090804.GB19058@office.localdomain>
-	<20160815125039.07809d54@pixies>
-	<20160815095809.GC19058@office.localdomain>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [BUGFIX PATCH 1/2] brcmfmac: Check rtnl_lock is locked when removing interface
+Date: Mon, 15 Aug 2016 13:57:52 +0300
+Message-ID: <87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
+References: <147125403645.9434.8008546579326856373.stgit@devbox>
+	<147125405701.9434.12911635695339175773.stgit@devbox>
+	<5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Oded Shanoon <odeds@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33582 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbcHOKnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 06:43:08 -0400
-Received: by mail-wm0-f65.google.com with SMTP id o80so10459535wme.0
-        for <netdev@vger.kernel.org>; Mon, 15 Aug 2016 03:43:07 -0700 (PDT)
-In-Reply-To: <20160815095809.GC19058@office.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Masami Hiramatsu <mhiramat@kernel.org>,
+	Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	linux-wireless@vger.kernel.org,
+	brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
+ (=?utf-8?Q?=22Rafa=C5=82=09Mi=C5=82ecki=22's?= message of "Mon, 15 Aug 2016
+ 12:41:34 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Aug 2016 12:58:09 +0300, amir@vadai.me wrote:
-> On Mon, Aug 15, 2016 at 12:50:39PM +0300, Shmulik Ladkani wrote:
-> > On Mon, 15 Aug 2016 12:08:04 +0300, amir@vadai.me wrote:
-> > > 
-> > > Any objection to the following?
-> > > 
-> > > # ENCAP rule
-> > > tc filter add dev $ETH protocol ip parent ffff: prio 10 \
-> > > 		flower ip_proto 1 \
-> > > 		action set_tunnel_key src_ip 11.11.0.1 dst_ip 11.11.0.2 key_id 11 dst_port 4789 \
-> > 
-> > Ability to control few tun_flags (e.g. TUNNEL_CSUM, TUNNEL_DONT_FRAGMENT)
-> > might be useful too.
-> 
-> I guess it should be added when needed. Currenly I don't have a use case
-> for that.
+Rafał Miłecki <zajec5@gmail.com> writes:
 
-Sure.
-
-> > > # DECAP rule
-> > > tc filter add dev $VXLAN protocol ip parent ffff: prio 10 \
-> > > 		flower \
-> > > 			enc_src_ip 11.11.0.2 enc_dst_ip 11.11.0.1 enc_key_id 11 \
-> > > 			ip_proto 1 \
-> > 
-> > You might want to match the tunnel's udp port as well, for symmetry.
+>> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 >
-> actually, now that you raise it, the udp port is already an attribute of
-> the vxlan device. So I think it should be ommitted in both encap and
-> decap. Selecting the udp port will be done when creating the vxlan
-> device.
+> Fixes: a63b09872c1d ("brcmfmac: delete interface directly in code that sent fw request")
+> Acked-by: Rafał Miłecki <rafal@milecki.pl>
+>
+> Kalle: I'm acking this as bugfix for 4.8 release.
 
-Sounds better. Manual port override can be added if needed.
+Ok. I'll wait few days for more comments before I apply this.
+
+(I assume you are talking only about patch 1)
+
+-- 
+Kalle Valo
