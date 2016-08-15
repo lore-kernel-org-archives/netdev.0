@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/5] Fix warning, issue and give some enhancements
-Date: Mon, 15 Aug 2016 13:50:01 -0700 (PDT)
-Message-ID: <20160815.135001.2129164870243111346.davem@davemloft.net>
-References: <1471283487-24113-1-git-send-email-sean.wang@mediatek.com>
+Subject: Re: [PATCH] tipc: fix NULL pointer dereference in shutdown()
+Date: Mon, 15 Aug 2016 13:56:12 -0700 (PDT)
+Message-ID: <20160815.135612.681646390445456120.davem@davemloft.net>
+References: <25A14D9CFAB7B34FB9440F90AFD352330101910702@ALA-MBA.corp.ad.wrs.com>
+	<57ADDF2C.3@oracle.com>
+	<A2BAEFC30C8FD34388F02C9B3121859D224FF922@eusaamb103.ericsson.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john@phrozen.org, nbd@openwrt.org, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, keyhaede@gmail.com
-To: sean.wang@mediatek.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45306 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932323AbcHOUuC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 16:50:02 -0400
-In-Reply-To: <1471283487-24113-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vegard.nossum@oracle.com, ying.xue@windriver.com,
+	netdev@vger.kernel.org, mtk.manpages@gmail.com,
+	linux-kernel@vger.kernel.org
+To: jon.maloy@ericsson.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D224FF922@eusaamb103.ericsson.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Wang <sean.wang@mediatek.com>
-Date: Tue, 16 Aug 2016 01:51:21 +0800
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Mon, 15 Aug 2016 19:48:24 +0000
 
-> This patch set fixes the following warning and issues and gives some 
-> enhancements about RX path handling.
+> Sorry, I just came back from vacation today.
 > 
-> v1 -> v2: fix message typos and add coverletter
+> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Please do not mix bug fixes and changes which are not bug fixes.
-
-Submit bug fixes as a series targetting 'net'.
-
-Submit the rest targetting 'net-next'.
-
-Thanks.
+Applied.
