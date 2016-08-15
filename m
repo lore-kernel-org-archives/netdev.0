@@ -1,43 +1,51 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: hns: mdio->irq is an array, so no need to check if it is null
-Date: Mon, 15 Aug 2016 13:55:17 +0100
-Message-ID: <1471265717-10784-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Yisen Zhuang <yisen.zhuang@huawei.com>,
-	Salil Mehta <salil.mehta@huawei.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Kejian Yan <yankejian@huawei.com>,
-	Daode Huang <huangdaode@hisilicon.com>,
-	lipeng <lipeng321@huawei.com>, Lisheng <lisheng011@huawei.com>,
-	netdev@vger.kernel.org
+From: Pavel Andrianov <andrianov@ispras.ru>
+Subject: Potential data race in drivers/net/ethernet/sis/sis190.ko
+Date: Mon, 15 Aug 2016 15:59:54 +0300
+Message-ID: <149fe7f1-c417-d71f-972c-ba445692ba0a@ispras.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vaishali Thakkar <vaishali.thakkar@oracle.com>,
+	ldv-project@linuxtesting.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Hi!
 
-The null check on mdio->irq is redundant since mdio->irq is an array
-of PHY_MAX_ADDR ints and hence can never be null. Remove the redundant
-check.
+There is a potential data race in drivers/net/ethernet/sis/sis190.ko.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Regard such situation:
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index 5c8afe1..a834774 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -684,8 +684,7 @@ hns_mac_register_phydev(struct mii_bus *mdio, struct hns_mac_cb *mac_cb,
- 	if (!phy || IS_ERR(phy))
- 		return -EIO;
- 
--	if (mdio->irq)
--		phy->irq = mdio->irq[addr];
-+	phy->irq = mdio->irq[addr];
- 
- 	/* All data is now stored in the phy struct;
- 	 * register it
+CPU 1 				CPU 2
+
+...
+->sis190_open
+- registers interrupts
+...
+->sis190_tx_timeout
+- is called at some point
+    ->sis190_tx_clear
+       skb = tp->Tx_skbuff[i]
+       [skb != null]
+
+                an interrupt comes to CPU 2
+
+				-> sis190_irq
+				  -> sis190_tx_interrupt
+				    skb = tp->Tx_skbuff[entry];
+       ...
+       -> dev_kfree_skb_irq(skb)
+         ->dev_kfree_skb(skb)
+
+In this case the skb is freed twice. Likely, in the interrupt handler 
+the same spinlock should be acquired as in
+sis190_tx_timeout.
+
 -- 
-2.8.1
+Pavel Andrianov
+Linux Verification Center, ISPRAS
+web: http://linuxtesting.org
+e-mail: andrianov@ispras.ru
