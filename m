@@ -1,7 +1,7 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [PATCH 2/9] irqchip: xilinx: Add support for parent intc
-Date: Mon, 15 Aug 2016 14:55:28 +0100
-Message-ID: <1471269335-58747-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [PATCH 4/9] MIPS: xilfpga: Use Xilinx AXI Interrupt Controller
+Date: Mon, 15 Aug 2016 14:55:30 +0100
+Message-ID: <1471269335-58747-5-git-send-email-Zubair.Kakakhel@imgtec.com>
 References: <1471269335-58747-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -22,73 +22,51 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-The MIPS based xilfpga platform has the following IRQ structure
+IRQs from peripherals such as i2c/uart/ethernet come via
+the AXI Interrupt controller.
 
-Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
-
-Add support for the driver to chain the irq handler
+Select it in Kconfig for xilfpga and add the DT node
 
 Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 ---
- drivers/irqchip/irq-xilinx.c | 28 +++++++++++++++++++++++++++-
- 1 file changed, 27 insertions(+), 1 deletion(-)
+ arch/mips/Kconfig                        |  1 +
+ arch/mips/boot/dts/xilfpga/nexys4ddr.dts | 12 ++++++++++++
+ 2 files changed, 13 insertions(+)
 
-diff --git a/drivers/irqchip/irq-xilinx.c b/drivers/irqchip/irq-xilinx.c
-index 90bec7d..a0be6fa 100644
---- a/drivers/irqchip/irq-xilinx.c
-+++ b/drivers/irqchip/irq-xilinx.c
-@@ -15,6 +15,7 @@
- #include <linux/of_address.h>
- #include <linux/io.h>
- #include <linux/bug.h>
-+#include <linux/of_irq.h>
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 2638856..42ecf40 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -426,6 +426,7 @@ config MACH_XILFPGA
+ 	select SYS_SUPPORTS_ZBOOT_UART16550
+ 	select USE_OF
+ 	select USE_GENERIC_EARLY_PRINTK_8250
++	select XILINX_IRQ
+ 	help
+ 	  This enables support for the IMG University Program MIPSfpga platform.
  
- static void __iomem *intc_baseaddr;
+diff --git a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
+index 48d2112..8db660b 100644
+--- a/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
++++ b/arch/mips/boot/dts/xilfpga/nexys4ddr.dts
+@@ -17,6 +17,18 @@
+ 		compatible = "mti,cpu-interrupt-controller";
+ 	};
  
-@@ -135,11 +136,26 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
- 	.map = xintc_map,
- };
- 
-+static void xil_intc_irq_handler(struct irq_desc *desc)
-+{
-+	u32 pending = get_irq();
++	axi_intc: interrupt-controller@10200000 {
++		#interrupt-cells = <1>;
++		compatible = "xlnx,xps-intc-1.00.a";
++		interrupt-controller;
++		reg = <0x10200000 0x10000>;
++		xlnx,kind-of-intr = <0x0>;
++		xlnx,num-intr-inputs = <0x6>;
 +
-+	if (pending != -1U) {
-+		while (true) {
-+			pending = get_irq();
-+			generic_handle_irq(pending);
-+			if (pending == -1U)
-+				break;
-+		}
-+	}
-+}
++		interrupt-parent = <&cpuintc>;
++		interrupts = <6>;
++	};
 +
- static int __init xilinx_intc_of_init(struct device_node *intc,
- 					     struct device_node *parent)
- {
- 	u32 nr_irq, intr_mask;
--	int ret;
-+	int ret, irq;
-+	struct device_node *parent_node;
- 
- 	intc_baseaddr = of_iomap(intc, 0);
- 	BUG_ON(!intc_baseaddr);
-@@ -188,6 +204,16 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
- 	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
- 							(void *)intr_mask);
- 
-+	parent_node = of_irq_find_parent(intc);
-+	if (parent_node) {
-+		irq = irq_of_parse_and_map(intc, 0);
-+		if (irq)
-+			irq_set_chained_handler_and_data(irq,
-+							 xil_intc_irq_handler,
-+							 root_domain);
-+
-+	}
-+
- 	irq_set_default_host(root_domain);
- 
- 	return 0;
+ 	axi_gpio: gpio@10600000 {
+ 		#gpio-cells = <1>;
+ 		compatible = "xlnx,xps-gpio-1.00.a";
 -- 
 1.9.1
