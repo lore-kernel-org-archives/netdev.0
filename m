@@ -1,62 +1,43 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH 3/3] ARM64: dts: meson-gxbb: use the new GXBB DWMAC glue driver
-Date: Mon, 15 Aug 2016 18:41:00 +0200
-Message-ID: <20160815164100.27766-4-martin.blumenstingl@googlemail.com>
-References: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
- <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
-	will.deacon@arm.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
-	carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
-	alexandre.torgue@st.com
+From: Brandon Cazander <brandon.cazander@multapplied.net>
+Subject: Re: PROBLEM: TPROXY and DNAT broken (bisected to 079096f103fa)
+Date: Mon, 15 Aug 2016 16:28:22 +0000
+Message-ID: <BL2PR07MB23066ABAF5223701D17CFFF29E120@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <BL2PR07MB2306908C76E928619A24B52E9E0F0@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160729132154.GB13634@breakpoint.cc>
+ <BL2PR07MB2306B2B920C441DF5406B1439E050@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <20160802221121.GB31209@breakpoint.cc>
+ <BL2PR07MB23061A24DD64E80532DBD9799E060@BL2PR07MB2306.namprd07.prod.outlook.com>
+ <BL2PR07MB2306C9A7EB393F441D56E7D69E1E0@BL2PR07MB2306.namprd07.prod.outlook.com>,<20160812190319.GB25519@breakpoint.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34407 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752881AbcHOQlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 12:41:25 -0400
-In-Reply-To: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
+Received: from mail-bn3nam01on0051.outbound.protection.outlook.com ([104.47.33.51]:63975
+	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752881AbcHOQnc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Aug 2016 12:43:32 -0400
+In-Reply-To: <20160812190319.GB25519@breakpoint.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Amlogic reference driver uses the "mc_val" devicetree property to
-configure the PRG_ETHERNET_ADDR0 register. Unfortunately it uses magic
-values for this configuration.
-According to the datasheet the PRG_ETHERNET_ADDR0 register is at address
-0xc8834108. However, the reference driver uses 0xc8834540 instead.
-According to my tests, the value from the reference driver is correct.
+I can recreate the issue with these rules:
 
-No changes are required to the board dts files because the only
-required configuration option is the phy-mode, which had to be
-configured correctly before as well.
+ip rule add fwmark 1 lookup 100
+ip route add local 0.0.0.0/0 dev lo table 100
+iptables -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+iptables -t nat -A PREROUTING -d 192.168.7.20/32 -i eth0 -j DNAT --to-destination 192.168.8.1
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
----
- arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+If I add in the DIVERT chain it works:
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-index 2c200f9..f8cf16e 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-@@ -367,13 +367,14 @@
- 		};
- 
- 		ethmac: ethernet@c9410000 {
--			compatible = "amlogic,meson6-dwmac", "snps,dwmac";
-+			compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
- 			reg = <0x0 0xc9410000 0x0 0x10000
- 			       0x0 0xc8834540 0x0 0x4>;
- 			interrupts = <0 8 1>;
- 			interrupt-names = "macirq";
--			clocks = <&clkc CLKID_ETH>;
--			clock-names = "stmmaceth";
-+			clocks = <&clkc CLKID_ETH>,
-+				 <&clkc CLKID_FCLK_DIV2>;
-+			clock-names = "stmmaceth", "clkin0";
- 			phy-mode = "rgmii";
- 			status = "disabled";
- 		};
--- 
-2.9.3
+iptables -t mangle -N DIVERT
+iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
+iptables -t mangle -A DIVERT -j MARK --set-mark 1
+iptables -t mangle -A DIVERT -j ACCEPT
+iptables -t mangle -A PREROUTING -p tcp -m tcp --dport 8080 -j TPROXY --on-port 9876 --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+
+But that's still a regression in my opinion.
