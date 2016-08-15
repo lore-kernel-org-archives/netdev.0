@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] net: ipv6: Fix ping to link-local addresses.
-Date: Mon, 15 Aug 2016 10:55:22 -0700 (PDT)
-Message-ID: <20160815.105522.1444417738258658028.davem@davemloft.net>
-References: <1471018418-12212-1-git-send-email-lorenzo@google.com>
+Subject: Re: [PATCH v1 1/1] pptp: Refactor the struct and macros of PPTP
+ codes
+Date: Mon, 15 Aug 2016 10:56:09 -0700 (PDT)
+Message-ID: <20160815.105609.2284363778318727099.davem@davemloft.net>
+References: <1471019448-3336-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org, ek@google.com,
-	hideaki.yoshifuji@miraclelinux.com, dsa@cumulusnetworks.com
-To: lorenzo@google.com
+Cc: philipp@redfish-solutions.com, stephen@networkplumber.org,
+	pshelar@nicira.com, tom@herbertland.com, xeb@mail.ru,
+	netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44218 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44225 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932115AbcHORzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 13:55:23 -0400
-In-Reply-To: <1471018418-12212-1-git-send-email-lorenzo@google.com>
+	with ESMTP id S1753091AbcHOR4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 13:56:10 -0400
+In-Reply-To: <1471019448-3336-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Sat, 13 Aug 2016 01:13:38 +0900
+From: fgao@ikuai8.com
+Date: Sat, 13 Aug 2016 00:30:48 +0800
 
-> ping_v6_sendmsg does not set flowi6_oif in response to
-> sin6_scope_id or sk_bound_dev_if, so it is not possible to use
-> these APIs to ping an IPv6 address on a different interface.
-> Instead, it sets flowi6_iif, which is incorrect but harmless.
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> Stop setting flowi6_iif, and support various ways of setting oif
-> in the same priority order used by udpv6_sendmsg.
+> 1. Use struct gre_base_hdr directly in pptp_gre_header instead of
+> duplicated members;
+> 2. Use existing macros like GRE_KEY, GRE_SEQ, and so on instead of
+> duplicated macros defined by PPTP;
+> 3. Add new macros like GRE_IS_ACK/SEQ and so on instead of
+> PPTP_GRE_IS_A/S and so on;
 > 
-> Tested: https://android-review.googlesource.com/#/c/254470/
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-I'm expecting a new version of this patch with changes handling
-the situation that VRF needs.
-
-Just FYI...
+Applied to net-next.
