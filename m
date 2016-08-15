@@ -1,28 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlxsw: spectrum_router: Fix use after free
-Date: Sun, 14 Aug 2016 21:33:15 -0700 (PDT)
-Message-ID: <20160814.213315.1476217194881057932.davem@davemloft.net>
-References: <1471181909-22187-1-git-send-email-vincent.stehle@laposte.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC net-next 0/2] net/sched: cls_flower, act_mirred: VXLAN
+ redirect using TC
+Date: Sun, 14 Aug 2016 22:05:31 -0700
+Message-ID: <57B14D9B.8040802@gmail.com>
+References: <20160814140652.15985-1-amir@vadai.me>
+ <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jiri@mellanox.com
-To: vincent.stehle@laposte.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471181909-22187-1-git-send-email-vincent.stehle@laposte.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Oded Shanoon <odeds@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, Amir Vadai <amir@vadai.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36118 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751375AbcHOFFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 01:05:47 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y134so3149437pfg.3
+        for <netdev@vger.kernel.org>; Sun, 14 Aug 2016 22:05:47 -0700 (PDT)
+In-Reply-To: <CAM_iQpXetPgj_nCdYL73r_2hDRmnCpa0-WrxN-UbwBsdFgouiQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vincent Stehlé <vincent.stehle@laposte.net>
-Date: Sun, 14 Aug 2016 15:38:29 +0200
-
-> In mlxsw_sp_router_fib4_add_info_destroy(), the fib_entry pointer is used
-> after it has been freed by mlxsw_sp_fib_entry_destroy(). Use a temporary
-> variable to fix this.
+On 16-08-14 10:53 AM, Cong Wang wrote:
+> On Sun, Aug 14, 2016 at 7:06 AM, Amir Vadai <amir@vadai.me> wrote:
+>> tc qdisc add dev $ETH ingress
+>>
+>> # ENCAP rule for ARP
+>> tc filter add dev $ETH protocol 0x806 parent ffff: prio 11 \
+>>                 flower \
+>>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
+>>
+>> # ENCAP rule for ICMP
+>> tc filter add dev $ETH protocol ip parent ffff: prio 10 \
+>>                 flower ip_proto 1 \
+>>                 action mirred egress redirect dev $VXLAN enc_src_ip 11.11.0.1 enc_dst_ip 11.11.0.2 enc_key_id 11 enc_dst_port 4789
+>>
 > 
-> Fixes: 61c503f976b5449e ("mlxsw: spectrum_router: Implement fib4 add/del switchdev obj ops")
-> Signed-off-by: Vincent Stehlé <vincent.stehle@laposte.net>
-> Cc: Jiri Pirko <jiri@mellanox.com>
+> I don't like this. This makes mirred action unnecessarily
+> complex, it should really just mirror or redirect packets as
+> it is, why it should be aware of tunnel information?
+> 
+> I think you probably need to introduce a new tc action
+> for these tunnel information and pipe it to mirred.
+> 
 
-Applied.
+I agree how about a set_tunnel_key() action it could be very
+similar to the bpf helper routine. Then you can string it
+together with other actions easily.
+
+.John
