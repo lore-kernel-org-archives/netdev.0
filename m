@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hns: mdio->irq is an array, so no need to check
- if it is null
-Date: Mon, 15 Aug 2016 13:39:03 -0700 (PDT)
-Message-ID: <20160815.133903.1454433408106419676.davem@davemloft.net>
-References: <1471265717-10784-1-git-send-email-colin.king@canonical.com>
+Subject: Re: [PATCH net v2 0/5] hv_netvsc: fixes for VF removal path
+Date: Mon, 15 Aug 2016 13:48:22 -0700 (PDT)
+Message-ID: <20160815.134822.386218604294575604.davem@davemloft.net>
+References: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-	yankejian@huawei.com, huangdaode@hisilicon.com,
-	lipeng321@huawei.com, lisheng011@huawei.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org, devel@linuxdriverproject.org,
+	linux-kernel@vger.kernel.org, haiyangz@microsoft.com,
+	kys@microsoft.com, stephen@networkplumber.org
+To: vkuznets@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471265717-10784-1-git-send-email-colin.king@canonical.com>
+In-Reply-To: <1471276123-24264-1-git-send-email-vkuznets@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Mon, 15 Aug 2016 13:55:17 +0100
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Mon, 15 Aug 2016 17:48:38 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Kernel crash is reported after VF is removed and detached from netvsc
+> device. Turns out we have multiple different (but related) issues on the
+> VF removal path which I'm trying to address with PATCHes 2-5 of this
+> series. PATCH1 is required to support the change.
 > 
-> The null check on mdio->irq is redundant since mdio->irq is an array
-> of PHY_MAX_ADDR ints and hence can never be null. Remove the redundant
-> check.
+> Changes since v1:
+> - Re-arrange patches in the series to not introduce new issues [David Miller]
+> - Add PATCH5 which fixes a new issue I discovered while testing.
+> - Add Haiyang' A-b tags to PATCH1-4
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> With regards to Stephen's suggestion: I believe that switching to using RCU
+> and eliminating vf_use_cnt/vf_inject is the right thing to do long-term, we
+> can either put this on top of this series or do it later in net-next.
 
-Applied, thanks.
+Series applied, thanks.
