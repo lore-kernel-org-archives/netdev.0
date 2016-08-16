@@ -1,68 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 0/6][pull request] Intel Wired LAN Driver Updates 2016-08-16
-Date: Tue, 16 Aug 2016 13:40:08 -0700
-Message-ID: <1471380014-134435-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net 3/6] e1000e: fix PTP on e1000_pch_lpt variants
+Date: Tue, 16 Aug 2016 13:40:11 -0700
+Message-ID: <1471380014-134435-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471380014-134435-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	guru.anbalagane@oracle.com
+	guru.anbalagane@oracle.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:27840 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753767AbcHPUkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 16:40:16 -0400
+	id S1752831AbcHPUkR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 16:40:17 -0400
+In-Reply-To: <1471380014-134435-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains fixes to e1000e, igb, ixgbe and i40e.
+From: Jarod Wilson <jarod@redhat.com>
 
-Kshitiz Gupta provides a fix for igb to resolve the PHY delay compensation
-math in several functions.
+I've got reports that the Intel I-218V NIC in Intel NUC5i5RYH systems used
+as a PTP slave experiences random ~10 hour clock jumps, which are resolved
+if the same workaround for the 82574 and 82583 is employed, so set the
+appropriate flag2 in e1000_pch_lpt_info too.
 
-Jarod Wilson provides a fix for e1000e which had to broken up into 2
-patches, first is prepares the driver for expanding the list of NICs
-that have occasional ~10 hour clock jumps when being used for PTP.
-Second patch actually fixes i218 silicon which has been experiencing
-the clock jumps while using PTP.
+Reported-by: Rupesh Patel <rupatel@redhat.com>
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Alex provides 2 patches for ixgbe now that he is back at Intel.  First
-fixes setting VLNCTRL.VFE bit, which was left unchanged in earlier patches
-which resulted in disabling VLAN filtering for all the VFs.  Second
-corrects the support for disabling the VLAN tag filtering via the
-feature bit.
-
-Lastly, David fixes i40e which was causing a kernel panic when
-non-contiguous traffic classes or traffic classes not starting with TC0,
-were configured on a link partner switch.  To fix this, changed the
-logic when determining the total number of TCs enabled.
-
-The following are changes since commit a1560dd7a47f983419760aa7f6a481e3b910b54b:
-  Merge branch 'mediatek-fixes'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 1GbE
-
-Alexander Duyck (2):
-  ixgbe: Force VLNCTRL.VFE to be set in all VMDq paths
-  ixgbe: Re-enable ability to toggle VLAN filtering
-
-Dave Ertman (1):
-  i40e: check for and deal with non-contiguous TCs
-
-Jarod Wilson (2):
-  e1000e: factor out systim sanitization
-  e1000e: fix PTP on e1000_pch_lpt variants
-
-Kshitiz Gupta (1):
-  igb: fix adjusting PTP timestamps for Tx/Rx latency
-
- drivers/net/ethernet/intel/e1000e/82571.c     |  6 ++-
- drivers/net/ethernet/intel/e1000e/e1000.h     |  1 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c   |  3 +-
- drivers/net/ethernet/intel/e1000e/netdev.c    | 66 ++++++++++++++++-----------
- drivers/net/ethernet/intel/i40e/i40e_main.c   | 35 ++++++++++----
- drivers/net/ethernet/intel/igb/igb_ptp.c      | 26 +++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 19 +++++---
- 7 files changed, 107 insertions(+), 49 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 3e11322..f3aaca7 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -5885,7 +5885,8 @@ const struct e1000_info e1000_pch_lpt_info = {
+ 				  | FLAG_HAS_JUMBO_FRAMES
+ 				  | FLAG_APME_IN_WUC,
+ 	.flags2			= FLAG2_HAS_PHY_STATS
+-				  | FLAG2_HAS_EEE,
++				  | FLAG2_HAS_EEE
++				  | FLAG2_CHECK_SYSTIM_OVERFLOW,
+ 	.pba			= 26,
+ 	.max_hw_frame_size	= 9022,
+ 	.get_variants		= e1000_get_variants_ich8lan,
 -- 
 2.7.4
