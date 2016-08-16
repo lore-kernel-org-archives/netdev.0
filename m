@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/2] tipc: ensure that link
-	congestion and wakeup use same criteria
-Date: Tue, 16 Aug 2016 11:53:51 -0400
-Message-ID: <1471362831-30006-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/2] tipc: make bearer packet
+	filtering generic
+Date: Tue, 16 Aug 2016 11:53:50 -0400
+Message-ID: <1471362831-30006-2-git-send-email-jon.maloy@ericsson.com>
 References: <1471362831-30006-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,69 +23,252 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-When a link is attempted woken up after congestion, it uses a different,
-more generous criteria than when it was originally declared congested.
-This has the effect that the link, and the sending process, sometimes
-will be woken up unnecessarily, just to immediately return to congestion
-when it turns out there is not not enough space in its send queue to
-host the pending message. This is a waste of CPU cycles.
+In commit 5b7066c3dd24 ("tipc: stricter filtering of packets in bearer
+layer") we introduced a method of filtering out messages while a bearer
+is being reset, to avoid that links may be re-created and come back in
+working state while we are still in the process of shutting them down.
 
-We now change the function link_prepare_wakeup() to use exactly the same
-criteria as tipc_link_xmit(). However, since we are now excluding the
-window limit from the wakeup calculation, and the current backlog limit
-for the lowest level is too small to house even a single maximum-size
-message, we have to expand this limit. We do this by evaluating an
-alternative, minimum value during the setting of the importance limits.
+This solution works well, but is limited to only work with L2 media, which
+is insufficient with the increasing use of UDP as carrier media.
+
+We now replace this solution with a more generic one, by introducing a
+new flag "up" in the generic struct tipc_bearer. This field will be set
+and reset at the same locations as with the previous solution, while
+the packet filtering is moved to the generic code for the sending side.
+On the receiving side, the filtering is still done in media specific
+code, but now including the UDP bearer.
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/link.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+ net/tipc/bearer.c    | 78 +++++++++++++++++++++++++++-------------------------
+ net/tipc/bearer.h    |  1 +
+ net/tipc/udp_media.c |  2 +-
+ 3 files changed, 42 insertions(+), 39 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 877d94f..2c6e1b9 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -807,7 +807,7 @@ void link_prepare_wakeup(struct tipc_link *l)
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 65b1bbf..6fc4e3c 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -56,6 +56,13 @@ static struct tipc_media * const media_info_array[] = {
+ 	NULL
+ };
  
- 	skb_queue_walk_safe(&l->wakeupq, skb, tmp) {
- 		imp = TIPC_SKB_CB(skb)->chain_imp;
--		lim = l->window + l->backlog[imp].limit;
-+		lim = l->backlog[imp].limit;
- 		pnd[imp] += TIPC_SKB_CB(skb)->chain_sz;
- 		if ((pnd[imp] + l->backlog[imp].len) >= lim)
- 			break;
-@@ -873,9 +873,11 @@ int tipc_link_xmit(struct tipc_link *l, struct sk_buff_head *list,
- 	struct sk_buff *skb, *_skb, *bskb;
++static struct tipc_bearer *bearer_get(struct net *net, int bearer_id)
++{
++	struct tipc_net *tn = tipc_net(net);
++
++	return rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
++}
++
+ static void bearer_disable(struct net *net, struct tipc_bearer *b);
  
- 	/* Match msg importance against this and all higher backlog limits: */
--	for (i = imp; i <= TIPC_SYSTEM_IMPORTANCE; i++) {
--		if (unlikely(l->backlog[i].len >= l->backlog[i].limit))
--			return link_schedule_user(l, list);
-+	if (!skb_queue_empty(backlogq)) {
-+		for (i = imp; i <= TIPC_SYSTEM_IMPORTANCE; i++) {
-+			if (unlikely(l->backlog[i].len >= l->backlog[i].limit))
-+				return link_schedule_user(l, list);
-+		}
+ /**
+@@ -323,6 +330,7 @@ restart:
+ 	b->domain = disc_domain;
+ 	b->net_plane = bearer_id + 'A';
+ 	b->priority = priority;
++	test_and_set_bit_lock(0, &b->up);
+ 
+ 	res = tipc_disc_create(net, b, &b->bcast_addr, &skb);
+ 	if (res) {
+@@ -360,15 +368,24 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b)
+  */
+ void tipc_bearer_reset_all(struct net *net)
+ {
+-	struct tipc_net *tn = tipc_net(net);
+ 	struct tipc_bearer *b;
+ 	int i;
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		b = rcu_dereference_rtnl(tn->bearer_list[i]);
++		b = bearer_get(net, i);
++		if (b)
++			clear_bit_unlock(0, &b->up);
++	}
++	for (i = 0; i < MAX_BEARERS; i++) {
++		b = bearer_get(net, i);
+ 		if (b)
+ 			tipc_reset_bearer(net, b);
  	}
- 	if (unlikely(msg_size(hdr) > mtu)) {
- 		skb_queue_purge(list);
-@@ -1692,10 +1694,10 @@ void tipc_link_set_queue_limits(struct tipc_link *l, u32 win)
- 	int max_bulk = TIPC_MAX_PUBLICATIONS / (l->mtu / ITEM_SIZE);
- 
- 	l->window = win;
--	l->backlog[TIPC_LOW_IMPORTANCE].limit      = win / 2;
--	l->backlog[TIPC_MEDIUM_IMPORTANCE].limit   = win;
--	l->backlog[TIPC_HIGH_IMPORTANCE].limit     = win / 2 * 3;
--	l->backlog[TIPC_CRITICAL_IMPORTANCE].limit = win * 2;
-+	l->backlog[TIPC_LOW_IMPORTANCE].limit      = max_t(u16, 50, win);
-+	l->backlog[TIPC_MEDIUM_IMPORTANCE].limit   = max_t(u16, 100, win * 2);
-+	l->backlog[TIPC_HIGH_IMPORTANCE].limit     = max_t(u16, 150, win * 3);
-+	l->backlog[TIPC_CRITICAL_IMPORTANCE].limit = max_t(u16, 200, win * 4);
- 	l->backlog[TIPC_SYSTEM_IMPORTANCE].limit   = max_bulk;
++	for (i = 0; i < MAX_BEARERS; i++) {
++		b = bearer_get(net, i);
++		if (b)
++			test_and_set_bit_lock(0, &b->up);
++	}
  }
  
+ /**
+@@ -382,8 +399,9 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b)
+ 	int bearer_id = b->identity;
+ 
+ 	pr_info("Disabling bearer <%s>\n", b->name);
+-	b->media->disable_media(b);
++	clear_bit_unlock(0, &b->up);
+ 	tipc_node_delete_links(net, bearer_id);
++	b->media->disable_media(b);
+ 	RCU_INIT_POINTER(b->media_ptr, NULL);
+ 	if (b->link_req)
+ 		tipc_disc_delete(b->link_req);
+@@ -440,22 +458,16 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
+ {
+ 	struct net_device *dev;
+ 	int delta;
+-	void *tipc_ptr;
+ 
+ 	dev = (struct net_device *)rcu_dereference_rtnl(b->media_ptr);
+ 	if (!dev)
+ 		return 0;
+ 
+-	/* Send RESET message even if bearer is detached from device */
+-	tipc_ptr = rcu_dereference_rtnl(dev->tipc_ptr);
+-	if (unlikely(!tipc_ptr && !msg_is_reset(buf_msg(skb))))
+-		goto drop;
+-
+-	delta = dev->hard_header_len - skb_headroom(skb);
+-	if ((delta > 0) &&
+-	    pskb_expand_head(skb, SKB_DATA_ALIGN(delta), 0, GFP_ATOMIC))
+-		goto drop;
+-
++	delta = SKB_DATA_ALIGN(dev->hard_header_len - skb_headroom(skb));
++	if ((delta > 0) && pskb_expand_head(skb, delta, 0, GFP_ATOMIC)) {
++		kfree_skb(skb);
++		return 0;
++	}
+ 	skb_reset_network_header(skb);
+ 	skb->dev = dev;
+ 	skb->protocol = htons(ETH_P_TIPC);
+@@ -463,9 +475,6 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
+ 			dev->dev_addr, skb->len);
+ 	dev_queue_xmit(skb);
+ 	return 0;
+-drop:
+-	kfree_skb(skb);
+-	return 0;
+ }
+ 
+ int tipc_bearer_mtu(struct net *net, u32 bearer_id)
+@@ -487,12 +496,12 @@ void tipc_bearer_xmit_skb(struct net *net, u32 bearer_id,
+ 			  struct sk_buff *skb,
+ 			  struct tipc_media_addr *dest)
+ {
+-	struct tipc_net *tn = tipc_net(net);
++	struct tipc_msg *hdr = buf_msg(skb);
+ 	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+-	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (likely(b))
++	b = bearer_get(net, bearer_id);
++	if (likely(b && (test_bit(0, &b->up) || msg_is_reset(hdr))))
+ 		b->media->send_msg(net, skb, b, dest);
+ 	else
+ 		kfree_skb(skb);
+@@ -505,7 +514,6 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ 		      struct sk_buff_head *xmitq,
+ 		      struct tipc_media_addr *dst)
+ {
+-	struct tipc_net *tn = net_generic(net, tipc_net_id);
+ 	struct tipc_bearer *b;
+ 	struct sk_buff *skb, *tmp;
+ 
+@@ -513,12 +521,15 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ 		return;
+ 
+ 	rcu_read_lock();
+-	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
++	b = bearer_get(net, bearer_id);
+ 	if (unlikely(!b))
+ 		__skb_queue_purge(xmitq);
+ 	skb_queue_walk_safe(xmitq, skb, tmp) {
+ 		__skb_dequeue(xmitq);
+-		b->media->send_msg(net, skb, b, dst);
++		if (likely(test_bit(0, &b->up) || msg_is_reset(buf_msg(skb))))
++			b->media->send_msg(net, skb, b, dst);
++		else
++			kfree(skb);
+ 	}
+ 	rcu_read_unlock();
+ }
+@@ -535,8 +546,8 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
+ 	struct tipc_msg *hdr;
+ 
+ 	rcu_read_lock();
+-	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
+-	if (unlikely(!b))
++	b = bearer_get(net, bearer_id);
++	if (unlikely(!b || !test_bit(0, &b->up)))
+ 		__skb_queue_purge(xmitq);
+ 	skb_queue_walk_safe(xmitq, skb, tmp) {
+ 		hdr = buf_msg(skb);
+@@ -566,7 +577,8 @@ static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(dev->tipc_ptr);
+-	if (likely(b && (skb->pkt_type <= PACKET_BROADCAST))) {
++	if (likely(b && test_bit(0, &b->up) &&
++		   (skb->pkt_type <= PACKET_BROADCAST))) {
+ 		skb->next = NULL;
+ 		tipc_rcv(dev_net(dev), skb, b);
+ 		rcu_read_unlock();
+@@ -591,18 +603,9 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ {
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct net *net = dev_net(dev);
+-	struct tipc_net *tn = tipc_net(net);
+ 	struct tipc_bearer *b;
+-	int i;
+ 
+ 	b = rtnl_dereference(dev->tipc_ptr);
+-	if (!b) {
+-		for (i = 0; i < MAX_BEARERS; b = NULL, i++) {
+-			b = rtnl_dereference(tn->bearer_list[i]);
+-			if (b && (b->media_ptr == dev))
+-				break;
+-		}
+-	}
+ 	if (!b)
+ 		return NOTIFY_DONE;
+ 
+@@ -613,11 +616,10 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 		if (netif_carrier_ok(dev))
+ 			break;
+ 	case NETDEV_UP:
+-		rcu_assign_pointer(dev->tipc_ptr, b);
++		test_and_set_bit_lock(0, &b->up);
+ 		break;
+ 	case NETDEV_GOING_DOWN:
+-		RCU_INIT_POINTER(dev->tipc_ptr, NULL);
+-		synchronize_net();
++		clear_bit_unlock(0, &b->up);
+ 		tipc_reset_bearer(net, b);
+ 		break;
+ 	case NETDEV_CHANGEMTU:
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 43757f1..83a9abb 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -150,6 +150,7 @@ struct tipc_bearer {
+ 	u32 identity;
+ 	struct tipc_link_req *link_req;
+ 	char net_plane;
++	unsigned long up;
+ };
+ 
+ struct tipc_bearer_names {
+diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+index b016c01..33bdf54 100644
+--- a/net/tipc/udp_media.c
++++ b/net/tipc/udp_media.c
+@@ -224,7 +224,7 @@ static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(ub->bearer);
+ 
+-	if (b) {
++	if (b && test_bit(0, &b->up)) {
+ 		tipc_rcv(sock_net(sk), skb, b);
+ 		rcu_read_unlock();
+ 		return 0;
 -- 
 2.7.4
 
