@@ -1,494 +1,88 @@
-From: Doug Applegate <doug.applegate@gmail.com>
-Subject: Re: [PATCH RFC 1/1] xfrm: dst lookup doesn't account for fwmark
-Date: Tue, 16 Aug 2016 11:19:35 -0600
-Message-ID: <CACwzwmW-M55owRSTtBt2FuTGB9MwsBZx6VXRyFEXdn4mgFbumw@mail.gmail.com>
-References: <CACwzwmXYUhHdzGLoi73enk-5CCECkdDjJDsOeYHKswqwa9AzyA@mail.gmail.com>
+From: <doctornina@abv.bg>
+Subject: (unknown)
+Date: Mon, 16 Aug 2016 23:24:04 0000
+Message-ID: <000101d1f815$475f05fa$c0a80001@vnpt.vn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: application/zip; name="ffjnetdev.zip"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:34235 "EHLO
-	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbcHPRTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 13:19:37 -0400
-Received: by mail-yw0-f194.google.com with SMTP id j12so3770895ywb.1
-        for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 10:19:36 -0700 (PDT)
-In-Reply-To: <CACwzwmXYUhHdzGLoi73enk-5CCECkdDjJDsOeYHKswqwa9AzyA@mail.gmail.com>
+Received: from cm-84.210.220.99.getinternet.no ([84.210.220.99]:52525 "HELO
+	vnpt.vn" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751690AbcHPRYf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 13:24:35 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If route table includes routing based on fwmark, xfrm will not take it
-into account when routing ipsec traffic. We address this issue by adding
-fwmark information before calling route lookup. Also simplify lookup by
-passing the entire flow struct rather than tos, oif, and fwmark as
-individual params.
----
- include/net/xfrm.h      |  4 ++--
- net/ipv4/xfrm4_policy.c | 16 +++++++++-------
- net/ipv6/xfrm6_policy.c |  8 ++++----
- net/xfrm/xfrm_policy.c  | 16 ++++++++--------
- 4 files changed, 23 insertions(+), 21 deletions(-)
-
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index adfebd6..464bca9 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -282,10 +282,10 @@ struct xfrm_policy_afinfo {
-  struct dst_ops *dst_ops;
-  void (*garbage_collect)(struct net *net);
-  struct dst_entry *(*dst_lookup)(struct net *net,
--       int tos, int oif,
-+       const struct flowi *fl,
-        const xfrm_address_t *saddr,
-        const xfrm_address_t *daddr);
-- int (*get_saddr)(struct net *net, int oif,
-+ int (*get_saddr)(struct net *net, const struct flowi *fl,
-      xfrm_address_t *saddr,
-      xfrm_address_t *daddr);
-  void (*decode_session)(struct sk_buff *skb,
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index b644a23..5a18acf 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -18,9 +18,10 @@
- #include <net/l3mdev.h>
-
- static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
-+static int xfrm4_get_tos(const struct flowi *fl);
-
- static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct
-flowi4 *fl4,
--    int tos, int oif,
-+    const struct flowi *fl,
-     const xfrm_address_t *saddr,
-     const xfrm_address_t *daddr)
- {
-@@ -28,8 +29,9 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-net *net, struct flowi4 *fl4,
-
-  memset(fl4, 0, sizeof(*fl4));
-  fl4->daddr = daddr->a4;
-- fl4->flowi4_tos = tos;
-- fl4->flowi4_oif = oif;
-+    fl4->flowi4_tos = xfrm4_get_tos(fl);
-+    fl4->flowi4_oif = fl->flowi_oif;
-+    fl4->flowi4_mark = fl->u.ip4.flowi4_mark;
-  if (saddr)
-  fl4->saddr = saddr->a4;
-
-@@ -42,22 +44,22 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-net *net, struct flowi4 *fl4,
-  return ERR_CAST(rt);
- }
-
--static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
-+static struct dst_entry *xfrm4_dst_lookup(struct net *net, const
-struct flowi *fl,
-   const xfrm_address_t *saddr,
-   const xfrm_address_t *daddr)
- {
-  struct flowi4 fl4;
-
-- return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr);
-+ return __xfrm4_dst_lookup(net, &fl4, fl, saddr, daddr);
- }
-
--static int xfrm4_get_saddr(struct net *net, int oif,
-+static int xfrm4_get_saddr(struct net *net, const struct flowi *fl,
-    xfrm_address_t *saddr, xfrm_address_t *daddr)
- {
-  struct dst_entry *dst;
-  struct flowi4 fl4;
-
-- dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr);
-+ dst = __xfrm4_dst_lookup(net, &fl4, fl, NULL, daddr);
-  if (IS_ERR(dst))
-  return -EHOSTUNREACH;
-
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 6cc9700..8df89f8 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -27,7 +27,7 @@
-
- static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
-
--static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
-+static struct dst_entry *xfrm6_dst_lookup(struct net *net, const
-struct flowi *fl,
-   const xfrm_address_t *saddr,
-   const xfrm_address_t *daddr)
- {
-@@ -36,7 +36,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net
-*net, int tos, int oif,
-  int err;
-
-  memset(&fl6, 0, sizeof(fl6));
-- fl6.flowi6_oif = oif;
-+ fl6.flowi6_oif = fl->flowi_oif;
-  fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
-  memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
-  if (saddr)
-@@ -53,13 +53,13 @@ static struct dst_entry *xfrm6_dst_lookup(struct
-net *net, int tos, int oif,
-  return dst;
- }
-
--static int xfrm6_get_saddr(struct net *net, int oif,
-+static int xfrm6_get_saddr(struct net *net, const struct flowi *fl,
-    xfrm_address_t *saddr, xfrm_address_t *daddr)
- {
-  struct dst_entry *dst;
-  struct net_device *dev;
-
-- dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr);
-+ dst = xfrm6_dst_lookup(net, fl, NULL, daddr);
-  if (IS_ERR(dst))
-  return -EHOSTUNREACH;
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index b5e665b..f91c6e7 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -116,7 +116,7 @@ static void xfrm_policy_put_afinfo(struct
-xfrm_policy_afinfo *afinfo)
- }
-
- static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
--  int tos, int oif,
-+  const struct flowi *fl,
-   const xfrm_address_t *saddr,
-   const xfrm_address_t *daddr,
-   int family)
-@@ -128,7 +128,7 @@ static inline struct dst_entry
-*__xfrm_dst_lookup(struct net *net,
-  if (unlikely(afinfo == NULL))
-  return ERR_PTR(-EAFNOSUPPORT);
-
-- dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr);
-+ dst = afinfo->dst_lookup(net, fl, saddr, daddr);
-
-  xfrm_policy_put_afinfo(afinfo);
-
-@@ -136,7 +136,7 @@ static inline struct dst_entry
-*__xfrm_dst_lookup(struct net *net,
- }
-
- static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
-- int tos, int oif,
-+ const struct flowi *fl,
-  xfrm_address_t *prev_saddr,
-  xfrm_address_t *prev_daddr,
-  int family)
-@@ -155,7 +155,7 @@ static inline struct dst_entry
-*xfrm_dst_lookup(struct xfrm_state *x,
-  daddr = x->coaddr;
-  }
-
-- dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family);
-+ dst = __xfrm_dst_lookup(net, fl, saddr, daddr, family);
-
-  if (!IS_ERR(dst)) {
-  if (prev_saddr != saddr)
-@@ -1395,7 +1395,7 @@ int __xfrm_sk_clone_policy(struct sock *sk,
-const struct sock *osk)
- }
-
- static int
--xfrm_get_saddr(struct net *net, int oif, xfrm_address_t *local,
-+xfrm_get_saddr(struct net *net, const struct flowi *fl, xfrm_address_t *local,
-        xfrm_address_t *remote, unsigned short family)
- {
-  int err;
-@@ -1403,7 +1403,7 @@ xfrm_get_saddr(struct net *net, int oif,
-xfrm_address_t *local,
-
-  if (unlikely(afinfo == NULL))
-  return -EINVAL;
-- err = afinfo->get_saddr(net, oif, local, remote);
-+ err = afinfo->get_saddr(net, fl, local, remote);
-  xfrm_policy_put_afinfo(afinfo);
-  return err;
- }
-@@ -1432,7 +1432,7 @@ xfrm_tmpl_resolve_one(struct xfrm_policy
-*policy, const struct flowi *fl,
-  remote = &tmpl->id.daddr;
-  local = &tmpl->saddr;
-  if (xfrm_addr_any(local, tmpl->encap_family)) {
-- error = xfrm_get_saddr(net, fl->flowi_oif,
-+ error = xfrm_get_saddr(net, fl,
-        &tmp, remote,
-        tmpl->encap_family);
-  if (error)
-@@ -1712,7 +1712,7 @@ static struct dst_entry
-*xfrm_bundle_create(struct xfrm_policy *policy,
-
-  if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
-  family = xfrm[i]->props.family;
-- dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
-+ dst = xfrm_dst_lookup(xfrm[i], fl,
-       &saddr, &daddr, family);
-  err = PTR_ERR(dst);
-  if (IS_ERR(dst))
--- 
-2.5.0
-
-On Fri, Jul 22, 2016 at 3:50 PM, Doug Applegate
-<doug.applegate@gmail.com> wrote:
-> If route table includes routing based on fwmark, xfrm will not take it
-> into account when routing ipsec traffic. We address this issue by adding
-> fwmark information before calling route lookup.
->
-> Signed-off-by: Doug Applegate <doug.applegate@gmail.com>
-> ---
->  include/net/xfrm.h      |  3 ++-
->  net/ipv4/xfrm4_policy.c | 15 +++++++++++----
->  net/ipv6/xfrm6_policy.c | 11 +++++++++--
->  net/xfrm/xfrm_policy.c  | 28 +++++++++++++++++++++++-----
->  4 files changed, 45 insertions(+), 12 deletions(-)
->
-> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-> index adfebd6..13e80d1 100644
-> --- a/include/net/xfrm.h
-> +++ b/include/net/xfrm.h
-> @@ -282,7 +282,7 @@ struct xfrm_policy_afinfo {
->   struct dst_ops *dst_ops;
->   void (*garbage_collect)(struct net *net);
->   struct dst_entry *(*dst_lookup)(struct net *net,
-> -       int tos, int oif,
-> +       int tos, int oif, int mark,
->         const xfrm_address_t *saddr,
->         const xfrm_address_t *daddr);
->   int (*get_saddr)(struct net *net, int oif,
-> @@ -292,6 +292,7 @@ struct xfrm_policy_afinfo {
->    struct flowi *fl,
->    int reverse);
->   int (*get_tos)(const struct flowi *fl);
-> + int (*get_mark)(const struct flowi *fl);
->   int (*init_path)(struct xfrm_dst *path,
->       struct dst_entry *dst,
->       int nfheader_len);
-> diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-> index 7b0edb3..5dcd411 100644
-> --- a/net/ipv4/xfrm4_policy.c
-> +++ b/net/ipv4/xfrm4_policy.c
-> @@ -20,7 +20,7 @@
->  static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
->
->  static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct
-> flowi4 *fl4,
-> -    int tos, int oif,
-> +    int tos, int oif, int mark,
->      const xfrm_address_t *saddr,
->      const xfrm_address_t *daddr)
->  {
-> @@ -30,6 +30,7 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-> net *net, struct flowi4 *fl4,
->   fl4->daddr = daddr->a4;
->   fl4->flowi4_tos = tos;
->   fl4->flowi4_oif = oif;
-> + fl4->flowi4_mark = mark;
->   if (saddr)
->   fl4->saddr = saddr->a4;
->
-> @@ -42,13 +43,13 @@ static struct dst_entry *__xfrm4_dst_lookup(struct
-> net *net, struct flowi4 *fl4,
->   return ERR_CAST(rt);
->  }
->
-> -static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos, int oif,
-> +static struct dst_entry *xfrm4_dst_lookup(struct net *net, int tos,
-> int oif, int mark,
->    const xfrm_address_t *saddr,
->    const xfrm_address_t *daddr)
->  {
->   struct flowi4 fl4;
->
-> - return __xfrm4_dst_lookup(net, &fl4, tos, oif, saddr, daddr);
-> + return __xfrm4_dst_lookup(net, &fl4, tos, oif, mark, saddr, daddr);
->  }
->
->  static int xfrm4_get_saddr(struct net *net, int oif,
-> @@ -57,7 +58,7 @@ static int xfrm4_get_saddr(struct net *net, int oif,
->   struct dst_entry *dst;
->   struct flowi4 fl4;
->
-> - dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, NULL, daddr);
-> + dst = __xfrm4_dst_lookup(net, &fl4, 0, oif, 0, NULL, daddr);
->   if (IS_ERR(dst))
->   return -EHOSTUNREACH;
->
-> @@ -71,6 +72,11 @@ static int xfrm4_get_tos(const struct flowi *fl)
->   return IPTOS_RT_MASK & fl->u.ip4.flowi4_tos; /* Strip ECN bits */
->  }
->
-> +static int xfrm4_get_mark(const struct flowi *fl)
-> +{
-> + return fl->u.ip4.flowi4_mark;
-> +}
-> +
->  static int xfrm4_init_path(struct xfrm_dst *path, struct dst_entry *dst,
->     int nfheader_len)
->  {
-> @@ -278,6 +284,7 @@ static struct xfrm_policy_afinfo xfrm4_policy_afinfo = {
->   .get_saddr = xfrm4_get_saddr,
->   .decode_session = _decode_session4,
->   .get_tos = xfrm4_get_tos,
-> + .get_mark = xfrm4_get_mark,
->   .init_path = xfrm4_init_path,
->   .fill_dst = xfrm4_fill_dst,
->   .blackhole_route = ipv4_blackhole_route,
-> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-> index c074771..16a0af5 100644
-> --- a/net/ipv6/xfrm6_policy.c
-> +++ b/net/ipv6/xfrm6_policy.c
-> @@ -27,7 +27,7 @@
->
->  static struct xfrm_policy_afinfo xfrm6_policy_afinfo;
->
-> -static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos, int oif,
-> +static struct dst_entry *xfrm6_dst_lookup(struct net *net, int tos,
-> int oif, int mark,
->    const xfrm_address_t *saddr,
->    const xfrm_address_t *daddr)
->  {
-> @@ -38,6 +38,7 @@ static struct dst_entry *xfrm6_dst_lookup(struct net
-> *net, int tos, int oif,
->   memset(&fl6, 0, sizeof(fl6));
->   fl6.flowi6_oif = oif;
->   fl6.flowi6_flags = FLOWI_FLAG_SKIP_NH_OIF;
-> + fl6.flowi6_mark = mark
->   memcpy(&fl6.daddr, daddr, sizeof(fl6.daddr));
->   if (saddr)
->   memcpy(&fl6.saddr, saddr, sizeof(fl6.saddr));
-> @@ -59,7 +60,7 @@ static int xfrm6_get_saddr(struct net *net, int oif,
->   struct dst_entry *dst;
->   struct net_device *dev;
->
-> - dst = xfrm6_dst_lookup(net, 0, oif, NULL, daddr);
-> + dst = xfrm6_dst_lookup(net, 0, oif, 0, NULL, daddr);
->   if (IS_ERR(dst))
->   return -EHOSTUNREACH;
->
-> @@ -74,6 +75,11 @@ static int xfrm6_get_tos(const struct flowi *fl)
->   return 0;
->  }
->
-> +static int xfrm6_get_mark(const struct flowi *fl)
-> +{
-> + return fl->u.ip6.flowi6_mark;
-> +}
-> +
->  static int xfrm6_init_path(struct xfrm_dst *path, struct dst_entry *dst,
->     int nfheader_len)
->  {
-> @@ -298,6 +304,7 @@ static struct xfrm_policy_afinfo xfrm6_policy_afinfo = {
->   .get_saddr = xfrm6_get_saddr,
->   .decode_session = _decode_session6,
->   .get_tos = xfrm6_get_tos,
-> + .get_mark = xfrm6_get_mark,
->   .init_path = xfrm6_init_path,
->   .fill_dst = xfrm6_fill_dst,
->   .blackhole_route = ip6_blackhole_route,
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index b5e665b..72f9be0 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -116,7 +116,7 @@ static void xfrm_policy_put_afinfo(struct
-> xfrm_policy_afinfo *afinfo)
->  }
->
->  static inline struct dst_entry *__xfrm_dst_lookup(struct net *net,
-> -  int tos, int oif,
-> +  int tos, int oif, int mark,
->    const xfrm_address_t *saddr,
->    const xfrm_address_t *daddr,
->    int family)
-> @@ -128,7 +128,7 @@ static inline struct dst_entry
-> *__xfrm_dst_lookup(struct net *net,
->   if (unlikely(afinfo == NULL))
->   return ERR_PTR(-EAFNOSUPPORT);
->
-> - dst = afinfo->dst_lookup(net, tos, oif, saddr, daddr);
-> + dst = afinfo->dst_lookup(net, tos, oif, mark, saddr, daddr);
->
->   xfrm_policy_put_afinfo(afinfo);
->
-> @@ -136,7 +136,7 @@ static inline struct dst_entry
-> *__xfrm_dst_lookup(struct net *net,
->  }
->
->  static inline struct dst_entry *xfrm_dst_lookup(struct xfrm_state *x,
-> - int tos, int oif,
-> + int tos, int oif, int mark,
->   xfrm_address_t *prev_saddr,
->   xfrm_address_t *prev_daddr,
->   int family)
-> @@ -155,7 +155,7 @@ static inline struct dst_entry
-> *xfrm_dst_lookup(struct xfrm_state *x,
->   daddr = x->coaddr;
->   }
->
-> - dst = __xfrm_dst_lookup(net, tos, oif, saddr, daddr, family);
-> + dst = __xfrm_dst_lookup(net, tos, oif, mark, saddr, daddr, family);
->
->   if (!IS_ERR(dst)) {
->   if (prev_saddr != saddr)
-> @@ -1525,6 +1525,21 @@ static inline int xfrm_get_tos(const struct
-> flowi *fl, int family)
->   return tos;
->  }
->
-> +static inline int xfrm_get_mark(const struct flowi *fl, int family)
-> +{
-> + struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
-> + int mark;
-> +
-> + if (!afinfo)
-> + return -EINVAL;
-> +
-> + mark = afinfo->get_mark(fl);
-> +
-> + xfrm_policy_put_afinfo(afinfo);
-> +
-> + return mark;
-> +}
-> +
->  static struct flow_cache_object *xfrm_bundle_flo_get(struct
-> flow_cache_object *flo)
->  {
->   struct xfrm_dst *xdst = container_of(flo, struct xfrm_dst, flo);
-> @@ -1667,6 +1682,7 @@ static struct dst_entry
-> *xfrm_bundle_create(struct xfrm_policy *policy,
->   int nfheader_len = 0;
->   int trailer_len = 0;
->   int tos;
-> + int mark;
->   int family = policy->selector.family;
->   xfrm_address_t saddr, daddr;
->
-> @@ -1677,6 +1693,8 @@ static struct dst_entry
-> *xfrm_bundle_create(struct xfrm_policy *policy,
->   if (tos < 0)
->   goto put_states;
->
-> + mark = xfrm_get_mark(fl, family);
-> +
->   dst_hold(dst);
->
->   for (; i < nx; i++) {
-> @@ -1712,7 +1730,7 @@ static struct dst_entry
-> *xfrm_bundle_create(struct xfrm_policy *policy,
->
->   if (xfrm[i]->props.mode != XFRM_MODE_TRANSPORT) {
->   family = xfrm[i]->props.family;
-> - dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif,
-> + dst = xfrm_dst_lookup(xfrm[i], tos, fl->flowi_oif, mark,
->        &saddr, &daddr, family);
->   err = PTR_ERR(dst);
->   if (IS_ERR(dst))
-> --
-> 2.5.0
+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
+emlwUEsFBgAAAAABAAEAOwAAACUPAAAAAA==
