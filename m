@@ -1,44 +1,82 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [Patch net v3 5/5] net_sched: convert tcf_exts from list to
- pointer array
-Date: Tue, 16 Aug 2016 12:54:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00DFFCA@AcuExch.aculab.com>
-References: <1470962503-19682-1-git-send-email-xiyou.wangcong@gmail.com>
- <1470962503-19682-6-git-send-email-xiyou.wangcong@gmail.com>
- <70a062d7-5670-b71a-1ead-045a7b1426f5@mojatatu.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Tue, 16 Aug 2016 08:29:51 -0500
+Message-ID: <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Jamal Hadi Salim' <jhs@mojatatu.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Vikram Sethi <vikrams@codeaurora.org>,
+	Christopher Covington <cov@codeaurora.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Bjorn Andersson <bjorn.andersson@linaro.org>,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	"jcm@redhat.com" <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Al Stone <al.stone@linaro.org>
+To: Timur Tabi <timur@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:63131 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753368AbcHPM5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 08:57:18 -0400
-In-Reply-To: <70a062d7-5670-b71a-1ead-045a7b1426f5@mojatatu.com>
-Content-Language: en-US
+Received: from mail.kernel.org ([198.145.29.136]:60126 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753185AbcHPNaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 09:30:17 -0400
+In-Reply-To: <57B220C0.3060608@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim
-> Sent: 13 August 2016 12:34
-> 
-> Just minor comment below:
-> 
-> On 16-08-11 08:41 PM, Cong Wang wrote:
-> 
-> 
-> > +static inline void
-> > +tcf_exts_to_list(const struct tcf_exts *exts, struct list_head *actions)
-> > +{
-> 
-> to:
-> static inline void tcf_exts_to_list(const struct tcf_exts *exts,
->                                      struct list_head *actions)
+On Mon, Aug 15, 2016 at 3:06 PM, Timur Tabi <timur@codeaurora.org> wrote:
+> + Rafael and Al, for ACPI help.
+>
+> Rob Herring wrote:
+>>>
+>>> >+Optional properties:
+>>> >+- phy-version : the version of the integrated emac phy, either 1 or 2.
+>
+>
+>> Sounds like 2 different h/w. The compatible property should distinguish
+>> this.
+>
+>
+> So I implemented this in v8 of my driver, but it is causing problems for
+> ACPI.
+>
+> In ACPI, the equivalent to a compatible string is the HID, which is QCOM8070
+> for the EMAC.  The problem is that it's very difficult, if not impossible,
+> to create new HIDs for different versions of the same device.
 
-It may not be the 'Linux style' but I much prefer the former since it
-makes 'grep -r '^tcf_exts_to_list\>' find the definition.
+Different versions are different devices IMO.
 
-	David
+> The driver will primarily (if not exclusively) be used on ACPI platforms,
+> not DT.  In Qualcomm, DT is for mobile chips, and ACPI is for server.  To my
+> knowledge, there are no plans to use this driver on an actual DT-enabled
+> platform, but I want to support DT anyway.
+>
+> The other problem is that the "internal PHY" of the EMAC is technically a
+> separate device, and it's interchangeable.  Future versions of our chips
+> will use different internal PHYs, but the EMAC will stay the same.
+
+How do you know? EMAC could just as easily change. It's Gigabit today,
+10G tomorrow.
+
+But if it is separate, then maybe you should model it as a separate
+device using the phy binding.
+
+> So I would like a solution that works on DT and ACPI.  I suppose I could use
+> compatible strings on DT, and a "phy-version" DSD (property) on ACPI.  If
+> that's acceptable to everyone, then I can do that.  It seems clunky to me.
+
+On one hand, why should I care about ACPI for defining DT bindings?
+OTOH, having a phy-version property alone would not be a big deal, but
+you still need distinct compatible strings regardless.
+
+Rob
