@@ -1,88 +1,89 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-Subject: RE: [RFC PATCH v5 3/3] net: phy: Add gmiitorgmii converter support
-Date: Tue, 16 Aug 2016 06:30:00 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E2756@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1470735283-23611-1-git-send-email-appanad@xilinx.com>
- <1470735283-23611-4-git-send-email-appanad@xilinx.com>
- <20160815213059.GK24664@lunn.ch>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH] net: macb: add phy-handle support for the macb
+Date: Tue, 16 Aug 2016 07:01:49 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E27C6@XAP-PVEXMBX01.xlnx.xilinx.com>
+References: <1471082509-11764-1-git-send-email-appanad@xilinx.com>
+ <20160813.115222.443333178659469072.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Soren Brinkmann <sorenb-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Punnaiah Choudary Kalluri" <punnaia-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160815213059.GK24664-g2DYL2Zd6BY@public.gmane.org>
+Cc: "robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+	"sergio.prado@e-labworks.com" <sergio.prado@e-labworks.com>,
+	"gregory.clement@free-electrons.com"
+	<gregory.clement@free-electrons.com>,
+	"narmstrong@baylibre.com" <narmstrong@baylibre.com>,
+	Michal Simek <michals@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0052.outbound.protection.outlook.com ([104.47.37.52]:43184
+	"EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751006AbcHPHE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 03:04:29 -0400
+In-Reply-To: <20160813.115222.443333178659469072.davem@davemloft.net>
 Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+Hi David Miller,
+
+	Thanks for the review...
 
 > 
-> > Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-> > ---
-> > Thanks a lot Andrew for your inputs.
-> > Changes for v5:
-> > --> Fixed return values in the probe as suggested by punnaiah.
-> > --> Added a mask for the converter speed as suggested by punnaiah.
-> > +/* Xilinx GMII2RGMII Converter driver
-> > + *
-> > + * Copyright (C) 2016 Xilinx, Inc.
-> > + *
-> > + * Author: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+> Date: Sat, 13 Aug 2016 15:31:49 +0530
 > 
-> Not cool
+> > @@ -445,7 +445,13 @@ static int macb_mii_init(struct macb *bp)
+> >  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+> >
+> >  	np = bp->pdev->dev.of_node;
+> > -	if (np) {
+> > +	np1 = of_get_parent(bp->phy_node);
+> > +	if (np1) {
+> > +		of_node_put(np1);
+> > +		err = of_mdiobus_register(bp->mii_bus, np1);
+> > +		if (err)
+> > +			goto err_out_unregister_bus;
+> > +	} else if (np) {
 > 
-> https://github.com/lunn/linux/commit/03d375489ceb56e171056f44d0fe9c34ca
-> 5a098e
+> I don't know about this, all OF nodes other than the root have a parent node
+> which is non-NULL.  This parent node can be anything.
 > 
-> Notice the
-> 
-> Not-Signed-off-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-> 
-> and the Copyright i added?
-> 
-> In various emails i gave you the basic idea how this should be done, a framework
-> of code, and then took your code which did not even compile and made the core
-> of it work. This is as much my code as your code, so i expect my Copyright to be
-> kept on this code. And since this is my code, i need to give a Signed-off-by,
-> which i was not yet ready to give since the code was not complete or working.
-> 
-> Please put both my Copyright back and Not-Signed-Off-by back and post the
-> next version as RFC. Once i'm happy this code is O.K, i will give you a Signed-off-
-> by.
+> Just blinding assuming that any parent node of the phy_node is what we are
+> looking for, without any other supplementary checks at all, seems to be asking
+> for trouble at the very least.
 
-Sorry I should have been included your copyright.
+Agree with you my intention is if there is a MDIO bus on the device-tree
+The MAC driver should create PHY/MDIO devices using of_mdiobus_register().
 
-I missed it...
-I didn't included your SOF because.
-AFAIK without explicit permission of the other person we shouldn't include SOF.
-That's why I didn't included your SOF and thanked for your efforts after SOF.
-Sorry if my understanding is wrong.
+How about below code...
+
+-       struct device_node *np;
++       struct device_node *np, *np1;
+        int err = -ENXIO, i;
  
-There are few comments for this patch series and I fixed it and sent the v6 version.
- V6 version of patch series already got merged on the net-next.
+        /* Enable management port */
+@@ -445,7 +445,14 @@ static int macb_mii_init(struct macb *bp)
+        dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+ 
+        np = bp->pdev->dev.of_node;
+-       if (np) {
++       np1 = of_get_child_by_name(np, "mdio");
++       if (np1) {
++               of_node_put(np1);
++               err = of_mdiobus_register(bp->mii_bus, np1);
++               if (err)
++                       goto err_out_unregister_bus;
++       } else if (np) {
+                /* try dt phy registration */
+                err = of_mdiobus_register(bp->mii_bus, np);
 
-Sent the patch by updating the driver with your copy right 
-"net: phy: Update copyright info".
-
-Sorry for the noise will fix these type of issues next time onwards...
+If you are ok with the above code please let me know will post it as v2...
 
 Regards,
 Kedar.
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
