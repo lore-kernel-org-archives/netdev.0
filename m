@@ -1,43 +1,62 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: kernel panic in qdisc_match_from_root starting openvswitch
-Date: Tue, 16 Aug 2016 21:18:37 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1608162115510.22028@cbobk.fhfr.pm>
-References: <bfb76544-6d3a-dcd4-9338-72ecfda9f691@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Microsemi VSC 8531/41 PHY Driver
+Date: Tue, 16 Aug 2016 21:41:32 +0200
+Message-ID: <20160816194132.GA2951@lunn.ch>
+References: <646450A91FAED74E85C6E9C4D6E936A145329E4A@avsrvexchmbx1.microsemi.net>
+ <20160726115556.GC11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A145329E97@avsrvexchmbx1.microsemi.net>
+ <20160726124347.GD11538@lunn.ch>
+ <646450A91FAED74E85C6E9C4D6E936A14532A1E3@avsrvexchmbx1.microsemi.net>
+ <20160729081736.GB13798@lunn.ch>
+ <20160805122420.GA3184@microsemi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Simon Horman <simon.horman@netronome.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:56797 "EHLO mx2.suse.de"
+Received: from vps0.lunn.ch ([178.209.37.122]:36238 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751953AbcHPTdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 15:33:46 -0400
-In-Reply-To: <bfb76544-6d3a-dcd4-9338-72ecfda9f691@cumulusnetworks.com>
+	id S1751651AbcHPTle (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 15:41:34 -0400
+Content-Disposition: inline
+In-Reply-To: <20160805122420.GA3184@microsemi.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Aug 2016, David Ahern wrote:
-
-> Jiri:
+On Fri, Aug 05, 2016 at 05:54:21PM +0530, Nagaraju Lakkaraju wrote:
+> Hello,
 > 
-> I am hitting a kernel panic with '/etc/init.d/openvswitch-switch 
-> restart' Stack trace below. Reverting 59cc1f61f09c ("net: sched: convert 
-> qdisc linked list to hashtable") clears the problem.
+> I added all review comments and re-sending for review.
+> 
+> >From a5017f5878a92d2acec86a6a29b1498c457cb73a Mon Sep 17 00:00:00 2001
+> From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+> Date: Wed, 3 Aug 2016 18:28:24 +0530
+> Subject: [PATCH v2] net: phy: Add drivers for Microsemi PHYs
 
-Thanks a lot for the report. Could you please test either with the 
-attached two patches applied on top of net-next, or alternatively with 
-'might-rebase/net-sched-qdiscs' branch of
+Please use git send-email to send patches.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/jikos/jikos.git
+All comments which should not be committed to the change log should
+appear after the ---. It is normal to briefly list changes between
+this version and the previous version.
 
-(HEAD of that branch is 60b3487ad7f) and report back to me whether it 
-fixes any issues you are seeing? Applying the attached patches on top of 
-net-next or testing with the git branch above should be equivalent test 
-wrt. qdiscs.
+> +static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+> +{
+> +       int rc;
+> +
+> +       rc = phy_write(phydev, MSCC_EXT_PAGE_ACCESS, page);
+> +       return rc;
 
-Thanks,
+Please remove rc and just do
 
--- 
-Jiri Kosina
-SUSE Labs
+	return phy_write(phydev, MSCC_EXT_PAGE_ACCESS, page);
+
+> +}
+> +
+> +static int vsc85xx_default_config(struct phy_device *phydev)
+
+This function is setting the RGMII delay. So vsc85xx_default_config()
+is not a particularly good name.
+
+   Andrew
