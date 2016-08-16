@@ -1,89 +1,87 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH] net: macb: add phy-handle support for the macb
-Date: Tue, 16 Aug 2016 07:01:49 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E27C6@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1471082509-11764-1-git-send-email-appanad@xilinx.com>
- <20160813.115222.443333178659469072.davem@davemloft.net>
+From: wenxu <wenxu@ucloud.cn>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, allow segmentation for gre tunneled skbs
+Date: Tue, 16 Aug 2016 15:12:19 +0800
+Message-ID: <a2d2b7bb-0366-b044-6895-6b5a7790fdf6@ucloud.cn>
+References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
+ <20160810.173511.968926810628735179.davem@davemloft.net>
+ <20160811224132.7a17f0c3@halley>
+ <dfa12e1b-54dc-4e20-8819-cb2400a693d1@stressinduktion.org>
+ <20160815141639.35e940b4@pixies>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-	"sergio.prado@e-labworks.com" <sergio.prado@e-labworks.com>,
-	"gregory.clement@free-electrons.com"
-	<gregory.clement@free-electrons.com>,
-	"narmstrong@baylibre.com" <narmstrong@baylibre.com>,
-	Michal Simek <michals@xilinx.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@trash.net, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, wenx05124561@163.com
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0052.outbound.protection.outlook.com ([104.47.37.52]:43184
-	"EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751006AbcHPHE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 03:04:29 -0400
-In-Reply-To: <20160813.115222.443333178659469072.davem@davemloft.net>
-Content-Language: en-US
+Received: from m97131.qiye.163.com ([220.181.97.131]:11786 "EHLO
+	m97131.qiye.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751304AbcHPHOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 03:14:19 -0400
+In-Reply-To: <20160815141639.35e940b4@pixies>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David Miller,
+Hi,
 
-	Thanks for the review...
+> Hi,
+>
+> On Fri, 12 Aug 2016 13:11:50 +0200, hannes@stressinduktion.org wrote:
+>> I really would not like to see this expanded to gre and other protocols.
+>> All switches drop packets where the packets are exceeding the MTU,
+>> bridges and also openvswitch should behave the same.
+>>
+>> Unfortunately we already had this loophole in the kernel that vxlan udp
+>> output path could fragment the packet again, even in case of switches.
+>> But this stopped working for GSO packets, which violates another rule in
+>> the kernel, GSO should always be transparent and user space should never
+>> have to care if a packet is GSO or not.
+>>
+>> Because we couldn't a) roll back the change that we fragment packets in
+>> UDP output paths and b) should not violate GSO transparency rule, I
+>> strongly believed it would be better too only change the kernel in a way
+>> that it transparently works with GSO, too. If we argue that a VTEP is
+>> its own UDP endpoint which is set up after the bridge, I still can sleep
+>> well. :)
+>>
+>> My understanding was that GRE failed consistently, GSO as well as
+>> non-GSO packets are dropped, which would be the correct behavior for me.
+>> I don't want to change this. A good argument against this would be if we
+>> violate the GSO transparency rule again. But when I looked into the code
+>> I couldn't see that.
+> I completely agree with your arguments.
+>
+> I think we may run into the same GSO vs Non-GSO anomaly if one uses
+> a "nopmtudisc" tunnel, or a gre tunnel in "collect_md" mode, where the
+> encapsulating iphdr 'df' is derived from 'tun_flags&TUNNEL_DONT_FRAGMENT'
+> (e.g. in case DF is not set).
+>
+> I suspect OvS's vport-gre does exactly that, so I assume this is the
+> reason why the change was suggested.
+>
+> Maybe we can change our criteria in the following manner:
+>  
+> -	if (skb_iif && proto == IPPROTO_UDP) {
+> +	if (skb_iif && !(df & htons(IP_DF))) {
+> 		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
+>
+> This way, any tunnel explicitly providing DF is NOT allowed to
+> further fragment the resulting segments (leading to tx segments being
+> dropped).
+> Others tunnels, that do not care (e.g. vxlan and geneve, and probably
+> ovs vport-gre, or other ovs encap vports, in df_default=false mode),
+> will behave same for gso and non-gso.
+>
+> WDYT? Am I missing something here?
+>
+> Thanks,
+> Shmulik
 
-> 
-> From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-> Date: Sat, 13 Aug 2016 15:31:49 +0530
-> 
-> > @@ -445,7 +445,13 @@ static int macb_mii_init(struct macb *bp)
-> >  	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
-> >
-> >  	np = bp->pdev->dev.of_node;
-> > -	if (np) {
-> > +	np1 = of_get_parent(bp->phy_node);
-> > +	if (np1) {
-> > +		of_node_put(np1);
-> > +		err = of_mdiobus_register(bp->mii_bus, np1);
-> > +		if (err)
-> > +			goto err_out_unregister_bus;
-> > +	} else if (np) {
-> 
-> I don't know about this, all OF nodes other than the root have a parent node
-> which is non-NULL.  This parent node can be anything.
-> 
-> Just blinding assuming that any parent node of the phy_node is what we are
-> looking for, without any other supplementary checks at all, seems to be asking
-> for trouble at the very least.
+I think the criteria 'skb_iif && !(df & htons(IP_DF)' is suitable.   'nopmtudisc' tunnel and ovs-gre tunnel can clear the DF through df_default=false.
+In this situation both gso(final segment) or no-gso packet can be fragment(if the packet size is more than mtu).
 
-Agree with you my intention is if there is a MDIO bus on the device-tree
-The MAC driver should create PHY/MDIO devices using of_mdiobus_register().
-
-How about below code...
-
--       struct device_node *np;
-+       struct device_node *np, *np1;
-        int err = -ENXIO, i;
- 
-        /* Enable management port */
-@@ -445,7 +445,14 @@ static int macb_mii_init(struct macb *bp)
-        dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
- 
-        np = bp->pdev->dev.of_node;
--       if (np) {
-+       np1 = of_get_child_by_name(np, "mdio");
-+       if (np1) {
-+               of_node_put(np1);
-+               err = of_mdiobus_register(bp->mii_bus, np1);
-+               if (err)
-+                       goto err_out_unregister_bus;
-+       } else if (np) {
-                /* try dt phy registration */
-                err = of_mdiobus_register(bp->mii_bus, np);
-
-If you are ok with the above code please let me know will post it as v2...
-
-Regards,
-Kedar.
+Thanks
+Wenxu
