@@ -1,35 +1,53 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: atm: remove redundant null pointer check on dev->name
-Date: Tue, 16 Aug 2016 12:08:42 +0100
-Message-ID: <1471345722-19203-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf-next] netfilter: allow logging from non-init namespaces
+Date: Tue, 16 Aug 2016 13:20:05 +0200
+Message-ID: <20160816112005.GA6621@unicorn.suse.cz>
+References: <20160428074838.0BBB5A0C94@unicorn.suse.cz>
+ <20160512095726.GA1975@salvia>
+ <20160516064316.GA6455@unicorn.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Jonathan Corbet <corbet@lwn.net>, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160516064316.GA6455@unicorn.suse.cz>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Mon, May 16, 2016 at 08:43:16AM +0200, Michal Kubecek wrote:
+> On Thu, May 12, 2016 at 11:57:26AM +0200, Pablo Neira Ayuso wrote:
+> > On Wed, Apr 27, 2016 at 02:48:02PM +0200, Michal Kubecek wrote:
+> > > Commit 69b34fb996b2 ("netfilter: xt_LOG: add net namespace support for
+> > > xt_LOG") disabled logging packets using the LOG target from non-init
+> > > namespaces. The motivation was to prevent containers from flooding
+> > > kernel log of the host. The plan was to keep it that way until syslog
+> > > namespace implementation allows containers to log in a safe way.
+> > > 
+> > > However, the work on syslog namespace seems to have hit a dead end
+> > > somewhere in 2013 and there are users who want to use xt_LOG in all
+> > > network namespaces. This patch allows to do so by setting
+> > 
+> > I understand this stuff is tricky. Did you contact already namespace
+> > folks to see if they plan any move on this?
+> 
+> Not yet. I'll contact the people involved in the discussion about the
+> serires submitted in 2013 to check what their plans are (and if there
+> are any).
 
-dev->name is a char array of IFNAMSIZ elements, hence can never be
-null, so the null pointer check is redundant. Remove it.
+Sorry for the delay, there were some security bugs so that this lost my
+attention.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/atm/mpc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I did some asking around and the syslog namespace work is dead. There
+were some design issues that turned out to be hard to address and the
+overall consensus was that use cases like netfilter logging can be
+handled in a different way (e.g. using NFLOG target).
 
-diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-index 0e98222..3b3b1a2 100644
---- a/net/atm/mpc.c
-+++ b/net/atm/mpc.c
-@@ -1007,7 +1007,7 @@ static int mpoa_event_listener(struct notifier_block *mpoa_notifier,
- 	if (!net_eq(dev_net(dev), &init_net))
- 		return NOTIFY_DONE;
- 
--	if (dev->name == NULL || strncmp(dev->name, "lec", 3))
-+	if (strncmp(dev->name, "lec", 3))
- 		return NOTIFY_DONE; /* we are only interested in lec:s */
- 
- 	switch (event) {
--- 
-2.8.1
+Would the patch be acceptable? (It still applies cleanly to current
+nf-next tree but I can resend a rebased version if needed.)
+
+                                                         Michal Kubecek
