@@ -1,61 +1,68 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH] net: thunderx: Fix OOPs with ethtool --register-dump
-Date: Tue, 16 Aug 2016 13:30:36 -0700
-Message-ID: <1471379436-2932-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: Sunil Goutham <sgoutham@cavium.com>,
-	Robert Richter <rric@kernel.org>,
-	linux-arm-kernel@lists.infradead.org,
-	David Daney <david.daney@cavium.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: Linux tcp_xmit_retransmit_queue use after free on 4.8-rc1 /
+ master]
+Date: Tue, 16 Aug 2016 13:31:31 -0700
+Message-ID: <1471379491.4943.15.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160816104551.GA28052@kroah.com>
+	 <1471361940.4943.4.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1471372748.4943.7.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpXV-jV0FsAzxt4JYrc6d5LCCLt-5_0uMvM49sV8-+SDDQ@mail.gmail.com>
+	 <1471379279.4943.14.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Marco Grassi <marco.gra@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35561 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752867AbcHPUbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 16:31:33 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so5733398pad.2
+        for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 13:31:33 -0700 (PDT)
+In-Reply-To: <1471379279.4943.14.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+On Tue, 2016-08-16 at 13:27 -0700, Eric Dumazet wrote:
 
-The ethtool_ops .get_regs function attempts to read the nonexistent
-register NIC_QSET_SQ_0_7_CNM_CHG, which produces a "bus error" type
-OOPs.
+> 
+> Look at skb_entail() : It calls tcp_add_write_queue_tail()
+> 
+> And tcp_add_write_queue_tail() looks like :
+> 
+> 
+> static inline void tcp_add_write_queue_tail(struct sock *sk, struct sk_buff *skb)
+> {
+>         __tcp_add_write_queue_tail(sk, skb);
+> 
+>         /* Queue it, remembering where we must start sending. */
+>         if (sk->sk_send_head == NULL) {
+>                 sk->sk_send_head = skb;
+> 
+>                 if (tcp_sk(sk)->highest_sack == NULL)
+>                         tcp_sk(sk)->highest_sack = skb;
+>         }
+> }
+> 
+> 
+> So we definitely need to undo what tcp_add_write_queue_tail() did.
 
-Fix by not attempting to read, and removing the definition of,
-NIC_QSET_SQ_0_7_CNM_CHG.  A zero is written into the register dump to
-keep the layout unchanged.
+So the bug was probably added in 2.6.25 
 
-Signed-off-by: David Daney <david.daney@cavium.com>
-Cc: <stable@vger.kernel.org> # 4.4.x-
----
- drivers/net/ethernet/cavium/thunder/nic_reg.h       | 1 -
- drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c | 5 ++++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+commit 6859d49475d4f32abe640372117e4b687906e6b6
+Author: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Date:   Sun Dec 2 00:48:06 2007 +0200
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nic_reg.h b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-index afb10e3..fab35a5 100644
---- a/drivers/net/ethernet/cavium/thunder/nic_reg.h
-+++ b/drivers/net/ethernet/cavium/thunder/nic_reg.h
-@@ -170,7 +170,6 @@
- #define   NIC_QSET_SQ_0_7_DOOR			(0x010838)
- #define   NIC_QSET_SQ_0_7_STATUS		(0x010840)
- #define   NIC_QSET_SQ_0_7_DEBUG			(0x010848)
--#define   NIC_QSET_SQ_0_7_CNM_CHG		(0x010860)
- #define   NIC_QSET_SQ_0_7_STAT_0_1		(0x010900)
- 
- #define   NIC_QSET_RBDR_0_1_CFG			(0x010C00)
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index d2d8ef2..ad4fddb 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -382,7 +382,10 @@ static void nicvf_get_regs(struct net_device *dev,
- 		p[i++] = nicvf_queue_reg_read(nic, NIC_QSET_SQ_0_7_DOOR, q);
- 		p[i++] = nicvf_queue_reg_read(nic, NIC_QSET_SQ_0_7_STATUS, q);
- 		p[i++] = nicvf_queue_reg_read(nic, NIC_QSET_SQ_0_7_DEBUG, q);
--		p[i++] = nicvf_queue_reg_read(nic, NIC_QSET_SQ_0_7_CNM_CHG, q);
-+		/* Padding, was NIC_QSET_SQ_0_7_CNM_CHG, which
-+		 * produces bus errors when read
-+		 */
-+		p[i++] = 0;
- 		p[i++] = nicvf_queue_reg_read(nic, NIC_QSET_SQ_0_7_STAT_0_1, q);
- 		reg_offset = NIC_QSET_SQ_0_7_STAT_0_1 | (1 << 3);
- 		p[i++] = nicvf_queue_reg_read(nic, reg_offset, q);
--- 
-1.8.3.1
+    [TCP]: Abstract tp->highest_sack accessing & point to next skb
+    
+    Pointing to the next skb is necessary to avoid referencing
+    already SACKed skbs which will soon be on a separate list.
+    
+    Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+    Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
