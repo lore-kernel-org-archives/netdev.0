@@ -1,276 +1,51 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/2] tipc: make bearer packet
-	filtering generic
-Date: Tue, 16 Aug 2016 11:53:50 -0400
-Message-ID: <1471362831-30006-2-git-send-email-jon.maloy@ericsson.com>
-References: <1471362831-30006-1-git-send-email-jon.maloy@ericsson.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] sctp: fix a success return may hide an error
+Date: Tue, 16 Aug 2016 16:01:50 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
+References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+ <20160812.211113.1099230839994600349.davem@davemloft.net>
+ <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
+ <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1471362831-30006-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"Marcelo Ricardo Leitner" <marcelo.leitner@gmail.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: 'Xin Long' <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.193]:55642 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbcHPQET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 12:04:19 -0400
+In-Reply-To: <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit 5b7066c3dd24 ("tipc: stricter filtering of packets in bearer
-layer") we introduced a method of filtering out messages while a bearer
-is being reset, to avoid that links may be re-created and come back in
-working state while we are still in the process of shutting them down.
-
-This solution works well, but is limited to only work with L2 media, which
-is insufficient with the increasing use of UDP as carrier media.
-
-We now replace this solution with a more generic one, by introducing a
-new flag "up" in the generic struct tipc_bearer. This field will be set
-and reset at the same locations as with the previous solution, while
-the packet filtering is moved to the generic code for the sending side.
-On the receiving side, the filtering is still done in media specific
-code, but now including the UDP bearer.
-
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bearer.c    | 78 +++++++++++++++++++++++++++-------------------------
- net/tipc/bearer.h    |  1 +
- net/tipc/udp_media.c |  2 +-
- 3 files changed, 42 insertions(+), 39 deletions(-)
-
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 65b1bbf..6fc4e3c 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -56,6 +56,13 @@ static struct tipc_media * const media_info_array[] = {
- 	NULL
- };
- 
-+static struct tipc_bearer *bearer_get(struct net *net, int bearer_id)
-+{
-+	struct tipc_net *tn = tipc_net(net);
-+
-+	return rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
-+}
-+
- static void bearer_disable(struct net *net, struct tipc_bearer *b);
- 
- /**
-@@ -323,6 +330,7 @@ restart:
- 	b->domain = disc_domain;
- 	b->net_plane = bearer_id + 'A';
- 	b->priority = priority;
-+	test_and_set_bit_lock(0, &b->up);
- 
- 	res = tipc_disc_create(net, b, &b->bcast_addr, &skb);
- 	if (res) {
-@@ -360,15 +368,24 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b)
-  */
- void tipc_bearer_reset_all(struct net *net)
- {
--	struct tipc_net *tn = tipc_net(net);
- 	struct tipc_bearer *b;
- 	int i;
- 
- 	for (i = 0; i < MAX_BEARERS; i++) {
--		b = rcu_dereference_rtnl(tn->bearer_list[i]);
-+		b = bearer_get(net, i);
-+		if (b)
-+			clear_bit_unlock(0, &b->up);
-+	}
-+	for (i = 0; i < MAX_BEARERS; i++) {
-+		b = bearer_get(net, i);
- 		if (b)
- 			tipc_reset_bearer(net, b);
- 	}
-+	for (i = 0; i < MAX_BEARERS; i++) {
-+		b = bearer_get(net, i);
-+		if (b)
-+			test_and_set_bit_lock(0, &b->up);
-+	}
- }
- 
- /**
-@@ -382,8 +399,9 @@ static void bearer_disable(struct net *net, struct tipc_bearer *b)
- 	int bearer_id = b->identity;
- 
- 	pr_info("Disabling bearer <%s>\n", b->name);
--	b->media->disable_media(b);
-+	clear_bit_unlock(0, &b->up);
- 	tipc_node_delete_links(net, bearer_id);
-+	b->media->disable_media(b);
- 	RCU_INIT_POINTER(b->media_ptr, NULL);
- 	if (b->link_req)
- 		tipc_disc_delete(b->link_req);
-@@ -440,22 +458,16 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
- {
- 	struct net_device *dev;
- 	int delta;
--	void *tipc_ptr;
- 
- 	dev = (struct net_device *)rcu_dereference_rtnl(b->media_ptr);
- 	if (!dev)
- 		return 0;
- 
--	/* Send RESET message even if bearer is detached from device */
--	tipc_ptr = rcu_dereference_rtnl(dev->tipc_ptr);
--	if (unlikely(!tipc_ptr && !msg_is_reset(buf_msg(skb))))
--		goto drop;
--
--	delta = dev->hard_header_len - skb_headroom(skb);
--	if ((delta > 0) &&
--	    pskb_expand_head(skb, SKB_DATA_ALIGN(delta), 0, GFP_ATOMIC))
--		goto drop;
--
-+	delta = SKB_DATA_ALIGN(dev->hard_header_len - skb_headroom(skb));
-+	if ((delta > 0) && pskb_expand_head(skb, delta, 0, GFP_ATOMIC)) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
- 	skb_reset_network_header(skb);
- 	skb->dev = dev;
- 	skb->protocol = htons(ETH_P_TIPC);
-@@ -463,9 +475,6 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
- 			dev->dev_addr, skb->len);
- 	dev_queue_xmit(skb);
- 	return 0;
--drop:
--	kfree_skb(skb);
--	return 0;
- }
- 
- int tipc_bearer_mtu(struct net *net, u32 bearer_id)
-@@ -487,12 +496,12 @@ void tipc_bearer_xmit_skb(struct net *net, u32 bearer_id,
- 			  struct sk_buff *skb,
- 			  struct tipc_media_addr *dest)
- {
--	struct tipc_net *tn = tipc_net(net);
-+	struct tipc_msg *hdr = buf_msg(skb);
- 	struct tipc_bearer *b;
- 
- 	rcu_read_lock();
--	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
--	if (likely(b))
-+	b = bearer_get(net, bearer_id);
-+	if (likely(b && (test_bit(0, &b->up) || msg_is_reset(hdr))))
- 		b->media->send_msg(net, skb, b, dest);
- 	else
- 		kfree_skb(skb);
-@@ -505,7 +514,6 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- 		      struct sk_buff_head *xmitq,
- 		      struct tipc_media_addr *dst)
- {
--	struct tipc_net *tn = net_generic(net, tipc_net_id);
- 	struct tipc_bearer *b;
- 	struct sk_buff *skb, *tmp;
- 
-@@ -513,12 +521,15 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
- 		return;
- 
- 	rcu_read_lock();
--	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
-+	b = bearer_get(net, bearer_id);
- 	if (unlikely(!b))
- 		__skb_queue_purge(xmitq);
- 	skb_queue_walk_safe(xmitq, skb, tmp) {
- 		__skb_dequeue(xmitq);
--		b->media->send_msg(net, skb, b, dst);
-+		if (likely(test_bit(0, &b->up) || msg_is_reset(buf_msg(skb))))
-+			b->media->send_msg(net, skb, b, dst);
-+		else
-+			kfree(skb);
- 	}
- 	rcu_read_unlock();
- }
-@@ -535,8 +546,8 @@ void tipc_bearer_bc_xmit(struct net *net, u32 bearer_id,
- 	struct tipc_msg *hdr;
- 
- 	rcu_read_lock();
--	b = rcu_dereference_rtnl(tn->bearer_list[bearer_id]);
--	if (unlikely(!b))
-+	b = bearer_get(net, bearer_id);
-+	if (unlikely(!b || !test_bit(0, &b->up)))
- 		__skb_queue_purge(xmitq);
- 	skb_queue_walk_safe(xmitq, skb, tmp) {
- 		hdr = buf_msg(skb);
-@@ -566,7 +577,8 @@ static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
- 
- 	rcu_read_lock();
- 	b = rcu_dereference_rtnl(dev->tipc_ptr);
--	if (likely(b && (skb->pkt_type <= PACKET_BROADCAST))) {
-+	if (likely(b && test_bit(0, &b->up) &&
-+		   (skb->pkt_type <= PACKET_BROADCAST))) {
- 		skb->next = NULL;
- 		tipc_rcv(dev_net(dev), skb, b);
- 		rcu_read_unlock();
-@@ -591,18 +603,9 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	struct net *net = dev_net(dev);
--	struct tipc_net *tn = tipc_net(net);
- 	struct tipc_bearer *b;
--	int i;
- 
- 	b = rtnl_dereference(dev->tipc_ptr);
--	if (!b) {
--		for (i = 0; i < MAX_BEARERS; b = NULL, i++) {
--			b = rtnl_dereference(tn->bearer_list[i]);
--			if (b && (b->media_ptr == dev))
--				break;
--		}
--	}
- 	if (!b)
- 		return NOTIFY_DONE;
- 
-@@ -613,11 +616,10 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 		if (netif_carrier_ok(dev))
- 			break;
- 	case NETDEV_UP:
--		rcu_assign_pointer(dev->tipc_ptr, b);
-+		test_and_set_bit_lock(0, &b->up);
- 		break;
- 	case NETDEV_GOING_DOWN:
--		RCU_INIT_POINTER(dev->tipc_ptr, NULL);
--		synchronize_net();
-+		clear_bit_unlock(0, &b->up);
- 		tipc_reset_bearer(net, b);
- 		break;
- 	case NETDEV_CHANGEMTU:
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 43757f1..83a9abb 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -150,6 +150,7 @@ struct tipc_bearer {
- 	u32 identity;
- 	struct tipc_link_req *link_req;
- 	char net_plane;
-+	unsigned long up;
- };
- 
- struct tipc_bearer_names {
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index b016c01..33bdf54 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -224,7 +224,7 @@ static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
- 	rcu_read_lock();
- 	b = rcu_dereference_rtnl(ub->bearer);
- 
--	if (b) {
-+	if (b && test_bit(0, &b->up)) {
- 		tipc_rcv(sock_net(sk), skb, b);
- 		rcu_read_unlock();
- 		return 0;
--- 
-2.7.4
-
-
-------------------------------------------------------------------------------
+RnJvbTogWGluIExvbmcNCj4gU2VudDogMTYgQXVndXN0IDIwMTYgMTI6MzQNCj4NCj4gPj4gQm90
+aCBzY3RwX291dHFfZmx1c2hfcnR4IGFuZCBzY3RwX3BhY2tldF90cmFuc21pdCBjYW4gT05MWQ0K
+PiA+PiByZXR1cm4gb25lIGVycm9yICgtRU5PTUVNKSwgYXMgc2N0cF9vdXRxX2ZsdXNoX3J0eCBh
+bHNvIGNhbGxzDQo+ID4+IHNjdHBfcGFja2V0X3RyYW5zbWl0Lg0KPiA+DQo+ID4gV2hhdCBpcyB0
+aGUgZWZmZWN0IG9mIHRoZSBlcnJvcj8NCj4gPiBJZiBpdCBpcyAnanVzdCcgZXF1aXZhbGVudCB0
+byBhIGxvc3QgZXRoZXJuZXQgcGFja2V0IChhbmQgdGhlIHNrYiAoZXRjKQ0KPiA+IGlzIGZyZWVk
+KSB0aGVuIHRoZSBwcm90b2NvbCB3aWxsIHJlY292ZXIuDQo+ID4gSWYgaXQgaXMgYW55dGhpbmcg
+ZWxzZSB0aGVuIHRoZSBlcnJvciBwYXRoIGlzIHByb2JhYmx5IHdyb25nLg0KPg0KPiBUaGlzIGVy
+ciByZXR1cm5zIGJhY2sgdG8gc2N0cF9zZW5kbXNnLCB0aGVyZSBzY3RwIHdpbGwgYWJvcnQgYXNv
+Yy4NCg0KVGhhdCBkb2Vzbid0IHNlZW0gYSBnb29kIGlkZWEuDQpZb3UgZG9uJ3Qgd2FudCB0byBh
+Ym9ydCB0aGUgYXNzb2NpYXRpb24gaWYgdGhlcmUgaXMgYSB0cmFuc2llbnQNCm1lbW9yeSBhbGxv
+Y2F0aW9uIGZhaWx1cmUuDQpZb3UgYWxzbyBjYW4ndCBkcm9wIGRhdGEgY2h1bmtzLg0KDQo+IGlu
+IHRoaXMgZnVuY3Rpb24sIHNjdHAgdHJpZXMgdG8gZG8gMyB0aGluZ3M6DQo+IDEuIGZsdXNoIHJ0
+eCBxdWV1ZQ0KPiAyLiB0cmFuc21pdCB0aGUgcGFja2V0IG9mIGN1cnJlbnQgdHJhbnNwb3J0DQo+
+IDMuIGZsdXNoIGFsbCB0aGUgdHJhbnNwb3J0cy4NCj4gTm93IHNjdHAgd291bGQgZG8gdGhlbSBv
+bmUgYnkgb25lLCBldmVuIGlmIG9uZSBvZiB0aGVtIHJldHVybnMgZXJyLg0KDQpZb3UgcHJvYmFi
+bHkgbmVlZCB0byBleHBsYWluIHdoYXQgJ2ZsdXNoJyBtZWFucyBoZXJlLg0KSSB0aGluayBpdCBt
+ZWFucyAncHJvY2VzcyBhbmQgc2VuZCcsIGJ1dCBpdCBtaWdodCBtZWFuICdkaXNjYXJkIHRoZQ0K
+Y29udGVudHMgb2YnLg0KDQpMYXN0IHRpbWUgSSBsb29rZWQgYXQgdGhlIHNjdHAgY29kZSBteSBo
+ZWFkIGV4cGxvZGVkLg0KSVNUUiBpdCBpcyBhIG1lc3Mgb2YgdGltaW5nIGVycm9ycyB3YWl0aW5n
+IHRvIGhhcHBlbg0KKGFuZCBJIHdyaXRlIGNvbW1zIHByb3RvY29sIHN0YWNrIGNvZGUgZm9yIGEg
+bGl2aW5nKS4NCg0KCURhdmlkDQoNCg==
