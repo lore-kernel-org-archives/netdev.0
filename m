@@ -1,32 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH] samples/bpf: Add tunnel set/get tests.
-Date: Tue, 16 Aug 2016 17:00:08 +0200
-Message-ID: <57B32A78.2000105@iogearbox.net>
-References: <1471356181-32069-1-git-send-email-u9012063@gmail.com>
+From: Kyle McMartin <kyle@infradead.org>
+Subject: Re: [PATCH linux-firmware] qed: Add firmware 8.10.10.0
+Date: Tue, 16 Aug 2016 11:14:20 -0400
+Message-ID: <20160816151420.GA20731@merlin.infradead.org>
+References: <1471357990-6255-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: William Tu <u9012063@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-firmware@kernel.org
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:38324 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753240AbcHPPAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 11:00:39 -0400
-In-Reply-To: <1471356181-32069-1-git-send-email-u9012063@gmail.com>
+Received: from merlin.infradead.org ([205.233.59.134]:58964 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751455AbcHPPOW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 11:14:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1471357990-6255-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/16/2016 04:03 PM, William Tu wrote:
-> The patch creates sample code exercising bpf_skb_{set,get}_tunnel_key,
-> and bpf_skb_{set,get}_tunnel_opt for GRE, VXLAN, and GENEVE.  A native
-> tunnel device is created in a namespace to interact with a lwtunnel
-> device out of the namespace, with metadata enabled.  The bpf_skb_set_*
-> program is attached to tc egress and bpf_skb_get_* is attached to egress
-> qdisc.  A ping between two tunnels is used to verify correctness and
-> the result of bpf_skb_get_* printed by bpf_trace_printk.
->
-> Signed-off-by: William Tu <u9012063@gmail.com>
+On Tue, Aug 16, 2016 at 05:33:10PM +0300, Yuval Mintz wrote:
+> This new firmware for the qed* adpaters fixes several issues:
+>  - Better blocking of malicious VFs.
+>  - After FLR, Tx-switching [internal routing] of packets might
+>    be incorrect.
+>  - Deletion of unicast MAC filters would sometime have side-effect
+>    of corrupting the MAC filters configred for a device.
+> It also contains fixes for future qed* drivers that *hopefully* would be
+> sent for review in the near future.
+> 
+> In addition, it would allow driver some new functionality, including:
+>  - Allowing PF/VF driver compaitibility with old drivers [running
+>    pre-8.10.5.0 firmware].
+>  - Better debug facilities.
+> 
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-For net-next tree. LGTM, thanks!
+Applied, thanks Yuval.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+--Kyle
