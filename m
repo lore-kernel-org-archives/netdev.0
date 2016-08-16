@@ -1,53 +1,54 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Subject: [PATCH] net: ipconfig: Fix more use after free
-Date: Tue, 16 Aug 2016 16:45:38 +0200
-Message-ID: <20160816144538.3181-1-thierry.reding@gmail.com>
-Cc: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	Geert Uytterhoeven <geert+renesas@glider.be>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 5/6] net: dsa: mv88e6xxx: describe PHY page and SerDes
+Date: Tue, 16 Aug 2016 10:57:56 -0400
+Message-ID: <874m6kzrpn.fsf@ketchup.mtl.sfl>
+References: <20160815211902.2236-1-vivien.didelot@savoirfairelinux.com> <20160815211902.2236-6-vivien.didelot@savoirfairelinux.com> <20160816011618.GL24664@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160816011618.GL24664@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thierry Reding <treding@nvidia.com>
+Hi Andrew,
 
-While commit 9c706a49d660 ("net: ipconfig: fix use after free") avoids
-the use after free, the resulting code still ends up calling both the
-ic_setup_if() and ic_setup_routes() after calling ic_close_devs(), and
-access to the device is still required.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Move the call to ic_close_devs() to the very end of the function.
+> On Mon, Aug 15, 2016 at 05:19:01PM -0400, Vivien Didelot wrote:
+>> +static int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
+>> +				   u8 page, int reg, u16 *val)
+>> +{
+>> +	int err;
+>> +
+>> +	/* There is no paging for registers 22 */
+>> +	if (reg == PHY_PAGE)
+>> +		return -EINVAL;
+>
+> This whole paging scheme only works for internal PHYs, or external
+> PHYs which happen to be Marvell PHYs. We need to be a little bit
+> careful here and ensure these functions don't get used for external
+> PHYs when we don't know who manufactured them. 
+>
+> At the moment the code is O.K, we only access SERDES or temperature
+> sensors for a given port. But i wounder if adding a comment would be
+> wise?
 
-Signed-off-by: Thierry Reding <treding@nvidia.com>
----
-This applies on top of next-20160816.
+That is a good point, I thought about that too. I was thinking about
+adding an internal_phys bitmask to the chip info structures and check it
+in mv88e6xxx_phy_page_get(), so we could return -EINVAL for external
+PHYs, since the switch driver isn't supposed to access their pages.
 
- net/ipv4/ipconfig.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+But I also think that most of the PHY code should be moved to a proper
+PHY driver, since they are valid Marvell chips with their own PHY IDs.
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 66c2fe602810..ba9cbeafbb2e 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -1530,12 +1530,14 @@ static int __init ip_auto_config(void)
- 	 * Close all network devices except the device we've
- 	 * autoconfigured and set up routes.
- 	 */
--	ic_close_devs();
- 	if (ic_setup_if() < 0 || ic_setup_routes() < 0)
--		return -1;
-+		err = -1;
-+	else
-+		err = 0;
- 
-+	ic_close_devs();
- 
--	return 0;
-+	return err;
- }
- 
- late_initcall(ip_auto_config);
--- 
-2.9.0
+Until we move the PHY and SERDES code out of the mv88e6xxx driver, I
+think we are safe.
+
+Thanks,
+
+        Vivien
