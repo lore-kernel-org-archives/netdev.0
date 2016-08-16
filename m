@@ -1,51 +1,102 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: next-20160816 build: 1 failures 2 warnings (next-20160816)
-Date: Tue, 16 Aug 2016 17:38:41 +0100
-Message-ID: <20160816163841.GU9347@sirena.org.uk>
-References: <E1bZaoA-0004xE-Oj@optimist>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v6 3/3] net: phy: Add gmiitorgmii converter support
+Date: Tue, 16 Aug 2016 18:53:20 +0200
+Message-ID: <20160816165320.GP14446@lunn.ch>
+References: <1470808208-32133-1-git-send-email-appanad@xilinx.com>
+ <1470808208-32133-4-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="00zH/wdDQmWzr4bS"
-Cc: kernel-build-reports@lists.linaro.org,
-	linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>,
-	Leon Romanovsky <leon@kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, michal.simek@xilinx.com,
+	soren.brinkmann@xilinx.com, appanad@xilinx.com,
+	f.fainelli@gmail.com, punnaia@xilinx.com,
+	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <E1bZaoA-0004xE-Oj@optimist>
-Sender: linux-next-owner@vger.kernel.org
+In-Reply-To: <1470808208-32133-4-git-send-email-appanad@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> +static int xgmiitorgmii_read_status(struct phy_device *phydev)
+> +{
+> +	struct gmii2rgmii *priv = phydev->priv;
+> +	u16 val = 0;
+> +
+> +	priv->phy_drv->read_status(phydev);
 
---00zH/wdDQmWzr4bS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This can return an error, in which case phydev->speed should not be
+trusted.
 
-On Tue, Aug 16, 2016 at 10:37:20AM +0100, Build bot for Mark Brown wrote:
+I've not thought locking all the way through yet. I don't think you
+need a lock here, but i need to think about it.
 
-Today's -next fails to build an ARM allmodconfig due to:
+> +
+> +	val = mdiobus_read(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG);
 
-> 	arm-allmodconfig
-> ../drivers/net/ethernet/mellanox/mlx5/core/debugfs.c:300:61: error: 'outb' undeclared (first use in this function)
+You should check for an error here.
 
-which appears to be caused by 535e20f083e6 ({net,IB}/mlx5: QP/XRCD
-commands via mlx5 ifc).  outb() just isn't available as standard on ARM,
-it's not something that's meaningful for the hardware.
+> +	val &= XILINX_GMII2RGMII_SPEED_MASK;
+> +
+> +	if (phydev->speed == SPEED_1000)
+> +		val |= BMCR_SPEED1000;
+> +	else if (phydev->speed == SPEED_100)
+> +		val |= BMCR_SPEED100;
+> +	else
+> +		val |= BMCR_SPEED10;
 
---00zH/wdDQmWzr4bS
-Content-Type: application/pgp-signature; name="signature.asc"
+What happens if for example the PHY is an aquantia and has negotiated
+SPEED_2500? Some Marvell PHYs can also do odd speeds, like 200Mbps.
+You probably want to return an error, rather than silently have things
+go wrong.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+> +
+> +	mdiobus_write(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG, val);
 
-iQEcBAEBCAAGBQJXs0GQAAoJECTWi3JdVIfQiX4H/iiH3VkZfY66gGV542x56tRt
-pM4JLiNISQesuGC/MUsje7QHddEoOi/6hbXRSWOFnQgl95LsCgZ2ObWJCKsDiO6Q
-6PKx8lMgfptozqm24/pTF9ClsCru1rS9wcy/EPirEvOZ2nacgIO1JLt7iBBauSgw
-m6nQuuUJoM1xQxjo9JUfTK2yVxaZ+0ca+5zBpt5vSe8i/ETc5ogM2oZEQgiEIBI2
-MFbniiB7jfSZXifTgGF02lVFetXxz0Vk2YuHtvpuYhTEaS4w5BWE3ZXbrrszVVas
-EnnPy/SFSHX2COxIjMFFGYTaPaQcvdMKLN4+GFgy4ktKnls00A1nqVQudKntXA8=
-=hABn
------END PGP SIGNATURE-----
+This can also return an error.
 
---00zH/wdDQmWzr4bS--
+> +	return 0;
+> +}
+> +
+> +int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+> +{
+> +	struct device *dev = &mdiodev->dev;
+> +	struct device_node *np = dev->of_node, *phy_node;
+> +	struct gmii2rgmii *priv;
+> +
+> +	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+> +	if (!priv)
+> +		return -ENOMEM;
+> +
+> +	phy_node = of_parse_phandle(np, "phy-handle", 0);
+> +	if (IS_ERR(phy_node)) {
+> +		dev_err(dev, "Couldn't parse phy-handle\n");
+> +		return -ENODEV;
+> +	}
+> +
+> +	priv->phy_dev = of_phy_find_device(phy_node);
+> +	if (!priv->phy_dev) {
+> +		dev_info(dev, "Couldn't find phydev\n");
+> +		return -EPROBE_DEFER;
+> +	}
+> +
+> +	priv->addr = mdiodev->addr;
+> +	priv->phy_drv = priv->phy_dev->drv;
+> +	memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
+> +	       sizeof(struct phy_driver));
+> +	priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
+> +	priv->phy_dev->priv = priv;
+> +	priv->phy_dev->drv = &priv->conv_phy_drv;
+
+So from this point onward, the phy driver depends on the memory
+allocated by this driver. If this driver goes away, freeing its
+memory, the next call to read_status() is going to have a problem.
+
+Also, i think this assignment should take the phy lock, just to be
+safe.
+
+There also needs to be some thought into what happens if the phy
+driver is unloaded. Should this driver take a reference on the phy
+driver to prevent that?
+
+       Andrew
