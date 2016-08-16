@@ -1,13 +1,16 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 00/16] pull request for net-next: batman-adv
-	2016-08-16
-Date: Tue, 16 Aug 2016 10:32:28 +0200
-Message-ID: <1471336364-16334-1-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 01/16] batman-adv: Handle parent interfaces
+	in a different netns
+Date: Tue, 16 Aug 2016 10:32:29 +0200
+Message-ID: <1471336364-16334-2-git-send-email-sw@simonwunderlich.de>
+References: <1471336364-16334-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1471336364-16334-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -19,99 +22,126 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 
-this is our second feature pull request for batman-adv in this round, with
-our joint work on netlink and netns support. There will be at least one more
-pull request coming later.
+batman-adv tries to prevent the user from placing a batX soft
+interface into another batman mesh as a hard interface. It does this
+by walking up the devices list of parents and ensures they are all
+none batX interfaces. iflink can point to an interface in a different
+namespace, so also retrieve the parents name space when finding the
+parent and use it when doing the comparison.
 
-Please pull or let me know of any problem!
+Signed-off-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+[sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org: Fix alignments, simplify parent netns retrieval]
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+---
+ net/batman-adv/hard-interface.c | 50 +++++++++++++++++++++++++++++++++++------
+ 1 file changed, 43 insertions(+), 7 deletions(-)
 
-Thank you,
-      Simon
-
-The following changes since commit b5dcbad25219b82408e15e6d775a406be2116af1:
-
-  batman-adv: Fix consistency of update route messages (2016-08-09 07:54:34 +0200)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20160816
-
-for you to fetch changes up to 4c09a08b47ffac9aa3bc91870aa54c9ae39d9674:
-
-  batman-adv: Indicate netlink socket can be used with netns. (2016-08-09 07:54:43 +0200)
-
-----------------------------------------------------------------
-This feature patchset is all about adding netlink support, which should
-supersede our debugfs configuration interface in the long run. It is
-especially necessary when batman-adv should be used in different
-namespaces, since debugfs can not differentiate between those.
-
-More specifically, the following changes are included:
-
- - Two fixes for namespace handling by Andrew Lunn, checking also the
-   namespaces for parent interfaces, and supress debugfs entries
-   for non-default netns
-
- - Implement various netlink commands for the new interface, by
-   Matthias Schiffer, Andrew Lunn, Sven Eckelmann and Simon Wunderlich
-   (13 patches):
-    * routing algorithm list
-    * hardif list
-    * translation tables (local and global)
-    * TTVN for the translation tables
-    * originator and neighbor tables for B.A.T.M.A.N. IV
-      and B.A.T.M.A.N. V
-    * gateway dump functionality for B.A.T.M.A.N. IV
-      and B.A.T.M.A.N. V
-    * Bridge Loop Avoidance claims, and corresponding BLA group
-    * Bridge Loop Avoidance backbone tables
-
- - Finally, mark batman-adv as netns compatible, by Andrew Lunn (1 patch)
-
-----------------------------------------------------------------
-Andrew Lunn (5):
-      batman-adv: Handle parent interfaces in a different netns
-      batman-adv: Suppress debugfs entries for netns's
-      batman-adv: add B.A.T.M.A.N. IV bat_gw_dump implementations
-      batman-adv: add B.A.T.M.A.N. Dump BLA claims via netlink
-      batman-adv: Indicate netlink socket can be used with netns.
-
-Matthias Schiffer (6):
-      batman-adv: netlink: add routing_algo query
-      batman-adv: netlink: hardif query
-      batman-adv: netlink: add translation table query
-      batman-adv: netlink: add originator and neighbor table queries
-      batman-adv: add B.A.T.M.A.N. IV bat_{orig, neigh}_dump implementations
-      batman-adv: add B.A.T.M.A.N. V bat_{orig, neigh}_dump implementations
-
-Simon Wunderlich (1):
-      batman-adv: add backbone table netlink support
-
-Sven Eckelmann (4):
-      batman-adv: Provide TTVN in the mesh_info netlink msg
-      batman-adv: netlink: add gateway table queries
-      batman-adv: add B.A.T.M.A.N. V bat_gw_dump implementations
-      batman-adv: Provide bla group in the mesh_info netlink msg
-
- include/uapi/linux/batman_adv.h        |  94 +++++++
- net/batman-adv/bat_algo.c              |  68 +++++
- net/batman-adv/bat_algo.h              |   3 +
- net/batman-adv/bat_iv_ogm.c            | 471 +++++++++++++++++++++++++++++++++
- net/batman-adv/bat_v.c                 | 465 ++++++++++++++++++++++++++++++++
- net/batman-adv/bridge_loop_avoidance.c | 333 +++++++++++++++++++++++
- net/batman-adv/bridge_loop_avoidance.h |  17 +-
- net/batman-adv/debugfs.c               |  18 ++
- net/batman-adv/gateway_client.c        |  59 +++++
- net/batman-adv/gateway_client.h        |   2 +
- net/batman-adv/hard-interface.c        |  50 +++-
- net/batman-adv/netlink.c               | 217 ++++++++++++++-
- net/batman-adv/netlink.h               |   6 +
- net/batman-adv/originator.c            | 160 +++++++++++
- net/batman-adv/originator.h            |   4 +
- net/batman-adv/packet.h                |  36 ---
- net/batman-adv/translation-table.c     | 377 ++++++++++++++++++++++++++
- net/batman-adv/translation-table.h     |   4 +
- net/batman-adv/types.h                 |  12 +
- 19 files changed, 2348 insertions(+), 48 deletions(-)
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 714af8e..43c9a3e 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -35,6 +35,8 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
++#include <net/net_namespace.h>
++#include <net/rtnetlink.h>
+ 
+ #include "bat_v.h"
+ #include "bridge_loop_avoidance.h"
+@@ -84,25 +86,55 @@ out:
+ }
+ 
+ /**
++ * batadv_getlink_net - return link net namespace (of use fallback)
++ * @netdev: net_device to check
++ * @fallback_net: return in case get_link_net is not available for @netdev
++ *
++ * Return: result of rtnl_link_ops->get_link_net or @fallback_net
++ */
++static const struct net *batadv_getlink_net(const struct net_device *netdev,
++					    const struct net *fallback_net)
++{
++	if (!netdev->rtnl_link_ops)
++		return fallback_net;
++
++	if (!netdev->rtnl_link_ops->get_link_net)
++		return fallback_net;
++
++	return netdev->rtnl_link_ops->get_link_net(netdev);
++}
++
++/**
+  * batadv_mutual_parents - check if two devices are each others parent
+- * @dev1: 1st net_device
+- * @dev2: 2nd net_device
++ * @dev1: 1st net dev
++ * @net1: 1st devices netns
++ * @dev2: 2nd net dev
++ * @net2: 2nd devices netns
+  *
+  * veth devices come in pairs and each is the parent of the other!
+  *
+  * Return: true if the devices are each others parent, otherwise false
+  */
+ static bool batadv_mutual_parents(const struct net_device *dev1,
+-				  const struct net_device *dev2)
++				  const struct net *net1,
++				  const struct net_device *dev2,
++				  const struct net *net2)
+ {
+ 	int dev1_parent_iflink = dev_get_iflink(dev1);
+ 	int dev2_parent_iflink = dev_get_iflink(dev2);
++	const struct net *dev1_parent_net;
++	const struct net *dev2_parent_net;
++
++	dev1_parent_net = batadv_getlink_net(dev1, net1);
++	dev2_parent_net = batadv_getlink_net(dev2, net2);
+ 
+ 	if (!dev1_parent_iflink || !dev2_parent_iflink)
+ 		return false;
+ 
+ 	return (dev1_parent_iflink == dev2->ifindex) &&
+-	       (dev2_parent_iflink == dev1->ifindex);
++	       (dev2_parent_iflink == dev1->ifindex) &&
++	       net_eq(dev1_parent_net, net2) &&
++	       net_eq(dev2_parent_net, net1);
+ }
+ 
+ /**
+@@ -120,8 +152,9 @@ static bool batadv_mutual_parents(const struct net_device *dev1,
+  */
+ static bool batadv_is_on_batman_iface(const struct net_device *net_dev)
+ {
+-	struct net_device *parent_dev;
+ 	struct net *net = dev_net(net_dev);
++	struct net_device *parent_dev;
++	const struct net *parent_net;
+ 	bool ret;
+ 
+ 	/* check if this is a batman-adv mesh interface */
+@@ -133,13 +166,16 @@ static bool batadv_is_on_batman_iface(const struct net_device *net_dev)
+ 	    dev_get_iflink(net_dev) == net_dev->ifindex)
+ 		return false;
+ 
++	parent_net = batadv_getlink_net(net_dev, net);
++
+ 	/* recurse over the parent device */
+-	parent_dev = __dev_get_by_index(net, dev_get_iflink(net_dev));
++	parent_dev = __dev_get_by_index((struct net *)parent_net,
++					dev_get_iflink(net_dev));
+ 	/* if we got a NULL parent_dev there is something broken.. */
+ 	if (WARN(!parent_dev, "Cannot find parent device"))
+ 		return false;
+ 
+-	if (batadv_mutual_parents(net_dev, parent_dev))
++	if (batadv_mutual_parents(net_dev, net, parent_dev, parent_net))
+ 		return false;
+ 
+ 	ret = batadv_is_on_batman_iface(parent_dev);
+-- 
+2.8.1
