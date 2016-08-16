@@ -1,7 +1,7 @@
 From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Subject: [PATCH net-next 3/3] qed: Add support for NCSI statistics.
-Date: Tue, 16 Aug 2016 10:51:03 -0400
-Message-ID: <1471359063-6193-4-git-send-email-sudarsana.kalluru@qlogic.com>
+Subject: [PATCH net-next 1/3] qede: Add support for capturing additional stats in ethtool-stats display.
+Date: Tue, 16 Aug 2016 10:51:01 -0400
+Message-ID: <1471359063-6193-2-git-send-email-sudarsana.kalluru@qlogic.com>
 References: <1471359063-6193-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,244 +9,63 @@ Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
 	<sudarsana.kalluru@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33891 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:33888 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753450AbcHPPeU (ORCPT
+	by vger.kernel.org with ESMTP id S1752510AbcHPPeU (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 11:34:20 -0400
 In-Reply-To: <1471359063-6193-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds driver support for sending the NCSI statistics to the
-MFW. This is an asynchronous request from MFW. Upon receiving this, driver
-populates the required data and send it to MFW.
+The patch adds driver support for capturing stats ttl0_discard and
+packet_too_big_discard in "ethtool -S" display.
 
 Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h      |  6 +++-
- drivers/net/ethernet/qlogic/qed/qed_hsi.h  | 14 ++++++---
- drivers/net/ethernet/qlogic/qed/qed_l2.h   |  2 ++
- drivers/net/ethernet/qlogic/qed/qed_main.c | 21 +++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.c  | 48 ++++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_mcp.h  | 41 +++++++++++++++++++++++++
- 6 files changed, 127 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede.h         | 2 ++
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 2 ++
+ drivers/net/ethernet/qlogic/qede/qede_main.c    | 2 ++
+ 3 files changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 35e5377..d0beb5d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -42,6 +42,8 @@ enum qed_coalescing_mode {
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 02b06d4..9060c2a 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -36,6 +36,8 @@
  
- struct qed_eth_cb_ops;
- struct qed_dev_info;
-+union qed_mcp_protocol_stats;
-+enum qed_mcp_protocol_type;
+ struct qede_stats {
+ 	u64 no_buff_discards;
++	u64 packet_too_big_discard;
++	u64 ttl0_discard;
+ 	u64 rx_ucast_bytes;
+ 	u64 rx_mcast_bytes;
+ 	u64 rx_bcast_bytes;
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index 0e0acfb5..93493e8 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -107,6 +107,8 @@ static const struct {
+ 	QEDE_PF_STAT(mftag_filter_discards),
+ 	QEDE_PF_STAT(mac_filter_discards),
+ 	QEDE_STAT(tx_err_drop_pkts),
++	QEDE_STAT(ttl0_discard),
++	QEDE_STAT(packet_too_big_discard),
  
- /* helpers */
- static inline u32 qed_db_addr(u32 cid, u32 DEMS)
-@@ -597,7 +599,9 @@ void qed_link_update(struct qed_hwfn *hwfn);
- u32 qed_unzip_data(struct qed_hwfn *p_hwfn,
- 		   u32 input_len, u8 *input_buf,
- 		   u32 max_size, u8 *unzip_buf);
--
-+void qed_get_protocol_stats(struct qed_dev *cdev,
-+			    enum qed_mcp_protocol_type type,
-+			    union qed_mcp_protocol_stats *stats);
- int qed_slowpath_irq_req(struct qed_hwfn *hwfn);
+ 	QEDE_STAT(coalesced_pkts),
+ 	QEDE_STAT(coalesced_events),
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index e4bd02e..516f48e 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -1708,6 +1708,8 @@ void qede_fill_by_demand_stats(struct qede_dev *edev)
  
- #endif /* _QED_H */
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 5927840..a9d0938 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -7231,6 +7231,12 @@ struct public_drv_mb {
- #define DRV_MSG_CODE_MCP_RESET			0x00090000
- #define DRV_MSG_CODE_SET_VERSION		0x000f0000
- 
-+#define DRV_MSG_CODE_GET_STATS                  0x00130000
-+#define DRV_MSG_CODE_STATS_TYPE_LAN             1
-+#define DRV_MSG_CODE_STATS_TYPE_FCOE            2
-+#define DRV_MSG_CODE_STATS_TYPE_ISCSI           3
-+#define DRV_MSG_CODE_STATS_TYPE_RDMA            4
-+
- #define DRV_MSG_CODE_BIST_TEST			0x001e0000
- #define DRV_MSG_CODE_SET_LED_MODE		0x00200000
- 
-@@ -7307,10 +7313,10 @@ enum MFW_DRV_MSG_TYPE {
- 	MFW_DRV_MSG_RESERVED4,
- 	MFW_DRV_MSG_BW_UPDATE,
- 	MFW_DRV_MSG_BW_UPDATE5,
--	MFW_DRV_MSG_BW_UPDATE6,
--	MFW_DRV_MSG_BW_UPDATE7,
--	MFW_DRV_MSG_BW_UPDATE8,
--	MFW_DRV_MSG_BW_UPDATE9,
-+	MFW_DRV_MSG_GET_LAN_STATS,
-+	MFW_DRV_MSG_GET_FCOE_STATS,
-+	MFW_DRV_MSG_GET_ISCSI_STATS,
-+	MFW_DRV_MSG_GET_RDMA_STATS,
- 	MFW_DRV_MSG_BW_UPDATE10,
- 	MFW_DRV_MSG_TRANSCEIVER_STATE_CHANGE,
- 	MFW_DRV_MSG_BW_UPDATE11,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index 0021145..ff3a198 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -213,6 +213,8 @@ qed_sp_eth_rx_queues_update(struct qed_hwfn *p_hwfn,
- 			    enum spq_mode comp_mode,
- 			    struct qed_spq_comp_cb *p_comp_data);
- 
-+void qed_get_vport_stats(struct qed_dev *cdev, struct qed_eth_stats *stats);
-+
- int qed_sp_eth_vport_start(struct qed_hwfn *p_hwfn,
- 			   struct qed_sp_vport_start_params *p_params);
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index d6e1dc5..71b1b205 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1396,3 +1396,24 @@ const struct qed_common_ops qed_common_ops_pass = {
- 	.set_coalesce = &qed_set_coalesce,
- 	.set_led = &qed_set_led,
- };
-+
-+void qed_get_protocol_stats(struct qed_dev *cdev,
-+			    enum qed_mcp_protocol_type type,
-+			    union qed_mcp_protocol_stats *stats)
-+{
-+	struct qed_eth_stats eth_stats;
-+
-+	memset(stats, 0, sizeof(*stats));
-+
-+	switch (type) {
-+	case QED_MCP_LAN_STATS:
-+		qed_get_vport_stats(cdev, &eth_stats);
-+		stats->lan_stats.ucast_rx_pkts = eth_stats.rx_ucast_pkts;
-+		stats->lan_stats.ucast_tx_pkts = eth_stats.tx_ucast_pkts;
-+		stats->lan_stats.fcs_err = -1;
-+		break;
-+	default:
-+		DP_ERR(cdev, "Invalid protocol type = %d\n", type);
-+		return;
-+	}
-+}
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index ce4b08a..9838087 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -725,6 +725,48 @@ int qed_mcp_set_link(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, bool b_up)
- 	return 0;
- }
- 
-+static void qed_mcp_send_protocol_stats(struct qed_hwfn *p_hwfn,
-+					struct qed_ptt *p_ptt,
-+					enum MFW_DRV_MSG_TYPE type)
-+{
-+	enum qed_mcp_protocol_type stats_type;
-+	union qed_mcp_protocol_stats stats;
-+	struct qed_mcp_mb_params mb_params;
-+	union drv_union_data union_data;
-+	u32 hsi_param;
-+
-+	switch (type) {
-+	case MFW_DRV_MSG_GET_LAN_STATS:
-+		stats_type = QED_MCP_LAN_STATS;
-+		hsi_param = DRV_MSG_CODE_STATS_TYPE_LAN;
-+		break;
-+	case MFW_DRV_MSG_GET_FCOE_STATS:
-+		stats_type = QED_MCP_FCOE_STATS;
-+		hsi_param = DRV_MSG_CODE_STATS_TYPE_FCOE;
-+		break;
-+	case MFW_DRV_MSG_GET_ISCSI_STATS:
-+		stats_type = QED_MCP_ISCSI_STATS;
-+		hsi_param = DRV_MSG_CODE_STATS_TYPE_ISCSI;
-+		break;
-+	case MFW_DRV_MSG_GET_RDMA_STATS:
-+		stats_type = QED_MCP_RDMA_STATS;
-+		hsi_param = DRV_MSG_CODE_STATS_TYPE_RDMA;
-+		break;
-+	default:
-+		DP_NOTICE(p_hwfn, "Invalid protocol type %d\n", type);
-+		return;
-+	}
-+
-+	qed_get_protocol_stats(p_hwfn->cdev, stats_type, &stats);
-+
-+	memset(&mb_params, 0, sizeof(mb_params));
-+	mb_params.cmd = DRV_MSG_CODE_GET_STATS;
-+	mb_params.param = hsi_param;
-+	memcpy(&union_data, &stats, sizeof(stats));
-+	mb_params.p_data_src = &union_data;
-+	qed_mcp_cmd_and_union(p_hwfn, p_ptt, &mb_params);
-+}
-+
- static void qed_read_pf_bandwidth(struct qed_hwfn *p_hwfn,
- 				  struct public_func *p_shmem_info)
- {
-@@ -870,6 +912,12 @@ int qed_mcp_handle_events(struct qed_hwfn *p_hwfn,
- 		case MFW_DRV_MSG_TRANSCEIVER_STATE_CHANGE:
- 			qed_mcp_handle_transceiver_change(p_hwfn, p_ptt);
- 			break;
-+		case MFW_DRV_MSG_GET_LAN_STATS:
-+		case MFW_DRV_MSG_GET_FCOE_STATS:
-+		case MFW_DRV_MSG_GET_ISCSI_STATS:
-+		case MFW_DRV_MSG_GET_RDMA_STATS:
-+			qed_mcp_send_protocol_stats(p_hwfn, p_ptt, i);
-+			break;
- 		case MFW_DRV_MSG_BW_UPDATE:
- 			qed_mcp_update_bw(p_hwfn, p_ptt);
- 			break;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index 013d1b9..3324ef0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -106,6 +106,47 @@ struct qed_mcp_drv_version {
- 	u8	name[MCP_DRV_VER_STR_SIZE - 4];
- };
- 
-+struct qed_mcp_lan_stats {
-+	u64 ucast_rx_pkts;
-+	u64 ucast_tx_pkts;
-+	u32 fcs_err;
-+};
-+
-+struct qed_mcp_fcoe_stats {
-+	u64 rx_pkts;
-+	u64 tx_pkts;
-+	u32 fcs_err;
-+	u32 login_failure;
-+};
-+
-+struct qed_mcp_iscsi_stats {
-+	u64 rx_pdus;
-+	u64 tx_pdus;
-+	u64 rx_bytes;
-+	u64 tx_bytes;
-+};
-+
-+struct qed_mcp_rdma_stats {
-+	u64 rx_pkts;
-+	u64 tx_pkts;
-+	u64 rx_bytes;
-+	u64 tx_byts;
-+};
-+
-+enum qed_mcp_protocol_type {
-+	QED_MCP_LAN_STATS,
-+	QED_MCP_FCOE_STATS,
-+	QED_MCP_ISCSI_STATS,
-+	QED_MCP_RDMA_STATS
-+};
-+
-+union qed_mcp_protocol_stats {
-+	struct qed_mcp_lan_stats lan_stats;
-+	struct qed_mcp_fcoe_stats fcoe_stats;
-+	struct qed_mcp_iscsi_stats iscsi_stats;
-+	struct qed_mcp_rdma_stats rdma_stats;
-+};
-+
- /**
-  * @brief - returns the link params of the hw function
-  *
+ 	edev->ops->get_vport_stats(edev->cdev, &stats);
+ 	edev->stats.no_buff_discards = stats.no_buff_discards;
++	edev->stats.packet_too_big_discard = stats.packet_too_big_discard;
++	edev->stats.ttl0_discard = stats.ttl0_discard;
+ 	edev->stats.rx_ucast_bytes = stats.rx_ucast_bytes;
+ 	edev->stats.rx_mcast_bytes = stats.rx_mcast_bytes;
+ 	edev->stats.rx_bcast_bytes = stats.rx_bcast_bytes;
 -- 
 1.8.3.1
