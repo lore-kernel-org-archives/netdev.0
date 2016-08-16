@@ -1,58 +1,57 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH iproute2 2/4] macsec: show usage even if the module is not available
-Date: Tue, 16 Aug 2016 16:26:56 +0200
-Message-ID: <bcfcdb764fd467dd112cf1119673386efb03ddfd.1471356460.git.sd@queasysnail.net>
-References: <cover.1471356460.git.sd@queasysnail.net>
-Cc: Phil Sutter <phil@nwl.cc>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37578 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753391AbcHPO1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 10:27:17 -0400
-In-Reply-To: <cover.1471356460.git.sd@queasysnail.net>
-In-Reply-To: <cover.1471356460.git.sd@queasysnail.net>
-References: <cover.1471356460.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: [PATCH] net: sched: fix handling of singleton qdiscs with
+ qdisc_hash
+Date: Tue, 16 Aug 2016 16:34:14 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608161631110.22028@cbobk.fhfr.pm>
+References: <alpine.LNX.2.00.1608161238590.22028@cbobk.fhfr.pm>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1608161238590.22028@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, the `ip macsec` command tries to initialize a genl context
-even when we just want to see the help for the command, which doesn't
-require to talk to the kernel at all.
+On Tue, 16 Aug 2016, Jiri Kosina wrote:
 
-Delay genl initialization, which can fail if the module isn't loaded,
-until the point where we will actually need it.
+> From: Jiri Kosina <jkosina@suse.cz>
+> 
+> qdisc_match_from_root() is now iterating over per-netdevice qdisc 
+> hashtable instead of going through a linked-list of qdiscs (independently 
+> on the actual underlying netdev), which used to be the case before the 
+> switch to hashtable for qdiscs.
+> 
+> For singleton qdiscs, there is no underlying netdev associated though, and 
+> therefore dumping a singleton qdisc will panic, as qdisc_dev(root) will 
+> always be NULL.
+[ ... snip ... ]
+> @@ -1456,6 +1459,10 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+>  			goto done;
+>  		q_idx++;
+>  	}
+> +
+> +	if (!qdisc_dev(root))
+> +		goto done;
+> +
 
-Fixes: b26fc590ce62 ("ip: add MACsec support")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- ip/ipmacsec.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Ok, this will cause default singleton-only devices being missed in the 
+dump.
 
-diff --git a/ip/ipmacsec.c b/ip/ipmacsec.c
-index 9eabfe241980..6bd1f54fbfd7 100644
---- a/ip/ipmacsec.c
-+++ b/ip/ipmacsec.c
-@@ -986,15 +986,15 @@ static int do_show(int argc, char **argv)
- 
- int do_ipmacsec(int argc, char **argv)
- {
--	if (genl_init_handle(&genl_rth, MACSEC_GENL_NAME, &genl_family))
--		exit(1);
--
- 	if (argc < 1)
- 		ipmacsec_usage();
- 
- 	if (matches(*argv, "help") == 0)
- 		ipmacsec_usage();
- 
-+	if (genl_init_handle(&genl_rth, MACSEC_GENL_NAME, &genl_family))
-+		exit(1);
-+
- 	if (matches(*argv, "show") == 0)
- 		return do_show(argc-1, argv+1);
- 
+I am now working on creating a automation that'd test as many use cases as 
+possible; will send up a new patch once I have all the known corner cases 
+covered (including the ingress / clsact dump duplication).
+
+Please drop this one for now, I'll send up an accumulated followup fixes 
+asap.
+
+Thanks,
+
 -- 
-2.9.3
+Jiri Kosina
+SUSE Labs
