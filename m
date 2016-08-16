@@ -1,54 +1,32 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 5/6] net: dsa: mv88e6xxx: describe PHY page and SerDes
-Date: Tue, 16 Aug 2016 10:57:56 -0400
-Message-ID: <874m6kzrpn.fsf@ketchup.mtl.sfl>
-References: <20160815211902.2236-1-vivien.didelot@savoirfairelinux.com> <20160815211902.2236-6-vivien.didelot@savoirfairelinux.com> <20160816011618.GL24664@lunn.ch>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] samples/bpf: Add tunnel set/get tests.
+Date: Tue, 16 Aug 2016 17:00:08 +0200
+Message-ID: <57B32A78.2000105@iogearbox.net>
+References: <1471356181-32069-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160816011618.GL24664@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: William Tu <u9012063@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38324 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753240AbcHPPAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 11:00:39 -0400
+In-Reply-To: <1471356181-32069-1-git-send-email-u9012063@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> On Mon, Aug 15, 2016 at 05:19:01PM -0400, Vivien Didelot wrote:
->> +static int mv88e6xxx_phy_page_read(struct mv88e6xxx_chip *chip, int phy,
->> +				   u8 page, int reg, u16 *val)
->> +{
->> +	int err;
->> +
->> +	/* There is no paging for registers 22 */
->> +	if (reg == PHY_PAGE)
->> +		return -EINVAL;
+On 08/16/2016 04:03 PM, William Tu wrote:
+> The patch creates sample code exercising bpf_skb_{set,get}_tunnel_key,
+> and bpf_skb_{set,get}_tunnel_opt for GRE, VXLAN, and GENEVE.  A native
+> tunnel device is created in a namespace to interact with a lwtunnel
+> device out of the namespace, with metadata enabled.  The bpf_skb_set_*
+> program is attached to tc egress and bpf_skb_get_* is attached to egress
+> qdisc.  A ping between two tunnels is used to verify correctness and
+> the result of bpf_skb_get_* printed by bpf_trace_printk.
 >
-> This whole paging scheme only works for internal PHYs, or external
-> PHYs which happen to be Marvell PHYs. We need to be a little bit
-> careful here and ensure these functions don't get used for external
-> PHYs when we don't know who manufactured them. 
->
-> At the moment the code is O.K, we only access SERDES or temperature
-> sensors for a given port. But i wounder if adding a comment would be
-> wise?
+> Signed-off-by: William Tu <u9012063@gmail.com>
 
-That is a good point, I thought about that too. I was thinking about
-adding an internal_phys bitmask to the chip info structures and check it
-in mv88e6xxx_phy_page_get(), so we could return -EINVAL for external
-PHYs, since the switch driver isn't supposed to access their pages.
+For net-next tree. LGTM, thanks!
 
-But I also think that most of the PHY code should be moved to a proper
-PHY driver, since they are valid Marvell chips with their own PHY IDs.
-
-Until we move the PHY and SERDES code out of the mv88e6xxx driver, I
-think we are safe.
-
-Thanks,
-
-        Vivien
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
