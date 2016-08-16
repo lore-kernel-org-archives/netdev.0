@@ -1,46 +1,70 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: kernel panic in qdisc_match_from_root starting openvswitch
-Date: Tue, 16 Aug 2016 14:06:57 -0600
-Message-ID: <0655f5cc-d24b-6fe3-aaac-a71898dacda5@cumulusnetworks.com>
-References: <bfb76544-6d3a-dcd4-9338-72ecfda9f691@cumulusnetworks.com>
- <alpine.LNX.2.00.1608162115510.22028@cbobk.fhfr.pm>
- <alpine.LNX.2.00.1608162150110.22028@cbobk.fhfr.pm>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: macb: add phy-handle support for the macb
+Date: Tue, 16 Aug 2016 22:14:36 +0200
+Message-ID: <20160816201436.GB3751@lunn.ch>
+References: <1471082509-11764-1-git-send-email-appanad@xilinx.com>
+ <20160813.115222.443333178659469072.davem@davemloft.net>
+ <C246CAC1457055469EF09E3A7AC4E11A4A5E27C6@XAP-PVEXMBX01.xlnx.xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Simon Horman <simon.horman@netronome.com>
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:36479 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753736AbcHPUG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 16:06:59 -0400
-Received: by mail-pf0-f169.google.com with SMTP id h186so30591389pfg.3
-        for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 13:06:59 -0700 (PDT)
-In-Reply-To: <alpine.LNX.2.00.1608162150110.22028@cbobk.fhfr.pm>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+	"sergio.prado@e-labworks.com" <sergio.prado@e-labworks.com>,
+	"gregory.clement@free-electrons.com"
+	<gregory.clement@free-electrons.com>,
+	"narmstrong@baylibre.com" <narmstrong@baylibre.com>,
+	Michal Simek <michals@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <C246CAC1457055469EF09E3A7AC4E11A4A5E27C6@XAP-PVEXMBX01.xlnx.xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/16/16 1:51 PM, Jiri Kosina wrote:
-> On Tue, 16 Aug 2016, Jiri Kosina wrote:
-> 
->>> I am hitting a kernel panic with '/etc/init.d/openvswitch-switch 
->>> restart' Stack trace below. Reverting 59cc1f61f09c ("net: sched: convert 
->>> qdisc linked list to hashtable") clears the problem.
->>
->> Thanks a lot for the report. Could you please test either with the 
->> attached two patches applied on top of net-next, or alternatively with 
->> 'might-rebase/net-sched-qdiscs' branch of
->>
->> 	git://git.kernel.org/pub/scm/linux/kernel/git/jikos/jikos.git
->>
->> (HEAD of that branch is 60b3487ad7f) and report back to me whether it 
->> fixes any issues you are seeing? Applying the attached patches on top of 
->> net-next or testing with the git branch above should be equivalent test 
->> wrt. qdiscs.
-> 
-> And this time hopefully with the actual patches ... 
-> 
+> Agree with you my intention is if there is a MDIO bus on the device-tree
+> The MAC driver should create PHY/MDIO devices using of_mdiobus_register().
 
-Applied both and no longer see the panic starting openvswitch.
+What you suggest is better, and is similar to what other drivers use.
+
+In order to keep backwards compatibility with phy nodes in the MAC
+node, you have to do of_mdiobus_register() with the MAC node. However,
+please change the binding documentation to say this is deprecated, all
+phy nodes should be placed inside an mdio node.
+
+Using some better variable names would also help. mac_np and mdio_np
+for example.
+
+    Andrew
+
+> 
+> How about below code...
+> 
+> -       struct device_node *np;
+> +       struct device_node *np, *np1;
+>         int err = -ENXIO, i;
+>  
+>         /* Enable management port */
+> @@ -445,7 +445,14 @@ static int macb_mii_init(struct macb *bp)
+>         dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
+>  
+>         np = bp->pdev->dev.of_node;
+> -       if (np) {
+> +       np1 = of_get_child_by_name(np, "mdio");
+> +       if (np1) {
+> +               of_node_put(np1);
+> +               err = of_mdiobus_register(bp->mii_bus, np1);
+> +               if (err)
+> +                       goto err_out_unregister_bus;
+> +       } else if (np) {
+>                 /* try dt phy registration */
+>                 err = of_mdiobus_register(bp->mii_bus, np);
+> 
+> If you are ok with the above code please let me know will post it as v2...
+> 
+> Regards,
+> Kedar.
