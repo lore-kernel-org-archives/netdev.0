@@ -1,150 +1,42 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [LEDE-DEV] DHCP via bridge in case of IPv4
-Date: Tue, 16 Aug 2016 05:57:28 +0000
-Message-ID: <1471326942.3980.3.camel@synopsys.com>
-References: <1468053400.5007.5.camel@synopsys.com>
- <CAKNoO9oK-_sf=iGAW0caAhauLSbAW5YjDUi6gDnKsO6+W0Pcgg@mail.gmail.com>
- <1468065830.5007.10.camel@synopsys.com>
- <87shviklio.fsf@husum.klickitat.com> <1468217682.5588.4.camel@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "lede-dev@lists.infradead.org" <lede-dev@lists.infradead.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "russell@personaltelco.net" <russell@personaltelco.net>,
- "aczlan+ledev@gmail.com" <aczlan+ledev@gmail.com>,
- "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1468217682.5588.4.camel@synopsys.com>
-Content-Language: en-US
-Content-ID: <5F4F46A5F2421345866798C3CC893D0D@internal.synopsys.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v2] Bluetooth: Add LED triggers for HCI frames tx and rx
+Date: Tue, 16 Aug 2016 08:03:33 +0200
+Message-ID: <1394C970-3726-4C42-A06D-0B3B3015D980@holtmann.org>
+References: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Guodong Xu <guodong.xu@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGVsbG8sDQoNCk9uIE1vbiwgMjAxNi0wNy0xMSBhdCAwNjoxNSArMDAwMCwgQWxleGV5IEJyb2Rr
-aW4gd3JvdGU6DQo+IEhpIFJ1c3NlbCwNCj4gDQo+IE9uIFN1biwgMjAxNi0wNy0xMCBhdCAwMDox
-OSAtMDcwMCwgUnVzc2VsbCBTZW5pb3Igd3JvdGU6DQo+ID7CoA0KPiA+ID4gPiA+ID4gPiAiQWxl
-eGV5IiA9PSBBbGV4ZXkgQnJvZGtpbiA8QWxleGV5LkJyb2RraW5Ac3lub3BzeXMuY29tPiB3cml0
-ZXM6DQo+ID4gQWxleGV5PiBIaSBBYXJvbiwNCj4gPiBBbGV4ZXk+IE9uIFNhdCwgMjAxNi0wNy0w
-OSBhdCAwNzo0NyAtMDQwMCwgQWFyb24gWiB3cm90ZToNCj4gPiA+wqANCj4gPiA+ID4gT24gU2F0
-LCBKdWwgOSwgMjAxNiBhdCA0OjM3IEFNLCBBbGV4ZXkgQnJvZGtpbg0KPiA+ID4gPiA8QWxleGV5
-LkJyb2RraW5Ac3lub3BzeXMuY29tPiB3cm90ZToNCj4gPiA+ID4gPsKgDQo+ID4gPiA+ID4gSGVs
-bG8sDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4gSSB3YXMgcGxheWluZyB3aXRoIHF1aXRlIHNpbXBs
-ZSBicmlkZ2VkIHNldHVwIG9uIGRpZmZlcmVudCBib2FyZHMNCj4gPiA+ID4gd2l0aCA+IHZlcnkg
-cmVjZW50IGtlcm5lbHMgKDQuNi4zIGFzIG9mIHRoaXMgd3JpdGluZykgYW5kIGZvdW5kIG9uZQ0K
-PiA+ID4gPiBpbnRlcmVzdGluZyA+IGJlaGF2aW9yIHRoYXQgSSBjYW5ub3QgeWV0IHVuZGVyc3Rh
-bmQgYW5kIGdvb2dsaW5nDQo+ID4gPiA+IGRpbid0IGhlbHAgaGVyZSBhcyB3ZWxsLg0KPiA+ID4g
-PiA+wqANCj4gPiA+ID4gPiBNeSBzZXR1cCBpcyBwcmV0dHkgc2ltcGxlOiA+DQo+ID4gPiA+IC0t
-LS0tLS0tLS0tLS3CoMKgwqDCoMKgwqDCoC0tLS0tLS0tLS0tLS0tLS0tLcKgwqDCoMKgwqDCoMKg
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiA+ID4gPiA+wqANCj4gPiA+ID4gPiA+IEhPU1TC
-oMKgwqDCoMKgwqB8wqDCoMKgwqDCoMKgwqB8ICJEdW1iIEFQIsKgwqDCoMKgwqDCoHzCoMKgwqDC
-oMKgwqDCoHwgV2lyZWxlc3MNCj4gPiA+ID4gY2xpZW50wqDCoMKgwqDCoMKgwqB8ID4gPiB3aXRo
-IERIQ1AgfDwtLS0tLT4oZXRoMCnCoMKgwqDCoMKgKHdsYW4wKTwtLS0tLT58DQo+ID4gPiA+IGF0
-dGVtcHRpbmcgdG/CoMKgwqDCoMKgwqDCoMKgwqB8ID4gPiBzZXJ2ZXLCoMKgwqDCoHzCoMKgwqDC
-oMKgwqDCoHzCoMKgwqDCoFwgYnIwDQo+ID4gPiA+IC/CoMKgwqDCoMKgfMKgwqDCoMKgwqDCoMKg
-fCBnZXQgc2V0dGluZ3MgdmlhIERIQ1AgfCA+DQo+ID4gPiA+IC0tLS0tLS0tLS0tLS3CoMKgwqDC
-oMKgwqDCoC0tLS0tLS0tLS0tLS0tLS0tLcKgwqDCoMKgwqDCoMKgLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KPiA+ID4gPiA+ICogSE9TVCBpcyBteSBsYXB0b3Agd2l0aCBESENQIHNlcnZlciB0
-aGF0IHdvcmtzIGZvciBzdXJlLsKgwqA+ICoNCj4gPiA+ID4gIkR1bWIgQVAiIGlzIGEgc2VwYXJh
-dGUgYm9hcmQgKEkgdHJpZWQgQVJNLWJhc2VkIFdhbmRib2FyZCBhbmQNCj4gPiA+ID4gQVJDLWJh
-c2VkID4gwqAgQVhTMTB4IGJvYXJkcyBidXQgcmVzdWx0cyBhcmUgZXhhY3RseSB0aGUgc2FtZSkg
-d2l0aA0KPiA+ID4gPiB3aXJlZCAoZXRoMCkgYW5kIHdpcmVsZXNzID4gwqAgKHdsYW4wKSBuZXR3
-b3JrIGNvbnRyb2xsZXJzIGJyaWRnZWQNCj4gPiA+ID4gdG9nZXRoZXIgKGJyMCkuIFRoYXQgImJy
-MCIgYnJpZGdlIGZsYXdsZXNzbHkgPiDCoCBnZXRzIGl0cyBzZXR0aW5ncw0KPiA+ID4gPiBmcm9t
-IERIQ1Agc2VydmVyIG9uIGhvc3QuwqDCoD4gKiBXaXJlbGVzcyBjbGllbnQgY291bGQgYmUgZWl0
-aGVyIGENCj4gPiA+ID4gc21hdHJwaG9uZSBvciBhbm90aGVyIGxhcHRvcCBldGMgYnV0ID4gwqAg
-d2hhdCdzIGltcG9ydGFudCBpdCBzaG91bGQNCj4gPiA+ID4gYmUgY29uZmlndXJlZCB0byBnZXQg
-bmV0d29yayBzZXR0aW5ncyBieSBESENQIGFzIHdlbGwuDQo+ID4gPiA+ID4gDQo+ID4gPiA+ID4g
-U28gd2hhdCBoYXBwZW5zICJicjAiIGFsd2F5cyBnZXRzIG5ldHdvcmsgc2V0dGluZ3MgZnJvbSBE
-SENQIHNlcnZlcg0KPiA+ID4gPiBvbiBIT1NULsKgwqA+IFRoYXQncyBmaW5lLiBCdXQgd2lyZWxl
-c3MgY2xpZW50IG9ubHkgcmVsaWFibHkgZ2V0cw0KPiA+ID4gPiBzZXR0aW5ncyBmcm9tIERIQ1Ag
-c2VydmVyID4gaWYgSVB2NiBpcyBlbmFibGVkIG9uICJEdW1iIEFQIiBib2FyZC4gSWYNCj4gPiA+
-ID4gSVB2NiBpcyBkaXNhYmxlZCBJIG1heSBzZWUgdGhhdCA+IHdpcmVsZXNzIGNsaWVudCBzZW5k
-cyAiREhDUA0KPiA+ID4gPiBEaXNjb3ZlciIgdGhlbiBzZXJ2ZXIgcmVwbGllcyB3aXRoICJESENQ
-IE9mZmVyIiBidXQgPiB0aGF0IG9mZmVyDQo+ID4gPiA+IG5ldmVyIHJlYWNoZXMgd2lyZWxlc3Mg
-Y2xpZW50Lg0KPiA+ID4gPiANCj4gPiA+ID4gRG8geW91IGhhdmUgV0RTIGVuYWJsZWQ/IElmIG5v
-dCwgREhDUCBoYXMgaXNzdWVzIGluIHRoYXQgc2NlbmFyaW86DQo+ID4gPiA+IGh0dHBzOi8vd2lr
-aS5vcGVud3J0Lm9yZy9kb2MvaG93dG8vY2xpZW50bW9kZQ0KPiA+IElmIHRoZSBEdW1iIEFQJ3Mg
-d2lyZWxlc3MgaW50ZXJmYWNlIGlzIGluIGFwLW1vZGUsIHRoZW4gdGhpcyBzaG91bGRuJ3QNCj4g
-PiBiZSBhbiBpc3N1ZS7CoMKgSXQncyBvbmx5IGNsaWVudC1tb2RlIGludGVyZmFjZXMgdGhhdCBo
-YXZlIHRyb3VibGUgd2l0aCBicmlkZ2luZy4NCj4gPiANCj4gPiBJJ2Qgc3VnZ2VzdCBydW5uaW5n
-IHRjcGR1bXAgb24gdGhlIER1bWIgQVAncyB3aXJlbGVzcyBpbnRlcmZhY2UgYW5kIHRoZQ0KPiA+
-IGNsaWVudCdzIHdpcmVsZXNzIGludGVyZmFjZSBhbmQgc2VlIHdoaWNoIG9mIHRoZW0gc2VlcyB0
-aGUgdmFyaW91cyBwYXJ0cw0KPiA+IG9mIHRoZSBESENQIGhhbmRzaGFrZS4NCj4gDQo+IFNvIEkg
-ZGlkIGJ1dCBmb3IgREhDUCBzZXJ2ZXIgYW5kIHdpcmVsZXNzIGNsaWVudCAoaGFkIG5vIHRjcGR1
-bXAgb24gRHVtcCBBUA0KPiBhdCB0aGUgbW9tZW50KS4NCj4gDQo+IFRoYXQncyB3aGF0IEkgc2Vl
-IG9uIHRoZSBzZXJ2ZXI6DQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tPjgtLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+IE5vLiBUaW1lwqDCoMKgwqDCoMKgwqDCoFNvdXJj
-ZcKgwqDCoMKgwqBEZXN0aW5hdGlvbsKgwqDCoMKgwqDCoFByb3RvY29sIExlbmd0aCBJbmZvDQo+
-IMKgMyAwLjE1MTE4MTAwMMKgwqAwLjAuMC4wwqDCoMKgwqAyNTUuMjU1LjI1NS4yNTXCoMKgREhD
-UMKgwqDCoMKgwqAzNDLCoMKgwqDCoERIQ1AgRGlzY292ZXIgLSBUcmFuc2FjdGlvbiBJRCAweDMx
-ZGMzMjFmDQo+IDExIDIuNzYwNzk2MDAwwqDCoDEwLjQyLjAuMcKgwqAxMC40Mi4wLjEzwqDCoMKg
-wqDCoMKgwqBESENQwqDCoMKgwqDCoDM0MsKgwqDCoMKgREhDUCBPZmZlcsKgwqDCoMKgLSBUcmFu
-c2FjdGlvbiBJRCAweDMxZGMzMjFmDQo+IDE0IDUuMjIwOTg1MDAwwqDCoDAuMC4wLjDCoMKgwqDC
-oDI1NS4yNTUuMjU1LjI1NcKgwqBESENQwqDCoMKgwqDCoDM0MsKgwqDCoMKgREhDUCBEaXNjb3Zl
-ciAtIFRyYW5zYWN0aW9uIElEIDB4MzFkYzMyMWYNCj4gMTUgNS4yMjExNTAwMDDCoMKgMTAuNDIu
-MC4xwqDCoDEwLjQyLjAuMTPCoMKgwqDCoMKgwqDCoERIQ1DCoMKgwqDCoMKgMzQywqDCoMKgwqBE
-SENQIE9mZmVywqDCoMKgwqAtIFRyYW5zYWN0aW9uIElEIDB4MzFkYzMyMWYNCj4gMjMgMTUuNjQ5
-ODM1MDAwIDAuMC4wLjDCoMKgwqDCoDI1NS4yNTUuMjU1LjI1NcKgwqBESENQwqDCoMKgwqDCoDM0
-MsKgwqDCoMKgREhDUCBEaXNjb3ZlciAtIFRyYW5zYWN0aW9uIElEIDB4MzFkYzMyMWYNCj4gMjQg
-MTUuNjUwMDE3MDAwIDEwLjQyLjAuMcKgwqAxMC40Mi4wLjEzwqDCoMKgwqDCoMKgwqBESENQwqDC
-oMKgwqDCoDM0MsKgwqDCoMKgREhDUCBPZmZlcsKgwqDCoMKgLSBUcmFuc2FjdGlvbiBJRCAweDMx
-ZGMzMjFmDQo+IDMyIDI1LjY0ODU4OTAwMCAwLjAuMC4wwqDCoMKgwqAyNTUuMjU1LjI1NS4yNTXC
-oMKgREhDUMKgwqDCoMKgwqAzNDLCoMKgwqDCoERIQ1AgRGlzY292ZXIgLSBUcmFuc2FjdGlvbiBJ
-RCAweDMxZGMzMjFmDQo+IDMzIDI1LjY0ODc1ODAwMCAxMC40Mi4wLjHCoMKgMTAuNDIuMC4xM8Kg
-wqDCoMKgwqDCoMKgREhDUMKgwqDCoMKgwqAzNDLCoMKgwqDCoERIQ1AgT2ZmZXLCoMKgwqDCoC0g
-VHJhbnNhY3Rpb24gSUQgMHgzMWRjMzIxZg0KPiA0MyAzNS44NjQ1NjcwMDAgMC4wLjAuMMKgwqDC
-oMKgMjU1LjI1NS4yNTUuMjU1wqDCoERIQ1DCoMKgwqDCoMKgMzQywqDCoMKgwqBESENQIERpc2Nv
-dmVyIC0gVHJhbnNhY3Rpb24gSUQgMHgzMWRjMzIxZg0KPiA0OCAzOC44MzI4MzcwMDAgMTAuNDIu
-MC4xwqDCoDEwLjQyLjAuMTPCoMKgwqDCoMKgwqDCoERIQ1DCoMKgwqDCoMKgMzQywqDCoMKgwqBE
-SENQIE9mZmVywqDCoMKgwqAtIFRyYW5zYWN0aW9uIElEIDB4MzFkYzMyMWYNCj4gLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0+OC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4g
-DQo+IFRoYXQncyBvbiB0aGUgd2lyZWxlc3MgY2xpZW50Og0KPiAtLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLT44LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiBOby7CoMKgVGlt
-ZcKgwqDCoMKgwqDCoMKgwqDCoMKgwqBTb3VyY2XCoMKgwqBEZXN0aW5hdGlvbsKgwqDCoMKgwqDC
-oFByb3RvY29sIExlbmd0aCBJbmZvDQo+IDExNzEgOTQuMTkyOTcxMDAwwqDCoMKgMC4wLjAuMMKg
-wqAyNTUuMjU1LjI1NS4yNTXCoMKgREhDUMKgwqDCoMKgwqAzNDLCoMKgwqDCoERIQ1AgRGlzY292
-ZXIgLSBUcmFuc2FjdGlvbiBJRCAweDMxZGMzMjFmDQo+IDExODIgOTkuMjYzNjg2MDAwwqDCoMKg
-MC4wLjAuMMKgwqAyNTUuMjU1LjI1NS4yNTXCoMKgREhDUMKgwqDCoMKgwqAzNDLCoMKgwqDCoERI
-Q1AgRGlzY292ZXIgLSBUcmFuc2FjdGlvbiBJRCAweDMxZGMzMjFmDQo+IDExODUgMTA5LjY5MjY0
-MjAwMMKgwqAwLjAuMC4wwqDCoDI1NS4yNTUuMjU1LjI1NcKgwqBESENQwqDCoMKgwqDCoDM0MsKg
-wqDCoMKgREhDUCBEaXNjb3ZlciAtIFRyYW5zYWN0aW9uIElEIDB4MzFkYzMyMWYNCj4gMTE4NiAx
-MTkuNjkxNDc0MDAwwqDCoDAuMC4wLjDCoMKgMjU1LjI1NS4yNTUuMjU1wqDCoERIQ1DCoMKgwqDC
-oMKgMzQywqDCoMKgwqBESENQIERpc2NvdmVyIC0gVHJhbnNhY3Rpb24gSUQgMHgzMWRjMzIxZg0K
-PiAxMTkwIDEyOS45MDc1MDcwMDDCoMKgMC4wLjAuMMKgwqAyNTUuMjU1LjI1NS4yNTXCoMKgREhD
-UMKgwqDCoMKgwqAzNDLCoMKgwqDCoERIQ1AgRGlzY292ZXIgLSBUcmFuc2FjdGlvbiBJRCAweDMx
-ZGMzMjFmDQo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tPjgtLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tDQo+IA0KPiBJJ2xsIHRyeSB0byBjYXB0dXJlIGRhdGEgZnJvbSBEdW1i
-IEFQIHNvbWV0aW1lIHNvb24gYW5kIHdpbGwgcmVwbHkgdG8gdGhlIHRocmVhZC4NCg0KU28gZmlu
-YWxseSBhZnRlciBxdWl0ZSBzb21lIHRpbWUgSSBmaWd1cmVkIG91dCB3aGF0IGhhcHBlbnMgaW4g
-bXkgc2V0dXAuDQpCYXNpY2FsbHkgaXQgYWxsIGJvaWxzIGRvd24gdG8gdGhlIGZhY3QgdGhhdCBE
-VyBHTUFDIGRvZXNuJ3QgZW50ZXIgcHJvbWlzY3VvdXMgbW9kZQ0Kd2hlbiBicmlkZ2UgZ2V0cyBj
-cmVhdGVkLiBUbyBiZSBtb3JlIHByZWNpc2UgR01BQydzIE1BQyBmaWx0ZXIgZmFpbCB0byBlbnRl
-ciBwcm9taXNjdW91cyBtb2RlDQphbmQgc28gcGFja2V0cyBmcm9tIERIQ1Agc2VydmVyIHNlbnQg
-dG8gV2ktRmkgY2xpZW4gYXJlIGRpc2NhcmRlZCBieSBHTUFDIC0gdGhhdCdzIHdoeSBJIGNhbm5v
-dA0Kc2VlIHRob3NlIHBhY2tldHMgaW4gdGNwZHVtcCBvdXRwdXQgLSBDUFUgbmV2ZXIgZ2V0cyBh
-bnkgaW5mb3JtYXRpb24gYWJvdXQgdGhlbS4NCg0KSSBub3RpY2VkIHRoYXQgcHJvYmxlbSBvbmx5
-IGhhcHBlbnMgaWYgRXRoZXJuZXQgUEhZIChpbiBteSBjYXNlIHRoaXMgaXMgRFA4Mzg2NSkgZG9l
-c24ndCBoYXZlDQpsaW5rIGVzdGFibGlzaGVkLiBJLmUuIGVpdGhlcjoNCsKgMSkgQ2FibGUgaXMg
-ZGlzY29ubmVjdGVkDQrCoDIpIFBIWSBpcyBzdGlsbCBuZWdvdGlhdGlvbiBsaW5rIG1vZGUNCg0K
-T25jZSBQSFkgZ290IGxpbmsgZXN0YWJsaXNoZWQgR01BQyBoYXBwaWx5IGVudGVycyBwcm9taXNx
-IG1vZGUgYW5kIGFsbCB3b3JrcyBhcyBleHBlY3RlZC4NCg0KVW5mb3J0dW5hdGVseSBJIGNhbm5v
-dCBmaWd1cmUgb3V0IHdoeSBHTUFDIGJlaGF2ZXMgdGhhdCB3YXkuIEFzIHBlciBHTUFDJ3MgZGF0
-YWJvb2sgdGhlIG9ubHkgcmVhc29uDQpmb3IgaXQgdG8gbm90IHJlYWN0IG9uIGEgcmVnaXN0ZXIg
-YmVpbmcgd3JpdHRlbiBpcyBtaXNzaW5nIGlucHV0IGNsb2NrIGJ1dCB0aGVyZSdzIG5vIHJlYXNv
-biBmb3IgdGhlDQpjbG9jayB0byBiZSBtaXNzaW5nIGFuZCBJIGRvbid0IHNlZW0gdG8gaGF2ZSBh
-IHdheSB0byBjaGVjayBpZiB0aGVyZSdzIGEgcHJvYmxlbSB3aXRoIGNsb2NrIG9yIG5vdC4NCg0K
-LUFsZXhleQ0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpsaW51eC1zbnBzLWFyYyBtYWlsaW5nIGxpc3QKbGludXgtc25wcy1hcmNAbGlzdHMuaW5mcmFk
-ZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4
-LXNucHMtYXJj
+Hi Guodong,
+
+> Two LED triggers are added into hci_dev: tx_led and rx_led. Upon ACL/SCO
+> packets available in tx or rx, the LEDs will blink.
+> 
+> For each hci registration, two triggers are added into LED subsystem:
+> [hdev->name]-tx and [hdev-name]-rx.
+> Refer to Documentation/leds/leds-class.txt for usage.
+> 
+> Verified on HiKey 96boards, which uses HiSilicon hi6220 SoC and TI
+> WL1835 WiFi/BT combo chip.
+
+so I have no idea what to do with adding adding hci0-rx and hci0-tx triggers. Combined with hci0-power trigger these are already 3 triggers. And if you have 2 Bluetooth controllers in your system, then you have 6 triggers. If we then maybe add another trigger, then this number just goes up and up.
+
+As far as I can tell you can only assign a single trigger to a LED. So this means to even use these triggers, you need now 3 LEDs per Bluetooth controller. How is that useful for anybody in a real system? Maybe I am missing something here and somehow there is magic to combine triggers, but I have not found it yet. So please someone enlighten me on how this is suppose to be used with real devices.
+
+Recently I have added a simple bluetooth-power trigger that combines all Bluetooth controllers into a single trigger. If any of them is enabled, then you can control your LED. Which makes a lot more sense to me since you most likely have a single Bluetooth LED on your system. And you want it to show the correct state no matter what Bluetooth controller is in use. However I can see the case that someone might want to assign one specific Bluetooth controller to a LED status.
+
+So instead of adding many independent triggers to each controller, why not create one global bluetooth trigger and one individual bluetooth-hci0 trigger for each controller. And the combine power, tx, rx and whatever else we need to trigger the LED for?
+
+Regards
+
+Marcel
