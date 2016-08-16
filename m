@@ -1,86 +1,43 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix a success return may hide an error
-Date: Tue, 16 Aug 2016 15:45:31 -0300
-Message-ID: <20160816184531.GE3110@localhost.localdomain>
-References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
- <20160812.211113.1099230839994600349.davem@davemloft.net>
- <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
- <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
- <20160816172447.GC3110@localhost.localdomain>
- <CADvbK_eSD9taybqO0VzfQaUE0jtmKMWiSzkHjO2fNpZrU2Fg3Q@mail.gmail.com>
- <20160816183330.GD3110@localhost.localdomain>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: kernel panic in qdisc_match_from_root starting openvswitch
+Date: Tue, 16 Aug 2016 21:18:37 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608162115510.22028@cbobk.fhfr.pm>
+References: <bfb76544-6d3a-dcd4-9338-72ecfda9f691@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Simon Horman <simon.horman@netronome.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50694 "EHLO mx1.redhat.com"
+Received: from mx2.suse.de ([195.135.220.15]:56797 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753335AbcHPSya (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 14:54:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20160816183330.GD3110@localhost.localdomain>
+	id S1751953AbcHPTdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 15:33:46 -0400
+In-Reply-To: <bfb76544-6d3a-dcd4-9338-72ecfda9f691@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 16, 2016 at 03:33:30PM -0300, Marcelo Ricardo Leitner wrote:
-> On Wed, Aug 17, 2016 at 02:24:19AM +0800, Xin Long wrote:
-> > >> > This err returns back to sctp_sendmsg, there sctp will abort asoc.
-> > >
-> > > That's not right I think. sctp_sendmsg will only free the asoc if it was
-> > > created to send that specific chunk. And in this case, this change
-> > > should have no effect as it can't have sctp_outq_flush() touching
-> > > several transports in a row.
-> > >
-> > > I'm basing on:
-> > > out_free:
-> > >         if (new_asoc)
-> > >                 sctp_association_free(asoc);
-> > >
-> > > and sctp_recvmsg will just fetch, return and clear the error via
-> > > sctp_skb_recv_datagram, but not free it.
-> > >
-> > > Do you see any other place freeing it?
-> > Sorry, you are right, it free assoc just for new_asoc.
-> > 
-> > >
-> > >>
-> > >> That doesn't seem a good idea.
-> > >> You don't want to abort the association if there is a transient
-> > >> memory allocation failure.
-> > >> You also can't drop data chunks.
-> > >
-> > > From a system-wise POV, this behavior - to free the new asoc in case of
-> > > transient memory allocation failure - doesn't seem bad to me.
-> > > That's what will have to happen if any allocation before it failed and
-> > > also it helps the system to reduce the stress a little bit. I don't see
-> > > any inconsistency/problems here because we are not dropping a single
-> > > random chunk but instead we are actually refusing to initialize a new
-> > > asoc in such conditions.
-> > >
-> > > Nevertheless, I agree that letting the application see ENOMEM errors when
-> > > the data actually got queued and is being fully handled, as in, it will
-> > > be retransmitted later, is not be wise, as the application probably
-> > > won't be able to distinguish from ENOMEMs that it should retry or not.
-> > > Here I see a problem, yet it's not due to this specific change, perhaps
-> > > it just got attention because of it. In this situation, we should handle
-> > > ENOMEMs internally if possible so the application can know that if it
-> > > hits an ENOMEM, it's real and it has to retry.
-> > If  letting the application see ENOMEM errors, and sctp has to drop this
-> > chunk, instead of retransmiting the ENOMEM chunk, but the ENOMEM
-> > chunk may not be the chunk from current msg, as it flush all the queue.
-> > even if users get an ENOMEM error, they may re-send a chunk that is same
-> > with the one that is still in retransmit queue.
-> 
-> Yep, one more reason to handle those internally when safe.
+On Tue, 16 Aug 2016, David Ahern wrote:
 
-Xin, maybe you can squash this patch and this ENOMEM handling? I'm
-thinking that handling ENOMEM may result in similar situations in other
-places, so we have a common reasoning on them.
+> Jiri:
+> 
+> I am hitting a kernel panic with '/etc/init.d/openvswitch-switch 
+> restart' Stack trace below. Reverting 59cc1f61f09c ("net: sched: convert 
+> qdisc linked list to hashtable") clears the problem.
+
+Thanks a lot for the report. Could you please test either with the 
+attached two patches applied on top of net-next, or alternatively with 
+'might-rebase/net-sched-qdiscs' branch of
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/jikos/jikos.git
+
+(HEAD of that branch is 60b3487ad7f) and report back to me whether it 
+fixes any issues you are seeing? Applying the attached patches on top of 
+net-next or testing with the git branch above should be equivalent test 
+wrt. qdiscs.
+
+Thanks,
+
+-- 
+Jiri Kosina
+SUSE Labs
