@@ -1,24 +1,77 @@
-From: Webmaster <mollet@univ-corse.fr>
-Subject: Estimado Usuario E-mail
-Date: Mon, 15 Aug 2016 21:22:58 +0200 (CEST)
-Message-ID: <597408203.6029293.1471288978355.JavaMail.zimbra__11640.8285488889$1471314051$gmane$org@univ-corse.fr>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Subject: Re: [BUGFIX PATCH 1/2] brcmfmac: Check rtnl_lock is locked when
+ removing interface
+Date: Tue, 16 Aug 2016 11:27:13 +0900
+Message-ID: <20160816112713.7fd25da28d3737aa7b72d2a2@kernel.org>
+References: <147125403645.9434.8008546579326856373.stgit@devbox>
+	<147125405701.9434.12911635695339175773.stgit@devbox>
+	<5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
+	<87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
+	<CACna6ryuN_qDrVwAbS5P9mfhjMwv2hNeTqEzTQ=WxvP1V=zHXA@mail.gmail.com>
+	<15e43df4-b8cc-8612-472e-80634cf27cac@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lotus.univ-corse.fr ([193.48.28.200]:54603 "EHLO
-	lotus.univ-corse.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753117AbcHPCUl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Aug 2016 22:20:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Masami Hiramatsu <mhiramat@kernel.org>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list.pdl@broadcom.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <15e43df4-b8cc-8612-472e-80634cf27cac@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Estimado Usuario E-mail,
+On Mon, 15 Aug 2016 23:44:05 +0200
+Arend Van Spriel <arend.vanspriel@broadcom.com> wrote:
 
-Usted usuario y la contrase=C3=B1a caducar=C3=A1 en 24 horas. Haga clic en =
-el enlace de abajo y rellene los datos necesarios para la renovaci=C3=B3n.
+> 
+> 
+> On 15-8-2016 13:52, Rafał Miłecki wrote:
+> > On 15 August 2016 at 12:57, Kalle Valo <kvalo@codeaurora.org> wrote:
+> >> Rafał Miłecki <zajec5@gmail.com> writes:
+> >>
+> >>>> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+> >>>
+> >>> Fixes: a63b09872c1d ("brcmfmac: delete interface directly in code that sent fw request")
+> >>> Acked-by: Rafał Miłecki <rafal@milecki.pl>
+> >>>
+> >>> Kalle: I'm acking this as bugfix for 4.8 release.
+> >>
+> >> Ok. I'll wait few days for more comments before I apply this.
 
-http://upgrade-001-dept-nakjsakjasnsdjs.tripod.com/
+Thanks!
 
-=C2=A9 2016. Webmail Inc
+> > 
+> > Sure.
+> > 
+> > 
+> >> (I assume you are talking only about patch 1)
+> > 
+> > Yes, I'll leave mutex vs. spinlock to the experts :)
+> 
+> Don't know who the experts are. Surely not me :-p
+> 
+> I made an uneducated design decision using a mutex for this. The
+> reasoning for using a regular spinlock make sense. So I will go and ack
+> that patch.
+
+As far as I can see, that change is very local and
+at least my environment it works well :)
+
+Regards,
+
+> 
+> Regards,
+> Arend
+
+
+-- 
+Masami Hiramatsu <mhiramat@kernel.org>
