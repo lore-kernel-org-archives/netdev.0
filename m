@@ -1,173 +1,195 @@
-From: Guodong Xu <guodong.xu@linaro.org>
-Subject: Re: [PATCH v2] Bluetooth: Add LED triggers for HCI frames tx and rx
-Date: Tue, 16 Aug 2016 10:37:23 +0800
-Message-ID: <CAFGCpxxXW0d=6GP1F4byEQBoR+YF-W6fX4bC6=13wKTt_NumkA@mail.gmail.com>
-References: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
+From: Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
+Subject: [PATCHv3] net: ethernet: macb: Add support for rx_clk
+Date: Tue, 16 Aug 2016 10:14:50 +0530
+Message-ID: <1471322690-35923-1-git-send-email-shubhrajyoti.datta@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	Guodong Xu <guodong.xu@linaro.org>
-To: Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <soren.brinkmann@xilinx.com>, <shubhrajyoti.datta@gmail.com>,
+	<michal.simek@xilinx.com>,
+	Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
+To: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2nam02on0049.outbound.protection.outlook.com ([104.47.38.49]:28248
+	"EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750799AbcHPEqG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 00:46:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping. :)  Would you give me some review opinions on this?
+Some of the platforms like zynqmp ultrascale+ has a
+separate clock gate for the rx clock. Add an optional
+rx_clk so that the clock can be enabled.
 
-In this revision, I chose to limit LED blinking to tx/rx traffic
-packets only. For other types of over-the-air packets, like scanning,
-it's not covered.
+Signed-off-by: Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>
+---
+v2:
+fix warnng
+v3
+Add that rx applies to zcu mpsoc
 
-Thank you.
+ Documentation/devicetree/bindings/net/macb.txt |  1 +
+ drivers/net/ethernet/cadence/macb.c            | 31 +++++++++++++++++++++-----
+ drivers/net/ethernet/cadence/macb.h            |  4 +++-
+ 3 files changed, 30 insertions(+), 6 deletions(-)
 
--Guodong
-
-
-On 31 July 2016 at 12:24, Guodong Xu <guodong.xu@linaro.org> wrote:
-> Two LED triggers are added into hci_dev: tx_led and rx_led. Upon ACL/SCO
-> packets available in tx or rx, the LEDs will blink.
->
-> For each hci registration, two triggers are added into LED subsystem:
-> [hdev->name]-tx and [hdev-name]-rx.
-> Refer to Documentation/leds/leds-class.txt for usage.
->
-> Verified on HiKey 96boards, which uses HiSilicon hi6220 SoC and TI
-> WL1835 WiFi/BT combo chip.
->
-> Signed-off-by: Guodong Xu <guodong.xu@linaro.org>
-> ---
->  include/net/bluetooth/hci_core.h |  1 +
->  net/bluetooth/hci_core.c         |  6 ++++++
->  net/bluetooth/leds.c             | 17 +++++++++++++++++
->  net/bluetooth/leds.h             |  2 ++
->  4 files changed, 26 insertions(+)
->
-> diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
-> index dc71473..37b8dd9 100644
-> --- a/include/net/bluetooth/hci_core.h
-> +++ b/include/net/bluetooth/hci_core.h
-> @@ -398,6 +398,7 @@ struct hci_dev {
->         bdaddr_t                rpa;
->
->         struct led_trigger      *power_led;
-> +       struct led_trigger      *tx_led, *rx_led;
->
->         int (*open)(struct hci_dev *hdev);
->         int (*close)(struct hci_dev *hdev);
-> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-> index 45a9fc6..956dce1 100644
-> --- a/net/bluetooth/hci_core.c
-> +++ b/net/bluetooth/hci_core.c
-> @@ -3833,6 +3833,7 @@ static void hci_sched_acl(struct hci_dev *hdev)
->         if (!hci_conn_num(hdev, AMP_LINK) && hdev->dev_type == HCI_AMP)
->                 return;
->
-> +       hci_leds_blink_oneshot(hdev->tx_led);
->         switch (hdev->flow_ctl_mode) {
->         case HCI_FLOW_CTL_MODE_PACKET_BASED:
->                 hci_sched_acl_pkt(hdev);
-> @@ -3856,6 +3857,7 @@ static void hci_sched_sco(struct hci_dev *hdev)
->         if (!hci_conn_num(hdev, SCO_LINK))
->                 return;
->
-> +       hci_leds_blink_oneshot(hdev->tx_led);
->         while (hdev->sco_cnt && (conn = hci_low_sent(hdev, SCO_LINK, &quote))) {
->                 while (quote-- && (skb = skb_dequeue(&conn->data_q))) {
->                         BT_DBG("skb %p len %d", skb, skb->len);
-> @@ -3879,6 +3881,7 @@ static void hci_sched_esco(struct hci_dev *hdev)
->         if (!hci_conn_num(hdev, ESCO_LINK))
->                 return;
->
-> +       hci_leds_blink_oneshot(hdev->tx_led);
->         while (hdev->sco_cnt && (conn = hci_low_sent(hdev, ESCO_LINK,
->                                                      &quote))) {
->                 while (quote-- && (skb = skb_dequeue(&conn->data_q))) {
-> @@ -3911,6 +3914,7 @@ static void hci_sched_le(struct hci_dev *hdev)
->                         hci_link_tx_to(hdev, LE_LINK);
->         }
->
-> +       hci_leds_blink_oneshot(hdev->tx_led);
->         cnt = hdev->le_pkts ? hdev->le_cnt : hdev->acl_cnt;
->         tmp = cnt;
->         while (cnt && (chan = hci_chan_sent(hdev, LE_LINK, &quote))) {
-> @@ -3990,6 +3994,7 @@ static void hci_acldata_packet(struct hci_dev *hdev, struct sk_buff *skb)
->
->         if (conn) {
->                 hci_conn_enter_active_mode(conn, BT_POWER_FORCE_ACTIVE_OFF);
-> +               hci_leds_blink_oneshot(hdev->rx_led);
->
->                 /* Send to upper protocol */
->                 l2cap_recv_acldata(conn, skb, flags);
-> @@ -4022,6 +4027,7 @@ static void hci_scodata_packet(struct hci_dev *hdev, struct sk_buff *skb)
->         hci_dev_unlock(hdev);
->
->         if (conn) {
-> +               hci_leds_blink_oneshot(hdev->rx_led);
->                 /* Send to upper protocol */
->                 sco_recv_scodata(conn, skb);
->                 return;
-> diff --git a/net/bluetooth/leds.c b/net/bluetooth/leds.c
-> index 8319c84..ae10c5d 100644
-> --- a/net/bluetooth/leds.c
-> +++ b/net/bluetooth/leds.c
-> @@ -19,6 +19,8 @@ struct hci_basic_led_trigger {
->  #define to_hci_basic_led_trigger(arg) container_of(arg, \
->                         struct hci_basic_led_trigger, led_trigger)
->
-> +#define BLUETOOTH_BLINK_DELAY  50 /* ms */
-> +
->  void hci_leds_update_powered(struct hci_dev *hdev, bool enabled)
->  {
->         if (hdev->power_led)
-> @@ -37,6 +39,17 @@ static void power_activate(struct led_classdev *led_cdev)
->         led_trigger_event(led_cdev->trigger, powered ? LED_FULL : LED_OFF);
->  }
->
-> +void hci_leds_blink_oneshot(struct led_trigger *trig)
-> +{
-> +       unsigned long led_delay = BLUETOOTH_BLINK_DELAY;
-> +
-> +       if (!trig)
-> +               return;
-> +
-> +       BT_DBG("led_trig %p", trig);
-> +       led_trigger_blink_oneshot(trig, &led_delay, &led_delay, 0);
-> +}
-> +
->  static struct led_trigger *led_allocate_basic(struct hci_dev *hdev,
->                         void (*activate)(struct led_classdev *led_cdev),
->                         const char *name)
-> @@ -71,4 +84,8 @@ void hci_leds_init(struct hci_dev *hdev)
->  {
->         /* initialize power_led */
->         hdev->power_led = led_allocate_basic(hdev, power_activate, "power");
-> +       /* initialize tx_led */
-> +       hdev->tx_led = led_allocate_basic(hdev, NULL, "tx");
-> +       /* initialize rx_led */
-> +       hdev->rx_led = led_allocate_basic(hdev, NULL, "rx");
->  }
-> diff --git a/net/bluetooth/leds.h b/net/bluetooth/leds.h
-> index a9c4d6e..9b1cccd 100644
-> --- a/net/bluetooth/leds.h
-> +++ b/net/bluetooth/leds.h
-> @@ -9,8 +9,10 @@
->  #if IS_ENABLED(CONFIG_BT_LEDS)
->  void hci_leds_update_powered(struct hci_dev *hdev, bool enabled);
->  void hci_leds_init(struct hci_dev *hdev);
-> +void hci_leds_blink_oneshot(struct led_trigger *trig);
->  #else
->  static inline void hci_leds_update_powered(struct hci_dev *hdev,
->                                            bool enabled) {}
->  static inline void hci_leds_init(struct hci_dev *hdev) {}
-> +static inline void hci_leds_blink_oneshot(struct led_trigger *trig) {}
->  #endif
-> --
-> 1.9.1
->
+diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+index b5a42df..1506e94 100644
+--- a/Documentation/devicetree/bindings/net/macb.txt
++++ b/Documentation/devicetree/bindings/net/macb.txt
+@@ -21,6 +21,7 @@ Required properties:
+ - clock-names: Tuple listing input clock names.
+ 	Required elements: 'pclk', 'hclk'
+ 	Optional elements: 'tx_clk'
++	Optional elements: 'rx_clk' applies to cdns,zynqmp-gem
+ - clocks: Phandles to input clocks.
+ 
+ Optional properties for PHY child node:
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 89c0cfa..278c6e3 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2303,7 +2303,8 @@ static void macb_probe_queues(void __iomem *mem,
+ }
+ 
+ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
+-			 struct clk **hclk, struct clk **tx_clk)
++			 struct clk **hclk, struct clk **tx_clk,
++			 struct clk **rx_clk)
+ {
+ 	int err;
+ 
+@@ -2325,6 +2326,10 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
+ 	if (IS_ERR(*tx_clk))
+ 		*tx_clk = NULL;
+ 
++	*rx_clk = devm_clk_get(&pdev->dev, "rx_clk");
++	if (IS_ERR(*rx_clk))
++		*rx_clk = NULL;
++
+ 	err = clk_prepare_enable(*pclk);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to enable pclk (%u)\n", err);
+@@ -2343,8 +2348,17 @@ static int macb_clk_init(struct platform_device *pdev, struct clk **pclk,
+ 		goto err_disable_hclk;
+ 	}
+ 
++	err = clk_prepare_enable(*rx_clk);
++	if (err) {
++		dev_err(&pdev->dev, "failed to enable rx_clk (%u)\n", err);
++		goto err_disable_txclk;
++	}
++
+ 	return 0;
+ 
++err_disable_txclk:
++	clk_disable_unprepare(*tx_clk);
++
+ err_disable_hclk:
+ 	clk_disable_unprepare(*hclk);
+ 
+@@ -2728,12 +2742,14 @@ static const struct net_device_ops at91ether_netdev_ops = {
+ };
+ 
+ static int at91ether_clk_init(struct platform_device *pdev, struct clk **pclk,
+-			      struct clk **hclk, struct clk **tx_clk)
++			      struct clk **hclk, struct clk **tx_clk,
++			      struct clk **rx_clk)
+ {
+ 	int err;
+ 
+ 	*hclk = NULL;
+ 	*tx_clk = NULL;
++	*rx_clk = NULL;
+ 
+ 	*pclk = devm_clk_get(&pdev->dev, "ether_clk");
+ 	if (IS_ERR(*pclk))
+@@ -2857,13 +2873,13 @@ MODULE_DEVICE_TABLE(of, macb_dt_ids);
+ static int macb_probe(struct platform_device *pdev)
+ {
+ 	int (*clk_init)(struct platform_device *, struct clk **,
+-			struct clk **, struct clk **)
++			struct clk **, struct clk **,  struct clk **)
+ 					      = macb_clk_init;
+ 	int (*init)(struct platform_device *) = macb_init;
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct device_node *phy_node;
+ 	const struct macb_config *macb_config = NULL;
+-	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
++	struct clk *pclk, *hclk = NULL, *tx_clk = NULL, *rx_clk = NULL;
+ 	unsigned int queue_mask, num_queues;
+ 	struct macb_platform_data *pdata;
+ 	bool native_io;
+@@ -2891,7 +2907,7 @@ static int macb_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
+-	err = clk_init(pdev, &pclk, &hclk, &tx_clk);
++	err = clk_init(pdev, &pclk, &hclk, &tx_clk, &rx_clk);
+ 	if (err)
+ 		return err;
+ 
+@@ -2927,6 +2943,7 @@ static int macb_probe(struct platform_device *pdev)
+ 	bp->pclk = pclk;
+ 	bp->hclk = hclk;
+ 	bp->tx_clk = tx_clk;
++	bp->rx_clk = rx_clk;
+ 	if (macb_config)
+ 		bp->jumbo_max_len = macb_config->jumbo_max_len;
+ 
+@@ -3020,6 +3037,7 @@ err_disable_clocks:
+ 	clk_disable_unprepare(tx_clk);
+ 	clk_disable_unprepare(hclk);
+ 	clk_disable_unprepare(pclk);
++	clk_disable_unprepare(rx_clk);
+ 
+ 	return err;
+ }
+@@ -3046,6 +3064,7 @@ static int macb_remove(struct platform_device *pdev)
+ 		clk_disable_unprepare(bp->tx_clk);
+ 		clk_disable_unprepare(bp->hclk);
+ 		clk_disable_unprepare(bp->pclk);
++		clk_disable_unprepare(bp->rx_clk);
+ 		free_netdev(dev);
+ 	}
+ 
+@@ -3069,6 +3088,7 @@ static int __maybe_unused macb_suspend(struct device *dev)
+ 		clk_disable_unprepare(bp->tx_clk);
+ 		clk_disable_unprepare(bp->hclk);
+ 		clk_disable_unprepare(bp->pclk);
++		clk_disable_unprepare(bp->rx_clk);
+ 	}
+ 
+ 	return 0;
+@@ -3088,6 +3108,7 @@ static int __maybe_unused macb_resume(struct device *dev)
+ 		clk_prepare_enable(bp->pclk);
+ 		clk_prepare_enable(bp->hclk);
+ 		clk_prepare_enable(bp->tx_clk);
++		clk_prepare_enable(bp->rx_clk);
+ 	}
+ 
+ 	netif_device_attach(netdev);
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 36893d8..10485b6 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -763,7 +763,8 @@ struct macb_config {
+ 	u32			caps;
+ 	unsigned int		dma_burst_length;
+ 	int	(*clk_init)(struct platform_device *pdev, struct clk **pclk,
+-			    struct clk **hclk, struct clk **tx_clk);
++			    struct clk **hclk, struct clk **tx_clk,
++			    struct clk **rx_clk);
+ 	int	(*init)(struct platform_device *pdev);
+ 	int	jumbo_max_len;
+ };
+@@ -809,6 +810,7 @@ struct macb {
+ 	struct clk		*pclk;
+ 	struct clk		*hclk;
+ 	struct clk		*tx_clk;
++	struct clk		*rx_clk;
+ 	struct net_device	*dev;
+ 	struct napi_struct	napi;
+ 	struct net_device_stats	stats;
+-- 
+2.1.1
