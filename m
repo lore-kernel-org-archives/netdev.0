@@ -1,107 +1,148 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix a success return may hide an error
-Date: Tue, 16 Aug 2016 14:24:47 -0300
-Message-ID: <20160816172447.GC3110@localhost.localdomain>
-References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
- <20160812.211113.1099230839994600349.davem@davemloft.net>
- <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
- <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
+From: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] bnx2x: don't reset chip on cleanup if PCI function is
+ offline
+Date: Tue, 16 Aug 2016 14:51:01 -0300
+Message-ID: <57B35285.2090400@linux.vnet.ibm.com>
+References: <1470687227-21024-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+ <CO2PR11MB0088856E58DAADE7064F28AF971C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <57A9DA2B.7080908@linux.vnet.ibm.com>
+ <CO2PR11MB008852D899DEF786AD7CB48C971D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <57AB2C11.1070706@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Xin Long'" <lucien.xin@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46168 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751464AbcHPRYw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 13:24:52 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:55628 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751464AbcHPRvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 13:51:09 -0400
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u7GHnIJs032739
+	for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 13:51:08 -0400
+Received: from e24smtp02.br.ibm.com (e24smtp02.br.ibm.com [32.104.18.86])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 24syq479j8-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 13:51:08 -0400
+Received: from localhost
+	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <gpiccoli@linux.vnet.ibm.com>;
+	Tue, 16 Aug 2016 14:51:05 -0300
+Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id 4939D352006E
+	for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 13:50:42 -0400 (EDT)
+Received: from d24av04.br.ibm.com (d24av04.br.ibm.com [9.8.31.97])
+	by d24relay02.br.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u7GHp28A33161478
+	for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 14:51:02 -0300
+Received: from d24av04.br.ibm.com (localhost [127.0.0.1])
+	by d24av04.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u7GHp2Mr029695
+	for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 14:51:02 -0300
+In-Reply-To: <57AB2C11.1070706@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 16, 2016 at 04:01:50PM +0000, David Laight wrote:
-> From: Xin Long
-> > Sent: 16 August 2016 12:34
-> >
-> > >> Both sctp_outq_flush_rtx and sctp_packet_transmit can ONLY
-> > >> return one error (-ENOMEM), as sctp_outq_flush_rtx also calls
-> > >> sctp_packet_transmit.
-> > >
-> > > What is the effect of the error?
-> > > If it is 'just' equivalent to a lost ethernet packet (and the skb (etc)
-> > > is freed) then the protocol will recover.
-> > > If it is anything else then the error path is probably wrong.
-> >
-> > This err returns back to sctp_sendmsg, there sctp will abort asoc.
+On 08/10/2016 10:28 AM, Guilherme G. Piccoli wrote:
+> On 08/10/2016 04:59 AM, Yuval Mintz wrote:
+>>>> Why would the published resume()  from pci_error_handlers be called
+>>>> in this
+>>> scenario?
+>>>
+>>> It isn't. That's why I specifically commented on commit message:
+>>> "There are two
+>>> cases though that another path is taken on the code".
+>>>
+>>> The code path reach bnx2x_chip_cleanup() on device removal from the
+>>> system,
+>>> as seen in the below call trace:
+>>>
+>>> bnx2x_chip_cleanup+0x3c0/0x910 [bnx2x]
+>>> bnx2x_nic_unload+0x268/0xaf0 [bnx2x]
+>>> bnx2x_close+0x34/0x50 [bnx2x]
+>>> __dev_close_many+0xd4/0x150
+>>> dev_close_many+0xa8/0x160
+>>> rollback_registered_many+0x174/0x3f0
+>>> rollback_registered+0x40/0x70
+>>> unregister_netdevice_queue+0x98/0x110
+>>> unregister_netdev+0x34/0x50
+>>> __bnx2x_remove+0xa8/0x3a0 [bnx2x]
+>>> pci_device_remove+0x70/0x110
+>>
+>> Makes sense.
+>>
+>>>>> Also, we avoid the MCP information dump in case of non-recoverable
+>>>>> PCI error (when adapter is about to be removed), since it will
+>>>>> certainly fail.
+>>>>
+>>>> We should probably avoid several things here; Why specifically only
+>>>> this?
+>>>
+>>> For example, we shouldn't execute bnx2x_timer() in this scenario. But
+>>> I thought
+>>> it'd be too much to check every call of a timer function against PCI
+>>> channel state
+>>> just to avoid it's execution on this scenario, so I just let it
+>>> execute, since it seems
+>>> harmless.
+>>>
+>>>>> +    /* Reset the chip, unless PCI function is offline. If we reach
+>>>>> this
+>>>>> +     * point following a PCI error handling, it means device is
+>>>>> really
+>>>>> +     * in a bad state and we're about to remove it, so reset the chip
+>>>>> +     * is not a good idea.
+>>>>> +     */
+>>>>> +    if (!pci_channel_offline(bp->pdev)) {
+>>>>> +        rc = bnx2x_reset_hw(bp, reset_code);
+>>>>> +        if (rc)
+>>>>> +            BNX2X_ERR("HW_RESET failed\n");
+>>>>> +    }
+>>>>
+>>>> Why not simply check this at the beginning of the function?
+>>>
+>>> Because I wasn't sure if I could drop the entire execution of
+>>> chip_cleanup(). I
+>>> tried to keep the most of this function aiming to shutdown the module
+>>> in a
+>>> gentle way, like cleaning MAC, stopping queues...but again, I'm open to
+>>> suggestions and gladly will change this in v2 if you think it's for
+>>> the best.
+>>
+>> Problem is I won't be able to have a more thorough review of this in
+>> the next
+>> couple of days - and other than code-review I won't have a reasonable way
+>> of testing this [I can use aer_inject, but I don't have your magical EEH
+>> error injections, and I'm not at all certain it would suffice for a
+>> good testing ].
+>>
+>> I agree that even as-is, what you're suggesting is an improvement to the
+>> existing flow - so it's basically up to dave, i.e., whether to take a
+>> half fix
+>> or wait for a more thorough one.
+>>
+>
+> Thanks for your consideration. The point is: the important part of this
+> patch is avoiding the reset_hw() path, since it will clearly fail and
+> generate soft lockups. This is the fix per se, the other part (regarding
+> the MCP dump) is just an improvement; surely we have more potential
+> improvements to explore, but they wouldn't be fixes, only code
+> improvements.
+>
+> So, I wouldn't call this a half fix, but yet, a completely fix with a
+> small improvement as a bonus :)
+>
+> Cheers,
+>
+>
+> Guilherme
+>
 
-That's not right I think. sctp_sendmsg will only free the asoc if it was
-created to send that specific chunk. And in this case, this change
-should have no effect as it can't have sctp_outq_flush() touching
-several transports in a row.
+David, sorry to bother you - maybe you didn't notice this.
+Any comments?
 
-I'm basing on:
-out_free:
-        if (new_asoc)
-                sctp_association_free(asoc);
+Thanks in advance,
 
-and sctp_recvmsg will just fetch, return and clear the error via
-sctp_skb_recv_datagram, but not free it.
 
-Do you see any other place freeing it?
-
-> 
-> That doesn't seem a good idea.
-> You don't want to abort the association if there is a transient
-> memory allocation failure.
-> You also can't drop data chunks.
-
->From a system-wise POV, this behavior - to free the new asoc in case of
-transient memory allocation failure - doesn't seem bad to me.
-That's what will have to happen if any allocation before it failed and
-also it helps the system to reduce the stress a little bit. I don't see
-any inconsistency/problems here because we are not dropping a single
-random chunk but instead we are actually refusing to initialize a new
-asoc in such conditions.
-
-Nevertheless, I agree that letting the application see ENOMEM errors when
-the data actually got queued and is being fully handled, as in, it will
-be retransmitted later, is not be wise, as the application probably
-won't be able to distinguish from ENOMEMs that it should retry or not.
-Here I see a problem, yet it's not due to this specific change, perhaps
-it just got attention because of it. In this situation, we should handle
-ENOMEMs internally if possible so the application can know that if it
-hits an ENOMEM, it's real and it has to retry.
-
-Fixing this inconsistency may very well cause us to let that new asoc to
-live longer, works for me too.
-
-> 
-> > in this function, sctp tries to do 3 things:
-> > 1. flush rtx queue
-> > 2. transmit the packet of current transport
-> > 3. flush all the transports.
-> > Now sctp would do them one by one, even if one of them returns err.
-> 
-> You probably need to explain what 'flush' means here.
-> I think it means 'process and send', but it might mean 'discard the
-> contents of'.
-
-Yes, the first. He probably use the work 'flush' because the function is
-called .._flush_..
-
-> Last time I looked at the sctp code my head exploded.
-> ISTR it is a mess of timing errors waiting to happen
-> (and I write comms protocol stack code for a living).
-
-Well, it may be, but we are trying to improve it.  Please continue
-discussing the fixes so we can keep improving it. :)
-
-  Marcelo
+Guilherme
