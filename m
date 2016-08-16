@@ -1,88 +1,107 @@
-From: <doctornina@abv.bg>
-Subject: (unknown)
-Date: Mon, 16 Aug 2016 23:24:04 0000
-Message-ID: <000101d1f815$475f05fa$c0a80001@vnpt.vn>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: fix a success return may hide an error
+Date: Tue, 16 Aug 2016 14:24:47 -0300
+Message-ID: <20160816172447.GC3110@localhost.localdomain>
+References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+ <20160812.211113.1099230839994600349.davem@davemloft.net>
+ <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
+ <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="ffjnetdev.zip"
-Content-Transfer-Encoding: base64
-To: "netdev" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Xin Long'" <lucien.xin@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cm-84.210.220.99.getinternet.no ([84.210.220.99]:52525 "HELO
-	vnpt.vn" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751690AbcHPRYf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 13:24:35 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mx1.redhat.com ([209.132.183.28]:46168 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751464AbcHPRYw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 13:24:52 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-emlwUEsFBgAAAAABAAEAOwAAACUPAAAAAA==
+On Tue, Aug 16, 2016 at 04:01:50PM +0000, David Laight wrote:
+> From: Xin Long
+> > Sent: 16 August 2016 12:34
+> >
+> > >> Both sctp_outq_flush_rtx and sctp_packet_transmit can ONLY
+> > >> return one error (-ENOMEM), as sctp_outq_flush_rtx also calls
+> > >> sctp_packet_transmit.
+> > >
+> > > What is the effect of the error?
+> > > If it is 'just' equivalent to a lost ethernet packet (and the skb (etc)
+> > > is freed) then the protocol will recover.
+> > > If it is anything else then the error path is probably wrong.
+> >
+> > This err returns back to sctp_sendmsg, there sctp will abort asoc.
+
+That's not right I think. sctp_sendmsg will only free the asoc if it was
+created to send that specific chunk. And in this case, this change
+should have no effect as it can't have sctp_outq_flush() touching
+several transports in a row.
+
+I'm basing on:
+out_free:
+        if (new_asoc)
+                sctp_association_free(asoc);
+
+and sctp_recvmsg will just fetch, return and clear the error via
+sctp_skb_recv_datagram, but not free it.
+
+Do you see any other place freeing it?
+
+> 
+> That doesn't seem a good idea.
+> You don't want to abort the association if there is a transient
+> memory allocation failure.
+> You also can't drop data chunks.
+
+>From a system-wise POV, this behavior - to free the new asoc in case of
+transient memory allocation failure - doesn't seem bad to me.
+That's what will have to happen if any allocation before it failed and
+also it helps the system to reduce the stress a little bit. I don't see
+any inconsistency/problems here because we are not dropping a single
+random chunk but instead we are actually refusing to initialize a new
+asoc in such conditions.
+
+Nevertheless, I agree that letting the application see ENOMEM errors when
+the data actually got queued and is being fully handled, as in, it will
+be retransmitted later, is not be wise, as the application probably
+won't be able to distinguish from ENOMEMs that it should retry or not.
+Here I see a problem, yet it's not due to this specific change, perhaps
+it just got attention because of it. In this situation, we should handle
+ENOMEMs internally if possible so the application can know that if it
+hits an ENOMEM, it's real and it has to retry.
+
+Fixing this inconsistency may very well cause us to let that new asoc to
+live longer, works for me too.
+
+> 
+> > in this function, sctp tries to do 3 things:
+> > 1. flush rtx queue
+> > 2. transmit the packet of current transport
+> > 3. flush all the transports.
+> > Now sctp would do them one by one, even if one of them returns err.
+> 
+> You probably need to explain what 'flush' means here.
+> I think it means 'process and send', but it might mean 'discard the
+> contents of'.
+
+Yes, the first. He probably use the work 'flush' because the function is
+called .._flush_..
+
+> Last time I looked at the sctp code my head exploded.
+> ISTR it is a mess of timing errors waiting to happen
+> (and I write comms protocol stack code for a living).
+
+Well, it may be, but we are trying to improve it.  Please continue
+discussing the fixes so we can keep improving it. :)
+
+  Marcelo
