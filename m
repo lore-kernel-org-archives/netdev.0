@@ -1,96 +1,108 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 6/6] i40e: check for and deal with non-contiguous TCs
-Date: Tue, 16 Aug 2016 13:40:14 -0700
-Message-ID: <1471380014-134435-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net 1/6] igb: fix adjusting PTP timestamps for Tx/Rx latency
+Date: Tue, 16 Aug 2016 13:40:09 -0700
+Message-ID: <1471380014-134435-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471380014-134435-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dave Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
+Cc: Kshitiz Gupta <kshitiz.gupta@ni.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	guru.anbalagane@oracle.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20746 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:27840 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753466AbcHPUkS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 16:40:18 -0400
+	id S1753776AbcHPUkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Aug 2016 16:40:16 -0400
 In-Reply-To: <1471380014-134435-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Ertman <david.m.ertman@intel.com>
+From: Kshitiz Gupta <kshitiz.gupta@ni.com>
 
-The i40e driver was causing a kernel panic when
-non-contiguous Traffic Classes, or Traffic Classes not
-starting with TC0, were configured on a link partner switch.
-i40e does not support non-contiguous TCs.
+Fix PHY delay compensation math in igb_ptp_tx_hwtstamp() and
+igb_ptp_rx_rgtstamp. Add PHY delay compensation in
+igb_ptp_rx_pktstamp().
 
-To fix this, the patch changes the logic when determining
-the total number of TCs enabled.  Before, this would use the
-highest TC number enabled and assume that all TCs below it were
-also enabled.  Now, we create a bitmask of enabled TCs and scan
-it to determine not only the number of TCs, but also if the set
-of enabled TCs starts at zero and is contiguous.  If not, then
-DCB is disabled by only returning one TC.
+In the IGB driver, there are two functions that retrieve timestamps
+received by the PHY - igb_ptp_rx_rgtstamp() and igb_ptp_rx_pktstamp().
+The previous commit only changed igb_ptp_rx_rgtstamp(), and the change
+was incorrect.
 
-Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+There are two instances in which PHY delay compensations should be
+made:
+
+- Before the packet transmission over the PHY, the latency between
+  when the packet is timestamped and transmission of the packets,
+  should be an add operation, but it is currently a subtract.
+
+- After the packets are received from the PHY, the latency between
+  the receiving and timestamping of the packets should be a subtract
+  operation, but it is currently an add.
+
+Signed-off-by: Kshitiz Gupta <kshitiz.gupta@ni.com>
+Fixes: 3f544d2 (igb: adjust ptp timestamps for tx/rx latency)
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 35 ++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_ptp.c | 26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 81c99e1..c6ac7a6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4554,23 +4554,38 @@ static u8 i40e_get_iscsi_tc_map(struct i40e_pf *pf)
-  **/
- static u8 i40e_dcb_get_num_tc(struct i40e_dcbx_config *dcbcfg)
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index e61b647..336c103 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -744,7 +744,8 @@ static void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter)
+ 		}
+ 	}
+ 
+-	shhwtstamps.hwtstamp = ktime_sub_ns(shhwtstamps.hwtstamp, adjust);
++	shhwtstamps.hwtstamp =
++		ktime_add_ns(shhwtstamps.hwtstamp, adjust);
+ 
+ 	skb_tstamp_tx(adapter->ptp_tx_skb, &shhwtstamps);
+ 	dev_kfree_skb_any(adapter->ptp_tx_skb);
+@@ -767,13 +768,32 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector,
+ 			 struct sk_buff *skb)
  {
-+	int i, tc_unused = 0;
- 	u8 num_tc = 0;
--	int i;
-+	u8 ret = 0;
+ 	__le64 *regval = (__le64 *)va;
++	struct igb_adapter *adapter = q_vector->adapter;
++	int adjust = 0;
  
- 	/* Scan the ETS Config Priority Table to find
- 	 * traffic class enabled for a given priority
--	 * and use the traffic class index to get the
--	 * number of traffic classes enabled
-+	 * and create a bitmask of enabled TCs
+ 	/* The timestamp is recorded in little endian format.
+ 	 * DWORD: 0        1        2        3
+ 	 * Field: Reserved Reserved SYSTIML  SYSTIMH
  	 */
--	for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
--		if (dcbcfg->etscfg.prioritytable[i] > num_tc)
--			num_tc = dcbcfg->etscfg.prioritytable[i];
--	}
-+	for (i = 0; i < I40E_MAX_USER_PRIORITY; i++)
-+		num_tc |= BIT(dcbcfg->etscfg.prioritytable[i]);
- 
--	/* Traffic class index starts from zero so
--	 * increment to return the actual count
-+	/* Now scan the bitmask to check for
-+	 * contiguous TCs starting with TC0
- 	 */
--	return num_tc + 1;
-+	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
-+		if (num_tc & BIT(i)) {
-+			if (!tc_unused) {
-+				ret++;
-+			} else {
-+				pr_err("Non-contiguous TC - Disabling DCB\n");
-+				return 1;
-+			}
-+		} else {
-+			tc_unused = 1;
+-	igb_ptp_systim_to_hwtstamp(q_vector->adapter, skb_hwtstamps(skb),
++	igb_ptp_systim_to_hwtstamp(adapter, skb_hwtstamps(skb),
+ 				   le64_to_cpu(regval[1]));
++
++	/* adjust timestamp for the RX latency based on link speed */
++	if (adapter->hw.mac.type == e1000_i210) {
++		switch (adapter->link_speed) {
++		case SPEED_10:
++			adjust = IGB_I210_RX_LATENCY_10;
++			break;
++		case SPEED_100:
++			adjust = IGB_I210_RX_LATENCY_100;
++			break;
++		case SPEED_1000:
++			adjust = IGB_I210_RX_LATENCY_1000;
++			break;
 +		}
 +	}
-+
-+	/* There is always at least TC0 */
-+	if (!ret)
-+		ret = 1;
-+
-+	return ret;
++	skb_hwtstamps(skb)->hwtstamp =
++		ktime_sub_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
  }
  
  /**
+@@ -825,7 +845,7 @@ void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
+ 		}
+ 	}
+ 	skb_hwtstamps(skb)->hwtstamp =
+-		ktime_add_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
++		ktime_sub_ns(skb_hwtstamps(skb)->hwtstamp, adjust);
+ 
+ 	/* Update the last_rx_timestamp timer in order to enable watchdog check
+ 	 * for error case of latched timestamp on a dropped packet.
 -- 
 2.7.4
