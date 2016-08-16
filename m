@@ -1,62 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: Update copyright info
-Date: Tue, 16 Aug 2016 15:30:57 +0200
-Message-ID: <20160816133057.GG14446@lunn.ch>
-References: <1471328909-20104-1-git-send-email-appanad@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-	appanad@xilinx.com, f.fainelli@gmail.com, punnaia@xilinx.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	David Miller <davem@davemloft.net>
+From: Pavel Andrianov <andrianov@ispras.ru>
+Subject: [PATCH] smc91c92_cs : add a spinlock to avoid race condition
+Date: Tue, 16 Aug 2016 16:39:06 +0300
+Message-ID: <1471354746-27110-1-git-send-email-andrianov@ispras.ru>
+Cc: Pavel Andrianov <andrianov@ispras.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Antonio Quartulli <a@unstable.cc>,
+	Felipe Balbi <felipe.balbi@linux.intel.com>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vaishali.thakkar@oracle.com,
+	ldv-project@linuxtesting.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1471328909-20104-1-git-send-email-appanad@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 16, 2016 at 11:58:29AM +0530, Kedareswara rao Appana wrote:
-> For implementing this driver most of the inputs is
-> provided by Andrew Lunn.
-> 
-> Updating the driver with Andrew Copy right.
-> 
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+smc_reset may be executed in parallel with timer function media_check.
+To avoid data race in smc_set_xcvr a spinlock was added.
 
-O.K, so this is a start in correcting the damage.
+Found by Linux Driver Verification project (linuxtesting.org).
 
-The code still has major issues, like i think it will Opps after you
-unload the module. The code was not ready for merging, which is why it
-did not get my Signed-off-by, when i left for vacation...
+Signed-off-by: Pavel Andrianov <andrianov@ispras.ru>
+---
+ drivers/net/ethernet/smsc/smc91c92_cs.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-So, for this, and only this patch:
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
-
-
-
-> ---
->  drivers/net/phy/xilinx_gmii2rgmii.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
-> index cad6e19..e7a20ec 100644
-> --- a/drivers/net/phy/xilinx_gmii2rgmii.c
-> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
-> @@ -1,7 +1,9 @@
->  /* Xilinx GMII2RGMII Converter driver
->   *
->   * Copyright (C) 2016 Xilinx, Inc.
-> + * Copyright (C) 2016 Andrew Lunn <andrew@lunn.ch>
->   *
-> + * Author: Andrew Lunn <andrew@lunn.ch>
->   * Author: Kedareswara rao Appana <appanad@xilinx.com>
->   *
->   * Description:
-> -- 
-> 2.1.2
-> 
+diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
+index db3c696..69d865c 100644
+--- a/drivers/net/ethernet/smsc/smc91c92_cs.c
++++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
+@@ -1637,6 +1637,7 @@ static void smc_reset(struct net_device *dev)
+     unsigned int ioaddr = dev->base_addr;
+     struct smc_private *smc = netdev_priv(dev);
+     int i;
++    unsigned long flags;
+ 
+     netdev_dbg(dev, "smc91c92 reset called.\n");
+ 
+@@ -1647,6 +1648,7 @@ static void smc_reset(struct net_device *dev)
+     outw(RCR_SOFTRESET, ioaddr + RCR);
+     udelay(10);
+ 
++    spin_lock_irqsave(&smc->lock, flags);
+     /* Clear the transmit and receive configuration registers. */
+     outw(RCR_CLEAR, ioaddr + RCR);
+     outw(TCR_CLEAR, ioaddr + TCR);
+@@ -1699,6 +1701,7 @@ static void smc_reset(struct net_device *dev)
+     SMC_SELECT_BANK(2);
+     outw((IM_EPH_INT | IM_RX_OVRN_INT | IM_RCV_INT) << 8,
+ 	 ioaddr + INTERRUPT);
++    spin_unlock_irqrestore(&smc->lock, flags);
+ }
+ 
+ /*======================================================================
+-- 
+2.7.4
