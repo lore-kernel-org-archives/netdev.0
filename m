@@ -1,57 +1,58 @@
 From: Andrew Yourtchenko <ayourtch@gmail.com>
-Subject: [PATCH 1/2] ipv6: save route expiry in RTA_EXPIRES if RTF_EXPIRES set
-Date: Tue, 16 Aug 2016 15:59:02 +0200
-Message-ID: <1471355943-21288-2-git-send-email-ayourtch@gmail.com>
+Subject: [PATCH 2/2] ipv6: fixup RTF_* flags when restoring RTPROT_RA route from rtnetlink
+Date: Tue, 16 Aug 2016 15:59:03 +0200
+Message-ID: <1471355943-21288-3-git-send-email-ayourtch@gmail.com>
 References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
 Cc: Andrew Yourtchenko <ayourtch@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36256 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753430AbcHPN70 (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33700 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753494AbcHPN70 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 09:59:26 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i138so16542772wmf.3
-        for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 06:59:23 -0700 (PDT)
+Received: by mail-wm0-f66.google.com with SMTP id o80so16645800wme.0
+        for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 06:59:24 -0700 (PDT)
 In-Reply-To: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows "ip -6 route save" to save the expiry for the routes
-that have it, such that it can be correctly restored later by
-"ip -6 route restore".
+Fix the flags for RA-derived routes that were saved
+via "ip -6 route save" and and subsequently restored via
+"ip -6 route restore", allowing the incoming router advertisements
+to update them, rather than complain about inability to do so.
 
-If a route has RTF_EXPIRES set, generate RTA_EXPIRES value which
-will be used to restore the flag and expiry value by already
-existing code in rtm_to_fib6_config.
-
-The expiry was already being saved as part of RTA_CACHEINFO
-in rtnl_put_cacheinfo(), but adding code to generate RTF_EXPIRES upon save
-looked more appropriate than redundant cherrypicking from
-RTA_CACHEINFO upon restore.
+Upon the restore of RA-derived saved routes, set the RTF_ADDRCONF
+to indicate that the source of the route was originally
+a router advertisement, and set the RTF_DEFAULT or RTF_ROUTEINFO
+flag depending on prefix length. This can be considered a
+sister change of f0396f60d7c165018c9b203fb9b89fb224835578, in
+the other direction.
 
 Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
 ---
- net/ipv6/route.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ net/ipv6/route.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 4981755..dc37017 100644
+index dc37017..4da7237 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -3244,6 +3244,14 @@ static int rt6_fill_node(struct net *net,
- 	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, rt->dst.error) < 0)
- 		goto nla_put_failure;
+@@ -2769,6 +2769,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	cfg->fc_protocol = rtm->rtm_protocol;
+ 	cfg->fc_type = rtm->rtm_type;
  
-+	/* Can't rely on expires == 0. It is zero if no expires flag,
-+	 * or if the timing is precisely at expiry. So, recheck the flag.
-+	 */
-+	if (rt->rt6i_flags & RTF_EXPIRES)
-+		if (nla_put_u32(skb, RTA_EXPIRES,
-+                                 expires > 0 ? expires / HZ : 0))
-+			goto nla_put_failure;
++	if (rtm->rtm_protocol == RTPROT_RA) {
++	    /* RA-derived route: set flags accordingly. */
++	    cfg->fc_flags |= RTF_ADDRCONF;
++	    if (rtm->rtm_dst_len == 0) {
++		cfg->fc_flags |= RTF_DEFAULT;
++	    } else {
++		cfg->fc_flags |= RTF_ROUTEINFO;
++	    }
++	}
 +
- 	if (nla_put_u8(skb, RTA_PREF, IPV6_EXTRACT_PREF(rt->rt6i_flags)))
- 		goto nla_put_failure;
- 
+ 	if (rtm->rtm_type == RTN_UNREACHABLE ||
+ 	    rtm->rtm_type == RTN_BLACKHOLE ||
+ 	    rtm->rtm_type == RTN_PROHIBIT ||
 -- 
 2.7.4
