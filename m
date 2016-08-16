@@ -1,7 +1,7 @@
 From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: [PATCH 5/5] net-sysfs: make sure objects belong to contrainer's owner
-Date: Tue, 16 Aug 2016 15:33:15 -0700
-Message-ID: <1471386795-32918-6-git-send-email-dmitry.torokhov@gmail.com>
+Subject: [PATCH 4/5] driver core: set up ownership of class devices in sysfs
+Date: Tue, 16 Aug 2016 15:33:14 -0700
+Message-ID: <1471386795-32918-5-git-send-email-dmitry.torokhov@gmail.com>
 References: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Tejun Heo <tj@kernel.org>,
@@ -12,99 +12,63 @@ In-Reply-To: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When creating various objects in /sys/class/net/... make sure that they
-belong to container's owner instead of global root (if they belong to a
-container/namespace).
+Plumb in get_ownership() callback for devices belonging to a class so that
+they can be created with uid/gid different from global root. This will
+allow network devices in a container to belong to container's root and not
+global root.
 
 Signed-off-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 ---
- net/core/net-sysfs.c | 44 +++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 43 insertions(+), 1 deletion(-)
+ drivers/base/core.c    | 9 +++++++++
+ include/linux/device.h | 5 +++++
+ 2 files changed, 14 insertions(+)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 7a0b616..ef997bb 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -882,11 +882,35 @@ static const void *rx_queue_namespace(struct kobject *kobj)
+diff --git a/drivers/base/core.c b/drivers/base/core.c
+index 0a8bdad..0f95454 100644
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -263,10 +263,19 @@ static const void *device_namespace(struct kobject *kobj)
  	return ns;
  }
  
-+static void net_ns_get_ownership(const struct net *net,
-+				 kuid_t *uid, kgid_t *gid)
++static void device_get_ownership(struct kobject *kobj, kuid_t *uid, kgid_t *gid)
 +{
-+	if (net) {
-+		kuid_t ns_root_uid = make_kuid(net->user_ns, 0);
-+		kgid_t ns_root_gid = make_kgid(net->user_ns, 0);
++	struct device *dev = kobj_to_dev(kobj);
 +
-+		if (uid_valid(ns_root_uid))
-+			*uid = ns_root_uid;
-+
-+		if (gid_valid(ns_root_gid))
-+			*gid = ns_root_gid;
-+	}
++	if (dev->class && dev->class->get_ownership)
++		dev->class->get_ownership(dev, uid, gid);
 +}
 +
-+static void rx_queue_get_ownership(struct kobject *kobj,
-+				   kuid_t *uid, kgid_t *gid)
-+{
-+	const struct net *net = rx_queue_namespace(kobj);
-+
-+	net_ns_get_ownership(net, uid, gid);
-+}
-+
- static struct kobj_type rx_queue_ktype = {
- 	.sysfs_ops = &rx_queue_sysfs_ops,
- 	.release = rx_queue_release,
- 	.default_attrs = rx_queue_default_attrs,
--	.namespace = rx_queue_namespace
-+	.namespace = rx_queue_namespace,
-+	.get_ownership = rx_queue_get_ownership,
+ static struct kobj_type device_ktype = {
+ 	.release	= device_release,
+ 	.sysfs_ops	= &dev_sysfs_ops,
+ 	.namespace	= device_namespace,
++	.get_ownership	= device_get_ownership,
  };
  
- static int rx_queue_add_kobject(struct net_device *dev, int index)
-@@ -1274,11 +1298,20 @@ static const void *netdev_queue_namespace(struct kobject *kobj)
- 	return ns;
- }
  
-+static void netdev_queue_get_ownership(struct kobject *kobj,
-+				       kuid_t *uid, kgid_t *gid)
-+{
-+	const struct net *net = netdev_queue_namespace(kobj);
-+
-+	net_ns_get_ownership(net, uid, gid);
-+}
-+
- static struct kobj_type netdev_queue_ktype = {
- 	.sysfs_ops = &netdev_queue_sysfs_ops,
- 	.release = netdev_queue_release,
- 	.default_attrs = netdev_queue_default_attrs,
- 	.namespace = netdev_queue_namespace,
-+	.get_ownership = netdev_queue_get_ownership,
- };
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 38f0281..da20b12 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -374,6 +374,9 @@ int subsys_virtual_register(struct bus_type *subsys,
+  * @resume:	Used to bring the device from the sleep mode.
+  * @ns_type:	Callbacks so sysfs can detemine namespaces.
+  * @namespace:	Namespace of the device belongs to this class.
++ * @get_ownership: Allows class to specify uid/gid of the sysfs directories
++ *		for the devices belonging to the class. Usually tied to
++ *		device's namespace.
+  * @pm:		The default device power management operations of this class.
+  * @p:		The private data of the driver core, no one other than the
+  *		driver core can touch this.
+@@ -404,6 +407,8 @@ struct class {
+ 	const struct kobj_ns_type_operations *ns_type;
+ 	const void *(*namespace)(struct device *dev);
  
- static int netdev_queue_add_kobject(struct net_device *dev, int index)
-@@ -1463,6 +1496,14 @@ static const void *net_namespace(struct device *d)
- 	return dev_net(dev);
- }
- 
-+static void net_get_ownership(struct device *d, kuid_t *uid, kgid_t *gid)
-+{
-+	struct net_device *dev = to_net_dev(d);
-+	const struct net *net = dev_net(dev);
++	void (*get_ownership)(struct device *dev, kuid_t *uid, kgid_t *gid);
 +
-+	net_ns_get_ownership(net, uid, gid);
-+}
-+
- static struct class net_class = {
- 	.name = "net",
- 	.dev_release = netdev_release,
-@@ -1470,6 +1511,7 @@ static struct class net_class = {
- 	.dev_uevent = netdev_uevent,
- 	.ns_type = &net_ns_type_operations,
- 	.namespace = net_namespace,
-+	.get_ownership = net_get_ownership,
- };
+ 	const struct dev_pm_ops *pm;
  
- #ifdef CONFIG_OF_NET
+ 	struct subsys_private *p;
 -- 
 2.8.0.rc3.226.g39d4020
