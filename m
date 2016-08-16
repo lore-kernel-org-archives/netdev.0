@@ -1,252 +1,65 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 10/16] batman-adv: netlink: add gateway table queries
-Date: Tue, 16 Aug 2016 10:32:38 +0200
-Message-ID: <1471336364-16334-11-git-send-email-sw@simonwunderlich.de>
-References: <1471336364-16334-1-git-send-email-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] sctp: fix a success return may hide an error
+Date: Tue, 16 Aug 2016 09:16:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
+References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+ <20160812.211113.1099230839994600349.davem@davemloft.net>
+ <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: network dev <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: 'Xin Long' <lucien.xin@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:58606 "EHLO
-	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752357AbcHPIdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 04:33:31 -0400
-In-Reply-To: <1471336364-16334-1-git-send-email-sw@simonwunderlich.de>
+Received: from smtp-out6.electric.net ([192.162.217.190]:53218 "EHLO
+	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752187AbcHPJTS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 05:19:18 -0400
+In-Reply-To: <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
-
-Add BATADV_CMD_GET_GATEWAYS commands, using handlers bat_gw_dump in
-batadv_algo_ops. Will always return -EOPNOTSUPP for now, as no
-implementations exist yet.
-
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
----
- include/uapi/linux/batman_adv.h |  8 ++++++
- net/batman-adv/gateway_client.c | 59 +++++++++++++++++++++++++++++++++++++++++
- net/batman-adv/gateway_client.h |  2 ++
- net/batman-adv/netlink.c        | 10 +++++++
- net/batman-adv/types.h          |  3 +++
- 5 files changed, 82 insertions(+)
-
-diff --git a/include/uapi/linux/batman_adv.h b/include/uapi/linux/batman_adv.h
-index 2e2747f..a13fc09 100644
---- a/include/uapi/linux/batman_adv.h
-+++ b/include/uapi/linux/batman_adv.h
-@@ -88,6 +88,9 @@ enum batadv_tt_client_flags {
-  * @BATADV_ATTR_NEIGH_ADDRESS: Neighbour MAC address
-  * @BATADV_ATTR_TQ: TQ to neighbour
-  * @BATADV_ATTR_THROUGHPUT: Estimated throughput to Neighbour
-+ * @BATADV_ATTR_BANDWIDTH_UP: Reported uplink bandwidth
-+ * @BATADV_ATTR_BANDWIDTH_DOWN: Reported downlink bandwidth
-+ * @BATADV_ATTR_ROUTER: Gateway router MAC address
-  * @__BATADV_ATTR_AFTER_LAST: internal use
-  * @NUM_BATADV_ATTR: total number of batadv_nl_attrs available
-  * @BATADV_ATTR_MAX: highest attribute number currently defined
-@@ -120,6 +123,9 @@ enum batadv_nl_attrs {
- 	BATADV_ATTR_NEIGH_ADDRESS,
- 	BATADV_ATTR_TQ,
- 	BATADV_ATTR_THROUGHPUT,
-+	BATADV_ATTR_BANDWIDTH_UP,
-+	BATADV_ATTR_BANDWIDTH_DOWN,
-+	BATADV_ATTR_ROUTER,
- 	/* add attributes above here, update the policy in netlink.c */
- 	__BATADV_ATTR_AFTER_LAST,
- 	NUM_BATADV_ATTR = __BATADV_ATTR_AFTER_LAST,
-@@ -139,6 +145,7 @@ enum batadv_nl_attrs {
-  * @BATADV_CMD_GET_TRANSTABLE_GLOBAL Query list of global translations
-  * @BATADV_CMD_GET_ORIGINATORS: Query list of originators
-  * @BATADV_CMD_GET_NEIGHBORS: Query list of neighbours
-+ * @BATADV_CMD_GET_GATEWAYS: Query list of gateways
-  * @__BATADV_CMD_AFTER_LAST: internal use
-  * @BATADV_CMD_MAX: highest used command number
-  */
-@@ -153,6 +160,7 @@ enum batadv_nl_commands {
- 	BATADV_CMD_GET_TRANSTABLE_GLOBAL,
- 	BATADV_CMD_GET_ORIGINATORS,
- 	BATADV_CMD_GET_NEIGHBORS,
-+	BATADV_CMD_GET_GATEWAYS,
- 	/* add new commands above here */
- 	__BATADV_CMD_AFTER_LAST,
- 	BATADV_CMD_MAX = __BATADV_CMD_AFTER_LAST - 1
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index a77a179..c2928c2 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -20,6 +20,7 @@
- 
- #include <linux/atomic.h>
- #include <linux/byteorder/generic.h>
-+#include <linux/errno.h>
- #include <linux/etherdevice.h>
- #include <linux/fs.h>
- #include <linux/if_ether.h>
-@@ -31,6 +32,7 @@
- #include <linux/kref.h>
- #include <linux/list.h>
- #include <linux/netdevice.h>
-+#include <linux/netlink.h>
- #include <linux/rculist.h>
- #include <linux/rcupdate.h>
- #include <linux/seq_file.h>
-@@ -39,13 +41,17 @@
- #include <linux/spinlock.h>
- #include <linux/stddef.h>
- #include <linux/udp.h>
-+#include <net/sock.h>
-+#include <uapi/linux/batman_adv.h>
- 
- #include "gateway_common.h"
- #include "hard-interface.h"
- #include "log.h"
-+#include "netlink.h"
- #include "originator.h"
- #include "packet.h"
- #include "routing.h"
-+#include "soft-interface.h"
- #include "sysfs.h"
- #include "translation-table.h"
- 
-@@ -501,6 +507,59 @@ int batadv_gw_client_seq_print_text(struct seq_file *seq, void *offset)
- }
- 
- /**
-+ * batadv_gw_dump - Dump gateways into a message
-+ * @msg: Netlink message to dump into
-+ * @cb: Control block containing additional options
-+ *
-+ * Return: Error code, or length of message
-+ */
-+int batadv_gw_dump(struct sk_buff *msg, struct netlink_callback *cb)
-+{
-+	struct batadv_hard_iface *primary_if = NULL;
-+	struct net *net = sock_net(cb->skb->sk);
-+	struct net_device *soft_iface;
-+	struct batadv_priv *bat_priv;
-+	int ifindex;
-+	int ret;
-+
-+	ifindex = batadv_netlink_get_ifindex(cb->nlh,
-+					     BATADV_ATTR_MESH_IFINDEX);
-+	if (!ifindex)
-+		return -EINVAL;
-+
-+	soft_iface = dev_get_by_index(net, ifindex);
-+	if (!soft_iface || !batadv_softif_is_valid(soft_iface)) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	bat_priv = netdev_priv(soft_iface);
-+
-+	primary_if = batadv_primary_if_get_selected(bat_priv);
-+	if (!primary_if || primary_if->if_status != BATADV_IF_ACTIVE) {
-+		ret = -ENOENT;
-+		goto out;
-+	}
-+
-+	if (!bat_priv->algo_ops->gw.dump) {
-+		ret = -EOPNOTSUPP;
-+		goto out;
-+	}
-+
-+	bat_priv->algo_ops->gw.dump(msg, cb, bat_priv);
-+
-+	ret = msg->len;
-+
-+out:
-+	if (primary_if)
-+		batadv_hardif_put(primary_if);
-+	if (soft_iface)
-+		dev_put(soft_iface);
-+
-+	return ret;
-+}
-+
-+/**
-  * batadv_gw_dhcp_recipient_get - check if a packet is a DHCP message
-  * @skb: the packet to check
-  * @header_len: a pointer to the batman-adv header size
-diff --git a/net/batman-adv/gateway_client.h b/net/batman-adv/gateway_client.h
-index 6b40432..859166d 100644
---- a/net/batman-adv/gateway_client.h
-+++ b/net/batman-adv/gateway_client.h
-@@ -23,6 +23,7 @@
- #include <linux/types.h>
- 
- struct batadv_tvlv_gateway_data;
-+struct netlink_callback;
- struct seq_file;
- struct sk_buff;
- 
-@@ -43,6 +44,7 @@ void batadv_gw_node_put(struct batadv_gw_node *gw_node);
- struct batadv_gw_node *
- batadv_gw_get_selected_gw_node(struct batadv_priv *bat_priv);
- int batadv_gw_client_seq_print_text(struct seq_file *seq, void *offset);
-+int batadv_gw_dump(struct sk_buff *msg, struct netlink_callback *cb);
- bool batadv_gw_out_of_range(struct batadv_priv *bat_priv, struct sk_buff *skb);
- enum batadv_dhcp_recipient
- batadv_gw_dhcp_recipient_get(struct sk_buff *skb, unsigned int *header_len,
-diff --git a/net/batman-adv/netlink.c b/net/batman-adv/netlink.c
-index 025f2ec..c68ccb03 100644
---- a/net/batman-adv/netlink.c
-+++ b/net/batman-adv/netlink.c
-@@ -38,6 +38,7 @@
- #include <uapi/linux/batman_adv.h>
- 
- #include "bat_algo.h"
-+#include "gateway_client.h"
- #include "hard-interface.h"
- #include "originator.h"
- #include "soft-interface.h"
-@@ -87,6 +88,9 @@ static struct nla_policy batadv_netlink_policy[NUM_BATADV_ATTR] = {
- 	[BATADV_ATTR_NEIGH_ADDRESS]	= { .len = ETH_ALEN },
- 	[BATADV_ATTR_TQ]		= { .type = NLA_U8 },
- 	[BATADV_ATTR_THROUGHPUT]	= { .type = NLA_U32 },
-+	[BATADV_ATTR_BANDWIDTH_UP]	= { .type = NLA_U32 },
-+	[BATADV_ATTR_BANDWIDTH_DOWN]	= { .type = NLA_U32 },
-+	[BATADV_ATTR_ROUTER]		= { .len = ETH_ALEN },
- };
- 
- /**
-@@ -570,6 +574,12 @@ static struct genl_ops batadv_netlink_ops[] = {
- 		.policy = batadv_netlink_policy,
- 		.dumpit = batadv_hardif_neigh_dump,
- 	},
-+	{
-+		.cmd = BATADV_CMD_GET_GATEWAYS,
-+		.flags = GENL_ADMIN_PERM,
-+		.policy = batadv_netlink_policy,
-+		.dumpit = batadv_gw_dump,
-+	},
- };
- 
- /**
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 968023a..b5f01a3 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -1469,6 +1469,7 @@ struct batadv_algo_orig_ops {
-  * @is_eligible: check if a newly discovered GW is a potential candidate for
-  *  the election as best GW (optional)
-  * @print: print the gateway table (optional)
-+ * @dump: dump gateways to a netlink socket (optional)
-  */
- struct batadv_algo_gw_ops {
- 	ssize_t (*store_sel_class)(struct batadv_priv *bat_priv, char *buff,
-@@ -1480,6 +1481,8 @@ struct batadv_algo_gw_ops {
- 			    struct batadv_orig_node *curr_gw_orig,
- 			    struct batadv_orig_node *orig_node);
- 	void (*print)(struct batadv_priv *bat_priv, struct seq_file *seq);
-+	void (*dump)(struct sk_buff *msg, struct netlink_callback *cb,
-+		     struct batadv_priv *priv);
- };
- 
- /**
--- 
-2.8.1
+RnJvbTogWGluIExvbmcNCj4gU2VudDogMTMgQXVndXN0IDIwMTYgMDg6NDgNCj4gPg0KPiA+IFRo
+aXMgc3R5bGUgb2YgZXJyb3IgaGFuZGxpbmcgaXMgZGFuZ2Vyb3VzLiAgVGhlIGZpcnN0IGVycm9y
+IGNhbiBiZQ0KPiA+IGxvc3QuDQo+ID4NCj4gPiBGb3IgZXhhbXBsZSwgaWYgc2N0cF9vdXRxX2Zs
+dXNoX3J0eCgpIGVhcmxpZXIgaW4gdGhpcyBmdW5jdGlvbiByZXR1cm5zDQo+ID4gYW4gZXJyb3Is
+IGl0IHdpbGwgYmUgbG9zdCBpZiBhbnkgaW52b2NhdGlvbiBvZiB0aGUgZnVuY3Rpb24NCj4gPiBz
+Y3RwX3BhY2tldF90cmFuc21pdCgpIGF0IHRoZSBlbmQgZnVuY3Rpb24gc2lnbmFscyBhbiBlcnJv
+ci4NCj4gPg0KPiA+IEkgdGhpbmsgeW91IHNob3VsZCBhbHdheXMgcHJlc2VydmUgdGhlIGZpcnN0
+IGVycm9yIHRoYXQgaXMgcmVjb3JkZWQNCj4gPiBpbnRvICdlcnJvcicuDQo+ID4NCj4gPiBJIGFs
+c28gd29uZGVyIGFib3V0IHdoeSBzY3RwX291dHFfZmx1c2hfcnR4KCkgZXJyb3JzIGFyZSBjb21w
+bGV0ZWx5DQo+ID4gaWdub3JlZCBhbmQgZG9uJ3QgaW5mbHVlbmNlIHRoZSBjb250cm9sIGZsb3cg
+aGVyZSBpbiBhbnkgd2F5Lg0KPiANCj4gWWVzLCB0aGUgZmlyc3QgZXJyb3IgY2FuIGJlIGxvc3Qu
+DQo+IEhlcmUgd2UganVzdCBrZWVwIHRoZSBsYXN0IGVycm9yLiBXZSBkb24ndCByZWFsbHkgaGF2
+ZSB0byByZXR1cm4gdGhlDQo+IGZpcnN0IGVycm9yIG9yIHJldHVybiBpdCBvbiB0aGUgZmlyc3Qg
+ZmFpbHVyZS4NCj4gDQo+IFsxXQ0KPiBCb3RoIHNjdHBfb3V0cV9mbHVzaF9ydHggYW5kIHNjdHBf
+cGFja2V0X3RyYW5zbWl0IGNhbiBPTkxZDQo+IHJldHVybiBvbmUgZXJyb3IgKC1FTk9NRU0pLCBh
+cyBzY3RwX291dHFfZmx1c2hfcnR4IGFsc28gY2FsbHMNCj4gc2N0cF9wYWNrZXRfdHJhbnNtaXQu
+DQoNCldoYXQgaXMgdGhlIGVmZmVjdCBvZiB0aGUgZXJyb3I/DQpJZiBpdCBpcyAnanVzdCcgZXF1
+aXZhbGVudCB0byBhIGxvc3QgZXRoZXJuZXQgcGFja2V0IChhbmQgdGhlIHNrYiAoZXRjKQ0KaXMg
+ZnJlZWQpIHRoZW4gdGhlIHByb3RvY29sIHdpbGwgcmVjb3Zlci4NCklmIGl0IGlzIGFueXRoaW5n
+IGVsc2UgdGhlbiB0aGUgZXJyb3IgcGF0aCBpcyBwcm9iYWJseSB3cm9uZy4NCg0KQWxzbyBhZnRl
+ciBvbmUgZXJyb3IgaXMgaXQgYWN0dWFsbHkgd29ydGggdHJ5aW5nIHRvIHNlbmQgYW55dGhpbmcg
+ZWxzZQ0KYXQgYWxsPyBJU1RNIHRoYXQgdGhlIGNvZGUgc2hvdWxkIGVpdGhlcjoNCjEpIHdhaXQg
+Zm9yIHJlc291cmNlcyBhbmQgcmV0cnkuDQoyKSBkaXNjYXJkIHRoZSBlbnRpcmUgcXVldWUgKGZy
+ZWVpbmcgcmVzb3VyY2UpIGFuZCBob3BlIHRoZSBwcm90b2NvbA0KICAgdGltZXJzIHdpbGwgcmVj
+b3Zlci4NCg0KPiBbMl0NCj4gSXQncyB0aGUgb3JpZ2luYWwgY29kZXMgdGhhdCBpdCBkb2Vzbid0
+IHJldHVybiBpbW1lZGlhdGVseSB3aGVuDQo+IHNjdHBfb3V0cV9mbHVzaF9ydHggcmV0dXJucyBl
+cnJvci4gSSBndWVzcyBpdCBqdXN0IGRvZXNuJ3Qgd2FudA0KPiB0byBzdG9wIGZsdXNoaW5nIG91
+dCB0cmFuc3BvcnRfbGlzdCBvbmx5IGJlY2F1c2UgaXQgZmFpbCB0byBmbHVzaA0KPiBydHguDQo+
+IGV2ZW4gc2N0cF9wYWNrZXRfdHJhbnNtaXRfY2h1bmsgaW4gc2N0cF9vdXRxX2ZsdXNoIGFsc28g
+anVzdA0KPiBwdXQgdGhlIGVycm9yIGludG8gc2stPnNrX2VyciwgaW5zdHJlYWQgb2YgcmV0dXJu
+aW5nIGltbWVkaWF0ZWx5Lg0KPiANCj4gU28gd2UgY2Fubm90IHJldHVybiB0aGUgZXJyIGF0IHRo
+ZSBmaXJzdCBmYWlsdXJlIGFzIFsyXSwgdGhlIGVycm9yDQo+IGhlcmUgaXMgYWx3YXlzIC1FTk9N
+RU0gYXMgWzFdLg0KPiBJIHRoaW5rIHRvIHJldHVybiB0aGUgbGFzdCBlcnJvciBoZXJlIGlzIG9r
+LCBhdCBsZWFzdCAgbm90IGRhbmdlcm91cywNCj4gY2FuIGFsc28gZml4IHRoZSBpc3N1ZSAiYSBz
+dWNjZXNzIHJldHVybiBtYXkgaGlkZSBhbiBlcnJvciIgd2l0aA0KPiBjbGVhciBjb2Rlcy4gOikN
+Cg0KV2hpY2ggY29kZSBsb29rcyBhdCBzay0+c2tfZXJyPw0KSXQgZG9lc24ndCBsb29rIHJpZ2h0
+IHRvIGJlIHNldHRpbmcgYW4gZXJyb3IgY29kZSBvbiB0aGUgc29ja2V0IGR1ZQ0KYSB0cmFuc21p
+dCBwYWNrZXQgZGlzY2FyZC4NCg0KCURhdmlkDQoNCg==
