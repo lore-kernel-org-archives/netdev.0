@@ -1,77 +1,97 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Subject: Re: [BUGFIX PATCH 1/2] brcmfmac: Check rtnl_lock is locked when
- removing interface
-Date: Tue, 16 Aug 2016 11:27:13 +0900
-Message-ID: <20160816112713.7fd25da28d3737aa7b72d2a2@kernel.org>
-References: <147125403645.9434.8008546579326856373.stgit@devbox>
-	<147125405701.9434.12911635695339175773.stgit@devbox>
-	<5bb6e373-e110-b1ac-6f65-fdf2f9f059fc@gmail.com>
-	<87wpjib8pb.fsf@kamboji.qca.qualcomm.com>
-	<CACna6ryuN_qDrVwAbS5P9mfhjMwv2hNeTqEzTQ=WxvP1V=zHXA@mail.gmail.com>
-	<15e43df4-b8cc-8612-472e-80634cf27cac@broadcom.com>
+From: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Subject: Re: [PATCH 1/4] net: hix5hd2_gmac: add tx scatter-gather feature
+Date: Tue, 16 Aug 2016 10:28:12 +0800
+Message-ID: <57B27A3C.5070403@hisilicon.com>
+References: <1470906115-155569-1-git-send-email-lidongpo@hisilicon.com>
+ <1470906115-155569-2-git-send-email-lidongpo@hisilicon.com>
+ <20160812184336.GA5706@rob-hp-laptop> <57B1664F.1090708@hisilicon.com>
+ <CAL_JsqLgzaPECHdX8yHC3DAUq0jXhgUFE+xVFbeV0OLQXopqxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Masami Hiramatsu <mhiramat@kernel.org>,
-	Franky Lin <franky.lin@broadcom.com>,
-	Hante Meuleman <hante.meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list.pdl@broadcom.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <15e43df4-b8cc-8612-472e-80634cf27cac@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Michael Turquette <mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+	Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+	Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	<xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <benjamin.chenhao-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<howell.yang-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-clk <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_JsqLgzaPECHdX8yHC3DAUq0jXhgUFE+xVFbeV0OLQXopqxg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Aug 2016 23:44:05 +0200
-Arend Van Spriel <arend.vanspriel@broadcom.com> wrote:
 
+
+On 2016/8/16 0:18, Rob Herring wrote:
+> On Mon, Aug 15, 2016 at 1:50 AM, Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org> wrote:
+>> Hi Rob,
+>> Many thanks for your review.
+>>
+>> On 2016/8/13 2:43, Rob Herring wrote:
+>>> On Thu, Aug 11, 2016 at 05:01:52PM +0800, Dongpo Li wrote:
+>>>> From: Li Dongpo <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>>>>
+>>>> The "hix5hd2" is SoC name, add the generic ethernet driver name.
+>>>> The "hisi-gemac-v1" is the basic version and "hisi-gemac-v2" adds
+>>>> the SG/TXCSUM/TSO/UFO features.
+>>>> This patch only adds the SG(scatter-gather) driver for transmitting,
+>>>> the drivers of other features will be submitted later.
+>>>
+>>> The compatible string changes should probably be a separate patch.
+>>>
+>> ok, I will split this patch into two patches, one for compatible string changes,
+>> and one for driver feature implementation.
+>>
+>>>> Signed-off-by: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>>>> ---
+>>>>  .../bindings/net/hisilicon-hix5hd2-gmac.txt        |   9 +-
+>>>>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c      | 213 +++++++++++++++++++--
+>>>>  2 files changed, 205 insertions(+), 17 deletions(-)
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>>> index 75d398b..3c02fac 100644
+>>>> --- a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>>> @@ -1,7 +1,12 @@
+>>>>  Hisilicon hix5hd2 gmac controller
+>>>>
+>>>>  Required properties:
+>>>> -- compatible: should be "hisilicon,hix5hd2-gmac".
+>>>> +- compatible: should contain one of the following version strings:
+>>>> +    * "hisilicon,hisi-gemac-v1"
+>>>> +    * "hisilicon,hisi-gemac-v2"
+>>>> +    and one of the following SoC string:
+>>>> +    * "hisilicon,hix5hd2-gemac"
+>>>> +    * "hisilicon,hi3798cv200-gemac"
+>>>
+>>> Make it clear what the order should be.
+>>>
+>> ok, I will put the SoC strings in alphabetical order.
 > 
+> No, I mean the most specific string comes first.
 > 
-> On 15-8-2016 13:52, Rafał Miłecki wrote:
-> > On 15 August 2016 at 12:57, Kalle Valo <kvalo@codeaurora.org> wrote:
-> >> Rafał Miłecki <zajec5@gmail.com> writes:
-> >>
-> >>>> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-> >>>
-> >>> Fixes: a63b09872c1d ("brcmfmac: delete interface directly in code that sent fw request")
-> >>> Acked-by: Rafał Miłecki <rafal@milecki.pl>
-> >>>
-> >>> Kalle: I'm acking this as bugfix for 4.8 release.
-> >>
-> >> Ok. I'll wait few days for more comments before I apply this.
+ok, I will fix it in next patch version. Thank you.
 
-Thanks!
-
-> > 
-> > Sure.
-> > 
-> > 
-> >> (I assume you are talking only about patch 1)
-> > 
-> > Yes, I'll leave mutex vs. spinlock to the experts :)
+> Rob
 > 
-> Don't know who the experts are. Surely not me :-p
+> .
 > 
-> I made an uneducated design decision using a mutex for this. The
-> reasoning for using a regular spinlock make sense. So I will go and ack
-> that patch.
-
-As far as I can see, that change is very local and
-at least my environment it works well :)
-
-Regards,
-
-> 
-> Regards,
-> Arend
 
 
--- 
-Masami Hiramatsu <mhiramat@kernel.org>
+    Regards,
+    Dongpo
+
+.
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
