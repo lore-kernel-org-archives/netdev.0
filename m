@@ -1,93 +1,132 @@
-From: Guodong Xu <guodong.xu@linaro.org>
-Subject: Re: [PATCH v2] Bluetooth: Add LED triggers for HCI frames tx and rx
-Date: Tue, 16 Aug 2016 17:30:21 +0800
-Message-ID: <CAFGCpxz6j_7aOTX+uShdpyxmt71k61v=Abdw=7MfrRjvdygmTg@mail.gmail.com>
-References: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
- <1394C970-3726-4C42-A06D-0B3B3015D980@holtmann.org>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: [PATCH] net: sched: fix handling of singleton qdiscs with
+ qdisc_hash
+Date: Tue, 16 Aug 2016 12:41:56 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1608161238590.22028@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Johan Hedberg <johan.hedberg@gmail.com>,
- "Gustavo F. Padovan" <gustavo@padovan.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>,
- linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1394C970-3726-4C42-A06D-0B3B3015D980@holtmann.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Marcel
+From: Jiri Kosina <jkosina@suse.cz>
 
-On 16 August 2016 at 14:03, Marcel Holtmann <marcel@holtmann.org> wrote:
-> Hi Guodong,
->
->> Two LED triggers are added into hci_dev: tx_led and rx_led. Upon ACL/SCO
->> packets available in tx or rx, the LEDs will blink.
->>
->> For each hci registration, two triggers are added into LED subsystem:
->> [hdev->name]-tx and [hdev-name]-rx.
->> Refer to Documentation/leds/leds-class.txt for usage.
->>
->> Verified on HiKey 96boards, which uses HiSilicon hi6220 SoC and TI
->> WL1835 WiFi/BT combo chip.
->
-> so I have no idea what to do with adding adding hci0-rx and hci0-tx triggers. Combined with hci0-power trigger these are already 3 triggers. And if you have 2 Bluetooth controllers in your system, then you have 6 triggers.
->
+qdisc_match_from_root() is now iterating over per-netdevice qdisc 
+hashtable instead of going through a linked-list of qdiscs (independently 
+on the actual underlying netdev), which used to be the case before the 
+switch to hashtable for qdiscs.
 
-True, 6 triggers. But, taking example for other subsytems, eg. cpu
-cores. On my board, I have "heartbeat cpu0 cpu1 cpu2 cpu3 cpu4 cpu5
-cpu6 cpu7". It doesn't have to mean you need all of them connected to
-some LED(s). Actually, in most of the case, I only need heartbeat.
+For singleton qdiscs, there is no underlying netdev associated though, and 
+therefore dumping a singleton qdisc will panic, as qdisc_dev(root) will 
+always be NULL.
 
+ BUG: unable to handle kernel NULL pointer dereference at 0000000000000410
+ IP: [<ffffffff8167efac>] qdisc_match_from_root+0x2c/0x70
+ PGD 1aceba067 PUD 1aceb7067 PMD 0
+ Oops: 0000 [#1] PREEMPT SMP
+[ ... ]
+ task: ffff8801ec996e00 task.stack: ffff8801ec934000
+ RIP: 0010:[<ffffffff8167efac>]  [<ffffffff8167efac>] qdisc_match_from_root+0x2c/0x70
+ RSP: 0018:ffff8801ec937ab0  EFLAGS: 00010203
+ RAX: 0000000000000408 RBX: ffff88025e612000 RCX: ffffffffffffffd8
+ RDX: 0000000000000000 RSI: 00000000ffff0000 RDI: ffffffff81cf8100
+ RBP: ffff8801ec937ab0 R08: 000000000001c160 R09: ffff8802668032c0
+ R10: ffffffff81cf8100 R11: 0000000000000030 R12: 00000000ffff0000
+ R13: ffff88025e612000 R14: ffffffff81cf3140 R15: 0000000000000000
+ FS:  00007f24b9af6740(0000) GS:ffff88026f280000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: 0000000000000410 CR3: 00000001aceec000 CR4: 00000000001406e0
+ Stack:
+  ffff8801ec937ad0 ffffffff81681210 ffff88025dd51a00 00000000fffffff1
+  ffff8801ec937b88 ffffffff81681e4e ffffffff81c42bc0 ffff880262431500
+  ffffffff81cf3140 ffff88025dd51a10 ffff88025dd51a24 00000000ec937b38
+ Call Trace:
+  [<ffffffff81681210>] qdisc_lookup+0x40/0x50
+  [<ffffffff81681e4e>] tc_modify_qdisc+0x21e/0x550
+  [<ffffffff8166ae25>] rtnetlink_rcv_msg+0x95/0x220
+  [<ffffffff81209602>] ? __kmalloc_track_caller+0x172/0x230
+  [<ffffffff8166ad90>] ? rtnl_newlink+0x870/0x870
+  [<ffffffff816897b7>] netlink_rcv_skb+0xa7/0xc0
+  [<ffffffff816657c8>] rtnetlink_rcv+0x28/0x30
+  [<ffffffff8168919b>] netlink_unicast+0x15b/0x210
+  [<ffffffff81689569>] netlink_sendmsg+0x319/0x390
+  [<ffffffff816379f8>] sock_sendmsg+0x38/0x50
+  [<ffffffff81638296>] ___sys_sendmsg+0x256/0x260
+  [<ffffffff811b1275>] ? __pagevec_lru_add_fn+0x135/0x280
+  [<ffffffff811b1a90>] ? pagevec_lru_move_fn+0xd0/0xf0
+  [<ffffffff811b1140>] ? trace_event_raw_event_mm_lru_insertion+0x180/0x180
+  [<ffffffff811b1b85>] ? __lru_cache_add+0x75/0xb0
+  [<ffffffff817708a6>] ? _raw_spin_unlock+0x16/0x40
+  [<ffffffff811d8dff>] ? handle_mm_fault+0x39f/0x1160
+  [<ffffffff81638b15>] __sys_sendmsg+0x45/0x80
+  [<ffffffff81638b62>] SyS_sendmsg+0x12/0x20
+  [<ffffffff810038e7>] do_syscall_64+0x57/0xb0
 
+Fix this by special-casing singleton qdiscs (those that don't have underlying
+netdevice) and introduce immediate handling of those rather than trying to
+go over an underlying netdevice. We're in the same situation in
+tc_dump_qdisc_root() and tc_dump_tclass_root() as well.
 
-> If we then maybe add another trigger, then this number just goes up and up.
->
-> As far as I can tell you can only assign a single trigger to a LED.
->
+Ultimately, this will have to be slightly reworked so that we are actually 
+able to show singleton qdiscs (noop) in the dump properly, which is our 
+ultimate goal. But we're not currently doing that anyway, so no regression 
+there, and better do this in a gradual manner.
 
-That's true. And people got a choice of which feature he wants to visualize.
+Fixes: 59cc1f61f ("net: sched: convert qdisc linked list to hashtable")
+Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+Tested-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+---
 
-> So this means to even use these triggers, you need now 3 LEDs per Bluetooth controller. How is that useful for anybody in a real system? Maybe I am missing something here and somehow there is magic to combine triggers, but I have not found it yet. So please someone enlighten me on how this is suppose to be used with real devices.
->
-> Recently I have added a simple bluetooth-power trigger that combines all Bluetooth controllers into a single trigger. If any of them is enabled, then you can control your LED. Which makes a lot more sense to me since you most likely have a single Bluetooth LED on your system. And you want it to show the correct state no matter what Bluetooth controller is in use. However I can see the case that someone might want to assign one specific Bluetooth controller to a LED status.
->
-> So instead of adding many independent triggers to each controller, why not create one global bluetooth trigger and one individual bluetooth-hci0 trigger for each controller. And the combine power, tx, rx and whatever else we need to trigger the LED for?
->
+Daniel, I've covered two more cases of the same in tc_dump_qdisc_root() 
+and tc_dump_tclass_root(), but preserved your Reported-by / Tested-by: for 
+the one you did wrt. qdisc_match_from_root(). Please shout out loud if you 
+object. Thanks.
 
-When I starting this work, I referred to WiFi system. See
-CONFIG_MAC80211_LEDS. WiFi system implements these types of triggers "
-phy0rx phy0tx phy0assoc phy0radio" for each 'controller'.
+ net/sched/sch_api.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Besides, there are also RFKILL which stands for WiFi/BT power status.
-RFKILL adds triggers for each module too. Eg. in the below example, I
-have one WiFi (phy0), one BT (hci0). Trigger rfkill1 equals to
-hci0-power.
-
-Ref: here are all LED triggers I found in my 96boards/HiKey:
-
-# cat trigger
-none kbd-scrollock kbd-numlock kbd-capslock kbd-kanalock kbd-shiftlock
-kbd-altgrlock kbd-ctrllock kbd-altlock kbd-shiftllock kbd-shiftrlock
-kbd-ctrlllock kbd-ctrlrlock mmc0 mmc1 heartbeat cpu0 cpu1 cpu2 cpu3
-cpu4 cpu5 cpu6 cpu7 mmc2 rfkill0 phy0rx phy0tx phy0assoc phy0radio
-hci0-power hci0-tx [hci0-rx] rfkill1
-
--Guodong
-
-> Regards
->
-> Marcel
->
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index c093d32..83413e7 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -262,6 +262,9 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ {
+ 	struct Qdisc *q;
+ 
++	if (!qdisc_dev(root))
++		return (root->handle == handle ? root : NULL);
++
+ 	if (!(root->flags & TCQ_F_BUILTIN) &&
+ 	    root->handle == handle)
+ 		return root;
+@@ -1456,6 +1459,10 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ 			goto done;
+ 		q_idx++;
+ 	}
++
++	if (!qdisc_dev(root))
++		goto done;
++
+ 	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+ 		if (q_idx < s_q_idx) {
+ 			q_idx++;
+@@ -1781,6 +1788,9 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+ 	if (tc_dump_tclass_qdisc(root, skb, tcm, cb, t_p, s_t) < 0)
+ 		return -1;
+ 
++	if (!qdisc_dev(root))
++		return 0;
++
+ 	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+ 		if (tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
+ 			return -1;
+-- 
+1.9.2
