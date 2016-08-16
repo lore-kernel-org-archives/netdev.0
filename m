@@ -1,42 +1,35 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH v2] Bluetooth: Add LED triggers for HCI frames tx and rx
-Date: Tue, 16 Aug 2016 08:03:33 +0200
-Message-ID: <1394C970-3726-4C42-A06D-0B3B3015D980@holtmann.org>
-References: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Guodong Xu <guodong.xu@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net v3 0/3] Fix warning and issue
+Date: Mon, 15 Aug 2016 23:08:54 -0700 (PDT)
+Message-ID: <20160815.230854.848606545686293886.davem@davemloft.net>
+References: <1471326915-15162-1-git-send-email-sean.wang@mediatek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org
+To: sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1471326915-15162-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Guodong,
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Date: Tue, 16 Aug 2016 13:55:12 +0800
 
-> Two LED triggers are added into hci_dev: tx_led and rx_led. Upon ACL/SCO
-> packets available in tx or rx, the LEDs will blink.
+> This patch set fixes the following warning and issues
 > 
-> For each hci registration, two triggers are added into LED subsystem:
-> [hdev->name]-tx and [hdev-name]-rx.
-> Refer to Documentation/leds/leds-class.txt for usage.
+> v1 -> v2: Fix message typos and add coverletter
 > 
-> Verified on HiKey 96boards, which uses HiSilicon hi6220 SoC and TI
-> WL1835 WiFi/BT combo chip.
+> v2 -> v3: Split from the previous series for submitting bug fixes 
+> as a series targeting 'net'
 
-so I have no idea what to do with adding adding hci0-rx and hci0-tx triggers. Combined with hci0-power trigger these are already 3 triggers. And if you have 2 Bluetooth controllers in your system, then you have 6 triggers. If we then maybe add another trigger, then this number just goes up and up.
-
-As far as I can tell you can only assign a single trigger to a LED. So this means to even use these triggers, you need now 3 LEDs per Bluetooth controller. How is that useful for anybody in a real system? Maybe I am missing something here and somehow there is magic to combine triggers, but I have not found it yet. So please someone enlighten me on how this is suppose to be used with real devices.
-
-Recently I have added a simple bluetooth-power trigger that combines all Bluetooth controllers into a single trigger. If any of them is enabled, then you can control your LED. Which makes a lot more sense to me since you most likely have a single Bluetooth LED on your system. And you want it to show the correct state no matter what Bluetooth controller is in use. However I can see the case that someone might want to assign one specific Bluetooth controller to a LED status.
-
-So instead of adding many independent triggers to each controller, why not create one global bluetooth trigger and one individual bluetooth-hci0 trigger for each controller. And the combine power, tx, rx and whatever else we need to trigger the LED for?
-
-Regards
-
-Marcel
+Series applied, thanks.
