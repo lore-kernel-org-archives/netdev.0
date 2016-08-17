@@ -1,51 +1,60 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 4/6] net: ethernet: bgmac: convert to feature flags
-Date: Wed, 17 Aug 2016 13:34:15 +0200
-Message-ID: <CACna6rw1j3myPEkbn+YR71W7CF7Of_yahn9eDT7t3hKWGmWUmg@mail.gmail.com>
-References: <1467932938-21819-1-git-send-email-jon.mason@broadcom.com> <1467932938-21819-5-git-send-email-jon.mason@broadcom.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: fix a success return may hide an error
+Date: Wed, 17 Aug 2016 19:42:37 +0800
+Message-ID: <CADvbK_dfc7kmnCP0XgThF9oHX-2tVFNjN1Q-kobqT8WMRv7PqQ@mail.gmail.com>
+References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+ <20160812.211113.1099230839994600349.davem@davemloft.net> <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
+ <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
+ <20160816172447.GC3110@localhost.localdomain> <CADvbK_eSD9taybqO0VzfQaUE0jtmKMWiSzkHjO2fNpZrU2Fg3Q@mail.gmail.com>
+ <20160816183330.GD3110@localhost.localdomain> <20160816184531.GE3110@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467932938-21819-5-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Laight <David.Laight@aculab.com>,
+	David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:34816 "EHLO
+	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752142AbcHQLnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 07:43:18 -0400
+In-Reply-To: <20160816184531.GE3110@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8 July 2016 at 01:08, Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
->         mode = (bgmac_read(bgmac, BGMAC_DEV_STATUS) & BGMAC_DS_MM_MASK) >>
->                 BGMAC_DS_MM_SHIFT;
-> -       if (ci->id != BCMA_CHIP_ID_BCM47162 || mode != 0)
-> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST || mode != 0)
->                 bgmac_set(bgmac, BCMA_CLKCTLST, BCMA_CLKCTLST_FORCEHT);
-> -       if (ci->id == BCMA_CHIP_ID_BCM47162 && mode == 2)
-> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST && mode == 2)
->                 bcma_chipco_chipctl_maskset(&bgmac->core->bus->drv_cc, 1, ~0,
->                                             BGMAC_CHIPCTL_1_RXC_DLL_BYPASS);
+>> > If  letting the application see ENOMEM errors, and sctp has to drop this
+>> > chunk, instead of retransmiting the ENOMEM chunk, but the ENOMEM
+>> > chunk may not be the chunk from current msg, as it flush all the queue.
+>> > even if users get an ENOMEM error, they may re-send a chunk that is same
+>> > with the one that is still in retransmit queue.
+>>
+>> Yep, one more reason to handle those internally when safe.
+I just checked tcp_sendmsg, it doesn't return any transmit error to user,
+*NOT ONLY* ENOMEM.  you can check __tcp_push_pending_frames
+and tcp_push, their return type is even void. although it may get
+err from sk->sk_err:
+    err = sk_stream_error(sk, flags, err);
+But I didn't see it put any err into sk->sk_err in the main transmit
+path.
 
-Jon, it looks to me you translated two following conditions:
-ci->id != BCMA_CHIP_ID_BCM47162
-and
-ci->id == BCMA_CHIP_ID_BCM47162
-into the same flag check:
-bgmac->feature_flags & BGMAC_FEAT_CLKCTLST
+yes, tcp_write_xmit has return value, as well as tcp_transmit_skb and
+err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl). but
+all of them are just used for internal, never return to userspace
 
-I don't think it's intentional, is it? Do you have a moment to fix this?
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+In tcp_write_xmit, it even uses "unlikely':
+if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
+       break;
+
+
+>
+> Xin, maybe you can squash this patch and this ENOMEM handling? I'm
+> thinking that handling ENOMEM may result in similar situations in other
+> places, so we have a common reasoning on them.
+>
+So this reason does really matter, and not only for ENOMEM in transmit
+path.
