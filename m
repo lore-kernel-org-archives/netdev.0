@@ -1,53 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] i40e: Remove XSTRINGIFY macro definitions and uses
-Date: Wed, 17 Aug 2016 03:37:31 -0700
-Message-ID: <2fcd71eb8b18415a020509e3ce116e3affa590b5.1471430183.git.joe@perches.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get
+ vlan info from skb->vlan_tci
+Date: Wed, 17 Aug 2016 12:46:14 +0200
+Message-ID: <20160817104614.GD1956@nanopsycho>
+References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+ <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jiri Pirko <jiri@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35799 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753082AbcHQKqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 06:46:18 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i5so22718201wmg.2
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 03:46:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use __stringify instead.
+Wed, Aug 17, 2016 at 12:36:10PM CEST, hadarh@mellanox.com wrote:
+>Early in the datapath skb_vlan_untag function is called, stripped
+>the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+>
+>The current dissection doesn't handle stripped vlan packets correctly.
+>In some flows, vlan doesn't exist in skb->data anymore when applying
+>flow dissection on the skb, fix that.
+>
+>In case vlan info wasn't stripped before applying flow_dissector (RPS
+>flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
+>get the vlan info from skb->data. The flow_dissector correctly skips
+>any number of vlans and stores only the first level vlan.
+>
+>Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
+>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+>---
+> net/core/flow_dissector.c | 34 ++++++++++++++++++++++++++--------
+> 1 file changed, 26 insertions(+), 8 deletions(-)
+>
+>diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>index 91028ae..362d693 100644
+>--- a/net/core/flow_dissector.c
+>+++ b/net/core/flow_dissector.c
+>@@ -119,12 +119,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+> 	struct flow_dissector_key_ports *key_ports;
+> 	struct flow_dissector_key_tags *key_tags;
+> 	struct flow_dissector_key_keyid *key_keyid;
+>+	bool skip_vlan = false;
+> 	u8 ip_proto = 0;
+> 	bool ret = false;
+> 
+> 	if (!data) {
+> 		data = skb->data;
+>-		proto = skb->protocol;
+>+		proto = skb_vlan_tag_present(skb) ?
+>+			 skb->vlan_proto : skb->protocol;
+> 		nhoff = skb_network_offset(skb);
+> 		hlen = skb_headlen(skb);
+> 	}
+>@@ -243,23 +245,39 @@ ipv6:
+> 	case htons(ETH_P_8021AD):
+> 	case htons(ETH_P_8021Q): {
+> 		const struct vlan_hdr *vlan;
+>-		struct vlan_hdr _vlan;
+> 
+>-		vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
+>-		if (!vlan)
+>-			goto out_bad;
+>+		if (skb_vlan_tag_present(skb))
+>+			proto = skb->protocol;
+>+
+>+		if (!skb_vlan_tag_present(skb) ||
+>+		    proto == cpu_to_be16(ETH_P_8021Q) ||
+>+		    proto == cpu_to_be16(ETH_P_8021AD)) {
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h        | 4 ----
- drivers/net/ethernet/intel/i40e/i40e_client.h | 6 +++---
- 2 files changed, 3 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 2a88291..9788981 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -120,10 +120,6 @@
- #define I40E_CURRENT_NVM_VERSION_HI 0x2
- #define I40E_CURRENT_NVM_VERSION_LO 0x40
- 
--/* magic for getting defines into strings */
--#define STRINGIFY(foo)  #foo
--#define XSTRINGIFY(bar) STRINGIFY(bar)
--
- #define I40E_RX_DESC(R, i)			\
- 	(&(((union i40e_32byte_rx_desc *)((R)->desc))[i]))
- #define I40E_TX_DESC(R, i)			\
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.h b/drivers/net/ethernet/intel/i40e/i40e_client.h
-index a4601d9..38a6c36 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.h
-@@ -36,9 +36,9 @@
- #define I40E_CLIENT_VERSION_MINOR 01
- #define I40E_CLIENT_VERSION_BUILD 00
- #define I40E_CLIENT_VERSION_STR     \
--	XSTRINGIFY(I40E_CLIENT_VERSION_MAJOR) "." \
--	XSTRINGIFY(I40E_CLIENT_VERSION_MINOR) "." \
--	XSTRINGIFY(I40E_CLIENT_VERSION_BUILD)
-+	__stringify(I40E_CLIENT_VERSION_MAJOR) "." \
-+	__stringify(I40E_CLIENT_VERSION_MINOR) "." \
-+	__stringify(I40E_CLIENT_VERSION_BUILD)
- 
- struct i40e_client_version {
- 	u8 major;
--- 
-2.8.0.rc4.16.g56331f8
+How this can happen? Could you give me an example?
