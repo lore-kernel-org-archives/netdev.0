@@ -1,48 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/4] bpf: use skb_pkt_type_ok helper in bpf_skb_change_type
-Date: Thu, 18 Aug 2016 01:00:38 +0200
-Message-ID: <17720ed3d08bbf6bc3d6f569a636efc10c956acd.1471473110.git.daniel@iogearbox.net>
-References: <cover.1471473110.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 12/13] net: sched: add support for TCQ_F_NOLOCK
+ subqueues to sch_mq
+Date: Wed, 17 Aug 2016 16:04:16 -0700
+Message-ID: <1471475056.29842.55.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
+	 <20160817193838.27032.29727.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
+	alexei.starovoitov@gmail.com, brouer@redhat.com,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34684 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753334AbcHQXCA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:02:00 -0400
-In-Reply-To: <cover.1471473110.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1471473110.git.daniel@iogearbox.net>
-References: <cover.1471473110.git.daniel@iogearbox.net>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36176 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752435AbcHQXES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:04:18 -0400
+Received: by mail-pa0-f65.google.com with SMTP id ez1so208127pab.3
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 16:04:17 -0700 (PDT)
+In-Reply-To: <20160817193838.27032.29727.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we have a skb_pkt_type_ok() helper for checking the type before
-mangling, make use of it instead of open coding. Follow-up to commit
-8b10cab64c13 ("net: simplify and make pkt_type_ok() available for other
-users") that came in after d2485c4242a8 ("bpf: add bpf_skb_change_type
-helper").
+On Wed, 2016-08-17 at 12:38 -0700, John Fastabend wrote:
+> The sch_mq qdisc creates a sub-qdisc per tx queue which are then
+> called independently for enqueue and dequeue operations. However
+> statistics are aggregated and pushed up to the "master" qdisc.
+> 
+> This patch adds support for any of the sub-qdiscs to be per cpu
+> statistic qdiscs. To handle this case add a check when calculating
+> stats and aggregate the per cpu stats if needed.
+> 
+> Also exports __gnet_stats_copy_queue() to use as a helper function.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- net/core/filter.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index cb06ace..58b5e6d 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1976,8 +1976,8 @@ static u64 bpf_skb_change_type(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- 	u32 pkt_type = r2;
- 
- 	/* We only allow a restricted subset to be changed for now. */
--	if (unlikely(skb->pkt_type > PACKET_OTHERHOST ||
--		     pkt_type > PACKET_OTHERHOST))
-+	if (unlikely(!skb_pkt_type_ok(skb->pkt_type) ||
-+		     !skb_pkt_type_ok(pkt_type)))
- 		return -EINVAL;
- 
- 	skb->pkt_type = pkt_type;
--- 
-1.9.3
+Looks like this patch should be happening earlier in the series ?
