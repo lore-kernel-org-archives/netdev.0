@@ -1,81 +1,78 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [RFC PATCH 1/5] bpf: add new prog type for cgroup socket filtering
-Date: Wed, 17 Aug 2016 16:00:44 +0200
-Message-ID: <1471442448-1248-2-git-send-email-daniel@zonque.org>
-References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+Subject: [RFC PATCH 0/5] Add eBPF hooks for cgroups
+Date: Wed, 17 Aug 2016 16:00:43 +0200
+Message-ID: <1471442448-1248-1-git-send-email-daniel@zonque.org>
 Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
 	pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
 	Daniel Mack <daniel@zonque.org>
 To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47314 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:47313 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752302AbcHQOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752513AbcHQOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 17 Aug 2016 10:11:15 -0400
-In-Reply-To: <1471442448-1248-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For now, this program type is equivalent to BPF_PROG_TYPE_SOCKET_FILTER in
-terms of checks during the verification process. It may access the skb as
-well.
+This patch set allows eBPF programs for network filtering and
+accounting to be attached to cgroups, so that they apply to all sockets
+of all tasks placed in that cgroup. The logic also allows to be
+extendeded for other cgroup-based eBPF logic.
 
-Programs of this type will be attached to cgroups for network filtering
-and accounting.
+In short, the patch set adds the following:
 
-Signed-off-by: Daniel Mack <daniel@zonque.org>
----
- include/uapi/linux/bpf.h | 1 +
- kernel/bpf/verifier.c    | 1 +
- net/core/filter.c        | 6 ++++++
- 3 files changed, 8 insertions(+)
+* A new eBPF program type BPF_PROG_TYPE_CGROUP_SOCKET_FILTER,
+  which is identical to BPF_PROG_TYPE_SOCKET_FILTER for now
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index da218fe..913b147 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -95,6 +95,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
- 	BPF_PROG_TYPE_XDP,
-+	BPF_PROG_TYPE_CGROUP_SOCKET_FILTER,
- };
- 
- #define BPF_PSEUDO_MAP_FD	1
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index f72f23b..3f3164e 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1777,6 +1777,7 @@ static bool may_access_skb(enum bpf_prog_type type)
- 	case BPF_PROG_TYPE_SOCKET_FILTER:
- 	case BPF_PROG_TYPE_SCHED_CLS:
- 	case BPF_PROG_TYPE_SCHED_ACT:
-+	case BPF_PROG_TYPE_CGROUP_SOCKET_FILTER:
- 		return true;
- 	default:
- 		return false;
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5708999..c5d8332 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2733,12 +2733,18 @@ static struct bpf_prog_type_list xdp_type __read_mostly = {
- 	.type	= BPF_PROG_TYPE_XDP,
- };
- 
-+static struct bpf_prog_type_list cg_sk_filter_type __read_mostly = {
-+	.ops	= &sk_filter_ops,
-+	.type	= BPF_PROG_TYPE_CGROUP_SOCKET_FILTER,
-+};
-+
- static int __init register_sk_filter_ops(void)
- {
- 	bpf_register_prog_type(&sk_filter_type);
- 	bpf_register_prog_type(&sched_cls_type);
- 	bpf_register_prog_type(&sched_act_type);
- 	bpf_register_prog_type(&xdp_type);
-+	bpf_register_prog_type(&cg_sk_filter_type);
- 
- 	return 0;
- }
+* CONFIG_CGROUP_BPF, which guards every new detail affected by this
+  patch set
+
+* Two pointers to struct cgroup to store eBPF programs for socket
+  filtering
+
+* Two new bpf(2) syscall commands, BPF_PROG_ATTACH and BPF_PROG_DETACH,
+  which are kept generic at the kernel API level in a sense that can
+  be reused to attach programs to other entities than cgroups. All that
+  is passed in to kernel is a file descriptor.
+
+* A hook in the networking ingress path to run these programs
+
+* A userspace program that demonstrates how to use that new feature
+
+
+I'd appreciate some feedback on this. Pablo has some remaining concerns
+about this approach, and I'd like to continue the discussion we had
+off-list in the light of this patchset.
+
+Also, I currently lack an idea for a good place to hook up the egress
+filter. If anyone has a good idea, I'd be happy to hear about it.
+
+
+Thanks,
+Daniel
+
+
+Daniel Mack (5):
+  bpf: add new prog type for cgroup socket filtering
+  cgroup: add bpf_{e,in}gress pointers
+  bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
+  net: filter: run cgroup eBPF programs
+  samples: bpf: add userspace example for attaching eBPF programs to
+    cgroups
+
+ include/linux/cgroup-defs.h     |   6 ++
+ include/uapi/linux/bpf.h        |  15 +++++
+ init/Kconfig                    |   8 +++
+ kernel/bpf/syscall.c            | 132 ++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/verifier.c           |   1 +
+ kernel/cgroup.c                 |   9 +++
+ net/core/filter.c               |  50 +++++++++++++++
+ samples/bpf/Makefile            |   2 +
+ samples/bpf/libbpf.c            |  21 +++++++
+ samples/bpf/libbpf.h            |   3 +
+ samples/bpf/test_cgrp2_attach.c | 136 ++++++++++++++++++++++++++++++++++++++++
+ 11 files changed, 383 insertions(+)
+ create mode 100644 samples/bpf/test_cgrp2_attach.c
+
 -- 
 2.5.5
