@@ -1,143 +1,92 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Wed, 17 Aug 2016 14:49:46 -0700
-Message-ID: <1471470587-24813-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1471470587-24813-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
-	ebiederm@xmission.com, rshearma@brocade.com, tom@herbertland.com,
-	tgraf@suug.ch, olivier.dugeon@orange.com,
-	alexander.duyck@gmail.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34582 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753429AbcHQVvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 17:51:08 -0400
-Received: by mail-pa0-f52.google.com with SMTP id fi15so226198pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 14:51:07 -0700 (PDT)
-In-Reply-To: <1471470587-24813-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 17 Aug 2016 17:32:23 -0500
+Message-ID: <57B4E5F7.9040500@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org>
+ <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com>
+ <57B31780.5030106@codeaurora.org>
+ <f3a49762-aa66-1949-bd6b-77bd6a74acc1@linaro.org>
+ <57B3878D.1000805@codeaurora.org>
+ <ff901f77-2177-52a7-2464-2f61495f91be@gmail.com>
+ <57B4C6EE.3080903@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-arm-msm <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sagar Dharia <sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Shanker Donthineni <shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Vikram Sethi <vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Mark Langsdorf <mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andy Gross <agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
+	"Abdulhamid, Harb" <harba-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Al Stone <al.stone-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57B4C6EE.3080903-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-As reported by Lennert the MPLS GSO code is failing to properly segment
-large packets. There are a couple of problems:
+Timur Tabi wrote:
+>>
+>> Nothing prevents you from detailing in ACPI or DT sub-components of a
+>> larger HW block, if there is such a desire, but just make it in a way
+>> that it looks like what would be done for e.g: separate discrete parts,
+>> only the parenting of nodes would change.
+>
+> So instead of just having a single property, instead create a child node
+> just for the SGMII phy, with its own compatible string and various other
+> properties (like interrupt and base register)?  That's not a bad idea.
 
-1. the inner protocol is not set so the gso segment functions for inner
-   protocol layers are not getting run, and
+I need help getting this to work.
 
-2  MPLS labels for packets that use the "native" (non-OVS) MPLS code
-   are not properly accounted for in mpls_gso_segment.
+	emac0: ethernet@38800000 {
+		compatible = "qcom,qdf2432-emac";
+		reg-names = "base", "csr";
+                 reg = <0x0 0x38800000 0x0 0x10000 >,
+                         <0x0 0x38816000 0x0 0x1000>,
+                         <0x0 0x3881C000 0x0 0x4000>;
+		interrupts = <0 0x100 0 0 0x104 0>;
+		interrupt-names = "core0", "sgmii";
 
-The MPLS GSO code was added for OVS. It is re-using skb_mac_gso_segment
-to call the gso segment functions for the higher layer protocols. That
-means skb_mac_gso_segment is called twice -- once with the network
-protocol set to MPLS and again with the network protocol set to the
-inner protocol.
+		sgmii-handle = <&emac_sgmii>;
+		phy-handle = <&phy0>;
 
-This patch sets the inner skb protocol addressing item 1 above and sets
-the network_header and inner_network_header to mark where the MPLS labels
-start and end. The MPLS code in OVS is also updated to set the two
-network markers.
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy0: ethernet-phy@4 {
+			reg = <4>;
+		};
+	};
 
->From there the MPLS GSO code uses the difference between the network
-header and the inner network header to know the size of the MPLS header
-that was pushed. It then pulls the MPLS header, resets the mac_len and
-protocol for the inner protocol and then calls skb_mac_gso_segment
-to segment the skb. Afterwards the skb protocol is set to mpls for
-each segment as suggested by Simon.
+	emac_sgmii: ethernet-phy@410400 {
+		compatible = "qcom,qdf2432-emac-phy";
+		reg = <0x0 0x00410400 0x0 0x100>;
+		interrupts = <0 0x104 0>;
+	};
 
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/mpls/mpls_gso.c       | 24 +++++++++++++-----------
- net/mpls/mpls_iptunnel.c  |  5 +++++
- net/openvswitch/actions.c |  6 ++++++
- 3 files changed, 24 insertions(+), 11 deletions(-)
+When my driver probes, the platform_device object points to the emac0 
+node, as always.
 
-diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-index 2055e57ed1c3..fa6899f02cc8 100644
---- a/net/mpls/mpls_gso.c
-+++ b/net/mpls/mpls_gso.c
-@@ -22,33 +22,35 @@
- static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
- 				       netdev_features_t features)
- {
-+	int mpls_hlen = skb_inner_network_header(skb) - skb_network_header(skb);
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	u16 mac_offset = skb->mac_header;
- 	netdev_features_t mpls_features;
- 	__be16 mpls_protocol;
-+	u16 mac_len = skb->mac_len;
- 
- 	/* Setup inner SKB. */
- 	mpls_protocol = skb->protocol;
- 	skb->protocol = skb->inner_protocol;
- 
--	/* Push back the mac header that skb_mac_gso_segment() has pulled.
--	 * It will be re-pulled by the call to skb_mac_gso_segment() below
--	 */
--	__skb_push(skb, skb->mac_len);
-+	__skb_pull(skb, mpls_hlen);
-+	skb->mac_len = skb_inner_network_offset(skb);
- 
- 	/* Segment inner packet. */
- 	mpls_features = skb->dev->mpls_features & features;
- 	segs = skb_mac_gso_segment(skb, mpls_features);
--
-+	if (IS_ERR_OR_NULL(segs)) {
-+		skb_gso_error_unwind(skb, mpls_protocol, mpls_hlen, mac_offset,
-+				     mac_len);
-+		goto out;
-+	}
- 
- 	/* Restore outer protocol. */
- 	skb->protocol = mpls_protocol;
-+	for (skb = segs; skb; skb = skb->next)
-+		skb->protocol = mpls_protocol;
- 
--	/* Re-pull the mac header that the call to skb_mac_gso_segment()
--	 * above pulled.  It will be re-pushed after returning
--	 * skb_mac_gso_segment(), an indirect caller of this function.
--	 */
--	__skb_pull(skb, skb->data - skb_mac_header(skb));
--
-+out:
- 	return segs;
- }
- 
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index aed872cc05a6..55c5ab907563 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -90,7 +90,12 @@ static int mpls_xmit(struct sk_buff *skb)
- 	if (skb_cow(skb, hh_len + new_header_size))
- 		goto drop;
- 
-+	skb_set_inner_protocol(skb, skb->protocol);
-+	skb_reset_inner_network_header(skb);
-+	skb->encapsulation = 1;
-+
- 	skb_push(skb, new_header_size);
-+
- 	skb_reset_network_header(skb);
- 
- 	skb->dev = out_dev;
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 1ecbd7715f6d..6d78f162a88b 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -167,6 +167,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 		skb->mac_len);
- 	skb_reset_mac_header(skb);
- 
-+	/* for GSO: set MPLS as network header and encapsulated protocol
-+	 * header as inner network header
-+	 */
-+	skb_set_network_header(skb, skb->mac_len);
-+	skb_set_inner_network_header(skb, skb->mac_len + MPLS_HLEN);
-+
- 	new_mpls_lse = (__be32 *)skb_mpls_header(skb);
- 	*new_mpls_lse = mpls->mpls_lse;
- 
+How do I parse the emac_sgmii node?  How do I get functions like 
+platform_get_resource() to work?  How do I create a new platform_device 
+object that points to the emac_sgmii node?
+
 -- 
-2.1.4
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
