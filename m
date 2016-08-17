@@ -1,48 +1,39 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 08/13] net: sched: support skb_bad_tx with lockless
- qdisc
-Date: Wed, 17 Aug 2016 16:00:51 -0700
-Message-ID: <57B4ECA3.7000208@gmail.com>
-References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
- <20160817193646.27032.75592.stgit@john-Precision-Tower-5810>
- <1471474686.29842.53.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
-	alexei.starovoitov@gmail.com, brouer@redhat.com,
-	john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 0/4] BPF helper improvements and cleanups
+Date: Thu, 18 Aug 2016 01:00:37 +0200
+Message-ID: <cover.1471473110.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34715 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651AbcHQXBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:01:07 -0400
-Received: by mail-pa0-f66.google.com with SMTP id hh10so211059pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 16:01:06 -0700 (PDT)
-In-Reply-To: <1471474686.29842.53.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:34683 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752797AbcHQXCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:02:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-08-17 03:58 PM, Eric Dumazet wrote:
-> On Wed, 2016-08-17 at 12:36 -0700, John Fastabend wrote:
->> Similar to how gso is handled skb_bad_tx needs to be per cpu to handle
->> lockless qdisc with multiple writer/producers.
-> \
->> @@ -1021,6 +1026,7 @@ err_out4:
->>  	free_percpu(sch->cpu_bstats);
->>  	free_percpu(sch->cpu_qstats);
->>  	free_percpu(sch->gso_cpu_skb);
->> +	free_percpu(sch->skb_bad_txq_cpu);
-> 
-> 
-> This might be the time to group all these per cpu allocations to a
-> single one, to help data locality and decrease overhead of having XX
-> pointers.
-> 
-> 
-> 
+This set adds various improvements to BPF helpers, a cleanup to use
+skb_pkt_type_ok() helper, addition of bpf_skb_change_tail(), a follow
+up for event output helper and removing ifdefs around the cgroupv2
+helper bits. For details please see individual patches.
 
-Sounds like a good idea to me. I'll go ahead and add a patch to the
-front to consolidate the stats and then add these there.
+The set is based against net-next tree, but requires a merge of net
+into net-next first.
+
+Thanks a lot!
+
+Daniel Borkmann (4):
+  bpf: use skb_pkt_type_ok helper in bpf_skb_change_type
+  bpf: add bpf_skb_change_tail helper
+  bpf: enable event output helper also for xdp types
+  bpf: get rid of cgroup helper related ifdefs
+
+ include/linux/skbuff.h   |  43 +++++++++++++-
+ include/net/sock.h       |  10 ++++
+ include/uapi/linux/bpf.h |  11 ++++
+ net/core/filter.c        | 152 +++++++++++++++++++++++++++++++++++++++++++----
+ 4 files changed, 204 insertions(+), 12 deletions(-)
+
+-- 
+1.9.3
