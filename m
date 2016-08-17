@@ -1,96 +1,100 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net v2 01/10] mlxsw: spectrum: Don't return upon error in removal path
-Date: Wed, 17 Aug 2016 16:39:28 +0200
-Message-ID: <1471444777-3412-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net v2 06/10] mlxsw: spectrum: Trap loop-backed packets
+Date: Wed, 17 Aug 2016 16:39:33 +0200
+Message-ID: <1471444777-3412-7-git-send-email-jiri@resnulli.us>
 References: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	ilant@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35712 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33478 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752302AbcHQOjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:42 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i5so24833939wmg.2
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:41 -0700 (PDT)
+	with ESMTP id S1752703AbcHQOjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:48 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o80so24865705wme.0
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:47 -0700 (PDT)
 In-Reply-To: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When removing a VLAN filter from the device we shouldn't return upon the
-first error we encounter, as otherwise we'll have resources that will
-never be freed nor used.
+One of the conditions to generate an ICMP Redirect Message is that "the
+packet is being forwarded out the same physical interface that it was
+received from" (RFC 1812).
 
-Instead, we should keep trying to free as much resources as possible in
-a best effort mode.
+Therefore, we need to be able to trap such packets and let the kernel
+decide what to do with them.
 
-Remove the error message as well, since we already get these from the
-EMAD transaction code.
+For each RIF, enable the loop-back filter, which will raise the LBERROR
+trap whenever the ingress RIF equals the egress RIF.
 
 Fixes: 99724c18fc66 ("mlxsw: spectrum: Introduce support for router interfaces")
+Reported-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 27 +++++---------------------
- 1 file changed, 5 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      | 10 ++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  5 +++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |  1 +
+ 3 files changed, 16 insertions(+)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 7ca9201..a1bd36c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3383,6 +3383,15 @@ MLXSW_ITEM32(reg, ritr, ipv4_fe, 0x04, 29, 1);
+  */
+ MLXSW_ITEM32(reg, ritr, ipv6_fe, 0x04, 28, 1);
+ 
++/* reg_ritr_lb_en
++ * Loop-back filter enable for unicast packets.
++ * If the flag is set then loop-back filter for unicast packets is
++ * implemented on the RIF. Multicast packets are always subject to
++ * loop-back filtering.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, lb_en, 0x04, 24, 1);
++
+ /* reg_ritr_virtual_router
+  * Virtual router ID associated with the router interface.
+  * Access: RW
+@@ -3484,6 +3493,7 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
+ 	mlxsw_reg_ritr_op_set(payload, op);
+ 	mlxsw_reg_ritr_rif_set(payload, rif);
+ 	mlxsw_reg_ritr_ipv4_fe_set(payload, 1);
++	mlxsw_reg_ritr_lb_en_set(payload, 1);
+ 	mlxsw_reg_ritr_mtu_set(payload, mtu);
+ 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
+ }
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e1b8f62..76b53ed 100644
+index 6b69c8a..8137daa 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1010,7 +1010,6 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct mlxsw_sp_port *mlxsw_sp_vport;
- 	struct mlxsw_sp_fid *f;
--	int err;
- 
- 	/* VLAN 0 is removed from HW filter when device goes down, but
- 	 * it is reserved in our case, so simply return.
-@@ -1019,23 +1018,12 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 		return 0;
- 
- 	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, vid);
--	if (!mlxsw_sp_vport) {
--		netdev_warn(dev, "VID=%d does not exist\n", vid);
-+	if (WARN_ON(!mlxsw_sp_vport))
- 		return 0;
--	}
- 
--	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
--	if (err) {
--		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
--			   vid);
--		return err;
--	}
-+	mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, false, false);
- 
--	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
--	if (err) {
--		netdev_err(dev, "Failed to enable learning for VID=%d\n", vid);
--		return err;
--	}
-+	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, true);
- 
- 	/* Drop FID reference. If this was the last reference the
- 	 * resources will be freed.
-@@ -1048,13 +1036,8 @@ static int mlxsw_sp_port_kill_vid(struct net_device *dev,
- 	 * transition all active 802.1Q bridge VLANs to use VID to FID
- 	 * mappings and set port's mode to VLAN mode.
- 	 */
--	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
--		err = mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
--		if (err) {
--			netdev_err(dev, "Failed to set to VLAN mode\n");
--			return err;
--		}
--	}
-+	if (list_is_singular(&mlxsw_sp_port->vports_list))
-+		mlxsw_sp_port_vlan_mode_trans(mlxsw_sp_port);
- 
- 	mlxsw_sp_port_vport_destroy(mlxsw_sp_vport);
- 
+@@ -2661,6 +2661,11 @@ static const struct mlxsw_rx_listener mlxsw_sp_rx_listener[] = {
+ 	{
+ 		.func = mlxsw_sp_rx_listener_func,
+ 		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_LBERROR,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
+ 		.trap_id = MLXSW_TRAP_ID_OSPF,
+ 	},
+ 	{
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+index 9508e0a..ed8e301 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+@@ -58,6 +58,7 @@ enum {
+ 	MLXSW_TRAP_ID_ARPUC = 0x51,
+ 	MLXSW_TRAP_ID_MTUERROR = 0x52,
+ 	MLXSW_TRAP_ID_TTLERROR = 0x53,
++	MLXSW_TRAP_ID_LBERROR = 0x54,
+ 	MLXSW_TRAP_ID_OSPF = 0x55,
+ 	MLXSW_TRAP_ID_IP2ME = 0x5F,
+ 	MLXSW_TRAP_ID_RTR_INGRESS0 = 0x70,
 -- 
 2.5.5
