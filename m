@@ -1,56 +1,92 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [RFC PATCH 3/5] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
- commands
-Date: Wed, 17 Aug 2016 17:51:44 +0200
-Message-ID: <7e607709-eca0-2ab6-2379-99cec519d859@zonque.org>
-References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
- <1471442448-1248-4-git-send-email-daniel@zonque.org>
- <20160817142047.GB4021@htj.duckdns.org>
- <95e8b773-416f-72cc-4045-dd10d94e6484@zonque.org>
- <20160817150646.GB6299@htj.duckdns.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel panic TPROXY , vanilla 4.7.1
+Date: Wed, 17 Aug 2016 09:04:31 -0700
+Message-ID: <1471449871.29842.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
+	 <1471448525.29842.1.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: daniel@iogearbox.net, ast@fb.com, davem@davemloft.net,
-	kafai@fb.com, fw@strlen.de, pablo@netfilter.org, harald@redhat.com,
-	netdev@vger.kernel.org
-To: Tejun Heo <htejun@fb.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47751 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750764AbcHQPxP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2016 11:53:15 -0400
-In-Reply-To: <20160817150646.GB6299@htj.duckdns.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:32987 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752106AbcHQQEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 12:04:34 -0400
+In-Reply-To: <1471448525.29842.1.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2016 05:06 PM, Tejun Heo wrote:
-> What I'd suggest is keeping two sets of pointers, one set for the
-> programs explicitly attached to the cgroup and the other for programs
-> which are to be executed for the cgroup.  The two pointers in the
-> latter set will point to the closest non-null program in its ancestry.
-> Note that the pointers may point to programs belonging to different
-> ancestors.
+On Wed, 2016-08-17 at 08:42 -0700, Eric Dumazet wrote:
+> On Wed, 2016-08-17 at 17:31 +0300, Denys Fedoryshchenko wrote:
+> > Hi!
+> > 
+> > Tried to run squid on latest kernel, and hit a panic
+> > Sometimes it just shows warning in dmesg (but doesnt work properly)
+> > [   75.701666] IPv4: Attempt to release TCP socket in state 10 
+> > ffff88102d430780
+> > [   83.866974] squid (2700) used greatest stack depth: 12912 bytes left
+> > [   87.506644] IPv4: Attempt to release TCP socket in state 10 
+> > ffff880078a48780
+> > [  114.704295] IPv4: Attempt to release TCP socket in state 10 
+> > ffff881029f8ad00
+> > 
+> > I cannot catch yet oops/panic message, netconsole not working.
+> > 
+> > After triggering warning message 3 times, i am unable to run squid 
+> > anymore (without reboot), and in netstat it doesnt show port running.
+> > 
+> > firewall is:
+> > *mangle
+> > -A PREROUTING -p tcp -m socket -j DIVERT
+> > -A PREROUTING -p tcp -m tcp --dport 80 -i eno1 -j TPROXY --on-port 3129 
+> > --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+> > -A DIVERT -j MARK --set-xmark 0x1/0xffffffff
+> > -A DIVERT -j ACCEPT
+> > 
+> > routing
+> > ip rule add fwmark 1 lookup 100
+> > ip route add local default dev eno1 table 100
+> > 
+> > 
+> > squid config is default with tproxy option
+> > http_port 3129 tproxy
+> > 
 > 
-> 	A - B - C
->               \ D - E
+> Hmppff... sorry for this, I will send a fix.
 > 
-> Let's say B has both ingress and egress programs and D only has
-> egress.  E's execution pointers should point to D's egress program and
-> B's ingress program.
+> Thanks for the report !
 > 
-> The pointers would need to be updated
-> 
-> 1. When a program is installed or removed.  For simplicity's sake, we
->    can just walk the whole hierarchy.  If that's too expensive
->    (shouldn't be), we can find out the closest ancestor where both
->    programs can be determined and then walk from there.
-> 
-> 2. When a new cgroup is created, it should inherit its execution table
->    from its parent.
 
-Ok, yes, that sounds sane to me. Will implement that scheme.
 
+Could you try the following ?
 
-Thanks!
-Daniel
+Thanks !
+
+ net/netfilter/xt_TPROXY.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+index 7f4414d26a66..663c4c3c9072 100644
+--- a/net/netfilter/xt_TPROXY.c
++++ b/net/netfilter/xt_TPROXY.c
+@@ -127,6 +127,8 @@ nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
+ 						    daddr, dport,
+ 						    in->ifindex);
+ 
++			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++				sk = NULL;
+ 			/* NOTE: we return listeners even if bound to
+ 			 * 0.0.0.0, those are filtered out in
+ 			 * xt_socket, since xt_TPROXY needs 0 bound
+@@ -195,6 +197,8 @@ nf_tproxy_get_sock_v6(struct net *net, struct sk_buff *skb, int thoff, void *hp,
+ 						   daddr, ntohs(dport),
+ 						   in->ifindex);
+ 
++			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++				sk = NULL;
+ 			/* NOTE: we return listeners even if bound to
+ 			 * 0.0.0.0, those are filtered out in
+ 			 * xt_socket, since xt_TPROXY needs 0 bound
