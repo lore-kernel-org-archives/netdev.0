@@ -1,64 +1,90 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net v2 00/10] mlxsw: IPv4 UC router fixes
-Date: Wed, 17 Aug 2016 16:39:27 +0200
-Message-ID: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net v2 02/10] mlxsw: spectrum: Remove redundant errors from the code
+Date: Wed, 17 Aug 2016 16:39:29 +0200
+Message-ID: <1471444777-3412-3-git-send-email-jiri@resnulli.us>
+References: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	ilant@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36677 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751495AbcHQOjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:40 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i138so24726056wmf.3
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:39 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35735 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752472AbcHQOjn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:43 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i5so24834165wmg.2
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:42 -0700 (PDT)
+In-Reply-To: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Ido says:
-Patches 1-3 fix a long standing problem in the driver's init sequence,
-which manifests itself quite often when routing daemons try to configure
-an IP address on registered netdevs that don't yet have an associated
-vPort.
+Currently, when device configuration fails we emit errors to the kernel
+log despite the fact we already get these from the EMAD transaction
+layer, so remove them.
 
-Patches 4-9 add missing packet traps for the router to work properly and
-also fix ordering issue following the recent changes to the driver's init
-sequence.
+In addition to being unnecessary, removing these error messages will
+allow us to reuse mlxsw_sp_port_add_vid() to create the PVID vPort
+before registering the netdevice.
 
-The last patch isn't related to the router, but fixes a general problem
-in which under certain conditions packets aren't trapped to CPU.
+Fixes: 99724c18fc66 ("mlxsw: spectrum: Introduce support for router interfaces")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 21 +++++----------------
+ 1 file changed, 5 insertions(+), 16 deletions(-)
 
-v1->v2:
-- Change order of patch 7
-- Add patch 6 following Ilan's comment
-- Add patchset name and cover letter
-
-Elad Raz (1):
-  mlxsw: spectrum: Add missing packet traps
-
-Ido Schimmel (8):
-  mlxsw: spectrum: Don't return upon error in removal path
-  mlxsw: spectrum: Remove redundant errors from the code
-  mlxsw: spectrum: Create PVID vPort before registering netdevice
-  mlxsw: spectrum: Mark port as active before registering it
-  mlxsw: spectrum: Trap loop-backed packets
-  mlxsw: spectrum: Add missing rollbacks in error path
-  mlxsw: spectrum: Unmap 802.1Q FID before destroying it
-  mlxsw: spectrum: Allow packets to be trapped from any PG
-
-Jiri Pirko (1):
-  mlxsw: reg: Fix missing op field fill-up
-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          |  11 +++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 110 +++++++++++----------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   2 -
- .../net/ethernet/mellanox/mlxsw/spectrum_buffers.c |   2 +-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  42 ++------
- drivers/net/ethernet/mellanox/mlxsw/trap.h         |   4 +
- 6 files changed, 83 insertions(+), 88 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 76b53ed..a9281afc 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -956,16 +956,12 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
+ 	if (!vid)
+ 		return 0;
+ 
+-	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid)) {
+-		netdev_warn(dev, "VID=%d already configured\n", vid);
++	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid))
+ 		return 0;
+-	}
+ 
+ 	mlxsw_sp_vport = mlxsw_sp_port_vport_create(mlxsw_sp_port, vid);
+-	if (!mlxsw_sp_vport) {
+-		netdev_err(dev, "Failed to create vPort for VID=%d\n", vid);
++	if (!mlxsw_sp_vport)
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* When adding the first VLAN interface on a bridged port we need to
+ 	 * transition all the active 802.1Q bridge VLANs to use explicit
+@@ -973,24 +969,17 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
+ 	 */
+ 	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
+ 		err = mlxsw_sp_port_vp_mode_trans(mlxsw_sp_port);
+-		if (err) {
+-			netdev_err(dev, "Failed to set to Virtual mode\n");
++		if (err)
+ 			goto err_port_vp_mode_trans;
+-		}
+ 	}
+ 
+ 	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
+-	if (err) {
+-		netdev_err(dev, "Failed to disable learning for VID=%d\n", vid);
++	if (err)
+ 		goto err_port_vid_learning_set;
+-	}
+ 
+ 	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, untagged);
+-	if (err) {
+-		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
+-			   vid);
++	if (err)
+ 		goto err_port_add_vid;
+-	}
+ 
+ 	return 0;
+ 
 -- 
 2.5.5
