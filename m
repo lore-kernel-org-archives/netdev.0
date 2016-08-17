@@ -1,56 +1,51 @@
-From: Marco Grassi <marco.gra@gmail.com>
-Subject: Re: Fw: Linux tcp_xmit_retransmit_queue use after free on 4.8-rc1 / master]
-Date: Wed, 17 Aug 2016 19:10:15 +0800
-Message-ID: <CAFkTriKbQz43Mt7wtHPTzkeszTUvKqCGOLmgCWVikNYnMC_New@mail.gmail.com>
-References: <20160816104551.GA28052@kroah.com> <1471361940.4943.4.camel@edumazet-glaptop3.roam.corp.google.com>
- <1471372748.4943.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXV-jV0FsAzxt4JYrc6d5LCCLt-5_0uMvM49sV8-+SDDQ@mail.gmail.com>
- <1471379279.4943.14.camel@edumazet-glaptop3.roam.corp.google.com> <CAM_iQpW46DkWU2COW6tXUj3W==WQVkHT--qW8Hfus5ZiiKtYvA@mail.gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 4/6] net: ethernet: bgmac: convert to feature flags
+Date: Wed, 17 Aug 2016 13:34:15 +0200
+Message-ID: <CACna6rw1j3myPEkbn+YR71W7CF7Of_yahn9eDT7t3hKWGmWUmg@mail.gmail.com>
+References: <1467932938-21819-1-git-send-email-jon.mason@broadcom.com> <1467932938-21819-5-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:36529 "EHLO
-	mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbcHQLVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 07:21:52 -0400
-Received: by mail-it0-f68.google.com with SMTP id j124so8683268ith.3
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 04:21:52 -0700 (PDT)
-In-Reply-To: <CAM_iQpW46DkWU2COW6tXUj3W==WQVkHT--qW8Hfus5ZiiKtYvA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467932938-21819-5-git-send-email-jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello, I'm fuzzing with your patch applied, and I don't see the issue
-triggering anymore, (or other related)
+On 8 July 2016 at 01:08, Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
+>         mode = (bgmac_read(bgmac, BGMAC_DEV_STATUS) & BGMAC_DS_MM_MASK) >>
+>                 BGMAC_DS_MM_SHIFT;
+> -       if (ci->id != BCMA_CHIP_ID_BCM47162 || mode != 0)
+> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST || mode != 0)
+>                 bgmac_set(bgmac, BCMA_CLKCTLST, BCMA_CLKCTLST_FORCEHT);
+> -       if (ci->id == BCMA_CHIP_ID_BCM47162 && mode == 2)
+> +       if (bgmac->feature_flags & BGMAC_FEAT_CLKCTLST && mode == 2)
+>                 bcma_chipco_chipctl_maskset(&bgmac->core->bus->drv_cc, 1, ~0,
+>                                             BGMAC_CHIPCTL_1_RXC_DLL_BYPASS);
 
-I will keep you updated if something pops up, so we can fix before pushing
+Jon, it looks to me you translated two following conditions:
+ci->id != BCMA_CHIP_ID_BCM47162
+and
+ci->id == BCMA_CHIP_ID_BCM47162
+into the same flag check:
+bgmac->feature_flags & BGMAC_FEAT_CLKCTLST
 
-Marco
-
-On Wed, Aug 17, 2016 at 4:32 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Tue, Aug 16, 2016 at 1:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> And tcp_add_write_queue_tail() looks like :
->>
->>
->> static inline void tcp_add_write_queue_tail(struct sock *sk, struct sk_buff *skb)
->> {
->>         __tcp_add_write_queue_tail(sk, skb);
->>
->>         /* Queue it, remembering where we must start sending. */
->>         if (sk->sk_send_head == NULL) {
->>                 sk->sk_send_head = skb;
->>
->>                 if (tcp_sk(sk)->highest_sack == NULL)
->>                         tcp_sk(sk)->highest_sack = skb;
->>         }
->> }
->>
->
-> Ah, I never looked into tcp_add_write_queue_tail()...
->
-> So this bug seems exist after commit 6859d49475d4f32abe640372117e4b...
+I don't think it's intentional, is it? Do you have a moment to fix this?
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
