@@ -1,58 +1,99 @@
-From: Mike Manning <mmanning@brocade.com>
-Subject: Re: [PATCH] net: ipv6: Remove addresses for failures with strict DAD
-Date: Wed, 17 Aug 2016 17:08:42 +0100
-Message-ID: <ae4a3e5a-1b36-5eab-da03-d6121abb6223@brocade.com>
-References: <1471429720-6141-1-git-send-email-mmanning@brocade.com>
- <58750abf-9221-f2d3-0fb2-cc5f1bcd92f9@stressinduktion.org>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: kernel panic TPROXY , vanilla 4.7.1
+Date: Wed, 17 Aug 2016 19:44:22 +0300
+Message-ID: <09c3ca74357572464b5ff280f1cd0ddc@nuclearcat.com>
+References: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
+ <1471448525.29842.1.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1471449871.29842.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	<netdev@vger.kernel.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33783 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752774AbcHQQdB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 12:33:01 -0400
-In-Reply-To: <58750abf-9221-f2d3-0fb2-cc5f1bcd92f9@stressinduktion.org>
+Received: from nuclearcat.com ([144.76.183.226]:36990 "EHLO nuclearcat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751993AbcHQQop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2016 12:44:45 -0400
+In-Reply-To: <1471449871.29842.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2016 04:40 PM, Hannes Frederic Sowa wrote:
-> On 17.08.2016 12:28, Mike Manning wrote:
->> +static void dev_disable_change(struct inet6_dev *idev);
->>  
->>  /*
->>   *	Configured unicast address hash table
->> @@ -1945,6 +1946,12 @@ lock_errdad:
->>  
->>  			pr_info("%s: IPv6 being disabled!\n",
->>  				ifp->idev->dev->name);
->> +			spin_unlock_bh(&ifp->lock);
->> +			addrconf_dad_stop(ifp, 1);
->> +			rtnl_lock();
->> +			dev_disable_change(idev);
->> +			rtnl_unlock();
->> +			return;
->>  		}
->>  	}
+On 2016-08-17 19:04, Eric Dumazet wrote:
+> On Wed, 2016-08-17 at 08:42 -0700, Eric Dumazet wrote:
+>> On Wed, 2016-08-17 at 17:31 +0300, Denys Fedoryshchenko wrote:
+>> > Hi!
+>> >
+>> > Tried to run squid on latest kernel, and hit a panic
+>> > Sometimes it just shows warning in dmesg (but doesnt work properly)
+>> > [   75.701666] IPv4: Attempt to release TCP socket in state 10
+>> > ffff88102d430780
+>> > [   83.866974] squid (2700) used greatest stack depth: 12912 bytes left
+>> > [   87.506644] IPv4: Attempt to release TCP socket in state 10
+>> > ffff880078a48780
+>> > [  114.704295] IPv4: Attempt to release TCP socket in state 10
+>> > ffff881029f8ad00
+>> >
+>> > I cannot catch yet oops/panic message, netconsole not working.
+>> >
+>> > After triggering warning message 3 times, i am unable to run squid
+>> > anymore (without reboot), and in netstat it doesnt show port running.
+>> >
+>> > firewall is:
+>> > *mangle
+>> > -A PREROUTING -p tcp -m socket -j DIVERT
+>> > -A PREROUTING -p tcp -m tcp --dport 80 -i eno1 -j TPROXY --on-port 3129
+>> > --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+>> > -A DIVERT -j MARK --set-xmark 0x1/0xffffffff
+>> > -A DIVERT -j ACCEPT
+>> >
+>> > routing
+>> > ip rule add fwmark 1 lookup 100
+>> > ip route add local default dev eno1 table 100
+>> >
+>> >
+>> > squid config is default with tproxy option
+>> > http_port 3129 tproxy
+>> >
+>> 
+>> Hmppff... sorry for this, I will send a fix.
+>> 
+>> Thanks for the report !
+>> 
 > 
-> You can't take rtnl_lock at that point but must postpone the actions and
-> do that in addrconf_dad_work.
 > 
-> Probably the whole ... else if (idev->cnf.accept_dad > 1 && ...) needs
-> to move there.
+> Could you try the following ?
 > 
-> Bye,
-> Hannes
+> Thanks !
 > 
+>  net/netfilter/xt_TPROXY.c |    4 ++++
+>  1 file changed, 4 insertions(+)
 > 
-
-Thanks for the prompt review, I will look into making these changes.
-
-Also these changes caused a build error due to conditional compilation without CONFIG_SYSCTL, which is resolved by replacing the call to dev_disable_change(idev) by directly calling addrconf_ifdown(idev->dev, 0) instead.
-
-I would appreciate any further comments if the suggested change in behavior is not acceptable.
-
-Thanks
-Mike
+> diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
+> index 7f4414d26a66..663c4c3c9072 100644
+> --- a/net/netfilter/xt_TPROXY.c
+> +++ b/net/netfilter/xt_TPROXY.c
+> @@ -127,6 +127,8 @@ nf_tproxy_get_sock_v4(struct net *net, struct
+> sk_buff *skb, void *hp,
+>  						    daddr, dport,
+>  						    in->ifindex);
+> 
+> +			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
+> +				sk = NULL;
+>  			/* NOTE: we return listeners even if bound to
+>  			 * 0.0.0.0, those are filtered out in
+>  			 * xt_socket, since xt_TPROXY needs 0 bound
+> @@ -195,6 +197,8 @@ nf_tproxy_get_sock_v6(struct net *net, struct
+> sk_buff *skb, int thoff, void *hp,
+>  						   daddr, ntohs(dport),
+>  						   in->ifindex);
+> 
+> +			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
+> +				sk = NULL;
+>  			/* NOTE: we return listeners even if bound to
+>  			 * 0.0.0.0, those are filtered out in
+>  			 * xt_socket, since xt_TPROXY needs 0 bound
+Yes, everything fine after patch!
+Thanks a lot
