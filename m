@@ -1,239 +1,150 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 11/13] net: sched: pfifo_fast use alf_queue
-Date: Wed, 17 Aug 2016 12:38:10 -0700
-Message-ID: <20160817193810.27032.27544.stgit@john-Precision-Tower-5810>
-References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v8] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 17 Aug 2016 14:38:40 -0500
+Message-ID: <57B4BD40.1070703@codeaurora.org>
+References: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
+ <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	john.fastabend@gmail.com, davem@davemloft.net
-To: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
-	alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
-	brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35158 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752761AbcHQTid (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 15:38:33 -0400
-Received: by mail-oi0-f66.google.com with SMTP id e80so13014296oig.2
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 12:38:32 -0700 (PDT)
-In-Reply-To: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	sdharia@codeaurora.org, shankerd@codeaurora.org,
+	vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
+	robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
+	mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
+	davem@davemloft.net, LinoSanfilippo@gmx.de
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This converts the pfifo_fast qdisc to use the alf_queue enqueue and
-dequeue routines then sets the NOLOCK bit.
+Florian Fainelli wrote:
+> On 08/11/2016 02:34 PM, Timur Tabi wrote:
+>> >Add supports for ethernet controller HW on Qualcomm Technologies, Inc. SoC.
+>> >This driver supports the following features:
+>> >1) Checksum offload.
+>> >2) Interrupt coalescing support.
+>> >3) SGMII phy.
+>> >4) phylib interface for external phy
 
-This also removes the logic used to pick the next band to dequeue from
-and instead just checks each alf_queue for packets from top priority
-to lowest. This might need to be a bit more clever but seems to work
-for now.
+> OK, so this is looking good now, just a few nits, feel free to submit as
+> clean up patches, would this one be accepted.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/sch_generic.c |  133 +++++++++++++++++++++++++++--------------------
- 1 file changed, 77 insertions(+), 56 deletions(-)
+I will post a v9.
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f5b7254..c41a5dd 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -26,6 +26,7 @@
- #include <linux/list.h>
- #include <linux/slab.h>
- #include <linux/if_vlan.h>
-+#include <linux/skb_array.h>
- #include <net/sch_generic.h>
- #include <net/pkt_sched.h>
- #include <net/dst.h>
-@@ -555,88 +556,79 @@ static const u8 prio2band[TC_PRIO_MAX + 1] = {
- 
- /*
-  * Private data for a pfifo_fast scheduler containing:
-- * 	- queues for the three band
-- * 	- bitmap indicating which of the bands contain skbs
-+ *	- rings for priority bands
-  */
- struct pfifo_fast_priv {
--	u32 bitmap;
--	struct sk_buff_head q[PFIFO_FAST_BANDS];
-+	struct skb_array q[PFIFO_FAST_BANDS];
- };
- 
--/*
-- * Convert a bitmap to the first band number where an skb is queued, where:
-- * 	bitmap=0 means there are no skbs on any band.
-- * 	bitmap=1 means there is an skb on band 0.
-- *	bitmap=7 means there are skbs on all 3 bands, etc.
-- */
--static const int bitmap2band[] = {-1, 0, 1, 0, 2, 0, 1, 0};
--
--static inline struct sk_buff_head *band2list(struct pfifo_fast_priv *priv,
--					     int band)
-+static inline struct skb_array *band2list(struct pfifo_fast_priv *priv,
-+					  int band)
- {
--	return priv->q + band;
-+	return &priv->q[band];
- }
- 
- static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
- 			      struct sk_buff **to_free)
- {
--	if (skb_queue_len(&qdisc->q) < qdisc_dev(qdisc)->tx_queue_len) {
--		int band = prio2band[skb->priority & TC_PRIO_MAX];
--		struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
--		struct sk_buff_head *list = band2list(priv, band);
--
--		priv->bitmap |= (1 << band);
--		qdisc->q.qlen++;
--		return __qdisc_enqueue_tail(skb, qdisc, list);
--	}
-+	int band = prio2band[skb->priority & TC_PRIO_MAX];
-+	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
-+	struct skb_array *q = band2list(priv, band);
-+	int err;
- 
--	return qdisc_drop(skb, qdisc, to_free);
-+	err = skb_array_produce(q, skb);
-+
-+	if (unlikely(err))
-+		return qdisc_drop_cpu(skb, qdisc, to_free);
-+
-+	qdisc_qstats_cpu_qlen_inc(qdisc);
-+	qdisc_qstats_cpu_backlog_inc(qdisc, skb);
-+	return NET_XMIT_SUCCESS;
- }
- 
- static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
- {
- 	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
--	int band = bitmap2band[priv->bitmap];
-+	struct sk_buff *skb = NULL;
-+	int band;
- 
--	if (likely(band >= 0)) {
--		struct sk_buff_head *list = band2list(priv, band);
--		struct sk_buff *skb = __qdisc_dequeue_head(qdisc, list);
-+	for (band = 0; band < PFIFO_FAST_BANDS && !skb; band++) {
-+		struct skb_array *q = band2list(priv, band);
- 
--		qdisc->q.qlen--;
--		if (skb_queue_empty(list))
--			priv->bitmap &= ~(1 << band);
-+		if (__skb_array_empty(q))
-+			continue;
- 
--		return skb;
-+		skb = skb_array_consume(q);
- 	}
- 
--	return NULL;
--}
--
--static struct sk_buff *pfifo_fast_peek(struct Qdisc *qdisc)
--{
--	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
--	int band = bitmap2band[priv->bitmap];
--
--	if (band >= 0) {
--		struct sk_buff_head *list = band2list(priv, band);
--
--		return skb_peek(list);
-+	if (likely(skb)) {
-+		qdisc_qstats_cpu_backlog_dec(qdisc, skb);
-+		qdisc_bstats_cpu_update(qdisc, skb);
-+		qdisc_qstats_cpu_qlen_dec(qdisc);
- 	}
- 
--	return NULL;
-+	return skb;
- }
- 
- static void pfifo_fast_reset(struct Qdisc *qdisc)
- {
--	int prio;
-+	int i, band;
- 	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
- 
--	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++)
--		__qdisc_reset_queue(band2list(priv, prio));
-+	for (band = 0; band < PFIFO_FAST_BANDS; band++) {
-+		struct skb_array *q = band2list(priv, band);
-+		struct sk_buff *skb;
- 
--	priv->bitmap = 0;
--	qdisc->qstats.backlog = 0;
--	qdisc->q.qlen = 0;
-+		while ((skb = skb_array_consume(q)) != NULL)
-+			kfree_skb(skb);
-+	}
-+
-+	for_each_possible_cpu(i) {
-+		struct gnet_stats_queue *q = per_cpu_ptr(qdisc->cpu_qstats, i);
-+
-+		q->backlog = 0;
-+		q->qlen = 0;
-+	}
- }
- 
- static int pfifo_fast_dump(struct Qdisc *qdisc, struct sk_buff *skb)
-@@ -654,24 +646,53 @@ nla_put_failure:
- 
- static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
- {
--	int prio;
-+	unsigned int qlen = qdisc_dev(qdisc)->tx_queue_len;
- 	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
-+	int prio;
-+
-+	/* guard against zero length rings */
-+	if (!qlen)
-+		return -EINVAL;
- 
--	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++)
--		__skb_queue_head_init(band2list(priv, prio));
-+	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++) {
-+		struct skb_array *q = band2list(priv, prio);
-+		int err;
-+
-+		err = skb_array_init(q, qlen, GFP_KERNEL);
-+		if (err)
-+			return -ENOMEM;
-+	}
-+
-+	atomic_set(&qdisc->qlen_atomic, 0);
- 
- 	/* Can by-pass the queue discipline */
- 	qdisc->flags |= TCQ_F_CAN_BYPASS;
-+	qdisc->flags |= TCQ_F_NOLOCK;
-+	qdisc->flags |= TCQ_F_CPUSTATS;
-+
- 	return 0;
- }
- 
-+static void pfifo_fast_destroy(struct Qdisc *sch)
-+{
-+	struct pfifo_fast_priv *priv = qdisc_priv(sch);
-+	int prio;
-+
-+	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++) {
-+		struct skb_array *q = band2list(priv, prio);
-+
-+		skb_array_cleanup(q);
-+	}
-+}
-+
- struct Qdisc_ops pfifo_fast_ops __read_mostly = {
- 	.id		=	"pfifo_fast",
- 	.priv_size	=	sizeof(struct pfifo_fast_priv),
- 	.enqueue	=	pfifo_fast_enqueue,
- 	.dequeue	=	pfifo_fast_dequeue,
--	.peek		=	pfifo_fast_peek,
-+	.peek		=	qdisc_peek_dequeued_cpu,
- 	.init		=	pfifo_fast_init,
-+	.destroy	=	pfifo_fast_destroy,
- 	.reset		=	pfifo_fast_reset,
- 	.dump		=	pfifo_fast_dump,
- 	.owner		=	THIS_MODULE,
+>> >+soc {
+>> >+	#address-cells = <1>;
+>> >+	#size-cells = <1>;
+>> >+	dma-ranges = <0 0 0xffffffff>;
+>> >+
+>> >+	emac0: ethernet@feb20000 {
+>> >+		compatible = "qcom,fsm9900-emac";
+>> >+		#address-cells = <1>;
+>> >+		#size-cells = <1>;
+>> >+		reg-names = "base", "csr", "ptp", "sgmii";
+>> >+		reg =   <0xfeb20000 0x10000>,
+>> >+			<0xfeb36000 0x1000>,
+>> >+			<0xfeb3c000 0x4000>,
+>> >+			<0xfeb38000 0x400>;
+>> >+		interrupt-parent = <&emac0>;
+>> >+		#interrupt-cells = <1>;
+>> >+		interrupts = <76 80>;
+>> >+		interrupt-names = "emac_core0", "sgmii_irq";
+>> >+		phy0: ethernet-phy@0 {
+>> >+			compatible = "qcom,fsm9900-emac-phy";
+>> >+			reg = <0>;
+>> >+		}
+
+> If this is an external PHY, the expectation is that it will be hanging
+> off a MDIO bus controller, either the MDIO bus internal to the MAC, or
+> an external MDIO bus (separate register range).
+
+So for starters, I forgot to delete the 'compatible' property from this 
+document.  Its presence breaks of_mdiobus_child_is_phy().
+
+> If such a PHY node is provided, the expectation is that your Ethernet
+> MAC will have a phy-handle property and a phy-mode property to specify
+> how to connect to this external PHY, so in your specific case, better
+> remove the PHY from your example, or detail further how it should be done.
+
+Something is odd about of_mdiobus_register().
+
+This function scans child nodes to look for PHYs:
+
+/* Loop over the child nodes and register a phy_device for each phy */
+for_each_available_child_of_node(np, child) {
+	addr = of_mdio_parse_addr(&mdio->dev, child);
+
+And in my driver, this works.  However, later when I try to call 
+of_phy_find_device(), it fails.  That's because of_phy_find_device() 
+wants the np of the child node.  But the only way to get that is with a 
+phy-phandle property which I need to manually parse.
+
+So what's the point of having of_mdiobus_register() parse child nodes, 
+if you need a phy-phandle pointer anyway?
+
+>> >diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
+>> >index a76e380..85b599f 100644
+>> >--- a/drivers/net/ethernet/qualcomm/Kconfig
+>> >+++ b/drivers/net/ethernet/qualcomm/Kconfig
+>> >@@ -24,4 +24,15 @@ config QCA7000
+>> >  	  To compile this driver as a module, choose M here. The module
+>> >  	  will be called qcaspi.
+>> >
+>> >+config QCOM_EMAC
+>> >+	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
+>> >+	select CRC32
+
+> select PHYLIB?
+
+Ok.
+
+>> >diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
+>> >index 9da2d75..1b3a0ce 100644
+>> >--- a/drivers/net/ethernet/qualcomm/Makefile
+>> >+++ b/drivers/net/ethernet/qualcomm/Makefile
+>> >@@ -4,3 +4,5 @@
+>> >
+>> >  obj-$(CONFIG_QCA7000) += qcaspi.o
+>> >  qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
+>> >+
+>> >+obj-$(CONFIG_QCOM_EMAC) += emac/
+
+> Since you have a check on CONFIG_QCOM_EMAC in emac/Makefile, you could
+> always recurse into that directory while building (use obj-y).
+
+Obviously, having "obj-$(CONFIG_QCOM_EMAC)" in both Makefiles is 
+redundant, but wouldn't it make more sense to change 
+"obj-$(CONFIG_QCOM_EMAC)" to "obj-y" in 
+drivers/net/ethernet/qualcomm/emac/Makefile, so that I only recurse if 
+necessary?
+
+>> >+static void emac_adjust_link(struct net_device *netdev)
+>> >+{
+>> >+	struct emac_adapter *adpt = netdev_priv(netdev);
+>> >+	struct phy_device *phydev = netdev->phydev;
+>> >+
+>> >+	if (phydev->link)
+>> >+		emac_mac_start(adpt);
+>> >+	else
+>> >+		emac_mac_stop(adpt);
+
+> This is really excessive here, you typically don't need to completely
+> stop your transmitter/receiver/DMA/what have you, just reprogram the MAC
+> with the appropriate link speed/duplex/pause parameters.
+
+Yes, I realize that a lot of the reinit code in my driver is "heavy", 
+and that it could be optimized for specific situations.  However, I'd 
+like to save that for another patch, because it would require me to 
+study the documentation and do extensive tests.
+
+I can't tell you today whether emac_mac_start() is overkill for the 
+specific link change.  For all I know, the hardware does require the TX 
+to stop before changing the link speed.  Remember, the EMAC does have a 
+weird double-phy (one internal, one external).
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
