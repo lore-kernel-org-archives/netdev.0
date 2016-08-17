@@ -1,97 +1,26 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/5] net: add bind/listen ranges to net cgroup
-Date: Tue, 16 Aug 2016 20:02:30 -0700
-Message-ID: <20160817030228.GA87567@ast-mbp.thefacebook.com>
-References: <1470876798-4024-1-git-send-email-anaravaram@google.com>
- <1470876798-4024-3-git-send-email-anaravaram@google.com>
- <20160813042907.GA55856@ast-mbp.thefacebook.com>
- <CAF2d9jgbFNTm7oZ7kk0Xcjj7EAbMHE5wUpHgPQ8ZQ=D7FvFXcg@mail.gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH iproute2] ip route: restore_handler should check
+ tb[RTA_PREFSRC] for local networks
+Date: Wed, 17 Aug 2016 11:32:53 +0800
+Message-ID: <CADvbK_exZL-jb-osfP_xMmBFssshpvvpng2SVmAP2MFzq7k8FA@mail.gmail.com>
+References: <f805ffe5dad63ae04330df32bbe6cf532a6772b7.1470561150.git.lucien.xin@gmail.com>
+ <20160812154345.GL10197@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Anoop Naravaram <anaravaram@google.com>, corbet@lwn.net,
-	tj@kernel.org, lizefan@huawei.com, hannes@cmpxchg.org,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	linux-doc@vger.kernel.org, cgroups@vger.kernel.org,
-	linux-netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Wei Wang <weiwan@google.com>, tom@herbertland.com,
-	Daniel Mack <daniel@zonque.org>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAF2d9jgbFNTm7oZ7kk0Xcjj7EAbMHE5wUpHgPQ8ZQ=D7FvFXcg@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Phil Sutter <phil@nwl.cc>, Xin Long <lucien.xin@gmail.com>,
+	network dev <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:36499 "EHLO
+	mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439AbcHQDdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Aug 2016 23:33:09 -0400
+Received: by mail-qk0-f196.google.com with SMTP id v123so8002523qkh.3
+        for <netdev@vger.kernel.org>; Tue, 16 Aug 2016 20:32:54 -0700 (PDT)
+In-Reply-To: <20160812154345.GL10197@orbyte.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 15, 2016 at 12:05:40PM -0700, Mahesh Bandewar wrote:
-> On Fri, Aug 12, 2016 at 9:29 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> [...]
-> >> +static bool range_in_ranges(struct net_range *r, struct net_ranges *rs)
-> >> +{
-> >> +     int ri;
-> >> +
-> >> +     for (ri = 0; ri < rs->num_entries; ri++)
-> >> +             if (r->min_value >= rs->range[ri].min_value &&
-> >> +                 r->max_value <= rs->range[ri].max_value)
-> >> +                     return true;
-> >> +
-> >> +     return false;
-> >> +}
-> >> +
-> >> +/* Returns true if all the ranges in rs1 are subsets of at least one of the
-> >> + * ranges in rs2, ans returns false otherwise.
-> >> + */
-> >> +static bool ranges_in_ranges(struct net_ranges *rs1, struct net_ranges *rs2)
-> >> +{
-> >> +     int ri;
-> >> +
-> >> +     for (ri = 0; ri < rs1->num_entries; ri++)
-> >> +             if (!range_in_ranges(&rs1->range[ri], rs2))
-> >> +                     return false;
-> >> +
-> >> +     return true;
-> >> +}
-> >
-> > This is not a scalable implementation. The next step would be to
-> > do a binary search, hash table or something else here?
-> > I think the root of the problem is in hard coded checks
-> > that quickly become inefficient and inadequate as applicability
-> > of the feature grows.
-> > We already have BPF that can suite this purpose much better
-> > without bloating the kernel code with parsing and matching logic.
-> >
-> This is not a per packet cost and mostly paid once when you are
-> establishing the channel. Having said that I do agree with you that
-> the check can be optimized by doing something like a hash-table etc.
-> 
-> This is an ABI extension to the cgroup so having the code where it is
-> now makes sense to maintain that ABI compatibility. Implementing using
-> something else (e.g. eBPF etc.) would just mean that this code needs
-> to be just moved at a different place than the current place so the
-> net gain would be nothing.
+Hi, Stephen
 
-In cgroup+bpf approach we don't need to extend abi every time new 
-port range style or new statistics needs to be added. These hundreds
-lines of hard coded checks can be avoided.
-Daniel Mack is working on cgroup+bpf patches that will allow
-attaching bpf to a cgroup. It will be new networking controller.
-The same approach should be used here. I'm proposing to do
-the same hooks as net_cgroup_bind_allowed() in inet_bind() and
-net_cgroup_listen_allowed() in inet_csk_listen_start(), but the
-code that does the check should be a bpf program that decides whether
-port permitted or not.
-New bpf program type can be trivially introduced that takes single
-'portno' argument. The user space will attach it to a cgroup and then
-free to do whatever port filtering logic and statistics by changing
-the program without ever touching abi. Including hash tables that
-are already part of bpf.
-
-Daniel's slightly different approach to cgroup+bpf can do the same
-in more generic way by hooking next to sk_filter() and parsing
-the packet (it will work for any protocol), but it has
-per-packet cost which I understand you want to avoid here by
-adding hooks to inet_bind() and inet_csk_listen_start()
-which makes sense.
-
+any update on this ?
