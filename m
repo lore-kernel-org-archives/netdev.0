@@ -1,66 +1,84 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net v2 08/10] mlxsw: spectrum: Add missing rollbacks in error path
-Date: Wed, 17 Aug 2016 16:39:35 +0200
-Message-ID: <1471444777-3412-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net v2 05/10] mlxsw: spectrum: Add missing packet traps
+Date: Wed, 17 Aug 2016 16:39:32 +0200
+Message-ID: <1471444777-3412-6-git-send-email-jiri@resnulli.us>
 References: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	ilant@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35858 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752181AbcHQOjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:52 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i138so24727749wmf.3
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:51 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36786 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbcHQOjr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:47 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i138so24727024wmf.3
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:46 -0700 (PDT)
 In-Reply-To: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Elad Raz <eladr@mellanox.com>
 
-While going over the code I noticed we are missing two rollbacks in the
-port's creation error path. Add them and adjust the place of one of them
-in the port's removal sequence so that both are symmetric.
+Add the following traps:
 
-Fixes: 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
+1) MTU Error: Trap packets whose size is bigger than the egress RIF's
+MTU. If DF bit isn't set, traffic will continue to be routed in slow
+path.
+
+2) TTL Error: Trap packets whose TTL expired. This allows traceroute to
+work properly.
+
+3) OSPF packets.
+
+Fixes: 7b27ce7bb9cd ("mlxsw: spectrum: Add traps needed for router implementation")
+Signed-off-by: Elad Raz <eladr@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 15 +++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |  3 +++
+ 2 files changed, 18 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 8137daa..1fe9fbd 100644
+index 12681db..6b69c8a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2206,6 +2206,7 @@ err_core_port_init:
- 	unregister_netdev(dev);
- err_register_netdev:
- 	mlxsw_sp->ports[local_port] = NULL;
-+	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_pvid_vport_destroy(mlxsw_sp_port);
- err_port_pvid_vport_create:
- 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
-@@ -2215,6 +2216,7 @@ err_port_buffers_init:
- err_port_admin_status_set:
- err_port_mtu_set:
- err_port_speed_by_width_set:
-+	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
- err_port_swid_set:
- err_port_system_port_mapping_set:
- err_dev_addr_init:
-@@ -2237,9 +2239,9 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
- 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
- 	mlxsw_sp->ports[local_port] = NULL;
-+	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_pvid_vport_destroy(mlxsw_sp_port);
- 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
--	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
- 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
+@@ -2651,6 +2651,21 @@ static const struct mlxsw_rx_listener mlxsw_sp_rx_listener[] = {
+ 	{
+ 		.func = mlxsw_sp_rx_listener_func,
+ 		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_MTUERROR,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_TTLERROR,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_OSPF,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
+ 		.trap_id = MLXSW_TRAP_ID_IP2ME,
+ 	},
+ 	{
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+index 470d769..9508e0a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+@@ -56,6 +56,9 @@ enum {
+ 	MLXSW_TRAP_ID_IGMP_V3_REPORT = 0x34,
+ 	MLXSW_TRAP_ID_ARPBC = 0x50,
+ 	MLXSW_TRAP_ID_ARPUC = 0x51,
++	MLXSW_TRAP_ID_MTUERROR = 0x52,
++	MLXSW_TRAP_ID_TTLERROR = 0x53,
++	MLXSW_TRAP_ID_OSPF = 0x55,
+ 	MLXSW_TRAP_ID_IP2ME = 0x5F,
+ 	MLXSW_TRAP_ID_RTR_INGRESS0 = 0x70,
+ 	MLXSW_TRAP_ID_HOST_MISS_IPV4 = 0x90,
 -- 
 2.5.5
