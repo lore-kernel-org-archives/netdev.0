@@ -1,58 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 10/13] net: sched: lockless support for
- netif_schedule
-Date: Wed, 17 Aug 2016 16:33:54 -0700
-Message-ID: <1471476834.29842.56.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
-	 <20160817193738.27032.25592.stgit@john-Precision-Tower-5810>
-	 <1471474877.29842.54.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <57B4F079.5070109@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 0/3] strp: Stream parser for messages
+Date: Wed, 17 Aug 2016 19:41:39 -0400 (EDT)
+Message-ID: <20160817.194139.2266441525304262888.davem@davemloft.net>
+References: <1471297863-1356555-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
-	alexei.starovoitov@gmail.com, brouer@redhat.com,
-	john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, lancerchao@gmail.com,
+	davejwatson@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34528 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752761AbcHQXd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:33:57 -0400
-Received: by mail-pf0-f195.google.com with SMTP id g202so284668pfb.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 16:33:57 -0700 (PDT)
-In-Reply-To: <57B4F079.5070109@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33256 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752761AbcHQXlk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:41:40 -0400
+In-Reply-To: <1471297863-1356555-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-08-17 at 16:17 -0700, John Fastabend wrote:
-> On 16-08-17 04:01 PM, Eric Dumazet wrote:
-> > On Wed, 2016-08-17 at 12:37 -0700, John Fastabend wrote:
-> > 
-> >> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> >> index d10b762..f5b7254 100644
-> >> --- a/net/sched/sch_generic.c
-> >> +++ b/net/sched/sch_generic.c
-> >> @@ -171,6 +171,7 @@ static void try_bulk_dequeue_skb_slow(struct Qdisc *q,
-> >>  			if (qdisc_is_percpu_stats(q)) {
-> >>  				qdisc_qstats_cpu_backlog_inc(q, nskb);
-> >>  				qdisc_qstats_cpu_qlen_inc(q);
-> >> +				set_thread_flag(TIF_NEED_RESCHED);
-> >>  			} else {
-> >>  				qdisc_qstats_backlog_inc(q, nskb);
-> >>  				q->q.qlen++;
-> > 
-> > Hmm... care to elaborate this bit ?
-> > 
-> > 
-> > 
-> 
-> ah dang thats leftover from trying to resolve a skb getting stuck on the
-> bad_txq_cell from qdisc_enqueue_skb_bad_txq(). You'll notice I added
-> a __netif_schedule(skb) call in qdisc_enqueue_skb_bad_txq() which
-> resolves this and the set_thread_flag() here can then just be removed.
+From: Tom Herbert <tom@herbertland.com>
+Date: Mon, 15 Aug 2016 14:51:00 -0700
 
-OK I feel much better now ;)
+> This patch set introduces a utility for parsing application layer
+> protocol messages in a TCP stream. This is a generalization of the
+> mechanism implemented of Kernel Connection Multiplexor.
+ ...
 
-Thanks !
+Series applied, thanks Tom.
