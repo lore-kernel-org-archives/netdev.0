@@ -1,287 +1,96 @@
-From: "ivan.khoronzhuk" <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH v3 5/5] net: ethernet: ti: cpsw: add ethtool channels
- support
-Date: Wed, 17 Aug 2016 10:22:45 +0300
-Message-ID: <656d80a7-1944-43e8-476e-514506e8f12f@globallogic.com>
-References: <1471303549-4134-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1471303549-4134-6-git-send-email-ivan.khoronzhuk@linaro.org>
- <ca02be90-d827-ea93-a39a-ea11050d3fa5@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	nsekhar@ti.com
-To: Mugunthan V N <mugunthanvnm@ti.com>,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	grygorii.strashko@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38724 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753749AbcHQHXC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 03:23:02 -0400
-Received: by mail-wm0-f53.google.com with SMTP id o80so214089426wme.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 00:23:02 -0700 (PDT)
-In-Reply-To: <ca02be90-d827-ea93-a39a-ea11050d3fa5@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v2] Bluetooth: Add LED triggers for HCI frames tx and rx
+Date: Wed, 17 Aug 2016 09:40:46 +0200
+Message-ID: <7B1B501B-73E5-49E8-B147-25D9EEFC789D@holtmann.org>
+References: <1469939084-15603-1-git-send-email-guodong.xu@linaro.org> <1394C970-3726-4C42-A06D-0B3B3015D980@holtmann.org> <CAFGCpxz6j_7aOTX+uShdpyxmt71k61v=Abdw=7MfrRjvdygmTg@mail.gmail.com> <30869CE7-FE5E-4CAF-86FC-D140E2C0963D@holtmann.org> <CAFGCpxx7teWAGzw+-uy+nwoHgsS__8S-CdfGuNuycCUuWJRC+Q@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Guodong Xu <guodong.xu@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFGCpxx7teWAGzw+-uy+nwoHgsS__8S-CdfGuNuycCUuWJRC+Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Guodong,
 
+>>>>> Two LED triggers are added into hci_dev: tx_led and rx_led. Upon ACL/SCO
+>>>>> packets available in tx or rx, the LEDs will blink.
+>>>>> 
+>>>>> For each hci registration, two triggers are added into LED subsystem:
+>>>>> [hdev->name]-tx and [hdev-name]-rx.
+>>>>> Refer to Documentation/leds/leds-class.txt for usage.
+>>>>> 
+>>>>> Verified on HiKey 96boards, which uses HiSilicon hi6220 SoC and TI
+>>>>> WL1835 WiFi/BT combo chip.
+>>>> 
+>>>> so I have no idea what to do with adding adding hci0-rx and hci0-tx triggers. Combined with hci0-power trigger these are already 3 triggers. And if you have 2 Bluetooth controllers in your system, then you have 6 triggers.
+>>>> 
+>>> 
+>>> True, 6 triggers. But, taking example for other subsytems, eg. cpu
+>>> cores. On my board, I have "heartbeat cpu0 cpu1 cpu2 cpu3 cpu4 cpu5
+>>> cpu6 cpu7". It doesn't have to mean you need all of them connected to
+>>> some LED(s). Actually, in most of the case, I only need heartbeat.
+>>> 
+>>> 
+>>> 
+>>>> If we then maybe add another trigger, then this number just goes up and up.
+>>>> 
+>>>> As far as I can tell you can only assign a single trigger to a LED.
+>>>> 
+>>> 
+>>> That's true. And people got a choice of which feature he wants to visualize.
+>> 
+>> and as a result we keep adding senseless triggers to the kernel and bloating it up for no reason. Especially since it feels like 99% of the LED triggers are not used at all. This makes no sense to me.
+>> 
+>>>> So this means to even use these triggers, you need now 3 LEDs per Bluetooth controller. How is that useful for anybody in a real system? Maybe I am missing something here and somehow there is magic to combine triggers, but I have not found it yet. So please someone enlighten me on how this is suppose to be used with real devices.
+>>>> 
+>>>> Recently I have added a simple bluetooth-power trigger that combines all Bluetooth controllers into a single trigger. If any of them is enabled, then you can control your LED. Which makes a lot more sense to me since you most likely have a single Bluetooth LED on your system. And you want it to show the correct state no matter what Bluetooth controller is in use. However I can see the case that someone might want to assign one specific Bluetooth controller to a LED status.
+>>>> 
+>>>> So instead of adding many independent triggers to each controller, why not create one global bluetooth trigger and one individual bluetooth-hci0 trigger for each controller. And the combine power, tx, rx and whatever else we need to trigger the LED for?
+>>>> 
+>>> 
+>>> When I starting this work, I referred to WiFi system. See
+>>> CONFIG_MAC80211_LEDS. WiFi system implements these types of triggers "
+>>> phy0rx phy0tx phy0assoc phy0radio" for each 'controller'.
+>> 
+>> And I actually wonder who ever used these triggers. You need 4 LEDs to visualize the WiFi status. Which systems has 4 LEDs to spare to visualize this.
+>> 
+>>> Besides, there are also RFKILL which stands for WiFi/BT power status.
+>>> RFKILL adds triggers for each module too. Eg. in the below example, I
+>>> have one WiFi (phy0), one BT (hci0). Trigger rfkill1 equals to
+>>> hci0-power.
+>>> 
+>>> Ref: here are all LED triggers I found in my 96boards/HiKey:
+>>> 
+>>> # cat trigger
+>>> none kbd-scrollock kbd-numlock kbd-capslock kbd-kanalock kbd-shiftlock
+>>> kbd-altgrlock kbd-ctrllock kbd-altlock kbd-shiftllock kbd-shiftrlock
+>>> kbd-ctrlllock kbd-ctrlrlock mmc0 mmc1 heartbeat cpu0 cpu1 cpu2 cpu3
+>>> cpu4 cpu5 cpu6 cpu7 mmc2 rfkill0 phy0rx phy0tx phy0assoc phy0radio
+>>> hci0-power hci0-tx [hci0-rx] rfkill1
+>> 
+>> And how many LEDs do you have in the your system? I think you are making my point here.
+>> 
+>> So I think what we need to do is to not add to this madness and instead create one "bluetooth" LED trigger that combines power and TX/RX for all controllers. And then allow for individual "bluetooth-hci0" LED triggers so that you can bind a single Bluetooth controller to a single LED.
+>> 
+>> For me, if I can not combine hci0-power, hci0-tx and hci0-rx into a single LED,
+> 
+> By combining them into a single LED, do you mean such a use case?
+> - when hci0 is powered on, this LED starts on.
+> - then, when there is tx/rx traffic, this LED should blink (reversely
+> of course).
+> - when hci0 is powered off, this LED turns off.
 
-On 17.08.16 09:22, Mugunthan V N wrote:
-> On Tuesday 16 August 2016 04:55 AM, Ivan Khoronzhuk wrote:
->> These ops allow to control number of channels driver is allowed to
->> work with at cpdma level. The maximum number of channels is 8 for
->> rx and 8 for tx. In dual_emac mode the h/w channels are shared
->> between two interfaces and changing number on one interface changes
->> number of channels on another.
->>
->> How many channels are supported and enabled:
->> $ ethtool -l ethX
->>
->> Change number of channels (up to 8)
->> $ ethtool -L ethX rx 6 tx 6
->>
->> Per-channel statistic:
->> $ ethtool -S ethX
->>
->> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->> ---
->>  drivers/net/ethernet/ti/cpsw.c | 180 ++++++++++++++++++++++++++++++++++++++++-
->>  1 file changed, 176 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->> index 6dcbd8a..f02e577 100644
->> --- a/drivers/net/ethernet/ti/cpsw.c
->> +++ b/drivers/net/ethernet/ti/cpsw.c
->> @@ -735,6 +735,11 @@ static void cpsw_rx_handler(void *token, int len, int status)
->>  	}
->>
->>  requeue:
->> +	if (netif_dormant(ndev)) {
->> +		dev_kfree_skb_any(new_skb);
->> +		return;
->> +	}
->> +
->>  	ch = cpsw->rxch[skb_get_queue_mapping(new_skb)];
->>  	ret = cpdma_chan_submit(ch, new_skb, new_skb->data,
->>  				skb_tailroom(new_skb), 0);
->> @@ -1267,9 +1272,8 @@ static void cpsw_init_host_port(struct cpsw_priv *priv)
->>  	}
->>  }
->>
->> -static int cpsw_fill_rx_channels(struct net_device *ndev)
->> +static int cpsw_fill_rx_channels(struct cpsw_priv *priv)
->
-> This change can be moved to patch 1/5 where the function definition is
-> added at first.
-Yes. Will do it in v4.
+yes, that is what I am thinking of.
 
->
->>  {
->> -	struct cpsw_priv *priv = netdev_priv(ndev);
->>  	struct cpsw_common *cpsw = priv->cpsw;
->>  	struct sk_buff *skb;
->>  	int ch, i, ret;
->> @@ -1279,7 +1283,7 @@ static int cpsw_fill_rx_channels(struct net_device *ndev)
->>
->>  		ch_buf_num = cpdma_chan_get_rx_buf_num(cpsw->rxch[ch]);
->>  		for (i = 0; i < ch_buf_num; i++) {
->> -			skb = __netdev_alloc_skb_ip_align(ndev,
->> +			skb = __netdev_alloc_skb_ip_align(priv->ndev,
->>  							  cpsw->rx_packet_max,
->>  							  GFP_KERNEL);
->>  			if (!skb) {
->> @@ -1397,7 +1401,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>  			enable_irq(cpsw->irqs_table[0]);
->>  		}
->>
->> -		ret = cpsw_fill_rx_channels(ndev);
->> +		ret = cpsw_fill_rx_channels(priv);
->>  		if (ret < 0)
->>  			goto err_cleanup;
->>
->> @@ -2060,6 +2064,172 @@ static void cpsw_ethtool_op_complete(struct net_device *ndev)
->>  		cpsw_err(priv, drv, "ethtool complete failed %d\n", ret);
->>  }
->>
->> +static void cpsw_get_channels(struct net_device *ndev,
->> +			      struct ethtool_channels *ch)
->> +{
->> +	struct cpsw_common *cpsw = ndev_to_cpsw(ndev);
->> +
->> +	ch->max_combined = 0;
->> +	ch->max_rx = CPSW_MAX_QUEUES;
->> +	ch->max_tx = CPSW_MAX_QUEUES;
->> +	ch->max_other = 0;
->> +	ch->other_count = 0;
->> +	ch->rx_count = cpsw->rx_ch_num;
->> +	ch->tx_count = cpsw->tx_ch_num;
->> +	ch->combined_count = 0;
->> +}
->> +
->> +static int cpsw_check_ch_settings(struct cpsw_common *cpsw,
->> +				  struct ethtool_channels *ch)
->> +{
->> +	if (ch->combined_count)
->> +		return -EINVAL;
->> +
->> +	/* verify we have at least one channel in each direction */
->> +	if (!ch->rx_count || !ch->tx_count)
->> +		return -EINVAL;
->> +
->> +	if (ch->rx_count > cpsw->data.channels ||
->> +	    ch->tx_count > cpsw->data.channels)
->> +		return -EINVAL;
->> +
->> +	return 0;
->> +}
->> +
->> +static int cpsw_update_channels_res(struct cpsw_priv *priv, int ch_num, int rx)
->> +{
->> +	int (*poll)(struct napi_struct *, int);
->> +	struct cpsw_common *cpsw = priv->cpsw;
->> +	void (*handler)(void *, int, int);
->> +	struct cpdma_chan **chan;
->> +	int ret, *ch;
->> +
->> +	if (rx) {
->> +		ch = &cpsw->rx_ch_num;
->> +		chan = cpsw->rxch;
->> +		handler = cpsw_rx_handler;
->> +		poll = cpsw_rx_poll;
->> +	} else {
->> +		ch = &cpsw->tx_ch_num;
->> +		chan = cpsw->txch;
->> +		handler = cpsw_tx_handler;
->> +		poll = cpsw_tx_poll;
->> +	}
->> +
->> +	while (*ch < ch_num) {
->> +		chan[*ch] = cpdma_chan_create(cpsw->dma, *ch, handler, rx);
->> +
->> +		if (IS_ERR(chan[*ch]))
->> +			return PTR_ERR(chan[*ch]);
->> +
->> +		if (!chan[*ch])
->> +			return -EINVAL;
->> +
->> +		cpsw_info(priv, ifup, "created new %d %s channel\n", *ch,
->> +			  (rx ? "rx" : "tx"));
->> +		(*ch)++;
->> +	}
->> +
->> +	while (*ch > ch_num) {
->> +		(*ch)--;
->> +
->> +		ret = cpdma_chan_destroy(chan[*ch]);
->> +		if (ret)
->> +			return ret;
->> +
->> +		cpsw_info(priv, ifup, "destroyed %d %s channel\n", *ch,
->> +			  (rx ? "rx" : "tx"));
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->> +static int cpsw_update_channels(struct cpsw_priv *priv,
->> +				struct ethtool_channels *ch)
->> +{
->> +	int ret;
->> +
->> +	ret = cpsw_update_channels_res(priv, ch->rx_count, 1);
->> +	if (ret)
->> +		return ret;
->> +
->> +	ret = cpsw_update_channels_res(priv, ch->tx_count, 0);
->> +	if (ret)
->> +		return ret;
->> +
->> +	return 0;
->> +}
->> +
->> +static int cpsw_set_channels(struct net_device *ndev,
->> +			     struct ethtool_channels *chs)
->> +{
->> +	struct cpsw_priv *priv = netdev_priv(ndev);
->> +	struct cpsw_common *cpsw = priv->cpsw;
->> +	struct cpsw_slave *slave;
->> +	int i, ret;
->> +
->> +	ret = cpsw_check_ch_settings(cpsw, chs);
->> +	if (ret < 0)
->> +		return ret;
->> +
->> +	cpsw_intr_disable(cpsw);
->> +
->> +	for (i = cpsw->data.slaves, slave = cpsw->slaves; i; i--, slave++) {
->> +		if (!(slave->ndev && netif_running(slave->ndev)))
->> +			continue;
->> +
->> +		netif_tx_stop_all_queues(slave->ndev);
->> +		netif_dormant_on(slave->ndev);
->> +	}
->> +
->> +	cpdma_ctlr_stop(cpsw->dma);
->> +	ret = cpsw_update_channels(priv, chs);
->> +	if (ret)
->> +		goto err;
->> +
->> +	for (i = cpsw->data.slaves, slave = cpsw->slaves; i; i--, slave++) {
->> +		if (!(slave->ndev && netif_running(slave->ndev)))
->> +			continue;
->> +
->> +		/* inform stack about new count of queues */
->> +		ret = netif_set_real_num_tx_queues(slave->ndev,
->> +						   cpsw->tx_ch_num);
->> +		if (ret) {
->> +			dev_err(priv->dev, "cannot set real number of tx queues\n");
->> +			goto err;
->> +		}
->> +
->> +		ret = netif_set_real_num_rx_queues(slave->ndev,
->> +						   cpsw->rx_ch_num);
->> +		if (ret) {
->> +			dev_err(priv->dev, "cannot set real number of rx queues\n");
->> +			goto err;
->> +		}
->> +
->> +		netif_dormant_off(slave->ndev);
->> +	}
->> +
->> +	if (cpsw_common_res_usage_state(cpsw)) {
->> +		if (cpsw_fill_rx_channels(priv))
->> +			goto err;
->> +
->> +		cpdma_ctlr_start(cpsw->dma);
->> +		cpsw_intr_enable(cpsw);
->> +	}
->> +
->> +	for (i = cpsw->data.slaves, slave = cpsw->slaves; i; i--, slave++) {
->> +		if (!(slave->ndev && netif_running(slave->ndev)))
->> +			continue;
->> +		netif_tx_start_all_queues(slave->ndev);
->> +	}
->> +
->> +	return 0;
->> +err:
->> +	dev_err(priv->dev, "cannot update channels number, closing device\n");
->> +	dev_close(ndev);
->> +	return ret;
->> +}
->> +
->>  static const struct ethtool_ops cpsw_ethtool_ops = {
->>  	.get_drvinfo	= cpsw_get_drvinfo,
->>  	.get_msglevel	= cpsw_get_msglevel,
->> @@ -2081,6 +2251,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
->>  	.get_regs	= cpsw_get_regs,
->>  	.begin		= cpsw_ethtool_op_begin,
->>  	.complete	= cpsw_ethtool_op_complete,
->> +	.get_channels	= cpsw_get_channels,
->> +	.set_channels	= cpsw_set_channels,
->>  };
->>
->>  static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_common *cpsw,
->>
->
+Regards
+
+Marcel
