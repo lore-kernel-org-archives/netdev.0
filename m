@@ -1,44 +1,59 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: ipv6: Remove addresses for failures with strict DAD
-Date: Wed, 17 Aug 2016 17:40:31 +0200
-Message-ID: <58750abf-9221-f2d3-0fb2-cc5f1bcd92f9@stressinduktion.org>
-References: <1471429720-6141-1-git-send-email-mmanning@brocade.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: kernel panic TPROXY , vanilla 4.7.1
+Date: Wed, 17 Aug 2016 08:42:05 -0700
+Message-ID: <1471448525.29842.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:51719 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181AbcHQPkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 11:40:35 -0400
-In-Reply-To: <1471429720-6141-1-git-send-email-mmanning@brocade.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:35461 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764AbcHQPmI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 11:42:08 -0400
+Received: by mail-pf0-f173.google.com with SMTP id x72so38674209pfd.2
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 08:42:08 -0700 (PDT)
+In-Reply-To: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17.08.2016 12:28, Mike Manning wrote:
-> +static void dev_disable_change(struct inet6_dev *idev);
->  
->  /*
->   *	Configured unicast address hash table
-> @@ -1945,6 +1946,12 @@ lock_errdad:
->  
->  			pr_info("%s: IPv6 being disabled!\n",
->  				ifp->idev->dev->name);
-> +			spin_unlock_bh(&ifp->lock);
-> +			addrconf_dad_stop(ifp, 1);
-> +			rtnl_lock();
-> +			dev_disable_change(idev);
-> +			rtnl_unlock();
-> +			return;
->  		}
->  	}
+On Wed, 2016-08-17 at 17:31 +0300, Denys Fedoryshchenko wrote:
+> Hi!
+> 
+> Tried to run squid on latest kernel, and hit a panic
+> Sometimes it just shows warning in dmesg (but doesnt work properly)
+> [   75.701666] IPv4: Attempt to release TCP socket in state 10 
+> ffff88102d430780
+> [   83.866974] squid (2700) used greatest stack depth: 12912 bytes left
+> [   87.506644] IPv4: Attempt to release TCP socket in state 10 
+> ffff880078a48780
+> [  114.704295] IPv4: Attempt to release TCP socket in state 10 
+> ffff881029f8ad00
+> 
+> I cannot catch yet oops/panic message, netconsole not working.
+> 
+> After triggering warning message 3 times, i am unable to run squid 
+> anymore (without reboot), and in netstat it doesnt show port running.
+> 
+> firewall is:
+> *mangle
+> -A PREROUTING -p tcp -m socket -j DIVERT
+> -A PREROUTING -p tcp -m tcp --dport 80 -i eno1 -j TPROXY --on-port 3129 
+> --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+> -A DIVERT -j MARK --set-xmark 0x1/0xffffffff
+> -A DIVERT -j ACCEPT
+> 
+> routing
+> ip rule add fwmark 1 lookup 100
+> ip route add local default dev eno1 table 100
+> 
+> 
+> squid config is default with tproxy option
+> http_port 3129 tproxy
+> 
 
-You can't take rtnl_lock at that point but must postpone the actions and
-do that in addrconf_dad_work.
+Hmppff... sorry for this, I will send a fix.
 
-Probably the whole ... else if (idev->cnf.accept_dad > 1 && ...) needs
-to move there.
-
-Bye,
-Hannes
+Thanks for the report !
