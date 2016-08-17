@@ -1,66 +1,66 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net v2 10/10] mlxsw: spectrum: Allow packets to be trapped from any PG
-Date: Wed, 17 Aug 2016 16:39:37 +0200
-Message-ID: <1471444777-3412-11-git-send-email-jiri@resnulli.us>
+Subject: [patch net v2 08/10] mlxsw: spectrum: Add missing rollbacks in error path
+Date: Wed, 17 Aug 2016 16:39:35 +0200
+Message-ID: <1471444777-3412-9-git-send-email-jiri@resnulli.us>
 References: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	ilant@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34915 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752869AbcHQOjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:55 -0400
-Received: by mail-wm0-f68.google.com with SMTP id i5so24835900wmg.2
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:54 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35858 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752181AbcHQOjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:52 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i138so24727749wmf.3
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:51 -0700 (PDT)
 In-Reply-To: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When packets enter the device they are classified to a priority group
-(PG) buffer based on their PCP value. After their egress port and
-traffic class are determined they are moved to the switch's shared
-buffer and await transmission, if:
+While going over the code I noticed we are missing two rollbacks in the
+port's creation error path. Add them and adjust the place of one of them
+in the port's removal sequence so that both are symmetric.
 
-(Ingress{Port}.Usage < Thres && Ingress{Port,PG}.Usage < Thres &&
- Egress{Port}.Usage < Thres && Egress{Port,TC}.Usage < Thres)
-||
-(Ingress{Port}.Usage < Min || Ingress{Port,PG} < Min ||
- Egress{Port}.Usage < Min || Egress{Port,TC}.Usage < Min)
-
-Packets scheduled to transmission through CPU port (trapped to CPU) use
-traffic class 7, which has a zero maximum and minimum quotas. However,
-when such packets arrive from PG 0 they are admitted to the shared
-buffer as PG 0 has a non-zero minimum quota.
-
-Allow all packets to be trapped to the CPU - regardless of the PG they
-were classified to - by assigning a 10KB minimum quota for CPU port and
-TC7.
-
-Fixes: 8e8dfe9fdf06 ("mlxsw: spectrum: Add IEEE 802.1Qaz ETS support")
-Reported-by: Tamir Winetroub <tamirw@mellanox.com>
-Tested-by: Tamir Winetroub <tamirw@mellanox.com>
+Fixes: 56ade8fe3fe1 ("mlxsw: spectrum: Add initial support for Spectrum ASIC")
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index 074cdda..237418a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -330,7 +330,7 @@ static const struct mlxsw_sp_sb_cm mlxsw_sp_cpu_port_sb_cms[] = {
- 	MLXSW_SP_CPU_PORT_SB_CM,
- 	MLXSW_SP_CPU_PORT_SB_CM,
- 	MLXSW_SP_CPU_PORT_SB_CM,
--	MLXSW_SP_CPU_PORT_SB_CM,
-+	MLXSW_SP_SB_CM(MLXSW_SP_BYTES_TO_CELLS(10000), 0, 0),
- 	MLXSW_SP_CPU_PORT_SB_CM,
- 	MLXSW_SP_CPU_PORT_SB_CM,
- 	MLXSW_SP_CPU_PORT_SB_CM,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 8137daa..1fe9fbd 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2206,6 +2206,7 @@ err_core_port_init:
+ 	unregister_netdev(dev);
+ err_register_netdev:
+ 	mlxsw_sp->ports[local_port] = NULL;
++	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_pvid_vport_destroy(mlxsw_sp_port);
+ err_port_pvid_vport_create:
+ 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
+@@ -2215,6 +2216,7 @@ err_port_buffers_init:
+ err_port_admin_status_set:
+ err_port_mtu_set:
+ err_port_speed_by_width_set:
++	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
+ err_port_swid_set:
+ err_port_system_port_mapping_set:
+ err_dev_addr_init:
+@@ -2237,9 +2239,9 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
+ 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
+ 	mlxsw_sp->ports[local_port] = NULL;
++	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_pvid_vport_destroy(mlxsw_sp_port);
+ 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
+-	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
+ 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
 -- 
 2.5.5
