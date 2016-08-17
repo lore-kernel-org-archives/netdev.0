@@ -1,8 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 3/5] net_sched: flower: Avoid dissection of unmasked keys
-Date: Wed, 17 Aug 2016 13:36:12 +0300
-Message-ID: <1471430174-27740-4-git-send-email-hadarh@mellanox.com>
-References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V2 0/5] net_sched, flow_dissector, flower: Introduce vlan tag support
+Date: Wed, 17 Aug 2016 13:36:09 +0300
+Message-ID: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -10,86 +9,53 @@ Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34308 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34271 "EHLO
 	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752371AbcHQKh7 (ORCPT
+	with ESMTP id S1752054AbcHQKh7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 06:37:59 -0400
-In-Reply-To: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current flower implementation checks the mask range and set all the
-keys included in that range as "used_keys", even if a specific key in
-the range has a zero mask.
+This patchset introduce vlan tag support to the flower classifier and the flow
+dissector. In addition to adding vlan priority to act vlan.
 
-This behavior can cause a false positive return value of
-dissector_uses_key function and unnecessary dissection in
-__skb_flow_dissect.
+The first 2 patches are dealing with flow-dissector:
+ - The first patch is a fix, in case the vlan was already stripped from the
+   skb, take it from skb->vlan_tci.
+ - The second patch adds support for vlan priority.
 
-This patch checks explicitly the mask of each key and "used_keys" will
-be set accordingly.
+The next 2 patches are dealing with flower:
+ - The first patch is a fix, sets flow dissector 'used_keys' according to the
+   mask value of each key.
+ - The secound patch adds vlan tag support to the flower classifier, user space
+   patches will be sent later to complete it.
 
-Fixes: 77b9900ef53a ('tc: introduce Flower classifier')
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_flower.c | 28 +++++++++++++---------------
- 1 file changed, 13 insertions(+), 15 deletions(-)
+The last patch adds vlan priority to act vlan since only vlan id is currently supported.
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 5060801..0080fc0 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -404,12 +404,10 @@ static int fl_init_hashtable(struct cls_fl_head *head,
- 
- #define FL_KEY_MEMBER_OFFSET(member) offsetof(struct fl_flow_key, member)
- #define FL_KEY_MEMBER_SIZE(member) (sizeof(((struct fl_flow_key *) 0)->member))
--#define FL_KEY_MEMBER_END_OFFSET(member)					\
--	(FL_KEY_MEMBER_OFFSET(member) + FL_KEY_MEMBER_SIZE(member))
- 
--#define FL_KEY_IN_RANGE(mask, member)						\
--        (FL_KEY_MEMBER_OFFSET(member) <= (mask)->range.end &&			\
--         FL_KEY_MEMBER_END_OFFSET(member) >= (mask)->range.start)
-+#define FL_KEY_IS_MASKED(mask, member)						\
-+	memchr_inv(((char *)mask) + FL_KEY_MEMBER_OFFSET(member),		\
-+		   0, FL_KEY_MEMBER_SIZE(member))				\
- 
- #define FL_KEY_SET(keys, cnt, id, member)					\
- 	do {									\
-@@ -418,9 +416,9 @@ static int fl_init_hashtable(struct cls_fl_head *head,
- 		cnt++;								\
- 	} while(0);
- 
--#define FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt, id, member)			\
-+#define FL_KEY_SET_IF_MASKED(mask, keys, cnt, id, member)			\
- 	do {									\
--		if (FL_KEY_IN_RANGE(mask, member))				\
-+		if (FL_KEY_IS_MASKED(mask, member))				\
- 			FL_KEY_SET(keys, cnt, id, member);			\
- 	} while(0);
- 
-@@ -432,14 +430,14 @@ static void fl_init_dissector(struct cls_fl_head *head,
- 
- 	FL_KEY_SET(keys, cnt, FLOW_DISSECTOR_KEY_CONTROL, control);
- 	FL_KEY_SET(keys, cnt, FLOW_DISSECTOR_KEY_BASIC, basic);
--	FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt,
--			       FLOW_DISSECTOR_KEY_ETH_ADDRS, eth);
--	FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt,
--			       FLOW_DISSECTOR_KEY_IPV4_ADDRS, ipv4);
--	FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt,
--			       FLOW_DISSECTOR_KEY_IPV6_ADDRS, ipv6);
--	FL_KEY_SET_IF_IN_RANGE(mask, keys, cnt,
--			       FLOW_DISSECTOR_KEY_PORTS, tp);
-+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-+			     FLOW_DISSECTOR_KEY_ETH_ADDRS, eth);
-+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-+			     FLOW_DISSECTOR_KEY_IPV4_ADDRS, ipv4);
-+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-+			     FLOW_DISSECTOR_KEY_IPV6_ADDRS, ipv6);
-+	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
-+			     FLOW_DISSECTOR_KEY_PORTS, tp);
- 
- 	skb_flow_dissector_init(&head->dissector, keys, cnt);
- }
+Changes from V1:
+ - A new patch was added to this series "net_sched: flower: Avoid dissection of unmasked keys"
+ - Adding u16 padding to struct flow_dissector_key_vlan
+ - change flow_label field in struct flow_dissector_key_tags form 20 bits field to u32
+ - Remove 'if (v->tcfv_push_prio)' check from tcf_vlan_dump function
+ - Add support to un-stripped vlan skb and skb with multipale vlans in __skb_flow_dissect
+
+
+Hadar Hen Zion (5):
+  flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci
+  flow_dissector: Get vlan priority in addition to vlan id
+  net_sched: flower: Avoid dissection of unmasked keys
+  net_sched: flower: Add vlan support
+  net_sched: act_vlan: Add priority option
+
+ include/linux/if_vlan.h             |  1 +
+ include/net/flow_dissector.h        | 12 +++--
+ include/net/tc_act/tc_vlan.h        |  1 +
+ include/uapi/linux/pkt_cls.h        |  3 ++
+ include/uapi/linux/tc_act/tc_vlan.h |  1 +
+ net/core/flow_dissector.c           | 51 ++++++++++++++-----
+ net/sched/act_vlan.c                | 13 ++++-
+ net/sched/cls_flower.c              | 98 ++++++++++++++++++++++++++++++-------
+ 8 files changed, 144 insertions(+), 36 deletions(-)
+
 -- 
 1.8.3.1
