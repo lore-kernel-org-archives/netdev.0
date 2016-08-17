@@ -1,60 +1,57 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sctp: fix a success return may hide an error
-Date: Wed, 17 Aug 2016 19:42:37 +0800
-Message-ID: <CADvbK_dfc7kmnCP0XgThF9oHX-2tVFNjN1Q-kobqT8WMRv7PqQ@mail.gmail.com>
-References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
- <20160812.211113.1099230839994600349.davem@davemloft.net> <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
- <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
- <20160816172447.GC3110@localhost.localdomain> <CADvbK_eSD9taybqO0VzfQaUE0jtmKMWiSzkHjO2fNpZrU2Fg3Q@mail.gmail.com>
- <20160816183330.GD3110@localhost.localdomain> <20160816184531.GE3110@localhost.localdomain>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: 4.6.3, pppoe + shaper workload, skb_panic / skb_push /
+ ppp_start_xmit
+Date: Wed, 17 Aug 2016 14:54:37 +0300
+Message-ID: <0866adddfde686393128744a715b7a35@nuclearcat.com>
+References: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
+ <CAM_iQpWuCw6Bgm=1BWMkoFkuav5xV+FyKPq0Ef+3N_qpQqv=AA@mail.gmail.com>
+ <20160728110948.GA3046@alphalink.fr>
+ <e6cb92be01af6190350b9b3765bee6e3@nuclearcat.com>
+ <20160801205908.GD3031@alphalink.fr>
+ <0776d5f55356ba0ed4400d46e5e52088@nuclearcat.com>
+ <20160808210541.GI3031@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vladislav Yasevich <vyasevich@gmail.com>,
-	"daniel@iogearbox.net" <daniel@iogearbox.net>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34816 "EHLO
-	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142AbcHQLnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 07:43:18 -0400
-In-Reply-To: <20160816184531.GE3110@localhost.localdomain>
+Received: from nuclearcat.com ([144.76.183.226]:56534 "EHLO nuclearcat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752870AbcHQLyl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2016 07:54:41 -0400
+In-Reply-To: <20160808210541.GI3031@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> > If  letting the application see ENOMEM errors, and sctp has to drop this
->> > chunk, instead of retransmiting the ENOMEM chunk, but the ENOMEM
->> > chunk may not be the chunk from current msg, as it flush all the queue.
->> > even if users get an ENOMEM error, they may re-send a chunk that is same
->> > with the one that is still in retransmit queue.
->>
->> Yep, one more reason to handle those internally when safe.
-I just checked tcp_sendmsg, it doesn't return any transmit error to user,
-*NOT ONLY* ENOMEM.  you can check __tcp_push_pending_frames
-and tcp_push, their return type is even void. although it may get
-err from sk->sk_err:
-    err = sk_stream_error(sk, flags, err);
-But I didn't see it put any err into sk->sk_err in the main transmit
-path.
+On 2016-08-09 00:05, Guillaume Nault wrote:
+> On Mon, Aug 08, 2016 at 02:25:00PM +0300, Denys Fedoryshchenko wrote:
+>> On 2016-08-01 23:59, Guillaume Nault wrote:
+>> > Do you still have the vmlinux file with debug symbols that generated
+>> > this panic?
+>> Sorry for delay, i didn't had same image on all servers and probably i 
+>> found
+>> cause of panic, but still testing on several servers.
+>> If i remove SFQ qdisc from ppp shapers, servers not rebooting anymore.
+>> 
+> Thanks for the feedback. I wonder which interactions between SFQ and
+> PPP can lead to this problem. I'll take a look.
+> 
+>> But still i need around 2 days to make sure that's the reason.
+>> 
+> Okay, just let me know if you can confirm that removing SFQ really
+> solves the problem.
+After long testing, i can confirm removing sfq from rules decreased 
+panic reboot greatly, tested on many different servers.
+I will try today to do some stress tests, to apply on live system at 
+night sfq qdiscs, then remove them.
+Then i will try also to disconnect all users with sfq qdiscs attached.
+Not sure it will help to reproduce the bug, but worth to try.
 
-yes, tcp_write_xmit has return value, as well as tcp_transmit_skb and
-err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl). but
-all of them are just used for internal, never return to userspace
-
-In tcp_write_xmit, it even uses "unlikely':
-if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
-       break;
-
-
->
-> Xin, maybe you can squash this patch and this ENOMEM handling? I'm
-> thinking that handling ENOMEM may result in similar situations in other
-> places, so we have a common reasoning on them.
->
-So this reason does really matter, and not only for ENOMEM in transmit
-path.
+Still i am hitting once per week some different conntrack bug, sand 
+thats why i was confused, i was getting clearly panics in conntrack and 
+then something else, i was not sure if it is different bugs, hardware 
+glitch or something else.
