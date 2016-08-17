@@ -1,45 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 3/5] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
- commands
-Date: Wed, 17 Aug 2016 09:16:02 -0700
-Message-ID: <1471450562.29842.6.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
-	 <1471442448-1248-4-git-send-email-daniel@zonque.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: ipv6: Remove addresses for failures with strict DAD
+Date: Wed, 17 Aug 2016 18:16:06 +0200
+Message-ID: <1471450566.1738924.698156465.68BB29E2@webmail.messagingengine.com>
+References: <1471429720-6141-1-git-send-email-mmanning@brocade.com>
+ <58750abf-9221-f2d3-0fb2-cc5f1bcd92f9@stressinduktion.org>
+ <ae4a3e5a-1b36-5eab-da03-d6121abb6223@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-	davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-	pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org
-To: Daniel Mack <daniel@zonque.org>
+To: Mike Manning <mmanning@brocade.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:32903 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751839AbcHQQQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 12:16:04 -0400
-Received: by mail-pa0-f67.google.com with SMTP id vy10so7502661pac.0
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 09:16:04 -0700 (PDT)
-In-Reply-To: <1471442448-1248-4-git-send-email-daniel@zonque.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:48028 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752472AbcHQQQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 12:16:07 -0400
+In-Reply-To: <ae4a3e5a-1b36-5eab-da03-d6121abb6223@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-08-17 at 16:00 +0200, Daniel Mack wrote:
+On Wed, Aug 17, 2016, at 18:08, Mike Manning wrote:
+> On 08/17/2016 04:40 PM, Hannes Frederic Sowa wrote:
+> > On 17.08.2016 12:28, Mike Manning wrote:
+> >> +static void dev_disable_change(struct inet6_dev *idev);
+> >>  
+> >>  /*
+> >>   *	Configured unicast address hash table
+> >> @@ -1945,6 +1946,12 @@ lock_errdad:
+> >>  
+> >>  			pr_info("%s: IPv6 being disabled!\n",
+> >>  				ifp->idev->dev->name);
+> >> +			spin_unlock_bh(&ifp->lock);
+> >> +			addrconf_dad_stop(ifp, 1);
+> >> +			rtnl_lock();
+> >> +			dev_disable_change(idev);
+> >> +			rtnl_unlock();
+> >> +			return;
+> >>  		}
+> >>  	}
+> > 
+> > You can't take rtnl_lock at that point but must postpone the actions and
+> > do that in addrconf_dad_work.
+> > 
+> > Probably the whole ... else if (idev->cnf.accept_dad > 1 && ...) needs
+> > to move there.
+> > 
+> > Bye,
+> > Hannes
+> > 
+> > 
+> 
+> Thanks for the prompt review, I will look into making these changes.
+> 
+> Also these changes caused a build error due to conditional compilation
+> without CONFIG_SYSCTL, which is resolved by replacing the call to
+> dev_disable_change(idev) by directly calling addrconf_ifdown(idev->dev,
+> 0) instead.
+> 
+> I would appreciate any further comments if the suggested change in
+> behavior is not acceptable.
 
-> +		progp = is_ingress ? &cgrp->bpf_ingress : &cgrp->bpf_egress;
-> +
-> +		rcu_read_lock();
-> +		old_prog = rcu_dereference(*progp);
-> +		rcu_assign_pointer(*progp, prog);
-> +
-> +		if (old_prog)
-> +			bpf_prog_put(old_prog);
-> +
-> +		rcu_read_unlock();
+What you describe in the changelog what is happening right now looks
+like a bug to me thus your patch made sense to me.
 
-
-This is a bogus locking strategy.
-
-You do not want to use rcu_read_lock()/rcu_read_unlock() here, but
-appropriate writer exclusion (a mutex probably, or a spinlock)
-
-Then use rcu_dereference_protected() instead of rcu_dereference(*progp);
+Bye,
+Hannes
