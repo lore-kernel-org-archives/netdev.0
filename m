@@ -1,99 +1,29 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: kernel panic TPROXY , vanilla 4.7.1
-Date: Wed, 17 Aug 2016 19:44:22 +0300
-Message-ID: <09c3ca74357572464b5ff280f1cd0ddc@nuclearcat.com>
+Date: Wed, 17 Aug 2016 09:48:18 -0700
+Message-ID: <1471452498.29842.7.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
- <1471448525.29842.1.camel@edumazet-glaptop3.roam.corp.google.com>
- <1471449871.29842.3.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1471448525.29842.1.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1471449871.29842.3.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <09c3ca74357572464b5ff280f1cd0ddc@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:36990 "EHLO nuclearcat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751993AbcHQQop (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2016 12:44:45 -0400
-In-Reply-To: <1471449871.29842.3.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:33161 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752513AbcHQQsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 12:48:20 -0400
+In-Reply-To: <09c3ca74357572464b5ff280f1cd0ddc@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-08-17 19:04, Eric Dumazet wrote:
-> On Wed, 2016-08-17 at 08:42 -0700, Eric Dumazet wrote:
->> On Wed, 2016-08-17 at 17:31 +0300, Denys Fedoryshchenko wrote:
->> > Hi!
->> >
->> > Tried to run squid on latest kernel, and hit a panic
->> > Sometimes it just shows warning in dmesg (but doesnt work properly)
->> > [   75.701666] IPv4: Attempt to release TCP socket in state 10
->> > ffff88102d430780
->> > [   83.866974] squid (2700) used greatest stack depth: 12912 bytes left
->> > [   87.506644] IPv4: Attempt to release TCP socket in state 10
->> > ffff880078a48780
->> > [  114.704295] IPv4: Attempt to release TCP socket in state 10
->> > ffff881029f8ad00
->> >
->> > I cannot catch yet oops/panic message, netconsole not working.
->> >
->> > After triggering warning message 3 times, i am unable to run squid
->> > anymore (without reboot), and in netstat it doesnt show port running.
->> >
->> > firewall is:
->> > *mangle
->> > -A PREROUTING -p tcp -m socket -j DIVERT
->> > -A PREROUTING -p tcp -m tcp --dport 80 -i eno1 -j TPROXY --on-port 3129
->> > --on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
->> > -A DIVERT -j MARK --set-xmark 0x1/0xffffffff
->> > -A DIVERT -j ACCEPT
->> >
->> > routing
->> > ip rule add fwmark 1 lookup 100
->> > ip route add local default dev eno1 table 100
->> >
->> >
->> > squid config is default with tproxy option
->> > http_port 3129 tproxy
->> >
->> 
->> Hmppff... sorry for this, I will send a fix.
->> 
->> Thanks for the report !
->> 
-> 
-> 
-> Could you try the following ?
-> 
-> Thanks !
-> 
->  net/netfilter/xt_TPROXY.c |    4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-> index 7f4414d26a66..663c4c3c9072 100644
-> --- a/net/netfilter/xt_TPROXY.c
-> +++ b/net/netfilter/xt_TPROXY.c
-> @@ -127,6 +127,8 @@ nf_tproxy_get_sock_v4(struct net *net, struct
-> sk_buff *skb, void *hp,
->  						    daddr, dport,
->  						    in->ifindex);
-> 
-> +			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-> +				sk = NULL;
->  			/* NOTE: we return listeners even if bound to
->  			 * 0.0.0.0, those are filtered out in
->  			 * xt_socket, since xt_TPROXY needs 0 bound
-> @@ -195,6 +197,8 @@ nf_tproxy_get_sock_v6(struct net *net, struct
-> sk_buff *skb, int thoff, void *hp,
->  						   daddr, ntohs(dport),
->  						   in->ifindex);
-> 
-> +			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-> +				sk = NULL;
->  			/* NOTE: we return listeners even if bound to
->  			 * 0.0.0.0, those are filtered out in
->  			 * xt_socket, since xt_TPROXY needs 0 bound
-Yes, everything fine after patch!
-Thanks a lot
+On Wed, 2016-08-17 at 19:44 +0300, Denys Fedoryshchenko wrote:
+
+> Yes, everything fine after patch!
+> Thanks a lot
+
+Perfect, thanks for testing, I am sending the official patch.
