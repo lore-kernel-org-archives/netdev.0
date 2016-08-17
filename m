@@ -1,60 +1,55 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: kernel panic TPROXY , vanilla 4.7.1
-Date: Wed, 17 Aug 2016 17:31:20 +0300
-Message-ID: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: defer sacked assignment
+Date: Wed, 17 Aug 2016 07:48:36 -0700
+Message-ID: <1471445316.4943.40.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:60144 "EHLO nuclearcat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752255AbcHQOtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2016 10:49:09 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by nuclearcat.com (Postfix) with ESMTP id 73E3F67C0088
-	for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 14:31:22 +0000 (UTC)
-Received: from nuclearcat.com ([127.0.0.1])
-	by localhost (nuclearcat.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id ZNY5XfOewPrm for <netdev@vger.kernel.org>;
-	Wed, 17 Aug 2016 14:31:20 +0000 (UTC)
-Received: from germany.nuclearcat.com (localhost [127.0.0.1])
-	(Authenticated sender: nuclearcat@nuclearcat.com)
-	by nuclearcat.com (Postfix) with ESMTPA id B783D67C0087
-	for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 14:31:20 +0000 (UTC)
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34858 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752082AbcHQOtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:49:09 -0400
+Received: by mail-pa0-f68.google.com with SMTP id cf3so7348051pad.2
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:48:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Eric Dumazet <edumazet@google.com>
 
-Tried to run squid on latest kernel, and hit a panic
-Sometimes it just shows warning in dmesg (but doesnt work properly)
-[   75.701666] IPv4: Attempt to release TCP socket in state 10 
-ffff88102d430780
-[   83.866974] squid (2700) used greatest stack depth: 12912 bytes left
-[   87.506644] IPv4: Attempt to release TCP socket in state 10 
-ffff880078a48780
-[  114.704295] IPv4: Attempt to release TCP socket in state 10 
-ffff881029f8ad00
+While chasing tcp_xmit_retransmit_queue() kasan issue, I found
+that we could avoid reading sacked field of skb that we wont send,
+possibly removing one cache line miss.
 
-I cannot catch yet oops/panic message, netconsole not working.
+Very minor change in slow path, but why not ? ;) 
 
-After triggering warning message 3 times, i am unable to run squid 
-anymore (without reboot), and in netstat it doesnt show port running.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_output.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-firewall is:
-*mangle
--A PREROUTING -p tcp -m socket -j DIVERT
--A PREROUTING -p tcp -m tcp --dport 80 -i eno1 -j TPROXY --on-port 3129 
---on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
--A DIVERT -j MARK --set-xmark 0x1/0xffffffff
--A DIVERT -j ACCEPT
-
-routing
-ip rule add fwmark 1 lookup 100
-ip route add local default dev eno1 table 100
-
-
-squid config is default with tproxy option
-http_port 3129 tproxy
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index bdaef7fd6e47701b2d2280e1f40f816e1920c432..8b45794eb6b2600c914e504b8031f61dbbe164a3 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2776,7 +2776,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ 
+ 	max_segs = tcp_tso_autosize(sk, tcp_current_mss(sk));
+ 	tcp_for_write_queue_from(skb, sk) {
+-		__u8 sacked = TCP_SKB_CB(skb)->sacked;
++		__u8 sacked;
+ 		int segs;
+ 
+ 		if (skb == tcp_send_head(sk))
+@@ -2788,6 +2788,7 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
+ 		segs = tp->snd_cwnd - tcp_packets_in_flight(tp);
+ 		if (segs <= 0)
+ 			return;
++		sacked = TCP_SKB_CB(skb)->sacked;
+ 		/* In case tcp_shift_skb_data() have aggregated large skbs,
+ 		 * we need to make sure not sending too bigs TSO packets
+ 		 */
