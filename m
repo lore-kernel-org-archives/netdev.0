@@ -1,38 +1,45 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: defer sacked assignment
-Date: Wed, 17 Aug 2016 10:53:21 -0400
-Message-ID: <CADVnQyntPQUJTS6FzTDRVZML8TDJT5Qv=VU4XGtwZOWT81CU_w@mail.gmail.com>
-References: <1471445316.4943.40.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tejun Heo <htejun@fb.com>
+Subject: Re: [RFC PATCH 4/5] net: filter: run cgroup eBPF programs
+Date: Wed, 17 Aug 2016 10:58:52 -0400
+Message-ID: <20160817145851.GA6299@htj.duckdns.org>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+ <1471442448-1248-5-git-send-email-daniel@zonque.org>
+ <20160817142335.GC4021@htj.duckdns.org>
+ <d38eb8a1-1b36-b8cf-a60e-266afe4ecc77@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <daniel@iogearbox.net>, <ast@fb.com>, <davem@davemloft.net>,
+	<kafai@fb.com>, <fw@strlen.de>, <pablo@netfilter.org>,
+	<harald@redhat.com>, <netdev@vger.kernel.org>
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:33510 "EHLO
-	mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752059AbcHQOxw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:53:52 -0400
-Received: by mail-oi0-f48.google.com with SMTP id c15so140955327oig.0
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:53:52 -0700 (PDT)
-In-Reply-To: <1471445316.4943.40.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:45240 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751993AbcHQO70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:59:26 -0400
+Content-Disposition: inline
+In-Reply-To: <d38eb8a1-1b36-b8cf-a60e-266afe4ecc77@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 17, 2016 at 10:48 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@google.com>
->
-> While chasing tcp_xmit_retransmit_queue() kasan issue, I found
-> that we could avoid reading sacked field of skb that we wont send,
-> possibly removing one cache line miss.
->
-> Very minor change in slow path, but why not ? ;)
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+On Wed, Aug 17, 2016 at 04:36:02PM +0200, Daniel Mack wrote:
+> On 08/17/2016 04:23 PM, Tejun Heo wrote:
+> > On Wed, Aug 17, 2016 at 04:00:47PM +0200, Daniel Mack wrote:
+> >> @@ -78,6 +116,12 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
+> >>  	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
+> >>  		return -ENOMEM;
+> >>  
+> >> +#ifdef CONFIG_CGROUP_BPF
+> >> +	err = sk_filter_cgroup_bpf(sk, skb, BPF_ATTACH_TYPE_CGROUP_INGRESS);
+> >> +	if (err)
+> >> +		return err;
+> >> +#endif
+> > 
+> > Hmm... where does egress hook into?
+> 
+> As stated in the cover letter, that's an open question on my list.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+lol sorry about that.  :)
 
-neal
+-- 
+tejun
