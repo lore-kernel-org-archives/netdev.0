@@ -1,95 +1,97 @@
 From: Daniel Mack <daniel@zonque.org>
-Subject: [RFC PATCH 2/5] cgroup: add bpf_{e,in}gress pointers
-Date: Wed, 17 Aug 2016 16:00:45 +0200
-Message-ID: <1471442448-1248-3-git-send-email-daniel@zonque.org>
+Subject: [RFC PATCH 4/5] net: filter: run cgroup eBPF programs
+Date: Wed, 17 Aug 2016 16:00:47 +0200
+Message-ID: <1471442448-1248-5-git-send-email-daniel@zonque.org>
 References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
 Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
 	pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
 	Daniel Mack <daniel@zonque.org>
 To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:47315 "EHLO mail.zonque.de"
+Received: from svenfoo.org ([82.94.215.22]:47312 "EHLO mail.zonque.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752472AbcHQOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752345AbcHQOLP (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 17 Aug 2016 10:11:15 -0400
 In-Reply-To: <1471442448-1248-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add two pointers for eBPF programs to struct cgroup. These will be used
-to store programs for ingress and egress for accounting and filtering.
+If CONFIG_CGROUP_BPF is enabled, and the cgroup associated with the
+receiving socket has an eBPF programs installed, run them from
+sk_filter_trim_cap().
 
-This new feature is guarded by CONFIG_CGROUP_BPF.
+eBPF programs used in this context are expected to either return 1 to
+let the packet pass, or != 1 to drop them. The programs have access to
+the full skb, including the MAC headers.
+
+This patch only implements the call site for ingress packets.
 
 Signed-off-by: Daniel Mack <daniel@zonque.org>
 ---
- include/linux/cgroup-defs.h | 6 ++++++
- init/Kconfig                | 8 ++++++++
- kernel/cgroup.c             | 9 +++++++++
- 3 files changed, 23 insertions(+)
+ net/core/filter.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
 
-diff --git a/include/linux/cgroup-defs.h b/include/linux/cgroup-defs.h
-index 5b17de6..cff3560 100644
---- a/include/linux/cgroup-defs.h
-+++ b/include/linux/cgroup-defs.h
-@@ -300,6 +300,12 @@ struct cgroup {
- 	/* used to schedule release agent */
- 	struct work_struct release_agent_work;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c5d8332..a1dd94b 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -52,6 +52,44 @@
+ #include <net/dst.h>
+ #include <net/sock_reuseport.h>
  
 +#ifdef CONFIG_CGROUP_BPF
-+	/* used by the networking layer */
-+	struct bpf_prog *bpf_ingress;
-+	struct bpf_prog *bpf_egress;
-+#endif
++static int sk_filter_cgroup_bpf(struct sock *sk, struct sk_buff *skb,
++				enum bpf_attach_type type)
++{
++	struct sock_cgroup_data *skcd = &sk->sk_cgrp_data;
++	struct cgroup *cgrp = sock_cgroup_ptr(skcd);
++	struct bpf_prog *prog;
++	int ret = 0;
 +
- 	/* ids of the ancestors at each level including self */
- 	int ancestor_ids[];
- };
-diff --git a/init/Kconfig b/init/Kconfig
-index cac3f09..8bf2f3e 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1144,6 +1144,14 @@ config CGROUP_PERF
- 
- 	  Say N if unsure.
- 
-+config CGROUP_BPF
-+	bool "Enable eBPF programs in cgroups"
-+	depends on BPF_SYSCALL
-+	help
-+	  This options allows cgroups to accommodate eBPF programs that
-+	  can be used for network traffic filtering and accounting. See
-+	  Documentation/networking/filter.txt for more information.
++	rcu_read_lock();
 +
- config CGROUP_DEBUG
- 	bool "Example controller"
- 	default n
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index d1c51b7..65e5701 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -62,6 +62,7 @@
- #include <linux/proc_ns.h>
- #include <linux/nsproxy.h>
- #include <linux/file.h>
-+#include <linux/bpf.h>
- #include <net/sock.h>
- 
- /*
-@@ -5461,6 +5462,14 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
- 	for_each_css(css, ssid, cgrp)
- 		kill_css(css);
++	switch (type) {
++	case BPF_ATTACH_TYPE_CGROUP_EGRESS:
++		prog = rcu_dereference(cgrp->bpf_egress);
++		break;
++	case BPF_ATTACH_TYPE_CGROUP_INGRESS:
++		prog = rcu_dereference(cgrp->bpf_ingress);
++		break;
++	default:
++		WARN_ON_ONCE(1);
++		ret = -EINVAL;
++		break;
++	}
++
++	if (prog) {
++		unsigned int offset = skb->data - skb_mac_header(skb);
++
++		__skb_push(skb, offset);
++		ret = bpf_prog_run_clear_cb(prog, skb) > 0 ? 0 : -EPERM;
++		__skb_pull(skb, offset);
++	}
++
++	rcu_read_unlock();
++
++	return ret;
++}
++#endif /* !CONFIG_CGROUP_BPF */
++
+ /**
+  *	sk_filter_trim_cap - run a packet through a socket filter
+  *	@sk: sock associated with &sk_buff
+@@ -78,6 +116,12 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
+ 	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
+ 		return -ENOMEM;
  
 +#ifdef CONFIG_CGROUP_BPF
-+	if (cgrp->bpf_ingress)
-+		bpf_prog_put(cgrp->bpf_ingress);
-+
-+	if (cgrp->bpf_egress)
-+		bpf_prog_put(cgrp->bpf_egress);
++	err = sk_filter_cgroup_bpf(sk, skb, BPF_ATTACH_TYPE_CGROUP_INGRESS);
++	if (err)
++		return err;
 +#endif
 +
- 	/*
- 	 * Remove @cgrp directory along with the base files.  @cgrp has an
- 	 * extra ref on its kn.
+ 	err = security_sock_rcv_skb(sk, skb);
+ 	if (err)
+ 		return err;
 -- 
 2.5.5
