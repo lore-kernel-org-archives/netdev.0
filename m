@@ -1,109 +1,100 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: linearize early if it's not GSO
-Date: Tue, 16 Aug 2016 21:49:31 -0300
-Message-ID: <20160817004931.GF3110@localhost.localdomain>
-References: <a4bc263e62ced9f5790932f11e7d829c36566808.1471386679.git.marcelo.leitner@gmail.com>
- <57B39AC5.7000002@iogearbox.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 17 Aug 2016 11:05:52 +1000
+Message-ID: <20160817110552.67a3e615@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38306 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753240AbcHQAth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Aug 2016 20:49:37 -0400
-Content-Disposition: inline
-In-Reply-To: <57B39AC5.7000002@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: David Miller <davem@davemloft.net>,
+	Networking <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 17, 2016 at 12:59:17AM +0200, Daniel Borkmann wrote:
-> On 08/17/2016 12:35 AM, Marcelo Ricardo Leitner wrote:
-> > Because otherwise when crc computation is still needed it's way more
-> > expensive than on a linear buffer to the point that it affects
-> > performance.
-> > 
-> > It's so expensive that netperf test gives a perf output as below:
-> > 
-> > Overhead  Shared Object        Symbol
-> >    69,44%  [kernel]             [k] gf2_matrix_square
-> >     2,84%  [kernel]             [k] crc32_generic_combine.part.0
-> >     2,78%  [kernel]             [k] _raw_spin_lock_bh
-> 
-> What kernel is this, seems not net kernel?
-> 
-> $ git grep -n gf2_matrix_square
-> $ git grep -n crc32_generic_combine
-> $
-> 
-> Maybe RHEL? Did you consider backporting 6d514b4e7737 et al?
+Hi all,
 
-Damn, correct. I'll post a v2 later with a proper changelog.
-No I hadn't considered backporting that commit.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Now from a different environment, upstream kernel, without the patch, using
-mlx4 and perf record -a -- sleep 5 during netperf (Xeon E5-2690 v3, 24 cpus):
+  drivers/net/dsa/mv88e6xxx/chip.c
 
-Overhead  Command         Shared Object       Symbol
-  16,85%  netserver       [kernel.vmlinux]    [k] crc32_generic_shift
-   3,46%  swapper         [kernel.vmlinux]    [k] intel_idle
-   2,00%  netserver       [kernel.vmlinux]    [k] __pskb_pull_tail
-   1,73%  netserver       [kernel.vmlinux]    [k] copy_user_enhanced_fast_string
-   1,72%  swapper         [kernel.vmlinux]    [k] crc32_generic_shift
-   1,64%  swapper         [kernel.vmlinux]    [k] poll_idle
-   1,59%  netserver       [kernel.vmlinux]    [k] memcpy_erms
-   1,57%  netserver       [kernel.vmlinux]    [k] fib_table_lookup
-   1,47%  netserver       [kernel.vmlinux]    [k] _raw_spin_lock
-   1,37%  netserver       [kernel.vmlinux]    [k] __slab_free
-   1,32%  netserver       [sctp]              [k] sctp_packet_transmit
-   1,18%  netserver       [kernel.vmlinux]    [k] skb_copy_datagram_iter
+between commit:
 
-With the patch:
-Overhead  Command         Shared Object        Symbol
-   4,71%  swapper         [kernel.vmlinux]     [k] intel_idle
-   2,11%  netserver       [kernel.vmlinux]     [k] copy_user_enhanced_fast_string
-   1,45%  netserver       [kernel.vmlinux]     [k] memcpy_erms
-   1,29%  swapper         [kernel.vmlinux]     [k] memcpy_erms
-   1,28%  netserver       [kernel.vmlinux]     [k] fib_table_lookup
-   1,27%  netserver       [kernel.vmlinux]     [k] __slab_free
-   1,27%  swapper         [kernel.vmlinux]     [k] fib_table_lookup
-   1,26%  netserver       [kernel.vmlinux]     [k] kmem_cache_free
-   1,14%  netserver       [kernel.vmlinux]     [k] _raw_spin_lock
-   1,07%  netserver       [kernel.vmlinux]     [k] __pskb_pull_tail
-   1,06%  netserver       [kernel.vmlinux]     [k] skb_copy_datagram_iter
-   1,04%  netserver       [sctp]               [k] sctp_packet_transmit
-   1,04%  swapper         [kernel.vmlinux]     [k] __pskb_pull_tail
-   1,01%  swapper         [mlx4_en]            [k] mlx4_en_process_rx_cq
-   0,99%  swapper         [kernel.vmlinux]     [k] native_queued_spin_lock_slowpath
-   0,96%  swapper         [kernel.vmlinux]     [k] _raw_spin_lock
-   0,89%  swapper         [sctp]               [k] sctp_packet_transmit
+  601bbae0bc10 ("dsa: mv88e6xxx: hide unused functions")
 
-Without the patch:
-# netperf -H 192.168.10.1 -l 10 -t SCTP_STREAM -cC -- -m 12000
-SCTP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.10.1 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+from the net tree and commit:
 
-212992 212992  12000    10.00      2896.13   3.34     3.88     2.267   2.635
+  9c93829c014f ("net: dsa: mv88e6xxx: use the new PHY API")
 
+from the net-next tree.
 
-With the patch:
-# netperf -H 192.168.10.1 -l 10 -t SCTP_STREAM -cC -- -m 12000
-SCTP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.10.1 () port 0 AF_INET
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
-212992 212992  12000    10.00      3444.89   3.88     3.02     2.216   1.721
+-- 
+Cheers,
+Stephen Rothwell
 
-And without the patch netperf fluctuates more as there are more packet
-drops and netserver is constantly at 100% cpu usage.
-
-Thanks,
-Marcelo
+diff --cc drivers/net/dsa/mv88e6xxx/chip.c
+index d1d9d3cf9139,a230fcba5b64..000000000000
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@@ -3187,48 -3250,13 +3250,20 @@@ static int mv88e6xxx_set_addr(struct ds
+  	return err;
+  }
+  
+- #ifdef CONFIG_NET_DSA_HWMON
+- static int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page,
+- 				    int reg)
+- {
+- 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
+- 	int ret;
+- 
+- 	mutex_lock(&chip->reg_lock);
+- 	ret = _mv88e6xxx_mdio_page_read(chip, port, page, reg);
+- 	mutex_unlock(&chip->reg_lock);
+- 
+- 	return ret;
+- }
+- 
+- static int mv88e6xxx_mdio_page_write(struct dsa_switch *ds, int port, int page,
+- 				     int reg, int val)
+- {
+- 	struct mv88e6xxx_chip *chip = ds_to_priv(ds);
+- 	int ret;
+- 
+- 	mutex_lock(&chip->reg_lock);
+- 	ret = _mv88e6xxx_mdio_page_write(chip, port, page, reg, val);
+- 	mutex_unlock(&chip->reg_lock);
+- 
+- 	return ret;
+- }
+- #endif
+- 
+ +static int mv88e6xxx_port_to_mdio_addr(struct mv88e6xxx_chip *chip, int port)
+ +{
+ +	if (port >= 0 && port < chip->info->num_ports)
+ +		return port;
+ +	return -EINVAL;
+ +}
+ +
+- static int mv88e6xxx_mdio_read(struct mii_bus *bus, int port, int regnum)
++ static int mv88e6xxx_mdio_read(struct mii_bus *bus, int phy, int reg)
+  {
+  	struct mv88e6xxx_chip *chip = bus->priv;
+- 	int addr = mv88e6xxx_port_to_mdio_addr(chip, port);
+- 	int ret;
++ 	u16 val;
++ 	int err;
+  
+- 	if (addr < 0)
++ 	if (phy >= chip->info->num_ports)
+  		return 0xffff;
+  
+  	mutex_lock(&chip->reg_lock);
