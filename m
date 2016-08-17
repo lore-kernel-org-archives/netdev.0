@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xfrm: Only add l3mdev oif to dst lookups
-Date: Wed, 17 Aug 2016 19:31:14 -0400 (EDT)
-Message-ID: <20160817.193114.794021773593737364.davem@davemloft.net>
-References: <1471229576-29981-1-git-send-email-dsa@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 10/13] net: sched: lockless support for
+ netif_schedule
+Date: Wed, 17 Aug 2016 16:33:54 -0700
+Message-ID: <1471476834.29842.56.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
+	 <20160817193738.27032.25592.stgit@john-Precision-Tower-5810>
+	 <1471474877.29842.54.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <57B4F079.5070109@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: dsa@cumulusnetworks.com
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
+	alexei.starovoitov@gmail.com, brouer@redhat.com,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33207 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932088AbcHQXbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:31:16 -0400
-In-Reply-To: <1471229576-29981-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34528 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752761AbcHQXd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 19:33:57 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g202so284668pfb.1
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 16:33:57 -0700 (PDT)
+In-Reply-To: <57B4F079.5070109@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Sun, 14 Aug 2016 19:52:56 -0700
-
-> Subash reported that commit 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
-> broke a wifi use case that uses fib rules and xfrms. The intent of
-> 42a7b32b73d6 was driven by VRFs with IPsec. As a compromise relax the
-> use of oif in xfrm lookups to L3 master devices only (ie., oif is either
-> an L3 master device or is enslaved to a master device).
+On Wed, 2016-08-17 at 16:17 -0700, John Fastabend wrote:
+> On 16-08-17 04:01 PM, Eric Dumazet wrote:
+> > On Wed, 2016-08-17 at 12:37 -0700, John Fastabend wrote:
+> > 
+> >> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> >> index d10b762..f5b7254 100644
+> >> --- a/net/sched/sch_generic.c
+> >> +++ b/net/sched/sch_generic.c
+> >> @@ -171,6 +171,7 @@ static void try_bulk_dequeue_skb_slow(struct Qdisc *q,
+> >>  			if (qdisc_is_percpu_stats(q)) {
+> >>  				qdisc_qstats_cpu_backlog_inc(q, nskb);
+> >>  				qdisc_qstats_cpu_qlen_inc(q);
+> >> +				set_thread_flag(TIF_NEED_RESCHED);
+> >>  			} else {
+> >>  				qdisc_qstats_backlog_inc(q, nskb);
+> >>  				q->q.qlen++;
+> > 
+> > Hmm... care to elaborate this bit ?
+> > 
+> > 
+> > 
 > 
-> Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
-> Reported-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ah dang thats leftover from trying to resolve a skb getting stuck on the
+> bad_txq_cell from qdisc_enqueue_skb_bad_txq(). You'll notice I added
+> a __netif_schedule(skb) call in qdisc_enqueue_skb_bad_txq() which
+> resolves this and the set_thread_flag() here can then just be removed.
 
-Steffen, please pick this up.
+OK I feel much better now ;)
 
-Thank you.
+Thanks !
