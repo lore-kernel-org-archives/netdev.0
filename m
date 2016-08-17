@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 02/13] net: sched: qdisc_qlen for per cpu logic
-Date: Wed, 17 Aug 2016 12:34:16 -0700
-Message-ID: <20160817193416.27032.62729.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 03/13] net: sched: provide per cpu qstat helpers
+Date: Wed, 17 Aug 2016 12:34:39 -0700
+Message-ID: <20160817193438.27032.37761.stgit@john-Precision-Tower-5810>
 References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,48 +12,85 @@ To: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
 	alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
 	brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:34080 "EHLO
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35892 "EHLO
 	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752915AbcHQTep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 15:34:45 -0400
-Received: by mail-oi0-f67.google.com with SMTP id t127so12986370oie.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 12:34:33 -0700 (PDT)
+	with ESMTP id S1753334AbcHQTe6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 15:34:58 -0400
+Received: by mail-oi0-f67.google.com with SMTP id b22so12985124oii.3
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 12:34:58 -0700 (PDT)
 In-Reply-To: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a bit interesting because it means sch_direct_xmit will
-return a positive value which causes the dequeue/xmit cycle to
-continue only when a specific cpu has a qlen > 0.
-
-However checking each cpu for qlen will break performance so
-its important to note that qdiscs that set the no lock bit need
-to have some sort of per cpu enqueue/dequeue data structure that
-maps to the per cpu qlen value.
+The per cpu qstats support was added with per cpu bstat support which
+is currently used by the ingress qdisc. This patch adds a set of
+helpers needed to make other qdiscs that use qstats per cpu as well.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/sch_generic.h |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ include/net/sch_generic.h |   39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 3de6a8c..354951d 100644
+index 354951d..f69da4b 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -247,8 +247,16 @@ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
- 	BUILD_BUG_ON(sizeof(qcb->data) < sz);
+@@ -573,12 +573,43 @@ static inline void qdisc_qstats_backlog_dec(struct Qdisc *sch,
+ 	sch->qstats.backlog -= qdisc_pkt_len(skb);
  }
  
-+static inline int qdisc_qlen_cpu(const struct Qdisc *q)
++static inline void qdisc_qstats_cpu_backlog_dec(struct Qdisc *sch,
++						const struct sk_buff *skb)
 +{
-+	return this_cpu_ptr(q->cpu_qstats)->qlen;
++	struct gnet_stats_queue *q = this_cpu_ptr(sch->cpu_qstats);
++
++	q->backlog -= qdisc_pkt_len(skb);
 +}
 +
- static inline int qdisc_qlen(const struct Qdisc *q)
+ static inline void qdisc_qstats_backlog_inc(struct Qdisc *sch,
+ 					    const struct sk_buff *skb)
  {
-+	if (q->flags & TCQ_F_NOLOCK)
-+		return qdisc_qlen_cpu(q);
-+
- 	return q->q.qlen;
+ 	sch->qstats.backlog += qdisc_pkt_len(skb);
  }
  
++static inline void qdisc_qstats_cpu_backlog_inc(struct Qdisc *sch,
++						const struct sk_buff *skb)
++{
++	struct gnet_stats_queue *q = this_cpu_ptr(sch->cpu_qstats);
++
++	q->backlog += qdisc_pkt_len(skb);
++}
++
++static inline void qdisc_qstats_cpu_qlen_inc(struct Qdisc *sch)
++{
++	this_cpu_ptr(sch->cpu_qstats)->qlen++;
++}
++
++static inline void qdisc_qstats_cpu_qlen_dec(struct Qdisc *sch)
++{
++	this_cpu_ptr(sch->cpu_qstats)->qlen--;
++}
++
++static inline void qdisc_qstats_cpu_requeues_inc(struct Qdisc *sch)
++{
++	this_cpu_ptr(sch->cpu_qstats)->requeues++;
++}
++
+ static inline void __qdisc_qstats_drop(struct Qdisc *sch, int count)
+ {
+ 	sch->qstats.drops += count;
+@@ -751,6 +782,14 @@ static inline void rtnl_qdisc_drop(struct sk_buff *skb, struct Qdisc *sch)
+ 	qdisc_qstats_drop(sch);
+ }
+ 
++static inline int qdisc_drop_cpu(struct sk_buff *skb, struct Qdisc *sch,
++				 struct sk_buff **to_free)
++{
++	__qdisc_drop(skb, to_free);
++	qdisc_qstats_cpu_drop(sch);
++
++	return NET_XMIT_DROP;
++}
+ 
+ static inline int qdisc_drop(struct sk_buff *skb, struct Qdisc *sch,
+ 			     struct sk_buff **to_free)
