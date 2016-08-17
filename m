@@ -1,57 +1,96 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next 2/2] net: bridge: export vlan flags with the stats
-Date: Wed, 17 Aug 2016 12:53:10 +0200
-Message-ID: <1471431190-27442-3-git-send-email-nikolay@cumulusnetworks.com>
-References: <1471431190-27442-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
-	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get
+ vlan info from skb->vlan_tci
+Date: Wed, 17 Aug 2016 14:05:33 +0300
+Message-ID: <CAJL1qvEDgd2r-iggQ5W-uvYVsWN-uQGN7ab5gN_J26Sk7-=O=g@mail.gmail.com>
+References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+ <1471430174-27740-2-git-send-email-hadarh@mellanox.com> <20160817104614.GD1956@nanopsycho>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:35728 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839AbcHQKx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 06:53:29 -0400
-Received: by mail-wm0-f45.google.com with SMTP id f65so189624271wmi.0
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 03:53:29 -0700 (PDT)
-In-Reply-To: <1471431190-27442-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33916 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751463AbcHQLFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 07:05:35 -0400
+Received: by mail-oi0-f68.google.com with SMTP id t127so9953897oie.1
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 04:05:34 -0700 (PDT)
+In-Reply-To: <20160817104614.GD1956@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use one of the vlan xstats padding fields to export the vlan flags. This is
-needed in order to be able to distinguish between master (bridge) and port
-vlan entries in user-space when dumping the bridge vlan stats.
+On Wed, Aug 17, 2016 at 1:46 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Wed, Aug 17, 2016 at 12:36:10PM CEST, hadarh@mellanox.com wrote:
+>>Early in the datapath skb_vlan_untag function is called, stripped
+>>the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+>>
+>>The current dissection doesn't handle stripped vlan packets correctly.
+>>In some flows, vlan doesn't exist in skb->data anymore when applying
+>>flow dissection on the skb, fix that.
+>>
+>>In case vlan info wasn't stripped before applying flow_dissector (RPS
+>>flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
+>>get the vlan info from skb->data. The flow_dissector correctly skips
+>>any number of vlans and stores only the first level vlan.
+>>
+>>Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
+>>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+>>---
+>> net/core/flow_dissector.c | 34 ++++++++++++++++++++++++++--------
+>> 1 file changed, 26 insertions(+), 8 deletions(-)
+>>
+>>diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>>index 91028ae..362d693 100644
+>>--- a/net/core/flow_dissector.c
+>>+++ b/net/core/flow_dissector.c
+>>@@ -119,12 +119,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>>       struct flow_dissector_key_ports *key_ports;
+>>       struct flow_dissector_key_tags *key_tags;
+>>       struct flow_dissector_key_keyid *key_keyid;
+>>+      bool skip_vlan = false;
+>>       u8 ip_proto = 0;
+>>       bool ret = false;
+>>
+>>       if (!data) {
+>>               data = skb->data;
+>>-              proto = skb->protocol;
+>>+              proto = skb_vlan_tag_present(skb) ?
+>>+                       skb->vlan_proto : skb->protocol;
+>>               nhoff = skb_network_offset(skb);
+>>               hlen = skb_headlen(skb);
+>>       }
+>>@@ -243,23 +245,39 @@ ipv6:
+>>       case htons(ETH_P_8021AD):
+>>       case htons(ETH_P_8021Q): {
+>>               const struct vlan_hdr *vlan;
+>>-              struct vlan_hdr _vlan;
+>>
+>>-              vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
+>>-              if (!vlan)
+>>-                      goto out_bad;
+>>+              if (skb_vlan_tag_present(skb))
+>>+                      proto = skb->protocol;
+>>+
+>>+              if (!skb_vlan_tag_present(skb) ||
+>>+                  proto == cpu_to_be16(ETH_P_8021Q) ||
+>>+                  proto == cpu_to_be16(ETH_P_8021AD)) {
+>
+> How this can happen? Could you give me an example?
+>
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- include/uapi/linux/if_bridge.h | 2 +-
- net/bridge/br_netlink.c        | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+This can happen in 2 cases:
 
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index c186f64fffca..ab92bca6d448 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -140,7 +140,7 @@ struct bridge_vlan_xstats {
- 	__u64 tx_bytes;
- 	__u64 tx_packets;
- 	__u16 vid;
--	__u16 pad1;
-+	__u16 flags;
- 	__u32 pad2;
- };
- 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 493ab9b3d51a..872d4c0deb59 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -1321,6 +1321,7 @@ static int br_fill_linkxstats(struct sk_buff *skb,
- 				continue;
- 			memset(&vxi, 0, sizeof(vxi));
- 			vxi.vid = v->vid;
-+			vxi.flags = v->flags;
- 			br_vlan_get_stats(v, &stats);
- 			vxi.rx_bytes = stats.rx_bytes;
- 			vxi.rx_packets = stats.rx_packets;
--- 
-2.1.4
+1. vlan wasn't stripped yet from the skb.
+In RPS flow for example, get_rps_cpu function is using flow-dissector
+before vlan_untag is called by __netif_receive_skb_core.
+
+2. skb with multiple vlan tags.
+Only the first vlan is stripped while the inner vlans are still in skb->data.
+In this case skb->vlan_proto is 802.1AD and skb->protocol is 802.1Q
+(for example) so I have to take the next header from skb->data.
