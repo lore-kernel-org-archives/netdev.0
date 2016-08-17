@@ -1,109 +1,86 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 17 Aug 2016 15:48:22 -0700
-Message-ID: <bec781c6-2db9-02c7-687d-b5d6ee50c129@gmail.com>
-References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
- <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org>
- <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com>
- <57B31780.5030106@codeaurora.org>
- <f3a49762-aa66-1949-bd6b-77bd6a74acc1@linaro.org>
- <57B3878D.1000805@codeaurora.org>
- <ff901f77-2177-52a7-2464-2f61495f91be@gmail.com>
- <57B4C6EE.3080903@codeaurora.org> <57B4E5F7.9040500@codeaurora.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH 01/13] net: sched: allow qdiscs to handle locking
+Date: Wed, 17 Aug 2016 15:48:50 -0700
+Message-ID: <57B4E9D2.1090302@gmail.com>
+References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
+ <20160817193338.27032.71493.stgit@john-Precision-Tower-5810>
+ <1471473242.29842.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-msm <linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sagar Dharia <sdharia-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Shanker Donthineni <shankerd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Vikram Sethi <vikrams-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Christopher Covington <cov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Gilad Avidov <gavidov-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-	Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Mark Langsdorf <mlangsdo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andy Gross <agross-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Lino Sanfilippo <LinoSanfilippo-Mmb7MZpHnFY@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
-	"Abdulhamid, Harb" <harba-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: Timur Tabi <timur-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Al Stone <al.stone-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <57B4E5F7.9040500-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
+	alexei.starovoitov@gmail.com, brouer@redhat.com,
+	john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36432 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837AbcHQWtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 18:49:06 -0400
+Received: by mail-pf0-f195.google.com with SMTP id y134so189126pfg.3
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 15:49:05 -0700 (PDT)
+In-Reply-To: <1471473242.29842.45.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2016 03:32 PM, Timur Tabi wrote:
-> Timur Tabi wrote:
->>>
->>> Nothing prevents you from detailing in ACPI or DT sub-components of a
->>> larger HW block, if there is such a desire, but just make it in a way
->>> that it looks like what would be done for e.g: separate discrete parts,
->>> only the parenting of nodes would change.
->>
->> So instead of just having a single property, instead create a child node
->> just for the SGMII phy, with its own compatible string and various other
->> properties (like interrupt and base register)?  That's not a bad idea.
+On 16-08-17 03:34 PM, Eric Dumazet wrote:
+> On Wed, 2016-08-17 at 12:33 -0700, John Fastabend wrote:
 > 
-> I need help getting this to work.
 > 
->     emac0: ethernet@38800000 {
->         compatible = "qcom,qdf2432-emac";
->         reg-names = "base", "csr";
->                 reg = <0x0 0x38800000 0x0 0x10000 >,
->                         <0x0 0x38816000 0x0 0x1000>,
->                         <0x0 0x3881C000 0x0 0x4000>;
->         interrupts = <0 0x100 0 0 0x104 0>;
->         interrupt-names = "core0", "sgmii";
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 4ce07dc..5db395d 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -3076,6 +3076,26 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>>  	int rc;
+>>  
+>>  	qdisc_calculate_pkt_len(skb, q);
+>> +
+>> +	if (q->flags & TCQ_F_NOLOCK) {
+>> +		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+>> +			__qdisc_drop(skb, &to_free);
+>> +			rc = NET_XMIT_DROP;
+>> +		} else if ((q->flags & TCQ_F_CAN_BYPASS) && !qdisc_qlen(q)) {
 > 
->         sgmii-handle = <&emac_sgmii>;
->         phy-handle = <&phy0>;
-> 
->         #address-cells = <1>;
->         #size-cells = <0>;
->         phy0: ethernet-phy@4 {
->             reg = <4>;
->         };
->     };
-> 
->     emac_sgmii: ethernet-phy@410400 {
->         compatible = "qcom,qdf2432-emac-phy";
->         reg = <0x0 0x00410400 0x0 0x100>;
->         interrupts = <0 0x104 0>;
->     };
+> For a lockless qdisc, do you believe TCQ_F_CAN_BYPASS is still a gain ?
 > 
 
-Is this register range relative to the emac0 node here, or is this
-really a separate node, within the same adress space as your emac0 node?
+For the benchmarks from pktgen it appears to be a win or mute to just
+drop the TCQ_F_CAN_BYPASS (just taking a look at one sample below)
 
-> When my driver probes, the platform_device object points to the emac0
-> node, as always.
+    nolock & nobypass   locked (current master)
+----------------------------------------------
+1:  1435796 		1471479
+2:  1880642		1746231
+4:  1922935		1119626
+8:  1585055		1001471
+12: 1479273		989269
+
+The only thing would be to test a bunch of netperf RR sessions to be
+sure.
+
+> Also !qdisc_qlen(q) looks racy anyway ?
+
+Yep its racy unless you make it an atomic but this hurts performance
+metrics. There is a patch further in the stack here that adds the
+atomic variants but I tend to think we can just drop the bypass logic
+in the lockless case assuming the netperf tests look good.
+
 > 
-> How do I parse the emac_sgmii node?  How do I get functions like
-> platform_get_resource() to work?  How do I create a new platform_device
-> object that points to the emac_sgmii node?
-
-Answer largely depends on whether your device is really located outside
-of the emac, if it located outside, then a platform device matching the
-compatible string would get you what you want. If the emac_sgmii block
-is a sub-block within the EMAC, then a few things need fixing:
-
-- your emac_sgmii node should be a sub-node of the emac node, not a sibling
-- the emac0 node should have a "ranges" property that indicates how to
-translate the sub-nodes' "reg" property based on the base register
-address of the emac0 block
-- you would have to call of_platform_populate from the EMAC driver to
-ensure that the emac_sgmii child node and therefore platform device gets
-created
-
-
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> +			qdisc_bstats_cpu_update(q, skb);
+>> +			if (sch_direct_xmit(skb, q, dev, txq, root_lock, true))
+>> +				__qdisc_run(q);
+>> +			rc = NET_XMIT_SUCCESS;
+>> +		} else {
+>> +			rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
+>> +			__qdisc_run(q);
+>> +		}
+>> +
+>> +		if (unlikely(to_free))
+>> +			kfree_skb_list(to_free);
+>> +		return rc;
+>> +	}
+>> +
+> 
+> 
