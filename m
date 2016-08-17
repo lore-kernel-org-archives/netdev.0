@@ -1,7 +1,7 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci
-Date: Wed, 17 Aug 2016 13:36:10 +0300
-Message-ID: <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V2 5/5] net_sched: act_vlan: Add priority option
+Date: Wed, 17 Aug 2016 13:36:14 +0300
+Message-ID: <1471430174-27740-6-git-send-email-hadarh@mellanox.com>
 References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>,
@@ -10,98 +10,115 @@ Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34302 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34307 "EHLO
 	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752286AbcHQKh7 (ORCPT
+	with ESMTP id S1752545AbcHQKh7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 06:37:59 -0400
 In-Reply-To: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Early in the datapath skb_vlan_untag function is called, stripped
-the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+The current vlan push action supports only vid and protocol options.
+Add priority option.
 
-The current dissection doesn't handle stripped vlan packets correctly.
-In some flows, vlan doesn't exist in skb->data anymore when applying
-flow dissection on the skb, fix that.
+Example script that adds vlan push action with vid and
+priority:
 
-In case vlan info wasn't stripped before applying flow_dissector (RPS
-flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
-get the vlan info from skb->data. The flow_dissector correctly skips
-any number of vlans and stores only the first level vlan.
+tc filter add dev veth0 protocol ip parent ffff: \
+	   flower \
+	   	indev veth0 \
+	   action vlan push id 100 priority 5
 
-Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/core/flow_dissector.c | 34 ++++++++++++++++++++++++++--------
- 1 file changed, 26 insertions(+), 8 deletions(-)
+ include/net/tc_act/tc_vlan.h        |  1 +
+ include/uapi/linux/tc_act/tc_vlan.h |  1 +
+ net/sched/act_vlan.c                | 13 +++++++++++--
+ 3 files changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 91028ae..362d693 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -119,12 +119,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	struct flow_dissector_key_ports *key_ports;
- 	struct flow_dissector_key_tags *key_tags;
- 	struct flow_dissector_key_keyid *key_keyid;
-+	bool skip_vlan = false;
- 	u8 ip_proto = 0;
- 	bool ret = false;
+diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
+index e29f52e..6b83588 100644
+--- a/include/net/tc_act/tc_vlan.h
++++ b/include/net/tc_act/tc_vlan.h
+@@ -20,6 +20,7 @@ struct tcf_vlan {
+ 	int			tcfv_action;
+ 	u16			tcfv_push_vid;
+ 	__be16			tcfv_push_proto;
++	u8			tcfv_push_prio;
+ };
+ #define to_vlan(a) ((struct tcf_vlan *)a)
  
- 	if (!data) {
- 		data = skb->data;
--		proto = skb->protocol;
-+		proto = skb_vlan_tag_present(skb) ?
-+			 skb->vlan_proto : skb->protocol;
- 		nhoff = skb_network_offset(skb);
- 		hlen = skb_headlen(skb);
- 	}
-@@ -243,23 +245,39 @@ ipv6:
- 	case htons(ETH_P_8021AD):
- 	case htons(ETH_P_8021Q): {
- 		const struct vlan_hdr *vlan;
--		struct vlan_hdr _vlan;
+diff --git a/include/uapi/linux/tc_act/tc_vlan.h b/include/uapi/linux/tc_act/tc_vlan.h
+index 31151ff62..be72b6e 100644
+--- a/include/uapi/linux/tc_act/tc_vlan.h
++++ b/include/uapi/linux/tc_act/tc_vlan.h
+@@ -29,6 +29,7 @@ enum {
+ 	TCA_VLAN_PUSH_VLAN_ID,
+ 	TCA_VLAN_PUSH_VLAN_PROTOCOL,
+ 	TCA_VLAN_PAD,
++	TCA_VLAN_PUSH_VLAN_PRIORITY,
+ 	__TCA_VLAN_MAX,
+ };
+ #define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index 691409d..59a8d31 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -43,7 +43,8 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 			goto drop;
+ 		break;
+ 	case TCA_VLAN_ACT_PUSH:
+-		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid);
++		err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid |
++				    (v->tcfv_push_prio << VLAN_PRIO_SHIFT));
+ 		if (err)
+ 			goto drop;
+ 		break;
+@@ -65,6 +66,7 @@ static const struct nla_policy vlan_policy[TCA_VLAN_MAX + 1] = {
+ 	[TCA_VLAN_PARMS]		= { .len = sizeof(struct tc_vlan) },
+ 	[TCA_VLAN_PUSH_VLAN_ID]		= { .type = NLA_U16 },
+ 	[TCA_VLAN_PUSH_VLAN_PROTOCOL]	= { .type = NLA_U16 },
++	[TCA_VLAN_PUSH_VLAN_PRIORITY]	= { .type = NLA_U8 },
+ };
  
--		vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
--		if (!vlan)
--			goto out_bad;
-+		if (skb_vlan_tag_present(skb))
-+			proto = skb->protocol;
-+
-+		if (!skb_vlan_tag_present(skb) ||
-+		    proto == cpu_to_be16(ETH_P_8021Q) ||
-+		    proto == cpu_to_be16(ETH_P_8021AD)) {
-+			struct vlan_hdr _vlan;
-+
-+			vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan),
-+						    data, hlen, &_vlan);
-+			if (!vlan)
-+				goto out_bad;
-+			proto = vlan->h_vlan_encapsulated_proto;
-+			nhoff += sizeof(*vlan);
-+			if (skip_vlan)
-+				goto again;
-+		}
+ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+@@ -78,6 +80,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 	int action;
+ 	__be16 push_vid = 0;
+ 	__be16 push_proto = 0;
++	u8 push_prio = 0;
+ 	bool exists = false;
+ 	int ret = 0, err;
  
-+		skip_vlan = true;
- 		if (dissector_uses_key(flow_dissector,
- 				       FLOW_DISSECTOR_KEY_VLANID)) {
- 			key_tags = skb_flow_dissector_target(flow_dissector,
- 							     FLOW_DISSECTOR_KEY_VLANID,
- 							     target_container);
- 
--			key_tags->vlan_id = skb_vlan_tag_get_id(skb);
-+			if (skb_vlan_tag_present(skb))
-+				key_tags->vlan_id = skb_vlan_tag_get_id(skb);
-+			else
-+				key_tags->vlan_id = ntohs(vlan->h_vlan_TCI) &
-+					VLAN_VID_MASK;
+@@ -123,6 +126,9 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 		} else {
+ 			push_proto = htons(ETH_P_8021Q);
  		}
++
++		if (tb[TCA_VLAN_PUSH_VLAN_PRIORITY])
++			push_prio = nla_get_u8(tb[TCA_VLAN_PUSH_VLAN_PRIORITY]);
+ 		break;
+ 	default:
+ 		if (exists)
+@@ -150,6 +156,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
  
--		proto = vlan->h_vlan_encapsulated_proto;
--		nhoff += sizeof(*vlan);
- 		goto again;
- 	}
- 	case htons(ETH_P_PPP_SES): {
+ 	v->tcfv_action = action;
+ 	v->tcfv_push_vid = push_vid;
++	v->tcfv_push_prio = push_prio;
+ 	v->tcfv_push_proto = push_proto;
+ 
+ 	v->tcf_action = parm->action;
+@@ -181,7 +188,9 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
+ 	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
+ 	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
+ 	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
+-			  v->tcfv_push_proto)))
++			  v->tcfv_push_proto) ||
++	     (nla_put_u8(skb, TCA_VLAN_PUSH_VLAN_PRIORITY,
++					      v->tcfv_push_prio))))
+ 		goto nla_put_failure;
+ 
+ 	tcf_tm_dump(&t, &v->tcf_tm);
 -- 
 1.8.3.1
