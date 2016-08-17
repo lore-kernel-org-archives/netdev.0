@@ -1,58 +1,52 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: [PATCH v2 2/2] kaweth: fix oops upon failed memory allocation
-Date: Wed, 17 Aug 2016 15:51:56 +0200
-Message-ID: <1471441916-19656-3-git-send-email-oneukum@suse.com>
-References: <1471441916-19656-1-git-send-email-oneukum@suse.com>
-Cc: Oliver Neukum <oneukum@suse.com>
-To: linux-usb@vger.kernel.org, stern@rowland.harvard.edu,
-	netdev@vger.kernel.org, davem@davemloft.net
+From: LABBE Corentin <clabbe.montjoie@gmail.com>
+Subject: [PATCH] atm: fore200e: Do not drop const qualifier
+Date: Wed, 17 Aug 2016 15:56:45 +0200
+Message-ID: <1471442205-11364-1-git-send-email-clabbe.montjoie@gmail.com>
+Cc: linux-atm-general@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	LABBE Corentin <clabbe.montjoie@gmail.com>
+To: 3chas3@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:49939 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751993AbcHQNyp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2016 09:54:45 -0400
-In-Reply-To: <1471441916-19656-1-git-send-email-oneukum@suse.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35747 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbcHQN7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 09:59:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just return an error upon failure.
+The data member of structure firmware is const and this constness is
+dropped by some cast.
+This patch add some const for keeping the const information.
 
-Signed-off-by: Oliver Neukum <oneukum@suse.com>
+Signed-off-by: LABBE Corentin <clabbe.montjoie@gmail.com>
 ---
- drivers/net/usb/kaweth.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/atm/fore200e.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index 37bf715..528b9c9 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -1009,6 +1009,7 @@ static int kaweth_probe(
- 	struct net_device *netdev;
- 	const eth_addr_t bcast_addr = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
- 	int result = 0;
-+	int rv = -EIO;
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index 75dde90..81aaa50 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -2489,7 +2489,7 @@ static int fore200e_load_and_start_fw(struct fore200e *fore200e)
+ {
+     const struct firmware *firmware;
+     struct device *device;
+-    struct fw_header *fw_header;
++    const struct fw_header *fw_header;
+     const __le32 *fw_data;
+     u32 fw_size;
+     u32 __iomem *load_addr;
+@@ -2511,9 +2511,9 @@ static int fore200e_load_and_start_fw(struct fore200e *fore200e)
+ 	return err;
+     }
  
- 	dev_dbg(dev,
- 		"Kawasaki Device Probe (Device number:%d): 0x%4.4x:0x%4.4x:0x%4.4x\n",
-@@ -1049,6 +1050,10 @@ static int kaweth_probe(
- 		/* Download the firmware */
- 		dev_info(dev, "Downloading firmware...\n");
- 		kaweth->firmware_buf = (__u8 *)__get_free_page(GFP_KERNEL);
-+		if (!kaweth->firmware_buf) {
-+			rv = -ENOMEM;
-+			goto err_free_netdev;
-+		}
- 		if ((result = kaweth_download_firmware(kaweth,
- 						      "kaweth/new_code.bin",
- 						      100,
-@@ -1203,7 +1208,7 @@ err_only_tx:
- err_free_netdev:
- 	free_netdev(netdev);
+-    fw_data = (__le32 *) firmware->data;
++    fw_data = (const __le32 *)firmware->data;
+     fw_size = firmware->size / sizeof(u32);
+-    fw_header = (struct fw_header *) firmware->data;
++    fw_header = (const struct fw_header *)firmware->data;
+     load_addr = fore200e->virt_base + le32_to_cpu(fw_header->load_offset);
  
--	return -EIO;
-+	return rv;
- }
- 
- /****************************************************************
+     DPRINTK(2, "device %s firmware being loaded at 0x%p (%d words)\n",
 -- 
-2.1.4
+2.7.3
