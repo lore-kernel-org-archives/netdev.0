@@ -1,7 +1,8 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V2 0/5] net_sched, flow_dissector, flower: Introduce vlan tag support
-Date: Wed, 17 Aug 2016 13:36:09 +0300
-Message-ID: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci
+Date: Wed, 17 Aug 2016 13:36:10 +0300
+Message-ID: <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
+References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Amir Vadai <amirva@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,53 +10,98 @@ Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
 	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34271 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34302 "EHLO
 	mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752054AbcHQKh7 (ORCPT
+	with ESMTP id S1752286AbcHQKh7 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 06:37:59 -0400
+In-Reply-To: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset introduce vlan tag support to the flower classifier and the flow
-dissector. In addition to adding vlan priority to act vlan.
+Early in the datapath skb_vlan_untag function is called, stripped
+the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
 
-The first 2 patches are dealing with flow-dissector:
- - The first patch is a fix, in case the vlan was already stripped from the
-   skb, take it from skb->vlan_tci.
- - The second patch adds support for vlan priority.
+The current dissection doesn't handle stripped vlan packets correctly.
+In some flows, vlan doesn't exist in skb->data anymore when applying
+flow dissection on the skb, fix that.
 
-The next 2 patches are dealing with flower:
- - The first patch is a fix, sets flow dissector 'used_keys' according to the
-   mask value of each key.
- - The secound patch adds vlan tag support to the flower classifier, user space
-   patches will be sent later to complete it.
+In case vlan info wasn't stripped before applying flow_dissector (RPS
+flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
+get the vlan info from skb->data. The flow_dissector correctly skips
+any number of vlans and stores only the first level vlan.
 
-The last patch adds vlan priority to act vlan since only vlan id is currently supported.
+Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+---
+ net/core/flow_dissector.c | 34 ++++++++++++++++++++++++++--------
+ 1 file changed, 26 insertions(+), 8 deletions(-)
 
-Changes from V1:
- - A new patch was added to this series "net_sched: flower: Avoid dissection of unmasked keys"
- - Adding u16 padding to struct flow_dissector_key_vlan
- - change flow_label field in struct flow_dissector_key_tags form 20 bits field to u32
- - Remove 'if (v->tcfv_push_prio)' check from tcf_vlan_dump function
- - Add support to un-stripped vlan skb and skb with multipale vlans in __skb_flow_dissect
-
-
-Hadar Hen Zion (5):
-  flow_dissector: For stripped vlan, get vlan info from skb->vlan_tci
-  flow_dissector: Get vlan priority in addition to vlan id
-  net_sched: flower: Avoid dissection of unmasked keys
-  net_sched: flower: Add vlan support
-  net_sched: act_vlan: Add priority option
-
- include/linux/if_vlan.h             |  1 +
- include/net/flow_dissector.h        | 12 +++--
- include/net/tc_act/tc_vlan.h        |  1 +
- include/uapi/linux/pkt_cls.h        |  3 ++
- include/uapi/linux/tc_act/tc_vlan.h |  1 +
- net/core/flow_dissector.c           | 51 ++++++++++++++-----
- net/sched/act_vlan.c                | 13 ++++-
- net/sched/cls_flower.c              | 98 ++++++++++++++++++++++++++++++-------
- 8 files changed, 144 insertions(+), 36 deletions(-)
-
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 91028ae..362d693 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -119,12 +119,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 	struct flow_dissector_key_ports *key_ports;
+ 	struct flow_dissector_key_tags *key_tags;
+ 	struct flow_dissector_key_keyid *key_keyid;
++	bool skip_vlan = false;
+ 	u8 ip_proto = 0;
+ 	bool ret = false;
+ 
+ 	if (!data) {
+ 		data = skb->data;
+-		proto = skb->protocol;
++		proto = skb_vlan_tag_present(skb) ?
++			 skb->vlan_proto : skb->protocol;
+ 		nhoff = skb_network_offset(skb);
+ 		hlen = skb_headlen(skb);
+ 	}
+@@ -243,23 +245,39 @@ ipv6:
+ 	case htons(ETH_P_8021AD):
+ 	case htons(ETH_P_8021Q): {
+ 		const struct vlan_hdr *vlan;
+-		struct vlan_hdr _vlan;
+ 
+-		vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
+-		if (!vlan)
+-			goto out_bad;
++		if (skb_vlan_tag_present(skb))
++			proto = skb->protocol;
++
++		if (!skb_vlan_tag_present(skb) ||
++		    proto == cpu_to_be16(ETH_P_8021Q) ||
++		    proto == cpu_to_be16(ETH_P_8021AD)) {
++			struct vlan_hdr _vlan;
++
++			vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan),
++						    data, hlen, &_vlan);
++			if (!vlan)
++				goto out_bad;
++			proto = vlan->h_vlan_encapsulated_proto;
++			nhoff += sizeof(*vlan);
++			if (skip_vlan)
++				goto again;
++		}
+ 
++		skip_vlan = true;
+ 		if (dissector_uses_key(flow_dissector,
+ 				       FLOW_DISSECTOR_KEY_VLANID)) {
+ 			key_tags = skb_flow_dissector_target(flow_dissector,
+ 							     FLOW_DISSECTOR_KEY_VLANID,
+ 							     target_container);
+ 
+-			key_tags->vlan_id = skb_vlan_tag_get_id(skb);
++			if (skb_vlan_tag_present(skb))
++				key_tags->vlan_id = skb_vlan_tag_get_id(skb);
++			else
++				key_tags->vlan_id = ntohs(vlan->h_vlan_TCI) &
++					VLAN_VID_MASK;
+ 		}
+ 
+-		proto = vlan->h_vlan_encapsulated_proto;
+-		nhoff += sizeof(*vlan);
+ 		goto again;
+ 	}
+ 	case htons(ETH_P_PPP_SES): {
 -- 
 1.8.3.1
