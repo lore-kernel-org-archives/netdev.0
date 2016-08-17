@@ -1,70 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix use after free in tcp_xmit_retransmit_queue()
-Date: Wed, 17 Aug 2016 05:56:26 -0700
-Message-ID: <1471438586.4943.28.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160816104551.GA28052@kroah.com>
-	 <1471361940.4943.4.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1471372748.4943.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get
+ vlan info from skb->vlan_tci
+Date: Wed, 17 Aug 2016 15:02:47 +0200
+Message-ID: <20160817130247.GE1956@nanopsycho>
+References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+ <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
+ <20160817104614.GD1956@nanopsycho>
+ <CAJL1qvEDgd2r-iggQ5W-uvYVsWN-uQGN7ab5gN_J26Sk7-=O=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Marco Grassi <marco.gra@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hadar Hen Zion <hadarh@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34890 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752158AbcHQM43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 08:56:29 -0400
-Received: by mail-pa0-f68.google.com with SMTP id cf3so7120027pad.2
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 05:56:29 -0700 (PDT)
-In-Reply-To: <1471372748.4943.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35382 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbcHQNDB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 09:03:01 -0400
+Received: by mail-wm0-f66.google.com with SMTP id i5so23944819wmg.2
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 06:02:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJL1qvEDgd2r-iggQ5W-uvYVsWN-uQGN7ab5gN_J26Sk7-=O=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Wed, Aug 17, 2016 at 01:05:33PM CEST, hadarh@dev.mellanox.co.il wrote:
+>On Wed, Aug 17, 2016 at 1:46 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Wed, Aug 17, 2016 at 12:36:10PM CEST, hadarh@mellanox.com wrote:
+>>>Early in the datapath skb_vlan_untag function is called, stripped
+>>>the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
+>>>
+>>>The current dissection doesn't handle stripped vlan packets correctly.
+>>>In some flows, vlan doesn't exist in skb->data anymore when applying
+>>>flow dissection on the skb, fix that.
+>>>
+>>>In case vlan info wasn't stripped before applying flow_dissector (RPS
+>>>flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
+>>>get the vlan info from skb->data. The flow_dissector correctly skips
+>>>any number of vlans and stores only the first level vlan.
+>>>
+>>>Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
+>>>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+>>>---
+>>> net/core/flow_dissector.c | 34 ++++++++++++++++++++++++++--------
+>>> 1 file changed, 26 insertions(+), 8 deletions(-)
+>>>
+>>>diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>>>index 91028ae..362d693 100644
+>>>--- a/net/core/flow_dissector.c
+>>>+++ b/net/core/flow_dissector.c
+>>>@@ -119,12 +119,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>>>       struct flow_dissector_key_ports *key_ports;
+>>>       struct flow_dissector_key_tags *key_tags;
+>>>       struct flow_dissector_key_keyid *key_keyid;
+>>>+      bool skip_vlan = false;
+>>>       u8 ip_proto = 0;
+>>>       bool ret = false;
+>>>
+>>>       if (!data) {
+>>>               data = skb->data;
+>>>-              proto = skb->protocol;
+>>>+              proto = skb_vlan_tag_present(skb) ?
+>>>+                       skb->vlan_proto : skb->protocol;
+>>>               nhoff = skb_network_offset(skb);
+>>>               hlen = skb_headlen(skb);
+>>>       }
+>>>@@ -243,23 +245,39 @@ ipv6:
+>>>       case htons(ETH_P_8021AD):
+>>>       case htons(ETH_P_8021Q): {
+>>>               const struct vlan_hdr *vlan;
+>>>-              struct vlan_hdr _vlan;
+>>>
+>>>-              vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
+>>>-              if (!vlan)
+>>>-                      goto out_bad;
+>>>+              if (skb_vlan_tag_present(skb))
+>>>+                      proto = skb->protocol;
+>>>+
+>>>+              if (!skb_vlan_tag_present(skb) ||
+>>>+                  proto == cpu_to_be16(ETH_P_8021Q) ||
+>>>+                  proto == cpu_to_be16(ETH_P_8021AD)) {
+>>
+>> How this can happen? Could you give me an example?
+>>
+>
+>This can happen in 2 cases:
+>
+>1. vlan wasn't stripped yet from the skb.
+>In RPS flow for example, get_rps_cpu function is using flow-dissector
+>before vlan_untag is called by __netif_receive_skb_core.
 
-When tcp_sendmsg() allocates a fresh and empty skb, it puts it at the
-tail of the write queue using tcp_add_write_queue_tail()
+right, sigh...
 
-Then it attempts to copy user data into this fresh skb.
 
-If the copy fails, we undo the work and remove the fresh skb.
+>
+>2. skb with multiple vlan tags.
+>Only the first vlan is stripped while the inner vlans are still in skb->data.
+>In this case skb->vlan_proto is 802.1AD and skb->protocol is 802.1Q
+>(for example) so I have to take the next header from skb->data.
 
-Unfortunately, this undo lacks the change done to tp->highest_sack and
-we can leave a dangling pointer (to a freed skb)
-
-Later, tcp_xmit_retransmit_queue() can dereference this pointer and
-access freed memory. For regular kernels where memory is not unmapped,
-this might cause SACK bugs because tcp_highest_sack_seq() is buggy,
-returning garbage instead of tp->snd_nxt, but with various debug
-features like CONFIG_DEBUG_PAGEALLOC, this can crash the kernel.
-
-This bug was found by Marco Grassi thanks to syzkaller.
-
-Fixes: 6859d49475d4 ("[TCP]: Abstract tp->highest_sack accessing & point to next skb")
-Reported-by: Marco Grassi <marco.gra@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- include/net/tcp.h |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c00e7d51bb18..7717302cab91 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1523,6 +1523,8 @@ static inline void tcp_check_send_head(struct sock *sk, struct sk_buff *skb_unli
- {
- 	if (sk->sk_send_head == skb_unlinked)
- 		sk->sk_send_head = NULL;
-+	if (tcp_sk(sk)->highest_sack == skb_unlinked)
-+		tcp_sk(sk)->highest_sack = NULL;
- }
- 
- static inline void tcp_init_send_head(struct sock *sk)
+Hmm I think that whoever removes the outermost vlan from skb->vlan_*
+should strip the next header into skb->vlan_*
