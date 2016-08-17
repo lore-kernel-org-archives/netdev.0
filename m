@@ -1,54 +1,59 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH v2 1/1] ppp: Fix one deadlock issue of PPP when send frame
-Date: Wed, 17 Aug 2016 19:42:19 +0200
-Message-ID: <20160817174219.y4opmhj4u77m3ufq@alphalink.fr>
-References: <1471347218-24472-1-git-send-email-fgao@ikuai8.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFC PATCH 3/5] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
+ commands
+Date: Wed, 17 Aug 2016 10:48:14 -0700
+Message-ID: <20160817174813.GA98226@ast-mbp.thefacebook.com>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+ <1471442448-1248-4-git-send-email-daniel@zonque.org>
+ <20160817142047.GB4021@htj.duckdns.org>
+ <95e8b773-416f-72cc-4045-dd10d94e6484@zonque.org>
+ <20160817150646.GB6299@htj.duckdns.org>
+ <7e607709-eca0-2ab6-2379-99cec519d859@zonque.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: paulus@samba.org, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
+Cc: Tejun Heo <htejun@fb.com>, daniel@iogearbox.net, ast@fb.com,
+	davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+	pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org
+To: Daniel Mack <daniel@zonque.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33756 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753023AbcHQRsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 13:48:21 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i6so8489588pfe.0
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 10:48:21 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1471347218-24472-1-git-send-email-fgao@ikuai8.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <7e607709-eca0-2ab6-2379-99cec519d859@zonque.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 16, 2016 at 07:33:38PM +0800, fgao@ikuai8.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
+On Wed, Aug 17, 2016 at 05:51:44PM +0200, Daniel Mack wrote:
+> On 08/17/2016 05:06 PM, Tejun Heo wrote:
+> > What I'd suggest is keeping two sets of pointers, one set for the
+> > programs explicitly attached to the cgroup and the other for programs
+> > which are to be executed for the cgroup.  The two pointers in the
+> > latter set will point to the closest non-null program in its ancestry.
+> > Note that the pointers may point to programs belonging to different
+> > ancestors.
+> > 
+> > 	A - B - C
+> >               \ D - E
+> > 
+> > Let's say B has both ingress and egress programs and D only has
+> > egress.  E's execution pointers should point to D's egress program and
+> > B's ingress program.
+> > 
+> > The pointers would need to be updated
+> > 
+> > 1. When a program is installed or removed.  For simplicity's sake, we
+> >    can just walk the whole hierarchy.  If that's too expensive
+> >    (shouldn't be), we can find out the closest ancestor where both
+> >    programs can be determined and then walk from there.
+> > 
+> > 2. When a new cgroup is created, it should inherit its execution table
+> >    from its parent.
 > 
-> PPP channel holds one spinlock before send frame. But the skb may
-> select the same PPP channel with wrong route policy. As a result,
-> the skb reaches the same channel path. It tries to get the same
-> spinlock which is held before. Bang, the deadlock comes out.
-> 
-Unless I misunderstood the problem you're trying to solve, this patch
-doesn't really help: deadlock still occurs if the same IP is used for
-L2TP and PPP's peer address.
+> Ok, yes, that sounds sane to me. Will implement that scheme.
 
-> Now add one lock owner to avoid it like xmit_lock_owner of
-> netdev_queue. Check the lock owner before try to get the spinlock.
-> If the current cpu is already the owner, needn't lock again. When
-> PPP channel holds the spinlock at the first time, it sets owner
-> with current CPU ID.
->
-I think you should forbid lock recursion entirely, and drop the packet
-if the owner tries to re-acquire the channel lock. Otherwise you just
-move the deadlock down the stack (l2tp_xmit_skb() can't be called
-recursively).
-
-> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-> index 70cfa06..6909ab1 100644
-> --- a/drivers/net/ppp/ppp_generic.c
-> +++ b/drivers/net/ppp/ppp_generic.c
-> @@ -162,6 +162,37 @@ struct ppp {
->  			 |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
->  			 |SC_COMP_TCP|SC_REJ_COMP_TCP|SC_MUST_COMP)
->  
-> +struct chennel_lock {
-            ^
-I guess you meant 'channel_lock'.
-
-> +	spinlock_t lock;
-> +	u32 owner;
-This field's default value is -1. So why not declaring it as 'int'?
+That makes sense to me as well. Sounds quite flexible and fast
+with only one check per packet per direction.
