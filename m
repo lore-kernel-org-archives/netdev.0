@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [RFC PATCH 01/13] net: sched: allow qdiscs to handle locking
-Date: Wed, 17 Aug 2016 15:33:00 -0700
-Message-ID: <1471473180.29842.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 17 Aug 2016 15:34:02 -0700
+Message-ID: <1471473242.29842.45.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
 	 <20160817193338.27032.71493.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
@@ -13,52 +13,49 @@ Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
 	davem@davemloft.net
 To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33851 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752435AbcHQWdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 18:33:03 -0400
-Received: by mail-pa0-f68.google.com with SMTP id hh10so158587pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 15:33:03 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34176 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753334AbcHQWeE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 18:34:04 -0400
+Received: by mail-pa0-f66.google.com with SMTP id hh10so160608pac.1
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 15:34:04 -0700 (PDT)
 In-Reply-To: <20160817193338.27032.71493.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, 2016-08-17 at 12:33 -0700, John Fastabend wrote:
-> This patch adds a flag for queueing disciplines to indicate the stack
-> does not need to use the qdisc lock to protect operations. This can
-> be used to build lockless scheduling algorithms and improving
-> performance.
-> 
-> The flag is checked in the tx path and the qdisc lock is only taken
-> if it is not set. For now use a conditional if statement. Later we
-> could be more aggressive if it proves worthwhile and use a static key
-> or wrap this in a likely().
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  include/net/pkt_sched.h   |    4 +++-
->  include/net/sch_generic.h |    1 +
->  net/core/dev.c            |   32 ++++++++++++++++++++++++++++----
->  net/sched/sch_generic.c   |   26 ++++++++++++++++----------
->  4 files changed, 48 insertions(+), 15 deletions(-)
-> 
-> diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
-> index 7caa99b..69540c6 100644
-> --- a/include/net/pkt_sched.h
-> +++ b/include/net/pkt_sched.h
-> @@ -107,8 +107,10 @@ void __qdisc_run(struct Qdisc *q);
+
+
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 4ce07dc..5db395d 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3076,6 +3076,26 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  	int rc;
 >  
->  static inline void qdisc_run(struct Qdisc *q)
->  {
-> -	if (qdisc_run_begin(q))
-> +	if (qdisc_run_begin(q)) {
->  		__qdisc_run(q);
-> +		qdisc_run_end(q);
+>  	qdisc_calculate_pkt_len(skb, q);
+> +
+> +	if (q->flags & TCQ_F_NOLOCK) {
+> +		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+> +			__qdisc_drop(skb, &to_free);
+> +			rc = NET_XMIT_DROP;
+> +		} else if ((q->flags & TCQ_F_CAN_BYPASS) && !qdisc_qlen(q)) {
+
+For a lockless qdisc, do you believe TCQ_F_CAN_BYPASS is still a gain ?
+
+Also !qdisc_qlen(q) looks racy anyway ?
+
+> +			qdisc_bstats_cpu_update(q, skb);
+> +			if (sch_direct_xmit(skb, q, dev, txq, root_lock, true))
+> +				__qdisc_run(q);
+> +			rc = NET_XMIT_SUCCESS;
+> +		} else {
+> +			rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
+> +			__qdisc_run(q);
+> +		}
+> +
+> +		if (unlikely(to_free))
+> +			kfree_skb_list(to_free);
+> +		return rc;
 > +	}
->  }
-
-
-Looks like you could have a separate patch, removing qdisc_run_end()
-call done in __qdisc_run(q) ?
-
-Then the 'allow qdiscs to handle locking'
+> +
