@@ -1,127 +1,73 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC PATCH 4/5] net: filter: run cgroup eBPF programs
-Date: Wed, 17 Aug 2016 11:23:29 -0700
-Message-ID: <20160817182327.GA99189@ast-mbp.thefacebook.com>
-References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
- <1471442448-1248-5-git-send-email-daniel@zonque.org>
- <20160817182027.GD98226@ast-mbp.thefacebook.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 17 Aug 2016 14:25:00 -0500
+Message-ID: <57B4BA0C.2080602@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org>
+ <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com>
+ <57B31780.5030106@codeaurora.org>
+ <f3a49762-aa66-1949-bd6b-77bd6a74acc1@linaro.org>
+ <57B3878D.1000805@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-	davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-	pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33239 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbcHQSXe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 14:23:34 -0400
-Received: by mail-pa0-f65.google.com with SMTP id vy10so7738601pac.0
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 11:23:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160817182027.GD98226@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Vikram Sethi <vikrams@codeaurora.org>,
+	Christopher Covington <cov@codeaurora.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Bjorn Andersson <bjorn.andersson@linaro.org>,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	"jcm@redhat.com" <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
+	David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	"Abdulhamid, Harb" <harba@codeaurora.org>
+To: Al Stone <al.stone@linaro.org>, Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <57B3878D.1000805@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 17, 2016 at 11:20:29AM -0700, Alexei Starovoitov wrote:
-> On Wed, Aug 17, 2016 at 04:00:47PM +0200, Daniel Mack wrote:
-> > If CONFIG_CGROUP_BPF is enabled, and the cgroup associated with the
-> > receiving socket has an eBPF programs installed, run them from
-> > sk_filter_trim_cap().
-> > 
-> > eBPF programs used in this context are expected to either return 1 to
-> > let the packet pass, or != 1 to drop them. The programs have access to
-> > the full skb, including the MAC headers.
-> > 
-> > This patch only implements the call site for ingress packets.
-> > 
-> > Signed-off-by: Daniel Mack <daniel@zonque.org>
-> > ---
-> >  net/core/filter.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
-> >  1 file changed, 44 insertions(+)
-> > 
-> > diff --git a/net/core/filter.c b/net/core/filter.c
-> > index c5d8332..a1dd94b 100644
-> > --- a/net/core/filter.c
-> > +++ b/net/core/filter.c
-> > @@ -52,6 +52,44 @@
-> >  #include <net/dst.h>
-> >  #include <net/sock_reuseport.h>
-> >  
-> > +#ifdef CONFIG_CGROUP_BPF
-> > +static int sk_filter_cgroup_bpf(struct sock *sk, struct sk_buff *skb,
-> > +				enum bpf_attach_type type)
-> > +{
-> > +	struct sock_cgroup_data *skcd = &sk->sk_cgrp_data;
-> > +	struct cgroup *cgrp = sock_cgroup_ptr(skcd);
-> > +	struct bpf_prog *prog;
-> > +	int ret = 0;
-> > +
-> > +	rcu_read_lock();
-> > +
-> > +	switch (type) {
-> > +	case BPF_ATTACH_TYPE_CGROUP_EGRESS:
-> > +		prog = rcu_dereference(cgrp->bpf_egress);
-> > +		break;
-> > +	case BPF_ATTACH_TYPE_CGROUP_INGRESS:
-> > +		prog = rcu_dereference(cgrp->bpf_ingress);
-> > +		break;
-> > +	default:
-> > +		WARN_ON_ONCE(1);
-> > +		ret = -EINVAL;
-> > +		break;
-> > +	}
-> > +
-> > +	if (prog) {
-> 
-> I really like how in this version of the patches it became
-> a single load+cmp of per-packet cost when this feature is off.
-> Please move
-> +	struct cgroup *cgrp = sock_cgroup_ptr(skcd);
-> into if (prog) {..}
-> to make sure it's actually single load.
-> The compiler cannot avoid that load when it's placed at the top.
+Timur Tabi wrote:
+>
+> The question, how should adpt->phy.version be initialized on device tree
+> and ACPI platforms?
+>
+> The reason why this is confusing is because there are conflicting
+> perspectives of this "internal PHY".  It both is and is not part of the
+> EMAC.  It is a separate block in the chip, and can be replaced with
+> other SGMII blocks, and in the future there will be a "v3" and maybe a
+> "v4" or who knows what.  In fact, maybe using version numbers is
+> inappropriate and we'll need to use vendor names or something.
+>
+> The problem is that the internal PHY has mechanism for
+> self-identification.  There is no ACPI or device tree node for it. There
+> is no register you can query to see if it's there or what version it
+> is.  The MAC part of the EMAC has no knowledge of the PHY part.  The
+> driver just has to know it's there.
+>
+> This is why I'm advocating a separate property (DT and ACPI) to identify
+> the internal PHY.
 
-sorry. brain fart. it is two loads. scratch that.
+So we had some internal discussion on this.  Different compatible 
+properties for DT are okay, and for ACPI we'll either create a 
+"phy-version" property (DT-like properties are called DSDs in ACPI) or 
+use an HRV (a specific property for the hardware version).
 
-> > +		unsigned int offset = skb->data - skb_mac_header(skb);
-> > +
-> > +		__skb_push(skb, offset);
-> > +		ret = bpf_prog_run_clear_cb(prog, skb) > 0 ? 0 : -EPERM;
-> 
-> that doesn't match commit log. The above '> 0' makes sense to me though.
-> If we want to do it for 1 only we have to define it in uapi/bpf.h
-> as action code, so we can extend to 2, 3 in the future if necessary.
-> 
-> It also have to be bpf_prog_run_save_cb() (as sk_filter_trim_cap() does)
-> instead of bpf_prog_run_clear_cb().
-> See commit ff936a04e5f2 ("bpf: fix cb access in socket filter programs")
-> 
-> > +		__skb_pull(skb, offset);
-> > +	}
-> > +
-> > +	rcu_read_unlock();
-> > +
-> > +	return ret;
-> > +}
-> > +#endif /* !CONFIG_CGROUP_BPF */
-> > +
-> >  /**
-> >   *	sk_filter_trim_cap - run a packet through a socket filter
-> >   *	@sk: sock associated with &sk_buff
-> > @@ -78,6 +116,12 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
-> >  	if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
-> >  		return -ENOMEM;
-> >  
-> > +#ifdef CONFIG_CGROUP_BPF
-> > +	err = sk_filter_cgroup_bpf(sk, skb, BPF_ATTACH_TYPE_CGROUP_INGRESS);
-> > +	if (err)
-> > +		return err;
-> > +#endif
-> > +
-> >  	err = security_sock_rcv_skb(sk, skb);
-> >  	if (err)
-> >  		return err;
-> > -- 
-> > 2.5.5
-> > 
+But this speaks to the greater problem of mapping DT compatible strings 
+to ACPI.  Like I said, the ACPI equivalent of a compatible string is the 
+HID.  But unlike DT, we cannot create new HIDs whenever we feel like it. 
+  The process for generating and assigning HIDs is much more involved, 
+and we do have a very limited namespace.
+
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
