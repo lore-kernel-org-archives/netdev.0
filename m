@@ -1,150 +1,128 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v8] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 17 Aug 2016 14:38:40 -0500
-Message-ID: <57B4BD40.1070703@codeaurora.org>
-References: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
- <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [RFC PATCH 12/13] net: sched: add support for TCQ_F_NOLOCK
+ subqueues to sch_mq
+Date: Wed, 17 Aug 2016 12:38:38 -0700
+Message-ID: <20160817193838.27032.29727.stgit@john-Precision-Tower-5810>
+References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	sdharia@codeaurora.org, shankerd@codeaurora.org,
-	vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
-	robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
-	mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
-	davem@davemloft.net, LinoSanfilippo@gmx.de
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	john.fastabend@gmail.com, davem@davemloft.net
+To: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
+	alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
+	brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33050 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753699AbcHQTi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 15:38:57 -0400
+Received: by mail-oi0-f68.google.com with SMTP id s207so13022875oie.0
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 12:38:57 -0700 (PDT)
+In-Reply-To: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli wrote:
-> On 08/11/2016 02:34 PM, Timur Tabi wrote:
->> >Add supports for ethernet controller HW on Qualcomm Technologies, Inc. SoC.
->> >This driver supports the following features:
->> >1) Checksum offload.
->> >2) Interrupt coalescing support.
->> >3) SGMII phy.
->> >4) phylib interface for external phy
+The sch_mq qdisc creates a sub-qdisc per tx queue which are then
+called independently for enqueue and dequeue operations. However
+statistics are aggregated and pushed up to the "master" qdisc.
 
-> OK, so this is looking good now, just a few nits, feel free to submit as
-> clean up patches, would this one be accepted.
+This patch adds support for any of the sub-qdiscs to be per cpu
+statistic qdiscs. To handle this case add a check when calculating
+stats and aggregate the per cpu stats if needed.
 
-I will post a v9.
+Also exports __gnet_stats_copy_queue() to use as a helper function.
 
->> >+soc {
->> >+	#address-cells = <1>;
->> >+	#size-cells = <1>;
->> >+	dma-ranges = <0 0 0xffffffff>;
->> >+
->> >+	emac0: ethernet@feb20000 {
->> >+		compatible = "qcom,fsm9900-emac";
->> >+		#address-cells = <1>;
->> >+		#size-cells = <1>;
->> >+		reg-names = "base", "csr", "ptp", "sgmii";
->> >+		reg =   <0xfeb20000 0x10000>,
->> >+			<0xfeb36000 0x1000>,
->> >+			<0xfeb3c000 0x4000>,
->> >+			<0xfeb38000 0x400>;
->> >+		interrupt-parent = <&emac0>;
->> >+		#interrupt-cells = <1>;
->> >+		interrupts = <76 80>;
->> >+		interrupt-names = "emac_core0", "sgmii_irq";
->> >+		phy0: ethernet-phy@0 {
->> >+			compatible = "qcom,fsm9900-emac-phy";
->> >+			reg = <0>;
->> >+		}
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ include/net/gen_stats.h |    3 +++
+ net/core/gen_stats.c    |    9 +++++----
+ net/sched/sch_mq.c      |   25 ++++++++++++++++++-------
+ 3 files changed, 26 insertions(+), 11 deletions(-)
 
-> If this is an external PHY, the expectation is that it will be hanging
-> off a MDIO bus controller, either the MDIO bus internal to the MAC, or
-> an external MDIO bus (separate register range).
-
-So for starters, I forgot to delete the 'compatible' property from this 
-document.  Its presence breaks of_mdiobus_child_is_phy().
-
-> If such a PHY node is provided, the expectation is that your Ethernet
-> MAC will have a phy-handle property and a phy-mode property to specify
-> how to connect to this external PHY, so in your specific case, better
-> remove the PHY from your example, or detail further how it should be done.
-
-Something is odd about of_mdiobus_register().
-
-This function scans child nodes to look for PHYs:
-
-/* Loop over the child nodes and register a phy_device for each phy */
-for_each_available_child_of_node(np, child) {
-	addr = of_mdio_parse_addr(&mdio->dev, child);
-
-And in my driver, this works.  However, later when I try to call 
-of_phy_find_device(), it fails.  That's because of_phy_find_device() 
-wants the np of the child node.  But the only way to get that is with a 
-phy-phandle property which I need to manually parse.
-
-So what's the point of having of_mdiobus_register() parse child nodes, 
-if you need a phy-phandle pointer anyway?
-
->> >diff --git a/drivers/net/ethernet/qualcomm/Kconfig b/drivers/net/ethernet/qualcomm/Kconfig
->> >index a76e380..85b599f 100644
->> >--- a/drivers/net/ethernet/qualcomm/Kconfig
->> >+++ b/drivers/net/ethernet/qualcomm/Kconfig
->> >@@ -24,4 +24,15 @@ config QCA7000
->> >  	  To compile this driver as a module, choose M here. The module
->> >  	  will be called qcaspi.
->> >
->> >+config QCOM_EMAC
->> >+	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
->> >+	select CRC32
-
-> select PHYLIB?
-
-Ok.
-
->> >diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
->> >index 9da2d75..1b3a0ce 100644
->> >--- a/drivers/net/ethernet/qualcomm/Makefile
->> >+++ b/drivers/net/ethernet/qualcomm/Makefile
->> >@@ -4,3 +4,5 @@
->> >
->> >  obj-$(CONFIG_QCA7000) += qcaspi.o
->> >  qcaspi-objs := qca_spi.o qca_framing.o qca_7k.o qca_debug.o
->> >+
->> >+obj-$(CONFIG_QCOM_EMAC) += emac/
-
-> Since you have a check on CONFIG_QCOM_EMAC in emac/Makefile, you could
-> always recurse into that directory while building (use obj-y).
-
-Obviously, having "obj-$(CONFIG_QCOM_EMAC)" in both Makefiles is 
-redundant, but wouldn't it make more sense to change 
-"obj-$(CONFIG_QCOM_EMAC)" to "obj-y" in 
-drivers/net/ethernet/qualcomm/emac/Makefile, so that I only recurse if 
-necessary?
-
->> >+static void emac_adjust_link(struct net_device *netdev)
->> >+{
->> >+	struct emac_adapter *adpt = netdev_priv(netdev);
->> >+	struct phy_device *phydev = netdev->phydev;
->> >+
->> >+	if (phydev->link)
->> >+		emac_mac_start(adpt);
->> >+	else
->> >+		emac_mac_stop(adpt);
-
-> This is really excessive here, you typically don't need to completely
-> stop your transmitter/receiver/DMA/what have you, just reprogram the MAC
-> with the appropriate link speed/duplex/pause parameters.
-
-Yes, I realize that a lot of the reinit code in my driver is "heavy", 
-and that it could be optimized for specific situations.  However, I'd 
-like to save that for another patch, because it would require me to 
-study the documentation and do extensive tests.
-
-I can't tell you today whether emac_mac_start() is overkill for the 
-specific link change.  For all I know, the hardware does require the TX 
-to stop before changing the link speed.  Remember, the EMAC does have a 
-weird double-phy (one internal, one external).
-
--- 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the
-Code Aurora Forum, hosted by The Linux Foundation.
+diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
+index 231e121..5ddc88b 100644
+--- a/include/net/gen_stats.h
++++ b/include/net/gen_stats.h
+@@ -47,6 +47,9 @@ int gnet_stats_copy_rate_est(struct gnet_dump *d,
+ int gnet_stats_copy_queue(struct gnet_dump *d,
+ 			  struct gnet_stats_queue __percpu *cpu_q,
+ 			  struct gnet_stats_queue *q, __u32 qlen);
++void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
++			     const struct gnet_stats_queue __percpu *cpu_q,
++			     const struct gnet_stats_queue *q, __u32 qlen);
+ int gnet_stats_copy_app(struct gnet_dump *d, void *st, int len);
+ 
+ int gnet_stats_finish_copy(struct gnet_dump *d);
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 508e051..a503547 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -254,10 +254,10 @@ __gnet_stats_copy_queue_cpu(struct gnet_stats_queue *qstats,
+ 	}
+ }
+ 
+-static void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
+-				    const struct gnet_stats_queue __percpu *cpu,
+-				    const struct gnet_stats_queue *q,
+-				    __u32 qlen)
++void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
++			     const struct gnet_stats_queue __percpu *cpu,
++			     const struct gnet_stats_queue *q,
++			     __u32 qlen)
+ {
+ 	if (cpu) {
+ 		__gnet_stats_copy_queue_cpu(qstats, cpu);
+@@ -271,6 +271,7 @@ static void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
+ 
+ 	qstats->qlen = qlen;
+ }
++EXPORT_SYMBOL(__gnet_stats_copy_queue);
+ 
+ /**
+  * gnet_stats_copy_queue - copy queue statistics into statistics TLV
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index b943982..f4b5bbb 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -17,6 +17,7 @@
+ #include <linux/skbuff.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/sch_generic.h>
+ 
+ struct mq_sched {
+ 	struct Qdisc		**qdiscs;
+@@ -107,15 +108,25 @@ static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	memset(&sch->qstats, 0, sizeof(sch->qstats));
+ 
+ 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
++		struct gnet_stats_basic_cpu __percpu *cpu_bstats = NULL;
++		struct gnet_stats_queue __percpu *cpu_qstats = NULL;
++		__u32 qlen = 0;
++
+ 		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
+ 		spin_lock_bh(qdisc_lock(qdisc));
+-		sch->q.qlen		+= qdisc->q.qlen;
+-		sch->bstats.bytes	+= qdisc->bstats.bytes;
+-		sch->bstats.packets	+= qdisc->bstats.packets;
+-		sch->qstats.backlog	+= qdisc->qstats.backlog;
+-		sch->qstats.drops	+= qdisc->qstats.drops;
+-		sch->qstats.requeues	+= qdisc->qstats.requeues;
+-		sch->qstats.overlimits	+= qdisc->qstats.overlimits;
++
++		if (qdisc_is_percpu_stats(qdisc)) {
++			cpu_bstats = qdisc->cpu_bstats;
++			cpu_qstats = qdisc->cpu_qstats;
++		}
++
++		qlen = qdisc_qlen_sum(qdisc);
++
++		__gnet_stats_copy_basic(NULL, &sch->bstats,
++					cpu_bstats, &qdisc->bstats);
++		__gnet_stats_copy_queue(&sch->qstats,
++					cpu_qstats, &qdisc->qstats, qlen);
++
+ 		spin_unlock_bh(qdisc_lock(qdisc));
+ 	}
+ 	return 0;
