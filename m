@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [RFC PATCH 12/13] net: sched: add support for TCQ_F_NOLOCK
- subqueues to sch_mq
-Date: Wed, 17 Aug 2016 12:38:38 -0700
-Message-ID: <20160817193838.27032.29727.stgit@john-Precision-Tower-5810>
+Subject: [RFC PATCH 13/13] net: sched: add support for TCQ_F_NOLOCK
+ subqueues to sch_mqprio
+Date: Wed, 17 Aug 2016 12:39:03 -0700
+Message-ID: <20160817193903.27032.64975.stgit@john-Precision-Tower-5810>
 References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,17 +13,17 @@ To: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
 	alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
 	brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33050 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753699AbcHQTi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 15:38:57 -0400
-Received: by mail-oi0-f68.google.com with SMTP id s207so13022875oie.0
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 12:38:57 -0700 (PDT)
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:36017 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833AbcHQTjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 15:39:37 -0400
+Received: by mail-oi0-f66.google.com with SMTP id b22so13016998oii.3
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 12:39:36 -0700 (PDT)
 In-Reply-To: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sch_mq qdisc creates a sub-qdisc per tx queue which are then
+The sch_mqprio qdisc creates a sub-qdisc per tx queue which are then
 called independently for enqueue and dequeue operations. However
 statistics are aggregated and pushed up to the "master" qdisc.
 
@@ -31,77 +31,34 @@ This patch adds support for any of the sub-qdiscs to be per cpu
 statistic qdiscs. To handle this case add a check when calculating
 stats and aggregate the per cpu stats if needed.
 
-Also exports __gnet_stats_copy_queue() to use as a helper function.
-
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/gen_stats.h |    3 +++
- net/core/gen_stats.c    |    9 +++++----
- net/sched/sch_mq.c      |   25 ++++++++++++++++++-------
- 3 files changed, 26 insertions(+), 11 deletions(-)
+ net/sched/sch_mqprio.c |   61 +++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 39 insertions(+), 22 deletions(-)
 
-diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
-index 231e121..5ddc88b 100644
---- a/include/net/gen_stats.h
-+++ b/include/net/gen_stats.h
-@@ -47,6 +47,9 @@ int gnet_stats_copy_rate_est(struct gnet_dump *d,
- int gnet_stats_copy_queue(struct gnet_dump *d,
- 			  struct gnet_stats_queue __percpu *cpu_q,
- 			  struct gnet_stats_queue *q, __u32 qlen);
-+void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
-+			     const struct gnet_stats_queue __percpu *cpu_q,
-+			     const struct gnet_stats_queue *q, __u32 qlen);
- int gnet_stats_copy_app(struct gnet_dump *d, void *st, int len);
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 549c663..24f0360 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -229,22 +229,32 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tc_mqprio_qopt opt = { 0 };
+ 	struct Qdisc *qdisc;
+-	unsigned int i;
++	unsigned int ntx, tc;
  
- int gnet_stats_finish_copy(struct gnet_dump *d);
-diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-index 508e051..a503547 100644
---- a/net/core/gen_stats.c
-+++ b/net/core/gen_stats.c
-@@ -254,10 +254,10 @@ __gnet_stats_copy_queue_cpu(struct gnet_stats_queue *qstats,
- 	}
- }
- 
--static void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
--				    const struct gnet_stats_queue __percpu *cpu,
--				    const struct gnet_stats_queue *q,
--				    __u32 qlen)
-+void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
-+			     const struct gnet_stats_queue __percpu *cpu,
-+			     const struct gnet_stats_queue *q,
-+			     __u32 qlen)
- {
- 	if (cpu) {
- 		__gnet_stats_copy_queue_cpu(qstats, cpu);
-@@ -271,6 +271,7 @@ static void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
- 
- 	qstats->qlen = qlen;
- }
-+EXPORT_SYMBOL(__gnet_stats_copy_queue);
- 
- /**
-  * gnet_stats_copy_queue - copy queue statistics into statistics TLV
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index b943982..f4b5bbb 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -17,6 +17,7 @@
- #include <linux/skbuff.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
-+#include <net/sch_generic.h>
- 
- struct mq_sched {
- 	struct Qdisc		**qdiscs;
-@@ -107,15 +108,25 @@ static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	sch->q.qlen = 0;
+ 	memset(&sch->bstats, 0, sizeof(sch->bstats));
  	memset(&sch->qstats, 0, sizeof(sch->qstats));
  
- 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
+-	for (i = 0; i < dev->num_tx_queues; i++) {
+-		qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
++	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
 +		struct gnet_stats_basic_cpu __percpu *cpu_bstats = NULL;
 +		struct gnet_stats_queue __percpu *cpu_qstats = NULL;
 +		__u32 qlen = 0;
 +
- 		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
++		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
  		spin_lock_bh(qdisc_lock(qdisc));
 -		sch->q.qlen		+= qdisc->q.qlen;
 -		sch->bstats.bytes	+= qdisc->bstats.bytes;
@@ -125,4 +82,60 @@ index b943982..f4b5bbb 100644
 +
  		spin_unlock_bh(qdisc_lock(qdisc));
  	}
- 	return 0;
+ 
+@@ -252,9 +262,9 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	memcpy(opt.prio_tc_map, dev->prio_tc_map, sizeof(opt.prio_tc_map));
+ 	opt.hw = priv->hw_owned;
+ 
+-	for (i = 0; i < netdev_get_num_tc(dev); i++) {
+-		opt.count[i] = dev->tc_to_txq[i].count;
+-		opt.offset[i] = dev->tc_to_txq[i].offset;
++	for (tc = 0; tc < netdev_get_num_tc(dev); tc++) {
++		opt.count[tc] = dev->tc_to_txq[tc].count;
++		opt.offset[tc] = dev->tc_to_txq[tc].offset;
+ 	}
+ 
+ 	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
+@@ -332,7 +342,6 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 	if (cl <= netdev_get_num_tc(dev)) {
+ 		int i;
+ 		__u32 qlen = 0;
+-		struct Qdisc *qdisc;
+ 		struct gnet_stats_queue qstats = {0};
+ 		struct gnet_stats_basic_packed bstats = {0};
+ 		struct netdev_tc_txq tc = dev->tc_to_txq[cl - 1];
+@@ -347,18 +356,26 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 
+ 		for (i = tc.offset; i < tc.offset + tc.count; i++) {
+ 			struct netdev_queue *q = netdev_get_tx_queue(dev, i);
++			struct Qdisc *qdisc = rtnl_dereference(q->qdisc);
++			struct gnet_stats_basic_cpu __percpu *cpu_bstats = NULL;
++			struct gnet_stats_queue __percpu *cpu_qstats = NULL;
+ 
+-			qdisc = rtnl_dereference(q->qdisc);
+ 			spin_lock_bh(qdisc_lock(qdisc));
+-			qlen		  += qdisc->q.qlen;
+-			bstats.bytes      += qdisc->bstats.bytes;
+-			bstats.packets    += qdisc->bstats.packets;
+-			qstats.backlog    += qdisc->qstats.backlog;
+-			qstats.drops      += qdisc->qstats.drops;
+-			qstats.requeues   += qdisc->qstats.requeues;
+-			qstats.overlimits += qdisc->qstats.overlimits;
++			if (qdisc_is_percpu_stats(qdisc)) {
++				cpu_bstats = qdisc->cpu_bstats;
++				cpu_qstats = qdisc->cpu_qstats;
++			}
++
++			qlen = qdisc_qlen_sum(qdisc);
++			__gnet_stats_copy_basic(NULL, &sch->bstats,
++						cpu_bstats, &qdisc->bstats);
++			__gnet_stats_copy_queue(&sch->qstats,
++						cpu_qstats,
++						&qdisc->qstats,
++						qlen);
+ 			spin_unlock_bh(qdisc_lock(qdisc));
+ 		}
++
+ 		/* Reclaim root sleeping lock before completing stats */
+ 		if (d->lock)
+ 			spin_lock_bh(d->lock);
