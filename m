@@ -1,90 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net v2 02/10] mlxsw: spectrum: Remove redundant errors from the code
-Date: Wed, 17 Aug 2016 16:39:29 +0200
-Message-ID: <1471444777-3412-3-git-send-email-jiri@resnulli.us>
-References: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	ilant@mellanox.com
-To: netdev@vger.kernel.org
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: kernel panic TPROXY , vanilla 4.7.1
+Date: Wed, 17 Aug 2016 17:31:20 +0300
+Message-ID: <627722c51d9ce454dfaf1a79519ceb59@nuclearcat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35735 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472AbcHQOjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 10:39:43 -0400
-Received: by mail-wm0-f68.google.com with SMTP id i5so24834165wmg.2
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 07:39:42 -0700 (PDT)
-In-Reply-To: <1471444777-3412-1-git-send-email-jiri@resnulli.us>
+Received: from nuclearcat.com ([144.76.183.226]:60144 "EHLO nuclearcat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752255AbcHQOtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2016 10:49:09 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by nuclearcat.com (Postfix) with ESMTP id 73E3F67C0088
+	for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 14:31:22 +0000 (UTC)
+Received: from nuclearcat.com ([127.0.0.1])
+	by localhost (nuclearcat.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id ZNY5XfOewPrm for <netdev@vger.kernel.org>;
+	Wed, 17 Aug 2016 14:31:20 +0000 (UTC)
+Received: from germany.nuclearcat.com (localhost [127.0.0.1])
+	(Authenticated sender: nuclearcat@nuclearcat.com)
+	by nuclearcat.com (Postfix) with ESMTPA id B783D67C0087
+	for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 14:31:20 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+Hi!
 
-Currently, when device configuration fails we emit errors to the kernel
-log despite the fact we already get these from the EMAD transaction
-layer, so remove them.
+Tried to run squid on latest kernel, and hit a panic
+Sometimes it just shows warning in dmesg (but doesnt work properly)
+[   75.701666] IPv4: Attempt to release TCP socket in state 10 
+ffff88102d430780
+[   83.866974] squid (2700) used greatest stack depth: 12912 bytes left
+[   87.506644] IPv4: Attempt to release TCP socket in state 10 
+ffff880078a48780
+[  114.704295] IPv4: Attempt to release TCP socket in state 10 
+ffff881029f8ad00
 
-In addition to being unnecessary, removing these error messages will
-allow us to reuse mlxsw_sp_port_add_vid() to create the PVID vPort
-before registering the netdevice.
+I cannot catch yet oops/panic message, netconsole not working.
 
-Fixes: 99724c18fc66 ("mlxsw: spectrum: Introduce support for router interfaces")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 21 +++++----------------
- 1 file changed, 5 insertions(+), 16 deletions(-)
+After triggering warning message 3 times, i am unable to run squid 
+anymore (without reboot), and in netstat it doesnt show port running.
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 76b53ed..a9281afc 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -956,16 +956,12 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 	if (!vid)
- 		return 0;
- 
--	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid)) {
--		netdev_warn(dev, "VID=%d already configured\n", vid);
-+	if (mlxsw_sp_port_vport_find(mlxsw_sp_port, vid))
- 		return 0;
--	}
- 
- 	mlxsw_sp_vport = mlxsw_sp_port_vport_create(mlxsw_sp_port, vid);
--	if (!mlxsw_sp_vport) {
--		netdev_err(dev, "Failed to create vPort for VID=%d\n", vid);
-+	if (!mlxsw_sp_vport)
- 		return -ENOMEM;
--	}
- 
- 	/* When adding the first VLAN interface on a bridged port we need to
- 	 * transition all the active 802.1Q bridge VLANs to use explicit
-@@ -973,24 +969,17 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 	 */
- 	if (list_is_singular(&mlxsw_sp_port->vports_list)) {
- 		err = mlxsw_sp_port_vp_mode_trans(mlxsw_sp_port);
--		if (err) {
--			netdev_err(dev, "Failed to set to Virtual mode\n");
-+		if (err)
- 			goto err_port_vp_mode_trans;
--		}
- 	}
- 
- 	err = mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
--	if (err) {
--		netdev_err(dev, "Failed to disable learning for VID=%d\n", vid);
-+	if (err)
- 		goto err_port_vid_learning_set;
--	}
- 
- 	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, untagged);
--	if (err) {
--		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
--			   vid);
-+	if (err)
- 		goto err_port_add_vid;
--	}
- 
- 	return 0;
- 
--- 
-2.5.5
+firewall is:
+*mangle
+-A PREROUTING -p tcp -m socket -j DIVERT
+-A PREROUTING -p tcp -m tcp --dport 80 -i eno1 -j TPROXY --on-port 3129 
+--on-ip 0.0.0.0 --tproxy-mark 0x1/0x1
+-A DIVERT -j MARK --set-xmark 0x1/0xffffffff
+-A DIVERT -j ACCEPT
+
+routing
+ip rule add fwmark 1 lookup 100
+ip route add local default dev eno1 table 100
+
+
+squid config is default with tproxy option
+http_port 3129 tproxy
