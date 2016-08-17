@@ -1,55 +1,71 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net] cxgb4: Fixes resource allocation for ULD's in kdump kernel
-Date: Wed, 17 Aug 2016 14:09:28 +0530
-Message-ID: <1471423168-7354-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] sctp: fix a success return may hide an error
+Date: Wed, 17 Aug 2016 09:01:38 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB00E0D2A@AcuExch.aculab.com>
+References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+ <20160812.211113.1099230839994600349.davem@davemloft.net>
+ <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
+ <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
+ <20160816172447.GC3110@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: 'Xin Long' <lucien.xin@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	Vladislav Yasevich <vyasevich@gmail.com>,
+	"daniel@iogearbox.net" <daniel@iogearbox.net>
+To: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:13813 "EHLO
-	stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751352AbcHQIeQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 04:34:16 -0400
+Received: from smtp-out4.electric.net ([192.162.216.193]:54754 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910AbcHQJEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 05:04:08 -0400
+In-Reply-To: <20160816172447.GC3110@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At present the code to check in kdump kernel was not disabling
-allocation of resources when CONFIG_CHELSIO_T4_DCB is defined, move the
-code outside #defines so that it gets disabled irrespective of #define,
-when in kdump kernel.
+From: Marcelo Ricardo Leitner
+> Sent: 16 August 2016 18:25
+...
+> > That doesn't seem a good idea.
+> > You don't want to abort the association if there is a transient
+> > memory allocation failure.
+> > You also can't drop data chunks.
+> 
+> From a system-wise POV, this behavior - to free the new asoc in case of
+> transient memory allocation failure - doesn't seem bad to me.
+> That's what will have to happen if any allocation before it failed and
+> also it helps the system to reduce the stress a little bit. I don't see
+> any inconsistency/problems here because we are not dropping a single
+> random chunk but instead we are actually refusing to initialize a new
+> asoc in such conditions.
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Failing a new association should be ok, whether purists will like
+connect() failing ENOMEM is another matter.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c45de49dc963..c762a8c8c954 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4335,6 +4335,11 @@ static void cfg_queues(struct adapter *adap)
- #endif
- 	int ciq_size;
- 
-+	/* Reduce memory usage in kdump environment, disable all offload.
-+	 */
-+	if (is_kdump_kernel())
-+		adap->params.offload = 0;
-+
- 	for_each_port(adap, i)
- 		n10g += is_x_10g_port(&adap2pinfo(adap, i)->link_cfg);
- #ifdef CONFIG_CHELSIO_T4_DCB
-@@ -4365,11 +4370,6 @@ static void cfg_queues(struct adapter *adap)
- 	if (q10g > netif_get_num_default_rss_queues())
- 		q10g = netif_get_num_default_rss_queues();
- 
--	/* Reduce memory usage in kdump environment, disable all offload.
--	 */
--	if (is_kdump_kernel())
--		adap->params.offload = 0;
--
- 	for_each_port(adap, i) {
- 		struct port_info *pi = adap2pinfo(adap, i);
- 
--- 
-2.3.4
+> Nevertheless, I agree that letting the application see ENOMEM errors when
+> the data actually got queued and is being fully handled, as in, it will
+> be retransmitted later, is not be wise, as the application probably
+> won't be able to distinguish from ENOMEMs that it should retry or not.
+
+I think an application would be justified in thinking that an ENOMEM return
+meant that the system call had no effect.
+
+For send() even ENOMEM is really wrong, it should be treated as 'flow control'
+and either block or return EAGAIN/EWOULDBLOCK.
+Getting POLLOUT set is left as an exercise to the reader :-)
+
+...
+> Well, it may be, but we are trying to improve it.  Please continue
+> discussing the fixes so we can keep improving it. :)
+
+Indeed, we have customers who use sctp (for M3UA).
+We don't do anything 'complicated', but do end up sending a lot of short
+data chunks.
+
+	David
