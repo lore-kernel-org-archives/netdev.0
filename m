@@ -1,44 +1,38 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH net] net: bgmac: fix reversed check for MII registration error
-Date: Wed, 17 Aug 2016 15:37:14 +0200
-Message-ID: <1471441051-2130-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Jon Mason <jon.mason@broadcom.com>,
-	linux-kernel@vger.kernel.org (open list)
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: [PATCH v2 1/2] kaweth: fix firmware download
+Date: Wed, 17 Aug 2016 15:51:55 +0200
+Message-ID: <1471441916-19656-2-git-send-email-oneukum@suse.com>
+References: <1471441916-19656-1-git-send-email-oneukum@suse.com>
+Cc: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471441916-19656-1-git-send-email-oneukum-IBi9RG/b67k@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Rafał Miłecki <rafal@milecki.pl>
+This fixes the oops discovered by the Umap2 project and Alan Stern.
+The intf member needs to be set before the firmware is downloaded.
 
-It was failing on successful registration returning meaningless errors.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
-Fixes: 55954f3bfdac ("net: ethernet: bgmac: move BCMA MDIO Phy code into a separate file")
+Signed-off-by: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
 ---
-This fix is intendent for net repository (4.8 release).
----
- drivers/net/ethernet/broadcom/bgmac-bcma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/usb/kaweth.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-index 9a9745c4..625235d 100644
---- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -159,7 +159,7 @@ static int bgmac_probe(struct bcma_device *core)
+diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+index 770212b..37bf715 100644
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -1029,6 +1029,7 @@ static int kaweth_probe(
+ 	kaweth = netdev_priv(netdev);
+ 	kaweth->dev = udev;
+ 	kaweth->net = netdev;
++	kaweth->intf = intf;
  
- 	if (!bgmac_is_bcm4707_family(core)) {
- 		mii_bus = bcma_mdio_mii_register(core, bgmac->phyaddr);
--		if (!IS_ERR(mii_bus)) {
-+		if (IS_ERR(mii_bus)) {
- 			err = PTR_ERR(mii_bus);
- 			goto err;
- 		}
--- 
-1.8.4.5
+ 	spin_lock_init(&kaweth->device_lock);
+ 	init_waitqueue_head(&kaweth->term_wait);
+@@ -1139,8 +1140,6 @@ err_fw:
+ 
+ 	dev_dbg(dev, "Initializing net device.\n");
+ 
+-	kaweth->intf = intf;
