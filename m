@@ -1,52 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: ipv4: fix sparse error in fib_good_nh()
-Date: Thu, 18 Aug 2016 10:19:34 -0700
-Message-ID: <1471540774.29842.76.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        David Ahern <dsa@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40e/i40evf: Reset VLAN filter count when resetting
+Date: Thu, 18 Aug 2016 14:57:24 -0700
+Message-ID: <1471557456-136741-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36270 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753982AbcHSDBC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 23:01:02 -0400
-Received: by mail-pf0-f195.google.com with SMTP id y134so689516pfg.3
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 20:00:21 -0700 (PDT)
+Received: from mga02.intel.com ([134.134.136.20]:34218 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753682AbcHSD3c (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 23:29:32 -0400
+In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Fixes following sparse errors :
+When we do a reset, all the VLAN filters get added again. Therefore we also
+want to reset the VLAN count to 0 or we quickly run out of filters.
 
-net/ipv4/fib_semantics.c:1579:61: warning: incorrect type in argument 2
-(different base types)
-net/ipv4/fib_semantics.c:1579:61:    expected unsigned int [unsigned]
-[usertype] key
-net/ipv4/fib_semantics.c:1579:61:    got restricted __be32 const
-[usertype] nh_gw
-
-
-Fixes: a6db4494d218c ("net: ipv4: Consider failed nexthops in multipath routes")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Change-ID: I459f26851e22204dc8b8999928ad87cde8170119
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv4/fib_semantics.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 539fa264e67d..8066ccc48a17 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -1576,7 +1576,8 @@ static bool fib_good_nh(const struct fib_nh *nh)
- 
- 		rcu_read_lock_bh();
- 
--		n = __ipv4_neigh_lookup_noref(nh->nh_dev, nh->nh_gw);
-+		n = __ipv4_neigh_lookup_noref(nh->nh_dev,
-+					      (__force u32)nh->nh_gw);
- 		if (n)
- 			state = n->nud_state;
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 6fcbf76..0fa050a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -992,6 +992,7 @@ complete_reset:
+ 		set_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
+ 		clear_bit(I40E_VF_STAT_DISABLED, &vf->vf_states);
+ 		i40e_notify_client_of_vf_reset(pf, abs_vf_id);
++		vf->num_vlan = 0;
+ 	}
+ 	/* tell the VF the reset is done */
+ 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
+-- 
+2.7.4
