@@ -1,7 +1,8 @@
 From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Subject: [PATCH V2 00/10] microblaze/MIPS: xilfpga: intc and peripheral
-Date: Thu, 18 Aug 2016 14:43:14 +0100
-Message-ID: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+Subject: [PATCH V2 02/10] irqchip: xilinx: Add support for parent intc
+Date: Thu, 18 Aug 2016 14:43:16 +0100
+Message-ID: <1471527804-26175-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+References: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <jason@lakedaemon.net>, <marc.zyngier@arm.com>,
@@ -9,6 +10,7 @@ Cc: <jason@lakedaemon.net>, <marc.zyngier@arm.com>,
         <netdev@vger.kernel.org>, <Zubair.Kakakhel@imgtec.com>
 To: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>
 Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-help: <mailto:ecartis@linux-mips.org?Subject=help>
@@ -20,56 +22,78 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+The MIPS based xilfpga platform has the following IRQ structure
 
-The MIPS based Xilfpga platform uses the axi interrupt controller
-daisy chained to the MIPS microAptiv cpu interrupt controller.
-This patch series moves the axi interrupt controller driver out
-of arch/microblaze to drivers/irqchip. This makes it usable by
-MIPS. The rest of the series basically enables drivers and adds dt
-nodes.
+Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
 
-Would make sense for this to go via the MIPS tree.
-Hence, ACKs from microblaze. irqchip and net welcome.
+Add support for the driver to chain the irq handler
 
-Compile tested on microblaze-el only!
-Based on v4.8-rc2
+Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
 
-Regards,
-ZubairLK
-
+---
 V1 -> V2
-Resubmitting without truncating the diff output for file moves
-Removed accidental local mac address entry
-Individual logs have more detail
 
-Zubair Lutfullah Kakakhel (10):
-  microblaze: irqchip: Move intc driver to irqchip
-  irqchip: xilinx: Add support for parent intc
-  MIPS: xilfpga: Use irqchip_init instead of the legacy way
-  MIPS: xilfpga: Use Xilinx AXI Interrupt Controller
-  MIPS: xilfpga: Update DT node and specify uart irq
-  MIPS: Xilfpga: Add DT node for AXI I2C
-  net: ethernet: xilinx: Generate random mac if none found
-  net: ethernet: xilinx: Enable emaclite for MIPS
-  MIPS: xilfpga: Add DT node for AXI emaclite
-  MIPS: xilfpga: Update defconfig
+No change
+---
+ drivers/irqchip/irq-axi-intc.c | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
 
- arch/microblaze/Kconfig                       |   1 +
- arch/microblaze/kernel/Makefile               |   2 +-
- arch/microblaze/kernel/intc.c                 | 196 -----------------------
- arch/mips/Kconfig                             |   1 +
- arch/mips/boot/dts/xilfpga/nexys4ddr.dts      |  63 ++++++++
- arch/mips/configs/xilfpga_defconfig           |  37 ++++-
- arch/mips/xilfpga/intc.c                      |   7 +-
- drivers/irqchip/Kconfig                       |   4 +
- drivers/irqchip/Makefile                      |   1 +
- drivers/irqchip/irq-axi-intc.c                | 222 ++++++++++++++++++++++++++
- drivers/net/ethernet/xilinx/Kconfig           |   4 +-
- drivers/net/ethernet/xilinx/xilinx_emaclite.c |   6 +-
- 12 files changed, 337 insertions(+), 207 deletions(-)
- delete mode 100644 arch/microblaze/kernel/intc.c
- create mode 100644 drivers/irqchip/irq-axi-intc.c
-
+diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
+index 90bec7d..a0be6fa 100644
+--- a/drivers/irqchip/irq-axi-intc.c
++++ b/drivers/irqchip/irq-axi-intc.c
+@@ -15,6 +15,7 @@
+ #include <linux/of_address.h>
+ #include <linux/io.h>
+ #include <linux/bug.h>
++#include <linux/of_irq.h>
+ 
+ static void __iomem *intc_baseaddr;
+ 
+@@ -135,11 +136,26 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
+ 	.map = xintc_map,
+ };
+ 
++static void xil_intc_irq_handler(struct irq_desc *desc)
++{
++	u32 pending = get_irq();
++
++	if (pending != -1U) {
++		while (true) {
++			pending = get_irq();
++			generic_handle_irq(pending);
++			if (pending == -1U)
++				break;
++		}
++	}
++}
++
+ static int __init xilinx_intc_of_init(struct device_node *intc,
+ 					     struct device_node *parent)
+ {
+ 	u32 nr_irq, intr_mask;
+-	int ret;
++	int ret, irq;
++	struct device_node *parent_node;
+ 
+ 	intc_baseaddr = of_iomap(intc, 0);
+ 	BUG_ON(!intc_baseaddr);
+@@ -188,6 +204,16 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
+ 	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+ 							(void *)intr_mask);
+ 
++	parent_node = of_irq_find_parent(intc);
++	if (parent_node) {
++		irq = irq_of_parse_and_map(intc, 0);
++		if (irq)
++			irq_set_chained_handler_and_data(irq,
++							 xil_intc_irq_handler,
++							 root_domain);
++
++	}
++
+ 	irq_set_default_host(root_domain);
+ 
+ 	return 0;
 -- 
 1.9.1
