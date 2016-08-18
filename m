@@ -1,95 +1,281 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
-Date: Thu, 18 Aug 2016 09:09:17 -0700
-Message-ID: <3D5C1ACB-4338-4A9F-9BCC-0424A1793664@gmail.com>
-References: <1470255143-3979-1-git-send-email-timur@codeaurora.org> <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org> <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com> <57B31780.5030106@codeaurora.org> <f3a49762-aa66-1949-bd6b-77bd6a74acc1@linaro.org> <57B3878D.1000805@codeaurora.org> <ff901f77-2177-52a7-2464-2f61495f91be@gmail.com> <57B4C6EE.3080903@codeaurora.org> <57B4E5F7.9040500@codeaurora.org> <bec781c6-2db9-02c7-687d-b5d6ee50c129@gmail.com> <57B52B17.1080809@codeaurora.org> <5CCEFB33-8F93-40D7-BD32-ACDE1CBA586D@gmail.com> <57B5374B.6010805@codeaurora.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-        Sagar Dharia <sdharia@codeaurora.org>,
-        Shanker Donthineni <shankerd@codeaurora.org>,
-        Vikram Sethi <vikrams@codeaurora.org>,
-        Christopher Covington <cov@codeaurora.org>,
-        Gilad Avidov <gavidov@codeaurora.org>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Mark Langsdorf <mlangsdo@redhat.com>,
-        "jcm@redhat.com" <jcm@redhat.com>,
-        Andy Gross <agross@codeaurora.org>,
-        David Miller <davem@davemloft.net>,
-        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        "Abdulhamid, Harb" <harba@codeaurora.org>
-To: Timur Tabi <timur@codeaurora.org>, Al Stone <al.stone@linaro.org>,
-        Rob Herring <robh@kernel.org>
+Subject: [PATCH net-next 3/5] net: dsa: bcm_sf2: Make it a real platform device driver
+Date: Thu, 18 Aug 2016 15:30:14 -0700
+Message-ID: <1471559416-13249-4-git-send-email-f.fainelli@gmail.com>
+References: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:34631 "EHLO
-        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754594AbcHSBKc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:10:32 -0400
-In-Reply-To: <57B5374B.6010805@codeaurora.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34063 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754572AbcHSBEl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:04:41 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g202so561017pfb.1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 18:03:52 -0700 (PDT)
+In-Reply-To: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On August 17, 2016 9:19:23 PM PDT, Timur Tabi <timur@codeaurora.org> wrote:
->Florian Fainelli wrote:
->> The larger issue is that the emac_sgmii node in the form you posted
->> is going to be backed by a platform device in Linux while you want a
->> PHY device with a reg property that describes a MDIO address
->> (#address-cells = 1, #size-cells = 0).
->
->But how do I get the platform device for the emac_sgmii node?  If I 
->create an of_device_id ID for it, like this:
->
->static const struct of_device_id emac_dt_match[] = {
->	{
->		.compatible = "qcom,fsm9900-emac",
->	},
->	{}
->};
->
->static const struct of_device_id emac_sgmii_dt_match[] = {
->	{
->		.compatible = "qcom,fsm9900-emac-sgmii",
->	},
->	{}
->};
->
->Then the probe function will be called for qcom,fsm9900-emac-sgmii 
->separately from qcom,fsm9900-emac, which just confuses things. So I 
->can't create emac_sgmii_dt_match.
->
->I know this is standard DT stuff, and I used to do a lot of work on DT 
->so maybe I should know this already.  But it seems to me that I need to
->
->manually create the platform_device for qcom,fsm9900-emac-sgmii.
+The Broadcom Starfighter 2 switch driver should be a proper platform
+driver, now that the DSA code has been updated to allow that, register a
+switch device, feed it with the proper configuration data coming from
+Device Tree and register our switch device with DSA.
 
-There is a helper function to obtain the platform device associated with a device_node: of_find_device_by_node. AFAICT probe ordering is based on DT ordering, but if there was a dependency order to solve you could use EPROBE_DEFER until the emac driver finds its dependencies.
+The bulk of the changes consist in moving what bcm_sf2_sw_setup() did
+into the platform driver probe function.
 
->
->> IIRC the amd xgbe driver mainline had a similar design but still
->> implemented a PHY device anyway although it may not have been using
->> Device Tree. It should still be possible to implement a PHY driver
->> that you manually register and bind to its device_node pointer such
->> that of_phy_find_device and friends still work. You would do this
->> from the emac_sgmii platform device driver and parent devices in a
->> way that satisfy the PHY device driver lifecycle as well.
->>
->> Hope this helps.
->
->It doesn't, sorry.  The emac_sgmii is really just another register
->block 
->for the driver to program.  Creating another PHY driver for it doesn't 
->really make sense.  It's not on an MDIO bus.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.c | 178 ++++++++++++++++++++++++++++++----------------
+ net/dsa/dsa.c             |   1 -
+ 2 files changed, 118 insertions(+), 61 deletions(-)
 
-First of a PHY does not have to be on a MDIO bus, it just happens to be the most common thing, and second, this is a PHY of some kind as far as the Ethernet MAC is concerned and this is the abstraction you want at the MAC driver level so you can plug arbitrary external PHYs or internal PHYs irrespective of their backing transport/bus layer.
-
-As long as your DT representation is sane and accurate, however this ends up being implemented matters less. Whether the PHY device model suits you here, you need to tell the emac0 node that it is bound to the emac_sgmii node somehow since there is programming of this block required for operating and for that a phandle property of some kind is required, phy-handle is a standard one which would help with the driver acceptance IMHO.
-
-
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index b2b838724a9b..fe1cc92f72a8 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1571,23 +1571,84 @@ static int bcm_sf2_sw_vlan_dump(struct dsa_switch *ds, int port,
+ 
+ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ {
+-	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+-	struct device_node *dn;
+-	void __iomem **base;
+ 	unsigned int port;
++
++	/* Enable all valid ports and disable those unused */
++	for (port = 0; port < priv->hw_params.num_ports; port++) {
++		/* IMP port receives special treatment */
++		if ((1 << port) & ds->enabled_port_mask)
++			bcm_sf2_port_setup(ds, port, NULL);
++		else if (dsa_is_cpu_port(ds, port))
++			bcm_sf2_imp_setup(ds, port);
++		else
++			bcm_sf2_port_disable(ds, port, NULL);
++	}
++
++	bcm_sf2_sw_configure_vlan(ds);
++
++	return 0;
++}
++
++static struct dsa_switch_driver bcm_sf2_switch_driver = {
++	.tag_protocol		= DSA_TAG_PROTO_BRCM,
++	.probe			= bcm_sf2_sw_drv_probe,
++	.setup			= bcm_sf2_sw_setup,
++	.set_addr		= bcm_sf2_sw_set_addr,
++	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
++	.get_strings		= bcm_sf2_sw_get_strings,
++	.get_ethtool_stats	= bcm_sf2_sw_get_ethtool_stats,
++	.get_sset_count		= bcm_sf2_sw_get_sset_count,
++	.adjust_link		= bcm_sf2_sw_adjust_link,
++	.fixed_link_update	= bcm_sf2_sw_fixed_link_update,
++	.suspend		= bcm_sf2_sw_suspend,
++	.resume			= bcm_sf2_sw_resume,
++	.get_wol		= bcm_sf2_sw_get_wol,
++	.set_wol		= bcm_sf2_sw_set_wol,
++	.port_enable		= bcm_sf2_port_setup,
++	.port_disable		= bcm_sf2_port_disable,
++	.get_eee		= bcm_sf2_sw_get_eee,
++	.set_eee		= bcm_sf2_sw_set_eee,
++	.port_bridge_join	= bcm_sf2_sw_br_join,
++	.port_bridge_leave	= bcm_sf2_sw_br_leave,
++	.port_stp_state_set	= bcm_sf2_sw_br_set_stp_state,
++	.port_fdb_prepare	= bcm_sf2_sw_fdb_prepare,
++	.port_fdb_add		= bcm_sf2_sw_fdb_add,
++	.port_fdb_del		= bcm_sf2_sw_fdb_del,
++	.port_fdb_dump		= bcm_sf2_sw_fdb_dump,
++	.port_vlan_filtering	= bcm_sf2_sw_vlan_filtering,
++	.port_vlan_prepare	= bcm_sf2_sw_vlan_prepare,
++	.port_vlan_add		= bcm_sf2_sw_vlan_add,
++	.port_vlan_del		= bcm_sf2_sw_vlan_del,
++	.port_vlan_dump		= bcm_sf2_sw_vlan_dump,
++};
++
++static int bcm_sf2_sw_probe(struct platform_device *pdev)
++{
++	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
++	struct device_node *dn = pdev->dev.of_node;
++	struct bcm_sf2_priv *priv;
++	struct dsa_switch *ds;
++	void __iomem **base;
+ 	unsigned int i;
+ 	u32 reg, rev;
+ 	int ret;
+ 
++	ds = devm_kzalloc(&pdev->dev, sizeof(*ds) + sizeof(*priv), GFP_KERNEL);
++	if (!ds)
++		return -ENOMEM;
++
++	priv = (struct bcm_sf2_priv *)(ds + 1);
++	ds->priv = priv;
++	ds->dev = &pdev->dev;
++	ds->drv = &bcm_sf2_switch_driver;
++
++	dev_set_drvdata(&pdev->dev, ds);
++
+ 	spin_lock_init(&priv->indir_lock);
+ 	mutex_init(&priv->stats_mutex);
+ 
+-	/* All the interesting properties are at the parent device_node
+-	 * level
+-	 */
+-	dn = ds->cd->of_node->parent;
+-	bcm_sf2_identify_ports(priv, ds->cd->of_node);
++	bcm_sf2_identify_ports(priv, dn->child);
+ 
+ 	priv->irq0 = irq_of_parse_and_map(dn, 0);
+ 	priv->irq1 = irq_of_parse_and_map(dn, 1);
+@@ -1649,19 +1710,6 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 				 &priv->hw_params.num_gphy))
+ 		priv->hw_params.num_gphy = 1;
+ 
+-	/* Enable all valid ports and disable those unused */
+-	for (port = 0; port < priv->hw_params.num_ports; port++) {
+-		/* IMP port receives special treatment */
+-		if ((1 << port) & ds->enabled_port_mask)
+-			bcm_sf2_port_setup(ds, port, NULL);
+-		else if (dsa_is_cpu_port(ds, port))
+-			bcm_sf2_imp_setup(ds, port);
+-		else
+-			bcm_sf2_port_disable(ds, port, NULL);
+-	}
+-
+-	bcm_sf2_sw_configure_vlan(ds);
+-
+ 	rev = reg_readl(priv, REG_SWITCH_REVISION);
+ 	priv->hw_params.top_rev = (rev >> SWITCH_TOP_REV_SHIFT) &
+ 					SWITCH_TOP_REV_MASK;
+@@ -1670,6 +1718,10 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 	rev = reg_readl(priv, REG_PHY_REVISION);
+ 	priv->hw_params.gphy_rev = rev & PHY_REVISION_MASK;
+ 
++	ret = dsa_register_switch(ds, dn);
++	if (ret)
++		goto out_free_irq1;
++
+ 	pr_info("Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
+ 		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
+ 		priv->hw_params.core_rev >> 8, priv->hw_params.core_rev & 0xff,
+@@ -1677,6 +1729,8 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 
+ 	return 0;
+ 
++out_free_irq1:
++	free_irq(priv->irq1, priv);
+ out_free_irq0:
+ 	free_irq(priv->irq0, priv);
+ out_mdio:
+@@ -1691,52 +1745,56 @@ out_unmap:
+ 	return ret;
+ }
+ 
+-static struct dsa_switch_driver bcm_sf2_switch_driver = {
+-	.tag_protocol		= DSA_TAG_PROTO_BRCM,
+-	.probe			= bcm_sf2_sw_drv_probe,
+-	.setup			= bcm_sf2_sw_setup,
+-	.set_addr		= bcm_sf2_sw_set_addr,
+-	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
+-	.get_strings		= bcm_sf2_sw_get_strings,
+-	.get_ethtool_stats	= bcm_sf2_sw_get_ethtool_stats,
+-	.get_sset_count		= bcm_sf2_sw_get_sset_count,
+-	.adjust_link		= bcm_sf2_sw_adjust_link,
+-	.fixed_link_update	= bcm_sf2_sw_fixed_link_update,
+-	.suspend		= bcm_sf2_sw_suspend,
+-	.resume			= bcm_sf2_sw_resume,
+-	.get_wol		= bcm_sf2_sw_get_wol,
+-	.set_wol		= bcm_sf2_sw_set_wol,
+-	.port_enable		= bcm_sf2_port_setup,
+-	.port_disable		= bcm_sf2_port_disable,
+-	.get_eee		= bcm_sf2_sw_get_eee,
+-	.set_eee		= bcm_sf2_sw_set_eee,
+-	.port_bridge_join	= bcm_sf2_sw_br_join,
+-	.port_bridge_leave	= bcm_sf2_sw_br_leave,
+-	.port_stp_state_set	= bcm_sf2_sw_br_set_stp_state,
+-	.port_fdb_prepare	= bcm_sf2_sw_fdb_prepare,
+-	.port_fdb_add		= bcm_sf2_sw_fdb_add,
+-	.port_fdb_del		= bcm_sf2_sw_fdb_del,
+-	.port_fdb_dump		= bcm_sf2_sw_fdb_dump,
+-	.port_vlan_filtering	= bcm_sf2_sw_vlan_filtering,
+-	.port_vlan_prepare	= bcm_sf2_sw_vlan_prepare,
+-	.port_vlan_add		= bcm_sf2_sw_vlan_add,
+-	.port_vlan_del		= bcm_sf2_sw_vlan_del,
+-	.port_vlan_dump		= bcm_sf2_sw_vlan_dump,
+-};
+-
+-static int __init bcm_sf2_init(void)
++static int bcm_sf2_sw_remove(struct platform_device *pdev)
+ {
+-	register_switch_driver(&bcm_sf2_switch_driver);
++	struct dsa_switch *ds = platform_get_drvdata(pdev);
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++
++	/* Disable all ports and interrupts */
++	priv->wol_ports_mask = 0;
++	bcm_sf2_sw_suspend(ds);
++	dsa_unregister_switch(ds);
++	bcm_sf2_mdio_unregister(priv);
+ 
+ 	return 0;
+ }
+-module_init(bcm_sf2_init);
+ 
+-static void __exit bcm_sf2_exit(void)
++#ifdef CONFIG_PM_SLEEP
++static int bcm_sf2_suspend(struct device *dev)
+ {
+-	unregister_switch_driver(&bcm_sf2_switch_driver);
++	struct platform_device *pdev = to_platform_device(dev);
++	struct dsa_switch *ds = platform_get_drvdata(pdev);
++
++	return dsa_switch_suspend(ds);
+ }
+-module_exit(bcm_sf2_exit);
++
++static int bcm_sf2_resume(struct device *dev)
++{
++	struct platform_device *pdev = to_platform_device(dev);
++	struct dsa_switch *ds = platform_get_drvdata(pdev);
++
++	return dsa_switch_resume(ds);
++}
++#endif /* CONFIG_PM_SLEEP */
++
++static SIMPLE_DEV_PM_OPS(bcm_sf2_pm_ops,
++			 bcm_sf2_suspend, bcm_sf2_resume);
++
++static const struct of_device_id bcm_sf2_of_match[] = {
++	{ .compatible = "brcm,bcm7445-switch-v4.0" },
++	{ /* sentinel */ },
++};
++
++static struct platform_driver bcm_sf2_driver = {
++	.probe	= bcm_sf2_sw_probe,
++	.remove	= bcm_sf2_sw_remove,
++	.driver = {
++		.name = "brcm-sf2",
++		.of_match_table = bcm_sf2_of_match,
++		.pm = &bcm_sf2_pm_ops,
++	},
++};
++module_platform_driver(bcm_sf2_driver);
+ 
+ MODULE_AUTHOR("Broadcom Corporation");
+ MODULE_DESCRIPTION("Driver for Broadcom Starfighter 2 ethernet switch chip");
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 9f5b47200365..8bda74e595a5 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -1088,7 +1088,6 @@ static int dsa_resume(struct device *d)
+ static SIMPLE_DEV_PM_OPS(dsa_pm_ops, dsa_suspend, dsa_resume);
+ 
+ static const struct of_device_id dsa_of_match_table[] = {
+-	{ .compatible = "brcm,bcm7445-switch-v4.0" },
+ 	{ .compatible = "marvell,dsa", },
+ 	{}
+ };
 -- 
-Florian
+2.7.4
