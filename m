@@ -1,46 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: Expose 'trust' flag to userspace via ndo_get_vf_config.
-Date: Thu, 18 Aug 2016 14:57:36 -0700
-Message-ID: <1471557456-136741-16-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 5/5] net: dsa: bcm_sf2: Remove probing through old DSA binding
+Date: Thu, 18 Aug 2016 15:30:16 -0700
+Message-ID: <1471559416-13249-6-git-send-email-f.fainelli@gmail.com>
+References: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:2246 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753755AbcHSCrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 22:47:31 -0400
-In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33191 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753627AbcHSCtx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 22:49:53 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i6so682504pfe.0
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:49:53 -0700 (PDT)
+In-Reply-To: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Remove our dsa_switch_driver::drv_probe callback to prevent probing
+through the old DSA binding, not that this could happen anymore now that
+we have moved the matching compatible string from net/dsa/dsa.c to
+drivers/net/dsa/bcm_sf2.c, so this is essentially dead code.
 
-This enables
-	ip -d l
-to indicate if trust is on or off for VFs.
-
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/dsa/bcm_sf2.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 68e3482..da34235 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -3000,6 +3000,7 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
- 	else
- 		ivi->linkstate = IFLA_VF_LINK_STATE_DISABLE;
- 	ivi->spoofchk = vf->spoofchk;
-+	ivi->trusted = vf->trusted;
- 	ret = 0;
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 9f8e007b01d6..8e6fe13dbec3 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -136,20 +136,6 @@ static int bcm_sf2_sw_get_sset_count(struct dsa_switch *ds)
+ 	return BCM_SF2_STATS_SIZE;
+ }
  
- error_param:
+-static const char *bcm_sf2_sw_drv_probe(struct device *dsa_dev,
+-					struct device *host_dev, int sw_addr,
+-					void **_priv)
+-{
+-	struct bcm_sf2_priv *priv;
+-
+-	priv = devm_kzalloc(dsa_dev, sizeof(*priv), GFP_KERNEL);
+-	if (!priv)
+-		return NULL;
+-	*_priv = priv;
+-
+-	return "Broadcom Starfighter 2";
+-}
+-
+ static void bcm_sf2_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
+ {
+ 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+@@ -1592,7 +1578,6 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 
+ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
+-	.probe			= bcm_sf2_sw_drv_probe,
+ 	.setup			= bcm_sf2_sw_setup,
+ 	.set_addr		= bcm_sf2_sw_set_addr,
+ 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
 -- 
 2.7.4
