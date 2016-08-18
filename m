@@ -1,66 +1,66 @@
-From: fgao@ikuai8.com
-Subject: [PATCH v1 1/1] pppoe: l2tp: the PPPOX_CONNECTED should be used with bit operation
-Date: Thu, 18 Aug 2016 09:59:03 +0800
-Message-ID: <1471485543-13149-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: mostrows@earthlink.net, jchapman@katalix.com, davem@davemloft.net,
-	philipp@redfish-solutions.com, netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
+Date: Wed, 17 Aug 2016 20:59:44 -0600
+Message-ID: <18023723-58cc-cab5-21ad-14785e18c072@cumulusnetworks.com>
+References: <1471470587-24813-1-git-send-email-dsa@cumulusnetworks.com>
+ <1471470587-24813-3-git-send-email-dsa@cumulusnetworks.com>
+ <CAKgT0UeU+-jxnBr3H5P6ADzMH2Xv29atDrCyzngcOOEyqObUDg@mail.gmail.com>
+ <15a6625f-e969-0c9d-e1fc-72d9361ebb32@cumulusnetworks.com>
+ <CAKgT0Ud6NJdVTQM0AiHVbhZTko9fnzyvrZ1juGRPrRFGC-5O-g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Simon Horman <simon.horman@netronome.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
+	Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+	olivier.dugeon@orange.com, roopa <roopa@cumulusnetworks.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg291.qq.com ([113.108.11.223]:45976 "EHLO smtpbg291.qq.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753569AbcHRB7w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Aug 2016 21:59:52 -0400
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:33814 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753480AbcHRC7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 22:59:47 -0400
+Received: by mail-pa0-f43.google.com with SMTP id fi15so2164700pac.1
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 19:59:47 -0700 (PDT)
+In-Reply-To: <CAKgT0Ud6NJdVTQM0AiHVbhZTko9fnzyvrZ1juGRPrRFGC-5O-g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On 8/17/16 7:06 PM, Alexander Duyck wrote:
+> On Wed, Aug 17, 2016 at 4:23 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>> On 8/17/16 5:16 PM, Alexander Duyck wrote:
+>>>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>>>> index 1ecbd7715f6d..6d78f162a88b 100644
+>>>> --- a/net/openvswitch/actions.c
+>>>> +++ b/net/openvswitch/actions.c
+>>>> @@ -167,6 +167,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+>>>>                 skb->mac_len);
+>>>>         skb_reset_mac_header(skb);
+>>>>
+>>>> +       /* for GSO: set MPLS as network header and encapsulated protocol
+>>>> +        * header as inner network header
+>>>> +        */
+>>>> +       skb_set_network_header(skb, skb->mac_len);
+>>>> +       skb_set_inner_network_header(skb, skb->mac_len + MPLS_HLEN);
+>>>> +
+>>>>         new_mpls_lse = (__be32 *)skb_mpls_header(skb);
+>>>>         *new_mpls_lse = mpls->mpls_lse;
+>>>>
+>>>
+>>> So the one question I would have about this is how attached are you to
+>>> using the network_header to record the offset for the MPLS header?  I
+>>> ask because I think from a hardware offloading perspective it would
+>>> make it much easier if instead you used the inner_mac_header to
+>>> represent the offset for the MPLS header.  This way device drivers
+>>> could just skip over it like a VLAN and just use network and transport
+>>> header values like they would otherwise.
+>>>
+>>
+>> Where does the network_header relate to if I change the marker to inner_mac_header? Would it be skipped?
+> 
+> No, the network header would still be the network header.
 
-There are some codes in pppoe and l2tp which use the PPPOX_CONNECTED
-as the value including assignment and condition check.
-They should keep consistent with other codes.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v1: Initial Patch
-
- drivers/net/ppp/pppoe.c | 2 +-
- net/l2tp/l2tp_ppp.c     | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
-index 4ddae81..684b773 100644
---- a/drivers/net/ppp/pppoe.c
-+++ b/drivers/net/ppp/pppoe.c
-@@ -697,7 +697,7 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 			goto err_put;
- 		}
- 
--		sk->sk_state = PPPOX_CONNECTED;
-+		sk->sk_state |= PPPOX_CONNECTED;
- 	}
- 
- 	po->num = sp->sa_addr.pppoe.sid;
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index d9560aa..3984385 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -774,7 +774,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
- out_no_ppp:
- 	/* This is how we get the session context from the socket. */
- 	sk->sk_user_data = session;
--	sk->sk_state = PPPOX_CONNECTED;
-+	sk->sk_state |= PPPOX_CONNECTED;
- 	l2tp_info(session, PPPOL2TP_MSG_CONTROL, "%s: created\n",
- 		  session->name);
- 
-@@ -856,7 +856,7 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
- 	error = -ENOTCONN;
- 	if (sk == NULL)
- 		goto end;
--	if (sk->sk_state != PPPOX_CONNECTED)
-+	if (!(sk->sk_state & PPPOX_CONNECTED))
- 		goto end;
- 
- 	error = -EBADF;
--- 
-1.9.1
+If core MPLS code (ie., non-OVS) does not do skb_reset_network_header(skb) after adding the MPLS label nothing works. Not even ping with small packets. tcpdump shows a completely mangled packet. Right now resetting the network_header to mpls is required.
