@@ -1,63 +1,50 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/6] netfilter: conntrack: do not dump other netns's conntrack entries via proc
-Date: Thu, 18 Aug 2016 19:29:03 +0200
-Message-ID: <1471541348-1538-2-git-send-email-pablo@netfilter.org>
-References: <1471541348-1538-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40evf: add missing rtnl_lock() around i40evf_set_interrupt_capability
+Date: Thu, 18 Aug 2016 14:57:26 -0700
+Message-ID: <1471557456-136741-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44000 "EHLO mail.us.es"
+Received: from mga02.intel.com ([134.134.136.20]:11107 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754231AbcHSA5o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 20:57:44 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 5B355A4195
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:29:24 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 4C8DEDA7E2
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:29:24 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id EA6459D6A4
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:29:17 +0200 (CEST)
-In-Reply-To: <1471541348-1538-1-git-send-email-pablo@netfilter.org>
+        id S1754417AbcHSA6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 20:58:19 -0400
+In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Liping Zhang <liping.zhang@spreadtrum.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-We should skip the conntracks that belong to a different namespace,
-otherwise other unrelated netns's conntrack entries will be dumped via
-/proc/net/nf_conntrack.
+The function calls netif_set_real_num_(tx|rx)_queues, both of which
+should be done only under rntl lock. Unfortunately the
+i40evf_init_task did not hold the rtnl_lock as necessary. This patch
+adds the locking needed.
 
-Fixes: 56d52d4892d0 ("netfilter: conntrack: use a single hashtable for all namespaces")
-Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
-Reviewed-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Change-ID: Ib72a21c3ce22b71a226b16f9bbe0f5f8cc3e849b
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/netfilter/nf_conntrack_standalone.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 958a145..9f267c3 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -205,6 +205,7 @@ static int ct_seq_show(struct seq_file *s, void *v)
- 	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(hash);
- 	const struct nf_conntrack_l3proto *l3proto;
- 	const struct nf_conntrack_l4proto *l4proto;
-+	struct net *net = seq_file_net(s);
- 	int ret = 0;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 600fb9c..d1d4a65 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1420,7 +1420,9 @@ int i40evf_init_interrupt_scheme(struct i40evf_adapter *adapter)
+ {
+ 	int err;
  
- 	NF_CT_ASSERT(ct);
-@@ -215,6 +216,9 @@ static int ct_seq_show(struct seq_file *s, void *v)
- 	if (NF_CT_DIRECTION(hash))
- 		goto release;
- 
-+	if (!net_eq(nf_ct_net(ct), net))
-+		goto release;
-+
- 	l3proto = __nf_ct_l3proto_find(nf_ct_l3num(ct));
- 	NF_CT_ASSERT(l3proto);
- 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
++	rtnl_lock();
+ 	err = i40evf_set_interrupt_capability(adapter);
++	rtnl_unlock();
+ 	if (err) {
+ 		dev_err(&adapter->pdev->dev,
+ 			"Unable to setup interrupt capabilities\n");
 -- 
-2.1.4
+2.7.4
