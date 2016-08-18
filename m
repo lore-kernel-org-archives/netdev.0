@@ -1,40 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] ip: report IFLA_GSO_MAX_SIZE and
- IFLA_GSO_MAX_SEGS
-Date: Thu, 18 Aug 2016 15:14:38 -0700
-Message-ID: <1471558478.29842.91.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471469961.29842.42.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160818145251.784f11d5@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/15] i40e: Force register writes to mitigate sync issues with iwarp VF driver
+Date: Thu, 18 Aug 2016 14:57:29 -0700
+Message-ID: <1471557456-136741-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Avinash Dayanand <avinash.dayanand@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35249 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752903AbcHSCcO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 22:32:14 -0400
-Received: by mail-pf0-f193.google.com with SMTP id h186so657159pfg.2
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:32:13 -0700 (PDT)
-In-Reply-To: <20160818145251.784f11d5@xeon-e3>
+Received: from mga02.intel.com ([134.134.136.20]:14339 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754020AbcHSCjr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 22:39:47 -0400
+In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-08-18 at 14:52 -0700, Stephen Hemminger wrote:
-> On Wed, 17 Aug 2016 14:39:21 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > kernel support for these attributes was added in linux-4.6
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> 
-> What about setting them?
+From: Avinash Dayanand <avinash.dayanand@intel.com>
 
-This is not something the kernel does at this moment.
+This patch is a fix for the bug i.e. unable to create iwarp device
+in VF. This is a sync issue and the iwarp device open is called even
+before the PCI register writes are done.
 
-Drivers usually set a value, depending on hardware or software
-constraints.
+Forcing the PCI register writes to happen just before it exits the
+function.
+
+Change-ID: I60c6a2c709da89e845f2764cc50ce8b7373c8c44
+Signed-off-by: Avinash Dayanand <avinash.dayanand@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_client.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
+index 8726269..90b435c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
+@@ -793,7 +793,8 @@ static int i40e_client_setup_qvlist(struct i40e_info *ldev,
+ 			wr32(hw, I40E_PFINT_AEQCTL, reg);
+ 		}
+ 	}
+-
++	/* Mitigate sync problems with iwarp VF driver */
++	i40e_flush(hw);
+ 	return 0;
+ err:
+ 	kfree(ldev->qvlist_info);
+-- 
+2.7.4
