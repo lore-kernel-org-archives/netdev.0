@@ -1,106 +1,151 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [RFC PATCH] net/irda: release sock when waiting in accept()
-Date: Thu, 18 Aug 2016 17:30:29 +0200
-Message-ID: <1471534229-6771-1-git-send-email-vegard.nossum@oracle.com>
-Cc: irda-users@lists.sourceforge.net, netdev@vger.kernel.org,
-        Vegard Nossum <vegard.nossum@oracle.com>
-To: Samuel Ortiz <samuel@sortiz.org>,
-        David Miller <davem@davemloft.net>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH v1 1/1] l2tp: Use existing macros instead of literal number
+Date: Fri, 19 Aug 2016 07:02:36 +0800
+Message-ID: <CA+6hz4pcNULAT6Y6Q6mZeMf0gkZHgp0OqnNdQoVZK4-DAvD7Fw@mail.gmail.com>
+References: <1471503919-30889-1-git-send-email-fgao@ikuai8.com> <20160818184139.rmijicrbbktcuis4@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Gao Feng <fgao@ikuai8.com>, jchapman@katalix.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1050.oracle.com ([141.146.126.70]:26029 "EHLO
-        aserp1050.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754065AbcHSBGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:06:02 -0400
-Received: from aserp1040.oracle.com (aserp1040.oracle.com [141.146.126.69])
-        by aserp1050.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id u7IFVDNQ014041
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 15:31:14 GMT
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:34218 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754752AbcHSBIM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:08:12 -0400
+Received: by mail-ua0-f194.google.com with SMTP id d97so4567287uad.1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 18:08:11 -0700 (PDT)
+In-Reply-To: <20160818184139.rmijicrbbktcuis4@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been seeing these recently:
+On Fri, Aug 19, 2016 at 2:41 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> On Thu, Aug 18, 2016 at 03:05:19PM +0800, fgao@ikuai8.com wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> 1. Use PPP_ALLSTATIONS/PPP_UI instead of literal 0xff/0x03;
+>> 2. Use one static const global fixed_ppphdr instead of two same
+>> static variable ppph in two different functions;
+>> 3. Use SEND_SHUTDOWN instead of literal 2;
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>  v1: Initial patch
+> No need to send 'v1' for the initial series.
 
-    INFO: task trinity-c3:14933 blocked for more than 120 seconds.
-	  Not tainted 4.8.0-rc1+ #135
-    "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-    trinity-c3      D ffff88010c16fc88     0 14933      1 0x00080004
-     ffff88010c16fc88 000000003b9aca00 0000000000000000 0000000000000296
-     00000000776cdf88 ffff88011a520ae0 ffff88011a520b08 ffff88011a520198
-     ffffffff867d7f00 ffff88011942c080 ffff880116841580 ffff88010c168000
-    Call Trace:
-     [<ffffffff845e9d37>] schedule+0x77/0x230
-     [<ffffffff833cb8b9>] __lock_sock+0x129/0x250
-     [<ffffffff833cb790>] ? __sk_destruct+0x450/0x450
-     [<ffffffff81408ac0>] ? wake_bit_function+0x2e0/0x2e0
-     [<ffffffff833d832b>] lock_sock_nested+0xeb/0x120
-     [<ffffffff83bad815>] irda_setsockopt+0x65/0xb40
-     [<ffffffff833c6c09>] SyS_setsockopt+0x139/0x230
-     [<ffffffff833c6ad0>] ? SyS_recv+0x20/0x20
-     [<ffffffff81004660>] ? trace_event_raw_event_sys_enter+0xb90/0xb90
-     [<ffffffff823c7023>] ? __this_cpu_preempt_check+0x13/0x20
-     [<ffffffff8162ee60>] ? __context_tracking_exit.part.3+0x30/0x1b0
-     [<ffffffff833c6ad0>] ? SyS_recv+0x20/0x20
-     [<ffffffff81007bd3>] do_syscall_64+0x1b3/0x4b0
-     [<ffffffff845f84aa>] entry_SYSCALL64_slow_path+0x25/0x25
+OK, I get it.
 
-    Showing all locks held in the system:
-    2 locks held by khungtaskd/563:
-     #0:  (rcu_read_lock){......}, at: [<ffffffff81534ce6>] watchdog+0x106/0x910
-     #1:  (tasklist_lock){......}, at: [<ffffffff8141b3c4>] debug_show_all_locks+0x74/0x360
-    1 lock held by trinity-c0/19280:
-     #0:  (sk_lock-AF_IRDA){......}, at: [<ffffffff83bab7c6>] irda_accept+0x176/0x10f0
-    1 lock held by trinity-c0/12865:
-     #0:  (sk_lock-AF_IRDA){......}, at: [<ffffffff83bab7c6>] irda_accept+0x176/0x10f0
+>
+>> --- a/net/l2tp/l2tp_ppp.c
+>> +++ b/net/l2tp/l2tp_ppp.c
+>> @@ -138,6 +138,8 @@ static const struct ppp_channel_ops pppol2tp_chan_ops = {
+>>
+>>  static const struct proto_ops pppol2tp_ops;
+>>
+>> +static const unsigned char fixed_ppphdr[2] = {PPP_ALLSTATIONS, PPP_UI};
+>> +
+>>  /* Helpers to obtain tunnel/session contexts from sockets.
+>>   */
+>>  static inline struct l2tp_session *pppol2tp_sock_to_session(struct sock *sk)
+>> @@ -174,11 +176,11 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
+>>        * Note that skb->data[] isn't dereferenced from a u16 ptr here since
+>>        * the field may be unaligned.
+>>        */
+>> -     if (!pskb_may_pull(skb, 2))
+>> +     if (!pskb_may_pull(skb, sizeof(fixed_ppphdr)))
+>>               return 1;
+>>
+>> -     if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
+>> -             skb_pull(skb, 2);
+>> +     if ((PPP_ADDRESS(skb->data) == PPP_ALLSTATIONS) && (PPP_CONTROL(skb->data) == PPP_UI))
+>> +             skb_pull(skb, sizeof(fixed_ppphdr));
+>>
+> Sorry, but I find the original code clearer. It's important to be
+> explicit about what's done with the sk_buff. Hiding skb->data[x] behind
+> macros certainly doesn't help.
+>
+> Same thing for the use of sizeof(fixed_ppphdr) in pskb_may_pull(). The
+> size of fixed_ppphdr isn't used aftewards, so it's unclear why its size
+> was pulled. 2 was not a magic number here, it was directly related with
+> the operations done on the skb (i.e. accessing skb->data[0] and
+> skb->data[1]). So pskb_may_pull(skb, 2) makes perfect sense.
 
-The problem seems to be that irda_accept() goes to sleep after locking
-the socket, which means that others trying to get the lock will be
-"blocked for more than 120 seconds" like above.
+Agree now because of detail explanation.
+Thanks.
 
-There are unfortunately other places in the irda code that seem to be
-doing the same thing: irda_connect(), irda_sendmsg(), and
-irda_getsockopt() as far as I can tell at a glance. I'll start with
-this patch to see if we're going in the right direction -- it does fix
-the trinity problem for me, although I haven't tested any real IrDA
-workloads.
+>
+> OTOH, replacing 0xff and 0x03 with PPP_ALLSTATIONS and PPP_UI is fine.
 
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- net/irda/af_irda.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+OK. get it.
 
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index 8d2f7c9..334836a 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -871,6 +871,8 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
- 	 * Jean II
- 	 */
- 	while (1) {
-+		DEFINE_WAIT(wait);
-+
- 		skb = skb_dequeue(&sk->sk_receive_queue);
- 		if (skb)
- 			break;
-@@ -880,10 +882,17 @@ static int irda_accept(struct socket *sock, struct socket *newsock, int flags)
- 		if (flags & O_NONBLOCK)
- 			goto out;
- 
--		err = wait_event_interruptible(*(sk_sleep(sk)),
--					skb_peek(&sk->sk_receive_queue));
--		if (err)
-+		if (signal_pending(current)) {
-+			err = -EINTR;
- 			goto out;
-+		}
-+
-+		prepare_to_wait_exclusive(sk_sleep(sk), &wait,
-+			TASK_INTERRUPTIBLE);
-+		release_sock(sk);
-+		schedule();
-+		lock_sock(sk);
-+		finish_wait(sk_sleep(sk), &wait);
- 	}
- 
- 	newsk = newsock->sk;
--- 
-1.9.1
+>
+>> @@ -312,7 +313,7 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+>>       error = -ENOMEM;
+>>       skb = sock_wmalloc(sk, NET_SKB_PAD + sizeof(struct iphdr) +
+>>                          uhlen + session->hdr_len +
+>> -                        sizeof(ppph) + total_len,
+>> +                        sizeof(fixed_ppphdr) + total_len,
+>>                          0, GFP_KERNEL);
+>>       if (!skb)
+>>               goto error_put_sess_tun;
+>> @@ -325,9 +326,9 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+>>       skb_reserve(skb, uhlen);
+>>
+>>       /* Add PPP header */
+>> -     skb->data[0] = ppph[0];
+>> -     skb->data[1] = ppph[1];
+>> -     skb_put(skb, 2);
+>> +     PPP_ADDRESS(skb->data) = fixed_ppphdr[0];
+>> +     PPP_CONTROL(skb->data) = fixed_ppphdr[1];
+>> +     skb_put(skb, sizeof(fixed_ppphdr));
+>>
+> Same here. What about
+> + skb->data[0] = PPP_ALLSTATIONS;
+> + skb->data[1] = PPP_UI;
+> + skb_put(skb, 2);
+> and removing ppph entirely?
+
+Agree with you.
+
+>
+>>       /* Copy user data into skb */
+>>       error = memcpy_from_msg(skb_put(skb, total_len), m, total_len);
+>> @@ -369,7 +370,6 @@ error:
+>>   */
+>>  static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+>>  {
+>> -     static const u8 ppph[2] = { 0xff, 0x03 };
+>>       struct sock *sk = (struct sock *) chan->private;
+>>       struct sock *sk_tun;
+>>       struct l2tp_session *session;
+>> @@ -398,14 +398,14 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+>>                  sizeof(struct iphdr) + /* IP header */
+>>                  uhlen +              /* UDP header (if L2TP_ENCAPTYPE_UDP) */
+>>                  session->hdr_len +   /* L2TP header */
+>> -                sizeof(ppph);        /* PPP header */
+>> +                sizeof(fixed_ppphdr); /* PPP header */
+>>       if (skb_cow_head(skb, headroom))
+>>               goto abort_put_sess_tun;
+>>
+>>       /* Setup PPP header */
+>> -     __skb_push(skb, sizeof(ppph));
+>> -     skb->data[0] = ppph[0];
+>> -     skb->data[1] = ppph[1];
+>> +     __skb_push(skb, sizeof(fixed_ppphdr));
+>> +     skb->data[0] = fixed_ppphdr[0];
+>> +     skb->data[1] = fixed_ppphdr[1];
+>>
+> Same as for pppol2tp_sendmsg().
+>
+>> @@ -440,7 +440,7 @@ static void pppol2tp_session_close(struct l2tp_session *session)
+>>       BUG_ON(session->magic != L2TP_SESSION_MAGIC);
+>>
+>>       if (sock) {
+>> -             inet_shutdown(sock, 2);
+>> +             inet_shutdown(sock, SEND_SHUTDOWN);
+>>
+> Ok.
+
+Regards
+Feng
