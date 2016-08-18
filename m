@@ -1,42 +1,33 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] dsa: mv88e6xxx: Timeout based on iterations
-Date: Thu, 18 Aug 2016 20:39:46 +0200
-Message-ID: <20160818183946.GD13458@lunn.ch>
-References: <1471469225-368-1-git-send-email-andrew@lunn.ch>
- <87oa4rat8o.fsf@ketchup.mtl.sfl>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ip: report IFLA_GSO_MAX_SIZE and
+ IFLA_GSO_MAX_SEGS
+Date: Thu, 18 Aug 2016 14:52:51 -0700
+Message-ID: <20160818145251.784f11d5@xeon-e3>
+References: <1471469961.29842.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38710 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752314AbcHSCxu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 22:53:50 -0400
-Content-Disposition: inline
-In-Reply-To: <87oa4rat8o.fsf@ketchup.mtl.sfl>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35206 "EHLO
+        mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754580AbcHSDBU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 23:01:20 -0400
+Received: by mail-pa0-f41.google.com with SMTP id i5so11513551pat.2
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 20:01:20 -0700 (PDT)
+In-Reply-To: <1471469961.29842.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >  static int mv88e6xxx_wait(struct mv88e6xxx_chip *chip, int addr, int reg,
-> >  			  u16 mask)
-> >  {
-> > -	unsigned long timeout = jiffies + HZ / 10;
-> > +	int i;
-> >  
-> > -	while (time_before(jiffies, timeout)) {
-> > +	for (i = 0; i < 16; i++) {
-> >  		u16 val;
-> >  		int err;
-> >  
+On Wed, 17 Aug 2016 14:39:21 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Since we remove the elapsed time here, can we use mv88e6xxx_wait in
-> mv88e6xxx_update? It'd be good to have a consistent wait routine
-> everywhere.
+> kernel support for these attributes was added in linux-4.6
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Hi Vivien
 
-Yes, it looks like that should work. I will add a second patch to do
-this.
-
-	Andrew
+What about setting them?
