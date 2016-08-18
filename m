@@ -1,82 +1,63 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: Re: [PATCH] mwifiex: propagate error if IRQ request fails in
- mwifiex_sdio_of()
-Date: Thu, 18 Aug 2016 16:23:30 -0400
-Message-ID: <33686ef5-14d9-5e9c-bd3a-aaab0356ad83@osg.samsung.com>
-References: <1471529868-13669-1-git-send-email-javier@osg.samsung.com>
- <10fb1110-4c0b-00a2-522c-7011ca397b8c@broadcom.com>
- <70b6a0d1-8cc4-280e-3e53-8c42cb43b721@osg.samsung.com>
- <866da517-4b5c-492e-56d0-260afeb55ded@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <866da517-4b5c-492e-56d0-260afeb55ded@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] i40e: Fix static analysis tool warning
+Date: Thu, 18 Aug 2016 14:57:27 -0700
+Message-ID: <1471557456-136741-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Dave Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:55969 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752784AbcHSAsd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 20:48:33 -0400
+In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Arend,
+From: Dave Ertman <david.m.ertman@intel.com>
 
-On 08/18/2016 03:49 PM, Arend van Spriel wrote:
-> 
-> 
-> On 18-08-16 21:29, Javier Martinez Canillas wrote:
->> Hello Arend,
->>
->> Thanks a lot for your feedback.
->>
->> On 08/18/2016 03:14 PM, Arend van Spriel wrote:
->>> On 18-08-16 16:17, Javier Martinez Canillas wrote:
->>>> If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
->>>> is printed but the actual error is not propagated to the caller function.
->>>
->>> Hmm. The caller function, ie. mwifiex_sdio_probe(), does not seem to care.
->>>
->>
->> Hmm, I'm not so sure about that. It's checking the wifiex_sdio_probe_of()
->> return value.
-> 
-> Ok. I looked at 4.7 sources on lxr [1].
->
+This patch fixes a problem where a static analysis tool generates
+a warning for "INVARIANT_CONDITION: Expression 'enabled_tc' used
+in the condition always yields the same result."
 
-Oh, right. That was fixed quite recently indeed.
+Without this patch, the driver will not pass the static analysis
+tool checks without generating warnings.
+
+This patch fixes the problem by eliminating the irrelevant check
+and redundant assignment for the value of enabled_tc.
+
+Change-ID: Ia7d44cb050f507df7de333e96369d322e08bf408
+Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 9f9d24f..8c68ac1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4617,7 +4617,7 @@ static u8 i40e_dcb_get_enabled_tc(struct i40e_dcbx_config *dcbcfg)
+ static u8 i40e_pf_get_num_tc(struct i40e_pf *pf)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+-	u8 i, enabled_tc;
++	u8 i, enabled_tc = 1;
+ 	u8 num_tc = 0;
+ 	struct i40e_dcbx_config *dcbcfg = &hw->local_dcbx_config;
  
->> If the IRQ request failing is not an error, then at the very least the call
->> to disable_irq() should be avoided if request_irq() fails, and the message
->> should be changed from dev_err() to dev_dgb() or dev_info().
-> 
-> agree.
-> 
->>> The device may still function without this wake interrupt.
->>>
->>
->> That's correct, the binding says that the "interrupts" property in the child
->> node is optional since is just a wakeup IRQ. Now the question is if should
->> be an error if the IRQ is defined but fails to be requested.
-> 
-> Clearly it indicates an error in the DT specification so behavior is not
-> as expected. Personally I would indeed consider it an error, but I was
-> just indicating that it might have done like this intentionally.
->
-
-Yes, might had been done intentionally indeed but I don't think that is
-the case since the driver lacked error checking and propagation in many
-places. But if someone thinks that's better to not honor the DT and at
-least have the driver working without the wake up capability, then I'm
-happy to respin the patch and change the print log level to info/debug.
+@@ -4635,8 +4635,6 @@ static u8 i40e_pf_get_num_tc(struct i40e_pf *pf)
+ 	else
+ 		return 1; /* Only TC0 */
  
-> Regards,
-> Arend
-> 
-
-Best regards,
+-	/* At least have TC0 */
+-	enabled_tc = (enabled_tc ? enabled_tc : 0x1);
+ 	for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
+ 		if (enabled_tc & BIT(i))
+ 			num_tc++;
 -- 
-Javier Martinez Canillas
-Open Source Group
-Samsung Research America
+2.7.4
