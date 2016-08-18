@@ -1,117 +1,76 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get
- vlan info from skb->vlan_tci
-Date: Thu, 18 Aug 2016 08:46:38 +0200
-Message-ID: <20160818064637.GA1953@nanopsycho>
-References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
- <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
- <20160817104614.GD1956@nanopsycho>
- <CAJL1qvEDgd2r-iggQ5W-uvYVsWN-uQGN7ab5gN_J26Sk7-=O=g@mail.gmail.com>
- <20160817130247.GE1956@nanopsycho>
- <CAJL1qvGwQ+VYjLaa_+FjVxBP_Qjqqs8TjtTKrQN9PQD41SbtWA@mail.gmail.com>
+From: Tore Anderson <tore@fud.no>
+Subject: Loose URPF (rp_filter=2) doesn't work correctly with tunnels
+Date: Thu, 18 Aug 2016 08:46:27 +0200
+Message-ID: <20160818084627.27909f5c@echo.ms.redpill-linpro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hadar Hen Zion <hadarh@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Hadar Hen Zion <hadarh@dev.mellanox.co.il>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34373 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092AbcHRGql (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 02:46:41 -0400
-Received: by mail-wm0-f66.google.com with SMTP id q128so3341759wma.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 23:46:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJL1qvGwQ+VYjLaa_+FjVxBP_Qjqqs8TjtTKrQN9PQD41SbtWA@mail.gmail.com>
+Received: from greed.fud.no ([87.238.35.145]:41391 "EHLO greed.fud.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751092AbcHRHEP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Aug 2016 03:04:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Aug 18, 2016 at 08:22:49AM CEST, hadarh@dev.mellanox.co.il wrote:
->On Wed, Aug 17, 2016 at 4:02 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Wed, Aug 17, 2016 at 01:05:33PM CEST, hadarh@dev.mellanox.co.il wrote:
->>>On Wed, Aug 17, 2016 at 1:46 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Wed, Aug 17, 2016 at 12:36:10PM CEST, hadarh@mellanox.com wrote:
->>>>>Early in the datapath skb_vlan_untag function is called, stripped
->>>>>the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
->>>>>
->>>>>The current dissection doesn't handle stripped vlan packets correctly.
->>>>>In some flows, vlan doesn't exist in skb->data anymore when applying
->>>>>flow dissection on the skb, fix that.
->>>>>
->>>>>In case vlan info wasn't stripped before applying flow_dissector (RPS
->>>>>flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
->>>>>get the vlan info from skb->data. The flow_dissector correctly skips
->>>>>any number of vlans and stores only the first level vlan.
->>>>>
->>>>>Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
->>>>>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
->>>>>---
->>>>> net/core/flow_dissector.c | 34 ++++++++++++++++++++++++++--------
->>>>> 1 file changed, 26 insertions(+), 8 deletions(-)
->>>>>
->>>>>diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->>>>>index 91028ae..362d693 100644
->>>>>--- a/net/core/flow_dissector.c
->>>>>+++ b/net/core/flow_dissector.c
->>>>>@@ -119,12 +119,14 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->>>>>       struct flow_dissector_key_ports *key_ports;
->>>>>       struct flow_dissector_key_tags *key_tags;
->>>>>       struct flow_dissector_key_keyid *key_keyid;
->>>>>+      bool skip_vlan = false;
->>>>>       u8 ip_proto = 0;
->>>>>       bool ret = false;
->>>>>
->>>>>       if (!data) {
->>>>>               data = skb->data;
->>>>>-              proto = skb->protocol;
->>>>>+              proto = skb_vlan_tag_present(skb) ?
->>>>>+                       skb->vlan_proto : skb->protocol;
->>>>>               nhoff = skb_network_offset(skb);
->>>>>               hlen = skb_headlen(skb);
->>>>>       }
->>>>>@@ -243,23 +245,39 @@ ipv6:
->>>>>       case htons(ETH_P_8021AD):
->>>>>       case htons(ETH_P_8021Q): {
->>>>>               const struct vlan_hdr *vlan;
->>>>>-              struct vlan_hdr _vlan;
->>>>>
->>>>>-              vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
->>>>>-              if (!vlan)
->>>>>-                      goto out_bad;
->>>>>+              if (skb_vlan_tag_present(skb))
->>>>>+                      proto = skb->protocol;
->>>>>+
->>>>>+              if (!skb_vlan_tag_present(skb) ||
->>>>>+                  proto == cpu_to_be16(ETH_P_8021Q) ||
->>>>>+                  proto == cpu_to_be16(ETH_P_8021AD)) {
->>>>
->>>> How this can happen? Could you give me an example?
->>>>
->>>
->>>This can happen in 2 cases:
->>>
->>>1. vlan wasn't stripped yet from the skb.
->>>In RPS flow for example, get_rps_cpu function is using flow-dissector
->>>before vlan_untag is called by __netif_receive_skb_core.
->>
->> right, sigh...
->>
->>
->>>
->>>2. skb with multiple vlan tags.
->>>Only the first vlan is stripped while the inner vlans are still in skb->data.
->>>In this case skb->vlan_proto is 802.1AD and skb->protocol is 802.1Q
->>>(for example) so I have to take the next header from skb->data.
->>
->> Hmm I think that whoever removes the outermost vlan from skb->vlan_*
->> should strip the next header into skb->vlan_*
->
->The outermost vlan isn't removed from skb->vlan_* it stays there.
+Hi,
 
-No I didn't mean in your code. But other code that removes it should
-ensure that next vlan header is stripped so the rest of the code (like
-yours) can count with it.
+I've run into a bug when attempting to use rp_filter=2 in conjunction
+with tunnel interfaces. Basically it behaves as the same as strict RPF
+(rp_filter=1), discarding any packet arriving on the tunnel interface
+even though a route to the packet's source address exists on a
+different interface (which should have been sufficient to allow the
+loose RPF check to pass).
+
+This can be easily reproduced with the help of network namespaces. The
+below recipe uses IPIP tunnels, but the same problem occurs with GRE
+too, at least as of kernel 4.6.4-301.fc24.x86_64.
+
+# Enable forwarding and loose-mode RPF on all interfaces
+echo 1 | tee /proc/sys/net/ipv4/conf/*/forwarding
+echo 2 | tee /proc/sys/net/ipv4/conf/*/rp_filter
+
+# Add network namespace with a connecting veth link
+ip netns add x
+ip link add veth-outside type veth peer name veth-inside
+ip link set dev veth-inside netns x
+ip address add 10.0.0.1/30 dev veth-outside
+ip netns exec x ip address add 10.0.0.2/30 dev veth-inside
+ip link set dev veth-outside up
+ip netns exec x ip link set dev veth-inside up
+
+# Add ipip tunnel between the veth link addresses
+ip tunnel add ipip-outside mode ipip local 10.0.0.1 remote 10.0.0.2
+ip netns exec x ip tunnel add ipip-inside mode ipip local 10.0.0.2 remote 10.0.0.1
+ip link set dev ipip-outside up
+ip netns exec x ip link set dev ipip-inside up
+
+# Add a route to some arbitrary external ip address to the ipip tunnel from
+# inside the network namespace
+ip netns exec x ip route add 192.168.1.1 dev ipip-inside
+
+# Start some test traffic (will have src=10.0.0.2 dst=192.168.1.1)
+# These will arrive in the outer/main network namespace on the
+# "ipip-outside" network device, while the source address is routed
+# to the "veth-outside" device.
+ip netns exec x ping 192.168.1.1 & # leave running
+
+At this point I'd expect the ping packets to be forwarded to "eth0" (or
+whatever interface 192.168.1.1 is routed to). That doesn't happen, they
+are instead discarded by the reverse path filter. That is, the test
+packet don't show up in a "tcpdump -i eth0 host 192.168.1.1" until I
+either:
+
+1) Completely disable RPF checking on the "ipip-outside" interface:
+
+echo 0 | tee /proc/sys/net/ipv4/conf/{all,ipip-outside}/rp_filter
+
+Or:
+
+2) Add a route to 10.0.0.2 to the "ipip-outside" interface (allowing a
+strict mode RPF check to succeed):
+
+ip route add 10.0.0.2 dev ipip-outside
+
+Tore
