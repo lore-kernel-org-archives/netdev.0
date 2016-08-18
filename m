@@ -1,46 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: Use list_move instead of list_del/list_add
-Date: Thu, 18 Aug 2016 14:57:22 -0700
-Message-ID: <1471557456-136741-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Philp Prindeville <philipp@redfish-solutions.com>
+Subject: Re: [PATCH 1/1] ppp: Fix one deadlock issue of PPP when send frame
+Date: Thu, 18 Aug 2016 10:48:27 -0600
+Message-ID: <fcdca34b-cfbb-4536-b857-843218645b82@redfish-solutions.com>
+References: <1471345503-10085-1-git-send-email-fgao@ikuai8.com>
+ <CA+6hz4qN-UmSutpCOY1KtrPBakh+2Qa+VUNVid7dq7EPWZE+aw@mail.gmail.com>
+ <96f03d73-73f9-23ac-591f-a855169f8dc9@redfish-solutions.com>
+ <CA+6hz4rUGeqohKCiTbeqp9NwkH5w_JKjqD8VEiQC4DyVL7Q7JA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>, paulus@samba.org,
+        linux-ppp@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Feng Gao <gfree.wind@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:53731 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754068AbcHSAt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 20:49:58 -0400
-In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:43062 "EHLO
+        mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753888AbcHSAwh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:52:37 -0400
+In-Reply-To: <CA+6hz4rUGeqohKCiTbeqp9NwkH5w_JKjqD8VEiQC4DyVL7Q7JA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
 
-Using list_move() instead of list_del() + list_add().
 
-Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_client.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On 08/18/2016 09:05 AM, Feng Gao wrote:
+> On Thu, Aug 18, 2016 at 10:11 PM, Philp Prindeville
+> <philipp@redfish-solutions.com>  wrote:
+>> >Feng,
+>> >
+>> >If the CPU can already be holding the lock, that implies re-entrancy.
+>> >What's to stop the first flow of code which acquired the lock from releasing
+>> >it again before the 2nd flow is done?  Is the 2nd flow running at a higher
+>> >priority or with interrupts disabled?
+> There is no preemption happened. It is caused by wrong route policy by l2tp.
+> For example, the cpu0 get the spinlock of channel1, then the channel1
+> is selected again after route. As a result, cpu0 tries to get the same
+> spinlock again.
+>
+> The call flow is like this.
+> ppp_write->ppp_channel_push->start_xmit->select inappropriate route
+> .... -> dev_hard_start_xmit->ppp_start_xmit->ppp_xmit_process->
+> ppp_push. Now ppp_push tries to get the same spinlock which is held
+> in ppp_channel_push.
+>
+> Regards
+> Feng
+>
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index e1370c5..e6b9263 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -662,8 +662,7 @@ static int i40e_client_release(struct i40e_client *client)
- 				 client->name, pf->hw.pf_id);
- 		}
- 		/* delete the client instance from the list */
--		list_del(&cdev->list);
--		list_add(&cdev->list, &cdevs_tmp);
-+		list_move(&cdev->list, &cdevs_tmp);
- 		atomic_dec(&client->ref_cnt);
- 		dev_info(&pf->pdev->dev, "Deleted client instance of Client %s\n",
- 			 client->name);
--- 
-2.7.4
+If we're detecting (through the fact that the lock has already been 
+acquired) that the wrong route is being applied, why don't we just punt 
+the packet instead?
+
+-Philip
