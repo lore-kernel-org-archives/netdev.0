@@ -1,39 +1,87 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH 2/2] net: sched: avoid duplicates in qdisc dump
-Date: Thu, 18 Aug 2016 18:39:31 -0700
-Message-ID: <CAM_iQpW9QOADkzDDEGYjTNnW21uwHX5xFx1iX=Wio5=i34kDbQ@mail.gmail.com>
-References: <alpine.LNX.2.00.1608162339050.22028@cbobk.fhfr.pm> <alpine.LNX.2.00.1608162350330.22028@cbobk.fhfr.pm>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Phil Sutter <phil@nwl.cc>, LKML <linux-kernel@vger.kernel.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1608162350330.22028@cbobk.fhfr.pm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 10/10] net/mlx5: E-Switch, Avoid ACLs in the offloads mode
+Date: Thu, 18 Aug 2016 21:09:11 +0300
+Message-ID: <1471543751-24164-11-git-send-email-saeedm@mellanox.com>
+References: <1471543751-24164-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:41787 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754689AbcHSBnG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:43:06 -0400
+In-Reply-To: <1471543751-24164-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 16, 2016 at 2:53 PM, Jiri Kosina <jikos@kernel.org> wrote:
-> From: Jiri Kosina <jkosina@suse.cz>
->
-> tc_dump_qdisc() performs dumping of the per-device qdiscs in two phases;
-> first, the "standard" dev->qdisc is being dumped. Second, if there is/are
-> ingress queue(s), they are being dumped as well.
->
-> After conversion of netdevice's qdisc linked-list into hashtable, these
-> two sets are not in two disjunctive sets/lists any more, but are both
-> "reachable" directly from netdevice's hashtable. As a consequence, the
-> "full-depth" dump of the ingress qdiscs results in immediately hitting the
-> netdevice hashtable again, and duplicating the dump that has already been
-> performed for dev->qdisc.
-> What in fact needs to be dumped in case of ingress queue is "just" the
-> top-level ingress qdisc, as everything else has been dumped already.
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Doesn't this mean we can now just remove the ingress case from
-tc_dump_qdisc() and simply iterate the whole hash table?
+When we are in the switchdev/offloads mode, HW matching is done as
+dictated by the offloaded rules and hence we don't need to enable
+the ACLs mechanism used by the legacy mode.
+
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index f6d6677..8b78f15 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1451,7 +1451,8 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+ 
+ 	esw_debug(esw->dev, "Enabling VPORT(%d)\n", vport_num);
+ 
+-	if (vport_num) { /* Only VFs need ACLs for VST and spoofchk filtering */
++	/* Only VFs need ACLs for VST and spoofchk filtering */
++	if (vport_num && esw->mode == SRIOV_LEGACY) {
+ 		esw_vport_ingress_config(esw, vport);
+ 		esw_vport_egress_config(esw, vport);
+ 	}
+@@ -1502,7 +1503,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ 	 */
+ 	esw_vport_change_handle_locked(vport);
+ 	vport->enabled_events = 0;
+-	if (vport_num) {
++	if (vport_num && esw->mode == SRIOV_LEGACY) {
+ 		esw_vport_disable_egress_acl(esw, vport);
+ 		esw_vport_disable_ingress_acl(esw, vport);
+ 	}
+@@ -1767,7 +1768,7 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 			       vport, err);
+ 
+ 	mutex_lock(&esw->state_lock);
+-	if (evport->enabled)
++	if (evport->enabled && esw->mode == SRIOV_LEGACY)
+ 		err = esw_vport_ingress_config(esw, evport);
+ 	mutex_unlock(&esw->state_lock);
+ 	return err;
+@@ -1839,7 +1840,7 @@ int mlx5_eswitch_set_vport_vlan(struct mlx5_eswitch *esw,
+ 	mutex_lock(&esw->state_lock);
+ 	evport->vlan = vlan;
+ 	evport->qos = qos;
+-	if (evport->enabled) {
++	if (evport->enabled && esw->mode == SRIOV_LEGACY) {
+ 		err = esw_vport_ingress_config(esw, evport);
+ 		if (err)
+ 			goto out;
+@@ -1868,10 +1869,11 @@ int mlx5_eswitch_set_vport_spoofchk(struct mlx5_eswitch *esw,
+ 	mutex_lock(&esw->state_lock);
+ 	pschk = evport->spoofchk;
+ 	evport->spoofchk = spoofchk;
+-	if (evport->enabled)
++	if (evport->enabled && esw->mode == SRIOV_LEGACY) {
+ 		err = esw_vport_ingress_config(esw, evport);
+-	if (err)
+-		evport->spoofchk = pschk;
++		if (err)
++			evport->spoofchk = pschk;
++	}
+ 	mutex_unlock(&esw->state_lock);
+ 
+ 	return err;
+-- 
+2.7.4
