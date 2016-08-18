@@ -1,117 +1,53 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH v2 1/1] ppp: Fix one deadlock issue of PPP when send frame
-Date: Fri, 19 Aug 2016 06:52:58 +0800
-Message-ID: <CA+6hz4ouOtMpxxiTOx99EeOtbZZa_L4c7EprPEPoxVpP5rbTGQ@mail.gmail.com>
-References: <1471347218-24472-1-git-send-email-fgao@ikuai8.com>
- <20160817174219.y4opmhj4u77m3ufq@alphalink.fr> <CA+6hz4qROeAKSgQJ-tf3qaDp5zBqssq4gV39wqyUT0ctp1DHcg@mail.gmail.com>
- <20160818161315.6wnv45tzw6v5napa@alphalink.fr>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 18 Aug 2016 12:56:20 -0500
+Message-ID: <57B5F6C4.2010603@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org>
+ <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com>
+ <57B31780.5030106@codeaurora.org>
+ <f3a49762-aa66-1949-bd6b-77bd6a74acc1@linaro.org>
+ <57B3878D.1000805@codeaurora.org>
+ <ff901f77-2177-52a7-2464-2f61495f91be@gmail.com>
+ <57B4C6EE.3080903@codeaurora.org> <57B4E5F7.9040500@codeaurora.org>
+ <bec781c6-2db9-02c7-687d-b5d6ee50c129@gmail.com>
+ <57B52B17.1080809@codeaurora.org>
+ <5CCEFB33-8F93-40D7-BD32-ACDE1CBA586D@gmail.com>
+ <57B5374B.6010805@codeaurora.org>
+ <3D5C1ACB-4338-4A9F-9BCC-0424A1793664@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gao Feng <fgao@ikuai8.com>, paulus@samba.org,
-        linux-ppp@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f177.google.com ([209.85.217.177]:36821 "EHLO
-        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755061AbcHSBlu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:41:50 -0400
-In-Reply-To: <20160818161315.6wnv45tzw6v5napa@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+        Sagar Dharia <sdharia@codeaurora.org>,
+        Shanker Donthineni <shankerd@codeaurora.org>,
+        Vikram Sethi <vikrams@codeaurora.org>,
+        Christopher Covington <cov@codeaurora.org>,
+        Gilad Avidov <gavidov@codeaurora.org>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        Mark Langsdorf <mlangsdo@redhat.com>,
+        "jcm@redhat.com" <jcm@redhat.com>,
+        Andy Gross <agross@codeaurora.org>,
+        David Miller <davem@davemloft.net>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        "Abdulhamid, Harb" <harba@codeaurora.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Al Stone <al.stone@linaro.org>, Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <3D5C1ACB-4338-4A9F-9BCC-0424A1793664@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Guillaume,
+Florian Fainelli wrote:
+> There is a helper function to obtain the platform device associated with a device_node: of_find_device_by_node.
 
-Thanks your detail analyses.
-Now I think it is a good solution that just drop the packet and print
-error log instead my original solution that supports reentrant. This
-solution will not bring any side effects.
+Thank you, this is exactly what I needed.
 
-I will send one update according to this new solution.
-
-
-Regards
-Feng
-
-
-On Fri, Aug 19, 2016 at 12:13 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
-> On Thu, Aug 18, 2016 at 08:58:31AM +0800, Feng Gao wrote:
->> On Thu, Aug 18, 2016 at 1:42 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
->> > On Tue, Aug 16, 2016 at 07:33:38PM +0800, fgao@ikuai8.com wrote:
->> >> From: Gao Feng <fgao@ikuai8.com>
->> >>
->> >> PPP channel holds one spinlock before send frame. But the skb may
->> >> select the same PPP channel with wrong route policy. As a result,
->> >> the skb reaches the same channel path. It tries to get the same
->> >> spinlock which is held before. Bang, the deadlock comes out.
->> >>
->> > Unless I misunderstood the problem you're trying to solve, this patch
->> > doesn't really help: deadlock still occurs if the same IP is used for
->> > L2TP and PPP's peer address.
->> >
->>
->> The deadlock happens because the same cpu try to hold the spinlock
->> which is already held before by itself.
->> Now the PPP_CHANNEL_LOCK_BH sets the lock owner after hold lock, then
->> when the same cpu
->> invokes PPP_CHANNEL_LOCK_BH again. The cl.owner equals current cpu id,
->> so it only increases
->> the lock_cnt without trying to hold the lock again.
->> So it avoids the deadlock.
->>
-> I'm sorry but, again, it just _moves_ the deadlock down to L2TP. The
-> kernel still oops because, now, l2tp_xmit_skb() is called recursively
-> while holding its tunnel socket.
->
->> >> Now add one lock owner to avoid it like xmit_lock_owner of
->> >> netdev_queue. Check the lock owner before try to get the spinlock.
->> >> If the current cpu is already the owner, needn't lock again. When
->> >> PPP channel holds the spinlock at the first time, it sets owner
->> >> with current CPU ID.
->> >>
->> > I think you should forbid lock recursion entirely, and drop the packet
->> > if the owner tries to re-acquire the channel lock. Otherwise you just
->> > move the deadlock down the stack (l2tp_xmit_skb() can't be called
->> > recursively).
->>
->> The reason that fix it in ppp is that there are other layer on the ppp module.
->> We resolve it in ppp module, it could avoid all similar potential issues.
->>
-> Not sure if I understand your point here.
-> The xmit path of PPP and its sub-layers hasn't been designed to be
-> reentrant. Allowing recursive sends thus require to review the full
-> path.
->
-> Beyond the L2TP issue discussed above, just consider the locking
-> dependencies used in PPP: ppp->wlock has to be held before
-> channel->downl. Sending a packet directly on a channel will lock
-> channel->downl. If this packet is routed back to the parent unit then
-> ppp_xmit_process() will lock ppp->wlock, effectively leading to lock
-> inversion and potential deadlock.
->
-> So we have two options: adapt the whole xmit path to handle recursive
-> sends or forbid recursion entirely. Unfortunately none of these options
-> looks easy to achieve:
->
->   * Making PPP xmit path reentrant will be hard and error prone because
->     of all the locking dependencies. Looks like simplifying PPP's
->     locking scheme will be required first.
->
->   * I can't see any way to reliably prevent settings where a packet sent
->     on a given channel would be routed back to the parent unit.
->
->
-> OTOH, we can try to limit the impact of recursive sends for simple
-> cases:
->
->   * Following your approach, either adapt the lower layers
->     (like l2tp_xmit_skb() for L2TP), or drop the packet when
->     cl.owner == smp_processor_id(). This is very limited in scope and
->     doesn't address issues like locking inversions. But it may let the
->     system survive long enough for the PPP to time out.
->
->   * In the lower layer, check where the packet is going to be enqueued
->     and drop it if it's the parent device. That should reliably handle
->     simple and common cases. However this requires to update at least
->     L2TP and PPTP and to get a way to access the parent device. Also,
->     it doesn't prevent recursion with stacked interfaces.
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
