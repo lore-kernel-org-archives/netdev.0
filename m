@@ -1,7 +1,7 @@
 From: Daniel Wagner <wagi@monom.org>
-Subject: [PATCH 1/2] carl9170: Fix wrong completion usage
-Date: Thu, 18 Aug 2016 15:12:05 +0200
-Message-ID: <1471525926-20384-2-git-send-email-wagi@monom.org>
+Subject: [PATCH 2/2] ath10k: use complete() instead complete_all()
+Date: Thu, 18 Aug 2016 15:12:06 +0200
+Message-ID: <1471525926-20384-3-git-send-email-wagi@monom.org>
 References: <1471525926-20384-1-git-send-email-wagi@monom.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,55 +27,160 @@ List-Id: netdev.vger.kernel.org
 
 From: Daniel Wagner <daniel.wagner@bmw-carit.de>
 
-carl9170_usb_stop() is used from several places to flush and cleanup any
-pending work. The normal pattern is to send a request and wait for the
-irq handler to call complete(). The completion is not reinitialized
-during normal operation and as the old comment indicates it is important
-to keep calls to wait_for_completion_timeout() and complete() balanced.
+There is only one waiter for the completion, therefore there
+is no need to use complete_all(). Let's make that clear by
+using complete() instead of complete_all().
 
-Calling complete_all() brings this equilibirum out of balance and needs
-to be fixed by a reinit_completion(). But that opens a small race
-window. It is possible that the sequence of complete_all(),
-reinit_completion() is faster than the wait_for_completion_timeout() can
-do its work. The wake up is not lost but the done counter test is after
-reinit_completion() has been executed. The only reason we don't see
-carl9170_exec_cmd() hang forever is we use the timeout version of
-wait_for_copletion().
+The usage pattern of the completion is:
 
-Let's fix this by reinitializing the completion (that is just setting
-done counter to 0) just before we send out an request. Now,
-carl9170_usb_stop() can be sure a complete() call is enough to make
-progess since there is only one waiter at max. This is a common pattern
-also seen in various drivers which use completion.
+waiter context                          waker context
+
+scan.started
+------------
+
+ath10k_start_scan()
+  lockdep_assert_held(conf_mutex)
+  auth10k_wmi_start_scan()
+  wait_for_completion_timeout(scan.started)
+
+					ath10k_wmi_event_scan_start_failed()
+					  complete(scan.started)
+
+					ath10k_wmi_event_scan_started()
+					  complete(scan.started)
+
+scan.completed
+--------------
+
+ath10k_scan_stop()
+  lockdep_assert_held(conf_mutex)
+  ath10k_wmi_stop_scan()
+  wait_for_completion_timeout(scan.completed)
+
+					__ath10k_scan_finish()
+					  complete(scan.completed)
+
+scan.on_channel
+---------------
+
+ath10k_remain_on_channel()
+  mutex_lock(conf_mutex)
+  ath10k_start_scan()
+  wait_for_completion_timeout(scan.on_channel)
+
+					ath10k_wmi_event_scan_foreign_chan()
+					  complete(scan.on_channel)
+
+offchan_tx_completed
+--------------------
+
+ath10k_offchan_tx_work()
+  mutex_lock(conf_mutex)
+  reinit_completion(offchan_tx_completed)
+  wait_for_completion_timeout(offchan_tx_completed)
+
+					ath10k_report_offchain_tx()
+					  complete(offchan_tx_completed)
+
+install_key_done
+----------------
+ath10k_install_key()
+  lockep_assert_held(conf_mutex)
+  reinit_completion(install_key_done)
+  wait_for_completion_timeout(install_key_done)
+
+				        ath10k_htt_t2h_msg_handler()
+					  complete(install_key_done)
+
+vdev_setup_done
+---------------
+
+ath10k_monitor_vdev_start()
+  lockdep_assert_held(conf_mutex)
+   reinit_completion(vdev_setup_done)
+  ath10k_vdev_setup_sync()
+    wait_for_completion_timeout(vdev_setup_done)
+
+					ath10k_wmi_event_vdev_start_resp()
+					  complete(vdev_setup_done)
+
+ath10k_monitor_vdev_stop()
+  lockdep_assert_held(conf_mutex)
+  reinit_completion(vdev_setup_done()
+  ath10k_vdev_setup_sync()
+    wait_for_completion_timeout(vdev_setup_done)
+
+					ath10k_wmi_event_vdev_stopped()
+					 complete(vdev_setup_done)
+
+thermal.wmi_sync
+----------------
+ath10k_thermal_show_temp()
+  mutex_lock(conf_mutex)
+  reinit_completion(thermal.wmi_sync)
+  wait_for_completion_timeout(thermal.wmi_sync)
+
+					ath10k_thermal_event_temperature()
+					  complete(thermal.wmi_sync)
+
+bss_survey_done
+---------------
+ath10k_mac_update_bss_chan_survey
+  lockdep_assert_held(conf_mutex)
+  reinit_completion(bss_survey_done)
+  wait_for_completion_timeout(bss_survey_done)
+
+					ath10k_wmi_event_pdev_bss_chan_info()
+					  complete(bss_survey_done)
+
+All complete() calls happen while the conf_mutex is taken. That means
+at max one waiter is possible.
 
 Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
 ---
- drivers/net/wireless/ath/carl9170/usb.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/wireless/ath/ath10k/core.c | 16 ++++++++--------
+ drivers/net/wireless/ath/ath10k/mac.c  |  2 +-
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/carl9170/usb.c b/drivers/net/wireless/ath/carl9170/usb.c
-index 76842e6..99ab203 100644
---- a/drivers/net/wireless/ath/carl9170/usb.c
-+++ b/drivers/net/wireless/ath/carl9170/usb.c
-@@ -670,6 +670,7 @@ int carl9170_exec_cmd(struct ar9170 *ar, const enum carl9170_cmd_oids cmd,
- 	ar->readlen = outlen;
- 	spin_unlock_bh(&ar->cmd_lock);
+diff --git a/drivers/net/wireless/ath/ath10k/core.c b/drivers/net/wireless/ath/ath10k/core.c
+index e889829..ed76601 100644
+--- a/drivers/net/wireless/ath/ath10k/core.c
++++ b/drivers/net/wireless/ath/ath10k/core.c
+@@ -1497,14 +1497,14 @@ static void ath10k_core_restart(struct work_struct *work)
  
-+	reinit_completion(&ar->cmd_wait);
- 	err = __carl9170_exec_cmd(ar, &ar->cmd, false);
- 
- 	if (!(cmd & CARL9170_CMD_ASYNC_FLAG)) {
-@@ -778,10 +779,7 @@ void carl9170_usb_stop(struct ar9170 *ar)
- 	spin_lock_bh(&ar->cmd_lock);
- 	ar->readlen = 0;
- 	spin_unlock_bh(&ar->cmd_lock);
--	complete_all(&ar->cmd_wait);
--
--	/* This is required to prevent an early completion on _start */
--	reinit_completion(&ar->cmd_wait);
-+	complete(&ar->cmd_wait);
- 
- 	/*
- 	 * Note:
+ 	ieee80211_stop_queues(ar->hw);
+ 	ath10k_drain_tx(ar);
+-	complete_all(&ar->scan.started);
+-	complete_all(&ar->scan.completed);
+-	complete_all(&ar->scan.on_channel);
+-	complete_all(&ar->offchan_tx_completed);
+-	complete_all(&ar->install_key_done);
+-	complete_all(&ar->vdev_setup_done);
+-	complete_all(&ar->thermal.wmi_sync);
+-	complete_all(&ar->bss_survey_done);
++	complete(&ar->scan.started);
++	complete(&ar->scan.completed);
++	complete(&ar->scan.on_channel);
++	complete(&ar->offchan_tx_completed);
++	complete(&ar->install_key_done);
++	complete(&ar->vdev_setup_done);
++	complete(&ar->thermal.wmi_sync);
++	complete(&ar->bss_survey_done);
+ 	wake_up(&ar->htt.empty_tx_wq);
+ 	wake_up(&ar->wmi.tx_credits_wq);
+ 	wake_up(&ar->peer_mapping_wq);
+diff --git a/drivers/net/wireless/ath/ath10k/mac.c b/drivers/net/wireless/ath/ath10k/mac.c
+index 0bbd0a0..c3c1c25 100644
+--- a/drivers/net/wireless/ath/ath10k/mac.c
++++ b/drivers/net/wireless/ath/ath10k/mac.c
+@@ -3894,7 +3894,7 @@ void __ath10k_scan_finish(struct ath10k *ar)
+ 		ar->scan.roc_freq = 0;
+ 		ath10k_offchan_tx_purge(ar);
+ 		cancel_delayed_work(&ar->scan.timeout);
+-		complete_all(&ar->scan.completed);
++		complete(&ar->scan.completed);
+ 		break;
+ 	}
+ }
 -- 
 2.7.4
