@@ -1,62 +1,35 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [RFC PATCH 3/5] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
- commands
-Date: Thu, 18 Aug 2016 17:17:47 +0200
-Message-ID: <90bdc6be-bd8e-4c2c-68e9-ca8809ea38a4@zonque.org>
-References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
- <1471442448-1248-4-git-send-email-daniel@zonque.org>
- <1471450562.29842.6.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160817181018.GC98226@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: [PATCH net-next 0/2] PHY Kconfig and Makefile cleanup
+Date: Thu, 18 Aug 2016 23:56:04 +0200
+Message-ID: <1471557366-21672-1-git-send-email-andrew@lunn.ch>
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:60462 "EHLO mail.zonque.de"
+Received: from vps0.lunn.ch ([178.209.37.122]:38661 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754154AbcHSB4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 21:56:03 -0400
-In-Reply-To: <20160817181018.GC98226@ast-mbp.thefacebook.com>
+        id S1754050AbcHSBzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 21:55:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/17/2016 08:10 PM, Alexei Starovoitov wrote:
-> On Wed, Aug 17, 2016 at 09:16:02AM -0700, Eric Dumazet wrote:
->> On Wed, 2016-08-17 at 16:00 +0200, Daniel Mack wrote:
->>
->>> +		progp = is_ingress ? &cgrp->bpf_ingress : &cgrp->bpf_egress;
->>> +
->>> +		rcu_read_lock();
->>> +		old_prog = rcu_dereference(*progp);
->>> +		rcu_assign_pointer(*progp, prog);
->>> +
->>> +		if (old_prog)
->>> +			bpf_prog_put(old_prog);
->>> +
->>> +		rcu_read_unlock();
->>
->>
->> This is a bogus locking strategy.
-> 
-> yep. this rcu_lock/unlock won't solve the race between parallel
-> bpf_prog_attach calls.
-> please use xchg() similar to bpf_fd_array_map_update_elem()
-> Then prog pointer will be swapped automically and bpf_prog_put()
-> will free it via call_rcu.
-> The reader side in sk_filter_cgroup_bpf() looks correct.
+The Ethernet PHY directory has slowly been getting more entries.
+Split the entries in the Makefile and Kconfig into MDIO bus drivers
+and PHYs. Within these two groups, sort them. This should reduce merge
+conflicts and aid finding what one searches for.
 
-Thanks! I reworked all the bits I got comments on, and fixed some other
-details as well. I'll wait some days to see what else shakes out of this
-thread, and then post again.
+The Kconfig text contains redundant "Driver for" and "Support for"
+which add little value, make the vendor less obvious, and defeat the
+shortcut key in the menu. Remove such text.
 
-FWIW, the current code can be found here:
+Andrew Lunn (2):
+  net: phy: Sort Makefile and Kconfig
+  net: phy: Kconfig: Remove redundant "Support for"
 
-  https://github.com/zonque/linux/commits/cg-bpf-syscall
+ drivers/net/phy/Kconfig  | 439 ++++++++++++++++++++++++-----------------------
+ drivers/net/phy/Makefile |  76 ++++----
+ 2 files changed, 259 insertions(+), 256 deletions(-)
 
-
-Thanks,
-Daniel
+-- 
+2.8.1
