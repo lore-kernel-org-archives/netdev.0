@@ -1,55 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] i40e: Fix a bug where a client close can be called before an open is complete
-Date: Thu, 18 Aug 2016 14:57:23 -0700
-Message-ID: <1471557456-136741-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:52025 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754607AbcHSB3u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 21:29:50 -0400
-In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: [PATCH] mwifiex: propagate error if IRQ request fails in
+ mwifiex_sdio_of()
+Date: Thu, 18 Aug 2016 15:29:01 -0400
+Message-ID: <70b6a0d1-8cc4-280e-3e53-8c42cb43b721@osg.samsung.com>
+References: <1471529868-13669-1-git-send-email-javier@osg.samsung.com>
+ <10fb1110-4c0b-00a2-522c-7011ca397b8c@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <10fb1110-4c0b-00a2-522c-7011ca397b8c@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+Hello Arend,
 
-The client->open call in this path was not protected with the
-client instance mutex, and hence the client->close can get initiated
-before the open completes.
+Thanks a lot for your feedback.
 
-Change-Id: I0ed60c38868dd3f44966b6ed49a063d0e5b7edf5
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_client.c | 2 ++
- 1 file changed, 2 insertions(+)
+On 08/18/2016 03:14 PM, Arend van Spriel wrote:
+> On 18-08-16 16:17, Javier Martinez Canillas wrote:
+>> If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
+>> is printed but the actual error is not propagated to the caller function.
+> 
+> Hmm. The caller function, ie. mwifiex_sdio_probe(), does not seem to care.
+>
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index e6b9263..8726269 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -541,6 +541,7 @@ void i40e_client_subtask(struct i40e_pf *pf)
- 			 client->name, pf->hw.pf_id,
- 			 pf->hw.bus.device, pf->hw.bus.func);
+Hmm, I'm not so sure about that. It's checking the wifiex_sdio_probe_of()
+return value.
+
+If the IRQ request failing is not an error, then at the very least the call
+to disable_irq() should be avoided if request_irq() fails, and the message
+should be changed from dev_err() to dev_dgb() or dev_info().
  
-+		mutex_lock(&i40e_client_instance_mutex);
- 		/* Send an Open request to the client */
- 		atomic_inc(&cdev->ref_cnt);
- 		if (client->ops && client->ops->open)
-@@ -554,6 +555,7 @@ void i40e_client_subtask(struct i40e_pf *pf)
- 			atomic_dec(&client->ref_cnt);
- 			continue;
- 		}
-+		mutex_unlock(&i40e_client_instance_mutex);
- 	}
- 	mutex_unlock(&i40e_client_mutex);
- }
+> The device may still function without this wake interrupt.
+>
+
+That's correct, the binding says that the "interrupts" property in the child
+node is optional since is just a wakeup IRQ. Now the question is if should
+be an error if the IRQ is defined but fails to be requested.
+
+> Regards,
+> Arend
+> 
+
+Best regards,
 -- 
-2.7.4
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
