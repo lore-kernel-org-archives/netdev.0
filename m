@@ -1,70 +1,62 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: Don't notify client of VF reset during VF creation
-Date: Thu, 18 Aug 2016 14:57:30 -0700
-Message-ID: <1471557456-136741-10-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Avinash Dayanand <avinash.dayanand@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [RFC PATCH 3/5] bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH
+ commands
+Date: Thu, 18 Aug 2016 17:17:47 +0200
+Message-ID: <90bdc6be-bd8e-4c2c-68e9-ca8809ea38a4@zonque.org>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+ <1471442448-1248-4-git-send-email-daniel@zonque.org>
+ <1471450562.29842.6.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160817181018.GC98226@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:62947 "EHLO mga02.intel.com"
+Received: from svenfoo.org ([82.94.215.22]:60462 "EHLO mail.zonque.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754663AbcHSBwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 21:52:03 -0400
-In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+        id S1754154AbcHSB4D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 21:56:03 -0400
+In-Reply-To: <20160817181018.GC98226@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Avinash Dayanand <avinash.dayanand@intel.com>
+On 08/17/2016 08:10 PM, Alexei Starovoitov wrote:
+> On Wed, Aug 17, 2016 at 09:16:02AM -0700, Eric Dumazet wrote:
+>> On Wed, 2016-08-17 at 16:00 +0200, Daniel Mack wrote:
+>>
+>>> +		progp = is_ingress ? &cgrp->bpf_ingress : &cgrp->bpf_egress;
+>>> +
+>>> +		rcu_read_lock();
+>>> +		old_prog = rcu_dereference(*progp);
+>>> +		rcu_assign_pointer(*progp, prog);
+>>> +
+>>> +		if (old_prog)
+>>> +			bpf_prog_put(old_prog);
+>>> +
+>>> +		rcu_read_unlock();
+>>
+>>
+>> This is a bogus locking strategy.
+> 
+> yep. this rcu_lock/unlock won't solve the race between parallel
+> bpf_prog_attach calls.
+> please use xchg() similar to bpf_fd_array_map_update_elem()
+> Then prog pointer will be swapped automically and bpf_prog_put()
+> will free it via call_rcu.
+> The reader side in sk_filter_cgroup_bpf() looks correct.
 
-VF goes through reset path during VF creation which happens to also
-have notification of VF reset to client. Adding conditional check to
-avoid wrongly notifying VF reset during VF creation.
+Thanks! I reworked all the bits I got comments on, and fixed some other
+details as well. I'll wait some days to see what else shakes out of this
+thread, and then post again.
 
-Also changing the call order of VF enable, calling it after VF creation
-rather than before.
+FWIW, the current code can be found here:
 
-Change-ID: I96eabd99deae746a2f0fc465194c886f196178ce
-Signed-off-by: Avinash Dayanand <avinash.dayanand@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+  https://github.com/zonque/linux/commits/cg-bpf-syscall
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 0fa050a..5ea659c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -991,7 +991,9 @@ complete_reset:
- 		i40e_enable_vf_mappings(vf);
- 		set_bit(I40E_VF_STAT_ACTIVE, &vf->vf_states);
- 		clear_bit(I40E_VF_STAT_DISABLED, &vf->vf_states);
--		i40e_notify_client_of_vf_reset(pf, abs_vf_id);
-+		/* Do not notify the client during VF init */
-+		if (vf->pf->num_alloc_vfs)
-+			i40e_notify_client_of_vf_reset(pf, abs_vf_id);
- 		vf->num_vlan = 0;
- 	}
- 	/* tell the VF the reset is done */
-@@ -1090,7 +1092,6 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- 			goto err_iov;
- 		}
- 	}
--	i40e_notify_client_of_vf_enable(pf, num_alloc_vfs);
- 	/* allocate memory */
- 	vfs = kcalloc(num_alloc_vfs, sizeof(struct i40e_vf), GFP_KERNEL);
- 	if (!vfs) {
-@@ -1114,6 +1115,8 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
- 	}
- 	pf->num_alloc_vfs = num_alloc_vfs;
- 
-+	i40e_notify_client_of_vf_enable(pf, num_alloc_vfs);
-+
- err_alloc:
- 	if (ret)
- 		i40e_free_vfs(pf);
--- 
-2.7.4
+
+Thanks,
+Daniel
