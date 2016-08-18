@@ -1,56 +1,43 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] fib_trie: Fix the description of pos and bits
-Date: Thu, 18 Aug 2016 09:26:36 -0700
-Message-ID: <CAKgT0UeYXFNaRi-wbS76AOJ+KiVYN3tqXc8x-EzF-TdMQd_Mww@mail.gmail.com>
-References: <1471494808-22475-1-git-send-email-xlpang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexander Duyck <alexander.h.duyck@redhat.com>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Xunlei Pang <xlpang@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/5] net: dsa: bcm_sf2: Platform conversion
+Date: Thu, 18 Aug 2016 15:30:11 -0700
+Message-ID: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:34406 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750838AbcHSE0C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 00:26:02 -0400
-In-Reply-To: <1471494808-22475-1-git-send-email-xlpang@redhat.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35938 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753627AbcHSE3B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 00:29:01 -0400
+Received: by mail-pa0-f65.google.com with SMTP id ez1so2797976pab.3
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 21:29:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 17, 2016 at 9:33 PM, Xunlei Pang <xlpang@redhat.com> wrote:
-> 1) Fix one typo: s/tn/tp/
-> 2) Fix the description about the "u" bits.
->
-> Signed-off-by: Xunlei Pang <xlpang@redhat.com>
-> ---
->  net/ipv4/fib_trie.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-> index d07fc07..eb7c5d1 100644
-> --- a/net/ipv4/fib_trie.c
-> +++ b/net/ipv4/fib_trie.c
-> @@ -249,7 +249,7 @@ static inline unsigned long get_index(t_key key, struct key_vector *kv)
->   * index into the parent's child array. That is, they will be used to find
->   * 'n' among tp's children.
->   *
-> - * The bits from (n->pos + n->bits) to (tn->pos - 1) - "S" - are skipped bits
-> + * The bits from (n->pos + n->bits) to (tp->pos - 1) - "S" - are skipped bits
->   * for the node n.
->   *
->   * All the bits we have seen so far are significant to the node n. The rest
-> @@ -258,7 +258,7 @@ static inline unsigned long get_index(t_key key, struct key_vector *kv)
->   * The bits from (n->pos) to (n->pos + n->bits - 1) - "C" - are the index into
->   * n's child array, and will of course be different for each child.
->   *
-> - * The rest of the bits, from 0 to (n->pos + n->bits), are completely unknown
-> + * The rest of the bits, from 0 to (n->pos -1) - "u" - are completely unknown
->   * at this point.
->   */
->
+Hi all,
 
-These comment fixes all look correct.
+This patch series converts the bcm_sf2 driver from a traditional DSA driver
+into a platform_device driver and makes it use the new DSA binding that Andrew
+introduced in the latest merge window.
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Prior attempts used to coerce the code in net/dsa/dsa2.c to accept the old
+binding, while really there is only one broken single user out there: bcm_sf2,
+so instead, just assume the new DT binding is deployed and use it accordingly.
+
+Florian Fainelli (5):
+  net: dsa: Export suspend/resume functions
+  Documentation: dt: bindings: Update Broadcom 7445 switch document
+  net: dsa: bcm_sf2: Make it a real platform device driver
+  net: dsa: bcm_sf2: Use device managed helpers
+  net: dsa: bcm_sf2: Remove probing through old DSA binding
+
+ .../bindings/net/brcm,bcm7445-switch-v4.0.txt      |  45 ++++-
+ drivers/net/dsa/bcm_sf2.c                          | 221 ++++++++++++---------
+ include/net/dsa.h                                  |  14 ++
+ net/dsa/dsa.c                                      |   7 +-
+ 4 files changed, 189 insertions(+), 98 deletions(-)
+
+-- 
+2.7.4
