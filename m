@@ -1,73 +1,28 @@
-From: fgao@ikuai8.com
-Subject: [PATCH 2/2] pptp: Reset call_id as 0 to avoid one useless lookup at next time
-Date: Thu, 18 Aug 2016 13:07:59 +0800
-Message-ID: <1471496879-6423-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: xeb@mail.ru, philipp@redfish-solutions.com, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pls merge net to net-next
+Date: Thu, 18 Aug 2016 01:19:07 -0400 (EDT)
+Message-ID: <20160818.011907.1780180998024894997.davem@davemloft.net>
+References: <20160816140218.3c6508b5@xeon-e3>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vkuznets@redhat.com, haiyangz@microsoft.com, kys@microsoft.com,
+	netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG1.QQ.COM ([183.60.61.196]:39956 "EHLO smtpbg1.qq.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750720AbcHRFIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Aug 2016 01:08:18 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:34565 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbcHRFTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 01:19:37 -0400
+In-Reply-To: <20160816140218.3c6508b5@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 16 Aug 2016 14:02:18 -0700
 
-When pptp fails to get valid callid, the global call_id is set as
-MAX_CALLID. Then it must fail to get callid at next time, when
-invoke find_next_zero_bit from call_id+1. Because the call_id+1
-exceeds the limit "MAX_CALLID".
-So reset call_id as 0 when fail to get valid callid. And add one
-variable to check if need the second lookup.
+> Since Vitaly's changes to hyperv drivers went into net it makes
+> it harder to submit other changes for net-next since they will invariably
+> cause conflicts.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v1: Initial patch
-
- drivers/net/ppp/pptp.c | 19 +++++++++++++++----
- 1 file changed, 15 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
-index 48c3701..9afef3c 100644
---- a/drivers/net/ppp/pptp.c
-+++ b/drivers/net/ppp/pptp.c
-@@ -103,12 +103,21 @@ static int add_chan(struct pppox_sock *sock,
- 	static int call_id;
- 
- 	spin_lock(&chan_lock);
--	if (!sa->call_id)	{
-+	if (!sa->call_id) {
-+		bool from_start = (call_id == 0);
-+
- 		call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, call_id + 1);
- 		if (call_id == MAX_CALLID) {
--			call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
--			if (call_id == MAX_CALLID)
-+			if (unlikely(from_start)) {
-+				call_id = 0;
- 				goto out_err;
-+			} else {
-+				call_id = find_next_zero_bit(callid_bitmap, MAX_CALLID, 1);
-+				if (call_id == MAX_CALLID) {
-+					call_id = 0;
-+					goto out_err;
-+				}
-+			}
- 		}
- 		sa->call_id = call_id;
- 	} else if (test_bit(sa->call_id, callid_bitmap)) {
-@@ -656,8 +665,10 @@ static int __init pptp_init_module(void)
- 	pr_info("PPTP driver version " PPTP_DRIVER_VERSION "\n");
- 
- 	callid_sock = vzalloc((MAX_CALLID + 1) * sizeof(void *));
--	if (!callid_sock)
-+	if (!callid_sock) {
-+		pr_err("PPTP: can't alloc callid_sock mem");
- 		return -ENOMEM;
-+	}
- 
- 	err = gre_add_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
- 	if (err) {
--- 
-1.9.1
+Done.
