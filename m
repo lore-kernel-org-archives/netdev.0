@@ -1,35 +1,44 @@
-From: Shubhrajyoti Datta <shubhrajyoti.datta-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv3] net: ethernet: macb: Add support for rx_clk
-Date: Thu, 18 Aug 2016 12:45:30 +0530
-Message-ID: <CAKfKVtHJuaRKQt2FzMODSKK8LqFEyRwz001sy7TSojuxKUENyg@mail.gmail.com>
-References: <1471322690-35923-1-git-send-email-shubhrajyoti.datta@xilinx.com> <d658e2d7-e550-b4f0-4aa1-ec7e95269724@atmel.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next V2 1/5] flow_dissector: For stripped vlan, get
+ vlan info from skb->vlan_tci
+Date: Thu, 18 Aug 2016 09:24:59 +0200
+Message-ID: <20160818072459.GB1953@nanopsycho>
+References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+ <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Shubhrajyoti Datta <shubhrajyoti.datta-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?Q?S=C3=B6ren_Brinkmann?= <soren.brinkmann-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
-	Michal Simek <michal.simek-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
-To: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <d658e2d7-e550-b4f0-4aa1-ec7e95269724-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jiri Pirko <jiri@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33054 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387AbcHRHZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 03:25:03 -0400
+Received: by mail-wm0-f68.google.com with SMTP id o80so3594847wme.0
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 00:25:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1471430174-27740-2-git-send-email-hadarh@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 16, 2016 at 10:03 PM, Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org> w=
-rote:
-> Le 15/08/2016 =C3=A0 21:44, Shubhrajyoti Datta a =C3=A9crit :
->> Some of the platforms like zynqmp ultrascale+ has a
->> separate clock gate for the rx clock. Add an optional
->> rx_clk so that the clock can be enabled.
->>
->> Signed-off-by: Shubhrajyoti Datta <shubhrajyoti.datta-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Wed, Aug 17, 2016 at 12:36:10PM CEST, hadarh@mellanox.com wrote:
+>Early in the datapath skb_vlan_untag function is called, stripped
+>the vlan from the skb and set skb->vlan_tci and skb->vlan_proto fields.
 >
-> Fine with me:
-> Acked-by: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+>The current dissection doesn't handle stripped vlan packets correctly.
+>In some flows, vlan doesn't exist in skb->data anymore when applying
+>flow dissection on the skb, fix that.
 >
-Thanks Nicolas.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>In case vlan info wasn't stripped before applying flow_dissector (RPS
+>flow for example), or in case of skb with multiple vlans (e.g. 802.1ad),
+>get the vlan info from skb->data. The flow_dissector correctly skips
+>any number of vlans and stores only the first level vlan.
+>
+>Fixes: 0744dd00c1b1 ('net: introduce skb_flow_dissect()')
+>Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+
+Acked-by: Jiri Pirko <jiri@mellanox.com>
