@@ -1,76 +1,90 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
- support 25G/50G/100G
-Date: Thu, 18 Aug 2016 14:21:13 -0400
-Message-ID: <20160818182112.GB8347@tuxdriver.com>
-References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
- <CO2PR11MB00889D2C55C1E4C86D831C59970C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKWE-XqpkNprFcQj7wZEthmTTtDuU7657kjFP37EvrgCChncHw@mail.gmail.com>
- <20160802194957.GC24663@tuxdriver.com>
+From: "'Marcelo Ricardo Leitner'" <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: fix a success return may hide an error
+Date: Thu, 18 Aug 2016 14:44:23 -0300
+Message-ID: <20160818174423.GG3110@localhost.localdomain>
+References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
+ <20160812.211113.1099230839994600349.davem@davemloft.net>
+ <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
+ <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
+ <20160816172447.GC3110@localhost.localdomain>
+ <063D6719AE5E284EB5DD2968C1650D6DB00E0D2A@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-        "ben@decadent.org.uk" <ben@decadent.org.uk>,
-        netdev <netdev@vger.kernel.org>,
-        "bwh@kernel.org" <bwh@kernel.org>,
+Cc: "'Xin Long'" <lucien.xin@gmail.com>,
         David Miller <davem@davemloft.net>,
-        "decot@googlers.com" <decot@googlers.com>,
-        "bkenward@solarflare.com" <bkenward@solarflare.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "galp@mellanox.com" <galp@mellanox.com>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>
-To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Vladislav Yasevich <vyasevich@gmail.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48771 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754253AbcHSAyR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:54:17 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:35484 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753986AbcHSAwh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 20:52:37 -0400
 Content-Disposition: inline
-In-Reply-To: <20160802194957.GC24663@tuxdriver.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00E0D2A@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ping?
-
-On Tue, Aug 02, 2016 at 03:49:57PM -0400, John W. Linville wrote:
-> Are these revised patches still on their way?
-> 
-> John
-> 
-> On Sun, Jul 24, 2016 at 01:57:14AM -0700, Vidya Sagar Ravipati wrote:
-> > Yuval,
-> >     I will try to resubmit the patches this week with updated comments
+On Wed, Aug 17, 2016 at 09:01:38AM +0000, David Laight wrote:
+> From: Marcelo Ricardo Leitner
+> > Sent: 16 August 2016 18:25
+> ...
+> > > That doesn't seem a good idea.
+> > > You don't want to abort the association if there is a transient
+> > > memory allocation failure.
+> > > You also can't drop data chunks.
 > > 
-> > Thanks
-> > Vidya Sagar
-> > 
-> > On Sat, Jul 23, 2016 at 10:57 PM, Yuval Mintz <Yuval.Mintz@qlogic.com>
-> > wrote:
-> > 
-> > > > Enhancing link mode bits to support 25G/50G/100G for supported and
-> > > > advertised speed mode bits
-> > > >
-> > > > Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-> > > > ---
-> > > >  ethtool.c | 27 +++++++++++++++++++++++++++
-> > > >  1 file changed, 27 insertions(+)
-> > >
-> > > Hi Vidya,
-> > >
-> > > Are you re-trying your series one anytime soon?
-> > >
-> > > If not, can we simply push this [and ethtool-copy.h], as those are needed
-> > > for querying/setting the recently added new speeds.
-> > >
-> > >
+> > From a system-wise POV, this behavior - to free the new asoc in case of
+> > transient memory allocation failure - doesn't seem bad to me.
+> > That's what will have to happen if any allocation before it failed and
+> > also it helps the system to reduce the stress a little bit. I don't see
+> > any inconsistency/problems here because we are not dropping a single
+> > random chunk but instead we are actually refusing to initialize a new
+> > asoc in such conditions.
 > 
-> -- 
-> John W. Linville		Someday the world will need a hero, and you
-> linville@tuxdriver.com			might be all we have.  Be ready.
+> Failing a new association should be ok, whether purists will like
+> connect() failing ENOMEM is another matter.
 > 
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Good point.
+
+> > Nevertheless, I agree that letting the application see ENOMEM errors when
+> > the data actually got queued and is being fully handled, as in, it will
+> > be retransmitted later, is not be wise, as the application probably
+> > won't be able to distinguish from ENOMEMs that it should retry or not.
+> 
+> I think an application would be justified in thinking that an ENOMEM return
+> meant that the system call had no effect.
+> 
+
+Yep
+
+> For send() even ENOMEM is really wrong, it should be treated as 'flow control'
+> and either block or return EAGAIN/EWOULDBLOCK.
+
+Agreed.
+
+> Getting POLLOUT set is left as an exercise to the reader :-)
+> 
+
+:-)
+
+> ...
+> > Well, it may be, but we are trying to improve it.  Please continue
+> > discussing the fixes so we can keep improving it. :)
+> 
+> Indeed, we have customers who use sctp (for M3UA).
+> We don't do anything 'complicated', but do end up sending a lot of short
+> data chunks.
+> 
+> 	David
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
