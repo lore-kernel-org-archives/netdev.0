@@ -1,46 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e: remove a stray unlock
-Date: Thu, 18 Aug 2016 14:57:35 -0700
-Message-ID: <1471557456-136741-15-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Dan Carpenter <dan.carpenter@oracle.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: refine tcp_prune_ofo_queue() to not drop
+ all packets
+Date: Thu, 18 Aug 2016 15:08:36 -0400
+Message-ID: <CADVnQy=OVOL_Ffe7UYkvh2fgcXwLQuz40M=+ZVyX-HqCUzQZhg@mail.gmail.com>
+References: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        "C. Stephen Gun" <csg@google.com>, Van Jacobson <vanj@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:15913 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753119AbcHSAsf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 20:48:35 -0400
-In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:33991 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753967AbcHSAtE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:49:04 -0400
+Received: by mail-oi0-f47.google.com with SMTP id l203so44904258oib.1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 17:49:04 -0700 (PDT)
+In-Reply-To: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
+On Wed, Aug 17, 2016 at 5:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Over the years, TCP BDP has increased a lot, and is typically
+> in the order of ~10 Mbytes with help of clever Congestion Control
+> modules.
+>
+> In presence of packet losses, TCP stores incoming packets into an out of
+> order queue, and number of skbs sitting there waiting for the missing
+> packets to be received can match the BDP (~10 Mbytes)
+>
+> In some cases, TCP needs to make room for incoming skbs, and current
+> strategy can simply remove all skbs in the out of order queue as a last
+> resort, incurring a huge penalty, both for receiver and sender.
+>
+> Unfortunately these 'last resort events' are quite frequent, forcing
+> sender to send all packets again, stalling the flow and wasting a lot of
+> resources.
+>
+> This patch cleans only a part of the out of order queue in order
+> to meet the memory constraints.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Soheil Hassas Yeganeh <soheil@google.com>
+> Cc: C. Stephen Gun <csg@google.com>
+> Cc: Van Jacobson <vanj@google.com>
+> ---
 
-We shifted the locking around a bit but forgot to delete this unlock so
-now it can unlock twice.
+Nice.
 
-Fixes: cd3be169a5ff ('i40e: Move the mutex lock in i40e_client_unregister')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_client.c | 1 -
- 1 file changed, 1 deletion(-)
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index 90b435c..677dae5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -992,7 +992,6 @@ int i40e_unregister_client(struct i40e_client *client)
- 	if (!i40e_client_is_registered(client)) {
- 		pr_info("i40e: Client %s has not been registered\n",
- 			client->name);
--		mutex_unlock(&i40e_client_mutex);
- 		ret = -ENODEV;
- 		goto out;
- 	}
--- 
-2.7.4
+neal
