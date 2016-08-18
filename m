@@ -1,90 +1,103 @@
-From: "'Marcelo Ricardo Leitner'" <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix a success return may hide an error
-Date: Thu, 18 Aug 2016 14:44:23 -0300
-Message-ID: <20160818174423.GG3110@localhost.localdomain>
-References: <31f3b581258d0458edcf30f65ef9513bdc41acc1.1470919978.git.lucien.xin@gmail.com>
- <20160812.211113.1099230839994600349.davem@davemloft.net>
- <CADvbK_dXX=Z8yr_yQPpHe2zst9uFYkMeL9-fHx17ZOCb5-x07A@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00DFD69@AcuExch.aculab.com>
- <CADvbK_fsH9RAc_r6SaTKYTUJusGcZzPuCXX3zntH7UhFFWq-Cg@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DB00E036B@AcuExch.aculab.com>
- <20160816172447.GC3110@localhost.localdomain>
- <063D6719AE5E284EB5DD2968C1650D6DB00E0D2A@AcuExch.aculab.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
+Date: Thu, 18 Aug 2016 10:18:00 -0600
+Message-ID: <1191bc4f-fca3-1f41-0f65-2cb5581f3582@cumulusnetworks.com>
+References: <1471470587-24813-1-git-send-email-dsa@cumulusnetworks.com>
+ <1471470587-24813-3-git-send-email-dsa@cumulusnetworks.com>
+ <CAKgT0UfmWpeNsjH+dtYewiVSuxapck2zyczJGP7WvE30irJcmw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Xin Long'" <lucien.xin@gmail.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
         David Miller <davem@davemloft.net>,
-        network dev <netdev@vger.kernel.org>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        Vladislav Yasevich <vyasevich@gmail.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>
-To: David Laight <David.Laight@ACULAB.COM>
+        Lennert Buytenhek <buytenh@wantstofly.org>,
+        Simon Horman <simon.horman@netronome.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
+        Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
+        olivier.dugeon@orange.com
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35484 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753986AbcHSAwh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 20:52:37 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB00E0D2A@AcuExch.aculab.com>
+Received: from mail-it0-f41.google.com ([209.85.214.41]:35389 "EHLO
+        mail-it0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753890AbcHSAwg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:52:36 -0400
+Received: by mail-it0-f41.google.com with SMTP id x131so14116688ite.0
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 17:51:59 -0700 (PDT)
+In-Reply-To: <CAKgT0UfmWpeNsjH+dtYewiVSuxapck2zyczJGP7WvE30irJcmw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 17, 2016 at 09:01:38AM +0000, David Laight wrote:
-> From: Marcelo Ricardo Leitner
-> > Sent: 16 August 2016 18:25
-> ...
-> > > That doesn't seem a good idea.
-> > > You don't want to abort the association if there is a transient
-> > > memory allocation failure.
-> > > You also can't drop data chunks.
-> > 
-> > From a system-wise POV, this behavior - to free the new asoc in case of
-> > transient memory allocation failure - doesn't seem bad to me.
-> > That's what will have to happen if any allocation before it failed and
-> > also it helps the system to reduce the stress a little bit. I don't see
-> > any inconsistency/problems here because we are not dropping a single
-> > random chunk but instead we are actually refusing to initialize a new
-> > asoc in such conditions.
+On 8/18/16 8:37 AM, Alexander Duyck wrote:
+> Thought I would go through and do a second pass since it sounds like
+> the inner_mac_header idea isn't going to fly.  If we can't push this
+> as an L2 encapsulation there are few tweaks we probably need in order
+> to make this work as an L3.  I have included comments inline below.
 > 
-> Failing a new association should be ok, whether purists will like
-> connect() failing ENOMEM is another matter.
-> 
+> Also I haven't worked with MPLS much before.  Is there a simple way to
+> setup an MPLS tunnel between two hosts connected back to back so that
+> I could try testing a few things related to this patch?
 
-Good point.
+Here commands that I use for VMs - copy and paste. It is an adaptation of Lennert's namespace script. VM id's are local to my host. Network addresses are 10.100.1.x/24 and 2100:1::x/120 on eth1 of the respective node. Includes MPLS encap, IP-IP encap and none to compare performances.
 
-> > Nevertheless, I agree that letting the application see ENOMEM errors when
-> > the data actually got queued and is being fully handled, as in, it will
-> > be retransmitted later, is not be wise, as the application probably
-> > won't be able to distinguish from ENOMEMs that it should retry or not.
-> 
-> I think an application would be justified in thinking that an ENOMEM return
-> meant that the system call had no effect.
-> 
+VM2
+===
+modprobe mpls_router
+modprobe mpls_gso
+modprobe mpls_iptunnel
 
-Yep
+sysctl -w net.mpls.platform_labels=1000
+ip route add 10.10.10.10/32 encap mpls 100 via inet 10.100.1.3
+ip -6 route add 3000:1::1/128 encap mpls 101 via inet6 2100:1::3
 
-> For send() even ENOMEM is really wrong, it should be treated as 'flow control'
-> and either block or return EAGAIN/EWOULDBLOCK.
+ip tunnel add tun0 mode ipip remote 10.100.1.3
+ip link set dev tun0 up
+ip route add 10.10.10.11/32 dev tun0
 
-Agreed.
+ip route add 10.10.10.12/32 via inet 10.100.1.3
+ip -6 route add 3000:1::3/128 via inet6 2100:1::3
 
-> Getting POLLOUT set is left as an exercise to the reader :-)
-> 
 
-:-)
+VM3
+===
+modprobe mpls_router
+modprobe mpls_gso
+modprobe mpls_iptunnel
 
-> ...
-> > Well, it may be, but we are trying to improve it.  Please continue
-> > discussing the fixes so we can keep improving it. :)
-> 
-> Indeed, we have customers who use sctp (for M3UA).
-> We don't do anything 'complicated', but do end up sending a lot of short
-> data chunks.
-> 
-> 	David
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+sysctl -w net.mpls.conf.eth1.input=1
+sysctl -w net.mpls.platform_labels=1000
+ip -f mpls route add 100 via inet 10.100.2.4
+ip -f mpls route add 101 via inet6 2100:2::4
+
+ip tunnel add tun0 mode ipip remote 10.100.1.2
+ip link set dev tun0 up
+ip ro add 10.10.10.11/32 via 10.100.2.4
+
+ip ro add 10.10.10.12/32 via 10.100.2.4
+ip -6 route add 3000:1::3/128 via inet6 2100:2::4
+
+
+VM4
+===
+ip addr add 10.10.10.10/32 dev lo
+ip addr add 10.10.10.11/32 dev lo
+ip addr add 10.10.10.12/32 dev lo
+
+ip -6 addr add 3000:1::1/128 dev lo
+ip -6 addr add 3000:1::2/128 dev lo
+ip -6 addr add 3000:1::3/128 dev lo
+
+netserver
+
+
+Go back to VM2:
+
+ping -c 1 10.10.10.10
+ping -c 1 10.10.10.11
+ping -c 1 10.10.10.12
+
+netperf -c -C -H 10.10.10.10  -l 10 -t TCP_STREAM
+netperf -c -C -H 10.10.10.11  -l 10 -t TCP_STREAM
+netperf -c -C -H 10.10.10.12  -l 10 -t TCP_STREAM
+
+
+I'll take a look at your other comments today.
