@@ -1,58 +1,76 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 2/3] dsa: mv88e6xxx: Use mv88e6xx_wait in mv88e6xxx_update()
-Date: Fri, 19 Aug 2016 00:01:56 +0200
-Message-ID: <1471557717-21852-3-git-send-email-andrew@lunn.ch>
-References: <1471557717-21852-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
+ support 25G/50G/100G
+Date: Thu, 18 Aug 2016 14:21:13 -0400
+Message-ID: <20160818182112.GB8347@tuxdriver.com>
+References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
+ <CO2PR11MB00889D2C55C1E4C86D831C59970C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CAKWE-XqpkNprFcQj7wZEthmTTtDuU7657kjFP37EvrgCChncHw@mail.gmail.com>
+ <20160802194957.GC24663@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+        "ben@decadent.org.uk" <ben@decadent.org.uk>,
+        netdev <netdev@vger.kernel.org>,
+        "bwh@kernel.org" <bwh@kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "decot@googlers.com" <decot@googlers.com>,
+        "bkenward@solarflare.com" <bkenward@solarflare.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "galp@mellanox.com" <galp@mellanox.com>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>
+To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38654 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754301AbcHSBzB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 21:55:01 -0400
-In-Reply-To: <1471557717-21852-1-git-send-email-andrew@lunn.ch>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48771 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754253AbcHSAyR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:54:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20160802194957.GC24663@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that mv88e6xx_wait() iterated on a counter than a fixed time
-interval, it implements the same mechanism as mv88e6xxx_update() uses.
-So use it in mv88e6xx_wait().
+Ping?
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 16 ++++------------
- 1 file changed, 4 insertions(+), 12 deletions(-)
+On Tue, Aug 02, 2016 at 03:49:57PM -0400, John W. Linville wrote:
+> Are these revised patches still on their way?
+> 
+> John
+> 
+> On Sun, Jul 24, 2016 at 01:57:14AM -0700, Vidya Sagar Ravipati wrote:
+> > Yuval,
+> >     I will try to resubmit the patches this week with updated comments
+> > 
+> > Thanks
+> > Vidya Sagar
+> > 
+> > On Sat, Jul 23, 2016 at 10:57 PM, Yuval Mintz <Yuval.Mintz@qlogic.com>
+> > wrote:
+> > 
+> > > > Enhancing link mode bits to support 25G/50G/100G for supported and
+> > > > advertised speed mode bits
+> > > >
+> > > > Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> > > > ---
+> > > >  ethtool.c | 27 +++++++++++++++++++++++++++
+> > > >  1 file changed, 27 insertions(+)
+> > >
+> > > Hi Vidya,
+> > >
+> > > Are you re-trying your series one anytime soon?
+> > >
+> > > If not, can we simply push this [and ethtool-copy.h], as those are needed
+> > > for querying/setting the recently added new speeds.
+> > >
+> > >
+> 
+> -- 
+> John W. Linville		Someday the world will need a hero, and you
+> linville@tuxdriver.com			might be all we have.  Be ready.
+> 
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index ac8e9af4879f..8c846bce4edf 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -333,20 +333,12 @@ static int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg,
- 			    u16 update)
- {
- 	u16 val;
--	int i, err;
-+	int err;
- 
- 	/* Wait until the previous operation is completed */
--	for (i = 0; i < 16; ++i) {
--		err = mv88e6xxx_read(chip, addr, reg, &val);
--		if (err)
--			return err;
--
--		if (!(val & BIT(15)))
--			break;
--	}
--
--	if (i == 16)
--		return -ETIMEDOUT;
-+	err = mv88e6xxx_wait(chip, addr, reg, BIT(15));
-+	if (err)
-+		return err;
- 
- 	/* Set the Update bit to trigger a write operation */
- 	val = BIT(15) | update;
 -- 
-2.8.1
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
