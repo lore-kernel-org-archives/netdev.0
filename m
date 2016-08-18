@@ -1,90 +1,126 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/5] net: dsa: Export suspend/resume functions
-Date: Thu, 18 Aug 2016 15:30:12 -0700
-Message-ID: <1471559416-13249-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 4/5] net: dsa: bcm_sf2: Use device managed helpers
+Date: Thu, 18 Aug 2016 15:30:15 -0700
+Message-ID: <1471559416-13249-5-git-send-email-f.fainelli@gmail.com>
 References: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33950 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753972AbcHSAtQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:49:16 -0400
-Received: by mail-pa0-f68.google.com with SMTP id hh10so2558218pac.1
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 17:49:16 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35409 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753576AbcHSAuO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:50:14 -0400
+Received: by mail-pf0-f195.google.com with SMTP id h186so540212pfg.2
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 17:50:14 -0700 (PDT)
 In-Reply-To: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for allowing switch drivers to implement system-wide
-suspend/resume functions, export dsa_switch_suspend and
-dsa_switch_resume() such that these are callable from the appropriate
-driver specific suspend/resume functions.
+Now that we have converted the drivers into a proper platform device
+driver, we can use the device managed helper functions to simplify the
+error paths a bit wrt. register resources and IRQs.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h | 14 ++++++++++++++
- net/dsa/dsa.c     |  6 ++++--
- 2 files changed, 18 insertions(+), 2 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 36 +++++++++++++-----------------------
+ 1 file changed, 13 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 2217a3f817f8..d00c392bc9f8 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -386,4 +386,18 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index fe1cc92f72a8..9f8e007b01d6 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1630,6 +1630,7 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+ 	struct bcm_sf2_priv *priv;
+ 	struct dsa_switch *ds;
+ 	void __iomem **base;
++	struct resource *r;
+ 	unsigned int i;
+ 	u32 reg, rev;
+ 	int ret;
+@@ -1655,11 +1656,11 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
  
- void dsa_unregister_switch(struct dsa_switch *ds);
- int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
-+#ifdef CONFIG_PM_SLEEP
-+int dsa_switch_suspend(struct dsa_switch *ds);
-+int dsa_switch_resume(struct dsa_switch *ds);
-+#else
-+static inline int dsa_switch_suspend(struct dsa_switch *ds)
-+{
-+	return 0;
-+}
-+static inline int dsa_switch_resume(struct dsa_switch *ds)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_PM_SLEEP */
-+
- #endif
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 7e68bc6bc853..9f5b47200365 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -543,7 +543,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- }
+ 	base = &priv->core;
+ 	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
+-		*base = of_iomap(dn, i);
+-		if (*base == NULL) {
++		r = platform_get_resource(pdev, IORESOURCE_MEM, i);
++		*base = devm_ioremap_resource(&pdev->dev, r);
++		if (IS_ERR(*base)) {
+ 			pr_err("unable to find register: %s\n", reg_names[i]);
+-			ret = -ENOMEM;
+-			goto out_unmap;
++			return PTR_ERR(*base);
+ 		}
+ 		base++;
+ 	}
+@@ -1667,30 +1668,30 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+ 	ret = bcm_sf2_sw_rst(priv);
+ 	if (ret) {
+ 		pr_err("unable to software reset switch: %d\n", ret);
+-		goto out_unmap;
++		return ret;
+ 	}
  
- #ifdef CONFIG_PM_SLEEP
--static int dsa_switch_suspend(struct dsa_switch *ds)
-+int dsa_switch_suspend(struct dsa_switch *ds)
- {
- 	int i, ret = 0;
+ 	ret = bcm_sf2_mdio_register(ds);
+ 	if (ret) {
+ 		pr_err("failed to register MDIO bus\n");
+-		goto out_unmap;
++		return ret;
+ 	}
  
-@@ -562,8 +562,9 @@ static int dsa_switch_suspend(struct dsa_switch *ds)
+ 	/* Disable all interrupts and request them */
+ 	bcm_sf2_intr_disable(priv);
  
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(dsa_switch_suspend);
+-	ret = request_irq(priv->irq0, bcm_sf2_switch_0_isr, 0,
+-			  "switch_0", priv);
++	ret = devm_request_irq(&pdev->dev, priv->irq0, bcm_sf2_switch_0_isr, 0,
++			       "switch_0", priv);
+ 	if (ret < 0) {
+ 		pr_err("failed to request switch_0 IRQ\n");
+ 		goto out_mdio;
+ 	}
  
--static int dsa_switch_resume(struct dsa_switch *ds)
-+int dsa_switch_resume(struct dsa_switch *ds)
- {
- 	int i, ret = 0;
+-	ret = request_irq(priv->irq1, bcm_sf2_switch_1_isr, 0,
+-			  "switch_1", priv);
++	ret = devm_request_irq(&pdev->dev, priv->irq1, bcm_sf2_switch_1_isr, 0,
++			       "switch_1", priv);
+ 	if (ret < 0) {
+ 		pr_err("failed to request switch_1 IRQ\n");
+-		goto out_free_irq0;
++		goto out_mdio;
+ 	}
  
-@@ -585,6 +586,7 @@ static int dsa_switch_resume(struct dsa_switch *ds)
+ 	/* Reset the MIB counters */
+@@ -1720,7 +1721,7 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+ 
+ 	ret = dsa_register_switch(ds, dn);
+ 	if (ret)
+-		goto out_free_irq1;
++		goto out_mdio;
+ 
+ 	pr_info("Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
+ 		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
+@@ -1729,19 +1730,8 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
  
  	return 0;
- }
-+EXPORT_SYMBOL_GPL(dsa_switch_resume);
- #endif
  
- /* platform driver init and cleanup *****************************************/
+-out_free_irq1:
+-	free_irq(priv->irq1, priv);
+-out_free_irq0:
+-	free_irq(priv->irq0, priv);
+ out_mdio:
+ 	bcm_sf2_mdio_unregister(priv);
+-out_unmap:
+-	base = &priv->core;
+-	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
+-		if (*base)
+-			iounmap(*base);
+-		base++;
+-	}
+ 	return ret;
+ }
+ 
 -- 
 2.7.4
