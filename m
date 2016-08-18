@@ -1,140 +1,141 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v6 3/3] net: phy: Add gmiitorgmii converter support
-Date: Thu, 18 Aug 2016 15:53:29 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E4426@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1470808208-32133-1-git-send-email-appanad@xilinx.com>
- <1470808208-32133-4-git-send-email-appanad@xilinx.com>
- <20160816165320.GP14446@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "mark.rutland@arm.com" <mark.rutland@arm.com>,
- "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "robh+dt@kernel.org" <robh+dt@kernel.org>, Michal Simek <michals@xilinx.com>,
- Soren Brinkmann <sorenb@xilinx.com>, Punnaiah
- Choudary Kalluri <punnaia@xilinx.com>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160816165320.GP14446@lunn.ch>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH] ibmvnic: Handle backing device failover and reinitialization
+Date: Thu, 18 Aug 2016 11:37:51 -0500
+Message-ID: <1471538271-10131-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: jallen@linux.vnet.ibm.com, linuxppc-dev@lists.ozlabs.org
+To: netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+An upcoming feature of IBM VNIC protocol is the ability to configure
+redundant backing devices for a VNIC client. In case of a failure
+on the current backing device, the driver will receive a signal
+from the hypervisor indicating that a failover will occur. The driver
+will then wait for a message from the backing device before 
+establishing a new connection.
 
-	Thanks for the review...
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 34 ++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/ibm/ibmvnic.h |  2 ++
+ 2 files changed, 34 insertions(+), 2 deletions(-)
 
-> 
-> > +static int xgmiitorgmii_read_status(struct phy_device *phydev) {
-> > +	struct gmii2rgmii *priv = phydev->priv;
-> > +	u16 val = 0;
-> > +
-> > +	priv->phy_drv->read_status(phydev);
-> 
-> This can return an error, in which case phydev->speed should not be trusted.
-
-Will fix...
-
-> 
-> I've not thought locking all the way through yet. I don't think you need a lock
-> here, but i need to think about it.
-
-Ok...
-
-> 
-> > +
-> > +	val = mdiobus_read(phydev->mdio.bus, priv->addr,
-> > +XILINX_GMII2RGMII_REG);
-> 
-> You should check for an error here.
-> 
-> > +	val &= XILINX_GMII2RGMII_SPEED_MASK;
-> > +
-> > +	if (phydev->speed == SPEED_1000)
-> > +		val |= BMCR_SPEED1000;
-> > +	else if (phydev->speed == SPEED_100)
-> > +		val |= BMCR_SPEED100;
-> > +	else
-> > +		val |= BMCR_SPEED10;
-> 
-> What happens if for example the PHY is an aquantia and has negotiated
-> SPEED_2500? Some Marvell PHYs can also do odd speeds, like 200Mbps.
-> You probably want to return an error, rather than silently have things go wrong.
-
-Will fix...
-
-> 
-> > +
-> > +	mdiobus_write(phydev->mdio.bus, priv->addr,
-> XILINX_GMII2RGMII_REG,
-> > +val);
-> 
-> This can also return an error.
-
-Will fix...
-
-> 
-> > +	return 0;
-> > +}
-> > +
-> > +int xgmiitorgmii_probe(struct mdio_device *mdiodev) {
-> > +	struct device *dev = &mdiodev->dev;
-> > +	struct device_node *np = dev->of_node, *phy_node;
-> > +	struct gmii2rgmii *priv;
-> > +
-> > +	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-> > +	if (!priv)
-> > +		return -ENOMEM;
-> > +
-> > +	phy_node = of_parse_phandle(np, "phy-handle", 0);
-> > +	if (IS_ERR(phy_node)) {
-> > +		dev_err(dev, "Couldn't parse phy-handle\n");
-> > +		return -ENODEV;
-> > +	}
-> > +
-> > +	priv->phy_dev = of_phy_find_device(phy_node);
-> > +	if (!priv->phy_dev) {
-> > +		dev_info(dev, "Couldn't find phydev\n");
-> > +		return -EPROBE_DEFER;
-> > +	}
-> > +
-> > +	priv->addr = mdiodev->addr;
-> > +	priv->phy_drv = priv->phy_dev->drv;
-> > +	memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
-> > +	       sizeof(struct phy_driver));
-> > +	priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
-> > +	priv->phy_dev->priv = priv;
-> > +	priv->phy_dev->drv = &priv->conv_phy_drv;
-> 
-> So from this point onward, the phy driver depends on the memory allocated by
-> this driver. If this driver goes away, freeing its memory, the next call to
-> read_status() is going to have a problem.
-> 
-> Also, i think this assignment should take the phy lock, just to be safe.
-
-Ok will fix....
-
-> 
-> There also needs to be some thought into what happens if the phy driver is
-> unloaded. Should this driver take a reference on the phy driver to prevent that?
-
-Ok will increment the reference count of the external phy device...
-
-
-Regards,
-Kedar.
-
-> 
->        Andrew
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 88f3c85..b942108 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -203,7 +203,8 @@ static void free_long_term_buff(struct ibmvnic_adapter *adapter,
+ 	struct device *dev = &adapter->vdev->dev;
+ 
+ 	dma_free_coherent(dev, ltb->size, ltb->buff, ltb->addr);
+-	send_request_unmap(adapter, ltb->map_id);
++	if (!adapter->failover)
++		send_request_unmap(adapter, ltb->map_id);
+ }
+ 
+ static int alloc_rx_pool(struct ibmvnic_adapter *adapter,
+@@ -522,7 +523,8 @@ static int ibmvnic_close(struct net_device *netdev)
+ 	for (i = 0; i < adapter->req_rx_queues; i++)
+ 		napi_disable(&adapter->napi[i]);
+ 
+-	netif_tx_stop_all_queues(netdev);
++	if (!adapter->failover)
++		netif_tx_stop_all_queues(netdev);
+ 
+ 	if (adapter->bounce_buffer) {
+ 		if (!dma_mapping_error(dev, adapter->bounce_buffer_dma)) {
+@@ -3280,6 +3282,10 @@ static void ibmvnic_handle_crq(union ibmvnic_crq *crq,
+ 			rc = ibmvnic_send_crq_init(adapter);
+ 			if (rc)
+ 				dev_err(dev, "Error sending init rc=%ld\n", rc);
++		} else if (gen_crq->cmd == IBMVNIC_DEVICE_FAILOVER) {
++			dev_info(dev, "Backing device failover detected\n");
++			netif_carrier_off(netdev);
++			adapter->failover = true;
+ 		} else {
+ 			/* The adapter lost the connection */
+ 			dev_err(dev, "Virtual Adapter failed (rc=%d)\n",
+@@ -3615,8 +3621,18 @@ static void handle_crq_init_rsp(struct work_struct *work)
+ 	struct device *dev = &adapter->vdev->dev;
+ 	struct net_device *netdev = adapter->netdev;
+ 	unsigned long timeout = msecs_to_jiffies(30000);
++	bool restart = false;
+ 	int rc;
+ 
++	if (adapter->failover) {
++		release_sub_crqs(adapter);
++		if (netif_running(netdev)) {
++			netif_tx_disable(netdev);
++			ibmvnic_close(netdev);
++			restart = true;
++		}
++	}
++
+ 	send_version_xchg(adapter);
+ 	reinit_completion(&adapter->init_done);
+ 	if (!wait_for_completion_timeout(&adapter->init_done, timeout)) {
+@@ -3645,6 +3661,17 @@ static void handle_crq_init_rsp(struct work_struct *work)
+ 
+ 	netdev->real_num_tx_queues = adapter->req_tx_queues;
+ 
++	if (adapter->failover) {
++		adapter->failover = false;
++		if (restart) {
++			rc = ibmvnic_open(netdev);
++			if (rc)
++				goto restart_failed;
++		}
++		netif_carrier_on(netdev);
++		return;
++	}
++
+ 	rc = register_netdev(netdev);
+ 	if (rc) {
+ 		dev_err(dev,
+@@ -3655,6 +3682,8 @@ static void handle_crq_init_rsp(struct work_struct *work)
+ 
+ 	return;
+ 
++restart_failed:
++	dev_err(dev, "Failed to restart ibmvnic, rc=%d\n", rc);
+ register_failed:
+ 	release_sub_crqs(adapter);
+ task_failed:
+@@ -3692,6 +3721,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	dev_set_drvdata(&dev->dev, netdev);
+ 	adapter->vdev = dev;
+ 	adapter->netdev = netdev;
++	adapter->failover = false;
+ 
+ 	ether_addr_copy(adapter->mac_addr, mac_addr_p);
+ 	ether_addr_copy(netdev->dev_addr, adapter->mac_addr);
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.h b/drivers/net/ethernet/ibm/ibmvnic.h
+index e82898f..bfc84c7 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.h
++++ b/drivers/net/ethernet/ibm/ibmvnic.h
+@@ -830,6 +830,7 @@ enum ibmvfc_crq_format {
+ 	IBMVNIC_CRQ_INIT                 = 0x01,
+ 	IBMVNIC_CRQ_INIT_COMPLETE        = 0x02,
+ 	IBMVNIC_PARTITION_MIGRATED       = 0x06,
++	IBMVNIC_DEVICE_FAILOVER          = 0x08,
+ };
+ 
+ struct ibmvnic_crq_queue {
+@@ -1047,4 +1048,5 @@ struct ibmvnic_adapter {
+ 	u8 map_id;
+ 
+ 	struct work_struct vnic_crq_init;
++	bool failover;
+ };
+-- 
+1.8.3.1
