@@ -1,32 +1,37 @@
-From: Philp Prindeville <philipp@redfish-solutions.com>
-Subject: Re: [PATCH v1 1/1] pppoe: l2tp: the PPPOX_CONNECTED should be used
- with bit operation
-Date: Thu, 18 Aug 2016 08:17:05 -0600
-Message-ID: <f85455c2-9f78-c1e2-8570-84eb70baee23@redfish-solutions.com>
-References: <1471485543-13149-1-git-send-email-fgao@ikuai8.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gfree.wind@gmail.com
-To: fgao@48lvckh6395k16k5.yundunddos.com, mostrows@earthlink.net,
-	jchapman@katalix.com, davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:37704 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1767002AbcHROTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 10:19:12 -0400
-In-Reply-To: <1471485543-13149-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: [PATCH] mwifiex: propagate error if IRQ request fails in mwifiex_sdio_of()
+Date: Thu, 18 Aug 2016 10:17:48 -0400
+Message-ID: <1471529868-13669-1-git-send-email-javier@osg.samsung.com>
+Cc: Javier Martinez Canillas <javier@osg.samsung.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Reviewed-by: Philip Prindeville <philipp@redfish-solutions.com>
+If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
+is printed but the actual error is not propagated to the caller function.
 
+Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+---
 
-On 08/17/2016 07:59 PM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
-> From: Gao Feng<fgao@ikuai8.com>
->
-> There are some codes in pppoe and l2tp which use the PPPOX_CONNECTED
-> as the value including assignment and condition check.
-> They should keep consistent with other codes.
->
-> Signed-off-by: Gao Feng<fgao@ikuai8.com>
+ drivers/net/wireless/marvell/mwifiex/sdio.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
+index d3e1561ca075..00727936ad6e 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sdio.c
++++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
+@@ -125,6 +125,7 @@ static int mwifiex_sdio_probe_of(struct device *dev, struct sdio_mmc_card *card)
+ 				dev_err(dev,
+ 					"Failed to request irq_wifi %d (%d)\n",
+ 					cfg->irq_wifi, ret);
++				return ret;
+ 			}
+ 			disable_irq(cfg->irq_wifi);
+ 		}
+-- 
+2.5.5
