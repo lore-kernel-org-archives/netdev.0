@@ -1,139 +1,66 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [PATCH net-next] tcp: refine tcp_prune_ofo_queue() to not drop
- all packets
-Date: Wed, 17 Aug 2016 21:10:11 -0400
-Message-ID: <CACSApvYjFrbBGo7H+hQgDpT-D_xE29bhQaC4V0mAbV7__Pc3yA@mail.gmail.com>
-References: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	"C. Stephen Gun" <csg@google.com>, Van Jacobson <vanj@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: fgao@ikuai8.com
+Subject: [PATCH v1 1/1] pppoe: l2tp: the PPPOX_CONNECTED should be used with bit operation
+Date: Thu, 18 Aug 2016 09:59:03 +0800
+Message-ID: <1471485543-13149-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: mostrows@earthlink.net, jchapman@katalix.com, davem@davemloft.net,
+	philipp@redfish-solutions.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:33912 "EHLO
-	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752915AbcHRBSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 21:18:44 -0400
-Received: by mail-oi0-f54.google.com with SMTP id l203so5795493oib.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 18:18:44 -0700 (PDT)
-In-Reply-To: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtpbg291.qq.com ([113.108.11.223]:45976 "EHLO smtpbg291.qq.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753569AbcHRB7w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Aug 2016 21:59:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 17, 2016 at 5:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Over the years, TCP BDP has increased a lot, and is typically
-> in the order of ~10 Mbytes with help of clever Congestion Control
-> modules.
->
-> In presence of packet losses, TCP stores incoming packets into an out of
-> order queue, and number of skbs sitting there waiting for the missing
-> packets to be received can match the BDP (~10 Mbytes)
->
-> In some cases, TCP needs to make room for incoming skbs, and current
-> strategy can simply remove all skbs in the out of order queue as a last
-> resort, incurring a huge penalty, both for receiver and sender.
->
-> Unfortunately these 'last resort events' are quite frequent, forcing
-> sender to send all packets again, stalling the flow and wasting a lot of
-> resources.
->
-> This patch cleans only a part of the out of order queue in order
-> to meet the memory constraints.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil@google.com>
-> Cc: C. Stephen Gun <csg@google.com>
-> Cc: Van Jacobson <vanj@google.com>
+From: Gao Feng <fgao@ikuai8.com>
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+There are some codes in pppoe and l2tp which use the PPPOX_CONNECTED
+as the value including assignment and condition check.
+They should keep consistent with other codes.
 
-> ---
->  net/ipv4/tcp_input.c |   47 ++++++++++++++++++++++++-----------------
->  1 file changed, 28 insertions(+), 19 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 3ebf45b38bc309f448dbc4f27fe8722cefabaf19..8cd02c0b056cbc22e2e4a4fe8530b74f7bd25419 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4392,12 +4392,9 @@ static int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb,
->                 if (tcp_prune_queue(sk) < 0)
->                         return -1;
->
-> -               if (!sk_rmem_schedule(sk, skb, size)) {
-> +               while (!sk_rmem_schedule(sk, skb, size)) {
->                         if (!tcp_prune_ofo_queue(sk))
->                                 return -1;
-> -
-> -                       if (!sk_rmem_schedule(sk, skb, size))
-> -                               return -1;
->                 }
->         }
->         return 0;
-> @@ -4874,29 +4871,41 @@ static void tcp_collapse_ofo_queue(struct sock *sk)
->  }
->
->  /*
-> - * Purge the out-of-order queue.
-> - * Return true if queue was pruned.
-> + * Clean the out-of-order queue to make room.
-> + * We drop high sequences packets to :
-> + * 1) Let a chance for holes to be filled.
-> + * 2) not add too big latencies if thousands of packets sit there.
-> + *    (But if application shrinks SO_RCVBUF, we could still end up
-> + *     freeing whole queue here)
-> + *
-> + * Return true if queue has shrunk.
->   */
->  static bool tcp_prune_ofo_queue(struct sock *sk)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
-> -       bool res = false;
-> +       struct sk_buff *skb;
->
-> -       if (!skb_queue_empty(&tp->out_of_order_queue)) {
-> -               NET_INC_STATS(sock_net(sk), LINUX_MIB_OFOPRUNED);
-> -               __skb_queue_purge(&tp->out_of_order_queue);
-> +       if (skb_queue_empty(&tp->out_of_order_queue))
-> +               return false;
->
-> -               /* Reset SACK state.  A conforming SACK implementation will
-> -                * do the same at a timeout based retransmit.  When a connection
-> -                * is in a sad state like this, we care only about integrity
-> -                * of the connection not performance.
-> -                */
-> -               if (tp->rx_opt.sack_ok)
-> -                       tcp_sack_reset(&tp->rx_opt);
-> +       NET_INC_STATS(sock_net(sk), LINUX_MIB_OFOPRUNED);
-> +
-> +       while ((skb = __skb_dequeue_tail(&tp->out_of_order_queue)) != NULL) {
-> +               tcp_drop(sk, skb);
->                 sk_mem_reclaim(sk);
-> -               res = true;
-> +               if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
-> +                   !tcp_under_memory_pressure(sk))
-> +                       break;
->         }
-> -       return res;
-> +
-> +       /* Reset SACK state.  A conforming SACK implementation will
-> +        * do the same at a timeout based retransmit.  When a connection
-> +        * is in a sad state like this, we care only about integrity
-> +        * of the connection not performance.
-> +        */
-> +       if (tp->rx_opt.sack_ok)
-> +               tcp_sack_reset(&tp->rx_opt);
-> +       return true;
->  }
->
->  /* Reduce allocated memory if we can, trying to get
->
->
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
+---
+ v1: Initial Patch
 
-Very nice patch, Eric! Thanks.
+ drivers/net/ppp/pppoe.c | 2 +-
+ net/l2tp/l2tp_ppp.c     | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+index 4ddae81..684b773 100644
+--- a/drivers/net/ppp/pppoe.c
++++ b/drivers/net/ppp/pppoe.c
+@@ -697,7 +697,7 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 			goto err_put;
+ 		}
+ 
+-		sk->sk_state = PPPOX_CONNECTED;
++		sk->sk_state |= PPPOX_CONNECTED;
+ 	}
+ 
+ 	po->num = sp->sa_addr.pppoe.sid;
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index d9560aa..3984385 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -774,7 +774,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ out_no_ppp:
+ 	/* This is how we get the session context from the socket. */
+ 	sk->sk_user_data = session;
+-	sk->sk_state = PPPOX_CONNECTED;
++	sk->sk_state |= PPPOX_CONNECTED;
+ 	l2tp_info(session, PPPOL2TP_MSG_CONTROL, "%s: created\n",
+ 		  session->name);
+ 
+@@ -856,7 +856,7 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
+ 	error = -ENOTCONN;
+ 	if (sk == NULL)
+ 		goto end;
+-	if (sk->sk_state != PPPOX_CONNECTED)
++	if (!(sk->sk_state & PPPOX_CONNECTED))
+ 		goto end;
+ 
+ 	error = -EBADF;
+-- 
+1.9.1
