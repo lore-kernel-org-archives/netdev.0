@@ -1,195 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/3] rhashtable: Remove GFP flag from rhashtable_walk_init
-Date: Thu, 18 Aug 2016 16:50:56 +0800
-Message-ID: <E1baJ2O-00030u-FE@gondolin.me.apana.org.au>
-References: <20160818084854.GA11502@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
+Date: Thu, 18 Aug 2016 12:28:07 +0300
+Message-ID: <CAKdSkDW5Q6cK+1XGsA5SGMkdMOMLm1uy-HaMLoB+-K4CLchhww@mail.gmail.com>
+References: <10542.1466716851@famine> <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
+ <20295.1467215964@famine> <CAKdSkDXprDpOUbKqw7+sqAj8LZ2tGC17YONmX0D1oLLUnCvRYw@mail.gmail.com>
+ <CAKdSkDXBhg-n=TrZ6UiVp-xSxgYmKJ3Oaa-5ei_N+kRu7Xf_5Q@mail.gmail.com>
+ <29688.1467753616@famine> <CAKdSkDUkW5DaM_nDkyMNAhWC_MAXK2pXzt-T9opQKDm0xdhibQ@mail.gmail.com>
+ <21892.1467942487@famine> <CAKdSkDUvv1YNp5hmposci87_yZqkanS3zswL4txOCzA+CJFgSQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:41793 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387AbcHRIvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 04:51:35 -0400
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:34415 "EHLO
+	mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753457AbcHRJ2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 05:28:10 -0400
+Received: by mail-lf0-f47.google.com with SMTP id l89so7909758lfi.1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 02:28:09 -0700 (PDT)
+In-Reply-To: <CAKdSkDUvv1YNp5hmposci87_yZqkanS3zswL4txOCzA+CJFgSQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 8f6fd83c6c5ec66a4a70c728535ddcdfef4f3697 ("rhashtable:
-accept GFP flags in rhashtable_walk_init") added a GFP flag argument
-to rhashtable_walk_init because some users wish to use the walker
-in an unsleepable context.
+2016-07-08 15:22 GMT+03:00 Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>:
+> 2016-07-08 4:48 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
 
-In fact we don't need to allocate memory in rhashtable_walk_init
-at all.  The walker is always paired with an iterator so we could
-just stash ourselves there.
+>> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+>> index edc70ffad660..2da5be91226e 100644
+>> --- a/drivers/net/bonding/bond_3ad.c
+>> +++ b/drivers/net/bonding/bond_3ad.c
+>> @@ -1713,18 +1713,12 @@ static void ad_agg_selection_logic(struct aggregator *agg,
+>>                 *update_slave_arr = true;
+>>         }
+>>
+>> -       /* if the selected aggregator is of join individuals
+>> -        * (partner_system is NULL), enable their ports
+>> -        */
+>>         active = __get_active_agg(origin);
+>>
+>>         if (active) {
+>> -               if (!__agg_has_partner(active)) {
+>> -                       for (port = active->lag_ports; port;
+>> -                            port = port->next_port_in_aggregator) {
+>> -                               __enable_port(port);
+>> -                       }
+>> -               }
+>> +               for (port = active->lag_ports; port;
+>> +                    port = port->next_port_in_aggregator)
+>> +                       __enable_port(port);
+>>         }
+>>
+>>         rcu_read_unlock();
+>>
+>>
+>>         Rather than adding a new loop as your original patch did, this
+>> one repurposes the existing loop for individual links and does the
+>> enable for all cases.
+>>
+>>         I think this may still need a check for the port state in there,
+>> as ports in the aggregator may be link up but still not suitable for
+>> TX/RX if the LACP negotiation doesn't put the port into COLL_DIST state.
+>>
+>>         Enabling a port that is already enabled is harmless, and if the
+>> port is link down, the enable will do nothing, so I think this should
+>> resolve things.
+>
+> I can test any patches with additional checks, but this change seems
+> to fix it for us.
 
-This patch does that by introducing a new enter function to replace
-the existing init function.  This way we don't have to churn all
-the existing users again.
+Do you think something else is needed is addition to this? This has
+been working on my servers now for some time without problems. I
+tested this also against mainline 4.8-rc1 that needed it for bonding
+to work properly with the previous test case.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- include/linux/rhashtable.h |   14 ++++++++++---
- lib/rhashtable.c           |   46 +++++++++++++++++----------------------------
- 2 files changed, 29 insertions(+), 31 deletions(-)
-
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index 3eef080..8b72ee7 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -173,7 +173,7 @@ struct rhashtable_walker {
- struct rhashtable_iter {
- 	struct rhashtable *ht;
- 	struct rhash_head *p;
--	struct rhashtable_walker *walker;
-+	struct rhashtable_walker walker;
- 	unsigned int slot;
- 	unsigned int skip;
- };
-@@ -346,8 +346,8 @@ struct bucket_table *rhashtable_insert_slow(struct rhashtable *ht,
- 					    struct bucket_table *old_tbl);
- int rhashtable_insert_rehash(struct rhashtable *ht, struct bucket_table *tbl);
- 
--int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
--			 gfp_t gfp);
-+void rhashtable_walk_enter(struct rhashtable *ht,
-+			   struct rhashtable_iter *iter);
- void rhashtable_walk_exit(struct rhashtable_iter *iter);
- int rhashtable_walk_start(struct rhashtable_iter *iter) __acquires(RCU);
- void *rhashtable_walk_next(struct rhashtable_iter *iter);
-@@ -906,4 +906,12 @@ static inline int rhashtable_replace_fast(
- 	return err;
- }
- 
-+/* Obsolete function, do not use in new code. */
-+static inline int rhashtable_walk_init(struct rhashtable *ht,
-+				       struct rhashtable_iter *iter, gfp_t gfp)
-+{
-+	rhashtable_walk_enter(ht, iter);
-+	return 0;
-+}
-+
- #endif /* _LINUX_RHASHTABLE_H */
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5d845ff..5b0a2b3 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -484,10 +484,9 @@ exit:
- EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
- 
- /**
-- * rhashtable_walk_init - Initialise an iterator
-+ * rhashtable_walk_enter - Initialise an iterator
-  * @ht:		Table to walk over
-  * @iter:	Hash table Iterator
-- * @gfp:	GFP flags for allocations
-  *
-  * This function prepares a hash table walk.
-  *
-@@ -502,30 +501,22 @@ EXPORT_SYMBOL_GPL(rhashtable_insert_slow);
-  * This function may sleep so you must not call it from interrupt
-  * context or with spin locks held.
-  *
-- * You must call rhashtable_walk_exit if this function returns
-- * successfully.
-+ * You must call rhashtable_walk_exit after this function returns.
-  */
--int rhashtable_walk_init(struct rhashtable *ht, struct rhashtable_iter *iter,
--			 gfp_t gfp)
-+void rhashtable_walk_enter(struct rhashtable *ht, struct rhashtable_iter *iter)
- {
- 	iter->ht = ht;
- 	iter->p = NULL;
- 	iter->slot = 0;
- 	iter->skip = 0;
- 
--	iter->walker = kmalloc(sizeof(*iter->walker), gfp);
--	if (!iter->walker)
--		return -ENOMEM;
--
- 	spin_lock(&ht->lock);
--	iter->walker->tbl =
-+	iter->walker.tbl =
- 		rcu_dereference_protected(ht->tbl, lockdep_is_held(&ht->lock));
--	list_add(&iter->walker->list, &iter->walker->tbl->walkers);
-+	list_add(&iter->walker.list, &iter->walker.tbl->walkers);
- 	spin_unlock(&ht->lock);
--
--	return 0;
- }
--EXPORT_SYMBOL_GPL(rhashtable_walk_init);
-+EXPORT_SYMBOL_GPL(rhashtable_walk_enter);
- 
- /**
-  * rhashtable_walk_exit - Free an iterator
-@@ -536,10 +527,9 @@ EXPORT_SYMBOL_GPL(rhashtable_walk_init);
- void rhashtable_walk_exit(struct rhashtable_iter *iter)
- {
- 	spin_lock(&iter->ht->lock);
--	if (iter->walker->tbl)
--		list_del(&iter->walker->list);
-+	if (iter->walker.tbl)
-+		list_del(&iter->walker.list);
- 	spin_unlock(&iter->ht->lock);
--	kfree(iter->walker);
- }
- EXPORT_SYMBOL_GPL(rhashtable_walk_exit);
- 
-@@ -565,12 +555,12 @@ int rhashtable_walk_start(struct rhashtable_iter *iter)
- 	rcu_read_lock();
- 
- 	spin_lock(&ht->lock);
--	if (iter->walker->tbl)
--		list_del(&iter->walker->list);
-+	if (iter->walker.tbl)
-+		list_del(&iter->walker.list);
- 	spin_unlock(&ht->lock);
- 
--	if (!iter->walker->tbl) {
--		iter->walker->tbl = rht_dereference_rcu(ht->tbl, ht);
-+	if (!iter->walker.tbl) {
-+		iter->walker.tbl = rht_dereference_rcu(ht->tbl, ht);
- 		return -EAGAIN;
- 	}
- 
-@@ -592,7 +582,7 @@ EXPORT_SYMBOL_GPL(rhashtable_walk_start);
-  */
- void *rhashtable_walk_next(struct rhashtable_iter *iter)
- {
--	struct bucket_table *tbl = iter->walker->tbl;
-+	struct bucket_table *tbl = iter->walker.tbl;
- 	struct rhashtable *ht = iter->ht;
- 	struct rhash_head *p = iter->p;
- 
-@@ -625,8 +615,8 @@ next:
- 	/* Ensure we see any new tables. */
- 	smp_rmb();
- 
--	iter->walker->tbl = rht_dereference_rcu(tbl->future_tbl, ht);
--	if (iter->walker->tbl) {
-+	iter->walker.tbl = rht_dereference_rcu(tbl->future_tbl, ht);
-+	if (iter->walker.tbl) {
- 		iter->slot = 0;
- 		iter->skip = 0;
- 		return ERR_PTR(-EAGAIN);
-@@ -646,7 +636,7 @@ void rhashtable_walk_stop(struct rhashtable_iter *iter)
- 	__releases(RCU)
- {
- 	struct rhashtable *ht;
--	struct bucket_table *tbl = iter->walker->tbl;
-+	struct bucket_table *tbl = iter->walker.tbl;
- 
- 	if (!tbl)
- 		goto out;
-@@ -655,9 +645,9 @@ void rhashtable_walk_stop(struct rhashtable_iter *iter)
- 
- 	spin_lock(&ht->lock);
- 	if (tbl->rehash < tbl->size)
--		list_add(&iter->walker->list, &tbl->walkers);
-+		list_add(&iter->walker.list, &tbl->walkers);
- 	else
--		iter->walker->tbl = NULL;
-+		iter->walker.tbl = NULL;
- 	spin_unlock(&ht->lock);
- 
- 	iter->p = NULL;
+Veli-Matti
