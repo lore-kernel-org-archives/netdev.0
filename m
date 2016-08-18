@@ -1,62 +1,82 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
- connection
-Date: Fri, 19 Aug 2016 00:32:19 +0200
-Message-ID: <20160818223219.GB3789@breakpoint.cc>
-References: <1471524527-10029-1-git-send-email-fw@strlen.de>
- <1471524527-10029-2-git-send-email-fw@strlen.de>
- <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: [PATCH] mwifiex: propagate error if IRQ request fails in
+ mwifiex_sdio_of()
+Date: Thu, 18 Aug 2016 16:23:30 -0400
+Message-ID: <33686ef5-14d9-5e9c-bd3a-aaab0356ad83@osg.samsung.com>
+References: <1471529868-13669-1-git-send-email-javier@osg.samsung.com>
+ <10fb1110-4c0b-00a2-522c-7011ca397b8c@broadcom.com>
+ <70b6a0d1-8cc4-280e-3e53-8c42cb43b721@osg.samsung.com>
+ <866da517-4b5c-492e-56d0-260afeb55ded@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:54286 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753237AbcHSCLm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 22:11:42 -0400
-Content-Disposition: inline
-In-Reply-To: <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Nishant Sarmukadam <nishants@marvell.com>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <866da517-4b5c-492e-56d0-260afeb55ded@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-08-18 at 14:48 +0200, Florian Westphal wrote:
-> > commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
-> > added the main infrastructure that is needed for per-connection
-> > randomization, in particular writing/reading the on-wire tcp header
-> > format takes the offset into account so rest of stack can use normal
-> > tcp_time_stamp (jiffies).
-> > 
-> > So only two items are left:
-> >  - add a tsoffset for request sockets
-> >  - extend the tcp isn generator to also return another 32bit number
-> >  in addition to the ISN.
-> > 
-> > Re-use of ISN generator also means timestamps are still monotonically
-> > increasing for same connection quadruple.
+Hello Arend,
+
+On 08/18/2016 03:49 PM, Arend van Spriel wrote:
 > 
-> I like the idea, but the implementation looks a bit complex.
 > 
-> Instead of initializing tsoffset to 0, we could simply use
+> On 18-08-16 21:29, Javier Martinez Canillas wrote:
+>> Hello Arend,
+>>
+>> Thanks a lot for your feedback.
+>>
+>> On 08/18/2016 03:14 PM, Arend van Spriel wrote:
+>>> On 18-08-16 16:17, Javier Martinez Canillas wrote:
+>>>> If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
+>>>> is printed but the actual error is not propagated to the caller function.
+>>>
+>>> Hmm. The caller function, ie. mwifiex_sdio_probe(), does not seem to care.
+>>>
+>>
+>> Hmm, I'm not so sure about that. It's checking the wifiex_sdio_probe_of()
+>> return value.
 > 
-> jhash(src_addr, dst_addr, boot_time_rnd)
+> Ok. I looked at 4.7 sources on lxr [1].
+>
+
+Oh, right. That was fixed quite recently indeed.
+ 
+>> If the IRQ request failing is not an error, then at the very least the call
+>> to disable_irq() should be avoided if request_irq() fails, and the message
+>> should be changed from dev_err() to dev_dgb() or dev_info().
 > 
-> This way, even syncookies would be handled, and we do not need to
-> increase tcp_request_sock size.
+> agree.
+> 
+>>> The device may still function without this wake interrupt.
+>>>
+>>
+>> That's correct, the binding says that the "interrupts" property in the child
+>> node is optional since is just a wakeup IRQ. Now the question is if should
+>> be an error if the IRQ is defined but fails to be requested.
+> 
+> Clearly it indicates an error in the DT specification so behavior is not
+> as expected. Personally I would indeed consider it an error, but I was
+> just indicating that it might have done like this intentionally.
+>
 
-True, however I think it would be fairly easy to discover
-boot_time_rnd given a few outputs, as jhash is not cryptograhic hash, no?
+Yes, might had been done intentionally indeed but I don't think that is
+the case since the driver lacked error checking and propagation in many
+places. But if someone thinks that's better to not honor the DT and at
+least have the driver working without the wake up capability, then I'm
+happy to respin the patch and change the print log level to info/debug.
+ 
+> Regards,
+> Arend
+> 
 
-If thats not a concern I can just use jhash (not taking ports
-into account doesn't seem to be a problem).
-
-Alternatively (if tcp_request_sock increase/complexity is a problem)
-I could either call the isn generator again, or add an extra function
-for it (again using md5), I did not do this because I was afraid
-it would be too expensive to do two md5 calculations.
-
-Thanks for reviewing!
-
-For cookies I had planned to just extend the cookie sha1 similar
-to isn generator here, alternatives welcome.
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
