@@ -1,113 +1,139 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Wed, 17 Aug 2016 18:06:42 -0700
-Message-ID: <CAKgT0Ud6NJdVTQM0AiHVbhZTko9fnzyvrZ1juGRPrRFGC-5O-g@mail.gmail.com>
-References: <1471470587-24813-1-git-send-email-dsa@cumulusnetworks.com>
- <1471470587-24813-3-git-send-email-dsa@cumulusnetworks.com>
- <CAKgT0UeU+-jxnBr3H5P6ADzMH2Xv29atDrCyzngcOOEyqObUDg@mail.gmail.com> <15a6625f-e969-0c9d-e1fc-72d9361ebb32@cumulusnetworks.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH net-next] tcp: refine tcp_prune_ofo_queue() to not drop
+ all packets
+Date: Wed, 17 Aug 2016 21:10:11 -0400
+Message-ID: <CACSApvYjFrbBGo7H+hQgDpT-D_xE29bhQaC4V0mAbV7__Pc3yA@mail.gmail.com>
+References: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Simon Horman <simon.horman@netronome.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
-	Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-	olivier.dugeon@orange.com
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	"C. Stephen Gun" <csg@google.com>, Van Jacobson <vanj@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34920 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753183AbcHRBGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 21:06:44 -0400
-Received: by mail-io0-f193.google.com with SMTP id q83so1191516iod.2
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 18:06:43 -0700 (PDT)
-In-Reply-To: <15a6625f-e969-0c9d-e1fc-72d9361ebb32@cumulusnetworks.com>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:33912 "EHLO
+	mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752915AbcHRBSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 21:18:44 -0400
+Received: by mail-oi0-f54.google.com with SMTP id l203so5795493oib.1
+        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 18:18:44 -0700 (PDT)
+In-Reply-To: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 17, 2016 at 4:23 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 8/17/16 5:16 PM, Alexander Duyck wrote:
->>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->>> index 1ecbd7715f6d..6d78f162a88b 100644
->>> --- a/net/openvswitch/actions.c
->>> +++ b/net/openvswitch/actions.c
->>> @@ -167,6 +167,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
->>>                 skb->mac_len);
->>>         skb_reset_mac_header(skb);
->>>
->>> +       /* for GSO: set MPLS as network header and encapsulated protocol
->>> +        * header as inner network header
->>> +        */
->>> +       skb_set_network_header(skb, skb->mac_len);
->>> +       skb_set_inner_network_header(skb, skb->mac_len + MPLS_HLEN);
->>> +
->>>         new_mpls_lse = (__be32 *)skb_mpls_header(skb);
->>>         *new_mpls_lse = mpls->mpls_lse;
->>>
->>
->> So the one question I would have about this is how attached are you to
->> using the network_header to record the offset for the MPLS header?  I
->> ask because I think from a hardware offloading perspective it would
->> make it much easier if instead you used the inner_mac_header to
->> represent the offset for the MPLS header.  This way device drivers
->> could just skip over it like a VLAN and just use network and transport
->> header values like they would otherwise.
->>
+On Wed, Aug 17, 2016 at 5:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Where does the network_header relate to if I change the marker to inner_mac_header? Would it be skipped?
+> Over the years, TCP BDP has increased a lot, and is typically
+> in the order of ~10 Mbytes with help of clever Congestion Control
+> modules.
+>
+> In presence of packet losses, TCP stores incoming packets into an out of
+> order queue, and number of skbs sitting there waiting for the missing
+> packets to be received can match the BDP (~10 Mbytes)
+>
+> In some cases, TCP needs to make room for incoming skbs, and current
+> strategy can simply remove all skbs in the out of order queue as a last
+> resort, incurring a huge penalty, both for receiver and sender.
+>
+> Unfortunately these 'last resort events' are quite frequent, forcing
+> sender to send all packets again, stalling the flow and wasting a lot of
+> resources.
+>
+> This patch cleans only a part of the out of order queue in order
+> to meet the memory constraints.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Soheil Hassas Yeganeh <soheil@google.com>
+> Cc: C. Stephen Gun <csg@google.com>
+> Cc: Van Jacobson <vanj@google.com>
 
-No, the network header would still be the network header.
+Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
 
-> skb->protocol is set to MPLS.
-> mac_header points to ethernet address
-> network_header points to ???
+> ---
+>  net/ipv4/tcp_input.c |   47 ++++++++++++++++++++++++-----------------
+>  1 file changed, 28 insertions(+), 19 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 3ebf45b38bc309f448dbc4f27fe8722cefabaf19..8cd02c0b056cbc22e2e4a4fe8530b74f7bd25419 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -4392,12 +4392,9 @@ static int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb,
+>                 if (tcp_prune_queue(sk) < 0)
+>                         return -1;
+>
+> -               if (!sk_rmem_schedule(sk, skb, size)) {
+> +               while (!sk_rmem_schedule(sk, skb, size)) {
+>                         if (!tcp_prune_ofo_queue(sk))
+>                                 return -1;
+> -
+> -                       if (!sk_rmem_schedule(sk, skb, size))
+> -                               return -1;
+>                 }
+>         }
+>         return 0;
+> @@ -4874,29 +4871,41 @@ static void tcp_collapse_ofo_queue(struct sock *sk)
+>  }
+>
+>  /*
+> - * Purge the out-of-order queue.
+> - * Return true if queue was pruned.
+> + * Clean the out-of-order queue to make room.
+> + * We drop high sequences packets to :
+> + * 1) Let a chance for holes to be filled.
+> + * 2) not add too big latencies if thousands of packets sit there.
+> + *    (But if application shrinks SO_RCVBUF, we could still end up
+> + *     freeing whole queue here)
+> + *
+> + * Return true if queue has shrunk.
+>   */
+>  static bool tcp_prune_ofo_queue(struct sock *sk)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+> -       bool res = false;
+> +       struct sk_buff *skb;
+>
+> -       if (!skb_queue_empty(&tp->out_of_order_queue)) {
+> -               NET_INC_STATS(sock_net(sk), LINUX_MIB_OFOPRUNED);
+> -               __skb_queue_purge(&tp->out_of_order_queue);
+> +       if (skb_queue_empty(&tp->out_of_order_queue))
+> +               return false;
+>
+> -               /* Reset SACK state.  A conforming SACK implementation will
+> -                * do the same at a timeout based retransmit.  When a connection
+> -                * is in a sad state like this, we care only about integrity
+> -                * of the connection not performance.
+> -                */
+> -               if (tp->rx_opt.sack_ok)
+> -                       tcp_sack_reset(&tp->rx_opt);
+> +       NET_INC_STATS(sock_net(sk), LINUX_MIB_OFOPRUNED);
+> +
+> +       while ((skb = __skb_dequeue_tail(&tp->out_of_order_queue)) != NULL) {
+> +               tcp_drop(sk, skb);
+>                 sk_mem_reclaim(sk);
+> -               res = true;
+> +               if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
+> +                   !tcp_under_memory_pressure(sk))
+> +                       break;
+>         }
+> -       return res;
+> +
+> +       /* Reset SACK state.  A conforming SACK implementation will
+> +        * do the same at a timeout based retransmit.  When a connection
+> +        * is in a sad state like this, we care only about integrity
+> +        * of the connection not performance.
+> +        */
+> +       if (tp->rx_opt.sack_ok)
+> +               tcp_sack_reset(&tp->rx_opt);
+> +       return true;
+>  }
+>
+>  /* Reduce allocated memory if we can, trying to get
+>
+>
 
-The network_header would point to the IP header like it would be for a
-non-MPLS frame.
-
-> inner protocol is set to what is encapsulated (e.g., ipv4 or ipv6)
-
-I am okay with this, but wonder if we actually need it.  Do you know
-of any protocols other than IPv4 or IPv6 that can be carried over MPLS
-and would expect to be offloaded?  If not we may be able to just get
-away with recording the network header offset and then using the first
-nibble of the network header to determine the IP version since the
-value should be 4 or 6 for the two types we are offloading.
-
-> inner_mac_header points to start of mpls label.
-
-So this is what I would expect.
-
-> inner_network points to start of network header.
-
-The problem is that using inner_network_header to point to the network
-header will require me to fork the path pretty significantly for most
-of the Intel devices that would want to do MPLS GSO.  The assumption
-most drivers make is that if we are offloading things then
-network_header and inner_network_header will point to either IPv4 or
-IPv6 headers.  Introducing MPLS as the network_header with IPv4 or
-IPv6 as the inner_network_header throws a kink in the works because we
-currently ignore inner_network_header for the devices that are doing
-UDP or GRE tunnel GSO via GSO_PARTIAL with TSO_MANGLEID.
-
-> Is that sufficient for h/w drivers?
-
-I think of this as working like how we handle it for IP over IP
-tunnels.  In that case we are at L3 so the inner_network_header field
-is populated, but the transport header stays the same.  In the case of
-MPLS it isn't really L3 it is more of an L2.5 so my preference would
-be to treat it like it is an L2 tunnel or VLAN and just overwrite the
-inner_mac_header with the MPLS header offset, and leave the network
-and transport headers untouched.
-
-One other bonus that also occurred to me is that you might be able to
-get away with doing MPLS offloads for MPLS over IP or GRE tunnels.  I
-hadn't realized that MPLS inside of these tunnels was a thing, I had
-just noticed it while looking over how the IP-in-IP tunnels are all
-being handled.  However if you move the header tracking to
-inner_mac_header, and can avoid using skb->inner_protocol by instead
-using the first nibble of the network_header value then you could
-probably support segmenting those types of tunnels in hardware.
-
-- Alex
+Very nice patch, Eric! Thanks.
