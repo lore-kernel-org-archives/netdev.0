@@ -1,209 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [v2 PATCH 3/3] netlink: Use rhashtable walk interface in diag dump
-Date: Fri, 19 Aug 2016 16:21:37 +0800
-Message-ID: <20160819082137.GA21510@gondor.apana.org.au>
-References: <20160818084854.GA11502@gondor.apana.org.au>
- <E1baJ2Q-00031S-MH@gondolin.me.apana.org.au>
- <20160819080923.GA21419@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: md5: remove tcp_md5_hash_header()
+Date: Thu, 18 Aug 2016 09:49:55 -0700
+Message-ID: <1471538995.29842.65.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:42598 "EHLO
-        helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750721AbcHSIXS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 04:23:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20160819080923.GA21419@gondor.apana.org.au>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34007 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750997AbcHSJH6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 05:07:58 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g202so1183619pfb.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 02:07:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts the diag dumping code to use the rhashtable
-walk code instead of going through rhashtable by hand.  The lock
-nl_table_lock is now only taken while we process the multicast
-list as it's not needed for the rhashtable walk.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+After commit 19689e38eca5 ("tcp: md5: use kmalloc() backed scratch
+areas") this function is no longer used.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
+ net/ipv4/tcp.c |   17 -----------------
+ 1 file changed, 17 deletions(-)
 
- net/netlink/diag.c |  103 +++++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 73 insertions(+), 30 deletions(-)
-
-diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-index 8dd836a..3e3e253 100644
---- a/net/netlink/diag.c
-+++ b/net/netlink/diag.c
-@@ -63,43 +63,75 @@ out_nlmsg_trim:
- static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 				int protocol, int s_num)
- {
-+	struct rhashtable_iter *hti = (void *)cb->args[2];
- 	struct netlink_table *tbl = &nl_table[protocol];
--	struct rhashtable *ht = &tbl->hash;
--	const struct bucket_table *htbl = rht_dereference_rcu(ht->tbl, ht);
- 	struct net *net = sock_net(skb->sk);
- 	struct netlink_diag_req *req;
- 	struct netlink_sock *nlsk;
- 	struct sock *sk;
--	int ret = 0, num = 0, i;
-+	int num = 2;
-+	int ret = 0;
- 
- 	req = nlmsg_data(cb->nlh);
- 
--	for (i = 0; i < htbl->size; i++) {
--		struct rhash_head *pos;
-+	if (s_num > 1)
-+		goto mc_list;
- 
--		rht_for_each_entry_rcu(nlsk, pos, htbl, i, node) {
--			sk = (struct sock *)nlsk;
-+	num--;
- 
--			if (!net_eq(sock_net(sk), net))
--				continue;
--			if (num < s_num) {
--				num++;
-+	if (!hti) {
-+		hti = kmalloc(sizeof(*hti), GFP_KERNEL);
-+		if (!hti)
-+			return -ENOMEM;
-+
-+		cb->args[2] = (long)hti;
-+	}
-+
-+	if (!s_num)
-+		rhashtable_walk_enter(&tbl->hash, hti);
-+
-+	ret = rhashtable_walk_start(hti);
-+	if (ret == -EAGAIN)
-+		ret = 0;
-+	if (ret)
-+		goto stop;
-+
-+	while ((nlsk = rhashtable_walk_next(hti))) {
-+		if (IS_ERR(nlsk)) {
-+			ret = PTR_ERR(nlsk);
-+			if (ret == -EAGAIN) {
-+				ret = 0;
- 				continue;
- 			}
-+			break;
-+		}
- 
--			if (sk_diag_fill(sk, skb, req,
--					 NETLINK_CB(cb->skb).portid,
--					 cb->nlh->nlmsg_seq,
--					 NLM_F_MULTI,
--					 sock_i_ino(sk)) < 0) {
--				ret = 1;
--				goto done;
--			}
-+		sk = (struct sock *)nlsk;
- 
--			num++;
-+		if (!net_eq(sock_net(sk), net))
-+			continue;
-+
-+		if (sk_diag_fill(sk, skb, req,
-+				 NETLINK_CB(cb->skb).portid,
-+				 cb->nlh->nlmsg_seq,
-+				 NLM_F_MULTI,
-+				 sock_i_ino(sk)) < 0) {
-+			ret = 1;
-+			break;
- 		}
- 	}
- 
-+stop:
-+	rhashtable_walk_stop(hti);
-+	if (ret)
-+		goto done;
-+
-+	rhashtable_walk_exit(hti);
-+	cb->args[2] = 0;
-+	num++;
-+
-+mc_list:
-+	read_lock(&nl_table_lock);
- 	sk_for_each_bound(sk, &tbl->mc_list) {
- 		if (sk_hashed(sk))
- 			continue;
-@@ -116,13 +148,14 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 				 NLM_F_MULTI,
- 				 sock_i_ino(sk)) < 0) {
- 			ret = 1;
--			goto done;
-+			break;
- 		}
- 		num++;
- 	}
-+	read_unlock(&nl_table_lock);
-+
- done:
- 	cb->args[0] = num;
--	cb->args[1] = protocol;
- 
- 	return ret;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 032a96d78c99..f1a9a0a8a1f3 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3092,23 +3092,6 @@ struct tcp_md5sig_pool *tcp_get_md5sig_pool(void)
  }
-@@ -131,20 +164,20 @@ static int netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct netlink_diag_req *req;
- 	int s_num = cb->args[0];
-+	int err = 0;
+ EXPORT_SYMBOL(tcp_get_md5sig_pool);
  
- 	req = nlmsg_data(cb->nlh);
- 
--	rcu_read_lock();
--	read_lock(&nl_table_lock);
+-int tcp_md5_hash_header(struct tcp_md5sig_pool *hp,
+-			const struct tcphdr *th)
+-{
+-	struct scatterlist sg;
+-	struct tcphdr hdr;
 -
- 	if (req->sdiag_protocol == NDIAG_PROTO_ALL) {
- 		int i;
- 
- 		for (i = cb->args[1]; i < MAX_LINKS; i++) {
--			if (__netlink_diag_dump(skb, cb, i, s_num))
-+			err = __netlink_diag_dump(skb, cb, i, s_num);
-+			if (err)
- 				break;
- 			s_num = 0;
- 		}
-+		cb->args[1] = i;
- 	} else {
- 		if (req->sdiag_protocol >= MAX_LINKS) {
- 			read_unlock(&nl_table_lock);
-@@ -152,13 +185,22 @@ static int netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			return -ENOENT;
- 		}
- 
--		__netlink_diag_dump(skb, cb, req->sdiag_protocol, s_num);
-+		err = __netlink_diag_dump(skb, cb, req->sdiag_protocol, s_num);
- 	}
- 
--	read_unlock(&nl_table_lock);
--	rcu_read_unlock();
-+	return err < 0 ? err : skb->len;
-+}
-+
-+static int netlink_diag_dump_done(struct netlink_callback *cb)
-+{
-+	struct rhashtable_iter *hti = (void *)cb->args[2];
-+
-+	if (cb->args[0] == 1)
-+		rhashtable_walk_exit(hti);
- 
--	return skb->len;
-+	kfree(hti);
-+
-+	return 0;
- }
- 
- static int netlink_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
-@@ -172,6 +214,7 @@ static int netlink_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
- 	if (h->nlmsg_flags & NLM_F_DUMP) {
- 		struct netlink_dump_control c = {
- 			.dump = netlink_diag_dump,
-+			.done = netlink_diag_dump_done,
- 		};
- 		return netlink_dump_start(net->diag_nlsk, skb, h, &c);
- 	} else
+-	/* We are not allowed to change tcphdr, make a local copy */
+-	memcpy(&hdr, th, sizeof(hdr));
+-	hdr.check = 0;
+-
+-	/* options aren't included in the hash */
+-	sg_init_one(&sg, &hdr, sizeof(hdr));
+-	ahash_request_set_crypt(hp->md5_req, &sg, NULL, sizeof(hdr));
+-	return crypto_ahash_update(hp->md5_req);
+-}
+-EXPORT_SYMBOL(tcp_md5_hash_header);
+-
+ int tcp_md5_hash_skb_data(struct tcp_md5sig_pool *hp,
+ 			  const struct sk_buff *skb, unsigned int header_len)
+ {
