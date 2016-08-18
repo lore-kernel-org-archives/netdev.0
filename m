@@ -1,66 +1,77 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Wed, 17 Aug 2016 20:59:44 -0600
-Message-ID: <18023723-58cc-cab5-21ad-14785e18c072@cumulusnetworks.com>
-References: <1471470587-24813-1-git-send-email-dsa@cumulusnetworks.com>
- <1471470587-24813-3-git-send-email-dsa@cumulusnetworks.com>
- <CAKgT0UeU+-jxnBr3H5P6ADzMH2Xv29atDrCyzngcOOEyqObUDg@mail.gmail.com>
- <15a6625f-e969-0c9d-e1fc-72d9361ebb32@cumulusnetworks.com>
- <CAKgT0Ud6NJdVTQM0AiHVbhZTko9fnzyvrZ1juGRPrRFGC-5O-g@mail.gmail.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v7] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 17 Aug 2016 22:27:19 -0500
+Message-ID: <57B52B17.1080809@codeaurora.org>
+References: <1470255143-3979-1-git-send-email-timur@codeaurora.org>
+ <20160804175541.GA2832@rob-hp-laptop> <57B220C0.3060608@codeaurora.org>
+ <CAL_JsqL5xk3mH=h-m8nU8xTYbRjgMWt3p7BzYWj6vBUq4OpqMg@mail.gmail.com>
+ <57B31780.5030106@codeaurora.org>
+ <f3a49762-aa66-1949-bd6b-77bd6a74acc1@linaro.org>
+ <57B3878D.1000805@codeaurora.org>
+ <ff901f77-2177-52a7-2464-2f61495f91be@gmail.com>
+ <57B4C6EE.3080903@codeaurora.org> <57B4E5F7.9040500@codeaurora.org>
+ <bec781c6-2db9-02c7-687d-b5d6ee50c129@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
+Cc: netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	Sagar Dharia <sdharia@codeaurora.org>,
+	Shanker Donthineni <shankerd@codeaurora.org>,
+	Vikram Sethi <vikrams@codeaurora.org>,
+	Christopher Covington <cov@codeaurora.org>,
+	Gilad Avidov <gavidov@codeaurora.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Bjorn Andersson <bjorn.andersson@linaro.org>,
+	Mark Langsdorf <mlangsdo@redhat.com>,
+	"jcm@redhat.com" <jcm@redhat.com>,
+	Andy Gross <agross@codeaurora.org>,
 	David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Simon Horman <simon.horman@netronome.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
-	Tom Herbert <tom@herbertland.com>, Thomas Graf <tgraf@suug.ch>,
-	olivier.dugeon@orange.com, roopa <roopa@cumulusnetworks.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33814 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753480AbcHRC7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Aug 2016 22:59:47 -0400
-Received: by mail-pa0-f43.google.com with SMTP id fi15so2164700pac.1
-        for <netdev@vger.kernel.org>; Wed, 17 Aug 2016 19:59:47 -0700 (PDT)
-In-Reply-To: <CAKgT0Ud6NJdVTQM0AiHVbhZTko9fnzyvrZ1juGRPrRFGC-5O-g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Lino Sanfilippo <LinoSanfilippo@gmx.de>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	"Abdulhamid, Harb" <harba@codeaurora.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Al Stone <al.stone@linaro.org>, Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <bec781c6-2db9-02c7-687d-b5d6ee50c129@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/17/16 7:06 PM, Alexander Duyck wrote:
-> On Wed, Aug 17, 2016 at 4:23 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> On 8/17/16 5:16 PM, Alexander Duyck wrote:
->>>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->>>> index 1ecbd7715f6d..6d78f162a88b 100644
->>>> --- a/net/openvswitch/actions.c
->>>> +++ b/net/openvswitch/actions.c
->>>> @@ -167,6 +167,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
->>>>                 skb->mac_len);
->>>>         skb_reset_mac_header(skb);
->>>>
->>>> +       /* for GSO: set MPLS as network header and encapsulated protocol
->>>> +        * header as inner network header
->>>> +        */
->>>> +       skb_set_network_header(skb, skb->mac_len);
->>>> +       skb_set_inner_network_header(skb, skb->mac_len + MPLS_HLEN);
->>>> +
->>>>         new_mpls_lse = (__be32 *)skb_mpls_header(skb);
->>>>         *new_mpls_lse = mpls->mpls_lse;
->>>>
->>>
->>> So the one question I would have about this is how attached are you to
->>> using the network_header to record the offset for the MPLS header?  I
->>> ask because I think from a hardware offloading perspective it would
->>> make it much easier if instead you used the inner_mac_header to
->>> represent the offset for the MPLS header.  This way device drivers
->>> could just skip over it like a VLAN and just use network and transport
->>> header values like they would otherwise.
->>>
+Florian Fainelli wrote:
+
+>>      emac_sgmii: ethernet-phy@410400 {
+>>          compatible = "qcom,qdf2432-emac-phy";
+>>          reg = <0x0 0x00410400 0x0 0x100>;
+>>          interrupts = <0 0x104 0>;
+>>      };
 >>
->> Where does the network_header relate to if I change the marker to inner_mac_header? Would it be skipped?
-> 
-> No, the network header would still be the network header.
+>
+> Is this register range relative to the emac0 node here, or is this
+> really a separate node, within the same adress space as your emac0 node?
 
-If core MPLS code (ie., non-OVS) does not do skb_reset_network_header(skb) after adding the MPLS label nothing works. Not even ping with small packets. tcpdump shows a completely mangled packet. Right now resetting the network_header to mpls is required.
+It's a separate node within the same address space.  We can't guarantee 
+that it's adjacent to any other EMAC register -- it could be anywhere in 
+memory. 0x00410400 is the real physical address of those registers.
+
+> Answer largely depends on whether your device is really located outside
+> of the emac, if it located outside, then a platform device matching the
+> compatible string would get you what you want. If the emac_sgmii block
+> is a sub-block within the EMAC, then a few things need fixing:
+>
+> - your emac_sgmii node should be a sub-node of the emac node, not a sibling
+> - the emac0 node should have a "ranges" property that indicates how to
+> translate the sub-nodes' "reg" property based on the base register
+> address of the emac0 block
+> - you would have to call of_platform_populate from the EMAC driver to
+> ensure that the emac_sgmii child node and therefore platform device gets
+> created
+
+Even if the emac_sgmii block were a sub-block, wouldn't it conflict with 
+the ethernet-phy@4 node?  The #address-cells and #size-cells properties 
+cannot be valid for both the emac_sgmii and ethernet-phy@4 nodes.
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
