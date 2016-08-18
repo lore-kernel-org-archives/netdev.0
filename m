@@ -1,309 +1,358 @@
-From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next] net: hns: Add reset function support for RoCE driver
-Date: Thu, 18 Aug 2016 20:32:52 +0800
-Message-ID: <1471523572-50633-1-git-send-email-oulijun@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [PATCH 08/16] net: mvneta: Convert to hotplug state machine
+Date: Thu, 18 Aug 2016 14:57:23 +0200
+Message-ID: <20160818125731.27256-9-bigeasy@linutronix.de>
+References: <20160818125731.27256-1-bigeasy@linutronix.de>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>, rt@linutronix.de,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160818125731.27256-1-bigeasy@linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It added reset function for RoCE driver. RoCE is a feature of hns.
-In hip06 SoC, in RoCE reset process, it's needed to configure dsaf
-channel reset, port and sl map info. Reset function of RoCE is
-located in dsaf module, we only call it in RoCE driver when needed.
+Install the callbacks via the state machine and let the core invoke
+the callbacks on the already online CPUs.
 
-This patch is used to fix the conflict, please refer to this link:
-  https://www.spinics.net/lists/linux-rdma/msg39114.html
-
-Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Sheng Li <lisheng011-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Yisen Zhuang <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
-This PATCH:
-Fix the merge conflict between the PATCH v12 and other patches
-going in through Dave Miller's net tree
+ drivers/net/ethernet/marvell/mvneta.c | 244 +++++++++++++++++++++-------------
+ include/linux/cpuhotplug.h            |   1 +
+ 2 files changed, 149 insertions(+), 96 deletions(-)
 
-PATCH v12:
-- No change over PATCH v11
-
-PATCH v11:
-This fixes the comments given by Leon Romanovsky over the PATCH v10:
-  Link: https://lkml.org/lkml/2016/6/24/277
-
-PATCH v10/v9/v8/v7:
-- No change over PATCH v6
-
-PATCH v6:
-This fixes the comments given by Leon Romanovsky over the PATCH v5:
-  Link: https://lkml.org/lkml/2016/5/3/733
-
-PATCH v5/v4/v3:
-- No change over PATCH v2
-
-PATCH v2:
-This fixes the comments given by Leon Romanovsky over the PATCH v1:
-  Link: https://lkml.org/lkml/2016/3/12/46
-
-PATCH v1:
-- The initial patch
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 84 ++++++++++++++++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h | 30 ++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 36 ++++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  | 12 ++++
- 4 files changed, 162 insertions(+)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index afb5daa..05bd19f 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -18,6 +18,7 @@
- #include <linux/of.h>
- #include <linux/of_address.h>
- #include <linux/of_irq.h>
-+#include <linux/of_platform.h>
- #include <linux/platform_device.h>
- #include <linux/vmalloc.h>
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 8e4252dd9a9d..b20a2459c109 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -382,7 +382,8 @@ struct mvneta_port {
+ 	struct mvneta_rx_queue *rxqs;
+ 	struct mvneta_tx_queue *txqs;
+ 	struct net_device *dev;
+-	struct notifier_block cpu_notifier;
++	struct hlist_node node_online;
++	struct hlist_node node_dead;
+ 	int rxq_def;
+ 	/* Protect the access to the percpu interrupt registers,
+ 	 * ensuring that the configuration remains coherent.
+@@ -573,6 +574,7 @@ struct mvneta_rx_queue {
+ 	int next_desc_to_proc;
+ };
  
-@@ -2781,6 +2782,89 @@ static struct platform_driver g_dsaf_driver = {
++static enum cpuhp_state online_hpstate;
+ /* The hardware supports eight (8) rx queues, but we are only allowing
+  * the first one to be used. Therefore, let's just allocate one queue.
+  */
+@@ -3313,101 +3315,101 @@ static void mvneta_percpu_elect(struct mvneta_port *pp)
+ 	}
+ };
  
- module_platform_driver(g_dsaf_driver);
+-static int mvneta_percpu_notifier(struct notifier_block *nfb,
+-				  unsigned long action, void *hcpu)
++static int mvneta_cpu_online(unsigned int cpu, struct hlist_node *node)
+ {
+-	struct mvneta_port *pp = container_of(nfb, struct mvneta_port,
+-					      cpu_notifier);
+-	int cpu = (unsigned long)hcpu, other_cpu;
++	int other_cpu;
++	struct mvneta_port *pp = hlist_entry_safe(node, struct mvneta_port,
++						  node_online);
+ 	struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
  
-+/**
-+ * hns_dsaf_roce_reset - reset dsaf and roce
-+ * @dsaf_fwnode: Pointer to framework node for the dasf
-+ * @enable: false - request reset , true - drop reset
-+ * retuen 0 - success , negative -fail
-+ */
-+int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable)
-+{
-+	struct dsaf_device *dsaf_dev;
-+	struct platform_device *pdev;
-+	u32 mp;
-+	u32 sl;
-+	u32 credit;
-+	int i;
-+	const u32 port_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE_NUM] = {
-+		{DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1, DSAF_ROCE_PORT_0},
-+		{DSAF_ROCE_PORT_4, DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_4, DSAF_ROCE_PORT_2, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_5, DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1},
-+		{DSAF_ROCE_PORT_5, DSAF_ROCE_PORT_3, DSAF_ROCE_PORT_1},
-+	};
-+	const u32 sl_map[DSAF_ROCE_CREDIT_CHN][DSAF_ROCE_CHAN_MODE_NUM] = {
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_0},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_1, DSAF_ROCE_SL_1},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_2},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_0},
-+		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_1},
-+		{DSAF_ROCE_SL_0, DSAF_ROCE_SL_0, DSAF_ROCE_SL_2},
-+		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
-+	};
+-	switch (action) {
+-	case CPU_ONLINE:
+-	case CPU_ONLINE_FROZEN:
+-	case CPU_DOWN_FAILED:
+-	case CPU_DOWN_FAILED_FROZEN:
+-		spin_lock(&pp->lock);
+-		/* Configuring the driver for a new CPU while the
+-		 * driver is stopping is racy, so just avoid it.
+-		 */
+-		if (pp->is_stopped) {
+-			spin_unlock(&pp->lock);
+-			break;
 +
-+	if (!is_of_node(dsaf_fwnode)) {
-+		pr_err("hisi_dsaf: Only support DT node!\n");
-+		return -EINVAL;
++	spin_lock(&pp->lock);
++	/* Configuring the driver for a new CPU while the
++	 * driver is stopping is racy, so just avoid it.
++	 */
++	if (pp->is_stopped) {
++		spin_unlock(&pp->lock);
++		return 0;
 +	}
-+	pdev = of_find_device_by_node(to_of_node(dsaf_fwnode));
-+	dsaf_dev = dev_get_drvdata(&pdev->dev);
-+	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
-+		dev_err(dsaf_dev->dev, "%s v1 chip doesn't support RoCE!\n",
-+			dsaf_dev->ae_dev.name);
-+		return -ENODEV;
-+	}
++	netif_tx_stop_all_queues(pp->dev);
 +
-+	if (!enable) {
-+		/* Reset rocee-channels in dsaf and rocee */
-+		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, false);
-+		hns_dsaf_roce_srst(dsaf_dev, false);
-+	} else {
-+		/* Configure dsaf tx roce correspond to port map and sl map */
-+		mp = dsaf_read_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG);
-+		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
-+			dsaf_set_field(mp, 7 << i * 3, i * 3,
-+				       port_map[i][DSAF_ROCE_6PORT_MODE]);
-+		dsaf_set_field(mp, 3 << i * 3, i * 3, 0);
-+		dsaf_write_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG, mp);
++	/* We have to synchronise on tha napi of each CPU
++	 * except the one just being waked up
++	 */
++	for_each_online_cpu(other_cpu) {
++		if (other_cpu != cpu) {
++			struct mvneta_pcpu_port *other_port =
++				per_cpu_ptr(pp->ports, other_cpu);
 +
-+		sl = dsaf_read_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG);
-+		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
-+			dsaf_set_field(sl, 3 << i * 2, i * 2,
-+				       sl_map[i][DSAF_ROCE_6PORT_MODE]);
-+		dsaf_write_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG, sl);
++			napi_synchronize(&other_port->napi);
+ 		}
+-		netif_tx_stop_all_queues(pp->dev);
+-
+-		/* We have to synchronise on tha napi of each CPU
+-		 * except the one just being waked up
+-		 */
+-		for_each_online_cpu(other_cpu) {
+-			if (other_cpu != cpu) {
+-				struct mvneta_pcpu_port *other_port =
+-					per_cpu_ptr(pp->ports, other_cpu);
+-
+-				napi_synchronize(&other_port->napi);
+-			}
+-		}
+-
+-		/* Mask all ethernet port interrupts */
+-		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
+-		napi_enable(&port->napi);
+-
+-
+-		/* Enable per-CPU interrupts on the CPU that is
+-		 * brought up.
+-		 */
+-		mvneta_percpu_enable(pp);
+-
+-		/* Enable per-CPU interrupt on the one CPU we care
+-		 * about.
+-		 */
+-		mvneta_percpu_elect(pp);
+-
+-		/* Unmask all ethernet port interrupts */
+-		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
+-		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
+-			MVNETA_CAUSE_PHY_STATUS_CHANGE |
+-			MVNETA_CAUSE_LINK_CHANGE |
+-			MVNETA_CAUSE_PSC_SYNC_CHANGE);
+-		netif_tx_start_all_queues(pp->dev);
+-		spin_unlock(&pp->lock);
+-		break;
+-	case CPU_DOWN_PREPARE:
+-	case CPU_DOWN_PREPARE_FROZEN:
+-		netif_tx_stop_all_queues(pp->dev);
+-		/* Thanks to this lock we are sure that any pending
+-		 * cpu election is done
+-		 */
+-		spin_lock(&pp->lock);
+-		/* Mask all ethernet port interrupts */
+-		on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
+-		spin_unlock(&pp->lock);
+-
+-		napi_synchronize(&port->napi);
+-		napi_disable(&port->napi);
+-		/* Disable per-CPU interrupts on the CPU that is
+-		 * brought down.
+-		 */
+-		mvneta_percpu_disable(pp);
+-
+-		break;
+-	case CPU_DEAD:
+-	case CPU_DEAD_FROZEN:
+-		/* Check if a new CPU must be elected now this on is down */
+-		spin_lock(&pp->lock);
+-		mvneta_percpu_elect(pp);
+-		spin_unlock(&pp->lock);
+-		/* Unmask all ethernet port interrupts */
+-		on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
+-		mvreg_write(pp, MVNETA_INTR_MISC_MASK,
+-			MVNETA_CAUSE_PHY_STATUS_CHANGE |
+-			MVNETA_CAUSE_LINK_CHANGE |
+-			MVNETA_CAUSE_PSC_SYNC_CHANGE);
+-		netif_tx_start_all_queues(pp->dev);
+-		break;
+ 	}
+ 
+-	return NOTIFY_OK;
++	/* Mask all ethernet port interrupts */
++	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
++	napi_enable(&port->napi);
 +
-+		/* De-reset rocee-channels in dsaf and rocee */
-+		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, true);
-+		msleep(SRST_TIME_INTERVAL);
-+		hns_dsaf_roce_srst(dsaf_dev, true);
++	/* Enable per-CPU interrupts on the CPU that is
++	 * brought up.
++	 */
++	mvneta_percpu_enable(pp);
 +
-+		/* Eanble dsaf channel rocee credit */
-+		credit = dsaf_read_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG);
-+		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 0);
-+		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
++	/* Enable per-CPU interrupt on the one CPU we care
++	 * about.
++	 */
++	mvneta_percpu_elect(pp);
 +
-+		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 1);
-+		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
-+	}
++	/* Unmask all ethernet port interrupts */
++	on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
++	mvreg_write(pp, MVNETA_INTR_MISC_MASK,
++		    MVNETA_CAUSE_PHY_STATUS_CHANGE |
++		    MVNETA_CAUSE_LINK_CHANGE |
++		    MVNETA_CAUSE_PSC_SYNC_CHANGE);
++	netif_tx_start_all_queues(pp->dev);
++	spin_unlock(&pp->lock);
 +	return 0;
 +}
-+EXPORT_SYMBOL(hns_dsaf_roce_reset);
 +
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Huawei Tech. Co., Ltd.");
- MODULE_DESCRIPTION("HNS DSAF driver");
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index 1daf018..f3681d5 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -43,6 +43,32 @@ struct hns_mac_cb;
- #define DSAF_PRIO_NR	8
- #define DSAF_REG_PER_ZONE	3
- 
-+#define DSAF_ROCE_CREDIT_CHN	8
-+#define DSAF_ROCE_CHAN_MODE	3
++static int mvneta_cpu_down_prepare(unsigned int cpu, struct hlist_node *node)
++{
++	struct mvneta_port *pp = hlist_entry_safe(node, struct mvneta_port,
++						  node_online);
++	struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
 +
-+enum dsaf_roce_port_mode {
-+	DSAF_ROCE_6PORT_MODE,
-+	DSAF_ROCE_4PORT_MODE,
-+	DSAF_ROCE_2PORT_MODE,
-+	DSAF_ROCE_CHAN_MODE_NUM,
-+};
++	/* Thanks to this lock we are sure that any pending
++	 * cpu election is done
++	 */
++	spin_lock(&pp->lock);
++	/* Mask all ethernet port interrupts */
++	on_each_cpu(mvneta_percpu_mask_interrupt, pp, true);
++	spin_unlock(&pp->lock);
 +
-+enum dsaf_roce_port_num {
-+	DSAF_ROCE_PORT_0,
-+	DSAF_ROCE_PORT_1,
-+	DSAF_ROCE_PORT_2,
-+	DSAF_ROCE_PORT_3,
-+	DSAF_ROCE_PORT_4,
-+	DSAF_ROCE_PORT_5,
-+};
++	napi_synchronize(&port->napi);
++	napi_disable(&port->napi);
++	/* Disable per-CPU interrupts on the CPU that is
++	 * brought down.
++	 */
++	mvneta_percpu_disable(pp);
++	return 0;
++}
 +
-+enum dsaf_roce_qos_sl {
-+	DSAF_ROCE_SL_0,
-+	DSAF_ROCE_SL_1,
-+	DSAF_ROCE_SL_2,
-+	DSAF_ROCE_SL_3,
-+};
++static int mvneta_cpu_dead(unsigned int cpu, struct hlist_node *node)
++{
++	struct mvneta_port *pp = hlist_entry_safe(node, struct mvneta_port,
++						  node_dead);
 +
- #define DSAF_STATS_READ(p, offset) (*((u64 *)((u8 *)(p) + (offset))))
- #define HNS_DSAF_IS_DEBUG(dev) (dev->dsaf_mode == DSAF_MODE_DISABLE_SP)
- 
-@@ -419,6 +445,10 @@ int hns_dsaf_get_mac_entry_by_index(
- 
- void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
- 
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool enable);
-+
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool enable);
-+
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
- void hns_dsaf_ae_uninit(struct dsaf_device *dsaf_dev);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 611b67b..36b9f79 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -231,6 +231,42 @@ static void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
- 	dsaf_write_sub(dsaf_dev, reg_addr, reg_val);
++	/* Check if a new CPU must be elected now this on is down */
++	spin_lock(&pp->lock);
++	mvneta_percpu_elect(pp);
++	spin_unlock(&pp->lock);
++	/* Unmask all ethernet port interrupts */
++	on_each_cpu(mvneta_percpu_unmask_interrupt, pp, true);
++	mvreg_write(pp, MVNETA_INTR_MISC_MASK,
++		    MVNETA_CAUSE_PHY_STATUS_CHANGE |
++		    MVNETA_CAUSE_LINK_CHANGE |
++		    MVNETA_CAUSE_PSC_SYNC_CHANGE);
++	netif_tx_start_all_queues(pp->dev);
++	return 0;
  }
  
-+/**
-+ * hns_dsaf_srst_chns - reset dsaf channels
-+ * @dsaf_dev: dsaf device struct pointer
-+ * @msk: xbar channels mask value:
-+ * bit0-5 for xge0-5
-+ * bit6-11 for ppe0-5
-+ * bit12-17 for roce0-5
-+ * bit18-19 for com/dfx
-+ * @enable: false - request reset , true - drop reset
-+ */
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool enable)
-+{
-+	u32 reg_addr;
+ static int mvneta_open(struct net_device *dev)
+@@ -3444,7 +3446,15 @@ static int mvneta_open(struct net_device *dev)
+ 	/* Register a CPU notifier to handle the case where our CPU
+ 	 * might be taken offline.
+ 	 */
+-	register_cpu_notifier(&pp->cpu_notifier);
++	ret = cpuhp_state_add_instance_nocalls(online_hpstate,
++					       &pp->node_online);
++	if (ret)
++		goto err_free_irq;
 +
-+	if (!enable)
-+		reg_addr = DSAF_SUB_SC_DSAF_RESET_REQ_REG;
-+	else
-+		reg_addr = DSAF_SUB_SC_DSAF_RESET_DREQ_REG;
-+
-+	dsaf_write_sub(dsaf_dev, reg_addr, msk);
-+}
-+
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool enable)
-+{
-+	if (!enable) {
-+		dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_ROCEE_RESET_REQ_REG, 1);
-+	} else {
-+		dsaf_write_sub(dsaf_dev,
-+			       DSAF_SUB_SC_ROCEE_CLK_DIS_REG, 1);
-+		dsaf_write_sub(dsaf_dev,
-+			       DSAF_SUB_SC_ROCEE_RESET_DREQ_REG, 1);
-+		msleep(20);
-+		dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_ROCEE_CLK_EN_REG, 1);
-+	}
-+}
-+
- static void
- hns_dsaf_xge_core_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
- 				    u32 port, bool dereset)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 235f744..13c16ab 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -77,6 +77,12 @@
- #define DSAF_SUB_SC_PPE_RESET_DREQ_REG			0xA4C
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_REQ_REG		0xA88
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_DREQ_REG		0xA8C
-+#define DSAF_SUB_SC_DSAF_RESET_REQ_REG			0xAA8
-+#define DSAF_SUB_SC_ROCEE_RESET_REQ_REG			0xA50
-+#define DSAF_SUB_SC_DSAF_RESET_DREQ_REG			0xAAC
-+#define DSAF_SUB_SC_ROCEE_CLK_DIS_REG			0x32C
-+#define DSAF_SUB_SC_ROCEE_RESET_DREQ_REG		0xA54
-+#define DSAF_SUB_SC_ROCEE_CLK_EN_REG			0x328
- #define DSAF_SUB_SC_LIGHT_MODULE_DETECT_EN_REG		0x2060
- #define DSAF_SUB_SC_TCAM_MBIST_EN_REG			0x2300
- #define DSAF_SUB_SC_DSAF_CLK_ST_REG			0x5300
-@@ -133,6 +139,8 @@
- #define DSAF_ROCEE_INT_STS_0_REG	0x200
- #define DSAFV2_SERDES_LBK_0_REG         0x220
- #define DSAF_PAUSE_CFG_REG		0x240
-+#define DSAF_ROCE_PORT_MAP_REG		0x2A0
-+#define DSAF_ROCE_SL_MAP_REG		0x2A4
- #define DSAF_PPE_QID_CFG_0_REG		0x300
- #define DSAF_SW_PORT_TYPE_0_REG		0x320
- #define DSAF_STP_PORT_TYPE_0_REG	0x340
-@@ -178,6 +186,7 @@
- #define DSAF_SBM_BP_CFG_2_XGE_REG_0_REG		0x200C
- #define DSAF_SBM_BP_CFG_2_PPE_REG_0_REG		0x230C
- #define DSAF_SBM_BP_CFG_2_ROCEE_REG_0_REG	0x260C
-+#define DSAF_SBM_ROCEE_CFG_REG_REG		0x2380
- #define DSAFV2_SBM_BP_CFG_2_ROCEE_REG_0_REG	0x238C
- #define DSAF_SBM_FREE_CNT_0_0_REG		0x2010
- #define DSAF_SBM_FREE_CNT_1_0_REG		0x2014
-@@ -796,6 +805,9 @@
- #define DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_S 9
- #define DSAFV2_SBM_CFG4_RESET_BUF_NUM_NO_PFC_M (((1ULL << 9) - 1) << 9)
++	ret = cpuhp_state_add_instance_nocalls(CPUHP_NET_MVNETA_DEAD,
++					       &pp->node_dead);
++	if (ret)
++		goto err_free_online_hp;
  
-+#define DSAF_CHNS_MASK			0x3f000
-+#define DSAF_SBM_ROCEE_CFG_CRD_EN_B	2
-+#define SRST_TIME_INTERVAL		20
- #define DSAFV2_SBM_CFG2_ROCEE_SET_BUF_NUM_S 0
- #define DSAFV2_SBM_CFG2_ROCEE_SET_BUF_NUM_M (((1ULL << 8) - 1) << 0)
- #define DSAFV2_SBM_CFG2_ROCEE_RESET_BUF_NUM_S 8
+ 	/* In default link is down */
+ 	netif_carrier_off(pp->dev);
+@@ -3452,15 +3462,19 @@ static int mvneta_open(struct net_device *dev)
+ 	ret = mvneta_mdio_probe(pp);
+ 	if (ret < 0) {
+ 		netdev_err(dev, "cannot probe MDIO bus\n");
+-		goto err_free_irq;
++		goto err_free_dead_hp;
+ 	}
+ 
+ 	mvneta_start_dev(pp);
+ 
+ 	return 0;
+ 
++err_free_dead_hp:
++	cpuhp_state_remove_instance_nocalls(CPUHP_NET_MVNETA_DEAD,
++					    &pp->node_dead);
++err_free_online_hp:
++	cpuhp_state_remove_instance_nocalls(online_hpstate, &pp->node_online);
+ err_free_irq:
+-	unregister_cpu_notifier(&pp->cpu_notifier);
+ 	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 	free_percpu_irq(pp->dev->irq, pp->ports);
+ err_cleanup_txqs:
+@@ -3486,7 +3500,10 @@ static int mvneta_stop(struct net_device *dev)
+ 
+ 	mvneta_stop_dev(pp);
+ 	mvneta_mdio_remove(pp);
+-	unregister_cpu_notifier(&pp->cpu_notifier);
++
++	cpuhp_state_remove_instance_nocalls(online_hpstate, &pp->node_online);
++	cpuhp_state_remove_instance_nocalls(CPUHP_NET_MVNETA_DEAD,
++					    &pp->node_dead);
+ 	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 	free_percpu_irq(dev->irq, pp->ports);
+ 	mvneta_cleanup_rxqs(pp);
+@@ -4014,7 +4031,6 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	err = of_property_read_string(dn, "managed", &managed);
+ 	pp->use_inband_status = (err == 0 &&
+ 				 strcmp(managed, "in-band-status") == 0);
+-	pp->cpu_notifier.notifier_call = mvneta_percpu_notifier;
+ 
+ 	pp->rxq_def = rxq_def;
+ 
+@@ -4217,7 +4233,43 @@ static struct platform_driver mvneta_driver = {
+ 	},
+ };
+ 
+-module_platform_driver(mvneta_driver);
++static int __init mvneta_driver_init(void)
++{
++	int ret;
++
++	ret = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN, "NET_MVNETA_ONLINE",
++				      mvneta_cpu_online,
++				      mvneta_cpu_down_prepare);
++	if (ret < 0)
++		goto out;
++	online_hpstate = ret;
++	ret = cpuhp_setup_state_multi(CPUHP_NET_MVNETA_DEAD,
++				      "NET_MVNETA_DEAD", NULL,
++				      mvneta_cpu_dead);
++	if (ret)
++		goto err_dead;
++
++	ret = platform_driver_register(&mvneta_driver);
++	if (ret)
++		goto err;
++	return 0;
++
++err:
++	cpuhp_remove_multi_state(CPUHP_NET_MVNETA_DEAD);
++err_dead:
++	cpuhp_remove_multi_state(online_hpstate);
++out:
++	return ret;
++}
++module_init(mvneta_driver_init);
++
++static void __exit mvneta_driver_exit(void)
++{
++	platform_driver_unregister(&mvneta_driver);
++	cpuhp_remove_multi_state(CPUHP_NET_MVNETA_DEAD);
++	cpuhp_remove_multi_state(online_hpstate);
++}
++module_exit(mvneta_driver_exit);
+ 
+ MODULE_DESCRIPTION("Marvell NETA Ethernet Driver - www.marvell.com");
+ MODULE_AUTHOR("Rami Rosen <rosenr@marvell.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>");
+diff --git a/include/linux/cpuhotplug.h b/include/linux/cpuhotplug.h
+index a421407a317f..332b39c21d2e 100644
+--- a/include/linux/cpuhotplug.h
++++ b/include/linux/cpuhotplug.h
+@@ -18,6 +18,7 @@ enum cpuhp_state {
+ 	CPUHP_SLUB_DEAD,
+ 	CPUHP_MM_WRITEBACK_DEAD,
+ 	CPUHP_SOFTIRQ_DEAD,
++	CPUHP_NET_MVNETA_DEAD,
+ 	CPUHP_WORKQUEUE_PREP,
+ 	CPUHP_POWER_NUMA_PREPARE,
+ 	CPUHP_HRTIMERS_PREPARE,
 -- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.9.3
