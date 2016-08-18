@@ -1,108 +1,47 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2016-08-18
-Date: Thu, 18 Aug 2016 14:57:21 -0700
-Message-ID: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
-To: davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 0/3] Fix mv88e6xxx wait function
+Date: Thu, 18 Aug 2016 18:22:50 -0400
+Message-ID: <877fbdiuo5.fsf@ketchup.mtl.sfl>
+References: <1471557717-21852-1-git-send-email-andrew@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:27358 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754454AbcHSBBV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 18 Aug 2016 21:01:21 -0400
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:45289 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750953AbcHSBCw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:02:52 -0400
+In-Reply-To: <1471557717-21852-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Wei Yongjun updates i40e to use list_move() instead of list_del() &
-list_add() operations.
+> The mv88e6xxx wait function can be upset of the system has nots of
+> other things to do and a sleep takes a lot longer than expected. Fix
+> this be using a fixed number of iterations, rather than a fixed
+> walkclock time.
+>
+> Witht that change made, it is possible to consoliate another
+> wait function.
+>
+> A wait actually timing out should not happen and when it does, it
+> means something serious is wrong. Make sure an error is logged,
+> since not all callers will log an error.
+>
+> Andrew Lunn (3):
+>   dsa: mv88e6xxx: Timeout based on iterations, not time
+>   dsa: mv88e6xxx: Use mv88e6xx_wait in mv88e6xxx_update()
+>   dsa: mv88e6xxx: Make mv88e6xxx_wait() timeout verbose
+>
+>  drivers/net/dsa/mv88e6xxx/chip.c | 32 +++++++++++---------------------
+>  1 file changed, 11 insertions(+), 21 deletions(-)
 
-Anjali fixes an issue where the client->open call was not protected with
-the client instance mutex, which allowed client->close to be called before
-the open all completed.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Catherine makes sure that the VLAN count (and stats) gets reset to 0
-after reset.
+David, this series superseeds http://patchwork.ozlabs.org/patch/660270/.
 
-Jake provides two patches, first adds the needed rtnl lock around
-i40evf_set_interrupt_capability() since i40evf_init_task() does not
-hold the rtnl_lock.  Second fixes an issue where users could reduce
-the number of channels (queues) below the current flow director
-filter rules targets.
+Thanks,
 
-Dave fixes a problem where a static analysis tool generates a warning
-so eliminating the irrelevant check and redundant assignment for the
-value of enabled_tc.
-
-Avinash fixes an sync issue where the iWARP device open is called
-before the PCI register writes are completed, so ensure the register
-writes complete before exiting the setup function.
-
-Alan fixes a bug which causes RSS to continue to work after being
-disabled.
-
-Carolyn implements a feature change which allows using ethtool to set
-RDD hash options using less than four parameters if desired.
-
-Dan Carpenter cleans up a stray unlock.
-
-Sridhar exposes the "trust" flag to userspace via ndo_get_vf_config().
-
-The following are changes since commit 60747ef4d173c2747bf7f0377fb22846cb422195:
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alan Brady (1):
-  i40e: fix lookup table when RSS disabled/enabled
-
-Anjali Singhai Jain (1):
-  i40e: Fix a bug where a client close can be called before an open is
-    complete
-
-Avinash Dayanand (2):
-  i40e: Force register writes to mitigate sync issues with iwarp VF
-    driver
-  i40e: Don't notify client of VF reset during VF creation
-
-Bimmy Pujari (1):
-  i40e/i40evf-Bump version from 1.6.11 to 1.6.12
-
-Carolyn Wyborny (1):
-  i40e: Allow RSS Hash set with less than four parameters
-
-Catherine Sullivan (2):
-  i40e/i40evf: Reset VLAN filter count when resetting
-  i40e: reset RX csum error stat with other pf stats
-
-Dan Carpenter (1):
-  i40e: remove a stray unlock
-
-Dave Ertman (1):
-  i40e: Fix static analysis tool warning
-
-Jacob Keller (2):
-  i40evf: add missing rtnl_lock() around i40evf_set_interrupt_capability
-  i40e: don't allow reduction of channels below active FD rules
-
-Mitch Williams (1):
-  i40e: fix memory leak
-
-Sridhar Samudrala (1):
-  i40e: Expose 'trust' flag to userspace via ndo_get_vf_config.
-
-Wei Yongjun (1):
-  i40e: Use list_move instead of list_del/list_add
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   3 -
- drivers/net/ethernet/intel/i40e/i40e_client.c      |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 232 ++++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  35 +++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  10 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   4 +-
- 6 files changed, 201 insertions(+), 92 deletions(-)
-
--- 
-2.7.4
+        Vivien
