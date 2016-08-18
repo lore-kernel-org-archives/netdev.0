@@ -1,53 +1,82 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/6] netfilter: tproxy: properly refcount tcp listeners
-Date: Thu, 18 Aug 2016 19:29:06 +0200
-Message-ID: <1471541348-1538-5-git-send-email-pablo@netfilter.org>
-References: <1471541348-1538-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/6] Netfilter fixes for net
+Date: Thu, 18 Aug 2016 19:29:02 +0200
+Message-ID: <1471541348-1538-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1471541348-1538-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:43976 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754344AbcHSA5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 20:57:42 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id E11E7A418A
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:29:18 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id D1DC7FEFD1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:29:18 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B9DDACE155
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 19:29:16 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi David,
 
-inet_lookup_listener() and inet6_lookup_listener() no longer
-take a reference on the found listener.
+The following patchset contains Netfilter updates for your net tree,
+they are:
 
-This minimal patch adds back the refcounting, but we might do
-this differently in net-next later.
+1) Dump only conntrack that belong to this namespace via /proc file.
+   This is some fallout from the conversion to single conntrack table
+   for all netns, patch from Liping Zhang.
 
-Fixes: 3b24d854cb35 ("tcp/dccp: do not touch listener sk_refcnt under synflood")
-Reported-and-tested-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_TPROXY.c | 4 ++++
- 1 file changed, 4 insertions(+)
+2) Missing MODULE_ALIAS_NF_LOGGER() for the ARP family that prevents
+   module autoloading, also from Liping Zhang.
 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 7f4414d..663c4c3 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -127,6 +127,8 @@ nf_tproxy_get_sock_v4(struct net *net, struct sk_buff *skb, void *hp,
- 						    daddr, dport,
- 						    in->ifindex);
- 
-+			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-+				sk = NULL;
- 			/* NOTE: we return listeners even if bound to
- 			 * 0.0.0.0, those are filtered out in
- 			 * xt_socket, since xt_TPROXY needs 0 bound
-@@ -195,6 +197,8 @@ nf_tproxy_get_sock_v6(struct net *net, struct sk_buff *skb, int thoff, void *hp,
- 						   daddr, ntohs(dport),
- 						   in->ifindex);
- 
-+			if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
-+				sk = NULL;
- 			/* NOTE: we return listeners even if bound to
- 			 * 0.0.0.0, those are filtered out in
- 			 * xt_socket, since xt_TPROXY needs 0 bound
--- 
-2.1.4
+3) Report overquota event to the right netnamespace, again from Liping.
 
+4) Fix tproxy listener sk refcount that leads to crash, from
+   Eric Dumazet.
+
+5) Fix racy refcounting on object deletion from nfnetlink and rule
+   removal both for nfacct and cttimeout, from Liping Zhang.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit a1560dd7a47f983419760aa7f6a481e3b910b54b:
+
+  Merge branch 'mediatek-fixes' (2016-08-15 23:02:45 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to b75911b66ad508a3c3f006ce37d9f9ebee34da43:
+
+  netfilter: cttimeout: fix use after free error when delete netns (2016-08-18 15:17:00 +0200)
+
+----------------------------------------------------------------
+Eric Dumazet (1):
+      netfilter: tproxy: properly refcount tcp listeners
+
+Liping Zhang (5):
+      netfilter: conntrack: do not dump other netns's conntrack entries via proc
+      netfilter: nfnetlink_log: add "nf-logger-3-1" module alias name
+      netfilter: nfnetlink_acct: report overquota to the right netns
+      netfilter: nfnetlink_acct: fix race between nfacct del and xt_nfacct destroy
+      netfilter: cttimeout: fix use after free error when delete netns
+
+ include/linux/netfilter/nfnetlink_acct.h |  4 ++--
+ net/netfilter/nf_conntrack_standalone.c  |  4 ++++
+ net/netfilter/nfnetlink_acct.c           | 17 +++++++++--------
+ net/netfilter/nfnetlink_cttimeout.c      | 16 ++++++++++------
+ net/netfilter/nfnetlink_log.c            |  1 +
+ net/netfilter/xt_TPROXY.c                |  4 ++++
+ net/netfilter/xt_nfacct.c                |  2 +-
+ 7 files changed, 31 insertions(+), 17 deletions(-)
