@@ -1,56 +1,46 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: Re: [PATCH] mwifiex: propagate error if IRQ request fails in
- mwifiex_sdio_of()
-Date: Thu, 18 Aug 2016 15:29:01 -0400
-Message-ID: <70b6a0d1-8cc4-280e-3e53-8c42cb43b721@osg.samsung.com>
-References: <1471529868-13669-1-git-send-email-javier@osg.samsung.com>
- <10fb1110-4c0b-00a2-522c-7011ca397b8c@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Nishant Sarmukadam <nishants@marvell.com>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <10fb1110-4c0b-00a2-522c-7011ca397b8c@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: reset RX csum error stat with other pf stats
+Date: Thu, 18 Aug 2016 14:57:25 -0700
+Message-ID: <1471557456-136741-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:23836 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932421AbcHSBki (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 18 Aug 2016 21:40:38 -0400
+In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Arend,
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Thanks a lot for your feedback.
+When we are resetting the pf stats we should also reset the RX csum
+error stat.
 
-On 08/18/2016 03:14 PM, Arend van Spriel wrote:
-> On 18-08-16 16:17, Javier Martinez Canillas wrote:
->> If request_irq() fails in mwifiex_sdio_probe_of(), only an error message
->> is printed but the actual error is not propagated to the caller function.
-> 
-> Hmm. The caller function, ie. mwifiex_sdio_probe(), does not seem to care.
->
+Change-ID: I7af5ee0ec81a10f6deee1a7b8c2082ea068ef620
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Hmm, I'm not so sure about that. It's checking the wifiex_sdio_probe_of()
-return value.
-
-If the IRQ request failing is not an error, then at the very least the call
-to disable_irq() should be avoided if request_irq() fails, and the message
-should be changed from dev_err() to dev_dgb() or dev_info().
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index c6ac7a6..9f9d24f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -527,6 +527,7 @@ void i40e_pf_reset_stats(struct i40e_pf *pf)
+ 			pf->veb[i]->stat_offsets_loaded = false;
+ 		}
+ 	}
++	pf->hw_csum_rx_error = 0;
+ }
  
-> The device may still function without this wake interrupt.
->
-
-That's correct, the binding says that the "interrupts" property in the child
-node is optional since is just a wakeup IRQ. Now the question is if should
-be an error if the IRQ is defined but fails to be requested.
-
-> Regards,
-> Arend
-> 
-
-Best regards,
+ /**
 -- 
-Javier Martinez Canillas
-Open Source Group
-Samsung Research America
+2.7.4
