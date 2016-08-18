@@ -1,126 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/5] net: dsa: bcm_sf2: Use device managed helpers
-Date: Thu, 18 Aug 2016 15:30:15 -0700
-Message-ID: <1471559416-13249-5-git-send-email-f.fainelli@gmail.com>
-References: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH v1 1/1] pppoe: l2tp: the PPPOX_CONNECTED should be used
+ with bit operation
+Date: Thu, 18 Aug 2016 19:44:03 +0200
+Message-ID: <20160818174402.md35bxj4v35uc2bg@alphalink.fr>
+References: <1471485543-13149-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mostrows@earthlink.net, jchapman@katalix.com, davem@davemloft.net,
+        philipp@redfish-solutions.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35409 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753576AbcHSAuO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:50:14 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h186so540212pfg.2
-        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 17:50:14 -0700 (PDT)
-In-Reply-To: <1471559416-13249-1-git-send-email-f.fainelli@gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:53542 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754101AbcHSAuE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 20:50:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1471485543-13149-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we have converted the drivers into a proper platform device
-driver, we can use the device managed helper functions to simplify the
-error paths a bit wrt. register resources and IRQs.
+On Thu, Aug 18, 2016 at 09:59:03AM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> There are some codes in pppoe and l2tp which use the PPPOX_CONNECTED
+> as the value including assignment and condition check.
+> They should keep consistent with other codes.
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  v1: Initial Patch
+> 
+>  drivers/net/ppp/pppoe.c | 2 +-
+>  net/l2tp/l2tp_ppp.c     | 4 ++--
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ppp/pppoe.c b/drivers/net/ppp/pppoe.c
+> index 4ddae81..684b773 100644
+> --- a/drivers/net/ppp/pppoe.c
+> +++ b/drivers/net/ppp/pppoe.c
+> @@ -697,7 +697,7 @@ static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
+>  			goto err_put;
+>  		}
+>  
+> -		sk->sk_state = PPPOX_CONNECTED;
+> +		sk->sk_state |= PPPOX_CONNECTED;
+> 
+Using plain assignment makes it clear for the reader that other flags
+are unset. I see no reason for changing this.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.c | 36 +++++++++++++-----------------------
- 1 file changed, 13 insertions(+), 23 deletions(-)
+> diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+> index d9560aa..3984385 100644
+> --- a/net/l2tp/l2tp_ppp.c
+> +++ b/net/l2tp/l2tp_ppp.c
+> @@ -774,7 +774,7 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+>  out_no_ppp:
+>  	/* This is how we get the session context from the socket. */
+>  	sk->sk_user_data = session;
+> -	sk->sk_state = PPPOX_CONNECTED;
+> +	sk->sk_state |= PPPOX_CONNECTED;
+> 
+Same here.
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index fe1cc92f72a8..9f8e007b01d6 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -1630,6 +1630,7 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 	struct bcm_sf2_priv *priv;
- 	struct dsa_switch *ds;
- 	void __iomem **base;
-+	struct resource *r;
- 	unsigned int i;
- 	u32 reg, rev;
- 	int ret;
-@@ -1655,11 +1656,11 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 
- 	base = &priv->core;
- 	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
--		*base = of_iomap(dn, i);
--		if (*base == NULL) {
-+		r = platform_get_resource(pdev, IORESOURCE_MEM, i);
-+		*base = devm_ioremap_resource(&pdev->dev, r);
-+		if (IS_ERR(*base)) {
- 			pr_err("unable to find register: %s\n", reg_names[i]);
--			ret = -ENOMEM;
--			goto out_unmap;
-+			return PTR_ERR(*base);
- 		}
- 		base++;
- 	}
-@@ -1667,30 +1668,30 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 	ret = bcm_sf2_sw_rst(priv);
- 	if (ret) {
- 		pr_err("unable to software reset switch: %d\n", ret);
--		goto out_unmap;
-+		return ret;
- 	}
- 
- 	ret = bcm_sf2_mdio_register(ds);
- 	if (ret) {
- 		pr_err("failed to register MDIO bus\n");
--		goto out_unmap;
-+		return ret;
- 	}
- 
- 	/* Disable all interrupts and request them */
- 	bcm_sf2_intr_disable(priv);
- 
--	ret = request_irq(priv->irq0, bcm_sf2_switch_0_isr, 0,
--			  "switch_0", priv);
-+	ret = devm_request_irq(&pdev->dev, priv->irq0, bcm_sf2_switch_0_isr, 0,
-+			       "switch_0", priv);
- 	if (ret < 0) {
- 		pr_err("failed to request switch_0 IRQ\n");
- 		goto out_mdio;
- 	}
- 
--	ret = request_irq(priv->irq1, bcm_sf2_switch_1_isr, 0,
--			  "switch_1", priv);
-+	ret = devm_request_irq(&pdev->dev, priv->irq1, bcm_sf2_switch_1_isr, 0,
-+			       "switch_1", priv);
- 	if (ret < 0) {
- 		pr_err("failed to request switch_1 IRQ\n");
--		goto out_free_irq0;
-+		goto out_mdio;
- 	}
- 
- 	/* Reset the MIB counters */
-@@ -1720,7 +1721,7 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 
- 	ret = dsa_register_switch(ds, dn);
- 	if (ret)
--		goto out_free_irq1;
-+		goto out_mdio;
- 
- 	pr_info("Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
- 		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
-@@ -1729,19 +1730,8 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
--out_free_irq1:
--	free_irq(priv->irq1, priv);
--out_free_irq0:
--	free_irq(priv->irq0, priv);
- out_mdio:
- 	bcm_sf2_mdio_unregister(priv);
--out_unmap:
--	base = &priv->core;
--	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
--		if (*base)
--			iounmap(*base);
--		base++;
--	}
- 	return ret;
- }
- 
--- 
-2.7.4
+> @@ -856,7 +856,7 @@ static int pppol2tp_getname(struct socket *sock, struct sockaddr *uaddr,
+>  	error = -ENOTCONN;
+>  	if (sk == NULL)
+>  		goto end;
+> -	if (sk->sk_state != PPPOX_CONNECTED)
+> +	if (!(sk->sk_state & PPPOX_CONNECTED))
+> 
+Looks like it was a bug. This one is worth a separate patch.
