@@ -1,79 +1,117 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
-Date: Fri, 19 Aug 2016 18:43:49 +0200
-Message-ID: <c1cda2ea-21e8-0265-e1c3-687f2396a7f1@neratec.com>
-References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
- <20160819145900.GD7343@lunn.ch>
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Subject: RE: [PATCH] gianfar: fix size of fragmented frames
+Date: Fri, 19 Aug 2016 16:46:46 +0000
+Message-ID: <AM5PR0401MB25613B657270085A3EE4324F96160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+References: <1471598156-16875-1-git-send-email-zefir.kurtisi@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:18610 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751599AbcHSQnx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 Aug 2016 12:43:53 -0400
-In-Reply-To: <20160819145900.GD7343@lunn.ch>
+Received: from mail-db5eur01on0073.outbound.protection.outlook.com ([104.47.2.73]:16256
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754959AbcHSQqu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 12:46:50 -0400
+In-Reply-To: <1471598156-16875-1-git-send-email-zefir.kurtisi@neratec.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/19/2016 04:59 PM, Andrew Lunn wrote:
-> On Fri, Aug 19, 2016 at 11:16:14AM +0200, Zefir Kurtisi wrote:
->> The eTSEC register MRBLR defines the maximum space in
->> the RX buffers and is set to 1536 by gianfar. This
->> reasonably covers the common use case where the MTU
->> is kept at default 1500.
->>
->> Alas, if the eTSEC is attached to a DSA enabled switch,
->> the DSA header extension causes every maximum sized
->> frame to be fragmented by the hardware (1536 + 4).
->>
->> This patch increases the maximum RX buffer size by
->> RBUF_ALIGNMENT (64) octets. Since the driver uses a
->> half-page memory schema, this change does not
->> increase allocated memory but allows the hardware to
->> use 1600 bytes of the totally available 2048.
->>
->> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
->> ---
->>  drivers/net/ethernet/freescale/gianfar.h | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
->> index 373fd09..02b794b 100644
->> --- a/drivers/net/ethernet/freescale/gianfar.h
->> +++ b/drivers/net/ethernet/freescale/gianfar.h
->> @@ -100,7 +100,8 @@ extern const char gfar_driver_version[];
->>  #define DEFAULT_RX_LFC_THR  16
->>  #define DEFAULT_LFC_PTVVAL  4
->>  
->> -#define GFAR_RXB_SIZE 1536
->> +/* prevent fragmenation by HW in DSA environments */
->> +#define GFAR_RXB_SIZE (1536 + RXBUF_ALIGNMENT)
-> 
-> Hi Zefir
-> 
-> Using RXBUF_ALIGNMENT suggests this has something to do with
-> alignment, not extra headers.
-> 
-> How about
-> 
-> /* Prevent fragmenation by HW when using extra headers like DSA */
-> #define GFAR_RXB_SIZE (1536 + 8)
-> 
-> 	Andrew
-> 
-Hi Andrew,
+>-----Original Message-----
+>From: Zefir Kurtisi [mailto:zefir.kurtisi@neratec.com]
+>Sent: Friday, August 19, 2016 12:16 PM
+>To: netdev@vger.kernel.org
+>Cc: claudiu.manoil@freescale.com
+>Subject: [PATCH] gianfar: fix size of fragmented frames
+>
+>The eTSEC RxBD 'Data Length' field is context depening:
+>for the last fragment it contains the full frame size,
+>while fragments contain the fragment size, which equals
+>the value written to register MRBLR.
+>
 
-the MRBLR has to be written with multiples of 64 (lower 6 bits reserved as 0),
-therefore (1536 + 64) is the next valid value to chose.
+According to RM the last fragment has the whole packet length indeed,
+and this should apply to fragmented frames too:
 
-As noted in the commit message, this is an artificial limitation, since the RX
-buffers are essentially 2048 bytes (GFAR_RXB_TRUESIZE) long. I don't fully
-understand why GFAR_RXB_SIZE has to be lower than that, preventing
-the HW using all available memory - the freescale guys most probably do.
+" Data length, written by the eTSEC.
+Data length is the number of octets written by the eTSEC into this BD's dat=
+a buffer if L is cleared
+(the value is equal to MRBLR), or, if L is set, the length of the frame inc=
+luding CRC, FCB (if
+RCTRL[PRSDEP > 00), preamble (if MACCFG2[PreAmRxEn]=3D1), time stamp (if RC=
+TRL[TS] =3D 1)
+and any padding (RCTRL[PAL]). "
 
+>This differentiation is missing in the gianfar driver,
+>which causes data corruption as soon as the hardware
+>starts to fragment receiving frames. As a result, the
+>size of fragmented frames is increased by
+>(nr_frags - 1) * MRBLR
+>
+>We first noticed this issue working with DSA, where a
+>1540 octet frame is fragmented by the hardware and
+>reconstructed by the driver as 3076 octet frame.
+>
+>This patch fixes the problem by adjusting the size of
+>the last fragment.
+>
+>Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+>---
+> drivers/net/ethernet/freescale/gianfar.c | 19 +++++++++++++------
+> 1 file changed, 13 insertions(+), 6 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/freescale/gianfar.c
+>b/drivers/net/ethernet/freescale/gianfar.c
+>index d20935d..4187280 100644
+>--- a/drivers/net/ethernet/freescale/gianfar.c
+>+++ b/drivers/net/ethernet/freescale/gianfar.c
+>@@ -2922,17 +2922,24 @@ static bool gfar_add_rx_frag(struct gfar_rx_buff *=
+rxb,
+>u32 lstatus,
+> {
+> 	unsigned int size =3D lstatus & BD_LENGTH_MASK;
+> 	struct page *page =3D rxb->page;
+>+	bool last =3D !!(lstatus & BD_LFLAG(RXBD_LAST));
+>
+> 	/* Remove the FCS from the packet length */
+>-	if (likely(lstatus & BD_LFLAG(RXBD_LAST)))
+>+	if (last)
+> 		size -=3D ETH_FCS_LEN;
+>
+>-	if (likely(first))
+>+	if (likely(first)) {
+> 		skb_put(skb, size);
+>-	else
+>-		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+>-				rxb->page_offset + RXBUF_ALIGNMENT,
+>-				size, GFAR_RXB_TRUESIZE);
+>+	} else {
+>+		/* the last fragments' length contains the full frame length */
+>+		if (last)
+>+			size -=3D skb->len;
 
-Cheers,
-Zefir
+While I agree with your finding, I don't think this works for packets havin=
+g more
+than 2 buffers (head + 1 fragment).
+How's this supposed to work for a skb with 2 fragments, for instance?
+I think this needs more thoughtful consideration.
+
+>+
+>+		if (size > 0 && size <=3D GFAR_RXB_SIZE)
+
+Why do you need this check?
+The h/w ensures that the buffers won't exceed GFAR_RXB_SIZE
+(which is MRBL), size 0 is also not possible.
+
+>+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+>+					rxb->page_offset + RXBUF_ALIGNMENT,
+>+					size, GFAR_RXB_TRUESIZE);
+>+	}
+>
+> 	/* try reuse page */
+> 	if (unlikely(page_count(page) !=3D 1))
+>--
+>2.7.4
