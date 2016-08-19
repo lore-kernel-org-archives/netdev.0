@@ -1,51 +1,136 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/1] net sched ife action: fix encoding to use real
- length
-Date: Fri, 19 Aug 2016 16:22:39 +0300
-Message-ID: <42438a9c-fe2f-3699-89e9-dc4d59250eba@cogentembedded.com>
-References: <1471601860-3336-1-git-send-email-jhs@emojatatu.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 2/2] net: phy: Fix race conditions in the driver
+Date: Fri, 19 Aug 2016 15:24:17 +0200
+Message-ID: <20160819132417.GC7343@lunn.ch>
+References: <1471610891-13353-1-git-send-email-appanad@xilinx.com>
+ <1471610891-13353-2-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com, mrv@mojatatu.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:33767 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755298AbcHSNWo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 09:22:44 -0400
-Received: by mail-lf0-f42.google.com with SMTP id b199so32889802lfe.0
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 06:22:43 -0700 (PDT)
-In-Reply-To: <1471601860-3336-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+        appanad@xilinx.com, f.fainelli@gmail.com,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1471610891-13353-2-git-send-email-appanad@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, Aug 19, 2016 at 06:18:11PM +0530, Kedareswara rao Appana wrote:
+> This patch fixes the below race conditions in the driver.
+> ---> Fix Opps after unload the driver as a module
+> ---> Use spin locks where relevant.
+> ---> Take reference on the external phy to prevent issues
+> when phy driver is unloaded.
 
-On 8/19/2016 1:17 PM, Jamal Hadi Salim wrote:
+Each one of these should be an individual patch.
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Encoding of the metadata was using the padded length as opposed to
-> the real length of the data which is a bug per specification.
-> This has not been an issue todate because all metadatum specified
+> 
+> Reported-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+>  drivers/net/phy/xilinx_gmii2rgmii.c | 32 +++++++++++++++++++++++++++++++-
+>  1 file changed, 31 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+> index 7336fd0..cdd9d95 100644
+> --- a/drivers/net/phy/xilinx_gmii2rgmii.c
+> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+> @@ -34,6 +34,7 @@ struct gmii2rgmii {
+>  	struct phy_driver *phy_drv;
+>  	struct phy_driver conv_phy_drv;
+>  	int addr;
+> +	spinlock_t phy_lock;
 
-    To date? Metadata perhaps?
+The phy already have a lock.
 
-> so far has been 32 bit where aligned and data length are the same width.
-> This also includes a bug fix for validating the length of a u16 field.
-> But since there is no metadata of size u16 yes we are fine to include it
-> here.
->
-> While at it get rid of magic numbers
->
-> Fixes: ef6980b6
+>  };
+>  
+>  static int xgmiitorgmii_read_status(struct phy_device *phydev)
+> @@ -55,7 +56,7 @@ static int xgmiitorgmii_read_status(struct phy_device *phydev)
+>  		val |= BMCR_SPEED1000;
+>  	else if (phydev->speed == SPEED_100)
+>  		val |= BMCR_SPEED100;
+> -	else
+> +	else if (phydev->speed == SPEED_10)
+>  		val |= BMCR_SPEED10;
+  
+I said you want to return an error is the PHY is using a speed your
+converter cannot support. I don't see an error being raised here.
 
-    This tag has a standardized format, including 12-digit SHA1 and the commit 
-summary enclosed in ("").
+>  	err = mdiobus_write(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG,
+> @@ -71,6 +72,8 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+>  	struct device *dev = &mdiodev->dev;
+>  	struct device_node *np = dev->of_node, *phy_node;
+>  	struct gmii2rgmii *priv;
+> +	struct mii_bus *bus;
+> +	unsigned long flags;
+>  
+>  	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+>  	if (!priv)
+> @@ -88,17 +91,43 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+>  		return -EPROBE_DEFER;
+>  	}
+>  
+> +	spin_lock_init(&priv->phy_lock);
+> +
+> +	bus = priv->phy_dev->mdio.bus;
+> +	if (!try_module_get(bus->owner)) {
+> +		dev_err(dev, "failed to get the bus module\n");
+> +		return -EIO;
+> +	}
 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-[...]
+The comment at the top says you are taking a reference to the phy.
+Here you take a reference to the mdio bus driver???
 
-MBR, Sergei
+> +
+> +	get_device(&priv->phy_dev->mdio.dev);
+> +
+>  	priv->addr = mdiodev->addr;
+>  	priv->phy_drv = priv->phy_dev->drv;
+>  	memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
+>  	       sizeof(struct phy_driver));
+>  	priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
+>  	priv->phy_dev->priv = priv;
+> +	spin_lock_irqsave(&priv->phy_lock, flags);
+>  	priv->phy_dev->drv = &priv->conv_phy_drv;
+> +	spin_unlock_irqrestore(&priv->phy_lock, flags);
+
+And how is this spinlock protecting anything? 
+
+> +
+> +	dev_set_drvdata(dev, priv);
+>  
+>  	return 0;
+>  }
+>  
+> +static void xgmiitorgmii_remove(struct mdio_device *mdiodev)
+> +{
+> +	struct gmii2rgmii *priv = dev_get_drvdata(&mdiodev->dev);
+> +	struct mii_bus *bus;
+> +
+> +	bus = priv->phy_dev->mdio.bus;
+> +
+> +	put_device(&priv->phy_dev->mdio.dev);
+> +	module_put(bus->owner);
+> +	phy_disconnect(priv->phy_dev);
+
+Why are you disconnecting the phy?
+
+> +}
+> +
+>  static const struct of_device_id xgmiitorgmii_of_match[] = {
+>  	{ .compatible = "xlnx,gmii-to-rgmii-1.0" },
+>  	{},
+> @@ -107,6 +136,7 @@ MODULE_DEVICE_TABLE(of, xgmiitorgmii_of_match);
+>  
+>  static struct mdio_driver xgmiitorgmii_driver = {
+>  	.probe	= xgmiitorgmii_probe,
+> +	.remove	= xgmiitorgmii_remove,
+>  	.mdiodrv.driver = {
+>  		.name = "xgmiitorgmii",
+>  		.of_match_table = xgmiitorgmii_of_match,
+> -- 
+> 2.1.2
+> 
