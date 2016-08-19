@@ -1,91 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 1/2] ipv6: save route expiry in RTA_EXPIRES if
- RTF_EXPIRES set
-Date: Fri, 19 Aug 2016 13:26:16 -0700
-Message-ID: <1471638376.29842.113.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
-         <cover.1471622715.git.ayourtch@gmail.com>
-         <d9679ca53d5162eaa88ac5050410e1b4fb3c2874.1471622715.git.ayourtch@gmail.com>
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
+Date: Fri, 19 Aug 2016 21:24:30 +0000
+Message-ID: <AM5PR0401MB25618716FACFE3DA3A21D5F696160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
+ <20160819145900.GD7343@lunn.ch>
+ <AM5PR0401MB2561CB4CA30BC13EBFFAD43796160@AM5PR0401MB2561.eurprd04.prod.outlook.com>,<20160819163944.GF22939@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Yourtchenko <ayourtch@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:36360 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755201AbcHSUlT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 16:41:19 -0400
-Received: by mail-pa0-f66.google.com with SMTP id ez1so3884777pab.3
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 13:41:19 -0700 (PDT)
-In-Reply-To: <d9679ca53d5162eaa88ac5050410e1b4fb3c2874.1471622715.git.ayourtch@gmail.com>
+Received: from mail-db5eur01on0043.outbound.protection.outlook.com ([104.47.2.43]:44311
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754388AbcHSVio (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 17:38:44 -0400
+In-Reply-To: <20160819163944.GF22939@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-08-19 at 18:41 +0200, Andrew Yourtchenko wrote:
-> This allows "ip -6 route save" to save the expiry for the routes
-> that have it, such that it can be correctly restored later by
-> "ip -6 route restore".
-> 
-> If a route has RTF_EXPIRES set, generate RTA_EXPIRES value which
-> will be used to restore the flag and expiry value by already
-> existing code in rtm_to_fib6_config.
-> 
-> The expiry was already being saved as part of RTA_CACHEINFO
-> in rtnl_put_cacheinfo(), but adding code to generate RTF_EXPIRES upon save
-> looked more appropriate than redundant cherrypicking from
-> RTA_CACHEINFO upon restore.
-> 
-> Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
-> ---
-> Changes since v1 [1]: 
->  * fixed the indentation in a multiline function call
->    as per David Miller's review
-> 
-> [1] v1: http://marc.info/?l=linux-netdev&m=147135597422280&w=2
-> 
->  net/ipv6/route.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 4981755..f5b987d 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -3244,6 +3244,14 @@ static int rt6_fill_node(struct net *net,
->  	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, rt->dst.error) < 0)
->  		goto nla_put_failure;
->  
-> +	/* Can't rely on expires == 0. It is zero if no expires flag,
-> +	 * or if the timing is precisely at expiry. So, recheck the flag.
-> +	 */
-> +	if (rt->rt6i_flags & RTF_EXPIRES)
-> +		if (nla_put_u32(skb, RTA_EXPIRES,
-> +				expires > 0 ? expires / HZ : 0))
-> +			goto nla_put_failure;
-> +
+Hi Andrew,
 
-Why sending (kernel -> user) the value in second units, while the other
-direction (user -> kernel) expects hz ?
 
-iproute2$ git grep -n RTA_EXPIRES
-include/linux/rtnetlink.h:389:  RTA_EXPIRES,
-ip/iproute.c:930:                       addattr32(&req.n, sizeof(req), RTA_EXPIRES, expires*hz);
+From: Andrew Lunn <andrew@lunn.ch>
+Sent: Friday, August 19, 2016 7:39 PM
+To: Claudiu Manoil
+Cc: Zefir Kurtisi; netdev@vger.kernel.org; claudiu.manoil@freescale.com
+Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
+=A0  =20
+> >> -#define GFAR_RXB_SIZE 1536
+> >> +/* prevent fragmenation by HW in DSA environments */
+> >> +#define GFAR_RXB_SIZE (1536 + RXBUF_ALIGNMENT)
+> >
+> >Hi Zefir
+> >
+> >Using RXBUF_ALIGNMENT suggests this has something to do with
+> >alignment, not extra headers.
+> >
+> >How about
+> >
+> >/* Prevent fragmenation by HW when using extra headers like DSA */
+> >#define GFAR_RXB_SIZE (1536 + 8)
+> >
+>=20
+> MRBL (Maximum receive buffer length) must be multiple of 64.
+> Please consult de hardware documentation at least before prosing
+> changes to the driver.
+=A0
+Hi Claudiu
 
-kernel patch : (32bc201e1974976b7d3fea9a9b17bb7392ca6394)
+Thanks for pointing this out. This makes RXBUF_ALIGNMENT even worse
+for understabability, since you say multiples of 64 is important, not
+alignment.
 
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
+How about
 
-@@ -2809,6 +2810,15 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
-        if (tb[RTA_ENCAP_TYPE])
-                cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
- 
-+       if (tb[RTA_EXPIRES]) {
-+               unsigned long timeout = addrconf_timeout_fixup(nla_get_u32(tb[RTA_EXPIRES]), HZ);
-+
-+               if (addrconf_finite_timeout(timeout)) {
-+                       cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
-+                       cfg->fc_flags |= RTF_EXPIRES;
-+               }
-+       }
-+
+/* Prevent fragmentation by HW when using extra headers like DSA,
+while respecting the multiple of 64 requirement. */
+
+#define GFAR_RXB_SIZE roundup(1536 + 8, 64)
+
+[Claudiu]
+Nice improvement.
+But what's so special about 8?  I thought only 4 bytes were missing :)
+At least 1536 is the default size of the MRBLR register, as specified
+in the h/w ref manual.  Is there some recommended standard size
+to accommodate most (if not all) headers, to refer to?
+
+
+    =
