@@ -1,103 +1,59 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH v2 1/1] ppp: Fix one deadlock issue of PPP when send frame
-Date: Thu, 18 Aug 2016 18:13:15 +0200
-Message-ID: <20160818161315.6wnv45tzw6v5napa@alphalink.fr>
-References: <1471347218-24472-1-git-send-email-fgao@ikuai8.com>
- <20160817174219.y4opmhj4u77m3ufq@alphalink.fr>
- <CA+6hz4qROeAKSgQJ-tf3qaDp5zBqssq4gV39wqyUT0ctp1DHcg@mail.gmail.com>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCH] bpf: fix size of copy_to_user in percpu map.
+Date: Thu, 18 Aug 2016 18:38:20 -0700
+Message-ID: <CALDO+Sa6P-Qo5OqJELcak2nUKMAwdMuAxrDKASCJ_oJRPFsKjQ@mail.gmail.com>
+References: <20160729064722.GA54517@ast-mbp.thefacebook.com>
+ <579B0B9F.8040805@iogearbox.net> <CALDO+SZueK9ymNjrLAK+00xzR_BTms+qVhy0DAPnJZGrken2rg@mail.gmail.com>
+ <579BF2A1.7000709@iogearbox.net> <CALDO+SbhCuc85b=UuSWVc7baScN+MNwwaLKcXeubPL1SJvOT=Q@mail.gmail.com>
+ <20160730053415.GA78880@ast-mbp.thefacebook.com> <CALDO+SaVhA4GB+=-LnbZpWyx15wgc8PRFXVD4dO-O5kb+hJE9g@mail.gmail.com>
+ <20160801160738.GA99707@ast-mbp.thefacebook.com> <CALDO+SbcTh9Gd75wrJRUvo7SG-kCaKDk8fteQKndTz+_NnAccw@mail.gmail.com>
+ <CALDO+SbrUBa0JpGTbX2cFs3rVhchPtSOmw=Jwjb26fkQ=w0qmg@mail.gmail.com> <20160812230810.GB48651@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gao Feng <fgao@ikuai8.com>, paulus@samba.org,
-        linux-ppp@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Feng Gao <gfree.wind@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:57493 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753888AbcHSBkF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:40:05 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+6hz4qROeAKSgQJ-tf3qaDp5zBqssq4gV39wqyUT0ctp1DHcg@mail.gmail.com>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:34238 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754160AbcHSBjg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 21:39:36 -0400
+Received: by mail-it0-f67.google.com with SMTP id e63so747110ith.1
+        for <netdev@vger.kernel.org>; Thu, 18 Aug 2016 18:39:01 -0700 (PDT)
+In-Reply-To: <20160812230810.GB48651@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 18, 2016 at 08:58:31AM +0800, Feng Gao wrote:
-> On Thu, Aug 18, 2016 at 1:42 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
-> > On Tue, Aug 16, 2016 at 07:33:38PM +0800, fgao@ikuai8.com wrote:
-> >> From: Gao Feng <fgao@ikuai8.com>
-> >>
-> >> PPP channel holds one spinlock before send frame. But the skb may
-> >> select the same PPP channel with wrong route policy. As a result,
-> >> the skb reaches the same channel path. It tries to get the same
-> >> spinlock which is held before. Bang, the deadlock comes out.
-> >>
-> > Unless I misunderstood the problem you're trying to solve, this patch
-> > doesn't really help: deadlock still occurs if the same IP is used for
-> > L2TP and PPP's peer address.
-> >
-> 
-> The deadlock happens because the same cpu try to hold the spinlock
-> which is already held before by itself.
-> Now the PPP_CHANNEL_LOCK_BH sets the lock owner after hold lock, then
-> when the same cpu
-> invokes PPP_CHANNEL_LOCK_BH again. The cl.owner equals current cpu id,
-> so it only increases
-> the lock_cnt without trying to hold the lock again.
-> So it avoids the deadlock.
-> 
-I'm sorry but, again, it just _moves_ the deadlock down to L2TP. The
-kernel still oops because, now, l2tp_xmit_skb() is called recursively
-while holding its tunnel socket.
+Hi Alexei and Daniel,
 
-> >> Now add one lock owner to avoid it like xmit_lock_owner of
-> >> netdev_queue. Check the lock owner before try to get the spinlock.
-> >> If the current cpu is already the owner, needn't lock again. When
-> >> PPP channel holds the spinlock at the first time, it sets owner
-> >> with current CPU ID.
-> >>
-> > I think you should forbid lock recursion entirely, and drop the packet
-> > if the owner tries to re-acquire the channel lock. Otherwise you just
-> > move the deadlock down the stack (l2tp_xmit_skb() can't be called
-> > recursively).
-> 
-> The reason that fix it in ppp is that there are other layer on the ppp module.
-> We resolve it in ppp module, it could avoid all similar potential issues.
+I got feedback from Fusion bios/chipset team. In short, the value
+'possible' includes empty CPU socket. To verify, I tested on a
+physical Xeon machine with 2 CPU sockets, one of them is empty. I got
+'possible' = 0-239, the number of 'cpu*' =12. As a result, extra bytes
+are copied from kernel to userspace.
+
+As for Fusion, there is a configuration in *.vmx. If we disable cpu
+hot plug by "vcpu.hotadd=FALSE", then 'possible' ==  the number of
+'cpu*' dirs, which is the configuration in ESX. If "vcpu.hotadd=TURE",
+then 'possible' is larger than 'cpu*' dirs, allowing users to add more
+vcpus.
+
+Regards,
+William
+
+
+On Fri, Aug 12, 2016 at 4:08 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Aug 12, 2016 at 09:58:51AM -0700, William Tu wrote:
+>> Hi,
+>>
+>> I've tested on ESXi version 5.5 and it seems OK.
+>> - VM1: Ubuntu 14.04, kernel 3.19 ---> OK 3 cpu dirs, possible = 0-2
+>> - VM2: Centos7, kernel 3.10 ---> OK 8 cpu dirs, possible = 0-7
+>>
+>> I tried another MacBook with Fusion, same issue happens, the cpu[0-9]
+>> dirs are not equal to /sys/devices/system/cpu/possible
 >
-Not sure if I understand your point here.
-The xmit path of PPP and its sub-layers hasn't been designed to be
-reentrant. Allowing recursive sends thus require to review the full
-path.
-
-Beyond the L2TP issue discussed above, just consider the locking
-dependencies used in PPP: ppp->wlock has to be held before
-channel->downl. Sending a packet directly on a channel will lock
-channel->downl. If this packet is routed back to the parent unit then
-ppp_xmit_process() will lock ppp->wlock, effectively leading to lock
-inversion and potential deadlock.
-
-So we have two options: adapt the whole xmit path to handle recursive
-sends or forbid recursion entirely. Unfortunately none of these options
-looks easy to achieve:
-
-  * Making PPP xmit path reentrant will be hard and error prone because
-    of all the locking dependencies. Looks like simplifying PPP's
-    locking scheme will be required first.
-
-  * I can't see any way to reliably prevent settings where a packet sent
-    on a given channel would be routed back to the parent unit.
-
-
-OTOH, we can try to limit the impact of recursive sends for simple
-cases:
-
-  * Following your approach, either adapt the lower layers
-    (like l2tp_xmit_skb() for L2TP), or drop the packet when
-    cl.owner == smp_processor_id(). This is very limited in scope and
-    doesn't address issues like locking inversions. But it may let the
-    system survive long enough for the PPP to time out.
-
-  * In the lower layer, check where the packet is going to be enqueued
-    and drop it if it's the parent device. That should reliably handle
-    simple and common cases. However this requires to update at least
-    L2TP and PPTP and to get a way to access the parent device. Also,
-    it doesn't prevent recursion with stacked interfaces.
+> great. thanks for testing. I think the issue is closed and
+> hopefully you can follow up with fusion guys ;)
+>
