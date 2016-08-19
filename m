@@ -1,7 +1,7 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 1/3] net: lwtunnel: Handle fragmentation
-Date: Fri, 19 Aug 2016 10:09:00 -0700
-Message-ID: <1471626542-13335-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 2/3] net: mpls: Fixups for GSO
+Date: Fri, 19 Aug 2016 10:09:01 -0700
+Message-ID: <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
 References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
         ebiederm@xmission.com, rshearma@brocade.com, tom@herbertland.com,
@@ -10,313 +10,150 @@ Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:32867 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755315AbcHSRQH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 13:16:07 -0400
-Received: by mail-pf0-f172.google.com with SMTP id y134so11263194pfg.0
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 10:16:06 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36774 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754083AbcHSRRt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 13:17:49 -0400
+Received: by mail-pf0-f181.google.com with SMTP id h186so11207304pfg.3
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 10:17:13 -0700 (PDT)
 In-Reply-To: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+As reported by Lennert the MPLS GSO code is failing to properly segment
+large packets. There are a couple of problems:
 
-Today mpls iptunnel lwtunnel_output redirect expects the tunnel
-output function to handle fragmentation. This is ok but can be
-avoided if we did not do the mpls output redirect too early.
-ie we could wait until ip fragmentation is done and then call
-mpls output for each ip fragment.
+1. the inner protocol is not set so the gso segment functions for inner
+   protocol layers are not getting run, and
 
-To make this work we will need,
-1) the lwtunnel state to carry encap headroom
-2) and do the redirect to the encap output handler on the ip fragment
-(essentially do the output redirect after fragmentation)
+2  MPLS labels for packets that use the "native" (non-OVS) MPLS code
+   are not properly accounted for in mpls_gso_segment.
 
-This patch adds tunnel headroom in lwtstate to make sure we
-account for tunnel data in mtu calculations during fragmentation
-and adds new xmit redirect handler to redirect to lwtunnel xmit func
-after ip fragmentation.
+The MPLS GSO code was added for OVS. It is re-using skb_mac_gso_segment
+to call the gso segment functions for the higher layer protocols. That
+means skb_mac_gso_segment is called twice -- once with the network
+protocol set to MPLS and again with the network protocol set to the
+inner protocol.
 
-This includes IPV6 and some mtu fixes and testing from David Ahern.
+This patch sets the inner skb protocol addressing item 1 above and sets
+the network_header and inner_network_header to mark where the MPLS labels
+start and end. The MPLS code in OVS is also updated to set the two
+network markers.
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>From there the MPLS GSO code uses the difference between the network
+header and the inner network header to know the size of the MPLS header
+that was pushed. It then pulls the MPLS header, resets the mac_len and
+protocol for the inner protocol and then calls skb_mac_gso_segment
+to segment the skb.
+
+Afterward the inner protocol segmentation is done the skb protocol
+is set to mpls for each segment and the network and mac headers
+restored.
+
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/lwtunnel.h   | 44 ++++++++++++++++++++++++++++++++++++++++++++
- net/core/lwtunnel.c      | 35 +++++++++++++++++++++++++++++++++++
- net/ipv4/ip_output.c     |  8 ++++++++
- net/ipv4/route.c         |  4 +++-
- net/ipv6/ip6_output.c    |  8 ++++++++
- net/ipv6/route.c         |  4 +++-
- net/mpls/mpls_iptunnel.c |  9 +++++----
- 7 files changed, 106 insertions(+), 6 deletions(-)
+ net/mpls/mpls_gso.c       | 38 +++++++++++++++++++++++++++-----------
+ net/mpls/mpls_iptunnel.c  |  4 ++++
+ net/openvswitch/actions.c |  6 ++++++
+ 3 files changed, 37 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
-index e9f116e29c22..ea3f80f58fd6 100644
---- a/include/net/lwtunnel.h
-+++ b/include/net/lwtunnel.h
-@@ -13,6 +13,13 @@
- /* lw tunnel state flags */
- #define LWTUNNEL_STATE_OUTPUT_REDIRECT	BIT(0)
- #define LWTUNNEL_STATE_INPUT_REDIRECT	BIT(1)
-+#define LWTUNNEL_STATE_XMIT_REDIRECT	BIT(2)
-+
-+enum {
-+	LWTUNNEL_XMIT_DONE,
-+	LWTUNNEL_XMIT_CONTINUE,
-+};
-+
- 
- struct lwtunnel_state {
- 	__u16		type;
-@@ -21,6 +28,7 @@ struct lwtunnel_state {
- 	int		(*orig_output)(struct net *net, struct sock *sk, struct sk_buff *skb);
- 	int		(*orig_input)(struct sk_buff *);
- 	int             len;
-+	__u16		headroom;
- 	__u8            data[0];
- };
- 
-@@ -34,6 +42,7 @@ struct lwtunnel_encap_ops {
- 			  struct lwtunnel_state *lwtstate);
- 	int (*get_encap_size)(struct lwtunnel_state *lwtstate);
- 	int (*cmp_encap)(struct lwtunnel_state *a, struct lwtunnel_state *b);
-+	int (*xmit)(struct sk_buff *skb);
- };
- 
- #ifdef CONFIG_LWTUNNEL
-@@ -75,6 +84,24 @@ static inline bool lwtunnel_input_redirect(struct lwtunnel_state *lwtstate)
- 
- 	return false;
- }
-+
-+static inline bool lwtunnel_xmit_redirect(struct lwtunnel_state *lwtstate)
-+{
-+	if (lwtstate && (lwtstate->flags & LWTUNNEL_STATE_XMIT_REDIRECT))
-+		return true;
-+
-+	return false;
-+}
-+
-+static inline unsigned int lwtunnel_headroom(struct lwtunnel_state *lwtstate,
-+					     unsigned int mtu)
-+{
-+	if (lwtunnel_xmit_redirect(lwtstate) && lwtstate->headroom < mtu)
-+		return lwtstate->headroom;
-+
-+	return 0;
-+}
-+
- int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
- 			   unsigned int num);
- int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
-@@ -90,6 +117,7 @@ struct lwtunnel_state *lwtunnel_state_alloc(int hdr_len);
- int lwtunnel_cmp_encap(struct lwtunnel_state *a, struct lwtunnel_state *b);
- int lwtunnel_output(struct net *net, struct sock *sk, struct sk_buff *skb);
- int lwtunnel_input(struct sk_buff *skb);
-+int lwtunnel_xmit(struct sk_buff *skb);
- 
- #else
- 
-@@ -117,6 +145,17 @@ static inline bool lwtunnel_input_redirect(struct lwtunnel_state *lwtstate)
- 	return false;
- }
- 
-+static inline bool lwtunnel_xmit_redirect(struct lwtunnel_state *lwtstate)
-+{
-+	return false;
-+}
-+
-+static inline unsigned int lwtunnel_headroom(struct lwtunnel_state *lwtstate,
-+					     unsigned int mtu)
-+{
-+	return 0;
-+}
-+
- static inline int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
- 					 unsigned int num)
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+index 2055e57ed1c3..2aa4beaa0e4f 100644
+--- a/net/mpls/mpls_gso.c
++++ b/net/mpls/mpls_gso.c
+@@ -23,32 +23,48 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+ 				       netdev_features_t features)
  {
-@@ -170,6 +209,11 @@ static inline int lwtunnel_input(struct sk_buff *skb)
- 	return -EOPNOTSUPP;
- }
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	u16 mac_offset = skb->mac_header;
+ 	netdev_features_t mpls_features;
++	u16 mac_len = skb->mac_len;
+ 	__be16 mpls_protocol;
++	int mpls_hlen;
++
++	skb_reset_network_header(skb);
++	mpls_hlen = skb_inner_network_header(skb) - skb_network_header(skb);
++	if (unlikely(!pskb_may_pull(skb, mpls_hlen)))
++		goto out;
  
-+static inline int lwtunnel_xmit(struct sk_buff *skb)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
- #endif /* CONFIG_LWTUNNEL */
+ 	/* Setup inner SKB. */
+ 	mpls_protocol = skb->protocol;
+ 	skb->protocol = skb->inner_protocol;
  
- #define MODULE_ALIAS_RTNL_LWT(encap_type) MODULE_ALIAS("rtnl-lwt-" __stringify(encap_type))
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index 669ecc9f884e..e5f84c26ba1a 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -251,6 +251,41 @@ int lwtunnel_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- }
- EXPORT_SYMBOL(lwtunnel_output);
+-	/* Push back the mac header that skb_mac_gso_segment() has pulled.
+-	 * It will be re-pulled by the call to skb_mac_gso_segment() below
+-	 */
+-	__skb_push(skb, skb->mac_len);
++	__skb_pull(skb, mpls_hlen);
++
++	skb->mac_len = 0;
++	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb_inner_network_offset(skb));
  
-+int lwtunnel_xmit(struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = skb_dst(skb);
-+	const struct lwtunnel_encap_ops *ops;
-+	struct lwtunnel_state *lwtstate;
-+	int ret = -EINVAL;
-+
-+	if (!dst)
-+		goto drop;
-+
-+	lwtstate = dst->lwtstate;
-+
-+	if (lwtstate->type == LWTUNNEL_ENCAP_NONE ||
-+	    lwtstate->type > LWTUNNEL_ENCAP_MAX)
-+		return 0;
-+
-+	ret = -EOPNOTSUPP;
-+	rcu_read_lock();
-+	ops = rcu_dereference(lwtun_encaps[lwtstate->type]);
-+	if (likely(ops && ops->xmit))
-+		ret = ops->xmit(skb);
-+	rcu_read_unlock();
-+
-+	if (ret == -EOPNOTSUPP)
-+		goto drop;
-+
-+	return ret;
-+
-+drop:
-+	kfree_skb(skb);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(lwtunnel_xmit);
-+
- int lwtunnel_input(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index dde37fb340bf..65569274efb8 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -73,6 +73,7 @@
- #include <net/icmp.h>
- #include <net/checksum.h>
- #include <net/inetpeer.h>
-+#include <net/lwtunnel.h>
- #include <linux/igmp.h>
- #include <linux/netfilter_ipv4.h>
- #include <linux/netfilter_bridge.h>
-@@ -197,6 +198,13 @@ static int ip_finish_output2(struct net *net, struct sock *sk, struct sk_buff *s
- 		skb = skb2;
- 	}
- 
-+	if (lwtunnel_xmit_redirect(dst->lwtstate)) {
-+		int res = lwtunnel_xmit(skb);
-+
-+		if (res < 0 || res == LWTUNNEL_XMIT_DONE)
-+			return res;
+ 	/* Segment inner packet. */
+ 	mpls_features = skb->dev->mpls_features & features;
+ 	segs = skb_mac_gso_segment(skb, mpls_features);
++	if (IS_ERR_OR_NULL(segs)) {
++		skb_gso_error_unwind(skb, mpls_protocol, mpls_hlen, mac_offset,
++				     mac_len);
++		goto out;
 +	}
-+
- 	rcu_read_lock_bh();
- 	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
- 	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a1f2830d8110..3e992783c1d0 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1246,7 +1246,9 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
- 			mtu = 576;
- 	}
  
--	return min_t(unsigned int, mtu, IP_MAX_MTU);
-+	mtu = min_t(unsigned int, mtu, IP_MAX_MTU);
-+
-+	return mtu - lwtunnel_headroom(dst->lwtstate, mtu);
++	skb = segs;
++	do {
++		skb->mac_len = mac_len;
++		skb->protocol = mpls_protocol;
+ 
+-	/* Restore outer protocol. */
+-	skb->protocol = mpls_protocol;
++		__skb_push(skb, mpls_hlen + mac_len);
+ 
+-	/* Re-pull the mac header that the call to skb_mac_gso_segment()
+-	 * above pulled.  It will be re-pushed after returning
+-	 * skb_mac_gso_segment(), an indirect caller of this function.
+-	 */
+-	__skb_pull(skb, skb->data - skb_mac_header(skb));
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++	} while ((skb = skb->next));
+ 
++out:
+ 	return segs;
  }
  
- static struct fib_nh_exception *find_exception(struct fib_nh *nh, __be32 daddr)
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 1dfc402d9ad1..993fd9666f1b 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -56,6 +56,7 @@
- #include <net/checksum.h>
- #include <linux/mroute6.h>
- #include <net/l3mdev.h>
-+#include <net/lwtunnel.h>
- 
- static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
-@@ -104,6 +105,13 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
- 		}
- 	}
- 
-+	if (lwtunnel_xmit_redirect(dst->lwtstate)) {
-+		int res = lwtunnel_xmit(skb);
-+
-+		if (res < 0 || res == LWTUNNEL_XMIT_DONE)
-+			return res;
-+	}
-+
- 	rcu_read_lock_bh();
- 	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
- 	neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 49817555449e..09d43ff11a8d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1604,7 +1604,9 @@ static unsigned int ip6_mtu(const struct dst_entry *dst)
- 	rcu_read_unlock();
- 
- out:
--	return min_t(unsigned int, mtu, IP6_MAX_MTU);
-+	mtu = min_t(unsigned int, mtu, IP6_MAX_MTU);
-+
-+	return mtu - lwtunnel_headroom(dst->lwtstate, mtu);
- }
- 
- static struct dst_entry *icmp6_dst_gc_list;
 diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index 644a8da6d4bd..aed872cc05a6 100644
+index aed872cc05a6..cf52cf30ac4b 100644
 --- a/net/mpls/mpls_iptunnel.c
 +++ b/net/mpls/mpls_iptunnel.c
-@@ -37,7 +37,7 @@ static unsigned int mpls_encap_size(struct mpls_iptunnel_encap *en)
- 	return en->labels * sizeof(struct mpls_shim_hdr);
- }
+@@ -90,7 +90,11 @@ static int mpls_xmit(struct sk_buff *skb)
+ 	if (skb_cow(skb, hh_len + new_header_size))
+ 		goto drop;
  
--static int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
-+static int mpls_xmit(struct sk_buff *skb)
- {
- 	struct mpls_iptunnel_encap *tun_encap_info;
- 	struct mpls_shim_hdr *hdr;
-@@ -115,7 +115,7 @@ static int mpls_output(struct net *net, struct sock *sk, struct sk_buff *skb)
- 		net_dbg_ratelimited("%s: packet transmission failed: %d\n",
- 				    __func__, err);
++	skb_set_inner_protocol(skb, skb->protocol);
++	skb_reset_inner_network_header(skb);
++
+ 	skb_push(skb, new_header_size);
++
+ 	skb_reset_network_header(skb);
  
--	return 0;
-+	return LWTUNNEL_XMIT_DONE;
+ 	skb->dev = out_dev;
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 1ecbd7715f6d..6d78f162a88b 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -167,6 +167,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 		skb->mac_len);
+ 	skb_reset_mac_header(skb);
  
- drop:
- 	kfree_skb(skb);
-@@ -153,7 +153,8 @@ static int mpls_build_state(struct net_device *dev, struct nlattr *nla,
- 	if (ret)
- 		goto errout;
- 	newts->type = LWTUNNEL_ENCAP_MPLS;
--	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT;
-+	newts->flags |= LWTUNNEL_STATE_XMIT_REDIRECT;
-+	newts->headroom = mpls_encap_size(tun_encap_info);
++	/* for GSO: set MPLS as network header and encapsulated protocol
++	 * header as inner network header
++	 */
++	skb_set_network_header(skb, skb->mac_len);
++	skb_set_inner_network_header(skb, skb->mac_len + MPLS_HLEN);
++
+ 	new_mpls_lse = (__be32 *)skb_mpls_header(skb);
+ 	*new_mpls_lse = mpls->mpls_lse;
  
- 	*ts = newts;
- 
-@@ -209,7 +210,7 @@ static int mpls_encap_cmp(struct lwtunnel_state *a, struct lwtunnel_state *b)
- 
- static const struct lwtunnel_encap_ops mpls_iptun_ops = {
- 	.build_state = mpls_build_state,
--	.output = mpls_output,
-+	.xmit = mpls_xmit,
- 	.fill_encap = mpls_fill_encap_info,
- 	.get_encap_size = mpls_encap_nlsize,
- 	.cmp_encap = mpls_encap_cmp,
 -- 
 2.1.4
