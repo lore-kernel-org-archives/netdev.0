@@ -1,61 +1,117 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum_buffers: Fix pool value handling in mlxsw_sp_sb_tc_pool_bind_set
-Date: Fri, 19 Aug 2016 14:43:48 +0200
-Message-ID: <1471610628-4287-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Subject: [PATCH 2/2] net: phy: Fix race conditions in the driver
+Date: Fri, 19 Aug 2016 18:18:11 +0530
+Message-ID: <1471610891-13353-2-git-send-email-appanad@xilinx.com>
+References: <1471610891-13353-1-git-send-email-appanad@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
+        <appanad@xilinx.com>, <f.fainelli@gmail.com>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33636 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754030AbcHSMoW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 08:44:22 -0400
-Received: by mail-wm0-f65.google.com with SMTP id o80so3316492wme.0
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 05:43:51 -0700 (PDT)
+Received: from mail-dm3nam03on0050.outbound.protection.outlook.com ([104.47.41.50]:15496
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754558AbcHSMtq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 08:49:46 -0400
+In-Reply-To: <1471610891-13353-1-git-send-email-appanad@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+This patch fixes the below race conditions in the driver.
+---> Fix Opps after unload the driver as a module
+---> Use spin locks where relevant.
+---> Take reference on the external phy to prevent issues
+when phy driver is unloaded.
 
-Pool index has to be converted by get_pool helper to work correctly for
-egress pool. In mlxsw the egress pool index starts from 0.
-
-Fixes: 0f433fa0ecc ("mlxsw: spectrum_buffers: Implement shared buffer configuration")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reported-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/phy/xilinx_gmii2rgmii.c | 32 +++++++++++++++++++++++++++++++-
+ 1 file changed, 31 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-index 237418a..953b214 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
-@@ -717,22 +717,18 @@ int mlxsw_sp_sb_tc_pool_bind_set(struct mlxsw_core_port *mlxsw_core_port,
- 	u8 local_port = mlxsw_sp_port->local_port;
- 	u8 pg_buff = tc_index;
- 	enum mlxsw_reg_sbxx_dir dir = pool_type;
--	u8 pool = pool_index;
-+	u8 pool = pool_get(pool_index);
- 	u32 max_buff;
- 	int err;
+diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+index 7336fd0..cdd9d95 100644
+--- a/drivers/net/phy/xilinx_gmii2rgmii.c
++++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+@@ -34,6 +34,7 @@ struct gmii2rgmii {
+ 	struct phy_driver *phy_drv;
+ 	struct phy_driver conv_phy_drv;
+ 	int addr;
++	spinlock_t phy_lock;
+ };
  
-+	if (dir != dir_get(pool_index))
-+		return -EINVAL;
+ static int xgmiitorgmii_read_status(struct phy_device *phydev)
+@@ -55,7 +56,7 @@ static int xgmiitorgmii_read_status(struct phy_device *phydev)
+ 		val |= BMCR_SPEED1000;
+ 	else if (phydev->speed == SPEED_100)
+ 		val |= BMCR_SPEED100;
+-	else
++	else if (phydev->speed == SPEED_10)
+ 		val |= BMCR_SPEED10;
+ 
+ 	err = mdiobus_write(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG,
+@@ -71,6 +72,8 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+ 	struct device *dev = &mdiodev->dev;
+ 	struct device_node *np = dev->of_node, *phy_node;
+ 	struct gmii2rgmii *priv;
++	struct mii_bus *bus;
++	unsigned long flags;
+ 
+ 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+@@ -88,17 +91,43 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+ 		return -EPROBE_DEFER;
+ 	}
+ 
++	spin_lock_init(&priv->phy_lock);
 +
- 	err = mlxsw_sp_sb_threshold_in(mlxsw_sp, pool, dir,
- 				       threshold, &max_buff);
- 	if (err)
- 		return err;
++	bus = priv->phy_dev->mdio.bus;
++	if (!try_module_get(bus->owner)) {
++		dev_err(dev, "failed to get the bus module\n");
++		return -EIO;
++	}
++
++	get_device(&priv->phy_dev->mdio.dev);
++
+ 	priv->addr = mdiodev->addr;
+ 	priv->phy_drv = priv->phy_dev->drv;
+ 	memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
+ 	       sizeof(struct phy_driver));
+ 	priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
+ 	priv->phy_dev->priv = priv;
++	spin_lock_irqsave(&priv->phy_lock, flags);
+ 	priv->phy_dev->drv = &priv->conv_phy_drv;
++	spin_unlock_irqrestore(&priv->phy_lock, flags);
++
++	dev_set_drvdata(dev, priv);
  
--	if (pool_type == DEVLINK_SB_POOL_TYPE_EGRESS) {
--		if (pool < MLXSW_SP_SB_POOL_COUNT)
--			return -EINVAL;
--		pool -= MLXSW_SP_SB_POOL_COUNT;
--	} else if (pool >= MLXSW_SP_SB_POOL_COUNT) {
--		return -EINVAL;
--	}
- 	return mlxsw_sp_sb_cm_write(mlxsw_sp, local_port, pg_buff, dir,
- 				    0, max_buff, pool);
+ 	return 0;
  }
+ 
++static void xgmiitorgmii_remove(struct mdio_device *mdiodev)
++{
++	struct gmii2rgmii *priv = dev_get_drvdata(&mdiodev->dev);
++	struct mii_bus *bus;
++
++	bus = priv->phy_dev->mdio.bus;
++
++	put_device(&priv->phy_dev->mdio.dev);
++	module_put(bus->owner);
++	phy_disconnect(priv->phy_dev);
++}
++
+ static const struct of_device_id xgmiitorgmii_of_match[] = {
+ 	{ .compatible = "xlnx,gmii-to-rgmii-1.0" },
+ 	{},
+@@ -107,6 +136,7 @@ MODULE_DEVICE_TABLE(of, xgmiitorgmii_of_match);
+ 
+ static struct mdio_driver xgmiitorgmii_driver = {
+ 	.probe	= xgmiitorgmii_probe,
++	.remove	= xgmiitorgmii_remove,
+ 	.mdiodrv.driver = {
+ 		.name = "xgmiitorgmii",
+ 		.of_match_table = xgmiitorgmii_of_match,
 -- 
-2.5.5
+2.1.2
