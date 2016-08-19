@@ -1,39 +1,27 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] netfilter: fix spelling mistake: "delimitter" -> "delimiter"
-Date: Thu, 18 Aug 2016 16:47:57 +0100
-Message-ID: <1471535277-15554-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S . Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2016-08-18
+Date: Thu, 18 Aug 2016 20:45:32 -0700 (PDT)
+Message-ID: <20160818.204532.145183505590795118.davem@davemloft.net>
+References: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41763 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753982AbcHSDpl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 18 Aug 2016 23:45:41 -0400
+In-Reply-To: <1471557456-136741-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 18 Aug 2016 14:57:21 -0700
 
-trivial fix to spelling mistake in pr_debug message
+> This series contains updates to i40e and i40evf only.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/netfilter/nf_conntrack_ftp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 4314700..b6934b5 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -237,7 +237,7 @@ static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
- 	}
- 	delim = data[0];
- 	if (isdigit(delim) || delim < 33 || delim > 126 || data[2] != delim) {
--		pr_debug("try_eprt: invalid delimitter.\n");
-+		pr_debug("try_eprt: invalid delimiter.\n");
- 		return 0;
- 	}
- 
--- 
-2.8.1
+Pulled, thanks Jeff.
