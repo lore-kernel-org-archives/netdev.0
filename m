@@ -1,117 +1,71 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
-Subject: [PATCH 0/1] HW checksum offload problem on Xilinx Zynq GEM
-Date: Fri, 19 Aug 2016 15:04:57 +0200
-Message-ID: <1471611898-3852-1-git-send-email-helmut.buchsbaum@gmail.com>
+Subject: [PATCH 1/1] net: macb: disable HW checksum offload for Xilinx Zynq
+Date: Fri, 19 Aug 2016 15:04:58 +0200
+Message-ID: <1471611898-3852-2-git-send-email-helmut.buchsbaum@gmail.com>
+References: <1471611898-3852-1-git-send-email-helmut.buchsbaum@gmail.com>
 Cc: netdev@vger.kernel.org,
         Cyrille Pitchen <cyrille.pitchen@atmel.com>,
         Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
 To: Nicolas Ferre <nicolas.ferre@atmel.com>,
         Michal Simek <michal.simek@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35400 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753995AbcHSNFJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 09:05:09 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i5so3371350wmg.2
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 06:05:08 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33166 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754305AbcHSNFK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 09:05:10 -0400
+Received: by mail-wm0-f68.google.com with SMTP id o80so3386085wme.0
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 06:05:09 -0700 (PDT)
+In-Reply-To: <1471611898-3852-1-git-send-email-helmut.buchsbaum@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When working on upgrading the v3.x kernels of our embedded devices
-to more recent 4.x kernels we noticed some of our proprietary networking
-stuff is broken. Further investigations brought up an issue with small
-UDP packets (data payload <= 2), which contained wrong UDP header
-checksums.
-We tracked this down to commit 85ff3d87bf2ef1fadcde8553628c60f79806fdb4
-net/macb: add TX checksum offload feature. It turns out that Zynq's GEM
-is obviously buggy regarding the UDP checksum calculation of such small
-UDP packets as long as the UDP checksum field is != 0 *BEFORE* the
-HW calulation. But since udp_send_skb() *ALWAYS* calculates the UDP header
-checksum (unless disabled via socket option), this is the usual case.
-Unfortunately it does not respect the net device feature setting which
-would leave UDP checksum untouched when checksum offloading is enabled.
+When sending UDP packets with data payload size <= 2, Zynq's GEM
+implementation for HW checksum offloading calculates wrong checksums.
 
-This can be easily verfied by using the following sample code on a Zynq
-platform and tracing the relevant traffic on the receiving host:
+Adding a MACB_CAPS_NO_CSUM_OFFLOAD capability and turning off HW checksum
+offloading for Zynq solves it.
 
-/* testing Zynq's UDP checksum error
- * arm-linux-gnueabihf-gcc -Wall -o udp-chksum-test udp-chksum-test.c
- */
-
-static void sends(int fd, const char *str, const struct sockaddr_in *addr)
-{
-        sendto(fd, str, strlen(str), 0, (struct sockaddr *)addr,
-	       sizeof(*addr));
-}
-
-int main(int argc, char *argv[])
-{
-        int s;
-        struct sockaddr_in addr;
-
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(9991);
-        addr.sin_addr.s_addr = inet_addr("192.168.1.1");
-        s = socket(AF_INET, SOCK_DGRAM, 0);
-
-        if (s < 0) {
-                perror("socket");
-                exit(1);
-        }
-
-        sends(s, "1", &addr);           /* not received, CSUM error */
-        sends(s, "22", &addr);          /* not received, CSUM error */
-        sends(s, "333", &addr);         /* OK */
-        sends(s, "4444", &addr);        /* OK */
-
-        close(s);
-        return 0;
-}
-
-Before turning off HW checksum offload feature we get 'bad udp cksum':
-
-$ tcpdump -t -c 4 -vv -n -i eth1 port 9991 2> /dev/null | fold -w 75 -s
-IP (tos 0x0, ttl 64, id 55613, offset 0, flags [DF], proto UDP (17),
-length 29)
-    192.168.4.2.55734 > 192.168.1.1.9991: [bad udp cksum 0xc15b ->
-0x47ca!] UDP, length 1
-IP (tos 0x0, ttl 64, id 55614, offset 0, flags [DF], proto UDP (17),
-length 30)
-    192.168.4.2.55734 > 192.168.1.1.9991: [bad udp cksum 0xc026 ->
-0x4696!] UDP, length 2
-IP (tos 0x0, ttl 64, id 55615, offset 0, flags [DF], proto UDP (17),
-length 31)
-    192.168.4.2.55734 > 192.168.1.1.9991: [udp sum ok] UDP, length 3
-IP (tos 0x0, ttl 64, id 55616, offset 0, flags [DF], proto UDP (17),
-length 32)
-    192.168.4.2.55734 > 192.168.1.1.9991: [udp sum ok] UDP, length 4
-
-Without HW checksum offloading everything is fine:
-
-$ tcpdump -t -c 4 -vv -n -i eth1 port 9991 2> /dev/null | fold -w 75 -s
-IP (tos 0x0, ttl 64, id 63227, offset 0, flags [DF], proto UDP (17),
-length 29)
-    192.168.4.2.44439 > 192.168.1.1.9991: [udp sum ok] UDP, length 1
-IP (tos 0x0, ttl 64, id 63228, offset 0, flags [DF], proto UDP (17),
-length 30)
-    192.168.4.2.44439 > 192.168.1.1.9991: [udp sum ok] UDP, length 2
-IP (tos 0x0, ttl 64, id 63229, offset 0, flags [DF], proto UDP (17),
-length 31)
-    192.168.4.2.44439 > 192.168.1.1.9991: [udp sum ok] UDP, length 3
-IP (tos 0x0, ttl 64, id 63230, offset 0, flags [DF], proto UDP (17),
-length 32)
-    192.168.4.2.44439 > 192.168.1.1.9991: [udp sum ok] UDP, length 4
-
-This issue might also affect other SoCs using Cadence MACB/GEM
-implementations. Since I cannot verify this due to lack of hardware,
-this solution is restricted to Xilinx Zynq7000.
-
-Helmut Buchsbaum (1):
-  net: macb: disable hardware checksum offload for Xilinx Zynq
-
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+---
  drivers/net/ethernet/cadence/macb.c | 6 ++++--
  drivers/net/ethernet/cadence/macb.h | 1 +
  2 files changed, 5 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 89c0cfa..26eba1a 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2430,7 +2430,8 @@ static int macb_init(struct platform_device *pdev)
+ 	/* Set features */
+ 	dev->hw_features = NETIF_F_SG;
+ 	/* Checksum offload is only available on gem with packet buffer */
+-	if (macb_is_gem(bp) && !(bp->caps & MACB_CAPS_FIFO_MODE))
++	if (macb_is_gem(bp) && !(bp->caps & MACB_CAPS_FIFO_MODE) &&
++	    !(bp->caps & MACB_CAPS_NO_CSUM_OFFLOAD))
+ 		dev->hw_features |= NETIF_F_HW_CSUM | NETIF_F_RXCSUM;
+ 	if (bp->caps & MACB_CAPS_SG_DISABLED)
+ 		dev->hw_features &= ~NETIF_F_SG;
+@@ -2829,7 +2830,8 @@ static const struct macb_config zynqmp_config = {
+ };
+ 
+ static const struct macb_config zynq_config = {
+-	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_NO_GIGABIT_HALF,
++	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE | MACB_CAPS_NO_GIGABIT_HALF |
++		MACB_CAPS_NO_CSUM_OFFLOAD,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index b6fcf10..79193db 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -404,6 +404,7 @@
+ #define MACB_CAPS_NO_GIGABIT_HALF		0x00000008
+ #define MACB_CAPS_USRIO_DISABLED		0x00000010
+ #define MACB_CAPS_JUMBO				0x00000020
++#define MACB_CAPS_NO_CSUM_OFFLOAD		0x08000000
+ #define MACB_CAPS_FIFO_MODE			0x10000000
+ #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
+ #define MACB_CAPS_SG_DISABLED			0x40000000
 -- 
 2.1.4
