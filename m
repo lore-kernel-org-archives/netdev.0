@@ -1,42 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: bgmac: support Ethernet core on BCM53573
- SoCs
-Date: Thu, 18 Aug 2016 23:36:24 -0700 (PDT)
-Message-ID: <20160818.233624.1305767093109968469.davem@davemloft.net>
-References: <1471467662-18319-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net-next] tcp: refine tcp_prune_ofo_queue() to not drop
+ all packets
+Date: Thu, 18 Aug 2016 23:36:43 -0700 (PDT)
+Message-ID: <20160818.233643.732250691565806768.davem@davemloft.net>
+References: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, rafal@milecki.pl, jon.mason@broadcom.com,
-        arnd@arndb.de, f.fainelli@gmail.com, tremyfr@gmail.com,
-        nbd@openwrt.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: zajec5@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471467662-18319-1-git-send-email-zajec5@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, soheil@google.com, ncardwell@google.com,
+        ycheng@google.com, csg@google.com, vanj@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42454 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753413AbcHSGhR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 02:37:17 -0400
+In-Reply-To: <1471468629.29842.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rafa©© Mi©©ecki <zajec5@gmail.com>
-Date: Wed, 17 Aug 2016 23:00:30 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 17 Aug 2016 14:17:09 -0700
 
-> From: Rafa©© Mi©©ecki <rafal@milecki.pl>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> BCM53573 is a new series of Broadcom's SoCs. It's based on ARM and can
-> be found in two packages (versions): BCM53573 and BCM47189. It shares
-> some code with the Northstar family, but also requires some new quirks.
+> Over the years, TCP BDP has increased a lot, and is typically
+> in the order of ~10 Mbytes with help of clever Congestion Control
+> modules.
 > 
-> First of all there can be up to 2 Ethernet cores on this SoC. If that is
-> the case, they are connected to two different switch ports allowing some
-> more complex/optimized setups. It seems the second unit doesn't come
-> fully configured and requires some IRQ quirk.
+> In presence of packet losses, TCP stores incoming packets into an out of
+> order queue, and number of skbs sitting there waiting for the missing
+> packets to be received can match the BDP (~10 Mbytes)
 > 
-> Other than that only the first core is connected to the PHY. For the
-> second one we have to register fixed PHY (similarly to the Northstar),
-> otherwise generic PHY driver would get some invalid info.
+> In some cases, TCP needs to make room for incoming skbs, and current
+> strategy can simply remove all skbs in the out of order queue as a last
+> resort, incurring a huge penalty, both for receiver and sender.
 > 
-> This has been successfully tested on Tenda AC9 (BCM47189B0).
+> Unfortunately these 'last resort events' are quite frequent, forcing
+> sender to send all packets again, stalling the flow and wasting a lot of
+> resources.
 > 
-> Signed-off-by: Rafa©© Mi©©ecki <rafal@milecki.pl>
+> This patch cleans only a part of the out of order queue in order
+> to meet the memory constraints.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Looks great, applied.
