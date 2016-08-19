@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smc91c92_cs : add a spinlock to avoid race condition
-Date: Thu, 18 Aug 2016 21:07:34 -0700 (PDT)
-Message-ID: <20160818.210734.1003452853595787957.davem@davemloft.net>
-References: <1471354746-27110-1-git-send-email-andrianov@ispras.ru>
+Subject: Re: [PATCH 0/2] ipv6: fix stuck RA-derived route in container
+ after migration with criu
+Date: Thu, 18 Aug 2016 21:09:14 -0700 (PDT)
+Message-ID: <20160818.210914.2117594939784536395.davem@davemloft.net>
+References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, a@unstable.cc, felipe.balbi@linux.intel.com,
-        fw@strlen.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        vaishali.thakkar@oracle.com, ldv-project@linuxtesting.org
-To: andrianov@ispras.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471354746-27110-1-git-send-email-andrianov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ayourtch@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41842 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754259AbcHSEJP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 00:09:15 -0400
+In-Reply-To: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Andrianov <andrianov@ispras.ru>
-Date: Tue, 16 Aug 2016 16:39:06 +0300
 
-> smc_reset may be executed in parallel with timer function media_check.
-> To avoid data race in smc_set_xcvr a spinlock was added.
-> 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Pavel Andrianov <andrianov@ispras.ru>
+The indentation of both of your patches are incorrect.
 
-This is not sufficient.
+You must indent each basic block by a full TAB character.
 
-You have to block basically the entire function, because both
-smc_reset and media_check program the bank selection so could
-corrupt eachother's register accesses.
+You must also line up multi-line function calls, such that
+the second and subsequent lines start precisely at the first
+column after the opennning parenthesis of the function call
+itself.  You must use the appropriate number of TAB and
+SPC characters necessary to achieve this.
