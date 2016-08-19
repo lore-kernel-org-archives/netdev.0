@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] ipv6: fix stuck RA-derived route in container
- after migration with criu
-Date: Thu, 18 Aug 2016 21:09:14 -0700 (PDT)
-Message-ID: <20160818.210914.2117594939784536395.davem@davemloft.net>
-References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
+Subject: Re: [PATCH] samples/bpf: Add tunnel set/get tests.
+Date: Thu, 18 Aug 2016 21:10:05 -0700 (PDT)
+Message-ID: <20160818.211005.1542807415356478774.davem@davemloft.net>
+References: <1471356181-32069-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ayourtch@gmail.com
+To: u9012063@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41842 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41846 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754259AbcHSEJP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 00:09:15 -0400
-In-Reply-To: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
+        with ESMTP id S1750838AbcHSEKG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 00:10:06 -0400
+In-Reply-To: <1471356181-32069-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: William Tu <u9012063@gmail.com>
+Date: Tue, 16 Aug 2016 07:03:01 -0700
 
-The indentation of both of your patches are incorrect.
+> The patch creates sample code exercising bpf_skb_{set,get}_tunnel_key,
+> and bpf_skb_{set,get}_tunnel_opt for GRE, VXLAN, and GENEVE.  A native
+> tunnel device is created in a namespace to interact with a lwtunnel
+> device out of the namespace, with metadata enabled.  The bpf_skb_set_*
+> program is attached to tc egress and bpf_skb_get_* is attached to egress
+> qdisc.  A ping between two tunnels is used to verify correctness and
+> the result of bpf_skb_get_* printed by bpf_trace_printk.
+> 
+> Signed-off-by: William Tu <u9012063@gmail.com>
 
-You must indent each basic block by a full TAB character.
-
-You must also line up multi-line function calls, such that
-the second and subsequent lines start precisely at the first
-column after the opennning parenthesis of the function call
-itself.  You must use the appropriate number of TAB and
-SPC characters necessary to achieve this.
+Please respin, this doesn't apply cleanly to net-next.
