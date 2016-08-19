@@ -1,281 +1,211 @@
-From: fgao@ikuai8.com
-Subject: [PATCH 1/1] ppp: Fix one deadlock issue of PPP when reentrant
-Date: Fri, 19 Aug 2016 23:16:41 +0800
-Message-ID: <1471619801-11405-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: paulus@samba.org, g.nault@alphalink.fr,
-        philipp@redfish-solutions.com, linux-ppp@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG179.QQ.COM ([119.147.194.222]:56497 "EHLO
-        smtpbg179.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754146AbcHSPR3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 11:17:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH 1/1] netfilter: gre: Use the consitent GRE and PPTP struct
+ instead of the structures defined in netfilter
+Date: Fri, 19 Aug 2016 23:03:46 +0800
+Message-ID: <CA+6hz4piLVv=L03sst56GrOWMST6gTvEF7h4i1jGw0fNw0M8jw@mail.gmail.com>
+References: <1471618894-10582-1-git-send-email-fgao@ikuai8.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>,
+        Philp Prindeville <philipp@redfish-solutions.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Gao Feng <fgao@ikuai8.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1471618894-10582-1-git-send-email-fgao@ikuai8.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <fgao@ikuai8.com>
+My email server reports the last same patch email failed to send.
+So I just sent it again.
 
-PPP channel holds one spinlock before send frame. But the skb may
-select the same PPP channel with wrong route policy. As a result,
-the skb reaches the same channel path. It tries to get the same
-spinlock which is held before. Bang, the deadlock comes out.
+I am sorry, if anyone receives duplicated ones.
 
-Now add one lock owner to avoid it like xmit_lock_owner of
-netdev_queue. Check the lock owner before try to get the spinlock.
-If the current cpu is already the owner, it means ppp finds there is
-one reentrant and returns directly. If not owner and hold the spinlock
-successfully, it sets owner with current CPU ID.
+Regards
+Feng
 
-The following is the panic stack of 3.3.8. But the same issue
-should be in the upstream too.
-
-[<ffffffff81568131>] ? _raw_spin_lock_bh+0x11/0x40
-[<ffffffffa006a2b7>] ppp_unregister_channel+0x1347/0x2170 [ppp_generic]
-[<ffffffff810a2827>] ? kmem_cache_free+0xa7/0xc0
-[<ffffffffa006ad27>] ppp_unregister_channel+0x1db7/0x2170 [ppp_generic]
-[<ffffffffa006afd5>] ppp_unregister_channel+0x2065/0x2170 [ppp_generic]
-[<ffffffff8148f1dd>] dev_hard_start_xmit+0x4cd/0x620
-[<ffffffff814a6254>] sch_direct_xmit+0x74/0x1d0
-[<ffffffff8148f88d>] dev_queue_xmit+0x1d/0x30
-[<ffffffff81496a4c>] neigh_direct_output+0xc/0x10
-[<ffffffff814d9dae>] ip_finish_output+0x25e/0x2b0
-[<ffffffff814da688>] ip_output+0x88/0x90
-[<ffffffff814d9e9f>] ? __ip_local_out+0x9f/0xb0
-[<ffffffff814d9ed4>] ip_local_out+0x24/0x30
-[<ffffffffa00b9745>] 0xffffffffa00b9744
-[<ffffffffa006b068>] ppp_unregister_channel+0x20f8/0x2170 [ppp_generic]
-[<ffffffffa006b202>] ppp_output_wakeup+0x122/0x11d0 [ppp_generic]
-[<ffffffff810a7978>] vfs_write+0xb8/0x160
-[<ffffffff810a7c55>] sys_write+0x45/0x90
-[<ffffffff815689e2>] system_call_fastpath+0x16/0x1b
-
-The call flow is like this.
-ppp_write->ppp_channel_push->start_xmit->select inappropriate route
-.... -> dev_hard_start_xmit->ppp_start_xmit->ppp_xmit_process->
-ppp_push. Now ppp_push tries to get the same spinlock which is held
-in ppp_channel_push.
-
-Although the PPP deadlock is caused by inappropriate route policy
-with L2TP, I think it is not accepted the PPP module would cause kernel
-deadlock with wrong route policy.
-
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v3: Change the fix solution. Giveup the send chance instead of recursive lock
- v2: Fix recursive unlock issue
- v1: Initial patch
- 
- drivers/net/ppp/ppp_generic.c | 95 +++++++++++++++++++++++++++++++++----------
- 1 file changed, 73 insertions(+), 22 deletions(-)
-
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 70cfa06..b653f1f 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -162,6 +162,46 @@ struct ppp {
- 			 |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
- 			 |SC_COMP_TCP|SC_REJ_COMP_TCP|SC_MUST_COMP)
- 
-+struct channel_lock {
-+	spinlock_t lock;
-+	int owner;
-+};
-+
-+static inline void ppp_channel_lock_init(struct channel_lock *cl)
-+{
-+	cl->owner = -1;
-+	spin_lock_init(&cl->lock);
-+}
-+
-+static inline bool ppp_channel_lock_bh(struct channel_lock *cl)
-+{
-+	int cpu;
-+
-+	local_bh_disable();
-+	cpu = smp_processor_id();
-+	if (cpu == cl->owner) {
-+		/* The CPU already holds this channel lock and sends. But the
-+		 * channel is selected after inappropriate route. It causes
-+		 * reenter the channel again. It is forbidden by PPP module.
-+		 */
-+		if (net_ratelimit())
-+			pr_err("PPP detects one recursive channel send\n");
-+		local_bh_enable();
-+		return false;
-+	}
-+	spin_lock(&cl->lock);
-+	cl->owner = cpu;
-+
-+	return true;
-+}
-+
-+static inline void ppp_channel_unlock_bh(struct channel_lock *cl)
-+{
-+	cl->owner = -1;
-+	spin_unlock(&cl->lock);
-+	local_bh_enable();
-+}
-+
- /*
-  * Private data structure for each channel.
-  * This includes the data structure used for multilink.
-@@ -171,7 +211,7 @@ struct channel {
- 	struct list_head list;		/* link in all/new_channels list */
- 	struct ppp_channel *chan;	/* public channel data structure */
- 	struct rw_semaphore chan_sem;	/* protects `chan' during chan ioctl */
--	spinlock_t	downl;		/* protects `chan', file.xq dequeue */
-+	struct channel_lock downl;	/* protects `chan', file.xq dequeue */
- 	struct ppp	*ppp;		/* ppp unit we're connected to */
- 	struct net	*chan_net;	/* the net channel belongs to */
- 	struct list_head clist;		/* link in list of channels per unit */
-@@ -1587,9 +1627,7 @@ ppp_push(struct ppp *ppp)
- 	list = &ppp->channels;
- 	if (list_empty(list)) {
- 		/* nowhere to send the packet, just drop it */
--		ppp->xmit_pending = NULL;
--		kfree_skb(skb);
--		return;
-+		goto drop;
- 	}
- 
- 	if ((ppp->flags & SC_MULTILINK) == 0) {
-@@ -1597,16 +1635,19 @@ ppp_push(struct ppp *ppp)
- 		list = list->next;
- 		pch = list_entry(list, struct channel, clist);
- 
--		spin_lock_bh(&pch->downl);
-+		if (unlikely(!ppp_channel_lock_bh(&pch->downl))) {
-+			/* Fail to hold channel lock */
-+			goto drop;
-+		}
- 		if (pch->chan) {
- 			if (pch->chan->ops->start_xmit(pch->chan, skb))
- 				ppp->xmit_pending = NULL;
- 		} else {
- 			/* channel got unregistered */
--			kfree_skb(skb);
--			ppp->xmit_pending = NULL;
-+			ppp_channel_unlock_bh(&pch->downl);
-+			goto drop;
- 		}
--		spin_unlock_bh(&pch->downl);
-+		ppp_channel_unlock_bh(&pch->downl);
- 		return;
- 	}
- 
-@@ -1617,6 +1658,7 @@ ppp_push(struct ppp *ppp)
- 		return;
- #endif /* CONFIG_PPP_MULTILINK */
- 
-+drop:
- 	ppp->xmit_pending = NULL;
- 	kfree_skb(skb);
- }
-@@ -1645,6 +1687,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 	struct channel *pch;
- 	struct sk_buff *frag;
- 	struct ppp_channel *chan;
-+	bool locked;
- 
- 	totspeed = 0; /*total bitrate of the bundle*/
- 	nfree = 0; /* # channels which have no packet already queued */
-@@ -1735,17 +1778,21 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 			pch->avail = 1;
- 		}
- 
--		/* check the channel's mtu and whether it is still attached. */
--		spin_lock_bh(&pch->downl);
--		if (pch->chan == NULL) {
--			/* can't use this channel, it's being deregistered */
-+		locked = ppp_channel_lock_bh(&pch->downl);
-+		if (!locked || !pch->chan) {
-+			/* can't use this channel, it's being deregistered
-+			 * or fail to lock the channel
-+			 */
- 			if (pch->speed == 0)
- 				nzero--;
- 			else
- 				totspeed -= pch->speed;
- 
--			spin_unlock_bh(&pch->downl);
--			pch->avail = 0;
-+			if (locked) {
-+				/* channel is deregistered */
-+				ppp_channel_unlock_bh(&pch->downl);
-+				pch->avail = 0;
-+			}
- 			totlen = len;
- 			totfree--;
- 			nfree--;
-@@ -1795,7 +1842,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		 */
- 		if (flen <= 0) {
- 			pch->avail = 2;
--			spin_unlock_bh(&pch->downl);
-+			ppp_channel_unlock_bh(&pch->downl);
- 			continue;
- 		}
- 
-@@ -1840,14 +1887,14 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		len -= flen;
- 		++ppp->nxseq;
- 		bits = 0;
--		spin_unlock_bh(&pch->downl);
-+		ppp_channel_unlock_bh(&pch->downl);
- 	}
- 	ppp->nxchan = i;
- 
- 	return 1;
- 
-  noskb:
--	spin_unlock_bh(&pch->downl);
-+	ppp_channel_unlock_bh(&pch->downl);
- 	if (ppp->debug & 1)
- 		netdev_err(ppp->dev, "PPP: no memory (fragment)\n");
- 	++ppp->dev->stats.tx_errors;
-@@ -1865,7 +1912,8 @@ ppp_channel_push(struct channel *pch)
- 	struct sk_buff *skb;
- 	struct ppp *ppp;
- 
--	spin_lock_bh(&pch->downl);
-+	if (unlikely(!ppp_channel_lock_bh(&pch->downl)))
-+		return;
- 	if (pch->chan) {
- 		while (!skb_queue_empty(&pch->file.xq)) {
- 			skb = skb_dequeue(&pch->file.xq);
-@@ -1879,7 +1927,7 @@ ppp_channel_push(struct channel *pch)
- 		/* channel got deregistered */
- 		skb_queue_purge(&pch->file.xq);
- 	}
--	spin_unlock_bh(&pch->downl);
-+	ppp_channel_unlock_bh(&pch->downl);
- 	/* see if there is anything from the attached unit to be sent */
- 	if (skb_queue_empty(&pch->file.xq)) {
- 		read_lock_bh(&pch->upl);
-@@ -2520,7 +2568,7 @@ int ppp_register_net_channel(struct net *net, struct ppp_channel *chan)
- 	pch->lastseq = -1;
- #endif /* CONFIG_PPP_MULTILINK */
- 	init_rwsem(&pch->chan_sem);
--	spin_lock_init(&pch->downl);
-+	ppp_channel_lock_init(&pch->downl);
- 	rwlock_init(&pch->upl);
- 
- 	spin_lock_bh(&pn->all_channels_lock);
-@@ -2599,9 +2647,12 @@ ppp_unregister_channel(struct ppp_channel *chan)
- 	 * the channel's start_xmit or ioctl routine before we proceed.
- 	 */
- 	down_write(&pch->chan_sem);
--	spin_lock_bh(&pch->downl);
-+	if (unlikely(!ppp_channel_lock_bh(&pch->downl))) {
-+		up_write(&pch->chan_sem);
-+		return;
-+	}
- 	pch->chan = NULL;
--	spin_unlock_bh(&pch->downl);
-+	ppp_channel_unlock_bh(&pch->downl);
- 	up_write(&pch->chan_sem);
- 	ppp_disconnect_channel(pch);
- 
--- 
-1.9.1
+On Fri, Aug 19, 2016 at 11:01 PM,  <fgao@ikuai8.com> wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+>
+> There are two structures which define the GRE header and PPTP
+> header. So it is unneccessary to define duplicated structures in
+> netfilter again.
+>
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> ---
+>  v1: Intial patch
+>
+>  include/linux/netfilter/nf_conntrack_proto_gre.h | 63 +-----------------------
+>  include/uapi/linux/if_tunnel.h                   |  1 +
+>  net/ipv4/netfilter/nf_nat_proto_gre.c            | 15 +++---
+>  net/netfilter/nf_conntrack_proto_gre.c           | 14 +++---
+>  4 files changed, 19 insertions(+), 74 deletions(-)
+>
+> diff --git a/include/linux/netfilter/nf_conntrack_proto_gre.h b/include/linux/netfilter/nf_conntrack_proto_gre.h
+> index df78dc2..9c741da 100644
+> --- a/include/linux/netfilter/nf_conntrack_proto_gre.h
+> +++ b/include/linux/netfilter/nf_conntrack_proto_gre.h
+> @@ -2,67 +2,8 @@
+>  #define _CONNTRACK_PROTO_GRE_H
+>  #include <asm/byteorder.h>
+>
+> -/* GRE PROTOCOL HEADER */
+> -
+> -/* GRE Version field */
+> -#define GRE_VERSION_1701       0x0
+> -#define GRE_VERSION_PPTP       0x1
+> -
+> -/* GRE Protocol field */
+> -#define GRE_PROTOCOL_PPTP      0x880B
+> -
+> -/* GRE Flags */
+> -#define GRE_FLAG_C             0x80
+> -#define GRE_FLAG_R             0x40
+> -#define GRE_FLAG_K             0x20
+> -#define GRE_FLAG_S             0x10
+> -#define GRE_FLAG_A             0x80
+> -
+> -#define GRE_IS_C(f)    ((f)&GRE_FLAG_C)
+> -#define GRE_IS_R(f)    ((f)&GRE_FLAG_R)
+> -#define GRE_IS_K(f)    ((f)&GRE_FLAG_K)
+> -#define GRE_IS_S(f)    ((f)&GRE_FLAG_S)
+> -#define GRE_IS_A(f)    ((f)&GRE_FLAG_A)
+> -
+> -/* GRE is a mess: Four different standards */
+> -struct gre_hdr {
+> -#if defined(__LITTLE_ENDIAN_BITFIELD)
+> -       __u16   rec:3,
+> -               srr:1,
+> -               seq:1,
+> -               key:1,
+> -               routing:1,
+> -               csum:1,
+> -               version:3,
+> -               reserved:4,
+> -               ack:1;
+> -#elif defined(__BIG_ENDIAN_BITFIELD)
+> -       __u16   csum:1,
+> -               routing:1,
+> -               key:1,
+> -               seq:1,
+> -               srr:1,
+> -               rec:3,
+> -               ack:1,
+> -               reserved:4,
+> -               version:3;
+> -#else
+> -#error "Adjust your <asm/byteorder.h> defines"
+> -#endif
+> -       __be16  protocol;
+> -};
+> -
+> -/* modified GRE header for PPTP */
+> -struct gre_hdr_pptp {
+> -       __u8   flags;           /* bitfield */
+> -       __u8   version;         /* should be GRE_VERSION_PPTP */
+> -       __be16 protocol;        /* should be GRE_PROTOCOL_PPTP */
+> -       __be16 payload_len;     /* size of ppp payload, not inc. gre header */
+> -       __be16 call_id;         /* peer's call_id for this session */
+> -       __be32 seq;             /* sequence number.  Present if S==1 */
+> -       __be32 ack;             /* seq number of highest packet received by */
+> -                               /*  sender in this session */
+> -};
+> +#include <net/gre.h>
+> +#include <net/pptp.h>
+>
+>  struct nf_ct_gre {
+>         unsigned int stream_timeout;
+> diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+> index 361b9f0..1b27e2c 100644
+> --- a/include/uapi/linux/if_tunnel.h
+> +++ b/include/uapi/linux/if_tunnel.h
+> @@ -36,6 +36,7 @@
+>  #define GRE_IS_REC(f)          ((f) & GRE_REC)
+>  #define GRE_IS_ACK(f)          ((f) & GRE_ACK)
+>
+> +#define GRE_VERSION_0          __cpu_to_be16(0x0000)
+>  #define GRE_VERSION_1          __cpu_to_be16(0x0001)
+>  #define GRE_PROTO_PPP          __cpu_to_be16(0x880b)
+>  #define GRE_PPTP_KEY_MASK      __cpu_to_be32(0xffff)
+> diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
+> index 9414923..afe81a8 100644
+> --- a/net/ipv4/netfilter/nf_nat_proto_gre.c
+> +++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
+> @@ -88,8 +88,9 @@ gre_manip_pkt(struct sk_buff *skb,
+>               const struct nf_conntrack_tuple *tuple,
+>               enum nf_nat_manip_type maniptype)
+>  {
+> -       const struct gre_hdr *greh;
+> -       struct gre_hdr_pptp *pgreh;
+> +       const struct gre_base_hdr *greh;
+> +       struct pptp_gre_header *pgreh;
+> +       u16 gre_ver;
+>
+>         /* pgreh includes two optional 32bit fields which are not required
+>          * to be there.  That's where the magic '8' comes from */
+> @@ -97,18 +98,20 @@ gre_manip_pkt(struct sk_buff *skb,
+>                 return false;
+>
+>         greh = (void *)skb->data + hdroff;
+> -       pgreh = (struct gre_hdr_pptp *)greh;
+> +       pgreh = (struct pptp_gre_header *)greh;
+>
+>         /* we only have destination manip of a packet, since 'source key'
+>          * is not present in the packet itself */
+>         if (maniptype != NF_NAT_MANIP_DST)
+>                 return true;
+> -       switch (greh->version) {
+> -       case GRE_VERSION_1701:
+> +
+> +       gre_ver = ntohs(greh->flags & GRE_VERSION);
+> +       switch (gre_ver) {
+> +       case GRE_VERSION_0:
+>                 /* We do not currently NAT any GREv0 packets.
+>                  * Try to behave like "nf_nat_proto_unknown" */
+>                 break;
+> -       case GRE_VERSION_PPTP:
+> +       case GRE_VERSION_1:
+>                 pr_debug("call_id -> 0x%04x\n", ntohs(tuple->dst.u.gre.key));
+>                 pgreh->call_id = tuple->dst.u.gre.key;
+>                 break;
+> diff --git a/net/netfilter/nf_conntrack_proto_gre.c b/net/netfilter/nf_conntrack_proto_gre.c
+> index a96451a..f46597f 100644
+> --- a/net/netfilter/nf_conntrack_proto_gre.c
+> +++ b/net/netfilter/nf_conntrack_proto_gre.c
+> @@ -192,15 +192,15 @@ static bool gre_invert_tuple(struct nf_conntrack_tuple *tuple,
+>  static bool gre_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+>                              struct net *net, struct nf_conntrack_tuple *tuple)
+>  {
+> -       const struct gre_hdr_pptp *pgrehdr;
+> -       struct gre_hdr_pptp _pgrehdr;
+> +       const struct pptp_gre_header *pgrehdr;
+> +       struct pptp_gre_header _pgrehdr;
+>         __be16 srckey;
+> -       const struct gre_hdr *grehdr;
+> -       struct gre_hdr _grehdr;
+> +       const struct gre_base_hdr *grehdr;
+> +       struct gre_base_hdr _grehdr;
+>
+>         /* first only delinearize old RFC1701 GRE header */
+>         grehdr = skb_header_pointer(skb, dataoff, sizeof(_grehdr), &_grehdr);
+> -       if (!grehdr || grehdr->version != GRE_VERSION_PPTP) {
+> +       if (!grehdr || ntohs(grehdr->flags & GRE_VERSION) != GRE_VERSION_1) {
+>                 /* try to behave like "nf_conntrack_proto_generic" */
+>                 tuple->src.u.all = 0;
+>                 tuple->dst.u.all = 0;
+> @@ -212,8 +212,8 @@ static bool gre_pkt_to_tuple(const struct sk_buff *skb, unsigned int dataoff,
+>         if (!pgrehdr)
+>                 return true;
+>
+> -       if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
+> -               pr_debug("GRE_VERSION_PPTP but unknown proto\n");
+> +       if (grehdr->protocol != GRE_PROTO_PPP) {
+> +               pr_debug("Unknown GRE proto(0x%x)\n", ntohs(grehdr->protocol));
+>                 return false;
+>         }
+>
+> --
+> 1.9.1
+>
