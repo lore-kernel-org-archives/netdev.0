@@ -1,136 +1,99 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] net: phy: Fix race conditions in the driver
-Date: Fri, 19 Aug 2016 15:24:17 +0200
-Message-ID: <20160819132417.GC7343@lunn.ch>
-References: <1471610891-13353-1-git-send-email-appanad@xilinx.com>
- <1471610891-13353-2-git-send-email-appanad@xilinx.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 2/2] sctp: not copying duplicate addrs to the assoc's
+ bind address list
+Date: Fri, 19 Aug 2016 09:30:01 -0400
+Message-ID: <20160819133001.GA3578@hmsreliant.think-freely.org>
+References: <cover.1471605833.git.lucien.xin@gmail.com>
+ <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-        appanad@xilinx.com, f.fainelli@gmail.com,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59429 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754250AbcHSNbC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 09:31:02 -0400
 Content-Disposition: inline
-In-Reply-To: <1471610891-13353-2-git-send-email-appanad@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 19, 2016 at 06:18:11PM +0530, Kedareswara rao Appana wrote:
-> This patch fixes the below race conditions in the driver.
-> ---> Fix Opps after unload the driver as a module
-> ---> Use spin locks where relevant.
-> ---> Take reference on the external phy to prevent issues
-> when phy driver is unloaded.
-
-Each one of these should be an individual patch.
-
+On Fri, Aug 19, 2016 at 07:30:22PM +0800, Xin Long wrote:
+> From: Xin Long <lxin@redhat.com>
 > 
-> Reported-by: Andrew Lunn <andrew@lunn.ch>
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> sctp.local_addr_list is a global address list that is supposed to include
+> all the local addresses. sctp updates this list according to NETDEV_UP/
+> NETDEV_DOWN notifications.
+> 
+> However, if multiple NICs have the same address, the global list will
+> have duplicate addresses. Even if for one NIC, promote secondaries in
+> __inet_del_ifa can also lead to accumulating duplicate addresses.
+> 
+> When sctp binds address 'ANY' and creates a connection, it copies all
+> the addresses from global list into asoc's bind addr list, which makes
+> sctp pack the duplicate addresses into INIT/INIT_ACK packets.
+> 
+> This patch is to filter the duplicate addresses when copying the addrs
+> from global list in sctp_copy_local_addr_list and unpacking addr_param
+> from cookie in sctp_raw_to_bind_addrs to asoc's bind addr list.
+> 
+> Signed-off-by: Xin Long <lxin@redhat.com>
+
+
+Under what valid use case will multiple interfaces have the same network
+address?
+
+Neil
+
 > ---
->  drivers/net/phy/xilinx_gmii2rgmii.c | 32 +++++++++++++++++++++++++++++++-
->  1 file changed, 31 insertions(+), 1 deletion(-)
+>  net/sctp/bind_addr.c | 3 +++
+>  net/sctp/protocol.c  | 3 +++
+>  2 files changed, 6 insertions(+)
 > 
-> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
-> index 7336fd0..cdd9d95 100644
-> --- a/drivers/net/phy/xilinx_gmii2rgmii.c
-> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
-> @@ -34,6 +34,7 @@ struct gmii2rgmii {
->  	struct phy_driver *phy_drv;
->  	struct phy_driver conv_phy_drv;
->  	int addr;
-> +	spinlock_t phy_lock;
-
-The phy already have a lock.
-
->  };
+> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+> index 401c607..1ebc184 100644
+> --- a/net/sctp/bind_addr.c
+> +++ b/net/sctp/bind_addr.c
+> @@ -292,6 +292,8 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
+>  		}
 >  
->  static int xgmiitorgmii_read_status(struct phy_device *phydev)
-> @@ -55,7 +56,7 @@ static int xgmiitorgmii_read_status(struct phy_device *phydev)
->  		val |= BMCR_SPEED1000;
->  	else if (phydev->speed == SPEED_100)
->  		val |= BMCR_SPEED100;
-> -	else
-> +	else if (phydev->speed == SPEED_10)
->  		val |= BMCR_SPEED10;
-  
-I said you want to return an error is the PHY is using a speed your
-converter cannot support. I don't see an error being raised here.
-
->  	err = mdiobus_write(phydev->mdio.bus, priv->addr, XILINX_GMII2RGMII_REG,
-> @@ -71,6 +72,8 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
->  	struct device *dev = &mdiodev->dev;
->  	struct device_node *np = dev->of_node, *phy_node;
->  	struct gmii2rgmii *priv;
-> +	struct mii_bus *bus;
-> +	unsigned long flags;
+>  		af->from_addr_param(&addr, rawaddr, htons(port), 0);
+> +		if (sctp_bind_addr_state(bp, &addr) != -1)
+> +			goto next;
+>  		retval = sctp_add_bind_addr(bp, &addr, sizeof(addr),
+>  					    SCTP_ADDR_SRC, gfp);
+>  		if (retval) {
+> @@ -300,6 +302,7 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
+>  			break;
+>  		}
 >  
->  	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
->  	if (!priv)
-> @@ -88,17 +91,43 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
->  		return -EPROBE_DEFER;
->  	}
+> +next:
+>  		len = ntohs(param->length);
+>  		addrs_len -= len;
+>  		raw_addr_list += len;
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index da5d82b..616a942 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -220,6 +220,9 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
+>  		     !(copy_flags & SCTP_ADDR6_PEERSUPP)))
+>  			continue;
 >  
-> +	spin_lock_init(&priv->phy_lock);
+> +		if (sctp_bind_addr_state(bp, &addr->a) != -1)
+> +			continue;
 > +
-> +	bus = priv->phy_dev->mdio.bus;
-> +	if (!try_module_get(bus->owner)) {
-> +		dev_err(dev, "failed to get the bus module\n");
-> +		return -EIO;
-> +	}
-
-The comment at the top says you are taking a reference to the phy.
-Here you take a reference to the mdio bus driver???
-
-> +
-> +	get_device(&priv->phy_dev->mdio.dev);
-> +
->  	priv->addr = mdiodev->addr;
->  	priv->phy_drv = priv->phy_dev->drv;
->  	memcpy(&priv->conv_phy_drv, priv->phy_dev->drv,
->  	       sizeof(struct phy_driver));
->  	priv->conv_phy_drv.read_status = xgmiitorgmii_read_status;
->  	priv->phy_dev->priv = priv;
-> +	spin_lock_irqsave(&priv->phy_lock, flags);
->  	priv->phy_dev->drv = &priv->conv_phy_drv;
-> +	spin_unlock_irqrestore(&priv->phy_lock, flags);
-
-And how is this spinlock protecting anything? 
-
-> +
-> +	dev_set_drvdata(dev, priv);
->  
->  	return 0;
->  }
->  
-> +static void xgmiitorgmii_remove(struct mdio_device *mdiodev)
-> +{
-> +	struct gmii2rgmii *priv = dev_get_drvdata(&mdiodev->dev);
-> +	struct mii_bus *bus;
-> +
-> +	bus = priv->phy_dev->mdio.bus;
-> +
-> +	put_device(&priv->phy_dev->mdio.dev);
-> +	module_put(bus->owner);
-> +	phy_disconnect(priv->phy_dev);
-
-Why are you disconnecting the phy?
-
-> +}
-> +
->  static const struct of_device_id xgmiitorgmii_of_match[] = {
->  	{ .compatible = "xlnx,gmii-to-rgmii-1.0" },
->  	{},
-> @@ -107,6 +136,7 @@ MODULE_DEVICE_TABLE(of, xgmiitorgmii_of_match);
->  
->  static struct mdio_driver xgmiitorgmii_driver = {
->  	.probe	= xgmiitorgmii_probe,
-> +	.remove	= xgmiitorgmii_remove,
->  	.mdiodrv.driver = {
->  		.name = "xgmiitorgmii",
->  		.of_match_table = xgmiitorgmii_of_match,
+>  		error = sctp_add_bind_addr(bp, &addr->a, sizeof(addr->a),
+>  					   SCTP_ADDR_SRC, GFP_ATOMIC);
+>  		if (error)
 > -- 
-> 2.1.2
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
