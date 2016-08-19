@@ -1,288 +1,81 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH 1/1] ppp: Fix one deadlock issue of PPP when send frame
-Date: Thu, 18 Aug 2016 23:05:06 +0800
-Message-ID: <CA+6hz4rUGeqohKCiTbeqp9NwkH5w_JKjqD8VEiQC4DyVL7Q7JA@mail.gmail.com>
-References: <1471345503-10085-1-git-send-email-fgao@ikuai8.com>
- <CA+6hz4qN-UmSutpCOY1KtrPBakh+2Qa+VUNVid7dq7EPWZE+aw@mail.gmail.com> <96f03d73-73f9-23ac-591f-a855169f8dc9@redfish-solutions.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, allow segmentation for gre tunneled skbs
+Date: Fri, 19 Aug 2016 10:26:04 +0300
+Message-ID: <20160819102604.271c89d9@halley>
+References: <1470726261-16371-1-git-send-email-wenxu@ucloud.cn>
+        <20160810.173511.968926810628735179.davem@davemloft.net>
+        <20160811224132.7a17f0c3@halley>
+        <dfa12e1b-54dc-4e20-8819-cb2400a693d1@stressinduktion.org>
+        <20160815141639.35e940b4@pixies>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>, paulus@samba.org,
-        linux-ppp@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Philp Prindeville <philipp@redfish-solutions.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, wenxu@ucloud.cn,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+        wenx05124561@163.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f196.google.com ([209.85.217.196]:36765 "EHLO
-        mail-ua0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755602AbcHSHQv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 03:16:51 -0400
-In-Reply-To: <96f03d73-73f9-23ac-591f-a855169f8dc9@redfish-solutions.com>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38524 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755470AbcHSH0T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 03:26:19 -0400
+Received: by mail-wm0-f44.google.com with SMTP id o80so27367863wme.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 00:26:19 -0700 (PDT)
+In-Reply-To: <20160815141639.35e940b4@pixies>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Philip,
+On Mon, 15 Aug 2016 14:16:39 +0300 Shmulik Ladkani <shmulik.ladkani@gmail.com> wrote:
+> On Fri, 12 Aug 2016 13:11:50 +0200, hannes@stressinduktion.org wrote:
+> > I really would not like to see this expanded to gre and other protocols.
+> > All switches drop packets where the packets are exceeding the MTU,
+> > bridges and also openvswitch should behave the same.
+> > 
+> > Unfortunately we already had this loophole in the kernel that vxlan udp
+> > output path could fragment the packet again, even in case of switches.
+> > But this stopped working for GSO packets, which violates another rule in
+> > the kernel, GSO should always be transparent and user space should never
+> > have to care if a packet is GSO or not.
+> > 
+> > Because we couldn't a) roll back the change that we fragment packets in
+> > UDP output paths and b) should not violate GSO transparency rule, I
+> > strongly believed it would be better too only change the kernel in a way
+> > that it transparently works with GSO, too. If we argue that a VTEP is
+> > its own UDP endpoint which is set up after the bridge, I still can sleep
+> > well. :)
+> > 
+> > My understanding was that GRE failed consistently, GSO as well as
+> > non-GSO packets are dropped, which would be the correct behavior for me.
+> > I don't want to change this. A good argument against this would be if we
+> > violate the GSO transparency rule again. But when I looked into the code
+> > I couldn't see that.  
+> 
+> I completely agree with your arguments.
+> 
+> I think we may run into the same GSO vs Non-GSO anomaly if one uses
+> a "nopmtudisc" tunnel, or a gre tunnel in "collect_md" mode, where the
+> encapsulating iphdr 'df' is derived from 'tun_flags&TUNNEL_DONT_FRAGMENT'
+> (e.g. in case DF is not set).
+> 
+> I suspect OvS's vport-gre does exactly that, so I assume this is the
+> reason why the change was suggested.
+> 
+> Maybe we can change our criteria in the following manner:
+>  
+> -	if (skb_iif && proto == IPPROTO_UDP) {
+> +	if (skb_iif && !(df & htons(IP_DF))) {
+> 		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
+> 
+> This way, any tunnel explicitly providing DF is NOT allowed to
+> further fragment the resulting segments (leading to tx segments being
+> dropped).
+> Others tunnels, that do not care (e.g. vxlan and geneve, and probably
+> ovs vport-gre, or other ovs encap vports, in df_default=false mode),
+> will behave same for gso and non-gso.
+> 
+> WDYT? Am I missing something here?
+> 
 
-I answer your question inline.
-
-On Thu, Aug 18, 2016 at 10:11 PM, Philp Prindeville
-<philipp@redfish-solutions.com> wrote:
-> Feng,
->
-> If the CPU can already be holding the lock, that implies re-entrancy.
-> What's to stop the first flow of code which acquired the lock from releasing
-> it again before the 2nd flow is done?  Is the 2nd flow running at a higher
-> priority or with interrupts disabled?
-
-There is no preemption happened. It is caused by wrong route policy by l2tp.
-For example, the cpu0 get the spinlock of channel1, then the channel1
-is selected again after route. As a result, cpu0 tries to get the same
-spinlock again.
-
-The call flow is like this.
-ppp_write->ppp_channel_push->start_xmit->select inappropriate route
-.... -> dev_hard_start_xmit->ppp_start_xmit->ppp_xmit_process->
-ppp_push. Now ppp_push tries to get the same spinlock which is held
-in ppp_channel_push.
-
-Regards
-Feng
-
->
-> It seems unlikely to me that this sort of locking problem hasn't existed
-> elsewhere before and that an entirely new mechanism for handling it is
-> needed...  How are similar re-entrancy issues handled elsewhere?
->
-> -Philip
->
->
->
->
-> On 08/16/2016 05:36 AM, Feng Gao wrote:
->>
->> Hi Paul,
->>
->> The v1 patch does not handle the recursive lock case. It could cause
->> unlock multiple times.
->> So I send the v2 patch as one update.
->>
->> Best Regards
->> Feng
->>
->> On Tue, Aug 16, 2016 at 7:05 PM,  <fgao@ikuai8.com> wrote:
->>>
->>> From: Gao Feng <fgao@ikuai8.com>
->>>
->>> PPP channel holds one spinlock before send frame. But the skb may
->>> select the same PPP channel with wrong route policy. As a result,
->>> the skb reaches the same channel path. It tries to get the same
->>> spinlock which is held before. Bang, the deadlock comes out.
->>>
->>> Now add one lock owner to avoid it like xmit_lock_owner of
->>> netdev_queue. Check the lock owner before try to get the spinlock.
->>> If the current cpu is already the owner, needn't lock again. When
->>> PPP channel holds the spinlock at the first time, it sets owner
->>> with current CPU ID.
->>>
->>> The following is the panic stack of 3.3.8. But the same issue
->>> should be in the upstream too.
->>>
->>> [<ffffffff81568131>] ? _raw_spin_lock_bh+0x11/0x40
->>> [<ffffffffa006a2b7>] ppp_unregister_channel+0x1347/0x2170 [ppp_generic]
->>> [<ffffffff810a2827>] ? kmem_cache_free+0xa7/0xc0
->>> [<ffffffffa006ad27>] ppp_unregister_channel+0x1db7/0x2170 [ppp_generic]
->>> [<ffffffffa006afd5>] ppp_unregister_channel+0x2065/0x2170 [ppp_generic]
->>> [<ffffffff8148f1dd>] dev_hard_start_xmit+0x4cd/0x620
->>> [<ffffffff814a6254>] sch_direct_xmit+0x74/0x1d0
->>> [<ffffffff8148f88d>] dev_queue_xmit+0x1d/0x30
->>> [<ffffffff81496a4c>] neigh_direct_output+0xc/0x10
->>> [<ffffffff814d9dae>] ip_finish_output+0x25e/0x2b0
->>> [<ffffffff814da688>] ip_output+0x88/0x90
->>> [<ffffffff814d9e9f>] ? __ip_local_out+0x9f/0xb0
->>> [<ffffffff814d9ed4>] ip_local_out+0x24/0x30
->>> [<ffffffffa00b9745>] 0xffffffffa00b9744
->>> [<ffffffffa006b068>] ppp_unregister_channel+0x20f8/0x2170 [ppp_generic]
->>> [<ffffffffa006b202>] ppp_output_wakeup+0x122/0x11d0 [ppp_generic]
->>> [<ffffffff810a7978>] vfs_write+0xb8/0x160
->>> [<ffffffff810a7c55>] sys_write+0x45/0x90
->>> [<ffffffff815689e2>] system_call_fastpath+0x16/0x1b
->>>
->>> The call flow is like this.
->>> ppp_write->ppp_channel_push->start_xmit->select inappropriate route
->>> .... -> dev_hard_start_xmit->ppp_start_xmit->ppp_xmit_process->
->>> ppp_push. Now ppp_push tries to get the same spinlock which is held
->>> in ppp_channel_push.
->>>
->>> Although the PPP deadlock is caused by inappropriate route policy
->>> with L2TP, I think it is not accepted the PPP module would cause kernel
->>> deadlock with wrong route policy.
->>>
->>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
->>> ---
->>>   v1: Initial Patch
->>>
->>>   drivers/net/ppp/ppp_generic.c | 49
->>> +++++++++++++++++++++++++++++++------------
->>>   1 file changed, 36 insertions(+), 13 deletions(-)
->>>
->>> diff --git a/drivers/net/ppp/ppp_generic.c
->>> b/drivers/net/ppp/ppp_generic.c
->>> index 70cfa06..ffd0233 100644
->>> --- a/drivers/net/ppp/ppp_generic.c
->>> +++ b/drivers/net/ppp/ppp_generic.c
->>> @@ -162,6 +162,29 @@ struct ppp {
->>>                           |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
->>>                           |SC_COMP_TCP|SC_REJ_COMP_TCP|SC_MUST_COMP)
->>>
->>> +struct chennel_lock {
->>> +       spinlock_t lock;
->>> +       u32 owner;
->>> +};
->>> +
->>> +#define PPP_CHANNEL_LOCK_INIT(cl) \
->>> +       cl.owner = -1; \
->>> +       spin_lock_init(&cl.lock)
->>> +
->>> +#define PPP_CHANNEL_LOCK_BH(cl) \
->>> +       do { \
->>> +               local_bh_disable(); \
->>> +               if (cl.owner != smp_processor_id()) { \
->>> +                       spin_lock(&cl.lock); \
->>> +                       cl.owner = smp_processor_id(); \
->>> +               } \
->>> +       } while (0)
->>> +
->>> +#define PPP_CHANNEL_UNLOCK_BH(cl) \
->>> +       cl.owner = -1; \
->>> +       spin_unlock(&cl.lock); \
->>> +       local_bh_enable()
->>> +
->>>   /*
->>>    * Private data structure for each channel.
->>>    * This includes the data structure used for multilink.
->>> @@ -171,7 +194,7 @@ struct channel {
->>>          struct list_head list;          /* link in all/new_channels list
->>> */
->>>          struct ppp_channel *chan;       /* public channel data structure
->>> */
->>>          struct rw_semaphore chan_sem;   /* protects `chan' during chan
->>> ioctl */
->>> -       spinlock_t      downl;          /* protects `chan', file.xq
->>> dequeue */
->>> +       struct chennel_lock downl;      /* protects `chan', file.xq
->>> dequeue */
->>>          struct ppp      *ppp;           /* ppp unit we're connected to
->>> */
->>>          struct net      *chan_net;      /* the net channel belongs to */
->>>          struct list_head clist;         /* link in list of channels per
->>> unit */
->>> @@ -1597,7 +1620,7 @@ ppp_push(struct ppp *ppp)
->>>                  list = list->next;
->>>                  pch = list_entry(list, struct channel, clist);
->>>
->>> -               spin_lock_bh(&pch->downl);
->>> +               PPP_CHANNEL_LOCK_BH(pch->downl);
->>>                  if (pch->chan) {
->>>                          if (pch->chan->ops->start_xmit(pch->chan, skb))
->>>                                  ppp->xmit_pending = NULL;
->>> @@ -1606,7 +1629,7 @@ ppp_push(struct ppp *ppp)
->>>                          kfree_skb(skb);
->>>                          ppp->xmit_pending = NULL;
->>>                  }
->>> -               spin_unlock_bh(&pch->downl);
->>> +               PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>                  return;
->>>          }
->>>
->>> @@ -1736,7 +1759,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct
->>> sk_buff *skb)
->>>                  }
->>>
->>>                  /* check the channel's mtu and whether it is still
->>> attached. */
->>> -               spin_lock_bh(&pch->downl);
->>> +               PPP_CHANNEL_LOCK_BH(pch->downl);
->>>                  if (pch->chan == NULL) {
->>>                          /* can't use this channel, it's being
->>> deregistered */
->>>                          if (pch->speed == 0)
->>> @@ -1744,7 +1767,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct
->>> sk_buff *skb)
->>>                          else
->>>                                  totspeed -= pch->speed;
->>>
->>> -                       spin_unlock_bh(&pch->downl);
->>> +                       PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>                          pch->avail = 0;
->>>                          totlen = len;
->>>                          totfree--;
->>> @@ -1795,7 +1818,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct
->>> sk_buff *skb)
->>>                   */
->>>                  if (flen <= 0) {
->>>                          pch->avail = 2;
->>> -                       spin_unlock_bh(&pch->downl);
->>> +                       PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>                          continue;
->>>                  }
->>>
->>> @@ -1840,14 +1863,14 @@ static int ppp_mp_explode(struct ppp *ppp, struct
->>> sk_buff *skb)
->>>                  len -= flen;
->>>                  ++ppp->nxseq;
->>>                  bits = 0;
->>> -               spin_unlock_bh(&pch->downl);
->>> +               PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>          }
->>>          ppp->nxchan = i;
->>>
->>>          return 1;
->>>
->>>    noskb:
->>> -       spin_unlock_bh(&pch->downl);
->>> +       PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>          if (ppp->debug & 1)
->>>                  netdev_err(ppp->dev, "PPP: no memory (fragment)\n");
->>>          ++ppp->dev->stats.tx_errors;
->>> @@ -1865,7 +1888,7 @@ ppp_channel_push(struct channel *pch)
->>>          struct sk_buff *skb;
->>>          struct ppp *ppp;
->>>
->>> -       spin_lock_bh(&pch->downl);
->>> +       PPP_CHANNEL_LOCK_BH(pch->downl);
->>>          if (pch->chan) {
->>>                  while (!skb_queue_empty(&pch->file.xq)) {
->>>                          skb = skb_dequeue(&pch->file.xq);
->>> @@ -1879,7 +1902,7 @@ ppp_channel_push(struct channel *pch)
->>>                  /* channel got deregistered */
->>>                  skb_queue_purge(&pch->file.xq);
->>>          }
->>> -       spin_unlock_bh(&pch->downl);
->>> +       PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>          /* see if there is anything from the attached unit to be sent */
->>>          if (skb_queue_empty(&pch->file.xq)) {
->>>                  read_lock_bh(&pch->upl);
->>> @@ -2520,7 +2543,7 @@ int ppp_register_net_channel(struct net *net,
->>> struct ppp_channel *chan)
->>>          pch->lastseq = -1;
->>>   #endif /* CONFIG_PPP_MULTILINK */
->>>          init_rwsem(&pch->chan_sem);
->>> -       spin_lock_init(&pch->downl);
->>> +       PPP_CHANNEL_LOCK_INIT(pch->downl);
->>>          rwlock_init(&pch->upl);
->>>
->>>          spin_lock_bh(&pn->all_channels_lock);
->>> @@ -2599,9 +2622,9 @@ ppp_unregister_channel(struct ppp_channel *chan)
->>>           * the channel's start_xmit or ioctl routine before we proceed.
->>>           */
->>>          down_write(&pch->chan_sem);
->>> -       spin_lock_bh(&pch->downl);
->>> +       PPP_CHANNEL_LOCK_BH(pch->downl);
->>>          pch->chan = NULL;
->>> -       spin_unlock_bh(&pch->downl);
->>> +       PPP_CHANNEL_UNLOCK_BH(pch->downl);
->>>          up_write(&pch->chan_sem);
->>>          ppp_disconnect_channel(pch);
->>>
->>> --
->>> 1.9.1
->>>
->
+ping..
