@@ -1,47 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smc91c92_cs : add a spinlock to avoid race condition
-Date: Thu, 18 Aug 2016 23:00:55 -0700 (PDT)
-Message-ID: <20160818.230055.1587442048794416891.davem@davemloft.net>
-References: <1471354746-27110-1-git-send-email-andrianov@ispras.ru>
-        <20160818.210734.1003452853595787957.davem@davemloft.net>
-        <57B68DFC.4070204@oracle.com>
+Subject: Re: [net-next 0/4][pull request] 1GbE Intel Wired LAN Driver
+ Updates 2016-08-18
+Date: Thu, 18 Aug 2016 23:03:41 -0700 (PDT)
+Message-ID: <20160818.230341.1482841235679466224.davem@davemloft.net>
+References: <1471584650-14645-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrianov@ispras.ru, mugunthanvnm@ti.com, a@unstable.cc,
-        felipe.balbi@linux.intel.com, fw@strlen.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: vaishali.thakkar@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57B68DFC.4070204@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42304 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754276AbcHSGDm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 02:03:42 -0400
+In-Reply-To: <1471584650-14645-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vaishali Thakkar <vaishali.thakkar@oracle.com>
-Date: Fri, 19 Aug 2016 10:11:32 +0530
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 18 Aug 2016 22:30:46 -0700
 
-> 
-> 
-> On Friday 19 August 2016 09:37 AM, David Miller wrote:
->> From: Pavel Andrianov <andrianov@ispras.ru>
->> Date: Tue, 16 Aug 2016 16:39:06 +0300
->> 
->>> smc_reset may be executed in parallel with timer function media_check.
->>> To avoid data race in smc_set_xcvr a spinlock was added.
->>>
->>> Found by Linux Driver Verification project (linuxtesting.org).
->>>
->>> Signed-off-by: Pavel Andrianov <andrianov@ispras.ru>
->> 
->> This is not sufficient.
->> 
->> You have to block basically the entire function, because both
->> smc_reset and media_check program the bank selection so could
->> corrupt eachother's register accesses.
-> 
-> Hmm, but then there is a use of udelay as well. Would it be still
-> fine to acquire a spinlock on whole function?
+> This series contains updates to igb only.
 
-I don't know, but what I'm telling you is that you have to execute
-register programming these two functions do atomically so that the
-bank selection doesn't check get changed midstream.
+Pulled, thanks Jeff.
