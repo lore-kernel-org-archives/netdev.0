@@ -1,67 +1,79 @@
-From: Andrew Yourtchenko <ayourtch@gmail.com>
-Subject: [PATCH v2 2/2] ipv6: fixup RTF_* flags when restoring RTPROT_RA route from rtnetlink
-Date: Fri, 19 Aug 2016 18:41:23 +0200
-Message-ID: <55219c8da12705fefa36ee5853b899ee88f730fb.1471622715.git.ayourtch@gmail.com>
-References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
- <cover.1471622715.git.ayourtch@gmail.com>
-Cc: Andrew Yourtchenko <ayourtch@gmail.com>
-To: netdev@vger.kernel.org
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
+Date: Fri, 19 Aug 2016 18:43:49 +0200
+Message-ID: <c1cda2ea-21e8-0265-e1c3-687f2396a7f1@neratec.com>
+References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
+ <20160819145900.GD7343@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, claudiu.manoil@freescale.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34444 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755060AbcHSQl4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 12:41:56 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q128so4084411wma.1
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 09:41:55 -0700 (PDT)
-In-Reply-To: <cover.1471622715.git.ayourtch@gmail.com>
-In-Reply-To: <cover.1471622715.git.ayourtch@gmail.com>
-References: <cover.1471622715.git.ayourtch@gmail.com>
+Received: from mail.neratec.com ([46.140.151.2]:18610 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751599AbcHSQnx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 12:43:53 -0400
+In-Reply-To: <20160819145900.GD7343@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the flags for RA-derived routes that were saved
-via "ip -6 route save" and and subsequently restored via
-"ip -6 route restore", allowing the incoming router advertisements
-to update them, rather than complain about inability to do so.
+On 08/19/2016 04:59 PM, Andrew Lunn wrote:
+> On Fri, Aug 19, 2016 at 11:16:14AM +0200, Zefir Kurtisi wrote:
+>> The eTSEC register MRBLR defines the maximum space in
+>> the RX buffers and is set to 1536 by gianfar. This
+>> reasonably covers the common use case where the MTU
+>> is kept at default 1500.
+>>
+>> Alas, if the eTSEC is attached to a DSA enabled switch,
+>> the DSA header extension causes every maximum sized
+>> frame to be fragmented by the hardware (1536 + 4).
+>>
+>> This patch increases the maximum RX buffer size by
+>> RBUF_ALIGNMENT (64) octets. Since the driver uses a
+>> half-page memory schema, this change does not
+>> increase allocated memory but allows the hardware to
+>> use 1600 bytes of the totally available 2048.
+>>
+>> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+>> ---
+>>  drivers/net/ethernet/freescale/gianfar.h | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+>> index 373fd09..02b794b 100644
+>> --- a/drivers/net/ethernet/freescale/gianfar.h
+>> +++ b/drivers/net/ethernet/freescale/gianfar.h
+>> @@ -100,7 +100,8 @@ extern const char gfar_driver_version[];
+>>  #define DEFAULT_RX_LFC_THR  16
+>>  #define DEFAULT_LFC_PTVVAL  4
+>>  
+>> -#define GFAR_RXB_SIZE 1536
+>> +/* prevent fragmenation by HW in DSA environments */
+>> +#define GFAR_RXB_SIZE (1536 + RXBUF_ALIGNMENT)
+> 
+> Hi Zefir
+> 
+> Using RXBUF_ALIGNMENT suggests this has something to do with
+> alignment, not extra headers.
+> 
+> How about
+> 
+> /* Prevent fragmenation by HW when using extra headers like DSA */
+> #define GFAR_RXB_SIZE (1536 + 8)
+> 
+> 	Andrew
+> 
+Hi Andrew,
 
-Upon the restore of RA-derived saved routes, set the RTF_ADDRCONF
-to indicate that the source of the route was originally
-a router advertisement, and set the RTF_DEFAULT or RTF_ROUTEINFO
-flag depending on prefix length. This can be considered a
-sister change of f0396f60d7c165018c9b203fb9b89fb224835578, in
-the other direction.
+the MRBLR has to be written with multiples of 64 (lower 6 bits reserved as 0),
+therefore (1536 + 64) is the next valid value to chose.
 
-Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
----
-Changes since v1 [1]:
- * fixed the indentation of the basic blocks to be always a full TAB
-   as per David Miller's review
+As noted in the commit message, this is an artificial limitation, since the RX
+buffers are essentially 2048 bytes (GFAR_RXB_TRUESIZE) long. I don't fully
+understand why GFAR_RXB_SIZE has to be lower than that, preventing
+the HW using all available memory - the freescale guys most probably do.
 
-[1] v1: http://marc.info/?l=linux-netdev&m=147135599322285&w=2
 
- net/ipv6/route.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f5b987d..60d95cd 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2769,6 +2769,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	cfg->fc_protocol = rtm->rtm_protocol;
- 	cfg->fc_type = rtm->rtm_type;
- 
-+	if (rtm->rtm_protocol == RTPROT_RA) {
-+		/* RA-derived route: set flags accordingly. */
-+		cfg->fc_flags |= RTF_ADDRCONF;
-+		if (rtm->rtm_dst_len == 0) {
-+			cfg->fc_flags |= RTF_DEFAULT;
-+		} else {
-+			cfg->fc_flags |= RTF_ROUTEINFO;
-+		}
-+	}
-+
- 	if (rtm->rtm_type == RTN_UNREACHABLE ||
- 	    rtm->rtm_type == RTN_BLACKHOLE ||
- 	    rtm->rtm_type == RTN_PROHIBIT ||
--- 
-2.7.4
+Cheers,
+Zefir
