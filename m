@@ -1,54 +1,51 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH 1/2] net: phy: Add error checks in the driver
-Date: Fri, 19 Aug 2016 13:18:12 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5E4A7C@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1471610891-13353-1-git-send-email-appanad@xilinx.com>
- <20160819131517.GB7343@lunn.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net 1/1] net sched ife action: fix encoding to use real
+ length
+Date: Fri, 19 Aug 2016 16:22:39 +0300
+Message-ID: <42438a9c-fe2f-3699-89e9-dc4d59250eba@cogentembedded.com>
+References: <1471601860-3336-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Michal Simek <michals@xilinx.com>, Soren Brinkmann <sorenb@xilinx.com>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160819131517.GB7343@lunn.ch>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com, mrv@mojatatu.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:33767 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755298AbcHSNWo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 09:22:44 -0400
+Received: by mail-lf0-f42.google.com with SMTP id b199so32889802lfe.0
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 06:22:43 -0700 (PDT)
+In-Reply-To: <1471601860-3336-1-git-send-email-jhs@emojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+Hello.
 
-	Thanks for the review...
+On 8/19/2016 1:17 PM, Jamal Hadi Salim wrote:
 
-> > -	mdiobus_write(phydev->mdio.bus, priv->addr,
-> XILINX_GMII2RGMII_REG, val);
-> > +	err = mdiobus_write(phydev->mdio.bus, priv->addr,
-> XILINX_GMII2RGMII_REG,
-> > +			    val);
-> > +	if (err < 0)
-> > +		return err;
-> >
-> >  	return 0;
-> 
-> Do you need to assign err? Why not just
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> Encoding of the metadata was using the padded length as opposed to
+> the real length of the data which is a bug per specification.
+> This has not been an issue todate because all metadatum specified
 
-Ok will fix in the next version....
+    To date? Metadata perhaps?
 
-Regards,
-Kedar.
+> so far has been 32 bit where aligned and data length are the same width.
+> This also includes a bug fix for validating the length of a u16 field.
+> But since there is no metadata of size u16 yes we are fine to include it
+> here.
+>
+> While at it get rid of magic numbers
+>
+> Fixes: ef6980b6
 
-> 
->    return mdiobus_write(phydev->mdio.bus, priv->addr,
-> XILINX_GMII2RGMII_REG,
-> 			val);
+    This tag has a standardized format, including 12-digit SHA1 and the commit 
+summary enclosed in ("").
+
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+[...]
+
+MBR, Sergei
