@@ -1,67 +1,32 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/4] ixgbevf: change hw_dbg to use netdev_dbg
-Date: Thu, 18 Aug 2016 23:03:34 -0700
-Message-ID: <1471586616-64728-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471586616-64728-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] qed*: Fix ethtool issues relating to link
+Date: Thu, 18 Aug 2016 23:06:20 -0700 (PDT)
+Message-ID: <20160818.230620.224199001701245225.davem@davemloft.net>
+References: <1471584898-23253-1-git-send-email-Yuval.Mintz@qlogic.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:23047 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754626AbcHSGDy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 Aug 2016 02:03:54 -0400
-In-Reply-To: <1471586616-64728-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42317 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750806AbcHSGGV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 02:06:21 -0400
+In-Reply-To: <1471584898-23253-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Fri, 19 Aug 2016 08:34:56 +0300
 
-Instead of the home brewed macro make use of netdev_dbg same as
-the ixgbe driver.
+> This series addresses two issues that were introduced when adding
+> support for ethtool's link_ksettings support - the first fixes a
+> regression and second incorrect functionallity in the submission.
+> 
+> Although these are fixes, as the feature currently exists only in
+> 'next-next' I'm aiming them for it.
+> 
+> Dave, please consider applying this series to 'net-next'.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 11 ++++-------
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  1 +
- 2 files changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index be52f59..5639fbe 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -502,12 +502,9 @@ extern void ixgbevf_write_eitr(struct ixgbevf_q_vector *q_vector);
- void ixgbe_napi_add_all(struct ixgbevf_adapter *adapter);
- void ixgbe_napi_del_all(struct ixgbevf_adapter *adapter);
- 
--#ifdef DEBUG
--char *ixgbevf_get_hw_dev_name(struct ixgbe_hw *hw);
--#define hw_dbg(hw, format, arg...) \
--	printk(KERN_DEBUG "%s: " format, ixgbevf_get_hw_dev_name(hw), ##arg)
--#else
--#define hw_dbg(hw, format, arg...) do {} while (0)
--#endif
-+#define ixgbevf_hw_to_netdev(hw) \
-+	(((struct ixgbevf_adapter *)(hw)->back)->netdev)
- 
-+#define hw_dbg(hw, format, arg...) \
-+	netdev_dbg(ixgbevf_hw_to_netdev(hw), format, ## arg)
- #endif /* _IXGBEVF_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index d9d6616..8d4f535 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -2993,6 +2993,7 @@ static void ixgbevf_free_all_tx_resources(struct ixgbevf_adapter *adapter)
-  **/
- int ixgbevf_setup_tx_resources(struct ixgbevf_ring *tx_ring)
- {
-+	struct ixgbevf_adapter *adapter = netdev_priv(tx_ring->netdev);
- 	int size;
- 
- 	size = sizeof(struct ixgbevf_tx_buffer) * tx_ring->count;
--- 
-2.7.4
+Series applied, thank you.
