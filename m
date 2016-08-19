@@ -1,33 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv3 net-next 0/4] crypto/chcr: Add support for Chelsio
- Crypto Driver
-Date: Fri, 19 Aug 2016 14:15:43 +0800
-Message-ID: <20160819061543.GA20764@gondor.apana.org.au>
-References: <1471417386-14026-1-git-send-email-hariprasad@chelsio.com>
- <20160818.231101.728993368913367217.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net: bridge: export vlan stats per-port
+ with flags
+Date: Thu, 18 Aug 2016 23:19:00 -0700 (PDT)
+Message-ID: <20160818.231900.1546468845417451233.davem@davemloft.net>
+References: <1471431190-27442-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-        linux-crypto@vger.kernel.org, atul.gupta@chelsio.com,
-        yeshaswi@chelsio.com, jlulla@chelsio.com, harsh@chelsio.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160818.231101.728993368913367217.davem@davemloft.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        stephen@networkplumber.org, bridge@lists.linux-foundation.org
+To: nikolay@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42353 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750806AbcHSGTB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 02:19:01 -0400
+In-Reply-To: <1471431190-27442-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 18, 2016 at 11:11:01PM -0700, David Miller wrote:
-> From: Hariprasad Shenai <hariprasad@chelsio.com>
-> Date: Wed, 17 Aug 2016 12:33:02 +0530
-> 
-> > This patch series adds support for Chelsio Crypto driver. 
-> 
-> Herbert, what do you want to do with this?  I can push it via
-> net-next if you like.
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Wed, 17 Aug 2016 12:53:08 +0200
 
-Sure thing, the crypto part looks good to me.  Thanks Dave!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> This set adds the ability to export vlan stats per-port. Patch 01 makes
+> that possible by consolidating the bridge and port linkxstats calls. Then
+> patch 02 allows to dump the vlan entry flags in order to be able to
+> distinguish between bridge and port vlan entries when dumping the master
+> device vlan stats. That is needed because that call was implemented when
+> the stats API didn't have slave dumping capabilities and it dumps all vlan
+> stats (for both bridge and port entries). We also need it in order to print
+> the vlan flags when dumping the stats.
+
+Series applied.
