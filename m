@@ -1,48 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 0/5] net_sched, flow_dissector, flower:
- Introduce vlan tag support
-Date: Thu, 18 Aug 2016 23:14:14 -0700 (PDT)
-Message-ID: <20160818.231414.1576833647538773356.davem@davemloft.net>
-References: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCHv3 net-next 3/4] chcr: Support for Chelsio's Crypto
+ Hardware
+Date: Fri, 19 Aug 2016 14:15:22 +0800
+Message-ID: <20160819061522.GA20778@gondor.apana.org.au>
+References: <1471417386-14026-1-git-send-email-hariprasad@chelsio.com>
+ <1471417386-14026-4-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, amirva@mellanox.com,
-        ogerlitz@mellanox.com, tom@herbertland.com
-To: hadarh@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42339 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750806AbcHSGOP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 02:14:15 -0400
-In-Reply-To: <1471430174-27740-1-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-crypto@vger.kernel.org,
+        davem@davemloft.net, atul.gupta@chelsio.com, yeshaswi@chelsio.com,
+        jlulla@chelsio.com, harsh@chelsio.com
+To: Hariprasad Shenai <hariprasad@chelsio.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1471417386-14026-4-git-send-email-hariprasad@chelsio.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Date: Wed, 17 Aug 2016 13:36:09 +0300
+On Wed, Aug 17, 2016 at 12:33:05PM +0530, Hariprasad Shenai wrote:
+> The Chelsio's Crypto Hardware can perform the following operations:
+> SHA1, SHA224, SHA256, SHA384 and SHA512, HMAC(SHA1), HMAC(SHA224),
+> HMAC(SHA256), HMAC(SHA384), HAMC(SHA512), AES-128-CBC, AES-192-CBC,
+> AES-256-CBC, AES-128-XTS, AES-256-XTS
+> 
+> This patch implements the driver for above mentioned features. This
+> driver is an Upper Layer Driver which is attached to Chelsio's LLD
+> (cxgb4) and uses the queue allocated by the LLD for sending the crypto
+> requests to the Hardware and receiving the responses from it.
+> 
+> The crypto operations can be performed by Chelsio's hardware from the
+> userspace applications and/or from within the kernel space using the
+> kernel's crypto API.
+> 
+> The above mentioned crypto features have been tested using kernel's
+> tests mentioned in testmgr.h. They also have been tested from user
+> space using libkcapi and Openssl.
+> 
+> Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-> This patchset introduce vlan tag support to the flower classifier and the flow
-> dissector. In addition to adding vlan priority to act vlan.
-> 
-> The first 2 patches are dealing with flow-dissector:
->  - The first patch is a fix, in case the vlan was already stripped from the
->    skb, take it from skb->vlan_tci.
->  - The second patch adds support for vlan priority.
-> 
-> The next 2 patches are dealing with flower:
->  - The first patch is a fix, sets flow dissector 'used_keys' according to the
->    mask value of each key.
->  - The secound patch adds vlan tag support to the flower classifier, user space
->    patches will be sent later to complete it.
-> 
-> The last patch adds vlan priority to act vlan since only vlan id is currently supported.
-> 
-> Changes from V1:
->  - A new patch was added to this series "net_sched: flower: Avoid dissection of unmasked keys"
->  - Adding u16 padding to struct flow_dissector_key_vlan
->  - change flow_label field in struct flow_dissector_key_tags form 20 bits field to u32
->  - Remove 'if (v->tcfv_push_prio)' check from tcf_vlan_dump function
->  - Add support to un-stripped vlan skb and skb with multipale vlans in __skb_flow_dissect
-
-Series applied, thanks.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
