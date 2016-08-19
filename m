@@ -1,79 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [RFC PATCH 0/5] Add eBPF hooks for cgroups
-Date: Fri, 19 Aug 2016 11:19:41 +0200
-Message-ID: <20160819091941.GA2113@salvia>
-References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 11/13] net: sched: pfifo_fast use alf_queue
+Date: Fri, 19 Aug 2016 12:13:03 +0200
+Message-ID: <20160819121303.50963024@redhat.com>
+References: <20160817193120.27032.20918.stgit@john-Precision-Tower-5810>
+        <20160817193810.27032.27544.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
-        netdev@vger.kernel.org
-To: Daniel Mack <daniel@zonque.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
+        alexei.starovoitov@gmail.com, eric.dumazet@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        davem@davemloft.net, brouer@redhat.com,
+        "Michael S. Tsirkin" <mst@redhat.com>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:46152 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752581AbcHSJ5j (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 05:57:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49782 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753988AbcHSKNJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 06:13:09 -0400
+In-Reply-To: <20160817193810.27032.27544.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+On Wed, 17 Aug 2016 12:38:10 -0700
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-On Wed, Aug 17, 2016 at 04:00:43PM +0200, Daniel Mack wrote:
-> I'd appreciate some feedback on this. Pablo has some remaining concerns
-> about this approach, and I'd like to continue the discussion we had
-> off-list in the light of this patchset.
+> This converts the pfifo_fast qdisc to use the alf_queue enqueue and
+                                                ^^^^^^^^^
+> dequeue routines then sets the NOLOCK bit.
+> 
+> This also removes the logic used to pick the next band to dequeue from
+> and instead just checks each alf_queue for packets from top priority
+                               ^^^^^^^^^
+> to lowest. This might need to be a bit more clever but seems to work
+> for now.
 
-OK, I'm going to summarize them here below:
+You need to fix the description, as you are no longer using my
+alf_queue implementation but instead are using the skb_array/ptr_ring
+queue (by MST).
 
-* This new hook allows us to enforce an *administrative filtering
-  policy* that must be visible to anyone with CAP_NET_ADMIN. This is
-  easy to display in nf_tables as you can list the ruleset via the nft
-  userspace tool. Otherwise, in your approach if a misconfigured
-  filtering policy causes connectivity problems, I don't see how the
-  sysadmin is going to have an easy way to troubleshoot what is going on.
-
-* Interaction with other software. As I could read from your patch,
-  what you propose will detach any previous existing filter. So I
-  don't see how you can attach multiple filtering policies from
-  different processes that don't cooperate each other. In nf_tables
-  this is easy since they can create their own tables so they keep their
-  ruleset in separate spaces. If the interaction is not OK, again the
-  sysadmin can very quickly debug this since the policies would be
-  visible via nf_tables ruleset listing.
-
-* During the Netfilter Workshop, the main concern to add this new socket
-  ingress hook was that it is too specific. However this new hook in
-  the network stack looks way more specific more specific since *it only
-  works for cgroups*.
-
-So what I'm proposing goes in the direction of using the nf_tables
-infrastructure instead:
-
-* Add a new socket family for nf_tables with an input hook at
-  sk_filter(). This just requires the new netfilter hook there and
-  the boiler plate code to allow creating tables for this new family.
-  And then we get access to many of the existing features in
-  nf_tables for free.
-
-* We can quickly find a verdict on the packet using using any combination
-  of selectors through concatenations and maps in nf_tables. In
-  nf_tables we can express the policy with a non-linear ruleset. On
-  top of this, by delaying the nf_reset() calls we can reach the
-  conntrack information from sk_filter(). That would be useful to skip
-  evaluating packets that belong to already established flows. Thus, we
-  incur the performance penalty in classifying only for the first
-  packet of the flow.
-
-* We can skip the socket egress hook (that you don't know where to place
-  yet) since you can use the existing local output hook in netfilter that
-  is available for IPv4 and IPv6.
-
-* This new hook would fit into the existing netfilter set of hooks,
-  the sysadmin is already familiarized with the administrative
-  infrastructure to define filtering policies in our stack, so adding this
-  new hook to what we have looks natural to me.
-
-Thanks for your patience on debating this!
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
