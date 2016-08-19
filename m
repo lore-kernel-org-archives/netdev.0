@@ -1,44 +1,33 @@
-From: Daniel Romell <danielromell@gmail.com>
-Subject: [PATCH] net: xilinx: emaclite: Fallback to random MAC address.
-Date: Fri, 19 Aug 2016 14:12:01 +0200
-Message-ID: <1471608721-26984-1-git-send-email-daro@hms.se>
-Cc: soren.brinkmann@xilinx.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mago@hms.se,
-        Daniel Romell <daro@hms.se>
-To: michal.simek@xilinx.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 0/2] sctp: not copying duplicate addrs to the assoc's bind address list
+Date: Fri, 19 Aug 2016 19:30:20 +0800
+Message-ID: <cover.1471605833.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36613 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750889AbcHSMTy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 08:19:54 -0400
+Received: by mail-pf0-f196.google.com with SMTP id y134so1419352pfg.3
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 05:19:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the address configured in the device tree is invalid, the
-driver will fallback to using a random address from the locally
-administered range.
+Patch 1/2 is to fix some indent level.
 
-Signed-off-by: Daniel Romell <daro@hms.se>
----
- drivers/net/ethernet/xilinx/xilinx_emaclite.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+Given that we have kernels out there with this issue, patch 2/2 also
+fix sctp_raw_to_bind_addrs.
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 3cee84a..93dc10b 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -1131,11 +1131,13 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
- 	lp->rx_ping_pong = get_bool(ofdev, "xlnx,rx-ping-pong");
- 	mac_address = of_get_mac_address(ofdev->dev.of_node);
- 
--	if (mac_address)
-+	if (mac_address) {
- 		/* Set the MAC address. */
- 		memcpy(ndev->dev_addr, mac_address, ETH_ALEN);
--	else
--		dev_warn(dev, "No MAC address found\n");
-+	} else {
-+		dev_warn(dev, "No MAC address found, using random\n");
-+		eth_hw_addr_random(ndev);
-+	}
- 
- 	/* Clear the Tx CSR's in case this is a restart */
- 	__raw_writel(0, lp->base_addr + XEL_TSR_OFFSET);
+Xin Long (2):
+  sctp: reduce indent level in sctp_copy_local_addr_list
+  sctp: not copying duplicate addrs to the assoc's bind address list
+
+ net/sctp/bind_addr.c |  3 +++
+ net/sctp/protocol.c  | 40 ++++++++++++++++++++++------------------
+ 2 files changed, 25 insertions(+), 18 deletions(-)
+
 -- 
-2.7.4
+2.1.0
