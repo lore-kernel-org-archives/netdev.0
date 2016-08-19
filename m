@@ -1,78 +1,125 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 3/6] bpf: perf_event progs should only use preallocated maps
-Date: Wed, 31 Aug 2016 14:50:40 -0700
-Message-ID: <1472680243-1326608-4-git-send-email-ast@fb.com>
-References: <1472680243-1326608-1-git-send-email-ast@fb.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next PATCH] ethtool: Add support for SCTP verification tag in
+ Rx NFC
+Date: Fri, 19 Aug 2016 14:32:29 -0700
+Message-ID: <147164234934.15412.10180837031828143039.stgit@ahduyck-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Brendan Gregg <bgregg@netflix.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>,
-        Wang Nan <wangnan0@huawei.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472680243-1326608-1-git-send-email-ast@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:56615 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754947AbcHSVhz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 17:37:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make sure that BPF_PROG_TYPE_PERF_EVENT programs only use
-preallocated hash maps, since doing memory allocation
-in overflow_handler can crash depending on where nmi got triggered.
+The i40e hardware has support for SCTP filtering via Rx NFC however the
+default configuration expects us to include the verification tag as a part
+of the filter.  In order to support that I need to be able to transfer that
+data through the ethtool interface via a new structure.
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+This patch adds a new structure to allow us to pass the verification tag
+for IPv4 or IPv6 SCTP traffic.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- kernel/bpf/verifier.c | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ include/uapi/linux/ethtool.h |   50 +++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 46 insertions(+), 4 deletions(-)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index c1c9e441f0f5..48c2705db22c 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2511,6 +2511,20 @@ process_bpf_exit:
- 	return 0;
- }
- 
-+static int check_map_prog_compatibility(struct bpf_map *map,
-+					struct bpf_prog *prog)
-+
-+{
-+	if (prog->type == BPF_PROG_TYPE_PERF_EVENT &&
-+	    (map->map_type == BPF_MAP_TYPE_HASH ||
-+	     map->map_type == BPF_MAP_TYPE_PERCPU_HASH) &&
-+	    (map->map_flags & BPF_F_NO_PREALLOC)) {
-+		verbose("perf_event programs can only use preallocated hash map\n");
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
- /* look for pseudo eBPF instructions that access map FDs and
-  * replace them with actual map pointers
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index b8f38e8..12ba8ac 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -708,7 +708,7 @@ enum ethtool_flags {
+  * @pdst: Destination port
+  * @tos: Type-of-service
+  *
+- * This can be used to specify a TCP/IPv4, UDP/IPv4 or SCTP/IPv4 flow.
++ * This can be used to specify a TCP/IPv4 or UDP/IPv4 flow.
   */
-@@ -2518,7 +2532,7 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
- {
- 	struct bpf_insn *insn = env->prog->insnsi;
- 	int insn_cnt = env->prog->len;
--	int i, j;
-+	int i, j, err;
+ struct ethtool_tcpip4_spec {
+ 	__be32	ip4src;
+@@ -719,6 +719,27 @@ struct ethtool_tcpip4_spec {
+ };
  
- 	for (i = 0; i < insn_cnt; i++, insn++) {
- 		if (BPF_CLASS(insn->code) == BPF_LDX &&
-@@ -2562,6 +2576,12 @@ static int replace_map_fd_with_map_ptr(struct verifier_env *env)
- 				return PTR_ERR(map);
- 			}
- 
-+			err = check_map_prog_compatibility(map, env->prog);
-+			if (err) {
-+				fdput(f);
-+				return err;
-+			}
+ /**
++ * struct ethtool_sctpip4_spec - flow specification for SCTP/IPv4
++ * @ip4src: Source host
++ * @ip4dst: Destination host
++ * @psrc: Source port
++ * @pdst: Destination port
++ * @tos: Type-of-service
++ * @vtag: Verification tag
++ *
++ * This can be used to specify a SCTP/IPv4 flow.
++ */
++struct ethtool_sctpip4_spec {
++	__be32	ip4src;
++	__be32	ip4dst;
++	__be16	psrc;
++	__be16	pdst;
++	__u8    tos;
++	/* 3 byte hole */
++	__be32	vtag;
++};
 +
- 			/* store map pointer inside BPF_LD_IMM64 instruction */
- 			insn[0].imm = (u32) (unsigned long) map;
- 			insn[1].imm = ((u64) (unsigned long) map) >> 32;
--- 
-2.8.0
++/**
+  * struct ethtool_ah_espip4_spec - flow specification for IPsec/IPv4
+  * @ip4src: Source host
+  * @ip4dst: Destination host
+@@ -762,7 +783,7 @@ struct ethtool_usrip4_spec {
+  * @pdst: Destination port
+  * @tclass: Traffic Class
+  *
+- * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
++ * This can be used to specify a TCP/IPv6 or UDP/IPv6 flow.
+  */
+ struct ethtool_tcpip6_spec {
+ 	__be32	ip6src[4];
+@@ -773,6 +794,27 @@ struct ethtool_tcpip6_spec {
+ };
+ 
+ /**
++ * struct ethtool_sctpip6_spec - flow specification for SCTP/IPv6
++ * @ip6src: Source host
++ * @ip6dst: Destination host
++ * @psrc: Source port
++ * @pdst: Destination port
++ * @tclass: Traffic Class
++ * @vtag: Verification tag
++ *
++ * This can be used to specify a SCTP/IPv6 flow.
++ */
++struct ethtool_sctpip6_spec {
++	__be32	ip6src[4];
++	__be32	ip6dst[4];
++	__be16	psrc;
++	__be16	pdst;
++	__u8    tclass;
++	/* 3 byte hole */
++	__be32	vtag;
++};
++
++/**
+  * struct ethtool_ah_espip6_spec - flow specification for IPsec/IPv6
+  * @ip6src: Source host
+  * @ip6dst: Destination host
+@@ -807,13 +849,13 @@ struct ethtool_usrip6_spec {
+ union ethtool_flow_union {
+ 	struct ethtool_tcpip4_spec		tcp_ip4_spec;
+ 	struct ethtool_tcpip4_spec		udp_ip4_spec;
+-	struct ethtool_tcpip4_spec		sctp_ip4_spec;
++	struct ethtool_sctpip4_spec		sctp_ip4_spec;
+ 	struct ethtool_ah_espip4_spec		ah_ip4_spec;
+ 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
+ 	struct ethtool_usrip4_spec		usr_ip4_spec;
+ 	struct ethtool_tcpip6_spec		tcp_ip6_spec;
+ 	struct ethtool_tcpip6_spec		udp_ip6_spec;
+-	struct ethtool_tcpip6_spec		sctp_ip6_spec;
++	struct ethtool_sctpip6_spec		sctp_ip6_spec;
+ 	struct ethtool_ah_espip6_spec		ah_ip6_spec;
+ 	struct ethtool_ah_espip6_spec		esp_ip6_spec;
+ 	struct ethtool_usrip6_spec		usr_ip6_spec;
