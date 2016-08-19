@@ -1,81 +1,33 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: RE: [PATCH] gianfar: prevent fragmentation in DSA environments
-Date: Fri, 19 Aug 2016 15:49:17 +0000
-Message-ID: <AM5PR0401MB2561CB4CA30BC13EBFFAD43796160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
-References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
- <20160819145900.GD7343@lunn.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/3] rhashtable: Remove GFP flag from rhashtable_walk_init
+Date: Fri, 19 Aug 2016 18:25:04 +0200
+Message-ID: <20160819162504.GA29430@pox.localdomain>
+References: <20160818084854.GA11502@gondor.apana.org.au>
+ <E1baJ2O-00030u-FE@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0073.outbound.protection.outlook.com ([104.47.2.73]:47018
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932268AbcHSQWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 Aug 2016 12:22:32 -0400
-In-Reply-To: <20160819145900.GD7343@lunn.ch>
-Content-Language: en-US
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:38441 "EHLO
+        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752088AbcHSQZ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 12:25:26 -0400
+Received: by mail-wm0-f54.google.com with SMTP id o80so48640654wme.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 09:25:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <E1baJ2O-00030u-FE@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Andrew Lunn [mailto:andrew@lunn.ch]
->Sent: Friday, August 19, 2016 5:59 PM
->To: Zefir Kurtisi <zefir.kurtisi@neratec.com>
->Cc: netdev@vger.kernel.org; claudiu.manoil@freescale.com
->Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
->
->On Fri, Aug 19, 2016 at 11:16:14AM +0200, Zefir Kurtisi wrote:
->> The eTSEC register MRBLR defines the maximum space in
->> the RX buffers and is set to 1536 by gianfar. This
->> reasonably covers the common use case where the MTU
->> is kept at default 1500.
->>
->> Alas, if the eTSEC is attached to a DSA enabled switch,
->> the DSA header extension causes every maximum sized
->> frame to be fragmented by the hardware (1536 + 4).
->>
->> This patch increases the maximum RX buffer size by
->> RBUF_ALIGNMENT (64) octets. Since the driver uses a
->> half-page memory schema, this change does not
->> increase allocated memory but allows the hardware to
->> use 1600 bytes of the totally available 2048.
->>
->> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
->> ---
->>  drivers/net/ethernet/freescale/gianfar.h | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/gianfar.h
->b/drivers/net/ethernet/freescale/gianfar.h
->> index 373fd09..02b794b 100644
->> --- a/drivers/net/ethernet/freescale/gianfar.h
->> +++ b/drivers/net/ethernet/freescale/gianfar.h
->> @@ -100,7 +100,8 @@ extern const char gfar_driver_version[];
->>  #define DEFAULT_RX_LFC_THR  16
->>  #define DEFAULT_LFC_PTVVAL  4
->>
->> -#define GFAR_RXB_SIZE 1536
->> +/* prevent fragmenation by HW in DSA environments */
->> +#define GFAR_RXB_SIZE (1536 + RXBUF_ALIGNMENT)
->
->Hi Zefir
->
->Using RXBUF_ALIGNMENT suggests this has something to do with
->alignment, not extra headers.
->
->How about
->
->/* Prevent fragmenation by HW when using extra headers like DSA */
->#define GFAR_RXB_SIZE (1536 + 8)
->
+On 08/18/16 at 04:50pm, Herbert Xu wrote:
+> +/* Obsolete function, do not use in new code. */
+> +static inline int rhashtable_walk_init(struct rhashtable *ht,
+> +				       struct rhashtable_iter *iter, gfp_t gfp)
+> +{
+> +	rhashtable_walk_enter(ht, iter);
+> +	return 0;
+> +}
 
-MRBL (Maximum receive buffer length) must be multiple of 64.
-Please consult de hardware documentation at least before prosing
-changes to the driver.
-
-Claudiu
+Converting the 5 users of rhashtable_walk_init() looks very straight
+forward, any reason to keep this around?
