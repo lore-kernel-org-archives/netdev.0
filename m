@@ -1,40 +1,91 @@
-From: Cristian Morales Vega <christian.morales.vega@gmail.com>
-Subject: [Feature Request] IP_BIND_ADDRESS_NO_PORT with port
-Date: Fri, 19 Aug 2016 23:41:04 +0300
-Message-ID: <CAOWQn3S-wRip9ULjYvkdY-6Nb4+sT2bHXBMsN_B-0dXj-ZgkwA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/2] ipv6: save route expiry in RTA_EXPIRES if
+ RTF_EXPIRES set
+Date: Fri, 19 Aug 2016 13:26:16 -0700
+Message-ID: <1471638376.29842.113.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
+         <cover.1471622715.git.ayourtch@gmail.com>
+         <d9679ca53d5162eaa88ac5050410e1b4fb3c2874.1471622715.git.ayourtch@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrew Yourtchenko <ayourtch@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36519 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754893AbcHSUlG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 16:41:06 -0400
-Received: by mail-io0-f194.google.com with SMTP id y34so5396021ioi.3
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 13:41:06 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:36360 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755201AbcHSUlT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 16:41:19 -0400
+Received: by mail-pa0-f66.google.com with SMTP id ez1so3884777pab.3
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 13:41:19 -0700 (PDT)
+In-Reply-To: <d9679ca53d5162eaa88ac5050410e1b4fb3c2874.1471622715.git.ayourtch@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I would like a socket option that let's me share a source port as long
-as the 4-tuples are unique in a UDP socket *and* specify which source
-port that is.
-It would be similar to IP_BIND_ADDRESS_NO_PORT. It would do exactly
-the same when you bind to port 0, but when you bind to a different
-port it would say "don't do anything with this port yet, but when I
-connect() please use the port as source port instead of a random
-ephemeral port".
+On Fri, 2016-08-19 at 18:41 +0200, Andrew Yourtchenko wrote:
+> This allows "ip -6 route save" to save the expiry for the routes
+> that have it, such that it can be correctly restored later by
+> "ip -6 route restore".
+> 
+> If a route has RTF_EXPIRES set, generate RTA_EXPIRES value which
+> will be used to restore the flag and expiry value by already
+> existing code in rtm_to_fib6_config.
+> 
+> The expiry was already being saved as part of RTA_CACHEINFO
+> in rtnl_put_cacheinfo(), but adding code to generate RTF_EXPIRES upon save
+> looked more appropriate than redundant cherrypicking from
+> RTA_CACHEINFO upon restore.
+> 
+> Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
+> ---
+> Changes since v1 [1]: 
+>  * fixed the indentation in a multiline function call
+>    as per David Miller's review
+> 
+> [1] v1: http://marc.info/?l=linux-netdev&m=147135597422280&w=2
+> 
+>  net/ipv6/route.c | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 4981755..f5b987d 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -3244,6 +3244,14 @@ static int rt6_fill_node(struct net *net,
+>  	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, rt->dst.error) < 0)
+>  		goto nla_put_failure;
+>  
+> +	/* Can't rely on expires == 0. It is zero if no expires flag,
+> +	 * or if the timing is precisely at expiry. So, recheck the flag.
+> +	 */
+> +	if (rt->rt6i_flags & RTF_EXPIRES)
+> +		if (nla_put_u32(skb, RTA_EXPIRES,
+> +				expires > 0 ? expires / HZ : 0))
+> +			goto nla_put_failure;
+> +
 
-The reason is the following. I would like to have a server receiving
-and sending UDP datagrams from multiple clients using a single port. I
-would like to use multiple sockets for sending, so I can use different
-SO_MAX_PACING_RATEs for each one. One socket per client/session.
-So there is a single "main socket" bind to the relevant port
-(equivalent to the one that accept()s in TCP), and when it receives a
-new session request it creates a new socket specific for that season
-(as accept() does). When creating that new socket I first need to
-bind() it to select the port, and then connect() it to make it receive
-only datagrams from the relevant session.
-The problem is that between the bind() and the connect() there is a
-small time in which the new socket can receive data that should go to
-the "main socket". It's not an unsolvable problem but makes the server
-code more complicated than it needs to be.
+Why sending (kernel -> user) the value in second units, while the other
+direction (user -> kernel) expects hz ?
+
+iproute2$ git grep -n RTA_EXPIRES
+include/linux/rtnetlink.h:389:  RTA_EXPIRES,
+ip/iproute.c:930:                       addattr32(&req.n, sizeof(req), RTA_EXPIRES, expires*hz);
+
+kernel patch : (32bc201e1974976b7d3fea9a9b17bb7392ca6394)
+
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+
+@@ -2809,6 +2810,15 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+        if (tb[RTA_ENCAP_TYPE])
+                cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
+ 
++       if (tb[RTA_EXPIRES]) {
++               unsigned long timeout = addrconf_timeout_fixup(nla_get_u32(tb[RTA_EXPIRES]), HZ);
++
++               if (addrconf_finite_timeout(timeout)) {
++                       cfg->fc_expires = jiffies_to_clock_t(timeout * HZ);
++                       cfg->fc_flags |= RTF_EXPIRES;
++               }
++       }
++
