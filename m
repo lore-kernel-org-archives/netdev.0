@@ -1,125 +1,79 @@
-From: fgao@ikuai8.com
-Subject: [PATCH v1 1/1] l2tp: Use existing macros instead of literal number
-Date: Fri, 19 Aug 2016 17:55:26 +0800
-Message-ID: <1471600526-22584-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: jchapman@katalix.com, davem@davemloft.net, g.nault@alphalink.fr,
-        philipp@redfish-solutions.com, netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [RFC PATCH 0/5] Add eBPF hooks for cgroups
+Date: Fri, 19 Aug 2016 11:19:41 +0200
+Message-ID: <20160819091941.GA2113@salvia>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG132.QQ.COM ([113.108.23.42]:55510 "EHLO smtpbg132.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752067AbcHSJ5V (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 Aug 2016 05:57:21 -0400
+Received: from ganesha.gnumonks.org ([213.95.27.120]:46152 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752581AbcHSJ5j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 05:57:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1471442448-1248-1-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+Hi Daniel,
 
-1. Use PPP_ALLSTATIONS/PPP_UI instead of literal 0xff/0x03;
-2. Use one static const global fixed_ppphdr instead of two same
-static variable ppph in two different functions;
-3. Use SEND_SHUTDOWN instead of literal 2;
+On Wed, Aug 17, 2016 at 04:00:43PM +0200, Daniel Mack wrote:
+> I'd appreciate some feedback on this. Pablo has some remaining concerns
+> about this approach, and I'd like to continue the discussion we had
+> off-list in the light of this patchset.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v1: Initial patch
+OK, I'm going to summarize them here below:
 
- net/l2tp/l2tp_ppp.c | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
+* This new hook allows us to enforce an *administrative filtering
+  policy* that must be visible to anyone with CAP_NET_ADMIN. This is
+  easy to display in nf_tables as you can list the ruleset via the nft
+  userspace tool. Otherwise, in your approach if a misconfigured
+  filtering policy causes connectivity problems, I don't see how the
+  sysadmin is going to have an easy way to troubleshoot what is going on.
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index d9560aa..0e69eb4 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -138,6 +138,8 @@ static const struct ppp_channel_ops pppol2tp_chan_ops = {
- 
- static const struct proto_ops pppol2tp_ops;
- 
-+static const unsigned char fixed_ppphdr[2] = {PPP_ALLSTATIONS, PPP_UI};
-+
- /* Helpers to obtain tunnel/session contexts from sockets.
-  */
- static inline struct l2tp_session *pppol2tp_sock_to_session(struct sock *sk)
-@@ -174,11 +176,11 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
- 	 * Note that skb->data[] isn't dereferenced from a u16 ptr here since
- 	 * the field may be unaligned.
- 	 */
--	if (!pskb_may_pull(skb, 2))
-+	if (!pskb_may_pull(skb, sizeof(fixed_ppphdr)))
- 		return 1;
- 
--	if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
--		skb_pull(skb, 2);
-+	if ((PPP_ADDRESS(skb->data) == PPP_ALLSTATIONS) && (PPP_CONTROL(skb->data) == PPP_UI))
-+		skb_pull(skb, sizeof(fixed_ppphdr));
- 
- 	return 0;
- }
-@@ -282,7 +284,6 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
- static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
- 			    size_t total_len)
- {
--	static const unsigned char ppph[2] = { 0xff, 0x03 };
- 	struct sock *sk = sock->sk;
- 	struct sk_buff *skb;
- 	int error;
-@@ -312,7 +313,7 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
- 	error = -ENOMEM;
- 	skb = sock_wmalloc(sk, NET_SKB_PAD + sizeof(struct iphdr) +
- 			   uhlen + session->hdr_len +
--			   sizeof(ppph) + total_len,
-+			   sizeof(fixed_ppphdr) + total_len,
- 			   0, GFP_KERNEL);
- 	if (!skb)
- 		goto error_put_sess_tun;
-@@ -325,9 +326,9 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
- 	skb_reserve(skb, uhlen);
- 
- 	/* Add PPP header */
--	skb->data[0] = ppph[0];
--	skb->data[1] = ppph[1];
--	skb_put(skb, 2);
-+	PPP_ADDRESS(skb->data) = fixed_ppphdr[0];
-+	PPP_CONTROL(skb->data) = fixed_ppphdr[1];
-+	skb_put(skb, sizeof(fixed_ppphdr));
- 
- 	/* Copy user data into skb */
- 	error = memcpy_from_msg(skb_put(skb, total_len), m, total_len);
-@@ -369,7 +370,6 @@ error:
-  */
- static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- {
--	static const u8 ppph[2] = { 0xff, 0x03 };
- 	struct sock *sk = (struct sock *) chan->private;
- 	struct sock *sk_tun;
- 	struct l2tp_session *session;
-@@ -398,14 +398,14 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 		   sizeof(struct iphdr) + /* IP header */
- 		   uhlen +		/* UDP header (if L2TP_ENCAPTYPE_UDP) */
- 		   session->hdr_len +	/* L2TP header */
--		   sizeof(ppph);	/* PPP header */
-+		   sizeof(fixed_ppphdr); /* PPP header */
- 	if (skb_cow_head(skb, headroom))
- 		goto abort_put_sess_tun;
- 
- 	/* Setup PPP header */
--	__skb_push(skb, sizeof(ppph));
--	skb->data[0] = ppph[0];
--	skb->data[1] = ppph[1];
-+	__skb_push(skb, sizeof(fixed_ppphdr));
-+	skb->data[0] = fixed_ppphdr[0];
-+	skb->data[1] = fixed_ppphdr[1];
- 
- 	local_bh_disable();
- 	l2tp_xmit_skb(session, skb, session->hdr_len);
-@@ -440,7 +440,7 @@ static void pppol2tp_session_close(struct l2tp_session *session)
- 	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
- 
- 	if (sock) {
--		inet_shutdown(sock, 2);
-+		inet_shutdown(sock, SEND_SHUTDOWN);
- 		/* Don't let the session go away before our socket does */
- 		l2tp_session_inc_refcount(session);
- 	}
--- 
-1.9.1
+* Interaction with other software. As I could read from your patch,
+  what you propose will detach any previous existing filter. So I
+  don't see how you can attach multiple filtering policies from
+  different processes that don't cooperate each other. In nf_tables
+  this is easy since they can create their own tables so they keep their
+  ruleset in separate spaces. If the interaction is not OK, again the
+  sysadmin can very quickly debug this since the policies would be
+  visible via nf_tables ruleset listing.
+
+* During the Netfilter Workshop, the main concern to add this new socket
+  ingress hook was that it is too specific. However this new hook in
+  the network stack looks way more specific more specific since *it only
+  works for cgroups*.
+
+So what I'm proposing goes in the direction of using the nf_tables
+infrastructure instead:
+
+* Add a new socket family for nf_tables with an input hook at
+  sk_filter(). This just requires the new netfilter hook there and
+  the boiler plate code to allow creating tables for this new family.
+  And then we get access to many of the existing features in
+  nf_tables for free.
+
+* We can quickly find a verdict on the packet using using any combination
+  of selectors through concatenations and maps in nf_tables. In
+  nf_tables we can express the policy with a non-linear ruleset. On
+  top of this, by delaying the nf_reset() calls we can reach the
+  conntrack information from sk_filter(). That would be useful to skip
+  evaluating packets that belong to already established flows. Thus, we
+  incur the performance penalty in classifying only for the first
+  packet of the flow.
+
+* We can skip the socket egress hook (that you don't know where to place
+  yet) since you can use the existing local output hook in netfilter that
+  is available for IPv4 and IPv6.
+
+* This new hook would fit into the existing netfilter set of hooks,
+  the sysadmin is already familiarized with the administrative
+  infrastructure to define filtering policies in our stack, so adding this
+  new hook to what we have looks natural to me.
+
+Thanks for your patience on debating this!
