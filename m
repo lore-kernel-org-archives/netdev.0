@@ -1,135 +1,60 @@
-From: Greg <gvrose8192@gmail.com>
-Subject: Re: [net-next PATCH] ethtool: Add support for SCTP verification tag
- in Rx NFC
-Date: Fri, 19 Aug 2016 15:05:20 -0700
-Message-ID: <1471644320.3338.0.camel@gmail.com>
-References: <147164234934.15412.10180837031828143039.stgit@ahduyck-desk.amr.corp.intel.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
+Date: Fri, 19 Aug 2016 23:45:03 +0200
+Message-ID: <20160819214503.GC14068@lunn.ch>
+References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
+ <20160819145900.GD7343@lunn.ch>
+ <AM5PR0401MB2561CB4CA30BC13EBFFAD43796160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+ <20160819163944.GF22939@lunn.ch>
+ <AM5PR0401MB25618716FACFE3DA3A21D5F696160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
+To: Claudiu Manoil <claudiu.manoil@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35192 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755372AbcHSWFW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 18:05:22 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h186so2017228pfg.2
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 15:05:22 -0700 (PDT)
-In-Reply-To: <147164234934.15412.10180837031828143039.stgit@ahduyck-desk.amr.corp.intel.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:39435 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754127AbcHSWXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 18:23:51 -0400
+Content-Disposition: inline
+In-Reply-To: <AM5PR0401MB25618716FACFE3DA3A21D5F696160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-08-19 at 14:32 -0700, Alexander Duyck wrote:
-> The i40e hardware has support for SCTP filtering via Rx NFC however the
-> default configuration expects us to include the verification tag as a part
-> of the filter.  In order to support that I need to be able to transfer that
-> data through the ethtool interface via a new structure.
-> 
-> This patch adds a new structure to allow us to pass the verification tag
-> for IPv4 or IPv6 SCTP traffic.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
->  include/uapi/linux/ethtool.h |   50 +++++++++++++++++++++++++++++++++++++++---
->  1 file changed, 46 insertions(+), 4 deletions(-)
-> 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index b8f38e8..12ba8ac 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -708,7 +708,7 @@ enum ethtool_flags {
->   * @pdst: Destination port
->   * @tos: Type-of-service
->   *
-> - * This can be used to specify a TCP/IPv4, UDP/IPv4 or SCTP/IPv4 flow.
-> + * This can be used to specify a TCP/IPv4 or UDP/IPv4 flow.
->   */
->  struct ethtool_tcpip4_spec {
->  	__be32	ip4src;
-> @@ -719,6 +719,27 @@ struct ethtool_tcpip4_spec {
->  };
->  
->  /**
-> + * struct ethtool_sctpip4_spec - flow specification for SCTP/IPv4
-> + * @ip4src: Source host
-> + * @ip4dst: Destination host
-> + * @psrc: Source port
-> + * @pdst: Destination port
-> + * @tos: Type-of-service
-> + * @vtag: Verification tag
-> + *
-> + * This can be used to specify a SCTP/IPv4 flow.
-> + */
-> +struct ethtool_sctpip4_spec {
-> +	__be32	ip4src;
-> +	__be32	ip4dst;
-> +	__be16	psrc;
-> +	__be16	pdst;
-> +	__u8    tos;
-> +	/* 3 byte hole */
-> +	__be32	vtag;
-> +};
-> +
-> +/**
->   * struct ethtool_ah_espip4_spec - flow specification for IPsec/IPv4
->   * @ip4src: Source host
->   * @ip4dst: Destination host
-> @@ -762,7 +783,7 @@ struct ethtool_usrip4_spec {
->   * @pdst: Destination port
->   * @tclass: Traffic Class
->   *
-> - * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
-> + * This can be used to specify a TCP/IPv6 or UDP/IPv6 flow.
->   */
->  struct ethtool_tcpip6_spec {
->  	__be32	ip6src[4];
-> @@ -773,6 +794,27 @@ struct ethtool_tcpip6_spec {
->  };
->  
->  /**
-> + * struct ethtool_sctpip6_spec - flow specification for SCTP/IPv6
-> + * @ip6src: Source host
-> + * @ip6dst: Destination host
-> + * @psrc: Source port
-> + * @pdst: Destination port
-> + * @tclass: Traffic Class
-> + * @vtag: Verification tag
-> + *
-> + * This can be used to specify a SCTP/IPv6 flow.
-> + */
-> +struct ethtool_sctpip6_spec {
-> +	__be32	ip6src[4];
-> +	__be32	ip6dst[4];
-> +	__be16	psrc;
-> +	__be16	pdst;
-> +	__u8    tclass;
-> +	/* 3 byte hole */
-> +	__be32	vtag;
-> +};
-> +
-> +/**
->   * struct ethtool_ah_espip6_spec - flow specification for IPsec/IPv6
->   * @ip6src: Source host
->   * @ip6dst: Destination host
-> @@ -807,13 +849,13 @@ struct ethtool_usrip6_spec {
->  union ethtool_flow_union {
->  	struct ethtool_tcpip4_spec		tcp_ip4_spec;
->  	struct ethtool_tcpip4_spec		udp_ip4_spec;
-> -	struct ethtool_tcpip4_spec		sctp_ip4_spec;
-> +	struct ethtool_sctpip4_spec		sctp_ip4_spec;
->  	struct ethtool_ah_espip4_spec		ah_ip4_spec;
->  	struct ethtool_ah_espip4_spec		esp_ip4_spec;
->  	struct ethtool_usrip4_spec		usr_ip4_spec;
->  	struct ethtool_tcpip6_spec		tcp_ip6_spec;
->  	struct ethtool_tcpip6_spec		udp_ip6_spec;
-> -	struct ethtool_tcpip6_spec		sctp_ip6_spec;
-> +	struct ethtool_sctpip6_spec		sctp_ip6_spec;
->  	struct ethtool_ah_espip6_spec		ah_ip6_spec;
->  	struct ethtool_ah_espip6_spec		esp_ip6_spec;
->  	struct ethtool_usrip6_spec		usr_ip6_spec;
-> 
+> Nice improvement.
 
-Looks good to me.
+Thanks
 
-Reviewed-by: Greg Rose <grose@lightfleet.com>
+> But what's so special about 8?
+
+When talking to Marvell Switch chips, there are two different headers
+which can be added. The DSA header is 4 bytes, and the EDSA header is
+8 bytes. However, if there is already a VLAN header, when using EDSA,
+it will replace the VLAN header, so only need 4 additional bytes.
+There are some very old Marvell switches which add a 4 byte
+trailer. If you are talking to a Broadcom switch chip, it also has a 4
+byte header.
+
+> I thought only 4 bytes were missing :)
+
+So the requirement is probably not currently for the newer Marvell
+switch chips? But we should be looking forward and expect at some
+point somebody wants to use the newer chips. I've got a Freescale
+Vybrid board using the modern Marvell chips, but the FEC driver does
+not have a such a hard limit as this driver.
+
+However, it does not seem as simple as that. A standard Ethernet frame
+should have a maximum size of 1522 when including a VLAN header. Yet
+the driver appears to be using 1536, which is this rounded up to
+multiples of 64. So there is already 14 spare bytes in there. So there
+must be something else going on here.
+
+> At least 1536 is the default size of the MRBLR register, as specified
+> in the h/w ref manual.  Is there some recommended standard size
+> to accommodate most (if not all) headers, to refer to?
+
+Not that i know of. These switch headers are proprietary.
+
+    Andrew
