@@ -1,159 +1,56 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Fri, 19 Aug 2016 10:09:01 -0700
-Message-ID: <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
-        ebiederm@xmission.com, rshearma@brocade.com, tom@herbertland.com,
-        tgraf@suug.ch, olivier.dugeon@orange.com,
-        alexander.duyck@gmail.com, roopa@cumulusnetworks.com,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
+Date: Fri, 19 Aug 2016 18:39:44 +0200
+Message-ID: <20160819163944.GF22939@lunn.ch>
+References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
+ <20160819145900.GD7343@lunn.ch>
+ <AM5PR0401MB2561CB4CA30BC13EBFFAD43796160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
+To: Claudiu Manoil <claudiu.manoil@nxp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36774 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754083AbcHSRRt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 13:17:49 -0400
-Received: by mail-pf0-f181.google.com with SMTP id h186so11207304pfg.3
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 10:17:13 -0700 (PDT)
-In-Reply-To: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:39249 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754215AbcHSRYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 19 Aug 2016 13:24:30 -0400
+Content-Disposition: inline
+In-Reply-To: <AM5PR0401MB2561CB4CA30BC13EBFFAD43796160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As reported by Lennert the MPLS GSO code is failing to properly segment
-large packets. There are a couple of problems:
+> >> -#define GFAR_RXB_SIZE 1536
+> >> +/* prevent fragmenation by HW in DSA environments */
+> >> +#define GFAR_RXB_SIZE (1536 + RXBUF_ALIGNMENT)
+> >
+> >Hi Zefir
+> >
+> >Using RXBUF_ALIGNMENT suggests this has something to do with
+> >alignment, not extra headers.
+> >
+> >How about
+> >
+> >/* Prevent fragmenation by HW when using extra headers like DSA */
+> >#define GFAR_RXB_SIZE (1536 + 8)
+> >
+> 
+> MRBL (Maximum receive buffer length) must be multiple of 64.
+> Please consult de hardware documentation at least before prosing
+> changes to the driver.
+ 
+Hi Claudiu
 
-1. the inner protocol is not set so the gso segment functions for inner
-   protocol layers are not getting run, and
+Thanks for pointing this out. This makes RXBUF_ALIGNMENT even worse
+for understabability, since you say multiples of 64 is important, not
+alignment.
 
-2  MPLS labels for packets that use the "native" (non-OVS) MPLS code
-   are not properly accounted for in mpls_gso_segment.
+How about
 
-The MPLS GSO code was added for OVS. It is re-using skb_mac_gso_segment
-to call the gso segment functions for the higher layer protocols. That
-means skb_mac_gso_segment is called twice -- once with the network
-protocol set to MPLS and again with the network protocol set to the
-inner protocol.
+/* Prevent fragmentation by HW when using extra headers like DSA,
+while respecting the multiple of 64 requirement. */
 
-This patch sets the inner skb protocol addressing item 1 above and sets
-the network_header and inner_network_header to mark where the MPLS labels
-start and end. The MPLS code in OVS is also updated to set the two
-network markers.
+#define GFAR_RXB_SIZE roundup(1536 + 8, 64)
 
->From there the MPLS GSO code uses the difference between the network
-header and the inner network header to know the size of the MPLS header
-that was pushed. It then pulls the MPLS header, resets the mac_len and
-protocol for the inner protocol and then calls skb_mac_gso_segment
-to segment the skb.
-
-Afterward the inner protocol segmentation is done the skb protocol
-is set to mpls for each segment and the network and mac headers
-restored.
-
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/mpls/mpls_gso.c       | 38 +++++++++++++++++++++++++++-----------
- net/mpls/mpls_iptunnel.c  |  4 ++++
- net/openvswitch/actions.c |  6 ++++++
- 3 files changed, 37 insertions(+), 11 deletions(-)
-
-diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
-index 2055e57ed1c3..2aa4beaa0e4f 100644
---- a/net/mpls/mpls_gso.c
-+++ b/net/mpls/mpls_gso.c
-@@ -23,32 +23,48 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
- 				       netdev_features_t features)
- {
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	u16 mac_offset = skb->mac_header;
- 	netdev_features_t mpls_features;
-+	u16 mac_len = skb->mac_len;
- 	__be16 mpls_protocol;
-+	int mpls_hlen;
-+
-+	skb_reset_network_header(skb);
-+	mpls_hlen = skb_inner_network_header(skb) - skb_network_header(skb);
-+	if (unlikely(!pskb_may_pull(skb, mpls_hlen)))
-+		goto out;
- 
- 	/* Setup inner SKB. */
- 	mpls_protocol = skb->protocol;
- 	skb->protocol = skb->inner_protocol;
- 
--	/* Push back the mac header that skb_mac_gso_segment() has pulled.
--	 * It will be re-pulled by the call to skb_mac_gso_segment() below
--	 */
--	__skb_push(skb, skb->mac_len);
-+	__skb_pull(skb, mpls_hlen);
-+
-+	skb->mac_len = 0;
-+	skb_reset_mac_header(skb);
-+	skb_set_network_header(skb, skb_inner_network_offset(skb));
- 
- 	/* Segment inner packet. */
- 	mpls_features = skb->dev->mpls_features & features;
- 	segs = skb_mac_gso_segment(skb, mpls_features);
-+	if (IS_ERR_OR_NULL(segs)) {
-+		skb_gso_error_unwind(skb, mpls_protocol, mpls_hlen, mac_offset,
-+				     mac_len);
-+		goto out;
-+	}
- 
-+	skb = segs;
-+	do {
-+		skb->mac_len = mac_len;
-+		skb->protocol = mpls_protocol;
- 
--	/* Restore outer protocol. */
--	skb->protocol = mpls_protocol;
-+		__skb_push(skb, mpls_hlen + mac_len);
- 
--	/* Re-pull the mac header that the call to skb_mac_gso_segment()
--	 * above pulled.  It will be re-pushed after returning
--	 * skb_mac_gso_segment(), an indirect caller of this function.
--	 */
--	__skb_pull(skb, skb->data - skb_mac_header(skb));
-+		skb_reset_mac_header(skb);
-+		skb_set_network_header(skb, mac_len);
-+	} while ((skb = skb->next));
- 
-+out:
- 	return segs;
- }
- 
-diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
-index aed872cc05a6..cf52cf30ac4b 100644
---- a/net/mpls/mpls_iptunnel.c
-+++ b/net/mpls/mpls_iptunnel.c
-@@ -90,7 +90,11 @@ static int mpls_xmit(struct sk_buff *skb)
- 	if (skb_cow(skb, hh_len + new_header_size))
- 		goto drop;
- 
-+	skb_set_inner_protocol(skb, skb->protocol);
-+	skb_reset_inner_network_header(skb);
-+
- 	skb_push(skb, new_header_size);
-+
- 	skb_reset_network_header(skb);
- 
- 	skb->dev = out_dev;
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 1ecbd7715f6d..6d78f162a88b 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -167,6 +167,12 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
- 		skb->mac_len);
- 	skb_reset_mac_header(skb);
- 
-+	/* for GSO: set MPLS as network header and encapsulated protocol
-+	 * header as inner network header
-+	 */
-+	skb_set_network_header(skb, skb->mac_len);
-+	skb_set_inner_network_header(skb, skb->mac_len + MPLS_HLEN);
-+
- 	new_mpls_lse = (__be32 *)skb_mpls_header(skb);
- 	*new_mpls_lse = mpls->mpls_lse;
- 
--- 
-2.1.4
+	Andrew
