@@ -1,33 +1,61 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 0/2] sctp: not copying duplicate addrs to the assoc's bind address list
-Date: Fri, 19 Aug 2016 19:30:20 +0800
-Message-ID: <cover.1471605833.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum_buffers: Fix pool value handling in mlxsw_sp_sb_tc_pool_bind_set
+Date: Fri, 19 Aug 2016 14:43:48 +0200
+Message-ID: <1471610628-4287-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36613 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750889AbcHSMTy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 08:19:54 -0400
-Received: by mail-pf0-f196.google.com with SMTP id y134so1419352pfg.3
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 05:19:53 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33636 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754030AbcHSMoW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 08:44:22 -0400
+Received: by mail-wm0-f65.google.com with SMTP id o80so3316492wme.0
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 05:43:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch 1/2 is to fix some indent level.
+From: Jiri Pirko <jiri@mellanox.com>
 
-Given that we have kernels out there with this issue, patch 2/2 also
-fix sctp_raw_to_bind_addrs.
+Pool index has to be converted by get_pool helper to work correctly for
+egress pool. In mlxsw the egress pool index starts from 0.
 
-Xin Long (2):
-  sctp: reduce indent level in sctp_copy_local_addr_list
-  sctp: not copying duplicate addrs to the assoc's bind address list
+Fixes: 0f433fa0ecc ("mlxsw: spectrum_buffers: Implement shared buffer configuration")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
- net/sctp/bind_addr.c |  3 +++
- net/sctp/protocol.c  | 40 ++++++++++++++++++++++------------------
- 2 files changed, 25 insertions(+), 18 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+index 237418a..953b214 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_buffers.c
+@@ -717,22 +717,18 @@ int mlxsw_sp_sb_tc_pool_bind_set(struct mlxsw_core_port *mlxsw_core_port,
+ 	u8 local_port = mlxsw_sp_port->local_port;
+ 	u8 pg_buff = tc_index;
+ 	enum mlxsw_reg_sbxx_dir dir = pool_type;
+-	u8 pool = pool_index;
++	u8 pool = pool_get(pool_index);
+ 	u32 max_buff;
+ 	int err;
+ 
++	if (dir != dir_get(pool_index))
++		return -EINVAL;
++
+ 	err = mlxsw_sp_sb_threshold_in(mlxsw_sp, pool, dir,
+ 				       threshold, &max_buff);
+ 	if (err)
+ 		return err;
+ 
+-	if (pool_type == DEVLINK_SB_POOL_TYPE_EGRESS) {
+-		if (pool < MLXSW_SP_SB_POOL_COUNT)
+-			return -EINVAL;
+-		pool -= MLXSW_SP_SB_POOL_COUNT;
+-	} else if (pool >= MLXSW_SP_SB_POOL_COUNT) {
+-		return -EINVAL;
+-	}
+ 	return mlxsw_sp_sb_cm_write(mlxsw_sp, local_port, pg_buff, dir,
+ 				    0, max_buff, pool);
+ }
 -- 
-2.1.0
+2.5.5
