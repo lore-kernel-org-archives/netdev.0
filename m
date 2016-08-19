@@ -1,7 +1,8 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v3 net-next 0/3] net: mpls: fragmentation and gso fixes for locally originated traffic
-Date: Fri, 19 Aug 2016 10:08:59 -0700
-Message-ID: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 3/3] net: veth: Set features for MPLS
+Date: Fri, 19 Aug 2016 10:09:02 -0700
+Message-ID: <1471626542-13335-4-git-send-email-dsa@cumulusnetworks.com>
+References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
         ebiederm@xmission.com, rshearma@brocade.com, tom@herbertland.com,
         tgraf@suug.ch, olivier.dugeon@orange.com,
@@ -9,50 +10,38 @@ Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
         David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36586 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754362AbcHSRPu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 13:15:50 -0400
-Received: by mail-pf0-f173.google.com with SMTP id h186so11197815pfg.3
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 10:15:50 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34118 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754466AbcHSRPv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 13:15:51 -0400
+Received: by mail-pf0-f176.google.com with SMTP id p64so11264335pfb.1
+        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 10:15:51 -0700 (PDT)
+In-Reply-To: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series fixes mtu and fragmentation for tunnels using lwtunnel
-output redirect, and fixes GSO for MPLS for locally originated traffic
-reported by Lennert Buytenhek.
+veth does not really transmit packets only moves the skb from one
+netdev to another so gso and checksum is not really needed. Add
+the features to mpls_features to get the same benefit and performance
+with MPLS as without it.
 
-A follow on series will address fragmentation and GSO for forwarded
-MPLS traffic. Hardware offload of GSO with MPLS also needs to be
-addressed.
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ drivers/net/veth.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-v3
-- updates to mpls_gso_segment per Alex's comments
-- dropped skb->encapsulation = 1 from mpls_xmit per Alex's comment
-
-v2
-- consistent use of network_header in skb to fix GSO for MPLS
-- update MPLS code in OVS to network_header and inner_network_header
-
-
-David Ahern (2):
-  net: mpls: Fixups for GSO
-  net: veth: Set features for MPLS
-
-Roopa Prabhu (1):
-  net: lwtunnel: Handle fragmentation
-
- drivers/net/veth.c        |  1 +
- include/net/lwtunnel.h    | 44 ++++++++++++++++++++++++++++++++++++++++++++
- net/core/lwtunnel.c       | 35 +++++++++++++++++++++++++++++++++++
- net/ipv4/ip_output.c      |  8 ++++++++
- net/ipv4/route.c          |  4 +++-
- net/ipv6/ip6_output.c     |  8 ++++++++
- net/ipv6/route.c          |  4 +++-
- net/mpls/mpls_gso.c       | 38 +++++++++++++++++++++++++++-----------
- net/mpls/mpls_iptunnel.c  | 13 +++++++++----
- net/openvswitch/actions.c |  6 ++++++
- 10 files changed, 144 insertions(+), 17 deletions(-)
-
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index f37a6e61d4ad..5db320a4d5cf 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -340,6 +340,7 @@ static void veth_setup(struct net_device *dev)
+ 
+ 	dev->hw_features = VETH_FEATURES;
+ 	dev->hw_enc_features = VETH_FEATURES;
++	dev->mpls_features = NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
+ }
+ 
+ /*
 -- 
 2.1.4
