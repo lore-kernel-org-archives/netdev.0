@@ -1,76 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 2/2] ipv6: fixup RTF_* flags when restoring RTPROT_RA
- route from rtnetlink
-Date: Fri, 19 Aug 2016 21:07:25 +0300
-Message-ID: <689653c8-bc05-705c-04d6-ff7570b28dd0@cogentembedded.com>
-References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
- <cover.1471622715.git.ayourtch@gmail.com>
- <55219c8da12705fefa36ee5853b899ee88f730fb.1471622715.git.ayourtch@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH v1 1/1] l2tp: Use existing macros instead of literal
+ number
+Date: Fri, 19 Aug 2016 20:28:54 +0200
+Message-ID: <20160819182854.wdgnz77h2pins2c5@alphalink.fr>
+References: <1471600526-22584-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Andrew Yourtchenko <ayourtch@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jchapman@katalix.com, davem@davemloft.net,
+        philipp@redfish-solutions.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:35764 "EHLO
-        mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753671AbcHSSIG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 14:08:06 -0400
-Received: by mail-lf0-f51.google.com with SMTP id f93so38293367lfi.2
-        for <netdev@vger.kernel.org>; Fri, 19 Aug 2016 11:07:29 -0700 (PDT)
-In-Reply-To: <55219c8da12705fefa36ee5853b899ee88f730fb.1471622715.git.ayourtch@gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:59794 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753665AbcHSS37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 14:29:59 -0400
+Content-Disposition: inline
+In-Reply-To: <1471600526-22584-1-git-send-email-fgao@ikuai8.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 08/19/2016 07:41 PM, Andrew Yourtchenko wrote:
-
-> Fix the flags for RA-derived routes that were saved
-> via "ip -6 route save" and and subsequently restored via
-> "ip -6 route restore", allowing the incoming router advertisements
-> to update them, rather than complain about inability to do so.
->
-> Upon the restore of RA-derived saved routes, set the RTF_ADDRCONF
-> to indicate that the source of the route was originally
-> a router advertisement, and set the RTF_DEFAULT or RTF_ROUTEINFO
-> flag depending on prefix length. This can be considered a
-> sister change of f0396f60d7c165018c9b203fb9b89fb224835578, in
-
-    It's enough to specify 12 digits but you also need to specify the commit 
-summary enclosed in ("").
-
-> the other direction.
->
-> Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
+On Fri, Aug 19, 2016 at 05:55:26PM +0800, fgao@ikuai8.com wrote:
+> From: Gao Feng <fgao@ikuai8.com>
+> 
+> 1. Use PPP_ALLSTATIONS/PPP_UI instead of literal 0xff/0x03;
+> 2. Use one static const global fixed_ppphdr instead of two same
+> static variable ppph in two different functions;
+> 3. Use SEND_SHUTDOWN instead of literal 2;
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 > ---
-> Changes since v1 [1]:
->  * fixed the indentation of the basic blocks to be always a full TAB
->    as per David Miller's review
->
-> [1] v1: http://marc.info/?l=linux-netdev&m=147135599322285&w=2
->
->  net/ipv6/route.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index f5b987d..60d95cd 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -2769,6 +2769,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
->  	cfg->fc_protocol = rtm->rtm_protocol;
->  	cfg->fc_type = rtm->rtm_type;
->
-> +	if (rtm->rtm_protocol == RTPROT_RA) {
-> +		/* RA-derived route: set flags accordingly. */
-> +		cfg->fc_flags |= RTF_ADDRCONF;
-> +		if (rtm->rtm_dst_len == 0) {
-> +			cfg->fc_flags |= RTF_DEFAULT;
-> +		} else {
-> +			cfg->fc_flags |= RTF_ROUTEINFO;
-> +		}
+>  v1: Initial patch
+> 
+v1 again?
 
-    {} not needed here and above.
+BTW, no need to number your patch for a single patch series.
+But you have to tell which tree is the series for.
 
-[...]
-
-MBR, Sergei
+So instead of [PATCH v1 1/1], you should send [PATCH v2 net-next].
