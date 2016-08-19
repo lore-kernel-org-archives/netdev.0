@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] qed*: Add support for additional
- statistics.
-Date: Thu, 18 Aug 2016 21:12:37 -0700 (PDT)
-Message-ID: <20160818.211237.1311377725212659955.davem@davemloft.net>
-References: <1471359063-6193-1-git-send-email-sudarsana.kalluru@qlogic.com>
+From: Vaishali Thakkar <vaishali.thakkar@oracle.com>
+Subject: Re: [PATCH] smc91c92_cs : add a spinlock to avoid race condition
+Date: Fri, 19 Aug 2016 10:11:32 +0530
+Message-ID: <57B68DFC.4070204@oracle.com>
+References: <1471354746-27110-1-git-send-email-andrianov@ispras.ru>
+ <20160818.210734.1003452853595787957.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
-To: sudarsana.kalluru@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41986 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750768AbcHSEi6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 00:38:58 -0400
-In-Reply-To: <1471359063-6193-1-git-send-email-sudarsana.kalluru@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, a@unstable.cc, felipe.balbi@linux.intel.com,
+        fw@strlen.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        ldv-project@linuxtesting.org
+To: David Miller <davem@davemloft.net>, andrianov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160818.210734.1003452853595787957.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Date: Tue, 16 Aug 2016 10:51:00 -0400
 
-> The patch series adds qed/qede support for new statistics.
-> Patch (1) adds couple of statistcs for "ethtool -S" display.
-> Patch (2) adds support for per-queue statistics to ethtool display.
-> Patch (3) adds qed support for NCSI statistics.
+
+On Friday 19 August 2016 09:37 AM, David Miller wrote:
+> From: Pavel Andrianov <andrianov@ispras.ru>
+> Date: Tue, 16 Aug 2016 16:39:06 +0300
 > 
-> Please consider applying this to 'net-next' branch.
+>> smc_reset may be executed in parallel with timer function media_check.
+>> To avoid data race in smc_set_xcvr a spinlock was added.
+>>
+>> Found by Linux Driver Verification project (linuxtesting.org).
+>>
+>> Signed-off-by: Pavel Andrianov <andrianov@ispras.ru>
+> 
+> This is not sufficient.
+> 
+> You have to block basically the entire function, because both
+> smc_reset and media_check program the bank selection so could
+> corrupt eachother's register accesses.
 
-Series applied, thanks.
+Hmm, but then there is a use of udelay as well. Would it be still
+fine to acquire a spinlock on whole function?
+
+> 
+
+-- 
+Vaishali
