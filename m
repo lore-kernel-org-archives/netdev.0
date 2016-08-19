@@ -1,64 +1,101 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net] vmxnet3: fix tx data ring copy for variable size
-Date: Fri, 19 Aug 2016 10:33:42 -0700
-Message-ID: <1471628022-93931-1-git-send-email-skhare@vmware.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 2/2] sctp: not copying duplicate addrs to the assoc's
+ bind address list
+Date: Fri, 19 Aug 2016 13:50:07 -0400
+Message-ID: <20160819175007.GB3578@hmsreliant.think-freely.org>
+References: <cover.1471605833.git.lucien.xin@gmail.com>
+ <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-        Guolin Yang <gyang@vmware.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <pv-drivers@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34659 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754171AbcHSRvS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 13:51:18 -0400
+Content-Disposition: inline
+In-Reply-To: <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-'Commit 3c8b3efc061a ("vmxnet3: allow variable length transmit data ring
-buffer")' changed the size of the buffers in the tx data ring from a
-fixed size of 128 bytes to a variable size.
+On Fri, Aug 19, 2016 at 07:30:22PM +0800, Xin Long wrote:
+> From: Xin Long <lxin@redhat.com>
+> 
+> sctp.local_addr_list is a global address list that is supposed to include
+> all the local addresses. sctp updates this list according to NETDEV_UP/
+> NETDEV_DOWN notifications.
+> 
+> However, if multiple NICs have the same address, the global list will
+> have duplicate addresses. Even if for one NIC, promote secondaries in
+> __inet_del_ifa can also lead to accumulating duplicate addresses.
+> 
+> When sctp binds address 'ANY' and creates a connection, it copies all
+> the addresses from global list into asoc's bind addr list, which makes
+> sctp pack the duplicate addresses into INIT/INIT_ACK packets.
+> 
+> This patch is to filter the duplicate addresses when copying the addrs
+> from global list in sctp_copy_local_addr_list and unpacking addr_param
+> from cookie in sctp_raw_to_bind_addrs to asoc's bind addr list.
+> 
+> Signed-off-by: Xin Long <lxin@redhat.com>
+> ---
+>  net/sctp/bind_addr.c | 3 +++
+>  net/sctp/protocol.c  | 3 +++
+>  2 files changed, 6 insertions(+)
+> 
+> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+> index 401c607..1ebc184 100644
+> --- a/net/sctp/bind_addr.c
+> +++ b/net/sctp/bind_addr.c
+> @@ -292,6 +292,8 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
+>  		}
+>  
+>  		af->from_addr_param(&addr, rawaddr, htons(port), 0);
+> +		if (sctp_bind_addr_state(bp, &addr) != -1)
+> +			goto next;
+>  		retval = sctp_add_bind_addr(bp, &addr, sizeof(addr),
+>  					    SCTP_ADDR_SRC, gfp);
+>  		if (retval) {
+> @@ -300,6 +302,7 @@ int sctp_raw_to_bind_addrs(struct sctp_bind_addr *bp, __u8 *raw_addr_list,
+>  			break;
+>  		}
+>  
+> +next:
+>  		len = ntohs(param->length);
+>  		addrs_len -= len;
+>  		raw_addr_list += len;
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index da5d82b..616a942 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -220,6 +220,9 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
+>  		     !(copy_flags & SCTP_ADDR6_PEERSUPP)))
+>  			continue;
+>  
+> +		if (sctp_bind_addr_state(bp, &addr->a) != -1)
+> +			continue;
+> +
+>  		error = sctp_add_bind_addr(bp, &addr->a, sizeof(addr->a),
+>  					   SCTP_ADDR_SRC, GFP_ATOMIC);
+>  		if (error)
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Ah, I see what you're doing.  Ok, this makes some sense, at least on the receive
+side, when you get a cookie unpacked and modify the remote peers address list,
+it makes sense to check for duplicates.  On the local side however, I would,
+instead of checking it when the list gets copied, I'd check it when the master
+list gets updated (in the NETDEV_UP event notifier for the local address list,
+and the sctp_add_bind_addr function for the endpoint address list).  That way
+you can keep that nested for loop out of the send path on the local system.
 
-However, while copying data to the data ring, vmxnet3_copy_hdr continues
-to carry the old code that assumes fixed buffer size of 128. This patch
-fixes it by adding correct offset based on the actual data ring buffer
-size.
-
-Signed-off-by: Guolin Yang <gyang@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_drv.c | 4 +++-
- drivers/net/vmxnet3/vmxnet3_int.h | 4 ++--
- 2 files changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index c68fe49..4244b9d 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -914,7 +914,9 @@ vmxnet3_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- {
- 	struct Vmxnet3_TxDataDesc *tdd;
- 
--	tdd = tq->data_ring.base + tq->tx_ring.next2fill;
-+	tdd = (struct Vmxnet3_TxDataDesc *)((u8 *)tq->data_ring.base +
-+					    tq->tx_ring.next2fill *
-+					    tq->txdata_desc_size);
- 
- 	memcpy(tdd->data, skb->data, ctx->copy_size);
- 	netdev_dbg(adapter->netdev,
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 74fc030..7dc37a0 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
-  */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.4.9.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.4.a.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01040900
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01040a00
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
--- 
-2.8.2
+Neil
