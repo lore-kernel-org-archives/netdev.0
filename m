@@ -1,46 +1,142 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH 1/1] ppp: Fix one deadlock issue of PPP when send frame
-Date: Sat, 20 Aug 2016 00:47:54 +0200
-Message-ID: <20160819224754.ddfl2u4edfkctw4f@alphalink.fr>
-References: <1471345503-10085-1-git-send-email-fgao@ikuai8.com>
- <CA+6hz4qN-UmSutpCOY1KtrPBakh+2Qa+VUNVid7dq7EPWZE+aw@mail.gmail.com>
- <96f03d73-73f9-23ac-591f-a855169f8dc9@redfish-solutions.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Feng Gao <gfree.wind@gmail.com>,
-        Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>,
-        paulus@samba.org, linux-ppp@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Philp Prindeville <philipp@redfish-solutions.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:37908 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753576AbcHSWr6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 18:47:58 -0400
-Content-Disposition: inline
-In-Reply-To: <96f03d73-73f9-23ac-591f-a855169f8dc9@redfish-solutions.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: renesas: ravb: use phydev from struct net_device
+Date: Sat, 20 Aug 2016 00:52:18 +0200
+Message-ID: <1471647139-1867-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+        kazuya.mizuguchi.ks@renesas.com, ykaneko0929@gmail.com,
+        horms+renesas@verge.net.au, masaru.nagai.vx@renesas.com,
+        geert+renesas@glider.be, niklas.soderlund+renesas@ragnatech.se
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 18, 2016 at 08:11:15AM -0600, Philp Prindeville wrote:
-> 
-> It seems unlikely to me that this sort of locking problem hasn't existed
-> elsewhere before and that an entirely new mechanism for handling it is
-> needed...  How are similar re-entrancy issues handled elsewhere?
->
-Virtual devices like vxlan and geneve drop packets if the ouput device
-(after encapsulation) is the same as the encapsulating device.
-It's possible to bypass this check by stacking devices. In this case,
-recursion occurs until __dev_queue_xmit() triggers the
-XMIT_RECURSION_LIMIT. If the qdisc isn't noqueue so that recursion
-isn't stopped by __dev_queue_xmit(), then it's possible to fill the
-skb's headroom and the packet gets drop after pskb_expand_head() fails.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy_dev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-In any case only the faulty path is affected and the system remains
-stable.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/renesas/ravb.h      |    1 -
+ drivers/net/ethernet/renesas/ravb_main.c |   29 ++++++++++++-----------------
+ 2 files changed, 12 insertions(+), 18 deletions(-)
 
-It'd be nice to have PPP working this way, but this is made really
-difficult by the number of locks used in the xmit path.
-Even checking if the output interface is also the encapsulating one
-isn't trivial. The L2TP layer doesn't access the upper interface. It
-may not even be a PPP device in case of L2TPv3.
+diff --git a/drivers/net/ethernet/renesas/ravb.h b/drivers/net/ethernet/renesas/ravb.h
+index 4e5d5e9..f110966 100644
+--- a/drivers/net/ethernet/renesas/ravb.h
++++ b/drivers/net/ethernet/renesas/ravb.h
+@@ -1011,7 +1011,6 @@ struct ravb_private {
+ 	struct work_struct work;
+ 	/* MII transceiver section. */
+ 	struct mii_bus *mii_bus;	/* MDIO bus control */
+-	struct phy_device *phydev;	/* PHY device control */
+ 	int link;
+ 	phy_interface_t phy_interface;
+ 	int msg_enable;
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index d4809ad..d21c9a4 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -942,7 +942,7 @@ out:
+ static void ravb_adjust_link(struct net_device *ndev)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = ndev->phydev;
+ 	bool new_state = false;
+ 
+ 	if (phydev->link) {
+@@ -1032,22 +1032,19 @@ static int ravb_phy_init(struct net_device *ndev)
+ 
+ 	phy_attached_info(phydev);
+ 
+-	priv->phydev = phydev;
+-
+ 	return 0;
+ }
+ 
+ /* PHY control start function */
+ static int ravb_phy_start(struct net_device *ndev)
+ {
+-	struct ravb_private *priv = netdev_priv(ndev);
+ 	int error;
+ 
+ 	error = ravb_phy_init(ndev);
+ 	if (error)
+ 		return error;
+ 
+-	phy_start(priv->phydev);
++	phy_start(ndev->phydev);
+ 
+ 	return 0;
+ }
+@@ -1058,9 +1055,9 @@ static int ravb_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ 	int error = -ENODEV;
+ 	unsigned long flags;
+ 
+-	if (priv->phydev) {
++	if (ndev->phydev) {
+ 		spin_lock_irqsave(&priv->lock, flags);
+-		error = phy_ethtool_gset(priv->phydev, ecmd);
++		error = phy_ethtool_gset(ndev->phydev, ecmd);
+ 		spin_unlock_irqrestore(&priv->lock, flags);
+ 	}
+ 
+@@ -1073,7 +1070,7 @@ static int ravb_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ 	unsigned long flags;
+ 	int error;
+ 
+-	if (!priv->phydev)
++	if (!ndev->phydev)
+ 		return -ENODEV;
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+@@ -1081,7 +1078,7 @@ static int ravb_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ 	/* Disable TX and RX */
+ 	ravb_rcv_snd_disable(ndev);
+ 
+-	error = phy_ethtool_sset(priv->phydev, ecmd);
++	error = phy_ethtool_sset(ndev->phydev, ecmd);
+ 	if (error)
+ 		goto error_exit;
+ 
+@@ -1110,9 +1107,9 @@ static int ravb_nway_reset(struct net_device *ndev)
+ 	int error = -ENODEV;
+ 	unsigned long flags;
+ 
+-	if (priv->phydev) {
++	if (ndev->phydev) {
+ 		spin_lock_irqsave(&priv->lock, flags);
+-		error = phy_start_aneg(priv->phydev);
++		error = phy_start_aneg(ndev->phydev);
+ 		spin_unlock_irqrestore(&priv->lock, flags);
+ 	}
+ 
+@@ -1661,10 +1658,9 @@ static int ravb_close(struct net_device *ndev)
+ 	}
+ 
+ 	/* PHY disconnect */
+-	if (priv->phydev) {
+-		phy_stop(priv->phydev);
+-		phy_disconnect(priv->phydev);
+-		priv->phydev = NULL;
++	if (ndev->phydev) {
++		phy_stop(ndev->phydev);
++		phy_disconnect(ndev->phydev);
+ 	}
+ 
+ 	if (priv->chip_id != RCAR_GEN2) {
+@@ -1753,8 +1749,7 @@ static int ravb_hwtstamp_set(struct net_device *ndev, struct ifreq *req)
+ /* ioctl to device function */
+ static int ravb_do_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
+ {
+-	struct ravb_private *priv = netdev_priv(ndev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = ndev->phydev;
+ 
+ 	if (!netif_running(ndev))
+ 		return -EINVAL;
+-- 
+1.7.4.4
