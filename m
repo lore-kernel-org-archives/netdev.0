@@ -1,95 +1,53 @@
-From: walter harms <wharms-fPG8STNUNVg@public.gmane.org>
-Subject: Re: [PATCH] mlx5/core: Use memdup_user() rather than duplicating
- its implementation
-Date: Sat, 20 Aug 2016 11:32:55 +0200
-Message-ID: <57B823C7.3040705@bfs.de>
-References: <566ABCD9.1060404@users.sourceforge.net> <ceb39933-438d-920d-f294-ea0ce32fd171@users.sourceforge.net>
-Reply-To: wharms-fPG8STNUNVg@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <ceb39933-438d-920d-f294-ea0ce32fd171-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: [PATCH v2 0/4] meson: Meson8b and GXBB DWMAC glue driver
+Date: Sat, 20 Aug 2016 11:35:34 +0200
+Message-ID: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
+References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        sboyd@codeaurora.org,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
+        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35915 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751350AbcHTJf4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 05:35:56 -0400
+In-Reply-To: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This adds a DWMAC glue driver for the PRG_ETHERNET registers found in
+Meson8b and GXBB SoCs. Based on the "old" meson6b-dwmac glue driver
+the register layout is completely different.
+Thus I introduced a separate driver.
+
+Changes since v1:
+- make clkin1 mandatory because the internal mux expects two clocks
+  (in other words: this makes the driver consistent with how the
+  hardware actually works)
+- expose the MPLL2 clock for use by DT so we can pass it to the ethmac
+- added a .remove function to the glue driver which disables and
+  unprepares the clocks on driver removal
 
 
+Martin Blumenstingl (4):
+  net: dt-bindings: Document the new Meson8b and GXBB DWMAC bindings
+  clk: gxbb: expose MPLL2 clock for use by DT
+  net: stmmac: add a glue driver for the Amlogic Meson 8b / GXBB DWMAC
+  ARM64: dts: meson-gxbb: use the new GXBB DWMAC glue driver
 
-Am 20.08.2016 08:01, schrieb SF Markus Elfring:
-> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> Date: Sat, 20 Aug 2016 07:50:09 +0200
-> 
-> * Reuse existing functionality from memdup_user() instead of keeping
->   duplicate source code.
-> 
->   This issue was detected by using the Coccinelle software.
-> 
-> * Return directly if this copy operation failed.
-> 
-> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 17 +++--------------
->  1 file changed, 3 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> index 6388bc0..bb89f04 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-> @@ -1132,7 +1132,6 @@ static ssize_t data_write(struct file *filp, const char __user *buf,
->  	struct mlx5_core_dev *dev = filp->private_data;
->  	struct mlx5_cmd_debug *dbg = &dev->cmd.dbg;
->  	void *ptr;
-> -	int err;
->  
->  	if (*pos != 0)
->  		return -EINVAL;
-> @@ -1140,25 +1139,15 @@ static ssize_t data_write(struct file *filp, const char __user *buf,
->  	kfree(dbg->in_msg);
->  	dbg->in_msg = NULL;
->  	dbg->inlen = 0;
-> -
-> -	ptr = kzalloc(count, GFP_KERNEL);
-> -	if (!ptr)
-> -		return -ENOMEM;
-> -
-> -	if (copy_from_user(ptr, buf, count)) {
-> -		err = -EFAULT;
-> -		goto out;
-> -	}
-> +	ptr = memdup_user(buf, count);
-> +	if (IS_ERR(ptr))
-> +		return PTR_ERR(ptr);
->  	dbg->in_msg = ptr;
->  	dbg->inlen = count;
->  
->  	*pos = count;
->  
+ .../devicetree/bindings/net/meson-dwmac.txt        |  45 ++-
+ arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi        |   8 +-
+ drivers/clk/meson/gxbb.h                           |   2 +-
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac-meson8b.c    | 329 +++++++++++++++++++++
+ include/dt-bindings/clock/gxbb-clkc.h              |   1 +
+ 6 files changed, 374 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
 
-maybe i am missing something here but why do you need ptr ?
-
-The use of count looks even more confusing it is stored in
- dbg->inlen, *pos and is returned.
-is that realy needed ?
-
-re,
- wh
-
->  	return count;
-> -
-> -out:
-> -	kfree(ptr);
-> -	return err;
->  }
->  
->  static ssize_t data_read(struct file *filp, char __user *buf, size_t count,
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+2.9.3
