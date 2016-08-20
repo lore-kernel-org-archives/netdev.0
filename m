@@ -1,196 +1,142 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 14/30] net/mlx5: Update mlx5_ifc.h for vxlan encap/decap
-Date: Sat, 20 Aug 2016 23:11:57 +0300
-Message-ID: <1471723933-5894-15-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 15/30] net/mlx5: Introduce alloc_encap and dealloc_encap commands
+Date: Sat, 20 Aug 2016 23:11:58 +0300
+Message-ID: <1471723933-5894-16-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34200 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752056AbcHTUMr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:47 -0400
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Add the required definitions related to vxlan encap/decap.
+Implement low-level commands to support vxlan encapsulation.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- include/linux/mlx5/mlx5_ifc.h | 105 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 101 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c    |  4 ++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c | 48 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h |  7 ++++
+ 3 files changed, 59 insertions(+)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 7a8ef0a..3766110 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -212,6 +212,8 @@ enum {
- 	MLX5_CMD_OP_DEALLOC_FLOW_COUNTER          = 0x93a,
- 	MLX5_CMD_OP_QUERY_FLOW_COUNTER            = 0x93b,
- 	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c,
-+	MLX5_CMD_OP_ALLOC_ENCAP_HEADER            = 0x93d,
-+	MLX5_CMD_OP_DEALLOC_ENCAP_HEADER          = 0x93e,
- 	MLX5_CMD_OP_MAX
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index 23b95da..00bec60 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -301,6 +301,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_MODIFY_FLOW_TABLE:
+ 	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
+ 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
++	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
+ 		return MLX5_CMD_STAT_OK;
  
-@@ -281,7 +283,9 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
- 	u8         modify_root[0x1];
- 	u8         identified_miss_table_mode[0x1];
- 	u8         flow_table_modify[0x1];
--	u8         reserved_at_7[0x19];
-+	u8         encap[0x1];
-+	u8         decap[0x1];
-+	u8         reserved_at_9[0x17];
+ 	case MLX5_CMD_OP_QUERY_HCA_CAP:
+@@ -402,6 +403,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY:
+ 	case MLX5_CMD_OP_ALLOC_FLOW_COUNTER:
+ 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
++	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
+ 		*status = MLX5_DRIVER_STATUS_ABORTED;
+ 		*synd = MLX5_DRIVER_SYND;
+ 		return -EIO;
+@@ -550,6 +552,8 @@ const char *mlx5_command_str(int command)
+ 	MLX5_COMMAND_STR_CASE(DEALLOC_FLOW_COUNTER);
+ 	MLX5_COMMAND_STR_CASE(QUERY_FLOW_COUNTER);
+ 	MLX5_COMMAND_STR_CASE(MODIFY_FLOW_TABLE);
++	MLX5_COMMAND_STR_CASE(ALLOC_ENCAP_HEADER);
++	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
+ 	default: return "unknown command opcode";
+ 	}
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+index e64499e..7aaefa9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
+@@ -424,3 +424,51 @@ void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
+ 	*packets = MLX5_GET64(traffic_counter, stats, packets);
+ 	*bytes = MLX5_GET64(traffic_counter, stats, octets);
+ }
++
++#define MAX_ENCAP_SIZE (128)
++
++int mlx5_cmd_alloc_encap(struct mlx5_core_dev *dev,
++			 int header_type,
++			 size_t size,
++			 void *encap_header,
++			 u32 *encap_id)
++{
++	u32 out[MLX5_ST_SZ_DW(alloc_encap_header_out)];
++	u32 in[MLX5_ST_SZ_DW(alloc_encap_header_in) +
++	      (MAX_ENCAP_SIZE / sizeof(u32))];
++	void *encap_header_in = MLX5_ADDR_OF(alloc_encap_header_in, in,
++					     encap_header);
++	void *header = MLX5_ADDR_OF(encap_header_in, encap_header_in,
++				    encap_header);
++	int inlen = header - (void *)in  + size;
++	int err;
++
++	if (size > MAX_ENCAP_SIZE)
++		return -EINVAL;
++
++	memset(in, 0, inlen);
++	MLX5_SET(alloc_encap_header_in, in, opcode,
++		 MLX5_CMD_OP_ALLOC_ENCAP_HEADER);
++	MLX5_SET(encap_header_in, encap_header_in, encap_header_size, size);
++	MLX5_SET(encap_header_in, encap_header_in, header_type, header_type);
++	memcpy(header, encap_header, size);
++
++	memset(out, 0, sizeof(out));
++	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
++
++	*encap_id = MLX5_GET(alloc_encap_header_out, out, encap_id);
++	return err;
++}
++
++void mlx5_cmd_dealloc_encap(struct mlx5_core_dev *dev, u32 encap_id)
++{
++	u32 in[MLX5_ST_SZ_DW(dealloc_encap_header_in)];
++	u32 out[MLX5_ST_SZ_DW(dealloc_encap_header_out)];
++
++	memset(in, 0, sizeof(in));
++	MLX5_SET(dealloc_encap_header_in, in, opcode,
++		 MLX5_CMD_OP_DEALLOC_ENCAP_HEADER);
++	MLX5_SET(dealloc_encap_header_in, in, encap_id, encap_id);
++
++	mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
+index 158844c..ac52fdf 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
+@@ -88,4 +88,11 @@ void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
+ 			  struct mlx5_cmd_fc_bulk *b, u16 id,
+ 			  u64 *packets, u64 *bytes);
  
- 	u8         reserved_at_20[0x2];
- 	u8         log_max_ft_size[0x6];
-@@ -512,7 +516,15 @@ struct mlx5_ifc_e_switch_cap_bits {
- 	u8         nic_vport_node_guid_modify[0x1];
- 	u8         nic_vport_port_guid_modify[0x1];
- 
--	u8         reserved_at_20[0x7e0];
-+	u8         vxlan_encap_decap[0x1];
-+	u8         nvgre_encap_decap[0x1];
-+	u8         reserved_at_22[0x9];
-+	u8         log_max_encap_headers[0x5];
-+	u8         reserved_2b[0x6];
-+	u8         max_encap_header_size[0xa];
++int mlx5_cmd_alloc_encap(struct mlx5_core_dev *dev,
++			 int header_type,
++			 size_t size,
++			 void *encap_header,
++			 u32 *encap_id);
++void mlx5_cmd_dealloc_encap(struct mlx5_core_dev *dev, u32 encap_id);
 +
-+	u8         reserved_40[0x7c0];
-+
- };
- 
- struct mlx5_ifc_qos_cap_bits {
-@@ -2067,6 +2079,8 @@ enum {
- 	MLX5_FLOW_CONTEXT_ACTION_DROP      = 0x2,
- 	MLX5_FLOW_CONTEXT_ACTION_FWD_DEST  = 0x4,
- 	MLX5_FLOW_CONTEXT_ACTION_COUNT     = 0x8,
-+	MLX5_FLOW_CONTEXT_ACTION_ENCAP     = 0x10,
-+	MLX5_FLOW_CONTEXT_ACTION_DECAP     = 0x20,
- };
- 
- struct mlx5_ifc_flow_context_bits {
-@@ -2086,7 +2100,9 @@ struct mlx5_ifc_flow_context_bits {
- 	u8         reserved_at_a0[0x8];
- 	u8         flow_counter_list_size[0x18];
- 
--	u8         reserved_at_c0[0x140];
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_e0[0x120];
- 
- 	struct mlx5_ifc_fte_match_param_bits match_value;
- 
-@@ -4216,6 +4232,85 @@ struct mlx5_ifc_query_eq_in_bits {
- 	u8         reserved_at_60[0x20];
- };
- 
-+struct mlx5_ifc_encap_header_in_bits {
-+	u8         reserved_at_0[0x5];
-+	u8         header_type[0x3];
-+	u8         reserved_at_8[0xe];
-+	u8         encap_header_size[0xa];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         encap_header[2][0x8];
-+
-+	u8         more_encap_header[0][0x8];
-+};
-+
-+struct mlx5_ifc_query_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0xa0];
-+
-+	struct mlx5_ifc_encap_header_in_bits encap_header[0];
-+};
-+
-+struct mlx5_ifc_query_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_60[0xa0];
-+};
-+
-+struct mlx5_ifc_alloc_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_alloc_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0xa0];
-+
-+	struct mlx5_ifc_encap_header_in_bits encap_header;
-+};
-+
-+struct mlx5_ifc_dealloc_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_dealloc_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_60[0x20];
-+};
-+
- struct mlx5_ifc_query_dct_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_at_8[0x18];
-@@ -6102,7 +6197,9 @@ struct mlx5_ifc_create_flow_table_in_bits {
- 
- 	u8         reserved_at_a0[0x20];
- 
--	u8         reserved_at_c0[0x4];
-+	u8         encap_en[0x1];
-+	u8         decap_en[0x1];
-+	u8         reserved_at_c2[0x2];
- 	u8         table_miss_mode[0x4];
- 	u8         level[0x8];
- 	u8         reserved_at_d0[0x8];
+ #endif
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
