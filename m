@@ -1,73 +1,54 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 3/3] hostap: Delete unnecessary initialisations for the
- variable "ret"
-Date: Sat, 20 Aug 2016 18:48:13 +0200
-Message-ID: <f1de4eb1-42e7-0124-89a2-c1e7fdf7053c@users.sourceforge.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH -next] net: phy: Add missing of_node_put() in
+ xgmiitorgmii_probe()
+Date: Sat, 20 Aug 2016 19:36:05 +0200
+Message-ID: <20160820173605.GE30224@lunn.ch>
+References: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Jouni Malinen <j@w1.fi>, Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, michal.simek@xilinx.com,
+        soren.brinkmann@xilinx.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:39721 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752886AbcHTRgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 13:36:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 20 Aug 2016 18:23:14 +0200
+On Sat, Aug 20, 2016 at 03:26:55PM +0000, Wei Yongjun wrote:
+> This node pointer is returned by of_parse_phandle() with
+> refcount incremented in this function. of_node_put() on it
+> before exitting this function.
 
-The local variable "ret" will be set to an appropriate value a bit later.
-Thus omit the explicit initialisation at the beginning of four functions.
+Hi Wei
 
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/net/wireless/intersil/hostap/hostap_ioctl.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+You are only releasing on the error path. What about the successful
+path?
 
-diff --git a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-index 5942917..c37b0bb 100644
---- a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-+++ b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-@@ -2895,7 +2895,7 @@ static int prism2_ioctl_priv_monitor(struct net_device *dev, int *i)
- {
- 	struct hostap_interface *iface;
- 	local_info_t *local;
--	int ret = 0;
-+	int ret;
- 	u32 mode;
- 
- 	iface = netdev_priv(dev);
-@@ -3035,7 +3035,7 @@ static int ap_mac_cmd_ioctl(local_info_t *local, int *cmd)
- static int prism2_ioctl_priv_download(local_info_t *local, struct iw_point *p)
- {
- 	struct prism2_download_param *param;
--	int ret = 0;
-+	int ret;
- 
- 	if (p->length < sizeof(struct prism2_download_param) ||
- 	    p->length > 1024 || !p->pointer)
-@@ -3791,7 +3791,7 @@ static int prism2_ioctl_scan_req(local_info_t *local,
- static int prism2_ioctl_priv_hostapd(local_info_t *local, struct iw_point *p)
- {
- 	struct prism2_hostapd_param *param;
--	int ret = 0;
-+	int ret;
- 	int ap_ioctl = 0;
- 
- 	if (p->length < sizeof(struct prism2_hostapd_param) ||
-@@ -3954,7 +3954,7 @@ int hostap_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	struct iwreq *wrq = (struct iwreq *) ifr;
- 	struct hostap_interface *iface;
- 	local_info_t *local;
--	int ret = 0;
-+	int ret;
- 
- 	iface = netdev_priv(dev);
- 	local = iface->local;
--- 
-2.9.3
+	Andrew
+
+> 
+> This is detected by Coccinelle semantic patch.
+> 
+> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+> ---
+>  drivers/net/phy/xilinx_gmii2rgmii.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+> index cad6e19..4f05e5e 100644
+> --- a/drivers/net/phy/xilinx_gmii2rgmii.c
+> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+> @@ -75,6 +75,7 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+>  	priv->phy_dev = of_phy_find_device(phy_node);
+>  	if (!priv->phy_dev) {
+>  		dev_info(dev, "Couldn't find phydev\n");
+> +		of_node_put(phy_node);
+>  		return -EPROBE_DEFER;
+>  	}
+> 
