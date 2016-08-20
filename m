@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Implement batching of receive
- completions
-Date: Fri, 19 Aug 2016 22:41:50 -0700 (PDT)
-Message-ID: <20160819.224150.1875879736932632688.davem@davemloft.net>
-References: <1471643229-2918-1-git-send-email-haiyangz@linuxonhyperv.com>
+Subject: Re: [net] ixgbe: Do not clear RAR entry when clearing VMDq for SAN
+ MAC
+Date: Fri, 19 Aug 2016 22:39:58 -0700 (PDT)
+Message-ID: <20160819.223958.1807954563469483233.davem@davemloft.net>
+References: <1471665506-75138-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com, haiyangz@linuxonhyperv.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1471643229-2918-1-git-send-email-haiyangz@linuxonhyperv.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57162 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbcHTFj7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 01:39:59 -0400
+In-Reply-To: <1471665506-75138-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@linuxonhyperv.com>
-Date: Fri, 19 Aug 2016 14:47:09 -0700
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 19 Aug 2016 20:58:26 -0700
 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> The existing code uses busy retry when unable to send out receive
-> completions due to full ring buffer. It also gives up retrying after limit
-> is reached, and causes receive buffer slots not being recycled.
-> This patch implements batching of receive completions. It also prevents
-> dropping receive completions due to full ring buffer.
+> The RAR entry for the SAN MAC address was being cleared when we were
+> clearing the VMDq pool bits.  In order to prevent this we need to add
+> an extra check to protect the SAN MAC from being cleared.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+> Fixes: 6e982aeae ("ixgbe: Clear stale pool mappings")
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied, thanks.
