@@ -1,89 +1,128 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 22/30] net/mlx5: Get RoCE netdev
-Date: Sat, 20 Aug 2016 23:12:05 +0300
-Message-ID: <1471723933-5894-23-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 19/30] net/mlx5: Separate query_port_proto_oper for IB and EN
+Date: Sat, 20 Aug 2016 23:12:02 +0300
+Message-ID: <1471723933-5894-20-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Aviv Heller <avivh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34322 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752487AbcHTUMy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:54 -0400
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Aviv Heller <avivh@mellanox.com>
+From: Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Used by IB driver for determining the IB bond
-device's netdev, when LAG is active.
+Replaced mlx5_query_port_proto_oper with separate functions per link
+type. The functions should take different arguments so no point in
+trying to unite them.
 
-Returns PF0's netdev if mode is not active-backup,
-or the PF netdev of the active slave when mode is
-active-backup.
-
-Signed-off-by: Aviv Heller <avivh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/lag.c | 27 +++++++++++++++++++++++++++
- include/linux/mlx5/driver.h                   |  1 +
- 2 files changed, 28 insertions(+)
+ drivers/infiniband/hw/mlx5/main.c              |  3 +--
+ drivers/net/ethernet/mellanox/mlx5/core/port.c | 32 ++++++++++++++++++--------
+ include/linux/mlx5/port.h                      |  7 +++---
+ 3 files changed, 28 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-index 3bf0a7f..9523050 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
-@@ -528,3 +528,30 @@ bool mlx5_lag_is_active(struct mlx5_core_dev *dev)
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 6fb77d7..f02a975 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -748,8 +748,7 @@ static int mlx5_query_hca_port(struct ib_device *ibdev, u8 port,
+ 				     &props->active_width);
+ 	if (err)
+ 		goto out;
+-	err = mlx5_query_port_proto_oper(mdev, &props->active_speed, MLX5_PTYS_IB,
+-					 port);
++	err = mlx5_query_port_ib_proto_oper(mdev, &props->active_speed, port);
+ 	if (err)
+ 		goto out;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 2ee28ad..34e7184 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -175,25 +175,39 @@ int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
  }
- EXPORT_SYMBOL(mlx5_lag_is_active);
+ EXPORT_SYMBOL_GPL(mlx5_query_port_link_width_oper);
  
-+struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev)
-+{
-+	struct net_device *ndev = NULL;
-+	struct mlx5_lag *ldev;
+-int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+-			       u8 *proto_oper, int proto_mask,
+-			       u8 local_port)
++int mlx5_query_port_eth_proto_oper(struct mlx5_core_dev *dev,
++				   u32 *proto_oper, u8 local_port)
+ {
+ 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
+ 	int err;
+ 
+-	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, local_port);
++	err = mlx5_query_port_ptys(dev, out, sizeof(out), MLX5_PTYS_EN,
++				   local_port);
+ 	if (err)
+ 		return err;
+ 
+-	if (proto_mask == MLX5_PTYS_EN)
+-		*proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
+-	else
+-		*proto_oper = MLX5_GET(ptys_reg, out, ib_proto_oper);
++	*proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
 +
-+	mutex_lock(&lag_mutex);
-+	ldev = mlx5_lag_dev_get(dev);
-+
-+	if (!(ldev && mlx5_lag_is_bonded(ldev)))
-+		goto unlock;
-+
-+	if (ldev->tracker.tx_type == NETDEV_LAG_TX_TYPE_ACTIVEBACKUP) {
-+		ndev = ldev->tracker.netdev_state[0].tx_enabled ?
-+		       ldev->pf[0].netdev : ldev->pf[1].netdev;
-+	} else {
-+		ndev = ldev->pf[0].netdev;
-+	}
-+	if (ndev)
-+		dev_hold(ndev);
-+
-+unlock:
-+	mutex_unlock(&lag_mutex);
-+
-+	return ndev;
++	return 0;
 +}
-+EXPORT_SYMBOL(mlx5_lag_get_roce_netdev);
++EXPORT_SYMBOL(mlx5_query_port_eth_proto_oper);
 +
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index ed983b8..c568dd9 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -945,6 +945,7 @@ void mlx5_unregister_interface(struct mlx5_interface *intf);
- int mlx5_core_query_vendor_id(struct mlx5_core_dev *mdev, u32 *vendor_id);
++int mlx5_query_port_ib_proto_oper(struct mlx5_core_dev *dev,
++				  u8 *proto_oper, u8 local_port)
++{
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++	int err;
++
++	err = mlx5_query_port_ptys(dev, out, sizeof(out), MLX5_PTYS_IB,
++				   local_port);
++	if (err)
++		return err;
++
++	*proto_oper = MLX5_GET(ptys_reg, out, ib_proto_oper);
  
- bool mlx5_lag_is_active(struct mlx5_core_dev *dev);
-+struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev);
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(mlx5_query_port_proto_oper);
++EXPORT_SYMBOL(mlx5_query_port_ib_proto_oper);
  
- struct mlx5_profile {
- 	u64	mask;
+ int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
+ 		       u32 proto_admin, int proto_mask)
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 6f876a4..b3065ac 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -103,9 +103,10 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
+ 				u32 *proto_admin, int proto_mask);
+ int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
+ 				    u8 *link_width_oper, u8 local_port);
+-int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+-			       u8 *proto_oper, int proto_mask,
+-			       u8 local_port);
++int mlx5_query_port_ib_proto_oper(struct mlx5_core_dev *dev,
++				  u8 *proto_oper, u8 local_port);
++int mlx5_query_port_eth_proto_oper(struct mlx5_core_dev *dev,
++				   u32 *proto_oper, u8 local_port);
+ int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
+ 		       u32 proto_admin, int proto_mask);
+ void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
