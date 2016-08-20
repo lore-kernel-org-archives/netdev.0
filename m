@@ -1,163 +1,72 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40evf: report link speed
-Date: Fri, 19 Aug 2016 23:19:41 -0700
-Message-ID: <1471673991-117115-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40e: use configured RSS key and lookup table in i40e_vsi_config_rss
+Date: Fri, 19 Aug 2016 23:19:39 -0700
+Message-ID: <1471673991-117115-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:37803 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752102AbcHTGTz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 02:19:55 -0400
+        id S1751795AbcHTGTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 02:19:54 -0400
 In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-The PF driver tells us the link speed, so do something with that
-information. Add link speed to log messages, and report speed through
-ethtool.
+A previous refactor added support to store user configuration for VSIs,
+so that extra VSIs such as for VMDq can use this information when
+configuring. Unfortunately the i40e_vsi_config_rss function was missed
+in this refactor, and the values were being ignored. Fix this by
+checking for the fields and using those instead of always using the
+default values.
 
-Change-Id: I279dc9540cc5203376406050a3e8d67e128d5882
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 26 ++++++++--
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 55 ++++++++++++++++++----
- 3 files changed, 70 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 76ed97d..6fa00f3 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -258,6 +258,7 @@ struct i40evf_adapter {
- 	struct work_struct watchdog_task;
- 	bool netdev_registered;
- 	bool link_up;
-+	enum i40e_aq_link_speed link_speed;
- 	enum i40e_virtchnl_ops current_op;
- #define CLIENT_ENABLED(_a) ((_a)->vf_res ? \
- 			    (_a)->vf_res->vf_offload_flags & \
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index c9c202f..e17a154 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -74,13 +74,33 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- static int i40evf_get_settings(struct net_device *netdev,
- 			       struct ethtool_cmd *ecmd)
- {
--	/* In the future the VF will be able to query the PF for
--	 * some information - for now use a dummy value
--	 */
-+	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+
- 	ecmd->supported = 0;
- 	ecmd->autoneg = AUTONEG_DISABLE;
- 	ecmd->transceiver = XCVR_DUMMY1;
- 	ecmd->port = PORT_NONE;
-+	/* Set speed and duplex */
-+	switch (adapter->link_speed) {
-+	case I40E_LINK_SPEED_40GB:
-+		ethtool_cmd_speed_set(ecmd, SPEED_40000);
-+		break;
-+	case I40E_LINK_SPEED_20GB:
-+		ethtool_cmd_speed_set(ecmd, SPEED_20000);
-+		break;
-+	case I40E_LINK_SPEED_10GB:
-+		ethtool_cmd_speed_set(ecmd, SPEED_10000);
-+		break;
-+	case I40E_LINK_SPEED_1GB:
-+		ethtool_cmd_speed_set(ecmd, SPEED_1000);
-+		break;
-+	case I40E_LINK_SPEED_100MB:
-+		ethtool_cmd_speed_set(ecmd, SPEED_100);
-+		break;
-+	default:
-+		break;
-+	}
-+	ecmd->duplex = DUPLEX_FULL;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2ed1e8b..4ec9565 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8076,13 +8076,26 @@ static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
+ 	if (!(pf->flags & I40E_FLAG_RSS_AQ_CAPABLE))
+ 		return 0;
  
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index d76c221..cc6cb30 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -817,6 +817,45 @@ void i40evf_set_rss_lut(struct i40evf_adapter *adapter)
- }
++	if (!vsi->rss_size)
++		vsi->rss_size = min_t(int, pf->alloc_rss_size,
++				      vsi->num_queue_pairs);
++	if (!vsi->rss_size)
++		return -EINVAL;
++
+ 	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
+ 	if (!lut)
+ 		return -ENOMEM;
+-
+-	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
+-	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
+-	vsi->rss_size = min_t(int, pf->alloc_rss_size, vsi->num_queue_pairs);
++	/* Use the user configured hash keys and lookup table if there is one,
++	 * otherwise use default
++	 */
++	if (vsi->rss_lut_user)
++		memcpy(lut, vsi->rss_lut_user, vsi->rss_table_size);
++	else
++		i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
++	if (vsi->rss_hkey_user)
++		memcpy(seed, vsi->rss_hkey_user, I40E_HKEY_ARRAY_SIZE);
++	else
++		netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
+ 	ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
+ 	kfree(lut);
  
- /**
-+ * i40evf_print_link_message - print link up or down
-+ * @adapter: adapter structure
-+ *
-+ * Log a message telling the world of our wonderous link status
-+ */
-+static void i40evf_print_link_message(struct i40evf_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	char *speed = "Unknown ";
-+
-+	if (!adapter->link_up) {
-+		netdev_info(netdev, "NIC Link is Down\n");
-+		return;
-+	}
-+
-+	switch (adapter->link_speed) {
-+	case I40E_LINK_SPEED_40GB:
-+		speed = "40 G";
-+		break;
-+	case I40E_LINK_SPEED_20GB:
-+		speed = "20 G";
-+		break;
-+	case I40E_LINK_SPEED_10GB:
-+		speed = "10 G";
-+		break;
-+	case I40E_LINK_SPEED_1GB:
-+		speed = "1000 M";
-+		break;
-+	case I40E_LINK_SPEED_100MB:
-+		speed = "100 M";
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	netdev_info(netdev, "NIC Link is Up %sbps Full Duplex\n", speed);
-+}
-+
-+/**
-  * i40evf_request_reset
-  * @adapter: adapter structure
-  *
-@@ -853,15 +892,13 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 			(struct i40e_virtchnl_pf_event *)msg;
- 		switch (vpe->event) {
- 		case I40E_VIRTCHNL_EVENT_LINK_CHANGE:
--			adapter->link_up =
--				vpe->event_data.link_event.link_status;
--			if (adapter->link_up && !netif_carrier_ok(netdev)) {
--				dev_info(&adapter->pdev->dev, "NIC Link is Up\n");
--				netif_carrier_on(netdev);
--				netif_tx_wake_all_queues(netdev);
--			} else if (!adapter->link_up) {
--				dev_info(&adapter->pdev->dev, "NIC Link is Down\n");
--				netif_carrier_off(netdev);
-+			adapter->link_speed =
-+				vpe->event_data.link_event.link_speed;
-+			if (adapter->link_up !=
-+			    vpe->event_data.link_event.link_status) {
-+				adapter->link_up =
-+					vpe->event_data.link_event.link_status;
-+				i40evf_print_link_message(adapter);
- 				netif_tx_stop_all_queues(netdev);
- 			}
- 			break;
 -- 
 2.7.4
