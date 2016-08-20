@@ -1,74 +1,130 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 23/30] net/mlx5e: Avoid port remapping of mlx5e netdev TISes
-Date: Sat, 20 Aug 2016 23:12:06 +0300
-Message-ID: <1471723933-5894-24-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 18/30] net/mlx5: Expose mlx5e_link_mode
+Date: Sat, 20 Aug 2016 23:12:01 +0300
+Message-ID: <1471723933-5894-19-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Aviv Heller <avivh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34356 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751147AbcHTUM4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:56 -0400
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Aviv Heller <avivh@mellanox.com>
+From: Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-TISes belonging to the mlx5e NIC should not be
-subject to port remap.
+The mlx5e_link_mode enumeration will also be used in mlx5_ib for RoCE.
+This patch moves the enumeration to the mlx5 driver port header file.
 
-Signed-off-by: Aviv Heller <avivh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c   |  4 ++++
- drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h | 12 ++++++++++++
- 2 files changed, 16 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h | 34 ----------------------------
+ include/linux/mlx5/port.h                    | 33 +++++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 219804f..fa40414 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -2025,6 +2025,10 @@ static int mlx5e_create_tis(struct mlx5e_priv *priv, int tc)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 1b495ef..61902b1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -651,40 +651,6 @@ struct mlx5e_priv {
+ 	void                      *ppriv;
+ };
  
- 	MLX5_SET(tisc, tisc, prio, tc << 1);
- 	MLX5_SET(tisc, tisc, transport_domain, mdev->mlx5e_res.td.tdn);
-+
-+	if (mlx5_lag_is_lacp_owner(mdev))
-+		MLX5_SET(tisc, tisc, strict_lag_tx_port_affinity, 1);
-+
- 	return mlx5_core_create_tis(mdev, in, sizeof(in), &priv->tisn[tc]);
- }
+-enum mlx5e_link_mode {
+-	MLX5E_1000BASE_CX_SGMII	 = 0,
+-	MLX5E_1000BASE_KX	 = 1,
+-	MLX5E_10GBASE_CX4	 = 2,
+-	MLX5E_10GBASE_KX4	 = 3,
+-	MLX5E_10GBASE_KR	 = 4,
+-	MLX5E_20GBASE_KR2	 = 5,
+-	MLX5E_40GBASE_CR4	 = 6,
+-	MLX5E_40GBASE_KR4	 = 7,
+-	MLX5E_56GBASE_R4	 = 8,
+-	MLX5E_10GBASE_CR	 = 12,
+-	MLX5E_10GBASE_SR	 = 13,
+-	MLX5E_10GBASE_ER	 = 14,
+-	MLX5E_40GBASE_SR4	 = 15,
+-	MLX5E_40GBASE_LR4	 = 16,
+-	MLX5E_50GBASE_SR2	 = 18,
+-	MLX5E_100GBASE_CR4	 = 20,
+-	MLX5E_100GBASE_SR4	 = 21,
+-	MLX5E_100GBASE_KR4	 = 22,
+-	MLX5E_100GBASE_LR4	 = 23,
+-	MLX5E_100BASE_TX	 = 24,
+-	MLX5E_1000BASE_T	 = 25,
+-	MLX5E_10GBASE_T		 = 26,
+-	MLX5E_25GBASE_CR	 = 27,
+-	MLX5E_25GBASE_KR	 = 28,
+-	MLX5E_25GBASE_SR	 = 29,
+-	MLX5E_50GBASE_CR2	 = 30,
+-	MLX5E_50GBASE_KR2	 = 31,
+-	MLX5E_LINK_MODES_NUMBER,
+-};
+-
+-#define MLX5E_PROT_MASK(link_mode) (1 << link_mode)
+-
+-
+ void mlx5e_build_ptys2ethtool_map(void);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index 173a6b2..e716996 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -107,4 +107,16 @@ void mlx5_remove_dev_by_protocol(struct mlx5_core_dev *dev, int protocol);
- void mlx5e_init(void);
- void mlx5e_cleanup(void);
+ void mlx5e_send_nop(struct mlx5e_sq *sq, bool notify_hw);
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index e3012cc..6f876a4 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -61,6 +61,39 @@ enum mlx5_an_status {
+ #define MLX5_I2C_ADDR_HIGH		0x51
+ #define MLX5_EEPROM_PAGE_LENGTH		256
  
-+static inline int mlx5_lag_is_lacp_owner(struct mlx5_core_dev *dev)
-+{
-+	/* LACP owner conditions:
-+	 * 1) Function is physical.
-+	 * 2) LAG is supported by FW.
-+	 * 3) LAG is managed by driver (currently the only option).
-+	 */
-+	return  MLX5_CAP_GEN(dev, vport_group_manager) &&
-+		   (MLX5_CAP_GEN(dev, num_lag_ports) > 1) &&
-+		    MLX5_CAP_GEN(dev, lag_master);
-+}
++enum mlx5e_link_mode {
++	MLX5E_1000BASE_CX_SGMII	 = 0,
++	MLX5E_1000BASE_KX	 = 1,
++	MLX5E_10GBASE_CX4	 = 2,
++	MLX5E_10GBASE_KX4	 = 3,
++	MLX5E_10GBASE_KR	 = 4,
++	MLX5E_20GBASE_KR2	 = 5,
++	MLX5E_40GBASE_CR4	 = 6,
++	MLX5E_40GBASE_KR4	 = 7,
++	MLX5E_56GBASE_R4	 = 8,
++	MLX5E_10GBASE_CR	 = 12,
++	MLX5E_10GBASE_SR	 = 13,
++	MLX5E_10GBASE_ER	 = 14,
++	MLX5E_40GBASE_SR4	 = 15,
++	MLX5E_40GBASE_LR4	 = 16,
++	MLX5E_50GBASE_SR2	 = 18,
++	MLX5E_100GBASE_CR4	 = 20,
++	MLX5E_100GBASE_SR4	 = 21,
++	MLX5E_100GBASE_KR4	 = 22,
++	MLX5E_100GBASE_LR4	 = 23,
++	MLX5E_100BASE_TX	 = 24,
++	MLX5E_1000BASE_T	 = 25,
++	MLX5E_10GBASE_T		 = 26,
++	MLX5E_25GBASE_CR	 = 27,
++	MLX5E_25GBASE_KR	 = 28,
++	MLX5E_25GBASE_SR	 = 29,
++	MLX5E_50GBASE_CR2	 = 30,
++	MLX5E_50GBASE_KR2	 = 31,
++	MLX5E_LINK_MODES_NUMBER,
++};
 +
- #endif /* __MLX5_CORE_H__ */
++#define MLX5E_PROT_MASK(link_mode) (1 << link_mode)
++
+ int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
+ int mlx5_query_port_ptys(struct mlx5_core_dev *dev, u32 *ptys,
+ 			 int ptys_size, int proto_mask, u8 local_port);
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
