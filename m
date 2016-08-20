@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 1/3] hostap: Use memdup_user() rather than duplicating its
- implementation
-Date: Sat, 20 Aug 2016 18:45:08 +0200
-Message-ID: <efa66c16-7998-9ceb-0be6-d62dd249a2dc@users.sourceforge.net>
+Subject: [PATCH 2/3] hostap: Delete an unnecessary jump label in
+ prism2_ioctl_priv_hostapd()
+Date: Sat, 20 Aug 2016 18:46:49 +0200
+Message-ID: <65ed528f-7ec5-a0f2-6219-3e63a78ca0ee@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
 Mime-Version: 1.0
@@ -19,57 +19,35 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 20 Aug 2016 18:19:43 +0200
+Date: Sat, 20 Aug 2016 18:21:29 +0200
 
-Reuse existing functionality from memdup_user() instead of keeping
-duplicate source code.
-
-This issue was detected by using the Coccinelle software.
+Remove a jump label which is unneeded in this function at the end.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- .../net/wireless/intersil/hostap/hostap_ioctl.c    | 22 ++++++----------------
- 1 file changed, 6 insertions(+), 16 deletions(-)
+ drivers/net/wireless/intersil/hostap/hostap_ioctl.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-index 3e5fa78..4e271f9 100644
+index 4e271f9..5942917 100644
 --- a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
 +++ b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-@@ -3041,14 +3041,9 @@ static int prism2_ioctl_priv_download(local_info_t *local, struct iw_point *p)
- 	    p->length > 1024 || !p->pointer)
- 		return -EINVAL;
+@@ -3835,14 +3835,12 @@ static int prism2_ioctl_priv_hostapd(local_info_t *local, struct iw_point *p)
+ 	}
  
--	param = kmalloc(p->length, GFP_KERNEL);
--	if (param == NULL)
--		return -ENOMEM;
--
--	if (copy_from_user(param, p->pointer, p->length)) {
--		ret = -EFAULT;
--		goto out;
--	}
-+	param = memdup_user(p->pointer, p->length);
-+	if (IS_ERR(param))
-+		return PTR_ERR(param);
+ 	if (ret == 1 || !ap_ioctl) {
+-		if (copy_to_user(p->pointer, param, p->length)) {
++		if (copy_to_user(p->pointer, param, p->length))
+ 			ret = -EFAULT;
+-			goto out;
+-		} else if (ap_ioctl)
++		else if (ap_ioctl)
+ 			ret = 0;
+ 	}
  
- 	if (p->length < sizeof(struct prism2_download_param) +
- 	    param->num_areas * sizeof(struct prism2_download_area)) {
-@@ -3803,14 +3798,9 @@ static int prism2_ioctl_priv_hostapd(local_info_t *local, struct iw_point *p)
- 	    p->length > PRISM2_HOSTAPD_MAX_BUF_SIZE || !p->pointer)
- 		return -EINVAL;
- 
--	param = kmalloc(p->length, GFP_KERNEL);
--	if (param == NULL)
--		return -ENOMEM;
--
--	if (copy_from_user(param, p->pointer, p->length)) {
--		ret = -EFAULT;
--		goto out;
--	}
-+	param = memdup_user(p->pointer, p->length);
-+	if (IS_ERR(param))
-+		return PTR_ERR(param);
- 
- 	switch (param->cmd) {
- 	case PRISM2_SET_ENCRYPTION:
+- out:
+ 	kfree(param);
+ 	return ret;
+ }
 -- 
 2.9.3
