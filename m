@@ -1,105 +1,150 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: use matching format identifiers
-Date: Fri, 19 Aug 2016 23:19:45 -0700
-Message-ID: <1471673991-117115-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] i40e: Fix byte ordering in ARP NS code for X722
+Date: Fri, 19 Aug 2016 23:19:43 -0700
+Message-ID: <1471673991-117115-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Heinrich Schuchardt <xypron.glpk@gmx.de>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:50330 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:6494 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752485AbcHTGT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 02:19:56 -0400
+        id S1752379AbcHTGTz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 02:19:55 -0400
 In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-i is defined as int but output as %u several times.
-Adjust the format identifiers.
+This patch fixes byte ordering problems found when enabling this feature
+support. Without this patch, the feature will not work correctly. This
+patch fixes the definitions to have the correct byte order.
 
-Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Change-ID: Ic7489fbcbe2195df7be62ff5e359201b827cefe6
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 26 +++++++++++++-------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 38 ++++++++++++----------
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 38 ++++++++++++----------
+ 2 files changed, 42 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 5bd3848..1835186 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1560,13 +1560,13 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 		}
- #endif
- 		for (i = 0; i < vsi->num_queue_pairs; i++) {
--			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_packets", i);
-+			snprintf(p, ETH_GSTRING_LEN, "tx-%d.tx_packets", i);
- 			p += ETH_GSTRING_LEN;
--			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_bytes", i);
-+			snprintf(p, ETH_GSTRING_LEN, "tx-%d.tx_bytes", i);
- 			p += ETH_GSTRING_LEN;
--			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_packets", i);
-+			snprintf(p, ETH_GSTRING_LEN, "rx-%d.rx_packets", i);
- 			p += ETH_GSTRING_LEN;
--			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_bytes", i);
-+			snprintf(p, ETH_GSTRING_LEN, "rx-%d.rx_bytes", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		if (vsi != pf->vsi[pf->lan_vsi] || pf->hw.partition_id != 1)
-@@ -1581,16 +1581,16 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 			}
- 			for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_tx_packets", i);
-+					 "veb.tc_%d_tx_packets", i);
- 				p += ETH_GSTRING_LEN;
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_tx_bytes", i);
-+					 "veb.tc_%d_tx_bytes", i);
- 				p += ETH_GSTRING_LEN;
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_rx_packets", i);
-+					 "veb.tc_%d_rx_packets", i);
- 				p += ETH_GSTRING_LEN;
- 				snprintf(p, ETH_GSTRING_LEN,
--					 "veb.tc_%u_rx_bytes", i);
-+					 "veb.tc_%d_rx_bytes", i);
- 				p += ETH_GSTRING_LEN;
- 			}
- 		}
-@@ -1601,23 +1601,23 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 		}
- 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.tx_priority_%u_xon", i);
-+				 "port.tx_priority_%d_xon", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.tx_priority_%u_xoff", i);
-+				 "port.tx_priority_%d_xoff", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.rx_priority_%u_xon", i);
-+				 "port.rx_priority_%d_xon", i);
- 			p += ETH_GSTRING_LEN;
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.rx_priority_%u_xoff", i);
-+				 "port.rx_priority_%d_xoff", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
- 			snprintf(p, ETH_GSTRING_LEN,
--				 "port.rx_priority_%u_xon_2_xoff", i);
-+				 "port.rx_priority_%d_xon_2_xoff", i);
- 			p += ETH_GSTRING_LEN;
- 		}
- 		/* BUG_ON(p - data != I40E_STATS_LEN * ETH_GSTRING_LEN); */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 11cf1a5..5c4bf76 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -450,13 +450,15 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_cppm_configuration);
+ /* Set ARP Proxy command / response (indirect 0x0104) */
+ struct i40e_aqc_arp_proxy_data {
+ 	__le16	command_flags;
+-#define I40E_AQ_ARP_INIT_IPV4	0x0008
+-#define I40E_AQ_ARP_UNSUP_CTL	0x0010
+-#define I40E_AQ_ARP_ENA		0x0020
+-#define I40E_AQ_ARP_ADD_IPV4	0x0040
+-#define I40E_AQ_ARP_DEL_IPV4	0x0080
++#define I40E_AQ_ARP_INIT_IPV4	0x0800
++#define I40E_AQ_ARP_UNSUP_CTL	0x1000
++#define I40E_AQ_ARP_ENA		0x2000
++#define I40E_AQ_ARP_ADD_IPV4	0x4000
++#define I40E_AQ_ARP_DEL_IPV4	0x8000
+ 	__le16	table_id;
+-	__le32	pfpm_proxyfc;
++	__le32	enabled_offloads;
++#define I40E_AQ_ARP_DIRECTED_OFFLOAD_ENABLE	0x00000020
++#define I40E_AQ_ARP_OFFLOAD_ENABLE		0x00000800
+ 	__le32	ip_addr;
+ 	u8	mac_addr[6];
+ 	u8	reserved[2];
+@@ -471,17 +473,19 @@ struct i40e_aqc_ns_proxy_data {
+ 	__le16	table_idx_ipv6_0;
+ 	__le16	table_idx_ipv6_1;
+ 	__le16	control;
+-#define I40E_AQ_NS_PROXY_ADD_0		0x0100
+-#define I40E_AQ_NS_PROXY_DEL_0		0x0200
+-#define I40E_AQ_NS_PROXY_ADD_1		0x0400
+-#define I40E_AQ_NS_PROXY_DEL_1		0x0800
+-#define I40E_AQ_NS_PROXY_ADD_IPV6_0	0x1000
+-#define I40E_AQ_NS_PROXY_DEL_IPV6_0	0x2000
+-#define I40E_AQ_NS_PROXY_ADD_IPV6_1	0x4000
+-#define I40E_AQ_NS_PROXY_DEL_IPV6_1	0x8000
+-#define I40E_AQ_NS_PROXY_COMMAND_SEQ	0x0001
+-#define I40E_AQ_NS_PROXY_INIT_IPV6_TBL	0x0002
+-#define I40E_AQ_NS_PROXY_INIT_MAC_TBL	0x0004
++#define I40E_AQ_NS_PROXY_ADD_0		0x0001
++#define I40E_AQ_NS_PROXY_DEL_0		0x0002
++#define I40E_AQ_NS_PROXY_ADD_1		0x0004
++#define I40E_AQ_NS_PROXY_DEL_1		0x0008
++#define I40E_AQ_NS_PROXY_ADD_IPV6_0	0x0010
++#define I40E_AQ_NS_PROXY_DEL_IPV6_0	0x0020
++#define I40E_AQ_NS_PROXY_ADD_IPV6_1	0x0040
++#define I40E_AQ_NS_PROXY_DEL_IPV6_1	0x0080
++#define I40E_AQ_NS_PROXY_COMMAND_SEQ	0x0100
++#define I40E_AQ_NS_PROXY_INIT_IPV6_TBL	0x0200
++#define I40E_AQ_NS_PROXY_INIT_MAC_TBL	0x0400
++#define I40E_AQ_NS_PROXY_OFFLOAD_ENABLE	0x0800
++#define I40E_AQ_NS_PROXY_DIRECTED_OFFLOAD_ENABLE	0x1000
+ 	u8	mac_addr_0[6];
+ 	u8	mac_addr_1[6];
+ 	u8	local_mac_addr[6];
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 3114dcf..0045650 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -447,13 +447,15 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_cppm_configuration);
+ /* Set ARP Proxy command / response (indirect 0x0104) */
+ struct i40e_aqc_arp_proxy_data {
+ 	__le16	command_flags;
+-#define I40E_AQ_ARP_INIT_IPV4	0x0008
+-#define I40E_AQ_ARP_UNSUP_CTL	0x0010
+-#define I40E_AQ_ARP_ENA		0x0020
+-#define I40E_AQ_ARP_ADD_IPV4	0x0040
+-#define I40E_AQ_ARP_DEL_IPV4	0x0080
++#define I40E_AQ_ARP_INIT_IPV4	0x0800
++#define I40E_AQ_ARP_UNSUP_CTL	0x1000
++#define I40E_AQ_ARP_ENA		0x2000
++#define I40E_AQ_ARP_ADD_IPV4	0x4000
++#define I40E_AQ_ARP_DEL_IPV4	0x8000
+ 	__le16	table_id;
+-	__le32	pfpm_proxyfc;
++	__le32	enabled_offloads;
++#define I40E_AQ_ARP_DIRECTED_OFFLOAD_ENABLE	0x00000020
++#define I40E_AQ_ARP_OFFLOAD_ENABLE		0x00000800
+ 	__le32	ip_addr;
+ 	u8	mac_addr[6];
+ 	u8	reserved[2];
+@@ -468,17 +470,19 @@ struct i40e_aqc_ns_proxy_data {
+ 	__le16	table_idx_ipv6_0;
+ 	__le16	table_idx_ipv6_1;
+ 	__le16	control;
+-#define I40E_AQ_NS_PROXY_ADD_0		0x0100
+-#define I40E_AQ_NS_PROXY_DEL_0		0x0200
+-#define I40E_AQ_NS_PROXY_ADD_1		0x0400
+-#define I40E_AQ_NS_PROXY_DEL_1		0x0800
+-#define I40E_AQ_NS_PROXY_ADD_IPV6_0	0x1000
+-#define I40E_AQ_NS_PROXY_DEL_IPV6_0	0x2000
+-#define I40E_AQ_NS_PROXY_ADD_IPV6_1	0x4000
+-#define I40E_AQ_NS_PROXY_DEL_IPV6_1	0x8000
+-#define I40E_AQ_NS_PROXY_COMMAND_SEQ	0x0001
+-#define I40E_AQ_NS_PROXY_INIT_IPV6_TBL	0x0002
+-#define I40E_AQ_NS_PROXY_INIT_MAC_TBL	0x0004
++#define I40E_AQ_NS_PROXY_ADD_0		0x0001
++#define I40E_AQ_NS_PROXY_DEL_0		0x0002
++#define I40E_AQ_NS_PROXY_ADD_1		0x0004
++#define I40E_AQ_NS_PROXY_DEL_1		0x0008
++#define I40E_AQ_NS_PROXY_ADD_IPV6_0	0x0010
++#define I40E_AQ_NS_PROXY_DEL_IPV6_0	0x0020
++#define I40E_AQ_NS_PROXY_ADD_IPV6_1	0x0040
++#define I40E_AQ_NS_PROXY_DEL_IPV6_1	0x0080
++#define I40E_AQ_NS_PROXY_COMMAND_SEQ	0x0100
++#define I40E_AQ_NS_PROXY_INIT_IPV6_TBL	0x0200
++#define I40E_AQ_NS_PROXY_INIT_MAC_TBL	0x0400
++#define I40E_AQ_NS_PROXY_OFFLOAD_ENABLE	0x0800
++#define I40E_AQ_NS_PROXY_DIRECTED_OFFLOAD_ENABLE	0x1000
+ 	u8	mac_addr_0[6];
+ 	u8	mac_addr_1[6];
+ 	u8	local_mac_addr[6];
 -- 
 2.7.4
