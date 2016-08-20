@@ -1,32 +1,35 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 4/5] driver core: set up ownership of class devices in
- sysfs
-Date: Fri, 19 Aug 2016 19:26:52 -0700
-Message-ID: <20160819192652.369f123e@xeon-e3>
-References: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
-        <1471386795-32918-5-git-send-email-dmitry.torokhov@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471386795-32918-5-git-send-email-dmitry.torokhov@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gustavo Zacarias <gustavo@zacarias.com.ar>
+Subject: [PATCH iproute2] ss: fix build with musl libc
+Date: Sat, 20 Aug 2016 00:11:10 -0300
+Message-ID: <1471662670-20969-1-git-send-email-gustavo@zacarias.com.ar>
+Cc: Gustavo Zacarias <gustavo@zacarias.com.ar>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.zacarias.com.ar ([176.9.42.171]:38792 "EHLO
+        www.zacarias.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750838AbcHTDVx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 23:21:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 16 Aug 2016 15:33:14 -0700
-Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
+UINT_MAX usage requires limits.h, so include it.
 
->  static struct kobj_type device_ktype = {
->  	.release	= device_release,
->  	.sysfs_ops	= &dev_sysfs_ops,
->  	.namespace	= device_namespace,
-> +	.get_ownership	= device_get_ownership,
->  };
->  
+Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
+---
+ misc/ss.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-OT - I wonder if kobj_type could be ro_after_init?
+diff --git a/misc/ss.c b/misc/ss.c
+index e758f57..3b268d9 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -26,6 +26,7 @@
+ #include <fnmatch.h>
+ #include <getopt.h>
+ #include <stdbool.h>
++#include <limits.h>
+ 
+ #include "utils.h"
+ #include "rt_names.h"
+-- 
+2.7.3
