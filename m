@@ -1,96 +1,95 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 13/30] net/mlx5: Enable setting minimum inline header mode for VFs
-Date: Sat, 20 Aug 2016 23:11:56 +0300
-Message-ID: <1471723933-5894-14-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 16/30] net/mlx5: Modify RQ bitmask from mlx5 ifc
+Date: Sat, 20 Aug 2016 23:11:59 +0300
+Message-ID: <1471723933-5894-17-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>,
         Tal Alon <talal@mellanox.com>,
         Matan Barak <matanb@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
+        Alex Vesker <valex@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>,
         Leon Romanovsky <leon@kernel.org>
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34179 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34214 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751919AbcHTUMp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:45 -0400
+        with ESMTP id S1752187AbcHTUMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:48 -0400
 In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Alex Vesker <valex@mellanox.com>
 
-Implement the low-level part of the PF side in setting minimum
-inline header mode for VFs.
+Use mlx5 ifc MODIFY_BITMASK_VSD in mlx5e_modify_rq_vsd and expose counter
+set capability bit in hca caps structure.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Alex Vesker <valex@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/vport.c | 20 ++++++++++++++++++++
- include/linux/mlx5/mlx5_ifc.h                   |  2 +-
- include/linux/mlx5/vport.h                      |  2 ++
- 3 files changed, 23 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 ++-
+ include/linux/mlx5/driver.h                       | 4 ----
+ include/linux/mlx5/mlx5_ifc.h                     | 9 ++++++++-
+ 3 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index 3593bf7..525f17a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -125,6 +125,26 @@ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
- }
- EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 10fa12a..9e36c15 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -489,7 +489,8 @@ static int mlx5e_modify_rq_vsd(struct mlx5e_rq *rq, bool vsd)
+ 	rqc = MLX5_ADDR_OF(modify_rq_in, in, ctx);
  
-+int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
-+				     u16 vport, u8 min_inline)
-+{
-+	u32 in[MLX5_ST_SZ_DW(modify_nic_vport_context_in)] = {0};
-+	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
-+	void *nic_vport_ctx;
-+
-+	MLX5_SET(modify_nic_vport_context_in, in,
-+		 field_select.min_inline, 1);
-+	MLX5_SET(modify_nic_vport_context_in, in, vport_number, vport);
-+	MLX5_SET(modify_nic_vport_context_in, in, other_vport, 1);
-+
-+	nic_vport_ctx = MLX5_ADDR_OF(modify_nic_vport_context_in,
-+				     in, nic_vport_context);
-+	MLX5_SET(nic_vport_context, nic_vport_ctx,
-+		 min_wqe_inline_mode, min_inline);
-+
-+	return mlx5_modify_nic_vport_context(mdev, in, inlen);
-+}
-+
- int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 				     u16 vport, u8 *addr)
- {
+ 	MLX5_SET(modify_rq_in, in, rq_state, MLX5_RQC_STATE_RDY);
+-	MLX5_SET64(modify_rq_in, in, modify_bitmask, MLX5_RQ_BITMASK_VSD);
++	MLX5_SET64(modify_rq_in, in, modify_bitmask,
++		   MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_VSD);
+ 	MLX5_SET(rqc, rqc, vsd, vsd);
+ 	MLX5_SET(rqc, rqc, state, MLX5_RQC_STATE_RDY);
+ 
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index ebe57ab..0ea78b5 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -49,10 +49,6 @@
+ #include <linux/mlx5/srq.h>
+ 
+ enum {
+-	MLX5_RQ_BITMASK_VSD = 1 << 1,
+-};
+-
+-enum {
+ 	MLX5_BOARD_ID_LEN = 64,
+ 	MLX5_MAX_NAME_LEN = 16,
+ };
 diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index cb94ac5..7a8ef0a 100644
+index 3766110..e1f8e34 100644
 --- a/include/linux/mlx5/mlx5_ifc.h
 +++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -4724,7 +4724,7 @@ struct mlx5_ifc_modify_nic_vport_field_select_bits {
- 	u8         reserved_at_0[0x16];
- 	u8         node_guid[0x1];
- 	u8         port_guid[0x1];
--	u8         reserved_at_18[0x1];
-+	u8         min_inline[0x1];
- 	u8         mtu[0x1];
- 	u8         change_event[0x1];
- 	u8         promisc[0x1];
-diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
-index e087b7d..451b0bd 100644
---- a/include/linux/mlx5/vport.h
-+++ b/include/linux/mlx5/vport.h
-@@ -45,6 +45,8 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
- 				     u16 vport, u8 *addr);
- void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
- 				     u8 *min_inline);
-+int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
-+				     u16 vport, u8 min_inline);
- int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
- 				      u16 vport, u8 *addr);
- int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
+@@ -779,7 +779,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         out_of_seq_cnt[0x1];
+ 	u8         vport_counters[0x1];
+ 	u8         retransmission_q_counters[0x1];
+-	u8         reserved_at_183[0x3];
++	u8         reserved_at_183[0x1];
++	u8         modify_rq_counter_set_id[0x1];
++	u8         reserved_at_185[0x1];
+ 	u8         max_qp_cnt[0xa];
+ 	u8         pkey_table_size[0x10];
+ 
+@@ -4750,6 +4752,11 @@ struct mlx5_ifc_modify_rq_out_bits {
+ 	u8         reserved_at_40[0x40];
+ };
+ 
++enum {
++	MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_VSD = 1ULL << 1,
++	MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_MODIFY_RQ_COUNTER_SET_ID = 1ULL << 3,
++};
++
+ struct mlx5_ifc_modify_rq_in_bits {
+ 	u8         opcode[0x10];
+ 	u8         reserved_at_10[0x10];
 -- 
 2.7.4
