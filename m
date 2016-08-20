@@ -1,165 +1,96 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 30/30] net/mlx5: Add sniffer namespaces
-Date: Sat, 20 Aug 2016 23:12:13 +0300
-Message-ID: <1471723933-5894-31-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 13/30] net/mlx5: Enable setting minimum inline header mode for VFs
+Date: Sat, 20 Aug 2016 23:11:56 +0300
+Message-ID: <1471723933-5894-14-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Tal Alon <talal@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34179 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751919AbcHTUMp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:45 -0400
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Add sniffer TX and RX namespaces to receive ingoing and outgoing
-traffic.
+Implement the low-level part of the PF side in setting minimum
+inline header mode for VFs.
 
-Each outgoing/incoming packet is duplicated and steered to the sniffer
-TX/RX namespace in addition to the regular flow.
-
-Signed-off-by: Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 58 +++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  4 ++
- include/linux/mlx5/fs.h                           |  2 +
- 3 files changed, 64 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c | 20 ++++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                   |  2 +-
+ include/linux/mlx5/vport.h                      |  2 ++
+ 3 files changed, 23 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index ac414b7..f5571a5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1427,6 +1427,16 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
- 			return &steering->esw_ingress_root_ns->ns;
- 		else
- 			return NULL;
-+	case MLX5_FLOW_NAMESPACE_SNIFFER_RX:
-+		if (steering->sniffer_rx_root_ns)
-+			return &steering->sniffer_rx_root_ns->ns;
-+		else
-+			return NULL;
-+	case MLX5_FLOW_NAMESPACE_SNIFFER_TX:
-+		if (steering->sniffer_tx_root_ns)
-+			return &steering->sniffer_tx_root_ns->ns;
-+		else
-+			return NULL;
- 	default:
- 		return NULL;
- 	}
-@@ -1726,10 +1736,46 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
- 	cleanup_root_ns(steering->esw_egress_root_ns);
- 	cleanup_root_ns(steering->esw_ingress_root_ns);
- 	cleanup_root_ns(steering->fdb_root_ns);
-+	cleanup_root_ns(steering->sniffer_rx_root_ns);
-+	cleanup_root_ns(steering->sniffer_tx_root_ns);
- 	mlx5_cleanup_fc_stats(dev);
- 	kfree(steering);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 3593bf7..525f17a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -125,6 +125,26 @@ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
  }
+ EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
  
-+static int init_sniffer_tx_root_ns(struct mlx5_flow_steering *steering)
++int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u16 vport, u8 min_inline)
 +{
-+	struct fs_prio *prio;
++	u32 in[MLX5_ST_SZ_DW(modify_nic_vport_context_in)] = {0};
++	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
++	void *nic_vport_ctx;
 +
-+	steering->sniffer_tx_root_ns = create_root_ns(steering, FS_FT_SNIFFER_TX);
-+	if (!steering->sniffer_tx_root_ns)
-+		return -ENOMEM;
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 field_select.min_inline, 1);
++	MLX5_SET(modify_nic_vport_context_in, in, vport_number, vport);
++	MLX5_SET(modify_nic_vport_context_in, in, other_vport, 1);
 +
-+	/* Create single prio */
-+	prio = fs_create_prio(&steering->sniffer_tx_root_ns->ns, 0, 1);
-+	if (IS_ERR(prio)) {
-+		cleanup_root_ns(steering->sniffer_tx_root_ns);
-+		return PTR_ERR(prio);
-+	}
-+	return 0;
++	nic_vport_ctx = MLX5_ADDR_OF(modify_nic_vport_context_in,
++				     in, nic_vport_context);
++	MLX5_SET(nic_vport_context, nic_vport_ctx,
++		 min_wqe_inline_mode, min_inline);
++
++	return mlx5_modify_nic_vport_context(mdev, in, inlen);
 +}
 +
-+static int init_sniffer_rx_root_ns(struct mlx5_flow_steering *steering)
-+{
-+	struct fs_prio *prio;
-+
-+	steering->sniffer_rx_root_ns = create_root_ns(steering, FS_FT_SNIFFER_RX);
-+	if (!steering->sniffer_rx_root_ns)
-+		return -ENOMEM;
-+
-+	/* Create single prio */
-+	prio = fs_create_prio(&steering->sniffer_rx_root_ns->ns, 0, 1);
-+	if (IS_ERR(prio)) {
-+		cleanup_root_ns(steering->sniffer_rx_root_ns);
-+		return PTR_ERR(prio);
-+	}
-+	return 0;
-+}
-+
- static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr)
  {
- 	struct fs_prio *prio;
-@@ -1826,6 +1872,18 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
- 		}
- 	}
- 
-+	if (MLX5_CAP_FLOWTABLE_SNIFFER_RX(dev, ft_support)) {
-+		err = init_sniffer_rx_root_ns(steering);
-+		if (err)
-+			goto err;
-+	}
-+
-+	if (MLX5_CAP_FLOWTABLE_SNIFFER_TX(dev, ft_support)) {
-+		err = init_sniffer_tx_root_ns(steering);
-+		if (err)
-+			goto err;
-+	}
-+
- 	return 0;
- err:
- 	mlx5_cleanup_fs(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 23e46e3..71ff03b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -49,6 +49,8 @@ enum fs_flow_table_type {
- 	FS_FT_ESW_EGRESS_ACL  = 0x2,
- 	FS_FT_ESW_INGRESS_ACL = 0x3,
- 	FS_FT_FDB             = 0X4,
-+	FS_FT_SNIFFER_RX	= 0X5,
-+	FS_FT_SNIFFER_TX	= 0X6,
- };
- 
- enum fs_flow_table_op_mod {
-@@ -66,6 +68,8 @@ struct mlx5_flow_steering {
- 	struct mlx5_flow_root_namespace *fdb_root_ns;
- 	struct mlx5_flow_root_namespace *esw_egress_root_ns;
- 	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
-+	struct mlx5_flow_root_namespace	*sniffer_tx_root_ns;
-+	struct mlx5_flow_root_namespace	*sniffer_rx_root_ns;
- };
- 
- struct fs_node {
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-index 8803212..93ebc5e 100644
---- a/include/linux/mlx5/fs.h
-+++ b/include/linux/mlx5/fs.h
-@@ -63,6 +63,8 @@ enum mlx5_flow_namespace_type {
- 	MLX5_FLOW_NAMESPACE_FDB,
- 	MLX5_FLOW_NAMESPACE_ESW_EGRESS,
- 	MLX5_FLOW_NAMESPACE_ESW_INGRESS,
-+	MLX5_FLOW_NAMESPACE_SNIFFER_RX,
-+	MLX5_FLOW_NAMESPACE_SNIFFER_TX,
- };
- 
- struct mlx5_flow_table;
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index cb94ac5..7a8ef0a 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -4724,7 +4724,7 @@ struct mlx5_ifc_modify_nic_vport_field_select_bits {
+ 	u8         reserved_at_0[0x16];
+ 	u8         node_guid[0x1];
+ 	u8         port_guid[0x1];
+-	u8         reserved_at_18[0x1];
++	u8         min_inline[0x1];
+ 	u8         mtu[0x1];
+ 	u8         change_event[0x1];
+ 	u8         promisc[0x1];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index e087b7d..451b0bd 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -45,6 +45,8 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr);
+ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+ 				     u8 *min_inline);
++int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u16 vport, u8 min_inline);
+ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
+ 				      u16 vport, u8 *addr);
+ int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
