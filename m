@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] openvswitch: use percpu flow stats
-Date: Fri, 19 Aug 2016 22:25:01 -0700 (PDT)
-Message-ID: <20160819.222501.684301846870702801.davem@davemloft.net>
-References: <1471636616.29842.110.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20160819.180953.970774471141286228.davem@davemloft.net>
-        <1471666072.29842.123.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Implement batching of receive
+ completions
+Date: Fri, 19 Aug 2016 22:41:50 -0700 (PDT)
+Message-ID: <20160819.224150.1875879736932632688.davem@davemloft.net>
+References: <1471643229-2918-1-git-send-email-haiyangz@linuxonhyperv.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: cascardo@redhat.com, dev@openvswitch.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57144 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbcHTFZE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 01:25:04 -0400
-In-Reply-To: <1471666072.29842.123.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@linuxonhyperv.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1471643229-2918-1-git-send-email-haiyangz@linuxonhyperv.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 19 Aug 2016 21:07:52 -0700
+From: Haiyang Zhang <haiyangz@linuxonhyperv.com>
+Date: Fri, 19 Aug 2016 14:47:09 -0700
 
-> Here is an example of a system I had in the past.
+> From: Haiyang Zhang <haiyangz@microsoft.com>
 > 
-> 8 cpus  (num_possible_cpus() returns 8)
+> The existing code uses busy retry when unable to send out receive
+> completions due to full ring buffer. It also gives up retrying after limit
+> is reached, and causes receive buffer slots not being recycled.
+> This patch implements batching of receive completions. It also prevents
+> dropping receive completions due to full ring buffer.
 > 
-> Cpus were numbered : 0, 1, 2, 3, 8, 9, 10, 11  : (nr_cpu_ids = 12)
-> 
-> I am pretty sure they are still alive.
-> 
-> Since you want an array indexed by cpu numbers, you need to size it by
-> nr_cpu_ids, otherwise array[11] will crash / access garbage.
-> 
-> This is why you find many nr_cpu_ids in the linux tree, not
-> num_possible_cpus() to size arrays.
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-My bad, I misunderstood what nr_cpu_ids means.  You are absolutely right.
+Applied, thanks.
