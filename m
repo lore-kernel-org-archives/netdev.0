@@ -1,45 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC PATCH] openvswitch: use percpu flow stats
-Date: Fri, 19 Aug 2016 18:09:53 -0700 (PDT)
-Message-ID: <20160819.180953.970774471141286228.davem@davemloft.net>
-References: <1471636046-9246-1-git-send-email-cascardo@redhat.com>
- <1471636616.29842.110.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 4/5] driver core: set up ownership of class devices in
+ sysfs
+Date: Fri, 19 Aug 2016 19:26:52 -0700
+Message-ID: <20160819192652.369f123e@xeon-e3>
+References: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
+        <1471386795-32918-5-git-send-email-dmitry.torokhov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1471636616.29842.110.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tejun Heo <tj@kernel.org>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471386795-32918-5-git-send-email-dmitry.torokhov@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPgpEYXRlOiBGcmksIDE5
-IEF1ZyAyMDE2IDEyOjU2OjU2IC0wNzAwCgo+IE9uIEZyaSwgMjAxNi0wOC0xOSBhdCAxNjo0NyAt
-MDMwMCwgVGhhZGV1IExpbWEgZGUgU291emEgQ2FzY2FyZG8gd3JvdGU6Cj4+IEluc3RlYWQgb2Yg
-dXNpbmcgZmxvdyBzdGF0cyBwZXIgTlVNQSBub2RlLCB1c2UgaXQgcGVyIENQVS4gV2hlbiB1c2lu
-Zwo+PiBtZWdhZmxvd3MsIHRoZSBzdGF0cyBsb2NrIGNhbiBiZSBhIGJvdHRsZW5lY2sgaW4gc2Nh
-bGFiaWxpdHkuCj4gCj4gLi4uCj4gCj4+ICAKPj4gIAlmbG93X2NhY2hlID0ga21lbV9jYWNoZV9j
-cmVhdGUoInN3X2Zsb3ciLCBzaXplb2Yoc3RydWN0IHN3X2Zsb3cpCj4+IC0JCQkJICAgICAgICsg
-KG5yX25vZGVfaWRzCj4+ICsJCQkJICAgICAgICsgKG51bV9wb3NzaWJsZV9jcHVzKCkKPj4gIAkJ
-CQkJICAqIHNpemVvZihzdHJ1Y3QgZmxvd19zdGF0cyAqKSksCj4+ICAJCQkJICAgICAgIDAsIDAs
-IE5VTEwpOwo+PiAgCWlmIChmbG93X2NhY2hlID09IE5VTEwpCj4gCj4gVGhpcyBpcyBib2d1cy4K
-PiAKPiBQbGVhc2UgdXNlIG5yX2NwdV9pZHMgaW5zdGVhZCBvZiBudW1fcG9zc2libGVfY3B1cygp
-LgoKVGhlbiBob3cgd291bGQgaG90LXBsdWdnZWQgY3B1cyBiZSBoYW5kbGVkIHByb3Blcmx5PwoK
-VGhlIG9ubHkgb3RoZXIgd2F5IGlzIHlvdSdkIGhhdmUgdG8gZnJlZSBhbGwgb2JqZWN0cyBpbiB0
-aGUgY3VycmVudApmbG93X2NhY2hlLCBkZXN0cm95IGl0LCB0aGVuIG1ha2UgYSBuZXcga21lbV9j
-YWNoZSBhbmQgcmVhbGxvY2F0ZQphbGwgb2YgdGhlIGV4aXN0aW5nIG9iamVjdHMgYW5kIGhvb2sg
-dGhlbSBiYWNrIHVwIGV2ZXJ5IHRpbWUgYSBjcHUKdXAgZXZlbnQgb2NjdXJzLgoKVGhhdCBkb2Vz
-bid0IG1ha2UgYW55IHNlbnNlIGF0IGFsbC4KClRoZXJlZm9yZSwgdGhlIHNpemUgb2YgdGhlIG9i
-amVjdHMgY29taW5nIG91dCBvZiAic3dfZmxvdyIgaGF2ZQp0byBhY2NvbW9kYXRlIGFsbCBwb3Nz
-aWJsZSBjcHUgaW5kZXhlcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
-dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On Tue, 16 Aug 2016 15:33:14 -0700
+Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
+
+>  static struct kobj_type device_ktype = {
+>  	.release	= device_release,
+>  	.sysfs_ops	= &dev_sysfs_ops,
+>  	.namespace	= device_namespace,
+> +	.get_ownership	= device_get_ownership,
+>  };
+>  
+
+OT - I wonder if kobj_type could be ro_after_init?
