@@ -1,44 +1,41 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: wan-lmc: Improving source code formatting
-Date: Sat, 20 Aug 2016 13:37:05 +0200
-Message-ID: <88c39636-a0ba-b717-8c81-4b5574266abc@users.sourceforge.net>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH 1/2] tun: Use memdup_user() rather than duplicating its
+ implementation
+Date: Sat, 20 Aug 2016 14:47:18 +0300
+Message-ID: <20160820144718.6f204a5e@halley>
+References: <566ABCD9.1060404@users.sourceforge.net>
+        <9cf06275-924d-6c22-d8a8-f733a03cca23@users.sourceforge.net>
+        <a2ee9925-1241-0328-6d35-9a9c9f567ea4@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jason Wang <jasowang@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
         Julia Lawall <julia.lawall@lip6.fr>
-To: netdev@vger.kernel.org, Amitoj Kaur Chawla <amitoj1606@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Felipe Balbi <felipe.balbi@linux.intel.com>,
-        Florian Westphal <fw@strlen.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a2ee9925-1241-0328-6d35-9a9c9f567ea4@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi,
 
-The Coccinelle software pointed out that the function "lmc_ioctl"
-is an update candidate according to the message "opportunity for memdup_user".
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wan/lmc/lmc_main.c?id=6040e57658eee6eb1315a26119101ca832d1f854#n486
+On Sat, 20 Aug 2016 09:34:56 +0200 SF Markus Elfring <elfring@users.sourceforge.net> wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sat, 20 Aug 2016 08:54:15 +0200
+> 
+> Reuse existing functionality from memdup_user() instead of keeping
+> duplicate source code.
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 
-I guess that it would be nice to improve also this implementation.
-But there are further constraints to consider. The script "checkpatch.pl"
-can point information out like the following.
-
-* ERROR: code indent should use tabs where possible
-
-* WARNING: please, no spaces at the start of a line
-
-
-The source files for this software module contain also some open issues
-for the preferred source code formatting.
-
-* How should these places be fixed so that they will match the current
-  Linux coding style before additional adjustments can be safely tried?
-
-* Would you like to suggest any advanced tools (besides "scripts/cleanfile")
-  for a corresponding source code beautification?
-  Which pretty-printing approaches are acceptable for Linux so far?
-
-Regards,
-Markus
+Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
