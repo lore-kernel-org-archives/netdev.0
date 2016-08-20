@@ -1,100 +1,65 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH v2 1/4] net: dt-bindings: Document the new Meson8b and GXBB DWMAC bindings
-Date: Sat, 20 Aug 2016 11:35:35 +0200
-Message-ID: <20160820093538.9707-2-martin.blumenstingl@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH v2 4/4] ARM64: dts: meson-gxbb: use the new GXBB DWMAC glue driver
+Date: Sat, 20 Aug 2016 11:35:38 +0200
+Message-ID: <20160820093538.9707-5-martin.blumenstingl@googlemail.com>
 References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
  <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
-        will.deacon@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        sboyd@codeaurora.org,
-        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
-        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35922 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752292AbcHTJf6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 05:35:58 -0400
-In-Reply-To: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160820093538.9707-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the documentation for the DWMAC ethernet controller
-found in Amlogic Meson 8b (S805) and GXBB (S905) SoCs.
-The main difference between the Meson6 glue is that different registers
-(with different layout) are used.
+The Amlogic reference driver uses the "mc_val" devicetree property to
+configure the PRG_ETHERNET_ADDR0 register. Unfortunately it uses magic
+values for this configuration.
+According to the datasheet the PRG_ETHERNET_ADDR0 register is at address
+0xc8834108. However, the reference driver uses 0xc8834540 instead.
+According to my tests, the value from the reference driver is correct.
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Acked-by: Rob Herring <robh@kernel.org>
+No changes are required to the board dts files because the only
+required configuration option is the phy-mode, which had to be
+configured correctly before as well.
+
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
 ---
- .../devicetree/bindings/net/meson-dwmac.txt        | 45 ++++++++++++++++++----
- 1 file changed, 37 insertions(+), 8 deletions(-)
+ arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/meson-dwmac.txt b/Documentation/devicetree/bindings/net/meson-dwmac.txt
-index ec633d7..89e62dd 100644
---- a/Documentation/devicetree/bindings/net/meson-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/meson-dwmac.txt
-@@ -1,18 +1,32 @@
- * Amlogic Meson DWMAC Ethernet controller
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
+index 4f42316..ab817d3 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
++++ b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
+@@ -373,13 +373,15 @@
+ 		};
  
- The device inherits all the properties of the dwmac/stmmac devices
--described in the file net/stmmac.txt with the following changes.
-+described in the file stmmac.txt in the current directory with the
-+following changes.
- 
--Required properties:
-+Required properties on all platforms:
- 
--- compatible: should be "amlogic,meson6-dwmac" along with "snps,dwmac"
--	      and any applicable more detailed version number
--	      described in net/stmmac.txt
-+- compatible:	Depending on the platform this should be one of:
-+			- "amlogic,meson6-dwmac"
-+			- "amlogic,meson8b-dwmac"
-+			- "amlogic,meson-gxbb-dwmac"
-+		Additionally "snps,dwmac" and any applicable more
-+		detailed version number described in net/stmmac.txt
-+		should be used.
- 
--- reg: should contain a register range for the dwmac controller and
--       another one for the Amlogic specific configuration
-+- reg:	The first register range should be the one of the DWMAC
-+	controller. The second range is is for the Amlogic specific
-+	configuration (for example the PRG_ETHERNET register range
-+	on Meson8b and newer)
- 
--Example:
-+Required properties on Meson8b and newer:
-+- clock-names:	Should contain the following:
-+		- "stmmaceth" - see stmmac.txt
-+		- "clkin0" - first parent clock of the internal mux
-+		- "clkin1" - second parent clock of the internal mux
-+
-+
-+Example for Meson6:
- 
- 	ethmac: ethernet@c9410000 {
- 		compatible = "amlogic,meson6-dwmac", "snps,dwmac";
-@@ -23,3 +37,18 @@ Example:
- 		clocks = <&clk81>;
- 		clock-names = "stmmaceth";
- 	}
-+
-+Example for GXBB:
-+	ethmac: ethernet@c9410000 {
-+		compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
-+		reg = <0x0 0xc9410000 0x0 0x10000>,
-+			<0x0 0xc8834540 0x0 0x8>;
-+		interrupts = <0 8 1>;
-+		interrupt-names = "macirq";
-+		clocks = <&clkc CLKID_ETH>,
-+				<&clkc CLKID_FCLK_DIV2>,
-+				<&clkc CLKID_MPLL2>;
-+		clock-names = "stmmaceth", "clkin0", "clkin1";
-+		phy-mode = "rgmii";
-+		status = "disabled";
-+	};
+ 		ethmac: ethernet@c9410000 {
+-			compatible = "amlogic,meson6-dwmac", "snps,dwmac";
++			compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
+ 			reg = <0x0 0xc9410000 0x0 0x10000
+ 			       0x0 0xc8834540 0x0 0x4>;
+ 			interrupts = <0 8 1>;
+ 			interrupt-names = "macirq";
+-			clocks = <&clkc CLKID_ETH>;
+-			clock-names = "stmmaceth";
++			clocks = <&clkc CLKID_ETH>,
++				 <&clkc CLKID_FCLK_DIV2>,
++				 <&clkc CLKID_MPLL2>;
++			clock-names = "stmmaceth", "clkin0", "clkin1";
+ 			phy-mode = "rgmii";
+ 			status = "disabled";
+ 		};
 -- 
 2.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
