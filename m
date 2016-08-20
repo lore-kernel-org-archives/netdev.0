@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 01/30] net/mlx5: Init/Teardown hca commands via mlx5 ifc
-Date: Sat, 20 Aug 2016 23:11:44 +0300
-Message-ID: <1471723933-5894-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 10/30] {net,IB}/mlx5: Modify QP commands via mlx5 ifc
+Date: Sat, 20 Aug 2016 23:11:53 +0300
+Message-ID: <1471723933-5894-11-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>,
@@ -12,111 +12,314 @@ Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34049 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34122 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751532AbcHTUMn (ORCPT
+        with ESMTP id S1751764AbcHTUMn (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:43 -0400
 In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove old representation of manually created Init/Teardown hca
-commands layout and use mlx5_ifc canonical structures and defines.
+Prior to this patch we assumed that modify QP commands have the
+same layout.
+
+In ConnectX-4 for each QP transition there is a specific command
+and their layout can vary.
+
+e.g: 2err/2rst commands don't have QP context in their layout and before
+this patch we posted the QP context in those commands.
+
+Fortunately the FW only checks the suffix of the commands and executes
+them, while ignoring all invalid data sent after the valid command
+layout.
+
+This patch removes mlx5_modify_qp_mbox_in and changes
+mlx5_core_qp_modify to receive the required transition and QP context
+with opt_param_mask if needed.  This way the caller is not required to
+provide the command inbox layout and it will be generated automatically.
+
+mlx5_core_qp_modify will generate the command inbox/outbox layouts
+according to the requested transition and will fill the requested
+parameters.
 
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fw.c | 36 ++++++++--------------------
- include/linux/mlx5/device.h                  | 24 -------------------
- 2 files changed, 10 insertions(+), 50 deletions(-)
+ drivers/infiniband/hw/mlx5/qp.c              |  22 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c | 124 +++++++++++++++++++++++++--
+ include/linux/mlx5/qp.h                      |  20 +----
+ 3 files changed, 124 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index 77fc1aa..56bf520 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -162,38 +162,22 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
- 
- int mlx5_cmd_init_hca(struct mlx5_core_dev *dev)
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index d22492f..6261737 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -1871,7 +1871,6 @@ static void destroy_qp_common(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp)
  {
--	struct mlx5_cmd_init_hca_mbox_in in;
--	struct mlx5_cmd_init_hca_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(init_hca_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(init_hca_in)]   = {0};
+ 	struct mlx5_ib_cq *send_cq, *recv_cq;
+ 	struct mlx5_ib_qp_base *base = &qp->trans_qp.base;
+-	struct mlx5_modify_qp_mbox_in *in;
+ 	unsigned long flags;
  	int err;
  
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_INIT_HCA);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
--
--	if (out.hdr.status)
--		err = mlx5_cmd_status_to_err(&out.hdr);
--
--	return err;
-+	MLX5_SET(init_hca_in, in, opcode, MLX5_CMD_OP_INIT_HCA);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- }
+@@ -1884,16 +1883,12 @@ static void destroy_qp_common(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp)
+ 	       &qp->raw_packet_qp.rq.base :
+ 	       &qp->trans_qp.base;
  
- int mlx5_cmd_teardown_hca(struct mlx5_core_dev *dev)
- {
--	struct mlx5_cmd_teardown_hca_mbox_in in;
--	struct mlx5_cmd_teardown_hca_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(teardown_hca_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(teardown_hca_in)]   = {0};
+-	in = kzalloc(sizeof(*in), GFP_KERNEL);
+-	if (!in)
+-		return;
+-
+ 	if (qp->state != IB_QPS_RESET) {
+ 		if (qp->ibqp.qp_type != IB_QPT_RAW_PACKET) {
+ 			mlx5_ib_qp_disable_pagefaults(qp);
+ 			err = mlx5_core_qp_modify(dev->mdev,
+-						  MLX5_CMD_OP_2RST_QP, in, 0,
+-						  &base->mqp);
++						  MLX5_CMD_OP_2RST_QP, 0,
++						  NULL, &base->mqp);
+ 		} else {
+ 			err = modify_raw_packet_qp(dev, qp,
+ 						   MLX5_CMD_OP_2RST_QP);
+@@ -1935,8 +1930,6 @@ static void destroy_qp_common(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp)
+ 				     base->mqp.qpn);
+ 	}
+ 
+-	kfree(in);
+-
+ 	if (qp->create_type == MLX5_QP_KERNEL)
+ 		destroy_qp_kernel(dev, qp);
+ 	else if (qp->create_type == MLX5_QP_USER)
+@@ -2522,7 +2515,6 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
+ 	struct mlx5_ib_qp_base *base = &qp->trans_qp.base;
+ 	struct mlx5_ib_cq *send_cq, *recv_cq;
+ 	struct mlx5_qp_context *context;
+-	struct mlx5_modify_qp_mbox_in *in;
+ 	struct mlx5_ib_pd *pd;
+ 	enum mlx5_qp_state mlx5_cur, mlx5_new;
+ 	enum mlx5_qp_optpar optpar;
+@@ -2531,11 +2523,10 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
  	int err;
+ 	u16 op;
  
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_TEARDOWN_HCA);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
--
--	if (out.hdr.status)
--		err = mlx5_cmd_status_to_err(&out.hdr);
--
--	return err;
-+	MLX5_SET(teardown_hca_in, in, opcode, MLX5_CMD_OP_TEARDOWN_HCA);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
+-	in = kzalloc(sizeof(*in), GFP_KERNEL);
+-	if (!in)
++	context = kzalloc(sizeof(*context), GFP_KERNEL);
++	if (!context)
+ 		return -ENOMEM;
+ 
+-	context = &in->ctx;
+ 	err = to_mlx5_st(ibqp->qp_type);
+ 	if (err < 0) {
+ 		mlx5_ib_dbg(dev, "unsupported qp type %d\n", ibqp->qp_type);
+@@ -2700,12 +2691,11 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
+ 	op = optab[mlx5_cur][mlx5_new];
+ 	optpar = ib_mask_to_mlx5_opt(attr_mask);
+ 	optpar &= opt_mask[mlx5_cur][mlx5_new][mlx5_st];
+-	in->optparam = cpu_to_be32(optpar);
+ 
+ 	if (qp->ibqp.qp_type == IB_QPT_RAW_PACKET)
+ 		err = modify_raw_packet_qp(dev, qp, op);
+ 	else
+-		err = mlx5_core_qp_modify(dev->mdev, op, in, sqd_event,
++		err = mlx5_core_qp_modify(dev->mdev, op, optpar, context,
+ 					  &base->mqp);
+ 	if (err)
+ 		goto out;
+@@ -2746,7 +2736,7 @@ static int __mlx5_ib_modify_qp(struct ib_qp *ibqp,
+ 	}
+ 
+ out:
+-	kfree(in);
++	kfree(context);
+ 	return err;
  }
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 0b6d15c..6c343c0 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -455,30 +455,6 @@ struct mlx5_odp_caps {
- 	char reserved2[0xe4];
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+index 36d240c..50875a4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
+@@ -335,21 +335,127 @@ int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_core_destroy_qp);
+ 
+-int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 operation,
+-			struct mlx5_modify_qp_mbox_in *in, int sqd_event,
++struct mbox_info {
++	u32 *in;
++	u32 *out;
++	int inlen;
++	int outlen;
++};
++
++static int mbox_alloc(struct mbox_info *mbox, int inlen, int outlen)
++{
++	mbox->inlen  = inlen;
++	mbox->outlen = outlen;
++	mbox->in = kzalloc(mbox->inlen, GFP_KERNEL);
++	mbox->out = kzalloc(mbox->outlen, GFP_KERNEL);
++	if (!mbox->in || !mbox->out) {
++		kfree(mbox->in);
++		kfree(mbox->out);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static void mbox_free(struct mbox_info *mbox)
++{
++	kfree(mbox->in);
++	kfree(mbox->out);
++}
++
++static int modify_qp_mbox_alloc(struct mlx5_core_dev *dev, u16 opcode, int qpn,
++				u32 opt_param_mask, void *qpc,
++				struct mbox_info *mbox)
++{
++	mbox->out = NULL;
++	mbox->in = NULL;
++
++#define MBOX_ALLOC(mbox, typ)  \
++	mbox_alloc(mbox, MLX5_ST_SZ_BYTES(typ##_in), MLX5_ST_SZ_BYTES(typ##_out))
++
++#define MOD_QP_IN_SET(typ, in, _opcode, _qpn) \
++	MLX5_SET(typ##_in, in, opcode, _opcode); \
++	MLX5_SET(typ##_in, in, qpn, _qpn)
++
++#define MOD_QP_IN_SET_QPC(typ, in, _opcode, _qpn, _opt_p, _qpc) \
++	MOD_QP_IN_SET(typ, in, _opcode, _qpn); \
++	MLX5_SET(typ##_in, in, opt_param_mask, _opt_p); \
++	memcpy(MLX5_ADDR_OF(typ##_in, in, qpc), _qpc, MLX5_ST_SZ_BYTES(qpc))
++
++	switch (opcode) {
++	/* 2RST & 2ERR */
++	case MLX5_CMD_OP_2RST_QP:
++		if (MBOX_ALLOC(mbox, qp_2rst))
++			return -ENOMEM;
++		MOD_QP_IN_SET(qp_2rst, mbox->in, opcode, qpn);
++		break;
++	case MLX5_CMD_OP_2ERR_QP:
++		if (MBOX_ALLOC(mbox, qp_2err))
++			return -ENOMEM;
++		MOD_QP_IN_SET(qp_2err, mbox->in, opcode, qpn);
++		break;
++
++	/* MODIFY with QPC */
++	case MLX5_CMD_OP_RST2INIT_QP:
++		if (MBOX_ALLOC(mbox, rst2init_qp))
++			return -ENOMEM;
++		 MOD_QP_IN_SET_QPC(rst2init_qp, mbox->in, opcode, qpn,
++				   opt_param_mask, qpc);
++		 break;
++	case MLX5_CMD_OP_INIT2RTR_QP:
++		if (MBOX_ALLOC(mbox, init2rtr_qp))
++			return -ENOMEM;
++		 MOD_QP_IN_SET_QPC(init2rtr_qp, mbox->in, opcode, qpn,
++				   opt_param_mask, qpc);
++		 break;
++	case MLX5_CMD_OP_RTR2RTS_QP:
++		if (MBOX_ALLOC(mbox, rtr2rts_qp))
++			return -ENOMEM;
++		 MOD_QP_IN_SET_QPC(rtr2rts_qp, mbox->in, opcode, qpn,
++				   opt_param_mask, qpc);
++		 break;
++	case MLX5_CMD_OP_RTS2RTS_QP:
++		if (MBOX_ALLOC(mbox, rts2rts_qp))
++			return -ENOMEM;
++		MOD_QP_IN_SET_QPC(rts2rts_qp, mbox->in, opcode, qpn,
++				  opt_param_mask, qpc);
++		break;
++	case MLX5_CMD_OP_SQERR2RTS_QP:
++		if (MBOX_ALLOC(mbox, sqerr2rts_qp))
++			return -ENOMEM;
++		MOD_QP_IN_SET_QPC(sqerr2rts_qp, mbox->in, opcode, qpn,
++				  opt_param_mask, qpc);
++		break;
++	case MLX5_CMD_OP_INIT2INIT_QP:
++		if (MBOX_ALLOC(mbox, init2init_qp))
++			return -ENOMEM;
++		MOD_QP_IN_SET_QPC(init2init_qp, mbox->in, opcode, qpn,
++				  opt_param_mask, qpc);
++		break;
++	default:
++		mlx5_core_err(dev, "Unknown transition for modify QP: OP(0x%x) QPN(0x%x)\n",
++			      opcode, qpn);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 opcode,
++			u32 opt_param_mask, void *qpc,
+ 			struct mlx5_core_qp *qp)
+ {
+-	struct mlx5_modify_qp_mbox_out out;
+-	int err = 0;
++	struct mbox_info mbox;
++	int err;
+ 
+-	memset(&out, 0, sizeof(out));
+-	in->hdr.opcode = cpu_to_be16(operation);
+-	in->qpn = cpu_to_be32(qp->qpn);
+-	err = mlx5_cmd_exec(dev, in, sizeof(*in), &out, sizeof(out));
++	err = modify_qp_mbox_alloc(dev, opcode, qp->qpn,
++				   opt_param_mask, qpc, &mbox);
+ 	if (err)
+ 		return err;
+ 
+-	return mlx5_cmd_status_to_err(&out.hdr);
++	err = mlx5_cmd_exec(dev, mbox.in, mbox.inlen, mbox.out, mbox.outlen);
++	err = err ? : mlx5_cmd_status_to_err_v2(mbox.out);
++	mbox_free(&mbox);
++	return err;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_core_qp_modify);
+ 
+diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
+index 16e1efe..0aacb2a 100644
+--- a/include/linux/mlx5/qp.h
++++ b/include/linux/mlx5/qp.h
+@@ -479,6 +479,7 @@ struct mlx5_qp_path {
+ 	u8			rmac[6];
  };
  
--struct mlx5_cmd_init_hca_mbox_in {
++/* FIXME: use mlx5_ifc.h qpc */
+ struct mlx5_qp_context {
+ 	__be32			flags;
+ 	__be32			flags_pd;
+@@ -520,21 +521,6 @@ struct mlx5_qp_context {
+ 	u8			rsvd1[24];
+ };
+ 
+-struct mlx5_modify_qp_mbox_in {
 -	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd0[2];
--	__be16			profile;
+-	__be32			qpn;
+-	u8			rsvd0[4];
+-	__be32			optparam;
 -	u8			rsvd1[4];
+-	struct mlx5_qp_context	ctx;
+-	u8			rsvd2[16];
 -};
 -
--struct mlx5_cmd_init_hca_mbox_out {
+-struct mlx5_modify_qp_mbox_out {
 -	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
+-	u8			rsvd0[8];
 -};
 -
--struct mlx5_cmd_teardown_hca_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd0[2];
--	__be16			profile;
--	u8			rsvd1[4];
--};
--
--struct mlx5_cmd_teardown_hca_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
- struct mlx5_cmd_layout {
- 	u8		type;
- 	u8		rsvd0[3];
+ static inline struct mlx5_core_qp *__mlx5_qp_lookup(struct mlx5_core_dev *dev, u32 qpn)
+ {
+ 	return radix_tree_lookup(&dev->priv.qp_table.tree, qpn);
+@@ -549,8 +535,8 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
+ 			struct mlx5_core_qp *qp,
+ 			u32 *in,
+ 			int inlen);
+-int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 operation,
+-			struct mlx5_modify_qp_mbox_in *in, int sqd_event,
++int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 opcode,
++			u32 opt_param_mask, void *qpc,
+ 			struct mlx5_core_qp *qp);
+ int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
+ 			 struct mlx5_core_qp *qp);
 -- 
 2.7.4
