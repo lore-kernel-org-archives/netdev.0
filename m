@@ -1,65 +1,59 @@
-From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Subject: [PATCH v2 4/4] ARM64: dts: meson-gxbb: use the new GXBB DWMAC glue driver
-Date: Sat, 20 Aug 2016 11:35:38 +0200
-Message-ID: <20160820093538.9707-5-martin.blumenstingl@googlemail.com>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: [PATCH v2 2/4] clk: gxbb: expose MPLL2 clock for use by DT
+Date: Sat, 20 Aug 2016 11:35:36 +0200
+Message-ID: <20160820093538.9707-3-martin.blumenstingl@googlemail.com>
 References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
  <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-To: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
-        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160820093538.9707-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, catalin.marinas@arm.com,
+        will.deacon@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        sboyd@codeaurora.org,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+To: linux-amlogic@lists.infradead.org, khilman@baylibre.com,
+        carlo@caione.org, mturquette@baylibre.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33248 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751350AbcHTJgA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 05:36:00 -0400
+In-Reply-To: <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Amlogic reference driver uses the "mc_val" devicetree property to
-configure the PRG_ETHERNET_ADDR0 register. Unfortunately it uses magic
-values for this configuration.
-According to the datasheet the PRG_ETHERNET_ADDR0 register is at address
-0xc8834108. However, the reference driver uses 0xc8834540 instead.
-According to my tests, the value from the reference driver is correct.
+This exposes the MPLL2 clock as this is one of the input clocks of the
+ethernet controller's internal mux.
 
-No changes are required to the board dts files because the only
-required configuration option is the phy-mode, which had to be
-configured correctly before as well.
-
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
 ---
- arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/clk/meson/gxbb.h              | 2 +-
+ include/dt-bindings/clock/gxbb-clkc.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-index 4f42316..ab817d3 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-@@ -373,13 +373,15 @@
- 		};
- 
- 		ethmac: ethernet@c9410000 {
--			compatible = "amlogic,meson6-dwmac", "snps,dwmac";
-+			compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
- 			reg = <0x0 0xc9410000 0x0 0x10000
- 			       0x0 0xc8834540 0x0 0x4>;
- 			interrupts = <0 8 1>;
- 			interrupt-names = "macirq";
--			clocks = <&clkc CLKID_ETH>;
--			clock-names = "stmmaceth";
-+			clocks = <&clkc CLKID_ETH>,
-+				 <&clkc CLKID_FCLK_DIV2>,
-+				 <&clkc CLKID_MPLL2>;
-+			clock-names = "stmmaceth", "clkin0", "clkin1";
- 			phy-mode = "rgmii";
- 			status = "disabled";
- 		};
+diff --git a/drivers/clk/meson/gxbb.h b/drivers/clk/meson/gxbb.h
+index 217df51..3606e875 100644
+--- a/drivers/clk/meson/gxbb.h
++++ b/drivers/clk/meson/gxbb.h
+@@ -183,7 +183,7 @@
+ /* CLKID_CLK81 */
+ #define CLKID_MPLL0		  13
+ #define CLKID_MPLL1		  14
+-#define CLKID_MPLL2		  15
++/* CLKID_MPLL2 */
+ #define CLKID_DDR		  16
+ #define CLKID_DOS		  17
+ #define CLKID_ISA		  18
+diff --git a/include/dt-bindings/clock/gxbb-clkc.h b/include/dt-bindings/clock/gxbb-clkc.h
+index 7d41864..244ea6e 100644
+--- a/include/dt-bindings/clock/gxbb-clkc.h
++++ b/include/dt-bindings/clock/gxbb-clkc.h
+@@ -8,6 +8,7 @@
+ #define CLKID_CPUCLK		1
+ #define CLKID_FCLK_DIV2		4
+ #define CLKID_CLK81		12
++#define CLKID_MPLL2		15
+ #define CLKID_ETH		36
+ #define CLKID_SD_EMMC_A		94
+ #define CLKID_SD_EMMC_B		95
 -- 
 2.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
