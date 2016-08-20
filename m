@@ -1,113 +1,105 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40e: Add support for HMC resource and profile for X722
-Date: Fri, 19 Aug 2016 23:19:44 -0700
-Message-ID: <1471673991-117115-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: use matching format identifiers
+Date: Fri, 19 Aug 2016 23:19:45 -0700
+Message-ID: <1471673991-117115-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Heinrich Schuchardt <xypron.glpk@gmx.de>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:37803 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:50330 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752404AbcHTGTz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 02:19:55 -0400
+        id S1752485AbcHTGT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 02:19:56 -0400
 In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
 
-This patch adds support for HMC resource and profile cmds for X722
-firmware.
+i is defined as int but output as %u several times.
+Adjust the format identifiers.
 
-Change-ID: Icc332101f38ab15d1bfa167823100eb4f6822f7e
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 21 +++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 21 +++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 5c4bf76..67e396b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -204,6 +204,9 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_suspend_port_tx				= 0x041B,
- 	i40e_aqc_opc_resume_port_tx				= 0x041C,
- 	i40e_aqc_opc_configure_partition_bw			= 0x041D,
-+	/* hmc */
-+	i40e_aqc_opc_query_hmc_resource_profile	= 0x0500,
-+	i40e_aqc_opc_set_hmc_resource_profile	= 0x0501,
- 
- 	/* phy commands*/
- 	i40e_aqc_opc_get_phy_abilities		= 0x0600,
-@@ -1586,6 +1589,24 @@ struct i40e_aqc_configure_partition_bw_data {
- 
- I40E_CHECK_STRUCT_LEN(0x22, i40e_aqc_configure_partition_bw_data);
- 
-+/* Get and set the active HMC resource profile and status.
-+ * (direct 0x0500) and (direct 0x0501)
-+ */
-+struct i40e_aq_get_set_hmc_resource_profile {
-+	u8	pm_profile;
-+	u8	pe_vf_enabled;
-+	u8	reserved[14];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aq_get_set_hmc_resource_profile);
-+
-+enum i40e_aq_hmc_profile {
-+	/* I40E_HMC_PROFILE_NO_CHANGE	= 0, reserved */
-+	I40E_HMC_PROFILE_DEFAULT	= 1,
-+	I40E_HMC_PROFILE_FAVOR_VF	= 2,
-+	I40E_HMC_PROFILE_EQUAL		= 3,
-+};
-+
- /* Get PHY Abilities (indirect 0x0600) uses the generic indirect struct */
- 
- /* set in param0 for get phy abilities to report qualified modules */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 0045650..40b0eaf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -204,6 +204,9 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_suspend_port_tx				= 0x041B,
- 	i40e_aqc_opc_resume_port_tx				= 0x041C,
- 	i40e_aqc_opc_configure_partition_bw			= 0x041D,
-+	/* hmc */
-+	i40e_aqc_opc_query_hmc_resource_profile	= 0x0500,
-+	i40e_aqc_opc_set_hmc_resource_profile	= 0x0501,
- 
- 	/* phy commands*/
- 	i40e_aqc_opc_get_phy_abilities		= 0x0600,
-@@ -1583,6 +1586,24 @@ struct i40e_aqc_configure_partition_bw_data {
- 
- I40E_CHECK_STRUCT_LEN(0x22, i40e_aqc_configure_partition_bw_data);
- 
-+/* Get and set the active HMC resource profile and status.
-+ * (direct 0x0500) and (direct 0x0501)
-+ */
-+struct i40e_aq_get_set_hmc_resource_profile {
-+	u8	pm_profile;
-+	u8	pe_vf_enabled;
-+	u8	reserved[14];
-+};
-+
-+I40E_CHECK_CMD_LENGTH(i40e_aq_get_set_hmc_resource_profile);
-+
-+enum i40e_aq_hmc_profile {
-+	/* I40E_HMC_PROFILE_NO_CHANGE	= 0, reserved */
-+	I40E_HMC_PROFILE_DEFAULT	= 1,
-+	I40E_HMC_PROFILE_FAVOR_VF	= 2,
-+	I40E_HMC_PROFILE_EQUAL		= 3,
-+};
-+
- /* Get PHY Abilities (indirect 0x0600) uses the generic indirect struct */
- 
- /* set in param0 for get phy abilities to report qualified modules */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 5bd3848..1835186 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1560,13 +1560,13 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
+ 		}
+ #endif
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+-			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_packets", i);
++			snprintf(p, ETH_GSTRING_LEN, "tx-%d.tx_packets", i);
+ 			p += ETH_GSTRING_LEN;
+-			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_bytes", i);
++			snprintf(p, ETH_GSTRING_LEN, "tx-%d.tx_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+-			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_packets", i);
++			snprintf(p, ETH_GSTRING_LEN, "rx-%d.rx_packets", i);
+ 			p += ETH_GSTRING_LEN;
+-			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_bytes", i);
++			snprintf(p, ETH_GSTRING_LEN, "rx-%d.rx_bytes", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+ 		if (vsi != pf->vsi[pf->lan_vsi] || pf->hw.partition_id != 1)
+@@ -1581,16 +1581,16 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
+ 			}
+ 			for (i = 0; i < I40E_MAX_TRAFFIC_CLASS; i++) {
+ 				snprintf(p, ETH_GSTRING_LEN,
+-					 "veb.tc_%u_tx_packets", i);
++					 "veb.tc_%d_tx_packets", i);
+ 				p += ETH_GSTRING_LEN;
+ 				snprintf(p, ETH_GSTRING_LEN,
+-					 "veb.tc_%u_tx_bytes", i);
++					 "veb.tc_%d_tx_bytes", i);
+ 				p += ETH_GSTRING_LEN;
+ 				snprintf(p, ETH_GSTRING_LEN,
+-					 "veb.tc_%u_rx_packets", i);
++					 "veb.tc_%d_rx_packets", i);
+ 				p += ETH_GSTRING_LEN;
+ 				snprintf(p, ETH_GSTRING_LEN,
+-					 "veb.tc_%u_rx_bytes", i);
++					 "veb.tc_%d_rx_bytes", i);
+ 				p += ETH_GSTRING_LEN;
+ 			}
+ 		}
+@@ -1601,23 +1601,23 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
+ 		}
+ 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
+ 			snprintf(p, ETH_GSTRING_LEN,
+-				 "port.tx_priority_%u_xon", i);
++				 "port.tx_priority_%d_xon", i);
+ 			p += ETH_GSTRING_LEN;
+ 			snprintf(p, ETH_GSTRING_LEN,
+-				 "port.tx_priority_%u_xoff", i);
++				 "port.tx_priority_%d_xoff", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+ 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
+ 			snprintf(p, ETH_GSTRING_LEN,
+-				 "port.rx_priority_%u_xon", i);
++				 "port.rx_priority_%d_xon", i);
+ 			p += ETH_GSTRING_LEN;
+ 			snprintf(p, ETH_GSTRING_LEN,
+-				 "port.rx_priority_%u_xoff", i);
++				 "port.rx_priority_%d_xoff", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+ 		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
+ 			snprintf(p, ETH_GSTRING_LEN,
+-				 "port.rx_priority_%u_xon_2_xoff", i);
++				 "port.rx_priority_%d_xon_2_xoff", i);
+ 			p += ETH_GSTRING_LEN;
+ 		}
+ 		/* BUG_ON(p - data != I40E_STATS_LEN * ETH_GSTRING_LEN); */
 -- 
 2.7.4
