@@ -1,100 +1,39 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC PATCH] openvswitch: use percpu flow stats
-Date: Fri, 19 Aug 2016 21:07:52 -0700
-Message-ID: <1471666072.29842.123.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471636046-9246-1-git-send-email-cascardo@redhat.com>
- <1471636616.29842.110.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160819.180953.970774471141286228.davem@davemloft.net>
+Date: Fri, 19 Aug 2016 22:25:01 -0700 (PDT)
+Message-ID: <20160819.222501.684301846870702801.davem@davemloft.net>
+References: <1471636616.29842.110.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20160819.180953.970774471141286228.davem@davemloft.net>
+        <1471666072.29842.123.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160819.180953.970774471141286228.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cascardo@redhat.com, dev@openvswitch.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57144 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbcHTFZE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 01:25:04 -0400
+In-Reply-To: <1471666072.29842.123.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE2LTA4LTE5IGF0IDE4OjA5IC0wNzAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6Cj4g
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPgo+IERhdGU6IEZyaSwg
-MTkgQXVnIDIwMTYgMTI6NTY6NTYgLTA3MDAKPiAKPiA+IE9uIEZyaSwgMjAxNi0wOC0xOSBhdCAx
-Njo0NyAtMDMwMCwgVGhhZGV1IExpbWEgZGUgU291emEgQ2FzY2FyZG8gd3JvdGU6Cj4gPj4gSW5z
-dGVhZCBvZiB1c2luZyBmbG93IHN0YXRzIHBlciBOVU1BIG5vZGUsIHVzZSBpdCBwZXIgQ1BVLiBX
-aGVuIHVzaW5nCj4gPj4gbWVnYWZsb3dzLCB0aGUgc3RhdHMgbG9jayBjYW4gYmUgYSBib3R0bGVu
-ZWNrIGluIHNjYWxhYmlsaXR5Lgo+ID4gCj4gPiAuLi4KPiA+IAo+ID4+ICAKPiA+PiAgCWZsb3df
-Y2FjaGUgPSBrbWVtX2NhY2hlX2NyZWF0ZSgic3dfZmxvdyIsIHNpemVvZihzdHJ1Y3Qgc3dfZmxv
-dykKPiA+PiAtCQkJCSAgICAgICArIChucl9ub2RlX2lkcwo+ID4+ICsJCQkJICAgICAgICsgKG51
-bV9wb3NzaWJsZV9jcHVzKCkKPiA+PiAgCQkJCQkgICogc2l6ZW9mKHN0cnVjdCBmbG93X3N0YXRz
-ICopKSwKPiA+PiAgCQkJCSAgICAgICAwLCAwLCBOVUxMKTsKPiA+PiAgCWlmIChmbG93X2NhY2hl
-ID09IE5VTEwpCj4gPiAKPiA+IFRoaXMgaXMgYm9ndXMuCj4gPiAKPiA+IFBsZWFzZSB1c2UgbnJf
-Y3B1X2lkcyBpbnN0ZWFkIG9mIG51bV9wb3NzaWJsZV9jcHVzKCkuCj4gCj4gVGhlbiBob3cgd291
-bGQgaG90LXBsdWdnZWQgY3B1cyBiZSBoYW5kbGVkIHByb3Blcmx5Pwo+IAo+IFRoZSBvbmx5IG90
-aGVyIHdheSBpcyB5b3UnZCBoYXZlIHRvIGZyZWUgYWxsIG9iamVjdHMgaW4gdGhlIGN1cnJlbnQK
-PiBmbG93X2NhY2hlLCBkZXN0cm95IGl0LCB0aGVuIG1ha2UgYSBuZXcga21lbV9jYWNoZSBhbmQg
-cmVhbGxvY2F0ZQo+IGFsbCBvZiB0aGUgZXhpc3Rpbmcgb2JqZWN0cyBhbmQgaG9vayB0aGVtIGJh
-Y2sgdXAgZXZlcnkgdGltZSBhIGNwdQo+IHVwIGV2ZW50IG9jY3Vycy4KPiAKPiBUaGF0IGRvZXNu
-J3QgbWFrZSBhbnkgc2Vuc2UgYXQgYWxsLgo+IAo+IFRoZXJlZm9yZSwgdGhlIHNpemUgb2YgdGhl
-IG9iamVjdHMgY29taW5nIG91dCBvZiAic3dfZmxvdyIgaGF2ZQo+IHRvIGFjY29tb2RhdGUgYWxs
-IHBvc3NpYmxlIGNwdSBpbmRleGVzLgoKSGVyZSBpcyBhbiBleGFtcGxlIG9mIGEgc3lzdGVtIEkg
-aGFkIGluIHRoZSBwYXN0LgoKOCBjcHVzICAobnVtX3Bvc3NpYmxlX2NwdXMoKSByZXR1cm5zIDgp
-CgpDcHVzIHdlcmUgbnVtYmVyZWQgOiAwLCAxLCAyLCAzLCA4LCA5LCAxMCwgMTEgIDogKG5yX2Nw
-dV9pZHMgPSAxMikKCkkgYW0gcHJldHR5IHN1cmUgdGhleSBhcmUgc3RpbGwgYWxpdmUuCgpTaW5j
-ZSB5b3Ugd2FudCBhbiBhcnJheSBpbmRleGVkIGJ5IGNwdSBudW1iZXJzLCB5b3UgbmVlZCB0byBz
-aXplIGl0IGJ5Cm5yX2NwdV9pZHMsIG90aGVyd2lzZSBhcnJheVsxMV0gd2lsbCBjcmFzaCAvIGFj
-Y2VzcyBnYXJiYWdlLgoKVGhpcyBpcyB3aHkgeW91IGZpbmQgbWFueSBucl9jcHVfaWRzIGluIHRo
-ZSBsaW51eCB0cmVlLCBub3QKbnVtX3Bvc3NpYmxlX2NwdXMoKSB0byBzaXplIGFycmF5cy4KCiMg
-Z2l0IGdyZXAgLW4gbnJfY3B1X2lkcyAtLSBuZXQKbmV0L2JyaWRnZS9uZXRmaWx0ZXIvZWJ0YWJs
-ZXMuYzo5MDA6ICAgICAgICAgICAgICAgICAgICB2bWFsbG9jKG5yX2NwdV9pZHMgKiBzaXplb2Yo
-KihuZXdpbmZvLT5jaGFpbnN0YWNrKSkpOwpuZXQvYnJpZGdlL25ldGZpbHRlci9lYnRhYmxlcy5j
-OjExMzI6ICAgY291bnRlcnNpemUgPSBDT1VOVEVSX09GRlNFVCh0bXAubmVudHJpZXMpICogbnJf
-Y3B1X2lkczsKbmV0L2JyaWRnZS9uZXRmaWx0ZXIvZWJ0YWJsZXMuYzoxMTg1OiAgIGNvdW50ZXJz
-aXplID0gQ09VTlRFUl9PRkZTRVQocmVwbC0+bmVudHJpZXMpICogbnJfY3B1X2lkczsKbmV0L2Jy
-aWRnZS9uZXRmaWx0ZXIvZWJ0YWJsZXMuYzoyMjAwOiAgIGNvdW50ZXJzaXplID0gQ09VTlRFUl9P
-RkZTRVQodG1wLm5lbnRyaWVzKSAqIG5yX2NwdV9pZHM7Cm5ldC9jb3JlL2Rldi5jOjM0ODM6ICAg
-IGlmIChuZXh0X2NwdSA8IG5yX2NwdV9pZHMpIHsKbmV0L2NvcmUvZGV2LmM6MzU4ODogICAgICAg
-ICAgICAgKiAgIC0gQ3VycmVudCBDUFUgaXMgdW5zZXQgKD49IG5yX2NwdV9pZHMpLgpuZXQvY29y
-ZS9kZXYuYzozNTk2OiAgICAgICAgICAgICAgICAodGNwdSA+PSBucl9jcHVfaWRzIHx8ICFjcHVf
-b25saW5lKHRjcHUpIHx8Cm5ldC9jb3JlL2Rldi5jOjM2MDM6ICAgICAgICAgICAgaWYgKHRjcHUg
-PCBucl9jcHVfaWRzICYmIGNwdV9vbmxpbmUodGNwdSkpIHsKbmV0L2NvcmUvZGV2LmM6MzY1MTog
-ICAgICAgICAgICBpZiAocmZsb3ctPmZpbHRlciA9PSBmaWx0ZXJfaWQgJiYgY3B1IDwgbnJfY3B1
-X2lkcyAmJgpuZXQvY29yZS9uZWlnaGJvdXIuYzoyNzM3OiAgICAgIGZvciAoY3B1ID0gKnBvcy0x
-OyBjcHUgPCBucl9jcHVfaWRzOyArK2NwdSkgewpuZXQvY29yZS9uZWlnaGJvdXIuYzoyNzUxOiAg
-ICAgIGZvciAoY3B1ID0gKnBvczsgY3B1IDwgbnJfY3B1X2lkczsgKytjcHUpIHsKbmV0L2NvcmUv
-bmV0LXByb2Nmcy5jOjEyMjogICAgICB3aGlsZSAoKnBvcyA8IG5yX2NwdV9pZHMpCm5ldC9jb3Jl
-L3N5c2N0bF9uZXRfY29yZS5jOjcwOiAgICAgICAgICAgICAgICAgICAgICAgICAgcnBzX2NwdV9t
-YXNrID0gcm91bmR1cF9wb3dfb2ZfdHdvKG5yX2NwdV9pZHMpIC0gMTsKbmV0L2lwdjQvbmV0Zmls
-dGVyL25mX2Nvbm50cmFja19sM3Byb3RvX2lwdjRfY29tcGF0LmM6MzYwOiAgICAgIGZvciAoY3B1
-ID0gKnBvcy0xOyBjcHUgPCBucl9jcHVfaWRzOyArK2NwdSkgewpuZXQvaXB2NC9uZXRmaWx0ZXIv
-bmZfY29ubnRyYWNrX2wzcHJvdG9faXB2NF9jb21wYXQuYzozNzU6ICAgICAgZm9yIChjcHUgPSAq
-cG9zOyBjcHUgPCBucl9jcHVfaWRzOyArK2NwdSkgewpuZXQvaXB2NC9yb3V0ZS5jOjI1NDogICBm
-b3IgKGNwdSA9ICpwb3MtMTsgY3B1IDwgbnJfY3B1X2lkczsgKytjcHUpIHsKbmV0L2lwdjQvcm91
-dGUuYzoyNjc6ICAgZm9yIChjcHUgPSAqcG9zOyBjcHUgPCBucl9jcHVfaWRzOyArK2NwdSkgewpu
-ZXQvaXB2Ni9pY21wLmM6OTE4OiAgICAgICAgICAgIGt6YWxsb2MobnJfY3B1X2lkcyAqIHNpemVv
-ZihzdHJ1Y3Qgc29jayAqKSwgR0ZQX0tFUk5FTCk7Cm5ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNr
-X25ldGxpbmsuYzoxMjY1OiAgICAgIGZvciAoY3B1ID0gY2ItPmFyZ3NbMF07IGNwdSA8IG5yX2Nw
-dV9pZHM7IGNwdSsrKSB7Cm5ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX25ldGxpbmsuYzoyMDAz
-OiAgICAgIGlmIChjYi0+YXJnc1swXSA9PSBucl9jcHVfaWRzKQpuZXQvbmV0ZmlsdGVyL25mX2Nv
-bm50cmFja19uZXRsaW5rLmM6MjAwNjogICAgICBmb3IgKGNwdSA9IGNiLT5hcmdzWzBdOyBjcHUg
-PCBucl9jcHVfaWRzOyBjcHUrKykgewpuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19uZXRsaW5r
-LmM6MzIxMTogICAgICBpZiAoY2ItPmFyZ3NbMF0gPT0gbnJfY3B1X2lkcykKbmV0L25ldGZpbHRl
-ci9uZl9jb25udHJhY2tfbmV0bGluay5jOjMyMTQ6ICAgICAgZm9yIChjcHUgPSBjYi0+YXJnc1sw
-XTsgY3B1IDwgbnJfY3B1X2lkczsgY3B1KyspIHsKbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tf
-c3RhbmRhbG9uZS5jOjMwOTogICAgZm9yIChjcHUgPSAqcG9zLTE7IGNwdSA8IG5yX2NwdV9pZHM7
-ICsrY3B1KSB7Cm5ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX3N0YW5kYWxvbmUuYzozMjQ6ICAg
-IGZvciAoY3B1ID0gKnBvczsgY3B1IDwgbnJfY3B1X2lkczsgKytjcHUpIHsKbmV0L25ldGZpbHRl
-ci9uZl9zeW5wcm94eV9jb3JlLmM6MjU1OiAgIGZvciAoY3B1ID0gKnBvcyAtIDE7IGNwdSA8IG5y
-X2NwdV9pZHM7IGNwdSsrKSB7Cm5ldC9uZXRmaWx0ZXIvbmZfc3lucHJveHlfY29yZS5jOjI3MDog
-ICBmb3IgKGNwdSA9ICpwb3M7IGNwdSA8IG5yX2NwdV9pZHM7IGNwdSsrKSB7Cm5ldC9uZXRmaWx0
-ZXIveF90YWJsZXMuYzoxMDY0OiAgc2l6ZSA9IHNpemVvZih2b2lkICoqKSAqIG5yX2NwdV9pZHM7
-Cm5ldC9zdW5ycGMvc3ZjLmM6MTY3OiAgIHVuc2lnbmVkIGludCBtYXhwb29scyA9IG5yX2NwdV9p
-ZHM7CgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRl
-diBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3Jn
-L21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 19 Aug 2016 21:07:52 -0700
+
+> Here is an example of a system I had in the past.
+> 
+> 8 cpus  (num_possible_cpus() returns 8)
+> 
+> Cpus were numbered : 0, 1, 2, 3, 8, 9, 10, 11  : (nr_cpu_ids = 12)
+> 
+> I am pretty sure they are still alive.
+> 
+> Since you want an array indexed by cpu numbers, you need to size it by
+> nr_cpu_ids, otherwise array[11] will crash / access garbage.
+> 
+> This is why you find many nr_cpu_ids in the linux tree, not
+> num_possible_cpus() to size arrays.
+
+My bad, I misunderstood what nr_cpu_ids means.  You are absolutely right.
