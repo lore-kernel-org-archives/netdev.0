@@ -1,54 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH -next] net: phy: Add missing of_node_put() in
- xgmiitorgmii_probe()
-Date: Sat, 20 Aug 2016 19:36:05 +0200
-Message-ID: <20160820173605.GE30224@lunn.ch>
-References: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
+From: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 0/3] hostap: Fine-tuning for a few functions
+Date: Sat, 20 Aug 2016 21:26:42 +0200
+Message-ID: <3b3c91ad-3225-3483-bb58-fdee33bf2290@broadcom.com>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39721 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752886AbcHTRgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 13:36:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Jouni Malinen <j@w1.fi>, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <f0cd7a82-e603-6a91-0afd-33bbd1658cab-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 20, 2016 at 03:26:55PM +0000, Wei Yongjun wrote:
-> This node pointer is returned by of_parse_phandle() with
-> refcount incremented in this function. of_node_put() on it
-> before exitting this function.
-
-Hi Wei
-
-You are only releasing on the error path. What about the successful
-path?
-
-	Andrew
-
+On 20-08-16 18:43, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> Date: Sat, 20 Aug 2016 18:35:43 +0200
 > 
-> This is detected by Coccinelle semantic patch.
+> A few update suggestions were taken into account
+> from static source code analysis.
+
+Is it worth touching this old stuff especially when you are not making
+any functional changes.
+
+Regards,
+Arend
+
+> Markus Elfring (3):
+>   Use memdup_user()
+>   Delete an unnecessary jump label
+>   Delete unnecessary variable initialisations
 > 
-> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
-> ---
->  drivers/net/phy/xilinx_gmii2rgmii.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
-> index cad6e19..4f05e5e 100644
-> --- a/drivers/net/phy/xilinx_gmii2rgmii.c
-> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
-> @@ -75,6 +75,7 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
->  	priv->phy_dev = of_phy_find_device(phy_node);
->  	if (!priv->phy_dev) {
->  		dev_info(dev, "Couldn't find phydev\n");
-> +		of_node_put(phy_node);
->  		return -EPROBE_DEFER;
->  	}
+>  .../net/wireless/intersil/hostap/hostap_ioctl.c    | 36 ++++++++--------------
+>  1 file changed, 12 insertions(+), 24 deletions(-)
 > 
