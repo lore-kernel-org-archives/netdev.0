@@ -1,348 +1,101 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 07/30] {net,IB}/mlx5: CQ commands via mlx5 ifc
-Date: Sat, 20 Aug 2016 23:11:50 +0300
-Message-ID: <1471723933-5894-8-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 05/30] net/mlx5: Pages management commands via mlx5 ifc
+Date: Sat, 20 Aug 2016 23:11:48 +0300
+Message-ID: <1471723933-5894-6-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34098 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751510AbcHTUMn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:43 -0400
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Remove old representation of manually created CQ commands layout,
-and use mlx5_ifc canonical structures and defines.
+Remove old representation of manually created Pages management
+commands layout, and use mlx5_ifc canonical structures and defines.
 
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/infiniband/hw/mlx5/cq.c                   | 110 ++++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/cq.c      | 113 +++++++++-------------
- drivers/net/ethernet/mellanox/mlx5/core/debugfs.c |  18 ++--
- include/linux/mlx5/cq.h                           |   6 +-
- include/linux/mlx5/device.h                       |  76 ---------------
- 5 files changed, 122 insertions(+), 201 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    | 165 ++++++++-------------
+ 1 file changed, 58 insertions(+), 107 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
-index 308a358..35a9f71 100644
---- a/drivers/infiniband/hw/mlx5/cq.c
-+++ b/drivers/infiniband/hw/mlx5/cq.c
-@@ -747,14 +747,16 @@ static int alloc_cq_buf(struct mlx5_ib_dev *dev, struct mlx5_ib_cq_buf *buf,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+index 32dea35..7bfac21 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
+@@ -44,12 +44,6 @@ enum {
+ 	MLX5_PAGES_TAKE		= 2
+ };
  
- static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
- 			  struct ib_ucontext *context, struct mlx5_ib_cq *cq,
--			  int entries, struct mlx5_create_cq_mbox_in **cqb,
-+			  int entries, u32 **cqb,
- 			  int *cqe_size, int *index, int *inlen)
+-enum {
+-	MLX5_BOOT_PAGES		= 1,
+-	MLX5_INIT_PAGES		= 2,
+-	MLX5_POST_INIT_PAGES	= 3
+-};
+-
+ struct mlx5_pages_req {
+ 	struct mlx5_core_dev *dev;
+ 	u16	func_id;
+@@ -67,33 +61,6 @@ struct fw_page {
+ 	unsigned		free_count;
+ };
+ 
+-struct mlx5_query_pages_inbox {
+-	struct mlx5_inbox_hdr	hdr;
+-	u8			rsvd[8];
+-};
+-
+-struct mlx5_query_pages_outbox {
+-	struct mlx5_outbox_hdr	hdr;
+-	__be16			rsvd;
+-	__be16			func_id;
+-	__be32			num_pages;
+-};
+-
+-struct mlx5_manage_pages_inbox {
+-	struct mlx5_inbox_hdr	hdr;
+-	__be16			rsvd;
+-	__be16			func_id;
+-	__be32			num_entries;
+-	__be64			pas[0];
+-};
+-
+-struct mlx5_manage_pages_outbox {
+-	struct mlx5_outbox_hdr	hdr;
+-	__be32			num_entries;
+-	u8			rsvd[4];
+-	__be64			pas[0];
+-};
+-
+ enum {
+ 	MAX_RECLAIM_TIME_MSECS	= 5000,
+ 	MAX_RECLAIM_VFS_PAGES_TIME_MSECS = 2 * 1000 * 60,
+@@ -167,24 +134,22 @@ static struct fw_page *find_fw_page(struct mlx5_core_dev *dev, u64 addr)
+ static int mlx5_cmd_query_pages(struct mlx5_core_dev *dev, u16 *func_id,
+ 				s32 *npages, int boot)
  {
- 	struct mlx5_ib_create_cq ucmd;
- 	size_t ucmdlen;
- 	int page_shift;
-+	__be64 *pas;
- 	int npages;
- 	int ncont;
-+	void *cqc;
+-	struct mlx5_query_pages_inbox	in;
+-	struct mlx5_query_pages_outbox	out;
++	u32 out[MLX5_ST_SZ_DW(query_pages_out)] = {0};
++	u32 in[MLX5_ST_SZ_DW(query_pages_in)]   = {0};
  	int err;
- 
- 	ucmdlen =
-@@ -792,14 +794,20 @@ static int create_cq_user(struct mlx5_ib_dev *dev, struct ib_udata *udata,
- 	mlx5_ib_dbg(dev, "addr 0x%llx, size %u, npages %d, page_shift %d, ncont %d\n",
- 		    ucmd.buf_addr, entries * ucmd.cqe_size, npages, page_shift, ncont);
- 
--	*inlen = sizeof(**cqb) + sizeof(*(*cqb)->pas) * ncont;
-+	*inlen = MLX5_ST_SZ_BYTES(create_cq_in) +
-+		 MLX5_FLD_SZ_BYTES(create_cq_in, pas[0]) * ncont;
- 	*cqb = mlx5_vzalloc(*inlen);
- 	if (!*cqb) {
- 		err = -ENOMEM;
- 		goto err_db;
- 	}
--	mlx5_ib_populate_pas(dev, cq->buf.umem, page_shift, (*cqb)->pas, 0);
--	(*cqb)->ctx.log_pg_sz = page_shift - MLX5_ADAPTER_PAGE_SHIFT;
-+
-+	pas = (__be64 *)MLX5_ADDR_OF(create_cq_in, *cqb, pas);
-+	mlx5_ib_populate_pas(dev, cq->buf.umem, page_shift, pas, 0);
-+
-+	cqc = MLX5_ADDR_OF(create_cq_in, *cqb, cq_context);
-+	MLX5_SET(cqc, cqc, log_page_size,
-+		 page_shift - MLX5_ADAPTER_PAGE_SHIFT);
- 
- 	*index = to_mucontext(context)->uuari.uars[0].index;
- 
-@@ -834,9 +842,10 @@ static void init_cq_buf(struct mlx5_ib_cq *cq, struct mlx5_ib_cq_buf *buf)
- 
- static int create_cq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_cq *cq,
- 			    int entries, int cqe_size,
--			    struct mlx5_create_cq_mbox_in **cqb,
--			    int *index, int *inlen)
-+			    u32 **cqb, int *index, int *inlen)
- {
-+	__be64 *pas;
-+	void *cqc;
- 	int err;
- 
- 	err = mlx5_db_alloc(dev->mdev, &cq->db);
-@@ -853,15 +862,21 @@ static int create_cq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_cq *cq,
- 
- 	init_cq_buf(cq, &cq->buf);
- 
--	*inlen = sizeof(**cqb) + sizeof(*(*cqb)->pas) * cq->buf.buf.npages;
-+	*inlen = MLX5_ST_SZ_BYTES(create_cq_in) +
-+		 MLX5_FLD_SZ_BYTES(create_cq_in, pas[0]) * cq->buf.buf.npages;
- 	*cqb = mlx5_vzalloc(*inlen);
- 	if (!*cqb) {
- 		err = -ENOMEM;
- 		goto err_buf;
- 	}
--	mlx5_fill_page_array(&cq->buf.buf, (*cqb)->pas);
- 
--	(*cqb)->ctx.log_pg_sz = cq->buf.buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT;
-+	pas = (__be64 *)MLX5_ADDR_OF(create_cq_in, *cqb, pas);
-+	mlx5_fill_page_array(&cq->buf.buf, pas);
-+
-+	cqc = MLX5_ADDR_OF(create_cq_in, *cqb, cq_context);
-+	MLX5_SET(cqc, cqc, log_page_size,
-+		 cq->buf.buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT);
-+
- 	*index = dev->mdev->priv.uuari.uars[0].index;
- 
- 	return 0;
-@@ -895,11 +910,12 @@ struct ib_cq *mlx5_ib_create_cq(struct ib_device *ibdev,
- {
- 	int entries = attr->cqe;
- 	int vector = attr->comp_vector;
--	struct mlx5_create_cq_mbox_in *cqb = NULL;
- 	struct mlx5_ib_dev *dev = to_mdev(ibdev);
- 	struct mlx5_ib_cq *cq;
- 	int uninitialized_var(index);
- 	int uninitialized_var(inlen);
-+	u32 *cqb = NULL;
-+	void *cqc;
- 	int cqe_size;
- 	unsigned int irqn;
- 	int eqn;
-@@ -945,19 +961,20 @@ struct ib_cq *mlx5_ib_create_cq(struct ib_device *ibdev,
- 		INIT_WORK(&cq->notify_work, notify_soft_wc_handler);
- 	}
- 
--	cq->cqe_size = cqe_size;
--	cqb->ctx.cqe_sz_flags = cqe_sz_to_mlx_sz(cqe_size) << 5;
--
--	if (cq->create_flags & IB_CQ_FLAGS_IGNORE_OVERRUN)
--		cqb->ctx.cqe_sz_flags |= (1 << 1);
--
--	cqb->ctx.log_sz_usr_page = cpu_to_be32((ilog2(entries) << 24) | index);
- 	err = mlx5_vector2eqn(dev->mdev, vector, &eqn, &irqn);
- 	if (err)
- 		goto err_cqb;
- 
--	cqb->ctx.c_eqn = cpu_to_be16(eqn);
--	cqb->ctx.db_record_addr = cpu_to_be64(cq->db.dma);
-+	cq->cqe_size = cqe_size;
-+
-+	cqc = MLX5_ADDR_OF(create_cq_in, cqb, cq_context);
-+	MLX5_SET(cqc, cqc, cqe_sz, cqe_sz_to_mlx_sz(cqe_size));
-+	MLX5_SET(cqc, cqc, log_cq_size, ilog2(entries));
-+	MLX5_SET(cqc, cqc, uar_page, index);
-+	MLX5_SET(cqc, cqc, c_eqn, eqn);
-+	MLX5_SET64(cqc, cqc, dbr_addr, cq->db.dma);
-+	if (cq->create_flags & IB_CQ_FLAGS_IGNORE_OVERRUN)
-+		MLX5_SET(cqc, cqc, oi, 1);
- 
- 	err = mlx5_core_create_cq(dev->mdev, &cq->mcq, cqb, inlen);
- 	if (err)
-@@ -1088,27 +1105,15 @@ void mlx5_ib_cq_clean(struct mlx5_ib_cq *cq, u32 qpn, struct mlx5_ib_srq *srq)
- 
- int mlx5_ib_modify_cq(struct ib_cq *cq, u16 cq_count, u16 cq_period)
- {
--	struct mlx5_modify_cq_mbox_in *in;
- 	struct mlx5_ib_dev *dev = to_mdev(cq->device);
- 	struct mlx5_ib_cq *mcq = to_mcq(cq);
- 	int err;
--	u32 fsel;
- 
- 	if (!MLX5_CAP_GEN(dev->mdev, cq_moderation))
- 		return -ENOSYS;
- 
--	in = kzalloc(sizeof(*in), GFP_KERNEL);
--	if (!in)
--		return -ENOMEM;
--
--	in->cqn = cpu_to_be32(mcq->mcq.cqn);
--	fsel = (MLX5_CQ_MODIFY_PERIOD | MLX5_CQ_MODIFY_COUNT);
--	in->ctx.cq_period = cpu_to_be16(cq_period);
--	in->ctx.cq_max_count = cpu_to_be16(cq_count);
--	in->field_select = cpu_to_be32(fsel);
--	err = mlx5_core_modify_cq(dev->mdev, &mcq->mcq, in, sizeof(*in));
--	kfree(in);
--
-+	err = mlx5_core_modify_cq_moderation(dev->mdev, &mcq->mcq,
-+					     cq_period, cq_count);
- 	if (err)
- 		mlx5_ib_warn(dev, "modify cq 0x%x failed\n", mcq->mcq.cqn);
- 
-@@ -1241,9 +1246,11 @@ int mlx5_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
- {
- 	struct mlx5_ib_dev *dev = to_mdev(ibcq->device);
- 	struct mlx5_ib_cq *cq = to_mcq(ibcq);
--	struct mlx5_modify_cq_mbox_in *in;
-+	void *cqc;
-+	u32 *in;
- 	int err;
- 	int npas;
-+	__be64 *pas;
- 	int page_shift;
- 	int inlen;
- 	int uninitialized_var(cqe_size);
-@@ -1285,28 +1292,37 @@ int mlx5_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
- 	if (err)
- 		goto ex;
- 
--	inlen = sizeof(*in) + npas * sizeof(in->pas[0]);
-+	inlen = MLX5_ST_SZ_BYTES(modify_cq_in) +
-+		MLX5_FLD_SZ_BYTES(modify_cq_in, pas[0]) * npas;
-+
- 	in = mlx5_vzalloc(inlen);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto ex_resize;
- 	}
- 
-+	pas = (__be64 *)MLX5_ADDR_OF(modify_cq_in, in, pas);
- 	if (udata)
- 		mlx5_ib_populate_pas(dev, cq->resize_umem, page_shift,
--				     in->pas, 0);
-+				     pas, 0);
- 	else
--		mlx5_fill_page_array(&cq->resize_buf->buf, in->pas);
--
--	in->field_select = cpu_to_be32(MLX5_MODIFY_CQ_MASK_LOG_SIZE  |
--				       MLX5_MODIFY_CQ_MASK_PG_OFFSET |
--				       MLX5_MODIFY_CQ_MASK_PG_SIZE);
--	in->ctx.log_pg_sz = page_shift - MLX5_ADAPTER_PAGE_SHIFT;
--	in->ctx.cqe_sz_flags = cqe_sz_to_mlx_sz(cqe_size) << 5;
--	in->ctx.page_offset = 0;
--	in->ctx.log_sz_usr_page = cpu_to_be32(ilog2(entries) << 24);
--	in->hdr.opmod = cpu_to_be16(MLX5_CQ_OPMOD_RESIZE);
--	in->cqn = cpu_to_be32(cq->mcq.cqn);
-+		mlx5_fill_page_array(&cq->resize_buf->buf, pas);
-+
-+	MLX5_SET(modify_cq_in, in,
-+		 modify_field_select_resize_field_select.resize_field_select.resize_field_select,
-+		 MLX5_MODIFY_CQ_MASK_LOG_SIZE  |
-+		 MLX5_MODIFY_CQ_MASK_PG_OFFSET |
-+		 MLX5_MODIFY_CQ_MASK_PG_SIZE);
-+
-+	cqc = MLX5_ADDR_OF(modify_cq_in, in, cq_context);
-+
-+	MLX5_SET(cqc, cqc, log_page_size,
-+		 page_shift - MLX5_ADAPTER_PAGE_SHIFT);
-+	MLX5_SET(cqc, cqc, cqe_sz, cqe_sz_to_mlx_sz(cqe_size));
-+	MLX5_SET(cqc, cqc, log_cq_size, ilog2(entries));
-+
-+	MLX5_SET(modify_cq_in, in, op_mod, MLX5_CQ_OPMOD_RESIZE);
-+	MLX5_SET(modify_cq_in, in, cqn, cq->mcq.cqn);
- 
- 	err = mlx5_core_modify_cq(dev->mdev, &cq->mcq, in, inlen);
- 	if (err)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cq.c b/drivers/net/ethernet/mellanox/mlx5/core/cq.c
-index 873a631..cf02d8a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cq.c
-@@ -134,33 +134,30 @@ void mlx5_cq_event(struct mlx5_core_dev *dev, u32 cqn, int event_type)
- 		complete(&cq->free);
- }
- 
--
- int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--			struct mlx5_create_cq_mbox_in *in, int inlen)
-+			u32 *in, int inlen)
- {
--	int err;
- 	struct mlx5_cq_table *table = &dev->priv.cq_table;
--	struct mlx5_create_cq_mbox_out out;
--	struct mlx5_destroy_cq_mbox_in din;
--	struct mlx5_destroy_cq_mbox_out dout;
-+	u32 out[MLX5_ST_SZ_DW(create_cq_out)];
-+	u32 din[MLX5_ST_SZ_DW(destroy_cq_in)];
-+	u32 dout[MLX5_ST_SZ_DW(destroy_cq_out)];
- 	int eqn = MLX5_GET(cqc, MLX5_ADDR_OF(create_cq_in, in, cq_context),
- 			   c_eqn);
- 	struct mlx5_eq *eq;
-+	int err;
- 
- 	eq = mlx5_eqn2eq(dev, eqn);
- 	if (IS_ERR(eq))
- 		return PTR_ERR(eq);
- 
--	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_CREATE_CQ);
--	memset(&out, 0, sizeof(out));
--	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
-+	memset(out, 0, sizeof(out));
-+	MLX5_SET(create_cq_in, in, opcode, MLX5_CMD_OP_CREATE_CQ);
-+	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	cq->cqn = be32_to_cpu(out.cqn) & 0xffffff;
-+	cq->cqn = MLX5_GET(create_cq_out, out, cqn);
- 	cq->cons_index = 0;
- 	cq->arm_sn     = 0;
- 	atomic_set(&cq->refcount, 1);
-@@ -186,19 +183,21 @@ int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- 	return 0;
- 
- err_cmd:
--	memset(&din, 0, sizeof(din));
--	memset(&dout, 0, sizeof(dout));
--	din.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_CQ);
--	mlx5_cmd_exec(dev, &din, sizeof(din), &dout, sizeof(dout));
--	return err;
-+	memset(din, 0, sizeof(din));
-+	memset(dout, 0, sizeof(dout));
-+	MLX5_SET(destroy_cq_in, din, opcode, MLX5_CMD_OP_DESTROY_CQ);
-+	MLX5_SET(destroy_cq_in, din, cqn, cq->cqn);
-+	err = mlx5_cmd_exec(dev, din, sizeof(din), dout, sizeof(dout));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
-+
- }
- EXPORT_SYMBOL(mlx5_core_create_cq);
- 
- int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq)
- {
- 	struct mlx5_cq_table *table = &dev->priv.cq_table;
--	struct mlx5_destroy_cq_mbox_in in;
--	struct mlx5_destroy_cq_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(destroy_cq_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(destroy_cq_in)] = {0};
- 	struct mlx5_core_cq *tmp;
- 	int err;
- 
-@@ -214,17 +213,13 @@ int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq)
- 		return -EINVAL;
- 	}
  
 -	memset(&in, 0, sizeof(in));
 -	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_CQ);
--	in.cqn = cpu_to_be32(cq->cqn);
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_PAGES);
+-	in.hdr.opmod = boot ? cpu_to_be16(MLX5_BOOT_PAGES) : cpu_to_be16(MLX5_INIT_PAGES);
++	MLX5_SET(query_pages_in, in, opcode, MLX5_CMD_OP_QUERY_PAGES);
++	MLX5_SET(query_pages_in, in, op_mod, boot ?
++		 MLX5_QUERY_PAGES_IN_OP_MOD_BOOT_PAGES :
++		 MLX5_QUERY_PAGES_IN_OP_MOD_INIT_PAGES);
+ 
 -	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	MLX5_SET(destroy_cq_in, in, opcode, MLX5_CMD_OP_DESTROY_CQ);
-+	MLX5_SET(destroy_cq_in, in, cqn, cq->cqn);
 +	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 +	err = err ? : mlx5_cmd_status_to_err_v2(out);
  	if (err)
@@ -351,254 +104,233 @@ index 873a631..cf02d8a 100644
 -	if (out.hdr.status)
 -		return mlx5_cmd_status_to_err(&out.hdr);
 -
- 	synchronize_irq(cq->irqn);
+-	*npages = be32_to_cpu(out.num_pages);
+-	*func_id = be16_to_cpu(out.func_id);
++	*npages = MLX5_GET(query_pages_out, out, num_pages);
++	*func_id = MLX5_GET(query_pages_out, out, function_id);
  
- 	mlx5_debug_cq_remove(dev, cq);
-@@ -237,44 +232,28 @@ int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq)
- EXPORT_SYMBOL(mlx5_core_destroy_cq);
- 
- int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--		       struct mlx5_query_cq_mbox_out *out)
-+		       u32 *out, int outlen)
- {
--	struct mlx5_query_cq_mbox_in in;
-+	u32 in[MLX5_ST_SZ_DW(query_cq_in)] = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(out, 0, sizeof(*out));
--
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_CQ);
--	in.cqn = cpu_to_be32(cq->cqn);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, sizeof(*out));
--	if (err)
--		return err;
--
--	if (out->hdr.status)
--		return mlx5_cmd_status_to_err(&out->hdr);
-+	MLX5_SET(query_cq_in, in, opcode, MLX5_CMD_OP_QUERY_CQ);
-+	MLX5_SET(query_cq_in, in, cqn, cq->cqn);
- 
--	return err;
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, outlen);
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
+ 	return err;
  }
- EXPORT_SYMBOL(mlx5_core_query_cq);
+@@ -280,46 +245,37 @@ out_alloc:
  
--
- int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--			struct mlx5_modify_cq_mbox_in *in, int in_sz)
-+			u32 *in, int inlen)
+ static void page_notify_fail(struct mlx5_core_dev *dev, u16 func_id)
  {
--	struct mlx5_modify_cq_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(modify_cq_out)] = {0};
+-	struct mlx5_manage_pages_inbox *in;
+-	struct mlx5_manage_pages_outbox out;
++	u32 out[MLX5_ST_SZ_DW(manage_pages_out)] = {0};
++	u32 in[MLX5_ST_SZ_DW(manage_pages_in)]   = {0};
  	int err;
  
+-	in = kzalloc(sizeof(*in), GFP_KERNEL);
+-	if (!in)
+-		return;
+-
 -	memset(&out, 0, sizeof(out));
--	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MODIFY_CQ);
--	err = mlx5_cmd_exec(dev, in, in_sz, &out, sizeof(out));
--	if (err)
--		return err;
+-	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
+-	in->hdr.opmod = cpu_to_be16(MLX5_PAGES_CANT_GIVE);
+-	in->func_id = cpu_to_be16(func_id);
+-	err = mlx5_cmd_exec(dev, in, sizeof(*in), &out, sizeof(out));
+-	if (!err)
+-		err = mlx5_cmd_status_to_err(&out.hdr);
 -
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
++	MLX5_SET(manage_pages_in, in, opcode, MLX5_CMD_OP_MANAGE_PAGES);
++	MLX5_SET(manage_pages_in, in, op_mod, MLX5_PAGES_CANT_GIVE);
++	MLX5_SET(manage_pages_in, in, function_id, func_id);
++	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
++	err = err ? : mlx5_cmd_status_to_err_v2(out);
+ 	if (err)
+-		mlx5_core_warn(dev, "page notify failed\n");
 -
--	return 0;
-+	MLX5_SET(modify_cq_in, in, opcode, MLX5_CMD_OP_MODIFY_CQ);
+-	kfree(in);
++		mlx5_core_warn(dev, "page notify failed func_id(%d) err(%d)\n",
++			       func_id, err);
+ }
+ 
+ static int give_pages(struct mlx5_core_dev *dev, u16 func_id, int npages,
+ 		      int notify_fail)
+ {
+-	struct mlx5_manage_pages_inbox *in;
+-	struct mlx5_manage_pages_outbox out;
+-	int inlen;
++	u32 out[MLX5_ST_SZ_DW(manage_pages_out)] = {0};
++	int inlen = MLX5_ST_SZ_BYTES(manage_pages_in);
+ 	u64 addr;
+ 	int err;
++	u32 *in;
+ 	int i;
+ 
+-	inlen = sizeof(*in) + npages * sizeof(in->pas[0]);
++	inlen += npages * MLX5_FLD_SZ_BYTES(manage_pages_in, pas[0]);
+ 	in = mlx5_vzalloc(inlen);
+ 	if (!in) {
+ 		err = -ENOMEM;
+ 		mlx5_core_warn(dev, "vzalloc failed %d\n", inlen);
+ 		goto out_free;
+ 	}
+-	memset(&out, 0, sizeof(out));
+ 
+ 	for (i = 0; i < npages; i++) {
+ retry:
+@@ -332,27 +288,22 @@ retry:
+ 
+ 			goto retry;
+ 		}
+-		in->pas[i] = cpu_to_be64(addr);
++		MLX5_SET64(manage_pages_in, in, pas[i], addr);
+ 	}
+ 
+-	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
+-	in->hdr.opmod = cpu_to_be16(MLX5_PAGES_GIVE);
+-	in->func_id = cpu_to_be16(func_id);
+-	in->num_entries = cpu_to_be32(npages);
+-	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
++	MLX5_SET(manage_pages_in, in, opcode, MLX5_CMD_OP_MANAGE_PAGES);
++	MLX5_SET(manage_pages_in, in, op_mod, MLX5_PAGES_GIVE);
++	MLX5_SET(manage_pages_in, in, function_id, func_id);
++	MLX5_SET(manage_pages_in, in, input_num_entries, npages);
++
 +	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- }
- EXPORT_SYMBOL(mlx5_core_modify_cq);
++	err = err ? : mlx5_cmd_status_to_err_v2(out);
+ 	if (err) {
+ 		mlx5_core_warn(dev, "func_id 0x%x, npages %d, err %d\n",
+ 			       func_id, npages, err);
+ 		goto out_4k;
+ 	}
  
-@@ -283,18 +262,20 @@ int mlx5_core_modify_cq_moderation(struct mlx5_core_dev *dev,
- 				   u16 cq_period,
- 				   u16 cq_max_count)
- {
--	struct mlx5_modify_cq_mbox_in in;
+-	err = mlx5_cmd_status_to_err(&out.hdr);
+-	if (err) {
+-		mlx5_core_warn(dev, "func_id 0x%x, npages %d, status %d\n",
+-			       func_id, npages, out.hdr.status);
+-		goto out_4k;
+-	}
 -
--	memset(&in, 0, sizeof(in));
--
--	in.cqn              = cpu_to_be32(cq->cqn);
--	in.ctx.cq_period    = cpu_to_be16(cq_period);
--	in.ctx.cq_max_count = cpu_to_be16(cq_max_count);
--	in.field_select     = cpu_to_be32(MLX5_CQ_MODIFY_PERIOD |
--					  MLX5_CQ_MODIFY_COUNT);
--
--	return mlx5_core_modify_cq(dev, cq, &in, sizeof(in));
-+	u32 in[MLX5_ST_SZ_DW(modify_cq_in)] = {0};
-+	void *cqc;
-+
-+	MLX5_SET(modify_cq_in, in, cqn, cq->cqn);
-+	cqc = MLX5_ADDR_OF(modify_cq_in, in, cq_context);
-+	MLX5_SET(cqc, cqc, cq_period, cq_period);
-+	MLX5_SET(cqc, cqc, cq_max_count, cq_max_count);
-+	MLX5_SET(modify_cq_in, in,
-+		 modify_field_select_resize_field_select.modify_field_select.modify_field_select,
-+		 MLX5_CQ_MODIFY_PERIOD | MLX5_CQ_MODIFY_COUNT);
-+
-+	return mlx5_core_modify_cq(dev, cq, in, sizeof(in));
- }
-+EXPORT_SYMBOL(mlx5_core_modify_cq_moderation);
+ 	dev->priv.fw_pages += npages;
+ 	if (func_id)
+ 		dev->priv.vfs_pages += npages;
+@@ -364,7 +315,7 @@ retry:
  
- int mlx5_init_cq_table(struct mlx5_core_dev *dev)
+ out_4k:
+ 	for (i--; i >= 0; i--)
+-		free_4k(dev, be64_to_cpu(in->pas[i]));
++		free_4k(dev, MLX5_GET64(manage_pages_in, in, pas[i]));
+ out_free:
+ 	kvfree(in);
+ 	if (notify_fail)
+@@ -373,64 +324,65 @@ out_free:
+ }
+ 
+ static int reclaim_pages_cmd(struct mlx5_core_dev *dev,
+-			     struct mlx5_manage_pages_inbox *in, int in_size,
+-			     struct mlx5_manage_pages_outbox *out, int out_size)
++			     u32 *in, int in_size, u32 *out, int out_size)
  {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-index 58e5518..b7484e4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-@@ -395,37 +395,37 @@ out:
- static u64 cq_read_field(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
- 			 int index)
+ 	struct fw_page *fwp;
+ 	struct rb_node *p;
+ 	u32 npages;
+ 	u32 i = 0;
+ 
+-	if (dev->state != MLX5_DEVICE_STATE_INTERNAL_ERROR)
+-		return mlx5_cmd_exec_check_status(dev, (u32 *)in, in_size,
+-						  (u32 *)out, out_size);
++	if (dev->state != MLX5_DEVICE_STATE_INTERNAL_ERROR) {
++		int err = mlx5_cmd_exec(dev, in, in_size, out, out_size);
+ 
+-	npages = be32_to_cpu(in->num_entries);
++		return err ? : mlx5_cmd_status_to_err_v2(out);
++	}
++
++	/* No hard feelings, we want our pages back! */
++	npages = MLX5_GET(manage_pages_in, in, input_num_entries);
+ 
+ 	p = rb_first(&dev->priv.page_root);
+ 	while (p && i < npages) {
+ 		fwp = rb_entry(p, struct fw_page, rb_node);
+-		out->pas[i] = cpu_to_be64(fwp->addr);
++		MLX5_SET64(manage_pages_out, out, pas[i], fwp->addr);
+ 		p = rb_next(p);
+ 		i++;
+ 	}
+ 
+-	out->num_entries = cpu_to_be32(i);
++	MLX5_SET(manage_pages_out, out, output_num_entries, i);
+ 	return 0;
+ }
+ 
+ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
+ 			 int *nclaimed)
  {
--	struct mlx5_query_cq_mbox_out *out;
--	struct mlx5_cq_context *ctx;
-+	int outlen = MLX5_ST_SZ_BYTES(query_cq_out);
- 	u64 param = 0;
-+	void *ctx;
+-	struct mlx5_manage_pages_inbox   in;
+-	struct mlx5_manage_pages_outbox *out;
++	int outlen = MLX5_ST_SZ_BYTES(manage_pages_out);
++	u32 in[MLX5_ST_SZ_DW(manage_pages_in)] = {0};
+ 	int num_claimed;
+-	int outlen;
+-	u64 addr;
 +	u32 *out;
  	int err;
+ 	int i;
  
--	out = kzalloc(sizeof(*out), GFP_KERNEL);
-+	out = mlx5_vzalloc(outlen);
+ 	if (nclaimed)
+ 		*nclaimed = 0;
+ 
+-	memset(&in, 0, sizeof(in));
+-	outlen = sizeof(*out) + npages * sizeof(out->pas[0]);
++	outlen += npages * MLX5_FLD_SZ_BYTES(manage_pages_out, pas[0]);
+ 	out = mlx5_vzalloc(outlen);
  	if (!out)
- 		return param;
+ 		return -ENOMEM;
  
--	ctx = &out->ctx;
--
--	err = mlx5_core_query_cq(dev, cq, out);
-+	err = mlx5_core_query_cq(dev, cq, out, outlen);
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MANAGE_PAGES);
+-	in.hdr.opmod = cpu_to_be16(MLX5_PAGES_TAKE);
+-	in.func_id = cpu_to_be16(func_id);
+-	in.num_entries = cpu_to_be32(npages);
++	MLX5_SET(manage_pages_in, in, opcode, MLX5_CMD_OP_MANAGE_PAGES);
++	MLX5_SET(manage_pages_in, in, op_mod, MLX5_PAGES_TAKE);
++	MLX5_SET(manage_pages_in, in, function_id, func_id);
++	MLX5_SET(manage_pages_in, in, input_num_entries, npages);
++
+ 	mlx5_core_dbg(dev, "npages %d, outlen %d\n", npages, outlen);
+-	err = reclaim_pages_cmd(dev, &in, sizeof(in), out, outlen);
++	err = reclaim_pages_cmd(dev, in, sizeof(in), out, outlen);
  	if (err) {
- 		mlx5_core_warn(dev, "failed to query cq\n");
- 		goto out;
- 	}
-+	ctx = MLX5_ADDR_OF(query_cq_out, out, cq_context);
- 
- 	switch (index) {
- 	case CQ_PID:
- 		param = cq->pid;
- 		break;
- 	case CQ_NUM_CQES:
--		param = 1 << ((be32_to_cpu(ctx->log_sz_usr_page) >> 24) & 0x1f);
-+		param = 1 << MLX5_GET(cqc, ctx, log_cq_size);
- 		break;
- 	case CQ_LOG_PG_SZ:
--		param = (ctx->log_pg_sz & 0x1f) + 12;
-+		param = MLX5_GET(cqc, ctx, log_page_size);
- 		break;
+ 		mlx5_core_err(dev, "failed reclaiming pages: err %d\n", err);
+ 		goto out_free;
  	}
  
- out:
--	kfree(out);
-+	kvfree(out);
- 	return param;
+-	num_claimed = be32_to_cpu(out->num_entries);
++	num_claimed = MLX5_GET(manage_pages_out, out, output_num_entries);
+ 	if (num_claimed > npages) {
+ 		mlx5_core_warn(dev, "fw returned %d, driver asked %d => corruption\n",
+ 			       num_claimed, npages);
+@@ -438,10 +390,9 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
+ 		goto out_free;
+ 	}
+ 
+-	for (i = 0; i < num_claimed; i++) {
+-		addr = be64_to_cpu(out->pas[i]);
+-		free_4k(dev, addr);
+-	}
++	for (i = 0; i < num_claimed; i++)
++		free_4k(dev, MLX5_GET64(manage_pages_out, out, pas[i]));
++
+ 
+ 	if (nclaimed)
+ 		*nclaimed = num_claimed;
+@@ -518,8 +469,8 @@ static int optimal_reclaimed_pages(void)
+ 	int ret;
+ 
+ 	ret = (sizeof(lay->out) + MLX5_BLKS_FOR_RECLAIM_PAGES * sizeof(block->data) -
+-	       sizeof(struct mlx5_manage_pages_outbox)) /
+-	       FIELD_SIZEOF(struct mlx5_manage_pages_outbox, pas[0]);
++	       MLX5_ST_SZ_BYTES(manage_pages_out)) /
++	       MLX5_FLD_SZ_BYTES(manage_pages_out, pas[0]);
+ 
+ 	return ret;
  }
- 
-diff --git a/include/linux/mlx5/cq.h b/include/linux/mlx5/cq.h
-index 2566f6d..7c3c0d3 100644
---- a/include/linux/mlx5/cq.h
-+++ b/include/linux/mlx5/cq.h
-@@ -170,12 +170,12 @@ static inline void mlx5_cq_arm(struct mlx5_core_cq *cq, u32 cmd,
- int mlx5_init_cq_table(struct mlx5_core_dev *dev);
- void mlx5_cleanup_cq_table(struct mlx5_core_dev *dev);
- int mlx5_core_create_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--			struct mlx5_create_cq_mbox_in *in, int inlen);
-+			u32 *in, int inlen);
- int mlx5_core_destroy_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq);
- int mlx5_core_query_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--		       struct mlx5_query_cq_mbox_out *out);
-+		       u32 *out, int outlen);
- int mlx5_core_modify_cq(struct mlx5_core_dev *dev, struct mlx5_core_cq *cq,
--			struct mlx5_modify_cq_mbox_in *in, int in_sz);
-+			u32 *in, int inlen);
- int mlx5_core_modify_cq_moderation(struct mlx5_core_dev *dev,
- 				   struct mlx5_core_cq *cq, u16 cq_period,
- 				   u16 cq_max_count);
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index c84e0ba..5a1c160 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -899,82 +899,6 @@ struct mlx5_arm_srq_mbox_out {
- 	u8			rsvd[8];
- };
- 
--struct mlx5_cq_context {
--	u8			status;
--	u8			cqe_sz_flags;
--	u8			st;
--	u8			rsvd3;
--	u8			rsvd4[6];
--	__be16			page_offset;
--	__be32			log_sz_usr_page;
--	__be16			cq_period;
--	__be16			cq_max_count;
--	__be16			rsvd20;
--	__be16			c_eqn;
--	u8			log_pg_sz;
--	u8			rsvd25[7];
--	__be32			last_notified_index;
--	__be32			solicit_producer_index;
--	__be32			consumer_counter;
--	__be32			producer_counter;
--	u8			rsvd48[8];
--	__be64			db_record_addr;
--};
--
--struct mlx5_create_cq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			input_cqn;
--	u8			rsvdx[4];
--	struct mlx5_cq_context	ctx;
--	u8			rsvd6[192];
--	__be64			pas[0];
--};
--
--struct mlx5_create_cq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	__be32			cqn;
--	u8			rsvd0[4];
--};
--
--struct mlx5_destroy_cq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			cqn;
--	u8			rsvd0[4];
--};
--
--struct mlx5_destroy_cq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd0[8];
--};
--
--struct mlx5_query_cq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			cqn;
--	u8			rsvd0[4];
--};
--
--struct mlx5_query_cq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd0[8];
--	struct mlx5_cq_context	ctx;
--	u8			rsvd6[16];
--	__be64			pas[0];
--};
--
--struct mlx5_modify_cq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			cqn;
--	__be32			field_select;
--	struct mlx5_cq_context	ctx;
--	u8			rsvd[192];
--	__be64			pas[0];
--};
--
--struct mlx5_modify_cq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
- struct mlx5_enable_hca_mbox_in {
- 	struct mlx5_inbox_hdr	hdr;
- 	u8			rsvd[8];
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
