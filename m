@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: use alloc_workqueue instead of create_singlethread_workqueue
-Date: Fri, 19 Aug 2016 23:19:40 -0700
-Message-ID: <1471673991-117115-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: move i40e_vsi_config_rss below i40e_get_rss_aq
+Date: Fri, 19 Aug 2016 23:19:37 -0700
+Message-ID: <1471673991-117115-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,58 +9,99 @@ Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:6494 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:37803 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751968AbcHTGTz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 02:19:55 -0400
+        id S1751546AbcHTGTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 02:19:53 -0400
 In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Replace calls to create_singlethread_workqueue instead with alloc_workqueue
-as is style with other Intel drivers. This provides more control over
-workqueue creation, and allows explicit setting of the desired mode of
-operation. It also makes it more obvious that driver name constant is
-passed to a format "%s".
+Move this function below the two functions related to configuring RSS
+via the admin queue. This helps co-locate the two functions, and made it
+easier to spot a bug in the first i40e_config_rss_aq function as
+compared to the i40e_get_rss_aq function.
 
-Change-ID: I6192b44caf5140336cd54c5b350d51c73b541fdb
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 3 ++-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 54 ++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4ec9565..f355c04 100644
+index 798c4e2..1692a89 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11605,7 +11605,8 @@ static int __init i40e_init_module(void)
- 	 * it can't be any worse than using the system workqueue which
- 	 * was already single threaded
- 	 */
--	i40e_wq = create_singlethread_workqueue(i40e_driver_name);
-+	i40e_wq = alloc_workqueue("%s", WQ_UNBOUND | WQ_MEM_RECLAIM, 1,
-+				  i40e_driver_name);
- 	if (!i40e_wq) {
- 		pr_err("%s: Failed to create workqueue\n", i40e_driver_name);
- 		return -ENOMEM;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index ba046d1..24f88ec 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2833,7 +2833,8 @@ static int __init i40evf_init_module(void)
+@@ -8028,33 +8028,6 @@ config_rss_aq_out:
+ }
  
- 	pr_info("%s\n", i40evf_copyright);
+ /**
+- * i40e_vsi_config_rss - Prepare for VSI(VMDq) RSS if used
+- * @vsi: VSI structure
+- **/
+-static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
+-{
+-	u8 seed[I40E_HKEY_ARRAY_SIZE];
+-	struct i40e_pf *pf = vsi->back;
+-	u8 *lut;
+-	int ret;
+-
+-	if (!(pf->flags & I40E_FLAG_RSS_AQ_CAPABLE))
+-		return 0;
+-
+-	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
+-	if (!lut)
+-		return -ENOMEM;
+-
+-	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
+-	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
+-	vsi->rss_size = min_t(int, pf->alloc_rss_size, vsi->num_queue_pairs);
+-	ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
+-	kfree(lut);
+-
+-	return ret;
+-}
+-
+-/**
+  * i40e_get_rss_aq - Get RSS keys and lut by using AQ commands
+  * @vsi: Pointer to vsi structure
+  * @seed: Buffter to store the hash keys
+@@ -8101,6 +8074,33 @@ static int i40e_get_rss_aq(struct i40e_vsi *vsi, const u8 *seed,
+ }
  
--	i40evf_wq = create_singlethread_workqueue(i40evf_driver_name);
-+	i40evf_wq = alloc_workqueue("%s", WQ_UNBOUND | WQ_MEM_RECLAIM, 1,
-+				    i40evf_driver_name);
- 	if (!i40evf_wq) {
- 		pr_err("%s: Failed to create workqueue\n", i40evf_driver_name);
- 		return -ENOMEM;
+ /**
++ * i40e_vsi_config_rss - Prepare for VSI(VMDq) RSS if used
++ * @vsi: VSI structure
++ **/
++static int i40e_vsi_config_rss(struct i40e_vsi *vsi)
++{
++	u8 seed[I40E_HKEY_ARRAY_SIZE];
++	struct i40e_pf *pf = vsi->back;
++	u8 *lut;
++	int ret;
++
++	if (!(pf->flags & I40E_FLAG_RSS_AQ_CAPABLE))
++		return 0;
++
++	lut = kzalloc(vsi->rss_table_size, GFP_KERNEL);
++	if (!lut)
++		return -ENOMEM;
++
++	i40e_fill_rss_lut(pf, lut, vsi->rss_table_size, vsi->rss_size);
++	netdev_rss_key_fill((void *)seed, I40E_HKEY_ARRAY_SIZE);
++	vsi->rss_size = min_t(int, pf->alloc_rss_size, vsi->num_queue_pairs);
++	ret = i40e_config_rss_aq(vsi, seed, lut, vsi->rss_table_size);
++	kfree(lut);
++
++	return ret;
++}
++
++/**
+  * i40e_config_rss_reg - Configure RSS keys and lut by writing registers
+  * @vsi: Pointer to vsi structure
+  * @seed: RSS hash seed
 -- 
 2.7.4
