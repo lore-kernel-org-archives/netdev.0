@@ -1,359 +1,210 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e/i40evf: Fix indentation
-Date: Fri, 19 Aug 2016 23:19:50 -0700
-Message-ID: <1471673991-117115-15-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:62519 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751968AbcHTGay (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 02:30:54 -0400
-In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH 1/1] ppp: Fix one deadlock issue of PPP when reentrant
+Date: Sat, 20 Aug 2016 14:40:14 +0800
+Message-ID: <CA+6hz4ox4+kp-r39a-VeDDc0T31hyd3sZHpdiV7g24FqcOo=8A@mail.gmail.com>
+References: <1471619801-11405-1-git-send-email-fgao@ikuai8.com> <20160819214840.mvcvduddawfkfbej@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Gao Feng <fgao@ikuai8.com>, paulus@samba.org,
+        Philp Prindeville <philipp@redfish-solutions.com>,
+        linux-ppp@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20160819214840.mvcvduddawfkfbej@alphalink.fr>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Several defines and code comments were indented with spaces instead
-of tabs, correct the issue to make indentation consistent.
+On Sat, Aug 20, 2016 at 5:48 AM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> On Fri, Aug 19, 2016 at 11:16:41PM +0800, fgao@ikuai8.com wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> PPP channel holds one spinlock before send frame. But the skb may
+>> select the same PPP channel with wrong route policy. As a result,
+>> the skb reaches the same channel path. It tries to get the same
+>> spinlock which is held before. Bang, the deadlock comes out.
+>>
+>> Now add one lock owner to avoid it like xmit_lock_owner of
+>> netdev_queue. Check the lock owner before try to get the spinlock.
+>> If the current cpu is already the owner, it means ppp finds there is
+>> one reentrant and returns directly. If not owner and hold the spinlock
+>> successfully, it sets owner with current CPU ID.
+>>
+>> The following is the panic stack of 3.3.8. But the same issue
+>> should be in the upstream too.
+>>
+>> [<ffffffff81568131>] ? _raw_spin_lock_bh+0x11/0x40
+>> [<ffffffffa006a2b7>] ppp_unregister_channel+0x1347/0x2170 [ppp_generic]
+>> [<ffffffff810a2827>] ? kmem_cache_free+0xa7/0xc0
+>> [<ffffffffa006ad27>] ppp_unregister_channel+0x1db7/0x2170 [ppp_generic]
+>> [<ffffffffa006afd5>] ppp_unregister_channel+0x2065/0x2170 [ppp_generic]
+>> [<ffffffff8148f1dd>] dev_hard_start_xmit+0x4cd/0x620
+>> [<ffffffff814a6254>] sch_direct_xmit+0x74/0x1d0
+>> [<ffffffff8148f88d>] dev_queue_xmit+0x1d/0x30
+>> [<ffffffff81496a4c>] neigh_direct_output+0xc/0x10
+>> [<ffffffff814d9dae>] ip_finish_output+0x25e/0x2b0
+>> [<ffffffff814da688>] ip_output+0x88/0x90
+>> [<ffffffff814d9e9f>] ? __ip_local_out+0x9f/0xb0
+>> [<ffffffff814d9ed4>] ip_local_out+0x24/0x30
+>> [<ffffffffa00b9745>] 0xffffffffa00b9744
+>> [<ffffffffa006b068>] ppp_unregister_channel+0x20f8/0x2170 [ppp_generic]
+>> [<ffffffffa006b202>] ppp_output_wakeup+0x122/0x11d0 [ppp_generic]
+>> [<ffffffff810a7978>] vfs_write+0xb8/0x160
+>> [<ffffffff810a7c55>] sys_write+0x45/0x90
+>> [<ffffffff815689e2>] system_call_fastpath+0x16/0x1b
+>>
+>> The call flow is like this.
+>> ppp_write->ppp_channel_push->start_xmit->select inappropriate route
+>> .... -> dev_hard_start_xmit->ppp_start_xmit->ppp_xmit_process->
+>> ppp_push. Now ppp_push tries to get the same spinlock which is held
+>> in ppp_channel_push.
+>>
+>> Although the PPP deadlock is caused by inappropriate route policy
+>> with L2TP, I think it is not accepted the PPP module would cause kernel
+>> deadlock with wrong route policy.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>  v3: Change the fix solution. Giveup the send chance instead of recursive lock
+>>  v2: Fix recursive unlock issue
+>>  v1: Initial patch
+>>
+>>  drivers/net/ppp/ppp_generic.c | 95 +++++++++++++++++++++++++++++++++----------
+>>  1 file changed, 73 insertions(+), 22 deletions(-)
+>>
+>> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+>> index 70cfa06..b653f1f 100644
+>> --- a/drivers/net/ppp/ppp_generic.c
+>> +++ b/drivers/net/ppp/ppp_generic.c
+>> @@ -162,6 +162,46 @@ struct ppp {
+>>                        |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
+>>                        |SC_COMP_TCP|SC_REJ_COMP_TCP|SC_MUST_COMP)
+>>
+>> +struct channel_lock {
+>> +     spinlock_t lock;
+>> +     int owner;
+>> +};
+>> +
+>> +static inline void ppp_channel_lock_init(struct channel_lock *cl)
+> No need for inline in .c files.
 
-Change-ID: I0dc6bbb990ec4a9e856acc9ec526d876181f092c
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e.h     | 131 +++++++++++++++--------------
- drivers/net/ethernet/intel/i40evf/i40evf.h |  57 +++++++------
- 2 files changed, 96 insertions(+), 92 deletions(-)
+OK. I make them as non-inline.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 747ef2d..19103a6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -65,72 +65,72 @@
- #include "i40e_dcb.h"
- 
- /* Useful i40e defaults */
--#define I40E_MAX_VEB          16
--
--#define I40E_MAX_NUM_DESCRIPTORS      4096
--#define I40E_MAX_CSR_SPACE (4 * 1024 * 1024 - 64 * 1024)
--#define I40E_DEFAULT_NUM_DESCRIPTORS  512
--#define I40E_REQ_DESCRIPTOR_MULTIPLE  32
--#define I40E_MIN_NUM_DESCRIPTORS      64
--#define I40E_MIN_MSIX                 2
--#define I40E_DEFAULT_NUM_VMDQ_VSI     8 /* max 256 VSIs */
--#define I40E_MIN_VSI_ALLOC            51 /* LAN, ATR, FCOE, 32 VF, 16 VMDQ */
-+#define I40E_MAX_VEB			16
-+
-+#define I40E_MAX_NUM_DESCRIPTORS	4096
-+#define I40E_MAX_CSR_SPACE		(4 * 1024 * 1024 - 64 * 1024)
-+#define I40E_DEFAULT_NUM_DESCRIPTORS	512
-+#define I40E_REQ_DESCRIPTOR_MULTIPLE	32
-+#define I40E_MIN_NUM_DESCRIPTORS	64
-+#define I40E_MIN_MSIX			2
-+#define I40E_DEFAULT_NUM_VMDQ_VSI	8 /* max 256 VSIs */
-+#define I40E_MIN_VSI_ALLOC		51 /* LAN, ATR, FCOE, 32 VF, 16 VMDQ */
- /* max 16 qps */
- #define i40e_default_queues_per_vmdq(pf) \
- 		(((pf)->flags & I40E_FLAG_RSS_AQ_CAPABLE) ? 4 : 1)
--#define I40E_DEFAULT_QUEUES_PER_VF    4
--#define I40E_DEFAULT_QUEUES_PER_TC    1 /* should be a power of 2 */
-+#define I40E_DEFAULT_QUEUES_PER_VF	4
-+#define I40E_DEFAULT_QUEUES_PER_TC	1 /* should be a power of 2 */
- #define i40e_pf_get_max_q_per_tc(pf) \
- 		(((pf)->flags & I40E_FLAG_128_QP_RSS_CAPABLE) ? 128 : 64)
--#define I40E_FDIR_RING                0
--#define I40E_FDIR_RING_COUNT          32
-+#define I40E_FDIR_RING			0
-+#define I40E_FDIR_RING_COUNT		32
- #ifdef I40E_FCOE
--#define I40E_DEFAULT_FCOE             8 /* default number of QPs for FCoE */
--#define I40E_MINIMUM_FCOE             1 /* minimum number of QPs for FCoE */
-+#define I40E_DEFAULT_FCOE		8 /* default number of QPs for FCoE */
-+#define I40E_MINIMUM_FCOE		1 /* minimum number of QPs for FCoE */
- #endif /* I40E_FCOE */
--#define I40E_MAX_AQ_BUF_SIZE          4096
--#define I40E_AQ_LEN                   256
--#define I40E_AQ_WORK_LIMIT            66 /* max number of VFs + a little */
--#define I40E_MAX_USER_PRIORITY        8
--#define I40E_DEFAULT_MSG_ENABLE       4
--#define I40E_QUEUE_WAIT_RETRY_LIMIT   10
--#define I40E_INT_NAME_STR_LEN        (IFNAMSIZ + 16)
-+#define I40E_MAX_AQ_BUF_SIZE		4096
-+#define I40E_AQ_LEN			256
-+#define I40E_AQ_WORK_LIMIT		66 /* max number of VFs + a little */
-+#define I40E_MAX_USER_PRIORITY		8
-+#define I40E_DEFAULT_MSG_ENABLE		4
-+#define I40E_QUEUE_WAIT_RETRY_LIMIT	10
-+#define I40E_INT_NAME_STR_LEN		(IFNAMSIZ + 16)
- 
- /* Ethtool Private Flags */
--#define	I40E_PRIV_FLAGS_MFP_FLAG		BIT(0)
--#define	I40E_PRIV_FLAGS_LINKPOLL_FLAG		BIT(1)
-+#define I40E_PRIV_FLAGS_MFP_FLAG		BIT(0)
-+#define I40E_PRIV_FLAGS_LINKPOLL_FLAG		BIT(1)
- #define I40E_PRIV_FLAGS_FD_ATR			BIT(2)
- #define I40E_PRIV_FLAGS_VEB_STATS		BIT(3)
- #define I40E_PRIV_FLAGS_HW_ATR_EVICT		BIT(4)
- #define I40E_PRIV_FLAGS_TRUE_PROMISC_SUPPORT	BIT(5)
- 
--#define I40E_NVM_VERSION_LO_SHIFT  0
--#define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
--#define I40E_NVM_VERSION_HI_SHIFT  12
--#define I40E_NVM_VERSION_HI_MASK   (0xf << I40E_NVM_VERSION_HI_SHIFT)
--#define I40E_OEM_VER_BUILD_MASK    0xffff
--#define I40E_OEM_VER_PATCH_MASK    0xff
--#define I40E_OEM_VER_BUILD_SHIFT   8
--#define I40E_OEM_VER_SHIFT         24
-+#define I40E_NVM_VERSION_LO_SHIFT	0
-+#define I40E_NVM_VERSION_LO_MASK	(0xff << I40E_NVM_VERSION_LO_SHIFT)
-+#define I40E_NVM_VERSION_HI_SHIFT	12
-+#define I40E_NVM_VERSION_HI_MASK	(0xf << I40E_NVM_VERSION_HI_SHIFT)
-+#define I40E_OEM_VER_BUILD_MASK		0xffff
-+#define I40E_OEM_VER_PATCH_MASK		0xff
-+#define I40E_OEM_VER_BUILD_SHIFT	8
-+#define I40E_OEM_VER_SHIFT		24
- #define I40E_PHY_DEBUG_ALL \
- 	(I40E_AQ_PHY_DEBUG_DISABLE_LINK_FW | \
- 	I40E_AQ_PHY_DEBUG_DISABLE_ALL_LINK_FW)
- 
- /* The values in here are decimal coded as hex as is the case in the NVM map*/
--#define I40E_CURRENT_NVM_VERSION_HI 0x2
--#define I40E_CURRENT_NVM_VERSION_LO 0x40
-+#define I40E_CURRENT_NVM_VERSION_HI	0x2
-+#define I40E_CURRENT_NVM_VERSION_LO	0x40
- 
--#define I40E_RX_DESC(R, i)			\
-+#define I40E_RX_DESC(R, i)	\
- 	(&(((union i40e_32byte_rx_desc *)((R)->desc))[i]))
--#define I40E_TX_DESC(R, i)			\
-+#define I40E_TX_DESC(R, i)	\
- 	(&(((struct i40e_tx_desc *)((R)->desc))[i]))
--#define I40E_TX_CTXTDESC(R, i)			\
-+#define I40E_TX_CTXTDESC(R, i)	\
- 	(&(((struct i40e_tx_context_desc *)((R)->desc))[i]))
--#define I40E_TX_FDIRDESC(R, i)			\
-+#define I40E_TX_FDIRDESC(R, i)	\
- 	(&(((struct i40e_filter_program_desc *)((R)->desc))[i]))
- 
- /* default to trying for four seconds */
--#define I40E_TRY_LINK_TIMEOUT (4 * HZ)
-+#define I40E_TRY_LINK_TIMEOUT	(4 * HZ)
- 
- /**
-  * i40e_is_mac_710 - Return true if MAC is X710/XL710
-@@ -195,9 +195,9 @@ struct i40e_lump_tracking {
- #define I40E_FDIR_BUFFER_HEAD_ROOM	32
- #define I40E_FDIR_BUFFER_HEAD_ROOM_FOR_ATR (I40E_FDIR_BUFFER_HEAD_ROOM * 4)
- 
--#define I40E_HKEY_ARRAY_SIZE ((I40E_PFQF_HKEY_MAX_INDEX + 1) * 4)
--#define I40E_HLUT_ARRAY_SIZE ((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
--#define I40E_VF_HLUT_ARRAY_SIZE ((I40E_VFQF_HLUT1_MAX_INDEX + 1) * 4)
-+#define I40E_HKEY_ARRAY_SIZE	((I40E_PFQF_HKEY_MAX_INDEX + 1) * 4)
-+#define I40E_HLUT_ARRAY_SIZE	((I40E_PFQF_HLUT_MAX_INDEX + 1) * 4)
-+#define I40E_VF_HLUT_ARRAY_SIZE	((I40E_VFQF_HLUT1_MAX_INDEX + 1) * 4)
- 
- enum i40e_fd_stat_idx {
- 	I40E_FD_STAT_ATR,
-@@ -383,8 +383,8 @@ struct i40e_pf {
- 	struct mutex switch_mutex;
- 	u16 lan_vsi;       /* our default LAN VSI */
- 	u16 lan_veb;       /* initial relay, if exists */
--#define I40E_NO_VEB   0xffff
--#define I40E_NO_VSI   0xffff
-+#define I40E_NO_VEB	0xffff
-+#define I40E_NO_VSI	0xffff
- 	u16 next_vsi;      /* Next unallocated VSI - 0-based! */
- 	struct i40e_vsi **vsi;
- 	struct i40e_veb *veb[I40E_MAX_VEB];
-@@ -419,8 +419,8 @@ struct i40e_pf {
- 	 */
- 	u16 dcbx_cap;
- 
--	u32	fcoe_hmc_filt_num;
--	u32	fcoe_hmc_cntx_num;
-+	u32 fcoe_hmc_filt_num;
-+	u32 fcoe_hmc_cntx_num;
- 	struct i40e_filter_control_settings filter_settings;
- 
- 	struct ptp_clock *ptp_clock;
-@@ -466,10 +466,10 @@ struct i40e_mac_filter {
- struct i40e_veb {
- 	struct i40e_pf *pf;
- 	u16 idx;
--	u16 veb_idx;           /* index of VEB parent */
-+	u16 veb_idx;		/* index of VEB parent */
- 	u16 seid;
- 	u16 uplink_seid;
--	u16 stats_idx;           /* index of VEB parent */
-+	u16 stats_idx;		/* index of VEB parent */
- 	u8  enabled_tc;
- 	u16 bridge_mode;	/* Bridge Mode (VEB/VEPA) */
- 	u16 flags;
-@@ -530,12 +530,13 @@ struct i40e_vsi {
- 	u32  promisc_threshold;
- 
- 	u16 work_limit;
--	u16 int_rate_limit;  /* value in usecs */
-+	u16 int_rate_limit;	/* value in usecs */
-+
-+	u16 rss_table_size;	/* HW RSS table size */
-+	u16 rss_size;		/* Allocated RSS queues */
-+	u8  *rss_hkey_user;	/* User configured hash keys */
-+	u8  *rss_lut_user;	/* User configured lookup table entries */
- 
--	u16 rss_table_size; /* HW RSS table size */
--	u16 rss_size;       /* Allocated RSS queues */
--	u8  *rss_hkey_user; /* User configured hash keys */
--	u8  *rss_lut_user;  /* User configured lookup table entries */
- 
- 	u16 max_frame;
- 	u16 rx_buf_len;
-@@ -546,14 +547,14 @@ struct i40e_vsi {
- 	int base_vector;
- 	bool irqs_ready;
- 
--	u16 seid;            /* HW index of this VSI (absolute index) */
--	u16 id;              /* VSI number */
-+	u16 seid;		/* HW index of this VSI (absolute index) */
-+	u16 id;			/* VSI number */
- 	u16 uplink_seid;
- 
--	u16 base_queue;      /* vsi's first queue in hw array */
--	u16 alloc_queue_pairs; /* Allocated Tx/Rx queues */
--	u16 req_queue_pairs; /* User requested queue pairs */
--	u16 num_queue_pairs; /* Used tx and rx pairs */
-+	u16 base_queue;		/* vsi's first queue in hw array */
-+	u16 alloc_queue_pairs;	/* Allocated Tx/Rx queues */
-+	u16 req_queue_pairs;	/* User requested queue pairs */
-+	u16 num_queue_pairs;	/* Used tx and rx pairs */
- 	u16 num_desc;
- 	enum i40e_vsi_type type;  /* VSI type, e.g., LAN, FCoE, etc */
- 	s16 vf_id;		/* Virtual function ID for SRIOV VSIs */
-@@ -572,11 +573,11 @@ struct i40e_vsi {
- 	/* TC BW limit max quanta within VSI */
- 	u8  bw_ets_max_quanta[I40E_MAX_TRAFFIC_CLASS];
- 
--	struct i40e_pf *back;  /* Backreference to associated PF */
--	u16 idx;               /* index in pf->vsi[] */
--	u16 veb_idx;           /* index of VEB parent */
--	struct kobject *kobj;  /* sysfs object */
--	bool current_isup;     /* Sync 'link up' logging */
-+	struct i40e_pf *back;	/* Backreference to associated PF */
-+	u16 idx;		/* index in pf->vsi[] */
-+	u16 veb_idx;		/* index of VEB parent */
-+	struct kobject *kobj;	/* sysfs object */
-+	bool current_isup;	/* Sync 'link up' logging */
- 
- 	void *priv;	/* client driver data reference. */
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 6fa00f3..dc00aaf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -71,20 +71,20 @@ struct i40e_vsi {
- 
- /* How many Rx Buffers do we bundle into one write to the hardware ? */
- #define I40EVF_RX_BUFFER_WRITE	16	/* Must be power of 2 */
--#define I40EVF_DEFAULT_TXD   512
--#define I40EVF_DEFAULT_RXD   512
--#define I40EVF_MAX_TXD       4096
--#define I40EVF_MIN_TXD       64
--#define I40EVF_MAX_RXD       4096
--#define I40EVF_MIN_RXD       64
--#define I40EVF_REQ_DESCRIPTOR_MULTIPLE  32
-+#define I40EVF_DEFAULT_TXD	512
-+#define I40EVF_DEFAULT_RXD	512
-+#define I40EVF_MAX_TXD		4096
-+#define I40EVF_MIN_TXD		64
-+#define I40EVF_MAX_RXD		4096
-+#define I40EVF_MIN_RXD		64
-+#define I40EVF_REQ_DESCRIPTOR_MULTIPLE	32
- 
- /* Supported Rx Buffer Sizes */
--#define I40EVF_RXBUFFER_2048  2048
--#define I40EVF_MAX_RXBUFFER   16384  /* largest size for single descriptor */
--#define I40EVF_MAX_AQ_BUF_SIZE    4096
--#define I40EVF_AQ_LEN             32
--#define I40EVF_AQ_MAX_ERR         20 /* times to try before resetting AQ */
-+#define I40EVF_RXBUFFER_2048	2048
-+#define I40EVF_MAX_RXBUFFER	16384  /* largest size for single descriptor */
-+#define I40EVF_MAX_AQ_BUF_SIZE	4096
-+#define I40EVF_AQ_LEN		32
-+#define I40EVF_AQ_MAX_ERR	20 /* times to try before resetting AQ */
- 
- #define MAXIMUM_ETHERNET_VLAN_SIZE (VLAN_ETH_FRAME_LEN + ETH_FCS_LEN)
- 
-@@ -111,7 +111,7 @@ struct i40e_q_vector {
- 	u8 num_ringpairs;	/* total number of ring pairs in vector */
- #define ITR_COUNTDOWN_START 100
- 	u8 itr_countdown;	/* when 0 or 1 update ITR */
--	int v_idx;	  /* vector index in list */
-+	int v_idx;	/* vector index in list */
- 	char name[IFNAMSIZ + 9];
- 	bool arm_wb_state;
- 	cpumask_var_t affinity_mask;
-@@ -129,11 +129,11 @@ struct i40e_q_vector {
- 	((((R)->next_to_clean > (R)->next_to_use) ? 0 : (R)->count) + \
- 	(R)->next_to_clean - (R)->next_to_use - 1)
- 
--#define I40EVF_RX_DESC_ADV(R, i)	    \
-+#define I40EVF_RX_DESC_ADV(R, i)	\
- 	(&(((union i40e_adv_rx_desc *)((R).desc))[i]))
--#define I40EVF_TX_DESC_ADV(R, i)	    \
-+#define I40EVF_TX_DESC_ADV(R, i)	\
- 	(&(((union i40e_adv_tx_desc *)((R).desc))[i]))
--#define I40EVF_TX_CTXTDESC_ADV(R, i)	    \
-+#define I40EVF_TX_CTXTDESC_ADV(R, i)	\
- 	(&(((struct i40e_adv_tx_context_desc *)((R).desc))[i]))
- 
- #define OTHER_VECTOR 1
-@@ -204,22 +204,25 @@ struct i40evf_adapter {
- 	struct msix_entry *msix_entries;
- 
- 	u32 flags;
--#define I40EVF_FLAG_RX_CSUM_ENABLED              BIT(0)
--#define I40EVF_FLAG_IMIR_ENABLED                 BIT(5)
--#define I40EVF_FLAG_MQ_CAPABLE                   BIT(6)
--#define I40EVF_FLAG_NEED_LINK_UPDATE             BIT(7)
--#define I40EVF_FLAG_PF_COMMS_FAILED              BIT(8)
--#define I40EVF_FLAG_RESET_PENDING                BIT(9)
--#define I40EVF_FLAG_RESET_NEEDED                 BIT(10)
-+#define I40EVF_FLAG_RX_CSUM_ENABLED		BIT(0)
-+#define I40EVF_FLAG_IN_NETPOLL			BIT(4)
-+#define I40EVF_FLAG_IMIR_ENABLED		BIT(5)
-+#define I40EVF_FLAG_MQ_CAPABLE			BIT(6)
-+#define I40EVF_FLAG_NEED_LINK_UPDATE		BIT(7)
-+#define I40EVF_FLAG_PF_COMMS_FAILED		BIT(8)
-+#define I40EVF_FLAG_RESET_PENDING		BIT(9)
-+#define I40EVF_FLAG_RESET_NEEDED		BIT(10)
- #define I40EVF_FLAG_WB_ON_ITR_CAPABLE		BIT(11)
- #define I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE	BIT(12)
- #define I40EVF_FLAG_ADDR_SET_BY_PF		BIT(13)
-+#define I40EVF_FLAG_SERVICE_CLIENT_REQUESTED	BIT(14)
- #define I40EVF_FLAG_PROMISC_ON			BIT(15)
- #define I40EVF_FLAG_ALLMULTI_ON			BIT(16)
- /* duplicates for common code */
--#define I40E_FLAG_FDIR_ATR_ENABLED		 0
--#define I40E_FLAG_DCB_ENABLED			 0
--#define I40E_FLAG_RX_CSUM_ENABLED                I40EVF_FLAG_RX_CSUM_ENABLED
-+#define I40E_FLAG_FDIR_ATR_ENABLED		0
-+#define I40E_FLAG_DCB_ENABLED			0
-+#define I40E_FLAG_IN_NETPOLL			I40EVF_FLAG_IN_NETPOLL
-+#define I40E_FLAG_RX_CSUM_ENABLED		I40EVF_FLAG_RX_CSUM_ENABLED
- #define I40E_FLAG_WB_ON_ITR_CAPABLE		I40EVF_FLAG_WB_ON_ITR_CAPABLE
- #define I40E_FLAG_OUTER_UDP_CSUM_CAPABLE	I40EVF_FLAG_OUTER_UDP_CSUM_CAPABLE
- 	/* flags for admin queue service task */
-@@ -233,7 +236,7 @@ struct i40evf_adapter {
- #define I40EVF_FLAG_AQ_CONFIGURE_QUEUES		BIT(6)
- #define I40EVF_FLAG_AQ_MAP_VECTORS		BIT(7)
- #define I40EVF_FLAG_AQ_HANDLE_RESET		BIT(8)
--#define I40EVF_FLAG_AQ_CONFIGURE_RSS		BIT(9)	/* direct AQ config */
-+#define I40EVF_FLAG_AQ_CONFIGURE_RSS		BIT(9) /* direct AQ config */
- #define I40EVF_FLAG_AQ_GET_CONFIG		BIT(10)
- /* Newer style, RSS done by the PF so we can ignore hardware vagaries. */
- #define I40EVF_FLAG_AQ_GET_HENA			BIT(11)
--- 
-2.7.4
+>
+>> +{
+>> +     cl->owner = -1;
+>> +     spin_lock_init(&cl->lock);
+>> +}
+>> +
+>> +static inline bool ppp_channel_lock_bh(struct channel_lock *cl)
+>> +{
+>> +     int cpu;
+>> +
+>> +     local_bh_disable();
+>> +     cpu = smp_processor_id();
+>> +     if (cpu == cl->owner) {
+>> +             /* The CPU already holds this channel lock and sends. But the
+>> +              * channel is selected after inappropriate route. It causes
+>> +              * reenter the channel again. It is forbidden by PPP module.
+>> +              */
+>> +             if (net_ratelimit())
+>> +                     pr_err("PPP detects one recursive channel send\n");
+>> +             local_bh_enable();
+> What about calling local_bh_enable() before logging the error?
+
+Ok.
+
+>
+>> +             return false;
+>> +     }
+>> +     spin_lock(&cl->lock);
+>> +     cl->owner = cpu;
+>> +
+>> +     return true;
+>> +}
+>> +
+>> +static inline void ppp_channel_unlock_bh(struct channel_lock *cl)
+>> +{
+>> +     cl->owner = -1;
+>> +     spin_unlock(&cl->lock);
+>> +     local_bh_enable();
+>> +}
+>> +
+>>  /*
+>>   * Private data structure for each channel.
+>>   * This includes the data structure used for multilink.
+>> @@ -171,7 +211,7 @@ struct channel {
+>>       struct list_head list;          /* link in all/new_channels list */
+>>       struct ppp_channel *chan;       /* public channel data structure */
+>>       struct rw_semaphore chan_sem;   /* protects `chan' during chan ioctl */
+>> -     spinlock_t      downl;          /* protects `chan', file.xq dequeue */
+>> +     struct channel_lock downl;      /* protects `chan', file.xq dequeue */
+>>       struct ppp      *ppp;           /* ppp unit we're connected to */
+>>       struct net      *chan_net;      /* the net channel belongs to */
+>>       struct list_head clist;         /* link in list of channels per unit */
+>
+>> @@ -1645,6 +1687,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+>>       struct channel *pch;
+>>       struct sk_buff *frag;
+>>       struct ppp_channel *chan;
+>> +     bool locked;
+>>
+>>       totspeed = 0; /*total bitrate of the bundle*/
+>>       nfree = 0; /* # channels which have no packet already queued */
+>> @@ -1735,17 +1778,21 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+>>                       pch->avail = 1;
+>>               }
+>>
+>> -             /* check the channel's mtu and whether it is still attached. */
+>> -             spin_lock_bh(&pch->downl);
+>> -             if (pch->chan == NULL) {
+>> -                     /* can't use this channel, it's being deregistered */
+>> +             locked = ppp_channel_lock_bh(&pch->downl);
+>> +             if (!locked || !pch->chan) {
+>> +                     /* can't use this channel, it's being deregistered
+>> +                      * or fail to lock the channel
+>> +                      */
+>>                       if (pch->speed == 0)
+>>                               nzero--;
+>>                       else
+>>                               totspeed -= pch->speed;
+>>
+>> -                     spin_unlock_bh(&pch->downl);
+>> -                     pch->avail = 0;
+>> +                     if (locked) {
+>> +                             /* channel is deregistered */
+>> +                             ppp_channel_unlock_bh(&pch->downl);
+>> +                             pch->avail = 0;
+>>
+> Why do you reset pch->avail only if lock was held, but perform the
+> other operations in both cases?
+
+Because list_for_each_entry(pch, &ppp->channels, clist) has already
+counted the channel which fail to get lock. So I think need to perform
+the operations like "!pch->chan" case except reset pch->avail. Because
+it still may be available.
+
+>
+>> @@ -2599,9 +2647,12 @@ ppp_unregister_channel(struct ppp_channel *chan)
+>>        * the channel's start_xmit or ioctl routine before we proceed.
+>>        */
+>>       down_write(&pch->chan_sem);
+>> -     spin_lock_bh(&pch->downl);
+>> +     if (unlikely(!ppp_channel_lock_bh(&pch->downl))) {
+>> +             up_write(&pch->chan_sem);
+>> +             return;
+>> +     }
+>>       pch->chan = NULL;
+>> -     spin_unlock_bh(&pch->downl);
+>> +     ppp_channel_unlock_bh(&pch->downl);
+>>       up_write(&pch->chan_sem);
+>>       ppp_disconnect_channel(pch);
+>>
+> This one isn't in the xmit path. What about defining a
+> __ppp_channel_unlock_bh() variant that wouldn't check
+> cl->owner (and wouldn't fail)? We have no recursion here.
+
+Thanks. Good idea.
+
+Regards
+Feng
