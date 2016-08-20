@@ -1,36 +1,47 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4/cxgb4vf: Add support for IFLA_VF_VLAN
-Date: Sat, 20 Aug 2016 12:04:36 +0530
-Message-ID: <1471674876-2833-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-        Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40evf: Open RDMA Client after reset
+Date: Fri, 19 Aug 2016 23:19:51 -0700
+Message-ID: <1471673991-117115-16-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Avinash Dayanand <avinash.dayanand@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:19548 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751164AbcHTGaI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 02:30:08 -0400
+Received: from mga07.intel.com ([134.134.136.100]:41155 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752102AbcHTGax (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 02:30:53 -0400
+In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for ndo_set_vf_vlan for cxgb4 driver
+From: Avinash Dayanand <avinash.dayanand@intel.com>
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+RDMA client is closed during the PF reset and needs to be opened again.
+Setting the flag so that RDMA client is opened in watchdog() function.
+
+Change-ID: I507b1e4cbd05528cdff68fd360ef3dcac8901263
+Signed-off-by: Avinash Dayanand <avinash.dayanand@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 6b0528913687..f354f90d7faa 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1572,6 +1572,7 @@ void t4_idma_monitor(struct adapter *adapter,
- 		     int hz, int ticks);
- int t4_set_vf_mac_acl(struct adapter *adapter, unsigned int vf,
- 		      unsigned int naddr, u8 *addr);
-+int t4_set_vf_vlan_acl(struct adapter *adapter, unsigned int vf, u16 vlan);
- void uld_mem_free(struct adapter *adap);
- int uld_mem_alloc(struct adapter *adap);
- void free_rspq_fl(struct adapter *adap, struct sge_rspq *rq, struct sge_fl *fl);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 24f88ec..f751f7b 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1804,6 +1804,8 @@ continue_reset:
+ 	}
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_ADD_MAC_FILTER;
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_ADD_VLAN_FILTER;
++	/* Open RDMA Client again */
++	adapter->aq_required |= I40EVF_FLAG_SERVICE_CLIENT_REQUESTED;
+ 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
+ 	i40evf_misc_irq_enable(adapter);
+ 
 -- 
-2.3.4
+2.7.4
