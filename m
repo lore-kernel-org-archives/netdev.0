@@ -1,84 +1,163 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: refactor tail_bump check
-Date: Fri, 19 Aug 2016 23:19:42 -0700
-Message-ID: <1471673991-117115-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40evf: report link speed
+Date: Fri, 19 Aug 2016 23:19:41 -0700
+Message-ID: <1471673991-117115-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:50330 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:37803 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752277AbcHTGTz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752102AbcHTGTz (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sat, 20 Aug 2016 02:19:55 -0400
 In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch refactors tail bump check.
+The PF driver tells us the link speed, so do something with that
+information. Add link speed to log messages, and report speed through
+ethtool.
 
-Change-ID: Ide0e19171d67d90cb2b06b8dcd4fa791ae120160
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-Id: I279dc9540cc5203376406050a3e8d67e128d5882
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 6 ++----
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 6 ++----
- 2 files changed, 4 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 26 ++++++++--
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 55 ++++++++++++++++++----
+ 3 files changed, 70 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index df7ecc9..f8d6623 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2840,10 +2840,9 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 						  I40E_TXD_QW1_CMD_SHIFT);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index 76ed97d..6fa00f3 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -258,6 +258,7 @@ struct i40evf_adapter {
+ 	struct work_struct watchdog_task;
+ 	bool netdev_registered;
+ 	bool link_up;
++	enum i40e_aq_link_speed link_speed;
+ 	enum i40e_virtchnl_ops current_op;
+ #define CLIENT_ENABLED(_a) ((_a)->vf_res ? \
+ 			    (_a)->vf_res->vf_offload_flags & \
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index c9c202f..e17a154 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -74,13 +74,33 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
+ static int i40evf_get_settings(struct net_device *netdev,
+ 			       struct ethtool_cmd *ecmd)
+ {
+-	/* In the future the VF will be able to query the PF for
+-	 * some information - for now use a dummy value
+-	 */
++	struct i40evf_adapter *adapter = netdev_priv(netdev);
++
+ 	ecmd->supported = 0;
+ 	ecmd->autoneg = AUTONEG_DISABLE;
+ 	ecmd->transceiver = XCVR_DUMMY1;
+ 	ecmd->port = PORT_NONE;
++	/* Set speed and duplex */
++	switch (adapter->link_speed) {
++	case I40E_LINK_SPEED_40GB:
++		ethtool_cmd_speed_set(ecmd, SPEED_40000);
++		break;
++	case I40E_LINK_SPEED_20GB:
++		ethtool_cmd_speed_set(ecmd, SPEED_20000);
++		break;
++	case I40E_LINK_SPEED_10GB:
++		ethtool_cmd_speed_set(ecmd, SPEED_10000);
++		break;
++	case I40E_LINK_SPEED_1GB:
++		ethtool_cmd_speed_set(ecmd, SPEED_1000);
++		break;
++	case I40E_LINK_SPEED_100MB:
++		ethtool_cmd_speed_set(ecmd, SPEED_100);
++		break;
++	default:
++		break;
++	}
++	ecmd->duplex = DUPLEX_FULL;
  
- 	/* notify HW of packet */
--	if (!tail_bump)
-+	if (!tail_bump) {
- 		prefetchw(tx_desc + 1);
--
--	if (tail_bump) {
-+	} else {
- 		/* Force memory writes to complete before letting h/w
- 		 * know there are new descriptors to fetch.  (Only
- 		 * applicable for weak-ordered memory model archs,
-@@ -2852,7 +2851,6 @@ static inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		wmb();
- 		writel(i, tx_ring->tail);
- 	}
--
- 	return;
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index d76c221..cc6cb30 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -817,6 +817,45 @@ void i40evf_set_rss_lut(struct i40evf_adapter *adapter)
+ }
  
- dma_error:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index a579193..0130458 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -2068,10 +2068,9 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 						  I40E_TXD_QW1_CMD_SHIFT);
- 
- 	/* notify HW of packet */
--	if (!tail_bump)
-+	if (!tail_bump) {
- 		prefetchw(tx_desc + 1);
--
--	if (tail_bump) {
-+	} else {
- 		/* Force memory writes to complete before letting h/w
- 		 * know there are new descriptors to fetch.  (Only
- 		 * applicable for weak-ordered memory model archs,
-@@ -2080,7 +2079,6 @@ static inline void i40evf_tx_map(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		wmb();
- 		writel(i, tx_ring->tail);
- 	}
--
- 	return;
- 
- dma_error:
+ /**
++ * i40evf_print_link_message - print link up or down
++ * @adapter: adapter structure
++ *
++ * Log a message telling the world of our wonderous link status
++ */
++static void i40evf_print_link_message(struct i40evf_adapter *adapter)
++{
++	struct net_device *netdev = adapter->netdev;
++	char *speed = "Unknown ";
++
++	if (!adapter->link_up) {
++		netdev_info(netdev, "NIC Link is Down\n");
++		return;
++	}
++
++	switch (adapter->link_speed) {
++	case I40E_LINK_SPEED_40GB:
++		speed = "40 G";
++		break;
++	case I40E_LINK_SPEED_20GB:
++		speed = "20 G";
++		break;
++	case I40E_LINK_SPEED_10GB:
++		speed = "10 G";
++		break;
++	case I40E_LINK_SPEED_1GB:
++		speed = "1000 M";
++		break;
++	case I40E_LINK_SPEED_100MB:
++		speed = "100 M";
++		break;
++	default:
++		break;
++	}
++
++	netdev_info(netdev, "NIC Link is Up %sbps Full Duplex\n", speed);
++}
++
++/**
+  * i40evf_request_reset
+  * @adapter: adapter structure
+  *
+@@ -853,15 +892,13 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 			(struct i40e_virtchnl_pf_event *)msg;
+ 		switch (vpe->event) {
+ 		case I40E_VIRTCHNL_EVENT_LINK_CHANGE:
+-			adapter->link_up =
+-				vpe->event_data.link_event.link_status;
+-			if (adapter->link_up && !netif_carrier_ok(netdev)) {
+-				dev_info(&adapter->pdev->dev, "NIC Link is Up\n");
+-				netif_carrier_on(netdev);
+-				netif_tx_wake_all_queues(netdev);
+-			} else if (!adapter->link_up) {
+-				dev_info(&adapter->pdev->dev, "NIC Link is Down\n");
+-				netif_carrier_off(netdev);
++			adapter->link_speed =
++				vpe->event_data.link_event.link_speed;
++			if (adapter->link_up !=
++			    vpe->event_data.link_event.link_status) {
++				adapter->link_up =
++					vpe->event_data.link_event.link_status;
++				i40evf_print_link_message(adapter);
+ 				netif_tx_stop_all_queues(netdev);
+ 			}
+ 			break;
 -- 
 2.7.4
