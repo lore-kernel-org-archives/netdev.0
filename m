@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ibmvnic: Handle backing device failover and
- reinitialization
-Date: Fri, 19 Aug 2016 17:02:25 -0700 (PDT)
-Message-ID: <20160819.170225.1435790645345872728.davem@davemloft.net>
-References: <1471538271-10131-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] sit: ipip6_valid_ip_proto() is static
+Date: Fri, 19 Aug 2016 17:08:34 -0700 (PDT)
+Message-ID: <20160819.170834.1106689333785836601.davem@davemloft.net>
+References: <1471539835.29842.72.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        jallen@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, simon.horman@netronome.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55940 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55964 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755137AbcHTAC1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 20:02:27 -0400
-In-Reply-To: <1471538271-10131-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+        with ESMTP id S1755741AbcHTAIf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 20:08:35 -0400
+In-Reply-To: <1471539835.29842.72.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Thu, 18 Aug 2016 11:37:51 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 18 Aug 2016 10:03:55 -0700
 
-> An upcoming feature of IBM VNIC protocol is the ability to configure
-> redundant backing devices for a VNIC client. In case of a failure
-> on the current backing device, the driver will receive a signal
-> from the hypervisor indicating that a failover will occur. The driver
-> will then wait for a message from the backing device before 
-> establishing a new connection.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+> Fixes this sparse error :
+> net/ipv6/sit.c:1129:6: warning: symbol 'ipip6_valid_ip_proto' was not
+> declared. Should it be static?
+> 
+> 
+> Fixes: 49dbe7ae2168b ("sit: support MPLS over IPv4")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+This was done in net-next already.
