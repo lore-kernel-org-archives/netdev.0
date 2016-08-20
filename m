@@ -1,128 +1,96 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 19/30] net/mlx5: Separate query_port_proto_oper for IB and EN
-Date: Sat, 20 Aug 2016 23:12:02 +0300
-Message-ID: <1471723933-5894-20-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 26/30] net/mlx5: Add LAG flow steering namespace
+Date: Sat, 20 Aug 2016 23:12:09 +0300
+Message-ID: <1471723933-5894-27-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Tal Alon <talal@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Aviv Heller <avivh@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34291 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752376AbcHTUMw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:52 -0400
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Aviv Heller <avivh@mellanox.com>
 
-Replaced mlx5_query_port_proto_oper with separate functions per link
-type. The functions should take different arguments so no point in
-trying to unite them.
+This namespace is used for LAG demux flowtable.
 
-Signed-off-by: Noa Osherovich <noaos-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+The idea is to position the LAG demux ft between
+bypass and kernel flowtables, allowing raw-eth
+traffic from both ports to be received by the PF0
+IB device.
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Reviewed-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- drivers/infiniband/hw/mlx5/main.c              |  3 +--
- drivers/net/ethernet/mellanox/mlx5/core/port.c | 32 ++++++++++++++++++--------
- include/linux/mlx5/port.h                      |  7 +++---
- 3 files changed, 28 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 11 ++++++++++-
+ include/linux/mlx5/fs.h                           |  1 +
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index 6fb77d7..f02a975 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -748,8 +748,7 @@ static int mlx5_query_hca_port(struct ib_device *ibdev, u8 port,
- 				     &props->active_width);
- 	if (err)
- 		goto out;
--	err = mlx5_query_port_proto_oper(mdev, &props->active_speed, MLX5_PTYS_IB,
--					 port);
-+	err = mlx5_query_port_ib_proto_oper(mdev, &props->active_speed, port);
- 	if (err)
- 		goto out;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index eabd734..ac414b7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -96,6 +96,10 @@
+ #define OFFLOADS_NUM_PRIOS 1
+ #define OFFLOADS_MIN_LEVEL (ANCHOR_MIN_LEVEL + 1)
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 2ee28ad..34e7184 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -175,25 +175,39 @@ int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_link_width_oper);
- 
--int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
--			       u8 *proto_oper, int proto_mask,
--			       u8 local_port)
-+int mlx5_query_port_eth_proto_oper(struct mlx5_core_dev *dev,
-+				   u32 *proto_oper, u8 local_port)
- {
- 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
- 	int err;
- 
--	err = mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, local_port);
-+	err = mlx5_query_port_ptys(dev, out, sizeof(out), MLX5_PTYS_EN,
-+				   local_port);
- 	if (err)
- 		return err;
- 
--	if (proto_mask == MLX5_PTYS_EN)
--		*proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
--	else
--		*proto_oper = MLX5_GET(ptys_reg, out, ib_proto_oper);
-+	*proto_oper = MLX5_GET(ptys_reg, out, eth_proto_oper);
++#define LAG_PRIO_NUM_LEVELS 1
++#define LAG_NUM_PRIOS 1
++#define LAG_MIN_LEVEL (OFFLOADS_MIN_LEVEL + 1)
 +
-+	return 0;
-+}
-+EXPORT_SYMBOL(mlx5_query_port_eth_proto_oper);
-+
-+int mlx5_query_port_ib_proto_oper(struct mlx5_core_dev *dev,
-+				  u8 *proto_oper, u8 local_port)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	int err;
-+
-+	err = mlx5_query_port_ptys(dev, out, sizeof(out), MLX5_PTYS_IB,
-+				   local_port);
-+	if (err)
-+		return err;
-+
-+	*proto_oper = MLX5_GET(ptys_reg, out, ib_proto_oper);
+ struct node_caps {
+ 	size_t	arr_sz;
+ 	long	*caps;
+@@ -111,12 +115,16 @@ static struct init_tree_node {
+ 	int num_levels;
+ } root_fs = {
+ 	.type = FS_TYPE_NAMESPACE,
+-	.ar_size = 6,
++	.ar_size = 7,
+ 	.children = (struct init_tree_node[]) {
+ 		ADD_PRIO(0, BY_PASS_MIN_LEVEL, 0,
+ 			 FS_CHAINING_CAPS,
+ 			 ADD_NS(ADD_MULTIPLE_PRIO(MLX5_BY_PASS_NUM_PRIOS,
+ 						  BY_PASS_PRIO_NUM_LEVELS))),
++		ADD_PRIO(0, LAG_MIN_LEVEL, 0,
++			 FS_CHAINING_CAPS,
++			 ADD_NS(ADD_MULTIPLE_PRIO(LAG_NUM_PRIOS,
++						  LAG_PRIO_NUM_LEVELS))),
+ 		ADD_PRIO(0, OFFLOADS_MIN_LEVEL, 0, {},
+ 			 ADD_NS(ADD_MULTIPLE_PRIO(OFFLOADS_NUM_PRIOS, OFFLOADS_MAX_FT))),
+ 		ADD_PRIO(0, ETHTOOL_MIN_LEVEL, 0,
+@@ -1396,6 +1404,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
  
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(mlx5_query_port_proto_oper);
-+EXPORT_SYMBOL(mlx5_query_port_ib_proto_oper);
+ 	switch (type) {
+ 	case MLX5_FLOW_NAMESPACE_BYPASS:
++	case MLX5_FLOW_NAMESPACE_LAG:
+ 	case MLX5_FLOW_NAMESPACE_OFFLOADS:
+ 	case MLX5_FLOW_NAMESPACE_ETHTOOL:
+ 	case MLX5_FLOW_NAMESPACE_KERNEL:
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index 7edfe0b..8803212 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -54,6 +54,7 @@ static inline void build_leftovers_ft_param(int *priority,
  
- int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
- 		       u32 proto_admin, int proto_mask)
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 6f876a4..b3065ac 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -103,9 +103,10 @@ int mlx5_query_port_proto_admin(struct mlx5_core_dev *dev,
- 				u32 *proto_admin, int proto_mask);
- int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
- 				    u8 *link_width_oper, u8 local_port);
--int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
--			       u8 *proto_oper, int proto_mask,
--			       u8 local_port);
-+int mlx5_query_port_ib_proto_oper(struct mlx5_core_dev *dev,
-+				  u8 *proto_oper, u8 local_port);
-+int mlx5_query_port_eth_proto_oper(struct mlx5_core_dev *dev,
-+				   u32 *proto_oper, u8 local_port);
- int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
- 		       u32 proto_admin, int proto_mask);
- void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
+ enum mlx5_flow_namespace_type {
+ 	MLX5_FLOW_NAMESPACE_BYPASS,
++	MLX5_FLOW_NAMESPACE_LAG,
+ 	MLX5_FLOW_NAMESPACE_OFFLOADS,
+ 	MLX5_FLOW_NAMESPACE_ETHTOOL,
+ 	MLX5_FLOW_NAMESPACE_KERNEL,
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
