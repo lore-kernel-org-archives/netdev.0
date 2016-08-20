@@ -1,35 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/irda: remove pointless assignment/check
-Date: Fri, 19 Aug 2016 18:07:55 -0700 (PDT)
-Message-ID: <20160819.180755.2123553442134312293.davem@davemloft.net>
-References: <20160819160857.32254-1-vegard.nossum@oracle.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC PATCH] openvswitch: use percpu flow stats
+Date: Fri, 19 Aug 2016 18:09:53 -0700 (PDT)
+Message-ID: <20160819.180953.970774471141286228.davem@davemloft.net>
+References: <1471636046-9246-1-git-send-email-cascardo@redhat.com>
+ <1471636616.29842.110.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, irda-users@lists.sourceforge.net,
-        netdev@vger.kernel.org
-To: vegard.nossum@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56248 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755529AbcHTBIQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 19 Aug 2016 21:08:16 -0400
-In-Reply-To: <20160819160857.32254-1-vegard.nossum@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1471636616.29842.110.camel-XN9IlZ5yJG9HTL0Zs8A6p+yfmBU6pStAUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Date: Fri, 19 Aug 2016 18:08:57 +0200
-
-> We've already set sk to sock->sk and dereferenced it, so if it's NULL
-> we would have crashed already. Moreover, if it was NULL we would have
-> crashed anyway when jumping to 'out' and trying to unlock the sock.
-> Furthermore, if we had assigned a different value to 'sk' we would
-> have been calling lock_sock() and release_sock() on different sockets.
-> 
-> My conclusion is that these two lines are complete nonsense and only
-> serve to confuse the reader.
-> 
-> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
-
-Applied.
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPgpEYXRlOiBGcmksIDE5
+IEF1ZyAyMDE2IDEyOjU2OjU2IC0wNzAwCgo+IE9uIEZyaSwgMjAxNi0wOC0xOSBhdCAxNjo0NyAt
+MDMwMCwgVGhhZGV1IExpbWEgZGUgU291emEgQ2FzY2FyZG8gd3JvdGU6Cj4+IEluc3RlYWQgb2Yg
+dXNpbmcgZmxvdyBzdGF0cyBwZXIgTlVNQSBub2RlLCB1c2UgaXQgcGVyIENQVS4gV2hlbiB1c2lu
+Zwo+PiBtZWdhZmxvd3MsIHRoZSBzdGF0cyBsb2NrIGNhbiBiZSBhIGJvdHRsZW5lY2sgaW4gc2Nh
+bGFiaWxpdHkuCj4gCj4gLi4uCj4gCj4+ICAKPj4gIAlmbG93X2NhY2hlID0ga21lbV9jYWNoZV9j
+cmVhdGUoInN3X2Zsb3ciLCBzaXplb2Yoc3RydWN0IHN3X2Zsb3cpCj4+IC0JCQkJICAgICAgICsg
+KG5yX25vZGVfaWRzCj4+ICsJCQkJICAgICAgICsgKG51bV9wb3NzaWJsZV9jcHVzKCkKPj4gIAkJ
+CQkJICAqIHNpemVvZihzdHJ1Y3QgZmxvd19zdGF0cyAqKSksCj4+ICAJCQkJICAgICAgIDAsIDAs
+IE5VTEwpOwo+PiAgCWlmIChmbG93X2NhY2hlID09IE5VTEwpCj4gCj4gVGhpcyBpcyBib2d1cy4K
+PiAKPiBQbGVhc2UgdXNlIG5yX2NwdV9pZHMgaW5zdGVhZCBvZiBudW1fcG9zc2libGVfY3B1cygp
+LgoKVGhlbiBob3cgd291bGQgaG90LXBsdWdnZWQgY3B1cyBiZSBoYW5kbGVkIHByb3Blcmx5PwoK
+VGhlIG9ubHkgb3RoZXIgd2F5IGlzIHlvdSdkIGhhdmUgdG8gZnJlZSBhbGwgb2JqZWN0cyBpbiB0
+aGUgY3VycmVudApmbG93X2NhY2hlLCBkZXN0cm95IGl0LCB0aGVuIG1ha2UgYSBuZXcga21lbV9j
+YWNoZSBhbmQgcmVhbGxvY2F0ZQphbGwgb2YgdGhlIGV4aXN0aW5nIG9iamVjdHMgYW5kIGhvb2sg
+dGhlbSBiYWNrIHVwIGV2ZXJ5IHRpbWUgYSBjcHUKdXAgZXZlbnQgb2NjdXJzLgoKVGhhdCBkb2Vz
+bid0IG1ha2UgYW55IHNlbnNlIGF0IGFsbC4KClRoZXJlZm9yZSwgdGhlIHNpemUgb2YgdGhlIG9i
+amVjdHMgY29taW5nIG91dCBvZiAic3dfZmxvdyIgaGF2ZQp0byBhY2NvbW9kYXRlIGFsbCBwb3Nz
+aWJsZSBjcHUgaW5kZXhlcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVu
+dnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
