@@ -1,81 +1,212 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 29/30] net/mlx5: Introduce sniffer steering hardware capabilities
-Date: Sat, 20 Aug 2016 23:12:12 +0300
-Message-ID: <1471723933-5894-30-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next 02/30] net/mlx5: Access register and MAD IFC commands via mlx5 ifc
+Date: Sat, 20 Aug 2016 23:11:45 +0300
+Message-ID: <1471723933-5894-3-git-send-email-saeedm@mellanox.com>
 References: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Maor Gottlieb <maorg@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34263 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752323AbcHTUMw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 16:12:52 -0400
-In-Reply-To: <1471723933-5894-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471723933-5894-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Maor Gottlieb <maorg@mellanox.com>
+Remove old representation of manually created ACCESS_REG/MAD_IFC
+commands layout and use mlx5_ifc canonical structures and defines.
 
-Define needed hardware capabilities for sniffer
-RX and TX flow tables.
-
-Add the following capabilities:
-1. Sniffer RX flow table capabilities.
-2. Sniffer TX flow table capabilities.
-3. If same TIR can be used by multiple flow tables of different types.
-
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- include/linux/mlx5/device.h   | 12 ++++++++++++
- include/linux/mlx5/mlx5_ifc.h |  4 +++-
- 2 files changed, 15 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/mad.c  | 42 ++++++++++-----------
+ drivers/net/ethernet/mellanox/mlx5/core/port.c | 52 +++++++++++++-------------
+ include/linux/mlx5/device.h                    | 29 --------------
+ 3 files changed, 45 insertions(+), 78 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mad.c b/drivers/net/ethernet/mellanox/mlx5/core/mad.c
+index 1368dac..13e6afd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mad.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mad.c
+@@ -39,36 +39,34 @@
+ int mlx5_core_mad_ifc(struct mlx5_core_dev *dev, const void *inb, void *outb,
+ 		      u16 opmod, u8 port)
+ {
+-	struct mlx5_mad_ifc_mbox_in *in = NULL;
+-	struct mlx5_mad_ifc_mbox_out *out = NULL;
+-	int err;
++	int outlen = MLX5_ST_SZ_BYTES(mad_ifc_out);
++	int inlen = MLX5_ST_SZ_BYTES(mad_ifc_in);
++	int err = -ENOMEM;
++	void *data;
++	void *resp;
++	u32 *out;
++	u32 *in;
+ 
+-	in = kzalloc(sizeof(*in), GFP_KERNEL);
+-	if (!in)
+-		return -ENOMEM;
+-
+-	out = kzalloc(sizeof(*out), GFP_KERNEL);
+-	if (!out) {
+-		err = -ENOMEM;
++	in = kzalloc(inlen, GFP_KERNEL);
++	out = kzalloc(outlen, GFP_KERNEL);
++	if (!in || !out)
+ 		goto out;
+-	}
+ 
+-	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_MAD_IFC);
+-	in->hdr.opmod = cpu_to_be16(opmod);
+-	in->port = port;
++	MLX5_SET(mad_ifc_in, in, opcode, MLX5_CMD_OP_MAD_IFC);
++	MLX5_SET(mad_ifc_in, in, op_mod, opmod);
++	MLX5_SET(mad_ifc_in, in, port, port);
+ 
+-	memcpy(in->data, inb, sizeof(in->data));
++	data = MLX5_ADDR_OF(mad_ifc_in, in, mad);
++	memcpy(data, inb, MLX5_FLD_SZ_BYTES(mad_ifc_in, mad));
+ 
+-	err = mlx5_cmd_exec(dev, in, sizeof(*in), out, sizeof(*out));
++	err = mlx5_cmd_exec(dev, in, inlen, out, outlen);
++	err = err ? : mlx5_cmd_status_to_err_v2(out);
+ 	if (err)
+ 		goto out;
+ 
+-	if (out->hdr.status) {
+-		err = mlx5_cmd_status_to_err(&out->hdr);
+-		goto out;
+-	}
+-
+-	memcpy(outb, out->data, sizeof(out->data));
++	resp = MLX5_ADDR_OF(mad_ifc_out, out, response_mad_packet);
++	memcpy(outb, resp,
++	       MLX5_FLD_SZ_BYTES(mad_ifc_out, response_mad_packet));
+ 
+ out:
+ 	kfree(out);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 752c081..e8324c2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -38,45 +38,43 @@
+ 
+ int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
+ 			 int size_in, void *data_out, int size_out,
+-			 u16 reg_num, int arg, int write)
++			 u16 reg_id, int arg, int write)
+ {
+-	struct mlx5_access_reg_mbox_in *in = NULL;
+-	struct mlx5_access_reg_mbox_out *out = NULL;
++	int outlen = MLX5_ST_SZ_BYTES(access_register_out) + size_out;
++	int inlen = MLX5_ST_SZ_BYTES(access_register_in) + size_in;
+ 	int err = -ENOMEM;
++	u32 *out = NULL;
++	u32 *in = NULL;
++	void *data;
+ 
+-	in = mlx5_vzalloc(sizeof(*in) + size_in);
+-	if (!in)
+-		return -ENOMEM;
+-
+-	out = mlx5_vzalloc(sizeof(*out) + size_out);
+-	if (!out)
+-		goto ex1;
+-
+-	memcpy(in->data, data_in, size_in);
+-	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ACCESS_REG);
+-	in->hdr.opmod = cpu_to_be16(!write);
+-	in->arg = cpu_to_be32(arg);
+-	in->register_id = cpu_to_be16(reg_num);
+-	err = mlx5_cmd_exec(dev, in, sizeof(*in) + size_in, out,
+-			    sizeof(*out) + size_out);
+-	if (err)
+-		goto ex2;
++	in = mlx5_vzalloc(inlen);
++	out = mlx5_vzalloc(outlen);
++	if (!in || !out)
++		goto out;
+ 
+-	if (out->hdr.status)
+-		err = mlx5_cmd_status_to_err(&out->hdr);
++	data = MLX5_ADDR_OF(access_register_in, in, register_data);
++	memcpy(data, data_in, size_in);
+ 
+-	if (!err)
+-		memcpy(data_out, out->data, size_out);
++	MLX5_SET(access_register_in, in, opcode, MLX5_CMD_OP_ACCESS_REG);
++	MLX5_SET(access_register_in, in, op_mod, !write);
++	MLX5_SET(access_register_in, in, argument, arg);
++	MLX5_SET(access_register_in, in, register_id, reg_id);
++
++	err = mlx5_cmd_exec(dev, in, inlen, out, outlen);
++	err = err ? : mlx5_cmd_status_to_err_v2(out);
++	if (err)
++		goto out;
++
++	data = MLX5_ADDR_OF(access_register_out, out, register_data);
++	memcpy(data_out, data, size_out);
+ 
+-ex2:
++out:
+ 	kvfree(out);
+-ex1:
+ 	kvfree(in);
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(mlx5_core_access_reg);
+ 
+-
+ struct mlx5_reg_pcap {
+ 	u8			rsvd0;
+ 	u8			port_num;
 diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 2575070..77c1417 100644
+index 6c343c0..9570c49 100644
 --- a/include/linux/mlx5/device.h
 +++ b/include/linux/mlx5/device.h
-@@ -964,6 +964,18 @@ enum mlx5_cap_type {
- #define MLX5_CAP_FLOWTABLE_NIC_RX_MAX(mdev, cap) \
- 	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive.cap)
+@@ -1165,35 +1165,6 @@ struct mlx5_dump_mkey_mbox_out {
+ 	__be32			mkey;
+ };
  
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_RX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_receive_sniffer.cap)
-+
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_RX_MAX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive_sniffer.cap)
-+
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_TX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_transmit_sniffer.cap)
-+
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_TX_MAX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_transmit_sniffer.cap)
-+
- #define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
- 	MLX5_GET(flow_table_eswitch_cap, \
- 		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 043d525..73a720f 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -483,7 +483,9 @@ struct mlx5_ifc_ads_bits {
+-struct mlx5_mad_ifc_mbox_in {
+-	struct mlx5_inbox_hdr	hdr;
+-	__be16			remote_lid;
+-	u8			rsvd0;
+-	u8			port;
+-	u8			rsvd1[4];
+-	u8			data[256];
+-};
+-
+-struct mlx5_mad_ifc_mbox_out {
+-	struct mlx5_outbox_hdr	hdr;
+-	u8			rsvd[8];
+-	u8			data[256];
+-};
+-
+-struct mlx5_access_reg_mbox_in {
+-	struct mlx5_inbox_hdr		hdr;
+-	u8				rsvd0[2];
+-	__be16				register_id;
+-	__be32				arg;
+-	__be32				data[0];
+-};
+-
+-struct mlx5_access_reg_mbox_out {
+-	struct mlx5_outbox_hdr		hdr;
+-	u8				rsvd[8];
+-	__be32				data[0];
+-};
+-
+ #define MLX5_ATTR_EXTENDED_PORT_INFO	cpu_to_be16(0xff90)
  
- struct mlx5_ifc_flow_table_nic_cap_bits {
- 	u8         nic_rx_multi_path_tirs[0x1];
--	u8         reserved_at_1[0x1ff];
-+	u8         nic_rx_multi_path_tirs_fts[0x1];
-+	u8         allow_sniffer_and_nic_rx_shared_tir[0x1];
-+	u8         reserved_at_3[0x1fd];
- 
- 	struct mlx5_ifc_flow_table_prop_layout_bits flow_table_properties_nic_receive;
- 
+ enum {
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
