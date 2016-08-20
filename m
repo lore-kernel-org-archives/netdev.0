@@ -1,45 +1,51 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] net: phy: Add missing of_node_put() in
- xgmiitorgmii_probe()
-Date: Sat, 20 Aug 2016 15:26:55 +0000
-Message-ID: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
+Subject: [PATCH -next] cxgb4: Simplify the return expression
+Date: Sat, 20 Aug 2016 15:32:41 +0000
+Message-ID: <1471707161-29982-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Wei Yongjun <weiyj.lk@gmail.com>,
- linux-arm-kernel@lists.infradead.org
-To: f.fainelli@gmail.com, michal.simek@xilinx.com, soren.brinkmann@xilinx.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, netdev@vger.kernel.org
+To: Hariprasad S <hariprasad@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34495 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753048AbcHTPcq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 11:32:46 -0400
+Received: by mail-pf0-f194.google.com with SMTP id g202so3215718pfb.1
+        for <netdev@vger.kernel.org>; Sat, 20 Aug 2016 08:32:46 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This node pointer is returned by of_parse_phandle() with
-refcount incremented in this function. of_node_put() on it
-before exitting this function.
-
-This is detected by Coccinelle semantic patch.
+Simplify the return expression.
 
 Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
 ---
- drivers/net/phy/xilinx_gmii2rgmii.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
-index cad6e19..4f05e5e 100644
---- a/drivers/net/phy/xilinx_gmii2rgmii.c
-+++ b/drivers/net/phy/xilinx_gmii2rgmii.c
-@@ -75,6 +75,7 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
- 	priv->phy_dev = of_phy_find_device(phy_node);
- 	if (!priv->phy_dev) {
- 		dev_info(dev, "Couldn't find phydev\n");
-+		of_node_put(phy_node);
- 		return -EPROBE_DEFER;
- 	}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 2bb804c..5a82eea 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2922,7 +2922,6 @@ EXPORT_SYMBOL(cxgb4_create_server_filter);
+ int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
+ 		unsigned int queue, bool ipv6)
+ {
+-	int ret;
+ 	struct filter_entry *f;
+ 	struct adapter *adap;
+ 
+@@ -2936,11 +2935,7 @@ int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
+ 	/* Unlock the filter */
+ 	f->locked = 0;
+ 
+-	ret = delete_filter(adap, stid);
+-	if (ret)
+-		return ret;
+-
+-	return 0;
++	return delete_filter(adap, stid);
+ }
+ EXPORT_SYMBOL(cxgb4_remove_server_filter);
+ 
