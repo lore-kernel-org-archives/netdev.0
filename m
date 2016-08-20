@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/3] hostap: Delete an unnecessary jump label in
- prism2_ioctl_priv_hostapd()
-Date: Sat, 20 Aug 2016 18:46:49 +0200
-Message-ID: <65ed528f-7ec5-a0f2-6219-3e63a78ca0ee@users.sourceforge.net>
+Subject: [PATCH 3/3] hostap: Delete unnecessary initialisations for the
+ variable "ret"
+Date: Sat, 20 Aug 2016 18:48:13 +0200
+Message-ID: <f1de4eb1-42e7-0124-89a2-c1e7fdf7053c@users.sourceforge.net>
 References: <566ABCD9.1060404@users.sourceforge.net>
  <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
 Mime-Version: 1.0
@@ -19,35 +19,55 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sat, 20 Aug 2016 18:21:29 +0200
+Date: Sat, 20 Aug 2016 18:23:14 +0200
 
-Remove a jump label which is unneeded in this function at the end.
+The local variable "ret" will be set to an appropriate value a bit later.
+Thus omit the explicit initialisation at the beginning of four functions.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/net/wireless/intersil/hostap/hostap_ioctl.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/wireless/intersil/hostap/hostap_ioctl.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-index 4e271f9..5942917 100644
+index 5942917..c37b0bb 100644
 --- a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
 +++ b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-@@ -3835,14 +3835,12 @@ static int prism2_ioctl_priv_hostapd(local_info_t *local, struct iw_point *p)
- 	}
+@@ -2895,7 +2895,7 @@ static int prism2_ioctl_priv_monitor(struct net_device *dev, int *i)
+ {
+ 	struct hostap_interface *iface;
+ 	local_info_t *local;
+-	int ret = 0;
++	int ret;
+ 	u32 mode;
  
- 	if (ret == 1 || !ap_ioctl) {
--		if (copy_to_user(p->pointer, param, p->length)) {
-+		if (copy_to_user(p->pointer, param, p->length))
- 			ret = -EFAULT;
--			goto out;
--		} else if (ap_ioctl)
-+		else if (ap_ioctl)
- 			ret = 0;
- 	}
+ 	iface = netdev_priv(dev);
+@@ -3035,7 +3035,7 @@ static int ap_mac_cmd_ioctl(local_info_t *local, int *cmd)
+ static int prism2_ioctl_priv_download(local_info_t *local, struct iw_point *p)
+ {
+ 	struct prism2_download_param *param;
+-	int ret = 0;
++	int ret;
  
-- out:
- 	kfree(param);
- 	return ret;
- }
+ 	if (p->length < sizeof(struct prism2_download_param) ||
+ 	    p->length > 1024 || !p->pointer)
+@@ -3791,7 +3791,7 @@ static int prism2_ioctl_scan_req(local_info_t *local,
+ static int prism2_ioctl_priv_hostapd(local_info_t *local, struct iw_point *p)
+ {
+ 	struct prism2_hostapd_param *param;
+-	int ret = 0;
++	int ret;
+ 	int ap_ioctl = 0;
+ 
+ 	if (p->length < sizeof(struct prism2_hostapd_param) ||
+@@ -3954,7 +3954,7 @@ int hostap_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	struct iwreq *wrq = (struct iwreq *) ifr;
+ 	struct hostap_interface *iface;
+ 	local_info_t *local;
+-	int ret = 0;
++	int ret;
+ 
+ 	iface = netdev_priv(dev);
+ 	local = iface->local;
 -- 
 2.9.3
