@@ -1,62 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e: Initialize pointer in client_release function
-Date: Fri, 19 Aug 2016 23:19:47 -0700
-Message-ID: <1471673991-117115-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: Remove XSTRINGIFY macro definitions and uses
+Date: Fri, 19 Aug 2016 23:19:48 -0700
+Message-ID: <1471673991-117115-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga07.intel.com ([134.134.136.100]:14738 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751164AbcHTGv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 02:51:57 -0400
+        id S1752102AbcHTGwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 02:52:07 -0400
 In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+From: Joe Perches <joe@perches.com>
 
-The function i40e_client_release has a print statement that uses an
-adapter pointer which is not initialized if a previous if statement
-is not true. Hence, intialize it in the right place.
+Use __stringify instead.
 
-Change-ID: I1afdaa2c46771ac42be56edcc41bb56b455b06c8
-Signed-off-by: Harshitha Ramamurthy <harshitha.ramamurthy@intel.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_client.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h        | 4 ----
+ drivers/net/ethernet/intel/i40e/i40e_client.h | 6 +++---
+ 2 files changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.c b/drivers/net/ethernet/intel/i40e/i40e_client.c
-index 1035f88..09a37cf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_client.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_client.c
-@@ -662,7 +662,7 @@ int i40e_lan_del_device(struct i40e_pf *pf)
- static int i40e_client_release(struct i40e_client *client)
- {
- 	struct i40e_client_instance *cdev, *tmp;
--	struct i40e_pf *pf = NULL;
-+	struct i40e_pf *pf;
- 	int ret = 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 8dc98c2..747ef2d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -120,10 +120,6 @@
+ #define I40E_CURRENT_NVM_VERSION_HI 0x2
+ #define I40E_CURRENT_NVM_VERSION_LO 0x40
  
- 	LIST_HEAD(cdevs_tmp);
-@@ -672,12 +672,12 @@ static int i40e_client_release(struct i40e_client *client)
- 		if (strncmp(cdev->client->name, client->name,
- 			    I40E_CLIENT_STR_LENGTH))
- 			continue;
-+		pf = (struct i40e_pf *)cdev->lan_info.pf;
- 		if (test_bit(__I40E_CLIENT_INSTANCE_OPENED, &cdev->state)) {
- 			if (atomic_read(&cdev->ref_cnt) > 0) {
- 				ret = I40E_ERR_NOT_READY;
- 				goto out;
- 			}
--			pf = (struct i40e_pf *)cdev->lan_info.pf;
- 			if (client->ops && client->ops->close)
- 				client->ops->close(&cdev->lan_info, client,
- 						   false);
+-/* magic for getting defines into strings */
+-#define STRINGIFY(foo)  #foo
+-#define XSTRINGIFY(bar) STRINGIFY(bar)
+-
+ #define I40E_RX_DESC(R, i)			\
+ 	(&(((union i40e_32byte_rx_desc *)((R)->desc))[i]))
+ #define I40E_TX_DESC(R, i)			\
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_client.h b/drivers/net/ethernet/intel/i40e/i40e_client.h
+index a4601d9..38a6c36 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_client.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_client.h
+@@ -36,9 +36,9 @@
+ #define I40E_CLIENT_VERSION_MINOR 01
+ #define I40E_CLIENT_VERSION_BUILD 00
+ #define I40E_CLIENT_VERSION_STR     \
+-	XSTRINGIFY(I40E_CLIENT_VERSION_MAJOR) "." \
+-	XSTRINGIFY(I40E_CLIENT_VERSION_MINOR) "." \
+-	XSTRINGIFY(I40E_CLIENT_VERSION_BUILD)
++	__stringify(I40E_CLIENT_VERSION_MAJOR) "." \
++	__stringify(I40E_CLIENT_VERSION_MINOR) "." \
++	__stringify(I40E_CLIENT_VERSION_BUILD)
+ 
+ struct i40e_client_version {
+ 	u8 major;
 -- 
 2.7.4
