@@ -1,41 +1,35 @@
-From: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 0/3] hostap: Fine-tuning for a few functions
-Date: Sat, 20 Aug 2016 21:26:42 +0200
-Message-ID: <3b3c91ad-3225-3483-bb58-fdee33bf2290@broadcom.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] net: ethernet: renesas: ravb: use phydev from struct
+ net_device
+Date: Sat, 20 Aug 2016 22:39:51 +0300
+Message-ID: <bdaaf314-82a3-97c4-49d0-b239e9959dda@cogentembedded.com>
+References: <1471647139-1867-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jouni Malinen <j@w1.fi>, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <f0cd7a82-e603-6a91-0afd-33bbd1658cab-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>, davem@davemloft.net,
+        kazuya.mizuguchi.ks@renesas.com, ykaneko0929@gmail.com,
+        horms+renesas@verge.net.au, masaru.nagai.vx@renesas.com,
+        geert+renesas@glider.be, niklas.soderlund+renesas@ragnatech.se
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471647139-1867-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20-08-16 18:43, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> Date: Sat, 20 Aug 2016 18:35:43 +0200
-> 
-> A few update suggestions were taken into account
-> from static source code analysis.
+Hello.
 
-Is it worth touching this old stuff especially when you are not making
-any functional changes.
+On 08/20/2016 01:52 AM, Philippe Reynes wrote:
 
-Regards,
-Arend
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phy_dev in the private structure, and update the driver to use the
+> one contained in struct net_device.
+>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+[...]
 
-> Markus Elfring (3):
->   Use memdup_user()
->   Delete an unnecessary jump label
->   Delete unnecessary variable initialisations
-> 
->  .../net/wireless/intersil/hostap/hostap_ioctl.c    | 36 ++++++++--------------
->  1 file changed, 12 insertions(+), 24 deletions(-)
-> 
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+MBR, Sergei
