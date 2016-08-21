@@ -1,34 +1,53 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: tehuti: fix typo: "eneble" -> "enable"
-Date: Sun, 21 Aug 2016 15:24:33 +0100
-Message-ID: <20160821142433.8323-1-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
+ support 25G/50G/100G
+Date: Sun, 21 Aug 2016 14:44:23 +0000
+Message-ID: <CO2PR11MB008851C71DB6ACE14EC5A3EA97E90@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
+ <CO2PR11MB00889D2C55C1E4C86D831C59970C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CAKWE-XqpkNprFcQj7wZEthmTTtDuU7657kjFP37EvrgCChncHw@mail.gmail.com>
+ <20160802194957.GC24663@tuxdriver.com> <20160818182112.GB8347@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
+        netdev <netdev@vger.kernel.org>,
+        "bwh@kernel.org" <bwh@kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "decot@googlers.com" <decot@googlers.com>,
+        "bkenward@solarflare.com" <bkenward@solarflare.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "galp@mellanox.com" <galp@mellanox.com>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>
+To: "John W. Linville" <linville@tuxdriver.com>,
+        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0134.outbound.protection.outlook.com ([104.47.33.134]:56925
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753148AbcHUOpC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 10:45:02 -0400
+In-Reply-To: <20160818182112.GB8347@tuxdriver.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+> Ping?
+>=20
+> On Tue, Aug 02, 2016 at 03:49:57PM -0400, John W. Linville wrote:
+> > Are these revised patches still on their way?
+> >
+> > John
+> >
+> > On Sun, Jul 24, 2016 at 01:57:14AM -0700, Vidya Sagar Ravipati wrote:
+> > > Yuval,
+> > >     I will try to resubmit the patches this week with updated
+> > > comments
+> > >
+> > > Thanks
+> > > Vidya Sagar
 
-trivial typo fix in pr_err message
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/tehuti/tehuti.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index 7452b5f..7108c68 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -1987,7 +1987,7 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if ((readl(nic->regs + FPGA_VER) & 0xFFF) >= 378) {
- 		err = pci_enable_msi(pdev);
- 		if (err)
--			pr_err("Can't eneble msi. error is %d\n", err);
-+			pr_err("Can't enable msi. error is %d\n", err);
- 		else
- 			nic->irq_type = IRQ_MSI;
- 	} else
--- 
-2.9.3
+I can pick this up; But I'd need someone to fill me on which of the newer
+speeds could support autoneg [if any].=20
