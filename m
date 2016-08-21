@@ -1,104 +1,27 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/6] ixgbe: Add support for new X557 device
-Date: Sat, 20 Aug 2016 20:22:22 -0700
-Message-ID: <1471749742-7080-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/6][pull request] 10GbE Intel Wired LAN Driver
+ Updates 2016-08-20
+Date: Sat, 20 Aug 2016 21:59:04 -0700 (PDT)
+Message-ID: <20160820.215904.1626216468079778389.davem@davemloft.net>
 References: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, guru.anbalagane@oracle.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:42292 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752534AbcHUDW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 23:22:26 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:34691 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751481AbcHUE7I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2016 00:59:08 -0400
 In-Reply-To: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat, 20 Aug 2016 20:22:16 -0700
 
-This patch adds support for the new copper device X557.
+> This series contains updates to ixgbe and ixgbevf.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 8 ++++++++
- 4 files changed, 11 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index b4217f3..3095c24 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -99,6 +99,7 @@ bool ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
- 		case IXGBE_DEV_ID_X550T:
- 		case IXGBE_DEV_ID_X550T1:
- 		case IXGBE_DEV_ID_X550EM_X_10G_T:
-+		case IXGBE_DEV_ID_X550EM_A_10G_T:
- 			supported = true;
- 			break;
- 		default:
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5b8819c..d76bc1a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -137,6 +137,7 @@ static const struct pci_device_id ixgbe_pci_tbl[] = {
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SFP_N), board_x550em_a },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SGMII), board_x550em_a },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SGMII_L), board_x550em_a },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_10G_T), board_x550em_a},
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_X550EM_A_SFP), board_x550em_a },
- 	/* required last entry */
- 	{0, }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index a59b65f7..31d82e3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -90,6 +90,7 @@
- #define IXGBE_DEV_ID_X550EM_A_SFP_N	0x15C4
- #define IXGBE_DEV_ID_X550EM_A_SGMII	0x15C6
- #define IXGBE_DEV_ID_X550EM_A_SGMII_L	0x15C7
-+#define IXGBE_DEV_ID_X550EM_A_10G_T	0x15C8
- #define IXGBE_DEV_ID_X550EM_A_SFP	0x15CE
- 
- /* VF Device IDs */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index a8030e0..fb1b819 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -295,6 +295,12 @@ static s32 ixgbe_identify_phy_x550em(struct ixgbe_hw *hw)
- 	case IXGBE_DEV_ID_X550EM_A_KR_L:
- 		hw->phy.type = ixgbe_phy_x550em_kr;
- 		break;
-+	case IXGBE_DEV_ID_X550EM_A_10G_T:
-+		if (hw->bus.lan_id)
-+			hw->phy.phy_semaphore_mask = IXGBE_GSSR_PHY1_SM;
-+		else
-+			hw->phy.phy_semaphore_mask = IXGBE_GSSR_PHY0_SM;
-+		/* Fallthrough */
- 	case IXGBE_DEV_ID_X550EM_X_1G_T:
- 	case IXGBE_DEV_ID_X550EM_X_10G_T:
- 		return ixgbe_identify_phy_generic(hw);
-@@ -2500,6 +2506,7 @@ static enum ixgbe_media_type ixgbe_get_media_type_X550em(struct ixgbe_hw *hw)
- 		break;
- 	case IXGBE_DEV_ID_X550EM_X_1G_T:
- 	case IXGBE_DEV_ID_X550EM_X_10G_T:
-+	case IXGBE_DEV_ID_X550EM_A_10G_T:
- 		media_type = ixgbe_media_type_copper;
- 		break;
- 	default:
-@@ -2560,6 +2567,7 @@ static void ixgbe_set_mdio_speed(struct ixgbe_hw *hw)
- 	case IXGBE_DEV_ID_X550EM_X_10G_T:
- 	case IXGBE_DEV_ID_X550EM_A_SGMII:
- 	case IXGBE_DEV_ID_X550EM_A_SGMII_L:
-+	case IXGBE_DEV_ID_X550EM_A_10G_T:
- 	case IXGBE_DEV_ID_X550EM_A_SFP:
- 		/* Config MDIO clock speed before the first MDIO PHY access */
- 		hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
--- 
-2.7.4
+Pulled, thanks Jeff.
