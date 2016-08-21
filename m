@@ -1,76 +1,78 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH] net: ip_finish_output_gso: Allow fragmenting segments of tunneled skbs if their DF is unset
-Date: Sun, 21 Aug 2016 11:22:32 +0300
-Message-ID: <1471767752-7849-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: pravin shelar <pshelar@ovn.org>, wenxu <wenxu@ucloud.cn>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36434 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751121AbcHUIXE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2016 04:23:04 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i138so8991082wmf.3
-        for <netdev@vger.kernel.org>; Sun, 21 Aug 2016 01:23:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: Re: [PATCH v2 3/4] net: stmmac: add a glue driver for the Amlogic
+ Meson 8b / GXBB DWMAC
+Date: Sun, 21 Aug 2016 14:00:39 +0200
+Message-ID: <CAFBinCCC4LQUkF17G-LNQWs_EuRiw44V7hep-zDsm-9MQ64VnA@mail.gmail.com>
+References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com>
+ <20160820093538.9707-1-martin.blumenstingl@googlemail.com>
+ <20160820093538.9707-4-martin.blumenstingl@googlemail.com> <CAGhQ9VyWs=sYg7PVrt5r-fM-2t--qAnHyvNXAZXwjkYn5P196g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org,
+        carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org, Michael Turquette <mturquette-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>,
+        "peppe.cavallaro" <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Joachim Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGhQ9VyWs=sYg7PVrt5r-fM-2t--qAnHyvNXAZXwjkYn5P196g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In b8247f095e,
+Hi Joachim,
 
-   "net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs"
+On Sat, Aug 20, 2016 at 11:29 PM, Joachim  Eastwood <manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>> +       platform_set_drvdata(pdev, dwmac);
+>
+> This will not work. The main stmmac driver already uses the driver_data field.
+> See: http://lxr.free-electrons.com/source/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c#L3218
+>
+>
+>> +       return stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+>
+> So calling stmmac_dvr_probe here will overwrite the driver_data field.
+>
+>
+>> +}
+>> +
+>> +static int meson8b_dwmac_remove(struct platform_device *pdev)
+>> +{
+>> +       struct meson8b_dwmac *dwmac = platform_get_drvdata(pdev);
+>> +
+>> +       clk_disable_unprepare(dwmac->m25_div_clk);
+>
+> Did you test this code? I am pretty sure it will blow up given that
+> driver_data is not set to what you expect.
+I guess I should've taken a closer look at my kernel config:
+CONFIG_DWMAC_MESON=y
+Thanks for spotting this issue!
 
-gso skbs arriving from an ingress interface that go through UDP
-tunneling, are allowed to be fragmented if the resulting encapulated
-segments exceed the dst mtu of the egress interface.
+> To get your meson8b_dwmac struct you must retrieve it from plat_dat->bsp_priv.
+>
+>
+> I have some code for a helper to retrieve bsp_priv that I have meant
+> to sent to the ML for a while now.
+> See: https://github.com/manabian/linux-lpc/commit/c3e155a6e38b9634e4e61aa4eeb4602ede7e44a6
+>
+> Feel free to add it to your patch set if you want.
+>
+> Alternatively take a look at the remove function from dwmac-stm32 here:
+> https://patchwork.ozlabs.org/patch/619816/
+excellent, thanks!
 
-This aligned the behavior of gso skbs to non-gso skbs going through udp
-encapsulation path.
+I will send a fixed version as soon as possible
 
-However the non-gso vs gso anomaly is present also in the following
-cases of a GRE tunnel:
- - ip_gre in collect_md mode, where TUNNEL_DONT_FRAGMENT is not set
-   (e.g. OvS vport-gre with df_default=false)
- - ip_gre in nopmtudisc mode, where IFLA_GRE_IGNORE_DF is set
 
-In both of the above cases, the non-gso skbs get fragmented, whereas the
-gso skbs (having skb_gso_network_seglen that exceeds dst mtu) get dropped,
-as they don't go through the segment+fragment code path.
-
-Fix: Setting IPSKB_FRAG_SEGS if the tunnel specified IP_DF bit is NOT set.
-
-Tunnels that do set IP_DF, will not go to fragmentation of segments.
-This preserves behavior of ip_gre in (the default) pmtudisc mode.
-
-Fixes: b8247f095e ("net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs")
-Reported-by: wenxu <wenxu@ucloud.cn>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- 
- wenxu, can you please add a Tested-by?
-
- net/ipv4/ip_tunnel_core.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 9d847c3025..0f227db0e9 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -73,9 +73,11 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
- 	skb_dst_set(skb, &rt->dst);
- 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 
--	if (skb_iif && proto == IPPROTO_UDP) {
--		/* Arrived from an ingress interface and got udp encapuslated.
--		 * The encapsulated network segment length may exceed dst mtu.
-+	if (skb_iif && !(df & htons(IP_DF))) {
-+		/* Arrived from an ingress interface, got encapsulated, with
-+		 * fragmentation of encapulating frames allowed.
-+		 * If skb is gso, the resulting encapsulated network segments
-+		 * may exceed dst mtu.
- 		 * Allow IP Fragmentation of segments.
- 		 */
- 		IPCB(skb)->flags |= IPSKB_FRAG_SEGS;
--- 
-2.7.4
+Regards,
+Martin
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
