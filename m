@@ -1,58 +1,139 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/6][pull request] 10GbE Intel Wired LAN Driver Updates 2016-08-20
-Date: Sat, 20 Aug 2016 20:22:16 -0700
-Message-ID: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 4/6] ixgbe: Fix led interface for X557 devices
+Date: Sat, 20 Aug 2016 20:22:20 -0700
+Message-ID: <1471749742-7080-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:24499 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:61110 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751764AbcHUDWY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 23:22:24 -0400
+        id S1752510AbcHUDWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 23:22:25 -0400
+In-Reply-To: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Veola fixes how the backplane reports the media in ethtool, as KR, KX or
-KX4 based on the backplane interface present.
+The X557 devices use a different interface to the LED for the port.
+This patch reflect that change.
 
-Emil fixes ixgbevf since an incorrect size parameter for
-ixgbevf_write_msg_read_ack() ended up only giving the PF the first 4
-bytes of the MAC address, so correct the size by calculating it on the
-fly for all instances where we call ixgbevf_write_msg_read_ack().  Added
-geneve receive offload support for x550em_a.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  3 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 52 +++++++++++++++++++++++++--
+ 2 files changed, 53 insertions(+), 2 deletions(-)
 
-Don fixes the LED interface for x557 since it uses a different interface.
-Added support for the new x557 copper device.
-
-The following are changes since commit 8238ac0ce27b9537a4c161e0382abfc613ee577b:
-  Merge branch 'tun-cleanups'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Don Skidmore (3):
-  ixgbe: Fix led interface for X557 devices
-  ixgbe: add device to MDIO speed setting
-  ixgbe: Add support for new X557 device
-
-Emil Tantilov (2):
-  ixgbevf: fix incorrect MAC address on load
-  ixgbe: add support for geneve Rx offload
-
-Veola Nazareth (1):
-  ixgbe: report correct media type for KR, KX and KX4 interfaces
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 175 ++++++++++++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  11 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c    |  62 +++++++-
- drivers/net/ethernet/intel/ixgbevf/vf.c          |  21 ++-
- 7 files changed, 217 insertions(+), 61 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 5ff91b8..a59b65f7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1830,6 +1830,9 @@ enum {
+ #define IXGBE_LED_IVRT(_i)       IXGBE_LED_OFFSET(IXGBE_LED_IVRT_BASE, _i)
+ #define IXGBE_LED_BLINK(_i)      IXGBE_LED_OFFSET(IXGBE_LED_BLINK_BASE, _i)
+ #define IXGBE_LED_MODE_MASK(_i)  IXGBE_LED_OFFSET(IXGBE_LED_MODE_MASK_BASE, _i)
++#define IXGBE_X557_LED_MANUAL_SET_MASK	BIT(8)
++#define IXGBE_X557_MAX_LED_INDEX	3
++#define IXGBE_X557_LED_PROVISIONING	0xC430
+ 
+ /* LED modes */
+ #define IXGBE_LED_LINK_UP       0x0
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 4716ca4..45ad6b1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2114,6 +2114,50 @@ static s32 ixgbe_reset_phy_t_X550em(struct ixgbe_hw *hw)
+ 	return ixgbe_enable_lasi_ext_t_x550em(hw);
+ }
+ 
++/**
++ *  ixgbe_led_on_t_x550em - Turns on the software controllable LEDs.
++ *  @hw: pointer to hardware structure
++ *  @led_idx: led number to turn on
++ **/
++s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
++{
++	u16 phy_data;
++
++	if (led_idx >= IXGBE_X557_MAX_LED_INDEX)
++		return IXGBE_ERR_PARAM;
++
++	/* To turn on the LED, set mode to ON. */
++	hw->phy.ops.read_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
++			     IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, &phy_data);
++	phy_data |= IXGBE_X557_LED_MANUAL_SET_MASK;
++	hw->phy.ops.write_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
++			      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, phy_data);
++
++	return 0;
++}
++
++/**
++ *  ixgbe_led_off_t_x550em - Turns off the software controllable LEDs.
++ *  @hw: pointer to hardware structure
++ *  @led_idx: led number to turn off
++ **/
++s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
++{
++	u16 phy_data;
++
++	if (led_idx >= IXGBE_X557_MAX_LED_INDEX)
++		return IXGBE_ERR_PARAM;
++
++	/* To turn on the LED, set mode to ON. */
++	hw->phy.ops.read_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
++			     IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, &phy_data);
++	phy_data &= ~IXGBE_X557_LED_MANUAL_SET_MASK;
++	hw->phy.ops.write_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
++			      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, phy_data);
++
++	return 0;
++}
++
+ /** ixgbe_get_lcd_x550em - Determine lowest common denominator
+  *  @hw: pointer to hardware structure
+  *  @lcd_speed: pointer to lowest common link speed
+@@ -2853,8 +2897,6 @@ static s32 ixgbe_write_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
+ 	.write_analog_reg8		= NULL, \
+ 	.set_rxpba			= &ixgbe_set_rxpba_generic, \
+ 	.check_link			= &ixgbe_check_mac_link_generic, \
+-	.led_on				= &ixgbe_led_on_generic, \
+-	.led_off			= &ixgbe_led_off_generic, \
+ 	.blink_led_start		= &ixgbe_blink_led_start_X540, \
+ 	.blink_led_stop			= &ixgbe_blink_led_stop_X540, \
+ 	.set_rar			= &ixgbe_set_rar_generic, \
+@@ -2886,6 +2928,8 @@ static s32 ixgbe_write_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
+ 
+ static const struct ixgbe_mac_operations mac_ops_X550 = {
+ 	X550_COMMON_MAC
++	.led_on			= ixgbe_led_on_generic,
++	.led_off		= ixgbe_led_off_generic,
+ 	.reset_hw		= &ixgbe_reset_hw_X540,
+ 	.get_media_type		= &ixgbe_get_media_type_X540,
+ 	.get_san_mac_addr	= &ixgbe_get_san_mac_addr_generic,
+@@ -2904,6 +2948,8 @@ static const struct ixgbe_mac_operations mac_ops_X550 = {
+ 
+ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
+ 	X550_COMMON_MAC
++	.led_on			= ixgbe_led_on_t_x550em,
++	.led_off		= ixgbe_led_off_t_x550em,
+ 	.reset_hw		= &ixgbe_reset_hw_X550em,
+ 	.get_media_type		= &ixgbe_get_media_type_X550em,
+ 	.get_san_mac_addr	= NULL,
+@@ -2922,6 +2968,8 @@ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
+ 
+ static struct ixgbe_mac_operations mac_ops_x550em_a = {
+ 	X550_COMMON_MAC
++	.led_on			= ixgbe_led_on_t_x550em,
++	.led_off		= ixgbe_led_off_t_x550em,
+ 	.reset_hw		= ixgbe_reset_hw_X550em,
+ 	.get_media_type		= ixgbe_get_media_type_X550em,
+ 	.get_san_mac_addr	= NULL,
 -- 
 2.7.4
