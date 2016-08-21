@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: renesas: ravb: use new api
- ethtool_{get|set}_link_ksettings
-Date: Sat, 20 Aug 2016 22:27:53 -0700 (PDT)
-Message-ID: <20160820.222753.1870314112887146628.davem@davemloft.net>
-References: <1471647139-1867-1-git-send-email-tremyfr@gmail.com>
-        <1471647139-1867-2-git-send-email-tremyfr@gmail.com>
+From: Robert David <clarkraymond377@gmail.com>
+Subject: Attention Beneficially
+Date: Sun, 21 Aug 2016 06:52:35 +0000 (UTC)
+Message-ID: <1552464855.424918.1471762355297__15309.7231676385$1471762862$gmane$org@mail.yahoo.com>
+References: <1552464855.424918.1471762355297.ref@mail.yahoo.com>
+Reply-To: Robert David <dhlservicesbenindhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com,
-        kazuya.mizuguchi.ks@renesas.com, ykaneko0929@gmail.com,
-        horms+renesas@verge.net.au, masaru.nagai.vx@renesas.com,
-        geert+renesas@glider.be, niklas.soderlund+renesas@ragnatech.se,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471647139-1867-2-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm41-vm5.bullet.mail.ne1.yahoo.com ([98.138.120.221]:48651 "EHLO
+        nm41-vm5.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751786AbcHUHAy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2016 03:00:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat, 20 Aug 2016 00:52:19 +0200
 
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-Applied.
+Attention Beneficially
+
+
+WESTERN UNION
+
+This is very urgent Our Operation manager has sent your first payment of $5000.00 to you. Here is what we need from you to complete the
+transfer, Your Name, Your Address,A Copy Of Your ID and Your Telephone Number: Noted That Only Fee Request from You Is to
+Reactivate Transfer Files which is Sum Of $65Only, No More Fee again after that.
+Western Union Agent: Mr. Peterson Godwin
+Direct phone line is: + 229 98782817
+E-mail ::(westernunion8087@gmail.com)
+
+Bellow is your first payment for $5000usd sent today in your name.
+Sender Name: Mr. 
+MTCN: 
+Question
+Answer
+Amount Sent: $5000.00
+
+You can use this link to confirm the payment,
+
+Best Regards,
+Mr.Joseph Ezo
