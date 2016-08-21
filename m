@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
- Updates 2016-08-19
-Date: Sat, 20 Aug 2016 18:58:17 -0700 (PDT)
-Message-ID: <20160820.185817.740200710357850662.davem@davemloft.net>
-References: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 0/2] tun: Fine-tuning for update_filter()
+Date: Sat, 20 Aug 2016 19:11:56 -0700 (PDT)
+Message-ID: <20160820.191156.534625905356801944.davem@davemloft.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+        <9cf06275-924d-6c22-d8a8-f733a03cca23@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34069 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752028AbcHUB6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 21:58:44 -0400
-In-Reply-To: <1471673991-117115-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, edumazet@google.com, jasowang@redhat.com,
+        mst@redhat.com, rppt@linux.vnet.ibm.com, pabeni@redhat.com,
+        soheil@google.com, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, julia.lawall@lip6.fr
+To: elfring@users.sourceforge.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9cf06275-924d-6c22-d8a8-f733a03cca23@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 19 Aug 2016 23:19:36 -0700
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 20 Aug 2016 09:27:39 +0200
 
-> This series contains updates to i40e and i40evf only.
+> A few update suggestions were taken into account
+> from static source code analysis.
 
-Pulled, thanks Jeff.
+Series applied.
