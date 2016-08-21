@@ -1,62 +1,57 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [PATCH 2/3] hostap: Delete an unnecessary jump label in prism2_ioctl_priv_hostapd()
-Date: Sun, 21 Aug 2016 11:45:13 +1000
-Message-ID: <CAGRGNgW3tCpLqs56DXW65_Du8HD+oYt-St3Oc6C6WLeungM51g@mail.gmail.com>
-References: <566ABCD9.1060404@users.sourceforge.net> <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
- <65ed528f-7ec5-a0f2-6219-3e63a78ca0ee@users.sourceforge.net>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH] ethtool: Add support for SCTP verification tag
+ in Rx NFC
+Date: Sat, 20 Aug 2016 18:56:56 -0700
+Message-ID: <CAKgT0UcPgOzgH3S6WHLUx4H_DXovHKGj=g57rYxGVp2WiYOEcA@mail.gmail.com>
+References: <147164234934.15412.10180837031828143039.stgit@ahduyck-desk.amr.corp.intel.com>
+ <1471738910.13300.114.camel@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Jouni Malinen <j@w1.fi>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors <kernel-janitors@vger.kernel.org>,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <65ed528f-7ec5-a0f2-6219-3e63a78ca0ee@users.sourceforge.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        Netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:35780 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751222AbcHUB5F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 20 Aug 2016 21:57:05 -0400
+Received: by mail-io0-f179.google.com with SMTP id m101so81287692ioi.2
+        for <netdev@vger.kernel.org>; Sat, 20 Aug 2016 18:56:57 -0700 (PDT)
+In-Reply-To: <1471738910.13300.114.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Marcus,
-
-On Sun, Aug 21, 2016 at 2:46 AM, SF Markus Elfring
-<elfring@users.sourceforge.net> wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sat, 20 Aug 2016 18:21:29 +0200
+On Sat, Aug 20, 2016 at 5:21 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> On Fri, 2016-08-19 at 14:32 -0700, Alexander Duyck wrote:
+>> The i40e hardware has support for SCTP filtering via Rx NFC however the
+>> default configuration expects us to include the verification tag as a part
+>> of the filter.  In order to support that I need to be able to transfer that
+>> data through the ethtool interface via a new structure.
+>>
+>> This patch adds a new structure to allow us to pass the verification tag
+>> for IPv4 or IPv6 SCTP traffic.
+> [...]
 >
-> Remove a jump label which is unneeded in this function at the end.
+> This looks like an incompatible ABI change.  I suppose it could be OK
+> if no drivers implemented flow steering for SCTP using the previously
+> specified structure, but have you checked that that is the case?
 >
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> ---
->  drivers/net/wireless/intersil/hostap/hostap_ioctl.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-> index 4e271f9..5942917 100644
-> --- a/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-> +++ b/drivers/net/wireless/intersil/hostap/hostap_ioctl.c
-> @@ -3835,14 +3835,12 @@ static int prism2_ioctl_priv_hostapd(local_info_t *local, struct iw_point *p)
->         }
->
->         if (ret == 1 || !ap_ioctl) {
-> -               if (copy_to_user(p->pointer, param, p->length)) {
-> +               if (copy_to_user(p->pointer, param, p->length))
->                         ret = -EFAULT;
-> -                       goto out;
-> -               } else if (ap_ioctl)
-> +               else if (ap_ioctl)
->                         ret = 0;
->         }
->
-> - out:
+> Ben.
 
-Does this change make any difference to the compiled code?
+Well the structure itself matches the TCP flow spec for the TCP flow
+sized portion.  All I am doing with this patch is adding an extension
+to that which is still confined to the 52 byte limit of the flow
+union.  The net result should be that the new value will appear masked
+if anything using the new specifier receives a rule using the old
+definition and for anything using the new flow spec that sends to the
+old code the extra value will be ignored.  I can look into double
+checking the behavior to make certain I have that right on Monday.
 
-Thanks,
+One thing I could do if you would like would be to spin up another
+patch to force the kernel to return -EINVAL if we are masking in
+fields that are out of bounds for the flow specification.  That way we
+can handle this  a bit more concisely in the future should we end up
+having to extend any other flow specifications.
 
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
+- Alex
