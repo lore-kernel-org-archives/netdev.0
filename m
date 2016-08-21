@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: phy: Add missing of_node_put() in
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next v2] net: phy: Add missing of_node_put() in
  xgmiitorgmii_probe()
-Date: Sun, 21 Aug 2016 15:29:15 -0700 (PDT)
-Message-ID: <20160821.152915.360184359793857112.davem@davemloft.net>
+Date: Sun, 21 Aug 2016 22:46:15 +0000
+Message-ID: <1471819575-13389-1-git-send-email-weiyj.lk@gmail.com>
 References: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
-        <20160820173605.GE30224@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: weiyj.lk@gmail.com, f.fainelli@gmail.com, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38968 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752821AbcHUW3X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2016 18:29:23 -0400
-In-Reply-To: <20160820173605.GE30224@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Wei Yongjun <weiyj.lk@gmail.com>,
+ linux-arm-kernel@lists.infradead.org
+To: f.fainelli@gmail.com, michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
+ Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Sat, 20 Aug 2016 19:36:05 +0200
+This node pointer is returned by of_parse_phandle() with
+refcount incremented in this function. of_node_put() on it
+before exitting this function.
 
-> On Sat, Aug 20, 2016 at 03:26:55PM +0000, Wei Yongjun wrote:
->> This node pointer is returned by of_parse_phandle() with
->> refcount incremented in this function. of_node_put() on it
->> before exitting this function.
-> 
-> Hi Wei
-> 
-> You are only releasing on the error path. What about the successful
-> path?
+This is detected by Coccinelle semantic patch.
 
-Agreed, as far as I can tell we do need to release it unconditionally
-here.
+Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+---
+v1 -> v2: release it unconditionally as Andrew and David's suggestion
+---
+ drivers/net/phy/xilinx_gmii2rgmii.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+index cad6e19..73b50f3 100644
+--- a/drivers/net/phy/xilinx_gmii2rgmii.c
++++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+@@ -73,6 +73,7 @@ int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+ 	}
+ 
+ 	priv->phy_dev = of_phy_find_device(phy_node);
++	of_node_put(phy_node);
+ 	if (!priv->phy_dev) {
+ 		dev_info(dev, "Couldn't find phydev\n");
+ 		return -EPROBE_DEFER;
