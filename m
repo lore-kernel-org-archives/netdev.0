@@ -1,34 +1,384 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wan-cosa: Use memdup_user() rather than duplicating
- its implementation
-Date: Sat, 20 Aug 2016 19:12:33 -0700 (PDT)
-Message-ID: <20160820.191233.1040358497240261402.davem@davemloft.net>
-References: <5d335025-5f52-d4b6-0b60-89a2fd354694@users.sourceforge.net>
-        <np956e$tnp$1@blaine.gmane.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <np956e$tnp$1@blaine.gmane.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/6] ixgbe: add support for geneve Rx offload
+Date: Sat, 20 Aug 2016 20:22:19 -0700
+Message-ID: <1471749742-7080-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:24499 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751764AbcHUDWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 23:22:25 -0400
+In-Reply-To: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Sat, 20 Aug 2016 10:42:54 +0200
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-> Le 20/08/2016 à 10:25, SF Markus Elfring a écrit :
->> @@ -875,16 +875,10 @@ static ssize_t cosa_write(struct file *file,
->>   	if (count > COSA_MTU)
->>   		count = COSA_MTU;
->>   	
->> -	/* Allocate the buffer */
->> -	kbuf = kmalloc(count, GFP_KERNEL|GFP_DMA);
-> In this case, 'memdup_user()' has a different meaning, as GFP_DMA will
-> no more be used for this memory allocation.
+Add geneve Rx offload support for x550em_a.
 
-Agreed, this transformation is not equivalent.
+The implementation follows the vxlan code with the lower 16 bits of
+the VXLANCTRL register holding the UDP port for VXLAN and the upper
+for Geneve.
 
-Markus, please do not make these changes so blindly.
+Disabled NFS filters in the RFCTL register which allows us to simplify
+the check for VXLAN and Geneve packets in ixgbe_rx_checksum().
+
+Removed vxlan from the name of the callback functions and replaced it
+with udp_tunnel which is more in line with the new API.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |   4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 174 ++++++++++++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |   7 ++
+ 3 files changed, 134 insertions(+), 51 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 5628e2d..33c0250 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -645,6 +645,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG_RX_HWTSTAMP_ENABLED		BIT(25)
+ #define IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER	BIT(26)
+ #define IXGBE_FLAG_DCB_CAPABLE			BIT(27)
++#define IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE	BIT(28)
+ 
+ 	u32 flags2;
+ #define IXGBE_FLAG2_RSC_CAPABLE			BIT(0)
+@@ -658,7 +659,7 @@ struct ixgbe_adapter {
+ #define IXGBE_FLAG2_RSS_FIELD_IPV6_UDP		BIT(9)
+ #define IXGBE_FLAG2_PTP_PPS_ENABLED		BIT(10)
+ #define IXGBE_FLAG2_PHY_INTERRUPT		BIT(11)
+-#define IXGBE_FLAG2_VXLAN_REREG_NEEDED		BIT(12)
++#define IXGBE_FLAG2_UDP_TUN_REREG_NEEDED	BIT(12)
+ #define IXGBE_FLAG2_VLAN_PROMISC		BIT(13)
+ 
+ 	/* Tx fast path data */
+@@ -672,6 +673,7 @@ struct ixgbe_adapter {
+ 
+ 	/* Port number used to identify VXLAN traffic */
+ 	__be16 vxlan_port;
++	__be16 geneve_port;
+ 
+ 	/* TX */
+ 	struct ixgbe_ring *tx_ring[MAX_TX_QUEUES] ____cacheline_aligned_in_smp;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 6bf131f..5b8819c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1495,7 +1495,6 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
+ 				     struct sk_buff *skb)
+ {
+ 	__le16 pkt_info = rx_desc->wb.lower.lo_dword.hs_rss.pkt_info;
+-	__le16 hdr_info = rx_desc->wb.lower.lo_dword.hs_rss.hdr_info;
+ 	bool encap_pkt = false;
+ 
+ 	skb_checksum_none_assert(skb);
+@@ -1504,8 +1503,8 @@ static inline void ixgbe_rx_checksum(struct ixgbe_ring *ring,
+ 	if (!(ring->netdev->features & NETIF_F_RXCSUM))
+ 		return;
+ 
+-	if ((pkt_info & cpu_to_le16(IXGBE_RXDADV_PKTTYPE_VXLAN)) &&
+-	    (hdr_info & cpu_to_le16(IXGBE_RXDADV_PKTTYPE_TUNNEL >> 16))) {
++	/* check for VXLAN and Geneve packets */
++	if (pkt_info & cpu_to_le16(IXGBE_RXDADV_PKTTYPE_VXLAN)) {
+ 		encap_pkt = true;
+ 		skb->encapsulation = 1;
+ 	}
+@@ -3922,6 +3921,9 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 	rfctl &= ~IXGBE_RFCTL_RSC_DIS;
+ 	if (!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))
+ 		rfctl |= IXGBE_RFCTL_RSC_DIS;
++
++	/* disable NFS filtering */
++	rfctl |= (IXGBE_RFCTL_NFSW_DIS | IXGBE_RFCTL_NFSR_DIS);
+ 	IXGBE_WRITE_REG(hw, IXGBE_RFCTL, rfctl);
+ 
+ 	/* Program registers for the distribution of queues */
+@@ -4586,18 +4588,23 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
+ 	}
+ }
+ 
+-static void ixgbe_clear_vxlan_port(struct ixgbe_adapter *adapter)
++static void ixgbe_clear_udp_tunnel_port(struct ixgbe_adapter *adapter, u32 mask)
+ {
+-	switch (adapter->hw.mac.type) {
+-	case ixgbe_mac_X550:
+-	case ixgbe_mac_X550EM_x:
+-	case ixgbe_mac_x550em_a:
+-		IXGBE_WRITE_REG(&adapter->hw, IXGBE_VXLANCTRL, 0);
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vxlanctrl;
++
++	if (!(adapter->flags & (IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE |
++				IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE)))
++		return;
++
++	vxlanctrl = IXGBE_READ_REG(hw, IXGBE_VXLANCTRL) && ~mask;
++	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, vxlanctrl);
++
++	if (mask & IXGBE_VXLANCTRL_VXLAN_UDPPORT_MASK)
+ 		adapter->vxlan_port = 0;
+-		break;
+-	default:
+-		break;
+-	}
++
++	if (mask & IXGBE_VXLANCTRL_GENEVE_UDPPORT_MASK)
++		adapter->geneve_port = 0;
+ }
+ 
+ #ifdef CONFIG_IXGBE_DCB
+@@ -5711,8 +5718,10 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 		if (fwsm & IXGBE_FWSM_TS_ENABLED)
+ 			adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_CAPABLE;
+ 		break;
+-	case ixgbe_mac_X550EM_x:
+ 	case ixgbe_mac_x550em_a:
++		adapter->flags |= IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE;
++	/* fall through */
++	case ixgbe_mac_X550EM_x:
+ #ifdef CONFIG_IXGBE_DCB
+ 		adapter->flags &= ~IXGBE_FLAG_DCB_CAPABLE;
+ #endif
+@@ -6144,7 +6153,7 @@ int ixgbe_open(struct net_device *netdev)
+ 
+ 	ixgbe_up_complete(adapter);
+ 
+-	ixgbe_clear_vxlan_port(adapter);
++	ixgbe_clear_udp_tunnel_port(adapter, IXGBE_VXLANCTRL_ALL_UDPPORT_MASK);
+ 	udp_tunnel_get_rx_info(netdev);
+ 
+ 	return 0;
+@@ -7223,9 +7232,9 @@ static void ixgbe_service_task(struct work_struct *work)
+ 		ixgbe_service_event_complete(adapter);
+ 		return;
+ 	}
+-	if (adapter->flags2 & IXGBE_FLAG2_VXLAN_REREG_NEEDED) {
++	if (adapter->flags2 & IXGBE_FLAG2_UDP_TUN_REREG_NEEDED) {
+ 		rtnl_lock();
+-		adapter->flags2 &= ~IXGBE_FLAG2_VXLAN_REREG_NEEDED;
++		adapter->flags2 &= ~IXGBE_FLAG2_UDP_TUN_REREG_NEEDED;
+ 		udp_tunnel_get_rx_info(adapter->netdev);
+ 		rtnl_unlock();
+ 	}
+@@ -7665,6 +7674,10 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
+ 		if (adapter->vxlan_port &&
+ 		    udp_hdr(skb)->dest == adapter->vxlan_port)
+ 			hdr.network = skb_inner_network_header(skb);
++
++		if (adapter->geneve_port &&
++		    udp_hdr(skb)->dest == adapter->geneve_port)
++			hdr.network = skb_inner_network_header(skb);
+ 	}
+ 
+ 	/* Currently only IPv4/IPv6 with TCP is supported */
+@@ -8800,10 +8813,23 @@ static int ixgbe_set_features(struct net_device *netdev,
+ 	netdev->features = features;
+ 
+ 	if ((adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE)) {
+-		if (features & NETIF_F_RXCSUM)
+-			adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
+-		else
+-			ixgbe_clear_vxlan_port(adapter);
++		if (features & NETIF_F_RXCSUM) {
++			adapter->flags2 |= IXGBE_FLAG2_UDP_TUN_REREG_NEEDED;
++		} else {
++			u32 port_mask = IXGBE_VXLANCTRL_VXLAN_UDPPORT_MASK;
++
++			ixgbe_clear_udp_tunnel_port(adapter, port_mask);
++		}
++	}
++
++	if ((adapter->flags & IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE)) {
++		if (features & NETIF_F_RXCSUM) {
++			adapter->flags2 |= IXGBE_FLAG2_UDP_TUN_REREG_NEEDED;
++		} else {
++			u32 port_mask = IXGBE_VXLANCTRL_GENEVE_UDPPORT_MASK;
++
++			ixgbe_clear_udp_tunnel_port(adapter, port_mask);
++		}
+ 	}
+ 
+ 	if (need_reset)
+@@ -8816,67 +8842,115 @@ static int ixgbe_set_features(struct net_device *netdev,
+ }
+ 
+ /**
+- * ixgbe_add_vxlan_port - Get notifications about VXLAN ports that come up
++ * ixgbe_add_udp_tunnel_port - Get notifications about adding UDP tunnel ports
+  * @dev: The port's netdev
+  * @ti: Tunnel endpoint information
+  **/
+-static void ixgbe_add_vxlan_port(struct net_device *dev,
+-				 struct udp_tunnel_info *ti)
++static void ixgbe_add_udp_tunnel_port(struct net_device *dev,
++				      struct udp_tunnel_info *ti)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	__be16 port = ti->port;
+-
+-	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
+-		return;
++	u32 port_shift = 0;
++	u32 reg;
+ 
+ 	if (ti->sa_family != AF_INET)
+ 		return;
+ 
+-	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
+-		return;
++	switch (ti->type) {
++	case UDP_TUNNEL_TYPE_VXLAN:
++		if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
++			return;
+ 
+-	if (adapter->vxlan_port == port)
+-		return;
++		if (adapter->vxlan_port == port)
++			return;
++
++		if (adapter->vxlan_port) {
++			netdev_info(dev,
++				    "VXLAN port %d set, not adding port %d\n",
++				    ntohs(adapter->vxlan_port),
++				    ntohs(port));
++			return;
++		}
++
++		adapter->vxlan_port = port;
++		break;
++	case UDP_TUNNEL_TYPE_GENEVE:
++		if (!(adapter->flags & IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE))
++			return;
++
++		if (adapter->geneve_port == port)
++			return;
++
++		if (adapter->geneve_port) {
++			netdev_info(dev,
++				    "GENEVE port %d set, not adding port %d\n",
++				    ntohs(adapter->geneve_port),
++				    ntohs(port));
++			return;
++		}
+ 
+-	if (adapter->vxlan_port) {
+-		netdev_info(dev,
+-			    "Hit Max num of VXLAN ports, not adding port %d\n",
+-			    ntohs(port));
++		port_shift = IXGBE_VXLANCTRL_GENEVE_UDPPORT_SHIFT;
++		adapter->geneve_port = port;
++		break;
++	default:
+ 		return;
+ 	}
+ 
+-	adapter->vxlan_port = port;
+-	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, ntohs(port));
++	reg = IXGBE_READ_REG(hw, IXGBE_VXLANCTRL) | ntohs(port) << port_shift;
++	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, reg);
+ }
+ 
+ /**
+- * ixgbe_del_vxlan_port - Get notifications about VXLAN ports that go away
++ * ixgbe_del_udp_tunnel_port - Get notifications about removing UDP tunnel ports
+  * @dev: The port's netdev
+  * @ti: Tunnel endpoint information
+  **/
+-static void ixgbe_del_vxlan_port(struct net_device *dev,
+-				 struct udp_tunnel_info *ti)
++static void ixgbe_del_udp_tunnel_port(struct net_device *dev,
++				      struct udp_tunnel_info *ti)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
++	u32 port_mask;
+ 
+-	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
++	if (ti->type != UDP_TUNNEL_TYPE_VXLAN &&
++	    ti->type != UDP_TUNNEL_TYPE_GENEVE)
+ 		return;
+ 
+ 	if (ti->sa_family != AF_INET)
+ 		return;
+ 
+-	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
+-		return;
++	switch (ti->type) {
++	case UDP_TUNNEL_TYPE_VXLAN:
++		if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
++			return;
+ 
+-	if (adapter->vxlan_port != ti->port) {
+-		netdev_info(dev, "Port %d was not found, not deleting\n",
+-			    ntohs(ti->port));
++		if (adapter->vxlan_port != ti->port) {
++			netdev_info(dev, "VXLAN port %d not found\n",
++				    ntohs(ti->port));
++			return;
++		}
++
++		port_mask = IXGBE_VXLANCTRL_VXLAN_UDPPORT_MASK;
++		break;
++	case UDP_TUNNEL_TYPE_GENEVE:
++		if (!(adapter->flags & IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE))
++			return;
++
++		if (adapter->geneve_port != ti->port) {
++			netdev_info(dev, "GENEVE port %d not found\n",
++				    ntohs(ti->port));
++			return;
++		}
++
++		port_mask = IXGBE_VXLANCTRL_GENEVE_UDPPORT_MASK;
++		break;
++	default:
+ 		return;
+ 	}
+ 
+-	ixgbe_clear_vxlan_port(adapter);
+-	adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
++	ixgbe_clear_udp_tunnel_port(adapter, port_mask);
++	adapter->flags2 |= IXGBE_FLAG2_UDP_TUN_REREG_NEEDED;
+ }
+ 
+ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+@@ -9190,8 +9264,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
+ 	.ndo_dfwd_add_station	= ixgbe_fwd_add,
+ 	.ndo_dfwd_del_station	= ixgbe_fwd_del,
+-	.ndo_udp_tunnel_add	= ixgbe_add_vxlan_port,
+-	.ndo_udp_tunnel_del	= ixgbe_del_vxlan_port,
++	.ndo_udp_tunnel_add	= ixgbe_add_udp_tunnel_port,
++	.ndo_udp_tunnel_del	= ixgbe_del_udp_tunnel_port,
+ 	.ndo_features_check	= ixgbe_features_check,
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 1248a99..5ff91b8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -487,6 +487,13 @@ struct ixgbe_thermal_sensor_data {
+ #define IXGBE_FHFT_EXT(_n)	(0x09800 + ((_n) * 0x100)) /* Ext Flexible Host
+ 							    * Filter Table */
+ 
++/* masks for accessing VXLAN and GENEVE UDP ports */
++#define IXGBE_VXLANCTRL_VXLAN_UDPPORT_MASK     0x0000ffff /* VXLAN port */
++#define IXGBE_VXLANCTRL_GENEVE_UDPPORT_MASK    0xffff0000 /* GENEVE port */
++#define IXGBE_VXLANCTRL_ALL_UDPPORT_MASK       0xffffffff /* GENEVE/VXLAN */
++
++#define IXGBE_VXLANCTRL_GENEVE_UDPPORT_SHIFT   16
++
+ #define IXGBE_FLEXIBLE_FILTER_COUNT_MAX         4
+ #define IXGBE_EXT_FLEXIBLE_FILTER_COUNT_MAX     2
+ 
+-- 
+2.7.4
