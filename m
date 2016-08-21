@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/6] ixgbe: Fix led interface for X557 devices
-Date: Sat, 20 Aug 2016 20:22:20 -0700
-Message-ID: <1471749742-7080-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/6] ixgbe: add device to MDIO speed setting
+Date: Sat, 20 Aug 2016 20:22:21 -0700
+Message-ID: <1471749742-7080-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -9,131 +9,38 @@ Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:61110 "EHLO mga04.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:24499 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752510AbcHUDWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 20 Aug 2016 23:22:25 -0400
+        id S1752517AbcHUDW0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 20 Aug 2016 23:22:26 -0400
 In-Reply-To: <1471749742-7080-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The X557 devices use a different interface to the LED for the port.
-This patch reflect that change.
+This shouldn't matter as nothing should be attached still to be
+consisted control MDIO speed for these devices as well.
 
 Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |  3 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 52 +++++++++++++++++++++++++--
- 2 files changed, 53 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 5ff91b8..a59b65f7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -1830,6 +1830,9 @@ enum {
- #define IXGBE_LED_IVRT(_i)       IXGBE_LED_OFFSET(IXGBE_LED_IVRT_BASE, _i)
- #define IXGBE_LED_BLINK(_i)      IXGBE_LED_OFFSET(IXGBE_LED_BLINK_BASE, _i)
- #define IXGBE_LED_MODE_MASK(_i)  IXGBE_LED_OFFSET(IXGBE_LED_MODE_MASK_BASE, _i)
-+#define IXGBE_X557_LED_MANUAL_SET_MASK	BIT(8)
-+#define IXGBE_X557_MAX_LED_INDEX	3
-+#define IXGBE_X557_LED_PROVISIONING	0xC430
- 
- /* LED modes */
- #define IXGBE_LED_LINK_UP       0x0
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 4716ca4..45ad6b1 100644
+index 45ad6b1..a8030e0 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -2114,6 +2114,50 @@ static s32 ixgbe_reset_phy_t_X550em(struct ixgbe_hw *hw)
- 	return ixgbe_enable_lasi_ext_t_x550em(hw);
- }
+@@ -2558,6 +2558,8 @@ static void ixgbe_set_mdio_speed(struct ixgbe_hw *hw)
  
-+/**
-+ *  ixgbe_led_on_t_x550em - Turns on the software controllable LEDs.
-+ *  @hw: pointer to hardware structure
-+ *  @led_idx: led number to turn on
-+ **/
-+s32 ixgbe_led_on_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-+{
-+	u16 phy_data;
-+
-+	if (led_idx >= IXGBE_X557_MAX_LED_INDEX)
-+		return IXGBE_ERR_PARAM;
-+
-+	/* To turn on the LED, set mode to ON. */
-+	hw->phy.ops.read_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
-+			     IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, &phy_data);
-+	phy_data |= IXGBE_X557_LED_MANUAL_SET_MASK;
-+	hw->phy.ops.write_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
-+			      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, phy_data);
-+
-+	return 0;
-+}
-+
-+/**
-+ *  ixgbe_led_off_t_x550em - Turns off the software controllable LEDs.
-+ *  @hw: pointer to hardware structure
-+ *  @led_idx: led number to turn off
-+ **/
-+s32 ixgbe_led_off_t_x550em(struct ixgbe_hw *hw, u32 led_idx)
-+{
-+	u16 phy_data;
-+
-+	if (led_idx >= IXGBE_X557_MAX_LED_INDEX)
-+		return IXGBE_ERR_PARAM;
-+
-+	/* To turn on the LED, set mode to ON. */
-+	hw->phy.ops.read_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
-+			     IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, &phy_data);
-+	phy_data &= ~IXGBE_X557_LED_MANUAL_SET_MASK;
-+	hw->phy.ops.write_reg(hw, IXGBE_X557_LED_PROVISIONING + led_idx,
-+			      IXGBE_MDIO_VENDOR_SPECIFIC_1_DEV_TYPE, phy_data);
-+
-+	return 0;
-+}
-+
- /** ixgbe_get_lcd_x550em - Determine lowest common denominator
-  *  @hw: pointer to hardware structure
-  *  @lcd_speed: pointer to lowest common link speed
-@@ -2853,8 +2897,6 @@ static s32 ixgbe_write_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
- 	.write_analog_reg8		= NULL, \
- 	.set_rxpba			= &ixgbe_set_rxpba_generic, \
- 	.check_link			= &ixgbe_check_mac_link_generic, \
--	.led_on				= &ixgbe_led_on_generic, \
--	.led_off			= &ixgbe_led_off_generic, \
- 	.blink_led_start		= &ixgbe_blink_led_start_X540, \
- 	.blink_led_stop			= &ixgbe_blink_led_stop_X540, \
- 	.set_rar			= &ixgbe_set_rar_generic, \
-@@ -2886,6 +2928,8 @@ static s32 ixgbe_write_phy_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
- 
- static const struct ixgbe_mac_operations mac_ops_X550 = {
- 	X550_COMMON_MAC
-+	.led_on			= ixgbe_led_on_generic,
-+	.led_off		= ixgbe_led_off_generic,
- 	.reset_hw		= &ixgbe_reset_hw_X540,
- 	.get_media_type		= &ixgbe_get_media_type_X540,
- 	.get_san_mac_addr	= &ixgbe_get_san_mac_addr_generic,
-@@ -2904,6 +2948,8 @@ static const struct ixgbe_mac_operations mac_ops_X550 = {
- 
- static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 	X550_COMMON_MAC
-+	.led_on			= ixgbe_led_on_t_x550em,
-+	.led_off		= ixgbe_led_off_t_x550em,
- 	.reset_hw		= &ixgbe_reset_hw_X550em,
- 	.get_media_type		= &ixgbe_get_media_type_X550em,
- 	.get_san_mac_addr	= NULL,
-@@ -2922,6 +2968,8 @@ static const struct ixgbe_mac_operations mac_ops_X550EM_x = {
- 
- static struct ixgbe_mac_operations mac_ops_x550em_a = {
- 	X550_COMMON_MAC
-+	.led_on			= ixgbe_led_on_t_x550em,
-+	.led_off		= ixgbe_led_off_t_x550em,
- 	.reset_hw		= ixgbe_reset_hw_X550em,
- 	.get_media_type		= ixgbe_get_media_type_X550em,
- 	.get_san_mac_addr	= NULL,
+ 	switch (hw->device_id) {
+ 	case IXGBE_DEV_ID_X550EM_X_10G_T:
++	case IXGBE_DEV_ID_X550EM_A_SGMII:
++	case IXGBE_DEV_ID_X550EM_A_SGMII_L:
+ 	case IXGBE_DEV_ID_X550EM_A_SFP:
+ 		/* Config MDIO clock speed before the first MDIO PHY access */
+ 		hlreg0 = IXGBE_READ_REG(hw, IXGBE_HLREG0);
 -- 
 2.7.4
