@@ -1,53 +1,45 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
- support 25G/50G/100G
-Date: Sun, 21 Aug 2016 14:44:23 +0000
-Message-ID: <CO2PR11MB008851C71DB6ACE14EC5A3EA97E90@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
- <CO2PR11MB00889D2C55C1E4C86D831C59970C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKWE-XqpkNprFcQj7wZEthmTTtDuU7657kjFP37EvrgCChncHw@mail.gmail.com>
- <20160802194957.GC24663@tuxdriver.com> <20160818182112.GB8347@tuxdriver.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] netfilter: nft_hash: fix non static symbol warning
+Date: Sun, 21 Aug 2016 15:21:10 +0000
+Message-ID: <1471792870-16895-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "ben@decadent.org.uk" <ben@decadent.org.uk>,
-        netdev <netdev@vger.kernel.org>,
-        "bwh@kernel.org" <bwh@kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "decot@googlers.com" <decot@googlers.com>,
-        "bkenward@solarflare.com" <bkenward@solarflare.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "galp@mellanox.com" <galp@mellanox.com>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>
-To: "John W. Linville" <linville@tuxdriver.com>,
-        Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyj.lk@gmail.com>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        Wei Yongjun <weiyongjun1@huawei.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0134.outbound.protection.outlook.com ([104.47.33.134]:56925
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753148AbcHUOpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 10:45:02 -0400
-In-Reply-To: <20160818182112.GB8347@tuxdriver.com>
-Content-Language: en-US
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35351 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753198AbcHUPVg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 21 Aug 2016 11:21:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Ping?
->=20
-> On Tue, Aug 02, 2016 at 03:49:57PM -0400, John W. Linville wrote:
-> > Are these revised patches still on their way?
-> >
-> > John
-> >
-> > On Sun, Jul 24, 2016 at 01:57:14AM -0700, Vidya Sagar Ravipati wrote:
-> > > Yuval,
-> > >     I will try to resubmit the patches this week with updated
-> > > comments
-> > >
-> > > Thanks
-> > > Vidya Sagar
+Fixes the following sparse warning:
 
-I can pick this up; But I'd need someone to fill me on which of the newer
-speeds could support autoneg [if any].=20
+net/netfilter/nft_hash.c:40:25: warning:
+ symbol 'nft_hash_policy' was not declared. Should it be static?
+
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ net/netfilter/nft_hash.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
+index b82ff29..e090aee 100644
+--- a/net/netfilter/nft_hash.c
++++ b/net/netfilter/nft_hash.c
+@@ -37,7 +37,7 @@ static void nft_hash_eval(const struct nft_expr *expr,
+ 				 priv->modulus);
+ }
+ 
+-const struct nla_policy nft_hash_policy[NFTA_HASH_MAX + 1] = {
++static const struct nla_policy nft_hash_policy[NFTA_HASH_MAX + 1] = {
+ 	[NFTA_HASH_SREG]	= { .type = NLA_U32 },
+ 	[NFTA_HASH_DREG]	= { .type = NLA_U32 },
+ 	[NFTA_HASH_LEN]		= { .type = NLA_U32 },
