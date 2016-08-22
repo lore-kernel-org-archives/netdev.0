@@ -1,36 +1,81 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/3] hostap: Fine-tuning for a few functions
-Date: Mon, 22 Aug 2016 09:18:57 -0700
-Message-ID: <1471882737.3746.55.camel@perches.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-         <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
-         <3b3c91ad-3225-3483-bb58-fdee33bf2290@broadcom.com>
-         <87shtwvm63.fsf@kamboji.qca.qualcomm.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [RFC PATCH 0/5] Add eBPF hooks for cgroups
+Date: Mon, 22 Aug 2016 18:22:20 +0200
+Message-ID: <05bfd5c4-4095-37ff-b7a6-85b8dca8ec70@zonque.org>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+ <20160819091941.GA2113@salvia>
+ <b2b52c47-c421-51fb-c4a1-c4f8a924f7aa@zonque.org>
+ <20160819162158.GA25083@salvia> <20160819170739.GF29430@pox.localdomain>
+ <20160822160610.GA32723@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Jouni Malinen <j@w1.fi>, LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Kalle Valo <kvalo@codeaurora.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0043.hostedemail.com ([216.40.44.43]:50225 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752059AbcHVQWx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 12:22:53 -0400
-In-Reply-To: <87shtwvm63.fsf@kamboji.qca.qualcomm.com>
+Received: from svenfoo.org ([82.94.215.22]:57400 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752212AbcHVQWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 12:22:54 -0400
+In-Reply-To: <20160822160610.GA32723@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-08-22 at 18:49 +0300, Kalle Valo wrote:
-> Arend van Spriel <arend.vanspriel@broadcom.com> writes:
-[]
-> But yeah, not really sure what to do with these obsolete drivers like
-> hostap, ray_cs and wl3501.
+On 08/22/2016 06:06 PM, Pablo Neira Ayuso wrote:
+> On Fri, Aug 19, 2016 at 07:07:39PM +0200, Thomas Graf wrote:
 
-Maybe marking sections obsolete in MAINTAINERS could
-flag some "shouldn't touch this" warning for old code
-in checkpatch.pl and/or get_maintainer.pl
+>> You brought up multiple tables which reflect the cumulative approach.
+>> This sometimes works but has its issues as well. Users must be aware
+>> of each other and anticipate what rules other users might inject
+>> before or after their own tables. The very existence of firewalld which
+>> aims at democratizing this collaboration proves this point.
+> 
+> Firewalld, was really required in the iptables predefined tables
+> model, in nft last time we talked about this during NFWS'15, future
+> plans for firewalld were not clear yet.
+> 
+> Moreover, in nft, different users can indeed dump the ruleset and it
+> would be possible to validate if one policy is being shadowed by
+> another coming later on. The bpf bytecode dump cannot be taken to the
+> original representation.
+
+But as Thomas said - both things address different use-cases. For
+container setups, there is no administrator involved to use cli tools,
+so I don't think that's really much of an argument.
+
+>> So in that sense I would very much like for both models to be made
+>> available to users. nftables+cgroups for a cumulative approach as
+>> well as BPF+cgroups for the delegation approach.  I don't see why the
+>> cgroups based filtering capability should not be made available to both.
+> 
+> This patchset also needs an extra egress hook, not yet known where to
+> be placed, so two hooks in the network stacks in the end, 
+
+That should be solvable, I'm sure. I can as well leave egress out for
+the next version so it can be added later on.
+
+> and this only works for cgroups version 2.
+
+I don't see a problem with that, as v1 and v2 hierarchies can peacefully
+coexist.
+
+> Last time we talked about this, main concerns were that this was too
+> specific, but this approach seems even more specific to me.
+
+Hmm, I disagree - bpf programs that are associated with cgroups are
+rather something that can be extended a lot in the future, for instance
+for handling port binding permissions etc. Unlike the proposed network
+cgroup controller with all sorts of complicated knobs to control ranges
+of ports etc, a bpf program that take care of that in a much more
+versatile way.
+
+I also strongly believe we can have both, a cgroup controller that has
+bpf programs for socket filtering and other things, _and_ a "post socket
+lookup netfilter" table type. Both will have their individual use-cases.
+
+
+Thanks,
+Daniel
