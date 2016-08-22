@@ -1,65 +1,84 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v4 2/5] net: ethernet: ti: davinci_cpdma: fix locking while ctrl_stop
-Date: Mon, 22 Aug 2016 21:18:25 +0300
-Message-ID: <1471889908-29983-3-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1471889908-29983-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH v4 0/5]  net: ethernet: ti: cpsw: add cpdma multi-queue support
+Date: Mon, 22 Aug 2016 21:18:23 +0300
+Message-ID: <1471889908-29983-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
         nsekhar@ti.com, dlide@ti.com,
         Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 To: davem@davemloft.net, netdev@vger.kernel.org, mugunthanvnm@ti.com,
         grygorii.strashko@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:32866 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754126AbcHVSSj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:18:39 -0400
-Received: by mail-lf0-f43.google.com with SMTP id b199so84151571lfe.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 11:18:38 -0700 (PDT)
-In-Reply-To: <1471889908-29983-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The interrupts shouldn't be disabled while receiving skb, but while
-ctrl_stop, the channels are stopped and all remaining packets are
-handled with netif_receive_skb(), it can cause WARN_ONCE when ctrl
-is stopping while not all packets were handled with NAPIs:
+This series is intended to allow cpsw driver to use cpdma ability of
+h/w shaper to send/receive data with up to 8 tx and 8 rx queues. This
+series doesn't contain interface to configure h/w shaper itself, it
+contains only multi-queue support part and ability to configure number
+of tx/rx queues with ethtool, it also doesn't contain mapping of input
+traffic to rx queues, as it can depend on usage and requires separate
+interface for setup.
 
-lock_irq_save
-    cpdma_ctlr_stop
-       cpdma_chan_top
-           __cpdma_chan_free
-               cpsw_rx_handler
-                   netif_receive_skb
+Default shaper mode - priority mode. The h/w shaper configuration will
+be added with separate patch series. This series doesn't affect on net
+throughput.
 
-So, split locking while ctrl stop thus interrupts are still
-enabled while skbs handling. It can cause WARN_ONCE in rare
-cases when ctrl is stopping while not all packets were handled
-with NAPIs.
+Tested on:
+am572x-idk, 1Gbps link
+am335-boneblack, 100Mbps link.
 
-Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- drivers/net/ethernet/ti/davinci_cpdma.c | 2 ++
- 1 file changed, 2 insertions(+)
+A simple example for splitting traffic on queues:
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 167fd65..ffb32af 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -334,12 +334,14 @@ int cpdma_ctlr_stop(struct cpdma_ctlr *ctlr)
- 	}
- 
- 	ctlr->state = CPDMA_STATE_TEARDOWN;
-+	spin_unlock_irqrestore(&ctlr->lock, flags);
- 
- 	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
- 		if (ctlr->channels[i])
- 			cpdma_chan_stop(ctlr->channels[i]);
- 	}
- 
-+	spin_lock_irqsave(&ctlr->lock, flags);
- 	dma_reg_write(ctlr, CPDMA_RXINTMASKCLEAR, 0xffffffff);
- 	dma_reg_write(ctlr, CPDMA_TXINTMASKCLEAR, 0xffffffff);
- 
+#check how many queues are supported and active:
+$ ethtool -l eth0
+
+#increase number of active rx and tx queues,
+#by default 1 rx and 1 tx queue
+#can be set any combination of 0 < rx <= 8 and 0 < tx <= 8
+$ ethtool -L eth0 rx 8 tx 8
+
+#set multi-queue-aware queuing discipline
+$ tc qdisc add dev eth0 root handle 1: multiq
+
+#send packets with ip 172.22.39.12 to queue #5 which can be
+#prioritized or throughput limited by h/w shaper.
+$ tc filter add dev eth0 parent 1: protocol ip prio 1 u32 \
+    match ip dst 172.22.39.12 \
+    action skbedit queue_mapping 5
+
+Based on: net-next/master
+V3: https://lkml.org/lkml/2016/8/15/788
+
+Since v3:
+-changed arg to priv in fill_rx_channels in
+  net: ethernet: ti: davinci_cpdma: split descs num between all channels
+- added more comments to cpsw_set_channels
+
+Since v2:
+- added new patch to avoid warn while ctrl stop
+
+  net: ethernet: ti: cpsw: add ethtool channels support
+- enable ctrl in case at least one interface is running
+
+Since v1:
+- removed cpdam_check_free_desc function
+- remove pm_runtime calls as they are used in begin/complete ethtool calls now
+- removed change of driver version. it can be done later
+- corrected setup of channels for dual_emac mode with ethtool
+
+Ivan Khoronzhuk (5):
+  net: ethernet: ti: davinci_cpdma: split descs num between all channels
+  net: ethernet: ti: davinci_cpdma: fix locking while ctrl_stop
+  net: ethernet: ti: cpsw: add multi queue support
+  net: ethernet: ti: davinci_cpdma: move cpdma channel struct macroses
+    to internals
+  net: ethernet: ti: cpsw: add ethtool channels support
+
+ drivers/net/ethernet/ti/cpsw.c          | 496 +++++++++++++++++++++++++-------
+ drivers/net/ethernet/ti/davinci_cpdma.c |  73 ++++-
+ drivers/net/ethernet/ti/davinci_cpdma.h |  13 +-
+ drivers/net/ethernet/ti/davinci_emac.c  |   8 +-
+ 4 files changed, 466 insertions(+), 124 deletions(-)
+
 -- 
 1.9.1
