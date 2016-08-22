@@ -1,94 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: properly scale window in tcp_v[46]_reqsk_send_ack()
-Date: Mon, 22 Aug 2016 11:31:10 -0700
-Message-ID: <1471890670.14381.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
+Subject: [PATCH v05 38/72] include/uapi/linux/openvswitch.h: use
+	__u32 from linux/types.h
+Date: Mon, 22 Aug 2016 20:32:55 +0200
+Message-ID: <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
+References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32921 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753407AbcHVSbN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:31:13 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i6so6781320pfe.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 11:31:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1471890809-4383-1-git-send-email-mikko.rapeli-X3B1VOXEql0@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-When sending an ack in SYN_RECV state, we must scale the offered
-window if wscale option was negotiated and accepted.
-
-Tested:
- Following packetdrill test demonstrates the issue :
-
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-+0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-
-+0 bind(3, ..., ...) = 0
-+0 listen(3, 1) = 0
-
-// Establish a connection.
-+0 < S 0:0(0) win 20000 <mss 1000,sackOK,wscale 7, nop, TS val 100 ecr 0>
-+0 > S. 0:0(0) ack 1 win 28960 <mss 1460,sackOK, TS val 100 ecr 100, nop, wscale 7>
-
-+0 < . 1:11(10) ack 1 win 156 <nop,nop,TS val 99 ecr 100>
-// check that window is properly scaled !
-+0 > . 1:1(0) ack 1 win 226 <nop,nop,TS val 200 ecr 100>
-
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_ipv4.c |    8 +++++++-
- net/ipv6/tcp_ipv6.c |    8 +++++++-
- 2 files changed, 14 insertions(+), 2 deletions(-)
-
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 32b048e524d6..7158d4f8dae4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -814,8 +814,14 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
- 	u32 seq = (sk->sk_state == TCP_LISTEN) ? tcp_rsk(req)->snt_isn + 1 :
- 					     tcp_sk(sk)->snd_nxt;
- 
-+	/* RFC 7323 2.3
-+	 * The window field (SEG.WND) of every outgoing segment, with the
-+	 * exception of <SYN> segments, MUST be right-shifted by
-+	 * Rcv.Wind.Shift bits:
-+	 */
- 	tcp_v4_send_ack(sock_net(sk), skb, seq,
--			tcp_rsk(req)->rcv_nxt, req->rsk_rcv_wnd,
-+			tcp_rsk(req)->rcv_nxt,
-+			req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
- 			tcp_time_stamp,
- 			req->ts_recent,
- 			0,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 33df8b8575cc..94f4f89d73e7 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -944,9 +944,15 @@ static void tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
- 	/* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
- 	 * sk->sk_state == TCP_SYN_RECV -> for Fast Open.
- 	 */
-+	/* RFC 7323 2.3
-+	 * The window field (SEG.WND) of every outgoing segment, with the
-+	 * exception of <SYN> segments, MUST be right-shifted by
-+	 * Rcv.Wind.Shift bits:
-+	 */
- 	tcp_v6_send_ack(sk, skb, (sk->sk_state == TCP_LISTEN) ?
- 			tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
--			tcp_rsk(req)->rcv_nxt, req->rsk_rcv_wnd,
-+			tcp_rsk(req)->rcv_nxt,
-+			req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
- 			tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
- 			tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
- 			0, 0);
+Rml4ZXMgdXNlcnNwYWNlIGNvbXBpbGVyIGVycm9yOgoKZXJyb3I6IHVua25vd24gdHlwZSBuYW1l
+IOKAmHVpbnQzMl904oCZCgpTaWduZWQtb2ZmLWJ5OiBNaWtrbyBSYXBlbGkgPG1pa2tvLnJhcGVs
+aUBpa2kuZmk+Ci0tLQogaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCA0ICsrLS0K
+IDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0t
+Z2l0IGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggYi9pbmNsdWRlL3VhcGkvbGlu
+dXgvb3BlbnZzd2l0Y2guaAppbmRleCBkOTVhMzAxLi42NDU0OTlhIDEwMDY0NAotLS0gYS9pbmNs
+dWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaAorKysgYi9pbmNsdWRlL3VhcGkvbGludXgvb3Bl
+bnZzd2l0Y2guaApAQCAtNjMyLDggKzYzMiw4IEBAIGVudW0gb3ZzX2hhc2hfYWxnIHsKICAqIEBo
+YXNoX2Jhc2lzOiBiYXNpcyB1c2VkIGZvciBjb21wdXRpbmcgaGFzaC4KICAqLwogc3RydWN0IG92
+c19hY3Rpb25faGFzaCB7Ci0JdWludDMyX3QgIGhhc2hfYWxnOyAgICAgLyogT25lIG9mIG92c19o
+YXNoX2FsZy4gKi8KLQl1aW50MzJfdCAgaGFzaF9iYXNpczsKKwlfX3UzMiAgaGFzaF9hbGc7ICAg
+ICAvKiBPbmUgb2Ygb3ZzX2hhc2hfYWxnLiAqLworCV9fdTMyICBoYXNoX2Jhc2lzOwogfTsKIAog
+LyoqCi0tIAoyLjguMQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3
+aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
