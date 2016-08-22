@@ -1,90 +1,124 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: properly handle failure case of
- tcf_exts_init()
-Date: Mon, 22 Aug 2016 08:06:03 -0400
-Message-ID: <78193bfb-33c4-4dc7-fdd9-18bb3d1084ce@mojatatu.com>
-References: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [RFC PATCH] net: ip_finish_output_gso: Attempt gso_size clamping if segments exceed mtu
+Date: Mon, 22 Aug 2016 15:06:10 +0300
+Message-ID: <1471867570-1406-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Florian Westphal <fw@strlen.de>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:35170 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755136AbcHVMG0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 08:06:26 -0400
-Received: by mail-it0-f68.google.com with SMTP id f6so4647275ith.2
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 05:06:26 -0700 (PDT)
-In-Reply-To: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:26975 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752299AbcHVMHU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 08:07:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+There are cases where gso skbs (which originate from an ingress
+interface) have a gso_size value that exceeds the output dst mtu:
 
-Just small comment below:
+ - ipv4 forwarding middlebox having in/out interfaces with different mtus
+   addressed by fe6cc55f3a 'net: ip, ipv6: handle gso skbs in forwarding path'
+ - bridge having a tunnel member interface stacked over a device with small mtu
+   addressed by b8247f095e 'net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs'
 
-On 16-08-19 03:36 PM, Cong Wang wrote:
-> diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-> index 944c8ff..d950070 100644
-> --- a/net/sched/cls_tcindex.c
-> +++ b/net/sched/cls_tcindex.c
-> @@ -219,10 +219,10 @@ static const struct nla_policy tcindex_policy[TCA_TCINDEX_MAX + 1] = {
->  	[TCA_TCINDEX_CLASSID]		= { .type = NLA_U32 },
->  };
->
-> -static void tcindex_filter_result_init(struct tcindex_filter_result *r)
-> +static int tcindex_filter_result_init(struct tcindex_filter_result *r)
->  {
->  	memset(r, 0, sizeof(*r));
-> -	tcf_exts_init(&r->exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
-> +	return tcf_exts_init(&r->exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
->  }
->
->  static void __tcindex_partial_destroy(struct rcu_head *head)
-> @@ -233,23 +233,57 @@ static void __tcindex_partial_destroy(struct rcu_head *head)
->  	kfree(p);
->  }
->
-> +static void tcindex_free_perfect_hash(struct tcindex_data *cp)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < cp->hash; i++)
-> +		tcf_exts_destroy(&cp->perfect[i].exts);
-> +	kfree(cp->perfect);
-> +}
-> +
-> +static int tcindex_alloc_perfect_hash(struct tcindex_data *cp)
-> +{
-> +	int i, err = 0;
-> +
-> +	cp->perfect = kcalloc(cp->hash, sizeof(struct tcindex_filter_result),
-> +			      GFP_KERNEL);
-> +	if (!cp->perfect)
-> +		return -ENOMEM;
-> +
-> +	for (i = 0; i < cp->hash; i++) {
-> +		err = tcf_exts_init(&cp->perfect[i].exts,
-> +				    TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
-> +		if (err < 0)
-> +			goto errout;
-> +	}
-> +
-> +	return 0;
-> +
-> +errout:
-> +	tcindex_free_perfect_hash(cp);
-> +	return err;
-> +}
-> +
+In both cases, such skbs are identified, then go through early software
+segmentation+fragmentation as part of ip_finish_output_gso.
 
+Another approach is to shrink the gso_size to a value suitable so
+resulting segments are smaller than dst mtu, as suggeted by Eric
+Dumazet (as part of [1]) and Florian Westphal (as part of [2]).
 
-If you fail tcindex_alloc_perfect_hash somewhere freeing actions in
-tcindex_free_perfect_hash() via tcf_exts_destroy require checking
-if exts->actions require a check?
+This will void the need for software segmentation/fragmentation at
+ip_finish_output_gso, thus significantly improve throughput and lower
+cpu load.
 
-Otherwise, looks good.
+This RFC patch attempts to implement this gso_size clamping.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+[1] https://patchwork.ozlabs.org/patch/314327/
+[2] https://patchwork.ozlabs.org/patch/644724/
 
-cheers,
-jamal
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+
+ Comments welcome.
+
+ Few questions embedded in the patch.
+
+ Florian, in fe6cc55f you described a BUG due to gso_size decrease.
+ I've tested both bridged and routed cases, but in my setups failed to
+ hit the issue; Appreciate if you can provide some hints.
+
+ net/ipv4/ip_output.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index dde37fb..b911b43 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -216,6 +216,40 @@ static int ip_finish_output2(struct net *net, struct sock *sk, struct sk_buff *s
+ 	return -EINVAL;
+ }
+ 
++static inline int skb_gso_clamp(struct sk_buff *skb, unsigned int network_len)
++{
++	struct skb_shared_info *shinfo = skb_shinfo(skb);
++	unsigned short gso_size;
++	unsigned int seglen;
++
++	if (shinfo->gso_size == GSO_BY_FRAGS)
++		return -EINVAL;
++
++	seglen = skb_gso_network_seglen(skb);
++
++	/* Decrease gso_size to fit specified network length */
++	gso_size = shinfo->gso_size - (seglen - network_len);
++	if (shinfo->gso_type & SKB_GSO_UDP)
++		gso_size &= ~7;
++
++	if (!(shinfo->gso_type & SKB_GSO_DODGY)) {
++		/* Recalculate gso_segs for skbs of trusted sources.
++		 * Untrusted skbs will have their gso_segs calculated by
++		 * skb_gso_segment.
++		 */
++		unsigned int hdr_len, payload_len;
++
++		hdr_len = seglen - shinfo->gso_size;
++		payload_len = skb->len - hdr_len;
++		shinfo->gso_segs = DIV_ROUND_UP(payload_len, gso_size);
++
++		// Q: need to verify gso_segs <= dev->gso_max_segs?
++		//    seems to be protected by netif_skb_features
++	}
++	shinfo->gso_size = gso_size;
++	return 0;
++}
++
+ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 				struct sk_buff *skb, unsigned int mtu)
+ {
+@@ -237,6 +271,16 @@ static int ip_finish_output_gso(struct net *net, struct sock *sk,
+ 	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
+ 	 * from host network stack.
+ 	 */
++
++	/* Attempt to clamp gso_size to avoid segmenting and fragmenting.
++	 *
++	 * Q: policy needed? per device?
++	 */
++	if (sysctl_ip_output_gso_clamp) {
++		if (!skb_gso_clamp(skb, mtu))
++			return ip_finish_output2(net, sk, skb);
++	}
++
+ 	features = netif_skb_features(skb);
+ 	BUILD_BUG_ON(sizeof(*IPCB(skb)) > SKB_SGO_CB_OFFSET);
+ 	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
+-- 
+1.9.1
