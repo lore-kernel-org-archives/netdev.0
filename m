@@ -1,34 +1,103 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [for-next V2 00/17][PULL request] Mellanox mlx5 core driver
- updates 2016-08-20
-Date: Mon, 22 Aug 2016 11:49:01 -0700 (PDT)
-Message-ID: <20160822.114901.1630384348955570449.davem@davemloft.net>
-References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
-        <20160822.101128.1274162717645753985.davem@davemloft.net>
-        <CALzJLG-eucDbJc=eo4HPvqnw-nvoXXAR1vsGPts8WFP3NR5T+Q@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: properly scale window in tcp_v[46]_reqsk_send_ack()
+Date: Mon, 22 Aug 2016 11:49:14 -0700
+Message-ID: <CAK6E8=dcbtF9t-r+Zjo+As0UhnKjtFTwbaRhYunCCbgD0rkPCg@mail.gmail.com>
+References: <1471890670.14381.10.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: saeedm@mellanox.com, dledford@redhat.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, leonro@mellanox.com,
-        talal@mellanox.com, matanb@mellanox.com
-To: saeedm@dev.mellanox.co.il
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45126 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753468AbcHVStE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:49:04 -0400
-In-Reply-To: <CALzJLG-eucDbJc=eo4HPvqnw-nvoXXAR1vsGPts8WFP3NR5T+Q@mail.gmail.com>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:35829 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751722AbcHVSt4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:49:56 -0400
+Received: by mail-it0-f53.google.com with SMTP id x131so103444615ite.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 11:49:55 -0700 (PDT)
+In-Reply-To: <1471890670.14381.10.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Date: Mon, 22 Aug 2016 20:56:43 +0300
+On Mon, Aug 22, 2016 at 11:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> When sending an ack in SYN_RECV state, we must scale the offered
+> window if wscale option was negotiated and accepted.
+>
+> Tested:
+>  Following packetdrill test demonstrates the issue :
+>
+> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+> +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+>
+> +0 bind(3, ..., ...) = 0
+> +0 listen(3, 1) = 0
+>
+> // Establish a connection.
+> +0 < S 0:0(0) win 20000 <mss 1000,sackOK,wscale 7, nop, TS val 100 ecr 0>
+> +0 > S. 0:0(0) ack 1 win 28960 <mss 1460,sackOK, TS val 100 ecr 100, nop, wscale 7>
+>
+> +0 < . 1:11(10) ack 1 win 156 <nop,nop,TS val 99 ecr 100>
+> // check that window is properly scaled !
+> +0 > . 1:1(0) ack 1 win 226 <nop,nop,TS val 200 ecr 100>
+>
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-> Technical question though. Do i need to create a new tag for the new
-> pull request? I mean, should the tag always point to the "up to" patch
-> in the pull request? or can I just use the same tag for the new pull
-> request with different "up to" commit ?
+Nice fix!
 
-Since you're obviously not going to be asking me to pull the same
-set of changes, the tag by definition will have to be different.
+>  net/ipv4/tcp_ipv4.c |    8 +++++++-
+>  net/ipv6/tcp_ipv6.c |    8 +++++++-
+>  2 files changed, 14 insertions(+), 2 deletions(-)
+>
+>
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 32b048e524d6..7158d4f8dae4 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -814,8 +814,14 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+>         u32 seq = (sk->sk_state == TCP_LISTEN) ? tcp_rsk(req)->snt_isn + 1 :
+>                                              tcp_sk(sk)->snd_nxt;
+>
+> +       /* RFC 7323 2.3
+> +        * The window field (SEG.WND) of every outgoing segment, with the
+> +        * exception of <SYN> segments, MUST be right-shifted by
+> +        * Rcv.Wind.Shift bits:
+> +        */
+>         tcp_v4_send_ack(sock_net(sk), skb, seq,
+> -                       tcp_rsk(req)->rcv_nxt, req->rsk_rcv_wnd,
+> +                       tcp_rsk(req)->rcv_nxt,
+> +                       req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
+>                         tcp_time_stamp,
+>                         req->ts_recent,
+>                         0,
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 33df8b8575cc..94f4f89d73e7 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -944,9 +944,15 @@ static void tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
+>         /* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
+>          * sk->sk_state == TCP_SYN_RECV -> for Fast Open.
+>          */
+> +       /* RFC 7323 2.3
+> +        * The window field (SEG.WND) of every outgoing segment, with the
+> +        * exception of <SYN> segments, MUST be right-shifted by
+> +        * Rcv.Wind.Shift bits:
+> +        */
+>         tcp_v6_send_ack(sk, skb, (sk->sk_state == TCP_LISTEN) ?
+>                         tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
+> -                       tcp_rsk(req)->rcv_nxt, req->rsk_rcv_wnd,
+> +                       tcp_rsk(req)->rcv_nxt,
+> +                       req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
+>                         tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
+>                         tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
+>                         0, 0);
+>
+>
