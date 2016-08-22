@@ -1,74 +1,44 @@
-From: Gerard Garcia <ggarcia@abra.uab.cat>
-Subject: Re: [PATCH v2 0/3] VSOCK: vsockmon virtual device to monitor AF_VSOCK
- sockets.
-Date: Mon, 22 Aug 2016 12:48:05 +0200
-Message-ID: <6f0e18a8-45df-db93-660a-e3c6bf85c2b2@deic.uab.cat>
-References: <20160813102154.14338-1-ggarcia@deic.uab.cat>
- <20160814231538.jihsj54ft7aftvdf@redhat.com>
- <20160815151326.GE3598@stefanha-x1.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stefan Hajnoczi <stefanha@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 0/3] TX max rate limiting for Chelsio T4/T5 adapters
+Date: Mon, 22 Aug 2016 16:29:05 +0530
+Message-ID: <cover.1471848004.git.rahul.lakkireddy@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+        nirranjan@chelsio.com, indranil@chelsio.com,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36673 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754949AbcHVKsI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:48:08 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i138so12798363wmf.3
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 03:48:07 -0700 (PDT)
-In-Reply-To: <20160815151326.GE3598@stefanha-x1.localdomain>
+Received: from stargate.chelsio.com ([12.32.117.8]:37228 "EHLO
+        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752834AbcHVLAf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:00:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/15/2016 05:13 PM, Stefan Hajnoczi wrote:
-> On Mon, Aug 15, 2016 at 02:15:38AM +0300, Michael S. Tsirkin wrote:
->> On Sat, Aug 13, 2016 at 12:21:51PM +0200, ggarcia@abra.uab.cat wrote:
->>> From: Gerard Garcia <ggarcia@deic.uab.cat>
->>>
->>> This patch applies over the mst vhost git repository:
->>> http://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git
->>
->> So I do like where this is going, but it gives me pause
->> that there's a global list of taps, where all sockets
->> seem to multicast to them all.
->>
->> In particular, this won't play well with things
->> like containers.
->
-> vsock currently has no network namespace support.  I agree that the tap
-> instances should be per-namespace when we add namespace support.
->
->> As each socket is bound to a physical device, how about binding
->> the monitor there as well?
->
-> Sockets aren't bound to physical devices, they are bound globally in the
-> af_vsock.ko module.  The module currently doesn't allow multiple
-> instances (you cannot have multiple VMCI or virtio transports).
->
->> Only sockets from this device
->> would do the forwarding, and only one monitor per
->> device would be supported.
->>
->> In a sense this will make it more like macvtap than tap.
->
-> Restricting the number of monitors could make userspace cumbersome.
-> Imagine two scripts that want to capture packets.  The two scripts have
-> no knowledge of each other and create their own vsockmon interfaces.  If
-> we restrict vsockmon to just 1 interface then users need to agree on
-> sharing just 1 vsockmon interface.  I don't think this is beneficial.
->
-> So I think this global list is acceptable until we introduce network
-> namespace support.  At that point it will become per-namespace.
->
+This series of patches implement tx max rate limiting per queue on
+Chelsio T4/T5 hardware.  This is achieved by first creating a tx
+scheduling class with the specified max rate.  The queue is then
+bound to the newly created class.  If a scheduling class with similar
+max rate already exists, then the queue is bound to the matching class.
 
-Sorry, I was out last week.
+Patch 1 adds support for setting tx scheduling classes.
+Patch 2 adds support to bind/unbind queues to/from the scheduling classes.
+Patch 3 implements the set_tx_maxrate NDO.
 
-I don't have much to add to what Stefan said. I agree that when vsock 
-introduces namespace support it will be necessary to have monitors 
-divided per-namespace. Right now, if only one af_vsock instance is 
-allowed, I think it makes sense to have a global list of taps.
+Rahul Lakkireddy (3):
+  cxgb4: add support for tx traffic scheduling classes
+  cxgb4: add support for per queue tx scheduling
+  cxgb4: add support for tx max rate limiting
 
-Gerard
+ drivers/net/ethernet/chelsio/cxgb4/Makefile     |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  56 ++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 102 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/sched.c      | 556 ++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/sched.h      | 110 +++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  31 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  38 +-
+ 7 files changed, 890 insertions(+), 5 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/sched.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/sched.h
+
+-- 
+2.5.3
