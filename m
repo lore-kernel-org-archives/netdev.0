@@ -1,110 +1,95 @@
-From: fgao@ikuai8.com
-Subject: [PATCH v4 net-next] l2tp: Refactor the codes with existing macros instead of literal number
-Date: Mon, 22 Aug 2016 18:59:51 +0800
-Message-ID: <1471863591-6790-1-git-send-email-fgao@ikuai8.com>
-Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
-To: jchapman@katalix.com, g.nault@alphalink.fr,
-        philipp@redfish-solutions.com, davem@davemloft.net,
-        netdev@vger.kernel.org
+From: Andrew Yourtchenko <ayourtch@gmail.com>
+Subject: Re: [PATCH v2 2/2] ipv6: fixup RTF_* flags when restoring RTPROT_RA
+ route from rtnetlink
+Date: Mon, 22 Aug 2016 13:04:27 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1608221300280.31586@ayourtch-u1604b2>
+References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com> <cover.1471622715.git.ayourtch@gmail.com> <55219c8da12705fefa36ee5853b899ee88f730fb.1471622715.git.ayourtch@gmail.com> <689653c8-bc05-705c-04d6-ff7570b28dd0@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from SMTPBG352.QQ.COM ([183.57.50.167]:45888 "EHLO smtpbg352.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752805AbcHVLCw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 07:02:52 -0400
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36797 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751294AbcHVLEf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:04:35 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i138so12866933wmf.3
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:04:35 -0700 (PDT)
+In-Reply-To: <689653c8-bc05-705c-04d6-ff7570b28dd0@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+Hello, 
 
-Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
-0x03, and 2 separately.
+Thanks for the review and feedback, one small clarification below.
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- v4: Remove two static ppph variables;
- v3: Modify the subject;
- v2: Only replace the literal number with macros according to Guillaume's advice
- v1: Inital patch
+On Fri, 19 Aug 2016, Sergei Shtylyov wrote:
 
- net/l2tp/l2tp_ppp.c | 20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
+> Hello.
+> 
+> On 08/19/2016 07:41 PM, Andrew Yourtchenko wrote:
+> 
+> > Fix the flags for RA-derived routes that were saved
+> > via "ip -6 route save" and and subsequently restored via
+> > "ip -6 route restore", allowing the incoming router advertisements
+> > to update them, rather than complain about inability to do so.
+> > 
+> > Upon the restore of RA-derived saved routes, set the RTF_ADDRCONF
+> > to indicate that the source of the route was originally
+> > a router advertisement, and set the RTF_DEFAULT or RTF_ROUTEINFO
+> > flag depending on prefix length. This can be considered a
+> > sister change of f0396f60d7c165018c9b203fb9b89fb224835578, in
+> 
+>    It's enough to specify 12 digits but you also need to specify the commit
+> summary enclosed in ("").
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index d9560aa..0c071c4 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -177,7 +177,7 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, 2))
- 		return 1;
- 
--	if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
-+	if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
- 		skb_pull(skb, 2);
- 
- 	return 0;
-@@ -282,7 +282,6 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
- static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
- 			    size_t total_len)
- {
--	static const unsigned char ppph[2] = { 0xff, 0x03 };
- 	struct sock *sk = sock->sk;
- 	struct sk_buff *skb;
- 	int error;
-@@ -312,7 +311,7 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
- 	error = -ENOMEM;
- 	skb = sock_wmalloc(sk, NET_SKB_PAD + sizeof(struct iphdr) +
- 			   uhlen + session->hdr_len +
--			   sizeof(ppph) + total_len,
-+			   2 + total_len, /* 2 bytes for PPP_ALLSTATIONS & PPP_UI */
- 			   0, GFP_KERNEL);
- 	if (!skb)
- 		goto error_put_sess_tun;
-@@ -325,8 +324,8 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
- 	skb_reserve(skb, uhlen);
- 
- 	/* Add PPP header */
--	skb->data[0] = ppph[0];
--	skb->data[1] = ppph[1];
-+	skb->data[0] = PPP_ALLSTATIONS; 
-+	skb->data[1] = PPP_UI;
- 	skb_put(skb, 2);
- 
- 	/* Copy user data into skb */
-@@ -369,7 +368,6 @@ error:
-  */
- static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- {
--	static const u8 ppph[2] = { 0xff, 0x03 };
- 	struct sock *sk = (struct sock *) chan->private;
- 	struct sock *sk_tun;
- 	struct l2tp_session *session;
-@@ -398,14 +396,14 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 		   sizeof(struct iphdr) + /* IP header */
- 		   uhlen +		/* UDP header (if L2TP_ENCAPTYPE_UDP) */
- 		   session->hdr_len +	/* L2TP header */
--		   sizeof(ppph);	/* PPP header */
-+		   2;			/* 2 bytes for PPP_ALLSTATIONS & PPP_UI */
- 	if (skb_cow_head(skb, headroom))
- 		goto abort_put_sess_tun;
- 
- 	/* Setup PPP header */
--	__skb_push(skb, sizeof(ppph));
--	skb->data[0] = ppph[0];
--	skb->data[1] = ppph[1];
-+	__skb_push(skb, 2); 
-+	skb->data[0] = PPP_ALLSTATIONS;
-+	skb->data[1] = PPP_UI;
- 
- 	local_bh_disable();
- 	l2tp_xmit_skb(session, skb, session->hdr_len);
-@@ -440,7 +438,7 @@ static void pppol2tp_session_close(struct l2tp_session *session)
- 	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
- 
- 	if (sock) {
--		inet_shutdown(sock, 2);
-+		inet_shutdown(sock, SEND_SHUTDOWN);
- 		/* Don't let the session go away before our socket does */
- 		l2tp_session_inc_refcount(session);
- 	}
--- 
-1.9.1
+Is just the first line of "ipv6: fix RTPROT_RA markup of RA routes 
+w/nexthops" enough, or do I need to include the additional two 
+paragraphs that follow ? (and can I keep the full hash rather than 
+truncate down to 12 digits?)
+
+> 
+> > the other direction.
+> > 
+> > Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
+> > ---
+> > Changes since v1 [1]:
+> >  * fixed the indentation of the basic blocks to be always a full TAB
+> >    as per David Miller's review
+> > 
+> > [1] v1: http://marc.info/?l=linux-netdev&m=147135599322285&w=2
+> > 
+> >  net/ipv6/route.c | 10 ++++++++++
+> >  1 file changed, 10 insertions(+)
+> > 
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index f5b987d..60d95cd 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -2769,6 +2769,16 @@ static int rtm_to_fib6_config(struct sk_buff *skb,
+> > struct nlmsghdr *nlh,
+> >  	cfg->fc_protocol = rtm->rtm_protocol;
+> >  	cfg->fc_type = rtm->rtm_type;
+> > 
+> > +	if (rtm->rtm_protocol == RTPROT_RA) {
+> > +		/* RA-derived route: set flags accordingly. */
+> > +		cfg->fc_flags |= RTF_ADDRCONF;
+> > +		if (rtm->rtm_dst_len == 0) {
+> > +			cfg->fc_flags |= RTF_DEFAULT;
+> > +		} else {
+> > +			cfg->fc_flags |= RTF_ROUTEINFO;
+> > +		}
+> 
+>    {} not needed here and above.
+
+Will fix in v3, thanks!
+
+--a
+
+
+> 
+> [...]
+> 
+> MBR, Sergei
+> 
+> 
