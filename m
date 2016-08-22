@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 17/18] liquidio: CN23XX napi support
-Date: Sun, 21 Aug 2016 17:12:44 -0700
-Message-ID: <1471824765-26473-18-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 02/18] liquidio: Firmware version management
+Date: Sun, 21 Aug 2016 17:12:29 -0700
+Message-ID: <1471824765-26473-3-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,124 +13,92 @@ Cc: <netdev@vger.kernel.org>,
         Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0064.outbound.protection.outlook.com ([104.47.33.64]:54659
+Received: from mail-bn3nam01on0063.outbound.protection.outlook.com ([104.47.33.63]:38976
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753836AbcHVA2j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:28:39 -0400
+        id S1753857AbcHVA2q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 20:28:46 -0400
 In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds NAPI related support for cn23xx device.
+This patch contains changes for firmware version management.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c      | 10 ++++++----
- drivers/net/ethernet/cavium/liquidio/octeon_device.c | 19 +++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/octeon_droq.c   |  7 +++++--
- 3 files changed, 30 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c      | 12 ++++++++++--
+ .../net/ethernet/cavium/liquidio/liquidio_common.h   | 20 +++++++++++++++++---
+ 2 files changed, 27 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a875398..dc57b39 100644
+index 2ce19e4..69c6491 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -999,8 +999,7 @@ int liquidio_schedule_msix_droq_pkt_handler(struct octeon_droq *droq, u64 ret)
-  * \brief Droq packet processor sceduler
-  * @param oct octeon device
-  */
--static
--void liquidio_schedule_droq_pkt_handlers(struct octeon_device *oct)
-+static void liquidio_schedule_droq_pkt_handlers(struct octeon_device *oct)
- {
- 	struct octeon_device_priv *oct_priv =
- 		(struct octeon_device_priv *)oct->priv;
-@@ -2372,11 +2371,14 @@ static void napi_schedule_wrapper(void *param)
-  */
- static void liquidio_napi_drv_callback(void *arg)
- {
-+	struct octeon_device *oct;
- 	struct octeon_droq *droq = arg;
- 	int this_cpu = smp_processor_id();
+@@ -3231,8 +3231,9 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	union oct_nic_if_cfg if_cfg;
+ 	unsigned int base_queue;
+ 	unsigned int gmx_port_id;
+-	u32 resp_size, ctx_size;
++	u32 resp_size, ctx_size, data_size;
+ 	u32 ifidx_or_pfnum;
++	struct lio_version *vdata;
  
--	if (droq->cpu_id == this_cpu) {
--		napi_schedule(&droq->napi);
-+	oct = droq->oct_dev;
+ 	/* This is to handle link status changes */
+ 	octeon_register_dispatch_fn(octeon_dev, OPCODE_NIC,
+@@ -3254,11 +3255,18 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 	for (i = 0; i < octeon_dev->ifcount; i++) {
+ 		resp_size = sizeof(struct liquidio_if_cfg_resp);
+ 		ctx_size = sizeof(struct liquidio_if_cfg_context);
++		data_size = sizeof(struct lio_version);
+ 		sc = (struct octeon_soft_command *)
+-			octeon_alloc_soft_command(octeon_dev, 0,
++			octeon_alloc_soft_command(octeon_dev, data_size,
+ 						  resp_size, ctx_size);
+ 		resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
+ 		ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
++		vdata = (struct lio_version *)sc->virtdptr;
 +
-+	if (OCTEON_CN23XX_PF(oct) || droq->cpu_id == this_cpu) {
-+		napi_schedule_irqoff(&droq->napi);
- 	} else {
- 		struct call_single_data *csd = &droq->csd;
++		*((u64 *)vdata) = 0;
++		vdata->major = cpu_to_be16(LIQUIDIO_BASE_MAJOR_VERSION);
++		vdata->minor = cpu_to_be16(LIQUIDIO_BASE_MINOR_VERSION);
++		vdata->micro = cpu_to_be16(LIQUIDIO_BASE_MICRO_VERSION);
  
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 85e3123..586b688 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -1301,17 +1301,36 @@ int lio_get_device_id(void *dev)
+ 		num_iqueues =
+ 			CFG_GET_NUM_TXQS_NIC_IF(octeon_get_conf(octeon_dev), i);
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index 199a8b9..11df55a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -30,10 +30,24 @@
  
- void lio_enable_irq(struct octeon_droq *droq, struct octeon_instr_queue *iq)
- {
-+	u64 instr_cnt;
-+	struct octeon_device *oct = NULL;
+ #include "octeon_config.h"
+ 
+-#define LIQUIDIO_BASE_VERSION   "1.4"
+-#define LIQUIDIO_MICRO_VERSION  ".1"
+ #define LIQUIDIO_PACKAGE ""
+-#define LIQUIDIO_VERSION  "1.4.1"
++#define LIQUIDIO_BASE_MAJOR_VERSION 1
++#define LIQUIDIO_BASE_MINOR_VERSION 4
++#define LIQUIDIO_BASE_MICRO_VERSION 1
++#define LIQUIDIO_BASE_VERSION   __stringify(LIQUIDIO_BASE_MAJOR_VERSION) "." \
++				__stringify(LIQUIDIO_BASE_MINOR_VERSION)
++#define LIQUIDIO_MICRO_VERSION  "." __stringify(LIQUIDIO_BASE_MICRO_VERSION)
++#define LIQUIDIO_VERSION        LIQUIDIO_PACKAGE \
++				__stringify(LIQUIDIO_BASE_MAJOR_VERSION) "." \
++				__stringify(LIQUIDIO_BASE_MINOR_VERSION) \
++				"." __stringify(LIQUIDIO_BASE_MICRO_VERSION)
 +
- 	/* the whole thing needs to be atomic, ideally */
- 	if (droq) {
- 		spin_lock_bh(&droq->lock);
- 		writel(droq->pkt_count, droq->pkts_sent_reg);
- 		droq->pkt_count = 0;
- 		spin_unlock_bh(&droq->lock);
-+		oct = droq->oct_dev;
- 	}
- 	if (iq) {
- 		spin_lock_bh(&iq->lock);
- 		writel(iq->pkt_in_done, iq->inst_cnt_reg);
- 		iq->pkt_in_done = 0;
- 		spin_unlock_bh(&iq->lock);
-+		oct = iq->oct_dev;
-+	}
-+	/*write resend. Writing RESEND in SLI_PKTX_CNTS should be enough
-+	 *to trigger tx interrupts as well, if they are pending.
-+	 */
-+	if (oct && OCTEON_CN23XX_PF(oct)) {
-+		if (droq)
-+			writeq(CN23XX_INTR_RESEND, droq->pkts_sent_reg);
-+		/*we race with firmrware here. read and write the IN_DONE_CNTS*/
-+		else if (iq) {
-+			instr_cnt =  readq(iq->inst_cnt_reg);
-+			writeq(((instr_cnt & 0xFFFFFFFF00000000ULL) |
-+				CN23XX_INTR_RESEND),
-+			       iq->inst_cnt_reg);
-+		}
- 	}
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-index 8848ce2..f60e532 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_droq.c
-@@ -573,7 +573,7 @@ octeon_droq_dispatch_pkt(struct octeon_device *oct,
- 			(unsigned int)rh->r.opcode,
- 			(unsigned int)rh->r.subcode);
- 		droq->stats.dropped_nodispatch++;
--	}                       /* else (dispatch_fn ... */
-+	}
++struct lio_version {
++	u16  major;
++	u16  minor;
++	u16  micro;
++	u16  reserved;
++};
  
- 	return cnt;
- }
-@@ -887,8 +887,11 @@ octeon_process_droq_poll_cmd(struct octeon_device *oct, u32 q_no, int cmd,
- 			return 0;
- 		}
- 		break;
-+		case OCTEON_CN23XX_PF_VID: {
-+			lio_enable_irq(oct->droq[q_no], oct->instr_queue[q_no]);
-+		}
-+		break;
- 		}
--
- 		return 0;
- 	}
- 
+ #define CONTROL_IQ 0
+ /** Tag types used by Octeon cores in its work. */
 -- 
 1.8.3.1
