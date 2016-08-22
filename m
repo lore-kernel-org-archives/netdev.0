@@ -1,322 +1,306 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/4] qed: Add support for legacy VFs
-Date: Mon, 22 Aug 2016 13:25:09 +0300
-Message-ID: <1471861512-30104-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 3/4] qed*: Add support for VFs over legacy PFs
+Date: Mon, 22 Aug 2016 13:25:11 +0300
+Message-ID: <1471861512-30104-4-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1471861512-30104-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:32327 "EHLO
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:38674 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753827AbcHVKZY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:25:24 -0400
+        by vger.kernel.org with ESMTP id S1754726AbcHVKZa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:25:30 -0400
 In-Reply-To: <1471861512-30104-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 8.10.x FW added support for forward compatability as well as
-'future' backward compatibility, but only to those VFs that were
-using HSI which was 8.10.x based or newer.
+Modern VFs can't run on old non-compatible as the fastpath HSI is
+slightly changed - but as the HSI is actually very close [basically,
+a single bit whose meaning flipped] this can be supported with small
+modifications.
 
-The latest firmware now supports backward compatibility for the
-older VFs based on 8.7.x and 8.8.x firmware as well.
+The major differences would be in:
+  - Recognizing that VF is running on top of a legacy PF.
+  - Returning some slowpath configurations that are no longer needed
+    on top of modern PFs, but would be required when working over
+    the legacy ones.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c    |  15 ++--
- drivers/net/ethernet/qlogic/qed/qed_l2.h    |   3 +-
- drivers/net/ethernet/qlogic/qed/qed_sriov.c | 109 +++++++++++++++++++++++-----
- drivers/net/ethernet/qlogic/qed/qed_vf.h    |   2 +-
- 4 files changed, 104 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_l2.c     |   2 +
+ drivers/net/ethernet/qlogic/qed/qed_vf.c     | 107 ++++++++++++++++++++++-----
+ drivers/net/ethernet/qlogic/qed/qed_vf.h     |   5 ++
+ drivers/net/ethernet/qlogic/qede/qede.h      |   2 +
+ drivers/net/ethernet/qlogic/qede/qede_main.c |  10 +++
+ include/linux/qed/qed_eth_if.h               |   3 +
+ 6 files changed, 109 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index c823c46..c04162d 100644
+index bf43301..4409ea3 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -514,7 +514,8 @@ int qed_sp_eth_rxq_start_ramrod(struct qed_hwfn *p_hwfn,
- 				u8 stats_id,
- 				u16 bd_max_bytes,
- 				dma_addr_t bd_chain_phys_addr,
--				dma_addr_t cqe_pbl_addr, u16 cqe_pbl_size)
-+				dma_addr_t cqe_pbl_addr,
-+				u16 cqe_pbl_size, bool b_use_zone_a_prod)
- {
- 	struct rx_queue_start_ramrod_data *p_ramrod = NULL;
- 	struct qed_spq_entry *p_ent = NULL;
-@@ -571,11 +572,14 @@ int qed_sp_eth_rxq_start_ramrod(struct qed_hwfn *p_hwfn,
- 	p_ramrod->num_of_pbl_pages = cpu_to_le16(cqe_pbl_size);
- 	DMA_REGPAIR_LE(p_ramrod->cqe_pbl_addr, cqe_pbl_addr);
- 
--	p_ramrod->vf_rx_prod_index = p_params->vf_qid;
--	if (p_params->vf_qid)
-+	if (p_params->vf_qid || b_use_zone_a_prod) {
-+		p_ramrod->vf_rx_prod_index = p_params->vf_qid;
- 		DP_VERBOSE(p_hwfn, QED_MSG_SP,
--			   "Queue is meant for VF rxq[%04x]\n",
-+			   "Queue%s is meant for VF rxq[%02x]\n",
-+			   b_use_zone_a_prod ? " [legacy]" : "",
- 			   p_params->vf_qid);
-+		p_ramrod->vf_rx_prod_use_zone_a = b_use_zone_a_prod;
-+	}
- 
- 	return qed_spq_post(p_hwfn, p_ent, NULL);
- }
-@@ -637,8 +641,7 @@ qed_sp_eth_rx_queue_start(struct qed_hwfn *p_hwfn,
- 					 abs_stats_id,
- 					 bd_max_bytes,
- 					 bd_chain_phys_addr,
--					 cqe_pbl_addr,
--					 cqe_pbl_size);
-+					 cqe_pbl_addr, cqe_pbl_size, false);
- 
- 	if (rc)
- 		qed_sp_release_queue_cid(p_hwfn, p_rx_cid);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index ff3a198..ea93519 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -225,7 +225,8 @@ int qed_sp_eth_rxq_start_ramrod(struct qed_hwfn *p_hwfn,
- 				u8 stats_id,
- 				u16 bd_max_bytes,
- 				dma_addr_t bd_chain_phys_addr,
--				dma_addr_t cqe_pbl_addr, u16 cqe_pbl_size);
-+				dma_addr_t cqe_pbl_addr,
-+				u16 cqe_pbl_size, bool b_use_zone_a_prod);
- 
- int qed_sp_eth_txq_start_ramrod(struct qed_hwfn  *p_hwfn,
- 				u16  opaque_fid,
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 1579f33..f1fae77 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -60,7 +60,8 @@ static int qed_sp_vf_start(struct qed_hwfn *p_hwfn, struct qed_vf_info *p_vf)
+@@ -1685,6 +1685,8 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+ 		qed_vf_get_num_vlan_filters(&cdev->hwfns[0],
+ 					    &info->num_vlan_filters);
+ 		qed_vf_get_port_mac(&cdev->hwfns[0], info->port_mac);
++
++		info->is_legacy = !!cdev->hwfns[0].vf_iov_info->b_pre_fp_hsi;
  	}
  
- 	fp_minor = p_vf->acquire.vfdev_info.eth_fp_hsi_minor;
--	if (fp_minor > ETH_HSI_VER_MINOR) {
-+	if (fp_minor > ETH_HSI_VER_MINOR &&
-+	    fp_minor != ETH_HSI_VER_NO_PKT_LEN_TUNN) {
+ 	qed_fill_dev_info(cdev, &info->common);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+index 9b780b3..f9f68da 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
+@@ -191,6 +191,9 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
  		DP_VERBOSE(p_hwfn,
- 			   QED_MSG_IOV,
- 			   "VF [%d] - Requested fp hsi %02x.%02x which is slightly newer than PF's %02x.%02x; Configuring PFs version\n",
-@@ -1241,6 +1242,16 @@ static u8 qed_iov_vf_mbx_acquire_resc(struct qed_hwfn *p_hwfn,
- 			   p_req->num_vlan_filters,
- 			   p_resp->num_vlan_filters,
- 			   p_req->num_mc_filters, p_resp->num_mc_filters);
+ 			   QED_MSG_IOV, "attempting to acquire resources\n");
+ 
++		/* Clear response buffer, as this might be a re-send */
++		memset(p_iov->pf2vf_reply, 0, sizeof(union pfvf_tlvs));
 +
-+		/* Some legacy OSes are incapable of correctly handling this
-+		 * failure.
+ 		/* send acquire request */
+ 		rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 		if (rc)
+@@ -205,9 +208,12 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 			/* PF agrees to allocate our resources */
+ 			if (!(resp->pfdev_info.capabilities &
+ 			      PFVF_ACQUIRE_CAP_POST_FW_OVERRIDE)) {
+-				DP_INFO(p_hwfn,
+-					"PF is using old incompatible driver; Either downgrade driver or request provider to update hypervisor version\n");
+-				return -EINVAL;
++				/* It's possible legacy PF mistakenly accepted;
++				 * but we don't care - simply mark it as
++				 * legacy and continue.
++				 */
++				req->vfdev_info.capabilities |=
++				    VFPF_ACQUIRE_CAP_PRE_FP_HSI;
+ 			}
+ 			DP_VERBOSE(p_hwfn, QED_MSG_IOV, "resources acquired\n");
+ 			resources_acquired = true;
+@@ -215,27 +221,55 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 			   attempts < VF_ACQUIRE_THRESH) {
+ 			qed_vf_pf_acquire_reduce_resc(p_hwfn, p_resc,
+ 						      &resp->resc);
++		} else if (resp->hdr.status == PFVF_STATUS_NOT_SUPPORTED) {
++			if (pfdev_info->major_fp_hsi &&
++			    (pfdev_info->major_fp_hsi != ETH_HSI_VER_MAJOR)) {
++				DP_NOTICE(p_hwfn,
++					  "PF uses an incompatible fastpath HSI %02x.%02x [VF requires %02x.%02x]. Please change to a VF driver using %02x.xx.\n",
++					  pfdev_info->major_fp_hsi,
++					  pfdev_info->minor_fp_hsi,
++					  ETH_HSI_VER_MAJOR,
++					  ETH_HSI_VER_MINOR,
++					  pfdev_info->major_fp_hsi);
++				rc = -EINVAL;
++				goto exit;
++			}
+ 
+-			/* Clear response buffer */
+-			memset(p_iov->pf2vf_reply, 0, sizeof(union pfvf_tlvs));
+-		} else if ((resp->hdr.status == PFVF_STATUS_NOT_SUPPORTED) &&
+-			   pfdev_info->major_fp_hsi &&
+-			   (pfdev_info->major_fp_hsi != ETH_HSI_VER_MAJOR)) {
+-			DP_NOTICE(p_hwfn,
+-				  "PF uses an incompatible fastpath HSI %02x.%02x [VF requires %02x.%02x]. Please change to a VF driver using %02x.xx.\n",
+-				  pfdev_info->major_fp_hsi,
+-				  pfdev_info->minor_fp_hsi,
+-				  ETH_HSI_VER_MAJOR,
+-				  ETH_HSI_VER_MINOR, pfdev_info->major_fp_hsi);
+-			return -EINVAL;
++			if (!pfdev_info->major_fp_hsi) {
++				if (req->vfdev_info.capabilities &
++				    VFPF_ACQUIRE_CAP_PRE_FP_HSI) {
++					DP_NOTICE(p_hwfn,
++						  "PF uses very old drivers. Please change to a VF driver using no later than 8.8.x.x.\n");
++					rc = -EINVAL;
++					goto exit;
++				} else {
++					DP_INFO(p_hwfn,
++						"PF is old - try re-acquire to see if it supports FW-version override\n");
++					req->vfdev_info.capabilities |=
++					    VFPF_ACQUIRE_CAP_PRE_FP_HSI;
++					continue;
++				}
++			}
++
++			/* If PF/VF are using same Major, PF must have had
++			 * it's reasons. Simply fail.
++			 */
++			DP_NOTICE(p_hwfn, "PF rejected acquisition by VF\n");
++			rc = -EINVAL;
++			goto exit;
+ 		} else {
+ 			DP_ERR(p_hwfn,
+ 			       "PF returned error %d to VF acquisition request\n",
+ 			       resp->hdr.status);
+-			return -EAGAIN;
++			rc = -EAGAIN;
++			goto exit;
+ 		}
+ 	}
+ 
++	/* Mark the PF as legacy, if needed */
++	if (req->vfdev_info.capabilities & VFPF_ACQUIRE_CAP_PRE_FP_HSI)
++		p_iov->b_pre_fp_hsi = true;
++
+ 	/* Update bulletin board size with response from PF */
+ 	p_iov->bulletin.size = resp->bulletin_size;
+ 
+@@ -253,14 +287,16 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 		}
+ 	}
+ 
+-	if (ETH_HSI_VER_MINOR &&
++	if (!p_iov->b_pre_fp_hsi &&
++	    ETH_HSI_VER_MINOR &&
+ 	    (resp->pfdev_info.minor_fp_hsi < ETH_HSI_VER_MINOR)) {
+ 		DP_INFO(p_hwfn,
+ 			"PF is using older fastpath HSI; %02x.%02x is configured\n",
+ 			ETH_HSI_VER_MAJOR, resp->pfdev_info.minor_fp_hsi);
+ 	}
+ 
+-	return 0;
++exit:
++	return rc;
+ }
+ 
+ int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
+@@ -347,6 +383,9 @@ free_p_iov:
+ 
+ 	return -ENOMEM;
+ }
++#define TSTORM_QZONE_START   PXP_VF_BAR0_START_SDM_ZONE_A
++#define MSTORM_QZONE_START(dev)   (TSTORM_QZONE_START +	\
++				   (TSTORM_QZONE_SIZE * NUM_OF_L2_QUEUES(dev)))
+ 
+ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
+ 			u8 rx_qid,
+@@ -374,6 +413,21 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
+ 	req->bd_max_bytes = bd_max_bytes;
+ 	req->stat_id = -1;
+ 
++	/* If PF is legacy, we'll need to calculate producers ourselves
++	 * as well as clean them.
++	 */
++	if (pp_prod && p_iov->b_pre_fp_hsi) {
++		u8 hw_qid = p_iov->acquire_resp.resc.hw_qid[rx_qid];
++		u32 init_prod_val = 0;
++
++		*pp_prod = (u8 __iomem *)p_hwfn->regview +
++					 MSTORM_QZONE_START(p_hwfn->cdev) +
++					 hw_qid * MSTORM_QZONE_SIZE;
++
++		/* Init the rcq, rx bd and rx sge (if valid) producers to 0 */
++		__internal_ram_wr(p_hwfn, *pp_prod, sizeof(u32),
++				  (u32 *)(&init_prod_val));
++	}
+ 	/* add list termination tlv */
+ 	qed_add_tlv(p_hwfn, &p_iov->offset,
+ 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
+@@ -387,7 +441,7 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
+ 		return -EINVAL;
+ 
+ 	/* Learn the address of the producer from the response */
+-	if (pp_prod) {
++	if (pp_prod && !p_iov->b_pre_fp_hsi) {
+ 		u32 init_prod_val = 0;
+ 
+ 		*pp_prod = (u8 __iomem *)p_hwfn->regview + resp->offset;
+@@ -470,7 +524,20 @@ int qed_vf_pf_txq_start(struct qed_hwfn *p_hwfn,
+ 	}
+ 
+ 	if (pp_doorbell) {
+-		*pp_doorbell = (u8 __iomem *)p_hwfn->doorbells + resp->offset;
++		/* Modern PFs provide the actual offsets, while legacy
++		 * provided only the queue id.
 +		 */
-+		if ((p_vf->acquire.vfdev_info.eth_fp_hsi_minor ==
-+		     ETH_HSI_VER_NO_PKT_LEN_TUNN) &&
-+		    (p_vf->acquire.vfdev_info.os_type ==
-+		     VFPF_ACQUIRE_OS_WINDOWS))
-+			return PFVF_STATUS_SUCCESS;
-+
- 		return PFVF_STATUS_NO_RESOURCE;
- 	}
- 
-@@ -1287,16 +1298,35 @@ static void qed_iov_vf_mbx_acquire(struct qed_hwfn *p_hwfn,
- 	pfdev_info->major_fp_hsi = ETH_HSI_VER_MAJOR;
- 	pfdev_info->minor_fp_hsi = ETH_HSI_VER_MINOR;
- 
-+	if (vf->state != VF_FREE && vf->state != VF_STOPPED) {
-+		DP_VERBOSE(p_hwfn,
-+			   QED_MSG_IOV,
-+			   "VF[%d] sent ACQUIRE but is already in state %d - fail request\n",
-+			   vf->abs_vf_id, vf->state);
-+		goto out;
-+	}
-+
- 	/* Validate FW compatibility */
- 	if (req->vfdev_info.eth_fp_hsi_major != ETH_HSI_VER_MAJOR) {
--		DP_INFO(p_hwfn,
--			"VF[%d] needs fastpath HSI %02x.%02x, which is incompatible with loaded FW's faspath HSI %02x.%02x\n",
--			vf->abs_vf_id,
--			req->vfdev_info.eth_fp_hsi_major,
--			req->vfdev_info.eth_fp_hsi_minor,
--			ETH_HSI_VER_MAJOR, ETH_HSI_VER_MINOR);
-+		if (req->vfdev_info.capabilities &
-+		    VFPF_ACQUIRE_CAP_PRE_FP_HSI) {
-+			struct vf_pf_vfdev_info *p_vfdev = &req->vfdev_info;
- 
--		goto out;
-+			DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+				   "VF[%d] is pre-fastpath HSI\n",
-+				   vf->abs_vf_id);
-+			p_vfdev->eth_fp_hsi_major = ETH_HSI_VER_MAJOR;
-+			p_vfdev->eth_fp_hsi_minor = ETH_HSI_VER_NO_PKT_LEN_TUNN;
++		if (!p_iov->b_pre_fp_hsi) {
++			*pp_doorbell = (u8 __iomem *)p_hwfn->doorbells +
++						     resp->offset;
 +		} else {
-+			DP_INFO(p_hwfn,
-+				"VF[%d] needs fastpath HSI %02x.%02x, which is incompatible with loaded FW's faspath HSI %02x.%02x\n",
-+				vf->abs_vf_id,
-+				req->vfdev_info.eth_fp_hsi_major,
-+				req->vfdev_info.eth_fp_hsi_minor,
-+				ETH_HSI_VER_MAJOR, ETH_HSI_VER_MINOR);
++			u8 cid = p_iov->acquire_resp.resc.cid[tx_queue_id];
++			u32 db_addr;
 +
-+			goto out;
++			db_addr = qed_db_addr(cid, DQ_DEMS_LEGACY);
++			*pp_doorbell = (u8 __iomem *)p_hwfn->doorbells +
++						     db_addr;
 +		}
- 	}
  
- 	/* On 100g PFs, prevent old VFs from loading */
-@@ -1335,6 +1365,10 @@ static void qed_iov_vf_mbx_acquire(struct qed_hwfn *p_hwfn,
- 	pfdev_info->fw_minor = FW_MINOR_VERSION;
- 	pfdev_info->fw_rev = FW_REVISION_VERSION;
- 	pfdev_info->fw_eng = FW_ENGINEERING_VERSION;
-+
-+	/* Incorrect when legacy, but doesn't matter as legacy isn't reading
-+	 * this field.
-+	 */
- 	pfdev_info->minor_fp_hsi = min_t(u8, ETH_HSI_VER_MINOR,
- 					 req->vfdev_info.eth_fp_hsi_minor);
- 	pfdev_info->os_type = VFPF_ACQUIRE_OS_LINUX;
-@@ -1691,21 +1725,32 @@ static void qed_iov_vf_mbx_stop_vport(struct qed_hwfn *p_hwfn,
- 
- static void qed_iov_vf_mbx_start_rxq_resp(struct qed_hwfn *p_hwfn,
- 					  struct qed_ptt *p_ptt,
--					  struct qed_vf_info *vf, u8 status)
-+					  struct qed_vf_info *vf,
-+					  u8 status, bool b_legacy)
- {
- 	struct qed_iov_vf_mbx *mbx = &vf->vf_mbx;
- 	struct pfvf_start_queue_resp_tlv *p_tlv;
- 	struct vfpf_start_rxq_tlv *req;
-+	u16 length;
- 
- 	mbx->offset = (u8 *)mbx->reply_virt;
- 
-+	/* Taking a bigger struct instead of adding a TLV to list was a
-+	 * mistake, but one which we're now stuck with, as some older
-+	 * clients assume the size of the previous response.
-+	 */
-+	if (!b_legacy)
-+		length = sizeof(*p_tlv);
-+	else
-+		length = sizeof(struct pfvf_def_resp_tlv);
-+
- 	p_tlv = qed_add_tlv(p_hwfn, &mbx->offset, CHANNEL_TLV_START_RXQ,
--			    sizeof(*p_tlv));
-+			    length);
- 	qed_add_tlv(p_hwfn, &mbx->offset, CHANNEL_TLV_LIST_END,
- 		    sizeof(struct channel_list_end_tlv));
- 
- 	/* Update the TLV with the response */
--	if (status == PFVF_STATUS_SUCCESS) {
-+	if ((status == PFVF_STATUS_SUCCESS) && !b_legacy) {
- 		req = &mbx->req_virt->start_rxq;
- 		p_tlv->offset = PXP_VF_BAR0_START_MSDM_ZONE_B +
- 				offsetof(struct mstorm_vf_zone,
-@@ -1713,7 +1758,7 @@ static void qed_iov_vf_mbx_start_rxq_resp(struct qed_hwfn *p_hwfn,
- 				sizeof(struct eth_rx_prod_data) * req->rx_qid;
- 	}
- 
--	qed_iov_send_response(p_hwfn, p_ptt, vf, sizeof(*p_tlv), status);
-+	qed_iov_send_response(p_hwfn, p_ptt, vf, length, status);
- }
- 
- static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
-@@ -1724,6 +1769,7 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
- 	struct qed_iov_vf_mbx *mbx = &vf->vf_mbx;
- 	u8 status = PFVF_STATUS_NO_RESOURCE;
- 	struct vfpf_start_rxq_tlv *req;
-+	bool b_legacy_vf = false;
- 	int rc;
- 
- 	memset(&params, 0, sizeof(params));
-@@ -1739,13 +1785,27 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
- 	params.sb = req->hw_sb;
- 	params.sb_idx = req->sb_index;
- 
-+	/* Legacy VFs have their Producers in a different location, which they
-+	 * calculate on their own and clean the producer prior to this.
-+	 */
-+	if (vf->acquire.vfdev_info.eth_fp_hsi_minor ==
-+	    ETH_HSI_VER_NO_PKT_LEN_TUNN) {
-+		b_legacy_vf = true;
-+	} else {
-+		REG_WR(p_hwfn,
-+		       GTT_BAR0_MAP_REG_MSDM_RAM +
-+		       MSTORM_ETH_VF_PRODS_OFFSET(vf->abs_vf_id, req->rx_qid),
-+		       0);
-+	}
-+
- 	rc = qed_sp_eth_rxq_start_ramrod(p_hwfn, vf->opaque_fid,
- 					 vf->vf_queues[req->rx_qid].fw_cid,
- 					 &params,
- 					 vf->abs_vf_id + 0x10,
- 					 req->bd_max_bytes,
- 					 req->rxq_addr,
--					 req->cqe_pbl_addr, req->cqe_pbl_size);
-+					 req->cqe_pbl_addr, req->cqe_pbl_size,
-+					 b_legacy_vf);
- 
- 	if (rc) {
- 		status = PFVF_STATUS_FAILURE;
-@@ -1756,7 +1816,7 @@ static void qed_iov_vf_mbx_start_rxq(struct qed_hwfn *p_hwfn,
- 	}
- 
- out:
--	qed_iov_vf_mbx_start_rxq_resp(p_hwfn, p_ptt, vf, status);
-+	qed_iov_vf_mbx_start_rxq_resp(p_hwfn, p_ptt, vf, status, b_legacy_vf);
- }
- 
- static void qed_iov_vf_mbx_start_txq_resp(struct qed_hwfn *p_hwfn,
-@@ -1765,23 +1825,38 @@ static void qed_iov_vf_mbx_start_txq_resp(struct qed_hwfn *p_hwfn,
- {
- 	struct qed_iov_vf_mbx *mbx = &p_vf->vf_mbx;
- 	struct pfvf_start_queue_resp_tlv *p_tlv;
-+	bool b_legacy = false;
-+	u16 length;
- 
- 	mbx->offset = (u8 *)mbx->reply_virt;
- 
-+	/* Taking a bigger struct instead of adding a TLV to list was a
-+	 * mistake, but one which we're now stuck with, as some older
-+	 * clients assume the size of the previous response.
-+	 */
-+	if (p_vf->acquire.vfdev_info.eth_fp_hsi_minor ==
-+	    ETH_HSI_VER_NO_PKT_LEN_TUNN)
-+		b_legacy = true;
-+
-+	if (!b_legacy)
-+		length = sizeof(*p_tlv);
-+	else
-+		length = sizeof(struct pfvf_def_resp_tlv);
-+
- 	p_tlv = qed_add_tlv(p_hwfn, &mbx->offset, CHANNEL_TLV_START_TXQ,
--			    sizeof(*p_tlv));
-+			    length);
- 	qed_add_tlv(p_hwfn, &mbx->offset, CHANNEL_TLV_LIST_END,
- 		    sizeof(struct channel_list_end_tlv));
- 
- 	/* Update the TLV with the response */
--	if (status == PFVF_STATUS_SUCCESS) {
-+	if ((status == PFVF_STATUS_SUCCESS) && !b_legacy) {
- 		u16 qid = mbx->req_virt->start_txq.tx_qid;
- 
- 		p_tlv->offset = qed_db_addr(p_vf->vf_queues[qid].fw_cid,
- 					    DQ_DEMS_LEGACY);
- 	}
- 
--	qed_iov_send_response(p_hwfn, p_ptt, p_vf, sizeof(*p_tlv), status);
-+	qed_iov_send_response(p_hwfn, p_ptt, p_vf, length, status);
- }
- 
- static void qed_iov_vf_mbx_start_txq(struct qed_hwfn *p_hwfn,
+ 		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
+ 			   "Txq[0x%02x]: doorbell at %p [offset 0x%08x]\n",
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index b23ce58..60a599b 100644
+index 60a599b..35db7a28 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -86,7 +86,7 @@ struct vfpf_acquire_tlv {
- 	struct vfpf_first_tlv first_tlv;
+@@ -551,6 +551,11 @@ struct qed_vf_iov {
  
- 	struct vf_pf_vfdev_info {
--#define VFPF_ACQUIRE_CAP_OBSOLETE	(1 << 0)
-+#define VFPF_ACQUIRE_CAP_PRE_FP_HSI     (1 << 0) /* VF pre-FP hsi version */
- #define VFPF_ACQUIRE_CAP_100G		(1 << 1) /* VF can support 100g */
- 		u64 capabilities;
- 		u8 fw_major;
+ 	/* we set aside a copy of the acquire response */
+ 	struct pfvf_acquire_resp_tlv acquire_resp;
++
++	/* In case PF originates prior to the fp-hsi version comparison,
++	 * this has to be propagated as it affects the fastpath.
++	 */
++	bool b_pre_fp_hsi;
+ };
+ 
+ #ifdef CONFIG_QED_SRIOV
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 32325ca..700b509 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -268,6 +268,8 @@ struct qede_tx_queue {
+ 	u16			num_tx_buffers;
+ 	u64			xmit_pkts;
+ 	u64			stopped_cnt;
++
++	bool			is_legacy;
+ };
+ 
+ #define BD_UNMAP_ADDR(bd)		HILO_U64(le32_to_cpu((bd)->addr.hi), \
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index a05459f9..ac126e6 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -598,6 +598,14 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
+ 			    1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT;
+ 		}
+ 
++		/* Legacy FW had flipped behavior in regard to this bit -
++		 * I.e., needed to set to prevent FW from touching encapsulated
++		 * packets when it didn't need to.
++		 */
++		if (unlikely(txq->is_legacy))
++			first_bd->data.bitfields ^=
++			    1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT;
++
+ 		/* If the packet is IPv6 with extension header, indicate that
+ 		 * to FW and pass few params, since the device cracker doesn't
+ 		 * support parsing IPv6 with extension header/s.
+@@ -2991,6 +2999,8 @@ static void qede_init_fp(struct qede_dev *edev)
+ 		for (tc = 0; tc < edev->num_tc; tc++) {
+ 			txq_index = tc * QEDE_RSS_CNT(edev) + rss_id;
+ 			fp->txqs[tc].index = txq_index;
++			if (edev->dev_info.is_legacy)
++				fp->txqs[tc].is_legacy = true;
+ 		}
+ 
+ 		snprintf(fp->name, sizeof(fp->name), "%s-fp-%d",
+diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
+index 4475a9d..33c24eb 100644
+--- a/include/linux/qed/qed_eth_if.h
++++ b/include/linux/qed/qed_eth_if.h
+@@ -23,6 +23,9 @@ struct qed_dev_eth_info {
+ 
+ 	u8	port_mac[ETH_ALEN];
+ 	u8	num_vlan_filters;
++
++	/* Legacy VF - this affects the datapath, so qede has to know */
++	bool is_legacy;
+ };
+ 
+ struct qed_update_vport_rss_params {
 -- 
 1.9.3
