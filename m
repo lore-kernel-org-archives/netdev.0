@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] Make /sys/class/net per net namespace objects
- belong to container
-Date: Sun, 21 Aug 2016 23:41:39 -0700 (PDT)
-Message-ID: <20160821.234139.1856651235617174329.davem@davemloft.net>
-References: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: Only add l3mdev oif to dst lookups
+Date: Mon, 22 Aug 2016 09:16:35 +0200
+Message-ID: <20160822071634.GD3735@gauss.secunet.com>
+References: <1471229576-29981-1-git-send-email-dsa@cumulusnetworks.com>
+ <20160817.193114.794021773593737364.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tj@kernel.org, ebiederm@xmission.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: dmitry.torokhov@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:41399 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752446AbcHVHQm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 03:16:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20160817.193114.794021773593737364.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Date: Tue, 16 Aug 2016 15:33:10 -0700
-
-> There are objects in /sys hierarchy (/sys/class/net/) that logically belong
-> to a namespace/container. Unfortunately all sysfs objects start their life
-> belonging to global root, and while we could change ownership manually,
-> keeping tracks of all objects that come and go is cumbersome. It would
-> be better if kernel created them using correct uid/gid from the beginning.
+On Wed, Aug 17, 2016 at 07:31:14PM -0400, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Sun, 14 Aug 2016 19:52:56 -0700
 > 
-> This series changes kernfs to allow creating object's with arbitrary
-> uid/gid, adds get_ownership() callback to ktype structure so subsystems
-> could supply their own logic (likely tied to namespace support) for
-> determining ownership of kobjects, and adjusts sysfs code to make use of
-> this information. Lastly net-sysfs is adjusted to make sure that objects in
-> net namespace are owned by the root user from the owning user namespace.
+> > Subash reported that commit 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+> > broke a wifi use case that uses fib rules and xfrms. The intent of
+> > 42a7b32b73d6 was driven by VRFs with IPsec. As a compromise relax the
+> > use of oif in xfrm lookups to L3 master devices only (ie., oif is either
+> > an L3 master device or is enslaved to a master device).
+> > 
+> > Fixes: 42a7b32b73d6 ("xfrm: Add oif to dst lookups")
+> > Reported-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> > Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 > 
-> Note that we do not adjust ownership of objects moved into a new namespace
-> (as when moving a network device into a container) as userspace can easily
-> do it.
+> Steffen, please pick this up.
 
-As shown by the kbuild robot, this fails to build when CONFIG_SYSFS
-it disabled.
+Now applied to the ipsec tree, thanks a lot!
