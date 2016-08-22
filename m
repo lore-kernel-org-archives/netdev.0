@@ -1,54 +1,57 @@
-From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 11/20] batman-adv: Place kref_get for
-	dat_entry near use
-Date: Mon, 22 Aug 2016 15:56:11 +0200
-Message-ID: <20160822135620.15337-12-sw@simonwunderlich.de>
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 14/20] batman-adv: Place kref_get for softif_vlan near use
+Date: Mon, 22 Aug 2016 15:56:14 +0200
+Message-ID: <20160822135620.15337-15-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20160822135620.15337-1-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+        Sven Eckelmann <sven@narfation.org>,
+        Marek Lindner <mareklindner@neomailbox.ch>,
+        Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from packetmixer.de ([79.140.42.25]:39003 "EHLO
+        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755476AbcHVN55 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:57:57 -0400
+In-Reply-To: <20160822135620.15337-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+From: Sven Eckelmann <sven@narfation.org>
 
 It is hard to understand why the refcnt is increased when it isn't done
 near the actual place the new reference is used. So using kref_get right
 before the place which requires the reference and in the same function
 helps to avoid accidental problems caused by incorrect reference counting.
 
-Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
-Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/distributed-arp-table.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/soft-interface.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index b1cc8bf..059bc23 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -343,8 +343,8 @@ static void batadv_dat_entry_add(struct batadv_priv *bat_priv, __be32 ip,
- 	ether_addr_copy(dat_entry->mac_addr, mac_addr);
- 	dat_entry->last_update = jiffies;
- 	kref_init(&dat_entry->refcount);
--	kref_get(&dat_entry->refcount);
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index e508bf5..49e16b6 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -594,6 +594,7 @@ int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
+ 	}
  
-+	kref_get(&dat_entry->refcount);
- 	hash_added = batadv_hash_add(bat_priv->dat.hash, batadv_compare_dat,
- 				     batadv_hash_dat, dat_entry,
- 				     &dat_entry->hash_entry);
+ 	spin_lock_bh(&bat_priv->softif_vlan_list_lock);
++	kref_get(&vlan->refcount);
+ 	hlist_add_head_rcu(&vlan->list, &bat_priv->softif_vlan_list);
+ 	spin_unlock_bh(&bat_priv->softif_vlan_list_lock);
+ 
+@@ -604,6 +605,9 @@ int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
+ 			    bat_priv->soft_iface->dev_addr, vid,
+ 			    BATADV_NULL_IFINDEX, BATADV_NO_MARK);
+ 
++	/* don't return reference to new softif_vlan */
++	batadv_softif_vlan_put(vlan);
++
+ 	return 0;
+ }
+ 
 -- 
 2.9.3
