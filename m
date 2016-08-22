@@ -1,307 +1,266 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 4/4] qed: Change locking scheme for VF channel
-Date: Mon, 22 Aug 2016 13:25:12 +0300
-Message-ID: <1471861512-30104-5-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1471861512-30104-1-git-send-email-Yuval.Mintz@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Hadar Hen Zion <hadarh@mellanox.com>
+Subject: [PATCH iproute2 1/2] tc: flower: Introduce vlan support
+Date: Mon, 22 Aug 2016 13:24:53 +0300
+Message-ID: <1471861494-8299-2-git-send-email-hadarh@mellanox.com>
+References: <1471861494-8299-1-git-send-email-hadarh@mellanox.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:46056 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754796AbcHVKZb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:25:31 -0400
-In-Reply-To: <1471861512-30104-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49750 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754726AbcHVKZf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:25:35 -0400
+In-Reply-To: <1471861494-8299-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Each VF employees a lock that's supposed to serialize its usage of the
-HW channel for communication with its PF, but the critical section is
-ill-defined:
+Classification according to vlan id and vlan priority.
 
-  - VFs currently release the lock whenever the PF response arrives,
-    prior to actually processing the reply buffer [which was also supposed
-    to have been protected by same lock].
+Example script that adds vlan filter:
 
-  - The lock would be released on first response, ignoring the possibilty
-    the sw flow isn't over [as might be the case of the acquisition flow].
-    As a result, the flow would run unprotected and would cause a double
-    mutex release [as the additional message completion would release it
-    while its actually already free].
+ # add ingress qdisc
+ tc qdisc add dev ens4f0 ingress
 
-Change the flow to have a dedicated function to be called at end of each
-flow and release the lock.
+ # add a flower filter with vlan id and priority classification
+ tc filter add dev ens4f0 protocol 802.1Q parent ffff: \
+	flower \
+		indev ens4f0 \
+		vlan_ethtype ipv4 \
+		vlan_id 100 \
+		vlan_prio 3 \
+	action vlan pop
 
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 ---
-Notice this is basically a bug fix, but pushing it to net would create
-several merge conflicts.
-Furthermore, while the first issue is a theoretical race, the second
-would be constantly hit if a modern VF would be used on top of a legacy
-PF [i.e., patch #3 in this series].
-Hence the motivation of adding it here.
+ include/linux/pkt_cls.h        |  5 +++
+ include/linux/tc_act/tc_vlan.h |  3 ++
+ man/man8/tc-flower.8           | 25 ++++++++++++-
+ tc/f_flower.c                  | 80 ++++++++++++++++++++++++++++++++++++++++--
+ 4 files changed, 109 insertions(+), 4 deletions(-)
 
-Still, if prefered I can provide a version of this for `net'.
----
- drivers/net/ethernet/qlogic/qed/qed_vf.c | 124 ++++++++++++++++++++++---------
- 1 file changed, 90 insertions(+), 34 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index f9f68da..3c9071d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -46,6 +46,17 @@ static void *qed_vf_pf_prep(struct qed_hwfn *p_hwfn, u16 type, u16 length)
- 	return p_tlv;
+diff --git a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+index 5e6c61e..25a8fae 100644
+--- a/include/linux/pkt_cls.h
++++ b/include/linux/pkt_cls.h
+@@ -374,6 +374,11 @@ enum {
+ 	TCA_FLOWER_KEY_UDP_DST,		/* be16 */
+ 
+ 	TCA_FLOWER_FLAGS,
++
++	TCA_FLOWER_KEY_VLAN_ID,
++	TCA_FLOWER_KEY_VLAN_PRIO,
++	TCA_FLOWER_KEY_VLAN_ETH_TYPE,
++
+ 	__TCA_FLOWER_MAX,
+ };
+ 
+diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+index 31151ff..26ae695 100644
+--- a/include/linux/tc_act/tc_vlan.h
++++ b/include/linux/tc_act/tc_vlan.h
+@@ -16,6 +16,9 @@
+ 
+ #define TCA_VLAN_ACT_POP	1
+ #define TCA_VLAN_ACT_PUSH	2
++#define VLAN_PRIO_MASK		0x7
++#define VLAN_VID_MASK		0x0fff
++
+ 
+ struct tc_vlan {
+ 	tc_gen;
+diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
+index 9ae10e6..74f7664 100644
+--- a/man/man8/tc-flower.8
++++ b/man/man8/tc-flower.8
+@@ -23,7 +23,13 @@ flower \- flow based traffic control filter
+ .R " | { "
+ .BR dst_mac " | " src_mac " } "
+ .IR mac_address " | "
+-.BR eth_type " { " ipv4 " | " ipv6 " | "
++.BR eth_type " { " ipv4 " | " ipv6 " | " 802.1Q " | "
++.IR ETH_TYPE " } | "
++.B vlan_id
++.IR VID " | "
++.B vlan_prio
++.IR PRIORITY " | "
++.BR vlan_eth_type " { " ipv4 " | " ipv6 " | "
+ .IR ETH_TYPE " } | "
+ .BR ip_proto " { " tcp " | " udp " | "
+ .IR IP_PROTO " } | { "
+@@ -70,6 +76,23 @@ Do not process filter by hardware.
+ Match on source or destination MAC address.
+ .TP
+ .BI eth_type " ETH_TYPE"
++Match on the next protocol.
++.I ETH_TYPE
++may be either
++.BR ipv4 , ipv6 , 802.1Q ,
++or an unsigned 16bit value in hexadecimal format.
++.TP
++.BI vlan_id " VID"
++Match on vlan tag id.
++.I VID
++is an unsigned 12bit value in decimal format.
++.TP
++.BI vlan_prio " priority"
++Match on vlan tag priority.
++.I PRIORITY
++is an unsigned 3bit value in decimal format.
++.TP
++.BI vlan_eth_type " VLAN_ETH_TYPE"
+ Match on layer three protocol.
+ .I ETH_TYPE
+ may be either
+diff --git a/tc/f_flower.c b/tc/f_flower.c
+index 791ade7..2ab2de1 100644
+--- a/tc/f_flower.c
++++ b/tc/f_flower.c
+@@ -17,6 +17,7 @@
+ #include <net/if.h>
+ #include <linux/if_ether.h>
+ #include <linux/ip.h>
++#include <linux/tc_act/tc_vlan.h>
+ 
+ #include "utils.h"
+ #include "tc_util.h"
+@@ -30,6 +31,9 @@ static void explain(void)
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: MATCH-LIST := [ MATCH-LIST ] MATCH\n");
+ 	fprintf(stderr, "       MATCH      := { indev DEV-NAME |\n");
++	fprintf(stderr, "                       vlan_id VID |\n");
++	fprintf(stderr, "                       vlan_prio PRIORITY |\n");
++	fprintf(stderr, "                       vlan_ethtype [ ipv4 | ipv6 | ETH-TYPE ] |\n");
+ 	fprintf(stderr, "                       dst_mac MAC-ADDR |\n");
+ 	fprintf(stderr, "                       src_mac MAC-ADDR |\n");
+ 	fprintf(stderr, "                       [ipv4 | ipv6 ] |\n");
+@@ -61,6 +65,24 @@ static int flower_parse_eth_addr(char *str, int addr_type, int mask_type,
+ 	return 0;
  }
  
-+static void qed_vf_pf_req_end(struct qed_hwfn *p_hwfn, int req_status)
++static int flower_parse_vlan_eth_type(char *str, __be16 eth_type, int type,
++				      __be16 *p_vlan_eth_type,
++				      struct nlmsghdr *n)
 +{
-+	union pfvf_tlvs *resp = p_hwfn->vf_iov_info->pf2vf_reply;
++	__be16 vlan_eth_type;
 +
-+	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
-+		   "VF request status = 0x%x, PF reply status = 0x%x\n",
-+		   req_status, resp->default_resp.hdr.status);
++	if (eth_type != htons(ETH_P_8021Q)) {
++		fprintf(stderr, "Can't set \"vlan_ethtype\" if ethertype isn't 802.1Q\n");
++		return -1;
++	}
 +
-+	mutex_unlock(&(p_hwfn->vf_iov_info->mutex));
++	if (ll_proto_a2n(&vlan_eth_type, str))
++		invarg("invalid vlan_ethtype", str);
++	addattr16(n, MAX_MSG, type, vlan_eth_type);
++	*p_vlan_eth_type = vlan_eth_type;
++	return 0;
 +}
 +
- static int qed_send_msg2pf(struct qed_hwfn *p_hwfn, u8 *done, u32 resp_size)
+ static int flower_parse_ip_proto(char *str, __be16 eth_type, int type,
+ 				 __u8 *p_ip_proto, struct nlmsghdr *n)
  {
- 	union vfpf_tlvs *p_req = p_hwfn->vf_iov_info->vf2pf_request;
-@@ -103,16 +114,12 @@ static int qed_send_msg2pf(struct qed_hwfn *p_hwfn, u8 *done, u32 resp_size)
- 			   "VF <-- PF Timeout [Type %d]\n",
- 			   p_req->first_tlv.tl.type);
- 		rc = -EBUSY;
--		goto exit;
- 	} else {
- 		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
- 			   "PF response: %d [Type %d]\n",
- 			   *done, p_req->first_tlv.tl.type);
+@@ -167,6 +189,7 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 	struct tcmsg *t = NLMSG_DATA(n);
+ 	struct rtattr *tail;
+ 	__be16 eth_type = TC_H_MIN(t->tcm_info);
++	__be16 vlan_ethtype = 0;
+ 	__u8 ip_proto = 0xff;
+ 	__u32 flags = 0;
+ 
+@@ -208,6 +231,42 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 			NEXT_ARG();
+ 			strncpy(ifname, *argv, sizeof(ifname) - 1);
+ 			addattrstrz(n, MAX_MSG, TCA_FLOWER_INDEV, ifname);
++		} else if (matches(*argv, "vlan_id") == 0) {
++			__u16 vid;
++
++			NEXT_ARG();
++			if (eth_type != htons(ETH_P_8021Q)) {
++				fprintf(stderr, "Can't set \"vlan_id\" if ethertype isn't 802.1Q\n");
++				return -1;
++			}
++			ret = get_u16(&vid, *argv, 10);
++			if (ret < 0 || vid & ~0xfff) {
++				fprintf(stderr, "Illegal \"vlan_id\"\n");
++				return -1;
++			}
++			addattr16(n, MAX_MSG, TCA_FLOWER_KEY_VLAN_ID, vid);
++		} else if (matches(*argv, "vlan_prio") == 0) {
++			__u8 vlan_prio;
++
++			NEXT_ARG();
++			if (eth_type != htons(ETH_P_8021Q)) {
++				fprintf(stderr, "Can't set \"vlan_prio\" if ethertype isn't 802.1Q\n");
++				return -1;
++			}
++			ret = get_u8(&vlan_prio, *argv, 10);
++			if (ret < 0 || vlan_prio & ~VLAN_PRIO_MASK) {
++				fprintf(stderr, "Illegal \"vlan_prio\"\n");
++				return -1;
++			}
++			addattr8(n, MAX_MSG, TCA_FLOWER_KEY_VLAN_PRIO,
++				 vlan_prio);
++		} else if (matches(*argv, "vlan_ethtype") == 0) {
++			NEXT_ARG();
++			ret = flower_parse_vlan_eth_type(*argv, eth_type,
++							 TCA_FLOWER_KEY_VLAN_ETH_TYPE,
++							 &vlan_ethtype, n);
++			if (ret < 0)
++				return -1;
+ 		} else if (matches(*argv, "dst_mac") == 0) {
+ 			NEXT_ARG();
+ 			ret = flower_parse_eth_addr(*argv,
+@@ -230,7 +289,8 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 			}
+ 		} else if (matches(*argv, "ip_proto") == 0) {
+ 			NEXT_ARG();
+-			ret = flower_parse_ip_proto(*argv, eth_type,
++			ret = flower_parse_ip_proto(*argv, vlan_ethtype ?
++						    vlan_ethtype : eth_type,
+ 						    TCA_FLOWER_KEY_IP_PROTO,
+ 						    &ip_proto, n);
+ 			if (ret < 0) {
+@@ -239,7 +299,8 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 			}
+ 		} else if (matches(*argv, "dst_ip") == 0) {
+ 			NEXT_ARG();
+-			ret = flower_parse_ip_addr(*argv, eth_type,
++			ret = flower_parse_ip_addr(*argv, vlan_ethtype ?
++						   vlan_ethtype : eth_type,
+ 						   TCA_FLOWER_KEY_IPV4_DST,
+ 						   TCA_FLOWER_KEY_IPV4_DST_MASK,
+ 						   TCA_FLOWER_KEY_IPV6_DST,
+@@ -251,7 +312,8 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
+ 			}
+ 		} else if (matches(*argv, "src_ip") == 0) {
+ 			NEXT_ARG();
+-			ret = flower_parse_ip_addr(*argv, eth_type,
++			ret = flower_parse_ip_addr(*argv, vlan_ethtype ?
++						   vlan_ethtype : eth_type,
+ 						   TCA_FLOWER_KEY_IPV4_SRC,
+ 						   TCA_FLOWER_KEY_IPV4_SRC_MASK,
+ 						   TCA_FLOWER_KEY_IPV6_SRC,
+@@ -477,6 +539,18 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
+ 		fprintf(f, "\n  indev %s", rta_getattr_str(attr));
  	}
  
--exit:
--	mutex_unlock(&(p_hwfn->vf_iov_info->mutex));
--
- 	return rc;
- }
- 
-@@ -296,6 +303,8 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 	}
- 
- exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
++	if (tb[TCA_FLOWER_KEY_VLAN_ID]) {
++		struct rtattr *attr = tb[TCA_FLOWER_KEY_VLAN_ID];
 +
- 	return rc;
- }
- 
-@@ -435,10 +444,12 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 	resp = &p_iov->pf2vf_reply->queue_start;
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
-+	}
- 
- 	/* Learn the address of the producer from the response */
- 	if (pp_prod && !p_iov->b_pre_fp_hsi) {
-@@ -453,6 +464,8 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 		__internal_ram_wr(p_hwfn, *pp_prod, sizeof(u32),
- 				  (u32 *)&init_prod_val);
- 	}
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
- 	return rc;
- }
-@@ -478,10 +491,15 @@ int qed_vf_pf_rxq_stop(struct qed_hwfn *p_hwfn, u16 rx_qid, bool cqe_completion)
- 	resp = &p_iov->pf2vf_reply->default_resp;
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
-+
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
-+	}
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
- 	return rc;
- }
-@@ -544,6 +562,7 @@ int qed_vf_pf_txq_start(struct qed_hwfn *p_hwfn,
- 			   tx_queue_id, *pp_doorbell, resp->offset);
- 	}
- exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
- 	return rc;
- }
-@@ -568,10 +587,15 @@ int qed_vf_pf_txq_stop(struct qed_hwfn *p_hwfn, u16 tx_qid)
- 	resp = &p_iov->pf2vf_reply->default_resp;
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
++		fprintf(f, "\n  vlan_id %d", rta_getattr_u16(attr));
 +	}
 +
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
- 	return rc;
- }
-@@ -610,10 +634,15 @@ int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
- 	resp = &p_iov->pf2vf_reply->default_resp;
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
++	if (tb[TCA_FLOWER_KEY_VLAN_PRIO]) {
++		struct rtattr *attr = tb[TCA_FLOWER_KEY_VLAN_PRIO];
 +
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
-+	}
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
- 	return rc;
- }
-@@ -634,10 +663,15 @@ int qed_vf_pf_vport_stop(struct qed_hwfn *p_hwfn)
- 
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
++		fprintf(f, "\n  vlan_prio %d", rta_getattr_u8(attr));
 +	}
 +
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
- 	return rc;
- }
-@@ -837,13 +871,18 @@ int qed_vf_pf_vport_update(struct qed_hwfn *p_hwfn,
- 
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, resp_size);
- 	if (rc)
--		return rc;
-+		goto exit;
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
-+	}
- 
- 	qed_vf_handle_vp_update_tlvs_resp(p_hwfn, p_params);
- 
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
-+
- 	return rc;
- }
- 
-@@ -864,14 +903,19 @@ int qed_vf_pf_reset(struct qed_hwfn *p_hwfn)
- 	resp = &p_iov->pf2vf_reply->default_resp;
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EAGAIN;
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EAGAIN;
-+		goto exit;
-+	}
- 
- 	p_hwfn->b_int_enabled = 0;
- 
--	return 0;
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
-+
-+	return rc;
- }
- 
- int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
-@@ -895,6 +939,8 @@ int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
- 	if (!rc && resp->hdr.status != PFVF_STATUS_SUCCESS)
- 		rc = -EAGAIN;
- 
-+	qed_vf_pf_req_end(p_hwfn, rc);
-+
- 	p_hwfn->b_int_enabled = 0;
- 
- 	if (p_iov->vf2pf_request)
-@@ -963,12 +1009,17 @@ int qed_vf_pf_filter_ucast(struct qed_hwfn *p_hwfn,
- 	resp = &p_iov->pf2vf_reply->default_resp;
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EAGAIN;
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EAGAIN;
-+		goto exit;
-+	}
- 
--	return 0;
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
-+
-+	return rc;
- }
- 
- int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn)
-@@ -987,12 +1038,17 @@ int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn)
- 
- 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 	if (rc)
--		return rc;
-+		goto exit;
-+
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		rc = -EINVAL;
-+		goto exit;
-+	}
- 
--	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
--		return -EINVAL;
-+exit:
-+	qed_vf_pf_req_end(p_hwfn, rc);
- 
--	return 0;
-+	return rc;
- }
- 
- u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
+ 	flower_print_eth_addr(f, "dst_mac", tb[TCA_FLOWER_KEY_ETH_DST],
+ 			      tb[TCA_FLOWER_KEY_ETH_DST_MASK]);
+ 	flower_print_eth_addr(f, "src_mac", tb[TCA_FLOWER_KEY_ETH_SRC],
 -- 
-1.9.3
+1.8.3.1
