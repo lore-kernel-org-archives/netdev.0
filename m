@@ -1,177 +1,110 @@
-From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 3/3] cxgb4: add support for tx max rate limiting
-Date: Mon, 22 Aug 2016 16:29:08 +0530
-Message-ID: <17f2504e69ee3682f8b7d2b980cc236f52831bd3.1471848005.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1471848004.git.rahul.lakkireddy@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
-        nirranjan@chelsio.com, indranil@chelsio.com,
-        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-To: netdev@vger.kernel.org
+From: fgao@ikuai8.com
+Subject: [PATCH v4 net-next] l2tp: Refactor the codes with existing macros instead of literal number
+Date: Mon, 22 Aug 2016 18:59:51 +0800
+Message-ID: <1471863591-6790-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: jchapman@katalix.com, g.nault@alphalink.fr,
+        philipp@redfish-solutions.com, davem@davemloft.net,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:46088 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752247AbcHVLB6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:01:58 -0400
-In-Reply-To: <cover.1471848004.git.rahul.lakkireddy@chelsio.com>
-In-Reply-To: <cover.1471848004.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1471848004.git.rahul.lakkireddy@chelsio.com>
+Received: from SMTPBG352.QQ.COM ([183.57.50.167]:45888 "EHLO smtpbg352.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752805AbcHVLCw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 07:02:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement set_tx_maxrate NDO to perform per queue tx rate limiting.
+From: Gao Feng <fgao@ikuai8.com>
 
-Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
+0x03, and 2 separately.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      | 20 ++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 82 +++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/sched.h      |  3 +
- 3 files changed, 105 insertions(+)
+ v4: Remove two static ppph variables;
+ v3: Modify the subject;
+ v2: Only replace the literal number with macros according to Guillaume's advice
+ v1: Inital patch
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index eb30612..f988c60 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -881,6 +881,26 @@ struct ch_sched_params {
- 	} u;
- };
+ net/l2tp/l2tp_ppp.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index d9560aa..0c071c4 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -177,7 +177,7 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, 2))
+ 		return 1;
  
-+enum {
-+	SCHED_CLASS_TYPE_PACKET = 0,    /* class type */
-+};
-+
-+enum {
-+	SCHED_CLASS_LEVEL_CL_RL = 0,    /* class rate limiter */
-+};
-+
-+enum {
-+	SCHED_CLASS_MODE_CLASS = 0,     /* per-class scheduling */
-+};
-+
-+enum {
-+	SCHED_CLASS_RATEUNIT_BITS = 0,  /* bit rate scheduling */
-+};
-+
-+enum {
-+	SCHED_CLASS_RATEMODE_ABS = 1,   /* Kb/s */
-+};
-+
- /* Support for "sched_queue" command to allow one or more NIC TX Queues
-  * to be bound to a TX Scheduling Class.
+-	if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
++	if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
+ 		skb_pull(skb, 2);
+ 
+ 	return 0;
+@@ -282,7 +282,6 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
+ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+ 			    size_t total_len)
+ {
+-	static const unsigned char ppph[2] = { 0xff, 0x03 };
+ 	struct sock *sk = sock->sk;
+ 	struct sk_buff *skb;
+ 	int error;
+@@ -312,7 +311,7 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+ 	error = -ENOMEM;
+ 	skb = sock_wmalloc(sk, NET_SKB_PAD + sizeof(struct iphdr) +
+ 			   uhlen + session->hdr_len +
+-			   sizeof(ppph) + total_len,
++			   2 + total_len, /* 2 bytes for PPP_ALLSTATIONS & PPP_UI */
+ 			   0, GFP_KERNEL);
+ 	if (!skb)
+ 		goto error_put_sess_tun;
+@@ -325,8 +324,8 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+ 	skb_reserve(skb, uhlen);
+ 
+ 	/* Add PPP header */
+-	skb->data[0] = ppph[0];
+-	skb->data[1] = ppph[1];
++	skb->data[0] = PPP_ALLSTATIONS; 
++	skb->data[1] = PPP_UI;
+ 	skb_put(skb, 2);
+ 
+ 	/* Copy user data into skb */
+@@ -369,7 +368,6 @@ error:
   */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 2e341bf..be5c942 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3140,6 +3140,87 @@ static void cxgb_netpoll(struct net_device *dev)
- }
- #endif
+ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ {
+-	static const u8 ppph[2] = { 0xff, 0x03 };
+ 	struct sock *sk = (struct sock *) chan->private;
+ 	struct sock *sk_tun;
+ 	struct l2tp_session *session;
+@@ -398,14 +396,14 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 		   sizeof(struct iphdr) + /* IP header */
+ 		   uhlen +		/* UDP header (if L2TP_ENCAPTYPE_UDP) */
+ 		   session->hdr_len +	/* L2TP header */
+-		   sizeof(ppph);	/* PPP header */
++		   2;			/* 2 bytes for PPP_ALLSTATIONS & PPP_UI */
+ 	if (skb_cow_head(skb, headroom))
+ 		goto abort_put_sess_tun;
  
-+static int cxgb_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct sched_class *e;
-+	struct ch_sched_params p;
-+	struct ch_sched_queue qe;
-+	u32 req_rate;
-+	int err = 0;
-+
-+	if (!can_sched(dev))
-+		return -ENOTSUPP;
-+
-+	if (index < 0 || index > pi->nqsets - 1)
-+		return -EINVAL;
-+
-+	if (!(adap->flags & FULL_INIT_DONE)) {
-+		dev_err(adap->pdev_dev,
-+			"Failed to rate limit on queue %d. Link Down?\n",
-+			index);
-+		return -EINVAL;
-+	}
-+
-+	/* Convert from Mbps to Kbps */
-+	req_rate = rate << 10;
-+
-+	/* Max rate is 10 Gbps */
-+	if (req_rate >= SCHED_MAX_RATE_KBPS) {
-+		dev_err(adap->pdev_dev,
-+			"Invalid rate %u Mbps, Max rate is %u Gbps\n",
-+			rate, SCHED_MAX_RATE_KBPS);
-+		return -ERANGE;
-+	}
-+
-+	/* First unbind the queue from any existing class */
-+	memset(&qe, 0, sizeof(qe));
-+	qe.queue = index;
-+	qe.class = SCHED_CLS_NONE;
-+
-+	err = cxgb4_sched_class_unbind(dev, (void *)(&qe), SCHED_QUEUE);
-+	if (err) {
-+		dev_err(adap->pdev_dev,
-+			"Unbinding Queue %d on port %d fail. Err: %d\n",
-+			index, pi->port_id, err);
-+		return err;
-+	}
-+
-+	/* Queue already unbound */
-+	if (!req_rate)
-+		return 0;
-+
-+	/* Fetch any available unused or matching scheduling class */
-+	memset(&p, 0, sizeof(p));
-+	p.type = SCHED_CLASS_TYPE_PACKET;
-+	p.u.params.level    = SCHED_CLASS_LEVEL_CL_RL;
-+	p.u.params.mode     = SCHED_CLASS_MODE_CLASS;
-+	p.u.params.rateunit = SCHED_CLASS_RATEUNIT_BITS;
-+	p.u.params.ratemode = SCHED_CLASS_RATEMODE_ABS;
-+	p.u.params.channel  = pi->tx_chan;
-+	p.u.params.class    = SCHED_CLS_NONE;
-+	p.u.params.minrate  = 0;
-+	p.u.params.maxrate  = req_rate;
-+	p.u.params.weight   = 0;
-+	p.u.params.pktsize  = dev->mtu;
-+
-+	e = cxgb4_sched_class_alloc(dev, &p);
-+	if (!e)
-+		return -ENOMEM;
-+
-+	/* Bind the queue to a scheduling class */
-+	memset(&qe, 0, sizeof(qe));
-+	qe.queue = index;
-+	qe.class = e->idx;
-+
-+	err = cxgb4_sched_class_bind(dev, (void *)(&qe), SCHED_QUEUE);
-+	if (err)
-+		dev_err(adap->pdev_dev,
-+			"Queue rate limiting failed. Err: %d\n", err);
-+	return err;
-+}
-+
- static const struct net_device_ops cxgb4_netdev_ops = {
- 	.ndo_open             = cxgb_open,
- 	.ndo_stop             = cxgb_close,
-@@ -3162,6 +3243,7 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	.ndo_busy_poll        = cxgb_busy_poll,
- #endif
-+	.ndo_set_tx_maxrate   = cxgb_set_tx_maxrate,
- };
+ 	/* Setup PPP header */
+-	__skb_push(skb, sizeof(ppph));
+-	skb->data[0] = ppph[0];
+-	skb->data[1] = ppph[1];
++	__skb_push(skb, 2); 
++	skb->data[0] = PPP_ALLSTATIONS;
++	skb->data[1] = PPP_UI;
  
- static const struct net_device_ops cxgb4_mgmt_netdev_ops = {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sched.h b/drivers/net/ethernet/chelsio/cxgb4/sched.h
-index ac415eb..77b2b3f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sched.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sched.h
-@@ -42,6 +42,9 @@
+ 	local_bh_disable();
+ 	l2tp_xmit_skb(session, skb, session->hdr_len);
+@@ -440,7 +438,7 @@ static void pppol2tp_session_close(struct l2tp_session *session)
+ 	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
  
- #define FW_SCHED_CLS_NONE 0xffffffff
- 
-+/* Max rate that can be set to a scheduling class is 10 Gbps */
-+#define SCHED_MAX_RATE_KBPS 10000000U
-+
- enum {
- 	SCHED_STATE_ACTIVE,
- 	SCHED_STATE_UNUSED,
+ 	if (sock) {
+-		inet_shutdown(sock, 2);
++		inet_shutdown(sock, SEND_SHUTDOWN);
+ 		/* Don't let the session go away before our socket does */
+ 		l2tp_session_inc_refcount(session);
+ 	}
 -- 
-2.5.3
+1.9.1
