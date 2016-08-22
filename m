@@ -1,30 +1,29 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 iproute2 1/1] tc classifiers: Modernize tcindex
- classifier
-Date: Mon, 22 Aug 2016 10:08:50 -0700
-Message-ID: <20160822100850.6fc95f9a@xeon-e3>
-References: <1471864653-13511-1-git-send-email-jhs@emojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [for-next V2 00/17][PULL request] Mellanox mlx5 core driver
+ updates 2016-08-20
+Date: Mon, 22 Aug 2016 10:11:28 -0700 (PDT)
+Message-ID: <20160822.101128.1274162717645753985.davem@davemloft.net>
+References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: dledford@redhat.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, leonro@mellanox.com,
+        talal@mellanox.com, matanb@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33108 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751774AbcHVRIh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:08:37 -0400
-Received: by mail-pf0-f181.google.com with SMTP id y134so34236466pfg.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 10:08:37 -0700 (PDT)
-In-Reply-To: <1471864653-13511-1-git-send-email-jhs@emojatatu.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44446 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755886AbcHVRLb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:11:31 -0400
+In-Reply-To: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 Aug 2016 07:17:33 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Sorry, too many patches.
 
-Applied
+Please keep your series to 10 to 15 patches maximum.
+
+Please do not push back on this, I made several other submitters do
+the same exact thing over the past few days.
