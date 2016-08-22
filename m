@@ -1,44 +1,89 @@
-From: Dave Watson <davejwatson@fb.com>
-Subject: [PATCH net-next] net: strparser: fix strparser sk_user_data check
-Date: Mon, 22 Aug 2016 12:27:04 -0700
-Message-ID: <20160822192704.GA34359@davejwatson-mba.dhcp.thefacebook.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [ethtool PATCH v3 4/4] ethtool: Enhancing link mode bits to
+ support 25G/50G/100G
+Date: Mon, 22 Aug 2016 15:27:30 -0400
+Message-ID: <20160822192729.GC2628@tuxdriver.com>
+References: <1471823044-5165-5-git-send-email-vidya@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, decot@googlers.com,
+        bkenward@solarflare.com, daniel@iogearbox.net, galp@mellanox.com,
+        roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
+        dustin@cumulusnetworks.com, ben@decadent.org.uk
+To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51137 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752089AbcHVT1P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 15:27:15 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36912 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752458AbcHVTag (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 15:30:36 -0400
 Content-Disposition: inline
+In-Reply-To: <1471823044-5165-5-git-send-email-vidya@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sk_user_data mismatch between what kcm expects (psock) and what strparser expects (strparser).
+On Sun, Aug 21, 2016 at 04:44:04PM -0700, Vidya Sagar Ravipati wrote:
+> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> 
+> Enhancing link mode bits to support 25G/50G/100G
+> for supported and advertised speed mode bits
+> 
+> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> Acked-By: David Decotigny <decot@googlers.com>
+> ---
+>  ethtool.c | 27 +++++++++++++++++++++++++++
+>  1 file changed, 27 insertions(+)
+> 
+> diff --git a/ethtool.c b/ethtool.c
+> index 1d6564e..5c3c765 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -512,6 +512,15 @@ static void init_global_link_mode_masks(void)
+>  		ETHTOOL_LINK_MODE_56000baseCR4_Full_BIT,
+>  		ETHTOOL_LINK_MODE_56000baseSR4_Full_BIT,
+>  		ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT,
+> +		ETHTOOL_LINK_MODE_25000baseCR_Full_BIT,
+> +		ETHTOOL_LINK_MODE_25000baseKR_Full_BIT,
+> +		ETHTOOL_LINK_MODE_25000baseSR_Full_BIT,
+> +		ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT,
+> +		ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT,
+> +		ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT,
+> +		ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT,
+> +		ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT,
+> +		ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT,
+>  	};
+>  	static const enum ethtool_link_mode_bit_indices
+>  		additional_advertised_flags_bits[] = {
+> @@ -632,6 +641,24 @@ static void dump_link_caps(const char *prefix, const char *an_prefix,
+>  		  "56000baseSR4/Full" },
+>  		{ 0, ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT,
+>  		  "56000baseLR4/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_25000baseCR_Full_BIT,
+> +		  "25000baseCR/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_25000baseKR_Full_BIT,
+> +		  "25000baseKR/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_25000baseSR_Full_BIT,
+> +		  "25000baseSR/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT,
+> +		  "50000baseCR2/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT,
+> +		  "50000baseKR2/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT,
+> +		  "100000baseKR4/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT,
+> +		  "100000baseSR4/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT,
+> +		  "100000baseCR4/Full" },
+> +		{ 0, ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT,
+> +		  "100000baseLR4_ER4/Full" },
+>  	};
+>  	int indent;
+>  	int did1, new_line_pend, i;
 
-Queued rx_work, for example calling strp_check_rcv after socket buffer changes, will never complete.
+If my other comment wasn't clear, this is the patch I
+to which I was suggesting that you could add support for
+ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT.
 
-sk_user_data is unused in strparser, so just remove the check.
-
-Signed-off-by: Dave Watson <davejwatson@fb.com>
----
- net/strparser/strparser.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/net/strparser/strparser.c b/net/strparser/strparser.c
-index fd688c0..68334b5 100644
---- a/net/strparser/strparser.c
-+++ b/net/strparser/strparser.c
-@@ -390,9 +390,6 @@ static void do_strp_rx_work(struct strparser *strp)
- 	 */
- 	lock_sock(csk);
- 
--	if (unlikely(csk->sk_user_data != strp))
--		goto out;
--
- 	if (unlikely(strp->rx_stopped))
- 		goto out;
- 
+John
 -- 
-2.8.0.rc2
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
