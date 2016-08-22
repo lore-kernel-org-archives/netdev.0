@@ -1,63 +1,55 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next V3 08/18] liquidio: CN23XX queue manipulation
-Date: Mon, 22 Aug 2016 16:45:00 +0000
-Message-ID: <CO2PR11MB0088059F15E0A5CEF03787A697E80@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <1471824765-26473-9-git-send-email-rvatsavayi@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        David Miller <davem@davemloft.net>
+From: Michael Weiser <michael.weiser@gmx.de>
+Subject: [PATCH 3/5] net: ethernet: sun4i-emac: Read rxhdr in CPU byte-order
+Date: Mon, 22 Aug 2016 18:42:17 +0200
+Message-ID: <20160822164219.14272-4-michael.weiser@gmx.de>
+References: <20160822164219.14272-1-michael.weiser@gmx.de>
+Cc: Michael Weiser <michael.weiser@gmx.de>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0109.outbound.protection.outlook.com ([104.47.38.109]:43232
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932367AbcHVQpE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 12:45:04 -0400
-In-Reply-To: <1471824765-26473-9-git-send-email-rvatsavayi@caviumnetworks.com>
-Content-Language: en-US
+Received: from heinz.dinsnail.net ([85.214.155.104]:35538 "EHLO
+        heinz.dinsnail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932297AbcHVQrc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 12:47:32 -0400
+In-Reply-To: <20160822164219.14272-1-michael.weiser@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +		while ((READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST)
-> &&
-> +		       !(READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_QUIET))
-> {
-> +			WRITE_ONCE(reg_val, octeon_read_csr64(
-> +			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
-> +		}
-Busy-reading registers without any timeout. Couldn't there be corner cases =
-[PCI errors, etc.]?
-[This is a recurring event in this patch]
+The EMAC EMAC_RX_IO_DATA_REG data register is dual-purpose: On one hand
+it is used to move actual packet data off the wire. This will be in
+wire-format and accepted as such by higher layers such as IP. Therefore
+it is correctly read as-is (i.e. raw) using readsl.
 
-> +static void cn23xx_disable_io_queues(struct octeon_device *oct) {
-> +	u64 d64 =3D 0ULL;
-> +	u32 d32 =3D 0ULL;
-While true, why bother with the ULLs?
+On the other hand it provides metadata about incoming transfers to the
+driver such as length and checksum validation status. This data is
+little-endian, always and it is interpreted by the driver. Therefore it
+needs to be swapped to CPU endianness to make sense to the driver. This
+is already done for the "receive header" but not rxhdr.
 
-> +
-> +		/* Reset the doorbell register for this Input Queue. */
-> +		octeon_write_csr(oct, CN23XX_SLI_IQ_DOORBELL(q_no),
-> 0xFFFFFFFF);
-> +		while (((octeon_read_csr64(
-> +			    oct, CN23XX_SLI_IQ_DOORBELL(q_no))) !=3D 0ULL) &&
-!, not !=3D 0.
+Read rxhdr using readl in order for sun4i-emac to work correctly when
+running a big-endian kernel.
 
-> CN23XX_SLI_PKT_IOQ_RING_RST));
-> +		while (!(READ_ONCE(d64) & (0x1ULL << q_no)) && loop--) {
-You can use BIT_ULL for this
+Signed-off-by: Michael Weiser <michael.weiser@gmx.de>
+Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/allwinner/sun4i-emac.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> +		/* Reset the doorbell register for this Output Queue. */
-> +		octeon_write_csr(oct, CN23XX_SLI_OQ_PKTS_CREDIT(q_no),
-> +				 0xFFFFFFFF);
-> +		while (((octeon_read_csr64(
-> +			    oct, CN23XX_SLI_OQ_PKTS_CREDIT(q_no))) !=3D 0ULL)
-!, not !=3D 0.
-
-=20
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index cd08885..87d0b87 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -592,8 +592,7 @@ static void emac_rx(struct net_device *dev)
+ 		/* A packet ready now  & Get status/length */
+ 		good_packet = true;
+ 
+-		emac_inblk_32bit(db->membase + EMAC_RX_IO_DATA_REG,
+-				&rxhdr, sizeof(rxhdr));
++		rxhdr = readl(db->membase + EMAC_RX_IO_DATA_REG);
+ 
+ 		if (netif_msg_rx_status(db))
+ 			dev_dbg(db->dev, "rxhdr: %x\n", *((int *)(&rxhdr)));
+-- 
+2.9.2
