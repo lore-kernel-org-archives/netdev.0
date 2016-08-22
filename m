@@ -1,98 +1,31 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v2 net 1/1] net sched: fix encoding to use real length
-Date: Mon, 22 Aug 2016 07:10:20 -0400
-Message-ID: <1471864220-13356-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+Subject: Re: [PATCH iproute2 1/1] tc classifiers: Modernize tcindex classifier
+Date: Mon, 22 Aug 2016 07:12:38 -0400
+Message-ID: <2f0e5d21-786f-b34c-7f8d-b8f847624f67@mojatatu.com>
+References: <1471432613-13459-1-git-send-email-jhs@emojatatu.com>
+ <20160818145741.2a6394f3@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34980 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751294AbcHVLKa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:10:30 -0400
-Received: by mail-io0-f196.google.com with SMTP id q83so8697349iod.2
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:10:29 -0700 (PDT)
+Received: from mail-io0-f170.google.com ([209.85.223.170]:35344 "EHLO
+        mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752098AbcHVLMl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:12:41 -0400
+Received: by mail-io0-f170.google.com with SMTP id m101so106258775ioi.2
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:12:40 -0700 (PDT)
+In-Reply-To: <20160818145741.2a6394f3@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On 16-08-18 05:57 PM, Stephen Hemminger wrote:
 
-Encoding of the metadata was using the padded length as opposed to
-the real length of the data which is a bug per specification.
-This has not been an issue todate because all metadatum specified
-so far has been 32 bit where aligned and data length are the same width.
-This also includes a bug fix for validating the length of a u16 field.
-But since there is no metadata of size u16 yes we are fine to include it
-here.
+> The is ok for the parsing of config, but you are still using print_police
+> for display.
 
-While at it get rid of magic numbers.
+Thanks for catching that. I will send a v2.
 
-Fixes: ef6980b6becb ("net sched: introduce IFE action")
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/act_ife.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 141a06e..e87cd81 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -53,7 +53,7 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
- 	u32 *tlv = (u32 *)(skbdata);
- 	u16 totlen = nla_total_size(dlen);	/*alignment + hdr */
- 	char *dptr = (char *)tlv + NLA_HDRLEN;
--	u32 htlv = attrtype << 16 | totlen;
-+	u32 htlv = attrtype << 16 | dlen;
- 
- 	*tlv = htonl(htlv);
- 	memset(dptr, 0, totlen - NLA_HDRLEN);
-@@ -135,7 +135,7 @@ EXPORT_SYMBOL_GPL(ife_release_meta_gen);
- 
- int ife_validate_meta_u32(void *val, int len)
- {
--	if (len == 4)
-+	if (len == sizeof(u32))
- 		return 0;
- 
- 	return -EINVAL;
-@@ -144,8 +144,8 @@ EXPORT_SYMBOL_GPL(ife_validate_meta_u32);
- 
- int ife_validate_meta_u16(void *val, int len)
- {
--	/* length will include padding */
--	if (len == NLA_ALIGN(2))
-+	/* length will not include padding */
-+	if (len == sizeof(u16))
- 		return 0;
- 
- 	return -EINVAL;
-@@ -652,12 +652,14 @@ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
- 		u8 *tlvdata = (u8 *)tlv;
- 		u16 mtype = tlv->type;
- 		u16 mlen = tlv->len;
-+		u16 alen;
- 
- 		mtype = ntohs(mtype);
- 		mlen = ntohs(mlen);
-+		alen = NLA_ALIGN(mlen);
- 
--		if (find_decode_metaid(skb, ife, mtype, (mlen - 4),
--				       (void *)(tlvdata + 4))) {
-+		if (find_decode_metaid(skb, ife, mtype, (mlen - NLA_HDRLEN),
-+				       (void *)(tlvdata + NLA_HDRLEN))) {
- 			/* abuse overlimits to count when we receive metadata
- 			 * but dont have an ops for it
- 			 */
-@@ -666,8 +668,8 @@ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
- 			ife->tcf_qstats.overlimits++;
- 		}
- 
--		tlvdata += mlen;
--		ifehdrln -= mlen;
-+		tlvdata += alen;
-+		ifehdrln -= alen;
- 		tlv = (struct meta_tlvhdr *)tlvdata;
- 	}
- 
--- 
-1.9.1
+cheers,
+jamal
