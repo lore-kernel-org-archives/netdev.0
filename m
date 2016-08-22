@@ -1,87 +1,33 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next V3 09/18] liquidio: MSIX support for CN23XX
-Date: Mon, 22 Aug 2016 17:36:07 +0000
-Message-ID: <CO2PR11MB0088969E015C67811BC64E0197E80@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <1471824765-26473-10-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net_sched: properly handle failure case of tcf_exts_init()
+Date: Mon, 22 Aug 2016 10:40:50 -0700
+Message-ID: <CAM_iQpVJt9fE_anNXq=Jvi_Ka=BtN-_H365+oEBpFrxJv6dU3A@mail.gmail.com>
+References: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com> <09b957e2-5a37-643d-9cc1-2bbddc4ad8b4@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0119.outbound.protection.outlook.com ([104.47.41.119]:59460
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754256AbcHVRgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 13:36:12 -0400
-In-Reply-To: <1471824765-26473-10-git-send-email-rvatsavayi@caviumnetworks.com>
-Content-Language: en-US
+Received: from mail-it0-f46.google.com ([209.85.214.46]:37829 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754748AbcHVRlL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:41:11 -0400
+Received: by mail-it0-f46.google.com with SMTP id f6so91654115ith.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 10:41:11 -0700 (PDT)
+In-Reply-To: <09b957e2-5a37-643d-9cc1-2bbddc4ad8b4@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +	u64 time_threshold;
-> +	u64 cnt_threshold;
-...
-> +		octeon_write_csr64(
-> +		    oct, CN23XX_SLI_OQ_PKT_INT_LEVELS(oq_no),
-> +		    ((u64)(time_threshold << 32 | cnt_threshold)));
-No need for the cast.
+On Mon, Aug 22, 2016 at 5:11 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>
+>
+> Answered my own question by looking at implementation of kfree();
+> ignores NULL (unlike free())
 
-> +	if (!droq) {
-> +		dev_err(&oct->pci_dev->dev, "23XX bringup FIXME: oct
-> pfnum:%d ioq_vector->ioq_num :%d droq is NULL\n",
-> +			oct->pf_num, ioq_vector->ioq_num);
-> +		return 0;
-> +	}
+Seriously?
 
-> +	if (oct->msix_on !=3D 1) {
-> +		if (intr64 & CN23XX_INTR_PKT_DATA)
-> +			oct->int_status |=3D OCT_DEV_INTR_PKT_DATA;
-> +	}
-What's the significance of 1? Is it actually a Boolean?
-=20
-> +static int msix_enable =3D 1;
-What's the purpose of this static variable? Is there any way to change it?
+Here is what C standard says about free():
 
-> +	if (OCTEON_CN23XX_PF(oct) && msix_enable) {
-> +		if (!oct->msix_entries) {
-> +			/* dev_err(&oct->pci_dev->dev,
-> +			* "Memory Alloc failed...\n");
-> +			 * This is commenting due WARNING: Possible
-> unnecessary
-> +			 * out of memory' message
-> +			 */
-> +			return 1;
-> +		}
-Don't submit commented prints.
-
-> +		irqret =3D request_irq(msix_entries[num_ioq_vectors].vector,
-> +				     liquidio_legacy_intr_handler, 0, "octeon",
-> +				     oct);
-> +		if (irqret) {
-> +			dev_err(&oct->pci_dev->dev,
-> +				"OCTEON: Request_irq failed for MSIX interrupt
-> Error: %d\n",
-> +				irqret);
-> +			kfree(oct->msix_entries);
-> +			return 1;
-Shouldn't you also call pci_disable_msix() on error flow?
-
-> +		}
-> +		for (i =3D 0; i < num_ioq_vectors; i++) {
-> +			irqret =3D request_irq(msix_entries[i].vector,
-> +					     liquidio_msix_intr_handler, 0,
-> +					     "octeon", &oct->ioq_vector[i]);
-> +			if (irqret) {
-> +				dev_err(&oct->pci_dev->dev,
-> +					"OCTEON: Request_irq failed for MSIX
-...
-> +				kfree(oct->msix_entries);
-> +				return 1;
-Likewise
+The free function causes the space pointed to by ptr to be
+deallocated, that is, made available for further allocation. If ptr is
+a null pointer, no action occurs.
