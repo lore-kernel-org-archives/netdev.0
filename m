@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 08/20] batman-adv: Place kref_get for
-	tt_common near use
-Date: Mon, 22 Aug 2016 15:56:08 +0200
-Message-ID: <20160822135620.15337-9-sw@simonwunderlich.de>
+Subject: [PATCH 09/20] batman-adv: Place kref_get for
+	bla_claim near use
+Date: Mon, 22 Aug 2016 15:56:09 +0200
+Message-ID: <20160822135620.15337-10-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,27 +33,28 @@ Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/translation-table.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/bridge_loop_avoidance.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 094da1a..d94e298 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -1645,13 +1645,13 @@ static bool batadv_tt_global_add(struct batadv_priv *bat_priv,
- 		if (flags & BATADV_TT_CLIENT_ROAM)
- 			tt_global_entry->roam_at = jiffies;
- 		kref_init(&common->refcount);
--		kref_get(&common->refcount);
- 		common->added_at = jiffies;
- 
- 		INIT_HLIST_HEAD(&tt_global_entry->orig_list);
- 		atomic_set(&tt_global_entry->orig_list_count, 0);
- 		spin_lock_init(&tt_global_entry->list_lock);
- 
-+		kref_get(&common->refcount);
- 		hash_added = batadv_hash_add(bat_priv->tt.global_hash,
- 					     batadv_compare_tt,
- 					     batadv_choose_tt, common,
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 35ed1d3..b0517a0 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -718,12 +718,13 @@ static void batadv_bla_add_claim(struct batadv_priv *bat_priv,
+ 		claim->lasttime = jiffies;
+ 		kref_get(&backbone_gw->refcount);
+ 		claim->backbone_gw = backbone_gw;
+-
+ 		kref_init(&claim->refcount);
+-		kref_get(&claim->refcount);
++
+ 		batadv_dbg(BATADV_DBG_BLA, bat_priv,
+ 			   "bla_add_claim(): adding new entry %pM, vid %d to hash ...\n",
+ 			   mac, BATADV_PRINT_VID(vid));
++
++		kref_get(&claim->refcount);
+ 		hash_added = batadv_hash_add(bat_priv->bla.claim_hash,
+ 					     batadv_compare_claim,
+ 					     batadv_choose_claim, claim,
 -- 
 2.9.3
