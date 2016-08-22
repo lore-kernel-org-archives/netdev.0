@@ -1,7 +1,7 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 13/20] batman-adv: Place kref_get for hard_iface near use
-Date: Mon, 22 Aug 2016 15:56:13 +0200
-Message-ID: <20160822135620.15337-14-sw@simonwunderlich.de>
+Subject: [PATCH 16/20] batman-adv: Place kref_get for nc_path near use
+Date: Mon, 22 Aug 2016 15:56:16 +0200
+Message-ID: <20160822135620.15337-17-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
         Sven Eckelmann <sven@narfation.org>,
@@ -9,10 +9,10 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:39002 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:38997 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755478AbcHVN55 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:57:57 -0400
+        with ESMTP id S1755148AbcHVN56 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:57:58 -0400
 In-Reply-To: <20160822135620.15337-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,33 +28,28 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/hard-interface.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/batman-adv/network-coding.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 43c9a3e..9284c73 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -694,6 +694,7 @@ batadv_hardif_add_interface(struct net_device *net_dev)
- 	INIT_HLIST_HEAD(&hard_iface->neigh_list);
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
+index 4f4cfe5..165cd27 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -978,7 +978,6 @@ static struct batadv_nc_path *batadv_nc_get_path(struct batadv_priv *bat_priv,
+ 	INIT_LIST_HEAD(&nc_path->packet_list);
+ 	spin_lock_init(&nc_path->packet_list_lock);
+ 	kref_init(&nc_path->refcount);
+-	kref_get(&nc_path->refcount);
+ 	nc_path->last_valid = jiffies;
+ 	ether_addr_copy(nc_path->next_hop, dst);
+ 	ether_addr_copy(nc_path->prev_hop, src);
+@@ -988,6 +987,7 @@ static struct batadv_nc_path *batadv_nc_get_path(struct batadv_priv *bat_priv,
+ 		   nc_path->next_hop);
  
- 	spin_lock_init(&hard_iface->neigh_list_lock);
-+	kref_init(&hard_iface->refcount);
- 
- 	hard_iface->num_bcasts = BATADV_NUM_BCASTS_DEFAULT;
- 	if (batadv_is_wifi_netdev(net_dev))
-@@ -701,11 +702,8 @@ batadv_hardif_add_interface(struct net_device *net_dev)
- 
- 	batadv_v_hardif_init(hard_iface);
- 
--	/* extra reference for return */
--	kref_init(&hard_iface->refcount);
--	kref_get(&hard_iface->refcount);
--
- 	batadv_check_known_mac_addr(hard_iface->net_dev);
-+	kref_get(&hard_iface->refcount);
- 	list_add_tail_rcu(&hard_iface->list, &batadv_hardif_list);
- 
- 	return hard_iface;
+ 	/* Add nc_path to hash table */
++	kref_get(&nc_path->refcount);
+ 	hash_added = batadv_hash_add(hash, batadv_nc_hash_compare,
+ 				     batadv_nc_hash_choose, &nc_path_key,
+ 				     &nc_path->hash_entry);
 -- 
 2.9.3
