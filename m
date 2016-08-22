@@ -1,99 +1,49 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 1/1] brcmfmac: fix pmksa->bssid usage
-Date: Mon, 22 Aug 2016 21:38:23 +0200
-Message-ID: <45617c4f-60b9-2587-5e29-6330ba2f40a6@broadcom.com>
-References: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
- <96ea6e57-79d7-d4ff-1228-6f22addd4996@m4x.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v05 38/72] include/uapi/linux/openvswitch.h: use __u32
+ from linux/types.h
+Date: Mon, 22 Aug 2016 12:39:38 -0700
+Message-ID: <20160822123938.02e885c4@xeon-e3>
+References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
+        <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Nicolas Iooss <nicolas.iooss_linux@m4x.org>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>,
+        netdev@vger.kernel.org, dev@openvswitch.org
+To: Mikko Rapeli <mikko.rapeli@iki.fi>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <96ea6e57-79d7-d4ff-1228-6f22addd4996@m4x.org>
+In-Reply-To: <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22-8-2016 15:03, Nicolas Iooss wrote:
-> Hello,
-> 
-> After I sent the following patch a few weeks ago, I have not received
-> any feedback. Could you please review it and tell me what I may have
-> done wrong?
+On Mon, 22 Aug 2016 20:32:55 +0200
+Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
 
-Nothing. People went on vacation :-)
-> Thanks,
-> Nicolas
-> 
-> On 05/08/16 22:34, Nicolas Iooss wrote:
->> The struct cfg80211_pmksa defines its bssid field as:
->>
->>     const u8 *bssid;
->>
->> contrary to struct brcmf_pmksa, which uses:
->>
->>     u8 bssid[ETH_ALEN];
->>
->> Therefore in brcmf_cfg80211_del_pmksa(), &pmksa->bssid takes the address
->> of this field (of type u8**), not the one of its content (which would be
->> u8*).  Remove the & operator to make brcmf_dbg("%pM") and memcmp()
->> behave as expected.
->>
->> This bug have been found using a custom static checker (which checks the
->> usage of %p... attributes at build time).  It has been introduced in
->> commit 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code"),
->> which replaced pmksa->bssid by &pmksa->bssid while refactoring the code,
->> without modifying struct cfg80211_pmksa definition.
->>
->> Fixes: 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code")
->> Cc: stable@ger.kernel.org
+> Fixes userspace compiler error:
+>=20
+> error: unknown type name =E2=80=98uint32_t=E2=80=99
+>=20
+> Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+> ---
+>  include/uapi/linux/openvswitch.h | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvs=
+witch.h
+> index d95a301..645499a 100644
+> --- a/include/uapi/linux/openvswitch.h
+> +++ b/include/uapi/linux/openvswitch.h
+> @@ -632,8 +632,8 @@ enum ovs_hash_alg {
+>   * @hash_basis: basis used for computing hash.
+>   */
+>  struct ovs_action_hash {
+> -	uint32_t  hash_alg;     /* One of ovs_hash_alg. */
+> -	uint32_t  hash_basis;
+> +	__u32  hash_alg;     /* One of ovs_hash_alg. */
+> +	__u32  hash_basis;
+>  };
+> =20
+>  /**
 
-Ah, so you did something wrong after all :-p. The email address should
-be 'stable@vger.kernel.org'.
-
->> Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
->> ---
->>
->> scripts/checkpatch.pl reports a warning: "Prefer ether_addr_equal() or
->> ether_addr_equal_unaligned() over memcmp()".  Because some files in
->> drivers/net/wireless/broadcom/brcm80211/brcmfmac/ still use memcmp()
->> to compare addresses and because I do not know whether pmksa->bssid is
->> always aligned, I did not follow this warning.
-
-As most of this is done in slow path, I prefer memcmp() as I do not want
-to check alignment for minimal performance gain.
-
->>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
->> index 2628d5e12c64..aceab77cd95a 100644
->> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
->> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
->> @@ -3884,11 +3884,11 @@ brcmf_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *ndev,
->>  	if (!check_vif_up(ifp->vif))
->>  		return -EIO;
->>  
->> -	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", &pmksa->bssid);
->> +	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", pmksa->bssid);
->>  
->>  	npmk = le32_to_cpu(cfg->pmk_list.npmk);
->>  	for (i = 0; i < npmk; i++)
->> -		if (!memcmp(&pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
->> +		if (!memcmp(pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
-
-I find '&pmk[i].bssid' confusing so maybe you could change it to
-'&pmk[i].bssid[0]' or 'pmk[i].bssid' as I think these two are
-essentially the same.
-
-Regards,
-Arend
-
->>  			break;
->>  
->>  	if ((npmk > 0) && (i < npmk)) {
->>
-> 
+This is a a real issue, but being buried in a huge patch series of include
+file stuff I don't think anyone would see it.
