@@ -1,80 +1,53 @@
-From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: Re: [PATCH 1/1] brcmfmac: fix pmksa->bssid usage
-Date: Mon, 22 Aug 2016 15:03:59 +0200
-Message-ID: <96ea6e57-79d7-d4ff-1228-6f22addd4996@m4x.org>
-References: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [RFC PATCH] net: ip_finish_output_gso: Attempt gso_size
+ clamping if segments exceed mtu
+Date: Mon, 22 Aug 2016 16:05:34 +0300
+Message-ID: <20160822160534.6b2afd8f@pixies>
+References: <1471867570-1406-1-git-send-email-shmulik.ladkani@gmail.com>
+        <20160822125842.GF6199@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36198 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752538AbcHVNFo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:05:44 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i138so13360121wmf.3
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 06:05:43 -0700 (PDT)
+In-Reply-To: <20160822125842.GF6199@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi,
 
-After I sent the following patch a few weeks ago, I have not received
-any feedback. Could you please review it and tell me what I may have
-done wrong?
+On Mon, 22 Aug 2016 14:58:42 +0200, fw@strlen.de wrote:
+> > 
+> >  Florian, in fe6cc55f you described a BUG due to gso_size decrease.
+> >  I've tested both bridged and routed cases, but in my setups failed to
+> >  hit the issue; Appreciate if you can provide some hints.
+> 
+> Still get the BUG, I applied this patch on top of net-next.
+> 
+> On hypervisor:
+> 10.0.0.2 via 192.168.7.10 dev tap0 mtu lock 1500
+> ssh root@10.0.0.2 'cat > /dev/null' < /dev/zero
+> 
+> On vm1 (which dies instantly, see below):
+> eth0 mtu 1500 (192.168.7.10)
+> eth1 mtu 1280 (10.0.0.1)
+> 
+> On vm2
+> eth0 mtu 1280 (10.0.0.2)
+> 
+> Normal ipv4 routing via vm1, no iptables etc. present, so
+> 
+> we have  hypervisor 1500 -> 1500 VM1 1280 -> 1280 VM2
+> 
+> Turning off gro avoids this problem.
 
-Thanks,
-Nicolas
-
-On 05/08/16 22:34, Nicolas Iooss wrote:
-> The struct cfg80211_pmksa defines its bssid field as:
-> 
->     const u8 *bssid;
-> 
-> contrary to struct brcmf_pmksa, which uses:
-> 
->     u8 bssid[ETH_ALEN];
-> 
-> Therefore in brcmf_cfg80211_del_pmksa(), &pmksa->bssid takes the address
-> of this field (of type u8**), not the one of its content (which would be
-> u8*).  Remove the & operator to make brcmf_dbg("%pM") and memcmp()
-> behave as expected.
-> 
-> This bug have been found using a custom static checker (which checks the
-> usage of %p... attributes at build time).  It has been introduced in
-> commit 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code"),
-> which replaced pmksa->bssid by &pmksa->bssid while refactoring the code,
-> without modifying struct cfg80211_pmksa definition.
-> 
-> Fixes: 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code")
-> Cc: stable@ger.kernel.org
-> Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-> ---
-> 
-> scripts/checkpatch.pl reports a warning: "Prefer ether_addr_equal() or
-> ether_addr_equal_unaligned() over memcmp()".  Because some files in
-> drivers/net/wireless/broadcom/brcm80211/brcmfmac/ still use memcmp()
-> to compare addresses and because I do not know whether pmksa->bssid is
-> always aligned, I did not follow this warning.
-> 
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-> index 2628d5e12c64..aceab77cd95a 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-> @@ -3884,11 +3884,11 @@ brcmf_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *ndev,
->  	if (!check_vif_up(ifp->vif))
->  		return -EIO;
->  
-> -	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", &pmksa->bssid);
-> +	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", pmksa->bssid);
->  
->  	npmk = le32_to_cpu(cfg->pmk_list.npmk);
->  	for (i = 0; i < npmk; i++)
-> -		if (!memcmp(&pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
-> +		if (!memcmp(pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
->  			break;
->  
->  	if ((npmk > 0) && (i < npmk)) {
-> 
+Thanks Florian, will dive into this.
