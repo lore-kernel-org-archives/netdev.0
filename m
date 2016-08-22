@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 18/18] liquidio:CN23XX pause frame support
-Date: Sun, 21 Aug 2016 17:12:45 -0700
-Message-ID: <1471824765-26473-19-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 16/18] liquidio: CN23XX health monitoring
+Date: Sun, 21 Aug 2016 17:12:43 -0700
+Message-ID: <1471824765-26473-17-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,252 +16,199 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bn3nam01on0079.outbound.protection.outlook.com ([104.47.33.79]:59173
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753976AbcHVA3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:29:39 -0400
+        id S1754006AbcHVA3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 20:29:41 -0400
 In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for pause frame and priv flag for cn23xx
-device.
+Adds support for watchdog based health monitoring
+of octeon cores on cn23xx device.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 110 +++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  12 ++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  11 ++-
- 3 files changed, 126 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 124 ++++++++++++++++++++-
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   2 +
+ 2 files changed, 124 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index a343588..3d011d7 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -190,6 +190,10 @@ static const char oct_droq_stats_strings[][ETH_GSTRING_LEN] = {
- 	"buffer_alloc_failure",
- };
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 4cd6480..a875398 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -24,6 +24,7 @@
+ #include <linux/firmware.h>
+ #include <linux/ptp_clock_kernel.h>
+ #include <net/vxlan.h>
++#include <linux/kthread.h>
+ #include "liquidio_common.h"
+ #include "octeon_droq.h"
+ #include "octeon_iq.h"
+@@ -946,8 +947,6 @@ static void update_txq_status(struct octeon_device *oct, int iq_num)
+ 	struct lio *lio;
+ 	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
  
-+/* LiquidIO driver private flags */
-+static const char oct_priv_flags_strings[][ETH_GSTRING_LEN] = {
-+};
-+
- #define OCTNIC_NCMD_AUTONEG_ON  0x1
- #define OCTNIC_NCMD_PHY_ON      0x2
+-	/*octeon_update_iq_read_idx(oct, iq);*/
+-
+ 	netdev = oct->props[iq->ifidx].netdev;
  
-@@ -658,6 +662,69 @@ lio_get_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
- 	pause->rx_pause = oct->rx_pause;
+ 	/* This is needed because the first IQ does not have
+@@ -1183,6 +1182,100 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
+ 	return 0;
  }
  
-+static int
-+lio_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *pause)
++static int liquidio_watchdog(void *param)
 +{
-+	/* Notes: Not supporting any auto negotiation in these
-+	 * drivers.
-+	 */
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+	struct octnic_ctrl_pkt nctrl;
-+	struct oct_link_info *linfo = &lio->linfo;
++#define CIU3_WDOG(c) (0x1010000020000ULL + (c << 3))
++	u64 wdog;
++	u16 mask_of_stuck_cores = 0;
++	u16 mask_of_crashed_cores = 0;
++	int core_num;
++	u8 core_is_stuck[12];
++	u8 core_crashed[12];
++	struct octeon_device *oct = param;
 +
-+	int ret = 0;
++	memset(core_is_stuck, 0, sizeof(core_is_stuck));
++	memset(core_crashed, 0, sizeof(core_crashed));
 +
-+	if (oct->chip_id != OCTEON_CN23XX_PF_VID)
-+		return -EINVAL;
++	while (!kthread_should_stop()) {
++		mask_of_crashed_cores =
++		    (u16)octeon_read_csr64(oct, CN23XX_SLI_SCRATCH2);
 +
-+	if (linfo->link.s.duplex == 0) {
-+		/*no flow control for half duplex*/
-+		if (pause->rx_pause || pause->tx_pause)
-+			return -EINVAL;
++		for (core_num = 0; core_num < 12; core_num++) {
++			if (!core_is_stuck[core_num]) {
++				wdog = lio_pci_readq(oct, CIU3_WDOG(core_num));
++
++				/* look at watchdog state field */
++				wdog &= 12ULL;
++				if (wdog) {
++					/* this watchdog timer has expired */
++					core_is_stuck[core_num] = 1;
++					mask_of_stuck_cores |= (1 << core_num);
++				}
++			}
++
++			if (!core_crashed[core_num])
++				core_crashed[core_num] =
++				    (mask_of_crashed_cores >> core_num) & 1;
++		}
++
++		if (mask_of_stuck_cores) {
++			for (core_num = 0; core_num < 12; core_num++) {
++				if (core_is_stuck[core_num] == 1) {
++					dev_err(&oct->pci_dev->dev,
++						"ERROR: Octeon core %d is stuck!\n",
++						core_num);
++					core_is_stuck[core_num] =
++						2; /* 2 means we have printk'd
++						    * an error; so no need to
++						    * repeat the same printk
++						    */
++				}
++			}
++		}
++
++		if (mask_of_crashed_cores) {
++			for (core_num = 0; core_num < 12; core_num++) {
++				if (core_crashed[core_num] == 1) {
++					dev_err(&oct->pci_dev->dev,
++						"ERROR: Octeon core %d crashed!  See oct-fwdump for details.\n",
++						core_num);
++					core_crashed[core_num] =
++						2; /* 2 means we have printk'd
++						    * an error; so no need to
++						    * repeat the same printk
++						    */
++				}
++			}
++		}
++#ifdef CONFIG_MODULE_UNLOAD
++		if (mask_of_stuck_cores || mask_of_crashed_cores) {
++			/* make module refcount=0 so that rmmod will work */
++			long refcount;
++
++			refcount = module_refcount(THIS_MODULE);
++
++			while (refcount > 0) {
++				module_put(THIS_MODULE);
++				refcount = module_refcount(THIS_MODULE);
++			}
++
++			/* compensate for and withstand an unlikely (but still
++			 * possible) race condition
++			 */
++			while (refcount < 0) {
++				try_module_get(THIS_MODULE);
++				refcount = module_refcount(THIS_MODULE);
++			}
++		}
++#endif
++		/* sleep for two seconds */
++		set_current_state(TASK_INTERRUPTIBLE);
++		schedule_timeout(2 * HZ);
 +	}
-+
-+	/*do not support autoneg of link flow control*/
-+	if (pause->autoneg == AUTONEG_ENABLE)
-+		return -EINVAL;
-+
-+	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
-+
-+	nctrl.ncmd.u64 = 0;
-+	nctrl.ncmd.s.cmd = OCTNET_CMD_SET_FLOW_CTL;
-+	nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
-+	nctrl.wait_time = 100;
-+	nctrl.netpndev = (u64)netdev;
-+	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
-+
-+	if (pause->rx_pause) {
-+		/*enable rx pause*/
-+		nctrl.ncmd.s.param1 = 1;
-+	} else {
-+		/*disable rx pause*/
-+		nctrl.ncmd.s.param1 = 0;
-+	}
-+
-+	if (pause->tx_pause) {
-+		/*enable tx pause*/
-+		nctrl.ncmd.s.param2 = 1;
-+	} else {
-+		/*disable tx pause*/
-+		nctrl.ncmd.s.param2 = 0;
-+	}
-+
-+	ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
-+	if (ret < 0) {
-+		dev_err(&oct->pci_dev->dev, "Failed to set pause parameter\n");
-+		return -EINVAL;
-+	}
-+
-+	oct->rx_pause = pause->rx_pause;
-+	oct->tx_pause = pause->tx_pause;
 +
 +	return 0;
 +}
 +
- static void
- lio_get_ethtool_stats(struct net_device *netdev,
- 		      struct ethtool_stats *stats  __attribute__((unused)),
-@@ -925,6 +992,27 @@ lio_get_ethtool_stats(struct net_device *netdev,
+ /**
+  * \brief PCI probe handler
+  * @param pdev PCI device structure
+@@ -1228,6 +1321,30 @@ liquidio_probe(struct pci_dev *pdev,
+ 		return -ENOMEM;
  	}
- }
  
-+static void lio_get_priv_flags_strings(struct lio *lio, u8 *data)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
-+	int i;
++	if (OCTEON_CN23XX_PF(oct_dev)) {
++		u64 scratch1;
++		u8 bus, device, function;
 +
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		for (i = 0; i < ARRAY_SIZE(oct_priv_flags_strings); i++) {
-+			sprintf(data, "%s", oct_priv_flags_strings[i]);
-+			data += ETH_GSTRING_LEN;
++		scratch1 = octeon_read_csr64(oct_dev, CN23XX_SLI_SCRATCH1);
++		if (!(scratch1 & 4ULL)) {
++			/* Bit 2 of SLI_SCRATCH_1 is a flag that indicates that
++			 * the lio watchdog kernel thread is running for this
++			 * NIC.  Each NIC gets one watchdog kernel thread.
++			 */
++			scratch1 |= 4ULL;
++			octeon_write_csr64(oct_dev, CN23XX_SLI_SCRATCH1,
++					   scratch1);
++
++			bus = pdev->bus->number;
++			device = PCI_SLOT(pdev->devfn);
++			function = PCI_FUNC(pdev->devfn);
++			oct_dev->watchdog_task = kthread_create(
++			    liquidio_watchdog, oct_dev,
++			    "liowd/%02hhx:%02hhx.%hhx", bus, device, function);
++			wake_up_process(oct_dev->watchdog_task);
 +		}
-+		break;
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		break;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		break;
 +	}
-+}
 +
- static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -964,12 +1052,31 @@ static void lio_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
- 		}
- 		break;
+ 	oct_dev->rx_pause = 1;
+ 	oct_dev->tx_pause = 1;
  
-+	case ETH_SS_PRIV_FLAGS:
-+		lio_get_priv_flags_strings(lio, data);
-+		break;
- 	default:
- 		netif_info(lio, drv, lio->netdev, "Unknown Stringset !!\n");
- 		break;
- 	}
- }
+@@ -1560,6 +1677,9 @@ static void liquidio_remove(struct pci_dev *pdev)
  
-+static int lio_get_priv_flags_ss_count(struct lio *lio)
-+{
-+	struct octeon_device *oct_dev = lio->oct_dev;
+ 	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
+ 
++	if (oct_dev->watchdog_task)
++		kthread_stop(oct_dev->watchdog_task);
 +
-+	switch (oct_dev->chip_id) {
-+	case OCTEON_CN23XX_PF_VID:
-+		return ARRAY_SIZE(oct_priv_flags_strings);
-+	case OCTEON_CN68XX:
-+	case OCTEON_CN66XX:
-+		return -EOPNOTSUPP;
-+	default:
-+		netif_info(lio, drv, lio->netdev, "Unknown Chip !!\n");
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int lio_get_sset_count(struct net_device *netdev, int sset)
- {
- 	struct lio *lio = GET_LIO(netdev);
-@@ -980,6 +1087,8 @@ static int lio_get_sset_count(struct net_device *netdev, int sset)
- 		return (ARRAY_SIZE(oct_stats_strings) +
- 			ARRAY_SIZE(oct_iq_stats_strings) * oct_dev->num_iqs +
- 			ARRAY_SIZE(oct_droq_stats_strings) * oct_dev->num_oqs);
-+	case ETH_SS_PRIV_FLAGS:
-+		return lio_get_priv_flags_ss_count(lio);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -2096,6 +2205,7 @@ static const struct ethtool_ops lio_ethtool_ops = {
- 	.get_strings		= lio_get_strings,
- 	.get_ethtool_stats	= lio_get_ethtool_stats,
- 	.get_pauseparam		= lio_get_pauseparam,
-+	.set_pauseparam		= lio_set_pauseparam,
- 	.get_regs_len		= lio_get_regs_len,
- 	.get_regs		= lio_get_regs,
- 	.get_msglevel		= lio_get_msglevel,
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index dc57b39..440ae32 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2178,7 +2178,7 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	struct liquidio_if_cfg_context *ctx;
+ 	if (oct_dev->app_mode && (oct_dev->app_mode == CVM_DRV_NIC_APP))
+ 		liquidio_stop_nic_module(oct_dev);
  
- 	resp = (struct liquidio_if_cfg_resp *)sc->virtrptr;
--	ctx  = (struct liquidio_if_cfg_context *)sc->ctxptr;
-+	ctx = (struct liquidio_if_cfg_context *)sc->ctxptr;
- 
- 	oct = lio_get_device(ctx->octeon_id);
- 	if (resp->status)
-@@ -3923,7 +3923,10 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 
- 		/* Register ethtool support */
- 		liquidio_set_ethtool_ops(netdev);
--		octeon_dev->priv_flags = 0x0;
-+		if (lio->oct_dev->chip_id == OCTEON_CN23XX_PF_VID)
-+			octeon_dev->priv_flags = OCT_PRIV_FLAG_DEFAULT;
-+		else
-+			octeon_dev->priv_flags = 0x0;
- 
- 		if (netdev->features & NETIF_F_LRO)
- 			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
-@@ -4003,8 +4006,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* run port_config command for each port */
- 	oct->ifcount = num_nic_ports;
- 
--	memset(oct->props, 0,
--	       sizeof(struct octdev_props) * num_nic_ports);
-+	memset(oct->props, 0, sizeof(struct octdev_props) * num_nic_ports);
- 
- 	for (i = 0; i < MAX_OCTEON_LINKS; i++)
- 		oct->props[i].gmxport = -1;
-@@ -4020,7 +4022,7 @@ static int liquidio_init_nic_module(struct octeon_device *oct)
- 	/* Initialize interrupt moderation params */
- 	intrmod_cfg = &((struct octeon_device *)oct)->intrmod;
- 	intrmod_cfg->rx_enable = 1;
--	intrmod_cfg->check_intrvl =   LIO_INTRMOD_CHECK_INTERVAL;
-+	intrmod_cfg->check_intrvl = LIO_INTRMOD_CHECK_INTERVAL;
- 	intrmod_cfg->maxpkt_ratethr = LIO_INTRMOD_MAXPKT_RATETHR;
- 	intrmod_cfg->minpkt_ratethr = LIO_INTRMOD_MINPKT_RATETHR;
- 	intrmod_cfg->rx_maxcnt_trigger = LIO_INTRMOD_RXMAXCNT_TRIGGER;
 diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 773eb09..a86fe2b 100644
+index ec3cb22..773eb09 100644
 --- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
 +++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -757,8 +757,15 @@ enum {
- 	OCT_PRIV_FLAG_TX_BYTES = 0, /* Tx interrupts by pending byte count */
+@@ -486,6 +486,8 @@ struct octeon_device {
+ 
+ 	/* private flags to control driver-specific features through ethtool */
+ 	u32 priv_flags;
++
++	void *watchdog_task;
  };
  
--static inline void lio_set_priv_flag(struct octeon_device *octdev, u32 flag,
--				     u32 val)
-+#define OCT_PRIV_FLAG_DEFAULT 0x0
-+
-+static inline u32 lio_get_priv_flag(struct octeon_device *octdev, u32 flag)
-+{
-+	return !!(octdev->priv_flags & (0x1 << flag));
-+}
-+
-+static inline void lio_set_priv_flag(struct octeon_device *octdev,
-+				     u32 flag, u32 val)
- {
- 	if (val)
- 		octdev->priv_flags |= (0x1 << flag);
+ #define  OCT_DRV_ONLINE 1
 -- 
 1.8.3.1
