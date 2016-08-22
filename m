@@ -1,34 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: mv88e6xxx: Fix ingress rate removal for mv6131 chips
-Date: Tue, 23 Aug 2016 01:09:36 +0200
-Message-ID: <20160822230936.GF31727@lunn.ch>
-References: <1471902428-24250-1-git-send-email-jm@lentin.co.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v05 21/72] include/uapi/linux/if_pppox.h: include
+ linux/if.h
+Date: Mon, 22 Aug 2016 16:26:41 -0700 (PDT)
+Message-ID: <20160822.162641.227249250583935243.davem@davemloft.net>
+References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
+        <1471890809-4383-22-git-send-email-mikko.rapeli@iki.fi>
+        <20160822123745.7921a88d@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mikko.rapeli@iki.fi, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-To: Jamie Lentin <jm@lentin.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41041 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756313AbcHVXJk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 19:09:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1471902428-24250-1-git-send-email-jm@lentin.co.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160822123745.7921a88d@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 22, 2016 at 10:47:08PM +0100, Jamie Lentin wrote:
-> The PORT_RATE_CONTROL register works differently on 88e6095/6095f/6131
-> in comparison to 6123/61/65, and 0x0 disables. The distinction was lost
-> Linux 4.1 --> 4.2
-> 
-> Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 22 Aug 2016 12:37:45 -0700
 
-Hi Jamie
+> It seems your goal is that every include file should be standalone,
+> i.e it must include every definition it uses.
 
-Thanks for the patch.
+I think this is absolutely mandatory Stephen.  If you include x.h
+it should just work if you use the interfaces x.h defines.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+No user should have to know about dependencies, that is exactly the
+job of the header file itself.
