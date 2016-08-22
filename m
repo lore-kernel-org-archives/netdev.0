@@ -1,57 +1,28 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH v4 net-next] l2tp: Refactor the codes with existing
- macros instead of literal number
-Date: Mon, 22 Aug 2016 16:43:58 +0200
-Message-ID: <20160822144358.m5jwuzvmgic4e7xw@alphalink.fr>
-References: <1471863591-6790-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH v4 net-next] ppp: Fix one deadlock issue of PPP when
+ reentrant
+Date: Mon, 22 Aug 2016 16:48:39 +0200
+Message-ID: <20160822144838.jurspfap3z5527j4@alphalink.fr>
+References: <1471828814-19187-1-git-send-email-fgao@ikuai8.com>
+ <20160822123525.ycymv43cdaoykuqt@alphalink.fr>
+ <CA+6hz4pb69Kn0KSmrA+Lq0ubgaed8zA9iKfAjr5bN2++ESzuMg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jchapman@katalix.com, philipp@redfish-solutions.com,
-        davem@davemloft.net, netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:43455 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932407AbcHVOoF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 10:44:05 -0400
+Cc: Gao Feng <fgao@ikuai8.com>, paulus@samba.org,
+        Philp Prindeville <philipp@redfish-solutions.com>,
+        linux-ppp@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Feng Gao <gfree.wind@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1471863591-6790-1-git-send-email-fgao@ikuai8.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CA+6hz4pb69Kn0KSmrA+Lq0ubgaed8zA9iKfAjr5bN2++ESzuMg@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 22, 2016 at 06:59:51PM +0800, fgao@ikuai8.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
+On Mon, Aug 22, 2016 at 09:16:16PM +0800, Feng Gao wrote:
+> It seems a better solution, simple and apparent.
+> I accept any best solution which could make kernel works well :))
 > 
-> Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
-> 0x03, and 2 separately.
-> 
-Apart from the checkpatch errors,
-
-Acked-by: Guillaume Nault <g.nault@alphalink.fr>
-
-> @@ -325,8 +324,8 @@ static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
->  	skb_reserve(skb, uhlen);
->  
->  	/* Add PPP header */
-> -	skb->data[0] = ppph[0];
-> -	skb->data[1] = ppph[1];
-> +	skb->data[0] = PPP_ALLSTATIONS; 
-> 
-Trailing whitespace.
-
-> @@ -398,14 +396,14 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
->  		   sizeof(struct iphdr) + /* IP header */
->  		   uhlen +		/* UDP header (if L2TP_ENCAPTYPE_UDP) */
->  		   session->hdr_len +	/* L2TP header */
-> -		   sizeof(ppph);	/* PPP header */
-> +		   2;			/* 2 bytes for PPP_ALLSTATIONS & PPP_UI */
->  	if (skb_cow_head(skb, headroom))
->  		goto abort_put_sess_tun;
->  
->  	/* Setup PPP header */
-> -	__skb_push(skb, sizeof(ppph));
-> -	skb->data[0] = ppph[0];
-> -	skb->data[1] = ppph[1];
-> +	__skb_push(skb, 2); 
-> 
-Here too.
+Thanks. I need to rework it a bit and do wider testing.
+If everything goes fine, I should have something to submit formally
+before the end of the week.
