@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 06/20] batman-adv: Place kref_get for
-	orig_node near use
-Date: Mon, 22 Aug 2016 15:56:06 +0200
-Message-ID: <20160822135620.15337-7-sw@simonwunderlich.de>
+Subject: [PATCH 07/20] batman-adv: Place kref_get for
+	tt_local_entry near use
+Date: Mon, 22 Aug 2016 15:56:07 +0200
+Message-ID: <20160822135620.15337-8-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,106 +33,28 @@ Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c     | 7 ++++---
- net/batman-adv/bat_v_ogm.c      | 5 ++---
- net/batman-adv/gateway_client.c | 2 +-
- net/batman-adv/network-coding.c | 7 +++----
- net/batman-adv/originator.c     | 1 -
- 5 files changed, 10 insertions(+), 12 deletions(-)
+ net/batman-adv/translation-table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 9ed4f1f..3c7900d 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -324,17 +324,18 @@ batadv_iv_ogm_orig_get(struct batadv_priv *bat_priv, const u8 *addr)
- 	if (!orig_node->bat_iv.bcast_own_sum)
- 		goto free_orig_node;
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 5cc500f..094da1a 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -734,7 +734,6 @@ bool batadv_tt_local_add(struct net_device *soft_iface, const u8 *addr,
+ 	if (batadv_is_wifi_netdev(in_dev))
+ 		tt_local->common.flags |= BATADV_TT_CLIENT_WIFI;
+ 	kref_init(&tt_local->common.refcount);
+-	kref_get(&tt_local->common.refcount);
+ 	tt_local->last_seen = jiffies;
+ 	tt_local->common.added_at = tt_local->last_seen;
+ 	tt_local->vlan = vlan;
+@@ -746,6 +745,7 @@ bool batadv_tt_local_add(struct net_device *soft_iface, const u8 *addr,
+ 	    is_multicast_ether_addr(addr))
+ 		tt_local->common.flags |= BATADV_TT_CLIENT_NOPURGE;
  
-+	kref_get(&orig_node->refcount);
- 	hash_added = batadv_hash_add(bat_priv->orig_hash, batadv_compare_orig,
- 				     batadv_choose_orig, orig_node,
- 				     &orig_node->hash_entry);
- 	if (hash_added != 0)
--		goto free_orig_node;
-+		goto free_orig_node_hash;
- 
- 	return orig_node;
- 
--free_orig_node:
--	/* free twice, as batadv_orig_node_new sets refcount to 2 */
-+free_orig_node_hash:
- 	batadv_orig_node_put(orig_node);
-+free_orig_node:
- 	batadv_orig_node_put(orig_node);
- 
- 	return NULL;
-diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
-index 6fbba4e..1aeeadc 100644
---- a/net/batman-adv/bat_v_ogm.c
-+++ b/net/batman-adv/bat_v_ogm.c
-@@ -73,13 +73,12 @@ struct batadv_orig_node *batadv_v_ogm_orig_get(struct batadv_priv *bat_priv,
- 	if (!orig_node)
- 		return NULL;
- 
-+	kref_get(&orig_node->refcount);
- 	hash_added = batadv_hash_add(bat_priv->orig_hash, batadv_compare_orig,
- 				     batadv_choose_orig, orig_node,
- 				     &orig_node->hash_entry);
- 	if (hash_added != 0) {
--		/* orig_node->refcounter is initialised to 2 by
--		 * batadv_orig_node_new()
--		 */
-+		/* remove refcnt for newly created orig_node and hash entry */
- 		batadv_orig_node_put(orig_node);
- 		batadv_orig_node_put(orig_node);
- 		orig_node = NULL;
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index c2928c2..b889e1f 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -339,8 +339,8 @@ static void batadv_gw_node_add(struct batadv_priv *bat_priv,
- 	if (!gw_node)
- 		return;
- 
--	kref_get(&orig_node->refcount);
- 	INIT_HLIST_NODE(&gw_node->list);
-+	kref_get(&orig_node->refcount);
- 	gw_node->orig_node = orig_node;
- 	gw_node->bandwidth_down = ntohl(gateway->bandwidth_down);
- 	gw_node->bandwidth_up = ntohl(gateway->bandwidth_up);
-diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
-index 293ef4f..3814cfb 100644
---- a/net/batman-adv/network-coding.c
-+++ b/net/batman-adv/network-coding.c
-@@ -856,14 +856,13 @@ batadv_nc_get_nc_node(struct batadv_priv *bat_priv,
- 	if (!nc_node)
- 		return NULL;
- 
--	kref_get(&orig_neigh_node->refcount);
--
- 	/* Initialize nc_node */
- 	INIT_LIST_HEAD(&nc_node->list);
--	ether_addr_copy(nc_node->addr, orig_node->orig);
--	nc_node->orig_node = orig_neigh_node;
- 	kref_init(&nc_node->refcount);
- 	kref_get(&nc_node->refcount);
-+	ether_addr_copy(nc_node->addr, orig_node->orig);
-+	kref_get(&orig_neigh_node->refcount);
-+	nc_node->orig_node = orig_neigh_node;
- 
- 	/* Select ingoing or outgoing coding node */
- 	if (in_coding) {
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 0792de8..0b7d57a 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -989,7 +989,6 @@ struct batadv_orig_node *batadv_orig_node_new(struct batadv_priv *bat_priv,
- 
- 	/* extra reference for return */
- 	kref_init(&orig_node->refcount);
--	kref_get(&orig_node->refcount);
- 
- 	orig_node->bat_priv = bat_priv;
- 	ether_addr_copy(orig_node->orig, addr);
++	kref_get(&tt_local->common.refcount);
+ 	hash_added = batadv_hash_add(bat_priv->tt.local_hash, batadv_compare_tt,
+ 				     batadv_choose_tt, &tt_local->common,
+ 				     &tt_local->common.hash_entry);
 -- 
 2.9.3
