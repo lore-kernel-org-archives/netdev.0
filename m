@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next V2 03/17] net/mlx5: PD and UAR commands via mlx5 ifc
-Date: Mon, 22 Aug 2016 19:51:00 +0300
-Message-ID: <1471884674-22709-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH for-next V2 04/17] net/mlx5: MCG commands via mlx5 ifc
+Date: Mon, 22 Aug 2016 19:51:01 +0300
+Message-ID: <1471884674-22709-5-git-send-email-saeedm@mellanox.com>
 References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -16,190 +16,145 @@ In-Reply-To: <1471884674-22709-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@pu
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Remove old representation of manually created PD/UAR commands layouts
+Remove old representation of manually created MCG commands layout
 and use mlx5_ifc canonical structures and defines.
 
 Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/pd.c  | 58 +++++------------------
- drivers/net/ethernet/mellanox/mlx5/core/uar.c | 66 ++++++---------------------
- 2 files changed, 25 insertions(+), 99 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c |  4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mcg.c | 70 +++++++--------------------
+ include/linux/mlx5/mlx5_ifc.h                 |  2 +-
+ 3 files changed, 21 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pd.c b/drivers/net/ethernet/mellanox/mlx5/core/pd.c
-index f2d3aee..efe452c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pd.c
-@@ -36,66 +36,32 @@
- #include <linux/mlx5/cmd.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index d6e2a1c..0d55e0f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -280,7 +280,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
+ 	case MLX5_CMD_OP_DEALLOC_Q_COUNTER:
+ 	case MLX5_CMD_OP_DEALLOC_PD:
+ 	case MLX5_CMD_OP_DEALLOC_UAR:
+-	case MLX5_CMD_OP_DETTACH_FROM_MCG:
++	case MLX5_CMD_OP_DETACH_FROM_MCG:
+ 	case MLX5_CMD_OP_DEALLOC_XRCD:
+ 	case MLX5_CMD_OP_DEALLOC_TRANSPORT_DOMAIN:
+ 	case MLX5_CMD_OP_DELETE_VXLAN_UDP_DPORT:
+@@ -490,7 +490,7 @@ const char *mlx5_command_str(int command)
+ 	MLX5_COMMAND_STR_CASE(CONFIG_INT_MODERATION);
+ 	MLX5_COMMAND_STR_CASE(ACCESS_REG);
+ 	MLX5_COMMAND_STR_CASE(ATTACH_TO_MCG);
+-	MLX5_COMMAND_STR_CASE(DETTACH_FROM_MCG);
++	MLX5_COMMAND_STR_CASE(DETACH_FROM_MCG);
+ 	MLX5_COMMAND_STR_CASE(GET_DROPPED_PACKET_LOG);
+ 	MLX5_COMMAND_STR_CASE(MAD_IFC);
+ 	MLX5_COMMAND_STR_CASE(QUERY_MAD_DEMUX);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mcg.c b/drivers/net/ethernet/mellanox/mlx5/core/mcg.c
+index d5a0c2d..01a1abd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mcg.c
+@@ -37,70 +37,36 @@
+ #include <rdma/ib_verbs.h>
  #include "mlx5_core.h"
  
--struct mlx5_alloc_pd_mbox_in {
+-struct mlx5_attach_mcg_mbox_in {
 -	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd[8];
+-	__be32			qpn;
+-	__be32			rsvd;
+-	u8			gid[16];
 -};
 -
--struct mlx5_alloc_pd_mbox_out {
+-struct mlx5_attach_mcg_mbox_out {
 -	struct mlx5_outbox_hdr	hdr;
--	__be32			pdn;
--	u8			rsvd[4];
+-	u8			rsvf[8];
 -};
 -
--struct mlx5_dealloc_pd_mbox_in {
+-struct mlx5_detach_mcg_mbox_in {
 -	struct mlx5_inbox_hdr	hdr;
--	__be32			pdn;
--	u8			rsvd[4];
+-	__be32			qpn;
+-	__be32			rsvd;
+-	u8			gid[16];
 -};
 -
--struct mlx5_dealloc_pd_mbox_out {
+-struct mlx5_detach_mcg_mbox_out {
 -	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
+-	u8			rsvf[8];
 -};
 -
- int mlx5_core_alloc_pd(struct mlx5_core_dev *dev, u32 *pdn)
+ int mlx5_core_attach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn)
  {
--	struct mlx5_alloc_pd_mbox_in	in;
--	struct mlx5_alloc_pd_mbox_out	out;
-+	u32 out[MLX5_ST_SZ_DW(alloc_pd_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(alloc_pd_in)]   = {0};
+-	struct mlx5_attach_mcg_mbox_in in;
+-	struct mlx5_attach_mcg_mbox_out out;
++	u32 out[MLX5_ST_SZ_DW(attach_to_mcg_out)] = {0};
++	u32 in[MLX5_ST_SZ_DW(attach_to_mcg_in)]   = {0};
++	void *gid;
  	int err;
  
 -	memset(&in, 0, sizeof(in));
 -	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ALLOC_PD);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	MLX5_SET(alloc_pd_in, in, opcode, MLX5_CMD_OP_ALLOC_PD);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
--	*pdn = be32_to_cpu(out.pdn) & 0xffffff;
-+	*pdn = MLX5_GET(alloc_pd_out, out, pd);
- 	return err;
- }
- EXPORT_SYMBOL(mlx5_core_alloc_pd);
- 
- int mlx5_core_dealloc_pd(struct mlx5_core_dev *dev, u32 pdn)
- {
--	struct mlx5_dealloc_pd_mbox_in	in;
--	struct mlx5_dealloc_pd_mbox_out	out;
-+	u32 out[MLX5_ST_SZ_DW(dealloc_pd_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(dealloc_pd_in)]   = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DEALLOC_PD);
--	in.pdn = cpu_to_be32(pdn);
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ATTACH_TO_MCG);
+-	memcpy(in.gid, mgid, sizeof(*mgid));
+-	in.qpn = cpu_to_be32(qpn);
 -	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
 -	if (err)
 -		return err;
 -
 -	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
+-		err = mlx5_cmd_status_to_err(&out.hdr);
++	MLX5_SET(attach_to_mcg_in, in, opcode, MLX5_CMD_OP_ATTACH_TO_MCG);
++	MLX5_SET(attach_to_mcg_in, in, qpn, qpn);
++	gid = MLX5_ADDR_OF(attach_to_mcg_in, in, multicast_gid);
++	memcpy(gid, mgid, sizeof(*mgid));
+ 
 -	return err;
-+	MLX5_SET(dealloc_pd_in, in, opcode, MLX5_CMD_OP_DEALLOC_PD);
-+	MLX5_SET(dealloc_pd_in, in, pd, pdn);
 +	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 +	return err ? : mlx5_cmd_status_to_err_v2(out);
  }
- EXPORT_SYMBOL(mlx5_core_dealloc_pd);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/uar.c b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-index 5ff8af4..d0a0e0b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-@@ -42,73 +42,33 @@ enum {
- 	NUM_LOW_LAT_UUARS	= 4,
- };
+ EXPORT_SYMBOL(mlx5_core_attach_mcg);
  
--
--struct mlx5_alloc_uar_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
--struct mlx5_alloc_uar_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	__be32			uarn;
--	u8			rsvd[4];
--};
--
--struct mlx5_free_uar_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			uarn;
--	u8			rsvd[4];
--};
--
--struct mlx5_free_uar_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
- int mlx5_cmd_alloc_uar(struct mlx5_core_dev *dev, u32 *uarn)
+ int mlx5_core_detach_mcg(struct mlx5_core_dev *dev, union ib_gid *mgid, u32 qpn)
  {
--	struct mlx5_alloc_uar_mbox_in	in;
--	struct mlx5_alloc_uar_mbox_out	out;
-+	u32 out[MLX5_ST_SZ_DW(alloc_uar_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(alloc_uar_in)]   = {0};
+-	struct mlx5_detach_mcg_mbox_in in;
+-	struct mlx5_detach_mcg_mbox_out out;
++	u32 out[MLX5_ST_SZ_DW(detach_from_mcg_out)] = {0};
++	u32 in[MLX5_ST_SZ_DW(detach_from_mcg_in)]   = {0};
++	void *gid;
  	int err;
  
 -	memset(&in, 0, sizeof(in));
 -	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ALLOC_UAR);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	MLX5_SET(alloc_uar_in, in, opcode, MLX5_CMD_OP_ALLOC_UAR);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
- 	if (err)
--		goto ex;
--
--	if (out.hdr.status) {
--		err = mlx5_cmd_status_to_err(&out.hdr);
--		goto ex;
--	}
--
--	*uarn = be32_to_cpu(out.uarn) & 0xffffff;
-+		return err;
- 
--ex:
-+	*uarn = MLX5_GET(alloc_uar_out, out, uar);
- 	return err;
- }
- EXPORT_SYMBOL(mlx5_cmd_alloc_uar);
- 
- int mlx5_cmd_free_uar(struct mlx5_core_dev *dev, u32 uarn)
- {
--	struct mlx5_free_uar_mbox_in	in;
--	struct mlx5_free_uar_mbox_out	out;
-+	u32 out[MLX5_ST_SZ_DW(dealloc_uar_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(dealloc_uar_in)]   = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DEALLOC_UAR);
--	in.uarn = cpu_to_be32(uarn);
+-	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DETTACH_FROM_MCG);
+-	memcpy(in.gid, mgid, sizeof(*mgid));
+-	in.qpn = cpu_to_be32(qpn);
 -	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
 -	if (err)
--		goto ex;
+-		return err;
 -
 -	if (out.hdr.status)
 -		err = mlx5_cmd_status_to_err(&out.hdr);
--
--ex:
++	MLX5_SET(detach_from_mcg_in, in, opcode, MLX5_CMD_OP_DETACH_FROM_MCG);
++	MLX5_SET(detach_from_mcg_in, in, qpn, qpn);
++	gid = MLX5_ADDR_OF(detach_from_mcg_in, in, multicast_gid);
++	memcpy(gid, mgid, sizeof(*mgid));
+ 
 -	return err;
-+	MLX5_SET(dealloc_uar_in, in, opcode, MLX5_CMD_OP_DEALLOC_UAR);
-+	MLX5_SET(dealloc_uar_in, in, uar, uarn);
 +	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
 +	return err ? : mlx5_cmd_status_to_err_v2(out);
  }
- EXPORT_SYMBOL(mlx5_cmd_free_uar);
- 
+ EXPORT_SYMBOL(mlx5_core_detach_mcg);
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 21bc455..3f70fc9 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -152,7 +152,7 @@ enum {
+ 	MLX5_CMD_OP_CONFIG_INT_MODERATION         = 0x804,
+ 	MLX5_CMD_OP_ACCESS_REG                    = 0x805,
+ 	MLX5_CMD_OP_ATTACH_TO_MCG                 = 0x806,
+-	MLX5_CMD_OP_DETTACH_FROM_MCG              = 0x807,
++	MLX5_CMD_OP_DETACH_FROM_MCG               = 0x807,
+ 	MLX5_CMD_OP_GET_DROPPED_PACKET_LOG        = 0x80a,
+ 	MLX5_CMD_OP_MAD_IFC                       = 0x50d,
+ 	MLX5_CMD_OP_QUERY_MAD_DEMUX               = 0x80b,
 -- 
 2.7.4
 
