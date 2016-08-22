@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 04/20] batman-adv: Place kref_get for
-	neigh_ifinfo near use
-Date: Mon, 22 Aug 2016 15:56:04 +0200
-Message-ID: <20160822135620.15337-5-sw@simonwunderlich.de>
+Subject: [PATCH 05/20] batman-adv: Place kref_get for
+	neigh_node near use
+Date: Mon, 22 Aug 2016 15:56:05 +0200
+Message-ID: <20160822135620.15337-6-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -37,19 +37,18 @@ Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gman
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 8828964..5e99a6e 100644
+index 5e99a6e..0792de8 100644
 --- a/net/batman-adv/originator.c
 +++ b/net/batman-adv/originator.c
-@@ -460,9 +460,9 @@ batadv_neigh_ifinfo_new(struct batadv_neigh_node *neigh,
+@@ -654,8 +654,8 @@ batadv_neigh_node_create(struct batadv_orig_node *orig_node,
  
- 	INIT_HLIST_NODE(&neigh_ifinfo->list);
- 	kref_init(&neigh_ifinfo->refcount);
--	kref_get(&neigh_ifinfo->refcount);
- 	neigh_ifinfo->if_outgoing = if_outgoing;
+ 	/* extra reference for return */
+ 	kref_init(&neigh_node->refcount);
+-	kref_get(&neigh_node->refcount);
  
-+	kref_get(&neigh_ifinfo->refcount);
- 	hlist_add_head_rcu(&neigh_ifinfo->list, &neigh->ifinfo_list);
++	kref_get(&neigh_node->refcount);
+ 	hlist_add_head_rcu(&neigh_node->list, &orig_node->neigh_list);
  
- out:
+ 	batadv_dbg(BATADV_DBG_BATMAN, orig_node->bat_priv,
 -- 
 2.9.3
