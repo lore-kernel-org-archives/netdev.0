@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 05/18] liquidio: CN23XX queue definitions
-Date: Sun, 21 Aug 2016 17:12:32 -0700
-Message-ID: <1471824765-26473-6-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 06/18] liquidio: CN23XX device init and sriov config
+Date: Sun, 21 Aug 2016 17:12:33 -0700
+Message-ID: <1471824765-26473-7-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,57 +16,44 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-by2nam03on0041.outbound.protection.outlook.com ([104.47.42.41]:52561
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753647AbcHVAOD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:14:03 -0400
+        id S1753655AbcHVAOG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 20:14:06 -0400
 In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for cn23xx specific queue definitions and
-features.
+Add support for cn23xx device init and sriov queue config.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/Kconfig                |   4 +-
- .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |  48 +++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  47 ++++---
- .../net/ethernet/cavium/liquidio/octeon_config.h   |  56 ++++++--
- .../net/ethernet/cavium/liquidio/octeon_device.c   | 142 ++++++++++++++++++++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  39 ++++--
- 6 files changed, 295 insertions(+), 41 deletions(-)
- create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+ drivers/net/ethernet/cavium/liquidio/Makefile      |   1 +
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 527 +++++++++++++++++++++
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   7 +
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    |  10 +-
+ 4 files changed, 544 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index e1b78b5..e775495 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -58,7 +58,7 @@ config LIQUIDIO
- 	select LIBCRC32C
- 	---help---
- 	  This driver supports Cavium LiquidIO Intelligent Server Adapters
--	  based on CN66XX and CN68XX chips.
-+	  based on CN66XX, CN68XX and CN23XX chips.
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called liquidio.  This is recommended.
-@@ -69,7 +69,7 @@ config OCTEON_MGMT_ETHERNET
- 	select PHYLIB
- 	select MDIO_OCTEON
- 	default y
--	help
-+	---help---
- 	  Enable the ethernet driver for the management
- 	  port on Cavium Networks' Octeon CN57XX, CN56XX, CN55XX,
- 	  CN54XX, CN52XX, and CN6XXX chips.
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+diff --git a/drivers/net/ethernet/cavium/liquidio/Makefile b/drivers/net/ethernet/cavium/liquidio/Makefile
+index d44111d..5a27b2a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/Makefile
++++ b/drivers/net/ethernet/cavium/liquidio/Makefile
+@@ -10,6 +10,7 @@ liquidio-$(CONFIG_LIQUIDIO) += lio_ethtool.o \
+ 			octeon_device.o    \
+ 			cn66xx_device.o    \
+ 			cn68xx_device.o    \
++			cn23xx_pf_device.o \
+ 			octeon_mem_ops.o   \
+ 			octeon_droq.o      \
+ 			octeon_nic.o
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
 new file mode 100644
-index 0000000..e07d530
+index 0000000..0884538
 --- /dev/null
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
-@@ -0,0 +1,48 @@
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -0,0 +1,527 @@
 +/**********************************************************************
 +* Author: Cavium, Inc.
 +*
@@ -89,525 +76,561 @@ index 0000000..e07d530
 +* Contact Cavium, Inc. for more information
 +**********************************************************************/
 +
-+/*! \file  cn23xx_device.h
-+ * \brief Host Driver: Routines that perform CN23XX specific operations.
-+*/
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include <linux/vmalloc.h>
++#include "liquidio_common.h"
++#include "octeon_droq.h"
++#include "octeon_iq.h"
++#include "response_manager.h"
++#include "octeon_device.h"
++#include "cn23xx_pf_device.h"
++#include "octeon_main.h"
 +
-+#ifndef __CN23XX_PF_DEVICE_H__
-+#define __CN23XX_PF_DEVICE_H__
++#define RESET_NOTDONE 0
++#define RESET_DONE 1
 +
-+#include "cn23xx_pf_regs.h"
-+
-+/* Register address and configuration for a CN23XX devices.
-+ * If device specific changes need to be made then add a struct to include
-+ * device specific fields as shown in the commented section
++/* Change the value of SLI Packet Input Jabber Register to allow
++ * VXLAN TSO packets which can be 64424 bytes, exceeding the
++ * MAX_GSO_SIZE we supplied to the kernel
 + */
-+struct octeon_cn23xx_pf {
-+	/** PCI interrupt summary register */
-+	u8 __iomem *intr_sum_reg64;
++#define CN23XX_INPUT_JABBER 64600
 +
-+	/** PCI interrupt enable register */
-+	u8 __iomem *intr_enb_reg64;
-+
-+	/** The PCI interrupt mask used by interrupt handler */
-+	u64 intr_mask64;
-+
-+	struct octeon_config *conf;
++#define LIOLUT_RING_DISTRIBUTION 9
++const int liolut_num_vfs_to_rings_per_vf[LIOLUT_RING_DISTRIBUTION] = {
++	0, 8, 4, 2, 2, 2, 1, 1, 1
 +};
-+#endif
++
++void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct)
++{
++	int i = 0;
++	u32 regval = 0;
++	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
++
++	/*In cn23xx_soft_reset*/
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%llx\n",
++		"CN23XX_WIN_WR_MASK_REG", CVM_CAST64(CN23XX_WIN_WR_MASK_REG),
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_WIN_WR_MASK_REG)));
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_SLI_SCRATCH1", CVM_CAST64(CN23XX_SLI_SCRATCH1),
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_SLI_SCRATCH1)));
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_RST_SOFT_RST", CN23XX_RST_SOFT_RST,
++		lio_pci_readq(oct, CN23XX_RST_SOFT_RST));
++
++	/*In cn23xx_set_dpi_regs*/
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_DPI_DMA_CONTROL", CN23XX_DPI_DMA_CONTROL,
++		lio_pci_readq(oct, CN23XX_DPI_DMA_CONTROL));
++
++	for (i = 0; i < 6; i++) {
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_DPI_DMA_ENG_ENB", i,
++			CN23XX_DPI_DMA_ENG_ENB(i),
++			lio_pci_readq(oct, CN23XX_DPI_DMA_ENG_ENB(i)));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_DPI_DMA_ENG_BUF", i,
++			CN23XX_DPI_DMA_ENG_BUF(i),
++			lio_pci_readq(oct, CN23XX_DPI_DMA_ENG_BUF(i)));
++	}
++
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n", "CN23XX_DPI_CTL",
++		CN23XX_DPI_CTL, lio_pci_readq(oct, CN23XX_DPI_CTL));
++
++	/*In cn23xx_setup_pcie_mps and cn23xx_setup_pcie_mrrs */
++	pci_read_config_dword(oct->pci_dev, CN23XX_CONFIG_PCIE_DEVCTL, &regval);
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_CONFIG_PCIE_DEVCTL",
++		CVM_CAST64(CN23XX_CONFIG_PCIE_DEVCTL), CVM_CAST64(regval));
++
++	dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++		"CN23XX_DPI_SLI_PRTX_CFG", oct->pcie_port,
++		CN23XX_DPI_SLI_PRTX_CFG(oct->pcie_port),
++		lio_pci_readq(oct, CN23XX_DPI_SLI_PRTX_CFG(oct->pcie_port)));
++
++	/*In cn23xx_specific_regs_setup */
++	dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++		"CN23XX_SLI_S2M_PORTX_CTL", oct->pcie_port,
++		CVM_CAST64(CN23XX_SLI_S2M_PORTX_CTL(oct->pcie_port)),
++		CVM_CAST64(octeon_read_csr64(
++			oct, CN23XX_SLI_S2M_PORTX_CTL(oct->pcie_port))));
++
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_SLI_RING_RST", CVM_CAST64(CN23XX_SLI_PKT_IOQ_RING_RST),
++		(u64)octeon_read_csr64(oct, CN23XX_SLI_PKT_IOQ_RING_RST));
++
++	/*In cn23xx_setup_global_mac_regs*/
++	for (i = 0; i < CN23XX_MAX_MACS; i++) {
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_PKT_MAC_RINFO64", i,
++			CVM_CAST64(CN23XX_SLI_PKT_MAC_RINFO64(i, oct->pf_num)),
++			CVM_CAST64(octeon_read_csr64
++				(oct, CN23XX_SLI_PKT_MAC_RINFO64
++					(i, oct->pf_num))));
++	}
++
++	/*In cn23xx_setup_global_input_regs*/
++	for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_IQ_PKT_CONTROL64", i,
++			CVM_CAST64(CN23XX_SLI_IQ_PKT_CONTROL64(i)),
++			CVM_CAST64(octeon_read_csr64
++				(oct, CN23XX_SLI_IQ_PKT_CONTROL64(i))));
++	}
++
++	/*In cn23xx_setup_global_output_regs*/
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_SLI_OQ_WMARK", CVM_CAST64(CN23XX_SLI_OQ_WMARK),
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_SLI_OQ_WMARK)));
++
++	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_PKT_CONTROL", i,
++			CVM_CAST64(CN23XX_SLI_OQ_PKT_CONTROL(i)),
++			CVM_CAST64(octeon_read_csr(
++				oct, CN23XX_SLI_OQ_PKT_CONTROL(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_PKT_INT_LEVELS", i,
++			CVM_CAST64(CN23XX_SLI_OQ_PKT_INT_LEVELS(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_OQ_PKT_INT_LEVELS(i))));
++	}
++
++	/*In cn23xx_enable_interrupt and cn23xx_disable_interrupt*/
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"cn23xx->intr_enb_reg64",
++		CVM_CAST64((long)(cn23xx->intr_enb_reg64)),
++		CVM_CAST64(readq(cn23xx->intr_enb_reg64)));
++
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"cn23xx->intr_sum_reg64",
++		CVM_CAST64((long)(cn23xx->intr_sum_reg64)),
++		CVM_CAST64(readq(cn23xx->intr_sum_reg64)));
++	/*In cn23xx_setup_iq_regs*/
++
++	for (i = 0; i < CN23XX_MAX_INPUT_QUEUES; i++) {
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_IQ_BASE_ADDR64", i,
++			CVM_CAST64(CN23XX_SLI_IQ_BASE_ADDR64(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_IQ_BASE_ADDR64(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_IQ_SIZE", i,
++			CVM_CAST64(CN23XX_SLI_IQ_SIZE(i)),
++			CVM_CAST64(octeon_read_csr
++				(oct, CN23XX_SLI_IQ_SIZE(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_IQ_DOORBELL", i,
++			CVM_CAST64(CN23XX_SLI_IQ_DOORBELL(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_IQ_DOORBELL(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_IQ_INSTR_COUNT64", i,
++			CVM_CAST64(CN23XX_SLI_IQ_INSTR_COUNT64(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_IQ_INSTR_COUNT64(i))));
++	}
++
++	/*In cn23xx_setup_oq_regs*/
++	for (i = 0; i < CN23XX_MAX_OUTPUT_QUEUES; i++) {
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_BASE_ADDR64", i,
++			CVM_CAST64(CN23XX_SLI_OQ_BASE_ADDR64(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_OQ_BASE_ADDR64(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_SIZE", i,
++			CVM_CAST64(CN23XX_SLI_OQ_SIZE(i)),
++			CVM_CAST64(octeon_read_csr
++				(oct, CN23XX_SLI_OQ_SIZE(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_BUFF_INFO_SIZE", i,
++			CVM_CAST64(CN23XX_SLI_OQ_BUFF_INFO_SIZE(i)),
++			CVM_CAST64(octeon_read_csr(
++				oct, CN23XX_SLI_OQ_BUFF_INFO_SIZE(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_PKTS_SENT", i,
++			CVM_CAST64(CN23XX_SLI_OQ_PKTS_SENT(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_OQ_PKTS_SENT(i))));
++		dev_dbg(&oct->pci_dev->dev, "%s(%d)[%llx] : 0x%016llx\n",
++			"CN23XX_SLI_OQ_PKTS_CREDIT", i,
++			CVM_CAST64(CN23XX_SLI_OQ_PKTS_CREDIT(i)),
++			CVM_CAST64(octeon_read_csr64(
++				oct, CN23XX_SLI_OQ_PKTS_CREDIT(i))));
++	}
++
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_SLI_PKT_TIME_INT",
++		CVM_CAST64(CN23XX_SLI_PKT_TIME_INT),
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_SLI_PKT_TIME_INT)));
++	dev_dbg(&oct->pci_dev->dev, "%s[%llx] : 0x%016llx\n",
++		"CN23XX_SLI_PKT_CNT_INT",
++		CVM_CAST64(CN23XX_SLI_PKT_CNT_INT),
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_SLI_PKT_CNT_INT)));
++}
++
++static u32 cn23xx_coprocessor_clock(struct octeon_device *oct)
++{
++	/* Bits 29:24 of RST_BOOT[PNR_MUL] holds the ref.clock MULTIPLIER
++	 * for SLI.
++	 */
++
++	/* TBD: get the info in Hand-shake */
++	return (((lio_pci_readq(oct, CN23XX_RST_BOOT) >> 24) & 0x3f) * 50);
++}
++
++static void cn23xx_setup_iq_regs(struct octeon_device *oct, u32 iq_no)
++{
++	struct octeon_instr_queue *iq = oct->instr_queue[iq_no];
++	u64 pkt_in_done = 0;
++
++	iq_no += oct->sriov_info.pf_srn;
++
++	/* Write the start of the input queue's ring and its size  */
++	octeon_write_csr64(oct, CN23XX_SLI_IQ_BASE_ADDR64(iq_no),
++			   iq->base_addr_dma);
++	octeon_write_csr(oct, CN23XX_SLI_IQ_SIZE(iq_no), iq->max_count);
++
++	/* Remember the doorbell & instruction count register addr
++	 * for this queue
++	 */
++	iq->doorbell_reg =
++	    (u8 *)oct->mmio[0].hw_addr + CN23XX_SLI_IQ_DOORBELL(iq_no);
++	iq->inst_cnt_reg =
++	    (u8 *)oct->mmio[0].hw_addr + CN23XX_SLI_IQ_INSTR_COUNT64(iq_no);
++	dev_dbg(&oct->pci_dev->dev, "InstQ[%d]:dbell reg @ 0x%p instcnt_reg @ 0x%p\n",
++		iq_no, iq->doorbell_reg, iq->inst_cnt_reg);
++
++	/* Store the current instruction counter (used in flush_iq
++	 * calculation)
++	 */
++	pkt_in_done = readq(iq->inst_cnt_reg);
++
++	/* Clear the count by writing back what we read, but don't
++	 * enable interrupts
++	 */
++	writeq(pkt_in_done, iq->inst_cnt_reg);
++
++	iq->reset_instr_cnt = 0;
++}
++
++static void cn23xx_setup_oq_regs(struct octeon_device *oct, u32 oq_no)
++{
++	u32 reg_val;
++	struct octeon_droq *droq = oct->droq[oq_no];
++
++	oq_no += oct->sriov_info.pf_srn;
++
++	octeon_write_csr64(oct, CN23XX_SLI_OQ_BASE_ADDR64(oq_no),
++			   droq->desc_ring_dma);
++	octeon_write_csr(oct, CN23XX_SLI_OQ_SIZE(oq_no), droq->max_count);
++
++	octeon_write_csr(oct, CN23XX_SLI_OQ_BUFF_INFO_SIZE(oq_no),
++			 (droq->buffer_size | (OCT_RH_SIZE << 16)));
++
++	/* Get the mapped address of the pkt_sent and pkts_credit regs */
++	droq->pkts_sent_reg =
++	    (u8 *)oct->mmio[0].hw_addr + CN23XX_SLI_OQ_PKTS_SENT(oq_no);
++	droq->pkts_credit_reg =
++	    (u8 *)oct->mmio[0].hw_addr + CN23XX_SLI_OQ_PKTS_CREDIT(oq_no);
++
++	/* Enable this output queue to generate Packet Timer Interrupt
++	*/
++	reg_val = octeon_read_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(oq_no));
++	reg_val |= CN23XX_PKT_OUTPUT_CTL_TENB;
++	octeon_write_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(oq_no),
++			 reg_val);
++
++	/* Enable this output queue to generate Packet Count Interrupt
++	*/
++	reg_val = octeon_read_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(oq_no));
++	reg_val |= CN23XX_PKT_OUTPUT_CTL_CENB;
++	octeon_write_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(oq_no),
++			 reg_val);
++}
++
++static void cn23xx_get_pcie_qlmport(struct octeon_device *oct)
++{
++	oct->pcie_port = (octeon_read_csr(oct, CN23XX_SLI_MAC_NUMBER)) & 0xff;
++
++	dev_dbg(&oct->pci_dev->dev, "OCTEON: CN23xx uses PCIE Port %d\n",
++		oct->pcie_port);
++}
++
++static void cn23xx_get_pf_num(struct octeon_device *oct)
++{
++	u32 fdl_bit = 0;
++
++	/** Read Function Dependency Link reg to get the function number */
++	pci_read_config_dword(oct->pci_dev, CN23XX_PCIE_SRIOV_FDL, &fdl_bit);
++	oct->pf_num = ((fdl_bit >> CN23XX_PCIE_SRIOV_FDL_BIT_POS) &
++		       CN23XX_PCIE_SRIOV_FDL_MASK);
++}
++
++static void cn23xx_setup_reg_address(struct octeon_device *oct)
++{
++	u8 __iomem *bar0_pciaddr = oct->mmio[0].hw_addr;
++	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
++
++	oct->reg_list.pci_win_wr_addr_hi =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_WR_ADDR_HI);
++	oct->reg_list.pci_win_wr_addr_lo =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_WR_ADDR_LO);
++	oct->reg_list.pci_win_wr_addr =
++	    (u64 __iomem *)(bar0_pciaddr + CN23XX_WIN_WR_ADDR64);
++
++	oct->reg_list.pci_win_rd_addr_hi =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_RD_ADDR_HI);
++	oct->reg_list.pci_win_rd_addr_lo =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_RD_ADDR_LO);
++	oct->reg_list.pci_win_rd_addr =
++	    (u64 __iomem *)(bar0_pciaddr + CN23XX_WIN_RD_ADDR64);
++
++	oct->reg_list.pci_win_wr_data_hi =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_WR_DATA_HI);
++	oct->reg_list.pci_win_wr_data_lo =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_WR_DATA_LO);
++	oct->reg_list.pci_win_wr_data =
++	    (u64 __iomem *)(bar0_pciaddr + CN23XX_WIN_WR_DATA64);
++
++	oct->reg_list.pci_win_rd_data_hi =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_RD_DATA_HI);
++	oct->reg_list.pci_win_rd_data_lo =
++	    (u32 __iomem *)(bar0_pciaddr + CN23XX_WIN_RD_DATA_LO);
++	oct->reg_list.pci_win_rd_data =
++	    (u64 __iomem *)(bar0_pciaddr + CN23XX_WIN_RD_DATA64);
++
++	cn23xx_get_pcie_qlmport(oct);
++
++	cn23xx->intr_mask64 = CN23XX_INTR_MASK;
++	cn23xx->intr_mask64 |= CN23XX_INTR_PKT_TIME;
++	if (oct->rev_id >= OCTEON_CN23XX_REV_1_1)
++		cn23xx->intr_mask64 |= CN23XX_INTR_VF_MBOX;
++
++	cn23xx->intr_sum_reg64 =
++	    bar0_pciaddr +
++	    CN23XX_SLI_MAC_PF_INT_SUM64(oct->pcie_port, oct->pf_num);
++	cn23xx->intr_enb_reg64 =
++	    bar0_pciaddr +
++	    CN23XX_SLI_MAC_PF_INT_ENB64(oct->pcie_port, oct->pf_num);
++}
++
++static int cn23xx_sriov_config(struct octeon_device *oct)
++{
++	u32 total_rings;
++	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
++	/* num_vfs is already filled for us */
++	u32 pf_srn, num_pf_rings;
++
++	cn23xx->conf =
++	    (struct octeon_config *)oct_get_config_info(oct, LIO_23XX);
++		switch (oct->rev_id) {
++		case OCTEON_CN23XX_REV_1_0:
++			total_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_0;
++			break;
++		case OCTEON_CN23XX_REV_1_1:
++			total_rings = CN23XX_MAX_RINGS_PER_PF_PASS_1_1;
++			break;
++		default:
++			total_rings = CN23XX_MAX_RINGS_PER_PF;
++			break;
++		}
++		if (oct->sriov_info.num_pf_rings == 0) {
++			if (total_rings > num_present_cpus())
++				num_pf_rings = num_present_cpus();
++			else
++				num_pf_rings = total_rings;
++		} else {
++			num_pf_rings = oct->sriov_info.num_pf_rings;
++
++			if (num_pf_rings > total_rings) {
++				dev_warn(&oct->pci_dev->dev, "num_queues_per_pf requested %u is more than available rings. Reducing to %u\n",
++					 num_pf_rings, total_rings);
++				num_pf_rings = total_rings;
++			}
++		}
++
++			total_rings = num_pf_rings;
++		total_rings = num_pf_rings;
++		/* the first ring of the pf */
++		pf_srn = total_rings - num_pf_rings;
++
++	oct->sriov_info.trs = total_rings;
++	oct->sriov_info.pf_srn = pf_srn;
++	oct->sriov_info.num_pf_rings = num_pf_rings;
++	dev_dbg(&oct->pci_dev->dev, "trs:%d pf_srn:%d num_pf_rings:%d\n",
++		oct->sriov_info.trs, oct->sriov_info.pf_srn,
++		oct->sriov_info.num_pf_rings);
++	return 0;
++}
++
++int setup_cn23xx_octeon_pf_device(struct octeon_device *oct)
++{
++	if (octeon_map_pci_barx(oct, 0, 0))
++		return 1;
++
++	if (octeon_map_pci_barx(oct, 1, MAX_BAR1_IOREMAP_SIZE)) {
++		dev_err(&oct->pci_dev->dev, "%s CN23XX BAR1 map failed\n",
++			__func__);
++		octeon_unmap_pci_barx(oct, 0);
++		return 1;
++	}
++
++	cn23xx_get_pf_num(oct);
++
++	if (cn23xx_sriov_config(oct)) {
++		octeon_unmap_pci_barx(oct, 0);
++		octeon_unmap_pci_barx(oct, 1);
++		return 1;
++	}
++
++	octeon_write_csr64(oct, CN23XX_SLI_MAC_CREDIT_CNT, 0x3F802080802080ULL);
++
++	oct->fn_list.setup_iq_regs = cn23xx_setup_iq_regs;
++	oct->fn_list.setup_oq_regs = cn23xx_setup_oq_regs;
++
++	cn23xx_setup_reg_address(oct);
++
++	oct->coproc_clock_rate = 1000000ULL * cn23xx_coprocessor_clock(oct);
++
++	return 0;
++}
++
++int validate_cn23xx_pf_config_info(struct octeon_device *oct,
++				   struct octeon_config *conf23xx)
++{
++	if (CFG_GET_IQ_MAX_Q(conf23xx) > CN23XX_MAX_INPUT_QUEUES) {
++		dev_err(&oct->pci_dev->dev, "%s: Num IQ (%d) exceeds Max (%d)\n",
++			__func__, CFG_GET_IQ_MAX_Q(conf23xx),
++			CN23XX_MAX_INPUT_QUEUES);
++		return 1;
++	}
++
++	if (CFG_GET_OQ_MAX_Q(conf23xx) > CN23XX_MAX_OUTPUT_QUEUES) {
++		dev_err(&oct->pci_dev->dev, "%s: Num OQ (%d) exceeds Max (%d)\n",
++			__func__, CFG_GET_OQ_MAX_Q(conf23xx),
++			CN23XX_MAX_OUTPUT_QUEUES);
++		return 1;
++	}
++
++	if (CFG_GET_IQ_INSTR_TYPE(conf23xx) != OCTEON_32BYTE_INSTR &&
++	    CFG_GET_IQ_INSTR_TYPE(conf23xx) != OCTEON_64BYTE_INSTR) {
++		dev_err(&oct->pci_dev->dev, "%s: Invalid instr type for IQ\n",
++			__func__);
++		return 1;
++	}
++
++	if (!(CFG_GET_OQ_INFO_PTR(conf23xx)) ||
++	    !(CFG_GET_OQ_REFILL_THRESHOLD(conf23xx))) {
++		dev_err(&oct->pci_dev->dev, "%s: Invalid parameter for OQ\n",
++			__func__);
++		return 1;
++	}
++
++	if (!(CFG_GET_OQ_INTR_TIME(conf23xx))) {
++		dev_err(&oct->pci_dev->dev, "%s: Invalid parameter for OQ\n",
++			__func__);
++		return 1;
++	}
++
++	return 0;
++}
++
++void cn23xx_dump_iq_regs(struct octeon_device *oct)
++{
++	u32 regval, q_no;
++
++	dev_dbg(&oct->pci_dev->dev, "SLI_IQ_DOORBELL_0 [0x%x]: 0x%016llx\n",
++		CN23XX_SLI_IQ_DOORBELL(0),
++		CVM_CAST64(octeon_read_csr64
++			(oct, CN23XX_SLI_IQ_DOORBELL(0))));
++
++	dev_dbg(&oct->pci_dev->dev, "SLI_IQ_BASEADDR_0 [0x%x]: 0x%016llx\n",
++		CN23XX_SLI_IQ_BASE_ADDR64(0),
++		CVM_CAST64(octeon_read_csr64
++			(oct, CN23XX_SLI_IQ_BASE_ADDR64(0))));
++
++	dev_dbg(&oct->pci_dev->dev, "SLI_IQ_FIFO_RSIZE_0 [0x%x]: 0x%016llx\n",
++		CN23XX_SLI_IQ_SIZE(0),
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_SLI_IQ_SIZE(0))));
++
++	dev_dbg(&oct->pci_dev->dev, "SLI_CTL_STATUS [0x%x]: 0x%016llx\n",
++		CN23XX_SLI_CTL_STATUS,
++		CVM_CAST64(octeon_read_csr64(oct, CN23XX_SLI_CTL_STATUS)));
++
++	for (q_no = 0; q_no < CN23XX_MAX_INPUT_QUEUES; q_no++) {
++		dev_dbg(&oct->pci_dev->dev, "SLI_PKT[%d]_INPUT_CTL [0x%x]: 0x%016llx\n",
++			q_no, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
++			CVM_CAST64(octeon_read_csr64
++				(oct,
++					CN23XX_SLI_IQ_PKT_CONTROL64(q_no))));
++	}
++
++	pci_read_config_dword(oct->pci_dev, CN23XX_CONFIG_PCIE_DEVCTL, &regval);
++	dev_dbg(&oct->pci_dev->dev, "Config DevCtl [0x%x]: 0x%08x\n",
++		CN23XX_CONFIG_PCIE_DEVCTL, regval);
++
++	dev_dbg(&oct->pci_dev->dev, "SLI_PRT[%d]_CFG [0x%llx]: 0x%016llx\n",
++		oct->pcie_port, CN23XX_DPI_SLI_PRTX_CFG(oct->pcie_port),
++		CVM_CAST64(lio_pci_readq(
++			oct, CN23XX_DPI_SLI_PRTX_CFG(oct->pcie_port))));
++
++	dev_dbg(&oct->pci_dev->dev, "SLI_S2M_PORT[%d]_CTL [0x%x]: 0x%016llx\n",
++		oct->pcie_port, CN23XX_SLI_S2M_PORTX_CTL(oct->pcie_port),
++		CVM_CAST64(octeon_read_csr64(
++			oct, CN23XX_SLI_S2M_PORTX_CTL(oct->pcie_port))));
++}
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+index e07d530..36252e7 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+@@ -45,4 +45,11 @@ struct octeon_cn23xx_pf {
+ 
+ 	struct octeon_config *conf;
+ };
++
++int setup_cn23xx_octeon_pf_device(struct octeon_device *oct);
++
++int validate_cn23xx_pf_config_info(struct octeon_device *oct,
++				   struct octeon_config *conf23xx);
++
++void cn23xx_dump_pf_initialized_regs(struct octeon_device *oct);
+ #endif
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 19d1e86..3fe7b70 100644
+index 3fe7b70..93bd5d1 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -474,6 +474,9 @@ static const struct pci_device_id liquidio_pci_tbl[] = {
- 	{       /* 66xx */
- 		PCI_VENDOR_ID_CAVIUM, 0x92, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0
- 	},
-+	{       /* 23xx pf */
-+		PCI_VENDOR_ID_CAVIUM, 0x9702, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0
-+	},
- 	{
- 		0, 0, 0, 0, 0, 0, 0
- 	}
-@@ -491,7 +494,6 @@ static struct pci_driver liquidio_pci_driver = {
- 	.suspend	= liquidio_suspend,
- 	.resume		= liquidio_resume,
- #endif
--
- };
- 
- /**
-@@ -3269,15 +3271,24 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 		vdata->minor = cpu_to_be16(LIQUIDIO_BASE_MINOR_VERSION);
- 		vdata->micro = cpu_to_be16(LIQUIDIO_BASE_MICRO_VERSION);
- 
--		num_iqueues =
--			CFG_GET_NUM_TXQS_NIC_IF(octeon_get_conf(octeon_dev), i);
--		num_oqueues =
--			CFG_GET_NUM_RXQS_NIC_IF(octeon_get_conf(octeon_dev), i);
--		base_queue =
--			CFG_GET_BASE_QUE_NIC_IF(octeon_get_conf(octeon_dev), i);
--		gmx_port_id =
--			CFG_GET_GMXID_NIC_IF(octeon_get_conf(octeon_dev), i);
--		ifidx_or_pfnum = i;
-+		if (OCTEON_CN23XX_PF(octeon_dev)) {
-+			num_iqueues = octeon_dev->sriov_info.num_pf_rings;
-+			num_oqueues = octeon_dev->sriov_info.num_pf_rings;
-+			base_queue = octeon_dev->sriov_info.pf_srn;
-+
-+			gmx_port_id = octeon_dev->pf_num;
-+			ifidx_or_pfnum = octeon_dev->pf_num;
-+		} else {
-+			num_iqueues = CFG_GET_NUM_TXQS_NIC_IF(
-+						octeon_get_conf(octeon_dev), i);
-+			num_oqueues = CFG_GET_NUM_RXQS_NIC_IF(
-+						octeon_get_conf(octeon_dev), i);
-+			base_queue = CFG_GET_BASE_QUE_NIC_IF(
-+						octeon_get_conf(octeon_dev), i);
-+			gmx_port_id = CFG_GET_GMXID_NIC_IF(
-+						octeon_get_conf(octeon_dev), i);
-+			ifidx_or_pfnum = i;
-+		}
- 
- 		dev_dbg(&octeon_dev->pci_dev->dev,
- 			"requesting config for interface %d, iqs %d, oqs %d\n",
-@@ -3381,12 +3392,16 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 
- 		lio->msg_enable = netif_msg_init(debug, DEFAULT_MSG_ENABLE);
- 
--		lio->dev_capability = NETIF_F_HIGHDMA
--				| NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
--				| NETIF_F_SG | NETIF_F_RXCSUM
--				| NETIF_F_GRO
--				| NETIF_F_TSO | NETIF_F_TSO6
--				| NETIF_F_LRO;
-+		if (OCTEON_CN23XX_PF(octeon_dev) ||
-+		    OCTEON_CN6XXX(octeon_dev)) {
-+			lio->dev_capability = NETIF_F_HIGHDMA
-+					      | NETIF_F_IP_CSUM
-+					      | NETIF_F_IPV6_CSUM
-+					      | NETIF_F_SG | NETIF_F_RXCSUM
-+					      | NETIF_F_GRO
-+					      | NETIF_F_TSO | NETIF_F_TSO6
-+					      | NETIF_F_LRO;
-+		}
- 		netif_set_gso_max_size(netdev, OCTNIC_GSO_MAX_SIZE);
- 
- 		/*  Copy of transmit encapsulation capabilities:
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-index b3396e3..79e1522 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
-@@ -64,6 +64,34 @@
- #define   DEFAULT_NUM_NIC_PORTS_68XX   4
- #define   DEFAULT_NUM_NIC_PORTS_68XX_210NV  2
- 
-+/* CN23xx  IQ configuration macros */
-+#define   CN23XX_MAX_RINGS_PER_PF_PASS_1_0 12
-+#define   CN23XX_MAX_RINGS_PER_PF_PASS_1_1 32
-+#define   CN23XX_MAX_RINGS_PER_PF	64
-+
-+#define   CN23XX_MAX_INPUT_QUEUES	CN23XX_MAX_RINGS_PER_PF
-+#define   CN23XX_MAX_IQ_DESCRIPTORS	2048
-+#define   CN23XX_DB_MIN                 1
-+#define   CN23XX_DB_MAX                 8
-+#define   CN23XX_DB_TIMEOUT		1
-+
-+#define   CN23XX_MAX_OUTPUT_QUEUES	CN23XX_MAX_RINGS_PER_PF
-+#define   CN23XX_MAX_OQ_DESCRIPTORS	2048
-+#define   CN23XX_OQ_BUF_SIZE		1536
-+#define   CN23XX_OQ_PKTSPER_INTR	128
-+/*#define CAVIUM_ONLY_CN23XX_RX_PERF*/
-+#define   CN23XX_OQ_REFIL_THRESHOLD	128
-+
-+#define   CN23XX_OQ_INTR_PKT		64
-+#define   CN23XX_OQ_INTR_TIME		100
-+#define   DEFAULT_NUM_NIC_PORTS_23XX	1
-+
-+#define   CN23XX_CFG_IO_QUEUES		CN23XX_MAX_RINGS_PER_PF
-+/* PEMs count */
-+#define   CN23XX_MAX_MACS		4
-+
-+#define   CN23XX_DEF_IQ_INTR_THRESHOLD	32
-+#define   CN23XX_DEF_IQ_INTR_BYTE_THRESHOLD   (64 * 1024)
- /* common OCTEON configuration macros */
- #define   CN6XXX_CFG_IO_QUEUES         32
- #define   OCTEON_32BYTE_INSTR          32
-@@ -140,19 +168,24 @@
- enum lio_card_type {
- 	LIO_210SV = 0, /* Two port, 66xx */
- 	LIO_210NV,     /* Two port, 68xx */
--	LIO_410NV      /* Four port, 68xx */
-+	LIO_410NV,     /* Four port, 68xx */
-+	LIO_23XX       /* 23xx */
- };
- 
- #define LIO_210SV_NAME "210sv"
- #define LIO_210NV_NAME "210nv"
- #define LIO_410NV_NAME "410nv"
-+#define LIO_23XX_NAME  "23xx"
- 
- /** Structure to define the configuration attributes for each Input queue.
-  *  Applicable to all Octeon processors
-  **/
- struct octeon_iq_config {
- #ifdef __BIG_ENDIAN_BITFIELD
--	u64 reserved:32;
-+	u64 reserved:16;
-+
-+	/** Tx interrupt packets. Applicable to 23xx only */
-+	u64 iq_intr_pkt:16;
- 
- 	/** Minimum ticks to wait before checking for pending instructions. */
- 	u64 db_timeout:16;
-@@ -192,7 +225,10 @@ struct octeon_iq_config {
- 	/** Minimum ticks to wait before checking for pending instructions. */
- 	u64 db_timeout:16;
- 
--	u64 reserved:32;
-+	/** Tx interrupt packets. Applicable to 23xx only */
-+	u64 iq_intr_pkt:16;
-+
-+	u64 reserved:16;
- #endif
- };
- 
-@@ -416,11 +452,15 @@ struct octeon_config {
- #define DISPATCH_LIST_SIZE                      BIT(OPCODE_MASK_BITS)
- 
- /* Maximum number of Octeon Instruction (command) queues */
--#define MAX_OCTEON_INSTR_QUEUES(oct)         CN6XXX_MAX_INPUT_QUEUES
--/* Maximum number of Octeon Output queues */
--#define MAX_OCTEON_OUTPUT_QUEUES(oct)         CN6XXX_MAX_OUTPUT_QUEUES
-+#define MAX_OCTEON_INSTR_QUEUES(oct)		\
-+		(OCTEON_CN23XX_PF(oct) ? CN23XX_MAX_INPUT_QUEUES : \
-+					CN6XXX_MAX_INPUT_QUEUES)
- 
--#define MAX_POSSIBLE_OCTEON_INSTR_QUEUES       CN6XXX_MAX_INPUT_QUEUES
--#define MAX_POSSIBLE_OCTEON_OUTPUT_QUEUES      CN6XXX_MAX_OUTPUT_QUEUES
-+/* Maximum number of Octeon Instruction (command) queues */
-+#define MAX_OCTEON_OUTPUT_QUEUES(oct)		\
-+		(OCTEON_CN23XX_PF(oct) ? CN23XX_MAX_OUTPUT_QUEUES : \
-+					CN6XXX_MAX_OUTPUT_QUEUES)
- 
-+#define MAX_POSSIBLE_OCTEON_INSTR_QUEUES	CN23XX_MAX_INPUT_QUEUES
-+#define MAX_POSSIBLE_OCTEON_OUTPUT_QUEUES	CN23XX_MAX_OUTPUT_QUEUES
- #endif /* __OCTEON_CONFIG_H__  */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 541137a..120b78e 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -31,6 +31,7 @@
- #include "octeon_network.h"
+@@ -35,6 +35,7 @@
  #include "cn66xx_regs.h"
  #include "cn66xx_device.h"
+ #include "cn68xx_device.h"
 +#include "cn23xx_pf_device.h"
+ #include "liquidio_image.h"
  
- /** Default configuration
-  *  for CN66XX OCTEON Models.
-@@ -417,6 +418,108 @@ static struct octeon_config default_cn68xx_210nv_conf = {
- 	,
- };
+ MODULE_AUTHOR("Cavium Networks, <support@cavium.com>");
+@@ -132,7 +133,8 @@ union tx_info {
+ #define OCTNIC_MAX_SG  (MAX_SKB_FRAGS)
  
-+static struct octeon_config default_cn23xx_conf = {
-+	.card_type                              = LIO_23XX,
-+	.card_name                              = LIO_23XX_NAME,
-+	/** IQ attributes */
-+	.iq = {
-+		.max_iqs		= CN23XX_CFG_IO_QUEUES,
-+		.pending_list_size	= (CN23XX_MAX_IQ_DESCRIPTORS *
-+					   CN23XX_CFG_IO_QUEUES),
-+		.instr_type		= OCTEON_64BYTE_INSTR,
-+		.db_min			= CN23XX_DB_MIN,
-+		.db_timeout		= CN23XX_DB_TIMEOUT,
-+		.iq_intr_pkt		= CN23XX_DEF_IQ_INTR_THRESHOLD,
-+	},
-+
-+	/** OQ attributes */
-+	.oq = {
-+		.max_oqs		= CN23XX_CFG_IO_QUEUES,
-+		.info_ptr		= OCTEON_OQ_INFOPTR_MODE,
-+		.pkts_per_intr	= CN23XX_OQ_PKTSPER_INTR,
-+		.refill_threshold	= CN23XX_OQ_REFIL_THRESHOLD,
-+		.oq_intr_pkt	= CN23XX_OQ_INTR_PKT,
-+		.oq_intr_time	= CN23XX_OQ_INTR_TIME,
-+	},
-+
-+	.num_nic_ports				= DEFAULT_NUM_NIC_PORTS_23XX,
-+	.num_def_rx_descs			= CN23XX_MAX_OQ_DESCRIPTORS,
-+	.num_def_tx_descs			= CN23XX_MAX_IQ_DESCRIPTORS,
-+	.def_rx_buf_size			= CN23XX_OQ_BUF_SIZE,
-+
-+	/* For ethernet interface 0:  Port cfg Attributes */
-+	.nic_if_cfg[0] = {
-+		/* Max Txqs: Half for each of the two ports :max_iq/2 */
-+		.max_txqs			= MAX_TXQS_PER_INTF,
-+
-+		/* Actual configured value. Range could be: 1...max_txqs */
-+		.num_txqs			= DEF_TXQS_PER_INTF,
-+
-+		/* Max Rxqs: Half for each of the two ports :max_oq/2  */
-+		.max_rxqs			= MAX_RXQS_PER_INTF,
-+
-+		/* Actual configured value. Range could be: 1...max_rxqs */
-+		.num_rxqs			= DEF_RXQS_PER_INTF,
-+
-+		/* Num of desc for rx rings */
-+		.num_rx_descs			= CN23XX_MAX_OQ_DESCRIPTORS,
-+
-+		/* Num of desc for tx rings */
-+		.num_tx_descs			= CN23XX_MAX_IQ_DESCRIPTORS,
-+
-+		/* SKB size, We need not change buf size even for Jumbo frames.
-+		 * Octeon can send jumbo frames in 4 consecutive descriptors,
-+		 */
-+		.rx_buf_size			= CN23XX_OQ_BUF_SIZE,
-+
-+		.base_queue			= BASE_QUEUE_NOT_REQUESTED,
-+
-+		.gmx_port_id			= 0,
-+	},
-+
-+	.nic_if_cfg[1] = {
-+		/* Max Txqs: Half for each of the two ports :max_iq/2 */
-+		.max_txqs			= MAX_TXQS_PER_INTF,
-+
-+		/* Actual configured value. Range could be: 1...max_txqs */
-+		.num_txqs			= DEF_TXQS_PER_INTF,
-+
-+		/* Max Rxqs: Half for each of the two ports :max_oq/2  */
-+		.max_rxqs			= MAX_RXQS_PER_INTF,
-+
-+		/* Actual configured value. Range could be: 1...max_rxqs */
-+		.num_rxqs			= DEF_RXQS_PER_INTF,
-+
-+		/* Num of desc for rx rings */
-+		.num_rx_descs			= CN23XX_MAX_OQ_DESCRIPTORS,
-+
-+		/* Num of desc for tx rings */
-+		.num_tx_descs			= CN23XX_MAX_IQ_DESCRIPTORS,
-+
-+		/* SKB size, We need not change buf size even for Jumbo frames.
-+		 * Octeon can send jumbo frames in 4 consecutive descriptors,
-+		 */
-+		.rx_buf_size			= CN23XX_OQ_BUF_SIZE,
-+
-+		.base_queue			= BASE_QUEUE_NOT_REQUESTED,
-+
-+		.gmx_port_id			= 1,
-+	},
-+
-+	.misc					= {
-+		/* Host driver link query interval */
-+		.oct_link_query_interval	= 100,
-+
-+		/* Octeon link query interval */
-+		.host_link_query_interval	= 500,
-+
-+		.enable_sli_oq_bp		= 0,
-+
-+		/* Control queue group */
-+		.ctrlq_grp			= 1,
-+	}
-+};
-+
- enum {
- 	OCTEON_CONFIG_TYPE_DEFAULT = 0,
- 	NUM_OCTEON_CONFS,
-@@ -484,6 +587,8 @@ static void *__retrieve_octeon_config_info(struct octeon_device *oct,
- 		} else if ((oct->chip_id == OCTEON_CN68XX) &&
- 			   (card_type == LIO_410NV)) {
- 			ret =  (void *)&default_cn68xx_conf;
-+		} else if (oct->chip_id == OCTEON_CN23XX_PF_VID) {
-+			ret =  (void *)&default_cn23xx_conf;
- 		}
- 		break;
- 	default:
-@@ -498,7 +603,8 @@ static int __verify_octeon_config_info(struct octeon_device *oct, void *conf)
- 	case OCTEON_CN66XX:
- 	case OCTEON_CN68XX:
- 		return lio_validate_cn6xxx_config_info(oct, conf);
--
-+	case OCTEON_CN23XX_PF_VID:
-+		return 0;
- 	default:
- 		break;
- 	}
-@@ -572,6 +678,9 @@ static struct octeon_device *octeon_allocate_device_mem(u32 pci_id,
- 		configsize = sizeof(struct octeon_cn6xxx);
+ #define OCTNIC_GSO_MAX_HEADER_SIZE 128
+-#define OCTNIC_GSO_MAX_SIZE (GSO_MAX_SIZE - OCTNIC_GSO_MAX_HEADER_SIZE)
++#define OCTNIC_GSO_MAX_SIZE                                                    \
++	(CN23XX_DEFAULT_INPUT_JABBER - OCTNIC_GSO_MAX_HEADER_SIZE)
+ 
+ /** Structure of a node in list of gather components maintained by
+  * NIC driver for each network device.
+@@ -1323,6 +1325,12 @@ static int octeon_chip_specific_setup(struct octeon_device *oct)
+ 		s = "CN66XX";
  		break;
  
-+	case OCTEON_CN23XX_PF_VID:
-+		configsize = sizeof(struct octeon_cn23xx_pf);
++	case OCTEON_CN23XX_PCIID_PF:
++		oct->chip_id = OCTEON_CN23XX_PF_VID;
++		ret = setup_cn23xx_octeon_pf_device(oct);
++		s = "CN23XX";
 +		break;
++
  	default:
- 		pr_err("%s: Unknown PCI Device: 0x%x\n",
- 		       __func__,
-@@ -649,6 +758,9 @@ int octeon_setup_instr_queues(struct octeon_device *oct)
- 	if (OCTEON_CN6XXX(oct))
- 		num_descs =
- 			CFG_GET_NUM_DEF_TX_DESCS(CHIP_FIELD(oct, cn6xxx, conf));
-+	else if (OCTEON_CN23XX_PF(oct))
-+		num_descs = CFG_GET_NUM_DEF_TX_DESCS(CHIP_FIELD(oct, cn23xx_pf,
-+								conf));
- 
- 	oct->num_iqs = 0;
- 
-@@ -690,8 +802,12 @@ int octeon_setup_output_queues(struct octeon_device *oct)
- 			CFG_GET_NUM_DEF_RX_DESCS(CHIP_FIELD(oct, cn6xxx, conf));
- 		desc_size =
- 			CFG_GET_DEF_RX_BUF_SIZE(CHIP_FIELD(oct, cn6xxx, conf));
-+	} else if (OCTEON_CN23XX_PF(oct)) {
-+		num_descs = CFG_GET_NUM_DEF_RX_DESCS(CHIP_FIELD(oct, cn23xx_pf,
-+								conf));
-+		desc_size = CFG_GET_DEF_RX_BUF_SIZE(CHIP_FIELD(oct, cn23xx_pf,
-+							       conf));
- 	}
--
- 	oct->num_oqs = 0;
- 	oct->droq[0] = vmalloc_node(sizeof(*oct->droq[0]), numa_node);
- 	if (!oct->droq[0])
-@@ -915,6 +1031,9 @@ int octeon_core_drv_init(struct octeon_recv_info *recv_info, void *buf)
- 	if (OCTEON_CN6XXX(oct))
- 		num_nic_ports =
- 			CFG_GET_NUM_NIC_PORTS(CHIP_FIELD(oct, cn6xxx, conf));
-+	else if (OCTEON_CN23XX_PF(oct))
-+		num_nic_ports =
-+			CFG_GET_NUM_NIC_PORTS(CHIP_FIELD(oct, cn23xx_pf, conf));
- 
- 	if (atomic_read(&oct->status) >= OCT_DEV_RUNNING) {
- 		dev_err(&oct->pci_dev->dev, "Received CORE OK when device state is 0x%x\n",
-@@ -1004,8 +1123,10 @@ struct octeon_config *octeon_get_conf(struct octeon_device *oct)
- 	if (OCTEON_CN6XXX(oct)) {
- 		default_oct_conf =
- 			(struct octeon_config *)(CHIP_FIELD(oct, cn6xxx, conf));
-+	} else if (OCTEON_CN23XX_PF(oct)) {
-+		default_oct_conf = (struct octeon_config *)
-+			(CHIP_FIELD(oct, cn23xx_pf, conf));
- 	}
--
- 	return default_oct_conf;
- }
- 
-@@ -1037,7 +1158,9 @@ u64 lio_pci_readq(struct octeon_device *oct, u64 addr)
- 	 * So write MSB first
- 	 */
- 	addrhi = (addr >> 32);
--	if ((oct->chip_id == OCTEON_CN66XX) || (oct->chip_id == OCTEON_CN68XX))
-+	if ((oct->chip_id == OCTEON_CN66XX) ||
-+	    (oct->chip_id == OCTEON_CN68XX) ||
-+	    (oct->chip_id == OCTEON_CN23XX_PF_VID))
- 		addrhi |= 0x00060000;
- 	writel(addrhi, oct->reg_list.pci_win_rd_addr_hi);
- 
-@@ -1081,8 +1204,15 @@ int octeon_mem_access_ok(struct octeon_device *oct)
- 	u64 lmc0_reset_ctl;
- 
- 	/* Check to make sure a DDR interface is enabled */
--	lmc0_reset_ctl = lio_pci_readq(oct, CN6XXX_LMC0_RESET_CTL);
--	access_okay = (lmc0_reset_ctl & CN6XXX_LMC0_RESET_CTL_DDR3RST_MASK);
-+	if (OCTEON_CN23XX_PF(oct)) {
-+		lmc0_reset_ctl = lio_pci_readq(oct, CN23XX_LMC0_RESET_CTL);
-+		access_okay =
-+			(lmc0_reset_ctl & CN23XX_LMC0_RESET_CTL_DDR3RST_MASK);
-+	} else {
-+		lmc0_reset_ctl = lio_pci_readq(oct, CN6XXX_LMC0_RESET_CTL);
-+		access_okay =
-+			(lmc0_reset_ctl & CN6XXX_LMC0_RESET_CTL_DDR3RST_MASK);
-+	}
- 
- 	return access_okay ? 0 : 1;
- }
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index fcda21e..c1757ce 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -30,13 +30,19 @@
- /** PCI VendorId Device Id */
- #define  OCTEON_CN68XX_PCIID          0x91177d
- #define  OCTEON_CN66XX_PCIID          0x92177d
--
-+#define  OCTEON_CN23XX_PCIID_PF       0x9702177d
- /** Driver identifies chips by these Ids, created by clubbing together
-  *  DeviceId+RevisionId; Where Revision Id is not used to distinguish
-  *  between chips, a value of 0 is used for revision id.
-  */
- #define  OCTEON_CN68XX                0x0091
- #define  OCTEON_CN66XX                0x0092
-+#define  OCTEON_CN23XX_PF_VID         0x9702
-+
-+/**RevisionId for the chips */
-+#define	 OCTEON_CN23XX_REV_1_0		0x00
-+#define	 OCTEON_CN23XX_REV_1_1		0x01
-+#define	 OCTEON_CN23XX_REV_2_0		0x80
- 
- /** Endian-swap modes supported by Octeon. */
- enum octeon_pci_swap_mode {
-@@ -67,13 +73,14 @@ enum octeon_pci_swap_mode {
- #define    OCT_DEV_SC_BUFF_POOL_INIT_DONE 0x4
- #define    OCT_DEV_RESP_LIST_INIT_DONE    0x5
- #define    OCT_DEV_DROQ_INIT_DONE         0x6
--#define    OCT_DEV_IO_QUEUES_DONE         0x7
--#define    OCT_DEV_CONSOLE_INIT_DONE      0x8
--#define    OCT_DEV_HOST_OK                0x9
--#define    OCT_DEV_CORE_OK                0xa
--#define    OCT_DEV_RUNNING                0xb
--#define    OCT_DEV_IN_RESET               0xc
--#define    OCT_DEV_STATE_INVALID          0xd
-+#define    OCT_DEV_INTR_SET_DONE          0x7
-+#define    OCT_DEV_IO_QUEUES_DONE         0x8
-+#define    OCT_DEV_CONSOLE_INIT_DONE      0x9
-+#define    OCT_DEV_HOST_OK                0xa
-+#define    OCT_DEV_CORE_OK                0xb
-+#define    OCT_DEV_RUNNING                0xc
-+#define    OCT_DEV_IN_RESET               0xd
-+#define    OCT_DEV_STATE_INVALID          0xe
- 
- #define    OCT_DEV_STATES                 OCT_DEV_STATE_INVALID
- 
-@@ -271,6 +278,17 @@ struct octdev_props {
- 	struct net_device *netdev;
- };
- 
-+struct octeon_sriov_info {
-+	/* Actual rings left for PF device */
-+	u32	num_pf_rings;
-+
-+	/* SRN of PF usable IO queues   */
-+	u32	pf_srn;
-+	/* total pf rings */
-+	u32	trs;
-+
-+};
-+
- /** The Octeon device.
-  *  Each Octeon device has this structure to represent all its
-  *  components.
-@@ -296,7 +314,7 @@ struct octeon_device {
- 	/** Octeon Chip type. */
- 	u16 chip_id;
- 	u16 rev_id;
--
-+	u16 pf_num;
- 	/** This device's id - set by the driver. */
- 	u32 octeon_id;
- 
-@@ -395,6 +413,8 @@ struct octeon_device {
- 
- 	void *priv;
- 
-+	struct octeon_sriov_info sriov_info;
-+
- 	int rx_pause;
- 	int tx_pause;
- 
-@@ -408,6 +428,7 @@ struct octeon_device {
- #define  OCT_DRV_OFFLINE 2
- #define  OCTEON_CN6XXX(oct)           ((oct->chip_id == OCTEON_CN66XX) || \
- 				       (oct->chip_id == OCTEON_CN68XX))
-+#define  OCTEON_CN23XX_PF(oct)        (oct->chip_id == OCTEON_CN23XX_PF_VID)
- #define CHIP_FIELD(oct, TYPE, field)             \
- 	(((struct octeon_ ## TYPE  *)(oct->chip))->field)
- 
+ 		s = "?";
+ 		dev_err(&oct->pci_dev->dev, "Unknown device found (dev_id: %x)\n",
 -- 
 1.8.3.1
