@@ -1,62 +1,29 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 1/3] net/ip_tunnels: Introduce
- tunnel_id_to_key32() and key32_to_tunnel_id()
-Date: Mon, 22 Aug 2016 19:00:27 +0200
-Message-ID: <20160822190027.6b4e6028@griffin>
-References: <20160822143834.32422-1-amir@vadai.me>
-        <20160822143834.32422-2-amir@vadai.me>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] ss: fix build with musl libc
+Date: Mon, 22 Aug 2016 10:02:38 -0700
+Message-ID: <20160822100238.0ab543ac@xeon-e3>
+References: <1471662670-20969-1-git-send-email-gustavo@zacarias.com.ar>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: netdev@vger.kernel.org
+To: Gustavo Zacarias <gustavo@zacarias.com.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48760 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753732AbcHVRAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 13:00:34 -0400
-In-Reply-To: <20160822143834.32422-2-amir@vadai.me>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36213 "EHLO
+        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752585AbcHVRCb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:02:31 -0400
+Received: by mail-pa0-f53.google.com with SMTP id pp5so39281738pac.3
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 10:02:31 -0700 (PDT)
+In-Reply-To: <1471662670-20969-1-git-send-email-gustavo@zacarias.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While cleaning this up, you may as well take the best of both
-implementations.
+On Sat, 20 Aug 2016 00:11:10 -0300
+Gustavo Zacarias <gustavo@zacarias.com.ar> wrote:
 
-On Mon, 22 Aug 2016 17:38:32 +0300, Amir Vadai wrote:
-> +static inline __be64 key32_to_tunnel_id(__be32 key)
-> +{
-> +#ifdef __BIG_ENDIAN
-> +	return (__force __be64)((__force u32)key);
+> UINT_MAX usage requires limits.h, so include it.
+> 
+> Signed-off-by: Gustavo Zacarias <gustavo@zacarias.com.ar>
 
-The inner cast seems to be superfluous?
-
-> +#else
-> +	return (__force __be64)((__force u64)key << 32);
-> +#endif
-> +}
-> +
-> +/* Returns the least-significant 32 bits of a __be64. */
-> +static inline __be32 tunnel_id_to_key32(__be64 x)
-
-Please use a more descriptive name than "x". "tunnel_id" or "tun_id"
-seems to be more appropriate.
-
-> +{
-> +#ifdef __BIG_ENDIAN
-> +	return (__force __be32)x;
-> +#else
-> +	return (__force __be32)((__force u64)x >> 32);
-> +#endif
-> +}
-
-Looks good otherwise.
-
-Thanks,
-
- Jiri
+Applied
