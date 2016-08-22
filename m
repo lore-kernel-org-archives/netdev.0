@@ -1,125 +1,137 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH] ethtool: Add support for SCTP verification tag in
- Rx NFC
-Date: Fri, 19 Aug 2016 14:32:29 -0700
-Message-ID: <147164234934.15412.10180837031828143039.stgit@ahduyck-desk.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: y@mellanox.com
+Subject: [PATCH iproute2 2/2] tc: m_vlan: Add priority option to push vlan action
+Date: Mon, 22 Aug 2016 13:14:27 +0300
+Message-ID: <38466.7947110303$1505291009@news.gmane.org>
+References: <1471860867-7836-1-git-send-email-y>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Amir Vadai <amirva@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:56615 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754947AbcHSVhz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 19 Aug 2016 17:37:55 -0400
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48637 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752228AbcHVKOt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:14:49 -0400
+In-Reply-To: <1471860867-7836-1-git-send-email-y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The i40e hardware has support for SCTP filtering via Rx NFC however the
-default configuration expects us to include the verification tag as a part
-of the filter.  In order to support that I need to be able to transfer that
-data through the ethtool interface via a new structure.
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-This patch adds a new structure to allow us to pass the verification tag
-for IPv4 or IPv6 SCTP traffic.
+The current vlan push action supports only vid and protocol options.
+Add priority option.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Example script that adds vlan push action with vid and priority:
+
+tc filter add dev veth0 protocol ip parent ffff: \
+	flower \
+	indev veth0 \
+	action vlan push id 100 priority 5
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 ---
- include/uapi/linux/ethtool.h |   50 +++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 46 insertions(+), 4 deletions(-)
+ include/linux/tc_act/tc_vlan.h |  1 +
+ man/man8/tc-vlan.8             |  5 +++++
+ tc/m_vlan.c                    | 22 +++++++++++++++++++++-
+ 3 files changed, 27 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index b8f38e8..12ba8ac 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -708,7 +708,7 @@ enum ethtool_flags {
-  * @pdst: Destination port
-  * @tos: Type-of-service
-  *
-- * This can be used to specify a TCP/IPv4, UDP/IPv4 or SCTP/IPv4 flow.
-+ * This can be used to specify a TCP/IPv4 or UDP/IPv4 flow.
-  */
- struct ethtool_tcpip4_spec {
- 	__be32	ip4src;
-@@ -719,6 +719,27 @@ struct ethtool_tcpip4_spec {
+diff --git a/include/linux/tc_act/tc_vlan.h b/include/linux/tc_act/tc_vlan.h
+index 26ae695..29e2113 100644
+--- a/include/linux/tc_act/tc_vlan.h
++++ b/include/linux/tc_act/tc_vlan.h
+@@ -32,6 +32,7 @@ enum {
+ 	TCA_VLAN_PUSH_VLAN_ID,
+ 	TCA_VLAN_PUSH_VLAN_PROTOCOL,
+ 	TCA_VLAN_PAD,
++	TCA_VLAN_PUSH_VLAN_PRIORITY,
+ 	__TCA_VLAN_MAX,
  };
+ #define TCA_VLAN_MAX (__TCA_VLAN_MAX - 1)
+diff --git a/man/man8/tc-vlan.8 b/man/man8/tc-vlan.8
+index 4bfd72b..4d0c5c8 100644
+--- a/man/man8/tc-vlan.8
++++ b/man/man8/tc-vlan.8
+@@ -12,6 +12,8 @@ vlan - vlan manipulation module
+ .IR PUSH " := "
+ .BR push " [ " protocol
+ .IR VLANPROTO " ]"
++.BR " [ " priority
++.IR VLANPRIO " ] "
+ .BI id " VLANID"
  
- /**
-+ * struct ethtool_sctpip4_spec - flow specification for SCTP/IPv4
-+ * @ip4src: Source host
-+ * @ip4dst: Destination host
-+ * @psrc: Source port
-+ * @pdst: Destination port
-+ * @tos: Type-of-service
-+ * @vtag: Verification tag
-+ *
-+ * This can be used to specify a SCTP/IPv4 flow.
-+ */
-+struct ethtool_sctpip4_spec {
-+	__be32	ip4src;
-+	__be32	ip4dst;
-+	__be16	psrc;
-+	__be16	pdst;
-+	__u8    tos;
-+	/* 3 byte hole */
-+	__be32	vtag;
-+};
-+
-+/**
-  * struct ethtool_ah_espip4_spec - flow specification for IPsec/IPv4
-  * @ip4src: Source host
-  * @ip4dst: Destination host
-@@ -762,7 +783,7 @@ struct ethtool_usrip4_spec {
-  * @pdst: Destination port
-  * @tclass: Traffic Class
-  *
-- * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
-+ * This can be used to specify a TCP/IPv6 or UDP/IPv6 flow.
-  */
- struct ethtool_tcpip6_spec {
- 	__be32	ip6src[4];
-@@ -773,6 +794,27 @@ struct ethtool_tcpip6_spec {
- };
+ .ti -8
+@@ -55,6 +57,9 @@ for hexadecimal interpretation, etc.).
+ Choose the VLAN protocol to use. At the time of writing, the kernel accepts only
+ .BR 802.1Q " or " 802.1ad .
+ .TP
++.BI priority " VLANPRIO"
++Choose the VLAN priority to use. Decimal number in range of 0-7.
++.TP
+ .I CONTROL
+ How to continue after executing this action.
+ .RS
+diff --git a/tc/m_vlan.c b/tc/m_vlan.c
+index ac63d9e..be2ffd2 100644
+--- a/tc/m_vlan.c
++++ b/tc/m_vlan.c
+@@ -22,7 +22,7 @@
+ static void explain(void)
+ {
+ 	fprintf(stderr, "Usage: vlan pop\n");
+-	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID [CONTROL]\n");
++	fprintf(stderr, "       vlan push [ protocol VLANPROTO ] id VLANID [ priority VLANPRIO ] [CONTROL]\n");
+ 	fprintf(stderr, "       VLANPROTO is one of 802.1Q or 802.1AD\n");
+ 	fprintf(stderr, "            with default: 802.1Q\n");
+ 	fprintf(stderr, "       CONTROL := reclassify | pipe | drop | continue | pass\n");
+@@ -45,6 +45,8 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 	int id_set = 0;
+ 	__u16 proto;
+ 	int proto_set = 0;
++	__u8 prio;
++	int prio_set = 0;
+ 	struct tc_vlan parm = { 0 };
  
- /**
-+ * struct ethtool_sctpip6_spec - flow specification for SCTP/IPv6
-+ * @ip6src: Source host
-+ * @ip6dst: Destination host
-+ * @psrc: Source port
-+ * @pdst: Destination port
-+ * @tclass: Traffic Class
-+ * @vtag: Verification tag
-+ *
-+ * This can be used to specify a SCTP/IPv6 flow.
-+ */
-+struct ethtool_sctpip6_spec {
-+	__be32	ip6src[4];
-+	__be32	ip6dst[4];
-+	__be16	psrc;
-+	__be16	pdst;
-+	__u8    tclass;
-+	/* 3 byte hole */
-+	__be32	vtag;
-+};
+ 	if (matches(*argv, "vlan") != 0)
+@@ -91,6 +93,17 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 			if (ll_proto_a2n(&proto, *argv))
+ 				invarg("protocol is invalid", *argv);
+ 			proto_set = 1;
++		} else if (matches(*argv, "priority") == 0) {
++			if (action != TCA_VLAN_ACT_PUSH) {
++				fprintf(stderr, "\"%s\" is only valid for push\n",
++					*argv);
++				explain();
++				return -1;
++			}
++			NEXT_ARG();
++			if (get_u8(&prio, *argv, 0) || (prio & ~VLAN_PRIO_MASK))
++				invarg("prio is invalid", *argv);
++			prio_set = 1;
+ 		} else if (matches(*argv, "help") == 0) {
+ 			usage();
+ 		} else {
+@@ -138,6 +151,9 @@ static int parse_vlan(struct action_util *a, int *argc_p, char ***argv_p,
+ 
+ 		addattr_l(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PROTOCOL, &proto, 2);
+ 	}
++	if (prio_set)
++		addattr8(n, MAX_MSG, TCA_VLAN_PUSH_VLAN_PRIORITY, prio);
 +
-+/**
-  * struct ethtool_ah_espip6_spec - flow specification for IPsec/IPv6
-  * @ip6src: Source host
-  * @ip6dst: Destination host
-@@ -807,13 +849,13 @@ struct ethtool_usrip6_spec {
- union ethtool_flow_union {
- 	struct ethtool_tcpip4_spec		tcp_ip4_spec;
- 	struct ethtool_tcpip4_spec		udp_ip4_spec;
--	struct ethtool_tcpip4_spec		sctp_ip4_spec;
-+	struct ethtool_sctpip4_spec		sctp_ip4_spec;
- 	struct ethtool_ah_espip4_spec		ah_ip4_spec;
- 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
- 	struct ethtool_usrip4_spec		usr_ip4_spec;
- 	struct ethtool_tcpip6_spec		tcp_ip6_spec;
- 	struct ethtool_tcpip6_spec		udp_ip6_spec;
--	struct ethtool_tcpip6_spec		sctp_ip6_spec;
-+	struct ethtool_sctpip6_spec		sctp_ip6_spec;
- 	struct ethtool_ah_espip6_spec		ah_ip6_spec;
- 	struct ethtool_ah_espip6_spec		esp_ip6_spec;
- 	struct ethtool_usrip6_spec		usr_ip6_spec;
+ 	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
+ 
+ 	*argc_p = argc;
+@@ -180,6 +196,10 @@ static int print_vlan(struct action_util *au, FILE *f, struct rtattr *arg)
+ 				ll_proto_n2a(rta_getattr_u16(tb[TCA_VLAN_PUSH_VLAN_PROTOCOL]),
+ 					     b1, sizeof(b1)));
+ 		}
++		if (tb[TCA_VLAN_PUSH_VLAN_PRIORITY]) {
++			val = rta_getattr_u8(tb[TCA_VLAN_PUSH_VLAN_PRIORITY]);
++			fprintf(f, " priority %u", val);
++		}
+ 		break;
+ 	}
+ 	fprintf(f, " %s", action_n2a(parm->action));
+-- 
+1.8.3.1
