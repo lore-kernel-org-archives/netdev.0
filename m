@@ -1,77 +1,61 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
-Date: Mon, 22 Aug 2016 21:15:41 +0300
-Message-ID: <CAJ3xEMhTdNXXLQfvD097_7LEK8YRTXW_r+ArB-XksX6dRvUAjg@mail.gmail.com>
-References: <20160822143834.32422-1-amir@vadai.me> <20160822143834.32422-4-amir@vadai.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Amir Vadai <amir@vadai.me>, Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34544 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752929AbcHVSPm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:15:42 -0400
-Received: by mail-oi0-f68.google.com with SMTP id t127so604637oie.1
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 11:15:42 -0700 (PDT)
-In-Reply-To: <20160822143834.32422-4-amir@vadai.me>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] checkpatch: See if modified files are marked obsolete in MAINTAINERS
+Date: Mon, 22 Aug 2016 11:17:20 -0700
+Message-ID: <7ceaa510dc9d2df05ec4b456baed7bb1415550b3.1471889575.git.joe@perches.com>
+References: <87shtwvm63.fsf@kamboji.qca.qualcomm.com>
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Jouni Malinen <j@w1.fi>, kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Andy Whitcroft <apw@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87shtwvm63.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 22, 2016 at 5:38 PM, Amir Vadai <amir@vadai.me> wrote:
-> This action could be used before redirecting packets to a shared tunnel
-> device, or when redirecting packets arriving from a such a device
+Use get_maintainer to check the status of individual files.
+If "obsolete", suggest leaving the files alone.
 
-nit, add period
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ scripts/checkpatch.pl | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-
-> The action will release the metadata created by the tunnel device
-> (decap), or set the metadata with the specified values for encap
-> operation.
-
-Jiri B. -- SB pointer to the code
-
-
-> +static int tcf_iptunnel(struct sk_buff *skb, const struct tc_action *a,
-> +                       struct tcf_result *res)
-> +{
-> +       struct tcf_iptunnel *t = to_iptunnel(a);
-> +       int action;
-> +
-> +       spin_lock(&t->tcf_lock);
-> +       tcf_lastuse_update(&t->tcf_tm);
-> +       bstats_update(&t->tcf_bstats, skb);
-> +       action = t->tcf_action;
-> +
-> +       switch (t->tcft_action) {
-> +       case TCA_IPTUNNEL_ACT_DECAP:
-> +               skb_dst_set_noref(skb, NULL);
-> +               break;
-> +       case TCA_IPTUNNEL_ACT_ENCAP:
-> +               skb_dst_set_noref(skb, &t->tcft_enc_metadata->dst);
-
-Jiri B > I understand the motivation for the decap action. However, what would
-Jiri B > happen if someone does not include it?
-
-The MD set by the (say) vxlan device will not be "consumed" (cleared)
-and would be keep travelling with the SKB
-
-> +
-> +               break;
-> +       default:
-> +               BUG();
-
-no, please, scream if you want to go beyond warning but don't kill and don't die
-
-> +       }
-> +
-> +       spin_unlock(&t->tcf_lock);
-> +       return action;
-> +}
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 4de3cc4..df5e9d9 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -704,6 +704,16 @@ sub seed_camelcase_file {
+ 	}
+ }
+ 
++sub is_maintained_obsolete {
++	my ($filename) = @_;
++
++	return 0 if (!(-e "$root/scripts/get_maintainer.pl"));
++
++	my $status = `perl $root/scripts/get_maintainer.pl --status --nom --nol --nogit --nogit-fallback $filename 2>&1`;
++
++	return $status =~ /obsolete/i;
++}
++
+ my $camelcase_seeded = 0;
+ sub seed_camelcase_includes {
+ 	return if ($camelcase_seeded);
+@@ -2289,6 +2299,10 @@ sub process {
+ 		}
+ 
+ 		if ($found_file) {
++			if (is_maintained_obsolete($realfile)) {
++				WARN("OBSOLETE",
++				     "$realfile is marked as 'obsolete' in the MAINTAINERS hierarchy.  No unnecessary modifications please.\n");
++			}
+ 			if ($realfile =~ m@^(?:drivers/net/|net/|drivers/staging/)@) {
+ 				$check = 1;
+ 			} else {
+-- 
+2.8.0.rc4.16.g56331f8
