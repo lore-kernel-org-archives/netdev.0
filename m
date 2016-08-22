@@ -1,33 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: properly handle failure case of tcf_exts_init()
-Date: Mon, 22 Aug 2016 10:40:50 -0700
-Message-ID: <CAM_iQpVJt9fE_anNXq=Jvi_Ka=BtN-_H365+oEBpFrxJv6dU3A@mail.gmail.com>
-References: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com> <09b957e2-5a37-643d-9cc1-2bbddc4ad8b4@mojatatu.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [for-next V2 00/17][PULL request] Mellanox mlx5 core driver
+ updates 2016-08-20
+Date: Mon, 22 Aug 2016 20:56:43 +0300
+Message-ID: <CALzJLG-eucDbJc=eo4HPvqnw-nvoXXAR1vsGPts8WFP3NR5T+Q@mail.gmail.com>
+References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com> <20160822.101128.1274162717645753985.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-rdma@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
+        Tal Alon <talal@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:37829 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754748AbcHVRlL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:41:11 -0400
-Received: by mail-it0-f46.google.com with SMTP id f6so91654115ith.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 10:41:11 -0700 (PDT)
-In-Reply-To: <09b957e2-5a37-643d-9cc1-2bbddc4ad8b4@mojatatu.com>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:36462 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753485AbcHVR5F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:57:05 -0400
+Received: by mail-lf0-f48.google.com with SMTP id g62so83537313lfe.3
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 10:57:05 -0700 (PDT)
+In-Reply-To: <20160822.101128.1274162717645753985.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 5:11 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+On Mon, Aug 22, 2016 at 8:11 PM, David Miller <davem@davemloft.net> wrote:
 >
+> Sorry, too many patches.
 >
-> Answered my own question by looking at implementation of kfree();
-> ignores NULL (unlike free())
+> Please keep your series to 10 to 15 patches maximum.
+>
+> Please do not push back on this, I made several other submitters do
+> the same exact thing over the past few days.
 
-Seriously?
+Sure. Rules are rules. I will be more strict in the future.
 
-Here is what C standard says about free():
+Technical question though. Do i need to create a new tag for the new
+pull request? I mean, should the tag always point to the "up to" patch
+in the pull request? or can I just use the same tag for the new pull
+request with different "up to" commit ?
 
-The free function causes the space pointed to by ptr to be
-deallocated, that is, made available for further allocation. If ptr is
-a null pointer, no action occurs.
+Thanks,
+Saeed.
