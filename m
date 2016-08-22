@@ -1,20 +1,22 @@
 From: Xander Huff <xander.huff@ni.com>
-Subject: [PATCH] phy: micrel: Reenable interrupts during resume for ksz9031
-Date: Mon, 22 Aug 2016 15:57:16 -0500
-Message-ID: <1471899436-56626-1-git-send-email-xander.huff@ni.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        brad.mouring@ni.com, nathan.sullivan@ni.com, xander.huff@ni.com
+Subject: [PATCH] phy: micrel: Reenable interrupts during on resume for ksz9031
+Date: Mon, 22 Aug 2016 15:43:38 -0500
+Message-ID: <1471898618-55834-1-git-send-email-xander.huff@ni.com>
+Cc: netdev@vger.kernel.org, brad.mouring@ni.com,
+        Xander Huff <xander.huff@ni.com>, linux-kernel@vger.kernel.org,
+        Nathan Sullivan <nathan.sullivan@ni.com>
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Like the ksz8081, the ksz9031 has the behavior where it will clear the
-interrupt enable bits when leaving power down. This takes advantage of the
-solution provided by f5aba91.
+Like the ksz8081, the ksz9031 has the behavior where it will clear the interrupt
+enable bits when leaving power down. This takes advantage of the solution
+provided by f5aba91.
 
 Signed-off-by: Xander Huff <xander.huff@ni.com>
 Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+Natinst-ReviewBoard-ID: 149877
 ---
  drivers/net/phy/micrel.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
