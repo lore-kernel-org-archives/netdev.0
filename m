@@ -1,76 +1,101 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH] gianfar: prevent fragmentation in DSA environments
-Date: Mon, 22 Aug 2016 15:44:35 +0200
-Message-ID: <fe774740-7829-50df-a749-cec894bb7c74@neratec.com>
-References: <1471598174-16938-1-git-send-email-zefir.kurtisi@neratec.com>
- <20160819145900.GD7343@lunn.ch>
- <AM5PR0401MB2561CB4CA30BC13EBFFAD43796160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
- <20160819163944.GF22939@lunn.ch>
- <AM5PR0401MB25618716FACFE3DA3A21D5F696160@AM5PR0401MB2561.eurprd04.prod.outlook.com>
- <20160819214503.GC14068@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "claudiu.manoil@freescale.com" <claudiu.manoil@freescale.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Claudiu Manoil <claudiu.manoil@nxp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:46919 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755039AbcHVNpM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 09:45:12 -0400
-In-Reply-To: <20160819214503.GC14068@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 00/20] pull request for net-next: batman-adv
+	2016-08-16*
+Date: Mon, 22 Aug 2016 15:56:00 +0200
+Message-ID: <20160822135620.15337-1-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 08/19/2016 11:45 PM, Andrew Lunn wrote:
->> Nice improvement.
-> 
-> Thanks
-> 
->> But what's so special about 8?
-> 
-> When talking to Marvell Switch chips, there are two different headers
-> which can be added. The DSA header is 4 bytes, and the EDSA header is
-> 8 bytes. However, if there is already a VLAN header, when using EDSA,
-> it will replace the VLAN header, so only need 4 additional bytes.
-> There are some very old Marvell switches which add a 4 byte
-> trailer. If you are talking to a Broadcom switch chip, it also has a 4
-> byte header.
-> 
->> I thought only 4 bytes were missing :)
-> 
-> So the requirement is probably not currently for the newer Marvell
-> switch chips? But we should be looking forward and expect at some
-> point somebody wants to use the newer chips. I've got a Freescale
-> Vybrid board using the modern Marvell chips, but the FEC driver does
-> not have a such a hard limit as this driver.
-> 
-> However, it does not seem as simple as that. A standard Ethernet frame
-> should have a maximum size of 1522 when including a VLAN header. Yet
-> the driver appears to be using 1536, which is this rounded up to
-> multiples of 64. So there is already 14 spare bytes in there. So there
-> must be something else going on here.
-> 
->> At least 1536 is the default size of the MRBLR register, as specified
->> in the h/w ref manual.  Is there some recommended standard size
->> to accommodate most (if not all) headers, to refer to?
-> 
-> Not that i know of. These switch headers are proprietary.
-> 
->     Andrew
-> 
-Hi,
+Hi David,
 
-it is a combination of
-* (E)DSA header (+4/8 bytes)
-* GMAC_FCB_LEN (8)
-* FSL_GIANFAR_DEV_HAS_TIMER (causing priv->padding=8)
-which sums up to a maximum frame size of 1538 and activates scatter-gather.
+this is our third (and final, for now) pull request for batman-adv in this round,
+with mostly maintainability stuff.
 
-A v2 patch with better info is on its way.
+Please pull or let me know of any problem!
 
+Thank you,
+      Simon
 
-Thanks,
-Zefir
+The following changes since commit 4c09a08b47ffac9aa3bc91870aa54c9ae39d9674:
+
+  batman-adv: Indicate netlink socket can be used with netns. (2016-08-09 07:54:43 +0200)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20160822
+
+for you to fetch changes up to dc1cbd145eecf21209d0322874e1766bcbce3e3f:
+
+  batman-adv: Allow to disable debugfs support (2016-08-09 07:54:54 +0200)
+
+----------------------------------------------------------------
+This feature patchset includes the following changes:
+
+ - place kref_get near usage of referenced objects, separate patches
+   for various used objects to improve readability and maintainability
+   by Sven Eckelmann (18 patches)
+
+ - Keep batadv net device when all hard interfaces disappear, to
+   improve situations where tools currently use work arounds, by
+   Sven Eckelmann
+
+ - Add an option to disable debugfs support to minimize footprint when
+   userspace uses netlink only, by Sven Eckelmann
+
+----------------------------------------------------------------
+Sven Eckelmann (20):
+      batman-adv: Place kref_get for orig_node_vlan near use
+      batman-adv: Place kref_get for orig_ifinfo near use
+      batman-adv: Place kref_get for tt_orig_list_entry near use
+      batman-adv: Place kref_get for neigh_ifinfo near use
+      batman-adv: Place kref_get for neigh_node near use
+      batman-adv: Place kref_get for orig_node near use
+      batman-adv: Place kref_get for tt_local_entry near use
+      batman-adv: Place kref_get for tt_common near use
+      batman-adv: Place kref_get for bla_claim near use
+      batman-adv: Place kref_get for bla_backbone_gw near use
+      batman-adv: Place kref_get for dat_entry near use
+      batman-adv: Place kref_get for gw_node near use
+      batman-adv: Place kref_get for hard_iface near use
+      batman-adv: Place kref_get for softif_vlan near use
+      batman-adv: Place kref_get for nc_node near use
+      batman-adv: Place kref_get for nc_path near use
+      batman-adv: Place kref_get for tvlv_container near use
+      batman-adv: Place kref_get for tvlv_handler near use
+      batman-adv: Keep batadv netdev when hardif disappears
+      batman-adv: Allow to disable debugfs support
+
+ net/batman-adv/Kconfig                 | 15 +++++++++++++--
+ net/batman-adv/Makefile                |  4 ++--
+ net/batman-adv/bat_algo.c              |  2 ++
+ net/batman-adv/bat_iv_ogm.c            | 19 ++++++++++++++++---
+ net/batman-adv/bat_v.c                 | 12 ++++++++++++
+ net/batman-adv/bat_v_ogm.c             |  5 ++---
+ net/batman-adv/bridge_loop_avoidance.c | 13 ++++++++-----
+ net/batman-adv/debugfs.h               |  2 +-
+ net/batman-adv/distributed-arp-table.c |  4 +++-
+ net/batman-adv/gateway_client.c        | 10 ++++++++--
+ net/batman-adv/hard-interface.c        |  8 +++-----
+ net/batman-adv/icmp_socket.h           | 18 +++++++++++++++++-
+ net/batman-adv/main.c                  |  2 ++
+ net/batman-adv/multicast.c             |  2 ++
+ net/batman-adv/network-coding.c        | 11 ++++++-----
+ net/batman-adv/originator.c            | 12 ++++++++----
+ net/batman-adv/soft-interface.c        |  4 ++++
+ net/batman-adv/translation-table.c     | 10 +++++++---
+ net/batman-adv/tvlv.c                  |  9 +++++++++
+ net/batman-adv/types.h                 |  6 ++++++
+ 20 files changed, 131 insertions(+), 37 deletions(-)
