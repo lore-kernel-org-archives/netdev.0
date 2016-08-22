@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 11/18] liquidio: link and control commands
-Date: Sun, 21 Aug 2016 17:12:38 -0700
-Message-ID: <1471824765-26473-12-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 13/18] liquidio: CN23XX IQ access
+Date: Sun, 21 Aug 2016 17:12:40 -0700
+Message-ID: <1471824765-26473-14-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,189 +13,109 @@ Cc: <netdev@vger.kernel.org>,
         Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0063.outbound.protection.outlook.com ([104.47.33.63]:26776
+Received: from mail-bn3nam01on0057.outbound.protection.outlook.com ([104.47.33.57]:45888
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753360AbcHVA3o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:29:44 -0400
+        id S1753360AbcHVAaE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 20:30:04 -0400
 In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds work queue support for link status and
-control commands.
+Adds support for Instruction Queue(IQ) index manipulation
+routines through bar1 of cn23xx.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_core.c    |  5 +-
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 70 ++++++++++++++++++++--
- .../net/ethernet/cavium/liquidio/octeon_network.h  |  4 ++
- 3 files changed, 71 insertions(+), 8 deletions(-)
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 66 ++++++++++++++++++++++
+ 1 file changed, 66 insertions(+)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-index 809179c..5fb444d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
-@@ -156,10 +156,9 @@ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
- 		dev_info(&oct->pci_dev->dev, "%s MTU Changed from %d to %d\n",
- 			 netdev->name, netdev->mtu,
- 			 nctrl->ncmd.s.param1);
--		rtnl_lock();
- 		netdev->mtu = nctrl->ncmd.s.param1;
--		call_netdevice_notifiers(NETDEV_CHANGEMTU, netdev);
--		rtnl_unlock();
-+		queue_delayed_work(lio->link_status_wq.wq,
-+				   &lio->link_status_wq.wk.work, 0);
- 		break;
- 
- 	case OCTNET_CMD_GPIO_ACCESS:
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index c33c5a1..1bdaa2d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -859,6 +859,48 @@ static void print_link_info(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+index 335d0eb..c2fc4dc 100644
+--- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+@@ -910,6 +910,67 @@ static void cn23xx_reinit_regs(struct octeon_device *oct)
+ 	}
  }
  
- /**
-+ * \brief Routine to notify MTU change
-+ * @param work work_struct data structure
-+ */
-+static void octnet_link_status_change(struct work_struct *work)
++static void cn23xx_bar1_idx_setup(struct octeon_device *oct, u64 core_addr,
++				  u32 idx, int valid)
 +{
-+	struct cavium_wk *wk = (struct cavium_wk *)work;
-+	struct lio *lio = (struct lio *)wk->ctxptr;
++	u64 bar1;
++	u64 reg_adr;
 +
-+	rtnl_lock();
-+	call_netdevice_notifiers(NETDEV_CHANGEMTU, lio->netdev);
-+	rtnl_unlock();
-+}
-+
-+/**
-+ * \brief Sets up the mtu status change work
-+ * @param netdev network device
-+ */
-+static inline void setup_link_status_change_wq(struct net_device *netdev)
-+{
-+	struct lio *lio = GET_LIO(netdev);
-+	struct octeon_device *oct = lio->oct_dev;
-+
-+	lio->link_status_wq.wq = alloc_workqueue("link-status",
-+						 WQ_MEM_RECLAIM, 0);
-+	if (!lio->link_status_wq.wq) {
-+		dev_err(&oct->pci_dev->dev, "unable to create cavium link status wq\n");
++	if (!valid) {
++		reg_adr = lio_pci_readq(
++			oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
++		WRITE_ONCE(bar1, reg_adr);
++		lio_pci_writeq(oct, (READ_ONCE(bar1) & 0xFFFFFFFEULL),
++			       CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
++		reg_adr = lio_pci_readq(
++			oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
++		WRITE_ONCE(bar1, reg_adr);
 +		return;
 +	}
-+	INIT_DELAYED_WORK(&lio->link_status_wq.wk.work,
-+			  octnet_link_status_change);
-+	lio->link_status_wq.wk.ctxptr = lio;
++
++	/*  The PEM(0..3)_BAR1_INDEX(0..15)[ADDR_IDX]<23:4> stores
++	 *  bits <41:22> of the Core Addr
++	 */
++	lio_pci_writeq(oct, (((core_addr >> 22) << 4) | PCI_BAR1_MASK),
++		       CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
++
++	WRITE_ONCE(bar1, lio_pci_readq(
++		   oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx)));
 +}
 +
-+static inline void cleanup_link_status_change_wq(struct net_device *netdev)
++static void cn23xx_bar1_idx_write(struct octeon_device *oct, u32 idx, u32 mask)
 +{
-+	struct lio *lio = GET_LIO(netdev);
-+
-+	cancel_delayed_work_sync(&lio->link_status_wq.wk.work);
-+	destroy_workqueue(lio->link_status_wq.wq);
++	lio_pci_writeq(oct, mask,
++		       CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
 +}
 +
-+/**
-  * \brief Update link status
-  * @param netdev network device
-  * @param ls link status structure
-@@ -1385,11 +1427,16 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
- 			napi_disable(napi);
- 
- 		oct->props[lio->ifidx].napi_enabled = 0;
++static u32 cn23xx_bar1_idx_read(struct octeon_device *oct, u32 idx)
++{
++	return (u32)lio_pci_readq(
++	    oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
++}
 +
-+		if (OCTEON_CN23XX_PF(oct))
-+			oct->droq[0]->ops.poll_mode = 0;
- 	}
- 
- 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED)
- 		unregister_netdev(netdev);
- 
-+	cleanup_link_status_change_wq(netdev);
++/* always call with lock held */
++static u32 cn23xx_update_read_index(struct octeon_instr_queue *iq)
++{
++	u32 new_idx;
++	u32 last_done;
++	u32 pkt_in_done = readl(iq->inst_cnt_reg);
 +
- 	delete_glists(lio);
- 
- 	free_netdev(netdev);
-@@ -2267,6 +2314,14 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
- 		octeon_register_droq_ops(octeon_dev, q_no, &droq_ops);
- 	}
- 
-+	if (OCTEON_CN23XX_PF(octeon_dev)) {
-+		/* 23XX PF can receive control messages (via the first PF-owned
-+		 * droq) from the firmware even if the ethX interface is down,
-+		 * so that's why poll_mode must be off for the first droq.
-+		 */
-+		octeon_dev->droq[0]->ops.poll_mode = 0;
-+	}
++	last_done = pkt_in_done - iq->pkt_in_done;
++	iq->pkt_in_done = pkt_in_done;
 +
- 	/* set up IQs. */
- 	for (q = 0; q < lio->linfo.num_txpciq; q++) {
- 		num_tx_descs = CFG_GET_NUM_TX_DESCS_NIC_IF(octeon_get_conf
-@@ -2348,12 +2403,20 @@ static int liquidio_open(struct net_device *netdev)
- 			napi_enable(napi);
- 
- 		oct->props[lio->ifidx].napi_enabled = 1;
++	/* Modulo of the new index with the IQ size will give us
++	 * the new index.  The iq->reset_instr_cnt is always zero for
++	 * cn23xx, so no extra adjustments are needed.
++	 */
++	new_idx = (iq->octeon_read_index +
++		   (u32)(last_done & CN23XX_PKT_IN_DONE_CNT_MASK)) %
++		  iq->max_count;
 +
-+		if (OCTEON_CN23XX_PF(oct))
-+			oct->droq[0]->ops.poll_mode = 1;
- 	}
- 
- 	oct_ptp_open(netdev);
- 
- 	ifstate_set(lio, LIO_IFSTATE_RUNNING);
- 
-+	/* Ready for link status updates */
-+	lio->intf_open = 1;
++	return new_idx;
++}
 +
-+	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
+ static void cn23xx_enable_pf_interrupt(struct octeon_device *oct, u8 intr_flag)
+ {
+ 	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
+@@ -1087,6 +1148,11 @@ int setup_cn23xx_octeon_pf_device(struct octeon_device *oct)
+ 	oct->fn_list.soft_reset = cn23xx_pf_soft_reset;
+ 	oct->fn_list.setup_device_regs = cn23xx_setup_pf_device_regs;
+ 	oct->fn_list.reinit_regs = cn23xx_reinit_regs;
++	oct->fn_list.update_iq_read_idx = cn23xx_update_read_index;
 +
- 	if (OCTEON_CN23XX_PF(oct)) {
- 		if (!oct->msix_on)
- 			setup_tx_poll_fn(netdev);
-@@ -2363,14 +2426,9 @@ static int liquidio_open(struct net_device *netdev)
++	oct->fn_list.bar1_idx_setup = cn23xx_bar1_idx_setup;
++	oct->fn_list.bar1_idx_write = cn23xx_bar1_idx_write;
++	oct->fn_list.bar1_idx_read = cn23xx_bar1_idx_read;
  
- 	start_txq(netdev);
- 
--	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
--
- 	/* tell Octeon to start forwarding packets to host */
- 	send_rx_ctrl_cmd(lio, 1);
- 
--	/* Ready for link status updates */
--	lio->intf_open = 1;
--
- 	dev_info(&oct->pci_dev->dev, "%s interface is opened\n",
- 		 netdev->name);
- 
-@@ -3663,6 +3721,8 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 			liquidio_set_feature(netdev,
- 					     OCTNET_CMD_VERBOSE_ENABLE, 0);
- 
-+		setup_link_status_change_wq(netdev);
-+
- 		/* Register the network device with the OS */
- 		if (register_netdev(netdev)) {
- 			dev_err(&octeon_dev->pci_dev->dev, "Device registration failed\n");
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-index 7cfbdf9..d3b68d8 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
-@@ -122,6 +122,10 @@ struct lio {
- 
- 	/* work queue for  txq status */
- 	struct cavium_wq	txq_status_wq;
-+
-+	/* work queue for  link status */
-+	struct cavium_wq	link_status_wq;
-+
- };
- 
- #define LIO_SIZE         (sizeof(struct lio))
+ 	oct->fn_list.enable_interrupt = cn23xx_enable_pf_interrupt;
+ 	oct->fn_list.disable_interrupt = cn23xx_disable_pf_interrupt;
 -- 
 1.8.3.1
