@@ -1,72 +1,91 @@
-From: Gerard Garcia <ggarcia@abra.uab.cat>
-Subject: Re: [PATCH 2/3] vsockmon: Add vsockmon device.
-Date: Mon, 22 Aug 2016 12:12:29 +0200
-Message-ID: <e4245972-d695-c9cd-e06d-33473c5fcfbd@deic.uab.cat>
-References: <20160808161442.16038-3-ggarcia@deic.uab.cat> <"20160810115158.GB1
- 0461"@stefanha-x1.localdomain>
- <20160815.102349.379302333828628901.davem@davemloft.net>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH v3 net-next] l2tp: Refactor the codes with existing macros
+ instead of literal number
+Date: Mon, 22 Aug 2016 18:22:42 +0800
+Message-ID: <CA+6hz4qoHeQ+eD9j21dZS0KQ8_1cnAkj7j0X4msZaGTBDC3ezQ@mail.gmail.com>
+References: <1471708347-18063-1-git-send-email-fgao@ikuai8.com> <20160822100716.ixxxppc7x4nce5yx@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: stefanha@redhat.com, netdev@vger.kernel.org, jhansen@vmware.com,
-        mst@redhat.com
-To: David Miller <davem@davemloft.net>, David.Laight@ACULAB.COM
+Content-Type: text/plain; charset=UTF-8
+Cc: Gao Feng <fgao@ikuai8.com>, paulus@samba.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Philp Prindeville <philipp@redfish-solutions.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:32854 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752150AbcHVKMc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:12:32 -0400
-Received: by mail-wm0-f65.google.com with SMTP id o80so12710276wme.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 03:12:32 -0700 (PDT)
-In-Reply-To: <20160815.102349.379302333828628901.davem@davemloft.net>
+Received: from mail-ua0-f196.google.com ([209.85.217.196]:33414 "EHLO
+        mail-ua0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbcHVKWn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:22:43 -0400
+Received: by mail-ua0-f196.google.com with SMTP id u13so10398246uau.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 03:22:43 -0700 (PDT)
+In-Reply-To: <20160822100716.ixxxppc7x4nce5yx@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/15/2016 07:23 PM, David Miller wrote:
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Mon, 15 Aug 2016 16:38:36 +0000
->
->> From: Stefan Hajnoczi
->>> Sent: 10 August 2016 12:52
->>> On Mon, Aug 08, 2016 at 06:14:41PM +0200, ggarcia@abra.uab.cat wrote:
->>>> diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
->>>> new file mode 100644
->>>> index 0000000..739b4bf
->>>> --- /dev/null
->>>> +++ b/include/uapi/linux/vsockmon.h
->>>> @@ -0,0 +1,35 @@
->>>> +#ifndef _UAPI_VSOCKMON_H
->>>> +#define _UAPI_VSOCKMON_H
->>>> +
->>>> +#include <linux/virtio_vsock.h>
->>>> +
->>>> +/* Structure of packets received trought the vsockmon device. */
->>>> +
->>>> +struct af_vsockmon_hdr {
->>>> +	__le64 src_cid;
->>>> +	__le64 dst_cid;
->>>> +	__le32 src_port;
->>>> +	__le32 dst_port;
->>>> +	__le16 op;			/* enum af_vsockmon_op */
->>>> +	__le16 t;			/* enum af_vosckmon_t */
->>>> +	__le16 len;			/* sizeof(t_hdr) */
->>>> +	union {
->>>> +		struct virtio_vsock_hdr virtio_hdr;
->>>> +	} t_hdr;
->>>> +} __attribute__((packed));
->> ...
->>
->> Gah, another 'packed' structure.
->> Have you looked at the amount of code the sparc64 compiler generates
->> to access the structure members??
->>
->> You really want to add another 16bit field and enforce 64bit alignment
->> on the header and all data blocks.
->
-> Indeed, avoid the packed attribute at all costs.
->
+inline
 
-I understand. I'll add another 16b field so it is aligned and avoid the 
-packed attribute.
+On Mon, Aug 22, 2016 at 6:07 PM, Guillaume Nault <g.nault@alphalink.fr> wrote:
+> On Sat, Aug 20, 2016 at 11:52:27PM +0800, fgao@ikuai8.com wrote:
+>> From: Gao Feng <fgao@ikuai8.com>
+>>
+>> Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
+>> 0x03, and 2 separately.
+>>
+>> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+>> ---
+>>  v3: Modify the subject;
+>>  v2: Only replace the literal number with macros according to Guillaume's advice
+>>  v1: Inital patch
+>>
+>>  net/l2tp/l2tp_ppp.c | 8 ++++----
+>>  1 file changed, 4 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+>> index d9560aa..65e2fd6 100644
+>> --- a/net/l2tp/l2tp_ppp.c
+>> +++ b/net/l2tp/l2tp_ppp.c
+>> @@ -177,7 +177,7 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
+>>       if (!pskb_may_pull(skb, 2))
+>>               return 1;
+>>
+>> -     if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
+>> +     if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
+>>               skb_pull(skb, 2);
+>>
+>>       return 0;
+>> @@ -282,7 +282,7 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
+>>  static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+>>                           size_t total_len)
+>>  {
+>> -     static const unsigned char ppph[2] = { 0xff, 0x03 };
+>> +     static const unsigned char ppph[2] = {PPP_ALLSTATIONS, PPP_UI};
+>>
+> Minor nit: I'd prefer to keep the space after '{' and before '}'.
+> I didn't want to bother you with this, but since it seems you'll have
+> to repost...
 
-Gerard
+I don't know if it is the coding style of Linux kernel.
+
+>
+>>       struct sock *sk = sock->sk;
+>>       struct sk_buff *skb;
+>>       int error;
+>> @@ -369,7 +369,7 @@ error:
+>>   */
+>>  static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+>>  {
+>> -     static const u8 ppph[2] = { 0xff, 0x03 };
+>> +     static const u8 ppph[2] = {PPP_ALLSTATIONS, PPP_UI};
+>>
+> Same here.
+>
+> BTW, I thought you also wanted to remove the static ppph variable
+> from pppol2tp_xmit() / pppol2tp_sendmsg(), to directly assign
+> skb->data[0/1] with PPP_ALLSTATIONS/PPP_UI.
+
+If removed static ppph, there will be some codes which use literal "2"
+instead of sizeof ppph.
+Is it ok?
+
+Regards
+Feng
