@@ -1,41 +1,51 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 0/3] hostap: Fine-tuning for a few functions
-Date: Mon, 22 Aug 2016 18:49:24 +0300
-Message-ID: <87shtwvm63.fsf@kamboji.qca.qualcomm.com>
-References: <566ABCD9.1060404@users.sourceforge.net>
-        <f0cd7a82-e603-6a91-0afd-33bbd1658cab@users.sourceforge.net>
-        <3b3c91ad-3225-3483-bb58-fdee33bf2290@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Jouni Malinen <j@w1.fi>, LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH V2] liquidio: declare liquidio_set_rxcsum_command static
+Date: Mon, 22 Aug 2016 17:52:00 +0200
+Message-ID: <1471881120-10232-1-git-send-email-hofrat@osadl.org>
+Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Nicholas Mc Guire <hofrat@osadl.org>
+To: Derek Chickles <derek.chickles@caviumnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3b3c91ad-3225-3483-bb58-fdee33bf2290@broadcom.com> (Arend van
-        Spriel's message of "Sat, 20 Aug 2016 21:26:42 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arend van Spriel <arend.vanspriel@broadcom.com> writes:
+liquidio_set_rxcsum_command is a local function only, no need to expose
+it outside of lio_main.c so declare it static and make sparse happy.
 
-> On 20-08-16 18:43, SF Markus Elfring wrote:
->> From: Markus Elfring <elfring@users.sourceforge.net>
->> Date: Sat, 20 Aug 2016 18:35:43 +0200
->> 
->> A few update suggestions were taken into account
->> from static source code analysis.
->
-> Is it worth touching this old stuff especially when you are not making
-> any functional changes.
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-On the other hand if these patches break something this might be a good
-way to get feedback if someone is really using this driver ;)
+V2: forgot to fix up the checkpatch.pl warnings...
 
-But yeah, not really sure what to do with these obsolete drivers like
-hostap, ray_cs and wl3501.
+Detected by sparse:
+  CHECK   drivers/net/ethernet/cavium/liquidio/lio_main.c
+drivers/net/ethernet/cavium/liquidio/lio_main.c:3193:5: warning: symbol
+'liquidio_set_rxcsum_command' was not declared. Should it be static?
 
+Patch was compile tested with: x86_64_defconfig + CONFIG_LIQUIDIO=m
+
+Patch is against 4.8.0-rc2 (localversion-next is -next-20160822)
+
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 20d6942..f659a95 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3190,8 +3190,8 @@ static int liquidio_vlan_rx_kill_vid(struct net_device *netdev,
+  *                              OCTNET_CMD_RXCSUM_DISABLE
+  * @returns                     SUCCESS or FAILURE
+  */
+-int liquidio_set_rxcsum_command(struct net_device *netdev, int command,
+-				u8 rx_cmd)
++static int liquidio_set_rxcsum_command(struct net_device *netdev, int command,
++				       u8 rx_cmd)
+ {
+ 	struct lio *lio = GET_LIO(netdev);
+ 	struct octeon_device *oct = lio->oct_dev;
 -- 
-Kalle Valo
+2.1.4
