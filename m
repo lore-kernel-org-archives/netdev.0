@@ -1,52 +1,49 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next] net: strparser: fix strparser sk_user_data check
-Date: Mon, 22 Aug 2016 12:35:38 -0700
-Message-ID: <CALx6S35w4oe9ds-cWadKmT_n__3-NKFZ6hw=KFzKFNBx+Dj=2g@mail.gmail.com>
-References: <20160822192704.GA34359@davejwatson-mba.dhcp.thefacebook.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v05 21/72] include/uapi/linux/if_pppox.h: include
+ linux/if.h
+Date: Mon, 22 Aug 2016 12:37:45 -0700
+Message-ID: <20160822123745.7921a88d@xeon-e3>
+References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
+        <1471890809-4383-22-git-send-email-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Dave Watson <davejwatson@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33841 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756116AbcHVTfj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 15:35:39 -0400
-Received: by mail-it0-f68.google.com with SMTP id e63so5670071ith.1
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 12:35:39 -0700 (PDT)
-In-Reply-To: <20160822192704.GA34359@davejwatson-mba.dhcp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Mikko Rapeli <mikko.rapeli@iki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471890809-4383-22-git-send-email-mikko.rapeli@iki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 22, 2016 at 12:27 PM, Dave Watson <davejwatson@fb.com> wrote:
-> sk_user_data mismatch between what kcm expects (psock) and what strparser expects (strparser).
->
-> Queued rx_work, for example calling strp_check_rcv after socket buffer changes, will never complete.
->
-> sk_user_data is unused in strparser, so just remove the check.
->
-> Signed-off-by: Dave Watson <davejwatson@fb.com>
+On Mon, 22 Aug 2016 20:32:38 +0200
+Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
+
+> Fixes userspace compilation error:
+>=20
+> error: =E2=80=98IFNAMSIZ=E2=80=99 undeclared here (not in a function)
+>=20
+> Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
 > ---
->  net/strparser/strparser.c | 3 ---
->  1 file changed, 3 deletions(-)
->
-> diff --git a/net/strparser/strparser.c b/net/strparser/strparser.c
-> index fd688c0..68334b5 100644
-> --- a/net/strparser/strparser.c
-> +++ b/net/strparser/strparser.c
-> @@ -390,9 +390,6 @@ static void do_strp_rx_work(struct strparser *strp)
->          */
->         lock_sock(csk);
->
-> -       if (unlikely(csk->sk_user_data != strp))
-> -               goto out;
-> -
+>  include/uapi/linux/if_pppox.h | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/include/uapi/linux/if_pppox.h b/include/uapi/linux/if_pppox.h
+> index e128769..473c3c4 100644
+> --- a/include/uapi/linux/if_pppox.h
+> +++ b/include/uapi/linux/if_pppox.h
+> @@ -21,6 +21,7 @@
+>  #include <asm/byteorder.h>
+> =20
+>  #include <linux/socket.h>
+> +#include <linux/if.h>
+>  #include <linux/if_ether.h>
+>  #include <linux/if_pppol2tp.h>
+> =20
 
-Acked-by: Tom Herbert <tom@herbertland.com>
+I went back to the first patch in LKML for this series.
+It seems your goal is that every include file should be standalone,
+i.e it must include every definition it uses.
 
->         if (unlikely(strp->rx_stopped))
->                 goto out;
->
-> --
-> 2.8.0.rc2
->
+I disagree with this premise. It just makes things harder to maintain with
+no real gain for any existing program.  What is the motivation for all this
+useless churn? Is there some silly style rule that should be fixed instead?
