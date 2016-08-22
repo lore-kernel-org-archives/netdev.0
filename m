@@ -1,51 +1,39 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next V3 16/18] liquidio: CN23XX health monitoring
-Date: Mon, 22 Aug 2016 16:53:50 +0000
-Message-ID: <CO2PR11MB0088CFF57EA49EC3ED5D869697E80@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <1471824765-26473-17-git-send-email-rvatsavayi@caviumnetworks.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next] xen-netfront: avoid packet loss when
+ ethernet header crosses page boundary
+Date: Mon, 22 Aug 2016 17:55:23 +0100
+Message-ID: <57BB2E7B.5040303@citrix.com>
+References: <1471880577-21380-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0098.outbound.protection.outlook.com ([104.47.33.98]:18896
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755830AbcHVQyA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 12:54:00 -0400
-In-Reply-To: <1471824765-26473-17-git-send-email-rvatsavayi@caviumnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: Juergen Gross <jgross@suse.com>,
+        Patrick Talbert <ptalbert@redhat.com>,
+        <linux-kernel@vger.kernel.org>,
+        David Vrabel <david.vrabel@citrix.com>,
+        <xen-devel@lists.xenproject.org>,
+        Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471880577-21380-1-git-send-email-vkuznets@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +				/* look at watchdog state field */
-> +				wdog &=3D 12ULL;
-Magic value? Probably could use a define.
+On 22/08/16 16:42, Vitaly Kuznetsov wrote:
+> 
+> I see two ways to fix the issue:
+> - Change the 'wire' protocol between netfront and netback to start keeping
+>   the original SKB structure. We'll have to add a flag indicating the fact
+>   that the particular request is a part of the original linear part and not
+>   a frag. We'll need to know the length of the linear part to pre-allocate
+>   memory.
 
-> +				if (core_is_stuck[core_num] =3D=3D 1) {
-> +					dev_err(&oct->pci_dev->dev,
-> +						"ERROR: Octeon core %d is
-> stuck!\n",
-> +						core_num);
-> +					core_is_stuck[core_num] =3D
-> +						2; /* 2 means we have printk'd
-> +						    * an error; so no need to
-> +						    * repeat the same printk
-> +						    */
-Likewise.
+I don't think there needs to be a protocol change.  I think the check in
+netback is bogus -- it's the total packet length that must be >
+HLEN_ETH.  The upper layers will pull any headers from the frags as
+needed (or if necessary, netback could pull a minimum amount).
 
+There's no need to preserve the skb layout (e.g., look how the to-guest
+direction we do not do this).
 
-> +		if (!(scratch1 & 4ULL)) {
-> +			/* Bit 2 of SLI_SCRATCH_1 is a flag that indicates that
-> +			 * the lio watchdog kernel thread is running for this
-> +			 * NIC.  Each NIC gets one watchdog kernel thread.
-> +			 */
-> +			scratch1 |=3D 4ULL;
-Likewise.
+David
