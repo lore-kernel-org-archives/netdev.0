@@ -1,121 +1,293 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 13/18] liquidio: CN23XX IQ access
-Date: Sun, 21 Aug 2016 17:12:40 -0700
-Message-ID: <1471824765-26473-14-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
+From: fgao@ikuai8.com
+Subject: [PATCH v4 net-next] ppp: Fix one deadlock issue of PPP when reentrant
+Date: Mon, 22 Aug 2016 09:20:14 +0800
+Message-ID: <1471828814-19187-1-git-send-email-fgao@ikuai8.com>
+Cc: gfree.wind@gmail.com, Gao Feng <fgao@ikuai8.com>
+To: paulus@samba.org, g.nault@alphalink.fr,
+        philipp@redfish-solutions.com, linux-ppp@vger.kernel.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0057.outbound.protection.outlook.com ([104.47.33.57]:45888
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753360AbcHVAaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:30:04 -0400
-In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from smtpbg340.qq.com ([14.17.44.35]:44573 "EHLO smtpbg340.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752505AbcHVBVF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 21:21:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for Instruction Queue(IQ) index manipulation
-routines through bar1 of cn23xx.
+From: Gao Feng <fgao@ikuai8.com>
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+PPP channel holds one spinlock before send frame. But the skb may
+select the same PPP channel with wrong route policy. As a result,
+the skb reaches the same channel path. It tries to get the same
+spinlock which is held before. Bang, the deadlock comes out.
+
+Now add one lock owner to avoid it like xmit_lock_owner of
+netdev_queue. Check the lock owner before try to get the spinlock.
+If the current cpu is already the owner, it means ppp finds there is
+one reentrant and returns directly. If not owner and hold the spinlock
+successfully, it sets owner with current CPU ID.
+
+The following is the panic stack of 3.3.8. But the same issue
+should be in the upstream too.
+
+[<ffffffff81568131>] ? _raw_spin_lock_bh+0x11/0x40
+[<ffffffffa006a2b7>] ppp_unregister_channel+0x1347/0x2170 [ppp_generic]
+[<ffffffff810a2827>] ? kmem_cache_free+0xa7/0xc0
+[<ffffffffa006ad27>] ppp_unregister_channel+0x1db7/0x2170 [ppp_generic]
+[<ffffffffa006afd5>] ppp_unregister_channel+0x2065/0x2170 [ppp_generic]
+[<ffffffff8148f1dd>] dev_hard_start_xmit+0x4cd/0x620
+[<ffffffff814a6254>] sch_direct_xmit+0x74/0x1d0
+[<ffffffff8148f88d>] dev_queue_xmit+0x1d/0x30
+[<ffffffff81496a4c>] neigh_direct_output+0xc/0x10
+[<ffffffff814d9dae>] ip_finish_output+0x25e/0x2b0
+[<ffffffff814da688>] ip_output+0x88/0x90
+[<ffffffff814d9e9f>] ? __ip_local_out+0x9f/0xb0
+[<ffffffff814d9ed4>] ip_local_out+0x24/0x30
+[<ffffffffa00b9745>] 0xffffffffa00b9744
+[<ffffffffa006b068>] ppp_unregister_channel+0x20f8/0x2170 [ppp_generic]
+[<ffffffffa006b202>] ppp_output_wakeup+0x122/0x11d0 [ppp_generic]
+[<ffffffff810a7978>] vfs_write+0xb8/0x160
+[<ffffffff810a7c55>] sys_write+0x45/0x90
+[<ffffffff815689e2>] system_call_fastpath+0x16/0x1b
+
+The call flow is like this.
+ppp_write->ppp_channel_push->start_xmit->select inappropriate route
+.... -> dev_hard_start_xmit->ppp_start_xmit->ppp_xmit_process->
+ppp_push. Now ppp_push tries to get the same spinlock which is held
+in ppp_channel_push.
+
+Although the PPP deadlock is caused by inappropriate route policy
+with L2TP, I think it is not accepted the PPP module would cause kernel
+deadlock with wrong route policy.
+
+Signed-off-by: Gao Feng <fgao@ikuai8.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 66 ++++++++++++++++++++++
- 1 file changed, 66 insertions(+)
+ v4: 1) Remove the inline; 
+     2) Add _ppp_channel_lock/unlock_bh for non-xmit path;
+     3) Move local_bh_enable before print log;
+ v3: Change the fix solution. Giveup the send chance instead of recursive lock
+ v2: Fix recursive unlock issue
+ v1: Initial patch
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index 335d0eb..c2fc4dc 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -910,6 +910,67 @@ static void cn23xx_reinit_regs(struct octeon_device *oct)
- 	}
- }
+ drivers/net/ppp/ppp_generic.c | 104 +++++++++++++++++++++++++++++++++---------
+ 1 file changed, 82 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 70cfa06..48a957a 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -162,6 +162,58 @@ struct ppp {
+ 			 |SC_MULTILINK|SC_MP_SHORTSEQ|SC_MP_XSHORTSEQ \
+ 			 |SC_COMP_TCP|SC_REJ_COMP_TCP|SC_MUST_COMP)
  
-+static void cn23xx_bar1_idx_setup(struct octeon_device *oct, u64 core_addr,
-+				  u32 idx, int valid)
-+{
-+	u64 bar1;
-+	u64 reg_adr;
++struct channel_lock {
++	spinlock_t lock;
++	int owner;
++};
 +
-+	if (!valid) {
-+		reg_adr = lio_pci_readq(
-+			oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
-+		WRITE_ONCE(bar1, reg_adr);
-+		lio_pci_writeq(oct, (READ_ONCE(bar1) & 0xFFFFFFFEULL),
-+			       CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
-+		reg_adr = lio_pci_readq(
-+			oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
-+		WRITE_ONCE(bar1, reg_adr);
-+		return;
++static void ppp_channel_lock_init(struct channel_lock *cl)
++{
++	cl->owner = -1;
++	spin_lock_init(&cl->lock);
++}
++
++/* Used in non-xmit path */
++static void _ppp_channel_lock_bh(struct channel_lock *cl)
++{
++	spin_lock_bh(&cl->lock);
++}
++
++/* Used in non-xmit path */
++static void _ppp_channel_unlock_bh(struct channel_lock *cl)
++{
++	spin_unlock_bh(&cl->lock);
++}
++
++static bool ppp_channel_lock_bh(struct channel_lock *cl)
++{
++	int cpu;
++
++	local_bh_disable();
++	cpu = smp_processor_id();
++	if (cpu == cl->owner) {
++		local_bh_enable();
++		/* The CPU already holds this channel lock and sends. But the
++		 * channel is selected after inappropriate route. It causes
++		 * reenter the channel again. It is forbidden by PPP module.
++		 */
++		if (net_ratelimit())
++			pr_err("PPP detects one recursive channel send\n");
++		return false;
 +	}
++	spin_lock(&cl->lock);
++	cl->owner = cpu;
 +
-+	/*  The PEM(0..3)_BAR1_INDEX(0..15)[ADDR_IDX]<23:4> stores
-+	 *  bits <41:22> of the Core Addr
-+	 */
-+	lio_pci_writeq(oct, (((core_addr >> 22) << 4) | PCI_BAR1_MASK),
-+		       CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
-+
-+	WRITE_ONCE(bar1, lio_pci_readq(
-+		   oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx)));
++	return true;
 +}
 +
-+static void cn23xx_bar1_idx_write(struct octeon_device *oct, u32 idx, u32 mask)
++static void ppp_channel_unlock_bh(struct channel_lock *cl)
 +{
-+	lio_pci_writeq(oct, mask,
-+		       CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
++	cl->owner = -1;
++	spin_unlock(&cl->lock);
++	local_bh_enable();
 +}
 +
-+static u32 cn23xx_bar1_idx_read(struct octeon_device *oct, u32 idx)
-+{
-+	return (u32)lio_pci_readq(
-+	    oct, CN23XX_PEM_BAR1_INDEX_REG(oct->pcie_port, idx));
-+}
-+
-+/* always call with lock held */
-+static u32 cn23xx_update_read_index(struct octeon_instr_queue *iq)
-+{
-+	u32 new_idx;
-+	u32 last_done;
-+	u32 pkt_in_done = readl(iq->inst_cnt_reg);
-+
-+	last_done = pkt_in_done - iq->pkt_in_done;
-+	iq->pkt_in_done = pkt_in_done;
-+
-+	/* Modulo of the new index with the IQ size will give us
-+	 * the new index.  The iq->reset_instr_cnt is always zero for
-+	 * cn23xx, so no extra adjustments are needed.
-+	 */
-+	new_idx = (iq->octeon_read_index +
-+		   (u32)(last_done & CN23XX_PKT_IN_DONE_CNT_MASK)) %
-+		  iq->max_count;
-+
-+	return new_idx;
-+}
-+
- static void cn23xx_enable_pf_interrupt(struct octeon_device *oct, u8 intr_flag)
- {
- 	struct octeon_cn23xx_pf *cn23xx = (struct octeon_cn23xx_pf *)oct->chip;
-@@ -1087,6 +1148,11 @@ int setup_cn23xx_octeon_pf_device(struct octeon_device *oct)
- 	oct->fn_list.soft_reset = cn23xx_pf_soft_reset;
- 	oct->fn_list.setup_device_regs = cn23xx_setup_pf_device_regs;
- 	oct->fn_list.reinit_regs = cn23xx_reinit_regs;
-+	oct->fn_list.update_iq_read_idx = cn23xx_update_read_index;
-+
-+	oct->fn_list.bar1_idx_setup = cn23xx_bar1_idx_setup;
-+	oct->fn_list.bar1_idx_write = cn23xx_bar1_idx_write;
-+	oct->fn_list.bar1_idx_read = cn23xx_bar1_idx_read;
+ /*
+  * Private data structure for each channel.
+  * This includes the data structure used for multilink.
+@@ -171,7 +223,7 @@ struct channel {
+ 	struct list_head list;		/* link in all/new_channels list */
+ 	struct ppp_channel *chan;	/* public channel data structure */
+ 	struct rw_semaphore chan_sem;	/* protects `chan' during chan ioctl */
+-	spinlock_t	downl;		/* protects `chan', file.xq dequeue */
++	struct channel_lock downl;	/* protects `chan', file.xq dequeue */
+ 	struct ppp	*ppp;		/* ppp unit we're connected to */
+ 	struct net	*chan_net;	/* the net channel belongs to */
+ 	struct list_head clist;		/* link in list of channels per unit */
+@@ -1587,9 +1639,7 @@ ppp_push(struct ppp *ppp)
+ 	list = &ppp->channels;
+ 	if (list_empty(list)) {
+ 		/* nowhere to send the packet, just drop it */
+-		ppp->xmit_pending = NULL;
+-		kfree_skb(skb);
+-		return;
++		goto drop;
+ 	}
  
- 	oct->fn_list.enable_interrupt = cn23xx_enable_pf_interrupt;
- 	oct->fn_list.disable_interrupt = cn23xx_disable_pf_interrupt;
+ 	if ((ppp->flags & SC_MULTILINK) == 0) {
+@@ -1597,16 +1647,19 @@ ppp_push(struct ppp *ppp)
+ 		list = list->next;
+ 		pch = list_entry(list, struct channel, clist);
+ 
+-		spin_lock_bh(&pch->downl);
++		if (unlikely(!ppp_channel_lock_bh(&pch->downl))) {
++			/* Fail to hold channel lock */
++			goto drop;
++		}
+ 		if (pch->chan) {
+ 			if (pch->chan->ops->start_xmit(pch->chan, skb))
+ 				ppp->xmit_pending = NULL;
+ 		} else {
+ 			/* channel got unregistered */
+-			kfree_skb(skb);
+-			ppp->xmit_pending = NULL;
++			ppp_channel_unlock_bh(&pch->downl);
++			goto drop;
+ 		}
+-		spin_unlock_bh(&pch->downl);
++		ppp_channel_unlock_bh(&pch->downl);
+ 		return;
+ 	}
+ 
+@@ -1617,6 +1670,7 @@ ppp_push(struct ppp *ppp)
+ 		return;
+ #endif /* CONFIG_PPP_MULTILINK */
+ 
++drop:
+ 	ppp->xmit_pending = NULL;
+ 	kfree_skb(skb);
+ }
+@@ -1645,6 +1699,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 	struct channel *pch;
+ 	struct sk_buff *frag;
+ 	struct ppp_channel *chan;
++	bool locked;
+ 
+ 	totspeed = 0; /*total bitrate of the bundle*/
+ 	nfree = 0; /* # channels which have no packet already queued */
+@@ -1735,17 +1790,21 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 			pch->avail = 1;
+ 		}
+ 
+-		/* check the channel's mtu and whether it is still attached. */
+-		spin_lock_bh(&pch->downl);
+-		if (pch->chan == NULL) {
+-			/* can't use this channel, it's being deregistered */
++		locked = ppp_channel_lock_bh(&pch->downl);
++		if (!locked || !pch->chan) {
++			/* can't use this channel, it's being deregistered
++			 * or fail to lock the channel
++			 */
+ 			if (pch->speed == 0)
+ 				nzero--;
+ 			else
+ 				totspeed -= pch->speed;
+ 
+-			spin_unlock_bh(&pch->downl);
+-			pch->avail = 0;
++			if (locked) {
++				/* channel is deregistered */
++				ppp_channel_unlock_bh(&pch->downl);
++				pch->avail = 0;
++			}
+ 			totlen = len;
+ 			totfree--;
+ 			nfree--;
+@@ -1795,7 +1854,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		 */
+ 		if (flen <= 0) {
+ 			pch->avail = 2;
+-			spin_unlock_bh(&pch->downl);
++			ppp_channel_unlock_bh(&pch->downl);
+ 			continue;
+ 		}
+ 
+@@ -1840,14 +1899,14 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		len -= flen;
+ 		++ppp->nxseq;
+ 		bits = 0;
+-		spin_unlock_bh(&pch->downl);
++		ppp_channel_unlock_bh(&pch->downl);
+ 	}
+ 	ppp->nxchan = i;
+ 
+ 	return 1;
+ 
+  noskb:
+-	spin_unlock_bh(&pch->downl);
++	ppp_channel_unlock_bh(&pch->downl);
+ 	if (ppp->debug & 1)
+ 		netdev_err(ppp->dev, "PPP: no memory (fragment)\n");
+ 	++ppp->dev->stats.tx_errors;
+@@ -1865,7 +1924,8 @@ ppp_channel_push(struct channel *pch)
+ 	struct sk_buff *skb;
+ 	struct ppp *ppp;
+ 
+-	spin_lock_bh(&pch->downl);
++	if (unlikely(!ppp_channel_lock_bh(&pch->downl)))
++		return;
+ 	if (pch->chan) {
+ 		while (!skb_queue_empty(&pch->file.xq)) {
+ 			skb = skb_dequeue(&pch->file.xq);
+@@ -1879,7 +1939,7 @@ ppp_channel_push(struct channel *pch)
+ 		/* channel got deregistered */
+ 		skb_queue_purge(&pch->file.xq);
+ 	}
+-	spin_unlock_bh(&pch->downl);
++	ppp_channel_unlock_bh(&pch->downl);
+ 	/* see if there is anything from the attached unit to be sent */
+ 	if (skb_queue_empty(&pch->file.xq)) {
+ 		read_lock_bh(&pch->upl);
+@@ -2520,7 +2580,7 @@ int ppp_register_net_channel(struct net *net, struct ppp_channel *chan)
+ 	pch->lastseq = -1;
+ #endif /* CONFIG_PPP_MULTILINK */
+ 	init_rwsem(&pch->chan_sem);
+-	spin_lock_init(&pch->downl);
++	ppp_channel_lock_init(&pch->downl);
+ 	rwlock_init(&pch->upl);
+ 
+ 	spin_lock_bh(&pn->all_channels_lock);
+@@ -2599,9 +2659,9 @@ ppp_unregister_channel(struct ppp_channel *chan)
+ 	 * the channel's start_xmit or ioctl routine before we proceed.
+ 	 */
+ 	down_write(&pch->chan_sem);
+-	spin_lock_bh(&pch->downl);
++	_ppp_channel_lock_bh(&pch->downl);
+ 	pch->chan = NULL;
+-	spin_unlock_bh(&pch->downl);
++	_ppp_channel_unlock_bh(&pch->downl);
+ 	up_write(&pch->chan_sem);
+ 	ppp_disconnect_channel(pch);
+ 
 -- 
-1.8.3.1
+1.9.1
