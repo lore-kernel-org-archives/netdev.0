@@ -1,852 +1,96 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next V2 09/17] {net,IB}/mlx5: QP/XRCD commands via mlx5 ifc
-Date: Mon, 22 Aug 2016 19:51:06 +0300
-Message-ID: <1471884674-22709-10-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH for-next V2 13/17] net/mlx5: Enable setting minimum inline header mode for VFs
+Date: Mon, 22 Aug 2016 19:51:10 +0300
+Message-ID: <1471884674-22709-14-git-send-email-saeedm@mellanox.com>
 References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1471884674-22709-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Tal Alon <talal@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60365 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755560AbcHVQvl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 12:51:41 -0400
+In-Reply-To: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove old representation of manually created QP/XRCD commands layout
-amd use mlx5_ifc canonical structures and defines.
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Implement the low-level part of the PF side in setting minimum
+inline header mode for VFs.
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- drivers/infiniband/hw/mlx5/qp.c                   | 154 +++++++++++---------
- drivers/net/ethernet/mellanox/mlx5/core/debugfs.c |  14 +-
- drivers/net/ethernet/mellanox/mlx5/core/qp.c      | 167 ++++++++--------------
- include/linux/mlx5/mlx5_ifc.h                     |   5 +-
- include/linux/mlx5/qp.h                           | 108 +-------------
- 5 files changed, 165 insertions(+), 283 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c | 20 ++++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                   |  2 +-
+ include/linux/mlx5/vport.h                      |  2 ++
+ 3 files changed, 23 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index 21ab0e2..d22492f 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -726,7 +726,7 @@ err_umem:
- static int create_user_qp(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 			  struct mlx5_ib_qp *qp, struct ib_udata *udata,
- 			  struct ib_qp_init_attr *attr,
--			  struct mlx5_create_qp_mbox_in **in,
-+			  u32 **in,
- 			  struct mlx5_ib_create_qp_resp *resp, int *inlen,
- 			  struct mlx5_ib_qp_base *base)
- {
-@@ -739,6 +739,8 @@ static int create_user_qp(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 	u32 offset = 0;
- 	int uuarn;
- 	int ncont = 0;
-+	__be64 *pas;
-+	void *qpc;
- 	int err;
- 
- 	err = ib_copy_from_udata(&ucmd, udata, sizeof(ucmd));
-@@ -795,20 +797,24 @@ static int create_user_qp(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 		ubuffer->umem = NULL;
- 	}
- 
--	*inlen = sizeof(**in) + sizeof(*(*in)->pas) * ncont;
-+	*inlen = MLX5_ST_SZ_BYTES(create_qp_in) +
-+		 MLX5_FLD_SZ_BYTES(create_qp_in, pas[0]) * ncont;
- 	*in = mlx5_vzalloc(*inlen);
- 	if (!*in) {
- 		err = -ENOMEM;
- 		goto err_umem;
- 	}
-+
-+	pas = (__be64 *)MLX5_ADDR_OF(create_qp_in, *in, pas);
- 	if (ubuffer->umem)
--		mlx5_ib_populate_pas(dev, ubuffer->umem, page_shift,
--				     (*in)->pas, 0);
--	(*in)->ctx.log_pg_sz_remote_qpn =
--		cpu_to_be32((page_shift - MLX5_ADAPTER_PAGE_SHIFT) << 24);
--	(*in)->ctx.params2 = cpu_to_be32(offset << 6);
-+		mlx5_ib_populate_pas(dev, ubuffer->umem, page_shift, pas, 0);
-+
-+	qpc = MLX5_ADDR_OF(create_qp_in, *in, qpc);
-+
-+	MLX5_SET(qpc, qpc, log_page_size, page_shift - MLX5_ADAPTER_PAGE_SHIFT);
-+	MLX5_SET(qpc, qpc, page_offset, offset);
- 
--	(*in)->ctx.qp_counter_set_usr_page = cpu_to_be32(uar_index);
-+	MLX5_SET(qpc, qpc, uar_page, uar_index);
- 	resp->uuar_index = uuarn;
- 	qp->uuarn = uuarn;
- 
-@@ -857,12 +863,13 @@ static void destroy_qp_user(struct ib_pd *pd, struct mlx5_ib_qp *qp,
- static int create_kernel_qp(struct mlx5_ib_dev *dev,
- 			    struct ib_qp_init_attr *init_attr,
- 			    struct mlx5_ib_qp *qp,
--			    struct mlx5_create_qp_mbox_in **in, int *inlen,
-+			    u32 **in, int *inlen,
- 			    struct mlx5_ib_qp_base *base)
- {
- 	enum mlx5_ib_latency_class lc = MLX5_IB_LATENCY_CLASS_LOW;
- 	struct mlx5_uuar_info *uuari;
- 	int uar_index;
-+	void *qpc;
- 	int uuarn;
- 	int err;
- 
-@@ -902,25 +909,29 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
- 	}
- 
- 	qp->sq.qend = mlx5_get_send_wqe(qp, qp->sq.wqe_cnt);
--	*inlen = sizeof(**in) + sizeof(*(*in)->pas) * qp->buf.npages;
-+	*inlen = MLX5_ST_SZ_BYTES(create_qp_in) +
-+		 MLX5_FLD_SZ_BYTES(create_qp_in, pas[0]) * qp->buf.npages;
- 	*in = mlx5_vzalloc(*inlen);
- 	if (!*in) {
- 		err = -ENOMEM;
- 		goto err_buf;
- 	}
--	(*in)->ctx.qp_counter_set_usr_page = cpu_to_be32(uar_index);
--	(*in)->ctx.log_pg_sz_remote_qpn =
--		cpu_to_be32((qp->buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT) << 24);
-+
-+	qpc = MLX5_ADDR_OF(create_qp_in, *in, qpc);
-+	MLX5_SET(qpc, qpc, uar_page, uar_index);
-+	MLX5_SET(qpc, qpc, log_page_size, qp->buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT);
-+
- 	/* Set "fast registration enabled" for all kernel QPs */
--	(*in)->ctx.params1 |= cpu_to_be32(1 << 11);
--	(*in)->ctx.sq_crq_size |= cpu_to_be16(1 << 4);
-+	MLX5_SET(qpc, qpc, fre, 1);
-+	MLX5_SET(qpc, qpc, rlky, 1);
- 
- 	if (init_attr->create_flags & mlx5_ib_create_qp_sqpn_qp1()) {
--		(*in)->ctx.deth_sqpn = cpu_to_be32(1);
-+		MLX5_SET(qpc, qpc, deth_sqpn, 1);
- 		qp->flags |= MLX5_IB_QP_SQPN_QP1;
- 	}
- 
--	mlx5_fill_page_array(&qp->buf, (*in)->pas);
-+	mlx5_fill_page_array(&qp->buf,
-+			     (__be64 *)MLX5_ADDR_OF(create_qp_in, *in, pas));
- 
- 	err = mlx5_db_alloc(dev->mdev, &qp->db);
- 	if (err) {
-@@ -974,15 +985,15 @@ static void destroy_qp_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp)
- 	free_uuar(&dev->mdev->priv.uuari, qp->bf->uuarn);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index 3593bf7..525f17a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -125,6 +125,26 @@ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
  }
+ EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_min_inline);
  
--static __be32 get_rx_type(struct mlx5_ib_qp *qp, struct ib_qp_init_attr *attr)
-+static u32 get_rx_type(struct mlx5_ib_qp *qp, struct ib_qp_init_attr *attr)
- {
- 	if (attr->srq || (attr->qp_type == IB_QPT_XRC_TGT) ||
- 	    (attr->qp_type == IB_QPT_XRC_INI))
--		return cpu_to_be32(MLX5_SRQ_RQ);
-+		return MLX5_SRQ_RQ;
- 	else if (!qp->has_rq)
--		return cpu_to_be32(MLX5_ZERO_LEN_RQ);
-+		return MLX5_ZERO_LEN_RQ;
- 	else
--		return cpu_to_be32(MLX5_NON_ZERO_RQ);
-+		return MLX5_NON_ZERO_RQ;
- }
- 
- static int is_connected(enum ib_qp_type qp_type)
-@@ -1191,7 +1202,7 @@ static void destroy_raw_packet_qp_tir(struct mlx5_ib_dev *dev,
- }
- 
- static int create_raw_packet_qp(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp,
--				struct mlx5_create_qp_mbox_in *in,
-+				u32 *in,
- 				struct ib_pd *pd)
- {
- 	struct mlx5_ib_raw_packet_qp *raw_packet_qp = &qp->raw_packet_qp;
-@@ -1461,18 +1472,18 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 			    struct ib_udata *udata, struct mlx5_ib_qp *qp)
- {
- 	struct mlx5_ib_resources *devr = &dev->devr;
-+	int inlen = MLX5_ST_SZ_BYTES(create_qp_in);
- 	struct mlx5_core_dev *mdev = dev->mdev;
--	struct mlx5_ib_qp_base *base;
- 	struct mlx5_ib_create_qp_resp resp;
--	struct mlx5_create_qp_mbox_in *in;
--	struct mlx5_ib_create_qp ucmd;
- 	struct mlx5_ib_cq *send_cq;
- 	struct mlx5_ib_cq *recv_cq;
- 	unsigned long flags;
--	int inlen = sizeof(*in);
--	int err;
- 	u32 uidx = MLX5_IB_DEFAULT_UIDX;
-+	struct mlx5_ib_create_qp ucmd;
-+	struct mlx5_ib_qp_base *base;
- 	void *qpc;
-+	u32 *in;
-+	int err;
- 
- 	base = init_attr->qp_type == IB_QPT_RAW_PACKET ?
- 	       &qp->raw_packet_qp.rq.base :
-@@ -1600,7 +1611,7 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 		if (err)
- 			return err;
- 	} else {
--		in = mlx5_vzalloc(sizeof(*in));
-+		in = mlx5_vzalloc(inlen);
- 		if (!in)
- 			return -ENOMEM;
- 
-@@ -1610,26 +1621,29 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 	if (is_sqp(init_attr->qp_type))
- 		qp->port = init_attr->port_num;
- 
--	in->ctx.flags = cpu_to_be32(to_mlx5_st(init_attr->qp_type) << 16 |
--				    MLX5_QP_PM_MIGRATED << 11);
-+	qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
++int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u16 vport, u8 min_inline)
++{
++	u32 in[MLX5_ST_SZ_DW(modify_nic_vport_context_in)] = {0};
++	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
++	void *nic_vport_ctx;
 +
-+	MLX5_SET(qpc, qpc, st, to_mlx5_st(init_attr->qp_type));
-+	MLX5_SET(qpc, qpc, pm_state, MLX5_QP_PM_MIGRATED);
- 
- 	if (init_attr->qp_type != MLX5_IB_QPT_REG_UMR)
--		in->ctx.flags_pd = cpu_to_be32(to_mpd(pd ? pd : devr->p0)->pdn);
-+		MLX5_SET(qpc, qpc, pd, to_mpd(pd ? pd : devr->p0)->pdn);
- 	else
--		in->ctx.flags_pd = cpu_to_be32(MLX5_QP_LAT_SENSITIVE);
-+		MLX5_SET(qpc, qpc, latency_sensitive, 1);
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 field_select.min_inline, 1);
++	MLX5_SET(modify_nic_vport_context_in, in, vport_number, vport);
++	MLX5_SET(modify_nic_vport_context_in, in, other_vport, 1);
 +
- 
- 	if (qp->wq_sig)
--		in->ctx.flags_pd |= cpu_to_be32(MLX5_QP_ENABLE_SIG);
-+		MLX5_SET(qpc, qpc, wq_signature, 1);
- 
- 	if (qp->flags & MLX5_IB_QP_BLOCK_MULTICAST_LOOPBACK)
--		in->ctx.flags_pd |= cpu_to_be32(MLX5_QP_BLOCK_MCAST);
-+		MLX5_SET(qpc, qpc, block_lb_mc, 1);
- 
- 	if (qp->flags & MLX5_IB_QP_CROSS_CHANNEL)
--		in->ctx.params2 |= cpu_to_be32(MLX5_QP_BIT_CC_MASTER);
-+		MLX5_SET(qpc, qpc, cd_master, 1);
- 	if (qp->flags & MLX5_IB_QP_MANAGED_SEND)
--		in->ctx.params2 |= cpu_to_be32(MLX5_QP_BIT_CC_SLAVE_SEND);
-+		MLX5_SET(qpc, qpc, cd_slave_send, 1);
- 	if (qp->flags & MLX5_IB_QP_MANAGED_RECV)
--		in->ctx.params2 |= cpu_to_be32(MLX5_QP_BIT_CC_SLAVE_RECV);
-+		MLX5_SET(qpc, qpc, cd_slave_receive, 1);
- 
- 	if (qp->scat_cqe && is_connected(init_attr->qp_type)) {
- 		int rcqe_sz;
-@@ -1639,71 +1653,68 @@ static int create_qp_common(struct mlx5_ib_dev *dev, struct ib_pd *pd,
- 		scqe_sz = mlx5_ib_get_cqe_size(dev, init_attr->send_cq);
- 
- 		if (rcqe_sz == 128)
--			in->ctx.cs_res = MLX5_RES_SCAT_DATA64_CQE;
-+			MLX5_SET(qpc, qpc, cs_res, MLX5_RES_SCAT_DATA64_CQE);
- 		else
--			in->ctx.cs_res = MLX5_RES_SCAT_DATA32_CQE;
-+			MLX5_SET(qpc, qpc, cs_res, MLX5_RES_SCAT_DATA32_CQE);
- 
- 		if (init_attr->sq_sig_type == IB_SIGNAL_ALL_WR) {
- 			if (scqe_sz == 128)
--				in->ctx.cs_req = MLX5_REQ_SCAT_DATA64_CQE;
-+				MLX5_SET(qpc, qpc, cs_req, MLX5_REQ_SCAT_DATA64_CQE);
- 			else
--				in->ctx.cs_req = MLX5_REQ_SCAT_DATA32_CQE;
-+				MLX5_SET(qpc, qpc, cs_req, MLX5_REQ_SCAT_DATA32_CQE);
- 		}
- 	}
- 
- 	if (qp->rq.wqe_cnt) {
--		in->ctx.rq_size_stride = (qp->rq.wqe_shift - 4);
--		in->ctx.rq_size_stride |= ilog2(qp->rq.wqe_cnt) << 3;
-+		MLX5_SET(qpc, qpc, log_rq_stride, qp->rq.wqe_shift - 4);
-+		MLX5_SET(qpc, qpc, log_rq_size, ilog2(qp->rq.wqe_cnt));
- 	}
- 
--	in->ctx.rq_type_srqn = get_rx_type(qp, init_attr);
-+	MLX5_SET(qpc, qpc, rq_type, get_rx_type(qp, init_attr));
- 
- 	if (qp->sq.wqe_cnt)
--		in->ctx.sq_crq_size |= cpu_to_be16(ilog2(qp->sq.wqe_cnt) << 11);
-+		MLX5_SET(qpc, qpc, log_sq_size, ilog2(qp->sq.wqe_cnt));
- 	else
--		in->ctx.sq_crq_size |= cpu_to_be16(0x8000);
-+		MLX5_SET(qpc, qpc, no_sq, 1);
- 
- 	/* Set default resources */
- 	switch (init_attr->qp_type) {
- 	case IB_QPT_XRC_TGT:
--		in->ctx.cqn_recv = cpu_to_be32(to_mcq(devr->c0)->mcq.cqn);
--		in->ctx.cqn_send = cpu_to_be32(to_mcq(devr->c0)->mcq.cqn);
--		in->ctx.rq_type_srqn |= cpu_to_be32(to_msrq(devr->s0)->msrq.srqn);
--		in->ctx.xrcd = cpu_to_be32(to_mxrcd(init_attr->xrcd)->xrcdn);
-+		MLX5_SET(qpc, qpc, cqn_rcv, to_mcq(devr->c0)->mcq.cqn);
-+		MLX5_SET(qpc, qpc, cqn_snd, to_mcq(devr->c0)->mcq.cqn);
-+		MLX5_SET(qpc, qpc, srqn_rmpn_xrqn, to_msrq(devr->s0)->msrq.srqn);
-+		MLX5_SET(qpc, qpc, xrcd, to_mxrcd(init_attr->xrcd)->xrcdn);
- 		break;
- 	case IB_QPT_XRC_INI:
--		in->ctx.cqn_recv = cpu_to_be32(to_mcq(devr->c0)->mcq.cqn);
--		in->ctx.xrcd = cpu_to_be32(to_mxrcd(devr->x1)->xrcdn);
--		in->ctx.rq_type_srqn |= cpu_to_be32(to_msrq(devr->s0)->msrq.srqn);
-+		MLX5_SET(qpc, qpc, cqn_rcv, to_mcq(devr->c0)->mcq.cqn);
-+		MLX5_SET(qpc, qpc, xrcd, to_mxrcd(devr->x1)->xrcdn);
-+		MLX5_SET(qpc, qpc, srqn_rmpn_xrqn, to_msrq(devr->s0)->msrq.srqn);
- 		break;
- 	default:
- 		if (init_attr->srq) {
--			in->ctx.xrcd = cpu_to_be32(to_mxrcd(devr->x0)->xrcdn);
--			in->ctx.rq_type_srqn |= cpu_to_be32(to_msrq(init_attr->srq)->msrq.srqn);
-+			MLX5_SET(qpc, qpc, xrcd, to_mxrcd(devr->x0)->xrcdn);
-+			MLX5_SET(qpc, qpc, srqn_rmpn_xrqn, to_msrq(init_attr->srq)->msrq.srqn);
- 		} else {
--			in->ctx.xrcd = cpu_to_be32(to_mxrcd(devr->x1)->xrcdn);
--			in->ctx.rq_type_srqn |=
--				cpu_to_be32(to_msrq(devr->s1)->msrq.srqn);
-+			MLX5_SET(qpc, qpc, xrcd, to_mxrcd(devr->x1)->xrcdn);
-+			MLX5_SET(qpc, qpc, srqn_rmpn_xrqn, to_msrq(devr->s1)->msrq.srqn);
- 		}
- 	}
- 
- 	if (init_attr->send_cq)
--		in->ctx.cqn_send = cpu_to_be32(to_mcq(init_attr->send_cq)->mcq.cqn);
-+		MLX5_SET(qpc, qpc, cqn_snd, to_mcq(init_attr->send_cq)->mcq.cqn);
- 
- 	if (init_attr->recv_cq)
--		in->ctx.cqn_recv = cpu_to_be32(to_mcq(init_attr->recv_cq)->mcq.cqn);
-+		MLX5_SET(qpc, qpc, cqn_rcv, to_mcq(init_attr->recv_cq)->mcq.cqn);
- 
--	in->ctx.db_rec_addr = cpu_to_be64(qp->db.dma);
-+	MLX5_SET64(qpc, qpc, dbr_addr, qp->db.dma);
- 
--	if (MLX5_CAP_GEN(mdev, cqe_version) == MLX5_CQE_VERSION_V1) {
--		qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
--		/* 0xffffff means we ask to work with cqe version 0 */
-+	/* 0xffffff means we ask to work with cqe version 0 */
-+	if (MLX5_CAP_GEN(mdev, cqe_version) == MLX5_CQE_VERSION_V1)
- 		MLX5_SET(qpc, qpc, user_index, uidx);
--	}
++	nic_vport_ctx = MLX5_ADDR_OF(modify_nic_vport_context_in,
++				     in, nic_vport_context);
++	MLX5_SET(nic_vport_context, nic_vport_ctx,
++		 min_wqe_inline_mode, min_inline);
 +
- 	/* we use IB_QP_CREATE_IPOIB_UD_LSO to indicates ipoib qp */
- 	if (init_attr->qp_type == IB_QPT_UD &&
- 	    (init_attr->create_flags & IB_QP_CREATE_IPOIB_UD_LSO)) {
--		qpc = MLX5_ADDR_OF(create_qp_in, in, qpc);
- 		MLX5_SET(qpc, qpc, ulp_stateless_offload_mode, 1);
- 		qp->flags |= MLX5_IB_QP_LSO;
- 	}
-@@ -4320,21 +4331,24 @@ static int query_raw_packet_qp_state(struct mlx5_ib_dev *dev,
- static int query_qp_attr(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp,
- 			 struct ib_qp_attr *qp_attr)
- {
--	struct mlx5_query_qp_mbox_out *outb;
-+	int outlen = MLX5_ST_SZ_BYTES(query_qp_out);
- 	struct mlx5_qp_context *context;
- 	int mlx5_state;
-+	u32 *outb;
- 	int err = 0;
- 
--	outb = kzalloc(sizeof(*outb), GFP_KERNEL);
-+	outb = kzalloc(outlen, GFP_KERNEL);
- 	if (!outb)
- 		return -ENOMEM;
- 
--	context = &outb->ctx;
- 	err = mlx5_core_qp_query(dev->mdev, &qp->trans_qp.base.mqp, outb,
--				 sizeof(*outb));
-+				 outlen);
- 	if (err)
- 		goto out;
- 
-+	/* FIXME: use MLX5_GET rather than mlx5_qp_context manual struct */
-+	context = (struct mlx5_qp_context *)MLX5_ADDR_OF(query_qp_out, outb, qpc);
++	return mlx5_modify_nic_vport_context(mdev, in, inlen);
++}
 +
- 	mlx5_state = be32_to_cpu(context->flags) >> 28;
- 
- 	qp->state		     = to_ib_qp_state(mlx5_state);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-index b7484e4..e94a953 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-@@ -277,24 +277,28 @@ void mlx5_cq_debugfs_cleanup(struct mlx5_core_dev *dev)
- static u64 qp_read_field(struct mlx5_core_dev *dev, struct mlx5_core_qp *qp,
- 			 int index, int *is_str)
+ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr)
  {
--	struct mlx5_query_qp_mbox_out *out;
-+	int outlen = MLX5_ST_SZ_BYTES(query_qp_out);
- 	struct mlx5_qp_context *ctx;
- 	u64 param = 0;
-+	u32 *out;
- 	int err;
- 	int no_sq;
- 
--	out = kzalloc(sizeof(*out), GFP_KERNEL);
-+	out = kzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return param;
- 
--	err = mlx5_core_qp_query(dev, qp, out, sizeof(*out));
-+	err = mlx5_core_qp_query(dev, qp, out, outlen);
- 	if (err) {
--		mlx5_core_warn(dev, "failed to query qp\n");
-+		mlx5_core_warn(dev, "failed to query qp err=%d\n", err);
- 		goto out;
- 	}
- 
- 	*is_str = 0;
--	ctx = &out->ctx;
-+
-+	/* FIXME: use MLX5_GET rather than mlx5_qp_context manual struct */
-+	ctx = (struct mlx5_qp_context *)MLX5_ADDR_OF(query_qp_out, out, qpc);
-+
- 	switch (index) {
- 	case QP_PID:
- 		param = qp->pid;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index b82d658..36d240c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -271,30 +271,21 @@ static void destroy_qprqsq_common(struct mlx5_core_dev *dev,
- 
- int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 			struct mlx5_core_qp *qp,
--			struct mlx5_create_qp_mbox_in *in,
--			int inlen)
-+			u32 *in, int inlen)
- {
--	struct mlx5_create_qp_mbox_out out;
--	struct mlx5_destroy_qp_mbox_in din;
--	struct mlx5_destroy_qp_mbox_out dout;
-+	u32 out[MLX5_ST_SZ_DW(create_qp_out)] = {0};
-+	u32 dout[MLX5_ST_SZ_DW(destroy_qp_out)];
-+	u32 din[MLX5_ST_SZ_DW(destroy_qp_in)];
- 	int err;
- 
--	memset(&out, 0, sizeof(out));
--	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_CREATE_QP);
-+	MLX5_SET(create_qp_in, in, opcode, MLX5_CMD_OP_CREATE_QP);
- 
--	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
--	if (err) {
--		mlx5_core_warn(dev, "ret %d\n", err);
-+	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
-+	if (err)
- 		return err;
--	}
--
--	if (out.hdr.status) {
--		mlx5_core_warn(dev, "current num of QPs 0x%x\n",
--			       atomic_read(&dev->num_qps));
--		return mlx5_cmd_status_to_err(&out.hdr);
--	}
- 
--	qp->qpn = be32_to_cpu(out.qpn) & 0xffffff;
-+	qp->qpn = MLX5_GET(create_qp_out, out, qpn);
- 	mlx5_core_dbg(dev, "qpn = 0x%x\n", qp->qpn);
- 
- 	err = create_qprqsq_common(dev, qp, MLX5_RES_QP);
-@@ -311,12 +302,12 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 	return 0;
- 
- err_cmd:
--	memset(&din, 0, sizeof(din));
--	memset(&dout, 0, sizeof(dout));
--	din.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_QP);
--	din.qpn = cpu_to_be32(qp->qpn);
--	mlx5_cmd_exec(dev, &din, sizeof(din), &out, sizeof(dout));
--
-+	memset(din, 0, sizeof(din));
-+	memset(dout, 0, sizeof(dout));
-+	MLX5_SET(destroy_qp_in, in, opcode, MLX5_CMD_OP_DESTROY_QP);
-+	MLX5_SET(destroy_qp_in, in, qpn, qp->qpn);
-+	mlx5_cmd_exec(dev, din, sizeof(din), dout, sizeof(dout));
-+	mlx5_cmd_status_to_err_v2(dout);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(mlx5_core_create_qp);
-@@ -324,25 +315,21 @@ EXPORT_SYMBOL_GPL(mlx5_core_create_qp);
- int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
- 			 struct mlx5_core_qp *qp)
- {
--	struct mlx5_destroy_qp_mbox_in in;
--	struct mlx5_destroy_qp_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(destroy_qp_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(destroy_qp_in)]   = {0};
- 	int err;
- 
- 	mlx5_debug_qp_remove(dev, qp);
- 
- 	destroy_qprqsq_common(dev, qp);
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_QP);
--	in.qpn = cpu_to_be32(qp->qpn);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
-+	MLX5_SET(destroy_qp_in, in, opcode, MLX5_CMD_OP_DESTROY_QP);
-+	MLX5_SET(destroy_qp_in, in, qpn, qp->qpn);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
- 	if (err)
- 		return err;
- 
--	if (out.hdr.status)
--		return mlx5_cmd_status_to_err(&out.hdr);
--
- 	atomic_dec(&dev->num_qps);
- 	return 0;
- }
-@@ -382,66 +369,44 @@ void mlx5_cleanup_qp_table(struct mlx5_core_dev *dev)
- }
- 
- int mlx5_core_qp_query(struct mlx5_core_dev *dev, struct mlx5_core_qp *qp,
--		       struct mlx5_query_qp_mbox_out *out, int outlen)
-+		       u32 *out, int outlen)
- {
--	struct mlx5_query_qp_mbox_in in;
-+	u32 in[MLX5_ST_SZ_DW(query_qp_in)] = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(out, 0, outlen);
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_QP);
--	in.qpn = cpu_to_be32(qp->qpn);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, outlen);
--	if (err)
--		return err;
-+	MLX5_SET(query_qp_in, in, opcode, MLX5_CMD_OP_QUERY_QP);
-+	MLX5_SET(query_qp_in, in, qpn, qp->qpn);
- 
--	if (out->hdr.status)
--		return mlx5_cmd_status_to_err(&out->hdr);
--
--	return err;
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, outlen);
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- }
- EXPORT_SYMBOL_GPL(mlx5_core_qp_query);
- 
- int mlx5_core_xrcd_alloc(struct mlx5_core_dev *dev, u32 *xrcdn)
- {
--	struct mlx5_alloc_xrcd_mbox_in in;
--	struct mlx5_alloc_xrcd_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(alloc_xrcd_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(alloc_xrcd_in)]   = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_ALLOC_XRCD);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
--
--	if (out.hdr.status)
--		err = mlx5_cmd_status_to_err(&out.hdr);
--	else
--		*xrcdn = be32_to_cpu(out.xrcdn) & 0xffffff;
--
-+	MLX5_SET(alloc_xrcd_in, in, opcode, MLX5_CMD_OP_ALLOC_XRCD);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
-+	if (!err)
-+		*xrcdn = MLX5_GET(alloc_xrcd_out, out, xrcd);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(mlx5_core_xrcd_alloc);
- 
- int mlx5_core_xrcd_dealloc(struct mlx5_core_dev *dev, u32 xrcdn)
- {
--	struct mlx5_dealloc_xrcd_mbox_in in;
--	struct mlx5_dealloc_xrcd_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(dealloc_xrcd_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(dealloc_xrcd_in)]   = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DEALLOC_XRCD);
--	in.xrcdn = cpu_to_be32(xrcdn);
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
--
--	if (out.hdr.status)
--		err = mlx5_cmd_status_to_err(&out.hdr);
--
--	return err;
-+	MLX5_SET(dealloc_xrcd_in, in, opcode, MLX5_CMD_OP_DEALLOC_XRCD);
-+	MLX5_SET(dealloc_xrcd_in, in, xrcd, xrcdn);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- }
- EXPORT_SYMBOL_GPL(mlx5_core_xrcd_dealloc);
- 
-@@ -449,28 +414,26 @@ EXPORT_SYMBOL_GPL(mlx5_core_xrcd_dealloc);
- int mlx5_core_page_fault_resume(struct mlx5_core_dev *dev, u32 qpn,
- 				u8 flags, int error)
- {
--	struct mlx5_page_fault_resume_mbox_in in;
--	struct mlx5_page_fault_resume_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(page_fault_resume_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(page_fault_resume_in)]   = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_PAGE_FAULT_RESUME);
--	in.hdr.opmod = 0;
--	flags &= (MLX5_PAGE_FAULT_RESUME_REQUESTOR |
--		  MLX5_PAGE_FAULT_RESUME_WRITE	   |
--		  MLX5_PAGE_FAULT_RESUME_RDMA);
--	flags |= (error ? MLX5_PAGE_FAULT_RESUME_ERROR : 0);
--	in.flags_qpn = cpu_to_be32((qpn & MLX5_QPN_MASK) |
--				   (flags << MLX5_QPN_BITS));
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (err)
--		return err;
-+	MLX5_SET(page_fault_resume_in, in, opcode,
-+		 MLX5_CMD_OP_PAGE_FAULT_RESUME);
- 
--	if (out.hdr.status)
--		err = mlx5_cmd_status_to_err(&out.hdr);
-+	MLX5_SET(page_fault_resume_in, in, qpn, qpn);
- 
--	return err;
-+	if (flags & MLX5_PAGE_FAULT_RESUME_REQUESTOR)
-+		MLX5_SET(page_fault_resume_in, in, req_res, 1);
-+	if (flags & MLX5_PAGE_FAULT_RESUME_WRITE)
-+		MLX5_SET(page_fault_resume_in, in, read_write, 1);
-+	if (flags & MLX5_PAGE_FAULT_RESUME_RDMA)
-+		MLX5_SET(page_fault_resume_in, in, rdma, 1);
-+	if (error)
-+		MLX5_SET(page_fault_resume_in, in, error, 1);
-+
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- }
- EXPORT_SYMBOL_GPL(mlx5_core_page_fault_resume);
- #endif
-@@ -541,13 +504,10 @@ EXPORT_SYMBOL(mlx5_core_destroy_sq_tracked);
- 
- int mlx5_core_alloc_q_counter(struct mlx5_core_dev *dev, u16 *counter_id)
- {
--	u32 in[MLX5_ST_SZ_DW(alloc_q_counter_in)];
--	u32 out[MLX5_ST_SZ_DW(alloc_q_counter_out)];
-+	u32 in[MLX5_ST_SZ_DW(alloc_q_counter_in)]   = {0};
-+	u32 out[MLX5_ST_SZ_DW(alloc_q_counter_out)] = {0};
- 	int err;
- 
--	memset(in, 0, sizeof(in));
--	memset(out, 0, sizeof(out));
--
- 	MLX5_SET(alloc_q_counter_in, in, opcode, MLX5_CMD_OP_ALLOC_Q_COUNTER);
- 	err = mlx5_cmd_exec_check_status(dev, in, sizeof(in), out, sizeof(out));
- 	if (!err)
-@@ -559,11 +519,8 @@ EXPORT_SYMBOL_GPL(mlx5_core_alloc_q_counter);
- 
- int mlx5_core_dealloc_q_counter(struct mlx5_core_dev *dev, u16 counter_id)
- {
--	u32 in[MLX5_ST_SZ_DW(dealloc_q_counter_in)];
--	u32 out[MLX5_ST_SZ_DW(dealloc_q_counter_out)];
--
--	memset(in, 0, sizeof(in));
--	memset(out, 0, sizeof(out));
-+	u32 in[MLX5_ST_SZ_DW(dealloc_q_counter_in)]   = {0};
-+	u32 out[MLX5_ST_SZ_DW(dealloc_q_counter_out)] = {0};
- 
- 	MLX5_SET(dealloc_q_counter_in, in, opcode,
- 		 MLX5_CMD_OP_DEALLOC_Q_COUNTER);
-@@ -576,9 +533,7 @@ EXPORT_SYMBOL_GPL(mlx5_core_dealloc_q_counter);
- int mlx5_core_query_q_counter(struct mlx5_core_dev *dev, u16 counter_id,
- 			      int reset, void *out, int out_size)
- {
--	u32 in[MLX5_ST_SZ_DW(query_q_counter_in)];
--
--	memset(in, 0, sizeof(in));
-+	u32 in[MLX5_ST_SZ_DW(query_q_counter_in)] = {0};
- 
- 	MLX5_SET(query_q_counter_in, in, opcode, MLX5_CMD_OP_QUERY_Q_COUNTER);
- 	MLX5_SET(query_q_counter_in, in, clear, reset);
 diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 2a39a06..cb94ac5 100644
+index cb94ac5..7a8ef0a 100644
 --- a/include/linux/mlx5/mlx5_ifc.h
 +++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -1966,7 +1966,10 @@ struct mlx5_ifc_qpc_bits {
- 	u8         reserved_at_3e0[0x8];
- 	u8         cqn_snd[0x18];
- 
--	u8         reserved_at_400[0x40];
-+	u8         reserved_at_400[0x8];
-+	u8         deth_sqpn[0x18];
-+
-+	u8         reserved_at_420[0x20];
- 
- 	u8         reserved_at_440[0x8];
- 	u8         last_acked_psn[0x18];
-diff --git a/include/linux/mlx5/qp.h b/include/linux/mlx5/qp.h
-index 7879bf4..16e1efe 100644
---- a/include/linux/mlx5/qp.h
-+++ b/include/linux/mlx5/qp.h
-@@ -123,12 +123,13 @@ enum {
- };
- 
- enum {
--	MLX5_NON_ZERO_RQ	= 0 << 24,
--	MLX5_SRQ_RQ		= 1 << 24,
--	MLX5_CRQ_RQ		= 2 << 24,
--	MLX5_ZERO_LEN_RQ	= 3 << 24
-+	MLX5_NON_ZERO_RQ	= 0x0,
-+	MLX5_SRQ_RQ		= 0x1,
-+	MLX5_CRQ_RQ		= 0x2,
-+	MLX5_ZERO_LEN_RQ	= 0x3
- };
- 
-+/* TODO REM */
- enum {
- 	/* params1 */
- 	MLX5_QP_BIT_SRE				= 1 << 15,
-@@ -178,12 +179,6 @@ enum {
- };
- 
- enum {
--	MLX5_QP_LAT_SENSITIVE	= 1 << 28,
--	MLX5_QP_BLOCK_MCAST	= 1 << 30,
--	MLX5_QP_ENABLE_SIG	= 1 << 31,
--};
--
--enum {
- 	MLX5_RCV_DBR	= 0,
- 	MLX5_SND_DBR	= 1,
- };
-@@ -525,34 +520,6 @@ struct mlx5_qp_context {
- 	u8			rsvd1[24];
- };
- 
--struct mlx5_create_qp_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			input_qpn;
--	u8			rsvd0[4];
--	__be32			opt_param_mask;
--	u8			rsvd1[4];
--	struct mlx5_qp_context	ctx;
--	u8			rsvd3[16];
--	__be64			pas[0];
--};
--
--struct mlx5_create_qp_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	__be32			qpn;
--	u8			rsvd0[4];
--};
--
--struct mlx5_destroy_qp_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			qpn;
--	u8			rsvd0[4];
--};
--
--struct mlx5_destroy_qp_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd0[8];
--};
--
- struct mlx5_modify_qp_mbox_in {
- 	struct mlx5_inbox_hdr	hdr;
- 	__be32			qpn;
-@@ -568,56 +535,6 @@ struct mlx5_modify_qp_mbox_out {
- 	u8			rsvd0[8];
- };
- 
--struct mlx5_query_qp_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			qpn;
--	u8			rsvd[4];
--};
--
--struct mlx5_query_qp_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd1[8];
--	__be32			optparam;
--	u8			rsvd0[4];
--	struct mlx5_qp_context	ctx;
--	u8			rsvd2[16];
--	__be64			pas[0];
--};
--
--struct mlx5_conf_sqp_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			qpn;
--	u8			rsvd[3];
--	u8			type;
--};
--
--struct mlx5_conf_sqp_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
--struct mlx5_alloc_xrcd_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
--struct mlx5_alloc_xrcd_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	__be32			xrcdn;
--	u8			rsvd[4];
--};
--
--struct mlx5_dealloc_xrcd_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			xrcdn;
--	u8			rsvd[4];
--};
--
--struct mlx5_dealloc_xrcd_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
- static inline struct mlx5_core_qp *__mlx5_qp_lookup(struct mlx5_core_dev *dev, u32 qpn)
- {
- 	return radix_tree_lookup(&dev->priv.qp_table.tree, qpn);
-@@ -628,20 +545,9 @@ static inline struct mlx5_core_mkey *__mlx5_mr_lookup(struct mlx5_core_dev *dev,
- 	return radix_tree_lookup(&dev->priv.mkey_table.tree, key);
- }
- 
--struct mlx5_page_fault_resume_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be32			flags_qpn;
--	u8			reserved[4];
--};
--
--struct mlx5_page_fault_resume_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
- int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 			struct mlx5_core_qp *qp,
--			struct mlx5_create_qp_mbox_in *in,
-+			u32 *in,
- 			int inlen);
- int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 operation,
- 			struct mlx5_modify_qp_mbox_in *in, int sqd_event,
-@@ -649,7 +555,7 @@ int mlx5_core_qp_modify(struct mlx5_core_dev *dev, u16 operation,
- int mlx5_core_destroy_qp(struct mlx5_core_dev *dev,
- 			 struct mlx5_core_qp *qp);
- int mlx5_core_qp_query(struct mlx5_core_dev *dev, struct mlx5_core_qp *qp,
--		       struct mlx5_query_qp_mbox_out *out, int outlen);
-+		       u32 *out, int outlen);
- 
- int mlx5_core_xrcd_alloc(struct mlx5_core_dev *dev, u32 *xrcdn);
- int mlx5_core_xrcd_dealloc(struct mlx5_core_dev *dev, u32 xrcdn);
+@@ -4724,7 +4724,7 @@ struct mlx5_ifc_modify_nic_vport_field_select_bits {
+ 	u8         reserved_at_0[0x16];
+ 	u8         node_guid[0x1];
+ 	u8         port_guid[0x1];
+-	u8         reserved_at_18[0x1];
++	u8         min_inline[0x1];
+ 	u8         mtu[0x1];
+ 	u8         change_event[0x1];
+ 	u8         promisc[0x1];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index e087b7d..451b0bd 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -45,6 +45,8 @@ int mlx5_query_nic_vport_mac_address(struct mlx5_core_dev *mdev,
+ 				     u16 vport, u8 *addr);
+ void mlx5_query_nic_vport_min_inline(struct mlx5_core_dev *mdev,
+ 				     u8 *min_inline);
++int mlx5_modify_nic_vport_min_inline(struct mlx5_core_dev *mdev,
++				     u16 vport, u8 min_inline);
+ int mlx5_modify_nic_vport_mac_address(struct mlx5_core_dev *dev,
+ 				      u16 vport, u8 *addr);
+ int mlx5_query_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 *mtu);
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
