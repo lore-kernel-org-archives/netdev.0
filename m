@@ -1,10 +1,9 @@
 From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 2/3] net/sched: cls_flower: Classify packet in
- ip tunnels
-Date: Mon, 22 Aug 2016 19:05:23 +0200
-Message-ID: <20160822190523.684a12e7@griffin>
+Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
+Date: Mon, 22 Aug 2016 19:07:55 +0200
+Message-ID: <20160822190755.6a782afe@griffin>
 References: <20160822143834.32422-1-amir@vadai.me>
-        <20160822143834.32422-3-amir@vadai.me>
+        <20160822143834.32422-4-amir@vadai.me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -17,22 +16,34 @@ Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         Hadar Har-Zion <hadarh@mellanox.com>
 To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40518 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38802 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753243AbcHVRF2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 13:05:28 -0400
-In-Reply-To: <20160822143834.32422-3-amir@vadai.me>
+        id S1752682AbcHVRIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 13:08:00 -0400
+In-Reply-To: <20160822143834.32422-4-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 22 Aug 2016 17:38:33 +0300, Amir Vadai wrote:
-> +	if (tb[TCA_FLOWER_KEY_ENC_IPV6_SRC] ||
-> +	    tb[TCA_FLOWER_KEY_ENC_IPV6_DST])
-> +		return -ENOTSUPP;
+On Mon, 22 Aug 2016 17:38:34 +0300, Amir Vadai wrote:
+> This action could be used before redirecting packets to a shared tunnel
+> device, or when redirecting packets arriving from a such a device
+> 
+> The action will release the metadata created by the tunnel device
+> (decap), or set the metadata with the specified values for encap
+> operation.
 
-Please add also support for IPv6. We've had enough of half-implemented
-stuff in tunneling and we need to really treat IPv6 as a first class
-citizen. There should be no IPv4 only submissions anymore.
+I understand the motivation for the decap action. However, what would
+happen if someone does not include it?
+
+Borrowing your example from the cover letter and modifying it, what
+would happen in the following case?
+
+$ tc filter add dev vxlan0 protocol ip parent ffff: \
+    flower \
+  	  enc_src_ip 11.11.0.2 \
+  		enc_dst_ip 11.11.0.1 \
+  		enc_key_id 11 \
+  	  action mirred egress redirect dev vnet0
 
 Thanks,
 
