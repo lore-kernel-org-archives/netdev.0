@@ -1,196 +1,128 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next V2 14/17] net/mlx5: Update mlx5_ifc.h for vxlan encap/decap
-Date: Mon, 22 Aug 2016 19:51:11 +0300
-Message-ID: <1471884674-22709-15-git-send-email-saeedm@mellanox.com>
-References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60306 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751754AbcHVQvg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 12:51:36 -0400
-In-Reply-To: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [for-next V2 00/17][PULL request] Mellanox mlx5 core driver updates 2016-08-20
+Date: Mon, 22 Aug 2016 19:50:57 +0300
+Message-ID: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+Hi Dave and Doug,
 
-Add the required definitions related to vxlan encap/decap.
+This series contains several low level and API updates for mlx5 core
+commands interface and mlx5_ifc.h to be shared as base code for net-next and
+rdma mlx5 4.9 submissions.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
----
- include/linux/mlx5/mlx5_ifc.h | 105 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 101 insertions(+), 4 deletions(-)
+>From Saeed, ten patches that refactors old layouts of firmware commands which 
+were manually generated before we introduced the mlx5_ifc, now all of the firmware
+commands inbox/outbox layouts moved to use mlx5_ifc and we remove the old
+manually generated structures.  Plus to those ten patches, we add two patches
+that unifies mlx5 commands execution interface and improve the driver log messages
+in that area.
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 7a8ef0a..3766110 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -212,6 +212,8 @@ enum {
- 	MLX5_CMD_OP_DEALLOC_FLOW_COUNTER          = 0x93a,
- 	MLX5_CMD_OP_QUERY_FLOW_COUNTER            = 0x93b,
- 	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c,
-+	MLX5_CMD_OP_ALLOC_ENCAP_HEADER            = 0x93d,
-+	MLX5_CMD_OP_DEALLOC_ENCAP_HEADER          = 0x93e,
- 	MLX5_CMD_OP_MAX
- };
- 
-@@ -281,7 +283,9 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
- 	u8         modify_root[0x1];
- 	u8         identified_miss_table_mode[0x1];
- 	u8         flow_table_modify[0x1];
--	u8         reserved_at_7[0x19];
-+	u8         encap[0x1];
-+	u8         decap[0x1];
-+	u8         reserved_at_9[0x17];
- 
- 	u8         reserved_at_20[0x2];
- 	u8         log_max_ft_size[0x6];
-@@ -512,7 +516,15 @@ struct mlx5_ifc_e_switch_cap_bits {
- 	u8         nic_vport_node_guid_modify[0x1];
- 	u8         nic_vport_port_guid_modify[0x1];
- 
--	u8         reserved_at_20[0x7e0];
-+	u8         vxlan_encap_decap[0x1];
-+	u8         nvgre_encap_decap[0x1];
-+	u8         reserved_at_22[0x9];
-+	u8         log_max_encap_headers[0x5];
-+	u8         reserved_2b[0x6];
-+	u8         max_encap_header_size[0xa];
-+
-+	u8         reserved_40[0x7c0];
-+
- };
- 
- struct mlx5_ifc_qos_cap_bits {
-@@ -2067,6 +2079,8 @@ enum {
- 	MLX5_FLOW_CONTEXT_ACTION_DROP      = 0x2,
- 	MLX5_FLOW_CONTEXT_ACTION_FWD_DEST  = 0x4,
- 	MLX5_FLOW_CONTEXT_ACTION_COUNT     = 0x8,
-+	MLX5_FLOW_CONTEXT_ACTION_ENCAP     = 0x10,
-+	MLX5_FLOW_CONTEXT_ACTION_DECAP     = 0x20,
- };
- 
- struct mlx5_ifc_flow_context_bits {
-@@ -2086,7 +2100,9 @@ struct mlx5_ifc_flow_context_bits {
- 	u8         reserved_at_a0[0x8];
- 	u8         flow_counter_list_size[0x18];
- 
--	u8         reserved_at_c0[0x140];
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_e0[0x120];
- 
- 	struct mlx5_ifc_fte_match_param_bits match_value;
- 
-@@ -4216,6 +4232,85 @@ struct mlx5_ifc_query_eq_in_bits {
- 	u8         reserved_at_60[0x20];
- };
- 
-+struct mlx5_ifc_encap_header_in_bits {
-+	u8         reserved_at_0[0x5];
-+	u8         header_type[0x3];
-+	u8         reserved_at_8[0xe];
-+	u8         encap_header_size[0xa];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         encap_header[2][0x8];
-+
-+	u8         more_encap_header[0][0x8];
-+};
-+
-+struct mlx5_ifc_query_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0xa0];
-+
-+	struct mlx5_ifc_encap_header_in_bits encap_header[0];
-+};
-+
-+struct mlx5_ifc_query_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_60[0xa0];
-+};
-+
-+struct mlx5_ifc_alloc_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_alloc_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0xa0];
-+
-+	struct mlx5_ifc_encap_header_in_bits encap_header;
-+};
-+
-+struct mlx5_ifc_dealloc_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_dealloc_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_60[0x20];
-+};
-+
- struct mlx5_ifc_query_dct_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_at_8[0x18];
-@@ -6102,7 +6197,9 @@ struct mlx5_ifc_create_flow_table_in_bits {
- 
- 	u8         reserved_at_a0[0x20];
- 
--	u8         reserved_at_c0[0x4];
-+	u8         encap_en[0x1];
-+	u8         decap_en[0x1];
-+	u8         reserved_at_c2[0x2];
- 	u8         table_miss_mode[0x4];
- 	u8         level[0x8];
- 	u8         reserved_at_d0[0x8];
+>From Hadar and Ilya, added the needed hardware bits and infrastructure for
+minimum inline headers setting and encap/decap commands and capabilities,
+needed for E-Switch offloads.
+
+>From Alex and Artemy, Update mlx5_ifc for modify RQ and XRC bits.
+
+This series applies on top latest net-next and rdma/master, and smoothly merges with
+the latest "Mellanox 100G mlx5 fixes 2016-08-16" series already applied into net branch.
+
+The following changes since commit 29b4817d4018df78086157ea3a55c1d9424a7cfc:
+    Linux 4.8-rc1
+
+are available in the git repository at:
+    git://git.kernel.org/pub/scm/linux/kernel/git/leon/linux-rdma.git tags/shared-for-4.9-1
+
+for you to fetch changes up to 2e353b3468ecb1d12a44aaf35888f7de47d5c047:
+    net/mlx5: Update struct mlx5_ifc_xrqc_bits
+
+Changes since V1:
+    - Reduce the number of patches and changed the cover letter respectively.
+
+Thanks,
+Saeed & Leon.
+
+Alex Vesker (1):
+  net/mlx5: Modify RQ bitmask from mlx5 ifc
+
+Artemy Kovalyov (1):
+  net/mlx5: Update struct mlx5_ifc_xrqc_bits
+
+Hadar Hen Zion (2):
+  net/mlx5: Enable setting minimum inline header mode for VFs
+  net/mlx5: Update mlx5_ifc.h for vxlan encap/decap
+
+Ilya Lesokhin (1):
+  net/mlx5: Introduce alloc_encap and dealloc_encap commands
+
+Saeed Mahameed (12):
+  net/mlx5: Init/Teardown hca commands via mlx5 ifc
+  net/mlx5: Access register and MAD IFC commands via mlx5 ifc
+  net/mlx5: PD and UAR commands via mlx5 ifc
+  net/mlx5: MCG commands via mlx5 ifc
+  net/mlx5: Pages management commands via mlx5 ifc
+  net/mlx5: EQ commands via mlx5 ifc
+  {net,IB}/mlx5: CQ commands via mlx5 ifc
+  {net,IB}/mlx5: MKey/PSV commands via mlx5 ifc
+  {net,IB}/mlx5: QP/XRCD commands via mlx5 ifc
+  {net,IB}/mlx5: Modify QP commands via mlx5 ifc
+  net/mlx5: Unify and improve command interface
+  net/mlx5: Improve driver log messages
+
+ drivers/infiniband/hw/mlx5/cq.c                    | 110 +++---
+ drivers/infiniband/hw/mlx5/main.c                  |  10 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |   2 +-
+ drivers/infiniband/hw/mlx5/mr.c                    | 184 +++++----
+ drivers/infiniband/hw/mlx5/qp.c                    | 189 ++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      | 261 +++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/cq.c       | 109 ++----
+ drivers/net/ethernet/mellanox/mlx5/core/debugfs.c  |  50 +--
+ .../net/ethernet/mellanox/mlx5/core/en_common.c    |  23 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  50 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  80 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  98 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   | 178 ++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |   7 +
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  18 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |  43 +--
+ drivers/net/ethernet/mellanox/mlx5/core/mad.c      |  41 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  91 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |  72 +---
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  17 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mr.c       | 189 ++++-----
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    | 156 +++-----
+ drivers/net/ethernet/mellanox/mlx5/core/pd.c       |  61 +--
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     | 149 +++----
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c       | 299 ++++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/rl.c       |  11 +-
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |   7 +-
+ drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  49 +--
+ drivers/net/ethernet/mellanox/mlx5/core/transobj.c | 183 +++------
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c      |  67 +---
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  94 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.c    |  29 +-
+ include/linux/mlx5/cq.h                            |   6 +-
+ include/linux/mlx5/device.h                        | 429 +--------------------
+ include/linux/mlx5/driver.h                        |  24 +-
+ include/linux/mlx5/mlx5_ifc.h                      | 127 +++++-
+ include/linux/mlx5/qp.h                            | 128 +-----
+ include/linux/mlx5/vport.h                         |   2 +
+ 40 files changed, 1401 insertions(+), 2249 deletions(-)
+
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
