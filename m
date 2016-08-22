@@ -1,103 +1,58 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net] tcp: properly scale window in tcp_v[46]_reqsk_send_ack()
-Date: Mon, 22 Aug 2016 11:49:14 -0700
-Message-ID: <CAK6E8=dcbtF9t-r+Zjo+As0UhnKjtFTwbaRhYunCCbgD0rkPCg@mail.gmail.com>
-References: <1471890670.14381.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
+Date: Mon, 22 Aug 2016 20:51:37 +0200
+Message-ID: <20160822205137.30cda14f@griffin>
+References: <20160822143834.32422-1-amir@vadai.me>
+        <20160822143834.32422-4-amir@vadai.me>
+        <CAJ3xEMhTdNXXLQfvD097_7LEK8YRTXW_r+ArB-XksX6dRvUAjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Amir Vadai <amir@vadai.me>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:35829 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751722AbcHVSt4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:49:56 -0400
-Received: by mail-it0-f53.google.com with SMTP id x131so103444615ite.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 11:49:55 -0700 (PDT)
-In-Reply-To: <1471890670.14381.10.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34030 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753087AbcHVSvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 14:51:43 -0400
+In-Reply-To: <CAJ3xEMhTdNXXLQfvD097_7LEK8YRTXW_r+ArB-XksX6dRvUAjg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 11:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> When sending an ack in SYN_RECV state, we must scale the offered
-> window if wscale option was negotiated and accepted.
->
-> Tested:
->  Following packetdrill test demonstrates the issue :
->
-> 0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-> +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
->
-> +0 bind(3, ..., ...) = 0
-> +0 listen(3, 1) = 0
->
-> // Establish a connection.
-> +0 < S 0:0(0) win 20000 <mss 1000,sackOK,wscale 7, nop, TS val 100 ecr 0>
-> +0 > S. 0:0(0) ack 1 win 28960 <mss 1460,sackOK, TS val 100 ecr 100, nop, wscale 7>
->
-> +0 < . 1:11(10) ack 1 win 156 <nop,nop,TS val 99 ecr 100>
-> // check that window is properly scaled !
-> +0 > . 1:1(0) ack 1 win 226 <nop,nop,TS val 200 ecr 100>
->
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> ---
-Acked-by: Yuchung Cheng <ycheng@google.com>
+On Mon, 22 Aug 2016 21:15:41 +0300, Or Gerlitz wrote:
+> Jiri B > I understand the motivation for the decap action. However, what would
+> Jiri B > happen if someone does not include it?
+> 
+> The MD set by the (say) vxlan device will not be "consumed" (cleared)
+> and would be keep travelling with the SKB
 
-Nice fix!
+Of course it would. That's not what I meant by the question :-)
 
->  net/ipv4/tcp_ipv4.c |    8 +++++++-
->  net/ipv6/tcp_ipv6.c |    8 +++++++-
->  2 files changed, 14 insertions(+), 2 deletions(-)
->
->
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 32b048e524d6..7158d4f8dae4 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -814,8 +814,14 @@ static void tcp_v4_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
->         u32 seq = (sk->sk_state == TCP_LISTEN) ? tcp_rsk(req)->snt_isn + 1 :
->                                              tcp_sk(sk)->snd_nxt;
->
-> +       /* RFC 7323 2.3
-> +        * The window field (SEG.WND) of every outgoing segment, with the
-> +        * exception of <SYN> segments, MUST be right-shifted by
-> +        * Rcv.Wind.Shift bits:
-> +        */
->         tcp_v4_send_ack(sock_net(sk), skb, seq,
-> -                       tcp_rsk(req)->rcv_nxt, req->rsk_rcv_wnd,
-> +                       tcp_rsk(req)->rcv_nxt,
-> +                       req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
->                         tcp_time_stamp,
->                         req->ts_recent,
->                         0,
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index 33df8b8575cc..94f4f89d73e7 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -944,9 +944,15 @@ static void tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
->         /* sk->sk_state == TCP_LISTEN -> for regular TCP_SYN_RECV
->          * sk->sk_state == TCP_SYN_RECV -> for Fast Open.
->          */
-> +       /* RFC 7323 2.3
-> +        * The window field (SEG.WND) of every outgoing segment, with the
-> +        * exception of <SYN> segments, MUST be right-shifted by
-> +        * Rcv.Wind.Shift bits:
-> +        */
->         tcp_v6_send_ack(sk, skb, (sk->sk_state == TCP_LISTEN) ?
->                         tcp_rsk(req)->snt_isn + 1 : tcp_sk(sk)->snd_nxt,
-> -                       tcp_rsk(req)->rcv_nxt, req->rsk_rcv_wnd,
-> +                       tcp_rsk(req)->rcv_nxt,
-> +                       req->rsk_rcv_wnd >> inet_rsk(req)->rcv_wscale,
->                         tcp_time_stamp, req->ts_recent, sk->sk_bound_dev_if,
->                         tcp_v6_md5_do_lookup(sk, &ipv6_hdr(skb)->daddr),
->                         0, 0);
->
->
+There are three options:
+
+1. It does not matter, as the metadata_dst will be freed anyway before
+   it reaches tx path. This means we do not need the 'decap' action.
+
+2. We may run into problems like tx path seeing the metadata_dst that
+   it should not see. This means either this situation or such
+   configuration must be prevented somehow.
+
+3. The metadata_dst can reach the tx path but it doesn't matter, as it
+   would just mean the packet is encapsulated into the same outer
+   headers it was received with or the metadata_dst would be ignored
+   (for non-tunnel interfaces).
+
+Which one is it? Quickly looking into the code, tcf_mirred calls
+dev_queue_xmit which indicates it's either 2 or 3. If it's 3., it
+should be explained in the patch description (especially the non-tunnel
+interface case) and documented.
+
+ Jiri
