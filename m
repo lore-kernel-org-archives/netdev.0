@@ -1,60 +1,98 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 2/2] ipv6: fixup RTF_* flags when restoring RTPROT_RA
- route from rtnetlink
-Date: Mon, 22 Aug 2016 14:06:50 +0300
-Message-ID: <81e12d33-0c32-58ae-8320-bd79cb13c8d6@cogentembedded.com>
-References: <1471355943-21288-1-git-send-email-ayourtch@gmail.com>
- <cover.1471622715.git.ayourtch@gmail.com>
- <55219c8da12705fefa36ee5853b899ee88f730fb.1471622715.git.ayourtch@gmail.com>
- <689653c8-bc05-705c-04d6-ff7570b28dd0@cogentembedded.com>
- <alpine.DEB.2.20.1608221300280.31586@ayourtch-u1604b2>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Yourtchenko <ayourtch@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH v2 net 1/1] net sched: fix encoding to use real length
+Date: Mon, 22 Aug 2016 07:10:20 -0400
+Message-ID: <1471864220-13356-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:33048 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751294AbcHVLHl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:07:41 -0400
-Received: by mail-lf0-f54.google.com with SMTP id b199so75021115lfe.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:06:51 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.20.1608221300280.31586@ayourtch-u1604b2>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34980 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751294AbcHVLKa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:10:30 -0400
+Received: by mail-io0-f196.google.com with SMTP id q83so8697349iod.2
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:10:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-On 8/22/2016 2:04 PM, Andrew Yourtchenko wrote:
+Encoding of the metadata was using the padded length as opposed to
+the real length of the data which is a bug per specification.
+This has not been an issue todate because all metadatum specified
+so far has been 32 bit where aligned and data length are the same width.
+This also includes a bug fix for validating the length of a u16 field.
+But since there is no metadata of size u16 yes we are fine to include it
+here.
 
->>> Fix the flags for RA-derived routes that were saved
->>> via "ip -6 route save" and and subsequently restored via
->>> "ip -6 route restore", allowing the incoming router advertisements
->>> to update them, rather than complain about inability to do so.
->>>
->>> Upon the restore of RA-derived saved routes, set the RTF_ADDRCONF
->>> to indicate that the source of the route was originally
->>> a router advertisement, and set the RTF_DEFAULT or RTF_ROUTEINFO
->>> flag depending on prefix length. This can be considered a
->>> sister change of f0396f60d7c165018c9b203fb9b89fb224835578, in
->>
->>    It's enough to specify 12 digits but you also need to specify the commit
->> summary enclosed in ("").
->
-> Is just the first line of "ipv6: fix RTPROT_RA markup of RA routes
-> w/nexthops" enough, or do I need to include the additional two
+While at it get rid of magic numbers.
 
-    Summary means the patch subject (and the first line of the commit log).
+Fixes: ef6980b6becb ("net sched: introduce IFE action")
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/act_ife.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-> paragraphs that follow ? (and can I keep the full hash rather than
-> truncate down to 12 digits?)
-
-    Yes.
-
->>> the other direction.
->>>
->>> Signed-off-by: Andrew Yourtchenko <ayourtch@gmail.com>
-[...]
-
-MBR, Sergei
+diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
+index 141a06e..e87cd81 100644
+--- a/net/sched/act_ife.c
++++ b/net/sched/act_ife.c
+@@ -53,7 +53,7 @@ int ife_tlv_meta_encode(void *skbdata, u16 attrtype, u16 dlen, const void *dval)
+ 	u32 *tlv = (u32 *)(skbdata);
+ 	u16 totlen = nla_total_size(dlen);	/*alignment + hdr */
+ 	char *dptr = (char *)tlv + NLA_HDRLEN;
+-	u32 htlv = attrtype << 16 | totlen;
++	u32 htlv = attrtype << 16 | dlen;
+ 
+ 	*tlv = htonl(htlv);
+ 	memset(dptr, 0, totlen - NLA_HDRLEN);
+@@ -135,7 +135,7 @@ EXPORT_SYMBOL_GPL(ife_release_meta_gen);
+ 
+ int ife_validate_meta_u32(void *val, int len)
+ {
+-	if (len == 4)
++	if (len == sizeof(u32))
+ 		return 0;
+ 
+ 	return -EINVAL;
+@@ -144,8 +144,8 @@ EXPORT_SYMBOL_GPL(ife_validate_meta_u32);
+ 
+ int ife_validate_meta_u16(void *val, int len)
+ {
+-	/* length will include padding */
+-	if (len == NLA_ALIGN(2))
++	/* length will not include padding */
++	if (len == sizeof(u16))
+ 		return 0;
+ 
+ 	return -EINVAL;
+@@ -652,12 +652,14 @@ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
+ 		u8 *tlvdata = (u8 *)tlv;
+ 		u16 mtype = tlv->type;
+ 		u16 mlen = tlv->len;
++		u16 alen;
+ 
+ 		mtype = ntohs(mtype);
+ 		mlen = ntohs(mlen);
++		alen = NLA_ALIGN(mlen);
+ 
+-		if (find_decode_metaid(skb, ife, mtype, (mlen - 4),
+-				       (void *)(tlvdata + 4))) {
++		if (find_decode_metaid(skb, ife, mtype, (mlen - NLA_HDRLEN),
++				       (void *)(tlvdata + NLA_HDRLEN))) {
+ 			/* abuse overlimits to count when we receive metadata
+ 			 * but dont have an ops for it
+ 			 */
+@@ -666,8 +668,8 @@ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
+ 			ife->tcf_qstats.overlimits++;
+ 		}
+ 
+-		tlvdata += mlen;
+-		ifehdrln -= mlen;
++		tlvdata += alen;
++		ifehdrln -= alen;
+ 		tlv = (struct meta_tlvhdr *)tlvdata;
+ 	}
+ 
+-- 
+1.9.1
