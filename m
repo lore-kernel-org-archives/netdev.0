@@ -1,48 +1,40 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next V3 11/18] liquidio: link and control commands
-Date: Mon, 22 Aug 2016 16:15:53 +0000
-Message-ID: <CO2PR11MB00888B8EE6F66D0B1E8C58E697E80@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <1471824765-26473-12-git-send-email-rvatsavayi@caviumnetworks.com>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCHv2,net-next] samples/bpf: Add tunnel set/get tests.
+Date: Mon, 22 Aug 2016 09:13:40 -0700
+Message-ID: <CALDO+Sb=Ou-pMtfNmeJemK86tLdrAr2FQ+zuBRHHRRz=TP2pTg@mail.gmail.com>
+References: <1471632944-2315-1-git-send-email-u9012063@gmail.com> <20160819.224321.216830178281905910.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0138.outbound.protection.outlook.com ([104.47.36.138]:28496
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752364AbcHVQP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 12:15:57 -0400
-In-Reply-To: <1471824765-26473-12-git-send-email-rvatsavayi@caviumnetworks.com>
-Content-Language: en-US
+Received: from mail-it0-f47.google.com ([209.85.214.47]:35794 "EHLO
+        mail-it0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754953AbcHVQOV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 12:14:21 -0400
+Received: by mail-it0-f47.google.com with SMTP id x131so94377985ite.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 09:14:21 -0700 (PDT)
+In-Reply-To: <20160819.224321.216830178281905910.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +static inline void setup_link_status_change_wq(struct net_device *netdev=
-)
-> +{
-> +	struct lio *lio =3D GET_LIO(netdev);
-> +	struct octeon_device *oct =3D lio->oct_dev;
-> +
-> +	lio->link_status_wq.wq =3D alloc_workqueue("link-status",
-> +						 WQ_MEM_RECLAIM, 0);
-> +	if (!lio->link_status_wq.wq) {
-> +		dev_err(&oct->pci_dev->dev, "unable to create cavium link
-> status wq\n");
-> +		return;
-> +	}
-> +	INIT_DELAYED_WORK(&lio->link_status_wq.wk.work,
-> +			  octnet_link_status_change);
-> +	lio->link_status_wq.wk.ctxptr =3D lio;
-> +}
+Thanks. I will do it next time.
 
-Don't you need to propagate the allocation failure?
-Won't this wouldn't you still try to schedule the non-initialized workitem
-on the non-existent workqueue later on?
+On Fri, Aug 19, 2016 at 10:43 PM, David Miller <davem@davemloft.net> wrote:
+> From: William Tu <u9012063@gmail.com>
+> Date: Fri, 19 Aug 2016 11:55:44 -0700
+>
+>> The patch creates sample code exercising bpf_skb_{set,get}_tunnel_key,
+>> and bpf_skb_{set,get}_tunnel_opt for GRE, VXLAN, and GENEVE.  A native
+>> tunnel device is created in a namespace to interact with a lwtunnel
+>> device out of the namespace, with metadata enabled.  The bpf_skb_set_*
+>> program is attached to tc egress and bpf_skb_get_* is attached to egress
+>> qdisc.  A ping between two tunnels is used to verify correctness and
+>> the result of bpf_skb_get_* printed by bpf_trace_printk.
+>>
+>> Signed-off-by: William Tu <u9012063@gmail.com>
+>
+> Applied, thanks.
+>
+> Next time, propagate the ACK's your received into your commit message
+> when you post new versions.
