@@ -1,68 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] tun: Use memdup_user() rather than duplicating its
- implementation
-Date: Mon, 22 Aug 2016 04:43:53 +0300
-Message-ID: <20160822044347-mutt-send-email-mst@kernel.org>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <9cf06275-924d-6c22-d8a8-f733a03cca23@users.sourceforge.net>
- <a2ee9925-1241-0328-6d35-9a9c9f567ea4@users.sourceforge.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 22 Aug 2016 11:51:35 +1000
+Message-ID: <20160822115135.6a5e0f19@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Mike Rapoport <rppt@linux.vnet.ibm.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a2ee9925-1241-0328-6d35-9a9c9f567ea4@users.sourceforge.net>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Hariprasad Shenai <hariprasad@chelsio.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 20, 2016 at 09:34:56AM +0200, SF Markus Elfring wrote:
-> From: Markus Elfring <elfring@users.sourceforge.net>
-> Date: Sat, 20 Aug 2016 08:54:15 +0200
-> 
-> Reuse existing functionality from memdup_user() instead of keeping
-> duplicate source code.
-> 
-> This issue was detected by using the Coccinelle software.
-> 
-> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Hi all,
 
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 
-> ---
->  drivers/net/tun.c | 11 +++--------
->  1 file changed, 3 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 9c8b5bc..a1aeccb 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -731,14 +731,9 @@ static int update_filter(struct tap_filter *filter, void __user *arg)
->  	}
->  
->  	alen = ETH_ALEN * uf.count;
-> -	addr = kmalloc(alen, GFP_KERNEL);
-> -	if (!addr)
-> -		return -ENOMEM;
-> -
-> -	if (copy_from_user(addr, arg + sizeof(uf), alen)) {
-> -		err = -EFAULT;
-> -		goto done;
-> -	}
-> +	addr = memdup_user(arg + sizeof(uf), alen);
-> +	if (IS_ERR(addr))
-> +		return PTR_ERR(addr);
->  
->  	/* The filter is updated without holding any locks. Which is
->  	 * perfectly safe. We disable it first and in the worst
-> -- 
-> 2.9.3
+between commit:
+
+  e0d8b2908696 ("cxgb4: Fixes resource allocation for ULD's in kdump kernel")
+
+from the net tree and commit:
+
+  94cdb8bb993a ("cxgb4: Add support for dynamic allocation of resources for ULD")
+
+from the net-next tree.
+
+I fixed it up (I just used the version form the net-next tree) and can
+carry the fix as necessary. This is now fixed as far as linux-next is
+concerned, but any non trivial conflicts should be mentioned to your
+upstream maintainer when your tree is submitted for merging.  You may
+also want to consider cooperating with the maintainer of the conflicting
+tree to minimise any particularly complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
