@@ -1,58 +1,100 @@
-From: Jamie Lentin <jm@lentin.co.uk>
-Subject: [PATCH] net: mv88e6xxx: Fix ingress rate removal for mv6131 chips
-Date: Mon, 22 Aug 2016 22:47:08 +0100
-Message-ID: <1471902428-24250-1-git-send-email-jm@lentin.co.uk>
-Cc: netdev@vger.kernel.org, Jamie Lentin <jm@lentin.co.uk>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from marmot.wormnet.eu ([188.246.204.87]:32832 "EHLO
-        marmot.wormnet.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755580AbcHVVrp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 17:47:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Mon, 22 Aug 2016 14:47:42 -0700
+Message-ID: <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
+References: <20160713073152.GC29661@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_A1ri6fouFH0H4KpEqg1icCmz+U1tcgn-5BoryX5pb1gw@mail.gmail.com>
+ <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
+ <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
+ <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
+ <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
+ <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160822110444.GA29971-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The PORT_RATE_CONTROL register works differently on 88e6095/6095f/6131
-in comparison to 6123/61/65, and 0x0 disables. The distinction was lost
-Linux 4.1 --> 4.2
-
-Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
----
-Tested on a Netgear WNR854T With a mv88e6131 switch chip, on top of
-Andrew Lunn's 6131 tagging work:
-  https://www.mail-archive.com/netdev@vger.kernel.org/msg124142.html
-
-Also available at https://github.com/lentinj/linux 6131-ingress-rate-v1
----
- drivers/net/dsa/mv88e6xxx/chip.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 82d4516..22d02dd 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2646,15 +2646,19 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
- 			return ret;
- 	}
- 
-+	/* Rate Control: disable ingress rate limiting. */
- 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
- 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
--	    mv88e6xxx_6185_family(chip) || mv88e6xxx_6095_family(chip) ||
- 	    mv88e6xxx_6320_family(chip)) {
--		/* Rate Control: disable ingress rate limiting. */
- 		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
- 					   PORT_RATE_CONTROL, 0x0001);
- 		if (ret)
- 			return ret;
-+	} else if (mv88e6xxx_6185_family(chip) || mv88e6xxx_6095_family(chip)) {
-+		ret = _mv88e6xxx_reg_write(chip, REG_PORT(port),
-+					   PORT_RATE_CONTROL, 0x0000);
-+		if (ret)
-+			return ret;
- 	}
- 
- 	/* Port Control 1: disable trunking, disable sending
--- 
-2.8.1
+T24gMjIgQXVndXN0IDIwMTYgYXQgMDQ6MDQsIFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5l
+dHJvbm9tZS5jb20+IHdyb3RlOgo+IE9uIFdlZCwgQXVnIDEwLCAyMDE2IGF0IDEwOjE3OjMwQU0g
+LTA3MDAsIEpvZSBTdHJpbmdlciB3cm90ZToKPj4gT24gMTAgQXVndXN0IDIwMTYgYXQgMDM6MjAs
+IFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+PiA+IE9u
+IFR1ZSwgQXVnIDA5LCAyMDE2IGF0IDA4OjQ3OjQwQU0gLTA3MDAsIHByYXZpbiBzaGVsYXIgd3Jv
+dGU6Cj4+ID4+IE9uIE1vbiwgQXVnIDgsIDIwMTYgYXQgODoxNyBBTSwgU2ltb24gSG9ybWFuIDxz
+aW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4+ID4+ID4gTGlnaHQgdGVzdGluZyBz
+ZWVtcyB0byBpbmRpY2F0ZSB0aGF0IGl0IHdvcmtzIGZvciBHU08gc2ticwo+PiA+PiA+IHJlY2Vp
+dmVkIG92ZXIgYm90aCBMMyBhbmQgTDIgR1JFIHR1bm5lbHMgYnkgT3ZTIHdpdGggYm90aAo+PiA+
+PiA+IElQLWluLU1QTFMgYW5kIElQICh3aXRob3V0IE1QTFMpIHBheWxvYWRzLgo+PiA+PiA+Cj4+
+ID4+Cj4+ID4+IFRoYW5rcyBmb3IgdGVzdGluZyBpdC4gQ2FuIHlvdSBhbHNvIGFkZCB0aG9zZSB0
+ZXN0cyB0byBPVlMga21vZCB0ZXN0IHN1aXRlPwo+PiA+PiAuLgo+PiA+Cj4+ID4gU3VyZSwgSSB3
+aWxsIGxvb2sgaW50byBkb2luZyB0aGF0Lgo+PiA+IEFtIEkgY29ycmVjdCBpbiB0aGlua2luZyBK
+b2UgU3RyaW5nZXIgaXMgdGhlIGJlc3QgcGVyc29uIHRvIGNvbnRhY3QgaWYKPj4gPiBJIHJ1biBp
+bnRvIHRyb3VibGUgdGhlcmU/Cj4+Cj4+IFN1cmUuIFRoZSBiYXNpY3Mgb2YgcnVubmluZyB0aGUg
+dGVzdHMgaXMgZG9jdW1lbnRlZCBoZXJlOgo+PiBodHRwczovL2dpdGh1Yi5jb20vb3BlbnZzd2l0
+Y2gvb3ZzL2Jsb2IvbWFzdGVyL0lOU1RBTEwubWQjZGF0YXBhdGgtdGVzdGluZwo+Pgo+PiBZb3Ug
+c2hvdWxkIGJlIGFibGUgdG8gZ2V0IGEgZ29vZCBmZWVsIGZvciBob3cgdG8gYWRkIHRlc3RzIGJ5
+IHBlcnVzaW5nCj4+IHRoZSBjb21taXRzIHRvIHRlc3RzL3N5c3RlbS17dHJhZmZpYyxrbW9kLW1h
+Y3Jvc30uYXQgaW4gdGhlIE9WUyBzb3VyY2UKPj4gdHJlZS4KPgo+IFRoYW5rcyBKb2UsCj4KPiBp
+dCB0b29rIG1lIGEgd2hpbGUgYnV0IEkgdGhpbmsgdGhhdCBJIGhhdmUgc29tZXRoaW5nIHdvcmtp
+bmcKPiBhZ2FpbnN0IHRoZSBoZWFkIGJyYW5jaCBvZiB0aGUgT1ZTIHRyZWUuIEknZCB2YWx1ZSBv
+cGluaW9ucwo+IG9uIHRoZSBkaXJlY3Rpb24gSSBoYXZlIHRha2VuLgo+Cj4gU3ViamVjdDogW1BB
+VENIXSBzeXN0ZW0tdHJhZmZpYzogRXhlcmNpc2UgR1NPCj4KPiBFeGVyY2lzZSBHU08gZm9yOiB1
+bmVuY2Fwc3VsYXRlZDsgTVBMUzsgR1JFOyBhbmQgTVBMUyBpbiBHUkUuCj4KPiBUaGVyZSBpcyBz
+Y29wZSB0byBleHRlbmQgdGhpcyB0ZXN0aW5nIHRvIG90aGVyIGVuY2Fwc3VsYXRpb24gZm9ybWF0
+cwo+IGlmIGRlc2lyZWQuCj4KPiBUaGlzIGlzIG1vdGl2YXRlZCBieSBhIGRlc2lyZSB0byB0ZXN0
+IEdSRSBhbmQgTVBMUyBlbmNhcHN1bGF0aW9uIGluCj4gdGhlIGNvbnRleHQgb2YgTDMvVlBOIChN
+UExTIG92ZXIgbm9uLVRFQiBHUkUgd29yaykuIFRoYXQgaXMgbm90Cj4gdGVzdGVkIGhlcmUgYnV0
+IHRlc3RzIGZvciB0aG9zZSBjYXNlcyB3b3VsZCBpZGVhbGx5IGJlIGJhc2VkIG9uIHRob3NlIGlu
+Cj4gdGhpcyBwYXRjaC4KClRoaXMgbWFrZXMgc2Vuc2UgdG8gbWUuIFRoZXJlJ3MgYSBmZXcgY29y
+bmVycyB0aGF0IGNvdWxkIGJlIGltcHJvdmVkLApwcmltYXJpbHkgZm9yIHJlcHJvZHVjaW5nIHNh
+bmUgcmVzdWx0cyBvbiBhIHZhcmlldHkgb2Ygc3lzdGVtcywgdGhlbiBhCmNvdXBsZSBvZiBzdHls
+ZSBjb21tZW50cy4gUGxlYXNlIGRvIHJ1biB0aGUgdGVzdHMgdmlhIGJvdGggIm1ha2UKY2hlY2st
+a2VybmVsIiBhbmQgIm1ha2UgY2hlY2stc3lzdGVtLXVzZXJzcGFjZSIgYmVmb3JlIHN1Ym1pdHRp
+bmcsCmlkZWFsbHkgd2l0aCBhdCBsZWFzdCB0d28gdmFyaWV0aWVzIG9mIGtlcm5lbDogT25lIHdo
+ZXJlIHlvdSB3b3VsZApleHBlY3QgdGhlIHRlc3QgdG8gcGFzcywgYW5kIG9uZSB3aGVyZSB5b3Ug
+d291bGQgZXhwZWN0IHRoZSB0ZXN0cyB0bwpiZSBza2lwcGVkLgoKKiBDSEVDS19NUExTIGlzIGRl
+ZmluZWQgaW4gc3lzdGVtLWttb2QtbWFjcm9zLmF0LCBzbyBhIGNvcnJlc3BvbmRpbmcKdmVyc2lv
+biBzaG91bGQgYmUgcHJvdmlkZWQgaW4gc3lzdGVtLXVzZXJzcGFjZS1tYWNyb3MuYXQuIElmIHRo
+ZQpjcml0ZXJpYSBmb3IgcnVubmluZyB0aGUgdGVzdChzKSB3aXRoIGJvdGggdXNlcnNwYWNlIGFu
+ZCBrZXJuZWwKZGF0YXBhdGhzIGlzIHRoZSBzYW1lLCB0aGVuIHRoaXMgY291bGQgaW5zdGVhZCBi
+ZSBtb3ZlZCBpbnRvCnN5c3RlbS1jb21tb24tbWFjcm9zLmF0LgoqICJkYXRhcGF0aCAtIHBpbmcg
+b3ZlciBncmUgdHVubmVsIiBhZGRzIGEgY29tbWFuZCB0byBleGVjdXRlIGluCmF0X25zMSwgYnV0
+IHRoYXQgbmFtZXNwYWNlIGRvZXNuJ3QgZXhpc3QuCiogImRhdGFwYXRoIC0gaHR0cCBvdmVyIGdy
+ZSB0dW5uZWwiIGlzIG1pc3NpbmcgTVBMU19DSEVDSy4KKiBJcyB0aGVyZSBhIHdheSB0byBjbGVh
+ciB0aGUgbmV0c3RhdCBzdGF0aXN0aWNzIGJlZm9yZSBydW5uaW5nIHRoZQp0ZXN0cyB3aGljaCBy
+ZWx5IG9uIGl0PyBJJ20gZ2V0dGluZyBhIGZhaWx1cmUgb24gb25lIG9mIG15IHN5c3RlbXMKKHVi
+dW50dSB0cnVzdHkgd2l0aCBhIDQuNyBrZXJuZWwpLCBidXQgSSdtIG5vdCBzdXJlIGlmIHRoZSBj
+b3VudGVyIHdhcwphbHJlYWR5IGhpZ2ggYmVmb3JlIEkgcmFuIHRoZSB0ZXN0LgoqICJkYXRhcGF0
+aCAtIGh0dHAgb3ZlciBtcGxzIGJldHdlZW4gdHdvIHBvcnRzIiAgKG1heWJlIG90aGVycyB0b28/
+KQpzaG91bGQgc2hpZnQgYWxsIG9wZW5mbG93IHJ1bGVzIGludG8gYSBzaW5nbGUgc2VjdGlvbiB1
+c2luZyBBVF9EQVRBLApzaW1pbGFyIHRvIHRoZSBvdGhlciB0ZXN0cy4gVGhpcyBtYWtlcyBpdCBl
+YXNpZXIgdG8gcmVhc29uIGFib3V0IHRoZQpmbG93IHRhYmxlIGFuZCB1bmRlcnN0YW5kIHdoYXQn
+cyBnb2luZyBvbiBiZWZvcmUgcmVhZGluZyB0aHJvdWdoIHRoZQpyZXN0IG9mIHRoZSB0ZXN0Lgoq
+IElmIHRoZXJlIGlzIGEgY29tbW9uIHNldCBvZiBjb25maWd1cmF0aW9uIHlvdSBkbyBmb3IgbG9j
+YWwgc3RhY2sKd2l0aGluIGEgbmFtZXNwYWNlIHRvIHJvdXRlIE1QTFMgdHJhZmZpYywgeW91IGNv
+dWxkIGNvbnNpZGVyIGFkZGluZwphbm90aGVyIG1hY3JvIGludG8gc3lzdGVtLWNvbW1vbi1tYWNy
+b3MuYXQuCgpJIGFsc28gc2VlIHRoaXMgZXJyb3Igb24gImh0dHAgb3ZlciBtcGxzIG92ZXIgZ3Jl
+IHR1bm5lbCI6CitzaDogMTogY2Fubm90IGNyZWF0ZSAvcHJvYy9zeXMvbmV0L21wbHMvY29uZi9u
+c19ncmUwL2lucHV0OiBEaXJlY3RvcnkKbm9uZXhpc3RlbnQKCk1heWJlIE1QTFMgKyBHUkUgbmVl
+ZHMgYSBzZXBhcmF0ZSBjaGVjaz8KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
+cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
