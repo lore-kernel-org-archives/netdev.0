@@ -1,49 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v05 38/72] include/uapi/linux/openvswitch.h: use __u32
- from linux/types.h
-Date: Mon, 22 Aug 2016 12:39:38 -0700
-Message-ID: <20160822123938.02e885c4@xeon-e3>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: [PATCH v05 22/72] include/uapi/linux/if_tunnel.h: include linux/if.h, linux/ip.h and linux/in6.h
+Date: Mon, 22 Aug 2016 20:32:39 +0200
+Message-ID: <1471890809-4383-23-git-send-email-mikko.rapeli@iki.fi>
 References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
-        <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, Pravin Shelar <pshelar@nicira.com>,
-        netdev@vger.kernel.org, dev@openvswitch.org
-To: Mikko Rapeli <mikko.rapeli@iki.fi>
+Content-Transfer-Encoding: 8bit
+Cc: Mikko Rapeli <mikko.rapeli@iki.fi>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Philip Prindeville <philipp@redfish-solutions.com>,
+        netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
+In-Reply-To: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 22 Aug 2016 20:32:55 +0200
-Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
+Fixes userspace compilation errors like:
 
-> Fixes userspace compiler error:
->=20
-> error: unknown type name =E2=80=98uint32_t=E2=80=99
->=20
-> Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
-> ---
->  include/uapi/linux/openvswitch.h | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvs=
-witch.h
-> index d95a301..645499a 100644
-> --- a/include/uapi/linux/openvswitch.h
-> +++ b/include/uapi/linux/openvswitch.h
-> @@ -632,8 +632,8 @@ enum ovs_hash_alg {
->   * @hash_basis: basis used for computing hash.
->   */
->  struct ovs_action_hash {
-> -	uint32_t  hash_alg;     /* One of ovs_hash_alg. */
-> -	uint32_t  hash_basis;
-> +	__u32  hash_alg;     /* One of ovs_hash_alg. */
-> +	__u32  hash_basis;
->  };
-> =20
->  /**
+error: field ‘iph’ has incomplete type
+error: field ‘prefix’ has incomplete type
 
-This is a a real issue, but being buried in a huge patch series of include
-file stuff I don't think anyone would see it.
+Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+---
+ include/uapi/linux/if_tunnel.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 1046f55..777b6cd 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -2,6 +2,9 @@
+ #define _UAPI_IF_TUNNEL_H_
+ 
+ #include <linux/types.h>
++#include <linux/if.h>
++#include <linux/ip.h>
++#include <linux/in6.h>
+ #include <asm/byteorder.h>
+ 
+ 
+-- 
+2.8.1
