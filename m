@@ -1,68 +1,98 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: ip_finish_output_gso: Allow fragmenting segments of
- tunneled skbs if their DF is unset
-Date: Mon, 22 Aug 2016 11:48:23 +0200
-Message-ID: <1471859303.3970877.702207417.066809DC@webmail.messagingengine.com>
-References: <1471767752-7849-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH v3 net-next] l2tp: Refactor the codes with existing
+ macros instead of literal number
+Date: Mon, 22 Aug 2016 11:54:26 +0200
+Message-ID: <20160822095426.bzyexfethxr45rw6@alphalink.fr>
+References: <1471708347-18063-1-git-send-email-fgao@ikuai8.com>
+ <9423c2ce-fb0c-818c-1b27-d45668f4a015@redfish-solutions.com>
+ <CA+6hz4rSg6DSMHNJtrD=GFno08Sj0jb8ezktY-=yH3k5zTVZMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: pravin shelar <pshelar@ovn.org>, wenxu <wenxu@ucloud.cn>
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Philp Prindeville <philipp@redfish-solutions.com>,
+        Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>,
+        paulus@samba.org, "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Feng Gao <gfree.wind@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36105 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750927AbcHVJsZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 05:48:25 -0400
-In-Reply-To: <1471767752-7849-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:47921 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751139AbcHVJyc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 05:54:32 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+6hz4rSg6DSMHNJtrD=GFno08Sj0jb8ezktY-=yH3k5zTVZMQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Sun, Aug 21, 2016, at 10:22, Shmulik Ladkani wrote:
-> In b8247f095e,
+On Mon, Aug 22, 2016 at 08:13:48AM +0800, Feng Gao wrote:
+> inline
 > 
->    "net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU,
->    allow segmentation for local udp tunneled skbs"
+> On Mon, Aug 22, 2016 at 6:36 AM, Philp Prindeville
+> <philipp@redfish-solutions.com> wrote:
+> > Inline
+> >
+> >
+> > On 08/20/2016 09:52 AM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
+> >>
+> >> From: Gao Feng <fgao@ikuai8.com>
+> >>
+> >> Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
+> >> 0x03, and 2 separately.
+> >>
+> >> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> >> ---
+> >>   v3: Modify the subject;
+> >>   v2: Only replace the literal number with macros according to Guillaume's
+> >> advice
+> >>   v1: Inital patch
+> >>
+> >>   net/l2tp/l2tp_ppp.c | 8 ++++----
+> >>   1 file changed, 4 insertions(+), 4 deletions(-)
+> >>
+> >> diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+> >> index d9560aa..65e2fd6 100644
+> >> --- a/net/l2tp/l2tp_ppp.c
+> >> +++ b/net/l2tp/l2tp_ppp.c
+> >> @@ -177,7 +177,7 @@ static int pppol2tp_recv_payload_hook(struct sk_buff
+> >> *skb)
+> >>         if (!pskb_may_pull(skb, 2))
+> >>                 return 1;
+> >>   -     if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
+> >> +       if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
+> >
+> >
+> > This should have used PPP_ADDRESS() and PPP_CONTROL() here.
 > 
-> gso skbs arriving from an ingress interface that go through UDP
-> tunneling, are allowed to be fragmented if the resulting encapulated
-> segments exceed the dst mtu of the egress interface.
+> In my initial patch, I replace them with PPP_ADDRESS() and PPP_CONTROL.
+> But Guillaume thought it was not clear as before.
+> So I revert it.
 > 
-> This aligned the behavior of gso skbs to non-gso skbs going through udp
-> encapsulation path.
+> >
+> >>                 skb_pull(skb, 2);
+> >
+> >
+> > This magic number should go away.
 > 
-> However the non-gso vs gso anomaly is present also in the following
-> cases of a GRE tunnel:
->  - ip_gre in collect_md mode, where TUNNEL_DONT_FRAGMENT is not set
->    (e.g. OvS vport-gre with df_default=false)
->  - ip_gre in nopmtudisc mode, where IFLA_GRE_IGNORE_DF is set
+> Same as above.
 > 
-> In both of the above cases, the non-gso skbs get fragmented, whereas the
-> gso skbs (having skb_gso_network_seglen that exceeds dst mtu) get
-> dropped,
-> as they don't go through the segment+fragment code path.
+> >
+> >>         return 0;
+> >> @@ -282,7 +282,7 @@ static void pppol2tp_session_sock_put(struct
+> >> l2tp_session *session)
+> >>   static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+> >>                             size_t total_len)
+> >>   {
+> >> -       static const unsigned char ppph[2] = { 0xff, 0x03 };
+> >> +       static const unsigned char ppph[2] = {PPP_ALLSTATIONS, PPP_UI};
+> >
+> >
+> > PPP has a 4-byte header.  Where's the protocol value?
 > 
-> Fix: Setting IPSKB_FRAG_SEGS if the tunnel specified IP_DF bit is NOT
-> set.
+> In the original code, I fail to find the code which is used to fill
+> the protocol value.
+> So I keep the two bytes header. And I thought the protocol value may be filled
+> by the upper layer.
 > 
-> Tunnels that do set IP_DF, will not go to fragmentation of segments.
-> This preserves behavior of ip_gre in (the default) pmtudisc mode.
-> 
-> Fixes: b8247f095e ("net: ip_finish_output_gso: If skb_gso_network_seglen
-> exceeds MTU, allow segmentation for local udp tunneled skbs")
-> Reported-by: wenxu <wenxu@ucloud.cn>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Your dissecting of the current state of fragmentation handling also
-looked fine. I wonder if it would now make sense to add a sysctl to add
-back the dropping of packets in case they can't be fragmented by a
-bridge, as we made sure that the defaults don't break for anyone.
-
-Thanks,
-Hannes
+And you were right. This was a macro replacement patch anyway, so you
+didn't have to bring functional changes with it.
+And if the protocol field was really missing, the L2TP module would
+have never worked.
