@@ -1,89 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] udp: fix poll() issue with zero sized packets
-Date: Tue, 23 Aug 2016 13:53:24 -0700
-Message-ID: <1471985604.14381.48.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
-         <20160823.112515.318902967155957764.davem@davemloft.net>
-         <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: [PATCH v05 66/72] uapi icmp.h: glibc netinet/ip_icmp.h header file compatibility fixes
+Date: Mon, 22 Aug 2016 20:33:23 +0200
+Message-ID: <1471890809-4383-67-git-send-email-mikko.rapeli__23169.8006428362$1471985757$gmane$org@iki.fi>
+References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, samanthakumar@google.com,
-        willemb@google.com, netdev <netdev@vger.kernel.org>
-To: Laura Abbott <labbott@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Mikko Rapeli <mikko.rapeli@iki.fi>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35022 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755846AbcHWUx0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:53:26 -0400
-Received: by mail-pf0-f193.google.com with SMTP id h186so8819435pfg.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:53:26 -0700 (PDT)
-In-Reply-To: <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
+Received: from mail.kapsi.fi ([217.30.184.167]:48294 "EHLO mail.kapsi.fi"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753971AbcHWUzt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 16:55:49 -0400
+Received: from lakka.kapsi.fi ([2001:1bc8:1004::1] ident=Debian-exim)
+        by mail.kapsi.fi with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
+        (Exim 4.80)
+        (envelope-from <mikko.rapeli@iki.fi>)
+        id 1bcIjb-00051F-G2
+        for netdev@vger.kernel.org; Tue, 23 Aug 2016 23:55:47 +0300
+Received: from mcfrisk by lakka.kapsi.fi with local (Exim 4.84_2)
+        (envelope-from <mikko.rapeli@iki.fi>)
+        id 1bcIjb-0008J7-Ek
+        for netdev@vger.kernel.org; Tue, 23 Aug 2016 23:55:47 +0300
+In-Reply-To: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Fixes this userspace compile error when glibc netinet/ip_icmp.h is included
+before linux/icmp.h:
 
-Laura tracked poll() [and friends] regression caused by commit
-e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+linux/icmp.h:68:8: error: redefinition of ‘struct icmphdr’
 
-udp_poll() needs to know if there is a valid packet in receive queue,
-even if its payload length is 0.
-
-Change first_packet_length() to return an signed int, and use -1
-as the indication of an empty queue.
-
-Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
-Reported-by: Laura Abbott <labbott@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Tested-by: Laura Abbott <labbott@redhat.com>
+Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
 ---
- net/ipv4/udp.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ include/uapi/linux/icmp.h        |  4 +++-
+ include/uapi/linux/libc-compat.h | 10 ++++++++++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index e61f7cd65d08..2a2ac9e0c985 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1184,11 +1184,11 @@ out:
-  *	Drops all bad checksum frames, until a valid one is found.
-  *	Returns the length of found skb, or 0 if none is found.
-  */
--static unsigned int first_packet_length(struct sock *sk)
-+static int first_packet_length(struct sock *sk)
- {
- 	struct sk_buff_head list_kill, *rcvq = &sk->sk_receive_queue;
- 	struct sk_buff *skb;
--	unsigned int res;
-+	int res;
+diff --git a/include/uapi/linux/icmp.h b/include/uapi/linux/icmp.h
+index fddd9d7..cd38005 100644
+--- a/include/uapi/linux/icmp.h
++++ b/include/uapi/linux/icmp.h
+@@ -17,6 +17,7 @@
+ #ifndef _UAPI_LINUX_ICMP_H
+ #define _UAPI_LINUX_ICMP_H
  
- 	__skb_queue_head_init(&list_kill);
++#include <linux/libc-compat.h>
+ #include <linux/types.h>
  
-@@ -1203,7 +1203,7 @@ static unsigned int first_packet_length(struct sock *sk)
- 		__skb_unlink(skb, rcvq);
- 		__skb_queue_tail(&list_kill, skb);
- 	}
--	res = skb ? skb->len : 0;
-+	res = skb ? skb->len : -1;
- 	spin_unlock_bh(&rcvq->lock);
+ #define ICMP_ECHOREPLY		0	/* Echo Reply			*/
+@@ -64,7 +65,7 @@
+ #define ICMP_EXC_TTL		0	/* TTL count exceeded		*/
+ #define ICMP_EXC_FRAGTIME	1	/* Fragment Reass time exceeded	*/
  
- 	if (!skb_queue_empty(&list_kill)) {
-@@ -1232,7 +1232,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+-
++#if __UAPI_DEF_ICMPHDR
+ struct icmphdr {
+   __u8		type;
+   __u8		code;
+@@ -82,6 +83,7 @@ struct icmphdr {
+ 	__u8	reserved[4];
+   } un;
+ };
++#endif /* __UAPI_DEF_ICMPHDR */
  
- 	case SIOCINQ:
- 	{
--		unsigned int amount = first_packet_length(sk);
-+		int amount = max_t(int, 0, first_packet_length(sk));
  
- 		return put_user(amount, (int __user *)arg);
- 	}
-@@ -2184,7 +2184,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ /*
+diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
+index 40190a4..8a5a7cc 100644
+--- a/include/uapi/linux/libc-compat.h
++++ b/include/uapi/linux/libc-compat.h
+@@ -154,6 +154,13 @@
  
- 	/* Check for false positives due to checksum errors */
- 	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
--	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
-+	    !(sk->sk_shutdown & RCV_SHUTDOWN) && first_packet_length(sk) == -1)
- 		mask &= ~(POLLIN | POLLRDNORM);
+ #endif /* _NETINET_IN_H */
  
- 	return mask;
++/* Coordinate with glibc netinet/ip_icmp.h header. */
++#if defined(__NETINET_IP_ICMP_H)
++#define __UAPI_DEF_ICMPHDR		0
++#else /* defined(__NETINET_IP_ICMP_H) */
++#define __UAPI_DEF_ICMPHDR		1
++#endif /* defined(__NETINET_IP_ICMP_H) */
++
+ /* Coordinate with glibc netipx/ipx.h header. */
+ #if defined(__NETIPX_IPX_H)
+ 
+@@ -218,6 +225,9 @@
+ #define __UAPI_DEF_IN6_PKTINFO		1
+ #define __UAPI_DEF_IP6_MTUINFO		1
+ 
++/* Definitions for icmp.h */
++#define __UAPI_DEF_ICMPHDR		1
++
+ /* Definitions for ipx.h */
+ #define __UAPI_DEF_SOCKADDR_IPX			1
+ #define __UAPI_DEF_IPX_ROUTE_DEFINITION		1
+-- 
+2.8.1
