@@ -1,203 +1,148 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2 1/2] tc: Add support for the matchall traffic classifier.
-Date: Mon, 22 Aug 2016 13:56:25 +0200
-Message-ID: <1471866986-3156-2-git-send-email-jiri@resnulli.us>
+Subject: [patch iproute2 2/2] tc: man: Add man entry for the matchall classifier.
+Date: Mon, 22 Aug 2016 13:56:26 +0200
+Message-ID: <1471866986-3156-3-git-send-email-jiri@resnulli.us>
 References: <1471866986-3156-1-git-send-email-jiri@resnulli.us>
 Cc: stephen@networkplumber.org, yotamg@mellanox.com,
         eladr@mellanox.com, idosch@mellanox.com, nogahf@mellanox.com,
         ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35370 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752150AbcHVL4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:56:31 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i5so13122179wmg.2
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:56:30 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33561 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752781AbcHVL4c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 07:56:32 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o80so13127189wme.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 04:56:31 -0700 (PDT)
 In-Reply-To: <1471866986-3156-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-The matchall classifier matches every packet and allows the user to apply
-actions on it. In addition, it supports the skip_sw and skip_hw (as can
-be found on u32 and flower filter) that direct the kernel to skip the
-software/hardware processing of the actions.
-
-This filter is very useful in usecases where every packet should be
-matched. For example, packet mirroring (SPAN) can be setup very easily
-using that filter.
+In addition to providing infromation about the mathcall filter and its
+configurations, the man entry contains examples for creating port
+mirorring entries.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- tc/Makefile     |   1 +
- tc/f_matchall.c | 144 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 145 insertions(+)
- create mode 100644 tc/f_matchall.c
+ man/man8/Makefile      |  2 +-
+ man/man8/tc-matchall.8 | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ man/man8/tc.8          |  5 ++++
+ 3 files changed, 82 insertions(+), 1 deletion(-)
+ create mode 100644 man/man8/tc-matchall.8
 
-diff --git a/tc/Makefile b/tc/Makefile
-index 42747c5..8917eaf 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -67,6 +67,7 @@ TCMODULES += q_pie.o
- TCMODULES += q_hhf.o
- TCMODULES += q_clsact.o
- TCMODULES += e_bpf.o
-+TCMODULES += f_matchall.o
- 
- ifeq ($(TC_CONFIG_IPSET), y)
-   ifeq ($(TC_CONFIG_XT), y)
-diff --git a/tc/f_matchall.c b/tc/f_matchall.c
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index 9badbed..9213769 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -14,7 +14,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
+ 	tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8 tipc-nametable.8 \
+ 	tipc-node.8 tipc-socket.8 \
+ 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
+-	tc-tcindex.8 tc-u32.8 \
++	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
+ 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
+ 	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 \
+ 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
+diff --git a/man/man8/tc-matchall.8 b/man/man8/tc-matchall.8
 new file mode 100644
-index 0000000..c985276
+index 0000000..b927784
 --- /dev/null
-+++ b/tc/f_matchall.c
-@@ -0,0 +1,144 @@
-+/*
-+ * f_matchall.c		Match-all Classifier
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Jiri Pirko <jiri@mellanox.com>, Yotam Gigi <yotamg@mellanox.com>
-+ *
-+ */
++++ b/man/man8/tc-matchall.8
+@@ -0,0 +1,76 @@
++.TH "Match-all classifier in tc" 8 "21 Oct 2015" "iproute2" "Linux"
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+#include <linux/if.h>
++.SH NAME
++matchall \- traffic control filter that matches every packet
++.SH SYNOPSIS
++.in +8
++.ti -8
++.BR tc " " filter " ... " matchall " [ "
++.BR skip_sw " | " skip_hw
++.R " ] [ "
++.B action
++.IR ACTION_SPEC " ] [ "
++.B classid
++.IR CLASSID " ]"
++.SH DESCRIPTION
++The
++.B matchall
++filter allows to classify every packet that flows on the port and run a
++action on it.
++.SH OPTIONS
++.TP
++.BI action " ACTION_SPEC"
++Apply an action from the generic actions framework on matching packets.
++.TP
++.BI classid " CLASSID"
++Push matching packets into the class identified by
++.IR CLASSID .
++.TP
++.BI skip_sw
++Do not process filter by software. If hardware has no offload support for this
++filter, or TC offload is not enabled for the interface, operation will fail.
++.TP
++.BI skip_hw
++Do not process filter by hardware.
++.SH EXAMPLES
++To create ingress mirroring from port eth1 to port eth2:
++.RS
++.EX
 +
-+#include "utils.h"
-+#include "tc_util.h"
++tc qdisc  add dev eth1 handle ffff: ingress
++tc filter add dev eth1 parent ffff:           \\
++        matchall skip_sw                      \\
++        action mirred egress mirror           \\
++        dev eth2
++.EE
++.RE
 +
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: ... matchall [skip_sw | skip_hw] \n");
-+	fprintf(stderr, "                 [ action ACTION_SPEC ] [ classid CLASSID ]\n");
-+	fprintf(stderr, "\n");
-+	fprintf(stderr, "Where: SELECTOR := SAMPLE SAMPLE ...\n");
-+	fprintf(stderr, "       FILTERID := X:Y:Z\n");
-+	fprintf(stderr, "       ACTION_SPEC := ... look at individual actions\n");
-+	fprintf(stderr, "\nNOTE: CLASSID is parsed as hexadecimal input.\n");
-+}
++The first command creats an ingress qdisc with handle
++.BR ffff:
++on device
++.BR eth1
++where the second command attaches a matchall filters on it that mirrors the
++pacets to device eth2.
 +
-+static int matchall_parse_opt(struct filter_util *qu, char *handle,
-+			   int argc, char **argv, struct nlmsghdr *n)
-+{
-+	struct tcmsg *t = NLMSG_DATA(n);
-+	struct rtattr *tail;
-+	__u32 flags = 0;
-+	long h = 0;
++To create engress mirroring from port eth1 to port eth2:
++.EX
 +
-+	if (handle) {
-+		h = strtol(handle, NULL, 0);
-+		if (h == LONG_MIN || h == LONG_MAX) {
-+			fprintf(stderr, "Illegal handle \"%s\", must be numeric.\n",
-+			    handle);
-+			return -1;
-+		}
-+	}
-+	t->tcm_handle = h;
++tc qdisc add dev eth1 handle 1: root prio
++tc filter add dev eth1 parent 1:               \\
++        matchall skip_sw                       \\
++        action mirred egress mirror            \\
++        dev eth2
++.EE
++.RE
 +
-+	if (argc == 0)
-+		return 0;
++The first command creats an egress qdisc with handle
++.BR 1:
++that replaces the root qdisc on device
++.BR eth1
++where the second command attaches a matchall filters on it that mirrors the
++pacets to device eth2.
 +
-+	tail = (struct rtattr *)(((void *)n)+NLMSG_ALIGN(n->nlmsg_len));
-+	addattr_l(n, MAX_MSG, TCA_OPTIONS, NULL, 0);
 +
-+	while (argc > 0) {
-+		if (matches(*argv, "classid") == 0 ||
-+			   strcmp(*argv, "flowid") == 0) {
-+			unsigned int handle;
-+
-+			NEXT_ARG();
-+			if (get_tc_classid(&handle, *argv)) {
-+				fprintf(stderr, "Illegal \"classid\"\n");
-+				return -1;
-+			}
-+			addattr_l(n, MAX_MSG, TCA_MATCHALL_CLASSID, &handle, 4);
-+		} else if (matches(*argv, "action") == 0) {
-+			NEXT_ARG();
-+			if (parse_action(&argc, &argv, TCA_MATCHALL_ACT, n)) {
-+				fprintf(stderr, "Illegal \"action\"\n");
-+				return -1;
-+			}
-+			continue;
-+
-+		} else if (strcmp(*argv, "skip_hw") == 0) {
-+			NEXT_ARG();
-+			flags |= TCA_CLS_FLAGS_SKIP_HW;
-+			continue;
-+		} else if (strcmp(*argv, "skip_sw") == 0) {
-+			NEXT_ARG();
-+			flags |= TCA_CLS_FLAGS_SKIP_SW;
-+			continue;
-+		} else if (strcmp(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "What is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--; argv++;
-+	}
-+
-+	if (flags) {
-+		if (!(flags ^ (TCA_CLS_FLAGS_SKIP_HW |
-+			       TCA_CLS_FLAGS_SKIP_SW))) {
-+			fprintf(stderr,
-+				"skip_hw and skip_sw are mutually exclusive\n");
-+			return -1;
-+		}
-+		addattr_l(n, MAX_MSG, TCA_MATCHALL_FLAGS, &flags, 4);
-+	}
-+
-+	tail->rta_len = (((void *)n)+n->nlmsg_len) - (void *)tail;
-+	return 0;
-+}
-+
-+static int matchall_print_opt(struct filter_util *qu, FILE *f,
-+			   struct rtattr *opt, __u32 handle)
-+{
-+	struct rtattr *tb[TCA_MATCHALL_MAX+1];
-+
-+	if (opt == NULL)
-+		return 0;
-+
-+	parse_rtattr_nested(tb, TCA_MATCHALL_MAX, opt);
-+
-+	if (handle)
-+		fprintf(f, "handle 0x%x ", handle);
-+
-+	if (tb[TCA_MATCHALL_CLASSID]) {
-+		SPRINT_BUF(b1);
-+		fprintf(f, "flowid %s ",
-+			sprint_tc_classid(rta_getattr_u32(tb[TCA_MATCHALL_CLASSID]), b1));
-+	}
-+
-+	if (tb[TCA_MATCHALL_ACT]) {
-+		tc_print_action(f, tb[TCA_MATCHALL_ACT]);
-+	}
-+
-+	return 0;
-+}
-+
-+struct filter_util matchall_filter_util = {
-+	.id = "matchall",
-+	.parse_fopt = matchall_parse_opt,
-+	.print_fopt = matchall_print_opt,
-+};
++.EE
++.SH SEE ALSO
++.BR tc (8),
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index 4e99dca..7ee1c9c 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -187,6 +187,11 @@ u32
+ Generic filtering on arbitrary packet data, assisted by syntax to abstract common operations. See
+ .BR tc-u32 (8)
+ for details.
++.TP
++matchall
++Traffic control filter that matches every packet. See
++.BR tc-matchall (8)
++for details.
+ 
+ .SH CLASSLESS QDISCS
+ The classless qdiscs are:
 -- 
 2.5.5
