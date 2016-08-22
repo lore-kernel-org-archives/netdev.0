@@ -1,314 +1,95 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next V2 06/17] net/mlx5: EQ commands via mlx5 ifc
-Date: Mon, 22 Aug 2016 19:51:03 +0300
-Message-ID: <1471884674-22709-7-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH for-next V2 16/17] net/mlx5: Modify RQ bitmask from mlx5 ifc
+Date: Mon, 22 Aug 2016 19:51:13 +0300
+Message-ID: <1471884674-22709-17-git-send-email-saeedm@mellanox.com>
 References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1471884674-22709-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Tal Alon <talal@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Alex Vesker <valex@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60351 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755250AbcHVQvl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 12:51:41 -0400
+In-Reply-To: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove old representation of manually created EQ commands layout,
-and use mlx5_ifc canonical structures and defines.
+From: Alex Vesker <valex@mellanox.com>
 
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Use mlx5 ifc MODIFY_BITMASK_VSD in mlx5e_modify_rq_vsd and expose counter
+set capability bit in hca caps structure.
+
+Signed-off-by: Alex Vesker <valex@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/debugfs.c | 18 +++---
- drivers/net/ethernet/mellanox/mlx5/core/eq.c      | 78 ++++++++++-------------
- include/linux/mlx5/device.h                       | 74 ---------------------
- include/linux/mlx5/driver.h                       |  2 +-
- 4 files changed, 44 insertions(+), 128 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 3 ++-
+ include/linux/mlx5/driver.h                       | 4 ----
+ include/linux/mlx5/mlx5_ifc.h                     | 9 ++++++++-
+ 3 files changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-index 5210d92..58e5518 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/debugfs.c
-@@ -358,32 +358,32 @@ out:
- static u64 eq_read_field(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
- 			 int index)
- {
--	struct mlx5_query_eq_mbox_out *out;
--	struct mlx5_eq_context *ctx;
-+	int outlen = MLX5_ST_SZ_BYTES(query_eq_out);
- 	u64 param = 0;
-+	void *ctx;
-+	u32 *out;
- 	int err;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 10fa12a..9e36c15 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -489,7 +489,8 @@ static int mlx5e_modify_rq_vsd(struct mlx5e_rq *rq, bool vsd)
+ 	rqc = MLX5_ADDR_OF(modify_rq_in, in, ctx);
  
--	out = kzalloc(sizeof(*out), GFP_KERNEL);
-+	out = kzalloc(outlen, GFP_KERNEL);
- 	if (!out)
- 		return param;
+ 	MLX5_SET(modify_rq_in, in, rq_state, MLX5_RQC_STATE_RDY);
+-	MLX5_SET64(modify_rq_in, in, modify_bitmask, MLX5_RQ_BITMASK_VSD);
++	MLX5_SET64(modify_rq_in, in, modify_bitmask,
++		   MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_VSD);
+ 	MLX5_SET(rqc, rqc, vsd, vsd);
+ 	MLX5_SET(rqc, rqc, state, MLX5_RQC_STATE_RDY);
  
--	ctx = &out->ctx;
--
--	err = mlx5_core_eq_query(dev, eq, out, sizeof(*out));
-+	err = mlx5_core_eq_query(dev, eq, out, outlen);
- 	if (err) {
- 		mlx5_core_warn(dev, "failed to query eq\n");
- 		goto out;
- 	}
-+	ctx = MLX5_ADDR_OF(query_eq_out, out, eq_context_entry);
- 
- 	switch (index) {
- 	case EQ_NUM_EQES:
--		param = 1 << ((be32_to_cpu(ctx->log_sz_usr_page) >> 24) & 0x1f);
-+		param = 1 << MLX5_GET(eqc, ctx, log_eq_size);
- 		break;
- 	case EQ_INTR:
--		param = ctx->intr;
-+		param = MLX5_GET(eqc, ctx, intr);
- 		break;
- 	case EQ_LOG_PG_SZ:
--		param = (ctx->log_page_size & 0x1f) + 12;
-+		param = MLX5_GET(eqc, ctx, log_page_size) + 12;
- 		break;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 0e30602..7141197 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -86,23 +86,16 @@ struct cre_des_eq {
- 
- static int mlx5_cmd_destroy_eq(struct mlx5_core_dev *dev, u8 eqn)
- {
--	struct mlx5_destroy_eq_mbox_in in;
--	struct mlx5_destroy_eq_mbox_out out;
-+	u32 out[MLX5_ST_SZ_DW(destroy_eq_out)] = {0};
-+	u32 in[MLX5_ST_SZ_DW(destroy_eq_in)]   = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(&out, 0, sizeof(out));
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_DESTROY_EQ);
--	in.eqn = eqn;
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), &out, sizeof(out));
--	if (!err)
--		goto ex;
-+	MLX5_SET(destroy_eq_in, in, opcode, MLX5_CMD_OP_DESTROY_EQ);
-+	MLX5_SET(destroy_eq_in, in, eq_number, eqn);
- 
--	if (out.hdr.status)
--		err = mlx5_cmd_status_to_err(&out.hdr);
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- 
--ex:
--	return err;
- }
- 
- static struct mlx5_eqe *get_eqe(struct mlx5_eq *eq, u32 entry)
-@@ -351,11 +344,13 @@ static void init_eq_buf(struct mlx5_eq *eq)
- int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
- 		       int nent, u64 mask, const char *name, struct mlx5_uar *uar)
- {
-+	u32 out[MLX5_ST_SZ_DW(create_eq_out)] = {0};
- 	struct mlx5_priv *priv = &dev->priv;
--	struct mlx5_create_eq_mbox_in *in;
--	struct mlx5_create_eq_mbox_out out;
--	int err;
-+	__be64 *pas;
-+	void *eqc;
- 	int inlen;
-+	u32 *in;
-+	int err;
- 
- 	eq->nent = roundup_pow_of_two(nent + MLX5_NUM_SPARE_EQE);
- 	eq->cons_index = 0;
-@@ -365,35 +360,37 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
- 
- 	init_eq_buf(eq);
- 
--	inlen = sizeof(*in) + sizeof(in->pas[0]) * eq->buf.npages;
-+	inlen = MLX5_ST_SZ_BYTES(create_eq_in) +
-+		MLX5_FLD_SZ_BYTES(create_eq_in, pas[0]) * eq->buf.npages;
-+
- 	in = mlx5_vzalloc(inlen);
- 	if (!in) {
- 		err = -ENOMEM;
- 		goto err_buf;
- 	}
--	memset(&out, 0, sizeof(out));
- 
--	mlx5_fill_page_array(&eq->buf, in->pas);
-+	pas = (__be64 *)MLX5_ADDR_OF(create_eq_in, in, pas);
-+	mlx5_fill_page_array(&eq->buf, pas);
- 
--	in->hdr.opcode = cpu_to_be16(MLX5_CMD_OP_CREATE_EQ);
--	in->ctx.log_sz_usr_page = cpu_to_be32(ilog2(eq->nent) << 24 | uar->index);
--	in->ctx.intr = vecidx;
--	in->ctx.log_page_size = eq->buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT;
--	in->events_mask = cpu_to_be64(mask);
-+	MLX5_SET(create_eq_in, in, opcode, MLX5_CMD_OP_CREATE_EQ);
-+	MLX5_SET64(create_eq_in, in, event_bitmask, mask);
- 
--	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
--	if (err)
--		goto err_in;
-+	eqc = MLX5_ADDR_OF(create_eq_in, in, eq_context_entry);
-+	MLX5_SET(eqc, eqc, log_eq_size, ilog2(eq->nent));
-+	MLX5_SET(eqc, eqc, uar_page, uar->index);
-+	MLX5_SET(eqc, eqc, intr, vecidx);
-+	MLX5_SET(eqc, eqc, log_page_size,
-+		 eq->buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT);
- 
--	if (out.hdr.status) {
--		err = mlx5_cmd_status_to_err(&out.hdr);
-+	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
-+	err = err ? : mlx5_cmd_status_to_err_v2(out);
-+	if (err)
- 		goto err_in;
--	}
- 
- 	snprintf(priv->irq_info[vecidx].name, MLX5_MAX_IRQ_NAME, "%s@pci:%s",
- 		 name, pci_name(dev->pdev));
- 
--	eq->eqn = out.eq_number;
-+	eq->eqn = MLX5_GET(create_eq_out, out, eq_number);
- 	eq->irqn = priv->msix_arr[vecidx].vector;
- 	eq->dev = dev;
- 	eq->doorbell = uar->map + MLX5_EQ_DOORBEL_OFFSET;
-@@ -547,22 +544,15 @@ int mlx5_stop_eqs(struct mlx5_core_dev *dev)
- }
- 
- int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
--		       struct mlx5_query_eq_mbox_out *out, int outlen)
-+		       u32 *out, int outlen)
- {
--	struct mlx5_query_eq_mbox_in in;
-+	u32 in[MLX5_ST_SZ_DW(query_eq_in)] = {0};
- 	int err;
- 
--	memset(&in, 0, sizeof(in));
--	memset(out, 0, outlen);
--	in.hdr.opcode = cpu_to_be16(MLX5_CMD_OP_QUERY_EQ);
--	in.eqn = eq->eqn;
--	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, outlen);
--	if (err)
--		return err;
--
--	if (out->hdr.status)
--		err = mlx5_cmd_status_to_err(&out->hdr);
-+	MLX5_SET(query_eq_in, in, opcode, MLX5_CMD_OP_QUERY_EQ);
-+	MLX5_SET(query_eq_in, in, eq_number, eq->eqn);
- 
--	return err;
-+	err = mlx5_cmd_exec(dev, in, sizeof(in), out, outlen);
-+	return err ? : mlx5_cmd_status_to_err_v2(out);
- }
- EXPORT_SYMBOL_GPL(mlx5_core_eq_query);
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 9570c49..c84e0ba 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -995,80 +995,6 @@ struct mlx5_disable_hca_mbox_out {
- 	u8			rsvd[8];
- };
- 
--struct mlx5_eq_context {
--	u8			status;
--	u8			ec_oi;
--	u8			st;
--	u8			rsvd2[7];
--	__be16			page_pffset;
--	__be32			log_sz_usr_page;
--	u8			rsvd3[7];
--	u8			intr;
--	u8			log_page_size;
--	u8			rsvd4[15];
--	__be32			consumer_counter;
--	__be32			produser_counter;
--	u8			rsvd5[16];
--};
--
--struct mlx5_create_eq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd0[3];
--	u8			input_eqn;
--	u8			rsvd1[4];
--	struct mlx5_eq_context	ctx;
--	u8			rsvd2[8];
--	__be64			events_mask;
--	u8			rsvd3[176];
--	__be64			pas[0];
--};
--
--struct mlx5_create_eq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd0[3];
--	u8			eq_number;
--	u8			rsvd1[4];
--};
--
--struct mlx5_destroy_eq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd0[3];
--	u8			eqn;
--	u8			rsvd1[4];
--};
--
--struct mlx5_destroy_eq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
--struct mlx5_map_eq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	__be64			mask;
--	u8			mu;
--	u8			rsvd0[2];
--	u8			eqn;
--	u8			rsvd1[24];
--};
--
--struct mlx5_map_eq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--};
--
--struct mlx5_query_eq_mbox_in {
--	struct mlx5_inbox_hdr	hdr;
--	u8			rsvd0[3];
--	u8			eqn;
--	u8			rsvd1[4];
--};
--
--struct mlx5_query_eq_mbox_out {
--	struct mlx5_outbox_hdr	hdr;
--	u8			rsvd[8];
--	struct mlx5_eq_context	ctx;
--};
--
- enum {
- 	MLX5_MKEY_STATUS_FREE = 1 << 6,
- };
 diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index ccea6fb..eed4b61 100644
+index ebe57ab..0ea78b5 100644
 --- a/include/linux/mlx5/driver.h
 +++ b/include/linux/mlx5/driver.h
-@@ -865,7 +865,7 @@ int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
- int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- int mlx5_core_eq_query(struct mlx5_core_dev *dev, struct mlx5_eq *eq,
--		       struct mlx5_query_eq_mbox_out *out, int outlen);
-+		       u32 *out, int outlen);
- int mlx5_eq_debugfs_init(struct mlx5_core_dev *dev);
- void mlx5_eq_debugfs_cleanup(struct mlx5_core_dev *dev);
- int mlx5_cq_debugfs_init(struct mlx5_core_dev *dev);
+@@ -49,10 +49,6 @@
+ #include <linux/mlx5/srq.h>
+ 
+ enum {
+-	MLX5_RQ_BITMASK_VSD = 1 << 1,
+-};
+-
+-enum {
+ 	MLX5_BOARD_ID_LEN = 64,
+ 	MLX5_MAX_NAME_LEN = 16,
+ };
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 3766110..e1f8e34 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -779,7 +779,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         out_of_seq_cnt[0x1];
+ 	u8         vport_counters[0x1];
+ 	u8         retransmission_q_counters[0x1];
+-	u8         reserved_at_183[0x3];
++	u8         reserved_at_183[0x1];
++	u8         modify_rq_counter_set_id[0x1];
++	u8         reserved_at_185[0x1];
+ 	u8         max_qp_cnt[0xa];
+ 	u8         pkey_table_size[0x10];
+ 
+@@ -4750,6 +4752,11 @@ struct mlx5_ifc_modify_rq_out_bits {
+ 	u8         reserved_at_40[0x40];
+ };
+ 
++enum {
++	MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_VSD = 1ULL << 1,
++	MLX5_MODIFY_RQ_IN_MODIFY_BITMASK_MODIFY_RQ_COUNTER_SET_ID = 1ULL << 3,
++};
++
+ struct mlx5_ifc_modify_rq_in_bits {
+ 	u8         opcode[0x10];
+ 	u8         reserved_at_10[0x10];
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
