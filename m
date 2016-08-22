@@ -1,44 +1,87 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 2/3] net/sched: cls_flower: Classify packet in
- ip tunnels
-Date: Mon, 22 Aug 2016 10:17:01 -0700
-Message-ID: <20160822171700.GA7722@ast-mbp.thefacebook.com>
-References: <20160822143834.32422-1-amir@vadai.me>
- <20160822143834.32422-3-amir@vadai.me>
- <20160822190523.684a12e7@griffin>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next V3 09/18] liquidio: MSIX support for CN23XX
+Date: Mon, 22 Aug 2016 17:36:07 +0000
+Message-ID: <CO2PR11MB0088969E015C67811BC64E0197E80@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <1471824765-26473-10-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amir Vadai <amir@vadai.me>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>,
+        Derek Chickles <derek.chickles@caviumnetworks.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34589 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932428AbcHVRcY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 13:32:24 -0400
-Received: by mail-pa0-f67.google.com with SMTP id hh10so8437417pac.1
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 10:32:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160822190523.684a12e7@griffin>
+Received: from mail-dm3nam03on0119.outbound.protection.outlook.com ([104.47.41.119]:59460
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754256AbcHVRgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 13:36:12 -0400
+In-Reply-To: <1471824765-26473-10-git-send-email-rvatsavayi@caviumnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 07:05:23PM +0200, Jiri Benc wrote:
-> On Mon, 22 Aug 2016 17:38:33 +0300, Amir Vadai wrote:
-> > +	if (tb[TCA_FLOWER_KEY_ENC_IPV6_SRC] ||
-> > +	    tb[TCA_FLOWER_KEY_ENC_IPV6_DST])
-> > +		return -ENOTSUPP;
-> 
-> Please add also support for IPv6. We've had enough of half-implemented
-> stuff in tunneling and we need to really treat IPv6 as a first class
-> citizen. There should be no IPv4 only submissions anymore.
+> +	u64 time_threshold;
+> +	u64 cnt_threshold;
+...
+> +		octeon_write_csr64(
+> +		    oct, CN23XX_SLI_OQ_PKT_INT_LEVELS(oq_no),
+> +		    ((u64)(time_threshold << 32 | cnt_threshold)));
+No need for the cast.
 
-+1
-As IPv6 only shop we cannot stress enough importance of supporting IPv6
-from day one for any new features.
+> +	if (!droq) {
+> +		dev_err(&oct->pci_dev->dev, "23XX bringup FIXME: oct
+> pfnum:%d ioq_vector->ioq_num :%d droq is NULL\n",
+> +			oct->pf_num, ioq_vector->ioq_num);
+> +		return 0;
+> +	}
+
+> +	if (oct->msix_on !=3D 1) {
+> +		if (intr64 & CN23XX_INTR_PKT_DATA)
+> +			oct->int_status |=3D OCT_DEV_INTR_PKT_DATA;
+> +	}
+What's the significance of 1? Is it actually a Boolean?
+=20
+> +static int msix_enable =3D 1;
+What's the purpose of this static variable? Is there any way to change it?
+
+> +	if (OCTEON_CN23XX_PF(oct) && msix_enable) {
+> +		if (!oct->msix_entries) {
+> +			/* dev_err(&oct->pci_dev->dev,
+> +			* "Memory Alloc failed...\n");
+> +			 * This is commenting due WARNING: Possible
+> unnecessary
+> +			 * out of memory' message
+> +			 */
+> +			return 1;
+> +		}
+Don't submit commented prints.
+
+> +		irqret =3D request_irq(msix_entries[num_ioq_vectors].vector,
+> +				     liquidio_legacy_intr_handler, 0, "octeon",
+> +				     oct);
+> +		if (irqret) {
+> +			dev_err(&oct->pci_dev->dev,
+> +				"OCTEON: Request_irq failed for MSIX interrupt
+> Error: %d\n",
+> +				irqret);
+> +			kfree(oct->msix_entries);
+> +			return 1;
+Shouldn't you also call pci_disable_msix() on error flow?
+
+> +		}
+> +		for (i =3D 0; i < num_ioq_vectors; i++) {
+> +			irqret =3D request_irq(msix_entries[i].vector,
+> +					     liquidio_msix_intr_handler, 0,
+> +					     "octeon", &oct->ioq_vector[i]);
+> +			if (irqret) {
+> +				dev_err(&oct->pci_dev->dev,
+> +					"OCTEON: Request_irq failed for MSIX
+...
+> +				kfree(oct->msix_entries);
+> +				return 1;
+Likewise
