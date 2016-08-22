@@ -1,186 +1,152 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH v4 net-next] ppp: Fix one deadlock issue of PPP when reentrant
-Date: Mon, 22 Aug 2016 21:16:16 +0800
-Message-ID: <CA+6hz4pb69Kn0KSmrA+Lq0ubgaed8zA9iKfAjr5bN2++ESzuMg@mail.gmail.com>
-References: <1471828814-19187-1-git-send-email-fgao@ikuai8.com> <20160822123525.ycymv43cdaoykuqt@alphalink.fr>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC PATCH] net: ip_finish_output_gso: Attempt gso_size clamping
+ if segments exceed mtu
+Date: Mon, 22 Aug 2016 14:58:42 +0200
+Message-ID: <20160822125842.GF6199@breakpoint.cc>
+References: <1471867570-1406-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gao Feng <fgao@ikuai8.com>, paulus@samba.org,
-        Philp Prindeville <philipp@redfish-solutions.com>,
-        linux-ppp@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20160822123525.ycymv43cdaoykuqt@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Florian Westphal <fw@strlen.de>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:35622 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755718AbcHVNlm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:41:42 -0400
+Content-Disposition: inline
+In-Reply-To: <1471867570-1406-1-git-send-email-shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It seems a better solution, simple and apparent.
-I accept any best solution which could make kernel works well :))
-
-Best Regards
-Feng
-
-On Mon, Aug 22, 2016 at 8:35 PM, Guillaume Nault <g.nault@alphalink.fr> wrote:
-> On Mon, Aug 22, 2016 at 09:20:14AM +0800, fgao@ikuai8.com wrote:
->> From: Gao Feng <fgao@ikuai8.com>
->>
->> PPP channel holds one spinlock before send frame. But the skb may
->> select the same PPP channel with wrong route policy. As a result,
->> the skb reaches the same channel path. It tries to get the same
->> spinlock which is held before. Bang, the deadlock comes out.
->>
-> Thanks for following up on this case.
-> On my side, I've thought a bit more about it in the weekend and cooked
-> this patch.
-> It's experimental and requires cleanup and further testing, but it
-> should fix all issues I could think of (at least for PPP over L2TP).
->
-> The main idea is to use a per-cpu variable to detect recursion in
-> selected points of PPP and L2TP xmit path.
->
+Shmulik Ladkani <shmulik.ladkani@gmail.com> wrote:
+> There are cases where gso skbs (which originate from an ingress
+> interface) have a gso_size value that exceeds the output dst mtu:
+> 
+>  - ipv4 forwarding middlebox having in/out interfaces with different mtus
+>    addressed by fe6cc55f3a 'net: ip, ipv6: handle gso skbs in forwarding path'
+>  - bridge having a tunnel member interface stacked over a device with small mtu
+>    addressed by b8247f095e 'net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs'
+> 
+> In both cases, such skbs are identified, then go through early software
+> segmentation+fragmentation as part of ip_finish_output_gso.
+> 
+> Another approach is to shrink the gso_size to a value suitable so
+> resulting segments are smaller than dst mtu, as suggeted by Eric
+> Dumazet (as part of [1]) and Florian Westphal (as part of [2]).
+> 
+> This will void the need for software segmentation/fragmentation at
+> ip_finish_output_gso, thus significantly improve throughput and lower
+> cpu load.
+> 
+> This RFC patch attempts to implement this gso_size clamping.
+> 
+> [1] https://patchwork.ozlabs.org/patch/314327/
+> [2] https://patchwork.ozlabs.org/patch/644724/
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Florian Westphal <fw@strlen.de>
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 > ---
->  drivers/net/ppp/ppp_generic.c | 49 ++++++++++++++++++++++++++++++++-----------
->  net/l2tp/l2tp_core.c          | 28 +++++++++++++++++++++----
->  2 files changed, 61 insertions(+), 16 deletions(-)
->
-> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-> index f226db4..c33036bf 100644
-> --- a/drivers/net/ppp/ppp_generic.c
-> +++ b/drivers/net/ppp/ppp_generic.c
-> @@ -1354,6 +1354,8 @@ static void ppp_setup(struct net_device *dev)
->         dev->netdev_ops = &ppp_netdev_ops;
->         SET_NETDEV_DEVTYPE(dev, &ppp_type);
->
-> +       dev->features |= NETIF_F_LLTX;
-> +
->         dev->hard_header_len = PPP_HDRLEN;
->         dev->mtu = PPP_MRU;
->         dev->addr_len = 0;
-> @@ -1367,12 +1369,7 @@ static void ppp_setup(struct net_device *dev)
->   * Transmit-side routines.
->   */
->
-> -/*
-> - * Called to do any work queued up on the transmit side
-> - * that can now be done.
-> - */
-> -static void
-> -ppp_xmit_process(struct ppp *ppp)
-> +static void __ppp_xmit_process(struct ppp *ppp)
->  {
->         struct sk_buff *skb;
->
-> @@ -1392,6 +1389,23 @@ ppp_xmit_process(struct ppp *ppp)
->         ppp_xmit_unlock(ppp);
->  }
->
-> +static DEFINE_PER_CPU(int, ppp_xmit_recursion);
-> +
-> +/* Called to do any work queued up on the transmit side that can now be done */
-> +static void ppp_xmit_process(struct ppp *ppp)
-> +{
-> +       if (unlikely(__this_cpu_read(ppp_xmit_recursion))) {
-> +               WARN(1, "recursion detected\n");
-> +               return;
-> +       }
-> +
-> +       __this_cpu_inc(ppp_xmit_recursion);
-> +       local_bh_disable();
-> +       __ppp_xmit_process(ppp);
-> +       local_bh_enable();
-> +       __this_cpu_dec(ppp_xmit_recursion);
-> +}
-> +
->  static inline struct sk_buff *
->  pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
->  {
-> @@ -1847,11 +1861,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
->  }
->  #endif /* CONFIG_PPP_MULTILINK */
->
-> -/*
-> - * Try to send data out on a channel.
-> - */
-> -static void
-> -ppp_channel_push(struct channel *pch)
-> +static void __ppp_channel_push(struct channel *pch)
->  {
->         struct sk_buff *skb;
->         struct ppp *ppp;
-> @@ -1876,11 +1886,26 @@ ppp_channel_push(struct channel *pch)
->                 read_lock_bh(&pch->upl);
->                 ppp = pch->ppp;
->                 if (ppp)
-> -                       ppp_xmit_process(ppp);
-> +                       __ppp_xmit_process(ppp);
->                 read_unlock_bh(&pch->upl);
->         }
->  }
->
-> +/* Try to send data out on a channel */
-> +static void ppp_channel_push(struct channel *pch)
-> +{
-> +       if (unlikely(__this_cpu_read(ppp_xmit_recursion))) {
-> +               WARN(1, "recursion detected\n");
-> +               return;
-> +       }
-> +
-> +       __this_cpu_inc(ppp_xmit_recursion);
-> +       local_bh_disable();
-> +       __ppp_channel_push(pch);
-> +       local_bh_enable();
-> +       __this_cpu_dec(ppp_xmit_recursion);
-> +}
-> +
->  /*
->   * Receive-side routines.
->   */
-> diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-> index 1e40dac..bdfb1be 100644
-> --- a/net/l2tp/l2tp_core.c
-> +++ b/net/l2tp/l2tp_core.c
-> @@ -1096,10 +1096,8 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
->         return 0;
->  }
->
-> -/* If caller requires the skb to have a ppp header, the header must be
-> - * inserted in the skb data before calling this function.
-> - */
-> -int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len)
-> +static int __l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
-> +                          int hdr_len)
->  {
->         int data_len = skb->len;
->         struct l2tp_tunnel *tunnel = session->tunnel;
-> @@ -1178,6 +1176,28 @@ out_unlock:
->
->         return ret;
->  }
-> +
-> +static DEFINE_PER_CPU(int, l2tp_xmit_recursion);
-> +
-> +/* If caller requires the skb to have a ppp header, the header must be
-> + * inserted in the skb data before calling this function.
-> + */
-> +int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb,
-> +                 int hdr_len)
-> +{
-> +       int ret;
-> +
-> +       if (unlikely(__this_cpu_read(l2tp_xmit_recursion))) {
-> +               WARN(1, "recursion detected\n");
-> +               return NET_XMIT_DROP;
-> +       }
-> +
-> +       __this_cpu_inc(l2tp_xmit_recursion);
-> +       ret = __l2tp_xmit_skb(session, skb, hdr_len);
-> +       __this_cpu_dec(l2tp_xmit_recursion);
-> +
-> +       return ret;
-> +}
->  EXPORT_SYMBOL_GPL(l2tp_xmit_skb);
->
->  /*****************************************************************************
-> --
-> 2.9.3
+> 
+>  Comments welcome.
+> 
+>  Few questions embedded in the patch.
+> 
+>  Florian, in fe6cc55f you described a BUG due to gso_size decrease.
+>  I've tested both bridged and routed cases, but in my setups failed to
+>  hit the issue; Appreciate if you can provide some hints.
+
+Still get the BUG, I applied this patch on top of net-next.
+
+On hypervisor:
+10.0.0.2 via 192.168.7.10 dev tap0 mtu lock 1500
+ssh root@10.0.0.2 'cat > /dev/null' < /dev/zero
+
+On vm1 (which dies instantly, see below):
+eth0 mtu 1500 (192.168.7.10)
+eth1 mtu 1280 (10.0.0.1)
+
+On vm2
+eth0 mtu 1280 (10.0.0.2)
+
+Normal ipv4 routing via vm1, no iptables etc. present, so
+
+we have  hypervisor 1500 -> 1500 VM1 1280 -> 1280 VM2
+
+Turning off gro avoids this problem.
+
+------------[ cut here ]------------
+kernel BUG at net-next/net/core/skbuff.c:3210!
+invalid opcode: 0000 [#1] SMP
+CPU: 3 PID: 0 Comm: swapper/3 Not tainted 4.8.0-rc2+ #1842
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.8.2-0-g33fbe13 by qemu-project.org 04/01/2014
+task: ffff88013b100000 task.stack: ffff88013b0fc000
+RIP: 0010:[<ffffffff8135ab44>]  [<ffffffff8135ab44>] skb_segment+0x964/0xb20
+RSP: 0018:ffff88013fd838d0  EFLAGS: 00010212
+RAX: 00000000000005a8 RBX: ffff88013a9f9900 RCX: ffff88013b1cf500
+RDX: 0000000000006612 RSI: 0000000000000494 RDI: 0000000000000114
+RBP: ffff88013fd839a8 R08: 00000000000069ca R09: ffff88013b1cf400
+R10: 0000000000000011 R11: 0000000000006612 R12: 00000000000064fe
+R13: ffff8801394c7300 R14: ffff88013937ad80 R15: 0000000000000011
+FS:  0000000000000000(0000) GS:ffff88013fd80000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00007f059fc3b2b0 CR3: 0000000001806000 CR4: 00000000000006a0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+Stack:
+ 000000000000003b ffffffffffffffbe fffffff400000000 ffff88013b1cf400
+ 0000000000000000 0000000000000042 0000000000000040 0000000000000001
+ 0000000000000042 ffff88013b1cf600 0000000000000000 ffff8801000004cc
+Call Trace:
+ <IRQ> 
+ [<ffffffff8123bacf>] ? swiotlb_map_page+0x5f/0x120
+ [<ffffffff813eda00>] tcp_gso_segment+0x100/0x480
+ [<ffffffff813eddb3>] tcp4_gso_segment+0x33/0x90
+ [<ffffffff813fda7a>] inet_gso_segment+0x12a/0x3b0
+ [<ffffffff81368c00>] ? dev_hard_start_xmit+0x20/0x110
+ [<ffffffff813684f0>] skb_mac_gso_segment+0x90/0xf0
+ [<ffffffff81368601>] __skb_gso_segment+0xb1/0x140
+ [<ffffffff81368a7f>] validate_xmit_skb+0x14f/0x2b0
+ [<ffffffff81368d2e>] validate_xmit_skb_list+0x3e/0x60
+ [<ffffffff8138cb6a>] sch_direct_xmit+0x10a/0x1a0
+ [<ffffffff81369199>] __dev_queue_xmit+0x369/0x5d0
+ [<ffffffff8136940b>] dev_queue_xmit+0xb/0x10
+ [<ffffffff813c8f47>] ip_finish_output2+0x247/0x310
+ [<ffffffff813cac10>] ip_finish_output+0x1c0/0x250
+ [<ffffffff813cadea>] ip_output+0x3a/0x40
+ [<ffffffff813c751c>] ip_forward+0x36c/0x410
+ [<ffffffff813c5b06>] ip_rcv+0x2e6/0x630
+ [<ffffffff81364d5f>] __netif_receive_skb_core+0x2cf/0x940
+ [<ffffffff813189bd>] ? e1000_alloc_rx_buffers+0x1bd/0x490
+ [<ffffffff813653e8>] __netif_receive_skb+0x18/0x60
+ [<ffffffff81365728>] netif_receive_skb_internal+0x28/0x90
+ [<ffffffff813ee3b0>] ? tcp4_gro_complete+0x80/0x90
+ [<ffffffff8136580a>] napi_gro_complete+0x7a/0xa0
+ [<ffffffff813697e5>] napi_gro_flush+0x55/0x70
+ [<ffffffff81369d06>] napi_complete_done+0x66/0xb0
+ [<ffffffff81319810>] e1000_clean+0x380/0x900
+ [<ffffffff81368c65>] ? dev_hard_start_xmit+0x85/0x110
+ [<ffffffff81369ef3>] net_rx_action+0x1a3/0x2b0
+ [<ffffffff81049c22>] __do_softirq+0xe2/0x1d0
+ [<ffffffff81049f09>] irq_exit+0x89/0x90
+ [<ffffffff810199bf>] do_IRQ+0x4f/0xd0
+ [<ffffffff81498882>] common_interrupt+0x82/0x82
+ <EOI> 
+ [<ffffffff81035bd6>] ? native_safe_halt+0x6/0x10
+ [<ffffffff8101ff49>] default_idle+0x9/0x10
+ [<ffffffff8102052a>] arch_cpu_idle+0xa/0x10
+ [<ffffffff810791ce>] default_idle_call+0x2e/0x30
+ [<ffffffff8107933f>] cpu_startup_entry+0x16f/0x220
+ [<ffffffff8102d6f5>] start_secondary+0x105/0x130
+Code: 00 08 02 48 89 df 44 89 44 24 18 83 e6 c0 e8 04 c7 ff ff 85 c0 0f 85 02 01 00 00 8b 83 b8 00 00 00 44 8b 44 24 18 e9 cc fe ff ff <0f> 0b 0f 0b 0f 0b 8b 4b 74 85 c9 0f 85 ce 00 00 00 48 8b 83 c0 
+RIP  [<ffffffff8135ab44>] skb_segment+0x964/0xb20
+ RSP <ffff88013fd838d0>
+---[ end trace 924612451efe8dce ]---
+Kernel panic - not syncing: Fatal exception in interrupt
+Kernel Offset: disabled
+---[ end Kernel panic - not syncing: Fatal exception in interrupt
