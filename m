@@ -1,67 +1,61 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH 4/4] net: mv88e6xxx: Enable PORT_CONTROL_FORWARD_UNKNOWN for DSA-tagged CPU ports
-Date: Mon, 22 Aug 2016 11:16:47 -0400
-Message-ID: <87zio4esv4.fsf@ketchup.mtl.sfl>
-References: <1471874464-16142-1-git-send-email-andrew@lunn.ch> <1471874464-16142-5-git-send-email-andrew@lunn.ch>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 1/4] net: dt-bindings: Document the new Meson8b and GXBB DWMAC bindings
+Date: Mon, 22 Aug 2016 17:25:30 +0200
+Message-ID: <4041259.IszN4229Cj@wuerfel>
+References: <20160815164100.27766-1-martin.blumenstingl@googlemail.com> <7308700.atIMKyMFZU@wuerfel> <CAFBinCA0HWHR3UbVX-_wU14W0-KOr-BAf5Nyn1ocZdnYxojn2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jamie Lentin <jm@lentin.co.uk>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        mark.rutland@arm.com, devicetree@vger.kernel.org,
+        sboyd@codeaurora.org, catalin.marinas@arm.com,
+        alexandre.torgue@st.com, khilman@baylibre.com,
+        mturquette@baylibre.com, will.deacon@arm.com, robh+dt@kernel.org,
+        peppe.cavallaro@st.com, carlo@caione.org,
+        linux-amlogic@lists.infradead.org, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:52712 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932407AbcHVPQ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 11:16:57 -0400
-In-Reply-To: <1471874464-16142-5-git-send-email-andrew@lunn.ch>
+Received: from mout.kundenserver.de ([217.72.192.74]:61923 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753243AbcHVP05 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 11:26:57 -0400
+In-Reply-To: <CAFBinCA0HWHR3UbVX-_wU14W0-KOr-BAf5Nyn1ocZdnYxojn2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Monday, August 22, 2016 2:04:49 PM CEST Martin Blumenstingl wrote:
+> On Mon, Aug 22, 2016 at 1:55 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > On Saturday, August 20, 2016 11:35:35 AM CEST Martin Blumenstingl wrote:
+> >> +- reg: The first register range should be the one of the DWMAC
+> >> +       controller. The second range is is for the Amlogic specific
+> >> +       configuration (for example the PRG_ETHERNET register range
+> >> +       on Meson8b and newer)
+> >>
+> > ...
+> >
+> >> +Example for GXBB:
+> >> +       ethmac: ethernet@c9410000 {
+> >> +               compatible = "amlogic,meson-gxbb-dwmac", "snps,dwmac";
+> >> +               reg = <0x0 0xc9410000 0x0 0x10000>,
+> >> +                       <0x0 0xc8834540 0x0 0x8>;
+> >>
+> >
+> > The address "0xc8834540" suggests that this is part of a larger register
+> > range that is used for various things, i.e. a "syscon" type of device.
+> You are right, these are part of the cbus range (which is already
+> defined in meson-gxbb.dtsi)
+> 
+> > How about making this a syscon reference rather than a "reg" address?
+> The first version of my patch ([0]) used
+> syscon_regmap_lookup_by_phandle. Maybe I did it wrong (and I should
+> have passed the cbus syscon-node instead of defining a new one just
+> for the 2x32bit PRG_ETHERNET registers).
+> I am perfectly fine with either way - however it seems that some other
+> dwmac glue implementations are also using a second set of resources
+> (that doesn't automatically make it "correct" though).
 
-Andrew Lunn <andrew@lunn.ch> writes:
+It really depends on the kind of SoC. Some may have a suboptimal
+binding, on some others there may be a distinct register area that
+just contains a few additional registers for the dwmac.
 
-> From: Jamie Lentin <jm@lentin.co.uk>
->
-> Without it, a mv88e6131 switch will not forward incoming unicast
-> packets to the CPU port.
->
-> Signed-off-by: Jamie Lentin <jm@lentin.co.uk>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index 1d5f9576e62a..82d45165803c 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> @@ -2490,11 +2490,11 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_chip *chip, int port)
->  	if (dsa_is_cpu_port(ds, port)) {
->  		if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_EDSA))
->  			reg |= PORT_CONTROL_FRAME_ETHER_TYPE_DSA |
-> -				PORT_CONTROL_FORWARD_UNKNOWN |
->  				PORT_CONTROL_FORWARD_UNKNOWN_MC;
->  		else
->  			reg |= PORT_CONTROL_DSA_TAG;
-> -		reg |= PORT_CONTROL_EGRESS_ADD_TAG;
-> +		reg |= PORT_CONTROL_EGRESS_ADD_TAG |
-> +			PORT_CONTROL_FORWARD_UNKNOWN;
->  	}
->  	if (dsa_is_dsa_port(ds, port)) {
->  		if (mv88e6xxx_6095_family(chip) ||
-> -- 
-> 2.8.1
-
-Bits 2-3 in newer chips such as 6352 became an Egress Flooding Mode.
-0x3 needs to be set to forward unknown unicast *and* multicast frames.
-
-I'll extract that from the EDSA check and add flags for this mode
-later. In the meantime, this works as a quick fix for 6131 and
-compatibles.
-
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-
-Thanks,
-
-        Vivien
+	Arnd
