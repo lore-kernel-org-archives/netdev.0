@@ -1,57 +1,61 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 19/20] batman-adv: Keep batadv netdev when hardif disappears
-Date: Mon, 22 Aug 2016 15:56:19 +0200
-Message-ID: <20160822135620.15337-20-sw@simonwunderlich.de>
-References: <20160822135620.15337-1-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-        Sven Eckelmann <sven@narfation.org>,
-        Marek Lindner <mareklindner@neomailbox.ch>,
-        Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: [PATCH v2] gianfar: prevent fragmentation in DSA environments
+Date: Mon, 22 Aug 2016 15:56:38 +0200
+Message-ID: <1471874198-15321-1-git-send-email-zefir.kurtisi@neratec.com>
+References: <1471598156-16875-1-git-send-email-zefir.kurtisi@neratec.com>
+Cc: zefir.kurtisi@neratec.com, claudiu.manoil@freescale.com,
+        andrew@lunn.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:38994 "EHLO
-        mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755484AbcHVN56 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:57:58 -0400
-In-Reply-To: <20160822135620.15337-1-sw@simonwunderlich.de>
+Received: from mail.neratec.com ([46.140.151.2]:62615 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754926AbcHVN5x (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 09:57:53 -0400
+In-Reply-To: <1471598156-16875-1-git-send-email-zefir.kurtisi@neratec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+The eTSEC register MRBLR defines the maximum space in
+the RX buffers and is set to 1536 by gianfar. This
+reasonably covers the common use case where the MTU
+is kept at default 1500. In that case, the largest
+Ethernet frame size of 1518 plus an optional
+GMAC_FCB_LEN of 8, and an additional padding of 8
+to handle FSL_GIANFAR_DEV_HAS_TIMER totals to 1534
+and nicely fit within the chosen MRBLR.
 
-Switch-like virtual interfaces like bridge or openvswitch don't destroy
-itself when all their attached netdevices dissappear. Instead they only
-remove the link to the unregistered device and keep working until they get
-removed manually.
+Alas, if the eTSEC is attached to a DSA enabled switch,
+the (E)DSA header extension (4 or 8 bytes) causes every
+maximum sized frame to be fragmented by the hardware.
 
-This has the benefit that all configurations for this interfaces are kept
-and daemons reacting to rtnl events can just add new slave interfaces
-without going through the complete configuration of the switch-like
-netdevice.
+This patch increases the maximum RX buffer size by 8
+and rounds up to the next multiple of 64, which the
+hardware's defines as RX buffer granularity.
 
-Handling unregister events of client devices similar in batman-adv allows
-users to drop their current workaround of dummy netdevices attached to
-batman-adv soft-interfaces.
-
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
 ---
- net/batman-adv/hard-interface.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/gianfar.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 9284c73..08ce361 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -725,7 +725,7 @@ static void batadv_hardif_remove_interface(struct batadv_hard_iface *hard_iface)
- 	/* first deactivate interface */
- 	if (hard_iface->if_status != BATADV_IF_NOT_IN_USE)
- 		batadv_hardif_disable_interface(hard_iface,
--						BATADV_IF_CLEANUP_AUTO);
-+						BATADV_IF_CLEANUP_KEEP);
+Changes to v1:
+* used roundup() for better readability of size increase
+  (as suggested by Andrew Lunn)
+* updated commmit log explaining what causes the S/G
+  to kick in
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 373fd09..6e8a9c8 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -100,7 +100,8 @@ extern const char gfar_driver_version[];
+ #define DEFAULT_RX_LFC_THR  16
+ #define DEFAULT_LFC_PTVVAL  4
  
- 	if (hard_iface->if_status != BATADV_IF_NOT_IN_USE)
- 		return;
+-#define GFAR_RXB_SIZE 1536
++/* prevent fragmenation by HW in DSA environments */
++#define GFAR_RXB_SIZE roundup(1536 + 8, 64)
+ #define GFAR_SKBFRAG_SIZE (RXBUF_ALIGNMENT + GFAR_RXB_SIZE \
+ 			  + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ #define GFAR_RXB_TRUESIZE 2048
 -- 
-2.9.3
+2.7.4
