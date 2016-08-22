@@ -1,76 +1,38 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] tun: Rename a jump label in update_filter()
-Date: Mon, 22 Aug 2016 08:26:36 +0300
-Message-ID: <20160822052635.GC1205@rapoport-lnx>
-References: <566ABCD9.1060404@users.sourceforge.net>
- <9cf06275-924d-6c22-d8a8-f733a03cca23@users.sourceforge.net>
- <0c8d93e2-34cf-ca23-955e-999f424b3ab2@users.sourceforge.net>
- <20160822044048-mutt-send-email-mst@kernel.org>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH ethtool 0/3] ethtool: Add support for new high speed adv.
+Date: Mon, 22 Aug 2016 08:50:36 +0300
+Message-ID: <1471845039-28718-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160822044048-mutt-send-email-mst@kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <vidya@cumulusnetworks.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: <netdev@vger.kernel.org>, <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:39411 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751736AbcHVFvQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 01:51:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 04:41:11AM +0300, Michael S. Tsirkin wrote:
-> On Sat, Aug 20, 2016 at 09:37:16AM +0200, SF Markus Elfring wrote:
-> > From: Markus Elfring <elfring@users.sourceforge.net>
-> > Date: Sat, 20 Aug 2016 09:00:34 +0200
-> > 
-> > Adjust a jump target according to the Linux coding style convention.
-> > 
-> > Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
-> 
-> I don't have an opinion of this one. Which convention do you refer to?
+This allows ethtool to utilize the link capabilities/adv./lp bitmasks
+to show and set the additional 25g, 50g and 100g link speeds.
 
-Citing Documentation/CodingStyle:
+Patches #1 & #2 are based on Vidya Sagar Ravipati's patches
+[with the only addition being the addition of the 50g SR2 mode],
+while patch #3 updates the man-page with the additional modes.
 
-Choose label names which say what the goto does or why the goto exists.  An
-example of a good name could be "out_buffer:" if the goto frees "buffer".
-Avoid using GW-BASIC names like "err1:" and "err2:".  Also don't name them after
-the goto location like "err_kmalloc_failed:"
+Can't claim to have tried all modes, although I did play with both
+25g KR and 50g KR2 which seemed to be working fine.
 
-> 
-> > ---
-> >  drivers/net/tun.c | 5 ++---
-> >  1 file changed, 2 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > index a1aeccb..e249428 100644
-> > --- a/drivers/net/tun.c
-> > +++ b/drivers/net/tun.c
-> > @@ -753,7 +753,7 @@ static int update_filter(struct tap_filter *filter, void __user *arg)
-> >  	for (; n < uf.count; n++) {
-> >  		if (!is_multicast_ether_addr(addr[n].u)) {
-> >  			err = 0; /* no filter */
-> > -			goto done;
-> > +			goto free_addr;
-> >  		}
-> >  		addr_hash_set(filter->mask, addr[n].u);
-> >  	}
-> > @@ -769,8 +769,7 @@ static int update_filter(struct tap_filter *filter, void __user *arg)
-> >  
-> >  	/* Return the number of exact filters */
-> >  	err = nexact;
-> > -
-> > -done:
-> > +free_addr:
-> >  	kfree(addr);
-> >  	return err;
-> >  }
-> > -- 
-> > 2.9.3
-> 
+Yuval Mintz (3):
+  ethtool: Copy high-speed bits from ethtool.h
+  ethtool: Add support 25g, 50g and 100g speeds
+  ethtool: Document new ethtool advertise speeds
 
+ ethtool-copy.h | 12 +++++++++++-
+ ethtool.8.in   | 10 ++++++++++
+ ethtool.c      | 30 ++++++++++++++++++++++++++++++
+ 3 files changed, 51 insertions(+), 1 deletion(-)
+
+-- 
+1.9.3
