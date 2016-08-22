@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V3 00/18] liquidio CN23XX support
-Date: Sun, 21 Aug 2016 23:39:37 -0700 (PDT)
-Message-ID: <20160821.233937.1386467260531732476.davem@davemloft.net>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
-        <20160821.212711.2150692872016815278.davem@davemloft.net>
-        <DM3PR07MB213818E446563F4C04FAD32081E80@DM3PR07MB2138.namprd07.prod.outlook.com>
+Subject: Re: [PATCH 0/5] Make /sys/class/net per net namespace objects
+ belong to container
+Date: Sun, 21 Aug 2016 23:41:39 -0700 (PDT)
+Message-ID: <20160821.234139.1856651235617174329.davem@davemloft.net>
+References: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Raghu.Vatsavayi@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40677 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751287AbcHVGjk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 02:39:40 -0400
-In-Reply-To: <DM3PR07MB213818E446563F4C04FAD32081E80@DM3PR07MB2138.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tj@kernel.org, ebiederm@xmission.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: dmitry.torokhov@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471386795-32918-1-git-send-email-dmitry.torokhov@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Date: Mon, 22 Aug 2016 05:57:52 +0000
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Date: Tue, 16 Aug 2016 15:33:10 -0700
 
-> Please consider this one submission, tried to keep it close to 15
-> patches with support of new device cn23xx with new features.
+> There are objects in /sys hierarchy (/sys/class/net/) that logically belong
+> to a namespace/container. Unfortunately all sysfs objects start their life
+> belonging to global root, and while we could change ownership manually,
+> keeping tracks of all objects that come and go is cumbersome. It would
+> be better if kernel created them using correct uid/gid from the beginning.
+> 
+> This series changes kernfs to allow creating object's with arbitrary
+> uid/gid, adds get_ownership() callback to ktype structure so subsystems
+> could supply their own logic (likely tied to namespace support) for
+> determining ownership of kobjects, and adjusts sysfs code to make use of
+> this information. Lastly net-sysfs is adjusted to make sure that objects in
+> net namespace are owned by the root user from the owning user namespace.
+> 
+> Note that we do not adjust ownership of objects moved into a new namespace
+> (as when moving a network device into a container) as userspace can easily
+> do it.
 
-I am only going to say this one more time.
-
-You must keep your submissions to a reasonable size.
-
-This means you have you resubmit, making sure it's not too large.
-
-I don't care how you achieve this.  You can submit the first
-15 patches as one series, wait for that to get applied, then
-submit the rest.  Alternatively you can refactor the series
-such that it all fits in 15 patches.
-
-Your choice.
-
-But I am absolutely not going to "just take" this 18 patch thing.
-
-Thank you.
+As shown by the kbuild robot, this fails to build when CONFIG_SYSFS
+it disabled.
