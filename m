@@ -1,40 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] checkpatch: See if modified files are marked obsolete
- in MAINTAINERS
-Date: Mon, 22 Aug 2016 13:56:07 -0700
-Message-ID: <1471899367.3746.78.camel@perches.com>
-References: <87shtwvm63.fsf@kamboji.qca.qualcomm.com>
-         <7ceaa510dc9d2df05ec4b456baed7bb1415550b3.1471889575.git.joe@perches.com>
-         <30522d64-8303-cf13-d967-a5759aeb2278@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Andy Whitcroft <apw@canonical.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Jouni Malinen <j@w1.fi>, kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>,
-        linux-kernel@vger.kernel.org
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+From: Xander Huff <xander.huff@ni.com>
+Subject: [PATCH] phy: micrel: Reenable interrupts during resume for ksz9031
+Date: Mon, 22 Aug 2016 15:57:16 -0500
+Message-ID: <1471899436-56626-1-git-send-email-xander.huff@ni.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        brad.mouring@ni.com, nathan.sullivan@ni.com, xander.huff@ni.com
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <30522d64-8303-cf13-d967-a5759aeb2278@users.sourceforge.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-08-22 at 22:50 +0200, SF Markus Elfring wrote:
-> > @@ -2289,6 +2299,10 @@ sub process {
-> >  		}
-> >  
-> >  		if ($found_file) {
-> > +			if (is_maintained_obsolete($realfile)) {
-> > +				WARN("OBSOLETE",
-> > +				     "$realfile is marked as 'obsolete' in the MAINTAINERS hierarchy.  No unnecessary modifications please.\n");
-> > +			}
-> How do you think about to avoid a double negation in such a warning message?
-> 
-> Would a wording like "… Only really necessary modifications please.\n"
-> be more useful here?
+Like the ksz8081, the ksz9031 has the behavior where it will clear the
+interrupt enable bits when leaving power down. This takes advantage of the
+solution provided by f5aba91.
 
-No, probably not.
+Signed-off-by: Xander Huff <xander.huff@ni.com>
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+---
+ drivers/net/phy/micrel.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 053e879..885ac9c 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -964,7 +964,7 @@ static struct phy_driver ksphy_driver[] = {
+ 	.get_strings	= kszphy_get_strings,
+ 	.get_stats	= kszphy_get_stats,
+ 	.suspend	= genphy_suspend,
+-	.resume		= genphy_resume,
++	.resume		= kszphy_resume,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ8873MLL,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
+-- 
+1.9.1
