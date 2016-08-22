@@ -1,61 +1,76 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: Subject: [PATCH ipsec-next 0/8] xfrm: policy: convert lookups to
- rcu
-Date: Mon, 22 Aug 2016 07:15:51 +0200
-Message-ID: <20160822051551.GJ5710@gauss.secunet.com>
-References: <1470921479-25592-1-git-send-email-fw@strlen.de>
- <20160812082254.GI5710@gauss.secunet.com>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/2] tun: Rename a jump label in update_filter()
+Date: Mon, 22 Aug 2016 08:26:36 +0300
+Message-ID: <20160822052635.GC1205@rapoport-lnx>
+References: <566ABCD9.1060404@users.sourceforge.net>
+ <9cf06275-924d-6c22-d8a8-f733a03cca23@users.sourceforge.net>
+ <0c8d93e2-34cf-ca23-955e-999f424b3ab2@users.sourceforge.net>
+ <20160822044048-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:39442 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752758AbcHVFP5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 22 Aug 2016 01:15:57 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jason Wang <jasowang@redhat.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160812082254.GI5710@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160822044048-mutt-send-email-mst@kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 12, 2016 at 10:22:54AM +0200, Steffen Klassert wrote:
-> On Thu, Aug 11, 2016 at 03:17:51PM +0200, Florian Westphal wrote:
-> > Since commit d188ba86dd07a72eb ("xfrm: add rcu protection to sk->sk_policy[]")
-> > sk_policy can rely on rcu protection.
+On Mon, Aug 22, 2016 at 04:41:11AM +0300, Michael S. Tsirkin wrote:
+> On Sat, Aug 20, 2016 at 09:37:16AM +0200, SF Markus Elfring wrote:
+> > From: Markus Elfring <elfring@users.sourceforge.net>
+> > Date: Sat, 20 Aug 2016 09:00:34 +0200
 > > 
-> > This change allows to also use rcu in xfrm_policy_lookup_bytype and to
-> > avoid grabbing the read-sie policy lock during lookups.
+> > Adjust a jump target according to the Linux coding style convention.
 > > 
-> > read-side policy rwlock is converted to pure rcu, then the policy_lock is
-> > changed to a plain spinlock as only write-sides remain.
-> > 
-> > First few patches do some preparation work, the later ones remove
-> > the read-side locks, last patch converts rwlock to spinlock.
-> > 
-> > I tested this with rcu debug enabled and simple esp tunnel
-> > forwarding udp packets.
-> > 
-> > If you have better tests for this please let me know and I can re-run with
-> > that.
-> > 
-> > Florian Westphal (8):
-> >       xfrm: policy: use rcu versions for iteration and list add/del
-> >       xfrm: policy: prepare policy_bydst hash for rcu lookups
-> >       xfrm: policy: add sequence count to synchronize reads with hash resizes
-> >       xfrm: policy: use atomic_inc_not_zero in rcu section
-> >       xfrm: policy: make xfrm_policy_lookup_bytype lockless
-> >       xfrm: policy: only use rcu in xfrm_sk_policy_lookup
-> >       xfrm: policy: don't acquire policy lock in xfrm_spd_getinfo
-> >       xfrm: policy: convert policy_lock to spinlock
-> > 
-> >  include/net/netns/xfrm.h |    4 -
-> >  net/xfrm/xfrm_policy.c   |  145 +++++++++++++++++++++++++++--------------------
-> >  2 files changed, 88 insertions(+), 61 deletions(-)
+> > Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 > 
-> Looks good, I've applied to already to the ipsec-next testing branch.
-> However, I'll be off for a week starting this afternoon, so I don't
-> see if the patchset passed all tests before I leave. For that I defer
-> the applying to master until I'm back.
+> I don't have an opinion of this one. Which convention do you refer to?
 
-Now applied to the ipsec-next tree, thanks a lot Florian!
+Citing Documentation/CodingStyle:
+
+Choose label names which say what the goto does or why the goto exists.  An
+example of a good name could be "out_buffer:" if the goto frees "buffer".
+Avoid using GW-BASIC names like "err1:" and "err2:".  Also don't name them after
+the goto location like "err_kmalloc_failed:"
+
+> 
+> > ---
+> >  drivers/net/tun.c | 5 ++---
+> >  1 file changed, 2 insertions(+), 3 deletions(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index a1aeccb..e249428 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -753,7 +753,7 @@ static int update_filter(struct tap_filter *filter, void __user *arg)
+> >  	for (; n < uf.count; n++) {
+> >  		if (!is_multicast_ether_addr(addr[n].u)) {
+> >  			err = 0; /* no filter */
+> > -			goto done;
+> > +			goto free_addr;
+> >  		}
+> >  		addr_hash_set(filter->mask, addr[n].u);
+> >  	}
+> > @@ -769,8 +769,7 @@ static int update_filter(struct tap_filter *filter, void __user *arg)
+> >  
+> >  	/* Return the number of exact filters */
+> >  	err = nexact;
+> > -
+> > -done:
+> > +free_addr:
+> >  	kfree(addr);
+> >  	return err;
+> >  }
+> > -- 
+> > 2.9.3
+> 
+
