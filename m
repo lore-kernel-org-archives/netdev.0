@@ -1,104 +1,68 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/3] net/sched: iptunnel encap/decap/classify
- using TC
-Date: Mon, 22 Aug 2016 15:23:45 -0700
-Message-ID: <CALx6S37=Y0-cNhKLhWfkZ2hCa0EMyo-phed5S3RmsPYGaVz+yg@mail.gmail.com>
-References: <20160822143834.32422-1-amir@vadai.me>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] xen-netback: using kfree_rcu() to simplify the code
+Date: Mon, 22 Aug 2016 23:01:29 +0000
+Message-ID: <1471906889-20132-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <weiyongjun1@huawei.com>,
+        xen-devel@lists.xenproject.org, netdev@vger.kernel.org
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:33808 "EHLO
-        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756890AbcHVWYJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 18:24:09 -0400
-Received: by mail-it0-f65.google.com with SMTP id e63so6119209ith.1
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 15:23:46 -0700 (PDT)
-In-Reply-To: <20160822143834.32422-1-amir@vadai.me>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36095 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752572AbcHVXBz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 19:01:55 -0400
+Received: by mail-pf0-f196.google.com with SMTP id y134so7063879pfg.3
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 16:01:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 7:38 AM, Amir Vadai <amir@vadai.me> wrote:
-> Hi,
->
-> This patchset introduces iptunnel support using the TC subsystem.
->
-> In the decap flow, it enables the user to redirect packets from a shared tunnel
-> device and classify by outer and inner headers. The outer headers are extracted
-> from the metadata and used by the flower filter. A new action act_iptunnel,
-> releases the metadata.
->
-> In the encap flow, act_iptunnel creates a metadata object to be used by the
-> shared tunnel device. The actual redirection to the tunnel device is done using
-> act_mirred.
->
-> For example:
-> $ tc qdisc add dev vnet0 ingress
-> $ tc filter add dev vnet0 protocol ip parent ffff: \
->     flower \
->           ip_proto 1 \
->         action iptunnel encap \
->           src_ip 11.11.0.1 \
->                 dst_ip 11.11.0.2 \
->                 id 11 \
->         action mirred egress redirect dev vxlan0
->
-Is the device required to be a tunnel device? Consider that with LWT
-we can perform this sort of encapsulation without requiring a special
-device...
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Tom
+The callback function of call_rcu() just calls a kfree(), so we
+can use kfree_rcu() instead of call_rcu() + callback function.
 
-> $ tc qdisc add dev vxlan0 ingress
-> $ tc filter add dev vxlan0 protocol ip parent ffff: \
->     flower \
->           enc_src_ip 11.11.0.2 \
->                 enc_dst_ip 11.11.0.1 \
->                 enc_key_id 11 \
->         action iptunnel decap \
->           action mirred egress redirect dev vnet0
->
-> note: Current implementation supports ipv4 only, but it should be easy to add
->       ipv6 later on.
->
-> Amir
->
-> Changes from RFC:
-> - Add a new action instead of making mirred too complex
-> - No need to specify UDP port in action - it is already in the tunnel device
->         configuration
-> - Added a decap operation to drop tunnel metadata
->
-> Amir Vadai (3):
->   net/ip_tunnels: Introduce tunnel_id_to_key32() and
->     key32_to_tunnel_id()
->   net/sched: cls_flower: Classify packet in ip tunnels
->   net/sched: Introduce act_iptunnel
->
->  drivers/net/vxlan.c                     |   4 +-
->  include/net/ip_tunnels.h                |  19 +++
->  include/net/tc_act/tc_iptunnel.h        |  24 +++
->  include/net/vxlan.h                     |  18 --
->  include/uapi/linux/pkt_cls.h            |  11 ++
->  include/uapi/linux/tc_act/tc_iptunnel.h |  40 +++++
->  net/ipv4/ip_gre.c                       |  23 +--
->  net/sched/Kconfig                       |  11 ++
->  net/sched/Makefile                      |   1 +
->  net/sched/act_iptunnel.c                | 292 ++++++++++++++++++++++++++++++++
->  net/sched/cls_flower.c                  |  59 ++++++-
->  11 files changed, 459 insertions(+), 43 deletions(-)
->  create mode 100644 include/net/tc_act/tc_iptunnel.h
->  create mode 100644 include/uapi/linux/tc_act/tc_iptunnel.h
->  create mode 100644 net/sched/act_iptunnel.c
->
-> --
-> 2.9.0
->
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/xen-netback/hash.c | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/xen-netback/hash.c b/drivers/net/xen-netback/hash.c
+index 282b16d..e8c5ddd 100644
+--- a/drivers/net/xen-netback/hash.c
++++ b/drivers/net/xen-netback/hash.c
+@@ -32,15 +32,6 @@
+ #include <linux/vmalloc.h>
+ #include <linux/rculist.h>
+ 
+-static void xenvif_del_hash(struct rcu_head *rcu)
+-{
+-	struct xenvif_hash_cache_entry *entry;
+-
+-	entry = container_of(rcu, struct xenvif_hash_cache_entry, rcu);
+-
+-	kfree(entry);
+-}
+-
+ static void xenvif_add_hash(struct xenvif *vif, const u8 *tag,
+ 			    unsigned int len, u32 val)
+ {
+@@ -76,7 +67,7 @@ static void xenvif_add_hash(struct xenvif *vif, const u8 *tag,
+ 		if (++vif->hash.cache.count > xenvif_hash_cache_size) {
+ 			list_del_rcu(&oldest->link);
+ 			vif->hash.cache.count--;
+-			call_rcu(&oldest->rcu, xenvif_del_hash);
++			kfree_rcu(oldest, rcu);
+ 		}
+ 	}
+ 
+@@ -114,7 +105,7 @@ static void xenvif_flush_hash(struct xenvif *vif)
+ 	list_for_each_entry_rcu(entry, &vif->hash.cache.list, link) {
+ 		list_del_rcu(&entry->link);
+ 		vif->hash.cache.count--;
+-		call_rcu(&entry->rcu, xenvif_del_hash);
++		kfree_rcu(entry, rcu);
+ 	}
+ 
+ 	spin_unlock_irqrestore(&vif->hash.cache.lock, flags);
