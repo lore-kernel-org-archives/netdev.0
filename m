@@ -1,306 +1,307 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 3/4] qed*: Add support for VFs over legacy PFs
-Date: Mon, 22 Aug 2016 13:25:11 +0300
-Message-ID: <1471861512-30104-4-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 4/4] qed: Change locking scheme for VF channel
+Date: Mon, 22 Aug 2016 13:25:12 +0300
+Message-ID: <1471861512-30104-5-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1471861512-30104-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:38674 "EHLO
-        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754726AbcHVKZa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:25:30 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:46056 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754796AbcHVKZb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:25:31 -0400
 In-Reply-To: <1471861512-30104-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Modern VFs can't run on old non-compatible as the fastpath HSI is
-slightly changed - but as the HSI is actually very close [basically,
-a single bit whose meaning flipped] this can be supported with small
-modifications.
+Each VF employees a lock that's supposed to serialize its usage of the
+HW channel for communication with its PF, but the critical section is
+ill-defined:
 
-The major differences would be in:
-  - Recognizing that VF is running on top of a legacy PF.
-  - Returning some slowpath configurations that are no longer needed
-    on top of modern PFs, but would be required when working over
-    the legacy ones.
+  - VFs currently release the lock whenever the PF response arrives,
+    prior to actually processing the reply buffer [which was also supposed
+    to have been protected by same lock].
+
+  - The lock would be released on first response, ignoring the possibilty
+    the sw flow isn't over [as might be the case of the acquisition flow].
+    As a result, the flow would run unprotected and would cause a double
+    mutex release [as the additional message completion would release it
+    while its actually already free].
+
+Change the flow to have a dedicated function to be called at end of each
+flow and release the lock.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_l2.c     |   2 +
- drivers/net/ethernet/qlogic/qed/qed_vf.c     | 107 ++++++++++++++++++++++-----
- drivers/net/ethernet/qlogic/qed/qed_vf.h     |   5 ++
- drivers/net/ethernet/qlogic/qede/qede.h      |   2 +
- drivers/net/ethernet/qlogic/qede/qede_main.c |  10 +++
- include/linux/qed/qed_eth_if.h               |   3 +
- 6 files changed, 109 insertions(+), 20 deletions(-)
+Notice this is basically a bug fix, but pushing it to net would create
+several merge conflicts.
+Furthermore, while the first issue is a theoretical race, the second
+would be constantly hit if a modern VF would be used on top of a legacy
+PF [i.e., patch #3 in this series].
+Hence the motivation of adding it here.
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index bf43301..4409ea3 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1685,6 +1685,8 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
- 		qed_vf_get_num_vlan_filters(&cdev->hwfns[0],
- 					    &info->num_vlan_filters);
- 		qed_vf_get_port_mac(&cdev->hwfns[0], info->port_mac);
-+
-+		info->is_legacy = !!cdev->hwfns[0].vf_iov_info->b_pre_fp_hsi;
- 	}
- 
- 	qed_fill_dev_info(cdev, &info->common);
+Still, if prefered I can provide a version of this for `net'.
+---
+ drivers/net/ethernet/qlogic/qed/qed_vf.c | 124 ++++++++++++++++++++++---------
+ 1 file changed, 90 insertions(+), 34 deletions(-)
+
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 9b780b3..f9f68da 100644
+index f9f68da..3c9071d 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -191,6 +191,9 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 		DP_VERBOSE(p_hwfn,
- 			   QED_MSG_IOV, "attempting to acquire resources\n");
+@@ -46,6 +46,17 @@ static void *qed_vf_pf_prep(struct qed_hwfn *p_hwfn, u16 type, u16 length)
+ 	return p_tlv;
+ }
  
-+		/* Clear response buffer, as this might be a re-send */
-+		memset(p_iov->pf2vf_reply, 0, sizeof(union pfvf_tlvs));
++static void qed_vf_pf_req_end(struct qed_hwfn *p_hwfn, int req_status)
++{
++	union pfvf_tlvs *resp = p_hwfn->vf_iov_info->pf2vf_reply;
 +
- 		/* send acquire request */
- 		rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
- 		if (rc)
-@@ -205,9 +208,12 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 			/* PF agrees to allocate our resources */
- 			if (!(resp->pfdev_info.capabilities &
- 			      PFVF_ACQUIRE_CAP_POST_FW_OVERRIDE)) {
--				DP_INFO(p_hwfn,
--					"PF is using old incompatible driver; Either downgrade driver or request provider to update hypervisor version\n");
--				return -EINVAL;
-+				/* It's possible legacy PF mistakenly accepted;
-+				 * but we don't care - simply mark it as
-+				 * legacy and continue.
-+				 */
-+				req->vfdev_info.capabilities |=
-+				    VFPF_ACQUIRE_CAP_PRE_FP_HSI;
- 			}
- 			DP_VERBOSE(p_hwfn, QED_MSG_IOV, "resources acquired\n");
- 			resources_acquired = true;
-@@ -215,27 +221,55 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 			   attempts < VF_ACQUIRE_THRESH) {
- 			qed_vf_pf_acquire_reduce_resc(p_hwfn, p_resc,
- 						      &resp->resc);
-+		} else if (resp->hdr.status == PFVF_STATUS_NOT_SUPPORTED) {
-+			if (pfdev_info->major_fp_hsi &&
-+			    (pfdev_info->major_fp_hsi != ETH_HSI_VER_MAJOR)) {
-+				DP_NOTICE(p_hwfn,
-+					  "PF uses an incompatible fastpath HSI %02x.%02x [VF requires %02x.%02x]. Please change to a VF driver using %02x.xx.\n",
-+					  pfdev_info->major_fp_hsi,
-+					  pfdev_info->minor_fp_hsi,
-+					  ETH_HSI_VER_MAJOR,
-+					  ETH_HSI_VER_MINOR,
-+					  pfdev_info->major_fp_hsi);
-+				rc = -EINVAL;
-+				goto exit;
-+			}
- 
--			/* Clear response buffer */
--			memset(p_iov->pf2vf_reply, 0, sizeof(union pfvf_tlvs));
--		} else if ((resp->hdr.status == PFVF_STATUS_NOT_SUPPORTED) &&
--			   pfdev_info->major_fp_hsi &&
--			   (pfdev_info->major_fp_hsi != ETH_HSI_VER_MAJOR)) {
--			DP_NOTICE(p_hwfn,
--				  "PF uses an incompatible fastpath HSI %02x.%02x [VF requires %02x.%02x]. Please change to a VF driver using %02x.xx.\n",
--				  pfdev_info->major_fp_hsi,
--				  pfdev_info->minor_fp_hsi,
--				  ETH_HSI_VER_MAJOR,
--				  ETH_HSI_VER_MINOR, pfdev_info->major_fp_hsi);
--			return -EINVAL;
-+			if (!pfdev_info->major_fp_hsi) {
-+				if (req->vfdev_info.capabilities &
-+				    VFPF_ACQUIRE_CAP_PRE_FP_HSI) {
-+					DP_NOTICE(p_hwfn,
-+						  "PF uses very old drivers. Please change to a VF driver using no later than 8.8.x.x.\n");
-+					rc = -EINVAL;
-+					goto exit;
-+				} else {
-+					DP_INFO(p_hwfn,
-+						"PF is old - try re-acquire to see if it supports FW-version override\n");
-+					req->vfdev_info.capabilities |=
-+					    VFPF_ACQUIRE_CAP_PRE_FP_HSI;
-+					continue;
-+				}
-+			}
++	DP_VERBOSE(p_hwfn, QED_MSG_IOV,
++		   "VF request status = 0x%x, PF reply status = 0x%x\n",
++		   req_status, resp->default_resp.hdr.status);
 +
-+			/* If PF/VF are using same Major, PF must have had
-+			 * it's reasons. Simply fail.
-+			 */
-+			DP_NOTICE(p_hwfn, "PF rejected acquisition by VF\n");
-+			rc = -EINVAL;
-+			goto exit;
- 		} else {
- 			DP_ERR(p_hwfn,
- 			       "PF returned error %d to VF acquisition request\n",
- 			       resp->hdr.status);
--			return -EAGAIN;
-+			rc = -EAGAIN;
-+			goto exit;
- 		}
++	mutex_unlock(&(p_hwfn->vf_iov_info->mutex));
++}
++
+ static int qed_send_msg2pf(struct qed_hwfn *p_hwfn, u8 *done, u32 resp_size)
+ {
+ 	union vfpf_tlvs *p_req = p_hwfn->vf_iov_info->vf2pf_request;
+@@ -103,16 +114,12 @@ static int qed_send_msg2pf(struct qed_hwfn *p_hwfn, u8 *done, u32 resp_size)
+ 			   "VF <-- PF Timeout [Type %d]\n",
+ 			   p_req->first_tlv.tl.type);
+ 		rc = -EBUSY;
+-		goto exit;
+ 	} else {
+ 		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
+ 			   "PF response: %d [Type %d]\n",
+ 			   *done, p_req->first_tlv.tl.type);
  	}
  
-+	/* Mark the PF as legacy, if needed */
-+	if (req->vfdev_info.capabilities & VFPF_ACQUIRE_CAP_PRE_FP_HSI)
-+		p_iov->b_pre_fp_hsi = true;
+-exit:
+-	mutex_unlock(&(p_hwfn->vf_iov_info->mutex));
+-
+ 	return rc;
+ }
+ 
+@@ -296,6 +303,8 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
+ 	}
+ 
+ exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
 +
- 	/* Update bulletin board size with response from PF */
- 	p_iov->bulletin.size = resp->bulletin_size;
+ 	return rc;
+ }
  
-@@ -253,14 +287,16 @@ static int qed_vf_pf_acquire(struct qed_hwfn *p_hwfn)
- 		}
- 	}
+@@ -435,10 +444,12 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
+ 	resp = &p_iov->pf2vf_reply->queue_start;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
  
--	if (ETH_HSI_VER_MINOR &&
-+	if (!p_iov->b_pre_fp_hsi &&
-+	    ETH_HSI_VER_MINOR &&
- 	    (resp->pfdev_info.minor_fp_hsi < ETH_HSI_VER_MINOR)) {
- 		DP_INFO(p_hwfn,
- 			"PF is using older fastpath HSI; %02x.%02x is configured\n",
- 			ETH_HSI_VER_MAJOR, resp->pfdev_info.minor_fp_hsi);
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
+ 
+ 	/* Learn the address of the producer from the response */
+ 	if (pp_prod && !p_iov->b_pre_fp_hsi) {
+@@ -453,6 +464,8 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
+ 		__internal_ram_wr(p_hwfn, *pp_prod, sizeof(u32),
+ 				  (u32 *)&init_prod_val);
  	}
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
+ 
+ 	return rc;
+ }
+@@ -478,10 +491,15 @@ int qed_vf_pf_rxq_stop(struct qed_hwfn *p_hwfn, u16 rx_qid, bool cqe_completion)
+ 	resp = &p_iov->pf2vf_reply->default_resp;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
++
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
+ 
+ 	return rc;
+ }
+@@ -544,6 +562,7 @@ int qed_vf_pf_txq_start(struct qed_hwfn *p_hwfn,
+ 			   tx_queue_id, *pp_doorbell, resp->offset);
+ 	}
+ exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
+ 
+ 	return rc;
+ }
+@@ -568,10 +587,15 @@ int qed_vf_pf_txq_stop(struct qed_hwfn *p_hwfn, u16 tx_qid)
+ 	resp = &p_iov->pf2vf_reply->default_resp;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
++
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
+ 
+ 	return rc;
+ }
+@@ -610,10 +634,15 @@ int qed_vf_pf_vport_start(struct qed_hwfn *p_hwfn,
+ 	resp = &p_iov->pf2vf_reply->default_resp;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
++
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
+ 
+ 	return rc;
+ }
+@@ -634,10 +663,15 @@ int qed_vf_pf_vport_stop(struct qed_hwfn *p_hwfn)
+ 
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
++
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
+ 
+ 	return rc;
+ }
+@@ -837,13 +871,18 @@ int qed_vf_pf_vport_update(struct qed_hwfn *p_hwfn,
+ 
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, resp_size);
+ 	if (rc)
+-		return rc;
++		goto exit;
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
+ 
+ 	qed_vf_handle_vp_update_tlvs_resp(p_hwfn, p_params);
+ 
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
++
+ 	return rc;
+ }
+ 
+@@ -864,14 +903,19 @@ int qed_vf_pf_reset(struct qed_hwfn *p_hwfn)
+ 	resp = &p_iov->pf2vf_reply->default_resp;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EAGAIN;
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EAGAIN;
++		goto exit;
++	}
+ 
+ 	p_hwfn->b_int_enabled = 0;
  
 -	return 0;
 +exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
++
 +	return rc;
  }
  
- int qed_vf_hw_prepare(struct qed_hwfn *p_hwfn)
-@@ -347,6 +383,9 @@ free_p_iov:
+ int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
+@@ -895,6 +939,8 @@ int qed_vf_pf_release(struct qed_hwfn *p_hwfn)
+ 	if (!rc && resp->hdr.status != PFVF_STATUS_SUCCESS)
+ 		rc = -EAGAIN;
  
- 	return -ENOMEM;
- }
-+#define TSTORM_QZONE_START   PXP_VF_BAR0_START_SDM_ZONE_A
-+#define MSTORM_QZONE_START(dev)   (TSTORM_QZONE_START +	\
-+				   (TSTORM_QZONE_SIZE * NUM_OF_L2_QUEUES(dev)))
- 
- int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 			u8 rx_qid,
-@@ -374,6 +413,21 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 	req->bd_max_bytes = bd_max_bytes;
- 	req->stat_id = -1;
- 
-+	/* If PF is legacy, we'll need to calculate producers ourselves
-+	 * as well as clean them.
-+	 */
-+	if (pp_prod && p_iov->b_pre_fp_hsi) {
-+		u8 hw_qid = p_iov->acquire_resp.resc.hw_qid[rx_qid];
-+		u32 init_prod_val = 0;
++	qed_vf_pf_req_end(p_hwfn, rc);
 +
-+		*pp_prod = (u8 __iomem *)p_hwfn->regview +
-+					 MSTORM_QZONE_START(p_hwfn->cdev) +
-+					 hw_qid * MSTORM_QZONE_SIZE;
-+
-+		/* Init the rcq, rx bd and rx sge (if valid) producers to 0 */
-+		__internal_ram_wr(p_hwfn, *pp_prod, sizeof(u32),
-+				  (u32 *)(&init_prod_val));
+ 	p_hwfn->b_int_enabled = 0;
+ 
+ 	if (p_iov->vf2pf_request)
+@@ -963,12 +1009,17 @@ int qed_vf_pf_filter_ucast(struct qed_hwfn *p_hwfn,
+ 	resp = &p_iov->pf2vf_reply->default_resp;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
+ 
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EAGAIN;
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EAGAIN;
++		goto exit;
 +	}
- 	/* add list termination tlv */
- 	qed_add_tlv(p_hwfn, &p_iov->offset,
- 		    CHANNEL_TLV_LIST_END, sizeof(struct channel_list_end_tlv));
-@@ -387,7 +441,7 @@ int qed_vf_pf_rxq_start(struct qed_hwfn *p_hwfn,
- 		return -EINVAL;
  
- 	/* Learn the address of the producer from the response */
--	if (pp_prod) {
-+	if (pp_prod && !p_iov->b_pre_fp_hsi) {
- 		u32 init_prod_val = 0;
- 
- 		*pp_prod = (u8 __iomem *)p_hwfn->regview + resp->offset;
-@@ -470,7 +524,20 @@ int qed_vf_pf_txq_start(struct qed_hwfn *p_hwfn,
- 	}
- 
- 	if (pp_doorbell) {
--		*pp_doorbell = (u8 __iomem *)p_hwfn->doorbells + resp->offset;
-+		/* Modern PFs provide the actual offsets, while legacy
-+		 * provided only the queue id.
-+		 */
-+		if (!p_iov->b_pre_fp_hsi) {
-+			*pp_doorbell = (u8 __iomem *)p_hwfn->doorbells +
-+						     resp->offset;
-+		} else {
-+			u8 cid = p_iov->acquire_resp.resc.cid[tx_queue_id];
-+			u32 db_addr;
+-	return 0;
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
 +
-+			db_addr = qed_db_addr(cid, DQ_DEMS_LEGACY);
-+			*pp_doorbell = (u8 __iomem *)p_hwfn->doorbells +
-+						     db_addr;
-+		}
++	return rc;
+ }
  
- 		DP_VERBOSE(p_hwfn, QED_MSG_IOV,
- 			   "Txq[0x%02x]: doorbell at %p [offset 0x%08x]\n",
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index 60a599b..35db7a28 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -551,6 +551,11 @@ struct qed_vf_iov {
+ int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn)
+@@ -987,12 +1038,17 @@ int qed_vf_pf_int_cleanup(struct qed_hwfn *p_hwfn)
  
- 	/* we set aside a copy of the acquire response */
- 	struct pfvf_acquire_resp_tlv acquire_resp;
+ 	rc = qed_send_msg2pf(p_hwfn, &resp->hdr.status, sizeof(*resp));
+ 	if (rc)
+-		return rc;
++		goto exit;
 +
-+	/* In case PF originates prior to the fp-hsi version comparison,
-+	 * this has to be propagated as it affects the fastpath.
-+	 */
-+	bool b_pre_fp_hsi;
- };
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		rc = -EINVAL;
++		goto exit;
++	}
  
- #ifdef CONFIG_QED_SRIOV
-diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index 32325ca..700b509 100644
---- a/drivers/net/ethernet/qlogic/qede/qede.h
-+++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -268,6 +268,8 @@ struct qede_tx_queue {
- 	u16			num_tx_buffers;
- 	u64			xmit_pkts;
- 	u64			stopped_cnt;
-+
-+	bool			is_legacy;
- };
+-	if (resp->hdr.status != PFVF_STATUS_SUCCESS)
+-		return -EINVAL;
++exit:
++	qed_vf_pf_req_end(p_hwfn, rc);
  
- #define BD_UNMAP_ADDR(bd)		HILO_U64(le32_to_cpu((bd)->addr.hi), \
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index a05459f9..ac126e6 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -598,6 +598,14 @@ static netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 			    1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT;
- 		}
+-	return 0;
++	return rc;
+ }
  
-+		/* Legacy FW had flipped behavior in regard to this bit -
-+		 * I.e., needed to set to prevent FW from touching encapsulated
-+		 * packets when it didn't need to.
-+		 */
-+		if (unlikely(txq->is_legacy))
-+			first_bd->data.bitfields ^=
-+			    1 << ETH_TX_DATA_1ST_BD_TUNN_FLAG_SHIFT;
-+
- 		/* If the packet is IPv6 with extension header, indicate that
- 		 * to FW and pass few params, since the device cracker doesn't
- 		 * support parsing IPv6 with extension header/s.
-@@ -2991,6 +2999,8 @@ static void qede_init_fp(struct qede_dev *edev)
- 		for (tc = 0; tc < edev->num_tc; tc++) {
- 			txq_index = tc * QEDE_RSS_CNT(edev) + rss_id;
- 			fp->txqs[tc].index = txq_index;
-+			if (edev->dev_info.is_legacy)
-+				fp->txqs[tc].is_legacy = true;
- 		}
- 
- 		snprintf(fp->name, sizeof(fp->name), "%s-fp-%d",
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 4475a9d..33c24eb 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -23,6 +23,9 @@ struct qed_dev_eth_info {
- 
- 	u8	port_mac[ETH_ALEN];
- 	u8	num_vlan_filters;
-+
-+	/* Legacy VF - this affects the datapath, so qede has to know */
-+	bool is_legacy;
- };
- 
- struct qed_update_vport_rss_params {
+ u16 qed_vf_get_igu_sb_id(struct qed_hwfn *p_hwfn, u16 sb_id)
 -- 
 1.9.3
