@@ -1,45 +1,52 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: [PATCH v05 22/72] include/uapi/linux/if_tunnel.h: include linux/if.h, linux/ip.h and linux/in6.h
-Date: Mon, 22 Aug 2016 20:32:39 +0200
-Message-ID: <1471890809-4383-23-git-send-email-mikko.rapeli@iki.fi>
-References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH ethtool 0/3] ethtool: Add support for new high speed adv.
+Date: Mon, 22 Aug 2016 15:32:19 -0400
+Message-ID: <20160822193218.GD2628@tuxdriver.com>
+References: <1471845039-28718-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Mikko Rapeli <mikko.rapeli@iki.fi>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Philip Prindeville <philipp@redfish-solutions.com>,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, vidya@cumulusnetworks.com
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37265 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753952AbcHVTpR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 15:45:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1471845039-28718-1-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixes userspace compilation errors like:
+On Mon, Aug 22, 2016 at 08:50:36AM +0300, Yuval Mintz wrote:
+> This allows ethtool to utilize the link capabilities/adv./lp bitmasks
+> to show and set the additional 25g, 50g and 100g link speeds.
+> 
+> Patches #1 & #2 are based on Vidya Sagar Ravipati's patches
+> [with the only addition being the addition of the 50g SR2 mode],
+> while patch #3 updates the man-page with the additional modes.
+> 
+> Can't claim to have tried all modes, although I did play with both
+> 25g KR and 50g KR2 which seemed to be working fine.
+> 
+> Yuval Mintz (3):
+>   ethtool: Copy high-speed bits from ethtool.h
+>   ethtool: Add support 25g, 50g and 100g speeds
+>   ethtool: Document new ethtool advertise speeds
+> 
+>  ethtool-copy.h | 12 +++++++++++-
+>  ethtool.8.in   | 10 ++++++++++
+>  ethtool.c      | 30 ++++++++++++++++++++++++++++++
+>  3 files changed, 51 insertions(+), 1 deletion(-)
 
-error: field ‘iph’ has incomplete type
-error: field ‘prefix’ has incomplete type
+It looks like Vidya wasn't completely in-sync with you on this! But,
+I like that you included the later bits for ethtool-copy.h and that
+you added man page updates.
 
-Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
----
- include/uapi/linux/if_tunnel.h | 3 +++
- 1 file changed, 3 insertions(+)
+Could you and Vidya get together and post a unified patchset,
+please? Or if Vidya posts the updates I requested, I can simply take
+your (i.e. Yuval's) patch 3/3 on top of that.
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index 1046f55..777b6cd 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -2,6 +2,9 @@
- #define _UAPI_IF_TUNNEL_H_
- 
- #include <linux/types.h>
-+#include <linux/if.h>
-+#include <linux/ip.h>
-+#include <linux/in6.h>
- #include <asm/byteorder.h>
- 
- 
+John
 -- 
-2.8.1
+John W. Linville		Someday the world will need a hero, yand you
+linville@tuxdriver.com			might be all we have.  Be ready.
