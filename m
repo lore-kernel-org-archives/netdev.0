@@ -1,214 +1,87 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 16/18] liquidio: CN23XX health monitoring
-Date: Sun, 21 Aug 2016 17:12:43 -0700
-Message-ID: <1471824765-26473-17-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 00/18] liquidio CN23XX support
+Date: Sun, 21 Aug 2016 17:12:27 -0700
+Message-ID: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bn3nam01on0079.outbound.protection.outlook.com ([104.47.33.79]:59173
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754006AbcHVA3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:29:41 -0400
-In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
+        id S1753976AbcHVA3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 20:29:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for watchdog based health monitoring
-of octeon cores on cn23xx device.
+Dave,
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 124 ++++++++++++++++++++-
- .../net/ethernet/cavium/liquidio/octeon_device.h   |   2 +
- 2 files changed, 124 insertions(+), 2 deletions(-)
+Following patchset adds support for new device "CN23XX" in
+liquidio family of adapters. This V3 patch also resolved
+all the comments from previous submission about:
+1) Mixed declaration of variables.
+2) Unnecessary parameter in netif_info debug statements.
+3) Use of stringify for module version related macros.
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 4cd6480..a875398 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -24,6 +24,7 @@
- #include <linux/firmware.h>
- #include <linux/ptp_clock_kernel.h>
- #include <net/vxlan.h>
-+#include <linux/kthread.h>
- #include "liquidio_common.h"
- #include "octeon_droq.h"
- #include "octeon_iq.h"
-@@ -946,8 +947,6 @@ static void update_txq_status(struct octeon_device *oct, int iq_num)
- 	struct lio *lio;
- 	struct octeon_instr_queue *iq = oct->instr_queue[iq_num];
- 
--	/*octeon_update_iq_read_idx(oct, iq);*/
--
- 	netdev = oct->props[iq->ifidx].netdev;
- 
- 	/* This is needed because the first IQ does not have
-@@ -1183,6 +1182,100 @@ static int octeon_setup_interrupt(struct octeon_device *oct)
- 	return 0;
- }
- 
-+static int liquidio_watchdog(void *param)
-+{
-+#define CIU3_WDOG(c) (0x1010000020000ULL + (c << 3))
-+	u64 wdog;
-+	u16 mask_of_stuck_cores = 0;
-+	u16 mask_of_crashed_cores = 0;
-+	int core_num;
-+	u8 core_is_stuck[12];
-+	u8 core_crashed[12];
-+	struct octeon_device *oct = param;
-+
-+	memset(core_is_stuck, 0, sizeof(core_is_stuck));
-+	memset(core_crashed, 0, sizeof(core_crashed));
-+
-+	while (!kthread_should_stop()) {
-+		mask_of_crashed_cores =
-+		    (u16)octeon_read_csr64(oct, CN23XX_SLI_SCRATCH2);
-+
-+		for (core_num = 0; core_num < 12; core_num++) {
-+			if (!core_is_stuck[core_num]) {
-+				wdog = lio_pci_readq(oct, CIU3_WDOG(core_num));
-+
-+				/* look at watchdog state field */
-+				wdog &= 12ULL;
-+				if (wdog) {
-+					/* this watchdog timer has expired */
-+					core_is_stuck[core_num] = 1;
-+					mask_of_stuck_cores |= (1 << core_num);
-+				}
-+			}
-+
-+			if (!core_crashed[core_num])
-+				core_crashed[core_num] =
-+				    (mask_of_crashed_cores >> core_num) & 1;
-+		}
-+
-+		if (mask_of_stuck_cores) {
-+			for (core_num = 0; core_num < 12; core_num++) {
-+				if (core_is_stuck[core_num] == 1) {
-+					dev_err(&oct->pci_dev->dev,
-+						"ERROR: Octeon core %d is stuck!\n",
-+						core_num);
-+					core_is_stuck[core_num] =
-+						2; /* 2 means we have printk'd
-+						    * an error; so no need to
-+						    * repeat the same printk
-+						    */
-+				}
-+			}
-+		}
-+
-+		if (mask_of_crashed_cores) {
-+			for (core_num = 0; core_num < 12; core_num++) {
-+				if (core_crashed[core_num] == 1) {
-+					dev_err(&oct->pci_dev->dev,
-+						"ERROR: Octeon core %d crashed!  See oct-fwdump for details.\n",
-+						core_num);
-+					core_crashed[core_num] =
-+						2; /* 2 means we have printk'd
-+						    * an error; so no need to
-+						    * repeat the same printk
-+						    */
-+				}
-+			}
-+		}
-+#ifdef CONFIG_MODULE_UNLOAD
-+		if (mask_of_stuck_cores || mask_of_crashed_cores) {
-+			/* make module refcount=0 so that rmmod will work */
-+			long refcount;
-+
-+			refcount = module_refcount(THIS_MODULE);
-+
-+			while (refcount > 0) {
-+				module_put(THIS_MODULE);
-+				refcount = module_refcount(THIS_MODULE);
-+			}
-+
-+			/* compensate for and withstand an unlikely (but still
-+			 * possible) race condition
-+			 */
-+			while (refcount < 0) {
-+				try_module_get(THIS_MODULE);
-+				refcount = module_refcount(THIS_MODULE);
-+			}
-+		}
-+#endif
-+		/* sleep for two seconds */
-+		set_current_state(TASK_INTERRUPTIBLE);
-+		schedule_timeout(2 * HZ);
-+	}
-+
-+	return 0;
-+}
-+
- /**
-  * \brief PCI probe handler
-  * @param pdev PCI device structure
-@@ -1228,6 +1321,30 @@ liquidio_probe(struct pci_dev *pdev,
- 		return -ENOMEM;
- 	}
- 
-+	if (OCTEON_CN23XX_PF(oct_dev)) {
-+		u64 scratch1;
-+		u8 bus, device, function;
-+
-+		scratch1 = octeon_read_csr64(oct_dev, CN23XX_SLI_SCRATCH1);
-+		if (!(scratch1 & 4ULL)) {
-+			/* Bit 2 of SLI_SCRATCH_1 is a flag that indicates that
-+			 * the lio watchdog kernel thread is running for this
-+			 * NIC.  Each NIC gets one watchdog kernel thread.
-+			 */
-+			scratch1 |= 4ULL;
-+			octeon_write_csr64(oct_dev, CN23XX_SLI_SCRATCH1,
-+					   scratch1);
-+
-+			bus = pdev->bus->number;
-+			device = PCI_SLOT(pdev->devfn);
-+			function = PCI_FUNC(pdev->devfn);
-+			oct_dev->watchdog_task = kthread_create(
-+			    liquidio_watchdog, oct_dev,
-+			    "liowd/%02hhx:%02hhx.%hhx", bus, device, function);
-+			wake_up_process(oct_dev->watchdog_task);
-+		}
-+	}
-+
- 	oct_dev->rx_pause = 1;
- 	oct_dev->tx_pause = 1;
- 
-@@ -1560,6 +1677,9 @@ static void liquidio_remove(struct pci_dev *pdev)
- 
- 	dev_dbg(&oct_dev->pci_dev->dev, "Stopping device\n");
- 
-+	if (oct_dev->watchdog_task)
-+		kthread_stop(oct_dev->watchdog_task);
-+
- 	if (oct_dev->app_mode && (oct_dev->app_mode == CVM_DRV_NIC_APP))
- 		liquidio_stop_nic_module(oct_dev);
- 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index ec3cb22..773eb09 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -486,6 +486,8 @@ struct octeon_device {
- 
- 	/* private flags to control driver-specific features through ethtool */
- 	u32 priv_flags;
-+
-+	void *watchdog_task;
- };
- 
- #define  OCT_DRV_ONLINE 1
+Please apply patches in following order as some of the
+patches depend on earlier patches.
+
+Thanks
+Raghu Vatsavayi.
+
+
+Raghu Vatsavayi (18):
+  liquidio: Consolidate common functionality
+  liquidio: Firmware version management
+  liquidio: Common enable irq function
+  liquidio: CN23XX register definitions
+  liquidio: CN23XX queue definitions
+  liquidio: CN23XX device init and sriov config
+  liquidio: CN23XX register setup
+  liquidio: CN23XX queue manipulation
+  liquidio: MSIX support for CN23XX
+  liquidio: CN23XX firmware download
+  liquidio: link and control commands
+  liquidio: RX control commands
+  liquidio: CN23XX IQ access
+  liquidio: CN23XX octeon3 instruction
+  liquidio: ethtool and led control support
+  liquidio: CN23XX health monitoring
+  liquidio: CN23XX napi support
+  liquidio:CN23XX pause frame support
+
+ drivers/net/ethernet/cavium/Kconfig                |    4 +-
+ drivers/net/ethernet/cavium/liquidio/Makefile      |   24 +-
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 1261 ++++++++++++++++++++
+ .../ethernet/cavium/liquidio/cn23xx_pf_device.h    |   59 +
+ .../net/ethernet/cavium/liquidio/cn23xx_pf_regs.h  |  602 ++++++++++
+ .../net/ethernet/cavium/liquidio/cn66xx_device.c   |   12 +-
+ .../net/ethernet/cavium/liquidio/cn66xx_device.h   |    4 +-
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    |  266 +++++
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c |  511 +++++++-
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 1098 ++++++++++-------
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |   27 +-
+ .../net/ethernet/cavium/liquidio/octeon_config.h   |   59 +-
+ .../net/ethernet/cavium/liquidio/octeon_console.c  |  116 +-
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |  352 ++++--
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |  124 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.c |   46 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.h |    2 +
+ drivers/net/ethernet/cavium/liquidio/octeon_iq.h   |    2 +
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |   32 +-
+ .../net/ethernet/cavium/liquidio/octeon_mem_ops.c  |    1 -
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |    6 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_nic.c  |   35 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_nic.h  |    2 +-
+ .../net/ethernet/cavium/liquidio/request_manager.c |  170 ++-
+ .../ethernet/cavium/liquidio/response_manager.c    |    9 +-
+ 25 files changed, 4134 insertions(+), 690 deletions(-)
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/cn23xx_pf_regs.h
+ create mode 100644 drivers/net/ethernet/cavium/liquidio/lio_core.c
+
 -- 
 1.8.3.1
