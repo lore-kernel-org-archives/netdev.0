@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 10/20] batman-adv: Place kref_get for
-	bla_backbone_gw near use
-Date: Mon, 22 Aug 2016 15:56:10 +0200
-Message-ID: <20160822135620.15337-11-sw@simonwunderlich.de>
+Subject: [PATCH 11/20] batman-adv: Place kref_get for
+	dat_entry near use
+Date: Mon, 22 Aug 2016 15:56:11 +0200
+Message-ID: <20160822135620.15337-12-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,25 +33,22 @@ Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bridge_loop_avoidance.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ net/batman-adv/distributed-arp-table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index b0517a0..1db3c12 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -526,11 +526,9 @@ batadv_bla_get_backbone_gw(struct batadv_priv *bat_priv, u8 *orig,
- 	atomic_set(&entry->wait_periods, 0);
- 	ether_addr_copy(entry->orig, orig);
- 	INIT_WORK(&entry->report_work, batadv_bla_loopdetect_report);
--
--	/* one for the hash, one for returning */
- 	kref_init(&entry->refcount);
--	kref_get(&entry->refcount);
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index b1cc8bf..059bc23 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -343,8 +343,8 @@ static void batadv_dat_entry_add(struct batadv_priv *bat_priv, __be32 ip,
+ 	ether_addr_copy(dat_entry->mac_addr, mac_addr);
+ 	dat_entry->last_update = jiffies;
+ 	kref_init(&dat_entry->refcount);
+-	kref_get(&dat_entry->refcount);
  
-+	kref_get(&entry->refcount);
- 	hash_added = batadv_hash_add(bat_priv->bla.backbone_hash,
- 				     batadv_compare_backbone_gw,
- 				     batadv_choose_backbone_gw, entry,
++	kref_get(&dat_entry->refcount);
+ 	hash_added = batadv_hash_add(bat_priv->dat.hash, batadv_compare_dat,
+ 				     batadv_hash_dat, dat_entry,
+ 				     &dat_entry->hash_entry);
 -- 
 2.9.3
