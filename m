@@ -1,101 +1,74 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH v3 net-next] l2tp: Refactor the codes with existing macros
- instead of literal number
-Date: Mon, 22 Aug 2016 18:29:31 +0800
-Message-ID: <CA+6hz4rL4HDioopQFWg1RgVSQ7=0_fOZpof5hRebLFqovD1Asg@mail.gmail.com>
-References: <1471708347-18063-1-git-send-email-fgao@ikuai8.com>
- <9423c2ce-fb0c-818c-1b27-d45668f4a015@redfish-solutions.com> <20160822094813.bpch2uzyhtbnrqmx@alphalink.fr>
+From: Gerard Garcia <ggarcia@abra.uab.cat>
+Subject: Re: [PATCH v2 0/3] VSOCK: vsockmon virtual device to monitor AF_VSOCK
+ sockets.
+Date: Mon, 22 Aug 2016 12:48:05 +0200
+Message-ID: <6f0e18a8-45df-db93-660a-e3c6bf85c2b2@deic.uab.cat>
+References: <20160813102154.14338-1-ggarcia@deic.uab.cat>
+ <20160814231538.jihsj54ft7aftvdf@redhat.com>
+ <20160815151326.GE3598@stefanha-x1.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Philp Prindeville <philipp@redfish-solutions.com>,
-        Gao Feng <fgao@48lvckh6395k16k5.yundunddos.com>,
-        paulus@samba.org, "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Guillaume Nault <g.nault@alphalink.fr>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stefan Hajnoczi <stefanha@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:33755 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751602AbcHVK3d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:29:33 -0400
-Received: by mail-ua0-f194.google.com with SMTP id u13so10408791uau.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 03:29:32 -0700 (PDT)
-In-Reply-To: <20160822094813.bpch2uzyhtbnrqmx@alphalink.fr>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36673 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754949AbcHVKsI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 06:48:08 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i138so12798363wmf.3
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 03:48:07 -0700 (PDT)
+In-Reply-To: <20160815151326.GE3598@stefanha-x1.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inline
-
-On Mon, Aug 22, 2016 at 5:48 PM, Guillaume Nault <g.nault@alphalink.fr> wrote:
-> On Sun, Aug 21, 2016 at 04:36:52PM -0600, Philp Prindeville wrote:
->> Inline
+On 08/15/2016 05:13 PM, Stefan Hajnoczi wrote:
+> On Mon, Aug 15, 2016 at 02:15:38AM +0300, Michael S. Tsirkin wrote:
+>> On Sat, Aug 13, 2016 at 12:21:51PM +0200, ggarcia@abra.uab.cat wrote:
+>>> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>>>
+>>> This patch applies over the mst vhost git repository:
+>>> http://git.kernel.org/cgit/linux/kernel/git/mst/vhost.git
 >>
+>> So I do like where this is going, but it gives me pause
+>> that there's a global list of taps, where all sockets
+>> seem to multicast to them all.
 >>
->> On 08/20/2016 09:52 AM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
->> > From: Gao Feng <fgao@ikuai8.com>
->> >
->> > Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
->> > 0x03, and 2 separately.
->> >
->> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
->> > ---
->> >   v3: Modify the subject;
->> >   v2: Only replace the literal number with macros according to Guillaume's advice
->> >   v1: Inital patch
->> >
->> >   net/l2tp/l2tp_ppp.c | 8 ++++----
->> >   1 file changed, 4 insertions(+), 4 deletions(-)
->> >
->> > diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
->> > index d9560aa..65e2fd6 100644
->> > --- a/net/l2tp/l2tp_ppp.c
->> > +++ b/net/l2tp/l2tp_ppp.c
->> > @@ -177,7 +177,7 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
->> >     if (!pskb_may_pull(skb, 2))
->> >             return 1;
->> > -   if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
->> > +   if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
->>
->> This should have used PPP_ADDRESS() and PPP_CONTROL() here.
->>
-> Then please justify how would that make the code more readable.
-> We're not trying to interpret a known valid PPP header here.
+>> In particular, this won't play well with things
+>> like containers.
 >
->> >             skb_pull(skb, 2);
->>
->> This magic number should go away.
->>
-> Again, this is *not* a magic number. We've explicitely accessed the
-> first _two_ header bytes and want to skip them.
-> pskb_may_pull(2), ->data[0], ->data[1] and skb_pull(2) all go together.
+> vsock currently has no network namespace support.  I agree that the tap
+> instances should be per-namespace when we add namespace support.
 >
-> There's even a nice comment telling you what is done and why:
->         /* Skip PPP header, if present.  In testing, Microsoft L2TP clients
->          * don't send the PPP header (PPP header compression enabled), but
->          * other clients can include the header. So we cope with both cases
->          * here. The PPP header is always FF03 when using L2TP.
->          *
->          * Note that skb->data[] isn't dereferenced from a u16 ptr here since
->          * the field may be unaligned.
->          */
-> Apart from the unprecise "PPP header" term, which should be read as
-> "address and control fields", things should be quite clear.
-
-If remove the static ppph, may be more clear. Because it will cause
-person think about the ppp header.
-
-Regards
-Feng
-
+>> As each socket is bound to a physical device, how about binding
+>> the monitor there as well?
 >
->> > @@ -282,7 +282,7 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
->> >   static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
->> >                         size_t total_len)
->> >   {
->> > -   static const unsigned char ppph[2] = { 0xff, 0x03 };
->> > +   static const unsigned char ppph[2] = {PPP_ALLSTATIONS, PPP_UI};
+> Sockets aren't bound to physical devices, they are bound globally in the
+> af_vsock.ko module.  The module currently doesn't allow multiple
+> instances (you cannot have multiple VMCI or virtio transports).
+>
+>> Only sockets from this device
+>> would do the forwarding, and only one monitor per
+>> device would be supported.
 >>
->> PPP has a 4-byte header.  Where's the protocol value?
->>
-> No, PPP header (whatever you include in it) is of variable length. And
-> the protocol has already been set by the PPP layer anyway.
-> We're in L2TP here.
+>> In a sense this will make it more like macvtap than tap.
+>
+> Restricting the number of monitors could make userspace cumbersome.
+> Imagine two scripts that want to capture packets.  The two scripts have
+> no knowledge of each other and create their own vsockmon interfaces.  If
+> we restrict vsockmon to just 1 interface then users need to agree on
+> sharing just 1 vsockmon interface.  I don't think this is beneficial.
+>
+> So I think this global list is acceptable until we introduce network
+> namespace support.  At that point it will become per-namespace.
+>
+
+Sorry, I was out last week.
+
+I don't have much to add to what Stefan said. I agree that when vsock 
+introduces namespace support it will be necessary to have monitors 
+divided per-namespace. Right now, if only one af_vsock instance is 
+allowed, I think it makes sense to have a global list of taps.
+
+Gerard
