@@ -1,29 +1,47 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH v5 net-next] l2tp: Refactor the codes with existing
- macros instead of literal number
-Date: Mon, 22 Aug 2016 17:02:08 +0200
-Message-ID: <20160822150208.vtthd4ghhudv66lp@alphalink.fr>
-References: <1471877402-31384-1-git-send-email-fgao@ikuai8.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 3/4] dsa: mv88e6xxx: Delete ppu timer when removing module
+Date: Mon, 22 Aug 2016 17:07:45 +0200
+Message-ID: <20160822150745.GC16229@lunn.ch>
+References: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
+ <1471874464-16142-4-git-send-email-andrew@lunn.ch>
+ <87zio47t7s.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jchapman@katalix.com, philipp@redfish-solutions.com,
-        davem@davemloft.net, netdev@vger.kernel.org, gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: David Miller <davem@davemloft.net>, Jamie Lentin <jm@lentin.co.uk>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:45101 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754748AbcHVPDD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 11:03:03 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:40668 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751774AbcHVPHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 22 Aug 2016 11:07:51 -0400
 Content-Disposition: inline
-In-Reply-To: <1471877402-31384-1-git-send-email-fgao@ikuai8.com>
+In-Reply-To: <87zio47t7s.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 10:50:02PM +0800, fgao@ikuai8.com wrote:
-> From: Gao Feng <fgao@ikuai8.com>
+On Mon, Aug 22, 2016 at 10:51:03AM -0400, Vivien Didelot wrote:
+> Hi Andrew,
 > 
-> Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
-> 0x03, and 2 separately.
+> Andrew Lunn <andrew@lunn.ch> writes:
 > 
+> > The PPU method of accessing PHYs makes use of a timer. Make sure this
+> > timer is deleted before unloading the driver.
+> >
+> > Reported-by: Jamie Lentin <jm@lentin.co.uk>
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> 
+> I'm wondering if the PPU shouldn't be disabled before unloading the
+> module...
 
-Acked-by: Guillaume Nault <g.nault@alphalink.fr>
+Humm, i did not thing about that.
+
+Actually, we have a general issue here. On unload, we leave the switch
+'running'. The SF2 driver disables all the ports. The b53 seems to
+leave the switch running.
+
+We should define a general policy about this, and implement it in all
+drivers. As such, your comment is valid, but a different patch set.
+
+	Andrew
