@@ -1,152 +1,44 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: [PATCH v05 64/72] include/uapi/linux/ipx.h: fix conflicting defitions with glibc netipx/ipx.h
-Date: Mon, 22 Aug 2016 20:33:21 +0200
-Message-ID: <1471890809-4383-65-git-send-email-mikko.rapeli@iki.fi>
-References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
+From: Dave Watson <davejwatson@fb.com>
+Subject: [PATCH net-next] net: strparser: fix strparser sk_user_data check
+Date: Mon, 22 Aug 2016 12:27:04 -0700
+Message-ID: <20160822192704.GA34359@davejwatson-mba.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Mikko Rapeli <mikko.rapeli@iki.fi>,
-        Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:51137 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752089AbcHVT1P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 15:27:15 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fixes these compiler warnings via libc-compat.h when glibc netipx/ipx.h is
-included before linux/ipx.h:
+sk_user_data mismatch between what kcm expects (psock) and what strparser expects (strparser).
 
-./linux/ipx.h:9:8: error: redefinition of ‘struct sockaddr_ipx’
-./linux/ipx.h:26:8: error: redefinition of ‘struct ipx_route_definition’
-./linux/ipx.h:32:8: error: redefinition of ‘struct ipx_interface_definition’
-./linux/ipx.h:49:8: error: redefinition of ‘struct ipx_config_data’
-./linux/ipx.h:58:8: error: redefinition of ‘struct ipx_route_def’
+Queued rx_work, for example calling strp_check_rcv after socket buffer changes, will never complete.
 
-Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+sk_user_data is unused in strparser, so just remove the check.
+
+Signed-off-by: Dave Watson <davejwatson@fb.com>
 ---
- include/uapi/linux/ipx.h         | 13 ++++++++++++-
- include/uapi/linux/libc-compat.h | 26 ++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+), 1 deletion(-)
+ net/strparser/strparser.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/include/uapi/linux/ipx.h b/include/uapi/linux/ipx.h
-index 3d48014..30f031d 100644
---- a/include/uapi/linux/ipx.h
-+++ b/include/uapi/linux/ipx.h
-@@ -1,11 +1,13 @@
- #ifndef _IPX_H_
- #define _IPX_H_
-+#include <linux/libc-compat.h>	/* for compatibility with glibc netipx/ipx.h */
- #include <linux/types.h>
- #include <linux/sockios.h>
- #include <linux/socket.h>
- #define IPX_NODE_LEN	6
- #define IPX_MTU		576
+diff --git a/net/strparser/strparser.c b/net/strparser/strparser.c
+index fd688c0..68334b5 100644
+--- a/net/strparser/strparser.c
++++ b/net/strparser/strparser.c
+@@ -390,9 +390,6 @@ static void do_strp_rx_work(struct strparser *strp)
+ 	 */
+ 	lock_sock(csk);
  
-+#if __UAPI_DEF_SOCKADDR_IPX
- struct sockaddr_ipx {
- 	__kernel_sa_family_t sipx_family;
- 	__be16		sipx_port;
-@@ -14,6 +16,7 @@ struct sockaddr_ipx {
- 	__u8		sipx_type;
- 	unsigned char	sipx_zero;	/* 16 byte fill */
- };
-+#endif /* __UAPI_DEF_SOCKADDR_IPX */
- 
- /*
-  * So we can fit the extra info for SIOCSIFADDR into the address nicely
-@@ -23,12 +26,15 @@ struct sockaddr_ipx {
- #define IPX_DLTITF	0
- #define IPX_CRTITF	1
- 
-+#if __UAPI_DEF_IPX_ROUTE_DEFINITION
- struct ipx_route_definition {
- 	__be32        ipx_network;
- 	__be32        ipx_router_network;
- 	unsigned char ipx_router_node[IPX_NODE_LEN];
- };
-+#endif /* __UAPI_DEF_IPX_ROUTE_DEFINITION */
- 
-+#if __UAPI_DEF_IPX_INTERFACE_DEFINITION
- struct ipx_interface_definition {
- 	__be32        ipx_network;
- 	unsigned char ipx_device[16];
-@@ -45,16 +51,20 @@ struct ipx_interface_definition {
- #define IPX_INTERNAL		2
- 	unsigned char ipx_node[IPX_NODE_LEN];
- };
--	
-+#endif /* __UAPI_DEF_IPX_INTERFACE_DEFINITION */
-+
-+#if __UAPI_DEF_IPX_CONFIG_DATA
- struct ipx_config_data {
- 	unsigned char	ipxcfg_auto_select_primary;
- 	unsigned char	ipxcfg_auto_create_interfaces;
- };
-+#endif /* __UAPI_DEF_IPX_CONFIG_DATA */
- 
- /*
-  * OLD Route Definition for backward compatibility.
-  */
- 
-+#if __UAPI_DEF_IPX_ROUTE_DEF
- struct ipx_route_def {
- 	__be32		ipx_network;
- 	__be32		ipx_router_network;
-@@ -67,6 +77,7 @@ struct ipx_route_def {
- #define IPX_RT_BLUEBOOK		2
- #define IPX_RT_ROUTED		1
- };
-+#endif /* __UAPI_DEF_IPX_ROUTE_DEF */
- 
- #define SIOCAIPXITFCRT		(SIOCPROTOPRIVATE)
- #define SIOCAIPXPRISLT		(SIOCPROTOPRIVATE + 1)
-diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-index e4f048e..44b8a6b 100644
---- a/include/uapi/linux/libc-compat.h
-+++ b/include/uapi/linux/libc-compat.h
-@@ -139,6 +139,25 @@
- 
- #endif /* _NETINET_IN_H */
- 
-+/* Coordinate with glibc netipx/ipx.h header. */
-+#if defined(__NETIPX_IPX_H)
-+
-+#define __UAPI_DEF_SOCKADDR_IPX			0
-+#define __UAPI_DEF_IPX_ROUTE_DEFINITION		0
-+#define __UAPI_DEF_IPX_INTERFACE_DEFINITION	0
-+#define __UAPI_DEF_IPX_CONFIG_DATA		0
-+#define __UAPI_DEF_IPX_ROUTE_DEF		0
-+
-+#else /* defined(__NETIPX_IPX_H) */
-+
-+#define __UAPI_DEF_SOCKADDR_IPX			1
-+#define __UAPI_DEF_IPX_ROUTE_DEFINITION		1
-+#define __UAPI_DEF_IPX_INTERFACE_DEFINITION	1
-+#define __UAPI_DEF_IPX_CONFIG_DATA		1
-+#define __UAPI_DEF_IPX_ROUTE_DEF		1
-+
-+#endif /* defined(__NETIPX_IPX_H) */
-+
- /* Definitions for xattr.h */
- #if defined(_SYS_XATTR_H)
- #define __UAPI_DEF_XATTR		0
-@@ -179,6 +198,13 @@
- #define __UAPI_DEF_IN6_PKTINFO		1
- #define __UAPI_DEF_IP6_MTUINFO		1
- 
-+/* Definitions for ipx.h */
-+#define __UAPI_DEF_SOCKADDR_IPX			1
-+#define __UAPI_DEF_IPX_ROUTE_DEFINITION		1
-+#define __UAPI_DEF_IPX_INTERFACE_DEFINITION	1
-+#define __UAPI_DEF_IPX_CONFIG_DATA		1
-+#define __UAPI_DEF_IPX_ROUTE_DEF		1
-+
- /* Definitions for xattr.h */
- #define __UAPI_DEF_XATTR		1
+-	if (unlikely(csk->sk_user_data != strp))
+-		goto out;
+-
+ 	if (unlikely(strp->rx_stopped))
+ 		goto out;
  
 -- 
-2.8.1
+2.8.0.rc2
