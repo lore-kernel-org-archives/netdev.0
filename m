@@ -1,36 +1,34 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] zd1211rw: fix spelling mistake "firmeware" -> "firmware"
-Date: Mon, 22 Aug 2016 19:35:05 +0100
-Message-ID: <20160822183505.26568-1-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Daniel Drake <dsd@gentoo.org>, Ulrich Kunitz <kune@deine-taler.de>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [for-next V2 00/17][PULL request] Mellanox mlx5 core driver
+ updates 2016-08-20
+Date: Mon, 22 Aug 2016 11:49:01 -0700 (PDT)
+Message-ID: <20160822.114901.1630384348955570449.davem@davemloft.net>
+References: <1471884674-22709-1-git-send-email-saeedm@mellanox.com>
+        <20160822.101128.1274162717645753985.davem@davemloft.net>
+        <CALzJLG-eucDbJc=eo4HPvqnw-nvoXXAR1vsGPts8WFP3NR5T+Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: saeedm@mellanox.com, dledford@redhat.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, leonro@mellanox.com,
+        talal@mellanox.com, matanb@mellanox.com
+To: saeedm@dev.mellanox.co.il
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45126 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753468AbcHVStE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 14:49:04 -0400
+In-Reply-To: <CALzJLG-eucDbJc=eo4HPvqnw-nvoXXAR1vsGPts8WFP3NR5T+Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Date: Mon, 22 Aug 2016 20:56:43 +0300
 
-Trivial fix to spelling mistake in dev_err message.
+> Technical question though. Do i need to create a new tag for the new
+> pull request? I mean, should the tag always point to the "up to" patch
+> in the pull request? or can I just use the same tag for the new pull
+> request with different "up to" commit ?
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/zydas/zd1211rw/zd_usb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/zydas/zd1211rw/zd_usb.c b/drivers/net/wireless/zydas/zd1211rw/zd_usb.c
-index a912dc0..c5effd6c 100644
---- a/drivers/net/wireless/zydas/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zydas/zd1211rw/zd_usb.c
-@@ -193,7 +193,7 @@ static int upload_code(struct usb_device *udev,
- 			0, 0, p, sizeof(ret), 5000 /* ms */);
- 		if (r != sizeof(ret)) {
- 			dev_err(&udev->dev,
--				"control request firmeware confirmation failed."
-+				"control request firmware confirmation failed."
- 				" Return value %d\n", r);
- 			if (r >= 0)
- 				r = -ENODEV;
--- 
-2.9.3
+Since you're obviously not going to be asking me to pull the same
+set of changes, the tag by definition will have to be different.
