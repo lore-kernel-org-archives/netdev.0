@@ -1,26 +1,88 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH -next] netfilter: nft_hash: fix non static symbol warning
-Date: Mon, 22 Aug 2016 11:45:32 +0200
-Message-ID: <20160822094532.GA10159@salvia>
-References: <1471792870-16895-1-git-send-email-weiyj.lk@gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH v3 net-next] l2tp: Refactor the codes with existing
+ macros instead of literal number
+Date: Mon, 22 Aug 2016 11:48:13 +0200
+Message-ID: <20160822094813.bpch2uzyhtbnrqmx@alphalink.fr>
+References: <1471708347-18063-1-git-send-email-fgao@ikuai8.com>
+ <9423c2ce-fb0c-818c-1b27-d45668f4a015@redfish-solutions.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, Wei Yongjun <weiyongjun1@huawei.com>
-To: Wei Yongjun <weiyj.lk@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: fgao@48lvckh6395k16k5.yundunddos.com, paulus@samba.org,
+        davem@davemloft.net, netdev@vger.kernel.org, gfree.wind@gmail.com
+To: Philp Prindeville <philipp@redfish-solutions.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:47187 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750927AbcHVJsV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 05:48:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1471792870-16895-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <9423c2ce-fb0c-818c-1b27-d45668f4a015@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 21, 2016 at 03:21:10PM +0000, Wei Yongjun wrote:
-> Fixes the following sparse warning:
+On Sun, Aug 21, 2016 at 04:36:52PM -0600, Philp Prindeville wrote:
+> Inline
 > 
-> net/netfilter/nft_hash.c:40:25: warning:
->  symbol 'nft_hash_policy' was not declared. Should it be static?
+> 
+> On 08/20/2016 09:52 AM, fgao@48lvckh6395k16k5.yundunddos.com wrote:
+> > From: Gao Feng <fgao@ikuai8.com>
+> > 
+> > Use PPP_ALLSTATIONS, PPP_UI, and SEND_SHUTDOWN instead of 0xff,
+> > 0x03, and 2 separately.
+> > 
+> > Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> > ---
+> >   v3: Modify the subject;
+> >   v2: Only replace the literal number with macros according to Guillaume's advice
+> >   v1: Inital patch
+> > 
+> >   net/l2tp/l2tp_ppp.c | 8 ++++----
+> >   1 file changed, 4 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+> > index d9560aa..65e2fd6 100644
+> > --- a/net/l2tp/l2tp_ppp.c
+> > +++ b/net/l2tp/l2tp_ppp.c
+> > @@ -177,7 +177,7 @@ static int pppol2tp_recv_payload_hook(struct sk_buff *skb)
+> >   	if (!pskb_may_pull(skb, 2))
+> >   		return 1;
+> > -	if ((skb->data[0] == 0xff) && (skb->data[1] == 0x03))
+> > +	if ((skb->data[0] == PPP_ALLSTATIONS) && (skb->data[1] == PPP_UI))
+> 
+> This should have used PPP_ADDRESS() and PPP_CONTROL() here.
+>
+Then please justify how would that make the code more readable.
+We're not trying to interpret a known valid PPP header here.
 
-Applied, thanks.
+> >   		skb_pull(skb, 2);
+> 
+> This magic number should go away.
+>
+Again, this is *not* a magic number. We've explicitely accessed the
+first _two_ header bytes and want to skip them.
+pskb_may_pull(2), ->data[0], ->data[1] and skb_pull(2) all go together.
+
+There's even a nice comment telling you what is done and why:
+	/* Skip PPP header, if present.	 In testing, Microsoft L2TP clients
+	 * don't send the PPP header (PPP header compression enabled), but
+	 * other clients can include the header. So we cope with both cases
+	 * here. The PPP header is always FF03 when using L2TP.
+	 *
+	 * Note that skb->data[] isn't dereferenced from a u16 ptr here since
+	 * the field may be unaligned.
+	 */
+Apart from the unprecise "PPP header" term, which should be read as
+"address and control fields", things should be quite clear.
+
+> > @@ -282,7 +282,7 @@ static void pppol2tp_session_sock_put(struct l2tp_session *session)
+> >   static int pppol2tp_sendmsg(struct socket *sock, struct msghdr *m,
+> >   			    size_t total_len)
+> >   {
+> > -	static const unsigned char ppph[2] = { 0xff, 0x03 };
+> > +	static const unsigned char ppph[2] = {PPP_ALLSTATIONS, PPP_UI};
+> 
+> PPP has a 4-byte header.  Where's the protocol value?
+>
+No, PPP header (whatever you include in it) is of variable length. And
+the protocol has already been set by the PPP layer anyway.
+We're in L2TP here.
