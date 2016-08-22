@@ -1,7 +1,7 @@
 From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 14/20] batman-adv: Place kref_get for softif_vlan near use
-Date: Mon, 22 Aug 2016 15:56:14 +0200
-Message-ID: <20160822135620.15337-15-sw@simonwunderlich.de>
+Subject: [PATCH 13/20] batman-adv: Place kref_get for hard_iface near use
+Date: Mon, 22 Aug 2016 15:56:13 +0200
+Message-ID: <20160822135620.15337-14-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
         Sven Eckelmann <sven@narfation.org>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
         Simon Wunderlich <sw@simonwunderlich.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:39003 "EHLO
+Received: from packetmixer.de ([79.140.42.25]:39002 "EHLO
         mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755476AbcHVN55 (ORCPT
+        with ESMTP id S1755478AbcHVN55 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 09:57:57 -0400
 In-Reply-To: <20160822135620.15337-1-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
@@ -28,30 +28,33 @@ Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
 ---
- net/batman-adv/soft-interface.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ net/batman-adv/hard-interface.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index e508bf5..49e16b6 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -594,6 +594,7 @@ int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
- 	}
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 43c9a3e..9284c73 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -694,6 +694,7 @@ batadv_hardif_add_interface(struct net_device *net_dev)
+ 	INIT_HLIST_HEAD(&hard_iface->neigh_list);
  
- 	spin_lock_bh(&bat_priv->softif_vlan_list_lock);
-+	kref_get(&vlan->refcount);
- 	hlist_add_head_rcu(&vlan->list, &bat_priv->softif_vlan_list);
- 	spin_unlock_bh(&bat_priv->softif_vlan_list_lock);
+ 	spin_lock_init(&hard_iface->neigh_list_lock);
++	kref_init(&hard_iface->refcount);
  
-@@ -604,6 +605,9 @@ int batadv_softif_create_vlan(struct batadv_priv *bat_priv, unsigned short vid)
- 			    bat_priv->soft_iface->dev_addr, vid,
- 			    BATADV_NULL_IFINDEX, BATADV_NO_MARK);
+ 	hard_iface->num_bcasts = BATADV_NUM_BCASTS_DEFAULT;
+ 	if (batadv_is_wifi_netdev(net_dev))
+@@ -701,11 +702,8 @@ batadv_hardif_add_interface(struct net_device *net_dev)
  
-+	/* don't return reference to new softif_vlan */
-+	batadv_softif_vlan_put(vlan);
-+
- 	return 0;
- }
+ 	batadv_v_hardif_init(hard_iface);
  
+-	/* extra reference for return */
+-	kref_init(&hard_iface->refcount);
+-	kref_get(&hard_iface->refcount);
+-
+ 	batadv_check_known_mac_addr(hard_iface->net_dev);
++	kref_get(&hard_iface->refcount);
+ 	list_add_tail_rcu(&hard_iface->list, &batadv_hardif_list);
+ 
+ 	return hard_iface;
 -- 
 2.9.3
