@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V3 08/18] liquidio: CN23XX queue manipulation
-Date: Sun, 21 Aug 2016 17:12:35 -0700
-Message-ID: <1471824765-26473-9-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V3 11/18] liquidio: link and control commands
+Date: Sun, 21 Aug 2016 17:12:38 -0700
+Message-ID: <1471824765-26473-12-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -16,266 +16,186 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bn3nam01on0063.outbound.protection.outlook.com ([104.47.33.63]:26776
         "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753425AbcHVA3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 21 Aug 2016 20:29:48 -0400
+        id S1753360AbcHVA3o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 21 Aug 2016 20:29:44 -0400
 In-Reply-To: <1471824765-26473-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for cn23xx queue manipulation.
+This patch adds work queue support for link status and
+control commands.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- .../ethernet/cavium/liquidio/cn23xx_pf_device.c    | 195 +++++++++++++++++++++
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |   6 +-
- 2 files changed, 197 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_core.c    |  5 +-
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 70 ++++++++++++++++++++--
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |  4 ++
+ 3 files changed, 71 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-index a410adc..1a72cc6 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn23xx_pf_device.c
-@@ -315,6 +315,53 @@ static void cn23xx_setup_global_mac_regs(struct octeon_device *oct)
- 		(oct, CN23XX_SLI_PKT_MAC_RINFO64(mac_no, pf_num)));
- }
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_core.c b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+index 809179c..5fb444d 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_core.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_core.c
+@@ -156,10 +156,9 @@ void liquidio_link_ctrl_cmd_completion(void *nctrl_ptr)
+ 		dev_info(&oct->pci_dev->dev, "%s MTU Changed from %d to %d\n",
+ 			 netdev->name, netdev->mtu,
+ 			 nctrl->ncmd.s.param1);
+-		rtnl_lock();
+ 		netdev->mtu = nctrl->ncmd.s.param1;
+-		call_netdevice_notifiers(NETDEV_CHANGEMTU, netdev);
+-		rtnl_unlock();
++		queue_delayed_work(lio->link_status_wq.wq,
++				   &lio->link_status_wq.wk.work, 0);
+ 		break;
  
-+static int cn23xx_reset_io_queues(struct octeon_device *oct)
-+{
-+	int ret_val = 0;
-+	u64 d64;
-+	u32 q_no, srn, ern;
-+
-+	srn = oct->sriov_info.pf_srn;
-+	ern = srn + oct->sriov_info.num_pf_rings;
-+
-+	/*As per HRM reg description, s/w cant write 0 to ENB. */
-+	/*to make the queue off, need to set the RST bit. */
-+
-+	/* Reset the Enable bit for all the 64 IQs.  */
-+	for (q_no = srn; q_no < ern; q_no++) {
-+		/* set RST bit to 1. This bit applies to both IQ and OQ */
-+		d64 = octeon_read_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+		d64 = d64 | CN23XX_PKT_INPUT_CTL_RST;
-+		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no), d64);
-+	}
-+
-+	/*wait until the RST bit is clear or the RST and quite bits are set*/
-+	for (q_no = srn; q_no < ern; q_no++) {
-+		u64 reg_val = octeon_read_csr64(oct,
-+					CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+		while ((READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST) &&
-+		       !(READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_QUIET)) {
-+			WRITE_ONCE(reg_val, octeon_read_csr64(
-+			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
-+		}
-+		WRITE_ONCE(reg_val, READ_ONCE(reg_val) &
-+			~CN23XX_PKT_INPUT_CTL_RST);
-+		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
-+				   READ_ONCE(reg_val));
-+
-+		WRITE_ONCE(reg_val, octeon_read_csr64(
-+			   oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
-+		if (READ_ONCE(reg_val) & CN23XX_PKT_INPUT_CTL_RST) {
-+			dev_err(&oct->pci_dev->dev,
-+				"clearing the reset failed for qno: %u\n",
-+				q_no);
-+			ret_val = -1;
-+		}
-+	}
-+
-+	return ret_val;
-+}
-+
- static void cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
- {
- 	u32 q_no, ern, srn;
-@@ -328,6 +375,8 @@ static void cn23xx_pf_setup_global_input_regs(struct octeon_device *oct)
- 	srn = oct->sriov_info.pf_srn;
- 	ern = srn + oct->sriov_info.num_pf_rings;
- 
-+	cn23xx_reset_io_queues(oct);
-+
- 	/** Set the MAC_NUM and PVF_NUM in IQ_PKT_CONTROL reg
- 	* for all queues.Only PF can set these bits.
- 	* bits 29:30 indicate the MAC num.
-@@ -552,6 +601,149 @@ static void cn23xx_setup_oq_regs(struct octeon_device *oct, u32 oq_no)
- 			 reg_val);
- }
- 
-+static void cn23xx_enable_io_queues(struct octeon_device *oct)
-+{
-+	u64 reg_val;
-+	u32 srn, ern, q_no;
-+
-+	srn = oct->sriov_info.pf_srn;
-+	ern = srn + oct->num_iqs;
-+
-+	for (q_no = srn; q_no < ern; q_no++) {
-+		/* set the corresponding IQ IS_64B bit */
-+		if (oct->io_qmask.iq64B & (1ULL << (q_no - srn))) {
-+			reg_val = octeon_read_csr64(
-+			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+			reg_val = reg_val | CN23XX_PKT_INPUT_CTL_IS_64B;
-+			octeon_write_csr64(
-+			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no), reg_val);
-+		}
-+
-+		/* set the corresponding IQ ENB bit */
-+		if (oct->io_qmask.iq & (1ULL << (q_no - srn))) {
-+			/* IOQs are in reset by default in PEM2 mode,
-+			 * clearing reset bit
-+			 */
-+			reg_val = octeon_read_csr64(
-+			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+
-+			if (reg_val & CN23XX_PKT_INPUT_CTL_RST) {
-+				while (
-+				    (reg_val & CN23XX_PKT_INPUT_CTL_RST) &&
-+				    !(reg_val & CN23XX_PKT_INPUT_CTL_QUIET)) {
-+					reg_val = octeon_read_csr64(
-+					    oct,
-+					    CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+				}
-+				reg_val = reg_val & ~CN23XX_PKT_INPUT_CTL_RST;
-+				octeon_write_csr64(
-+				    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
-+				    reg_val);
-+
-+				reg_val = octeon_read_csr64(
-+				    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+				if (reg_val & CN23XX_PKT_INPUT_CTL_RST) {
-+					dev_err(&oct->pci_dev->dev,
-+						"clearing the reset failed for qno: %u\n",
-+						q_no);
-+				}
-+			}
-+			reg_val = octeon_read_csr64(
-+			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no));
-+			reg_val = reg_val | CN23XX_PKT_INPUT_CTL_RING_ENB;
-+			octeon_write_csr64(
-+			    oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no), reg_val);
-+		}
-+	}
-+	for (q_no = srn; q_no < ern; q_no++) {
-+		u32 reg_val;
-+		/* set the corresponding OQ ENB bit */
-+		if (oct->io_qmask.oq & (1ULL << (q_no - srn))) {
-+			reg_val = octeon_read_csr(
-+			    oct, CN23XX_SLI_OQ_PKT_CONTROL(q_no));
-+			reg_val = reg_val | CN23XX_PKT_OUTPUT_CTL_RING_ENB;
-+			octeon_write_csr(oct, CN23XX_SLI_OQ_PKT_CONTROL(q_no),
-+					 reg_val);
-+		}
-+	}
-+}
-+
-+static void cn23xx_disable_io_queues(struct octeon_device *oct)
-+{
-+	int q_no = 0, loop = HZ;
-+	u64 d64 = 0ULL;
-+	u32 d32 = 0ULL;
-+	s32 srn = 0, ern = 0;
-+
-+	srn = oct->sriov_info.pf_srn;
-+	ern = srn + oct->num_iqs;
-+
-+	/*** Disable Input Queues. ***/
-+	for (q_no = srn; q_no < ern; q_no++) {
-+		loop = HZ;
-+
-+		/* start the Reset for a particular ring */
-+		WRITE_ONCE(d64, octeon_read_csr64(
-+			   oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no)));
-+		WRITE_ONCE(d64, READ_ONCE(d64) &
-+					(~(CN23XX_PKT_INPUT_CTL_RING_ENB)));
-+		WRITE_ONCE(d64, READ_ONCE(d64) | CN23XX_PKT_INPUT_CTL_RST);
-+		octeon_write_csr64(oct, CN23XX_SLI_IQ_PKT_CONTROL64(q_no),
-+				   READ_ONCE(d64));
-+
-+		/* Wait until hardware indicates that the particular IQ
-+		 * is out of reset.
-+		 */
-+		WRITE_ONCE(d64, octeon_read_csr64(
-+					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
-+		while (!(READ_ONCE(d64) & (0x1ULL << q_no)) && loop--) {
-+			WRITE_ONCE(d64, octeon_read_csr64(
-+					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
-+			schedule_timeout_uninterruptible(1);
-+		}
-+
-+		/* Reset the doorbell register for this Input Queue. */
-+		octeon_write_csr(oct, CN23XX_SLI_IQ_DOORBELL(q_no), 0xFFFFFFFF);
-+		while (((octeon_read_csr64(
-+			    oct, CN23XX_SLI_IQ_DOORBELL(q_no))) != 0ULL) &&
-+		       loop--) {
-+			schedule_timeout_uninterruptible(1);
-+		}
-+	}
-+
-+	/*** Disable Output Queues. ***/
-+	for (q_no = srn; q_no < ern; q_no++) {
-+		loop = HZ;
-+
-+		/* Wait until hardware indicates that the particular IQ
-+		 * is out of reset.It given that SLI_PKT_RING_RST is
-+		 * common for both IQs and OQs
-+		 */
-+		WRITE_ONCE(d64, octeon_read_csr64(
-+					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
-+		while (!(READ_ONCE(d64) & (0x1ULL << q_no)) && loop--) {
-+			WRITE_ONCE(d64, octeon_read_csr64(
-+					oct, CN23XX_SLI_PKT_IOQ_RING_RST));
-+			schedule_timeout_uninterruptible(1);
-+		}
-+
-+		/* Reset the doorbell register for this Output Queue. */
-+		octeon_write_csr(oct, CN23XX_SLI_OQ_PKTS_CREDIT(q_no),
-+				 0xFFFFFFFF);
-+		while (((octeon_read_csr64(
-+			    oct, CN23XX_SLI_OQ_PKTS_CREDIT(q_no))) != 0ULL) &&
-+		       loop--) {
-+			schedule_timeout_uninterruptible(1);
-+		}
-+
-+		/* clear the SLI_PKT(0..63)_CNTS[CNT] reg value */
-+		WRITE_ONCE(d32, octeon_read_csr(
-+					oct, CN23XX_SLI_OQ_PKTS_SENT(q_no)));
-+		octeon_write_csr(oct, CN23XX_SLI_OQ_PKTS_SENT(q_no),
-+				 READ_ONCE(d32));
-+	}
-+}
-+
- static void cn23xx_reinit_regs(struct octeon_device *oct)
- {
- 	u32 i;
-@@ -729,6 +921,9 @@ int setup_cn23xx_octeon_pf_device(struct octeon_device *oct)
- 	oct->fn_list.setup_device_regs = cn23xx_setup_pf_device_regs;
- 	oct->fn_list.reinit_regs = cn23xx_reinit_regs;
- 
-+	oct->fn_list.enable_io_queues = cn23xx_enable_io_queues;
-+	oct->fn_list.disable_io_queues = cn23xx_disable_io_queues;
-+
- 	cn23xx_setup_reg_address(oct);
- 
- 	oct->coproc_clock_rate = 1000000ULL * cn23xx_coprocessor_clock(oct);
+ 	case OCTNET_CMD_GPIO_ACCESS:
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index f24fa3b..6879799 100644
+index c33c5a1..1bdaa2d 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2094,10 +2094,8 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
+@@ -859,6 +859,48 @@ static void print_link_info(struct net_device *netdev)
+ }
  
- 		droq = octeon_dev->droq[q_no];
- 		napi = &droq->napi;
--		dev_dbg(&octeon_dev->pci_dev->dev,
--			"netif_napi_add netdev:%llx oct:%llx\n",
--			(u64)netdev,
--			(u64)octeon_dev);
-+		dev_dbg(&octeon_dev->pci_dev->dev, "netif_napi_add netdev:%llx oct:%llx pf_num:%d\n",
-+			(u64)netdev, (u64)octeon_dev, octeon_dev->pf_num);
- 		netif_napi_add(netdev, napi, liquidio_napi_poll, 64);
+ /**
++ * \brief Routine to notify MTU change
++ * @param work work_struct data structure
++ */
++static void octnet_link_status_change(struct work_struct *work)
++{
++	struct cavium_wk *wk = (struct cavium_wk *)work;
++	struct lio *lio = (struct lio *)wk->ctxptr;
++
++	rtnl_lock();
++	call_netdevice_notifiers(NETDEV_CHANGEMTU, lio->netdev);
++	rtnl_unlock();
++}
++
++/**
++ * \brief Sets up the mtu status change work
++ * @param netdev network device
++ */
++static inline void setup_link_status_change_wq(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++	struct octeon_device *oct = lio->oct_dev;
++
++	lio->link_status_wq.wq = alloc_workqueue("link-status",
++						 WQ_MEM_RECLAIM, 0);
++	if (!lio->link_status_wq.wq) {
++		dev_err(&oct->pci_dev->dev, "unable to create cavium link status wq\n");
++		return;
++	}
++	INIT_DELAYED_WORK(&lio->link_status_wq.wk.work,
++			  octnet_link_status_change);
++	lio->link_status_wq.wk.ctxptr = lio;
++}
++
++static inline void cleanup_link_status_change_wq(struct net_device *netdev)
++{
++	struct lio *lio = GET_LIO(netdev);
++
++	cancel_delayed_work_sync(&lio->link_status_wq.wk.work);
++	destroy_workqueue(lio->link_status_wq.wq);
++}
++
++/**
+  * \brief Update link status
+  * @param netdev network device
+  * @param ls link status structure
+@@ -1385,11 +1427,16 @@ static void liquidio_destroy_nic_device(struct octeon_device *oct, int ifidx)
+ 			napi_disable(napi);
  
- 		/* designate a CPU for this droq */
+ 		oct->props[lio->ifidx].napi_enabled = 0;
++
++		if (OCTEON_CN23XX_PF(oct))
++			oct->droq[0]->ops.poll_mode = 0;
+ 	}
+ 
+ 	if (atomic_read(&lio->ifstate) & LIO_IFSTATE_REGISTERED)
+ 		unregister_netdev(netdev);
+ 
++	cleanup_link_status_change_wq(netdev);
++
+ 	delete_glists(lio);
+ 
+ 	free_netdev(netdev);
+@@ -2267,6 +2314,14 @@ static inline int setup_io_queues(struct octeon_device *octeon_dev,
+ 		octeon_register_droq_ops(octeon_dev, q_no, &droq_ops);
+ 	}
+ 
++	if (OCTEON_CN23XX_PF(octeon_dev)) {
++		/* 23XX PF can receive control messages (via the first PF-owned
++		 * droq) from the firmware even if the ethX interface is down,
++		 * so that's why poll_mode must be off for the first droq.
++		 */
++		octeon_dev->droq[0]->ops.poll_mode = 0;
++	}
++
+ 	/* set up IQs. */
+ 	for (q = 0; q < lio->linfo.num_txpciq; q++) {
+ 		num_tx_descs = CFG_GET_NUM_TX_DESCS_NIC_IF(octeon_get_conf
+@@ -2348,12 +2403,20 @@ static int liquidio_open(struct net_device *netdev)
+ 			napi_enable(napi);
+ 
+ 		oct->props[lio->ifidx].napi_enabled = 1;
++
++		if (OCTEON_CN23XX_PF(oct))
++			oct->droq[0]->ops.poll_mode = 1;
+ 	}
+ 
+ 	oct_ptp_open(netdev);
+ 
+ 	ifstate_set(lio, LIO_IFSTATE_RUNNING);
+ 
++	/* Ready for link status updates */
++	lio->intf_open = 1;
++
++	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
++
+ 	if (OCTEON_CN23XX_PF(oct)) {
+ 		if (!oct->msix_on)
+ 			setup_tx_poll_fn(netdev);
+@@ -2363,14 +2426,9 @@ static int liquidio_open(struct net_device *netdev)
+ 
+ 	start_txq(netdev);
+ 
+-	netif_info(lio, ifup, lio->netdev, "Interface Open, ready for traffic\n");
+-
+ 	/* tell Octeon to start forwarding packets to host */
+ 	send_rx_ctrl_cmd(lio, 1);
+ 
+-	/* Ready for link status updates */
+-	lio->intf_open = 1;
+-
+ 	dev_info(&oct->pci_dev->dev, "%s interface is opened\n",
+ 		 netdev->name);
+ 
+@@ -3663,6 +3721,8 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
+ 			liquidio_set_feature(netdev,
+ 					     OCTNET_CMD_VERBOSE_ENABLE, 0);
+ 
++		setup_link_status_change_wq(netdev);
++
+ 		/* Register the network device with the OS */
+ 		if (register_netdev(netdev)) {
+ 			dev_err(&octeon_dev->pci_dev->dev, "Device registration failed\n");
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_network.h b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
+index 7cfbdf9..d3b68d8 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_network.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_network.h
+@@ -122,6 +122,10 @@ struct lio {
+ 
+ 	/* work queue for  txq status */
+ 	struct cavium_wq	txq_status_wq;
++
++	/* work queue for  link status */
++	struct cavium_wq	link_status_wq;
++
+ };
+ 
+ #define LIO_SIZE         (sizeof(struct lio))
 -- 
 1.8.3.1
