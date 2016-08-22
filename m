@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 01/20] batman-adv: Place kref_get for
-	orig_node_vlan near use
-Date: Mon, 22 Aug 2016 15:56:01 +0200
-Message-ID: <20160822135620.15337-2-sw@simonwunderlich.de>
+Subject: [PATCH 02/20] batman-adv: Place kref_get for
+	orig_ifinfo near use
+Date: Mon, 22 Aug 2016 15:56:02 +0200
+Message-ID: <20160822135620.15337-3-sw@simonwunderlich.de>
 References: <20160822135620.15337-1-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -33,23 +33,20 @@ Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/originator.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/originator.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 95c8555..5108af1 100644
+index 5108af1..8828964 100644
 --- a/net/batman-adv/originator.c
 +++ b/net/batman-adv/originator.c
-@@ -133,9 +133,9 @@ batadv_orig_node_vlan_new(struct batadv_orig_node *orig_node,
- 		goto out;
- 
- 	kref_init(&vlan->refcount);
--	kref_get(&vlan->refcount);
- 	vlan->vid = vid;
- 
-+	kref_get(&vlan->refcount);
- 	hlist_add_head_rcu(&vlan->list, &orig_node->vlan_list);
- 
- out:
+@@ -386,6 +386,7 @@ batadv_orig_ifinfo_new(struct batadv_orig_node *orig_node,
+ 	orig_ifinfo->if_outgoing = if_outgoing;
+ 	INIT_HLIST_NODE(&orig_ifinfo->list);
+ 	kref_init(&orig_ifinfo->refcount);
++
+ 	kref_get(&orig_ifinfo->refcount);
+ 	hlist_add_head_rcu(&orig_ifinfo->list,
+ 			   &orig_node->ifinfo_list);
 -- 
 2.9.3
