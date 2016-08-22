@@ -1,44 +1,80 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH] net: ipconfig: Fix NULL pointer dereference on RARP/BOOTP/DHCP timeout
-Date: Mon, 22 Aug 2016 15:01:03 +0200
-Message-ID: <1471870863-29687-1-git-send-email-geert+renesas@glider.be>
-Cc: Thierry Reding <treding@nvidia.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S. Miller" <davem@davemloft.net>,
-        =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-        <u.kleine-koenig@pengutronix.de>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: Re: [PATCH 1/1] brcmfmac: fix pmksa->bssid usage
+Date: Mon, 22 Aug 2016 15:03:59 +0200
+Message-ID: <96ea6e57-79d7-d4ff-1228-6f22addd4996@m4x.org>
+References: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160805203418.32162-1-nicolas.iooss_linux@m4x.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If no RARP, BOOTP, or DHCP response is received, ic_dev is never set,
-causing a NULL pointer dereference in ic_close_devs():
+Hello,
 
-    Sending DHCP requests ...... timed out!
-    Unable to handle kernel NULL pointer dereference at virtual address 00000004
+After I sent the following patch a few weeks ago, I have not received
+any feedback. Could you please review it and tell me what I may have
+done wrong?
 
-To fix this, add a check to avoid dereferencing ic_dev if it is still
-NULL.
+Thanks,
+Nicolas
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Fixes: 2647cffb2bc6fbed ("net: ipconfig: Support using "delayed" DHCP replies")
----
- net/ipv4/ipconfig.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index ba9cbeafbb2e0817..071a785c65eb7ab5 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -306,7 +306,7 @@ static void __init ic_close_devs(void)
- 	while ((d = next)) {
- 		next = d->next;
- 		dev = d->dev;
--		if (dev != ic_dev->dev && !netdev_uses_dsa(dev)) {
-+		if ((!ic_dev || dev != ic_dev->dev) && !netdev_uses_dsa(dev)) {
- 			pr_debug("IP-Config: Downing %s\n", dev->name);
- 			dev_change_flags(dev, d->flags);
- 		}
--- 
-1.9.1
+On 05/08/16 22:34, Nicolas Iooss wrote:
+> The struct cfg80211_pmksa defines its bssid field as:
+> 
+>     const u8 *bssid;
+> 
+> contrary to struct brcmf_pmksa, which uses:
+> 
+>     u8 bssid[ETH_ALEN];
+> 
+> Therefore in brcmf_cfg80211_del_pmksa(), &pmksa->bssid takes the address
+> of this field (of type u8**), not the one of its content (which would be
+> u8*).  Remove the & operator to make brcmf_dbg("%pM") and memcmp()
+> behave as expected.
+> 
+> This bug have been found using a custom static checker (which checks the
+> usage of %p... attributes at build time).  It has been introduced in
+> commit 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code"),
+> which replaced pmksa->bssid by &pmksa->bssid while refactoring the code,
+> without modifying struct cfg80211_pmksa definition.
+> 
+> Fixes: 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code")
+> Cc: stable@ger.kernel.org
+> Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+> ---
+> 
+> scripts/checkpatch.pl reports a warning: "Prefer ether_addr_equal() or
+> ether_addr_equal_unaligned() over memcmp()".  Because some files in
+> drivers/net/wireless/broadcom/brcm80211/brcmfmac/ still use memcmp()
+> to compare addresses and because I do not know whether pmksa->bssid is
+> always aligned, I did not follow this warning.
+> 
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+> index 2628d5e12c64..aceab77cd95a 100644
+> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+> @@ -3884,11 +3884,11 @@ brcmf_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *ndev,
+>  	if (!check_vif_up(ifp->vif))
+>  		return -EIO;
+>  
+> -	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", &pmksa->bssid);
+> +	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", pmksa->bssid);
+>  
+>  	npmk = le32_to_cpu(cfg->pmk_list.npmk);
+>  	for (i = 0; i < npmk; i++)
+> -		if (!memcmp(&pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
+> +		if (!memcmp(pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
+>  			break;
+>  
+>  	if ((npmk > 0) && (i < npmk)) {
+> 
