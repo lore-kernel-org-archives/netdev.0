@@ -1,184 +1,254 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 2/5] rxrpc: Tidy up the rxrpc_call struct a bit
-Date: Tue, 23 Aug 2016 16:26:32 +0100
-Message-ID: <147196599214.28271.8529794995585869671.stgit@warthog.procyon.org.uk>
-References: <147196597852.28271.4071308846084923450.stgit@warthog.procyon.org.uk>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH v1 1/1]  net: phy: Add Edge-rate driver for Microsemi PHYs.
+Date: Tue, 23 Aug 2016 13:52:49 +0000
+Message-ID: <646450A91FAED74E85C6E9C4D6E936A145335D0E@avsrvexchmbx1.microsemi.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <147196597852.28271.4071308846084923450.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Andrew Lunn (andrew@lunn.ch)" <andrew@lunn.ch>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0053.outbound.protection.outlook.com ([104.47.37.53]:23627
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752875AbcHWP1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 11:27:34 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do a little tidying of the rxrpc_call struct:
+Hello,
 
- (1) in_clientflag is no longer compared against the value that's in the
-     packet, so keeping it in this form isn't necessary.  Use a flag in
-     flags instead and provide a pair of wrapper functions.
+The Microsemi PHY (VSC 85xx) device includes programmable control of the ri=
+se/fall times for the MAC interface signals.
+The default setting will select the fastest rise/fall times. With the edge_=
+rate_cntl_set( ) function control the rise/fall time.
+Edge rate control status will get by edge_rate_cntl_get( ) function.
 
- (2) We don't read the epoch value, so that can go.
+Test Setup:
+-------------
+This feature tested on Beagle bone Black with VSC 8531 PHY hardware.
 
- (3) Move what remains of the data that were used for hashing up in the
-     struct to be with the channel number.
+Please review and code and send your comments.
 
- (4) Get rid of the local pointer.  We can get at this via the socket
-     struct and we only use this in the procfs viewer.
+Thanks,
+Raju.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+>From bf25b48bebb896b5dd489294d144c0dfdfa788f1 Mon Sep 17 00:00:00 2001
+From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Date: Tue, 23 Aug 2016 18:29:17 +0530
+Subject: [PATCH v1 1/1] net: phy: Add Edge-rate driver for Microsemi PHYs.
+
+Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 ---
+ drivers/net/phy/mscc.c | 109 +++++++++++++++++++++++++++++++++++++--------=
+----
+ include/linux/mscc.h   |  34 +++++++++++++++
+ include/linux/phy.h    |   2 +
+ 3 files changed, 118 insertions(+), 27 deletions(-)
+ create mode 100644 include/linux/mscc.h
 
- net/rxrpc/ar-internal.h |   23 +++++++++++++++--------
- net/rxrpc/call_object.c |    7 +------
- net/rxrpc/conn_client.c |    1 -
- net/rxrpc/output.c      |    4 ++--
- net/rxrpc/proc.c        |    6 +++---
- 5 files changed, 21 insertions(+), 20 deletions(-)
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index 6cc3036..963bf64 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -11,34 +11,9 @@
+ #include <linux/mdio.h>
+ #include <linux/mii.h>
+ #include <linux/phy.h>
++#include <linux/mscc.h>
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 3a2f4c214811..0e6bc8227d54 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -344,6 +344,7 @@ enum rxrpc_call_flag {
- 	RXRPC_CALL_INIT_ACCEPT,		/* acceptance was initiated */
- 	RXRPC_CALL_HAS_USERID,		/* has a user ID attached */
- 	RXRPC_CALL_EXPECT_OOS,		/* expect out of sequence packets */
-+	RXRPC_CALL_IS_SERVICE,		/* Call is service call */
- };
- 
- /*
-@@ -431,8 +432,11 @@ struct rxrpc_call {
- 	int			error_report;	/* Network error (ICMP/local transport) */
- 	int			error;		/* Local error incurred */
- 	enum rxrpc_call_state	state : 8;	/* current state of call */
--	int			debug_id;	/* debug ID for printks */
- 	u8			channel;	/* connection channel occupied by this call */
-+	u16			service_id;	/* service ID */
-+	u32			call_id;	/* call ID on connection  */
-+	u32			cid;		/* connection ID plus channel index */
-+	int			debug_id;	/* debug ID for printks */
- 
- 	/* transmission-phase ACK management */
- 	u8			acks_head;	/* offset into window of first entry */
-@@ -460,13 +464,6 @@ struct rxrpc_call {
- 	/* received packet records, 1 bit per record */
- #define RXRPC_ACKR_WINDOW_ASZ DIV_ROUND_UP(RXRPC_MAXACKS, BITS_PER_LONG)
- 	unsigned long		ackr_window[RXRPC_ACKR_WINDOW_ASZ + 1];
+-enum rgmii_rx_clock_delay {
+-       RGMII_RX_CLK_DELAY_0_2_NS =3D 0,
+-       RGMII_RX_CLK_DELAY_0_8_NS =3D 1,
+-       RGMII_RX_CLK_DELAY_1_1_NS =3D 2,
+-       RGMII_RX_CLK_DELAY_1_7_NS =3D 3,
+-       RGMII_RX_CLK_DELAY_2_0_NS =3D 4,
+-       RGMII_RX_CLK_DELAY_2_3_NS =3D 5,
+-       RGMII_RX_CLK_DELAY_2_6_NS =3D 6,
+-       RGMII_RX_CLK_DELAY_3_4_NS =3D 7
+-};
 -
--	u8			in_clientflag;	/* Copy of conn->in_clientflag */
--	struct rxrpc_local	*local;		/* Local endpoint. */
--	u32			call_id;	/* call ID on connection  */
--	u32			cid;		/* connection ID plus channel index */
--	u32			epoch;		/* epoch of this connection */
--	u16			service_id;	/* service ID */
- };
- 
- /*
-@@ -527,6 +524,16 @@ void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
- void __rxrpc_put_call(struct rxrpc_call *);
- void __exit rxrpc_destroy_all_calls(void);
- 
-+static inline bool rxrpc_is_service_call(const struct rxrpc_call *call)
+-#define MII_VSC85XX_INT_MASK              25
+-#define MII_VSC85XX_INT_MASK_MASK         0xa000
+-#define MII_VSC85XX_INT_STATUS            26
+-
+-#define MSCC_EXT_PAGE_ACCESS              31
+-#define MSCC_PHY_PAGE_STANDARD            0x0000 /* Standard registers */
+-#define MSCC_PHY_PAGE_EXTENDED_2          0x0002 /* Extended reg - page 2 =
+*/
+-
+-/* Extended Page 2 Registers */
+-#define MSCC_PHY_RGMII_CNTL                       20
+-#define RGMII_RX_CLK_DELAY_MASK                   0x0070
+-#define RGMII_RX_CLK_DELAY_POS            4
+-
+-/* Microsemi PHY ID's */
+-#define PHY_ID_VSC8531                            0x00070570
+-#define PHY_ID_VSC8541                            0x00070770
++#include "mscc_reg.h"
+
+ static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
+ {
+@@ -109,6 +84,82 @@ static int vsc85xx_config_intr(struct phy_device *phyde=
+v)
+        return rc;
+ }
+
++static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
++                                     u8     *rate)
 +{
-+	return test_bit(RXRPC_CALL_IS_SERVICE, &call->flags);
++       int rc;
++       u16 reg_val;
++       u8  edge_rate =3D *rate;
++
++       mutex_lock(&phydev->lock);
++       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
++       if (rc !=3D 0)
++               goto out_unlock;
++       reg_val =3D phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
++       reg_val &=3D ~(EDGE_RATE_CNTL_MASK);
++       reg_val |=3D (edge_rate << EDGE_RATE_CNTL_POS);
++       phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
++       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++       mutex_unlock(&phydev->lock);
++
++       return rc;
 +}
 +
-+static inline bool rxrpc_is_client_call(const struct rxrpc_call *call)
++static int vsc85xx_edge_rate_cntl_get(struct phy_device *phydev,
++                                     u8     *rate)
 +{
-+	return !rxrpc_is_service_call(call);
++       int rc;
++       u16 reg_val;
++
++       mutex_lock(&phydev->lock);
++       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
++       if (rc !=3D 0)
++               goto out_unlock;
++       reg_val =3D phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
++       reg_val &=3D EDGE_RATE_CNTL_MASK;
++       *rate =3D reg_val >> EDGE_RATE_CNTL_POS;
++       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++
++out_unlock:
++       mutex_unlock(&phydev->lock);
++
++       return rc;
 +}
 +
- /*
-  * conn_client.c
-  */
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index ae057e0740f3..5007e7ac889f 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -167,10 +167,7 @@ static struct rxrpc_call *rxrpc_alloc_client_call(struct rxrpc_sock *rx,
- 	sock_hold(&rx->sk);
- 	call->socket = rx;
- 	call->rx_data_post = 1;
--
--	call->local = rx->local;
- 	call->service_id = srx->srx_service;
--	call->in_clientflag = 0;
- 
- 	_leave(" = %p", call);
- 	return call;
-@@ -323,6 +320,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
- 	candidate->channel	= chan;
- 	candidate->rx_data_post	= 0;
- 	candidate->state	= RXRPC_CALL_SERVER_ACCEPTING;
-+	candidate->flags	|= (1 << RXRPC_CALL_IS_SERVICE);
- 	if (conn->security_ix > 0)
- 		candidate->state = RXRPC_CALL_SERVER_SECURING;
- 
-@@ -397,10 +395,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
- 	list_add_tail(&call->link, &rxrpc_calls);
- 	write_unlock_bh(&rxrpc_call_lock);
- 
--	call->local = conn->params.local;
--	call->epoch = conn->proto.epoch;
- 	call->service_id = conn->params.service_id;
--	call->in_clientflag = RXRPC_CLIENT_INITIATED;
- 
- 	_net("CALL incoming %d on CONN %d", call->debug_id, call->conn->debug_id);
- 
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 9e91f27b0d0f..d8dd8e6bb172 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -281,7 +281,6 @@ found_channel:
- 	_debug("found chan");
- 	call->conn	= conn;
- 	call->channel	= chan;
--	call->epoch	= conn->proto.epoch;
- 	call->cid	= conn->proto.cid | chan;
- 	call->call_id	= ++conn->channels[chan].call_counter;
- 	conn->channels[chan].call_id = call->call_id;
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index f4bda06b7d2d..9e626f1e2668 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -218,11 +218,11 @@ int rxrpc_do_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg, size_t len)
- 		ret = 0;
- 	} else if (cmd != RXRPC_CMD_SEND_DATA) {
- 		ret = -EINVAL;
--	} else if (!call->in_clientflag &&
-+	} else if (rxrpc_is_client_call(call) &&
- 		   call->state != RXRPC_CALL_CLIENT_SEND_REQUEST) {
- 		/* request phase complete for this client call */
- 		ret = -EPROTO;
--	} else if (call->in_clientflag &&
-+	} else if (rxrpc_is_service_call(call) &&
- 		   call->state != RXRPC_CALL_SERVER_ACK_REQUEST &&
- 		   call->state != RXRPC_CALL_SERVER_SEND_REPLY) {
- 		/* Reply phase not begun or not complete for service call. */
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index ced5f07444e5..f92de18b5893 100644
---- a/net/rxrpc/proc.c
-+++ b/net/rxrpc/proc.c
-@@ -61,8 +61,8 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 	call = list_entry(v, struct rxrpc_call, link);
- 
- 	sprintf(lbuff, "%pI4:%u",
--		&call->local->srx.transport.sin.sin_addr,
--		ntohs(call->local->srx.transport.sin.sin_port));
-+		&call->socket->local->srx.transport.sin.sin_addr,
-+		ntohs(call->socket->local->srx.transport.sin.sin_port));
- 
- 	conn = call->conn;
- 	if (conn)
-@@ -80,7 +80,7 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 		   call->service_id,
- 		   call->cid,
- 		   call->call_id,
--		   call->in_clientflag ? "Svc" : "Clt",
-+		   rxrpc_is_service_call(call) ? "Svc" : "Clt",
- 		   atomic_read(&call->usage),
- 		   rxrpc_call_states[call->state],
- 		   call->remote_abort ?: call->local_abort,
++static int vsc85xx_features_set(struct phy_device *phydev)
++{
++       int rc =3D 0;
++       struct phy_features_t *ftrs =3D (struct phy_features_t *)phydev->pr=
+iv;
++
++       switch (ftrs->cmd) {
++       case PHY_EDGE_RATE_CONTROL:
++               rc =3D vsc85xx_edge_rate_cntl_set(phydev, &ftrs->rate);
++               break;
++       default:
++               break;
++       }
++
++       return rc;
++}
++
++static int vsc85xx_features_get(struct phy_device *phydev)
++{
++       int rc =3D 0;
++       struct phy_features_t *ftrs =3D (struct phy_features_t *)phydev->pr=
+iv;
++
++       switch (ftrs->cmd) {
++       case PHY_EDGE_RATE_CONTROL:
++               rc =3D vsc85xx_edge_rate_cntl_get(phydev, &ftrs->rate);
++               break;
++       default:
++               break;
++       }
++
++       return rc;
++}
++
+ /* Microsemi VSC85xx PHYs */
+ static struct phy_driver vsc85xx_driver[] =3D {
+ {
+@@ -126,6 +177,8 @@ static struct phy_driver vsc85xx_driver[] =3D {
+        .config_intr    =3D &vsc85xx_config_intr,
+        .suspend                =3D &genphy_suspend,
+        .resume                 =3D &genphy_resume,
++       .phy_features_set =3D &vsc85xx_features_set,
++       .phy_features_get =3D &vsc85xx_features_get,
+ },
+ {
+        .phy_id                 =3D PHY_ID_VSC8541,
+@@ -142,6 +195,8 @@ static struct phy_driver vsc85xx_driver[] =3D {
+        .config_intr    =3D &vsc85xx_config_intr,
+        .suspend                =3D &genphy_suspend,
+        .resume                 =3D &genphy_resume,
++       .phy_features_set =3D &vsc85xx_features_set,
++       .phy_features_get =3D &vsc85xx_features_get,
+ }
+
+ };
+diff --git a/include/linux/mscc.h b/include/linux/mscc.h
+new file mode 100644
+index 0000000..b80a2ac
+--- /dev/null
++++ b/include/linux/mscc.h
+@@ -0,0 +1,34 @@
++/*
++ * Driver for Microsemi VSC85xx PHYs
++ *
++ * Author: Nagaraju Lakkaraju
++ * License: Dual MIT/GPL
++ * Copyright (c) 2016 Microsemi Corporation
++ */
++
++#ifndef __LINUX_MSCC_H
++#define __LINUX_MSCC_H
++
++enum phy_features {
++       PHY_EDGE_RATE_CONTROL =3D 0,
++       PHY_SUPPORTED_FEATURES_MAX
++};
++
++enum rgmii_rx_clock_delay {
++       RGMII_RX_CLK_DELAY_0_2_NS =3D 0,
++       RGMII_RX_CLK_DELAY_0_8_NS =3D 1,
++       RGMII_RX_CLK_DELAY_1_1_NS =3D 2,
++       RGMII_RX_CLK_DELAY_1_7_NS =3D 3,
++       RGMII_RX_CLK_DELAY_2_0_NS =3D 4,
++       RGMII_RX_CLK_DELAY_2_3_NS =3D 5,
++       RGMII_RX_CLK_DELAY_2_6_NS =3D 6,
++       RGMII_RX_CLK_DELAY_3_4_NS =3D 7
++};
++
++struct phy_features_t {
++       enum phy_features cmd;           /* PHY Supported Features */
++       u8   rate;                       /* Edge rate control */
++};
++
++#endif /*  __LINUX_MSCC_H */
++
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2d24b28..8ec4c09 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -586,6 +586,8 @@ struct phy_driver {
+        void (*get_strings)(struct phy_device *dev, u8 *data);
+        void (*get_stats)(struct phy_device *dev,
+                          struct ethtool_stats *stats, u64 *data);
++       int (*phy_features_set)(struct phy_device *dev);
++       int (*phy_features_get)(struct phy_device *dev);
+};
+ #define to_phy_driver(d) container_of(to_mdio_common_driver(d),           =
+     \
+                                      struct phy_driver, mdiodrv)
+--=20
+2.7.4
