@@ -1,120 +1,174 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next V3 00/15][PULL request] Mellanox mlx5 core driver updates 2016-08-20
-Date: Tue, 23 Aug 2016 11:49:02 +0300
-Message-ID: <1471942157-9131-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
+Date: Tue, 23 Aug 2016 11:42:47 +0300
+Message-ID: <20160823084247.GA9670@office.localdomain>
+References: <20160822143834.32422-1-amir@vadai.me>
+ <20160822143834.32422-4-amir@vadai.me>
+ <20160822205706.4f5fb33e@halley>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34245 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757562AbcHWJBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 05:01:02 -0400
+Received: by mail-wm0-f68.google.com with SMTP id q128so17117673wma.1
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 02:00:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160822205706.4f5fb33e@halley>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave and Doug,
+On Mon, Aug 22, 2016 at 08:57:06PM +0300, Shmulik Ladkani wrote:
+> Hi,
+> 
+> On Mon, 22 Aug 2016 17:38:34 +0300 Amir Vadai <amir@vadai.me> wrote:
+> > +static struct metadata_dst *iptunnel_alloc(struct tcf_iptunnel *t,
+> > +					   __be32 saddr, __be32 daddr,
+> > +					   __be64 key_id)
+> > +{
+> > +	struct ip_tunnel_info *tun_info;
+> > +	struct metadata_dst *metadata;
+> > +
+> > +	metadata = metadata_dst_alloc(0, GFP_KERNEL);
+> > +	if (!metadata)
+> > +		return ERR_PTR(-ENOMEM);
+> > +
+> > +	tun_info = &metadata->u.tun_info;
+> > +	tun_info->mode = IP_TUNNEL_INFO_TX;
+> > 
+> > +	ip_tunnel_key_init(&tun_info->key, saddr, daddr, 0, 0, 0, 0, 0,
+> > +			   key_id, 0);
+> 
+> Seems key.tun_flags should be armed with TUNNEL_KEY.
+> This will make things work with GRE as well.
+> Pass it in the 'tun_flags' parameter.
+ack
 
-This series contains several low level and API updates for mlx5 core
-commands interface and mlx5_ifc.h to be shared as base code for net-next and
-rdma mlx5 4.9 submissions.
+> 
+> > +
+> > +	return metadata;
+> > +}
+> > +
+> > +static int tcf_iptunnel_init(struct net *net, struct nlattr *nla,
+> > +			     struct nlattr *est, struct tc_action **a,
+> > +			     int ovr, int bind)
+> > +{
+> > +	struct tc_action_net *tn = net_generic(net, iptunnel_net_id);
+> > +	struct nlattr *tb[TCA_IPTUNNEL_MAX + 1];
+> > +	struct metadata_dst *metadata;
+> > +	struct tc_iptunnel *parm;
+> > +	struct tcf_iptunnel *t;
+> > +	__be32 saddr = 0;
+> > +	__be32 daddr = 0;
+> > +	__be64 key_id = 0;
+> > +	int encapdecap;
+> > +	bool exists = false;
+> > +	int ret = -EINVAL;
+> > +	int err;
+> > +
+> > +	if (!nla)
+> > +		return -EINVAL;
+> > +
+> > +	err = nla_parse_nested(tb, TCA_IPTUNNEL_MAX, nla, iptunnel_policy);
+> > +	if (err < 0)
+> > +		return err;
+> > +
+> > +	if (!tb[TCA_IPTUNNEL_PARMS])
+> > +		return -EINVAL;
+> > +	parm = nla_data(tb[TCA_IPTUNNEL_PARMS]);
+> > +	exists = tcf_hash_check(tn, parm->index, a, bind);
+> > +	if (exists && bind)
+> > +		return 0;
+> > +
+> > +	encapdecap = parm->t_action;
+> > +
+> > +	switch (encapdecap) {
+> > +	case TCA_IPTUNNEL_ACT_DECAP:
+> > +		break;
+> > +	case TCA_IPTUNNEL_ACT_ENCAP:
+> > +		if (tb[TCA_IPTUNNEL_ENC_IPV4_SRC])
+> > +			saddr = nla_get_be32(tb[TCA_IPTUNNEL_ENC_IPV4_SRC]);
+> > +		if (tb[TCA_IPTUNNEL_ENC_IPV4_DST])
+> > +			daddr = nla_get_be32(tb[TCA_IPTUNNEL_ENC_IPV4_DST]);
+> > +		if (tb[TCA_IPTUNNEL_ENC_KEY_ID])
+> > +			key_id = key32_to_tunnel_id(nla_get_be32(tb[TCA_IPTUNNEL_ENC_KEY_ID]));
+> > +
+> > +		if (!saddr || !daddr || !key_id) {
+> 
+> A zero tunnel ID is legit.
+ack
 
->From Saeed, ten patches that refactors old layouts of firmware commands which 
-were manually generated before we introduced the mlx5_ifc, now all of the firmware
-commands inbox/outbox layouts moved to use mlx5_ifc and we remove the old
-manually generated structures.  Plus to those ten patches, we add two patches
-that unifies mlx5 commands execution interface and improve the driver log messages
-in that area.
+> 
+> > +			ret = -EINVAL;
+> > +			goto err_out;
+> > +		}
+> > +
+> > +		metadata = iptunnel_alloc(t, saddr, daddr, key_id);
+> > +		if (IS_ERR(metadata)) {
+> > +			ret = PTR_ERR(metadata);
+> > +			goto err_out;
+> > +		}
+> > +
+> > +		break;
+> > +	default:
+> > +		goto err_out;
+> > +	}
+> > +
+> > +	if (!exists) {
+> > +		ret = tcf_hash_create(tn, parm->index, est, a,
+> > +				      &act_iptunnel_ops, bind, false);
+> > +		if (ret)
+> > +			return ret;
+> > +
+> > +		ret = ACT_P_CREATED;
+> > +	} else {
+> > +		tcf_hash_release(*a, bind);
+> > +		if (!ovr)
+> > +			return -EEXIST;
+> > +	}
+> > +
+> > +	t = to_iptunnel(*a);
+> > +
+> > +	spin_lock_bh(&t->tcf_lock);
+> > +
+> > +	t->tcf_action = parm->action;
+> > +
+> > +	t->tcft_action = encapdecap;
+> > +	t->tcft_enc_metadata = metadata;
+> 
+> Although tcft_enc_metadata is not used in TCA_IPTUNNEL_ACT_DECAP, still
+> prefer to nullify it instead of initializing it to stack junk.
+good catch. strange that the compiler/sparse didn't catch it
 
->From Hadar and Ilya, added the needed hardware bits and infrastructure for
-minimum inline headers setting and encap/decap commands and capabilities,
-needed for E-Switch offloads.
+> 
+> > +
+> > +	spin_unlock_bh(&t->tcf_lock);
+> > +
+> > +	if (ret == ACT_P_CREATED)
+> > +		tcf_hash_insert(tn, *a);
+> > +
+> > +	return ret;
+> 
+> In the (exists && ovr) case, 'ret' seems to be left as '-EINVAL' as was
+> initialized. Initialize 'ret' to zero instead.
+another good catch - thanks.
 
-This series applies on top latest net-next and rdma/master, and smoothly merges with
-the latest "Mellanox 100G mlx5 fixes 2016-08-16" series already applied into net branch.
-
-The following changes since commit 29b4817d4018df78086157ea3a55c1d9424a7cfc:
-    Linux 4.8-rc1
-
-are available in the git repository at:
-    git://git.kernel.org/pub/scm/linux/kernel/git/leon/linux-rdma.git tags/shared-for-4.9-1
-
-for you to fetch changes up to 575ddf5888eaf8f271cb3df7b0806cb2db2c333a:
-    net/mlx5: Introduce alloc_encap and dealloc_encap commands
-
-Changes since V2 and V1:
-    - Reduce the number of patches and changed the cover letter respectively.
-
-Thanks,
-Saeed & Leon.
-
-Hadar Hen Zion (2):
-  net/mlx5: Enable setting minimum inline header mode for VFs
-  net/mlx5: Update mlx5_ifc.h for vxlan encap/decap
-
-Ilya Lesokhin (1):
-  net/mlx5: Introduce alloc_encap and dealloc_encap commands
-
-Saeed Mahameed (12):
-  net/mlx5: Init/Teardown hca commands via mlx5 ifc
-  net/mlx5: Access register and MAD IFC commands via mlx5 ifc
-  net/mlx5: PD and UAR commands via mlx5 ifc
-  net/mlx5: MCG commands via mlx5 ifc
-  net/mlx5: Pages management commands via mlx5 ifc
-  net/mlx5: EQ commands via mlx5 ifc
-  {net,IB}/mlx5: CQ commands via mlx5 ifc
-  {net,IB}/mlx5: MKey/PSV commands via mlx5 ifc
-  {net,IB}/mlx5: QP/XRCD commands via mlx5 ifc
-  {net,IB}/mlx5: Modify QP commands via mlx5 ifc
-  net/mlx5: Unify and improve command interface
-  net/mlx5: Improve driver log messages
-
- drivers/infiniband/hw/mlx5/cq.c                    | 110 +++---
- drivers/infiniband/hw/mlx5/main.c                  |  10 +-
- drivers/infiniband/hw/mlx5/mlx5_ib.h               |   2 +-
- drivers/infiniband/hw/mlx5/mr.c                    | 184 +++++----
- drivers/infiniband/hw/mlx5/qp.c                    | 189 ++++-----
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      | 261 +++++++------
- drivers/net/ethernet/mellanox/mlx5/core/cq.c       | 109 ++----
- drivers/net/ethernet/mellanox/mlx5/core/debugfs.c  |  50 +--
- .../net/ethernet/mellanox/mlx5/core/en_common.c    |  23 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   3 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  47 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |  80 ++--
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  98 ++---
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   | 178 ++++-----
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |   7 +
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  18 +-
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       |  43 +--
- drivers/net/ethernet/mellanox/mlx5/core/mad.c      |  41 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  91 ++---
- drivers/net/ethernet/mellanox/mlx5/core/mcg.c      |  72 +---
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  17 +-
- drivers/net/ethernet/mellanox/mlx5/core/mr.c       | 189 ++++-----
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    | 156 +++-----
- drivers/net/ethernet/mellanox/mlx5/core/pd.c       |  61 +--
- drivers/net/ethernet/mellanox/mlx5/core/port.c     | 149 +++----
- drivers/net/ethernet/mellanox/mlx5/core/qp.c       | 299 ++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/rl.c       |  11 +-
- drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |   7 +-
- drivers/net/ethernet/mellanox/mlx5/core/srq.c      |  49 +--
- drivers/net/ethernet/mellanox/mlx5/core/transobj.c | 183 +++------
- drivers/net/ethernet/mellanox/mlx5/core/uar.c      |  67 +---
- drivers/net/ethernet/mellanox/mlx5/core/vport.c    |  94 ++---
- drivers/net/ethernet/mellanox/mlx5/core/vxlan.c    |  29 +-
- include/linux/mlx5/cq.h                            |   6 +-
- include/linux/mlx5/device.h                        | 429 +--------------------
- include/linux/mlx5/driver.h                        |  20 +-
- include/linux/mlx5/mlx5_ifc.h                      | 116 +++++-
- include/linux/mlx5/qp.h                            | 128 +-----
- include/linux/mlx5/vport.h                         |   2 +
- 40 files changed, 1390 insertions(+), 2242 deletions(-)
-
--- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> > +
+> > +err_out:
+> > +	if (exists)
+> > +		tcf_hash_release(*a, bind);
+> > +	return ret;
+> > +}
+> > +
+> 
+> 
