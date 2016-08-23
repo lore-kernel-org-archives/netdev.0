@@ -1,88 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net: Zeroing the structure ethtool_wolinfo in ethtool_get_wol()
-Date: Tue, 23 Aug 2016 07:21:36 -0700
-Message-ID: <1471962096.14381.15.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
-         <1471959668-18209-2-git-send-email-luis.henriques@canonical.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v6_repost 2/3] net: core: add SW stats to if_stats_msg
+Date: Tue, 23 Aug 2016 07:46:37 -0700
+Message-ID: <57BC61CD.9020005@cumulusnetworks.com>
+References: <1471612650-4508-3-git-send-email-jiri@resnulli.us> <57BBE47D.3060805@cumulusnetworks.com> <20160823065318.GA1975@nanopsycho> <20160823.000415.624700756560666111.davem@davemloft.net> <20160823072651.GB1975@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Avijit Kanti Das <avijitnsec@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Luis Henriques <luis.henriques@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471959668-18209-2-git-send-email-luis.henriques@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, ogerlitz@mellanox.com,
+        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
+        gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
+        eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
+        hannes@stressinduktion.org, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:34541 "EHLO
+        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757700AbcHWOql (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 10:46:41 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fi15so48971051pac.1
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 07:46:41 -0700 (PDT)
+In-Reply-To: <20160823072651.GB1975@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-08-23 at 14:41 +0100, Luis Henriques wrote:
-> From: Avijit Kanti Das <avijitnsec@codeaurora.org>
-> 
-> memset() the structure ethtool_wolinfo that has padded bytes
-> but the padded bytes have not been zeroed out.
-> 
-> Change-Id: If3fd2d872a1b1ab9521d937b86a29fc468a8bbfe
-> Signed-off-by: Avijit Kanti Das <avijitnsec@codeaurora.org>
-> ---
->  net/core/ethtool.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 977489820eb9..6bf6362e8114 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -1435,11 +1435,13 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
->  
->  static int ethtool_get_wol(struct net_device *dev, char __user *useraddr)
->  {
-> -	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
-> +	struct ethtool_wolinfo wol;
->  
->  	if (!dev->ethtool_ops->get_wol)
->  		return -EOPNOTSUPP;
->  
-> +	memset(&wol, 0, sizeof(struct ethtool_wolinfo));
-> +	wol.cmd = ETHTOOL_GWOL;
->  	dev->ethtool_ops->get_wol(dev, &wol);
->  
->  	if (copy_to_user(useraddr, &wol, sizeof(wol)))
+On 8/23/16, 12:26 AM, Jiri Pirko wrote:
+> Tue, Aug 23, 2016 at 09:04:15AM CEST, davem@davemloft.net wrote:
+>> From: Jiri Pirko <jiri@resnulli.us>
+>> Date: Tue, 23 Aug 2016 08:53:18 +0200
+>>
+>>> Anyway I think that next level of nesting is not necessary. On
+>>> contrary, it is wrong. The current level is extensible, mixed and
+>>> flagged already. I don't see any reason why not to add whatever kind of
+>>> stats here. What makes IFLA_STATS_LINK_SW_64 or for example
+>>> IFLA_STATS_LINK_HW_ACL so special it has to be nested in some other
+>>> attr? I would understand it it would be values of one family, but that
+>>> is not the case.
+>> First, I agree with Roopa.  If we want to put this stuff out
+>> there is should be bucketed together in a nested attribute with
+>> other similar stats specifications.
+> Well I still don't think that IFLA_STATS_LINK_SW_64 and
+> IFLA_STATS_LINK_HW_ACL are related. You cannot put it under *DRIVER*
+> nest as IFLA_STATS_LINK_SW_64 are core stats.
+not sure i understand, why is this core stats ?.
+should a new logical device implement  IFLA_STATS_LINK_64 or IFLA_STATS_LINK_SW_64 ?
+any other users ?.
 
-This would suggest a compiler bug to me.
 
-I checked that my compiler does properly put zeros there, even in the
-padding area.
+>  So we can put them under
+> *MISC* nest attr. But that is exactly purpose of the top-level here.
+> /me confused
 
-If we can not rely on such constructs, we have hundreds of similar
-patches to submit.
+By design top level is for higher level grouping of stats (that also helps us maintain a lean higher
+level filter space). They are mainly categories of stats. for example we have a nested link
+XSTATS attribute..which are again a break down of stats already counted in IFLA_STATS_LINK_64.
+That's why I think we can group this into another kind of breakdown stats.
 
-    3c1c:	48 c7 84 24 84 00 00 	movq   $0x0,0x84(%rsp)
-    3c23:	00 00 00 00 00 
-    3c28:	48 c7 84 24 8c 00 00 	movq   $0x0,0x8c(%rsp)
-    3c2f:	00 00 00 00 00 
-    3c34:	c7 84 24 94 00 00 00 	movl   $0x0,0x94(%rsp)
-    3c3b:	00 00 00 00 
-    3c3f:	c7 84 24 84 00 00 00 	movl   $0x5,0x84(%rsp)
-    3c46:	05 00 00 00 
-    3c4a:	4d 8b b5 18 02 00 00 	mov    0x218(%r13),%r14
-    3c51:	49 8b 46 28          	mov    0x28(%r14),%rax
-    3c55:	48 85 c0             	test   %rax,%rax
-    3c58:	0f 84 9f 0d 00 00    	je     49fd <dev_ethtool+0x1d3d>
-    3c5e:	48 8d b4 24 84 00 00 	lea    0x84(%rsp),%rsi
-    3c65:	00 
-    3c66:	4c 89 ef             	mov    %r13,%rdi
-    3c69:	41 bc f2 ff ff ff    	mov    $0xfffffff2,%r12d
-    3c6f:	ff d0                	callq  *%rax
-    3c71:	be 0e 03 00 00       	mov    $0x30e,%esi
-    3c76:	48 c7 c7 00 00 00 00 	mov    $0x0,%rdi
-			3c79: R_X86_64_32S	.rodata.str1.8
-    3c7d:	e8 00 00 00 00       	callq  3c82 <dev_ethtool+0xfc2>
-			3c7e: R_X86_64_PC32	__might_fault-0x4
-    3c82:	48 8d b4 24 84 00 00 	lea    0x84(%rsp),%rsi
-    3c89:	00 
-    3c8a:	ba 14 00 00 00       	mov    $0x14,%edx
-    3c8f:	48 89 df             	mov    %rbx,%rdi
-    3c92:	e8 00 00 00 00       	callq  3c97 <dev_ethtool+0xfd7>
-			3c93: R_X86_64_PC32	_copy_to_user-0x4
-    3c97:	48 85 c0             	test   %rax,%rax
+thanks,
+Roopa
