@@ -1,16 +1,16 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 14/14] hv_netvsc: add ethtool statistics for tx packet issues
-Date: Tue, 23 Aug 2016 12:29:46 -0700
-Message-ID: <1471980586-18263-15-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 05/14] hv_netvsc: make inline functions static
+Date: Tue, 23 Aug 2016 12:29:37 -0700
+Message-ID: <1471980586-18263-6-git-send-email-sthemmin@exchange.microsoft.com>
 References: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded02.prod.phx3.secureserver.net ([208.109.80.59]:41162
-        "EHLO p3plsmtps2ded02.prod.phx3.secureserver.net"
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:34102
+        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754246AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754276AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 23 Aug 2016 13:54:29 -0400
 In-Reply-To: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,197 +18,210 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Printing console messages is not helpful when system is out of memory;
-and can be disastrous with netconsole. Instead keep statistics
-of these anomalous conditions.
+Several new functions were introduced into hyperv.h but only used in one file.
+Move them and let compiler decide on inline.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |    9 ++++
- drivers/net/hyperv/netvsc_drv.c |   86 +++++++++++++++++++++++++++++++-------
- 2 files changed, 79 insertions(+), 16 deletions(-)
+ drivers/net/hyperv/netvsc.c |   85 ++++++++++++++++++++++++++++++++++++++++++-
+ include/linux/hyperv.h      |   84 ------------------------------------------
+ 2 files changed, 84 insertions(+), 85 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 8031dee..284b97b 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -652,6 +652,14 @@ struct netvsc_stats {
- 	struct u64_stats_sync syncp;
- };
- 
-+struct netvsc_ethtool_stats {
-+	unsigned long tx_scattered;
-+	unsigned long tx_no_memory;
-+	unsigned long tx_no_space;
-+	unsigned long tx_too_big;
-+	unsigned long tx_busy;
-+};
-+
- struct netvsc_reconfig {
- 	struct list_head list;
- 	u32 event;
-@@ -681,6 +689,7 @@ struct net_device_context {
- 	/* Ethtool settings */
- 	u8 duplex;
- 	u32 speed;
-+	struct netvsc_ethtool_stats eth_stats;
- 
- 	/* the device is going away */
- 	bool start_remove;
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b874ab1..2360e70 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -365,7 +365,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	u32 skb_length;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 	struct hv_page_buffer *pb = page_buf;
--	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
- 
- 	/* We will atmost need two pages to describe the rndis
- 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
-@@ -377,17 +376,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	num_data_pgs = netvsc_get_slots(skb) + 2;
- 
- 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
--		if (skb_linearize(skb)) {
--			net_alert_ratelimited("failed to linearize skb\n");
--			ret = -ENOMEM;
--			goto drop;
--		}
-+		++net_device_ctx->eth_stats.tx_scattered;
-+
-+		if (skb_linearize(skb))
-+			goto no_memory;
- 
- 		num_data_pgs = netvsc_get_slots(skb) + 2;
- 		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
--			net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
--					      num_data_pgs, skb->len);
--			ret = -EFAULT;
-+			++net_device_ctx->eth_stats.tx_too_big;
- 			goto drop;
- 		}
- 	}
-@@ -398,11 +394,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	 * structure.
- 	 */
- 	ret = skb_cow_head(skb, RNDIS_AND_PPI_SIZE);
--	if (ret) {
--		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
--		ret = -ENOMEM;
--		goto drop;
--	}
-+	if (ret)
-+		goto no_memory;
-+
- 	/* Use the skb control buffer for building up the packet */
- 	BUILD_BUG_ON(sizeof(struct hv_netvsc_packet) >
- 			FIELD_SIZEOF(struct sk_buff, cb));
-@@ -518,7 +512,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 
- 		ret = skb_cow_head(skb, 0);
- 		if (ret)
--			goto drop;
-+			goto no_memory;
- 
- 		uh = udp_hdr(skb);
- 		udp_len = ntohs(uh->len);
-@@ -545,20 +539,32 @@ do_send:
- 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
- 			  rndis_msg, &pb, skb);
- 	if (likely(ret == 0)) {
-+		struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
-+
- 		u64_stats_update_begin(&tx_stats->syncp);
- 		tx_stats->packets++;
- 		tx_stats->bytes += skb_length;
- 		u64_stats_update_end(&tx_stats->syncp);
- 		return NETDEV_TX_OK;
- 	}
--	if (ret == -EAGAIN)
-+
-+	if (ret == -EAGAIN) {
-+		++net_device_ctx->eth_stats.tx_busy;
- 		return NETDEV_TX_BUSY;
-+	}
-+
-+	if (ret == -ENOSPC)
-+		++net_device_ctx->eth_stats.tx_no_space;
- 
- drop:
- 	dev_kfree_skb_any(skb);
- 	net->stats.tx_dropped++;
- 
- 	return NETDEV_TX_OK;
-+
-+no_memory:
-+	++net_device_ctx->eth_stats.tx_no_memory;
-+	goto drop;
- }
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index fe83de3..4ef2af6 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -34,6 +34,89 @@
+ #include "hyperv_net.h"
  
  /*
-@@ -1015,6 +1021,51 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	return err;
++ * An API to support in-place processing of incoming VMBUS packets.
++ */
++#define VMBUS_PKT_TRAILER	8
++
++static struct vmpacket_descriptor *
++get_next_pkt_raw(struct vmbus_channel *channel)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	u32 read_loc = ring_info->priv_read_index;
++	void *ring_buffer = hv_get_ring_buffer(ring_info);
++	struct vmpacket_descriptor *cur_desc;
++	u32 packetlen;
++	u32 dsize = ring_info->ring_datasize;
++	u32 delta = read_loc - ring_info->ring_buffer->read_index;
++	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
++
++	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
++		return NULL;
++
++	if ((read_loc + sizeof(*cur_desc)) > dsize)
++		return NULL;
++
++	cur_desc = ring_buffer + read_loc;
++	packetlen = cur_desc->len8 << 3;
++
++	/*
++	 * If the packet under consideration is wrapping around,
++	 * return failure.
++	 */
++	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
++		return NULL;
++
++	return cur_desc;
++}
++
++/*
++ * A helper function to step through packets "in-place"
++ * This API is to be called after each successful call
++ * get_next_pkt_raw().
++ */
++static void put_pkt_raw(struct vmbus_channel *channel,
++			struct vmpacket_descriptor *desc)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	u32 read_loc = ring_info->priv_read_index;
++	u32 packetlen = desc->len8 << 3;
++	u32 dsize = ring_info->ring_datasize;
++
++	BUG_ON((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize);
++
++	/*
++	 * Include the packet trailer.
++	 */
++	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
++}
++
++/*
++ * This call commits the read index and potentially signals the host.
++ * Here is the pattern for using the "in-place" consumption APIs:
++ *
++ * while (get_next_pkt_raw() {
++ *	process the packet "in-place";
++ *	put_pkt_raw();
++ * }
++ * if (packets processed in place)
++ *	commit_rd_index();
++ */
++static void commit_rd_index(struct vmbus_channel *channel)
++{
++	struct hv_ring_buffer_info *ring_info = &channel->inbound;
++	/*
++	 * Make sure all reads are done before we update the read index since
++	 * the writer may start writing to the read area once the read index
++	 * is updated.
++	 */
++	virt_rmb();
++	ring_info->ring_buffer->read_index = ring_info->priv_read_index;
++
++	if (hv_need_to_signal_on_read(ring_info))
++		vmbus_set_event(channel);
++}
++
++/*
+  * Switch the data path from the synthetic interface to the VF
+  * interface.
+  */
+@@ -749,7 +832,7 @@ static u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+ 	return msg_size;
  }
  
-+static const struct {
-+	char name[ETH_GSTRING_LEN];
-+	u16 offset;
-+} netvsc_stats[] = {
-+	{ "tx_scattered", offsetof(struct netvsc_ethtool_stats, tx_scattered) },
-+	{ "tx_no_memory",  offsetof(struct netvsc_ethtool_stats, tx_no_memory) },
-+	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
-+	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
-+	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
-+};
-+
-+static int netvsc_get_sset_count(struct net_device *dev, int string_set)
-+{
-+	switch (string_set) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(netvsc_stats);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static void netvsc_get_ethtool_stats(struct net_device *dev,
-+				     struct ethtool_stats *stats, u64 *data)
-+{
-+	struct net_device_context *ndc = netdev_priv(dev);
-+	const void *nds = &ndc->eth_stats;
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
-+		data[i] = *(unsigned long *)(nds + netvsc_stats[i].offset);
-+}
-+
-+static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
-+{
-+	int i;
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
-+			memcpy(data + i * ETH_GSTRING_LEN,
-+			       netvsc_stats[i].name, ETH_GSTRING_LEN);
-+		break;
-+	}
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void netvsc_poll_controller(struct net_device *net)
- {
-@@ -1027,6 +1078,9 @@ static void netvsc_poll_controller(struct net_device *net)
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
-+	.get_ethtool_stats = netvsc_get_ethtool_stats,
-+	.get_sset_count = netvsc_get_sset_count,
-+	.get_strings	= netvsc_get_strings,
- 	.get_channels   = netvsc_get_channels,
- 	.set_channels   = netvsc_set_channels,
- 	.get_ts_info	= ethtool_op_get_ts_info,
+-static inline int netvsc_send_pkt(
++static int netvsc_send_pkt(
+ 	struct hv_device *device,
+ 	struct hv_netvsc_packet *packet,
+ 	struct netvsc_device *net_device,
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index b10954a..a6bc974 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1422,88 +1422,4 @@ static inline  bool hv_need_to_signal_on_read(struct hv_ring_buffer_info *rbi)
+ 	return false;
+ }
+ 
+-/*
+- * An API to support in-place processing of incoming VMBUS packets.
+- */
+-#define VMBUS_PKT_TRAILER	8
+-
+-static inline struct vmpacket_descriptor *
+-get_next_pkt_raw(struct vmbus_channel *channel)
+-{
+-	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+-	u32 read_loc = ring_info->priv_read_index;
+-	void *ring_buffer = hv_get_ring_buffer(ring_info);
+-	struct vmpacket_descriptor *cur_desc;
+-	u32 packetlen;
+-	u32 dsize = ring_info->ring_datasize;
+-	u32 delta = read_loc - ring_info->ring_buffer->read_index;
+-	u32 bytes_avail_toread = (hv_get_bytes_to_read(ring_info) - delta);
+-
+-	if (bytes_avail_toread < sizeof(struct vmpacket_descriptor))
+-		return NULL;
+-
+-	if ((read_loc + sizeof(*cur_desc)) > dsize)
+-		return NULL;
+-
+-	cur_desc = ring_buffer + read_loc;
+-	packetlen = cur_desc->len8 << 3;
+-
+-	/*
+-	 * If the packet under consideration is wrapping around,
+-	 * return failure.
+-	 */
+-	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > (dsize - 1))
+-		return NULL;
+-
+-	return cur_desc;
+-}
+-
+-/*
+- * A helper function to step through packets "in-place"
+- * This API is to be called after each successful call
+- * get_next_pkt_raw().
+- */
+-static inline void put_pkt_raw(struct vmbus_channel *channel,
+-				struct vmpacket_descriptor *desc)
+-{
+-	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+-	u32 read_loc = ring_info->priv_read_index;
+-	u32 packetlen = desc->len8 << 3;
+-	u32 dsize = ring_info->ring_datasize;
+-
+-	if ((read_loc + packetlen + VMBUS_PKT_TRAILER) > dsize)
+-		BUG();
+-	/*
+-	 * Include the packet trailer.
+-	 */
+-	ring_info->priv_read_index += packetlen + VMBUS_PKT_TRAILER;
+-}
+-
+-/*
+- * This call commits the read index and potentially signals the host.
+- * Here is the pattern for using the "in-place" consumption APIs:
+- *
+- * while (get_next_pkt_raw() {
+- *	process the packet "in-place";
+- *	put_pkt_raw();
+- * }
+- * if (packets processed in place)
+- *	commit_rd_index();
+- */
+-static inline void commit_rd_index(struct vmbus_channel *channel)
+-{
+-	struct hv_ring_buffer_info *ring_info = &channel->inbound;
+-	/*
+-	 * Make sure all reads are done before we update the read index since
+-	 * the writer may start writing to the read area once the read index
+-	 * is updated.
+-	 */
+-	virt_rmb();
+-	ring_info->ring_buffer->read_index = ring_info->priv_read_index;
+-
+-	if (hv_need_to_signal_on_read(ring_info))
+-		vmbus_set_event(channel);
+-}
+-
+-
+ #endif /* _HYPERV_H */
 -- 
 1.7.4.1
