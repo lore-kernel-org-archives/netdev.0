@@ -1,39 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Fix MV88E6131 tagging
-Date: Mon, 22 Aug 2016 21:08:54 -0700 (PDT)
-Message-ID: <20160822.210854.2222713381334094120.davem@davemloft.net>
-References: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v2 net-next] net: diag: support SOCK_DESTROY for UDP
+ sockets
+Date: Mon, 22 Aug 2016 22:13:01 -0600
+Message-ID: <015066f2-6df8-ab39-d4b7-632c9e8e2fc0@cumulusnetworks.com>
+References: <1471914221-24213-1-git-send-email-dsa@cumulusnetworks.com>
+ <1471918541.14381.12.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: jm@lentin.co.uk, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48122 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751389AbcHWEIz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 00:08:55 -0400
-In-Reply-To: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33718 "EHLO
+        mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751401AbcHWENE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 00:13:04 -0400
+Received: by mail-pa0-f51.google.com with SMTP id ti13so43981058pac.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 21:13:04 -0700 (PDT)
+In-Reply-To: <1471918541.14381.12.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Mon, 22 Aug 2016 16:01:00 +0200
-
-> Marvell has two different tagging protocols for frames passed to a
-> swicth. There is the older DSA and the newer EDSA. Somewhere along the
-> way, we broke support for switches which only support DSA, by trying
-> to configure them to use EDSA. These patches add back support for
-> switches which only support DSA, by allowing the drivers to
-> dynamically indicate the tagging protocol they support to the DSA
-> core. This needs to be dynamic since the mv88e6xxx has to support two
-> protocols.
+On 8/22/16 8:15 PM, Eric Dumazet wrote:
+> Hi David
 > 
-> Thanks go to Jamie Lentin for reporting the problem, helping debug it,
-> providing some of the fix, and testing.
+> It seems you forgot the sock_diag_check_cookie() call, but other than
+> that this patch looks fine.
+> 
+> Thanks.
 
-Series applied, thanks.
 
-As per tree-wide policy, when a driver unloads the device should be
-disabled and in fact if possible configured to not draw power.
+indeed. will fix tomorrow and re-send. Thanks for the review.
