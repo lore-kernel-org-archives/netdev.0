@@ -1,86 +1,54 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: Re: [PATCH net-next] xen-netfront: avoid packet loss
-	when ethernet header crosses page boundary
-Date: Tue, 23 Aug 2016 20:51:44 +0200
-Message-ID: <87twebb9of.fsf@vitty.brq.redhat.com>
-References: <1471880577-21380-1-git-send-email-vkuznets@redhat.com>
- <57BB2E7B.5040303@citrix.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
+Date: Tue, 23 Aug 2016 21:59:16 +0300
+Message-ID: <20160823215916.6fd6a57a@halley>
+References: <20160822143834.32422-1-amir@vadai.me>
+        <20160822143834.32422-4-amir@vadai.me>
+        <891dc7d0-80d5-eebf-662d-7ab63718c3bb@mojatatu.com>
+        <20160823162141.GC12627@office.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, Patrick Talbert <ptalbert@redhat.com>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <57BB2E7B.5040303@citrix.com> (David Vrabel's message of "Mon, 22
- Aug 2016 17:55:23 +0100")
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>
+To: Amir Vadai <amir@vadai.me>, Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35298 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754624AbcHWS73 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 14:59:29 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i5so19319606wmg.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 11:59:28 -0700 (PDT)
+In-Reply-To: <20160823162141.GC12627@office.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RGF2aWQgVnJhYmVsIDxkYXZpZC52cmFiZWxAY2l0cml4LmNvbT4gd3JpdGVzOgoKPiBPbiAyMi8w
-OC8xNiAxNjo0MiwgVml0YWx5IEt1em5ldHNvdiB3cm90ZToKPj4gCj4+IEkgc2VlIHR3byB3YXlz
-IHRvIGZpeCB0aGUgaXNzdWU6Cj4+IC0gQ2hhbmdlIHRoZSAnd2lyZScgcHJvdG9jb2wgYmV0d2Vl
-biBuZXRmcm9udCBhbmQgbmV0YmFjayB0byBzdGFydCBrZWVwaW5nCj4+ICAgdGhlIG9yaWdpbmFs
-IFNLQiBzdHJ1Y3R1cmUuIFdlJ2xsIGhhdmUgdG8gYWRkIGEgZmxhZyBpbmRpY2F0aW5nIHRoZSBm
-YWN0Cj4+ICAgdGhhdCB0aGUgcGFydGljdWxhciByZXF1ZXN0IGlzIGEgcGFydCBvZiB0aGUgb3Jp
-Z2luYWwgbGluZWFyIHBhcnQgYW5kIG5vdAo+PiAgIGEgZnJhZy4gV2UnbGwgbmVlZCB0byBrbm93
-IHRoZSBsZW5ndGggb2YgdGhlIGxpbmVhciBwYXJ0IHRvIHByZS1hbGxvY2F0ZQo+PiAgIG1lbW9y
-eS4KPgo+IEkgZG9uJ3QgdGhpbmsgdGhlcmUgbmVlZHMgdG8gYmUgYSBwcm90b2NvbCBjaGFuZ2Uu
-ICBJIHRoaW5rIHRoZSBjaGVjayBpbgo+IG5ldGJhY2sgaXMgYm9ndXMgLS0gaXQncyB0aGUgdG90
-YWwgcGFja2V0IGxlbmd0aCB0aGF0IG11c3QgYmUgPgo+IEhMRU5fRVRILiAgVGhlIHVwcGVyIGxh
-eWVycyB3aWxsIHB1bGwgYW55IGhlYWRlcnMgZnJvbSB0aGUgZnJhZ3MgYXMKPiBuZWVkZWQKCkkn
-bSBhZnJhaWQgdGhpcyBpcyBub3QgYWx3YXlzIHRydWUsIGp1c3QgcmVtb3ZpbmcgdGhlIGNoZWNr
-IGxlYWRzIHVzIHRvCnRoZSBmb2xsb3dpbmc6CgpbICA0OTUuNDQyMTg2XSBrZXJuZWwgQlVHIGF0
-IC4vaW5jbHVkZS9saW51eC9za2J1ZmYuaDoxOTI3ISAKWyAgNDk1LjQ2ODc4OV0gaW52YWxpZCBv
-cGNvZGU6IDAwMDAgWyMxXSBTTVAgClsgIDQ5NS40OTAwOTRdIE1vZHVsZXMgbGlua2VkIGluOiB0
-dW4gbG9vcCBicmlkZ2Ugc3RwIGxsYyBpbnRlbF9yYXBsIHNiX2VkYWMgZWRhY19jb3JlIHg4Nl9w
-a2dfdGVtcF90aGVybWFsIGlwbWlfc3NpZiBpZ2IgY29yZXRlbXAgaVRDT193ZHQgY3JjdDEwZGlm
-X3BjbG11bCBjcmMzMl9wY2xtdWwgcHRwIGlwbWlfc2kgaVRDT192ZW5kb3Jfc3VwcG9ydCBnaGFz
-aF9jbG11bG5pX2ludGVsIGhwd2R0IGlwbWlfbXNnaGFuZGxlciBpb2F0ZG1hIGhwaWxvIHBwc19j
-b3JlIGxwY19pY2ggYWNwaV9wb3dlcl9tZXRlciB3bWkgZmplcyB0cG1fdGlzIGRjYSBzaHBjaHAg
-dHBtX3Rpc19jb3JlIHRwbSBuZnNkIGF1dGhfcnBjZ3NzIG5mc19hY2wgbG9ja2QgeGVuZnMgZ3Jh
-Y2UgeGVuX3ByaXZjbWQgc3VucnBjIHhmcyBsaWJjcmMzMmMgbWdhZzIwMCBpMmNfYWxnb19iaXQg
-ZHJtX2ttc19oZWxwZXIgdHRtIGRybSBjcmMzMmNfaW50ZWwgc2VyaW9fcmF3IHhlbl9zY3NpYmFj
-ayB0YXJnZXRfY29yZV9tb2QgeGVuX3BjaWJhY2sgeGVuX25ldGJhY2sgeGVuX2Jsa2JhY2sgeGVu
-X2dudGFsbG9jIHhlbl9nbnRkZXYgeGVuX2V2dGNobiAKWyAgNDk1Ljc0OTQzMV0gQ1BVOiAwIFBJ
-RDogMCBDb21tOiBzd2FwcGVyLzAgTm90IHRhaW50ZWQgNC44LjAtcmMzKyAjMiAKWyAgNDk1Ljc4
-MjY0OF0gSGFyZHdhcmUgbmFtZTogSFAgUHJvTGlhbnQgREwzODBlIEdlbjgsIEJJT1MgUDczIDA4
-LzIwLzIwMTIgClsgIDQ5NS44MTc1NzhdIHRhc2s6IGZmZmZmZmZmODFjMGQ1MDAgdGFzay5zdGFj
-azogZmZmZmZmZmY4MWMwMDAwMCAKWyAgNDk1Ljg0NzgwNV0gUklQOiBlMDMwOls8ZmZmZmZmZmY4
-MTZmNjhhMD5dICBbPGZmZmZmZmZmODE2ZjY4YTA+XSBldGhfdHlwZV90cmFucysweGYwLzB4MTMw
-IApbICA0OTUuODg4OTQyXSBSU1A6IGUwMmI6ZmZmZjg4MDQyOTIwM2Q3MCAgRUZMQUdTOiAwMDAx
-MDI5NyAKWyAgNDk1LjkxNjAwNV0gUkFYOiAwMDAwMDAwMDAwMDAwMDE0IFJCWDogZmZmZjg4MDQx
-ZjdiZjIwMCBSQ1g6IDAwMDAwMDAwMDAwMDAwMDAgClsgIDQ5NS45NTIxMzNdIFJEWDogZmZmZjg4
-MDQxZWQ3NmM0MCBSU0k6IGZmZmY4ODA0MWFkNmIwMDAgUkRJOiBmZmZmODgwNDFmN2JmMjAwIApb
-ICA0OTUuOTg4OTE5XSBSQlA6IGZmZmY4ODA0MjkyMDNkODAgUjA4OiAwMDAwMDAwMDAwMDAwMDAw
-IFIwOTogZmZmZjg4MDQxZWQ3NmNmMCAKWyAgNDk2LjAyNTc4Ml0gUjEwOiAwMDAwMTYwMDAwMDAw
-MDAwIFIxMTogZmZmZmM5MDAwNDFhYTJmOCBSMTI6IDAwMDAwMDAwMDAwMDAwMGEgClsgIDQ5Ni4w
-NjEzNTFdIFIxMzogZmZmZmM5MDAwNDFiMDIwMCBSMTQ6IDAwMDAwMDAwMDAwMDAwMGIgUjE1OiBm
-ZmZmYzkwMDA0MWFhMmEwIApbICA0OTYuMDk4MTc4XSBGUzogIDAwMDA3ZmEyYjk0NDI4ODAoMDAw
-MCkgR1M6ZmZmZjg4MDQyOTIwMDAwMCgwMDAwKSBrbmxHUzowMDAwMDAwMDAwMDAwMDAwIApbICA0
-OTYuMTM5NzY3XSBDUzogIGUwMzMgRFM6IDAwMDAgRVM6IDAwMDAgQ1IwOiAwMDAwMDAwMDgwMDUw
-MDMzIApbICA0OTYuMTY5MTA1XSBDUjI6IDAwMDA1NTU4ZTRkNDNlYTAgQ1IzOiAwMDAwMDAwNDIw
-MjRlMDAwIENSNDogMDAwMDAwMDAwMDA0MjY2MCAKWyAgNDk2LjIwNjgxNl0gU3RhY2s6IApbICA0
-OTYuMjE2OTA0XSAgMDAwMDAwMDAwMDAwMDAwYiA1MTg1OWM1ZDg3Y2RkMjJmIGZmZmY4ODA0Mjky
-MDNlNjggZmZmZmZmZmZjMDAyZGQ1OSAKWyAgNDk2LjI1NDA5M10gIGZmZmZmZmZmODE1NWVlZDAg
-NTE4NTljNWQ4N2NkZDIyZiBmZmZmODgwNDFhNDUwMDAwIDAwMDAwMDBhMjJkNjZmNzAgClsgIDQ5
-Ni4yOTIzNTFdICBmZmZmODgwNDFhNDUwMDAwIGZmZmZjOTAwMDQxYWQ5ZTAgZmZmZmM5MDAwNDFh
-YTNjMCBmZmZmODgwNDFmN2JmMjAwIApbICA0OTYuMzMwODIzXSBDYWxsIFRyYWNlOiAKWyAgNDk2
-LjM0MzM5N10gIDxJUlE+ICAKWyAgNDk2LjM1Mjk5Ml0gIFs8ZmZmZmZmZmZjMDAyZGQ1OT5dIHhl
-bnZpZl90eF9hY3Rpb24rMHg1NjkvMHg4YjAgW3hlbl9uZXRiYWNrXSAKWyAgNDk2LjM4OTkzM10g
-IFs8ZmZmZmZmZmY4MTU1ZWVkMD5dID8gc2NzaV9wdXRfY29tbWFuZCsweDgwLzB4ZDAgClsgIDQ5
-Ni40MTg4MTBdICBbPGZmZmZmZmZmODE2Y2NjMDc+XSA/IF9fbmFwaV9zY2hlZHVsZSsweDQ3LzB4
-NTAgClsgIDQ5Ni40NDkwOTddICBbPGZmZmZmZmZmYzAwMzExZjA+XSA/IHhlbnZpZl90eF9pbnRl
-cnJ1cHQrMHg1MC8weDYwIFt4ZW5fbmV0YmFja10gClsgIDQ5Ni40ODU4MDRdICBbPGZmZmZmZmZm
-ODExMDFiZWQ+XSA/IF9faGFuZGxlX2lycV9ldmVudF9wZXJjcHUrMHg4ZC8weDE5MCAKLi4uCgot
-LSAKICBWaXRhbHkKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6
-Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+Hi,
+
+On Tue, 23 Aug 2016 19:21:41 +0300 Amir Vadai <amir@vadai.me> wrote:
+> On Tue, Aug 23, 2016 at 08:37:07AM -0400, Jamal Hadi Salim wrote:
+> > 
+> > The noun "ip tunnel" is a little misleading. Unless you can use
+> > this for other types of tunnels (ipip, etc). If this is specific
+> > for just vxlan and metadata setting then some name like vxlanmeta
+> > or something else that signifies both metadata de/encap + vxlan would
+> > be helpful.  
+> Yeh, this name is not the best...
+> The action is not vxlan specific, it should be good for all the
+> ip tunnel interfaces that use metadata for the outer headers.
+> I will rename it to something like mdtunnel - unless someone has a
+> better suggestion.
+
+Well, in bpf we have BPF_FUNC_skb_set_tunnel_key.
+
+How about "action tunnel_key" as the noun?
+Another decent alternative might be "action tunnel_info".
+
+Not sure about the verbs though.. "action tunnel_key set/unset"?
+
+Regards,
+Shmulik
