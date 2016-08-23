@@ -1,105 +1,49 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
-Date: Tue, 23 Aug 2016 13:06:08 -0700
-Message-ID: <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
- <20160823.112515.318902967155957764.davem@davemloft.net>
- <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: CVE-2014-9900 fix is not upstream
+Date: Tue, 23 Aug 2016 21:09:41 +0100
+Message-ID: <20160823200941.GB2356@ZenIV.linux.org.uk>
+References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
+ <20160823.094029.1244944495918162255.davem@davemloft.net>
+ <1471973727.13300.162.camel@decadent.org.uk>
+ <20160823.112406.549221808236512285.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, samanthakumar@google.com, willemb@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: ben@decadent.org.uk, luis.henriques@canonical.com,
+        avijitnsec@codeaurora.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Disposition: inline
+In-Reply-To: <20160823.112406.549221808236512285.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/23/2016 12:03 PM, Eric Dumazet wrote:
-> On Tue, 2016-08-23 at 11:25 -0700, David Miller wrote:
->> From: Laura Abbott <labbott@redhat.com>
->> Date: Tue, 23 Aug 2016 10:53:26 -0700
->>
->>> Fedora received a report[1] of a unit test failing on Ruby when using
->>> the
->>> 4.7 kernel. This was a test to send a zero sized UDP packet. With the
->>> 4.7 kernel, the test now timing out on a select instead of completing.
->>> The reduced ruby test is
->>>
->>>   def test_udp_recvfrom_nonblock
->>>     u1 = UDPSocket.new
->>>     u2 = UDPSocket.new
->>>     u1.bind("127.0.0.1", 0)
->>>     u2.send("", 0, u1.getsockname)
->>>     IO.select [u1]  # test gets stuck here
->>>   ensure
->>>     u1.close if u1
->>>     u2.close if u2
->>>   end
->>
->> Well, if there is no data, should select really wake up?
->>
->> I think it's valid not to.
-> There are skb in receive queue, with skb->len = 0
->
-> This looks like a bug in first_packet_length() or poll logic.
->
-> Definitely something we can fix.
->
-> Maybe with :
->
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index e61f7cd65d08..380c05a84041 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1184,11 +1184,11 @@ out:
->   *	Drops all bad checksum frames, until a valid one is found.
->   *	Returns the length of found skb, or 0 if none is found.
->   */
-> -static unsigned int first_packet_length(struct sock *sk)
-> +static int first_packet_length(struct sock *sk)
->  {
->  	struct sk_buff_head list_kill, *rcvq = &sk->sk_receive_queue;
->  	struct sk_buff *skb;
-> -	unsigned int res;
-> +	int res;
->
->  	__skb_queue_head_init(&list_kill);
->
-> @@ -1203,7 +1203,7 @@ static unsigned int first_packet_length(struct sock *sk)
->  		__skb_unlink(skb, rcvq);
->  		__skb_queue_tail(&list_kill, skb);
->  	}
-> -	res = skb ? skb->len : 0;
-> +	res = skb ? skb->len : -1;
->  	spin_unlock_bh(&rcvq->lock);
->
->  	if (!skb_queue_empty(&list_kill)) {
-> @@ -1232,7 +1232,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
->
->  	case SIOCINQ:
->  	{
-> -		unsigned int amount = first_packet_length(sk);
-> +		int amount = max(0, first_packet_length(sk));
->
->  		return put_user(amount, (int __user *)arg);
->  	}
-> @@ -2184,7 +2184,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
->
->  	/* Check for false positives due to checksum errors */
->  	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
-> -	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
-> +	    !(sk->sk_shutdown & RCV_SHUTDOWN) && first_packet_length(sk) == -1)
->  		mask &= ~(POLLIN | POLLRDNORM);
->
->  	return mask;
->
->
+On Tue, Aug 23, 2016 at 11:24:06AM -0700, David Miller wrote:
 
-Fixes the test for me. You're welcome to take this as a Tested-by.
+> > On some versions and architectures.  Can you guarantee that you will
+> > notice when an exception appears?
+> 
+> Again, show me the assembler output exhibiting the lack of
+> initialization, for this specific structure and situation.
+> 
+> That's all that I'm asking.
 
-Thanks,
-Laura
+... and then we can file a bug report against the sodding compiler.  Note
+that
+struct ethtool_wolinfo {
+        __u32   cmd;
+        __u32   supported;
+        __u32   wolopts;
+        __u8    sopass[SOPASS_MAX];	// 6, actually
+};
+is not going to *have* padding.  Not on anything even remotely sane.
+If array of 6 char as member of a struct requires 64bit alignment on some
+architecture, I would really like some of what the designers of that ABI
+must have been smoking.
+
+Initializer might be allowed to leave padding uninitialized.  But all fields
+_must_ be initialized, the missing initializers treated exactly as they
+would've been for a static-duration object (C99 6.7.8p19).  And that is
+going to cover everything in that sucker.  It's not a function of compiler -
+only of C ABI on given target.
