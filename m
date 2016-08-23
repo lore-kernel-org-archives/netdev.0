@@ -1,121 +1,89 @@
-From: Stephen Warren <swarren@wwwdotorg.org>
-Subject: [PATCH] dt: net: enhance DWC EQoS binding to support Tegra186
-Date: Tue, 23 Aug 2016 14:47:57 -0600
-Message-ID: <20160823204757.17998-1-swarren@wwwdotorg.org>
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, Stephen Warren <swarren@nvidia.com>
-To: Lars Persson <lars.persson@axis.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] udp: fix poll() issue with zero sized packets
+Date: Tue, 23 Aug 2016 13:53:24 -0700
+Message-ID: <1471985604.14381.48.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
+         <20160823.112515.318902967155957764.davem@davemloft.net>
+         <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
+         <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, samanthakumar@google.com,
+        willemb@google.com, netdev <netdev@vger.kernel.org>
+To: Laura Abbott <labbott@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avon.wwwdotorg.org ([70.85.31.133]:33664 "EHLO
-        avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754716AbcHWUsE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:48:04 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35022 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755846AbcHWUx0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:53:26 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h186so8819435pfg.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:53:26 -0700 (PDT)
+In-Reply-To: <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Warren <swarren@nvidia.com>
+From: Eric Dumazet <edumazet@google.com>
 
-The Synopsys DWC EQoS is a configurable IP block which supports multiple
-options for bus type, clocking and reset structure, and feature list.
-Extend the DT binding to define a "compatible value" for the configuration
-contained in NVIDIA's Tegra186 SoC, and define some new properties and
-list property entries required by that configuration.
+Laura tracked poll() [and friends] regression caused by commit
+e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
 
-Signed-off-by: Stephen Warren <swarren@nvidia.com>
+udp_poll() needs to know if there is a valid packet in receive queue,
+even if its payload length is 0.
+
+Change first_packet_length() to return an signed int, and use -1
+as the indication of an empty queue.
+
+Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+Reported-by: Laura Abbott <labbott@redhat.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Laura Abbott <labbott@redhat.com>
 ---
- .../bindings/net/snps,dwc-qos-ethernet.txt         | 60 ++++++++++++++++++++--
- 1 file changed, 56 insertions(+), 4 deletions(-)
+ net/ipv4/udp.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-index 51f8d2eba8d8..6cd4129364a9 100644
---- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-+++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-@@ -1,21 +1,72 @@
- * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index e61f7cd65d08..2a2ac9e0c985 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1184,11 +1184,11 @@ out:
+  *	Drops all bad checksum frames, until a valid one is found.
+  *	Returns the length of found skb, or 0 if none is found.
+  */
+-static unsigned int first_packet_length(struct sock *sk)
++static int first_packet_length(struct sock *sk)
+ {
+ 	struct sk_buff_head list_kill, *rcvq = &sk->sk_receive_queue;
+ 	struct sk_buff *skb;
+-	unsigned int res;
++	int res;
  
-+This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
-+IP block. The IP supports multiple options for bus type, clocking and reset
-+structure, and feature list. Consequently, a number of properties and list
-+entries in properties are marked as optional, or only required in specific HW
-+configurations.
+ 	__skb_queue_head_init(&list_kill);
  
- Required properties:
--- compatible: Should be "snps,dwc-qos-ethernet-4.10"
-+- compatible: One of:
-+  - "snps,dwc-qos-ethernet-4.10"
-+  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10"
- - reg: Address and length of the register set for the device
--- clocks: Phandles to the reference clock and the bus clock
--- clock-names: Should be "phy_ref_clk" for the reference clock and "apb_pclk"
--  for the bus clock.
-+- clocks: Phandle and clock specifiers for each entry in clock-names, in the
-+  same order. See ../clock/clock-bindings.txt.
-+- clock-names: May contain any/all of the following depending on the IP
-+  configuration, in any order:
-+  - "phy_ref_clk". The reference clock provided directly to the PHY.
-+    Only required if under SW control, i.e. not provided by some fixed source
-+    such as a crystal.
-+  - "apb_pclk" (alternate name "slave_bus"; only one alternate must appear).
-+    The CPU/slave-bus (CSR) interface clock. Despite the name, this applies to
-+    any bus type; APB, AHB, AXI, etc. The HW signal name is hclk_i (AHB) or
-+    clk_csr_i (other buses).
-+  - "master_bus". The master bus interface clock. Only required in
-+    configurations that use a separate clock for the master and slave bus
-+    interfaces. The HW signal name is hclk_i (AHB) or aclk_i (AXI).
-+  - "rx". The receive path clock. The HW signal name is clk_rx_i.
-+  - "tx". The transmit path clock. The HW signal name is clk_tx_i.
-+  - "ptp_ref". The PTP reference clock. The HW signal name is clk_ptp_ref_i.
-+
-+  Note: Support for additional HW configurations may require adding the
-+  following clocks to this list in the future: clk_rx_125_i, clk_tx_125_i,
-+  clk_pmarx_0_i, clk_pmarx1_i, clk_rmii_i.
-+
-+  The following compatible values require the following set of clocks:
-+  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
-+    - "slave_bus"
-+    - "master_bus"
-+    - "rx"
-+    - "tx"
-+    - "ptp_ref"
-+  - "snps,dwc-qos-ethernet-4.10":
-+    - "phy_ref_clk"
-+    - "apb_clk"
- - interrupt-parent: Should be the phandle for the interrupt controller
-   that services interrupts for this device
- - interrupts: Should contain the core's combined interrupt signal
- - phy-mode: See ethernet.txt file in the same directory
-+- resets: Phandle and reset specifiers for each entry in reset-names, in the
-+  same order. See ../reset/reset.txt.
-+- reset-names: May contain any/all of the following depending on the IP
-+  configuration, in any order:
-+  - "eqos". The reset to the entire module. The HW signal name is hreset_n
-+    (AHB) or aresetn_i (AXI).
-+
-+  The following compatible values require the following set of clocks:
-+  (the reset properties may be omitted if empty)
-+  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
-+    - "eqos".
-+  - "snps,dwc-qos-ethernet-4.10":
-+    - None.
+@@ -1203,7 +1203,7 @@ static unsigned int first_packet_length(struct sock *sk)
+ 		__skb_unlink(skb, rcvq);
+ 		__skb_queue_tail(&list_kill, skb);
+ 	}
+-	res = skb ? skb->len : 0;
++	res = skb ? skb->len : -1;
+ 	spin_unlock_bh(&rcvq->lock);
  
- Optional properties:
- - dma-coherent: Present if dma operations are coherent
- - mac-address: See ethernet.txt in the same directory
- - local-mac-address: See ethernet.txt in the same directory
-+- phy-reset-gpios: Phandle and specifier for any GPIO used to reset the PHY.
-+  See ../gpio/gpio.txt.
- - snps,en-lpi: If present it enables use of the AXI low-power interface
- - snps,write-requests: Number of write requests that the AXI port can issue.
-   It depends on the SoC configuration.
-@@ -52,6 +103,7 @@ ethernet2@40010000 {
- 	reg = <0x40010000 0x4000>;
- 	phy-handle = <&phy2>;
- 	phy-mode = "gmii";
-+	phy-reset-gpios = <&gpioctlr 43 GPIO_ACTIVE_LOW>;
+ 	if (!skb_queue_empty(&list_kill)) {
+@@ -1232,7 +1232,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
  
- 	snps,en-tx-lpi-clockgating;
- 	snps,en-lpi;
--- 
-2.9.3
+ 	case SIOCINQ:
+ 	{
+-		unsigned int amount = first_packet_length(sk);
++		int amount = max_t(int, 0, first_packet_length(sk));
+ 
+ 		return put_user(amount, (int __user *)arg);
+ 	}
+@@ -2184,7 +2184,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 
+ 	/* Check for false positives due to checksum errors */
+ 	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
+-	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
++	    !(sk->sk_shutdown & RCV_SHUTDOWN) && first_packet_length(sk) == -1)
+ 		mask &= ~(POLLIN | POLLRDNORM);
+ 
+ 	return mask;
