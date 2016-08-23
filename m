@@ -1,77 +1,225 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v6_repost 2/3] net: core: add SW stats to if_stats_msg
-Date: Mon, 22 Aug 2016 22:51:57 -0700
-Message-ID: <57BBE47D.3060805@cumulusnetworks.com>
-References: <1471612650-4508-1-git-send-email-jiri@resnulli.us> <1471612650-4508-3-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nogahf@mellanox.com,
-        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        ogerlitz@mellanox.com, nikolay@cumulusnetworks.com,
-        linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-        sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-        ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-        f.fainelli@gmail.com, dsa@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Fix issue while re-registering VF mgmt netdev
+Date: Tue, 23 Aug 2016 11:35:32 +0530
+Message-ID: <1471932332-14150-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, nirranjan@chelsioc.com,
+        Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35734 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756227AbcHWFwC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 01:52:02 -0400
-Received: by mail-pf0-f178.google.com with SMTP id x72so40060788pfd.2
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 22:52:00 -0700 (PDT)
-In-Reply-To: <1471612650-4508-3-git-send-email-jiri@resnulli.us>
+Received: from stargate.chelsio.com ([12.32.117.8]:36259 "EHLO
+        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752458AbcHWGHE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 02:07:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/19/16, 6:17 AM, Jiri Pirko wrote:
-> From: Nogah Frankel <nogahf@mellanox.com>
->
-> Add a nested attribute of SW stats to if_stats_msg
-> under IFLA_STATS_LINK_SW_64.
->
-> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/uapi/linux/if_link.h |  1 +
->  net/core/rtnetlink.c         | 21 +++++++++++++++++++++
->  2 files changed, 22 insertions(+)
->
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index a1b5202..1c9b808 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -825,6 +825,7 @@ enum {
->  	IFLA_STATS_LINK_64,
->  	IFLA_STATS_LINK_XSTATS,
->  	IFLA_STATS_LINK_XSTATS_SLAVE,
-> +	IFLA_STATS_LINK_SW_64,
->  
-hate to sound like a broken record here...
+When we disable SRIOV, we used to unregister the netdev but wasn't
+freed. But next time when the same netdev is registered, since the state
+was in 'NETREG_UNREGISTERED', we used to hit BUG_ON in register_netdevice,
+where it expects the state to be 'NETREG_UNINITIALIZED'.
 
-sorry, but like I have been saying throughout this patch series,
-i don't think I can ack a new attribute for so called 'software stats' at the
-same level as existing IFLA_STATS_LINK_64. It just adds ambiguity for existing stats and
-confusion for future stats.
+Alloc netdev and register them while configuring SRIOV, and free them
+when SRIOV is disabled. Also added a new function to setup ethernet
+properties instead of using ether_setup. Set carrier off by default,
+since we don't have to do any transmit on the interface.
 
-Today's IFLA_STATS64 or IFLA_STATS_LINK_64 provides aggregate stats
-and historically its been 'HW only' or 'SW only' or 'HW + SW'. It depends on the driver. logical devices
-provide pure 'SW only' stats here. There is no real reason to qualify them now. The user/app
-has only cared about and will continue to care about only aggregate stats. That requirement
-has never changed.
+Fixes: 7829451c695e ("cxgb4: Add control net_device for configuring PCIe VF")
 
-Everything else is breakdown for debug-ability.., hence should be in this second bucket I
-have been talking about (these are traditionally available via ethtool today).
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   97 +++++++++++++++-------
+ 2 files changed, 67 insertions(+), 31 deletions(-)
 
-I am not arguing against the value of the stats this patch series provides. But, since the beginning
-of the stats api, I have always talked about a nested extensible attribute for drivers who wish to
-break their stats down. so, I have only been requesting to put this so called 'software stats' attribute
-in a new nested attribute which can be extended for other such specially qualified stats.
-
-And, I thought we had agreed on such an attribute. I mention such a nested attribute
-here again on your previous post: http://marc.info/?l=linux-netdev&m=147085641703885&w=2
-
-Thanks,
-Roopa
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index f988c60..3f7b33a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -798,6 +798,7 @@ struct adapter {
+ 	unsigned int mbox;
+ 	unsigned int pf;
+ 	unsigned int flags;
++	unsigned int adap_idx;
+ 	enum chip_type chip;
+ 
+ 	int msg_enable;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index be5c942..44019bd 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3085,6 +3085,15 @@ static int cxgb_change_mtu(struct net_device *dev, int new_mtu)
+ }
+ 
+ #ifdef CONFIG_PCI_IOV
++static int dummy_open(struct net_device *dev)
++{
++	/* Turn carrier off since we don't have to transmit anything on this
++	 * interface.
++	 */
++	netif_carrier_off(dev);
++	return 0;
++}
++
+ static int cxgb_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
+ {
+ 	struct port_info *pi = netdev_priv(dev);
+@@ -3246,11 +3255,12 @@ static const struct net_device_ops cxgb4_netdev_ops = {
+ 	.ndo_set_tx_maxrate   = cxgb_set_tx_maxrate,
+ };
+ 
+-static const struct net_device_ops cxgb4_mgmt_netdev_ops = {
+ #ifdef CONFIG_PCI_IOV
++static const struct net_device_ops cxgb4_mgmt_netdev_ops = {
++	.ndo_open             = dummy_open,
+ 	.ndo_set_vf_mac       = cxgb_set_vf_mac,
+-#endif
+ };
++#endif
+ 
+ static void get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+@@ -5023,6 +5033,51 @@ static int get_chip_type(struct pci_dev *pdev, u32 pl_rev)
+ }
+ 
+ #ifdef CONFIG_PCI_IOV
++static void dummy_setup(struct net_device *dev)
++{
++	dev->type = ARPHRD_NONE;
++	dev->mtu = 0;
++	dev->hard_header_len = 0;
++	dev->addr_len = 0;
++	dev->tx_queue_len = 0;
++	dev->flags |= IFF_NOARP;
++	dev->priv_flags |= IFF_NO_QUEUE;
++
++	/* Initialize the device structure. */
++	dev->netdev_ops = &cxgb4_mgmt_netdev_ops;
++	dev->ethtool_ops = &cxgb4_mgmt_ethtool_ops;
++	dev->destructor = free_netdev;
++}
++
++static int config_mgmt_dev(struct pci_dev *pdev)
++{
++	struct adapter *adap = pci_get_drvdata(pdev);
++	struct net_device *netdev;
++	struct port_info *pi;
++	char name[IFNAMSIZ];
++	int err;
++
++	snprintf(name, IFNAMSIZ, "mgmtpf%d%d", adap->adap_idx, adap->pf);
++	netdev = alloc_netdev(0, name, NET_NAME_UNKNOWN, dummy_setup);
++	if (!netdev)
++		return -ENOMEM;
++
++	pi = netdev_priv(netdev);
++	pi->adapter = adap;
++	SET_NETDEV_DEV(netdev, &pdev->dev);
++
++	adap->port[0] = netdev;
++
++	err = register_netdev(adap->port[0]);
++	if (err) {
++		pr_info("Unable to register VF mgmt netdev %s\n", name);
++		free_netdev(adap->port[0]);
++		adap->port[0] = NULL;
++		return err;
++	}
++	return 0;
++}
++
+ static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
+ {
+ 	struct adapter *adap = pci_get_drvdata(pdev);
+@@ -5057,8 +5112,10 @@ static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
+ 	 */
+ 	if (!num_vfs) {
+ 		pci_disable_sriov(pdev);
+-		if (adap->port[0]->reg_state == NETREG_REGISTERED)
++		if (adap->port[0]) {
+ 			unregister_netdev(adap->port[0]);
++			adap->port[0] = NULL;
++		}
+ 		return num_vfs;
+ 	}
+ 
+@@ -5067,11 +5124,9 @@ static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
+ 		if (err)
+ 			return err;
+ 
+-		if (adap->port[0]->reg_state == NETREG_UNINITIALIZED) {
+-			err = register_netdev(adap->port[0]);
+-			if (err < 0)
+-				pr_info("Unable to register VF mgmt netdev\n");
+-		}
++		err = config_mgmt_dev(pdev);
++		if (err)
++			return err;
+ 	}
+ 	return num_vfs;
+ }
+@@ -5084,9 +5139,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	bool highdma = false;
+ 	struct adapter *adapter = NULL;
+ 	struct net_device *netdev;
+-#ifdef CONFIG_PCI_IOV
+-	char name[IFNAMSIZ];
+-#endif
+ 	void __iomem *regs;
+ 	u32 whoami, pl_rev;
+ 	enum chip_type chip;
+@@ -5447,40 +5499,24 @@ sriov:
+ 		goto free_pci_region;
+ 	}
+ 
+-	snprintf(name, IFNAMSIZ, "mgmtpf%d%d", adap_idx, func);
+-	netdev = alloc_netdev(0, name, NET_NAME_UNKNOWN, ether_setup);
+-	if (!netdev) {
+-		err = -ENOMEM;
+-		goto free_adapter;
+-	}
+-
+ 	adapter->pdev = pdev;
+ 	adapter->pdev_dev = &pdev->dev;
+ 	adapter->name = pci_name(pdev);
+ 	adapter->mbox = func;
+ 	adapter->pf = func;
+ 	adapter->regs = regs;
++	adapter->adap_idx = adap_idx;
+ 	adapter->mbox_log = kzalloc(sizeof(*adapter->mbox_log) +
+ 				    (sizeof(struct mbox_cmd) *
+ 				     T4_OS_LOG_MBOX_CMDS),
+ 				    GFP_KERNEL);
+ 	if (!adapter->mbox_log) {
+ 		err = -ENOMEM;
+-		goto free_netdevice;
++		goto free_adapter;
+ 	}
+-	pi = netdev_priv(netdev);
+-	pi->adapter = adapter;
+-	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 	pci_set_drvdata(pdev, adapter);
+-
+-	adapter->port[0] = netdev;
+-	netdev->netdev_ops = &cxgb4_mgmt_netdev_ops;
+-	netdev->ethtool_ops = &cxgb4_mgmt_ethtool_ops;
+-
+ 	return 0;
+ 
+- free_netdevice:
+-	free_netdev(adapter->port[0]);
+  free_adapter:
+ 	kfree(adapter);
+  free_pci_region:
+@@ -5582,9 +5618,8 @@ static void remove_one(struct pci_dev *pdev)
+ 	}
+ #ifdef CONFIG_PCI_IOV
+ 	else {
+-		if (adapter->port[0]->reg_state == NETREG_REGISTERED)
++		if (adapter->port[0])
+ 			unregister_netdev(adapter->port[0]);
+-		free_netdev(adapter->port[0]);
+ 		iounmap(adapter->regs);
+ 		kfree(adapter);
+ 		pci_disable_sriov(pdev);
+-- 
+1.7.3
