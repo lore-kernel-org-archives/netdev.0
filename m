@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 1/1] net sched: fix encoding to use real length
-Date: Mon, 22 Aug 2016 21:02:11 -0700 (PDT)
-Message-ID: <20160822.210211.926745178893055522.davem@davemloft.net>
-References: <1471864220-13356-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [PATCH] net: ipconfig: Fix NULL pointer dereference on
+ RARP/BOOTP/DHCP timeout
+Date: Mon, 22 Aug 2016 21:05:18 -0700 (PDT)
+Message-ID: <20160822.210518.2016675181033767934.davem@davemloft.net>
+References: <1471870863-29687-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48098 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbcHWECS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 00:02:18 -0400
-In-Reply-To: <1471864220-13356-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: u.kleine-koenig@pengutronix.de, treding@nvidia.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471870863-29687-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 22 Aug 2016 07:10:20 -0400
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Mon, 22 Aug 2016 15:01:03 +0200
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> If no RARP, BOOTP, or DHCP response is received, ic_dev is never set,
+> causing a NULL pointer dereference in ic_close_devs():
 > 
-> Encoding of the metadata was using the padded length as opposed to
-> the real length of the data which is a bug per specification.
-> This has not been an issue todate because all metadatum specified
-> so far has been 32 bit where aligned and data length are the same width.
-> This also includes a bug fix for validating the length of a u16 field.
-> But since there is no metadata of size u16 yes we are fine to include it
-> here.
+>     Sending DHCP requests ...... timed out!
+>     Unable to handle kernel NULL pointer dereference at virtual address 00000004
 > 
-> While at it get rid of magic numbers.
+> To fix this, add a check to avoid dereferencing ic_dev if it is still
+> NULL.
 > 
-> Fixes: ef6980b6becb ("net sched: introduce IFE action")
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Fixes: 2647cffb2bc6fbed ("net: ipconfig: Support using "delayed" DHCP replies")
 
 Applied.
