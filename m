@@ -1,65 +1,63 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 18/20] batman-adv: Place kref_get for
- tvlv_handler near use
-Date: Tue, 23 Aug 2016 16:36:17 +0300
-Message-ID: <8ee11ebe-56e2-5e47-aba9-7564e76440a6@cogentembedded.com>
-References: <20160822135620.15337-1-sw@simonwunderlich.de>
- <20160822135620.15337-19-sw@simonwunderlich.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 3/4] dsa: mv88e6xxx: Delete ppu timer when removing module
+Date: Tue, 23 Aug 2016 16:37:34 +0300
+Message-ID: <d20478f0-c11a-dfb2-26d0-a65db4119124@cogentembedded.com>
+References: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
+ <1471874464-16142-4-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
-To: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20160822135620.15337-19-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Jamie Lentin <jm@lentin.co.uk>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:35442 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757203AbcHWNh6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 09:37:58 -0400
+Received: by mail-lf0-f45.google.com with SMTP id f93so101039093lfi.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 06:37:36 -0700 (PDT)
+In-Reply-To: <1471874464-16142-4-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/22/2016 4:56 PM, Simon Wunderlich wrote:
+Hello.
 
-> From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+On 8/22/2016 5:01 PM, Andrew Lunn wrote:
+
+> The PPU method of accessing PHYs makes use of a timer. Make sure this
+> timer is deleted before unloading the driver.
 >
-> It is hard to understand why the refcnt is increased when it isn't done
-> near the actual place the new reference is used. So using kref_get right
-> before the place which requires the reference and in the same function
-> helps to avoid accidental problems caused by incorrect reference counting.
-
-      Neither does the boilerplate work for this patch...
-
-> Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-> Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
-> Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+> Reported-by: Jamie Lentin <jm@lentin.co.uk>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 > ---
->  net/batman-adv/tvlv.c | 4 ++++
->  1 file changed, 4 insertions(+)
+>  drivers/net/dsa/mv88e6xxx/chip.c | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
 >
-> diff --git a/net/batman-adv/tvlv.c b/net/batman-adv/tvlv.c
-> index 3533867..77654f0 100644
-> --- a/net/batman-adv/tvlv.c
-> +++ b/net/batman-adv/tvlv.c
-> @@ -547,8 +547,12 @@ void batadv_tvlv_handler_register(struct batadv_priv *bat_priv,
->  	INIT_HLIST_NODE(&tvlv_handler->list);
->
->  	spin_lock_bh(&bat_priv->tvlv.handler_list_lock);
-> +	kref_get(&tvlv_handler->refcount);
->  	hlist_add_head_rcu(&tvlv_handler->list, &bat_priv->tvlv.handler_list);
->  	spin_unlock_bh(&bat_priv->tvlv.handler_list_lock);
-> +
-> +	/* don't return reference to new tvlv_handler */
-> +	batadv_tvlv_handler_put(tvlv_handler);
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index b315769aa5be..1d5f9576e62a 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+[...]
+> @@ -3892,6 +3897,13 @@ static void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip)
+>  	}
 >  }
 >
->  /**
+> +static void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
+> +{
+> +	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU)) {
+> +		mv88e6xxx_ppu_state_destroy(chip);
+> +	}
+
+    {} not needed here. See Documentation/CodingStyle, chapter 3.
+
+> +}
+> +
+>  static int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
+>  			      struct mii_bus *bus, int sw_addr)
+>  {
+[...]
 
 MBR, Sergei
