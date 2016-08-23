@@ -1,84 +1,73 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 net-next] net: diag: support SOCK_DESTROY for UDP
- sockets
-Date: Tue, 23 Aug 2016 11:02:00 -0600
-Message-ID: <417574bb-d15d-f347-d951-49d0eede02c0@cumulusnetworks.com>
-References: <1471964547-18098-1-git-send-email-dsa@cumulusnetworks.com>
- <CAKD1Yr19f3E-z4Lat-YDwJ7U7-fmVBeissz08dsk2o+196OQRQ@mail.gmail.com>
+From: Vegard Nossum <vegard.nossum@gmail.com>
+Subject: Re: net: Zeroing the structure ethtool_wolinfo in ethtool_get_wol()
+Date: Tue, 23 Aug 2016 19:15:10 +0200
+Message-ID: <CAOMGZ=HSQqObOd6Q6hKVgXFy+EVfeNj8FH2JFs+az4i5hxUJiQ@mail.gmail.com>
+References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
+ <1471959668-18209-2-git-send-email-luis.henriques@canonical.com>
+ <1471962096.14381.15.camel@edumazet-glaptop3.roam.corp.google.com> <1471964716.3746.103.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35354 "EHLO
-        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753719AbcHWRCD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 13:02:03 -0400
-Received: by mail-pa0-f46.google.com with SMTP id hb8so31329162pac.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 10:02:03 -0700 (PDT)
-In-Reply-To: <CAKD1Yr19f3E-z4Lat-YDwJ7U7-fmVBeissz08dsk2o+196OQRQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Luis Henriques <luis.henriques@canonical.com>,
+        Avijit Kanti Das <avijitnsec@codeaurora.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471964716.3746.103.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/23/16 10:37 AM, Lorenzo Colitti wrote:
-> On Wed, Aug 24, 2016 at 12:02 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
->> +int udp_abort(struct sock *sk, int err)
->> +{
->> +       lock_sock(sk);
->> +
->> +       sk->sk_err = err;
->> +       sk->sk_error_report(sk);
->> +       udp_disconnect(sk, 0);
-> 
-> I notice that udp_disconnect does "inet->inet_daddr = 0" but doesn't
-> touch sk_v6_daddr. I wonder if that's correct. Even if it isn't,
-> that's likely not specific to this patch, since udpv6_prot specifies
-> udp_disconnect as its disconnect function pointer.
+On 23 August 2016 at 17:05, Joe Perches <joe@perches.com> wrote:
+> On Tue, 2016-08-23 at 07:21 -0700, Eric Dumazet wrote:
+>> On Tue, 2016-08-23 at 14:41 +0100, Luis Henriques wrote:
+>> > From: Avijit Kanti Das <avijitnsec@codeaurora.org>
+>> >
+>> > memset() the structure ethtool_wolinfo that has padded bytes
+>> > but the padded bytes have not been zeroed out.
+> []
+>> > diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+> []
+>> > @@ -1435,11 +1435,13 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
+>> >
+>> >  static int ethtool_get_wol(struct net_device *dev, char __user *useraddr)
+>> >  {
+>> > -   struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+>> > +   struct ethtool_wolinfo wol;
+>> >
+>> >     if (!dev->ethtool_ops->get_wol)
+>> >             return -EOPNOTSUPP;
+>> >
+>> > +   memset(&wol, 0, sizeof(struct ethtool_wolinfo));
+>> > +   wol.cmd = ETHTOOL_GWOL;
+>> >     dev->ethtool_ops->get_wol(dev, &wol);
+>> >
+>> >     if (copy_to_user(useraddr, &wol, sizeof(wol)))
+>> This would suggest a compiler bug to me.
+>
+> A compiler does not have a standards based requirement to
+> initialize arbitrary padding bytes.
+>
+> I believe gcc always does zero all padding anyway.
+>
+>> I checked that my compiler does properly put zeros there, even in the
+>> padding area.
+>>
+>> If we can not rely on such constructs, we have hundreds of similar
+>> patches to submit.
+>
+> True.
+>
+> From a practical point of view, does any compiler used for
+> kernel compilation (gcc/icc/llvm/any others?) not always
+> perform zero padding of alignment bytes?
+>
 
-ack. can send a separate patch for that one.
+gcc often does not do it, depends on a few factors though:
 
-> 
->> +       if (req->sdiag_family == AF_INET)
->> +               sk = __udp4_lib_lookup(net,
->> +                               req->id.idiag_dst[0], req->id.idiag_dport,
->> +                               req->id.idiag_src[0], req->id.idiag_sport,
->> +                               req->id.idiag_if, tbl, NULL);
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +       else if (req->sdiag_family == AF_INET6)
->> +               sk = __udp6_lib_lookup(net,
-> 
-> I think you need to check for mapped addresses like Eric added to
-> inet_diag_find_one_icsk in 7c1306723 .
-> 
->> +                               (struct in6_addr *)req->id.idiag_dst,
->> +                               req->id.idiag_dport,
->> +                               (struct in6_addr *)req->id.idiag_src,
->> +                               req->id.idiag_sport,
->> +                               req->id.idiag_if, tbl, NULL);
->> +#endif
-> 
-> If you want to be consistent with what the TCP code does, return
-> -EINVAL here instead of -ENOENT if an invalid address family was
-> passed in (e.g., if user passes in AF_INET6 and IPv6 is not compiled
-> in).
+https://lkml.org/lkml/2016/5/20/389
 
-ok, I'll make this lookup mirror inet_diag_find_one_icsk. That handles these 2 comments.
 
-> 
->> +       if (sock_diag_check_cookie(sk, req->id.idiag_cookie)) {
->> +               sock_put(sk);
->> +               return -ENOENT;
->> +       }
->> +
->> +       return sock_diag_destroy(sk, ECONNABORTED);
-> 
-> Looking at the code again, it seems that there's a bug in
-> sock_diag_destroy. If the destroy operation does not occur (e.g., if
-> sock_diag_destroy returns EPERM, or the protocol doesn't support
-> destroy), then it doesn't release the refcount. This affects the TCP
-> code as well and as such is my fault, not yours. The most obvious way
-> to fix this might be to call sock_gen_put in sock_diag_destroy.
-
-sock_gen_put seems specific to tcp which is why I used sock_put here. Perhaps better to have the callers of sock_diag_destroy handle the refcnt? This function took it; it should release it success or fail. Same for tcp.
+Vegard
