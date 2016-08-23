@@ -1,141 +1,121 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 14/15] net: sched: add support for TCQ_F_NOLOCK
- subqueues to sch_mqprio
-Date: Tue, 23 Aug 2016 13:28:34 -0700
-Message-ID: <20160823202834.14368.69843.stgit@john-Precision-Tower-5810>
-References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        john.fastabend@gmail.com
-To: eric.dumazet@gmail.com, jhs@mojatatu.com, davem@davemloft.net,
-        brouer@redhat.com, xiyou.wangcong@gmail.com,
-        alexei.starovoitov@gmail.com
+From: Stephen Warren <swarren@wwwdotorg.org>
+Subject: [PATCH] dt: net: enhance DWC EQoS binding to support Tegra186
+Date: Tue, 23 Aug 2016 14:47:57 -0600
+Message-ID: <20160823204757.17998-1-swarren@wwwdotorg.org>
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        linux-tegra@vger.kernel.org, Stephen Warren <swarren@nvidia.com>
+To: Lars Persson <lars.persson@axis.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34935 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755652AbcHWUma (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:42:30 -0400
-Received: by mail-pa0-f68.google.com with SMTP id cf3so10422577pad.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:42:30 -0700 (PDT)
-In-Reply-To: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+Received: from avon.wwwdotorg.org ([70.85.31.133]:33664 "EHLO
+        avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754716AbcHWUsE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:48:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sch_mqprio qdisc creates a sub-qdisc per tx queue which are then
-called independently for enqueue and dequeue operations. However
-statistics are aggregated and pushed up to the "master" qdisc.
+From: Stephen Warren <swarren@nvidia.com>
 
-This patch adds support for any of the sub-qdiscs to be per cpu
-statistic qdiscs. To handle this case add a check when calculating
-stats and aggregate the per cpu stats if needed.
+The Synopsys DWC EQoS is a configurable IP block which supports multiple
+options for bus type, clocking and reset structure, and feature list.
+Extend the DT binding to define a "compatible value" for the configuration
+contained in NVIDIA's Tegra186 SoC, and define some new properties and
+list property entries required by that configuration.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Stephen Warren <swarren@nvidia.com>
 ---
- net/sched/sch_mqprio.c |   61 +++++++++++++++++++++++++++++++-----------------
- 1 file changed, 39 insertions(+), 22 deletions(-)
+ .../bindings/net/snps,dwc-qos-ethernet.txt         | 60 ++++++++++++++++++++--
+ 1 file changed, 56 insertions(+), 4 deletions(-)
 
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 549c663..24f0360 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -229,22 +229,32 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct tc_mqprio_qopt opt = { 0 };
- 	struct Qdisc *qdisc;
--	unsigned int i;
-+	unsigned int ntx, tc;
+diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+index 51f8d2eba8d8..6cd4129364a9 100644
+--- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
++++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+@@ -1,21 +1,72 @@
+ * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
  
- 	sch->q.qlen = 0;
- 	memset(&sch->bstats, 0, sizeof(sch->bstats));
- 	memset(&sch->qstats, 0, sizeof(sch->qstats));
++This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
++IP block. The IP supports multiple options for bus type, clocking and reset
++structure, and feature list. Consequently, a number of properties and list
++entries in properties are marked as optional, or only required in specific HW
++configurations.
  
--	for (i = 0; i < dev->num_tx_queues; i++) {
--		qdisc = rtnl_dereference(netdev_get_tx_queue(dev, i)->qdisc);
-+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-+		struct gnet_stats_basic_cpu __percpu *cpu_bstats = NULL;
-+		struct gnet_stats_queue __percpu *cpu_qstats = NULL;
-+		__u32 qlen = 0;
+ Required properties:
+-- compatible: Should be "snps,dwc-qos-ethernet-4.10"
++- compatible: One of:
++  - "snps,dwc-qos-ethernet-4.10"
++  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10"
+ - reg: Address and length of the register set for the device
+-- clocks: Phandles to the reference clock and the bus clock
+-- clock-names: Should be "phy_ref_clk" for the reference clock and "apb_pclk"
+-  for the bus clock.
++- clocks: Phandle and clock specifiers for each entry in clock-names, in the
++  same order. See ../clock/clock-bindings.txt.
++- clock-names: May contain any/all of the following depending on the IP
++  configuration, in any order:
++  - "phy_ref_clk". The reference clock provided directly to the PHY.
++    Only required if under SW control, i.e. not provided by some fixed source
++    such as a crystal.
++  - "apb_pclk" (alternate name "slave_bus"; only one alternate must appear).
++    The CPU/slave-bus (CSR) interface clock. Despite the name, this applies to
++    any bus type; APB, AHB, AXI, etc. The HW signal name is hclk_i (AHB) or
++    clk_csr_i (other buses).
++  - "master_bus". The master bus interface clock. Only required in
++    configurations that use a separate clock for the master and slave bus
++    interfaces. The HW signal name is hclk_i (AHB) or aclk_i (AXI).
++  - "rx". The receive path clock. The HW signal name is clk_rx_i.
++  - "tx". The transmit path clock. The HW signal name is clk_tx_i.
++  - "ptp_ref". The PTP reference clock. The HW signal name is clk_ptp_ref_i.
 +
-+		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
- 		spin_lock_bh(qdisc_lock(qdisc));
--		sch->q.qlen		+= qdisc->q.qlen;
--		sch->bstats.bytes	+= qdisc->bstats.bytes;
--		sch->bstats.packets	+= qdisc->bstats.packets;
--		sch->qstats.backlog	+= qdisc->qstats.backlog;
--		sch->qstats.drops	+= qdisc->qstats.drops;
--		sch->qstats.requeues	+= qdisc->qstats.requeues;
--		sch->qstats.overlimits	+= qdisc->qstats.overlimits;
++  Note: Support for additional HW configurations may require adding the
++  following clocks to this list in the future: clk_rx_125_i, clk_tx_125_i,
++  clk_pmarx_0_i, clk_pmarx1_i, clk_rmii_i.
 +
-+		if (qdisc_is_percpu_stats(qdisc)) {
-+			cpu_bstats = qdisc->cpu_bstats;
-+			cpu_qstats = qdisc->cpu_qstats;
-+		}
++  The following compatible values require the following set of clocks:
++  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
++    - "slave_bus"
++    - "master_bus"
++    - "rx"
++    - "tx"
++    - "ptp_ref"
++  - "snps,dwc-qos-ethernet-4.10":
++    - "phy_ref_clk"
++    - "apb_clk"
+ - interrupt-parent: Should be the phandle for the interrupt controller
+   that services interrupts for this device
+ - interrupts: Should contain the core's combined interrupt signal
+ - phy-mode: See ethernet.txt file in the same directory
++- resets: Phandle and reset specifiers for each entry in reset-names, in the
++  same order. See ../reset/reset.txt.
++- reset-names: May contain any/all of the following depending on the IP
++  configuration, in any order:
++  - "eqos". The reset to the entire module. The HW signal name is hreset_n
++    (AHB) or aresetn_i (AXI).
 +
-+		qlen = qdisc_qlen_sum(qdisc);
-+
-+		__gnet_stats_copy_basic(NULL, &sch->bstats,
-+					cpu_bstats, &qdisc->bstats);
-+		__gnet_stats_copy_queue(&sch->qstats,
-+					cpu_qstats, &qdisc->qstats, qlen);
-+
- 		spin_unlock_bh(qdisc_lock(qdisc));
- 	}
++  The following compatible values require the following set of clocks:
++  (the reset properties may be omitted if empty)
++  - "nvidia,tegra186-eqos", "snps,dwc-qos-ethernet-4.10":
++    - "eqos".
++  - "snps,dwc-qos-ethernet-4.10":
++    - None.
  
-@@ -252,9 +262,9 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	memcpy(opt.prio_tc_map, dev->prio_tc_map, sizeof(opt.prio_tc_map));
- 	opt.hw = priv->hw_owned;
+ Optional properties:
+ - dma-coherent: Present if dma operations are coherent
+ - mac-address: See ethernet.txt in the same directory
+ - local-mac-address: See ethernet.txt in the same directory
++- phy-reset-gpios: Phandle and specifier for any GPIO used to reset the PHY.
++  See ../gpio/gpio.txt.
+ - snps,en-lpi: If present it enables use of the AXI low-power interface
+ - snps,write-requests: Number of write requests that the AXI port can issue.
+   It depends on the SoC configuration.
+@@ -52,6 +103,7 @@ ethernet2@40010000 {
+ 	reg = <0x40010000 0x4000>;
+ 	phy-handle = <&phy2>;
+ 	phy-mode = "gmii";
++	phy-reset-gpios = <&gpioctlr 43 GPIO_ACTIVE_LOW>;
  
--	for (i = 0; i < netdev_get_num_tc(dev); i++) {
--		opt.count[i] = dev->tc_to_txq[i].count;
--		opt.offset[i] = dev->tc_to_txq[i].offset;
-+	for (tc = 0; tc < netdev_get_num_tc(dev); tc++) {
-+		opt.count[tc] = dev->tc_to_txq[tc].count;
-+		opt.offset[tc] = dev->tc_to_txq[tc].offset;
- 	}
- 
- 	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-@@ -332,7 +342,6 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 	if (cl <= netdev_get_num_tc(dev)) {
- 		int i;
- 		__u32 qlen = 0;
--		struct Qdisc *qdisc;
- 		struct gnet_stats_queue qstats = {0};
- 		struct gnet_stats_basic_packed bstats = {0};
- 		struct netdev_tc_txq tc = dev->tc_to_txq[cl - 1];
-@@ -347,18 +356,26 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 
- 		for (i = tc.offset; i < tc.offset + tc.count; i++) {
- 			struct netdev_queue *q = netdev_get_tx_queue(dev, i);
-+			struct Qdisc *qdisc = rtnl_dereference(q->qdisc);
-+			struct gnet_stats_basic_cpu __percpu *cpu_bstats = NULL;
-+			struct gnet_stats_queue __percpu *cpu_qstats = NULL;
- 
--			qdisc = rtnl_dereference(q->qdisc);
- 			spin_lock_bh(qdisc_lock(qdisc));
--			qlen		  += qdisc->q.qlen;
--			bstats.bytes      += qdisc->bstats.bytes;
--			bstats.packets    += qdisc->bstats.packets;
--			qstats.backlog    += qdisc->qstats.backlog;
--			qstats.drops      += qdisc->qstats.drops;
--			qstats.requeues   += qdisc->qstats.requeues;
--			qstats.overlimits += qdisc->qstats.overlimits;
-+			if (qdisc_is_percpu_stats(qdisc)) {
-+				cpu_bstats = qdisc->cpu_bstats;
-+				cpu_qstats = qdisc->cpu_qstats;
-+			}
-+
-+			qlen = qdisc_qlen_sum(qdisc);
-+			__gnet_stats_copy_basic(NULL, &sch->bstats,
-+						cpu_bstats, &qdisc->bstats);
-+			__gnet_stats_copy_queue(&sch->qstats,
-+						cpu_qstats,
-+						&qdisc->qstats,
-+						qlen);
- 			spin_unlock_bh(qdisc_lock(qdisc));
- 		}
-+
- 		/* Reclaim root sleeping lock before completing stats */
- 		if (d->lock)
- 			spin_lock_bh(d->lock);
+ 	snps,en-tx-lpi-clockgating;
+ 	snps,en-lpi;
+-- 
+2.9.3
