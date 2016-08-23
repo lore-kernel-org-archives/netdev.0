@@ -1,72 +1,127 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH v3 net-next] net: diag: support SOCK_DESTROY for UDP sockets
-Date: Wed, 24 Aug 2016 01:37:54 +0900
-Message-ID: <CAKD1Yr19f3E-z4Lat-YDwJ7U7-fmVBeissz08dsk2o+196OQRQ@mail.gmail.com>
-References: <1471964547-18098-1-git-send-email-dsa@cumulusnetworks.com>
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
+Date: Tue, 23 Aug 2016 19:21:41 +0300
+Message-ID: <20160823162141.GC12627@office.localdomain>
+References: <20160822143834.32422-1-amir@vadai.me>
+ <20160822143834.32422-4-amir@vadai.me>
+ <891dc7d0-80d5-eebf-662d-7ab63718c3bb@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:37073 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752798AbcHWQjP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 12:39:15 -0400
-Received: by mail-it0-f53.google.com with SMTP id f6so144586204ith.0
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 09:38:15 -0700 (PDT)
-In-Reply-To: <1471964547-18098-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36020 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754385AbcHWQjr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 12:39:47 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i138so18814706wmf.3
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 09:39:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <891dc7d0-80d5-eebf-662d-7ab63718c3bb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 24, 2016 at 12:02 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> +int udp_abort(struct sock *sk, int err)
-> +{
-> +       lock_sock(sk);
-> +
-> +       sk->sk_err = err;
-> +       sk->sk_error_report(sk);
-> +       udp_disconnect(sk, 0);
+On Tue, Aug 23, 2016 at 08:37:07AM -0400, Jamal Hadi Salim wrote:
+> On 16-08-22 10:38 AM, Amir Vadai wrote:
+> > This action could be used before redirecting packets to a shared tunnel
+> > device, or when redirecting packets arriving from a such a device
+> > 
+> > The action will release the metadata created by the tunnel device
+> > (decap), or set the metadata with the specified values for encap
+> > operation.
+> > 
+> > For example, the following flower filter will forward all ICMP packets
+> > destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
+> > redirecting, a metadata for the vxlan tunnel is created using the
+> > iptunnel action and it's arguments:
+> > 
+> > $ filter add dev net0 protocol ip parent ffff: \
+> >     flower \
+> >       ip_proto 1 \
+> >       dst_ip 11.11.11.2 \
+> >     action iptunnel encap \
+> >       src_ip 11.11.0.1 \
+> >       dst_ip 11.11.0.2 \
+> >       id 11 \
+> >     action mirred egress redirect dev vxlan0
+> 
+> The noun "ip tunnel" is a little misleading. Unless you can use
+> this for other types of tunnels (ipip, etc). If this is specific
+> for just vxlan and metadata setting then some name like vxlanmeta
+> or something else that signifies both metadata de/encap + vxlan would
+> be helpful.
+Yeh, this name is not the best...
+The action is not vxlan specific, it should be good for all the
+ip tunnel interfaces that use metadata for the outer headers.
+I will rename it to something like mdtunnel - unless someone has a
+better suggestion.
 
-I notice that udp_disconnect does "inet->inet_daddr = 0" but doesn't
-touch sk_v6_daddr. I wonder if that's correct. Even if it isn't,
-that's likely not specific to this patch, since udpv6_prot specifies
-udp_disconnect as its disconnect function pointer.
+> 
+> 
+> > +static int tcf_iptunnel(struct sk_buff *skb, const struct tc_action *a,
+> > +			struct tcf_result *res)
+> 
+> Can you rename this function to something more grep-able
+> like tcf_iptunnel_run or tcf_iptunnel_exec?
+> You already have a data structure called tcf_iptunnel
+ack
 
-> +       if (req->sdiag_family == AF_INET)
-> +               sk = __udp4_lib_lookup(net,
-> +                               req->id.idiag_dst[0], req->id.idiag_dport,
-> +                               req->id.idiag_src[0], req->id.idiag_sport,
-> +                               req->id.idiag_if, tbl, NULL);
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +       else if (req->sdiag_family == AF_INET6)
-> +               sk = __udp6_lib_lookup(net,
+> 
+> > +{
+> > +	struct tcf_iptunnel *t = to_iptunnel(a);
+> > +	int action;
+> > +
+> > +	spin_lock(&t->tcf_lock);
+> > +	tcf_lastuse_update(&t->tcf_tm);
+> > +	bstats_update(&t->tcf_bstats, skb);
+> > +	action = t->tcf_action;
+> > +
+> > +	switch (t->tcft_action) {
+> > +	case TCA_IPTUNNEL_ACT_DECAP:
+> > +		skb_dst_set_noref(skb, NULL);
+> > +		break;
+> 
+> 
+> So the real decap is going to be at the vxlan dev?
+yes, the action here will just cleanup after the tunnel device will peel
+off the outer headers and place it in the metadata. This metadata was
+used by the classifier and now can be released.
 
-I think you need to check for mapped addresses like Eric added to
-inet_diag_find_one_icsk in 7c1306723 .
+> 
+> 
+> > +static struct metadata_dst *iptunnel_alloc(struct tcf_iptunnel *t,
+> > +					   __be32 saddr, __be32 daddr,
+> > +					   __be64 key_id)
+> > +{
+> > +	struct ip_tunnel_info *tun_info;
+> > +	struct metadata_dst *metadata;
+> > +
+> > +	metadata = metadata_dst_alloc(0, GFP_KERNEL);
+> > +	if (!metadata)
+> > +		return ERR_PTR(-ENOMEM);
+> > +
+> > +	tun_info = &metadata->u.tun_info;
+> > +	tun_info->mode = IP_TUNNEL_INFO_TX;
+> > +
+> 
+> More grep-ability tun_info sounds and i think is used by tun netdev.
+ack
 
-> +                               (struct in6_addr *)req->id.idiag_dst,
-> +                               req->id.idiag_dport,
-> +                               (struct in6_addr *)req->id.idiag_src,
-> +                               req->id.idiag_sport,
-> +                               req->id.idiag_if, tbl, NULL);
-> +#endif
+> 
+> Otherwise looks good (although i still think this wouldve scaled better
+> if you didnt depend on presence of vxlan dev).
+now I start to have some regrets :)
+But I don't see a good enough reason to duplicate code, since I can't
+point my finger on a performance problem with using the existing code.
 
-If you want to be consistent with what the TCP code does, return
--EINVAL here instead of -ENOENT if an invalid address family was
-passed in (e.g., if user passes in AF_INET6 and IPv6 is not compiled
-in).
+Thanks,
+Amir
 
-> +       if (sock_diag_check_cookie(sk, req->id.idiag_cookie)) {
-> +               sock_put(sk);
-> +               return -ENOENT;
-> +       }
-> +
-> +       return sock_diag_destroy(sk, ECONNABORTED);
-
-Looking at the code again, it seems that there's a bug in
-sock_diag_destroy. If the destroy operation does not occur (e.g., if
-sock_diag_destroy returns EPERM, or the protocol doesn't support
-destroy), then it doesn't release the refcount. This affects the TCP
-code as well and as such is my fault, not yours. The most obvious way
-to fix this might be to call sock_gen_put in sock_diag_destroy.
+> 
+> cheers,
+> jamal
