@@ -1,65 +1,94 @@
-From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 13/14] hv_netvsc: report vmbus name in ethtool
-Date: Tue, 23 Aug 2016 12:29:45 -0700
-Message-ID: <1471980586-18263-14-git-send-email-sthemmin@exchange.microsoft.com>
-References: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
-Reply-To: sthemmin@microsoft.com
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: unlisted-recipients:; (no To-header on input)
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH net-next 1/2] net: diag: slightly refactor the inet_diag_bc_audit error checks.
+Date: Wed, 24 Aug 2016 03:06:10 +0900
+Message-ID: <1471975571-26612-1-git-send-email-lorenzo@google.com>
+Cc: eric.dumazet@gmail.com, dsa@cumulusnetworks.com,
+        davem@davemloft.net, Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:34106
-        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753934AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 Aug 2016 13:54:29 -0400
-In-Reply-To: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35227 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752859AbcHWSGS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 14:06:18 -0400
+Received: by mail-pf0-f179.google.com with SMTP id x72so45976207pfd.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 11:06:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <sthemmin@microsoft.com>
+This simplifies the code a bit and also allows inet_diag_bc_audit
+to send to userspace an error that isn't EINVAL.
 
-Make netvsc on vmbus behave more like PCI.
-
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |    4 ++++
- include/linux/hyperv.h          |    7 +++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+ net/ipv4/inet_diag.c | 35 ++++++++++++++++++++++++-----------
+ 1 file changed, 24 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 7ed9f13..b874ab1 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -734,8 +734,12 @@ vf_injection_done:
- static void netvsc_get_drvinfo(struct net_device *net,
- 			       struct ethtool_drvinfo *info)
- {
-+	struct net_device_context *net_device_ctx = netdev_priv(net);
-+	struct hv_device *dev = net_device_ctx->device_ctx;
-+
- 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
- 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
-+	strlcpy(info->bus_info, vmbus_dev_name(dev), sizeof(info->bus_info));
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 38c2c47..a835f94 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -706,10 +706,23 @@ static bool valid_port_comparison(const struct inet_diag_bc_op *op,
+ 	return true;
  }
  
- static void netvsc_get_channels(struct net_device *net,
-diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
-index a6bc974..b01c8c3 100644
---- a/include/linux/hyperv.h
-+++ b/include/linux/hyperv.h
-@@ -1114,6 +1114,13 @@ int __must_check __vmbus_driver_register(struct hv_driver *hv_driver,
- 					 const char *mod_name);
- void vmbus_driver_unregister(struct hv_driver *hv_driver);
- 
-+static inline const char *vmbus_dev_name(const struct hv_device *device_obj)
-+{
-+	const struct kobject *kobj = &device_obj->device.kobj;
-+
-+	return kobj->name;
+-static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
++static bool valid_markcond(const struct inet_diag_bc_op *op, int len,
++			   int *min_len)
+ {
+-	const void *bc = bytecode;
+-	int  len = bytecode_len;
++	*min_len += sizeof(struct inet_diag_markcond);
++	return len >= *min_len;
 +}
 +
- void vmbus_hvsock_device_unregister(struct vmbus_channel *channel);
++static int inet_diag_bc_audit(struct nlattr *attr)
++{
++	const void *bytecode, *bc;
++	int bytecode_len, len;
++
++	if (!attr || nla_len(attr) < sizeof(struct inet_diag_bc_op))
++		return -EINVAL;
++
++	bytecode = bc = nla_data(attr);
++	len = bytecode_len = nla_len(attr);
  
- int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
+ 	while (len > 0) {
+ 		int min_len = sizeof(struct inet_diag_bc_op);
+@@ -1020,13 +1033,13 @@ static int inet_diag_rcv_msg_compat(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+ 		if (nlmsg_attrlen(nlh, hdrlen)) {
+ 			struct nlattr *attr;
++			int err;
+ 
+ 			attr = nlmsg_find_attr(nlh, hdrlen,
+ 					       INET_DIAG_REQ_BYTECODE);
+-			if (!attr ||
+-			    nla_len(attr) < sizeof(struct inet_diag_bc_op) ||
+-			    inet_diag_bc_audit(nla_data(attr), nla_len(attr)))
+-				return -EINVAL;
++			err = inet_diag_bc_audit(attr);
++			if (err)
++				return err;
+ 		}
+ 		{
+ 			struct netlink_dump_control c = {
+@@ -1051,13 +1064,13 @@ static int inet_diag_handler_cmd(struct sk_buff *skb, struct nlmsghdr *h)
+ 	    h->nlmsg_flags & NLM_F_DUMP) {
+ 		if (nlmsg_attrlen(h, hdrlen)) {
+ 			struct nlattr *attr;
++			int err;
+ 
+ 			attr = nlmsg_find_attr(h, hdrlen,
+ 					       INET_DIAG_REQ_BYTECODE);
+-			if (!attr ||
+-			    nla_len(attr) < sizeof(struct inet_diag_bc_op) ||
+-			    inet_diag_bc_audit(nla_data(attr), nla_len(attr)))
+-				return -EINVAL;
++			err = inet_diag_bc_audit(attr);
++			if (err)
++				return err;
+ 		}
+ 		{
+ 			struct netlink_dump_control c = {
 -- 
-1.7.4.1
+2.8.0.rc3.226.g39d4020
