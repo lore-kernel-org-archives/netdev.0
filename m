@@ -1,113 +1,64 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: [REGRESSION] Select hang with zero sized UDP packets
-Date: Tue, 23 Aug 2016 10:53:26 -0700
-Message-ID: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Sam Kumar <samanthakumar@google.com>,
-        Willem de Bruijn <willemb@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: sthemmin@exchange.microsoft.com
+Subject: [PATCH 07/14] hv_netvsc: make device_remove void
+Date: Tue, 23 Aug 2016 12:29:39 -0700
+Message-ID: <1471980586-18263-8-git-send-email-sthemmin@exchange.microsoft.com>
+References: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
+Reply-To: sthemmin@microsoft.com
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:36788
+        "EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753548AbcHWRy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 13:54:28 -0400
+In-Reply-To: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Fedora received a report[1] of a unit test failing on Ruby when using the
-4.7 kernel. This was a test to send a zero sized UDP packet. With the
-4.7 kernel, the test now timing out on a select instead of completing.
-The reduced ruby test is
+Always returns 0 and no callers check.
 
-   def test_udp_recvfrom_nonblock
-     u1 = UDPSocket.new
-     u2 = UDPSocket.new
-     u1.bind("127.0.0.1", 0)
-     u2.send("", 0, u1.getsockname)
-     IO.select [u1]  # test gets stuck here
-   ensure
-     u1.close if u1
-     u2.close if u2
-   end
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ drivers/net/hyperv/netvsc.c     |    3 +--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-
-which roughly corresponds to this in C
-
-int main()
-{
-         int fd1, fd2;
-         struct sockaddr_in addr1;
-         unsigned int len1;
-         int ret;
-         fd_set rfds;
-
-         fd1 = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
-         fd2 = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
-
-         if (fd1 < 0 || fd2 < 0) {
-                 printf("socket fail");
-                 exit(1);
-         }
-
-         len1 = sizeof(addr1);
-
-         memset(&addr1, 0, sizeof(addr1));
-         addr1.sin_family = AF_INET;
-         addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
-         addr1.sin_port = htons(0);
-         ret = bind(fd1, (struct sockaddr *)&addr1, len1);
-         if (ret < 0) {
-                 printf("fu %d\n", errno);
-                 exit(1);
-         }
-
-         ret = getsockname(fd1, (struct sockaddr *)&addr1, &len1);
-         if (ret < 0) {
-                 printf("getsockname failed %d\n", errno);
-                 exit(1);
-         }
-         ret = sendto(fd2, "", 0, 0, (struct sockaddr *)&addr1, len1);
-         if (ret < 0) {
-                 printf("sendto failed %d\n", errno);
-                 exit(1);
-         }
-
-         FD_ZERO(&rfds);
-         FD_SET(fd1, &rfds);
-	// hang here
-         select(fd1+1, &rfds, NULL, NULL, NULL);
-}
-
-
-Bisection showed
-
-commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac
-Author: samanthakumar <samanthakumar@google.com>
-Date:   Tue Apr 5 12:41:15 2016 -0400
-
-     udp: remove headers from UDP packets before queueing
-     
-     Remove UDP transport headers before queueing packets for reception.
-     This change simplifies a follow-up patch to add MSG_PEEK support.
-     
-     Signed-off-by: Sam Kumar <samanthakumar@google.com>
-     Signed-off-by: Willem de Bruijn <willemb@google.com>
-     Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-As the offending commit. The issue is still reproducible on master
-as of this morning and I don't see anything explicitly tagged in
-net-next as fixing this.
-
-Any ideas?
-
-Thanks,
-Laura
-
-[1] https://bugzilla.redhat.com/show_bug.cgi?id=1365940
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index b58e559..8031dee 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -173,7 +173,7 @@ struct rndis_device {
+ struct rndis_message;
+ struct netvsc_device;
+ int netvsc_device_add(struct hv_device *device, void *additional_info);
+-int netvsc_device_remove(struct hv_device *device);
++void netvsc_device_remove(struct hv_device *device);
+ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet,
+ 		struct rndis_message *rndis_msg,
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 110bbb8..2ece27a 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -648,7 +648,7 @@ static void netvsc_disconnect_vsp(struct hv_device *device)
+ /*
+  * netvsc_device_remove - Callback when the root bus device is removed
+  */
+-int netvsc_device_remove(struct hv_device *device)
++void netvsc_device_remove(struct hv_device *device)
+ {
+ 	struct net_device *ndev = hv_get_drvdata(device);
+ 	struct net_device_context *net_device_ctx = netdev_priv(ndev);
+@@ -670,7 +670,6 @@ int netvsc_device_remove(struct hv_device *device)
+ 	/* Release all resources */
+ 	vfree(net_device->sub_cb_buf);
+ 	free_netvsc_device(net_device);
+-	return 0;
+ }
+ 
+ #define RING_AVAIL_PERCENT_HIWATER 20
+-- 
+1.7.4.1
