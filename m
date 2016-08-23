@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ipv6: Remove addresses for failures with
- strict DAD
-Date: Mon, 22 Aug 2016 17:00:00 -0700 (PDT)
-Message-ID: <20160822.170000.2150110843821976226.davem@davemloft.net>
-References: <1471527581-9125-1-git-send-email-mmanning@brocade.com>
+Subject: Re: [Patch net-next] net_sched: properly handle failure case of
+ tcf_exts_init()
+Date: Mon, 22 Aug 2016 17:02:45 -0700 (PDT)
+Message-ID: <20160822.170245.1689979128529376324.davem@davemloft.net>
+References: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mmanning@brocade.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46919 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46934 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757232AbcHWAAB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 20:00:01 -0400
-In-Reply-To: <1471527581-9125-1-git-send-email-mmanning@brocade.com>
+        with ESMTP id S1757316AbcHWADK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 20:03:10 -0400
+In-Reply-To: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Manning <mmanning@brocade.com>
-Date: Thu, 18 Aug 2016 14:39:40 +0100
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri, 19 Aug 2016 12:36:54 -0700
 
-> If DAD fails with accept_dad set to 2, global addresses and host routes
-> are incorrectly left in place. Even though disable_ipv6 is set,
-> contrary to documentation, the addresses are not dynamically deleted
-> from the interface. It is only on a subsequent link down/up that these
-> are removed. The fix is not only to set the disable_ipv6 flag, but
-> also to call addrconf_ifdown(), which is the action to carry out when
-> disabling IPv6. This results in the addresses and routes being deleted
-> immediately. The DAD failure for the LL addr is determined as before
-> via netlink, or by the absence of the LL addr (which also previously
-> would have had to be checked for in case of an intervening link down
-> and up). As the call to addrconf_ifdown() requires an rtnl lock, the
-> logic to disable IPv6 when DAD fails is moved to addrconf_dad_work().
- ...
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
+> After commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array")
+> we do dynamic allocation in tcf_exts_init(), therefore we need
+> to handle the ENOMEM case properly.
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, thanks.
+Applied.
