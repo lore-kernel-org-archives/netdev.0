@@ -1,45 +1,48 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] vmxnet3: fix non static symbol warning
-Date: Tue, 23 Aug 2016 15:05:18 +0000
-Message-ID: <1471964718-32543-1-git-send-email-weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: dsa: bcm_sf2: Remove redundant dev_err call in bcm_sf2_sw_probe()
+Date: Tue, 23 Aug 2016 15:09:03 +0000
+Message-ID: <1471964943-742-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Shrikrishna Khare <skhare@vmware.com>,
-        "VMware, Inc." <pv-drivers@vmware.com>
+To: "David S . Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34130 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750862AbcHWPWD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 11:22:03 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hh10so10126287pac.1
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 08:22:02 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35879 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752642AbcHWPXH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 11:23:07 -0400
+Received: by mail-pf0-f193.google.com with SMTP id y134so8447419pfg.3
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 08:23:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <weiyongjun1@huawei.com>
 
-Fixes the following sparse warning:
-
-drivers/net/vmxnet3/vmxnet3_drv.c:1645:1: warning:
- symbol 'vmxnet3_rq_destroy_all_rxdataring' was not declared. Should it be static?
+There is a error message within devm_ioremap_resource
+already, so remove the dev_err call to avoid redundant
+error message.
 
 Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/dsa/bcm_sf2.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 4244b9d..2fd93b4 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1641,7 +1641,7 @@ static void vmxnet3_rq_destroy(struct vmxnet3_rx_queue *rq,
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 8e6fe13..3952302 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -1643,10 +1643,8 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+ 	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
+ 		r = platform_get_resource(pdev, IORESOURCE_MEM, i);
+ 		*base = devm_ioremap_resource(&pdev->dev, r);
+-		if (IS_ERR(*base)) {
+-			pr_err("unable to find register: %s\n", reg_names[i]);
++		if (IS_ERR(*base))
+ 			return PTR_ERR(*base);
+-		}
+ 		base++;
  	}
- }
- 
--void
-+static void
- vmxnet3_rq_destroy_all_rxdataring(struct vmxnet3_adapter *adapter)
- {
- 	int i;
