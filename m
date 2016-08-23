@@ -1,185 +1,84 @@
-From: <Raju.Lakkaraju@microsemi.com>
-Subject: RE: [PATCH v1 1/1]  net: phy: Add edge-rate, mac-if, read, write
- func to Microsemi PHYs.
-Date: Tue, 23 Aug 2016 18:55:14 +0530
-Message-ID: <20160823132438.GA14224@microsemi.com>
-References: <20160808134325.GA4376@microsemi.com>
- <20160822133953.GD14068@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Subject: [ethtool PATCH v4 0/4]  Add support for QSFP+/QSFP28 Diagnostics and 25G/50G/100G      port speeds
+Date: Tue, 23 Aug 2016 06:30:29 -0700
+Message-ID: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
+Cc: decot@googlers.com, bkenward@solarflare.com, daniel@iogearbox.net,
+        galp@mellanox.com, roopa@cumulusnetworks.com,
+        gospo@cumulusnetworks.com, dustin@cumulusnetworks.com,
+        ben@decadent.org.uk
+To: linville@tuxdriver.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0057.outbound.protection.outlook.com ([104.47.33.57]:7968
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757956AbcHWNZc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 Aug 2016 09:25:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20160822133953.GD14068@lunn.ch>
-Content-Language: en-US
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34371 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752059AbcHWNai (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 09:30:38 -0400
+Received: by mail-pf0-f182.google.com with SMTP id p64so43925754pfb.1
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 06:30:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Andrew,
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-As per your review comments, whole patch split into small patches.
-Initially I would like to send PHY register header files for review.
-Please review and send your comments.
+This patch series provides following support
+a) Reorganized fields based out of SFF-8024 fields i.e. Identifier/
+   Encoding/Connector types which are common across SFP/SFP+ (SFF-8472)
+   and QSFP+/QSFP28 (SFF-8436/SFF-8636) modules into sff-common files.
+b) Support for diagnostics information for QSFP Plus/QSFP28 modules
+   based on SFF-8436/SFF-8636
+c) Supporting 25G/50G/100G speeds in supported/advertising fields
+d) Tested across various QSFP+/QSFP28 Copper/Optical modules
 
->From 4f5968f05802c56490604e86f2f3bbab793d6134 Mon Sep 17 00:00:00 2001
-From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Date: Tue, 23 Aug 2016 18:21:07 +0530
-Subject: [PATCH v1 1/1] net: phy: Register header file for Microsemi PHYs.
+Standards for QSFP+/QSFP28
+a) QSFP+/QSFP28 - SFF 8636 Rev 2.7 dated January 26,2016
+b) SFF-8024 Rev 4.0 dated May 31, 2016
 
-Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- drivers/net/phy/mscc_reg.h | 135 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 135 insertions(+)
- create mode 100644 drivers/net/phy/mscc_reg.h
+v4:
+  Sync ethtool-copy.h to kernel commit 89da45b8b5b2187734a11038b8593714f964ffd1
+  which includes support for 50G base SR2
 
-diff --git a/drivers/net/phy/mscc_reg.h b/drivers/net/phy/mscc_reg.h
-new file mode 100644
-index 0000000..ddb825c
---- /dev/null
-+++ b/drivers/net/phy/mscc_reg.h
-@@ -0,0 +1,135 @@
-+/*
-+ * Driver for Microsemi VSC85xx PHYs
-+ *
-+ * Author: Nagaraju Lakkaraju
-+ * License: Dual MIT/GPL
-+ * Copyright (c) 2016 Microsemi Corporation
-+ */
-+
-+#ifndef __MSCC_REG_H
-+#define __MSCC_REG_H
-+
-+/* Microsemi VSC85xx PHY registers */
-+/* IEEE 802. Std Registers */
-+#define MSCC_PHY_BYPASS_CONTROL        18
-+#define DISABLE_HP_AUTO_MDIX_MASK      0x0080
-+#define DISABLE_PAIR_SWAP_CORR_MASK    0x0020
-+#define DISABLE_POLARITY_CORR_MASK     0x0010
-+
-+#define MSCC_PHY_EXT_PHY_CNTL_1        23
-+#define MAC_IF_SELECTION_MASK          0x1800
-+#define MAC_IF_SELECTION_GMII          0
-+#define MAC_IF_SELECTION_RMII          1
-+#define MAC_IF_SELECTION_RGMII         2
-+#define MAC_IF_SELECTION_POS           11
-+#define FAR_END_LOOPBACK_MODE_MASK     0x0008
-+
-+#define MSCC_PHY_EXT_PHY_CNTL_2        24
-+#define CONNECTOR_LOOPBACK_MASK        0x0001
-+#define JUMBO_PACKET_MODE_MASK         0x0030
-+#define JUMBO_PACKET_MODE_POS          4
-+
-+#define MII_VSC85XX_INT_MASK           25
-+#define MII_VSC85XX_INT_MASK_MDINT     0x8000
-+#define MII_VSC85XX_INT_MASK_SPEED     0x4000
-+#define MII_VSC85XX_INT_MASK_LINK      0x2000
-+#define MII_VSC85XX_INT_MASK_DUPLEX    0x1000
-+#define MII_VSC85XX_INT_MASK_ANEG_ERR  0x0800
-+#define MII_VSC85XX_INT_MASK_ANEG_COM  0x0400
-+#define MII_VSC85XX_INT_MASK_POE       0x0200
-+#define MII_VSC85XX_INT_MASK_SYM       0x0100
-+#define MII_VSC85XX_INT_MASK_FLF       0x0080
-+#define MII_VSC85XX_INT_MASK_WOL       0x0040
-+#define MII_VSC85XX_INT_MASK_EXT       0x0020
-+#define MII_VSC85XX_INT_MASK_RESV      0x0010
-+#define MII_VSC85XX_INT_MASK_FCI       0x0008
-+#define MII_VSC85XX_INT_MASK_LDI       0x0004
-+#define MII_VSC85XX_INT_MASK_MSE       0x0002
-+#define MII_VSC85XX_INT_MASK_RX_ER     0x0001
-+#define MII_VSC85XX_INT_MASK_MASK      0xa000
-+
-+#define MII_VSC85XX_INT_STATUS         26
-+#define MSCC_PHY_DEV_AUX_CNTL          28
-+#define HP_AUTO_MDIX_X_OVER_IND_MASK   0x2000
-+#define ACTIPHY_TIME_OUT_BIT_7         0x0080
-+#define ACTIPHY_TIME_OUT_BIT_2         0x0004
-+#define ACTIPHY_TIME_OUT_MASK          0x0084
-+#define ACTIPHY_MODE_ENT               0x0040
-+
-+#define MSCC_EXT_PAGE_ACCESS           31
-+#define MSCC_PHY_PAGE_STANDARD         0x0000 /* Standard registers */
-+#define MSCC_PHY_PAGE_EXTENDED         0x0001 /* Extended registers */
-+#define MSCC_PHY_PAGE_EXTENDED_2       0x0002 /* Extended registers - page 2 */
-+#define MSCC_PHY_PAGE_EXTENDED_3       0x0003 /* Extended registers - page 3 */
-+#define MSCC_PHY_PAGE_EXTENDED_4       0x0004 /* Extended registers - page 4 */
-+#define MSCC_PHY_PAGE_GPIO             0x0010 /* GPIO registers */
-+
-+/* Extended Page 1 Registers */
-+#define MSCC_PHY_EXT_MODE_CNTL         19
-+#define FORCE_MDI_CROSSOVER_MASK       0x000C
-+#define FORCE_MDI_CROSSOVER_NORMAL     0
-+#define FORCE_MDI_CROSSOVER_MDI        2
-+#define FORCE_MDI_CROSSOVER_MDIX       3
-+#define FORCE_MDI_CROSSOVER_POS        2
-+
-+#define MSCC_PHY_ACTIPHY_CNTL          20
-+#define ACTIPHY_SLEEP_TIMER_MASK       0x6000
-+#define ACTIPHY_SLEEP_TIMER_POS        13
-+#define ACTIPHY_WAKEUP_TIMER_MASK      0x1800
-+#define ACTIPHY_WAKEUP_TIMER_POS       11
-+#define LINK_SPD_DOWNSHIFT_EN          0x0010
-+#define LINK_SPD_DOWNSHIFT_CNTL_POS    2
-+#define LINK_SPD_DOWNSHIFT_CNTL_MASK   0x000C
-+
-+#define MSCC_PHY_POE_MISC              23
-+#define INLINE_POE_DETECTION           0x0400
-+#define INLINE_POE_STATUS_MASK         0x0300
-+#define INLINE_POE_STATUS_POS          8
-+
-+/* Extended Page 2 Registers */
-+#define MSCC_PHY_RGMII_CNTL            20
-+#define FLF2_ENABLE                    0x8000
-+#define SOF_ENABLE                     0x1000
-+#define RGMII_RX_CLK_DELAY_MASK        0x0070
-+#define RGMII_RX_CLK_DELAY_POS         4
-+
-+#define MSCC_PHY_WOL_LOWER_MAC_ADDR    21
-+#define MSCC_PHY_WOL_MID_MAC_ADDR      22
-+#define MSCC_PHY_WOL_UPPER_MAC_ADDR    23
-+#define MSCC_PHY_WOL_LOWER_PASSWD      24
-+#define MSCC_PHY_WOL_MID_PASSWD        25
-+#define MSCC_PHY_WOL_UPPER_PASSWD      26
-+
-+#define MSCC_PHY_WOL_MAC_CONTROL       27
-+#define EDGE_RATE_CNTL_POS             5
-+#define EDGE_RATE_CNTL_MASK            0x00E0
-+#define SECURE_ON_ENABLE               0x8000
-+#define SECURE_ON_PASSWD_LEN_4         0x4000
-+
-+#define MSCC_PHY_RING_RESI_CONTROL     30
-+#define RR_STARTUP_ENABLE              0x8000
-+#define RR_ADVERTISE_ENABLE            0x4000
-+#define RR_LP_ADVERTISE                0x2000
-+#define RR_FORCE_ENABLE                0x1000
-+#define RR_STATUS_MASK                 0x0030
-+#define RR_STATUS_POS                  4
-+
-+/* GPIO registers */
-+#define MSCC_GPIO_CONTROL_2            14
-+#define COMA_MODE_EN                   0x2000
-+#define COMA_MODE_OUTPUT               0x1000
-+#define COMA_MODE_INPUT                0x0800
-+
-+#define MSCC_RECOVERED_CLK_CONTROL     23
-+#define RCVRD_CLK_EN                   0x8000
-+#define CLK_FREQUENCY_SELECT_MASK      0x0700
-+#define CLK_SQUELCH_LVL_MASK           0x0030
-+#define CLK_SELECTION_MASK             0x0007
-+#define CLK_FREQUENCY_SELECT_POS       8
-+#define CLK_SQUELCH_LVL_POS            4
-+
-+/* Microsemi PHY ID's */
-+#define PHY_ID_VSC8531                 0x00070570
-+#define PHY_ID_VSC8541                 0x00070770
-+
-+#endif /* __MSCC_REG_H */
+v3:
+ Review comments from Ben Hutchings:
+   Make sff diags structure common across sfpdiag.c and
+   qsfp.c and use common function to print common threshold
+   values.
+ Review comments from Rami Rosen:
+   Cleanup description messages.
+
+v2:
+  Included support for 25G/50G/100G speeds in supported/
+  advertised speed modes
+  Review comments from Ben Hutchings:
+    Split the sff-8024 reorganzing patch and QSFP+/QSFP28
+    patch
+    Fixed all checkpatch warnings (except couple of over 80 character)
+
+v1:
+  Support for SFF-8636 Rev 2.7
+  Review comments from Ben Hutchings:
+   Updating copyright holders information for QSFP
+   Reusing the common functions and macros across sfpid and qsfp
+
+Vidya Sagar Ravipati (4):
+  ethtool-copy.h:sync with net
+  ethtool:Reorganizing  SFF-8024 fields for SFP/QSFP
+  ethtool:QSFP Plus/QSFP28 Diagnostics Information Support
+  ethtool: Enhancing link mode bits to support 25G/50G/100G
+
+ Makefile.am    |   2 +-
+ ethtool-copy.h |  18 +-
+ ethtool.c      |  35 +++
+ internal.h     |   3 +
+ qsfp.c         | 788 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ qsfp.h         | 595 +++++++++++++++++++++++++++++++++++++++++++
+ sff-common.c   | 304 ++++++++++++++++++++++
+ sff-common.h   | 189 ++++++++++++++
+ sfpdiag.c      | 105 +-------
+ sfpid.c        | 103 +-------
+ 10 files changed, 1945 insertions(+), 197 deletions(-)
+ create mode 100644 qsfp.c
+ create mode 100644 qsfp.h
+ create mode 100644 sff-common.c
+ create mode 100644 sff-common.h
+
 -- 
-2.7.4
+2.1.4
