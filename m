@@ -1,95 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] udp: fix poll() issue with zero sized packets
-Date: Tue, 23 Aug 2016 13:59:33 -0700
-Message-ID: <1471985973.14381.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
-         <20160823.112515.318902967155957764.davem@davemloft.net>
-         <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
-         <1471985604.14381.48.camel@edumazet-glaptop3.roam.corp.google.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: CVE-2014-9900 fix is not upstream
+Date: Tue, 23 Aug 2016 16:49:33 -0400
+Message-ID: <20160823204933.GA14311@csclub.uwaterloo.ca>
+References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
+ <20160823.094029.1244944495918162255.davem@davemloft.net>
+ <1471973727.13300.162.camel@decadent.org.uk>
+ <20160823.112406.549221808236512285.davem@davemloft.net>
+ <20160823200941.GB2356@ZenIV.linux.org.uk>
+ <1471984445.3746.129.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, samanthakumar@google.com,
-        willemb@google.com, netdev <netdev@vger.kernel.org>
-To: Laura Abbott <labbott@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35103 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755601AbcHWU7g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:59:36 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h186so8826132pfg.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:59:36 -0700 (PDT)
-In-Reply-To: <1471985604.14381.48.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Al Viro <viro@ZenIV.linux.org.uk>,
+        David Miller <davem@davemloft.net>, ben@decadent.org.uk,
+        luis.henriques@canonical.com, avijitnsec@codeaurora.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1471984445.3746.129.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Aug 23, 2016 at 01:34:05PM -0700, Joe Perches wrote:
+> On Tue, 2016-08-23 at 21:09 +0100, Al Viro wrote:
+> > On Tue, Aug 23, 2016 at 11:24:06AM -0700, David Miller wrote:
+> > ... and then we can file a bug report against the sodding compiler.  Note
+> > that
+> > struct ethtool_wolinfo {
+> >         __u32   cmd;
+> >         __u32   supported;
+> >         __u32   wolopts;
+> >         __u8    sopass[SOPASS_MAX];	// 6, actually
+> > };
+> > is not going to *have* padding.  Not on anything even remotely sane.
+> > If array of 6 char as member of a struct requires 64bit alignment on some
+> > architecture, I would really like some of what the designers of that ABI
+> > must have been smoking.
+> 
+> try this on x86-64
+> 
+> $ pahole -C ethtool_wolinfo vmlinux
+> struct ethtool_wolinfo {
+> 	__u32                      cmd;                  /*     0     4 */
+> 	__u32                      supported;            /*     4     4 */
+> 	__u32                      wolopts;              /*     8     4 */
+> 	__u8                       sopass[6];            /*    12     6 */
+> 
+> 	/* size: 20, cachelines: 1, members: 4 */
+> 	/* padding: 2 */
+> 	/* last cacheline: 20 bytes */
+> };
 
-Laura tracked poll() [and friends] regression caused by commit
-e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+That would be padding after the structure elements.
 
-udp_poll() needs to know if there is a valid packet in receive queue,
-even if its payload length is 0.
+I think what was meant is that it won't add padding in the middle of the
+structure due to alignment, ie it isn't doing:
 
-Change first_packet_length() to return an signed int, and use -1
-as the indication of an empty queue.
+struct ethtool_wolinfo {
+	__u32                      cmd;                  /*     0     4 */
+	__u32                      supported;            /*     4     4 */
+	__u32                      wolopts;              /*     8     4 */
+	<4 bytes padding here>
+	__u8                       sopass[6];            /*    16     6 */
+};
 
-Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
-Reported-by: Laura Abbott <labbott@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Tested-by: Laura Abbott <labbott@redhat.com>
----
-v2: fix the comment/doc (Willem)
+which would have 4 bytes of padding in the middle between wolopts
+and sopass.
 
- net/ipv4/udp.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+I would not think it is the compilers job to worry about what is after
+your structure elements, since you shouldn't be going there.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index e61f7cd65d08..00d18c57c83c 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1182,13 +1182,13 @@ out:
-  *	@sk: socket
-  *
-  *	Drops all bad checksum frames, until a valid one is found.
-- *	Returns the length of found skb, or 0 if none is found.
-+ *	Returns the length of found skb, or -1 if none is found.
-  */
--static unsigned int first_packet_length(struct sock *sk)
-+static int first_packet_length(struct sock *sk)
- {
- 	struct sk_buff_head list_kill, *rcvq = &sk->sk_receive_queue;
- 	struct sk_buff *skb;
--	unsigned int res;
-+	int res;
- 
- 	__skb_queue_head_init(&list_kill);
- 
-@@ -1203,7 +1203,7 @@ static unsigned int first_packet_length(struct sock *sk)
- 		__skb_unlink(skb, rcvq);
- 		__skb_queue_tail(&list_kill, skb);
- 	}
--	res = skb ? skb->len : 0;
-+	res = skb ? skb->len : -1;
- 	spin_unlock_bh(&rcvq->lock);
- 
- 	if (!skb_queue_empty(&list_kill)) {
-@@ -1232,7 +1232,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 
- 	case SIOCINQ:
- 	{
--		unsigned int amount = first_packet_length(sk);
-+		int amount = max_t(int, 0, first_packet_length(sk));
- 
- 		return put_user(amount, (int __user *)arg);
- 	}
-@@ -2184,7 +2184,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 
- 	/* Check for false positives due to checksum errors */
- 	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
--	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
-+	    !(sk->sk_shutdown & RCV_SHUTDOWN) && first_packet_length(sk) == -1)
- 		mask &= ~(POLLIN | POLLRDNORM);
- 
- 	return mask;
+-- 
+Len Sorensen
