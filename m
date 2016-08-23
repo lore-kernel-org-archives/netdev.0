@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next v2] net: phy: Add missing of_node_put() in
- xgmiitorgmii_probe()
-Date: Mon, 22 Aug 2016 18:08:44 -0700 (PDT)
-Message-ID: <20160822.180844.554192467754944953.davem@davemloft.net>
-References: <1471706815-27723-1-git-send-email-weiyj.lk@gmail.com>
-        <1471819575-13389-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net] qed: FLR of active VFs might lead to FW assert
+Date: Mon, 22 Aug 2016 18:18:48 -0700 (PDT)
+Message-ID: <20160822.181848.1467939282286710395.davem@davemloft.net>
+References: <1471856609-8519-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com, andrew@lunn.ch, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org
-To: weiyj.lk@gmail.com
+Cc: netdev@vger.kernel.org
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47213 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47265 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753407AbcHWBIp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 21:08:45 -0400
-In-Reply-To: <1471819575-13389-1-git-send-email-weiyj.lk@gmail.com>
+        with ESMTP id S1752299AbcHWBSt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 21:18:49 -0400
+In-Reply-To: <1471856609-8519-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Sun, 21 Aug 2016 22:46:15 +0000
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Mon, 22 Aug 2016 12:03:29 +0300
 
-> This node pointer is returned by of_parse_phandle() with
-> refcount incremented in this function. of_node_put() on it
-> before exitting this function.
+> Driver never bothered marking the VF's vport with the VF's sw_fid.
+> As a result, FLR flows are not going to clean those vports.
 > 
-> This is detected by Coccinelle semantic patch.
+> If the vport was active when FLRed, re-activating it would lead
+> to a FW assertion.
 > 
-> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+> Fixes: dacd88d6f6851 ("qed: IOV l2 functionality")
+> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 
-Applied.
+Applied, thanks.
