@@ -1,44 +1,128 @@
-From: Anton Danilov <littlesmilingcloud@gmail.com>
-Subject: Linux router kernel configuration
-Date: Tue, 23 Aug 2016 23:28:19 +0300
-Message-ID: <E1bcIJ1-0004T6-Do@danilov>
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 13/15] net: sched: add support for TCQ_F_NOLOCK
+ subqueues to sch_mq
+Date: Tue, 23 Aug 2016 13:28:10 -0700
+Message-ID: <20160823202810.14368.38968.stgit@john-Precision-Tower-5810>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com
+To: eric.dumazet@gmail.com, jhs@mojatatu.com, davem@davemloft.net,
+        brouer@redhat.com, xiyou.wangcong@gmail.com,
+        alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34582 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755956AbcHWU2W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:28:22 -0400
-Received: by mail-lf0-f67.google.com with SMTP id k135so8308211lfb.1
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:28:21 -0700 (PDT)
-Received: from danilov ([87.244.6.228])
-        by smtp.gmail.com with ESMTPSA id m62sm1199672lfe.44.2016.08.23.13.28.19
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 23 Aug 2016 13:28:19 -0700 (PDT)
-Received: from danilov by danilov with local (Exim 4.84_2)
-        (envelope-from <littlesmilingcloud@gmail.com>)
-        id 1bcIJ1-0004T6-Do
-        for netdev@vger.kernel.org; Tue, 23 Aug 2016 23:28:19 +0300
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:33739 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755956AbcHWU22 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:28:28 -0400
+Received: by mail-pa0-f68.google.com with SMTP id vy10so10424290pac.0
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:28:28 -0700 (PDT)
+In-Reply-To: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The sch_mq qdisc creates a sub-qdisc per tx queue which are then
+called independently for enqueue and dequeue operations. However
+statistics are aggregated and pushed up to the "master" qdisc.
 
-Hello everyone.
+This patch adds support for any of the sub-qdiscs to be per cpu
+statistic qdiscs. To handle this case add a check when calculating
+stats and aggregate the per cpu stats if needed.
 
-I'm working in a small ISP company, and we're using x86 servers under debian as core and border routers.
+Also exports __gnet_stats_copy_queue() to use as a helper function.
 
-The pair of core routers (active-backup redundancy scheme) are the dual-socket servers with Xeon E5-2637 v2 CPUs and one 82599EB dual-port 10G NIC. Tasks of these routers: traffic shaping (HTB+pfifo with u32 hashing classifier), content filtering (ipset + nfqueue + suricata) and some blocking of access with ipset address sets. Average duplex traffic is couple of gigabits per second / several hundreds of kpps. Currently we're using the custom configurated 3.10 kernel on these servers. 
-
-I have several questions about kernel configuration in which I'm stuck or doubt:
-1. Kernel version. What is the kernel better for these tasks at now? I'm think about usage of latest LTS kernel (4.4).
-1. Timers subsystem: periodic ticks / idle dynticks / full dynticks. Are there some recomendations? Currently I'm using periodic ticks with 1000HZ frequency. Maybe is there better choice?
-2. Preemption model. I'm using the no forced preemption on routers.
-3. Power management. Should I disable the processor power management features in kernel config or use the kernel cmd line boot options like processor.max_cstate = 0 and intel_idle.max_cstate = 0?
-4. Hyper-threading usage. I've disabled it in the bios to avoid a unefficient cache usage. But maybe someone have opposite view on this feature.
-
-Thanks for your attention and advices.
-
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
+ include/net/gen_stats.h |    3 +++
+ net/core/gen_stats.c    |    9 +++++----
+ net/sched/sch_mq.c      |   25 ++++++++++++++++++-------
+ 3 files changed, 26 insertions(+), 11 deletions(-)
 
-With best regards
-Anton Danilov mailto://littlesmilingcloud@gmail.com
+diff --git a/include/net/gen_stats.h b/include/net/gen_stats.h
+index 231e121..5ddc88b 100644
+--- a/include/net/gen_stats.h
++++ b/include/net/gen_stats.h
+@@ -47,6 +47,9 @@ int gnet_stats_copy_rate_est(struct gnet_dump *d,
+ int gnet_stats_copy_queue(struct gnet_dump *d,
+ 			  struct gnet_stats_queue __percpu *cpu_q,
+ 			  struct gnet_stats_queue *q, __u32 qlen);
++void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
++			     const struct gnet_stats_queue __percpu *cpu_q,
++			     const struct gnet_stats_queue *q, __u32 qlen);
+ int gnet_stats_copy_app(struct gnet_dump *d, void *st, int len);
+ 
+ int gnet_stats_finish_copy(struct gnet_dump *d);
+diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
+index 508e051..a503547 100644
+--- a/net/core/gen_stats.c
++++ b/net/core/gen_stats.c
+@@ -254,10 +254,10 @@ __gnet_stats_copy_queue_cpu(struct gnet_stats_queue *qstats,
+ 	}
+ }
+ 
+-static void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
+-				    const struct gnet_stats_queue __percpu *cpu,
+-				    const struct gnet_stats_queue *q,
+-				    __u32 qlen)
++void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
++			     const struct gnet_stats_queue __percpu *cpu,
++			     const struct gnet_stats_queue *q,
++			     __u32 qlen)
+ {
+ 	if (cpu) {
+ 		__gnet_stats_copy_queue_cpu(qstats, cpu);
+@@ -271,6 +271,7 @@ static void __gnet_stats_copy_queue(struct gnet_stats_queue *qstats,
+ 
+ 	qstats->qlen = qlen;
+ }
++EXPORT_SYMBOL(__gnet_stats_copy_queue);
+ 
+ /**
+  * gnet_stats_copy_queue - copy queue statistics into statistics TLV
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index b943982..f4b5bbb 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -17,6 +17,7 @@
+ #include <linux/skbuff.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/sch_generic.h>
+ 
+ struct mq_sched {
+ 	struct Qdisc		**qdiscs;
+@@ -107,15 +108,25 @@ static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	memset(&sch->qstats, 0, sizeof(sch->qstats));
+ 
+ 	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
++		struct gnet_stats_basic_cpu __percpu *cpu_bstats = NULL;
++		struct gnet_stats_queue __percpu *cpu_qstats = NULL;
++		__u32 qlen = 0;
++
+ 		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
+ 		spin_lock_bh(qdisc_lock(qdisc));
+-		sch->q.qlen		+= qdisc->q.qlen;
+-		sch->bstats.bytes	+= qdisc->bstats.bytes;
+-		sch->bstats.packets	+= qdisc->bstats.packets;
+-		sch->qstats.backlog	+= qdisc->qstats.backlog;
+-		sch->qstats.drops	+= qdisc->qstats.drops;
+-		sch->qstats.requeues	+= qdisc->qstats.requeues;
+-		sch->qstats.overlimits	+= qdisc->qstats.overlimits;
++
++		if (qdisc_is_percpu_stats(qdisc)) {
++			cpu_bstats = qdisc->cpu_bstats;
++			cpu_qstats = qdisc->cpu_qstats;
++		}
++
++		qlen = qdisc_qlen_sum(qdisc);
++
++		__gnet_stats_copy_basic(NULL, &sch->bstats,
++					cpu_bstats, &qdisc->bstats);
++		__gnet_stats_copy_queue(&sch->qstats,
++					cpu_qstats, &qdisc->qstats, qlen);
++
+ 		spin_unlock_bh(qdisc_lock(qdisc));
+ 	}
+ 	return 0;
