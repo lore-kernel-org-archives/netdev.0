@@ -1,43 +1,55 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Subject: [PATCH] ath10k: replace config_enabled() with IS_REACHABLE()
-Date: Wed, 24 Aug 2016 01:27:26 +0900
-Message-ID: <1471969646-13119-1-git-send-email-yamada.masahiro@socionext.com>
-Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ath10k@lists.infradead.org, linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: fix overrun in sctp_diag_dump_one()
+Date: Wed, 24 Aug 2016 00:23:05 +0800
+Message-ID: <CADvbK_fn7jAo7ZeVwa58L54uZoE1sj34Ty473RutOUQ8sfVmQA@mail.gmail.com>
+References: <1471966852-6218-1-git-send-email-lrichard@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+To: Lance Richardson <lrichard@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36810 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751284AbcHWQf4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 12:35:56 -0400
+In-Reply-To: <1471966852-6218-1-git-send-email-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 97f2645f358b ("tree-wide: replace config_enabled() with
-IS_ENABLED()") mostly did away with config_enabled().
+On Tue, Aug 23, 2016 at 11:40 PM, Lance Richardson <lrichard@redhat.com> wrote:
+> The function sctp_diag_dump_one() currently performs a memcpy()
+> of 64 bytes from a 16 byte field into another 16 byte field. Fix
+> by using correct size, use sizeof to obtain correct size instead
+> of using a hard-coded constant.
+>
+> Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+> ---
+>  net/sctp/sctp_diag.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+> index bb69153..f3508aa 100644
+> --- a/net/sctp/sctp_diag.c
+> +++ b/net/sctp/sctp_diag.c
+> @@ -424,11 +424,13 @@ static int sctp_diag_dump_one(struct sk_buff *in_skb,
+>                 paddr.v4.sin_family = AF_INET;
+>         } else {
+>                 laddr.v6.sin6_port = req->id.idiag_sport;
+> -               memcpy(&laddr.v6.sin6_addr, req->id.idiag_src, 64);
+> +               memcpy(&laddr.v6.sin6_addr, req->id.idiag_src,
+> +                      sizeof(laddr.v6.sin6_addr));
+>                 laddr.v6.sin6_family = AF_INET6;
+>
+>                 paddr.v6.sin6_port = req->id.idiag_dport;
+> -               memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst, 64);
+> +               memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst,
+> +                      sizeof(paddr.v6.sin6_addr));
+>                 paddr.v6.sin6_family = AF_INET6;
+>         }
+>
+> --
+> 2.5.5
+>
 
-This is one of the postponed TODO items as config_enabled() is used
-for a tristate option here.  Theoretically, config_enabled() is
-equivalent to IS_BUILTIN(), but I guess IS_REACHABLE() is the best
-fit for this case because both CONFIG_HWMON and CONFIG_ATH10K are
-tristate.
-
-Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
----
-
- drivers/net/wireless/ath/ath10k/thermal.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/ath/ath10k/thermal.c b/drivers/net/wireless/ath/ath10k/thermal.c
-index 444b52c..0a47269 100644
---- a/drivers/net/wireless/ath/ath10k/thermal.c
-+++ b/drivers/net/wireless/ath/ath10k/thermal.c
-@@ -192,7 +192,7 @@ int ath10k_thermal_register(struct ath10k *ar)
- 
- 	/* Avoid linking error on devm_hwmon_device_register_with_groups, I
- 	 * guess linux/hwmon.h is missing proper stubs. */
--	if (!config_enabled(CONFIG_HWMON))
-+	if (!IS_REACHABLE(CONFIG_HWMON))
- 		return 0;
- 
- 	hwmon_dev = devm_hwmon_device_register_with_groups(ar->dev,
--- 
-1.9.1
+Reviewed-by: Xin Long <lucien.xin@gmail.com>
