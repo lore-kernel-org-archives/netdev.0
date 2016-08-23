@@ -1,45 +1,64 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 3/3] net/sched: Introduce act_iptunnel
-Date: Tue, 23 Aug 2016 17:33:49 +0200
-Message-ID: <20160823173349.2b64b466@griffin>
-References: <20160822143834.32422-1-amir@vadai.me>
-        <20160822143834.32422-4-amir@vadai.me>
-        <CAJ3xEMhTdNXXLQfvD097_7LEK8YRTXW_r+ArB-XksX6dRvUAjg@mail.gmail.com>
-        <20160822205137.30cda14f@griffin>
-        <20160823152805.GA12627@office.localdomain>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/3] rxrpc: Miscellaneous improvements
+Date: Tue, 23 Aug 2016 16:28:54 +0100
+Message-ID: <147196613431.28436.14522158196410989643.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48164 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751610AbcHWPeA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 Aug 2016 11:34:00 -0400
-In-Reply-To: <20160823152805.GA12627@office.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 23 Aug 2016 18:28:05 +0300, Amir Vadai wrote:
-> On Mon, Aug 22, 2016 at 08:51:37PM +0200, Jiri Benc wrote:
-> > 2. We may run into problems like tx path seeing the metadata_dst that
-> >    it should not see. This means either this situation or such
-> >    configuration must be prevented somehow.
-[...]
-> Anyway, this issue is orthogonal to this patchset...
 
-Not really. If it's indeed (2) then such configuration needs to be
-rejected. Or metadata_dst freed at an appropriate place. Thus it's
-something that needs to be handled by this patchset before the uAPI is
-set in stone.
 
- Jiri
+Here are some improvements that are part of the AF_RXRPC rewrite.  They
+need to be applied on top of the just posted cleanups.
+
+ (1) Set the connection expiry on the connection becoming idle when its
+     last currently active call completes rather than each time put is
+     called.
+
+     This means that the connection isn't held open by retransmissions,
+     pings and duplicate packets.  Future patches will limit the number of
+     live connections that the kernel will support, so making sure that old
+     connections don't overstay their welcome is necessary.
+
+ (2) Calculate packet serial skew in the UDP data_ready callback rather
+     than in the call processor on a work queue.  Deferring it like this
+     causes the skew to be elevated by further packets coming in before we
+     get to make the calculation.
+
+ (3) Move retransmission of the terminal ACK or ABORT packet for a
+     connection to the connection processor, using the terminal state
+     cached in the rxrpc_connection struct.  This means that once last_call
+     is set in a channel to the current call's ID, no more packets will be
+     routed to that rxrpc_call struct.
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160823-2
+
+David
+---
+David Howells (3):
+      rxrpc: Set connection expiry on idle, not put
+      rxrpc: Calculate serial skew on packet reception
+      rxrpc: Perform terminal call ACK/ABORT retransmission from conn processor
+
+
+ net/rxrpc/ar-internal.h |   25 ++++++++--
+ net/rxrpc/call_event.c  |   18 ++++---
+ net/rxrpc/conn_event.c  |  113 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/rxrpc/conn_object.c |   52 +++++++++++-----------
+ net/rxrpc/input.c       |   68 ++++++++++++++++++++++------
+ net/rxrpc/proc.c        |    2 -
+ net/rxrpc/skbuff.c      |   10 ++--
+ 7 files changed, 226 insertions(+), 62 deletions(-)
