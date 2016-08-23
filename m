@@ -1,60 +1,58 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: Re: [PATCH] cxgb4: fix invalid checks in alloc_uld_rxqs
-Date: Tue, 23 Aug 2016 10:01:59 +0200
-Message-ID: <56a89d7c-3a0b-d270-99c9-1632320c6339@samsung.com>
-References: <1471932979-17864-1-git-send-email-a.hajda@samsung.com>
- <20160823074554.GA19307@hari-Latitude-E5550>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [RFC PATCH 0/5] Add eBPF hooks for cgroups
+Date: Tue, 23 Aug 2016 10:27:28 +0200
+Message-ID: <721182c4-7285-c169-d088-c45c81a5219e@zonque.org>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+ <20160819091941.GA2113@salvia>
+ <b2b52c47-c421-51fb-c4a1-c4f8a924f7aa@zonque.org>
+ <20160819162158.GA25083@salvia> <20160819170739.GF29430@pox.localdomain>
+ <20160822160610.GA32723@salvia>
+ <05bfd5c4-4095-37ff-b7a6-85b8dca8ec70@zonque.org>
+ <20160822172040.GA22876@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "open list:CXGB4 ETHERNET DRIVER (CXGB4)" <netdev@vger.kernel.org>,
-        Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        open list <linux-kernel@vger.kernel.org>
-To: Hariprasad Shenai <hariprasad@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20160823074554.GA19307@hari-Latitude-E5550>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Thomas Graf <tgraf@suug.ch>, htejun@fb.com,
+        daniel@iogearbox.net, ast@fb.com, davem@davemloft.net,
+        kafai@fb.com, fw@strlen.de, harald@redhat.com,
+        netdev@vger.kernel.org
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:34070 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754238AbcHWI2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 04:28:09 -0400
+In-Reply-To: <20160822172040.GA22876@ircssh.c.rugged-nimbus-611.internal>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2016 09:46 AM, Hariprasad Shenai wrote:
-> On Tuesday, August 08/23/16, 2016 at 08:16:19 +0200, Andrzej Hajda wrote:
->> Local variable msi_idx defined as unsigned int is always >= 0, thus both
->> 'if' checks are always true. On the other side presence of USING_MSIX flag
->> suggests the checks should not be trivially true.
->> The simplest solution is to replace incorrect checks with direct testing
->> of adap->flags and remove spare variables.
+On 08/22/2016 07:20 PM, Sargun Dhillon wrote:
+> On Mon, Aug 22, 2016 at 06:22:20PM +0200, Daniel Mack wrote:
+>> On 08/22/2016 06:06 PM, Pablo Neira Ayuso wrote:
+
+>>> This patchset also needs an extra egress hook, not yet known where to
+>>> be placed, so two hooks in the network stacks in the end, 
 >>
->> The problem has been detected using semantic patch
->> scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci
+>> That should be solvable, I'm sure. I can as well leave egress out for
+>> the next version so it can be added later on.
 >>
-> The correct fix is to have local variable 'msi_idx' as int instead of unsigned
-> int. Thanks for reporting the issue. Do you want me to send a V2?
->
-> Thanks,
-> Hari
->
->
-If adap->flags is constant during the call I see no point in creating
-separate
+> Any idea where you might put that yet? Does dev_xmit seems like a reasonable 
+> place?
 
-variable with complicated initialization used only for the same thing as
+Ah, yes. Thanks for the pointer, that seems to work fine.
 
-'adap->flags & USING_MSIX', and even if adap->flags changes during the call
+> If someone uses the netprio, or the net classid controllers, skcd matches
+> no longer work.
 
-much simpler would be to use local var:
+Yes, sock_cgroup_ptr() will fall back to the v2 root in this case.
 
-    int using_msix = adap->flags & USING_MSIX;
+> Ideally, we should fix up these controllers to make them
+> more v2 friendly.
 
-and later use tests:
-
-    if (using_msix)
-
-        ...
-
-Am I correct?
+These controllers do not exist for v2, that's why sock_cgroup_ptr()
+behaves that way. What's your idea to fix that up?
 
 
-Regards
-
-Andrzej
+Thanks,
+Daniel
