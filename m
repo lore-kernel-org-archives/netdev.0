@@ -1,282 +1,56 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net-next v1] gso: Support partial splitting at the frag_list
- pointer
-Date: Tue, 23 Aug 2016 07:20:30 +0200
-Message-ID: <20160823052030.GI3735@gauss.secunet.com>
+From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+Subject: Re: [PATCH 0/1] HW checksum offload problem on Xilinx Zynq GEM
+Date: Tue, 23 Aug 2016 07:39:00 +0200
+Message-ID: <a8a65c8b-a410-3ed6-cdc9-cadecfa7a45d@gmail.com>
+References: <1471611898-3852-1-git-send-email-helmut.buchsbaum@gmail.com>
+ <20160819.122839.1847374426262584384.davem@davemloft.net>
+ <CALx6S37DD+Nq8PzvJLrF1Fmv+GLW9v-vPc-+LrganhbFsovwCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.ferre@atmel.com, michal.simek@xilinx.com,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        cyrille.pitchen@atmel.com
+To: Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:58645 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751389AbcHWFUg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 Aug 2016 01:20:36 -0400
-Content-Disposition: inline
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:38575 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751628AbcHWFjE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 01:39:04 -0400
+Received: by mail-wm0-f43.google.com with SMTP id o80so176535292wme.1
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 22:39:03 -0700 (PDT)
+In-Reply-To: <CALx6S37DD+Nq8PzvJLrF1Fmv+GLW9v-vPc-+LrganhbFsovwCA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
-gro may build buffers with a frag_list. This can hurt forwarding
-because most NICs can't offload such packets, they need to be
-segmented in software. This patch splits buffers with a frag_list
-at the frag_list pointer into buffers that can be TSO offloaded.
-
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/core/skbuff.c      | 89 +++++++++++++++++++++++++++++++++++++++++++++++++-
- net/ipv4/af_inet.c     |  7 ++--
- net/ipv4/gre_offload.c |  7 +++-
- net/ipv4/tcp_offload.c |  3 ++
- net/ipv4/udp_offload.c |  9 +++--
- net/ipv6/ip6_offload.c |  6 +++-
- 6 files changed, 114 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3864b4b6..a614e9d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3078,6 +3078,92 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 	sg = !!(features & NETIF_F_SG);
- 	csum = !!can_checksum_protocol(features, proto);
- 
-+	headroom = skb_headroom(head_skb);
-+
-+	if (list_skb && net_gso_ok(features, skb_shinfo(head_skb)->gso_type) &&
-+	    csum && sg && (mss != GSO_BY_FRAGS) &&
-+	    !(features & NETIF_F_GSO_PARTIAL)) {
-+		unsigned int lskb_segs;
-+		unsigned int delta_segs, delta_len, delta_truesize;
-+		struct sk_buff *nskb;
-+		delta_segs = delta_len = delta_truesize = 0;
-+
-+		segs = __alloc_skb(skb_headlen(head_skb) + headroom,
-+				   GFP_ATOMIC, skb_alloc_rx_flag(head_skb),
-+				   NUMA_NO_NODE);
-+		if (unlikely(!segs))
-+			return ERR_PTR(-ENOMEM);
-+
-+		skb_reserve(segs, headroom);
-+		skb_put(segs, skb_headlen(head_skb));
-+		skb_copy_from_linear_data(head_skb, segs->data, segs->len);
-+		copy_skb_header(segs, head_skb);
-+
-+		if (skb_shinfo(head_skb)->nr_frags) {
-+			int i;
-+
-+			if (skb_orphan_frags(head_skb, GFP_ATOMIC))
-+				goto err;
-+
-+			for (i = 0; i < skb_shinfo(head_skb)->nr_frags; i++) {
-+				skb_shinfo(segs)->frags[i] = skb_shinfo(head_skb)->frags[i];
-+				skb_frag_ref(head_skb, i);
-+			}
-+			skb_shinfo(segs)->nr_frags = i;
-+		}
-+
-+		do {
-+			nskb = skb_clone(list_skb, GFP_ATOMIC);
-+			if (unlikely(!nskb))
-+				goto err;
-+
-+			list_skb = list_skb->next;
-+
-+			if (!tail)
-+				segs->next = nskb;
-+			else
-+				tail->next = nskb;
-+
-+			tail = nskb;
-+
-+			if (skb_cow_head(nskb, doffset + headroom))
-+				goto err;
-+
-+			lskb_segs = nskb->len / mss;
-+
-+			skb_shinfo(nskb)->gso_size = mss;
-+			skb_shinfo(nskb)->gso_type = skb_shinfo(head_skb)->gso_type;
-+			skb_shinfo(nskb)->gso_segs = lskb_segs;
-+
-+
-+			delta_segs += lskb_segs;
-+			delta_len += nskb->len;
-+			delta_truesize += nskb->truesize;
-+
-+			__skb_push(nskb, doffset);
-+
-+			skb_release_head_state(nskb);
-+			__copy_skb_header(nskb, head_skb);
-+
-+			skb_headers_offset_update(nskb, skb_headroom(nskb) - headroom);
-+			skb_reset_mac_len(nskb);
-+
-+			skb_copy_from_linear_data_offset(head_skb, -tnl_hlen,
-+							 nskb->data - tnl_hlen,
-+							 doffset + tnl_hlen);
-+
-+		} while (list_skb);
-+
-+		skb_shinfo(segs)->gso_segs -= delta_segs;
-+		segs->len = head_skb->len - delta_len;
-+		segs->data_len = head_skb->data_len - delta_len;
-+		segs->truesize += head_skb->data_len - delta_truesize;
-+
-+		segs->prev = tail;
-+
-+		goto out;
-+	}
-+
- 	/* GSO partial only requires that we trim off any excess that
- 	 * doesn't fit into an MSS sized block, so take care of that
- 	 * now.
-@@ -3090,7 +3176,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 			partial_segs = 0;
- 	}
- 
--	headroom = skb_headroom(head_skb);
- 	pos = skb_headlen(head_skb);
- 
- 	do {
-@@ -3307,6 +3392,8 @@ perform_csum_check:
- 		swap(tail->destructor, head_skb->destructor);
- 		swap(tail->sk, head_skb->sk);
- 	}
-+
-+out:
- 	return segs;
- 
- err:
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 55513e6..c814afa 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1195,7 +1195,7 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
- struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 				 netdev_features_t features)
- {
--	bool udpfrag = false, fixedid = false, encap;
-+	bool udpfrag = false, fixedid = false, gso_partial = false, encap;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	const struct net_offload *ops;
- 	unsigned int offset = 0;
-@@ -1248,6 +1248,9 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 	if (IS_ERR_OR_NULL(segs))
- 		goto out;
- 
-+	if (skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL)
-+		gso_partial = true;
-+
- 	skb = segs;
- 	do {
- 		iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
-@@ -1257,7 +1260,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 				iph->frag_off |= htons(IP_MF);
- 			offset += skb->len - nhoff - ihl;
- 			tot_len = skb->len - nhoff;
--		} else if (skb_is_gso(skb)) {
-+		} else if (skb_is_gso(skb) && gso_partial) {
- 			if (!fixedid) {
- 				iph->id = htons(id);
- 				id += skb_shinfo(skb)->gso_segs;
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index ecd1e09..cf82e28 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -24,7 +24,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 	__be16 protocol = skb->protocol;
- 	u16 mac_len = skb->mac_len;
- 	int gre_offset, outer_hlen;
--	bool need_csum, ufo;
-+	bool need_csum, ufo, gso_partial;
- 
- 	if (!skb->encapsulation)
- 		goto out;
-@@ -69,6 +69,11 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 		goto out;
- 	}
- 
-+	if (skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL)
-+		gso_partial = true;
-+	else
-+		gso_partial = false;
-+
- 	outer_hlen = skb_tnl_header_len(skb);
- 	gre_offset = outer_hlen - tnl_hlen;
- 	skb = segs;
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 5c59649..dddd227 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -107,6 +107,9 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 
- 	/* Only first segment might have ooo_okay set */
- 	segs->ooo_okay = ooo_okay;
-+	if (skb_is_gso(segs) && !(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL))
-+		mss = (skb_tail_pointer(segs) - skb_transport_header(segs)) +
-+		       segs->data_len - thlen;
- 
- 	delta = htonl(oldlen + (thlen + mss));
- 
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 81f253b..dfb6a2c 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -21,7 +21,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 	__be16 new_protocol, bool is_ipv6)
- {
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
--	bool remcsum, need_csum, offload_csum, ufo;
-+	bool remcsum, need_csum, offload_csum, ufo, gso_partial;
- 	struct sk_buff *segs = ERR_PTR(-EINVAL);
- 	struct udphdr *uh = udp_hdr(skb);
- 	u16 mac_offset = skb->mac_header;
-@@ -88,6 +88,11 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		goto out;
- 	}
- 
-+	if (skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL)
-+		gso_partial = true;
-+	else
-+		gso_partial = false;
-+
- 	outer_hlen = skb_tnl_header_len(skb);
- 	udp_offset = outer_hlen - tnl_hlen;
- 	skb = segs;
-@@ -117,7 +122,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		 * will be using a length value equal to only one MSS sized
- 		 * segment instead of the entire frame.
- 		 */
--		if (skb_is_gso(skb)) {
-+		if (skb_is_gso(skb) && gso_partial) {
- 			uh->len = htons(skb_shinfo(skb)->gso_size +
- 					SKB_GSO_CB(skb)->data_offset +
- 					skb->head - (unsigned char *)uh);
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 22e90e5..0ec16ba 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -69,6 +69,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	int offset = 0;
- 	bool encap, udpfrag;
- 	int nhoff;
-+	bool gso_partial = false;
- 
- 	skb_reset_network_header(skb);
- 	nhoff = skb_network_header(skb) - skb_mac_header(skb);
-@@ -101,9 +102,12 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 	if (IS_ERR(segs))
- 		goto out;
- 
-+	if (skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL)
-+		gso_partial = true;
-+
- 	for (skb = segs; skb; skb = skb->next) {
- 		ipv6h = (struct ipv6hdr *)(skb_mac_header(skb) + nhoff);
--		if (skb_is_gso(skb))
-+		if (skb_is_gso(skb) && gso_partial)
- 			payload_len = skb_shinfo(skb)->gso_size +
- 				      SKB_GSO_CB(skb)->data_offset +
- 				      skb->head - (unsigned char *)(ipv6h + 1);
--- 
-1.9.1
+On 08/19/2016 10:00 PM, Tom Herbert wrote:
+> On Fri, Aug 19, 2016 at 12:28 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Helmut Buchsbaum <helmut.buchsbaum@gmail.com>
+>> Date: Fri, 19 Aug 2016 15:04:57 +0200
+>>
+>>> When working on upgrading the v3.x kernels of our embedded devices
+>>> to more recent 4.x kernels we noticed some of our proprietary networking
+>>> stuff is broken. Further investigations brought up an issue with small
+>>> UDP packets (data payload <= 2), which contained wrong UDP header
+>>> checksums.
+>>> We tracked this down to commit 85ff3d87bf2ef1fadcde8553628c60f79806fdb4
+>>> net/macb: add TX checksum offload feature. It turns out that Zynq's GEM
+>>> is obviously buggy regarding the UDP checksum calculation of such small
+>>> UDP packets as long as the UDP checksum field is != 0 *BEFORE* the
+>>> HW calulation. But since udp_send_skb() *ALWAYS* calculates the UDP header
+>>> checksum (unless disabled via socket option), this is the usual case.
+>>> Unfortunately it does not respect the net device feature setting which
+>>> would leave UDP checksum untouched when checksum offloading is enabled.
+>>
+>> Then simply clear the checksum field in the driver, or fix
+>> udp_send_skb() to do what you claim it is supposed to.
+>>
+>> That seems like a much more appropriate fix to me.
+>
+> Fix the driver to do that. When offloading a UDP checksum the pseudo
+> header checksum is written into the checksum field-- that's the
+> interface that everyone else has been using without issue.
+>
+Thanks for pointing me in the right direction. I'm just verifying a 
+patch update I'll provide soon!
