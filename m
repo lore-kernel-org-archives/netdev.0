@@ -1,71 +1,55 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: [PATCH v05 21/72] include/uapi/linux/if_pppox.h: include
- linux/if.h
-Date: Tue, 23 Aug 2016 09:41:52 +0300
-Message-ID: <20160823064152.GJ5399@lakka.kapsi.fi>
+From: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
+Subject: Re: [PATCH v05 38/72] include/uapi/linux/openvswitch.h:
+ use __u32 from linux/types.h
+Date: Tue, 23 Aug 2016 09:49:21 +0300
+Message-ID: <20160823064921.GK5399@lakka.kapsi.fi>
 References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
- <1471890809-4383-22-git-send-email-mikko.rapeli@iki.fi>
- <20160822123745.7921a88d@xeon-e3>
+ <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
+ <20160822123938.02e885c4@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20160822123745.7921a88d@xeon-e3>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20160822123938.02e885c4@xeon-e3>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 22, 2016 at 12:37:45PM -0700, Stephen Hemminger wrote:
-> On Mon, 22 Aug 2016 20:32:38 +0200
-> Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
-> 
-> > Fixes userspace compilation error:
-> > 
-> > error: ‘IFNAMSIZ’ undeclared here (not in a function)
-> > 
-> > Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
-> > ---
-> >  include/uapi/linux/if_pppox.h | 1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/include/uapi/linux/if_pppox.h b/include/uapi/linux/if_pppox.h
-> > index e128769..473c3c4 100644
-> > --- a/include/uapi/linux/if_pppox.h
-> > +++ b/include/uapi/linux/if_pppox.h
-> > @@ -21,6 +21,7 @@
-> >  #include <asm/byteorder.h>
-> >  
-> >  #include <linux/socket.h>
-> > +#include <linux/if.h>
-> >  #include <linux/if_ether.h>
-> >  #include <linux/if_pppol2tp.h>
-> >  
-> 
-> I went back to the first patch in LKML for this series.
-> It seems your goal is that every include file should be standalone,
-> i.e it must include every definition it uses.
-> 
-> I disagree with this premise. It just makes things harder to maintain with
-> no real gain for any existing program.  What is the motivation for all this
-> useless churn? Is there some silly style rule that should be fixed instead?
-
-With over 700 uapi headers exported to userspace by Linux kernel, how
-do I find out the 'correct' order of including them if they can not be
-included alone? Any hints on automating that?
-
-My first trial was to include all of the uapi headers as a single bunch to
-abi checker tool which calls gcc on them, but the compilation result was
-so bad and hopeless that I decided to try feeding each header file one by
-one to the compiler and here I am over two years later still fixing these
-issues.
-
-I came up with the rule because to me it makes sense. Several kernel
-devs agree with this approach and have accepted patches.
-
-If your kernel subsystem uapi headers have a single entry point header file,
-then all of the others can just depend on that and be done with it.
-For example most (if not all) drm driver specific headers include <drm/drm.h>.
-
--Mikko
+T24gTW9uLCBBdWcgMjIsIDIwMTYgYXQgMTI6Mzk6MzhQTSAtMDcwMCwgU3RlcGhlbiBIZW1taW5n
+ZXIgd3JvdGU6Cj4gT24gTW9uLCAyMiBBdWcgMjAxNiAyMDozMjo1NSArMDIwMAo+IE1pa2tvIFJh
+cGVsaSA8bWlra28ucmFwZWxpQGlraS5maT4gd3JvdGU6Cj4gCj4gPiBGaXhlcyB1c2Vyc3BhY2Ug
+Y29tcGlsZXIgZXJyb3I6Cj4gPiAKPiA+IGVycm9yOiB1bmtub3duIHR5cGUgbmFtZSDigJh1aW50
+MzJfdOKAmQo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBNaWtrbyBSYXBlbGkgPG1pa2tvLnJhcGVs
+aUBpa2kuZmk+Cj4gPiAtLS0KPiA+ICBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCB8
+IDQgKystLQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25z
+KC0pCj4gPiAKPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2gu
+aCBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCj4gPiBpbmRleCBkOTVhMzAxLi42
+NDU0OTlhIDEwMDY0NAo+ID4gLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmgK
+PiA+ICsrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCj4gPiBAQCAtNjMyLDgg
+KzYzMiw4IEBAIGVudW0gb3ZzX2hhc2hfYWxnIHsKPiA+ICAgKiBAaGFzaF9iYXNpczogYmFzaXMg
+dXNlZCBmb3IgY29tcHV0aW5nIGhhc2guCj4gPiAgICovCj4gPiAgc3RydWN0IG92c19hY3Rpb25f
+aGFzaCB7Cj4gPiAtCXVpbnQzMl90ICBoYXNoX2FsZzsgICAgIC8qIE9uZSBvZiBvdnNfaGFzaF9h
+bGcuICovCj4gPiAtCXVpbnQzMl90ICBoYXNoX2Jhc2lzOwo+ID4gKwlfX3UzMiAgaGFzaF9hbGc7
+ICAgICAvKiBPbmUgb2Ygb3ZzX2hhc2hfYWxnLiAqLwo+ID4gKwlfX3UzMiAgaGFzaF9iYXNpczsK
+PiA+ICB9Owo+ID4gIAo+ID4gIC8qKgo+IAo+IFRoaXMgaXMgYSBhIHJlYWwgaXNzdWUsIGJ1dCBi
+ZWluZyBidXJpZWQgaW4gYSBodWdlIHBhdGNoIHNlcmllcyBvZiBpbmNsdWRlCj4gZmlsZSBzdHVm
+ZiBJIGRvbid0IHRoaW5rIGFueW9uZSB3b3VsZCBzZWUgaXQuCgpUaGUgbWVjaGFuaXNtIGZvciBm
+aW5kaW5nIHRoaXMgaXNzdWUgdGhlIHNhbWUgYXMgZmluZGluZyBhIG1pc3NpbmcgaGVhZGVyIGZp
+bGUKZGVwZW5kZW5jeTogdGhlIHVhcGkgaGVhZGVyIHVzZXJzcGFjZSBjb21waWxlIHRlc3QuCgpo
+dHRwczovL2xrbWwub3JnL2xrbWwvMjAxNi84LzIyLzY1OQoKSSdtIHVzaW5nICJzY3JpcHRzL2dl
+dF9tYWludGFpbmVycy5wbCAtLW5vLXJvbGVzdGF0cyIgdG8gZmlsbCBpbiB0aGUgQ2M6IGxpc3QK
+Zm9yIGdpdCBzZW5kLWVtYWlsIHNvIGlmIE1BSU5UQUlORVJTIGlzIHVwdG9kYXRlLCB0aGVuIGNv
+cnJlY3QgbGlzdHMgYW5kCm1haW50YWluZXJzIHNob3VsZCBoYXZlIHRoZSByZWNlaXZlZCB0aGUg
+cGF0Y2hlcy4KCi1NaWtrbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
+c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
