@@ -1,16 +1,16 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 11/14] hv_netvsc: make netvsc_destroy_buf void
-Date: Tue, 23 Aug 2016 12:29:43 -0700
-Message-ID: <1471980586-18263-12-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 09/14] hv_netvsc: rearrange start_xmit
+Date: Tue, 23 Aug 2016 12:29:41 -0700
+Message-ID: <1471980586-18263-10-git-send-email-sthemmin@exchange.microsoft.com>
 References: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:36786
-        "EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:34100
+        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754092AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753910AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 23 Aug 2016 13:54:29 -0400
 In-Reply-To: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,76 +18,187 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-No caller checks the return value.
+Rearrange the transmit routine to eliminate goto's and unnecessary
+boolean variables. Use standard functions to test for vlan tag.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c |   14 ++++++--------
- 1 files changed, 6 insertions(+), 8 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c |  106 +++++++++++++++++++--------------------
+ 1 files changed, 51 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 830aae2..471c476 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -206,12 +206,12 @@ get_in_err:
- 	return net_device;
- }
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 3bbf073..7ed9f13 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -357,11 +357,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	struct rndis_message *rndis_msg;
+ 	struct rndis_packet *rndis_pkt;
+ 	u32 rndis_msg_size;
+-	bool isvlan;
+-	bool linear = false;
+ 	struct rndis_per_packet_info *ppi;
+ 	struct ndis_tcp_ip_checksum_info *csum_info;
+-	struct ndis_tcp_lso_info *lso_info;
+ 	int  hdr_offset;
+ 	u32 net_trans_info;
+ 	u32 hash;
+@@ -376,22 +373,23 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	 * more pages we try linearizing it.
+ 	 */
  
--static int netvsc_destroy_buf(struct hv_device *device)
-+static void netvsc_destroy_buf(struct hv_device *device)
- {
- 	struct nvsp_message *revoke_packet;
--	int ret = 0;
- 	struct net_device *ndev = hv_get_drvdata(device);
- 	struct netvsc_device *net_device = net_device_to_netvsc_device(ndev);
-+	int ret;
+-check_size:
+ 	skb_length = skb->len;
+ 	num_data_pgs = netvsc_get_slots(skb) + 2;
+-	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT && linear) {
+-		net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
+-				      num_data_pgs, skb->len);
+-		ret = -EFAULT;
+-		goto drop;
+-	} else if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
++
++	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
+ 		if (skb_linearize(skb)) {
+ 			net_alert_ratelimited("failed to linearize skb\n");
+ 			ret = -ENOMEM;
+ 			goto drop;
+ 		}
+-		linear = true;
+-		goto check_size;
++
++		num_data_pgs = netvsc_get_slots(skb) + 2;
++		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
++			net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
++					      num_data_pgs, skb->len);
++			ret = -EFAULT;
++			goto drop;
++		}
+ 	}
  
  	/*
- 	 * If we got a section count, it means we received a
-@@ -241,7 +241,7 @@ static int netvsc_destroy_buf(struct hv_device *device)
- 		if (ret != 0) {
- 			netdev_err(ndev, "unable to send "
- 				"revoke receive buffer to netvsp\n");
--			return ret;
-+			return;
- 		}
+@@ -418,8 +416,6 @@ check_size:
+ 
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+ 
+-	isvlan = skb->vlan_tci & VLAN_TAG_PRESENT;
+-
+ 	/* Add the rndis header */
+ 	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
+ 	rndis_msg->msg_len = packet->total_data_buflen;
+@@ -438,7 +434,7 @@ check_size:
+ 		*(u32 *)((void *)ppi + ppi->ppi_offset) = hash;
  	}
  
-@@ -256,7 +256,7 @@ static int netvsc_destroy_buf(struct hv_device *device)
- 		if (ret != 0) {
- 			netdev_err(ndev,
- 				   "unable to teardown receive buffer's gpadl\n");
--			return ret;
-+			return;
- 		}
- 		net_device->recv_buf_gpadl_handle = 0;
+-	if (isvlan) {
++	if (skb_vlan_tag_present(skb)) {
+ 		struct ndis_pkt_8021q_info *vlan;
+ 
+ 		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
+@@ -459,8 +455,37 @@ check_size:
+ 	 * Setup the sendside checksum offload only if this is not a
+ 	 * GSO packet.
+ 	 */
+-	if (skb_is_gso(skb))
+-		goto do_lso;
++	if (skb_is_gso(skb)) {
++		struct ndis_tcp_lso_info *lso_info;
++
++		rndis_msg_size += NDIS_LSO_PPI_SIZE;
++		ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
++				    TCP_LARGESEND_PKTINFO);
++
++		lso_info = (struct ndis_tcp_lso_info *)((void *)ppi +
++							ppi->ppi_offset);
++
++		lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
++		if (net_trans_info & (INFO_IPV4 << 16)) {
++			lso_info->lso_v2_transmit.ip_version =
++				NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
++			ip_hdr(skb)->tot_len = 0;
++			ip_hdr(skb)->check = 0;
++			tcp_hdr(skb)->check =
++				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
++						   ip_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
++		} else {
++			lso_info->lso_v2_transmit.ip_version =
++				NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
++			ipv6_hdr(skb)->payload_len = 0;
++			tcp_hdr(skb)->check =
++				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
++						 &ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
++		}
++		lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
++		lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
++		goto do_send;
++	}
+ 
+ 	if ((skb->ip_summed == CHECKSUM_NONE) ||
+ 	    (skb->ip_summed == CHECKSUM_UNNECESSARY))
+@@ -507,35 +532,6 @@ check_size:
+ 
+ 		csum_info->transmit.udp_checksum = 0;
  	}
-@@ -300,7 +300,7 @@ static int netvsc_destroy_buf(struct hv_device *device)
- 		if (ret != 0) {
- 			netdev_err(ndev, "unable to send "
- 				   "revoke send buffer to netvsp\n");
--			return ret;
-+			return;
- 		}
- 	}
- 	/* Teardown the gpadl on the vsp end */
-@@ -314,7 +314,7 @@ static int netvsc_destroy_buf(struct hv_device *device)
- 		if (ret != 0) {
- 			netdev_err(ndev,
- 				   "unable to teardown send buffer's gpadl\n");
--			return ret;
-+			return;
- 		}
- 		net_device->send_buf_gpadl_handle = 0;
- 	}
-@@ -324,8 +324,6 @@ static int netvsc_destroy_buf(struct hv_device *device)
- 		net_device->send_buf = NULL;
- 	}
- 	kfree(net_device->send_section_map);
+-	goto do_send;
 -
--	return ret;
+-do_lso:
+-	rndis_msg_size += NDIS_LSO_PPI_SIZE;
+-	ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
+-			    TCP_LARGESEND_PKTINFO);
+-
+-	lso_info = (struct ndis_tcp_lso_info *)((void *)ppi +
+-			ppi->ppi_offset);
+-
+-	lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
+-	if (net_trans_info & (INFO_IPV4 << 16)) {
+-		lso_info->lso_v2_transmit.ip_version =
+-			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
+-		ip_hdr(skb)->tot_len = 0;
+-		ip_hdr(skb)->check = 0;
+-		tcp_hdr(skb)->check =
+-		~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+-				   ip_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
+-	} else {
+-		lso_info->lso_v2_transmit.ip_version =
+-			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
+-		ipv6_hdr(skb)->payload_len = 0;
+-		tcp_hdr(skb)->check =
+-		~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+-				&ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
+-	}
+-	lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
+-	lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
+ 
+ do_send:
+ 	/* Start filling in the page buffers with the rndis hdr */
+@@ -548,21 +544,21 @@ do_send:
+ 	skb_tx_timestamp(skb);
+ 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
+ 			  rndis_msg, &pb, skb);
+-
+-drop:
+-	if (ret == 0) {
++	if (likely(ret == 0)) {
+ 		u64_stats_update_begin(&tx_stats->syncp);
+ 		tx_stats->packets++;
+ 		tx_stats->bytes += skb_length;
+ 		u64_stats_update_end(&tx_stats->syncp);
+-	} else {
+-		if (ret != -EAGAIN) {
+-			dev_kfree_skb_any(skb);
+-			net->stats.tx_dropped++;
+-		}
++		return NETDEV_TX_OK;
+ 	}
++	if (ret == -EAGAIN)
++		return NETDEV_TX_BUSY;
++
++drop:
++	dev_kfree_skb_any(skb);
++	net->stats.tx_dropped++;
+ 
+-	return (ret == -EAGAIN) ? NETDEV_TX_BUSY : NETDEV_TX_OK;
++	return NETDEV_TX_OK;
  }
  
- static int netvsc_init_buf(struct hv_device *device)
+ /*
 -- 
 1.7.4.1
