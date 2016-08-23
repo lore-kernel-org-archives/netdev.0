@@ -1,63 +1,29 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 3/4] dsa: mv88e6xxx: Delete ppu timer when removing module
-Date: Tue, 23 Aug 2016 16:37:34 +0300
-Message-ID: <d20478f0-c11a-dfb2-26d0-a65db4119124@cogentembedded.com>
-References: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
- <1471874464-16142-4-git-send-email-andrew@lunn.ch>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: CVE-2014-9900 fix is not upstream
+Date: Tue, 23 Aug 2016 14:41:07 +0100
+Message-ID: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jamie Lentin <jm@lentin.co.uk>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:35442 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757203AbcHWNh6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 09:37:58 -0400
-Received: by mail-lf0-f45.google.com with SMTP id f93so101039093lfi.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 06:37:36 -0700 (PDT)
-In-Reply-To: <1471874464-16142-4-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Avijit Kanti Das <avijitnsec@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi!
 
-On 8/22/2016 5:01 PM, Andrew Lunn wrote:
+Digging through some old CVEs I came across this one that doesn't seem be
+in mainline.  Was there a good reason for not being sent upstream?  Maybe it was
+rejected for some reason and I failed to find the discussion.
 
-> The PPU method of accessing PHYs makes use of a timer. Make sure this
-> timer is deleted before unloading the driver.
->
-> Reported-by: Jamie Lentin <jm@lentin.co.uk>
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->  drivers/net/dsa/mv88e6xxx/chip.c | 13 +++++++++++++
->  1 file changed, 13 insertions(+)
->
-> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> index b315769aa5be..1d5f9576e62a 100644
-> --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-[...]
-> @@ -3892,6 +3897,13 @@ static void mv88e6xxx_phy_init(struct mv88e6xxx_chip *chip)
->  	}
->  }
->
-> +static void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
-> +{
-> +	if (mv88e6xxx_has(chip, MV88E6XXX_FLAG_PPU)) {
-> +		mv88e6xxx_ppu_state_destroy(chip);
-> +	}
+References:
+ https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-9900
+ http://source.android.com/security/bulletin/2016-08-01.html
+ https://source.codeaurora.org/quic/la/kernel/msm-3.10/commit/?id=63c317dbee97983004dffdd9f742a20d17150071
 
-    {} not needed here. See Documentation/CodingStyle, chapter 3.
-
-> +}
-> +
->  static int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
->  			      struct mii_bus *bus, int sw_addr)
->  {
-[...]
-
-MBR, Sergei
+Cheers,
+--
+Luís
