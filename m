@@ -1,65 +1,84 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: net: Zeroing the structure ethtool_wolinfo in ethtool_get_wol()
-Date: Tue, 23 Aug 2016 17:46:14 +0100
-Message-ID: <f3fa1ab8-c7de-8dd0-f7db-c058483941a1@solarflare.com>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
- <1471959668-18209-2-git-send-email-luis.henriques@canonical.com>
- <1471962096.14381.15.camel@edumazet-glaptop3.roam.corp.google.com>
- <1471964716.3746.103.camel@perches.com>
- <1471966619.14381.21.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] udp: get rid of SLAB_DESTROY_BY_RCU allocations
+Date: Tue, 23 Aug 2016 09:57:51 -0700
+Message-ID: <1471971471.14381.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Luis Henriques <luis.henriques@canonical.com>,
-        Avijit Kanti Das <avijitnsec@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Ben Hutchings" <ben@decadent.org.uk>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471966619.14381.21.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35187 "EHLO
+        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752308AbcHWQ6c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 12:58:32 -0400
+Received: by mail-pa0-f68.google.com with SMTP id cf3so10180759pad.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 09:57:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23/08/16 16:36, Eric Dumazet wrote:
-> On Tue, 2016-08-23 at 08:05 -0700, Joe Perches wrote:
->
->> A compiler does not have a standards based requirement to
->> initialize arbitrary padding bytes.
->>
->> I believe gcc always does zero all padding anyway.
-> Even if the current standards are lazy (are they, I did not check ?),
-> security needs would call for a sane compiler behavior and changing the
-> standards accordingly.
-Sadly C99 is: section 6.2.6.1.6 (in draft N1256) says
-  "When a value is stored in an object of structure or union type,
-   including in a member object, the bytes of the object representation
-   that correspond to any padding bytes take unspecified values."
-with a footnote (42) reading
-  "Thus, for example, structure assignment need not copy any padding bits."
+From: Eric Dumazet <edumazet@google.com>
 
-In C11 (or, at least, draft N1570), the corresponding text is identical,
-only the footnote number has changed (51).
-HOWEVER, section 6.7.9.10 has changed, and now (for static objects) reads:
-  "if it is an aggregate, every member is initialized (recursively)
-   according to these rules, _and_any_padding_is_initialized_to_zero_bits_"
-(emphasis added).
-On the other hand, a sufficiently pedantic (and perverse) language lawyer
-could argue that the initialiser only "specifies the initial value stored
-in an object" (6.7.9.8), and that when a value is 'stored in an object'
-section 6.2.6.1.6 applies to the storing process after the initial value
-has been constructed.
-On the gripping hand, such an interpretation would cause the new 6.7.9.10
-language to have no observable effect, and thus clearly cannot be what was
-intended by the C11 committee.
+After commit ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
+we do not need this special allocation mode anymore, even if it is
+harmless.
 
-Aren't you glad you asked?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Note that sk_prot_clear_portaddr_nulls() is no longer needed,
+but I will send a separate patch targeting net-next.
 
-In any case, there is more to life than standards lawyering, compilers
-that don't zero the padding bytes are as a practical matter broken even
-though not in violation of the (C99) standard.  Besides, it's not as if
-Linux doesn't already have requirements on its compilers that go beyond
-the standards...
+ net/ipv4/udp.c     |    1 -
+ net/ipv4/udplite.c |    1 -
+ net/ipv6/udp.c     |    1 -
+ net/ipv6/udplite.c |    1 -
+ 4 files changed, 4 deletions(-)
 
--Ed
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8f5f7f6026f7fd8d157a2855334bf9cdf453cdee..f4b0d74a56973164ef3de8e9f15c9968a439f83b 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2217,7 +2217,6 @@ struct proto udp_prot = {
+ 	.sysctl_wmem	   = &sysctl_udp_wmem_min,
+ 	.sysctl_rmem	   = &sysctl_udp_rmem_min,
+ 	.obj_size	   = sizeof(struct udp_sock),
+-	.slab_flags	   = SLAB_DESTROY_BY_RCU,
+ 	.h.udp_table	   = &udp_table,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_udp_setsockopt,
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index 3b3efbda48e13941b35388238508706844c043aa..2eea073e27efa13a86d6c6107426435ae7ddb18d 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -55,7 +55,6 @@ struct proto 	udplite_prot = {
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v4_get_port,
+ 	.obj_size	   = sizeof(struct udp_sock),
+-	.slab_flags	   = SLAB_DESTROY_BY_RCU,
+ 	.h.udp_table	   = &udplite_table,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_udp_setsockopt,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 81e2f98b958d4d42d137a4ae2d71c4c7217c71d6..19ac3a1c308dbfacf136e262dbab27ad280cfdcd 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1460,7 +1460,6 @@ struct proto udpv6_prot = {
+ 	.sysctl_wmem	   = &sysctl_udp_wmem_min,
+ 	.sysctl_rmem	   = &sysctl_udp_rmem_min,
+ 	.obj_size	   = sizeof(struct udp6_sock),
+-	.slab_flags	   = SLAB_DESTROY_BY_RCU,
+ 	.h.udp_table	   = &udp_table,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_udpv6_setsockopt,
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index 9cf097e206e931c6e3c184f22b8adcabedc4c03a..fd6ef414899bea824ce26c2e738f4e96aa8af464 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -50,7 +50,6 @@ struct proto udplitev6_prot = {
+ 	.unhash		   = udp_lib_unhash,
+ 	.get_port	   = udp_v6_get_port,
+ 	.obj_size	   = sizeof(struct udp6_sock),
+-	.slab_flags	   = SLAB_DESTROY_BY_RCU,
+ 	.h.udp_table	   = &udplite_table,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_udpv6_setsockopt,
