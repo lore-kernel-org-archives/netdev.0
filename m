@@ -1,16 +1,16 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 04/14] hv_netvsc: style cleanups
-Date: Tue, 23 Aug 2016 12:29:36 -0700
-Message-ID: <1471980586-18263-5-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 14/14] hv_netvsc: add ethtool statistics for tx packet issues
+Date: Tue, 23 Aug 2016 12:29:46 -0700
+Message-ID: <1471980586-18263-15-git-send-email-sthemmin@exchange.microsoft.com>
 References: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:36780
-        "EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
+Received: from p3plsmtps2ded02.prod.phx3.secureserver.net ([208.109.80.59]:41162
+        "EHLO p3plsmtps2ded02.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753912AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754246AbcHWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 23 Aug 2016 13:54:29 -0400
 In-Reply-To: <1471980586-18263-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,246 +18,197 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Fix most of the complaints about the style of the code.
-Things like extra blank lines and return statements.
+Printing console messages is not helpful when system is out of memory;
+and can be disastrous with netconsole. Instead keep statistics
+of these anomalous conditions.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c       |   18 ++----------------
- drivers/net/hyperv/netvsc_drv.c   |    7 -------
- drivers/net/hyperv/rndis_filter.c |    8 +-------
- 3 files changed, 3 insertions(+), 30 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |    9 ++++
+ drivers/net/hyperv/netvsc_drv.c |   86 +++++++++++++++++++++++++++++++-------
+ 2 files changed, 79 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index f64c978..fe83de3 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -59,7 +59,6 @@ void netvsc_switch_datapath(struct net_device *ndev, bool vf)
- 			       VM_PKT_DATA_INBAND, 0);
- }
- 
--
- static struct netvsc_device *alloc_net_device(void)
- {
- 	struct netvsc_device *net_device;
-@@ -123,7 +122,6 @@ get_in_err:
- 	return net_device;
- }
- 
--
- static int netvsc_destroy_buf(struct hv_device *device)
- {
- 	struct nvsp_message *revoke_packet;
-@@ -285,7 +283,6 @@ static int netvsc_init_buf(struct hv_device *device)
- 		goto cleanup;
- 	}
- 
--
- 	/* Notify the NetVsp of the gpadl handle */
- 	init_packet = &net_device->channel_init_pkt;
- 
-@@ -412,7 +409,7 @@ static int netvsc_init_buf(struct hv_device *device)
- 	/* Section count is simply the size divided by the section size.
- 	 */
- 	net_device->send_section_cnt =
--		net_device->send_buf_size/net_device->send_section_size;
-+		net_device->send_buf_size / net_device->send_section_size;
- 
- 	dev_info(&device->device, "Send section size: %d, Section count:%d\n",
- 		 net_device->send_section_size, net_device->send_section_cnt);
-@@ -437,7 +434,6 @@ exit:
- 	return ret;
- }
- 
--
- /* Negotiate NVSP protocol version */
- static int negotiate_nvsp_ver(struct hv_device *device,
- 			      struct netvsc_device *net_device,
-@@ -593,7 +589,6 @@ int netvsc_device_remove(struct hv_device *device)
- 	return 0;
- }
- 
--
- #define RING_AVAIL_PERCENT_HIWATER 20
- #define RING_AVAIL_PERCENT_LOWATER 10
- 
-@@ -676,13 +671,11 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 		    !net_device_ctx->start_remove &&
- 		    (hv_ringbuf_avail_percent(&channel->outbound) >
- 		     RING_AVAIL_PERCENT_HIWATER || queue_sends < 1))
--				netif_tx_wake_queue(netdev_get_tx_queue(
--						    ndev, q_idx));
-+			netif_tx_wake_queue(netdev_get_tx_queue(ndev, q_idx));
- 	} else {
- 		netdev_err(ndev, "Unknown send completion packet type- "
- 			   "%d received!!\n", nvsp_packet->hdr.msg_type);
- 	}
--
- }
- 
- static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
-@@ -1157,7 +1150,6 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 		/* Pass it to the upper layer */
- 		status = rndis_filter_receive(device, netvsc_packet, &data,
- 					      channel);
--
- 	}
- 
- 	if (!net_device->mrc[q_idx].buf) {
-@@ -1182,7 +1174,6 @@ static void netvsc_receive(struct netvsc_device *net_device,
- 	rcd->status = status;
- }
- 
--
- static void netvsc_send_table(struct hv_device *hdev,
- 			      struct nvsp_message *nvmsg)
- {
-@@ -1263,7 +1254,6 @@ static void netvsc_process_raw_pkt(struct hv_device *device,
- 	}
- }
- 
--
- void netvsc_channel_cb(void *context)
- {
- 	int ret;
-@@ -1320,8 +1310,6 @@ void netvsc_channel_cb(void *context)
- 						       ndev,
- 						       request_id,
- 						       desc);
--
--
- 			} else {
- 				/*
- 				 * We are done for this pass.
-@@ -1350,8 +1338,6 @@ void netvsc_channel_cb(void *context)
- 		kfree(buffer);
- 
- 	netvsc_chk_recv_comp(net_device, channel, q_idx);
--
--	return;
- }
- 
- /*
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 6924d01a..3bbf073 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -40,7 +40,6 @@
- 
- #include "hyperv_net.h"
- 
--
- #define RING_SIZE_MIN 64
- #define LINKCHANGE_INT (2 * HZ)
- #define NETVSC_HW_FEATURES	(NETIF_F_RXCSUM | \
-@@ -411,7 +410,6 @@ check_size:
- 			FIELD_SIZEOF(struct sk_buff, cb));
- 	packet = (struct hv_netvsc_packet *)skb->cb;
- 
--
- 	packet->q_idx = skb_get_queue_mapping(skb);
- 
- 	packet->total_data_buflen = skb->len;
-@@ -617,7 +615,6 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
- 	schedule_delayed_work(&ndev_ctx->dwork, 0);
- }
- 
--
- static struct sk_buff *netvsc_alloc_recv_skb(struct net_device *net,
- 				struct hv_netvsc_packet *packet,
- 				struct ndis_tcp_ip_checksum_info *csum_info,
-@@ -1271,7 +1268,6 @@ static int netvsc_vf_up(struct net_device *vf_netdev)
- 	return NOTIFY_OK;
- }
- 
--
- static int netvsc_vf_down(struct net_device *vf_netdev)
- {
- 	struct net_device *ndev;
-@@ -1305,7 +1301,6 @@ static int netvsc_vf_down(struct net_device *vf_netdev)
- 	return NOTIFY_OK;
- }
- 
--
- static int netvsc_unregister_vf(struct net_device *vf_netdev)
- {
- 	struct net_device *ndev;
-@@ -1433,7 +1428,6 @@ static int netvsc_remove(struct hv_device *dev)
- 		return 0;
- 	}
- 
--
- 	ndev_ctx = netdev_priv(net);
- 	net_device = ndev_ctx->nvdev;
- 
-@@ -1480,7 +1474,6 @@ static struct  hv_driver netvsc_drv = {
- 	.remove = netvsc_remove,
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 8031dee..284b97b 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -652,6 +652,14 @@ struct netvsc_stats {
+ 	struct u64_stats_sync syncp;
  };
  
--
++struct netvsc_ethtool_stats {
++	unsigned long tx_scattered;
++	unsigned long tx_no_memory;
++	unsigned long tx_no_space;
++	unsigned long tx_too_big;
++	unsigned long tx_busy;
++};
++
+ struct netvsc_reconfig {
+ 	struct list_head list;
+ 	u32 event;
+@@ -681,6 +689,7 @@ struct net_device_context {
+ 	/* Ethtool settings */
+ 	u8 duplex;
+ 	u32 speed;
++	struct netvsc_ethtool_stats eth_stats;
+ 
+ 	/* the device is going away */
+ 	bool start_remove;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index b874ab1..2360e70 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -365,7 +365,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	u32 skb_length;
+ 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
+ 	struct hv_page_buffer *pb = page_buf;
+-	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
+ 
+ 	/* We will atmost need two pages to describe the rndis
+ 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
+@@ -377,17 +376,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	num_data_pgs = netvsc_get_slots(skb) + 2;
+ 
+ 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
+-		if (skb_linearize(skb)) {
+-			net_alert_ratelimited("failed to linearize skb\n");
+-			ret = -ENOMEM;
+-			goto drop;
+-		}
++		++net_device_ctx->eth_stats.tx_scattered;
++
++		if (skb_linearize(skb))
++			goto no_memory;
+ 
+ 		num_data_pgs = netvsc_get_slots(skb) + 2;
+ 		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
+-			net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
+-					      num_data_pgs, skb->len);
+-			ret = -EFAULT;
++			++net_device_ctx->eth_stats.tx_too_big;
+ 			goto drop;
+ 		}
+ 	}
+@@ -398,11 +394,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	 * structure.
+ 	 */
+ 	ret = skb_cow_head(skb, RNDIS_AND_PPI_SIZE);
+-	if (ret) {
+-		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
+-		ret = -ENOMEM;
+-		goto drop;
+-	}
++	if (ret)
++		goto no_memory;
++
+ 	/* Use the skb control buffer for building up the packet */
+ 	BUILD_BUG_ON(sizeof(struct hv_netvsc_packet) >
+ 			FIELD_SIZEOF(struct sk_buff, cb));
+@@ -518,7 +512,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 
+ 		ret = skb_cow_head(skb, 0);
+ 		if (ret)
+-			goto drop;
++			goto no_memory;
+ 
+ 		uh = udp_hdr(skb);
+ 		udp_len = ntohs(uh->len);
+@@ -545,20 +539,32 @@ do_send:
+ 	ret = netvsc_send(net_device_ctx->device_ctx, packet,
+ 			  rndis_msg, &pb, skb);
+ 	if (likely(ret == 0)) {
++		struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
++
+ 		u64_stats_update_begin(&tx_stats->syncp);
+ 		tx_stats->packets++;
+ 		tx_stats->bytes += skb_length;
+ 		u64_stats_update_end(&tx_stats->syncp);
+ 		return NETDEV_TX_OK;
+ 	}
+-	if (ret == -EAGAIN)
++
++	if (ret == -EAGAIN) {
++		++net_device_ctx->eth_stats.tx_busy;
+ 		return NETDEV_TX_BUSY;
++	}
++
++	if (ret == -ENOSPC)
++		++net_device_ctx->eth_stats.tx_no_space;
+ 
+ drop:
+ 	dev_kfree_skb_any(skb);
+ 	net->stats.tx_dropped++;
+ 
+ 	return NETDEV_TX_OK;
++
++no_memory:
++	++net_device_ctx->eth_stats.tx_no_memory;
++	goto drop;
+ }
+ 
  /*
-  * On Hyper-V, every VF interface is matched with a corresponding
-  * synthetic interface. The synthetic interface is presented first
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index a100380..9195d5d 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -721,7 +721,6 @@ static int rndis_filter_set_rss_param(struct rndis_device *rdev, int num_queue)
- 	for (i = 0; i < HASH_KEYLEN; i++)
- 		keyp[i] = netvsc_hash_key[i];
- 
--
- 	ret = rndis_filter_send_request(rdev, request);
- 	if (ret != 0)
- 		goto cleanup;
-@@ -739,7 +738,6 @@ cleanup:
- 	return ret;
+@@ -1015,6 +1021,51 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+ 	return err;
  }
  
--
- static int rndis_filter_query_device_link_status(struct rndis_device *dev)
++static const struct {
++	char name[ETH_GSTRING_LEN];
++	u16 offset;
++} netvsc_stats[] = {
++	{ "tx_scattered", offsetof(struct netvsc_ethtool_stats, tx_scattered) },
++	{ "tx_no_memory",  offsetof(struct netvsc_ethtool_stats, tx_no_memory) },
++	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
++	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
++	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
++};
++
++static int netvsc_get_sset_count(struct net_device *dev, int string_set)
++{
++	switch (string_set) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(netvsc_stats);
++	default:
++		return -EINVAL;
++	}
++}
++
++static void netvsc_get_ethtool_stats(struct net_device *dev,
++				     struct ethtool_stats *stats, u64 *data)
++{
++	struct net_device_context *ndc = netdev_priv(dev);
++	const void *nds = &ndc->eth_stats;
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
++		data[i] = *(unsigned long *)(nds + netvsc_stats[i].offset);
++}
++
++static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
++{
++	int i;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
++			memcpy(data + i * ETH_GSTRING_LEN,
++			       netvsc_stats[i].name, ETH_GSTRING_LEN);
++		break;
++	}
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void netvsc_poll_controller(struct net_device *net)
  {
- 	u32 size = sizeof(u32);
-@@ -815,7 +813,6 @@ cleanup:
- 	return ret;
- }
- 
--
- static int rndis_filter_init_device(struct rndis_device *dev)
- {
- 	struct rndis_request *request;
-@@ -903,7 +900,6 @@ cleanup:
- 
- 	if (request)
- 		put_rndis_request(dev, request);
--	return;
- }
- 
- static int rndis_filter_open_device(struct rndis_device *dev)
-@@ -973,7 +969,7 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- }
- 
- int rndis_filter_device_add(struct hv_device *dev,
--				  void *additional_info)
-+			    void *additional_info)
- {
- 	int ret;
- 	struct net_device *net = hv_get_drvdata(dev);
-@@ -1055,7 +1051,6 @@ int rndis_filter_device_add(struct hv_device *dev,
- 	offloads.udp_ip_v6_csum = NDIS_OFFLOAD_PARAMETERS_TX_RX_ENABLED;
- 	offloads.lso_v2_ipv4 = NDIS_OFFLOAD_PARAMETERS_LSOV2_ENABLED;
- 
--
- 	ret = rndis_filter_set_offload_params(net, &offloads);
- 	if (ret)
- 		goto err_dev_remv;
-@@ -1181,7 +1176,6 @@ void rndis_filter_device_remove(struct hv_device *dev)
- 	netvsc_device_remove(dev);
- }
- 
--
- int rndis_filter_open(struct netvsc_device *nvdev)
- {
- 	if (!nvdev)
+@@ -1027,6 +1078,9 @@ static void netvsc_poll_controller(struct net_device *net)
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo	= netvsc_get_drvinfo,
+ 	.get_link	= ethtool_op_get_link,
++	.get_ethtool_stats = netvsc_get_ethtool_stats,
++	.get_sset_count = netvsc_get_sset_count,
++	.get_strings	= netvsc_get_strings,
+ 	.get_channels   = netvsc_get_channels,
+ 	.set_channels   = netvsc_set_channels,
+ 	.get_ts_info	= ethtool_op_get_ts_info,
 -- 
 1.7.4.1
