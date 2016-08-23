@@ -1,225 +1,74 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Fix issue while re-registering VF mgmt netdev
-Date: Tue, 23 Aug 2016 11:35:32 +0530
-Message-ID: <1471932332-14150-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, nirranjan@chelsioc.com,
-        Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:36259 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752458AbcHWGHE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 02:07:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Subject: [PATCH] cxgb4: fix invalid checks in alloc_uld_rxqs
+Date: Tue, 23 Aug 2016 08:16:19 +0200
+Message-ID: <1471932979-17864-1-git-send-email-a.hajda@samsung.com>
+Cc: Andrzej Hajda <a.hajda@samsung.com>,
+        Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+        Marek Szyprowski <m.szyprowski@samsung.com>,
+        linux-kernel@vger.kernel.org (open list)
+To: Hariprasad S <hariprasad@chelsio.com>,
+        netdev@vger.kernel.org (open list:CXGB4 ETHERNET DRIVER (CXGB4))
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When we disable SRIOV, we used to unregister the netdev but wasn't
-freed. But next time when the same netdev is registered, since the state
-was in 'NETREG_UNREGISTERED', we used to hit BUG_ON in register_netdevice,
-where it expects the state to be 'NETREG_UNINITIALIZED'.
+Local variable msi_idx defined as unsigned int is always >= 0, thus both
+'if' checks are always true. On the other side presence of USING_MSIX flag
+suggests the checks should not be trivially true.
+The simplest solution is to replace incorrect checks with direct testing
+of adap->flags and remove spare variables.
 
-Alloc netdev and register them while configuring SRIOV, and free them
-when SRIOV is disabled. Also added a new function to setup ethernet
-properties instead of using ether_setup. Set carrier off by default,
-since we don't have to do any transmit on the interface.
+The problem has been detected using semantic patch
+scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci
 
-Fixes: 7829451c695e ("cxgb4: Add control net_device for configuring PCIe VF")
-
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   97 +++++++++++++++-------
- 2 files changed, 67 insertions(+), 31 deletions(-)
+Hi,
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index f988c60..3f7b33a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -798,6 +798,7 @@ struct adapter {
- 	unsigned int mbox;
- 	unsigned int pf;
- 	unsigned int flags;
-+	unsigned int adap_idx;
- 	enum chip_type chip;
- 
- 	int msg_enable;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index be5c942..44019bd 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3085,6 +3085,15 @@ static int cxgb_change_mtu(struct net_device *dev, int new_mtu)
- }
- 
- #ifdef CONFIG_PCI_IOV
-+static int dummy_open(struct net_device *dev)
-+{
-+	/* Turn carrier off since we don't have to transmit anything on this
-+	 * interface.
-+	 */
-+	netif_carrier_off(dev);
-+	return 0;
-+}
-+
- static int cxgb_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
+I am not familiar with the code, and it is not clear to me, so my solution
+can be incorrect, anyway there is an issue here.
+
+Regards
+Andrzej
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+index aac6e44..1e0c952 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
+@@ -121,20 +121,14 @@ static int alloc_uld_rxqs(struct adapter *adap,
+ 			  struct sge_uld_rxq_info *rxq_info,
+ 			  unsigned int nq, unsigned int offset, bool lro)
  {
- 	struct port_info *pi = netdev_priv(dev);
-@@ -3246,11 +3255,12 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- 	.ndo_set_tx_maxrate   = cxgb_set_tx_maxrate,
- };
+-	struct sge *s = &adap->sge;
+ 	struct sge_ofld_rxq *q = rxq_info->uldrxq + offset;
+ 	unsigned short *ids = rxq_info->rspq_id + offset;
+ 	unsigned int per_chan = nq / adap->params.nports;
+-	unsigned int msi_idx, bmap_idx;
++	unsigned int bmap_idx;
+ 	int i, err;
  
--static const struct net_device_ops cxgb4_mgmt_netdev_ops = {
- #ifdef CONFIG_PCI_IOV
-+static const struct net_device_ops cxgb4_mgmt_netdev_ops = {
-+	.ndo_open             = dummy_open,
- 	.ndo_set_vf_mac       = cxgb_set_vf_mac,
--#endif
- };
-+#endif
- 
- static void get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- {
-@@ -5023,6 +5033,51 @@ static int get_chip_type(struct pci_dev *pdev, u32 pl_rev)
- }
- 
- #ifdef CONFIG_PCI_IOV
-+static void dummy_setup(struct net_device *dev)
-+{
-+	dev->type = ARPHRD_NONE;
-+	dev->mtu = 0;
-+	dev->hard_header_len = 0;
-+	dev->addr_len = 0;
-+	dev->tx_queue_len = 0;
-+	dev->flags |= IFF_NOARP;
-+	dev->priv_flags |= IFF_NO_QUEUE;
-+
-+	/* Initialize the device structure. */
-+	dev->netdev_ops = &cxgb4_mgmt_netdev_ops;
-+	dev->ethtool_ops = &cxgb4_mgmt_ethtool_ops;
-+	dev->destructor = free_netdev;
-+}
-+
-+static int config_mgmt_dev(struct pci_dev *pdev)
-+{
-+	struct adapter *adap = pci_get_drvdata(pdev);
-+	struct net_device *netdev;
-+	struct port_info *pi;
-+	char name[IFNAMSIZ];
-+	int err;
-+
-+	snprintf(name, IFNAMSIZ, "mgmtpf%d%d", adap->adap_idx, adap->pf);
-+	netdev = alloc_netdev(0, name, NET_NAME_UNKNOWN, dummy_setup);
-+	if (!netdev)
-+		return -ENOMEM;
-+
-+	pi = netdev_priv(netdev);
-+	pi->adapter = adap;
-+	SET_NETDEV_DEV(netdev, &pdev->dev);
-+
-+	adap->port[0] = netdev;
-+
-+	err = register_netdev(adap->port[0]);
-+	if (err) {
-+		pr_info("Unable to register VF mgmt netdev %s\n", name);
-+		free_netdev(adap->port[0]);
-+		adap->port[0] = NULL;
-+		return err;
-+	}
-+	return 0;
-+}
-+
- static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
- {
- 	struct adapter *adap = pci_get_drvdata(pdev);
-@@ -5057,8 +5112,10 @@ static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
- 	 */
- 	if (!num_vfs) {
- 		pci_disable_sriov(pdev);
--		if (adap->port[0]->reg_state == NETREG_REGISTERED)
-+		if (adap->port[0]) {
- 			unregister_netdev(adap->port[0]);
-+			adap->port[0] = NULL;
-+		}
- 		return num_vfs;
- 	}
- 
-@@ -5067,11 +5124,9 @@ static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
+-	if (adap->flags & USING_MSIX)
+-		msi_idx = 1;
+-	else
+-		msi_idx = -((int)s->intrq.abs_id + 1);
+-
+ 	for (i = 0; i < nq; i++, q++) {
+-		if (msi_idx >= 0) {
++		if (adap->flags & USING_MSIX) {
+ 			bmap_idx = get_msix_idx_from_bmap(adap);
+ 			adap->msi_idx++;
+ 		}
+@@ -147,7 +141,7 @@ static int alloc_uld_rxqs(struct adapter *adap,
+ 				       0);
  		if (err)
- 			return err;
- 
--		if (adap->port[0]->reg_state == NETREG_UNINITIALIZED) {
--			err = register_netdev(adap->port[0]);
--			if (err < 0)
--				pr_info("Unable to register VF mgmt netdev\n");
--		}
-+		err = config_mgmt_dev(pdev);
-+		if (err)
-+			return err;
- 	}
- 	return num_vfs;
- }
-@@ -5084,9 +5139,6 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	bool highdma = false;
- 	struct adapter *adapter = NULL;
- 	struct net_device *netdev;
--#ifdef CONFIG_PCI_IOV
--	char name[IFNAMSIZ];
--#endif
- 	void __iomem *regs;
- 	u32 whoami, pl_rev;
- 	enum chip_type chip;
-@@ -5447,40 +5499,24 @@ sriov:
- 		goto free_pci_region;
- 	}
- 
--	snprintf(name, IFNAMSIZ, "mgmtpf%d%d", adap_idx, func);
--	netdev = alloc_netdev(0, name, NET_NAME_UNKNOWN, ether_setup);
--	if (!netdev) {
--		err = -ENOMEM;
--		goto free_adapter;
--	}
--
- 	adapter->pdev = pdev;
- 	adapter->pdev_dev = &pdev->dev;
- 	adapter->name = pci_name(pdev);
- 	adapter->mbox = func;
- 	adapter->pf = func;
- 	adapter->regs = regs;
-+	adapter->adap_idx = adap_idx;
- 	adapter->mbox_log = kzalloc(sizeof(*adapter->mbox_log) +
- 				    (sizeof(struct mbox_cmd) *
- 				     T4_OS_LOG_MBOX_CMDS),
- 				    GFP_KERNEL);
- 	if (!adapter->mbox_log) {
- 		err = -ENOMEM;
--		goto free_netdevice;
-+		goto free_adapter;
- 	}
--	pi = netdev_priv(netdev);
--	pi->adapter = adapter;
--	SET_NETDEV_DEV(netdev, &pdev->dev);
- 	pci_set_drvdata(pdev, adapter);
--
--	adapter->port[0] = netdev;
--	netdev->netdev_ops = &cxgb4_mgmt_netdev_ops;
--	netdev->ethtool_ops = &cxgb4_mgmt_ethtool_ops;
--
- 	return 0;
- 
-- free_netdevice:
--	free_netdev(adapter->port[0]);
-  free_adapter:
- 	kfree(adapter);
-  free_pci_region:
-@@ -5582,9 +5618,8 @@ static void remove_one(struct pci_dev *pdev)
- 	}
- #ifdef CONFIG_PCI_IOV
- 	else {
--		if (adapter->port[0]->reg_state == NETREG_REGISTERED)
-+		if (adapter->port[0])
- 			unregister_netdev(adapter->port[0]);
--		free_netdev(adapter->port[0]);
- 		iounmap(adapter->regs);
- 		kfree(adapter);
- 		pci_disable_sriov(pdev);
+ 			goto freeout;
+-		if (msi_idx >= 0)
++		if (adap->flags & USING_MSIX)
+ 			rxq_info->msix_tbl[i + offset] = bmap_idx;
+ 		memset(&q->stats, 0, sizeof(q->stats));
+ 		if (ids)
 -- 
-1.7.3
+1.9.1
