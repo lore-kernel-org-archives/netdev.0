@@ -1,41 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 03/15] net: sched: remove remaining uses for
- qdisc_qlen in xmit path
-Date: Tue, 23 Aug 2016 14:10:45 -0700
-Message-ID: <1471986645.14381.57.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
-         <20160823202347.14368.78284.stgit@john-Precision-Tower-5810>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: CVE-2014-9900 fix is not upstream
+Date: Tue, 23 Aug 2016 22:25:45 +0100
+Message-ID: <20160823212545.GC2356@ZenIV.linux.org.uk>
+References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
+ <20160823.094029.1244944495918162255.davem@davemloft.net>
+ <1471973727.13300.162.camel@decadent.org.uk>
+ <20160823.112406.549221808236512285.davem@davemloft.net>
+ <20160823200941.GB2356@ZenIV.linux.org.uk>
+ <1471984445.3746.129.camel@perches.com>
+ <20160823204933.GA14311@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
-        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35099 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757371AbcHWVXS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 17:23:18 -0400
-Received: by mail-pa0-f67.google.com with SMTP id cf3so10466297pad.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 14:23:13 -0700 (PDT)
-In-Reply-To: <20160823202347.14368.78284.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
+        ben@decadent.org.uk, luis.henriques@canonical.com,
+        avijitnsec@codeaurora.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160823204933.GA14311@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-08-23 at 13:23 -0700, John Fastabend wrote:
-> sch_direct_xmit() uses qdisc_qlen as a return value but all call sites
-> of the routine only check if it is zero or not. Simplify the logic so
-> that we don't need to return an actual queue length value.
+On Tue, Aug 23, 2016 at 04:49:33PM -0400, Lennart Sorensen wrote:
+> That would be padding after the structure elements.
 > 
-> This introduces a case now where sch_direct_xmit would have returned
-> a qlen of zero but now it returns true. However in this case all
-> call sites of sch_direct_xmit will implement a dequeue() and get
-> a null skb and abort. This trades tracking qlen in the hotpath for
-> an extra dequeue operation. Overall this seems to be good for
-> performance.
+> I think what was meant is that it won't add padding in the middle of the
+> structure due to alignment, ie it isn't doing:
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
+> struct ethtool_wolinfo {
+> 	__u32                      cmd;                  /*     0     4 */
+> 	__u32                      supported;            /*     4     4 */
+> 	__u32                      wolopts;              /*     8     4 */
+> 	<4 bytes padding here>
+> 	__u8                       sopass[6];            /*    16     6 */
+> };
+> 
+> which would have 4 bytes of padding in the middle between wolopts
+> and sopass.
+> 
+> I would not think it is the compilers job to worry about what is after
+> your structure elements, since you shouldn't be going there.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Sadly, sizeof is what we use when copying that sucker to userland.  So these
+padding bits in the end would've leaked, true enough, and the case is somewhat
+weaker.  And any normal architecture will have those, but then any such
+architecture will have no more trouble zeroing a 32bit value than 16bit one.
