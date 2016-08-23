@@ -1,84 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] udp: get rid of SLAB_DESTROY_BY_RCU allocations
-Date: Tue, 23 Aug 2016 09:57:51 -0700
-Message-ID: <1471971471.14381.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH v3 net-next] net: diag: support SOCK_DESTROY for UDP
+ sockets
+Date: Tue, 23 Aug 2016 11:02:00 -0600
+Message-ID: <417574bb-d15d-f347-d951-49d0eede02c0@cumulusnetworks.com>
+References: <1471964547-18098-1-git-send-email-dsa@cumulusnetworks.com>
+ <CAKD1Yr19f3E-z4Lat-YDwJ7U7-fmVBeissz08dsk2o+196OQRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:35187 "EHLO
-        mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752308AbcHWQ6c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 12:58:32 -0400
-Received: by mail-pa0-f68.google.com with SMTP id cf3so10180759pad.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 09:57:53 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35354 "EHLO
+        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753719AbcHWRCD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 13:02:03 -0400
+Received: by mail-pa0-f46.google.com with SMTP id hb8so31329162pac.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 10:02:03 -0700 (PDT)
+In-Reply-To: <CAKD1Yr19f3E-z4Lat-YDwJ7U7-fmVBeissz08dsk2o+196OQRQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 8/23/16 10:37 AM, Lorenzo Colitti wrote:
+> On Wed, Aug 24, 2016 at 12:02 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>> +int udp_abort(struct sock *sk, int err)
+>> +{
+>> +       lock_sock(sk);
+>> +
+>> +       sk->sk_err = err;
+>> +       sk->sk_error_report(sk);
+>> +       udp_disconnect(sk, 0);
+> 
+> I notice that udp_disconnect does "inet->inet_daddr = 0" but doesn't
+> touch sk_v6_daddr. I wonder if that's correct. Even if it isn't,
+> that's likely not specific to this patch, since udpv6_prot specifies
+> udp_disconnect as its disconnect function pointer.
 
-After commit ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
-we do not need this special allocation mode anymore, even if it is
-harmless.
+ack. can send a separate patch for that one.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-Note that sk_prot_clear_portaddr_nulls() is no longer needed,
-but I will send a separate patch targeting net-next.
+> 
+>> +       if (req->sdiag_family == AF_INET)
+>> +               sk = __udp4_lib_lookup(net,
+>> +                               req->id.idiag_dst[0], req->id.idiag_dport,
+>> +                               req->id.idiag_src[0], req->id.idiag_sport,
+>> +                               req->id.idiag_if, tbl, NULL);
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +       else if (req->sdiag_family == AF_INET6)
+>> +               sk = __udp6_lib_lookup(net,
+> 
+> I think you need to check for mapped addresses like Eric added to
+> inet_diag_find_one_icsk in 7c1306723 .
+> 
+>> +                               (struct in6_addr *)req->id.idiag_dst,
+>> +                               req->id.idiag_dport,
+>> +                               (struct in6_addr *)req->id.idiag_src,
+>> +                               req->id.idiag_sport,
+>> +                               req->id.idiag_if, tbl, NULL);
+>> +#endif
+> 
+> If you want to be consistent with what the TCP code does, return
+> -EINVAL here instead of -ENOENT if an invalid address family was
+> passed in (e.g., if user passes in AF_INET6 and IPv6 is not compiled
+> in).
 
- net/ipv4/udp.c     |    1 -
- net/ipv4/udplite.c |    1 -
- net/ipv6/udp.c     |    1 -
- net/ipv6/udplite.c |    1 -
- 4 files changed, 4 deletions(-)
+ok, I'll make this lookup mirror inet_diag_find_one_icsk. That handles these 2 comments.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8f5f7f6026f7fd8d157a2855334bf9cdf453cdee..f4b0d74a56973164ef3de8e9f15c9968a439f83b 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2217,7 +2217,6 @@ struct proto udp_prot = {
- 	.sysctl_wmem	   = &sysctl_udp_wmem_min,
- 	.sysctl_rmem	   = &sysctl_udp_rmem_min,
- 	.obj_size	   = sizeof(struct udp_sock),
--	.slab_flags	   = SLAB_DESTROY_BY_RCU,
- 	.h.udp_table	   = &udp_table,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_udp_setsockopt,
-diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
-index 3b3efbda48e13941b35388238508706844c043aa..2eea073e27efa13a86d6c6107426435ae7ddb18d 100644
---- a/net/ipv4/udplite.c
-+++ b/net/ipv4/udplite.c
-@@ -55,7 +55,6 @@ struct proto 	udplite_prot = {
- 	.unhash		   = udp_lib_unhash,
- 	.get_port	   = udp_v4_get_port,
- 	.obj_size	   = sizeof(struct udp_sock),
--	.slab_flags	   = SLAB_DESTROY_BY_RCU,
- 	.h.udp_table	   = &udplite_table,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_udp_setsockopt,
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 81e2f98b958d4d42d137a4ae2d71c4c7217c71d6..19ac3a1c308dbfacf136e262dbab27ad280cfdcd 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1460,7 +1460,6 @@ struct proto udpv6_prot = {
- 	.sysctl_wmem	   = &sysctl_udp_wmem_min,
- 	.sysctl_rmem	   = &sysctl_udp_rmem_min,
- 	.obj_size	   = sizeof(struct udp6_sock),
--	.slab_flags	   = SLAB_DESTROY_BY_RCU,
- 	.h.udp_table	   = &udp_table,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_udpv6_setsockopt,
-diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
-index 9cf097e206e931c6e3c184f22b8adcabedc4c03a..fd6ef414899bea824ce26c2e738f4e96aa8af464 100644
---- a/net/ipv6/udplite.c
-+++ b/net/ipv6/udplite.c
-@@ -50,7 +50,6 @@ struct proto udplitev6_prot = {
- 	.unhash		   = udp_lib_unhash,
- 	.get_port	   = udp_v6_get_port,
- 	.obj_size	   = sizeof(struct udp6_sock),
--	.slab_flags	   = SLAB_DESTROY_BY_RCU,
- 	.h.udp_table	   = &udplite_table,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_udpv6_setsockopt,
+> 
+>> +       if (sock_diag_check_cookie(sk, req->id.idiag_cookie)) {
+>> +               sock_put(sk);
+>> +               return -ENOENT;
+>> +       }
+>> +
+>> +       return sock_diag_destroy(sk, ECONNABORTED);
+> 
+> Looking at the code again, it seems that there's a bug in
+> sock_diag_destroy. If the destroy operation does not occur (e.g., if
+> sock_diag_destroy returns EPERM, or the protocol doesn't support
+> destroy), then it doesn't release the refcount. This affects the TCP
+> code as well and as such is my fault, not yours. The most obvious way
+> to fix this might be to call sock_gen_put in sock_diag_destroy.
+
+sock_gen_put seems specific to tcp which is why I used sock_put here. Perhaps better to have the callers of sock_diag_destroy handle the refcnt? This function took it; it should release it success or fail. Same for tcp.
