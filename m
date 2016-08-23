@@ -1,31 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: properly handle failure case of
- tcf_exts_init()
-Date: Mon, 22 Aug 2016 17:02:45 -0700 (PDT)
-Message-ID: <20160822.170245.1689979128529376324.davem@davemloft.net>
-References: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mlx5/core: Use memdup_user() rather than duplicating
+ its implementation
+Date: Mon, 22 Aug 2016 17:05:51 -0700 (PDT)
+Message-ID: <20160822.170551.1169143382468496713.davem@davemloft.net>
+References: <566ABCD9.1060404@users.sourceforge.net>
+        <ceb39933-438d-920d-f294-ea0ce32fd171@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46934 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757316AbcHWADK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 20:03:10 -0400
-In-Reply-To: <1471635414-32433-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        julia.lawall-L2FTfq7BK8M@public.gmane.org
+To: elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <ceb39933-438d-920d-f294-ea0ce32fd171-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 19 Aug 2016 12:36:54 -0700
+From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Date: Sat, 20 Aug 2016 08:01:22 +0200
 
-> After commit 22dc13c837c3 ("net_sched: convert tcf_exts from list to pointer array")
-> we do dynamic allocation in tcf_exts_init(), therefore we need
-> to handle the ENOMEM case properly.
+> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+> Date: Sat, 20 Aug 2016 07:50:09 +0200
 > 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> * Reuse existing functionality from memdup_user() instead of keeping
+>   duplicate source code.
+> 
+>   This issue was detected by using the Coccinelle software.
+> 
+> * Return directly if this copy operation failed.
+> 
+> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
