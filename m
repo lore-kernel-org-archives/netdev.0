@@ -1,26 +1,24 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v3 net-next] net: diag: support SOCK_DESTROY for UDP
  sockets
-Date: Tue, 23 Aug 2016 08:54:18 -0700
-Message-ID: <1471967658.14381.22.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Tue, 23 Aug 2016 08:55:10 -0700
+Message-ID: <1471967710.14381.23.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1471964547-18098-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>
 To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:36440 "EHLO
-        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754082AbcHWPyh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 11:54:37 -0400
-Received: by mail-pa0-f67.google.com with SMTP id ez1so10129017pab.3
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 08:54:19 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33901 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753830AbcHWPzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 11:55:12 -0400
+Received: by mail-pa0-f66.google.com with SMTP id hh10so10165624pac.1
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 08:55:12 -0700 (PDT)
 In-Reply-To: <1471964547-18098-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-CC Lorenzo Colitti <lorenzo@google.com>
 
 On Tue, 2016-08-23 at 08:02 -0700, David Ahern wrote:
 > This implements SOCK_DESTROY for UDP sockets similar to what was done
