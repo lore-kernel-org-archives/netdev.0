@@ -1,254 +1,350 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: [PATCH v1 1/1]  net: phy: Add Edge-rate driver for Microsemi PHYs.
-Date: Tue, 23 Aug 2016 13:52:49 +0000
-Message-ID: <646450A91FAED74E85C6E9C4D6E936A145335D0E@avsrvexchmbx1.microsemi.net>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 5/5] rxrpc: Use a tracepoint for skb accounting
+ debugging
+Date: Tue, 23 Aug 2016 16:26:54 +0100
+Message-ID: <147196601419.28271.12718931081588758130.stgit@warthog.procyon.org.uk>
+References: <147196597852.28271.4071308846084923450.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Andrew Lunn (andrew@lunn.ch)" <andrew@lunn.ch>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0053.outbound.protection.outlook.com ([104.47.37.53]:23627
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752875AbcHWP1e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 Aug 2016 11:27:34 -0400
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:50594 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752715AbcHWP1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 11:27:33 -0400
+In-Reply-To: <147196597852.28271.4071308846084923450.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Use a tracepoint to log various skb accounting points to help in debugging
+refcounting errors.
 
-The Microsemi PHY (VSC 85xx) device includes programmable control of the ri=
-se/fall times for the MAC interface signals.
-The default setting will select the fastest rise/fall times. With the edge_=
-rate_cntl_set( ) function control the rise/fall time.
-Edge rate control status will get by edge_rate_cntl_get( ) function.
-
-Test Setup:
--------------
-This feature tested on Beagle bone Black with VSC 8531 PHY hardware.
-
-Please review and code and send your comments.
-
-Thanks,
-Raju.
-
->From bf25b48bebb896b5dd489294d144c0dfdfa788f1 Mon Sep 17 00:00:00 2001
-From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Date: Tue, 23 Aug 2016 18:29:17 +0530
-Subject: [PATCH v1 1/1] net: phy: Add Edge-rate driver for Microsemi PHYs.
-
-Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- drivers/net/phy/mscc.c | 109 +++++++++++++++++++++++++++++++++++++--------=
-----
- include/linux/mscc.h   |  34 +++++++++++++++
- include/linux/phy.h    |   2 +
- 3 files changed, 118 insertions(+), 27 deletions(-)
- create mode 100644 include/linux/mscc.h
 
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index 6cc3036..963bf64 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -11,34 +11,9 @@
- #include <linux/mdio.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
-+#include <linux/mscc.h>
+ include/trace/events/rxrpc.h |   56 ++++++++++++++++++++++++++++++++++++++
+ net/rxrpc/af_rxrpc.c         |    1 +
+ net/rxrpc/ar-internal.h      |   45 +++++-------------------------
+ net/rxrpc/call_accept.c      |    1 +
+ net/rxrpc/call_event.c       |    3 ++
+ net/rxrpc/conn_event.c       |    2 +
+ net/rxrpc/local_event.c      |    1 +
+ net/rxrpc/output.c           |    1 +
+ net/rxrpc/recvmsg.c          |    1 +
+ net/rxrpc/skbuff.c           |   62 ++++++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 135 insertions(+), 38 deletions(-)
+ create mode 100644 include/trace/events/rxrpc.h
 
--enum rgmii_rx_clock_delay {
--       RGMII_RX_CLK_DELAY_0_2_NS =3D 0,
--       RGMII_RX_CLK_DELAY_0_8_NS =3D 1,
--       RGMII_RX_CLK_DELAY_1_1_NS =3D 2,
--       RGMII_RX_CLK_DELAY_1_7_NS =3D 3,
--       RGMII_RX_CLK_DELAY_2_0_NS =3D 4,
--       RGMII_RX_CLK_DELAY_2_3_NS =3D 5,
--       RGMII_RX_CLK_DELAY_2_6_NS =3D 6,
--       RGMII_RX_CLK_DELAY_3_4_NS =3D 7
--};
--
--#define MII_VSC85XX_INT_MASK              25
--#define MII_VSC85XX_INT_MASK_MASK         0xa000
--#define MII_VSC85XX_INT_STATUS            26
--
--#define MSCC_EXT_PAGE_ACCESS              31
--#define MSCC_PHY_PAGE_STANDARD            0x0000 /* Standard registers */
--#define MSCC_PHY_PAGE_EXTENDED_2          0x0002 /* Extended reg - page 2 =
-*/
--
--/* Extended Page 2 Registers */
--#define MSCC_PHY_RGMII_CNTL                       20
--#define RGMII_RX_CLK_DELAY_MASK                   0x0070
--#define RGMII_RX_CLK_DELAY_POS            4
--
--/* Microsemi PHY ID's */
--#define PHY_ID_VSC8531                            0x00070570
--#define PHY_ID_VSC8541                            0x00070770
-+#include "mscc_reg.h"
-
- static int vsc85xx_phy_page_set(struct phy_device *phydev, u8 page)
- {
-@@ -109,6 +84,82 @@ static int vsc85xx_config_intr(struct phy_device *phyde=
-v)
-        return rc;
- }
-
-+static int vsc85xx_edge_rate_cntl_set(struct phy_device *phydev,
-+                                     u8     *rate)
-+{
-+       int rc;
-+       u16 reg_val;
-+       u8  edge_rate =3D *rate;
-+
-+       mutex_lock(&phydev->lock);
-+       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
-+       if (rc !=3D 0)
-+               goto out_unlock;
-+       reg_val =3D phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
-+       reg_val &=3D ~(EDGE_RATE_CNTL_MASK);
-+       reg_val |=3D (edge_rate << EDGE_RATE_CNTL_POS);
-+       phy_write(phydev, MSCC_PHY_WOL_MAC_CONTROL, reg_val);
-+       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+       mutex_unlock(&phydev->lock);
-+
-+       return rc;
-+}
-+
-+static int vsc85xx_edge_rate_cntl_get(struct phy_device *phydev,
-+                                     u8     *rate)
-+{
-+       int rc;
-+       u16 reg_val;
-+
-+       mutex_lock(&phydev->lock);
-+       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_EXTENDED_2);
-+       if (rc !=3D 0)
-+               goto out_unlock;
-+       reg_val =3D phy_read(phydev, MSCC_PHY_WOL_MAC_CONTROL);
-+       reg_val &=3D EDGE_RATE_CNTL_MASK;
-+       *rate =3D reg_val >> EDGE_RATE_CNTL_POS;
-+       rc =3D vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+
-+out_unlock:
-+       mutex_unlock(&phydev->lock);
-+
-+       return rc;
-+}
-+
-+static int vsc85xx_features_set(struct phy_device *phydev)
-+{
-+       int rc =3D 0;
-+       struct phy_features_t *ftrs =3D (struct phy_features_t *)phydev->pr=
-iv;
-+
-+       switch (ftrs->cmd) {
-+       case PHY_EDGE_RATE_CONTROL:
-+               rc =3D vsc85xx_edge_rate_cntl_set(phydev, &ftrs->rate);
-+               break;
-+       default:
-+               break;
-+       }
-+
-+       return rc;
-+}
-+
-+static int vsc85xx_features_get(struct phy_device *phydev)
-+{
-+       int rc =3D 0;
-+       struct phy_features_t *ftrs =3D (struct phy_features_t *)phydev->pr=
-iv;
-+
-+       switch (ftrs->cmd) {
-+       case PHY_EDGE_RATE_CONTROL:
-+               rc =3D vsc85xx_edge_rate_cntl_get(phydev, &ftrs->rate);
-+               break;
-+       default:
-+               break;
-+       }
-+
-+       return rc;
-+}
-+
- /* Microsemi VSC85xx PHYs */
- static struct phy_driver vsc85xx_driver[] =3D {
- {
-@@ -126,6 +177,8 @@ static struct phy_driver vsc85xx_driver[] =3D {
-        .config_intr    =3D &vsc85xx_config_intr,
-        .suspend                =3D &genphy_suspend,
-        .resume                 =3D &genphy_resume,
-+       .phy_features_set =3D &vsc85xx_features_set,
-+       .phy_features_get =3D &vsc85xx_features_get,
- },
- {
-        .phy_id                 =3D PHY_ID_VSC8541,
-@@ -142,6 +195,8 @@ static struct phy_driver vsc85xx_driver[] =3D {
-        .config_intr    =3D &vsc85xx_config_intr,
-        .suspend                =3D &genphy_suspend,
-        .resume                 =3D &genphy_resume,
-+       .phy_features_set =3D &vsc85xx_features_set,
-+       .phy_features_get =3D &vsc85xx_features_get,
- }
-
- };
-diff --git a/include/linux/mscc.h b/include/linux/mscc.h
+diff --git a/include/trace/events/rxrpc.h b/include/trace/events/rxrpc.h
 new file mode 100644
-index 0000000..b80a2ac
+index 000000000000..15283ee3e41a
 --- /dev/null
-+++ b/include/linux/mscc.h
-@@ -0,0 +1,34 @@
-+/*
-+ * Driver for Microsemi VSC85xx PHYs
++++ b/include/trace/events/rxrpc.h
+@@ -0,0 +1,56 @@
++/* AF_RXRPC tracepoints
 + *
-+ * Author: Nagaraju Lakkaraju
-+ * License: Dual MIT/GPL
-+ * Copyright (c) 2016 Microsemi Corporation
++ * Copyright (C) 2016 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public Licence
++ * as published by the Free Software Foundation; either version
++ * 2 of the Licence, or (at your option) any later version.
 + */
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM rxrpc
 +
-+#ifndef __LINUX_MSCC_H
-+#define __LINUX_MSCC_H
++#if !defined(_TRACE_RXRPC_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_RXRPC_H
 +
-+enum phy_features {
-+       PHY_EDGE_RATE_CONTROL =3D 0,
-+       PHY_SUPPORTED_FEATURES_MAX
-+};
++#include <linux/tracepoint.h>
 +
-+enum rgmii_rx_clock_delay {
-+       RGMII_RX_CLK_DELAY_0_2_NS =3D 0,
-+       RGMII_RX_CLK_DELAY_0_8_NS =3D 1,
-+       RGMII_RX_CLK_DELAY_1_1_NS =3D 2,
-+       RGMII_RX_CLK_DELAY_1_7_NS =3D 3,
-+       RGMII_RX_CLK_DELAY_2_0_NS =3D 4,
-+       RGMII_RX_CLK_DELAY_2_3_NS =3D 5,
-+       RGMII_RX_CLK_DELAY_2_6_NS =3D 6,
-+       RGMII_RX_CLK_DELAY_3_4_NS =3D 7
-+};
++TRACE_EVENT(rxrpc_skb,
++	    TP_PROTO(struct sk_buff *skb, int op, int usage, int mod_count,
++		     const void *where),
 +
-+struct phy_features_t {
-+       enum phy_features cmd;           /* PHY Supported Features */
-+       u8   rate;                       /* Edge rate control */
-+};
++	    TP_ARGS(skb, op, usage, mod_count, where),
 +
-+#endif /*  __LINUX_MSCC_H */
++	    TP_STRUCT__entry(
++		    __field(struct sk_buff *,		skb		)
++		    __field(int,			op		)
++		    __field(int,			usage		)
++		    __field(int,			mod_count	)
++		    __field(const void *,		where		)
++			     ),
 +
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 2d24b28..8ec4c09 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -586,6 +586,8 @@ struct phy_driver {
-        void (*get_strings)(struct phy_device *dev, u8 *data);
-        void (*get_stats)(struct phy_device *dev,
-                          struct ethtool_stats *stats, u64 *data);
-+       int (*phy_features_set)(struct phy_device *dev);
-+       int (*phy_features_get)(struct phy_device *dev);
-};
- #define to_phy_driver(d) container_of(to_mdio_common_driver(d),           =
-     \
-                                      struct phy_driver, mdiodrv)
---=20
-2.7.4
++	    TP_fast_assign(
++		    __entry->skb = skb;
++		    __entry->op = op;
++		    __entry->usage = usage;
++		    __entry->mod_count = mod_count;
++		    __entry->where = where;
++			   ),
++
++	    TP_printk("s=%p %s u=%d m=%d p=%pSR",
++		      __entry->skb,
++		      (__entry->op == 0 ? "NEW" :
++		       __entry->op == 1 ? "SEE" :
++		       __entry->op == 2 ? "GET" :
++		       __entry->op == 3 ? "FRE" :
++		       "PUR"),
++		      __entry->usage,
++		      __entry->mod_count,
++		      __entry->where)
++	    );
++
++#endif /* _TRACE_RXRPC_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 88effadd4b16..c7cf356b42b8 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -22,6 +22,7 @@
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <net/af_rxrpc.h>
++#define CREATE_TRACE_POINTS
+ #include "ar-internal.h"
+ 
+ MODULE_DESCRIPTION("RxRPC network protocol");
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index 648060a5df35..8cb517fbbd23 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -479,6 +479,8 @@ static inline void rxrpc_abort_call(struct rxrpc_call *call, u32 abort_code)
+ 	write_unlock_bh(&call->state_lock);
+ }
+ 
++#include <trace/events/rxrpc.h>
++
+ /*
+  * af_rxrpc.c
+  */
+@@ -752,6 +754,11 @@ int rxrpc_init_server_conn_security(struct rxrpc_connection *);
+  * skbuff.c
+  */
+ void rxrpc_packet_destructor(struct sk_buff *);
++void rxrpc_new_skb(struct sk_buff *);
++void rxrpc_see_skb(struct sk_buff *);
++void rxrpc_get_skb(struct sk_buff *);
++void rxrpc_free_skb(struct sk_buff *);
++void rxrpc_purge_queue(struct sk_buff_head *);
+ 
+ /*
+  * sysctl.c
+@@ -899,44 +906,6 @@ do {						\
+ 
+ #endif /* __KDEBUGALL */
+ 
+-/*
+- * socket buffer accounting / leak finding
+- */
+-static inline void __rxrpc_new_skb(struct sk_buff *skb, const char *fn)
+-{
+-	//_net("new skb %p %s [%d]", skb, fn, atomic_read(&rxrpc_n_skbs));
+-	//atomic_inc(&rxrpc_n_skbs);
+-}
+-
+-#define rxrpc_new_skb(skb) __rxrpc_new_skb((skb), __func__)
+-
+-static inline void __rxrpc_kill_skb(struct sk_buff *skb, const char *fn)
+-{
+-	//_net("kill skb %p %s [%d]", skb, fn, atomic_read(&rxrpc_n_skbs));
+-	//atomic_dec(&rxrpc_n_skbs);
+-}
+-
+-#define rxrpc_kill_skb(skb) __rxrpc_kill_skb((skb), __func__)
+-
+-static inline void __rxrpc_free_skb(struct sk_buff *skb, const char *fn)
+-{
+-	if (skb) {
+-		CHECK_SLAB_OKAY(&skb->users);
+-		//_net("free skb %p %s [%d]",
+-		//     skb, fn, atomic_read(&rxrpc_n_skbs));
+-		//atomic_dec(&rxrpc_n_skbs);
+-		kfree_skb(skb);
+-	}
+-}
+-
+-#define rxrpc_free_skb(skb) __rxrpc_free_skb((skb), __func__)
+-
+-static inline void rxrpc_purge_queue(struct sk_buff_head *list)
+-{
+-	struct sk_buff *skb;
+-	while ((skb = skb_dequeue((list))) != NULL)
+-		rxrpc_free_skb(skb);
+-}
+ 
+ #define rxrpc_get_call(CALL)				\
+ do {							\
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index 9bae21e66d65..669ac79d3b44 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -203,6 +203,7 @@ void rxrpc_accept_incoming_calls(struct rxrpc_local *local)
+ 
+ 	_net("incoming call skb %p", skb);
+ 
++	rxrpc_see_skb(skb);
+ 	sp = rxrpc_skb(skb);
+ 
+ 	/* Set up a response packet header in case we need it */
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index eaa8035dcb71..3d1267cea9ea 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -407,6 +407,7 @@ static int rxrpc_drain_rx_oos_queue(struct rxrpc_call *call)
+ 
+ 	skb = skb_dequeue(&call->rx_oos_queue);
+ 	if (skb) {
++		rxrpc_see_skb(skb);
+ 		sp = rxrpc_skb(skb);
+ 
+ 		_debug("drain OOS packet %d [%d]",
+@@ -427,6 +428,7 @@ static int rxrpc_drain_rx_oos_queue(struct rxrpc_call *call)
+ 
+ 			/* find out what the next packet is */
+ 			skb = skb_peek(&call->rx_oos_queue);
++			rxrpc_see_skb(skb);
+ 			if (skb)
+ 				call->rx_first_oos = rxrpc_skb(skb)->hdr.seq;
+ 			else
+@@ -576,6 +578,7 @@ process_further:
+ 	if (!skb)
+ 		return -EAGAIN;
+ 
++	rxrpc_see_skb(skb);
+ 	_net("deferred skb %p", skb);
+ 
+ 	sp = rxrpc_skb(skb);
+diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
+index cee0f35bc1cf..c631d926f4db 100644
+--- a/net/rxrpc/conn_event.c
++++ b/net/rxrpc/conn_event.c
+@@ -277,6 +277,7 @@ void rxrpc_process_connection(struct work_struct *work)
+ 	/* go through the conn-level event packets, releasing the ref on this
+ 	 * connection that each one has when we've finished with it */
+ 	while ((skb = skb_dequeue(&conn->rx_queue))) {
++		rxrpc_see_skb(skb);
+ 		ret = rxrpc_process_event(conn, skb, &abort_code);
+ 		switch (ret) {
+ 		case -EPROTO:
+@@ -365,6 +366,7 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
+ 	whdr.type = RXRPC_PACKET_TYPE_ABORT;
+ 
+ 	while ((skb = skb_dequeue(&local->reject_queue))) {
++		rxrpc_see_skb(skb);
+ 		sp = rxrpc_skb(skb);
+ 		switch (sa.sa.sa_family) {
+ 		case AF_INET:
+diff --git a/net/rxrpc/local_event.c b/net/rxrpc/local_event.c
+index 31a3f86ef2f6..bcc6593b4cdb 100644
+--- a/net/rxrpc/local_event.c
++++ b/net/rxrpc/local_event.c
+@@ -93,6 +93,7 @@ void rxrpc_process_local_events(struct rxrpc_local *local)
+ 	if (skb) {
+ 		struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 
++		rxrpc_see_skb(skb);
+ 		_debug("{%d},{%u}", local->debug_id, sp->hdr.type);
+ 
+ 		switch (sp->hdr.type) {
+diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
+index 9e626f1e2668..e3a08d542fb7 100644
+--- a/net/rxrpc/output.c
++++ b/net/rxrpc/output.c
+@@ -548,6 +548,7 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
+ 
+ 	skb = call->tx_pending;
+ 	call->tx_pending = NULL;
++	rxrpc_see_skb(skb);
+ 
+ 	copied = 0;
+ 	do {
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index 9ed66d533002..b964c2d49a88 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -111,6 +111,7 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 		}
+ 
+ 	peek_next_packet:
++		rxrpc_see_skb(skb);
+ 		sp = rxrpc_skb(skb);
+ 		call = sp->call;
+ 		ASSERT(call != NULL);
+diff --git a/net/rxrpc/skbuff.c b/net/rxrpc/skbuff.c
+index 06c51d4b622d..d28058a97bc1 100644
+--- a/net/rxrpc/skbuff.c
++++ b/net/rxrpc/skbuff.c
+@@ -163,3 +163,65 @@ void rxrpc_kernel_free_skb(struct sk_buff *skb)
+ 	rxrpc_free_skb(skb);
+ }
+ EXPORT_SYMBOL(rxrpc_kernel_free_skb);
++
++/*
++ * Note the existence of a new-to-us socket buffer (allocated or dequeued).
++ */
++void rxrpc_new_skb(struct sk_buff *skb)
++{
++	const void *here = __builtin_return_address(0);
++	int n = atomic_inc_return(&rxrpc_n_skbs);
++	trace_rxrpc_skb(skb, 0, atomic_read(&skb->users), n, here);
++}
++
++/*
++ * Note the re-emergence of a socket buffer from a queue or buffer.
++ */
++void rxrpc_see_skb(struct sk_buff *skb)
++{
++	const void *here = __builtin_return_address(0);
++	if (skb) {
++		int n = atomic_read(&rxrpc_n_skbs);
++		trace_rxrpc_skb(skb, 1, atomic_read(&skb->users), n, here);
++	}
++}
++
++/*
++ * Note the addition of a ref on a socket buffer.
++ */
++void rxrpc_get_skb(struct sk_buff *skb)
++{
++	const void *here = __builtin_return_address(0);
++	int n = atomic_inc_return(&rxrpc_n_skbs);
++	trace_rxrpc_skb(skb, 2, atomic_read(&skb->users), n, here);
++	skb_get(skb);
++}
++
++/*
++ * Note the destruction of a socket buffer.
++ */
++void rxrpc_free_skb(struct sk_buff *skb)
++{
++	const void *here = __builtin_return_address(0);
++	if (skb) {
++		int n;
++		CHECK_SLAB_OKAY(&skb->users);
++		n = atomic_dec_return(&rxrpc_n_skbs);
++		trace_rxrpc_skb(skb, 3, atomic_read(&skb->users), n, here);
++		kfree_skb(skb);
++	}
++}
++
++/*
++ * Clear a queue of socket buffers.
++ */
++void rxrpc_purge_queue(struct sk_buff_head *list)
++{
++	const void *here = __builtin_return_address(0);
++	struct sk_buff *skb;
++	while ((skb = skb_dequeue((list))) != NULL) {
++		int n = atomic_dec_return(&rxrpc_n_skbs);
++		trace_rxrpc_skb(skb, 4, atomic_read(&skb->users), n, here);
++		kfree_skb(skb);
++	}
++}
