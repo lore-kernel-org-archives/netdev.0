@@ -1,72 +1,61 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: CVE-2014-9900 fix is not upstream
-Date: Tue, 23 Aug 2016 18:35:27 +0100
-Message-ID: <1471973727.13300.162.camel@decadent.org.uk>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
-         <20160823.094029.1244944495918162255.davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: fix overrun in sctp_diag_dump_one()
+Date: Tue, 23 Aug 2016 14:30:49 -0300
+Message-ID: <20160823173049.GA11144@localhost.localdomain>
+References: <1471966852-6218-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-/pl5VJ3pMeeCQqWbUB4t"
-Cc: avijitnsec@codeaurora.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, luis.henriques@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160823.094029.1244944495918162255.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        Xin Long <lucien.xin@gmail.com>
+To: Lance Richardson <lrichard@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44284 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752109AbcHWRhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 13:37:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1471966852-6218-1-git-send-email-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Aug 23, 2016 at 11:40:52AM -0400, Lance Richardson wrote:
+> The function sctp_diag_dump_one() currently performs a memcpy()
+> of 64 bytes from a 16 byte field into another 16 byte field. Fix
+> by using correct size, use sizeof to obtain correct size instead
+> of using a hard-coded constant.
+> 
+> Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
 
---=-/pl5VJ3pMeeCQqWbUB4t
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-On Tue, 2016-08-23 at 09:40 -0700, David Miller wrote:
-> From: Luis Henriques <luis.henriques@canonical.com>
-> Date: Tue, 23 Aug 2016 14:41:07 +0100
->=20
-> > Digging through some old CVEs I came across this one that doesn't
-> seem be
-> > in mainline.=C2=A0 Was there a good reason for not being sent upstream?=
-=C2=A0
-> Maybe it was
-> > rejected for some reason and I failed to find the discussion.
->=20
-> Because the patch is completely bogus, and thus so is the CVE.
->=20
-> The variable initializer clears out the entire structure.
->=20
-> Until you can show compiler output from gcc that shows it not
-> initializing the structure I will not apply this patch because I know
-> that it faithfully does.
+Dave, please consider it to -stable.
+Thanks!
 
-On some versions and architectures. =C2=A0Can you guarantee that you will
-notice when an exception appears?
-
-Ben.
-
---=20
-Ben Hutchings
-The program is absolutely right; therefore, the computer must be wrong.
-
---=-/pl5VJ3pMeeCQqWbUB4t
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAABCgAGBQJXvIlfAAoJEOe/yOyVhhEJwwMP+wZkSbVzg0jbw11qBSMxduR+
-Cx2aQqdLA51o7M9TrrN51knKjuNje/A3NUsfFYPV6g+Q8PYA85Y9LE6pFD+62EBH
-Xeg5GIusqKfIp2iqxDLFAiiBVSH06hsVyYwrg7MQeNUOd8yTCI0YXL/bM3JhKmD0
-LzCOIv/F4hOKBD8dPLI0wNmugSU1ZKco6FYaWabIJJX3cVdr8cWmXPVcjr/gOG0p
-caNH0d0njI1o4Hww2OyoIP0xVN7qV/LAlaIw0zfUqJhX1R9E8dhRcZWTkYYyhnXS
-2r0pFFFqXPpI1fEoP6w6ajj4+LWI96umS/RlHYP6j2wruKpRp7wU2oIl7qAq+reG
-vbGB0OWcITrCj40NxAKGRdq8nngGx8E+N1cU3A+QH9BddWZdtfPWQAJ6AwPvboXt
-YeUblbAhHyxAKyv9HD4VPjD2yrzKdGTv6EsnFyv8pGtkPLWB7ghViw3hMiOoIa6G
-hdpHyjmhUQ/EakNipEK2T8Nn9k8xOeriVAJk+Qn0ypiJhJVB+6AisuOBNUvOyXf+
-urjmnfLrUEXwpGbLeJIDe5aiu1pSz9X3hABrrTjc9bZvlQu/dd9MrmlBVrF4FHv+
-/cJa0gNm6att4IVTcKS9EW3EZjyoJ7074DSaKE5fuBKGebWKI/7BP6XEzPp9dNps
-nXHY43TYJisB0rYtblne
-=MQbp
------END PGP SIGNATURE-----
-
---=-/pl5VJ3pMeeCQqWbUB4t--
+> ---
+>  net/sctp/sctp_diag.c | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+> index bb69153..f3508aa 100644
+> --- a/net/sctp/sctp_diag.c
+> +++ b/net/sctp/sctp_diag.c
+> @@ -424,11 +424,13 @@ static int sctp_diag_dump_one(struct sk_buff *in_skb,
+>  		paddr.v4.sin_family = AF_INET;
+>  	} else {
+>  		laddr.v6.sin6_port = req->id.idiag_sport;
+> -		memcpy(&laddr.v6.sin6_addr, req->id.idiag_src, 64);
+> +		memcpy(&laddr.v6.sin6_addr, req->id.idiag_src,
+> +		       sizeof(laddr.v6.sin6_addr));
+>  		laddr.v6.sin6_family = AF_INET6;
+>  
+>  		paddr.v6.sin6_port = req->id.idiag_dport;
+> -		memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst, 64);
+> +		memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst,
+> +		       sizeof(paddr.v6.sin6_addr));
+>  		paddr.v6.sin6_family = AF_INET6;
+>  	}
+>  
+> -- 
+> 2.5.5
+> 
