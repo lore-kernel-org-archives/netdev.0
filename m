@@ -1,65 +1,79 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: [PATCH net] tun: fix transmit timestamp support
-Date: Tue, 23 Aug 2016 18:22:33 -0400
-Message-ID: <1471990953-6793-1-git-send-email-soheil.kdev@gmail.com>
-Cc: Soheil Hassas Yeganeh <soheil@google.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 02/15] net: sched: allow qdiscs to handle locking
+Date: Tue, 23 Aug 2016 15:32:22 -0700
+Message-ID: <57BCCEF6.3090405@gmail.com>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+ <20160823202320.14368.17683.stgit@john-Precision-Tower-5810>
+ <1471986499.14381.56.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
+        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:34294 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754335AbcHWWXr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 18:23:47 -0400
-Received: by mail-qt0-f194.google.com with SMTP id c52so4304807qte.1
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 15:22:51 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:36128 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753548AbcHWWda (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 18:33:30 -0400
+Received: by mail-pa0-f66.google.com with SMTP id ez1so10565245pab.3
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 15:32:39 -0700 (PDT)
+In-Reply-To: <1471986499.14381.56.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil@google.com>
+On 16-08-23 02:08 PM, Eric Dumazet wrote:
+> On Tue, 2016-08-23 at 13:23 -0700, John Fastabend wrote:
+>> This patch adds a flag for queueing disciplines to indicate the
+>> stack does not need to use the qdisc lock to protect operations.
+>> This can be used to build lockless scheduling algorithms and
+>> improving performance.
+>> 
 
-Instead of using sock_tx_timestamp, use skb_tx_timestamp to record
-software transmit timestamp of a packet.
+[...]
 
-sock_tx_timestamp resets and overrides the tx_flags of the skb.
-The function is intended to be called from within the protocol
-layer when creating the skb, not from a device driver. This is
-inconsistent with other drivers and will cause issues for TCP.
+>> * Heuristic to force contended enqueues to serialize on a *
+>> separate lock before trying to get qdisc main lock. @@ -3898,19
+>> +3913,22 @@ static void net_tx_action(struct softirq_action *h)
+>> 
+>> while (head) { struct Qdisc *q = head; -			spinlock_t *root_lock; +
+>> spinlock_t *root_lock = NULL;
+>> 
+>> head = head->next_sched;
+>> 
+>> -			root_lock = qdisc_lock(q); -			spin_lock(root_lock); +			if
+>> (!(q->flags & TCQ_F_NOLOCK)) { +				root_lock = qdisc_lock(q); +
+>> spin_lock(root_lock); +			} /* We need to make sure
+>> head->next_sched is read * before clearing __QDISC_STATE_SCHED */ 
+>> smp_mb__before_atomic(); clear_bit(__QDISC_STATE_SCHED,
+>> &q->state); qdisc_run(q); -			spin_unlock(root_lock); +			if
+>> (!(q->flags & TCQ_F_NOLOCK))
+> 
+> This might be faster to use : if (root_lock) (one less memory read
+> and mask)
+> 
 
-In TCP, we intend to sample the timestamps for the last byte
-for each sendmsg/sendpage. For that reason, tcp_sendmsg calls
-tcp_tx_timestamp only with the last skb that it generates.
-For example, if a 128KB message is split into two 64KB packets
-we want to sample the SND timestamp of the last packet. The current
-code in the tun driver, however, will result in sampling the SND
-timestamp for both packets.
+hmm this actually gets factored out in patch 12 but I'll go ahead
+and make this change and then I think it reads a bit better through
+the series.
 
-Also, when the last packet is split into smaller packets for
-retranmission (see tcp_fragment), the tun driver will record
-timestamps for all of the retransmitted packets and not only the
-last packet.
+>> +				spin_unlock(root_lock); } } } diff --git
+>> a/net/sched/sch_generic.c b/net/sched/sch_generic.c index
+>> e305a55..af32418 100644 --- a/net/sched/sch_generic.c +++
+>> b/net/sched/sch_generic.c @@ -170,7 +170,8 @@ int
+>> sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q, int ret =
+>> NETDEV_TX_BUSY;
+>> 
+>> /* And release qdisc */ -	spin_unlock(root_lock); +	if (!(q->flags
+>> & TCQ_F_NOLOCK)) +		spin_unlock(root_lock);
+> 
+> You might use the same trick, if root_lock is NULL for lockless
+> qdisc.
 
-Fixes: eda297729171 (tun: Support software transmit time stamping.)
-Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-Signed-off-by: Francis Yan <francisyyan@google.com>
----
- drivers/net/tun.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+So what I just did is pass NULL into sch_direct_xmit() for root_lock
+when the qdisc is lockless. This replaces the qdisc flags checks in this
+call to checking root_lock.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index e249428..8093e39 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -888,11 +888,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
- 		goto drop;
- 
--	if (skb->sk && sk_fullsock(skb->sk)) {
--		sock_tx_timestamp(skb->sk, skb->sk->sk_tsflags,
--				  &skb_shinfo(skb)->tx_flags);
--		sw_tx_timestamp(skb);
--	}
-+	skb_tx_timestamp(skb);
- 
- 	/* Orphan the skb - required as we might hang on to it
- 	 * for indefinite time.
--- 
-2.8.0.rc3.226.g39d4020
+Seems like a nice cleanup/optimization. I'll wait a bit and then push
+it in v2 after giving folks a day or two to review this set.
