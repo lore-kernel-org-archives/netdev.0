@@ -1,40 +1,148 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mlx5/core: Use memdup_user() rather than duplicating
- its implementation
-Date: Mon, 22 Aug 2016 17:05:51 -0700 (PDT)
-Message-ID: <20160822.170551.1169143382468496713.davem@davemloft.net>
-References: <566ABCD9.1060404@users.sourceforge.net>
-        <ceb39933-438d-920d-f294-ea0ce32fd171@users.sourceforge.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        julia.lawall-L2FTfq7BK8M@public.gmane.org
-To: elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <ceb39933-438d-920d-f294-ea0ce32fd171-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH v2 net-next] net-tcp: retire TFO_SERVER_WO_SOCKOPT2 config
+Date: Mon, 22 Aug 2016 17:17:54 -0700
+Message-ID: <1471911474-16898-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, piotr.jerzy.jurkiewicz@gmail.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34690 "EHLO
+        mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752945AbcHWASH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 20:18:07 -0400
+Received: by mail-pa0-f42.google.com with SMTP id fi15so42199116pac.1
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 17:18:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: SF Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Date: Sat, 20 Aug 2016 08:01:22 +0200
+TFO_SERVER_WO_SOCKOPT2 was intended for debugging purposes during
+Fast Open development. Remove this config option and also
+update/clean-up the documentation of the Fast Open sysctl.
 
-> From: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> Date: Sat, 20 Aug 2016 07:50:09 +0200
-> 
-> * Reuse existing functionality from memdup_user() instead of keeping
->   duplicate source code.
-> 
->   This issue was detected by using the Coccinelle software.
-> 
-> * Return directly if this copy operation failed.
-> 
-> Signed-off-by: Markus Elfring <elfring-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Reported-by: Piotr Jurkiewicz <piotr.jerzy.jurkiewicz@gmail.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ Documentation/networking/ip-sysctl.txt | 45 +++++++++++++++++-----------------
+ include/net/tcp.h                      |  3 +--
+ net/ipv4/af_inet.c                     | 21 ++++++----------
+ 3 files changed, 32 insertions(+), 37 deletions(-)
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 9ae9293..3db8c67 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -575,32 +575,33 @@ tcp_syncookies - BOOLEAN
+ 	unconditionally generation of syncookies.
+ 
+ tcp_fastopen - INTEGER
+-	Enable TCP Fast Open feature (draft-ietf-tcpm-fastopen) to send data
+-	in the opening SYN packet. To use this feature, the client application
+-	must use sendmsg() or sendto() with MSG_FASTOPEN flag rather than
+-	connect() to perform a TCP handshake automatically.
++	Enable TCP Fast Open (RFC7413) to send and accept data in the opening
++	SYN packet.
+ 
+-	The values (bitmap) are
+-	1: Enables sending data in the opening SYN on the client w/ MSG_FASTOPEN.
+-	2: Enables TCP Fast Open on the server side, i.e., allowing data in
+-	   a SYN packet to be accepted and passed to the application before
+-	   3-way hand shake finishes.
+-	4: Send data in the opening SYN regardless of cookie availability and
+-	   without a cookie option.
+-	0x100: Accept SYN data w/o validating the cookie.
+-	0x200: Accept data-in-SYN w/o any cookie option present.
+-	0x400/0x800: Enable Fast Open on all listeners regardless of the
+-	   TCP_FASTOPEN socket option. The two different flags designate two
+-	   different ways of setting max_qlen without the TCP_FASTOPEN socket
+-	   option.
++	The client support is enabled by flag 0x1 (on by default). The client
++	then must use sendmsg() or sendto() with the MSG_FASTOPEN flag,
++	rather than connect() to send data in SYN.
+ 
+-	Default: 1
++	The server support is enabled by flag 0x2 (off by default). Then
++	either enable for all listeners with another flag (0x400) or
++	enable individual listeners via TCP_FASTOPEN socket option with
++	the option value being the length of the syn-data backlog.
+ 
+-	Note that the client & server side Fast Open flags (1 and 2
+-	respectively) must be also enabled before the rest of flags can take
+-	effect.
++	The values (bitmap) are
++	  0x1: (client) enables sending data in the opening SYN on the client.
++	  0x2: (server) enables the server support, i.e., allowing data in
++			a SYN packet to be accepted and passed to the
++			application before 3-way handshake finishes.
++	  0x4: (client) send data in the opening SYN regardless of cookie
++			availability and without a cookie option.
++	0x200: (server) accept data-in-SYN w/o any cookie option present.
++	0x400: (server) enable all listeners to support Fast Open by
++			default without explicit TCP_FASTOPEN socket option.
++
++	Default: 0x1
+ 
+-	See include/net/tcp.h and the code for more details.
++	Note that that additional client or server features are only
++	effective if the basic support (0x1 and 0x2) are enabled respectively.
+ 
+ tcp_syn_retries - INTEGER
+ 	Number of times initial SYNs for an active TCP connection attempt
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index c00e7d5..25d64f6 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -227,10 +227,9 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+ #define	TFO_SERVER_COOKIE_NOT_REQD	0x200
+ 
+ /* Force enable TFO on all listeners, i.e., not requiring the
+- * TCP_FASTOPEN socket option. SOCKOPT1/2 determine how to set max_qlen.
++ * TCP_FASTOPEN socket option.
+  */
+ #define	TFO_SERVER_WO_SOCKOPT1	0x400
+-#define	TFO_SERVER_WO_SOCKOPT2	0x800
+ 
+ extern struct inet_timewait_death_row tcp_death_row;
+ 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 55513e6..989a362 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -211,24 +211,19 @@ int inet_listen(struct socket *sock, int backlog)
+ 	 * we can only allow the backlog to be adjusted.
+ 	 */
+ 	if (old_state != TCP_LISTEN) {
+-		/* Check special setups for testing purpose to enable TFO w/o
+-		 * requiring TCP_FASTOPEN sockopt.
++		/* Enable TFO w/o requiring TCP_FASTOPEN socket option.
+ 		 * Note that only TCP sockets (SOCK_STREAM) will reach here.
+-		 * Also fastopenq may already been allocated because this
+-		 * socket was in TCP_LISTEN state previously but was
+-		 * shutdown() (rather than close()).
++		 * Also fastopen backlog may already been set via the option
++		 * because the socket was in TCP_LISTEN state previously but
++		 * was shutdown() rather than close().
+ 		 */
+-		if ((sysctl_tcp_fastopen & TFO_SERVER_ENABLE) != 0 &&
++		if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
++		    (sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
+ 		    !inet_csk(sk)->icsk_accept_queue.fastopenq.max_qlen) {
+-			if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) != 0)
+-				fastopen_queue_tune(sk, backlog);
+-			else if ((sysctl_tcp_fastopen &
+-				  TFO_SERVER_WO_SOCKOPT2) != 0)
+-				fastopen_queue_tune(sk,
+-				    ((uint)sysctl_tcp_fastopen) >> 16);
+-
++			fastopen_queue_tune(sk, backlog);
+ 			tcp_fastopen_init_key_once(true);
+ 		}
++
+ 		err = inet_csk_listen_start(sk, backlog);
+ 		if (err)
+ 			goto out;
+-- 
+2.8.0.rc3.226.g39d4020
