@@ -1,63 +1,99 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH] net: ena: change the return type of ena_set_push_mode() to be void.
-Date: Tue, 23 Aug 2016 20:20:17 +0300
-Message-ID: <1471972817-4103-1-git-send-email-ramirose@gmail.com>
-Cc: netanel@annapurnalabs.com, Rami Rosen <ramirose@gmail.com>
-To: netdev@vger.kernel.org
+From: Fabio Estevam <fabio.estevam@nxp.com>
+Subject: [PATCH v3] net: lpc_eth: Check clk_prepare_enable() error
+Date: Tue, 23 Aug 2016 09:48:20 -0300
+Message-ID: <1471956500-30073-1-git-send-email-fabio.estevam@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <vz@mleia.com>, <netdev@vger.kernel.org>,
+        Fabio Estevam <fabio.estevam@nxp.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36307 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752228AbcHWRU1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 13:20:27 -0400
-Received: by mail-wm0-f68.google.com with SMTP id i138so18950808wmf.3
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 10:20:27 -0700 (PDT)
+Received: from mail-sn1nam02on0048.outbound.protection.outlook.com ([104.47.36.48]:2464
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754044AbcHWRXp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 13:23:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes the return type of ena_set_push_mode() to be void,
-as it always returns 0.
+clk_prepare_enable() may fail, so we should better check its return
+value and propagate it in the case of failure
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+While at it, replace __lpc_eth_clock_enable() with a plain
+clk_prepare_enable/clk_disable_unprepare() call in order to
+simplify the code.
+
+Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+Acked-by: Vladimir Zapolskiy <vz@mleia.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_netdev.c | 12 +++---------
- 1 file changed, 3 insertions(+), 9 deletions(-)
+Changes since v2:
+- Make sure to call clk_put on the new error path (Vladimir)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 5c536b8..bfeaec5 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2681,8 +2681,8 @@ static int ena_calc_io_queue_num(struct pci_dev *pdev,
- 	return io_queue_num;
+ drivers/net/ethernet/nxp/lpc_eth.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index 4d4ecba..8e13ec8 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -475,14 +475,6 @@ static void __lpc_get_mac(struct netdata_local *pldat, u8 *mac)
+ 	mac[5] = tmp >> 8;
  }
  
--static int ena_set_push_mode(struct pci_dev *pdev, struct ena_com_dev *ena_dev,
--			     struct ena_com_dev_get_features_ctx *get_feat_ctx)
-+static void ena_set_push_mode(struct pci_dev *pdev, struct ena_com_dev *ena_dev,
-+			      struct ena_com_dev_get_features_ctx *get_feat_ctx)
- {
- 	bool has_mem_bar;
- 
-@@ -2693,8 +2693,6 @@ static int ena_set_push_mode(struct pci_dev *pdev, struct ena_com_dev *ena_dev,
- 		ena_dev->tx_mem_queue_type = ENA_ADMIN_PLACEMENT_POLICY_DEV;
- 	else
- 		ena_dev->tx_mem_queue_type = ENA_ADMIN_PLACEMENT_POLICY_HOST;
+-static void __lpc_eth_clock_enable(struct netdata_local *pldat, bool enable)
+-{
+-	if (enable)
+-		clk_prepare_enable(pldat->clk);
+-	else
+-		clk_disable_unprepare(pldat->clk);
+-}
 -
--	return 0;
- }
+ static void __lpc_params_setup(struct netdata_local *pldat)
+ {
+ 	u32 tmp;
+@@ -1056,7 +1048,7 @@ static int lpc_eth_close(struct net_device *ndev)
+ 	writel(0, LPC_ENET_MAC2(pldat->net_base));
+ 	spin_unlock_irqrestore(&pldat->lock, flags);
  
- static void ena_set_dev_offloads(struct ena_com_dev_get_features_ctx *feat,
-@@ -2913,11 +2911,7 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_free_region;
+-	__lpc_eth_clock_enable(pldat, false);
++	clk_disable_unprepare(pldat->clk);
+ 
+ 	return 0;
+ }
+@@ -1197,11 +1189,14 @@ static int lpc_eth_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
+ static int lpc_eth_open(struct net_device *ndev)
+ {
+ 	struct netdata_local *pldat = netdev_priv(ndev);
++	int ret;
+ 
+ 	if (netif_msg_ifup(pldat))
+ 		dev_dbg(&pldat->pdev->dev, "enabling %s\n", ndev->name);
+ 
+-	__lpc_eth_clock_enable(pldat, true);
++	ret = clk_prepare_enable(pldat->clk);
++	if (ret)
++		return ret;
+ 
+ 	/* Suspended PHY makes LPC ethernet core block, so resume now */
+ 	phy_resume(ndev->phydev);
+@@ -1320,7 +1315,9 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
  	}
  
--	rc = ena_set_push_mode(pdev, ena_dev, &get_feat_ctx);
--	if (rc) {
--		dev_err(&pdev->dev, "Invalid module param(push_mode)\n");
--		goto err_device_destroy;
--	}
-+	ena_set_push_mode(pdev, ena_dev, &get_feat_ctx);
+ 	/* Enable network clock */
+-	__lpc_eth_clock_enable(pldat, true);
++	ret = clk_prepare_enable(pldat->clk);
++	if (ret)
++		goto err_out_clk_put;
  
- 	if (ena_dev->tx_mem_queue_type == ENA_ADMIN_PLACEMENT_POLICY_DEV) {
- 		ena_dev->mem_bar = ioremap_wc(pci_resource_start(pdev, ENA_MEM_BAR),
+ 	/* Map IO space */
+ 	pldat->net_base = ioremap(res->start, resource_size(res));
+@@ -1454,6 +1451,7 @@ err_out_iounmap:
+ 	iounmap(pldat->net_base);
+ err_out_disable_clocks:
+ 	clk_disable_unprepare(pldat->clk);
++err_out_clk_put:
+ 	clk_put(pldat->clk);
+ err_out_free_dev:
+ 	free_netdev(ndev);
 -- 
 2.7.4
