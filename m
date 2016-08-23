@@ -1,148 +1,172 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH v2 net-next] net-tcp: retire TFO_SERVER_WO_SOCKOPT2 config
-Date: Mon, 22 Aug 2016 17:17:54 -0700
-Message-ID: <1471911474-16898-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, piotr.jerzy.jurkiewicz@gmail.com,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: davem@davemloft.net
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH v2 net-next] net: diag: support SOCK_DESTROY for UDP sockets
+Date: Mon, 22 Aug 2016 18:03:41 -0700
+Message-ID: <1471914221-24213-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34690 "EHLO
-        mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752945AbcHWASH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 20:18:07 -0400
-Received: by mail-pa0-f42.google.com with SMTP id fi15so42199116pac.1
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 17:18:07 -0700 (PDT)
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:33729 "EHLO
+        mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755182AbcHWBEX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 22 Aug 2016 21:04:23 -0400
+Received: by mail-pa0-f47.google.com with SMTP id ti13so42503283pac.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 18:03:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TFO_SERVER_WO_SOCKOPT2 was intended for debugging purposes during
-Fast Open development. Remove this config option and also
-update/clean-up the documentation of the Fast Open sysctl.
+This implements SOCK_DESTROY for UDP sockets similar to what was done
+for TCP with commit c1e64e298b8ca ("net: diag: Support destroying TCP
+sockets.") A process with a UDP socket targeted for destroy is awakened
+and recvmsg fails with ECONNABORTED.
 
-Reported-by: Piotr Jurkiewicz <piotr.jerzy.jurkiewicz@gmail.com>
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- Documentation/networking/ip-sysctl.txt | 45 +++++++++++++++++-----------------
- include/net/tcp.h                      |  3 +--
- net/ipv4/af_inet.c                     | 21 ++++++----------
- 3 files changed, 32 insertions(+), 37 deletions(-)
+v2
+- changed socket lookup to __udp{4,6}_lib_lookup
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 9ae9293..3db8c67 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -575,32 +575,33 @@ tcp_syncookies - BOOLEAN
- 	unconditionally generation of syncookies.
+ include/net/udp.h   |  1 +
+ net/ipv4/udp.c      | 17 +++++++++++++++++
+ net/ipv4/udp_diag.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/udp.c      |  1 +
+ 4 files changed, 74 insertions(+)
+
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 8894d7144189..ea53a87d880f 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -251,6 +251,7 @@ int udp_get_port(struct sock *sk, unsigned short snum,
+ 		 int (*saddr_cmp)(const struct sock *,
+ 				  const struct sock *));
+ void udp_err(struct sk_buff *, u32);
++int udp_abort(struct sock *sk, int err);
+ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len);
+ int udp_push_pending_frames(struct sock *sk);
+ void udp_flush_pending_frames(struct sock *sk);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index e61f7cd65d08..d082800557da 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2192,6 +2192,22 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ }
+ EXPORT_SYMBOL(udp_poll);
  
- tcp_fastopen - INTEGER
--	Enable TCP Fast Open feature (draft-ietf-tcpm-fastopen) to send data
--	in the opening SYN packet. To use this feature, the client application
--	must use sendmsg() or sendto() with MSG_FASTOPEN flag rather than
--	connect() to perform a TCP handshake automatically.
-+	Enable TCP Fast Open (RFC7413) to send and accept data in the opening
-+	SYN packet.
- 
--	The values (bitmap) are
--	1: Enables sending data in the opening SYN on the client w/ MSG_FASTOPEN.
--	2: Enables TCP Fast Open on the server side, i.e., allowing data in
--	   a SYN packet to be accepted and passed to the application before
--	   3-way hand shake finishes.
--	4: Send data in the opening SYN regardless of cookie availability and
--	   without a cookie option.
--	0x100: Accept SYN data w/o validating the cookie.
--	0x200: Accept data-in-SYN w/o any cookie option present.
--	0x400/0x800: Enable Fast Open on all listeners regardless of the
--	   TCP_FASTOPEN socket option. The two different flags designate two
--	   different ways of setting max_qlen without the TCP_FASTOPEN socket
--	   option.
-+	The client support is enabled by flag 0x1 (on by default). The client
-+	then must use sendmsg() or sendto() with the MSG_FASTOPEN flag,
-+	rather than connect() to send data in SYN.
- 
--	Default: 1
-+	The server support is enabled by flag 0x2 (off by default). Then
-+	either enable for all listeners with another flag (0x400) or
-+	enable individual listeners via TCP_FASTOPEN socket option with
-+	the option value being the length of the syn-data backlog.
- 
--	Note that the client & server side Fast Open flags (1 and 2
--	respectively) must be also enabled before the rest of flags can take
--	effect.
-+	The values (bitmap) are
-+	  0x1: (client) enables sending data in the opening SYN on the client.
-+	  0x2: (server) enables the server support, i.e., allowing data in
-+			a SYN packet to be accepted and passed to the
-+			application before 3-way handshake finishes.
-+	  0x4: (client) send data in the opening SYN regardless of cookie
-+			availability and without a cookie option.
-+	0x200: (server) accept data-in-SYN w/o any cookie option present.
-+	0x400: (server) enable all listeners to support Fast Open by
-+			default without explicit TCP_FASTOPEN socket option.
++int udp_abort(struct sock *sk, int err)
++{
++	lock_sock(sk);
 +
-+	Default: 0x1
- 
--	See include/net/tcp.h and the code for more details.
-+	Note that that additional client or server features are only
-+	effective if the basic support (0x1 and 0x2) are enabled respectively.
- 
- tcp_syn_retries - INTEGER
- 	Number of times initial SYNs for an active TCP connection attempt
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index c00e7d5..25d64f6 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -227,10 +227,9 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define	TFO_SERVER_COOKIE_NOT_REQD	0x200
- 
- /* Force enable TFO on all listeners, i.e., not requiring the
-- * TCP_FASTOPEN socket option. SOCKOPT1/2 determine how to set max_qlen.
-+ * TCP_FASTOPEN socket option.
-  */
- #define	TFO_SERVER_WO_SOCKOPT1	0x400
--#define	TFO_SERVER_WO_SOCKOPT2	0x800
- 
- extern struct inet_timewait_death_row tcp_death_row;
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 55513e6..989a362 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -211,24 +211,19 @@ int inet_listen(struct socket *sock, int backlog)
- 	 * we can only allow the backlog to be adjusted.
- 	 */
- 	if (old_state != TCP_LISTEN) {
--		/* Check special setups for testing purpose to enable TFO w/o
--		 * requiring TCP_FASTOPEN sockopt.
-+		/* Enable TFO w/o requiring TCP_FASTOPEN socket option.
- 		 * Note that only TCP sockets (SOCK_STREAM) will reach here.
--		 * Also fastopenq may already been allocated because this
--		 * socket was in TCP_LISTEN state previously but was
--		 * shutdown() (rather than close()).
-+		 * Also fastopen backlog may already been set via the option
-+		 * because the socket was in TCP_LISTEN state previously but
-+		 * was shutdown() rather than close().
- 		 */
--		if ((sysctl_tcp_fastopen & TFO_SERVER_ENABLE) != 0 &&
-+		if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
-+		    (sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
- 		    !inet_csk(sk)->icsk_accept_queue.fastopenq.max_qlen) {
--			if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) != 0)
--				fastopen_queue_tune(sk, backlog);
--			else if ((sysctl_tcp_fastopen &
--				  TFO_SERVER_WO_SOCKOPT2) != 0)
--				fastopen_queue_tune(sk,
--				    ((uint)sysctl_tcp_fastopen) >> 16);
--
-+			fastopen_queue_tune(sk, backlog);
- 			tcp_fastopen_init_key_once(true);
- 		}
++	sk->sk_err = err;
++	sk->sk_error_report(sk);
++	udp_disconnect(sk, 0);
 +
- 		err = inet_csk_listen_start(sk, backlog);
- 		if (err)
- 			goto out;
++	release_sock(sk);
++
++	sock_put(sk);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(udp_abort);
++
+ struct proto udp_prot = {
+ 	.name		   = "UDP",
+ 	.owner		   = THIS_MODULE,
+@@ -2223,6 +2239,7 @@ struct proto udp_prot = {
+ 	.compat_getsockopt = compat_udp_getsockopt,
+ #endif
+ 	.clear_sk	   = sk_prot_clear_portaddr_nulls,
++	.diag_destroy	   = udp_abort,
+ };
+ EXPORT_SYMBOL(udp_prot);
+ 
+diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
+index 3d5ccf4b1412..904c5a9d2680 100644
+--- a/net/ipv4/udp_diag.c
++++ b/net/ipv4/udp_diag.c
+@@ -165,12 +165,64 @@ static void udp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
+ 	r->idiag_wqueue = sk_wmem_alloc_get(sk);
+ }
+ 
++#ifdef CONFIG_INET_DIAG_DESTROY
++static int __udp_diag_destroy(struct sk_buff *in_skb,
++			      const struct inet_diag_req_v2 *req,
++			      struct udp_table *tbl)
++{
++	struct net *net = sock_net(in_skb->sk);
++	struct sock *sk;
++
++	rcu_read_lock();
++
++	if (req->sdiag_family == AF_INET)
++		sk = __udp4_lib_lookup(net,
++				req->id.idiag_dst[0], req->id.idiag_dport,
++				req->id.idiag_src[0], req->id.idiag_sport,
++				req->id.idiag_if, tbl, NULL);
++#if IS_ENABLED(CONFIG_IPV6)
++	else if (req->sdiag_family == AF_INET6)
++		sk = __udp6_lib_lookup(net,
++				(struct in6_addr *)req->id.idiag_dst,
++				req->id.idiag_dport,
++				(struct in6_addr *)req->id.idiag_src,
++				req->id.idiag_sport,
++				req->id.idiag_if, tbl, NULL);
++#endif
++	if (sk && !atomic_inc_not_zero(&sk->sk_refcnt))
++		sk = NULL;
++
++	rcu_read_unlock();
++
++	if (!sk)
++		return -ENOENT;
++
++	return sock_diag_destroy(sk, ECONNABORTED);
++}
++
++static int udp_diag_destroy(struct sk_buff *in_skb,
++			    const struct inet_diag_req_v2 *req)
++{
++	return __udp_diag_destroy(in_skb, req, &udp_table);
++}
++
++static int udplite_diag_destroy(struct sk_buff *in_skb,
++				const struct inet_diag_req_v2 *req)
++{
++	return __udp_diag_destroy(in_skb, req, &udplite_table);
++}
++
++#endif
++
+ static const struct inet_diag_handler udp_diag_handler = {
+ 	.dump		 = udp_diag_dump,
+ 	.dump_one	 = udp_diag_dump_one,
+ 	.idiag_get_info  = udp_diag_get_info,
+ 	.idiag_type	 = IPPROTO_UDP,
+ 	.idiag_info_size = 0,
++#ifdef CONFIG_INET_DIAG_DESTROY
++	.destroy	 = udp_diag_destroy,
++#endif
+ };
+ 
+ static void udplite_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+@@ -192,6 +244,9 @@ static const struct inet_diag_handler udplite_diag_handler = {
+ 	.idiag_get_info  = udp_diag_get_info,
+ 	.idiag_type	 = IPPROTO_UDPLITE,
+ 	.idiag_info_size = 0,
++#ifdef CONFIG_INET_DIAG_DESTROY
++	.destroy	 = udplite_diag_destroy,
++#endif
+ };
+ 
+ static int __init udp_diag_init(void)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 81e2f98b958d..16512cf06e73 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1467,6 +1467,7 @@ struct proto udpv6_prot = {
+ 	.compat_getsockopt = compat_udpv6_getsockopt,
+ #endif
+ 	.clear_sk	   = udp_v6_clear_sk,
++	.diag_destroy      = udp_abort,
+ };
+ 
+ static struct inet_protosw udpv6_protosw = {
 -- 
-2.8.0.rc3.226.g39d4020
+2.1.4
