@@ -1,74 +1,70 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: [PATCH] cxgb4: fix invalid checks in alloc_uld_rxqs
-Date: Tue, 23 Aug 2016 08:16:19 +0200
-Message-ID: <1471932979-17864-1-git-send-email-a.hajda@samsung.com>
-Cc: Andrzej Hajda <a.hajda@samsung.com>,
-        Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
-        Marek Szyprowski <m.szyprowski@samsung.com>,
-        linux-kernel@vger.kernel.org (open list)
-To: Hariprasad S <hariprasad@chelsio.com>,
-        netdev@vger.kernel.org (open list:CXGB4 ETHERNET DRIVER (CXGB4))
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amir@vadai.me>
+Subject: Re: [PATCH net-next 1/3] net/ip_tunnels: Introduce
+ tunnel_id_to_key32() and key32_to_tunnel_id()
+Date: Tue, 23 Aug 2016 09:39:49 +0300
+Message-ID: <20160823063949.GA9128@office.localdomain>
+References: <20160822143834.32422-1-amir@vadai.me>
+ <20160822143834.32422-2-amir@vadai.me>
+ <20160822190027.6b4e6028@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33624 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756680AbcHWGjx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 02:39:53 -0400
+Received: by mail-wm0-f66.google.com with SMTP id o80so16637903wme.0
+        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 23:39:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160822190027.6b4e6028@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Local variable msi_idx defined as unsigned int is always >= 0, thus both
-'if' checks are always true. On the other side presence of USING_MSIX flag
-suggests the checks should not be trivially true.
-The simplest solution is to replace incorrect checks with direct testing
-of adap->flags and remove spare variables.
+On Mon, Aug 22, 2016 at 07:00:27PM +0200, Jiri Benc wrote:
+> While cleaning this up, you may as well take the best of both
+> implementations.
+> 
+> On Mon, 22 Aug 2016 17:38:32 +0300, Amir Vadai wrote:
+> > +static inline __be64 key32_to_tunnel_id(__be32 key)
+> > +{
+> > +#ifdef __BIG_ENDIAN
+> > +	return (__force __be64)((__force u32)key);
+> 
+> The inner cast seems to be superfluous?
+seems so. will check.
 
-The problem has been detected using semantic patch
-scripts/coccinelle/tests/unsigned_lesser_than_zero.cocci
+> 
+> > +#else
+> > +	return (__force __be64)((__force u64)key << 32);
+> > +#endif
+> > +}
+> > +
+> > +/* Returns the least-significant 32 bits of a __be64. */
+> > +static inline __be32 tunnel_id_to_key32(__be64 x)
+> 
+> Please use a more descriptive name than "x". "tunnel_id" or "tun_id"
+> seems to be more appropriate.
+ack
 
-Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
----
-Hi,
-
-I am not familiar with the code, and it is not clear to me, so my solution
-can be incorrect, anyway there is an issue here.
-
-Regards
-Andrzej
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c | 12 +++---------
- 1 file changed, 3 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-index aac6e44..1e0c952 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.c
-@@ -121,20 +121,14 @@ static int alloc_uld_rxqs(struct adapter *adap,
- 			  struct sge_uld_rxq_info *rxq_info,
- 			  unsigned int nq, unsigned int offset, bool lro)
- {
--	struct sge *s = &adap->sge;
- 	struct sge_ofld_rxq *q = rxq_info->uldrxq + offset;
- 	unsigned short *ids = rxq_info->rspq_id + offset;
- 	unsigned int per_chan = nq / adap->params.nports;
--	unsigned int msi_idx, bmap_idx;
-+	unsigned int bmap_idx;
- 	int i, err;
- 
--	if (adap->flags & USING_MSIX)
--		msi_idx = 1;
--	else
--		msi_idx = -((int)s->intrq.abs_id + 1);
--
- 	for (i = 0; i < nq; i++, q++) {
--		if (msi_idx >= 0) {
-+		if (adap->flags & USING_MSIX) {
- 			bmap_idx = get_msix_idx_from_bmap(adap);
- 			adap->msi_idx++;
- 		}
-@@ -147,7 +141,7 @@ static int alloc_uld_rxqs(struct adapter *adap,
- 				       0);
- 		if (err)
- 			goto freeout;
--		if (msi_idx >= 0)
-+		if (adap->flags & USING_MSIX)
- 			rxq_info->msix_tbl[i + offset] = bmap_idx;
- 		memset(&q->stats, 0, sizeof(q->stats));
- 		if (ids)
--- 
-1.9.1
+> 
+> > +{
+> > +#ifdef __BIG_ENDIAN
+> > +	return (__force __be32)x;
+> > +#else
+> > +	return (__force __be32)((__force u64)x >> 32);
+> > +#endif
+> > +}
+> 
+> Looks good otherwise.
+> 
+> Thanks,
+> 
+>  Jiri
