@@ -1,197 +1,273 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for-next V3 14/15] net/mlx5: Update mlx5_ifc.h for vxlan encap/decap
-Date: Tue, 23 Aug 2016 11:49:16 +0300
-Message-ID: <1471942157-9131-15-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH for-next V3 12/15] net/mlx5: Improve driver log messages
+Date: Tue, 23 Aug 2016 11:49:14 +0300
+Message-ID: <1471942157-9131-13-git-send-email-saeedm@mellanox.com>
 References: <1471942157-9131-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1471942157-9131-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Tal Alon <talal@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Parvi Kaustubhi <parvik@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36753 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1756858AbcHWIvM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 04:51:12 -0400
+In-Reply-To: <1471942157-9131-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Remove duplicate pci dev name printing in mlx5_core_err.
+Use mlx5_core_{warn,info,err} where possible to have the pci info in the
+driver log messages.
 
-Add the required definitions related to vxlan encap/decap.
-
-Signed-off-by: Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Parvi Kaustubhi <parvik@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
 ---
- include/linux/mlx5/mlx5_ifc.h | 105 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 101 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 26 +++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 18 ++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     | 11 ++++-----
+ .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |  7 +++---
+ 6 files changed, 39 insertions(+), 31 deletions(-)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 7a8ef0a..3766110 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -212,6 +212,8 @@ enum {
- 	MLX5_CMD_OP_DEALLOC_FLOW_COUNTER          = 0x93a,
- 	MLX5_CMD_OP_QUERY_FLOW_COUNTER            = 0x93b,
- 	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c,
-+	MLX5_CMD_OP_ALLOC_ENCAP_HEADER            = 0x93d,
-+	MLX5_CMD_OP_DEALLOC_ENCAP_HEADER          = 0x93e,
- 	MLX5_CMD_OP_MAX
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 1c7d8b8..681c12c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -416,8 +416,8 @@ int mlx5e_vport_rep_load(struct mlx5_eswitch *esw,
+ {
+ 	rep->priv_data = mlx5e_create_netdev(esw->dev, &mlx5e_rep_profile, rep);
+ 	if (!rep->priv_data) {
+-		pr_warn("Failed to create representor for vport %d\n",
+-			rep->vport);
++		mlx5_core_warn(esw->dev, "Failed to create representor for vport %d\n",
++			       rep->vport);
+ 		return -EINVAL;
+ 	}
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 0a364bf..7c493599 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -306,7 +306,7 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 
+ 	spec = mlx5_vzalloc(sizeof(*spec));
+ 	if (!spec) {
+-		pr_warn("FDB: Failed to alloc match parameters\n");
++		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
+ 		return NULL;
+ 	}
+ 	dmac_v = MLX5_ADDR_OF(fte_match_param, spec->match_value,
+@@ -340,8 +340,8 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 				   MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				   0, &dest);
+ 	if (IS_ERR(flow_rule)) {
+-		pr_warn(
+-			"FDB: Failed to add flow rule: dmac_v(%pM) dmac_c(%pM) -> vport(%d), err(%ld)\n",
++		esw_warn(esw->dev,
++			 "FDB: Failed to add flow rule: dmac_v(%pM) dmac_c(%pM) -> vport(%d), err(%ld)\n",
+ 			 dmac_v, dmac_c, vport, PTR_ERR(flow_rule));
+ 		flow_rule = NULL;
+ 	}
+@@ -1318,8 +1318,9 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->ingress.allow_rule)) {
+ 		err = PTR_ERR(vport->ingress.allow_rule);
+-		pr_warn("vport[%d] configure ingress allow rule, err(%d)\n",
+-			vport->vport, err);
++		esw_warn(esw->dev,
++			 "vport[%d] configure ingress allow rule, err(%d)\n",
++			 vport->vport, err);
+ 		vport->ingress.allow_rule = NULL;
+ 		goto out;
+ 	}
+@@ -1331,8 +1332,9 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->ingress.drop_rule)) {
+ 		err = PTR_ERR(vport->ingress.drop_rule);
+-		pr_warn("vport[%d] configure ingress drop rule, err(%d)\n",
+-			vport->vport, err);
++		esw_warn(esw->dev,
++			 "vport[%d] configure ingress drop rule, err(%d)\n",
++			 vport->vport, err);
+ 		vport->ingress.drop_rule = NULL;
+ 		goto out;
+ 	}
+@@ -1384,8 +1386,9 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->egress.allowed_vlan)) {
+ 		err = PTR_ERR(vport->egress.allowed_vlan);
+-		pr_warn("vport[%d] configure egress allowed vlan rule failed, err(%d)\n",
+-			vport->vport, err);
++		esw_warn(esw->dev,
++			 "vport[%d] configure egress allowed vlan rule failed, err(%d)\n",
++			 vport->vport, err);
+ 		vport->egress.allowed_vlan = NULL;
+ 		goto out;
+ 	}
+@@ -1398,8 +1401,9 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->egress.drop_rule)) {
+ 		err = PTR_ERR(vport->egress.drop_rule);
+-		pr_warn("vport[%d] configure egress drop rule failed, err(%d)\n",
+-			vport->vport, err);
++		esw_warn(esw->dev,
++			 "vport[%d] configure egress drop rule failed, err(%d)\n",
++			 vport->vport, err);
+ 		vport->egress.drop_rule = NULL;
+ 	}
+ out:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 75bb8c8..243efc5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -345,7 +345,7 @@ static void del_flow_table(struct fs_node *node)
+ 
+ 	err = mlx5_cmd_destroy_flow_table(dev, ft);
+ 	if (err)
+-		pr_warn("flow steering can't destroy ft\n");
++		mlx5_core_warn(dev, "flow steering can't destroy ft\n");
+ 	fs_get_obj(prio, ft->node.parent);
+ 	prio->num_ft--;
+ }
+@@ -364,7 +364,7 @@ static void del_rule(struct fs_node *node)
+ 
+ 	match_value = mlx5_vzalloc(match_len);
+ 	if (!match_value) {
+-		pr_warn("failed to allocate inbox\n");
++		mlx5_core_warn(dev, "failed to allocate inbox\n");
+ 		return;
+ 	}
+ 
+@@ -387,8 +387,9 @@ static void del_rule(struct fs_node *node)
+ 					  modify_mask,
+ 					  fte);
+ 		if (err)
+-			pr_warn("%s can't del rule fg id=%d fte_index=%d\n",
+-				__func__, fg->id, fte->index);
++			mlx5_core_warn(dev,
++				       "%s can't del rule fg id=%d fte_index=%d\n",
++				       __func__, fg->id, fte->index);
+ 	}
+ 	kvfree(match_value);
+ }
+@@ -409,8 +410,9 @@ static void del_fte(struct fs_node *node)
+ 	err = mlx5_cmd_delete_fte(dev, ft,
+ 				  fte->index);
+ 	if (err)
+-		pr_warn("flow steering can't delete fte in index %d of flow group id %d\n",
+-			fte->index, fg->id);
++		mlx5_core_warn(dev,
++			       "flow steering can't delete fte in index %d of flow group id %d\n",
++			       fte->index, fg->id);
+ 
+ 	fte->status = 0;
+ 	fg->num_ftes--;
+@@ -427,8 +429,8 @@ static void del_flow_group(struct fs_node *node)
+ 	dev = get_dev(&ft->node);
+ 
+ 	if (mlx5_cmd_destroy_flow_group(dev, ft, fg->id))
+-		pr_warn("flow steering can't destroy fg %d of ft %d\n",
+-			fg->id, ft->id);
++		mlx5_core_warn(dev, "flow steering can't destroy fg %d of ft %d\n",
++			       fg->id, ft->id);
+ }
+ 
+ static struct fs_fte *alloc_fte(u8 action,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+index 7fd6622..d6446a3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
+@@ -324,7 +324,7 @@ enum {
+ 				MLX5_DEV_CAP_FLAG_DCT,
  };
  
-@@ -281,7 +283,9 @@ struct mlx5_ifc_flow_table_prop_layout_bits {
- 	u8         modify_root[0x1];
- 	u8         identified_miss_table_mode[0x1];
- 	u8         flow_table_modify[0x1];
--	u8         reserved_at_7[0x19];
-+	u8         encap[0x1];
-+	u8         decap[0x1];
-+	u8         reserved_at_9[0x17];
+-static u16 to_fw_pkey_sz(u32 size)
++static u16 to_fw_pkey_sz(struct mlx5_core_dev *dev, u32 size)
+ {
+ 	switch (size) {
+ 	case 128:
+@@ -340,7 +340,7 @@ static u16 to_fw_pkey_sz(u32 size)
+ 	case 4096:
+ 		return 5;
+ 	default:
+-		pr_warn("invalid pkey table size %d\n", size);
++		mlx5_core_warn(dev, "invalid pkey table size %d\n", size);
+ 		return 0;
+ 	}
+ }
+@@ -477,7 +477,7 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
+ 		      128);
+ 	/* we limit the size of the pkey table to 128 entries for now */
+ 	MLX5_SET(cmd_hca_cap, set_hca_cap, pkey_table_size,
+-		 to_fw_pkey_sz(128));
++		 to_fw_pkey_sz(dev, 128));
  
- 	u8         reserved_at_20[0x2];
- 	u8         log_max_ft_size[0x6];
-@@ -512,7 +516,15 @@ struct mlx5_ifc_e_switch_cap_bits {
- 	u8         nic_vport_node_guid_modify[0x1];
- 	u8         nic_vport_port_guid_modify[0x1];
+ 	if (prof->mask & MLX5_PROF_MASK_QP_SIZE)
+ 		MLX5_SET(cmd_hca_cap, set_hca_cap, log_max_qp,
+@@ -1312,8 +1312,9 @@ static int init_one(struct pci_dev *pdev,
+ 	pci_set_drvdata(pdev, dev);
  
--	u8         reserved_at_20[0x7e0];
-+	u8         vxlan_encap_decap[0x1];
-+	u8         nvgre_encap_decap[0x1];
-+	u8         reserved_at_22[0x9];
-+	u8         log_max_encap_headers[0x5];
-+	u8         reserved_2b[0x6];
-+	u8         max_encap_header_size[0xa];
-+
-+	u8         reserved_40[0x7c0];
-+
- };
+ 	if (prof_sel < 0 || prof_sel >= ARRAY_SIZE(profile)) {
+-		pr_warn("selected profile out of range, selecting default (%d)\n",
+-			MLX5_DEFAULT_PROF);
++		mlx5_core_warn(dev,
++			       "selected profile out of range, selecting default (%d)\n",
++			       MLX5_DEFAULT_PROF);
+ 		prof_sel = MLX5_DEFAULT_PROF;
+ 	}
+ 	dev->profile = &profile[prof_sel];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index 14242f1..ef0eeed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -58,8 +58,8 @@ do {									\
+ } while (0)
  
- struct mlx5_ifc_qos_cap_bits {
-@@ -2067,6 +2079,8 @@ enum {
- 	MLX5_FLOW_CONTEXT_ACTION_DROP      = 0x2,
- 	MLX5_FLOW_CONTEXT_ACTION_FWD_DEST  = 0x4,
- 	MLX5_FLOW_CONTEXT_ACTION_COUNT     = 0x8,
-+	MLX5_FLOW_CONTEXT_ACTION_ENCAP     = 0x10,
-+	MLX5_FLOW_CONTEXT_ACTION_DECAP     = 0x20,
- };
+ #define mlx5_core_err(__dev, format, ...)				\
+-	dev_err(&(__dev)->pdev->dev, "%s:%s:%d:(pid %d): " format,	\
+-	       (__dev)->priv.name, __func__, __LINE__, current->pid,	\
++	dev_err(&(__dev)->pdev->dev, "%s:%d:(pid %d): " format,	\
++		__func__, __LINE__, current->pid,	\
+ 	       ##__VA_ARGS__)
  
- struct mlx5_ifc_flow_context_bits {
-@@ -2086,7 +2100,9 @@ struct mlx5_ifc_flow_context_bits {
- 	u8         reserved_at_a0[0x8];
- 	u8         flow_counter_list_size[0x18];
+ #define mlx5_core_warn(__dev, format, ...)				\
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+index b380a6b..0680dfb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+@@ -155,13 +155,13 @@ int mlx5_core_sriov_configure(struct pci_dev *pdev, int num_vfs)
+ 		if (!pci_vfs_assigned(pdev))
+ 			pci_disable_sriov(pdev);
+ 		else
+-			pr_info("unloading PF driver while leaving orphan VFs\n");
++			mlx5_core_info(dev, "unloading PF driver while leaving orphan VFs\n");
+ 		return 0;
+ 	}
  
--	u8         reserved_at_c0[0x140];
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_e0[0x120];
+ 	err = mlx5_core_sriov_enable(pdev, num_vfs);
+ 	if (err) {
+-		dev_warn(&pdev->dev, "mlx5_core_sriov_enable failed %d\n", err);
++		mlx5_core_warn(dev, "mlx5_core_sriov_enable failed %d\n", err);
+ 		return err;
+ 	}
  
- 	struct mlx5_ifc_fte_match_param_bits match_value;
+@@ -180,7 +180,8 @@ static int sync_required(struct pci_dev *pdev)
+ 	int cur_vfs = pci_num_vf(pdev);
  
-@@ -4216,6 +4232,85 @@ struct mlx5_ifc_query_eq_in_bits {
- 	u8         reserved_at_60[0x20];
- };
+ 	if (cur_vfs != sriov->num_vfs) {
+-		pr_info("current VFs %d, registered %d - sync needed\n", cur_vfs, sriov->num_vfs);
++		mlx5_core_warn(dev, "current VFs %d, registered %d - sync needed\n",
++			       cur_vfs, sriov->num_vfs);
+ 		return 1;
+ 	}
  
-+struct mlx5_ifc_encap_header_in_bits {
-+	u8         reserved_at_0[0x5];
-+	u8         header_type[0x3];
-+	u8         reserved_at_8[0xe];
-+	u8         encap_header_size[0xa];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         encap_header[2][0x8];
-+
-+	u8         more_encap_header[0][0x8];
-+};
-+
-+struct mlx5_ifc_query_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0xa0];
-+
-+	struct mlx5_ifc_encap_header_in_bits encap_header[0];
-+};
-+
-+struct mlx5_ifc_query_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_60[0xa0];
-+};
-+
-+struct mlx5_ifc_alloc_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_at_60[0x20];
-+};
-+
-+struct mlx5_ifc_alloc_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_at_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         reserved_at_40[0xa0];
-+
-+	struct mlx5_ifc_encap_header_in_bits encap_header;
-+};
-+
-+struct mlx5_ifc_dealloc_encap_header_out_bits {
-+	u8         status[0x8];
-+	u8         reserved_at_8[0x18];
-+
-+	u8         syndrome[0x20];
-+
-+	u8         reserved_at_40[0x40];
-+};
-+
-+struct mlx5_ifc_dealloc_encap_header_in_bits {
-+	u8         opcode[0x10];
-+	u8         reserved_at_10[0x10];
-+
-+	u8         reserved_20[0x10];
-+	u8         op_mod[0x10];
-+
-+	u8         encap_id[0x20];
-+
-+	u8         reserved_60[0x20];
-+};
-+
- struct mlx5_ifc_query_dct_out_bits {
- 	u8         status[0x8];
- 	u8         reserved_at_8[0x18];
-@@ -6102,7 +6197,9 @@ struct mlx5_ifc_create_flow_table_in_bits {
- 
- 	u8         reserved_at_a0[0x20];
- 
--	u8         reserved_at_c0[0x4];
-+	u8         encap_en[0x1];
-+	u8         decap_en[0x1];
-+	u8         reserved_at_c2[0x2];
- 	u8         table_miss_mode[0x4];
- 	u8         level[0x8];
- 	u8         reserved_at_d0[0x8];
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
