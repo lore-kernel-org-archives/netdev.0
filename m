@@ -1,174 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 02/15] net: sched: allow qdiscs to handle
- locking
-Date: Tue, 23 Aug 2016 14:08:19 -0700
-Message-ID: <1471986499.14381.56.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
-         <20160823202320.14368.17683.stgit@john-Precision-Tower-5810>
+From: Xander Huff <xander.huff@ni.com>
+Subject: Re: [PATCH] net: phy: micrel: remove suspend/resume
+Date: Tue, 23 Aug 2016 17:06:40 -0500
+Message-ID: <57BCC8F0.4000803@ni.com>
+References: <20160823111344.25FF41A2459@localhost.localdomain> <2ee9441d-1b3b-de6d-691d-b615c04c69d0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
-        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        brad.mouring@ni.com, nathan.sullivan@ni.com
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Christophe Leroy <christophe.leroy@c-s.fr>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33323 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932393AbcHWV1E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 17:27:04 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i6so8888955pfe.0
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 14:27:04 -0700 (PDT)
-In-Reply-To: <20160823202320.14368.17683.stgit@john-Precision-Tower-5810>
+Received: from skprod3.natinst.com ([130.164.80.24]:53567 "EHLO ni.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1758202AbcHWWG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 18:06:59 -0400
+In-Reply-To: <2ee9441d-1b3b-de6d-691d-b615c04c69d0@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-08-23 at 13:23 -0700, John Fastabend wrote:
-> This patch adds a flag for queueing disciplines to indicate the stack
-> does not need to use the qdisc lock to protect operations. This can
-> be used to build lockless scheduling algorithms and improving
-> performance.
-> 
-> The flag is checked in the tx path and the qdisc lock is only taken
-> if it is not set. For now use a conditional if statement. Later we
-> could be more aggressive if it proves worthwhile and use a static key
-> or wrap this in a likely().
-> 
-> Also the lockless case drops the TCQ_F_CAN_BYPASS logic. The reason
-> for this is synchronizing a qlen counter across threads proves to
-> cost more than doing the enqueue/dequeue operations when tested with
-> pktgen.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  include/net/sch_generic.h |    1 +
->  net/core/dev.c            |   26 ++++++++++++++++++++++----
->  net/sched/sch_generic.c   |   24 ++++++++++++++++--------
->  3 files changed, 39 insertions(+), 12 deletions(-)
-> 
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index 909aff2..3de6a8c 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -58,6 +58,7 @@ struct Qdisc {
->  #define TCQ_F_NOPARENT		0x40 /* root of its hierarchy :
->  				      * qdisc_tree_decrease_qlen() should stop.
->  				      */
-> +#define TCQ_F_NOLOCK		0x80 /* qdisc does not require locking */
->  	u32			limit;
->  	const struct Qdisc_ops	*ops;
->  	struct qdisc_size_table	__rcu *stab;
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index bcd4cdd..a0effa6 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3076,6 +3076,21 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
->  	int rc;
->  
->  	qdisc_calculate_pkt_len(skb, q);
-> +
-> +	if (q->flags & TCQ_F_NOLOCK) {
-> +		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
-> +			__qdisc_drop(skb, &to_free);
-> +			rc = NET_XMIT_DROP;
-> +		} else {
-> +			rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
-> +			__qdisc_run(q);
-> +		}
-> +
-> +		if (unlikely(to_free))
-> +			kfree_skb_list(to_free);
-> +		return rc;
-> +	}
-> +
->  	/*
->  	 * Heuristic to force contended enqueues to serialize on a
->  	 * separate lock before trying to get qdisc main lock.
-> @@ -3898,19 +3913,22 @@ static void net_tx_action(struct softirq_action *h)
->  
->  		while (head) {
->  			struct Qdisc *q = head;
-> -			spinlock_t *root_lock;
-> +			spinlock_t *root_lock = NULL;
->  
->  			head = head->next_sched;
->  
-> -			root_lock = qdisc_lock(q);
-> -			spin_lock(root_lock);
-> +			if (!(q->flags & TCQ_F_NOLOCK)) {
-> +				root_lock = qdisc_lock(q);
-> +				spin_lock(root_lock);
-> +			}
->  			/* We need to make sure head->next_sched is read
->  			 * before clearing __QDISC_STATE_SCHED
->  			 */
->  			smp_mb__before_atomic();
->  			clear_bit(__QDISC_STATE_SCHED, &q->state);
->  			qdisc_run(q);
-> -			spin_unlock(root_lock);
-> +			if (!(q->flags & TCQ_F_NOLOCK))
+On 8/23/2016 2:03 PM, Florian Fainelli wrote:
+> +others,
+>
+> On 08/23/2016 04:13 AM, Christophe Leroy wrote:
+>> In ERRATA DS80000700A dated 05 May 2016, Microship recommends to
+>> not use software power down mode on KSZ8041 family.
+>
+> s/Microship/Microchip/
+>
+>> They say they have no plan to fix this ERRATA in future releases.
+>
+> The errata applies to specific revisions, is this revision present in
+> the lower 4 bits of the MII_PHYSID2 register such that it could be used
+> to key the disabling of the power down?
+>
+>>
+>> http://ww1.microchip.com/downloads/en/DeviceDoc/80000700A.pdf
+>>
+>> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+>> ---
+>>   drivers/net/phy/micrel.c | 4 ----
+>>   1 file changed, 4 deletions(-)
+>>
+>> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+>> index 053e879..f456c55 100644
+>> --- a/drivers/net/phy/micrel.c
+>> +++ b/drivers/net/phy/micrel.c
+>> @@ -837,8 +837,6 @@ static struct phy_driver ksphy_driver[] = {
+>>   	.get_sset_count = kszphy_get_sset_count,
+>>   	.get_strings	= kszphy_get_strings,
+>>   	.get_stats	= kszphy_get_stats,
+>> -	.suspend	= genphy_suspend,
+>> -	.resume		= genphy_resume,
+>>   }, {
+>>   	.phy_id		= PHY_ID_KSZ8041RNLI,
+>>   	.phy_id_mask	= MICREL_PHY_ID_MASK,
+>> @@ -856,8 +854,6 @@ static struct phy_driver ksphy_driver[] = {
+>>   	.get_sset_count = kszphy_get_sset_count,
+>>   	.get_strings	= kszphy_get_strings,
+>>   	.get_stats	= kszphy_get_stats,
+>> -	.suspend	= genphy_suspend,
+>> -	.resume		= genphy_resume,
+>>   }, {
+>>   	.phy_id		= PHY_ID_KSZ8051,
+>>   	.phy_id_mask	= MICREL_PHY_ID_MASK,
+>>
+>
+>
+It doesn't appear that KSZ9031 is affected by this errata; no mention of suspend:
 
-This might be faster to use : 
-	if (root_lock) (one less memory read and mask)
+http://ww1.microchip.com/downloads/en/DeviceDoc/KSZ9031MNX_Errata_Rev%20A_A2_032515.pdf
 
-> +				spin_unlock(root_lock);
->  		}
->  	}
->  }
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index e305a55..af32418 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -170,7 +170,8 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
->  	int ret = NETDEV_TX_BUSY;
->  
->  	/* And release qdisc */
-> -	spin_unlock(root_lock);
-> +	if (!(q->flags & TCQ_F_NOLOCK))
-> +		spin_unlock(root_lock);
-
-You might use the same trick, if root_lock is NULL for lockless qdisc.
->  
->  	/* Note that we validate skb (GSO, checksum, ...) outside of locks */
->  	if (validate)
-> @@ -183,10 +184,13 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
->  
->  		HARD_TX_UNLOCK(dev, txq);
->  	} else {
-> -		spin_lock(root_lock);
-> +		if (!(q->flags & TCQ_F_NOLOCK))
-> +			spin_lock(root_lock);
->  		return qdisc_qlen(q);
->  	}
-> -	spin_lock(root_lock);
-> +
-> +	if (!(q->flags & TCQ_F_NOLOCK))
-> +		spin_lock(root_lock);
->  
->  	if (dev_xmit_complete(ret)) {
->  		/* Driver sent out skb successfully or skb was consumed */
-> @@ -866,14 +870,18 @@ static bool some_qdisc_is_busy(struct net_device *dev)
->  
->  		dev_queue = netdev_get_tx_queue(dev, i);
->  		q = dev_queue->qdisc_sleeping;
-> -		root_lock = qdisc_lock(q);
->  
-> -		spin_lock_bh(root_lock);
-> +		if (q->flags & TCQ_F_NOLOCK) {
-> +			val = test_bit(__QDISC_STATE_SCHED, &q->state);
-> +		} else {
-> +			root_lock = qdisc_lock(q);
-> +			spin_lock_bh(root_lock);
->  
-> -		val = (qdisc_is_running(q) ||
-> -		       test_bit(__QDISC_STATE_SCHED, &q->state));
-> +			val = (qdisc_is_running(q) ||
-> +			       test_bit(__QDISC_STATE_SCHED, &q->state));
->  
-> -		spin_unlock_bh(root_lock);
-> +			spin_unlock_bh(root_lock);
-> +		}
->  
->  		if (val)
->  			return true;
-> 
+-- 
+Xander Huff
+Staff Software Engineer
+National Instruments
