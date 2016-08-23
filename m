@@ -1,66 +1,96 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: micrel: remove suspend/resume
-Date: Tue, 23 Aug 2016 12:03:34 -0700
-Message-ID: <2ee9441d-1b3b-de6d-691d-b615c04c69d0@gmail.com>
-References: <20160823111344.25FF41A2459@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
+Date: Tue, 23 Aug 2016 12:03:39 -0700
+Message-ID: <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
+         <20160823.112515.318902967155957764.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        xander.huff@ni.com, brad.mouring@ni.com, nathan.sullivan@ni.com
-To: Christophe Leroy <christophe.leroy@c-s.fr>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: labbott@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, samanthakumar@google.com,
+        willemb@google.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160823111344.25FF41A2459@localhost.localdomain>
+In-Reply-To: <20160823.112515.318902967155957764.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-+others,
-
-On 08/23/2016 04:13 AM, Christophe Leroy wrote:
-> In ERRATA DS80000700A dated 05 May 2016, Microship recommends to
-> not use software power down mode on KSZ8041 family.
-
-s/Microship/Microchip/
-
-> They say they have no plan to fix this ERRATA in future releases.
-
-The errata applies to specific revisions, is this revision present in
-the lower 4 bits of the MII_PHYSID2 register such that it could be used
-to key the disabling of the power down?
-
+On Tue, 2016-08-23 at 11:25 -0700, David Miller wrote:
+> From: Laura Abbott <labbott@redhat.com>
+> Date: Tue, 23 Aug 2016 10:53:26 -0700
 > 
-> http://ww1.microchip.com/downloads/en/DeviceDoc/80000700A.pdf
+> > Fedora received a report[1] of a unit test failing on Ruby when using
+> > the
+> > 4.7 kernel. This was a test to send a zero sized UDP packet. With the
+> > 4.7 kernel, the test now timing out on a select instead of completing.
+> > The reduced ruby test is
+> > 
+> >   def test_udp_recvfrom_nonblock
+> >     u1 = UDPSocket.new
+> >     u2 = UDPSocket.new
+> >     u1.bind("127.0.0.1", 0)
+> >     u2.send("", 0, u1.getsockname)
+> >     IO.select [u1]  # test gets stuck here
+> >   ensure
+> >     u1.close if u1
+> >     u2.close if u2
+> >   end
 > 
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-> ---
->  drivers/net/phy/micrel.c | 4 ----
->  1 file changed, 4 deletions(-)
+> Well, if there is no data, should select really wake up?
 > 
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index 053e879..f456c55 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -837,8 +837,6 @@ static struct phy_driver ksphy_driver[] = {
->  	.get_sset_count = kszphy_get_sset_count,
->  	.get_strings	= kszphy_get_strings,
->  	.get_stats	= kszphy_get_stats,
-> -	.suspend	= genphy_suspend,
-> -	.resume		= genphy_resume,
->  }, {
->  	.phy_id		= PHY_ID_KSZ8041RNLI,
->  	.phy_id_mask	= MICREL_PHY_ID_MASK,
-> @@ -856,8 +854,6 @@ static struct phy_driver ksphy_driver[] = {
->  	.get_sset_count = kszphy_get_sset_count,
->  	.get_strings	= kszphy_get_strings,
->  	.get_stats	= kszphy_get_stats,
-> -	.suspend	= genphy_suspend,
-> -	.resume		= genphy_resume,
->  }, {
->  	.phy_id		= PHY_ID_KSZ8051,
->  	.phy_id_mask	= MICREL_PHY_ID_MASK,
-> 
+> I think it's valid not to.
+There are skb in receive queue, with skb->len = 0
 
+This looks like a bug in first_packet_length() or poll logic.
 
--- 
-Florian
+Definitely something we can fix.
+
+Maybe with :
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index e61f7cd65d08..380c05a84041 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1184,11 +1184,11 @@ out:
+  *	Drops all bad checksum frames, until a valid one is found.
+  *	Returns the length of found skb, or 0 if none is found.
+  */
+-static unsigned int first_packet_length(struct sock *sk)
++static int first_packet_length(struct sock *sk)
+ {
+ 	struct sk_buff_head list_kill, *rcvq = &sk->sk_receive_queue;
+ 	struct sk_buff *skb;
+-	unsigned int res;
++	int res;
+ 
+ 	__skb_queue_head_init(&list_kill);
+ 
+@@ -1203,7 +1203,7 @@ static unsigned int first_packet_length(struct sock *sk)
+ 		__skb_unlink(skb, rcvq);
+ 		__skb_queue_tail(&list_kill, skb);
+ 	}
+-	res = skb ? skb->len : 0;
++	res = skb ? skb->len : -1;
+ 	spin_unlock_bh(&rcvq->lock);
+ 
+ 	if (!skb_queue_empty(&list_kill)) {
+@@ -1232,7 +1232,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 
+ 	case SIOCINQ:
+ 	{
+-		unsigned int amount = first_packet_length(sk);
++		int amount = max(0, first_packet_length(sk));
+ 
+ 		return put_user(amount, (int __user *)arg);
+ 	}
+@@ -2184,7 +2184,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 
+ 	/* Check for false positives due to checksum errors */
+ 	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
+-	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
++	    !(sk->sk_shutdown & RCV_SHUTDOWN) && first_packet_length(sk) == -1)
+ 		mask &= ~(POLLIN | POLLRDNORM);
+ 
+ 	return mask;
