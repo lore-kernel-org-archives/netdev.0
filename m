@@ -1,7 +1,7 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 14/14] hv_netvsc: add ethtool statistics for tx packet issues
-Date: Tue, 23 Aug 2016 12:17:57 -0700
-Message-ID: <1471979877-17802-14-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 09/14] hv_netvsc: rearrange start_xmit
+Date: Tue, 23 Aug 2016 12:17:52 -0700
+Message-ID: <1471979877-17802-9-git-send-email-sthemmin@exchange.microsoft.com>
 References: <1471979877-17802-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
@@ -9,10 +9,10 @@ To: "K. Y. Srinivasan" <kys@microsoft.com>,
         Haiyang Zhang <haiyangz@microsoft.com>,
         David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded01.prod.phx3.secureserver.net ([208.109.80.58]:41664
-        "EHLO p3plsmtps2ded01.prod.phx3.secureserver.net"
+Received: from p3plsmtps2ded04.prod.phx3.secureserver.net ([208.109.80.198]:38668
+        "EHLO p3plsmtps2ded04.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754478AbcHWSJG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754475AbcHWSJG (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 23 Aug 2016 14:09:06 -0400
 In-Reply-To: <1471979877-17802-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,197 +20,187 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Printing console messages is not helpful when system is out of memory;
-and can be disastrous with netconsole. Instead keep statistics
-of these anomalous conditions.
+Rearrange the transmit routine to eliminate goto's and unnecessary
+boolean variables. Use standard functions to test for vlan tag.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/hyperv_net.h |  9 +++++
- drivers/net/hyperv/netvsc_drv.c | 86 +++++++++++++++++++++++++++++++++--------
- 2 files changed, 79 insertions(+), 16 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 106 +++++++++++++++++++---------------------
+ 1 file changed, 51 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 8031dee..284b97b 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -652,6 +652,14 @@ struct netvsc_stats {
- 	struct u64_stats_sync syncp;
- };
- 
-+struct netvsc_ethtool_stats {
-+	unsigned long tx_scattered;
-+	unsigned long tx_no_memory;
-+	unsigned long tx_no_space;
-+	unsigned long tx_too_big;
-+	unsigned long tx_busy;
-+};
-+
- struct netvsc_reconfig {
- 	struct list_head list;
- 	u32 event;
-@@ -681,6 +689,7 @@ struct net_device_context {
- 	/* Ethtool settings */
- 	u8 duplex;
- 	u32 speed;
-+	struct netvsc_ethtool_stats eth_stats;
- 
- 	/* the device is going away */
- 	bool start_remove;
 diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b874ab1..2360e70 100644
+index 3bbf073..7ed9f13 100644
 --- a/drivers/net/hyperv/netvsc_drv.c
 +++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -365,7 +365,6 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	u32 skb_length;
- 	struct hv_page_buffer page_buf[MAX_PAGE_BUFFER_COUNT];
- 	struct hv_page_buffer *pb = page_buf;
--	struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
+@@ -357,11 +357,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	struct rndis_message *rndis_msg;
+ 	struct rndis_packet *rndis_pkt;
+ 	u32 rndis_msg_size;
+-	bool isvlan;
+-	bool linear = false;
+ 	struct rndis_per_packet_info *ppi;
+ 	struct ndis_tcp_ip_checksum_info *csum_info;
+-	struct ndis_tcp_lso_info *lso_info;
+ 	int  hdr_offset;
+ 	u32 net_trans_info;
+ 	u32 hash;
+@@ -376,22 +373,23 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	 * more pages we try linearizing it.
+ 	 */
  
- 	/* We will atmost need two pages to describe the rndis
- 	 * header. We can only transmit MAX_PAGE_BUFFER_COUNT number
-@@ -377,17 +376,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+-check_size:
+ 	skb_length = skb->len;
  	num_data_pgs = netvsc_get_slots(skb) + 2;
- 
- 	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
--		if (skb_linearize(skb)) {
--			net_alert_ratelimited("failed to linearize skb\n");
--			ret = -ENOMEM;
--			goto drop;
--		}
-+		++net_device_ctx->eth_stats.tx_scattered;
+-	if (num_data_pgs > MAX_PAGE_BUFFER_COUNT && linear) {
+-		net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
+-				      num_data_pgs, skb->len);
+-		ret = -EFAULT;
+-		goto drop;
+-	} else if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
 +
-+		if (skb_linearize(skb))
-+			goto no_memory;
- 
- 		num_data_pgs = netvsc_get_slots(skb) + 2;
- 		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
--			net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
--					      num_data_pgs, skb->len);
--			ret = -EFAULT;
-+			++net_device_ctx->eth_stats.tx_too_big;
++	if (unlikely(num_data_pgs > MAX_PAGE_BUFFER_COUNT)) {
+ 		if (skb_linearize(skb)) {
+ 			net_alert_ratelimited("failed to linearize skb\n");
+ 			ret = -ENOMEM;
  			goto drop;
  		}
- 	}
-@@ -398,11 +394,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	 * structure.
- 	 */
- 	ret = skb_cow_head(skb, RNDIS_AND_PPI_SIZE);
--	if (ret) {
--		netdev_err(net, "unable to alloc hv_netvsc_packet\n");
--		ret = -ENOMEM;
--		goto drop;
--	}
-+	if (ret)
-+		goto no_memory;
+-		linear = true;
+-		goto check_size;
 +
- 	/* Use the skb control buffer for building up the packet */
- 	BUILD_BUG_ON(sizeof(struct hv_netvsc_packet) >
- 			FIELD_SIZEOF(struct sk_buff, cb));
-@@ -518,7 +512,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
++		num_data_pgs = netvsc_get_slots(skb) + 2;
++		if (num_data_pgs > MAX_PAGE_BUFFER_COUNT) {
++			net_alert_ratelimited("packet too big: %u pages (%u bytes)\n",
++					      num_data_pgs, skb->len);
++			ret = -EFAULT;
++			goto drop;
++		}
+ 	}
  
- 		ret = skb_cow_head(skb, 0);
- 		if (ret)
--			goto drop;
-+			goto no_memory;
+ 	/*
+@@ -418,8 +416,6 @@ check_size:
  
- 		uh = udp_hdr(skb);
- 		udp_len = ntohs(uh->len);
-@@ -545,20 +539,32 @@ do_send:
+ 	memset(rndis_msg, 0, RNDIS_AND_PPI_SIZE);
+ 
+-	isvlan = skb->vlan_tci & VLAN_TAG_PRESENT;
+-
+ 	/* Add the rndis header */
+ 	rndis_msg->ndis_msg_type = RNDIS_MSG_PACKET;
+ 	rndis_msg->msg_len = packet->total_data_buflen;
+@@ -438,7 +434,7 @@ check_size:
+ 		*(u32 *)((void *)ppi + ppi->ppi_offset) = hash;
+ 	}
+ 
+-	if (isvlan) {
++	if (skb_vlan_tag_present(skb)) {
+ 		struct ndis_pkt_8021q_info *vlan;
+ 
+ 		rndis_msg_size += NDIS_VLAN_PPI_SIZE;
+@@ -459,8 +455,37 @@ check_size:
+ 	 * Setup the sendside checksum offload only if this is not a
+ 	 * GSO packet.
+ 	 */
+-	if (skb_is_gso(skb))
+-		goto do_lso;
++	if (skb_is_gso(skb)) {
++		struct ndis_tcp_lso_info *lso_info;
++
++		rndis_msg_size += NDIS_LSO_PPI_SIZE;
++		ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
++				    TCP_LARGESEND_PKTINFO);
++
++		lso_info = (struct ndis_tcp_lso_info *)((void *)ppi +
++							ppi->ppi_offset);
++
++		lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
++		if (net_trans_info & (INFO_IPV4 << 16)) {
++			lso_info->lso_v2_transmit.ip_version =
++				NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
++			ip_hdr(skb)->tot_len = 0;
++			ip_hdr(skb)->check = 0;
++			tcp_hdr(skb)->check =
++				~csum_tcpudp_magic(ip_hdr(skb)->saddr,
++						   ip_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
++		} else {
++			lso_info->lso_v2_transmit.ip_version =
++				NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
++			ipv6_hdr(skb)->payload_len = 0;
++			tcp_hdr(skb)->check =
++				~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
++						 &ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
++		}
++		lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
++		lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
++		goto do_send;
++	}
+ 
+ 	if ((skb->ip_summed == CHECKSUM_NONE) ||
+ 	    (skb->ip_summed == CHECKSUM_UNNECESSARY))
+@@ -507,35 +532,6 @@ check_size:
+ 
+ 		csum_info->transmit.udp_checksum = 0;
+ 	}
+-	goto do_send;
+-
+-do_lso:
+-	rndis_msg_size += NDIS_LSO_PPI_SIZE;
+-	ppi = init_ppi_data(rndis_msg, NDIS_LSO_PPI_SIZE,
+-			    TCP_LARGESEND_PKTINFO);
+-
+-	lso_info = (struct ndis_tcp_lso_info *)((void *)ppi +
+-			ppi->ppi_offset);
+-
+-	lso_info->lso_v2_transmit.type = NDIS_TCP_LARGE_SEND_OFFLOAD_V2_TYPE;
+-	if (net_trans_info & (INFO_IPV4 << 16)) {
+-		lso_info->lso_v2_transmit.ip_version =
+-			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV4;
+-		ip_hdr(skb)->tot_len = 0;
+-		ip_hdr(skb)->check = 0;
+-		tcp_hdr(skb)->check =
+-		~csum_tcpudp_magic(ip_hdr(skb)->saddr,
+-				   ip_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
+-	} else {
+-		lso_info->lso_v2_transmit.ip_version =
+-			NDIS_TCP_LARGE_SEND_OFFLOAD_IPV6;
+-		ipv6_hdr(skb)->payload_len = 0;
+-		tcp_hdr(skb)->check =
+-		~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+-				&ipv6_hdr(skb)->daddr, 0, IPPROTO_TCP, 0);
+-	}
+-	lso_info->lso_v2_transmit.tcp_header_offset = hdr_offset;
+-	lso_info->lso_v2_transmit.mss = skb_shinfo(skb)->gso_size;
+ 
+ do_send:
+ 	/* Start filling in the page buffers with the rndis hdr */
+@@ -548,21 +544,21 @@ do_send:
+ 	skb_tx_timestamp(skb);
  	ret = netvsc_send(net_device_ctx->device_ctx, packet,
  			  rndis_msg, &pb, skb);
- 	if (likely(ret == 0)) {
-+		struct netvsc_stats *tx_stats = this_cpu_ptr(net_device_ctx->tx_stats);
-+
+-
+-drop:
+-	if (ret == 0) {
++	if (likely(ret == 0)) {
  		u64_stats_update_begin(&tx_stats->syncp);
  		tx_stats->packets++;
  		tx_stats->bytes += skb_length;
  		u64_stats_update_end(&tx_stats->syncp);
- 		return NETDEV_TX_OK;
+-	} else {
+-		if (ret != -EAGAIN) {
+-			dev_kfree_skb_any(skb);
+-			net->stats.tx_dropped++;
+-		}
++		return NETDEV_TX_OK;
  	}
--	if (ret == -EAGAIN)
++	if (ret == -EAGAIN)
++		return NETDEV_TX_BUSY;
 +
-+	if (ret == -EAGAIN) {
-+		++net_device_ctx->eth_stats.tx_busy;
- 		return NETDEV_TX_BUSY;
-+	}
-+
-+	if (ret == -ENOSPC)
-+		++net_device_ctx->eth_stats.tx_no_space;
++drop:
++	dev_kfree_skb_any(skb);
++	net->stats.tx_dropped++;
  
- drop:
- 	dev_kfree_skb_any(skb);
- 	net->stats.tx_dropped++;
- 
- 	return NETDEV_TX_OK;
-+
-+no_memory:
-+	++net_device_ctx->eth_stats.tx_no_memory;
-+	goto drop;
+-	return (ret == -EAGAIN) ? NETDEV_TX_BUSY : NETDEV_TX_OK;
++	return NETDEV_TX_OK;
  }
  
  /*
-@@ -1015,6 +1021,51 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	return err;
- }
- 
-+static const struct {
-+	char name[ETH_GSTRING_LEN];
-+	u16 offset;
-+} netvsc_stats[] = {
-+	{ "tx_scattered", offsetof(struct netvsc_ethtool_stats, tx_scattered) },
-+	{ "tx_no_memory",  offsetof(struct netvsc_ethtool_stats, tx_no_memory) },
-+	{ "tx_no_space",  offsetof(struct netvsc_ethtool_stats, tx_no_space) },
-+	{ "tx_too_big",	  offsetof(struct netvsc_ethtool_stats, tx_too_big) },
-+	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
-+};
-+
-+static int netvsc_get_sset_count(struct net_device *dev, int string_set)
-+{
-+	switch (string_set) {
-+	case ETH_SS_STATS:
-+		return ARRAY_SIZE(netvsc_stats);
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static void netvsc_get_ethtool_stats(struct net_device *dev,
-+				     struct ethtool_stats *stats, u64 *data)
-+{
-+	struct net_device_context *ndc = netdev_priv(dev);
-+	const void *nds = &ndc->eth_stats;
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
-+		data[i] = *(unsigned long *)(nds + netvsc_stats[i].offset);
-+}
-+
-+static void netvsc_get_strings(struct net_device *dev, u32 stringset, u8 *data)
-+{
-+	int i;
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < ARRAY_SIZE(netvsc_stats); i++)
-+			memcpy(data + i * ETH_GSTRING_LEN,
-+			       netvsc_stats[i].name, ETH_GSTRING_LEN);
-+		break;
-+	}
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void netvsc_poll_controller(struct net_device *net)
- {
-@@ -1027,6 +1078,9 @@ static void netvsc_poll_controller(struct net_device *net)
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
-+	.get_ethtool_stats = netvsc_get_ethtool_stats,
-+	.get_sset_count = netvsc_get_sset_count,
-+	.get_strings	= netvsc_get_strings,
- 	.get_channels   = netvsc_get_channels,
- 	.set_channels   = netvsc_set_channels,
- 	.get_ts_info	= ethtool_op_get_ts_info,
 -- 
 2.9.3
