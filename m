@@ -1,141 +1,115 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next V3 15/15] net/mlx5: Introduce alloc_encap and dealloc_encap commands
-Date: Tue, 23 Aug 2016 11:49:17 +0300
-Message-ID: <1471942157-9131-16-git-send-email-saeedm@mellanox.com>
-References: <1471942157-9131-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36796 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1757218AbcHWIvM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 04:51:12 -0400
-In-Reply-To: <1471942157-9131-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Tue, 23 Aug 2016 10:51:47 +0200
+Message-ID: <20160823085144.GA22304@penelope.isobedori.kobe.vergenet.net>
+References: <20160718045025.GA2490@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
+ <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
+ <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
+ <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
+ <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Ilya Lesokhin <ilyal@mellanox.com>
-
-Implement low-level commands to support vxlan encapsulation.
-
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
----
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c    |  4 ++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c | 48 ++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h |  7 ++++
- 3 files changed, 59 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 23b95da..00bec60 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -301,6 +301,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_MODIFY_FLOW_TABLE:
- 	case MLX5_CMD_OP_SET_FLOW_TABLE_ENTRY:
- 	case MLX5_CMD_OP_SET_FLOW_TABLE_ROOT:
-+	case MLX5_CMD_OP_DEALLOC_ENCAP_HEADER:
- 		return MLX5_CMD_STAT_OK;
- 
- 	case MLX5_CMD_OP_QUERY_HCA_CAP:
-@@ -402,6 +403,7 @@ static int mlx5_internal_err_ret_value(struct mlx5_core_dev *dev, u16 op,
- 	case MLX5_CMD_OP_QUERY_FLOW_TABLE_ENTRY:
- 	case MLX5_CMD_OP_ALLOC_FLOW_COUNTER:
- 	case MLX5_CMD_OP_QUERY_FLOW_COUNTER:
-+	case MLX5_CMD_OP_ALLOC_ENCAP_HEADER:
- 		*status = MLX5_DRIVER_STATUS_ABORTED;
- 		*synd = MLX5_DRIVER_SYND;
- 		return -EIO;
-@@ -550,6 +552,8 @@ const char *mlx5_command_str(int command)
- 	MLX5_COMMAND_STR_CASE(DEALLOC_FLOW_COUNTER);
- 	MLX5_COMMAND_STR_CASE(QUERY_FLOW_COUNTER);
- 	MLX5_COMMAND_STR_CASE(MODIFY_FLOW_TABLE);
-+	MLX5_COMMAND_STR_CASE(ALLOC_ENCAP_HEADER);
-+	MLX5_COMMAND_STR_CASE(DEALLOC_ENCAP_HEADER);
- 	default: return "unknown command opcode";
- 	}
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-index e64499e..7aaefa9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c
-@@ -424,3 +424,51 @@ void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
- 	*packets = MLX5_GET64(traffic_counter, stats, packets);
- 	*bytes = MLX5_GET64(traffic_counter, stats, octets);
- }
-+
-+#define MAX_ENCAP_SIZE (128)
-+
-+int mlx5_cmd_alloc_encap(struct mlx5_core_dev *dev,
-+			 int header_type,
-+			 size_t size,
-+			 void *encap_header,
-+			 u32 *encap_id)
-+{
-+	u32 out[MLX5_ST_SZ_DW(alloc_encap_header_out)];
-+	u32 in[MLX5_ST_SZ_DW(alloc_encap_header_in) +
-+	      (MAX_ENCAP_SIZE / sizeof(u32))];
-+	void *encap_header_in = MLX5_ADDR_OF(alloc_encap_header_in, in,
-+					     encap_header);
-+	void *header = MLX5_ADDR_OF(encap_header_in, encap_header_in,
-+				    encap_header);
-+	int inlen = header - (void *)in  + size;
-+	int err;
-+
-+	if (size > MAX_ENCAP_SIZE)
-+		return -EINVAL;
-+
-+	memset(in, 0, inlen);
-+	MLX5_SET(alloc_encap_header_in, in, opcode,
-+		 MLX5_CMD_OP_ALLOC_ENCAP_HEADER);
-+	MLX5_SET(encap_header_in, encap_header_in, encap_header_size, size);
-+	MLX5_SET(encap_header_in, encap_header_in, header_type, header_type);
-+	memcpy(header, encap_header, size);
-+
-+	memset(out, 0, sizeof(out));
-+	err = mlx5_cmd_exec(dev, in, inlen, out, sizeof(out));
-+
-+	*encap_id = MLX5_GET(alloc_encap_header_out, out, encap_id);
-+	return err;
-+}
-+
-+void mlx5_cmd_dealloc_encap(struct mlx5_core_dev *dev, u32 encap_id)
-+{
-+	u32 in[MLX5_ST_SZ_DW(dealloc_encap_header_in)];
-+	u32 out[MLX5_ST_SZ_DW(dealloc_encap_header_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	MLX5_SET(dealloc_encap_header_in, in, opcode,
-+		 MLX5_CMD_OP_DEALLOC_ENCAP_HEADER);
-+	MLX5_SET(dealloc_encap_header_in, in, encap_id, encap_id);
-+
-+	mlx5_cmd_exec(dev, in, sizeof(in), out, sizeof(out));
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-index 158844c..ac52fdf 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h
-@@ -88,4 +88,11 @@ void mlx5_cmd_fc_bulk_get(struct mlx5_core_dev *dev,
- 			  struct mlx5_cmd_fc_bulk *b, u16 id,
- 			  u64 *packets, u64 *bytes);
- 
-+int mlx5_cmd_alloc_encap(struct mlx5_core_dev *dev,
-+			 int header_type,
-+			 size_t size,
-+			 void *encap_header,
-+			 u32 *encap_id);
-+void mlx5_cmd_dealloc_encap(struct mlx5_core_dev *dev, u32 encap_id);
-+
- #endif
--- 
-2.7.4
+T24gTW9uLCBBdWcgMjIsIDIwMTYgYXQgMDI6NDc6NDJQTSAtMDcwMCwgSm9lIFN0cmluZ2VyIHdy
+b3RlOgo+IE9uIDIyIEF1Z3VzdCAyMDE2IGF0IDA0OjA0LCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhv
+cm1hbkBuZXRyb25vbWUuY29tPiB3cm90ZToKPiA+IE9uIFdlZCwgQXVnIDEwLCAyMDE2IGF0IDEw
+OjE3OjMwQU0gLTA3MDAsIEpvZSBTdHJpbmdlciB3cm90ZToKPiA+PiBPbiAxMCBBdWd1c3QgMjAx
+NiBhdCAwMzoyMCwgU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3Jv
+dGU6Cj4gPj4gPiBPbiBUdWUsIEF1ZyAwOSwgMjAxNiBhdCAwODo0Nzo0MEFNIC0wNzAwLCBwcmF2
+aW4gc2hlbGFyIHdyb3RlOgo+ID4+ID4+IE9uIE1vbiwgQXVnIDgsIDIwMTYgYXQgODoxNyBBTSwg
+U2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gPj4gPj4g
+PiBMaWdodCB0ZXN0aW5nIHNlZW1zIHRvIGluZGljYXRlIHRoYXQgaXQgd29ya3MgZm9yIEdTTyBz
+a2JzCj4gPj4gPj4gPiByZWNlaXZlZCBvdmVyIGJvdGggTDMgYW5kIEwyIEdSRSB0dW5uZWxzIGJ5
+IE92UyB3aXRoIGJvdGgKPiA+PiA+PiA+IElQLWluLU1QTFMgYW5kIElQICh3aXRob3V0IE1QTFMp
+IHBheWxvYWRzLgo+ID4+ID4+ID4KPiA+PiA+Pgo+ID4+ID4+IFRoYW5rcyBmb3IgdGVzdGluZyBp
+dC4gQ2FuIHlvdSBhbHNvIGFkZCB0aG9zZSB0ZXN0cyB0byBPVlMga21vZCB0ZXN0IHN1aXRlPwo+
+ID4+ID4+IC4uCj4gPj4gPgo+ID4+ID4gU3VyZSwgSSB3aWxsIGxvb2sgaW50byBkb2luZyB0aGF0
+Lgo+ID4+ID4gQW0gSSBjb3JyZWN0IGluIHRoaW5raW5nIEpvZSBTdHJpbmdlciBpcyB0aGUgYmVz
+dCBwZXJzb24gdG8gY29udGFjdCBpZgo+ID4+ID4gSSBydW4gaW50byB0cm91YmxlIHRoZXJlPwo+
+ID4+Cj4gPj4gU3VyZS4gVGhlIGJhc2ljcyBvZiBydW5uaW5nIHRoZSB0ZXN0cyBpcyBkb2N1bWVu
+dGVkIGhlcmU6Cj4gPj4gaHR0cHM6Ly9naXRodWIuY29tL29wZW52c3dpdGNoL292cy9ibG9iL21h
+c3Rlci9JTlNUQUxMLm1kI2RhdGFwYXRoLXRlc3RpbmcKPiA+Pgo+ID4+IFlvdSBzaG91bGQgYmUg
+YWJsZSB0byBnZXQgYSBnb29kIGZlZWwgZm9yIGhvdyB0byBhZGQgdGVzdHMgYnkgcGVydXNpbmcK
+PiA+PiB0aGUgY29tbWl0cyB0byB0ZXN0cy9zeXN0ZW0te3RyYWZmaWMsa21vZC1tYWNyb3N9LmF0
+IGluIHRoZSBPVlMgc291cmNlCj4gPj4gdHJlZS4KPiA+Cj4gPiBUaGFua3MgSm9lLAo+ID4KPiA+
+IGl0IHRvb2sgbWUgYSB3aGlsZSBidXQgSSB0aGluayB0aGF0IEkgaGF2ZSBzb21ldGhpbmcgd29y
+a2luZwo+ID4gYWdhaW5zdCB0aGUgaGVhZCBicmFuY2ggb2YgdGhlIE9WUyB0cmVlLiBJJ2QgdmFs
+dWUgb3BpbmlvbnMKPiA+IG9uIHRoZSBkaXJlY3Rpb24gSSBoYXZlIHRha2VuLgo+ID4KPiA+IFN1
+YmplY3Q6IFtQQVRDSF0gc3lzdGVtLXRyYWZmaWM6IEV4ZXJjaXNlIEdTTwo+ID4KPiA+IEV4ZXJj
+aXNlIEdTTyBmb3I6IHVuZW5jYXBzdWxhdGVkOyBNUExTOyBHUkU7IGFuZCBNUExTIGluIEdSRS4K
+PiA+Cj4gPiBUaGVyZSBpcyBzY29wZSB0byBleHRlbmQgdGhpcyB0ZXN0aW5nIHRvIG90aGVyIGVu
+Y2Fwc3VsYXRpb24gZm9ybWF0cwo+ID4gaWYgZGVzaXJlZC4KPiA+Cj4gPiBUaGlzIGlzIG1vdGl2
+YXRlZCBieSBhIGRlc2lyZSB0byB0ZXN0IEdSRSBhbmQgTVBMUyBlbmNhcHN1bGF0aW9uIGluCj4g
+PiB0aGUgY29udGV4dCBvZiBMMy9WUE4gKE1QTFMgb3ZlciBub24tVEVCIEdSRSB3b3JrKS4gVGhh
+dCBpcyBub3QKPiA+IHRlc3RlZCBoZXJlIGJ1dCB0ZXN0cyBmb3IgdGhvc2UgY2FzZXMgd291bGQg
+aWRlYWxseSBiZSBiYXNlZCBvbiB0aG9zZSBpbgo+ID4gdGhpcyBwYXRjaC4KPiAKPiBUaGlzIG1h
+a2VzIHNlbnNlIHRvIG1lLiBUaGVyZSdzIGEgZmV3IGNvcm5lcnMgdGhhdCBjb3VsZCBiZSBpbXBy
+b3ZlZCwKPiBwcmltYXJpbHkgZm9yIHJlcHJvZHVjaW5nIHNhbmUgcmVzdWx0cyBvbiBhIHZhcmll
+dHkgb2Ygc3lzdGVtcywgdGhlbiBhCj4gY291cGxlIG9mIHN0eWxlIGNvbW1lbnRzLiBQbGVhc2Ug
+ZG8gcnVuIHRoZSB0ZXN0cyB2aWEgYm90aCAibWFrZQo+IGNoZWNrLWtlcm5lbCIgYW5kICJtYWtl
+IGNoZWNrLXN5c3RlbS11c2Vyc3BhY2UiIGJlZm9yZSBzdWJtaXR0aW5nLAo+IGlkZWFsbHkgd2l0
+aCBhdCBsZWFzdCB0d28gdmFyaWV0aWVzIG9mIGtlcm5lbDogT25lIHdoZXJlIHlvdSB3b3VsZAo+
+IGV4cGVjdCB0aGUgdGVzdCB0byBwYXNzLCBhbmQgb25lIHdoZXJlIHlvdSB3b3VsZCBleHBlY3Qg
+dGhlIHRlc3RzIHRvCj4gYmUgc2tpcHBlZC4KClRoYW5rcy4gSSdtIGdsYWQgSSByYW4gdGhpcyBi
+eSB5b3UgYmVmb3JlIGV4cGFuZGluZyB0aGUgbnVtYmVyIG9mIHRlc3RzLgoKPiAqIENIRUNLX01Q
+TFMgaXMgZGVmaW5lZCBpbiBzeXN0ZW0ta21vZC1tYWNyb3MuYXQsIHNvIGEgY29ycmVzcG9uZGlu
+Zwo+IHZlcnNpb24gc2hvdWxkIGJlIHByb3ZpZGVkIGluIHN5c3RlbS11c2Vyc3BhY2UtbWFjcm9z
+LmF0LiBJZiB0aGUKPiBjcml0ZXJpYSBmb3IgcnVubmluZyB0aGUgdGVzdChzKSB3aXRoIGJvdGgg
+dXNlcnNwYWNlIGFuZCBrZXJuZWwKPiBkYXRhcGF0aHMgaXMgdGhlIHNhbWUsIHRoZW4gdGhpcyBj
+b3VsZCBpbnN0ZWFkIGJlIG1vdmVkIGludG8KPiBzeXN0ZW0tY29tbW9uLW1hY3Jvcy5hdC4KClVu
+ZGVyc3Rvb2QuCgo+ICogImRhdGFwYXRoIC0gcGluZyBvdmVyIGdyZSB0dW5uZWwiIGFkZHMgYSBj
+b21tYW5kIHRvIGV4ZWN1dGUgaW4KPiBhdF9uczEsIGJ1dCB0aGF0IG5hbWVzcGFjZSBkb2Vzbid0
+IGV4aXN0LgoKT29wcy4KCj4gKiAiZGF0YXBhdGggLSBodHRwIG92ZXIgZ3JlIHR1bm5lbCIgaXMg
+bWlzc2luZyBNUExTX0NIRUNLLgoKVGhhbmtzLCBJJ2xsIGZpeCB0aGF0LgoKPiAqIElzIHRoZXJl
+IGEgd2F5IHRvIGNsZWFyIHRoZSBuZXRzdGF0IHN0YXRpc3RpY3MgYmVmb3JlIHJ1bm5pbmcgdGhl
+Cj4gdGVzdHMgd2hpY2ggcmVseSBvbiBpdD8gSSdtIGdldHRpbmcgYSBmYWlsdXJlIG9uIG9uZSBv
+ZiBteSBzeXN0ZW1zCj4gKHVidW50dSB0cnVzdHkgd2l0aCBhIDQuNyBrZXJuZWwpLCBidXQgSSdt
+IG5vdCBzdXJlIGlmIHRoZSBjb3VudGVyIHdhcwo+IGFscmVhZHkgaGlnaCBiZWZvcmUgSSByYW4g
+dGhlIHRlc3QuCgpJJ2xsIGxvb2sgaW50byB0aGF0LiBJZiBub3QgdGhleSBjb3VsZCBiZSByZWNv
+cmRlZCB0byBhbGxvdyBhIGNoZWNrCmZvciBhIG5vbi16ZXJvIGRlbHRhLgoKUG9zc2libHkgYW4g
+ZW50aXJlbHkgZGlmZmVyZW50IG1lY2hhbmlzbSBpcyBuZWVkZWQgdG8gY2hlY2sgZm9yIEdTTwpm
+dW5jdGlvbmluZy4gQnV0IEknbSBub3Qgc3VyZSB3aGF0IGl0IHdvdWxkIGJlIGF0IHRoaXMgcG9p
+bnQuCgo+ICogImRhdGFwYXRoIC0gaHR0cCBvdmVyIG1wbHMgYmV0d2VlbiB0d28gcG9ydHMiICAo
+bWF5YmUgb3RoZXJzIHRvbz8pCj4gc2hvdWxkIHNoaWZ0IGFsbCBvcGVuZmxvdyBydWxlcyBpbnRv
+IGEgc2luZ2xlIHNlY3Rpb24gdXNpbmcgQVRfREFUQSwKPiBzaW1pbGFyIHRvIHRoZSBvdGhlciB0
+ZXN0cy4gVGhpcyBtYWtlcyBpdCBlYXNpZXIgdG8gcmVhc29uIGFib3V0IHRoZQo+IGZsb3cgdGFi
+bGUgYW5kIHVuZGVyc3RhbmQgd2hhdCdzIGdvaW5nIG9uIGJlZm9yZSByZWFkaW5nIHRocm91Z2gg
+dGhlCj4gcmVzdCBvZiB0aGUgdGVzdC4KClN1cmUsIHdpbGwgZG8uCgo+ICogSWYgdGhlcmUgaXMg
+YSBjb21tb24gc2V0IG9mIGNvbmZpZ3VyYXRpb24geW91IGRvIGZvciBsb2NhbCBzdGFjawo+IHdp
+dGhpbiBhIG5hbWVzcGFjZSB0byByb3V0ZSBNUExTIHRyYWZmaWMsIHlvdSBjb3VsZCBjb25zaWRl
+ciBhZGRpbmcKPiBhbm90aGVyIG1hY3JvIGludG8gc3lzdGVtLWNvbW1vbi1tYWNyb3MuYXQuCgpP
+aywgcG9zc2libHkgdGhlcmUgaXMgaWYgc29tZSBvZiB0aGUgY29uZmlndXJhdGlvbiBpcyBwYXJh
+bWV0cmlzZWQ6CmUuZy4gb3ZlciB0aGUgbmFtZXNwYWNlL25ldGRldiB0byBzZW5kL3JlY2VpdmUg
+TVBMUyB1c2luZyBuYXRpdmUgTGludXggTVBMUwpyb3V0aW5nLgoKPiBJIGFsc28gc2VlIHRoaXMg
+ZXJyb3Igb24gImh0dHAgb3ZlciBtcGxzIG92ZXIgZ3JlIHR1bm5lbCI6Cj4gK3NoOiAxOiBjYW5u
+b3QgY3JlYXRlIC9wcm9jL3N5cy9uZXQvbXBscy9jb25mL25zX2dyZTAvaW5wdXQ6IERpcmVjdG9y
+eQo+IG5vbmV4aXN0ZW50Cj4gCj4gTWF5YmUgTVBMUyArIEdSRSBuZWVkcyBhIHNlcGFyYXRlIGNo
+ZWNrPwoKWWVzLCB0aGF0IGlzIHByb2JhYmx5IHRoZSBjYXNlLgoKSSBiZWxpZXZlIHNvbWUgdmVy
+c2lvbnMgb2YgdGhlIGtlcm5lbCBzdXBwb3J0IE1QTFMgcm91dGluZyBmb3IKc29tZSBpbnRlcmZh
+Y2VzIGJ1dCBub3QgR1JFIGludGVyZmFjZXMuCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcK
+aHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
