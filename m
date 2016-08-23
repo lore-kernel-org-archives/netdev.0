@@ -1,65 +1,70 @@
-From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-Subject: [PATCH v2 1/1] brcmfmac: fix pmksa->bssid usage
-Date: Tue, 23 Aug 2016 11:37:17 +0200
-Message-ID: <20160823093717.1065-1-nicolas.iooss_linux@m4x.org>
-References: <7fc849f7-c178-d13e-e9cf-d107a9f73c61@m4x.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Nicolas Iooss <nicolas.iooss_linux@m4x.org>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        linux-wireless@vger.kernel.org, brcm80211-dev-list.pdl@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7fc849f7-c178-d13e-e9cf-d107a9f73c61@m4x.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] ip-route: Prevent some double spaces in output
+Date: Tue, 23 Aug 2016 11:52:45 +0200
+Message-ID: <1471945965-17331-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:35222 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757454AbcHWJw6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 05:52:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The struct cfg80211_pmksa defines its bssid field as:
+The code is a bit messy, as it starts with space after text and at some
+point switches to space before text. But either way, printing space
+before *and* after text almost certainly leads to printing more
+whitespace than necessary.
 
-    const u8 *bssid;
-
-contrary to struct brcmf_pmksa, which uses:
-
-    u8 bssid[ETH_ALEN];
-
-Therefore in brcmf_cfg80211_del_pmksa(), &pmksa->bssid takes the address
-of this field (of type u8**), not the one of its content (which would be
-u8*).  Remove the & operator to make brcmf_dbg("%pM") and memcmp()
-behave as expected.
-
-This bug have been found using a custom static checker (which checks the
-usage of %p... attributes at build time).  It has been introduced in
-commit 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code"),
-which replaced pmksa->bssid by &pmksa->bssid while refactoring the code,
-without modifying struct cfg80211_pmksa definition.
-
-Replace &pmk[i].bssid with pmk[i].bssid too to make the code clearer,
-this change does not affect the semantic.
-
-Fixes: 6c404f34f2bd ("brcmfmac: Cleanup pmksa cache handling code")
-Cc: stable@vger.kernel.org
-Signed-off-by: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ ip/iproute.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-index 2628d5e12c64..201a98016142 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-@@ -3884,11 +3884,11 @@ brcmf_cfg80211_del_pmksa(struct wiphy *wiphy, struct net_device *ndev,
- 	if (!check_vif_up(ifp->vif))
- 		return -EIO;
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 3da23af9fdffc..4d7da0233046d 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -417,22 +417,22 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "dev %s ", ll_index_to_name(*(int *)RTA_DATA(tb[RTA_OIF])));
  
--	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", &pmksa->bssid);
-+	brcmf_dbg(CONN, "del_pmksa - PMK bssid = %pM\n", pmksa->bssid);
+ 	if (table && (table != RT_TABLE_MAIN || show_details > 0) && !filter.tb)
+-		fprintf(fp, " table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
++		fprintf(fp, "table %s ", rtnl_rttable_n2a(table, b1, sizeof(b1)));
+ 	if (!(r->rtm_flags&RTM_F_CLONED)) {
+ 		if ((r->rtm_protocol != RTPROT_BOOT || show_details > 0) && filter.protocolmask != -1)
+-			fprintf(fp, " proto %s ", rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
++			fprintf(fp, "proto %s ", rtnl_rtprot_n2a(r->rtm_protocol, b1, sizeof(b1)));
+ 		if ((r->rtm_scope != RT_SCOPE_UNIVERSE || show_details > 0) && filter.scopemask != -1)
+-			fprintf(fp, " scope %s ", rtnl_rtscope_n2a(r->rtm_scope, b1, sizeof(b1)));
++			fprintf(fp, "scope %s ", rtnl_rtscope_n2a(r->rtm_scope, b1, sizeof(b1)));
+ 	}
+ 	if (tb[RTA_PREFSRC] && filter.rprefsrc.bitlen != host_len) {
+ 		/* Do not use format_host(). It is our local addr
+ 		   and symbolic name will not be useful.
+ 		 */
+-		fprintf(fp, " src %s ",
++		fprintf(fp, "src %s ",
+ 			rt_addr_n2a_rta(r->rtm_family, tb[RTA_PREFSRC]));
+ 	}
+ 	if (tb[RTA_PRIORITY])
+-		fprintf(fp, " metric %u ", rta_getattr_u32(tb[RTA_PRIORITY]));
++		fprintf(fp, "metric %u ", rta_getattr_u32(tb[RTA_PRIORITY]));
+ 	if (r->rtm_flags & RTNH_F_DEAD)
+ 		fprintf(fp, "dead ");
+ 	if (r->rtm_flags & RTNH_F_ONLINK)
+@@ -450,9 +450,9 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
  
- 	npmk = le32_to_cpu(cfg->pmk_list.npmk);
- 	for (i = 0; i < npmk; i++)
--		if (!memcmp(&pmksa->bssid, &pmk[i].bssid, ETH_ALEN))
-+		if (!memcmp(pmksa->bssid, pmk[i].bssid, ETH_ALEN))
- 			break;
+ 		if (mark) {
+ 			if (mark >= 16)
+-				fprintf(fp, " mark 0x%x", mark);
++				fprintf(fp, "mark 0x%x ", mark);
+ 			else
+-				fprintf(fp, " mark %u", mark);
++				fprintf(fp, "mark %u ", mark);
+ 		}
+ 	}
  
- 	if ((npmk > 0) && (i < npmk)) {
 -- 
-2.9.3
+2.8.2
