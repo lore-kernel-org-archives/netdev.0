@@ -1,61 +1,113 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: fix overrun in sctp_diag_dump_one()
-Date: Tue, 23 Aug 2016 14:30:49 -0300
-Message-ID: <20160823173049.GA11144@localhost.localdomain>
-References: <1471966852-6218-1-git-send-email-lrichard@redhat.com>
+From: Laura Abbott <labbott@redhat.com>
+Subject: [REGRESSION] Select hang with zero sized UDP packets
+Date: Tue, 23 Aug 2016 10:53:26 -0700
+Message-ID: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        Xin Long <lucien.xin@gmail.com>
-To: Lance Richardson <lrichard@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44284 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752109AbcHWRhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 23 Aug 2016 13:37:09 -0400
-Content-Disposition: inline
-In-Reply-To: <1471966852-6218-1-git-send-email-lrichard@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Sam Kumar <samanthakumar@google.com>,
+        Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 23, 2016 at 11:40:52AM -0400, Lance Richardson wrote:
-> The function sctp_diag_dump_one() currently performs a memcpy()
-> of 64 bytes from a 16 byte field into another 16 byte field. Fix
-> by using correct size, use sizeof to obtain correct size instead
-> of using a hard-coded constant.
-> 
-> Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+Hi,
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Fedora received a report[1] of a unit test failing on Ruby when using the
+4.7 kernel. This was a test to send a zero sized UDP packet. With the
+4.7 kernel, the test now timing out on a select instead of completing.
+The reduced ruby test is
 
-Dave, please consider it to -stable.
-Thanks!
+   def test_udp_recvfrom_nonblock
+     u1 = UDPSocket.new
+     u2 = UDPSocket.new
+     u1.bind("127.0.0.1", 0)
+     u2.send("", 0, u1.getsockname)
+     IO.select [u1]  # test gets stuck here
+   ensure
+     u1.close if u1
+     u2.close if u2
+   end
 
-> ---
->  net/sctp/sctp_diag.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> index bb69153..f3508aa 100644
-> --- a/net/sctp/sctp_diag.c
-> +++ b/net/sctp/sctp_diag.c
-> @@ -424,11 +424,13 @@ static int sctp_diag_dump_one(struct sk_buff *in_skb,
->  		paddr.v4.sin_family = AF_INET;
->  	} else {
->  		laddr.v6.sin6_port = req->id.idiag_sport;
-> -		memcpy(&laddr.v6.sin6_addr, req->id.idiag_src, 64);
-> +		memcpy(&laddr.v6.sin6_addr, req->id.idiag_src,
-> +		       sizeof(laddr.v6.sin6_addr));
->  		laddr.v6.sin6_family = AF_INET6;
->  
->  		paddr.v6.sin6_port = req->id.idiag_dport;
-> -		memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst, 64);
-> +		memcpy(&paddr.v6.sin6_addr, req->id.idiag_dst,
-> +		       sizeof(paddr.v6.sin6_addr));
->  		paddr.v6.sin6_family = AF_INET6;
->  	}
->  
-> -- 
-> 2.5.5
-> 
+
+which roughly corresponds to this in C
+
+int main()
+{
+         int fd1, fd2;
+         struct sockaddr_in addr1;
+         unsigned int len1;
+         int ret;
+         fd_set rfds;
+
+         fd1 = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
+         fd2 = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC, IPPROTO_UDP);
+
+         if (fd1 < 0 || fd2 < 0) {
+                 printf("socket fail");
+                 exit(1);
+         }
+
+         len1 = sizeof(addr1);
+
+         memset(&addr1, 0, sizeof(addr1));
+         addr1.sin_family = AF_INET;
+         addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
+         addr1.sin_port = htons(0);
+         ret = bind(fd1, (struct sockaddr *)&addr1, len1);
+         if (ret < 0) {
+                 printf("fu %d\n", errno);
+                 exit(1);
+         }
+
+         ret = getsockname(fd1, (struct sockaddr *)&addr1, &len1);
+         if (ret < 0) {
+                 printf("getsockname failed %d\n", errno);
+                 exit(1);
+         }
+         ret = sendto(fd2, "", 0, 0, (struct sockaddr *)&addr1, len1);
+         if (ret < 0) {
+                 printf("sendto failed %d\n", errno);
+                 exit(1);
+         }
+
+         FD_ZERO(&rfds);
+         FD_SET(fd1, &rfds);
+	// hang here
+         select(fd1+1, &rfds, NULL, NULL, NULL);
+}
+
+
+Bisection showed
+
+commit e6afc8ace6dd5cef5e812f26c72579da8806f5ac
+Author: samanthakumar <samanthakumar@google.com>
+Date:   Tue Apr 5 12:41:15 2016 -0400
+
+     udp: remove headers from UDP packets before queueing
+     
+     Remove UDP transport headers before queueing packets for reception.
+     This change simplifies a follow-up patch to add MSG_PEEK support.
+     
+     Signed-off-by: Sam Kumar <samanthakumar@google.com>
+     Signed-off-by: Willem de Bruijn <willemb@google.com>
+     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+As the offending commit. The issue is still reproducible on master
+as of this morning and I don't see anything explicitly tagged in
+net-next as fixing this.
+
+Any ideas?
+
+Thanks,
+Laura
+
+[1] https://bugzilla.redhat.com/show_bug.cgi?id=1365940
