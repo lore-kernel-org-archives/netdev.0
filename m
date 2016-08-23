@@ -1,92 +1,41 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH v2] net: lpc_eth: Check clk_prepare_enable() error
-Date: Tue, 23 Aug 2016 07:38:03 -0300
-Message-ID: <1471948683-29129-1-git-send-email-festevam@gmail.com>
-Cc: vz@mleia.com, netdev@vger.kernel.org,
-        Fabio Estevam <fabio.estevam@nxp.com>
-To: davem@davemloft.net
+From: Phil Sutter <phil@nwl.cc>
+Subject: [net-next PATCH] net: rtnetlink: Don't export empty RTAX_FEATURES
+Date: Tue, 23 Aug 2016 13:14:31 +0200
+Message-ID: <1471950871-9112-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:36800 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754223AbcHWKiP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 06:38:15 -0400
-Received: by mail-qk0-f196.google.com with SMTP id v123so10094653qkh.3
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 03:38:15 -0700 (PDT)
+Received: from orbyte.nwl.cc ([151.80.46.58]:45635 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757173AbcHWLXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 23 Aug 2016 07:23:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@nxp.com>
+Since the features bit field has bits for internal only use as well, it
+may happen that the kernel exports RTAX_FEATURES attribute with zero
+value which is pointless.
 
-clk_prepare_enable() may fail, so we should better check its return
-value and propagate it in the case of failure
+Fix this by making sure the attribute is added only if the exported
+value is non-zero.
 
-While at it, replace __lpc_eth_clock_enable() with a plain
-clk_prepare_enable/clk_disable_unprepare() call in order to
-simplify the code.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
-Changes since v1:
-- Replace __lpc_eth_clock_enable() with a plain
-clk_prepare_enable/clk_disable_unprepare() call (Vladimir)
+ net/core/rtnetlink.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- drivers/net/ethernet/nxp/lpc_eth.c | 19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 4d4ecba..cda87ba 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -475,14 +475,6 @@ static void __lpc_get_mac(struct netdata_local *pldat, u8 *mac)
- 	mac[5] = tmp >> 8;
- }
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 189cc78c77eba..318fc5231b2b4 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -704,6 +704,8 @@ int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics)
+ 			} else if (i == RTAX_FEATURES - 1) {
+ 				u32 user_features = metrics[i] & RTAX_FEATURE_MASK;
  
--static void __lpc_eth_clock_enable(struct netdata_local *pldat, bool enable)
--{
--	if (enable)
--		clk_prepare_enable(pldat->clk);
--	else
--		clk_disable_unprepare(pldat->clk);
--}
--
- static void __lpc_params_setup(struct netdata_local *pldat)
- {
- 	u32 tmp;
-@@ -1056,7 +1048,7 @@ static int lpc_eth_close(struct net_device *ndev)
- 	writel(0, LPC_ENET_MAC2(pldat->net_base));
- 	spin_unlock_irqrestore(&pldat->lock, flags);
- 
--	__lpc_eth_clock_enable(pldat, false);
-+	clk_disable_unprepare(pldat->clk);
- 
- 	return 0;
- }
-@@ -1197,11 +1189,14 @@ static int lpc_eth_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
- static int lpc_eth_open(struct net_device *ndev)
- {
- 	struct netdata_local *pldat = netdev_priv(ndev);
-+	int ret;
- 
- 	if (netif_msg_ifup(pldat))
- 		dev_dbg(&pldat->pdev->dev, "enabling %s\n", ndev->name);
- 
--	__lpc_eth_clock_enable(pldat, true);
-+	ret = clk_prepare_enable(pldat->clk);
-+	if (ret)
-+		return ret;
- 
- 	/* Suspended PHY makes LPC ethernet core block, so resume now */
- 	phy_resume(ndev->phydev);
-@@ -1320,7 +1315,9 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	}
- 
- 	/* Enable network clock */
--	__lpc_eth_clock_enable(pldat, true);
-+	ret = clk_prepare_enable(pldat->clk);
-+	if (ret)
-+		goto err_out_free_dev;
- 
- 	/* Map IO space */
- 	pldat->net_base = ioremap(res->start, resource_size(res));
++				if (!user_features)
++					continue;
+ 				BUILD_BUG_ON(RTAX_FEATURE_MASK & DST_FEATURE_MASK);
+ 				if (nla_put_u32(skb, i + 1, user_features))
+ 					goto nla_put_failure;
 -- 
-2.7.4
+2.8.2
