@@ -1,40 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
-Date: Tue, 23 Aug 2016 11:25:15 -0700 (PDT)
-Message-ID: <20160823.112515.318902967155957764.davem@davemloft.net>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: diag: slightly refactor the
+ inet_diag_bc_audit error checks.
+Date: Tue, 23 Aug 2016 11:31:27 -0700
+Message-ID: <1471977087.14381.32.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1471975571-26612-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, samanthakumar@google.com, willemb@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: labbott@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
+        davem@davemloft.net
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33102 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751710AbcHWScW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 14:32:22 -0400
+Received: by mail-pa0-f65.google.com with SMTP id vy10so10300540pac.0
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 11:31:29 -0700 (PDT)
+In-Reply-To: <1471975571-26612-1-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Laura Abbott <labbott@redhat.com>
-Date: Tue, 23 Aug 2016 10:53:26 -0700
-
-> Fedora received a report[1] of a unit test failing on Ruby when using
-> the
-> 4.7 kernel. This was a test to send a zero sized UDP packet. With the
-> 4.7 kernel, the test now timing out on a select instead of completing.
-> The reduced ruby test is
+On Wed, 2016-08-24 at 03:06 +0900, Lorenzo Colitti wrote:
+> This simplifies the code a bit and also allows inet_diag_bc_audit
+> to send to userspace an error that isn't EINVAL.
 > 
->   def test_udp_recvfrom_nonblock
->     u1 = UDPSocket.new
->     u2 = UDPSocket.new
->     u1.bind("127.0.0.1", 0)
->     u2.send("", 0, u1.getsockname)
->     IO.select [u1]  # test gets stuck here
->   ensure
->     u1.close if u1
->     u2.close if u2
->   end
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> ---
+>  net/ipv4/inet_diag.c | 35 ++++++++++++++++++++++++-----------
+>  1 file changed, 24 insertions(+), 11 deletions(-)
+> 
+> diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+> index 38c2c47..a835f94 100644
+> --- a/net/ipv4/inet_diag.c
+> +++ b/net/ipv4/inet_diag.c
+> @@ -706,10 +706,23 @@ static bool valid_port_comparison(const struct inet_diag_bc_op *op,
+>  	return true;
+>  }
+>  
+> -static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+> +static bool valid_markcond(const struct inet_diag_bc_op *op, int len,
+> +			   int *min_len)
+>  {
+> -	const void *bc = bytecode;
+> -	int  len = bytecode_len;
+> +	*min_len += sizeof(struct inet_diag_markcond);
+> +	return len >= *min_len;
+> +}
 
-Well, if there is no data, should select really wake up?
-
-I think it's valid not to.
+I do not see how this can compile, since you introduce "struct
+inet_diag_markcond" in the following patch ?
