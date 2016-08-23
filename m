@@ -1,60 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: CVE-2014-9900 fix is not upstream
-Date: Tue, 23 Aug 2016 13:34:05 -0700
-Message-ID: <1471984445.3746.129.camel@perches.com>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
-         <20160823.094029.1244944495918162255.davem@davemloft.net>
-         <1471973727.13300.162.camel@decadent.org.uk>
-         <20160823.112406.549221808236512285.davem@davemloft.net>
-         <20160823200941.GB2356@ZenIV.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 01/15] net: sched: cleanup qdisc_run and
+ __qdisc_run semantics
+Date: Tue, 23 Aug 2016 13:38:09 -0700
+Message-ID: <1471984689.14381.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+         <20160823202256.14368.76284.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: ben@decadent.org.uk, luis.henriques@canonical.com,
-        avijitnsec@codeaurora.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
+        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0110.hostedemail.com ([216.40.44.110]:33581 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752765AbcHWUgY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:36:24 -0400
-In-Reply-To: <20160823200941.GB2356@ZenIV.linux.org.uk>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36676 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755622AbcHWUiL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:38:11 -0400
+Received: by mail-pf0-f193.google.com with SMTP id y134so8805898pfg.3
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:38:11 -0700 (PDT)
+In-Reply-To: <20160823202256.14368.76284.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-08-23 at 21:09 +0100, Al Viro wrote:
-> On Tue, Aug 23, 2016 at 11:24:06AM -0700, David Miller wrote:
-> > > On some versions and architectures.  Can you guarantee that you will
-> > > notice when an exception appears?
-> > Again, show me the assembler output exhibiting the lack of
-> > initialization, for this specific structure and situation.
-> > 
-> > That's all that I'm asking.
-> ... and then we can file a bug report against the sodding compiler.  Note
-> that
-> struct ethtool_wolinfo {
->         __u32   cmd;
->         __u32   supported;
->         __u32   wolopts;
->         __u8    sopass[SOPASS_MAX];	// 6, actually
-> };
-> is not going to *have* padding.  Not on anything even remotely sane.
-> If array of 6 char as member of a struct requires 64bit alignment on some
-> architecture, I would really like some of what the designers of that ABI
-> must have been smoking.
-
-try this on x86-64
-
-$ pahole -C ethtool_wolinfo vmlinux
-struct ethtool_wolinfo {
-	__u32                      cmd;                  /*     0     4 */
-	__u32                      supported;            /*     4     4 */
-	__u32                      wolopts;              /*     8     4 */
-	__u8                       sopass[6];            /*    12     6 */
-
-	/* size: 20, cachelines: 1, members: 4 */
-	/* padding: 2 */
-	/* last cacheline: 20 bytes */
-};
+On Tue, 2016-08-23 at 13:22 -0700, John Fastabend wrote:
+> Currently __qdisc_run calls qdisc_run_end() but does not call
+> qdisc_run_begin(). This makes it hard to track pairs of
+> qdisc_run_{begin,end} across function calls.
+> 
+> To simplify reading these code paths and simpler code this
+> patch moves begin/end calls into qdisc_run().
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+Acked-by: Eric Dumazet <edumazet@google.com>
