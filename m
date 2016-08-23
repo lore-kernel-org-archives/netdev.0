@@ -1,55 +1,52 @@
-From: Mikko Rapeli <mikko.rapeli-X3B1VOXEql0@public.gmane.org>
-Subject: Re: [PATCH v05 38/72] include/uapi/linux/openvswitch.h:
- use __u32 from linux/types.h
-Date: Tue, 23 Aug 2016 09:49:21 +0300
-Message-ID: <20160823064921.GK5399@lakka.kapsi.fi>
-References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
- <1471890809-4383-39-git-send-email-mikko.rapeli@iki.fi>
- <20160822123938.02e885c4@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v6_repost 2/3] net: core: add SW stats to
+ if_stats_msg
+Date: Tue, 23 Aug 2016 00:04:15 -0700 (PDT)
+Message-ID: <20160823.000415.624700756560666111.davem@davemloft.net>
+References: <1471612650-4508-3-git-send-email-jiri@resnulli.us>
+        <57BBE47D.3060805@cumulusnetworks.com>
+        <20160823065318.GA1975@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160822123938.02e885c4@xeon-e3>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
+        nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, ogerlitz@mellanox.com,
+        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
+        gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
+        eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
+        hannes@stressinduktion.org, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48846 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751214AbcHWHEz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 03:04:55 -0400
+In-Reply-To: <20160823065318.GA1975@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBBdWcgMjIsIDIwMTYgYXQgMTI6Mzk6MzhQTSAtMDcwMCwgU3RlcGhlbiBIZW1taW5n
-ZXIgd3JvdGU6Cj4gT24gTW9uLCAyMiBBdWcgMjAxNiAyMDozMjo1NSArMDIwMAo+IE1pa2tvIFJh
-cGVsaSA8bWlra28ucmFwZWxpQGlraS5maT4gd3JvdGU6Cj4gCj4gPiBGaXhlcyB1c2Vyc3BhY2Ug
-Y29tcGlsZXIgZXJyb3I6Cj4gPiAKPiA+IGVycm9yOiB1bmtub3duIHR5cGUgbmFtZSDigJh1aW50
-MzJfdOKAmQo+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBNaWtrbyBSYXBlbGkgPG1pa2tvLnJhcGVs
-aUBpa2kuZmk+Cj4gPiAtLS0KPiA+ICBpbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2guaCB8
-IDQgKystLQo+ID4gIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVsZXRpb25z
-KC0pCj4gPiAKPiA+IGRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvb3BlbnZzd2l0Y2gu
-aCBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCj4gPiBpbmRleCBkOTVhMzAxLi42
-NDU0OTlhIDEwMDY0NAo+ID4gLS0tIGEvaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmgK
-PiA+ICsrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9vcGVudnN3aXRjaC5oCj4gPiBAQCAtNjMyLDgg
-KzYzMiw4IEBAIGVudW0gb3ZzX2hhc2hfYWxnIHsKPiA+ICAgKiBAaGFzaF9iYXNpczogYmFzaXMg
-dXNlZCBmb3IgY29tcHV0aW5nIGhhc2guCj4gPiAgICovCj4gPiAgc3RydWN0IG92c19hY3Rpb25f
-aGFzaCB7Cj4gPiAtCXVpbnQzMl90ICBoYXNoX2FsZzsgICAgIC8qIE9uZSBvZiBvdnNfaGFzaF9h
-bGcuICovCj4gPiAtCXVpbnQzMl90ICBoYXNoX2Jhc2lzOwo+ID4gKwlfX3UzMiAgaGFzaF9hbGc7
-ICAgICAvKiBPbmUgb2Ygb3ZzX2hhc2hfYWxnLiAqLwo+ID4gKwlfX3UzMiAgaGFzaF9iYXNpczsK
-PiA+ICB9Owo+ID4gIAo+ID4gIC8qKgo+IAo+IFRoaXMgaXMgYSBhIHJlYWwgaXNzdWUsIGJ1dCBi
-ZWluZyBidXJpZWQgaW4gYSBodWdlIHBhdGNoIHNlcmllcyBvZiBpbmNsdWRlCj4gZmlsZSBzdHVm
-ZiBJIGRvbid0IHRoaW5rIGFueW9uZSB3b3VsZCBzZWUgaXQuCgpUaGUgbWVjaGFuaXNtIGZvciBm
-aW5kaW5nIHRoaXMgaXNzdWUgdGhlIHNhbWUgYXMgZmluZGluZyBhIG1pc3NpbmcgaGVhZGVyIGZp
-bGUKZGVwZW5kZW5jeTogdGhlIHVhcGkgaGVhZGVyIHVzZXJzcGFjZSBjb21waWxlIHRlc3QuCgpo
-dHRwczovL2xrbWwub3JnL2xrbWwvMjAxNi84LzIyLzY1OQoKSSdtIHVzaW5nICJzY3JpcHRzL2dl
-dF9tYWludGFpbmVycy5wbCAtLW5vLXJvbGVzdGF0cyIgdG8gZmlsbCBpbiB0aGUgQ2M6IGxpc3QK
-Zm9yIGdpdCBzZW5kLWVtYWlsIHNvIGlmIE1BSU5UQUlORVJTIGlzIHVwdG9kYXRlLCB0aGVuIGNv
-cnJlY3QgbGlzdHMgYW5kCm1haW50YWluZXJzIHNob3VsZCBoYXZlIHRoZSByZWNlaXZlZCB0aGUg
-cGF0Y2hlcy4KCi1NaWtrbwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52
-c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 23 Aug 2016 08:53:18 +0200
+
+> Anyway I think that next level of nesting is not necessary. On
+> contrary, it is wrong. The current level is extensible, mixed and
+> flagged already. I don't see any reason why not to add whatever kind of
+> stats here. What makes IFLA_STATS_LINK_SW_64 or for example
+> IFLA_STATS_LINK_HW_ACL so special it has to be nested in some other
+> attr? I would understand it it would be values of one family, but that
+> is not the case.
+
+First, I agree with Roopa.  If we want to put this stuff out
+there is should be bucketed together in a nested attribute with
+other similar stats specifications.
+
+Second, the more I think about this what you're providing isn't
+actually a new statistic type.
+
+It's a filter.
+
+So why don't we just provide a filter specification that gets passed
+down into the driver.  And the user can ask for "SW stats" or whatever
+using that.
