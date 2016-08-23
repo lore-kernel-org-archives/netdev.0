@@ -1,353 +1,373 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH for-next 1/2] net: hns: Add support of ACPI to HNS driver RoCE Reset function
-Date: Wed, 24 Aug 2016 04:44:49 +0800
-Message-ID: <1471985090-202472-2-git-send-email-salil.mehta@huawei.com>
+From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH for-next 2/2] IB/hns: Add support of ACPI to the Hisilicon RoCE driver
+Date: Wed, 24 Aug 2016 04:44:50 +0800
+Message-ID: <1471985090-202472-3-git-send-email-salil.mehta@huawei.com>
 References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <xavier.huwei@huawei.com>,
-        <oulijun@huawei.com>, <yisen.zhuang@huawei.com>,
-        <mehta.salil.lnk@gmail.com>, <linux-rdma@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1471985090-202472-1-git-send-email-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In the Hip06 SoC, the RoCE Engine is part of the Hisilicon Network
-Subsystem and is dependent upon DSAF module. Therefore, certain
-functions like RESET are exposed through the common registers of
-HNS DSAF module which are memory-mapped by the HNS driver and
-currently can only be accessed through DT/syscon interface.
+This patch is meant to add support of ACPI to the Hisilicon RoCE
+driver.
 
-This patch adds the support of ACPI to the existing RoCE reset
-function in the HNS driver(please refer NOTE 2). Hisilicon RoCE
-driver (please refer NOTE 1) shall call this reset function during
-probe time to reset the RoCE Engine.
+Changes done are primarily meant to detect the type and then either
+use DT specific or ACPI spcific functions. Where ever possible,
+this patch tries to make use of Unified Device Property Interface
+APIs to support both DT and ACPI through single interface.
 
-The HNS Reset function indirectly ends up in calling the _DSM()
-function part of the DSDT ACPI Table. Actual reset functionality
-for ACPI is implemented within the ACPI DSDT Table which also has
-been enhanced to support this change.
+This patch depends upon HNS ethernet driver to Reset RoCE. This
+function within HNS ethernet driver has also been enhanced to
+support ACPI and is part of other accompanying patch with this
+patch-set.
 
-Support of ACPI in the HNS RoCE driver shall be pushed through a
-different accompanying below patch:
-"IB/hns: Add support of ACPI to the Hisilicon RoCE Driver"
+NOTE: The changes in this patch are done over below branch,
+https://github.com/dledford/linux/tree/hns-roce
 
-NOTE 1: HNS RoCE driver has already been accepted by its maintainer
-Doug Ledford<dledford@redhat.com>. Please refer below link:
-https://www.spinics.net/lists/linux-rdma/msg38850.html
-
-NOTE 2: RoCE reset function patch has been accepted and now is
-part of the net-next:
-https://www.mail-archive.com/netdev@vger.kernel.org/msg123867.html
-
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
-Reviewed-by: Yisen Zhuang <yisen.zhuang@huawei.com>
+Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 ---
 Change Log
 
-PATCH V1: Initial version to support ACPI in RoCE Reset
-          functionality of the HNS driver.
+PATCH V1: Initial version to support ACPI in HNS RoCE driver.
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  |   17 +------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   47 ++++++++++++-----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |    9 ++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   53 ++++++++++++++++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.h |    3 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |    4 +-
- 6 files changed, 92 insertions(+), 41 deletions(-)
+ drivers/infiniband/hw/hns/hns_roce_device.h |    2 +-
+ drivers/infiniband/hw/hns/hns_roce_eq.c     |    2 +-
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |   37 ++++++--
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |    2 +-
+ drivers/infiniband/hw/hns/hns_roce_main.c   |  127 ++++++++++++++++++++++-----
+ 5 files changed, 136 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index a834774..a68eef0 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -644,21 +644,6 @@ hns_mac_phy_parse_addr(struct device *dev, struct fwnode_handle *fwnode)
- 	return addr;
+diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+index 00f01be..ea73580 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
++++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+@@ -531,7 +531,7 @@ struct hns_roce_dev {
+ 	struct ib_device	ib_dev;
+ 	struct platform_device  *pdev;
+ 	struct hns_roce_uar     priv_uar;
+-	const char		*irq_names;
++	const char		*irq_names[HNS_ROCE_MAX_IRQ_NUM];
+ 	spinlock_t		sm_lock;
+ 	spinlock_t		cq_db_lock;
+ 	spinlock_t		bt_cmd_lock;
+diff --git a/drivers/infiniband/hw/hns/hns_roce_eq.c b/drivers/infiniband/hw/hns/hns_roce_eq.c
+index 5febbb4..98af7fe 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_eq.c
++++ b/drivers/infiniband/hw/hns/hns_roce_eq.c
+@@ -713,7 +713,7 @@ int hns_roce_init_eq_table(struct hns_roce_dev *hr_dev)
+ 
+ 	for (j = 0; j < eq_num; j++) {
+ 		ret = request_irq(eq_table->eq[j].irq, hns_roce_msi_x_interrupt,
+-				  0, hr_dev->irq_names, eq_table->eq + j);
++				  0, hr_dev->irq_names[j], eq_table->eq + j);
+ 		if (ret) {
+ 			dev_err(dev, "request irq error!\n");
+ 			goto err_request_irq_fail;
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+index b52f3ba..399f5de 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -31,6 +31,7 @@
+  */
+ 
+ #include <linux/platform_device.h>
++#include <linux/acpi.h>
+ #include <rdma/ib_umem.h>
+ #include "hns_roce_common.h"
+ #include "hns_roce_device.h"
+@@ -794,29 +795,47 @@ static void hns_roce_port_enable(struct hns_roce_dev *hr_dev, int enable_flag)
+  * @enable: true -- drop reset, false -- reset
+  * return 0 - success , negative --fail
+  */
+-int hns_roce_v1_reset(struct hns_roce_dev *hr_dev, bool enable)
++int hns_roce_v1_reset(struct hns_roce_dev *hr_dev, bool dereset)
+ {
+ 	struct device_node *dsaf_node;
+ 	struct device *dev = &hr_dev->pdev->dev;
+ 	struct device_node *np = dev->of_node;
++	struct fwnode_handle *fwnode;
+ 	int ret;
+ 
+-	dsaf_node = of_parse_phandle(np, "dsaf-handle", 0);
+-	if (!dsaf_node) {
+-		dev_err(dev, "Unable to get dsaf node by dsaf-handle!\n");
+-		return -EINVAL;
++	/* check if this is DT/ACPI case */
++	if (dev_of_node(dev)) {
++		dsaf_node = of_parse_phandle(np, "dsaf-handle", 0);
++		if (!dsaf_node) {
++			dev_err(dev, "could not find dsaf-handle\n");
++			return -EINVAL;
++		}
++		fwnode = &dsaf_node->fwnode;
++	} else if (is_acpi_device_node(dev->fwnode)) {
++		struct acpi_reference_args args;
++
++		ret = acpi_node_get_property_reference(dev->fwnode,
++						       "dsaf-handle", 0, &args);
++		if (ret) {
++			dev_err(dev, "could not find dsaf-handle\n");
++			return ret;
++		}
++		fwnode = acpi_fwnode_handle(args.adev);
++	} else {
++		dev_err(dev, "cannot read data from DT or ACPI\n");
++		return -ENXIO;
+ 	}
+ 
+-	ret = hns_dsaf_roce_reset(&dsaf_node->fwnode, false);
++	ret = hns_dsaf_roce_reset(fwnode, false);
+ 	if (ret)
+ 		return ret;
+ 
+-	if (enable) {
++	if (dereset) {
+ 		msleep(SLEEP_TIME_INTERVAL);
+-		return hns_dsaf_roce_reset(&dsaf_node->fwnode, true);
++		ret = hns_dsaf_roce_reset(fwnode, true);
+ 	}
+ 
+-	return 0;
++	return ret;
  }
  
--static int hns_mac_phydev_match(struct device *dev, void *fwnode)
--{
--	return dev->fwnode == fwnode;
--}
--
--static struct
--platform_device *hns_mac_find_platform_device(struct fwnode_handle *fwnode)
--{
--	struct device *dev;
--
--	dev = bus_find_device(&platform_bus_type, NULL,
--			      fwnode, hns_mac_phydev_match);
--	return dev ? to_platform_device(dev) : NULL;
--}
--
- static int
- hns_mac_register_phydev(struct mii_bus *mdio, struct hns_mac_cb *mac_cb,
- 			u32 addr)
-@@ -724,7 +709,7 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
- 		return;
- 
- 	/* dev address in adev */
--	pdev = hns_mac_find_platform_device(acpi_fwnode_handle(args.adev));
-+	pdev = hns_dsaf_find_platform_device(acpi_fwnode_handle(args.adev));
- 	mii_bus = platform_get_drvdata(pdev);
- 	rc = hns_mac_register_phydev(mii_bus, mac_cb, addr);
- 	if (!rc)
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 05bd19f..9283bc6 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2788,7 +2788,7 @@ module_platform_driver(g_dsaf_driver);
-  * @enable: false - request reset , true - drop reset
-  * retuen 0 - success , negative -fail
-  */
--int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable)
-+int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool dereset)
- {
- 	struct dsaf_device *dsaf_dev;
- 	struct platform_device *pdev;
-@@ -2817,24 +2817,44 @@ int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable)
- 		{DSAF_ROCE_SL_1, DSAF_ROCE_SL_1, DSAF_ROCE_SL_3},
- 	};
- 
--	if (!is_of_node(dsaf_fwnode)) {
--		pr_err("hisi_dsaf: Only support DT node!\n");
-+	/* find the platform device corresponding to fwnode */
-+	if (is_of_node(dsaf_fwnode)) {
-+		pdev = of_find_device_by_node(to_of_node(dsaf_fwnode));
-+	} else if (is_acpi_device_node(dsaf_fwnode)) {
-+		pdev = hns_dsaf_find_platform_device(dsaf_fwnode);
-+	} else {
-+		pr_err("fwnode is neither OF or ACPI type\n");
- 		return -EINVAL;
- 	}
--	pdev = of_find_device_by_node(to_of_node(dsaf_fwnode));
-+
-+	/* check if we were a success in fetching pdev */
-+	if (!pdev) {
-+		pr_err("couldn't find platform device for node\n");
-+		return -ENODEV;
-+	}
-+
-+	/* retrieve the dsaf_device from the driver data */
- 	dsaf_dev = dev_get_drvdata(&pdev->dev);
-+	if (!dsaf_dev) {
-+		dev_err(&pdev->dev, "dsaf_dev is NULL\n");
-+		return -ENODEV;
-+	}
-+
-+	/* now, make sure we are running on compatible SoC */
- 	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
- 		dev_err(dsaf_dev->dev, "%s v1 chip doesn't support RoCE!\n",
- 			dsaf_dev->ae_dev.name);
- 		return -ENODEV;
- 	}
- 
--	if (!enable) {
--		/* Reset rocee-channels in dsaf and rocee */
--		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, false);
--		hns_dsaf_roce_srst(dsaf_dev, false);
-+	/* do reset or de-reset according to the flag */
-+	if (!dereset) {
-+		/* reset rocee-channels in dsaf and rocee */
-+		dsaf_dev->misc_op->hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK,
-+						      false);
-+		dsaf_dev->misc_op->hns_dsaf_roce_srst(dsaf_dev, false);
- 	} else {
--		/* Configure dsaf tx roce correspond to port map and sl map */
-+		/* configure dsaf tx roce correspond to port map and sl map */
- 		mp = dsaf_read_dev(dsaf_dev, DSAF_ROCE_PORT_MAP_REG);
- 		for (i = 0; i < DSAF_ROCE_CREDIT_CHN; i++)
- 			dsaf_set_field(mp, 7 << i * 3, i * 3,
-@@ -2848,12 +2868,13 @@ int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable)
- 				       sl_map[i][DSAF_ROCE_6PORT_MODE]);
- 		dsaf_write_dev(dsaf_dev, DSAF_ROCE_SL_MAP_REG, sl);
- 
--		/* De-reset rocee-channels in dsaf and rocee */
--		hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK, true);
-+		/* de-reset rocee-channels in dsaf and rocee */
-+		dsaf_dev->misc_op->hns_dsaf_srst_chns(dsaf_dev, DSAF_CHNS_MASK,
-+						      true);
- 		msleep(SRST_TIME_INTERVAL);
--		hns_dsaf_roce_srst(dsaf_dev, true);
-+		dsaf_dev->misc_op->hns_dsaf_roce_srst(dsaf_dev, true);
- 
--		/* Eanble dsaf channel rocee credit */
-+		/* enable dsaf channel rocee credit */
- 		credit = dsaf_read_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG);
- 		dsaf_set_bit(credit, DSAF_SBM_ROCEE_CFG_CRD_EN_B, 0);
- 		dsaf_write_dev(dsaf_dev, DSAF_SBM_ROCEE_CFG_REG_REG, credit);
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index f3681d5..35df187 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -305,7 +305,7 @@ struct dsaf_misc_op {
- 	void (*cpld_reset_led)(struct hns_mac_cb *mac_cb);
- 	int (*cpld_set_led_id)(struct hns_mac_cb *mac_cb,
- 			       enum hnae_led_state status);
--	/* reset seris function, it will be reset if the dereseet is 0 */
-+	/* reset series function, it will be reset if the dereset is 0 */
- 	void (*dsaf_reset)(struct dsaf_device *dsaf_dev, bool dereset);
- 	void (*xge_srst)(struct dsaf_device *dsaf_dev, u32 port, bool dereset);
- 	void (*xge_core_srst)(struct dsaf_device *dsaf_dev, u32 port,
-@@ -313,6 +313,9 @@ struct dsaf_misc_op {
- 	void (*ge_srst)(struct dsaf_device *dsaf_dev, u32 port, bool dereset);
- 	void (*ppe_srst)(struct dsaf_device *dsaf_dev, u32 port, bool dereset);
- 	void (*ppe_comm_srst)(struct dsaf_device *dsaf_dev, bool dereset);
-+	void (*hns_dsaf_srst_chns)(struct dsaf_device *dsaf_dev, u32 msk,
-+				   bool dereset);
-+	void (*hns_dsaf_roce_srst)(struct dsaf_device *dsaf_dev, bool dereset);
- 
- 	phy_interface_t (*get_phy_if)(struct hns_mac_cb *mac_cb);
- 	int (*get_sfp_prsnt)(struct hns_mac_cb *mac_cb, int *sfp_prsnt);
-@@ -445,10 +448,6 @@ int hns_dsaf_get_mac_entry_by_index(
- 
- void hns_dsaf_fix_mac_mode(struct hns_mac_cb *mac_cb);
- 
--void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool enable);
--
--void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool enable);
--
- int hns_dsaf_ae_init(struct dsaf_device *dsaf_dev);
- void hns_dsaf_ae_uninit(struct dsaf_device *dsaf_dev);
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 36b9f79..67accce 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -26,6 +26,8 @@ enum _dsm_rst_type {
- 	HNS_XGE_CORE_RESET_FUNC = 0x3,
- 	HNS_XGE_RESET_FUNC      = 0x4,
- 	HNS_GE_RESET_FUNC       = 0x5,
-+	HNS_DSAF_CHN_RESET_FUNC = 0x6,
-+	HNS_ROCE_RESET_FUNC     = 0x7,
+ void hns_roce_v1_profile(struct hns_roce_dev *hr_dev)
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+index 2b3bf21..316b592 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+@@ -976,6 +976,6 @@ struct hns_roce_v1_priv {
+ 	struct hns_roce_raq_table raq_table;
  };
  
- const u8 hns_dsaf_acpi_dsm_uuid[] = {
-@@ -241,11 +243,11 @@ static void hns_dsaf_xge_core_srst_by_port(struct dsaf_device *dsaf_dev,
-  * bit18-19 for com/dfx
-  * @enable: false - request reset , true - drop reset
+-int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable);
++int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool dereset);
+ 
+ #endif
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index 6ead671..f64f0dd 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -30,7 +30,7 @@
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
   */
--void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool enable)
-+void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool dereset)
- {
- 	u32 reg_addr;
- 
--	if (!enable)
-+	if (!dereset)
- 		reg_addr = DSAF_SUB_SC_DSAF_RESET_REQ_REG;
- 	else
- 		reg_addr = DSAF_SUB_SC_DSAF_RESET_DREQ_REG;
-@@ -253,9 +255,27 @@ void hns_dsaf_srst_chns(struct dsaf_device *dsaf_dev, u32 msk, bool enable)
- 	dsaf_write_sub(dsaf_dev, reg_addr, msk);
+-
++#include <linux/acpi.h>
+ #include <linux/of_platform.h>
+ #include <rdma/ib_addr.h>
+ #include <rdma/ib_smi.h>
+@@ -694,40 +694,122 @@ error_failed_setup_mtu_gids:
+ 	return ret;
  }
  
--void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool enable)
-+/**
-+ * hns_dsaf_srst_chns - reset dsaf channels
-+ * @dsaf_dev: dsaf device struct pointer
-+ * @msk: xbar channels mask value:
-+ * bit0-5 for xge0-5
-+ * bit6-11 for ppe0-5
-+ * bit12-17 for roce0-5
-+ * bit18-19 for com/dfx
-+ * @enable: false - request reset , true - drop reset
-+ */
-+void
-+hns_dsaf_srst_chns_acpi(struct dsaf_device *dsaf_dev, u32 msk, bool dereset)
- {
--	if (!enable) {
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_DSAF_CHN_RESET_FUNC,
-+				   msk, dereset);
-+}
++static const struct of_device_id hns_roce_of_match[] = {
++	{ .compatible = "hisilicon,hns-roce-v1", .data = &hns_roce_hw_v1, },
++	{},
++};
++MODULE_DEVICE_TABLE(of, hns_roce_of_match);
 +
-+void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool dereset)
-+{
-+	if (!dereset) {
- 		dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_ROCEE_RESET_REQ_REG, 1);
- 	} else {
- 		dsaf_write_sub(dsaf_dev,
-@@ -267,6 +287,12 @@ void hns_dsaf_roce_srst(struct dsaf_device *dsaf_dev, bool enable)
- 	}
- }
- 
-+void hns_dsaf_roce_srst_acpi(struct dsaf_device *dsaf_dev, bool dereset)
-+{
-+	hns_dsaf_acpi_srst_by_port(dsaf_dev, HNS_OP_RESET_FUNC,
-+				   HNS_ROCE_RESET_FUNC, 0, dereset);
-+}
++static const struct acpi_device_id hns_roce_acpi_match[] = {
++	{ "HISI00D1", (kernel_ulong_t)&hns_roce_hw_v1 },
++	{},
++};
++MODULE_DEVICE_TABLE(acpi, hns_roce_acpi_match);
 +
- static void
- hns_dsaf_xge_core_srst_by_port_acpi(struct dsaf_device *dsaf_dev,
- 				    u32 port, bool dereset)
-@@ -575,6 +601,8 @@ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
- 		misc_op->ge_srst = hns_dsaf_ge_srst_by_port;
- 		misc_op->ppe_srst = hns_ppe_srst_by_port;
- 		misc_op->ppe_comm_srst = hns_ppe_com_srst;
-+		misc_op->hns_dsaf_srst_chns = hns_dsaf_srst_chns;
-+		misc_op->hns_dsaf_roce_srst = hns_dsaf_roce_srst;
- 
- 		misc_op->get_phy_if = hns_mac_get_phy_if;
- 		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
-@@ -591,6 +619,8 @@ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
- 		misc_op->ge_srst = hns_dsaf_ge_srst_by_port_acpi;
- 		misc_op->ppe_srst = hns_ppe_srst_by_port_acpi;
- 		misc_op->ppe_comm_srst = hns_ppe_com_srst;
-+		misc_op->hns_dsaf_srst_chns = hns_dsaf_srst_chns_acpi;
-+		misc_op->hns_dsaf_roce_srst = hns_dsaf_roce_srst_acpi;
- 
- 		misc_op->get_phy_if = hns_mac_get_phy_if_acpi;
- 		misc_op->get_sfp_prsnt = hns_mac_get_sfp_prsnt;
-@@ -603,3 +633,18 @@ struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
- 
- 	return (void *)misc_op;
- }
-+
-+static int hns_dsaf_dev_match(struct device *dev, void *fwnode)
++static int hns_roce_node_match(struct device *dev, void *fwnode)
 +{
 +	return dev->fwnode == fwnode;
 +}
 +
-+struct
-+platform_device *hns_dsaf_find_platform_device(struct fwnode_handle *fwnode)
++static struct
++platform_device *hns_roce_find_pdev(struct fwnode_handle *fwnode)
 +{
 +	struct device *dev;
 +
++	/* get the 'device'corresponding to matching 'fwnode' */
 +	dev = bus_find_device(&platform_bus_type, NULL,
-+			      fwnode, hns_dsaf_dev_match);
++			      fwnode, hns_roce_node_match);
++	/* get the platform device */
 +	return dev ? to_platform_device(dev) : NULL;
 +}
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.h
-index f06bb03..310e802 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.h
-@@ -34,5 +34,6 @@
- #define DSAF_LED_ANCHOR_B 5
++
+ static int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+ {
+ 	int i;
++	int ret;
+ 	u8 phy_port;
+ 	int port_cnt = 0;
+ 	struct device *dev = &hr_dev->pdev->dev;
+-	struct device_node *np = dev->of_node;
+ 	struct device_node *net_node;
+ 	struct net_device *netdev = NULL;
+ 	struct platform_device *pdev = NULL;
+ 	struct resource *res;
  
- struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev);
+-	if (of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
+-		hr_dev->hw = &hns_roce_hw_v1;
++	/* check if we are compatible with the underlying SoC */
++	if (dev_of_node(dev)) {
++		const struct of_device_id *of_id;
++
++		of_id = of_match_node(hns_roce_of_match, dev->of_node);
++		if (!of_id) {
++			dev_err(dev, "device is not compatible!\n");
++			return -ENXIO;
++		}
++		hr_dev->hw = (struct hns_roce_hw *)of_id->data;
++		if (!hr_dev->hw) {
++			dev_err(dev, "couldn't get H/W specific DT data!\n");
++			return -ENXIO;
++		}
++	} else if (is_acpi_device_node(dev->fwnode)) {
++		const struct acpi_device_id *acpi_id;
++
++		acpi_id = acpi_match_device(hns_roce_acpi_match, dev);
++		if (!acpi_id) {
++			dev_err(dev, "device is not compatible!\n");
++			return -ENXIO;
++		}
++		hr_dev->hw = (struct hns_roce_hw *) acpi_id->driver_data;
++		if (!hr_dev->hw) {
++			dev_err(dev, "couldn't get H/W specific ACPI data!\n");
++			return -ENXIO;
++		}
+ 	} else {
+-		dev_err(dev, "device no compatible!\n");
+-		return -EINVAL;
++		dev_err(dev, "can't read compatibility data from DT or ACPI\n");
++		return -ENXIO;
+ 	}
+ 
++	/* get the mapped register base address */
+ 	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		dev_err(dev, "memory resource not found!\n");
++		return -EINVAL;
++	}
+ 	hr_dev->reg_base = devm_ioremap_resource(dev, res);
+ 	if (IS_ERR(hr_dev->reg_base))
+ 		return PTR_ERR(hr_dev->reg_base);
+ 
++	/* get the RoCE associated ethernet ports or netdevices */
+ 	for (i = 0; i < HNS_ROCE_MAX_PORTS; i++) {
+-		net_node = of_parse_phandle(np, "eth-handle", i);
+-		if (net_node) {
++		if (dev_of_node(dev)) {
++			net_node = of_parse_phandle(dev->of_node, "eth-handle",
++						    i);
++			if (!net_node)
++				continue;
+ 			pdev = of_find_device_by_node(net_node);
++		} else if (is_acpi_device_node(dev->fwnode)) {
++			struct acpi_reference_args args;
++			struct fwnode_handle *fwnode;
++
++			ret = acpi_node_get_property_reference(dev->fwnode,
++							       "eth-handle",
++							       i, &args);
++			if (ret)
++				continue;
++			fwnode = acpi_fwnode_handle(args.adev);
++			pdev = hns_roce_find_pdev(fwnode);
++		} else {
++			dev_err(dev, "cannot read data from DT or ACPI\n");
++			return -ENXIO;
++		}
++
++		if (pdev) {
+ 			netdev = platform_get_drvdata(pdev);
+ 			phy_port = (u8)i;
+ 			if (netdev) {
+ 				hr_dev->iboe.netdevs[port_cnt] = netdev;
+ 				hr_dev->iboe.phy_port[port_cnt] = phy_port;
+ 			} else {
++				dev_err(dev, "no netdev found with pdev %s\n",
++					pdev->name);
+ 				return -ENODEV;
+ 			}
+ 			port_cnt++;
+@@ -735,26 +817,32 @@ static int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+ 	}
+ 
+ 	if (port_cnt == 0) {
+-		dev_err(dev, "Unable to get available port by eth-handle!\n");
++		dev_err(dev, "unable to get eth-handle for available ports!\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	hr_dev->caps.num_ports = port_cnt;
+ 
+-	/* Cmd issue mode: 0 is poll, 1 is event */
++	/* cmd issue mode: 0 is poll, 1 is event */
+ 	hr_dev->cmd_mod = 1;
+ 	hr_dev->loop_idc = 0;
+ 
++	/* read the interrupt names from the DT or ACPI */
++	ret = device_property_read_string_array(dev, "interrupt-names",
++						hr_dev->irq_names,
++						HNS_ROCE_MAX_IRQ_NUM);
++	if (ret < 0) {
++		dev_err(dev, "couldn't get interrupt names from DT or ACPI!\n");
++		return ret;
++	}
++
++	/* fetch the interrupt numbers */
+ 	for (i = 0; i < HNS_ROCE_MAX_IRQ_NUM; i++) {
+ 		hr_dev->irq[i] = platform_get_irq(hr_dev->pdev, i);
+ 		if (hr_dev->irq[i] <= 0) {
+-			dev_err(dev, "Get No.%d irq resource failed!\n", i);
++			dev_err(dev, "platform get of irq[=%d] failed!\n", i);
+ 			return -EINVAL;
+ 		}
 -
-+struct
-+platform_device *hns_dsaf_find_platform_device(struct fwnode_handle *fwnode);
- #endif
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-index 13c16ab..4b8b803 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h
-@@ -78,10 +78,10 @@
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_REQ_REG		0xA88
- #define DSAF_SUB_SC_RCB_PPE_COM_RESET_DREQ_REG		0xA8C
- #define DSAF_SUB_SC_DSAF_RESET_REQ_REG			0xAA8
--#define DSAF_SUB_SC_ROCEE_RESET_REQ_REG			0xA50
- #define DSAF_SUB_SC_DSAF_RESET_DREQ_REG			0xAAC
--#define DSAF_SUB_SC_ROCEE_CLK_DIS_REG			0x32C
-+#define DSAF_SUB_SC_ROCEE_RESET_REQ_REG			0xA50
- #define DSAF_SUB_SC_ROCEE_RESET_DREQ_REG		0xA54
-+#define DSAF_SUB_SC_ROCEE_CLK_DIS_REG			0x32C
- #define DSAF_SUB_SC_ROCEE_CLK_EN_REG			0x328
- #define DSAF_SUB_SC_LIGHT_MODULE_DETECT_EN_REG		0x2060
- #define DSAF_SUB_SC_TCAM_MBIST_EN_REG			0x2300
+-		if (of_property_read_string_index(np, "interrupt-names", i,
+-						  &hr_dev->irq_names))
+-			return -EINVAL;
+ 	}
+ 
+ 	return 0;
+@@ -917,7 +1005,7 @@ static int hns_roce_probe(struct platform_device *pdev)
+ 
+ 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64ULL)) &&
+ 	    dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32ULL))) {
+-		dev_err(dev, "No usable DMA addressing mode\n");
++		dev_err(dev, "Not usable DMA addressing mode\n");
+ 		ret = -EIO;
+ 		goto error_failed_get_cfg;
+ 	}
+@@ -1035,18 +1123,13 @@ static int hns_roce_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static const struct of_device_id hns_roce_of_match[] = {
+-	{ .compatible = "hisilicon,hns-roce-v1",},
+-	{},
+-};
+-MODULE_DEVICE_TABLE(of, hns_roce_of_match);
+-
+ static struct platform_driver hns_roce_driver = {
+ 	.probe = hns_roce_probe,
+ 	.remove = hns_roce_remove,
+ 	.driver = {
+ 		.name = DRV_NAME,
+ 		.of_match_table = hns_roce_of_match,
++		.acpi_match_table = ACPI_PTR(hns_roce_acpi_match),
+ 	},
+ };
+ 
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
