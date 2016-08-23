@@ -1,7 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 02/15] net: sched: allow qdiscs to handle locking
-Date: Tue, 23 Aug 2016 13:23:20 -0700
-Message-ID: <20160823202320.14368.17683.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH 03/15] net: sched: remove remaining uses for
+ qdisc_qlen in xmit path
+Date: Tue, 23 Aug 2016 13:23:47 -0700
+Message-ID: <20160823202347.14368.78284.stgit@john-Precision-Tower-5810>
 References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,154 +13,119 @@ To: eric.dumazet@gmail.com, jhs@mojatatu.com, davem@davemloft.net,
         brouer@redhat.com, xiyou.wangcong@gmail.com,
         alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:32887 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755249AbcHWUXl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:23:41 -0400
-Received: by mail-pa0-f65.google.com with SMTP id vy10so10419149pac.0
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:23:41 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:32963 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751861AbcHWUYH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 16:24:07 -0400
+Received: by mail-pa0-f66.google.com with SMTP id vy10so10419608pac.0
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 13:24:07 -0700 (PDT)
 In-Reply-To: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a flag for queueing disciplines to indicate the stack
-does not need to use the qdisc lock to protect operations. This can
-be used to build lockless scheduling algorithms and improving
+sch_direct_xmit() uses qdisc_qlen as a return value but all call sites
+of the routine only check if it is zero or not. Simplify the logic so
+that we don't need to return an actual queue length value.
+
+This introduces a case now where sch_direct_xmit would have returned
+a qlen of zero but now it returns true. However in this case all
+call sites of sch_direct_xmit will implement a dequeue() and get
+a null skb and abort. This trades tracking qlen in the hotpath for
+an extra dequeue operation. Overall this seems to be good for
 performance.
-
-The flag is checked in the tx path and the qdisc lock is only taken
-if it is not set. For now use a conditional if statement. Later we
-could be more aggressive if it proves worthwhile and use a static key
-or wrap this in a likely().
-
-Also the lockless case drops the TCQ_F_CAN_BYPASS logic. The reason
-for this is synchronizing a qlen counter across threads proves to
-cost more than doing the enqueue/dequeue operations when tested with
-pktgen.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- include/net/sch_generic.h |    1 +
- net/core/dev.c            |   26 ++++++++++++++++++++++----
- net/sched/sch_generic.c   |   24 ++++++++++++++++--------
- 3 files changed, 39 insertions(+), 12 deletions(-)
+ include/net/pkt_sched.h |    6 +++---
+ net/sched/sch_generic.c |   23 ++++++++++++-----------
+ 2 files changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 909aff2..3de6a8c 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -58,6 +58,7 @@ struct Qdisc {
- #define TCQ_F_NOPARENT		0x40 /* root of its hierarchy :
- 				      * qdisc_tree_decrease_qlen() should stop.
- 				      */
-+#define TCQ_F_NOLOCK		0x80 /* qdisc does not require locking */
- 	u32			limit;
- 	const struct Qdisc_ops	*ops;
- 	struct qdisc_size_table	__rcu *stab;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bcd4cdd..a0effa6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3076,6 +3076,21 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 	int rc;
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 69540c6..6520e42 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -99,9 +99,9 @@ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
+ void qdisc_put_rtab(struct qdisc_rate_table *tab);
+ void qdisc_put_stab(struct qdisc_size_table *tab);
+ void qdisc_warn_nonwc(const char *txt, struct Qdisc *qdisc);
+-int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+-		    struct net_device *dev, struct netdev_queue *txq,
+-		    spinlock_t *root_lock, bool validate);
++bool sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
++		     struct net_device *dev, struct netdev_queue *txq,
++		     spinlock_t *root_lock, bool validate);
  
- 	qdisc_calculate_pkt_len(skb, q);
-+
-+	if (q->flags & TCQ_F_NOLOCK) {
-+		if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
-+			__qdisc_drop(skb, &to_free);
-+			rc = NET_XMIT_DROP;
-+		} else {
-+			rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
-+			__qdisc_run(q);
-+		}
-+
-+		if (unlikely(to_free))
-+			kfree_skb_list(to_free);
-+		return rc;
-+	}
-+
- 	/*
- 	 * Heuristic to force contended enqueues to serialize on a
- 	 * separate lock before trying to get qdisc main lock.
-@@ -3898,19 +3913,22 @@ static void net_tx_action(struct softirq_action *h)
+ void __qdisc_run(struct Qdisc *q);
  
- 		while (head) {
- 			struct Qdisc *q = head;
--			spinlock_t *root_lock;
-+			spinlock_t *root_lock = NULL;
- 
- 			head = head->next_sched;
- 
--			root_lock = qdisc_lock(q);
--			spin_lock(root_lock);
-+			if (!(q->flags & TCQ_F_NOLOCK)) {
-+				root_lock = qdisc_lock(q);
-+				spin_lock(root_lock);
-+			}
- 			/* We need to make sure head->next_sched is read
- 			 * before clearing __QDISC_STATE_SCHED
- 			 */
- 			smp_mb__before_atomic();
- 			clear_bit(__QDISC_STATE_SCHED, &q->state);
- 			qdisc_run(q);
--			spin_unlock(root_lock);
-+			if (!(q->flags & TCQ_F_NOLOCK))
-+				spin_unlock(root_lock);
- 		}
- 	}
- }
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e305a55..af32418 100644
+index af32418..80544c2 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -170,7 +170,8 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+@@ -160,12 +160,12 @@ bulk:
+  * only one CPU can execute this function.
+  *
+  * Returns to the caller:
+- *				0  - queue is empty or throttled.
+- *				>0 - queue is not empty.
++ *				false  - hardware queue frozen backoff
++ *				true   - feel free to send more pkts
+  */
+-int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+-		    struct net_device *dev, struct netdev_queue *txq,
+-		    spinlock_t *root_lock, bool validate)
++bool sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
++		     struct net_device *dev, struct netdev_queue *txq,
++		     spinlock_t *root_lock, bool validate)
+ {
  	int ret = NETDEV_TX_BUSY;
  
- 	/* And release qdisc */
--	spin_unlock(root_lock);
-+	if (!(q->flags & TCQ_F_NOLOCK))
-+		spin_unlock(root_lock);
- 
- 	/* Note that we validate skb (GSO, checksum, ...) outside of locks */
- 	if (validate)
-@@ -183,10 +184,13 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
- 
- 		HARD_TX_UNLOCK(dev, txq);
+@@ -186,7 +186,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
  	} else {
--		spin_lock(root_lock);
-+		if (!(q->flags & TCQ_F_NOLOCK))
-+			spin_lock(root_lock);
- 		return qdisc_qlen(q);
+ 		if (!(q->flags & TCQ_F_NOLOCK))
+ 			spin_lock(root_lock);
+-		return qdisc_qlen(q);
++		return true;
  	}
--	spin_lock(root_lock);
-+
-+	if (!(q->flags & TCQ_F_NOLOCK))
-+		spin_lock(root_lock);
+ 
+ 	if (!(q->flags & TCQ_F_NOLOCK))
+@@ -194,18 +194,19 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
  
  	if (dev_xmit_complete(ret)) {
  		/* Driver sent out skb successfully or skb was consumed */
-@@ -866,14 +870,18 @@ static bool some_qdisc_is_busy(struct net_device *dev)
+-		ret = qdisc_qlen(q);
++		ret = true;
+ 	} else {
+ 		/* Driver returned NETDEV_TX_BUSY - requeue skb */
+ 		if (unlikely(ret != NETDEV_TX_BUSY))
+ 			net_warn_ratelimited("BUG %s code %d qlen %d\n",
+ 					     dev->name, ret, q->q.qlen);
  
- 		dev_queue = netdev_get_tx_queue(dev, i);
- 		q = dev_queue->qdisc_sleeping;
--		root_lock = qdisc_lock(q);
+-		ret = dev_requeue_skb(skb, q);
++		dev_requeue_skb(skb, q);
++		ret = false;
+ 	}
  
--		spin_lock_bh(root_lock);
-+		if (q->flags & TCQ_F_NOLOCK) {
-+			val = test_bit(__QDISC_STATE_SCHED, &q->state);
-+		} else {
-+			root_lock = qdisc_lock(q);
-+			spin_lock_bh(root_lock);
+ 	if (ret && netif_xmit_frozen_or_stopped(txq))
+-		ret = 0;
++		ret = false;
  
--		val = (qdisc_is_running(q) ||
--		       test_bit(__QDISC_STATE_SCHED, &q->state));
-+			val = (qdisc_is_running(q) ||
-+			       test_bit(__QDISC_STATE_SCHED, &q->state));
+ 	return ret;
+ }
+@@ -229,7 +230,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+  *				>0 - queue is not empty.
+  *
+  */
+-static inline int qdisc_restart(struct Qdisc *q, int *packets)
++static inline bool qdisc_restart(struct Qdisc *q, int *packets)
+ {
+ 	struct netdev_queue *txq;
+ 	struct net_device *dev;
+@@ -240,7 +241,7 @@ static inline int qdisc_restart(struct Qdisc *q, int *packets)
+ 	/* Dequeue packet */
+ 	skb = dequeue_skb(q, &validate, packets);
+ 	if (unlikely(!skb))
+-		return 0;
++		return false;
  
--		spin_unlock_bh(root_lock);
-+			spin_unlock_bh(root_lock);
-+		}
- 
- 		if (val)
- 			return true;
+ 	root_lock = qdisc_lock(q);
+ 	dev = qdisc_dev(q);
