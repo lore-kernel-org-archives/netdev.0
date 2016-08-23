@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipconfig: Fix NULL pointer dereference on
- RARP/BOOTP/DHCP timeout
-Date: Mon, 22 Aug 2016 21:05:18 -0700 (PDT)
-Message-ID: <20160822.210518.2016675181033767934.davem@davemloft.net>
-References: <1471870863-29687-1-git-send-email-geert+renesas@glider.be>
+Subject: Re: [PATCH 0/4] Fix MV88E6131 tagging
+Date: Mon, 22 Aug 2016 21:08:54 -0700 (PDT)
+Message-ID: <20160822.210854.2222713381334094120.davem@davemloft.net>
+References: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: u.kleine-koenig@pengutronix.de, treding@nvidia.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471870863-29687-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jm@lentin.co.uk, f.fainelli@gmail.com,
+        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48122 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751389AbcHWEIz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 00:08:55 -0400
+In-Reply-To: <1471874464-16142-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Mon, 22 Aug 2016 15:01:03 +0200
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Mon, 22 Aug 2016 16:01:00 +0200
 
-> If no RARP, BOOTP, or DHCP response is received, ic_dev is never set,
-> causing a NULL pointer dereference in ic_close_devs():
+> Marvell has two different tagging protocols for frames passed to a
+> swicth. There is the older DSA and the newer EDSA. Somewhere along the
+> way, we broke support for switches which only support DSA, by trying
+> to configure them to use EDSA. These patches add back support for
+> switches which only support DSA, by allowing the drivers to
+> dynamically indicate the tagging protocol they support to the DSA
+> core. This needs to be dynamic since the mv88e6xxx has to support two
+> protocols.
 > 
->     Sending DHCP requests ...... timed out!
->     Unable to handle kernel NULL pointer dereference at virtual address 00000004
-> 
-> To fix this, add a check to avoid dereferencing ic_dev if it is still
-> NULL.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> Fixes: 2647cffb2bc6fbed ("net: ipconfig: Support using "delayed" DHCP replies")
+> Thanks go to Jamie Lentin for reporting the problem, helping debug it,
+> providing some of the fix, and testing.
 
-Applied.
+Series applied, thanks.
+
+As per tree-wide policy, when a driver unloads the device should be
+disabled and in fact if possible configured to not draw power.
