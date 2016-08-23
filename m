@@ -1,67 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: net: Zeroing the structure ethtool_wolinfo in ethtool_get_wol()
-Date: Tue, 23 Aug 2016 08:05:16 -0700
-Message-ID: <1471964716.3746.103.camel@perches.com>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
-         <1471959668-18209-2-git-send-email-luis.henriques@canonical.com>
-         <1471962096.14381.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH -next] net: phy: xgmiitorgmii: Fix non static symbol
+ warning
+Date: Tue, 23 Aug 2016 17:16:19 +0200
+Message-ID: <20160823151619.GK20029@lunn.ch>
+References: <1471964765-32708-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Avijit Kanti Das <avijitnsec@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Luis Henriques <luis.henriques@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0170.hostedemail.com ([216.40.44.170]:36551 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751550AbcHWPPO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 11:15:14 -0400
-In-Reply-To: <1471962096.14381.15.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, michal.simek@xilinx.com,
+ Wei Yongjun <weiyongjun1@huawei.com>, soren.brinkmann@xilinx.com,
+ linux-arm-kernel@lists.infradead.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1471964765-32708-1-git-send-email-weiyj.lk@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-08-23 at 07:21 -0700, Eric Dumazet wrote:
-> On Tue, 2016-08-23 at 14:41 +0100, Luis Henriques wrote:
-> > From: Avijit Kanti Das <avijitnsec@codeaurora.org>
-> > 
-> > memset() the structure ethtool_wolinfo that has padded bytes
-> > but the padded bytes have not been zeroed out.
-[]
-> > diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-[]
-> > @@ -1435,11 +1435,13 @@ static int ethtool_reset(struct net_device *dev, char __user *useraddr)
-> >  
-> >  static int ethtool_get_wol(struct net_device *dev, char __user *useraddr)
-> >  {
-> > -	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
-> > +	struct ethtool_wolinfo wol;
-> >  
-> >  	if (!dev->ethtool_ops->get_wol)
-> >  		return -EOPNOTSUPP;
-> >  
-> > +	memset(&wol, 0, sizeof(struct ethtool_wolinfo));
-> > +	wol.cmd = ETHTOOL_GWOL;
-> >  	dev->ethtool_ops->get_wol(dev, &wol);
-> >  
-> >  	if (copy_to_user(useraddr, &wol, sizeof(wol)))
-> This would suggest a compiler bug to me.
+On Tue, Aug 23, 2016 at 03:06:05PM +0000, Wei Yongjun wrote:
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 
-A compiler does not have a standards based requirement to
-initialize arbitrary padding bytes.
+Hi Wei
 
-I believe gcc always does zero all padding anyway.
+No need for the additional From:
 
-> I checked that my compiler does properly put zeros there, even in the
-> padding area.
+git am will use the one in the mail header as the author of the patch,
+and it is in the signed-off-by as well.
+
+Thanks
+    Andrew
+
+> Fixes the following sparse warning:
 > 
-> If we can not rely on such constructs, we have hundreds of similar
-> patches to submit.
-
-True.
-
->From a practical point of view, does any compiler used for
-kernel compilation (gcc/icc/llvm/any others?) not always
-perform zero padding of alignment bytes?
+> drivers/net/phy/xilinx_gmii2rgmii.c:61:5: warning:
+>  symbol 'xgmiitorgmii_probe' was not declared. Should it be static?
+> 
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> ---
+>  drivers/net/phy/xilinx_gmii2rgmii.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/phy/xilinx_gmii2rgmii.c b/drivers/net/phy/xilinx_gmii2rgmii.c
+> index e7a20ec..2e408b8 100644
+> --- a/drivers/net/phy/xilinx_gmii2rgmii.c
+> +++ b/drivers/net/phy/xilinx_gmii2rgmii.c
+> @@ -58,7 +58,7 @@ static int xgmiitorgmii_read_status(struct phy_device *phydev)
+>  	return 0;
+>  }
+>  
+> -int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+> +static int xgmiitorgmii_probe(struct mdio_device *mdiodev)
+>  {
+>  	struct device *dev = &mdiodev->dev;
+>  	struct device_node *np = dev->of_node, *phy_node;
+> 
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
