@@ -1,70 +1,71 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net-next 1/3] net/ip_tunnels: Introduce
- tunnel_id_to_key32() and key32_to_tunnel_id()
-Date: Tue, 23 Aug 2016 09:39:49 +0300
-Message-ID: <20160823063949.GA9128@office.localdomain>
-References: <20160822143834.32422-1-amir@vadai.me>
- <20160822143834.32422-2-amir@vadai.me>
- <20160822190027.6b4e6028@griffin>
+From: Mikko Rapeli <mikko.rapeli@iki.fi>
+Subject: Re: [PATCH v05 21/72] include/uapi/linux/if_pppox.h: include
+ linux/if.h
+Date: Tue, 23 Aug 2016 09:41:52 +0300
+Message-ID: <20160823064152.GJ5399@lakka.kapsi.fi>
+References: <1471890809-4383-1-git-send-email-mikko.rapeli@iki.fi>
+ <1471890809-4383-22-git-send-email-mikko.rapeli@iki.fi>
+ <20160822123745.7921a88d@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33624 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756680AbcHWGjx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 02:39:53 -0400
-Received: by mail-wm0-f66.google.com with SMTP id o80so16637903wme.0
-        for <netdev@vger.kernel.org>; Mon, 22 Aug 2016 23:39:52 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160822190027.6b4e6028@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160822123745.7921a88d@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 22, 2016 at 07:00:27PM +0200, Jiri Benc wrote:
-> While cleaning this up, you may as well take the best of both
-> implementations.
+On Mon, Aug 22, 2016 at 12:37:45PM -0700, Stephen Hemminger wrote:
+> On Mon, 22 Aug 2016 20:32:38 +0200
+> Mikko Rapeli <mikko.rapeli@iki.fi> wrote:
 > 
-> On Mon, 22 Aug 2016 17:38:32 +0300, Amir Vadai wrote:
-> > +static inline __be64 key32_to_tunnel_id(__be32 key)
-> > +{
-> > +#ifdef __BIG_ENDIAN
-> > +	return (__force __be64)((__force u32)key);
+> > Fixes userspace compilation error:
+> > 
+> > error: ‘IFNAMSIZ’ undeclared here (not in a function)
+> > 
+> > Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+> > ---
+> >  include/uapi/linux/if_pppox.h | 1 +
+> >  1 file changed, 1 insertion(+)
+> > 
+> > diff --git a/include/uapi/linux/if_pppox.h b/include/uapi/linux/if_pppox.h
+> > index e128769..473c3c4 100644
+> > --- a/include/uapi/linux/if_pppox.h
+> > +++ b/include/uapi/linux/if_pppox.h
+> > @@ -21,6 +21,7 @@
+> >  #include <asm/byteorder.h>
+> >  
+> >  #include <linux/socket.h>
+> > +#include <linux/if.h>
+> >  #include <linux/if_ether.h>
+> >  #include <linux/if_pppol2tp.h>
+> >  
 > 
-> The inner cast seems to be superfluous?
-seems so. will check.
+> I went back to the first patch in LKML for this series.
+> It seems your goal is that every include file should be standalone,
+> i.e it must include every definition it uses.
+> 
+> I disagree with this premise. It just makes things harder to maintain with
+> no real gain for any existing program.  What is the motivation for all this
+> useless churn? Is there some silly style rule that should be fixed instead?
 
-> 
-> > +#else
-> > +	return (__force __be64)((__force u64)key << 32);
-> > +#endif
-> > +}
-> > +
-> > +/* Returns the least-significant 32 bits of a __be64. */
-> > +static inline __be32 tunnel_id_to_key32(__be64 x)
-> 
-> Please use a more descriptive name than "x". "tunnel_id" or "tun_id"
-> seems to be more appropriate.
-ack
+With over 700 uapi headers exported to userspace by Linux kernel, how
+do I find out the 'correct' order of including them if they can not be
+included alone? Any hints on automating that?
 
-> 
-> > +{
-> > +#ifdef __BIG_ENDIAN
-> > +	return (__force __be32)x;
-> > +#else
-> > +	return (__force __be32)((__force u64)x >> 32);
-> > +#endif
-> > +}
-> 
-> Looks good otherwise.
-> 
-> Thanks,
-> 
->  Jiri
+My first trial was to include all of the uapi headers as a single bunch to
+abi checker tool which calls gcc on them, but the compilation result was
+so bad and hopeless that I decided to try feeding each header file one by
+one to the compiler and here I am over two years later still fixing these
+issues.
+
+I came up with the rule because to me it makes sense. Several kernel
+devs agree with this approach and have accepted patches.
+
+If your kernel subsystem uapi headers have a single entry point header file,
+then all of the others can just depend on that and be done with it.
+For example most (if not all) drm driver specific headers include <drm/drm.h>.
+
+-Mikko
