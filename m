@@ -1,7 +1,7 @@
 From: sthemmin@exchange.microsoft.com
-Subject: [PATCH 06/14] hv_netvsc: use ARRAY_SIZE() for NDIS versions
-Date: Tue, 23 Aug 2016 12:17:49 -0700
-Message-ID: <1471979877-17802-6-git-send-email-sthemmin@exchange.microsoft.com>
+Subject: [PATCH 13/14] hv_netvsc: report vmbus name in ethtool
+Date: Tue, 23 Aug 2016 12:17:56 -0700
+Message-ID: <1471979877-17802-13-git-send-email-sthemmin@exchange.microsoft.com>
 References: <1471979877-17802-1-git-send-email-sthemmin@exchange.microsoft.com>
 Reply-To: sthemmin@microsoft.com
 Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
@@ -9,10 +9,10 @@ To: "K. Y. Srinivasan" <kys@microsoft.com>,
         Haiyang Zhang <haiyangz@microsoft.com>,
         David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:36676
+Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:36674
         "EHLO p3plsmtps2ded03.prod.phx3.secureserver.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754319AbcHWSJC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754312AbcHWSJC (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 23 Aug 2016 14:09:02 -0400
 In-Reply-To: <1471979877-17802-1-git-send-email-sthemmin@exchange.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,38 +20,48 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <sthemmin@microsoft.com>
 
-Don't hard code size of array of NDIS versions.
+Make netvsc on vmbus behave more like PCI.
 
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/netvsc.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 4 ++++
+ include/linux/hyperv.h          | 7 +++++++
+ 2 files changed, 11 insertions(+)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 4ef2af6..110bbb8 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -577,9 +577,10 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	struct netvsc_device *net_device;
- 	struct nvsp_message *init_packet;
- 	int ndis_version;
--	u32 ver_list[] = { NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
-+	const u32 ver_list[] = {
-+		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
- 		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5 };
--	int i, num_ver = 4; /* number of different NVSP versions */
-+	int i;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 7ed9f13..b874ab1 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -734,8 +734,12 @@ vf_injection_done:
+ static void netvsc_get_drvinfo(struct net_device *net,
+ 			       struct ethtool_drvinfo *info)
+ {
++	struct net_device_context *net_device_ctx = netdev_priv(net);
++	struct hv_device *dev = net_device_ctx->device_ctx;
++
+ 	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+ 	strlcpy(info->fw_version, "N/A", sizeof(info->fw_version));
++	strlcpy(info->bus_info, vmbus_dev_name(dev), sizeof(info->bus_info));
+ }
  
- 	net_device = get_outbound_net_device(device);
- 	if (!net_device)
-@@ -588,7 +589,7 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 	init_packet = &net_device->channel_init_pkt;
+ static void netvsc_get_channels(struct net_device *net,
+diff --git a/include/linux/hyperv.h b/include/linux/hyperv.h
+index a6bc974..b01c8c3 100644
+--- a/include/linux/hyperv.h
++++ b/include/linux/hyperv.h
+@@ -1114,6 +1114,13 @@ int __must_check __vmbus_driver_register(struct hv_driver *hv_driver,
+ 					 const char *mod_name);
+ void vmbus_driver_unregister(struct hv_driver *hv_driver);
  
- 	/* Negotiate the latest NVSP protocol supported */
--	for (i = num_ver - 1; i >= 0; i--)
-+	for (i = ARRAY_SIZE(ver_list) - 1; i >= 0; i--)
- 		if (negotiate_nvsp_ver(device, net_device, init_packet,
- 				       ver_list[i])  == 0) {
- 			net_device->nvsp_version = ver_list[i];
++static inline const char *vmbus_dev_name(const struct hv_device *device_obj)
++{
++	const struct kobject *kobj = &device_obj->device.kobj;
++
++	return kobj->name;
++}
++
+ void vmbus_hvsock_device_unregister(struct vmbus_channel *channel);
+ 
+ int vmbus_allocate_mmio(struct resource **new, struct hv_device *device_obj,
 -- 
 2.9.3
