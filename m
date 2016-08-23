@@ -1,59 +1,105 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
-Date: Tue, 23 Aug 2016 13:24:51 -0600
-Message-ID: <3297517c-2889-19fe-5aa4-89e1d14eadca@cumulusnetworks.com>
-References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
- <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
- <20160822122122.GA8689@penelope.isobedori.kobe.vergenet.net>
- <dcf3df40-3914-37c6-55dc-e5c3de7530b5@cumulusnetworks.com>
- <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
+From: Laura Abbott <labbott@redhat.com>
+Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
+Date: Tue, 23 Aug 2016 13:06:08 -0700
+Message-ID: <f4d8b317-72bd-382d-f758-5fa997f1637b@redhat.com>
+References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
+ <20160823.112515.318902967155957764.davem@davemloft.net>
+ <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        buytenh@wantstofly.org, ebiederm@xmission.com,
-        rshearma@brocade.com, tom@herbertland.com, tgraf@suug.ch,
-        olivier.dugeon@orange.com, alexander.duyck@gmail.com,
-        roopa@cumulusnetworks.com
-To: Simon Horman <simon.horman@netronome.com>,
-        Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:35418 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752094AbcHWTcz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 15:32:55 -0400
-Received: by mail-pf0-f179.google.com with SMTP id x72so46567648pfd.2
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 12:32:20 -0700 (PDT)
-In-Reply-To: <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, samanthakumar@google.com, willemb@google.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471979019.14381.37.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/22/16 8:51 AM, Simon Horman wrote:
-> 
-> The scheme that OvS uses so far is that mac_len denotes the number of bytes
-> from the start of the MAC header until its end. In the absence of MPLS that
-> will be the beginning of the network header. And in the presence of MPLS it
-> will be the beginning of the MPLS label stack. The network header is... the
-> network header. This allows the MAC header, MPLS label stack and network
-> header to be tracked.
+On 08/23/2016 12:03 PM, Eric Dumazet wrote:
+> On Tue, 2016-08-23 at 11:25 -0700, David Miller wrote:
+>> From: Laura Abbott <labbott@redhat.com>
+>> Date: Tue, 23 Aug 2016 10:53:26 -0700
+>>
+>>> Fedora received a report[1] of a unit test failing on Ruby when using
+>>> the
+>>> 4.7 kernel. This was a test to send a zero sized UDP packet. With the
+>>> 4.7 kernel, the test now timing out on a select instead of completing.
+>>> The reduced ruby test is
+>>>
+>>>   def test_udp_recvfrom_nonblock
+>>>     u1 = UDPSocket.new
+>>>     u2 = UDPSocket.new
+>>>     u1.bind("127.0.0.1", 0)
+>>>     u2.send("", 0, u1.getsockname)
+>>>     IO.select [u1]  # test gets stuck here
+>>>   ensure
+>>>     u1.close if u1
+>>>     u2.close if u2
+>>>   end
+>>
+>> Well, if there is no data, should select really wake up?
+>>
+>> I think it's valid not to.
+> There are skb in receive queue, with skb->len = 0
+>
+> This looks like a bug in first_packet_length() or poll logic.
+>
+> Definitely something we can fix.
+>
+> Maybe with :
+>
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index e61f7cd65d08..380c05a84041 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1184,11 +1184,11 @@ out:
+>   *	Drops all bad checksum frames, until a valid one is found.
+>   *	Returns the length of found skb, or 0 if none is found.
+>   */
+> -static unsigned int first_packet_length(struct sock *sk)
+> +static int first_packet_length(struct sock *sk)
+>  {
+>  	struct sk_buff_head list_kill, *rcvq = &sk->sk_receive_queue;
+>  	struct sk_buff *skb;
+> -	unsigned int res;
+> +	int res;
+>
+>  	__skb_queue_head_init(&list_kill);
+>
+> @@ -1203,7 +1203,7 @@ static unsigned int first_packet_length(struct sock *sk)
+>  		__skb_unlink(skb, rcvq);
+>  		__skb_queue_tail(&list_kill, skb);
+>  	}
+> -	res = skb ? skb->len : 0;
+> +	res = skb ? skb->len : -1;
+>  	spin_unlock_bh(&rcvq->lock);
+>
+>  	if (!skb_queue_empty(&list_kill)) {
+> @@ -1232,7 +1232,7 @@ int udp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+>
+>  	case SIOCINQ:
+>  	{
+> -		unsigned int amount = first_packet_length(sk);
+> +		int amount = max(0, first_packet_length(sk));
+>
+>  		return put_user(amount, (int __user *)arg);
+>  	}
+> @@ -2184,7 +2184,7 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+>
+>  	/* Check for false positives due to checksum errors */
+>  	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
+> -	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
+> +	    !(sk->sk_shutdown & RCV_SHUTDOWN) && first_packet_length(sk) == -1)
+>  		mask &= ~(POLLIN | POLLRDNORM);
+>
+>  	return mask;
+>
+>
 
-The neigh output functions do '__skb_pull(skb, skb_network_offset(skb))' so if mpls_xmit does not reset the network header the labels get dropped. To me this says MPLS labels can not be lumped with the mac header which leaves the only option as the outer network header.
+Fixes the test for me. You're welcome to take this as a Tested-by.
 
-> 
-> Pravin (CCed) may have different ideas but I wonder if the above scheme can
-> be preserved while also meeting the needs of your new MPLS GSO scheme if
-> you set skb_set_network_header() and skb_set_inner_network_header() in
-> net/openvswitch/actions.c:do_output().
-> 
-> It may also be possible to teach OvS to use skb_set_network_header to
-> denote the beginning of the MPLS LSE and skb_set_inner_network_header to
-> denote the network header in the presence of MPLS. Which is my current
-> understanding of what you are trying to achieve. But I think its likely
-> that I misunderstand things as it seems strange to me to pretend that an
-> MPLS LSE is a network header and the outer most network header is an inner
-> network header
-> 
-
-This is the only option I can see working, but open to patches showing an alternative.
-
-I would like to get it resolved this week so I can move on to gso in the mpls forward case.
+Thanks,
+Laura
