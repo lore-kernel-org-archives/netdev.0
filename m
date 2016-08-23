@@ -1,39 +1,41 @@
-From: Mikko Rapeli <mikko.rapeli@iki.fi>
-Subject: Re: [PATCH v05 66/72] uapi icmp.h: glibc netinet/ip_icmp.h header
- file compatibility fixes
-Date: Wed, 24 Aug 2016 00:21:45 +0300
-Message-ID: <20160823212145.GW5399@lakka.kapsi.fi>
-References: <20160822.163251.1904761519827702046.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 03/15] net: sched: remove remaining uses for
+ qdisc_qlen in xmit path
+Date: Tue, 23 Aug 2016 14:10:45 -0700
+Message-ID: <1471986645.14381.57.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+         <20160823202347.14368.78284.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, edumazet@google.com,
-        nicolas.dichtel@6wind.com, ralf@linux-mips.org,
-        linux-hams@vger.kernel.org
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160822.163251.1904761519827702046.davem@davemloft.net>
- <20160822.163322.904817610242858006.davem@davemloft.net>
- <20160822.163328.128299200974687538.davem@davemloft.net>
- <20160822.163303.1956681667227236700.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
+        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:35099 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757371AbcHWVXS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 17:23:18 -0400
+Received: by mail-pa0-f67.google.com with SMTP id cf3so10466297pad.2
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 14:23:13 -0700 (PDT)
+In-Reply-To: <20160823202347.14368.78284.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 22, 2016 at 04:32:51PM -0700, David Miller wrote:
-> You have to post this properly to the netdev list.
+On Tue, 2016-08-23 at 13:23 -0700, John Fastabend wrote:
+> sch_direct_xmit() uses qdisc_qlen as a return value but all call sites
+> of the routine only check if it is zero or not. Simplify the logic so
+> that we don't need to return an actual queue length value.
 > 
-> If netdev is not CC:'d it doesn't get properly logged in patchwork,
-> and won't be applied.
+> This introduces a case now where sch_direct_xmit would have returned
+> a qlen of zero but now it returns true. However in this case all
+> call sites of sch_direct_xmit will implement a dequeue() and get
+> a null skb and abort. This trades tracking qlen in the hotpath for
+> an extra dequeue operation. Overall this seems to be good for
+> performance.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
 
-Sorry, get_maintainers.pl did not find netdev list for these patches.
-
-Could you update MAINTAINERS so that networking stuff from include/linux/uapi/
-finds netdev?
-
-I could propose patches but they are bound to be incomplete so networking devs
-could do this faster and with fewer review iterations.
-
-This problem seems to be quite common though. Maybe the uapi split did not
-update MAINTAINER file with include/uapi files.
-
--Mikko
+Acked-by: Eric Dumazet <edumazet@google.com>
