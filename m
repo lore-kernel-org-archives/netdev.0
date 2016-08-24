@@ -1,382 +1,222 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH net-next] net: ethernet: mediatek: modify to use the PDMA
- instead of the QDMA for Ethernet RX
-Date: Wed, 24 Aug 2016 15:57:02 +0200
-Message-ID: <382defe8-fb7e-7b24-c628-d9666389a347@phrozen.org>
-References: <1472042992-911-1-git-send-email-nelson.chang@mediatek.com>
- <a1b6a821-fdc1-0946-f526-68639bedadfc@phrozen.org>
- <6133E9B12438EA40B35401C719F0B99B0118AF8846@mtkmbs01n1>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH for-next 2/2] IB/hns: Add support of ACPI to the
+ Hisilicon RoCE driver
+Date: Wed, 24 Aug 2016 16:59:29 +0300
+Message-ID: <20160824135929.GU15065@leon.nu>
+References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
+ <1471985090-202472-3-git-send-email-salil.mehta@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Felix Fietkau <nbd@nbd.name>,
-        "linux-mediatek@lists.infradead.org"
-        <linux-mediatek@lists.infradead.org>,
-        "nelsonch.tw@gmail.com" <nelsonch.tw@gmail.com>,
-        =?UTF-8?B?U2VhbiBXYW5nICjnjovlv5fkupgp?= <sean.wang@mediatek.com>,
-        =?UTF-8?B?U3RldmVuIExpdSAo5YqJ5Lq66LGqKQ==?=
-        <steven.liu@mediatek.com>,
-        =?UTF-8?B?Q2FybG9zIEh1YW5nICjpu4Plo6vlvbAp?=
-        <Carlos.Huang@mediatek.com>
-To: =?UTF-8?B?TmVsc29uIENoYW5nICjlvLXlrrbnpaUp?=
-        <nelson.chang@mediatek.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:50225 "EHLO nbd.name"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755651AbcHXN5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 09:57:30 -0400
-In-Reply-To: <6133E9B12438EA40B35401C719F0B99B0118AF8846@mtkmbs01n1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="nZJAkgcjPzQrJB+u"
+Cc: dledford@redhat.com, davem@davemloft.net, xavier.huwei@huawei.com,
+        oulijun@huawei.com, yisen.zhuang@huawei.com,
+        mehta.salil.lnk@gmail.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linuxarm@huawei.com
+To: Salil Mehta <salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1471985090-202472-3-git-send-email-salil.mehta@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+--nZJAkgcjPzQrJB+u
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 24/08/2016 15:39, Nelson Chang (張家祥) wrote:
-> Hi John,
-> 
-> The QDMA only has one RX and is without HW LRO feature. The HW QoS is QDMA's
->  TX feature with multiple TX rings.
-> The Mediatek Ethernet hardware added the features of HW LRO and multiple RX
->  rings started from MT7623, but they are only add in the PDMA, not in the
->  QDMA.
-> So we would like to modify to use PDMA for RX to add the features of HW LRO
->  and multiple RX ring in the future.
+On Wed, Aug 24, 2016 at 04:44:50AM +0800, Salil Mehta wrote:
+> This patch is meant to add support of ACPI to the Hisilicon RoCE
+> driver.
+>
+> Changes done are primarily meant to detect the type and then either
+> use DT specific or ACPI spcific functions. Where ever possible,
+> this patch tries to make use of Unified Device Property Interface
+> APIs to support both DT and ACPI through single interface.
+>
+> This patch depends upon HNS ethernet driver to Reset RoCE. This
+> function within HNS ethernet driver has also been enhanced to
+> support ACPI and is part of other accompanying patch with this
+> patch-set.
+>
+> NOTE: The changes in this patch are done over below branch,
+> https://github.com/dledford/linux/tree/hns-roce
+>
+> Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+> ---
+> Change Log
+>
+> PATCH V1: Initial version to support ACPI in HNS RoCE driver.
+> ---
+>  drivers/infiniband/hw/hns/hns_roce_device.h |    2 +-
+>  drivers/infiniband/hw/hns/hns_roce_eq.c     |    2 +-
+>  drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |   37 ++++++--
+>  drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |    2 +-
+>  drivers/infiniband/hw/hns/hns_roce_main.c   |  127 ++++++++++++++++++++++-----
+>  5 files changed, 136 insertions(+), 34 deletions(-)
+>
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+> index 00f01be..ea73580 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_device.h
+> +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+> @@ -531,7 +531,7 @@ struct hns_roce_dev {
+>  	struct ib_device	ib_dev;
+>  	struct platform_device  *pdev;
+>  	struct hns_roce_uar     priv_uar;
+> -	const char		*irq_names;
+> +	const char		*irq_names[HNS_ROCE_MAX_IRQ_NUM];
+>  	spinlock_t		sm_lock;
+>  	spinlock_t		cq_db_lock;
+>  	spinlock_t		bt_cmd_lock;
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_eq.c b/drivers/infiniband/hw/hns/hns_roce_eq.c
+> index 5febbb4..98af7fe 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_eq.c
+> +++ b/drivers/infiniband/hw/hns/hns_roce_eq.c
+> @@ -713,7 +713,7 @@ int hns_roce_init_eq_table(struct hns_roce_dev *hr_dev)
+>
+>  	for (j = 0; j < eq_num; j++) {
+>  		ret = request_irq(eq_table->eq[j].irq, hns_roce_msi_x_interrupt,
+> -				  0, hr_dev->irq_names, eq_table->eq + j);
+> +				  0, hr_dev->irq_names[j], eq_table->eq + j);
+>  		if (ret) {
+>  			dev_err(dev, "request irq error!\n");
+>  			goto err_request_irq_fail;
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+> index b52f3ba..399f5de 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+> +++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+> @@ -31,6 +31,7 @@
+>   */
+>
+>  #include <linux/platform_device.h>
+> +#include <linux/acpi.h>
+>  #include <rdma/ib_umem.h>
+>  #include "hns_roce_common.h"
+>  #include "hns_roce_device.h"
+> @@ -794,29 +795,47 @@ static void hns_roce_port_enable(struct hns_roce_dev *hr_dev, int enable_flag)
+>   * @enable: true -- drop reset, false -- reset
+>   * return 0 - success , negative --fail
+>   */
+> -int hns_roce_v1_reset(struct hns_roce_dev *hr_dev, bool enable)
+> +int hns_roce_v1_reset(struct hns_roce_dev *hr_dev, bool dereset)
+>  {
+>  	struct device_node *dsaf_node;
+>  	struct device *dev = &hr_dev->pdev->dev;
+>  	struct device_node *np = dev->of_node;
+> +	struct fwnode_handle *fwnode;
+>  	int ret;
+>
+> -	dsaf_node = of_parse_phandle(np, "dsaf-handle", 0);
+> -	if (!dsaf_node) {
+> -		dev_err(dev, "Unable to get dsaf node by dsaf-handle!\n");
+> -		return -EINVAL;
+> +	/* check if this is DT/ACPI case */
+> +	if (dev_of_node(dev)) {
+> +		dsaf_node = of_parse_phandle(np, "dsaf-handle", 0);
+> +		if (!dsaf_node) {
+> +			dev_err(dev, "could not find dsaf-handle\n");
+> +			return -EINVAL;
+> +		}
+> +		fwnode = &dsaf_node->fwnode;
+> +	} else if (is_acpi_device_node(dev->fwnode)) {
+> +		struct acpi_reference_args args;
+> +
+> +		ret = acpi_node_get_property_reference(dev->fwnode,
+> +						       "dsaf-handle", 0, &args);
+> +		if (ret) {
+> +			dev_err(dev, "could not find dsaf-handle\n");
+> +			return ret;
+> +		}
+> +		fwnode = acpi_fwnode_handle(args.adev);
+> +	} else {
+> +		dev_err(dev, "cannot read data from DT or ACPI\n");
+> +		return -ENXIO;
+>  	}
+>
+> -	ret = hns_dsaf_roce_reset(&dsaf_node->fwnode, false);
+> +	ret = hns_dsaf_roce_reset(fwnode, false);
+>  	if (ret)
+>  		return ret;
+>
+> -	if (enable) {
+> +	if (dereset) {
+>  		msleep(SLEEP_TIME_INTERVAL);
+> -		return hns_dsaf_roce_reset(&dsaf_node->fwnode, true);
+> +		ret = hns_dsaf_roce_reset(fwnode, true);
+>  	}
+>
+> -	return 0;
+> +	return ret;
+>  }
+>
+>  void hns_roce_v1_profile(struct hns_roce_dev *hr_dev)
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+> index 2b3bf21..316b592 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+> +++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+> @@ -976,6 +976,6 @@ struct hns_roce_v1_priv {
+>  	struct hns_roce_raq_table raq_table;
+>  };
+>
+> -int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enable);
+> +int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool dereset);
+>
+>  #endif
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+> index 6ead671..f64f0dd 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_main.c
+> +++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+> @@ -30,7 +30,7 @@
+>   * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+>   * SOFTWARE.
+>   */
+> -
+> +#include <linux/acpi.h>
+>  #include <linux/of_platform.h>
+>  #include <rdma/ib_addr.h>
+>  #include <rdma/ib_smi.h>
+> @@ -694,40 +694,122 @@ error_failed_setup_mtu_gids:
+>  	return ret;
+>  }
+>
+> +static const struct of_device_id hns_roce_of_match[] = {
+> +	{ .compatible = "hisilicon,hns-roce-v1", .data = &hns_roce_hw_v1, },
+> +	{},
+> +};
+> +MODULE_DEVICE_TABLE(of, hns_roce_of_match);
+> +
+> +static const struct acpi_device_id hns_roce_acpi_match[] = {
+> +	{ "HISI00D1", (kernel_ulong_t)&hns_roce_hw_v1 },
+> +	{},
+> +};
+> +MODULE_DEVICE_TABLE(acpi, hns_roce_acpi_match);
+> +
+> +static int hns_roce_node_match(struct device *dev, void *fwnode)
+> +{
+> +	return dev->fwnode == fwnode;
+> +}
 
-in general there is nothing to prevent this change but my understanding
-was that QDMA HWLRO was broken on mt7621, which is why we used 2 DMA
-engines on that SoC and that it was fixed on MT7623.
+It looks like this function should return bool and not int.
 
-when i wrote this driver a specific requirement from MTK/WCN was to have
-TX and RX QDMA. if this requirement has changed then fine. please do
-confirm though that you really want PDMA for RX.
+--nZJAkgcjPzQrJB+u
+Content-Type: application/pgp-signature; name="signature.asc"
 
-	John
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
+iQIcBAEBAgAGBQJXvahBAAoJEORje4g2clinv1YP/0VDS18cnNPmTKSNexOeZbvk
+fquiliWBiH4l/ayRR8a1xsDFrsjcsrLWlcpm4jjtpvcE0kLoqAXe3jXdgMRScJCb
+wt2dAIC9akKwnxm23EYCN5pVBm8BImApU7ue5p0ioXAWsVQdhOXcdIbtsxyjogg7
+Czg3brw50L7f27BV5K7S8JRMWc46YvLCqUiMDxdHZjuHR1qRtr06y9XyT7iRE2dZ
+xXF+m2KAs8yUK5ZwsIYbJvq47liY8/AzN5cKCcokMgVTHuXA15TZBeoccYsRBjqo
+lVZcsOSnjDZxAbHPXqj8WZxYnH+I8s1+PmoRZ8Ofxyl+lZxowNZb9Dgxk9ZI+0lD
+PFDbNTJXDGCqGccZdWgRylW9wxxpmpzXR+YsZ9chtsCK5RiKflH6agKwbDAmKjDn
+tU+oJDiJXUiSKcG1y8efrS86qHL0bqvdDWtP4KByZsoVjZ8ONWB1z+VqlVqmA45z
+YNUVsNauxZGG+It3y7+1+Q4CnHSRSgko0GsuMGQjTxF/BkfZYlH8Y/mdD52CYxx5
+GMN2LZDMR6e+IKQwfYB+0C4JewQMYe7o08dM1zgD/K71MhZDo1PrW4lpt5WDk0Dc
+V9CxM/pUphJGDkaKt56tKdHXXqY3tgcAlmMXT+W7xZXsdEgUtN13tkp0Kbrm9OK5
+KYxMTvosusMbgFNmh1SR
+=TdKW
+-----END PGP SIGNATURE-----
 
-
-
-> Thanks.
-> 
-> 
-> BRs,
-> Nelson
-> -----Original Message-----
-> From: John Crispin [mailto:john@phrozen.org] 
-> Sent: Wednesday, August 24, 2016 8:58 PM
-> To: Nelson Chang (張家祥); davem@davemloft.net
-> Cc: netdev@vger.kernel.org; Felix Fietkau;
->  linux-mediatek@lists.infradead.org; nelsonch.tw@gmail.com; Sean Wang
->  (王志亘); Steven Liu (劉人豪); Carlos Huang (黃士彰)
-> Subject: Re: [PATCH net-next] net: ethernet: mediatek: modify to use the
->  PDMA instead of the QDMA for Ethernet RX
-> 
-> 
-> 
-> On 24/08/2016 14:49, Nelson Chang wrote:
->> Because the PDMA has richer features than the QDMA for Ethernet RX 
->> (such as multiple RX rings, HW LRO, etc.), the patch modifies to use 
->> the PDMA to handle Ethernet RX.
-> 
-> Hi,
-> 
-> QDMA support is needed for the HW QoS to work. QDMA also has HW_LRO support
->  you just need to port the additional code from the MTK SDK to make it work.
->  additionally QDMA has more than 1 internal ring/queue that you can use, you
->  would need to change the RX ring to be a linked list and enable that
->  feature as is already done in the RX path.
-> 
-> although the patch is technically not wrong i am not sure if it makes sense
->  and the description is for certain not correct. could it be that you are
->  basing your assumption on some old SDK ethernet driver ? newer version have
->  the described features for the new QDMA engine supported if i am not
->  mistaken.
-> 
-> 	John
-> 
->>
->> Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
->> ---
->>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 72 
->> +++++++++++++++++------------  
->> drivers/net/ethernet/mediatek/mtk_eth_soc.h | 31 ++++++++++++-
->>  2 files changed, 72 insertions(+), 31 deletions(-)  mode change 
->> 100644 => 100755 drivers/net/ethernet/mediatek/mtk_eth_soc.c
->>  mode change 100644 => 100755 
->> drivers/net/ethernet/mediatek/mtk_eth_soc.h
->>
->> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c 
->> b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
->> old mode 100644
->> new mode 100755
->> index 1801fd8..27a9156
->> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
->> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
->> @@ -342,25 +342,27 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
->>  	mdiobus_free(eth->mii_bus);
->>  }
->>  
->> -static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
->> +static inline void mtk_irq_disable(struct mtk_eth *eth,
->> +				   unsigned reg, u32 mask)
->>  {
->>  	unsigned long flags;
->>  	u32 val;
->>  
->>  	spin_lock_irqsave(&eth->irq_lock, flags);
->> -	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
->> -	mtk_w32(eth, val & ~mask, MTK_QDMA_INT_MASK);
->> +	val = mtk_r32(eth, reg);
->> +	mtk_w32(eth, val & ~mask, reg);
->>  	spin_unlock_irqrestore(&eth->irq_lock, flags);  }
->>  
->> -static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
->> +static inline void mtk_irq_enable(struct mtk_eth *eth,
->> +				  unsigned reg, u32 mask)
->>  {
->>  	unsigned long flags;
->>  	u32 val;
->>  
->>  	spin_lock_irqsave(&eth->irq_lock, flags);
->> -	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
->> -	mtk_w32(eth, val | mask, MTK_QDMA_INT_MASK);
->> +	val = mtk_r32(eth, reg);
->> +	mtk_w32(eth, val | mask, reg);
->>  	spin_unlock_irqrestore(&eth->irq_lock, flags);  }
->>  
->> @@ -1012,7 +1014,7 @@ static int mtk_napi_tx(struct napi_struct *napi, int
->  budget)
->>  		return budget;
->>  
->>  	napi_complete(napi);
->> -	mtk_irq_enable(eth, MTK_TX_DONE_INT);
->> +	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
->>  
->>  	return tx_done;
->>  }
->> @@ -1024,12 +1026,12 @@ static int mtk_napi_rx(struct napi_struct *napi,
->  int budget)
->>  	int rx_done = 0;
->>  
->>  	mtk_handle_status_irq(eth);
->> -	mtk_w32(eth, MTK_RX_DONE_INT, MTK_QMTK_INT_STATUS);
->> +	mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
->>  	rx_done = mtk_poll_rx(napi, budget, eth);
->>  
->>  	if (unlikely(netif_msg_intr(eth))) {
->> -		status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
->> -		mask = mtk_r32(eth, MTK_QDMA_INT_MASK);
->> +		status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
->> +		mask = mtk_r32(eth, MTK_PDMA_INT_MASK);
->>  		dev_info(eth->dev,
->>  			 "done rx %d, intr 0x%08x/0x%x\n",
->>  			 rx_done, status, mask);
->> @@ -1038,12 +1040,12 @@ static int mtk_napi_rx(struct napi_struct *napi,
->  int budget)
->>  	if (rx_done == budget)
->>  		return budget;
->>  
->> -	status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
->> +	status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
->>  	if (status & MTK_RX_DONE_INT)
->>  		return budget;
->>  
->>  	napi_complete(napi);
->> -	mtk_irq_enable(eth, MTK_RX_DONE_INT);
->> +	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
->>  
->>  	return rx_done;
->>  }
->> @@ -1092,6 +1094,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
->>  	mtk_w32(eth,
->>  		ring->phys + ((MTK_DMA_SIZE - 1) * sz),
->>  		MTK_QTX_DRX_PTR);
->> +	mtk_w32(eth, (QDMA_RES_THRES << 8) | QDMA_RES_THRES, 
->> +MTK_QTX_CFG(0));
->>  
->>  	return 0;
->>  
->> @@ -1162,11 +1165,10 @@ static int mtk_rx_alloc(struct mtk_eth *eth)
->>  	 */
->>  	wmb();
->>  
->> -	mtk_w32(eth, eth->rx_ring.phys, MTK_QRX_BASE_PTR0);
->> -	mtk_w32(eth, MTK_DMA_SIZE, MTK_QRX_MAX_CNT0);
->> -	mtk_w32(eth, eth->rx_ring.calc_idx, MTK_QRX_CRX_IDX0);
->> -	mtk_w32(eth, MTK_PST_DRX_IDX0, MTK_QDMA_RST_IDX);
->> -	mtk_w32(eth, (QDMA_RES_THRES << 8) | QDMA_RES_THRES, MTK_QTX_CFG(0));
->> +	mtk_w32(eth, eth->rx_ring.phys, MTK_PRX_BASE_PTR0);
->> +	mtk_w32(eth, MTK_DMA_SIZE, MTK_PRX_MAX_CNT0);
->> +	mtk_w32(eth, eth->rx_ring.calc_idx, MTK_PRX_CRX_IDX0);
->> +	mtk_w32(eth, MTK_PST_DRX_IDX0, MTK_PDMA_RST_IDX);
->>  
->>  	return 0;
->>  }
->> @@ -1285,7 +1287,7 @@ static irqreturn_t mtk_handle_irq_rx(int irq, 
->> void *_eth)
->>  
->>  	if (likely(napi_schedule_prep(&eth->rx_napi))) {
->>  		__napi_schedule(&eth->rx_napi);
->> -		mtk_irq_disable(eth, MTK_RX_DONE_INT);
->> +		mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
->>  	}
->>  
->>  	return IRQ_HANDLED;
->> @@ -1297,7 +1299,7 @@ static irqreturn_t mtk_handle_irq_tx(int irq, 
->> void *_eth)
->>  
->>  	if (likely(napi_schedule_prep(&eth->tx_napi))) {
->>  		__napi_schedule(&eth->tx_napi);
->> -		mtk_irq_disable(eth, MTK_TX_DONE_INT);
->> +		mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
->>  	}
->>  
->>  	return IRQ_HANDLED;
->> @@ -1308,11 +1310,12 @@ static void mtk_poll_controller(struct 
->> net_device *dev)  {
->>  	struct mtk_mac *mac = netdev_priv(dev);
->>  	struct mtk_eth *eth = mac->hw;
->> -	u32 int_mask = MTK_TX_DONE_INT | MTK_RX_DONE_INT;
->>  
->> -	mtk_irq_disable(eth, int_mask);
->> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
->> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
->>  	mtk_handle_irq_rx(eth->irq[2], dev);
->> -	mtk_irq_enable(eth, int_mask);
->> +	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
->> +	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
->>  }
->>  #endif
->>  
->> @@ -1327,11 +1330,15 @@ static int mtk_start_dma(struct mtk_eth *eth)
->>  	}
->>  
->>  	mtk_w32(eth,
->> -		MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN |
->> -		MTK_RX_2B_OFFSET | MTK_DMA_SIZE_16DWORDS |
->> -		MTK_RX_BT_32DWORDS | MTK_NDP_CO_PRO,
->> +		MTK_TX_WB_DDONE | MTK_TX_DMA_EN |
->> +		MTK_DMA_SIZE_16DWORDS | MTK_NDP_CO_PRO,
->>  		MTK_QDMA_GLO_CFG);
->>  
->> +	mtk_w32(eth,
->> +		MTK_RX_DMA_EN | MTK_RX_2B_OFFSET |
->> +		MTK_RX_BT_32DWORDS | MTK_MULTI_EN,
->> +		MTK_PDMA_GLO_CFG);
->> +
->>  	return 0;
->>  }
->>  
->> @@ -1349,7 +1356,8 @@ static int mtk_open(struct net_device *dev)
->>  
->>  		napi_enable(&eth->tx_napi);
->>  		napi_enable(&eth->rx_napi);
->> -		mtk_irq_enable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
->> +		mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
->> +		mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
->>  	}
->>  	atomic_inc(&eth->dma_refcnt);
->>  
->> @@ -1394,7 +1402,8 @@ static int mtk_stop(struct net_device *dev)
->>  	if (!atomic_dec_and_test(&eth->dma_refcnt))
->>  		return 0;
->>  
->> -	mtk_irq_disable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
->> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
->> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
->>  	napi_disable(&eth->tx_napi);
->>  	napi_disable(&eth->rx_napi);
->>  
->> @@ -1448,7 +1457,9 @@ static int __init mtk_hw_init(struct mtk_eth 
->> *eth)
->>  
->>  	/* disable delay and normal interrupt */
->>  	mtk_w32(eth, 0, MTK_QDMA_DELAY_INT);
->> -	mtk_irq_disable(eth, ~0);
->> +	mtk_w32(eth, 0, MTK_PDMA_DELAY_INT);
->> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
->> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
->>  	mtk_w32(eth, RST_GL_PSE, MTK_RST_GL);
->>  	mtk_w32(eth, 0, MTK_RST_GL);
->>  
->> @@ -1504,7 +1515,8 @@ static void mtk_uninit(struct net_device *dev)
->>  
->>  	phy_disconnect(mac->phy_dev);
->>  	mtk_mdio_cleanup(eth);
->> -	mtk_irq_disable(eth, ~0);
->> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
->> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
->>  	free_irq(eth->irq[1], dev);
->>  	free_irq(eth->irq[2], dev);
->>  }
->> @@ -1683,7 +1695,7 @@ static void mtk_get_ethtool_stats(struct net_device
->  *dev,
->>  	}
->>  
->>  	do {
->> -		data_src = (u64*)hwstats;
->> +		data_src = (u64 *)hwstats;
->>  		data_dst = data;
->>  		start = u64_stats_fetch_begin_irq(&hwstats->syncp);
->>  
->> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h 
->> b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
->> old mode 100644
->> new mode 100755
->> index f82e3ac..7c1f3f2
->> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
->> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
->> @@ -68,6 +68,32 @@
->>  /* Unicast Filter MAC Address Register - High */
->>  #define MTK_GDMA_MAC_ADRH(x)	(0x50C + (x * 0x1000))
->>  
->> +/* PDMA RX Base Pointer Register */
->> +#define MTK_PRX_BASE_PTR0	0x900
->> +
->> +/* PDMA RX Maximum Count Register */
->> +#define MTK_PRX_MAX_CNT0	0x904
->> +
->> +/* PDMA RX CPU Pointer Register */
->> +#define MTK_PRX_CRX_IDX0	0x908
->> +
->> +/* PDMA Global Configuration Register */
->> +#define MTK_PDMA_GLO_CFG	0xa04
->> +#define MTK_MULTI_EN		BIT(10)
->> +
->> +/* PDMA Reset Index Register */
->> +#define MTK_PDMA_RST_IDX	0xa08
->> +#define MTK_PST_DRX_IDX0	BIT(16)
->> +
->> +/* PDMA Delay Interrupt Register */
->> +#define MTK_PDMA_DELAY_INT	0xa0c
->> +
->> +/* PDMA Interrupt Status Register */
->> +#define MTK_PDMA_INT_STATUS	0xa20
->> +
->> +/* PDMA Interrupt Mask Register */
->> +#define MTK_PDMA_INT_MASK	0xa28
->> +
->>  /* PDMA Interrupt grouping registers */
->>  #define MTK_PDMA_INT_GRP1	0xa50
->>  #define MTK_PDMA_INT_GRP2	0xa54
->> @@ -119,13 +145,16 @@
->>  
->>  /* QDMA Interrupt Status Register */
->>  #define MTK_QMTK_INT_STATUS	0x1A18
->> +#define MTK_RX_DONE_INT3	BIT(19)
->> +#define MTK_RX_DONE_INT2	BIT(18)
->>  #define MTK_RX_DONE_INT1	BIT(17)
->>  #define MTK_RX_DONE_INT0	BIT(16)
->>  #define MTK_TX_DONE_INT3	BIT(3)
->>  #define MTK_TX_DONE_INT2	BIT(2)
->>  #define MTK_TX_DONE_INT1	BIT(1)
->>  #define MTK_TX_DONE_INT0	BIT(0)
->> -#define MTK_RX_DONE_INT		(MTK_RX_DONE_INT0 | MTK_RX_DONE_INT1)
->> +#define MTK_RX_DONE_INT		(MTK_RX_DONE_INT0 | MTK_RX_DONE_INT1 | \
->> +				 MTK_RX_DONE_INT2 | MTK_RX_DONE_INT3)
->>  #define MTK_TX_DONE_INT		(MTK_TX_DONE_INT0 | MTK_TX_DONE_INT1 | \
->>  				 MTK_TX_DONE_INT2 | MTK_TX_DONE_INT3)
->>  
->>
-> 
+--nZJAkgcjPzQrJB+u--
