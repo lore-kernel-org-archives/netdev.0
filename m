@@ -1,40 +1,48 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
-Date: Wed, 24 Aug 2016 14:42:46 +0100
-Message-ID: <20160824144246.5a61254c@lxorguk.ukuu.org.uk>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
-        <20160823.112515.318902967155957764.davem@davemloft.net>
-        <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] ibmvnic: fix error return code in ibmvnic_probe()
+Date: Wed, 24 Aug 2016 13:47:58 +0000
+Message-ID: <1472046478-1427-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <labbott@redhat.com>, "David Miller" <davem@davemloft.net>,
-        <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <samanthakumar@google.com>, <willemb@google.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "Dan Akunis" <dan.akunis@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org, Wei Yongjun <weiyongjun1@huawei.com>,
+ netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
+ Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+ John Allen <jallen@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Aug 2016 11:22:09 +0300
-"Dan Akunis" <dan.akunis@gmail.com> wrote:
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-> When select wakes up on a UDP socket, user is expecting to get data. Getting 
-> 0 from recvfrom() or whatever read function she uses, is a wrong attitude.
-> I agree with David.
-> 
-> The unit test that expects select to wake up is wrong and should be changed.
+Fix to return error code -ENOMEM from the dma_map_single error
+handling case instead of 0, as done elsewhere in this function.
 
-The unit test is correct.
+Fixes: 032c5e82847a ("Driver for IBM System i/p VNIC protocol")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-The behaviour of a 0 byte frame is actually well established and a 0 byte
-data frame is a meaningful message is several protocols. It is distinct
-from no pending data because that would report EWOULDBLOCK. It's more fun
-with regard to EOF but UDP has no EOF semantics. If you want to
-understand how to handle zero length datagrams in a connection oriented
-protocol the old DECnet documentation covers it in all its pain 8)
-
-Alan
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index b942108..59245d0 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -3751,6 +3751,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	if (dma_mapping_error(&dev->dev, adapter->stats_token)) {
+ 		if (!firmware_has_feature(FW_FEATURE_CMO))
+ 			dev_err(&dev->dev, "Couldn't map stats buffer\n");
++		rc = -ENOMEM;
+ 		goto free_crq;
+ 	}
