@@ -1,121 +1,107 @@
-From: Andrei Vagin <avagin@gmail.com>
-Subject: Continue a discussion about the netlink interface
-Date: Wed, 24 Aug 2016 15:16:00 -0700
-Message-ID: <20160824221559.GB12687@gmail.com>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v2 2/6] cgroup: add support for eBPF programs
+Date: Thu, 25 Aug 2016 00:30:47 +0200
+Message-ID: <616bcf67-314a-c943-8177-7e04021e89bb@zonque.org>
+References: <1472070263-29988-1-git-send-email-daniel@zonque.org>
+ <1472070263-29988-3-git-send-email-daniel@zonque.org>
+ <20160824215450.GA13455@htj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, linux-api@vger.kernel.org,
-        Kirill Kolyshkin <kir@openvz.org>,
-        Steven Rostedt <rostedt@goodmis.org>
-To: Andy Lutomirski <luto@amacapital.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        David Ahern <dsahern@gmail.com>, Arnd Bergmann <arnd@arndb.de>,
-        Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: daniel@iogearbox.net, ast@fb.com, davem@davemloft.net,
+        kafai@fb.com, fw@strlen.de, pablo@netfilter.org, harald@redhat.com,
+        netdev@vger.kernel.org, sargun@sargun.me
+To: Tejun Heo <htejun@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33449 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756595AbcHXWQD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 18:16:03 -0400
-Content-Disposition: inline
+Received: from svenfoo.org ([82.94.215.22]:49491 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754502AbcHXW4f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 18:56:35 -0400
+In-Reply-To: <20160824215450.GA13455@htj.duckdns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hi Tejun,
 
-I want to return to a discussion about the netlink interface and how to
-use it out of the network subsystem.
+On 08/24/2016 11:54 PM, Tejun Heo wrote:
+> On Wed, Aug 24, 2016 at 10:24:19PM +0200, Daniel Mack wrote:
+>> +void cgroup_bpf_free(struct cgroup *cgrp)
+>> +{
+>> +	unsigned int type;
+>> +
+>> +	rcu_read_lock();
+>> +
+>> +	for (type = 0; type < __MAX_BPF_ATTACH_TYPE; type++) {
+>> +		if (!cgrp->bpf.prog[type])
+>> +			continue;
+>> +
+>> +		bpf_prog_put(cgrp->bpf.prog[type]);
+>> +		static_branch_dec(&cgroup_bpf_enabled_key);
+>> +	}
+>> +
+>> +	rcu_read_unlock();
+> 
+> These rcu locking seem suspicious to me.  RCU locking on writer side
+> is usually bogus.  We sometimes do it to work around locking
+> assertions in accessors but it's a better idea to make the assertions
+> better in those cases - e.g. sth like assert_mylock_or_rcu_locked().
 
-I'm developing a new interface to get information about processes
-(task_diag). task_diag is like socket_diag but for processes. [0]
+Right, in this case, it is unnecessary, as the bpf.prog[] is not under RCU.
 
-In the first two versions [1] [2], I used the netlink interface to
-communicate with kernel. There was a discussion [4], that the netlink
-interface is not suitable for this task and it has a few known issues
-about security, so probably it should not be used for task_diag.
+>> +void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
+>> +{
+>> +	unsigned int type;
+>> +
+>> +	rcu_read_lock();
+> 
+> Ditto.
+> 
+>> +	for (type = 0; type < __MAX_BPF_ATTACH_TYPE; type++)
+>> +		rcu_assign_pointer(cgrp->bpf.prog_effective[type],
+>> +			rcu_dereference(parent->bpf.prog_effective[type]));
 
-Then, in a third version [3], I used a proc transaction file
-instead of the netlink interface. But it was not accepted too, because
-we already have the netlink interface[5] and it's a bad idea to add one
-more similar less-generic interface.
+Okay, yes. We're under cgroup_mutex write-path protection here, so
+that's unnecessary too.
 
-Then Andy Lutomirski suggested to rework netlink [6], but nobody
-answered on his suggestion.
+>> +void __cgroup_bpf_update(struct cgroup *cgrp,
+>> +			 struct cgroup *parent,
+>> +			 struct bpf_prog *prog,
+>> +			 enum bpf_attach_type type)
+>> +{
+>> +	struct bpf_prog *old_prog, *effective;
+>> +	struct cgroup_subsys_state *pos;
+>> +
+>> +	rcu_read_lock();
+> 
+> Ditto.
 
-Can we continue this discussion and find a final solution?
+Yes, agreed, as above.
 
-Maybe we need to schedule a face-to-face meeting on one of conferences?
-It may be Linux Plumbers, for example.
+>> +	old_prog = xchg(cgrp->bpf.prog + type, prog);
+>> +	if (old_prog) {
+>> +		bpf_prog_put(old_prog);
+>> +		static_branch_dec(&cgroup_bpf_enabled_key);
+>> +	}
+>> +
+>> +	if (prog)
+>> +		static_branch_inc(&cgroup_bpf_enabled_key);
+> 
+> Minor but probably better to inc first and then dec so that you can
+> avoid unnecessary enabled -> disabled -> enabled sequence.
 
-Here is Andy's idea how the netlink interface can be reworked:
+Good point. Will fix.
 
-On Wed, May 04, 2016 at 08:39:51PM -0700, Andy Lutomirski wrote:
-> Netlink had, and possibly still has, tons of serious security bugs
-> involving code checking send() callers' creds.  I found and fixed a
-> few a couple years ago.  To reiterate once again, send() CANNOT use
-> caller creds safely.  (I feel like I say this once every few weeks.
-> It's getting old.)
->
-> I realize that it's convenient to use a socket as a context to keep
-> state between syscalls, but it has some annoying side effects:
->
->  - It makes people want to rely on send()'s caller's creds.
->
->  - It's miserable in combination with seccomp.
->
->  - It doesn't play nicely with namespaces.
->
->  - It makes me wonder why things like task_diag, which have nothing to
-> do with networking, seem to get tangled up with networking.
->
->
-> Would it be worth considering adding a parallel interface, using it
-> for new things, and slowly migrating old use cases over?
->
-> int issue_kernel_command(int ns, int command, const struct iovec *iov,
-> int iovcnt, int flags);
->
-> ns is an actual namespace fd or:
->
-> KERNEL_COMMAND_CURRENT_NETNS
-> KERNEL_COMMAND_CURRENT_PIDNS
-> etc, or a special one:
-> KERNEL_COMMAND_GLOBAL.  KERNEL_COMMAND_GLOBAL can't be used in a
-> non-root namespace.
->
-> KERNEL_COMMAND_GLOBAL works even for namespaced things, if the
-> relevant current ns is the init namespace.  (This feature is optional,
-> but it would allow gradually namespacing global things.)
-> command is an enumerated command.  Each command implies a namespace
-> type, and, if you feed this thing the wrong namespace type, you get
-> EINVAL.  The high bit of command indicates whether it's read-only
-> command.
->
-> iov gives a command in the format expected, which, for the most part,
-> would be a netlink message.
->
-> The return value is an fd that you can call read/readv on to read the
-> response.  It's not a socket (or at least you can't do normal socket
-> operations on it if it is a socket behind the scenes).  The
-> implementation of read() promises *not* to look at caller creds.  The
-> returned fd is unconditionally cloexec -- it's 2016 already.  Sheesh.
->
-> When you've read all the data, all you can do is close the fd.  You
-> can't issue another command on the same fd.  You also can't call
-> write() or send() on the fd unless someone has a good reason why you
-> should be able to and why it's safe.  You can't issue another command
-> on the same fd.
->
->
-> I imagine that the implementation could re-use a bunch of netlink code
-> under the hood.
+>> +	rcu_read_unlock();
+>> +
+>> +	css_for_each_descendant_pre(pos, &cgrp->self) {
+> 
+> On the other hand, this walk actually requires rcu read locking unless
+> you're holding cgroup_mutex.
 
-[6] https://www.mail-archive.com/netdev@vger.kernel.org/msg109212.html
-[5] https://lkml.org/lkml/2016/5/4/785
-[4] https://lkml.org/lkml/2015/7/6/708
-[3] https://lwn.net/Articles/683371/
-[2] https://lkml.org/lkml/2015/7/6/142
-[1] https://lwn.net/Articles/633622/
-[0] https://criu.org/Task-diag
+I am - this function is always called with cgroup_mutex held through the
+wrapper in kernel/cgroup.c.
 
-Thanks,
-Andrei
+Thanks a lot - will put all that changes in v3.
+
+
+Daniel
