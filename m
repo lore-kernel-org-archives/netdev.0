@@ -1,107 +1,40 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v2 2/6] cgroup: add support for eBPF programs
-Date: Thu, 25 Aug 2016 00:30:47 +0200
-Message-ID: <616bcf67-314a-c943-8177-7e04021e89bb@zonque.org>
-References: <1472070263-29988-1-git-send-email-daniel@zonque.org>
- <1472070263-29988-3-git-send-email-daniel@zonque.org>
- <20160824215450.GA13455@htj.duckdns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: daniel@iogearbox.net, ast@fb.com, davem@davemloft.net,
-        kafai@fb.com, fw@strlen.de, pablo@netfilter.org, harald@redhat.com,
-        netdev@vger.kernel.org, sargun@sargun.me
-To: Tejun Heo <htejun@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:49491 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754502AbcHXW4f (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 18:56:35 -0400
-In-Reply-To: <20160824215450.GA13455@htj.duckdns.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xander Huff <xander.huff@ni.com>
+Subject: [PATCH v2] net: macb: Increase DMA TX buffer size
+Date: Wed, 24 Aug 2016 17:25:39 -0500
+Message-ID: <1472077539-18033-1-git-send-email-xander.huff@ni.com>
+References: <cccfc176-df56-4add-e6c8-e040f9da31dc@atmel.com>
+Cc: netdev@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>,
+        linux-kernel@vger.kernel.org, xander.huff@ni.com
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cccfc176-df56-4add-e6c8-e040f9da31dc@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Tejun,
+From: Nathan Sullivan <nathan.sullivan@ni.com>
 
-On 08/24/2016 11:54 PM, Tejun Heo wrote:
-> On Wed, Aug 24, 2016 at 10:24:19PM +0200, Daniel Mack wrote:
->> +void cgroup_bpf_free(struct cgroup *cgrp)
->> +{
->> +	unsigned int type;
->> +
->> +	rcu_read_lock();
->> +
->> +	for (type = 0; type < __MAX_BPF_ATTACH_TYPE; type++) {
->> +		if (!cgrp->bpf.prog[type])
->> +			continue;
->> +
->> +		bpf_prog_put(cgrp->bpf.prog[type]);
->> +		static_branch_dec(&cgroup_bpf_enabled_key);
->> +	}
->> +
->> +	rcu_read_unlock();
-> 
-> These rcu locking seem suspicious to me.  RCU locking on writer side
-> is usually bogus.  We sometimes do it to work around locking
-> assertions in accessors but it's a better idea to make the assertions
-> better in those cases - e.g. sth like assert_mylock_or_rcu_locked().
+In recent testing with the RT patchset, we have seen cases where the
+transmit ring can fill even with up to 200 txbds in the ring. Increase the
+size of the DMA TX ring to avoid overruns.
 
-Right, in this case, it is unnecessary, as the bpf.prog[] is not under RCU.
+Signed-off-by: Xander Huff <xander.huff@ni.com>
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->> +void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
->> +{
->> +	unsigned int type;
->> +
->> +	rcu_read_lock();
-> 
-> Ditto.
-> 
->> +	for (type = 0; type < __MAX_BPF_ATTACH_TYPE; type++)
->> +		rcu_assign_pointer(cgrp->bpf.prog_effective[type],
->> +			rcu_dereference(parent->bpf.prog_effective[type]));
-
-Okay, yes. We're under cgroup_mutex write-path protection here, so
-that's unnecessary too.
-
->> +void __cgroup_bpf_update(struct cgroup *cgrp,
->> +			 struct cgroup *parent,
->> +			 struct bpf_prog *prog,
->> +			 enum bpf_attach_type type)
->> +{
->> +	struct bpf_prog *old_prog, *effective;
->> +	struct cgroup_subsys_state *pos;
->> +
->> +	rcu_read_lock();
-> 
-> Ditto.
-
-Yes, agreed, as above.
-
->> +	old_prog = xchg(cgrp->bpf.prog + type, prog);
->> +	if (old_prog) {
->> +		bpf_prog_put(old_prog);
->> +		static_branch_dec(&cgroup_bpf_enabled_key);
->> +	}
->> +
->> +	if (prog)
->> +		static_branch_inc(&cgroup_bpf_enabled_key);
-> 
-> Minor but probably better to inc first and then dec so that you can
-> avoid unnecessary enabled -> disabled -> enabled sequence.
-
-Good point. Will fix.
-
->> +	rcu_read_unlock();
->> +
->> +	css_for_each_descendant_pre(pos, &cgrp->self) {
-> 
-> On the other hand, this walk actually requires rcu read locking unless
-> you're holding cgroup_mutex.
-
-I am - this function is always called with cgroup_mutex held through the
-wrapper in kernel/cgroup.c.
-
-Thanks a lot - will put all that changes in v3.
-
-
-Daniel
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 3256839..3efddb7 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -40,7 +40,7 @@
+ #define RX_RING_SIZE		512 /* must be power of 2 */
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+ 
+-#define TX_RING_SIZE		128 /* must be power of 2 */
++#define TX_RING_SIZE		512 /* must be power of 2 */
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
+ 
+ /* level of occupied TX descriptors under which we wake up TX process */
+-- 
+1.9.1
