@@ -1,52 +1,59 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: Re: [PATCH net-next 1/2] cxgb4/cxgb4vf: Add support for
- ndo_set_vf_vlan
-Date: Wed, 24 Aug 2016 13:52:50 +0530
-Message-ID: <20160824082249.GB9955@hari-Latitude-E5550>
-References: <1472021434-8287-1-git-send-email-hariprasad@chelsio.com>
- <1472021434-8287-2-git-send-email-hariprasad@chelsio.com>
- <SN2PR11MB009472734B1803F20C4A9B1497EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
+From: "Dan Akunis" <dan.akunis@gmail.com>
+Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
+Date: Wed, 24 Aug 2016 11:22:09 +0300
+Message-ID: <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
+References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com> <20160823.112515.318902967155957764.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "leedom@chelsio.com" <leedom@chelsio.com>,
-        "nirranjan@chelsio.com" <nirranjan@chelsio.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:16274 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754658AbcHXIY6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 04:24:58 -0400
-Content-Disposition: inline
-In-Reply-To: <SN2PR11MB009472734B1803F20C4A9B1497EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+        format=flowed;
+        charset="iso-8859-1";
+        reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
+        <samanthakumar@google.com>, <willemb@google.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <labbott@redhat.com>, "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160823.112515.318902967155957764.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday, August 08/24/16, 2016 at 07:08:14 +0000, Yuval Mintz wrote:
-> > @@ -1202,6 +1202,10 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct
-> > net_device *dev)
-> >  	BUG_ON(qidx >= pi->nqsets);
-> >  	txq = &adapter->sge.ethtxq[pi->first_qset + qidx];
-> > 
-> > +	if (pi->vlan_id && !skb_vlan_tag_present(skb))
-> > +		__vlan_hwaccel_put_tag(skb, cpu_to_be16(ETH_P_8021Q),
-> > +				       pi->vlan_id);
-> > +
-> 
-> So it's a purely SW implementation of the feature on the VF side?
-> Does the HW enforces the configuration in any way on the VF?
-Basically the PF driver passes the VLAN ID it got through ndo_set_vf_vlan
-to the VF driver. And then the VF driver reads it and requests hardware to
-tag it.
+When select wakes up on a UDP socket, user is expecting to get data. Getting 
+0 from recvfrom() or whatever read function she uses, is a wrong attitude.
+I agree with David.
 
-> 
-> Also, looks like an already tagged packet would be processed with
-> the original vlan-id [instead of the one of PF has provided].
-> Is that intentional?
-No, this isn't intentional. I thought VST and VGT cannot co-exist.
-What should be the behavior? 
+The unit test that expects select to wake up is wrong and should be changed.
 
-Thanks,
-Hariprasad Shenai
- 
+-----Original Message----- 
+From: David Miller
+Sent: Tuesday, August 23, 2016 9:25 PM
+To: labbott@redhat.com
+Cc: kuznet@ms2.inr.ac.ru ; jmorris@namei.org ; yoshfuji@linux-ipv6.org ; 
+kaber@trash.net ; samanthakumar@google.com ; willemb@google.com ; 
+netdev@vger.kernel.org ; linux-kernel@vger.kernel.org
+Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
+
+From: Laura Abbott <labbott@redhat.com>
+Date: Tue, 23 Aug 2016 10:53:26 -0700
+
+> Fedora received a report[1] of a unit test failing on Ruby when using
+> the
+> 4.7 kernel. This was a test to send a zero sized UDP packet. With the
+> 4.7 kernel, the test now timing out on a select instead of completing.
+> The reduced ruby test is
+>
+>   def test_udp_recvfrom_nonblock
+>     u1 = UDPSocket.new
+>     u2 = UDPSocket.new
+>     u1.bind("127.0.0.1", 0)
+>     u2.send("", 0, u1.getsockname)
+>     IO.select [u1]  # test gets stuck here
+>   ensure
+>     u1.close if u1
+>     u2.close if u2
+>   end
+
+Well, if there is no data, should select really wake up?
+
+I think it's valid not to. 
