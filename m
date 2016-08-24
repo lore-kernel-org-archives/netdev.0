@@ -1,46 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] phy: request shared IRQ
-Date: Wed, 24 Aug 2016 21:41:07 +0300
-Message-ID: <e2248086-6087-0fcd-1338-8f6463943c62@cogentembedded.com>
-References: <1472061216-11111-1-git-send-email-xander.huff@ni.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        brad.mouring@ni.com, Nathan Sullivan <nathan.sullivan@ni.com>
-To: Xander Huff <xander.huff@ni.com>, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:33108 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754464AbcHXSrH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 14:47:07 -0400
-Received: by mail-lf0-f54.google.com with SMTP id b199so18484560lfe.0
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 11:47:06 -0700 (PDT)
-In-Reply-To: <1472061216-11111-1-git-send-email-xander.huff@ni.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xander Huff <xander.huff@ni.com>
+Subject: [PATCH] net: macb: Increase DMA buffer size
+Date: Wed, 24 Aug 2016 13:25:59 -0500
+Message-ID: <1472063159-13797-1-git-send-email-xander.huff@ni.com>
+Cc: netdev@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>,
+        linux-kernel@vger.kernel.org, xander.huff@ni.com
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+From: Nathan Sullivan <nathan.sullivan@ni.com>
 
-On 08/24/2016 08:53 PM, Xander Huff wrote:
+In recent testing with the RT patchset, we have seen cases where the
+transmit ring can fill even with up to 200 txbds in the ring.  Increase
+the size of the DMA rings to avoid overruns.
 
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
->
-> On hardware with multiple PHY devices hooked up to the same IRQ line, allow
-> them to share it.
+Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+Acked-by: Ben Shelton <ben.shelton@ni.com>
+Acked-by: Jaeden Amero <jaeden.amero@ni.com>
+Natinst-ReviewBoard-ID: 83662
+---
+ drivers/net/ethernet/cadence/macb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-    Note that it had been allowed until my (erroneous?) commit 
-33c133cc7598e60976a069344910d63e56cc4401 ("phy: IRQ cannot be shared"), so I'd 
-like this commit just reverted instead...
-    I'm not sure now what was the reason I concluded that the IRQ sharing was 
-impossible... most probably I thought that the kernel IRQ handling code exited 
-the loop over the IRQ actions once IRQ_HANDLED was returned -- which is 
-obviously not so in reality...
-
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> Acked-by: Ben Shelton <ben.shelton@ni.com>
-> Acked-by: Jaeden Amero <jaeden.amero@ni.com>
-[...]
-
-MBR, Sergei
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 3256839..86a8e20 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -35,12 +35,12 @@
+ 
+ #include "macb.h"
+ 
+-#define MACB_RX_BUFFER_SIZE	128
++#define MACB_RX_BUFFER_SIZE	1536
+ #define RX_BUFFER_MULTIPLE	64  /* bytes */
+ #define RX_RING_SIZE		512 /* must be power of 2 */
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+ 
+-#define TX_RING_SIZE		128 /* must be power of 2 */
++#define TX_RING_SIZE		512 /* must be power of 2 */
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
+ 
+ /* level of occupied TX descriptors under which we wake up TX process */
+-- 
+1.9.1
