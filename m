@@ -1,49 +1,116 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 05/15] net: sched: a dflt qdisc may be used
- with per cpu stats
-Date: Wed, 24 Aug 2016 10:26:50 -0700
-Message-ID: <1472059610.14381.103.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
-         <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
-         <1472056898.14381.95.camel@edumazet-glaptop3.roam.corp.google.com>
-         <57BDD5AE.8030208@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next v1] gso: Support partial splitting at the
+ frag_list pointer
+Date: Wed, 24 Aug 2016 14:25:29 -0300
+Message-ID: <f108e80d-e8ee-4d59-ac65-e98df66c98d3@gmail.com>
+References: <20160823052030.GI3735@gauss.secunet.com>
+ <CAKgT0UdATK8LUiTQ3sn0nrJTtk9oo29k7CrNdZavsPie_Pte0w@mail.gmail.com>
+ <20160824093226.GN3735@gauss.secunet.com>
+ <CAKgT0Ucp_M-oCDjvi2Aay=aNBTH=-sGEVxUgq0b=5KrX8j3O9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
-        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36484 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754297AbcHXR06 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:26:58 -0400
-Received: by mail-pf0-f196.google.com with SMTP id y134so1568117pfg.3
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:26:51 -0700 (PDT)
-In-Reply-To: <57BDD5AE.8030208@gmail.com>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35295 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750969AbcHXRjc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:39:32 -0400
+Received: by mail-qk0-f195.google.com with SMTP id o1so1676042qkd.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:39:05 -0700 (PDT)
+In-Reply-To: <CAKgT0Ucp_M-oCDjvi2Aay=aNBTH=-sGEVxUgq0b=5KrX8j3O9Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-08-24 at 10:13 -0700, John Fastabend wrote:
+Em 24-08-2016 13:27, Alexander Duyck escreveu:
+> On Wed, Aug 24, 2016 at 2:32 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+>> On Tue, Aug 23, 2016 at 07:47:32AM -0700, Alexander Duyck wrote:
+>>> On Mon, Aug 22, 2016 at 10:20 PM, Steffen Klassert
+>>> <steffen.klassert@secunet.com> wrote:
+>>>> Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
+>>>> gro may build buffers with a frag_list. This can hurt forwarding
+>>>> because most NICs can't offload such packets, they need to be
+>>>> segmented in software. This patch splits buffers with a frag_list
+>>>> at the frag_list pointer into buffers that can be TSO offloaded.
+>>>>
+>>>> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>>>> ---
+>>>>  net/core/skbuff.c      | 89 +++++++++++++++++++++++++++++++++++++++++++++++++-
+>>>>  net/ipv4/af_inet.c     |  7 ++--
+>>>>  net/ipv4/gre_offload.c |  7 +++-
+>>>>  net/ipv4/tcp_offload.c |  3 ++
+>>>>  net/ipv4/udp_offload.c |  9 +++--
+>>>>  net/ipv6/ip6_offload.c |  6 +++-
+>>>>  6 files changed, 114 insertions(+), 7 deletions(-)
+>>>>
+>>>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>>>> index 3864b4b6..a614e9d 100644
+>>>> --- a/net/core/skbuff.c
+>>>> +++ b/net/core/skbuff.c
+>>>> @@ -3078,6 +3078,92 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>>>>         sg = !!(features & NETIF_F_SG);
+>>>>         csum = !!can_checksum_protocol(features, proto);
+>>>>
+>>>> +       headroom = skb_headroom(head_skb);
+>>>> +
+>>>> +       if (list_skb && net_gso_ok(features, skb_shinfo(head_skb)->gso_type) &&
+>>>> +           csum && sg && (mss != GSO_BY_FRAGS) &&
+>>>> +           !(features & NETIF_F_GSO_PARTIAL)) {
+>>>
+>>> Does this really need to be mutually exclusive with
+>>> NETIF_F_GSO_PARTIAL and GSO_BY_FRAGS?
+>>
+>> It should be possible to extend this to NETIF_F_GSO_PARTIAL but
+>> I have no test for this. Regarding GSO_BY_FRAGS, this is rather
+>> new and just used for sctp. I don't know what sctp does with
+>> GSO_BY_FRAGS.
+>
+> I'm adding Marcelo as he could probably explain the GSO_BY_FRAGS
+> functionality better than I could since he is the original author.
+>
+> If I recall GSO_BY_FRAGS does something similar to what you are doing,
+> although I believe it doesn't carry any data in the first buffer other
+> than just a header.  I believe the idea behind GSO_BY_FRAGS was to
+> allow for segmenting a frame at the frag_list level instead of having
+> it done just based on MSS.  That was the only reason why I brought it
+> up.
+>
 
-> > 
-> 
-> I could fully allocate it in qdisc_alloc() but we don't know if the
-> qdisc needs per cpu data structures until after the init call
+That's exactly it.
 
-Should not we have a flag to advertise the need of per spu stats on
-qdisc ?
+On this no data in the first buffer limitation, we probably can allow it 
+have some data in there. It was done this way just because sctp is using 
+skb_gro_receive() to build such skb and this was the way I found to get 
+such frag_list skb generated by it, thus preserving frame boundaries.
 
-This is not clear why ->init() can know this, and not its caller.
+For using GSO_BY_FRAGS in gso_size, it's how skb_is_gso() returns true, 
+but it's similar to the SKB_GSO_PARTIAL rationale in here. We can make 
+sctp also flag it as SKB_GSO_PARTIAL if needed I guess, in case you need 
+to maintain gso_size value.
 
-> . So it
-> would sit unused in those cases if done from qdisc_alloc(). It seems
-> best to me at least to just avoid the allocation in qdisc_alloc() and
-> do it after init like I did here.
-> 
-> Perhaps it would be nice to pull these into a function call
-> post_init_qdisc_alloc() that does all this allocation?
-> 
-> .John
-> 
+   Marcelo
+
+> In you case though we maybe be able to make this easier.  If I am not
+> mistaken I believe we should have the main skb, and any in the chain
+> excluding the last containing the same amount of data.  That being the
+> case we should be able to determine the size that you would need to
+> segment at by taking skb->len, and removing the length of all the
+> skbuffs hanging off of frag_list.  At that point you just use that as
+> your MSS for segmentation and it should break things up so that you
+> have a series of equal sized segments split as the frag_list buffer
+> boundaries.
+>
+> After that all that is left is to update the gso info for the buffers.
+> For GSO_PARTIAL I was handling that on the first segment only.  For
+> this change you would need to update that code to address the fact
+> that you would have to determine the number of segments on the first
+> frame and the last since the last could be less than the first, but
+> all of the others in-between should have the same number of segments.
+>
+> - Alex
+>
