@@ -1,62 +1,114 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: CVE-2014-9900 fix is not upstream
-Date: Wed, 24 Aug 2016 22:36:08 +0200
-Message-ID: <18517b44-0d3f-3f83-e327-60064c170c5a@stressinduktion.org>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
- <20160823.094029.1244944495918162255.davem@davemloft.net>
- <1471973727.13300.162.camel@decadent.org.uk>
- <20160823.112406.549221808236512285.davem@davemloft.net>
- <20160823200941.GB2356@ZenIV.linux.org.uk>
- <1471984445.3746.129.camel@perches.com>
- <20160823204933.GA14311@csclub.uwaterloo.ca>
- <20160823212545.GC2356@ZenIV.linux.org.uk>
- <20160824140316.GB14309@csclub.uwaterloo.ca>
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Subject: Re: [ethtool PATCH v4 0/4] Add support for QSFP+/QSFP28 Diagnostics
+ and 25G/50G/100G port speeds
+Date: Wed, 24 Aug 2016 13:39:18 -0700
+Message-ID: <CAKWE-Xq=xYT_X9hUkPf2FjfdWtMjw2=AyLHiyqCes+HHr5dqWQ@mail.gmail.com>
+References: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com> <20160824200122.GC20493@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-        ben@decadent.org.uk, luis.henriques@canonical.com,
-        avijitnsec@codeaurora.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-        Al Viro <viro@ZenIV.linux.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        David Decotigny <decot@googlers.com>, bkenward@solarflare.com,
+        daniel@iogearbox.net, Gal Pressman <galp@mellanox.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Andy Gospodarek <gospo@cumulusnetworks.com>,
+        Dustin Byford <dustin@cumulusnetworks.com>,
+        Ben Hutchings <ben@decadent.org.uk>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:45868 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755728AbcHXUgO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:36:14 -0400
-In-Reply-To: <20160824140316.GB14309@csclub.uwaterloo.ca>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:35993 "EHLO
+        mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751465AbcHXUkB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:40:01 -0400
+Received: by mail-yw0-f182.google.com with SMTP id u134so17572386ywg.3
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 13:39:19 -0700 (PDT)
+In-Reply-To: <20160824200122.GC20493@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24.08.2016 16:03, Lennart Sorensen wrote:
-> On Tue, Aug 23, 2016 at 10:25:45PM +0100, Al Viro wrote:
->> Sadly, sizeof is what we use when copying that sucker to userland.  So these
->> padding bits in the end would've leaked, true enough, and the case is somewhat
->> weaker.  And any normal architecture will have those, but then any such
->> architecture will have no more trouble zeroing a 32bit value than 16bit one.
-> 
-> Hmm, good point.  Too bad I don't see a compiler option of "zero all
-> padding in structs".  Certainly generating the code should not really
-> be that different.
-> 
-> I see someone did request it 2 years ago:
-> https://gcc.gnu.org/bugzilla/show_bug.cgi?id=63479
+On Wed, Aug 24, 2016 at 1:01 PM, John W. Linville
+<linville@tuxdriver.com> wrote:
+> I have pushed this series. I did modify patches 3 and 4 a bit,
+> to properly update Makefile.am in order to keep "make distcheck"
+> from failing -- please be more careful in the future.
+>
+Thanks for pushing the patches. Not aware of "make distcheck" and
+will be careful going forward.
+Quickly validated the build on SFP+/QSFP+/QSFP28  and everything seems fine
 
-I don't think this is sufficient. Basically if you write one field in a
-struct after a memset again, the compiler is allowed by the standard to
-write padding bytes again, causing them to be undefined.
-
-If we want to go down this route, probably the only option is to add
-__attribute__((pack)) those structs to just have no padding at all, thus
-breaking uapi.
-
-E.g. the x11 protocol implementation specifies padding bytes in their
-binary representation of the wire protocol to limit the leaking:
-
-https://cgit.freedesktop.org/xorg/proto/xproto/tree/Xproto.h
-
-... which would be another option.
-
-Bye,
-Hannes
+> John
+>
+> P.S. I have not yet tagged this as an official release, so please test!
+>
+> On Tue, Aug 23, 2016 at 06:30:29AM -0700, Vidya Sagar Ravipati wrote:
+>> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+>>
+>> This patch seryies provides following support
+>> a) Reorganized fields based out of SFF-8024 fields i.e. Identifier/
+>>    Encoding/Connector types which are common across SFP/SFP+ (SFF-8472)
+>>    and QSFP+/QSFP28 (SFF-8436/SFF-8636) modules into sff-common files.
+>> b) Support for diagnostics information for QSFP Plus/QSFP28 modules
+>>    based on SFF-8436/SFF-8636
+>> c) Supporting 25G/50G/100G speeds in supported/advertising fields
+>> d) Tested across various QSFP+/QSFP28 Copper/Optical modules
+>>
+>> Standards for QSFP+/QSFP28
+>> a) QSFP+/QSFP28 - SFF 8636 Rev 2.7 dated January 26,2016
+>> b) SFF-8024 Rev 4.0 dated May 31, 2016
+>>
+>> v4:
+>>   Sync ethtool-copy.h to kernel commit 89da45b8b5b2187734a11038b8593714f964ffd1
+>>   which includes support for 50G base SR2
+>>
+>> v3:
+>>  Review comments from Ben Hutchings:
+>>    Make sff diags structure common across sfpdiag.c and
+>>    qsfp.c and use common function to print common threshold
+>>    values.
+>>  Review comments from Rami Rosen:
+>>    Cleanup description messages.
+>>
+>> v2:
+>>   Included support for 25G/50G/100G speeds in supported/
+>>   advertised speed modes
+>>   Review comments from Ben Hutchings:
+>>     Split the sff-8024 reorganzing patch and QSFP+/QSFP28
+>>     patch
+>>     Fixed all checkpatch warnings (except couple of over 80 character)
+>>
+>> v1:
+>>   Support for SFF-8636 Rev 2.7
+>>   Review comments from Ben Hutchings:
+>>    Updating copyright holders information for QSFP
+>>    Reusing the common functions and macros across sfpid and qsfp
+>>
+>> Vidya Sagar Ravipati (4):
+>>   ethtool-copy.h:sync with net
+>>   ethtool:Reorganizing  SFF-8024 fields for SFP/QSFP
+>>   ethtool:QSFP Plus/QSFP28 Diagnostics Information Support
+>>   ethtool: Enhancing link mode bits to support 25G/50G/100G
+>>
+>>  Makefile.am    |   2 +-
+>>  ethtool-copy.h |  18 +-
+>>  ethtool.c      |  35 +++
+>>  internal.h     |   3 +
+>>  qsfp.c         | 788 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>>  qsfp.h         | 595 +++++++++++++++++++++++++++++++++++++++++++
+>>  sff-common.c   | 304 ++++++++++++++++++++++
+>>  sff-common.h   | 189 ++++++++++++++
+>>  sfpdiag.c      | 105 +-------
+>>  sfpid.c        | 103 +-------
+>>  10 files changed, 1945 insertions(+), 197 deletions(-)
+>>  create mode 100644 qsfp.c
+>>  create mode 100644 qsfp.h
+>>  create mode 100644 sff-common.c
+>>  create mode 100644 sff-common.h
+>>
+>> --
+>> 2.1.4
+>>
+>>
+>
+> --
+> John W. Linville                Someday the world will need a hero, and you
+> linville@tuxdriver.com                  might be all we have.  Be ready.
