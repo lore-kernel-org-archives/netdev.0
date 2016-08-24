@@ -1,57 +1,93 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: bcm_sf2: Fix race condition while unmasking interrupts
-Date: Wed, 24 Aug 2016 11:01:20 -0700
-Message-ID: <1472061680-24429-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 05/15] net: sched: a dflt qdisc may be used with
+ per cpu stats
+Date: Wed, 24 Aug 2016 10:13:18 -0700
+Message-ID: <57BDD5AE.8030208@gmail.com>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+ <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
+ <1472056898.14381.95.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
+        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36716 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754475AbcHXSBr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 14:01:47 -0400
-Received: by mail-pf0-f196.google.com with SMTP id y134so1616200pfg.3
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 11:01:24 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35259 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753148AbcHXSFp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 14:05:45 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so1569724pad.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 11:04:21 -0700 (PDT)
+In-Reply-To: <1472056898.14381.95.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We kept shadow copies of which interrupt sources we have enabled and
-disabled, but due to an order bug in how intrl2_mask_clear was defined,
-we could run into the following scenario:
+On 16-08-24 09:41 AM, Eric Dumazet wrote:
+> On Tue, 2016-08-23 at 13:24 -0700, John Fastabend wrote:
+>> Enable dflt qdisc support for per cpu stats before this patch a
+>> dflt qdisc was required to use the global statistics qstats and
+>> bstats.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>  net/sched/sch_generic.c |   24 ++++++++++++++++++++----
+>>  1 file changed, 20 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+>> index 80544c2..910b4d15 100644
+>> --- a/net/sched/sch_generic.c
+>> +++ b/net/sched/sch_generic.c
+>> @@ -646,18 +646,34 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+>>  	struct Qdisc *sch;
+>>  
+>>  	if (!try_module_get(ops->owner))
+>> -		goto errout;
+>> +		return NULL;
+>>  
+>>  	sch = qdisc_alloc(dev_queue, ops);
+>>  	if (IS_ERR(sch))
+>> -		goto errout;
+>> +		return NULL;
+>>  	sch->parent = parentid;
+>>  
+>> -	if (!ops->init || ops->init(sch, NULL) == 0)
+>> +	if (!ops->init)
+>>  		return sch;
+>>  
+>> -	qdisc_destroy(sch);
+>> +	if (ops->init(sch, NULL))
+>> +		goto errout;
+>> +
+>> +	/* init() may have set percpu flags so init data structures */
+>> +	if (qdisc_is_percpu_stats(sch)) {
+>> +		sch->cpu_bstats =
+>> +			netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
+>> +		if (!sch->cpu_bstats)
+>> +			goto errout;
+>> +
+>> +		sch->cpu_qstats = alloc_percpu(struct gnet_stats_queue);
+>> +		if (!sch->cpu_qstats)
+>> +			goto errout;
+>> +	}
+>> +
+> 
+> Why are you attempting these allocations here instead of qdisc_alloc()
+> 
+> This looks weird, I would expect base qdisc being fully allocated before
+> ops->init() is attempted.
+> 
+> 
+> 
 
-CPU0					CPU1
-intrl2_1_mask_clear(..)
-sets INTRL2_CPU_MASK_CLEAR
-					bcm_sf2_switch_1_isr
-					read INTRL2_CPU_STATUS and masks with stale
-					irq1_mask value
-updates irq1_mask value
+I could fully allocate it in qdisc_alloc() but we don't know if the
+qdisc needs per cpu data structures until after the init call. So it
+would sit unused in those cases if done from qdisc_alloc(). It seems
+best to me at least to just avoid the allocation in qdisc_alloc() and
+do it after init like I did here.
 
-Which would make us loop again and again trying to process and interrupt
-we are not clearing since our copy of whether it was enabled before
-still indicates it was not. Fix this by updating the shadow copy first,
-and then unasking at the HW level.
+Perhaps it would be nice to pull these into a function call
+post_init_qdisc_alloc() that does all this allocation?
 
-Fixes: 246d7f773c13 ("net: dsa: add Broadcom SF2 switch driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/bcm_sf2.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
-index 463bed8cbe4c..dd446e466699 100644
---- a/drivers/net/dsa/bcm_sf2.h
-+++ b/drivers/net/dsa/bcm_sf2.h
-@@ -205,8 +205,8 @@ static inline void name##_writeq(struct bcm_sf2_priv *priv, u64 val,	\
- static inline void intrl2_##which##_mask_clear(struct bcm_sf2_priv *priv, \
- 						u32 mask)		\
- {									\
--	intrl2_##which##_writel(priv, mask, INTRL2_CPU_MASK_CLEAR);	\
- 	priv->irq##which##_mask &= ~(mask);				\
-+	intrl2_##which##_writel(priv, mask, INTRL2_CPU_MASK_CLEAR);	\
- }									\
- static inline void intrl2_##which##_mask_set(struct bcm_sf2_priv *priv, \
- 						u32 mask)		\
--- 
-2.7.4
+.John
