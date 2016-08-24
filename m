@@ -1,114 +1,60 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Subject: [PATCH 2/3] net: fs_enet: don't unmap DMA when packet len is below
- copybreak
-Date: Wed, 24 Aug 2016 12:36:42 +0200 (CEST)
-Message-ID: <552651c13fd992acb2d044a356a88e1c78974bef.1472033140.git.christophe.leroy@c-s.fr>
-References: <cover.1472033140.git.christophe.leroy@c-s.fr>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org
-To: Pantelis Antoniou <pantelis.antoniou@gmail.com>,
-        Vitaly Bordug <vbordug@ru.mvista.com>, davem@davemloft.net
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next 1/2] cxgb4/cxgb4vf: Add support for
+ ndo_set_vf_vlan
+Date: Wed, 24 Aug 2016 10:02:57 +0000
+Message-ID: <CO2PR11MB00884270FCB88896B9B1754B97EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1472021434-8287-1-git-send-email-hariprasad@chelsio.com>
+ <1472021434-8287-2-git-send-email-hariprasad@chelsio.com>
+ <SN2PR11MB009472734B1803F20C4A9B1497EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
+ <20160824082249.GB9955@hari-Latitude-E5550>
+ <CO2PR11MB0088077BE20D123DD6BB119297EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <20160824094003.GA21672@hari-Latitude-E5550>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "leedom@chelsio.com" <leedom@chelsio.com>,
+        "nirranjan@chelsio.com" <nirranjan@chelsio.com>
+To: Hariprasad Shenai <hariprasad@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pegase1.c-s.fr ([93.17.236.30]:15503 "EHLO pegase1.c-s.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753012AbcHXKjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 06:39:09 -0400
-In-Reply-To: <cover.1472033140.git.christophe.leroy@c-s.fr>
+Received: from mail-bn3nam01on0116.outbound.protection.outlook.com ([104.47.33.116]:48973
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754046AbcHXKjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 06:39:25 -0400
+In-Reply-To: <20160824094003.GA21672@hari-Latitude-E5550>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the length of the packet is below the defined copybreak limit,
-the received packet is copied into a newly allocated skb in order
-to reuse the skb. This is only interesting if it allow us to avoid
-a new DMA mapping. We shall therefore not DMA unmap and remap the
-skb->data. Instead, we invalidate the cache
-with dma_sync_single_for_cpu() once the received data has been
-copied into the new skb.
+> > Are you preventing VGT configuration once VST is configured?
+> > If not, what to prevent VM user from configuring vlan interfaces on
+> > top of the VF, even if VST is configured?
+> Again this misses documentation, what if VLAN interface is already config=
+ured in
+> VM before VST is configured.
+> Before there were callbacks to add/remove vlan interface, now that is rem=
+oved
+> how to achieve it?
+>     OR
+> am I missing something?
 
-The following measures have been obtained on a mpc885 running at 132Mhz.
-Measurement is done using the timebase with packets sent to the target
-with 'ping -s 1' (packet len is 60):
-* Without this patch: 182 TB ticks
-* With this patch: 143 TB ticks
-
-As a comparison, if we set the copybreak limit to 0, then we get
-148 TB ticks. It means that without this patch, duration is even
-worse when copying received data to a new skb instead of
-allocating a new skb for next packet to be received
-
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
----
- .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 36 ++++++++++++----------
- 1 file changed, 20 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 7cd3ef9..addcae6 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -221,21 +221,10 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
- 			if (sc & BD_ENET_RX_OV)
- 				fep->stats.rx_crc_errors++;
- 
--			skb = fep->rx_skbuff[curidx];
--
--			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
--				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
--				DMA_FROM_DEVICE);
--
--			skbn = skb;
--
-+			skbn = fep->rx_skbuff[curidx];
- 		} else {
- 			skb = fep->rx_skbuff[curidx];
- 
--			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
--				L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
--				DMA_FROM_DEVICE);
--
- 			/*
- 			 * Process the incoming frame.
- 			 */
-@@ -251,12 +240,30 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
- 					skb_copy_from_linear_data(skb,
- 						      skbn->data, pkt_len);
- 					swap(skb, skbn);
-+					dma_sync_single_for_cpu(fep->dev,
-+						CBDR_BUFADDR(bdp),
-+						L1_CACHE_ALIGN(pkt_len),
-+						DMA_FROM_DEVICE);
- 				}
- 			} else {
- 				skbn = netdev_alloc_skb(dev, ENET_RX_FRSIZE);
- 
--				if (skbn)
-+				if (skbn) {
-+					dma_addr_t dma;
-+
- 					skb_align(skbn, ENET_RX_ALIGN);
-+
-+					dma_unmap_single(fep->dev,
-+						CBDR_BUFADDR(bdp),
-+						L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
-+						DMA_FROM_DEVICE);
-+
-+					dma = dma_map_single(fep->dev,
-+						skbn->data,
-+						L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
-+						DMA_FROM_DEVICE);
-+					CBDW_BUFADDR(bdp, dma);
-+				}
- 			}
- 
- 			if (skbn != NULL) {
-@@ -271,9 +278,6 @@ static int fs_enet_napi(struct napi_struct *napi, int budget)
- 		}
- 
- 		fep->rx_skbuff[curidx] = skbn;
--		CBDW_BUFADDR(bdp, dma_map_single(fep->dev, skbn->data,
--			     L1_CACHE_ALIGN(PKT_MAXBUF_SIZE),
--			     DMA_FROM_DEVICE));
- 		CBDW_DATLEN(bdp, 0);
- 		CBDW_SC(bdp, (sc & ~BD_ENET_RX_STATS) | BD_ENET_RX_EMPTY);
- 
--- 
-2.1.0
+I can only offer what our drivers [bnx2x, qed*] are doing -=20
+  -  VST is achieved by FW adding the vlan tag [unknowingly to VF] on egres=
+s traffic,
+and silently stripping the vlan tag from the incoming traffic [so VF driver=
+ never
+sees the tag].
+  - Once VST is enabled, device [well, actually PF driver] would reject any=
+ further
+requests for configuring VGT.
+  - Once VST is configured, device would silently drop any vlan-tagged egre=
+ss
+Traffic sent  by VF, and would classify incoming traffic for that VF only i=
+f it's
+tagged with the VGT vlan-id.
+This has the effect of making existing vlan-interface over the VF completel=
+y
+dysfunctional [as all transmissions from them would be dropped and they'll
+never see any additional incoming traffic].
