@@ -1,42 +1,82 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next v2 2/2] net: diag: allow socket bytecode filters
- to match socket marks
-Date: Thu, 25 Aug 2016 00:03:02 +0900
-Message-ID: <CAKD1Yr35Tvi03fpE14j0dk8DuhAWs6KRekd3DzOeq7Hf97CUJg@mail.gmail.com>
-References: <1472021186-4106-1-git-send-email-lorenzo@google.com>
- <1472021186-4106-2-git-send-email-lorenzo@google.com> <77441548-8f56-08de-4b76-00ed404a6ffe@cumulusnetworks.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 0/2] rxrpc: Add better client conn management
+ strategy
+Date: Wed, 24 Aug 2016 16:04:07 +0100
+Message-ID: <147205104744.13653.18154187942560167277.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>, Erik Kline <ek@google.com>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f45.google.com ([209.85.214.45]:38249 "EHLO
-        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756270AbcHXPDY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 11:03:24 -0400
-Received: by mail-it0-f45.google.com with SMTP id n128so38520039ith.1
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 08:03:23 -0700 (PDT)
-In-Reply-To: <77441548-8f56-08de-4b76-00ed404a6ffe@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 24, 2016 at 11:35 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> sock_diag_destroy already requires ADMIN for destroying sockets, so adding here just prevents listing them. Given that and the fact that the diag API does not pass the mark value is there a reason to add the extra ADMIN check?
 
-Even though the API does not return the mark value, this code allows
-the caller to find the mark of any socket simply by performing n=32
-socket dumps, each filtering for a mark/mask of 1<<n/1<<n. Each such
-dump will reveal bit n in the mark of all sockets in the system.
+These two patches add a better client connection management strategy.  They
+need to be applied on top of the just-posted fixes.
 
-If you consider socket marks to be information that's private to the
-app, then it's appropriate to restrict access to them to NET_ADMIN. I
-thought it prudent to do so, particularly since only applications with
-NET_ADMIN can set marks in the first place.
+ (1) Duplicate the connection list and separate out procfs iteration from
+     garbage collection.  This is necessary for the next patch as with that
+     client connections no longer appear on a single list and may not
+     appear on a list at all - and really don't want to be exposed to the
+     old garbage collector.
 
-Note that a process with NET_ADMIN can already determine the mark of
-any given socket (as long as that socket sends a packet) by installing
-32 iptables rules that exactly match the socket's 5-tuple and where
-each rule checks one bit in the mark. So this patch doesn't expose any
-information that was not previously available.
+     (Note that client conns aren't left dangling, they're also in a tree
+     rooted in the local endpoint so that they can be found by a user
+     wanting to make a new client call.  Service conns do not appear in
+     this tree.)
+
+ (2) Implement a better lifetime management and garbage collection strategy
+     for client connections.
+
+     In this, a client connection can be in one of five cache states
+     (inactive, waiting, active, culled and idle).  Limits are set on the
+     number of client conns that may be active at any one time and makes
+     users wait if they want to start a new call when there isn't capacity
+     available.
+
+     To make capacity available, active and idle connections can be culled,
+     after a short delay (to allow for retransmission).  The delay is
+     reduced if the capacity exceeds a tunable threshold.
+
+     If there is spare capacity, client conns are permitted to hang around
+     a fair bit longer (tunable) so as to allow reuse of negotiated
+     security contexts.
+
+     After this patch, the client conn strategy is separate from that of
+     service conns (which continues to use the old code for the moment).
+
+     This difference in strategy is because the client side retains control
+     over when it allows a connection to become active, whereas the service
+     side has no control over when it sees a new connection or a new call
+     on an old connection.
+
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160824-2
+
+David
+---
+David Howells (2):
+      rxrpc: Dup the main conn list for the proc interface
+      rxrpc: Improve management and caching of client connection objects
+
+
+ net/rxrpc/ar-internal.h  |   58 ++-
+ net/rxrpc/call_event.c   |    4 
+ net/rxrpc/call_object.c  |    5 
+ net/rxrpc/conn_client.c  |  911 ++++++++++++++++++++++++++++++++++++++++------
+ net/rxrpc/conn_object.c  |   72 +++-
+ net/rxrpc/conn_service.c |    6 
+ net/rxrpc/output.c       |    6 
+ net/rxrpc/proc.c         |    8 
+ net/rxrpc/sysctl.c       |   33 +-
+ 9 files changed, 943 insertions(+), 160 deletions(-)
