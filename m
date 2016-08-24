@@ -1,97 +1,99 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next 11/15] net/mlx5: Add LAG flow steering namespace
-Date: Wed, 24 Aug 2016 13:39:10 +0300
-Message-ID: <1472035154-14517-12-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH for-next 09/15] net/mlx5: LAG and SRIOV cannot be used together
+Date: Wed, 24 Aug 2016 13:39:08 +0300
+Message-ID: <1472035154-14517-10-git-send-email-saeedm@mellanox.com>
 References: <1472035154-14517-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Tal Alon <talal@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Majd Dibbiny <majd@mellanox.com>,
-        Aviv Heller <avivh@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59920 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754658AbcHXKl0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 06:41:26 -0400
-In-Reply-To: <1472035154-14517-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tal Alon <talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1472035154-14517-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Aviv Heller <avivh@mellanox.com>
+From: Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-This namespace is used for LAG demux flowtable.
+Until support will be added for RoCE LAG SRIOV.
 
-The idea is to position the LAG demux ft between
-bypass and kernel flowtables, allowing raw-eth
-traffic from both ports to be received by the PF0
-IB device.
-
-Signed-off-by: Aviv Heller <avivh@mellanox.com>
-Reviewed-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Aviv Heller <avivh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 11 ++++++++++-
- include/linux/mlx5/fs.h                           |  1 +
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/lag.c       |  6 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h |  1 +
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c     | 12 ++++++++++++
+ 3 files changed, 19 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index eabd734..ac414b7 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -96,6 +96,10 @@
- #define OFFLOADS_NUM_PRIOS 1
- #define OFFLOADS_MIN_LEVEL (ANCHOR_MIN_LEVEL + 1)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lag.c b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+index 9523050..3cb570a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/lag.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/lag.c
+@@ -201,6 +201,12 @@ static void mlx5_do_bond(struct mlx5_lag *ldev)
+ 	mutex_unlock(&lag_mutex);
  
-+#define LAG_PRIO_NUM_LEVELS 1
-+#define LAG_NUM_PRIOS 1
-+#define LAG_MIN_LEVEL (OFFLOADS_MIN_LEVEL + 1)
+ 	if (tracker.is_bonded && !mlx5_lag_is_bonded(ldev)) {
++		if (mlx5_sriov_is_enabled(dev0) ||
++		    mlx5_sriov_is_enabled(dev1)) {
++			mlx5_core_warn(dev0, "LAG is not supported with SRIOV");
++			return;
++		}
 +
- struct node_caps {
- 	size_t	arr_sz;
- 	long	*caps;
-@@ -111,12 +115,16 @@ static struct init_tree_node {
- 	int num_levels;
- } root_fs = {
- 	.type = FS_TYPE_NAMESPACE,
--	.ar_size = 6,
-+	.ar_size = 7,
- 	.children = (struct init_tree_node[]) {
- 		ADD_PRIO(0, BY_PASS_MIN_LEVEL, 0,
- 			 FS_CHAINING_CAPS,
- 			 ADD_NS(ADD_MULTIPLE_PRIO(MLX5_BY_PASS_NUM_PRIOS,
- 						  BY_PASS_PRIO_NUM_LEVELS))),
-+		ADD_PRIO(0, LAG_MIN_LEVEL, 0,
-+			 FS_CHAINING_CAPS,
-+			 ADD_NS(ADD_MULTIPLE_PRIO(LAG_NUM_PRIOS,
-+						  LAG_PRIO_NUM_LEVELS))),
- 		ADD_PRIO(0, OFFLOADS_MIN_LEVEL, 0, {},
- 			 ADD_NS(ADD_MULTIPLE_PRIO(OFFLOADS_NUM_PRIOS, OFFLOADS_MAX_FT))),
- 		ADD_PRIO(0, ETHTOOL_MIN_LEVEL, 0,
-@@ -1396,6 +1404,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
+ 		for (i = 0; i < MLX5_MAX_PORTS; i++)
+ 			mlx5_remove_dev_by_protocol(ldev->pf[i].dev,
+ 						    MLX5_INTERFACE_PROTOCOL_IB);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+index e716996..8557435 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
+@@ -90,6 +90,7 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
+ void mlx5_enter_error_state(struct mlx5_core_dev *dev);
+ void mlx5_disable_device(struct mlx5_core_dev *dev);
+ int mlx5_core_sriov_configure(struct pci_dev *dev, int num_vfs);
++bool mlx5_sriov_is_enabled(struct mlx5_core_dev *dev);
+ int mlx5_core_enable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_core_disable_hca(struct mlx5_core_dev *dev, u16 func_id);
+ int mlx5_wait_for_vf_pages(struct mlx5_core_dev *dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+index 0680dfb..78e7892 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/sriov.c
+@@ -37,6 +37,13 @@
+ #include "eswitch.h"
+ #endif
  
- 	switch (type) {
- 	case MLX5_FLOW_NAMESPACE_BYPASS:
-+	case MLX5_FLOW_NAMESPACE_LAG:
- 	case MLX5_FLOW_NAMESPACE_OFFLOADS:
- 	case MLX5_FLOW_NAMESPACE_ETHTOOL:
- 	case MLX5_FLOW_NAMESPACE_KERNEL:
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-index 7edfe0b..8803212 100644
---- a/include/linux/mlx5/fs.h
-+++ b/include/linux/mlx5/fs.h
-@@ -54,6 +54,7 @@ static inline void build_leftovers_ft_param(int *priority,
++bool mlx5_sriov_is_enabled(struct mlx5_core_dev *dev)
++{
++	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
++
++	return !!sriov->num_vfs;
++}
++
+ static void enable_vfs(struct mlx5_core_dev *dev, int num_vfs)
+ {
+ 	struct mlx5_core_sriov *sriov = &dev->priv.sriov;
+@@ -144,6 +151,11 @@ int mlx5_core_sriov_configure(struct pci_dev *pdev, int num_vfs)
+ 	if (!mlx5_core_is_pf(dev))
+ 		return -EPERM;
  
- enum mlx5_flow_namespace_type {
- 	MLX5_FLOW_NAMESPACE_BYPASS,
-+	MLX5_FLOW_NAMESPACE_LAG,
- 	MLX5_FLOW_NAMESPACE_OFFLOADS,
- 	MLX5_FLOW_NAMESPACE_ETHTOOL,
- 	MLX5_FLOW_NAMESPACE_KERNEL,
++	if (num_vfs && mlx5_lag_is_active(dev)) {
++		mlx5_core_warn(dev, "can't turn sriov on while LAG is active");
++		return -EINVAL;
++	}
++
+ 	mlx5_core_cleanup_vfs(dev);
+ 
+ 	if (!num_vfs) {
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
