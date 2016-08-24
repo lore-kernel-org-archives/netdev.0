@@ -1,51 +1,46 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [ethtool PATCH v4 0/4]  Add support for QSFP+/QSFP28 Diagnostics
- and 25G/50G/100G      port speeds
-Date: Wed, 24 Aug 2016 04:29:22 +0000
-Message-ID: <SN2PR11MB009470F680A2B7697167965097EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
-References: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net 2/2] sctp: not copying duplicate addrs to the assoc's
+ bind address list
+Date: Wed, 24 Aug 2016 13:14:27 +0800
+Message-ID: <CADvbK_ce8EGH5zyvBnOqQX+D5_zj9KTWS=2HbR0BfJ2s-dvWAw@mail.gmail.com>
+References: <cover.1471605833.git.lucien.xin@gmail.com> <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
+ <20160819175007.GB3578@hmsreliant.think-freely.org> <CADvbK_do3kQSotq7-PbvoCBBSwOBBdZtx=rR+Q2XX3_bhV4_0w@mail.gmail.com>
+ <20160822142538.GA10323@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "decot@googlers.com" <decot@googlers.com>,
-        "bkenward@solarflare.com" <bkenward@solarflare.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "galp@mellanox.com" <galp@mellanox.com>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
-        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>,
-        "ben@decadent.org.uk" <ben@decadent.org.uk>
-To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0105.outbound.protection.outlook.com ([104.47.38.105]:61618
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750980AbcHXEa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 00:30:26 -0400
-In-Reply-To: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
-Content-Language: en-US
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:36385 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750980AbcHXFPQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 01:15:16 -0400
+In-Reply-To: <20160822142538.GA10323@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> This patch series provides following support
-> a) Reorganized fields based out of SFF-8024 fields i.e. Identifier/
->    Encoding/Connector types which are common across SFP/SFP+ (SFF-8472)
->    and QSFP+/QSFP28 (SFF-8436/SFF-8636) modules into sff-common files.
-> b) Support for diagnostics information for QSFP Plus/QSFP28 modules
->    based on SFF-8436/SFF-8636
-> c) Supporting 25G/50G/100G speeds in supported/advertising fields
-> d) Tested across various QSFP+/QSFP28 Copper/Optical modules
->=20
-> Standards for QSFP+/QSFP28
-> a) QSFP+/QSFP28 - SFF 8636 Rev 2.7 dated January 26,2016
-> b) SFF-8024 Rev 4.0 dated May 31, 2016
->=20
-> v4:
->   Sync ethtool-copy.h to kernel commit
-> 89da45b8b5b2187734a11038b8593714f964ffd1
->   which includes support for 50G base SR2
+>> > Ah, I see what you're doing.  Ok, this makes some sense, at least on the receive
+>> > side, when you get a cookie unpacked and modify the remote peers address list,
+>> > it makes sense to check for duplicates.  On the local side however, I would,
+>> > instead of checking it when the list gets copied, I'd check it when the master
+>> > list gets updated (in the NETDEV_UP event notifier for the local address list,
+>>
+>> I was thinking about to check it in the NETDEV_UP, yes it can make the
+>> master list has no duplicated addresses.  But what if two same addresses
+>> events come, and they come from different NICs (though I can't point  out
+>> the valid use case), then we filter there.
+>>
+> That I think would be a bug in the protocol code.  For the ipv4 case, all
+> addresses are owned by the system and the same addresses added to multiple
+> interfaces should not be allowed.  The same is true of ipv6 case.  The only
+> exception there is a link local address and that should still be unique within
+> the context of an address/dev tuple.
+>
+understand, just sounds a little harsh. :-)
 
-What about the man-page?
+For now, does it make sense to you to just leave as the master list
+is, and check
+the duplicate address when sctp is really binding them ?
