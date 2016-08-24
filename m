@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] net: rtnetlink: Don't export empty
- RTAX_FEATURES
-Date: Tue, 23 Aug 2016 17:09:43 -0700 (PDT)
-Message-ID: <20160823.170943.937188622813462673.davem@davemloft.net>
-References: <1471950871-9112-1-git-send-email-phil@nwl.cc>
+Subject: Re: [PATCH v3] net: lpc_eth: Check clk_prepare_enable() error
+Date: Tue, 23 Aug 2016 17:12:06 -0700 (PDT)
+Message-ID: <20160823.171206.848726795793109531.davem@davemloft.net>
+References: <1471956500-30073-1-git-send-email-fabio.estevam@nxp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: phil@nwl.cc
+Cc: vz@mleia.com, netdev@vger.kernel.org
+To: fabio.estevam@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55955 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55965 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755378AbcHXAJo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 20:09:44 -0400
-In-Reply-To: <1471950871-9112-1-git-send-email-phil@nwl.cc>
+        with ESMTP id S1754210AbcHXAMH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 20:12:07 -0400
+In-Reply-To: <1471956500-30073-1-git-send-email-fabio.estevam@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Tue, 23 Aug 2016 13:14:31 +0200
+From: Fabio Estevam <fabio.estevam@nxp.com>
+Date: Tue, 23 Aug 2016 09:48:20 -0300
 
-> Since the features bit field has bits for internal only use as well, it
-> may happen that the kernel exports RTAX_FEATURES attribute with zero
-> value which is pointless.
+> clk_prepare_enable() may fail, so we should better check its return
+> value and propagate it in the case of failure
 > 
-> Fix this by making sure the attribute is added only if the exported
-> value is non-zero.
+> While at it, replace __lpc_eth_clock_enable() with a plain
+> clk_prepare_enable/clk_disable_unprepare() call in order to
+> simplify the code.
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Fabio Estevam <fabio.estevam@nxp.com>
+> Acked-by: Vladimir Zapolskiy <vz@mleia.com>
+> ---
+> Changes since v2:
+> - Make sure to call clk_put on the new error path (Vladimir)
 
 Applied.
