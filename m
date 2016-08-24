@@ -1,86 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: md5: add LINUX_MIB_TCPMD5FAILURE counter
-Date: Wed, 24 Aug 2016 09:01:23 -0700
-Message-ID: <1472054483.14381.86.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next v1] gso: Support partial splitting at the
+ frag_list pointer
+Date: Wed, 24 Aug 2016 09:27:54 -0700
+Message-ID: <CAKgT0Ucp_M-oCDjvi2Aay=aNBTH=-sGEVxUgq0b=5KrX8j3O9Q@mail.gmail.com>
+References: <20160823052030.GI3735@gauss.secunet.com> <CAKgT0UdATK8LUiTQ3sn0nrJTtk9oo29k7CrNdZavsPie_Pte0w@mail.gmail.com>
+ <20160824093226.GN3735@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Julien Goodwin <julieng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36573 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756561AbcHXQPY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:15:24 -0400
-Received: by mail-pf0-f196.google.com with SMTP id y134so1475993pfg.3
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 09:15:23 -0700 (PDT)
+Received: from mail-it0-f65.google.com ([209.85.214.65]:32868 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756259AbcHXQ14 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:27:56 -0400
+Received: by mail-it0-f65.google.com with SMTP id d65so2749920ith.0
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 09:27:55 -0700 (PDT)
+In-Reply-To: <20160824093226.GN3735@gauss.secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Aug 24, 2016 at 2:32 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Tue, Aug 23, 2016 at 07:47:32AM -0700, Alexander Duyck wrote:
+>> On Mon, Aug 22, 2016 at 10:20 PM, Steffen Klassert
+>> <steffen.klassert@secunet.com> wrote:
+>> > Since commit 8a29111c7 ("net: gro: allow to build full sized skb")
+>> > gro may build buffers with a frag_list. This can hurt forwarding
+>> > because most NICs can't offload such packets, they need to be
+>> > segmented in software. This patch splits buffers with a frag_list
+>> > at the frag_list pointer into buffers that can be TSO offloaded.
+>> >
+>> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> > ---
+>> >  net/core/skbuff.c      | 89 +++++++++++++++++++++++++++++++++++++++++++++++++-
+>> >  net/ipv4/af_inet.c     |  7 ++--
+>> >  net/ipv4/gre_offload.c |  7 +++-
+>> >  net/ipv4/tcp_offload.c |  3 ++
+>> >  net/ipv4/udp_offload.c |  9 +++--
+>> >  net/ipv6/ip6_offload.c |  6 +++-
+>> >  6 files changed, 114 insertions(+), 7 deletions(-)
+>> >
+>> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> > index 3864b4b6..a614e9d 100644
+>> > --- a/net/core/skbuff.c
+>> > +++ b/net/core/skbuff.c
+>> > @@ -3078,6 +3078,92 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>> >         sg = !!(features & NETIF_F_SG);
+>> >         csum = !!can_checksum_protocol(features, proto);
+>> >
+>> > +       headroom = skb_headroom(head_skb);
+>> > +
+>> > +       if (list_skb && net_gso_ok(features, skb_shinfo(head_skb)->gso_type) &&
+>> > +           csum && sg && (mss != GSO_BY_FRAGS) &&
+>> > +           !(features & NETIF_F_GSO_PARTIAL)) {
+>>
+>> Does this really need to be mutually exclusive with
+>> NETIF_F_GSO_PARTIAL and GSO_BY_FRAGS?
+>
+> It should be possible to extend this to NETIF_F_GSO_PARTIAL but
+> I have no test for this. Regarding GSO_BY_FRAGS, this is rather
+> new and just used for sctp. I don't know what sctp does with
+> GSO_BY_FRAGS.
 
-Adds SNMP counter for drops caused by MD5 mismatches.
+I'm adding Marcelo as he could probably explain the GSO_BY_FRAGS
+functionality better than I could since he is the original author.
 
-The current syslog might help, but a counter is more precise and helps
-monitoring.
+If I recall GSO_BY_FRAGS does something similar to what you are doing,
+although I believe it doesn't carry any data in the first buffer other
+than just a header.  I believe the idea behind GSO_BY_FRAGS was to
+allow for segmenting a frame at the frag_list level instead of having
+it done just based on MSS.  That was the only reason why I brought it
+up.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/uapi/linux/snmp.h |    1 +
- net/ipv4/proc.c           |    1 +
- net/ipv4/tcp_ipv4.c       |    1 +
- net/ipv6/tcp_ipv6.c       |    1 +
- 4 files changed, 4 insertions(+)
+In you case though we maybe be able to make this easier.  If I am not
+mistaken I believe we should have the main skb, and any in the chain
+excluding the last containing the same amount of data.  That being the
+case we should be able to determine the size that you would need to
+segment at by taking skb->len, and removing the length of all the
+skbuffs hanging off of frag_list.  At that point you just use that as
+your MSS for segmentation and it should break things up so that you
+have a series of equal sized segments split as the frag_list buffer
+boundaries.
 
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index 25a9ad8bcef1240915f2553a8acade447186d869..e7a31f8306903f53bc5881ae4c271f85cad2e361 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -235,6 +235,7 @@ enum
- 	LINUX_MIB_TCPSPURIOUSRTOS,		/* TCPSpuriousRTOs */
- 	LINUX_MIB_TCPMD5NOTFOUND,		/* TCPMD5NotFound */
- 	LINUX_MIB_TCPMD5UNEXPECTED,		/* TCPMD5Unexpected */
-+	LINUX_MIB_TCPMD5FAILURE,		/* TCPMD5Failure */
- 	LINUX_MIB_SACKSHIFTED,
- 	LINUX_MIB_SACKMERGED,
- 	LINUX_MIB_SACKSHIFTFALLBACK,
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 9f665b63a927202b9aaf2b6b3d42205058a2ae59..1ed015e4bc792acdd520a5df95ffac33ebefc4db 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -257,6 +257,7 @@ static const struct snmp_mib snmp4_net_list[] = {
- 	SNMP_MIB_ITEM("TCPSpuriousRTOs", LINUX_MIB_TCPSPURIOUSRTOS),
- 	SNMP_MIB_ITEM("TCPMD5NotFound", LINUX_MIB_TCPMD5NOTFOUND),
- 	SNMP_MIB_ITEM("TCPMD5Unexpected", LINUX_MIB_TCPMD5UNEXPECTED),
-+	SNMP_MIB_ITEM("TCPMD5Failure", LINUX_MIB_TCPMD5FAILURE),
- 	SNMP_MIB_ITEM("TCPSackShifted", LINUX_MIB_SACKSHIFTED),
- 	SNMP_MIB_ITEM("TCPSackMerged", LINUX_MIB_SACKMERGED),
- 	SNMP_MIB_ITEM("TCPSackShiftFallback", LINUX_MIB_SACKSHIFTFALLBACK),
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 32b048e524d6773538918eca175b3f422f9c2aa7..45aac7ada13592c6f1c9f28aea4426b40520e0c8 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1169,6 +1169,7 @@ static bool tcp_v4_inbound_md5_hash(const struct sock *sk,
- 				      NULL, skb);
- 
- 	if (genhash || memcmp(hash_location, newhash, 16) != 0) {
-+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPMD5FAILURE);
- 		net_info_ratelimited("MD5 Hash failed for (%pI4, %d)->(%pI4, %d)%s\n",
- 				     &iph->saddr, ntohs(th->source),
- 				     &iph->daddr, ntohs(th->dest),
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index e0f46439e391f2a8b2fac2e13b6f61a11c082715..60a65d058349c93fb66275434f6fe162a621782e 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -671,6 +671,7 @@ static bool tcp_v6_inbound_md5_hash(const struct sock *sk,
- 				      NULL, skb);
- 
- 	if (genhash || memcmp(hash_location, newhash, 16) != 0) {
-+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPMD5FAILURE);
- 		net_info_ratelimited("MD5 Hash %s for [%pI6c]:%u->[%pI6c]:%u\n",
- 				     genhash ? "failed" : "mismatch",
- 				     &ip6h->saddr, ntohs(th->source),
+After that all that is left is to update the gso info for the buffers.
+For GSO_PARTIAL I was handling that on the first segment only.  For
+this change you would need to update that code to address the fact
+that you would have to determine the number of segments on the first
+frame and the last since the last could be less than the first, but
+all of the others in-between should have the same number of segments.
+
+- Alex
