@@ -1,71 +1,49 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] qdisc: fix a module refcount leak in
- qdisc_create_dflt()
-Date: Wed, 24 Aug 2016 10:14:32 -0700
-Message-ID: <57BDD5F8.5080702@gmail.com>
-References: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 05/15] net: sched: a dflt qdisc may be used
+ with per cpu stats
+Date: Wed, 24 Aug 2016 10:26:50 -0700
+Message-ID: <1472059610.14381.103.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
+         <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
+         <1472056898.14381.95.camel@edumazet-glaptop3.roam.corp.google.com>
+         <57BDD5AE.8030208@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
+        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35264 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753390AbcHXR06 (ORCPT
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36484 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754297AbcHXR06 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:26:58 -0400
-Received: by mail-pa0-f66.google.com with SMTP id cf3so1516346pad.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:26:24 -0700 (PDT)
-In-Reply-To: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: by mail-pf0-f196.google.com with SMTP id y134so1568117pfg.3
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:26:51 -0700 (PDT)
+In-Reply-To: <57BDD5AE.8030208@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-08-24 09:39 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Should qdisc_alloc() fail, we must release the module refcount
-> we got right before.
-> 
-> Fixes: 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/sched/sch_generic.c |    9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index e95b67cd5718..657c13362b19 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -643,18 +643,19 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
->  	struct Qdisc *sch;
->  
->  	if (!try_module_get(ops->owner))
-> -		goto errout;
-> +		return NULL;
->  
->  	sch = qdisc_alloc(dev_queue, ops);
-> -	if (IS_ERR(sch))
-> -		goto errout;
-> +	if (IS_ERR(sch)) {
-> +		module_put(ops->owner);
-> +		return NULL;
-> +	}
->  	sch->parent = parentid;
->  
->  	if (!ops->init || ops->init(sch, NULL) == 0)
->  		return sch;
->  
->  	qdisc_destroy(sch);
-> -errout:
->  	return NULL;
->  }
->  EXPORT_SYMBOL(qdisc_create_dflt);
-> 
-> 
+On Wed, 2016-08-24 at 10:13 -0700, John Fastabend wrote:
 
-Thanks!
+> > 
+> 
+> I could fully allocate it in qdisc_alloc() but we don't know if the
+> qdisc needs per cpu data structures until after the init call
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+Should not we have a flag to advertise the need of per spu stats on
+qdisc ?
+
+This is not clear why ->init() can know this, and not its caller.
+
+> . So it
+> would sit unused in those cases if done from qdisc_alloc(). It seems
+> best to me at least to just avoid the allocation in qdisc_alloc() and
+> do it after init like I did here.
+> 
+> Perhaps it would be nice to pull these into a function call
+> post_init_qdisc_alloc() that does all this allocation?
+> 
+> .John
+> 
