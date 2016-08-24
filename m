@@ -1,59 +1,61 @@
-From: Stephen Warren <swarren@wwwdotorg.org>
-Subject: Re: [PATCH] dt: net: enhance DWC EQoS binding to support Tegra186
-Date: Wed, 24 Aug 2016 14:43:29 -0600
-Message-ID: <80149ae2-2b4a-9b8a-b261-e37ebdcafb57@wwwdotorg.org>
-References: <20160823204757.17998-1-swarren@wwwdotorg.org>
- <259bfaa8-6dcb-eafc-da9c-c16ec7d39d24@axis.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [ethtool PATCH v4 0/4]  Add support for QSFP+/QSFP28 Diagnostics
+ and 25G/50G/100G      port speeds
+Date: Wed, 24 Aug 2016 16:01:51 -0400
+Message-ID: <20160824200151.GD20493@tuxdriver.com>
+References: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
+ <SN2PR11MB009470F680A2B7697167965097EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
+ <20160824143304.GB20493@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lars Persson <larper@axis.com>, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        linux-tegra@vger.kernel.org, Stephen Warren <swarren@nvidia.com>
-To: Lars Persson <lars.persson@axis.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "decot@googlers.com" <decot@googlers.com>,
+        "bkenward@solarflare.com" <bkenward@solarflare.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "galp@mellanox.com" <galp@mellanox.com>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>,
+        "ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avon.wwwdotorg.org ([70.85.31.133]:37006 "EHLO
-        avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755601AbcHXUnd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:43:33 -0400
-In-Reply-To: <259bfaa8-6dcb-eafc-da9c-c16ec7d39d24@axis.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43645 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755430AbcHXU4v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:56:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20160824143304.GB20493@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2016 02:10 AM, Lars Persson wrote:
-> On 08/23/2016 10:47 PM, Stephen Warren wrote:
->> The Synopsys DWC EQoS is a configurable IP block which supports multiple
->> options for bus type, clocking and reset structure, and feature list.
->> Extend the DT binding to define a "compatible value" for the
->> configuration
->> contained in NVIDIA's Tegra186 SoC, and define some new properties and
->> list property entries required by that configuration.
+On Wed, Aug 24, 2016 at 10:33:04AM -0400, John W. Linville wrote:
+> On Wed, Aug 24, 2016 at 04:29:22AM +0000, Yuval Mintz wrote:
+> > > This patch series provides following support
+> > > a) Reorganized fields based out of SFF-8024 fields i.e. Identifier/
+> > >    Encoding/Connector types which are common across SFP/SFP+ (SFF-8472)
+> > >    and QSFP+/QSFP28 (SFF-8436/SFF-8636) modules into sff-common files.
+> > > b) Support for diagnostics information for QSFP Plus/QSFP28 modules
+> > >    based on SFF-8436/SFF-8636
+> > > c) Supporting 25G/50G/100G speeds in supported/advertising fields
+> > > d) Tested across various QSFP+/QSFP28 Copper/Optical modules
+> > > 
+> > > Standards for QSFP+/QSFP28
+> > > a) QSFP+/QSFP28 - SFF 8636 Rev 2.7 dated January 26,2016
+> > > b) SFF-8024 Rev 4.0 dated May 31, 2016
+> > > 
+> > > v4:
+> > >   Sync ethtool-copy.h to kernel commit
+> > > 89da45b8b5b2187734a11038b8593714f964ffd1
+> > >   which includes support for 50G base SR2
+> > 
+> > What about the man-page?
+> 
+> I can just apply your man page patch on top.
 
->> diff --git
->> a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
->> b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+And, I did.
 
->>  Optional properties:
-
->> +- phy-reset-gpios: Phandle and specifier for any GPIO used to reset
->> the PHY.
->> +  See ../gpio/gpio.txt.
->
-> IMHO the phy reset gpio belongs in the binding for the PHY. I notice
-> some other ethernet drivers have this, but the PHY should be managed
-> entirely through the phylib and any special handling for reset can be
-> hidden in phy specific drivers.
-
-I can see that argument; this GPIO certainly does control the PHY so 
-seems part of it. However, presumably this GPIO must be manipulated 
-before being able to communicate with the PHY at all, and hence 
-instantiate any driver that might control the PHY. As such, this seems 
-more like a property of the MDIO bus than the PHY itself, even if it 
-electrically is part of the PHY. Also, 
-Documentation/devicetree/bindings/net/phy.txt doesn't contain any 
-phy-reset-gpios property or similar, so we'd have to add that if we 
-wanted to rely upon it.
-
-For now I'll post V2 without changing this, but I can always post V3 if 
-needed.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
