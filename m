@@ -1,73 +1,98 @@
-From: MR Gary Hill <dennisswise@gmail.com>
-Subject: Form Mrs. Jessica Lamboy
-Date: Wed, 24 Aug 2016 21:22:19 +0100
-Message-ID: <CADtKfp+DsuwVZaGTt5JN0XL75bGTerWxaEBWu8nGeqFBTzpgAA@mail.gmail.com>
-Reply-To: mrsjessicalamboy@gmx.us
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH v2 0/6] Add eBPF hooks for cgroups
+Date: Wed, 24 Aug 2016 22:24:17 +0200
+Message-ID: <1472070263-29988-1-git-send-email-daniel@zonque.org>
+Cc: davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me, Daniel Mack <daniel@zonque.org>
+To: htejun@fb.com, daniel@iogearbox.net, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34881 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752410AbcHXUW0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:22:26 -0400
-Received: by mail-oi0-f66.google.com with SMTP id e80so2652471oig.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 13:22:20 -0700 (PDT)
+Received: from svenfoo.org ([82.94.215.22]:48442 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755376AbcHXUZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 16:25:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear
+This is v2 of the patch set to allow eBPF programs for network
+filtering and accounting to be attached to cgroups, so that they apply
+to all sockets of all tasks placed in that cgroup. The logic also
+allows to be extendeded for other cgroup based eBPF logic.
 
-My quest to locate a responsible friend and partner to bring my dreams
-to a reality, hence l took this bold step to contact you through this
-medium and i would not like you to take an offence that l am bothering
-you since you do not know me neither have we met before.
+Changes from v1:
 
-I am Mrs. Jessica Lamboy from Jordan, I am married to Dr. Alan Lamboy
-who worked with Jordan embassy in Republic of Benin for nine
-years,before he died in the year 2002. we were both married for eleven
-years without a child. He died after a brief illness that lasted for
-only four days.Before his death we were both involved in charity
-services. Since his death I decided not to re-marry or get a child
-outside my matrimonial home which is against my principle. When my
-late husband was alive he deposited the sum of $5.5 million (Five
-million Five hundred thousand u.s.dollars) with a Bank in Repubilc of
-Benin. Presently, this money is still invested in this Bank in
-Republic of Benin.
+* Moved all bpf specific cgroup code into its own file, and stub
+  out related functions for !CONFIG_CGROUP_BPF as static inline nops.
+  This way, the call sites are not cluttered with #ifdef guards while
+  the feature remains compile-time configurable.
 
-Recently, my doctor told me that I would not last for the next three
-months due to my cancer problem. Though what disturbs me most is my
-stroke sickness. Having known my condition of health I have decided to
-donate this fund to charity, orphanage or an individual that will
-utilize this money the way I am going to instruct here in. I want an
-individual that will use these fund-to-fund charity,orphanages and
-widows and to ensure that these set of people are well maintained. I
-took this decision because I don't have any child that will inherit
-this money and my husband relatives are well of and I don't want my
-husband's hard earned money to be misused by them.
+* Implemented the new scheme proposed by Tejun. Per cgroup, store one
+  set of pointers that are pinned to the cgroup, and one for the
+  programs that are effective. When a program is attached or detached,
+  the change is propagated to all the cgroup's descendants. If a
+  subcgroup has its own pinned program, skip the whole subbranch in
+  order to allow delegation models.
 
-As I do not want a situation whereby this money will be used in an
-ungodly manner,Hence the reasons for taking this bold decision. I am
-not afraid of death because l have lived a fufiled life. As it is
-right now, I don't need any telephone communication in this regard
-because of my health and also due to the presence of my husband's
-relatives around me always.
+* The hookup for egress packets is now done from __dev_queue_xmit().
 
-I don't want them to know about this development, As soon as I receive
-your reply I shall give you the contact of the Bank in Republic of
-Benin. I will also issue you a letter of authority that will prove you
-as the original-beneficiary of this said fund. I want you to see to
-the need of the less priviledged. My happiness is that I lived a
-fulfiled life and l dont
+* A static key is now used in both the ingress and egress fast paths
+  to keep performance penalties close to zero if the feature is
+  not in use.
 
-have any regrets in life. Please note that any delay in your reply
-will give me room in sourcing for another individual as I stated here
-in.
+* Overall cleanup to make the accessors use the program arrays.
+  This should make it much easier to add new program types, which
+  will then automatically follow the pinned vs. effective logic.
 
-Do get back at me to my private mail address: mrsjessicalamboy@gmx.us
-for more details to proceed Hoping to hear from you
+* Fixed locking issues, as pointed out by Eric Dumazet and Alexei
+  Starovoitov. Changes to the program array are now done with
+  xchg() and are protected by cgroup_mutex.
 
-soonest and do notify your interest to help me assist charity..
+* eBPF programs are now expected to return 1 to let the packet pass,
+  not >= 0. Pointed out by Alexei.
 
-Best regards.
-  Mrs. Jessica Lamboy
+* Operation is now limited to INET sockets, so local AF_UNIX sockets
+  are not affected. The enum members are renamed accordingly. In case
+  other socket families should be supported, this can be extended in
+  the future.
+
+* The sample program learned to support both ingress and egress, and
+  can now optionally make the eBPF program drop packets by making it
+  return 0.
+
+
+As always, feedback is much appreciated.
+
+Thanks,
+Daniel
+
+Daniel Mack (6):
+  bpf: add new prog type for cgroup socket filtering
+  cgroup: add support for eBPF programs
+  bpf: add BPF_PROG_ATTACH and BPF_PROG_DETACH commands
+  net: filter: run cgroup eBPF ingress programs
+  net: core: run cgroup eBPF egress programs
+  samples: bpf: add userspace example for attaching eBPF programs to
+    cgroups
+
+ include/linux/bpf-cgroup.h      |  70 ++++++++++++++++++
+ include/linux/cgroup-defs.h     |   4 +
+ include/uapi/linux/bpf.h        |  16 ++++
+ init/Kconfig                    |  12 +++
+ kernel/bpf/Makefile             |   1 +
+ kernel/bpf/cgroup.c             | 159 ++++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c            |  79 ++++++++++++++++++++
+ kernel/bpf/verifier.c           |   1 +
+ kernel/cgroup.c                 |  18 +++++
+ net/core/dev.c                  |   6 ++
+ net/core/filter.c               |  11 +++
+ samples/bpf/Makefile            |   2 +
+ samples/bpf/libbpf.c            |  23 ++++++
+ samples/bpf/libbpf.h            |   3 +
+ samples/bpf/test_cgrp2_attach.c | 147 +++++++++++++++++++++++++++++++++++++
+ 15 files changed, 552 insertions(+)
+ create mode 100644 include/linux/bpf-cgroup.h
+ create mode 100644 kernel/bpf/cgroup.c
+ create mode 100644 samples/bpf/test_cgrp2_attach.c
+
+-- 
+2.5.5
