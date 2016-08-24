@@ -1,89 +1,50 @@
-From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Subject: [PATCH 4/4] net: phy: Add write driver for Microsemi PHYs.
-Date: Wed, 24 Aug 2016 12:29:57 +0000
-Message-ID: <646450A91FAED74E85C6E9C4D6E936A1453366BB@avsrvexchmbx1.microsemi.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [RFC PATCH 3/5] bnx2x: Add support for segmentation of tunnels
+ with outer checksums
+Date: Wed, 24 Aug 2016 12:33:49 +0000
+Message-ID: <CO2PR11MB0088207088FA6F6A502AB3B097EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
+ <20160419190609.11723.8710.stgit@ahduyck-xeon-server>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "Andrew Lunn (andrew@lunn.ch)" <andrew@lunn.ch>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Alexander Duyck <aduyck@mirantis.com>,
+        netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0085.outbound.protection.outlook.com ([104.47.33.85]:22944
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-co1nam03on0119.outbound.protection.outlook.com ([104.47.40.119]:8640
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754593AbcHXMaT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 08:30:19 -0400
+        id S1751063AbcHXMdx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 08:33:53 -0400
+In-Reply-To: <20160419190609.11723.8710.stgit@ahduyck-xeon-server>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-
-PHY write register support will be added for VSC 85xx Microsemi PHYs.
-
-Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
----
- drivers/net/phy/mscc.c | 24 ++++++++++++++++++++++++
- include/linux/mscc.h   |  1 +
- 2 files changed, 25 insertions(+)
-
-diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
-index 5a74f81..9315fde 100644
---- a/drivers/net/phy/mscc.c
-+++ b/drivers/net/phy/mscc.c
-@@ -194,6 +194,27 @@ static int vsc85xx_mac_if_get(struct phy_device *phyde=
-v,
-        return rc;
- }
-
-+static int vsc85xx_phy_write_reg(struct phy_device *phydev,
-+                                struct phy_reg_op *data)
-+{
-+       int rc;
-+       u16 reg_addr =3D data->reg;
-+       u16 reg_val =3D data->val;
-+       u8  page =3D data->pg;
-+
-+       if (page !=3D 0) {
-+               mutex_lock(&phydev->lock);
-+               vsc85xx_phy_page_set(phydev, page);
-+               rc =3D phy_write(phydev, reg_addr, reg_val);
-+               vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
-+               mutex_unlock(&phydev->lock);
-+       } else {
-+               rc =3D phy_write(phydev, reg_addr, reg_val);
-+       }
-+
-+       return rc;
-+}
-+
- static int vsc85xx_phy_read_reg(struct phy_device *phydev,
-                                struct phy_reg_op *data)
- {
-@@ -228,6 +249,9 @@ static int vsc85xx_features_set(struct phy_device *phyd=
-ev)
-        case PHY_MAC_IF:
-                rc =3D vsc85xx_mac_if_set(phydev, &ftrs->mac_if);
-                break;
-+       case PHY_WRITE_REG:
-+               rc =3D vsc85xx_phy_write_reg(phydev, ftrs->data);
-+               break;
-        default:
-                break;
-        }
-diff --git a/include/linux/mscc.h b/include/linux/mscc.h
-index 4265da7..b2cf373 100644
---- a/include/linux/mscc.h
-+++ b/include/linux/mscc.h
-@@ -13,6 +13,7 @@ enum phy_features {
-        PHY_EDGE_RATE_CONTROL =3D 0,
-        PHY_MAC_IF            =3D 1,
-        PHY_READ_REG          =3D 2,
-+       PHY_WRITE_REG         =3D 3,
-        PHY_SUPPORTED_FEATURES_MAX
- };
-
---=20
-2.7.4
+PiBUaGlzIHBhdGNoIGFzc3VtZXMgdGhhdCB0aGUgYm54MnggaGFyZHdhcmUgd2lsbCBpZ25vcmUg
+ZXhpc3RpbmcgSVB2NC92NiBoZWFkZXINCj4gZmllbGRzIGZvciBsZW5ndGggYW5kIGNoZWNrc3Vt
+IGFzIHdlbGwgYXMgdGhlIGxlbmd0aCBhbmQgY2hlY2tzdW0gZmllbGRzIGZvcg0KPiBvdXRlciBV
+RFAgYW5kIEdSRSBoZWFkZXJzLg0KPiANCj4gSSBoYXZlIG5vIG1lYW5zIG9mIHRlc3RpbmcgdGhp
+cyBhcyBJIGRvIG5vdCBoYXZlIGFueSBibngyeCBoYXJkd2FyZSBidXQgdGhvdWdodA0KPiBJIHdv
+dWxkIHN1Ym1pdCBpdCBhcyBhbiBSRkMgdG8gc2VlIGlmIGFueW9uZSBvdXQgdGhlcmUgd2FudHMg
+dG8gdGVzdCB0aGlzIGFuZCBzZWUNCj4gaWYgdGhpcyBkb2VzIGluIGZhY3QgZW5hYmxlIHRoaXMg
+ZnVuY3Rpb25hbGl0eSBhbGxvd2luZyB1cyB0byB0byBzZWdtZW50IHR1bm5lbGVkDQo+IGZyYW1l
+cyB0aGF0IGhhdmUgYW4gb3V0ZXIgY2hlY2tzdW0uDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBBbGV4
+YW5kZXIgRHV5Y2sgPGFkdXlja0BtaXJhbnRpcy5jb20+DQoNClNvIGl0IHRvb2sgbWUgc29tZSBb
+d2VsbCwgYSBsb3RdIHRpbWUgdG8gcmVhY2ggdGhpcywgYnV0IEkndmUgZmluYWxseSAgZ2F2ZSBp
+dCBhIHRyeS4NCkkgc2F3IGEgcGVyZm9ybWFuY2UgYm9vc3Qgd2l0aCB0aGUgcGFydGlhbCBzdXBw
+b3J0IC0NClRocm91Z2hwdXQgZm9yIHZ4bGFuIHR1bm5lbHMgd2l0aCBhbmQgd2l0aG91dCB1ZHBj
+c3VtIHdlcmUgYWxtb3N0IGlkZW50aWNhbA0KYWZ0ZXIgdGhpcywgd2hlcmVhcyB3aXRob3V0IHRo
+aXMgcGF0Y2ggdGhlIHVkcGNzdW0gcHJldmVudGVkIEdTTyBhbmQgDQphIFRDUC9JUHY0IGNvbm5l
+Y3Rpb24gb24gdG9wIG9mIGl0IGdvdCByb3VnaGx5IGhhbGYgdGhlIHRocm91Z2hwdXQuDQoNCkhv
+d2V2ZXIsIEkgZGlkIGVuY291bnRlciBvbmUgb2RkaXR5IEkgY291bGRuJ3QgZXhwbGFpbiAtDQpB
+ZnRlciBJJ3ZlIGRpc2FibGVkIHR4LXVkcF90bmwtc2VnbWVudGF0aW9uIHZpYSBldGh0b29sIG9u
+IHRoZSBiYXNlIGludGVyZmFjZSwNCmdvdCBsZWZ0IHdpdGg6DQogICB0eC1nc28tcGFydGlhbDog
+b24NCiAgIHR4LXVkcF90bmwtc2VnbWVudGF0aW9uOiBvZmYNCiAgIHR4LXVkcF90bmwtY3N1bS1z
+ZWdtZW50YXRpb246IG9uDQoNCldoZW4gSSByYW4gdHJhZmZpYyBvdmVyIGJvdGggdnhsYW4gdHVu
+bmVscyB0aGUgb25lIHdpdGggdGhlIHVkcGNzdW0gd2FzIHN0aWxsDQpQYXNzaW5nIGdzbyBhZ2dy
+ZWdhdGlvbnMgdG8gYmFzZSBkZXZpY2UgdG8gdHJhbnNtaXQgW2FuZCB0aGUgdGhyb3VnaHB1dCB3
+YXMNCnNhbWUgYXMgYmVmb3JlXSwgd2hlcmUncyB0aGUgdHVubmVsIHdpdGhvdXQgdGhlIHVkcGNz
+dW0gc2hvd2VkIG9ubHkNCk1UVS1zaXplZCBwYWNrZXRzIHJlYWNoaW5nIHRoZSBiYXNlIGludGVy
+ZmFjZSBmb3IgdHJhbnNtaXNzaW9uIFt3aGljaCBpcyB3aGF0DQpJJ3ZlIGV4cGVjdGVkXQ0KDQpB
+bnkgaWRlYSB3aHkgdGhhdCBoYXBwZW5lZD8NCg==
