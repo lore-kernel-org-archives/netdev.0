@@ -1,31 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] udp: get rid of SLAB_DESTROY_BY_RCU allocations
-Date: Tue, 23 Aug 2016 17:46:30 -0700 (PDT)
-Message-ID: <20160823.174630.1025545863233232658.davem@davemloft.net>
-References: <1471971471.14381.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v6_repost 2/3] net: core: add SW stats to if_stats_msg
+Date: Tue, 23 Aug 2016 19:46:43 -0700
+Message-ID: <57BD0A93.6050300@cumulusnetworks.com>
+References: <1471612650-4508-3-git-send-email-jiri@resnulli.us> <57BBE47D.3060805@cumulusnetworks.com> <20160823065318.GA1975@nanopsycho> <20160823.000415.624700756560666111.davem@davemloft.net> <20160823072651.GB1975@nanopsycho> <57BC61CD.9020005@cumulusnetworks.com> <20160823145159.GC1975@nanopsycho>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, ogerlitz@mellanox.com,
+        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
+        gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
+        eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
+        hannes@stressinduktion.org, f.fainelli@gmail.com,
+        dsa@cumulusnetworks.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56159 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753150AbcHXAyk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 20:54:40 -0400
-In-Reply-To: <1471971471.14381.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35881 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753109AbcHXCrF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 22:47:05 -0400
+Received: by mail-pf0-f182.google.com with SMTP id h186so1544791pfg.3
+        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 19:46:46 -0700 (PDT)
+In-Reply-To: <20160823145159.GC1975@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 23 Aug 2016 09:57:51 -0700
+On 8/23/16, 7:52 AM, Jiri Pirko wrote:
+> Tue, Aug 23, 2016 at 04:46:37PM CEST, roopa@cumulusnetworks.com wrote:
+>> On 8/23/16, 12:26 AM, Jiri Pirko wrote:
+>>> Tue, Aug 23, 2016 at 09:04:15AM CEST, davem@davemloft.net wrote:
+>>>> From: Jiri Pirko <jiri@resnulli.us>
+>>>> Date: Tue, 23 Aug 2016 08:53:18 +0200
+>>>>
+>>>>> Anyway I think that next level of nesting is not necessary. On
+>>>>> contrary, it is wrong. The current level is extensible, mixed and
+>>>>> flagged already. I don't see any reason why not to add whatever kind of
+>>>>> stats here. What makes IFLA_STATS_LINK_SW_64 or for example
+>>>>> IFLA_STATS_LINK_HW_ACL so special it has to be nested in some other
+>>>>> attr? I would understand it it would be values of one family, but that
+>>>>> is not the case.
+>>>> First, I agree with Roopa.  If we want to put this stuff out
+>>>> there is should be bucketed together in a nested attribute with
+>>>> other similar stats specifications.
+>>> Well I still don't think that IFLA_STATS_LINK_SW_64 and
+>>> IFLA_STATS_LINK_HW_ACL are related. You cannot put it under *DRIVER*
+>>> nest as IFLA_STATS_LINK_SW_64 are core stats.
+>> not sure i understand, why is this core stats ?.
+>> should a new logical device implement  IFLA_STATS_LINK_64 or IFLA_STATS_LINK_SW_64 ?
+>> any other users ?.
+>>
+>>
+>>>  So we can put them under
+>>> *MISC* nest attr. But that is exactly purpose of the top-level here.
+>>> /me confused
+>> By design top level is for higher level grouping of stats (that also helps us maintain a lean higher
+>> level filter space). They are mainly categories of stats. for example we have a nested link
+>> XSTATS attribute..which are again a break down of stats already counted in IFLA_STATS_LINK_64.
+>> That's why I think we can group this into another kind of breakdown stats.
+> I give up. What name do you suggest for the nested attribute?
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> After commit ca065d0cf80f ("udp: no longer use SLAB_DESTROY_BY_RCU")
-> we do not need this special allocation mode anymore, even if it is
-> harmless.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+how about the below ?
+IFLA_STATS_LINK_OFFLOAD_XSTATS [
+        IFLA_OFFLOAD_XSTATS_SW_HIT or IFLA_OFFLOAD_XSTATS_CPU_HIT or whatever you want to call it ?
+]
 
-Applied.
+reasons: we need an offload driver stats bucket anyways (for the hw driver extended stats.
+similar to ethtool stats). keeping the name generic will help cover switchdev and other hw offload uses.
+If there is a need for a second level filter in the future, we can always
+add a IFLA_OFFLOAD_XSTATS_FILTER attribute when that becomes necessary.
+
+I agree with dave that this is essentially a filter on the existing stats and can be implemented as
+a flag someplace. But, the best way I can see that filter implemented in the current code/api
+is with a nested attribute like above.
+
+Thanks Jiri!
