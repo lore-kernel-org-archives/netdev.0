@@ -1,59 +1,65 @@
-From: "Dan Akunis" <dan.akunis@gmail.com>
-Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
-Date: Wed, 24 Aug 2016 11:22:09 +0300
-Message-ID: <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com> <20160823.112515.318902967155957764.davem@davemloft.net>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next 1/2] cxgb4/cxgb4vf: Add support for
+ ndo_set_vf_vlan
+Date: Wed, 24 Aug 2016 08:31:58 +0000
+Message-ID: <CO2PR11MB0088077BE20D123DD6BB119297EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1472021434-8287-1-git-send-email-hariprasad@chelsio.com>
+ <1472021434-8287-2-git-send-email-hariprasad@chelsio.com>
+ <SN2PR11MB009472734B1803F20C4A9B1497EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
+ <20160824082249.GB9955@hari-Latitude-E5550>
 Mime-Version: 1.0
-Content-Type: text/plain;
-        format=flowed;
-        charset="iso-8859-1";
-        reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-        <yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-        <samanthakumar@google.com>, <willemb@google.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <labbott@redhat.com>, "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160823.112515.318902967155957764.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "leedom@chelsio.com" <leedom@chelsio.com>,
+        "nirranjan@chelsio.com" <nirranjan@chelsio.com>
+To: Hariprasad Shenai <hariprasad@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0126.outbound.protection.outlook.com ([104.47.34.126]:40395
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755378AbcHXIcw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 04:32:52 -0400
+In-Reply-To: <20160824082249.GB9955@hari-Latitude-E5550>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When select wakes up on a UDP socket, user is expecting to get data. Getting 
-0 from recvfrom() or whatever read function she uses, is a wrong attitude.
-I agree with David.
+> > > @@ -1202,6 +1202,10 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct
+> > > net_device *dev)
+> > >  	BUG_ON(qidx >=3D pi->nqsets);
+> > >  	txq =3D &adapter->sge.ethtxq[pi->first_qset + qidx];
+> > >
+> > > +	if (pi->vlan_id && !skb_vlan_tag_present(skb))
+> > > +		__vlan_hwaccel_put_tag(skb, cpu_to_be16(ETH_P_8021Q),
+> > > +				       pi->vlan_id);
+> > > +
+> >
+> > So it's a purely SW implementation of the feature on the VF side?
+> > Does the HW enforces the configuration in any way on the VF?
+> Basically the PF driver passes the VLAN ID it got through ndo_set_vf_vlan=
+ to the
+> VF driver. And then the VF driver reads it and requests hardware to tag i=
+t.
 
-The unit test that expects select to wake up is wrong and should be changed.
+Problem with SW implementations is mainly that they have no effect over
+Malicious VFs
+ I.e., if the purpose here is to add the VF to some vlan-tagged subnet
+Whereas the user is oblivious to it, a malicious user can easily modify
+the driver to ignore this restriction and get access to the entire network.
 
------Original Message----- 
-From: David Miller
-Sent: Tuesday, August 23, 2016 9:25 PM
-To: labbott@redhat.com
-Cc: kuznet@ms2.inr.ac.ru ; jmorris@namei.org ; yoshfuji@linux-ipv6.org ; 
-kaber@trash.net ; samanthakumar@google.com ; willemb@google.com ; 
-netdev@vger.kernel.org ; linux-kernel@vger.kernel.org
-Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
+I think one of the problems with this ndo is that it's poorly documented
+and thus open for various interpretations - so it's debatable what's import=
+ant
+and what's not. [If it is properly documented anywhere, please educate me]
 
-From: Laura Abbott <labbott@redhat.com>
-Date: Tue, 23 Aug 2016 10:53:26 -0700
+> > Also, looks like an already tagged packet would be processed with the
+> > original vlan-id [instead of the one of PF has provided].
+> > Is that intentional?
+> No, this isn't intentional. I thought VST and VGT cannot co-exist.
+> What should be the behavior?
 
-> Fedora received a report[1] of a unit test failing on Ruby when using
-> the
-> 4.7 kernel. This was a test to send a zero sized UDP packet. With the
-> 4.7 kernel, the test now timing out on a select instead of completing.
-> The reduced ruby test is
->
->   def test_udp_recvfrom_nonblock
->     u1 = UDPSocket.new
->     u2 = UDPSocket.new
->     u1.bind("127.0.0.1", 0)
->     u2.send("", 0, u1.getsockname)
->     IO.select [u1]  # test gets stuck here
->   ensure
->     u1.close if u1
->     u2.close if u2
->   end
-
-Well, if there is no data, should select really wake up?
-
-I think it's valid not to. 
+Are you preventing VGT configuration once VST is configured?
+If not, what to prevent VM user from configuring vlan interfaces
+on top of the VF, even if VST is configured?
