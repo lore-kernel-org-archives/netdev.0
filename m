@@ -1,43 +1,45 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: md5: increment sk_drops on syn_recv state
-Date: Wed, 24 Aug 2016 11:53:53 -0400
-Message-ID: <CADVnQy=z8rU1v2jzO58Gk53GzB5_K09dHoP=viQkhMhYAOZhVQ@mail.gmail.com>
-References: <1472053824.14381.82.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/3 v2] net: smsc911x: augment device tree bindings
+Date: Wed, 24 Aug 2016 17:55:41 +0200
+Message-ID: <11789209.AN7vYDaEbx@wuerfel>
+References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>,
-        Julien Goodwin <julieng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        Steve Glendinning <steve.glendinning@smsc.com>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Jeremy Linton <jeremy.linton@arm.com>,
+        Kamlakant Patel <kamlakant.patel@broadcom.com>,
+        Pavel Fedin <p.fedin@samsung.com>, devicetree@vger.kernel.org
+To: Linus Walleij <linus.walleij@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:35448 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753456AbcHXPyY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 11:54:24 -0400
-Received: by mail-oi0-f48.google.com with SMTP id 4so28452313oih.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 08:54:24 -0700 (PDT)
-In-Reply-To: <1472053824.14381.82.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mout.kundenserver.de ([212.227.126.134]:59441 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754353AbcHXP4o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 11:56:44 -0400
+In-Reply-To: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 24, 2016 at 11:50 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@google.com>
->
-> TCP MD5 mismatches do increment sk_drops counter in all states but
-> SYN_RECV.
->
-> This is very unlikely to happen in the real world, but worth adding
-> to help diagnostics.
->
-> We increase the parent (listener) sk_drops.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
+On Wednesday, August 24, 2016 2:59:40 PM CEST Linus Walleij wrote:
+> +- interrupts : Should contain the SMSC LAN
+> +  interrupt line as cell 0, cell 1 is an OPTIONAL PME (power
+> +  management event) interrupt that is able to wake up the host
+> +  system with a 50ms pulse on network activity
+> +  For generic bindings for interrupt controller parents, refer to
+> +  interrupt-controller/interrupts.txt
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+I think you should (slightly) reword this to avoid using the
+term "cell", which refers to a 32-bit word in the property,
+not the interrupt specifier that is often made up of two or
+three cells.
 
-Thanks, Eric!
+Maybe something like
 
-neal
+- interrupts: one or two interrupt specifiers:
+	- The first interrupt is the SMSC LAN interrupt line.
+	- The second interrupt (if present) is the power management
+	  event ...
+
+	Arnd
