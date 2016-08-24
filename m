@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [for-next 00/15][PULL request] Mellanox mlx5 core driver
- updates 2016-08-24
-Date: Wed, 24 Aug 2016 09:38:31 -0700 (PDT)
-Message-ID: <20160824.093831.1725390407094248507.davem@davemloft.net>
-References: <1472035154-14517-1-git-send-email-saeedm@mellanox.com>
+Subject: Re: [patch net 0/2] mlxsw: couple of fixes
+Date: Wed, 24 Aug 2016 09:39:22 -0700 (PDT)
+Message-ID: <20160824.093922.516086669747012912.davem@davemloft.net>
+References: <1472030332-6208-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, leonro@mellanox.com,
-        talal@mellanox.com, matanb@mellanox.com, majd@mellanox.com
-To: saeedm@mellanox.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33713 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33714 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753014AbcHXQtm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:49:42 -0400
-In-Reply-To: <1472035154-14517-1-git-send-email-saeedm@mellanox.com>
+        with ESMTP id S1754694AbcHXQto (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:49:44 -0400
+In-Reply-To: <1472030332-6208-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Wed, 24 Aug 2016 13:38:59 +0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 24 Aug 2016 11:18:50 +0200
 
-> This series contains some low level and API updates for mlx5 core
-> driver interface and mlx5_ifc.h, plus mlx5 LAG core driver support,
-> to be shared as base code for net-next and rdma mlx5 4.9 submissions.
+> Ido Schimmel (1):
+>   mlxsw: spectrum: Add missing flood to router port
+> 
+> Yotam Gigi (1):
+>   mlxsw: router: Enable neighbors to be created on stacked devices
 
-Pulled, thanks.
+Both applied, thanks Jiri.
