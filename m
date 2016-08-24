@@ -1,77 +1,75 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH v2 2/6] cgroup: add support for eBPF programs
-Date: Thu, 25 Aug 2016 14:56:11 +0800
-Message-ID: <201608251417.1LeHqi8c%fengguang.wu@intel.com>
-References: <1472070263-29988-3-git-send-email-daniel@zonque.org>
+From: William Tu <u9012063@gmail.com>
+Subject: Re: [PATCH] bpf: fix size of copy_to_user in percpu map.
+Date: Wed, 24 Aug 2016 16:46:20 -0700
+Message-ID: <CALDO+SZ-xwTEvg5wW1izuc4ze+zXke4Lcbqrph6kUFumd0BPdw@mail.gmail.com>
+References: <20160729064722.GA54517@ast-mbp.thefacebook.com>
+ <579B0B9F.8040805@iogearbox.net> <CALDO+SZueK9ymNjrLAK+00xzR_BTms+qVhy0DAPnJZGrken2rg@mail.gmail.com>
+ <579BF2A1.7000709@iogearbox.net> <CALDO+SbhCuc85b=UuSWVc7baScN+MNwwaLKcXeubPL1SJvOT=Q@mail.gmail.com>
+ <20160730053415.GA78880@ast-mbp.thefacebook.com> <CALDO+SaVhA4GB+=-LnbZpWyx15wgc8PRFXVD4dO-O5kb+hJE9g@mail.gmail.com>
+ <20160801160738.GA99707@ast-mbp.thefacebook.com> <CALDO+SbcTh9Gd75wrJRUvo7SG-kCaKDk8fteQKndTz+_NnAccw@mail.gmail.com>
+ <CALDO+SbrUBa0JpGTbX2cFs3rVhchPtSOmw=Jwjb26fkQ=w0qmg@mail.gmail.com>
+ <20160812230810.GB48651@ast-mbp.thefacebook.com> <CALDO+Sa6P-Qo5OqJELcak2nUKMAwdMuAxrDKASCJ_oJRPFsKjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-all@01.org, htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
-        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
-        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
-        sargun@sargun.me, Daniel Mack <daniel@zonque.org>
-To: Daniel Mack <daniel@zonque.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:27032 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755279AbcHYHBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 03:01:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1472070263-29988-3-git-send-email-daniel@zonque.org>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:36829 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756167AbcHYHGS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 03:06:18 -0400
+Received: by mail-it0-f51.google.com with SMTP id e63so255749148ith.1
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 00:06:17 -0700 (PDT)
+In-Reply-To: <CALDO+Sa6P-Qo5OqJELcak2nUKMAwdMuAxrDKASCJ_oJRPFsKjQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Hi,
 
-[auto build test WARNING on net-next/master]
-[also build test WARNING on v4.8-rc3 next-20160824]
-[cannot apply to linus/master linux/master]
-[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
-[Suggest to use git(>=2.9.0) format-patch --base=<commit> (or --base=auto for convenience) to record what (public, well-known) commit your patch series was built on]
-[Check https://git-scm.com/docs/git-format-patch for more information]
+I've tested on kvm and encountered similar issue. If I boot up VM with
+CPU hotplug enabled like below:
+./qemu-system-x86_64 -smp 2, maxcpus=4 <other boot parameters>
 
-url:    https://github.com/0day-ci/linux/commits/Daniel-Mack/Add-eBPF-hooks-for-cgroups/20160825-042759
-reproduce:
-        # apt-get install sparse
-        make ARCH=x86_64 allmodconfig
-        make C=1 CF=-D__CHECK_ENDIAN__
+then the ' /sys/devices/system/cpu/possible' does not equal to the
+number of cpu* dirs in ' /sys/devices/system/cpu/', which will crash
+the percpu map testcase. Should we consider fix it, or for simply
+workaround, we could disable CONFIG_HOTPLUG_CPU?
 
+Thanks
+William
 
-sparse warnings: (new ones prefixed by >>)
-
-   include/linux/compiler.h:230:8: sparse: attribute 'no_sanitize_address': unknown attribute
->> kernel/bpf/cgroup.c:46:17: sparse: incompatible types in comparison expression (different address spaces)
->> kernel/bpf/cgroup.c:46:17: sparse: incompatible types in comparison expression (different address spaces)
-   kernel/bpf/cgroup.c:97:17: sparse: incompatible types in comparison expression (different address spaces)
-   kernel/bpf/cgroup.c:147:16: sparse: incompatible types in comparison expression (different address spaces)
-
-vim +46 kernel/bpf/cgroup.c
-
-    30				continue;
-    31	
-    32			bpf_prog_put(cgrp->bpf.prog[type]);
-    33			static_branch_dec(&cgroup_bpf_enabled_key);
-    34		}
-    35	
-    36		rcu_read_unlock();
-    37	}
-    38	
-    39	void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
-    40	{
-    41		unsigned int type;
-    42	
-    43		rcu_read_lock();
-    44	
-    45		for (type = 0; type < __MAX_BPF_ATTACH_TYPE; type++)
-  > 46			rcu_assign_pointer(cgrp->bpf.prog_effective[type],
-    47				rcu_dereference(parent->bpf.prog_effective[type]));
-    48	
-    49		rcu_read_unlock();
-    50	}
-    51	
-    52	/**
-    53	 * __cgroup_bpf_update() - Update the pinned program of a cgroup, and
-    54	 *                         propagate the change to descendants
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+On Thu, Aug 18, 2016 at 6:38 PM, William Tu <u9012063@gmail.com> wrote:
+> Hi Alexei and Daniel,
+>
+> I got feedback from Fusion bios/chipset team. In short, the value
+> 'possible' includes empty CPU socket. To verify, I tested on a
+> physical Xeon machine with 2 CPU sockets, one of them is empty. I got
+> 'possible' = 0-239, the number of 'cpu*' =12. As a result, extra bytes
+> are copied from kernel to userspace.
+>
+> As for Fusion, there is a configuration in *.vmx. If we disable cpu
+> hot plug by "vcpu.hotadd=FALSE", then 'possible' ==  the number of
+> 'cpu*' dirs, which is the configuration in ESX. If "vcpu.hotadd=TURE",
+> then 'possible' is larger than 'cpu*' dirs, allowing users to add more
+> vcpus.
+>
+> Regards,
+> William
+>
+>
+> On Fri, Aug 12, 2016 at 4:08 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+>> On Fri, Aug 12, 2016 at 09:58:51AM -0700, William Tu wrote:
+>>> Hi,
+>>>
+>>> I've tested on ESXi version 5.5 and it seems OK.
+>>> - VM1: Ubuntu 14.04, kernel 3.19 ---> OK 3 cpu dirs, possible = 0-2
+>>> - VM2: Centos7, kernel 3.10 ---> OK 8 cpu dirs, possible = 0-7
+>>>
+>>> I tried another MacBook with Fusion, same issue happens, the cpu[0-9]
+>>> dirs are not equal to /sys/devices/system/cpu/possible
+>>
+>> great. thanks for testing. I think the issue is closed and
+>> hopefully you can follow up with fusion guys ;)
+>>
