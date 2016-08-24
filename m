@@ -1,41 +1,73 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next V2 2/4] net/dst: Utility functions to build
- dst_metadata without supplying an skb
-Date: Wed, 24 Aug 2016 21:53:03 +0300
-Message-ID: <20160824215303.099d7ce9@halley>
-References: <20160824122710.30356-1-amir@vadai.me>
-        <20160824122710.30356-3-amir@vadai.me>
+From: MR Gary Hill <dennisswise@gmail.com>
+Subject: Form Mrs. Jessica Lamboy
+Date: Wed, 24 Aug 2016 21:22:19 +0100
+Message-ID: <CADtKfp+DsuwVZaGTt5JN0XL75bGTerWxaEBWu8nGeqFBTzpgAA@mail.gmail.com>
+Reply-To: mrsjessicalamboy@gmx.us
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35836 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751676AbcHXTzk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 15:55:40 -0400
-Received: by mail-wm0-f68.google.com with SMTP id i5so4173557wmg.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 12:55:40 -0700 (PDT)
-In-Reply-To: <20160824122710.30356-3-amir@vadai.me>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34881 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752410AbcHXUW0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:22:26 -0400
+Received: by mail-oi0-f66.google.com with SMTP id e80so2652471oig.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 13:22:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Dear
 
-On Wed, 24 Aug 2016 15:27:08 +0300 Amir Vadai <amir@vadai.me> wrote:
-> Extract _ip_tun_rx_dst() and _ipv6_tun_rx_dst() out of ip_tun_rx_dst()
-> and ipv6_tun_rx_dst(), to be used without supplying an skb.
+My quest to locate a responsible friend and partner to bring my dreams
+to a reality, hence l took this bold step to contact you through this
+medium and i would not like you to take an offence that l am bothering
+you since you do not know me neither have we met before.
 
-Additional thing.
+I am Mrs. Jessica Lamboy from Jordan, I am married to Dr. Alan Lamboy
+who worked with Jordan embassy in Republic of Benin for nine
+years,before he died in the year 2002. we were both married for eleven
+years without a child. He died after a brief illness that lasted for
+only four days.Before his death we were both involved in charity
+services. Since his death I decided not to re-marry or get a child
+outside my matrimonial home which is against my principle. When my
+late husband was alive he deposited the sum of $5.5 million (Five
+million Five hundred thousand u.s.dollars) with a Bank in Repubilc of
+Benin. Presently, this money is still invested in this Bank in
+Republic of Benin.
 
-In subsequent patches the newly introduced '_ip_tun_rx_dst' and
-'_ipv6_tun_rx_dst' are used in a non "rx" context (e.g. for constructing
-a IP_TUNNEL_INFO_TX in act_tunnel_key), so the names are misleading.
+Recently, my doctor told me that I would not last for the next three
+months due to my cancer problem. Though what disturbs me most is my
+stroke sickness. Having known my condition of health I have decided to
+donate this fund to charity, orphanage or an individual that will
+utilize this money the way I am going to instruct here in. I want an
+individual that will use these fund-to-fund charity,orphanages and
+widows and to ensure that these set of people are well maintained. I
+took this decision because I don't have any child that will inherit
+this money and my husband relatives are well of and I don't want my
+husband's hard earned money to be misused by them.
 
-Consider renaming.
+As I do not want a situation whereby this money will be used in an
+ungodly manner,Hence the reasons for taking this bold decision. I am
+not afraid of death because l have lived a fufiled life. As it is
+right now, I don't need any telephone communication in this regard
+because of my health and also due to the presence of my husband's
+relatives around me always.
+
+I don't want them to know about this development, As soon as I receive
+your reply I shall give you the contact of the Bank in Republic of
+Benin. I will also issue you a letter of authority that will prove you
+as the original-beneficiary of this said fund. I want you to see to
+the need of the less priviledged. My happiness is that I lived a
+fulfiled life and l dont
+
+have any regrets in life. Please note that any delay in your reply
+will give me room in sourcing for another individual as I stated here
+in.
+
+Do get back at me to my private mail address: mrsjessicalamboy@gmx.us
+for more details to proceed Hoping to hear from you
+
+soonest and do notify your interest to help me assist charity..
+
+Best regards.
+  Mrs. Jessica Lamboy
