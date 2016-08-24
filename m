@@ -1,148 +1,71 @@
-From: Alban Bedel <alban.bedel@avionic-design.de>
-Subject: Re: [PATCH] usbnet: ax88179_178a: Add support for writing the
- EEPROM
-Date: Wed, 24 Aug 2016 16:40:58 +0200
-Message-ID: <20160824164058.6ec64a8e@avionic-0020>
-References: <20160824135231.21782-1-alban.bedel@avionic-design.de>
-        <1472049039.11480.10.camel@suse.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH for-next 2/2] IB/hns: Add support of ACPI to the
+ Hisilicon RoCE driver
+Date: Wed, 24 Aug 2016 17:52:44 +0300
+Message-ID: <20160824145244.GW15065@leon.nu>
+References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
+ <1471985090-202472-3-git-send-email-salil.mehta@huawei.com>
+ <20160824135929.GU15065@leon.nu>
+ <F4CC6FACFEB3C54C9141D49AD221F7F91A6E0935@lhreml503-mbs>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/plNYGCFSdTutFignJ/sblyd"; protocol="application/pgp-signature"
-Cc: Alban Bedel <alban.bedel@avionic-design.de>,
-        linux-usb@vger.kernel.org, Freddy Xin <freddy@asix.com.tw>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472049039.11480.10.camel@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="kZn00QyXxdr8qbeL"
+Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Huwei (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F91A6E0935@lhreml503-mbs>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/plNYGCFSdTutFignJ/sblyd
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, 24 Aug 2016 16:30:39 +0200
-Oliver Neukum <oneukum@suse.com> wrote:
+--kZn00QyXxdr8qbeL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> On Wed, 2016-08-24 at 15:52 +0200, Alban Bedel wrote:
-> > Implement the .set_eeprom callback to allow setting the MAC address
-> > as well as a few other parameters. Note that the EEPROM must have a
-> > correct PID/VID checksum set otherwise the SROM is used and reads
-> > return the SROM content.
-> >=20
-> > Signed-off-by: Alban Bedel <alban.bedel@avionic-design.de>
-> > ---
-> >  drivers/net/usb/ax88179_178a.c | 57
-> > ++++++++++++++++++++++++++++++++++++++++++
-> >  1 file changed, 57 insertions(+)
-> >=20
-> > diff --git a/drivers/net/usb/ax88179_178a.c
-> > b/drivers/net/usb/ax88179_178a.c
-> > index e6338c16081a..e6a986303dad 100644
-> > --- a/drivers/net/usb/ax88179_178a.c
-> > +++ b/drivers/net/usb/ax88179_178a.c
-> > @@ -28,6 +28,7 @@
-> > =20
-> >  #define AX88179_PHY_ID                         0x03
-> >  #define AX_EEPROM_LEN                          0x100
-> > +#define AX_EEPROM_BLOCK                                0x40u
-> >  #define AX88179_EEPROM_MAGIC                   0x17900b95
-> >  #define AX_MCAST_FLTSIZE                       8
-> >  #define AX_MAX_MCAST                           64
-> > @@ -43,6 +44,7 @@
-> >  #define AX_ACCESS_PHY                          0x02
-> >  #define AX_ACCESS_EEPROM                       0x04
-> >  #define AX_ACCESS_EFUS                         0x05
-> > +#define AX_RELOAD_EEPROM                       0x06
-> >  #define AX_PAUSE_WATERLVL_HIGH                 0x54
-> >  #define AX_PAUSE_WATERLVL_LOW                  0x55
-> > =20
-> > @@ -620,6 +622,60 @@ ax88179_get_eeprom(struct net_device *net, struct
-> > ethtool_eeprom *eeprom,
-> >         return 0;
-> >  }
-> > =20
-> > +static int
-> > +ax88179_set_eeprom(struct net_device *net, struct ethtool_eeprom
-> > *eeprom,
-> > +                  u8 *data)
-> > +{
-> > +       struct usbnet *dev =3D netdev_priv(net);
-> > +       unsigned int offset =3D eeprom->offset;
-> > +       unsigned int len =3D eeprom->len;
-> > +       int i, err =3D 0;
-> > +       u8 *block;
-> > +
-> > +       /* The EEPROM data must be aligned on blocks of 64 bytes */
-> > +       if ((offset % AX_EEPROM_BLOCK) || (len % AX_EEPROM_BLOCK)) {
-> > +               offset =3D eeprom->offset / AX_EEPROM_BLOCK *
-> > AX_EEPROM_BLOCK;
-> > +               len =3D eeprom->len + eeprom->offset - offset;
-> > +               len =3D DIV_ROUND_UP(len, AX_EEPROM_BLOCK) *
-> > AX_EEPROM_BLOCK;
-> > +
-> > +               block =3D kmalloc(len, GFP_KERNEL);
-> > +               if (!block)
-> > +                       return -ENOMEM;
-> > +
-> > +               /* Copy the current data, we could skip some but KISS
-> > */
-> > +               for (i =3D 0; i < len; i +=3D AX_EEPROM_BLOCK) {
-> > +                       err =3D __ax88179_read_cmd(dev,
-> > AX_ACCESS_EEPROM,
-> > +                                                (offset + i) >> 1,
-> > +                                                AX_EEPROM_BLOCK >> 1,
-> > +                                                AX_EEPROM_BLOCK,
-> > +                                                &block[i], 0);
-> > +                       if (err < 0) {
-> > +                               kfree(block);
-> > +                               return err;
-> > +                       }
-> > +               }
-> > +               memcpy(block + eeprom->offset - offset, data,
-> > eeprom->len);
-> > +       } else {
-> > +               block =3D data;
-> > +       }
-> > +
-> > +       for (i =3D 0; err >=3D 0 && i < len; i +=3D AX_EEPROM_BLOCK) {
-> > +               err =3D ax88179_write_cmd(dev, AX_ACCESS_EEPROM,
-> > +                                       (offset + i) >> 1,
-> > +                                       AX_EEPROM_BLOCK >> 1,
-> > +                                       AX_EEPROM_BLOCK, &block[i]);
-> > +       }
-> > +
-> > +       if (block !=3D data)
-> > +               kfree(block); =20
->=20
-> And if block =3D=3D dta, what frees the memory?
+On Wed, Aug 24, 2016 at 02:25:12PM +0000, Salil Mehta wrote:
+>
+> It looks like we should retain the int as a return type or if you have
+> some other opinion or if I have missed something here please share :)
 
-In this case this function didn't allocate any memory, so there is
-nothing to free.
+Thanks for the explanation.
 
-Alban=20
+>
+> Best regards
+> Salil
 
-
---Sig_/plNYGCFSdTutFignJ/sblyd
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
+--kZn00QyXxdr8qbeL
+Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Version: GnuPG v1
 
-iQIcBAEBCAAGBQJXvbH6AAoJEHSUmkuduC28PxMP/jlldiklI0roFS9o+XQD093B
-wyNzjIyAbnAjjOz1K/ptvi35JDl2omdhNC1Dpz2C7WQlcMHvHgZMLrvT2uwtTO91
-fCXQ8h5eNxNmmLz8/4d3CiZsmrFBPiUo2EjNpLm8Uhw0JOp/Ofk67DOHZ8ffcXCR
-N9zo3lY7QczIh2KRGSuh4J0uTIwEfuo/+ri1r28J41hz5BiG+Zjw/w1Ja+pjgOLi
-SxrI2iszaeJG6p8RVdPlZ5gXmvsF3hFjg0pK4WR18EhLaahblJVqI6AZb5x05AU0
-D+RKpiUWGWpwSTMCdL8v+zea2nHjqUImyk7nP+Ag1RtL2ay+gTSPikd0TAyiljGu
-Hb+bkb2Q2bGGGwXFewkpV7DD9RU0wDvrS6EQpmDKm85qekRFje/An9WYFirqbatc
-jEtTplRE3L3F0ywQOGQn77F+bGPZHO4e2tuZmPon0bto9bbDC1JDH1mXDpridGYx
-1ksyP6oSWJ0dz6HVP8wBCXCRUu0ExUT8m/86LLlb1kS1x4G9HRC4uROywTRgIMzu
-7ZHzKH+MKOREp9SRNi8xY7i1YECpdMpRgAhKQzgY8DairRH63l47Ju0wokXHFltc
-X4ZTrkCYhg8XK3XXqV1xbSZCTxfLsQe0jy+3dirlb7KB9mRxhAERBMNvPky5yFFC
-YwN/WUWdoWzl7iQpIq2H
-=gE2o
+iQIcBAEBAgAGBQJXvbS8AAoJEORje4g2clinbBwP/Rce4I7I8qc6tlCSODHJ1/7D
+qBV38izl6Ya530ffXKRjOiGoGFc4A+tKobUvVwhtVFjIE7O6IBfjzu/+19qWu+Qa
+bTGJoavASdWLBvIQtPUxZcbePl5JkKadMqiHjT63d42F67cLfJhFLTcz/arnIz7S
++Wyx2xLLfSK8DmIMXw7F/zHsCb7W9HrkdzqQ209uza+aFFKCHq8pHp32JzMq25RN
+vTcidLhih6upfJeuqtSkohvus4FAfhmTWlHEPJqhGARSyemA6Se2I3MNzlDi/bjF
+nGWAibLiv8sqmlv7CV4Xf96X4t58cLxljP8hd22Zp0rHexu85q6a6Kld1383WCf6
+11I9GZ2A++rHYxL1guDXGWSDsFLzKbffC+mJMI5stBBlr9XrnXQYrY+5TeGnctnX
+ovKo7aNvO4piZUn4QXf0KdAwR3KeGlsJNdT6+oLhwOzgXXQssim//C0PaygPi4Nt
+5h/twr449M3ctJ2KMmthtaTE6geGfg8ljHmyb/ktj2rO8pYExFTmliEs9l1KkFZL
+gDX64i856v5F+X1mwTOyc44lpAu6MHTwDgZTfk118JyMpPElFXhtNgMg1EKey564
+d1eZ8dnHNxvqNW80OZVUGv2ariKkoY6fpk9ymuuyyG3T/ZSUx7cNf5V3EH7wQ8mq
+PI/dOSkBpDs8yu3Pqmwc
+=JcBp
 -----END PGP SIGNATURE-----
 
---Sig_/plNYGCFSdTutFignJ/sblyd--
+--kZn00QyXxdr8qbeL--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
