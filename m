@@ -1,32 +1,71 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 0/4] net: phy: Register header file for Microsemi PHYs.
-Date: Wed, 24 Aug 2016 10:15:33 -0700
-Message-ID: <b0fe05bc-d6c4-0692-44ba-69ff8db3026a@gmail.com>
-References: <646450A91FAED74E85C6E9C4D6E936A14533665A@avsrvexchmbx1.microsemi.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net] qdisc: fix a module refcount leak in
+ qdisc_create_dflt()
+Date: Wed, 24 Aug 2016 10:13:57 -0700
+Message-ID: <57BDD5D5.6080301@gmail.com>
+References: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Allan Nielsen <Allan.Nielsen@microsemi.com>,
-        "Andrew Lunn (andrew@lunn.ch)" <andrew@lunn.ch>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35169 "EHLO
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34872 "EHLO
         mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754132AbcHXRPt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:15:49 -0400
-Received: by mail-pa0-f66.google.com with SMTP id cf3so1503540pad.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:15:35 -0700 (PDT)
-In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A14533665A@avsrvexchmbx1.microsemi.net>
+        with ESMTP id S1752389AbcHXRPs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:15:48 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so1501666pad.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:14:09 -0700 (PDT)
+In-Reply-To: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2016 04:58 AM, Raju Lakkaraju wrote:
-> From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+On 16-08-24 09:39 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This is Microsemi's VSC 85xx PHY register definitions header file.
+> Should qdisc_alloc() fail, we must release the module refcount
+> we got right before.
+> 
+> Fixes: 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/sched/sch_generic.c |    9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index e95b67cd5718..657c13362b19 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -643,18 +643,19 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+>  	struct Qdisc *sch;
+>  
+>  	if (!try_module_get(ops->owner))
+> -		goto errout;
+> +		return NULL;
+>  
+>  	sch = qdisc_alloc(dev_queue, ops);
+> -	if (IS_ERR(sch))
+> -		goto errout;
+> +	if (IS_ERR(sch)) {
+> +		module_put(ops->owner);
+> +		return NULL;
+> +	}
+>  	sch->parent = parentid;
+>  
+>  	if (!ops->init || ops->init(sch, NULL) == 0)
+>  		return sch;
+>  
+>  	qdisc_destroy(sch);
+> -errout:
+>  	return NULL;
+>  }
+>  EXPORT_SYMBOL(qdisc_create_dflt);
+> 
+> 
 
-Please keep these register definitions local to the code using them
-unless they are shared between multiple drivers.
--- 
-Florian
+Thanks!
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
