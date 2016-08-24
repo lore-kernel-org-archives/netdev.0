@@ -1,52 +1,38 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] tipc: fix the error handling in tipc_udp_enable()
-Date: Wed, 24 Aug 2016 13:32:19 +0000
-Message-ID: <1472045539-19923-1-git-send-email-weiyj.lk@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/4] net: remove clear_sk() method
+Date: Wed, 24 Aug 2016 06:35:30 -0700
+Message-ID: <1472045730.14381.76.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1471977569-27190-1-git-send-email-edumazet@google.com>
+         <20160823.233728.1295346525678892725.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org,
-        tipc-discussion@lists.sourceforge.net
-To: Jon Maloy <jon.maloy@ericsson.com>,
-        Ying Xue <ying.xue@windriver.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35795 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932467AbcHXNcr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 09:32:47 -0400
-Received: by mail-pa0-f65.google.com with SMTP id cf3so1217265pad.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 06:32:47 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34136 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754342AbcHXNfc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 09:35:32 -0400
+Received: by mail-pf0-f182.google.com with SMTP id p64so7067393pfb.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 06:35:32 -0700 (PDT)
+In-Reply-To: <20160823.233728.1295346525678892725.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+On Tue, 2016-08-23 at 23:37 -0700, David Miller wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> Date: Tue, 23 Aug 2016 11:39:25 -0700
+> 
+> > Since IPv6 socket lookups no longer dereference pinet6 pointer
+> > and UDP lost SLAB_DESTROY_BY_RCU special rules, we no longer
+> > need special clear_sk() methods.
+> 
+> Series applied, thanks Eric.
+> 
+> There were some merge conflicts because I applied David Ahern's
+> sock diag udp patches first.
+> 
+> Please double check my work.
 
-Fix to return a negative error code in enable_mcast() error handling
-case, and release udp socket when necessary.
-
-Fixes: d0f91938bede ("tipc: add ip/udp media type")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- net/tipc/udp_media.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 33bdf54..453ab0b 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -396,10 +396,13 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	tuncfg.encap_destroy = NULL;
- 	setup_udp_tunnel_sock(net, ub->ubsock, &tuncfg);
- 
--	if (enable_mcast(ub, remote))
-+	err = enable_mcast(ub, remote);
-+	if (err)
- 		goto err;
- 	return 0;
- err:
-+	if (ub->ubsock)
-+		udp_tunnel_sock_release(ub->ubsock);
- 	kfree(ub);
- 	return err;
- }
+Sure, this all looks fine to me, thanks David !
