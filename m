@@ -1,42 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: minor optimization in qdisc_qstats_cpu_drop()
-Date: Wed, 24 Aug 2016 10:23:34 -0700
-Message-ID: <1472059414.14381.101.camel@edumazet-glaptop3.roam.corp.google.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net] qdisc: fix a module refcount leak in
+ qdisc_create_dflt()
+Date: Wed, 24 Aug 2016 10:14:32 -0700
+Message-ID: <57BDD5F8.5080702@gmail.com>
+References: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>
-To: David Miller <davem@davemloft.net>
+        stephen hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35459 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751044AbcHXRXg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:23:36 -0400
-Received: by mail-pf0-f196.google.com with SMTP id h186so1561088pfg.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:23:35 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:35264 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753390AbcHXR06 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 13:26:58 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so1516346pad.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 10:26:24 -0700 (PDT)
+In-Reply-To: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 16-08-24 09:39 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Should qdisc_alloc() fail, we must release the module refcount
+> we got right before.
+> 
+> Fixes: 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/sched/sch_generic.c |    9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index e95b67cd5718..657c13362b19 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -643,18 +643,19 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+>  	struct Qdisc *sch;
+>  
+>  	if (!try_module_get(ops->owner))
+> -		goto errout;
+> +		return NULL;
+>  
+>  	sch = qdisc_alloc(dev_queue, ops);
+> -	if (IS_ERR(sch))
+> -		goto errout;
+> +	if (IS_ERR(sch)) {
+> +		module_put(ops->owner);
+> +		return NULL;
+> +	}
+>  	sch->parent = parentid;
+>  
+>  	if (!ops->init || ops->init(sch, NULL) == 0)
+>  		return sch;
+>  
+>  	qdisc_destroy(sch);
+> -errout:
+>  	return NULL;
+>  }
+>  EXPORT_SYMBOL(qdisc_create_dflt);
+> 
+> 
 
-per_cpu_inc() is faster (at least on x86) than per_cpu_ptr(xxx)++;
+Thanks!
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/net/sch_generic.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 0d501779cc68f9426e58da6d039dd64adc937c20..52a2015667b49c8315edbb26513a98d4c677fee5 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -592,7 +592,7 @@ static inline void qdisc_qstats_drop(struct Qdisc *sch)
- 
- static inline void qdisc_qstats_cpu_drop(struct Qdisc *sch)
- {
--	qstats_drop_inc(this_cpu_ptr(sch->cpu_qstats));
-+	this_cpu_inc(sch->cpu_qstats->drops);
- }
- 
- static inline void qdisc_qstats_overlimit(struct Qdisc *sch)
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
