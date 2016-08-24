@@ -1,71 +1,100 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: Re: [PATCH net-next 1/2] cxgb4/cxgb4vf: Add support for
- ndo_set_vf_vlan
-Date: Wed, 24 Aug 2016 15:10:20 +0530
-Message-ID: <20160824094003.GA21672@hari-Latitude-E5550>
-References: <1472021434-8287-1-git-send-email-hariprasad@chelsio.com>
- <1472021434-8287-2-git-send-email-hariprasad@chelsio.com>
- <SN2PR11MB009472734B1803F20C4A9B1497EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
- <20160824082249.GB9955@hari-Latitude-E5550>
- <CO2PR11MB0088077BE20D123DD6BB119297EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        "leedom@chelsio.com" <leedom@chelsio.com>,
-        "nirranjan@chelsio.com" <nirranjan@chelsio.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/7] mlxsw: spectrum: Limit number of FDB records per learning session
+Date: Wed, 24 Aug 2016 12:00:23 +0200
+Message-ID: <1472032829-6322-2-git-send-email-jiri@resnulli.us>
+References: <1472032829-6322-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:20149 "EHLO
-        stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753080AbcHXJlZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 05:41:25 -0400
-Content-Disposition: inline
-In-Reply-To: <CO2PR11MB0088077BE20D123DD6BB119297EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35024 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932417AbcHXKBV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 06:01:21 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i5so1860332wmg.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 03:00:34 -0700 (PDT)
+In-Reply-To: <1472032829-6322-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, August 08/24/16, 2016 at 08:31:58 +0000, Yuval Mintz wrote:
-> > > > @@ -1202,6 +1202,10 @@ int t4vf_eth_xmit(struct sk_buff *skb, struct
-> > > > net_device *dev)
-> > > >  	BUG_ON(qidx >= pi->nqsets);
-> > > >  	txq = &adapter->sge.ethtxq[pi->first_qset + qidx];
-> > > >
-> > > > +	if (pi->vlan_id && !skb_vlan_tag_present(skb))
-> > > > +		__vlan_hwaccel_put_tag(skb, cpu_to_be16(ETH_P_8021Q),
-> > > > +				       pi->vlan_id);
-> > > > +
-> > >
-> > > So it's a purely SW implementation of the feature on the VF side?
-> > > Does the HW enforces the configuration in any way on the VF?
-> > Basically the PF driver passes the VLAN ID it got through ndo_set_vf_vlan to the
-> > VF driver. And then the VF driver reads it and requests hardware to tag it.
-> 
-> Problem with SW implementations is mainly that they have no effect over
-> Malicious VFs
->  I.e., if the purpose here is to add the VF to some vlan-tagged subnet
-> Whereas the user is oblivious to it, a malicious user can easily modify
-> the driver to ignore this restriction and get access to the entire network.
-> 
-> I think one of the problems with this ndo is that it's poorly documented
-> and thus open for various interpretations - so it's debatable what's important
-> and what's not. [If it is properly documented anywhere, please educate me]
-I agree with you. Even I coudn't find a proper documentation for the same.
-I never thought about security issuses, (i.e., user modifying the VF driver
-to gain access over the network) while implementing this.
+From: Ido Schimmel <idosch@mellanox.com>
 
-> > > Also, looks like an already tagged packet would be processed with the
-> > > original vlan-id [instead of the one of PF has provided].
-> > > Is that intentional?
-> > No, this isn't intentional. I thought VST and VGT cannot co-exist.
-> > What should be the behavior?
-> 
-> Are you preventing VGT configuration once VST is configured?
-> If not, what to prevent VM user from configuring vlan interfaces
-> on top of the VF, even if VST is configured?
-Again this misses documentation, what if VLAN interface is already configured in
-VM before VST is configured. 
-Before there were callbacks to add/remove vlan interface, now that is removed how
-to achieve it?
-    OR 
-am I missing something?
+Up until now a learning session ended whenever the number of queried
+records was zero. This turned out to be problematic in situations where
+a large number of MACs (48K) had to be processed by the switch driver,
+as RTNL mutex is held during the learning session.
+
+Instead, limit the number of FDB records that can be processed in a
+session to 64. This means that every time the device is queried for
+learning notifications (currently, every 100ms), up to 64 records will
+be processed by the switch driver.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h          |  7 +++++++
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 22 ++++++++++------------
+ 2 files changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 1721098..b83d0a7 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -591,6 +591,12 @@ static const struct mlxsw_reg_info mlxsw_reg_sfn = {
+  */
+ MLXSW_ITEM32(reg, sfn, swid, 0x00, 24, 8);
+ 
++/* reg_sfn_end
++ * Forces the current session to end.
++ * Access: OP
++ */
++MLXSW_ITEM32(reg, sfn, end, 0x04, 20, 1);
++
+ /* reg_sfn_num_rec
+  * Request: Number of learned notifications and aged-out notification
+  * records requested.
+@@ -605,6 +611,7 @@ static inline void mlxsw_reg_sfn_pack(char *payload)
+ {
+ 	MLXSW_REG_ZERO(sfn, payload);
+ 	mlxsw_reg_sfn_swid_set(payload, 0);
++	mlxsw_reg_sfn_end_set(payload, 1);
+ 	mlxsw_reg_sfn_num_rec_set(payload, MLXSW_REG_SFN_REC_MAX_COUNT);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index d1b59cd..02de240 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -1496,20 +1496,18 @@ static void mlxsw_sp_fdb_notify_work(struct work_struct *work)
+ 	mlxsw_sp = container_of(work, struct mlxsw_sp, fdb_notify.dw.work);
+ 
+ 	rtnl_lock();
+-	do {
+-		mlxsw_reg_sfn_pack(sfn_pl);
+-		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfn), sfn_pl);
+-		if (err) {
+-			dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Failed to get FDB notifications\n");
+-			break;
+-		}
+-		num_rec = mlxsw_reg_sfn_num_rec_get(sfn_pl);
+-		for (i = 0; i < num_rec; i++)
+-			mlxsw_sp_fdb_notify_rec_process(mlxsw_sp, sfn_pl, i);
++	mlxsw_reg_sfn_pack(sfn_pl);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(sfn), sfn_pl);
++	if (err) {
++		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Failed to get FDB notifications\n");
++		goto out;
++	}
++	num_rec = mlxsw_reg_sfn_num_rec_get(sfn_pl);
++	for (i = 0; i < num_rec; i++)
++		mlxsw_sp_fdb_notify_rec_process(mlxsw_sp, sfn_pl, i);
+ 
+-	} while (num_rec);
++out:
+ 	rtnl_unlock();
+-
+ 	kfree(sfn_pl);
+ 	mlxsw_sp_fdb_notify_work_schedule(mlxsw_sp);
+ }
+-- 
+2.5.5
