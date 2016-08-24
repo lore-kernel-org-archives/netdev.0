@@ -1,77 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 05/15] net: sched: a dflt qdisc may be used
- with per cpu stats
-Date: Wed, 24 Aug 2016 09:41:38 -0700
-Message-ID: <1472056898.14381.95.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
-         <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 0/7] mlxsw: Offload FDB learning configuration
+Date: Wed, 24 Aug 2016 09:41:30 -0700 (PDT)
+Message-ID: <20160824.094130.639133337347281844.davem@davemloft.net>
+References: <1472032829-6322-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
-        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34484 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756227AbcHXQlu (ORCPT
+Received: from shards.monkeyblade.net ([184.105.139.130]:33633 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756224AbcHXQlu (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:41:50 -0400
-Received: by mail-pa0-f66.google.com with SMTP id hh10so1471790pac.1
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 09:41:40 -0700 (PDT)
-In-Reply-To: <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
+In-Reply-To: <1472032829-6322-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-08-23 at 13:24 -0700, John Fastabend wrote:
-> Enable dflt qdisc support for per cpu stats before this patch a
-> dflt qdisc was required to use the global statistics qstats and
-> bstats.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/sch_generic.c |   24 ++++++++++++++++++++----
->  1 file changed, 20 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 80544c2..910b4d15 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -646,18 +646,34 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
->  	struct Qdisc *sch;
->  
->  	if (!try_module_get(ops->owner))
-> -		goto errout;
-> +		return NULL;
->  
->  	sch = qdisc_alloc(dev_queue, ops);
->  	if (IS_ERR(sch))
-> -		goto errout;
-> +		return NULL;
->  	sch->parent = parentid;
->  
-> -	if (!ops->init || ops->init(sch, NULL) == 0)
-> +	if (!ops->init)
->  		return sch;
->  
-> -	qdisc_destroy(sch);
-> +	if (ops->init(sch, NULL))
-> +		goto errout;
-> +
-> +	/* init() may have set percpu flags so init data structures */
-> +	if (qdisc_is_percpu_stats(sch)) {
-> +		sch->cpu_bstats =
-> +			netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
-> +		if (!sch->cpu_bstats)
-> +			goto errout;
-> +
-> +		sch->cpu_qstats = alloc_percpu(struct gnet_stats_queue);
-> +		if (!sch->cpu_qstats)
-> +			goto errout;
-> +	}
-> +
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 24 Aug 2016 12:00:22 +0200
 
-Why are you attempting these allocations here instead of qdisc_alloc()
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Ido says:
+> This patchset addresses two long standing issues in the mlxsw driver
+> concerning FDB learning.
+> 
+> Patch 1 limits the number of FDB records processed by the driver in a
+> single session. This is useful in situations in which many new records
+> need to be processed, thereby causing the RTNL mutex to be held for
+> long periods of time.
+> 
+> Patches 2-6 offload the learning configuration (on / off) of bridge
+> ports to the device instead of having the driver decide whether a
+> record needs to be learned or not.
+> 
+> The last patch is fallout and removes configuration no longer necessary
+> after the first patches are applied.
 
-This looks weird, I would expect base qdisc being fully allocated before
-ops->init() is attempted.
+Looks good, series applied, thanks!
