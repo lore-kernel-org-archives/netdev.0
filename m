@@ -1,87 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 05/15] net: sched: a dflt qdisc may be used
- with per cpu stats
-Date: Wed, 24 Aug 2016 09:29:57 -0700
-Message-ID: <1472056197.14381.89.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160823202135.14368.62466.stgit@john-Precision-Tower-5810>
-         <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
+Date: Wed, 24 Aug 2016 09:28:27 -0700
+Message-ID: <CAOrHB_BEn2D_iUgkqPD8ixhjJtnaLpYkANxL+Au7wO=8oKmGag@mail.gmail.com>
+References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
+ <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
+ <20160822122122.GA8689@penelope.isobedori.kobe.vergenet.net>
+ <dcf3df40-3914-37c6-55dc-e5c3de7530b5@cumulusnetworks.com>
+ <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
+ <3297517c-2889-19fe-5aa4-89e1d14eadca@cumulusnetworks.com> <20160824072002.GA27254@penelope.isobedori.kobe.vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net, brouer@redhat.com,
-        xiyou.wangcong@gmail.com, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>,
-        stephen hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, buytenh@wantstofly.org,
+        "Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
+        tom@herbertland.com, Thomas Graf <tgraf@suug.ch>,
+        olivier.dugeon@orange.com,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        roopa@cumulusnetworks.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33995 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932334AbcHXQaA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:30:00 -0400
-Received: by mail-pa0-f66.google.com with SMTP id hh10so1456401pac.1
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 09:29:59 -0700 (PDT)
-In-Reply-To: <20160823202445.14368.4352.stgit@john-Precision-Tower-5810>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:46357 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755062AbcHXQcH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 12:32:07 -0400
+Received: from relay4-d.mail.gandi.net (relay4-d.mail.gandi.net [217.70.183.196])
+        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 65A4948603C
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 18:29:32 +0200 (CEST)
+Received: from mfilter19-d.gandi.net (mfilter19-d.gandi.net [217.70.178.147])
+        by relay4-d.mail.gandi.net (Postfix) with ESMTP id 7EE8B172094
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 18:28:30 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+        by mfilter19-d.gandi.net (mfilter19-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id E307jrLSAJOv for <netdev@vger.kernel.org>;
+        Wed, 24 Aug 2016 18:28:29 +0200 (CEST)
+Received: from mail-it0-f43.google.com (mail-it0-f43.google.com [209.85.214.43])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id F0E331720BC
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 18:28:28 +0200 (CEST)
+Received: by mail-it0-f43.google.com with SMTP id x131so219654274ite.0
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 09:28:28 -0700 (PDT)
+In-Reply-To: <20160824072002.GA27254@penelope.isobedori.kobe.vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-08-23 at 13:24 -0700, John Fastabend wrote:
-> Enable dflt qdisc support for per cpu stats before this patch a
-> dflt qdisc was required to use the global statistics qstats and
-> bstats.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/sch_generic.c |   24 ++++++++++++++++++++----
->  1 file changed, 20 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index 80544c2..910b4d15 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -646,18 +646,34 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
->  	struct Qdisc *sch;
->  
->  	if (!try_module_get(ops->owner))
-> -		goto errout;
-> +		return NULL;
->  
->  	sch = qdisc_alloc(dev_queue, ops);
->  	if (IS_ERR(sch))
-> -		goto errout;
-> +		return NULL;
->  	sch->parent = parentid;
->  
-> -	if (!ops->init || ops->init(sch, NULL) == 0)
-> +	if (!ops->init)
->  		return sch;
->  
-> -	qdisc_destroy(sch);
-> +	if (ops->init(sch, NULL))
-> +		goto errout;
-> +
-> +	/* init() may have set percpu flags so init data structures */
-> +	if (qdisc_is_percpu_stats(sch)) {
-> +		sch->cpu_bstats =
-> +			netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
-> +		if (!sch->cpu_bstats)
-> +			goto errout;
-> +
-> +		sch->cpu_qstats = alloc_percpu(struct gnet_stats_queue);
-> +		if (!sch->cpu_qstats)
-> +			goto errout;
-> +	}
-> +
-> +	return sch;
->  errout:
-> +	qdisc_destroy(sch);
->  	return NULL;
->  }
->  EXPORT_SYMBOL(qdisc_create_dflt);
-> 
+On Wed, Aug 24, 2016 at 12:20 AM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> Hi David,
+>
+> On Tue, Aug 23, 2016 at 01:24:51PM -0600, David Ahern wrote:
+>> On 8/22/16 8:51 AM, Simon Horman wrote:
+>> >
+>> > The scheme that OvS uses so far is that mac_len denotes the number of bytes
+>> > from the start of the MAC header until its end. In the absence of MPLS that
+>> > will be the beginning of the network header. And in the presence of MPLS it
+>> > will be the beginning of the MPLS label stack. The network header is... the
+>> > network header. This allows the MAC header, MPLS label stack and network
+>> > header to be tracked.
+>>
+>> The neigh output functions do '__skb_pull(skb, skb_network_offset(skb))' so if mpls_xmit does not reset the network header the labels get dropped. To me this says MPLS labels can not be lumped with the mac header which leaves the only option as the outer network header.
+>>
+>> >
+>> > Pravin (CCed) may have different ideas but I wonder if the above scheme can
+>> > be preserved while also meeting the needs of your new MPLS GSO scheme if
+>> > you set skb_set_network_header() and skb_set_inner_network_header() in
+>> > net/openvswitch/actions.c:do_output().
+>> >
+>> > It may also be possible to teach OvS to use skb_set_network_header to
+>> > denote the beginning of the MPLS LSE and skb_set_inner_network_header to
+>> > denote the network header in the presence of MPLS. Which is my current
+>> > understanding of what you are trying to achieve. But I think its likely
+>> > that I misunderstand things as it seems strange to me to pretend that an
+>> > MPLS LSE is a network header and the outer most network header is an inner
+>> > network header
+>> >
+>>
+>> This is the only option I can see working, but open to patches showing an
+>> alternative.
+>
+> On reflection I came to a similar conclusion.
+>
+>> I would like to get it resolved this week so I can move on to gso in the
+>> mpls forward case.
+>
+> How do you feel about implementing the do_output() idea I suggested above?
+> I'm happy to provide testing and review.
 
-Hmm... apparently we have bug here, added in 
-6da7c8fcbcbdb50ec ("qdisc: allow setting default queuing discipline")
-
-We do not undo the try_module_get() in case of an error.
-
-I will send a fix.
+I am not sure about changing do_output(). why not just use same scheme
+to track mpls header in OVS datapath as done in mpls device?
