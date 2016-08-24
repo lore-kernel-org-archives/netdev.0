@@ -1,66 +1,34 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net: macb: Increase DMA buffer size
-Date: Wed, 24 Aug 2016 21:17:04 +0200
-Message-ID: <cccfc176-df56-4add-e6c8-e040f9da31dc@atmel.com>
-References: <1472063159-13797-1-git-send-email-xander.huff@ni.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: minor optimization in
+ qdisc_qstats_cpu_drop()
+Date: Wed, 24 Aug 2016 12:07:27 -0700
+Message-ID: <1472065647.14381.113.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1472059414.14381.101.camel@edumazet-glaptop3.roam.corp.google.com>
+         <f4e3fe14-ddbb-5b37-d003-46f28f7d8750@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@vger.kernel.org>, Nathan Sullivan <nathan.sullivan@ni.com>,
-        <linux-kernel@vger.kernel.org>
-To: Xander Huff <xander.huff@ni.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        John Fastabend <john.r.fastabend@intel.com>
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:8459 "EHLO
-        eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932825AbcHXTRK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 15:17:10 -0400
-In-Reply-To: <1472063159-13797-1-git-send-email-xander.huff@ni.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34825 "EHLO
+        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751702AbcHXTTL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 15:19:11 -0400
+Received: by mail-pa0-f66.google.com with SMTP id cf3so1672332pad.2
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 12:19:11 -0700 (PDT)
+In-Reply-To: <f4e3fe14-ddbb-5b37-d003-46f28f7d8750@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 24/08/2016 à 20:25, Xander Huff a écrit :
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
+On Wed, 2016-08-24 at 11:04 -0700, Rick Jones wrote:
+> On 08/24/2016 10:23 AM, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > per_cpu_inc() is faster (at least on x86) than per_cpu_ptr(xxx)++;
 > 
-> In recent testing with the RT patchset, we have seen cases where the
-> transmit ring can fill even with up to 200 txbds in the ring.  Increase
-> the size of the DMA rings to avoid overruns.
-> 
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
-> Acked-by: Ben Shelton <ben.shelton@ni.com>
-> Acked-by: Jaeden Amero <jaeden.amero@ni.com>
-> Natinst-ReviewBoard-ID: 83662
-> ---
->  drivers/net/ethernet/cadence/macb.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 3256839..86a8e20 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -35,12 +35,12 @@
->  
->  #include "macb.h"
->  
-> -#define MACB_RX_BUFFER_SIZE	128
-> +#define MACB_RX_BUFFER_SIZE	1536
+> Is it possible it is non-trivially slower on other architectures?
 
-This change seems not covered by the commit message. Can you  please
-separate the changes in 2 patches or elaborate a bit more the reason for
-this RX buffer size change.
-
-Bye,
-
->  #define RX_BUFFER_MULTIPLE	64  /* bytes */
->  #define RX_RING_SIZE		512 /* must be power of 2 */
->  #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
->  
-> -#define TX_RING_SIZE		128 /* must be power of 2 */
-> +#define TX_RING_SIZE		512 /* must be power of 2 */
->  #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
->  
->  /* level of occupied TX descriptors under which we wake up TX process */
-> 
-
-
--- 
-Nicolas Ferre
+No, in the worst case, compiler would emit the same code.
