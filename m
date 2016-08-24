@@ -1,77 +1,61 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v6_repost 2/3] net: core: add SW stats to if_stats_msg
-Date: Tue, 23 Aug 2016 19:46:43 -0700
-Message-ID: <57BD0A93.6050300@cumulusnetworks.com>
-References: <1471612650-4508-3-git-send-email-jiri@resnulli.us> <57BBE47D.3060805@cumulusnetworks.com> <20160823065318.GA1975@nanopsycho> <20160823.000415.624700756560666111.davem@davemloft.net> <20160823072651.GB1975@nanopsycho> <57BC61CD.9020005@cumulusnetworks.com> <20160823145159.GC1975@nanopsycho>
+From: "Xue, Ying" <Ying.Xue@windriver.com>
+Subject: Re: [PATCH -next] tipc: use kfree_skb() instead
+	of kfree()
+Date: Wed, 24 Aug 2016 02:47:32 +0000
+Message-ID: <25A14D9CFAB7B34FB9440F90AFD35233010193E3DF@ALA-MBA.corp.ad.wrs.com>
+References: <1471993262-4061-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, ogerlitz@mellanox.com,
-        nikolay@cumulusnetworks.com, linville@tuxdriver.com, tgraf@suug.ch,
-        gospo@cumulusnetworks.com, sfeldma@gmail.com, sd@queasysnail.net,
-        eranbe@mellanox.com, ast@plumgrid.com, edumazet@google.com,
-        hannes@stressinduktion.org, f.fainelli@gmail.com,
-        dsa@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35881 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753109AbcHXCrF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 22:47:05 -0400
-Received: by mail-pf0-f182.google.com with SMTP id h186so1544791pfg.3
-        for <netdev@vger.kernel.org>; Tue, 23 Aug 2016 19:46:46 -0700 (PDT)
-In-Reply-To: <20160823145159.GC1975@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Yongjun <weiyongjun1@huawei.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: Wei Yongjun <weiyj.lk@gmail.com>, Jon Maloy <jon.maloy@ericsson.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1471993262-4061-1-git-send-email-weiyj.lk@gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 8/23/16, 7:52 AM, Jiri Pirko wrote:
-> Tue, Aug 23, 2016 at 04:46:37PM CEST, roopa@cumulusnetworks.com wrote:
->> On 8/23/16, 12:26 AM, Jiri Pirko wrote:
->>> Tue, Aug 23, 2016 at 09:04:15AM CEST, davem@davemloft.net wrote:
->>>> From: Jiri Pirko <jiri@resnulli.us>
->>>> Date: Tue, 23 Aug 2016 08:53:18 +0200
->>>>
->>>>> Anyway I think that next level of nesting is not necessary. On
->>>>> contrary, it is wrong. The current level is extensible, mixed and
->>>>> flagged already. I don't see any reason why not to add whatever kind of
->>>>> stats here. What makes IFLA_STATS_LINK_SW_64 or for example
->>>>> IFLA_STATS_LINK_HW_ACL so special it has to be nested in some other
->>>>> attr? I would understand it it would be values of one family, but that
->>>>> is not the case.
->>>> First, I agree with Roopa.  If we want to put this stuff out
->>>> there is should be bucketed together in a nested attribute with
->>>> other similar stats specifications.
->>> Well I still don't think that IFLA_STATS_LINK_SW_64 and
->>> IFLA_STATS_LINK_HW_ACL are related. You cannot put it under *DRIVER*
->>> nest as IFLA_STATS_LINK_SW_64 are core stats.
->> not sure i understand, why is this core stats ?.
->> should a new logical device implement  IFLA_STATS_LINK_64 or IFLA_STATS_LINK_SW_64 ?
->> any other users ?.
->>
->>
->>>  So we can put them under
->>> *MISC* nest attr. But that is exactly purpose of the top-level here.
->>> /me confused
->> By design top level is for higher level grouping of stats (that also helps us maintain a lean higher
->> level filter space). They are mainly categories of stats. for example we have a nested link
->> XSTATS attribute..which are again a break down of stats already counted in IFLA_STATS_LINK_64.
->> That's why I think we can group this into another kind of breakdown stats.
-> I give up. What name do you suggest for the nested attribute?
+Acked-by: Ying Xue <ying.xue@windriver.com>
 
-how about the below ?
-IFLA_STATS_LINK_OFFLOAD_XSTATS [
-        IFLA_OFFLOAD_XSTATS_SW_HIT or IFLA_OFFLOAD_XSTATS_CPU_HIT or whatever you want to call it ?
-]
+-----Original Message-----
+From: Wei Yongjun [mailto:weiyj.lk@gmail.com] 
+Sent: Wednesday, August 24, 2016 7:01 AM
+To: Jon Maloy; Xue, Ying; David S. Miller
+Cc: Wei Yongjun; netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net
+Subject: [PATCH -next] tipc: use kfree_skb() instead of kfree()
 
-reasons: we need an offload driver stats bucket anyways (for the hw driver extended stats.
-similar to ethtool stats). keeping the name generic will help cover switchdev and other hw offload uses.
-If there is a need for a second level filter in the future, we can always
-add a IFLA_OFFLOAD_XSTATS_FILTER attribute when that becomes necessary.
+From: Wei Yongjun <weiyongjun1@huawei.com>
 
-I agree with dave that this is essentially a filter on the existing stats and can be implemented as
-a flag someplace. But, the best way I can see that filter implemented in the current code/api
-is with a nested attribute like above.
+Use kfree_skb() instead of kfree() to free sk_buff.
 
-Thanks Jiri!
+Fixes: 0d051bf93c06 ("tipc: make bearer packet filtering generic")
+Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+---
+ net/tipc/bearer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c index 6fc4e3c..28056fa 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -529,7 +529,7 @@ void tipc_bearer_xmit(struct net *net, u32 bearer_id,
+ 		if (likely(test_bit(0, &b->up) || msg_is_reset(buf_msg(skb))))
+ 			b->media->send_msg(net, skb, b, dst);
+ 		else
+-			kfree(skb);
++			kfree_skb(skb);
+ 	}
+ 	rcu_read_unlock();
+ }
+
+------------------------------------------------------------------------------
