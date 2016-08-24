@@ -1,189 +1,296 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/4] net: phy: Register header file for Microsemi PHYs.
-Date: Wed, 24 Aug 2016 14:45:26 +0200
-Message-ID: <20160824124526.GA13406@lunn.ch>
-References: <646450A91FAED74E85C6E9C4D6E936A14533665A@avsrvexchmbx1.microsemi.net>
+From: Nelson Chang <nelson.chang@mediatek.com>
+Subject: [PATCH net-next] net: ethernet: mediatek: modify to use the PDMA instead of the QDMA for Ethernet RX
+Date: Wed, 24 Aug 2016 20:49:52 +0800
+Message-ID: <1472042992-911-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <nelsonch.tw@gmail.com>,
+        Nelson Chang <nelson.chang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43254 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753488AbcHXMqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 08:46:17 -0400
-Content-Disposition: inline
-In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A14533665A@avsrvexchmbx1.microsemi.net>
+Received: from mailgw01.mediatek.com ([210.61.82.183]:22930 "EHLO
+        mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753390AbcHXMup (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 08:50:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 24, 2016 at 11:58:01AM +0000, Raju Lakkaraju wrote:
-> From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> 
-> This is Microsemi's VSC 85xx PHY register definitions header file.
+Because the PDMA has richer features than the QDMA for Ethernet RX
+(such as multiple RX rings, HW LRO, etc.),
+the patch modifies to use the PDMA to handle Ethernet RX.
 
-Hi Raju
+Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 72 +++++++++++++++++------------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 31 ++++++++++++-
+ 2 files changed, 72 insertions(+), 31 deletions(-)
+ mode change 100644 => 100755 drivers/net/ethernet/mediatek/mtk_eth_soc.c
+ mode change 100644 => 100755 drivers/net/ethernet/mediatek/mtk_eth_soc.h
 
-Patch [0/X] is the cover note. It should contain an overview of the
-patch series and why this patch series is needed. It should not
-contain a patch itself.
-
-Also, the 5 patches have not been threaded together. Did you send them
-with a single git send-email command, or 5 individual commands? By
-default, using a single command should cause them to be threaded.
-
-	 Andrew
-
-> 
-> Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> ---
->  drivers/net/phy/mscc_reg.h | 135 +++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 135 insertions(+)
->  create mode 100644 drivers/net/phy/mscc_reg.h
-> 
-> diff --git a/drivers/net/phy/mscc_reg.h b/drivers/net/phy/mscc_reg.h
-> new file mode 100644
-> index 0000000..ddb825c
-> --- /dev/null
-> +++ b/drivers/net/phy/mscc_reg.h
-> @@ -0,0 +1,135 @@
-> +/*
-> + * Driver for Microsemi VSC85xx PHYs
-> + *
-> + * Author: Nagaraju Lakkaraju
-> + * License: Dual MIT/GPL
-> + * Copyright (c) 2016 Microsemi Corporation
-> + */
-> +
-> +#ifndef __MSCC_REG_H
-> +#define __MSCC_REG_H
-> +
-> +/* Microsemi VSC85xx PHY registers */
-> +/* IEEE 802. Std Registers */
-> +#define MSCC_PHY_BYPASS_CONTROL        18
-> +#define DISABLE_HP_AUTO_MDIX_MASK      0x0080
-> +#define DISABLE_PAIR_SWAP_CORR_MASK    0x0020
-> +#define DISABLE_POLARITY_CORR_MASK     0x0010
-> +
-> +#define MSCC_PHY_EXT_PHY_CNTL_1        23
-> +#define MAC_IF_SELECTION_MASK          0x1800
-> +#define MAC_IF_SELECTION_GMII          0
-> +#define MAC_IF_SELECTION_RMII          1
-> +#define MAC_IF_SELECTION_RGMII         2
-> +#define MAC_IF_SELECTION_POS           11
-> +#define FAR_END_LOOPBACK_MODE_MASK     0x0008
-> +
-> +#define MSCC_PHY_EXT_PHY_CNTL_2        24
-> +#define CONNECTOR_LOOPBACK_MASK        0x0001
-> +#define JUMBO_PACKET_MODE_MASK         0x0030
-> +#define JUMBO_PACKET_MODE_POS          4
-> +
-> +#define MII_VSC85XX_INT_MASK           25
-> +#define MII_VSC85XX_INT_MASK_MDINT     0x8000
-> +#define MII_VSC85XX_INT_MASK_SPEED     0x4000
-> +#define MII_VSC85XX_INT_MASK_LINK      0x2000
-> +#define MII_VSC85XX_INT_MASK_DUPLEX    0x1000
-> +#define MII_VSC85XX_INT_MASK_ANEG_ERR  0x0800
-> +#define MII_VSC85XX_INT_MASK_ANEG_COM  0x0400
-> +#define MII_VSC85XX_INT_MASK_POE       0x0200
-> +#define MII_VSC85XX_INT_MASK_SYM       0x0100
-> +#define MII_VSC85XX_INT_MASK_FLF       0x0080
-> +#define MII_VSC85XX_INT_MASK_WOL       0x0040
-> +#define MII_VSC85XX_INT_MASK_EXT       0x0020
-> +#define MII_VSC85XX_INT_MASK_RESV      0x0010
-> +#define MII_VSC85XX_INT_MASK_FCI       0x0008
-> +#define MII_VSC85XX_INT_MASK_LDI       0x0004
-> +#define MII_VSC85XX_INT_MASK_MSE       0x0002
-> +#define MII_VSC85XX_INT_MASK_RX_ER     0x0001
-> +#define MII_VSC85XX_INT_MASK_MASK      0xa000
-> +
-> +#define MII_VSC85XX_INT_STATUS         26
-> +#define MSCC_PHY_DEV_AUX_CNTL          28
-> +#define HP_AUTO_MDIX_X_OVER_IND_MASK   0x2000
-> +#define ACTIPHY_TIME_OUT_BIT_7         0x0080
-> +#define ACTIPHY_TIME_OUT_BIT_2         0x0004
-> +#define ACTIPHY_TIME_OUT_MASK          0x0084
-> +#define ACTIPHY_MODE_ENT               0x0040
-> +
-> +#define MSCC_EXT_PAGE_ACCESS           31
-> +#define MSCC_PHY_PAGE_STANDARD         0x0000 /* Standard registers */
-> +#define MSCC_PHY_PAGE_EXTENDED         0x0001 /* Extended registers */
-> +#define MSCC_PHY_PAGE_EXTENDED_2       0x0002 /* Extended registers - page 2 */
-> +#define MSCC_PHY_PAGE_EXTENDED_3       0x0003 /* Extended registers - page 3 */
-> +#define MSCC_PHY_PAGE_EXTENDED_4       0x0004 /* Extended registers - page 4 */
-> +#define MSCC_PHY_PAGE_GPIO             0x0010 /* GPIO registers */
-> +
-> +/* Extended Page 1 Registers */
-> +#define MSCC_PHY_EXT_MODE_CNTL         19
-> +#define FORCE_MDI_CROSSOVER_MASK       0x000C
-> +#define FORCE_MDI_CROSSOVER_NORMAL     0
-> +#define FORCE_MDI_CROSSOVER_MDI        2
-> +#define FORCE_MDI_CROSSOVER_MDIX       3
-> +#define FORCE_MDI_CROSSOVER_POS        2
-> +
-> +#define MSCC_PHY_ACTIPHY_CNTL          20
-> +#define ACTIPHY_SLEEP_TIMER_MASK       0x6000
-> +#define ACTIPHY_SLEEP_TIMER_POS        13
-> +#define ACTIPHY_WAKEUP_TIMER_MASK      0x1800
-> +#define ACTIPHY_WAKEUP_TIMER_POS       11
-> +#define LINK_SPD_DOWNSHIFT_EN          0x0010
-> +#define LINK_SPD_DOWNSHIFT_CNTL_POS    2
-> +#define LINK_SPD_DOWNSHIFT_CNTL_MASK   0x000C
-> +
-> +#define MSCC_PHY_POE_MISC              23
-> +#define INLINE_POE_DETECTION           0x0400
-> +#define INLINE_POE_STATUS_MASK         0x0300
-> +#define INLINE_POE_STATUS_POS          8
-> +
-> +/* Extended Page 2 Registers */
-> +#define MSCC_PHY_RGMII_CNTL            20
-> +#define FLF2_ENABLE                    0x8000
-> +#define SOF_ENABLE                     0x1000
-> +#define RGMII_RX_CLK_DELAY_MASK        0x0070
-> +#define RGMII_RX_CLK_DELAY_POS         4
-> +
-> +#define MSCC_PHY_WOL_LOWER_MAC_ADDR    21
-> +#define MSCC_PHY_WOL_MID_MAC_ADDR      22
-> +#define MSCC_PHY_WOL_UPPER_MAC_ADDR    23
-> +#define MSCC_PHY_WOL_LOWER_PASSWD      24
-> +#define MSCC_PHY_WOL_MID_PASSWD        25
-> +#define MSCC_PHY_WOL_UPPER_PASSWD      26
-> +
-> +#define MSCC_PHY_WOL_MAC_CONTROL       27
-> +#define EDGE_RATE_CNTL_POS             5
-> +#define EDGE_RATE_CNTL_MASK            0x00E0
-> +#define SECURE_ON_ENABLE               0x8000
-> +#define SECURE_ON_PASSWD_LEN_4         0x4000
-> +
-> +#define MSCC_PHY_RING_RESI_CONTROL     30
-> +#define RR_STARTUP_ENABLE              0x8000
-> +#define RR_ADVERTISE_ENABLE            0x4000
-> +#define RR_LP_ADVERTISE                0x2000
-> +#define RR_FORCE_ENABLE                0x1000
-> +#define RR_STATUS_MASK                 0x0030
-> +#define RR_STATUS_POS                  4
-> +
-> +/* GPIO registers */
-> +#define MSCC_GPIO_CONTROL_2            14
-> +#define COMA_MODE_EN                   0x2000
-> +#define COMA_MODE_OUTPUT               0x1000
-> +#define COMA_MODE_INPUT                0x0800
-> +
-> +#define MSCC_RECOVERED_CLK_CONTROL     23
-> +#define RCVRD_CLK_EN                   0x8000
-> +#define CLK_FREQUENCY_SELECT_MASK      0x0700
-> +#define CLK_SQUELCH_LVL_MASK           0x0030
-> +#define CLK_SELECTION_MASK             0x0007
-> +#define CLK_FREQUENCY_SELECT_POS       8
-> +#define CLK_SQUELCH_LVL_POS            4
-> +
-> +/* Microsemi PHY ID's */
-> +#define PHY_ID_VSC8531                 0x00070570
-> +#define PHY_ID_VSC8541                 0x00070770
-> +
-> +#endif /* __MSCC_REG_H */
-> -- 
-> 2.7.4
-> 
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+old mode 100644
+new mode 100755
+index 1801fd8..27a9156
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -342,25 +342,27 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
+ 	mdiobus_free(eth->mii_bus);
+ }
+ 
+-static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
++static inline void mtk_irq_disable(struct mtk_eth *eth,
++				   unsigned reg, u32 mask)
+ {
+ 	unsigned long flags;
+ 	u32 val;
+ 
+ 	spin_lock_irqsave(&eth->irq_lock, flags);
+-	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
+-	mtk_w32(eth, val & ~mask, MTK_QDMA_INT_MASK);
++	val = mtk_r32(eth, reg);
++	mtk_w32(eth, val & ~mask, reg);
+ 	spin_unlock_irqrestore(&eth->irq_lock, flags);
+ }
+ 
+-static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
++static inline void mtk_irq_enable(struct mtk_eth *eth,
++				  unsigned reg, u32 mask)
+ {
+ 	unsigned long flags;
+ 	u32 val;
+ 
+ 	spin_lock_irqsave(&eth->irq_lock, flags);
+-	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
+-	mtk_w32(eth, val | mask, MTK_QDMA_INT_MASK);
++	val = mtk_r32(eth, reg);
++	mtk_w32(eth, val | mask, reg);
+ 	spin_unlock_irqrestore(&eth->irq_lock, flags);
+ }
+ 
+@@ -1012,7 +1014,7 @@ static int mtk_napi_tx(struct napi_struct *napi, int budget)
+ 		return budget;
+ 
+ 	napi_complete(napi);
+-	mtk_irq_enable(eth, MTK_TX_DONE_INT);
++	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+ 
+ 	return tx_done;
+ }
+@@ -1024,12 +1026,12 @@ static int mtk_napi_rx(struct napi_struct *napi, int budget)
+ 	int rx_done = 0;
+ 
+ 	mtk_handle_status_irq(eth);
+-	mtk_w32(eth, MTK_RX_DONE_INT, MTK_QMTK_INT_STATUS);
++	mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
+ 	rx_done = mtk_poll_rx(napi, budget, eth);
+ 
+ 	if (unlikely(netif_msg_intr(eth))) {
+-		status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
+-		mask = mtk_r32(eth, MTK_QDMA_INT_MASK);
++		status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
++		mask = mtk_r32(eth, MTK_PDMA_INT_MASK);
+ 		dev_info(eth->dev,
+ 			 "done rx %d, intr 0x%08x/0x%x\n",
+ 			 rx_done, status, mask);
+@@ -1038,12 +1040,12 @@ static int mtk_napi_rx(struct napi_struct *napi, int budget)
+ 	if (rx_done == budget)
+ 		return budget;
+ 
+-	status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
++	status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
+ 	if (status & MTK_RX_DONE_INT)
+ 		return budget;
+ 
+ 	napi_complete(napi);
+-	mtk_irq_enable(eth, MTK_RX_DONE_INT);
++	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+ 
+ 	return rx_done;
+ }
+@@ -1092,6 +1094,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
+ 	mtk_w32(eth,
+ 		ring->phys + ((MTK_DMA_SIZE - 1) * sz),
+ 		MTK_QTX_DRX_PTR);
++	mtk_w32(eth, (QDMA_RES_THRES << 8) | QDMA_RES_THRES, MTK_QTX_CFG(0));
+ 
+ 	return 0;
+ 
+@@ -1162,11 +1165,10 @@ static int mtk_rx_alloc(struct mtk_eth *eth)
+ 	 */
+ 	wmb();
+ 
+-	mtk_w32(eth, eth->rx_ring.phys, MTK_QRX_BASE_PTR0);
+-	mtk_w32(eth, MTK_DMA_SIZE, MTK_QRX_MAX_CNT0);
+-	mtk_w32(eth, eth->rx_ring.calc_idx, MTK_QRX_CRX_IDX0);
+-	mtk_w32(eth, MTK_PST_DRX_IDX0, MTK_QDMA_RST_IDX);
+-	mtk_w32(eth, (QDMA_RES_THRES << 8) | QDMA_RES_THRES, MTK_QTX_CFG(0));
++	mtk_w32(eth, eth->rx_ring.phys, MTK_PRX_BASE_PTR0);
++	mtk_w32(eth, MTK_DMA_SIZE, MTK_PRX_MAX_CNT0);
++	mtk_w32(eth, eth->rx_ring.calc_idx, MTK_PRX_CRX_IDX0);
++	mtk_w32(eth, MTK_PST_DRX_IDX0, MTK_PDMA_RST_IDX);
+ 
+ 	return 0;
+ }
+@@ -1285,7 +1287,7 @@ static irqreturn_t mtk_handle_irq_rx(int irq, void *_eth)
+ 
+ 	if (likely(napi_schedule_prep(&eth->rx_napi))) {
+ 		__napi_schedule(&eth->rx_napi);
+-		mtk_irq_disable(eth, MTK_RX_DONE_INT);
++		mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -1297,7 +1299,7 @@ static irqreturn_t mtk_handle_irq_tx(int irq, void *_eth)
+ 
+ 	if (likely(napi_schedule_prep(&eth->tx_napi))) {
+ 		__napi_schedule(&eth->tx_napi);
+-		mtk_irq_disable(eth, MTK_TX_DONE_INT);
++		mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -1308,11 +1310,12 @@ static void mtk_poll_controller(struct net_device *dev)
+ {
+ 	struct mtk_mac *mac = netdev_priv(dev);
+ 	struct mtk_eth *eth = mac->hw;
+-	u32 int_mask = MTK_TX_DONE_INT | MTK_RX_DONE_INT;
+ 
+-	mtk_irq_disable(eth, int_mask);
++	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
++	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+ 	mtk_handle_irq_rx(eth->irq[2], dev);
+-	mtk_irq_enable(eth, int_mask);
++	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
++	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+ }
+ #endif
+ 
+@@ -1327,11 +1330,15 @@ static int mtk_start_dma(struct mtk_eth *eth)
+ 	}
+ 
+ 	mtk_w32(eth,
+-		MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN |
+-		MTK_RX_2B_OFFSET | MTK_DMA_SIZE_16DWORDS |
+-		MTK_RX_BT_32DWORDS | MTK_NDP_CO_PRO,
++		MTK_TX_WB_DDONE | MTK_TX_DMA_EN |
++		MTK_DMA_SIZE_16DWORDS | MTK_NDP_CO_PRO,
+ 		MTK_QDMA_GLO_CFG);
+ 
++	mtk_w32(eth,
++		MTK_RX_DMA_EN | MTK_RX_2B_OFFSET |
++		MTK_RX_BT_32DWORDS | MTK_MULTI_EN,
++		MTK_PDMA_GLO_CFG);
++
+ 	return 0;
+ }
+ 
+@@ -1349,7 +1356,8 @@ static int mtk_open(struct net_device *dev)
+ 
+ 		napi_enable(&eth->tx_napi);
+ 		napi_enable(&eth->rx_napi);
+-		mtk_irq_enable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
++		mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
++		mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+ 	}
+ 	atomic_inc(&eth->dma_refcnt);
+ 
+@@ -1394,7 +1402,8 @@ static int mtk_stop(struct net_device *dev)
+ 	if (!atomic_dec_and_test(&eth->dma_refcnt))
+ 		return 0;
+ 
+-	mtk_irq_disable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
++	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
++	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+ 	napi_disable(&eth->tx_napi);
+ 	napi_disable(&eth->rx_napi);
+ 
+@@ -1448,7 +1457,9 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+ 
+ 	/* disable delay and normal interrupt */
+ 	mtk_w32(eth, 0, MTK_QDMA_DELAY_INT);
+-	mtk_irq_disable(eth, ~0);
++	mtk_w32(eth, 0, MTK_PDMA_DELAY_INT);
++	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
++	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
+ 	mtk_w32(eth, RST_GL_PSE, MTK_RST_GL);
+ 	mtk_w32(eth, 0, MTK_RST_GL);
+ 
+@@ -1504,7 +1515,8 @@ static void mtk_uninit(struct net_device *dev)
+ 
+ 	phy_disconnect(mac->phy_dev);
+ 	mtk_mdio_cleanup(eth);
+-	mtk_irq_disable(eth, ~0);
++	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
++	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
+ 	free_irq(eth->irq[1], dev);
+ 	free_irq(eth->irq[2], dev);
+ }
+@@ -1683,7 +1695,7 @@ static void mtk_get_ethtool_stats(struct net_device *dev,
+ 	}
+ 
+ 	do {
+-		data_src = (u64*)hwstats;
++		data_src = (u64 *)hwstats;
+ 		data_dst = data;
+ 		start = u64_stats_fetch_begin_irq(&hwstats->syncp);
+ 
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+old mode 100644
+new mode 100755
+index f82e3ac..7c1f3f2
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -68,6 +68,32 @@
+ /* Unicast Filter MAC Address Register - High */
+ #define MTK_GDMA_MAC_ADRH(x)	(0x50C + (x * 0x1000))
+ 
++/* PDMA RX Base Pointer Register */
++#define MTK_PRX_BASE_PTR0	0x900
++
++/* PDMA RX Maximum Count Register */
++#define MTK_PRX_MAX_CNT0	0x904
++
++/* PDMA RX CPU Pointer Register */
++#define MTK_PRX_CRX_IDX0	0x908
++
++/* PDMA Global Configuration Register */
++#define MTK_PDMA_GLO_CFG	0xa04
++#define MTK_MULTI_EN		BIT(10)
++
++/* PDMA Reset Index Register */
++#define MTK_PDMA_RST_IDX	0xa08
++#define MTK_PST_DRX_IDX0	BIT(16)
++
++/* PDMA Delay Interrupt Register */
++#define MTK_PDMA_DELAY_INT	0xa0c
++
++/* PDMA Interrupt Status Register */
++#define MTK_PDMA_INT_STATUS	0xa20
++
++/* PDMA Interrupt Mask Register */
++#define MTK_PDMA_INT_MASK	0xa28
++
+ /* PDMA Interrupt grouping registers */
+ #define MTK_PDMA_INT_GRP1	0xa50
+ #define MTK_PDMA_INT_GRP2	0xa54
+@@ -119,13 +145,16 @@
+ 
+ /* QDMA Interrupt Status Register */
+ #define MTK_QMTK_INT_STATUS	0x1A18
++#define MTK_RX_DONE_INT3	BIT(19)
++#define MTK_RX_DONE_INT2	BIT(18)
+ #define MTK_RX_DONE_INT1	BIT(17)
+ #define MTK_RX_DONE_INT0	BIT(16)
+ #define MTK_TX_DONE_INT3	BIT(3)
+ #define MTK_TX_DONE_INT2	BIT(2)
+ #define MTK_TX_DONE_INT1	BIT(1)
+ #define MTK_TX_DONE_INT0	BIT(0)
+-#define MTK_RX_DONE_INT		(MTK_RX_DONE_INT0 | MTK_RX_DONE_INT1)
++#define MTK_RX_DONE_INT		(MTK_RX_DONE_INT0 | MTK_RX_DONE_INT1 | \
++				 MTK_RX_DONE_INT2 | MTK_RX_DONE_INT3)
+ #define MTK_TX_DONE_INT		(MTK_TX_DONE_INT0 | MTK_TX_DONE_INT1 | \
+ 				 MTK_TX_DONE_INT2 | MTK_TX_DONE_INT3)
+ 
+-- 
+1.9.1
