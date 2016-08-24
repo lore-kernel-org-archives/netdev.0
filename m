@@ -1,38 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/2] net: diag: allow socket bytecode
- filters to match socket marks
-Date: Wed, 24 Aug 2016 21:57:36 -0700 (PDT)
-Message-ID: <20160824.215736.497441693931042330.davem@davemloft.net>
-References: <1472021186-4106-1-git-send-email-lorenzo@google.com>
-        <1472021186-4106-2-git-send-email-lorenzo@google.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: A second case of XPS considerably reducing single-stream
+ performance
+Date: Wed, 24 Aug 2016 16:46:22 -0700
+Message-ID: <a661ff61-9cf8-fe86-ca20-2181394e1dbb@hpe.com>
+References: <549357ea-dfda-284b-cdd6-4408060f9ca8@hpe.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        dsa@cumulusnetworks.com, ek@google.com
-To: lorenzo@google.com
+Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+        sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38281 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751530AbcHYE5i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 00:57:38 -0400
-In-Reply-To: <1472021186-4106-2-git-send-email-lorenzo@google.com>
+Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:56278 "EHLO
+        g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751506AbcHYFEr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:04:47 -0400
+Received: from g9t5009.houston.hpe.com (g9t5009.houston.hpe.com [15.241.48.73])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 341582767
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 23:46:24 +0000 (UTC)
+In-Reply-To: <549357ea-dfda-284b-cdd6-4408060f9ca8@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Wed, 24 Aug 2016 15:46:26 +0900
+Also, while it doesn't seem to have the same massive effect on 
+throughput, I can also see out of order behaviour happening when the 
+sending VM is on a node with a ConnectX-3 Pro NIC.  Its driver is also 
+enabling XPS it would seem.  I'm not *certain* but looking at the traces 
+it appears that with the ConnectX-3 Pro there is more interleaving of 
+the out-of-order traffic than there is with the Skyhawk.  The ConnectX-3 
+Pro happens to be in a newer generation server with a newer processor 
+than the other systems where I've seen this.
 
-> This allows a privileged process to filter by socket mark when
-> dumping sockets via INET_DIAG_BY_FAMILY. This is useful on
-> systems that use mark-based routing such as Android.
-> 
-> The ability to filter socket marks requires CAP_NET_ADMIN, which
-> is consistent with other privileged operations allowed by the
-> SOCK_DIAG interface such as the ability to destroy sockets and
-> the ability to inspect BPF filters attached to packet sockets.
-> 
-> Tested: https://android-review.googlesource.com/261350
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+I do not see the out-of-order behaviour when the NIC at the sending end 
+is a BCM57840.  It does not appear that the bnx2x driver in the 4.4 
+kernel is enabling XPS.
 
-Applied.
+So, it would seem that there are three cases of enabling XPS resulting 
+in out-of-order traffic, two of which result in a non-trivial loss of 
+performance.
+
+happy benchmarking,
+
+rick jones
