@@ -1,34 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: minor optimization in
- qdisc_qstats_cpu_drop()
-Date: Wed, 24 Aug 2016 12:07:27 -0700
-Message-ID: <1472065647.14381.113.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472059414.14381.101.camel@edumazet-glaptop3.roam.corp.google.com>
-         <f4e3fe14-ddbb-5b37-d003-46f28f7d8750@hpe.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next V2 2/4] net/dst: Utility functions to build
+ dst_metadata without supplying an skb
+Date: Wed, 24 Aug 2016 21:26:48 +0300
+Message-ID: <20160824212648.43c45295@halley>
+References: <20160824122710.30356-1-amir@vadai.me>
+        <20160824122710.30356-3-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        John Fastabend <john.r.fastabend@intel.com>
-To: Rick Jones <rick.jones2@hpe.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34825 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751702AbcHXTTL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 15:19:11 -0400
-Received: by mail-pa0-f66.google.com with SMTP id cf3so1672332pad.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 12:19:11 -0700 (PDT)
-In-Reply-To: <f4e3fe14-ddbb-5b37-d003-46f28f7d8750@hpe.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34201 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753113AbcHXT2s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 15:28:48 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q128so4044390wma.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 12:27:53 -0700 (PDT)
+In-Reply-To: <20160824122710.30356-3-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-08-24 at 11:04 -0700, Rick Jones wrote:
-> On 08/24/2016 10:23 AM, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> >
-> > per_cpu_inc() is faster (at least on x86) than per_cpu_ptr(xxx)++;
-> 
-> Is it possible it is non-trivially slower on other architectures?
+Hi,
 
-No, in the worst case, compiler would emit the same code.
+On Wed, 24 Aug 2016 15:27:08 +0300 Amir Vadai <amir@vadai.me> wrote:
+> +static inline struct metadata_dst *
+> +_ipv6_tun_rx_dst(struct in6_addr saddr, struct in6_addr daddr,
+> +		 __u8 tos, __u8 ttl, __be32 label,
+> +		 __be16 flags, __be64 tunnel_id, int md_size)
+> +{
+
+Prefer 'const struct in6_addr *saddr' parameter (daddr too).
+
+This is aligned with almost all functions having an 'in6_addr' as a
+parameter, to prevent the costy argument copy.
