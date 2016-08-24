@@ -1,53 +1,87 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 1/4] net: phy: Add Edge-rate driver for Microsemi PHYs.
-Date: Wed, 24 Aug 2016 14:59:34 +0200
-Message-ID: <20160824125934.GC13406@lunn.ch>
-References: <646450A91FAED74E85C6E9C4D6E936A145336681@avsrvexchmbx1.microsemi.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43272 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753210AbcHXM7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 24 Aug 2016 08:59:37 -0400
-Content-Disposition: inline
-In-Reply-To: <646450A91FAED74E85C6E9C4D6E936A145336681@avsrvexchmbx1.microsemi.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/3 v2] net: smsc911x: augment device tree bindings
+Date: Wed, 24 Aug 2016 14:59:40 +0200
+Message-ID: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
+Cc: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+        Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org>,
+        Kamlakant Patel <kamlakant.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Pavel Fedin <p.fedin-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+        Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 24, 2016 at 12:20:03PM +0000, Raju Lakkaraju wrote:
-> From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-> 
-> Edge rate control support will be added for VSC 85xx Microsemi PHYs.
+This adds device tree bindings for:
 
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 2d24b28..8ec4c09 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -586,6 +586,8 @@ struct phy_driver {
->         void (*get_strings)(struct phy_device *dev, u8 *data);
->         void (*get_stats)(struct phy_device *dev,
->                           struct ethtool_stats *stats, u64 *data);
-> +       int (*phy_features_set)(struct phy_device *dev);
-> +       int (*phy_features_get)(struct phy_device *dev);
->  };
+- An optional GPIO line for releasing the RESET signal to the
+  SMSC911x devices
 
-Now we need the missing cover note what should be in 0/4.  What is the
-big picture? How are these two functions supposed to be used? Is there
-going to be a user space API via netlink? Should the MAC driver
-somehow call these functions? Are you going to extend the phylib with
-code to call these?
+- An optional PME (power management event) interrupt line that
+  can be utilized to wake up the system on network activity.
+  This signal exist on all the SMSC911x devices, it is just not
+  very often routed.
 
-Those are all general questions for these two functions.
+Both these lines are routed to the SoC on the Qualcomm APQ8060
+Dragonboard and thus needs to be bound in the device tree.
 
-Now specifically for edge control, why did you decide not to use
-device tree? Both the micrel and renesas phy driver uses device tree
-for skew control. You need to explain why you need to do something
-different to other drivers.
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ChangeLog v1->v2:
+- Document for "interrupts", skip mentioning "interrupts-extended"
+  as both are always supported.
+---
+ Documentation/devicetree/bindings/net/smsc911x.txt | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-	  Thanks
-		Andrew
+diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
+index 3fed3c124411..11c4a46ba682 100644
+--- a/Documentation/devicetree/bindings/net/smsc911x.txt
++++ b/Documentation/devicetree/bindings/net/smsc911x.txt
+@@ -3,9 +3,12 @@
+ Required properties:
+ - compatible : Should be "smsc,lan<model>", "smsc,lan9115"
+ - reg : Address and length of the io space for SMSC LAN
+-- interrupts : Should contain SMSC LAN interrupt line
+-- interrupt-parent : Should be the phandle for the interrupt controller
+-  that services interrupts for this device
++- interrupts : Should contain the SMSC LAN
++  interrupt line as cell 0, cell 1 is an OPTIONAL PME (power
++  management event) interrupt that is able to wake up the host
++  system with a 50ms pulse on network activity
++  For generic bindings for interrupt controller parents, refer to
++  interrupt-controller/interrupts.txt
+ - phy-mode : See ethernet.txt file in the same directory
+ 
+ Optional properties:
+@@ -21,6 +24,10 @@ Optional properties:
+   external PHY
+ - smsc,save-mac-address : Indicates that mac address needs to be saved
+   before resetting the controller
++- reset-gpios : a GPIO line connected to the RESET (active low) signal
++  of the device. On many systems this is wired high so the device goes
++  out of reset at power-on, but if it is under program control, this
++  optional GPIO can wake up in response to it.
+ 
+ Examples:
+ 
+@@ -29,7 +36,8 @@ lan9220@f4000000 {
+ 	reg = <0xf4000000 0x2000000>;
+ 	phy-mode = "mii";
+ 	interrupt-parent = <&gpio1>;
+-	interrupts = <31>;
++	interrupts = <31>, <32>;
++	reset-gpios = <&gpio1 30 GPIO_ACTIVE_LOW>;
+ 	reg-io-width = <4>;
+ 	smsc,irq-push-pull;
+ };
+-- 
+2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
