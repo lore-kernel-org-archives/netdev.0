@@ -1,113 +1,382 @@
-From: Alban Bedel <alban.bedel@avionic-design.de>
-Subject: [PATCH] usbnet: ax88179_178a: Add support for writing the EEPROM
-Date: Wed, 24 Aug 2016 15:52:31 +0200
-Message-ID: <20160824135231.21782-1-alban.bedel@avionic-design.de>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Freddy Xin <freddy@asix.com.tw>,
-        Alban Bedel <alban.bedel@avionic-design.de>
-To: linux-usb@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH net-next] net: ethernet: mediatek: modify to use the PDMA
+ instead of the QDMA for Ethernet RX
+Date: Wed, 24 Aug 2016 15:57:02 +0200
+Message-ID: <382defe8-fb7e-7b24-c628-d9666389a347@phrozen.org>
+References: <1472042992-911-1-git-send-email-nelson.chang@mediatek.com>
+ <a1b6a821-fdc1-0946-f526-68639bedadfc@phrozen.org>
+ <6133E9B12438EA40B35401C719F0B99B0118AF8846@mtkmbs01n1>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Felix Fietkau <nbd@nbd.name>,
+        "linux-mediatek@lists.infradead.org"
+        <linux-mediatek@lists.infradead.org>,
+        "nelsonch.tw@gmail.com" <nelsonch.tw@gmail.com>,
+        =?UTF-8?B?U2VhbiBXYW5nICjnjovlv5fkupgp?= <sean.wang@mediatek.com>,
+        =?UTF-8?B?U3RldmVuIExpdSAo5YqJ5Lq66LGqKQ==?=
+        <steven.liu@mediatek.com>,
+        =?UTF-8?B?Q2FybG9zIEh1YW5nICjpu4Plo6vlvbAp?=
+        <Carlos.Huang@mediatek.com>
+To: =?UTF-8?B?TmVsc29uIENoYW5nICjlvLXlrrbnpaUp?=
+        <nelson.chang@mediatek.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:50225 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755651AbcHXN5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 09:57:30 -0400
+In-Reply-To: <6133E9B12438EA40B35401C719F0B99B0118AF8846@mtkmbs01n1>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implement the .set_eeprom callback to allow setting the MAC address
-as well as a few other parameters. Note that the EEPROM must have a
-correct PID/VID checksum set otherwise the SROM is used and reads
-return the SROM content.
 
-Signed-off-by: Alban Bedel <alban.bedel@avionic-design.de>
----
- drivers/net/usb/ax88179_178a.c | 57 ++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 57 insertions(+)
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index e6338c16081a..e6a986303dad 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -28,6 +28,7 @@
- 
- #define AX88179_PHY_ID				0x03
- #define AX_EEPROM_LEN				0x100
-+#define AX_EEPROM_BLOCK				0x40u
- #define AX88179_EEPROM_MAGIC			0x17900b95
- #define AX_MCAST_FLTSIZE			8
- #define AX_MAX_MCAST				64
-@@ -43,6 +44,7 @@
- #define AX_ACCESS_PHY				0x02
- #define AX_ACCESS_EEPROM			0x04
- #define AX_ACCESS_EFUS				0x05
-+#define AX_RELOAD_EEPROM			0x06
- #define AX_PAUSE_WATERLVL_HIGH			0x54
- #define AX_PAUSE_WATERLVL_LOW			0x55
- 
-@@ -620,6 +622,60 @@ ax88179_get_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
- 	return 0;
- }
- 
-+static int
-+ax88179_set_eeprom(struct net_device *net, struct ethtool_eeprom *eeprom,
-+		   u8 *data)
-+{
-+	struct usbnet *dev = netdev_priv(net);
-+	unsigned int offset = eeprom->offset;
-+	unsigned int len = eeprom->len;
-+	int i, err = 0;
-+	u8 *block;
-+
-+	/* The EEPROM data must be aligned on blocks of 64 bytes */
-+	if ((offset % AX_EEPROM_BLOCK) || (len % AX_EEPROM_BLOCK)) {
-+		offset = eeprom->offset / AX_EEPROM_BLOCK * AX_EEPROM_BLOCK;
-+		len = eeprom->len + eeprom->offset - offset;
-+		len = DIV_ROUND_UP(len, AX_EEPROM_BLOCK) * AX_EEPROM_BLOCK;
-+
-+		block = kmalloc(len, GFP_KERNEL);
-+		if (!block)
-+			return -ENOMEM;
-+
-+		/* Copy the current data, we could skip some but KISS */
-+		for (i = 0; i < len; i += AX_EEPROM_BLOCK) {
-+			err = __ax88179_read_cmd(dev, AX_ACCESS_EEPROM,
-+						 (offset + i) >> 1,
-+						 AX_EEPROM_BLOCK >> 1,
-+						 AX_EEPROM_BLOCK,
-+						 &block[i], 0);
-+			if (err < 0) {
-+				kfree(block);
-+				return err;
-+			}
-+		}
-+		memcpy(block + eeprom->offset - offset, data, eeprom->len);
-+	} else {
-+		block = data;
-+	}
-+
-+	for (i = 0; err >= 0 && i < len; i += AX_EEPROM_BLOCK) {
-+		err = ax88179_write_cmd(dev, AX_ACCESS_EEPROM,
-+					(offset + i) >> 1,
-+					AX_EEPROM_BLOCK >> 1,
-+					AX_EEPROM_BLOCK, &block[i]);
-+	}
-+
-+	if (block != data)
-+		kfree(block);
-+
-+	/* Reload the EEPROM */
-+	if (err >= 0)
-+		err = ax88179_write_cmd(dev, AX_RELOAD_EEPROM, 0, 0, 0, NULL);
-+
-+	return err < 0 ? err : 0;
-+}
-+
- static int ax88179_get_settings(struct net_device *net, struct ethtool_cmd *cmd)
- {
- 	struct usbnet *dev = netdev_priv(net);
-@@ -826,6 +882,7 @@ static const struct ethtool_ops ax88179_ethtool_ops = {
- 	.set_wol		= ax88179_set_wol,
- 	.get_eeprom_len		= ax88179_get_eeprom_len,
- 	.get_eeprom		= ax88179_get_eeprom,
-+	.set_eeprom		= ax88179_set_eeprom,
- 	.get_settings		= ax88179_get_settings,
- 	.set_settings		= ax88179_set_settings,
- 	.get_eee		= ax88179_get_eee,
--- 
-2.9.3
+On 24/08/2016 15:39, Nelson Chang (張家祥) wrote:
+> Hi John,
+> 
+> The QDMA only has one RX and is without HW LRO feature. The HW QoS is QDMA's
+>  TX feature with multiple TX rings.
+> The Mediatek Ethernet hardware added the features of HW LRO and multiple RX
+>  rings started from MT7623, but they are only add in the PDMA, not in the
+>  QDMA.
+> So we would like to modify to use PDMA for RX to add the features of HW LRO
+>  and multiple RX ring in the future.
+
+in general there is nothing to prevent this change but my understanding
+was that QDMA HWLRO was broken on mt7621, which is why we used 2 DMA
+engines on that SoC and that it was fixed on MT7623.
+
+when i wrote this driver a specific requirement from MTK/WCN was to have
+TX and RX QDMA. if this requirement has changed then fine. please do
+confirm though that you really want PDMA for RX.
+
+	John
+
+
+
+
+> Thanks.
+> 
+> 
+> BRs,
+> Nelson
+> -----Original Message-----
+> From: John Crispin [mailto:john@phrozen.org] 
+> Sent: Wednesday, August 24, 2016 8:58 PM
+> To: Nelson Chang (張家祥); davem@davemloft.net
+> Cc: netdev@vger.kernel.org; Felix Fietkau;
+>  linux-mediatek@lists.infradead.org; nelsonch.tw@gmail.com; Sean Wang
+>  (王志亘); Steven Liu (劉人豪); Carlos Huang (黃士彰)
+> Subject: Re: [PATCH net-next] net: ethernet: mediatek: modify to use the
+>  PDMA instead of the QDMA for Ethernet RX
+> 
+> 
+> 
+> On 24/08/2016 14:49, Nelson Chang wrote:
+>> Because the PDMA has richer features than the QDMA for Ethernet RX 
+>> (such as multiple RX rings, HW LRO, etc.), the patch modifies to use 
+>> the PDMA to handle Ethernet RX.
+> 
+> Hi,
+> 
+> QDMA support is needed for the HW QoS to work. QDMA also has HW_LRO support
+>  you just need to port the additional code from the MTK SDK to make it work.
+>  additionally QDMA has more than 1 internal ring/queue that you can use, you
+>  would need to change the RX ring to be a linked list and enable that
+>  feature as is already done in the RX path.
+> 
+> although the patch is technically not wrong i am not sure if it makes sense
+>  and the description is for certain not correct. could it be that you are
+>  basing your assumption on some old SDK ethernet driver ? newer version have
+>  the described features for the new QDMA engine supported if i am not
+>  mistaken.
+> 
+> 	John
+> 
+>>
+>> Signed-off-by: Nelson Chang <nelson.chang@mediatek.com>
+>> ---
+>>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 72 
+>> +++++++++++++++++------------  
+>> drivers/net/ethernet/mediatek/mtk_eth_soc.h | 31 ++++++++++++-
+>>  2 files changed, 72 insertions(+), 31 deletions(-)  mode change 
+>> 100644 => 100755 drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>>  mode change 100644 => 100755 
+>> drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>>
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c 
+>> b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> old mode 100644
+>> new mode 100755
+>> index 1801fd8..27a9156
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> @@ -342,25 +342,27 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
+>>  	mdiobus_free(eth->mii_bus);
+>>  }
+>>  
+>> -static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
+>> +static inline void mtk_irq_disable(struct mtk_eth *eth,
+>> +				   unsigned reg, u32 mask)
+>>  {
+>>  	unsigned long flags;
+>>  	u32 val;
+>>  
+>>  	spin_lock_irqsave(&eth->irq_lock, flags);
+>> -	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
+>> -	mtk_w32(eth, val & ~mask, MTK_QDMA_INT_MASK);
+>> +	val = mtk_r32(eth, reg);
+>> +	mtk_w32(eth, val & ~mask, reg);
+>>  	spin_unlock_irqrestore(&eth->irq_lock, flags);  }
+>>  
+>> -static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
+>> +static inline void mtk_irq_enable(struct mtk_eth *eth,
+>> +				  unsigned reg, u32 mask)
+>>  {
+>>  	unsigned long flags;
+>>  	u32 val;
+>>  
+>>  	spin_lock_irqsave(&eth->irq_lock, flags);
+>> -	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
+>> -	mtk_w32(eth, val | mask, MTK_QDMA_INT_MASK);
+>> +	val = mtk_r32(eth, reg);
+>> +	mtk_w32(eth, val | mask, reg);
+>>  	spin_unlock_irqrestore(&eth->irq_lock, flags);  }
+>>  
+>> @@ -1012,7 +1014,7 @@ static int mtk_napi_tx(struct napi_struct *napi, int
+>  budget)
+>>  		return budget;
+>>  
+>>  	napi_complete(napi);
+>> -	mtk_irq_enable(eth, MTK_TX_DONE_INT);
+>> +	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+>>  
+>>  	return tx_done;
+>>  }
+>> @@ -1024,12 +1026,12 @@ static int mtk_napi_rx(struct napi_struct *napi,
+>  int budget)
+>>  	int rx_done = 0;
+>>  
+>>  	mtk_handle_status_irq(eth);
+>> -	mtk_w32(eth, MTK_RX_DONE_INT, MTK_QMTK_INT_STATUS);
+>> +	mtk_w32(eth, MTK_RX_DONE_INT, MTK_PDMA_INT_STATUS);
+>>  	rx_done = mtk_poll_rx(napi, budget, eth);
+>>  
+>>  	if (unlikely(netif_msg_intr(eth))) {
+>> -		status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
+>> -		mask = mtk_r32(eth, MTK_QDMA_INT_MASK);
+>> +		status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
+>> +		mask = mtk_r32(eth, MTK_PDMA_INT_MASK);
+>>  		dev_info(eth->dev,
+>>  			 "done rx %d, intr 0x%08x/0x%x\n",
+>>  			 rx_done, status, mask);
+>> @@ -1038,12 +1040,12 @@ static int mtk_napi_rx(struct napi_struct *napi,
+>  int budget)
+>>  	if (rx_done == budget)
+>>  		return budget;
+>>  
+>> -	status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
+>> +	status = mtk_r32(eth, MTK_PDMA_INT_STATUS);
+>>  	if (status & MTK_RX_DONE_INT)
+>>  		return budget;
+>>  
+>>  	napi_complete(napi);
+>> -	mtk_irq_enable(eth, MTK_RX_DONE_INT);
+>> +	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+>>  
+>>  	return rx_done;
+>>  }
+>> @@ -1092,6 +1094,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
+>>  	mtk_w32(eth,
+>>  		ring->phys + ((MTK_DMA_SIZE - 1) * sz),
+>>  		MTK_QTX_DRX_PTR);
+>> +	mtk_w32(eth, (QDMA_RES_THRES << 8) | QDMA_RES_THRES, 
+>> +MTK_QTX_CFG(0));
+>>  
+>>  	return 0;
+>>  
+>> @@ -1162,11 +1165,10 @@ static int mtk_rx_alloc(struct mtk_eth *eth)
+>>  	 */
+>>  	wmb();
+>>  
+>> -	mtk_w32(eth, eth->rx_ring.phys, MTK_QRX_BASE_PTR0);
+>> -	mtk_w32(eth, MTK_DMA_SIZE, MTK_QRX_MAX_CNT0);
+>> -	mtk_w32(eth, eth->rx_ring.calc_idx, MTK_QRX_CRX_IDX0);
+>> -	mtk_w32(eth, MTK_PST_DRX_IDX0, MTK_QDMA_RST_IDX);
+>> -	mtk_w32(eth, (QDMA_RES_THRES << 8) | QDMA_RES_THRES, MTK_QTX_CFG(0));
+>> +	mtk_w32(eth, eth->rx_ring.phys, MTK_PRX_BASE_PTR0);
+>> +	mtk_w32(eth, MTK_DMA_SIZE, MTK_PRX_MAX_CNT0);
+>> +	mtk_w32(eth, eth->rx_ring.calc_idx, MTK_PRX_CRX_IDX0);
+>> +	mtk_w32(eth, MTK_PST_DRX_IDX0, MTK_PDMA_RST_IDX);
+>>  
+>>  	return 0;
+>>  }
+>> @@ -1285,7 +1287,7 @@ static irqreturn_t mtk_handle_irq_rx(int irq, 
+>> void *_eth)
+>>  
+>>  	if (likely(napi_schedule_prep(&eth->rx_napi))) {
+>>  		__napi_schedule(&eth->rx_napi);
+>> -		mtk_irq_disable(eth, MTK_RX_DONE_INT);
+>> +		mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+>>  	}
+>>  
+>>  	return IRQ_HANDLED;
+>> @@ -1297,7 +1299,7 @@ static irqreturn_t mtk_handle_irq_tx(int irq, 
+>> void *_eth)
+>>  
+>>  	if (likely(napi_schedule_prep(&eth->tx_napi))) {
+>>  		__napi_schedule(&eth->tx_napi);
+>> -		mtk_irq_disable(eth, MTK_TX_DONE_INT);
+>> +		mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+>>  	}
+>>  
+>>  	return IRQ_HANDLED;
+>> @@ -1308,11 +1310,12 @@ static void mtk_poll_controller(struct 
+>> net_device *dev)  {
+>>  	struct mtk_mac *mac = netdev_priv(dev);
+>>  	struct mtk_eth *eth = mac->hw;
+>> -	u32 int_mask = MTK_TX_DONE_INT | MTK_RX_DONE_INT;
+>>  
+>> -	mtk_irq_disable(eth, int_mask);
+>> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+>> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+>>  	mtk_handle_irq_rx(eth->irq[2], dev);
+>> -	mtk_irq_enable(eth, int_mask);
+>> +	mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+>> +	mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+>>  }
+>>  #endif
+>>  
+>> @@ -1327,11 +1330,15 @@ static int mtk_start_dma(struct mtk_eth *eth)
+>>  	}
+>>  
+>>  	mtk_w32(eth,
+>> -		MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN |
+>> -		MTK_RX_2B_OFFSET | MTK_DMA_SIZE_16DWORDS |
+>> -		MTK_RX_BT_32DWORDS | MTK_NDP_CO_PRO,
+>> +		MTK_TX_WB_DDONE | MTK_TX_DMA_EN |
+>> +		MTK_DMA_SIZE_16DWORDS | MTK_NDP_CO_PRO,
+>>  		MTK_QDMA_GLO_CFG);
+>>  
+>> +	mtk_w32(eth,
+>> +		MTK_RX_DMA_EN | MTK_RX_2B_OFFSET |
+>> +		MTK_RX_BT_32DWORDS | MTK_MULTI_EN,
+>> +		MTK_PDMA_GLO_CFG);
+>> +
+>>  	return 0;
+>>  }
+>>  
+>> @@ -1349,7 +1356,8 @@ static int mtk_open(struct net_device *dev)
+>>  
+>>  		napi_enable(&eth->tx_napi);
+>>  		napi_enable(&eth->rx_napi);
+>> -		mtk_irq_enable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
+>> +		mtk_irq_enable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+>> +		mtk_irq_enable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+>>  	}
+>>  	atomic_inc(&eth->dma_refcnt);
+>>  
+>> @@ -1394,7 +1402,8 @@ static int mtk_stop(struct net_device *dev)
+>>  	if (!atomic_dec_and_test(&eth->dma_refcnt))
+>>  		return 0;
+>>  
+>> -	mtk_irq_disable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
+>> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, MTK_TX_DONE_INT);
+>> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, MTK_RX_DONE_INT);
+>>  	napi_disable(&eth->tx_napi);
+>>  	napi_disable(&eth->rx_napi);
+>>  
+>> @@ -1448,7 +1457,9 @@ static int __init mtk_hw_init(struct mtk_eth 
+>> *eth)
+>>  
+>>  	/* disable delay and normal interrupt */
+>>  	mtk_w32(eth, 0, MTK_QDMA_DELAY_INT);
+>> -	mtk_irq_disable(eth, ~0);
+>> +	mtk_w32(eth, 0, MTK_PDMA_DELAY_INT);
+>> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
+>> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
+>>  	mtk_w32(eth, RST_GL_PSE, MTK_RST_GL);
+>>  	mtk_w32(eth, 0, MTK_RST_GL);
+>>  
+>> @@ -1504,7 +1515,8 @@ static void mtk_uninit(struct net_device *dev)
+>>  
+>>  	phy_disconnect(mac->phy_dev);
+>>  	mtk_mdio_cleanup(eth);
+>> -	mtk_irq_disable(eth, ~0);
+>> +	mtk_irq_disable(eth, MTK_QDMA_INT_MASK, ~0);
+>> +	mtk_irq_disable(eth, MTK_PDMA_INT_MASK, ~0);
+>>  	free_irq(eth->irq[1], dev);
+>>  	free_irq(eth->irq[2], dev);
+>>  }
+>> @@ -1683,7 +1695,7 @@ static void mtk_get_ethtool_stats(struct net_device
+>  *dev,
+>>  	}
+>>  
+>>  	do {
+>> -		data_src = (u64*)hwstats;
+>> +		data_src = (u64 *)hwstats;
+>>  		data_dst = data;
+>>  		start = u64_stats_fetch_begin_irq(&hwstats->syncp);
+>>  
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h 
+>> b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> old mode 100644
+>> new mode 100755
+>> index f82e3ac..7c1f3f2
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> @@ -68,6 +68,32 @@
+>>  /* Unicast Filter MAC Address Register - High */
+>>  #define MTK_GDMA_MAC_ADRH(x)	(0x50C + (x * 0x1000))
+>>  
+>> +/* PDMA RX Base Pointer Register */
+>> +#define MTK_PRX_BASE_PTR0	0x900
+>> +
+>> +/* PDMA RX Maximum Count Register */
+>> +#define MTK_PRX_MAX_CNT0	0x904
+>> +
+>> +/* PDMA RX CPU Pointer Register */
+>> +#define MTK_PRX_CRX_IDX0	0x908
+>> +
+>> +/* PDMA Global Configuration Register */
+>> +#define MTK_PDMA_GLO_CFG	0xa04
+>> +#define MTK_MULTI_EN		BIT(10)
+>> +
+>> +/* PDMA Reset Index Register */
+>> +#define MTK_PDMA_RST_IDX	0xa08
+>> +#define MTK_PST_DRX_IDX0	BIT(16)
+>> +
+>> +/* PDMA Delay Interrupt Register */
+>> +#define MTK_PDMA_DELAY_INT	0xa0c
+>> +
+>> +/* PDMA Interrupt Status Register */
+>> +#define MTK_PDMA_INT_STATUS	0xa20
+>> +
+>> +/* PDMA Interrupt Mask Register */
+>> +#define MTK_PDMA_INT_MASK	0xa28
+>> +
+>>  /* PDMA Interrupt grouping registers */
+>>  #define MTK_PDMA_INT_GRP1	0xa50
+>>  #define MTK_PDMA_INT_GRP2	0xa54
+>> @@ -119,13 +145,16 @@
+>>  
+>>  /* QDMA Interrupt Status Register */
+>>  #define MTK_QMTK_INT_STATUS	0x1A18
+>> +#define MTK_RX_DONE_INT3	BIT(19)
+>> +#define MTK_RX_DONE_INT2	BIT(18)
+>>  #define MTK_RX_DONE_INT1	BIT(17)
+>>  #define MTK_RX_DONE_INT0	BIT(16)
+>>  #define MTK_TX_DONE_INT3	BIT(3)
+>>  #define MTK_TX_DONE_INT2	BIT(2)
+>>  #define MTK_TX_DONE_INT1	BIT(1)
+>>  #define MTK_TX_DONE_INT0	BIT(0)
+>> -#define MTK_RX_DONE_INT		(MTK_RX_DONE_INT0 | MTK_RX_DONE_INT1)
+>> +#define MTK_RX_DONE_INT		(MTK_RX_DONE_INT0 | MTK_RX_DONE_INT1 | \
+>> +				 MTK_RX_DONE_INT2 | MTK_RX_DONE_INT3)
+>>  #define MTK_TX_DONE_INT		(MTK_TX_DONE_INT0 | MTK_TX_DONE_INT1 | \
+>>  				 MTK_TX_DONE_INT2 | MTK_TX_DONE_INT3)
+>>  
+>>
+> 
