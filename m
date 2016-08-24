@@ -1,40 +1,55 @@
-From: Xander Huff <xander.huff@ni.com>
-Subject: [PATCH v2] net: macb: Increase DMA TX buffer size
-Date: Wed, 24 Aug 2016 17:25:39 -0500
-Message-ID: <1472077539-18033-1-git-send-email-xander.huff@ni.com>
-References: <cccfc176-df56-4add-e6c8-e040f9da31dc@atmel.com>
-Cc: netdev@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>,
-        linux-kernel@vger.kernel.org, xander.huff@ni.com
-To: nicolas.ferre@atmel.com
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: Re: kernel BUG at net/unix/garbage.c:149!"
+Date: Thu, 25 Aug 2016 02:30:11 +0300
+Message-ID: <CAJFSNy6rEpy7JcimW_jiOkgtWtDQgMaQJhcFHvRqgj92HibAvQ@mail.gmail.com>
+References: <57BDAE06.1040400@kyup.com> <9dde3145-9128-ffef-1b84-e3bd429dd4e8@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Nikolay Borisov <kernel@kyup.com>, mszeredi@redhat.com,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cccfc176-df56-4add-e6c8-e040f9da31dc@atmel.com>
+In-Reply-To: <9dde3145-9128-ffef-1b84-e3bd429dd4e8@stressinduktion.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nathan Sullivan <nathan.sullivan@ni.com>
+On Thu, Aug 25, 2016 at 12:40 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 24.08.2016 16:24, Nikolay Borisov wrote:
+[SNIP]
+>
+> One commit which could have to do with that is
+>
+> commit fc64869c48494a401b1fb627c9ecc4e6c1d74b0d
+> Author: Andrey Ryabinin <aryabinin@virtuozzo.com>
+> Date:   Wed May 18 19:19:27 2016 +0300
+>
+>     net: sock: move ->sk_shutdown out of bitfields.
+>
+> but that is only a wild guess.
+>
+> Which unix_sock did you extract specifically in the url you provided? In
+> unix_notinflight we are specifically checking an unix domain socket that
+> is itself being transferred over another af_unix domain socket and not
+> the unix domain socket being released at this point.
 
-In recent testing with the RT patchset, we have seen cases where the
-transmit ring can fill even with up to 200 txbds in the ring. Increase the
-size of the DMA TX ring to avoid overruns.
+So this is the state of the socket that is being passed to
+unix_notinflight. I have a complete crashdump so if you need more info
+to diagnose it I'm happy to provide it. I'm not too familiar with the
+code in question so I will need a bit of time to grasp what actually
+is happening.
 
-Signed-off-by: Xander Huff <xander.huff@ni.com>
-Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
----
- drivers/net/ethernet/cadence/macb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> Can you reproduce this and maybe also with a newer kernel?
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 3256839..3efddb7 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -40,7 +40,7 @@
- #define RX_RING_SIZE		512 /* must be power of 2 */
- #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
- 
--#define TX_RING_SIZE		128 /* must be power of 2 */
-+#define TX_RING_SIZE		512 /* must be power of 2 */
- #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
- 
- /* level of occupied TX descriptors under which we wake up TX process */
--- 
-1.9.1
+Unfortunately I cannot reproduce this since it happened on a
+production server nor can I change the kernel. But clearly there is
+something wrong, and given that this is a stable kernel and no
+relevant changes have gone in latest stable I believe the problem
+(albeit hardly reproducible) would still persist.
+
+>
+> Thanks for the report,
+> Hannes
+>
