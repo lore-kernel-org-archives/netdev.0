@@ -1,103 +1,63 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [ethtool PATCH v4 0/4]  Add support for QSFP+/QSFP28 Diagnostics
- and 25G/50G/100G      port speeds
-Date: Wed, 24 Aug 2016 16:01:23 -0400
-Message-ID: <20160824200122.GC20493@tuxdriver.com>
-References: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
+From: Lance Richardson <lrichard-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [net] openvswitch: Allow deferred action fifo to
+ expand during run time
+Date: Wed, 24 Aug 2016 17:00:48 -0400 (EDT)
+Message-ID: <198804165.74341250.1472072448260.JavaMail.zimbra@redhat.com>
+References: <1458275533-2896-1-git-send-email-azhou@ovn.org>
+ <20160318.171909.1177364175347712706.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, decot@googlers.com,
-        bkenward@solarflare.com, daniel@iogearbox.net, galp@mellanox.com,
-        roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-        dustin@cumulusnetworks.com, ben@decadent.org.uk
-To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43646 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755430AbcHXU4x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 16:56:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160318.171909.1177364175347712706.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-I have pushed this series. I did modify patches 3 and 4 a bit,
-to properly update Makefile.am in order to keep "make distcheck"
-from failing -- please be more careful in the future.
-
-John
-
-P.S. I have not yet tagged this as an official release, so please test!
-
-On Tue, Aug 23, 2016 at 06:30:29AM -0700, Vidya Sagar Ravipati wrote:
-> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-> 
-> This patch seryies provides following support
-> a) Reorganized fields based out of SFF-8024 fields i.e. Identifier/
->    Encoding/Connector types which are common across SFP/SFP+ (SFF-8472)
->    and QSFP+/QSFP28 (SFF-8436/SFF-8636) modules into sff-common files.
-> b) Support for diagnostics information for QSFP Plus/QSFP28 modules
->    based on SFF-8436/SFF-8636
-> c) Supporting 25G/50G/100G speeds in supported/advertising fields
-> d) Tested across various QSFP+/QSFP28 Copper/Optical modules
-> 
-> Standards for QSFP+/QSFP28
-> a) QSFP+/QSFP28 - SFF 8636 Rev 2.7 dated January 26,2016
-> b) SFF-8024 Rev 4.0 dated May 31, 2016
-> 
-> v4:
->   Sync ethtool-copy.h to kernel commit 89da45b8b5b2187734a11038b8593714f964ffd1
->   which includes support for 50G base SR2
-> 
-> v3:
->  Review comments from Ben Hutchings:
->    Make sff diags structure common across sfpdiag.c and
->    qsfp.c and use common function to print common threshold
->    values.
->  Review comments from Rami Rosen:
->    Cleanup description messages.
-> 
-> v2:
->   Included support for 25G/50G/100G speeds in supported/
->   advertised speed modes
->   Review comments from Ben Hutchings:
->     Split the sff-8024 reorganzing patch and QSFP+/QSFP28
->     patch
->     Fixed all checkpatch warnings (except couple of over 80 character)
-> 
-> v1:
->   Support for SFF-8636 Rev 2.7
->   Review comments from Ben Hutchings:
->    Updating copyright holders information for QSFP
->    Reusing the common functions and macros across sfpid and qsfp
-> 
-> Vidya Sagar Ravipati (4):
->   ethtool-copy.h:sync with net
->   ethtool:Reorganizing  SFF-8024 fields for SFP/QSFP
->   ethtool:QSFP Plus/QSFP28 Diagnostics Information Support
->   ethtool: Enhancing link mode bits to support 25G/50G/100G
-> 
->  Makefile.am    |   2 +-
->  ethtool-copy.h |  18 +-
->  ethtool.c      |  35 +++
->  internal.h     |   3 +
->  qsfp.c         | 788 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  qsfp.h         | 595 +++++++++++++++++++++++++++++++++++++++++++
->  sff-common.c   | 304 ++++++++++++++++++++++
->  sff-common.h   | 189 ++++++++++++++
->  sfpdiag.c      | 105 +-------
->  sfpid.c        | 103 +-------
->  10 files changed, 1945 insertions(+), 197 deletions(-)
->  create mode 100644 qsfp.c
->  create mode 100644 qsfp.h
->  create mode 100644 sff-common.c
->  create mode 100644 sff-common.h
-> 
-> -- 
-> 2.1.4
-> 
-> 
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+PiBGcm9tOiAiRGF2aWQgTWlsbGVyIiA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBUbzogYXpob3VA
+b3ZuLm9yZwo+IENjOiBkZXZAb3BlbnZzd2l0Y2guY29tLCBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
+Cj4gU2VudDogRnJpZGF5LCBNYXJjaCAxOCwgMjAxNiA1OjE5OjA5IFBNCj4gU3ViamVjdDogUmU6
+IFtuZXRdIG9wZW52c3dpdGNoOiBBbGxvdyBkZWZlcnJlZCBhY3Rpb24gZmlmbyB0byBleHBhbmQg
+ZHVyaW5nIHJ1biB0aW1lCj4gCj4gRnJvbTogQW5keSBaaG91IDxhemhvdUBvdm4ub3JnPgo+IERh
+dGU6IFRodSwgMTcgTWFyIDIwMTYgMjE6MzI6MTMgLTA3MDAKPiAKPiA+IEN1cnJlbnQgb3BlbnZz
+d2l0Y2ggaW1wbGVtZW50YXRpb24gYWxsb3dzIHVwIHRvIDEwIHJlY2lyY3VsYXRpb24gYWN0aW9u
+cwo+ID4gZm9yIGVhY2ggcGFja2V0LiBUaGlzIGxpbWl0IHdhcyBzdWZmaWNpZW50IGZvciBtb3N0
+IHVzZSBjYXNlcyBpbiB0aGUKPiA+IHBhc3QsIGJ1dCB3aXRoIG1vcmUgbmV3IGZlYXR1cmVzLCBz
+dWNoIGFzIHN1cHBvcnRpbmcgY29ubmVjdGlvbgo+ID4gdHJhY2tpbmcsIGFuZCB0ZXN0aW5nIGlu
+IGxhcmdlciBzY2FsZSBuZXR3b3JrIGVudmlyb25tZW50LAo+ID4gVGhpcyBsaW1pdCBtYXkgYmUg
+dG9vIHJlc3RyaWN0aXZlLgo+IMKgLi4uCj4gCj4gQWN0aW9ucyB0aGF0IG5lZWQgdG8gcmVjaXJj
+dWxhdGUgdGhhdCBtYW55IHRpbWVzIGFyZSBleHRyZW1lbHkgcG9vcmx5Cj4gZGVzaWduZWQsIGFu
+ZCB3aWxsIGhhdmUgc2lnbmlmaWNhbnQgcGVyZm9ybWFuY2UgcHJvYmxlbXMuCj4gCj4gSSB0aGlu
+ayB0aGUgd2F5IHJ1bGVzIGFyZSBwdXQgdG9nZXRoZXIgYW5kIHByb2Nlc3NlZCBzaG91bGQgYmUg
+cmVkb25lCj4gYmVmb3JlIHdlIGRvIGluc2FuZSBzdHVmZiBsaWtlIHRoaXMuCj4gCj4gVGhlcmUg
+aXMgbm8gd2F5IEknbSBhcHBseWluZyBhIHBhdGNoIGxpa2UgdGhpcywgc29ycnkuCj4gCgpBcG9s
+b2dpZXMgZm9yIGNvbWluZyBpbnRvIHRoaXMgdGhyZWFkIHNvIGxhdGUsIEkgaGFwcGVuZWQgb24g
+aXQgYWZ0ZXIgZmluZGluZwpvdXQgdGhhdCB0aGlzIGlzIGFjdHVhbGx5IGFuIGlzc3VlIGluIHNv
+bWUgcHJvZHVjdGlvbiBuZXR3b3Jrcy4KClRoZSBuZWVkIHRvIGJ1ZmZlciBzbyBtYW55IGRlZmVy
+cmVkIGFjdGlvbnMgc2VlbXMgdG8gYmUgbW9zdGx5IGR1ZSB0byBoYXZpbmcKcmVsYXRpdmVseSBz
+aW1wbGUgcnVsZXMgKHRoYXQgaGF2ZSwgc2F5LCBvbmUgb3IgdHdvIHJlY2lyY3VsYXRpb25zKSB0
+aGF0IGdldAptdWx0aXBsaWVkIHBlciBwYWNrZXQgYnkgdGhlIG51bWJlciBvZiBlZ3Jlc3MgcG9y
+dHMuCgpGb3IgZXhhbXBsZSwgYSBjb25maWd1cmF0aW9uIHdpdGggMTEgb3IgbW9yZSBPVlMgYm9u
+ZCBwb3J0cyBpbiBiYWxhbmNlLXRjcAptb2RlICh3aGljaCBuZWVkcyBvbmUgcmVjaXJjdWxhdGlv
+bikgd2lsbCBleGNlZWQgdGhlIGRlZmVycmVkIGFjdGlvbiBmaWZvIGxpbWl0Cm9mIDEwIGV2ZXJ5
+IHRpbWUgYSBicm9hZGNhc3QgKG9yIG11bHRpY2FzdCBvciB1bmtub3duIHVuaWNhc3QpIGlzIGZv
+cndhcmRlZCBieQp0aGUgT1ZTIGJyaWRnZSBiZWNhdXNlIG9uZSBlbnRyeSB3aWxsIGJlIGNvbnN1
+bWVkIGJ5IGVhY2ggZWdyZXNzIHBvcnQuIFNpbmNlCnRoZSBvcmRlciBpbiB3aGljaCBlZ3Jlc3Mg
+cG9ydHMgYXJlIGhhbmRsZWQgaXMgZGV0ZXJtaW5pc3RpYywgdGhpcyBtZWFucwplLmcuIGJyb2Fk
+Y2FzdCBBUlAgcmVxdWVzdHMgd2lsbCBvbmx5IGV2ZXIgbWFrZSBpdCBvdXQgdGhlIGZpcnN0IDEw
+IApib25kIHBvcnRzIGluIHRoaXMgc2NlbmFyaW8uCgpOb3RlIHRoYXQgYm9uZGluZyBpc24ndCBu
+ZWNlc3NhcnkgdG8gaGF2ZSB0aGlzIGlzc3VlLCBpdCBqdXN0IG1ha2VzIGZvciBhCnJlbGF0aXZl
+bHkgc3RyYWlnaHRmb3J3YXJkIGV4YW1wbGUuCgpBbmR5J3MgcGF0Y2ggY2VydGFpbmx5IHNlZW1z
+IHRvIGJlIGFuIGltcHJvdmVtZW50IG9uIHRoaXMgc2l0dWF0aW9uLApidXQgbWF5YmUgdGhlcmUg
+YW5vdGhlci9iZXR0ZXIgd2F5LgoKUmVnYXJkcywKCsKgwqAgTGFuY2UKX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
+bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
