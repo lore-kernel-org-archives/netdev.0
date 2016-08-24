@@ -1,42 +1,176 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
-Date: Wed, 24 Aug 2016 06:02:15 -0700
-Message-ID: <1472043735.14381.69.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
-         <20160823.112515.318902967155957764.davem@davemloft.net>
-         <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
+Subject: Re: [PATCH 1/3] net: fs_enet: merge NAPI RX and NAPI TX
+Date: Wed, 24 Aug 2016 06:07:01 -0700
+Message-ID: <1472044021.14381.71.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1472033140.git.christophe.leroy@c-s.fr>
+ <c607324b1322bb5729081808b2f54f5f9da52444.1472033140.git.christophe.leroy@c-s.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: labbott@redhat.com, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, samanthakumar@google.com, willemb@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Akunis <dan.akunis@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Vitaly Bordug <vbordug@ru.mvista.com>, linuxppc-dev@lists.ozlabs.org,
+ davem@davemloft.net
+To: Christophe Leroy <christophe.leroy@c-s.fr>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <c607324b1322bb5729081808b2f54f5f9da52444.1472033140.git.christophe.leroy@c-s.fr>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-08-24 at 11:22 +0300, Dan Akunis wrote:
-> When select wakes up on a UDP socket, user is expecting to get data. Getting 
-> 0 from recvfrom() or whatever read function she uses, is a wrong attitude.
-> I agree with David.
+On Wed, 2016-08-24 at 12:36 +0200, Christophe Leroy wrote:
+> Initially, a NAPI TX routine has been implemented separately from
+> NAPI RX, as done on the freescale/gianfar driver.
 > 
-> The unit test that expects select to wake up is wrong and should be changed.
+> By merging NAPI RX and NAPI TX, we reduce the amount of TX completion
+> interrupts.
 > 
+> Handling of the budget in association with TX interrupts is based on
+> indications provided at https://wiki.linuxfoundation.org/networking/napi
+> 
+> At the same time, we fix an issue in the handling of fep->tx_free:
+> 
+> It is only when fep->tx_free goes up to MAX_SKB_FRAGS that
+> we need to wake up the queue. There is no need to call
+> netif_wake_queue() at every packet successfully transmitted.
+> 
+> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+> ---
+>  .../net/ethernet/freescale/fs_enet/fs_enet-main.c  | 259 +++++++++------------
+>  drivers/net/ethernet/freescale/fs_enet/fs_enet.h   |  16 +-
+>  drivers/net/ethernet/freescale/fs_enet/mac-fcc.c   |  57 ++---
+>  drivers/net/ethernet/freescale/fs_enet/mac-fec.c   |  57 ++---
+>  drivers/net/ethernet/freescale/fs_enet/mac-scc.c   |  57 ++---
+>  5 files changed, 153 insertions(+), 293 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+> index 61fd486..7cd3ef9 100644
+> --- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+> +++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+> @@ -79,8 +79,8 @@ static void skb_align(struct sk_buff *skb, int align)
+>  		skb_reserve(skb, align - off);
+>  }
+>  
+> -/* NAPI receive function */
+> -static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
+> +/* NAPI function */
+> +static int fs_enet_napi(struct napi_struct *napi, int budget)
+>  {
+>  	struct fs_enet_private *fep = container_of(napi, struct fs_enet_private, napi);
+>  	struct net_device *dev = fep->ndev;
+> @@ -90,9 +90,100 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
+>  	int received = 0;
+>  	u16 pkt_len, sc;
+>  	int curidx;
+> +	int dirtyidx, do_wake, do_restart;
+>  
+> -	if (budget <= 0)
+> -		return received;
+> +	spin_lock(&fep->tx_lock);
+> +	bdp = fep->dirty_tx;
+> +
+> +	/* clear status bits for napi*/
+> +	(*fep->ops->napi_clear_event)(dev);
+> +
+> +	do_wake = do_restart = 0;
+> +	while (((sc = CBDR_SC(bdp)) & BD_ENET_TX_READY) == 0) {
 
-Please do not top post on netdev mailing list.
+I am afraid you could live lock here on SMP.
 
-Program is fine and wont be changed to work around a kernel bug.
+You should make sure you do not loop forever, not assuming cpu is faster
+than NIC.
 
-We definitely can send and receive UDP messages with 0 payload.
 
-So select() should unblock when one such frame is received, otherwise
-you could fill up the receive queue with a lot of frames like that and
-when SO_RCVBUF limit is reached, block future messages.
 
-UDP is a datagram protocol.
-
-Bug fix is merged :
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=e83c6744e81abc93a20d0eb3b7f504a176a6126a
+> +		dirtyidx = bdp - fep->tx_bd_base;
+> +
+> +		if (fep->tx_free == fep->tx_ring)
+> +			break;
+> +
+> +		skb = fep->tx_skbuff[dirtyidx];
+> +
+> +		/*
+> +		 * Check for errors.
+> +		 */
+> +		if (sc & (BD_ENET_TX_HB | BD_ENET_TX_LC |
+> +			  BD_ENET_TX_RL | BD_ENET_TX_UN | BD_ENET_TX_CSL)) {
+> +
+> +			if (sc & BD_ENET_TX_HB)	/* No heartbeat */
+> +				fep->stats.tx_heartbeat_errors++;
+> +			if (sc & BD_ENET_TX_LC)	/* Late collision */
+> +				fep->stats.tx_window_errors++;
+> +			if (sc & BD_ENET_TX_RL)	/* Retrans limit */
+> +				fep->stats.tx_aborted_errors++;
+> +			if (sc & BD_ENET_TX_UN)	/* Underrun */
+> +				fep->stats.tx_fifo_errors++;
+> +			if (sc & BD_ENET_TX_CSL)	/* Carrier lost */
+> +				fep->stats.tx_carrier_errors++;
+> +
+> +			if (sc & (BD_ENET_TX_LC | BD_ENET_TX_RL | BD_ENET_TX_UN)) {
+> +				fep->stats.tx_errors++;
+> +				do_restart = 1;
+> +			}
+> +		} else
+> +			fep->stats.tx_packets++;
+> +
+> +		if (sc & BD_ENET_TX_READY) {
+> +			dev_warn(fep->dev,
+> +				 "HEY! Enet xmit interrupt and TX_READY.\n");
+> +		}
+> +
+> +		/*
+> +		 * Deferred means some collisions occurred during transmit,
+> +		 * but we eventually sent the packet OK.
+> +		 */
+> +		if (sc & BD_ENET_TX_DEF)
+> +			fep->stats.collisions++;
+> +
+> +		/* unmap */
+> +		if (fep->mapped_as_page[dirtyidx])
+> +			dma_unmap_page(fep->dev, CBDR_BUFADDR(bdp),
+> +				       CBDR_DATLEN(bdp), DMA_TO_DEVICE);
+> +		else
+> +			dma_unmap_single(fep->dev, CBDR_BUFADDR(bdp),
+> +					 CBDR_DATLEN(bdp), DMA_TO_DEVICE);
+> +
+> +		/*
+> +		 * Free the sk buffer associated with this last transmit.
+> +		 */
+> +		if (skb) {
+> +			dev_kfree_skb(skb);
+> +			fep->tx_skbuff[dirtyidx] = NULL;
+> +		}
+> +
+> +		/*
+> +		 * Update pointer to next buffer descriptor to be transmitted.
+> +		 */
+> +		if ((sc & BD_ENET_TX_WRAP) == 0)
+> +			bdp++;
+> +		else
+> +			bdp = fep->tx_bd_base;
+> +
+> +		/*
+> +		 * Since we have freed up a buffer, the ring is no longer
+> +		 * full.
+> +		 */
+> +		if (++fep->tx_free == MAX_SKB_FRAGS)
+> +			do_wake = 1;
+> +	}
+> +
+> +	fep->dirty_tx = bdp;
+> +
+> +	if (do_restart)
+> +		(*fep->ops->tx_restart)(dev);
+> +
+> +	spin_unlock(&fep->tx_lock);
+> +
+> +	if (do_wake)
+> +		netif_wake_queue(dev);
+>  
