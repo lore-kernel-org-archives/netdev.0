@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 0/2] rxrpc: More fixes
-Date: Wed, 24 Aug 2016 15:59:46 +0100
-Message-ID: <147205078637.13418.9976056129378485689.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 1/2] rxrpc: Fix conn-based retransmit
+Date: Wed, 24 Aug 2016 15:59:53 +0100
+Message-ID: <147205079336.13418.18430907628836449088.stgit@warthog.procyon.org.uk>
+References: <147205078637.13418.9976056129378485689.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,43 +10,50 @@ Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
         linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <147205078637.13418.9976056129378485689.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+If a duplicate packet comes in for a call that has just completed on a
+connection's channel then there will be an oops in the data_ready handler
+because it tries to examine the connection struct via a call struct (which
+we don't have - the pointer is unset).
 
-Here are a couple of fix patches:
+Since the connection struct pointer is available to us, go direct instead.
 
- (1) Fix the conn-based retransmission patch posted yesterday.  This breaks
-     if it actually has to retransmit.  However, it seems the likelihood of
-     this happening is really low, despite the server I'm testing against
-     being located >3000 miles away, and sometime of the time it's handled
-     in the call background processor before we manage to disconnect the
-     call - hence why I didn't spot it.
+Also, the ACK packet to be retransmitted needs three octets of padding
+between the soft ack list and the ackinfo.
 
- (2) /proc/net/rxrpc_calls can cause a crash it accessed whilst a call is
-     being torn down.  The window of opportunity is pretty small, however,
-     as calls don't stay in this state for long.
-
-The patches can be found here also (non-terminally on the branch):
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-
-Tagged thusly:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-	rxrpc-rewrite-20160824-1
-
-David
+Fixes: 18bfeba50dfd0c8ee420396f2570f16a0bdbd7de ("rxrpc: Perform terminal call ACK/ABORT retransmission from conn processor")
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-David Howells (2):
-      rxrpc: Fix conn-based retransmit
-      rxrpc: Make /proc/net/rxrpc_calls safer
 
+ net/rxrpc/conn_event.c |    1 +
+ net/rxrpc/input.c      |    2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
- net/rxrpc/ar-internal.h |    4 +++-
- net/rxrpc/call_object.c |    3 +++
- net/rxrpc/conn_client.c |    1 +
- net/rxrpc/conn_event.c  |    1 +
- net/rxrpc/input.c       |    2 +-
- net/rxrpc/proc.c        |   27 +++++++++++++++++++--------
- 6 files changed, 28 insertions(+), 10 deletions(-)
+diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
+index c1c6b7f305d1..6296374df840 100644
+--- a/net/rxrpc/conn_event.c
++++ b/net/rxrpc/conn_event.c
+@@ -42,6 +42,7 @@ static void rxrpc_conn_retransmit(struct rxrpc_connection *conn,
+ 			} abort;
+ 			struct {
+ 				struct rxrpc_ackpacket ack;
++				u8 padding[3];
+ 				struct rxrpc_ackinfo info;
+ 			};
+ 		};
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 66cdeb56f44f..5e683dd21ab9 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -732,7 +732,7 @@ void rxrpc_data_ready(struct sock *sk)
+ 			/* For the previous service call, if completed
+ 			 * successfully, we discard all further packets.
+ 			 */
+-			if (rxrpc_conn_is_service(call->conn) &&
++			if (rxrpc_conn_is_service(conn) &&
+ 			    (chan->last_type == RXRPC_PACKET_TYPE_ACK ||
+ 			     sp->hdr.type == RXRPC_PACKET_TYPE_ABORT))
+ 				goto discard_unlock;
