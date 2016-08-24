@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Fix issue while re-registering VF mgmt
- netdev
-Date: Tue, 23 Aug 2016 17:08:29 -0700 (PDT)
-Message-ID: <20160823.170829.2283755198663202650.davem@davemloft.net>
-References: <1471932332-14150-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [net-next PATCH] net: rtnetlink: Don't export empty
+ RTAX_FEATURES
+Date: Tue, 23 Aug 2016 17:09:43 -0700 (PDT)
+Message-ID: <20160823.170943.937188622813462673.davem@davemloft.net>
+References: <1471950871-9112-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsioc.com
-To: hariprasad@chelsio.com
+Cc: netdev@vger.kernel.org
+To: phil@nwl.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55944 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55955 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753267AbcHXAJQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 20:09:16 -0400
-In-Reply-To: <1471932332-14150-1-git-send-email-hariprasad@chelsio.com>
+        with ESMTP id S1755378AbcHXAJo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 20:09:44 -0400
+In-Reply-To: <1471950871-9112-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Tue, 23 Aug 2016 11:35:32 +0530
+From: Phil Sutter <phil@nwl.cc>
+Date: Tue, 23 Aug 2016 13:14:31 +0200
 
-> When we disable SRIOV, we used to unregister the netdev but wasn't
-> freed. But next time when the same netdev is registered, since the state
-> was in 'NETREG_UNREGISTERED', we used to hit BUG_ON in register_netdevice,
-> where it expects the state to be 'NETREG_UNINITIALIZED'.
+> Since the features bit field has bits for internal only use as well, it
+> may happen that the kernel exports RTAX_FEATURES attribute with zero
+> value which is pointless.
 > 
-> Alloc netdev and register them while configuring SRIOV, and free them
-> when SRIOV is disabled. Also added a new function to setup ethernet
-> properties instead of using ether_setup. Set carrier off by default,
-> since we don't have to do any transmit on the interface.
+> Fix this by making sure the attribute is added only if the exported
+> value is non-zero.
 > 
-> Fixes: 7829451c695e ("cxgb4: Add control net_device for configuring PCIe VF")
-> 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
 Applied.
