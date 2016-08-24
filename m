@@ -1,76 +1,42 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH 2/3 v2] net: smsc911x: request and deassert optional RESET GPIO
-Date: Wed, 24 Aug 2016 14:59:41 +0200
-Message-ID: <1472043582-7653-2-git-send-email-linus.walleij@linaro.org>
-References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
-Cc: Guenter Roeck <linux@roeck-us.net>,
-        Jeremy Linton <jeremy.linton@arm.com>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>,
-        Linus Walleij <linus.walleij@linaro.org>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@smsc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:36016 "EHLO
-        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753012AbcHXNAR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 09:00:17 -0400
-Received: by mail-lf0-f46.google.com with SMTP id g62so11270104lfe.3
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 05:59:58 -0700 (PDT)
-In-Reply-To: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [REGRESSION] Select hang with zero sized UDP packets
+Date: Wed, 24 Aug 2016 06:02:15 -0700
+Message-ID: <1472043735.14381.69.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <08d225a8-e98f-c0c6-271d-acc2584347fc@redhat.com>
+         <20160823.112515.318902967155957764.davem@davemloft.net>
+         <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: labbott@redhat.com, David Miller <davem@davemloft.net>,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, samanthakumar@google.com, willemb@google.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dan Akunis <dan.akunis@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2ABF798B42E64D9C89DEB806A2E636B5@mtl.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On some systems (such as the Qualcomm APQ8060 Dragonboard) the
-RESET signal of the SMSC911x is not pulled up by a resistor but
-connected to a GPIO line, so that the operating system must
-explicitly deassert RESET before use.
+On Wed, 2016-08-24 at 11:22 +0300, Dan Akunis wrote:
+> When select wakes up on a UDP socket, user is expecting to get data. Getting 
+> 0 from recvfrom() or whatever read function she uses, is a wrong attitude.
+> I agree with David.
+> 
+> The unit test that expects select to wake up is wrong and should be changed.
+> 
 
-Support this in the SMSC911x driver so this ethernet connector
-can be used on such targets.
+Please do not top post on netdev mailing list.
 
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
-ChangeLog v1->v2:
-- Use devm_gpiod_request_optiona() and request the line with
-  GPIOD_OUT_LOW so it is deasserted immediately if active.
----
- drivers/net/ethernet/smsc/smsc911x.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+Program is fine and wont be changed to work around a kernel bug.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index ca3134540d2d..8ab8d4b9614b 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -62,6 +62,7 @@
- #include <linux/acpi.h>
- #include <linux/pm_runtime.h>
- #include <linux/property.h>
-+#include <linux/gpio/consumer.h>
- 
- #include "smsc911x.h"
- 
-@@ -147,6 +148,9 @@ struct smsc911x_data {
- 	/* regulators */
- 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
- 
-+	/* Reset GPIO */
-+	struct gpio_desc *reset_gpiod;
-+
- 	/* clock */
- 	struct clk *clk;
- };
-@@ -438,6 +442,11 @@ static int smsc911x_request_resources(struct platform_device *pdev)
- 		netdev_err(ndev, "couldn't get regulators %d\n",
- 				ret);
- 
-+	/* Request optional RESET GPIO */
-+	pdata->reset_gpiod = devm_gpiod_get_optional(&pdev->dev,
-+						     "reset",
-+						     GPIOD_OUT_LOW);
-+
- 	/* Request clock */
- 	pdata->clk = clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pdata->clk))
--- 
-2.7.4
+We definitely can send and receive UDP messages with 0 payload.
+
+So select() should unblock when one such frame is received, otherwise
+you could fill up the receive queue with a lot of frames like that and
+when SO_RCVBUF limit is reached, block future messages.
+
+UDP is a datagram protocol.
+
+Bug fix is merged :
+https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=e83c6744e81abc93a20d0eb3b7f504a176a6126a
