@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: phy: xgmiitorgmii: Fix non static symbol
- warning
-Date: Tue, 23 Aug 2016 17:18:38 -0700 (PDT)
-Message-ID: <20160823.171838.386599136081866354.davem@davemloft.net>
-References: <1471964765-32708-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net] dwc_eth_qos: fix interrupt enable race
+Date: Tue, 23 Aug 2016 17:12:41 -0700 (PDT)
+Message-ID: <20160823.171241.1929468036153832657.davem@davemloft.net>
+References: <1471962688-9226-1-git-send-email-larper@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com, weiyongjun1@huawei.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56035 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752643AbcHXASj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 23 Aug 2016 20:18:39 -0400
-In-Reply-To: <1471964765-32708-1-git-send-email-weiyj.lk@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        rabinv@axis.com, larper@axis.com
+To: lars.persson@axis.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471962688-9226-1-git-send-email-larper@axis.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Tue, 23 Aug 2016 15:06:05 +0000
+From: Lars Persson <lars.persson@axis.com>
+Date: Tue, 23 Aug 2016 16:31:28 +0200
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> From: Rabin Vincent <rabinv@axis.com>
 > 
-> Fixes the following sparse warning:
+> We currently enable interrupts before we enable NAPI. If an RX interrupt
+> hits before we enabled NAPI then the NAPI callback is never called and
+> we leave the hardware with RX interrupts disabled, which of course leads
+> us to never handling received packets.  Fix this by moving the interrupt
+> enable to after we've enable NAPI and the reclaim tasklet.
 > 
-> drivers/net/phy/xilinx_gmii2rgmii.c:61:5: warning:
->  symbol 'xgmiitorgmii_probe' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Fixes: cd5e41234729 ("dwc_eth_qos: do phy_start before resetting hardware")
+> Signed-off-by: Rabin Vincent <rabinv@axis.com>
+> Signed-off-by: Lars Persson <larper@axis.com>
 
 Applied.
