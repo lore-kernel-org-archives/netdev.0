@@ -1,169 +1,89 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V2 1/4] net/ip_tunnels: Introduce tunnel_id_to_key32() and key32_to_tunnel_id()
-Date: Wed, 24 Aug 2016 15:27:07 +0300
-Message-ID: <20160824122710.30356-2-amir@vadai.me>
-References: <20160824122710.30356-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: "David S. Miller" <davem@davemloft.net>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH 4/4] net: phy: Add write driver for Microsemi PHYs.
+Date: Wed, 24 Aug 2016 12:29:57 +0000
+Message-ID: <646450A91FAED74E85C6E9C4D6E936A1453366BB@avsrvexchmbx1.microsemi.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "Andrew Lunn (andrew@lunn.ch)" <andrew@lunn.ch>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36117 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751119AbcHXM2m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 08:28:42 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i138so2425434wmf.3
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 05:27:21 -0700 (PDT)
-In-Reply-To: <20160824122710.30356-1-amir@vadai.me>
+Received: from mail-bn3nam01on0085.outbound.protection.outlook.com ([104.47.33.85]:22944
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754593AbcHXMaT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 08:30:19 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add utility functions to convert a 32 bits key into a 64 bits tunnel and
-vice versa.
-These functions will be used instead of cloning code in GRE and VXLAN,
-and in tc act_iptunnel which will be introduced in a following patch in
-this patchset.
+From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
+PHY write register support will be added for VSC 85xx Microsemi PHYs.
+
+Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 ---
- drivers/net/vxlan.c      |  4 ++--
- include/net/ip_tunnels.h | 19 +++++++++++++++++++
- include/net/vxlan.h      | 18 ------------------
- net/ipv4/ip_gre.c        | 23 ++---------------------
- 4 files changed, 23 insertions(+), 41 deletions(-)
+ drivers/net/phy/mscc.c | 24 ++++++++++++++++++++++++
+ include/linux/mscc.h   |  1 +
+ 2 files changed, 25 insertions(+)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index c0dda6fc0921..b1ddf8f756d4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1294,7 +1294,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 		struct metadata_dst *tun_dst;
- 
- 		tun_dst = udp_tun_rx_dst(skb, vxlan_get_sk_family(vs), TUNNEL_KEY,
--					 vxlan_vni_to_tun_id(vni), sizeof(*md));
-+					 key32_to_tunnel_id(vni), sizeof(*md));
- 
- 		if (!tun_dst)
- 			goto drop;
-@@ -1948,7 +1948,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			goto drop;
- 		}
- 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
--		vni = vxlan_tun_id_to_vni(info->key.tun_id);
-+		vni = tunnel_id_to_key32(info->key.tun_id);
- 		remote_ip.sa.sa_family = ip_tunnel_info_af(info);
- 		if (remote_ip.sa.sa_family == AF_INET) {
- 			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index a5e7035fb93f..e598c639aa6f 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -222,6 +222,25 @@ static inline unsigned short ip_tunnel_info_af(const struct ip_tunnel_info
- 	return tun_info->mode & IP_TUNNEL_INFO_IPV6 ? AF_INET6 : AF_INET;
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index 5a74f81..9315fde 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -194,6 +194,27 @@ static int vsc85xx_mac_if_get(struct phy_device *phyde=
+v,
+        return rc;
  }
- 
-+static inline __be64 key32_to_tunnel_id(__be32 key)
+
++static int vsc85xx_phy_write_reg(struct phy_device *phydev,
++                                struct phy_reg_op *data)
 +{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be64)key;
-+#else
-+	return (__force __be64)((__force u64)key << 32);
-+#endif
++       int rc;
++       u16 reg_addr =3D data->reg;
++       u16 reg_val =3D data->val;
++       u8  page =3D data->pg;
++
++       if (page !=3D 0) {
++               mutex_lock(&phydev->lock);
++               vsc85xx_phy_page_set(phydev, page);
++               rc =3D phy_write(phydev, reg_addr, reg_val);
++               vsc85xx_phy_page_set(phydev, MSCC_PHY_PAGE_STANDARD);
++               mutex_unlock(&phydev->lock);
++       } else {
++               rc =3D phy_write(phydev, reg_addr, reg_val);
++       }
++
++       return rc;
 +}
 +
-+/* Returns the least-significant 32 bits of a __be64. */
-+static inline __be32 tunnel_id_to_key32(__be64 tun_id)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be32)tun_id;
-+#else
-+	return (__force __be32)((__force u64)tun_id >> 32);
-+#endif
-+}
-+
- #ifdef CONFIG_INET
- 
- int ip_tunnel_init(struct net_device *dev);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index b96d0360c095..0255613a54a4 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -350,24 +350,6 @@ static inline __be32 vxlan_vni_field(__be32 vni)
- #endif
- }
- 
--static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
--{
--#if defined(__BIG_ENDIAN)
--	return (__force __be32)tun_id;
--#else
--	return (__force __be32)((__force u64)tun_id >> 32);
--#endif
--}
--
--static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
--{
--#if defined(__BIG_ENDIAN)
--	return (__force __be64)vni;
--#else
--	return (__force __be64)((u64)(__force u32)vni << 32);
--#endif
--}
--
- static inline size_t vxlan_rco_start(__be32 vni_field)
+ static int vsc85xx_phy_read_reg(struct phy_device *phydev,
+                                struct phy_reg_op *data)
  {
- 	return be32_to_cpu(vni_field & VXLAN_RCO_MASK) << VXLAN_RCO_SHIFT;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 113cc43df789..576f705d8180 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -246,25 +246,6 @@ static void gre_err(struct sk_buff *skb, u32 info)
- 	ipgre_err(skb, info, &tpi);
- }
- 
--static __be64 key_to_tunnel_id(__be32 key)
--{
--#ifdef __BIG_ENDIAN
--	return (__force __be64)((__force u32)key);
--#else
--	return (__force __be64)((__force u64)key << 32);
--#endif
--}
--
--/* Returns the least-significant 32 bits of a __be64. */
--static __be32 tunnel_id_to_key(__be64 x)
--{
--#ifdef __BIG_ENDIAN
--	return (__force __be32)x;
--#else
--	return (__force __be32)((__force u64)x >> 32);
--#endif
--}
--
- static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 		       struct ip_tunnel_net *itn, int hdr_len, bool raw_proto)
- {
-@@ -290,7 +271,7 @@ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 			__be64 tun_id;
- 
- 			flags = tpi->flags & (TUNNEL_CSUM | TUNNEL_KEY);
--			tun_id = key_to_tunnel_id(tpi->key);
-+			tun_id = key32_to_tunnel_id(tpi->key);
- 			tun_dst = ip_tun_rx_dst(skb, flags, tun_id, 0);
- 			if (!tun_dst)
- 				return PACKET_REJECT;
-@@ -446,7 +427,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
- 	gre_build_header(skb, tunnel_hlen, flags, proto,
--			 tunnel_id_to_key(tun_info->key.tun_id), 0);
-+			 tunnel_id_to_key32(tun_info->key.tun_id), 0);
- 
- 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
- 
--- 
-2.9.0
+@@ -228,6 +249,9 @@ static int vsc85xx_features_set(struct phy_device *phyd=
+ev)
+        case PHY_MAC_IF:
+                rc =3D vsc85xx_mac_if_set(phydev, &ftrs->mac_if);
+                break;
++       case PHY_WRITE_REG:
++               rc =3D vsc85xx_phy_write_reg(phydev, ftrs->data);
++               break;
+        default:
+                break;
+        }
+diff --git a/include/linux/mscc.h b/include/linux/mscc.h
+index 4265da7..b2cf373 100644
+--- a/include/linux/mscc.h
++++ b/include/linux/mscc.h
+@@ -13,6 +13,7 @@ enum phy_features {
+        PHY_EDGE_RATE_CONTROL =3D 0,
+        PHY_MAC_IF            =3D 1,
+        PHY_READ_REG          =3D 2,
++       PHY_WRITE_REG         =3D 3,
+        PHY_SUPPORTED_FEATURES_MAX
+ };
+
+--=20
+2.7.4
