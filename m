@@ -1,116 +1,109 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V2 2/4] net/dst: Utility functions to build dst_metadata without supplying an skb
-Date: Wed, 24 Aug 2016 15:27:08 +0300
-Message-ID: <20160824122710.30356-3-amir@vadai.me>
-References: <20160824122710.30356-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, Jiri Benc <jbenc@redhat.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: "David S. Miller" <davem@davemloft.net>
+From: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
+Subject: [PATCH 3/4] net: phy: Add read driver for Microsemi PHYs.
+Date: Wed, 24 Aug 2016 12:27:07 +0000
+Message-ID: <646450A91FAED74E85C6E9C4D6E936A1453366A5@avsrvexchmbx1.microsemi.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "Andrew Lunn (andrew@lunn.ch)" <andrew@lunn.ch>,
+        Allan Nielsen <Allan.Nielsen@microsemi.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34052 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754342AbcHXMnc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 08:43:32 -0400
-Received: by mail-wm0-f65.google.com with SMTP id q128so2494311wma.1
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 05:42:59 -0700 (PDT)
-In-Reply-To: <20160824122710.30356-1-amir@vadai.me>
+Received: from mail-co1nam03on0044.outbound.protection.outlook.com ([104.47.40.44]:49068
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755062AbcHXMnc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 24 Aug 2016 08:43:32 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extract _ip_tun_rx_dst() and _ipv6_tun_rx_dst() out of ip_tun_rx_dst()
-and ipv6_tun_rx_dst(), to be used without supplying an skb.
+From: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
+PHY Read support will be added for VSC 85xx Microsemi PHYs.
+
+Signed-off-by: Nagaraju Lakkaraju <Raju.Lakkaraju@microsemi.com>
 ---
- include/net/dst_metadata.h | 45 ++++++++++++++++++++++++++++++++-------------
- 1 file changed, 32 insertions(+), 13 deletions(-)
+ drivers/net/phy/mscc.c | 25 +++++++++++++++++++++++++
+ include/linux/mscc.h   |  8 ++++++++
+ 2 files changed, 33 insertions(+)
 
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index 5db9f5910428..892b3b69fb8d 100644
---- a/include/net/dst_metadata.h
-+++ b/include/net/dst_metadata.h
-@@ -112,12 +112,10 @@ static inline struct ip_tunnel_info *skb_tunnel_info_unclone(struct sk_buff *skb
- 	return &dst->u.tun_info;
+diff --git a/drivers/net/phy/mscc.c b/drivers/net/phy/mscc.c
+index 60d9d5f..5a74f81 100644
+--- a/drivers/net/phy/mscc.c
++++ b/drivers/net/phy/mscc.c
+@@ -194,6 +194,28 @@ static int vsc85xx_mac_if_get(struct phy_device *phyde=
+v,
+        return rc;
  }
- 
--static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
--						 __be16 flags,
--						 __be64 tunnel_id,
--						 int md_size)
-+static inline struct metadata_dst *
-+_ip_tun_rx_dst(__be32 saddr, __be32 daddr, __u8 tos, __u8 ttl,
-+	       __be16 flags, __be64 tunnel_id, int md_size)
- {
--	const struct iphdr *iph = ip_hdr(skb);
- 	struct metadata_dst *tun_dst;
- 
- 	tun_dst = tun_rx_dst(md_size);
-@@ -125,17 +123,27 @@ static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
- 		return NULL;
- 
- 	ip_tunnel_key_init(&tun_dst->u.tun_info.key,
--			   iph->saddr, iph->daddr, iph->tos, iph->ttl,
-+			   saddr, daddr, tos, ttl,
- 			   0, 0, 0, tunnel_id, flags);
- 	return tun_dst;
- }
- 
--static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
-+static inline struct metadata_dst *ip_tun_rx_dst(struct sk_buff *skb,
- 						 __be16 flags,
- 						 __be64 tunnel_id,
- 						 int md_size)
- {
--	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	const struct iphdr *iph = ip_hdr(skb);
+
++static int vsc85xx_phy_read_reg(struct phy_device *phydev,
++                               struct phy_reg_op *data)
++{
++       int rc =3D 0;
++       u16 reg_addr =3D data->reg;
++       u8  page =3D data->pg;
++       u16 reg_val;
 +
-+	return _ip_tun_rx_dst(iph->saddr, iph->daddr, iph->tos, iph->ttl,
-+			      flags, tunnel_id, md_size);
++       if (page !=3D 0) {
++               mutex_lock(&phydev->lock);
++               rc =3D vsc85xx_phy_page_set(phydev, page);
++               reg_val =3D phy_read(phydev, reg_addr);
++               rc =3D vsc85xx_phy_page_set(phydev, 0);
++               mutex_unlock(&phydev->lock);
++       } else {
++               reg_val =3D phy_read(phydev, reg_addr);
++       }
++       data->val =3D reg_val;
++
++       return rc;
 +}
 +
-+static inline struct metadata_dst *
-+_ipv6_tun_rx_dst(struct in6_addr saddr, struct in6_addr daddr,
-+		 __u8 tos, __u8 ttl, __be32 label,
-+		 __be16 flags, __be64 tunnel_id, int md_size)
-+{
- 	struct metadata_dst *tun_dst;
- 	struct ip_tunnel_info *info;
- 
-@@ -150,14 +158,25 @@ static inline struct metadata_dst *ipv6_tun_rx_dst(struct sk_buff *skb,
- 	info->key.tp_src = 0;
- 	info->key.tp_dst = 0;
- 
--	info->key.u.ipv6.src = ip6h->saddr;
--	info->key.u.ipv6.dst = ip6h->daddr;
-+	info->key.u.ipv6.src = saddr;
-+	info->key.u.ipv6.dst = daddr;
- 
--	info->key.tos = ipv6_get_dsfield(ip6h);
--	info->key.ttl = ip6h->hop_limit;
--	info->key.label = ip6_flowlabel(ip6h);
-+	info->key.tos = tos;
-+	info->key.ttl = ttl;
-+	info->key.label = label;
- 
- 	return tun_dst;
- }
- 
-+static inline struct metadata_dst *
-+ipv6_tun_rx_dst(struct sk_buff *skb, __be16 flags, __be64 tunnel_id,
-+		int md_size)
-+{
-+	const struct ipv6hdr *ip6h = ipv6_hdr(skb);
+ static int vsc85xx_features_set(struct phy_device *phydev)
+ {
+        int rc =3D 0;
+@@ -225,6 +247,9 @@ static int vsc85xx_features_get(struct phy_device *phyd=
+ev)
+        case PHY_MAC_IF:
+                rc =3D vsc85xx_mac_if_get(phydev, &ftrs->mac_if);
+                break;
++       case PHY_READ_REG:
++               rc =3D vsc85xx_phy_read_reg(phydev, ftrs->data);
++               break;
+        default:
+                break;
+        }
+diff --git a/include/linux/mscc.h b/include/linux/mscc.h
+index dcfd0ae..4265da7 100644
+--- a/include/linux/mscc.h
++++ b/include/linux/mscc.h
+@@ -12,6 +12,7 @@
+ enum phy_features {
+        PHY_EDGE_RATE_CONTROL =3D 0,
+        PHY_MAC_IF            =3D 1,
++       PHY_READ_REG          =3D 2,
+        PHY_SUPPORTED_FEATURES_MAX
+ };
+
+@@ -26,10 +27,17 @@ enum rgmii_rx_clock_delay {
+        RGMII_RX_CLK_DELAY_3_4_NS =3D 7
+ };
+
++struct phy_reg_op {
++       u16 reg;
++       u16 val;
++       u8  pg;
++};
 +
-+	return _ipv6_tun_rx_dst(ip6h->saddr, ip6h->daddr,
-+				ipv6_get_dsfield(ip6h), ip6h->hop_limit,
-+				ip6_flowlabel(ip6h), flags, tunnel_id,
-+				md_size);
-+}
- #endif /* __NET_DST_METADATA_H */
--- 
-2.9.0
+ struct phy_features_t {
+        enum phy_features cmd;           /* PHY Supported Features */
+        u8   rate;                       /* Edge rate control */
+        phy_interface_t mac_if;          /* MAC interface config */
++       struct phy_reg_op *data;         /* Read/Write register operatioins=
+ */
+ };
+
+ #endif /*  __LINUX_MSCC_H */
+--=20
+2.7.4
