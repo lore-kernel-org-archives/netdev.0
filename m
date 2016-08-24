@@ -1,45 +1,58 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/3 v2] net: smsc911x: augment device tree bindings
-Date: Wed, 24 Aug 2016 17:55:41 +0200
-Message-ID: <11789209.AN7vYDaEbx@wuerfel>
-References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [ethtool PATCH v4 0/4]  Add support for QSFP+/QSFP28 Diagnostics
+ and 25G/50G/100G      port speeds
+Date: Wed, 24 Aug 2016 10:33:04 -0400
+Message-ID: <20160824143304.GB20493@tuxdriver.com>
+References: <1471959033-1053-1-git-send-email-vidya@cumulusnetworks.com>
+ <SN2PR11MB009470F680A2B7697167965097EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@smsc.com>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Jeremy Linton <jeremy.linton@arm.com>,
-        Kamlakant Patel <kamlakant.patel@broadcom.com>,
-        Pavel Fedin <p.fedin@samsung.com>, devicetree@vger.kernel.org
-To: Linus Walleij <linus.walleij@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        "decot@googlers.com" <decot@googlers.com>,
+        "bkenward@solarflare.com" <bkenward@solarflare.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "galp@mellanox.com" <galp@mellanox.com>,
+        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
+        "gospo@cumulusnetworks.com" <gospo@cumulusnetworks.com>,
+        "dustin@cumulusnetworks.com" <dustin@cumulusnetworks.com>,
+        "ben@decadent.org.uk" <ben@decadent.org.uk>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.134]:59441 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754353AbcHXP4o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 11:56:44 -0400
-In-Reply-To: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39573 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756387AbcHXP4w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 11:56:52 -0400
+Content-Disposition: inline
+In-Reply-To: <SN2PR11MB009470F680A2B7697167965097EA0@SN2PR11MB0094.namprd11.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, August 24, 2016 2:59:40 PM CEST Linus Walleij wrote:
-> +- interrupts : Should contain the SMSC LAN
-> +  interrupt line as cell 0, cell 1 is an OPTIONAL PME (power
-> +  management event) interrupt that is able to wake up the host
-> +  system with a 50ms pulse on network activity
-> +  For generic bindings for interrupt controller parents, refer to
-> +  interrupt-controller/interrupts.txt
+On Wed, Aug 24, 2016 at 04:29:22AM +0000, Yuval Mintz wrote:
+> > This patch series provides following support
+> > a) Reorganized fields based out of SFF-8024 fields i.e. Identifier/
+> >    Encoding/Connector types which are common across SFP/SFP+ (SFF-8472)
+> >    and QSFP+/QSFP28 (SFF-8436/SFF-8636) modules into sff-common files.
+> > b) Support for diagnostics information for QSFP Plus/QSFP28 modules
+> >    based on SFF-8436/SFF-8636
+> > c) Supporting 25G/50G/100G speeds in supported/advertising fields
+> > d) Tested across various QSFP+/QSFP28 Copper/Optical modules
+> > 
+> > Standards for QSFP+/QSFP28
+> > a) QSFP+/QSFP28 - SFF 8636 Rev 2.7 dated January 26,2016
+> > b) SFF-8024 Rev 4.0 dated May 31, 2016
+> > 
+> > v4:
+> >   Sync ethtool-copy.h to kernel commit
+> > 89da45b8b5b2187734a11038b8593714f964ffd1
+> >   which includes support for 50G base SR2
+> 
+> What about the man-page?
 
-I think you should (slightly) reword this to avoid using the
-term "cell", which refers to a 32-bit word in the property,
-not the interrupt specifier that is often made up of two or
-three cells.
+I can just apply your man page patch on top.
 
-Maybe something like
-
-- interrupts: one or two interrupt specifiers:
-	- The first interrupt is the SMSC LAN interrupt line.
-	- The second interrupt (if present) is the power management
-	  event ...
-
-	Arnd
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
