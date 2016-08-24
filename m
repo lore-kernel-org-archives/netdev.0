@@ -1,63 +1,59 @@
-From: Lance Richardson <lrichard-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [net] openvswitch: Allow deferred action fifo to
- expand during run time
-Date: Wed, 24 Aug 2016 17:00:48 -0400 (EDT)
-Message-ID: <198804165.74341250.1472072448260.JavaMail.zimbra@redhat.com>
-References: <1458275533-2896-1-git-send-email-azhou@ovn.org>
- <20160318.171909.1177364175347712706.davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 0/5] Networking cgroup controller
+Date: Wed, 24 Aug 2016 17:03:57 -0400
+Message-ID: <20160824210357.GU8185@htj.duckdns.org>
+References: <1470876798-4024-1-git-send-email-anaravaram@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: dev-yBygre7rU0SM8Zsap4Y0gw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160318.171909.1177364175347712706.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: corbet@lwn.net, lizefan@huawei.com, hannes@cmpxchg.org,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net,
+        linux-doc@vger.kernel.org, cgroups@vger.kernel.org,
+        netdev@vger.kernel.org, edumazet@google.com, maheshb@google.com,
+        weiwan@google.com, tom@herbertland.com
+To: Anoop Naravaram <anaravaram@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f196.google.com ([209.85.213.196]:35027 "EHLO
+        mail-yb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751799AbcHXVHT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 17:07:19 -0400
+Content-Disposition: inline
+In-Reply-To: <1470876798-4024-1-git-send-email-anaravaram@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiAiRGF2aWQgTWlsbGVyIiA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBUbzogYXpob3VA
-b3ZuLm9yZwo+IENjOiBkZXZAb3BlbnZzd2l0Y2guY29tLCBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-Cj4gU2VudDogRnJpZGF5LCBNYXJjaCAxOCwgMjAxNiA1OjE5OjA5IFBNCj4gU3ViamVjdDogUmU6
-IFtuZXRdIG9wZW52c3dpdGNoOiBBbGxvdyBkZWZlcnJlZCBhY3Rpb24gZmlmbyB0byBleHBhbmQg
-ZHVyaW5nIHJ1biB0aW1lCj4gCj4gRnJvbTogQW5keSBaaG91IDxhemhvdUBvdm4ub3JnPgo+IERh
-dGU6IFRodSwgMTcgTWFyIDIwMTYgMjE6MzI6MTMgLTA3MDAKPiAKPiA+IEN1cnJlbnQgb3BlbnZz
-d2l0Y2ggaW1wbGVtZW50YXRpb24gYWxsb3dzIHVwIHRvIDEwIHJlY2lyY3VsYXRpb24gYWN0aW9u
-cwo+ID4gZm9yIGVhY2ggcGFja2V0LiBUaGlzIGxpbWl0IHdhcyBzdWZmaWNpZW50IGZvciBtb3N0
-IHVzZSBjYXNlcyBpbiB0aGUKPiA+IHBhc3QsIGJ1dCB3aXRoIG1vcmUgbmV3IGZlYXR1cmVzLCBz
-dWNoIGFzIHN1cHBvcnRpbmcgY29ubmVjdGlvbgo+ID4gdHJhY2tpbmcsIGFuZCB0ZXN0aW5nIGlu
-IGxhcmdlciBzY2FsZSBuZXR3b3JrIGVudmlyb25tZW50LAo+ID4gVGhpcyBsaW1pdCBtYXkgYmUg
-dG9vIHJlc3RyaWN0aXZlLgo+IMKgLi4uCj4gCj4gQWN0aW9ucyB0aGF0IG5lZWQgdG8gcmVjaXJj
-dWxhdGUgdGhhdCBtYW55IHRpbWVzIGFyZSBleHRyZW1lbHkgcG9vcmx5Cj4gZGVzaWduZWQsIGFu
-ZCB3aWxsIGhhdmUgc2lnbmlmaWNhbnQgcGVyZm9ybWFuY2UgcHJvYmxlbXMuCj4gCj4gSSB0aGlu
-ayB0aGUgd2F5IHJ1bGVzIGFyZSBwdXQgdG9nZXRoZXIgYW5kIHByb2Nlc3NlZCBzaG91bGQgYmUg
-cmVkb25lCj4gYmVmb3JlIHdlIGRvIGluc2FuZSBzdHVmZiBsaWtlIHRoaXMuCj4gCj4gVGhlcmUg
-aXMgbm8gd2F5IEknbSBhcHBseWluZyBhIHBhdGNoIGxpa2UgdGhpcywgc29ycnkuCj4gCgpBcG9s
-b2dpZXMgZm9yIGNvbWluZyBpbnRvIHRoaXMgdGhyZWFkIHNvIGxhdGUsIEkgaGFwcGVuZWQgb24g
-aXQgYWZ0ZXIgZmluZGluZwpvdXQgdGhhdCB0aGlzIGlzIGFjdHVhbGx5IGFuIGlzc3VlIGluIHNv
-bWUgcHJvZHVjdGlvbiBuZXR3b3Jrcy4KClRoZSBuZWVkIHRvIGJ1ZmZlciBzbyBtYW55IGRlZmVy
-cmVkIGFjdGlvbnMgc2VlbXMgdG8gYmUgbW9zdGx5IGR1ZSB0byBoYXZpbmcKcmVsYXRpdmVseSBz
-aW1wbGUgcnVsZXMgKHRoYXQgaGF2ZSwgc2F5LCBvbmUgb3IgdHdvIHJlY2lyY3VsYXRpb25zKSB0
-aGF0IGdldAptdWx0aXBsaWVkIHBlciBwYWNrZXQgYnkgdGhlIG51bWJlciBvZiBlZ3Jlc3MgcG9y
-dHMuCgpGb3IgZXhhbXBsZSwgYSBjb25maWd1cmF0aW9uIHdpdGggMTEgb3IgbW9yZSBPVlMgYm9u
-ZCBwb3J0cyBpbiBiYWxhbmNlLXRjcAptb2RlICh3aGljaCBuZWVkcyBvbmUgcmVjaXJjdWxhdGlv
-bikgd2lsbCBleGNlZWQgdGhlIGRlZmVycmVkIGFjdGlvbiBmaWZvIGxpbWl0Cm9mIDEwIGV2ZXJ5
-IHRpbWUgYSBicm9hZGNhc3QgKG9yIG11bHRpY2FzdCBvciB1bmtub3duIHVuaWNhc3QpIGlzIGZv
-cndhcmRlZCBieQp0aGUgT1ZTIGJyaWRnZSBiZWNhdXNlIG9uZSBlbnRyeSB3aWxsIGJlIGNvbnN1
-bWVkIGJ5IGVhY2ggZWdyZXNzIHBvcnQuIFNpbmNlCnRoZSBvcmRlciBpbiB3aGljaCBlZ3Jlc3Mg
-cG9ydHMgYXJlIGhhbmRsZWQgaXMgZGV0ZXJtaW5pc3RpYywgdGhpcyBtZWFucwplLmcuIGJyb2Fk
-Y2FzdCBBUlAgcmVxdWVzdHMgd2lsbCBvbmx5IGV2ZXIgbWFrZSBpdCBvdXQgdGhlIGZpcnN0IDEw
-IApib25kIHBvcnRzIGluIHRoaXMgc2NlbmFyaW8uCgpOb3RlIHRoYXQgYm9uZGluZyBpc24ndCBu
-ZWNlc3NhcnkgdG8gaGF2ZSB0aGlzIGlzc3VlLCBpdCBqdXN0IG1ha2VzIGZvciBhCnJlbGF0aXZl
-bHkgc3RyYWlnaHRmb3J3YXJkIGV4YW1wbGUuCgpBbmR5J3MgcGF0Y2ggY2VydGFpbmx5IHNlZW1z
-IHRvIGJlIGFuIGltcHJvdmVtZW50IG9uIHRoaXMgc2l0dWF0aW9uLApidXQgbWF5YmUgdGhlcmUg
-YW5vdGhlci9iZXR0ZXIgd2F5LgoKUmVnYXJkcywKCsKgwqAgTGFuY2UKX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3Bl
-bnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+Hello, Anoop.
+
+On Wed, Aug 10, 2016 at 05:53:13PM -0700, Anoop Naravaram wrote:
+> This patchset introduces a cgroup controller for the networking subsystem as a
+> whole. As of now, this controller will be used for:
+> 
+> * Limiting the specific ports that a process in a cgroup is allowed to bind
+>   to or listen on. For example, you can say that all the processes in a
+>   cgroup can only bind to ports 1000-2000, and listen on ports 1000-1100, which
+>   guarantees that the remaining ports will be available for other processes.
+> 
+> * Restricting which DSCP values processes can use with their sockets. For
+>   example, you can say that all the processes in a cgroup can only send
+>   packets with a DSCP tag between 48 and 63 (corresponding to TOS values of
+>   192 to 255).
+> 
+> * Limiting the total number of udp ports that can be used by a process in a
+>   cgroup. For example, you can say that all the processes in one cgroup are
+>   allowed to use a total of up to 100 udp ports. Since the total number of udp
+>   ports that can be used by all processes is limited, this is useful for
+>   rationing out the ports to different process groups.
+> 
+> In the future, more networking-related properties may be added to this
+> controller.
+
+Thanks for working on this; however, I share the sentiment expressed
+by others that this looks like too piecemeal an approach.  If there
+are no alternatives, we surely should consider this but it at least
+*looks* like bpf should be able to cover the same functionalities
+without having to revise and extend in-kernel capabilities constantly.
+
+Thanks.
+
+-- 
+tejun
