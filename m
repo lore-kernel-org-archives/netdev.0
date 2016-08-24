@@ -1,87 +1,135 @@
-From: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 1/3 v2] net: smsc911x: augment device tree bindings
-Date: Wed, 24 Aug 2016 14:59:40 +0200
-Message-ID: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
-Cc: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
-        Jeremy Linton <jeremy.linton-5wv7dgnIgG8@public.gmane.org>,
-        Kamlakant Patel <kamlakant.patel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Pavel Fedin <p.fedin-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-        Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: [PATCH 3/3 v2] net: smsc911x: add wake-up event interrupt support
+Date: Wed, 24 Aug 2016 14:59:42 +0200
+Message-ID: <1472043582-7653-3-git-send-email-linus.walleij@linaro.org>
+References: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
+Cc: Guenter Roeck <linux@roeck-us.net>,
+        Jeremy Linton <jeremy.linton@arm.com>,
+        Kamlakant Patel <kamlakant.patel@broadcom.com>,
+        Pavel Fedin <p.fedin@samsung.com>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Sudeep Holla <sudeep.holla@arm.com>,
+        Tony Lindgren <tony@atomide.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+        Steve Glendinning <steve.glendinning@smsc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:34693 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753456AbcHXNAR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 24 Aug 2016 09:00:17 -0400
+Received: by mail-lf0-f44.google.com with SMTP id l89so11307681lfi.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 06:00:06 -0700 (PDT)
+In-Reply-To: <1472043582-7653-1-git-send-email-linus.walleij@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds device tree bindings for:
+The SMSC911x have a line out of the chip called "PME",
+Power Management Event. When connected to an asynchronous
+interrupt controller this is able to wake the system up
+from sleep in response to certain network events.
 
-- An optional GPIO line for releasing the RESET signal to the
-  SMSC911x devices
+This is the first attempt to support this in the Linux
+driver: the Qualcomm APQ8060 Dragonboard has this line
+routed to a GPIO line on the primary SoC padring, and as
+such it can be armed as a wakeup interrupt.
 
-- An optional PME (power management event) interrupt line that
-  can be utilized to wake up the system on network activity.
-  This signal exist on all the SMSC911x devices, it is just not
-  very often routed.
+The patch is inspired by the wakeup code in the RTC
+subsystem.
 
-Both these lines are routed to the SoC on the Qualcomm APQ8060
-Dragonboard and thus needs to be bound in the device tree.
+The code looks for an additional interrupt - apart from the
+ordinary device interrupt - and in case that is present,
+we register an interrupt handler to respons to this,
+and flag the device and this interrupt as a wakeup.
 
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Signed-off-by: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Cc: Sudeep Holla <sudeep.holla@arm.com>
+Cc: Tony Lindgren <tony@atomide.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 ---
 ChangeLog v1->v2:
-- Document for "interrupts", skip mentioning "interrupts-extended"
-  as both are always supported.
+- Call pm_wakeup_event() in the wakeup IRQ thread to
+  account for the wakeup event.
+- Drop the enable/disable_irq_wake() calls from suspend/resume:
+  this is handled from the irq core when you call
+  dev_pm_set_wake_irq() as we do.
 ---
- Documentation/devicetree/bindings/net/smsc911x.txt | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 42 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
-index 3fed3c124411..11c4a46ba682 100644
---- a/Documentation/devicetree/bindings/net/smsc911x.txt
-+++ b/Documentation/devicetree/bindings/net/smsc911x.txt
-@@ -3,9 +3,12 @@
- Required properties:
- - compatible : Should be "smsc,lan<model>", "smsc,lan9115"
- - reg : Address and length of the io space for SMSC LAN
--- interrupts : Should contain SMSC LAN interrupt line
--- interrupt-parent : Should be the phandle for the interrupt controller
--  that services interrupts for this device
-+- interrupts : Should contain the SMSC LAN
-+  interrupt line as cell 0, cell 1 is an OPTIONAL PME (power
-+  management event) interrupt that is able to wake up the host
-+  system with a 50ms pulse on network activity
-+  For generic bindings for interrupt controller parents, refer to
-+  interrupt-controller/interrupts.txt
- - phy-mode : See ethernet.txt file in the same directory
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 8ab8d4b9614b..8fffc1dc2bdd 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -63,6 +63,7 @@
+ #include <linux/pm_runtime.h>
+ #include <linux/property.h>
+ #include <linux/gpio/consumer.h>
++#include <linux/pm_wakeirq.h>
  
- Optional properties:
-@@ -21,6 +24,10 @@ Optional properties:
-   external PHY
- - smsc,save-mac-address : Indicates that mac address needs to be saved
-   before resetting the controller
-+- reset-gpios : a GPIO line connected to the RESET (active low) signal
-+  of the device. On many systems this is wired high so the device goes
-+  out of reset at power-on, but if it is under program control, this
-+  optional GPIO can wake up in response to it.
+ #include "smsc911x.h"
  
- Examples:
+@@ -151,6 +152,9 @@ struct smsc911x_data {
+ 	/* Reset GPIO */
+ 	struct gpio_desc *reset_gpiod;
  
-@@ -29,7 +36,8 @@ lan9220@f4000000 {
- 	reg = <0xf4000000 0x2000000>;
- 	phy-mode = "mii";
- 	interrupt-parent = <&gpio1>;
--	interrupts = <31>;
-+	interrupts = <31>, <32>;
-+	reset-gpios = <&gpio1 30 GPIO_ACTIVE_LOW>;
- 	reg-io-width = <4>;
- 	smsc,irq-push-pull;
++	/* PME interrupt */
++	int pme_irq;
++
+ 	/* clock */
+ 	struct clk *clk;
  };
+@@ -1881,6 +1885,19 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
+ 	return serviced;
+ }
+ 
++static irqreturn_t smsc911x_pme_irq_thread(int irq, void *dev_id)
++{
++	struct net_device *dev = dev_id;
++	struct smsc911x_data *pdata __maybe_unused = netdev_priv(dev);
++
++	SMSC_TRACE(pdata, pm, "wakeup event");
++	pm_wakeup_event(&dev->dev, 50);
++	/* This signal is active for 50 ms, wait for it to deassert */
++	usleep_range(50000, 100000);
++
++	return IRQ_HANDLED;
++}
++
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void smsc911x_poll_controller(struct net_device *dev)
+ {
+@@ -2501,6 +2518,31 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+ 		goto out_disable_resources;
+ 	}
+ 
++	irq = platform_get_irq(pdev, 1);
++	if (irq == -EPROBE_DEFER) {
++		retval = -EPROBE_DEFER;
++		goto out_disable_resources;
++	/* It's perfectly fine to not have a PME IRQ */
++	} else if (irq > 0) {
++		/*
++		 * The Power Management Event (PME) IRQ appears as
++		 * a pulse waking up the system from sleep in response to  a
++		 * network event.
++		 */
++		retval = request_threaded_irq(irq, NULL,
++					      smsc911x_pme_irq_thread,
++					      IRQF_ONESHOT, "smsc911x-pme",
++					      dev);
++		if (retval) {
++			SMSC_WARN(pdata, probe,
++			"Unable to claim requested PME irq: %d", irq);
++			goto out_disable_resources;
++		}
++		pdata->pme_irq = irq;
++		device_init_wakeup(&pdev->dev, true);
++		dev_pm_set_wake_irq(&pdev->dev, irq);
++	}
++
+ 	netif_carrier_off(dev);
+ 
+ 	retval = register_netdev(dev);
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
