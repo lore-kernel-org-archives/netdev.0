@@ -1,57 +1,93 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: CVE-2014-9900 fix is not upstream
-Date: Thu, 25 Aug 2016 14:41:08 +0200
-Message-ID: <1472128868.24772.12.camel@sipsolutions.net>
-References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
-         <20160823.094029.1244944495918162255.davem@davemloft.net>
-         <1471973727.13300.162.camel@decadent.org.uk>
-         <20160823.112406.549221808236512285.davem@davemloft.net>
-         <20160823200941.GB2356@ZenIV.linux.org.uk>
-         <1471984445.3746.129.camel@perches.com>
-         <20160823204933.GA14311@csclub.uwaterloo.ca>
-         <20160823212545.GC2356@ZenIV.linux.org.uk>
-         <20160824140316.GB14309@csclub.uwaterloo.ca>
-         <18517b44-0d3f-3f83-e327-60064c170c5a@stressinduktion.org>
-         (sfid-20160824_223642_965094_F10174F7) <1472128800.24772.11.camel@sipsolutions.net>
-         (sfid-20160825_144034_137293_6B5C4140)
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RESEND PATCH net 06/10] net: ethernet: mediatek: fix the loss
+ of pin-mux setting for GMAC2
+Date: Thu, 25 Aug 2016 15:30:34 +0200
+Message-ID: <20160825133034.GA25046@lunn.ch>
+References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
+ <1472121901-15629-7-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>,
-        ben@decadent.org.uk, luis.henriques@canonical.com,
-        avijitnsec@codeaurora.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-        Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472128800.24772.11.camel@sipsolutions.net> (sfid-20160825_144034_137293_6B5C4140)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
+        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+        keyhaede@gmail.com
+To: Sean Wang <sean.wang@mediatek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:44149 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758507AbcHYNar (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 09:30:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1472121901-15629-7-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Aug 25, 2016 at 06:44:57PM +0800, Sean Wang wrote:
+> ommited the setting about pin-mux which results in incorrect signals
+> being routed on GMAC2.
 
-> struct ethtool_wolinfo {
->         __u32   cmd;
->         __u32   supported;
->         __u32   wolopts;
->         __u8    sopass[SOPASS_MAX];     // 6, actually
-> };
-> 
-> we could do
-> 
-> struct ethtool_wolinfo {
->         __u32   cmd;
->         __u32   supported;
->         __u32   wolopts;
->         __u8    sopass[SOPASS_MAX];     // 6, actually
-> 	__u8	reserved[2];
-> };
-> 
-> and then the compiler has to properly treat it, since it's no longer
-> unnamed padding.
-> 
+Hi Sean
 
-Although, on some architectures, that could actually break the ABI by
-changing the size, oh well.
+Please could you explain this some more. I don't know too much about
+pinctrl, but i've never seen a driver have to do anything with it. The
+core driver code handles it all, selecting the default state. See
+seeing this here makes me wonder if it is correct.
 
-johannes
+Thanks
+	Andrew
+
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 14 ++++++++++++++
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.h |  3 +++
+>  2 files changed, 17 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index 5bd31f8..0a4c782 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -1415,6 +1415,7 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+>  	usleep_range(10, 20);
+>  	reset_control_deassert(eth->rstc);
+>  	usleep_range(10, 20);
+> +	pinctrl_select_state(eth->pins, eth->ephy_default);
+>  
+>  	/* Set GE2 driving and slew rate */
+>  	regmap_write(eth->pctl, GPIO_DRV_SEL10, 0xa00);
+> @@ -1858,6 +1859,19 @@ static int mtk_probe(struct platform_device *pdev)
+>  			return -ENODEV;
+>  	}
+>  
+> +	eth->pins = devm_pinctrl_get(&pdev->dev);
+> +	if (IS_ERR(eth->pins)) {
+> +		dev_err(&pdev->dev, "cannot get pinctrl\n");
+> +		return PTR_ERR(eth->pins);
+> +	}
+> +
+> +	eth->ephy_default =
+> +		pinctrl_lookup_state(eth->pins, "default");
+> +	if (IS_ERR(eth->ephy_default)) {
+> +		dev_err(&pdev->dev, "cannot get pinctrl state\n");
+> +		return PTR_ERR(eth->ephy_default);
+> +	}
+> +
+>  	clk_prepare_enable(eth->clk_ethif);
+>  	clk_prepare_enable(eth->clk_esw);
+>  	clk_prepare_enable(eth->clk_gp1);
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+> index f82e3ac..13d3f1b 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+> @@ -404,6 +404,9 @@ struct mtk_eth {
+>  	struct clk			*clk_esw;
+>  	struct clk			*clk_gp1;
+>  	struct clk			*clk_gp2;
+> +	struct pinctrl			*pins;
+> +	struct pinctrl_state		*ephy_default;
+> +
+>  	struct mii_bus			*mii_bus;
+>  	struct work_struct		pending_work;
+>  };
+> -- 
+> 1.9.1
+> 
