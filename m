@@ -1,83 +1,67 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: A second case of XPS considerably reducing single-stream
- performance
-Date: Thu, 25 Aug 2016 13:18:38 -0700
-Message-ID: <bc180ced-9d54-1ef4-1202-22b02df3b266@hpe.com>
-References: <549357ea-dfda-284b-cdd6-4408060f9ca8@hpe.com>
- <a661ff61-9cf8-fe86-ca20-2181394e1dbb@hpe.com>
- <CAKgT0UeQ_cL4aaSSc47EgzbYp7WZF7C-4+JG6T7gw78J3rv+ZA@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH iproute] iptuntap: show processes using tuntap interface
+Date: Thu, 25 Aug 2016 21:37:58 +0200
+Message-ID: <ced543a3-b8d8-d508-bcfc-8e7822e28d85@stressinduktion.org>
+References: <1472062105-17995-1-git-send-email-hannes@stressinduktion.org>
+ <20160825084424.73a31b8a@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, sathya.perla@broadcom.com,
-        ajit.khaparde@broadcom.com, sriharsha.basavapatna@broadcom.com,
-        somnath.kotur@broadcom.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2353.austin.hpe.com ([15.233.44.26]:13679 "EHLO
-        g2t2353.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753773AbcHYUSk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 16:18:40 -0400
-In-Reply-To: <CAKgT0UeQ_cL4aaSSc47EgzbYp7WZF7C-4+JG6T7gw78J3rv+ZA@mail.gmail.com>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:41497 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754378AbcHYUYB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 16:24:01 -0400
+In-Reply-To: <20160825084424.73a31b8a@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2016 12:19 PM, Alexander Duyck wrote:
-> The problem is that there is no socket associated with the guest from
-> the host's perspective.  This is resulting in the traffic bouncing
-> between queues because there is no saved socket  to lock the interface
-> onto.
->
-> I was looking into this recently as well and had considered a couple
-> of options.  The first is to fall back to just using skb_tx_hash()
-> when skb->sk is null for a given buffer.  I have a patch I have been
-> toying around with but I haven't submitted it yet.  If you would like
-> I can submit it as an RFC to get your thoughts.  The second option is
-> to enforce the use of RPS for any interfaces that do not perform Rx in
-> NAPI context.  The correct solution for this is probably some
-> combination of the two as you have to have all queueing done in order
-> at every stage of the packet processing.
+On 25.08.2016 17:44, Stephen Hemminger wrote:
+> On Wed, 24 Aug 2016 20:08:25 +0200
+> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> 
+>> Show which processes are using which tun/tap devices, e.g.:
+>>
+>> $ ip -d tuntap
+>> tun0: tun
+>> 	Attached to processes: vpnc(9531)
+>> vnet0: tap vnet_hdr
+>> 	Attached to processes: qemu-system-x86(10442)
+>> virbr0-nic: tap UNKNOWN_FLAGS:800
+>> 	Attached to processes:
+>>
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> 
+> I think reading all of /proc like this will scale really badly on large systems.
 
-I don't know with interfaces would be hit, but just in general, I'm not 
-sure that requiring RPS be enabled is a good solution - picking where 
-traffic is processed based on its addressing is fine in a benchmarking 
-situation, but I think it is better to have the process/thread scheduler 
-decide where something should run and not the addressing of the 
-connections that thread/process is servicing.
+Yes, it is quite heavy weight but so far I didn't see any major latency
+on even more busy systems (tens of thousands of fds). Also this code is
+only entered if details are requested. I don't see a cheaper way to
+determine those information currently without further patches (which
+probably all will have the same n:m problem, as fds can be shared
+between multiple processes).
 
-I would be interested in seeing the RFC patch you propose.
+> Why reinvent lsof?
 
-Apart from that, given the prevalence of VMs these days I wonder if 
-perhaps simply not enabling XPS by default isn't a viable alternative. 
-I've not played with containers to know if they would exhibit this too.
+lsof currently doesn't provide this information and would also have to
+brute force in the same way (it scans all fds anyway, thought). In my
+opinion it is just very helpful on virtualization boxes to quickly
+identify the vm associated with an interface.
 
-Drifting ever so slightly, if drivers are going to continue to enable 
-XPS by default, Documentation/networking/scaling.txt might use a tweak:
+I would propose that in case we see people reporting latency issues to
+speed it up in possibly two ways:
 
-diff --git a/Documentation/networking/scaling.txt 
-b/Documentation/networking/sca
-index 59f4db2..8b5537c 100644
---- a/Documentation/networking/scaling.txt
-+++ b/Documentation/networking/scaling.txt
-@@ -402,10 +402,12 @@ acknowledged.
+a) not glob over the whole pid/fd space, but just take one number at a
+time, e.g. /proc/1*/fd/*, /proc/2*/fd/* etc.
 
-  ==== XPS Configuration
+b) or/and we just push everything into an internal hash table so for
+multiple interfaces we don't need to walk again.
 
--XPS is only available if the kconfig symbol CONFIG_XPS is enabled (on by
--default for SMP). The functionality remains disabled until explicitly
--configured. To enable XPS, the bitmap of CPUs that may use a transmit
--queue is configured using the sysfs file entry:
-+XPS is available only when the kconfig symbol CONFIG_XPS is enabled
-+(on by default for SMP). The drivers for some NICs will enable the
-+functionality by default.  For others the functionality remains
-+disabled until explicitly configured. To enable XPS, the bitmap of
-+CPUs that may use a transmit queue is configured using the sysfs file
-+entry:
+I would just try to not add the complexity if it is not necessary.
 
-  /sys/class/net/<dev>/queues/tx-<n>/xps_cpus
+Thoughts?
 
-
-The original wording leaves the impression that XPS is not enabled by 
-default.
-
-rick
+Bye,
+Hannes
