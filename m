@@ -1,84 +1,60 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH] net: Require socket to allow XPS to set queue mapping
-Date: Thu, 25 Aug 2016 12:23:28 -0700
-Message-ID: <147215300812.3936.8031402062962283044.stgit@ahduyck-desk.amr.corp.intel.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: A second case of XPS considerably reducing single-stream performance
+Date: Thu, 25 Aug 2016 12:19:17 -0700
+Message-ID: <CAKgT0UeQ_cL4aaSSc47EgzbYp7WZF7C-4+JG6T7gw78J3rv+ZA@mail.gmail.com>
+References: <549357ea-dfda-284b-cdd6-4408060f9ca8@hpe.com> <a661ff61-9cf8-fe86-ca20-2181394e1dbb@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, rick.jones2@hpe.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, sathya.perla@broadcom.com,
+        ajit.khaparde@broadcom.com, sriharsha.basavapatna@broadcom.com,
+        somnath.kotur@broadcom.com
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:29565 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752567AbcHYTXa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 15:23:30 -0400
+Received: from mail-it0-f53.google.com ([209.85.214.53]:35331 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756419AbcHYT0C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:26:02 -0400
+Received: by mail-it0-f53.google.com with SMTP id x131so290983734ite.0
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:26:02 -0700 (PDT)
+In-Reply-To: <a661ff61-9cf8-fe86-ca20-2181394e1dbb@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have been seeing a number of issues where XPS leads to issues with
-packets being reordered in the transmit queues of the device drivers.  The
-main situation where this seems to occur is when a VM us using a tap
-interface to send packets to the network via a NIC that has XPS enabled.
+On Wed, Aug 24, 2016 at 4:46 PM, Rick Jones <rick.jones2@hpe.com> wrote:
+> Also, while it doesn't seem to have the same massive effect on throughput, I
+> can also see out of order behaviour happening when the sending VM is on a
+> node with a ConnectX-3 Pro NIC.  Its driver is also enabling XPS it would
+> seem.  I'm not *certain* but looking at the traces it appears that with the
+> ConnectX-3 Pro there is more interleaving of the out-of-order traffic than
+> there is with the Skyhawk.  The ConnectX-3 Pro happens to be in a newer
+> generation server with a newer processor than the other systems where I've
+> seen this.
+>
+> I do not see the out-of-order behaviour when the NIC at the sending end is a
+> BCM57840.  It does not appear that the bnx2x driver in the 4.4 kernel is
+> enabling XPS.
+>
+> So, it would seem that there are three cases of enabling XPS resulting in
+> out-of-order traffic, two of which result in a non-trivial loss of
+> performance.
+>
+> happy benchmarking,
+>
+> rick jones
 
-A bit of looking into this revealed the main issue is that the scheduler
-seems to be migrating the VM between CPUs and as this occurs the traffic
-for a given flow from a VM is following this migration and hopping between
-Tx queues leading to packet reordering.
+The problem is that there is no socket associated with the guest from
+the host's perspective.  This is resulting in the traffic bouncing
+between queues because there is no saved socket  to lock the interface
+onto.
 
-A workaround for this is to make certain all the VMs have RPS enabled on
-the tap interfaces, however this requires extra configuration on the host
-for each VM created.
+I was looking into this recently as well and had considered a couple
+of options.  The first is to fall back to just using skb_tx_hash()
+when skb->sk is null for a given buffer.  I have a patch I have been
+toying around with but I haven't submitted it yet.  If you would like
+I can submit it as an RFC to get your thoughts.  The second option is
+to enforce the use of RPS for any interfaces that do not perform Rx in
+NAPI context.  The correct solution for this is probably some
+combination of the two as you have to have all queueing done in order
+at every stage of the packet processing.
 
-A simpler approach is provided with this patch.  With it we disable XPS any
-time a socket is not present for a given flow.  By doing this we can avoid
-using XPS for any routing or bridging situations in which XPS is likely
-more of a hinderance than a help.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- net/core/dev.c |   28 +++++++++++++++-------------
- 1 file changed, 15 insertions(+), 13 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a75df86..9cea73b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3242,24 +3242,26 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- 
- static u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
- {
-+	int queue_index, new_index;
- 	struct sock *sk = skb->sk;
--	int queue_index = sk_tx_queue_get(sk);
- 
--	if (queue_index < 0 || skb->ooo_okay ||
--	    queue_index >= dev->real_num_tx_queues) {
--		int new_index = get_xps_queue(dev, skb);
--		if (new_index < 0)
--			new_index = skb_tx_hash(dev, skb);
-+	if (!sk)
-+		return skb_tx_hash(dev, skb);
- 
--		if (queue_index != new_index && sk &&
--		    sk_fullsock(sk) &&
--		    rcu_access_pointer(sk->sk_dst_cache))
--			sk_tx_queue_set(sk, new_index);
-+	queue_index = sk_tx_queue_get(sk);
-+	if (queue_index >= 0 && !skb->ooo_okay &&
-+	    queue_index < dev->real_num_tx_queues)
-+		return queue_index;
- 
--		queue_index = new_index;
--	}
-+	new_index = get_xps_queue(dev, skb);
-+	if (new_index < 0)
-+		new_index = skb_tx_hash(dev, skb);
- 
--	return queue_index;
-+	if (queue_index != new_index && sk_fullsock(sk) &&
-+	    rcu_access_pointer(sk->sk_dst_cache))
-+		sk_tx_queue_set(sk, new_index);
-+
-+	return new_index;
- }
- 
- struct netdev_queue *netdev_pick_tx(struct net_device *dev,
+- Alex
