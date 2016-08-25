@@ -1,111 +1,67 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [RFC PATCH] net: ip_finish_output_gso: Attempt gso_size
- clamping if segments exceed mtu
-Date: Thu, 25 Aug 2016 12:05:33 +0300
-Message-ID: <20160825120533.352bbd1b@pixies>
-References: <1471867570-1406-1-git-send-email-shmulik.ladkani@gmail.com>
-        <20160822125842.GF6199@breakpoint.cc>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
+ connection
+Date: Thu, 25 Aug 2016 11:06:02 +0200
+Message-ID: <20160825090602.GA30509@breakpoint.cc>
+References: <1471524527-10029-1-git-send-email-fw@strlen.de>
+ <1471524527-10029-2-git-send-email-fw@strlen.de>
+ <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36018 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933159AbcHYJFl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 05:05:41 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i138so6432163wmf.3
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 02:05:40 -0700 (PDT)
-In-Reply-To: <20160822125842.GF6199@breakpoint.cc>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:49152 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933159AbcHYJGE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 05:06:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On Mon, 22 Aug 2016 14:58:42 +0200, fw@strlen.de wrote:
-> Shmulik Ladkani <shmulik.ladkani@gmail.com> wrote:
-> > There are cases where gso skbs (which originate from an ingress
-> > interface) have a gso_size value that exceeds the output dst mtu:
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2016-08-18 at 14:48 +0200, Florian Westphal wrote:
+> > commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
+> > added the main infrastructure that is needed for per-connection
+> > randomization, in particular writing/reading the on-wire tcp header
+> > format takes the offset into account so rest of stack can use normal
+> > tcp_time_stamp (jiffies).
 > > 
-> >  - ipv4 forwarding middlebox having in/out interfaces with different mtus
-> >    addressed by fe6cc55f3a 'net: ip, ipv6: handle gso skbs in forwarding path'
-> >  - bridge having a tunnel member interface stacked over a device with small mtu
-> >    addressed by b8247f095e 'net: ip_finish_output_gso: If skb_gso_network_seglen exceeds MTU, allow segmentation for local udp tunneled skbs'
+> > So only two items are left:
+> >  - add a tsoffset for request sockets
+> >  - extend the tcp isn generator to also return another 32bit number
+> >  in addition to the ISN.
 > > 
-> > In both cases, such skbs are identified, then go through early software
-> > segmentation+fragmentation as part of ip_finish_output_gso.
-> > 
-> > Another approach is to shrink the gso_size to a value suitable so
-> > resulting segments are smaller than dst mtu, as suggeted by Eric
-> > Dumazet (as part of [1]) and Florian Westphal (as part of [2]).
-> > 
-> > This will void the need for software segmentation/fragmentation at
-> > ip_finish_output_gso, thus significantly improve throughput and lower
-> > cpu load.
-> > 
-> > This RFC patch attempts to implement this gso_size clamping.
-> > 
-> > [1] https://patchwork.ozlabs.org/patch/314327/
-> > [2] https://patchwork.ozlabs.org/patch/644724/
-> > 
-> > Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> > ---
-> > 
-> >  Florian, in fe6cc55f you described a BUG due to gso_size decrease.
-> >  I've tested both bridged and routed cases, but in my setups failed to
-> >  hit the issue; Appreciate if you can provide some hints.
+> > Re-use of ISN generator also means timestamps are still monotonically
+> > increasing for same connection quadruple.
 > 
-> Still get the BUG, I applied this patch on top of net-next.
+> I like the idea, but the implementation looks a bit complex.
+> 
+> Instead of initializing tsoffset to 0, we could simply use
+> 
+> jhash(src_addr, dst_addr, boot_time_rnd)
+> 
+> This way, even syncookies would be handled, and we do not need to
+> increase tcp_request_sock size.
 
-The BUG occurs when GRO occurs on the ingress, and only if GRO merges
-skbs into the frag_list (OTOH when segments are only placed into frags[]
-of a single skb, skb_segment succeeds even if gso_size was altered).
+So I gave this a try and it does avoid this tcp_request_sock increase,
+but I feel that getting boot_time_rnd is too easy.
 
-This is due to an assumption that the frag_list members terminate on
-exact MSS boundaries (which no longer holds during gso_size clamping).
+I tried a few other ideas but nothing satisfying/simpler came out of it
+(e.g. i tried to also hash the isn but that gets scaled w. current
+ clock so it doesn't work).
 
-The assumption is dated back to original support of 'frag_list' to
-skb_segment:
+Are you more concerned wrt. complexity or the reqsk increase?
 
-    89319d3801 net: Add frag_list support to skb_segment
+One could use tfo boolean padding in the struct to avoid size increase
+(1 bit tfo_listener, 31 for tsoff).
 
-    This patch adds limited support for handling frag_list packets in
-    skb_segment.  The intention is to support GRO (Generic Receive Offload)
-    packets which will be constructed by chaining normal packets using
-    frag_list.
-    
-    As such we require all frag_list members terminate on exact MSS
-    boundaries.  This is checked using BUG_ON.
-    
-    As there should only be one producer in the kernel of such packets,
-    namely GRO, this requirement should not be difficult to maintain.
+I would then split this patch in two (one to add tsoff to reqsk, one
+to add the randomization).
 
-We have few alternatives for gso_size clamping:
+The only other alternative I see is to eat 2nd md5_transform and
+add a tso_offset function to secure_seq.c -- but I don't like that
+either.
 
-1 Fix 'skb_segment' arithmentics to support inputs that do not match
-  the "frag_list members terminate on exact MSS" assumption.
-
-2 Perform gso_size clamping in 'ip_finish_output_gso' for non-GROed skbs.
-  Other usecases will still benefit: (a) packets arriving from
-  virtualized interfaces, e.g. tap and friends; (b) packets arriving from
-  veth of other namespaces (packets are locally generated by TCP stack
-  on a different netns).
-
-3 Ditch the idea, again ;)
-
-We can persue (1), especially if there are other benefits doing so.
-OTOH due to the current complexity of 'skb_segment' this is bit risky.
-
-Going with (2) could be reasonable too, as it brings value for
-the virtualized environmnets that need gso_size clamping, while
-presenting minimal risk.
-
-Appreciate your opinions.
-
-Regards,
-Shmulik
+Any other idea?
