@@ -1,70 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/6] net: dsa: b53: Initialize ds->drv in
- b53_switch_alloc
-Date: Wed, 24 Aug 2016 20:14:23 -0700
-Message-ID: <3659c751-2278-efc5-287d-bc400d72f909@gmail.com>
-References: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
- <1472088825-20181-2-git-send-email-f.fainelli@gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next 2/3] net: mpls: Fixups for GSO
+Date: Wed, 24 Aug 2016 20:58:07 -0700
+Message-ID: <CAOrHB_CP-RY0UnS0cDq6=SwHFUCtFRoiOKzchoFxEaQqeNBSwQ@mail.gmail.com>
+References: <1471626542-13335-1-git-send-email-dsa@cumulusnetworks.com>
+ <1471626542-13335-3-git-send-email-dsa@cumulusnetworks.com>
+ <20160822122122.GA8689@penelope.isobedori.kobe.vergenet.net>
+ <dcf3df40-3914-37c6-55dc-e5c3de7530b5@cumulusnetworks.com>
+ <20160822145134.GA26491@penelope.isobedori.kobe.vergenet.net>
+ <3297517c-2889-19fe-5aa4-89e1d14eadca@cumulusnetworks.com>
+ <20160824072002.GA27254@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_BEn2D_iUgkqPD8ixhjJtnaLpYkANxL+Au7wO=8oKmGag@mail.gmail.com>
+ <586321df-72c6-0dee-4ce6-22ca2a0860fb@cumulusnetworks.com>
+ <CAOrHB_Dw1MJnfeD034HzGWkMrzEhP6PUKGFP3jDJzeNyRSZcHg@mail.gmail.com> <350fc449-ae3a-8e48-8a09-6d95cfa9901e@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, andrew@lunn.ch, jon.mason@broadcom.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: Simon Horman <simon.horman@netronome.com>,
+        Pravin B Shelar <pshelar@nicira.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, buytenh@wantstofly.org,
+        "Eric W. Biederman" <ebiederm@xmission.com>, rshearma@brocade.com,
+        tom@herbertland.com, Thomas Graf <tgraf@suug.ch>,
+        olivier.dugeon@orange.com,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        roopa@cumulusnetworks.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36254 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750698AbcHYEXH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 00:23:07 -0400
-Received: by mail-oi0-f68.google.com with SMTP id b22so3564025oii.3
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 21:21:56 -0700 (PDT)
-In-Reply-To: <1472088825-20181-2-git-send-email-f.fainelli@gmail.com>
+Received: from slow1-d.mail.gandi.net ([217.70.178.86]:49188 "EHLO
+        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750715AbcHYEZ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 00:25:26 -0400
+Received: from relay2-d.mail.gandi.net (relay2-d.mail.gandi.net [217.70.183.194])
+        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 5008B47ED71
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 05:58:14 +0200 (CEST)
+Received: from mfilter37-d.gandi.net (mfilter37-d.gandi.net [217.70.178.168])
+        by relay2-d.mail.gandi.net (Postfix) with ESMTP id 3C817C5A46
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 05:58:12 +0200 (CEST)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+        by mfilter37-d.gandi.net (mfilter37-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+        with ESMTP id yCQqLvcFIP0f for <netdev@vger.kernel.org>;
+        Thu, 25 Aug 2016 05:58:10 +0200 (CEST)
+Received: from mail-it0-f53.google.com (mail-it0-f53.google.com [209.85.214.53])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id AFC76C5A53
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 05:58:09 +0200 (CEST)
+Received: by mail-it0-f53.google.com with SMTP id f6so30265260ith.0
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 20:58:09 -0700 (PDT)
+In-Reply-To: <350fc449-ae3a-8e48-8a09-6d95cfa9901e@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 24/08/2016 à 18:33, Florian Fainelli a écrit :
-> In order to alloc drivers to override specific dsa_switch_driver
-> callbacks, initialize ds->drv to b53_switch_ops earlier, which avoids
-> having to expose this structure to glue drivers.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+On Wed, Aug 24, 2016 at 11:53 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 8/24/16 11:41 AM, pravin shelar wrote:
+>> You also need to change pop_mpls().
+>
+> What change is needed in pop_mpls? It already resets the mac_header and if MPLS labels are removed there is no need to set network_header. I take it you mean if the protocol is still MPLS and there are still labels then the network header needs to be set and that means finding the bottom label. Does OVS set the bottom of stack bit? From what I can tell OVS is not parsing the MPLS label so no requirement that BOS is set. Without that there is no way to tell when the labels are done short of guessing.
+>
 
-This will need some refactoring after Vivien's "net: dsa: rename switch
-operations structure" patch.
-
-> ---
->  drivers/net/dsa/b53/b53_common.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-> index 65ecb51f99e5..30377ceb1928 100644
-> --- a/drivers/net/dsa/b53/b53_common.c
-> +++ b/drivers/net/dsa/b53/b53_common.c
-> @@ -1602,7 +1602,6 @@ static const struct b53_chip_data b53_switch_chips[] = {
->  
->  static int b53_switch_init(struct b53_device *dev)
->  {
-> -	struct dsa_switch *ds = dev->ds;
->  	unsigned int i;
->  	int ret;
->  
-> @@ -1618,7 +1617,6 @@ static int b53_switch_init(struct b53_device *dev)
->  			dev->vta_regs[1] = chip->vta_regs[1];
->  			dev->vta_regs[2] = chip->vta_regs[2];
->  			dev->jumbo_pm_reg = chip->jumbo_pm_reg;
-> -			ds->drv = &b53_switch_ops;
->  			dev->cpu_port = chip->cpu_port;
->  			dev->num_vlans = chip->vlans;
->  			dev->num_arl_entries = chip->arl_entries;
-> @@ -1706,6 +1704,7 @@ struct b53_device *b53_switch_alloc(struct device *base,
->  	dev->ds = ds;
->  	dev->priv = priv;
->  	dev->ops = ops;
-> +	ds->drv = &b53_switch_ops;
->  	mutex_init(&dev->reg_mutex);
->  	mutex_init(&dev->stats_mutex);
->  
-> 
-
-
--- 
-Florian
+OVS mpls push and pop action works on outer most mpls label. So
+according to new mpls offsets tracking scheme on mpls_pop action you
+need to adjust skb network offset.
