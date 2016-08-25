@@ -1,134 +1,187 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
-Date: Thu, 25 Aug 2016 15:57:29 +0200
-Message-ID: <57BEF949.6090808@digikod.net>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <CALCETrW98g_x0US92+Qq8gkN1N+y21rjSXcGBR7nRd1hWU7AgQ@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Al6xw5FI9qr3UgJ4HsDw4rRlN4Qqoc78t"
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
-        "David S . Miller"
- <davem@davemloft.net>,
-        Elena Reshetova <elena.reshetova@intel.com>,
-        James Morris <james.l.morris@oracle.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
-        Kernel Hardening <kernel-hardening@lists.openwall.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        LSM List <linux-security-module@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <kernel-hardening-return-4466-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CALCETrW98g_x0US92+Qq8gkN1N+y21rjSXcGBR7nRd1hWU7AgQ@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] net: flush the softnet backlog in process context
+Date: Thu, 25 Aug 2016 15:58:44 +0200
+Message-ID: <528006070d2951617c55b94c60c5d690ff0e4fc3.1472130597.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46002 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934263AbcHYODM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 10:03:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Al6xw5FI9qr3UgJ4HsDw4rRlN4Qqoc78t
-Content-Type: multipart/mixed; boundary="2HflmeHHgbTbeHlc69LqQTKE1mnqnoMgi"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Andy Lutomirski <luto@amacapital.net>
-Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
- Arnd Bergmann <arnd@arndb.de>, Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
- David Drysdale <drysdale@google.com>, "David S . Miller"
- <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
- James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
- Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
- "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
- Kernel Hardening <kernel-hardening@lists.openwall.com>,
- Linux API <linux-api@vger.kernel.org>,
- LSM List <linux-security-module@vger.kernel.org>,
- Network Development <netdev@vger.kernel.org>
-Message-ID: <57BEF949.6090808@digikod.net>
-Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <CALCETrW98g_x0US92+Qq8gkN1N+y21rjSXcGBR7nRd1hWU7AgQ@mail.gmail.com>
-In-Reply-To: <CALCETrW98g_x0US92+Qq8gkN1N+y21rjSXcGBR7nRd1hWU7AgQ@mail.gmail.com>
+Currently in process_backlog(), the process_queue dequeuing is
+performed with local IRQ disabled, to protect against
+flush_backlog(), which runs in hard IRQ context.
 
---2HflmeHHgbTbeHlc69LqQTKE1mnqnoMgi
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+This patch moves the flush operation to a work queue and runs the
+callback with bottom half disabled to protect the process_queue
+against dequeuing.
+Since process_queue is now always manipulated in bottom half context,
+the irq disable/enable pair around the dequeue operation are removed.
 
+To keep the flush time as low as possible, the flush
+works are scheduled on all online cpu simultaneously, using the
+high priority work-queue and statically allocated, per cpu,
+work structs.
 
-On 25/08/2016 13:05, Andy Lutomirski wrote:
-> On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
-net> wrote:
->> Hi,
->>
->> This series is a proof of concept to fill some missing part of seccomp=
- as the
->> ability to check syscall argument pointers or creating more dynamic se=
-curity
->> policies. The goal of this new stackable Linux Security Module (LSM) c=
-alled
->> Landlock is to allow any process, including unprivileged ones, to crea=
-te
->> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or =
-the
->> OpenBSD Pledge. This kind of sandbox help to mitigate the security imp=
-act of
->> bugs or unexpected/malicious behaviors in userland applications.
->>
->=20
-> Maybe I'm missing an obvious description, but: do you have a
-> description of the eBPF API to landlock?  What function do you
-> provide, when is it called, what functions can it call, what does the
-> fancy new arraymap do, etc?
->=20
-> --Andy
->=20
+Overall this change increases the time required to destroy a device
+to improve slightly the packets reinjection performances.
 
-The eBPF context is described in "[RFC v2 06/10] landlock: Add LSM hooks"=
-=2E
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+rfc -> v1: rebased
 
-The provided eBPF functions are described in "[RFC v2 08/10] landlock:
-Handle file system comparisons"
-(bpf_landlock_cmp_fs_prop_with_struct_file and
-bpf_landlock_cmp_fs_beneath_with_struct_file) and "[RFC v2 09/10]
-landlock: Handle cgroups" (bpf_landlock_cmp_cgroup_beneath). The
-function descriptions are summarized in include/uapi/linux/bpf.h .
+ net/core/dev.c | 72 ++++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 50 insertions(+), 22 deletions(-)
 
-This functions can be called by an eBPF program of type
-BPF_PROG_TYPE_LANDLOCK_FILE_OPEN, BPF_PROG_TYPE_LANDLOCK_FILE_PERMISSION
-and BPF_PROG_TYPE_LANDLOCK_MMAP_FILE as described in "[RFC v2 06/10]
-landlock: Add LSM hooks".
-
-I tried to split the commits as much as possible to ease the review. The
-"[RFC v2 10/10] samples/landlock: Add sandbox example" may help to see
-the whole picture.
-
-Hope this helps,
- Micka=C3=ABl
-
-
---2HflmeHHgbTbeHlc69LqQTKE1mnqnoMgi--
-
---Al6xw5FI9qr3UgJ4HsDw4rRlN4Qqoc78t
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJXvvlJAAoJECLe/t9zvWqV83YH+wYlHNVILLbD3w04O+3pZxln
-oyE29E0ZzxCPSsNIFhReeRhKh9p7vKQgjRj+J+0l17TB2hPGQ4l/vxEUeM816NQ0
-3/1UoX80s+CVKfRObYygcegDA07Db3WUQ871xlfGm8+Q1eC+KfYvxGA/L0Yb/8pT
-E4WcII4ymy/pFcnPUo086nq+1lh9kdtfx3YZVgTRwgsILQ/K1wEbZ69EL1NmgZed
-L2El51io05Q2DxwWFbC0pxsFruBoveMkKZLo/YARKrPnxP5/couxIi7mJg5lvKCR
-qdzDeEIwUHzrriL7/1S2DtaU+jBdPfcoPLvHEdaPBeaQCQahbaZPl49tG9WyyuE=
-=UfDs
------END PGP SIGNATURE-----
-
---Al6xw5FI9qr3UgJ4HsDw4rRlN4Qqoc78t--
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a75df86..7feae74 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4292,15 +4292,25 @@ int netif_receive_skb(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(netif_receive_skb);
+ 
+-/* Network device is going away, flush any packets still pending
+- * Called with irqs disabled.
+- */
+-static void flush_backlog(void *arg)
++struct flush_work {
++	struct net_device *dev;
++	struct work_struct work;
++};
++
++DEFINE_PER_CPU(struct flush_work, flush_works);
++
++/* Network device is going away, flush any packets still pending */
++static void flush_backlog(struct work_struct *work)
+ {
+-	struct net_device *dev = arg;
+-	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
++	struct flush_work *flush = container_of(work, typeof(*flush), work);
++	struct net_device *dev = flush->dev;
+ 	struct sk_buff *skb, *tmp;
++	struct softnet_data *sd;
++
++	local_bh_disable();
++	sd = this_cpu_ptr(&softnet_data);
+ 
++	local_irq_disable();
+ 	rps_lock(sd);
+ 	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp) {
+ 		if (skb->dev == dev) {
+@@ -4310,6 +4320,7 @@ static void flush_backlog(void *arg)
+ 		}
+ 	}
+ 	rps_unlock(sd);
++	local_irq_enable();
+ 
+ 	skb_queue_walk_safe(&sd->process_queue, skb, tmp) {
+ 		if (skb->dev == dev) {
+@@ -4318,6 +4329,27 @@ static void flush_backlog(void *arg)
+ 			input_queue_head_incr(sd);
+ 		}
+ 	}
++	local_bh_enable();
++}
++
++static void flush_all_backlogs(struct net_device *dev)
++{
++	unsigned int cpu;
++
++	get_online_cpus();
++
++	for_each_online_cpu(cpu) {
++		struct flush_work *flush = per_cpu_ptr(&flush_works, cpu);
++
++		INIT_WORK(&flush->work, flush_backlog);
++		flush->dev = dev;
++		queue_work_on(cpu, system_highpri_wq, &flush->work);
++	}
++
++	for_each_online_cpu(cpu)
++		flush_work(&per_cpu_ptr(&flush_works, cpu)->work);
++
++	put_online_cpus();
+ }
+ 
+ static int napi_gro_complete(struct sk_buff *skb)
+@@ -4805,8 +4837,9 @@ static bool sd_has_rps_ipi_waiting(struct softnet_data *sd)
+ 
+ static int process_backlog(struct napi_struct *napi, int quota)
+ {
+-	int work = 0;
+ 	struct softnet_data *sd = container_of(napi, struct softnet_data, backlog);
++	bool again = true;
++	int work = 0;
+ 
+ 	/* Check if we have pending ipi, its better to send them now,
+ 	 * not waiting net_rx_action() end.
+@@ -4817,23 +4850,20 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 	}
+ 
+ 	napi->weight = weight_p;
+-	local_irq_disable();
+-	while (1) {
++	while (again) {
+ 		struct sk_buff *skb;
+ 
+ 		while ((skb = __skb_dequeue(&sd->process_queue))) {
+ 			rcu_read_lock();
+-			local_irq_enable();
+ 			__netif_receive_skb(skb);
+ 			rcu_read_unlock();
+-			local_irq_disable();
+ 			input_queue_head_incr(sd);
+-			if (++work >= quota) {
+-				local_irq_enable();
++			if (++work >= quota)
+ 				return work;
+-			}
++
+ 		}
+ 
++		local_irq_disable();
+ 		rps_lock(sd);
+ 		if (skb_queue_empty(&sd->input_pkt_queue)) {
+ 			/*
+@@ -4845,16 +4875,14 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 			 * and we dont need an smp_mb() memory barrier.
+ 			 */
+ 			napi->state = 0;
+-			rps_unlock(sd);
+-
+-			break;
++			again = false;
++		} else {
++			skb_queue_splice_tail_init(&sd->input_pkt_queue,
++						   &sd->process_queue);
+ 		}
+-
+-		skb_queue_splice_tail_init(&sd->input_pkt_queue,
+-					   &sd->process_queue);
+ 		rps_unlock(sd);
++		local_irq_enable();
+ 	}
+-	local_irq_enable();
+ 
+ 	return work;
+ }
+@@ -6707,7 +6735,7 @@ static void rollback_registered_many(struct list_head *head)
+ 		unlist_netdevice(dev);
+ 
+ 		dev->reg_state = NETREG_UNREGISTERING;
+-		on_each_cpu(flush_backlog, dev, 1);
++		flush_all_backlogs(dev);
+ 	}
+ 
+ 	synchronize_net();
+-- 
+1.8.3.1
