@@ -1,7 +1,7 @@
 From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: CVE-2014-9900 fix is not upstream
-Date: Thu, 25 Aug 2016 14:40:00 +0200
-Message-ID: <1472128800.24772.11.camel@sipsolutions.net>
+Date: Thu, 25 Aug 2016 14:41:08 +0200
+Message-ID: <1472128868.24772.12.camel@sipsolutions.net>
 References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
          <20160823.094029.1244944495918162255.davem@davemloft.net>
          <1471973727.13300.162.camel@decadent.org.uk>
@@ -12,7 +12,8 @@ References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
          <20160823212545.GC2356@ZenIV.linux.org.uk>
          <20160824140316.GB14309@csclub.uwaterloo.ca>
          <18517b44-0d3f-3f83-e327-60064c170c5a@stressinduktion.org>
-         (sfid-20160824_223642_965094_F10174F7)
+         (sfid-20160824_223642_965094_F10174F7) <1472128800.24772.11.camel@sipsolutions.net>
+         (sfid-20160825_144034_137293_6B5C4140)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
@@ -24,42 +25,33 @@ To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
         Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <18517b44-0d3f-3f83-e327-60064c170c5a@stressinduktion.org> (sfid-20160824_223642_965094_F10174F7)
+In-Reply-To: <1472128800.24772.11.camel@sipsolutions.net> (sfid-20160825_144034_137293_6B5C4140)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-> If we want to go down this route, probably the only option is to add
-> __attribute__((pack)) those structs to just have no padding at all,
-> thus breaking uapi.
+> struct ethtool_wolinfo {
+>         __u32   cmd;
+>         __u32   supported;
+>         __u32   wolopts;
+>         __u8    sopass[SOPASS_MAX];     // 6, actually
+> };
+> 
+> we could do
+> 
+> struct ethtool_wolinfo {
+>         __u32   cmd;
+>         __u32   supported;
+>         __u32   wolopts;
+>         __u8    sopass[SOPASS_MAX];     // 6, actually
+> 	__u8	reserved[2];
+> };
+> 
+> and then the compiler has to properly treat it, since it's no longer
+> unnamed padding.
 > 
 
-We could also spell out the padding bytes as reserved, i.e. instead of
-
-struct ethtool_wolinfo {
-        __u32   cmd;
-        __u32   supported;
-        __u32   wolopts;
-        __u8    sopass[SOPASS_MAX];     // 6, actually
-};
-
-we could do
-
-struct ethtool_wolinfo {
-        __u32   cmd;
-        __u32   supported;
-        __u32   wolopts;
-        __u8    sopass[SOPASS_MAX];     // 6, actually
-	__u8	reserved[2];
-};
-
-and then the compiler has to properly treat it, since it's no longer
-unnamed padding.
-
-Maybe somebody can come up with a smart BUILD_BUG_ON() to ensure such
-structs have no padding.
-
-That would allow us to keep the C99 initializers (which is nice) and
-not have to worry about this.
+Although, on some architectures, that could actually break the ABI by
+changing the size, oh well.
 
 johannes
