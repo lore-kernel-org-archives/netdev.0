@@ -1,50 +1,50 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next V3 2/4] net/dst: Utility functions to build
- dst_metadata without supplying an skb
-Date: Thu, 25 Aug 2016 19:40:50 +0300
-Message-ID: <20160825194050.262ddb5f@halley>
-References: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
-        <1472141627-27339-3-git-send-email-hadarh@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>
-To: Hadar Hen Zion <hadarh@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35692 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756273AbcHYQlJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:41:09 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i5so8148666wmg.2
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:40:58 -0700 (PDT)
-In-Reply-To: <1472141627-27339-3-git-send-email-hadarh@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net] sunrpc: fix UDP memory accounting
+Date: Thu, 25 Aug 2016 18:42:35 +0200
+Message-ID: <32a391a2469b4161dc2375c6b6374b8229b3dd37.1472126188.git.pabeni@redhat.com>
+Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+The commit f9b2ee714c5c ("SUNRPC: Move UDP receive data path
+into a workqueue context"), as a side effect, moved the
+skb_free_datagram() call outside the scope of the related socket
+lock, but UDP sockets require such lock to be held for proper
+memory accounting.
+Fix it by replacing skb_free_datagram() with
+skb_free_datagram_locked().
 
-On Thu, 25 Aug 2016 19:13:45 +0300 Hadar Hen Zion <hadarh@mellanox.com> wrote:
-> From: Amir Vadai <amir@vadai.me>
-> 
-> Extract _ip_tun_rx_dst() and _ipv6_tun_rx_dst() out of ip_tun_rx_dst()
-> and ipv6_tun_rx_dst(), to be used without supplying an skb.
+Fixes: f9b2ee714c5c ("SUNRPC: Move UDP receive data path into a workqueue context")
+Reported-and-tested-by: Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+---
+ net/sunrpc/xprtsock.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Per this v3, the newly introduced helpers ate named _ip_tun_set_dst and
-_ipv6_tun_set_dst - better alter the log message to reflect that.
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 8ede3bc..bf16883 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -1074,7 +1074,7 @@ static void xs_udp_data_receive(struct sock_xprt *transport)
+ 		skb = skb_recv_datagram(sk, 0, 1, &err);
+ 		if (skb != NULL) {
+ 			xs_udp_data_read_skb(&transport->xprt, sk, skb);
+-			skb_free_datagram(sk, skb);
++			skb_free_datagram_locked(sk, skb);
+ 			continue;
+ 		}
+ 		if (!test_and_clear_bit(XPRT_SOCK_DATA_READY, &transport->sock_state))
+-- 
+1.8.3.1
 
-> +static inline struct metadata_dst *
-> +_ipv6_tun_set_dst(const struct in6_addr saddr, const struct in6_addr daddr,
-> +		  __u8 tos, __u8 ttl, __be32 label, __be16 flags,
-> +		  __be64 tunnel_id, int md_size)
-> +{
-
-Any reason not passing in6_addr pointers, as suggested?
-This is the common practice for ipv6 address parameters.
-
-Thanks,
-Shmulik
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
