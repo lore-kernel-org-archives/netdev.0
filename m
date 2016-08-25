@@ -1,51 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH] net: dsa: bcm_sf2: Utilize mask clear/set helpers in bcm_sf2_intr_disable
-Date: Thu, 25 Aug 2016 15:20:45 -0700
-Message-ID: <1472163645-7058-1-git-send-email-fainelli@broadcom.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <florian.fainelli@broadcom.com>
+From: citestra <oussamamrkd2@gmail.com>
+Subject: [PATCH net-next] drivers/net: Use priority level to printk() calls
+Date: Fri, 26 Aug 2016 00:22:41 +0200
+Message-ID: <1472163761-14015-1-git-send-email-oussamamrkd2@gmail.com>
+Cc: citestra <oussamamrkd2@gmail.com>,
+        Oussama Markad <markad.oussama@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36560 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752158AbcHYWU6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 18:20:58 -0400
-Received: by mail-pf0-f194.google.com with SMTP id y134so3846901pfg.3
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 15:20:51 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34236 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754144AbcHYWXq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 18:23:46 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q128so9129927wma.1
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 15:22:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian.fainelli@broadcom.com>
+Add priority level 'KERN_ERR' to a printk() call
 
-And while at it, remove the unecessary writing of zeroes to the CPU_MASK_CLEAR
-register since it has no functional use.
-
-refs #SWLINUX-4144
-
-Signed-off-by: Florian Fainelli <florian.fainelli@broadcom.com>
+Signed-off-by: Oussama Markad <markad.oussama@gmail.com>
+Signed-off-by: citestra <oussamamrkd2@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/amd/am79c961a.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 30c662adf2cc..706a19a672f3 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -670,12 +670,10 @@ static int bcm_sf2_sw_rst(struct bcm_sf2_priv *priv)
- 
- static void bcm_sf2_intr_disable(struct bcm_sf2_priv *priv)
- {
--	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
-+	intrl2_0_mask_set(priv, 0xffffffff);
- 	intrl2_0_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
--	intrl2_0_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
--	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_MASK_SET);
-+	intrl2_1_mask_set(priv, 0xffffffff);
- 	intrl2_1_writel(priv, 0xffffffff, INTRL2_CPU_CLEAR);
--	intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
- }
- 
- static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+diff --git a/drivers/net/ethernet/amd/am79c961a.c b/drivers/net/ethernet/amd/am79c961a.c
+index fcdf5dd..e4aad66 100644
+--- a/drivers/net/ethernet/amd/am79c961a.c
++++ b/drivers/net/ethernet/amd/am79c961a.c
+@@ -182,7 +182,7 @@ am79c961_ramtest(struct net_device *dev, unsigned int val)
+ 	am_readbuffer(dev, 0, buffer, 65536);
+ 	for (i = 0; i < 65536; i++) {
+ 		if (buffer[i] != val && !error) {
+-			printk ("%s: buffer error (%02X %02X) %05X - ", dev->name, val, buffer[i], i);
++			printk (KERN_ERR "%s: buffer error (%02X %02X) %05X - ", dev->name, val, buffer[i], i);
+ 			error = 1;
+ 			errorcount ++;
+ 		} else if (error && buffer[i] == val) {
 -- 
 2.7.4
