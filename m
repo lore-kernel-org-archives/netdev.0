@@ -1,52 +1,62 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/6] net: dsa: Make bcm_sf2 utilize b53_common
-Date: Wed, 24 Aug 2016 18:33:39 -0700
-Message-ID: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, jon.mason@broadcom.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] veth: sctp: add NETIF_F_SCTP_CRC to device features
+Date: Thu, 25 Aug 2016 13:21:49 +0800
+Message-ID: <3b9880c091c96f4e6780b96b4f3e2c4d38dffe42.1472102509.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35680 "EHLO
-        mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754973AbcHYFU5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:20:57 -0400
-Received: by mail-pa0-f66.google.com with SMTP id cf3so2445945pad.2
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 22:20:57 -0700 (PDT)
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36725 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753783AbcHYFV4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:21:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Commit b17c706987fa ("loopback: sctp: add NETIF_F_SCTP_CSUM to device
+features") added NETIF_F_SCTP_CRC to device features for lo device to
+improve the performance of sctp over lo.
 
-This patch series makes the bcm_sf2 driver utilize a large number of the core
-functions offered by the b53_common driver since the SWITCH_CORE registers are
-mostly register compatible with the switches driven by b53_common.
+This patch is to add NETIF_F_SCTP_CRC to device features for veth to
+improve the performance of sctp over veth.
 
-In order to accomplish that, we just override the dsa_driver_ops callbacks that
-we need to. There are still integration specific logic from the bcm_sf2 that we
-cannot absorb into b53_common because it is just not there, mostly in the area
-of link management and power management, but most of the features are within
-b53_common now: VLAN, FDB, bridge
+Before this patch:
+  ip netns exec cs_client netperf -H 10.167.12.2 -t SCTP_STREAM -- -m 10K
+  Recv   Send    Send
+  Socket Socket  Message  Elapsed
+  Size   Size    Size     Time     Throughput
+  bytes  bytes   bytes    secs.    10^6bits/sec
 
-Along the process, we also improve support for the BCM58xx SoCs, since those
-also have the same version of the switching IP that 7445 has (for which bcm_sf2
-was developed).
+  212992 212992  10240    10.00    1117.16
 
-Florian Fainelli (6):
-  net: dsa: b53: Initialize ds->drv in b53_switch_alloc
-  net: dsa: b53: Prepare to support 7445 switch
-  net: dsa: b53: Define SF2 MIB layout
-  net: dsa: b53: Add JOIN_ALL_VLAN support
-  net: dsa: bcm_sf2: Utilize core B53 driver when possible
-  net: dsa: bcm_sf2: Remove duplicate code
+After this patch:
+  ip netns exec cs_client netperf -H 10.167.12.2 -t SCTP_STREAM -- -m 10K
+  Recv   Send    Send
+  Socket Socket  Message  Elapsed
+  Size   Size    Size     Time     Throughput
+  bytes  bytes   bytes    secs.    10^6bits/sec
 
- drivers/net/dsa/Kconfig          |   1 +
- drivers/net/dsa/b53/b53_common.c | 108 ++++-
- drivers/net/dsa/b53/b53_priv.h   |   7 +
- drivers/net/dsa/b53/b53_regs.h   |   3 +
- drivers/net/dsa/bcm_sf2.c        | 932 +++++++--------------------------------
- drivers/net/dsa/bcm_sf2.h        |  82 +---
- drivers/net/dsa/bcm_sf2_regs.h   | 122 -----
- 7 files changed, 288 insertions(+), 967 deletions(-)
+  212992 212992  10240    10.20    1415.22
 
+Tested-by: Li Shuang <tjlishuang@yeah.net>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ drivers/net/veth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index f37a6e6..4bda502 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -313,7 +313,7 @@ static const struct net_device_ops veth_netdev_ops = {
+ };
+ 
+ #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HW_CSUM | \
+-		       NETIF_F_RXCSUM | NETIF_F_HIGHDMA | \
++		       NETIF_F_RXCSUM | NETIF_F_SCTP_CRC | NETIF_F_HIGHDMA | \
+ 		       NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ENCAP_ALL | \
+ 		       NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX | \
+ 		       NETIF_F_HW_VLAN_STAG_TX | NETIF_F_HW_VLAN_STAG_RX )
 -- 
-2.7.4
+2.1.0
