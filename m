@@ -1,60 +1,78 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: A second case of XPS considerably reducing single-stream performance
-Date: Thu, 25 Aug 2016 12:19:17 -0700
-Message-ID: <CAKgT0UeQ_cL4aaSSc47EgzbYp7WZF7C-4+JG6T7gw78J3rv+ZA@mail.gmail.com>
-References: <549357ea-dfda-284b-cdd6-4408060f9ca8@hpe.com> <a661ff61-9cf8-fe86-ca20-2181394e1dbb@hpe.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [patch net] team: loadbalance: push lacpdus to exact delivery
+Date: Thu, 25 Aug 2016 09:37:35 -0700
+Message-ID: <CAF2d9jjOuhaPYOkr80H-OfE2mETYsb1ww+UcFpA_SkaON8wOCw@mail.gmail.com>
+References: <1472142214-14787-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, sathya.perla@broadcom.com,
-        ajit.khaparde@broadcom.com, sriharsha.basavapatna@broadcom.com,
-        somnath.kotur@broadcom.com
-To: Rick Jones <rick.jones2@hpe.com>
+Cc: linux-netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:35331 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756419AbcHYT0C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:26:02 -0400
-Received: by mail-it0-f53.google.com with SMTP id x131so290983734ite.0
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:26:02 -0700 (PDT)
-In-Reply-To: <a661ff61-9cf8-fe86-ca20-2181394e1dbb@hpe.com>
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:35336 "EHLO
+        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752629AbcHYT2M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:28:12 -0400
+Received: by mail-yw0-f173.google.com with SMTP id j12so35754006ywb.2
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:28:11 -0700 (PDT)
+In-Reply-To: <1472142214-14787-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 24, 2016 at 4:46 PM, Rick Jones <rick.jones2@hpe.com> wrote:
-> Also, while it doesn't seem to have the same massive effect on throughput, I
-> can also see out of order behaviour happening when the sending VM is on a
-> node with a ConnectX-3 Pro NIC.  Its driver is also enabling XPS it would
-> seem.  I'm not *certain* but looking at the traces it appears that with the
-> ConnectX-3 Pro there is more interleaving of the out-of-order traffic than
-> there is with the Skyhawk.  The ConnectX-3 Pro happens to be in a newer
-> generation server with a newer processor than the other systems where I've
-> seen this.
+On Thu, Aug 25, 2016 at 9:23 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 >
-> I do not see the out-of-order behaviour when the NIC at the sending end is a
-> BCM57840.  It does not appear that the bnx2x driver in the 4.4 kernel is
-> enabling XPS.
+> When team is in bridge and LACP is utilized, LACPDU packets are pushed
+> to userspace using raw socket and there they are processed. However,
+> since 8626c56c8279b, LACPDU skbs are dropped by bridge rx_handler so
+> they never reach packet handlers in rx path. Fix this by explicity treat
+> LACPDUs to be pushed to exact delivery in team rx_handler.
 >
-> So, it would seem that there are three cases of enabling XPS resulting in
-> out-of-order traffic, two of which result in a non-trivial loss of
-> performance.
+> Reported-by: Ido Schimmel <idosch@mellanox.com>
+> Fixes: 8626c56c8279b ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  drivers/net/team/team_mode_loadbalance.c | 14 ++++++++++++++
+>  1 file changed, 14 insertions(+)
 >
-> happy benchmarking,
+> diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+> index cdb19b3..e7c8210 100644
+> --- a/drivers/net/team/team_mode_loadbalance.c
+> +++ b/drivers/net/team/team_mode_loadbalance.c
+> @@ -17,6 +17,19 @@
+>  #include <linux/filter.h>
+>  #include <linux/if_team.h>
 >
-> rick jones
-
-The problem is that there is no socket associated with the guest from
-the host's perspective.  This is resulting in the traffic bouncing
-between queues because there is no saved socket  to lock the interface
-onto.
-
-I was looking into this recently as well and had considered a couple
-of options.  The first is to fall back to just using skb_tx_hash()
-when skb->sk is null for a given buffer.  I have a patch I have been
-toying around with but I haven't submitted it yet.  If you would like
-I can submit it as an RFC to get your thoughts.  The second option is
-to enforce the use of RPS for any interfaces that do not perform Rx in
-NAPI context.  The correct solution for this is probably some
-combination of the two as you have to have all queueing done in order
-at every stage of the packet processing.
-
-- Alex
+> +static rx_handler_result_t lb_receive(struct team *team, struct team_port *port,
+> +                                     struct sk_buff *skb)
+> +{
+> +       if (unlikely(skb->protocol == htons(ETH_P_SLOW))) {
+> +               /* LACPDU packets should go to exact delivery */
+> +               const unsigned char *dest = eth_hdr(skb)->h_dest;
+> +
+> +               if (is_link_local_ether_addr(dest) && dest[5] == 0x02)
+> +                       return RX_HANDLER_EXACT;
+I believe every link-local-frame should get this treatment whether
+it's 802.3ad or otherwise (e.g. LLDP etc.), no?
+BTW same should be true for bonding too (of course except LACP since
+it handles/consumes it!)
+> +       }
+> +       return RX_HANDLER_ANOTHER;
+> +}
+> +
+>  struct lb_priv;
+>
+>  typedef struct team_port *lb_select_tx_port_func_t(struct team *,
+> @@ -652,6 +665,7 @@ static const struct team_mode_ops lb_mode_ops = {
+>         .port_enter             = lb_port_enter,
+>         .port_leave             = lb_port_leave,
+>         .port_disabled          = lb_port_disabled,
+> +       .receive                = lb_receive,
+>         .transmit               = lb_transmit,
+>  };
+>
+> --
+> 2.5.5
+>
