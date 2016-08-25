@@ -1,54 +1,40 @@
-From: Ed Swierk <eswierk@skyportsystems.com>
-Subject: Improving OCTEON II 10G Ethernet performance
-Date: Wed, 24 Aug 2016 18:29:49 -0700
-Message-ID: <CAO_EM_nrb0M49YwU+gjL+bqT4V1rFj4z7DQ8juTYXgaoKet0mg@mail.gmail.com>
+From: Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH net-next v3 0/2] net: ethernet: mediatek: modify to use the
+ PDMA for Ethernet RX
+Date: Thu, 25 Aug 2016 10:26:29 +0800
+Message-ID: <1472091991-1814-1-git-send-email-nelson.chang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Aaro Koskinen <aaro.koskinen@nokia.com>,
-        David Daney <ddaney@caviumnetworks.com>
-To: linux-mips <linux-mips@linux-mips.org>,
-        driverdev-devel <devel@driverdev.osuosl.org>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ nelsonch.tw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Nelson Chang <nelson.chang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-I'm trying to migrate from the Octeon SDK to a vanilla Linux 4.4
-kernel for a Cavium OCTEON II (CN6880) board running in 64-bit
-little-endian mode. So far I've gotten most of the hardware features I
-need working, including XAUI/RXAUI, USB, boot bus and I2C, with a
-fairly small set of patches.
-https://github.com/skyportsystems/linux/compare/master...octeon2
+This patch set fixes the following issues
 
-The biggest remaining hurdle is improving 10G Ethernet performance:
-iperf -P 10 on the SDK kernel gets close to 10 Gbit/sec throughput,
-while on my 4.4 kernel, it tops out around 1 Gbit/sec.
+v1 -> v2: Fix the bugs of PDMA cpu index and interrupt settings in mtk_poll_rx()
 
-Comparing the octeon-ethernet driver in the SDK
-(http://git.yoctoproject.org/cgit/cgit.cgi/linux-yocto-contrib/tree/drivers/net/ethernet/octeon?h=apaliwal/octeon)
-against the one in 4.4, the latter appears to utilize only a single
-CPU core for the rx path. It's not clear to me if there is a similar
-issue on the tx side, or other bottlenecks.
+v2 -> v3: Add GDM hardware settings to send packets to PDMA for RX
 
-I started trying to port multi-CPU rx from the SDK octeon-ethernet
-driver, but had trouble teasing out just the necessary bits without
-following a maze of dependencies on unrelated functions. (Dragging
-major parts of the SDK wholesale into 4.4 defeats the purpose of
-switching to a vanilla kernel, and doesn't bring us closer to getting
-octeon-ethernet out of staging.)
+Nelson Chang (2):
+  net: ethernet: mediatek: modify to use the PDMA instead of the QDMA
+    for Ethernet RX
+  net: ethernet: mediatek: modify GDM to send packets to the PDMA for RX
 
-Has there been any work on the octeon-ethernet driver since this patch
-set? https://www.linux-mips.org/archives/linux-mips/2015-08/msg00338.html
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 80 +++++++++++++++++------------
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h | 31 ++++++++++-
+ 2 files changed, 76 insertions(+), 35 deletions(-)
 
-Any hints on what to pick out of the SDK code to improve 10G
-performance would be appreciated.
-
---Ed
+-- 
+1.9.1
