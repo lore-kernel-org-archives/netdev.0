@@ -1,7 +1,7 @@
 From: Sean Wang <sean.wang@mediatek.com>
-Subject: [RESEND PATCH net 08/10] net: ethernet: mediatek: fix the missing of_node_put() after node is used done inside mtk_mdio_init
-Date: Thu, 25 Aug 2016 18:44:59 +0800
-Message-ID: <1472121901-15629-9-git-send-email-sean.wang@mediatek.com>
+Subject: [RESEND PATCH net 05/10] net: ethernet: mediatek: fix logic unbalance between probe and remove
+Date: Thu, 25 Aug 2016 18:44:56 +0800
+Message-ID: <1472121901-15629-6-git-send-email-sean.wang@mediatek.com>
 References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,31 +12,39 @@ To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mailgw02.mediatek.com ([210.61.82.184]:60865 "EHLO
         mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933358AbcHYKpO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:45:14 -0400
+        with ESMTP id S933180AbcHYKpN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:45:13 -0400
 In-Reply-To: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the missing of_node_put() after finishing the usage
-of of_get_child_by_name.
+original mdio_cleanup is not in the symmetric place against where
+mdio_init is, so relocate mdio_cleanup to the right one.
 
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index c573475..e3baa63 100644
+index 9883dac..5bd31f8 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -320,6 +320,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 	err = of_mdiobus_register(eth->mii_bus, mii_np);
- 	if (err)
- 		goto err_free_bus;
-+	of_node_put(mii_np);
+@@ -1504,7 +1504,6 @@ static void mtk_uninit(struct net_device *dev)
+ 	struct mtk_eth *eth = mac->hw;
+ 
+ 	phy_disconnect(mac->phy_dev);
+-	mtk_mdio_cleanup(eth);
+ 	mtk_irq_disable(eth, ~0);
+ }
+ 
+@@ -1915,6 +1914,7 @@ static int mtk_remove(struct platform_device *pdev)
+ 	netif_napi_del(&eth->tx_napi);
+ 	netif_napi_del(&eth->rx_napi);
+ 	mtk_cleanup(eth);
++	mtk_mdio_cleanup(eth);
  
  	return 0;
- 
+ }
 -- 
 1.9.1
