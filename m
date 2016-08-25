@@ -1,172 +1,108 @@
 From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V3 1/4] net/ip_tunnels: Introduce tunnel_id_to_key32() and key32_to_tunnel_id()
-Date: Thu, 25 Aug 2016 19:13:44 +0300
-Message-ID: <1472141627-27339-2-git-send-email-hadarh@mellanox.com>
-References: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
+Subject: [PATCH net-next V3 0/4] net/sched: ip tunnel metadata set/release/classify by using TC
+Date: Thu, 25 Aug 2016 19:13:43 +0300
+Message-ID: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Jiri Benc <jbenc@redhat.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
         Shmulik Ladkani <shmulik.ladkani@gmail.com>,
         Tom Herbert <tom@herbertland.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>,
+        Amir Vadai <amirva@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38668 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38671 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751569AbcHYQUs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:20:48 -0400
-In-Reply-To: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
+        with ESMTP id S1751615AbcHYQUt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:20:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amir@vadai.me>
+Hi,
 
-Add utility functions to convert a 32 bits key into a 64 bits tunnel and
-vice versa.
-These functions will be used instead of cloning code in GRE and VXLAN,
-and in tc act_iptunnel which will be introduced in a following patch in
-this patchset.
+This patchset introduces ip tunnel manipulation support using the TC subsystem.
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- drivers/net/vxlan.c      |  4 ++--
- include/net/ip_tunnels.h | 19 +++++++++++++++++++
- include/net/vxlan.h      | 18 ------------------
- net/ipv4/ip_gre.c        | 23 ++---------------------
- 4 files changed, 23 insertions(+), 41 deletions(-)
+In the decap flow, it enables the user to redirect packets from a shared tunnel
+device and classify by outer and inner headers. The outer headers are extracted
+from the metadata and used by the flower filter. A new action act_tunnel_key,
+releases the metadata.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index c0dda6f..b1ddf8f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1294,7 +1294,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
- 		struct metadata_dst *tun_dst;
- 
- 		tun_dst = udp_tun_rx_dst(skb, vxlan_get_sk_family(vs), TUNNEL_KEY,
--					 vxlan_vni_to_tun_id(vni), sizeof(*md));
-+					 key32_to_tunnel_id(vni), sizeof(*md));
- 
- 		if (!tun_dst)
- 			goto drop;
-@@ -1948,7 +1948,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 			goto drop;
- 		}
- 		dst_port = info->key.tp_dst ? : vxlan->cfg.dst_port;
--		vni = vxlan_tun_id_to_vni(info->key.tun_id);
-+		vni = tunnel_id_to_key32(info->key.tun_id);
- 		remote_ip.sa.sa_family = ip_tunnel_info_af(info);
- 		if (remote_ip.sa.sa_family == AF_INET) {
- 			remote_ip.sin.sin_addr.s_addr = info->key.u.ipv4.dst;
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index a5e7035..e598c63 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -222,6 +222,25 @@ static inline unsigned short ip_tunnel_info_af(const struct ip_tunnel_info
- 	return tun_info->mode & IP_TUNNEL_INFO_IPV6 ? AF_INET6 : AF_INET;
- }
- 
-+static inline __be64 key32_to_tunnel_id(__be32 key)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be64)key;
-+#else
-+	return (__force __be64)((__force u64)key << 32);
-+#endif
-+}
-+
-+/* Returns the least-significant 32 bits of a __be64. */
-+static inline __be32 tunnel_id_to_key32(__be64 tun_id)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be32)tun_id;
-+#else
-+	return (__force __be32)((__force u64)tun_id >> 32);
-+#endif
-+}
-+
- #ifdef CONFIG_INET
- 
- int ip_tunnel_init(struct net_device *dev);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index b96d036..0255613 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -350,24 +350,6 @@ static inline __be32 vxlan_vni_field(__be32 vni)
- #endif
- }
- 
--static inline __be32 vxlan_tun_id_to_vni(__be64 tun_id)
--{
--#if defined(__BIG_ENDIAN)
--	return (__force __be32)tun_id;
--#else
--	return (__force __be32)((__force u64)tun_id >> 32);
--#endif
--}
--
--static inline __be64 vxlan_vni_to_tun_id(__be32 vni)
--{
--#if defined(__BIG_ENDIAN)
--	return (__force __be64)vni;
--#else
--	return (__force __be64)((u64)(__force u32)vni << 32);
--#endif
--}
--
- static inline size_t vxlan_rco_start(__be32 vni_field)
- {
- 	return be32_to_cpu(vni_field & VXLAN_RCO_MASK) << VXLAN_RCO_SHIFT;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 113cc43..576f705 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -246,25 +246,6 @@ static void gre_err(struct sk_buff *skb, u32 info)
- 	ipgre_err(skb, info, &tpi);
- }
- 
--static __be64 key_to_tunnel_id(__be32 key)
--{
--#ifdef __BIG_ENDIAN
--	return (__force __be64)((__force u32)key);
--#else
--	return (__force __be64)((__force u64)key << 32);
--#endif
--}
--
--/* Returns the least-significant 32 bits of a __be64. */
--static __be32 tunnel_id_to_key(__be64 x)
--{
--#ifdef __BIG_ENDIAN
--	return (__force __be32)x;
--#else
--	return (__force __be32)((__force u64)x >> 32);
--#endif
--}
--
- static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 		       struct ip_tunnel_net *itn, int hdr_len, bool raw_proto)
- {
-@@ -290,7 +271,7 @@ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 			__be64 tun_id;
- 
- 			flags = tpi->flags & (TUNNEL_CSUM | TUNNEL_KEY);
--			tun_id = key_to_tunnel_id(tpi->key);
-+			tun_id = key32_to_tunnel_id(tpi->key);
- 			tun_dst = ip_tun_rx_dst(skb, flags, tun_id, 0);
- 			if (!tun_dst)
- 				return PACKET_REJECT;
-@@ -446,7 +427,7 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	flags = tun_info->key.tun_flags & (TUNNEL_CSUM | TUNNEL_KEY);
- 	gre_build_header(skb, tunnel_hlen, flags, proto,
--			 tunnel_id_to_key(tun_info->key.tun_id), 0);
-+			 tunnel_id_to_key32(tun_info->key.tun_id), 0);
- 
- 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
- 
+In the encap flow, act_tunnel_key creates a metadata object to be used by the
+shared tunnel device. The actual redirection to the tunnel device is done using
+act_mirred.
+
+For example:
+$ tc qdisc add dev vnet0 ingress
+$ tc filter add dev vnet0 protocol ip parent ffff: \
+	flower \
+	 ip_proto 1 \
+	action tunnel_key set \
+	 src_ip 11.11.0.1 \
+	 dst_ip 11.11.0.2 \
+	 id 11 \
+	action mirred egress redirect dev vxlan0
+
+$ tc qdisc add dev vxlan0 ingress
+$ tc filter add dev vxlan0 protocol ip parent ffff: \
+	flower \
+	 enc_src_ip 11.11.0.2 \
+	 enc_dst_ip 11.11.0.1 \
+	 enc_key_id 11 \
+	action tunnel_key release \
+	action mirred egress redirect dev vnet0
+
+Amir & Hadar
+
+Changes from V2:
+- Use union in struct fl_flow_key for enc_ipv6 and enc_ipv4.
+- Rename functions _ip_tun_rx_dst and _ipv6_tun_rx_dst to _ip_tun_set_dst and
+  _ipv6_tun_set_dst accordingly.
+- Remove local parameter 'encapdecap' from tunnel_key_init function.
+- Don't copy in6_addr values in tunnel_key_dump_addresses function, use pointers.
+
+Changes from V1:
+- More cleanups to key32_to_tunnel_id() and tunnel_id_to_key32()
+- IPv6 Support added
+- Set TUNNEL_KEY flag to make GRE work
+- Handle zero tunnel id properly in act_tunnel_key
+- Don't leave junk in decap action
+- Fix bug in act_tunnel_key initialization where (exists & ocr) is true
+- Remove BUG() from code
+- Rename action to tunnel_key
+- Improve grep-ability of code
+- Reuse code from ip_tun_rx_dst() and ipv6_tun_rx_dst()
+
+Changes from RFC:
+- Add a new action instead of making mirred too complex
+- No need to specify UDP port in action - it is already in the tunnel device
+  configuration
+- Added a decap operation to drop tunnel metadata
+
+Amir Vadai (4):
+  net/ip_tunnels: Introduce tunnel_id_to_key32() and
+    key32_to_tunnel_id()
+  net/dst: Utility functions to build dst_metadata without supplying an
+    skb
+  net/sched: cls_flower: Classify packet in ip tunnels
+  net/sched: Introduce act_tunnel_key
+
+ drivers/net/vxlan.c                       |   4 +-
+ include/net/dst_metadata.h                |  45 +++--
+ include/net/ip_tunnels.h                  |  19 ++
+ include/net/tc_act/tc_tunnel_key.h        |  25 +++
+ include/net/vxlan.h                       |  18 --
+ include/uapi/linux/pkt_cls.h              |  11 ++
+ include/uapi/linux/tc_act/tc_tunnel_key.h |  42 ++++
+ net/ipv4/ip_gre.c                         |  23 +--
+ net/sched/Kconfig                         |  11 ++
+ net/sched/Makefile                        |   1 +
+ net/sched/act_tunnel_key.c                | 312 ++++++++++++++++++++++++++++++
+ net/sched/cls_flower.c                    | 101 +++++++++-
+ 12 files changed, 556 insertions(+), 56 deletions(-)
+ create mode 100644 include/net/tc_act/tc_tunnel_key.h
+ create mode 100644 include/uapi/linux/tc_act/tc_tunnel_key.h
+ create mode 100644 net/sched/act_tunnel_key.c
+
 -- 
 1.8.3.1
