@@ -1,69 +1,51 @@
 From: John Crispin <john@phrozen.org>
-Subject: Re: [RESEND PATCH net 01/10] net: ethernet: mediatek: fix fails from
- TX housekeeping due to incorrect port setup
-Date: Thu, 25 Aug 2016 14:19:49 +0200
-Message-ID: <6c5c3a5e-caf3-cc6f-6611-e5fb416c809e@phrozen.org>
+Subject: Re: [RESEND PATCH net 04/10] net: ethernet: mediatek: remove
+ redundant free_irq for devm_request_irq allocated irq
+Date: Thu, 25 Aug 2016 14:20:19 +0200
+Message-ID: <f65c371f-f5c7-ac63-9398-2dd51864f6b2@phrozen.org>
 References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
- <1472121901-15629-2-git-send-email-sean.wang@mediatek.com>
+ <1472121901-15629-5-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, nbd@openwrt.org,
         linux-mediatek@lists.infradead.org, keyhaede@gmail.com
 To: Sean Wang <sean.wang@mediatek.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:52658 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:52677 "EHLO nbd.name"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754080AbcHYMTy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 08:19:54 -0400
-In-Reply-To: <1472121901-15629-2-git-send-email-sean.wang@mediatek.com>
+        id S1758214AbcHYMUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 08:20:46 -0400
+In-Reply-To: <1472121901-15629-5-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
 On 25/08/2016 12:44, Sean Wang wrote:
-> which net device the SKB is complete for depends on the forward port
-> on txd4 on the corresponding TX descriptor, but the information isn't
-> set up well in case of  SKB fragments that would lead to watchdog timeout
-> from the upper layer, so fix it up.
+> these irqs are not used for shared irq and disabled during ethernet stops.
+> irq requested by devm_request_irq is safe to be freed automatically on
+> driver detach.
 > 
 > Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 
 Acked-by: John Crispin <john@phrozen.org>
+
 > ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 --
+>  1 file changed, 2 deletions(-)
 > 
 > diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 1801fd8..6e4a6ca 100644
+> index 1b131a1..9883dac 100644
 > --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 > +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -587,14 +587,15 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
->  	dma_addr_t mapped_addr;
->  	unsigned int nr_frags;
->  	int i, n_desc = 1;
-> -	u32 txd4 = 0;
-> +	u32 txd4 = 0, fport;
+> @@ -1506,8 +1506,6 @@ static void mtk_uninit(struct net_device *dev)
+>  	phy_disconnect(mac->phy_dev);
+>  	mtk_mdio_cleanup(eth);
+>  	mtk_irq_disable(eth, ~0);
+> -	free_irq(eth->irq[1], dev);
+> -	free_irq(eth->irq[2], dev);
+>  }
 >  
->  	itxd = ring->next_free;
->  	if (itxd == ring->last_free)
->  		return -ENOMEM;
->  
->  	/* set the forward port */
-> -	txd4 |= (mac->id + 1) << TX_DMA_FPORT_SHIFT;
-> +	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
-> +	txd4 |= fport;
->  
->  	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
->  	memset(tx_buf, 0, sizeof(*tx_buf));
-> @@ -652,7 +653,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
->  			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
->  					       TX_DMA_PLEN0(frag_map_size) |
->  					       last_frag * TX_DMA_LS0));
-> -			WRITE_ONCE(txd->txd4, 0);
-> +			WRITE_ONCE(txd->txd4, fport);
->  
->  			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
->  			tx_buf = mtk_desc_to_tx_buf(ring, txd);
+>  static int mtk_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 > 
