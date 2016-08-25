@@ -1,59 +1,68 @@
-From: Feng Gao <gfree.wind@gmail.com>
-Subject: Re: [PATCH 1/1] netfilter: gre: Use the consitent GRE and PPTP struct
- instead of the structures defined in netfilter
-Date: Thu, 25 Aug 2016 21:38:23 +0800
-Message-ID: <CA+6hz4ryexSsivvHrstHfevMvJ4bcPTAU6M6VuWXQqorOjUJ+w@mail.gmail.com>
-References: <1471618894-10582-1-git-send-email-fgao@ikuai8.com>
- <CA+6hz4piLVv=L03sst56GrOWMST6gTvEF7h4i1jGw0fNw0M8jw@mail.gmail.com> <20160825121650.GA2537@salvia>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [RESEND PATCH net 02/10] net: ethernet: mediatek: fix incorrect
+ return value of devm_clk_get with EPROBE_DEFER
+Date: Thu, 25 Aug 2016 15:49:10 +0200
+Message-ID: <e1e9ca7a-c33b-3a9e-fd47-48f80bb10a32@phrozen.org>
+References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
+ <1472121901-15629-3-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Gao Feng <fgao@ikuai8.com>, Patrick McHardy <kaber@trash.net>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>,
-        Philp Prindeville <philipp@redfish-solutions.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160825121650.GA2537@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nbd@openwrt.org,
+        linux-mediatek@lists.infradead.org, keyhaede@gmail.com
+To: Sean Wang <sean.wang@mediatek.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:55454 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934169AbcHYNtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 09:49:16 -0400
+In-Reply-To: <1472121901-15629-3-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
 
-inline
 
-On Thu, Aug 25, 2016 at 8:16 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Fri, Aug 19, 2016 at 11:03:46PM +0800, Feng Gao wrote:
->> My email server reports the last same patch email failed to send.
->> So I just sent it again.
->>
->> I am sorry, if anyone receives duplicated ones.
->
-> git am v2-1-2-net-next-netfilter-gre-Use-consistent-GRE_-macros-instead-of-ones-defined-by-netfilter..patch
-> -s
-> Applying: netfilter: gre: Use consistent GRE_* macros instead of ones
-> defined by netfilter.
-> error: patch failed: include/uapi/linux/if_tunnel.h:36
-> error: include/uapi/linux/if_tunnel.h: patch does not apply
->
-> It seems your base was missing this patch:
->
-> commit ab10dccb11608b96b43b557c12a5ad867723e503
-> Author: Gao Feng <fgao@ikuai8.com>
-> Date:   Tue Aug 9 12:38:24 2016 +0800
->
->     rps: Inspect PPTP encapsulated by GRE to get flow hash
->
-> Since I cannot see GRE_FLAGS in your patch as context.
+On 25/08/2016 12:44, Sean Wang wrote:
+> If the return value of devm_clk_get is EPROBE_DEFER, we should
+> defer probing the driver. The change is verified and works based
+> on 4.8-rc1 staying with the latest clk-next code for MT7623.
+> 
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 11 +++++++++--
+>  1 file changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index 6e4a6ca..02b048f 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -1851,8 +1851,15 @@ static int mtk_probe(struct platform_device *pdev)
+>  	eth->clk_gp1 = devm_clk_get(&pdev->dev, "gp1");
+>  	eth->clk_gp2 = devm_clk_get(&pdev->dev, "gp2");
+>  	if (IS_ERR(eth->clk_esw) || IS_ERR(eth->clk_gp1) ||
+> -	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif))
+> -		return -ENODEV;
+> +	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif)) {
+> +		if (PTR_ERR(eth->clk_esw) == -EPROBE_DEFER ||
+> +		    PTR_ERR(eth->clk_gp1) == -EPROBE_DEFER ||
+> +		    PTR_ERR(eth->clk_gp1) == -EPROBE_DEFER ||
+> +		    PTR_ERR(eth->clk_gp2) == -EPROBE_DEFER)
+> +			return -EPROBE_DEFER;
+> +		else
+> +			return -ENODEV;
+> +	}
 
-Oh, it is possible that the patches are generated based on my local
-branch which has this commit locally, not the latest net-next.
-Now, I am more familiar with the rules than before.
+Hi Sean,
 
->
-> Please rebase and resubmit, thanks!
+this looks a bit tedious. maybe a better solution would be to add an
+array to struct mtk_eth for the clocks and an enum for the index
+mapping. that would allow the usage of loops to work out if all clocks
+are fine. the following code calling clk_prepare_enable() could then
+also be turned into a loop
 
-Ok, I will resubmit. Sorry for this fault.
+	John
 
-Regards
-Feng
+>  
+>  	clk_prepare_enable(eth->clk_ethif);
+>  	clk_prepare_enable(eth->clk_esw);
+> 
