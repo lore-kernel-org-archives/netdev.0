@@ -1,55 +1,78 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [PATCH] usbnet: ax88179_178a: Add support for writing the EEPROM
-Date: Thu, 25 Aug 2016 12:08:28 +0200
-Message-ID: <1472119708.2877.24.camel@suse.com>
-References: <20160824135231.21782-1-alban.bedel@avionic-design.de>
-         <1472049039.11480.10.camel@suse.com> <20160824164058.6ec64a8e@avionic-0020>
-         <1472116596.2877.23.camel@suse.com> <20160825120733.3413d395@avionic-0020>
+From: Sean@vger.kernel.org, Wang@vger.kernel.org
+Subject: [PATCH net 07/10] net: ethernet: mediatek: fix issue of driver removal with interface is up
+Date: Thu, 25 Aug 2016 18:22:34 +0800
+Message-ID: <1472120557-15216-8-git-send-email-sean.wang@mediatek.com>
+References: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Freddy Xin <freddy@asix.com.tw>, linux-kernel@vger.kernel.org,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: Alban Bedel <alban.bedel@avionic-design.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160825120733.3413d395@avionic-0020>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
+        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
+        Sean Wang <sean.wang@mediatek.com>
+To: <john@phrozen.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw02.mediatek.com ([210.61.82.184]:33063 "EHLO
+        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754023AbcHYKXu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:23:50 -0400
+In-Reply-To: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-08-25 at 12:07 +0200, Alban Bedel wrote:
-> On Thu, 25 Aug 2016 11:16:36 +0200
-> Oliver Neukum <oneukum@suse.com> wrote:
-> 
-> > On Wed, 2016-08-24 at 16:40 +0200, Alban Bedel wrote:
-> > > On Wed, 24 Aug 2016 16:30:39 +0200
-> > > Oliver Neukum <oneukum@suse.com> wrote:
-> > >   
-> > > > On Wed, 2016-08-24 at 15:52 +0200, Alban Bedel wrote:  
-> > 
-> > > > > +       if (block != data)
-> > > > > +               kfree(block);    
-> > > > 
-> > > > And if block == dta, what frees the memory?  
-> > > 
-> > > In this case this function didn't allocate any memory, so there is
-> > > nothing to free.  
-> > 
-> > Hi,
-> > 
-> > I see. kfree() has a check for NULL, so you could drop the
-> > test, but it doesn't matter much either way.
-> 
-> I think you misunderstand something here. data is the buffer passed
-> by the caller and block is a local variable. There is two cases:
-> 
-> 1) The data to write is block aligned, then we use the caller buffer
->    as is and set block = data.
-> 2) The requested data is not block aligned, then we kalloc block.
-> 
-> In both case the writing loop then use the block pointer. Afterwards
-> we only need to kfree block in case 2, that is when block != data.
+From: Sean Wang <sean.wang@mediatek.com>
 
-Thanks for the clarification. Maybe worth a comment in the code?
+1) mtk_stop() must be called to stop for freeing DMA resources 
+acquired and restoring state changed by mtk_open() when module 
+removal.
 
-	Regards
-		Oliver
+2) group clock disabled related function into mtk_hw_deinit which 
+could be reused with others functionality such as the whole ethernet 
+reset that would be posted in the later series of patches.
+
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 0a4c782..c573475 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1478,6 +1478,16 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+ 	return 0;
+ }
+ 
++static int mtk_hw_deinit(struct mtk_eth *eth)
++{
++	clk_disable_unprepare(eth->clk_esw);
++	clk_disable_unprepare(eth->clk_gp1);
++	clk_disable_unprepare(eth->clk_gp2);
++	clk_disable_unprepare(eth->clk_ethif);
++
++	return 0;
++}
++
+ static int __init mtk_init(struct net_device *dev)
+ {
+ 	struct mtk_mac *mac = netdev_priv(dev);
+@@ -1919,11 +1929,15 @@ err_free_dev:
+ static int mtk_remove(struct platform_device *pdev)
+ {
+ 	struct mtk_eth *eth = platform_get_drvdata(pdev);
++	int i;
+ 
+-	clk_disable_unprepare(eth->clk_ethif);
+-	clk_disable_unprepare(eth->clk_esw);
+-	clk_disable_unprepare(eth->clk_gp1);
+-	clk_disable_unprepare(eth->clk_gp2);
++	/* stop all devices to make sure that dma is properly shut down */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
++		mtk_stop(eth->netdev[i]);
++	}
++	mtk_hw_deinit(eth);
+ 
+ 	netif_napi_del(&eth->tx_napi);
+ 	netif_napi_del(&eth->rx_napi);
+-- 
+1.9.1
