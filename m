@@ -1,7 +1,7 @@
 From: Sean@vger.kernel.org, Wang@vger.kernel.org
-Subject: [PATCH net 09/10] net: ethernet: mediatek: use devm_mdiobus_alloc instead of mdiobus_alloc inside mtk_mdio_init
-Date: Thu, 25 Aug 2016 18:22:36 +0800
-Message-ID: <1472120557-15216-10-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net 04/10] net: ethernet: mediatek: remove redundant free_irq for devm_request_irq allocated irq
+Date: Thu, 25 Aug 2016 18:22:31 +0800
+Message-ID: <1472120557-15216-5-git-send-email-sean.wang@mediatek.com>
 References: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,65 +10,37 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         Sean Wang <sean.wang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:39410 "EHLO
+Received: from mailgw02.mediatek.com ([210.61.82.184]:11363 "EHLO
         mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753748AbcHYKXw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:23:52 -0400
+        with ESMTP id S1753267AbcHYKXu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:23:50 -0400
 In-Reply-To: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-a lot of parts in the driver uses devm_* APIs to gain benefits from the
-device resource management, so devm_mdiobus_alloc is also used instead
-of mdiobus_alloc to have more elegant code flow.
+these irqs are not used for shared irq and disabled during ethernet stops.
+irq requested by devm_request_irq is safe to be freed automatically on
+driver detach.
 
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 --
+ 1 file changed, 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index e3baa63..05d85da 100644
+index 1b131a1..9883dac 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 		goto err_put_node;
- 	}
- 
--	eth->mii_bus = mdiobus_alloc();
-+	eth->mii_bus = devm_mdiobus_alloc(eth->dev);
- 	if (!eth->mii_bus) {
- 		err = -ENOMEM;
- 		goto err_put_node;
-@@ -318,18 +318,9 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 
- 	snprintf(eth->mii_bus->id, MII_BUS_ID_SIZE, "%s", mii_np->name);
- 	err = of_mdiobus_register(eth->mii_bus, mii_np);
--	if (err)
--		goto err_free_bus;
--	of_node_put(mii_np);
--
--	return 0;
--
--err_free_bus:
--	mdiobus_free(eth->mii_bus);
- 
- err_put_node:
- 	of_node_put(mii_np);
--	eth->mii_bus = NULL;
- 	return err;
+@@ -1506,8 +1506,6 @@ static void mtk_uninit(struct net_device *dev)
+ 	phy_disconnect(mac->phy_dev);
+ 	mtk_mdio_cleanup(eth);
+ 	mtk_irq_disable(eth, ~0);
+-	free_irq(eth->irq[1], dev);
+-	free_irq(eth->irq[2], dev);
  }
  
-@@ -339,8 +330,6 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
- 		return;
- 
- 	mdiobus_unregister(eth->mii_bus);
--	of_node_put(eth->mii_bus->dev.of_node);
--	mdiobus_free(eth->mii_bus);
- }
- 
- static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
+ static int mtk_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 -- 
 1.9.1
