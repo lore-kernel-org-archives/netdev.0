@@ -1,65 +1,182 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [RFC PATCH 3/5] bnx2x: Add support for segmentation of tunnels
- with outer checksums
-Date: Thu, 25 Aug 2016 05:06:58 +0000
-Message-ID: <CO2PR11MB008820D7EEE1788F55A3BE4997ED0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <20160419185949.11723.50506.stgit@ahduyck-xeon-server>
- <20160419190609.11723.8710.stgit@ahduyck-xeon-server>
- <CO2PR11MB0088207088FA6F6A502AB3B097EA0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0Uc3CMzvChw2ifaw4Gz+i=udaZsS8m4Qn8adL6ZoXor5wQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next v4 2/3] net: mpls: Fixups for GSO
+Date: Wed, 24 Aug 2016 20:10:44 -0700
+Message-ID: <1472094645-11452-3-git-send-email-dsa@cumulusnetworks.com>
+References: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
+        ebiederm@xmission.com, rshearma@brocade.com, tom@herbertland.com,
+        tgraf@suug.ch, olivier.dugeon@orange.com,
+        alexander.duyck@gmail.com, roopa@cumulusnetworks.com,
+        David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0109.outbound.protection.outlook.com ([104.47.40.109]:38432
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750881AbcHYFHC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 01:07:02 -0400
-In-Reply-To: <CAKgT0Uc3CMzvChw2ifaw4Gz+i=udaZsS8m4Qn8adL6ZoXor5wQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34291 "EHLO
+        mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754764AbcHYFHs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:07:48 -0400
+Received: by mail-pa0-f48.google.com with SMTP id fi15so13341270pac.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 22:07:48 -0700 (PDT)
+In-Reply-To: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+PiBUaGlzIHBhdGNoIGFzc3VtZXMgdGhhdCB0aGUgYm54MnggaGFyZHdhcmUgd2lsbCBpZ25v
-cmUgZXhpc3RpbmcNCj4gPj4gSVB2NC92NiBoZWFkZXIgZmllbGRzIGZvciBsZW5ndGggYW5kIGNo
-ZWNrc3VtIGFzIHdlbGwgYXMgdGhlIGxlbmd0aA0KPiA+PiBhbmQgY2hlY2tzdW0gZmllbGRzIGZv
-ciBvdXRlciBVRFAgYW5kIEdSRSBoZWFkZXJzLg0KPiA+Pg0KPiA+PiBJIGhhdmUgbm8gbWVhbnMg
-b2YgdGVzdGluZyB0aGlzIGFzIEkgZG8gbm90IGhhdmUgYW55IGJueDJ4IGhhcmR3YXJlDQo+ID4+
-IGJ1dCB0aG91Z2h0IEkgd291bGQgc3VibWl0IGl0IGFzIGFuIFJGQyB0byBzZWUgaWYgYW55b25l
-IG91dCB0aGVyZQ0KPiA+PiB3YW50cyB0byB0ZXN0IHRoaXMgYW5kIHNlZSBpZiB0aGlzIGRvZXMg
-aW4gZmFjdCBlbmFibGUgdGhpcw0KPiA+PiBmdW5jdGlvbmFsaXR5IGFsbG93aW5nIHVzIHRvIHRv
-IHNlZ21lbnQgdHVubmVsZWQgZnJhbWVzIHRoYXQgaGF2ZSBhbiBvdXRlcg0KPiBjaGVja3N1bS4N
-Cj4gPj4NCj4gPj4gU2lnbmVkLW9mZi1ieTogQWxleGFuZGVyIER1eWNrIDxhZHV5Y2tAbWlyYW50
-aXMuY29tPg0KPiA+DQo+ID4gU28gaXQgdG9vayBtZSBzb21lIFt3ZWxsLCBhIGxvdF0gdGltZSB0
-byByZWFjaCB0aGlzLCBidXQgSSd2ZSBmaW5hbGx5ICBnYXZlIGl0IGEgdHJ5Lg0KPiA+IEkgc2F3
-IGEgcGVyZm9ybWFuY2UgYm9vc3Qgd2l0aCB0aGUgcGFydGlhbCBzdXBwb3J0IC0gVGhyb3VnaHB1
-dCBmb3INCj4gPiB2eGxhbiB0dW5uZWxzIHdpdGggYW5kIHdpdGhvdXQgdWRwY3N1bSB3ZXJlIGFs
-bW9zdCBpZGVudGljYWwgYWZ0ZXINCj4gPiB0aGlzLCB3aGVyZWFzIHdpdGhvdXQgdGhpcyBwYXRj
-aCB0aGUgdWRwY3N1bSBwcmV2ZW50ZWQgR1NPIGFuZCBhDQo+ID4gVENQL0lQdjQgY29ubmVjdGlv
-biBvbiB0b3Agb2YgaXQgZ290IHJvdWdobHkgaGFsZiB0aGUgdGhyb3VnaHB1dC4NCj4gPg0KPiA+
-IEhvd2V2ZXIsIEkgZGlkIGVuY291bnRlciBvbmUgb2RkaXR5IEkgY291bGRuJ3QgZXhwbGFpbiAt
-IEFmdGVyIEkndmUNCj4gPiBkaXNhYmxlZCB0eC11ZHBfdG5sLXNlZ21lbnRhdGlvbiB2aWEgZXRo
-dG9vbCBvbiB0aGUgYmFzZSBpbnRlcmZhY2UsDQo+ID4gZ290IGxlZnQgd2l0aDoNCj4gPiAgICB0
-eC1nc28tcGFydGlhbDogb24NCj4gPiAgICB0eC11ZHBfdG5sLXNlZ21lbnRhdGlvbjogb2ZmDQo+
-ID4gICAgdHgtdWRwX3RubC1jc3VtLXNlZ21lbnRhdGlvbjogb24NCj4gPg0KPiA+IFdoZW4gSSBy
-YW4gdHJhZmZpYyBvdmVyIGJvdGggdnhsYW4gdHVubmVscyB0aGUgb25lIHdpdGggdGhlIHVkcGNz
-dW0NCj4gPiB3YXMgc3RpbGwgUGFzc2luZyBnc28gYWdncmVnYXRpb25zIHRvIGJhc2UgZGV2aWNl
-IHRvIHRyYW5zbWl0IFthbmQgdGhlDQo+ID4gdGhyb3VnaHB1dCB3YXMgc2FtZSBhcyBiZWZvcmVd
-LCB3aGVyZSdzIHRoZSB0dW5uZWwgd2l0aG91dCB0aGUgdWRwY3N1bQ0KPiA+IHNob3dlZCBvbmx5
-IE1UVS1zaXplZCBwYWNrZXRzIHJlYWNoaW5nIHRoZSBiYXNlIGludGVyZmFjZSBmb3INCj4gPiB0
-cmFuc21pc3Npb24gW3doaWNoIGlzIHdoYXQgSSd2ZSBleHBlY3RlZF0NCj4gPg0KPiA+IEFueSBp
-ZGVhIHdoeSB0aGF0IGhhcHBlbmVkPw0KPiANCj4gU28gdGhlIHdheSB0aGV5IGFyZSBpbXBsZW1l
-bnRlZCB0eC11ZHBfdG5sLXNlZ21lbnRhdGlvbiBhbmQgdHgtdWRwX3RubC0NCj4gY3N1bS1zZWdt
-ZW50YXRpb24gYXJlIHRyZWF0ZWQgYXMgdHdvIHNlcGFyYXRlIGZlYXR1cmVzLg0KPiBUaGUga2Vy
-bmVsIGN1cnJlbnRseSBnaXZlcyB0aGVtIHRoZSBzYW1lIHRyZWF0bWVudCBhcyBORVRJRl9GX1RT
-TyBhbmQNCj4gTkVUSUZfRl9UU082LiAgWW91IGNhbiBkaXNhYmxlIG9uZSBhbmQgdGhlIG90aGVy
-IHN0aWxsIGZ1bmN0aW9ucy4NCj4gDQo+IE5vdyBpZiB5b3UgZGlzYWJsZSB0eC1nc28tcGFydGlh
-bCB5b3Ugc2hvdWxkIGV4cGVjdCB0byBzZWUgdHgtdWRwX3RubC1jc3VtLQ0KPiBzZWdtZW50YXRp
-b24gYmUgZGlzYWJsZWQgYmVjYXVzZSBpdCBpcyBkZXBlbmRlbnQgb24gdGhlIHBhcnRpYWwgR1NP
-IG9mZmxvYWQuDQo+IA0KPiAtIEFsZXgNCg0KTy5rLiwgdGhhbmtzLg0KVGhlbiBJJ2xsIHJ1biBz
-b21lIG1vcmUgdGVzdGluZyBzY2VuYXJpb3MsIGFuZCBhc3N1bWluZyBldmVyeXRoaW5nIHdvcmtz
-DQpmaW5lIEknbGwgcmUtc2VuZCB0aGlzLiBBbGV4IC0gc2hvdWxkIEkgcGxhY2UgeW91IGF0IHRo
-ZSAnZnJvbScgZmllbGQ/DQo=
+As reported by Lennert the MPLS GSO code is failing to properly segment
+large packets. There are a couple of problems:
+
+1. the inner protocol is not set so the gso segment functions for inner
+   protocol layers are not getting run, and
+
+2  MPLS labels for packets that use the "native" (non-OVS) MPLS code
+   are not properly accounted for in mpls_gso_segment.
+
+The MPLS GSO code was added for OVS. It is re-using skb_mac_gso_segment
+to call the gso segment functions for the higher layer protocols. That
+means skb_mac_gso_segment is called twice -- once with the network
+protocol set to MPLS and again with the network protocol set to the
+inner protocol.
+
+This patch sets the inner skb protocol addressing item 1 above and sets
+the network_header and inner_network_header to mark where the MPLS labels
+start and end. The MPLS code in OVS is also updated to set the two
+network markers.
+
+>From there the MPLS GSO code uses the difference between the network
+header and the inner network header to know the size of the MPLS header
+that was pushed. It then pulls the MPLS header, resets the mac_len and
+protocol for the inner protocol and then calls skb_mac_gso_segment
+to segment the skb.
+
+Afterward the inner protocol segmentation is done the skb protocol
+is set to mpls for each segment and the network and mac headers
+restored.
+
+Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/mpls/mpls_gso.c       | 40 +++++++++++++++++++++++++++++-----------
+ net/mpls/mpls_iptunnel.c  |  4 ++++
+ net/openvswitch/actions.c |  9 +++++++--
+ 3 files changed, 40 insertions(+), 13 deletions(-)
+
+diff --git a/net/mpls/mpls_gso.c b/net/mpls/mpls_gso.c
+index 2055e57ed1c3..b4da6d8e8632 100644
+--- a/net/mpls/mpls_gso.c
++++ b/net/mpls/mpls_gso.c
+@@ -23,32 +23,50 @@ static struct sk_buff *mpls_gso_segment(struct sk_buff *skb,
+ 				       netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	u16 mac_offset = skb->mac_header;
+ 	netdev_features_t mpls_features;
++	u16 mac_len = skb->mac_len;
+ 	__be16 mpls_protocol;
++	unsigned int mpls_hlen;
++
++	skb_reset_network_header(skb);
++	mpls_hlen = skb_inner_network_header(skb) - skb_network_header(skb);
++	if (unlikely(!pskb_may_pull(skb, mpls_hlen)))
++		goto out;
+ 
+ 	/* Setup inner SKB. */
+ 	mpls_protocol = skb->protocol;
+ 	skb->protocol = skb->inner_protocol;
+ 
+-	/* Push back the mac header that skb_mac_gso_segment() has pulled.
+-	 * It will be re-pulled by the call to skb_mac_gso_segment() below
+-	 */
+-	__skb_push(skb, skb->mac_len);
++	__skb_pull(skb, mpls_hlen);
++
++	skb->mac_len = 0;
++	skb_reset_mac_header(skb);
+ 
+ 	/* Segment inner packet. */
+ 	mpls_features = skb->dev->mpls_features & features;
+ 	segs = skb_mac_gso_segment(skb, mpls_features);
++	if (IS_ERR_OR_NULL(segs)) {
++		skb_gso_error_unwind(skb, mpls_protocol, mpls_hlen, mac_offset,
++				     mac_len);
++		goto out;
++	}
++	skb = segs;
++
++	mpls_hlen += mac_len;
++	do {
++		skb->mac_len = mac_len;
++		skb->protocol = mpls_protocol;
+ 
++		skb_reset_inner_network_header(skb);
+ 
+-	/* Restore outer protocol. */
+-	skb->protocol = mpls_protocol;
++		__skb_push(skb, mpls_hlen);
+ 
+-	/* Re-pull the mac header that the call to skb_mac_gso_segment()
+-	 * above pulled.  It will be re-pushed after returning
+-	 * skb_mac_gso_segment(), an indirect caller of this function.
+-	 */
+-	__skb_pull(skb, skb->data - skb_mac_header(skb));
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++	} while ((skb = skb->next));
+ 
++out:
+ 	return segs;
+ }
+ 
+diff --git a/net/mpls/mpls_iptunnel.c b/net/mpls/mpls_iptunnel.c
+index aed872cc05a6..cf52cf30ac4b 100644
+--- a/net/mpls/mpls_iptunnel.c
++++ b/net/mpls/mpls_iptunnel.c
+@@ -90,7 +90,11 @@ static int mpls_xmit(struct sk_buff *skb)
+ 	if (skb_cow(skb, hh_len + new_header_size))
+ 		goto drop;
+ 
++	skb_set_inner_protocol(skb, skb->protocol);
++	skb_reset_inner_network_header(skb);
++
+ 	skb_push(skb, new_header_size);
++
+ 	skb_reset_network_header(skb);
+ 
+ 	skb->dev = out_dev;
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 1ecbd7715f6d..ca91fc33f8a9 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -162,10 +162,16 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	if (skb_cow_head(skb, MPLS_HLEN) < 0)
+ 		return -ENOMEM;
+ 
++	if (!skb->inner_protocol) {
++		skb_set_inner_network_header(skb, skb->mac_len);
++		skb_set_inner_protocol(skb, skb->protocol);
++	}
++
+ 	skb_push(skb, MPLS_HLEN);
+ 	memmove(skb_mac_header(skb) - MPLS_HLEN, skb_mac_header(skb),
+ 		skb->mac_len);
+ 	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb->mac_len);
+ 
+ 	new_mpls_lse = (__be32 *)skb_mpls_header(skb);
+ 	*new_mpls_lse = mpls->mpls_lse;
+@@ -173,8 +179,6 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 	skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
+ 
+ 	update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+-	if (!skb->inner_protocol)
+-		skb_set_inner_protocol(skb, skb->protocol);
+ 	skb->protocol = mpls->mpls_ethertype;
+ 
+ 	invalidate_flow_key(key);
+@@ -198,6 +202,7 @@ static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+ 
+ 	__skb_pull(skb, MPLS_HLEN);
+ 	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb->mac_len);
+ 
+ 	/* skb_mpls_header() is used to locate the ethertype
+ 	 * field correctly in the presence of VLAN tags.
+-- 
+2.1.4
