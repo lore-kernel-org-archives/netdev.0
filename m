@@ -1,47 +1,30 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v4 3/3] net: veth: Set features for MPLS
-Date: Wed, 24 Aug 2016 20:10:45 -0700
-Message-ID: <1472094645-11452-4-git-send-email-dsa@cumulusnetworks.com>
-References: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: buytenh@wantstofly.org, simon.horman@netronome.com,
-        ebiederm@xmission.com, rshearma@brocade.com, tom@herbertland.com,
-        tgraf@suug.ch, olivier.dugeon@orange.com,
-        alexander.duyck@gmail.com, roopa@cumulusnetworks.com,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] net: diag: slightly refactor the
+ inet_diag_bc_audit error checks.
+Date: Wed, 24 Aug 2016 21:57:31 -0700 (PDT)
+Message-ID: <20160824.215731.783293603505126999.davem@davemloft.net>
+References: <1472021186-4106-1-git-send-email-lorenzo@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        dsa@cumulusnetworks.com, ek@google.com
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:34791 "EHLO
-        mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754770AbcHYExi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 00:53:38 -0400
-Received: by mail-pa0-f43.google.com with SMTP id fi15so13223789pac.1
-        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 21:53:38 -0700 (PDT)
-In-Reply-To: <1472094645-11452-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38275 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751506AbcHYE5i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 00:57:38 -0400
+In-Reply-To: <1472021186-4106-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-veth does not really transmit packets only moves the skb from one
-netdev to another so gso and checksum is not really needed. Add
-the features to mpls_features to get the same benefit and performance
-with MPLS as without it.
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Wed, 24 Aug 2016 15:46:25 +0900
 
-Reported-by: Lennert Buytenhek <buytenh@wantstofly.org>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- drivers/net/veth.c | 1 +
- 1 file changed, 1 insertion(+)
+> This simplifies the code a bit and also allows inet_diag_bc_audit
+> to send to userspace an error that isn't EINVAL.
+> 
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index f37a6e61d4ad..5db320a4d5cf 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -340,6 +340,7 @@ static void veth_setup(struct net_device *dev)
- 
- 	dev->hw_features = VETH_FEATURES;
- 	dev->hw_enc_features = VETH_FEATURES;
-+	dev->mpls_features = NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
- }
- 
- /*
--- 
-2.1.4
+Applied.
