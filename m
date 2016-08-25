@@ -1,74 +1,59 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: Re: [PATCH net] qdisc: fix a module refcount leak in
- qdisc_create_dflt()
-Date: Thu, 25 Aug 2016 21:26:59 +0800
-Message-ID: <ef703076-2e2c-3373-53b1-99ba5df2c2d5@gmail.com>
-References: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Feng Gao <gfree.wind@gmail.com>
+Subject: Re: [PATCH 1/1] netfilter: gre: Use the consitent GRE and PPTP struct
+ instead of the structures defined in netfilter
+Date: Thu, 25 Aug 2016 21:38:23 +0800
+Message-ID: <CA+6hz4ryexSsivvHrstHfevMvJ4bcPTAU6M6VuWXQqorOjUJ+w@mail.gmail.com>
+References: <1471618894-10582-1-git-send-email-fgao@ikuai8.com>
+ <CA+6hz4piLVv=L03sst56GrOWMST6gTvEF7h4i1jGw0fNw0M8jw@mail.gmail.com> <20160825121650.GA2537@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        John Fastabend <john.fastabend@gmail.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36606 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754563AbcHYNlW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 09:41:22 -0400
-Received: by mail-pa0-f65.google.com with SMTP id ez1so3156824pab.3
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 06:41:01 -0700 (PDT)
-In-Reply-To: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Gao Feng <fgao@ikuai8.com>, Patrick McHardy <kaber@trash.net>,
+        Netfilter Developer Mailing List
+        <netfilter-devel@vger.kernel.org>,
+        Philp Prindeville <philipp@redfish-solutions.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160825121650.GA2537@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/25/2016 12:39 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Should qdisc_alloc() fail, we must release the module refcount
-> we got right before.
->
-> Fixes: 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  net/sched/sch_generic.c |    9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
->
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index e95b67cd5718..657c13362b19 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -643,18 +643,19 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
->  	struct Qdisc *sch;
->  
->  	if (!try_module_get(ops->owner))
-> -		goto errout;
-> +		return NULL;
->  
->  	sch = qdisc_alloc(dev_queue, ops);
-> -	if (IS_ERR(sch))
-> -		goto errout;
-> +	if (IS_ERR(sch)) {
-> +		module_put(ops->owner);
-> +		return NULL;
-> +	}
->  	sch->parent = parentid;
->  
->  	if (!ops->init || ops->init(sch, NULL) == 0)
->  		return sch;
->  
->  	qdisc_destroy(sch);
+Hi Pablo,
 
-ops->init() failed, missing module_put() here.
+inline
 
+On Thu, Aug 25, 2016 at 8:16 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Fri, Aug 19, 2016 at 11:03:46PM +0800, Feng Gao wrote:
+>> My email server reports the last same patch email failed to send.
+>> So I just sent it again.
+>>
+>> I am sorry, if anyone receives duplicated ones.
+>
+> git am v2-1-2-net-next-netfilter-gre-Use-consistent-GRE_-macros-instead-of-ones-defined-by-netfilter..patch
+> -s
+> Applying: netfilter: gre: Use consistent GRE_* macros instead of ones
+> defined by netfilter.
+> error: patch failed: include/uapi/linux/if_tunnel.h:36
+> error: include/uapi/linux/if_tunnel.h: patch does not apply
+>
+> It seems your base was missing this patch:
+>
+> commit ab10dccb11608b96b43b557c12a5ad867723e503
+> Author: Gao Feng <fgao@ikuai8.com>
+> Date:   Tue Aug 9 12:38:24 2016 +0800
+>
+>     rps: Inspect PPTP encapsulated by GRE to get flow hash
+>
+> Since I cannot see GRE_FLAGS in your patch as context.
 
-> -errout:
->  	return NULL;
->  }
->  EXPORT_SYMBOL(qdisc_create_dflt);
+Oh, it is possible that the patches are generated based on my local
+branch which has this commit locally, not the latest net-next.
+Now, I am more familiar with the rules than before.
+
 >
->
-> .
->
+> Please rebase and resubmit, thanks!
+
+Ok, I will resubmit. Sorry for this fault.
+
+Regards
+Feng
