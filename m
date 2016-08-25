@@ -1,93 +1,93 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RESEND PATCH net 06/10] net: ethernet: mediatek: fix the loss
- of pin-mux setting for GMAC2
-Date: Thu, 25 Aug 2016 15:30:34 +0200
-Message-ID: <20160825133034.GA25046@lunn.ch>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: Re: [RESEND PATCH net 07/10] net: ethernet: mediatek: fix issue of
+ driver removal with interface is up
+Date: Thu, 25 Aug 2016 15:35:34 +0200
+Message-ID: <2203871f-d73d-3a39-928d-39862ba5e367@phrozen.org>
 References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
- <1472121901-15629-7-git-send-email-sean.wang@mediatek.com>
+ <1472121901-15629-8-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john@phrozen.org, davem@davemloft.net, nbd@openwrt.org,
-        netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-        keyhaede@gmail.com
-To: Sean Wang <sean.wang@mediatek.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44149 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758507AbcHYNar (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 09:30:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1472121901-15629-7-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1472121901-15629-8-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 25, 2016 at 06:44:57PM +0800, Sean Wang wrote:
-> ommited the setting about pin-mux which results in incorrect signals
-> being routed on GMAC2.
 
-Hi Sean
 
-Please could you explain this some more. I don't know too much about
-pinctrl, but i've never seen a driver have to do anything with it. The
-core driver code handles it all, selecting the default state. See
-seeing this here makes me wonder if it is correct.
-
-Thanks
-	Andrew
-
+On 25/08/2016 12:44, Sean Wang wrote:
+> 1) mtk_stop() must be called to stop for freeing DMA resources
+> acquired and restoring state changed by mtk_open() when module
+> removal.
 > 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+> 2) group clock disabled related function into mtk_hw_deinit which
+> could be reused with others functionality such as the whole ethernet
+> reset that would be posted in the later series of patches.
+> 
+
+Hi Sean,
+
+these are 2 unrelated changes so they really need to go into two
+separate patches. i also think that change 1) would better fit into the
+future series making use of that functionality.
+
+	John
+
+> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 > ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 14 ++++++++++++++
->  drivers/net/ethernet/mediatek/mtk_eth_soc.h |  3 +++
->  2 files changed, 17 insertions(+)
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 22 ++++++++++++++++++----
+>  1 file changed, 18 insertions(+), 4 deletions(-)
 > 
 > diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 5bd31f8..0a4c782 100644
+> index 0a4c782..c573475 100644
 > --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 > +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -1415,6 +1415,7 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
->  	usleep_range(10, 20);
->  	reset_control_deassert(eth->rstc);
->  	usleep_range(10, 20);
-> +	pinctrl_select_state(eth->pins, eth->ephy_default);
+> @@ -1478,6 +1478,16 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+>  	return 0;
+>  }
 >  
->  	/* Set GE2 driving and slew rate */
->  	regmap_write(eth->pctl, GPIO_DRV_SEL10, 0xa00);
-> @@ -1858,6 +1859,19 @@ static int mtk_probe(struct platform_device *pdev)
->  			return -ENODEV;
->  	}
+> +static int mtk_hw_deinit(struct mtk_eth *eth)
+> +{
+> +	clk_disable_unprepare(eth->clk_esw);
+> +	clk_disable_unprepare(eth->clk_gp1);
+> +	clk_disable_unprepare(eth->clk_gp2);
+> +	clk_disable_unprepare(eth->clk_ethif);
+> +
+> +	return 0;
+> +}
+> +
+>  static int __init mtk_init(struct net_device *dev)
+>  {
+>  	struct mtk_mac *mac = netdev_priv(dev);
+> @@ -1919,11 +1929,15 @@ err_free_dev:
+>  static int mtk_remove(struct platform_device *pdev)
+>  {
+>  	struct mtk_eth *eth = platform_get_drvdata(pdev);
+> +	int i;
 >  
-> +	eth->pins = devm_pinctrl_get(&pdev->dev);
-> +	if (IS_ERR(eth->pins)) {
-> +		dev_err(&pdev->dev, "cannot get pinctrl\n");
-> +		return PTR_ERR(eth->pins);
+> -	clk_disable_unprepare(eth->clk_ethif);
+> -	clk_disable_unprepare(eth->clk_esw);
+> -	clk_disable_unprepare(eth->clk_gp1);
+> -	clk_disable_unprepare(eth->clk_gp2);
+> +	/* stop all devices to make sure that dma is properly shut down */
+> +	for (i = 0; i < MTK_MAC_COUNT; i++) {
+> +		if (!eth->netdev[i])
+> +			continue;
+> +		mtk_stop(eth->netdev[i]);
 > +	}
-> +
-> +	eth->ephy_default =
-> +		pinctrl_lookup_state(eth->pins, "default");
-> +	if (IS_ERR(eth->ephy_default)) {
-> +		dev_err(&pdev->dev, "cannot get pinctrl state\n");
-> +		return PTR_ERR(eth->ephy_default);
-> +	}
-> +
->  	clk_prepare_enable(eth->clk_ethif);
->  	clk_prepare_enable(eth->clk_esw);
->  	clk_prepare_enable(eth->clk_gp1);
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> index f82e3ac..13d3f1b 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> @@ -404,6 +404,9 @@ struct mtk_eth {
->  	struct clk			*clk_esw;
->  	struct clk			*clk_gp1;
->  	struct clk			*clk_gp2;
-> +	struct pinctrl			*pins;
-> +	struct pinctrl_state		*ephy_default;
-> +
->  	struct mii_bus			*mii_bus;
->  	struct work_struct		pending_work;
->  };
-> -- 
-> 1.9.1
+> +	mtk_hw_deinit(eth);
+>  
+>  	netif_napi_del(&eth->tx_napi);
+>  	netif_napi_del(&eth->rx_napi);
 > 
