@@ -1,55 +1,41 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 0/5] Networking cgroup controller
-Date: Thu, 25 Aug 2016 12:09:20 -0400
-Message-ID: <20160825160920.GC20479@htj.duckdns.org>
-References: <1470876798-4024-1-git-send-email-anaravaram@google.com>
- <20160824210357.GU8185@htj.duckdns.org>
- <CAF2d9jjXxjgJU1VWDERKkv4LRvmhpjpyx7Dx76egQx43aaXtmQ@mail.gmail.com>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: CVE-2014-9900 fix is not upstream
+Date: Thu, 25 Aug 2016 16:14:02 +0100
+Message-ID: <20160825161402.46f2ec9b@lxorguk.ukuu.org.uk>
+References: <1471959668-18209-1-git-send-email-luis.henriques@canonical.com>
+        <20160823.094029.1244944495918162255.davem@davemloft.net>
+        <1471973727.13300.162.camel@decadent.org.uk>
+        <20160823.112406.549221808236512285.davem@davemloft.net>
+        <20160823200941.GB2356@ZenIV.linux.org.uk>
+        <1471984445.3746.129.camel@perches.com>
+        <20160823204933.GA14311@csclub.uwaterloo.ca>
+        <20160823212545.GC2356@ZenIV.linux.org.uk>
+        <20160824140316.GB14309@csclub.uwaterloo.ca>
+        <18517b44-0d3f-3f83-e327-60064c170c5a@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: corbet-T1hC0tSOHrs@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, hannes-druUgvl0LCNAfugRpC6u6w@public.gmane.org,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org,
-        jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-        linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        Wei Wang <weiwan-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org
-To: Mahesh Bandewar
-         =?utf-8?B?KOCkruCkueClh+CktiDgpKzgpILgpKHgpYfgpLXgpL4=?=
-         =?utf-8?B?4KSwKQ==?= <maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAF2d9jjXxjgJU1VWDERKkv4LRvmhpjpyx7Dx76egQx43aaXtmQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+        Al Viro <viro@ZenIV.linux.org.uk>,
+        Joe Perches <joe@perches.com>,
+        David Miller <davem@davemloft.net>, ben@decadent.org.uk,
+        luis.henriques@canonical.com, avijitnsec@codeaurora.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <18517b44-0d3f-3f83-e327-60064c170c5a@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Mahesh.
+> > I see someone did request it 2 years ago:
+> > https://gcc.gnu.org/bugzilla/show_bug.cgi?id=63479  
+> 
+> I don't think this is sufficient. Basically if you write one field in a
+> struct after a memset again, the compiler is allowed by the standard to
+> write padding bytes again, causing them to be undefined.
 
-On Thu, Aug 25, 2016 at 08:54:19AM -0700, Mahesh Bandewar (महेश बंडेवार) wrote:
-> In short most of the associated problems are handled by the
-> cgroup-infra / APIs while all that need separate solution in
-> alternatives.  Tejun, feels like I'm advocating cgroup approach to you
-> ;)
+The question is simply what gcc actually does. The rest is C language
+lawyering and since the kernel isn't written to the C language spec but
+to gcc only gcc matters.
 
-My concern here is that the proposed fixed mechanism isn't gonna be
-enough.  Port range matching wouldn't scale, so we'd need some hashmap
-style thing which may be too expensive for simple matches so either we
-do something adaptive or have different interfaces for the two and so
-on.  IOW, I think this approach is likely to replicate what iptables
-have been doing with its extensions.  I don't doubt that it is one of
-the workable approaches but hardly an attractive one especially at
-this point.
-
-ebpf approach does have its shortcomings for sure but mending them
-seems a lot more manageable and future-proof than going with fixed but
-constantly expanding set of operations.  e.g. We can add per-cgroup
-bpf programs which are called only on socket creation or other major
-events, or just let bpf programs which get called on bind(2), and add
-some per-cgroup state variables which are maintained by cgroup code
-which can be used from these bpf programs.
-
-Thanks.
-
--- 
-tejun
+Alan
