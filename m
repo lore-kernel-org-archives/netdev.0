@@ -1,70 +1,46 @@
-From: rick.jones2@hpe.com (Rick Jones)
-Subject: [PATCH v2 net-next] documentation: Document issues with VMs and XPS and drivers enabling it on their own
-Date: Thu, 25 Aug 2016 15:55:43 -0700 (PDT)
-Message-ID: <20160825225543.BFA562900836@tardy>
-Cc: <alexander.duyck@gmail.com>, <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t6225.austin.hp.com ([15.73.96.126]:52425 "EHLO
-        g1t6225.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751972AbcHYWzt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 18:55:49 -0400
-Received: from g2t4621.austin.hp.com (g2t4621.austin.hp.com [15.73.212.80])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by g1t6225.austin.hp.com (Postfix) with ESMTPS id B1946446D
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 22:55:48 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v8] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 25 Aug 2016 18:38:54 -0500
+Message-ID: <57BF818E.5030302@codeaurora.org>
+References: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
+ <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
+ <57B4BD40.1070703@codeaurora.org>
+ <e1bdbfa3-c74e-6f08-da36-632224f2bcd9@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        sdharia@codeaurora.org, shankerd@codeaurora.org,
+        vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
+        robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
+        mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
+        davem@davemloft.net, LinoSanfilippo@gmx.de
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <e1bdbfa3-c74e-6f08-da36-632224f2bcd9@gmail.com>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hpe.com>
+Florian Fainelli wrote:
+>>> >>Since you have a check on CONFIG_QCOM_EMAC in emac/Makefile, you could
+>>> >>always recurse into that directory while building (use obj-y).
+>> >
+>> >Obviously, having "obj-$(CONFIG_QCOM_EMAC)" in both Makefiles is
+>> >redundant, but wouldn't it make more sense to change
+>> >"obj-$(CONFIG_QCOM_EMAC)" to "obj-y" in
+>> >drivers/net/ethernet/qualcomm/emac/Makefile, so that I only recurse if
+>> >necessary?
 
-Since XPS was first introduced two things have happened.  Some drivers
-have started enabling XPS on their own initiative, and it has been
-found that when a VM is sending data through a host interface with XPS
-enabled, that traffic can end-up seriously out of order.
+> Whichever makes the most sense, when there is a directory involved, my
+> preference is to always recurse in that directory and selectively
+> compile from there, since the Kconfig/Makefile options are all located
+> within the same hierarchical level, just a preference.
 
-Signed-off-by: Rick Jones <rick.jones2@hpe.com>
-Reviewed-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+It turns out that the way I changed it in v9 prevents the driver from 
+being built as a module.  I changed the wrong Makefile.  I will have to 
+post a v10.
 
-diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
-index 59f4db2..50cc888 100644
---- a/Documentation/networking/scaling.txt
-+++ b/Documentation/networking/scaling.txt
-@@ -400,15 +400,31 @@ transport layer is responsible for setting ooo_okay appropriately. TCP,
- for instance, sets the flag when all data for a connection has been
- acknowledged.
- 
-+When the traffic source is a VM running on the host, there is no
-+socket structure known to the host.  In this case, unless the VM is
-+itself CPU-pinned, the traffic being sent from it can end-up queued to
-+multiple transmit queues and end-up being transmitted out of order.
-+
-+In some cases this can result in a considerable loss of performance.
-+
-+In such situations, XPS should not be enabled at runtime, or
-+explicitly disabled if the NIC driver(s) in question enable it on
-+their own.  Otherwise, if possible, the VMs should be CPU pinned.
-+
- ==== XPS Configuration
- 
--XPS is only available if the kconfig symbol CONFIG_XPS is enabled (on by
--default for SMP). The functionality remains disabled until explicitly
--configured. To enable XPS, the bitmap of CPUs that may use a transmit
--queue is configured using the sysfs file entry:
-+XPS is available only if the kconfig symbol CONFIG_XPS is enabled
-+prior to building the kernel.  It is enabled by default for SMP kernel
-+configurations.  In many cases the functionality remains disabled at
-+runtime until explicitly configured by the system administrator. To
-+enable XPS, the bitmap of CPUs that may use a transmit queue is
-+configured using the sysfs file entry:
- 
- /sys/class/net/<dev>/queues/tx-<n>/xps_cpus
- 
-+However, some NIC drivers will configure XPS at runtime for the
-+interfaces they drive, via a call to netif_set_xps_queue.
-+
- == Suggested Configuration
- 
- For a network device with a single transmission queue, XPS configuration
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
