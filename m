@@ -1,58 +1,51 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: Improving OCTEON II 10G Ethernet performance
-Date: Thu, 25 Aug 2016 13:11:45 -0700
-Message-ID: <57BF5101.6080909@caviumnetworks.com>
-References: <CAO_EM_nrb0M49YwU+gjL+bqT4V1rFj4z7DQ8juTYXgaoKet0mg@mail.gmail.com>
- <57BF21C7.5070709@caviumnetworks.com>
- <20160825182210.GE12169@raspberrypi.musicnaut.iki.fi>
+From: Tejun Heo <htejun@fb.com>
+Subject: Re: [RFC PATCH 4/5] net: filter: run cgroup eBPF programs
+Date: Thu, 25 Aug 2016 15:37:37 -0400
+Message-ID: <20160825193733.GA697@htj.duckdns.org>
+References: <1471442448-1248-1-git-send-email-daniel@zonque.org>
+ <1471442448-1248-5-git-send-email-daniel@zonque.org>
+ <20160821201421.GA5753@ircssh.c.rugged-nimbus-611.internal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: driverdev-devel <devel@driverdev.osuosl.org>,
- linux-mips <linux-mips@linux-mips.org>, netdev <netdev@vger.kernel.org>,
- David Daney <ddaney@caviumnetworks.com>,
- Aaro Koskinen <aaro.koskinen@nokia.com>
-To: Aaro Koskinen <aaro.koskinen@iki.fi>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20160825182210.GE12169@raspberrypi.musicnaut.iki.fi>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Daniel Mack <daniel@zonque.org>, <daniel@iogearbox.net>,
+        <ast@fb.com>, <davem@davemloft.net>, <kafai@fb.com>,
+        <fw@strlen.de>, <pablo@netfilter.org>, <harald@redhat.com>,
+        <netdev@vger.kernel.org>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:2174 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1757177AbcHYUO7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 16:14:59 -0400
+Content-Disposition: inline
+In-Reply-To: <20160821201421.GA5753@ircssh.c.rugged-nimbus-611.internal>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2016 11:22 AM, Aaro Koskinen wrote:
-> Hi,
->
-> On Thu, Aug 25, 2016 at 09:50:15AM -0700, David Daney wrote:
->> Ideally we would configure the packet classifiers on the RX side to create
->> multiple RX queues based on a hash of the TCP 5-tuple, and handle each queue
->> with a single NAPI instance.  That should result in better performance while
->> maintaining packet ordering.
->
-> Would this need anything else than reprogramming CVMX_PIP_PRT_TAGX, and
-> eliminating the global pow_receive_group and creating multiple NAPI instances
-> and registering IRQ handlers?
->
+Hello, Sargun.
 
-That is essentially how it works.  Set the tag generation parameters, 
-and use the low order bits of the tag to select which POW/SSO group is 
-assigned.  The SSO group corresponds to an "rx queue"
+On Sun, Aug 21, 2016 at 01:14:22PM -0700, Sargun Dhillon wrote:
+> So, casually looking at this patch, it looks like you're relying on 
+> sock_cgroup_data, which only points to the default hierarchy. If someone uses 
+> net_prio or net_classid, cgroup_sk_alloc_disable is called, and this wont work 
+> anymore. 
 
+The requirement there comes from network side.  In short, davem
+(rightfuly) doesn't want further proliferation of cgroup association
+fields in struct sock.  It makes sense for network control too as it's
+schizophrenic to have different associations depending on the specific
+controller.  Also, the v2 requirement shouldn't really get in the way
+as it can be mounted as just another hierarchy along with other v1
+hierarchies.
 
-> In the Yocto tree, the CVMX_PIP_PRT_TAGX register values are actually
-> documented:
->
-> http://git.yoctoproject.org/cgit/cgit.cgi/linux-yocto-contrib/tree/arch/mips/include/asm/octeon/cvmx-pip-defs.h?h=apaliwal/octeon#n3737
+> Any ideas on how to work around that? Does it make sense to add another pointer 
+> to sock_cgroup_data, or at least a warning when allocation is disabled?
 
-Wow, I didn't realize that documentation was made public.
+cgroup already warns when the association gets disabled due to usage
+of netcls and netprio.  We probably want to update the warning message
+to include bpf too.
 
+Thanks.
 
->
-> A.
->
+-- 
+tejun
