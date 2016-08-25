@@ -1,7 +1,7 @@
 From: Sean Wang <sean.wang@mediatek.com>
-Subject: [RESEND PATCH net 09/10] net: ethernet: mediatek: use devm_mdiobus_alloc instead of mdiobus_alloc inside mtk_mdio_init
-Date: Thu, 25 Aug 2016 18:45:00 +0800
-Message-ID: <1472121901-15629-10-git-send-email-sean.wang@mediatek.com>
+Subject: [RESEND PATCH net 07/10] net: ethernet: mediatek: fix issue of driver removal with interface is up
+Date: Thu, 25 Aug 2016 18:44:58 +0800
+Message-ID: <1472121901-15629-8-git-send-email-sean.wang@mediatek.com>
 References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,63 +10,67 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         Sean Wang <sean.wang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw01.mediatek.com ([210.61.82.183]:44487 "EHLO
+Received: from mailgw01.mediatek.com ([210.61.82.183]:60294 "EHLO
         mailgw01.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933462AbcHYKpR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:45:17 -0400
+        with ESMTP id S932911AbcHYKpP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:45:15 -0400
 In-Reply-To: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-a lot of parts in the driver uses devm_* APIs to gain benefits from the
-device resource management, so devm_mdiobus_alloc is also used instead
-of mdiobus_alloc to have more elegant code flow.
+1) mtk_stop() must be called to stop for freeing DMA resources
+acquired and restoring state changed by mtk_open() when module
+removal.
+
+2) group clock disabled related function into mtk_hw_deinit which
+could be reused with others functionality such as the whole ethernet
+reset that would be posted in the later series of patches.
 
 Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index e3baa63..05d85da 100644
+index 0a4c782..c573475 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -304,7 +304,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 		goto err_put_node;
- 	}
- 
--	eth->mii_bus = mdiobus_alloc();
-+	eth->mii_bus = devm_mdiobus_alloc(eth->dev);
- 	if (!eth->mii_bus) {
- 		err = -ENOMEM;
- 		goto err_put_node;
-@@ -318,18 +318,9 @@ static int mtk_mdio_init(struct mtk_eth *eth)
- 
- 	snprintf(eth->mii_bus->id, MII_BUS_ID_SIZE, "%s", mii_np->name);
- 	err = of_mdiobus_register(eth->mii_bus, mii_np);
--	if (err)
--		goto err_free_bus;
--	of_node_put(mii_np);
--
--	return 0;
--
--err_free_bus:
--	mdiobus_free(eth->mii_bus);
- 
- err_put_node:
- 	of_node_put(mii_np);
--	eth->mii_bus = NULL;
- 	return err;
+@@ -1478,6 +1478,16 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+ 	return 0;
  }
  
-@@ -339,8 +330,6 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
- 		return;
++static int mtk_hw_deinit(struct mtk_eth *eth)
++{
++	clk_disable_unprepare(eth->clk_esw);
++	clk_disable_unprepare(eth->clk_gp1);
++	clk_disable_unprepare(eth->clk_gp2);
++	clk_disable_unprepare(eth->clk_ethif);
++
++	return 0;
++}
++
+ static int __init mtk_init(struct net_device *dev)
+ {
+ 	struct mtk_mac *mac = netdev_priv(dev);
+@@ -1919,11 +1929,15 @@ err_free_dev:
+ static int mtk_remove(struct platform_device *pdev)
+ {
+ 	struct mtk_eth *eth = platform_get_drvdata(pdev);
++	int i;
  
- 	mdiobus_unregister(eth->mii_bus);
--	of_node_put(eth->mii_bus->dev.of_node);
--	mdiobus_free(eth->mii_bus);
- }
+-	clk_disable_unprepare(eth->clk_ethif);
+-	clk_disable_unprepare(eth->clk_esw);
+-	clk_disable_unprepare(eth->clk_gp1);
+-	clk_disable_unprepare(eth->clk_gp2);
++	/* stop all devices to make sure that dma is properly shut down */
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
++		mtk_stop(eth->netdev[i]);
++	}
++	mtk_hw_deinit(eth);
  
- static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
+ 	netif_napi_del(&eth->tx_napi);
+ 	netif_napi_del(&eth->rx_napi);
 -- 
 1.9.1
