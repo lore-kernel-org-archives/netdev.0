@@ -1,137 +1,106 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next-v2 3/6] net: dsa: b53: Define SF2 MIB layout
-Date: Thu, 25 Aug 2016 09:24:39 -0700
-Message-ID: <1472142282-1479-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next-v2 4/6] net: dsa: b53: Add JOIN_ALL_VLAN support
+Date: Thu, 25 Aug 2016 09:24:40 -0700
+Message-ID: <1472142282-1479-6-git-send-email-f.fainelli@gmail.com>
 References: <1472142282-1479-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, jonas.gorski@gmail.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:34104 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760012AbcHYQZL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:25:11 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hh10so3362473pac.1
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:25:10 -0700 (PDT)
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36558 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756764AbcHYQZQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:25:16 -0400
+Received: by mail-pa0-f67.google.com with SMTP id ez1so3352385pab.3
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:25:11 -0700 (PDT)
 In-Reply-To: <1472142282-1479-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 58xx and 7445 chips use the Starfighter2 code, define its MIB layout
-and introduce a helper function: is58xx() which checks for both of these
-IDs for now.
+In order to migrate the bcm_sf2 driver over to the b53 driver for most
+VLAN/FDB/bridge operations, we need to add support for the "join all
+VLANs" register and behavior which allows us to make a given port join
+all VLANs and avoid setting specific VLAN entries when it is leaving the
+bridge.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c | 63 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/b53/b53_priv.h   |  6 ++++
- 2 files changed, 69 insertions(+)
+ drivers/net/dsa/b53/b53_common.c | 30 ++++++++++++++++++++++++++----
+ drivers/net/dsa/b53/b53_regs.h   |  3 +++
+ 2 files changed, 29 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index d014c918ebfd..ca13ee134562 100644
+index ca13ee134562..1299104a87d4 100644
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -167,6 +167,65 @@ static const struct b53_mib_desc b53_mibs[] = {
- 
- #define B53_MIBS_SIZE	ARRAY_SIZE(b53_mibs)
- 
-+static const struct b53_mib_desc b53_mibs_58xx[] = {
-+	{ 8, 0x00, "TxOctets" },
-+	{ 4, 0x08, "TxDropPkts" },
-+	{ 4, 0x0c, "TxQPKTQ0" },
-+	{ 4, 0x10, "TxBroadcastPkts" },
-+	{ 4, 0x14, "TxMulticastPkts" },
-+	{ 4, 0x18, "TxUnicastPKts" },
-+	{ 4, 0x1c, "TxCollisions" },
-+	{ 4, 0x20, "TxSingleCollision" },
-+	{ 4, 0x24, "TxMultipleCollision" },
-+	{ 4, 0x28, "TxDeferredCollision" },
-+	{ 4, 0x2c, "TxLateCollision" },
-+	{ 4, 0x30, "TxExcessiveCollision" },
-+	{ 4, 0x34, "TxFrameInDisc" },
-+	{ 4, 0x38, "TxPausePkts" },
-+	{ 4, 0x3c, "TxQPKTQ1" },
-+	{ 4, 0x40, "TxQPKTQ2" },
-+	{ 4, 0x44, "TxQPKTQ3" },
-+	{ 4, 0x48, "TxQPKTQ4" },
-+	{ 4, 0x4c, "TxQPKTQ5" },
-+	{ 8, 0x50, "RxOctets" },
-+	{ 4, 0x58, "RxUndersizePkts" },
-+	{ 4, 0x5c, "RxPausePkts" },
-+	{ 4, 0x60, "RxPkts64Octets" },
-+	{ 4, 0x64, "RxPkts65to127Octets" },
-+	{ 4, 0x68, "RxPkts128to255Octets" },
-+	{ 4, 0x6c, "RxPkts256to511Octets" },
-+	{ 4, 0x70, "RxPkts512to1023Octets" },
-+	{ 4, 0x74, "RxPkts1024toMaxPktsOctets" },
-+	{ 4, 0x78, "RxOversizePkts" },
-+	{ 4, 0x7c, "RxJabbers" },
-+	{ 4, 0x80, "RxAlignmentErrors" },
-+	{ 4, 0x84, "RxFCSErrors" },
-+	{ 8, 0x88, "RxGoodOctets" },
-+	{ 4, 0x90, "RxDropPkts" },
-+	{ 4, 0x94, "RxUnicastPkts" },
-+	{ 4, 0x98, "RxMulticastPkts" },
-+	{ 4, 0x9c, "RxBroadcastPkts" },
-+	{ 4, 0xa0, "RxSAChanges" },
-+	{ 4, 0xa4, "RxFragments" },
-+	{ 4, 0xa8, "RxJumboPkt" },
-+	{ 4, 0xac, "RxSymblErr" },
-+	{ 4, 0xb0, "InRangeErrCount" },
-+	{ 4, 0xb4, "OutRangeErrCount" },
-+	{ 4, 0xb8, "EEELpiEvent" },
-+	{ 4, 0xbc, "EEELpiDuration" },
-+	{ 4, 0xc0, "RxDiscard" },
-+	{ 4, 0xc8, "TxQPKTQ6" },
-+	{ 4, 0xcc, "TxQPKTQ7" },
-+	{ 4, 0xd0, "TxPkts64Octets" },
-+	{ 4, 0xd4, "TxPkts65to127Octets" },
-+	{ 4, 0xd8, "TxPkts128to255Octets" },
-+	{ 4, 0xdc, "TxPkts256to511Ocets" },
-+	{ 4, 0xe0, "TxPkts512to1023Ocets" },
-+	{ 4, 0xe4, "TxPkts1024toMaxPktOcets" },
-+};
-+
-+#define B53_MIBS_58XX_SIZE	ARRAY_SIZE(b53_mibs_58xx)
-+
- static int b53_do_vlan_op(struct b53_device *dev, u8 op)
+@@ -1315,9 +1315,21 @@ static int b53_br_join(struct dsa_switch *ds, int port,
+ 		       struct net_device *bridge)
  {
+ 	struct b53_device *dev = ds_to_priv(ds);
++	s8 cpu_port = ds->dst->cpu_port;
+ 	u16 pvlan, reg;
  	unsigned int i;
-@@ -635,6 +694,8 @@ static const struct b53_mib_desc *b53_get_mib(struct b53_device *dev)
- 		return b53_mibs_65;
- 	else if (is63xx(dev))
- 		return b53_mibs_63xx;
-+	else if (is58xx(dev))
-+		return b53_mibs_58xx;
- 	else
- 		return b53_mibs;
- }
-@@ -645,6 +706,8 @@ static unsigned int b53_get_mib_size(struct b53_device *dev)
- 		return B53_MIBS_65_SIZE;
- 	else if (is63xx(dev))
- 		return B53_MIBS_63XX_SIZE;
-+	else if (is58xx(dev))
-+		return B53_MIBS_58XX_SIZE;
- 	else
- 		return B53_MIBS_SIZE;
- }
-diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index cf2ff2cbc8ab..76672dae412d 100644
---- a/drivers/net/dsa/b53/b53_priv.h
-+++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -175,6 +175,12 @@ static inline int is5301x(struct b53_device *dev)
- 		dev->chip_id == BCM53019_DEVICE_ID;
- }
  
-+static inline int is58xx(struct b53_device *dev)
-+{
-+	return dev->chip_id == BCM58XX_DEVICE_ID ||
-+		dev->chip_id == BCM7445_DEVICE_ID;
-+}
++	/* Make this port leave the all VLANs join since we will have proper
++	 * VLAN entries from now on
++	 */
++	if (is58xx(dev)) {
++		b53_read16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, &reg);
++		reg &= ~BIT(port);
++		if ((reg & BIT(cpu_port)) == BIT(cpu_port))
++			reg &= ~BIT(cpu_port);
++		b53_write16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, reg);
++	}
 +
- #define B53_CPU_PORT_25	5
- #define B53_CPU_PORT	8
+ 	dev->ports[port].bridge_dev = bridge;
+ 	b53_read16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), &pvlan);
  
+@@ -1350,6 +1362,7 @@ static void b53_br_leave(struct dsa_switch *ds, int port)
+ 	struct b53_device *dev = ds_to_priv(ds);
+ 	struct net_device *bridge = dev->ports[port].bridge_dev;
+ 	struct b53_vlan *vl = &dev->vlans[0];
++	s8 cpu_port = ds->dst->cpu_port;
+ 	unsigned int i;
+ 	u16 pvlan, reg, pvid;
+ 
+@@ -1379,10 +1392,19 @@ static void b53_br_leave(struct dsa_switch *ds, int port)
+ 	else
+ 		pvid = 0;
+ 
+-	b53_get_vlan_entry(dev, pvid, vl);
+-	vl->members |= BIT(port) | BIT(dev->cpu_port);
+-	vl->untag |= BIT(port) | BIT(dev->cpu_port);
+-	b53_set_vlan_entry(dev, pvid, vl);
++	/* Make this port join all VLANs without VLAN entries */
++	if (is58xx(dev)) {
++		b53_read16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, &reg);
++		reg |= BIT(port);
++		if (!(reg & BIT(cpu_port)))
++			reg |= BIT(cpu_port);
++		b53_write16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, reg);
++	} else {
++		b53_get_vlan_entry(dev, pvid, vl);
++		vl->members |= BIT(port) | BIT(dev->cpu_port);
++		vl->untag |= BIT(port) | BIT(dev->cpu_port);
++		b53_set_vlan_entry(dev, pvid, vl);
++	}
+ }
+ 
+ static void b53_br_set_stp_state(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/b53/b53_regs.h b/drivers/net/dsa/b53/b53_regs.h
+index a0b453ea34c9..dac0af4e2cd0 100644
+--- a/drivers/net/dsa/b53/b53_regs.h
++++ b/drivers/net/dsa/b53/b53_regs.h
+@@ -309,6 +309,9 @@
+ /* Port VLAN mask (16 bit) IMP port is always 8, also on 5325 & co */
+ #define B53_PVLAN_PORT_MASK(i)		((i) * 2)
+ 
++/* Join all VLANs register (16 bit) */
++#define B53_JOIN_ALL_VLAN_EN		0x50
++
+ /*************************************************************************
+  * 802.1Q Page Registers
+  *************************************************************************/
 -- 
 2.7.4
