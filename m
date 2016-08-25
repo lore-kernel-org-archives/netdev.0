@@ -1,83 +1,84 @@
-From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: pull request: bluetooth 2016-08-25
-Date: Thu, 25 Aug 2016 22:17:46 +0300
-Message-ID: <20160825191746.GA16954@t440s.P-661HNU-F1>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [RFC PATCH] net: Require socket to allow XPS to set queue mapping
+Date: Thu, 25 Aug 2016 12:23:28 -0700
+Message-ID: <147215300812.3936.8031402062962283044.stgit@ahduyck-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="2fHTh5uZTiUOsy+g"
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, rick.jones2@hpe.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:29565 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752567AbcHYTXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 15:23:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+I have been seeing a number of issues where XPS leads to issues with
+packets being reordered in the transmit queues of the device drivers.  The
+main situation where this seems to occur is when a VM us using a tap
+interface to send packets to the network via a NIC that has XPS enabled.
 
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+A bit of looking into this revealed the main issue is that the scheduler
+seems to be migrating the VM between CPUs and as this occurs the traffic
+for a given flow from a VM is following this migration and hopping between
+Tx queues leading to packet reordering.
 
-Hi Dave,
+A workaround for this is to make certain all the VMs have RPS enabled on
+the tap interfaces, however this requires extra configuration on the host
+for each VM created.
 
-Here are a couple of important Bluetooth fixes for the 4.8 kernel:
+A simpler approach is provided with this patch.  With it we disable XPS any
+time a socket is not present for a given flow.  By doing this we can avoid
+using XPS for any routing or bridging situations in which XPS is likely
+more of a hinderance than a help.
 
- - Memory leak fix for HCI requests
- - Fix sk_filter handling with L2CAP
- - Fix sock_recvmsg behavior when MSG_TRUNC is not set
-
-Please let me know if there are any issues pulling. Thanks.
-
-Johan
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
-The following changes since commit d7226c7a4dd19929d6df4ae04698da2fcf6f875a:
+ net/core/dev.c |   28 +++++++++++++++-------------
+ 1 file changed, 15 insertions(+), 13 deletions(-)
 
-  net: diag: Fix refcnt leak in error path destroying socket (2016-08-23 23:11:36 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
-
-for you to fetch changes up to 4f34228b67246ae3b3ab1dc33b980c77c0650ef4:
-
-  Bluetooth: Fix hci_sock_recvmsg when MSG_TRUNC is not set (2016-08-25 20:58:47 +0200)
-
-----------------------------------------------------------------
-Daniel Borkmann (1):
-      Bluetooth: split sk_filter in l2cap_sock_recv_cb
-
-Frederic Dalleau (1):
-      Bluetooth: Fix memory leak at end of hci requests
-
-Luiz Augusto von Dentz (2):
-      Bluetooth: Fix bt_sock_recvmsg when MSG_TRUNC is not set
-      Bluetooth: Fix hci_sock_recvmsg when MSG_TRUNC is not set
-
- net/bluetooth/af_bluetooth.c |  2 +-
- net/bluetooth/hci_request.c  |  2 ++
- net/bluetooth/hci_sock.c     |  2 +-
- net/bluetooth/l2cap_core.c   |  8 ++++++++
- net/bluetooth/l2cap_sock.c   | 14 ++++++++++++--
- 5 files changed, 24 insertions(+), 4 deletions(-)
-
---2fHTh5uZTiUOsy+g
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJXv0RaAAoJECQj9vv5qNQSTp0QAKj/bdzD7+cDQq1NizY6WzfS
-0oT0B5/vcz7qpB29zglpzM3Me6mwQw7ncKjsDPT8FIXkXa3Td8oHKRB8/d/rywLv
-n7MGZOxrb72KKtmW88Jn8XF7qm/BAixliLY3Zz2YOixxJRQOqMqWOPTcgky6OVZ6
-vIhRSRPk1P7sCS2XmEb9K8gIbTnw8n7/v3ZTYA2PF4LP2u6Lghj6ln+IcZmVQSdx
-YmDZlwVCgDXsvR2E3Tueqv3n4SMKGbj8a0lYcfmMVysXzVxvZRnhaXY6FQI2giYq
-Idsd6KvCRKppUZgqFfx7IDVwWrhIISZEDm8DqSJ3FreIS9WsUGmKg4cY1K5eiSB6
-dfb/u8q1An6o+5fyyAZGXNEwiywcwKk7UDMEnscDVKytWND9F3tocx/BTOTqIg1G
-kTBVrLi18oSEy3U3RMUqEoxPPG9pSrXibeD54ArvY+FqMMSFo0v3wUcHVPvie4aP
-f1Oam8Zs6AnilCxuCA//tt4JFGGyWhEXpDILf5hZKRxkZ4zVouy2jfKbgislEj+7
-cUrCMTPiLgLXMTuxIa6D+VDQMRfDtNmuri0doQZjck+i81Kl7jRA4j2bjGZCUAIq
-eOcwohJtEjSflHmGA3W2GhZeHiSUZNIk+n6ZiMAHvSqz3/qdR/c8ETRPCtk2TnmC
-w4idLn5UQZgvQ6ALE4Ma
-=mOl7
------END PGP SIGNATURE-----
-
---2fHTh5uZTiUOsy+g--
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a75df86..9cea73b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3242,24 +3242,26 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+ 
+ static u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
+ {
++	int queue_index, new_index;
+ 	struct sock *sk = skb->sk;
+-	int queue_index = sk_tx_queue_get(sk);
+ 
+-	if (queue_index < 0 || skb->ooo_okay ||
+-	    queue_index >= dev->real_num_tx_queues) {
+-		int new_index = get_xps_queue(dev, skb);
+-		if (new_index < 0)
+-			new_index = skb_tx_hash(dev, skb);
++	if (!sk)
++		return skb_tx_hash(dev, skb);
+ 
+-		if (queue_index != new_index && sk &&
+-		    sk_fullsock(sk) &&
+-		    rcu_access_pointer(sk->sk_dst_cache))
+-			sk_tx_queue_set(sk, new_index);
++	queue_index = sk_tx_queue_get(sk);
++	if (queue_index >= 0 && !skb->ooo_okay &&
++	    queue_index < dev->real_num_tx_queues)
++		return queue_index;
+ 
+-		queue_index = new_index;
+-	}
++	new_index = get_xps_queue(dev, skb);
++	if (new_index < 0)
++		new_index = skb_tx_hash(dev, skb);
+ 
+-	return queue_index;
++	if (queue_index != new_index && sk_fullsock(sk) &&
++	    rcu_access_pointer(sk->sk_dst_cache))
++		sk_tx_queue_set(sk, new_index);
++
++	return new_index;
+ }
+ 
+ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
