@@ -1,45 +1,66 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net 2/2] sctp: not copying duplicate addrs to the assoc's
- bind address list
-Date: Thu, 25 Aug 2016 12:03:30 +0800
-Message-ID: <CADvbK_dJbaze7qMsDp-7x0xANsXZX=JfYBNhKOo=2VgbM_ywZg@mail.gmail.com>
-References: <cover.1471605833.git.lucien.xin@gmail.com> <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
- <20160819175007.GB3578@hmsreliant.think-freely.org> <CADvbK_do3kQSotq7-PbvoCBBSwOBBdZtx=rR+Q2XX3_bhV4_0w@mail.gmail.com>
- <20160822142538.GA10323@hmsreliant.think-freely.org> <20160824112338.GB11144@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        network dev <netdev@vger.kernel.org>,
-        linux-sctp@vger.kernel.org, davem <davem@davemloft.net>,
-        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/6] net: dsa: b53: Prepare to support 7445 switch
+Date: Wed, 24 Aug 2016 18:33:41 -0700
+Message-ID: <1472088825-20181-3-git-send-email-f.fainelli@gmail.com>
+References: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, jon.mason@broadcom.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:35430 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754785AbcHYFHv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:07:51 -0400
-In-Reply-To: <20160824112338.GB11144@localhost.localdomain>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:34648 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752541AbcHYFKz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:10:55 -0400
+Received: by mail-pa0-f67.google.com with SMTP id hh10so2445124pac.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 22:10:55 -0700 (PDT)
+In-Reply-To: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Or add a refcnt to its members. </idea>
-> NETDEV_UP, it gets a ++ if it's already there
-> NETDEV_DOWN, it gets a -- and cleans it up if it reaches 0
-> And the rest probably could stay the same.
->
-Yes, it could also avoid the issue of amounts of duplicate addrs.
-or add a nic index variable to  its members.
+Allocate a device entry for the Broadcom BCM7445 integrated switch
+currently backed by bcm_sf2.c. Since this is the latest generation, it
+has 4 ARL entries, 4K VLANs and uses Port 8 for the CPU/IMP port.
 
-But I still prefer the current patch.
-1. This issue only happens when server bind 'ANY' addresses.
-    we don't need to add any new members to struct sctp_sockaddr_entry.
-    especially if it's a really corner issue,  we fix this as an improvement.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_common.c | 12 ++++++++++++
+ drivers/net/dsa/b53/b53_priv.h   |  1 +
+ 2 files changed, 13 insertions(+)
 
-2. It's yet two issues  here, the duplicate addrs may be from
-   a) different local NICs.
-   b) the same one NIC.
-   It may be unexpectable to filter them in NETDEV_UP/DOWN events.
-
-3. We check it only when sctp really binds it, just like sctp_do_bind.
-
-What do you think ?
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 30377ceb1928..0e6b8125a8ea 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1598,6 +1598,18 @@ static const struct b53_chip_data b53_switch_chips[] = {
+ 		.jumbo_pm_reg = B53_JUMBO_PORT_MASK,
+ 		.jumbo_size_reg = B53_JUMBO_MAX_SIZE,
+ 	},
++	{
++		.chip_id = BCM7445_DEVICE_ID,
++		.dev_name = "BCM7445",
++		.vlans	= 4096,
++		.enabled_ports = 0x1ff,
++		.arl_entries = 4,
++		.cpu_port = B53_CPU_PORT,
++		.vta_regs = B53_VTA_REGS,
++		.duplex_reg = B53_DUPLEX_STAT_GE,
++		.jumbo_pm_reg = B53_JUMBO_PORT_MASK,
++		.jumbo_size_reg = B53_JUMBO_MAX_SIZE,
++	},
+ };
+ 
+ static int b53_switch_init(struct b53_device *dev)
+diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
+index d268493a5fec..cf2ff2cbc8ab 100644
+--- a/drivers/net/dsa/b53/b53_priv.h
++++ b/drivers/net/dsa/b53/b53_priv.h
+@@ -60,6 +60,7 @@ enum {
+ 	BCM53018_DEVICE_ID = 0x53018,
+ 	BCM53019_DEVICE_ID = 0x53019,
+ 	BCM58XX_DEVICE_ID = 0x5800,
++	BCM7445_DEVICE_ID = 0x7445,
+ };
+ 
+ #define B53_N_PORTS	9
+-- 
+2.7.4
