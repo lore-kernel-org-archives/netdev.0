@@ -1,50 +1,62 @@
-From: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net] sunrpc: fix UDP memory accounting
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/5] mlxsw: Introduce support for offload forward mark
 Date: Thu, 25 Aug 2016 18:42:35 +0200
-Message-ID: <32a391a2469b4161dc2375c6b6374b8229b3dd37.1472126188.git.pabeni@redhat.com>
-Cc: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Message-ID: <1472143360-15796-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+        roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+        gospo@cumulusnetworks.com, ast@plumgrid.com, edumazet@google.com,
+        f.fainelli@gmail.com, dsa@cumulusnetworks.com,
+        daniel@iogearbox.net, vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34235 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757520AbcHYQnx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:43:53 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q128so8149553wma.1
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:42:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit f9b2ee714c5c ("SUNRPC: Move UDP receive data path
-into a workqueue context"), as a side effect, moved the
-skb_free_datagram() call outside the scope of the related socket
-lock, but UDP sockets require such lock to be held for proper
-memory accounting.
-Fix it by replacing skb_free_datagram() with
-skb_free_datagram_locked().
+From: Jiri Pirko <jiri@mellanox.com>
 
-Fixes: f9b2ee714c5c ("SUNRPC: Move UDP receive data path into a workqueue context")
-Reported-and-tested-by: Jan Stancek <jstancek-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Paolo Abeni <pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- net/sunrpc/xprtsock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ido says:
+This patchset enables the forwarding of certain control packets by the
+device instead of relying on the CPU to do the forwarding.
 
-diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index 8ede3bc..bf16883 100644
---- a/net/sunrpc/xprtsock.c
-+++ b/net/sunrpc/xprtsock.c
-@@ -1074,7 +1074,7 @@ static void xs_udp_data_receive(struct sock_xprt *transport)
- 		skb = skb_recv_datagram(sk, 0, 1, &err);
- 		if (skb != NULL) {
- 			xs_udp_data_read_skb(&transport->xprt, sk, skb);
--			skb_free_datagram(sk, skb);
-+			skb_free_datagram_locked(sk, skb);
- 			continue;
- 		}
- 		if (!test_and_clear_bit(XPRT_SOCK_DATA_READY, &transport->sock_state))
+The first two patches simplify the current switchdev offload forward
+infrastructure and make it usable for stacked devices. This is done by
+moving the packet and port marking to the bridge driver instead of the
+switch driver.
+
+Patches 3-5 add the mlxsw specific bits to support the forward mark.
+
+Ido Schimmel (5):
+  switchdev: Support parent ID comparison for stacked devices
+  bridge: switchdev: Add forward mark support for stacked devices
+  mlxsw: spectrum: Simplify traps definition
+  mlxsw: spectrum: Allow different traps to have different actions
+  mlxsw: spectrum: Mirror certain packets to CPU
+
+ Documentation/networking/switchdev.txt         |  13 +--
+ drivers/net/ethernet/mellanox/mlxsw/core.h     |   1 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 156 +++++++------------------
+ drivers/net/ethernet/rocker/rocker_main.c      |   2 +-
+ drivers/net/ethernet/rocker/rocker_ofdpa.c     |   4 -
+ include/linux/netdevice.h                      |   5 -
+ include/linux/skbuff.h                         |  13 +--
+ include/net/switchdev.h                        |   6 -
+ net/bridge/Makefile                            |   2 +
+ net/bridge/br_forward.c                        |   3 +-
+ net/bridge/br_if.c                             |  10 +-
+ net/bridge/br_input.c                          |   2 +
+ net/bridge/br_private.h                        |  37 ++++++
+ net/bridge/br_switchdev.c                      |  57 +++++++++
+ net/core/dev.c                                 |  10 --
+ net/switchdev/switchdev.c                      |  87 --------------
+ 16 files changed, 158 insertions(+), 250 deletions(-)
+ create mode 100644 net/bridge/br_switchdev.c
+
 -- 
-1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.5.5
