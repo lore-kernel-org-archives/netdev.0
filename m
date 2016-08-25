@@ -1,47 +1,38 @@
-From: Jan Kasprzak <kas@fi.muni.cz>
-Subject: Re: wan-cosa: Use memdup_user() rather than duplicating its
- implementation
-Date: Thu, 25 Aug 2016 11:13:52 +0200
-Message-ID: <20160825091352.GZ10241@fi.muni.cz>
-References: <5d335025-5f52-d4b6-0b60-89a2fd354694@users.sourceforge.net>
- <20160824152154.GT10241@fi.muni.cz>
- <375bce2b-6c19-902e-65ce-cccaedd2184e@users.sourceforge.net>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] usbnet: ax88179_178a: Add support for writing the EEPROM
+Date: Thu, 25 Aug 2016 11:16:36 +0200
+Message-ID: <1472116596.2877.23.camel@suse.com>
+References: <20160824135231.21782-1-alban.bedel@avionic-design.de>
+         <1472049039.11480.10.camel@suse.com> <20160824164058.6ec64a8e@avionic-0020>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        Julia Lawall <julia.lawall@lip6.fr>,
-        Nicolas Palix <nicolas.palix@imag.fr>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Freddy Xin <freddy@asix.com.tw>, linux-kernel@vger.kernel.org,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Alban Bedel <alban.bedel@avionic-design.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <375bce2b-6c19-902e-65ce-cccaedd2184e@users.sourceforge.net>
+In-Reply-To: <20160824164058.6ec64a8e@avionic-0020>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SF Markus Elfring wrote:
-: > 	What about the GFP_DMA attribute, which your patch deletes?
-: > The buffer in question has to be ISA DMA-able.
-: 
-: Thanks for your constructive feedback.
-: 
-: Would you be interested in using a variant of the function "memdup_…"
-: with which the corresponding memory allocation option can be preserved?
+On Wed, 2016-08-24 at 16:40 +0200, Alban Bedel wrote:
+> On Wed, 24 Aug 2016 16:30:39 +0200
+> Oliver Neukum <oneukum@suse.com> wrote:
+> 
+> > On Wed, 2016-08-24 at 15:52 +0200, Alban Bedel wrote:
 
-	I am not sure that extending an in-kernel API just for one
-legacy driver is what we want. As I said, I would prefer the driver
-unchanged, if possible.
+> > > +       if (block != data)
+> > > +               kfree(block);  
+> > 
+> > And if block == dta, what frees the memory?
+> 
+> In this case this function didn't allocate any memory, so there is
+> nothing to free.
 
-	Maybe it is the time for gradually phasing out ISA DMA support and
-all the legacy drivers which use it?
+Hi,
 
-	Sincerely,
+I see. kfree() has a check for NULL, so you could drop the
+test, but it doesn't matter much either way.
 
--Yenya
-
--- 
-| Jan "Yenya" Kasprzak <kas at {fi.muni.cz - work | yenya.net - private}> |
-| http://www.fi.muni.cz/~kas/                         GPG: 4096R/A45477D5 |
-         Like most things in Windows, on the surface it looks great.
-                         -- Jeremy Allison, A Tale of Two Standards
+	Regards
+		Oliver
