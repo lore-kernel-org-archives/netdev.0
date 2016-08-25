@@ -1,187 +1,88 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] net: flush the softnet backlog in process context
-Date: Thu, 25 Aug 2016 15:58:44 +0200
-Message-ID: <528006070d2951617c55b94c60c5d690ff0e4fc3.1472130597.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46002 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934263AbcHYODM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 10:03:12 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [for-next 00/15][PULL request] Mellanox mlx5 core driver updates
+ 2016-08-24
+Date: Thu, 25 Aug 2016 10:06:53 -0400
+Message-ID: <7d91bad7-2a52-7508-a47b-da78f7d067f9@redhat.com>
+References: <1472035154-14517-1-git-send-email-saeedm@mellanox.com>
+ <20160824.093831.1725390407094248507.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160824.093831.1725390407094248507.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently in process_backlog(), the process_queue dequeuing is
-performed with local IRQ disabled, to protect against
-flush_backlog(), which runs in hard IRQ context.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj
+Content-Type: multipart/mixed; boundary="jMmsCVhCCcXxL9b8rcOKCxbQiwL7DSlEl"
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+ talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Message-ID: <7d91bad7-2a52-7508-a47b-da78f7d067f9-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [for-next 00/15][PULL request] Mellanox mlx5 core driver updates
+ 2016-08-24
+References: <1472035154-14517-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+ <20160824.093831.1725390407094248507.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+In-Reply-To: <20160824.093831.1725390407094248507.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
-This patch moves the flush operation to a work queue and runs the
-callback with bottom half disabled to protect the process_queue
-against dequeuing.
-Since process_queue is now always manipulated in bottom half context,
-the irq disable/enable pair around the dequeue operation are removed.
+--jMmsCVhCCcXxL9b8rcOKCxbQiwL7DSlEl
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-To keep the flush time as low as possible, the flush
-works are scheduled on all online cpu simultaneously, using the
-high priority work-queue and statically allocated, per cpu,
-work structs.
+On 8/24/2016 12:38 PM, David Miller wrote:
+> From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+> Date: Wed, 24 Aug 2016 13:38:59 +0300
+>=20
+>> This series contains some low level and API updates for mlx5 core
+>> driver interface and mlx5_ifc.h, plus mlx5 LAG core driver support,
+>> to be shared as base code for net-next and rdma mlx5 4.9 submissions.
+>=20
+> Pulled, thanks.
+>=20
 
-Overall this change increases the time required to destroy a device
-to improve slightly the packets reinjection performances.
+Ditto.  The full set of shared patches is now in my for-next branch and
+the remainder of your 4.9 IB submissions can be built upon it.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
-rfc -> v1: rebased
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+    GPG Key ID: 0E572FDD
 
- net/core/dev.c | 72 ++++++++++++++++++++++++++++++++++++++++------------------
- 1 file changed, 50 insertions(+), 22 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a75df86..7feae74 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4292,15 +4292,25 @@ int netif_receive_skb(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(netif_receive_skb);
- 
--/* Network device is going away, flush any packets still pending
-- * Called with irqs disabled.
-- */
--static void flush_backlog(void *arg)
-+struct flush_work {
-+	struct net_device *dev;
-+	struct work_struct work;
-+};
-+
-+DEFINE_PER_CPU(struct flush_work, flush_works);
-+
-+/* Network device is going away, flush any packets still pending */
-+static void flush_backlog(struct work_struct *work)
- {
--	struct net_device *dev = arg;
--	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
-+	struct flush_work *flush = container_of(work, typeof(*flush), work);
-+	struct net_device *dev = flush->dev;
- 	struct sk_buff *skb, *tmp;
-+	struct softnet_data *sd;
-+
-+	local_bh_disable();
-+	sd = this_cpu_ptr(&softnet_data);
- 
-+	local_irq_disable();
- 	rps_lock(sd);
- 	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp) {
- 		if (skb->dev == dev) {
-@@ -4310,6 +4320,7 @@ static void flush_backlog(void *arg)
- 		}
- 	}
- 	rps_unlock(sd);
-+	local_irq_enable();
- 
- 	skb_queue_walk_safe(&sd->process_queue, skb, tmp) {
- 		if (skb->dev == dev) {
-@@ -4318,6 +4329,27 @@ static void flush_backlog(void *arg)
- 			input_queue_head_incr(sd);
- 		}
- 	}
-+	local_bh_enable();
-+}
-+
-+static void flush_all_backlogs(struct net_device *dev)
-+{
-+	unsigned int cpu;
-+
-+	get_online_cpus();
-+
-+	for_each_online_cpu(cpu) {
-+		struct flush_work *flush = per_cpu_ptr(&flush_works, cpu);
-+
-+		INIT_WORK(&flush->work, flush_backlog);
-+		flush->dev = dev;
-+		queue_work_on(cpu, system_highpri_wq, &flush->work);
-+	}
-+
-+	for_each_online_cpu(cpu)
-+		flush_work(&per_cpu_ptr(&flush_works, cpu)->work);
-+
-+	put_online_cpus();
- }
- 
- static int napi_gro_complete(struct sk_buff *skb)
-@@ -4805,8 +4837,9 @@ static bool sd_has_rps_ipi_waiting(struct softnet_data *sd)
- 
- static int process_backlog(struct napi_struct *napi, int quota)
- {
--	int work = 0;
- 	struct softnet_data *sd = container_of(napi, struct softnet_data, backlog);
-+	bool again = true;
-+	int work = 0;
- 
- 	/* Check if we have pending ipi, its better to send them now,
- 	 * not waiting net_rx_action() end.
-@@ -4817,23 +4850,20 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 	}
- 
- 	napi->weight = weight_p;
--	local_irq_disable();
--	while (1) {
-+	while (again) {
- 		struct sk_buff *skb;
- 
- 		while ((skb = __skb_dequeue(&sd->process_queue))) {
- 			rcu_read_lock();
--			local_irq_enable();
- 			__netif_receive_skb(skb);
- 			rcu_read_unlock();
--			local_irq_disable();
- 			input_queue_head_incr(sd);
--			if (++work >= quota) {
--				local_irq_enable();
-+			if (++work >= quota)
- 				return work;
--			}
-+
- 		}
- 
-+		local_irq_disable();
- 		rps_lock(sd);
- 		if (skb_queue_empty(&sd->input_pkt_queue)) {
- 			/*
-@@ -4845,16 +4875,14 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 			 * and we dont need an smp_mb() memory barrier.
- 			 */
- 			napi->state = 0;
--			rps_unlock(sd);
--
--			break;
-+			again = false;
-+		} else {
-+			skb_queue_splice_tail_init(&sd->input_pkt_queue,
-+						   &sd->process_queue);
- 		}
--
--		skb_queue_splice_tail_init(&sd->input_pkt_queue,
--					   &sd->process_queue);
- 		rps_unlock(sd);
-+		local_irq_enable();
- 	}
--	local_irq_enable();
- 
- 	return work;
- }
-@@ -6707,7 +6735,7 @@ static void rollback_registered_many(struct list_head *head)
- 		unlist_netdevice(dev);
- 
- 		dev->reg_state = NETREG_UNREGISTERING;
--		on_each_cpu(flush_backlog, dev, 1);
-+		flush_all_backlogs(dev);
- 	}
- 
- 	synchronize_net();
--- 
-1.8.3.1
+--jMmsCVhCCcXxL9b8rcOKCxbQiwL7DSlEl--
+
+--Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJXvvt9AAoJELgmozMOVy/d8O0P/32XY/XI6DJIHuwwQAYMqG0t
+fnxYoeBAgPOTyxzBL3HHGDcHRHqAGaHeMQi7NkoRcUnKxqr+YlRr8WZe+6D1hwKC
+gV+iGwrkrV7B2Fd/vlcPshxXnexDGY+Cs4SbMYQOR2OokbJpNf9GjX077tyP+ngD
+E/czCvqR9R7G6/d1a531ccUQlX5vUjakQQ7hn/DYWYdaWYpthQG14xZOv6ltajit
+2YvagwE4bH5fMS7QescKiMV6JOAHVQg6GIhzgNgIyNMX1ix2GVLDxQFjcdjDNbiK
+3Q92CIrHtrXtdVXAxVqrvUgGLxwh9/wNC1EI3gRqthZ2aCEr8aSzFJZECOYNd9is
+8NUfPSAPKX0SGwm9Mhsjfdshy6x8ZyyStTw55kKPArRTLNsoxgIC9f9BPpEmqFiR
++D2FEjSr7WERumF0hQzLxLjpTpMltu5BY9HQncPd2BxbC5uCH4UeNZpyxr5hzrwP
+r3/AS0MgWqT7J1txF1+5+aWDaONFHxl3IQnR+30qaj+bOY7DixFKUHvbsPxV4CiO
+Kmw3g1ty8yLSTcM/ejhFsoQGAPAiMNPg0RUmtIiLy2v6Af4DUYctj/DU+SJJEaVP
+Q4dGS9aKYR6lgBAKIgtYrcCQ/XQVozGJ6KM/7NHPlxZmRYKlLCCBNtxHB9d1eRYU
+ai85/zuCSxYROxa5Llh3
+=mEIf
+-----END PGP SIGNATURE-----
+
+--Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
