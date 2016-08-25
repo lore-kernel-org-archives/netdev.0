@@ -1,132 +1,136 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] smc91x: remove ARM hack for unaligned 16-bit writes
-Date: Thu, 25 Aug 2016 16:43:04 +0200
-Message-ID: <20160825144314.1850730-1-arnd@arndb.de>
-Cc: linux-arm-kernel@lists.infradead.org,
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [RFC v2 09/10] landlock: Handle cgroups
+Date: Thu, 25 Aug 2016 16:44:13 +0200
+Message-ID: <57BF043D.4000300@digikod.net>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <1472121165-29071-10-git-send-email-mic@digikod.net>
+ <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="fem93Duixaa7Puv1lVjAwOLiiCPLhog68"
+Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
         Arnd Bergmann <arnd@arndb.de>,
-        Nicolas Pitre <nico@fluxnic.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Robert Jarzmik <robert.jarzmik@free.fr>,
-        Yoshinori Sato <ysato@users.sourceforge.jp>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Russell King <linux@armlinux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Daniel Mack <daniel@zonque.org>, David Drysdale <drysdale@google.com>,
+        "David S . Miller"
+ <davem@davemloft.net>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
+        Kernel Hardening <kernel-hardening@lists.openwall.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>, cgroups@vger.kernel.org
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <kernel-hardening-return-4468-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-The ARM specific I/O operations are almost the same as the generic
-ones, with the exception of the SMC_outw macro that works around
-a problem of some platforms that cannot write to 16-bit registers
-at an address that is not 32-bit aligned.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--fem93Duixaa7Puv1lVjAwOLiiCPLhog68
+Content-Type: multipart/mixed; boundary="k0jrAKmG3iFl0mLHQhvH5VcJm2i7BKQmS"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Andy Lutomirski <luto@amacapital.net>
+Cc: LKML <linux-kernel@vger.kernel.org>, Alexei Starovoitov <ast@kernel.org>,
+ Arnd Bergmann <arnd@arndb.de>, Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
+ David Drysdale <drysdale@google.com>, "David S . Miller"
+ <davem@davemloft.net>, Elena Reshetova <elena.reshetova@intel.com>,
+ James Morris <james.l.morris@oracle.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <pmoore@redhat.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Will Drewry <wad@chromium.org>,
+ Kernel Hardening <kernel-hardening@lists.openwall.com>,
+ Linux API <linux-api@vger.kernel.org>,
+ LSM List <linux-security-module@vger.kernel.org>,
+ Network Development <netdev@vger.kernel.org>, cgroups@vger.kernel.org
+Message-ID: <57BF043D.4000300@digikod.net>
+Subject: Re: [RFC v2 09/10] landlock: Handle cgroups
+References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+ <1472121165-29071-10-git-send-email-mic@digikod.net>
+ <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
+In-Reply-To: <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
 
-By inspection, I found that this is handled already in the
-register abstractions for almost all cases, the exceptions being
-SMC_SET_MAC_ADDR() and SMC_SET_MCAST(). I assume that all
-platforms that require the hack for the other registers also
-need it here, so the ones listed explictly here are the only
-ones that work correctly, while the other ones either don't
-need the hack at all, or they will set an incorrect MAC
-address (which can often go unnoticed).
-
-This changes the two macros that set the unaligned registers
-to use 32-bit writes if possible, which should do the right
-thing in all combinations. The ARM specific SMC_outw gets removed
-as a consequence.
-
-The only difference between the ARM behavior and the default is
-the selection of the LED settings. The fact that we have different
-defaults based on the CPU architectures here is a bit suspicious,
-but probably harmless, and I have no plan of touching that.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/smsc/smc91x.h | 50 +++++++++++++++++++++++---------------
- 1 file changed, 30 insertions(+), 20 deletions(-)
-
-While this patch fixes one bug on Neponset, it probably doesn't address
-the one that Russell ran into first, so this is for review only for now,
-until the remaining problem(s) have been worked out.
+--k0jrAKmG3iFl0mLHQhvH5VcJm2i7BKQmS
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index 22333477d0b5..908473d9ede0 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -58,6 +58,7 @@
- #define SMC_inw(a, r)		readw((a) + (r))
- #define SMC_inl(a, r)		readl((a) + (r))
- #define SMC_outb(v, a, r)	writeb(v, (a) + (r))
-+#define SMC_outw(v, a, r)	writew(v, (a) + (r))
- #define SMC_outl(v, a, r)	writel(v, (a) + (r))
- #define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
- #define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
-@@ -65,19 +66,6 @@
- #define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
- #define SMC_IRQ_FLAGS		(-1)	/* from resource */
- 
--/* We actually can't write halfwords properly if not word aligned */
--static inline void SMC_outw(u16 val, void __iomem *ioaddr, int reg)
--{
--	if ((machine_is_mainstone() || machine_is_stargate2() ||
--	     machine_is_pxa_idp()) && reg & 2) {
--		unsigned int v = val << 16;
--		v |= readl(ioaddr + (reg & ~2)) & 0xffff;
--		writel(v, ioaddr + (reg & ~2));
--	} else {
--		writew(val, ioaddr + reg);
--	}
--}
--
- #elif	defined(CONFIG_SH_SH4202_MICRODEV)
- 
- #define SMC_CAN_USE_8BIT	0
-@@ -1029,18 +1017,40 @@ static const char * chip_ids[ 16 ] =  {
- 
- #define SMC_SET_MAC_ADDR(lp, addr)					\
- 	do {								\
--		SMC_out16(addr[0]|(addr[1] << 8), ioaddr, ADDR0_REG(lp)); \
--		SMC_out16(addr[2]|(addr[3] << 8), ioaddr, ADDR1_REG(lp)); \
--		SMC_out16(addr[4]|(addr[5] << 8), ioaddr, ADDR2_REG(lp)); \
-+		if (SMC_32BIT(lp)) {					\
-+			SMC_outl((addr[0]      )|(addr[1] <<  8) |	\
-+				 (addr[2] << 16)|(addr[3] << 24),	\
-+				 ioaddr, ADDR0_REG(lp));		\
-+		} else {						\
-+			SMC_out16(addr[0]|(addr[1] << 8), ioaddr,	\
-+				  ADDR0_REG(lp));			\
-+			SMC_out16(addr[2]|(addr[3] << 8), ioaddr,	\
-+				  ADDR1_REG(lp));			\
-+		}							\
-+		SMC_out16(addr[4]|(addr[5] << 8), ioaddr,		\
-+			  ADDR2_REG(lp)); \
- 	} while (0)
- 
- #define SMC_SET_MCAST(lp, x)						\
- 	do {								\
- 		const unsigned char *mt = (x);				\
--		SMC_out16(mt[0] | (mt[1] << 8), ioaddr, MCAST_REG1(lp)); \
--		SMC_out16(mt[2] | (mt[3] << 8), ioaddr, MCAST_REG2(lp)); \
--		SMC_out16(mt[4] | (mt[5] << 8), ioaddr, MCAST_REG3(lp)); \
--		SMC_out16(mt[6] | (mt[7] << 8), ioaddr, MCAST_REG4(lp)); \
-+		if (SMC_32BIT(lp)) {					\
-+			SMC_outl((mt[0]      ) | (mt[1] <<  8) |	\
-+				 (mt[2] << 16) | (mt[3] << 24),		\
-+				 ioaddr, MCAST_REG1(lp));		\
-+			SMC_outl((mt[4]      ) | (mt[5] <<  8) |	\
-+				 (mt[6] << 16) | (mt[7] << 24),		\
-+				 ioaddr, MCAST_REG3(lp));		\
-+		} else {						\
-+			SMC_out16(mt[0] | (mt[1] << 8),			\
-+				  ioaddr, MCAST_REG1(lp));		\
-+			SMC_out16(mt[2] | (mt[3] << 8),			\
-+				  ioaddr, MCAST_REG2(lp));		\
-+			SMC_out16(mt[4] | (mt[5] << 8),			\
-+				  ioaddr, MCAST_REG3(lp));		\
-+			SMC_out16(mt[6] | (mt[7] << 8),			\
-+				  ioaddr, MCAST_REG4(lp));		\
-+		}							\
- 	} while (0)
- 
- #define SMC_PUT_PKT_HDR(lp, status, length)				\
--- 
-2.9.0
+On 25/08/2016 13:09, Andy Lutomirski wrote:
+> On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.=
+net> wrote:
+>> Add an eBPF function bpf_landlock_cmp_cgroup_beneath(opt, map, map_op)=
+
+>> to compare the current process cgroup with a cgroup handle, The handle=
+
+>> can match the current cgroup if it is the same or a child. This allows=
+
+>> to make conditional rules according to the current cgroup.
+>>
+>> A cgroup handle is a map entry created from a file descriptor referrin=
+g
+>> a cgroup directory (e.g. by opening /sys/fs/cgroup/X). In this case, t=
+he
+>> map entry is of type BPF_MAP_HANDLE_TYPE_LANDLOCK_CGROUP_FD and the
+>> inferred array map is of type BPF_MAP_ARRAY_TYPE_LANDLOCK_CGROUP.
+>=20
+> Can you elaborate on why this is useful?  I.e. why not just supply
+> different policies to different subtrees.
+
+The main use case I see is to load the security policies at the start of
+a user session for all processes but not enforce them right away. The
+user can then keep a shell for Landlock administration tasks and lock
+the other processes with a dedicated cgroup on the fly. This allows the
+user to make unremovable Landlock security policies but only activate
+them when needed for specific processes.
+
+>=20
+> Also, how does this interact with the current cgroup v1 vs v2 mess?
+> As far as I can tell, no one can even really agree on what "what
+> cgroup am I in" means right now.
+
+I tested with cgroup-v2 but indeed, it seems a bit different with
+cgroup-v1 :)
+Does anyone know how to handle both cases?
+
+>=20
+>>
+>> An unprivileged process can create and manipulate cgroups thanks to
+>> cgroup delegation.
+>=20
+> What is cgroup delegation?
+
+This is simply the action of changing the owner of cgroup sysfs files to
+allow an unprivileged user to handle them (cf. Documentation/cgroup-v2.tx=
+t)
+
+ Micka=C3=ABl
+
+
+--k0jrAKmG3iFl0mLHQhvH5VcJm2i7BKQmS--
+
+--fem93Duixaa7Puv1lVjAwOLiiCPLhog68
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJXvwQ9AAoJECLe/t9zvWqVV9YH/2GeL+bwWnpzafOOxl7lEld5
+zQKWjoYZ56f4+eGjV7hteNfRt7ZaubLQ7brmPDtX+p4z7/PentK+HcsXRI/5gyK0
+FjtsATTSiH+xJiBDhH31FvYEsonHmH0CZsjWQGBiIUeJXVtUracGmJNsZf4WWiyF
+IHGBZZ6Gdzir+DyZmcMjNLXmCXi1tLLdoV/51gdBxt9hUg/Tf+fkd1ILxdimo3Rc
+oH5iyvJH65VycWFFm52nWZjBGvoy7rKZ8oxhiU2kt08P6TkYD3ENULho6b59BixL
+iK801B96L/HbPckcTOgbWXBNYXI8LWbSLsoiilv9P5CYm5sPYHu7vJBg/IJdvCI=
+=A8Yu
+-----END PGP SIGNATURE-----
+
+--fem93Duixaa7Puv1lVjAwOLiiCPLhog68--
