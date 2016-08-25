@@ -1,46 +1,38 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v8] net: emac: emac gigabit ethernet controller driver
-Date: Thu, 25 Aug 2016 18:38:54 -0500
-Message-ID: <57BF818E.5030302@codeaurora.org>
-References: <1470951245-13665-1-git-send-email-timur@codeaurora.org>
- <db618958-a940-9ea2-ff52-e12c81894ad6@gmail.com>
- <57B4BD40.1070703@codeaurora.org>
- <e1bdbfa3-c74e-6f08-da36-632224f2bcd9@gmail.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH -next] ibmvnic: fix error return code in ibmvnic_probe()
+Date: Thu, 25 Aug 2016 16:41:23 -0700 (PDT)
+Message-ID: <20160825.164123.36841950077292550.davem@redhat.com>
+References: <1472046478-1427-1-git-send-email-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-        sdharia@codeaurora.org, shankerd@codeaurora.org,
-        vikrams@codeaurora.org, cov@codeaurora.org, gavidov@codeaurora.org,
-        robh+dt@kernel.org, andrew@lunn.ch, bjorn.andersson@linaro.org,
-        mlangsdo@redhat.com, jcm@redhat.com, agross@codeaurora.org,
-        davem@davemloft.net, LinoSanfilippo@gmx.de
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <e1bdbfa3-c74e-6f08-da36-632224f2bcd9@gmail.com>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Cc: tlfalcon@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+ netdev@vger.kernel.org, weiyongjun1@huawei.com, paulus@samba.org,
+ linuxppc-dev@lists.ozlabs.org
+To: weiyj.lk@gmail.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1472046478-1427-1-git-send-email-weiyj.lk@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Florian Fainelli wrote:
->>> >>Since you have a check on CONFIG_QCOM_EMAC in emac/Makefile, you could
->>> >>always recurse into that directory while building (use obj-y).
->> >
->> >Obviously, having "obj-$(CONFIG_QCOM_EMAC)" in both Makefiles is
->> >redundant, but wouldn't it make more sense to change
->> >"obj-$(CONFIG_QCOM_EMAC)" to "obj-y" in
->> >drivers/net/ethernet/qualcomm/emac/Makefile, so that I only recurse if
->> >necessary?
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 24 Aug 2016 13:47:58 +0000
 
-> Whichever makes the most sense, when there is a directory involved, my
-> preference is to always recurse in that directory and selectively
-> compile from there, since the Kconfig/Makefile options are all located
-> within the same hierarchical level, just a preference.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
+> 
+> Fix to return error code -ENOMEM from the dma_map_single error
+> handling case instead of 0, as done elsewhere in this function.
+> 
+> Fixes: 032c5e82847a ("Driver for IBM System i/p VNIC protocol")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-It turns out that the way I changed it in v9 prevents the driver from 
-being built as a module.  I changed the wrong Makefile.  I will have to 
-post a v10.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Applied.
