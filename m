@@ -1,58 +1,69 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/1] netfilter: gre: Use the consitent GRE and PPTP
- struct instead of the structures defined in netfilter
-Date: Thu, 25 Aug 2016 14:16:50 +0200
-Message-ID: <20160825121650.GA2537@salvia>
-References: <1471618894-10582-1-git-send-email-fgao@ikuai8.com>
- <CA+6hz4piLVv=L03sst56GrOWMST6gTvEF7h4i1jGw0fNw0M8jw@mail.gmail.com>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [RESEND PATCH net 01/10] net: ethernet: mediatek: fix fails from
+ TX housekeeping due to incorrect port setup
+Date: Thu, 25 Aug 2016 14:19:49 +0200
+Message-ID: <6c5c3a5e-caf3-cc6f-6611-e5fb416c809e@phrozen.org>
+References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
+ <1472121901-15629-2-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gao Feng <fgao@ikuai8.com>, Patrick McHardy <kaber@trash.net>,
-        Netfilter Developer Mailing List
-        <netfilter-devel@vger.kernel.org>,
-        Philp Prindeville <philipp@redfish-solutions.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Feng Gao <gfree.wind@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: nbd@openwrt.org, netdev@vger.kernel.org,
+        linux-mediatek@lists.infradead.org, keyhaede@gmail.com
+To: Sean Wang <sean.wang@mediatek.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45412 "EHLO mail.us.es"
+Received: from nbd.name ([46.4.11.11]:52658 "EHLO nbd.name"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933845AbcHYMRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 08:17:09 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 19648FEFB8
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 14:16:59 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1127EFC61E
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 14:16:59 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 1A163100A75
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 14:16:55 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <CA+6hz4piLVv=L03sst56GrOWMST6gTvEF7h4i1jGw0fNw0M8jw@mail.gmail.com>
+        id S1754080AbcHYMTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 08:19:54 -0400
+In-Reply-To: <1472121901-15629-2-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 19, 2016 at 11:03:46PM +0800, Feng Gao wrote:
-> My email server reports the last same patch email failed to send.
-> So I just sent it again.
+
+
+On 25/08/2016 12:44, Sean Wang wrote:
+> which net device the SKB is complete for depends on the forward port
+> on txd4 on the corresponding TX descriptor, but the information isn't
+> set up well in case of  SKB fragments that would lead to watchdog timeout
+> from the upper layer, so fix it up.
 > 
-> I am sorry, if anyone receives duplicated ones.
+> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
 
-git am v2-1-2-net-next-netfilter-gre-Use-consistent-GRE_-macros-instead-of-ones-defined-by-netfilter..patch
--s
-Applying: netfilter: gre: Use consistent GRE_* macros instead of ones
-defined by netfilter.
-error: patch failed: include/uapi/linux/if_tunnel.h:36
-error: include/uapi/linux/if_tunnel.h: patch does not apply
-
-It seems your base was missing this patch:
-
-commit ab10dccb11608b96b43b557c12a5ad867723e503
-Author: Gao Feng <fgao@ikuai8.com>
-Date:   Tue Aug 9 12:38:24 2016 +0800
-
-    rps: Inspect PPTP encapsulated by GRE to get flow hash
-
-Since I cannot see GRE_FLAGS in your patch as context.
-
-Please rebase and resubmit, thanks!
+Acked-by: John Crispin <john@phrozen.org>
+> ---
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> index 1801fd8..6e4a6ca 100644
+> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+> @@ -587,14 +587,15 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+>  	dma_addr_t mapped_addr;
+>  	unsigned int nr_frags;
+>  	int i, n_desc = 1;
+> -	u32 txd4 = 0;
+> +	u32 txd4 = 0, fport;
+>  
+>  	itxd = ring->next_free;
+>  	if (itxd == ring->last_free)
+>  		return -ENOMEM;
+>  
+>  	/* set the forward port */
+> -	txd4 |= (mac->id + 1) << TX_DMA_FPORT_SHIFT;
+> +	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
+> +	txd4 |= fport;
+>  
+>  	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
+>  	memset(tx_buf, 0, sizeof(*tx_buf));
+> @@ -652,7 +653,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+>  			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
+>  					       TX_DMA_PLEN0(frag_map_size) |
+>  					       last_frag * TX_DMA_LS0));
+> -			WRITE_ONCE(txd->txd4, 0);
+> +			WRITE_ONCE(txd->txd4, fport);
+>  
+>  			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+>  			tx_buf = mtk_desc_to_tx_buf(ring, txd);
+> 
