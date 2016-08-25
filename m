@@ -1,137 +1,103 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/2] smc91x: remove ARM hack for unaligned 16-bit writes
-Date: Thu, 25 Aug 2016 16:46:21 +0200
-Message-ID: <20160825144633.1850889-2-arnd@arndb.de>
-References: <20160825144633.1850889-1-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: flush the softnet backlog in process
+ context
+Date: Thu, 25 Aug 2016 07:47:36 -0700
+Message-ID: <1472136456.14381.133.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <528006070d2951617c55b94c60c5d690ff0e4fc3.1472130597.git.pabeni@redhat.com>
+         <1472135557.14381.130.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, Yoshinori Sato <ysato@users.sourceforge.jp>,
- Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Robert Jarzmik <robert.jarzmik@free.fr>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Russell King <linux@armlinux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160825144633.1850889-1-arnd@arndb.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35549 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758022AbcHYOru (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 10:47:50 -0400
+Received: by mail-pf0-f195.google.com with SMTP id h186so3358322pfg.2
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 07:47:38 -0700 (PDT)
+In-Reply-To: <1472135557.14381.130.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ARM specific I/O operations are almost the same as the generic
-ones, with the exception of the SMC_outw macro that works around
-a problem of some platforms that cannot write to 16-bit registers
-at an address that is not 32-bit aligned.
+On Thu, 2016-08-25 at 07:32 -0700, Eric Dumazet wrote:
 
-By inspection, I found that this is handled already in the
-register abstractions for almost all cases, the exceptions being
-SMC_SET_MAC_ADDR() and SMC_SET_MCAST(). I assume that all
-platforms that require the hack for the other registers also
-need it here, so the ones listed explictly here are the only
-ones that work correctly, while the other ones either don't
-need the hack at all, or they will set an incorrect MAC
-address (which can often go unnoticed).
+> In a future patch, we could change this so that we kick
+> flush_all_backlogs() once for all devices, instead of one device at a
+> time.
+> 
+> We would not pass @dev anymore as a parameter and simply look at
+> skb->dev->reg_state to decide to remove packets from queues in
+> flush_backlog()
 
-This changes the two macros that set the unaligned registers
-to use 32-bit writes if possible, which should do the right
-thing in all combinations. The ARM specific SMC_outw gets removed
-as a consequence.
+This would be something like :
 
-The only difference between the ARM behavior and the default is
-the selection of the LED settings. The fact that we have different
-defaults based on the CPU architectures here is a bit suspicious,
-but probably harmless, and I have no plan of touching that.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/smsc/smc91x.h | 50 +++++++++++++++++++++++---------------
- 1 file changed, 30 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
-index 22333477d0b5..908473d9ede0 100644
---- a/drivers/net/ethernet/smsc/smc91x.h
-+++ b/drivers/net/ethernet/smsc/smc91x.h
-@@ -58,6 +58,7 @@
- #define SMC_inw(a, r)		readw((a) + (r))
- #define SMC_inl(a, r)		readl((a) + (r))
- #define SMC_outb(v, a, r)	writeb(v, (a) + (r))
-+#define SMC_outw(v, a, r)	writew(v, (a) + (r))
- #define SMC_outl(v, a, r)	writel(v, (a) + (r))
- #define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
- #define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
-@@ -65,19 +66,6 @@
- #define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
- #define SMC_IRQ_FLAGS		(-1)	/* from resource */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7feae74ca928..793ace2c600f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4293,7 +4293,6 @@ int netif_receive_skb(struct sk_buff *skb)
+ EXPORT_SYMBOL(netif_receive_skb);
  
--/* We actually can't write halfwords properly if not word aligned */
--static inline void SMC_outw(u16 val, void __iomem *ioaddr, int reg)
--{
--	if ((machine_is_mainstone() || machine_is_stargate2() ||
--	     machine_is_pxa_idp()) && reg & 2) {
--		unsigned int v = val << 16;
--		v |= readl(ioaddr + (reg & ~2)) & 0xffff;
--		writel(v, ioaddr + (reg & ~2));
--	} else {
--		writew(val, ioaddr + reg);
--	}
--}
--
- #elif	defined(CONFIG_SH_SH4202_MICRODEV)
+ struct flush_work {
+-	struct net_device *dev;
+ 	struct work_struct work;
+ };
  
- #define SMC_CAN_USE_8BIT	0
-@@ -1029,18 +1017,40 @@ static const char * chip_ids[ 16 ] =  {
+@@ -4303,7 +4302,6 @@ DEFINE_PER_CPU(struct flush_work, flush_works);
+ static void flush_backlog(struct work_struct *work)
+ {
+ 	struct flush_work *flush = container_of(work, typeof(*flush), work);
+-	struct net_device *dev = flush->dev;
+ 	struct sk_buff *skb, *tmp;
+ 	struct softnet_data *sd;
  
- #define SMC_SET_MAC_ADDR(lp, addr)					\
- 	do {								\
--		SMC_out16(addr[0]|(addr[1] << 8), ioaddr, ADDR0_REG(lp)); \
--		SMC_out16(addr[2]|(addr[3] << 8), ioaddr, ADDR1_REG(lp)); \
--		SMC_out16(addr[4]|(addr[5] << 8), ioaddr, ADDR2_REG(lp)); \
-+		if (SMC_32BIT(lp)) {					\
-+			SMC_outl((addr[0]      )|(addr[1] <<  8) |	\
-+				 (addr[2] << 16)|(addr[3] << 24),	\
-+				 ioaddr, ADDR0_REG(lp));		\
-+		} else {						\
-+			SMC_out16(addr[0]|(addr[1] << 8), ioaddr,	\
-+				  ADDR0_REG(lp));			\
-+			SMC_out16(addr[2]|(addr[3] << 8), ioaddr,	\
-+				  ADDR1_REG(lp));			\
-+		}							\
-+		SMC_out16(addr[4]|(addr[5] << 8), ioaddr,		\
-+			  ADDR2_REG(lp)); \
- 	} while (0)
+@@ -4313,7 +4311,7 @@ static void flush_backlog(struct work_struct *work)
+ 	local_irq_disable();
+ 	rps_lock(sd);
+ 	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp) {
+-		if (skb->dev == dev) {
++		if (skb->dev->reg_state == NETREG_UNREGISTERING) {
+ 			__skb_unlink(skb, &sd->input_pkt_queue);
+ 			kfree_skb(skb);
+ 			input_queue_head_incr(sd);
+@@ -4323,7 +4321,7 @@ static void flush_backlog(struct work_struct *work)
+ 	local_irq_enable();
  
- #define SMC_SET_MCAST(lp, x)						\
- 	do {								\
- 		const unsigned char *mt = (x);				\
--		SMC_out16(mt[0] | (mt[1] << 8), ioaddr, MCAST_REG1(lp)); \
--		SMC_out16(mt[2] | (mt[3] << 8), ioaddr, MCAST_REG2(lp)); \
--		SMC_out16(mt[4] | (mt[5] << 8), ioaddr, MCAST_REG3(lp)); \
--		SMC_out16(mt[6] | (mt[7] << 8), ioaddr, MCAST_REG4(lp)); \
-+		if (SMC_32BIT(lp)) {					\
-+			SMC_outl((mt[0]      ) | (mt[1] <<  8) |	\
-+				 (mt[2] << 16) | (mt[3] << 24),		\
-+				 ioaddr, MCAST_REG1(lp));		\
-+			SMC_outl((mt[4]      ) | (mt[5] <<  8) |	\
-+				 (mt[6] << 16) | (mt[7] << 24),		\
-+				 ioaddr, MCAST_REG3(lp));		\
-+		} else {						\
-+			SMC_out16(mt[0] | (mt[1] << 8),			\
-+				  ioaddr, MCAST_REG1(lp));		\
-+			SMC_out16(mt[2] | (mt[3] << 8),			\
-+				  ioaddr, MCAST_REG2(lp));		\
-+			SMC_out16(mt[4] | (mt[5] << 8),			\
-+				  ioaddr, MCAST_REG3(lp));		\
-+			SMC_out16(mt[6] | (mt[7] << 8),			\
-+				  ioaddr, MCAST_REG4(lp));		\
-+		}							\
- 	} while (0)
+ 	skb_queue_walk_safe(&sd->process_queue, skb, tmp) {
+-		if (skb->dev == dev) {
++		if (skb->dev->reg_state == NETREG_UNREGISTERING) {
+ 			__skb_unlink(skb, &sd->process_queue);
+ 			kfree_skb(skb);
+ 			input_queue_head_incr(sd);
+@@ -4332,7 +4330,7 @@ static void flush_backlog(struct work_struct *work)
+ 	local_bh_enable();
+ }
  
- #define SMC_PUT_PKT_HDR(lp, status, length)				\
--- 
-2.9.0
+-static void flush_all_backlogs(struct net_device *dev)
++static void flush_all_backlogs(void)
+ {
+ 	unsigned int cpu;
+ 
+@@ -4342,7 +4340,6 @@ static void flush_all_backlogs(struct net_device *dev)
+ 		struct flush_work *flush = per_cpu_ptr(&flush_works, cpu);
+ 
+ 		INIT_WORK(&flush->work, flush_backlog);
+-		flush->dev = dev;
+ 		queue_work_on(cpu, system_highpri_wq, &flush->work);
+ 	}
+ 
+@@ -6735,8 +6732,8 @@ static void rollback_registered_many(struct list_head *head)
+ 		unlist_netdevice(dev);
+ 
+ 		dev->reg_state = NETREG_UNREGISTERING;
+-		flush_all_backlogs(dev);
+ 	}
++	flush_all_backlogs();
+ 
+ 	synchronize_net();
+ 
