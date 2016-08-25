@@ -1,89 +1,70 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 0/5] Networking cgroup controller
-Date: Thu, 25 Aug 2016 14:29:24 -0700
-Message-ID: <20160825212922.GA5388@ast-mbp.thefacebook.com>
-References: <1470876798-4024-1-git-send-email-anaravaram@google.com>
- <20160824210357.GU8185@htj.duckdns.org>
- <CAF2d9jjXxjgJU1VWDERKkv4LRvmhpjpyx7Dx76egQx43aaXtmQ@mail.gmail.com>
- <20160825180412.GA2369@ast-mbp.thefacebook.com>
- <CAF2d9jh9ZZ7A6zBZQj4JF5tMAjXG9XnunHz45+StevWRBm70xg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Tejun Heo <tj@kernel.org>, corbet@lwn.net, lizefan@huawei.com,
-        hannes@cmpxchg.org, David Miller <davem@davemloft.net>,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, linux-doc@vger.kernel.org,
-        cgroups@vger.kernel.org, linux-netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Wei Wang <weiwan@google.com>, tom@herbertland.com
-To: Mahesh Bandewar
-         =?utf-8?B?KOCkruCkueClh+CktiDgpKzgpILgpKHgpYfgpLXgpL4=?=
-         =?utf-8?B?4KSwKQ==?= <maheshb@google.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAF2d9jh9ZZ7A6zBZQj4JF5tMAjXG9XnunHz45+StevWRBm70xg@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: rick.jones2@hpe.com (Rick Jones)
+Subject: [PATCH net-next] documentation: Document issues with VMs and XPS and drivers enabling it on their own
+Date: Thu, 25 Aug 2016 14:33:04 -0700 (PDT)
+Message-ID: <20160825213304.2A02E2900836@tardy>
+Cc: <alexander.duyck@gmail.com>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t4625.austin.hp.com ([15.73.212.76]:35943 "EHLO
+        g2t4625.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754337AbcHYVeE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 17:34:04 -0400
+Received: from g1t6220.austin.hp.com (g1t6220.austin.hp.com [15.73.96.84])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by g2t4625.austin.hp.com (Postfix) with ESMTPS id A91EA401A
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 21:33:36 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 25, 2016 at 11:56:27AM -0700, Mahesh Bandewar (महेश बंडेवार) wrote:
-> On Thu, Aug 25, 2016 at 11:04 AM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Thu, Aug 25, 2016 at 08:54:19AM -0700, Mahesh Bandewar (महेश बंडेवार) wrote:
-> >> On Wed, Aug 24, 2016 at 2:03 PM, Tejun Heo <tj@kernel.org> wrote:
-> >> > Hello, Anoop.
-> >> >
-> >> > On Wed, Aug 10, 2016 at 05:53:13PM -0700, Anoop Naravaram wrote:
-> >> >> This patchset introduces a cgroup controller for the networking subsystem as a
-> >> >> whole. As of now, this controller will be used for:
-> >> >>
-> >> >> * Limiting the specific ports that a process in a cgroup is allowed to bind
-> >> >>   to or listen on. For example, you can say that all the processes in a
-> >> >>   cgroup can only bind to ports 1000-2000, and listen on ports 1000-1100, which
-> >> >>   guarantees that the remaining ports will be available for other processes.
-> >> >>
-> >> >> * Restricting which DSCP values processes can use with their sockets. For
-> >> >>   example, you can say that all the processes in a cgroup can only send
-> >> >>   packets with a DSCP tag between 48 and 63 (corresponding to TOS values of
-> >> >>   192 to 255).
-> >> >>
-> >> >> * Limiting the total number of udp ports that can be used by a process in a
-> >> >>   cgroup. For example, you can say that all the processes in one cgroup are
-> >> >>   allowed to use a total of up to 100 udp ports. Since the total number of udp
-> >> >>   ports that can be used by all processes is limited, this is useful for
-> >> >>   rationing out the ports to different process groups.
-> >> >>
-> >> >> In the future, more networking-related properties may be added to this
-> >> >> controller.
-> >> >
-> >> > Thanks for working on this; however, I share the sentiment expressed
-> >> > by others that this looks like too piecemeal an approach.  If there
-> >> > are no alternatives, we surely should consider this but it at least
-> >> > *looks* like bpf should be able to cover the same functionalities
-> >> > without having to revise and extend in-kernel capabilities constantly.
-> >> >
-> >> My primary concern is the cost that need to be paid to get this functionality.
-> >> (a) The suggested alternatives eBPF either can't solve the problem in
-> >> the current form or need substantial work to get it done. e.g.
-> >> udp-port-limit since there is no notion of "maintaining
-> >> counters-per-group-of-processes". This is solved by the cgroup infra.
-> >
-> > what is specifically missing?
-> > there are several ways to do counters in bpf and as soon as bpf program
-> > is attachable to a cgroup, all of these counter features come for free.
-> > Counting bytes or packets or port bind failures or anything else per cgroup
-> > with bpf is trivial. No extra code is needed.
-> >
-> Alexei, I was referring to the association of eBPF to the cgroup. Lack
-> of it makes anyone wants to use it invest into additional
-> administrative infra that you are currently getting with cgroup-infra.
+From: Rick Jones <rick.jones2@hpe.com>
 
-Please look at Daniel's patches. They have been circulating in different
-forms for quite some time now. Your bind port filter use case can be
-easily added on top. Then the end result is additional ten lines of code
-instead of hundreds.
-Another alternative is to go cgroup+lsm+bpf route that Sargun and Mickael
-are proposing. I think it will also work for your use case.
-The goal we all should have is to have common infra that solves the
-largest number of use cases.
+Since XPS was first introduced two things have happened.  Some drivers
+have started enabling XPS on their own initiative, and it has been
+found that when a VM is sending data through a host interface with XPS
+enabled, that traffic can end-up seriously out of order.
 
+Signed-off-by: Rick Jones <rick.jones2@hpe.com>
+
+---
+
+diff --git a/Documentation/networking/scaling.txt b/Documentation/networking/scaling.txt
+index 59f4db2..50cc888 100644
+--- a/Documentation/networking/scaling.txt
++++ b/Documentation/networking/scaling.txt
+@@ -400,15 +400,31 @@ transport layer is responsible for setting ooo_okay appropriately. TCP,
+ for instance, sets the flag when all data for a connection has been
+ acknowledged.
+ 
++When the traffic source is a VM running on the host, there is no
++socket structure known to the host.  In this case, unless the VM is
++itself CPU-pinned, the traffic being sent from it can end-up queued to
++multiple transmit queues and end-up being transmitted out of order.
++
++In some cases this can result in a considerable loss of performance.
++
++In such situations, XPS should not be enabled at runtime, or
++explicitly disabled if the NIC driver(s) in question enable it on
++their own.  Othersise, if possible, the VMs should be CPU pinned.
++
+ ==== XPS Configuration
+ 
+-XPS is only available if the kconfig symbol CONFIG_XPS is enabled (on by
+-default for SMP). The functionality remains disabled until explicitly
+-configured. To enable XPS, the bitmap of CPUs that may use a transmit
+-queue is configured using the sysfs file entry:
++XPS is available only if the kconfig symbol CONFIG_XPS is enabled
++prior to building the kernel.  It is enabled by default for SMP kernel
++configurations.  In many cases the functionality remains disabled at
++runtime until explicitly configured by the system administrator. To
++enable XPS, the bitmap of CPUs that may use a transmit queue is
++configured using the sysfs file entry:
+ 
+ /sys/class/net/<dev>/queues/tx-<n>/xps_cpus
+ 
++However, some NIC drivers will configure XPS at runtime for the
++interfaces they drive, via a call to netif_set_xps_queue.
++
+ == Suggested Configuration
+ 
+ For a network device with a single transmission queue, XPS configuration
