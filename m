@@ -1,36 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: rename switch operations structure
-Date: Wed, 24 Aug 2016 21:46:19 -0700 (PDT)
-Message-ID: <20160824.214619.11270068071703682.davem@davemloft.net>
-References: <20160823163856.21456-1-vivien.didelot@savoirfairelinux.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH 0/5] Networking cgroup controller
+Date: Wed, 24 Aug 2016 17:28:48 -0700
+Message-ID: <CAF2d9jihrtUs870+K19zQWtvA4WOkX6ZfKC0BGTt1FQ3NVfxww@mail.gmail.com>
+References: <1470876798-4024-1-git-send-email-anaravaram@google.com> <CAG53R5UY7TH3XiOHa1sEa-zGXKfLm9UYBPR6zwP1KHbDSZe4tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160823163856.21456-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Anoop Naravaram <anaravaram@google.com>,
+        Jonathan Corbet <corbet@lwn.net>, Tejun Heo <tj@kernel.org>,
+        lizefan@huawei.com, Johannes Weiner <hannes@cmpxchg.org>,
+        David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        linux-doc@vger.kernel.org, cgroups@vger.kernel.org,
+        linux-netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Wei Wang <weiwan@google.com>, tom@herbertland.com
+To: Parav Pandit <pandit.parav@gmail.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAG53R5UY7TH3XiOHa1sEa-zGXKfLm9UYBPR6zwP1KHbDSZe4tg@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue, 23 Aug 2016 12:38:56 -0400
+On Tue, Aug 23, 2016 at 1:49 AM, Parav Pandit <pandit.parav@gmail.com> wrote:
+> Hi Anoop,
+>
+> Regardless of usecase, I think this functionality is best handled as
+> LSM functionality instead of cgroup.
+>
+I'm not so sure about that. Cgroup APIs are useful and this is just an
+extension to it.
 
-> Now that the dsa_switch_driver structure contains only function pointers
-> as it is supposed to, rename it to the more appropriate dsa_switch_ops,
-> uniformly to any other operations structure in the kernel.
-> 
-> No functional changes here, basically just the result of something like:
-> s/dsa_switch_driver *drv/dsa_switch_ops *ops/g
-> 
-> However keep the {un,}register_switch_driver functions and their
-> dsa_switch_drivers list as is, since they represent the -- likely to be
-> deprecated soon -- legacy DSA registration framework.
-> 
-> In the meantime, also fix the following checks from checkpatch.pl to
-> make it happy with this patch:
- ...
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied, thanks Vivien.
+> Tasks which are proposed in this patch are related to access control checks.
+> LSM already has required hooks for socket operations such as bind(),
+> listen() as few small examples.
+>
+> Refer to security_socket_listen() which invokes LSM specific hooks.
+> This is invoked in source/net/socket.c as part of listen() system call.
+> LSM hook callback can check whether a given a process can listen to
+> requested UDP port or not.
+>
+This has administrative overhead that is not addressed. The underlying
+cgroup infrastructure takes care of it in this (current)
+implementation.
+
+> Parav
+>
+>
+[...]
