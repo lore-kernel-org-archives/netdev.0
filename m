@@ -1,67 +1,49 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
- connection
-Date: Thu, 25 Aug 2016 11:06:02 +0200
-Message-ID: <20160825090602.GA30509@breakpoint.cc>
-References: <1471524527-10029-1-git-send-email-fw@strlen.de>
- <1471524527-10029-2-git-send-email-fw@strlen.de>
- <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Owen Lin <olin@rivetnetworks.com>
+Subject: [PATCH 1/1] net: add killer E2500 device id
+Date: Thu, 25 Aug 2016 03:33:11 +0000
+Message-ID: <BN3PR0401MB1457768A72BE42070D34E581C0ED0@BN3PR0401MB1457.namprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:49152 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933159AbcHYJGE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 05:06:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:28319
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753631AbcHYJKA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 05:10:00 -0400
+Content-Language: zh-TW
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-08-18 at 14:48 +0200, Florian Westphal wrote:
-> > commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
-> > added the main infrastructure that is needed for per-connection
-> > randomization, in particular writing/reading the on-wire tcp header
-> > format takes the offset into account so rest of stack can use normal
-> > tcp_time_stamp (jiffies).
-> > 
-> > So only two items are left:
-> >  - add a tsoffset for request sockets
-> >  - extend the tcp isn generator to also return another 32bit number
-> >  in addition to the ISN.
-> > 
-> > Re-use of ISN generator also means timestamps are still monotonically
-> > increasing for same connection quadruple.
-> 
-> I like the idea, but the implementation looks a bit complex.
-> 
-> Instead of initializing tsoffset to 0, we could simply use
-> 
-> jhash(src_addr, dst_addr, boot_time_rnd)
-> 
-> This way, even syncookies would be handled, and we do not need to
-> increase tcp_request_sock size.
+Add Killer E2500 device ID in alx driver.
 
-So I gave this a try and it does avoid this tcp_request_sock increase,
-but I feel that getting boot_time_rnd is too easy.
+Signed-off-by: Owen Lin olin@rivetnetworks.com
 
-I tried a few other ideas but nothing satisfying/simpler came out of it
-(e.g. i tried to also hash the isn but that gets scaled w. current
- clock so it doesn't work).
+---------------------------------------------------------------------------=
+-----
 
-Are you more concerned wrt. complexity or the reqsk increase?
+diff -up1rN alx_orig/main.c alx/main.c
+--- alx_orig/main.c	2016-08-25 11:12:34.170447500 +0800
++++ alx/main.c	2016-08-25 11:24:12.026853000 +0800
+@@ -1547,2 +1547,4 @@ static const struct pci_device_id alx_pc
+ 	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
++	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2500),
++	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
+ 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8162),
+diff -up1rN alx_orig/reg.h alx/reg.h
+--- alx_orig/reg.h	2016-08-25 11:08:25.895534000 +0800
++++ alx/reg.h	2016-08-25 11:24:34.933147000 +0800
+@@ -40,5 +40,6 @@
+ #define ALX_DEV_ID_E2400				0xe0a1
++#define ALX_DEV_ID_E2500				0xe0b1
+ #define ALX_DEV_ID_AR8162				0x1090
+-#define ALX_DEV_ID_AR8171				0x10A1
+-#define ALX_DEV_ID_AR8172				0x10A0
++#define ALX_DEV_ID_AR8171				0x10a1
++#define ALX_DEV_ID_AR8172				0x10a0
 
-One could use tfo boolean padding in the struct to avoid size increase
-(1 bit tfo_listener, 31 for tsoff).
-
-I would then split this patch in two (one to add tsoff to reqsk, one
-to add the randomization).
-
-The only other alternative I see is to eat 2nd md5_transform and
-add a tso_offset function to secure_seq.c -- but I don't like that
-either.
-
-Any other idea?
+/* rev definition,
