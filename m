@@ -1,493 +1,112 @@
-From: Hadar Hen Zion <hadarh@mellanox.com>
-Subject: [PATCH net-next V3 4/4] net/sched: Introduce act_tunnel_key
-Date: Thu, 25 Aug 2016 19:13:47 +0300
-Message-ID: <1472141627-27339-5-git-send-email-hadarh@mellanox.com>
-References: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Amir Vadai <amirva@mellanox.com>, Amir Vadai <amir@vadai.me>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 4.1/4.2-stable] tcp: make challenge acks less predictable
+Date: Thu, 25 Aug 2016 09:15:46 -0700
+Message-ID: <1472141746-30389-1-git-send-email-f.fainelli@gmail.com>
+Cc: w@1wt.eu, gregkh@linuxfoundation.org,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        "David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38672 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1757635AbcHYQU7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:20:59 -0400
-In-Reply-To: <1472141627-27339-1-git-send-email-hadarh@mellanox.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35582 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753140AbcHYQXm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:23:42 -0400
+Received: by mail-pf0-f176.google.com with SMTP id x72so19191138pfd.2
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:23:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amir@vadai.me>
+From: Eric Dumazet <edumazet@google.com>
 
-This action could be used before redirecting packets to a shared tunnel
-device, or when redirecting packets arriving from a such a device.
+[ Upstream commit 75ff39ccc1bd5d3c455b6822ab09e533c551f758 ]
 
-The action will release the metadata created by the tunnel device
-(decap), or set the metadata with the specified values for encap
-operation.
+Yue Cao claims that current host rate limiting of challenge ACKS
+(RFC 5961) could leak enough information to allow a patient attacker
+to hijack TCP sessions. He will soon provide details in an academic
+paper.
 
-For example, the following flower filter will forward all ICMP packets
-destined to 11.11.11.2 through the shared vxlan device 'vxlan0'. Before
-redirecting, a metadata for the vxlan tunnel is created using the
-tunnel_key action and it's arguments:
+This patch increases the default limit from 100 to 1000, and adds
+some randomization so that the attacker can no longer hijack
+sessions without spending a considerable amount of probes.
 
-$ filter add dev net0 protocol ip parent ffff: \
-    flower \
-      ip_proto 1 \
-      dst_ip 11.11.11.2 \
-    action tunnel_key set\
-      src_ip 11.11.0.1 \
-      dst_ip 11.11.0.2 \
-      id 11 \
-    action mirred egress redirect dev vxlan0
+Based on initial analysis and patch from Linus.
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Note that we also have per socket rate limiting, so it is tempting
+to remove the host limit in the future.
+
+v2: randomize the count of challenge acks per second, not the period.
+
+Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
+Reported-by: Yue Cao <ycao009@ucr.edu>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- include/net/tc_act/tc_tunnel_key.h        |  25 +++
- include/uapi/linux/tc_act/tc_tunnel_key.h |  42 ++++
- net/sched/Kconfig                         |  11 ++
- net/sched/Makefile                        |   1 +
- net/sched/act_tunnel_key.c                | 312 ++++++++++++++++++++++++++++++
- 5 files changed, 391 insertions(+)
- create mode 100644 include/net/tc_act/tc_tunnel_key.h
- create mode 100644 include/uapi/linux/tc_act/tc_tunnel_key.h
- create mode 100644 net/sched/act_tunnel_key.c
+Hi David, Greg,
 
-diff --git a/include/net/tc_act/tc_tunnel_key.h b/include/net/tc_act/tc_tunnel_key.h
-new file mode 100644
-index 0000000..18d5950
---- /dev/null
-+++ b/include/net/tc_act/tc_tunnel_key.h
-@@ -0,0 +1,25 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __NET_TC_TUNNEL_KEY_H
-+#define __NET_TC_TUNNEL_KEY_H
-+
-+#include <net/act_api.h>
-+
-+struct tcf_tunnel_key {
-+	struct tc_action	common;
-+	int			tcft_action;
-+	struct metadata_dst     *tcft_enc_metadata;
-+};
-+
-+#define to_tunnel_key(a) ((struct tcf_tunnel_key *)a)
-+
-+#endif /* __NET_TC_TUNNEL_KEY_H */
-+
-diff --git a/include/uapi/linux/tc_act/tc_tunnel_key.h b/include/uapi/linux/tc_act/tc_tunnel_key.h
-new file mode 100644
-index 0000000..f9ddf53
---- /dev/null
-+++ b/include/uapi/linux/tc_act/tc_tunnel_key.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __LINUX_TC_TUNNEL_KEY_H
-+#define __LINUX_TC_TUNNEL_KEY_H
-+
-+#include <linux/pkt_cls.h>
-+
-+#define TCA_ACT_TUNNEL_KEY 17
-+
-+#define TCA_TUNNEL_KEY_ACT_SET	    1
-+#define TCA_TUNNEL_KEY_ACT_RELEASE  2
-+
-+struct tc_tunnel_key {
-+	tc_gen;
-+	int t_action;
-+};
-+
-+enum {
-+	TCA_TUNNEL_KEY_UNSPEC,
-+	TCA_TUNNEL_KEY_TM,
-+	TCA_TUNNEL_KEY_PARMS,
-+	TCA_TUNNEL_KEY_ENC_IPV4_SRC,	/* be32 */
-+	TCA_TUNNEL_KEY_ENC_IPV4_DST,	/* be32 */
-+	TCA_TUNNEL_KEY_ENC_IPV6_SRC,	/* struct in6_addr */
-+	TCA_TUNNEL_KEY_ENC_IPV6_DST,	/* struct in6_addr */
-+	TCA_TUNNEL_KEY_ENC_KEY_ID,	/* be64 */
-+	TCA_TUNNEL_KEY_PAD,
-+	__TCA_TUNNEL_KEY_MAX,
-+};
-+
-+#define TCA_TUNNEL_KEY_MAX (__TCA_TUNNEL_KEY_MAX - 1)
-+
-+#endif
-+
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index ccf931b..72e3426 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -761,6 +761,17 @@ config NET_ACT_IFE
- 	  To compile this code as a module, choose M here: the
- 	  module will be called act_ife.
+Not sure how you want to take this patch, whether David will
+queue it via his -stable submissions, or if Greg should pick
+it up directly.
+
+It applies cleanly to 4.1 and 4.2, and possibly earlier kernels
+as well.
+
+Thanks
+
+ net/ipv4/tcp_input.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 87463c814896..f8c0862fa87e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -89,7 +89,7 @@ int sysctl_tcp_adv_win_scale __read_mostly = 1;
+ EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
  
-+config NET_ACT_TUNNEL_KEY
-+        tristate "IP tunnel metadata manipulation"
-+        depends on NET_CLS_ACT
-+        ---help---
-+	  Say Y here to set/release ip tunnel metadata.
-+
-+	  If unsure, say N.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called act_tunnel_key.
-+
- config NET_IFE_SKBMARK
-         tristate "Support to encoding decoding skb mark on IFE action"
-         depends on NET_ACT_IFE
-diff --git a/net/sched/Makefile b/net/sched/Makefile
-index ae088a5..b9d046b 100644
---- a/net/sched/Makefile
-+++ b/net/sched/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_NET_ACT_CONNMARK)	+= act_connmark.o
- obj-$(CONFIG_NET_ACT_IFE)	+= act_ife.o
- obj-$(CONFIG_NET_IFE_SKBMARK)	+= act_meta_mark.o
- obj-$(CONFIG_NET_IFE_SKBPRIO)	+= act_meta_skbprio.o
-+obj-$(CONFIG_NET_ACT_TUNNEL_KEY)+= act_tunnel_key.o
- obj-$(CONFIG_NET_SCH_FIFO)	+= sch_fifo.o
- obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
- obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
-diff --git a/net/sched/act_tunnel_key.c b/net/sched/act_tunnel_key.c
-new file mode 100644
-index 0000000..4726317
---- /dev/null
-+++ b/net/sched/act_tunnel_key.c
-@@ -0,0 +1,312 @@
-+/*
-+ * Copyright (c) 2016, Amir Vadai <amir@vadai.me>
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <net/netlink.h>
-+#include <net/pkt_sched.h>
-+#include <net/dst.h>
-+#include <net/dst_metadata.h>
-+
-+#include <linux/tc_act/tc_tunnel_key.h>
-+#include <net/tc_act/tc_tunnel_key.h>
-+
-+#define TUNNEL_KEY_TAB_MASK     15
-+
-+static int tunnel_key_net_id;
-+static struct tc_action_ops act_tunnel_key_ops;
-+
-+static int tunnel_key_act(struct sk_buff *skb, const struct tc_action *a,
-+			  struct tcf_result *res)
-+{
-+	struct tcf_tunnel_key *t = to_tunnel_key(a);
-+	int action;
-+
-+	spin_lock(&t->tcf_lock);
-+	tcf_lastuse_update(&t->tcf_tm);
-+	bstats_update(&t->tcf_bstats, skb);
-+	action = t->tcf_action;
-+
-+	switch (t->tcft_action) {
-+	case TCA_TUNNEL_KEY_ACT_RELEASE:
-+		skb_dst_set_noref(skb, NULL);
-+		break;
-+	case TCA_TUNNEL_KEY_ACT_SET:
-+		skb_dst_set_noref(skb, &t->tcft_enc_metadata->dst);
-+		break;
-+	default:
-+		WARN_ONCE(1, "Bad tunnel_key action.\n");
-+		break;
-+	}
-+
-+	spin_unlock(&t->tcf_lock);
-+	return action;
-+}
-+
-+static const struct nla_policy tunnel_key_policy[TCA_TUNNEL_KEY_MAX + 1] = {
-+	[TCA_TUNNEL_KEY_PARMS]	    = { .len = sizeof(struct tc_tunnel_key) },
-+	[TCA_TUNNEL_KEY_ENC_IPV4_SRC] = { .type = NLA_U32 },
-+	[TCA_TUNNEL_KEY_ENC_IPV4_DST] = { .type = NLA_U32 },
-+	[TCA_TUNNEL_KEY_ENC_IPV6_SRC] = { .len = sizeof(struct in6_addr) },
-+	[TCA_TUNNEL_KEY_ENC_IPV6_DST] = { .len = sizeof(struct in6_addr) },
-+	[TCA_TUNNEL_KEY_ENC_KEY_ID]   = { .type = NLA_U32 },
-+};
-+
-+static int tunnel_key_init(struct net *net, struct nlattr *nla,
-+			   struct nlattr *est, struct tc_action **a,
-+			   int ovr, int bind)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+	struct nlattr *tb[TCA_TUNNEL_KEY_MAX + 1];
-+	struct metadata_dst *metadata = NULL;
-+	struct tc_tunnel_key *parm;
-+	struct tcf_tunnel_key *t;
-+	__be64 key_id;
-+	bool exists = false;
-+	int ret = 0;
-+	int err;
-+
-+	if (!nla)
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(tb, TCA_TUNNEL_KEY_MAX, nla, tunnel_key_policy);
-+	if (err < 0)
-+		return err;
-+
-+	if (!tb[TCA_TUNNEL_KEY_PARMS])
-+		return -EINVAL;
-+
-+	parm = nla_data(tb[TCA_TUNNEL_KEY_PARMS]);
-+	exists = tcf_hash_check(tn, parm->index, a, bind);
-+	if (exists && bind)
-+		return 0;
-+
-+	switch (parm->t_action) {
-+	case TCA_TUNNEL_KEY_ACT_RELEASE:
-+		break;
-+	case TCA_TUNNEL_KEY_ACT_SET:
-+		if (!tb[TCA_TUNNEL_KEY_ENC_KEY_ID]) {
-+			ret = -EINVAL;
-+			goto err_out;
-+		}
-+
-+		key_id = key32_to_tunnel_id(nla_get_be32(tb[TCA_TUNNEL_KEY_ENC_KEY_ID]));
-+
-+		if (tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC] &&
-+		    tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]) {
-+			__be32 saddr;
-+			__be32 daddr;
-+
-+			saddr = nla_get_be32(tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC]);
-+			daddr = nla_get_be32(tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]);
-+
-+			metadata = _ip_tun_set_dst(saddr, daddr, 0, 0,
-+						   TUNNEL_KEY, key_id, 0);
-+		} else if (tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC] &&
-+			   tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]) {
-+			struct in6_addr saddr;
-+			struct in6_addr daddr;
-+
-+			saddr = nla_get_in6_addr(tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC]);
-+			daddr = nla_get_in6_addr(tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]);
-+
-+			metadata = _ipv6_tun_set_dst(saddr, daddr, 0, 0, 0,
-+						     TUNNEL_KEY, key_id, 0);
-+		}
-+
-+		if (!metadata) {
-+			ret = -EINVAL;
-+			goto err_out;
-+		}
-+
-+		metadata->u.tun_info.mode |= IP_TUNNEL_INFO_TX;
-+		break;
-+	default:
-+		goto err_out;
-+	}
-+
-+	if (!exists) {
-+		ret = tcf_hash_create(tn, parm->index, est, a,
-+				      &act_tunnel_key_ops, bind, false);
-+		if (ret)
-+			return ret;
-+
-+		ret = ACT_P_CREATED;
-+	} else {
-+		tcf_hash_release(*a, bind);
-+		if (!ovr)
-+			return -EEXIST;
-+	}
-+
-+	t = to_tunnel_key(*a);
-+
-+	spin_lock_bh(&t->tcf_lock);
-+
-+	t->tcf_action = parm->action;
-+	t->tcft_action = parm->t_action;
-+	t->tcft_enc_metadata = metadata;
-+
-+	spin_unlock_bh(&t->tcf_lock);
-+
-+	if (ret == ACT_P_CREATED)
-+		tcf_hash_insert(tn, *a);
-+
-+	return ret;
-+
-+err_out:
-+	if (exists)
-+		tcf_hash_release(*a, bind);
-+	return ret;
-+}
-+
-+static void tunnel_key_release(struct tc_action *a, int bind)
-+{
-+	struct tcf_tunnel_key *t = to_tunnel_key(a);
-+
-+	if (t->tcft_action == TCA_TUNNEL_KEY_ACT_SET)
-+		dst_release(&t->tcft_enc_metadata->dst);
-+}
-+
-+static int tunnel_key_dump_addresses(struct sk_buff *skb,
-+				     const struct ip_tunnel_info *info)
-+{
-+	unsigned short family = ip_tunnel_info_af(info);
-+
-+	if (family == AF_INET) {
-+		__be32 saddr = info->key.u.ipv4.src;
-+		__be32 daddr = info->key.u.ipv4.dst;
-+
-+		if (!nla_put_be32(skb, TCA_TUNNEL_KEY_ENC_IPV4_SRC, saddr) &&
-+		    !nla_put_be32(skb, TCA_TUNNEL_KEY_ENC_IPV4_DST, daddr))
-+			return 0;
-+	}
-+
-+	if (family == AF_INET6) {
-+		const struct in6_addr *saddr6 = &info->key.u.ipv6.src;
-+		const struct in6_addr *daddr6 = &info->key.u.ipv6.dst;
-+
-+		if (!nla_put_in6_addr(skb,
-+				      TCA_TUNNEL_KEY_ENC_IPV6_SRC, saddr6) &&
-+		    !nla_put_in6_addr(skb,
-+				      TCA_TUNNEL_KEY_ENC_IPV6_DST, daddr6))
-+			return 0;
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+static int tunnel_key_dump(struct sk_buff *skb, struct tc_action *a,
-+			   int bind, int ref)
-+{
-+	unsigned char *b = skb_tail_pointer(skb);
-+	struct tcf_tunnel_key *t = to_tunnel_key(a);
-+	struct tc_tunnel_key opt = {
-+		.index    = t->tcf_index,
-+		.refcnt   = t->tcf_refcnt - ref,
-+		.bindcnt  = t->tcf_bindcnt - bind,
-+		.action   = t->tcf_action,
-+		.t_action = t->tcft_action,
-+	};
-+	struct tcf_t tm;
-+
-+	if (nla_put(skb, TCA_TUNNEL_KEY_PARMS, sizeof(opt), &opt))
-+		goto nla_put_failure;
-+
-+	if (t->tcft_action == TCA_TUNNEL_KEY_ACT_SET) {
-+		struct ip_tunnel_key *key =
-+			&t->tcft_enc_metadata->u.tun_info.key;
-+		__be32 key_id = tunnel_id_to_key32(key->tun_id);
-+
-+		if (nla_put_be32(skb, TCA_TUNNEL_KEY_ENC_KEY_ID, key_id) ||
-+		    tunnel_key_dump_addresses(skb, &t->tcft_enc_metadata->u.tun_info))
-+			goto nla_put_failure;
-+	}
-+
-+	tcf_tm_dump(&tm, &t->tcf_tm);
-+	if (nla_put_64bit(skb, TCA_TUNNEL_KEY_TM, sizeof(tm),
-+			  &tm, TCA_TUNNEL_KEY_PAD))
-+		goto nla_put_failure;
-+
-+	return skb->len;
-+
-+nla_put_failure:
-+	nlmsg_trim(skb, b);
-+	return -1;
-+}
-+
-+static int tunnel_key_walker(struct net *net, struct sk_buff *skb,
-+			     struct netlink_callback *cb, int type,
-+			     const struct tc_action_ops *ops)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	return tcf_generic_walker(tn, skb, cb, type, ops);
-+}
-+
-+static int tunnel_key_search(struct net *net, struct tc_action **a, u32 index)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	return tcf_hash_search(tn, a, index);
-+}
-+
-+static struct tc_action_ops act_tunnel_key_ops = {
-+	.kind		=	"tunnel_key",
-+	.type		=	TCA_ACT_TUNNEL_KEY,
-+	.owner		=	THIS_MODULE,
-+	.act		=	tunnel_key_act,
-+	.dump		=	tunnel_key_dump,
-+	.init		=	tunnel_key_init,
-+	.cleanup	=	tunnel_key_release,
-+	.walk		=	tunnel_key_walker,
-+	.lookup		=	tunnel_key_search,
-+	.size		=	sizeof(struct tcf_tunnel_key),
-+};
-+
-+static __net_init int tunnel_key_init_net(struct net *net)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	return tc_action_net_init(tn, &act_tunnel_key_ops, TUNNEL_KEY_TAB_MASK);
-+}
-+
-+static void __net_exit tunnel_key_exit_net(struct net *net)
-+{
-+	struct tc_action_net *tn = net_generic(net, tunnel_key_net_id);
-+
-+	tc_action_net_exit(tn);
-+}
-+
-+static struct pernet_operations tunnel_key_net_ops = {
-+	.init = tunnel_key_init_net,
-+	.exit = tunnel_key_exit_net,
-+	.id   = &tunnel_key_net_id,
-+	.size = sizeof(struct tc_action_net),
-+};
-+
-+static int __init tunnel_key_init_module(void)
-+{
-+	return tcf_register_action(&act_tunnel_key_ops, &tunnel_key_net_ops);
-+}
-+
-+static void __exit tunnel_key_cleanup_module(void)
-+{
-+	tcf_unregister_action(&act_tunnel_key_ops, &tunnel_key_net_ops);
-+}
-+
-+module_init(tunnel_key_init_module);
-+module_exit(tunnel_key_cleanup_module);
-+
-+MODULE_AUTHOR("Amir Vadai <amir@vadai.me>");
-+MODULE_DESCRIPTION("ip tunnel manipulation actions");
-+MODULE_LICENSE("GPL v2");
+ /* rfc5961 challenge ack rate limiting */
+-int sysctl_tcp_challenge_ack_limit = 100;
++int sysctl_tcp_challenge_ack_limit = 1000;
+ 
+ int sysctl_tcp_stdurg __read_mostly;
+ int sysctl_tcp_rfc1337 __read_mostly;
+@@ -3380,7 +3380,7 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+ 	static u32 challenge_timestamp;
+ 	static unsigned int challenge_count;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	u32 now;
++	u32 count, now;
+ 
+ 	/* First check our per-socket dupack rate limit. */
+ 	if (tcp_oow_rate_limited(sock_net(sk), skb,
+@@ -3388,14 +3388,19 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+ 				 &tp->last_oow_ack_time))
+ 		return;
+ 
+-	/* Then check the check host-wide RFC 5961 rate limit. */
++	/* Then check host-wide RFC 5961 rate limit. */
+ 	now = jiffies / HZ;
+ 	if (now != challenge_timestamp) {
++		u32 half = (sysctl_tcp_challenge_ack_limit + 1) >> 1;
++
+ 		challenge_timestamp = now;
+-		challenge_count = 0;
++		WRITE_ONCE(challenge_count, half +
++			   prandom_u32_max(sysctl_tcp_challenge_ack_limit));
+ 	}
+-	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
+-		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
++	count = READ_ONCE(challenge_count);
++	if (count > 0) {
++		WRITE_ONCE(challenge_count, count - 1);
++		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
+ 		tcp_send_ack(sk);
+ 	}
+ }
 -- 
-1.8.3.1
+2.9.2
