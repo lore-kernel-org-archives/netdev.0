@@ -1,49 +1,53 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [RESEND PATCH net 03/10] net: ethernet: mediatek: fix API usage
- with skb_free_frag
-Date: Thu, 25 Aug 2016 14:20:58 +0200
-Message-ID: <f2adea70-e456-3655-71c7-028c4990a62a@phrozen.org>
-References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
- <1472121901-15629-4-git-send-email-sean.wang@mediatek.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net 2/2] sctp: not copying duplicate addrs to the assoc's
+ bind address list
+Date: Thu, 25 Aug 2016 09:10:46 -0300
+Message-ID: <20160825121046.GA11159@localhost.localdomain>
+References: <cover.1471605833.git.lucien.xin@gmail.com>
+ <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
+ <20160819175007.GB3578@hmsreliant.think-freely.org>
+ <CADvbK_do3kQSotq7-PbvoCBBSwOBBdZtx=rR+Q2XX3_bhV4_0w@mail.gmail.com>
+ <20160822142538.GA10323@hmsreliant.think-freely.org>
+ <20160824112338.GB11144@localhost.localdomain>
+ <CADvbK_dJbaze7qMsDp-7x0xANsXZX=JfYBNhKOo=2VgbM_ywZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nbd@openwrt.org,
-        linux-mediatek@lists.infradead.org, keyhaede@gmail.com
-To: Sean Wang <sean.wang@mediatek.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+        network dev <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org, davem <davem@davemloft.net>,
+        Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:52730 "EHLO nbd.name"
+Received: from mx1.redhat.com ([209.132.183.28]:57410 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758214AbcHYMVC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 08:21:02 -0400
-In-Reply-To: <1472121901-15629-4-git-send-email-sean.wang@mediatek.com>
+        id S1758671AbcHYMVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 08:21:42 -0400
+Content-Disposition: inline
+In-Reply-To: <CADvbK_dJbaze7qMsDp-7x0xANsXZX=JfYBNhKOo=2VgbM_ywZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 25/08/2016 12:44, Sean Wang wrote:
-> use skb_free_frag() instead of legacy put_page()
+On Thu, Aug 25, 2016 at 12:03:30PM +0800, Xin Long wrote:
+> > Or add a refcnt to its members. </idea>
+> > NETDEV_UP, it gets a ++ if it's already there
+> > NETDEV_DOWN, it gets a -- and cleans it up if it reaches 0
+> > And the rest probably could stay the same.
+> >
+> Yes, it could also avoid the issue of amounts of duplicate addrs.
+> or add a nic index variable to  its members.
 > 
-> Signed-off-by: Sean Wang <sean.wang@mediatek.com>
-
-Acked-by: John Crispin <john@phrozen.org>
-
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> But I still prefer the current patch.
+> 1. This issue only happens when server bind 'ANY' addresses.
+>     we don't need to add any new members to struct sctp_sockaddr_entry.
+>     especially if it's a really corner issue,  we fix this as an improvement.
 > 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 02b048f..1b131a1 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -864,7 +864,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
->  		/* receive data */
->  		skb = build_skb(data, ring->frag_size);
->  		if (unlikely(!skb)) {
-> -			put_page(virt_to_head_page(new_data));
-> +			skb_free_frag(new_data);
->  			netdev->stats.rx_dropped++;
->  			goto release_desc;
->  		}
+> 2. It's yet two issues  here, the duplicate addrs may be from
+>    a) different local NICs.
+>    b) the same one NIC.
+>    It may be unexpectable to filter them in NETDEV_UP/DOWN events.
 > 
+> 3. We check it only when sctp really binds it, just like sctp_do_bind.
+> 
+> What do you think ?
+
+Yep, +1. LGTM the current patch, thanks.
