@@ -1,58 +1,29 @@
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [RESEND PATCH net 02/10] net: ethernet: mediatek: fix incorrect
- return value of devm_clk_get with EPROBE_DEFER
-Date: Thu, 25 Aug 2016 18:44:53 +0800
-Message-ID: <1472121901-15629-3-git-send-email-sean.wang@mediatek.com>
-References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
+From: jennifer dogolea15 <jenniferdogolea15@gmail.com>
+Subject: hello
+Date: Thu, 25 Aug 2016 10:47:29 +0000
+Message-ID: <CAKUuWPOC0FS8+_1Exwbc5TdkXE90iuR48M2ZbJqdpcYAqj3W8w@mail.gmail.com>
+Reply-To: jenniferdogolea@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472121901-15629-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f193.google.com ([209.85.217.193]:35765 "EHLO
+        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934188AbcHYKrb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:47:31 -0400
+Received: by mail-ua0-f193.google.com with SMTP id 109so3400059uat.2
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 03:47:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the return value of devm_clk_get is EPROBE_DEFER, we should
-defer probing the driver. The change is verified and works based
-on 4.8-rc1 staying with the latest clk-next code for MT7623.
-
-Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 6e4a6ca..02b048f 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1851,8 +1851,15 @@ static int mtk_probe(struct platform_device *pdev)
- 	eth->clk_gp1 = devm_clk_get(&pdev->dev, "gp1");
- 	eth->clk_gp2 = devm_clk_get(&pdev->dev, "gp2");
- 	if (IS_ERR(eth->clk_esw) || IS_ERR(eth->clk_gp1) ||
--	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif))
--		return -ENODEV;
-+	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif)) {
-+		if (PTR_ERR(eth->clk_esw) == -EPROBE_DEFER ||
-+		    PTR_ERR(eth->clk_gp1) == -EPROBE_DEFER ||
-+		    PTR_ERR(eth->clk_gp1) == -EPROBE_DEFER ||
-+		    PTR_ERR(eth->clk_gp2) == -EPROBE_DEFER)
-+			return -EPROBE_DEFER;
-+		else
-+			return -ENODEV;
-+	}
- 
- 	clk_prepare_enable(eth->clk_ethif);
- 	clk_prepare_enable(eth->clk_esw);
--- 
-1.9.1
+Hello,
+My name is jennifer
+I saw your profile today on solidot.org and get interested to know you,
+because you look very nice in your profile, here is my email address
+(jenniferdogolea@hotmail.com) please send me an email so that i will
+send you my photos. and tell you more about my self. mail me at
+(jenniferdogolea@hotmail.com)
+Remember distance, color, religion or tribe does not matter but love
+matters a lot.
+kiss my dear love
+jennifer
