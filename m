@@ -1,105 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/6] net: dsa: b53: Add JOIN_ALL_VLAN support
-Date: Wed, 24 Aug 2016 18:33:43 -0700
-Message-ID: <1472088825-20181-5-git-send-email-f.fainelli@gmail.com>
-References: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch, jon.mason@broadcom.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36473 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932927AbcHYKNf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:13:35 -0400
-Received: by mail-pa0-f65.google.com with SMTP id ez1so2863620pab.3
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 03:13:34 -0700 (PDT)
-In-Reply-To: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] usbnet: ax88179_178a: Add support for writing the EEPROM
+Date: Thu, 25 Aug 2016 12:08:28 +0200
+Message-ID: <1472119708.2877.24.camel@suse.com>
+References: <20160824135231.21782-1-alban.bedel@avionic-design.de>
+         <1472049039.11480.10.camel@suse.com> <20160824164058.6ec64a8e@avionic-0020>
+         <1472116596.2877.23.camel@suse.com> <20160825120733.3413d395@avionic-0020>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Freddy Xin <freddy@asix.com.tw>, linux-kernel@vger.kernel.org,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Alban Bedel <alban.bedel@avionic-design.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160825120733.3413d395@avionic-0020>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In order to migrate the bcm_sf2 driver over to the b53 driver for most
-VLAN/FDB/bridge operations, we need to add support for the "join all
-VLANs" register and behavior which allows us to make a given port join
-all VLANs and avoid setting specific VLAN entries when it is leaving the
-bridge.
+On Thu, 2016-08-25 at 12:07 +0200, Alban Bedel wrote:
+> On Thu, 25 Aug 2016 11:16:36 +0200
+> Oliver Neukum <oneukum@suse.com> wrote:
+> 
+> > On Wed, 2016-08-24 at 16:40 +0200, Alban Bedel wrote:
+> > > On Wed, 24 Aug 2016 16:30:39 +0200
+> > > Oliver Neukum <oneukum@suse.com> wrote:
+> > >   
+> > > > On Wed, 2016-08-24 at 15:52 +0200, Alban Bedel wrote:  
+> > 
+> > > > > +       if (block != data)
+> > > > > +               kfree(block);    
+> > > > 
+> > > > And if block == dta, what frees the memory?  
+> > > 
+> > > In this case this function didn't allocate any memory, so there is
+> > > nothing to free.  
+> > 
+> > Hi,
+> > 
+> > I see. kfree() has a check for NULL, so you could drop the
+> > test, but it doesn't matter much either way.
+> 
+> I think you misunderstand something here. data is the buffer passed
+> by the caller and block is a local variable. There is two cases:
+> 
+> 1) The data to write is block aligned, then we use the caller buffer
+>    as is and set block = data.
+> 2) The requested data is not block aligned, then we kalloc block.
+> 
+> In both case the writing loop then use the block pointer. Afterwards
+> we only need to kfree block in case 2, that is when block != data.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/b53/b53_common.c | 30 ++++++++++++++++++++++++++----
- drivers/net/dsa/b53/b53_regs.h   |  3 +++
- 2 files changed, 29 insertions(+), 4 deletions(-)
+Thanks for the clarification. Maybe worth a comment in the code?
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index e59d799880e4..4b270a401336 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1315,9 +1315,21 @@ static int b53_br_join(struct dsa_switch *ds, int port,
- 		       struct net_device *bridge)
- {
- 	struct b53_device *dev = ds_to_priv(ds);
-+	s8 cpu_port = ds->dst->cpu_port;
- 	u16 pvlan, reg;
- 	unsigned int i;
- 
-+	/* Make this port leave the all VLANs join since we will have proper
-+	 * VLAN entries from now on
-+	 */
-+	if (is58xx(dev)) {
-+		b53_read16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, &reg);
-+		reg &= ~BIT(port);
-+		if ((reg & BIT(cpu_port)) == BIT(cpu_port))
-+			reg &= ~BIT(cpu_port);
-+		b53_write16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, reg);
-+	}
-+
- 	dev->ports[port].bridge_dev = bridge;
- 	b53_read16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(port), &pvlan);
- 
-@@ -1350,6 +1362,7 @@ static void b53_br_leave(struct dsa_switch *ds, int port)
- 	struct b53_device *dev = ds_to_priv(ds);
- 	struct net_device *bridge = dev->ports[port].bridge_dev;
- 	struct b53_vlan *vl = &dev->vlans[0];
-+	s8 cpu_port = ds->dst->cpu_port;
- 	unsigned int i;
- 	u16 pvlan, reg, pvid;
- 
-@@ -1379,10 +1392,19 @@ static void b53_br_leave(struct dsa_switch *ds, int port)
- 	else
- 		pvid = 0;
- 
--	b53_get_vlan_entry(dev, pvid, vl);
--	vl->members |= BIT(port) | BIT(dev->cpu_port);
--	vl->untag |= BIT(port) | BIT(dev->cpu_port);
--	b53_set_vlan_entry(dev, pvid, vl);
-+	/* Make this port join all VLANs without VLAN entries */
-+	if (is58xx(dev)) {
-+		b53_read16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, &reg);
-+		reg |= BIT(port);
-+		if (!(reg & BIT(cpu_port)))
-+			reg |= BIT(cpu_port);
-+		b53_write16(dev, B53_VLAN_PAGE, B53_JOIN_ALL_VLAN_EN, reg);
-+	} else {
-+		b53_get_vlan_entry(dev, pvid, vl);
-+		vl->members |= BIT(port) | BIT(dev->cpu_port);
-+		vl->untag |= BIT(port) | BIT(dev->cpu_port);
-+		b53_set_vlan_entry(dev, pvid, vl);
-+	}
- }
- 
- static void b53_br_set_stp_state(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/b53/b53_regs.h b/drivers/net/dsa/b53/b53_regs.h
-index a0b453ea34c9..dac0af4e2cd0 100644
---- a/drivers/net/dsa/b53/b53_regs.h
-+++ b/drivers/net/dsa/b53/b53_regs.h
-@@ -309,6 +309,9 @@
- /* Port VLAN mask (16 bit) IMP port is always 8, also on 5325 & co */
- #define B53_PVLAN_PORT_MASK(i)		((i) * 2)
- 
-+/* Join all VLANs register (16 bit) */
-+#define B53_JOIN_ALL_VLAN_EN		0x50
-+
- /*************************************************************************
-  * 802.1Q Page Registers
-  *************************************************************************/
--- 
-2.7.4
+	Regards
+		Oliver
