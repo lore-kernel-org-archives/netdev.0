@@ -1,8 +1,8 @@
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: [RESEND PATCH net 03/10] net: ethernet: mediatek: fix API usage with
- skb_free_frag
-Date: Thu, 25 Aug 2016 18:44:54 +0800
-Message-ID: <1472121901-15629-4-git-send-email-sean.wang@mediatek.com>
+Subject: [RESEND PATCH net 02/10] net: ethernet: mediatek: fix incorrect
+ return value of devm_clk_get with EPROBE_DEFER
+Date: Thu, 25 Aug 2016 18:44:53 +0800
+Message-ID: <1472121901-15629-3-git-send-email-sean.wang@mediatek.com>
 References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,25 +23,36 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-use skb_free_frag() instead of legacy put_page()
+If the return value of devm_clk_get is EPROBE_DEFER, we should
+defer probing the driver. The change is verified and works based
+on 4.8-rc1 staying with the latest clk-next code for MT7623.
 
 Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 02b048f..1b131a1 100644
+index 6e4a6ca..02b048f 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -864,7 +864,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 		/* receive data */
- 		skb = build_skb(data, ring->frag_size);
- 		if (unlikely(!skb)) {
--			put_page(virt_to_head_page(new_data));
-+			skb_free_frag(new_data);
- 			netdev->stats.rx_dropped++;
- 			goto release_desc;
- 		}
+@@ -1851,8 +1851,15 @@ static int mtk_probe(struct platform_device *pdev)
+ 	eth->clk_gp1 = devm_clk_get(&pdev->dev, "gp1");
+ 	eth->clk_gp2 = devm_clk_get(&pdev->dev, "gp2");
+ 	if (IS_ERR(eth->clk_esw) || IS_ERR(eth->clk_gp1) ||
+-	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif))
+-		return -ENODEV;
++	    IS_ERR(eth->clk_gp2) || IS_ERR(eth->clk_ethif)) {
++		if (PTR_ERR(eth->clk_esw) == -EPROBE_DEFER ||
++		    PTR_ERR(eth->clk_gp1) == -EPROBE_DEFER ||
++		    PTR_ERR(eth->clk_gp1) == -EPROBE_DEFER ||
++		    PTR_ERR(eth->clk_gp2) == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		else
++			return -ENODEV;
++	}
+ 
+ 	clk_prepare_enable(eth->clk_ethif);
+ 	clk_prepare_enable(eth->clk_esw);
 -- 
 1.9.1
