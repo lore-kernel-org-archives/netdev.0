@@ -1,73 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net] i40e: Change some init flow for the client
-Date: Wed, 24 Aug 2016 17:53:48 -0700
-Message-ID: <1472086428.2527.1.camel@intel.com>
-References: <1472086313-121437-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-qQrlKKAeUtvHV2pACcmL"
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/6] net: dsa: b53: Initialize ds->drv in b53_switch_alloc
+Date: Wed, 24 Aug 2016 18:33:40 -0700
+Message-ID: <1472088825-20181-2-git-send-email-f.fainelli@gmail.com>
+References: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch, jon.mason@broadcom.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:30344 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757311AbcHYFYK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 01:24:10 -0400
-In-Reply-To: <1472086313-121437-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:34767 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755685AbcHYFc0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 01:32:26 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hh10so2474252pac.1
+        for <netdev@vger.kernel.org>; Wed, 24 Aug 2016 22:31:21 -0700 (PDT)
+In-Reply-To: <1472088825-20181-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+In order to alloc drivers to override specific dsa_switch_driver
+callbacks, initialize ds->drv to b53_switch_ops earlier, which avoids
+having to expose this structure to glue drivers.
 
---=-qQrlKKAeUtvHV2pACcmL
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_common.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-On Wed, 2016-08-24 at 17:51 -0700, Jeff Kirsher wrote:
-> From: Anjali Singhai Jain <anjali.singhai@intel.com>
->=20
-> This change makes a common flow for Client instance open during init
-> and reset path. The Client subtask can handle both the cases instead of
-> making a separate notify_client_of_open call.
-> Also it may fix a bug during reset where the service task was leaking
-> some memory and causing issues.
->=20
-> Change-Id: I7232a32fd52b82e863abb54266fa83122f80a0cd
-> Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-> Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_client.c | 41 ++++++++++++++++=
-++++-
-> ------
-> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c=C2=A0=C2=A0 |=C2=A0 1 -
-> =C2=A02 files changed, 30 insertions(+), 12 deletions(-)
-
-While the original patch description did not call this out clearly, this
-patch fixes an issue with the RDMA/iWARP driver i40iw, which would randomly
-crash or hang without these changes.
---=-qQrlKKAeUtvHV2pACcmL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXvkGdAAoJEOVv75VaS+3OaBQP/jk4Jw+RCNtzsZEg4N8eBDXM
-vmHdvjNW5PpAoROdRl9o5RemmnVMD+0RapsKLDG+ZrmQgbLLf2FoKF5GHGrzaFzN
-cLSrDmi7bFL7vv0B5y6tbrRsqrWi7VcCGPq5utapIC3Bk7J6Z4tgGL8MBaKDl7Gj
-/vFguggyhxGU2Kz2TQxhmTc1fIvvoLAOXloowYY3Um4+BuG+nsay+VNuciBAfQoq
-kJk2bRNX7quyf4Wr8tzWjtet8lOMa79X1D0gEUxKI88ZBU8CByQcGBpb1gQsTf9g
-dVJOV3s9FkBp2EttpMZc3RqmacMm/HxaiwLN6xKsIAskLw9rH0204JjdK3REU7lP
-XKQjtwFEF8dF+VJyrtElPIbk8fMdGU54YY3m9xWrhdJ6U25s0nzqzkJeUcN+kFZc
-Jyt8HU7DXdUF2L0qm/QSv17Ku1SeSUgoVRnEFsdyUmlDEM3x9qj+Fwy5IJ7YtL2i
-tnNGGdo9Xp2x4ay9oysMDGw0rHIgMGb1KR67ma4EYcMzi1B/pgQdeO16+zuWzonI
-h0UgIxDZAuRI9gw7BqR0CB2dzagAeOepy11sGgdX39FYUWQClIyqyrYHwalCmYSn
-SGn4mU70cJUNhAahvAMYvYrYC8mov38WMhM7ypG1k7y2A1qv+hhVbicj+8s2YasS
-7jpgZ2NlZX/+I2BS+Zh4
-=4HDf
------END PGP SIGNATURE-----
-
---=-qQrlKKAeUtvHV2pACcmL--
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 65ecb51f99e5..30377ceb1928 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1602,7 +1602,6 @@ static const struct b53_chip_data b53_switch_chips[] = {
+ 
+ static int b53_switch_init(struct b53_device *dev)
+ {
+-	struct dsa_switch *ds = dev->ds;
+ 	unsigned int i;
+ 	int ret;
+ 
+@@ -1618,7 +1617,6 @@ static int b53_switch_init(struct b53_device *dev)
+ 			dev->vta_regs[1] = chip->vta_regs[1];
+ 			dev->vta_regs[2] = chip->vta_regs[2];
+ 			dev->jumbo_pm_reg = chip->jumbo_pm_reg;
+-			ds->drv = &b53_switch_ops;
+ 			dev->cpu_port = chip->cpu_port;
+ 			dev->num_vlans = chip->vlans;
+ 			dev->num_arl_entries = chip->arl_entries;
+@@ -1706,6 +1704,7 @@ struct b53_device *b53_switch_alloc(struct device *base,
+ 	dev->ds = ds;
+ 	dev->priv = priv;
+ 	dev->ops = ops;
++	ds->drv = &b53_switch_ops;
+ 	mutex_init(&dev->reg_mutex);
+ 	mutex_init(&dev->stats_mutex);
+ 
+-- 
+2.7.4
