@@ -1,63 +1,164 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [for-next 00/15][PULL request] Mellanox mlx5 core driver updates
- 2016-08-24
-Date: Thu, 25 Aug 2016 10:06:53 -0400
-Message-ID: <7d91bad7-2a52-7508-a47b-da78f7d067f9@redhat.com>
-References: <1472035154-14517-1-git-send-email-saeedm@mellanox.com>
- <20160824.093831.1725390407094248507.davem@davemloft.net>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
+ Hisilicon RoCE Driver
+Date: Thu, 25 Aug 2016 10:09:14 -0400
+Message-ID: <5d292cc1-5f1f-e0b0-0744-ac16ab4f14d5@redhat.com>
+References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
+ <20160824.215341.1803699371957253329.davem@davemloft.net>
+ <d71edae9-805a-2000-9afa-7e8002bc498a@redhat.com>
+ <F4CC6FACFEB3C54C9141D49AD221F7F91A6E813F@lhreml503-mbx>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
  protocol="application/pgp-signature";
- boundary="Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160824.093831.1725390407094248507.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+ boundary="v9vHlmdXgdM0pXStu87M0uuWVPeG6Xvpf"
+Cc: "Huwei (Xavier)" <xavier.huwei@huawei.com>,
+        oulijun <oulijun@huawei.com>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Salil Mehta <salil.mehta@huawei.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F91A6E813F@lhreml503-mbx>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj
-Content-Type: multipart/mixed; boundary="jMmsCVhCCcXxL9b8rcOKCxbQiwL7DSlEl"
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- talal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Message-ID: <7d91bad7-2a52-7508-a47b-da78f7d067f9-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [for-next 00/15][PULL request] Mellanox mlx5 core driver updates
- 2016-08-24
-References: <1472035154-14517-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
- <20160824.093831.1725390407094248507.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-In-Reply-To: <20160824.093831.1725390407094248507.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+--v9vHlmdXgdM0pXStu87M0uuWVPeG6Xvpf
+Content-Type: multipart/mixed; boundary="2PuvtMI5d9N0V6QgDLxGR1g2xVFqH64DD"
+From: Doug Ledford <dledford@redhat.com>
+To: Salil Mehta <salil.mehta@huawei.com>, David Miller <davem@davemloft.net>
+Cc: "Huwei (Xavier)" <xavier.huwei@huawei.com>, oulijun <oulijun@huawei.com>,
+ "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+ "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
+ "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Linuxarm <linuxarm@huawei.com>
+Message-ID: <5d292cc1-5f1f-e0b0-0744-ac16ab4f14d5@redhat.com>
+Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
+ Hisilicon RoCE Driver
+References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
+ <20160824.215341.1803699371957253329.davem@davemloft.net>
+ <d71edae9-805a-2000-9afa-7e8002bc498a@redhat.com>
+ <F4CC6FACFEB3C54C9141D49AD221F7F91A6E813F@lhreml503-mbx>
+In-Reply-To: <F4CC6FACFEB3C54C9141D49AD221F7F91A6E813F@lhreml503-mbx>
 
---jMmsCVhCCcXxL9b8rcOKCxbQiwL7DSlEl
+--2PuvtMI5d9N0V6QgDLxGR1g2xVFqH64DD
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: quoted-printable
 
-On 8/24/2016 12:38 PM, David Miller wrote:
-> From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-> Date: Wed, 24 Aug 2016 13:38:59 +0300
+On 8/25/2016 8:08 AM, Salil Mehta wrote:
 >=20
->> This series contains some low level and API updates for mlx5 core
->> driver interface and mlx5_ifc.h, plus mlx5 LAG core driver support,
->> to be shared as base code for net-next and rdma mlx5 4.9 submissions.
 >=20
-> Pulled, thanks.
->=20
+>> -----Original Message-----
+>> From: Doug Ledford [mailto:dledford@redhat.com]
+>> Sent: Thursday, August 25, 2016 12:57 PM
+>> To: David Miller; Salil Mehta
+>> Cc: Huwei (Xavier); oulijun; Zhuangyuzeng (Yisen);
+>> mehta.salil.lnk@gmail.com; linux-rdma@vger.kernel.org;
+>> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm
+>> Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to=
 
-Ditto.  The full set of shared patches is now in my for-next branch and
-the remainder of your 4.9 IB submissions can be built upon it.
+>> the Hisilicon RoCE Driver
+>>
+>> On 8/25/2016 12:53 AM, David Miller wrote:
+>>> From: Salil Mehta <salil.mehta@huawei.com>
+>>> Date: Wed, 24 Aug 2016 04:44:48 +0800
+>>>
+>>>> This patch is meant to add support of ACPI to the Hisilicon RoCE
+>> driver.
+>>>> Following changes have been made in the driver(s):
+>>>>
+>>>> Patch 1/2: HNS Ethernet Driver: changes to support ACPI have been
+>> done in
+>>>>    the RoCE reset function part of the HNS ethernet driver. Earlier
+>> it only
+>>>>    supported DT/syscon.
+>>>>
+>>>> Patch 2/2. HNS RoCE driver: changes done in RoCE driver are meant to=
+
+>> detect
+>>>>    the type and then either use DT specific or ACPI spcific
+>> functions. Where
+>>>>    ever possible, this patch tries to make use of "Unified Device
+>> Property
+>>>>    Interface" APIs to support both DT and ACPI through single
+>> interface.
+>>>>
+>>>> NOTE 1: ACPI changes done in both of the drivers depend upon the
+>> ACPI Table
+>>>>      (DSDT and IORT tables) changes part of UEFI/BIOS. These changes=
+
+>> are NOT
+>>>>      part of this patch-set.
+>>>> NOTE 2: Reset function in Patch 1/2 depends upon the reset function
+>> added in
+>>>>      ACPI tables(basically DSDT table) part of the UEFI/BIOS. Again,=
+
+>> this
+>>>>      change is NOT reflected in this patch-set.
+>>>
+>>> I can't apply this series to my tree because the hns infiniband
+>> driver
+>>> doesn't exist in it.
+>>>
+>>
+>> No.  This probably needs to go through my tree.  Although with all of
+>> the requirements, I'm a bit concerned about those being present
+>> elsewhere.
+>>
+>> --
+>> Doug Ledford <dledford@redhat.com>
+>>     GPG Key ID: 0E572FDD
+> Hello Doug,
+> Thanks for your reply. I have just replied to David email as well and d=
+id
+> not realize your response was already on the way. Sorry for this!
+>=20
+> I would just like to request, if by any chance, we can expedite the acc=
+eptance
+> of the below patch (part of patch-set) in the net-next. This might help=
+ you as
+> well in future when you will actually push the RoCE driver to the linux=
+-next.
+>=20
+> "[PATCH for-next 1/2] net: hns: Add support of ACPI to HNS driver RoCE =
+Reset
+>  function"
+>=20
+> Below HNS RoCE reset function patch has already been accepted by Dave M=
+iller and
+> is part of net-next,
+> https://patchwork.kernel.org/patch/9287497/
+>=20
+> Also, above ACPI support of RoCE Reset patch cleanly applies over the a=
+lready
+> accepted patch in the link and is not dependent on other accompanying R=
+oCE
+> driver ACPI changes or even the presence of the Infiniband/RoCE Driver =
+in the
+> net-next repository.
+>=20
+> Could you please suggest if this the something which can be considered?=
+  =20
+
+I've pulled both of these patches in.  I usually merge late in the merge
+window, so it won't be any stretch to wait until the ACPI tree has been
+merged before I send Linus my pull request.
+
 
 --=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Doug Ledford <dledford@redhat.com>
     GPG Key ID: 0E572FDD
 
 
---jMmsCVhCCcXxL9b8rcOKCxbQiwL7DSlEl--
+--2PuvtMI5d9N0V6QgDLxGR1g2xVFqH64DD--
 
---Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj
+--v9vHlmdXgdM0pXStu87M0uuWVPeG6Xvpf
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -66,23 +167,19 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v2
 Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-iQIcBAEBCAAGBQJXvvt9AAoJELgmozMOVy/d8O0P/32XY/XI6DJIHuwwQAYMqG0t
-fnxYoeBAgPOTyxzBL3HHGDcHRHqAGaHeMQi7NkoRcUnKxqr+YlRr8WZe+6D1hwKC
-gV+iGwrkrV7B2Fd/vlcPshxXnexDGY+Cs4SbMYQOR2OokbJpNf9GjX077tyP+ngD
-E/czCvqR9R7G6/d1a531ccUQlX5vUjakQQ7hn/DYWYdaWYpthQG14xZOv6ltajit
-2YvagwE4bH5fMS7QescKiMV6JOAHVQg6GIhzgNgIyNMX1ix2GVLDxQFjcdjDNbiK
-3Q92CIrHtrXtdVXAxVqrvUgGLxwh9/wNC1EI3gRqthZ2aCEr8aSzFJZECOYNd9is
-8NUfPSAPKX0SGwm9Mhsjfdshy6x8ZyyStTw55kKPArRTLNsoxgIC9f9BPpEmqFiR
-+D2FEjSr7WERumF0hQzLxLjpTpMltu5BY9HQncPd2BxbC5uCH4UeNZpyxr5hzrwP
-r3/AS0MgWqT7J1txF1+5+aWDaONFHxl3IQnR+30qaj+bOY7DixFKUHvbsPxV4CiO
-Kmw3g1ty8yLSTcM/ejhFsoQGAPAiMNPg0RUmtIiLy2v6Af4DUYctj/DU+SJJEaVP
-Q4dGS9aKYR6lgBAKIgtYrcCQ/XQVozGJ6KM/7NHPlxZmRYKlLCCBNtxHB9d1eRYU
-ai85/zuCSxYROxa5Llh3
-=mEIf
+iQIcBAEBCAAGBQJXvvwKAAoJELgmozMOVy/dAfgP/3JgQeMjZvhiJlGP1FsUFAsH
+4OOHWZfthZtuF3zs6ggr0YoqwOE6v8IFX3Hs4ISDms4EUaCKx96w3tARSwpha3+4
+Ny9p9Lx34GqlRDnF+CjcZb8Y9FjXjb6Ob3Br4INdgVHeIa3yDed+urlv4TwRleAB
+MLI4eYK1SpmiEYbwmW93Z4yO71SHbSKuqvmUNLGVdqWCyaZFpd0NJ6IfjVW8wVxU
+UHa24BMecS+QZ9jkMWLfvLkZNGquIVRZawKMeEkh/PPzTfoB8GOT1wgb+z0qYLOw
+pWAYUjviGqvdd7UrRrsQCxqqEyYalOC07RCKv2EpzPTOkau21XzDkDx43GBs7pXl
+XzxTcJsxlzxtMWwGWm2jx86MSNZmD14yu5GC28293HK+WjD0ywgT+EssH8KRnk/j
+QG81GyxSscNP1bRURHdm0pdrtt7z/Zrw/pCYDKRm7j5oNbQjOeNzTafQNX9QegxI
+HUH9wirMydwIWdf9e1mmu1WUxu1GbuQlgVA0tVwPfW2ato3aU3GYgSXfqpRGtQmB
+1AiOtpjTIveubeRCL7z9Kwv1lmKkW/J88P2RDqYgrBfsICGa6yNxWfUsL1bzzZn4
+VVXU1ySCv9vAWCuVPbn2lFbOndH88JVvBtaGmoTACu2u0CJulPWZ7p3bKENMOTkK
+ZkKb2qHK02h9U2HD5bp3
+=EwAs
 -----END PGP SIGNATURE-----
 
---Q2VKRaJ0cV4faLT4MwO5iKLddDMQNoQPj--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--v9vHlmdXgdM0pXStu87M0uuWVPeG6Xvpf--
