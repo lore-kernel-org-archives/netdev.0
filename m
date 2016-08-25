@@ -1,7 +1,8 @@
 From: Sean@vger.kernel.org, Wang@vger.kernel.org
-Subject: [PATCH net 00/10] net: ethernet: mediatek: a couple of fixes
-Date: Thu, 25 Aug 2016 18:22:27 +0800
-Message-ID: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
+Subject: [PATCH net 01/10] net: ethernet: mediatek: fix fails from TX housekeeping due to incorrect port setup
+Date: Thu, 25 Aug 2016 18:22:28 +0800
+Message-ID: <1472120557-15216-2-git-send-email-sean.wang@mediatek.com>
+References: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
@@ -9,39 +10,56 @@ Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
         Sean Wang <sean.wang@mediatek.com>
 To: <john@phrozen.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:45961 "EHLO
+Received: from mailgw02.mediatek.com ([210.61.82.184]:8202 "EHLO
         mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1757184AbcHYK2u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:28:50 -0400
+        with ESMTP id S1757184AbcHYK2v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:28:51 -0400
+In-Reply-To: <1472120557-15216-1-git-send-email-sean.wang@mediatek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sean Wang <sean.wang@mediatek.com>
 
-a couple of fixes come out from integrating with linux-4.8 rc1
-they all are verified and workable on linux-4.8 rc1
+which net device the SKB is complete for depends on the forward port
+on txd4 on the corresponding TX descriptor, but the information isn't
+set up well in case of  SKB fragments that would lead to watchdog timeout
+from the upper layer, so fix it up.
 
-Sean Wang (10):
-  net: ethernet: mediatek: fix fails from TX housekeeping due to
-    incorrect port setup
-  net: ethernet: mediatek: fix incorrect return value of devm_clk_get
-    with EPROBE_DEFER
-  net: ethernet: mediatek: fix API usage with skb_free_frag
-  net: ethernet: mediatek: remove redundant free_irq for
-    devm_request_irq allocated irq
-  net: ethernet: mediatek: fix logic unbalance between probe and remove
-  net: ethernet: mediatek: fix the loss of pin-mux setting for GMAC2
-  net: ethernet: mediatek: fix issue of driver removal with interface is
-    up
-  net: ethernet: mediatek: fix the missing of_node_put() after node is
-    used done inside mtk_mdio_init
-  net: ethernet: mediatek: use devm_mdiobus_alloc instead of
-    mdiobus_alloc inside mtk_mdio_init
-  net: ethernet: mediatek: fix error handling inside mtk_mdio_init
+Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/mediatek/mtk_eth_soc.c | 74 +++++++++++++++++++----------
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |  3 ++
- 2 files changed, 52 insertions(+), 25 deletions(-)
-
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 1801fd8..6e4a6ca 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -587,14 +587,15 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 	dma_addr_t mapped_addr;
+ 	unsigned int nr_frags;
+ 	int i, n_desc = 1;
+-	u32 txd4 = 0;
++	u32 txd4 = 0, fport;
+ 
+ 	itxd = ring->next_free;
+ 	if (itxd == ring->last_free)
+ 		return -ENOMEM;
+ 
+ 	/* set the forward port */
+-	txd4 |= (mac->id + 1) << TX_DMA_FPORT_SHIFT;
++	fport = (mac->id + 1) << TX_DMA_FPORT_SHIFT;
++	txd4 |= fport;
+ 
+ 	tx_buf = mtk_desc_to_tx_buf(ring, itxd);
+ 	memset(tx_buf, 0, sizeof(*tx_buf));
+@@ -652,7 +653,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+ 			WRITE_ONCE(txd->txd3, (TX_DMA_SWC |
+ 					       TX_DMA_PLEN0(frag_map_size) |
+ 					       last_frag * TX_DMA_LS0));
+-			WRITE_ONCE(txd->txd4, 0);
++			WRITE_ONCE(txd->txd4, fport);
+ 
+ 			tx_buf->skb = (struct sk_buff *)MTK_DMA_DUMMY_DESC;
+ 			tx_buf = mtk_desc_to_tx_buf(ring, txd);
 -- 
 1.9.1
