@@ -1,53 +1,74 @@
-From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: Re: [RESEND PATCH net 10/10] net: ethernet: mediatek: fix error
- handling inside mtk_mdio_init
-Date: Thu, 25 Aug 2016 15:39:50 +0200
-Message-ID: <a35808ec-8701-f1cb-f44a-965fe341af2a@phrozen.org>
-References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
- <1472121901-15629-11-git-send-email-sean.wang@mediatek.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: Re: [PATCH net] qdisc: fix a module refcount leak in
+ qdisc_create_dflt()
+Date: Thu, 25 Aug 2016 21:26:59 +0800
+Message-ID: <ef703076-2e2c-3373-53b1-99ba5df2c2d5@gmail.com>
+References: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1472121901-15629-11-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        stephen hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:36606 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754563AbcHYNlW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 09:41:22 -0400
+Received: by mail-pa0-f65.google.com with SMTP id ez1so3156824pab.3
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 06:41:01 -0700 (PDT)
+In-Reply-To: <1472056742.14381.93.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 25/08/2016 12:45, Sean Wang wrote:
-> return -ENODEV if no child is found in MDIO bus.
-> 
-> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-
-Acked-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-
+On 08/25/2016 12:39 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Should qdisc_alloc() fail, we must release the module refcount
+> we got right before.
+>
+> Fixes: 6da7c8fcbcbd ("qdisc: allow setting default queuing discipline")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 05d85da..2d547c2 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -300,7 +300,7 @@ static int mtk_mdio_init(struct mtk_eth *eth)
->  	}
+>  net/sched/sch_generic.c |    9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index e95b67cd5718..657c13362b19 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -643,18 +643,19 @@ struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+>  	struct Qdisc *sch;
 >  
->  	if (!of_device_is_available(mii_np)) {
-> -		err = 0;
-> +		err = -ENODEV;
->  		goto err_put_node;
->  	}
+>  	if (!try_module_get(ops->owner))
+> -		goto errout;
+> +		return NULL;
 >  
-> 
+>  	sch = qdisc_alloc(dev_queue, ops);
+> -	if (IS_ERR(sch))
+> -		goto errout;
+> +	if (IS_ERR(sch)) {
+> +		module_put(ops->owner);
+> +		return NULL;
+> +	}
+>  	sch->parent = parentid;
+>  
+>  	if (!ops->init || ops->init(sch, NULL) == 0)
+>  		return sch;
+>  
+>  	qdisc_destroy(sch);
+
+ops->init() failed, missing module_put() here.
+
+
+> -errout:
+>  	return NULL;
+>  }
+>  EXPORT_SYMBOL(qdisc_create_dflt);
+>
+>
+> .
+>
