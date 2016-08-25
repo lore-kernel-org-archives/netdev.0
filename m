@@ -1,53 +1,54 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
- connection
-Date: Thu, 25 Aug 2016 07:15:41 -0700
-Message-ID: <1472134541.14381.126.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471524527-10029-1-git-send-email-fw@strlen.de>
-         <1471524527-10029-2-git-send-email-fw@strlen.de>
-         <1471537092.29842.62.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160825090602.GA30509@breakpoint.cc>
+Subject: Re: [PATCH net-next] net: flush the softnet backlog in process
+ context
+Date: Thu, 25 Aug 2016 07:32:37 -0700
+Message-ID: <1472135557.14381.130.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <528006070d2951617c55b94c60c5d690ff0e4fc3.1472130597.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:33837 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759249AbcHYOVX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 10:21:23 -0400
-Received: by mail-pf0-f173.google.com with SMTP id p64so18319308pfb.1
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 07:21:22 -0700 (PDT)
-In-Reply-To: <20160825090602.GA30509@breakpoint.cc>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35876 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750933AbcHYOe1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 10:34:27 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y134so3350193pfg.3
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 07:32:40 -0700 (PDT)
+In-Reply-To: <528006070d2951617c55b94c60c5d690ff0e4fc3.1472130597.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-08-25 at 11:06 +0200, Florian Westphal wrote:
-> So I gave this a try and it does avoid this tcp_request_sock increase,
-> but I feel that getting boot_time_rnd is too easy.
+On Thu, 2016-08-25 at 15:58 +0200, Paolo Abeni wrote:
+> Currently in process_backlog(), the process_queue dequeuing is
+> performed with local IRQ disabled, to protect against
+> flush_backlog(), which runs in hard IRQ context.
 
-Fair enough, I didn't think very hard about it.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-> 
-> I tried a few other ideas but nothing satisfying/simpler came out of it
-> (e.g. i tried to also hash the isn but that gets scaled w. current
->  clock so it doesn't work).
-> 
-> Are you more concerned wrt. complexity or the reqsk increase?
-> 
+> @@ -6707,7 +6735,7 @@ static void rollback_registered_many(struct list_head *head)
+>  		unlist_netdevice(dev);
+>  
+>  		dev->reg_state = NETREG_UNREGISTERING;
+> -		on_each_cpu(flush_backlog, dev, 1);
+> +		flush_all_backlogs(dev);
+>  	}
+>  
+>  	synchronize_net();
 
-No, a reqsk increase is really fine.
+In a future patch, we could change this so that we kick
+flush_all_backlogs() once for all devices, instead of one device at a
+time.
 
-I guess I was simply worrying your work would make my future submission
-more tricky.
+We would not pass @dev anymore as a parameter and simply look at
+skb->dev->reg_state to decide to remove packets from queues in
+flush_backlog()
 
-Here at Google we have been using usec resolution in TCP timestamps for
-a while for all our DC traffic, and we have to upstream this at some
-point.
+Batching matters for some guys using hundred of devices and suddenly
+removing them all in one go.
 
-It would be nice if the randomization was optional, because having usec
-timestamps with a common base (ie no per flow random base) helps a lot
-to understand the host delays at transmit time, and receive time.
-
-I will review your patch more in depth today, thanks.
+Thanks.
