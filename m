@@ -1,44 +1,77 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: hns: dereference ppe_cb->ppe_common_cb if it is non-null
-Date: Thu, 25 Aug 2016 07:51:10 +0100
-Message-ID: <20160825065110.10104-1-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Yisen Zhuang <yisen.zhuang@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Lisheng <lisheng011@huawei.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: kbuild test robot <lkp@intel.com>
+Subject: Re: [PATCH v2 2/6] cgroup: add support for eBPF programs
+Date: Thu, 25 Aug 2016 14:56:11 +0800
+Message-ID: <201608251417.1LeHqi8c%fengguang.wu@intel.com>
+References: <1472070263-29988-3-git-send-email-daniel@zonque.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-all@01.org, htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me, Daniel Mack <daniel@zonque.org>
+To: Daniel Mack <daniel@zonque.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:27032 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755279AbcHYHBZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 03:01:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1472070263-29988-3-git-send-email-daniel@zonque.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Hi Daniel,
 
-ppe_cb->ppe_common_cb is being dereferenced before a null check is
-being made on it.  If ppe_cb->ppe_common_cb is null then we end up
-with a null pointer dereference when assigning dsaf_dev.  Fix this
-by moving the initialisation of dsaf_dev once we know
-ppe_cb->ppe_common_cb is OK to dereference.
+[auto build test WARNING on net-next/master]
+[also build test WARNING on v4.8-rc3 next-20160824]
+[cannot apply to linus/master linux/master]
+[if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+[Suggest to use git(>=2.9.0) format-patch --base=<commit> (or --base=auto for convenience) to record what (public, well-known) commit your patch series was built on]
+[Check https://git-scm.com/docs/git-format-patch for more information]
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+url:    https://github.com/0day-ci/linux/commits/Daniel-Mack/Add-eBPF-hooks-for-cgroups/20160825-042759
+reproduce:
+        # apt-get install sparse
+        make ARCH=x86_64 allmodconfig
+        make C=1 CF=-D__CHECK_ENDIAN__
+
+
+sparse warnings: (new ones prefixed by >>)
+
+   include/linux/compiler.h:230:8: sparse: attribute 'no_sanitize_address': unknown attribute
+>> kernel/bpf/cgroup.c:46:17: sparse: incompatible types in comparison expression (different address spaces)
+>> kernel/bpf/cgroup.c:46:17: sparse: incompatible types in comparison expression (different address spaces)
+   kernel/bpf/cgroup.c:97:17: sparse: incompatible types in comparison expression (different address spaces)
+   kernel/bpf/cgroup.c:147:16: sparse: incompatible types in comparison expression (different address spaces)
+
+vim +46 kernel/bpf/cgroup.c
+
+    30				continue;
+    31	
+    32			bpf_prog_put(cgrp->bpf.prog[type]);
+    33			static_branch_dec(&cgroup_bpf_enabled_key);
+    34		}
+    35	
+    36		rcu_read_unlock();
+    37	}
+    38	
+    39	void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
+    40	{
+    41		unsigned int type;
+    42	
+    43		rcu_read_lock();
+    44	
+    45		for (type = 0; type < __MAX_BPF_ATTACH_TYPE; type++)
+  > 46			rcu_assign_pointer(cgrp->bpf.prog_effective[type],
+    47				rcu_dereference(parent->bpf.prog_effective[type]));
+    48	
+    49		rcu_read_unlock();
+    50	}
+    51	
+    52	/**
+    53	 * __cgroup_bpf_update() - Update the pinned program of a cgroup, and
+    54	 *                         propagate the change to descendants
+
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-index ff8b6a4..6ea8722 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_ppe.c
-@@ -328,9 +328,10 @@ static void hns_ppe_init_hw(struct hns_ppe_cb *ppe_cb)
- static void hns_ppe_uninit_hw(struct hns_ppe_cb *ppe_cb)
- {
- 	u32 port;
--	struct dsaf_device *dsaf_dev = ppe_cb->ppe_common_cb->dsaf_dev;
- 
- 	if (ppe_cb->ppe_common_cb) {
-+		struct dsaf_device *dsaf_dev = ppe_cb->ppe_common_cb->dsaf_dev;
-+
- 		port = ppe_cb->index;
- 		dsaf_dev->misc_op->ppe_srst(dsaf_dev, port, 0);
- 	}
--- 
-2.9.3
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
