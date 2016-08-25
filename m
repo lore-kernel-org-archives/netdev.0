@@ -1,50 +1,47 @@
-From: Sean Wang <sean.wang@mediatek.com>
-Subject: [RESEND PATCH net 05/10] net: ethernet: mediatek: fix logic unbalance between probe and remove
-Date: Thu, 25 Aug 2016 18:44:56 +0800
-Message-ID: <1472121901-15629-6-git-send-email-sean.wang@mediatek.com>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: [RESEND PATCH net 03/10] net: ethernet: mediatek: fix API usage with
+ skb_free_frag
+Date: Thu, 25 Aug 2016 18:44:54 +0800
+Message-ID: <1472121901-15629-4-git-send-email-sean.wang@mediatek.com>
 References: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nbd@openwrt.org>, <netdev@vger.kernel.org>,
-        <linux-mediatek@lists.infradead.org>, <keyhaede@gmail.com>,
-        Sean Wang <sean.wang@mediatek.com>
-To: <john@phrozen.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw02.mediatek.com ([210.61.82.184]:60865 "EHLO
-        mailgw02.mediatek.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933180AbcHYKpN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 06:45:13 -0400
-In-Reply-To: <1472121901-15629-1-git-send-email-sean.wang@mediatek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1472121901-15629-1-git-send-email-sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-original mdio_cleanup is not in the symmetric place against where
-mdio_init is, so relocate mdio_cleanup to the right one.
+use skb_free_frag() instead of legacy put_page()
 
-Signed-off-by: Sean Wang <sean.wang@mediatek.com>
+Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
 ---
  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 9883dac..5bd31f8 100644
+index 02b048f..1b131a1 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1504,7 +1504,6 @@ static void mtk_uninit(struct net_device *dev)
- 	struct mtk_eth *eth = mac->hw;
- 
- 	phy_disconnect(mac->phy_dev);
--	mtk_mdio_cleanup(eth);
- 	mtk_irq_disable(eth, ~0);
- }
- 
-@@ -1915,6 +1914,7 @@ static int mtk_remove(struct platform_device *pdev)
- 	netif_napi_del(&eth->tx_napi);
- 	netif_napi_del(&eth->rx_napi);
- 	mtk_cleanup(eth);
-+	mtk_mdio_cleanup(eth);
- 
- 	return 0;
- }
+@@ -864,7 +864,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 		/* receive data */
+ 		skb = build_skb(data, ring->frag_size);
+ 		if (unlikely(!skb)) {
+-			put_page(virt_to_head_page(new_data));
++			skb_free_frag(new_data);
+ 			netdev->stats.rx_dropped++;
+ 			goto release_desc;
+ 		}
 -- 
 1.9.1
