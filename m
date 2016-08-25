@@ -1,112 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 4.1/4.2-stable] tcp: make challenge acks less predictable
-Date: Thu, 25 Aug 2016 09:15:46 -0700
-Message-ID: <1472141746-30389-1-git-send-email-f.fainelli@gmail.com>
-Cc: w@1wt.eu, gregkh@linuxfoundation.org,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] team: loadbalance: push lacpdus to exact delivery
+Date: Thu, 25 Aug 2016 18:23:34 +0200
+Message-ID: <1472142214-14787-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:35582 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753140AbcHYQXm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:23:42 -0400
-Received: by mail-pf0-f176.google.com with SMTP id x72so19191138pfd.2
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:23:05 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36633 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753696AbcHYQXn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 12:23:43 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i138so8074271wmf.3
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 09:23:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-[ Upstream commit 75ff39ccc1bd5d3c455b6822ab09e533c551f758 ]
+When team is in bridge and LACP is utilized, LACPDU packets are pushed
+to userspace using raw socket and there they are processed. However,
+since 8626c56c8279b, LACPDU skbs are dropped by bridge rx_handler so
+they never reach packet handlers in rx path. Fix this by explicity treat
+LACPDUs to be pushed to exact delivery in team rx_handler.
 
-Yue Cao claims that current host rate limiting of challenge ACKS
-(RFC 5961) could leak enough information to allow a patient attacker
-to hijack TCP sessions. He will soon provide details in an academic
-paper.
-
-This patch increases the default limit from 100 to 1000, and adds
-some randomization so that the attacker can no longer hijack
-sessions without spending a considerable amount of probes.
-
-Based on initial analysis and patch from Linus.
-
-Note that we also have per socket rate limiting, so it is tempting
-to remove the host limit in the future.
-
-v2: randomize the count of challenge acks per second, not the period.
-
-Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
-Reported-by: Yue Cao <ycao009@ucr.edu>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Acked-by: Neal Cardwell <ncardwell@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Reported-by: Ido Schimmel <idosch@mellanox.com>
+Fixes: 8626c56c8279b ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-Hi David, Greg,
+ drivers/net/team/team_mode_loadbalance.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-Not sure how you want to take this patch, whether David will
-queue it via his -stable submissions, or if Greg should pick
-it up directly.
-
-It applies cleanly to 4.1 and 4.2, and possibly earlier kernels
-as well.
-
-Thanks
-
- net/ipv4/tcp_input.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 87463c814896..f8c0862fa87e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -89,7 +89,7 @@ int sysctl_tcp_adv_win_scale __read_mostly = 1;
- EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
+diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+index cdb19b3..e7c8210 100644
+--- a/drivers/net/team/team_mode_loadbalance.c
++++ b/drivers/net/team/team_mode_loadbalance.c
+@@ -17,6 +17,19 @@
+ #include <linux/filter.h>
+ #include <linux/if_team.h>
  
- /* rfc5961 challenge ack rate limiting */
--int sysctl_tcp_challenge_ack_limit = 100;
-+int sysctl_tcp_challenge_ack_limit = 1000;
- 
- int sysctl_tcp_stdurg __read_mostly;
- int sysctl_tcp_rfc1337 __read_mostly;
-@@ -3380,7 +3380,7 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
- 	static u32 challenge_timestamp;
- 	static unsigned int challenge_count;
- 	struct tcp_sock *tp = tcp_sk(sk);
--	u32 now;
-+	u32 count, now;
- 
- 	/* First check our per-socket dupack rate limit. */
- 	if (tcp_oow_rate_limited(sock_net(sk), skb,
-@@ -3388,14 +3388,19 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
- 				 &tp->last_oow_ack_time))
- 		return;
- 
--	/* Then check the check host-wide RFC 5961 rate limit. */
-+	/* Then check host-wide RFC 5961 rate limit. */
- 	now = jiffies / HZ;
- 	if (now != challenge_timestamp) {
-+		u32 half = (sysctl_tcp_challenge_ack_limit + 1) >> 1;
++static rx_handler_result_t lb_receive(struct team *team, struct team_port *port,
++				      struct sk_buff *skb)
++{
++	if (unlikely(skb->protocol == htons(ETH_P_SLOW))) {
++		/* LACPDU packets should go to exact delivery */
++		const unsigned char *dest = eth_hdr(skb)->h_dest;
 +
- 		challenge_timestamp = now;
--		challenge_count = 0;
-+		WRITE_ONCE(challenge_count, half +
-+			   prandom_u32_max(sysctl_tcp_challenge_ack_limit));
- 	}
--	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
-+	count = READ_ONCE(challenge_count);
-+	if (count > 0) {
-+		WRITE_ONCE(challenge_count, count - 1);
-+		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
- 		tcp_send_ack(sk);
- 	}
- }
++		if (is_link_local_ether_addr(dest) && dest[5] == 0x02)
++			return RX_HANDLER_EXACT;
++	}
++	return RX_HANDLER_ANOTHER;
++}
++
+ struct lb_priv;
+ 
+ typedef struct team_port *lb_select_tx_port_func_t(struct team *,
+@@ -652,6 +665,7 @@ static const struct team_mode_ops lb_mode_ops = {
+ 	.port_enter		= lb_port_enter,
+ 	.port_leave		= lb_port_leave,
+ 	.port_disabled		= lb_port_disabled,
++	.receive		= lb_receive,
+ 	.transmit		= lb_transmit,
+ };
+ 
 -- 
-2.9.2
+2.5.5
