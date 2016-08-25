@@ -1,78 +1,59 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [patch net] team: loadbalance: push lacpdus to exact delivery
-Date: Thu, 25 Aug 2016 09:37:35 -0700
-Message-ID: <CAF2d9jjOuhaPYOkr80H-OfE2mETYsb1ww+UcFpA_SkaON8wOCw@mail.gmail.com>
-References: <1472142214-14787-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
+ connection
+Date: Thu, 25 Aug 2016 12:34:15 -0700
+Message-ID: <1472153655.14381.152.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1471524527-10029-1-git-send-email-fw@strlen.de>
+         <1471524527-10029-2-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:35336 "EHLO
-        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752629AbcHYT2M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:28:12 -0400
-Received: by mail-yw0-f173.google.com with SMTP id j12so35754006ywb.2
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:28:11 -0700 (PDT)
-In-Reply-To: <1472142214-14787-1-git-send-email-jiri@resnulli.us>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:32943 "EHLO
+        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751990AbcHYTl3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:41:29 -0400
+Received: by mail-pa0-f53.google.com with SMTP id ti13so19620883pac.0
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:41:29 -0700 (PDT)
+In-Reply-To: <1471524527-10029-2-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 25, 2016 at 9:23 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> When team is in bridge and LACP is utilized, LACPDU packets are pushed
-> to userspace using raw socket and there they are processed. However,
-> since 8626c56c8279b, LACPDU skbs are dropped by bridge rx_handler so
-> they never reach packet handlers in rx path. Fix this by explicity treat
-> LACPDUs to be pushed to exact delivery in team rx_handler.
->
-> Reported-by: Ido Schimmel <idosch@mellanox.com>
-> Fixes: 8626c56c8279b ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+On Thu, 2016-08-18 at 14:48 +0200, Florian Westphal wrote:
+> commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
+> added the main infrastructure that is needed for per-connection
+> randomization, in particular writing/reading the on-wire tcp header
+> format takes the offset into account so rest of stack can use normal
+> tcp_time_stamp (jiffies).
+> 
+> So only two items are left:
+>  - add a tsoffset for request sockets
+>  - extend the tcp isn generator to also return another 32bit number
+>  in addition to the ISN.
+> 
+> Re-use of ISN generator also means timestamps are still monotonically
+> increasing for same connection quadruple.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 > ---
->  drivers/net/team/team_mode_loadbalance.c | 14 ++++++++++++++
->  1 file changed, 14 insertions(+)
->
-> diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-> index cdb19b3..e7c8210 100644
-> --- a/drivers/net/team/team_mode_loadbalance.c
-> +++ b/drivers/net/team/team_mode_loadbalance.c
-> @@ -17,6 +17,19 @@
->  #include <linux/filter.h>
->  #include <linux/if_team.h>
->
-> +static rx_handler_result_t lb_receive(struct team *team, struct team_port *port,
-> +                                     struct sk_buff *skb)
-> +{
-> +       if (unlikely(skb->protocol == htons(ETH_P_SLOW))) {
-> +               /* LACPDU packets should go to exact delivery */
-> +               const unsigned char *dest = eth_hdr(skb)->h_dest;
-> +
-> +               if (is_link_local_ether_addr(dest) && dest[5] == 0x02)
-> +                       return RX_HANDLER_EXACT;
-I believe every link-local-frame should get this treatment whether
-it's 802.3ad or otherwise (e.g. LLDP etc.), no?
-BTW same should be true for bonding too (of course except LACP since
-it handles/consumes it!)
-> +       }
-> +       return RX_HANDLER_ANOTHER;
-> +}
-> +
->  struct lb_priv;
->
->  typedef struct team_port *lb_select_tx_port_func_t(struct team *,
-> @@ -652,6 +665,7 @@ static const struct team_mode_ops lb_mode_ops = {
->         .port_enter             = lb_port_enter,
->         .port_leave             = lb_port_leave,
->         .port_disabled          = lb_port_disabled,
-> +       .receive                = lb_receive,
->         .transmit               = lb_transmit,
->  };
->
-> --
-> 2.5.5
->
+>  include/linux/tcp.h      |  1 +
+>  include/net/secure_seq.h | 13 +++++++++----
+>  include/net/tcp.h        |  2 +-
+>  net/core/secure_seq.c    | 19 +++++++++++++------
+>  net/ipv4/syncookies.c    |  1 +
+>  net/ipv4/tcp_input.c     |  7 ++++++-
+>  net/ipv4/tcp_ipv4.c      | 30 ++++++++++++++++++++----------
+>  net/ipv4/tcp_minisocks.c |  4 +++-
+>  net/ipv4/tcp_output.c    |  2 +-
+>  net/ipv6/syncookies.c    |  1 +
+>  net/ipv6/tcp_ipv6.c      | 28 ++++++++++++++++++----------
+>  11 files changed, 74 insertions(+), 34 deletions(-)
+
+It seems tcp_v4_reqsk_send_ack() and tcp_v6_reqsk_send_ack() were not
+taken into account.
+
+See commit 20a2b49fc5385 changelog
+packetdrill test showing the possible issue if the TS sent on an ACK in
+SYN_RECV state is wrong.
