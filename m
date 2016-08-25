@@ -1,104 +1,114 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
  Hisilicon RoCE Driver
-Date: Thu, 25 Aug 2016 12:00:31 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A6E7FA9@lhreml503-mbx>
+Date: Thu, 25 Aug 2016 07:57:01 -0400
+Message-ID: <d71edae9-805a-2000-9afa-7e8002bc498a@redhat.com>
 References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
  <20160824.215341.1803699371957253329.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Huwei (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160824.215341.1803699371957253329.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="pd8q7gdL9bnnPaaLIgE4JNFcI7Qk2rPin"
+Cc: xavier.huwei@huawei.com, oulijun@huawei.com,
+        yisen.zhuang@huawei.com, mehta.salil.lnk@gmail.com,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: David Miller <davem@davemloft.net>, salil.mehta@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160824.215341.1803699371957253329.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--pd8q7gdL9bnnPaaLIgE4JNFcI7Qk2rPin
+Content-Type: multipart/mixed; boundary="H2IW4T3f1CE4AE5jNKwQd5LECgs6i8Tns"
+From: Doug Ledford <dledford@redhat.com>
+To: David Miller <davem@davemloft.net>, salil.mehta@huawei.com
+Cc: xavier.huwei@huawei.com, oulijun@huawei.com, yisen.zhuang@huawei.com,
+ mehta.salil.lnk@gmail.com, linux-rdma@vger.kernel.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linuxarm@huawei.com
+Message-ID: <d71edae9-805a-2000-9afa-7e8002bc498a@redhat.com>
+Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
+ Hisilicon RoCE Driver
+References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
+ <20160824.215341.1803699371957253329.davem@davemloft.net>
+In-Reply-To: <20160824.215341.1803699371957253329.davem@davemloft.net>
 
+--H2IW4T3f1CE4AE5jNKwQd5LECgs6i8Tns
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-> -----Original Message-----
-> From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
-> Sent: Thursday, August 25, 2016 5:54 AM
-> To: Salil Mehta
-> Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org; Huwei (Xavier); oulijun; Zhuangyuzeng (Yisen);
-> mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
-> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
-> Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to
-> the Hisilicon RoCE Driver
-> 
-> From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+On 8/25/2016 12:53 AM, David Miller wrote:
+> From: Salil Mehta <salil.mehta@huawei.com>
 > Date: Wed, 24 Aug 2016 04:44:48 +0800
-> 
-> > This patch is meant to add support of ACPI to the Hisilicon RoCE
-> driver.
-> > Following changes have been made in the driver(s):
-> >
-> > Patch 1/2: HNS Ethernet Driver: changes to support ACPI have been
-> done in
-> >    the RoCE reset function part of the HNS ethernet driver. Earlier
-> it only
-> >    supported DT/syscon.
-> >
-> > Patch 2/2. HNS RoCE driver: changes done in RoCE driver are meant to
-> detect
-> >    the type and then either use DT specific or ACPI spcific
-> functions. Where
-> >    ever possible, this patch tries to make use of "Unified Device
-> Property
-> >    Interface" APIs to support both DT and ACPI through single
-> interface.
-> >
-> > NOTE 1: ACPI changes done in both of the drivers depend upon the ACPI
-> Table
-> >      (DSDT and IORT tables) changes part of UEFI/BIOS. These changes
-> are NOT
-> >      part of this patch-set.
-> > NOTE 2: Reset function in Patch 1/2 depends upon the reset function
-> added in
-> >      ACPI tables(basically DSDT table) part of the UEFI/BIOS. Again,
-> this
-> >      change is NOT reflected in this patch-set.
-> 
+>=20
+>> This patch is meant to add support of ACPI to the Hisilicon RoCE drive=
+r.
+>> Following changes have been made in the driver(s):
+>>
+>> Patch 1/2: HNS Ethernet Driver: changes to support ACPI have been done=
+ in
+>>    the RoCE reset function part of the HNS ethernet driver. Earlier it=
+ only
+>>    supported DT/syscon.
+>>
+>> Patch 2/2. HNS RoCE driver: changes done in RoCE driver are meant to d=
+etect
+>>    the type and then either use DT specific or ACPI spcific functions.=
+ Where
+>>    ever possible, this patch tries to make use of "Unified Device Prop=
+erty
+>>    Interface" APIs to support both DT and ACPI through single interfac=
+e.
+>>
+>> NOTE 1: ACPI changes done in both of the drivers depend upon the ACPI =
+Table
+>>      (DSDT and IORT tables) changes part of UEFI/BIOS. These changes a=
+re NOT
+>>      part of this patch-set.
+>> NOTE 2: Reset function in Patch 1/2 depends upon the reset function ad=
+ded in
+>>      ACPI tables(basically DSDT table) part of the UEFI/BIOS. Again, t=
+his
+>>      change is NOT reflected in this patch-set.
+>=20
 > I can't apply this series to my tree because the hns infiniband driver
 > doesn't exist in it.
-Hi David,
-I understand your point. This patch-set was primarily sent for Doug Ledford
-and is based on his internal repository (which has been rebased on the
-net-next). 
+>=20
 
-Though we were hoping, if by any chance, we can expedite the acceptance of the
-below patch part of patch-set in the net-next. This might help Doug Ledford as
-well later on when he pushes the already accepted RoCE driver and ACPI patches
-to linux-next,
+No.  This probably needs to go through my tree.  Although with all of
+the requirements, I'm a bit concerned about those being present elsewhere=
+=2E
 
-"[PATCH for-next 1/2] net: hns: Add support of ACPI to HNS driver RoCE Reset
- function"
+--=20
+Doug Ledford <dledford@redhat.com>
+    GPG Key ID: 0E572FDD
 
-Below HNS RoCE reset function patch has already been accepted and is part of your
-net-next,
-https://patchwork.kernel.org/patch/9287497/
 
-Above ACPI support of RoCE Reset patch cleanly applies over the already accepted
-patch in the link. It is not dependent on other accompanying RoCE driver ACPI
-changes related patch or even the presence of the Infiniband/RoCE Driver in the
-net-next repository.
+--H2IW4T3f1CE4AE5jNKwQd5LECgs6i8Tns--
 
-Could you please suggest anything here?  
+--pd8q7gdL9bnnPaaLIgE4JNFcI7Qk2rPin
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Thanks 
-Salil
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+iQIcBAEBCAAGBQJXvt0YAAoJELgmozMOVy/dU4YP/2x18n9M5wIGH1+/OtK80g+m
+YUeikRrdM54A1xPo8HkufqGlq09OKmNNnBh6C3QhOtX2k4wsiltkzS/7iXRMRqpO
+JFMqXgStv1sKbTL4XGRoNpRQcWWLeNMVgB9rsK9Fy2ptqcoy8j9WCIV/CKM058GB
+Syp8CzzMJu5YimRHwL8bek11xRB2BPE1GgCUMDqyjBRiIM3NcCWTw9fpcfXndAIJ
+Sx7ZYtyLRgpSidlavcmV3KDgpor6NeGNejRNJrStws50F5K55AJrYk/QjLE7wHxK
+3hn/s2VUs4DyymdL8xeqhiRUsiYRI4eT/XhHQsCdLcwE8r1XBwyUKUzvZ7SqMvRD
+YXTRannecTQBIfeqkaxxvuX/IBr03Vge9SfAgIxcZvOJtephMjinTaGuxCRGZSXg
+uu1Ix/Egk9wpPYCYNUFbpLhPY7niBSNc8bWQY/vb8xkst2c9lQizia/fNSJxxiw6
+D+zfKBAhtUOmYdKaEsB26lou3d7sL7PSu6nBAr4wYLMzjbAVJXDfJIxLisSlU7AC
+zOVV8Tso4Rqe2evGkDSlhymv7+tStycJOqtWlf7SQbTQ+hasvdC4jxyY8iVZ1HWL
+CDlBprDcwUB1myciUldU+0Y4L5Ctw8Kthzpq/Q7sBH0nsdBTvuzpoDJgQRTTtuva
++XJUdkqsivXVXZy8Jl0Z
+=WZLw
+-----END PGP SIGNATURE-----
+
+--pd8q7gdL9bnnPaaLIgE4JNFcI7Qk2rPin--
