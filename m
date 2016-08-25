@@ -1,59 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
- connection
-Date: Thu, 25 Aug 2016 12:34:15 -0700
-Message-ID: <1472153655.14381.152.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471524527-10029-1-git-send-email-fw@strlen.de>
-         <1471524527-10029-2-git-send-email-fw@strlen.de>
+Subject: Re: [RFC PATCH] net: Require socket to allow XPS to set queue
+ mapping
+Date: Thu, 25 Aug 2016 12:49:24 -0700
+Message-ID: <1472154564.14381.160.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <147215300812.3936.8031402062962283044.stgit@ahduyck-desk.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Cc: netdev@vger.kernel.org, rick.jones2@hpe.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:32943 "EHLO
-        mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751990AbcHYTl3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:41:29 -0400
-Received: by mail-pa0-f53.google.com with SMTP id ti13so19620883pac.0
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:41:29 -0700 (PDT)
-In-Reply-To: <1471524527-10029-2-git-send-email-fw@strlen.de>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:32952 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753343AbcHYT4o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 15:56:44 -0400
+Received: by mail-pf0-f169.google.com with SMTP id y134so20680023pfg.0
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 12:56:27 -0700 (PDT)
+In-Reply-To: <147215300812.3936.8031402062962283044.stgit@ahduyck-desk.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-08-18 at 14:48 +0200, Florian Westphal wrote:
-> commit ceaa1fef65a7c2e ("tcp: adding a per-socket timestamp offset")
-> added the main infrastructure that is needed for per-connection
-> randomization, in particular writing/reading the on-wire tcp header
-> format takes the offset into account so rest of stack can use normal
-> tcp_time_stamp (jiffies).
+On Thu, 2016-08-25 at 12:23 -0700, Alexander Duyck wrote:
+> I have been seeing a number of issues where XPS leads to issues with
+> packets being reordered in the transmit queues of the device drivers.  The
+> main situation where this seems to occur is when a VM us using a tap
+> interface to send packets to the network via a NIC that has XPS enabled.
 > 
-> So only two items are left:
->  - add a tsoffset for request sockets
->  - extend the tcp isn generator to also return another 32bit number
->  in addition to the ISN.
+> A bit of looking into this revealed the main issue is that the scheduler
+> seems to be migrating the VM between CPUs and as this occurs the traffic
+> for a given flow from a VM is following this migration and hopping between
+> Tx queues leading to packet reordering.
 > 
-> Re-use of ISN generator also means timestamps are still monotonically
-> increasing for same connection quadruple.
+> A workaround for this is to make certain all the VMs have RPS enabled on
+> the tap interfaces, however this requires extra configuration on the host
+> for each VM created.
 > 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  include/linux/tcp.h      |  1 +
->  include/net/secure_seq.h | 13 +++++++++----
->  include/net/tcp.h        |  2 +-
->  net/core/secure_seq.c    | 19 +++++++++++++------
->  net/ipv4/syncookies.c    |  1 +
->  net/ipv4/tcp_input.c     |  7 ++++++-
->  net/ipv4/tcp_ipv4.c      | 30 ++++++++++++++++++++----------
->  net/ipv4/tcp_minisocks.c |  4 +++-
->  net/ipv4/tcp_output.c    |  2 +-
->  net/ipv6/syncookies.c    |  1 +
->  net/ipv6/tcp_ipv6.c      | 28 ++++++++++++++++++----------
->  11 files changed, 74 insertions(+), 34 deletions(-)
+> A simpler approach is provided with this patch.  With it we disable XPS any
+> time a socket is not present for a given flow.  By doing this we can avoid
+> using XPS for any routing or bridging situations in which XPS is likely
+> more of a hinderance than a help.
 
-It seems tcp_v4_reqsk_send_ack() and tcp_v6_reqsk_send_ack() were not
-taken into account.
+Yes, but this will destroy isolation for people properly doing VM cpu
+pining.
 
-See commit 20a2b49fc5385 changelog
-packetdrill test showing the possible issue if the TS sent on an ACK in
-SYN_RECV state is wrong.
+With this patch, DDOS traffic coming from a VM will hit all TX queues.
