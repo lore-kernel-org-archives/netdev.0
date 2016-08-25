@@ -1,49 +1,47 @@
-From: Owen Lin <olin@rivetnetworks.com>
-Subject: [PATCH 1/1] net: add killer E2500 device id
-Date: Thu, 25 Aug 2016 03:33:11 +0000
-Message-ID: <BN3PR0401MB1457768A72BE42070D34E581C0ED0@BN3PR0401MB1457.namprd04.prod.outlook.com>
+From: Jan Kasprzak <kas@fi.muni.cz>
+Subject: Re: wan-cosa: Use memdup_user() rather than duplicating its
+ implementation
+Date: Thu, 25 Aug 2016 11:13:52 +0200
+Message-ID: <20160825091352.GZ10241@fi.muni.cz>
+References: <5d335025-5f52-d4b6-0b60-89a2fd354694@users.sourceforge.net>
+ <20160824152154.GT10241@fi.muni.cz>
+ <375bce2b-6c19-902e-65ce-cccaedd2184e@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0066.outbound.protection.outlook.com ([104.47.40.66]:28319
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753631AbcHYJKA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 25 Aug 2016 05:10:00 -0400
-Content-Language: zh-TW
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        Nicolas Palix <nicolas.palix@imag.fr>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <375bce2b-6c19-902e-65ce-cccaedd2184e@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add Killer E2500 device ID in alx driver.
+SF Markus Elfring wrote:
+: > 	What about the GFP_DMA attribute, which your patch deletes?
+: > The buffer in question has to be ISA DMA-able.
+: 
+: Thanks for your constructive feedback.
+: 
+: Would you be interested in using a variant of the function "memdup_…"
+: with which the corresponding memory allocation option can be preserved?
 
-Signed-off-by: Owen Lin olin@rivetnetworks.com
+	I am not sure that extending an in-kernel API just for one
+legacy driver is what we want. As I said, I would prefer the driver
+unchanged, if possible.
 
----------------------------------------------------------------------------=
------
+	Maybe it is the time for gradually phasing out ISA DMA support and
+all the legacy drivers which use it?
 
-diff -up1rN alx_orig/main.c alx/main.c
---- alx_orig/main.c	2016-08-25 11:12:34.170447500 +0800
-+++ alx/main.c	2016-08-25 11:24:12.026853000 +0800
-@@ -1547,2 +1547,4 @@ static const struct pci_device_id alx_pc
- 	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
-+	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2500),
-+	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8162),
-diff -up1rN alx_orig/reg.h alx/reg.h
---- alx_orig/reg.h	2016-08-25 11:08:25.895534000 +0800
-+++ alx/reg.h	2016-08-25 11:24:34.933147000 +0800
-@@ -40,5 +40,6 @@
- #define ALX_DEV_ID_E2400				0xe0a1
-+#define ALX_DEV_ID_E2500				0xe0b1
- #define ALX_DEV_ID_AR8162				0x1090
--#define ALX_DEV_ID_AR8171				0x10A1
--#define ALX_DEV_ID_AR8172				0x10A0
-+#define ALX_DEV_ID_AR8171				0x10a1
-+#define ALX_DEV_ID_AR8172				0x10a0
+	Sincerely,
 
-/* rev definition,
+-Yenya
+
+-- 
+| Jan "Yenya" Kasprzak <kas at {fi.muni.cz - work | yenya.net - private}> |
+| http://www.fi.muni.cz/~kas/                         GPG: 4096R/A45477D5 |
+         Like most things in Windows, on the surface it looks great.
+                         -- Jeremy Allison, A Tale of Two Standards
