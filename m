@@ -1,8 +1,8 @@
 From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2 00/10] Landlock LSM: Unprivileged sandboxing
-Date: Thu, 25 Aug 2016 04:05:49 -0700
-Message-ID: <CALCETrW98g_x0US92+Qq8gkN1N+y21rjSXcGBR7nRd1hWU7AgQ@mail.gmail.com>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
+Subject: Re: [RFC v2 09/10] landlock: Handle cgroups
+Date: Thu, 25 Aug 2016 04:09:26 -0700
+Message-ID: <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net> <1472121165-29071-10-git-send-email-mic@digikod.net>
 Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -18,34 +18,37 @@ Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Alexei Starov
 	LSM List <linux-security-module@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>
 To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-4462-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-4463-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1472121165-29071-1-git-send-email-mic@digikod.net>
+In-Reply-To: <1472121165-29071-10-git-send-email-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
 On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
  wrote:
-> Hi,
+> Add an eBPF function bpf_landlock_cmp_cgroup_beneath(opt, map, map_op)
+> to compare the current process cgroup with a cgroup handle, The handle
+> can match the current cgroup if it is the same or a child. This allows
+> to make conditional rules according to the current cgroup.
 >
-> This series is a proof of concept to fill some missing part of seccomp as=
- the
-> ability to check syscall argument pointers or creating more dynamic secur=
-ity
-> policies. The goal of this new stackable Linux Security Module (LSM) call=
-ed
-> Landlock is to allow any process, including unprivileged ones, to create
-> powerful security sandboxes comparable to the Seatbelt/XNU Sandbox or the
-> OpenBSD Pledge. This kind of sandbox help to mitigate the security impact=
- of
-> bugs or unexpected/malicious behaviors in userland applications.
->
+> A cgroup handle is a map entry created from a file descriptor referring
+> a cgroup directory (e.g. by opening /sys/fs/cgroup/X). In this case, the
+> map entry is of type BPF_MAP_HANDLE_TYPE_LANDLOCK_CGROUP_FD and the
+> inferred array map is of type BPF_MAP_ARRAY_TYPE_LANDLOCK_CGROUP.
 
-Maybe I'm missing an obvious description, but: do you have a
-description of the eBPF API to landlock?  What function do you
-provide, when is it called, what functions can it call, what does the
-fancy new arraymap do, etc?
+Can you elaborate on why this is useful?  I.e. why not just supply
+different policies to different subtrees.
+
+Also, how does this interact with the current cgroup v1 vs v2 mess?
+As far as I can tell, no one can even really agree on what "what
+cgroup am I in" means right now.
+
+>
+> An unprivileged process can create and manipulate cgroups thanks to
+> cgroup delegation.
+
+What is cgroup delegation?
 
 --Andy
