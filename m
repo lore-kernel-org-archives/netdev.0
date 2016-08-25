@@ -1,8 +1,8 @@
 From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups
-Date: Thu, 25 Aug 2016 04:09:26 -0700
-Message-ID: <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net> <1472121165-29071-10-git-send-email-mic@digikod.net>
+Subject: Re: [RFC v2 08/10] landlock: Handle file system comparisons
+Date: Thu, 25 Aug 2016 04:12:02 -0700
+Message-ID: <CALCETrWzfgNvOHmKy5205A2qLJLYCZ+5RZOQR9vzQ1ubpo0vNA@mail.gmail.com>
+References: <1472121165-29071-1-git-send-email-mic@digikod.net> <1472121165-29071-9-git-send-email-mic@digikod.net>
 Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -17,38 +17,39 @@ Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Alexei Starov
 	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, Linux API <linux-api@vger.kernel.org>,
 	LSM List <linux-security-module@vger.kernel.org>,
 	Network Development <netdev@vger.kernel.org>
-To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-4463-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <kernel-hardening-return-4464-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1472121165-29071-10-git-send-email-mic@digikod.net>
+In-Reply-To: <1472121165-29071-9-git-send-email-mic@digikod.net>
 List-Id: netdev.vger.kernel.org
 
 On Thu, Aug 25, 2016 at 3:32 AM, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>=
  wrote:
-> Add an eBPF function bpf_landlock_cmp_cgroup_beneath(opt, map, map_op)
-> to compare the current process cgroup with a cgroup handle, The handle
-> can match the current cgroup if it is the same or a child. This allows
-> to make conditional rules according to the current cgroup.
+> Add eBPF functions to compare file system access with a Landlock file
+> system handle:
+> * bpf_landlock_cmp_fs_prop_with_struct_file(prop, map, map_op, file)
+>   This function allows to compare the dentry, inode, device or mount
+>   point of the currently accessed file, with a reference handle.
+> * bpf_landlock_cmp_fs_beneath_with_struct_file(opt, map, map_op, file)
+>   This function allows an eBPF program to check if the current accessed
+>   file is the same or in the hierarchy of a reference handle.
 >
-> A cgroup handle is a map entry created from a file descriptor referring
-> a cgroup directory (e.g. by opening /sys/fs/cgroup/X). In this case, the
-> map entry is of type BPF_MAP_HANDLE_TYPE_LANDLOCK_CGROUP_FD and the
-> inferred array map is of type BPF_MAP_ARRAY_TYPE_LANDLOCK_CGROUP.
+> The goal of file system handle is to abstract kernel objects such as a
+> struct file or a struct inode. Userland can create this kind of handle
+> thanks to the BPF_MAP_UPDATE_ELEM command. The element is a struct
+> landlock_handle containing the handle type (e.g.
+> BPF_MAP_HANDLE_TYPE_LANDLOCK_FS_FD) and a file descriptor. This could
+> also be any descriptions able to match a struct file or a struct inode
+> (e.g. path or glob string).
 
-Can you elaborate on why this is useful?  I.e. why not just supply
-different policies to different subtrees.
+This needs Eric's opinion.
 
-Also, how does this interact with the current cgroup v1 vs v2 mess?
-As far as I can tell, no one can even really agree on what "what
-cgroup am I in" means right now.
-
->
-> An unprivileged process can create and manipulate cgroups thanks to
-> cgroup delegation.
-
-What is cgroup delegation?
+Also, where do all the struct file *'s get stashed?  Are they
+preserved in the arraymap?  What prevents reference cycles or absurdly
+large numbers of struct files getting pinned?
 
 --Andy
