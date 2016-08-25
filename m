@@ -1,125 +1,282 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to the
- Hisilicon RoCE Driver
-Date: Thu, 25 Aug 2016 15:34:15 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F91A6E8696@lhreml503-mbx>
-References: <1471985090-202472-1-git-send-email-salil.mehta@huawei.com>
- <20160824.215341.1803699371957253329.davem@davemloft.net>
- <F4CC6FACFEB3C54C9141D49AD221F7F91A6E7FA9@lhreml503-mbx>
- <8fa4e921-9dfc-bf2b-32c9-230136536f65@redhat.com>
- <F4CC6FACFEB3C54C9141D49AD221F7F91A6E85C2@lhreml503-mbx>
- <6a3c65b0-500e-c097-7ff4-15ec5f1de19c@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH v2 1/2] smc91x: always use 8-bit access if necessary
+Date: Thu, 25 Aug 2016 17:39:00 +0200
+Message-ID: <3107598.uul2xx8LJA@wuerfel>
+References: <20160825144633.1850889-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Huwei (Xavier)" <xavier.huwei@huawei.com>,
-        oulijun <oulijun@huawei.com>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linuxarm <linuxarm@huawei.com>
-To: Doug Ledford <dledford@redhat.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6a3c65b0-500e-c097-7ff4-15ec5f1de19c@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>,
+ Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
+ Robert Jarzmik <robert.jarzmik@free.fr>,
+ "David S. Miller" <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20160825144633.1850889-1-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
+As Russell King found out the hard way, a change I did to fix multiplatform
+builds with this driver broke the old Assabet/Neponset platform: It turns
+out that while the driver is runtime configurable in principle, the
+runtime configuration does not cover the specific case of machines that
+can not do any 16-bit I/O on the smc91x registers.
 
+The driver currently provides helpers to access 16-bit registers for
+architectures that are known at compile-time to only have 8-bit I/O,
+but my patch changed it to a runtime flag that never gets consulted
+most register accesses.
 
-> -----Original Message-----
-> From: Doug Ledford [mailto:dledford@redhat.com]
-> Sent: Thursday, August 25, 2016 4:00 PM
-> To: Salil Mehta; David Miller
-> Cc: Huwei (Xavier); oulijun; Zhuangyuzeng (Yisen);
-> mehta.salil.lnk@gmail.com; linux-rdma@vger.kernel.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Linuxarm
-> Subject: Re: [PATCH for-next 0/2] {IB,net}/hns: Add support of ACPI to
-> the Hisilicon RoCE Driver
-> 
-> On 8/25/2016 10:50 AM, Salil Mehta wrote:
-> 
-> >> I can take both.  I already pulled net-next to get the initial hns
-> roce
-> >> reset patch from Dave, so these will apply cleanly with my tree and
-> >> merge cleanly with Dave's due to the common ancestral base.  The
-> only
-> >> problem is that if you intend to send any other patches that effect
-> >> this
-> >> code, then they would need to come through me until the 4.9 merge
-> >> window
-> >> is complete so that we don't have later merge conflicts.
-> > Ok sure, I got your point. Yes, there are few patches we need to push
-> in
-> > but are related to RoCE CM(Connection Manager) mode and would follow
-> > soon. There are no further patches we foresee which are for RoCE
-> Driver but are
-> > dependent upon HNS Ethernet driver.
-> 
-> Ok.
-> 
-> > But kindly note, there could be some patches in development in HNS
-> Ethernet driver
-> > which might sneak in through net-next. These might not be related to
-> RoCE Driver but
-> > might have some common files which might lead to conflict again
-> further down
-> > the line when you try to merge ACPI RoCE reset again. This HNS driver
-> change
-> > is very difficult for us to control since amount of development going
-> on in HNS
-> > is of much higher magnitude than the RoCE as of now. It will be
-> almost impossible
-> > for us to convince internally and shift that entire development being
-> done right
-> > now on net-next and rebase it to your internal hns-roce branch for a
-> month of time
-> > till 4.9. This will affect many features deadlines internally.
-> 
-> This is what Linus wants to avoid.  It's not necessary to shift your
-> work from one tree to another, what is needed if for your RoCE team and
-> your net team to plan out what you are going to submit for the next
-> kernel and provide a complete list of conflicting code patches to both
-> Dave and myself and allow us to pull those patches into both our trees
-> so there are no conflicts.  See the recent threads on linux-rdma about
-> the pull requests from Mellanox.  This is how it needs to be done.
-> Neither team needs to slow down, or not do your work, you simply need
-> to
-> plan that work out and provide a common base for Dave and I to apply
-> the
-> separate patches on top of.
-I got your point now. Thanks for this clear explanation, Doug. I would
-discuss this internally and plan the other non-related HNS conflicting
-patches according to the example procedure you indicated in linux-rdma
-mail-chain.
+This introduces new SMC_out16()/SMC_in16 helpers (if anyone can suggest
+a better name, I'm glad to modify this) that behaves like SMC_outw()/SMC_inw()
+most of the time, but uses a pair of 8-bit accesses on platforms that
+have no support for wider register accesses.
 
-> 
-> > So, if I understood you correctly, this delta (which could be large),
-> when next merge
-> > window open would be taken care by you. And we can expect below to be
-> part of 4.9
-> > 1) RoCE Base driver (*Already Accepted*)
-> > 2) ACPI changes for RoCE Driver (*if accepted*)
-> >    * ACPI changes for the RoCE Driver
-> >    * ACPI changes for RoCE reset function part of the HNS driver
-> 
-> Both of these changes are already applied to my tree.  However, if you
-> submit other changes to net-next and it starts generating merge
-> conflicts, you and the net team are going to get yelled at.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reported-by: Russell King <linux@armlinux.org.uk>
+Fixes: b70661c70830d ("net: smc91x: use run-time configuration on all ARM machines")
+---
+Having bad luck streak with this patch, the version I sent
+had a couple of mistakes from the last rebase before sending
+it out, this version should actually apply and build.
 
-Ok thanks. I totally understand that, my current efforts of the discussion
-are to understand the process correctly and to ensure that conflict do not
-happen.
-
->  If you are
-> going to have a shared driver, then you *HAVE* to work as a larger team
-> and plan your changes you submit to the linux kernel.
-Sure, agreed
+diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+index 1a55c7976df0..497411ed6de2 100644
+--- a/drivers/net/ethernet/smsc/smc91x.h
++++ b/drivers/net/ethernet/smsc/smc91x.h
+@@ -414,30 +414,32 @@ smc_pxa_dma_insw(void __iomem *ioaddr, struct smc_local *lp, int reg, int dma,
+ #define SMC_outsl(a, r, p, l)		BUG()
+ #endif
  
-> 
-> --
-> Doug Ledford <dledford@redhat.com>
->     GPG Key ID: 0E572FDD
+-#if ! SMC_CAN_USE_16BIT
+-
+ /*
+- * Any 16-bit access is performed with two 8-bit accesses if the hardware
+- * can't do it directly. Most registers are 16-bit so those are mandatory.
++ * Any 16-bit register access is performed with two 8-bit accesses if the
++ * hardware can't do it directly.
+  */
+-#define SMC_outw(x, ioaddr, reg)					\
+-	do {								\
+-		unsigned int __val16 = (x);				\
+-		SMC_outb( __val16, ioaddr, reg );			\
+-		SMC_outb( __val16 >> 8, ioaddr, reg + (1 << SMC_IO_SHIFT));\
+-	} while (0)
+-#define SMC_inw(ioaddr, reg)						\
+-	({								\
+-		unsigned int __val16;					\
+-		__val16 =  SMC_inb( ioaddr, reg );			\
++#define SMC_out16(x, ioaddr, reg)					     \
++do {									     \
++	if (SMC_CAN_USE_8BIT && !SMC_16BIT(lp)) {			     \
++		unsigned int __val16 = (x);				     \
++		SMC_outb(__val16, ioaddr, reg );			     \
++		SMC_outb(__val16 >> 8, ioaddr, reg + (1 << SMC_IO_SHIFT));   \
++	} else {							     \
++		SMC_outw(x, ioaddr, reg);				     \
++	}								     \
++} while (0)
++
++#define SMC_in16(ioaddr, reg)						     \
++({									     \
++	unsigned int __val16;					   	     \
++	if (SMC_CAN_USE_8BIT && !SMC_16BIT(lp)) {			     \
++		__val16 =  SMC_inb( ioaddr, reg );			     \
+ 		__val16 |= SMC_inb( ioaddr, reg + (1 << SMC_IO_SHIFT)) << 8; \
+-		__val16;						\
+-	})
+-
+-#define SMC_insw(a, r, p, l)		BUG()
+-#define SMC_outsw(a, r, p, l)		BUG()
+-
+-#endif
++	} else {							     \
++		__val16 = SMC_inw(ioaddr, reg);				     \
++	}								     \
++	__val16;							     \
++})
+ 
+ #if !defined(SMC_insw) || !defined(SMC_outsw)
+ #define SMC_insw(a, r, p, l)		BUG()
+@@ -927,113 +929,113 @@ static const char * chip_ids[ 16 ] =  {
+ 			SMC_outw((x) << 8, ioaddr, INT_REG(lp));	\
+ 	} while (0)
+ 
+-#define SMC_CURRENT_BANK(lp)	SMC_inw(ioaddr, BANK_SELECT)
++#define SMC_CURRENT_BANK(lp)	SMC_in16(ioaddr, BANK_SELECT)
+ 
+ #define SMC_SELECT_BANK(lp, x)					\
+ 	do {								\
+ 		if (SMC_MUST_ALIGN_WRITE(lp))				\
+ 			SMC_outl((x)<<16, ioaddr, 12<<SMC_IO_SHIFT);	\
+ 		else							\
+-			SMC_outw(x, ioaddr, BANK_SELECT);		\
++			SMC_out16(x, ioaddr, BANK_SELECT);		\
+ 	} while (0)
+ 
+-#define SMC_GET_BASE(lp)		SMC_inw(ioaddr, BASE_REG(lp))
++#define SMC_GET_BASE(lp)	SMC_in16(ioaddr, BASE_REG(lp))
+ 
+-#define SMC_SET_BASE(lp, x)		SMC_outw(x, ioaddr, BASE_REG(lp))
++#define SMC_SET_BASE(lp, x)	SMC_out16(x, ioaddr, BASE_REG(lp))
+ 
+-#define SMC_GET_CONFIG(lp)	SMC_inw(ioaddr, CONFIG_REG(lp))
++#define SMC_GET_CONFIG(lp)	SMC_in16(ioaddr, CONFIG_REG(lp))
+ 
+-#define SMC_SET_CONFIG(lp, x)	SMC_outw(x, ioaddr, CONFIG_REG(lp))
++#define SMC_SET_CONFIG(lp, x)	SMC_out16(x, ioaddr, CONFIG_REG(lp))
+ 
+-#define SMC_GET_COUNTER(lp)	SMC_inw(ioaddr, COUNTER_REG(lp))
++#define SMC_GET_COUNTER(lp)	SMC_in16(ioaddr, COUNTER_REG(lp))
+ 
+-#define SMC_GET_CTL(lp)		SMC_inw(ioaddr, CTL_REG(lp))
++#define SMC_GET_CTL(lp)		SMC_in16(ioaddr, CTL_REG(lp))
+ 
+-#define SMC_SET_CTL(lp, x)		SMC_outw(x, ioaddr, CTL_REG(lp))
++#define SMC_SET_CTL(lp, x)	SMC_out16(x, ioaddr, CTL_REG(lp))
+ 
+-#define SMC_GET_MII(lp)		SMC_inw(ioaddr, MII_REG(lp))
++#define SMC_GET_MII(lp)		SMC_in16(ioaddr, MII_REG(lp))
+ 
+-#define SMC_GET_GP(lp)		SMC_inw(ioaddr, GP_REG(lp))
++#define SMC_GET_GP(lp)		SMC_in16(ioaddr, GP_REG(lp))
+ 
+ #define SMC_SET_GP(lp, x)						\
+ 	do {								\
+ 		if (SMC_MUST_ALIGN_WRITE(lp))				\
+ 			SMC_outl((x)<<16, ioaddr, SMC_REG(lp, 8, 1));	\
+ 		else							\
+-			SMC_outw(x, ioaddr, GP_REG(lp));		\
++			SMC_out16(x, ioaddr, GP_REG(lp));		\
+ 	} while (0)
+ 
+-#define SMC_SET_MII(lp, x)		SMC_outw(x, ioaddr, MII_REG(lp))
++#define SMC_SET_MII(lp, x)	SMC_out16(x, ioaddr, MII_REG(lp))
+ 
+-#define SMC_GET_MIR(lp)		SMC_inw(ioaddr, MIR_REG(lp))
++#define SMC_GET_MIR(lp)		SMC_in16(ioaddr, MIR_REG(lp))
+ 
+-#define SMC_SET_MIR(lp, x)		SMC_outw(x, ioaddr, MIR_REG(lp))
++#define SMC_SET_MIR(lp, x)	SMC_out16(x, ioaddr, MIR_REG(lp))
+ 
+-#define SMC_GET_MMU_CMD(lp)	SMC_inw(ioaddr, MMU_CMD_REG(lp))
++#define SMC_GET_MMU_CMD(lp)	SMC_in16(ioaddr, MMU_CMD_REG(lp))
+ 
+-#define SMC_SET_MMU_CMD(lp, x)	SMC_outw(x, ioaddr, MMU_CMD_REG(lp))
++#define SMC_SET_MMU_CMD(lp, x)	SMC_out16(x, ioaddr, MMU_CMD_REG(lp))
+ 
+-#define SMC_GET_FIFO(lp)		SMC_inw(ioaddr, FIFO_REG(lp))
++#define SMC_GET_FIFO(lp)	SMC_in16(ioaddr, FIFO_REG(lp))
+ 
+-#define SMC_GET_PTR(lp)		SMC_inw(ioaddr, PTR_REG(lp))
++#define SMC_GET_PTR(lp)		SMC_in16(ioaddr, PTR_REG(lp))
+ 
+ #define SMC_SET_PTR(lp, x)						\
+ 	do {								\
+ 		if (SMC_MUST_ALIGN_WRITE(lp))				\
+ 			SMC_outl((x)<<16, ioaddr, SMC_REG(lp, 4, 2));	\
+ 		else							\
+-			SMC_outw(x, ioaddr, PTR_REG(lp));		\
++			SMC_out16(x, ioaddr, PTR_REG(lp));		\
+ 	} while (0)
+ 
+-#define SMC_GET_EPH_STATUS(lp)	SMC_inw(ioaddr, EPH_STATUS_REG(lp))
++#define SMC_GET_EPH_STATUS(lp)	SMC_in16(ioaddr, EPH_STATUS_REG(lp))
+ 
+-#define SMC_GET_RCR(lp)		SMC_inw(ioaddr, RCR_REG(lp))
++#define SMC_GET_RCR(lp)		SMC_in16(ioaddr, RCR_REG(lp))
+ 
+-#define SMC_SET_RCR(lp, x)		SMC_outw(x, ioaddr, RCR_REG(lp))
++#define SMC_SET_RCR(lp, x)	SMC_out16(x, ioaddr, RCR_REG(lp))
+ 
+-#define SMC_GET_REV(lp)		SMC_inw(ioaddr, REV_REG(lp))
++#define SMC_GET_REV(lp)		SMC_in16(ioaddr, REV_REG(lp))
+ 
+-#define SMC_GET_RPC(lp)		SMC_inw(ioaddr, RPC_REG(lp))
++#define SMC_GET_RPC(lp)		SMC_in16(ioaddr, RPC_REG(lp))
+ 
+ #define SMC_SET_RPC(lp, x)						\
+ 	do {								\
+ 		if (SMC_MUST_ALIGN_WRITE(lp))				\
+ 			SMC_outl((x)<<16, ioaddr, SMC_REG(lp, 8, 0));	\
+ 		else							\
+-			SMC_outw(x, ioaddr, RPC_REG(lp));		\
++			SMC_out16(x, ioaddr, RPC_REG(lp));		\
+ 	} while (0)
+ 
+-#define SMC_GET_TCR(lp)		SMC_inw(ioaddr, TCR_REG(lp))
++#define SMC_GET_TCR(lp)		SMC_in16(ioaddr, TCR_REG(lp))
+ 
+-#define SMC_SET_TCR(lp, x)		SMC_outw(x, ioaddr, TCR_REG(lp))
++#define SMC_SET_TCR(lp, x)	SMC_out16(x, ioaddr, TCR_REG(lp))
+ 
+ #ifndef SMC_GET_MAC_ADDR
+ #define SMC_GET_MAC_ADDR(lp, addr)					\
+ 	do {								\
+ 		unsigned int __v;					\
+-		__v = SMC_inw(ioaddr, ADDR0_REG(lp));			\
++		__v = SMC_in16(ioaddr, ADDR0_REG(lp));			\
+ 		addr[0] = __v; addr[1] = __v >> 8;			\
+-		__v = SMC_inw(ioaddr, ADDR1_REG(lp));			\
++		__v = SMC_in16(ioaddr, ADDR1_REG(lp));			\
+ 		addr[2] = __v; addr[3] = __v >> 8;			\
+-		__v = SMC_inw(ioaddr, ADDR2_REG(lp));			\
++		__v = SMC_in16(ioaddr, ADDR2_REG(lp));			\
+ 		addr[4] = __v; addr[5] = __v >> 8;			\
+ 	} while (0)
+ #endif
+ 
+ #define SMC_SET_MAC_ADDR(lp, addr)					\
+ 	do {								\
+-		SMC_outw(addr[0]|(addr[1] << 8), ioaddr, ADDR0_REG(lp)); \
+-		SMC_outw(addr[2]|(addr[3] << 8), ioaddr, ADDR1_REG(lp)); \
+-		SMC_outw(addr[4]|(addr[5] << 8), ioaddr, ADDR2_REG(lp)); \
++		SMC_out16(addr[0]|(addr[1] << 8), ioaddr, ADDR0_REG(lp)); \
++		SMC_out16(addr[2]|(addr[3] << 8), ioaddr, ADDR1_REG(lp)); \
++		SMC_out16(addr[4]|(addr[5] << 8), ioaddr, ADDR2_REG(lp)); \
+ 	} while (0)
+ 
+ #define SMC_SET_MCAST(lp, x)						\
+ 	do {								\
+ 		const unsigned char *mt = (x);				\
+-		SMC_outw(mt[0] | (mt[1] << 8), ioaddr, MCAST_REG1(lp)); \
+-		SMC_outw(mt[2] | (mt[3] << 8), ioaddr, MCAST_REG2(lp)); \
+-		SMC_outw(mt[4] | (mt[5] << 8), ioaddr, MCAST_REG3(lp)); \
+-		SMC_outw(mt[6] | (mt[7] << 8), ioaddr, MCAST_REG4(lp)); \
++		SMC_out16(mt[0] | (mt[1] << 8), ioaddr, MCAST_REG1(lp)); \
++		SMC_out16(mt[2] | (mt[3] << 8), ioaddr, MCAST_REG2(lp)); \
++		SMC_out16(mt[4] | (mt[5] << 8), ioaddr, MCAST_REG3(lp)); \
++		SMC_out16(mt[6] | (mt[7] << 8), ioaddr, MCAST_REG4(lp)); \
+ 	} while (0)
+ 
+ #define SMC_PUT_PKT_HDR(lp, status, length)				\
+@@ -1042,8 +1044,8 @@ static const char * chip_ids[ 16 ] =  {
+ 			SMC_outl((status) | (length)<<16, ioaddr,	\
+ 				 DATA_REG(lp));			\
+ 		else {							\
+-			SMC_outw(status, ioaddr, DATA_REG(lp));	\
+-			SMC_outw(length, ioaddr, DATA_REG(lp));	\
++			SMC_out16(status, ioaddr, DATA_REG(lp));	\
++			SMC_out16(length, ioaddr, DATA_REG(lp));	\
+ 		}							\
+ 	} while (0)
+ 
+@@ -1054,8 +1056,8 @@ static const char * chip_ids[ 16 ] =  {
+ 			(status) = __val & 0xffff;			\
+ 			(length) = __val >> 16;				\
+ 		} else {						\
+-			(status) = SMC_inw(ioaddr, DATA_REG(lp));	\
+-			(length) = SMC_inw(ioaddr, DATA_REG(lp));	\
++			(status) = SMC_in16(ioaddr, DATA_REG(lp));	\
++			(length) = SMC_in16(ioaddr, DATA_REG(lp));	\
+ 		}							\
+ 	} while (0)
