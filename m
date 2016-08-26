@@ -1,7 +1,8 @@
 From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 4/7] tipc: introduce UDP replicast
-Date: Fri, 26 Aug 2016 10:52:53 +0200
-Message-ID: <1472201576-26588-5-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 6/7] tipc: add the ability to get
+	UDP options via netlink
+Date: Fri, 26 Aug 2016 10:52:55 +0200
+Message-ID: <1472201576-26588-7-git-send-email-richard.alpe@ericsson.com>
 References: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -20,389 +21,147 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This patch introduces UDP replicast. A concept where we emulate
-multicast by sending multiple unicast messages to configured peers.
+Add UDP bearer options to netlink bearer get message. This is used by
+the tipc user space tool to display UDP options.
 
-The purpose of replicast is mainly to be able to use TIPC in cloud
-environments where IP multicast is disabled. Using replicas to unicast
-multicast messages is costly as we have to copy each skb and send the
-copies individually.
+The UDP bearer information is passed using either a sockaddr_in or
+sockaddr_in6 structs. This means the user space receiver should
+intermediately store the retrieved data in a large enough struct
+(sockaddr_strage) before casting to the proper IP version type.
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_netlink.h |   1 +
- net/tipc/bearer.c                 |  44 ++++++++++++++
- net/tipc/bearer.h                 |   1 +
- net/tipc/netlink.c                |   5 ++
- net/tipc/udp_media.c              | 118 ++++++++++++++++++++++++++++++++++----
- net/tipc/udp_media.h              |  44 ++++++++++++++
- 6 files changed, 201 insertions(+), 12 deletions(-)
- create mode 100644 net/tipc/udp_media.h
+ include/uapi/linux/tipc_netlink.h |  2 ++
+ net/tipc/bearer.c                 |  8 +++++
+ net/tipc/udp_media.c              | 61 +++++++++++++++++++++++++++++++++++++++
+ net/tipc/udp_media.h              |  1 +
+ 4 files changed, 72 insertions(+)
 
 diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index bcb65ef..b15664c 100644
+index b15664c..f9edd20 100644
 --- a/include/uapi/linux/tipc_netlink.h
 +++ b/include/uapi/linux/tipc_netlink.h
-@@ -60,6 +60,7 @@ enum {
- 	TIPC_NL_MON_GET,
+@@ -61,6 +61,7 @@ enum {
  	TIPC_NL_MON_PEER_GET,
  	TIPC_NL_PEER_REMOVE,
-+	TIPC_NL_BEARER_ADD,
+ 	TIPC_NL_BEARER_ADD,
++	TIPC_NL_UDP_GET_REMOTEIP,
  
  	__TIPC_NL_CMD_MAX,
  	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
+@@ -100,6 +101,7 @@ enum {
+ 	TIPC_NLA_UDP_UNSPEC,
+ 	TIPC_NLA_UDP_LOCAL,		/* sockaddr_storage */
+ 	TIPC_NLA_UDP_REMOTE,		/* sockaddr_storage */
++	TIPC_NLA_UDP_MULTI_REMOTEIP,	/* flag */
+ 
+ 	__TIPC_NLA_UDP_MAX,
+ 	TIPC_NLA_UDP_MAX = __TIPC_NLA_UDP_MAX - 1
 diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 28056fa..d7b442d 100644
+index d7b442d..975dbeb 100644
 --- a/net/tipc/bearer.c
 +++ b/net/tipc/bearer.c
-@@ -42,6 +42,7 @@
- #include "monitor.h"
- #include "bcast.h"
- #include "netlink.h"
-+#include "udp_media.h"
+@@ -712,6 +712,14 @@ static int __tipc_nl_add_bearer(struct tipc_nl_msg *msg,
+ 		goto prop_msg_full;
  
- #define MAX_ADDR_STR 60
- 
-@@ -897,6 +898,49 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info)
- 	return 0;
- }
- 
-+int tipc_nl_bearer_add(struct sk_buff *skb, struct genl_info *info)
-+{
-+	int err;
-+	char *name;
-+	struct tipc_bearer *b;
-+	struct nlattr *attrs[TIPC_NLA_BEARER_MAX + 1];
-+	struct net *net = sock_net(skb->sk);
-+
-+	if (!info->attrs[TIPC_NLA_BEARER])
-+		return -EINVAL;
-+
-+	err = nla_parse_nested(attrs, TIPC_NLA_BEARER_MAX,
-+			       info->attrs[TIPC_NLA_BEARER],
-+			       tipc_nl_bearer_policy);
-+	if (err)
-+		return err;
-+
-+	if (!attrs[TIPC_NLA_BEARER_NAME])
-+		return -EINVAL;
-+	name = nla_data(attrs[TIPC_NLA_BEARER_NAME]);
-+
-+	rtnl_lock();
-+	b = tipc_bearer_find(net, name);
-+	if (!b) {
-+		rtnl_unlock();
-+		return -EINVAL;
-+	}
+ 	nla_nest_end(msg->skb, prop);
 +
 +#ifdef CONFIG_TIPC_MEDIA_UDP
-+	if (attrs[TIPC_NLA_BEARER_UDP_OPTS]) {
-+		err = tipc_udp_nl_bearer_add(b,
-+					     attrs[TIPC_NLA_BEARER_UDP_OPTS]);
-+		if (err) {
-+			rtnl_unlock();
-+			return err;
-+		}
++	if (bearer->media->type_id == TIPC_MEDIA_TYPE_UDP) {
++		if (tipc_udp_nl_add_bearer_data(msg, bearer))
++			goto attr_msg_full;
 +	}
 +#endif
-+	rtnl_unlock();
++
+ 	nla_nest_end(msg->skb, attrs);
+ 	genlmsg_end(msg->skb, hdr);
+ 
+diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
+index 6ece3c9..a6cdd98 100644
+--- a/net/tipc/udp_media.c
++++ b/net/tipc/udp_media.c
+@@ -401,6 +401,67 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
+ 	return err;
+ }
+ 
++static int __tipc_nl_add_udp_addr(struct sk_buff *skb,
++				  struct udp_media_addr *addr, int nla_t)
++{
++	if (ntohs(addr->proto) == ETH_P_IP) {
++		struct sockaddr_in ip4;
++
++		ip4.sin_family = AF_INET;
++		ip4.sin_port = addr->port;
++		ip4.sin_addr.s_addr = addr->ipv4.s_addr;
++		if (nla_put(skb, nla_t, sizeof(ip4), &ip4))
++			return -EMSGSIZE;
++
++#if IS_ENABLED(CONFIG_IPV6)
++	} else if (ntohs(addr->proto) == ETH_P_IPV6) {
++		struct sockaddr_in6 ip6;
++
++		ip6.sin6_family = AF_INET6;
++		ip6.sin6_port  = addr->port;
++		memcpy(&ip6.sin6_addr, &addr->ipv6, sizeof(struct in6_addr));
++		if (nla_put(skb, nla_t, sizeof(ip6), &ip6))
++			return -EMSGSIZE;
++#endif
++	}
 +
 +	return 0;
 +}
 +
- int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info)
- {
- 	int err;
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index 83a9abb..78892e2f 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -181,6 +181,7 @@ int tipc_nl_bearer_enable(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_bearer_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_bearer_get(struct sk_buff *skb, struct genl_info *info);
- int tipc_nl_bearer_set(struct sk_buff *skb, struct genl_info *info);
-+int tipc_nl_bearer_add(struct sk_buff *skb, struct genl_info *info);
- 
- int tipc_nl_media_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_media_get(struct sk_buff *skb, struct genl_info *info);
-diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
-index 2718de6..3122f21 100644
---- a/net/tipc/netlink.c
-+++ b/net/tipc/netlink.c
-@@ -161,6 +161,11 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
- 		.policy = tipc_nl_policy,
- 	},
- 	{
-+		.cmd	= TIPC_NL_BEARER_ADD,
-+		.doit	= tipc_nl_bearer_add,
-+		.policy = tipc_nl_policy,
-+	},
-+	{
- 		.cmd	= TIPC_NL_BEARER_SET,
- 		.doit	= tipc_nl_bearer_set,
- 		.policy = tipc_nl_policy,
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index b8ec1a1..6b938cc 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -49,6 +49,7 @@
- #include "core.h"
- #include "bearer.h"
- #include "netlink.h"
-+#include "msg.h"
- 
- /* IANA assigned UDP port */
- #define UDP_PORT_DEFAULT	6118
-@@ -70,6 +71,13 @@ struct udp_media_addr {
- 	};
- };
- 
-+/* struct udp_replicast - container for UDP remote addresses */
-+struct udp_replicast {
-+	struct udp_media_addr addr;
-+	struct rcu_head rcu;
-+	struct list_head list;
-+};
-+
- /**
-  * struct udp_bearer - ip/udp bearer data structure
-  * @bearer:	associated generic tipc bearer
-@@ -82,6 +90,7 @@ struct udp_bearer {
- 	struct socket *ubsock;
- 	u32 ifindex;
- 	struct work_struct work;
-+	struct udp_replicast rcast;
- };
- 
- static int tipc_udp_is_mcast_addr(struct udp_media_addr *addr)
-@@ -203,29 +212,75 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
- {
- 	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
- 	struct udp_media_addr *dst = (struct udp_media_addr *)&addr->value;
-+	struct udp_replicast *rcast;
- 	struct udp_bearer *ub;
- 	int err = 0;
- 
- 	if (skb_headroom(skb) < UDP_MIN_HEADROOM) {
- 		err = pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
- 		if (err)
--			goto tx_error;
-+			goto out;
- 	}
- 
- 	skb_set_inner_protocol(skb, htons(ETH_P_TIPC));
- 	ub = rcu_dereference_rtnl(b->media_ptr);
- 	if (!ub) {
- 		err = -ENODEV;
--		goto tx_error;
-+		goto out;
- 	}
- 
--	return tipc_udp_xmit(net, skb, ub, src, dst);
-+	if (!addr->broadcast || list_empty(&ub->rcast.list))
-+		return tipc_udp_xmit(net, skb, ub, src, dst);
- 
--tx_error:
-+	/* Replicast, send an skb to each configured IP address */
-+	list_for_each_entry_rcu(rcast, &ub->rcast.list, list) {
-+		struct sk_buff *_skb;
-+
-+		_skb = pskb_copy(skb, GFP_ATOMIC);
-+		if (!_skb) {
-+			err = -ENOMEM;
-+			goto out;
-+		}
-+
-+		err = tipc_udp_xmit(net, _skb, ub, src, &rcast->addr);
-+		if (err) {
-+			kfree_skb(_skb);
-+			goto out;
-+		}
-+	}
-+	err = 0;
-+out:
- 	kfree_skb(skb);
- 	return err;
- }
- 
-+static int tipc_udp_rcast_add(struct tipc_bearer *b,
-+			      struct udp_media_addr *addr)
++int tipc_udp_nl_add_bearer_data(struct tipc_nl_msg *msg, struct tipc_bearer *b)
 +{
-+	struct udp_replicast *rcast;
++	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
++	struct udp_media_addr *dst;
 +	struct udp_bearer *ub;
++	struct nlattr *nest;
 +
 +	ub = rcu_dereference_rtnl(b->media_ptr);
 +	if (!ub)
 +		return -ENODEV;
 +
-+	rcast = kmalloc(sizeof(*rcast), GFP_ATOMIC);
-+	if (!rcast)
-+		return -ENOMEM;
++	nest = nla_nest_start(msg->skb, TIPC_NLA_BEARER_UDP_OPTS);
++	if (!nest)
++		goto msg_full;
 +
-+	memcpy(&rcast->addr, addr, sizeof(struct udp_media_addr));
-+
-+	if (ntohs(addr->proto) == ETH_P_IP)
-+		pr_info("New replicast peer: %pI4\n", &rcast->addr.ipv4);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else if (ntohs(addr->proto) == ETH_P_IPV6)
-+		pr_info("New replicast peer: %pI6\n", &rcast->addr.ipv6);
-+#endif
-+
-+	list_add_rcu(&rcast->list, &ub->rcast.list);
-+	return 0;
-+}
-+
- /* tipc_udp_recv - read data from bearer socket */
- static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
- {
-@@ -320,6 +375,32 @@ static int tipc_parse_udp_addr(struct nlattr *nla, struct udp_media_addr *addr,
- 	return -EADDRNOTAVAIL;
- }
- 
-+int tipc_udp_nl_bearer_add(struct tipc_bearer *b, struct nlattr *attr)
-+{
-+	int err;
-+	struct udp_media_addr addr = {0};
-+	struct nlattr *opts[TIPC_NLA_UDP_MAX + 1];
-+	struct udp_media_addr *dst;
-+
-+	if (nla_parse_nested(opts, TIPC_NLA_UDP_MAX, attr, tipc_nl_udp_policy))
-+		return -EINVAL;
-+
-+	if (!opts[TIPC_NLA_UDP_REMOTE])
-+		return -EINVAL;
-+
-+	err = tipc_parse_udp_addr(opts[TIPC_NLA_UDP_REMOTE], &addr, NULL);
-+	if (err)
-+		return err;
++	if (__tipc_nl_add_udp_addr(msg->skb, src, TIPC_NLA_UDP_LOCAL))
++		goto msg_full;
 +
 +	dst = (struct udp_media_addr *)&b->bcast_addr.value;
-+	if (tipc_udp_is_mcast_addr(dst)) {
-+		pr_err("Can't add remote ip to TIPC UDP multicast bearer\n");
-+		return -EINVAL;
++	if (__tipc_nl_add_udp_addr(msg->skb, dst, TIPC_NLA_UDP_REMOTE))
++		goto msg_full;
++
++	if (!list_empty(&ub->rcast.list)) {
++		if (nla_put_flag(msg->skb, TIPC_NLA_UDP_MULTI_REMOTEIP))
++			goto msg_full;
 +	}
 +
-+	return tipc_udp_rcast_add(b, &addr);
++	nla_nest_end(msg->skb, nest);
++	return 0;
++msg_full:
++	nla_nest_cancel(msg->skb, nest);
++	return -EMSGSIZE;
 +}
 +
  /**
-  * tipc_udp_enable - callback to create a new udp bearer instance
-  * @net:	network namespace
-@@ -334,7 +415,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- {
- 	int err = -EINVAL;
- 	struct udp_bearer *ub;
--	struct udp_media_addr *remote;
-+	struct udp_media_addr remote = {0};
- 	struct udp_media_addr local = {0};
- 	struct udp_port_cfg udp_conf = {0};
- 	struct udp_tunnel_sock_cfg tuncfg = {NULL};
-@@ -344,6 +425,8 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	if (!ub)
- 		return -ENOMEM;
- 
-+	INIT_LIST_HEAD(&ub->rcast.list);
-+
- 	if (!attrs[TIPC_NLA_BEARER_UDP_OPTS])
- 		goto err;
- 
-@@ -362,9 +445,7 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	if (err)
- 		goto err;
- 
--	remote = (struct udp_media_addr *)&b->bcast_addr.value;
--	memset(remote, 0, sizeof(struct udp_media_addr));
--	err = tipc_parse_udp_addr(opts[TIPC_NLA_UDP_REMOTE], remote, NULL);
-+	err = tipc_parse_udp_addr(opts[TIPC_NLA_UDP_REMOTE], &remote, NULL);
- 	if (err)
- 		goto err;
- 
-@@ -409,10 +490,17 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	tuncfg.encap_destroy = NULL;
- 	setup_udp_tunnel_sock(net, ub->ubsock, &tuncfg);
- 
--	if (tipc_udp_is_mcast_addr(remote)) {
--		if (enable_mcast(ub, remote))
--			goto err;
--	}
-+	/**
-+	 * The bcast media address port is used for all peers and the ip
-+	 * is used if it's a multicast address.
-+	 */
-+	memcpy(&b->bcast_addr.value, &remote, sizeof(remote));
-+	if (tipc_udp_is_mcast_addr(&remote))
-+		err = enable_mcast(ub, &remote);
-+	else
-+		err = tipc_udp_rcast_add(b, &remote);
-+	if (err)
-+		goto err;
- 
- 	return 0;
- err:
-@@ -424,6 +512,12 @@ err:
- static void cleanup_bearer(struct work_struct *work)
- {
- 	struct udp_bearer *ub = container_of(work, struct udp_bearer, work);
-+	struct udp_replicast *rcast, *tmp;
-+
-+	list_for_each_entry_safe(rcast, tmp, &ub->rcast.list, list) {
-+		list_del_rcu(&rcast->list);
-+		kfree_rcu(rcast, rcu);
-+	}
- 
- 	if (ub->ubsock)
- 		udp_tunnel_sock_release(ub->ubsock);
+  * tipc_parse_udp_addr - build udp media address from netlink data
+  * @nlattr:	netlink attribute containing sockaddr storage aligned address
 diff --git a/net/tipc/udp_media.h b/net/tipc/udp_media.h
-new file mode 100644
-index 0000000..4dcb548
---- /dev/null
+index 4dcb548..c06326a 100644
+--- a/net/tipc/udp_media.h
 +++ b/net/tipc/udp_media.h
-@@ -0,0 +1,44 @@
-+/*
-+ * net/tipc/udp_media.h: Include file for UDP bearer media
-+ *
-+ * Copyright (c) 1996-2006, 2013-2016, Ericsson AB
-+ * Copyright (c) 2005, 2010-2011, Wind River Systems
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifdef CONFIG_TIPC_MEDIA_UDP
-+#ifndef _TIPC_UDP_MEDIA_H
-+#define _TIPC_UDP_MEDIA_H
-+
-+int tipc_udp_nl_bearer_add(struct tipc_bearer *b, struct nlattr *attr);
-+
-+#endif
-+#endif
+@@ -39,6 +39,7 @@
+ #define _TIPC_UDP_MEDIA_H
+ 
+ int tipc_udp_nl_bearer_add(struct tipc_bearer *b, struct nlattr *attr);
++int tipc_udp_nl_add_bearer_data(struct tipc_nl_msg *msg, struct tipc_bearer *b);
+ 
+ #endif
+ #endif
 -- 
 2.1.4
 
