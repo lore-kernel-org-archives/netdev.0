@@ -1,35 +1,78 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/4] net: phy: Register header file for Microsemi PHYs.
-Date: Fri, 26 Aug 2016 15:40:28 +0200
-Message-ID: <20160826134028.GE25046@lunn.ch>
-References: <646450A91FAED74E85C6E9C4D6E936A14533665A@avsrvexchmbx1.microsemi.net>
- <b0fe05bc-d6c4-0692-44ba-69ff8db3026a@gmail.com>
- <20160826102219.GA22159@microsemi.com>
+From: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Subject: Re: [PATCH V2 00/10] microblaze/MIPS: xilfpga: intc and peripheral
+Date: Fri, 26 Aug 2016 14:41:16 +0100
+Message-ID: <dfa01405-34da-89b7-0082-9f83a3c3fb18@imgtec.com>
+References: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Allan Nielsen <Allan.Nielsen@microsemi.com>
-To: Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45060 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751449AbcHZNkb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 Aug 2016 09:40:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20160826102219.GA22159@microsemi.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <jason@lakedaemon.net>, <marc.zyngier@arm.com>,
+        <linux-mips@linux-mips.org>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+To: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> I would like to share these register definitions share between
-> Microsemi multiple drivers.
+Hi,
 
-Hi Raju
 
-Please post a patch which does this, i.e. modifies multiple drivers to
-share the header file.
+On 08/18/2016 02:43 PM, Zubair Lutfullah Kakakhel wrote:
+> Hi,
+>
+> The MIPS based Xilfpga platform uses the axi interrupt controller
+> daisy chained to the MIPS microAptiv cpu interrupt controller.
+> This patch series moves the axi interrupt controller driver out
+> of arch/microblaze to drivers/irqchip. This makes it usable by
+> MIPS. The rest of the series basically enables drivers and adds dt
+> nodes.
+>
+> Would make sense for this to go via the MIPS tree.
+> Hence, ACKs from microblaze. irqchip and net welcome.
+>
+> Compile tested on microblaze-el only!
+> Based on v4.8-rc2
 
-However, just be aware, if it turns out these multiple drivers are
-very similar, we might actually ask you to merge them into one driver.
+Ping. Would be nice to see this in for v4.9.
 
-     Andrew
+Thanks
+ZubairLK
+
+>
+> Regards,
+> ZubairLK
+>
+> V1 -> V2
+> Resubmitting without truncating the diff output for file moves
+> Removed accidental local mac address entry
+> Individual logs have more detail
+>
+> Zubair Lutfullah Kakakhel (10):
+>   microblaze: irqchip: Move intc driver to irqchip
+>   irqchip: xilinx: Add support for parent intc
+>   MIPS: xilfpga: Use irqchip_init instead of the legacy way
+>   MIPS: xilfpga: Use Xilinx AXI Interrupt Controller
+>   MIPS: xilfpga: Update DT node and specify uart irq
+>   MIPS: Xilfpga: Add DT node for AXI I2C
+>   net: ethernet: xilinx: Generate random mac if none found
+>   net: ethernet: xilinx: Enable emaclite for MIPS
+>   MIPS: xilfpga: Add DT node for AXI emaclite
+>   MIPS: xilfpga: Update defconfig
+>
+>  arch/microblaze/Kconfig                       |   1 +
+>  arch/microblaze/kernel/Makefile               |   2 +-
+>  arch/microblaze/kernel/intc.c                 | 196 -----------------------
+>  arch/mips/Kconfig                             |   1 +
+>  arch/mips/boot/dts/xilfpga/nexys4ddr.dts      |  63 ++++++++
+>  arch/mips/configs/xilfpga_defconfig           |  37 ++++-
+>  arch/mips/xilfpga/intc.c                      |   7 +-
+>  drivers/irqchip/Kconfig                       |   4 +
+>  drivers/irqchip/Makefile                      |   1 +
+>  drivers/irqchip/irq-axi-intc.c                | 222 ++++++++++++++++++++++++++
+>  drivers/net/ethernet/xilinx/Kconfig           |   4 +-
+>  drivers/net/ethernet/xilinx/xilinx_emaclite.c |   6 +-
+>  12 files changed, 337 insertions(+), 207 deletions(-)
+>  delete mode 100644 arch/microblaze/kernel/intc.c
+>  create mode 100644 drivers/irqchip/irq-axi-intc.c
+>
