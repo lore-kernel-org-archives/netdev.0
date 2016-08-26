@@ -1,7 +1,7 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFCv2 13/16] nfp: bpf: add packet marking support
-Date: Fri, 26 Aug 2016 19:06:12 +0100
-Message-ID: <1472234775-29453-14-git-send-email-jakub.kicinski@netronome.com>
+Subject: [RFCv2 10/16] nfp: bpf: add hardware bpf offload
+Date: Fri, 26 Aug 2016 19:06:09 +0100
+Message-ID: <1472234775-29453-11-git-send-email-jakub.kicinski@netronome.com>
 References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
         dinan.gunawardena@netronome.com, jiri@resnulli.us,
@@ -9,177 +9,509 @@ Cc: ast@kernel.org, daniel@iogearbox.net,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:38496 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751556AbcHZSI4 (ORCPT
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37863 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750979AbcHZSI4 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 14:08:56 -0400
-Received: by mail-wm0-f46.google.com with SMTP id o80so3284857wme.1
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 11:08:02 -0700 (PDT)
+Received: by mail-wm0-f42.google.com with SMTP id i5so3353571wmg.0
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 11:07:58 -0700 (PDT)
 In-Reply-To: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing ABI defines and eBPF instructions to allow
-mark to be passed on and extend prepend parsing on the
-RX path to pick it up from packet metadata.
+Add hardware bpf offload on our smart NICs.  Detect if
+capable firmware is loaded and use it to load the code JITed
+with just added translator onto programmable engines.
+
+This commit only supports offloading cls_bpf in legacy mode
+(non-direct action).
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_bpf.h       |  2 ++
- drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c   | 19 +++++++++++
- .../net/ethernet/netronome/nfp/nfp_net_common.c    | 38 ++++++++++++++++++----
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  8 +++++
- 4 files changed, 60 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net.h       |  26 ++-
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  40 +++-
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |  45 ++++-
+ .../net/ethernet/netronome/nfp/nfp_net_offload.c   | 220 +++++++++++++++++++++
+ 5 files changed, 325 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-index f4265f88db23..85b258a70b18 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf.h
-@@ -91,6 +91,8 @@ enum nfp_bpf_reg_type {
- #define imm_both(np)	reg_both((np)->regs_per_thread - STATIC_REG_IMM)
+diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
+index 5f12689bf523..0efb2ba9a558 100644
+--- a/drivers/net/ethernet/netronome/nfp/Makefile
++++ b/drivers/net/ethernet/netronome/nfp/Makefile
+@@ -3,6 +3,7 @@ obj-$(CONFIG_NFP_NETVF)	+= nfp_netvf.o
+ nfp_netvf-objs := \
+ 	    nfp_net_common.o \
+ 	    nfp_net_ethtool.o \
++	    nfp_net_offload.o \
+ 	    nfp_netvf_main.o
  
- #define NFP_BPF_ABI_FLAGS	reg_nnr(0)
-+#define   NFP_BPF_ABI_FLAG_MARK	1
-+#define NFP_BPF_ABI_MARK	reg_nnr(1)
- #define NFP_BPF_ABI_PKT		reg_nnr(2)
- #define NFP_BPF_ABI_LEN		reg_nnr(3)
+ ifeq ($(CONFIG_BPF_SYSCALL),y)
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net.h b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+index 690635660195..ea6f5e667f27 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net.h
+@@ -220,7 +220,7 @@ struct nfp_net_tx_ring {
+ #define PCIE_DESC_RX_I_TCP_CSUM_OK	cpu_to_le16(BIT(11))
+ #define PCIE_DESC_RX_I_UDP_CSUM		cpu_to_le16(BIT(10))
+ #define PCIE_DESC_RX_I_UDP_CSUM_OK	cpu_to_le16(BIT(9))
+-#define PCIE_DESC_RX_SPARE		cpu_to_le16(BIT(8))
++#define PCIE_DESC_RX_BPF		cpu_to_le16(BIT(8))
+ #define PCIE_DESC_RX_EOP		cpu_to_le16(BIT(7))
+ #define PCIE_DESC_RX_IP4_CSUM		cpu_to_le16(BIT(6))
+ #define PCIE_DESC_RX_IP4_CSUM_OK	cpu_to_le16(BIT(5))
+@@ -413,6 +413,7 @@ static inline bool nfp_net_fw_ver_eq(struct nfp_net_fw_version *fw_ver,
+  * @is_vf:              Is the driver attached to a VF?
+  * @is_nfp3200:         Is the driver for a NFP-3200 card?
+  * @fw_loaded:          Is the firmware loaded?
++ * @bpf_offload_skip_sw:  Offloaded BPF program will not be rerun by cls_bpf
+  * @ctrl:               Local copy of the control register/word.
+  * @fl_bufsz:           Currently configured size of the freelist buffers
+  * @rx_offset:		Offset in the RX buffers where packet data starts
+@@ -473,6 +474,7 @@ struct nfp_net {
+ 	unsigned is_vf:1;
+ 	unsigned is_nfp3200:1;
+ 	unsigned fw_loaded:1;
++	unsigned bpf_offload_skip_sw:1;
  
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-index 09ed1627ae20..ca73be6fcc3d 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_bpf_jit.c
-@@ -674,6 +674,16 @@ static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
- 	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
- }
- 
-+static int wrp_set_mark(struct nfp_prog *nfp_prog, u8 src)
+ 	u32 ctrl;
+ 	u32 fl_bufsz;
+@@ -561,12 +563,28 @@ struct nfp_net {
+ /* Functions to read/write from/to a BAR
+  * Performs any endian conversion necessary.
+  */
++static inline u16 nn_readb(struct nfp_net *nn, int off)
 +{
-+	emit_alu(nfp_prog, NFP_BPF_ABI_MARK,
-+		 reg_none(), ALU_OP_NONE, reg_b(src));
-+	emit_alu(nfp_prog, NFP_BPF_ABI_FLAGS,
-+		 NFP_BPF_ABI_FLAGS, ALU_OP_OR, reg_imm(NFP_BPF_ABI_FLAG_MARK));
-+
-+	return 0;
++	return readb(nn->ctrl_bar + off);
 +}
 +
- static void
- wrp_alu_imm(struct nfp_prog *nfp_prog, u8 dst, enum alu_op alu_op, u32 imm)
+ static inline void nn_writeb(struct nfp_net *nn, int off, u8 val)
  {
-@@ -1117,6 +1127,14 @@ static int mem_ldx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- 	return 0;
+ 	writeb(val, nn->ctrl_bar + off);
  }
  
-+static int mem_stx4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+-/* NFP-3200 can't handle 16-bit accesses too well - hence no readw/writew */
++/* NFP-3200 can't handle 16-bit accesses too well */
++static inline u16 nn_readw(struct nfp_net *nn, int off)
 +{
-+	if (meta->insn.off == offsetof(struct sk_buff, mark))
-+		return wrp_set_mark(nfp_prog, meta->insn.src_reg * 2);
++	WARN_ON_ONCE(nn->is_nfp3200);
++	return readw(nn->ctrl_bar + off);
++}
++
++static inline void nn_writew(struct nfp_net *nn, int off, u16 val)
++{
++	WARN_ON_ONCE(nn->is_nfp3200);
++	writew(val, nn->ctrl_bar + off);
++}
+ 
+ static inline u32 nn_readl(struct nfp_net *nn, int off)
+ {
+@@ -757,4 +775,8 @@ static inline void nfp_net_debugfs_adapter_del(struct nfp_net *nn)
+ }
+ #endif /* CONFIG_NFP_NET_DEBUG */
+ 
++int
++nfp_net_bpf_offload(struct nfp_net *nn, u32 handle, __be16 proto,
++		    struct tc_cls_bpf_offload *cls_bpf);
++
+ #endif /* _NFP_NET_H_ */
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 88678c172b19..ff0e6b02934c 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -61,6 +61,7 @@
+ 
+ #include <linux/ktime.h>
+ 
++#include <net/pkt_cls.h>
+ #include <net/vxlan.h>
+ 
+ #include "nfp_net_ctrl.h"
+@@ -2387,6 +2388,31 @@ static struct rtnl_link_stats64 *nfp_net_stat64(struct net_device *netdev,
+ 	return stats;
+ }
+ 
++static bool nfp_net_ebpf_capable(struct nfp_net *nn)
++{
++	if (nn->cap & NFP_NET_CFG_CTRL_BPF &&
++	    nn_readb(nn, NFP_NET_CFG_BPF_ABI) == NFP_NET_BPF_ABI)
++		return true;
++	return false;
++}
++
++static int
++nfp_net_setup_tc(struct net_device *netdev, u32 handle, __be16 proto,
++		 struct tc_to_netdev *tc)
++{
++	struct nfp_net *nn = netdev_priv(netdev);
++
++	if (TC_H_MAJ(handle) != TC_H_MAJ(TC_H_INGRESS))
++		return -ENOTSUPP;
++	if (proto != htons(ETH_P_ALL))
++		return -ENOTSUPP;
++
++	if (tc->type == TC_SETUP_CLSBPF && nfp_net_ebpf_capable(nn))
++		return nfp_net_bpf_offload(nn, handle, proto, tc->cls_bpf);
++
++	return -EINVAL;
++}
++
+ static int nfp_net_set_features(struct net_device *netdev,
+ 				netdev_features_t features)
+ {
+@@ -2441,6 +2467,11 @@ static int nfp_net_set_features(struct net_device *netdev,
+ 			new_ctrl &= ~NFP_NET_CFG_CTRL_GATHER;
+ 	}
+ 
++	if (changed & NETIF_F_HW_TC && nn->ctrl & NFP_NET_CFG_CTRL_BPF) {
++		nn_err(nn, "Cannot disable HW TC offload while in use\n");
++		return -EBUSY;
++	}
++
+ 	nn_dbg(nn, "Feature change 0x%llx -> 0x%llx (changed=0x%llx)\n",
+ 	       netdev->features, features, changed);
+ 
+@@ -2590,6 +2621,7 @@ static const struct net_device_ops nfp_net_netdev_ops = {
+ 	.ndo_stop		= nfp_net_netdev_close,
+ 	.ndo_start_xmit		= nfp_net_tx,
+ 	.ndo_get_stats64	= nfp_net_stat64,
++	.ndo_setup_tc		= nfp_net_setup_tc,
+ 	.ndo_tx_timeout		= nfp_net_tx_timeout,
+ 	.ndo_set_rx_mode	= nfp_net_set_rx_mode,
+ 	.ndo_change_mtu		= nfp_net_change_mtu,
+@@ -2615,7 +2647,7 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->fw_ver.resv, nn->fw_ver.class,
+ 		nn->fw_ver.major, nn->fw_ver.minor,
+ 		nn->max_mtu);
+-	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
++	nn_info(nn, "CAP: %#x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+ 		nn->cap,
+ 		nn->cap & NFP_NET_CFG_CTRL_PROMISC  ? "PROMISC "  : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_L2BC     ? "L2BCFILT " : "",
+@@ -2632,7 +2664,8 @@ void nfp_net_info(struct nfp_net *nn)
+ 		nn->cap & NFP_NET_CFG_CTRL_MSIXAUTO ? "AUTOMASK " : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_IRQMOD   ? "IRQMOD "   : "",
+ 		nn->cap & NFP_NET_CFG_CTRL_VXLAN    ? "VXLAN "    : "",
+-		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "");
++		nn->cap & NFP_NET_CFG_CTRL_NVGRE    ? "NVGRE "	  : "",
++		nfp_net_ebpf_capable(nn)            ? "BPF "	  : "");
+ }
+ 
+ /**
+@@ -2800,6 +2833,9 @@ int nfp_net_netdev_init(struct net_device *netdev)
+ 
+ 	netdev->features = netdev->hw_features;
+ 
++	if (nfp_net_ebpf_capable(nn))
++		netdev->hw_features |= NETIF_F_HW_TC;
++
+ 	/* Advertise but disable TSO by default. */
+ 	netdev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6);
+ 
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+index ad6c4e31cedd..a4b0ef11a09c 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
+@@ -123,6 +123,8 @@
+ #define   NFP_NET_CFG_CTRL_L2SWITCH_LOCAL (0x1 << 23) /* Switch to local */
+ #define   NFP_NET_CFG_CTRL_VXLAN	  (0x1 << 24) /* VXLAN tunnel support */
+ #define   NFP_NET_CFG_CTRL_NVGRE	  (0x1 << 25) /* NVGRE tunnel support */
++/* {M> bit 26 taken by the no-TX-intr thing */
++#define   NFP_NET_CFG_CTRL_BPF		  (0x1 << 27) /* BPF offload */
+ #define NFP_NET_CFG_UPDATE              0x0004
+ #define   NFP_NET_CFG_UPDATE_GEN          (0x1 <<  0) /* General update */
+ #define   NFP_NET_CFG_UPDATE_RING         (0x1 <<  1) /* Ring config change */
+@@ -134,6 +136,7 @@
+ #define   NFP_NET_CFG_UPDATE_RESET        (0x1 <<  7) /* Update due to FLR */
+ #define   NFP_NET_CFG_UPDATE_IRQMOD       (0x1 <<  8) /* IRQ mod change */
+ #define   NFP_NET_CFG_UPDATE_VXLAN	  (0x1 <<  9) /* VXLAN port change */
++#define   NFP_NET_CFG_UPDATE_BPF	  (0x1 << 10) /* BPF program load */
+ #define   NFP_NET_CFG_UPDATE_ERR          (0x1 << 31) /* A error occurred */
+ #define NFP_NET_CFG_TXRS_ENABLE         0x0008
+ #define NFP_NET_CFG_RXRS_ENABLE         0x0010
+@@ -196,10 +199,37 @@
+ #define NFP_NET_CFG_VXLAN_SZ		  0x0008
+ 
+ /**
+- * 64B reserved for future use (0x0080 - 0x00c0)
++ * NFP6000 - BPF section
++ * @NFP_NET_CFG_BPF_ABI:	BPF ABI version
++ * @NFP_NET_CFG_BPF_CAP:	BPF capabilities
++ * @NFP_NET_CFG_BPF_MAX_LEN:	Maximum size of JITed BPF code in bytes
++ * @NFP_NET_CFG_BPF_START:	Offset at which BPF will be loaded
++ * @NFP_NET_CFG_BPF_DONE:	Offset to jump to on exit
++ * @NFP_NET_CFG_BPF_STACK_SZ:	Total size of stack area in 64B chunks
++ * @NFP_NET_CFG_BPF_INL_MTU:	Packet data split offset in 64B chunks
++ * @NFP_NET_CFG_BPF_SIZE:	Size of the JITed BPF code in instructions
++ * @NFP_NET_CFG_BPF_ADDR:	DMA address of the buffer with JITed BPF code
+  */
+-#define NFP_NET_CFG_RESERVED            0x0080
+-#define NFP_NET_CFG_RESERVED_SZ         0x0040
++#define NFP_NET_CFG_BPF_ABI		0x0080
++#define   NFP_NET_BPF_ABI		1
++#define NFP_NET_CFG_BPF_CAP		0x0081
++#define   NFP_NET_BPF_CAP_RELO		(1 << 0) /* seamless reload */
++#define NFP_NET_CFG_BPF_MAX_LEN		0x0082
++#define NFP_NET_CFG_BPF_START		0x0084
++#define NFP_NET_CFG_BPF_DONE		0x0086
++#define NFP_NET_CFG_BPF_STACK_SZ	0x0088
++#define NFP_NET_CFG_BPF_INL_MTU		0x0089
++#define NFP_NET_CFG_BPF_SIZE		0x008e
++#define NFP_NET_CFG_BPF_ADDR		0x0090
++#define   NFP_NET_CFG_BPF_CFG_8CTX	(1 << 0) /* 8ctx mode */
++#define   NFP_NET_CFG_BPF_CFG_MASK	7ULL
++#define   NFP_NET_CFG_BPF_ADDR_MASK	(~NFP_NET_CFG_BPF_CFG_MASK)
++
++/**
++ * 40B reserved for future use (0x0098 - 0x00c0)
++ */
++#define NFP_NET_CFG_RESERVED            0x0098
++#define NFP_NET_CFG_RESERVED_SZ         0x0028
+ 
+ /**
+  * RSS configuration (0x0100 - 0x01ac):
+@@ -303,6 +333,15 @@
+ #define NFP_NET_CFG_STATS_TX_MC_FRAMES  (NFP_NET_CFG_STATS_BASE + 0x80)
+ #define NFP_NET_CFG_STATS_TX_BC_FRAMES  (NFP_NET_CFG_STATS_BASE + 0x88)
+ 
++#define NFP_NET_CFG_STATS_APP0_FRAMES	(NFP_NET_CFG_STATS_BASE + 0x90)
++#define NFP_NET_CFG_STATS_APP0_BYTES	(NFP_NET_CFG_STATS_BASE + 0x98)
++#define NFP_NET_CFG_STATS_APP1_FRAMES	(NFP_NET_CFG_STATS_BASE + 0xa0)
++#define NFP_NET_CFG_STATS_APP1_BYTES	(NFP_NET_CFG_STATS_BASE + 0xa8)
++#define NFP_NET_CFG_STATS_APP2_FRAMES	(NFP_NET_CFG_STATS_BASE + 0xb0)
++#define NFP_NET_CFG_STATS_APP2_BYTES	(NFP_NET_CFG_STATS_BASE + 0xb8)
++#define NFP_NET_CFG_STATS_APP3_FRAMES	(NFP_NET_CFG_STATS_BASE + 0xc0)
++#define NFP_NET_CFG_STATS_APP3_BYTES	(NFP_NET_CFG_STATS_BASE + 0xc8)
++
+ /**
+  * Per ring stats (0x1000 - 0x1800)
+  * options, 64bit per entry
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+new file mode 100644
+index 000000000000..3a3dba1a03f0
+--- /dev/null
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_offload.c
+@@ -0,0 +1,220 @@
++/*
++ * Copyright (C) 2016 Netronome Systems, Inc.
++ *
++ * This software is dual licensed under the GNU General License Version 2,
++ * June 1991 as shown in the file COPYING in the top-level directory of this
++ * source tree or the BSD 2-Clause License provided below.  You have the
++ * option to license this software under the complete terms of either license.
++ *
++ * The BSD 2-Clause License:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      1. Redistributions of source code must retain the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer.
++ *
++ *      2. Redistributions in binary form must reproduce the above
++ *         copyright notice, this list of conditions and the following
++ *         disclaimer in the documentation and/or other materials
++ *         provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++/*
++ * nfp_net_offload.c
++ * Netronome network device driver: TC offload functions for PF and VF
++ */
++
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/pci.h>
++#include <linux/jiffies.h>
++#include <linux/timer.h>
++#include <linux/list.h>
++
++#include <net/pkt_cls.h>
++#include <net/tc_act/tc_gact.h>
++#include <net/tc_act/tc_mirred.h>
++
++#include "nfp_bpf.h"
++#include "nfp_net_ctrl.h"
++#include "nfp_net.h"
++
++static int
++nfp_net_bpf_get_act(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
++{
++	const struct tc_action *a;
++	LIST_HEAD(actions);
++
++	/* TC direct action */
++	if (cls_bpf->exts_integrated)
++		return -ENOTSUPP;
++
++	/* TC legacy mode */
++	if (!tc_single_action(cls_bpf->exts))
++		return -ENOTSUPP;
++
++	tcf_exts_to_list(cls_bpf->exts, &actions);
++	list_for_each_entry(a, &actions, list) {
++		if (is_tcf_gact_shot(a))
++			return NN_ACT_TC_DROP;
++	}
 +
 +	return -ENOTSUPP;
 +}
 +
- static int jump(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
- 	if (meta->insn.off < 0) /* TODO */
-@@ -1306,6 +1324,7 @@ static const instr_cb_t instr_cb[256] = {
- 	[BPF_LD | BPF_IND | BPF_H] =	data_ind_ld2,
- 	[BPF_LD | BPF_IND | BPF_W] =	data_ind_ld4,
- 	[BPF_LDX | BPF_MEM | BPF_W] =	mem_ldx4,
-+	[BPF_STX | BPF_MEM | BPF_W] =	mem_stx4,
- 	[BPF_JMP | BPF_JA | BPF_K] =	jump,
- 	[BPF_JMP | BPF_JEQ | BPF_K] =	jeq_imm,
- 	[BPF_JMP | BPF_JGT | BPF_K] =	jgt_imm,
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-index 053bda8a0fbd..739dd13dc18e 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
-@@ -1298,23 +1298,20 @@ static void nfp_net_rx_csum(struct nfp_net *nn, struct nfp_net_r_vector *r_vec,
-  * nfp_net_set_hash() - Set SKB hash data
-  * @netdev: adapter's net_device structure
-  * @skb:   SKB to set the hash data on
-- * @rxd:   RX descriptor
-  *
-  * The RSS hash and hash-type are pre-pended to the packet data.
-  * Extract and decode it and set the skb fields.
-  */
--static void nfp_net_set_hash(struct net_device *netdev, struct sk_buff *skb,
--			     struct nfp_net_rx_desc *rxd)
-+static void nfp_net_set_hash(struct net_device *netdev, struct sk_buff *skb)
- {
- 	struct nfp_net_rx_hash *rx_hash;
- 
--	if (!(rxd->rxd.flags & PCIE_DESC_RX_RSS) ||
--	    !(netdev->features & NETIF_F_RXHASH))
-+	if (!(netdev->features & NETIF_F_RXHASH))
- 		return;
- 
- 	rx_hash = (struct nfp_net_rx_hash *)(skb->data - sizeof(*rx_hash));
- 
--	switch (be32_to_cpu(rx_hash->hash_type)) {
-+	switch (be32_to_cpu(rx_hash->hash_type) & NPF_NET_META_FIELD_HASH) {
- 	case NFP_NET_RSS_IPV4:
- 	case NFP_NET_RSS_IPV6:
- 	case NFP_NET_RSS_IPV6_EX:
-@@ -1326,6 +1323,33 @@ static void nfp_net_set_hash(struct net_device *netdev, struct sk_buff *skb,
- 	}
- }
- 
-+static void
-+nfp_net_parse_meta(struct net_device *netdev, struct sk_buff *skb,
-+		   struct nfp_net_rx_desc *rxd, int meta_len)
++static int
++nfp_net_bpf_offload_prepare(struct nfp_net *nn,
++			    struct tc_cls_bpf_offload *cls_bpf,
++			    struct nfp_bpf_result *res,
++			    void **code, dma_addr_t *dma_addr, u16 max_instr)
 +{
-+	u32 meta_info;
-+	u8 *data = skb->data - 4;
++	unsigned int code_sz = max_instr * sizeof(u64);
++	enum nfp_bpf_action_type act;
++	u16 start_off, done_off;
++	unsigned int max_mtu;
++	int ret;
 +
-+	if (rxd->rxd.flags & PCIE_DESC_RX_RSS) {
-+		data -= 4;
-+		nfp_net_set_hash(netdev, skb);
++	ret = nfp_net_bpf_get_act(nn, cls_bpf);
++	if (ret < 0)
++		return ret;
++	act = ret;
++
++	max_mtu = nn_readb(nn, NFP_NET_CFG_BPF_INL_MTU) * 64 - 32;
++	if (max_mtu < nn->netdev->mtu) {
++		nn_info(nn, "BPF offload not supported with MTU larger than HW packet split boundary\n");
++		return -ENOTSUPP;
 +	}
 +
-+	meta_info = get_unaligned_be32(data) >> 8;
-+	data -= 4;
++	start_off = nn_readw(nn, NFP_NET_CFG_BPF_START);
++	done_off = nn_readw(nn, NFP_NET_CFG_BPF_DONE);
 +
-+	while (meta_info) {
-+		switch (meta_info & GENMASK(NFP_NET_META_FIELD_SIZE, 0)) {
-+		case NFP_NET_META_MARK:
-+			skb->mark = get_unaligned_be32(data);
-+			data -= 4;
-+			break;
-+		}
++	*code = dma_zalloc_coherent(&nn->pdev->dev, code_sz, dma_addr,
++				    GFP_KERNEL);
++	if (!*code)
++		return -ENOMEM;
 +
-+		meta_info >>= NFP_NET_META_FIELD_SIZE;
-+	}
++	ret = nfp_bpf_jit(cls_bpf->filter, *code, act, start_off, done_off,
++			  max_instr, res);
++	if (ret)
++		goto out;
++
++	return 0;
++
++out:
++	dma_free_coherent(&nn->pdev->dev, code_sz, *code, *dma_addr);
++	return ret;
 +}
 +
- /**
-  * nfp_net_rx() - receive up to @budget packets on @rx_ring
-  * @rx_ring:   RX ring to receive from
-@@ -1440,7 +1464,7 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
- 			skb_reserve(skb, nn->rx_offset);
- 		skb_put(skb, data_len - meta_len);
- 
--		nfp_net_set_hash(nn->netdev, skb, rxd);
-+		nfp_net_parse_meta(nn->netdev, skb, rxd, meta_len);
- 
- 		/* Pad small frames to minimum */
- 		if (skb_put_padto(skb, 60))
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-index a4b0ef11a09c..4c30439d3fcb 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-@@ -80,6 +80,14 @@
- #define NFP_NET_RSS_IPV6_EX_UDP         9
- 
- /**
-+ * Prepend field types
-+ */
-+#define NPF_NET_META_FIELD_HASH		0xff
++static void
++nfp_net_bpf_load_and_start(struct nfp_net *nn, u32 tc_flags,
++			   void *code, dma_addr_t dma_addr,
++			   unsigned int code_sz, unsigned int n_instr,
++			   bool dense_mode)
++{
++	u64 bpf_addr = dma_addr;
++	int err;
 +
-+#define NFP_NET_META_FIELD_SIZE		4
-+#define NFP_NET_META_MARK		1
++	nn->bpf_offload_skip_sw = !!(tc_flags & TCA_CLS_FLAGS_SKIP_SW);
 +
-+/**
-  * @NFP_NET_TXR_MAX:         Maximum number of TX rings
-  * @NFP_NET_RXR_MAX:         Maximum number of RX rings
-  */
++	if (dense_mode)
++		bpf_addr |= NFP_NET_CFG_BPF_CFG_8CTX;
++
++	nn_writew(nn, NFP_NET_CFG_BPF_SIZE, n_instr);
++	nn_writeq(nn, NFP_NET_CFG_BPF_ADDR, bpf_addr);
++
++	/* Load up the JITed code */
++	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_BPF);
++	if (err)
++		nn_err(nn, "FW command error while loading BPF: %d\n", err);
++
++	/* Enable passing packets through BPF function */
++	nn->ctrl |= NFP_NET_CFG_CTRL_BPF;
++	nn_writel(nn, NFP_NET_CFG_CTRL, nn->ctrl);
++	err = nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_GEN);
++	if (err)
++		nn_err(nn, "FW command error while enabling BPF: %d\n", err);
++
++	dma_free_coherent(&nn->pdev->dev, code_sz, code, dma_addr);
++}
++
++static int nfp_net_bpf_stop(struct nfp_net *nn)
++{
++	if (!(nn->ctrl & NFP_NET_CFG_CTRL_BPF))
++		return 0;
++
++	nn->ctrl &= ~NFP_NET_CFG_CTRL_BPF;
++	nn_writel(nn, NFP_NET_CFG_CTRL, nn->ctrl);
++
++	nn->bpf_offload_skip_sw = 0;
++
++	return nfp_net_reconfig(nn, NFP_NET_CFG_UPDATE_GEN);
++}
++
++int
++nfp_net_bpf_offload(struct nfp_net *nn, u32 handle, __be16 proto,
++		    struct tc_cls_bpf_offload *cls_bpf)
++{
++	struct nfp_bpf_result res;
++	dma_addr_t dma_addr;
++	u16 max_instr;
++	void *code;
++	int err;
++
++	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
++
++	switch (cls_bpf->command) {
++	case TC_CLSBPF_REPLACE:
++		/* There is nothing stopping us from implementing seamless
++		 * replace but the simple method of loading I adopted in
++		 * the firmware does not handle atomic replace (i.e. we have to
++		 * stop the BPF offload and re-enable it).  Leaking-in a few
++		 * frames which didn't have BPF applied in the hardware should
++		 * be fine if software fallback is available, though.
++		 */
++		if (nn->bpf_offload_skip_sw)
++			return -EBUSY;
++
++		err = nfp_net_bpf_offload_prepare(nn, cls_bpf, &res, &code,
++						  &dma_addr, max_instr);
++		if (err)
++			return err;
++
++		nfp_net_bpf_stop(nn);
++		nfp_net_bpf_load_and_start(nn, cls_bpf->gen_flags, code,
++					   dma_addr, max_instr * sizeof(u64),
++					   res.n_instr, res.dense_mode);
++		return 0;
++
++	case TC_CLSBPF_ADD:
++		if (nn->ctrl & NFP_NET_CFG_CTRL_BPF)
++			return -EBUSY;
++
++		err = nfp_net_bpf_offload_prepare(nn, cls_bpf, &res, &code,
++						  &dma_addr, max_instr);
++		if (err)
++			return err;
++
++		nfp_net_bpf_load_and_start(nn, cls_bpf->gen_flags, code,
++					   dma_addr, max_instr * sizeof(u64),
++					   res.n_instr, res.dense_mode);
++		return 0;
++
++	case TC_CLSBPF_DESTROY:
++		return nfp_net_bpf_stop(nn);
++
++	default:
++		return -ENOTSUPP;
++	}
++}
 -- 
 1.9.1
