@@ -1,47 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC 1/3] tcp: randomize tcp timestamp offsets for each
- connection
-Date: Thu, 25 Aug 2016 19:34:14 -0700
-Message-ID: <1472178854.14381.180.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1471524527-10029-1-git-send-email-fw@strlen.de>
-         <1471524527-10029-2-git-send-email-fw@strlen.de>
-         <1472162771.14381.167.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20160825234657.GA13469@breakpoint.cc>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [RESEND PATCH net 06/10] net: ethernet: mediatek: fix the loss
+Date: Fri, 26 Aug 2016 11:33:39 +0800
+Message-ID: <1472182419-17998-1-git-send-email-sean.wang@mediatek.com>
+References: <20160825133034.GA25046@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:36011 "EHLO
-        mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756473AbcHZCeR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 25 Aug 2016 22:34:17 -0400
-Received: by mail-pa0-f46.google.com with SMTP id di2so22331353pad.3
-        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 19:34:16 -0700 (PDT)
-In-Reply-To: <20160825234657.GA13469@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20160825133034.GA25046-g2DYL2Zd6BY@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2016-08-26 at 01:46 +0200, Florian Westphal wrote:
+On Thu, 25 Aug 2016 15:30:34 +0200, Andrew Lunn wrote:
+>On Thu, Aug 25, 2016 at 06:44:57PM +0800, Sean Wang wrote:
+>> ommited the setting about pin-mux which results in incorrect signals
+>> being routed on GMAC2.
+>
+>Hi Sean
+>
+>Please could you explain this some more. I don't know too much about
+>pinctrl, but i've never seen a driver have to do anything with it. The
+>core driver code handles it all, selecting the default state. See
+>seeing this here makes me wonder if it is correct.
+>
+>Thanks
+>	Andrew
+>
+>>
 
-> Wrt. making randomization optional:
-> 
-> Would you go for another sysctl or should I just change
-> secure_tcpvX_sequence_number to check for tcp_timestamps == 2 mode?
-> 
-> 	*tsoff  = sysctl_tcp_timestamps == 2 ? hash[1] : 0;
+Hi Andrew,
 
-I've not yet look at your "add tcp_timestamps=2 mode to force tsecr
-validation on ofo segments" patch.
-It looks a bit scary to me :(
+Here pinctrl is used to setup what function the group of the pins is for.
 
-I would rather have a separate sysctl, or maybe a per route attribute.
+The group of the pins could be configured for the function provided 
+by the SoC, such as general purpose I/O or specific function such as
+ethernet depending on what products or boards you design for various 
+customers or vendors. Thanks for device tree introducing, it is easy 
+to find what resources the board needs including the pins usage is 
+also defined here.
+ 
+Pins are limited resource that is also meant for the cost 
+so that it is common way seen on embedded system.
 
-Note that this could be done later.
+thanks,
+Sean
 
-> 
-> Could also use a static key but I don't think its worth it vs. md5 cost.
-> What do you think?
-
-A static key wont help a lot I think ;)
+>> +	eth->pins = devm_pinctrl_get(&pdev->dev);
+>> +	if (IS_ERR(eth->pins)) {
+>> +		dev_err(&pdev->dev, "cannot get pinctrl\n");
+>> +		return PTR_ERR(eth->pins);
+>> +	}
+>> +
+>> +	eth->ephy_default =
+>> +		pinctrl_lookup_state(eth->pins, "default");
+>> +	if (IS_ERR(eth->ephy_default)) {
+>> +		dev_err(&pdev->dev, "cannot get pinctrl state\n");
+>> +		return PTR_ERR(eth->ephy_default);
+>> +	}
+>> +
+>>  	clk_prepare_enable(eth->clk_ethif);
+>>  	clk_prepare_enable(eth->clk_esw);
+>>  	clk_prepare_enable(eth->clk_gp1);
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> index f82e3ac..13d3f1b 100644
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+>> @@ -404,6 +404,9 @@ struct mtk_eth {
+>>  	struct clk			*clk_esw;
+>>  	struct clk			*clk_gp1;
+>>  	struct clk			*clk_gp2;
+>> +	struct pinctrl			*pins;
+>> +	struct pinctrl_state		*ephy_default;
+>> +
+>>  	struct mii_bus			*mii_bus;
+>>  	struct work_struct		pending_work;
+>>  };
+>> -- 
+>> 1.9.1
