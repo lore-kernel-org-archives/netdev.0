@@ -1,85 +1,77 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] ravb: avoid unused function warnings
-Date: Fri, 26 Aug 2016 17:30:29 +0200
-Message-ID: <20160826153108.680850-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
-        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        Masaru Nagai <masaru.nagai.vx@renesas.com>,
-        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: possible memory leak in ipc
+Date: Fri, 26 Aug 2016 08:41:19 -0700
+Message-ID: <CANn89iJ606XRvmUhiODgXY5240ffBsak_6-rhZsnQhRyLFD4MA@mail.gmail.com>
+References: <544270328.2536943.1472154674747.JavaMail.zimbra@redhat.com>
+ <1474737839.2538727.1472155133819.JavaMail.zimbra@redhat.com>
+ <CANn89iL3J6nTbNRm215xv2LL_6SjoPV-XtUJq7Ka_7pFsuAg0g@mail.gmail.com>
+ <2107409749.2541400.1472156272168.JavaMail.zimbra@redhat.com>
+ <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com> <364510660.2709914.1472225156558.JavaMail.zimbra@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Thomas Graf <tgraf@suug.ch>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Network Development <netdev@vger.kernel.org>
+To: CAI Qian <caiqian@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yb0-f182.google.com ([209.85.213.182]:35196 "EHLO
+        mail-yb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754217AbcHZPl0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 11:41:26 -0400
+Received: by mail-yb0-f182.google.com with SMTP id h3so7132939ybi.2
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 08:41:25 -0700 (PDT)
+In-Reply-To: <364510660.2709914.1472225156558.JavaMail.zimbra@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_PM_SLEEP is disabled, we get a couple of harmless warnings:
+On Fri, Aug 26, 2016 at 8:25 AM, CAI Qian <caiqian@redhat.com> wrote:
+>
+>
+> ----- Original Message -----
+>> From: "Linus Torvalds" <torvalds@linux-foundation.org>
+>> To: "CAI Qian" <caiqian@redhat.com>, "Thomas Graf" <tgraf@suug.ch>, "Herbert Xu" <herbert@gondor.apana.org.au>
+>> Cc: "Eric Dumazet" <edumazet@google.com>, "Network Development" <netdev@vger.kernel.org>
+>> Sent: Thursday, August 25, 2016 6:20:03 PM
+>> Subject: Re: possible memory leak in ipc
+>>
+>> On Thu, Aug 25, 2016 at 1:17 PM, CAI Qian <caiqian@redhat.com> wrote:
+>> > I am unsure if it is really a memleak (could be a security issue due to
+>> > eventually OOM and DoS) or just a soft lockup with in kmemlock code with
+>> > false alarm.
+>>
+>> Hmm. The reported leaks look like
+>>
+>> unreferenced object 0xffffc90004857000 (size 4608):
+>>   comm "kworker/16:0", pid 110, jiffies 4294705908 (age 883.925s)
+>>   hex dump (first 32 bytes):
+>>     c0 05 3d 5e 08 88 ff ff ff ff ff ff 00 00 dc 6e  ..=^...........n
+>>     ff ff ff ff ff ff ff ff 28 c7 46 83 ff ff ff ff  ........(.F.....
+>>   backtrace:
+>>     [<ffffffff817d95ba>] kmemleak_alloc+0x4a/0xa0
+>>     [<ffffffff8123df4e>] __vmalloc_node_range+0x1de/0x2f0
+>>     [<ffffffff8123e324>] vmalloc+0x54/0x60
+>>     [<ffffffff81404934>] alloc_bucket_locks.isra.7+0xd4/0xf0
+>>     [<ffffffff814049a8>] bucket_table_alloc+0x58/0x100
+>>     [<ffffffff8140538e>] rht_deferred_worker+0x10e/0x890
+>>     [<ffffffff810c30a8>] process_one_work+0x218/0x750
+>>     [<ffffffff810c3705>] worker_thread+0x125/0x4a0
+>>     [<ffffffff810ca8b1>] kthread+0x101/0x120
+>>     [<ffffffff817e70af>] ret_from_fork+0x1f/0x40
+>>     [<ffffffffffffffff>] 0xffffffffffffffff
+>>
+>> which would indicate that it's a rhashtable resize event where we
+>> perhaps haven't free'd the old hash table when we create a new one.
+>>
+>> The actually freeing of the old one is done RCU-deferred from
+>> rhashtable_rehash_table(), but that itself is also deferred by a
+>> worker thread (rht_deferred_worker).
+>>
+>> I'm not seeing anything wrong in the logic, but let's bring in Thomas
+>> Graf and Herbert Xu.
+>
 
-drivers/net/ethernet/renesas/ravb_main.c:2117:12: error: 'ravb_resume' defined but not used [-Werror=unused-function]
-drivers/net/ethernet/renesas/ravb_main.c:2104:12: error: 'ravb_suspend' defined but not used [-Werror=unused-function]
+There is a trivial bug in alloc_bucket_locks()
+I will send a patch.
 
-The simplest solution here is to replace the #ifdef with __maybe_unused
-annotations, which lets the compiler do the right thing by itself.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 0184165b2f42 ("ravb: add sleep PM suspend/resume support")
----
- drivers/net/ethernet/renesas/ravb_main.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index cad23ba06904..630536bc72f9 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -2100,8 +2100,7 @@ static int ravb_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
--#ifdef CONFIG_PM
--static int ravb_suspend(struct device *dev)
-+static int __maybe_unused ravb_suspend(struct device *dev)
- {
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	int ret = 0;
-@@ -2114,7 +2113,7 @@ static int ravb_suspend(struct device *dev)
- 	return ret;
- }
- 
--static int ravb_resume(struct device *dev)
-+static int __maybe_unused ravb_resume(struct device *dev)
- {
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct ravb_private *priv = netdev_priv(ndev);
-@@ -2149,7 +2148,7 @@ static int ravb_resume(struct device *dev)
- 	return ret;
- }
- 
--static int ravb_runtime_nop(struct device *dev)
-+static int __maybe_unused ravb_runtime_nop(struct device *dev)
- {
- 	/* Runtime PM callback shared between ->runtime_suspend()
- 	 * and ->runtime_resume(). Simply returns success.
-@@ -2166,17 +2165,12 @@ static const struct dev_pm_ops ravb_dev_pm_ops = {
- 	SET_RUNTIME_PM_OPS(ravb_runtime_nop, ravb_runtime_nop, NULL)
- };
- 
--#define RAVB_PM_OPS (&ravb_dev_pm_ops)
--#else
--#define RAVB_PM_OPS NULL
--#endif
--
- static struct platform_driver ravb_driver = {
- 	.probe		= ravb_probe,
- 	.remove		= ravb_remove,
- 	.driver = {
- 		.name	= "ravb",
--		.pm	= RAVB_PM_OPS,
-+		.pm	= &ravb_dev_pm_ops,
- 		.of_match_table = ravb_match_table,
- 	},
- };
--- 
-2.9.0
+Thanks.
