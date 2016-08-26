@@ -1,68 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] rhashtable: fix a memory leak in alloc_bucket_locks()
-Date: Fri, 26 Aug 2016 08:51:39 -0700
-Message-ID: <1472226699.14381.186.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <544270328.2536943.1472154674747.JavaMail.zimbra@redhat.com>
-         <1474737839.2538727.1472155133819.JavaMail.zimbra@redhat.com>
-         <CANn89iL3J6nTbNRm215xv2LL_6SjoPV-XtUJq7Ka_7pFsuAg0g@mail.gmail.com>
-         <2107409749.2541400.1472156272168.JavaMail.zimbra@redhat.com>
-         <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: CAI Qian <caiqian@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Eric Dumazet <edumazet@google.com>,
-        Network Development <netdev@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Florian Westphal <fw@strlen.de>
-To: David Miller <davem@davemloft.net>
+From: Eli Cooper <elicooper@gmx.com>
+Subject: [PATCH] ipv6: Don't unset flowi6_proto in ipxip6_tnl_xmit()
+Date: Fri, 26 Aug 2016 23:52:29 +0800
+Message-ID: <20160826155229.8040-1-elicooper@gmx.com>
+Cc: "David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34126 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753741AbcHZPvr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 11:51:47 -0400
-Received: by mail-pf0-f193.google.com with SMTP id g202so5098096pfb.1
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 08:51:46 -0700 (PDT)
-In-Reply-To: <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com>
+Received: from mout.gmx.net ([212.227.17.21]:56427 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752855AbcHZPwn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 26 Aug 2016 11:52:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Commit 8eb30be0352d0916 ("ipv6: Create ip6_tnl_xmit") unsets
+flowi6_proto in ip4ip6_tnl_xmit() and ip6ip6_tnl_xmit().
+Since xfrm_selector_match() relies on this info, IPv6 packets
+sent by an ip6tunnel cannot be properly selected by their
+protocols after removing it. This patch puts flowi6_proto back.
 
-If vmalloc() was successful, do not attempt a kmalloc_array()
-
-Fixes: 4cf0b354d92e ("rhashtable: avoid large lock-array allocations")
-Reported-by: CAI Qian <caiqian@redhat.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Florian Westphal <fw@strlen.de>
+Cc: stable@vger.kernel.org
+Fixes: 8eb30be0352d ("ipv6: Create ip6_tnl_xmit")
+Signed-off-by: Eli Cooper <elicooper@gmx.com>
 ---
- lib/rhashtable.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/ipv6/ip6_tunnel.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-index 5ba520b544d7..56054e541a0f 100644
---- a/lib/rhashtable.c
-+++ b/lib/rhashtable.c
-@@ -77,17 +77,18 @@ static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
- 	size = min_t(unsigned int, size, tbl->size >> 1);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 2050217..5c57797 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1174,6 +1174,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		encap_limit = t->parms.encap_limit;
  
- 	if (sizeof(spinlock_t) != 0) {
-+		tbl->locks = NULL;
- #ifdef CONFIG_NUMA
- 		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
- 		    gfp == GFP_KERNEL)
- 			tbl->locks = vmalloc(size * sizeof(spinlock_t));
--		else
- #endif
- 		if (gfp != GFP_KERNEL)
- 			gfp |= __GFP_NOWARN | __GFP_NORETRY;
+ 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
++	fl6.flowi6_proto = IPPROTO_IPIP;
  
--		tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
--					   gfp);
-+		if (!tbl->locks)
-+			tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
-+						   gfp);
- 		if (!tbl->locks)
- 			return -ENOMEM;
- 		for (i = 0; i < size; i++)
+ 	dsfield = ipv4_get_dsfield(iph);
+ 
+@@ -1233,6 +1234,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		encap_limit = t->parms.encap_limit;
+ 
+ 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
++	fl6.flowi6_proto = IPPROTO_IPV6;
+ 
+ 	dsfield = ipv6_get_dsfield(ipv6h);
+ 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
+-- 
+2.9.3
