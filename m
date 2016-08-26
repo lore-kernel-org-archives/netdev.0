@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] veth: sctp: add NETIF_F_SCTP_CRC to device features
-Date: Fri, 26 Aug 2016 11:43:38 -0700 (PDT)
-Message-ID: <20160826.114338.1613853981669207386.davem@davemloft.net>
-References: <3b9880c091c96f4e6780b96b4f3e2c4d38dffe42.1472102509.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH] net: hns: dereference ppe_cb->ppe_common_cb if it is
+ non-null
+Date: Fri, 26 Aug 2016 11:45:44 -0700 (PDT)
+Message-ID: <20160826.114544.331469797150439600.davem@davemloft.net>
+References: <20160825065110.10104-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, vyasevich@gmail.com,
-        daniel@iogearbox.net
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59582 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbcHZSnj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 14:43:39 -0400
-In-Reply-To: <3b9880c091c96f4e6780b96b4f3e2c4d38dffe42.1472102509.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        lisheng011@huawei.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160825065110.10104-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 25 Aug 2016 13:21:49 +0800
+From: Colin King <colin.king@canonical.com>
+Date: Thu, 25 Aug 2016 07:51:10 +0100
 
-> Commit b17c706987fa ("loopback: sctp: add NETIF_F_SCTP_CSUM to device
-> features") added NETIF_F_SCTP_CRC to device features for lo device to
-> improve the performance of sctp over lo.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> This patch is to add NETIF_F_SCTP_CRC to device features for veth to
-> improve the performance of sctp over veth.
- ...
-> Tested-by: Li Shuang <tjlishuang@yeah.net>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ppe_cb->ppe_common_cb is being dereferenced before a null check is
+> being made on it.  If ppe_cb->ppe_common_cb is null then we end up
+> with a null pointer dereference when assigning dsaf_dev.  Fix this
+> by moving the initialisation of dsaf_dev once we know
+> ppe_cb->ppe_common_cb is OK to dereference.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied to net-next, thanks.
+Applied.
