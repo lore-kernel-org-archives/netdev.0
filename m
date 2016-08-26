@@ -1,72 +1,33 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Thu, 25 Aug 2016 17:33:57 -0700
-Message-ID: <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug@mail.gmail.com>
-References: <CAOrHB_C3Hq-V4uPWLELSc2VMywjYSnKiFJ4VJQDnPpCu7s1Xkw@mail.gmail.com>
- <20160720000243.GA4688@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
- <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
- <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
- <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
- <20160823085144.GA22304@penelope.isobedori.kobe.vergenet.net>
- <20160825100833.GA31926@penelope.isobedori.kobe.vergenet.net>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH] net: hns: dereference ppe_cb->ppe_common_cb if it is
+ non-null
+Date: Fri, 26 Aug 2016 08:42:05 +0800
+Message-ID: <57BF905D.6050304@huawei.com>
+References: <20160825065110.10104-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160825100833.GA31926-ucRxlxcrRFEsysjaEhV7d2ey4e3TpSOZIxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Transfer-Encoding: 8bit
+Cc: <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Lisheng <lisheng011@huawei.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160825065110.10104-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMjUgQXVndXN0IDIwMTYgYXQgMDM6MDgsIFNpbW9uIEhvcm1hbiA8c2ltb24uaG9ybWFuQG5l
-dHJvbm9tZS5jb20+IHdyb3RlOgo+IFBsZWFzZSBmaW5kIG15IHdvcmtpbmcgcGF0Y2ggYmVsb3cu
-Cj4KPiBGcm9tOiBTaW1vbiBIb3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPiBTdWJqZWN0OiBb
-UEFUQ0hdIHN5c3RlbS10cmFmZmljOiBFeGVyY2lzZSBHU08KPgo+IEV4ZXJjaXNlIEdTTyBmb3I6
-IHVuZW5jYXBzdWxhdGVkOyBNUExTOyBHUkU7IGFuZCBNUExTIGluIEdSRS4KPgo+IFRoZXJlIGlz
-IHNjb3BlIHRvIGV4dGVuZCB0aGlzIHRlc3RpbmcgdG8gb3RoZXIgZW5jYXBzdWxhdGlvbiBmb3Jt
-YXRzCj4gaWYgZGVzaXJlZC4KPgo+IFRoaXMgaXMgbW90aXZhdGVkIGJ5IGEgZGVzaXJlIHRvIHRl
-c3QgR1JFIGFuZCBNUExTIGVuY2Fwc3VsYXRpb24gaW4KPiB0aGUgY29udGV4dCBvZiBMMy9WUE4g
-KE1QTFMgb3ZlciBub24tVEVCIEdSRSB3b3JrKS4gVGhhdCBpcyBub3QKPiB0ZXN0ZWQgaGVyZSBi
-dXQgdGVzdHMgZm9yIHRob3NlIGNhc2VzIHdvdWxkIGlkZWFseSBiZSBiYXNlZCBvbiB0aG9zZSBp
-bgo+IHRoaXMgcGF0Y2guCj4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPGhvcm1zQHZl
-cmdlLm5ldC5hdT4KCkkgcmVhbGlzZWQgdGhhdCB0aGVzZSB0ZXN0cyBkaXNhYmxlIFRTTywgYnV0
-IHRoZXkgZG9uJ3QgYWN0dWFsbHkgY2hlY2sKaWYgR1NPIGlzIGVuYWJsZWQuIE1heWJlIGl0J3Mg
-c2FmZSB0byBhc3N1bWUgdGhpcywgYnV0IGl0J3MgbW9yZQpleHBsaWNpdCB0byBhY3R1YWxseSBs
-b29rIGZvciBpdCBpbiB0aGUgdGVzdHMuCgpXaXRoIHBhcnRpY3VsYXIgc2V0dXBzIChmZWRvcmEy
-MyBpbiBwYXJ0aWN1bGFyLCBib3RoIGtlcm5lbCBhbmQKdXNlcnNwYWNlIHRlc3RzdWl0ZXMpIEkg
-c2VlIHRoaXM6CgouL3N5c3RlbS10cmFmZmljLmF0OjM3MTogaXAgbmV0bnMgZXhlYyBhdF9uczAg
-c2ggPDwgTlNfRVhFQ19IRVJFRE9DCmlwIHJvdXRlIGFkZCAxMC4xLjIuMC8yNCBlbmNhcCBtcGxz
-IDEwMCB2aWEgaW5ldCAxMC4xLjEuMiBkZXYgbnNfZ3JlMApOU19FWEVDX0hFUkVET0MKLS0tIC9k
-ZXYvbnVsbCAyMDE2LTA4LTE5IDAxOjI4OjAyLjE1MTAwMDAwMCArMDAwMAorKysgL2hvbWUvZ2l0
-bGFiLXJ1bm5lci9idWlsZHMvODNjNDliZmYvMC9yb290L2dpdGxhYi1vdnMvb3ZzL3Rlc3RzL3N5
-c3RlbS1rbW9kLXRlc3RzdWl0ZS5kaXIvYXQtZ3JvdXBzLzEwL3N0ZGVycgoyMDE2LTA4LTI1IDE3
-OjE2OjI3LjMyNDAwMDAwMCArMDAwMApAQCAtMCwwICsxIEBACitFcnJvcjogZWl0aGVyICJ0byIg
-aXMgZHVwbGljYXRlLCBvciAiZW5jYXAiIGlzIGEgZ2FyYmFnZS4KCkknbSBndWVzc2luZyB0aGUg
-aXAgdG9vbCBpcyBhIGxpdHRsZSBvdXQgb2YgZGF0ZS4gV2UgY291bGQgZGV0ZWN0IGFuZApza2lw
-IHRoaXMgd2l0aCBzb21ldGhpbmcgbGlrZToKCkFUX1NLSVBfSUYoW2lwIHJvdXRlIGhlbHAgMj4m
-MSB8IGdyZXAgZW5jYXBdKQoKaW4gdGhlIENIRUNLX01QTFMuCgpIbW0sIEknbSBzdGlsbCBzZWVp
-bmcgdGhlIGJhZCBjb3VudHMgb2Ygc2VnbWVudHMgcmV0cmFuc21pdGVkIGV2ZW4Kd2l0aCB0aGUg
-ZGlmZiBjaGFuZ2Ugb24gYSBrZXJuZWwgSSBoYXZlIGJ1aWx0IGF0IGJmMGY1MDBiZDAxOSAoIk1l
-cmdlCnRhZyAndHJhY2UtdjQuOC0xJyBvZgpnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xp
-bnV4L2tlcm5lbC9naXQvcm9zdGVkdC9saW51eC10cmFjZSIpLgpJZiBpdCdzIHBhc3Npbmcgb24g
-bGF0ZXN0IG5ldC1uZXh0IHRoZW4gbWF5YmUgSSBqdXN0IG5lZWQgdG8gc3dhcCBvdXQKdGhhdCBi
-b3gncyBrZXJuZWwgZm9yIGEgbmV3ZXIgYnVpbGQuIEknbGwgdHJ5IHRoYXQuCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2
-QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8v
-ZGV2Cg==
+
+
+在 2016/8/25 14:51, Colin King 写道:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> ppe_cb->ppe_common_cb is being dereferenced before a null check is
+> being made on it.  If ppe_cb->ppe_common_cb is null then we end up
+> with a null pointer dereference when assigning dsaf_dev.  Fix this
+> by moving the initialisation of dsaf_dev once we know
+> ppe_cb->ppe_common_cb is OK to dereference.
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+
+Acked-by: Yisen Zhuang <yisen.zhuang@huawei.com>
