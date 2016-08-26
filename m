@@ -1,7 +1,7 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFCv2 04/16] net: cls_bpf: add support for marking filters as hardware-only
-Date: Fri, 26 Aug 2016 19:06:03 +0100
-Message-ID: <1472234775-29453-5-git-send-email-jakub.kicinski@netronome.com>
+Subject: [RFCv2 03/16] net: cls_bpf: limit hardware offload by software-only flag
+Date: Fri, 26 Aug 2016 19:06:02 +0100
+Message-ID: <1472234775-29453-4-git-send-email-jakub.kicinski@netronome.com>
 References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: ast@kernel.org, daniel@iogearbox.net,
         dinan.gunawardena@netronome.com, jiri@resnulli.us,
@@ -9,108 +9,147 @@ Cc: ast@kernel.org, daniel@iogearbox.net,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37155 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753702AbcHZSNY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 14:13:24 -0400
-Received: by mail-wm0-f47.google.com with SMTP id i5so3538511wmg.0
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 11:13:23 -0700 (PDT)
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:35778 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752303AbcHZSOM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 14:14:12 -0400
+Received: by mail-wm0-f41.google.com with SMTP id f65so3013598wmi.0
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 11:14:01 -0700 (PDT)
 In-Reply-To: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_SW flag.
+Add cls_bpf support for the TCA_CLS_FLAGS_SKIP_HW flag.
+Unlike U32 and flower cls_bpf already has some netlink
+flags defined.  I chose to create a new attribute to be
+able to use the same flag values as the above.
+
+Unknown flags are ignored and not reported upon dump.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- net/sched/cls_bpf.c | 34 +++++++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 9 deletions(-)
+v2:
+ - rename TCA_BPF_GEN_TCA_FLAGS -> TCA_BPF_FLAGS_GEN;
+ - add comment about clearing unsupported flags;
+ - validate flags after clearing unsupported.
+---
+ include/net/pkt_cls.h        |  1 +
+ include/uapi/linux/pkt_cls.h |  1 +
+ net/sched/cls_bpf.c          | 21 +++++++++++++++++++--
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index a86262f0d93a..0a4a51f339b4 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -498,6 +498,7 @@ struct tc_cls_bpf_offload {
+ 	struct bpf_prog *filter;
+ 	const char *name;
+ 	bool exts_integrated;
++	u32 gen_flags;
+ };
+ 
+ #endif
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 51b5b247fb5a..5cb7ba5efe57 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -396,6 +396,7 @@ enum {
+ 	TCA_BPF_FD,
+ 	TCA_BPF_NAME,
+ 	TCA_BPF_FLAGS,
++	TCA_BPF_FLAGS_GEN,
+ 	__TCA_BPF_MAX,
+ };
+ 
 diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 1999f44075f0..630f296f5a90 100644
+index ea87595c49ad..1999f44075f0 100644
 --- a/net/sched/cls_bpf.c
 +++ b/net/sched/cls_bpf.c
-@@ -28,7 +28,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
+@@ -27,6 +27,8 @@ MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
+ MODULE_DESCRIPTION("TC BPF based classifier");
  
  #define CLS_BPF_NAME_LEN	256
- #define CLS_BPF_SUPPORTED_GEN_FLAGS		\
--	TCA_CLS_FLAGS_SKIP_HW
-+	(TCA_CLS_FLAGS_SKIP_HW | TCA_CLS_FLAGS_SKIP_SW)
++#define CLS_BPF_SUPPORTED_GEN_FLAGS		\
++	TCA_CLS_FLAGS_SKIP_HW
  
  struct cls_bpf_head {
  	struct list_head plist;
-@@ -98,7 +98,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+@@ -40,6 +42,7 @@ struct cls_bpf_prog {
+ 	struct tcf_result res;
+ 	bool exts_integrated;
+ 	bool offloaded;
++	u32 gen_flags;
+ 	struct tcf_exts exts;
+ 	u32 handle;
+ 	union {
+@@ -55,6 +58,7 @@ struct cls_bpf_prog {
+ static const struct nla_policy bpf_policy[TCA_BPF_MAX + 1] = {
+ 	[TCA_BPF_CLASSID]	= { .type = NLA_U32 },
+ 	[TCA_BPF_FLAGS]		= { .type = NLA_U32 },
++	[TCA_BPF_FLAGS_GEN]	= { .type = NLA_U32 },
+ 	[TCA_BPF_FD]		= { .type = NLA_U32 },
+ 	[TCA_BPF_NAME]		= { .type = NLA_NUL_STRING, .len = CLS_BPF_NAME_LEN },
+ 	[TCA_BPF_OPS_LEN]	= { .type = NLA_U16 },
+@@ -156,6 +160,7 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	bpf_offload.filter = prog->filter;
+ 	bpf_offload.name = prog->bpf_name;
+ 	bpf_offload.exts_integrated = prog->exts_integrated;
++	bpf_offload.gen_flags = prog->gen_flags;
  
- 		qdisc_skb_cb(skb)->tc_classid = prog->res.classid;
- 
--		if (at_ingress) {
-+		if (tc_skip_sw(prog->gen_flags)) {
-+			filter_res = prog->exts_integrated ? TC_ACT_UNSPEC : 0;
-+		} else if (at_ingress) {
- 			/* It is safe to push/pull even if skb_shared() */
- 			__skb_push(skb, skb->mac_len);
- 			bpf_compute_data_end(skb);
-@@ -166,32 +168,42 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
+ 	return dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
  					     tp->protocol, &offload);
- }
- 
--static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
--			    struct cls_bpf_prog *oldprog)
-+static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
-+			   struct cls_bpf_prog *oldprog)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct cls_bpf_prog *obj = prog;
+@@ -169,14 +174,14 @@ static void cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
  	enum tc_clsbpf_command cmd;
-+	bool skip_sw;
-+	int ret;
-+
-+	skip_sw = tc_skip_sw(prog->gen_flags) ||
-+		(oldprog && tc_skip_sw(oldprog->gen_flags));
  
  	if (oldprog && oldprog->offloaded) {
- 		if (tc_should_offload(dev, tp, prog->gen_flags)) {
+-		if (tc_should_offload(dev, tp, 0)) {
++		if (tc_should_offload(dev, tp, prog->gen_flags)) {
  			cmd = TC_CLSBPF_REPLACE;
--		} else {
-+		} else if (!tc_skip_sw(prog->gen_flags)) {
+ 		} else {
  			obj = oldprog;
  			cmd = TC_CLSBPF_DESTROY;
-+		} else {
-+			return -EINVAL;
  		}
  	} else {
- 		if (!tc_should_offload(dev, tp, prog->gen_flags))
--			return;
-+			return skip_sw ? -EINVAL : 0;
+-		if (!tc_should_offload(dev, tp, 0))
++		if (!tc_should_offload(dev, tp, prog->gen_flags))
+ 			return;
  		cmd = TC_CLSBPF_ADD;
  	}
+@@ -372,6 +377,7 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
+ {
+ 	bool is_bpf, is_ebpf, have_exts = false;
+ 	struct tcf_exts exts;
++	u32 gen_flags = 0;
+ 	int ret;
  
--	if (cls_bpf_offload_cmd(tp, obj, cmd))
--		return;
-+	ret = cls_bpf_offload_cmd(tp, obj, cmd);
-+	if (ret)
-+		return skip_sw ? ret : 0;
+ 	is_bpf = tb[TCA_BPF_OPS_LEN] && tb[TCA_BPF_OPS];
+@@ -396,8 +402,16 @@ static int cls_bpf_modify_existing(struct net *net, struct tcf_proto *tp,
  
- 	obj->offloaded = true;
- 	if (oldprog)
- 		oldprog->offloaded = false;
-+
-+	return 0;
- }
- 
- static void cls_bpf_stop_offload(struct tcf_proto *tp,
-@@ -498,7 +510,11 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	if (ret < 0)
- 		goto errout;
- 
--	cls_bpf_offload(tp, prog, oldprog);
-+	ret = cls_bpf_offload(tp, prog, oldprog);
-+	if (ret) {
-+		cls_bpf_delete_prog(tp, prog);
-+		return ret;
+ 		have_exts = bpf_flags & TCA_BPF_FLAG_ACT_DIRECT;
+ 	}
++	if (tb[TCA_BPF_FLAGS_GEN]) {
++		gen_flags = nla_get_u32(tb[TCA_BPF_FLAGS_GEN]);
++		/* Make sure dump doesn't report back flags we don't handle */
++		gen_flags &= CLS_BPF_SUPPORTED_GEN_FLAGS;
++		if (!tc_flags_valid(gen_flags))
++			return -EINVAL;
 +	}
  
- 	if (oldprog) {
- 		list_replace_rcu(&oldprog->link, &prog->link);
+ 	prog->exts_integrated = have_exts;
++	prog->gen_flags = gen_flags;
+ 
+ 	ret = is_bpf ? cls_bpf_prog_from_ops(tb, prog) :
+ 		       cls_bpf_prog_from_efd(tb, prog, tp);
+@@ -569,6 +583,9 @@ static int cls_bpf_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 		bpf_flags |= TCA_BPF_FLAG_ACT_DIRECT;
+ 	if (bpf_flags && nla_put_u32(skb, TCA_BPF_FLAGS, bpf_flags))
+ 		goto nla_put_failure;
++	if (prog->gen_flags &&
++	    nla_put_u32(skb, TCA_BPF_FLAGS_GEN, prog->gen_flags))
++		goto nla_put_failure;
+ 
+ 	nla_nest_end(skb, nest);
+ 
 -- 
 1.9.1
