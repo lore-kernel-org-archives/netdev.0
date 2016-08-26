@@ -1,82 +1,80 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
- flow/port support
-Date: Fri, 26 Aug 2016 11:13:24 +0200
-Message-ID: <20160826091322.GE22464@penelope.isobedori.kobe.vergenet.net>
-References: <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
- <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
- <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
- <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
- <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
- <20160823085144.GA22304@penelope.isobedori.kobe.vergenet.net>
- <20160825100833.GA31926@penelope.isobedori.kobe.vergenet.net>
- <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] smc91x: remove ARM hack for unaligned 16-bit writes
+Date: Fri, 26 Aug 2016 11:41:21 +0200
+Message-ID: <1899384.M1jdqOztqi@wuerfel>
+References: <20160825144314.1850730-1-arnd@arndb.de> <87inuopw04.fsf@belgarion.home> <20160825223743.GK1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Robert Jarzmik <robert.jarzmik@free.fr>,
+        Yoshinori Sato <ysato@users.sourceforge.jp>,
+        Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160825223743.GK1041@n2100.armlinux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBBdWcgMjUsIDIwMTYgYXQgMDU6MzM6NTdQTSAtMDcwMCwgSm9lIFN0cmluZ2VyIHdy
-b3RlOgo+IE9uIDI1IEF1Z3VzdCAyMDE2IGF0IDAzOjA4LCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhv
-cm1hbkBuZXRyb25vbWUuY29tPiB3cm90ZToKPiA+IFBsZWFzZSBmaW5kIG15IHdvcmtpbmcgcGF0
-Y2ggYmVsb3cuCj4gPgo+ID4gRnJvbTogU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+
-Cj4gPiBTdWJqZWN0OiBbUEFUQ0hdIHN5c3RlbS10cmFmZmljOiBFeGVyY2lzZSBHU08KPiA+Cj4g
-PiBFeGVyY2lzZSBHU08gZm9yOiB1bmVuY2Fwc3VsYXRlZDsgTVBMUzsgR1JFOyBhbmQgTVBMUyBp
-biBHUkUuCj4gPgo+ID4gVGhlcmUgaXMgc2NvcGUgdG8gZXh0ZW5kIHRoaXMgdGVzdGluZyB0byBv
-dGhlciBlbmNhcHN1bGF0aW9uIGZvcm1hdHMKPiA+IGlmIGRlc2lyZWQuCj4gPgo+ID4gVGhpcyBp
-cyBtb3RpdmF0ZWQgYnkgYSBkZXNpcmUgdG8gdGVzdCBHUkUgYW5kIE1QTFMgZW5jYXBzdWxhdGlv
-biBpbgo+ID4gdGhlIGNvbnRleHQgb2YgTDMvVlBOIChNUExTIG92ZXIgbm9uLVRFQiBHUkUgd29y
-aykuIFRoYXQgaXMgbm90Cj4gPiB0ZXN0ZWQgaGVyZSBidXQgdGVzdHMgZm9yIHRob3NlIGNhc2Vz
-IHdvdWxkIGlkZWFseSBiZSBiYXNlZCBvbiB0aG9zZSBpbgo+ID4gdGhpcyBwYXRjaC4KPiA+Cj4g
-PiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPiAKPiBJ
-IHJlYWxpc2VkIHRoYXQgdGhlc2UgdGVzdHMgZGlzYWJsZSBUU08sIGJ1dCB0aGV5IGRvbid0IGFj
-dHVhbGx5IGNoZWNrCj4gaWYgR1NPIGlzIGVuYWJsZWQuIE1heWJlIGl0J3Mgc2FmZSB0byBhc3N1
-bWUgdGhpcywgYnV0IGl0J3MgbW9yZQo+IGV4cGxpY2l0IHRvIGFjdHVhbGx5IGxvb2sgZm9yIGl0
-IGluIHRoZSB0ZXN0cy4KCkdvb2QgcG9pbnQsIEknbGwgc2VlIGFib3V0IGNoZWNraW5nIHRoYXQu
-Cgo+IFdpdGggcGFydGljdWxhciBzZXR1cHMgKGZlZG9yYTIzIGluIHBhcnRpY3VsYXIsIGJvdGgg
-a2VybmVsIGFuZAo+IHVzZXJzcGFjZSB0ZXN0c3VpdGVzKSBJIHNlZSB0aGlzOgo+IAo+IC4vc3lz
-dGVtLXRyYWZmaWMuYXQ6MzcxOiBpcCBuZXRucyBleGVjIGF0X25zMCBzaCA8PCBOU19FWEVDX0hF
-UkVET0MKPiBpcCByb3V0ZSBhZGQgMTAuMS4yLjAvMjQgZW5jYXAgbXBscyAxMDAgdmlhIGluZXQg
-MTAuMS4xLjIgZGV2IG5zX2dyZTAKPiBOU19FWEVDX0hFUkVET0MKPiAtLS0gL2Rldi9udWxsIDIw
-MTYtMDgtMTkgMDE6Mjg6MDIuMTUxMDAwMDAwICswMDAwCj4gKysrIC9ob21lL2dpdGxhYi1ydW5u
-ZXIvYnVpbGRzLzgzYzQ5YmZmLzAvcm9vdC9naXRsYWItb3ZzL292cy90ZXN0cy9zeXN0ZW0ta21v
-ZC10ZXN0c3VpdGUuZGlyL2F0LWdyb3Vwcy8xMC9zdGRlcnIKPiAyMDE2LTA4LTI1IDE3OjE2OjI3
-LjMyNDAwMDAwMCArMDAwMAo+IEBAIC0wLDAgKzEgQEAKPiArRXJyb3I6IGVpdGhlciAidG8iIGlz
-IGR1cGxpY2F0ZSwgb3IgImVuY2FwIiBpcyBhIGdhcmJhZ2UuCj4gCj4gSSdtIGd1ZXNzaW5nIHRo
-ZSBpcCB0b29sIGlzIGEgbGl0dGxlIG91dCBvZiBkYXRlLiBXZSBjb3VsZCBkZXRlY3QgYW5kCj4g
-c2tpcCB0aGlzIHdpdGggc29tZXRoaW5nIGxpa2U6Cj4gCj4gQVRfU0tJUF9JRihbaXAgcm91dGUg
-aGVscCAyPiYxIHwgZ3JlcCBlbmNhcF0pCj4gCj4gaW4gdGhlIENIRUNLX01QTFMuCgpUaGFua3Ms
-IEknbGwgYWRkIHNvbWV0aGluZyBsaWtlIHRoYXQuCgo+IEhtbSwgSSdtIHN0aWxsIHNlZWluZyB0
-aGUgYmFkIGNvdW50cyBvZiBzZWdtZW50cyByZXRyYW5zbWl0ZWQgZXZlbgo+IHdpdGggdGhlIGRp
-ZmYgY2hhbmdlIG9uIGEga2VybmVsIEkgaGF2ZSBidWlsdCBhdCBiZjBmNTAwYmQwMTkgKCJNZXJn
-ZQo+IHRhZyAndHJhY2UtdjQuOC0xJyBvZgo+IGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20v
-bGludXgva2VybmVsL2dpdC9yb3N0ZWR0L2xpbnV4LXRyYWNlIikuCj4gSWYgaXQncyBwYXNzaW5n
-IG9uIGxhdGVzdCBuZXQtbmV4dCB0aGVuIG1heWJlIEkganVzdCBuZWVkIHRvIHN3YXAgb3V0Cj4g
-dGhhdCBib3gncyBrZXJuZWwgZm9yIGEgbmV3ZXIgYnVpbGQuIEknbGwgdHJ5IHRoYXQuCgpJdCBp
-cyBwb3NzaWJsZSB0aGF0IGl0IGlzIGRldGVjdGluZyBhIGJ1Zy4KV2hpY2ggdGVzdCBpcyBmYWls
-aW5nPwoKQXQgdGhpcyBzdGFnZSBJIGhhdmUgbW9zdGx5IGFkZGVkIFRTTy9HU08gdGVzdGluZyB0
-byBleGlzdGluZyBjaGVja3MuClBlcmhhcHMgaXQgd291bGQgYmUgYmV0dGVyIHRvIGJyZWFrIHRo
-ZW0gb3V0IGludG8gc2VwYXJhdGUgY2hlY2tzIHNvCnBpbmcvaHR0cCBjYW4gYmUgYmUgY2hlY2tl
-ZCB3aXRob3V0IGNvbnNpZGVyaW5nIFRTTy9HU08gd2hpY2ggbWF5IGhhdmUgc29tZQp2YWx1ZSBp
-biBzaXR1YXRpb25zIHdoZXJlIFRTTy9HU08gaXMgYnJva2VuIHdoaWNoIGlzIGFjdHVhbGx5IHdo
-YXQgSSBhbQppbnRlcmVzdGVkIGluIHRlc3RpbmcuCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9y
-ZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Thursday, August 25, 2016 11:37:43 PM CEST Russell King - ARM Linux wrote:
+> On Thu, Aug 25, 2016 at 08:02:35PM +0200, Robert Jarzmik wrote:
+> > Arnd Bergmann <arnd@arndb.de> writes:
+>  /*
+> + * Any 16-bit access is performed with two 8-bit accesses if the hardware
+> + * can't do it directly. Most registers are 16-bit so those are mandatory.
+> + */
+> +#define SMC_outw_b(x, a, r)						\
+> +	do {								\
+> +		unsigned int __val16 = (x);				\
+> +		unsigned int __reg = (r);				\
+> +		SMC_outb(__val16, a, __reg);				\
+> +		SMC_outb(__val16 >> 8, a, __reg + (1 << SMC_IO_SHIFT));	\
+> +	} while (0)
+> +
+> +#define SMC_inw_b(a, r)							\
+> +	({								\
+> +		unsigned int __val16;					\
+> +		unsigned int __reg = r;					\
+> +		__val16  = SMC_inb(a, __reg);				\
+> +		__val16 |= SMC_inb(a, __reg + (1 << SMC_IO_SHIFT)) << 8; \
+> +		__val16;						\
+> +	})
+> +
+> +/*
+>   * Define your architecture specific bus configuration parameters here.
+>   */
+>  
+> @@ -55,10 +76,30 @@
+>  #define SMC_IO_SHIFT		(lp->io_shift)
+>  
+>  #define SMC_inb(a, r)		readb((a) + (r))
+> -#define SMC_inw(a, r)		readw((a) + (r))
+> +#define SMC_inw(a, r)							\
+> +	({								\
+> +		unsigned int __smc_r = r;				\
+> +		SMC_16BIT(lp) ? readw((a) + __smc_r) :			\
+> +		SMC_8BIT(lp) ? SMC_inw_b(a, __smc_r) :			\
+> +		({ BUG(); 0; });					\
+> +	})
+> +
+
+I think this breaks machines that declare a device that just lists
+SMC91X_USE_32BIT but not SMC91X_USE_16BIT. Right now, the way this
+is interpreted is to use 32-bit accessors for most things, but
+not avoiding 16-bit reads.
+
+That is a bit fishy though, and we could instead change the platform
+data to always set both SMC91X_USE_32BIT and SMC91X_USE_16BIT.
+
+The affected platforms are DT based machines with 32-bit I/O and
+these board files:
+
+arch/arm/mach-pxa/idp.c:        .flags = SMC91X_USE_32BIT | SMC91X_USE_DMA | SMC91X_NOWAIT,
+arch/arm/mach-pxa/xcep.c:       .flags  = SMC91X_USE_32BIT | SMC91X_NOWAIT | SMC91X_USE_DMA,
+arch/arm/mach-realview/core.c:  .flags = SMC91X_USE_32BIT | SMC91X_NOWAIT,
+arch/blackfin/mach-bf561/boards/cm_bf561.c:     .flags = SMC91X_USE_32BIT | SMC91X_NOWAIT,
+arch/blackfin/mach-bf561/boards/ezkit.c:        .flags = SMC91X_USE_32BIT | SMC91X_NOWAIT,
+
+	Arnd
