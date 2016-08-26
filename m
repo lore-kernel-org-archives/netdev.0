@@ -1,172 +1,389 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [RFC 0/9] add support for IPv6 Segment Routing
-Date: Fri, 26 Aug 2016 17:52:38 +0200
-Message-ID: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: [RFC 1/9] ipv6: implement dataplane support for rthdr type 4 (Segment Routing Header)
+Date: Fri, 26 Aug 2016 17:52:39 +0200
+Message-ID: <1472226767-9904-2-git-send-email-david.lebrun@uclouvain.be>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34049 "EHLO
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34045 "EHLO
         smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751559AbcHZQOV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 12:14:21 -0400
+        with ESMTP id S1753869AbcHZQOW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 12:14:22 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id 7315367DDBC
+        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id 9FCEA67DDEF
         for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 17:52:18 +0200 (CEST)
+In-Reply-To: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Segment Routing (SR) is a source routing paradigm, architecturally
-defined in draft-ietf-spring-segment-routing-09 [1]. The IPv6 flavor of
-SR is defined in draft-ietf-6man-segment-routing-header-01 [2].
+Implement minimal support for processing of SR-enabled packets
+as described in
+https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-01.
 
-The main idea is that an SR-enabled packet contains a list of segments,
-which represent mandatory waypoints. Each waypoint is called a segment
-endpoint. The SR-enabled packet is routed normally (e.g. shortest path)
-between the segment endpoints. A node that inserts an SRH into a packet
-is called an ingress node, and a node that is the last segment endpoint
-is called an egress node.
+This patch implements the following operations:
+- Intermediate segment endpoint: incrementation of active segment and rerouting.
+- Egress for SR-encapsulated packets: decapsulation of outer IPv6 header + SRH
+  and routing of inner packet.
+- Cleanup flag support for SR-inlined packets: removal of SRH if we are the
+  penultimate segment endpoint.
 
->From an IPv6 viewpoint, an SR-enabled packet contains an IPv6 extension
-header, which is a Routing Header type 4, defined as follows:
+A per-interface sysctl seg6_enabled is provided, to accept/deny SR-enabled
+packets. Default is deny.
 
-struct ipv6_sr_hdr {
-        __u8    nexthdr;
-        __u8    hdrlen;
-        __u8    type;
-        __u8    segments_left;
-        __u8    first_segment;
-        __be16  flags;
-        __u8    reserved;
+This patch does not provide support for HMAC-signed packets.
 
-        struct in6_addr segments[0];
-} __attribute__((packed));
-
-The first 4 bytes of the SRH is consistent with the Routing Header
-definition in RFC 2460. The type is set to `4' (SRH).
-
-Each segment is encoded as an IPv6 address. The segments are encoded in
-reverse order: segments[0] is the last segment of the path, and
-segments[first_segment] is the first segment of the path.
-
-segments[segments_left] points to the currently active segment and
-segments_left is decremented at each segment endpoint.
-
-There exist two ways for a packet to receive an SRH, we call them
-encap mode and inline mode. In the encap mode, the packet is encapsulated
-in an outer IPv6 header that contains the SRH. The inner (original) packet
-is not modified. A virtual tunnel is thus created between the ingress node
-(the node that encapsulates) and the egress node (the last segment of the path).
-Once an encapsulated SR packet reaches the egress node, the node decapsulates
-the packet and performs a routing decision on the inner packet. This kind of
-SRH insertion is intended to use for routers that encapsulates in-transit
-packet.
-
-The second SRH insertion method, the inline mode, acts by directly inserting
-the SRH right after the IPv6 header of the original packet. For this method,
-if a particular flag (SR6_FLAG_CLEANUP) is set, then the penultimate segment
-endpoint must strip the SRH from the packet before forwarding it to the last
-segment endpoint. This insertion method is intended to use for endhosts,
-however it is also used for in-transit packets by some industry actors.
-
-Finally, the SRH may contain TLVs after the segments list. Several types of
-TLVs are defined, but we currently consider only the HMAC TLV. This TLV is
-an answer to the deprecation of the RH0 and enables to ensure the authenticity
-and integrity of the SRH. The HMAC text contains the flags, the first_segment
-index, the full list of segments, and the source address of the packet. While
-SR is intended to use mostly within a single administrative domain, the HMAC
-TLV allows to verify SR packets coming from an untrusted source.
-
-This patches series implements support for the IPv6 flavor of SR and is
-logically divided into the following components:
-
-	(1) Data plane support (patch 01). This patch adds a function
-	    in net/ipv6/exthdrs.c to handle the Routing Header type 4.
-	    It enables the kernel to act as a segment endpoint, by supporting
-	    the following operations: decrementation of the segments_left field,
-	    cleanup flag support (removal of the SRH if we are the penultimate
-	    segment endpoint) and decapsulation of the inner packet as an egress
-	    node.
-	(2) Control plane support (patches 02-04 and 08-09). These patches enables
-	    to insert SRH on locally emitted and/or forwarded packets, both with
-	    encap mode and with inline mode. The SRH insertion is controlled through
-	    the lightweight tunnels mechanism. Furthermore, patch 09 enables the
-	    applications to insert an SRH on a per-socket basis, through the
-	    setsockopt() system call. The mechanism to specify a per-socket
-	    Routing Header was already defined for RH0 and no special modification
-	    was performed on this side. However, the code to actually push the RH
-	    onto the packets had to be adapted for the SRH specifications.
-	(3) HMAC support (patches 05-07). These patches adds the support of the
-	    HMAC TLV verification for the dataplane part, and generation for
-	    the control plane part. Two hashing algorithms are supported
-	    (SHA-1 as legacy and SHA-256 as required by the IETF draft), but
-	    additional algorithms can be easily supported by simply adding an
-	    entry into an array.
-
-[1] https://tools.ietf.org/html/draft-ietf-spring-segment-routing-09
-[2] https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-01
-
-Any comment on the architecture, API and implementation would be very welcome.
-
-Regards,
-
-David Lebrun (9):
-  ipv6: implement dataplane support for rthdr type 4 (Segment Routing
-    Header)
-  ipv6: sr: add code base for control plane support of SR-IPv6
-  ipv6: route: export symbol ip6_route_input
-  ipv6: sr: add support for SRH encapsulation and injection with
-    lwtunnels
-  ipv6: sr: add core files for SR HMAC support
-  ipv6: sr: implement API to control SR HMAC structures
-  ipv6: sr: add calls to verify and insert HMAC signatures
-  ipv6: add source address argument for ipv6_push_nfrag_opts
-  ipv6: sr: add support for SRH injection through setsockopt
-
- include/linux/ipv6.h               |   6 +
- include/linux/seg6.h               |   6 +
- include/linux/seg6_genl.h          |   6 +
- include/linux/seg6_hmac.h          |   6 +
- include/linux/seg6_iptunnel.h      |   6 +
- include/net/ipv6.h                 |   3 +-
- include/net/netns/ipv6.h           |   3 +
- include/net/seg6.h                 |  64 ++++++
- include/net/seg6_hmac.h            |  62 ++++++
- include/uapi/linux/ipv6.h          |   3 +
- include/uapi/linux/lwtunnel.h      |   1 +
- include/uapi/linux/seg6.h          |  46 ++++
- include/uapi/linux/seg6_genl.h     |  32 +++
- include/uapi/linux/seg6_hmac.h     |  20 ++
- include/uapi/linux/seg6_iptunnel.h |  33 +++
- net/core/lwtunnel.c                |   2 +
- net/ipv6/Kconfig                   |  38 ++++
- net/ipv6/Makefile                  |   3 +
- net/ipv6/addrconf.c                |  36 ++++
- net/ipv6/exthdrs.c                 | 225 ++++++++++++++++++-
- net/ipv6/ip6_output.c              |   5 +-
- net/ipv6/ip6_tunnel.c              |   2 +-
- net/ipv6/ipv6_sockglue.c           |   4 +
- net/ipv6/route.c                   |   1 +
- net/ipv6/seg6.c                    | 391 +++++++++++++++++++++++++++++++++
- net/ipv6/seg6_hmac.c               | 432 +++++++++++++++++++++++++++++++++++++
- net/ipv6/seg6_iptunnel.c           | 330 ++++++++++++++++++++++++++++
- 27 files changed, 1756 insertions(+), 10 deletions(-)
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+---
+ include/linux/ipv6.h      |   3 +
+ include/linux/seg6.h      |   6 ++
+ include/uapi/linux/ipv6.h |   2 +
+ include/uapi/linux/seg6.h |  46 +++++++++++++++
+ net/ipv6/Kconfig          |  11 ++++
+ net/ipv6/addrconf.c       |  18 ++++++
+ net/ipv6/exthdrs.c        | 142 ++++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 228 insertions(+)
  create mode 100644 include/linux/seg6.h
- create mode 100644 include/linux/seg6_genl.h
- create mode 100644 include/linux/seg6_hmac.h
- create mode 100644 include/linux/seg6_iptunnel.h
- create mode 100644 include/net/seg6.h
- create mode 100644 include/net/seg6_hmac.h
  create mode 100644 include/uapi/linux/seg6.h
- create mode 100644 include/uapi/linux/seg6_genl.h
- create mode 100644 include/uapi/linux/seg6_hmac.h
- create mode 100644 include/uapi/linux/seg6_iptunnel.h
- create mode 100644 net/ipv6/seg6.c
- create mode 100644 net/ipv6/seg6_hmac.c
- create mode 100644 net/ipv6/seg6_iptunnel.c
 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index c6dbcd8..d3d8bd5 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -63,6 +63,9 @@ struct ipv6_devconf {
+ 	} stable_secret;
+ 	__s32		use_oif_addrs_only;
+ 	__s32		keep_addr_on_down;
++#ifdef CONFIG_IPV6_SEG6
++	__s32		seg6_enabled;
++#endif
+ 
+ 	struct ctl_table_header *sysctl_header;
+ };
+diff --git a/include/linux/seg6.h b/include/linux/seg6.h
+new file mode 100644
+index 0000000..7a66d2b
+--- /dev/null
++++ b/include/linux/seg6.h
+@@ -0,0 +1,6 @@
++#ifndef _LINUX_SEG6_H
++#define _LINUX_SEG6_H
++
++#include <uapi/linux/seg6.h>
++
++#endif
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index 3958760..a4addc8 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -39,6 +39,7 @@ struct in6_ifreq {
+ #define IPV6_SRCRT_STRICT	0x01	/* Deprecated; will be removed */
+ #define IPV6_SRCRT_TYPE_0	0	/* Deprecated; will be removed */
+ #define IPV6_SRCRT_TYPE_2	2	/* IPv6 type 2 Routing Header	*/
++#define IPV6_SRCRT_TYPE_4	4	/* Segment Routing with IPv6 */
+ 
+ /*
+  *	routing header
+@@ -177,6 +178,7 @@ enum {
+ 	DEVCONF_DROP_UNICAST_IN_L2_MULTICAST,
+ 	DEVCONF_DROP_UNSOLICITED_NA,
+ 	DEVCONF_KEEP_ADDR_ON_DOWN,
++	DEVCONF_SEG6_ENABLED,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/include/uapi/linux/seg6.h b/include/uapi/linux/seg6.h
+new file mode 100644
+index 0000000..9f9e157
+--- /dev/null
++++ b/include/uapi/linux/seg6.h
+@@ -0,0 +1,46 @@
++/*
++ *  SR-IPv6 implementation
++ *
++ *  Author:
++ *  David Lebrun <david.lebrun@uclouvain.be>
++ *
++ *
++ *  This program is free software; you can redistribute it and/or
++ *      modify it under the terms of the GNU General Public License
++ *      as published by the Free Software Foundation; either version
++ *      2 of the License, or (at your option) any later version.
++ */
++
++#ifndef _UAPI_LINUX_SEG6_H
++#define _UAPI_LINUX_SEG6_H
++
++/*
++ * SRH
++ */
++struct ipv6_sr_hdr {
++	__u8	nexthdr;
++	__u8	hdrlen;
++	__u8	type;
++	__u8	segments_left;
++	__u8	first_segment;
++	__be16	flags;
++	__u8	reserved;
++
++	struct in6_addr segments[0];
++} __attribute__((packed));
++
++#define SR6_FLAG_CLEANUP	(1 << 15)
++#define SR6_FLAG_PROTECTED	(1 << 14)
++#define SR6_FLAG_OAM		(1 << 13)
++#define SR6_FLAG_ALERT		(1 << 12)
++#define SR6_FLAG_HMAC		(1 << 11)
++
++#define SR6_TLV_INGRESS		1
++#define SR6_TLV_EGRESS		2
++#define SR6_TLV_OPAQUE		3
++#define SR6_TLV_PADDING		4
++#define SR6_TLV_HMAC		5
++
++#define sr_get_flags(srh) (be16_to_cpu((srh)->flags))
++
++#endif
+diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
+index 2343e4f..98ecc1d 100644
+--- a/net/ipv6/Kconfig
++++ b/net/ipv6/Kconfig
+@@ -289,4 +289,15 @@ config IPV6_PIMSM_V2
+ 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
+ 	  If unsure, say N.
+ 
++config IPV6_SEG6
++	bool "IPv6: Segment Routing support"
++	depends on IPV6
++	---help---
++	  Experimental support for IPv6 Segment Routing dataplane as defined
++	  in IETF draft-ietf-6man-segment-routing-header-01. This option
++	  enables the processing of SR-enabled packets allowing the kernel
++	  to act as a segment endpoint (intermediate or egress).
++
++	  If unsure, say N.
++
+ endif # IPV6
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index df8425f..9cc7dac 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -217,6 +217,9 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.use_oif_addrs_only	= 0,
+ 	.ignore_routes_with_linkdown = 0,
+ 	.keep_addr_on_down	= 0,
++#ifdef CONFIG_IPV6_SEG6
++	.seg6_enabled		= 0,
++#endif
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -262,6 +265,9 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.use_oif_addrs_only	= 0,
+ 	.ignore_routes_with_linkdown = 0,
+ 	.keep_addr_on_down	= 0,
++#ifdef CONFIG_IPV6_SEG6
++	.seg6_enabled		= 0,
++#endif
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -4920,6 +4926,9 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_DROP_UNICAST_IN_L2_MULTICAST] = cnf->drop_unicast_in_l2_multicast;
+ 	array[DEVCONF_DROP_UNSOLICITED_NA] = cnf->drop_unsolicited_na;
+ 	array[DEVCONF_KEEP_ADDR_ON_DOWN] = cnf->keep_addr_on_down;
++#ifdef CONFIG_IPV6_SEG6
++	array[DEVCONF_SEG6_ENABLED] = cnf->seg6_enabled;
++#endif
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -6009,6 +6018,15 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.proc_handler	= proc_dointvec,
+ 
+ 	},
++#ifdef CONFIG_IPV6_SEG6
++	{
++		.procname	= "seg6_enabled",
++		.data		= &ipv6_devconf.seg6_enabled,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++#endif
+ 	{
+ 		/* sentinel */
+ 	}
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 139ceb6..e6f41fc 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -47,6 +47,9 @@
+ #if IS_ENABLED(CONFIG_IPV6_MIP6)
+ #include <net/xfrm.h>
+ #endif
++#ifdef CONFIG_IPV6_SEG6
++#include <linux/seg6.h>
++#endif
+ 
+ #include <linux/uaccess.h>
+ 
+@@ -286,6 +289,139 @@ static int ipv6_destopt_rcv(struct sk_buff *skb)
+ 	return -1;
+ }
+ 
++#ifdef CONFIG_IPV6_SEG6
++static int ipv6_srh_rcv(struct sk_buff *skb)
++{
++	struct inet6_skb_parm *opt = IP6CB(skb);
++	struct in6_addr *addr = NULL, *last_addr = NULL, *active_addr = NULL;
++	struct ipv6_sr_hdr *hdr;
++	struct net *net = dev_net(skb->dev);
++	int cleanup = 0;
++	struct inet6_dev *idev;
++	int accept_seg6;
++
++	hdr = (struct ipv6_sr_hdr *)skb_transport_header(skb);
++
++	idev = __in6_dev_get(skb->dev);
++
++	accept_seg6 = net->ipv6.devconf_all->seg6_enabled;
++	if (accept_seg6 > idev->cnf.seg6_enabled)
++		accept_seg6 = idev->cnf.seg6_enabled;
++
++	if (!accept_seg6) {
++		kfree_skb(skb);
++		return -1;
++	}
++
++looped_back:
++	last_addr = hdr->segments;
++
++	if (hdr->segments_left > 0) {
++		if (hdr->nexthdr != NEXTHDR_IPV6 && hdr->segments_left == 1 &&
++		    sr_get_flags(hdr) & SR6_FLAG_CLEANUP)
++			cleanup = 1;
++	} else {
++		if (hdr->nexthdr == NEXTHDR_IPV6) {
++			int offset = (hdr->hdrlen + 1) << 3;
++
++			if (!pskb_pull(skb, offset)) {
++				kfree_skb(skb);
++				return -1;
++			}
++			skb_postpull_rcsum(skb, skb_transport_header(skb),
++					   offset);
++
++			skb_reset_network_header(skb);
++			skb_reset_transport_header(skb);
++			skb->encapsulation = 0;
++
++			__skb_tunnel_rx(skb, skb->dev, net);
++
++			netif_rx(skb);
++			return -1;
++		}
++
++		opt->srcrt = skb_network_header_len(skb);
++		opt->lastopt = opt->srcrt;
++		skb->transport_header += (hdr->hdrlen + 1) << 3;
++		opt->nhoff = (&hdr->nexthdr) - skb_network_header(skb);
++
++		return 1;
++	}
++
++	if (skb_cloned(skb)) {
++		if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
++			__IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
++					IPSTATS_MIB_OUTDISCARDS);
++			kfree_skb(skb);
++			return -1;
++		}
++	}
++
++	if (skb->ip_summed == CHECKSUM_COMPLETE)
++		skb->ip_summed = CHECKSUM_NONE;
++
++	hdr = (struct ipv6_sr_hdr *)skb_transport_header(skb);
++
++	active_addr = hdr->segments + hdr->segments_left;
++	hdr->segments_left--;
++	addr = hdr->segments + hdr->segments_left;
++
++	ipv6_hdr(skb)->daddr = *addr;
++
++	skb_push(skb, sizeof(struct ipv6hdr));
++
++	/* cleanup */
++
++	if (cleanup) {
++		int srhlen = (hdr->hdrlen + 1) << 3;
++		int nh = hdr->nexthdr;
++
++		memmove(skb_network_header(skb) + srhlen,
++			skb_network_header(skb),
++			(unsigned char *)hdr - skb_network_header(skb));
++		skb_pull(skb, srhlen);
++		skb->network_header += srhlen;
++		ipv6_hdr(skb)->nexthdr = nh;
++		ipv6_hdr(skb)->payload_len = htons(skb->len -
++						   sizeof(struct ipv6hdr));
++	}
++
++	skb_dst_drop(skb);
++
++	ip6_route_input(skb);
++
++	if (skb_dst(skb)->error) {
++		dst_input(skb);
++		return -1;
++	}
++
++	if (skb_dst(skb)->dev->flags & IFF_LOOPBACK) {
++		if (ipv6_hdr(skb)->hop_limit <= 1) {
++			__IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
++					IPSTATS_MIB_INHDRERRORS);
++			icmpv6_send(skb, ICMPV6_TIME_EXCEED,
++				    ICMPV6_EXC_HOPLIMIT, 0);
++			kfree_skb(skb);
++			return -1;
++		}
++		ipv6_hdr(skb)->hop_limit--;
++
++		/* be sure that srh is still present before reinjecting */
++		if (!cleanup) {
++			skb_pull(skb, sizeof(struct ipv6hdr));
++			goto looped_back;
++		}
++		skb_set_transport_header(skb, sizeof(struct ipv6hdr));
++		IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
++	}
++
++	dst_input(skb);
++
++	return -1;
++}
++#endif
++
+ /********************************
+   Routing header.
+  ********************************/
+@@ -326,6 +462,12 @@ static int ipv6_rthdr_rcv(struct sk_buff *skb)
+ 		return -1;
+ 	}
+ 
++#ifdef CONFIG_IPV6_SEG6
++	/* segment routing */
++	if (hdr->type == IPV6_SRCRT_TYPE_4)
++		return ipv6_srh_rcv(skb);
++#endif
++
+ looped_back:
+ 	if (hdr->segments_left == 0) {
+ 		switch (hdr->type) {
 -- 
 2.3.6
