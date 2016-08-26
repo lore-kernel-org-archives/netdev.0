@@ -1,58 +1,100 @@
-From: Owen Lin <olin@rivetnetworks.com>
-Subject: [PATCH 1/1] net: add killer E2500 device id
-Date: Fri, 26 Aug 2016 05:55:45 +0000
-Message-ID: <BN3PR0401MB1457E1F92D1F61823706ED19C0EC0@BN3PR0401MB1457.namprd04.prod.outlook.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net] team: loadbalance: push lacpdus to exact delivery
+Date: Fri, 26 Aug 2016 08:12:37 +0200
+Message-ID: <20160826061237.GA1793@nanopsycho.orion>
+References: <1472142214-14787-1-git-send-email-jiri@resnulli.us>
+ <CAF2d9jjOuhaPYOkr80H-OfE2mETYsb1ww+UcFpA_SkaON8wOCw@mail.gmail.com>
+ <20160825164622.GE1880@nanopsycho.orion>
+ <CAF2d9ji0s0Jf2NjfS1uDyCm2yP7my+E2-jS1PpZzd25To1Pdnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>, idosch@mellanox.com,
+        eladr@mellanox.com, yotamg@mellanox.com
+To: Mahesh Bandewar
+         =?utf-8?B?KOCkruCkueClh+CktiDgpKzgpILgpKHgpYfgpLXgpL4=?=
+         =?utf-8?B?4KSwKQ==?= <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0043.outbound.protection.outlook.com ([104.47.42.43]:45568
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750766AbcHZFzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 Aug 2016 01:55:51 -0400
-Content-Language: zh-TW
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:32886 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750970AbcHZGNt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 02:13:49 -0400
+Received: by mail-wm0-f67.google.com with SMTP id o80so10047877wme.0
+        for <netdev@vger.kernel.org>; Thu, 25 Aug 2016 23:12:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAF2d9ji0s0Jf2NjfS1uDyCm2yP7my+E2-jS1PpZzd25To1Pdnw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From 5a40989933c7dcd904bebd3c64eaf84445fad1fd Mon Sep 17 00:00:00 2001
-From: Owen Lin <olin@rivetnetworks.com>
-Date: Fri, 26 Aug 2016 13:49:09 +0800
-Subject: [PATCH] Add Killer E2500 device ID in alx driver.
+Thu, Aug 25, 2016 at 07:35:27PM CEST, maheshb@google.com wrote:
+>On Thu, Aug 25, 2016 at 9:46 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Aug 25, 2016 at 06:37:35PM CEST, maheshb@google.com wrote:
+>>>On Thu, Aug 25, 2016 at 9:23 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>
+>>>> When team is in bridge and LACP is utilized, LACPDU packets are pushed
+>>>> to userspace using raw socket and there they are processed. However,
+>>>> since 8626c56c8279b, LACPDU skbs are dropped by bridge rx_handler so
+>>>> they never reach packet handlers in rx path. Fix this by explicity treat
+>>>> LACPDUs to be pushed to exact delivery in team rx_handler.
+>>>>
+>>>> Reported-by: Ido Schimmel <idosch@mellanox.com>
+>>>> Fixes: 8626c56c8279b ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
+>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>> ---
+>>>>  drivers/net/team/team_mode_loadbalance.c | 14 ++++++++++++++
+>>>>  1 file changed, 14 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+>>>> index cdb19b3..e7c8210 100644
+>>>> --- a/drivers/net/team/team_mode_loadbalance.c
+>>>> +++ b/drivers/net/team/team_mode_loadbalance.c
+>>>> @@ -17,6 +17,19 @@
+>>>>  #include <linux/filter.h>
+>>>>  #include <linux/if_team.h>
+>>>>
+>>>> +static rx_handler_result_t lb_receive(struct team *team, struct team_port *port,
+>>>> +                                     struct sk_buff *skb)
+>>>> +{
+>>>> +       if (unlikely(skb->protocol == htons(ETH_P_SLOW))) {
+>>>> +               /* LACPDU packets should go to exact delivery */
+>>>> +               const unsigned char *dest = eth_hdr(skb)->h_dest;
+>>>> +
+>>>> +               if (is_link_local_ether_addr(dest) && dest[5] == 0x02)
+>>>> +                       return RX_HANDLER_EXACT;
+>>>I believe every link-local-frame should get this treatment whether
+>>>it's 802.3ad or otherwise (e.g. LLDP etc.), no?
+>>>BTW same should be true for bonding too (of course except LACP since
+>>>it handles/consumes it!)
+>>
+>> I think so as well, but stayed more conservative for this fix. LLDP case
+>> is handled in bridge rx_handler though...
+>>
+>bridge rx_handler when team is in bridge, otherwise these link-local
+>frames will be appear on master. So I guess it's a choice between
+>being conservative (and fix only LACP case as this fix does) or fix a
+>generic case.
 
----
- drivers/net/ethernet/atheros/alx/main.c | 2 ++
- drivers/net/ethernet/atheros/alx/reg.h  | 1 +
- 2 files changed, 3 insertions(+)
+Let's be conservative in -net and possibly fix change this as a
+follow-up in net-next
 
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet=
-/atheros/alx/main.c
-index 6453148..4eb17da 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1545,6 +1545,8 @@ static const struct pci_device_id alx_pci_tbl[] =3D {
- 	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2400),
- 	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
-+	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_E2500),
-+	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8162),
- 	  .driver_data =3D ALX_DEV_QUIRK_MSI_INTX_DISABLE_BUG },
- 	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_AR8171) },
-diff --git a/drivers/net/ethernet/atheros/alx/reg.h b/drivers/net/ethernet/=
-atheros/alx/reg.h
-index 0959e68..1fc2d85 100644
---- a/drivers/net/ethernet/atheros/alx/reg.h
-+++ b/drivers/net/ethernet/atheros/alx/reg.h
-@@ -38,6 +38,7 @@
- #define ALX_DEV_ID_AR8161				0x1091
- #define ALX_DEV_ID_E2200				0xe091
- #define ALX_DEV_ID_E2400				0xe0a1
-+#define ALX_DEV_ID_E2500				0xe0b1
- #define ALX_DEV_ID_AR8162				0x1090
- #define ALX_DEV_ID_AR8171				0x10A1
- #define ALX_DEV_ID_AR8172				0x10A0
+>
+>>
+>>>> +       }
+>>>> +       return RX_HANDLER_ANOTHER;
+>>>> +}
+>>>> +
+>>>>  struct lb_priv;
+>>>>
+>>>>  typedef struct team_port *lb_select_tx_port_func_t(struct team *,
+>>>> @@ -652,6 +665,7 @@ static const struct team_mode_ops lb_mode_ops = {
+>>>>         .port_enter             = lb_port_enter,
+>>>>         .port_leave             = lb_port_leave,
+>>>>         .port_disabled          = lb_port_disabled,
+>>>> +       .receive                = lb_receive,
+>>>>         .transmit               = lb_transmit,
+>>>>  };
+>>>>
+>>>> --
+>>>> 2.5.5
+>>>>
