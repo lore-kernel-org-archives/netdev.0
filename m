@@ -1,66 +1,85 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 3/5] rxrpc: fix last_call processing
-Date: Fri, 26 Aug 2016 17:25:44 +0200
-Message-ID: <20160826152546.604384-4-arnd@arndb.de>
-References: <20160826152546.604384-1-arnd@arndb.de>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        David Howells <dhowells@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:51131 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751499AbcHZP2k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 11:28:40 -0400
-In-Reply-To: <20160826152546.604384-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH] ravb: avoid unused function warnings
+Date: Fri, 26 Aug 2016 17:30:29 +0200
+Message-ID: <20160826153108.680850-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Yoshihiro Kaneko <ykaneko0929@gmail.com>,
+        Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        Masaru Nagai <masaru.nagai.vx@renesas.com>,
+        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A change to the retransmission handling in rxrpc caused a use-before-init
-bug in rxrpc_data_ready(), as indicated by "gcc -Wmaybe-uninitialized":
+When CONFIG_PM_SLEEP is disabled, we get a couple of harmless warnings:
 
-net/rxrpc/input.c: In function 'rxrpc_data_ready':
-net/rxrpc/input.c:735:34: error: 'call' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+drivers/net/ethernet/renesas/ravb_main.c:2117:12: error: 'ravb_resume' defined but not used [-Werror=unused-function]
+drivers/net/ethernet/renesas/ravb_main.c:2104:12: error: 'ravb_suspend' defined but not used [-Werror=unused-function]
 
-This moves the initialization of the local variable before the first
-user, which presumably is what was intended here.
+The simplest solution here is to replace the #ifdef with __maybe_unused
+annotations, which lets the compiler do the right thing by itself.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 18bfeba50dfd ("rxrpc: Perform terminal call ACK/ABORT retransmission from conn processor")
+Fixes: 0184165b2f42 ("ravb: add sleep PM suspend/resume support")
 ---
-Cc: David Howells <dhowells@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
+ drivers/net/ethernet/renesas/ravb_main.c | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
- net/rxrpc/input.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 66cdeb56f44f..3c22e43a58fd 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -728,6 +728,10 @@ void rxrpc_data_ready(struct sock *sk)
- 		if (sp->hdr.callNumber < chan->last_call)
- 			goto discard_unlock;
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index cad23ba06904..630536bc72f9 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -2100,8 +2100,7 @@ static int ravb_remove(struct platform_device *pdev)
+ 	return 0;
+ }
  
-+		call = rcu_dereference(chan->call);
-+		if (!call || atomic_read(&call->usage) == 0)
-+			goto cant_route_call;
-+
- 		if (sp->hdr.callNumber == chan->last_call) {
- 			/* For the previous service call, if completed
- 			 * successfully, we discard all further packets.
-@@ -744,10 +748,6 @@ void rxrpc_data_ready(struct sock *sk)
- 			goto out_unlock;
- 		}
+-#ifdef CONFIG_PM
+-static int ravb_suspend(struct device *dev)
++static int __maybe_unused ravb_suspend(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	int ret = 0;
+@@ -2114,7 +2113,7 @@ static int ravb_suspend(struct device *dev)
+ 	return ret;
+ }
  
--		call = rcu_dereference(chan->call);
--		if (!call || atomic_read(&call->usage) == 0)
--			goto cant_route_call;
+-static int ravb_resume(struct device *dev)
++static int __maybe_unused ravb_resume(struct device *dev)
+ {
+ 	struct net_device *ndev = dev_get_drvdata(dev);
+ 	struct ravb_private *priv = netdev_priv(ndev);
+@@ -2149,7 +2148,7 @@ static int ravb_resume(struct device *dev)
+ 	return ret;
+ }
+ 
+-static int ravb_runtime_nop(struct device *dev)
++static int __maybe_unused ravb_runtime_nop(struct device *dev)
+ {
+ 	/* Runtime PM callback shared between ->runtime_suspend()
+ 	 * and ->runtime_resume(). Simply returns success.
+@@ -2166,17 +2165,12 @@ static const struct dev_pm_ops ravb_dev_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(ravb_runtime_nop, ravb_runtime_nop, NULL)
+ };
+ 
+-#define RAVB_PM_OPS (&ravb_dev_pm_ops)
+-#else
+-#define RAVB_PM_OPS NULL
+-#endif
 -
- 		rxrpc_post_packet_to_call(call, skb);
- 		goto out_unlock;
- 	}
+ static struct platform_driver ravb_driver = {
+ 	.probe		= ravb_probe,
+ 	.remove		= ravb_remove,
+ 	.driver = {
+ 		.name	= "ravb",
+-		.pm	= RAVB_PM_OPS,
++		.pm	= &ravb_dev_pm_ops,
+ 		.of_match_table = ravb_match_table,
+ 	},
+ };
 -- 
 2.9.0
