@@ -1,65 +1,68 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups
-Date: Fri, 26 Aug 2016 11:50:26 -0400
-Message-ID: <20160826155026.GD16906@mtj.duckdns.org>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <1472121165-29071-10-git-send-email-mic@digikod.net>
- <CALCETrVqfTaY4gfwNdwynBqWwYh6xsGHaqdoA3uc_jHogbkA-A@mail.gmail.com>
- <57BF043D.4000300@digikod.net>
- <CALCETrVFSbrW9VzdNirtwCXZ3-Ce1DnXoQcPgEQgbyy0=W0rEQ@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] rhashtable: fix a memory leak in alloc_bucket_locks()
+Date: Fri, 26 Aug 2016 08:51:39 -0700
+Message-ID: <1472226699.14381.186.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <544270328.2536943.1472154674747.JavaMail.zimbra@redhat.com>
+         <1474737839.2538727.1472155133819.JavaMail.zimbra@redhat.com>
+         <CANn89iL3J6nTbNRm215xv2LL_6SjoPV-XtUJq7Ka_7pFsuAg0g@mail.gmail.com>
+         <2107409749.2541400.1472156272168.JavaMail.zimbra@redhat.com>
+         <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexei Starovoitov <ast@kernel.org>, Arnd Bergmann <arnd@arndb.de>,
-	Casey Schaufler <casey@schaufler-ca.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Daniel Mack <daniel@zonque.org>,
-	David Drysdale <drysdale@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Elena Reshetova <elena.reshetova@intel.com>,
-	James Morris <james.l.morris@oracle.com>,
-	Kees Cook <keescook@chromium.org>, Paul Moore <pmoore@redhat.com>,
-	Sargun Dhillon <sargun@sargun.me>,
-	"Serge E . Hallyn" <serge@hallyn.com>,
-	Will Drewry <wad@chromium.org>,
-	Kernel Hardening <kernel-hardening@lists.openwall.com>,
-	Linux API <linux-api@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <kernel-hardening-return-4476-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Sender: Tejun Heo <htejun@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <CALCETrVFSbrW9VzdNirtwCXZ3-Ce1DnXoQcPgEQgbyy0=W0rEQ@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: CAI Qian <caiqian@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Eric Dumazet <edumazet@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Florian Westphal <fw@strlen.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34126 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753741AbcHZPvr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 11:51:47 -0400
+Received: by mail-pf0-f193.google.com with SMTP id g202so5098096pfb.1
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 08:51:46 -0700 (PDT)
+In-Reply-To: <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Eric Dumazet <edumazet@google.com>
 
-On Fri, Aug 26, 2016 at 07:20:35AM -0700, Andy Lutomirski wrote:
-> > This is simply the action of changing the owner of cgroup sysfs files to
-> > allow an unprivileged user to handle them (cf. Documentation/cgroup-v2.txt)
-> 
-> As far as I can tell, Tejun and systemd both actively discourage doing
-> this.  Maybe I misunderstand.  But in any event, the admin giving you
+If vmalloc() was successful, do not attempt a kmalloc_array()
 
-Please refer to "2-5. Delegation" of Documentation/cgroup-v2.txt.
-Delegation on v1 is broken on both core and specific controller
-behaviors and thus discouraged.  On v2, delegation should work just
-fine.
+Fixes: 4cf0b354d92e ("rhashtable: avoid large lock-array allocations")
+Reported-by: CAI Qian <caiqian@redhat.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+---
+ lib/rhashtable.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-I haven't looked in detail but in general I'm not too excited about
-layering security mechanism on top of cgroup.  Maybe it makes some
-sense when security domain coincides with resource domains but at any
-rate please keep me in the loop.
-
-Thanks.
-
--- 
-tejun
+diff --git a/lib/rhashtable.c b/lib/rhashtable.c
+index 5ba520b544d7..56054e541a0f 100644
+--- a/lib/rhashtable.c
++++ b/lib/rhashtable.c
+@@ -77,17 +77,18 @@ static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
+ 	size = min_t(unsigned int, size, tbl->size >> 1);
+ 
+ 	if (sizeof(spinlock_t) != 0) {
++		tbl->locks = NULL;
+ #ifdef CONFIG_NUMA
+ 		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
+ 		    gfp == GFP_KERNEL)
+ 			tbl->locks = vmalloc(size * sizeof(spinlock_t));
+-		else
+ #endif
+ 		if (gfp != GFP_KERNEL)
+ 			gfp |= __GFP_NOWARN | __GFP_NORETRY;
+ 
+-		tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
+-					   gfp);
++		if (!tbl->locks)
++			tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
++						   gfp);
+ 		if (!tbl->locks)
+ 			return -ENOMEM;
+ 		for (i = 0; i < size; i++)
