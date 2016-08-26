@@ -1,39 +1,37 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH v2] net: macb: Increase DMA TX buffer size
-Date: Thu, 25 Aug 2016 16:59:06 -0700 (PDT)
-Message-ID: <20160825.165906.1864272195425576421.davem@redhat.com>
-References: <cccfc176-df56-4add-e6c8-e040f9da31dc@atmel.com>
-        <1472077539-18033-1-git-send-email-xander.huff@ni.com>
+Subject: Re: [PATCH v1 1/1 net-next] 8139cp: Fix one possible deadloop in
+ cp_rx_poll
+Date: Thu, 25 Aug 2016 17:02:59 -0700 (PDT)
+Message-ID: <20160825.170259.1411639595965936537.davem@redhat.com>
+References: <1472089539-11543-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-        nathan.sullivan@ni.com, linux-kernel@vger.kernel.org
-To: xander.huff@ni.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1472077539-18033-1-git-send-email-xander.huff@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dwmw2@infradead.org, netdev@vger.kernel.org, gfree.wind@gmail.com
+To: fgao@48lvckh6395k16k5.yundunddos.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44044 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751799AbcHZA0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 25 Aug 2016 20:26:54 -0400
+In-Reply-To: <1472089539-11543-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Xander Huff <xander.huff@ni.com>
-Date: Wed, 24 Aug 2016 17:25:39 -0500
+From: fgao@ikuai8.com
+Date: Thu, 25 Aug 2016 09:45:39 +0800
 
-> From: Nathan Sullivan <nathan.sullivan@ni.com>
+> From: Gao Feng <fgao@ikuai8.com>
 > 
-> In recent testing with the RT patchset, we have seen cases where the
-> transmit ring can fill even with up to 200 txbds in the ring. Increase the
-> size of the DMA TX ring to avoid overruns.
+> When cp_rx_poll does not get enough packet, it will check the rx
+> interrupt status again. If so, it will jumpt to rx_status_loop again.
+> But the goto jump resets the rx variable as zero too.
 > 
-> Signed-off-by: Xander Huff <xander.huff@ni.com>
-> Signed-off-by: Nathan Sullivan <nathan.sullivan@ni.com>
+> As a result, it causes one possible deadloop. Assume this case,
+> rx_status_loop only gets the packet count which is less than budget,
+> and (cpr16(IntrStatus) & cp_rx_intr_mask) condition is always true.
+> It causes the deadloop happens and system is blocked.
+> 
+> Signed-off-by: Gao Feng <fgao@ikuai8.com>
 
-This is really a short term solution.
-
-While a larger TX ring may help RT, it's wasteful to have a ring that
-large on non-RT.  Both uses are valid.
-
-Therefore what really needs to happen is to make this driver support
-changing the RX and TX ring sizes at runtime via ethtool just like
-pretty much every other driver.
-
-THanks.
+Makes sense, applied, thanks.
