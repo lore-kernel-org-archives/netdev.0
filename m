@@ -1,7 +1,7 @@
-From: Florian Westphal <fw@strlen.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH net] rhashtable: fix a memory leak in alloc_bucket_locks()
-Date: Fri, 26 Aug 2016 18:18:41 +0200
-Message-ID: <20160826161841.GA20794@breakpoint.cc>
+Date: Sat, 27 Aug 2016 00:25:12 +0800
+Message-ID: <20160826162512.GA23308@gondor.apana.org.au>
 References: <544270328.2536943.1472154674747.JavaMail.zimbra@redhat.com>
  <1474737839.2538727.1472155133819.JavaMail.zimbra@redhat.com>
  <CANn89iL3J6nTbNRm215xv2LL_6SjoPV-XtUJq7Ka_7pFsuAg0g@mail.gmail.com>
@@ -12,23 +12,22 @@ Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, CAI Qian <caiqian@redhat.com>,
         Thomas Graf <tgraf@suug.ch>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
         Eric Dumazet <edumazet@google.com>,
         Network Development <netdev@vger.kernel.org>,
         Linus Torvalds <torvalds@linux-foundation.org>,
         Florian Westphal <fw@strlen.de>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:54376 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932184AbcHZQSy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 12:18:54 -0400
+Received: from helcar.hengli.com.au ([209.40.204.226]:39928 "EHLO
+        helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753283AbcHZQZ3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 12:25:29 -0400
 Content-Disposition: inline
 In-Reply-To: <1472226699.14381.186.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Fri, Aug 26, 2016 at 08:51:39AM -0700, Eric Dumazet wrote:
 > From: Eric Dumazet <edumazet@google.com>
 > 
 > If vmalloc() was successful, do not attempt a kmalloc_array()
@@ -37,26 +36,11 @@ Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > Reported-by: CAI Qian <caiqian@redhat.com>
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > Cc: Florian Westphal <fw@strlen.de>
-> ---
->  lib/rhashtable.c |    7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/lib/rhashtable.c b/lib/rhashtable.c
-> index 5ba520b544d7..56054e541a0f 100644
-> --- a/lib/rhashtable.c
-> +++ b/lib/rhashtable.c
-> @@ -77,17 +77,18 @@ static int alloc_bucket_locks(struct rhashtable *ht, struct bucket_table *tbl,
->  	size = min_t(unsigned int, size, tbl->size >> 1);
->  
->  	if (sizeof(spinlock_t) != 0) {
-> +		tbl->locks = NULL;
->  #ifdef CONFIG_NUMA
->  		if (size * sizeof(spinlock_t) > PAGE_SIZE &&
->  		    gfp == GFP_KERNEL)
->  			tbl->locks = vmalloc(size * sizeof(spinlock_t));
-> -		else
->  #endif
 
-Argh.
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks Eric for fixing this :-/
+Thanks Eric!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
