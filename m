@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hns: dereference ppe_cb->ppe_common_cb if it is
- non-null
-Date: Fri, 26 Aug 2016 11:45:44 -0700 (PDT)
-Message-ID: <20160826.114544.331469797150439600.davem@davemloft.net>
-References: <20160825065110.10104-1-colin.king@canonical.com>
+Subject: Re: [PATCH net-next] net: bridge: export also pvid flag in
+ the xstats flags
+Date: Fri, 26 Aug 2016 11:46:22 -0700 (PDT)
+Message-ID: <20160826.114622.1870705372113077932.davem@davemloft.net>
+References: <1472128071-17235-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        lisheng011@huawei.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160825065110.10104-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org
+To: nikolay@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1472128071-17235-1-git-send-email-nikolay@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu, 25 Aug 2016 07:51:10 +0100
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Thu, 25 Aug 2016 14:27:51 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> When I added support to export the vlan entry flags via xstats I forgot to
+> add support for the pvid since it is manually matched, so check if the
+> entry matches the vlan_group's pvid and set the flag appropriately.
 > 
-> ppe_cb->ppe_common_cb is being dereferenced before a null check is
-> being made on it.  If ppe_cb->ppe_common_cb is null then we end up
-> with a null pointer dereference when assigning dsaf_dev.  Fix this
-> by moving the initialisation of dsaf_dev once we know
-> ppe_cb->ppe_common_cb is OK to dereference.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
 Applied.
