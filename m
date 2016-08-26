@@ -1,57 +1,111 @@
-From: James Morse <james.morse@arm.com>
-Subject: [PATCH net-next] amd-xgbe: Reset running devices after resume from hibernate
-Date: Fri, 26 Aug 2016 09:21:23 +0100
-Message-ID: <1472199683-12098-1-git-send-email-james.morse@arm.com>
-Cc: Tom Lendacky <thomas.lendacky@amd.com>,
-        James Morse <james.morse@arm.com>
-To: netdev@vger.kernel.org
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Subject: [PATCH net-next] net: ethtool: add support for 1000BaseX and missing 10G link modes
+Date: Fri, 26 Aug 2016 01:25:50 -0700
+Message-ID: <1472199950-18464-1-git-send-email-vidya@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, dustin@cumulusnetworks.com
+To: linville@tuxdriver.com, netdev@vger.kernel.org, bwh@kernel.org,
+        davem@davemloft.net, decot@googlers.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:36355 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751976AbcHZIVh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 Aug 2016 04:21:37 -0400
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:36229 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751556AbcHZIZz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 04:25:55 -0400
+Received: by mail-pf0-f182.google.com with SMTP id h186so26468668pfg.3
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 01:25:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After resume from hibernate on arm64, any amd-xgbe devices that were
-running when we hibernated are reported as down, even when it is not.
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-Re-plugging the cables does not cause the interface to come back, the
-link must be marked as down then up via 'ip set link' using the serial
-console.
+This patch enhances ethtool link mode bitmap to include
+missing interface modes for 1G/10G speeds
 
-This happens because the device has been power-cycled and possibly
-re-initialised by firmware, whereas the driver's memory structures have
-been restored from the hibernate image and the two do not agree.
+Changes:
+1000baseX is the mode introduced to cover all 1G Fiber cases.
+All modes under 1000BaseX i.e. 1000BASE-SX, 1000BASE-LX, 1000BASE-LX10
+and 1000BASE-BX10 are not explicitly defined at this moment.
+10G CR,SR,LR and ER link modes are included for 10G speed..
 
-Schedule a restart of the device after powerup in case the world changed
-while we were asleep.
+Issue:
+ethtool on  1G/10G SFP port reports Base-T
+as this port supports 1000baseX,10G CR, SR and LR modes.
 
-Signed-off-by: James Morse <james.morse@arm.com>
+root@tor-02$ ethtool swp1
+Settings for swp1:
+        Supported ports: [ FIBRE ]
+        Supported link modes:   1000baseT/Full
+                                10000baseT/Full
+        Supported pause frame use: Symmetric Receive-only
+        Supports auto-negotiation: Yes
+        Advertised link modes:  1000baseT/Full
+        Advertised pause frame use: No
+        Advertised auto-negotiation: No
+        Speed: 10000Mb/s
+        Duplex: Full
+        Port: FIBRE
+        PHYAD: 0
+        Transceiver: external
+        Auto-negotiation: off
+        Current message level: 0x00000000 (0)
+
+        Link detected: yes
+
+After fix:
+root@tor-02$ ethtool swp1
+Settings for swp1:
+        Supported ports: [ FIBRE ]
+        Supported link modes:   1000baseX/Full
+                                10000baseCR/Full
+                                10000baseSR/Full
+                                10000baseLR/Full
+                                10000baseER/Full
+        Supported pause frame use: Symmetric Receive-only
+        Supports auto-negotiation: Yes
+        Advertised link modes:  1000baseT/Full
+        Advertised pause frame use: No
+        Advertised auto-negotiation: No
+        Speed: 10000Mb/s
+        Duplex: Full
+        Port: FIBRE
+        PHYAD: 0
+        Transceiver: external
+        Auto-negotiation: off
+        Current message level: 0x00000000 (0)
+        Link detected: yes
+
+Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-main.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ include/uapi/linux/ethtool.h | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index 3eee3201b58f..9de078819aa6 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -861,9 +861,15 @@ static int xgbe_resume(struct device *dev)
- 	pdata->lpm_ctrl &= ~MDIO_CTRL1_LPOWER;
- 	XMDIO_WRITE(pdata, MDIO_MMD_PCS, MDIO_CTRL1, pdata->lpm_ctrl);
- 
--	if (netif_running(netdev))
-+	if (netif_running(netdev)) {
- 		ret = xgbe_powerup(netdev, XGMAC_DRIVER_CONTEXT);
- 
-+		/* Schedule a restart in case the link or phy state changed
-+		 * while we were powered down.
-+		 */
-+		schedule_work(&pdata->restart_work);
-+	}
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index b8f38e8..099a420 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1362,7 +1362,14 @@ enum ethtool_link_mode_bit_indices {
+ 	ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT	= 37,
+ 	ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT	= 38,
+ 	ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT	= 39,
+-	ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT         = 40,
++	ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT		= 40,
++	ETHTOOL_LINK_MODE_1000baseX_Full_BIT	= 41,
++	ETHTOOL_LINK_MODE_10000baseCR_Full_BIT	= 42,
++	ETHTOOL_LINK_MODE_10000baseSR_Full_BIT	= 43,
++	ETHTOOL_LINK_MODE_10000baseLR_Full_BIT	= 44,
++	ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT	= 45,
++	ETHTOOL_LINK_MODE_10000baseER_Full_BIT	= 46,
 +
- 	DBGPR("<--xgbe_resume\n");
  
- 	return ret;
+ 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
+ 	 * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
+@@ -1371,7 +1378,7 @@ enum ethtool_link_mode_bit_indices {
+ 	 */
+ 
+ 	__ETHTOOL_LINK_MODE_LAST
+-	  = ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT,
++	  = ETHTOOL_LINK_MODE_10000baseER_Full_BIT,
+ };
+ 
+ #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)	\
 -- 
-2.8.0.rc3
+2.1.4
