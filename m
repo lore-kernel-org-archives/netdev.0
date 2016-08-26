@@ -1,8 +1,7 @@
 From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 6/7] tipc: add the ability to get
-	UDP options via netlink
-Date: Fri, 26 Aug 2016 10:52:55 +0200
-Message-ID: <1472201576-26588-7-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 2/7] tipc: split UDP send function
+Date: Fri, 26 Aug 2016 10:52:51 +0200
+Message-ID: <1472201576-26588-3-git-send-email-richard.alpe@ericsson.com>
 References: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,147 +20,89 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Add UDP bearer options to netlink bearer get message. This is used by
-the tipc user space tool to display UDP options.
-
-The UDP bearer information is passed using either a sockaddr_in or
-sockaddr_in6 structs. This means the user space receiver should
-intermediately store the retrieved data in a large enough struct
-(sockaddr_strage) before casting to the proper IP version type.
+Split the UDP send function into two. One callback that prepares the
+skb and one transmit function that sends the skb. This will come in
+handy in later patches, when we introduce UDP replicast.
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- include/uapi/linux/tipc_netlink.h |  2 ++
- net/tipc/bearer.c                 |  8 +++++
- net/tipc/udp_media.c              | 61 +++++++++++++++++++++++++++++++++++++++
- net/tipc/udp_media.h              |  1 +
- 4 files changed, 72 insertions(+)
+ net/tipc/udp_media.c | 50 ++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 32 insertions(+), 18 deletions(-)
 
-diff --git a/include/uapi/linux/tipc_netlink.h b/include/uapi/linux/tipc_netlink.h
-index b15664c..f9edd20 100644
---- a/include/uapi/linux/tipc_netlink.h
-+++ b/include/uapi/linux/tipc_netlink.h
-@@ -61,6 +61,7 @@ enum {
- 	TIPC_NL_MON_PEER_GET,
- 	TIPC_NL_PEER_REMOVE,
- 	TIPC_NL_BEARER_ADD,
-+	TIPC_NL_UDP_GET_REMOTEIP,
- 
- 	__TIPC_NL_CMD_MAX,
- 	TIPC_NL_CMD_MAX = __TIPC_NL_CMD_MAX - 1
-@@ -100,6 +101,7 @@ enum {
- 	TIPC_NLA_UDP_UNSPEC,
- 	TIPC_NLA_UDP_LOCAL,		/* sockaddr_storage */
- 	TIPC_NLA_UDP_REMOTE,		/* sockaddr_storage */
-+	TIPC_NLA_UDP_MULTI_REMOTEIP,	/* flag */
- 
- 	__TIPC_NLA_UDP_MAX,
- 	TIPC_NLA_UDP_MAX = __TIPC_NLA_UDP_MAX - 1
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index d7b442d..975dbeb 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -712,6 +712,14 @@ static int __tipc_nl_add_bearer(struct tipc_nl_msg *msg,
- 		goto prop_msg_full;
- 
- 	nla_nest_end(msg->skb, prop);
-+
-+#ifdef CONFIG_TIPC_MEDIA_UDP
-+	if (bearer->media->type_id == TIPC_MEDIA_TYPE_UDP) {
-+		if (tipc_udp_nl_add_bearer_data(msg, bearer))
-+			goto attr_msg_full;
-+	}
-+#endif
-+
- 	nla_nest_end(msg->skb, attrs);
- 	genlmsg_end(msg->skb, hdr);
- 
 diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 6ece3c9..a6cdd98 100644
+index adb3c21..7033b4a 100644
 --- a/net/tipc/udp_media.c
 +++ b/net/tipc/udp_media.c
-@@ -401,6 +401,67 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
+@@ -140,28 +140,13 @@ static int tipc_udp_addr2msg(char *msg, struct tipc_media_addr *a)
+ }
+ 
+ /* tipc_send_msg - enqueue a send request */
+-static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
+-			     struct tipc_bearer *b,
+-			     struct tipc_media_addr *dest)
++static int tipc_udp_xmit(struct net *net, struct sk_buff *skb,
++			 struct udp_bearer *ub, struct udp_media_addr *src,
++			 struct udp_media_addr *dst)
+ {
+ 	int ttl, err = 0;
+-	struct udp_bearer *ub;
+-	struct udp_media_addr *dst = (struct udp_media_addr *)&dest->value;
+-	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
+ 	struct rtable *rt;
+ 
+-	if (skb_headroom(skb) < UDP_MIN_HEADROOM) {
+-		err = pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
+-		if (err)
+-			goto tx_error;
+-	}
+-
+-	skb_set_inner_protocol(skb, htons(ETH_P_TIPC));
+-	ub = rcu_dereference_rtnl(b->media_ptr);
+-	if (!ub) {
+-		err = -ENODEV;
+-		goto tx_error;
+-	}
+ 	if (dst->proto == htons(ETH_P_IP)) {
+ 		struct flowi4 fl = {
+ 			.daddr = dst->ipv4.s_addr,
+@@ -207,6 +192,35 @@ tx_error:
  	return err;
  }
  
-+static int __tipc_nl_add_udp_addr(struct sk_buff *skb,
-+				  struct udp_media_addr *addr, int nla_t)
-+{
-+	if (ntohs(addr->proto) == ETH_P_IP) {
-+		struct sockaddr_in ip4;
-+
-+		ip4.sin_family = AF_INET;
-+		ip4.sin_port = addr->port;
-+		ip4.sin_addr.s_addr = addr->ipv4.s_addr;
-+		if (nla_put(skb, nla_t, sizeof(ip4), &ip4))
-+			return -EMSGSIZE;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+	} else if (ntohs(addr->proto) == ETH_P_IPV6) {
-+		struct sockaddr_in6 ip6;
-+
-+		ip6.sin6_family = AF_INET6;
-+		ip6.sin6_port  = addr->port;
-+		memcpy(&ip6.sin6_addr, &addr->ipv6, sizeof(struct in6_addr));
-+		if (nla_put(skb, nla_t, sizeof(ip6), &ip6))
-+			return -EMSGSIZE;
-+#endif
-+	}
-+
-+	return 0;
-+}
-+
-+int tipc_udp_nl_add_bearer_data(struct tipc_nl_msg *msg, struct tipc_bearer *b)
++static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
++			     struct tipc_bearer *b,
++			     struct tipc_media_addr *addr)
 +{
 +	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
-+	struct udp_media_addr *dst;
++	struct udp_media_addr *dst = (struct udp_media_addr *)&addr->value;
 +	struct udp_bearer *ub;
-+	struct nlattr *nest;
++	int err = 0;
 +
-+	ub = rcu_dereference_rtnl(b->media_ptr);
-+	if (!ub)
-+		return -ENODEV;
-+
-+	nest = nla_nest_start(msg->skb, TIPC_NLA_BEARER_UDP_OPTS);
-+	if (!nest)
-+		goto msg_full;
-+
-+	if (__tipc_nl_add_udp_addr(msg->skb, src, TIPC_NLA_UDP_LOCAL))
-+		goto msg_full;
-+
-+	dst = (struct udp_media_addr *)&b->bcast_addr.value;
-+	if (__tipc_nl_add_udp_addr(msg->skb, dst, TIPC_NLA_UDP_REMOTE))
-+		goto msg_full;
-+
-+	if (!list_empty(&ub->rcast.list)) {
-+		if (nla_put_flag(msg->skb, TIPC_NLA_UDP_MULTI_REMOTEIP))
-+			goto msg_full;
++	if (skb_headroom(skb) < UDP_MIN_HEADROOM) {
++		err = pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
++		if (err)
++			goto tx_error;
 +	}
 +
-+	nla_nest_end(msg->skb, nest);
-+	return 0;
-+msg_full:
-+	nla_nest_cancel(msg->skb, nest);
-+	return -EMSGSIZE;
++	skb_set_inner_protocol(skb, htons(ETH_P_TIPC));
++	ub = rcu_dereference_rtnl(b->media_ptr);
++	if (!ub) {
++		err = -ENODEV;
++		goto tx_error;
++	}
++
++	return tipc_udp_xmit(net, skb, ub, src, dst);
++
++tx_error:
++	kfree_skb(skb);
++	return err;
 +}
 +
- /**
-  * tipc_parse_udp_addr - build udp media address from netlink data
-  * @nlattr:	netlink attribute containing sockaddr storage aligned address
-diff --git a/net/tipc/udp_media.h b/net/tipc/udp_media.h
-index 4dcb548..c06326a 100644
---- a/net/tipc/udp_media.h
-+++ b/net/tipc/udp_media.h
-@@ -39,6 +39,7 @@
- #define _TIPC_UDP_MEDIA_H
- 
- int tipc_udp_nl_bearer_add(struct tipc_bearer *b, struct nlattr *attr);
-+int tipc_udp_nl_add_bearer_data(struct tipc_nl_msg *msg, struct tipc_bearer *b);
- 
- #endif
- #endif
+ /* tipc_udp_recv - read data from bearer socket */
+ static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
+ {
 -- 
 2.1.4
 
