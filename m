@@ -1,8 +1,8 @@
 From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 3/7] tipc: refactor multicast ip
-	check
-Date: Fri, 26 Aug 2016 10:52:52 +0200
-Message-ID: <1472201576-26588-4-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 5/7] tipc: add replicast peer
+	discovery
+Date: Fri, 26 Aug 2016 10:52:54 +0200
+Message-ID: <1472201576-26588-6-git-send-email-richard.alpe@ericsson.com>
 References: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,86 +21,149 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Add a function to check if a tipc UDP media address is a multicast
-address or not. This is a purely cosmetic change.
+Automatically learn UDP remote IP addresses of communicating peers by
+looking at the source IP address of incoming TIPC link configuration
+messages (neighbor discovery).
+
+This makes configuration slightly easier and removes the problematic
+scenario where a node receives directly addressed neighbor discovery
+messages sent using replicast which the node cannot "reply" to using
+mutlicast, leaving the link FSM in a limbo state.
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/udp_media.c | 34 +++++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 15 deletions(-)
+ net/tipc/udp_media.c | 83 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 80 insertions(+), 3 deletions(-)
 
 diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 7033b4a..b8ec1a1 100644
+index 6b938cc..6ece3c9 100644
 --- a/net/tipc/udp_media.c
 +++ b/net/tipc/udp_media.c
-@@ -84,6 +84,17 @@ struct udp_bearer {
- 	struct work_struct work;
- };
- 
-+static int tipc_udp_is_mcast_addr(struct udp_media_addr *addr)
-+{
-+	if (ntohs(addr->proto) == ETH_P_IP)
-+		return ipv4_is_multicast(addr->ipv4.s_addr);
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else
-+		return ipv6_addr_is_multicast(&addr->ipv6);
-+#endif
-+	return 0;
-+}
-+
- /* udp_media_addr_set - convert a ip/udp address to a TIPC media address */
- static void tipc_udp_media_addr_set(struct tipc_media_addr *addr,
- 				    struct udp_media_addr *ua)
-@@ -91,15 +102,9 @@ static void tipc_udp_media_addr_set(struct tipc_media_addr *addr,
- 	memset(addr, 0, sizeof(struct tipc_media_addr));
- 	addr->media_id = TIPC_MEDIA_TYPE_UDP;
- 	memcpy(addr->value, ua, sizeof(struct udp_media_addr));
--	if (ntohs(ua->proto) == ETH_P_IP) {
--		if (ipv4_is_multicast(ua->ipv4.s_addr))
--			addr->broadcast = 1;
--	} else if (ntohs(ua->proto) == ETH_P_IPV6) {
--		if (ipv6_addr_type(&ua->ipv6) & IPV6_ADDR_MULTICAST)
--			addr->broadcast = 1;
--	} else {
--		pr_err("Invalid UDP media address\n");
--	}
-+
-+	if (tipc_udp_is_mcast_addr(ua))
-+		addr->broadcast = 1;
+@@ -254,6 +254,26 @@ out:
+ 	return err;
  }
  
- /* tipc_udp_addr2str - convert ip/udp address to string */
-@@ -255,15 +260,11 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
- 	struct sock *sk = ub->ubsock->sk;
- 
- 	if (ntohs(remote->proto) == ETH_P_IP) {
--		if (!ipv4_is_multicast(remote->ipv4.s_addr))
--			return 0;
- 		mreqn.imr_multiaddr = remote->ipv4;
- 		mreqn.imr_ifindex = ub->ifindex;
- 		err = ip_mc_join_group(sk, &mreqn);
- #if IS_ENABLED(CONFIG_IPV6)
- 	} else {
--		if (!ipv6_addr_is_multicast(&remote->ipv6))
--			return 0;
- 		err = ipv6_stub->ipv6_sock_mc_join(sk, ub->ifindex,
- 						   &remote->ipv6);
- #endif
-@@ -408,8 +409,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	tuncfg.encap_destroy = NULL;
- 	setup_udp_tunnel_sock(net, ub->ubsock, &tuncfg);
- 
--	if (enable_mcast(ub, remote))
--		goto err;
-+	if (tipc_udp_is_mcast_addr(remote)) {
-+		if (enable_mcast(ub, remote))
-+			goto err;
++static bool tipc_udp_is_known_peer(struct tipc_bearer *b,
++				   struct udp_media_addr *addr)
++{
++	struct udp_replicast *rcast, *tmp;
++	struct udp_bearer *ub;
++
++	ub = rcu_dereference_rtnl(b->media_ptr);
++	if (!ub) {
++		pr_err_ratelimited("UDP bearer instance not found\n");
++		return false;
 +	}
 +
++	list_for_each_entry_safe(rcast, tmp, &ub->rcast.list, list) {
++		if (!memcmp(&rcast->addr, addr, sizeof(struct udp_media_addr)))
++			return true;
++	}
++
++	return false;
++}
++
+ static int tipc_udp_rcast_add(struct tipc_bearer *b,
+ 			      struct udp_media_addr *addr)
+ {
+@@ -281,29 +301,83 @@ static int tipc_udp_rcast_add(struct tipc_bearer *b,
  	return 0;
- err:
- 	kfree(ub);
+ }
+ 
++static int tipc_udp_rcast_disc(struct tipc_bearer *b, struct sk_buff *skb)
++{
++	struct udp_media_addr src = {0};
++	struct udp_media_addr *dst;
++
++	dst = (struct udp_media_addr *)&b->bcast_addr.value;
++	if (tipc_udp_is_mcast_addr(dst))
++		return 0;
++
++	src.port = udp_hdr(skb)->source;
++
++	if (ip_hdr(skb)->version == 4) {
++		struct iphdr *iphdr = ip_hdr(skb);
++
++		src.proto = htons(ETH_P_IP);
++		src.ipv4.s_addr = iphdr->saddr;
++		if (ipv4_is_multicast(iphdr->daddr))
++			return 0;
++#if IS_ENABLED(CONFIG_IPV6)
++	} else if (ip_hdr(skb)->version == 6) {
++		struct ipv6hdr *iphdr = ipv6_hdr(skb);
++
++		src.proto = htons(ETH_P_IPV6);
++		src.ipv6 = iphdr->saddr;
++		if (ipv6_addr_is_multicast(&iphdr->daddr))
++			return 0;
++#endif
++	} else {
++		return 0;
++	}
++
++	if (likely(tipc_udp_is_known_peer(b, &src)))
++		return 0;
++
++	return tipc_udp_rcast_add(b, &src);
++}
++
+ /* tipc_udp_recv - read data from bearer socket */
+ static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct udp_bearer *ub;
+ 	struct tipc_bearer *b;
++	struct tipc_msg *hdr;
++	int err;
+ 
+ 	ub = rcu_dereference_sk_user_data(sk);
+ 	if (!ub) {
+ 		pr_err_ratelimited("Failed to get UDP bearer reference");
+-		kfree_skb(skb);
+-		return 0;
++		goto out;
+ 	}
+-
+ 	skb_pull(skb, sizeof(struct udphdr));
++	hdr = buf_msg(skb);
++
+ 	rcu_read_lock();
+ 	b = rcu_dereference_rtnl(ub->bearer);
++	if (!b)
++		goto rcu_out;
+ 
+ 	if (b && test_bit(0, &b->up)) {
+ 		tipc_rcv(sock_net(sk), skb, b);
+ 		rcu_read_unlock();
+ 		return 0;
+ 	}
++
++	if (unlikely(msg_user(hdr) == LINK_CONFIG)) {
++		err = tipc_udp_rcast_disc(b, skb);
++		if (err)
++			goto rcu_out;
++	}
++
++	tipc_rcv(sock_net(sk), skb, b);
+ 	rcu_read_unlock();
++	return 0;
++
++rcu_out:
++	rcu_read_unlock();
++out:
+ 	kfree_skb(skb);
+ 	return 0;
+ }
+@@ -398,6 +472,9 @@ int tipc_udp_nl_bearer_add(struct tipc_bearer *b, struct nlattr *attr)
+ 		return -EINVAL;
+ 	}
+ 
++	if (tipc_udp_is_known_peer(b, &addr))
++		return 0;
++
+ 	return tipc_udp_rcast_add(b, &addr);
+ }
+ 
 -- 
 2.1.4
 
