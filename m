@@ -1,71 +1,81 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: possible memory leak in ipc
-Date: Fri, 26 Aug 2016 10:27:03 -0700
-Message-ID: <CA+55aFwSS5gM_5Thc4BJb98DvvF3ZjsrWpqpgC0PKfpsqbKbkw@mail.gmail.com>
-References: <544270328.2536943.1472154674747.JavaMail.zimbra@redhat.com>
- <1474737839.2538727.1472155133819.JavaMail.zimbra@redhat.com>
- <CANn89iL3J6nTbNRm215xv2LL_6SjoPV-XtUJq7Ka_7pFsuAg0g@mail.gmail.com>
- <2107409749.2541400.1472156272168.JavaMail.zimbra@redhat.com>
- <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com>
- <364510660.2709914.1472225156558.JavaMail.zimbra@redhat.com>
- <CANn89iJ606XRvmUhiODgXY5240ffBsak_6-rhZsnQhRyLFD4MA@mail.gmail.com>
- <CAM_iQpUEqg64k8tiodOYgje1bQJY7Y6gyvQr9Zp6EoOPubxVXA@mail.gmail.com> <CAM_iQpXFXwfrn7+FK1MrfmqHf1LzsNTCWSLnH7P6ZngSi=TvqA@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH RESEND nf] netfilter: avoid a race between
+ nf_register_hook() and cleanup_net()
+Date: Fri, 26 Aug 2016 19:31:04 +0200
+Message-ID: <20160826173104.GA25040@salvia>
+References: <20160729150033.E0250A0BD9@unicorn.suse.cz>
+ <20160729161904.4F00BA0BD9@unicorn.suse.cz>
+ <87shurb6ne.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>, CAI Qian <caiqian@redhat.com>,
-        Thomas Graf <tgraf@suug.ch>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Network Development <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:35377 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751691AbcHZR1E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 13:27:04 -0400
-Received: by mail-oi0-f49.google.com with SMTP id 188so29134391oif.2
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 10:27:04 -0700 (PDT)
-In-Reply-To: <CAM_iQpXFXwfrn7+FK1MrfmqHf1LzsNTCWSLnH7P6ZngSi=TvqA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87shurb6ne.fsf@x220.int.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 26, 2016 at 10:04 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->
-> It was correct until...
->
-> commit 4cf0b354d92ee2c642532ee39e330f8f580fd985
-> Author: Florian Westphal <fw@strlen.de>
-> Date:   Fri Aug 12 12:03:52 2016 +0200
->
->     rhashtable: avoid large lock-array allocations
->
->
-> which is:
->
-> @@ -83,6 +83,9 @@ static int alloc_bucket_locks(struct rhashtable *ht,
-> struct bucket_table *tbl,
->                         tbl->locks = vmalloc(size * sizeof(spinlock_t));
->                 else
->  #endif
-> +               if (gfp != GFP_KERNEL)
-> +                       gfp |= __GFP_NOWARN | __GFP_NORETRY;
-> +
->                 tbl->locks = kmalloc_array(size, sizeof(spinlock_t),
->                                            gfp);
+Hi Eric,
 
-Heh.
+On Sat, Jul 30, 2016 at 08:24:37AM -0500, Eric W. Biederman wrote:
+> Michal Kubecek <mkubecek@suse.cz> writes:
+> 
+> > There is a race condition between nf_{,un}register_hook() and
+> > cleanup_net() which can either trigger WARN check or cause a memory
+> > leak. The scenario is like this (2a and 2b are alternatives):
+> >
+> > 1.  cleanup_net() removes one or more struct net from net_namespace_list
+> > 2a. nf_register_hook() adds per-netns hooks to all netns (but not those
+> >     removed in step 1) and adds the hook to global nf_hook_list
+> > 2b. nf_unregister_hook() deletes per-netns hooks from all netns (but not
+> >     those removed in step 1) and removes the hook from nf_hook_list
+> > 3.  cleanup_net() calls pernet subsystem exit functions for netns being
+> >     removed; one of them is netfilter_net_exit() which (among others)
+> >     calls nf_unregister_net_hook() to unregister per-netns hooks for all
+> >     hooks in nf_hook_list.
+> >
+> > In case (a), per-netns hooks are never added as the namespace was
+> > already invisible to for_each_net() in step 2a but an attempt to remove
+> > them in step 3 (the hook is already in nf_hook_list) triggers a WARN
+> > check in nf_unregister_net_hook() (no real harm done, however). In case
+> > (b), the per-netns hook is removed neither in step 2b (netns is already
+> > invisible to for_each_net()) nor in step 3 (the hook is already removed
+> > from nf_hook_list), causing a memory leak.
+> >
+> > Prevent the race by protecting the for_each_net() loop in
+> > nf_{,un}register_hook() (also) by net_mutex. There is already a
+> > precendens for this in rtnl_link_unregister() which addresses similar
+> > race.
+> 
+> So this analysis of a problem appears to be spot on.
+> 
+> Reviewed-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> I really really want there to be a better way to do this, but it is
+> really not ok for a hook to continue it's life past
+> nf_unregister_net_hook as after that point the code may be removed
+> from the kernel (sigh).
+> 
+> Although keeping with the precedent and minimizing net_mutex
+> we could remove the WARN and keep nf_register_hook as it is.
+> But that sounds entirely too clever for a fix that will
+> probably be backported.
+> 
+> But that sounds entirely too clever for a fix that likely needs to be
+> backported.
 
-Yeah, this is a classic case of something we should *not* do.
+OK... I'm going to place this in the nf.git tree... but this is very ugly.
 
-And I'm not speaking out against that commit 4cf0b354d92e itself: that
-isn't the problem. The problem is that #ifdef with the rather subtle
-dangling 'else'. Oops.
+So Eric, I'd really appreciate if you can follow up once this has hit
+nf-next.git and we get rid of the rtnl_lock and net_lock mutex by
+propagating up to the the caller the hook registration from init_net()
+and unregistering this from exit_net(). So we don't need to loop on
+the existing netns but we use the existing netns init and exit
+callbacks.
 
-I even *looked* at that function yesterday, and didn't realize the (in
-hindsight) obvious bug because the code had that odd pattern.
-
-I see that Eric sent a patch and fixed the bug, and in the process got
-rid of that dangling else thing.
-
-Thanks guys,
-
-              Linus
+Let me know, thanks.
