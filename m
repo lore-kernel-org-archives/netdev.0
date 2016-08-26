@@ -1,8 +1,9 @@
 From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [RESEND PATCH net 02/10] net: ethernet: mediatek: fix incorrect
-Date: Fri, 26 Aug 2016 13:22:13 +0800
-Message-ID: <1472188934-21923-1-git-send-email-sean.wang@mediatek.com>
-References: <e1e9ca7a-c33b-3a9e-fd47-48f80bb10a32@phrozen.org>
+Subject: Re: [RESEND PATCH net 07/10] net: ethernet: mediatek: fix issue of
+ driver removal with interface is up
+Date: Fri, 26 Aug 2016 13:50:13 +0800
+Message-ID: <1472190613-22269-1-git-send-email-sean.wang@mediatek.com>
+References: <2203871f-d73d-3a39-928d-39862ba5e367@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@p
  davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <e1e9ca7a-c33b-3a9e-fd47-48f80bb10a32-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+In-Reply-To: <2203871f-d73d-3a39-928d-39862ba5e367-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
  <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
@@ -22,38 +23,78 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Date: Thu, 25 Aug 2016 15:49:10 +0200, John Crispin wrote:
+Date: Thu, 25 Aug 2016 15:35:34 +0200, John Crispin wrote:
 >On 25/08/2016 12:44, Sean Wang wrote:
->> If the return value of devm_clk_get is EPROBE_DEFER, we should
->> defer probing the driver. The change is verified and works based
->> on 4.8-rc1 staying with the latest clk-next code for MT7623.
+>> 1) mtk_stop() must be called to stop for freeing DMA resources
+>> acquired and restoring state changed by mtk_open() when module
+>> removal.
 >> 
->> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
->> ---
->>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 11 +++++++++--
->>  1 file changed, 9 insertions(+), 2 deletions(-)
-...
->> +		    PTR_ERR(eth->clk_gp2) == -EPROBE_DEFER)
->> +			return -EPROBE_DEFER;
->> +		else
->> +			return -ENODEV;
->> +	}
+>> 2) group clock disabled related function into mtk_hw_deinit which
+>> could be reused with others functionality such as the whole ethernet
+>> reset that would be posted in the later series of patches.
+>> 
 >
 >Hi Sean,
 >
->this looks a bit tedious. maybe a better solution would be to add an
->array to struct mtk_eth for the clocks and an enum for the index
->mapping. that would allow the usage of loops to work out if all clocks
->are fine. the following code calling clk_prepare_enable() could then
->also be turned into a loop
+>these are 2 unrelated changes so they really need to go into two
+>separate patches. i also think that change 1) would better fit into the
+>future series making use of that functionality.
 >
 >	John
-
-The suggestion is better, so I will use your suggested way to 
-to implement the logic in the next version.
-
 >
+
+okay. splitting makes sense more
+
+I will leave 1) here 
+and move 2) into the better place that is one part of the future series 
+about whole ethernet reset, I will post them after the current series is done
+
+thanks for your effort on reviewing
+
+>> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 22 ++++++++++++++++++----
+>>  1 file changed, 18 insertions(+), 4 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> index 0a4c782..c573475 100644
+>> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+>> @@ -1478,6 +1478,16 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+>>  	return 0;
+>>  }
 >>  
->>  	clk_prepare_enable(eth->clk_ethif);
->>  	clk_prepare_enable(eth->clk_esw);
+>> +static int mtk_hw_deinit(struct mtk_eth *eth)
+>> +{
+>> +	clk_disable_unprepare(eth->clk_esw);
+>> +	clk_disable_unprepare(eth->clk_gp1);
+>> +	clk_disable_unprepare(eth->clk_gp2);
+>> +	clk_disable_unprepare(eth->clk_ethif);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>>  static int __init mtk_init(struct net_device *dev)
+>>  {
+>>  	struct mtk_mac *mac = netdev_priv(dev);
+>> @@ -1919,11 +1929,15 @@ err_free_dev:
+>>  static int mtk_remove(struct platform_device *pdev)
+>>  {
+>>  	struct mtk_eth *eth = platform_get_drvdata(pdev);
+>> +	int i;
+>>  
+>> -	clk_disable_unprepare(eth->clk_ethif);
+>> -	clk_disable_unprepare(eth->clk_esw);
+>> -	clk_disable_unprepare(eth->clk_gp1);
+>> -	clk_disable_unprepare(eth->clk_gp2);
+>> +	/* stop all devices to make sure that dma is properly shut down */
+>> +	for (i = 0; i < MTK_MAC_COUNT; i++) {
+>> +		if (!eth->netdev[i])
+>> +			continue;
+>> +		mtk_stop(eth->netdev[i]);
+>> +	}
+>> +	mtk_hw_deinit(eth);
+>>  
+>>  	netif_napi_del(&eth->tx_napi);
+>>  	netif_napi_del(&eth->rx_napi);
 >> 
