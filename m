@@ -1,123 +1,168 @@
-From: Marc Zyngier <marc.zyngier@arm.com>
-Subject: Re: [PATCH V2 02/10] irqchip: xilinx: Add support for parent intc
-Date: Fri, 26 Aug 2016 15:23:01 +0100
-Message-ID: <20160826152301.74132534@arm.com>
-References: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
-        <1471527804-26175-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 3/3] sfc: work around TRIGGER_INTERRUPT command not
+ working on SFC9140
+Date: Fri, 26 Aug 2016 15:13:30 +0100
+Message-ID: <0d4f51ce-9073-22d9-2ca1-2fdc8c2c5d59@solarflare.com>
+References: <da7f8a31-f24c-7727-7d78-67572f5494d5@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
-        <jason@lakedaemon.net>, <linux-mips@linux-mips.org>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1471527804-26175-3-git-send-email-Zubair.Kakakhel@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>,
+        <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:53871 "EHLO
+        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751997AbcHZOT6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 10:19:58 -0400
+In-Reply-To: <da7f8a31-f24c-7727-7d78-67572f5494d5@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 18 Aug 2016 14:43:16 +0100
-Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com> wrote:
+From: Jon Cooper <jcooper@solarflare.com>
 
-> The MIPS based xilfpga platform has the following IRQ structure
-> 
-> Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
-> 
-> Add support for the driver to chain the irq handler
-> 
-> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
-> 
-> ---
-> V1 -> V2
-> 
-> No change
-> ---
->  drivers/irqchip/irq-axi-intc.c | 28 +++++++++++++++++++++++++++-
->  1 file changed, 27 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
-> index 90bec7d..a0be6fa 100644
-> --- a/drivers/irqchip/irq-axi-intc.c
-> +++ b/drivers/irqchip/irq-axi-intc.c
-> @@ -15,6 +15,7 @@
->  #include <linux/of_address.h>
->  #include <linux/io.h>
->  #include <linux/bug.h>
-> +#include <linux/of_irq.h>
->  
->  static void __iomem *intc_baseaddr;
->  
-> @@ -135,11 +136,26 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
->  	.map = xintc_map,
->  };
->  
-> +static void xil_intc_irq_handler(struct irq_desc *desc)
-> +{
-> +	u32 pending = get_irq();
-> +
-> +	if (pending != -1U) {
-> +		while (true) {
-> +			pending = get_irq();
-> +			generic_handle_irq(pending);
-> +			if (pending == -1U)
+MC_CMD_TRIGGER_INTERRUPT does not work on the SFC9140, as used in the
+sfn7x42q and sfn7x24f.
+Check for this using the MCDI workaround mechanism.
+The command is only used during self test.  If it's not supported, skip
+the interrupt test.
 
-Erm... So even when pending is -1, you're calling generic_handle_irq?
-This doesn't seem right.
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ef10.c       |  8 ++++++--
+ drivers/net/ethernet/sfc/farch.c      |  3 ++-
+ drivers/net/ethernet/sfc/net_driver.h |  2 +-
+ drivers/net/ethernet/sfc/nic.c        |  4 ++--
+ drivers/net/ethernet/sfc/nic.h        |  4 ++--
+ drivers/net/ethernet/sfc/selftest.c   | 10 +++++++++-
+ drivers/net/ethernet/sfc/selftest.h   |  2 +-
+ 7 files changed, 23 insertions(+), 10 deletions(-)
 
-You're also missing the chained_irq_enter/exit calls around this loop.
-
-Overall, this should be rewritten in a less cumbersome way. Something
-like:
-
-	do {
-		u32 pending;
-
-		pending = get_irq();
-		if (pending == ~0)
-			break;
-		generic_handle_irq(pending);
-	} while (true);
-
-> +				break;
-> +		}
-> +	}
-> +}
-> +
->  static int __init xilinx_intc_of_init(struct device_node *intc,
->  					     struct device_node *parent)
->  {
->  	u32 nr_irq, intr_mask;
-> -	int ret;
-> +	int ret, irq;
-> +	struct device_node *parent_node;
->  
->  	intc_baseaddr = of_iomap(intc, 0);
->  	BUG_ON(!intc_baseaddr);
-> @@ -188,6 +204,16 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
->  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
->  							(void *)intr_mask);
->  
-> +	parent_node = of_irq_find_parent(intc);
-
-You already have the parent node as an argument to the function. Why do
-you need to do that again?
-
-> +	if (parent_node) {
-> +		irq = irq_of_parse_and_map(intc, 0);
-> +		if (irq)
-> +			irq_set_chained_handler_and_data(irq,
-> +							 xil_intc_irq_handler,
-> +							 root_domain);
-> +
-> +	}
-> +
->  	irq_set_default_host(root_domain);
->  
->  	return 0;
-
-
-Thanks,
-
-	M.
--- 
-Jazz is not dead. It just smells funny.
+diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
+index c4cd6b0..6fe1d0b 100644
+--- a/drivers/net/ethernet/sfc/ef10.c
++++ b/drivers/net/ethernet/sfc/ef10.c
+@@ -2048,14 +2048,18 @@ static irqreturn_t efx_ef10_legacy_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static void efx_ef10_irq_test_generate(struct efx_nic *efx)
++static int efx_ef10_irq_test_generate(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_TRIGGER_INTERRUPT_IN_LEN);
+ 
++	if (efx_mcdi_set_workaround(efx, MC_CMD_WORKAROUND_BUG41750, true,
++				    NULL) == 0)
++		return -ENOTSUPP;
++
+ 	BUILD_BUG_ON(MC_CMD_TRIGGER_INTERRUPT_OUT_LEN != 0);
+ 
+ 	MCDI_SET_DWORD(inbuf, TRIGGER_INTERRUPT_IN_INTR_LEVEL, efx->irq_level);
+-	(void) efx_mcdi_rpc(efx, MC_CMD_TRIGGER_INTERRUPT,
++	return efx_mcdi_rpc(efx, MC_CMD_TRIGGER_INTERRUPT,
+ 			    inbuf, sizeof(inbuf), NULL, 0, NULL);
+ }
+ 
+diff --git a/drivers/net/ethernet/sfc/farch.c b/drivers/net/ethernet/sfc/farch.c
+index 4c83739..4762ec4 100644
+--- a/drivers/net/ethernet/sfc/farch.c
++++ b/drivers/net/ethernet/sfc/farch.c
+@@ -1477,9 +1477,10 @@ void efx_farch_irq_disable_master(struct efx_nic *efx)
+  * Interrupt must already have been enabled, otherwise nasty things
+  * may happen.
+  */
+-void efx_farch_irq_test_generate(struct efx_nic *efx)
++int efx_farch_irq_test_generate(struct efx_nic *efx)
+ {
+ 	efx_farch_interrupts(efx, true, true);
++	return 0;
+ }
+ 
+ /* Process a fatal interrupt
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 13b7f52..0a2504b 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -1275,7 +1275,7 @@ struct efx_nic_type {
+ 	int (*mcdi_poll_reboot)(struct efx_nic *efx);
+ 	void (*mcdi_reboot_detected)(struct efx_nic *efx);
+ 	void (*irq_enable_master)(struct efx_nic *efx);
+-	void (*irq_test_generate)(struct efx_nic *efx);
++	int (*irq_test_generate)(struct efx_nic *efx);
+ 	void (*irq_disable_non_ev)(struct efx_nic *efx);
+ 	irqreturn_t (*irq_handle_msi)(int irq, void *dev_id);
+ 	irqreturn_t (*irq_handle_legacy)(int irq, void *dev_id);
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 89b83e5..aa1945a 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -66,11 +66,11 @@ void efx_nic_event_test_start(struct efx_channel *channel)
+ 	channel->efx->type->ev_test_generate(channel);
+ }
+ 
+-void efx_nic_irq_test_start(struct efx_nic *efx)
++int efx_nic_irq_test_start(struct efx_nic *efx)
+ {
+ 	efx->last_irq_cpu = -1;
+ 	smp_wmb();
+-	efx->type->irq_test_generate(efx);
++	return efx->type->irq_test_generate(efx);
+ }
+ 
+ /* Hook interrupt handler(s)
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index d8b1694..73bee7e 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -746,12 +746,12 @@ static inline void efx_update_diff_stat(u64 *stat, u64 diff)
+ 
+ /* Interrupts */
+ int efx_nic_init_interrupt(struct efx_nic *efx);
+-void efx_nic_irq_test_start(struct efx_nic *efx);
++int efx_nic_irq_test_start(struct efx_nic *efx);
+ void efx_nic_fini_interrupt(struct efx_nic *efx);
+ 
+ /* Falcon/Siena interrupts */
+ void efx_farch_irq_enable_master(struct efx_nic *efx);
+-void efx_farch_irq_test_generate(struct efx_nic *efx);
++int efx_farch_irq_test_generate(struct efx_nic *efx);
+ void efx_farch_irq_disable_master(struct efx_nic *efx);
+ irqreturn_t efx_farch_msi_interrupt(int irq, void *dev_id);
+ irqreturn_t efx_farch_legacy_interrupt(int irq, void *dev_id);
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index 9d78830..cd38b44 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -135,11 +135,19 @@ static int efx_test_interrupts(struct efx_nic *efx,
+ {
+ 	unsigned long timeout, wait;
+ 	int cpu;
++	int rc;
+ 
+ 	netif_dbg(efx, drv, efx->net_dev, "testing interrupts\n");
+ 	tests->interrupt = -1;
+ 
+-	efx_nic_irq_test_start(efx);
++	rc = efx_nic_irq_test_start(efx);
++	if (rc == -ENOTSUPP) {
++		netif_dbg(efx, drv, efx->net_dev,
++			  "direct interrupt testing not supported\n");
++		tests->interrupt = 0;
++		return 0;
++	}
++
+ 	timeout = jiffies + IRQ_TIMEOUT;
+ 	wait = 1;
+ 
+diff --git a/drivers/net/ethernet/sfc/selftest.h b/drivers/net/ethernet/sfc/selftest.h
+index 009dbe8..32a4272 100644
+--- a/drivers/net/ethernet/sfc/selftest.h
++++ b/drivers/net/ethernet/sfc/selftest.h
+@@ -28,7 +28,7 @@ struct efx_loopback_self_tests {
+ 
+ /* Efx self test results
+  * For fields which are not counters, 1 indicates success and -1
+- * indicates failure.
++ * indicates failure; 0 indicates test could not be run.
+  */
+ struct efx_self_tests {
+ 	/* online tests */
