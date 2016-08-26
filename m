@@ -1,8 +1,8 @@
 From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 1/7] tipc: split UDP nl address
-	parsing
-Date: Fri, 26 Aug 2016 10:52:50 +0200
-Message-ID: <1472201576-26588-2-git-send-email-richard.alpe@ericsson.com>
+Subject: [PATCH net-next 7/7] tipc: add UDP remoteip dump
+	to netlink API
+Date: Fri, 26 Aug 2016 10:52:56 +0200
+Message-ID: <1472201576-26588-8-git-send-email-richard.alpe@ericsson.com>
 References: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,160 +21,165 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Split the UDP netlink parse function so that it only parses one
-netlink attribute at the time. This makes the parse function more
-generic and allow future UDP API functions to use it for parsing.
+When using replicast a UDP bearer can have an arbitrary amount of
+remote ip addresses associated with it. This means we cannot simply
+add all remote ip addresses to an existing bearer data message as it
+might fill the message, leaving us with a truncated message that we
+can't safely resume. To handle this we introduce the new netlink
+command TIPC_NL_UDP_GET_REMOTEIP. This command is intended to be
+called when the bearer data message has the
+TIPC_NLA_UDP_MULTI_REMOTEIP flag set, indicating there are more than
+one remote ip (replicast).
 
 Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
 Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/udp_media.c | 112 +++++++++++++++++++++++++--------------------------
- 1 file changed, 55 insertions(+), 57 deletions(-)
+ net/tipc/netlink.c   | 10 +++++-
+ net/tipc/udp_media.c | 90 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/tipc/udp_media.h |  1 +
+ 3 files changed, 100 insertions(+), 1 deletion(-)
 
+diff --git a/net/tipc/netlink.c b/net/tipc/netlink.c
+index 3122f21..3200059 100644
+--- a/net/tipc/netlink.c
++++ b/net/tipc/netlink.c
+@@ -41,6 +41,7 @@
+ #include "link.h"
+ #include "node.h"
+ #include "net.h"
++#include "udp_media.h"
+ #include <net/genetlink.h>
+ 
+ static const struct nla_policy tipc_nl_policy[TIPC_NLA_MAX + 1] = {
+@@ -247,7 +248,14 @@ static const struct genl_ops tipc_genl_v2_ops[] = {
+ 		.cmd	= TIPC_NL_PEER_REMOVE,
+ 		.doit	= tipc_nl_peer_rm,
+ 		.policy = tipc_nl_policy,
+-	}
++	},
++#ifdef CONFIG_TIPC_MEDIA_UDP
++	{
++		.cmd	= TIPC_NL_UDP_GET_REMOTEIP,
++		.dumpit	= tipc_udp_nl_dump_remoteip,
++		.policy = tipc_nl_policy,
++	},
++#endif
+ };
+ 
+ int tipc_nlmsg_parse(const struct nlmsghdr *nlh, struct nlattr ***attr)
 diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index 33bdf54..adb3c21 100644
+index a6cdd98..245e9a2 100644
 --- a/net/tipc/udp_media.c
 +++ b/net/tipc/udp_media.c
-@@ -258,68 +258,47 @@ static int enable_mcast(struct udp_bearer *ub, struct udp_media_addr *remote)
+@@ -428,6 +428,96 @@ static int __tipc_nl_add_udp_addr(struct sk_buff *skb,
+ 	return 0;
  }
  
- /**
-- * parse_options - build local/remote addresses from configuration
-- * @attrs:	netlink config data
-- * @ub:		UDP bearer instance
-- * @local:	local bearer IP address/port
-- * @remote:	peer or multicast IP/port
-+ * tipc_parse_udp_addr - build udp media address from netlink data
-+ * @nlattr:	netlink attribute containing sockaddr storage aligned address
-+ * @addr:	tipc media address to fill with address, port and protocol type
-+ * @scope_id:	IPv6 scope id pointer, not NULL indicates it's required
-  */
--static int parse_options(struct nlattr *attrs[], struct udp_bearer *ub,
--			 struct udp_media_addr *local,
--			 struct udp_media_addr *remote)
++int tipc_udp_nl_dump_remoteip(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	u32 bid = cb->args[0];
++	u32 skip_cnt = cb->args[1];
++	u32 portid = NETLINK_CB(cb->skb).portid;
++	struct udp_replicast *rcast, *tmp;
++	struct tipc_bearer *b;
++	struct udp_bearer *ub;
++	void *hdr;
++	int err;
++	int i;
 +
-+static int tipc_parse_udp_addr(struct nlattr *nla, struct udp_media_addr *addr,
-+			       u32 *scope_id)
- {
--	struct nlattr *opts[TIPC_NLA_UDP_MAX + 1];
--	struct sockaddr_storage sa_local, sa_remote;
-+	struct sockaddr_storage sa;
- 
--	if (!attrs[TIPC_NLA_BEARER_UDP_OPTS])
--		goto err;
--	if (nla_parse_nested(opts, TIPC_NLA_UDP_MAX,
--			     attrs[TIPC_NLA_BEARER_UDP_OPTS],
--			     tipc_nl_udp_policy))
--		goto err;
--	if (opts[TIPC_NLA_UDP_LOCAL] && opts[TIPC_NLA_UDP_REMOTE]) {
--		nla_memcpy(&sa_local, opts[TIPC_NLA_UDP_LOCAL],
--			   sizeof(sa_local));
--		nla_memcpy(&sa_remote, opts[TIPC_NLA_UDP_REMOTE],
--			   sizeof(sa_remote));
--	} else {
--err:
--		pr_err("Invalid UDP bearer configuration");
--		return -EINVAL;
--	}
--	if ((sa_local.ss_family & sa_remote.ss_family) == AF_INET) {
--		struct sockaddr_in *ip4;
--
--		ip4 = (struct sockaddr_in *)&sa_local;
--		local->proto = htons(ETH_P_IP);
--		local->port = ip4->sin_port;
--		local->ipv4.s_addr = ip4->sin_addr.s_addr;
--
--		ip4 = (struct sockaddr_in *)&sa_remote;
--		remote->proto = htons(ETH_P_IP);
--		remote->port = ip4->sin_port;
--		remote->ipv4.s_addr = ip4->sin_addr.s_addr;
-+	nla_memcpy(&sa, nla, sizeof(sa));
-+	if (sa.ss_family == AF_INET) {
-+		struct sockaddr_in *ip4 = (struct sockaddr_in *)&sa;
++	if (!bid && !skip_cnt) {
++		struct net *net = sock_net(skb->sk);
++		struct nlattr *battrs[TIPC_NLA_BEARER_MAX + 1];
++		struct nlattr **attrs;
++		char *bname;
 +
-+		addr->proto = htons(ETH_P_IP);
-+		addr->port = ip4->sin_port;
-+		addr->ipv4.s_addr = ip4->sin_addr.s_addr;
- 		return 0;
- 
- #if IS_ENABLED(CONFIG_IPV6)
--	} else if ((sa_local.ss_family & sa_remote.ss_family) == AF_INET6) {
--		int atype;
--		struct sockaddr_in6 *ip6;
--
--		ip6 = (struct sockaddr_in6 *)&sa_local;
--		atype = ipv6_addr_type(&ip6->sin6_addr);
--		if (__ipv6_addr_needs_scope_id(atype) && !ip6->sin6_scope_id)
--			return -EINVAL;
--
--		local->proto = htons(ETH_P_IPV6);
--		local->port = ip6->sin6_port;
--		memcpy(&local->ipv6, &ip6->sin6_addr, sizeof(struct in6_addr));
--		ub->ifindex = ip6->sin6_scope_id;
--
--		ip6 = (struct sockaddr_in6 *)&sa_remote;
--		remote->proto = htons(ETH_P_IPV6);
--		remote->port = ip6->sin6_port;
--		memcpy(&remote->ipv6, &ip6->sin6_addr, sizeof(struct in6_addr));
-+	} else if (sa.ss_family == AF_INET6) {
-+		struct sockaddr_in6 *ip6 = (struct sockaddr_in6 *)&sa;
++		err = tipc_nlmsg_parse(cb->nlh, &attrs);
++		if (err)
++			return err;
 +
-+		addr->proto = htons(ETH_P_IPV6);
-+		addr->port = ip6->sin6_port;
-+		memcpy(&addr->ipv6, &ip6->sin6_addr, sizeof(struct in6_addr));
++		if (!attrs[TIPC_NLA_BEARER])
++			return -EINVAL;
 +
-+		/* Scope ID is only interesting for local addresses */
-+		if (scope_id) {
-+			int atype;
++		err = nla_parse_nested(battrs, TIPC_NLA_BEARER_MAX,
++				       attrs[TIPC_NLA_BEARER],
++				       tipc_nl_bearer_policy);
++		if (err)
++			return err;
 +
-+			atype = ipv6_addr_type(&ip6->sin6_addr);
-+			if (__ipv6_addr_needs_scope_id(atype) &&
-+			    !ip6->sin6_scope_id) {
-+				return -EINVAL;
-+			}
++		if (!battrs[TIPC_NLA_BEARER_NAME])
++			return -EINVAL;
 +
-+			*scope_id = ip6->sin6_scope_id ? : 0;
++		bname = nla_data(battrs[TIPC_NLA_BEARER_NAME]);
++
++		rtnl_lock();
++		b = tipc_bearer_find(net, bname);
++		if (!b) {
++			rtnl_unlock();
++			return -EINVAL;
 +		}
++		bid = b->identity;
++	} else {
++		struct net *net = sock_net(skb->sk);
++		struct tipc_net *tn = net_generic(net, tipc_net_id);
 +
- 		return 0;
- #endif
- 	}
-@@ -344,14 +323,33 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
- 	struct udp_media_addr local = {0};
- 	struct udp_port_cfg udp_conf = {0};
- 	struct udp_tunnel_sock_cfg tuncfg = {NULL};
-+	struct nlattr *opts[TIPC_NLA_UDP_MAX + 1];
- 
- 	ub = kzalloc(sizeof(*ub), GFP_ATOMIC);
- 	if (!ub)
- 		return -ENOMEM;
- 
-+	if (!attrs[TIPC_NLA_BEARER_UDP_OPTS])
-+		goto err;
++		rtnl_lock();
++		b = rtnl_dereference(tn->bearer_list[bid]);
++		if (!b) {
++			rtnl_unlock();
++			return -EINVAL;
++		}
++	}
 +
-+	if (nla_parse_nested(opts, TIPC_NLA_UDP_MAX,
-+			     attrs[TIPC_NLA_BEARER_UDP_OPTS],
-+			     tipc_nl_udp_policy))
-+		goto err;
-+
-+	if (!opts[TIPC_NLA_UDP_LOCAL] || !opts[TIPC_NLA_UDP_REMOTE]) {
-+		pr_err("Invalid UDP bearer configuration");
++	ub = rcu_dereference_rtnl(b->media_ptr);
++	if (!ub) {
++		rtnl_unlock();
 +		return -EINVAL;
 +	}
 +
-+	err = tipc_parse_udp_addr(opts[TIPC_NLA_UDP_LOCAL], &local,
-+				  &ub->ifindex);
-+	if (err)
-+		goto err;
++	i = 0;
++	list_for_each_entry_safe(rcast, tmp, &ub->rcast.list, list) {
++		if (i < skip_cnt)
++			goto count;
 +
- 	remote = (struct udp_media_addr *)&b->bcast_addr.value;
- 	memset(remote, 0, sizeof(struct udp_media_addr));
--	err = parse_options(attrs, ub, &local, remote);
-+	err = tipc_parse_udp_addr(opts[TIPC_NLA_UDP_REMOTE], remote, NULL);
- 	if (err)
- 		goto err;
++		hdr = genlmsg_put(skb, portid, cb->nlh->nlmsg_seq,
++				  &tipc_genl_family, NLM_F_MULTI,
++				  TIPC_NL_BEARER_GET);
++		if (!hdr)
++			goto done;
++
++		err = __tipc_nl_add_udp_addr(skb, &rcast->addr,
++					     TIPC_NLA_UDP_REMOTE);
++		if (err) {
++			genlmsg_cancel(skb, hdr);
++			goto done;
++		}
++		genlmsg_end(skb, hdr);
++count:
++		i++;
++	}
++done:
++	rtnl_unlock();
++	cb->args[0] = bid;
++	cb->args[1] = i;
++
++	return skb->len;
++}
++
+ int tipc_udp_nl_add_bearer_data(struct tipc_nl_msg *msg, struct tipc_bearer *b)
+ {
+ 	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
+diff --git a/net/tipc/udp_media.h b/net/tipc/udp_media.h
+index c06326a..281bbae 100644
+--- a/net/tipc/udp_media.h
++++ b/net/tipc/udp_media.h
+@@ -40,6 +40,7 @@
  
+ int tipc_udp_nl_bearer_add(struct tipc_bearer *b, struct nlattr *attr);
+ int tipc_udp_nl_add_bearer_data(struct tipc_nl_msg *msg, struct tipc_bearer *b);
++int tipc_udp_nl_dump_remoteip(struct sk_buff *skb, struct netlink_callback *cb);
+ 
+ #endif
+ #endif
 -- 
 2.1.4
 
