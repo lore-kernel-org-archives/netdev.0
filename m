@@ -1,111 +1,50 @@
-From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ethtool: add support for 1000BaseX and missing 10G link modes
-Date: Fri, 26 Aug 2016 01:25:50 -0700
-Message-ID: <1472199950-18464-1-git-send-email-vidya@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, dustin@cumulusnetworks.com
-To: linville@tuxdriver.com, netdev@vger.kernel.org, bwh@kernel.org,
-        davem@davemloft.net, decot@googlers.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:36229 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751556AbcHZIZz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 04:25:55 -0400
-Received: by mail-pf0-f182.google.com with SMTP id h186so26468668pfg.3
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 01:25:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Alpe <richard.alpe@ericsson.com>
+Subject: [PATCH net-next 0/7] tipc: introduce UDP replicast
+Date: Fri, 26 Aug 2016 10:52:49 +0200
+Message-ID: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tipc-discussion@lists.sourceforge.net
+To: <netdev@vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+This series introduces UDP replicast. A concept where we emulate multicast by
+sending multiple unicast messages to configured peers. This allows TIPC to be
+used in environments where IP multicast is disabled.
 
-This patch enhances ethtool link mode bitmap to include
-missing interface modes for 1G/10G speeds
+There is a corresponding patch series for the tipc user space tool that
+allows a user to add remote addresses to the replicast list.
 
-Changes:
-1000baseX is the mode introduced to cover all 1G Fiber cases.
-All modes under 1000BaseX i.e. 1000BASE-SX, 1000BASE-LX, 1000BASE-LX10
-and 1000BASE-BX10 are not explicitly defined at this moment.
-10G CR,SR,LR and ER link modes are included for 10G speed..
+Richard Alpe (7):
+  tipc: split UDP nl address parsing
+  tipc: split UDP send function
+  tipc: refactor multicast ip check
+  tipc: introduce UDP replicast
+  tipc: add replicast peer discovery
+  tipc: add the ability to get UDP options via netlink
+  tipc: add UDP remoteip dump to netlink API
 
-Issue:
-ethtool on  1G/10G SFP port reports Base-T
-as this port supports 1000baseX,10G CR, SR and LR modes.
+ include/uapi/linux/tipc_netlink.h |   3 +
+ net/tipc/bearer.c                 |  52 ++++
+ net/tipc/bearer.h                 |   1 +
+ net/tipc/netlink.c                |  15 +-
+ net/tipc/udp_media.c              | 520 +++++++++++++++++++++++++++++++-------
+ net/tipc/udp_media.h              |  46 ++++
+ 6 files changed, 545 insertions(+), 92 deletions(-)
+ create mode 100644 net/tipc/udp_media.h
 
-root@tor-02$ ethtool swp1
-Settings for swp1:
-        Supported ports: [ FIBRE ]
-        Supported link modes:   1000baseT/Full
-                                10000baseT/Full
-        Supported pause frame use: Symmetric Receive-only
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: No
-        Speed: 10000Mb/s
-        Duplex: Full
-        Port: FIBRE
-        PHYAD: 0
-        Transceiver: external
-        Auto-negotiation: off
-        Current message level: 0x00000000 (0)
-
-        Link detected: yes
-
-After fix:
-root@tor-02$ ethtool swp1
-Settings for swp1:
-        Supported ports: [ FIBRE ]
-        Supported link modes:   1000baseX/Full
-                                10000baseCR/Full
-                                10000baseSR/Full
-                                10000baseLR/Full
-                                10000baseER/Full
-        Supported pause frame use: Symmetric Receive-only
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Full
-        Advertised pause frame use: No
-        Advertised auto-negotiation: No
-        Speed: 10000Mb/s
-        Duplex: Full
-        Port: FIBRE
-        PHYAD: 0
-        Transceiver: external
-        Auto-negotiation: off
-        Current message level: 0x00000000 (0)
-        Link detected: yes
-
-Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
----
- include/uapi/linux/ethtool.h | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index b8f38e8..099a420 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -1362,7 +1362,14 @@ enum ethtool_link_mode_bit_indices {
- 	ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT	= 37,
- 	ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT	= 38,
- 	ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT	= 39,
--	ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT         = 40,
-+	ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT		= 40,
-+	ETHTOOL_LINK_MODE_1000baseX_Full_BIT	= 41,
-+	ETHTOOL_LINK_MODE_10000baseCR_Full_BIT	= 42,
-+	ETHTOOL_LINK_MODE_10000baseSR_Full_BIT	= 43,
-+	ETHTOOL_LINK_MODE_10000baseLR_Full_BIT	= 44,
-+	ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT	= 45,
-+	ETHTOOL_LINK_MODE_10000baseER_Full_BIT	= 46,
-+
- 
- 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
- 	 * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
-@@ -1371,7 +1378,7 @@ enum ethtool_link_mode_bit_indices {
- 	 */
- 
- 	__ETHTOOL_LINK_MODE_LAST
--	  = ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT,
-+	  = ETHTOOL_LINK_MODE_10000baseER_Full_BIT,
- };
- 
- #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)	\
 -- 
 2.1.4
+
+
+------------------------------------------------------------------------------
