@@ -1,77 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: micrel: remove suspend/resume
-Date: Thu, 25 Aug 2016 21:35:22 -0700
-Message-ID: <908c1da1-06a8-d92c-5ba0-874c8420268a@gmail.com>
-References: <20160823111344.25FF41A2459@localhost.localdomain>
- <2ee9441d-1b3b-de6d-691d-b615c04c69d0@gmail.com>
- <8b2ab09d-761f-080b-8264-4464f9afc442@c-s.fr>
+From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Subject: Re: [RESEND PATCH net 02/10] net: ethernet: mediatek: fix incorrect
+Date: Fri, 26 Aug 2016 13:22:13 +0800
+Message-ID: <1472188934-21923-1-git-send-email-sean.wang@mediatek.com>
+References: <e1e9ca7a-c33b-3a9e-fd47-48f80bb10a32@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        xander.huff@ni.com, brad.mouring@ni.com, nathan.sullivan@ni.com
-To: Christophe Leroy <christophe.leroy@c-s.fr>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8b2ab09d-761f-080b-8264-4464f9afc442@c-s.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <e1e9ca7a-c33b-3a9e-fd47-48f80bb10a32-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le 24/08/2016 à 07:14, Christophe Leroy a écrit :
-> 
-> 
-> Le 23/08/2016 à 21:03, Florian Fainelli a écrit :
->> +others,
->>
->> On 08/23/2016 04:13 AM, Christophe Leroy wrote:
->>> In ERRATA DS80000700A dated 05 May 2016, Microship recommends to
->>> not use software power down mode on KSZ8041 family.
->>
->> s/Microship/Microchip/
->>
->>> They say they have no plan to fix this ERRATA in future releases.
->>
->> The errata applies to specific revisions, is this revision present in
->> the lower 4 bits of the MII_PHYSID2 register such that it could be used
->> to key the disabling of the power down?
-> 
-> It doesn't seem clear to me how this could/should be handled.
-> 
-> According to the documentation, all variants have the same ID 0x0022151x
-> with revision x. A3 has ID 0x00221512 and A4 has 0x00221513.
-> According to the doc, the KSZ8041RNLI should has same ID. But according
-> to micrel driver, it has ID 0x00221537. And the buggy revision of that
-> one is rev A. Is it what the 7 means ?
-
-Humm the revision is typically stored on 4 bits, so 0x7 could mean
-anything here, it really depends if how they are allocating their revision.
-
-0b0000 -> A0
-0b0001 -> A1
+On Date: Thu, 25 Aug 2016 15:49:10 +0200, John Crispin wrote:
+>On 25/08/2016 12:44, Sean Wang wrote:
+>> If the return value of devm_clk_get is EPROBE_DEFER, we should
+>> defer probing the driver. The change is verified and works based
+>> on 4.8-rc1 staying with the latest clk-next code for MT7623.
+>> 
+>> Signed-off-by: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 11 +++++++++--
+>>  1 file changed, 9 insertions(+), 2 deletions(-)
 ...
-0b0110 -> A6
-0b0111 -> A7?
+>> +		    PTR_ERR(eth->clk_gp2) == -EPROBE_DEFER)
+>> +			return -EPROBE_DEFER;
+>> +		else
+>> +			return -ENODEV;
+>> +	}
+>
+>Hi Sean,
+>
+>this looks a bit tedious. maybe a better solution would be to add an
+>array to struct mtk_eth for the clocks and an enum for the index
+>mapping. that would allow the usage of loops to work out if all clocks
+>are fine. the following code calling clk_prepare_enable() could then
+>also be turned into a loop
+>
+>	John
 
-Who knows.
+The suggestion is better, so I will use your suggested way to 
+to implement the logic in the next version.
 
-> 
-> The ERRATA applies to KSZ8041NL revision A4 and to KSZ8041NL-AM revision
-> A3. My understanding it that both variants have ID 0x0022151x, ie
-> KSZ8041NL-AM revision A3 has ID 0x00221512 and KSZ8041NL revision A4 has
-> ID 0x00221513. But KSZ8041NL revision A3 also has ID 0x00221512 and the
-> ERRATA doesn't apply to it.
-> 
-> So what can be done really ? Only apply the fix to ID 0x00221513 (which
-> is what I need as I have KSZ8041NL revision A4 on my boards) ? Or apply
-> it for all KSZ8041 and KSZ8041RNLI to be on the safe side ?
-
-I would apply it to just the KSZ8041NL rev. A4 for now, ideally we would
-want to track down the users of the KSZ8041RNLI and see if somebody
-could test that, realistically, we won't be able to, so I would err on
-the side of caution at the expense of slightly increased power
-consumption for that particular PHY and have a broader match of all the
-KSZ8041RNLI potentially affected.
-
-Does that make sense?
--- 
-Florian
+>
+>>  
+>>  	clk_prepare_enable(eth->clk_ethif);
+>>  	clk_prepare_enable(eth->clk_esw);
+>> 
