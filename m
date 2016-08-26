@@ -1,39 +1,123 @@
-From: zyjzyj2000@gmail.com
-Subject: [PATCH 1/1] vxlan: remove the useless header file protocol.h
-Date: Fri, 26 Aug 2016 22:21:47 +0800
-Message-ID: <1472221307-13291-1-git-send-email-zyjzyj2000@gmail.com>
-To: netdev@vger.kernel.org, pabeni@redhat.com, daniel@iogearbox.net,
-        pshelar@nicira.com, aduyck@mirantis.com,
-        hannes@stressinduktion.org, jbenc@redhat.com, davem@davemloft.net,
-        zyjzyj2000@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [114.253.60.16] ([114.253.60.16]:60968 "EHLO mail.rain.com"
-        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753901AbcHZOWN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 Aug 2016 10:22:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Zyngier <marc.zyngier@arm.com>
+Subject: Re: [PATCH V2 02/10] irqchip: xilinx: Add support for parent intc
+Date: Fri, 26 Aug 2016 15:23:01 +0100
+Message-ID: <20160826152301.74132534@arm.com>
+References: <1471527804-26175-1-git-send-email-Zubair.Kakakhel@imgtec.com>
+        <1471527804-26175-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <monstr@monstr.eu>, <ralf@linux-mips.org>, <tglx@linutronix.de>,
+        <jason@lakedaemon.net>, <linux-mips@linux-mips.org>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1471527804-26175-3-git-send-email-Zubair.Kakakhel@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+On Thu, 18 Aug 2016 14:43:16 +0100
+Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com> wrote:
 
-This header file is not used in vxlan.c file.
+> The MIPS based xilfpga platform has the following IRQ structure
+> 
+> Peripherals --> xilinx_intcontroller -> mips_cpu_int controller
+> 
+> Add support for the driver to chain the irq handler
+> 
+> Signed-off-by: Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>
+> 
+> ---
+> V1 -> V2
+> 
+> No change
+> ---
+>  drivers/irqchip/irq-axi-intc.c | 28 +++++++++++++++++++++++++++-
+>  1 file changed, 27 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/irqchip/irq-axi-intc.c b/drivers/irqchip/irq-axi-intc.c
+> index 90bec7d..a0be6fa 100644
+> --- a/drivers/irqchip/irq-axi-intc.c
+> +++ b/drivers/irqchip/irq-axi-intc.c
+> @@ -15,6 +15,7 @@
+>  #include <linux/of_address.h>
+>  #include <linux/io.h>
+>  #include <linux/bug.h>
+> +#include <linux/of_irq.h>
+>  
+>  static void __iomem *intc_baseaddr;
+>  
+> @@ -135,11 +136,26 @@ static const struct irq_domain_ops xintc_irq_domain_ops = {
+>  	.map = xintc_map,
+>  };
+>  
+> +static void xil_intc_irq_handler(struct irq_desc *desc)
+> +{
+> +	u32 pending = get_irq();
+> +
+> +	if (pending != -1U) {
+> +		while (true) {
+> +			pending = get_irq();
+> +			generic_handle_irq(pending);
+> +			if (pending == -1U)
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/vxlan.c | 1 -
- 1 file changed, 1 deletion(-)
+Erm... So even when pending is -1, you're calling generic_handle_irq?
+This doesn't seem right.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index c0dda6f..3f7e0d2 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -27,7 +27,6 @@
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- #include <net/vxlan.h>
--#include <net/protocol.h>
- 
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ip6_tunnel.h>
+You're also missing the chained_irq_enter/exit calls around this loop.
+
+Overall, this should be rewritten in a less cumbersome way. Something
+like:
+
+	do {
+		u32 pending;
+
+		pending = get_irq();
+		if (pending == ~0)
+			break;
+		generic_handle_irq(pending);
+	} while (true);
+
+> +				break;
+> +		}
+> +	}
+> +}
+> +
+>  static int __init xilinx_intc_of_init(struct device_node *intc,
+>  					     struct device_node *parent)
+>  {
+>  	u32 nr_irq, intr_mask;
+> -	int ret;
+> +	int ret, irq;
+> +	struct device_node *parent_node;
+>  
+>  	intc_baseaddr = of_iomap(intc, 0);
+>  	BUG_ON(!intc_baseaddr);
+> @@ -188,6 +204,16 @@ static int __init xilinx_intc_of_init(struct device_node *intc,
+>  	root_domain = irq_domain_add_linear(intc, nr_irq, &xintc_irq_domain_ops,
+>  							(void *)intr_mask);
+>  
+> +	parent_node = of_irq_find_parent(intc);
+
+You already have the parent node as an argument to the function. Why do
+you need to do that again?
+
+> +	if (parent_node) {
+> +		irq = irq_of_parse_and_map(intc, 0);
+> +		if (irq)
+> +			irq_set_chained_handler_and_data(irq,
+> +							 xil_intc_irq_handler,
+> +							 root_domain);
+> +
+> +	}
+> +
+>  	irq_set_default_host(root_domain);
+>  
+>  	return 0;
+
+
+Thanks,
+
+	M.
 -- 
-2.7.4
+Jazz is not dead. It just smells funny.
