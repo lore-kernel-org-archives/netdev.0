@@ -1,587 +1,114 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [RFC 5/9] ipv6: sr: add core files for SR HMAC support
-Date: Fri, 26 Aug 2016 17:54:08 +0200
-Message-ID: <1472226852-10075-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: [RFC 8/9] ipv6: add source address argument for ipv6_push_nfrag_opts
+Date: Fri, 26 Aug 2016 17:54:11 +0200
+Message-ID: <1472226852-10075-4-git-send-email-david.lebrun@uclouvain.be>
 References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35827 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753837AbcHZQEi (ORCPT
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46946 "EHLO
+        smtp3.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753391AbcHZQEi (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 12:04:38 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id F2A7767DBCA
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 17:53:42 +0200 (CEST)
+        by smtp3.sgsi.ucl.ac.be (Postfix) with ESMTPS id E8BEF67DFE4
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 17:53:43 +0200 (CEST)
 In-Reply-To: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the necessary functions to compute and check the HMAC signature
-of an SR-enabled packet. Two HMAC algorithms are supported: hmac(sha1) and
-hmac(sha256).
-
-In order to avoid dynamic memory allocation for each HMAC computation,
-a per-cpu ring buffer is allocated for this purpose.
+This patch prepares for insertion of SRH through setsockopt().
+The new source address argument is used when an HMAC field is
+present in the SRH, which must be filled. The HMAC signature
+process requires the source address as input text.
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- include/linux/seg6_hmac.h      |   6 +
- include/net/seg6_hmac.h        |  61 ++++++
- include/uapi/linux/seg6_hmac.h |  20 ++
- net/ipv6/seg6_hmac.c           | 432 +++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 519 insertions(+)
- create mode 100644 include/linux/seg6_hmac.h
- create mode 100644 include/net/seg6_hmac.h
- create mode 100644 include/uapi/linux/seg6_hmac.h
- create mode 100644 net/ipv6/seg6_hmac.c
+ include/net/ipv6.h    | 3 ++-
+ net/ipv6/exthdrs.c    | 6 +++---
+ net/ipv6/ip6_output.c | 5 +++--
+ net/ipv6/ip6_tunnel.c | 2 +-
+ 4 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/seg6_hmac.h b/include/linux/seg6_hmac.h
-new file mode 100644
-index 0000000..da437eb
---- /dev/null
-+++ b/include/linux/seg6_hmac.h
-@@ -0,0 +1,6 @@
-+#ifndef _LINUX_SEG6_HMAC_H
-+#define _LINUX_SEG6_HMAC_H
-+
-+#include <uapi/linux/seg6_hmac.h>
-+
-+#endif
-diff --git a/include/net/seg6_hmac.h b/include/net/seg6_hmac.h
-new file mode 100644
-index 0000000..6e5ee6a
---- /dev/null
-+++ b/include/net/seg6_hmac.h
-@@ -0,0 +1,61 @@
-+/*
-+ *  SR-IPv6 implementation
-+ *
-+ *  Author:
-+ *  David Lebrun <david.lebrun@uclouvain.be>
-+ *
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *      modify it under the terms of the GNU General Public License
-+ *      as published by the Free Software Foundation; either version
-+ *      2 of the License, or (at your option) any later version.
-+ */
-+
-+#ifndef _NET_SEG6_HMAC_H
-+#define _NET_SEG6_HMAC_H
-+
-+#include <net/flow.h>
-+#include <net/ip6_fib.h>
-+#include <net/sock.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/route.h>
-+#include <net/seg6.h>
-+#include <linux/seg6_hmac.h>
-+
-+#define SEG6_HMAC_MAX_DIGESTSIZE	160
-+#define SEG6_HMAC_RING_SIZE		256
-+
-+struct seg6_hmac_info {
-+	struct list_head list;
-+
-+	u32 hmackeyid;
-+	char secret[SEG6_HMAC_SECRET_LEN];
-+	u8 slen;
-+	u8 alg_id;
-+};
-+
-+struct seg6_hmac_algo {
-+	u8 alg_id;
-+	char name[64];
-+	struct crypto_shash * __percpu *tfms;
-+	struct shash_desc * __percpu *shashs;
-+};
-+
-+extern int seg6_hmac_compute(struct seg6_hmac_info *hinfo,
-+			     struct ipv6_sr_hdr *hdr, struct in6_addr *saddr,
-+			     u8 *output);
-+extern struct seg6_hmac_info *seg6_hmac_info_lookup(struct net *net, u32 key);
-+extern int seg6_hmac_info_add(struct net *net, u32 key,
-+			      struct seg6_hmac_info *hinfo);
-+extern int seg6_hmac_info_del(struct net *net, u32 key,
-+			      struct seg6_hmac_info *hinfo);
-+extern int seg6_push_hmac(struct net *net, struct in6_addr *saddr,
-+			  struct ipv6_sr_hdr *srh);
-+extern bool seg6_hmac_validate_skb(struct sk_buff *skb);
-+extern int seg6_hmac_init(void);
-+extern void seg6_hmac_exit(void);
-+extern int seg6_hmac_net_init(struct net *net);
-+extern void seg6_hmac_net_exit(struct net *net);
-+
-+#endif
-diff --git a/include/uapi/linux/seg6_hmac.h b/include/uapi/linux/seg6_hmac.h
-new file mode 100644
-index 0000000..0b5eda7
---- /dev/null
-+++ b/include/uapi/linux/seg6_hmac.h
-@@ -0,0 +1,20 @@
-+#ifndef _UAPI_LINUX_SEG6_HMAC_H
-+#define _UAPI_LINUX_SEG6_HMAC_H
-+
-+#define SEG6_HMAC_SECRET_LEN	64
-+#define SEG6_HMAC_FIELD_LEN	32
-+
-+struct sr6_tlv_hmac {
-+	__u8 type;
-+	__u8 len;
-+	__u16 reserved;
-+	__be32 hmackeyid;
-+	__u8 hmac[SEG6_HMAC_FIELD_LEN];
-+} __attribute__((packed));
-+
-+enum {
-+	SEG6_HMAC_ALGO_SHA1 = 1,
-+	SEG6_HMAC_ALGO_SHA256 = 2,
-+};
-+
-+#endif
-diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
-new file mode 100644
-index 0000000..91bd59a
---- /dev/null
-+++ b/net/ipv6/seg6_hmac.c
-@@ -0,0 +1,432 @@
-+/*
-+ *  SR-IPv6 implementation -- HMAC functions
-+ *
-+ *  Author:
-+ *  David Lebrun <david.lebrun@uclouvain.be>
-+ *
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *      modify it under the terms of the GNU General Public License
-+ *      as published by the Free Software Foundation; either version
-+ *      2 of the License, or (at your option) any later version.
-+ */
-+
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/socket.h>
-+#include <linux/sockios.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/in6.h>
-+#include <linux/icmpv6.h>
-+#include <linux/mroute6.h>
-+#include <linux/slab.h>
-+
-+#include <linux/netfilter.h>
-+#include <linux/netfilter_ipv6.h>
-+
-+#include <net/sock.h>
-+#include <net/snmp.h>
-+
-+#include <net/ipv6.h>
-+#include <net/protocol.h>
-+#include <net/transp_v6.h>
-+#include <net/rawv6.h>
-+#include <net/ndisc.h>
-+#include <net/ip6_route.h>
-+#include <net/addrconf.h>
-+#include <net/xfrm.h>
-+
-+#include <linux/cryptohash.h>
-+#include <crypto/hash.h>
-+#include <crypto/sha.h>
-+#include <net/seg6.h>
-+#include <net/genetlink.h>
-+#include <net/seg6_hmac.h>
-+#include <linux/random.h>
-+
-+static char * __percpu *hmac_ring;
-+
-+static struct seg6_hmac_algo hmac_algos[] = {
-+	{
-+		.alg_id = SEG6_HMAC_ALGO_SHA1,
-+		.name = "hmac(sha1)",
-+	},
-+	{
-+		.alg_id = SEG6_HMAC_ALGO_SHA256,
-+		.name = "hmac(sha256)",
-+	},
-+};
-+
-+static struct seg6_hmac_algo *__hmac_get_algo(u8 alg_id)
-+{
-+	int i, alg_count;
-+	struct seg6_hmac_algo *algo;
-+
-+	alg_count = sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
-+	for (i = 0; i < alg_count; i++) {
-+		algo = &hmac_algos[i];
-+		if (algo->alg_id == alg_id)
-+			return algo;
-+	}
-+
-+	return NULL;
-+}
-+
-+static int __do_hmac(struct seg6_hmac_info *hinfo, const char *text, u8 psize,
-+		     u8 *output, int outlen)
-+{
-+	struct crypto_shash *tfm;
-+	struct shash_desc *shash;
-+	struct seg6_hmac_algo *algo;
-+	int ret, dgsize;
-+
-+	algo = __hmac_get_algo(hinfo->alg_id);
-+	if (!algo)
-+		return -ENOENT;
-+
-+	tfm = *this_cpu_ptr(algo->tfms);
-+
-+	dgsize = crypto_shash_digestsize(tfm);
-+	if (dgsize > outlen) {
-+		pr_debug("sr-ipv6: __do_hmac: digest size too big (%d / %d)\n",
-+			 dgsize, outlen);
-+		return -ENOMEM;
-+	}
-+
-+	ret = crypto_shash_setkey(tfm, hinfo->secret, hinfo->slen);
-+	if (ret < 0) {
-+		pr_debug("sr-ipv6: crypto_shash_setkey failed: err %d\n", ret);
-+		goto failed;
-+	}
-+
-+	shash = *this_cpu_ptr(algo->shashs);
-+	shash->tfm = tfm;
-+
-+	ret = crypto_shash_digest(shash, text, psize, output);
-+	if (ret < 0) {
-+		pr_debug("sr-ipv6: crypto_shash_digest failed: err %d\n", ret);
-+		goto failed;
-+	}
-+
-+	return dgsize;
-+
-+failed:
-+	return ret;
-+}
-+
-+int seg6_hmac_compute(struct seg6_hmac_info *hinfo, struct ipv6_sr_hdr *hdr,
-+		      struct in6_addr *saddr, u8 *output)
-+{
-+	int plen, i, dgsize, wrsize;
-+	char *ring, *off;
-+	u8 tmp_out[SEG6_HMAC_MAX_DIGESTSIZE];
-+	__be32 hmackeyid = cpu_to_be32(hinfo->hmackeyid);
-+
-+	/* a 160-byte buffer for digest output allows to store highest known
-+	 * hash function (RadioGatun) with up to 1216 bits
-+	 */
-+
-+	/* saddr(16) + first_seg(1) + cleanup(1) + keyid(4) + seglist(16n) */
-+	plen = 16 + 1 + 1 + 4 + (hdr->first_segment + 1) * 16;
-+
-+	/* this limit allows for 14 segments */
-+	if (plen >= SEG6_HMAC_RING_SIZE)
-+		return -EMSGSIZE;
-+
-+	local_bh_disable();
-+	ring = *this_cpu_ptr(hmac_ring);
-+	off = ring;
-+	memcpy(off, saddr, 16);
-+	off += 16;
-+	*off++ = hdr->first_segment;
-+	*off++ = !!(sr_get_flags(hdr) & SR6_FLAG_CLEANUP) << 7;
-+	memcpy(off, &hmackeyid, 4);
-+	off += 4;
-+
-+	for (i = 0; i < hdr->first_segment + 1; i++) {
-+		memcpy(off, hdr->segments + i, 16);
-+		off += 16;
-+	}
-+
-+	dgsize = __do_hmac(hinfo, ring, plen, tmp_out,
-+			   SEG6_HMAC_MAX_DIGESTSIZE);
-+	local_bh_enable();
-+
-+	if (dgsize < 0)
-+		return dgsize;
-+
-+	wrsize = SEG6_HMAC_FIELD_LEN;
-+	if (wrsize > dgsize)
-+		wrsize = dgsize;
-+
-+	memset(output, 0, SEG6_HMAC_FIELD_LEN);
-+	memcpy(output, tmp_out, wrsize);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(seg6_hmac_compute);
-+
-+/* checks if an incoming SR-enabled packet's HMAC status matches
-+ * the incoming policy.
-+ *
-+ * called with rcu_read_lock()
-+ */
-+bool seg6_hmac_validate_skb(struct sk_buff *skb)
-+{
-+	struct inet6_dev *idev;
-+	struct ipv6_sr_hdr *srh;
-+	struct sr6_tlv_hmac *tlv;
-+	struct seg6_hmac_info *hinfo;
-+	struct net *net = dev_net(skb->dev);
-+	u8 hmac_output[SEG6_HMAC_FIELD_LEN];
-+
-+	idev = __in6_dev_get(skb->dev);
-+
-+	srh = (struct ipv6_sr_hdr *)skb_transport_header(skb);
-+
-+	tlv = seg6_get_tlv_hmac(srh);
-+
-+	/* mandatory check but no tlv */
-+	if (idev->cnf.seg6_require_hmac > 0 && !tlv)
-+		return false;
-+
-+	/* no check */
-+	if (idev->cnf.seg6_require_hmac < 0)
-+		return true;
-+
-+	/* check only if present */
-+	if (idev->cnf.seg6_require_hmac == 0 && !tlv)
-+		return true;
-+
-+	/* now, seg6_require_hmac >= 0 && tlv */
-+
-+	hinfo = seg6_hmac_info_lookup(net, be32_to_cpu(tlv->hmackeyid));
-+	if (!hinfo)
-+		return false;
-+
-+	if (seg6_hmac_compute(hinfo, srh, &ipv6_hdr(skb)->saddr, hmac_output))
-+		return false;
-+
-+	if (memcmp(hmac_output, tlv->hmac, SEG6_HMAC_FIELD_LEN) != 0)
-+		return false;
-+
-+	return true;
-+}
-+
-+/* called with rcu_read_lock() */
-+struct seg6_hmac_info *seg6_hmac_info_lookup(struct net *net, u32 key)
-+{
-+	struct seg6_pernet_data *sdata = seg6_pernet(net);
-+	struct seg6_hmac_info *hinfo;
-+
-+	list_for_each_entry_rcu(hinfo, &sdata->hmac_infos, list) {
-+		if (hinfo->hmackeyid == key)
-+			return hinfo;
-+	}
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(seg6_hmac_info_lookup);
-+
-+int seg6_hmac_info_add(struct net *net, u32 key, struct seg6_hmac_info *hinfo)
-+{
-+	struct seg6_pernet_data *sdata = seg6_pernet(net);
-+	struct seg6_hmac_info *old_hinfo;
-+
-+	old_hinfo = seg6_hmac_info_lookup(net, key);
-+	if (old_hinfo)
-+		return -EEXIST;
-+
-+	list_add_rcu(&hinfo->list, &sdata->hmac_infos);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(seg6_hmac_info_add);
-+
-+int seg6_hmac_info_del(struct net *net, u32 key, struct seg6_hmac_info *hinfo)
-+{
-+	struct seg6_hmac_info *tmp;
-+
-+	tmp = seg6_hmac_info_lookup(net, key);
-+	if (!tmp)
-+		return -ENOENT;
-+
-+	/* entry was replaced, ignore deletion */
-+	if (tmp != hinfo)
-+		return -ENOENT;
-+
-+	list_del_rcu(&hinfo->list);
-+	synchronize_net();
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(seg6_hmac_info_del);
-+
-+static void seg6_hmac_info_flush(struct net *net)
-+{
-+	struct seg6_pernet_data *sdata = seg6_pernet(net);
-+	struct seg6_hmac_info *hinfo;
-+
-+	seg6_pernet_lock(net);
-+	while ((hinfo = list_first_or_null_rcu(&sdata->hmac_infos,
-+					       struct seg6_hmac_info,
-+					       list)) != NULL) {
-+		list_del_rcu(&hinfo->list);
-+		seg6_pernet_unlock(net);
-+		synchronize_net();
-+		kfree(hinfo);
-+		seg6_pernet_lock(net);
-+	}
-+
-+	seg6_pernet_unlock(net);
-+}
-+
-+int seg6_push_hmac(struct net *net, struct in6_addr *saddr,
-+		   struct ipv6_sr_hdr *srh)
-+{
-+	struct seg6_hmac_info *hinfo;
-+	int err = -ENOENT;
-+	struct sr6_tlv_hmac *tlv;
-+
-+	tlv = seg6_get_tlv(srh, SR6_TLV_HMAC);
-+	if (!tlv)
-+		return -EINVAL;
-+
-+	rcu_read_lock();
-+
-+	hinfo = seg6_hmac_info_lookup(net, be32_to_cpu(tlv->hmackeyid));
-+	if (!hinfo)
-+		goto out;
-+
-+	memset(tlv->hmac, 0, SEG6_HMAC_FIELD_LEN);
-+	err = seg6_hmac_compute(hinfo, srh, saddr, tlv->hmac);
-+
-+out:
-+	rcu_read_unlock();
-+	return err;
-+}
-+EXPORT_SYMBOL(seg6_push_hmac);
-+
-+static int seg6_hmac_init_ring(void)
-+{
-+	int i;
-+
-+	hmac_ring = alloc_percpu(char *);
-+
-+	if (!hmac_ring)
-+		return -ENOMEM;
-+
-+	for_each_possible_cpu(i) {
-+		char *ring = kzalloc(SEG6_HMAC_RING_SIZE, GFP_KERNEL);
-+
-+		if (!ring)
-+			return -ENOMEM;
-+
-+		*per_cpu_ptr(hmac_ring, i) = ring;
-+	}
-+
-+	return 0;
-+}
-+
-+static int seg6_hmac_init_algo(void)
-+{
-+	int i, alg_count, cpu;
-+	struct seg6_hmac_algo *algo;
-+	struct crypto_shash *tfm;
-+	struct shash_desc *shash;
-+
-+	alg_count = sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
-+
-+	for (i = 0; i < alg_count; i++) {
-+		int shsize;
-+		struct crypto_shash **p_tfm;
-+
-+		algo = &hmac_algos[i];
-+		algo->tfms = alloc_percpu(struct crypto_shash *);
-+		if (!algo->tfms)
-+			return -ENOMEM;
-+
-+		for_each_possible_cpu(cpu) {
-+			tfm = crypto_alloc_shash(algo->name, 0, GFP_KERNEL);
-+			if (IS_ERR(tfm))
-+				return PTR_ERR(tfm);
-+			p_tfm = per_cpu_ptr(algo->tfms, cpu);
-+			*p_tfm = tfm;
-+		}
-+
-+		p_tfm = this_cpu_ptr(algo->tfms);
-+		tfm = *p_tfm;
-+
-+		shsize = sizeof(*shash) + crypto_shash_descsize(tfm);
-+
-+		algo->shashs = alloc_percpu(struct shash_desc *);
-+		if (!algo->shashs)
-+			return -ENOMEM;
-+
-+		for_each_possible_cpu(cpu) {
-+			shash = kzalloc(shsize, GFP_KERNEL);
-+			if (!shash)
-+				return -ENOMEM;
-+			*per_cpu_ptr(algo->shashs, cpu) = shash;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+int __init seg6_hmac_init(void)
-+{
-+	int ret;
-+
-+	ret = seg6_hmac_init_ring();
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = seg6_hmac_init_algo();
-+
-+out:
-+	return ret;
-+}
-+
-+int __net_init seg6_hmac_net_init(struct net *net)
-+{
-+	struct seg6_pernet_data *sdata = seg6_pernet(net);
-+
-+	INIT_LIST_HEAD(&sdata->hmac_infos);
-+	return 0;
-+}
-+
-+void __exit seg6_hmac_exit(void)
-+{
-+	int i, alg_count, cpu;
-+	struct seg6_hmac_algo *algo = NULL;
-+
-+	for_each_possible_cpu(i) {
-+		char *ring = *per_cpu_ptr(hmac_ring, i);
-+
-+		kfree(ring);
-+	}
-+	free_percpu(hmac_ring);
-+
-+	alg_count = sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
-+	for (i = 0; i < alg_count; i++) {
-+		algo = &hmac_algos[i];
-+		for_each_possible_cpu(cpu) {
-+			struct crypto_shash *tfm;
-+			struct shash_desc *shash;
-+
-+			shash = *per_cpu_ptr(algo->shashs, cpu);
-+			kfree(shash);
-+			tfm = *per_cpu_ptr(algo->tfms, cpu);
-+			crypto_free_shash(tfm);
-+		}
-+		free_percpu(algo->tfms);
-+		free_percpu(algo->shashs);
-+	}
-+}
-+
-+void __net_exit seg6_hmac_net_exit(struct net *net)
-+{
-+	seg6_hmac_info_flush(net);
-+}
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 8fed1cd..0a3622b 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -932,7 +932,8 @@ int ip6_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
+  */
+ 
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+-			  u8 *proto, struct in6_addr **daddr_p);
++			  u8 *proto, struct in6_addr **daddr_p,
++			  struct in6_addr *saddr);
+ void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			 u8 *proto);
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 92b684a..ff469b5 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -833,7 +833,7 @@ int ipv6_parse_hopopts(struct sk_buff *skb)
+ 
+ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
+ 			    struct ipv6_rt_hdr *opt,
+-			    struct in6_addr **addr_p)
++			    struct in6_addr **addr_p, struct in6_addr *saddr)
+ {
+ 	struct rt0_hdr *phdr, *ihdr;
+ 	int hops;
+@@ -867,10 +867,10 @@ static void ipv6_push_exthdr(struct sk_buff *skb, u8 *proto, u8 type, struct ipv
+ 
+ void ipv6_push_nfrag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt,
+ 			  u8 *proto,
+-			  struct in6_addr **daddr)
++			  struct in6_addr **daddr, struct in6_addr *saddr)
+ {
+ 	if (opt->srcrt) {
+-		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr);
++		ipv6_push_rthdr(skb, proto, opt->srcrt, daddr, saddr);
+ 		/*
+ 		 * IPV6_RTHDRDSTOPTS is ignored
+ 		 * unless IPV6_RTHDR is set (RFC3542).
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 1dfc402..8cd620b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -195,7 +195,8 @@ int ip6_xmit(const struct sock *sk, struct sk_buff *skb, struct flowi6 *fl6,
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
+ 		if (opt->opt_nflen)
+-			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop);
++			ipv6_push_nfrag_opts(skb, opt, &proto, &first_hop,
++					     &fl6->saddr);
+ 	}
+ 
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+@@ -1665,7 +1666,7 @@ struct sk_buff *__ip6_make_skb(struct sock *sk,
+ 	if (opt && opt->opt_flen)
+ 		ipv6_push_frag_opts(skb, opt, &proto);
+ 	if (opt && opt->opt_nflen)
+-		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst);
++		ipv6_push_nfrag_opts(skb, opt, &proto, &final_dst, &fl6->saddr);
+ 
+ 	skb_push(skb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(skb);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 2050217..c02fd95 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1117,7 +1117,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
+ 
+ 	if (encap_limit >= 0) {
+ 		init_tel_txopt(&opt, encap_limit);
+-		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL);
++		ipv6_push_nfrag_opts(skb, &opt.ops, &proto, NULL, NULL);
+ 	}
+ 
+ 	/* Calculate max headroom for all the headers and adjust
 -- 
 2.3.6
