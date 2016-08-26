@@ -1,49 +1,45 @@
-From: Eli Cooper <elicooper@gmx.com>
-Subject: [PATCH] ipv6: Don't unset flowi6_proto in ipxip6_tnl_xmit()
-Date: Fri, 26 Aug 2016 23:52:29 +0800
-Message-ID: <20160826155229.8040-1-elicooper@gmx.com>
-Cc: "David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [RFC 3/9] ipv6: route: export symbol ip6_route_input
+Date: Fri, 26 Aug 2016 17:52:41 +0200
+Message-ID: <1472226767-9904-4-git-send-email-david.lebrun@uclouvain.be>
+References: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:56427 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752855AbcHZPwn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 26 Aug 2016 11:52:43 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:43347 "EHLO
+        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753444AbcHZP7P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 11:59:15 -0400
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp1.sgsi.ucl.ac.be (Postfix) with ESMTPS id E2A3F67DBD8
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 17:52:18 +0200 (CEST)
+In-Reply-To: <1472226767-9904-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 8eb30be0352d0916 ("ipv6: Create ip6_tnl_xmit") unsets
-flowi6_proto in ip4ip6_tnl_xmit() and ip6ip6_tnl_xmit().
-Since xfrm_selector_match() relies on this info, IPv6 packets
-sent by an ip6tunnel cannot be properly selected by their
-protocols after removing it. This patch puts flowi6_proto back.
+The function ip6_route_input() is used in the seg6_iptunnel module
+and thus needs to be exported when CONFIG_IPV6_SEG6_IPTUNNEL=m
 
-Cc: stable@vger.kernel.org
-Fixes: 8eb30be0352d ("ipv6: Create ip6_tnl_xmit")
-Signed-off-by: Eli Cooper <elicooper@gmx.com>
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- net/ipv6/ip6_tunnel.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv6/route.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 2050217..5c57797 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1174,6 +1174,7 @@ ip4ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		encap_limit = t->parms.encap_limit;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4981755..7d8d108 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1178,6 +1178,7 @@ void ip6_route_input(struct sk_buff *skb)
+ 	skb_dst_drop(skb);
+ 	skb_dst_set(skb, ip6_route_input_lookup(net, skb->dev, &fl6, flags));
+ }
++EXPORT_SYMBOL(ip6_route_input);
  
- 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
-+	fl6.flowi6_proto = IPPROTO_IPIP;
- 
- 	dsfield = ipv4_get_dsfield(iph);
- 
-@@ -1233,6 +1234,7 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev)
- 		encap_limit = t->parms.encap_limit;
- 
- 	memcpy(&fl6, &t->fl.u.ip6, sizeof(fl6));
-+	fl6.flowi6_proto = IPPROTO_IPV6;
- 
- 	dsfield = ipv6_get_dsfield(ipv6h);
- 	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
+ static struct rt6_info *ip6_pol_route_output(struct net *net, struct fib6_table *table,
+ 					     struct flowi6 *fl6, int flags)
 -- 
-2.9.3
+2.3.6
