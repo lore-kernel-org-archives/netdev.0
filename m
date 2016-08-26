@@ -1,53 +1,49 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: batch calls to flush_all_backlogs()
-Date: Fri, 26 Aug 2016 22:21:04 +0200
-Message-ID: <1472242864.3664803.707324577.7641976D@webmail.messagingengine.com>
-References: <1472241039.14381.202.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: kernel BUG at net/unix/garbage.c:149!"
+Date: Fri, 26 Aug 2016 22:24:26 +0200
+Message-ID: <1fbcb2c7-f004-4f2d-634e-a807dd5ec984@stressinduktion.org>
+References: <57BDAE06.1040400@kyup.com>
+ <9dde3145-9128-ffef-1b84-e3bd429dd4e8@stressinduktion.org>
+ <CAJFSNy6rEpy7JcimW_jiOkgtWtDQgMaQJhcFHvRqgj92HibAvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:43994 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751014AbcHZUW2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 16:22:28 -0400
-In-Reply-To: <1472241039.14381.202.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mszeredi@redhat.com,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Nikolay Borisov <kernel@kyup.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJFSNy6rEpy7JcimW_jiOkgtWtDQgMaQJhcFHvRqgj92HibAvQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 26, 2016, at 21:50, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On 25.08.2016 01:30, Nikolay Borisov wrote:
+> On Thu, Aug 25, 2016 at 12:40 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On 24.08.2016 16:24, Nikolay Borisov wrote:
+> [SNIP]
+>>
+>> One commit which could have to do with that is
+>>
+>> commit fc64869c48494a401b1fb627c9ecc4e6c1d74b0d
+>> Author: Andrey Ryabinin <aryabinin@virtuozzo.com>
+>> Date:   Wed May 18 19:19:27 2016 +0300
+>>
+>>     net: sock: move ->sk_shutdown out of bitfields.
+>>
+>> but that is only a wild guess.
+>>
+>> Which unix_sock did you extract specifically in the url you provided? In
+>> unix_notinflight we are specifically checking an unix domain socket that
+>> is itself being transferred over another af_unix domain socket and not
+>> the unix domain socket being released at this point.
 > 
-> After commit 145dd5f9c88f ("net: flush the softnet backlog in process
-> context"), we can easily batch calls to flush_all_backlogs() for all
-> devices processed in rollback_registered_many()
-> 
-> Tested:
-> 
-> Before patch, on an idle host.
-> 
-> modprobe dummy numdummies=10000
-> perf stat -e context-switches -a rmmod dummy
-> 
->  Performance counter stats for 'system wide':
-> 
->          1,211,798      context-switches
-> 
->        1.302137465 seconds time elapsed
-> 
-> After patch:
-> 
-> perf stat -e context-switches -a rmmod dummy
-> 
->  Performance counter stats for 'system wide':
-> 
->            225,523      context-switches
-> 
->        0.721623566 seconds time elapsed
+> So this is the state of the socket that is being passed to
+> unix_notinflight. I have a complete crashdump so if you need more info
+> to diagnose it I'm happy to provide it. I'm not too familiar with the
+> code in question so I will need a bit of time to grasp what actually
+> is happening.
 
-Cool demonstration! :}
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Would probably be helpful. I couldn't spot anything so far
+unfortunately. Also moving sockets over sockets which get closed
+inflight seemed to work fine.
