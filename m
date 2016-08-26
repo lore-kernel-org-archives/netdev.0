@@ -1,110 +1,82 @@
-From: Richard Alpe <richard.alpe@ericsson.com>
-Subject: [PATCH net-next 2/7] tipc: split UDP send function
-Date: Fri, 26 Aug 2016 10:52:51 +0200
-Message-ID: <1472201576-26588-3-git-send-email-richard.alpe@ericsson.com>
-References: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
+From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH net-next v11 5/6] openvswitch: add layer 3
+ flow/port support
+Date: Fri, 26 Aug 2016 11:13:24 +0200
+Message-ID: <20160826091322.GE22464@penelope.isobedori.kobe.vergenet.net>
+References: <CAOrHB_CUPCfAPKfoco9GghiAZ=QyEqxpd90uo3NvEtG9STXMVA@mail.gmail.com>
+ <20160808151716.GA8477@penelope.isobedori.kobe.vergenet.net>
+ <CAOrHB_BYtGsWPSs2pxTjPajqFEP=5YySmqjc93NbdtY96-dYfw@mail.gmail.com>
+ <20160810102043.GE5451@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7F4bSMUhzoCJhEk5bP7V_yOTvBQwDmzCXb6Jpa72ov76g@mail.gmail.com>
+ <20160822110444.GA29971@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7EQhbcDEk==AmN58Qxndmd6oHpw8z78kj2Q4M4-mD7+Dw@mail.gmail.com>
+ <20160823085144.GA22304@penelope.isobedori.kobe.vergenet.net>
+ <20160825100833.GA31926@penelope.isobedori.kobe.vergenet.net>
+ <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tipc-discussion@lists.sourceforge.net
-To: <netdev@vger.kernel.org>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7G8RekHoTMNR5jAJGu7n2i8fNZ1=Fvj4XX_tXVSovpGug-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Split the UDP send function into two. One callback that prepares the
-skb and one transmit function that sends the skb. This will come in
-handy in later patches, when we introduce UDP replicast.
-
-Signed-off-by: Richard Alpe <richard.alpe@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/udp_media.c | 50 ++++++++++++++++++++++++++++++++------------------
- 1 file changed, 32 insertions(+), 18 deletions(-)
-
-diff --git a/net/tipc/udp_media.c b/net/tipc/udp_media.c
-index adb3c21..7033b4a 100644
---- a/net/tipc/udp_media.c
-+++ b/net/tipc/udp_media.c
-@@ -140,28 +140,13 @@ static int tipc_udp_addr2msg(char *msg, struct tipc_media_addr *a)
- }
- 
- /* tipc_send_msg - enqueue a send request */
--static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
--			     struct tipc_bearer *b,
--			     struct tipc_media_addr *dest)
-+static int tipc_udp_xmit(struct net *net, struct sk_buff *skb,
-+			 struct udp_bearer *ub, struct udp_media_addr *src,
-+			 struct udp_media_addr *dst)
- {
- 	int ttl, err = 0;
--	struct udp_bearer *ub;
--	struct udp_media_addr *dst = (struct udp_media_addr *)&dest->value;
--	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
- 	struct rtable *rt;
- 
--	if (skb_headroom(skb) < UDP_MIN_HEADROOM) {
--		err = pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
--		if (err)
--			goto tx_error;
--	}
--
--	skb_set_inner_protocol(skb, htons(ETH_P_TIPC));
--	ub = rcu_dereference_rtnl(b->media_ptr);
--	if (!ub) {
--		err = -ENODEV;
--		goto tx_error;
--	}
- 	if (dst->proto == htons(ETH_P_IP)) {
- 		struct flowi4 fl = {
- 			.daddr = dst->ipv4.s_addr,
-@@ -207,6 +192,35 @@ tx_error:
- 	return err;
- }
- 
-+static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
-+			     struct tipc_bearer *b,
-+			     struct tipc_media_addr *addr)
-+{
-+	struct udp_media_addr *src = (struct udp_media_addr *)&b->addr.value;
-+	struct udp_media_addr *dst = (struct udp_media_addr *)&addr->value;
-+	struct udp_bearer *ub;
-+	int err = 0;
-+
-+	if (skb_headroom(skb) < UDP_MIN_HEADROOM) {
-+		err = pskb_expand_head(skb, UDP_MIN_HEADROOM, 0, GFP_ATOMIC);
-+		if (err)
-+			goto tx_error;
-+	}
-+
-+	skb_set_inner_protocol(skb, htons(ETH_P_TIPC));
-+	ub = rcu_dereference_rtnl(b->media_ptr);
-+	if (!ub) {
-+		err = -ENODEV;
-+		goto tx_error;
-+	}
-+
-+	return tipc_udp_xmit(net, skb, ub, src, dst);
-+
-+tx_error:
-+	kfree_skb(skb);
-+	return err;
-+}
-+
- /* tipc_udp_recv - read data from bearer socket */
- static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
- {
--- 
-2.1.4
-
-
-------------------------------------------------------------------------------
+T24gVGh1LCBBdWcgMjUsIDIwMTYgYXQgMDU6MzM6NTdQTSAtMDcwMCwgSm9lIFN0cmluZ2VyIHdy
+b3RlOgo+IE9uIDI1IEF1Z3VzdCAyMDE2IGF0IDAzOjA4LCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhv
+cm1hbkBuZXRyb25vbWUuY29tPiB3cm90ZToKPiA+IFBsZWFzZSBmaW5kIG15IHdvcmtpbmcgcGF0
+Y2ggYmVsb3cuCj4gPgo+ID4gRnJvbTogU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+
+Cj4gPiBTdWJqZWN0OiBbUEFUQ0hdIHN5c3RlbS10cmFmZmljOiBFeGVyY2lzZSBHU08KPiA+Cj4g
+PiBFeGVyY2lzZSBHU08gZm9yOiB1bmVuY2Fwc3VsYXRlZDsgTVBMUzsgR1JFOyBhbmQgTVBMUyBp
+biBHUkUuCj4gPgo+ID4gVGhlcmUgaXMgc2NvcGUgdG8gZXh0ZW5kIHRoaXMgdGVzdGluZyB0byBv
+dGhlciBlbmNhcHN1bGF0aW9uIGZvcm1hdHMKPiA+IGlmIGRlc2lyZWQuCj4gPgo+ID4gVGhpcyBp
+cyBtb3RpdmF0ZWQgYnkgYSBkZXNpcmUgdG8gdGVzdCBHUkUgYW5kIE1QTFMgZW5jYXBzdWxhdGlv
+biBpbgo+ID4gdGhlIGNvbnRleHQgb2YgTDMvVlBOIChNUExTIG92ZXIgbm9uLVRFQiBHUkUgd29y
+aykuIFRoYXQgaXMgbm90Cj4gPiB0ZXN0ZWQgaGVyZSBidXQgdGVzdHMgZm9yIHRob3NlIGNhc2Vz
+IHdvdWxkIGlkZWFseSBiZSBiYXNlZCBvbiB0aG9zZSBpbgo+ID4gdGhpcyBwYXRjaC4KPiA+Cj4g
+PiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPGhvcm1zQHZlcmdlLm5ldC5hdT4KPiAKPiBJ
+IHJlYWxpc2VkIHRoYXQgdGhlc2UgdGVzdHMgZGlzYWJsZSBUU08sIGJ1dCB0aGV5IGRvbid0IGFj
+dHVhbGx5IGNoZWNrCj4gaWYgR1NPIGlzIGVuYWJsZWQuIE1heWJlIGl0J3Mgc2FmZSB0byBhc3N1
+bWUgdGhpcywgYnV0IGl0J3MgbW9yZQo+IGV4cGxpY2l0IHRvIGFjdHVhbGx5IGxvb2sgZm9yIGl0
+IGluIHRoZSB0ZXN0cy4KCkdvb2QgcG9pbnQsIEknbGwgc2VlIGFib3V0IGNoZWNraW5nIHRoYXQu
+Cgo+IFdpdGggcGFydGljdWxhciBzZXR1cHMgKGZlZG9yYTIzIGluIHBhcnRpY3VsYXIsIGJvdGgg
+a2VybmVsIGFuZAo+IHVzZXJzcGFjZSB0ZXN0c3VpdGVzKSBJIHNlZSB0aGlzOgo+IAo+IC4vc3lz
+dGVtLXRyYWZmaWMuYXQ6MzcxOiBpcCBuZXRucyBleGVjIGF0X25zMCBzaCA8PCBOU19FWEVDX0hF
+UkVET0MKPiBpcCByb3V0ZSBhZGQgMTAuMS4yLjAvMjQgZW5jYXAgbXBscyAxMDAgdmlhIGluZXQg
+MTAuMS4xLjIgZGV2IG5zX2dyZTAKPiBOU19FWEVDX0hFUkVET0MKPiAtLS0gL2Rldi9udWxsIDIw
+MTYtMDgtMTkgMDE6Mjg6MDIuMTUxMDAwMDAwICswMDAwCj4gKysrIC9ob21lL2dpdGxhYi1ydW5u
+ZXIvYnVpbGRzLzgzYzQ5YmZmLzAvcm9vdC9naXRsYWItb3ZzL292cy90ZXN0cy9zeXN0ZW0ta21v
+ZC10ZXN0c3VpdGUuZGlyL2F0LWdyb3Vwcy8xMC9zdGRlcnIKPiAyMDE2LTA4LTI1IDE3OjE2OjI3
+LjMyNDAwMDAwMCArMDAwMAo+IEBAIC0wLDAgKzEgQEAKPiArRXJyb3I6IGVpdGhlciAidG8iIGlz
+IGR1cGxpY2F0ZSwgb3IgImVuY2FwIiBpcyBhIGdhcmJhZ2UuCj4gCj4gSSdtIGd1ZXNzaW5nIHRo
+ZSBpcCB0b29sIGlzIGEgbGl0dGxlIG91dCBvZiBkYXRlLiBXZSBjb3VsZCBkZXRlY3QgYW5kCj4g
+c2tpcCB0aGlzIHdpdGggc29tZXRoaW5nIGxpa2U6Cj4gCj4gQVRfU0tJUF9JRihbaXAgcm91dGUg
+aGVscCAyPiYxIHwgZ3JlcCBlbmNhcF0pCj4gCj4gaW4gdGhlIENIRUNLX01QTFMuCgpUaGFua3Ms
+IEknbGwgYWRkIHNvbWV0aGluZyBsaWtlIHRoYXQuCgo+IEhtbSwgSSdtIHN0aWxsIHNlZWluZyB0
+aGUgYmFkIGNvdW50cyBvZiBzZWdtZW50cyByZXRyYW5zbWl0ZWQgZXZlbgo+IHdpdGggdGhlIGRp
+ZmYgY2hhbmdlIG9uIGEga2VybmVsIEkgaGF2ZSBidWlsdCBhdCBiZjBmNTAwYmQwMTkgKCJNZXJn
+ZQo+IHRhZyAndHJhY2UtdjQuOC0xJyBvZgo+IGdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20v
+bGludXgva2VybmVsL2dpdC9yb3N0ZWR0L2xpbnV4LXRyYWNlIikuCj4gSWYgaXQncyBwYXNzaW5n
+IG9uIGxhdGVzdCBuZXQtbmV4dCB0aGVuIG1heWJlIEkganVzdCBuZWVkIHRvIHN3YXAgb3V0Cj4g
+dGhhdCBib3gncyBrZXJuZWwgZm9yIGEgbmV3ZXIgYnVpbGQuIEknbGwgdHJ5IHRoYXQuCgpJdCBp
+cyBwb3NzaWJsZSB0aGF0IGl0IGlzIGRldGVjdGluZyBhIGJ1Zy4KV2hpY2ggdGVzdCBpcyBmYWls
+aW5nPwoKQXQgdGhpcyBzdGFnZSBJIGhhdmUgbW9zdGx5IGFkZGVkIFRTTy9HU08gdGVzdGluZyB0
+byBleGlzdGluZyBjaGVja3MuClBlcmhhcHMgaXQgd291bGQgYmUgYmV0dGVyIHRvIGJyZWFrIHRo
+ZW0gb3V0IGludG8gc2VwYXJhdGUgY2hlY2tzIHNvCnBpbmcvaHR0cCBjYW4gYmUgYmUgY2hlY2tl
+ZCB3aXRob3V0IGNvbnNpZGVyaW5nIFRTTy9HU08gd2hpY2ggbWF5IGhhdmUgc29tZQp2YWx1ZSBp
+biBzaXR1YXRpb25zIHdoZXJlIFRTTy9HU08gaXMgYnJva2VuIHdoaWNoIGlzIGFjdHVhbGx5IHdo
+YXQgSSBhbQppbnRlcmVzdGVkIGluIHRlc3RpbmcuCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9y
+ZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
