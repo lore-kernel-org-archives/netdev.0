@@ -1,50 +1,39 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next v2] chcr: Fix non static symbol warning
-Date: Fri, 26 Aug 2016 14:21:08 +0000
-Message-ID: <1472221268-25123-1-git-send-email-weiyj.lk@gmail.com>
-References: <1471882278-25777-1-git-send-email-weiyj.lk@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, linux-crypto@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hariprasad Shenai <hariprasad@chelsio.com>,
-        Atul Gupta <atul.gupta@chelsio.com>
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] vxlan: remove the useless header file protocol.h
+Date: Fri, 26 Aug 2016 22:21:47 +0800
+Message-ID: <1472221307-13291-1-git-send-email-zyjzyj2000@gmail.com>
+To: netdev@vger.kernel.org, pabeni@redhat.com, daniel@iogearbox.net,
+        pshelar@nicira.com, aduyck@mirantis.com,
+        hannes@stressinduktion.org, jbenc@redhat.com, davem@davemloft.net,
+        zyjzyj2000@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33156 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752864AbcHZOVg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 10:21:36 -0400
-In-Reply-To: <1471882278-25777-1-git-send-email-weiyj.lk@gmail.com>
+Received: from [114.253.60.16] ([114.253.60.16]:60968 "EHLO mail.rain.com"
+        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753901AbcHZOWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 26 Aug 2016 10:22:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-Fixes the following sparse warning:
+This header file is not used in vxlan.c file.
 
-drivers/crypto/chelsio/chcr_algo.c:593:5: warning:
- symbol 'cxgb4_is_crypto_q_full' was not declared. Should it be static?
-
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
 ---
-v1 -> v2: cc netdev maillist
----
- drivers/crypto/chelsio/chcr_algo.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/vxlan.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index ad8e353..e4ddb92 100644
---- a/drivers/crypto/chelsio/chcr_algo.c
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -590,7 +590,7 @@ badkey_err:
- 	return -EINVAL;
- }
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index c0dda6f..3f7e0d2 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -27,7 +27,6 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/vxlan.h>
+-#include <net/protocol.h>
  
--int cxgb4_is_crypto_q_full(struct net_device *dev, unsigned int idx)
-+static int cxgb4_is_crypto_q_full(struct net_device *dev, unsigned int idx)
- {
- 	int ret = 0;
- 	struct sge_ofld_txq *q;
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ip6_tunnel.h>
+-- 
+2.7.4
