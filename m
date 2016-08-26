@@ -1,69 +1,101 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next v1] gso: Support partial splitting at the
- frag_list pointer
-Date: Fri, 26 Aug 2016 13:59:59 -0700
-Message-ID: <CAKgT0UerR_D7xi6GNpJbB0cwjNLFCM4_7BMe2Yg-XPZ+u8dcuw@mail.gmail.com>
-References: <20160823052030.GI3735@gauss.secunet.com> <CAKgT0UdATK8LUiTQ3sn0nrJTtk9oo29k7CrNdZavsPie_Pte0w@mail.gmail.com>
- <20160824093226.GN3735@gauss.secunet.com> <CAKgT0Ucp_M-oCDjvi2Aay=aNBTH=-sGEVxUgq0b=5KrX8j3O9Q@mail.gmail.com>
- <20160825110019.GR3735@gauss.secunet.com>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: [PATCH] net/mlx4_en: protect ring->xdp_prog with rcu_read_lock
+Date: Fri, 26 Aug 2016 14:01:05 -0700
+Message-ID: <20160826210104.GA5063@gmail.com>
+References: <20160826203808.23664-1-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <ttoukan.linux@gmail.com>,
+        Or Gerlitz <gerlitz.or@gmail.com>,
+        Tom Herbert <tom@herbertland.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:33180 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752158AbcHZVAB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 17:00:01 -0400
-Received: by mail-it0-f54.google.com with SMTP id j128so5592808ith.0
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 14:00:01 -0700 (PDT)
-In-Reply-To: <20160825110019.GR3735@gauss.secunet.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33250 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbcHZVBJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 17:01:09 -0400
+Received: by mail-pf0-f172.google.com with SMTP id y134so31930296pfg.0
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 14:01:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160826203808.23664-1-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 25, 2016 at 4:00 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index 989a362..ac46233 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1190,7 +1190,7 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
->  struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->                                  netdev_features_t features)
->  {
-> -       bool udpfrag = false, fixedid = false, encap;
-> +       bool udpfrag = false, fixedid = false, gso_partial, encap;
->         struct sk_buff *segs = ERR_PTR(-EINVAL);
->         const struct net_offload *ops;
->         unsigned int offset = 0;
-> @@ -1243,6 +1243,8 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->         if (IS_ERR_OR_NULL(segs))
->                 goto out;
->
-> +       gso_partial = !!(skb_shinfo(segs)->gso_type & SKB_GSO_PARTIAL);
-> +
->         skb = segs;
->         do {
->                 iph = (struct iphdr *)(skb_mac_header(skb) + nhoff);
-> @@ -1252,7 +1254,7 @@ struct sk_buff *inet_gso_segment(struct sk_buff *skb,
->                                 iph->frag_off |= htons(IP_MF);
->                         offset += skb->len - nhoff - ihl;
->                         tot_len = skb->len - nhoff;
-> -               } else if (skb_is_gso(skb)) {
-> +               } else if (skb_is_gso(skb) && gso_partial) {
->                         if (!fixedid) {
->                                 iph->id = htons(id);
->                                 id += skb_shinfo(skb)->gso_segs;
-
-So I was thinking about it and it occurred to me that this part of the
-patch has a slight bug.  What you may want to do is take this section
-and merge it with the next so that you get the IPv4 IDs right.  Right
-now you are skipping this section so id is only increments by 1 in the
-next section.  This will result in overlapping IDs in the final
-result.  It should be updating like the code here shows for the
-gso_partial portion.
-
-- Alex
+On Fri, Aug 26, 2016 at 01:38:08PM -0700, Brenden Blanco wrote:
+> Depending on the preempt mode, the bpf_prog stored in xdp_prog may be
+> freed despite the use of call_rcu inside bpf_prog_put. The situation is
+> possible when running in PREEMPT_RCU=y mode, for instance, since the rcu
+> callback for destroying the bpf prog can run even during the bh handling
+> in the mlx4 rx path.
+> 
+> Several options were considered before this patch was settled on:
+> 
+> Add a napi_synchronize loop in mlx4_xdp_set, which would occur after all
+> of the rings are updated with the new program.
+> This approach has the disadvantage that as the number of rings
+> increases, the speed of udpate will slow down significantly due to
+I belatedly ran checkpatch, which pointed out the spelling mistake here.
+I will update the udpate after waiting to see what other discussion
+happens on this.
+> napi_synchronize's msleep(1).
+> 
+> Add a new rcu_head in bpf_prog_aux, to be used by a new bpf_prog_put_bh.
+> The action of the bpf_prog_put_bh would be to then call bpf_prog_put
+> later. Those drivers that consume a bpf prog in a bh context (like mlx4)
+> would then use the bpf_prog_put_bh instead when the ring is up. This has
+> the problem of complexity, in maintaining proper refcnts and rcu lists,
+> and would likely be harder to review. In addition, this approach to
+> freeing must be exclusive with other frees of the bpf prog, for instance
+> a _bh prog must not be referenced from a prog array that is consumed by
+> a non-_bh prog.
+> 
+> The placement of rcu_read_lock in this patch is functionally the same as
+> putting an rcu_read_lock in napi_poll. Actually doing so could be a
+> potentially controversial change, but would bring the implementation in
+> line with sk_busy_loop (though of course the nature of those two paths
+> is substantially different), and would also avoid future copy/paste
+> problems with future supporters of XDP. Still, this patch does not take
+> that opinionated option.
+> 
+> Testing was done with kernels in either PREEMPT_RCU=y or
+> CONFIG_PREEMPT_VOLUNTARY=y+PREEMPT_RCU=n modes, with neither exhibiting
+> any drawback. With PREEMPT_RCU=n, the extra call to rcu_read_lock did
+> not show up in the perf report whatsoever, and with PREEMPT_RCU=y the
+> overhead of rcu_read_lock (according to perf) was the same before/after.
+> In the rx path, rcu_read_lock is eventually called for every packet
+> from netif_receive_skb_internal, so the napi poll call's rcu_read_lock
+> is easily amortized.
+> 
+> Fixes: d576acf0a22 ("net/mlx4_en: add page recycle to prepare rx ring for tx support")
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index 2040dad..efed546 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -800,6 +800,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>  	if (budget <= 0)
+>  		return polled;
+>  
+> +	rcu_read_lock();
+>  	xdp_prog = READ_ONCE(ring->xdp_prog);
+>  	doorbell_pending = 0;
+>  	tx_index = (priv->tx_ring_num - priv->xdp_ring_num) + cq->ring;
+> @@ -1077,6 +1078,7 @@ consumed:
+>  	}
+>  
+>  out:
+> +	rcu_read_unlock();
+>  	if (doorbell_pending)
+>  		mlx4_en_xmit_doorbell(priv->tx_ring[tx_index]);
+>  
+> -- 
+> 2.9.3
+> 
