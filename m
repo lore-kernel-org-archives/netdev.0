@@ -1,30 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-v3 0/6] net: dsa: Make bcm_sf2 utilize
- b53_common
-Date: Fri, 26 Aug 2016 13:16:10 -0700 (PDT)
-Message-ID: <20160826.131610.1187541386568091948.davem@davemloft.net>
-References: <1472239114-26212-1-git-send-email-f.fainelli@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net: batch calls to flush_all_backlogs()
+Date: Fri, 26 Aug 2016 22:21:04 +0200
+Message-ID: <1472242864.3664803.707324577.7641976D@webmail.messagingengine.com>
+References: <1472241039.14381.202.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, jonas.gorski@gmail.com
-To: f.fainelli@gmail.com
+Cc: netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60341 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751671AbcHZUX6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 16:23:58 -0400
-In-Reply-To: <1472239114-26212-1-git-send-email-f.fainelli@gmail.com>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:43994 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751014AbcHZUW2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 16:22:28 -0400
+In-Reply-To: <1472241039.14381.202.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 26 Aug 2016 12:18:28 -0700
-
-> Changes in v3:
+On Fri, Aug 26, 2016, at 21:50, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> - rebase against 145dd5f9c88f6ee645662df0be003e8f04bdae93 ("net: flush the
->   softnet backlog in process context")
+> After commit 145dd5f9c88f ("net: flush the softnet backlog in process
+> context"), we can easily batch calls to flush_all_backlogs() for all
+> devices processed in rollback_registered_many()
+> 
+> Tested:
+> 
+> Before patch, on an idle host.
+> 
+> modprobe dummy numdummies=10000
+> perf stat -e context-switches -a rmmod dummy
+> 
+>  Performance counter stats for 'system wide':
+> 
+>          1,211,798      context-switches
+> 
+>        1.302137465 seconds time elapsed
+> 
+> After patch:
+> 
+> perf stat -e context-switches -a rmmod dummy
+> 
+>  Performance counter stats for 'system wide':
+> 
+>            225,523      context-switches
+> 
+>        0.721623566 seconds time elapsed
 
-This is a lot better, series applied, thanks!
+Cool demonstration! :}
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
