@@ -1,37 +1,42 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/2] smc91x: always use 8-bit access if necessary
-Date: Fri, 26 Aug 2016 11:42:47 +0200
-Message-ID: <2740439.XeNYfcEoZp@wuerfel>
-References: <20160825144633.1850889-1-arnd@arndb.de>
- <20160825223308.GJ1041@n2100.armlinux.org.uk>
+Subject: Re: [PATCH] smc91x: remove ARM hack for unaligned 16-bit writes
+Date: Fri, 26 Aug 2016 11:56:16 +0200
+Message-ID: <4142998.LszVVqOYjE@wuerfel>
+References: <20160825144314.1850730-1-arnd@arndb.de> <20160825223743.GK1041@n2100.armlinux.org.uk> <1899384.M1jdqOztqi@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>,
- Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>,
- Robert Jarzmik <robert.jarzmik@free.fr>,
- "David S. Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7Bit
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Robert Jarzmik <robert.jarzmik@free.fr>,
+        Yoshinori Sato <ysato@users.sourceforge.jp>,
+        Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
 To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20160825223308.GJ1041@n2100.armlinux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1899384.M1jdqOztqi@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, August 25, 2016 11:33:08 PM CEST Russell King - ARM Linux wrote:
+On Friday, August 26, 2016 11:41:21 AM CEST Arnd Bergmann wrote:
 > 
-> This is insufficient.  If you look at how SMC_REG works, you'll notice
-> that it has side effects which can disrupt other accesses (it reads
-> the bank register if debugging is enabled.)
+> I think this breaks machines that declare a device that just lists
+> SMC91X_USE_32BIT but not SMC91X_USE_16BIT. Right now, the way this
+> is interpreted is to use 32-bit accessors for most things, but
+> not avoiding 16-bit reads.
 
-Ok, got it.
+I guess my patch has the same problem here, with the
+
+	if (SMC_CAN_USE_8BIT && !SMC_16BIT(lp))
+
+check that is true when a platform device is declared with 32-bit
+I/O only but all three are enabled at compile-time. The best check
+I can think of here (aside from redefining how the flags work)
+would be
+
+#define SMC_8BIT_ONLY(p) 	\
+	(((p)->cfg.flags & (SMC91X_USE_8BIT |SMC91X_USE_16BIT | SMC91X_USE_32BIT)) == \
+	 SMC91X_USE_8BIT)
+
 
 	Arnd
