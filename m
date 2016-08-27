@@ -1,8 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 1/6] bpf: support 8-byte metafield access
-Date: Fri, 26 Aug 2016 19:31:19 -0700
-Message-ID: <1472265084-1767670-2-git-send-email-ast@fb.com>
-References: <1472265084-1767670-1-git-send-email-ast@fb.com>
+Subject: [PATCH net-next 0/6] perf, bpf: add support for bpf in sw/hw perf_events
+Date: Fri, 26 Aug 2016 19:31:18 -0700
+Message-ID: <1472265084-1767670-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Peter Zijlstra <peterz@infradead.org>,
@@ -13,64 +12,70 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
         <linux-kernel@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:57950 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754679AbcH0Cbk (ORCPT
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:61814 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754510AbcH0Cbk (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 22:31:40 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id u7R2VMlW020778
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 19:31:27 -0700
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.17/8.16.0.17) with SMTP id u7R2TDYN010995
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 19:31:25 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2530hrgeu9-1
+        by m0089730.ppops.net with ESMTP id 2530q90cw9-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 19:31:27 -0700
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 19:31:25 -0700
 Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)     by
- mx-out.facebook.com (10.223.100.97) with ESMTP id
- 5999a5a66bfe11e697f724be0593f280-72af3aa0 for <netdev@vger.kernel.org>;        Fri,
- 26 Aug 2016 19:31:25 -0700
-In-Reply-To: <1472265084-1767670-1-git-send-email-ast@fb.com>
+ mx-out.facebook.com (10.103.99.97) with ESMTP  id
+ 591b7b366bfe11e685870002c9931860-3a3f5aa0 for <netdev@vger.kernel.org>;        Fri,
+ 26 Aug 2016 19:31:24 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The verifier supported only 4-byte metafields in
-struct __sk_buff and struct xdp_md. The metafields in upcoming
-struct bpf_perf_event are 8-byte to match register width in struct pt_regs.
-Teach verifier to recognize 8-byte metafield access.
-The patch doesn't affect safety of sockets and xdp programs.
-They check for 4-byte only ctx access before these conditions are hit.
+Hi Peter, Dave,
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/verifier.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+this patch set is a follow up to the discussion:
+https://lkml.org/lkml/2016/8/4/304
+It turned out to be simpler than what we discussed.
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index abb61f3f6900..c1c9e441f0f5 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2333,7 +2333,8 @@ static int do_check(struct verifier_env *env)
- 			if (err)
- 				return err;
- 
--			if (BPF_SIZE(insn->code) != BPF_W) {
-+			if (BPF_SIZE(insn->code) != BPF_W &&
-+			    BPF_SIZE(insn->code) != BPF_DW) {
- 				insn_idx++;
- 				continue;
- 			}
-@@ -2642,9 +2643,11 @@ static int convert_ctx_accesses(struct verifier_env *env)
- 	for (i = 0; i < insn_cnt; i++, insn++) {
- 		u32 insn_delta, cnt;
- 
--		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W))
-+		if (insn->code == (BPF_LDX | BPF_MEM | BPF_W) ||
-+		    insn->code == (BPF_LDX | BPF_MEM | BPF_DW))
- 			type = BPF_READ;
--		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W))
-+		else if (insn->code == (BPF_STX | BPF_MEM | BPF_W) ||
-+			 insn->code == (BPF_STX | BPF_MEM | BPF_DW))
- 			type = BPF_WRITE;
- 		else
- 			continue;
+Patches 1-3 is a bpf-side prep for the main patch 4
+that adds bpf program as an overflow_handler to sw and hw perf_events.
+Peter, please review.
+
+Patches 5 and 6 are tests/examples from myself and Brendan.
+
+Thanks!
+
+Alexei Starovoitov (5):
+  bpf: support 8-byte metafield access
+  bpf: introduce BPF_PROG_TYPE_PERF_EVENT program type
+  bpf: perf_event progs should only use preallocated maps
+  perf, bpf: add perf events core support for BPF_PROG_TYPE_PERF_EVENT
+    programs
+  samples/bpf: add perf_event+bpf example
+
+Brendan Gregg (1):
+  samples/bpf: add sampleip example
+
+ include/linux/bpf.h                 |   4 +
+ include/linux/perf_event.h          |   7 ++
+ include/uapi/linux/Kbuild           |   1 +
+ include/uapi/linux/bpf.h            |   1 +
+ include/uapi/linux/bpf_perf_event.h |  18 +++
+ kernel/bpf/verifier.c               |  31 +++++-
+ kernel/events/core.c                |  82 +++++++++++++-
+ kernel/trace/bpf_trace.c            |  57 ++++++++++
+ samples/bpf/Makefile                |   8 ++
+ samples/bpf/bpf_helpers.h           |   2 +
+ samples/bpf/bpf_load.c              |   7 +-
+ samples/bpf/sampleip_kern.c         |  38 +++++++
+ samples/bpf/sampleip_user.c         | 196 +++++++++++++++++++++++++++++++++
+ samples/bpf/trace_event_kern.c      |  65 +++++++++++
+ samples/bpf/trace_event_user.c      | 213 ++++++++++++++++++++++++++++++++++++
+ 15 files changed, 724 insertions(+), 6 deletions(-)
+ create mode 100644 include/uapi/linux/bpf_perf_event.h
+ create mode 100644 samples/bpf/sampleip_kern.c
+ create mode 100644 samples/bpf/sampleip_user.c
+ create mode 100644 samples/bpf/trace_event_kern.c
+ create mode 100644 samples/bpf/trace_event_user.c
+
 -- 
 2.8.0
