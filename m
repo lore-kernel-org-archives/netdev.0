@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] tipc: introduce UDP
-	replicast
-Date: Fri, 26 Aug 2016 21:40:30 -0700 (PDT)
-Message-ID: <20160826.214030.1723676910148934436.davem@davemloft.net>
-References: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
+Subject: Re: [PATCH net] sfc: fix potential stack corruption from running
+ past stat bitmask
+Date: Fri, 26 Aug 2016 21:41:03 -0700 (PDT)
+Message-ID: <20160826.214103.1359468105411763184.davem@davemloft.net>
+References: <0798c3e7-d8a1-3826-204d-2cbb0375205d@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: richard.alpe@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1472201576-26588-1-git-send-email-richard.alpe@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34238 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751028AbcH0Elg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:41:36 -0400
+In-Reply-To: <0798c3e7-d8a1-3826-204d-2cbb0375205d@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Alpe <richard.alpe@ericsson.com>
-Date: Fri, 26 Aug 2016 10:52:49 +0200
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 26 Aug 2016 11:19:34 +0100
 
-> This series introduces UDP replicast. A concept where we emulate multicast by
-> sending multiple unicast messages to configured peers. This allows TIPC to be
-> used in environments where IP multicast is disabled.
+> From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
 > 
-> There is a corresponding patch series for the tipc user space tool that
-> allows a user to add remote addresses to the replicast list.
+> On 32-bit systems, mask is only an array of 3 longs, not 4, so don't try
+> to write to mask[3].
+> Also include build-time checks in case the size of the bitmask changes.
+> 
+> Fixes: 3c36a2aded8c ("sfc: display vadaptor statistics for all interfaces")
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Series applied, thanks.
-
-------------------------------------------------------------------------------
+Applied, thank you.
