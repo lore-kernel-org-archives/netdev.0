@@ -1,64 +1,95 @@
-From: Oleg Drokin <green@linuxhacker.ru>
-Subject: Re: [PATCH] bridge: Fix format string for %ul
-Date: Sat, 27 Aug 2016 12:36:49 -0400
-Message-ID: <D79B6506-31BF-4B39-A81C-F3900F062164@linuxhacker.ru>
-References: <1472267428-810527-1-git-send-email-green@linuxhacker.ru> <11e50e3c-2e1f-4614-07e3-3bd144af4f94@cogentembedded.com> <95BF7F27-59F7-4BDA-941B-BB00C60423A4@linuxhacker.ru> <59758948-d899-a32f-12af-a56b8c0da6c1@cogentembedded.com>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <59758948-d899-a32f-12af-a56b8c0da6c1@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [RFCv2 07/16] bpf: enable non-core use of the verfier
+Date: Sat, 27 Aug 2016 10:32:51 -0700
+Message-ID: <20160827173250.GA38477@ast-mbp>
+References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
+ <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com>
+ <20160826232904.GA28873@ast-mbp.thefacebook.com>
+ <20160827124004.43728202@jkicinski-Precision-T1700>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
+        dinan.gunawardena@netronome.com, jiri@resnulli.us,
+        john.fastabend@gmail.com, kubakici@wp.pl
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33454 "EHLO
+        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754067AbcH0RfV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 13:35:21 -0400
+Received: by mail-pa0-f65.google.com with SMTP id vy10so6383798pac.0
+        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 10:35:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160827124004.43728202@jkicinski-Precision-T1700>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Aug 27, 2016, at 12:18 PM, Sergei Shtylyov wrote:
-
-> Hello.
+On Sat, Aug 27, 2016 at 12:40:04PM +0100, Jakub Kicinski wrote:
+> On Fri, 26 Aug 2016 16:29:05 -0700, Alexei Starovoitov wrote:
+> > On Fri, Aug 26, 2016 at 07:06:06PM +0100, Jakub Kicinski wrote:
+> > > Advanced JIT compilers and translators may want to use
+> > > eBPF verifier as a base for parsers or to perform custom
+> > > checks and validations.
+> > > 
+> > > Add ability for external users to invoke the verifier
+> > > and provide callbacks to be invoked for every intruction
+> > > checked.  For now only add most basic callback for
+> > > per-instruction pre-interpretation checks is added.  More
+> > > advanced users may also like to have per-instruction post
+> > > callback and state comparison callback.
+> > > 
+> > > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>  
+> > 
+> > I like the apporach. Making verifier into 'bytecode parser'
+> > that JITs can reuse is a good design choice.
+> > The only thing I would suggest is to tweak the verifier to
+> > avoid in-place state recording. Then I think patch 8 for
+> > clone/unclone of the program won't be needed, since verifier
+> > will be read-only from bytecode point of view and patch 9
+> > also will be slightly cleaner.
+> > I think there are very few places in verifier that do this
+> > state keeping inside insn. It was bugging me for some time.
+> > Good time to clean that up.
+> > Unless I misunderstand the patches 7,8,9...
 > 
-> On 8/27/2016 6:58 PM, Oleg Drokin wrote:
+> Agreed, I think the verifier only modifies the program to
+> store pointer types in imm field.  I will try to come up
+> a way around this, any suggestions?  Perhaps state_equal()
+
+probably array_of_insn_aux_data[num_insns] should do it.
+Unlike reg_state that is forked on branches, this array
+is only one.
+
+> logic could be modified to downgrade pointers to UNKONWNs
+> when it detects other state had incompatible pointer type.
 > 
->>>> %ul would print an unsigned value and a letter l,
->>>> likely it was %lu that was meant to print the long int,
->>>> but in reality the values printed there are just regular signed
->>> 
->>>  Signed? Then you need probably "%d" or "%i"…
->> 
->> They are signed in the struct definition, but in reality they
->> designate time, so could not be negative, I imagine?
+> > There is also small concern for patches 5 and 6 that add
+> > more register state information. Potentially that extra
+> > state can prevent states_equal() to recognize equivalent
+> > states. Only patch 9 uses that info, right?
 > 
->   That doesn't matter. If the type is signed, it should be printed as signed.
-> Doesn't gcc complain about the format specifiers not matching the values passed?
-
-only if the size differs.
-
-I don't care either way.
-I can change the struct to unsigned too, but if we want super correctness,
-the problem lies deeper.
-
-E.g. if we look how those times are derived, the age comes as:
-static inline int br_get_ticks(const unsigned char *src)
-{
-        unsigned long ticks = get_unaligned_be16(src);
-
-        return DIV_ROUND_UP(ticks * HZ, STP_HZ);
-}
-
-So we divide unsigned value by positive value and get a signed result ;)
-
-there's a struct net_bridge_port with similar members in this are that are
-unsigned long, so I guess we should convert to unsigned long in the
-struct br_config_bpdu, do you want a patch for that separately or as part of this one?
-
+> 5 and 6 recognize more constant loads, those can only
+> upgrade some UNKNOWN_VALUEs to CONST_IMMs.  So yes, if the
+> verifier hits the CONST first and then tries with UNKNOWN
+> it will have to reverify the path.  
 > 
->>>> ints, so just dropping the l altogether.
->>>> 
->>>> Signed-off-by: Oleg Drokin <green@linuxhacker.ru>
->>> [...]
+> > Another question is do you need all state walking that
+> > verifier does or single linear pass through insns
+> > would have worked?
+> > Looks like you're only using CONST_IMM and PTR_TO_CTX
+> > state, right?
 > 
-> MBR, Sergei
+> I think I need all the parsing.  Right now I mostly need
+> the verification to check that exit codes are specific
+> CONST_IMMs.  Clang quite happily does this:
+> 
+> r0 <- 0
+> if (...)
+> 	r0 <- 1
+> exit
+
+I see. Indeed then you'd need the verifier to walk all paths
+to make sure constant return values.
+If you only need yes/no check then such info can probably be
+collected unconditionally during initial program load.
+Like prog->cb_access flag.
