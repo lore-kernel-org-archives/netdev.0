@@ -1,64 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
-Date: Sat, 27 Aug 2016 09:25:21 -0700
-Message-ID: <1472315121.14381.232.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAK6E8=feHjgq-JK8L5Wd+2HZaLs7qicw1+W7gHUCN0e6RzL4TA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34122 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754067AbcH0QZm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 12:25:42 -0400
-Received: by mail-pf0-f181.google.com with SMTP id p64so38084806pfb.1
-        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 09:25:23 -0700 (PDT)
-In-Reply-To: <CAK6E8=feHjgq-JK8L5Wd+2HZaLs7qicw1+W7gHUCN0e6RzL4TA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH] fix:gpio: mark symbols static where possible
+Date: Sun, 28 Aug 2016 00:27:08 +0800
+Message-ID: <1472315228-14802-1-git-send-email-baoyou.xie@linaro.org>
+Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        arnd@linaro.org, baoyou.xie@linaro.org, xie.baoyou@zte.com.cn
+To: ath9k-devel@qca.qualcomm.com, kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-08-27 at 09:13 -0700, Yuchung Cheng wrote:
-> On Sat, Aug 27, 2016 at 7:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >
+We get 1 warning about global functions without a declaration
+in the ath9k gpio driver when building with W=1:
+drivers/net/wireless/ath/ath9k/gpio.c:25:6: warning: no previous prototype for 'ath_fill_led_pin' [-Wmissing-prototypes]
 
-> > +       /* Only socket owner can try to collapse/prune rx queues
-> > +        * to reduce memory overhead, so add a little headroom here.
-> > +        * Few sockets backlog are possibly concurrently non empty.
-> > +        */
-> > +       limit += 64*1024;
-> Just a thought: only add the headroom if ofo queue exists (e.g., signs
-> of losses ore recovery).
+In fact, this function is only used in the file in which it is declared
+and don't need a declaration, but can be made static.
+so this patch marks it 'static'.
 
-Testing the ofo would add a cache line miss, and likely slow down the
-other cpu processing the other packets for this flow.
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+---
+ drivers/net/wireless/ath/ath9k/gpio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Also, even if the ofo does not exist, the sk_rcvbuf budget can be
-consumed by regular receive queue.
-
-We still need to be able to process incoming ACK, if both send and
-receive queues are 'full'.
-
-> 
-> btw is the added headroom subject to the memory pressure check?
-
-Remind that the backlog check here is mostly to avoid some kind of DOS
-attacks that we had in the past.
-
-While we should definitely prevents DOS attacks, we should also not drop
-legitimate traffic.
-
-Here, number of backlogged sockets is limited by the number of cpus in
-the host (if CONFIG_PREEMPT is disabled), or number of threads blocked
-during a sendmsg()/recvmsg() (if CONFIG_PREEMPT is enabled)
-
-So we do not need to be ultra precise, just have a safe guard.
-
-The pressure check will be done at the time skbs will be added into a
-receive/ofo queue in the very near future.
-
-Thanks !
+diff --git a/drivers/net/wireless/ath/ath9k/gpio.c b/drivers/net/wireless/ath/ath9k/gpio.c
+index 490f74d..ddb2886 100644
+--- a/drivers/net/wireless/ath/ath9k/gpio.c
++++ b/drivers/net/wireless/ath/ath9k/gpio.c
+@@ -22,7 +22,7 @@
+ 
+ #ifdef CONFIG_MAC80211_LEDS
+ 
+-void ath_fill_led_pin(struct ath_softc *sc)
++static void ath_fill_led_pin(struct ath_softc *sc)
+ {
+ 	struct ath_hw *ah = sc->sc_ah;
+ 
+-- 
+2.7.4
