@@ -1,15 +1,15 @@
 From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (performance)
-Date: Sat, 27 Aug 2016 13:43:09 -0700
-Message-ID: <20160827204307.GA43714@ast-mbp.thefacebook.com>
+Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (program types)
+Date: Sat, 27 Aug 2016 13:56:01 -0700
+Message-ID: <20160827205559.GA43880@ast-mbp.thefacebook.com>
 References: <1472121165-29071-1-git-send-email-mic@digikod.net>
  <1472121165-29071-10-git-send-email-mic@digikod.net>
  <20160826021432.GA8291@ast-mbp.thefacebook.com>
  <57C05BF0.8000706@digikod.net>
  <20160826230539.GA26683@ast-mbp.thefacebook.com>
- <57C19E6E.6040908@digikod.net>
- <20160827180642.GA38754@ast-mbp.thefacebook.com>
- <57C1EB72.2050703@digikod.net>
+ <57C1A50F.60605@digikod.net>
+ <20160827181939.GC38754@ast-mbp.thefacebook.com>
+ <57C1F015.1000301@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
@@ -22,122 +22,77 @@ Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alexei Starovoitov <as
         Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
         kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+        Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <57C1EB72.2050703-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+In-Reply-To: <57C1F015.1000301-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 27, 2016 at 09:35:14PM +0200, Mickaël Salaün wrote:
+On Sat, Aug 27, 2016 at 09:55:01PM +0200, Mickaël Salaün wrote:
 > 
-> On 27/08/2016 20:06, Alexei Starovoitov wrote:
-> > On Sat, Aug 27, 2016 at 04:06:38PM +0200, Mickaël Salaün wrote:
+> On 27/08/2016 20:19, Alexei Starovoitov wrote:
+> > On Sat, Aug 27, 2016 at 04:34:55PM +0200, Mickaël Salaün wrote:
 > >>
 > >> On 27/08/2016 01:05, Alexei Starovoitov wrote:
 > >>> On Fri, Aug 26, 2016 at 05:10:40PM +0200, Mickaël Salaün wrote:
-> >>>>
-> >>>>>
-> >>>>> - I don't think such 'for' loop can scale. The solution needs to work
-> >>>>> with thousands of containers and thousands of cgroups.
-> >>>>> In the patch 06/10 the proposal is to use 'current' as holder of
-> >>>>> the programs:
-> >>>>> +   for (prog = current->seccomp.landlock_prog;
-> >>>>> +                   prog; prog = prog->prev) {
-> >>>>> +           if (prog->filter == landlock_ret->filter) {
-> >>>>> +                   cur_ret = BPF_PROG_RUN(prog->prog, (void *)&ctx);
-> >>>>> +                   break;
-> >>>>> +           }
-> >>>>> +   }
-> >>>>> imo that's the root of scalability issue.
-> >>>>> I think to be able to scale the bpf programs have to be attached to
-> >>>>> cgroups instead of tasks.
-> >>>>> That would be very different api. seccomp doesn't need to be touched.
-> >>>>> But that is the only way I see to be able to scale.
-> >>>>
-> >>>> Landlock is inspired from seccomp which also use a BPF program per
-> >>>> thread. For seccomp, each BPF programs are executed for each syscall.
-> >>>> For Landlock, some BPF programs are executed for some LSM hooks. I don't
-> >>>> see why it is a scale issue for Landlock comparing to seccomp. I also
-> >>>> don't see why storing the BPF program list pointer in the cgroup struct
-> >>>> instead of the task struct change a lot here. The BPF programs execution
-> >>>> will be the same anyway (for each LSM hook). Kees should probably have a
-> >>>> better opinion on this.
 > >>>
-> >>> seccomp has its own issues and copying them doesn't make this lsm any better.
-> >>> Like seccomp bpf programs are all gigantic switch statement that looks
-> >>> for interesting syscall numbers. All syscalls of a task are paying
-> >>> non-trivial seccomp penalty due to such design. If bpf was attached per
-> >>> syscall it would have been much cheaper. Of course doing it this way
-> >>> for seccomp is not easy, but for lsm such facility is already there.
-> >>> Blank call of a single bpf prog for all lsm hooks is unnecessary
-> >>> overhead that can and should be avoided.
+> >>>>> As far as safety and type checking that bpf programs has to do,
+> >>>>> I like the approach of patch 06/10:
+> >>>>> +LANDLOCK_HOOK2(file_open, FILE_OPEN,
+> >>>>> +       PTR_TO_STRUCT_FILE, struct file *, file,
+> >>>>> +       PTR_TO_STRUCT_CRED, const struct cred *, cred
+> >>>>> +)
+> >>>>> teaching verifier to recognize struct file, cred, sockaddr
+> >>>>> will let bpf program access them naturally without any overhead.
+> >>>>> Though:
+> >>>>> @@ -102,6 +102,9 @@ enum bpf_prog_type {
+> >>>>>         BPF_PROG_TYPE_SCHED_CLS,
+> >>>>>         BPF_PROG_TYPE_SCHED_ACT,
+> >>>>>         BPF_PROG_TYPE_TRACEPOINT,
+> >>>>> +       BPF_PROG_TYPE_LANDLOCK_FILE_OPEN,
+> >>>>> +       BPF_PROG_TYPE_LANDLOCK_FILE_PERMISSION,
+> >>>>> +       BPF_PROG_TYPE_LANDLOCK_MMAP_FILE,
+> >>>>>  };
+> >>>>> is a bit of overkill.
+> >>>>> I think it would be cleaner to have single
+> >>>>> BPF_PROG_TYPE_LSM and at program load time pass
+> >>>>> lsm_hook_id as well, so that verifier can do safety checks
+> >>>>> based on type info provided in LANDLOCK_HOOKs
+> >>>>
+> >>>> I first started with a unique BPF_PROG_TYPE but, the thing is, the BPF
+> >>>> verifier check programs according to their types. If we need to check
+> >>>> specific context value types (e.g. PTR_TO_STRUCT_FILE), we need a
+> >>>> dedicated program types. I don't see any other way to do it with the
+> >>>> current verifier code. Moreover it's the purpose of program types, right?
+> >>>
+> >>> Adding new bpf program type for every lsm hook is not acceptable.
+> >>> Either do one new program type + pass lsm_hook_id as suggested
+> >>> or please come up with an alternative approach.
 > >>
-> >> It's probably a misunderstanding. Contrary to seccomp which run all the
-> >> thread's BPF programs for any syscall, Landlock only run eBPF programs
-> >> for the triggered LSM hooks, if their type match. Indeed, thanks to the
-> >> multiple eBPF program types and contrary to seccomp, Landlock only run
-> >> an eBPF program when needed. Landlock will have almost no performance
-> >> overhead if the syscalls do not trigger the watched LSM hooks for the
-> >> current process.
+> >> OK, so we have to modify the verifier to not only rely on the program
+> >> type but on another value to check the context accesses. Do you have a
+> >> hint from where this value could come from? Do we need to add a new bpf
+> >> command to associate a program to a subtype?
 > > 
-> > that's not what I see in the patch 06/10:
-> > all lsm_hooks in 'static struct security_hook_list landlock_hooks'
-> > (which eventually means all lsm hooks) will call
-> > static inline int landlock_hook_##NAME
-> > which will call landlock_run_prog()
-> > which does:
-> > + for (landlock_ret = current->seccomp.landlock_ret;
-> > +      landlock_ret; landlock_ret = landlock_ret->prev) {
-> > +    if (landlock_ret->triggered) {
-> > +       ctx.cookie = landlock_ret->cookie;
-> > +       for (prog = current->seccomp.landlock_prog;
-> > +            prog; prog = prog->prev) {
-> > +               if (prog->filter == landlock_ret->filter) {
-> > +                       cur_ret = BPF_PROG_RUN(prog->prog, (void *)&ctx);
-> > +                       break;
-> > +               }
-> > +       }
-> > 
-> > that is unacceptable overhead and not a scalable design.
-> > It kinda works for 3 lsm_hooks as in patch 6, but doesn't scale
-> > as soon as more lsm hooks are added.
+> > It's another field prog_subtype (or prog_hook_id) in union bpf_attr.
+> > Both prog_type and prog_hook_id are used during verification.
+> > prog_type distinguishes the main aspects whereas prog_hook_id selects
+> > which lsm_hook's argument definition to apply.
+> > At the time of attaching to a hook, the prog_hook_id passed at the
+> > load time should match lsm's hook_id.
 > 
-> Good catch! I forgot to check the program (sub)type in the loop to only
-> run the needed programs for the current hook. I will fix this.
-> 
-> 
-> > 
-> >> As said above, Landlock will not run an eBPF programs when not strictly
-> >> needed. Attaching to a cgroup will have the same performance impact as
-> >> attaching to a process hierarchy.
-> > 
-> > Having a prog per cgroup per lsm_hook is the only scalable way I
-> > could come up with. If you see another way, please propose.
-> > current->seccomp.landlock_prog is not the answer.
-> 
-> Hum, I don't see the difference from a performance point of view between
-> a cgroup-based or a process hierarchy-based system.
-> 
-> Maybe a better option should be to use an array of pointers with N
-> entries, one for each supported hook, instead of a unique pointer list?
+> OK, so this new prog_subtype field should be use/set by a new bpf_cmd,
+> right? Something like BPF_PROG_SUBTYPE or BPF_PROG_METADATA?
 
-yes, clearly array dereference is faster than link list walk.
-Now the question is where to keep this prog_array[num_lsm_hooks] ?
-Since we cannot keep it inside task_struct, we have to allocate it.
-Every time the task is creted then. What to do on the fork? That
-will require changes all over. Then the obvious optimization would be
-to share this allocated array of prog pointers across multiple tasks...
-and little by little this new facility will look like cgroup.
-Hence the suggestion to put this array into cgroup from the start.
-
-> Anyway, being able to attach an LSM hook program to a cgroup thanks to
-> the new BPF_PROG_ATTACH seems a good idea (while keeping the possibility
-> to use a process hierarchy). The downside will be to handle an LSM hook
-> program which is not triggered by a seccomp-filter, but this should be
-> needed anyway to handle interruptions.
-
-what do you mean 'not triggered by seccomp' ?
-You're not suggesting that this lsm has to enable seccomp to be functional?
-imo that's non starter due to overhead.
+No new command. It will be an optional field to existing BPF_PROG_LOAD.
+In other words instead of replicating everything that different
+bpf_prog_type-s need, we can pass this hook_id field to fine tune
+the purpose (and applicability) of the program.
+And one BPF_PROG_TYPE_LANDLOCK type will cover all lsm hooks.
+For example existing BPF_PROG_TYPE_TRACEPOINT checks the safety
+for all tracepoints while they all have different arguments.
+For tracepoints it's easier, since the only difference between them
+is the range of ctx access. Here we need strong type safety
+of arguments therefore need extra hook_id at load time.
