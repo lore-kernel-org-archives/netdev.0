@@ -1,52 +1,41 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH] smc91x: remove ARM hack for unaligned 16-bit writes
-Date: Sat, 27 Aug 2016 16:38:49 +0100
-Message-ID: <20160827153849.GA1041@n2100.armlinux.org.uk>
-References: <20160825144314.1850730-1-arnd@arndb.de>
- <3062310.z9h3CgCZ7p@wuerfel>
- <87inuopw04.fsf@belgarion.home>
- <20160825223743.GK1041@n2100.armlinux.org.uk>
- <87vaymdyal.fsf@belgarion.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        linux-arm-kernel@lists.infradead.org,
-        Nicolas Pitre <nico@fluxnic.net>,
+From: Oleg Drokin <green@linuxhacker.ru>
+Subject: Re: [PATCH] bridge: Fix format string for %ul
+Date: Sat, 27 Aug 2016 11:58:00 -0400
+Message-ID: <95BF7F27-59F7-4BDA-941B-BB00C60423A4@linuxhacker.ru>
+References: <1472267428-810527-1-git-send-email-green@linuxhacker.ru> <11e50e3c-2e1f-4614-07e3-3bd144af4f94@cogentembedded.com>
+Mime-Version: 1.0 (Apple Message framework v1283)
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8BIT
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
         "David S. Miller" <davem@davemloft.net>,
-        Yoshinori Sato <ysato@users.sourceforge.jp>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Robert Jarzmik <robert.jarzmik@free.fr>
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87vaymdyal.fsf@belgarion.home>
+In-Reply-To: <11e50e3c-2e1f-4614-07e3-3bd144af4f94@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 27, 2016 at 05:30:42PM +0200, Robert Jarzmik wrote:
-> Hi Russell,
+
+On Aug 27, 2016, at 11:13 AM, Sergei Shtylyov wrote:
+
+> Hello.
 > 
-> With your patch :
->  - lubbock, mainstone and zylonite boards are working correctly
->    => ie. all my boards are working correctly
+> On 8/27/2016 6:10 AM, Oleg Drokin wrote:
 > 
->  - the message "ifconfig: SIOCSIFHWADDR: Device or resource busy" is still there
->    => this message is here even without your patch, so it's rather not relevant
->    => this message is triggered by an "/sbin/ifconfig eth0 hw ether
->    08:00:3e:26:0a:5b" command
+>> %ul would print an unsigned value and a letter l,
+>> likely it was %lu that was meant to print the long int,
+>> but in reality the values printed there are just regular signed
 > 
-> So from a PXA testing point of view it's all good, ie.
-> Tested-by: Robert Jarzmik <robert.jarzmik@free.fr>
+>   Signed? Then you need probably "%d" or "%i"…
 
-Thanks for testing, that's good news.
+They are signed in the struct definition, but in reality they
+designate time, so could not be negative, I imagine?
 
-You'll get "SIOCSIFHWADDR: Device or resource busy" if the device is
-already up and has no support for changing the address while the NIC
-is "live" - we only program the MAC address when bringing the smc91x
-device up (or resetting it after a timeout).
-
-See net/ethernet/eth.c::eth_prepare_mac_addr_change() and smc_enable().
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+> 
+>> ints, so just dropping the l altogether.
+>> 
+>> Signed-off-by: Oleg Drokin <green@linuxhacker.ru>
+> [...]
+> 
+> MBR, Sergei
