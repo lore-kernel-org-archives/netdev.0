@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: ethernet: ti: cpsw: fix error return code
- in cpsw_set_channels()
-Date: Fri, 26 Aug 2016 21:50:08 -0700 (PDT)
-Message-ID: <20160826.215008.1804199901151222246.davem@davemloft.net>
-References: <1472222143-3604-1-git-send-email-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net-next 0/3] sfc: minor fixes
+Date: Fri, 26 Aug 2016 21:44:05 -0700 (PDT)
+Message-ID: <20160826.214405.1933389402324134956.davem@davemloft.net>
+References: <da7f8a31-f24c-7727-7d78-67572f5494d5@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-        ivan.khoronzhuk@linaro.org, weiyongjun1@huawei.com,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34256 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34275 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751152AbcH0EuJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:50:09 -0400
-In-Reply-To: <1472222143-3604-1-git-send-email-weiyj.lk@gmail.com>
+        with ESMTP id S1750825AbcH0EzU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:55:20 -0400
+In-Reply-To: <da7f8a31-f24c-7727-7d78-67572f5494d5@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Fri, 26 Aug 2016 14:35:43 +0000
+From: Edward Cree <ecree@solarflare.com>
+Date: Fri, 26 Aug 2016 15:11:34 +0100
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
+> Edward Cree (2):
+>   sfc: include size-binned TX stats on sfn8542q
+>   sfc: remove duplicate assignment
 > 
-> Fix to return a negative error code from the cpsw_fill_rx_channels()
-> error handling case instead of 0, as done elsewhere in this function.
-> 
-> Fixes: ce52c744574b ("net: ethernet: ti: cpsw: add ethtool channels support")
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Jon Cooper (1):
+>   sfc: work around TRIGGER_INTERRUPT command not working on SFC9140
 
-Applied.
+Series applied, thanks.
