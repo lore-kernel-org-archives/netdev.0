@@ -1,36 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rhashtable: fix a memory leak in
- alloc_bucket_locks()
-Date: Fri, 26 Aug 2016 22:00:27 -0700 (PDT)
-Message-ID: <20160826.220027.82559836629551634.davem@davemloft.net>
-References: <2107409749.2541400.1472156272168.JavaMail.zimbra@redhat.com>
-        <CA+55aFwFatFWpW3UfT9mUizDTAoFueiCGTUuM-t85orDWN+pvg@mail.gmail.com>
-        <1472226699.14381.186.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] drivers: net: stmmac: fix spelling mistake "mulitcast"
+ -> "multicast"
+Date: Fri, 26 Aug 2016 22:08:12 -0700 (PDT)
+Message-ID: <20160826.220812.923007753999491232.davem@davemloft.net>
+References: <20160826183525.2366-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: caiqian@redhat.com, tgraf@suug.ch, herbert@gondor.apana.org.au,
-        edumazet@google.com, netdev@vger.kernel.org,
-        torvalds@linux-foundation.org, fw@strlen.de
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34285 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751028AbcH0FAo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 01:00:44 -0400
-In-Reply-To: <1472226699.14381.186.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160826183525.2366-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 26 Aug 2016 08:51:39 -0700
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 26 Aug 2016 19:35:25 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> If vmalloc() was successful, do not attempt a kmalloc_array()
+> Trivial fix to spelling mistake in dev_warn message.
 > 
-> Fixes: 4cf0b354d92e ("rhashtable: avoid large lock-array allocations")
-> Reported-by: CAI Qian <caiqian@redhat.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied, thanks Eric.
+Applied.
