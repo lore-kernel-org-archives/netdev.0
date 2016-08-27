@@ -1,27 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: stmmac: fix spelling mistake "mulitcast"
- -> "multicast"
-Date: Fri, 26 Aug 2016 22:08:12 -0700 (PDT)
-Message-ID: <20160826.220812.923007753999491232.davem@davemloft.net>
-References: <20160826183525.2366-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+From: Baoyou Xie <baoyou.xie@linaro.org>
+Subject: [PATCH] fix:brcmfmac: add missing header dependencies
+Date: Sat, 27 Aug 2016 13:54:19 +0800
+Message-ID: <1472277259-28118-1-git-send-email-baoyou.xie@linaro.org>
+Cc: baoyou.xie@linaro.org, linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, arnd@linaro.org,
+        xie.baoyou@zte.com.cn
+To: franky.lin@broadcom.com, hante.meuleman@broadcom.com,
+        kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160826183525.2366-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri, 26 Aug 2016 19:35:25 +0100
+We get 1 warning when biuld kernel with W=1:
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c:23:6: warning: no previous prototype for '__brcmf_err' [-Wmissing-
+prototypes]
 
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Trivial fix to spelling mistake in dev_warn message.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+In fact, this function is declared in brcmfmac/debuge.h, so this patch
+add missing header dependencies
 
-Applied.
+Signed-off-by: Baoyou Xie <baoyou.xie@linaro.org>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c
+index a10f35c..fe67559 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/tracepoint.c
+@@ -19,6 +19,7 @@
+ #ifndef __CHECKER__
+ #define CREATE_TRACE_POINTS
+ #include "tracepoint.h"
++#include "debug.h"
+ 
+ void __brcmf_err(const char *func, const char *fmt, ...)
+ {
+-- 
+2.7.4
