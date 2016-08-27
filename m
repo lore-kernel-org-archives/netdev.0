@@ -1,61 +1,238 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 0/2] ppp: fix deadlock upon recursive xmit
-Date: Sat, 27 Aug 2016 22:20:34 +0200
-Message-ID: <20160827202034.6rfolco57rgsstzl@alphalink.fr>
+Subject: [PATCH net 1/2] ppp: avoid dealock on recursive xmit
+Date: Sat, 27 Aug 2016 22:22:32 +0200
+Message-ID: <20160827202232.3kb6xvkh5gnnbqlx@alphalink.fr>
+References: <cover.1472325935.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Paul Mackerras <paulus@samba.org>, Feng Gao <gfree.wind@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:55846 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:55901 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751194AbcH0UUj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 16:20:39 -0400
+        with ESMTP id S1754922AbcH0UWg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 16:22:36 -0400
 Content-Disposition: inline
+In-Reply-To: <cover.1472325935.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series fixes the issue reported by Feng where packets looping
-through a ppp device makes the module deadlock:
-https://marc.info/?l=linux-netdev&m=147134567319038&w=2
+In case of misconfiguration, a virtual PPP channel might send packets
+back to their parent PPP interface. This typically happens in
+misconfigured L2TP setups, where PPP's peer IP address is set with the
+IP of the L2TP peer.
+When that happens the system hangs due to PPP trying to recursively
+lock its xmit path.
 
-The problem can occur on virtual interfaces (e.g. PPP over L2TP, or
-PPPoE on vxlan devices), when a PPP packet is routed back to the PPP
-interface.
+[  243.332155] BUG: spinlock recursion on CPU#1, accel-pppd/926
+[  243.333272]  lock: 0xffff880033d90f18, .magic: dead4ead, .owner: accel-pppd/926, .owner_cpu: 1
+[  243.334859] CPU: 1 PID: 926 Comm: accel-pppd Not tainted 4.8.0-rc2 #1
+[  243.336010] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
+[  243.336018]  ffff7fffffffffff ffff8800319a77a0 ffffffff8128de85 ffff880033d90f18
+[  243.336018]  ffff880033ad8000 ffff8800319a77d8 ffffffff810ad7c0 ffffffff0000039e
+[  243.336018]  ffff880033d90f18 ffff880033d90f60 ffff880033d90f18 ffff880033d90f28
+[  243.336018] Call Trace:
+[  243.336018]  [<ffffffff8128de85>] dump_stack+0x4f/0x65
+[  243.336018]  [<ffffffff810ad7c0>] spin_dump+0xe1/0xeb
+[  243.336018]  [<ffffffff810ad7f0>] spin_bug+0x26/0x28
+[  243.336018]  [<ffffffff810ad8b9>] do_raw_spin_lock+0x5c/0x160
+[  243.336018]  [<ffffffff815522aa>] _raw_spin_lock_bh+0x35/0x3c
+[  243.336018]  [<ffffffffa01a88e2>] ? ppp_push+0xa7/0x82d [ppp_generic]
+[  243.336018]  [<ffffffffa01a88e2>] ppp_push+0xa7/0x82d [ppp_generic]
+[  243.336018]  [<ffffffff810adada>] ? do_raw_spin_unlock+0xc2/0xcc
+[  243.336018]  [<ffffffff81084962>] ? preempt_count_sub+0x13/0xc7
+[  243.336018]  [<ffffffff81552438>] ? _raw_spin_unlock_irqrestore+0x34/0x49
+[  243.336018]  [<ffffffffa01ac657>] ppp_xmit_process+0x48/0x877 [ppp_generic]
+[  243.336018]  [<ffffffff81084962>] ? preempt_count_sub+0x13/0xc7
+[  243.336018]  [<ffffffff81408cd3>] ? skb_queue_tail+0x71/0x7c
+[  243.336018]  [<ffffffffa01ad1c5>] ppp_start_xmit+0x21b/0x22a [ppp_generic]
+[  243.336018]  [<ffffffff81426af1>] dev_hard_start_xmit+0x15e/0x32c
+[  243.336018]  [<ffffffff81454ed7>] sch_direct_xmit+0xd6/0x221
+[  243.336018]  [<ffffffff814273a8>] __dev_queue_xmit+0x52a/0x820
+[  243.336018]  [<ffffffff814276a9>] dev_queue_xmit+0xb/0xd
+[  243.336018]  [<ffffffff81430a3c>] neigh_direct_output+0xc/0xe
+[  243.336018]  [<ffffffff8146b5d7>] ip_finish_output2+0x4d2/0x548
+[  243.336018]  [<ffffffff8146a8e6>] ? dst_mtu+0x29/0x2e
+[  243.336018]  [<ffffffff8146d49c>] ip_finish_output+0x152/0x15e
+[  243.336018]  [<ffffffff8146df84>] ? ip_output+0x74/0x96
+[  243.336018]  [<ffffffff8146df9c>] ip_output+0x8c/0x96
+[  243.336018]  [<ffffffff8146d55e>] ip_local_out+0x41/0x4a
+[  243.336018]  [<ffffffff8146dd15>] ip_queue_xmit+0x531/0x5c5
+[  243.336018]  [<ffffffff814a82cd>] ? udp_set_csum+0x207/0x21e
+[  243.336018]  [<ffffffffa01f2f04>] l2tp_xmit_skb+0x582/0x5d7 [l2tp_core]
+[  243.336018]  [<ffffffffa01ea458>] pppol2tp_xmit+0x1eb/0x257 [l2tp_ppp]
+[  243.336018]  [<ffffffffa01acf17>] ppp_channel_push+0x91/0x102 [ppp_generic]
+[  243.336018]  [<ffffffffa01ad2d8>] ppp_write+0x104/0x11c [ppp_generic]
+[  243.336018]  [<ffffffff811a3c1e>] __vfs_write+0x56/0x120
+[  243.336018]  [<ffffffff81239801>] ? fsnotify_perm+0x27/0x95
+[  243.336018]  [<ffffffff8123ab01>] ? security_file_permission+0x4d/0x54
+[  243.336018]  [<ffffffff811a4ca4>] vfs_write+0xbd/0x11b
+[  243.336018]  [<ffffffff811a5a0a>] SyS_write+0x5e/0x96
+[  243.336018]  [<ffffffff81552a1b>] entry_SYSCALL_64_fastpath+0x13/0x94
 
-PPP's xmit path isn't reentrant, so patch #1 uses a per-cpu variable
-to detect and break recursion. Patch #2 sets the NETIF_F_LLTX flag to
-avoid lock inversion issues between ppp and txqueue locks.
+The main entry points for sending packets over a PPP unit are the
+.write() and .ndo_start_xmit() callbacks (simplified view):
 
-There are multiple entry points to the PPP xmit path. This series has
-been tested with lockdep and should address recursion issues no matter
-how the packet entered the path.
+.write(unit fd) or .ndo_start_xmit()
+       \
+        CALL ppp_xmit_process()
+               \
+                LOCK unit's xmit path (ppp->wlock)
+                |
+                CALL ppp_push()
+                       \
+                        LOCK channel's xmit path (chan->downl)
+                        |
+                        CALL lower layer's .start_xmit() callback
+                               \
+                                ... might recursively call .ndo_start_xmit() ...
+                               /
+                        RETURN from .start_xmit()
+                        |
+                        UNLOCK channel's xmit path
+                       /
+                RETURN from ppp_push()
+                |
+                UNLOCK unit's xmit path
+               /
+        RETURN from ppp_xmit_process()
 
+Packets can also be directly sent on channels (e.g. LCP packets):
 
-A similar issue in L2TP is not covered by this series:
-l2tp_xmit_skb() also isn't reentrant, and it can be called as part of
-PPP's xmit path (pppol2tp_xmit()), or directly from the L2TP socket
-(l2tp_ppp_sendmsg()). If a packet is sent by l2tp_ppp_sendmsg() and
-routed to the parent PPP interface, then it's going to hit
-l2tp_xmit_skb() again.
+.write(channel fd) or ppp_output_wakeup()
+       \
+        CALL ppp_channel_push()
+               \
+                LOCK channel's xmit path (chan->downl)
+                |
+                CALL lower layer's .start_xmit() callback
+                       \
+                        ... might call .ndo_start_xmit() ...
+                       /
+                RETURN from .start_xmit()
+                |
+                UNLOCK channel's xmit path
+               /
+        RETURN from ppp_channel_push()
 
-Breaking recursion as done in ppp_generic is not enough, because we'd
-still have a lock inversion issue (locking in l2tp_xmit_skb() can
-happen before or after locking in ppp_generic). The best approach would
-be to use the ip_tunnel functions and remove the socket locking in
-l2tp_xmit_skb(). But that'd be something for net-next.
+Key points about the lower layer's .start_xmit() callback:
 
+  * It can be called directly by a channel fd .write() or by
+    ppp_output_wakeup() or indirectly by a unit fd .write() or by
+    .ndo_start_xmit().
 
-BTW, I hope the commit messages aren't too long. Just let me know if I
-should trim something.
+  * In any case, it's always called with chan->downl held.
 
+  * It might route the packet back to its parent unit using
+    .ndo_start_xmit() as entry point.
 
-Guillaume Nault (2):
-  ppp: avoid dealock on recursive xmit
-  ppp: declare PPP devices as LLTX
+This patch detects and breaks recursion in ppp_xmit_process(). This
+function is a good candidate for the task because it's called early
+enough after .ndo_start_xmit(), it's always part of the recursion
+loop and it's on the path of whatever entry point is used to send
+a packet on a PPP unit.
 
- drivers/net/ppp/ppp_generic.c | 54 +++++++++++++++++++++++++++++++++----------
- 1 file changed, 42 insertions(+), 12 deletions(-)
+Recursion detection is done using the per-cpu ppp_xmit_recursion
+variable.
 
+Since ppp_channel_push() too locks the channel's xmit path and calls
+the lower layer's .start_xmit() callback, we need to also increment
+ppp_xmit_recursion there. However there's no need to check for
+recursion, as it's out of the recursion loop.
+
+Reported-by: Feng Gao <gfree.wind@gmail.com>
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ drivers/net/ppp/ppp_generic.c | 52 +++++++++++++++++++++++++++++++++----------
+ 1 file changed, 40 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index f226db4..dc7da25 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -1367,12 +1367,8 @@ static void ppp_setup(struct net_device *dev)
+  * Transmit-side routines.
+  */
+ 
+-/*
+- * Called to do any work queued up on the transmit side
+- * that can now be done.
+- */
+-static void
+-ppp_xmit_process(struct ppp *ppp)
++/* Called to do any work queued up on the transmit side that can now be done */
++static void __ppp_xmit_process(struct ppp *ppp)
+ {
+ 	struct sk_buff *skb;
+ 
+@@ -1392,6 +1388,30 @@ ppp_xmit_process(struct ppp *ppp)
+ 	ppp_xmit_unlock(ppp);
+ }
+ 
++static DEFINE_PER_CPU(int, ppp_xmit_recursion);
++
++static void ppp_xmit_process(struct ppp *ppp)
++{
++	local_bh_disable();
++
++	if (unlikely(__this_cpu_read(ppp_xmit_recursion)))
++		goto err;
++
++	__this_cpu_inc(ppp_xmit_recursion);
++	__ppp_xmit_process(ppp);
++	__this_cpu_dec(ppp_xmit_recursion);
++
++	local_bh_enable();
++
++	return;
++
++err:
++	local_bh_enable();
++
++	if (net_ratelimit())
++		netdev_err(ppp->dev, "recursion detected\n");
++}
++
+ static inline struct sk_buff *
+ pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
+ {
+@@ -1847,11 +1867,8 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ }
+ #endif /* CONFIG_PPP_MULTILINK */
+ 
+-/*
+- * Try to send data out on a channel.
+- */
+-static void
+-ppp_channel_push(struct channel *pch)
++/* Try to send data out on a channel */
++static void __ppp_channel_push(struct channel *pch)
+ {
+ 	struct sk_buff *skb;
+ 	struct ppp *ppp;
+@@ -1876,11 +1893,22 @@ ppp_channel_push(struct channel *pch)
+ 		read_lock_bh(&pch->upl);
+ 		ppp = pch->ppp;
+ 		if (ppp)
+-			ppp_xmit_process(ppp);
++			__ppp_xmit_process(ppp);
+ 		read_unlock_bh(&pch->upl);
+ 	}
+ }
+ 
++static void ppp_channel_push(struct channel *pch)
++{
++	local_bh_disable();
++
++	__this_cpu_inc(ppp_xmit_recursion);
++	__ppp_channel_push(pch);
++	__this_cpu_dec(ppp_xmit_recursion);
++
++	local_bh_enable();
++}
++
+ /*
+  * Receive-side routines.
+  */
 -- 
 2.9.3
