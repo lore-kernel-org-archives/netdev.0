@@ -1,122 +1,136 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (program types)
-Date: Sat, 27 Aug 2016 16:34:55 +0200
-Message-ID: <57C1A50F.60605@digikod.net>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <1472121165-29071-10-git-send-email-mic@digikod.net>
- <20160826021432.GA8291@ast-mbp.thefacebook.com>
- <57C05BF0.8000706@digikod.net>
- <20160826230539.GA26683@ast-mbp.thefacebook.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: add tcp_add_backlog()
+Date: Sat, 27 Aug 2016 07:37:54 -0700
+Message-ID: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="UJCILjBJ49pKIqv7c57p9OiCUgIKp5eqo"
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Daniel Borkmann
- <daniel@iogearbox.net>,
-        Daniel Mack <daniel@zonque.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Kees Cook <keescook@chromium.org>, Sargun Dhillon <sargun@sargun.me>,
-        kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-        Tejun Heo <tj@kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <kernel-hardening-return-4485-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20160826230539.GA26683@ast-mbp.thefacebook.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35312 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750746AbcH0Oh4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 10:37:56 -0400
+Received: by mail-pf0-f194.google.com with SMTP id h186so6484301pfg.2
+        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 07:37:56 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---UJCILjBJ49pKIqv7c57p9OiCUgIKp5eqo
-Content-Type: multipart/mixed; boundary="EcTFwxMO4xrUr4JB7meVvf4H9AtI5xrAr"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
- Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann
- <daniel@iogearbox.net>, Daniel Mack <daniel@zonque.org>,
- "David S . Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>,
- Sargun Dhillon <sargun@sargun.me>, kernel-hardening@lists.openwall.com,
- linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
- netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>
-Message-ID: <57C1A50F.60605@digikod.net>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (program types)
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <1472121165-29071-10-git-send-email-mic@digikod.net>
- <20160826021432.GA8291@ast-mbp.thefacebook.com>
- <57C05BF0.8000706@digikod.net>
- <20160826230539.GA26683@ast-mbp.thefacebook.com>
-In-Reply-To: <20160826230539.GA26683@ast-mbp.thefacebook.com>
+From: Eric Dumazet <edumazet@google.com>
 
---EcTFwxMO4xrUr4JB7meVvf4H9AtI5xrAr
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+When TCP operates in lossy environments (between 1 and 10 % packet
+losses), many SACK blocks can be exchanged, and I noticed we could
+drop them on busy senders, if these SACK blocks have to be queued
+into the socket backlog.
 
+While the main cause is the poor performance of RACK/SACK processing,
+we can try to avoid these drops of valuable information that can lead to
+spurious timeouts and retransmits.
 
-On 27/08/2016 01:05, Alexei Starovoitov wrote:
-> On Fri, Aug 26, 2016 at 05:10:40PM +0200, Micka=EBl Sala=FCn wrote:
->
->>> As far as safety and type checking that bpf programs has to do,
->>> I like the approach of patch 06/10:
->>> +LANDLOCK_HOOK2(file_open, FILE_OPEN,
->>> +       PTR_TO_STRUCT_FILE, struct file *, file,
->>> +       PTR_TO_STRUCT_CRED, const struct cred *, cred
->>> +)
->>> teaching verifier to recognize struct file, cred, sockaddr
->>> will let bpf program access them naturally without any overhead.
->>> Though:
->>> @@ -102,6 +102,9 @@ enum bpf_prog_type {
->>>         BPF_PROG_TYPE_SCHED_CLS,
->>>         BPF_PROG_TYPE_SCHED_ACT,
->>>         BPF_PROG_TYPE_TRACEPOINT,
->>> +       BPF_PROG_TYPE_LANDLOCK_FILE_OPEN,
->>> +       BPF_PROG_TYPE_LANDLOCK_FILE_PERMISSION,
->>> +       BPF_PROG_TYPE_LANDLOCK_MMAP_FILE,
->>>  };
->>> is a bit of overkill.
->>> I think it would be cleaner to have single
->>> BPF_PROG_TYPE_LSM and at program load time pass
->>> lsm_hook_id as well, so that verifier can do safety checks
->>> based on type info provided in LANDLOCK_HOOKs
->>
->> I first started with a unique BPF_PROG_TYPE but, the thing is, the BPF=
+Cause of the drops is the skb->truesize overestimation caused by :
 
->> verifier check programs according to their types. If we need to check
->> specific context value types (e.g. PTR_TO_STRUCT_FILE), we need a
->> dedicated program types. I don't see any other way to do it with the
->> current verifier code. Moreover it's the purpose of program types, rig=
-ht?
->=20
-> Adding new bpf program type for every lsm hook is not acceptable.
-> Either do one new program type + pass lsm_hook_id as suggested
-> or please come up with an alternative approach.
+- drivers allocating ~2048 (or more) bytes as a fragment to hold an
+  Ethernet frame.
 
-OK, so we have to modify the verifier to not only rely on the program
-type but on another value to check the context accesses. Do you have a
-hint from where this value could come from? Do we need to add a new bpf
-command to associate a program to a subtype?
+- various pskb_may_pull() calls bringing the headers into skb->head
+  might have pulled all the frame content, but skb->truesize could
+  not be lowered, as the stack has no idea of each fragment truesize.
 
+The backlog drops are also more visible on bidirectional flows, since
+their sk_rmem_alloc can be quite big.
 
---EcTFwxMO4xrUr4JB7meVvf4H9AtI5xrAr--
+Let's add some room for the backlog, as only the socket owner
+can selectively take action to lower memory needs, like collapsing
+receive queues or partial ofo pruning.
 
---UJCILjBJ49pKIqv7c57p9OiCUgIKp5eqo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ include/net/tcp.h   |    1 +
+ net/ipv4/tcp_ipv4.c |   33 +++++++++++++++++++++++++++++----
+ net/ipv6/tcp_ipv6.c |    5 +----
+ 3 files changed, 31 insertions(+), 8 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJXwaUQAAoJECLe/t9zvWqVr8AIAJJUHrL3vkMSUYwYnMXh+KTd
-JlFt5bZREQSkctvFcdb6Ynt+DdI0eMuNGyxYqh4TiqV2sqW8htOpyqdjbzzUv3g2
-/HTP/V0WGNZu31C7Tj5Wiw1guBKg9HfTAzrGjDh35ZXs5EWVe1gglR8+0ocA8qdB
-2c7JZPiOiLTXhWO2YcSe0020KQ3qNLfr5RrPROAwfNdwDsQhf0fjkQNajm9Qzj/2
-FwEGPnEjmrkddWQ4KcKuJOeyewDPzLLo1iba2+j+u+zpyX9gb7wcLWSiIz9N/c2O
-dwK+bNdXE2xcL7TkBXwFSk4dNyGPzN26enqHwcCvqdbdXXyl9qZ7pubG0TUjgII=
-=73Hj
------END PGP SIGNATURE-----
-
---UJCILjBJ49pKIqv7c57p9OiCUgIKp5eqo--
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 25d64f6de69e1f639ed1531bf2d2df3f00fd76a2..5f5f09f6e019682ef29c864d2f43a8f247fcdd9a 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1163,6 +1163,7 @@ static inline void tcp_prequeue_init(struct tcp_sock *tp)
+ }
+ 
+ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb);
++bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb);
+ 
+ #undef STATE_TRACE
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ad41e8ecf796bba1bd6d9ed155ca4a57ced96844..53e80cd004b6ce401c3acbb4b243b243c5c3c4a3 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1532,6 +1532,34 @@ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(tcp_prequeue);
+ 
++bool tcp_add_backlog(struct sock *sk, struct sk_buff *skb)
++{
++	u32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;
++
++	/* Only socket owner can try to collapse/prune rx queues
++	 * to reduce memory overhead, so add a little headroom here.
++	 * Few sockets backlog are possibly concurrently non empty.
++	 */
++	limit += 64*1024;
++
++	/* In case all data was pulled from skb frags (in __pskb_pull_tail()),
++	 * we can fix skb->truesize to its real value to avoid future drops.
++	 * This is valid because skb is not yet charged to the socket.
++	 * It has been noticed pure SACK packets were sometimes dropped
++	 * (if cooked by drivers without copybreak feature).
++	 */
++	if (!skb->data_len)
++		skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
++
++	if (unlikely(sk_add_backlog(sk, skb, limit))) {
++		bh_unlock_sock(sk);
++		__NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPBACKLOGDROP);
++		return true;
++	}
++	return false;
++}
++EXPORT_SYMBOL(tcp_add_backlog);
++
+ /*
+  *	From tcp_input.c
+  */
+@@ -1662,10 +1690,7 @@ process:
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+ 			ret = tcp_v4_do_rcv(sk, skb);
+-	} else if (unlikely(sk_add_backlog(sk, skb,
+-					   sk->sk_rcvbuf + sk->sk_sndbuf))) {
+-		bh_unlock_sock(sk);
+-		__NET_INC_STATS(net, LINUX_MIB_TCPBACKLOGDROP);
++	} else if (tcp_add_backlog(sk, skb)) {
+ 		goto discard_and_relse;
+ 	}
+ 	bh_unlock_sock(sk);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index e4f55683af314438da8a09473927213a140e6e5c..5bf460bd299ff61ae759e8e545ba6298a1d1373c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1467,10 +1467,7 @@ process:
+ 	if (!sock_owned_by_user(sk)) {
+ 		if (!tcp_prequeue(sk, skb))
+ 			ret = tcp_v6_do_rcv(sk, skb);
+-	} else if (unlikely(sk_add_backlog(sk, skb,
+-					   sk->sk_rcvbuf + sk->sk_sndbuf))) {
+-		bh_unlock_sock(sk);
+-		__NET_INC_STATS(net, LINUX_MIB_TCPBACKLOGDROP);
++	} else if (tcp_add_backlog(sk, skb)) {
+ 		goto discard_and_relse;
+ 	}
+ 	bh_unlock_sock(sk);
