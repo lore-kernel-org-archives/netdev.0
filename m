@@ -1,95 +1,49 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFCv2 07/16] bpf: enable non-core use of the verfier
-Date: Sat, 27 Aug 2016 10:32:51 -0700
-Message-ID: <20160827173250.GA38477@ast-mbp>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
- <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com>
- <20160826232904.GA28873@ast-mbp.thefacebook.com>
- <20160827124004.43728202@jkicinski-Precision-T1700>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] [v9] net: emac: emac gigabit ethernet controller driver
+Date: Sat, 27 Aug 2016 10:58:41 -0700
+Message-ID: <192979DC-62CB-4767-BA30-21ECADD8C727@gmail.com>
+References: <1472161143-26417-1-git-send-email-timur@codeaurora.org> <20160826.212939.1362447220540461922.davem@davemloft.net> <57C186FF.6090702@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com, kubakici@wp.pl
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33454 "EHLO
-        mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754067AbcH0RfV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 13:35:21 -0400
-Received: by mail-pa0-f65.google.com with SMTP id vy10so6383798pac.0
-        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 10:35:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160827124004.43728202@jkicinski-Precision-T1700>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+        shankerd@codeaurora.org, vikrams@codeaurora.org,
+        cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+        andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+        jcm@redhat.com, agross@codeaurora.org, LinoSanfilippo@gmx.de
+To: Timur Tabi <timur@codeaurora.org>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <57C186FF.6090702@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 27, 2016 at 12:40:04PM +0100, Jakub Kicinski wrote:
-> On Fri, 26 Aug 2016 16:29:05 -0700, Alexei Starovoitov wrote:
-> > On Fri, Aug 26, 2016 at 07:06:06PM +0100, Jakub Kicinski wrote:
-> > > Advanced JIT compilers and translators may want to use
-> > > eBPF verifier as a base for parsers or to perform custom
-> > > checks and validations.
-> > > 
-> > > Add ability for external users to invoke the verifier
-> > > and provide callbacks to be invoked for every intruction
-> > > checked.  For now only add most basic callback for
-> > > per-instruction pre-interpretation checks is added.  More
-> > > advanced users may also like to have per-instruction post
-> > > callback and state comparison callback.
-> > > 
-> > > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>  
-> > 
-> > I like the apporach. Making verifier into 'bytecode parser'
-> > that JITs can reuse is a good design choice.
-> > The only thing I would suggest is to tweak the verifier to
-> > avoid in-place state recording. Then I think patch 8 for
-> > clone/unclone of the program won't be needed, since verifier
-> > will be read-only from bytecode point of view and patch 9
-> > also will be slightly cleaner.
-> > I think there are very few places in verifier that do this
-> > state keeping inside insn. It was bugging me for some time.
-> > Good time to clean that up.
-> > Unless I misunderstand the patches 7,8,9...
-> 
-> Agreed, I think the verifier only modifies the program to
-> store pointer types in imm field.  I will try to come up
-> a way around this, any suggestions?  Perhaps state_equal()
+On August 27, 2016 5:26:39 AM PDT, Timur Tabi <timur@codeaurora.org> wrote:
+>David Miller wrote:
+>> From: Timur Tabi <timur@codeaurora.org>
+>> Date: Thu, 25 Aug 2016 16:39:03 -0500
+>>
+>>> +static const u8 duuid[] = {
+>>> +	0x77, 0x79, 0x60, 0xbf,
+>>> +	0x2d, 0xab,
+>>> +	0x9d, 0x4b,
+>>> +	0x94, 0xf0,
+>>> +	0xe1, 0x11, 0x98, 0x01, 0xa2, 0xba
+>>> +};
+>>
+>> This seems to be completely unused, please remove it.
+>
+>Sorry, I missed that during my cleanup.  I'll remove it in v10.
+>
+>I wonder why my compiler didn't complain about the unused static.
 
-probably array_of_insn_aux_data[num_insns] should do it.
-Unlike reg_state that is forked on branches, this array
-is only one.
+AFAICT this really depends on how modern your compiler is and which warnings it may now enable by default.
 
-> logic could be modified to downgrade pointers to UNKONWNs
-> when it detects other state had incompatible pointer type.
-> 
-> > There is also small concern for patches 5 and 6 that add
-> > more register state information. Potentially that extra
-> > state can prevent states_equal() to recognize equivalent
-> > states. Only patch 9 uses that info, right?
-> 
-> 5 and 6 recognize more constant loads, those can only
-> upgrade some UNKNOWN_VALUEs to CONST_IMMs.  So yes, if the
-> verifier hits the CONST first and then tries with UNKNOWN
-> it will have to reverify the path.  
-> 
-> > Another question is do you need all state walking that
-> > verifier does or single linear pass through insns
-> > would have worked?
-> > Looks like you're only using CONST_IMM and PTR_TO_CTX
-> > state, right?
-> 
-> I think I need all the parsing.  Right now I mostly need
-> the verification to check that exit codes are specific
-> CONST_IMMs.  Clang quite happily does this:
-> 
-> r0 <- 0
-> if (...)
-> 	r0 <- 1
-> exit
+Since you are very close from an accepted driver, you may want to squash potential warnings (and more) with doing a sparse build (make C=) which covers a bit more than what a traditional C compiler does.
 
-I see. Indeed then you'd need the verifier to walk all paths
-to make sure constant return values.
-If you only need yes/no check then such info can probably be
-collected unconditionally during initial program load.
-Like prog->cb_access flag.
+Almost there!
+
+-- 
+Florian
