@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: fix potential stack corruption from running
- past stat bitmask
-Date: Fri, 26 Aug 2016 21:41:03 -0700 (PDT)
-Message-ID: <20160826.214103.1359468105411763184.davem@davemloft.net>
-References: <0798c3e7-d8a1-3826-204d-2cbb0375205d@solarflare.com>
+Subject: Re: [PATCH 1/1] vxlan: remove the useless header file protocol.h
+Date: Fri, 26 Aug 2016 21:49:05 -0700 (PDT)
+Message-ID: <20160826.214905.1196336305689954074.davem@davemloft.net>
+References: <1471959044-29985-1-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, pabeni@redhat.com, daniel@iogearbox.net,
+        pshelar@nicira.com, aduyck@mirantis.com,
+        hannes@stressinduktion.org, jbenc@redhat.com
+To: zyjzyj2000@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34238 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34245 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751028AbcH0Elg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:41:36 -0400
-In-Reply-To: <0798c3e7-d8a1-3826-204d-2cbb0375205d@solarflare.com>
+        with ESMTP id S1750798AbcH0EtH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 00:49:07 -0400
+In-Reply-To: <1471959044-29985-1-git-send-email-zyjzyj2000@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Fri, 26 Aug 2016 11:19:34 +0100
+From: zyjzyj2000@gmail.com
+Date: Tue, 23 Aug 2016 21:30:44 +0800
 
-> From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
+> From: Zhu Yanjun <zyjzyj2000@gmail.com>
 > 
-> On 32-bit systems, mask is only an array of 3 longs, not 4, so don't try
-> to write to mask[3].
-> Also include build-time checks in case the size of the bitmask changes.
+> This header file is not used in vxlan.c file.
 > 
-> Fixes: 3c36a2aded8c ("sfc: display vadaptor statistics for all interfaces")
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-Applied, thank you.
+Applied to net-next, thanks.
