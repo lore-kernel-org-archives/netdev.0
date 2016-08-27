@@ -1,61 +1,64 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFCv2 07/16] bpf: enable non-core use of the verfier
-Date: Fri, 26 Aug 2016 16:29:05 -0700
-Message-ID: <20160826232904.GA28873@ast-mbp.thefacebook.com>
-References: <1472234775-29453-1-git-send-email-jakub.kicinski@netronome.com>
- <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH v3 2/6] cgroup: add support for eBPF programs
+Date: Fri, 26 Aug 2016 17:03:27 -0700
+Message-ID: <20160827000325.GA29480@ast-mbp.thefacebook.com>
+References: <1472241532-11682-1-git-send-email-daniel@zonque.org>
+ <1472241532-11682-3-git-send-email-daniel@zonque.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-        dinan.gunawardena@netronome.com, jiri@resnulli.us,
-        john.fastabend@gmail.com, kubakici@wp.pl
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Cc: htejun@fb.com, daniel@iogearbox.net, ast@fb.com,
+        davem@davemloft.net, kafai@fb.com, fw@strlen.de,
+        pablo@netfilter.org, harald@redhat.com, netdev@vger.kernel.org,
+        sargun@sargun.me
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34318 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752161AbcHZX3K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 19:29:10 -0400
-Received: by mail-pf0-f174.google.com with SMTP id p64so32860444pfb.1
-        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 16:29:10 -0700 (PDT)
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36720 "EHLO
+        mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752060AbcH0ADc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 26 Aug 2016 20:03:32 -0400
+Received: by mail-pa0-f67.google.com with SMTP id ez1so5399110pab.3
+        for <netdev@vger.kernel.org>; Fri, 26 Aug 2016 17:03:31 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1472234775-29453-8-git-send-email-jakub.kicinski@netronome.com>
+In-Reply-To: <1472241532-11682-3-git-send-email-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 26, 2016 at 07:06:06PM +0100, Jakub Kicinski wrote:
-> Advanced JIT compilers and translators may want to use
-> eBPF verifier as a base for parsers or to perform custom
-> checks and validations.
+On Fri, Aug 26, 2016 at 09:58:48PM +0200, Daniel Mack wrote:
+> This patch adds two sets of eBPF program pointers to struct cgroup.
+> One for such that are directly pinned to a cgroup, and one for such
+> that are effective for it.
 > 
-> Add ability for external users to invoke the verifier
-> and provide callbacks to be invoked for every intruction
-> checked.  For now only add most basic callback for
-> per-instruction pre-interpretation checks is added.  More
-> advanced users may also like to have per-instruction post
-> callback and state comparison callback.
+> To illustrate the logic behind that, assume the following example
+> cgroup hierarchy.
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+>   A - B - C
+>         \ D - E
+> 
+> If only B has a program attached, it will be effective for B, C, D
+> and E. If D then attaches a program itself, that will be effective for
+> both D and E, and the program in B will only affect B and C. Only one
+> program of a given type is effective for a cgroup.
+> 
+> Attaching and detaching programs will be done through the bpf(2)
+> syscall. For now, ingress and egress inet socket filtering are the
+> only supported use-cases.
+> 
+> Signed-off-by: Daniel Mack <daniel@zonque.org>
+...
+> +	css_for_each_descendant_pre(pos, &cgrp->self) {
+> +		struct cgroup *desc = container_of(pos, struct cgroup, self);
+> +
+> +		/* skip the subtree if the descendant has its own program */
+> +		if (desc->bpf.prog[type] && desc != cgrp)
 
-I like the apporach. Making verifier into 'bytecode parser'
-that JITs can reuse is a good design choice.
-The only thing I would suggest is to tweak the verifier to
-avoid in-place state recording. Then I think patch 8 for
-clone/unclone of the program won't be needed, since verifier
-will be read-only from bytecode point of view and patch 9
-also will be slightly cleaner.
-I think there are very few places in verifier that do this
-state keeping inside insn. It was bugging me for some time.
-Good time to clean that up.
-Unless I misunderstand the patches 7,8,9...
+is desc != cgrp really needed?
+I thought css_for_each_descendant_pre() shouldn't walk itself
+or I'm missing how it works.
 
-There is also small concern for patches 5 and 6 that add
-more register state information. Potentially that extra
-state can prevent states_equal() to recognize equivalent
-states. Only patch 9 uses that info, right?
-Another question is do you need all state walking that
-verifier does or single linear pass through insns
-would have worked?
-Looks like you're only using CONST_IMM and PTR_TO_CTX
-state, right?
-
-The rest looks very good. Thanks a lot!
+> +			pos = css_rightmost_descendant(pos);
+> +		else
+> +			rcu_assign_pointer(desc->bpf.effective[type],
+> +					   effective);
+> +	}
+> +}
+> +
