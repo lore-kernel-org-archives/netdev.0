@@ -1,83 +1,67 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC v2 09/10] landlock: Handle cgroups (program types)
-Date: Sat, 27 Aug 2016 11:19:41 -0700
-Message-ID: <20160827181939.GC38754@ast-mbp.thefacebook.com>
-References: <1472121165-29071-1-git-send-email-mic@digikod.net>
- <1472121165-29071-10-git-send-email-mic@digikod.net>
- <20160826021432.GA8291@ast-mbp.thefacebook.com>
- <57C05BF0.8000706@digikod.net>
- <20160826230539.GA26683@ast-mbp.thefacebook.com>
- <57C1A50F.60605@digikod.net>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: add tcp_add_backlog()
+Date: Sat, 27 Aug 2016 14:24:54 -0400
+Message-ID: <CADVnQymHib8x0mhi2St0dZ5WfzxcMCiwxmg-LdAg=33Z+6MMRQ@mail.gmail.com>
+References: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Daniel Mack <daniel@zonque.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	Kees Cook <keescook@chromium.org>,
-	Sargun Dhillon <sargun@sargun.me>,
-	kernel-hardening@lists.openwall.com, linux-api@vger.kernel.org,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	Tejun Heo <tj@kernel.org>
-To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-4490-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <57C1A50F.60605@digikod.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:33679 "EHLO
+        mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754209AbcH0SZZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 27 Aug 2016 14:25:25 -0400
+Received: by mail-oi0-f41.google.com with SMTP id c15so150351893oig.0
+        for <netdev@vger.kernel.org>; Sat, 27 Aug 2016 11:25:25 -0700 (PDT)
+In-Reply-To: <1472308674.14381.226.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 27, 2016 at 04:34:55PM +0200, Mickaël Salaün wrote:
-> 
-> On 27/08/2016 01:05, Alexei Starovoitov wrote:
-> > On Fri, Aug 26, 2016 at 05:10:40PM +0200, Mickaël Salaün wrote:
-> >
-> >>> As far as safety and type checking that bpf programs has to do,
-> >>> I like the approach of patch 06/10:
-> >>> +LANDLOCK_HOOK2(file_open, FILE_OPEN,
-> >>> +       PTR_TO_STRUCT_FILE, struct file *, file,
-> >>> +       PTR_TO_STRUCT_CRED, const struct cred *, cred
-> >>> +)
-> >>> teaching verifier to recognize struct file, cred, sockaddr
-> >>> will let bpf program access them naturally without any overhead.
-> >>> Though:
-> >>> @@ -102,6 +102,9 @@ enum bpf_prog_type {
-> >>>         BPF_PROG_TYPE_SCHED_CLS,
-> >>>         BPF_PROG_TYPE_SCHED_ACT,
-> >>>         BPF_PROG_TYPE_TRACEPOINT,
-> >>> +       BPF_PROG_TYPE_LANDLOCK_FILE_OPEN,
-> >>> +       BPF_PROG_TYPE_LANDLOCK_FILE_PERMISSION,
-> >>> +       BPF_PROG_TYPE_LANDLOCK_MMAP_FILE,
-> >>>  };
-> >>> is a bit of overkill.
-> >>> I think it would be cleaner to have single
-> >>> BPF_PROG_TYPE_LSM and at program load time pass
-> >>> lsm_hook_id as well, so that verifier can do safety checks
-> >>> based on type info provided in LANDLOCK_HOOKs
-> >>
-> >> I first started with a unique BPF_PROG_TYPE but, the thing is, the BPF
-> >> verifier check programs according to their types. If we need to check
-> >> specific context value types (e.g. PTR_TO_STRUCT_FILE), we need a
-> >> dedicated program types. I don't see any other way to do it with the
-> >> current verifier code. Moreover it's the purpose of program types, right?
-> > 
-> > Adding new bpf program type for every lsm hook is not acceptable.
-> > Either do one new program type + pass lsm_hook_id as suggested
-> > or please come up with an alternative approach.
-> 
-> OK, so we have to modify the verifier to not only rely on the program
-> type but on another value to check the context accesses. Do you have a
-> hint from where this value could come from? Do we need to add a new bpf
-> command to associate a program to a subtype?
+On Sat, Aug 27, 2016 at 10:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> When TCP operates in lossy environments (between 1 and 10 % packet
+> losses), many SACK blocks can be exchanged, and I noticed we could
+> drop them on busy senders, if these SACK blocks have to be queued
+> into the socket backlog.
+>
+> While the main cause is the poor performance of RACK/SACK processing,
+> we can try to avoid these drops of valuable information that can lead to
+> spurious timeouts and retransmits.
+>
+> Cause of the drops is the skb->truesize overestimation caused by :
+>
+> - drivers allocating ~2048 (or more) bytes as a fragment to hold an
+>   Ethernet frame.
+>
+> - various pskb_may_pull() calls bringing the headers into skb->head
+>   might have pulled all the frame content, but skb->truesize could
+>   not be lowered, as the stack has no idea of each fragment truesize.
+>
+> The backlog drops are also more visible on bidirectional flows, since
+> their sk_rmem_alloc can be quite big.
+>
+> Let's add some room for the backlog, as only the socket owner
+> can selectively take action to lower memory needs, like collapsing
+> receive queues or partial ofo pruning.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+>  include/net/tcp.h   |    1 +
+>  net/ipv4/tcp_ipv4.c |   33 +++++++++++++++++++++++++++++----
+>  net/ipv6/tcp_ipv6.c |    5 +----
+>  3 files changed, 31 insertions(+), 8 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 25d64f6de69e1f639ed1531bf2d2df3f00fd76a2..5f5f09f6e019682ef29c864d2f43a8f247fcdd9a 100644
 
-It's another field prog_subtype (or prog_hook_id) in union bpf_attr.
-Both prog_type and prog_hook_id are used during verification.
-prog_type distinguishes the main aspects whereas prog_hook_id selects
-which lsm_hook's argument definition to apply.
-At the time of attaching to a hook, the prog_hook_id passed at the
-load time should match lsm's hook_id.
+Thanks for doing this, and thanks for the detailed answers to Yuchung's e-mail!
+
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
